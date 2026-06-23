@@ -1,0 +1,5 @@
+# Internal-only docs — must never be published to npm.
+# Primary guard is that these live OUTSIDE the package.json `files` whitelist
+# (which only ships docs/). This is a defense-in-depth backstop.
+internal-docs/
+docs/internal/

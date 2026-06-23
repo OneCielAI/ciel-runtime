@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local runtime files
+*.log
+*.pid
+*.tmp
+*.tgz
+.env
+.env.*
+config.json
+router.log*
+router.out*
+web-tools-mcp.json
+duckduckgo-mcp.json
+nvd_claude_proxy.db
+
+# Secrets and keys
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Claude Code local state
+.claude/
+*.bak*
+
+# Local analysis wiki
+.obsidian-claude-code-wiki/
+
+# Local billing/evidence captures
+claude-free/evidence/
+
+# Local scratch checkouts / SDK inspections
+.tmp-*/
+
+# Internal-only docs (SSH inventory, credentials maps) — never commit or publish
+internal-docs/

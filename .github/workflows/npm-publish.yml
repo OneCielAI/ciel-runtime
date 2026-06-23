@@ -1,0 +1,107 @@
+name: Publish to npm
+
+on:
+  push:
+    branches: [main, nightly]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+          scope: "@oneciel-ai"
+      - run: python -m pip install --upgrade pip ruff pillow
+      - run: python -m py_compile claude_any.py claude-any-menu.py claude-any-tool-guard.py scripts/make_demo_assets.py
+      - run: python -m ruff check .
+      - run: npm test
+
+      - name: Determine publish channel
+        id: channel
+        shell: bash
+        run: |
+          ref="${GITHUB_REF_NAME:-}"
+          if [[ "${ref}" == "nightly" ]]; then
+            echo "tag=nightly" >> "$GITHUB_OUTPUT"
+            echo "kind=nightly" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+            echo "kind=stable" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Channel for ref ${ref}: tag=$(grep '^tag=' "$GITHUB_OUTPUT" | tail -n1)"
+
+      - name: Compute and apply nightly version
+        if: steps.channel.outputs.kind == 'nightly'
+        id: version
+        shell: bash
+        run: |
+          base="$(node -p "require('./package.json').version")"
+          short_sha="${GITHUB_SHA::7}"
+          stamp="$(date -u +%Y%m%d-%H%M%S).${short_sha}"
+          new="${base}-nightly.${stamp}"
+          echo "Nightly version: ${new}"
+          echo "version=${new}" >> "$GITHUB_OUTPUT"
+          node -e "const fs=require('fs');const p=require('./package.json');p.version='${new}';fs.writeFileSync('./package.json',JSON.stringify(p,null,2)+'\n');"
+          sed -i "s/^VERSION = .*/VERSION = \"${new}\"/" claude_any.py
+
+      - id: publish-check
+        shell: bash
+        run: |
+          pkg="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          echo "Checking ${pkg}@${version}..."
+          if npm view "${pkg}@${version}" version >/dev/null 2>&1; then
+            echo "Package ${pkg}@${version} is already published; skipping npm publish."
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Package ${pkg}@${version} is not published yet."
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: npm publish --access public --tag ${{ steps.channel.outputs.tag }}
+        if: steps.publish-check.outputs.should_publish == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Verify published tarball
+        if: steps.publish-check.outputs.should_publish == 'true'
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          pkg="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          tag="${{ steps.channel.outputs.tag }}"
+          max_attempts=90
+          echo "Verifying ${pkg}@${version} tarball..."
+          for attempt in $(seq 1 "${max_attempts}"); do
+            if npm pack "${pkg}@${version}" --dry-run >/tmp/npm-pack-verify.log 2>&1; then
+              cat /tmp/npm-pack-verify.log
+              exit 0
+            fi
+            cat /tmp/npm-pack-verify.log
+            echo "Tarball is not available yet; retry ${attempt}/${max_attempts}..."
+            sleep 10
+          done
+          if [[ "${tag}" == "nightly" ]]; then
+            echo "Published nightly tarball is unavailable; rolling nightly tag back to the newest installable nightly."
+            mapfile -t versions < <(npm view "${pkg}" versions --json | node -e "const fs=require('fs');const cur=process.argv[1];const versions=JSON.parse(fs.readFileSync(0,'utf8')); for (const v of versions.filter(v => v !== cur && v.includes('-nightly.')).reverse()) console.log(v);" "${version}")
+            for previous in "${versions[@]}"; do
+              if npm pack "${pkg}@${previous}" --dry-run >/tmp/npm-pack-previous.log 2>&1; then
+                cat /tmp/npm-pack-previous.log
+                npm dist-tag add "${pkg}@${previous}" nightly
+                echo "Rolled nightly back to ${previous}."
+                break
+              fi
+            done
+          fi
+          exit 1
