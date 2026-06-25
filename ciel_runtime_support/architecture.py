@@ -1,4 +1,4 @@
-"""Runtime/provider architecture contracts for claude-any.
+"""Runtime/provider architecture contracts for ciel-runtime.
 
 This module is intentionally small and dependency-light.  It gives future
 refactors a stable vocabulary without changing the current single-file

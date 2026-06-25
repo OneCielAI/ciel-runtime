@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import claude_any
+import ciel_runtime
 
 
 class WebChatUiTests(unittest.TestCase):
@@ -13,32 +13,32 @@ class WebChatUiTests(unittest.TestCase):
         return {
             "current_provider": provider,
             "providers": {
-                provider: copy.deepcopy(claude_any.DEFAULT_CONFIG["providers"][provider]),
+                provider: copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"][provider]),
             },
         }
 
     def test_router_home_links_browser_web_chat(self):
         cfg = self._cfg()
-        provider, pcfg = claude_any.get_current_provider(cfg)
+        provider, pcfg = ciel_runtime.get_current_provider(cfg)
 
-        html = claude_any.render_router_home_html(cfg, provider, pcfg)
+        html = ciel_runtime.render_router_home_html(cfg, provider, pcfg)
 
         self.assertIn("/ca/web/chat", html)
         self.assertIn("active Claude Code session", html)
 
     def test_web_chat_posts_to_channel_bridge_and_streams_replies(self):
         cfg = self._cfg()
-        provider, pcfg = claude_any.get_current_provider(cfg)
-        model = claude_any.current_alias(cfg)
+        provider, pcfg = ciel_runtime.get_current_provider(cfg)
+        model = ciel_runtime.current_alias(cfg)
 
-        html = claude_any.render_web_chat_html(cfg, provider, pcfg)
+        html = ciel_runtime.render_web_chat_html(cfg, provider, pcfg)
 
         self.assertIn("Session Web Chat", html)
         self.assertIn("/ca/channel/messages", html)
         self.assertIn("/ca/channel/stream", html)
         self.assertIn("active Claude Code session", html)
         self.assertIn("configured tools and MCP servers remain available", html)
-        self.assertIn("claude-any-router send_message tool", html)
+        self.assertIn("ciel-runtime-router send_message tool", html)
         self.assertIn("delivery: ['llm', 'native']", html)
         self.assertNotIn("TEXT_ONLY_SYSTEM_PROMPT", html)
         self.assertNotIn("system: TEXT_ONLY_SYSTEM_PROMPT", html)
@@ -68,9 +68,9 @@ class WebChatUiTests(unittest.TestCase):
 
     def test_web_chat_markdown_renderer_sanitizes_and_supports_tables(self):
         cfg = self._cfg()
-        provider, pcfg = claude_any.get_current_provider(cfg)
+        provider, pcfg = ciel_runtime.get_current_provider(cfg)
 
-        html = claude_any.render_web_chat_html(cfg, provider, pcfg)
+        html = ciel_runtime.render_web_chat_html(cfg, provider, pcfg)
 
         self.assertIn("escapeHtml(value)", html)
         self.assertIn("safeHref(value)", html)
@@ -88,15 +88,15 @@ class WebChatUiTests(unittest.TestCase):
         pcfg["api_key"] = "sk-ant-real"
         pcfg["route_through_router"] = True
 
-        html = claude_any.render_web_chat_html(cfg, "anthropic", pcfg)
+        html = ciel_runtime.render_web_chat_html(cfg, "anthropic", pcfg)
 
         self.assertIn("anthropic-routed", html)
         self.assertIn("API key: set (Anthropic routed; primary sk-a...real; fp", html)
 
     def test_chat_file_upload_stores_base64_file_with_metadata(self):
         with tempfile.TemporaryDirectory() as td:
-            with mock.patch.object(claude_any, "CHAT_FILES_DIR", Path(td)):
-                upload = claude_any.store_chat_file_upload(
+            with mock.patch.object(ciel_runtime, "CHAT_FILES_DIR", Path(td)):
+                upload = ciel_runtime.store_chat_file_upload(
                     {
                         "name": "notes.md",
                         "encoding": "base64",
@@ -118,11 +118,11 @@ class WebChatUiTests(unittest.TestCase):
     def test_chat_file_upload_rejects_oversized_file(self):
         with tempfile.TemporaryDirectory() as td:
             with (
-                mock.patch.object(claude_any, "CHAT_FILES_DIR", Path(td)),
-                mock.patch.dict(os.environ, {"CLAUDE_ANY_CHAT_FILE_MAX_BYTES": "3"}),
+                mock.patch.object(ciel_runtime, "CHAT_FILES_DIR", Path(td)),
+                mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHAT_FILE_MAX_BYTES": "3"}),
             ):
                 with self.assertRaises(OverflowError):
-                    claude_any.store_chat_file_upload({"name": "big.txt", "content": "four"})
+                    ciel_runtime.store_chat_file_upload({"name": "big.txt", "content": "four"})
 
 
 if __name__ == "__main__":

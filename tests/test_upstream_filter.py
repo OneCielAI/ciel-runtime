@@ -1,18 +1,18 @@
-import claude_any
+import ciel_runtime
 import unittest
 
-from claude_any_support.transcript_filter import CLAUDE_CODE_TRANSCRIPT_EVENT_TYPES
+from ciel_runtime_support.transcript_filter import CLAUDE_CODE_TRANSCRIPT_EVENT_TYPES
 
 
 def converted_texts(messages):
     body = {"messages": messages}
-    out = claude_any.anthropic_messages_to_ollama(body)
+    out = ciel_runtime.anthropic_messages_to_ollama(body)
     return [str(message.get("content", "")) for message in out]
 
 
 def converted_openai_texts(messages):
     body = {"messages": messages}
-    out = claude_any.anthropic_messages_to_openai(body)
+    out = ciel_runtime.anthropic_messages_to_openai(body)
     return [str(message.get("content", "")) for message in out]
 
 
@@ -85,7 +85,7 @@ class UpstreamFilterTests(unittest.TestCase):
             },
         ]
 
-        out = claude_any.anthropic_messages_to_ollama({"messages": messages})
+        out = ciel_runtime.anthropic_messages_to_ollama({"messages": messages})
 
         self.assertTrue(any(message.get("role") == "user" and "hello" in str(message.get("content")) for message in out))
         tool_call_messages = [message for message in out if message.get("role") == "assistant" and message.get("tool_calls")]
@@ -115,7 +115,7 @@ class UpstreamFilterTests(unittest.TestCase):
             },
         ]
 
-        out = claude_any.anthropic_messages_to_ollama({"messages": messages})
+        out = ciel_runtime.anthropic_messages_to_ollama({"messages": messages})
 
         tool_messages = [message for message in out if message.get("role") == "tool"]
         self.assertEqual(1, len(tool_messages))
@@ -145,7 +145,7 @@ class UpstreamFilterTests(unittest.TestCase):
             },
         ]
 
-        out = claude_any.anthropic_messages_to_openai({"messages": messages})
+        out = ciel_runtime.anthropic_messages_to_openai({"messages": messages})
 
         tool_messages = [message for message in out if message.get("role") == "tool"]
         self.assertEqual(1, len(tool_messages))

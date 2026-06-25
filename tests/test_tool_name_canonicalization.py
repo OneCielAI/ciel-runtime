@@ -1,6 +1,6 @@
 import unittest
 
-import claude_any
+import ciel_runtime
 
 
 class ToolNameCanonicalizationTests(unittest.TestCase):
@@ -12,11 +12,11 @@ class ToolNameCanonicalizationTests(unittest.TestCase):
 
         self.assertEqual(
             "mcp__ai-net-http__list_assignments",
-            claude_any._match_available_tool_name("mcp__ai-net_http__list_assignments", available),
+            ciel_runtime._match_available_tool_name("mcp__ai-net_http__list_assignments", available),
         )
         self.assertEqual(
             "mcp__ai-net-http__list_assignments",
-            claude_any._match_available_tool_name("mcp__ai_net_http__list_assignments", available),
+            ciel_runtime._match_available_tool_name("mcp__ai_net_http__list_assignments", available),
         )
 
     def test_does_not_match_ambiguous_mcp_server_normalization(self):
@@ -26,14 +26,14 @@ class ToolNameCanonicalizationTests(unittest.TestCase):
         }
 
         self.assertIsNone(
-            claude_any._match_available_tool_name("mcp__a_b__get_messages", available)
+            ciel_runtime._match_available_tool_name("mcp__a_b__get_messages", available)
         )
 
     def test_does_not_normalize_mcp_tool_segment(self):
         available = {"mcp__ai-net-http__get_messages"}
 
         self.assertIsNone(
-            claude_any._match_available_tool_name("mcp__ai-net_http__get-messages", available)
+            ciel_runtime._match_available_tool_name("mcp__ai-net_http__get-messages", available)
         )
 
     def test_matches_non_mcp_tool_separator_drift_when_unique(self):
@@ -41,16 +41,16 @@ class ToolNameCanonicalizationTests(unittest.TestCase):
 
         self.assertEqual(
             "WebSearch",
-            claude_any._match_available_tool_name("web_search", available),
+            ciel_runtime._match_available_tool_name("web_search", available),
         )
         self.assertEqual(
             "WebFetch",
-            claude_any._match_available_tool_name("web-fetch", available),
+            ciel_runtime._match_available_tool_name("web-fetch", available),
         )
 
     def test_ollama_nonstream_drops_tool_call_missing_required_input(self):
         source_body = {
-            "model": "claude-any-ollama-qwen",
+            "model": "ciel-runtime-ollama-qwen",
             "tools": [
                 {
                     "name": "WebSearch",
@@ -72,7 +72,7 @@ class ToolNameCanonicalizationTests(unittest.TestCase):
             }
         }
 
-        out = claude_any.ollama_chat_to_anthropic(data, "qwen", source_body)
+        out = ciel_runtime.ollama_chat_to_anthropic(data, "qwen", source_body)
 
         self.assertEqual("end_turn", out["stop_reason"])
         self.assertFalse(
@@ -81,7 +81,7 @@ class ToolNameCanonicalizationTests(unittest.TestCase):
 
     def test_ollama_nonstream_keeps_tool_call_with_required_input(self):
         source_body = {
-            "model": "claude-any-ollama-qwen",
+            "model": "ciel-runtime-ollama-qwen",
             "tools": [
                 {
                     "name": "WebSearch",
@@ -108,7 +108,7 @@ class ToolNameCanonicalizationTests(unittest.TestCase):
             }
         }
 
-        out = claude_any.ollama_chat_to_anthropic(data, "qwen", source_body)
+        out = ciel_runtime.ollama_chat_to_anthropic(data, "qwen", source_body)
 
         self.assertEqual("tool_use", out["stop_reason"])
         self.assertEqual("WebSearch", out["content"][0]["name"])
@@ -116,7 +116,7 @@ class ToolNameCanonicalizationTests(unittest.TestCase):
 
     def test_ollama_nonstream_emits_available_mcp_tool_name(self):
         source_body = {
-            "model": "claude-any-ollama-gemma4-12b",
+            "model": "ciel-runtime-ollama-gemma4-12b",
             "tools": [
                 {
                     "name": "mcp__ai-net-http__list_assignments",
@@ -139,7 +139,7 @@ class ToolNameCanonicalizationTests(unittest.TestCase):
             }
         }
 
-        out = claude_any.ollama_chat_to_anthropic(data, "gemma4:12b", source_body)
+        out = ciel_runtime.ollama_chat_to_anthropic(data, "gemma4:12b", source_body)
 
         self.assertEqual("tool_use", out["stop_reason"])
         self.assertEqual("mcp__ai-net-http__list_assignments", out["content"][0]["name"])

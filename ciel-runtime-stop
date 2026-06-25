@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+set -eu
+
+PYTHON_BIN="${CIEL_RUNTIME_PYTHON:-python3}"
+CIEL_RUNTIME_DIR="${CIEL_RUNTIME_HOME:-"$HOME/.local/share/ciel-runtime"}"
+
+exec "$PYTHON_BIN" "$CIEL_RUNTIME_DIR/ciel_runtime.py" cli stop

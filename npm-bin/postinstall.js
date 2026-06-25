@@ -4,16 +4,16 @@
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
-if (process.env.CLAUDE_ANY_SKIP_POSTINSTALL_STOP === "1") {
+if (process.env.CIEL_RUNTIME_SKIP_POSTINSTALL_STOP === "1") {
   process.exit(0);
 }
 
 const root = path.resolve(__dirname, "..");
-const script = path.join(root, "claude_any.py");
+const script = path.join(root, "ciel_runtime.py");
 
 function candidates() {
-  if (process.env.CLAUDE_ANY_PYTHON) {
-    return [[process.env.CLAUDE_ANY_PYTHON, []]];
+  if (process.env.CIEL_RUNTIME_PYTHON) {
+    return [[process.env.CIEL_RUNTIME_PYTHON, []]];
   }
   if (process.platform === "win32") {
     return [

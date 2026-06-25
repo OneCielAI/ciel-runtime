@@ -58,9 +58,9 @@ class EventConfig:
     @classmethod
     def from_env(cls) -> "EventConfig":
         return cls(
-            enabled=_env_bool("CLAUDE_ANY_EVENT_LOG", True),
-            level=os.environ.get("CLAUDE_ANY_EVENT_LEVEL", DEFAULT_EVENT_LEVEL).strip().lower() or DEFAULT_EVENT_LEVEL,
-            buffer_size=_env_int("CLAUDE_ANY_EVENT_BUFFER", DEFAULT_EVENT_BUFFER),
+            enabled=_env_bool("CIEL_RUNTIME_EVENT_LOG", True),
+            level=os.environ.get("CIEL_RUNTIME_EVENT_LEVEL", DEFAULT_EVENT_LEVEL).strip().lower() or DEFAULT_EVENT_LEVEL,
+            buffer_size=_env_int("CIEL_RUNTIME_EVENT_BUFFER", DEFAULT_EVENT_BUFFER),
         )
 
 
@@ -142,7 +142,7 @@ def render_events_html(events_path: str = "/ca/events/stream", recent_path: str 
 <head>
   <meta charset=\"utf-8\">
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-  <title>Claude Any Router Events</title>
+  <title>Ciel Runtime Router Events</title>
   <style>
     :root {{ color-scheme: dark; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }}
     body {{ margin: 0; background: #090b0f; color: #e8edf4; }}
@@ -165,7 +165,7 @@ def render_events_html(events_path: str = "/ca/events/stream", recent_path: str 
 </head>
 <body>
   <header>
-    <h1>Claude Any Router Events</h1>
+    <h1>Ciel Runtime Router Events</h1>
     <label>Level <select id=\"level\"><option value=\"trace\">trace</option><option value=\"debug\">debug</option><option value=\"info\" selected>info</option><option value=\"warn\">warn</option><option value=\"error\">error</option></select></label>
     <label>Category <input id=\"category\" placeholder=\"upstream, advisor, plan_mode\"></label>
     <span class=\"meta\" id=\"count\">0 events</span>

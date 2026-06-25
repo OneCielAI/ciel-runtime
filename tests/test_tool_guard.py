@@ -8,19 +8,19 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-GUARD = ROOT / "claude-any-tool-guard.py"
+GUARD = ROOT / "ciel-runtime-tool-guard.py"
 
 
 class ToolGuardTests(unittest.TestCase):
     def run_guard(self, event: dict, env_extra: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as tmp:
             env = os.environ.copy()
-            # Drop Claude-Any vars that may be exported on a dev host (where
-            # claude-any itself runs) so the guard's behavior is decided only by
+            # Drop Ciel Runtime vars that may be exported on a dev host (where
+            # ciel-runtime itself runs) so the guard's behavior is decided only by
             # what each test injects via env_extra -- otherwise a leaked
-            # CLAUDE_ANY_BYPASS_PERMISSIONS=1 would make "without bypass" tests
+            # CIEL_RUNTIME_BYPASS_PERMISSIONS=1 would make "without bypass" tests
             # see bypass and fail non-deterministically by host.
-            for leaked in ("CLAUDE_ANY_PROVIDER", "CLAUDE_ANY_BYPASS_PERMISSIONS", "CLAUDE_ANY_MODEL_ALIAS"):
+            for leaked in ("CIEL_RUNTIME_PROVIDER", "CIEL_RUNTIME_BYPASS_PERMISSIONS", "CIEL_RUNTIME_MODEL_ALIAS"):
                 env.pop(leaked, None)
             env["HOME"] = tmp
             env["USERPROFILE"] = tmp
@@ -41,10 +41,10 @@ class ToolGuardTests(unittest.TestCase):
         self.assertEqual("", proc.stdout.strip())
         self.assertEqual("", proc.stderr.strip())
 
-    def test_guard_handles_worktree_hook_for_claude_any_provider(self):
+    def test_guard_handles_worktree_hook_for_ciel_runtime_provider(self):
         proc = self.run_guard(
             {"hook_event_name": "WorktreeCreate", "cwd": "/tmp/project"},
-            {"CLAUDE_ANY_PROVIDER": "ollama-cloud"},
+            {"CIEL_RUNTIME_PROVIDER": "ollama-cloud"},
         )
 
         payload = json.loads(proc.stdout)
@@ -58,8 +58,8 @@ class ToolGuardTests(unittest.TestCase):
                 "tool_input": {"plan": "Implement the requested fix."},
             },
             {
-                "CLAUDE_ANY_PROVIDER": "ollama-cloud",
-                "CLAUDE_ANY_BYPASS_PERMISSIONS": "1",
+                "CIEL_RUNTIME_PROVIDER": "ollama-cloud",
+                "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
             },
         )
 
@@ -77,8 +77,8 @@ class ToolGuardTests(unittest.TestCase):
                 "toolInput": {"plan": "Leave plan mode."},
             },
             {
-                "CLAUDE_ANY_PROVIDER": "deepseek",
-                "CLAUDE_ANY_BYPASS_PERMISSIONS": "true",
+                "CIEL_RUNTIME_PROVIDER": "deepseek",
+                "CIEL_RUNTIME_BYPASS_PERMISSIONS": "true",
             },
         )
 
@@ -93,7 +93,7 @@ class ToolGuardTests(unittest.TestCase):
                 "tool_name": "ExitPlanMode",
                 "tool_input": {"plan": "Implement the requested fix."},
             },
-            {"CLAUDE_ANY_PROVIDER": "ollama-cloud"},
+            {"CIEL_RUNTIME_PROVIDER": "ollama-cloud"},
         )
 
         self.assertEqual("", proc.stdout.strip())
@@ -107,8 +107,8 @@ class ToolGuardTests(unittest.TestCase):
                 "tool_input": {"command": "echo hello"},
             },
             {
-                "CLAUDE_ANY_PROVIDER": "ollama-cloud",
-                "CLAUDE_ANY_BYPASS_PERMISSIONS": "1",
+                "CIEL_RUNTIME_PROVIDER": "ollama-cloud",
+                "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
             },
         )
 
@@ -125,8 +125,8 @@ class ToolGuardTests(unittest.TestCase):
                 "tool_input": {"plan": "Ship it."},
             },
             {
-                "CLAUDE_ANY_PROVIDER": "ollama-cloud",
-                "CLAUDE_ANY_BYPASS_PERMISSIONS": "1",
+                "CIEL_RUNTIME_PROVIDER": "ollama-cloud",
+                "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
             },
         )
         payload = json.loads(proc.stdout)
@@ -146,8 +146,8 @@ class ToolGuardTests(unittest.TestCase):
                 "tool_input": {"plan": "Continue."},
             },
             {
-                "CLAUDE_ANY_PROVIDER": "deepseek",
-                "CLAUDE_ANY_BYPASS_PERMISSIONS": "1",
+                "CIEL_RUNTIME_PROVIDER": "deepseek",
+                "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
             },
         )
         payload = json.loads(proc.stdout)
@@ -164,8 +164,8 @@ class ToolGuardTests(unittest.TestCase):
                 "tool_input": {"plan": "Proceed."},
             },
             {
-                "CLAUDE_ANY_PROVIDER": "anthropic",
-                "CLAUDE_ANY_BYPASS_PERMISSIONS": "1",
+                "CIEL_RUNTIME_PROVIDER": "anthropic",
+                "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
             },
         )
         payload = json.loads(proc.stdout)
@@ -181,8 +181,8 @@ class ToolGuardTests(unittest.TestCase):
                 "tool_input": {"plan": "Go."},
             },
             {
-                "CLAUDE_ANY_PROVIDER": "anthropic",
-                "CLAUDE_ANY_BYPASS_PERMISSIONS": "1",
+                "CIEL_RUNTIME_PROVIDER": "anthropic",
+                "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
             },
         )
         payload = json.loads(proc.stdout)
@@ -199,8 +199,8 @@ class ToolGuardTests(unittest.TestCase):
                 "tool_input": {"task_id": "1", "status": "done"},
             },
             {
-                "CLAUDE_ANY_PROVIDER": "anthropic",
-                "CLAUDE_ANY_BYPASS_PERMISSIONS": "1",
+                "CIEL_RUNTIME_PROVIDER": "anthropic",
+                "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
             },
         )
         self.assertEqual("", proc.stdout.strip())
@@ -214,7 +214,7 @@ class ToolGuardTests(unittest.TestCase):
                 "tool_name": "ExitPlanMode",
                 "tool_input": {"plan": "x"},
             },
-            {"CLAUDE_ANY_PROVIDER": "anthropic"},
+            {"CIEL_RUNTIME_PROVIDER": "anthropic"},
         )
         self.assertEqual("", proc.stdout.strip())
         self.assertEqual("", proc.stderr.strip())
@@ -232,7 +232,7 @@ class ToolGuardTests(unittest.TestCase):
                                 {
                                     "type": "text",
                                     "text": (
-                                        "[claude-any external channel message] "
+                                        "[ciel-runtime external channel message] "
                                         "channel=ai-net-http room=room1 from=agent id=42 text=\"hello\"."
                                     ),
                                 }
@@ -250,7 +250,7 @@ class ToolGuardTests(unittest.TestCase):
                     "tool_input": {},
                     "transcript_path": str(transcript),
                 },
-                {"CLAUDE_ANY_PROVIDER": "ollama-cloud"},
+                {"CIEL_RUNTIME_PROVIDER": "ollama-cloud"},
             )
 
         payload = json.loads(proc.stdout)
@@ -267,7 +267,7 @@ class ToolGuardTests(unittest.TestCase):
                         "type": "user",
                         "message": {
                             "role": "user",
-                            "content": "[claude-any channel inbox]\n<< ai-net-http >> incoming channel message.",
+                            "content": "[ciel-runtime channel inbox]\n<< ai-net-http >> incoming channel message.",
                         },
                     }
                 )
@@ -281,7 +281,7 @@ class ToolGuardTests(unittest.TestCase):
                     "tool_input": {},
                     "transcript_path": str(transcript),
                 },
-                {"CLAUDE_ANY_PROVIDER": "deepseek"},
+                {"CIEL_RUNTIME_PROVIDER": "deepseek"},
             )
 
         payload = json.loads(proc.stdout)

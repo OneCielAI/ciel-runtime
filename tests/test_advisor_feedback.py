@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-import claude_any
+import ciel_runtime
 
 
 class AdvisorFeedbackTests(unittest.TestCase):
@@ -12,15 +12,15 @@ class AdvisorFeedbackTests(unittest.TestCase):
             "content": [{"type": "text", "text": "I will exit plan mode."}],
         }
 
-        follow_body = claude_any.body_with_internal_advisor_feedback(
+        follow_body = ciel_runtime.body_with_internal_advisor_feedback(
             body,
             assistant_message,
             "Check the migration plan before approval.",
             "before ExitPlanMode plan approval",
         )
 
-        feedback_text = claude_any.anthropic_content_to_text(follow_body["messages"][-1]["content"])
-        self.assertIn(claude_any.ADVISOR_FEEDBACK_MARKER, feedback_text)
+        feedback_text = ciel_runtime.anthropic_content_to_text(follow_body["messages"][-1]["content"])
+        self.assertIn(ciel_runtime.ADVISOR_FEEDBACK_MARKER, feedback_text)
         self.assertIn("Check the migration plan before approval.", feedback_text)
         self.assertIn("Apply this advisor feedback now.", feedback_text)
 
@@ -45,12 +45,12 @@ class AdvisorFeedbackTests(unittest.TestCase):
         }
 
         with (
-            patch("claude_any.advisor_model_enabled", return_value="deepseek-v4-pro"),
-            patch("claude_any.advisor_provider_supported", return_value=True),
-            patch("claude_any.call_advisor_text", return_value="The plan needs a validation step.") as advisor_call,
-            patch("claude_any.call_provider_chat_once", return_value=refined) as main_call,
+            patch("ciel_runtime.advisor_model_enabled", return_value="deepseek-v4-pro"),
+            patch("ciel_runtime.advisor_provider_supported", return_value=True),
+            patch("ciel_runtime.call_advisor_text", return_value="The plan needs a validation step.") as advisor_call,
+            patch("ciel_runtime.call_provider_chat_once", return_value=refined) as main_call,
         ):
-            out = claude_any.refine_message_with_advisor(
+            out = ciel_runtime.refine_message_with_advisor(
                 "ollama-cloud",
                 {"advisor_model": "deepseek-v4-pro"},
                 body,
@@ -63,23 +63,23 @@ class AdvisorFeedbackTests(unittest.TestCase):
         self.assertIn("ship it", advisor_focus)
         self.assertTrue(main_call.called)
         sent_body = main_call.call_args.args[2]
-        sent_text = claude_any.anthropic_content_to_text(sent_body["messages"][-1]["content"])
+        sent_text = ciel_runtime.anthropic_content_to_text(sent_body["messages"][-1]["content"])
         self.assertIn("The plan needs a validation step.", sent_text)
-        assistant_summary = claude_any.anthropic_content_to_text(sent_body["messages"][-2]["content"])
+        assistant_summary = ciel_runtime.anthropic_content_to_text(sent_body["messages"][-2]["content"])
         self.assertIn("Pending Claude Code tool call: ExitPlanMode", assistant_summary)
         self.assertIn("ship it", assistant_summary)
-        visible = claude_any.anthropic_content_to_text(out["content"])
+        visible = ciel_runtime.anthropic_content_to_text(out["content"])
         self.assertIn("Advisor review (before ExitPlanMode plan approval):", visible)
         self.assertIn("The plan needs a validation step.", visible)
         self.assertIn("Updated plan is ready.", visible)
 
     def test_advisor_prompt_requires_actual_verdict(self):
-        self.assertIn("Review now", claude_any.ADVISOR_REVIEW_PROMPT)
-        self.assertIn("Verdict:", claude_any.ADVISOR_REVIEW_PROMPT)
-        self.assertIn("Required next action:", claude_any.ADVISOR_REVIEW_PROMPT)
+        self.assertIn("Review now", ciel_runtime.ADVISOR_REVIEW_PROMPT)
+        self.assertIn("Verdict:", ciel_runtime.ADVISOR_REVIEW_PROMPT)
+        self.assertIn("Required next action:", ciel_runtime.ADVISOR_REVIEW_PROMPT)
 
     def test_advisor_visible_summary_is_bounded(self):
-        text = claude_any.advisor_visible_summary("x" * 1000, "trigger", limit=80)
+        text = ciel_runtime.advisor_visible_summary("x" * 1000, "trigger", limit=80)
 
         self.assertLessEqual(len(text), 120)
         self.assertIn("Advisor review (trigger):", text)
@@ -90,11 +90,11 @@ class AdvisorFeedbackTests(unittest.TestCase):
             "messages": [{"role": "user", "content": "continue"}],
             "tools": [
                 {"name": "Bash", "description": "run", "input_schema": {"type": "object"}},
-                {"type": "advisor_20260301", "name": "advisor", "model": "claude-any-anthropic-claude-opus-4-8"},
+                {"type": "advisor_20260301", "name": "advisor", "model": "ciel-runtime-anthropic-claude-opus-4-8"},
             ],
         }
 
-        out = claude_any.strip_autonomous_advisor_server_tools("ollama", body)
+        out = ciel_runtime.strip_autonomous_advisor_server_tools("ollama", body)
 
         self.assertIsNot(out, body)
         self.assertEqual([tool["name"] for tool in out["tools"]], ["Bash"])
@@ -111,35 +111,35 @@ class AdvisorFeedbackTests(unittest.TestCase):
             ],
         }
 
-        out = claude_any.strip_autonomous_advisor_server_tools("anthropic", body)
+        out = ciel_runtime.strip_autonomous_advisor_server_tools("anthropic", body)
 
         self.assertIs(out, body)
         self.assertEqual(["Bash", "advisor"], [tool["name"] for tool in out["tools"]])
 
-    def test_plain_claude_any_advisor_tool_schema_is_not_stripped(self):
+    def test_plain_ciel_runtime_advisor_tool_schema_is_not_stripped(self):
         body = {
             "messages": [{"role": "user", "content": "review the plan"}],
             "tools": [
-                claude_any.advisor_tool_schema(),
+                ciel_runtime.advisor_tool_schema(),
                 {"name": "Read", "input_schema": {"type": "object"}},
             ],
         }
 
-        out = claude_any.strip_autonomous_advisor_server_tools("ollama", body)
+        out = ciel_runtime.strip_autonomous_advisor_server_tools("ollama", body)
 
         self.assertIs(out, body)
         self.assertEqual(["advisor", "Read"], [tool["name"] for tool in out["tools"]])
 
     def test_explicit_advisor_request_keeps_server_tool_for_local_short_circuit(self):
         body = {
-            "messages": [{"role": "user", "content": "CLAUDE_ANY_ADVISOR_CALL\nFocus: plan"}],
+            "messages": [{"role": "user", "content": "CIEL_RUNTIME_ADVISOR_CALL\nFocus: plan"}],
             "tools": [
-                {"type": "advisor_20260301", "name": "advisor", "model": "claude-any-anthropic-claude-opus-4-8"},
+                {"type": "advisor_20260301", "name": "advisor", "model": "ciel-runtime-anthropic-claude-opus-4-8"},
                 {"name": "Bash", "input_schema": {"type": "object"}},
             ],
         }
 
-        out = claude_any.strip_autonomous_advisor_server_tools("ollama", body)
+        out = ciel_runtime.strip_autonomous_advisor_server_tools("ollama", body)
 
         self.assertIs(out, body)
         self.assertEqual(["advisor", "Bash"], [tool["name"] for tool in out["tools"]])

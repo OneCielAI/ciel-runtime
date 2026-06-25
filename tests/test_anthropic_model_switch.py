@@ -1,7 +1,7 @@
 import unittest
 from unittest import mock
 
-import claude_any
+import ciel_runtime
 
 
 ANTHROPIC_MODELS = [
@@ -20,9 +20,9 @@ def _resolve(requested, current_model="claude-sonnet-4-6", provider="anthropic",
         "route_through_router": True,
     }
     with mock.patch.object(
-        claude_any, "read_model_list_cache", return_value=models or ANTHROPIC_MODELS
+        ciel_runtime, "read_model_list_cache", return_value=models or ANTHROPIC_MODELS
     ):
-        return claude_any.resolve_requested_model(provider, pcfg, requested)
+        return ciel_runtime.resolve_requested_model(provider, pcfg, requested)
 
 
 class AnthropicModelSwitchTests(unittest.TestCase):
@@ -39,14 +39,14 @@ class AnthropicModelSwitchTests(unittest.TestCase):
     def test_slug_alias_still_resolves(self):
         self.assertEqual(
             "claude-opus-4-8",
-            _resolve("claude-any-anthropic-claude-opus-4-8"),
+            _resolve("ciel-runtime-anthropic-claude-opus-4-8"),
         )
 
     def test_unknown_claude_id_still_collapses_to_current_model(self):
         self.assertEqual("claude-sonnet-4-6", _resolve("claude-bogus-9"))
 
     def test_stale_other_provider_alias_still_collapses(self):
-        self.assertEqual("claude-sonnet-4-6", _resolve("claude-any-deepseek-v4-flash"))
+        self.assertEqual("claude-sonnet-4-6", _resolve("ciel-runtime-deepseek-v4-flash"))
 
     def test_non_anthropic_provider_still_collapses_native_id(self):
         # On a non-anthropic provider a native Claude id is not a real upstream
@@ -78,23 +78,23 @@ class AnthropicModelSwitchTests(unittest.TestCase):
             "current_model": "claude-opus-4-8",
             "route_through_router": True,
         }
-        with mock.patch.object(claude_any, "read_model_list_cache", return_value=ANTHROPIC_MODELS):
-            aliases = claude_any.claude_code_default_model_aliases(
+        with mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=ANTHROPIC_MODELS):
+            aliases = ciel_runtime.claude_code_default_model_aliases(
                 "anthropic",
                 pcfg,
-                "claude-any-anthropic-claude-opus-4-8",
+                "ciel-runtime-anthropic-claude-opus-4-8",
             )
 
         self.assertEqual(
-            "claude-any-anthropic-claude-opus-4-8",
+            "ciel-runtime-anthropic-claude-opus-4-8",
             aliases["ANTHROPIC_DEFAULT_OPUS_MODEL"],
         )
         self.assertEqual(
-            "claude-any-anthropic-claude-sonnet-4-6",
+            "ciel-runtime-anthropic-claude-sonnet-4-6",
             aliases["ANTHROPIC_DEFAULT_SONNET_MODEL"],
         )
         self.assertEqual(
-            "claude-any-anthropic-claude-haiku-4-5",
+            "ciel-runtime-anthropic-claude-haiku-4-5",
             aliases["ANTHROPIC_DEFAULT_HAIKU_MODEL"],
         )
 
@@ -106,11 +106,11 @@ class AnthropicModelSwitchTests(unittest.TestCase):
             "route_through_router": True,
         }
         with (
-            mock.patch.object(claude_any, "read_model_list_cache", return_value=None),
-            mock.patch.object(claude_any, "read_model_registry_models", return_value=None),
-            mock.patch.object(claude_any, "upstream_model_ids", return_value=ANTHROPIC_MODELS) as upstream,
+            mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=None),
+            mock.patch.object(ciel_runtime, "read_model_registry_models", return_value=None),
+            mock.patch.object(ciel_runtime, "upstream_model_ids", return_value=ANTHROPIC_MODELS) as upstream,
         ):
-            claude_any.ensure_model_cache_for_launch("anthropic", pcfg)
+            ciel_runtime.ensure_model_cache_for_launch("anthropic", pcfg)
 
         upstream.assert_called_once_with("anthropic", pcfg)
 
@@ -122,11 +122,11 @@ class AnthropicModelSwitchTests(unittest.TestCase):
             "route_through_router": True,
         }
         with (
-            mock.patch.object(claude_any, "read_model_list_cache", return_value=None),
-            mock.patch.object(claude_any, "read_model_registry_models", return_value=ANTHROPIC_MODELS),
-            mock.patch.object(claude_any, "upstream_model_ids") as upstream,
+            mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=None),
+            mock.patch.object(ciel_runtime, "read_model_registry_models", return_value=ANTHROPIC_MODELS),
+            mock.patch.object(ciel_runtime, "upstream_model_ids") as upstream,
         ):
-            claude_any.ensure_model_cache_for_launch("anthropic", pcfg)
+            ciel_runtime.ensure_model_cache_for_launch("anthropic", pcfg)
 
         upstream.assert_not_called()
 

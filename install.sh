@@ -2,20 +2,20 @@
 set -eu
 
 PREFIX="${PREFIX:-"$HOME/.local"}"
-SHARE_DIR="${CLAUDE_ANY_HOME:-"$PREFIX/share/claude-any"}"
+SHARE_DIR="${CIEL_RUNTIME_HOME:-"$PREFIX/share/ciel-runtime"}"
 BIN_DIR="$PREFIX/bin"
 
 mkdir -p "$SHARE_DIR" "$BIN_DIR"
 
-install -m 755 claude_any.py "$SHARE_DIR/claude_any.py"
-rm -rf "$SHARE_DIR/claude_any_support"
-mkdir -p "$SHARE_DIR/claude_any_support"
-cp -R claude_any_support/. "$SHARE_DIR/claude_any_support/"
-install -m 755 claude-any-menu.py "$BIN_DIR/claude-any-menu"
-install -m 755 claude-any-tool-guard.py "$BIN_DIR/claude-any-tool-guard"
-install -m 755 claude-any "$BIN_DIR/claude-any"
-install -m 755 claude-anyctl "$BIN_DIR/claude-anyctl"
-install -m 755 claude-any-stop "$BIN_DIR/claude-any-stop"
+install -m 755 ciel_runtime.py "$SHARE_DIR/ciel_runtime.py"
+rm -rf "$SHARE_DIR/ciel_runtime_support"
+mkdir -p "$SHARE_DIR/ciel_runtime_support"
+cp -R ciel_runtime_support/. "$SHARE_DIR/ciel_runtime_support/"
+install -m 755 ciel-runtime-menu.py "$BIN_DIR/ciel-runtime-menu"
+install -m 755 ciel-runtime-tool-guard.py "$BIN_DIR/ciel-runtime-tool-guard"
+install -m 755 ciel-runtime "$BIN_DIR/ciel-runtime"
+install -m 755 ciel-runtimectl "$BIN_DIR/ciel-runtimectl"
+install -m 755 ciel-runtime-stop "$BIN_DIR/ciel-runtime-stop"
 
-printf 'Installed Claude Any to %s\n' "$SHARE_DIR"
-printf 'Launch with: %s/claude-any\n' "$BIN_DIR"
+printf 'Installed Ciel Runtime to %s\n' "$SHARE_DIR"
+printf 'Launch with: %s/ciel-runtime\n' "$BIN_DIR"

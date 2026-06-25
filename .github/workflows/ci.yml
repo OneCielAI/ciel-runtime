@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: "22"
       - run: python -m pip install --upgrade pip ruff pillow
-      - run: python -m py_compile claude_any.py claude-any-menu.py claude-any-tool-guard.py scripts/make_demo_assets.py
+      - run: python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
       - run: python -m ruff check .
       - run: npm test
       - run: npm pack --dry-run

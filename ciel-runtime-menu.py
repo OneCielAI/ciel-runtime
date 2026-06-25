@@ -203,8 +203,8 @@ def _write_safe(row: int, col: int, text: str, style: str = "") -> None:
     _write(row, col, text[: max(0, w - max(0, col) - 1)], style)
 
 
-CTL = str(Path.home() / ".local/bin/claude-anyctl")
-CONFIG = Path.home() / ".config/claude-any/config.json"
+CTL = str(Path.home() / ".local/bin/ciel-runtimectl")
+CONFIG = Path.home() / ".config/ciel-runtime/config.json"
 NCP_ENV = Path.home() / ".config/nvd-claude-proxy/.env"
 PROVIDERS = [
     ("anthropic", "Anthropic"),
@@ -216,7 +216,7 @@ PROVIDERS = [
     ("nvidia-hosted", "Nvidia Hosted"),
     ("self-hosted-nim", "Self Hosted NIM"),
 ]
-APP_NAME = "Claude Any"
+APP_NAME = "Ciel Runtime"
 
 
 def app_version() -> str:
@@ -252,7 +252,7 @@ UI_TEXT = {
         "test": "Test compatibility",
         "launch": "Launch Claude Code",
         "quit": "Quit",
-        "title": "claude-any pre-launch",
+        "title": "ciel-runtime pre-launch",
         "select_language": "Enter selects language. Up/Down moves inside submenu. Esc closes submenu.",
         "select_provider": "Enter selects provider. Up/Down moves inside submenu. Esc closes submenu.",
         "select_model": "Enter selects model. Up/Down moves inside submenu. Esc closes submenu. Custom input is at the end.",
@@ -265,7 +265,7 @@ UI_TEXT = {
         "help_language": "Enter expands language submenu inline.",
         "help_provider": "Enter expands provider submenu inline.",
         "help_model": "Enter expands model submenu inline when the provider endpoint is reachable.",
-        "help_advisor_model": "Enter selects the larger model used by claude-any advisor routing.",
+        "help_advisor_model": "Enter selects the larger model used by ciel-runtime advisor routing.",
         "help_ollama_options": "Enter expands Ollama context and generation options.",
         "help_provider_options": "Enter expands provider output/context/timeout options.",
         "help_api_key": "Enter opens secure API key setup in the terminal. Keys are not pasted into Claude Code.",
@@ -289,7 +289,7 @@ UI_TEXT = {
         "test": "호환성 테스트",
         "launch": "Claude Code 실행",
         "quit": "종료",
-        "title": "claude-any 실행 전 설정",
+        "title": "ciel-runtime 실행 전 설정",
         "select_language": "Enter로 언어를 선택합니다. 위/아래로 이동, Esc로 닫기.",
         "select_provider": "Enter로 프로바이더를 선택합니다. 위/아래로 이동, Esc로 닫기.",
         "select_model": "Enter로 모델을 선택합니다. 위/아래로 이동, Esc로 닫기. 마지막 항목은 직접 입력입니다.",
@@ -302,7 +302,7 @@ UI_TEXT = {
         "help_language": "언어 선택 메뉴를 펼칩니다.",
         "help_provider": "프로바이더 선택 메뉴를 펼칩니다.",
         "help_model": "프로바이더 엔드포인트가 유효하면 모델 선택 메뉴를 펼칩니다.",
-        "help_advisor_model": "claude-any advisor 라우팅에 사용할 더 큰 모델을 선택합니다.",
+        "help_advisor_model": "ciel-runtime advisor 라우팅에 사용할 더 큰 모델을 선택합니다.",
         "help_ollama_options": "Ollama 컨텍스트 크기와 생성 파라미터 메뉴를 펼칩니다.",
         "help_provider_options": "프로바이더의 출력 토큰, 컨텍스트, 타임아웃 옵션 메뉴를 펼칩니다.",
         "help_api_key": "API 키 입력을 이 터미널에서 안전하게 엽니다. 키는 Claude Code 채팅에 붙여넣지 않습니다.",
@@ -326,7 +326,7 @@ UI_TEXT = {
         "test": "互換性テスト",
         "launch": "Claude Codeを起動",
         "quit": "終了",
-        "title": "claude-any 起動前設定",
+        "title": "ciel-runtime 起動前設定",
         "select_language": "Enterで言語を選択します。上下で移動、Escで閉じます。",
         "select_provider": "Enterでプロバイダーを選択します。上下で移動、Escで閉じます。",
         "select_model": "Enterでモデルを選択します。上下で移動、Escで閉じます。最後は手入力です。",
@@ -339,7 +339,7 @@ UI_TEXT = {
         "help_language": "言語選択メニューを展開します。",
         "help_provider": "プロバイダー選択メニューを展開します。",
         "help_model": "プロバイダーのエンドポイントが有効な場合、モデル選択メニューを展開します。",
-        "help_advisor_model": "claude-any advisorルーティングで使う大きなモデルを選択します。",
+        "help_advisor_model": "ciel-runtime advisorルーティングで使う大きなモデルを選択します。",
         "help_ollama_options": "Ollamaのコンテキストサイズと生成パラメータを開きます。",
         "help_provider_options": "プロバイダーの出力トークン、コンテキスト、タイムアウト設定を開きます。",
         "help_api_key": "APIキー入力をこの端末で安全に開きます。キーはClaude Codeチャットに貼り付けません。",
@@ -363,7 +363,7 @@ UI_TEXT = {
         "test": "兼容性测试",
         "launch": "启动 Claude Code",
         "quit": "退出",
-        "title": "claude-any 启动前设置",
+        "title": "ciel-runtime 启动前设置",
         "select_language": "按 Enter 选择语言。上下移动，Esc 关闭。",
         "select_provider": "按 Enter 选择提供商。上下移动，Esc 关闭。",
         "select_model": "按 Enter 选择模型。上下移动，Esc 关闭。最后一项可手动输入。",
@@ -376,7 +376,7 @@ UI_TEXT = {
         "help_language": "展开语言选择菜单。",
         "help_provider": "展开提供商选择菜单。",
         "help_model": "当提供商端点可用时展开模型选择菜单。",
-        "help_advisor_model": "选择 claude-any advisor 路由使用的更大模型。",
+        "help_advisor_model": "选择 ciel-runtime advisor 路由使用的更大模型。",
         "help_ollama_options": "展开 Ollama 上下文大小和生成参数。",
         "help_provider_options": "展开提供商输出 token、上下文和超时选项。",
         "help_api_key": "在此终端安全输入 API 密钥。不要把密钥粘贴到 Claude Code 聊天中。",
@@ -407,7 +407,7 @@ PROVIDER_NOTES = {
         ],
         "deepseek": [
             "DeepSeek.com: uses DeepSeek's Anthropic API endpoint for Claude Code.",
-            "Set a DeepSeek API key; claude-any maps pro[1m] as the main model and flash for Haiku/subagents.",
+            "Set a DeepSeek API key; ciel-runtime maps pro[1m] as the main model and flash for Haiku/subagents.",
         ],
         "vllm": [
             "vLLM: enter the vLLM server root that implements the Anthropic Messages API.",
@@ -423,7 +423,7 @@ PROVIDER_NOTES = {
         ],
         "nvidia-hosted": [
             "NVIDIA hosted: uses NVIDIA API Catalog at https://integrate.api.nvidia.com/v1.",
-            "Hosted catalog models are OpenAI-style, so claude-any keeps a compatibility route for Claude Code.",
+            "Hosted catalog models are OpenAI-style, so ciel-runtime keeps a compatibility route for Claude Code.",
         ],
     },
     "ko": {
@@ -457,7 +457,7 @@ PROVIDER_NOTES = {
         ],
         "nvidia-hosted": [
             "NVIDIA hosted: https://integrate.api.nvidia.com/v1 의 NVIDIA API Catalog를 사용합니다.",
-            "Hosted catalog 모델은 OpenAI 방식이므로 Claude Code에는 claude-any 호환 라우트를 유지합니다.",
+            "Hosted catalog 모델은 OpenAI 방식이므로 Claude Code에는 ciel-runtime 호환 라우트를 유지합니다.",
         ],
     },
     "ja": {
@@ -491,7 +491,7 @@ PROVIDER_NOTES = {
         ],
         "nvidia-hosted": [
             "NVIDIA hosted: https://integrate.api.nvidia.com/v1 のNVIDIA API Catalogを使います。",
-            "Hosted catalogモデルはOpenAI形式のため、Claude Codeにはclaude-any互換ルートを維持します。",
+            "Hosted catalogモデルはOpenAI形式のため、Claude Codeにはciel-runtime互換ルートを維持します。",
         ],
     },
     "zh": {
@@ -525,7 +525,7 @@ PROVIDER_NOTES = {
         ],
         "nvidia-hosted": [
             "NVIDIA hosted: 使用 https://integrate.api.nvidia.com/v1 的 NVIDIA API Catalog。",
-            "Hosted catalog 模型是 OpenAI 风格，因此 Claude Code 仍使用 claude-any 兼容路由。",
+            "Hosted catalog 模型是 OpenAI 风格，因此 Claude Code 仍使用 ciel-runtime 兼容路由。",
         ],
     },
 }
@@ -1022,7 +1022,7 @@ def build_advisor_model_submenu() -> dict:
     for mid in DEFAULT_ADVISOR_MODELS + [upstream for upstream, _ in get_models_for_current_provider()[0]]:
         if mid and mid not in values:
             values.append(mid)
-    items = [{"value": "", "label": "Disable Advisor Model", "current": not current, "description": "Disable claude-any advisor routing."}]
+    items = [{"value": "", "label": "Disable Advisor Model", "current": not current, "description": "Disable ciel-runtime advisor routing."}]
     idx = 0
     for i, mid in enumerate(values, 1):
         is_current = mid == current
@@ -1207,28 +1207,28 @@ def build_ollama_options_submenu() -> dict:
 
 PROVIDER_OPTION_DESCRIPTIONS = {
     "__edit_context_window__": {
-        "en": "Edit the context window value used by claude-any tests and router caps. Native mode cannot raise the real server limit.",
-        "ko": "claude-any 테스트와 라우터 제한 계산에 쓰는 컨텍스트 값입니다. native 모드에서는 실제 서버 한계를 늘리지 못합니다.",
-        "ja": "claude-anyのテストとルーター制限計算に使うコンテキスト値です。nativeモードでは実サーバー上限は増やせません。",
-        "zh": "编辑 claude-any 测试和路由器限制计算使用的上下文值。native 模式不能提高真实服务器上限。",
+        "en": "Edit the context window value used by ciel-runtime tests and router caps. Native mode cannot raise the real server limit.",
+        "ko": "ciel-runtime 테스트와 라우터 제한 계산에 쓰는 컨텍스트 값입니다. native 모드에서는 실제 서버 한계를 늘리지 못합니다.",
+        "ja": "ciel-runtimeのテストとルーター制限計算に使うコンテキスト値です。nativeモードでは実サーバー上限は増やせません。",
+        "zh": "编辑 ciel-runtime 测试和路由器限制计算使用的上下文值。native 模式不能提高真实服务器上限。",
     },
     "__edit_reserve__": {
-        "en": "Reserve input-side room when claude-any router caps max_tokens. This is ignored by direct native Claude Code requests.",
-        "ko": "claude-any 라우터가 max_tokens를 줄일 때 입력 쪽 여유로 남기는 토큰입니다. direct native 요청에는 적용되지 않습니다.",
-        "ja": "claude-anyルーターがmax_tokensを制限する時に入力側へ残す余裕です。direct native要求では無視されます。",
-        "zh": "claude-any 路由器限制 max_tokens 时预留给输入侧的空间。direct native 请求会忽略它。",
+        "en": "Reserve input-side room when ciel-runtime router caps max_tokens. This is ignored by direct native Claude Code requests.",
+        "ko": "ciel-runtime 라우터가 max_tokens를 줄일 때 입력 쪽 여유로 남기는 토큰입니다. direct native 요청에는 적용되지 않습니다.",
+        "ja": "ciel-runtimeルーターがmax_tokensを制限する時に入力側へ残す余裕です。direct native要求では無視されます。",
+        "zh": "ciel-runtime 路由器限制 max_tokens 时预留给输入侧的空间。direct native 请求会忽略它。",
     },
     "__edit_max_output__": {
-        "en": "Set Claude Code's CLAUDE_CODE_MAX_OUTPUT_TOKENS and the claude-any router cap. 4096 is the default.",
-        "ko": "Claude Code의 CLAUDE_CODE_MAX_OUTPUT_TOKENS와 claude-any 라우터 출력 제한입니다. 기본값은 4096입니다.",
-        "ja": "Claude CodeのCLAUDE_CODE_MAX_OUTPUT_TOKENSとclaude-anyルーターの出力制限です。既定値は4096です。",
-        "zh": "设置 Claude Code 的 CLAUDE_CODE_MAX_OUTPUT_TOKENS 和 claude-any 路由器输出上限。默认 4096。",
+        "en": "Set Claude Code's CLAUDE_CODE_MAX_OUTPUT_TOKENS and the ciel-runtime router cap. 4096 is the default.",
+        "ko": "Claude Code의 CLAUDE_CODE_MAX_OUTPUT_TOKENS와 ciel-runtime 라우터 출력 제한입니다. 기본값은 4096입니다.",
+        "ja": "Claude CodeのCLAUDE_CODE_MAX_OUTPUT_TOKENSとciel-runtimeルーターの出力制限です。既定値は4096です。",
+        "zh": "设置 Claude Code 的 CLAUDE_CODE_MAX_OUTPUT_TOKENS 和 ciel-runtime 路由器输出上限。默认 4096。",
     },
     "__edit_timeout__": {
-        "en": "Edit claude-any compatibility-test/router upstream timeout in milliseconds. Claude Code native networking has its own timeout behavior.",
-        "ko": "claude-any 호환성 테스트/라우터의 업스트림 대기 시간(ms)입니다. Claude Code native 네트워크 대기는 자체 동작을 따릅니다.",
-        "ja": "claude-any互換性テスト/ルーターの上流タイムアウト(ms)です。Claude Code native通信は独自の挙動です。",
-        "zh": "编辑 claude-any 兼容性测试/路由器上游超时（毫秒）。Claude Code native 网络有自身超时行为。",
+        "en": "Edit ciel-runtime compatibility-test/router upstream timeout in milliseconds. Claude Code native networking has its own timeout behavior.",
+        "ko": "ciel-runtime 호환성 테스트/라우터의 업스트림 대기 시간(ms)입니다. Claude Code native 네트워크 대기는 자체 동작을 따릅니다.",
+        "ja": "ciel-runtime互換性テスト/ルーターの上流タイムアウト(ms)です。Claude Code native通信は独自の挙動です。",
+        "zh": "编辑 ciel-runtime 兼容性测试/路由器上游超时（毫秒）。Claude Code native 网络有自身超时行为。",
     },
     "__edit_native__": {
         "en": "Toggle direct Anthropic Messages compatibility. Use it for LM Studio, vLLM, or self-hosted NIM servers that implement /v1/messages.",
@@ -1358,7 +1358,7 @@ def summarize_test_output(code: int, out: str) -> list[str]:
         return ["Compatibility: FAIL" if code else "Compatibility: OK", "No output from compatibility test."]
     if any(line.startswith("Traceback ") for line in raw):
         reason = next((line.strip() for line in reversed(raw) if line.strip() and not line.lstrip().startswith("~")), "Internal test error")
-        return ["Compatibility: FAIL", "Reason: internal claude-any test error", reason[:160]]
+        return ["Compatibility: FAIL", "Reason: internal ciel-runtime test error", reason[:160]]
     keep_prefixes = (
         "Testing provider:",
         "Test mode:",
@@ -1510,7 +1510,7 @@ def message(stdscr, title: str, lines: list[str]) -> None:
 def api_key_flow(stdscr) -> list[str]:
     provider = current_provider()
     subprocess.run([CTL, "api-key", provider], check=False)
-    input("Press Enter to return to claude-any menu...")
+    input("Press Enter to return to ciel-runtime menu...")
     return [f"API key flow completed for {provider}"]
 
 

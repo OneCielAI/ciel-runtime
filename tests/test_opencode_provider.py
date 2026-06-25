@@ -3,12 +3,12 @@ import io
 import unittest
 from unittest import mock
 
-import claude_any
+import ciel_runtime
 
 
 class OpenCodeProviderTests(unittest.TestCase):
     def opencode_cfg(self, **overrides):
-        pcfg = copy.deepcopy(claude_any.DEFAULT_CONFIG["providers"]["opencode"])
+        pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["opencode"])
         pcfg.update(overrides)
         return {
             "current_provider": "opencode",
@@ -18,7 +18,7 @@ class OpenCodeProviderTests(unittest.TestCase):
         }
 
     def opencode_go_cfg(self, **overrides):
-        pcfg = copy.deepcopy(claude_any.DEFAULT_CONFIG["providers"]["opencode-go"])
+        pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["opencode-go"])
         pcfg.update(overrides)
         return {
             "current_provider": "opencode-go",
@@ -28,18 +28,18 @@ class OpenCodeProviderTests(unittest.TestCase):
         }
 
     def test_provider_is_registered(self):
-        self.assertEqual("opencode", claude_any.PROVIDER_ALIASES["opencode"])
-        self.assertEqual("opencode", claude_any.PROVIDER_ALIASES["opencode.ai"])
-        self.assertEqual("opencode", claude_any.PROVIDER_ALIASES["zen"])
-        self.assertEqual("opencode-go", claude_any.PROVIDER_ALIASES["opencode-go"])
-        self.assertEqual("opencode-go", claude_any.PROVIDER_ALIASES["opencode.go"])
-        self.assertEqual("OpenCode Zen", claude_any.PROVIDER_LABELS["opencode"])
-        self.assertEqual("OpenCode Go", claude_any.PROVIDER_LABELS["opencode-go"])
-        self.assertEqual("https://opencode.ai/zen", claude_any.default_base_url("opencode"))
-        self.assertEqual("https://opencode.ai/zen/go", claude_any.default_base_url("opencode-go"))
+        self.assertEqual("opencode", ciel_runtime.PROVIDER_ALIASES["opencode"])
+        self.assertEqual("opencode", ciel_runtime.PROVIDER_ALIASES["opencode.ai"])
+        self.assertEqual("opencode", ciel_runtime.PROVIDER_ALIASES["zen"])
+        self.assertEqual("opencode-go", ciel_runtime.PROVIDER_ALIASES["opencode-go"])
+        self.assertEqual("opencode-go", ciel_runtime.PROVIDER_ALIASES["opencode.go"])
+        self.assertEqual("OpenCode Zen", ciel_runtime.PROVIDER_LABELS["opencode"])
+        self.assertEqual("OpenCode Go", ciel_runtime.PROVIDER_LABELS["opencode-go"])
+        self.assertEqual("https://opencode.ai/zen", ciel_runtime.default_base_url("opencode"))
+        self.assertEqual("https://opencode.ai/zen/go", ciel_runtime.default_base_url("opencode-go"))
 
     def test_default_config_matches_zen_docs(self):
-        pcfg = claude_any.DEFAULT_CONFIG["providers"]["opencode"]
+        pcfg = ciel_runtime.DEFAULT_CONFIG["providers"]["opencode"]
         self.assertEqual("https://opencode.ai/zen", pcfg["base_url"])
         self.assertEqual("claude-sonnet-4-6", pcfg["current_model"])
         self.assertEqual("claude-haiku-4-5", pcfg["haiku_model"])
@@ -49,7 +49,7 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertTrue(pcfg["native_compat"])
 
     def test_go_default_config_matches_go_docs(self):
-        pcfg = claude_any.DEFAULT_CONFIG["providers"]["opencode-go"]
+        pcfg = ciel_runtime.DEFAULT_CONFIG["providers"]["opencode-go"]
         self.assertEqual("https://opencode.ai/zen/go", pcfg["base_url"])
         self.assertEqual("qwen3.6-plus", pcfg["current_model"])
         self.assertEqual("qwen3.5-plus", pcfg["haiku_model"])
@@ -61,24 +61,24 @@ class OpenCodeProviderTests(unittest.TestCase):
     def test_llm_options_expose_ip_family(self):
         pcfg = self.opencode_cfg()["providers"]["opencode"]
 
-        rows, values = claude_any.llm_option_panel_rows("opencode", pcfg, "en")
+        rows, values = ciel_runtime.llm_option_panel_rows("opencode", pcfg, "en")
 
         self.assertIn("ip_family", values)
         row = rows[values.index("ip_family")]
         self.assertIn("IP family", row)
         self.assertIn("ipv6-preferred", row)
-        self.assertEqual("ipv6-preferred", claude_any.llm_option_prompt_default("opencode", pcfg, "ip_family"))
+        self.assertEqual("ipv6-preferred", ciel_runtime.llm_option_prompt_default("opencode", pcfg, "ip_family"))
 
     def test_llm_options_can_set_ip_family(self):
         cfg = self.opencode_cfg(ip_family="ipv6-preferred")
         pcfg = cfg["providers"]["opencode"]
 
         with (
-            mock.patch.object(claude_any, "load_config", return_value=cfg),
-            mock.patch.object(claude_any, "save_config") as save_config,
-            mock.patch.object(claude_any, "clear_model_cache"),
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "save_config") as save_config,
+            mock.patch.object(ciel_runtime, "clear_model_cache"),
         ):
-            messages = claude_any.set_llm_option_config("opencode", "ip_family", "ipv4")
+            messages = ciel_runtime.set_llm_option_config("opencode", "ip_family", "ipv4")
 
         self.assertEqual("ipv4", pcfg["ip_family"])
         self.assertIn("ip_family: ipv4", messages)
@@ -90,25 +90,25 @@ class OpenCodeProviderTests(unittest.TestCase):
             with self.subTest(model=model):
                 pcfg = self.opencode_go_cfg(current_model=model, context_window=262144)["providers"]["opencode-go"]
 
-                with mock.patch.object(claude_any, "upstream_model_context_limit", return_value=None):
-                    self.assertEqual(1048576, claude_any.model_context_hint_from_model_id(model))
-                    self.assertEqual(1048576, claude_any.provider_model_context_capacity("opencode-go", pcfg))
-                    self.assertEqual("million-context", claude_any.model_option_family("opencode-go", pcfg))
-                    self.assertEqual("million-context-1m", claude_any.recommended_preset_id("opencode-go", pcfg))
+                with mock.patch.object(ciel_runtime, "upstream_model_context_limit", return_value=None):
+                    self.assertEqual(1048576, ciel_runtime.model_context_hint_from_model_id(model))
+                    self.assertEqual(1048576, ciel_runtime.provider_model_context_capacity("opencode-go", pcfg))
+                    self.assertEqual("million-context", ciel_runtime.model_option_family("opencode-go", pcfg))
+                    self.assertEqual("million-context-1m", ciel_runtime.recommended_preset_id("opencode-go", pcfg))
 
     def test_qwen36_non_plus_models_remain_quarter_million_context(self):
         pcfg = self.opencode_go_cfg(current_model="qwen3.6-27b-mtp", context_window=262144)["providers"]["opencode-go"]
 
-        with mock.patch.object(claude_any, "upstream_model_context_limit", return_value=None):
-            self.assertEqual(262144, claude_any.model_context_hint_from_model_id("qwen3.6-27b-mtp"))
-            self.assertEqual("long-context", claude_any.model_option_family("opencode-go", pcfg))
-            self.assertEqual("long-context-256k", claude_any.recommended_preset_id("opencode-go", pcfg))
+        with mock.patch.object(ciel_runtime, "upstream_model_context_limit", return_value=None):
+            self.assertEqual(262144, ciel_runtime.model_context_hint_from_model_id("qwen3.6-27b-mtp"))
+            self.assertEqual("long-context", ciel_runtime.model_option_family("opencode-go", pcfg))
+            self.assertEqual("long-context-256k", ciel_runtime.recommended_preset_id("opencode-go", pcfg))
 
     def test_qwen36_plus_auto_preset_applies_one_million_context(self):
         pcfg = self.opencode_go_cfg(current_model="qwen3.6-plus-free", context_window=262144)["providers"]["opencode-go"]
 
-        with mock.patch.object(claude_any, "upstream_model_context_limit", return_value=None):
-            messages = claude_any.auto_apply_recommended_llm_preset_for_model("opencode-go", pcfg, "en")
+        with mock.patch.object(ciel_runtime, "upstream_model_context_limit", return_value=None):
+            messages = ciel_runtime.auto_apply_recommended_llm_preset_for_model("opencode-go", pcfg, "en")
 
         self.assertEqual("million-context-1m", pcfg["llm_preset"])
         self.assertEqual(1048576, pcfg["context_window"])
@@ -119,8 +119,8 @@ class OpenCodeProviderTests(unittest.TestCase):
     def test_zen_qwen36_plus_free_auto_preset_applies_one_million_context(self):
         pcfg = self.opencode_cfg(current_model="qwen3.6-plus-free", context_window=200000)["providers"]["opencode"]
 
-        with mock.patch.object(claude_any, "upstream_model_context_limit", return_value=None):
-            messages = claude_any.auto_apply_recommended_llm_preset_for_model("opencode", pcfg, "en")
+        with mock.patch.object(ciel_runtime, "upstream_model_context_limit", return_value=None):
+            messages = ciel_runtime.auto_apply_recommended_llm_preset_for_model("opencode", pcfg, "en")
 
         self.assertEqual("million-context-1m", pcfg["llm_preset"])
         self.assertEqual(1048576, pcfg["context_window"])
@@ -135,7 +135,7 @@ class OpenCodeProviderTests(unittest.TestCase):
             max_model_len=131072,
         )["providers"]["opencode"]
 
-        self.assertEqual(131072, claude_any.provider_model_context_capacity("opencode", pcfg))
+        self.assertEqual(131072, ciel_runtime.provider_model_context_capacity("opencode", pcfg))
 
     def test_auto_llm_options_refreshes_model_specs_before_applying_preset(self):
         model = "sample-model-1m"
@@ -143,14 +143,14 @@ class OpenCodeProviderTests(unittest.TestCase):
         pcfg = cfg["providers"]["opencode"]
 
         with (
-            mock.patch.object(claude_any, "load_config", return_value=cfg),
-            mock.patch.object(claude_any, "save_config") as save_config,
-            mock.patch.object(claude_any, "invalidate_config_cache"),
-            mock.patch.object(claude_any, "upstream_model_ids", return_value=[model]) as upstream,
-            mock.patch.object(claude_any, "read_model_info_cache", return_value={model: {"max_model_len": 1048576}}),
-            mock.patch.object(claude_any, "sync_ollama_library_context_limit", return_value=[]),
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "save_config") as save_config,
+            mock.patch.object(ciel_runtime, "invalidate_config_cache"),
+            mock.patch.object(ciel_runtime, "upstream_model_ids", return_value=[model]) as upstream,
+            mock.patch.object(ciel_runtime, "read_model_info_cache", return_value={model: {"max_model_len": 1048576}}),
+            mock.patch.object(ciel_runtime, "sync_ollama_library_context_limit", return_value=[]),
         ):
-            messages = claude_any.apply_auto_llm_options_config()
+            messages = ciel_runtime.apply_auto_llm_options_config()
 
         upstream.assert_called_once_with("opencode", pcfg, force_refresh=True)
         save_config.assert_called_once()
@@ -170,15 +170,15 @@ class OpenCodeProviderTests(unittest.TestCase):
             return [f"Model for opencode set to {value}."]
 
         with (
-            mock.patch.object(claude_any, "set_model_config", side_effect=set_model) as set_model_config,
-            mock.patch.object(claude_any, "load_config", return_value=cfg),
-            mock.patch.object(claude_any, "save_config"),
-            mock.patch.object(claude_any, "invalidate_config_cache"),
-            mock.patch.object(claude_any, "upstream_model_ids", return_value=[model]) as upstream,
-            mock.patch.object(claude_any, "read_model_info_cache", return_value={model: {"max_model_len": 131072}}),
-            mock.patch.object(claude_any, "sync_ollama_library_context_limit", return_value=[]),
+            mock.patch.object(ciel_runtime, "set_model_config", side_effect=set_model) as set_model_config,
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "save_config"),
+            mock.patch.object(ciel_runtime, "invalidate_config_cache"),
+            mock.patch.object(ciel_runtime, "upstream_model_ids", return_value=[model]) as upstream,
+            mock.patch.object(ciel_runtime, "read_model_info_cache", return_value={model: {"max_model_len": 131072}}),
+            mock.patch.object(ciel_runtime, "sync_ollama_library_context_limit", return_value=[]),
         ):
-            messages = claude_any.apply_auto_llm_options_config(model)
+            messages = ciel_runtime.apply_auto_llm_options_config(model)
 
         set_model_config.assert_called_once_with(model)
         upstream.assert_called_once_with("opencode", pcfg, force_refresh=True)
@@ -198,7 +198,7 @@ class OpenCodeProviderTests(unittest.TestCase):
             },
         }
 
-        claude_any.apply_config_migrations(cfg)
+        ciel_runtime.apply_config_migrations(cfg)
 
         self.assertEqual(1048576, cfg["providers"]["opencode-go"]["context_window"])
         self.assertTrue(cfg["migrations"]["opencode_go_qwen36_plus_context_1m_20260530"])
@@ -216,7 +216,7 @@ class OpenCodeProviderTests(unittest.TestCase):
             },
         }
 
-        claude_any.apply_config_migrations(cfg)
+        ciel_runtime.apply_config_migrations(cfg)
 
         self.assertIn("qwen3.6-plus-free", cfg["providers"]["opencode"]["custom_models"])
         self.assertEqual(200000, cfg["providers"]["opencode"]["context_window"])
@@ -236,7 +236,7 @@ class OpenCodeProviderTests(unittest.TestCase):
             },
         }
 
-        claude_any.apply_config_migrations(cfg)
+        ciel_runtime.apply_config_migrations(cfg)
 
         pcfg = cfg["providers"]["opencode"]
         self.assertEqual(1048576, pcfg["context_window"])
@@ -256,20 +256,20 @@ class OpenCodeProviderTests(unittest.TestCase):
             },
         }
 
-        claude_any.apply_config_migrations(cfg)
+        ciel_runtime.apply_config_migrations(cfg)
 
         self.assertEqual(262144, cfg["providers"]["opencode-go"]["context_window"])
         self.assertTrue(cfg["migrations"]["opencode_go_qwen36_plus_context_1m_20260530"])
 
-    def test_env_vars_route_opencode_through_claude_any_router(self):
+    def test_env_vars_route_opencode_through_ciel_runtime_router(self):
         cfg = self.opencode_cfg(api_key="sk-opencode-test")
         pcfg = cfg["providers"]["opencode"]
-        env = claude_any.env_vars(cfg)
-        self.assertEqual("opencode", env["CLAUDE_ANY_PROVIDER"])
-        self.assertEqual(claude_any.ROUTER_BASE, env["ANTHROPIC_BASE_URL"])
+        env = ciel_runtime.env_vars(cfg)
+        self.assertEqual("opencode", env["CIEL_RUNTIME_PROVIDER"])
+        self.assertEqual(ciel_runtime.ROUTER_BASE, env["ANTHROPIC_BASE_URL"])
         self.assertEqual("sk-opencode-test", env["ANTHROPIC_AUTH_TOKEN"])
         self.assertNotIn("ANTHROPIC_API_KEY", env)
-        expected_model = claude_any.claude_code_context_model_alias("opencode", pcfg, claude_any.current_alias(cfg))
+        expected_model = ciel_runtime.claude_code_context_model_alias("opencode", pcfg, ciel_runtime.current_alias(cfg))
         self.assertEqual(expected_model, env["ANTHROPIC_MODEL"])
 
     def test_default_family_models_use_provider_family_candidates(self):
@@ -285,23 +285,23 @@ class OpenCodeProviderTests(unittest.TestCase):
             "claude-sonnet-4-6",
         ]
 
-        with mock.patch.object(claude_any, "read_model_list_cache", return_value=models):
-            env = claude_any.env_vars(cfg)
+        with mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=models):
+            env = ciel_runtime.env_vars(cfg)
 
         self.assertEqual(
-            claude_any.claude_code_context_model_alias("opencode", pcfg, claude_any.alias_for("opencode", "deepseek-v4-flash-free")),
+            ciel_runtime.claude_code_context_model_alias("opencode", pcfg, ciel_runtime.alias_for("opencode", "deepseek-v4-flash-free")),
             env["ANTHROPIC_MODEL"],
         )
         self.assertEqual(
-            claude_any.claude_code_context_model_alias("opencode", pcfg, claude_any.alias_for("opencode", "claude-haiku-4-5")),
+            ciel_runtime.claude_code_context_model_alias("opencode", pcfg, ciel_runtime.alias_for("opencode", "claude-haiku-4-5")),
             env["ANTHROPIC_DEFAULT_HAIKU_MODEL"],
         )
         self.assertEqual(
-            claude_any.claude_code_context_model_alias("opencode", pcfg, claude_any.alias_for("opencode", "claude-opus-4-8")),
+            ciel_runtime.claude_code_context_model_alias("opencode", pcfg, ciel_runtime.alias_for("opencode", "claude-opus-4-8")),
             env["ANTHROPIC_DEFAULT_OPUS_MODEL"],
         )
         self.assertEqual(
-            claude_any.claude_code_context_model_alias("opencode", pcfg, claude_any.alias_for("opencode", "claude-sonnet-4-6")),
+            ciel_runtime.claude_code_context_model_alias("opencode", pcfg, ciel_runtime.alias_for("opencode", "claude-sonnet-4-6")),
             env["ANTHROPIC_DEFAULT_SONNET_MODEL"],
         )
         self.assertNotEqual(env["ANTHROPIC_MODEL"], env["ANTHROPIC_DEFAULT_OPUS_MODEL"])
@@ -313,7 +313,7 @@ class OpenCodeProviderTests(unittest.TestCase):
             workflows_enabled=True,
         )
 
-        env = claude_any.env_vars(cfg)
+        env = ciel_runtime.env_vars(cfg)
 
         self.assertNotIn("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS", env)
         self.assertEqual(env["ANTHROPIC_MODEL"], env["ANTHROPIC_CUSTOM_MODEL_OPTION"])
@@ -338,7 +338,7 @@ class OpenCodeProviderTests(unittest.TestCase):
             claude_code_supported_capabilities=["effort", "max_effort", "unknown"],
         )
 
-        env = claude_any.env_vars(cfg)
+        env = ciel_runtime.env_vars(cfg)
 
         self.assertEqual("effort,max_effort", env["ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES"])
 
@@ -348,44 +348,44 @@ class OpenCodeProviderTests(unittest.TestCase):
             current_model="deepseek-v4-flash-free",
             ultracode_enabled=True,
         )
-        with mock.patch.object(claude_any, "base_url_status_line", return_value="Base URL: OK"):
-            errors = claude_any.launch_readiness_errors(cfg)
+        with mock.patch.object(ciel_runtime, "base_url_status_line", return_value="Base URL: OK"):
+            errors = ciel_runtime.launch_readiness_errors(cfg)
 
         self.assertTrue(any("ultracode requires" in error for error in errors))
 
     def test_ultracode_runtime_settings(self):
         pcfg = self.opencode_cfg(ultracode_enabled=True)["providers"]["opencode"]
 
-        self.assertEqual({"ultracode": True}, claude_any.claude_code_runtime_settings("opencode", pcfg))
+        self.assertEqual({"ultracode": True}, ciel_runtime.claude_code_runtime_settings("opencode", pcfg))
 
     def test_ultracode_runtime_settings_args_are_appended(self):
         pcfg = self.opencode_cfg(ultracode_enabled=True)["providers"]["opencode"]
         extra_args: list[str] = []
 
-        claude_any.append_claude_code_runtime_settings_args(extra_args, [], "opencode", pcfg)
+        ciel_runtime.append_claude_code_runtime_settings_args(extra_args, [], "opencode", pcfg)
 
         self.assertEqual(["--settings", '{"ultracode":true}'], extra_args)
 
-    def test_env_vars_route_opencode_go_through_claude_any_router(self):
+    def test_env_vars_route_opencode_go_through_ciel_runtime_router(self):
         cfg = self.opencode_go_cfg(api_key="sk-opencode-test")
         pcfg = cfg["providers"]["opencode-go"]
-        env = claude_any.env_vars(cfg)
-        self.assertEqual("opencode-go", env["CLAUDE_ANY_PROVIDER"])
-        self.assertEqual(claude_any.ROUTER_BASE, env["ANTHROPIC_BASE_URL"])
+        env = ciel_runtime.env_vars(cfg)
+        self.assertEqual("opencode-go", env["CIEL_RUNTIME_PROVIDER"])
+        self.assertEqual(ciel_runtime.ROUTER_BASE, env["ANTHROPIC_BASE_URL"])
         self.assertEqual("sk-opencode-test", env["ANTHROPIC_AUTH_TOKEN"])
         self.assertNotIn("ANTHROPIC_API_KEY", env)
-        expected_model = claude_any.claude_code_context_model_alias("opencode-go", pcfg, claude_any.current_alias(cfg))
+        expected_model = ciel_runtime.claude_code_context_model_alias("opencode-go", pcfg, ciel_runtime.current_alias(cfg))
         self.assertEqual(expected_model, env["ANTHROPIC_MODEL"])
 
     def test_launch_requires_opencode_api_key(self):
-        errors = claude_any.launch_readiness_errors(self.opencode_cfg(api_key=""))
+        errors = ciel_runtime.launch_readiness_errors(self.opencode_cfg(api_key=""))
         self.assertTrue(any("OpenCode Zen requires" in err for err in errors))
-        self.assertTrue(claude_any.launch_blockers_require_api_key(errors))
+        self.assertTrue(ciel_runtime.launch_blockers_require_api_key(errors))
 
     def test_launch_requires_opencode_go_api_key(self):
-        errors = claude_any.launch_readiness_errors(self.opencode_go_cfg(api_key=""))
+        errors = ciel_runtime.launch_readiness_errors(self.opencode_go_cfg(api_key=""))
         self.assertTrue(any("OpenCode Go requires" in err for err in errors))
-        self.assertTrue(claude_any.launch_blockers_require_api_key(errors))
+        self.assertTrue(ciel_runtime.launch_blockers_require_api_key(errors))
 
     def test_model_list_reads_zen_v1_models(self):
         pcfg = self.opencode_cfg(api_key="sk-opencode-test")["providers"]["opencode"]
@@ -399,11 +399,11 @@ class OpenCodeProviderTests(unittest.TestCase):
             ],
         }
         with (
-            mock.patch.object(claude_any, "read_model_list_cache", return_value=None),
-            mock.patch.object(claude_any, "write_model_list_cache") as write_cache,
-            mock.patch.object(claude_any, "http_json", return_value=response) as http_json,
+            mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=None),
+            mock.patch.object(ciel_runtime, "write_model_list_cache") as write_cache,
+            mock.patch.object(ciel_runtime, "http_json", return_value=response) as http_json,
         ):
-            models = claude_any.upstream_model_ids("opencode", pcfg)
+            models = ciel_runtime.upstream_model_ids("opencode", pcfg)
         http_json.assert_called_once()
         url = http_json.call_args.args[0]
         self.assertEqual("https://opencode.ai/zen/v1/models", url)
@@ -426,10 +426,10 @@ class OpenCodeProviderTests(unittest.TestCase):
             ],
         }
         with (
-            mock.patch.object(claude_any, "read_model_list_cache", return_value=None),
-            mock.patch.object(claude_any, "write_model_list_cache") as write_cache,
+            mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=None),
+            mock.patch.object(ciel_runtime, "write_model_list_cache") as write_cache,
             mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "http_json",
                 side_effect=[
                     PermissionError("bad key"),
@@ -438,7 +438,7 @@ class OpenCodeProviderTests(unittest.TestCase):
                 ],
             ) as http_json,
         ):
-            models = claude_any.upstream_model_ids("opencode", pcfg)
+            models = ciel_runtime.upstream_model_ids("opencode", pcfg)
 
         self.assertIn("deepseek-v4-flash", models)
         self.assertIn("qwen3.5-plus", models)
@@ -459,11 +459,11 @@ class OpenCodeProviderTests(unittest.TestCase):
             ],
         }
         with (
-            mock.patch.object(claude_any, "read_model_list_cache", return_value=None),
-            mock.patch.object(claude_any, "write_model_list_cache") as write_cache,
-            mock.patch.object(claude_any, "http_json", return_value=response) as http_json,
+            mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=None),
+            mock.patch.object(ciel_runtime, "write_model_list_cache") as write_cache,
+            mock.patch.object(ciel_runtime, "http_json", return_value=response) as http_json,
         ):
-            models = claude_any.upstream_model_ids("opencode-go", pcfg)
+            models = ciel_runtime.upstream_model_ids("opencode-go", pcfg)
         http_json.assert_called_once()
         url = http_json.call_args.args[0]
         self.assertEqual("https://opencode.ai/zen/go/v1/models", url)
@@ -478,11 +478,11 @@ class OpenCodeProviderTests(unittest.TestCase):
     def test_zen_advisor_panel_does_not_inject_global_deepseek_recommendation(self):
         pcfg = self.opencode_cfg(api_key="sk-opencode-test")["providers"]["opencode"]
         with mock.patch.object(
-            claude_any,
+            ciel_runtime,
             "upstream_model_ids",
             return_value=["claude-sonnet-4-6", "deepseek-v4-flash-free", "glm-5.1"],
         ):
-            rows, values = claude_any.advisor_model_panel_rows("opencode", pcfg)
+            rows, values = ciel_runtime.advisor_model_panel_rows("opencode", pcfg)
 
         self.assertNotIn("deepseek-v4-pro", values)
         self.assertFalse(any("deepseek-v4-pro" in row for row in rows))
@@ -491,16 +491,16 @@ class OpenCodeProviderTests(unittest.TestCase):
 
     def test_model_panel_keeps_refresh_action_after_fetch(self):
         pcfg = self.opencode_cfg(api_key="sk-opencode-test")["providers"]["opencode"]
-        with mock.patch.object(claude_any, "upstream_model_ids", return_value=["claude-sonnet-4-6"]):
-            rows, values = claude_any.model_panel_rows("opencode", pcfg, fetch=True, force_refresh=True)
+        with mock.patch.object(ciel_runtime, "upstream_model_ids", return_value=["claude-sonnet-4-6"]):
+            rows, values = ciel_runtime.model_panel_rows("opencode", pcfg, fetch=True, force_refresh=True)
 
         self.assertEqual("__refresh_models__", values[0])
         self.assertTrue(any("Refresh provider model list" in row for row in rows))
 
     def test_advisor_panel_can_force_refresh_provider_models(self):
         pcfg = self.opencode_go_cfg(api_key="sk-opencode-test")["providers"]["opencode-go"]
-        with mock.patch.object(claude_any, "upstream_model_ids", return_value=["deepseek-v4-pro"]) as upstream:
-            rows, values = claude_any.advisor_model_panel_rows(
+        with mock.patch.object(ciel_runtime, "upstream_model_ids", return_value=["deepseek-v4-pro"]) as upstream:
+            rows, values = ciel_runtime.advisor_model_panel_rows(
                 "opencode-go",
                 pcfg,
                 fetch=True,
@@ -514,8 +514,8 @@ class OpenCodeProviderTests(unittest.TestCase):
 
     def test_advisor_panel_keeps_preconfigured_custom_advisor_visible(self):
         pcfg = self.opencode_cfg(api_key="sk-opencode-test", advisor_model="custom-advisor")["providers"]["opencode"]
-        with mock.patch.object(claude_any, "upstream_model_ids", return_value=["claude-sonnet-4-6"]):
-            rows, values = claude_any.advisor_model_panel_rows("opencode", pcfg)
+        with mock.patch.object(ciel_runtime, "upstream_model_ids", return_value=["claude-sonnet-4-6"]):
+            rows, values = ciel_runtime.advisor_model_panel_rows("opencode", pcfg)
 
         self.assertIn("custom-advisor", values)
         self.assertTrue(any("custom-advisor" in row for row in rows))
@@ -526,17 +526,17 @@ class OpenCodeProviderTests(unittest.TestCase):
             custom_models=["claude-sonnet-4-6", "glm-5.1"],
         )["providers"]["opencode"]
         with (
-            mock.patch.object(claude_any, "read_model_list_cache", return_value=None),
-            mock.patch.object(claude_any, "write_model_list_cache") as write_cache,
-            mock.patch.object(claude_any, "http_json", side_effect=TimeoutError("offline")),
+            mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=None),
+            mock.patch.object(ciel_runtime, "write_model_list_cache") as write_cache,
+            mock.patch.object(ciel_runtime, "http_json", side_effect=TimeoutError("offline")),
         ):
-            models = claude_any.upstream_model_ids("opencode", pcfg)
+            models = ciel_runtime.upstream_model_ids("opencode", pcfg)
         self.assertEqual(["claude-sonnet-4-6", "glm-5.1"], models)
         write_cache.assert_called_once()
 
     def test_provider_headers_include_opencode_api_key(self):
         pcfg = self.opencode_cfg(api_key="sk-opencode-test")["providers"]["opencode"]
-        headers = claude_any.provider_headers("opencode", pcfg)
+        headers = ciel_runtime.provider_headers("opencode", pcfg)
         self.assertEqual("Bearer sk-opencode-test", headers["authorization"])
         self.assertEqual("sk-opencode-test", headers["x-api-key"])
         self.assertEqual("2023-06-01", headers["anthropic-version"])
@@ -544,74 +544,74 @@ class OpenCodeProviderTests(unittest.TestCase):
 
     def test_provider_headers_include_opencode_go_api_key(self):
         pcfg = self.opencode_go_cfg(api_key="sk-opencode-test")["providers"]["opencode-go"]
-        headers = claude_any.provider_headers("opencode-go", pcfg)
+        headers = ciel_runtime.provider_headers("opencode-go", pcfg)
         self.assertEqual("Bearer sk-opencode-test", headers["authorization"])
         self.assertEqual("sk-opencode-test", headers["x-api-key"])
         self.assertEqual("2023-06-01", headers["anthropic-version"])
         self.assertEqual("claude-cli", headers["user-agent"])
 
     def test_zen_endpoint_family_mapping(self):
-        self.assertEqual("anthropic-messages", claude_any.opencode_zen_endpoint_kind("claude-sonnet-4-6"))
-        self.assertEqual("anthropic-messages", claude_any.opencode_zen_endpoint_kind("qwen3.6-plus"))
-        self.assertEqual("anthropic-messages", claude_any.opencode_zen_endpoint_kind("qwen3.6-plus-free"))
-        self.assertEqual("openai-chat", claude_any.opencode_zen_endpoint_kind("glm-5.1"))
-        self.assertEqual("openai-responses", claude_any.opencode_zen_endpoint_kind("gpt-5.1"))
-        self.assertEqual("google-generative", claude_any.opencode_zen_endpoint_kind("gemini-3.1-pro"))
-        self.assertEqual("openai-chat", claude_any.opencode_zen_endpoint_kind("north-mini-code-free"))
-        self.assertEqual("anthropic-messages", claude_any.opencode_zen_endpoint_kind("new-custom-model"))
+        self.assertEqual("anthropic-messages", ciel_runtime.opencode_zen_endpoint_kind("claude-sonnet-4-6"))
+        self.assertEqual("anthropic-messages", ciel_runtime.opencode_zen_endpoint_kind("qwen3.6-plus"))
+        self.assertEqual("anthropic-messages", ciel_runtime.opencode_zen_endpoint_kind("qwen3.6-plus-free"))
+        self.assertEqual("openai-chat", ciel_runtime.opencode_zen_endpoint_kind("glm-5.1"))
+        self.assertEqual("openai-responses", ciel_runtime.opencode_zen_endpoint_kind("gpt-5.1"))
+        self.assertEqual("google-generative", ciel_runtime.opencode_zen_endpoint_kind("gemini-3.1-pro"))
+        self.assertEqual("openai-chat", ciel_runtime.opencode_zen_endpoint_kind("north-mini-code-free"))
+        self.assertEqual("anthropic-messages", ciel_runtime.opencode_zen_endpoint_kind("new-custom-model"))
 
     def test_go_endpoint_family_mapping(self):
-        self.assertEqual("anthropic-messages", claude_any.opencode_go_endpoint_kind("qwen3.6-plus"))
-        self.assertEqual("anthropic-messages", claude_any.opencode_go_endpoint_kind("minimax-m2.7"))
-        self.assertEqual("openai-chat", claude_any.opencode_go_endpoint_kind("glm-5.1"))
-        self.assertEqual("openai-chat", claude_any.opencode_go_endpoint_kind("kimi-k2.6"))
-        self.assertEqual("openai-chat", claude_any.opencode_go_endpoint_kind("deepseek-v4-pro"))
-        self.assertEqual("openai-chat", claude_any.opencode_go_endpoint_kind("mimo-v2.5-pro"))
-        self.assertEqual("anthropic-messages", claude_any.opencode_go_endpoint_kind("new-custom-model"))
+        self.assertEqual("anthropic-messages", ciel_runtime.opencode_go_endpoint_kind("qwen3.6-plus"))
+        self.assertEqual("anthropic-messages", ciel_runtime.opencode_go_endpoint_kind("minimax-m2.7"))
+        self.assertEqual("openai-chat", ciel_runtime.opencode_go_endpoint_kind("glm-5.1"))
+        self.assertEqual("openai-chat", ciel_runtime.opencode_go_endpoint_kind("kimi-k2.6"))
+        self.assertEqual("openai-chat", ciel_runtime.opencode_go_endpoint_kind("deepseek-v4-pro"))
+        self.assertEqual("openai-chat", ciel_runtime.opencode_go_endpoint_kind("mimo-v2.5-pro"))
+        self.assertEqual("anthropic-messages", ciel_runtime.opencode_go_endpoint_kind("new-custom-model"))
 
     def test_native_compat_depends_on_zen_endpoint_family(self):
         claude_cfg = self.opencode_cfg(current_model="claude-sonnet-4-6")["providers"]["opencode"]
         glm_cfg = self.opencode_cfg(current_model="glm-5.1")["providers"]["opencode"]
-        self.assertTrue(claude_any.provider_native_compat_enabled("opencode", claude_cfg))
-        self.assertFalse(claude_any.provider_native_compat_enabled("opencode", glm_cfg))
+        self.assertTrue(ciel_runtime.provider_native_compat_enabled("opencode", claude_cfg))
+        self.assertFalse(ciel_runtime.provider_native_compat_enabled("opencode", glm_cfg))
 
     def test_endpoint_override_takes_precedence_over_fallback(self):
         pcfg = self.opencode_go_cfg(
             current_model="glm-5.1",
             model_endpoints={"glm-5.1": "messages"},
         )["providers"]["opencode-go"]
-        self.assertEqual("anthropic-messages", claude_any.opencode_endpoint_kind("opencode-go", "glm-5.1", pcfg))
-        self.assertTrue(claude_any.provider_native_compat_enabled("opencode-go", pcfg))
+        self.assertEqual("anthropic-messages", ciel_runtime.opencode_endpoint_kind("opencode-go", "glm-5.1", pcfg))
+        self.assertTrue(ciel_runtime.provider_native_compat_enabled("opencode-go", pcfg))
 
     def test_provider_option_sets_endpoint_override(self):
         pcfg = self.opencode_go_cfg()["providers"]["opencode-go"]
-        claude_any.apply_provider_option("opencode-go", pcfg, "endpoint:custom-model=chat")
+        ciel_runtime.apply_provider_option("opencode-go", pcfg, "endpoint:custom-model=chat")
         self.assertEqual("openai-chat", pcfg["model_endpoints"]["custom-model"])
-        self.assertEqual("openai-chat", claude_any.opencode_endpoint_kind("opencode-go", "custom-model", pcfg))
-        claude_any.apply_provider_option("opencode-go", pcfg, "unset:endpoint:custom-model")
+        self.assertEqual("openai-chat", ciel_runtime.opencode_endpoint_kind("opencode-go", "custom-model", pcfg))
+        ciel_runtime.apply_provider_option("opencode-go", pcfg, "unset:endpoint:custom-model")
         self.assertNotIn("custom-model", pcfg["model_endpoints"])
 
     def test_go_native_compat_depends_on_endpoint_family(self):
         qwen_cfg = self.opencode_go_cfg(current_model="qwen3.6-plus")["providers"]["opencode-go"]
         glm_cfg = self.opencode_go_cfg(current_model="glm-5.1")["providers"]["opencode-go"]
-        self.assertTrue(claude_any.provider_native_compat_enabled("opencode-go", qwen_cfg))
-        self.assertFalse(claude_any.provider_native_compat_enabled("opencode-go", glm_cfg))
+        self.assertTrue(ciel_runtime.provider_native_compat_enabled("opencode-go", qwen_cfg))
+        self.assertFalse(ciel_runtime.provider_native_compat_enabled("opencode-go", glm_cfg))
 
     def test_model_object_reports_zen_endpoint_metadata(self):
-        obj = claude_any.model_object("opencode", "gpt-5.1")
-        self.assertEqual("openai-responses", obj["claude_any"]["opencode_endpoint"])
-        self.assertFalse(obj["claude_any"]["router_supported"])
+        obj = ciel_runtime.model_object("opencode", "gpt-5.1")
+        self.assertEqual("openai-responses", obj["ciel_runtime"]["opencode_endpoint"])
+        self.assertFalse(obj["ciel_runtime"]["router_supported"])
 
     def test_go_model_object_reports_endpoint_metadata(self):
-        obj = claude_any.model_object("opencode-go", "glm-5.1")
-        self.assertEqual("openai-chat", obj["claude_any"]["opencode_endpoint"])
-        self.assertTrue(obj["claude_any"]["router_supported"])
+        obj = ciel_runtime.model_object("opencode-go", "glm-5.1")
+        self.assertEqual("openai-chat", obj["ciel_runtime"]["opencode_endpoint"])
+        self.assertTrue(obj["ciel_runtime"]["router_supported"])
 
     def test_zen_deepseek_chat_omits_forced_tool_choice(self):
         pcfg = self.opencode_cfg(api_key="sk-opencode-test")["providers"]["opencode"]
-        body = claude_any.compatibility_tool_request("deepseek-v4-flash-free")
+        body = ciel_runtime.compatibility_tool_request("deepseek-v4-flash-free")
 
-        request = claude_any.openai_compatible_chat_request(
+        request = ciel_runtime.openai_compatible_chat_request(
             "opencode",
             "deepseek-v4-flash-free",
             body,
@@ -624,9 +624,9 @@ class OpenCodeProviderTests(unittest.TestCase):
 
     def test_go_deepseek_chat_omits_forced_tool_choice(self):
         pcfg = self.opencode_go_cfg(api_key="sk-opencode-test")["providers"]["opencode-go"]
-        body = claude_any.compatibility_tool_request("deepseek-v4-pro")
+        body = ciel_runtime.compatibility_tool_request("deepseek-v4-pro")
 
-        request = claude_any.openai_compatible_chat_request(
+        request = ciel_runtime.openai_compatible_chat_request(
             "opencode-go",
             "deepseek-v4-pro",
             body,
@@ -639,9 +639,9 @@ class OpenCodeProviderTests(unittest.TestCase):
 
     def test_non_deepseek_chat_preserves_forced_tool_choice(self):
         pcfg = self.opencode_cfg(api_key="sk-opencode-test")["providers"]["opencode"]
-        body = claude_any.compatibility_tool_request("glm-5.1")
+        body = ciel_runtime.compatibility_tool_request("glm-5.1")
 
-        request = claude_any.openai_compatible_chat_request(
+        request = ciel_runtime.openai_compatible_chat_request(
             "opencode",
             "glm-5.1",
             body,
@@ -650,7 +650,7 @@ class OpenCodeProviderTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            {"type": "function", "function": {"name": claude_any.COMPAT_TOOL_NAME}},
+            {"type": "function", "function": {"name": ciel_runtime.COMPAT_TOOL_NAME}},
             request.get("tool_choice"),
         )
 
@@ -679,20 +679,20 @@ class OpenCodeProviderTests(unittest.TestCase):
             "usage": {"prompt_tokens": 10, "completion_tokens": 5},
         }
 
-        message = claude_any.openai_chat_to_anthropic(data, "deepseek-v4-flash-free")
+        message = ciel_runtime.openai_chat_to_anthropic(data, "deepseek-v4-flash-free")
         self.assertEqual("thinking", message["content"][0]["type"])
         self.assertEqual("private chain", message["content"][0]["thinking"])
 
         body = {
-            "model": "claude-any-opencode-deepseek-v4-flash-free",
+            "model": "ciel-runtime-opencode-deepseek-v4-flash-free",
             "thinking": {"type": "enabled"},
             "messages": [{"role": "assistant", "content": message["content"]}],
         }
-        normalized = claude_any.normalize_thinking_for_non_anthropic_provider("opencode", pcfg, body)
+        normalized = ciel_runtime.normalize_thinking_for_non_anthropic_provider("opencode", pcfg, body)
         self.assertNotIn("thinking", normalized)
         self.assertEqual("thinking", normalized["messages"][0]["content"][0]["type"])
 
-        converted = claude_any.anthropic_messages_to_openai(normalized)
+        converted = ciel_runtime.anthropic_messages_to_openai(normalized)
         assistant = [item for item in converted if item.get("role") == "assistant"][-1]
         self.assertEqual("private chain", assistant["reasoning_content"])
         self.assertEqual("visible answer", assistant["content"])
@@ -704,7 +704,7 @@ class OpenCodeProviderTests(unittest.TestCase):
             current_model="deepseek-v4-flash-free",
         )["providers"]["opencode"]
         body = {
-            "model": "claude-any-opencode-deepseek-v4-flash-free",
+            "model": "ciel-runtime-opencode-deepseek-v4-flash-free",
             "messages": [
                 {
                     "role": "assistant",
@@ -728,7 +728,7 @@ class OpenCodeProviderTests(unittest.TestCase):
             ],
         }
 
-        request = claude_any.openai_compatible_chat_request(
+        request = ciel_runtime.openai_compatible_chat_request(
             "opencode",
             "deepseek-v4-flash-free",
             body,
@@ -747,7 +747,7 @@ class OpenCodeProviderTests(unittest.TestCase):
             current_model="deepseek-v4-flash-free",
         )["providers"]["opencode"]
         body = {
-            "model": "claude-any-opencode-deepseek-v4-flash-free",
+            "model": "ciel-runtime-opencode-deepseek-v4-flash-free",
             "messages": [
                 {
                     "role": "assistant",
@@ -766,7 +766,7 @@ class OpenCodeProviderTests(unittest.TestCase):
             ],
         }
 
-        request = claude_any.openai_compatible_chat_request(
+        request = ciel_runtime.openai_compatible_chat_request(
             "opencode",
             "deepseek-v4-flash-free",
             body,
@@ -784,7 +784,7 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual("계속", messages[assistant_index + 2]["content"])
 
     def test_openai_request_demotes_orphan_tool_message(self):
-        messages = claude_any.repair_openai_tool_call_adjacency(
+        messages = ciel_runtime.repair_openai_tool_call_adjacency(
             [
                 {"role": "user", "content": "hello"},
                 {"role": "tool", "tool_call_id": "call_orphan", "content": "late result"},
@@ -798,7 +798,7 @@ class OpenCodeProviderTests(unittest.TestCase):
     def test_non_deepseek_openai_chat_still_strips_anthropic_thinking(self):
         pcfg = self.opencode_cfg(api_key="sk-opencode-test", current_model="glm-5.1")["providers"]["opencode"]
         body = {
-            "model": "claude-any-opencode-glm-5-1",
+            "model": "ciel-runtime-opencode-glm-5-1",
             "thinking": {"type": "enabled"},
             "messages": [
                 {
@@ -811,7 +811,7 @@ class OpenCodeProviderTests(unittest.TestCase):
             ],
         }
 
-        normalized = claude_any.normalize_thinking_for_non_anthropic_provider("opencode", pcfg, body)
+        normalized = ciel_runtime.normalize_thinking_for_non_anthropic_provider("opencode", pcfg, body)
 
         self.assertNotIn("thinking", normalized)
         self.assertEqual([{"type": "text", "text": "visible"}], normalized["messages"][0]["content"])
@@ -822,7 +822,7 @@ class OpenCodeProviderTests(unittest.TestCase):
                 self.wfile = io.BytesIO()
 
         def sse(payload):
-            return f"data: {claude_any.json.dumps(payload, ensure_ascii=False)}\n\n".encode()
+            return f"data: {ciel_runtime.json.dumps(payload, ensure_ascii=False)}\n\n".encode()
 
         chunks = [
             sse({"choices": [{"delta": {"reasoning_content": "private "}}]}),
@@ -833,7 +833,7 @@ class OpenCodeProviderTests(unittest.TestCase):
         ]
         handler = FakeHandler()
 
-        ok = claude_any.stream_openai_chat_to_anthropic_sse(
+        ok = ciel_runtime.stream_openai_chat_to_anthropic_sse(
             handler,
             io.BytesIO(b"".join(chunks)),
             "deepseek-v4-flash-free",

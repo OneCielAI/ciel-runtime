@@ -3,12 +3,12 @@ import json
 from io import BytesIO
 from unittest import mock
 
-import claude_any
+import ciel_runtime
 
 
 def body_with_tools(user_text: str, tool_names: list[str]) -> dict:
     return {
-        "model": "claude-any-ollama-cloud-deepseek-v4-flash[1m]",
+        "model": "ciel-runtime-ollama-cloud-deepseek-v4-flash[1m]",
         "messages": [{"role": "user", "content": [{"type": "text", "text": user_text}]}],
         "tools": [{"name": name, "input_schema": {"type": "object"}} for name in tool_names],
     }
@@ -41,7 +41,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
             }
         )
 
-        name, fixed = claude_any.plan_mode_tool_name_for_emit(body, "ExitPlanMode", {})
+        name, fixed = ciel_runtime.plan_mode_tool_name_for_emit(body, "ExitPlanMode", {})
 
         self.assertEqual("ExitPlanMode", name)
         self.assertEqual(
@@ -75,7 +75,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         )
         existing = {"allowedPrompts": [{"tool": "Bash", "prompt": "run tests"}]}
 
-        name, fixed = claude_any.plan_mode_tool_name_for_emit(body, "ExitPlanMode", existing)
+        name, fixed = ciel_runtime.plan_mode_tool_name_for_emit(body, "ExitPlanMode", existing)
 
         self.assertEqual("ExitPlanMode", name)
         self.assertEqual(existing, fixed)
@@ -99,7 +99,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual("계속", claude_any.latest_user_text(body))
+        self.assertEqual("계속", ciel_runtime.latest_user_text(body))
 
     def test_empty_resume_turn_synthesizes_tasklist(self):
         body = body_with_tools("continue implementation", ["TaskList", "Read", "Edit"])
@@ -118,7 +118,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
             "eval_count": 29,
         }
 
-        message = claude_any.ollama_chat_to_anthropic(data, "deepseek-v4-flash", source_body=body)
+        message = ciel_runtime.ollama_chat_to_anthropic(data, "deepseek-v4-flash", source_body=body)
 
         self.assertEqual("tool_use", message["stop_reason"])
         self.assertEqual("TaskList", message["content"][0]["name"])
@@ -136,7 +136,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
             }
         ]
 
-        self.assertFalse(claude_any.should_auto_enter_plan_mode(body, "", []))
+        self.assertFalse(ciel_runtime.should_auto_enter_plan_mode(body, "", []))
 
     def test_ultracode_still_on_workflow_prevents_auto_enter_plan_mode(self):
         body = body_with_tools(
@@ -150,7 +150,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
             }
         )
 
-        self.assertFalse(claude_any.should_auto_enter_plan_mode(body, "", []))
+        self.assertFalse(ciel_runtime.should_auto_enter_plan_mode(body, "", []))
 
     def test_ultracode_runtime_drops_enter_plan_mode_emit(self):
         body = body_with_tools(
@@ -159,7 +159,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         )
         body["system"] = "Ultracode is on: use the Workflow tool for every substantive task."
 
-        name, fixed = claude_any.plan_mode_tool_name_for_emit(body, "EnterPlanMode", {})
+        name, fixed = ciel_runtime.plan_mode_tool_name_for_emit(body, "EnterPlanMode", {})
 
         self.assertIsNone(name)
         self.assertEqual({}, fixed)
@@ -171,42 +171,42 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         )
         body["system"] = "Ultracode is still on — use the Workflow tool; see its Ultracode section."
 
-        name, fixed = claude_any.plan_mode_tool_name_for_emit(body, "EnterPlanMode", {})
+        name, fixed = ciel_runtime.plan_mode_tool_name_for_emit(body, "EnterPlanMode", {})
 
         self.assertIsNone(name)
         self.assertEqual({}, fixed)
 
     def test_channel_inbox_runtime_drops_enter_plan_mode_emit(self):
         body = body_with_tools(
-            "[claude-any channel inbox]\n<< ai-net-http >> incoming channel message for the current agent.",
+            "[ciel-runtime channel inbox]\n<< ai-net-http >> incoming channel message for the current agent.",
             ["EnterPlanMode", "TaskList"],
         )
-        body["metadata"] = {"claude_any_channel_injected": True}
+        body["metadata"] = {"ciel_runtime_channel_injected": True}
 
-        name, fixed = claude_any.plan_mode_tool_name_for_emit(body, "EnterPlanMode", {})
+        name, fixed = ciel_runtime.plan_mode_tool_name_for_emit(body, "EnterPlanMode", {})
 
         self.assertIsNone(name)
         self.assertEqual({}, fixed)
 
     def test_external_channel_runtime_drops_enter_plan_mode_emit(self):
         body = body_with_tools(
-            "[claude-any external channel message] channel=ai-net-http room=room1 from=agent id=42 text=\"hello\".",
+            "[ciel-runtime external channel message] channel=ai-net-http room=room1 from=agent id=42 text=\"hello\".",
             ["EnterPlanMode", "TaskList"],
         )
 
-        name, fixed = claude_any.plan_mode_tool_name_for_emit(body, "EnterPlanMode", {})
+        name, fixed = ciel_runtime.plan_mode_tool_name_for_emit(body, "EnterPlanMode", {})
 
         self.assertIsNone(name)
         self.assertEqual({}, fixed)
 
     def test_channel_prompt_does_not_auto_synthesize_enter_plan_mode(self):
         body = body_with_tools(
-            "[claude-any channel inbox]\n<< ai-net-http >> incoming channel message for the current agent.",
+            "[ciel-runtime channel inbox]\n<< ai-net-http >> incoming channel message for the current agent.",
             ["EnterPlanMode", "TaskList"],
         )
-        body["metadata"] = {"claude_any_channel_injected": True}
+        body["metadata"] = {"ciel_runtime_channel_injected": True}
 
-        self.assertFalse(claude_any.should_auto_enter_plan_mode(body, "", []))
+        self.assertFalse(ciel_runtime.should_auto_enter_plan_mode(body, "", []))
 
     def test_empty_turn_without_tasklist_returns_visible_notice(self):
         body = body_with_tools("continue implementation", ["Read", "Edit"])
@@ -217,7 +217,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
             "eval_count": 29,
         }
 
-        message = claude_any.ollama_chat_to_anthropic(data, "deepseek-v4-flash", source_body=body)
+        message = ciel_runtime.ollama_chat_to_anthropic(data, "deepseek-v4-flash", source_body=body)
 
         text_blocks = [block for block in message["content"] if block.get("type") == "text"]
         self.assertTrue(text_blocks)
@@ -258,7 +258,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
             "eval_count": 1,
         }
 
-        message = claude_any.ollama_chat_to_anthropic(data, "deepseek-v4-flash", source_body=body)
+        message = ciel_runtime.ollama_chat_to_anthropic(data, "deepseek-v4-flash", source_body=body)
 
         text_blocks = [block for block in message["content"] if block.get("type") == "text"]
         self.assertTrue(text_blocks)
@@ -275,7 +275,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
             "eval_count": 1,
         }
 
-        message = claude_any.ollama_chat_to_anthropic(data, "deepseek-v4-flash", source_body=body)
+        message = ciel_runtime.ollama_chat_to_anthropic(data, "deepseek-v4-flash", source_body=body)
 
         self.assertEqual("end_turn", message["stop_reason"])
         self.assertEqual("text", message["content"][0]["type"])
@@ -302,7 +302,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
             "eval_count": 40,
         }
 
-        message = claude_any.ollama_chat_to_anthropic(data, "deepseek-v4-flash", source_body=body)
+        message = ciel_runtime.ollama_chat_to_anthropic(data, "deepseek-v4-flash", source_body=body)
 
         self.assertEqual("tool_use", message["stop_reason"])
         self.assertEqual("text", message["content"][0]["type"])
@@ -327,7 +327,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
             "usage": {"input_tokens": 1, "output_tokens": 1},
         }
 
-        patched = claude_any.append_synthetic_tasklist_to_message(message, "deepseek-v4-flash", body, "test")
+        patched = ciel_runtime.append_synthetic_tasklist_to_message(message, "deepseek-v4-flash", body, "test")
 
         self.assertEqual("tool_use", patched["stop_reason"])
         self.assertEqual("TaskList", patched["content"][-1]["name"])
@@ -359,7 +359,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "deepseek-v4-flash",
@@ -399,7 +399,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "claude-opus-4-8",
@@ -412,6 +412,58 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         self.assertNotIn("toolu_anthropic_choice_", output)
         self.assertNotIn('"name": "TaskList"', output)
         self.assertIn('"stop_reason": "end_turn"', output)
+
+    def test_non_anthropic_stream_converts_bash_xml_pseudo_tool_text(self):
+        body = body_with_tools("search memory", ["Bash", "Read"])
+
+        class Handler:
+            def __init__(self):
+                self.wfile = BytesIO()
+
+        handler = Handler()
+        events = [
+            'event: message_start\ndata: {"type":"message_start","message":{"content":[]}}\n\n',
+            'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+            (
+                'event: content_block_delta\ndata: '
+                + json.dumps(
+                    {
+                        "type": "content_block_delta",
+                        "index": 0,
+                        "delta": {
+                            "type": "text_delta",
+                            "text": '1차 탐색\n\n<bash>\ngrep -rin "bb" /home/robert-any/.claude/projects/-home-robert-any/memory/ 2>/dev/null\n</bash>',
+                        },
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n\n"
+            ),
+            'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+            'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":1}}\n\n',
+            'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+        ]
+        lines = []
+        for event in events:
+            lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
+
+        ciel_runtime._rebatch_anthropic_sse_text(
+            handler,
+            lines,
+            "deepseek-v4-flash",
+            word_chunking=False,
+            source_body=body,
+            preserve_thinking=False,
+            provider="deepseek",
+            normalize_tool_use=True,
+        )
+
+        output = handler.wfile.getvalue().decode("utf-8")
+        self.assertIn("1차 탐색", output)
+        self.assertNotIn("<bash>", output)
+        self.assertIn('"name": "Bash"', output)
+        self.assertIn("grep -rin", output)
+        self.assertIn('"stop_reason": "tool_use"', output)
 
     def test_native_stream_hidden_only_response_synthesizes_tasklist(self):
         body = body_with_tools("continue implementation", ["TaskList", "Read", "Edit"])
@@ -440,7 +492,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "deepseek-v4-flash",
@@ -505,7 +557,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "deepseek-v4-flash",
@@ -567,7 +619,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "deepseek-v4-flash",
@@ -627,7 +679,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "deepseek-v4-flash",
@@ -686,7 +738,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "deepseek-v4-flash",
@@ -759,7 +811,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "deepseek-v4-flash",
@@ -825,7 +877,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "deepseek-v4-flash",
@@ -908,7 +960,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "deepseek-v4-flash",
@@ -974,7 +1026,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "deepseek-v4-flash",
@@ -1040,7 +1092,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "deepseek-v4-flash",
@@ -1081,7 +1133,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "deepseek-v4-flash",
@@ -1121,8 +1173,8 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
 
-        with mock.patch.object(claude_any, "router_log") as router_log:
-            claude_any._rebatch_anthropic_sse_text(
+        with mock.patch.object(ciel_runtime, "router_log") as router_log:
+            ciel_runtime._rebatch_anthropic_sse_text(
                 Handler(),
                 lines,
                 "deepseek-v4-flash",
@@ -1192,7 +1244,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "deepseek-v4-flash",
@@ -1235,7 +1287,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "deepseek-v4-flash",
@@ -1271,7 +1323,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         lines = []
         for event in events:
             lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             lines,
             "deepseek-v4-flash",

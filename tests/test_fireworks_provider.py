@@ -2,12 +2,12 @@ import copy
 import unittest
 from unittest import mock
 
-import claude_any
+import ciel_runtime
 
 
 class FireworksProviderTests(unittest.TestCase):
     def fireworks_cfg(self, **overrides):
-        pcfg = copy.deepcopy(claude_any.DEFAULT_CONFIG["providers"]["fireworks"])
+        pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["fireworks"])
         pcfg.update(overrides)
         return {
             "current_provider": "fireworks",
@@ -17,13 +17,13 @@ class FireworksProviderTests(unittest.TestCase):
         }
 
     def test_provider_is_registered(self):
-        self.assertEqual("fireworks", claude_any.PROVIDER_ALIASES["fireworks.ai"])
-        self.assertEqual("fireworks", claude_any.PROVIDER_ALIASES["fw"])
-        self.assertEqual("Fireworks.ai", claude_any.PROVIDER_LABELS["fireworks"])
-        self.assertEqual(claude_any.FIREWORKS_INFERENCE_BASE_URL, claude_any.default_base_url("fireworks"))
+        self.assertEqual("fireworks", ciel_runtime.PROVIDER_ALIASES["fireworks.ai"])
+        self.assertEqual("fireworks", ciel_runtime.PROVIDER_ALIASES["fw"])
+        self.assertEqual("Fireworks.ai", ciel_runtime.PROVIDER_LABELS["fireworks"])
+        self.assertEqual(ciel_runtime.FIREWORKS_INFERENCE_BASE_URL, ciel_runtime.default_base_url("fireworks"))
 
     def test_default_config_matches_fireworks_anthropic_docs(self):
-        pcfg = claude_any.DEFAULT_CONFIG["providers"]["fireworks"]
+        pcfg = ciel_runtime.DEFAULT_CONFIG["providers"]["fireworks"]
         self.assertEqual("https://api.fireworks.ai/inference", pcfg["base_url"])
         self.assertEqual("https://api.fireworks.ai", pcfg["model_api_base_url"])
         self.assertEqual("fireworks", pcfg["account_id"])
@@ -33,22 +33,22 @@ class FireworksProviderTests(unittest.TestCase):
     def test_native_base_url_strips_v1_suffix(self):
         pcfg = self.fireworks_cfg(base_url="https://api.fireworks.ai/inference/v1")["providers"]["fireworks"]
 
-        self.assertEqual("https://api.fireworks.ai/inference", claude_any.native_anthropic_base_url("fireworks", pcfg))
+        self.assertEqual("https://api.fireworks.ai/inference", ciel_runtime.native_anthropic_base_url("fireworks", pcfg))
 
     def test_management_base_url_derives_from_custom_inference_base(self):
         pcfg = self.fireworks_cfg(base_url="https://fw-proxy.local/inference")["providers"]["fireworks"]
 
-        self.assertEqual("https://fw-proxy.local", claude_any.fireworks_management_base_url(pcfg))
+        self.assertEqual("https://fw-proxy.local", ciel_runtime.fireworks_management_base_url(pcfg))
 
     def test_account_id_can_be_inferred_from_model_resource_name(self):
         pcfg = self.fireworks_cfg(account_id="", current_model="accounts/acme/models/custom-chat")["providers"]["fireworks"]
 
-        self.assertEqual("acme", claude_any.fireworks_account_id(pcfg))
+        self.assertEqual("acme", ciel_runtime.fireworks_account_id(pcfg))
 
     def test_provider_headers_include_fireworks_api_key(self):
         pcfg = self.fireworks_cfg(api_key="fw-test-key")["providers"]["fireworks"]
 
-        headers = claude_any.provider_headers("fireworks", pcfg)
+        headers = ciel_runtime.provider_headers("fireworks", pcfg)
 
         self.assertEqual("Bearer fw-test-key", headers["authorization"])
         self.assertEqual("fw-test-key", headers["x-api-key"])
@@ -77,8 +77,8 @@ class FireworksProviderTests(unittest.TestCase):
             ]
         }
 
-        self.assertEqual(["accounts/fireworks/models/test-model"], claude_any.model_ids_from_response(data))
-        info = claude_any.model_info_from_response("fireworks", data)
+        self.assertEqual(["accounts/fireworks/models/test-model"], ciel_runtime.model_ids_from_response(data))
+        info = ciel_runtime.model_info_from_response("fireworks", data)
 
         model_info = info["accounts/fireworks/models/test-model"]
         self.assertEqual(131072, model_info["max_model_len"])
@@ -94,15 +94,15 @@ class FireworksProviderTests(unittest.TestCase):
         pcfg = self.fireworks_cfg(current_model=model)["providers"]["fireworks"]
 
         with (
-            mock.patch.object(claude_any, "read_model_list_cache", return_value=[model]),
-            mock.patch.object(claude_any, "read_model_info_cache", return_value={
+            mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=[model]),
+            mock.patch.object(ciel_runtime, "read_model_info_cache", return_value={
                 model: {
                     "max_model_len": 131072,
                     "parameter_count": "123000000000",
                 }
             }),
         ):
-            rows, values = claude_any.model_panel_rows("fireworks", pcfg, fetch=False)
+            rows, values = ciel_runtime.model_panel_rows("fireworks", pcfg, fetch=False)
 
         self.assertIn(model, values)
         selected_row = next(row for row in rows if model in row)
@@ -134,11 +134,11 @@ class FireworksProviderTests(unittest.TestCase):
         }
 
         with (
-            mock.patch.object(claude_any, "read_model_list_cache", return_value=None),
-            mock.patch.object(claude_any, "http_json", side_effect=[first_page, second_page]) as http_json,
-            mock.patch.object(claude_any, "write_model_list_cache") as write_cache,
+            mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=None),
+            mock.patch.object(ciel_runtime, "http_json", side_effect=[first_page, second_page]) as http_json,
+            mock.patch.object(ciel_runtime, "write_model_list_cache") as write_cache,
         ):
-            models = claude_any.upstream_model_ids("fireworks", pcfg)
+            models = ciel_runtime.upstream_model_ids("fireworks", pcfg)
 
         self.assertIn("accounts/fireworks/models/kimi-k2p5", models)
         self.assertIn("accounts/fireworks/models/llama-v3p1-8b-instruct", models)
@@ -157,12 +157,12 @@ class FireworksProviderTests(unittest.TestCase):
         pcfg = self.fireworks_cfg(current_model=model, context_window=32768)["providers"]["fireworks"]
 
         with (
-            mock.patch.object(claude_any, "read_model_info_cache", return_value={model: {"max_model_len": 1048576}}),
-            mock.patch.object(claude_any, "upstream_model_context_limit", return_value=None),
+            mock.patch.object(ciel_runtime, "read_model_info_cache", return_value={model: {"max_model_len": 1048576}}),
+            mock.patch.object(ciel_runtime, "upstream_model_context_limit", return_value=None),
         ):
-            messages = claude_any.apply_current_model_specs_to_provider("fireworks", pcfg)
-            capacity = claude_any.provider_model_context_capacity("fireworks", pcfg)
-            preset = claude_any.recommended_preset_id("fireworks", pcfg)
+            messages = ciel_runtime.apply_current_model_specs_to_provider("fireworks", pcfg)
+            capacity = ciel_runtime.provider_model_context_capacity("fireworks", pcfg)
+            preset = ciel_runtime.recommended_preset_id("fireworks", pcfg)
 
         self.assertEqual(1048576, pcfg["max_model_len"])
         self.assertEqual(1048576, capacity)
@@ -172,8 +172,8 @@ class FireworksProviderTests(unittest.TestCase):
     def test_provider_options_can_set_fireworks_model_api_fields(self):
         pcfg = self.fireworks_cfg()["providers"]["fireworks"]
 
-        claude_any.apply_provider_option("fireworks", pcfg, "account_id=acme")
-        claude_any.apply_provider_option("fireworks", pcfg, "model_api_base_url=https://fw.example")
+        ciel_runtime.apply_provider_option("fireworks", pcfg, "account_id=acme")
+        ciel_runtime.apply_provider_option("fireworks", pcfg, "model_api_base_url=https://fw.example")
 
         self.assertEqual("acme", pcfg["account_id"])
         self.assertEqual("https://fw.example", pcfg["model_api_base_url"])

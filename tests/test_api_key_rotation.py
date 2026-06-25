@@ -7,52 +7,52 @@ import unittest
 from unittest import mock
 import urllib.error
 
-import claude_any
+import ciel_runtime
 
 
 class ApiKeyRotationTests(unittest.TestCase):
     def setUp(self):
-        with claude_any._API_KEY_ROTATION_LOCK:
-            claude_any._API_KEY_ROTATION_CURSOR.clear()
+        with ciel_runtime._API_KEY_ROTATION_LOCK:
+            ciel_runtime._API_KEY_ROTATION_CURSOR.clear()
 
     def deepseek_pcfg(self, **overrides):
-        pcfg = copy.deepcopy(claude_any.DEFAULT_CONFIG["providers"]["deepseek"])
+        pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["deepseek"])
         pcfg.update(overrides)
         return pcfg
 
     def provider_pcfg(self, provider, **overrides):
-        pcfg = copy.deepcopy(claude_any.DEFAULT_CONFIG["providers"][provider])
+        pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"][provider])
         pcfg.update(overrides)
         return pcfg
 
     def test_parse_api_key_list_filters_placeholders_and_dedupes(self):
-        keys = claude_any.parse_api_key_list("sk-a, dummy\nsk-b;sk-a\nnot-used")
+        keys = ciel_runtime.parse_api_key_list("sk-a, dummy\nsk-b;sk-a\nnot-used")
 
         self.assertEqual(["sk-a", "sk-b"], keys)
 
     def test_parse_api_key_list_repairs_soft_wrapped_comma_fields(self):
-        keys = claude_any.parse_api_key_list(
+        keys = ciel_runtime.parse_api_key_list(
             "sk-one,sk-two,sk-or\n  -v1-wrapped,sk-four"
         )
 
         self.assertEqual(["sk-one", "sk-two", "sk-or-v1-wrapped", "sk-four"], keys)
 
     def test_parse_api_key_list_keeps_newline_separator_without_commas(self):
-        keys = claude_any.parse_api_key_list("sk-one\nsk-two\nsk-three")
+        keys = ciel_runtime.parse_api_key_list("sk-one\nsk-two\nsk-three")
 
         self.assertEqual(["sk-one", "sk-two", "sk-three"], keys)
 
     def test_parse_api_key_list_keeps_final_pasted_line_without_trailing_newline(self):
-        keys = claude_any.parse_api_key_list("sk-one\nsk-two\nsk-three\nsk-four")
+        keys = ciel_runtime.parse_api_key_list("sk-one\nsk-two\nsk-three\nsk-four")
 
         self.assertEqual(["sk-one", "sk-two", "sk-three", "sk-four"], keys)
 
     def test_provider_headers_round_robin_multiple_keys(self):
         pcfg = self.deepseek_pcfg(api_key="", api_keys=["sk-one", "sk-two"])
 
-        first = claude_any.provider_headers("deepseek", pcfg)
-        second = claude_any.provider_headers("deepseek", pcfg)
-        third = claude_any.provider_headers("deepseek", pcfg)
+        first = ciel_runtime.provider_headers("deepseek", pcfg)
+        second = ciel_runtime.provider_headers("deepseek", pcfg)
+        third = ciel_runtime.provider_headers("deepseek", pcfg)
 
         self.assertEqual("Bearer sk-one", first["authorization"])
         self.assertEqual("Bearer sk-two", second["authorization"])
@@ -61,8 +61,8 @@ class ApiKeyRotationTests(unittest.TestCase):
     def test_model_list_headers_use_primary_key_without_advancing_rotation(self):
         pcfg = self.deepseek_pcfg(api_key="", api_keys=["sk-one", "sk-two"])
 
-        model_headers = claude_any.provider_model_list_headers("deepseek", pcfg)
-        request_headers = claude_any.provider_headers("deepseek", pcfg)
+        model_headers = ciel_runtime.provider_model_list_headers("deepseek", pcfg)
+        request_headers = ciel_runtime.provider_headers("deepseek", pcfg)
 
         self.assertEqual("Bearer sk-one", model_headers["authorization"])
         self.assertEqual("Bearer sk-one", request_headers["authorization"])
@@ -71,7 +71,7 @@ class ApiKeyRotationTests(unittest.TestCase):
         pcfg = self.deepseek_pcfg(api_key="", api_keys=["sk-one", "sk-two"])
         cfg = {"current_provider": "deepseek", "providers": {"deepseek": pcfg}}
 
-        env = claude_any.env_vars(cfg)
+        env = ciel_runtime.env_vars(cfg)
 
         self.assertEqual("sk-one", env["ANTHROPIC_AUTH_TOKEN"])
 
@@ -79,27 +79,27 @@ class ApiKeyRotationTests(unittest.TestCase):
         pcfg = self.deepseek_pcfg(api_key="", api_keys=["sk-one", "sk-two"])
         cfg = {"current_provider": "deepseek", "providers": {"deepseek": pcfg}}
 
-        errors = claude_any.launch_readiness_errors(cfg)
+        errors = ciel_runtime.launch_readiness_errors(cfg)
 
         self.assertFalse(any("DeepSeek.com requires" in err for err in errors))
 
     def test_api_key_status_reports_round_robin(self):
         pcfg = self.deepseek_pcfg(api_key="", api_keys=["sk-secret-one", "sk-secret-two"])
 
-        status = claude_any.api_key_status_line("deepseek", pcfg)
+        status = ciel_runtime.api_key_status_line("deepseek", pcfg)
 
         self.assertIn("2 keys, round-robin", status)
-        self.assertIn(f"primary {claude_any.mask_secret('sk-secret-one')}", status)
+        self.assertIn(f"primary {ciel_runtime.mask_secret('sk-secret-one')}", status)
         self.assertIn("fp", status)
 
     def test_stored_api_key_mask_includes_primary_fingerprint(self):
         pcfg = self.deepseek_pcfg(api_key="", api_keys=["sk-secret-one", "sk-secret-two"])
 
-        status = claude_any.stored_api_key_mask("deepseek", pcfg)
+        status = ciel_runtime.stored_api_key_mask("deepseek", pcfg)
 
         self.assertIn("2 keys", status)
-        self.assertIn(f"primary {claude_any.mask_secret('sk-secret-one')}", status)
-        self.assertIn(claude_any.secret_fingerprint("sk-secret-one"), status)
+        self.assertIn(f"primary {ciel_runtime.mask_secret('sk-secret-one')}", status)
+        self.assertIn(ciel_runtime.secret_fingerprint("sk-secret-one"), status)
 
     def test_router_start_resets_only_per_key_cooldowns(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -122,11 +122,11 @@ class ApiKeyRotationTests(unittest.TestCase):
             )
 
             with (
-                mock.patch.object(claude_any, "RATE_LIMIT_STATE_PATH", state_path),
-                mock.patch.object(claude_any, "CONFIG_DIR", Path(tmp)),
-                mock.patch.object(claude_any, "router_log"),
+                mock.patch.object(ciel_runtime, "RATE_LIMIT_STATE_PATH", state_path),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", Path(tmp)),
+                mock.patch.object(ciel_runtime, "router_log"),
             ):
-                removed = claude_any.reset_api_key_cooldowns_for_router_start()
+                removed = ciel_runtime.reset_api_key_cooldowns_for_router_start()
 
             self.assertEqual(1, removed)
             saved = json.loads(state_path.read_text(encoding="utf-8"))
@@ -146,11 +146,11 @@ class ApiKeyRotationTests(unittest.TestCase):
             saved.update(copy.deepcopy(value))
 
         with (
-            mock.patch.object(claude_any, "load_config", return_value=cfg),
-            mock.patch.object(claude_any, "save_config", side_effect=fake_save_config),
-            mock.patch.object(claude_any, "clear_model_cache"),
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "save_config", side_effect=fake_save_config),
+            mock.patch.object(ciel_runtime, "clear_model_cache"),
         ):
-            messages = claude_any.store_api_key_input_config("deepseek", "sk-one,sk-two")
+            messages = ciel_runtime.store_api_key_input_config("deepseek", "sk-one,sk-two")
 
         pcfg = saved["providers"]["deepseek"]
         self.assertEqual("sk-one", pcfg["api_key"])
@@ -169,11 +169,11 @@ class ApiKeyRotationTests(unittest.TestCase):
             saved.update(copy.deepcopy(value))
 
         with (
-            mock.patch.object(claude_any, "load_config", return_value=cfg),
-            mock.patch.object(claude_any, "save_config", side_effect=fake_save_config),
-            mock.patch.object(claude_any, "clear_model_cache"),
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "save_config", side_effect=fake_save_config),
+            mock.patch.object(ciel_runtime, "clear_model_cache"),
         ):
-            messages = claude_any.store_api_key_input_config("deepseek", "clear")
+            messages = ciel_runtime.store_api_key_input_config("deepseek", "clear")
 
         pcfg = saved["providers"]["deepseek"]
         self.assertNotIn("api_key", pcfg)
@@ -192,11 +192,11 @@ class ApiKeyRotationTests(unittest.TestCase):
             saved.update(copy.deepcopy(value))
 
         with (
-            mock.patch.object(claude_any, "load_config", return_value=cfg),
-            mock.patch.object(claude_any, "save_config", side_effect=fake_save_config),
-            mock.patch.object(claude_any, "clear_model_cache"),
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "save_config", side_effect=fake_save_config),
+            mock.patch.object(ciel_runtime, "clear_model_cache"),
         ):
-            messages = claude_any.store_api_keys_config("deepseek", ["unset"])
+            messages = ciel_runtime.store_api_keys_config("deepseek", ["unset"])
 
         pcfg = saved["providers"]["deepseek"]
         self.assertNotIn("api_key", pcfg)
@@ -211,14 +211,14 @@ class ApiKeyRotationTests(unittest.TestCase):
                     "content": [
                         {
                             "type": "text",
-                            "text": "CLAUDE_ANY_LIVE_API_KEYS\n\nValue: sk-one\nArguments:\nsk-one\nsk-two\nsk-three",
+                            "text": "CIEL_RUNTIME_LIVE_API_KEYS\n\nValue: sk-one\nArguments:\nsk-one\nsk-two\nsk-three",
                         }
                     ],
                 }
             ]
         }
 
-        self.assertEqual("sk-one\nsk-two\nsk-three", claude_any.live_api_keys_value_from_body(body))
+        self.assertEqual("sk-one\nsk-two\nsk-three", ciel_runtime.live_api_keys_value_from_body(body))
 
     def test_live_api_key_slash_status_when_arguments_unexpanded(self):
         body = {
@@ -228,14 +228,14 @@ class ApiKeyRotationTests(unittest.TestCase):
                     "content": [
                         {
                             "type": "text",
-                            "text": "CLAUDE_ANY_LIVE_API_KEYS\n\nValue: $0\nArguments:\n$ARGUMENTS",
+                            "text": "CIEL_RUNTIME_LIVE_API_KEYS\n\nValue: $0\nArguments:\n$ARGUMENTS",
                         }
                     ],
                 }
             ]
         }
 
-        self.assertEqual("status", claude_any.live_api_keys_value_from_body(body))
+        self.assertEqual("status", ciel_runtime.live_api_keys_value_from_body(body))
 
     def test_live_api_key_action_updates_current_provider_only(self):
         cfg = {
@@ -247,11 +247,11 @@ class ApiKeyRotationTests(unittest.TestCase):
         }
 
         with (
-            mock.patch.object(claude_any, "load_config", return_value=cfg),
-            mock.patch.object(claude_any, "save_config"),
-            mock.patch.object(claude_any, "clear_model_cache"),
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "save_config"),
+            mock.patch.object(ciel_runtime, "clear_model_cache"),
         ):
-            lines, changed = claude_any.handle_live_api_keys_action("sk-live-one\nsk-live-two")
+            lines, changed = ciel_runtime.handle_live_api_keys_action("sk-live-one\nsk-live-two")
 
         self.assertTrue(changed)
         self.assertEqual("sk-live-one", cfg["providers"]["deepseek"]["api_key"])
@@ -266,21 +266,21 @@ class ApiKeyRotationTests(unittest.TestCase):
     def test_slash_command_install_adds_live_api_key_commands(self):
         with tempfile.TemporaryDirectory() as td:
             commands_dir = Path(td)
-            with mock.patch.object(claude_any, "CLAUDE_COMMANDS_DIR", commands_dir):
-                claude_any.install_claude_any_slash_commands(include_advisor=False)
+            with mock.patch.object(ciel_runtime, "CLAUDE_COMMANDS_DIR", commands_dir):
+                ciel_runtime.install_ciel_runtime_slash_commands(include_advisor=False)
 
             api_key = commands_dir / "api-key.md"
             api_keys = commands_dir / "api-keys.md"
             self.assertTrue(api_key.exists())
             self.assertTrue(api_keys.exists())
             text = api_key.read_text(encoding="utf-8")
-            self.assertIn("CLAUDE_ANY_LIVE_API_KEYS", text)
+            self.assertIn("CIEL_RUNTIME_LIVE_API_KEYS", text)
             self.assertIn("Arguments:", text)
             self.assertIn("$ARGUMENTS", text)
 
     def test_clear_api_key_preserves_other_provider_keys_after_reload(self):
         providers = ["anthropic", "deepseek", "opencode", "openrouter", "ollama-cloud", "fireworks", "zai"]
-        cfg = copy.deepcopy(claude_any.DEFAULT_CONFIG)
+        cfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG)
         cfg["current_provider"] = "anthropic"
         for provider in providers:
             cfg["providers"][provider]["api_key"] = f"sk-{provider}-one"
@@ -291,15 +291,15 @@ class ApiKeyRotationTests(unittest.TestCase):
             cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
 
             with (
-                mock.patch.object(claude_any, "CONFIG_PATH", cfg_path),
-                mock.patch.object(claude_any, "CONFIG_DIR", Path(tmp)),
-                mock.patch.object(claude_any, "clear_model_cache", side_effect=claude_any.invalidate_config_cache),
+                mock.patch.object(ciel_runtime, "CONFIG_PATH", cfg_path),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", Path(tmp)),
+                mock.patch.object(ciel_runtime, "clear_model_cache", side_effect=ciel_runtime.invalidate_config_cache),
             ):
-                claude_any.clear_api_key_config("deepseek")
-                reloaded = claude_any.load_config()
+                ciel_runtime.clear_api_key_config("deepseek")
+                reloaded = ciel_runtime.load_config()
 
         for provider in providers:
-            keys = claude_any.provider_config_api_keys(provider, reloaded["providers"][provider])
+            keys = ciel_runtime.provider_config_api_keys(provider, reloaded["providers"][provider])
             if provider == "deepseek":
                 self.assertEqual([], keys)
             else:
@@ -313,12 +313,12 @@ class ApiKeyRotationTests(unittest.TestCase):
             calls.append((url, body, headers or {}, timeout, kwargs))
             return {"content": [{"type": "text", "text": "OK"}]}
 
-        with mock.patch.object(claude_any, "post_json", side_effect=fake_post_json):
-            lines = claude_any.run_compatibility_api_key_probes(
+        with mock.patch.object(ciel_runtime, "post_json", side_effect=fake_post_json):
+            lines = ciel_runtime.run_compatibility_api_key_probes(
                 "deepseek",
                 pcfg,
-                "claude-any-deepseek-deepseek-v4-pro[1m]",
-                claude_any.compatibility_text_request("claude-any-deepseek-deepseek-v4-pro[1m]"),
+                "ciel-runtime-deepseek-deepseek-v4-pro[1m]",
+                ciel_runtime.compatibility_text_request("ciel-runtime-deepseek-deepseek-v4-pro[1m]"),
                 3.0,
             )
 
@@ -334,12 +334,12 @@ class ApiKeyRotationTests(unittest.TestCase):
     def test_compatibility_api_key_probe_skips_single_key(self):
         pcfg = self.deepseek_pcfg(api_key="sk-one", api_keys=[])
 
-        with mock.patch.object(claude_any, "post_json") as post_json:
-            lines = claude_any.run_compatibility_api_key_probes(
+        with mock.patch.object(ciel_runtime, "post_json") as post_json:
+            lines = ciel_runtime.run_compatibility_api_key_probes(
                 "deepseek",
                 pcfg,
-                "claude-any-deepseek-deepseek-v4-pro[1m]",
-                claude_any.compatibility_text_request("claude-any-deepseek-deepseek-v4-pro[1m]"),
+                "ciel-runtime-deepseek-deepseek-v4-pro[1m]",
+                ciel_runtime.compatibility_text_request("ciel-runtime-deepseek-deepseek-v4-pro[1m]"),
                 3.0,
             )
 
@@ -356,13 +356,13 @@ class ApiKeyRotationTests(unittest.TestCase):
             io.BytesIO(b'{"error":{"message":"invalid key"}}'),
         )
 
-        with mock.patch.object(claude_any, "post_json", side_effect=error):
-            with self.assertRaises(claude_any.CompatibilityApiKeyProbeError) as caught:
-                claude_any.run_compatibility_api_key_probes(
+        with mock.patch.object(ciel_runtime, "post_json", side_effect=error):
+            with self.assertRaises(ciel_runtime.CompatibilityApiKeyProbeError) as caught:
+                ciel_runtime.run_compatibility_api_key_probes(
                     "deepseek",
                     pcfg,
-                    "claude-any-deepseek-deepseek-v4-pro[1m]",
-                    claude_any.compatibility_text_request("claude-any-deepseek-deepseek-v4-pro[1m]"),
+                    "ciel-runtime-deepseek-deepseek-v4-pro[1m]",
+                    ciel_runtime.compatibility_text_request("ciel-runtime-deepseek-deepseek-v4-pro[1m]"),
                     3.0,
                 )
 
@@ -382,7 +382,7 @@ class ApiKeyRotationTests(unittest.TestCase):
             ),
         )
 
-        message = claude_any.compatibility_http_error_message(error)
+        message = ciel_runtime.compatibility_http_error_message(error)
 
         self.assertIn("FreeUsageLimitError", message)
         self.assertIn("Rate limit exceeded. Please try again later.", message)
@@ -404,13 +404,13 @@ class ApiKeyRotationTests(unittest.TestCase):
         )
 
         with (
-            mock.patch.object(claude_any.urllib.request, "urlopen", side_effect=error),
-            mock.patch.object(claude_any, "write_router_activity"),
-            mock.patch.object(claude_any, "learn_router_rate_limit_headers"),
-            mock.patch.object(claude_any.time, "sleep") as sleep,
+            mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=error),
+            mock.patch.object(ciel_runtime, "write_router_activity"),
+            mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
+            mock.patch.object(ciel_runtime.time, "sleep") as sleep,
         ):
             with self.assertRaises(RuntimeError) as caught:
-                claude_any.post_json_with_rate_retry(
+                ciel_runtime.post_json_with_rate_retry(
                     "https://opencode.ai/zen/v1/chat/completions",
                     {"model": "deepseek-v4-flash-free", "messages": []},
                     {},
@@ -464,18 +464,18 @@ class ApiKeyRotationTests(unittest.TestCase):
         notices = []
         with tempfile.TemporaryDirectory() as tmpdir:
             with (
-                mock.patch.object(claude_any, "RATE_LIMIT_STATE_PATH", Path(tmpdir) / "rate-limit-state.json"),
-                mock.patch.object(claude_any, "CONFIG_DIR", Path(tmpdir)),
-                mock.patch.object(claude_any.urllib.request, "urlopen", side_effect=fake_urlopen),
-                mock.patch.object(claude_any, "write_router_activity"),
-                mock.patch.object(claude_any, "learn_router_rate_limit_headers"),
-                mock.patch.object(claude_any.time, "sleep") as sleep,
-                mock.patch.object(claude_any, "register_router_rate_limit_backoff") as backoff,
+                mock.patch.object(ciel_runtime, "RATE_LIMIT_STATE_PATH", Path(tmpdir) / "rate-limit-state.json"),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", Path(tmpdir)),
+                mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=fake_urlopen),
+                mock.patch.object(ciel_runtime, "write_router_activity"),
+                mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
+                mock.patch.object(ciel_runtime.time, "sleep") as sleep,
+                mock.patch.object(ciel_runtime, "register_router_rate_limit_backoff") as backoff,
             ):
-                data = claude_any.post_json_with_rate_retry(
+                data = ciel_runtime.post_json_with_rate_retry(
                     "https://opencode.ai/zen/v1/chat/completions",
                     {"model": "deepseek-v4-flash-free", "messages": []},
-                    claude_any.provider_headers("opencode", pcfg),
+                    ciel_runtime.provider_headers("opencode", pcfg),
                     30.0,
                     "opencode",
                     pcfg,
@@ -521,19 +521,19 @@ class ApiKeyRotationTests(unittest.TestCase):
         notices = []
         with tempfile.TemporaryDirectory() as tmpdir:
             with (
-                mock.patch.object(claude_any, "RATE_LIMIT_STATE_PATH", Path(tmpdir) / "rate-limit-state.json"),
-                mock.patch.object(claude_any, "CONFIG_DIR", Path(tmpdir)),
-                mock.patch.object(claude_any.urllib.request, "urlopen", side_effect=fake_urlopen),
-                mock.patch.object(claude_any, "set_upstream_stream_read_timeout"),
-                mock.patch.object(claude_any, "write_router_activity"),
-                mock.patch.object(claude_any, "learn_router_rate_limit_headers"),
-                mock.patch.object(claude_any.time, "sleep") as sleep,
-                mock.patch.object(claude_any, "register_router_rate_limit_backoff") as backoff,
+                mock.patch.object(ciel_runtime, "RATE_LIMIT_STATE_PATH", Path(tmpdir) / "rate-limit-state.json"),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", Path(tmpdir)),
+                mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=fake_urlopen),
+                mock.patch.object(ciel_runtime, "set_upstream_stream_read_timeout"),
+                mock.patch.object(ciel_runtime, "write_router_activity"),
+                mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
+                mock.patch.object(ciel_runtime.time, "sleep") as sleep,
+                mock.patch.object(ciel_runtime, "register_router_rate_limit_backoff") as backoff,
             ):
-                resp = claude_any.open_openai_stream_with_rate_retry(
+                resp = ciel_runtime.open_openai_stream_with_rate_retry(
                     "https://opencode.ai/zen/v1/chat/completions",
                     {"model": "deepseek-v4-flash-free", "messages": [], "stream": True},
-                    claude_any.provider_headers("opencode", pcfg),
+                    ciel_runtime.provider_headers("opencode", pcfg),
                     120.0,
                     "opencode",
                     pcfg,
@@ -578,17 +578,17 @@ class ApiKeyRotationTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with (
-                mock.patch.object(claude_any, "RATE_LIMIT_STATE_PATH", Path(tmpdir) / "rate-limit-state.json"),
-                mock.patch.object(claude_any, "CONFIG_DIR", Path(tmpdir)),
-                mock.patch.object(claude_any.urllib.request, "urlopen", side_effect=fake_urlopen),
-                mock.patch.object(claude_any, "write_router_activity"),
-                mock.patch.object(claude_any, "learn_router_rate_limit_headers"),
-                mock.patch.object(claude_any.time, "sleep") as sleep,
+                mock.patch.object(ciel_runtime, "RATE_LIMIT_STATE_PATH", Path(tmpdir) / "rate-limit-state.json"),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", Path(tmpdir)),
+                mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=fake_urlopen),
+                mock.patch.object(ciel_runtime, "write_router_activity"),
+                mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
+                mock.patch.object(ciel_runtime.time, "sleep") as sleep,
             ):
-                resp = claude_any.open_provider_request_with_key_retry(
+                resp = ciel_runtime.open_provider_request_with_key_retry(
                     "https://api.deepseek.com/anthropic/v1/messages",
                     {"model": "deepseek-v4-pro", "messages": []},
-                    claude_any.provider_headers("deepseek", pcfg),
+                    ciel_runtime.provider_headers("deepseek", pcfg),
                     30.0,
                     "deepseek",
                     pcfg,
@@ -614,13 +614,13 @@ class ApiKeyRotationTests(unittest.TestCase):
         )
 
         with (
-            mock.patch.object(claude_any.urllib.request, "urlopen", side_effect=error) as urlopen,
-            mock.patch.object(claude_any, "write_router_activity"),
-            mock.patch.object(claude_any, "learn_router_rate_limit_headers"),
-            mock.patch.object(claude_any.time, "sleep") as sleep,
+            mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=error) as urlopen,
+            mock.patch.object(ciel_runtime, "write_router_activity"),
+            mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
+            mock.patch.object(ciel_runtime.time, "sleep") as sleep,
         ):
             with self.assertRaises(RuntimeError) as caught:
-                claude_any.open_openai_stream_with_rate_retry(
+                ciel_runtime.open_openai_stream_with_rate_retry(
                     "https://opencode.ai/zen/v1/chat/completions",
                     {"model": "deepseek-v4-flash-free", "messages": [], "stream": True},
                     {},
@@ -654,12 +654,12 @@ class ApiKeyRotationTests(unittest.TestCase):
                     calls.append((url, body, headers or {}, timeout, kwargs))
                     return {"content": [{"type": "text", "text": "OK"}]}
 
-                with mock.patch.object(claude_any, "post_json", side_effect=fake_post_json):
-                    claude_any.run_compatibility_api_key_probes(
+                with mock.patch.object(ciel_runtime, "post_json", side_effect=fake_post_json):
+                    ciel_runtime.run_compatibility_api_key_probes(
                         provider,
                         pcfg,
                         model,
-                        claude_any.compatibility_text_request(model),
+                        ciel_runtime.compatibility_text_request(model),
                         3.0,
                     )
 

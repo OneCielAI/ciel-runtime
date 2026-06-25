@@ -1,11 +1,11 @@
 import unittest
 
-import claude_any
+import ciel_runtime
 
 
 class ReviewCommandPassthroughTests(unittest.TestCase):
     def test_review_and_slash_command_tools_are_not_blocked(self):
-        blocked = claude_any.resolve_blocked_tools("ollama-cloud", {})
+        blocked = ciel_runtime.resolve_blocked_tools("ollama-cloud", {})
 
         self.assertNotIn("SlashCommand", blocked)
         self.assertNotIn("review", blocked)
@@ -38,7 +38,7 @@ class ReviewCommandPassthroughTests(unittest.TestCase):
             ]
         }
 
-        filtered = claude_any.filter_blocked_tools("ollama-cloud", {}, body)
+        filtered = ciel_runtime.filter_blocked_tools("ollama-cloud", {}, body)
         names = [tool["name"] for tool in filtered["tools"]]
 
         self.assertIn("SlashCommand", names)
@@ -88,7 +88,7 @@ class ReviewCommandPassthroughTests(unittest.TestCase):
             ]
         }
 
-        filtered = claude_any.filter_blocked_tools("ollama", {}, body)
+        filtered = ciel_runtime.filter_blocked_tools("ollama", {}, body)
         names = [tool["name"] for tool in filtered["tools"]]
 
         self.assertNotIn("WebSearch", names)
@@ -107,7 +107,7 @@ class ReviewCommandPassthroughTests(unittest.TestCase):
             ]
         }
 
-        filtered = claude_any.filter_blocked_tools("anthropic", {}, body)
+        filtered = ciel_runtime.filter_blocked_tools("anthropic", {}, body)
         names = [tool["name"] for tool in filtered["tools"]]
 
         self.assertIn("WebSearch", names)
@@ -131,7 +131,7 @@ class ReviewCommandPassthroughTests(unittest.TestCase):
             }
         ]
 
-        converted = claude_any.anthropic_tools_to_ollama(tools)
+        converted = ciel_runtime.anthropic_tools_to_ollama(tools)
 
         self.assertEqual("SlashCommand", converted[0]["function"]["name"])
         self.assertEqual(["command"], converted[0]["function"]["parameters"]["required"])

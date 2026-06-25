@@ -3,15 +3,15 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import claude_any
+import ciel_runtime
 
 
 class LiveLlmOptionsTests(unittest.TestCase):
     def _with_config(self, cfg):
         return (
-            mock.patch.object(claude_any, "load_config", lambda: cfg),
-            mock.patch.object(claude_any, "save_config"),
-            mock.patch.object(claude_any, "clear_model_cache"),
+            mock.patch.object(ciel_runtime, "load_config", lambda: cfg),
+            mock.patch.object(ciel_runtime, "save_config"),
+            mock.patch.object(ciel_runtime, "clear_model_cache"),
         )
 
     def test_apply_runtime_preset_captures_and_restore_original_options(self):
@@ -30,22 +30,22 @@ class LiveLlmOptionsTests(unittest.TestCase):
         }
         patches = self._with_config(cfg)
         with patches[0], patches[1], patches[2]:
-            lines, changed = claude_any.handle_live_llm_options_action("long-context-128k")
+            lines, changed = ciel_runtime.handle_live_llm_options_action("long-context-128k")
 
         pcfg = cfg["providers"]["opencode"]
         self.assertTrue(changed)
-        self.assertIn(claude_any.RUNTIME_LLM_ORIGINAL_KEY, pcfg)
+        self.assertIn(ciel_runtime.RUNTIME_LLM_ORIGINAL_KEY, pcfg)
         self.assertEqual(131072, pcfg["context_window"])
         self.assertEqual(8192, pcfg["max_output_tokens"])
         self.assertTrue(any("Captured current live LLM options" in line for line in lines))
 
         patches = self._with_config(cfg)
         with patches[0], patches[1], patches[2]:
-            lines, changed = claude_any.handle_live_llm_options_action("restore")
+            lines, changed = ciel_runtime.handle_live_llm_options_action("restore")
 
         pcfg = cfg["providers"]["opencode"]
         self.assertTrue(changed)
-        self.assertNotIn(claude_any.RUNTIME_LLM_ORIGINAL_KEY, pcfg)
+        self.assertNotIn(ciel_runtime.RUNTIME_LLM_ORIGINAL_KEY, pcfg)
         self.assertEqual(32768, pcfg["context_window"])
         self.assertEqual(2048, pcfg["context_reserve_tokens"])
         self.assertEqual(4096, pcfg["max_output_tokens"])
@@ -61,13 +61,13 @@ class LiveLlmOptionsTests(unittest.TestCase):
                     "num_ctx": "auto",
                     "num_ctx_max": 1048576,
                     "ollama_options": {"num_predict": 8192},
-                    claude_any.RUNTIME_LLM_ORIGINAL_KEY: {"values": {}},
+                    ciel_runtime.RUNTIME_LLM_ORIGINAL_KEY: {"values": {}},
                 }
             },
         }
         patches = self._with_config(cfg)
         with patches[0], patches[1], patches[2]:
-            lines, changed = claude_any.handle_live_llm_options_action("list")
+            lines, changed = ciel_runtime.handle_live_llm_options_action("list")
 
         self.assertFalse(changed)
         self.assertTrue(any("Slider:" in line and "[1M]" in line for line in lines))
@@ -89,7 +89,7 @@ class LiveLlmOptionsTests(unittest.TestCase):
         }
         patches = self._with_config(cfg)
         with patches[0], patches[1], patches[2]:
-            _lines, changed = claude_any.handle_live_llm_options_action("large-output")
+            _lines, changed = ciel_runtime.handle_live_llm_options_action("large-output")
 
         self.assertTrue(changed)
         self.assertNotIn("max_output_tokens", cfg["providers"]["anthropic"])
@@ -98,15 +98,15 @@ class LiveLlmOptionsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             commands_dir = Path(td)
             (commands_dir / "llm-balanced.md").write_text(
-                "CLAUDE_ANY_LIVE_LLM_OPTIONS\nValue: balanced\n",
+                "CIEL_RUNTIME_LIVE_LLM_OPTIONS\nValue: balanced\n",
                 encoding="utf-8",
             )
             (commands_dir / "llm-long-context-300k.md").write_text(
-                "CLAUDE_ANY_LIVE_LLM_OPTIONS\nValue: long-context-300k\n",
+                "CIEL_RUNTIME_LIVE_LLM_OPTIONS\nValue: long-context-300k\n",
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "CLAUDE_COMMANDS_DIR", commands_dir):
-                claude_any.install_claude_any_slash_commands(include_advisor=False)
+            with mock.patch.object(ciel_runtime, "CLAUDE_COMMANDS_DIR", commands_dir):
+                ciel_runtime.install_ciel_runtime_slash_commands(include_advisor=False)
 
             self.assertTrue((commands_dir / "llm.md").exists())
             self.assertTrue((commands_dir / "llm-options.md").exists())
@@ -117,7 +117,7 @@ class LiveLlmOptionsTests(unittest.TestCase):
             self.assertFalse((commands_dir / "llm-long-context-300k.md").exists())
             self.assertFalse((commands_dir / "llm-long-context-512k.md").exists())
             llm_command = (commands_dir / "llm.md").read_text(encoding="utf-8")
-            self.assertIn("CLAUDE_ANY_LIVE_LLM_OPTIONS", llm_command)
+            self.assertIn("CIEL_RUNTIME_LIVE_LLM_OPTIONS", llm_command)
             self.assertIn("Value: $0", llm_command)
             self.assertIn("Arguments: $ARGUMENTS", llm_command)
 
@@ -129,14 +129,14 @@ class LiveLlmOptionsTests(unittest.TestCase):
                     "content": [
                         {
                             "type": "text",
-                            "text": "CLAUDE_ANY_LIVE_LLM_OPTIONS\n\nValue: right\nArguments: $ARGUMENTS",
+                            "text": "CIEL_RUNTIME_LIVE_LLM_OPTIONS\n\nValue: right\nArguments: $ARGUMENTS",
                         }
                     ],
                 }
             ]
         }
 
-        self.assertEqual("right", claude_any.live_llm_options_value_from_body(body))
+        self.assertEqual("right", ciel_runtime.live_llm_options_value_from_body(body))
 
     def test_live_llm_slash_value_falls_back_to_arguments(self):
         body = {
@@ -146,14 +146,14 @@ class LiveLlmOptionsTests(unittest.TestCase):
                     "content": [
                         {
                             "type": "text",
-                            "text": "CLAUDE_ANY_LIVE_LLM_OPTIONS\n\nValue: $0\nArguments: left",
+                            "text": "CIEL_RUNTIME_LIVE_LLM_OPTIONS\n\nValue: $0\nArguments: left",
                         }
                     ],
                 }
             ]
         }
 
-        self.assertEqual("left", claude_any.live_llm_options_value_from_body(body))
+        self.assertEqual("left", ciel_runtime.live_llm_options_value_from_body(body))
 
     def test_live_llm_slash_value_ignores_unexpanded_placeholders(self):
         body = {
@@ -163,14 +163,14 @@ class LiveLlmOptionsTests(unittest.TestCase):
                     "content": [
                         {
                             "type": "text",
-                            "text": "CLAUDE_ANY_LIVE_LLM_OPTIONS\n\nValue: $0\nArguments: $ARGUMENTS",
+                            "text": "CIEL_RUNTIME_LIVE_LLM_OPTIONS\n\nValue: $0\nArguments: $ARGUMENTS",
                         }
                     ],
                 }
             ]
         }
 
-        self.assertEqual("status", claude_any.live_llm_options_value_from_body(body))
+        self.assertEqual("status", ciel_runtime.live_llm_options_value_from_body(body))
 
     def test_live_llm_slider_right_moves_to_next_preset(self):
         cfg = {
@@ -189,7 +189,7 @@ class LiveLlmOptionsTests(unittest.TestCase):
         }
         patches = self._with_config(cfg)
         with patches[0], patches[1], patches[2]:
-            lines, changed = claude_any.handle_live_llm_options_action("right")
+            lines, changed = ciel_runtime.handle_live_llm_options_action("right")
 
         pcfg = cfg["providers"]["opencode"]
         self.assertTrue(changed)
@@ -200,9 +200,9 @@ class LiveLlmOptionsTests(unittest.TestCase):
     def test_native_mode_removes_owned_llm_slash_commands(self):
         with tempfile.TemporaryDirectory() as td:
             commands_dir = Path(td)
-            with mock.patch.object(claude_any, "CLAUDE_COMMANDS_DIR", commands_dir):
-                claude_any.install_claude_any_slash_commands(include_advisor=False)
-                claude_any.disable_claude_any_slash_commands_for_native()
+            with mock.patch.object(ciel_runtime, "CLAUDE_COMMANDS_DIR", commands_dir):
+                ciel_runtime.install_ciel_runtime_slash_commands(include_advisor=False)
+                ciel_runtime.disable_ciel_runtime_slash_commands_for_native()
 
             self.assertFalse((commands_dir / "llm.md").exists())
             self.assertFalse((commands_dir / "llm-options.md").exists())

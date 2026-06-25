@@ -52,7 +52,7 @@ LANG = {
             "Quit",
         ],
         "provider": ["Provider menu", "Anthropic", "Ollama", "Ollama Cloud", "vLLM [selected]", "Nvidia Hosted", "Self Hosted NIM"],
-        "base": ["Base URL", "http://127.0.0.1:8000", "Use the server root. Claude Any calls /v1/messages."],
+        "base": ["Base URL", "http://127.0.0.1:8000", "Use the server root. Ciel Runtime calls /v1/messages."],
         "model": ["Model picker", "qwen3-coder-30b [selected]", "qwen3.6-27b-nvfp4", "+ Custom model id..."],
         "options": ["LLM options", "Apply preset  [Coding deterministic]", "Context window  [65536]", "Context reserve  [4096]", "Max output tokens  [4096]", "Native compatibility  [True]"],
         "test": ["Compatibility test", "Runtime max_model_len: 65536", "vLLM hint: Qwen3-Coder -> qwen3_xml", "Text response: OK", "Tool use: OK", "Tool result: OK"],
@@ -86,7 +86,7 @@ LANG = {
             "종료",
         ],
         "provider": ["프로바이더 메뉴", "Anthropic", "Ollama", "Ollama Cloud", "vLLM [선택됨]", "Nvidia Hosted", "Self Hosted NIM"],
-        "base": ["Base URL", "http://127.0.0.1:8000", "서버 root를 입력합니다. Claude Any가 /v1/messages를 호출합니다."],
+        "base": ["Base URL", "http://127.0.0.1:8000", "서버 root를 입력합니다. Ciel Runtime가 /v1/messages를 호출합니다."],
         "model": ["모델 선택", "qwen3-coder-30b [선택됨]", "qwen3.6-27b-nvfp4", "+ 사용자 모델 id..."],
         "options": ["LLM 옵션", "프리셋 적용  [코딩 결정론]", "Context window  [65536]", "Context reserve  [4096]", "Max output tokens  [4096]", "Native compatibility  [True]"],
         "test": ["호환성 테스트", "Runtime max_model_len: 65536", "vLLM hint: Qwen3-Coder -> qwen3_xml", "Text response: OK", "Tool use: OK", "Tool result: OK"],
@@ -120,7 +120,7 @@ LANG = {
             "終了",
         ],
         "provider": ["プロバイダーメニュー", "Anthropic", "Ollama", "Ollama Cloud", "vLLM [選択中]", "Nvidia Hosted", "Self Hosted NIM"],
-        "base": ["Base URL", "http://127.0.0.1:8000", "サーバーrootを入力します。Claude Anyが/v1/messagesを呼びます。"],
+        "base": ["Base URL", "http://127.0.0.1:8000", "サーバーrootを入力します。Ciel Runtimeが/v1/messagesを呼びます。"],
         "model": ["モデル選択", "qwen3-coder-30b [選択中]", "qwen3.6-27b-nvfp4", "+ カスタムモデルid..."],
         "options": ["LLMオプション", "プリセット適用  [コーディング決定論]", "Context window  [65536]", "Context reserve  [4096]", "Max output tokens  [4096]", "Native compatibility  [True]"],
         "test": ["互換性テスト", "Runtime max_model_len: 65536", "vLLM hint: Qwen3-Coder -> qwen3_xml", "Text response: OK", "Tool use: OK", "Tool result: OK"],
@@ -154,7 +154,7 @@ LANG = {
             "退出",
         ],
         "provider": ["供应商菜单", "Anthropic", "Ollama", "Ollama Cloud", "vLLM [已选择]", "Nvidia Hosted", "Self Hosted NIM"],
-        "base": ["Base URL", "http://127.0.0.1:8000", "输入服务器 root。Claude Any 会调用 /v1/messages。"],
+        "base": ["Base URL", "http://127.0.0.1:8000", "输入服务器 root。Ciel Runtime 会调用 /v1/messages。"],
         "model": ["模型选择", "qwen3-coder-30b [已选择]", "qwen3.6-27b-nvfp4", "+ 自定义模型 id..."],
         "options": ["LLM 选项", "应用预设  [确定性编码]", "Context window  [65536]", "Context reserve  [4096]", "Max output tokens  [4096]", "Native compatibility  [True]"],
         "test": ["兼容性测试", "Runtime max_model_len: 65536", "vLLM hint: Qwen3-Coder -> qwen3_xml", "Text response: OK", "Tool use: OK", "Tool result: OK"],
@@ -195,7 +195,7 @@ def draw_text(draw: ImageDraw.ImageDraw, xy: tuple[int, int], text: str, color: 
 
 def draw_header(draw: ImageDraw.ImageDraw, data: dict) -> None:
     draw.rectangle((10, 10, WIDTH - 10, 235), outline=COLORS["red"], width=2)
-    draw_text(draw, (110, 38), "--- Claude Any ---", "red", big=True)
+    draw_text(draw, (110, 38), "--- Ciel Runtime ---", "red", big=True)
     draw_text(draw, (135, 92), data["welcome"], "white", big=True)
     draw_text(draw, (165, 145), "CLAUDE", "green", big=True)
     draw_text(draw, (185, 185), "ANY", "yellow", big=True)
@@ -284,24 +284,24 @@ def save_language_assets(code: str, data: dict) -> None:
     ]
     suffix = f".{code}"
     names = [
-        f"claude-any-provider{suffix}.png",
-        f"claude-any-base-url{suffix}.png",
-        f"claude-any-model{suffix}.png",
-        f"claude-any-options{suffix}.png",
-        f"claude-any-test{suffix}.png",
+        f"ciel-runtime-provider{suffix}.png",
+        f"ciel-runtime-base-url{suffix}.png",
+        f"ciel-runtime-model{suffix}.png",
+        f"ciel-runtime-options{suffix}.png",
+        f"ciel-runtime-test{suffix}.png",
     ]
     for img, name in zip(frames, names, strict=True):
         img.save(ASSET_DIR / name)
-    frames[0].save(ASSET_DIR / f"claude-any-main{suffix}.png")
+    frames[0].save(ASSET_DIR / f"ciel-runtime-main{suffix}.png")
     frames[0].save(
-        ASSET_DIR / f"claude-any-demo{suffix}.gif",
+        ASSET_DIR / f"ciel-runtime-demo{suffix}.gif",
         save_all=True,
         append_images=frames[1:],
         duration=1250,
         loop=0,
         optimize=True,
     )
-    save_mp4(frames, ASSET_DIR / f"claude-any-demo{suffix}.mp4")
+    save_mp4(frames, ASSET_DIR / f"ciel-runtime-demo{suffix}.mp4")
 
 
 def main() -> None:
@@ -310,10 +310,10 @@ def main() -> None:
         save_language_assets(code, data)
     # Backward-compatible English defaults.
     for stem in ("main", "provider", "base-url", "model", "options", "test"):
-        shutil.copyfile(ASSET_DIR / f"claude-any-{stem}.en.png", ASSET_DIR / f"claude-any-{stem}.png")
-    shutil.copyfile(ASSET_DIR / "claude-any-demo.en.gif", ASSET_DIR / "claude-any-demo.gif")
-    if (ASSET_DIR / "claude-any-demo.en.mp4").exists():
-        shutil.copyfile(ASSET_DIR / "claude-any-demo.en.mp4", ASSET_DIR / "claude-any-demo.mp4")
+        shutil.copyfile(ASSET_DIR / f"ciel-runtime-{stem}.en.png", ASSET_DIR / f"ciel-runtime-{stem}.png")
+    shutil.copyfile(ASSET_DIR / "ciel-runtime-demo.en.gif", ASSET_DIR / "ciel-runtime-demo.gif")
+    if (ASSET_DIR / "ciel-runtime-demo.en.mp4").exists():
+        shutil.copyfile(ASSET_DIR / "ciel-runtime-demo.en.mp4", ASSET_DIR / "ciel-runtime-demo.mp4")
     print(f"Wrote localized demo assets to {ASSET_DIR}")
 
 

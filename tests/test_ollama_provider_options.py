@@ -1,14 +1,14 @@
 import unittest
 from unittest import mock
 
-import claude_any
+import ciel_runtime
 
 
 class OllamaProviderOptionTests(unittest.TestCase):
     def test_generic_context_window_maps_to_ollama_num_ctx(self):
         pcfg = {"num_ctx": "auto", "num_ctx_min": 32768, "num_ctx_max": 131072}
 
-        claude_any.apply_provider_option("ollama-cloud", pcfg, "context_window=1048576")
+        ciel_runtime.apply_provider_option("ollama-cloud", pcfg, "context_window=1048576")
 
         self.assertEqual(1048576, pcfg["context_window"])
         self.assertEqual("auto", pcfg["num_ctx"])
@@ -18,7 +18,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
     def test_generic_max_output_tokens_maps_to_ollama_num_predict(self):
         pcfg = {"ollama_options": {}}
 
-        claude_any.apply_provider_option("ollama-cloud", pcfg, "max_output_tokens=8192")
+        ciel_runtime.apply_provider_option("ollama-cloud", pcfg, "max_output_tokens=8192")
 
         self.assertEqual(8192, pcfg["max_output_tokens"])
         self.assertEqual(8192, pcfg["ollama_options"]["num_predict"])
@@ -26,8 +26,8 @@ class OllamaProviderOptionTests(unittest.TestCase):
     def test_generic_sampling_options_stay_in_ollama_options(self):
         pcfg = {"ollama_options": {}}
 
-        claude_any.apply_provider_option("ollama-cloud", pcfg, "temperature=0.7")
-        claude_any.apply_provider_option("ollama-cloud", pcfg, "top_p=0.9")
+        ciel_runtime.apply_provider_option("ollama-cloud", pcfg, "temperature=0.7")
+        ciel_runtime.apply_provider_option("ollama-cloud", pcfg, "top_p=0.9")
 
         self.assertEqual(0.7, pcfg["ollama_options"]["temperature"])
         self.assertEqual(0.9, pcfg["ollama_options"]["top_p"])
@@ -41,7 +41,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
             "rate_limit_rpm": 0,
         }
 
-        status = claude_any.provider_options_status("ollama-cloud", pcfg)
+        status = ciel_runtime.provider_options_status("ollama-cloud", pcfg)
 
         self.assertIn("num_ctx=auto (65536-1048576)", status)
         self.assertIn("ollama_options=num_predict=8192", status)
@@ -58,9 +58,9 @@ class OllamaProviderOptionTests(unittest.TestCase):
 
         payload = {"messages": [{"role": "user", "content": "hello"}], "tools": []}
 
-        self.assertEqual(262144, claude_any.ollama_num_ctx_for_payload(pcfg, payload))
-        self.assertEqual(262144, claude_any.ollama_context_limit_for_budget(pcfg))
-        self.assertIn("provider 262,144", claude_any.ollama_num_ctx_status(pcfg))
+        self.assertEqual(262144, ciel_runtime.ollama_num_ctx_for_payload(pcfg, payload))
+        self.assertEqual(262144, ciel_runtime.ollama_context_limit_for_budget(pcfg))
+        self.assertIn("provider 262,144", ciel_runtime.ollama_num_ctx_status(pcfg))
 
     def test_ollama_fixed_num_ctx_overrides_provider_model_context(self):
         pcfg = {
@@ -74,7 +74,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
 
         payload = {"messages": [{"role": "user", "content": "hello"}], "tools": []}
 
-        self.assertEqual(65536, claude_any.ollama_num_ctx_for_payload(pcfg, payload))
+        self.assertEqual(65536, ciel_runtime.ollama_num_ctx_for_payload(pcfg, payload))
 
     def test_ollama_auto_num_ctx_ignores_stale_provider_model_context(self):
         pcfg = {
@@ -88,7 +88,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
 
         payload = {"messages": [{"role": "user", "content": "hello"}], "tools": []}
 
-        self.assertEqual(32768, claude_any.ollama_num_ctx_for_payload(pcfg, payload))
+        self.assertEqual(32768, ciel_runtime.ollama_num_ctx_for_payload(pcfg, payload))
 
     def test_ollama_provider_context_beats_model_name_hint(self):
         pcfg = {
@@ -100,8 +100,8 @@ class OllamaProviderOptionTests(unittest.TestCase):
             "model_context_max": 131072,
         }
 
-        self.assertEqual(131072, claude_any.provider_model_context_capacity("ollama", pcfg))
-        self.assertEqual(131072, claude_any.ollama_context_limit_for_budget(pcfg))
+        self.assertEqual(131072, ciel_runtime.provider_model_context_capacity("ollama", pcfg))
+        self.assertEqual(131072, ciel_runtime.ollama_context_limit_for_budget(pcfg))
 
     def test_ollama_show_parameters_parse_parameters_and_modelfile(self):
         data = {
@@ -109,7 +109,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
             "modelfile": "FROM base\nPARAMETER num_gpu 999\nPARAMETER temperature 0.7\n",
         }
 
-        params = claude_any.ollama_show_parameters(data)
+        params = ciel_runtime.ollama_show_parameters(data)
 
         self.assertEqual("262144", params["num_ctx"])
         self.assertEqual("4096", params["num_predict"])
@@ -117,7 +117,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertEqual("0.7", params["temperature"])
 
     def test_model_context_field_reads_dotted_ollama_model_info(self):
-        self.assertEqual(262144, claude_any.model_context_field({"qwen3.context_length": 262144}))
+        self.assertEqual(262144, ciel_runtime.model_context_field({"qwen3.context_length": 262144}))
 
     def test_sync_ollama_context_prefers_api_show_specs(self):
         pcfg = {
@@ -128,10 +128,10 @@ class OllamaProviderOptionTests(unittest.TestCase):
         }
 
         with (
-            mock.patch.object(claude_any, "fetch_ollama_api_model_specs", return_value={"max_model_len": 262144}),
-            mock.patch.object(claude_any, "load_ollama_model_catalog") as load_catalog,
+            mock.patch.object(ciel_runtime, "fetch_ollama_api_model_specs", return_value={"max_model_len": 262144}),
+            mock.patch.object(ciel_runtime, "load_ollama_model_catalog") as load_catalog,
         ):
-            messages = claude_any.sync_ollama_library_context_limit("ollama", pcfg, "custom-model:latest")
+            messages = ciel_runtime.sync_ollama_library_context_limit("ollama", pcfg, "custom-model:latest")
 
         load_catalog.assert_not_called()
         self.assertEqual(262144, pcfg["model_context_max"])
@@ -148,17 +148,82 @@ class OllamaProviderOptionTests(unittest.TestCase):
         }
 
         with (
-            mock.patch.object(claude_any, "fetch_ollama_api_model_specs", return_value={"max_model_len": 1000000}),
-            mock.patch.object(claude_any, "load_ollama_model_catalog") as load_catalog,
+            mock.patch.object(ciel_runtime, "fetch_ollama_api_model_specs", return_value={"max_model_len": 1000000}),
+            mock.patch.object(ciel_runtime, "load_ollama_model_catalog") as load_catalog,
         ):
-            claude_any.sync_ollama_library_context_limit("ollama-cloud", pcfg, "glm-5.2")
+            ciel_runtime.sync_ollama_library_context_limit("ollama-cloud", pcfg, "glm-5.2")
 
         load_catalog.assert_not_called()
         self.assertEqual(1000000, pcfg["model_context_max"])
         self.assertEqual(524288, pcfg["num_ctx_max"])
-        self.assertEqual(524288, claude_any.ollama_context_limit_for_budget(pcfg))
-        self.assertEqual(524288, claude_any.ollama_num_ctx_for_payload(pcfg, {"messages": []}))
-        self.assertIn("model max 1,000,000", claude_any.ollama_num_ctx_status(pcfg))
+        self.assertEqual(524288, ciel_runtime.ollama_context_limit_for_budget(pcfg))
+        self.assertEqual(524288, ciel_runtime.ollama_num_ctx_for_payload(pcfg, {"messages": []}))
+        self.assertIn("model max 1,000,000", ciel_runtime.ollama_num_ctx_status(pcfg))
+
+    def test_large_ollama_context_uses_dynamic_reserve_when_unset(self):
+        pcfg = {
+            "current_model": "glm-5.2",
+            "num_ctx": "auto",
+            "num_ctx_min": 262144,
+            "num_ctx_max": 524288,
+            "max_output_tokens": 8192,
+        }
+
+        self.assertEqual(16384, ciel_runtime.context_guard_reserve_tokens(pcfg, 524288))
+
+        messages = [{"role": "user", "content": "x" * 3000} for _ in range(4000)]
+        tools = []
+        context_limit = ciel_runtime.ollama_context_limit_for_budget(pcfg)
+        budget = context_limit - pcfg["max_output_tokens"] - ciel_runtime.context_guard_reserve_tokens(pcfg, context_limit)
+        compacted = ciel_runtime.compact_ollama_messages_for_budget(messages, tools, budget, provider="ollama-cloud", model="glm-5.2")
+
+        self.assertLessEqual(ciel_runtime.estimate_tokens({"messages": compacted, "tools": tools}), budget)
+        self.assertEqual(499712, budget)
+
+    def test_compact_request_uses_segmented_llm_compaction(self):
+        calls = []
+        original = ciel_runtime.context_compact_request_summary
+
+        def fake_summary(provider, model, pcfg, prompt, *, wire, budget_tokens):
+            calls.append((provider, model, wire, prompt, budget_tokens))
+            return f"summary {len(calls)}"
+
+        ciel_runtime.context_compact_request_summary = fake_summary
+        try:
+            pcfg = {
+                "base_url": "https://ollama.com",
+                "context_compact_chunk_tokens": 512,
+                "context_compact_summary_tokens": 512,
+            }
+            messages = [
+                {"role": "user", "content": "history " + ("x" * 10000)}
+                for _ in range(4)
+            ]
+            messages.append(
+                {
+                    "role": "user",
+                    "content": "<command-name>/compact</command-name>\nCreate a detailed summary of the conversation.",
+                }
+            )
+
+            compacted = ciel_runtime.compact_ollama_messages_for_budget(
+                messages,
+                [],
+                8192,
+                provider="ollama-cloud",
+                model="deepseek-v4-flash",
+                pcfg=pcfg,
+                full_compact_request=True,
+                wire="ollama",
+            )
+
+            self.assertGreaterEqual(len(calls), 2)
+            self.assertEqual(1, len(compacted))
+            self.assertIn("[ciel-runtime segmented compact]", compacted[0]["content"])
+            self.assertIn("summary 1", compacted[0]["content"])
+            self.assertIn("Claude Code compact instruction", compacted[0]["content"])
+        finally:
+            ciel_runtime.context_compact_request_summary = original
 
     def test_sync_ollama_context_caps_explicit_preset_above_provider_max(self):
         pcfg = {
@@ -169,8 +234,8 @@ class OllamaProviderOptionTests(unittest.TestCase):
             "num_ctx_max": 1048576,
         }
 
-        with mock.patch.object(claude_any, "fetch_ollama_api_model_specs", return_value={"max_model_len": 262144}):
-            claude_any.sync_ollama_library_context_limit("ollama-cloud", pcfg, "small-model")
+        with mock.patch.object(ciel_runtime, "fetch_ollama_api_model_specs", return_value={"max_model_len": 262144}):
+            ciel_runtime.sync_ollama_library_context_limit("ollama-cloud", pcfg, "small-model")
 
         self.assertEqual(262144, pcfg["model_context_max"])
         self.assertEqual(262144, pcfg["num_ctx_max"])
@@ -185,12 +250,12 @@ class OllamaProviderOptionTests(unittest.TestCase):
             "num_ctx_max": 524288,
         }
 
-        with mock.patch.object(claude_any, "read_model_info_cache", return_value={"glm-5.2": {"max_model_len": 1000000}}):
-            claude_any.apply_current_model_specs_to_provider("ollama-cloud", pcfg)
+        with mock.patch.object(ciel_runtime, "read_model_info_cache", return_value={"glm-5.2": {"max_model_len": 1000000}}):
+            ciel_runtime.apply_current_model_specs_to_provider("ollama-cloud", pcfg)
 
         self.assertEqual(1000000, pcfg["model_context_max"])
         self.assertEqual(524288, pcfg["num_ctx_max"])
-        self.assertEqual(524288, claude_any.context_limit_for_status("ollama-cloud", pcfg))
+        self.assertEqual(524288, ciel_runtime.context_limit_for_status("ollama-cloud", pcfg))
 
     def test_unset_generic_ollama_aliases_clears_effective_options(self):
         pcfg = {
@@ -201,8 +266,8 @@ class OllamaProviderOptionTests(unittest.TestCase):
             "ollama_options": {"num_predict": 8192},
         }
 
-        claude_any.apply_provider_option("ollama-cloud", pcfg, "unset:context_window")
-        claude_any.apply_provider_option("ollama-cloud", pcfg, "unset:max_output_tokens")
+        ciel_runtime.apply_provider_option("ollama-cloud", pcfg, "unset:context_window")
+        ciel_runtime.apply_provider_option("ollama-cloud", pcfg, "unset:max_output_tokens")
 
         self.assertNotIn("context_window", pcfg)
         self.assertNotIn("num_ctx_max", pcfg)
@@ -217,11 +282,11 @@ class OllamaProviderOptionTests(unittest.TestCase):
         }
 
         with mock.patch.object(
-            claude_any,
+            ciel_runtime,
             "ollama_runtime_info",
             return_value={"runtime_model": "gemma4:12b", "loaded_context_len": 65536},
         ):
-            messages = claude_any.apply_ollama_runtime_output_guard("ollama", pcfg)
+            messages = ciel_runtime.apply_ollama_runtime_output_guard("ollama", pcfg)
 
         self.assertEqual(4096, pcfg["ollama_options"]["num_predict"])
         self.assertEqual(4096, pcfg["max_output_tokens"])
@@ -235,11 +300,11 @@ class OllamaProviderOptionTests(unittest.TestCase):
         }
 
         with mock.patch.object(
-            claude_any,
+            ciel_runtime,
             "ollama_runtime_info",
             return_value={"runtime_model": "large-model", "loaded_context_len": 131072},
         ):
-            messages = claude_any.apply_ollama_runtime_output_guard("ollama", pcfg)
+            messages = ciel_runtime.apply_ollama_runtime_output_guard("ollama", pcfg)
 
         self.assertEqual(8192, pcfg["ollama_options"]["num_predict"])
         self.assertEqual(8192, pcfg["max_output_tokens"])

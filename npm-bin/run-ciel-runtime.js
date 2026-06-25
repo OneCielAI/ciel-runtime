@@ -5,15 +5,16 @@ const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
-const script = path.join(root, "claude_any.py");
+const script = path.join(root, "ciel_runtime.py");
 const extra = process.argv.slice(2);
-const mode = Object.prototype.hasOwnProperty.call(process.env, "CLAUDE_ANY_NPM_MODE")
-  ? process.env.CLAUDE_ANY_NPM_MODE
+const mode = Object.prototype.hasOwnProperty.call(process.env, "CIEL_RUNTIME_NPM_MODE")
+  ? process.env.CIEL_RUNTIME_NPM_MODE
   : "cli";
 
 function candidates() {
-  if (process.env.CLAUDE_ANY_PYTHON) {
-    return [[process.env.CLAUDE_ANY_PYTHON, []]];
+  const configuredPython = process.env.CIEL_RUNTIME_PYTHON;
+  if (configuredPython) {
+    return [[configuredPython, []]];
   }
   if (process.platform === "win32") {
     return [
@@ -58,7 +59,7 @@ for (const [command, prefix] of candidates()) {
   process.exit(result.status ?? 0);
 }
 
-console.error("Claude Any requires Python 3.10+.");
+console.error("Ciel Runtime requires Python 3.10+.");
 if (lastError) {
   console.error(lastError.message);
 }

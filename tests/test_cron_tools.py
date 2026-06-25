@@ -1,11 +1,11 @@
 import unittest
 
-import claude_any
+import ciel_runtime
 
 
 class CronToolCompatibilityTests(unittest.TestCase):
     def test_cron_tools_are_not_blocked_for_non_anthropic_provider(self):
-        blocked = claude_any.resolve_blocked_tools("ollama-cloud", {})
+        blocked = ciel_runtime.resolve_blocked_tools("ollama-cloud", {})
 
         self.assertNotIn("CronCreate", blocked)
         self.assertNotIn("CronDelete", blocked)
@@ -24,7 +24,7 @@ class CronToolCompatibilityTests(unittest.TestCase):
             ]
         }
 
-        filtered = claude_any.filter_blocked_tools("ollama-cloud", {}, body)
+        filtered = ciel_runtime.filter_blocked_tools("ollama-cloud", {}, body)
         names = [tool["name"] for tool in filtered["tools"]]
 
         self.assertIn("CronCreate", names)
@@ -44,7 +44,7 @@ class CronToolCompatibilityTests(unittest.TestCase):
             ],
         }
 
-        filtered = claude_any.filter_blocked_tools("opencode", {}, body)
+        filtered = ciel_runtime.filter_blocked_tools("opencode", {}, body)
         names = [tool["name"] for tool in filtered["tools"]]
 
         self.assertIn("Workflow", names)
@@ -61,13 +61,13 @@ class CronToolCompatibilityTests(unittest.TestCase):
             ],
         }
 
-        filtered = claude_any.filter_blocked_tools("anthropic", {}, body)
+        filtered = ciel_runtime.filter_blocked_tools("anthropic", {}, body)
         names = [tool["name"] for tool in filtered["tools"]]
 
         self.assertIn("EnterPlanMode", names)
 
     def test_cron_create_aliases_are_normalized(self):
-        fixed = claude_any._validate_and_fix_tool_input(
+        fixed = ciel_runtime._validate_and_fix_tool_input(
             "CronCreate",
             {
                 "schedule": "*/1 * * * *",
@@ -88,12 +88,12 @@ class CronToolCompatibilityTests(unittest.TestCase):
         )
 
     def test_cron_delete_aliases_are_normalized(self):
-        fixed = claude_any._validate_and_fix_tool_input("CronDelete", {"jobId": "cron-123"})
+        fixed = ciel_runtime._validate_and_fix_tool_input("CronDelete", {"jobId": "cron-123"})
 
         self.assertEqual(fixed, {"id": "cron-123"})
 
     def test_cron_list_drops_spurious_input(self):
-        fixed = claude_any._validate_and_fix_tool_input("CronList", {"anything": "ignored"})
+        fixed = ciel_runtime._validate_and_fix_tool_input("CronList", {"anything": "ignored"})
 
         self.assertEqual(fixed, {})
 

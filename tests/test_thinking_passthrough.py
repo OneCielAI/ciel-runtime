@@ -3,12 +3,12 @@ import os
 import unittest
 from unittest import mock
 
-import claude_any
+import ciel_runtime
 
 
 class ThinkingPassthroughTests(unittest.TestCase):
     def setUp(self):
-        claude_any.clear_suppressed_thinking_passback_cache()
+        ciel_runtime.clear_suppressed_thinking_passback_cache()
 
     def test_do_not_defer_plan_mode_synthesis_for_non_anthropic_thinking(self):
         body = {
@@ -19,7 +19,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
         }
 
         self.assertFalse(
-            claude_any.should_defer_forced_tool_choice_for_thinking(
+            ciel_runtime.should_defer_forced_tool_choice_for_thinking(
                 "vllm",
                 {"native_compat": True},
                 body,
@@ -35,7 +35,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
         }
 
         self.assertFalse(
-            claude_any.should_defer_forced_tool_choice_for_thinking(
+            ciel_runtime.should_defer_forced_tool_choice_for_thinking(
                 "vllm",
                 {"native_compat": True},
                 body,
@@ -43,7 +43,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             )
         )
 
-    def test_strip_thinking_for_claude_any_synthetic_tool_history(self):
+    def test_strip_thinking_for_ciel_runtime_synthetic_tool_history(self):
         body = {
             "thinking": {"type": "enabled", "budget_tokens": 1024},
             "messages": [
@@ -52,7 +52,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
                     "content": [
                         {
                             "type": "tool_use",
-                            "id": "toolu_claude_any_EnterPlanMode_123",
+                            "id": "toolu_ciel_runtime_EnterPlanMode_123",
                             "name": "EnterPlanMode",
                             "input": {},
                         }
@@ -61,7 +61,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             ],
         }
 
-        out = claude_any.normalize_thinking_for_non_anthropic_native_provider(
+        out = ciel_runtime.normalize_thinking_for_non_anthropic_native_provider(
             "vllm",
             {"native_compat": True},
             body,
@@ -98,14 +98,14 @@ class ThinkingPassthroughTests(unittest.TestCase):
             ],
         }
 
-        out = claude_any.normalize_thinking_for_non_anthropic_native_provider(
+        out = ciel_runtime.normalize_thinking_for_non_anthropic_native_provider(
             "lm-studio",
             {"native_compat": True},
             body,
         )
 
         self.assertNotIn("thinking", out)
-        self.assertEqual(2, claude_any.anthropic_tool_continuation_block_count(body))
+        self.assertEqual(2, ciel_runtime.anthropic_tool_continuation_block_count(body))
 
     def test_strip_thinking_blocks_even_without_top_level_thinking_for_tool_continuation(self):
         body = {
@@ -135,7 +135,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             ],
         }
 
-        out = claude_any.normalize_thinking_for_non_anthropic_native_provider(
+        out = ciel_runtime.normalize_thinking_for_non_anthropic_native_provider(
             "deepseek",
             {"native_compat": True},
             body,
@@ -143,8 +143,8 @@ class ThinkingPassthroughTests(unittest.TestCase):
 
         self.assertIsNot(out, body)
         self.assertNotIn("thinking", out)
-        self.assertEqual(0, claude_any.anthropic_thinking_block_count(out))
-        self.assertEqual(1, claude_any.anthropic_thinking_block_count(body))
+        self.assertEqual(0, ciel_runtime.anthropic_thinking_block_count(out))
+        self.assertEqual(1, ciel_runtime.anthropic_thinking_block_count(body))
 
     def test_strip_initial_thinking_request_for_non_anthropic_native_provider(self):
         body = {
@@ -152,7 +152,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             "messages": [{"role": "user", "content": [{"type": "text", "text": "hello"}]}],
         }
 
-        out = claude_any.normalize_thinking_for_non_anthropic_native_provider(
+        out = ciel_runtime.normalize_thinking_for_non_anthropic_native_provider(
             "self-hosted-nim",
             {"native_compat": True},
             body,
@@ -168,7 +168,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             "messages": [{"role": "user", "content": [{"type": "text", "text": "hello"}]}],
         }
 
-        out = claude_any.normalize_thinking_for_non_anthropic_native_provider(
+        out = ciel_runtime.normalize_thinking_for_non_anthropic_native_provider(
             "deepseek",
             {"native_compat": True},
             body,
@@ -184,7 +184,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             "messages": [{"role": "user", "content": [{"type": "text", "text": "hello"}]}],
         }
 
-        out = claude_any.normalize_thinking_for_non_anthropic_native_provider(
+        out = ciel_runtime.normalize_thinking_for_non_anthropic_native_provider(
             "deepseek",
             {"native_compat": True},
             body,
@@ -207,7 +207,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             ],
         }
 
-        out = claude_any.normalize_thinking_for_non_anthropic_native_provider(
+        out = ciel_runtime.normalize_thinking_for_non_anthropic_native_provider(
             "deepseek",
             {"native_compat": True},
             body,
@@ -246,7 +246,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             ],
         }
 
-        out = claude_any.normalize_thinking_for_non_anthropic_native_provider(
+        out = ciel_runtime.normalize_thinking_for_non_anthropic_native_provider(
             "vllm",
             {"native_compat": True},
             body,
@@ -254,8 +254,8 @@ class ThinkingPassthroughTests(unittest.TestCase):
 
         self.assertIsNot(out, body)
         self.assertNotIn("thinking", out)
-        self.assertEqual(0, claude_any.anthropic_thinking_block_count(out))
-        self.assertEqual(1, claude_any.anthropic_thinking_block_count(body))
+        self.assertEqual(0, ciel_runtime.anthropic_thinking_block_count(out))
+        self.assertEqual(1, ciel_runtime.anthropic_thinking_block_count(body))
 
     def test_preserve_thinking_for_anthropic_native_history(self):
         body = {
@@ -276,7 +276,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             ],
         }
 
-        out = claude_any.normalize_thinking_for_non_anthropic_native_provider(
+        out = ciel_runtime.normalize_thinking_for_non_anthropic_native_provider(
             "anthropic",
             {"native_compat": True},
             body,
@@ -284,7 +284,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
 
         self.assertIs(out, body)
         self.assertIn("thinking", out)
-        self.assertEqual(1, claude_any.anthropic_thinking_block_count(out))
+        self.assertEqual(1, ciel_runtime.anthropic_thinking_block_count(out))
 
     def test_strip_thinking_response_blocks_for_non_anthropic_provider(self):
         message = {
@@ -295,7 +295,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             "stop_reason": "end_turn",
         }
 
-        out = claude_any.normalize_response_thinking_for_non_anthropic_provider(
+        out = ciel_runtime.normalize_response_thinking_for_non_anthropic_provider(
             "vllm",
             {"native_compat": True},
             message,
@@ -303,11 +303,11 @@ class ThinkingPassthroughTests(unittest.TestCase):
 
         self.assertIsNot(out, message)
         self.assertEqual([{"type": "text", "text": "visible answer"}], out["content"])
-        self.assertEqual(1, claude_any.anthropic_thinking_block_count({"messages": [{"role": "assistant", "content": message["content"]}]}))
-        self.assertEqual(0, claude_any.anthropic_thinking_block_count({"messages": [{"role": "assistant", "content": out["content"]}]}))
+        self.assertEqual(1, ciel_runtime.anthropic_thinking_block_count({"messages": [{"role": "assistant", "content": message["content"]}]}))
+        self.assertEqual(0, ciel_runtime.anthropic_thinking_block_count({"messages": [{"role": "assistant", "content": out["content"]}]}))
 
     def test_rehydrate_suppressed_thinking_passback_for_non_anthropic_provider(self):
-        claude_any.remember_suppressed_thinking_passback(
+        ciel_runtime.remember_suppressed_thinking_passback(
             "deepseek",
             "model",
             [{"type": "thinking", "thinking": "private reasoning", "signature": "sig"}],
@@ -319,7 +319,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             ]
         }
 
-        out = claude_any.rehydrate_suppressed_thinking_passback(
+        out = ciel_runtime.rehydrate_suppressed_thinking_passback(
             "deepseek",
             {"native_compat": True},
             body,
@@ -328,14 +328,14 @@ class ThinkingPassthroughTests(unittest.TestCase):
         self.assertIsNot(out, body)
         self.assertEqual("thinking", out["messages"][1]["content"][0]["type"])
         self.assertEqual("visible answer", out["messages"][1]["content"][1]["text"])
-        self.assertEqual(1, claude_any.anthropic_thinking_block_count(out))
+        self.assertEqual(1, ciel_runtime.anthropic_thinking_block_count(out))
 
     def test_rehydrate_more_than_initial_small_passback_window(self):
-        old_limit = claude_any.SUPPRESSED_THINKING_PASSBACK_MAX
-        claude_any.SUPPRESSED_THINKING_PASSBACK_MAX = 64
+        old_limit = ciel_runtime.SUPPRESSED_THINKING_PASSBACK_MAX
+        ciel_runtime.SUPPRESSED_THINKING_PASSBACK_MAX = 64
         try:
             for index in range(32):
-                claude_any.remember_suppressed_thinking_passback(
+                ciel_runtime.remember_suppressed_thinking_passback(
                     "deepseek",
                     "model",
                     [{"type": "thinking", "thinking": f"private reasoning {index}", "signature": f"sig-{index}"}],
@@ -347,30 +347,30 @@ class ThinkingPassthroughTests(unittest.TestCase):
                 ]
             }
 
-            out = claude_any.rehydrate_suppressed_thinking_passback(
+            out = ciel_runtime.rehydrate_suppressed_thinking_passback(
                 "deepseek",
                 {"native_compat": True},
                 body,
             )
 
-            self.assertEqual(32, claude_any.anthropic_thinking_block_count(out))
+            self.assertEqual(32, ciel_runtime.anthropic_thinking_block_count(out))
             self.assertEqual("private reasoning 0", out["messages"][0]["content"][0]["thinking"])
             self.assertEqual("private reasoning 31", out["messages"][-1]["content"][0]["thinking"])
         finally:
-            claude_any.SUPPRESSED_THINKING_PASSBACK_MAX = old_limit
+            ciel_runtime.SUPPRESSED_THINKING_PASSBACK_MAX = old_limit
 
     def test_do_not_rehydrate_suppressed_thinking_passback_for_anthropic_provider(self):
-        claude_any.remember_suppressed_thinking_passback(
+        ciel_runtime.remember_suppressed_thinking_passback(
             "deepseek",
             "model",
             [{"type": "thinking", "thinking": "private reasoning", "signature": "sig"}],
         )
         body = {"messages": [{"role": "assistant", "content": [{"type": "text", "text": "visible answer"}]}]}
 
-        out = claude_any.rehydrate_suppressed_thinking_passback("anthropic", {}, body)
+        out = ciel_runtime.rehydrate_suppressed_thinking_passback("anthropic", {}, body)
 
         self.assertIs(out, body)
-        self.assertEqual(0, claude_any.anthropic_thinking_block_count(out))
+        self.assertEqual(0, ciel_runtime.anthropic_thinking_block_count(out))
 
     def test_preserve_thinking_response_blocks_for_anthropic_provider(self):
         message = {
@@ -380,7 +380,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             ],
         }
 
-        out = claude_any.normalize_response_thinking_for_non_anthropic_provider(
+        out = ciel_runtime.normalize_response_thinking_for_non_anthropic_provider(
             "anthropic",
             {},
             message,
@@ -395,7 +395,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
                 self.wfile = io.BytesIO()
 
         def sse(event_name, payload):
-            return f"event: {event_name}\ndata: {claude_any.json.dumps(payload, ensure_ascii=False)}\n\n".encode()
+            return f"event: {event_name}\ndata: {ciel_runtime.json.dumps(payload, ensure_ascii=False)}\n\n".encode()
 
         chunks = [
             sse("message_start", {"type": "message_start", "message": {"id": "msg", "type": "message", "role": "assistant", "content": [], "model": "model"}}),
@@ -412,7 +412,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
         resp = io.BytesIO(b"".join(chunks))
         handler = FakeHandler()
 
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             resp,
             "model",
@@ -427,12 +427,12 @@ class ThinkingPassthroughTests(unittest.TestCase):
         self.assertIn("visible answer", output)
         self.assertIn('"index": 0', output)
         self.assertNotIn('"index": 1', output)
-        rehydrated = claude_any.rehydrate_suppressed_thinking_passback(
+        rehydrated = ciel_runtime.rehydrate_suppressed_thinking_passback(
             "deepseek",
             {"native_compat": True},
             {"messages": [{"role": "assistant", "content": [{"type": "text", "text": "visible answer"}]}]},
         )
-        self.assertEqual(1, claude_any.anthropic_thinking_block_count(rehydrated))
+        self.assertEqual(1, ciel_runtime.anthropic_thinking_block_count(rehydrated))
 
     def test_rebatch_normalizes_native_stream_tool_use_for_non_anthropic_provider(self):
         class FakeHandler:
@@ -440,7 +440,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
                 self.wfile = io.BytesIO()
 
         def sse(event_name, payload):
-            return f"event: {event_name}\ndata: {claude_any.json.dumps(payload, ensure_ascii=False)}\n\n".encode()
+            return f"event: {event_name}\ndata: {ciel_runtime.json.dumps(payload, ensure_ascii=False)}\n\n".encode()
 
         chunks = [
             sse("message_start", {"type": "message_start", "message": {"id": "msg", "type": "message", "role": "assistant", "content": [], "model": "model"}}),
@@ -452,7 +452,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
         ]
         handler = FakeHandler()
 
-        claude_any._rebatch_anthropic_sse_text(
+        ciel_runtime._rebatch_anthropic_sse_text(
             handler,
             io.BytesIO(b"".join(chunks)),
             "model",
@@ -465,7 +465,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
         for event_block in handler.wfile.getvalue().decode("utf-8").split("\n\n"):
             data_lines = [line[5:].strip() for line in event_block.splitlines() if line.startswith("data:")]
             if data_lines:
-                payloads.append(claude_any.json.loads("\n".join(data_lines)))
+                payloads.append(ciel_runtime.json.loads("\n".join(data_lines)))
         tool_starts = [
             payload
             for payload in payloads
@@ -482,18 +482,18 @@ class ThinkingPassthroughTests(unittest.TestCase):
         ]
 
         self.assertEqual("Bash", tool_starts[0]["content_block"]["name"])
-        emitted_input = claude_any.json.loads(tool_deltas[0]["delta"]["partial_json"])
+        emitted_input = ciel_runtime.json.loads(tool_deltas[0]["delta"]["partial_json"])
         self.assertEqual("echo hello", emitted_input["command"])
 
     def test_rebatch_caps_wait_tool_timeout_in_anthropic_passthrough_stream(self):
-        self.addCleanup(claude_any._MCP_NOTIFICATION_WAIT_RECENT.clear)
+        self.addCleanup(ciel_runtime._MCP_NOTIFICATION_WAIT_RECENT.clear)
 
         class FakeHandler:
             def __init__(self):
                 self.wfile = io.BytesIO()
 
         def sse(event_name, payload):
-            return f"event: {event_name}\ndata: {claude_any.json.dumps(payload, ensure_ascii=False)}\n\n".encode()
+            return f"event: {event_name}\ndata: {ciel_runtime.json.dumps(payload, ensure_ascii=False)}\n\n".encode()
 
         chunks = [
             sse("message_start", {"type": "message_start", "message": {"id": "msg", "type": "message", "role": "assistant", "content": [], "model": "model"}}),
@@ -525,11 +525,11 @@ class ThinkingPassthroughTests(unittest.TestCase):
         handler = FakeHandler()
 
         with (
-            mock.patch.dict(os.environ, {"CLAUDE_ANY_MCP_NOTIFICATION_WAIT_TIMEOUT_MS": "1000"}, clear=False),
-            mock.patch.object(claude_any, "router_log"),
+            mock.patch.dict(os.environ, {"CIEL_RUNTIME_MCP_NOTIFICATION_WAIT_TIMEOUT_MS": "1000"}, clear=False),
+            mock.patch.object(ciel_runtime, "router_log"),
         ):
-            claude_any._MCP_NOTIFICATION_WAIT_RECENT.clear()
-            claude_any._rebatch_anthropic_sse_text(
+            ciel_runtime._MCP_NOTIFICATION_WAIT_RECENT.clear()
+            ciel_runtime._rebatch_anthropic_sse_text(
                 handler,
                 io.BytesIO(b"".join(chunks)),
                 "model",
@@ -552,7 +552,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
         for event_block in handler.wfile.getvalue().decode("utf-8").split("\n\n"):
             data_lines = [line[5:].strip() for line in event_block.splitlines() if line.startswith("data:")]
             if data_lines:
-                payloads.append(claude_any.json.loads("\n".join(data_lines)))
+                payloads.append(ciel_runtime.json.loads("\n".join(data_lines)))
         tool_deltas = [
             payload
             for payload in payloads
@@ -561,7 +561,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             and payload["delta"].get("type") == "input_json_delta"
         ]
 
-        emitted_input = claude_any.json.loads(tool_deltas[0]["delta"]["partial_json"])
+        emitted_input = ciel_runtime.json.loads(tool_deltas[0]["delta"]["partial_json"])
         self.assertEqual({"timeout_ms": 1000}, emitted_input)
 
     def test_openai_conversion_does_not_leak_thinking_text(self):
@@ -577,7 +577,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             ]
         }
 
-        messages = claude_any.anthropic_messages_to_openai(body)
+        messages = ciel_runtime.anthropic_messages_to_openai(body)
 
         assistant_messages = [message for message in messages if message.get("role") == "assistant"]
         self.assertTrue(assistant_messages)

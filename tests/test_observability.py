@@ -1,6 +1,6 @@
 import unittest
 
-from claude_any_support.observability import EventBus, EventConfig
+from ciel_runtime_support.observability import EventBus, EventConfig
 
 
 class ObservabilityTests(unittest.TestCase):

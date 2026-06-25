@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import claude_any
+import ciel_runtime
 
 
 class InstallDiagnosticsTests(unittest.TestCase):
@@ -15,83 +15,83 @@ class InstallDiagnosticsTests(unittest.TestCase):
             "PATH": r"C:\Windows\System32",
         }
 
-        with mock.patch.object(claude_any.os, "name", "nt"), mock.patch.dict(claude_any.os.environ, env, clear=False):
-            appdata = claude_any.platform_path(env["APPDATA"])
-            local_appdata = claude_any.platform_path(env["LOCALAPPDATA"])
+        with mock.patch.object(ciel_runtime.os, "name", "nt"), mock.patch.dict(ciel_runtime.os.environ, env, clear=False):
+            appdata = ciel_runtime.platform_path(env["APPDATA"])
+            local_appdata = ciel_runtime.platform_path(env["LOCALAPPDATA"])
             self.assertEqual(
-                appdata / "claude-any",
-                claude_any.platform_config_dir("claude-any"),
+                appdata / "ciel-runtime",
+                ciel_runtime.platform_config_dir("ciel-runtime"),
             )
             self.assertEqual(
-                local_appdata / "claude-any" / "bin",
-                claude_any.claude_any_user_bin_dir(),
+                local_appdata / "ciel-runtime" / "bin",
+                ciel_runtime.ciel_runtime_user_bin_dir(),
             )
-            extra_dirs = claude_any.executable_extra_dirs()
+            extra_dirs = ciel_runtime.executable_extra_dirs()
             self.assertIn(appdata / "npm", extra_dirs)
             self.assertIn(local_appdata / "Programs" / "nodejs", extra_dirs)
-            prefixed_path = claude_any.path_with_claude_any_user_dirs(dict(env))
-            self.assertTrue(prefixed_path.startswith(str(local_appdata / "claude-any" / "bin")))
+            prefixed_path = ciel_runtime.path_with_ciel_runtime_user_dirs(dict(env))
+            self.assertTrue(prefixed_path.startswith(str(local_appdata / "ciel-runtime" / "bin")))
 
     def test_package_root_from_installed_path(self):
-        root = Path("/usr/local/lib/node_modules/@oneciel-ai/claude-any")
-        launcher = root / "npm-bin" / "claude-any.js"
+        root = Path("/usr/local/lib/node_modules/@oneciel-ai/ciel-runtime")
+        launcher = root / "npm-bin" / "ciel-runtime.js"
 
-        self.assertEqual(root.resolve(strict=False), claude_any.package_root_from_installed_path(launcher))
+        self.assertEqual(root.resolve(strict=False), ciel_runtime.package_root_from_installed_path(launcher))
 
     def test_npm_prefix_from_posix_package_roots(self):
         self.assertEqual(
             Path("/usr/local"),
-            claude_any.npm_prefix_from_package_root(Path("/usr/local/lib/node_modules/@oneciel-ai/claude-any")),
+            ciel_runtime.npm_prefix_from_package_root(Path("/usr/local/lib/node_modules/@oneciel-ai/ciel-runtime")),
         )
         self.assertEqual(
             Path("/home/user/.local"),
-            claude_any.npm_prefix_from_package_root(Path("/home/user/.local/lib/node_modules/@oneciel-ai/claude-any")),
+            ciel_runtime.npm_prefix_from_package_root(Path("/home/user/.local/lib/node_modules/@oneciel-ai/ciel-runtime")),
         )
         self.assertEqual(
             Path("/home/user/.npm-global"),
-            claude_any.npm_prefix_from_package_root(
-                Path("/home/user/.npm-global/lib/node_modules/@oneciel-ai/claude-any")
+            ciel_runtime.npm_prefix_from_package_root(
+                Path("/home/user/.npm-global/lib/node_modules/@oneciel-ai/ciel-runtime")
             ),
         )
 
     def test_npm_global_install_command_can_pin_prefix(self):
         self.assertEqual(
-            ["npm", "install", "-g", "--prefix", str(Path("/home/user/.local")), "@oneciel-ai/claude-any@latest"],
-            claude_any.npm_global_install_command(
-                "npm", "@oneciel-ai/claude-any@latest", Path("/home/user/.local")
+            ["npm", "install", "-g", "--prefix", str(Path("/home/user/.local")), "@oneciel-ai/ciel-runtime@latest"],
+            ciel_runtime.npm_global_install_command(
+                "npm", "@oneciel-ai/ciel-runtime@latest", Path("/home/user/.local")
             ),
         )
 
     def test_warns_when_newer_install_is_shadowed(self):
         rows = [
             {
-                "launcher": "/usr/local/bin/claude-any",
-                "resolved": "/usr/local/lib/node_modules/@oneciel-ai/claude-any/npm-bin/claude-any.js",
-                "package_root": "/usr/local/lib/node_modules/@oneciel-ai/claude-any",
+                "launcher": "/usr/local/bin/ciel-runtime",
+                "resolved": "/usr/local/lib/node_modules/@oneciel-ai/ciel-runtime/npm-bin/ciel-runtime.js",
+                "package_root": "/usr/local/lib/node_modules/@oneciel-ai/ciel-runtime",
                 "version": "0.1.104-nightly.20260531-070027.bb412de",
             },
             {
-                "launcher": "/home/user/.local/bin/claude-any",
-                "resolved": "/home/user/.local/lib/node_modules/@oneciel-ai/claude-any/npm-bin/claude-any.js",
-                "package_root": "/home/user/.local/lib/node_modules/@oneciel-ai/claude-any",
+                "launcher": "/home/user/.local/bin/ciel-runtime",
+                "resolved": "/home/user/.local/lib/node_modules/@oneciel-ai/ciel-runtime/npm-bin/ciel-runtime.js",
+                "package_root": "/home/user/.local/lib/node_modules/@oneciel-ai/ciel-runtime",
                 "version": "0.1.104-nightly.20260601-012855.916d3dc",
             },
         ]
         stderr = io.StringIO()
 
-        with mock.patch.object(claude_any, "claude_any_install_diagnostics", return_value=rows), mock.patch.object(
-            claude_any, "current_npm_package_root", return_value=Path(rows[0]["package_root"])
-        ), mock.patch.object(claude_any.sys.stdin, "isatty", return_value=True), mock.patch.object(
-            claude_any.sys.stdout, "isatty", return_value=True
+        with mock.patch.object(ciel_runtime, "ciel_runtime_install_diagnostics", return_value=rows), mock.patch.object(
+            ciel_runtime, "current_npm_package_root", return_value=Path(rows[0]["package_root"])
+        ), mock.patch.object(ciel_runtime.sys.stdin, "isatty", return_value=True), mock.patch.object(
+            ciel_runtime.sys.stdout, "isatty", return_value=True
         ), mock.patch.object(
-            claude_any.sys, "stderr", stderr
+            ciel_runtime.sys, "stderr", stderr
         ):
-            claude_any.warn_if_multiple_claude_any_installs()
+            ciel_runtime.warn_if_multiple_ciel_runtime_installs()
 
         text = stderr.getvalue()
-        self.assertIn("multiple claude-any npm installs", text)
-        self.assertIn("/usr/local/bin/claude-any", text)
-        self.assertIn("/home/user/.local/bin/claude-any", text)
+        self.assertIn("multiple ciel-runtime npm installs", text)
+        self.assertIn("/usr/local/bin/ciel-runtime", text)
+        self.assertIn("/home/user/.local/bin/ciel-runtime", text)
         self.assertIn("0.1.104-nightly.20260601-012855.916d3dc", text)
 
     def test_npm_postinstall_best_effort_stops_managed_services(self):
@@ -101,7 +101,7 @@ class InstallDiagnosticsTests(unittest.TestCase):
         self.assertEqual("node npm-bin/postinstall.js", package["scripts"]["postinstall"])
         postinstall = (root / "npm-bin" / "postinstall.js").read_text(encoding="utf-8")
         self.assertIn('"cli", "stop"', postinstall)
-        self.assertIn("CLAUDE_ANY_SKIP_POSTINSTALL_STOP", postinstall)
+        self.assertIn("CIEL_RUNTIME_SKIP_POSTINSTALL_STOP", postinstall)
 
 
 if __name__ == "__main__":

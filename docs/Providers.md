@@ -1,0 +1,157 @@
+# Providers — 지원 LLM 제공자
+
+> 소스: `ciel_runtime.py` — `PROVIDER_ALIASES`, `PROVIDER_LABELS`, 각 `forward_*` 함수
+
+---
+
+## 제공자 목록
+
+| 내부 ID | 레이블 | 프로토콜 | 기본 URL |
+|---------|--------|---------|----------|
+| `anthropic` | Claude Native | Anthropic Messages | Anthropic 공식 API |
+| `ollama` | Ollama | Ollama Chat | `http://localhost:11434` |
+| `ollama-cloud` | Ollama Cloud | Ollama Chat | 원격 Ollama |
+| `deepseek` | DeepSeek.com | OpenAI Chat | `https://api.deepseek.com` |
+| `opencode` | OpenCode Zen | Anthropic Messages / OpenAI Chat | `https://opencode.ai/zen` |
+| `opencode-go` | OpenCode Go | Anthropic Messages / OpenAI Chat | `https://opencode.ai/zen/go` |
+| `kimi` | Kimi.com | OpenAI Chat | `https://api.kimi.com/coding` |
+| `zai` | Z.AI GLM | Anthropic Messages | `https://api.z.ai/api/anthropic` |
+| `vllm` | vLLM | OpenAI Chat | 로컬/원격 vLLM |
+| `lm-studio` | LM Studio | OpenAI Chat | 로컬 LM Studio |
+| `nvidia-hosted` | Nvidia Hosted | OpenAI Chat | NVIDIA NIM Cloud |
+| `self-hosted-nim` | Self Hosted NIM | OpenAI Chat | 로컬 NIM |
+| `openrouter` | OpenRouter | OpenAI Chat | `https://openrouter.ai/api` |
+| `fireworks` | Fireworks.ai | OpenAI Chat | `https://api.fireworks.ai/inference` |
+
+---
+
+## 제공자 별칭 (PROVIDER_ALIASES)
+
+다수의 별칭이 정규 ID로 매핑된다.  
+예: `claude`, `native`, `claude-code` → `anthropic`  
+예: `ds`, `deepseek.com`, `deepseek-api` → `deepseek`  
+예: `or`, `openrouter.ai` → `openrouter`
+
+---
+
+## Anthropic (Native / Routed)
+
+- **Native 모드**: Claude Code가 직접 Anthropic API 호출. Router가 중계하지 않음.
+- **Routed 모드**: Router가 중계하며 `ROUTED_COMPAT_PROMPT`를 시스템 프롬프트에 주입.
+- 공개 모델 ID 목록 (`ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS`):
+  - `claude-fable-5`, `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, `claude-haiku-4-5`
+- 제한 접근 모델 (`ANTHROPIC_LIMITED_ACCESS_MODEL_IDS`):
+  - `claude-mythos-5`, `claude-mythos-preview`
+
+---
+
+## Ollama / Ollama Cloud
+
+- 로컬 Ollama 인스턴스 또는 원격 Ollama 서버 지원.
+- 컨텍스트 윈도우 크기: `ollama_num_ctx_for_payload()`로 동적 계산.
+- 모델 카탈로그: `https://ollama.com/api/tags` 에서 24시간 TTL 캐시.
+- 라이브러리 페이지 파싱으로 태그별 컨텍스트 크기 자동 감지.
+- 주요 모델 프리셋:
+
+| 모델 | compat_max_tokens | thinking |
+|------|------------------|---------|
+| `glm-4.7` | 64 | ✅ |
+| `deepseek-r1` | 64 | ✅ |
+| `qwen3-coder` | 16 | ❌ |
+| `llama3.3:70b` | 16 | ❌ |
+
+---
+
+## DeepSeek
+
+- OpenAI Chat 호환 API.
+- API 키 필요.
+
+---
+
+## OpenCode (Zen / Go)
+
+- Anthropic Messages 및 OpenAI Chat 엔드포인트 모두 지원.
+- IPv6 preferred 기본값 (`default_provider_ip_family()` 반환 `"ipv6-preferred"`).
+- 엔드포인트 별칭:
+  - `messages` / `anthropic` → `anthropic-messages`
+  - `chat` → `openai-chat`
+  - `responses` → `openai-responses`
+  - `gemini` / `google` → `google-generative`
+
+---
+
+## Kimi (Moonshot)
+
+- 기본 모델: `kimi-for-coding`
+- OpenAI Chat 호환.
+
+---
+
+## ZAI (Z.AI GLM)
+
+- GLM 시리즈 모델 제공.
+- 기본 모델: `glm-5.2[1m]`
+- Managed MCP 서버 포함: `web-search-prime`, `web-reader`, `zread`
+- 컨텍스트 힌트:
+
+| 모델 접두사 | 컨텍스트 |
+|-----------|---------|
+| `glm-5.2` | 1,000,000 |
+| `glm-5-turbo` | 200,000 |
+| `glm-4.7` | 200,000 |
+
+---
+
+## vLLM / LM Studio
+
+- OpenAI 호환 로컬 서버.
+- LM Studio 최소 컨텍스트: 32,768 토큰.
+- LM Studio 기본 컨텍스트: 65,536 토큰.
+
+---
+
+## NVIDIA Hosted / Self-Hosted NIM
+
+- NVIDIA NIM Cloud 또는 로컬 NIM 인스턴스.
+- NVIDIA 전용 베이스 URL 검증 함수: `invalid_nvidia_hosted_base_url()`.
+- 기본 컨텍스트 크기 (`nvidia_hosted_context_default()`):
+  - Kimi K2.6: 262,144
+  - DeepSeek: 131,072
+  - GLM/Qwen: 65,536
+
+---
+
+## OpenRouter
+
+- 단일 API로 다수 모델 접근.
+- OpenAI Chat 호환.
+
+---
+
+## Fireworks.ai
+
+- 고속 추론 서비스.
+- OpenAI Chat 호환.
+- 기본 계정 ID: `fireworks`
+
+---
+
+## IP 패밀리 정책
+
+일부 제공자(특히 OpenCode)는 IPv6 preferred 정책을 사용한다.
+
+| 값 | 의미 |
+|----|------|
+| `auto` | 시스템 기본 |
+| `ipv4` | IPv4만 허용 |
+| `ipv6` | IPv6만 허용 |
+| `ipv4-preferred` | IPv4 우선, IPv6 폴백 |
+| `ipv6-preferred` | IPv6 우선, IPv4 폴백 |
+
+---
+
+## 관련 문서
+- [[Architecture]] — 제공자 아키텍처 계층
+- [[Configuration]] — 제공자 설정 방법
+- [[Rate-Limiting]] — API 키 관리

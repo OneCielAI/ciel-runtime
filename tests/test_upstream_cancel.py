@@ -1,7 +1,7 @@
 import unittest
 from unittest import mock
 
-import claude_any
+import ciel_runtime
 
 
 class FakeResponse:
@@ -67,18 +67,18 @@ class UpstreamCancelTests(unittest.TestCase):
         resp = FakeResponse([TimeoutError("timed out")])
         handler = FakeHandler(wfile=object())
 
-        with mock.patch.object(claude_any, "router_client_connection_closed", side_effect=[False, True]):
-            with self.assertRaises(claude_any.UpstreamClientDisconnected):
-                list(claude_any.iter_upstream_lines_until_client_disconnect(handler, resp, 30.0))
+        with mock.patch.object(ciel_runtime, "router_client_connection_closed", side_effect=[False, True]):
+            with self.assertRaises(ciel_runtime.UpstreamClientDisconnected):
+                list(ciel_runtime.iter_upstream_lines_until_client_disconnect(handler, resp, 30.0))
 
     def test_stream_iterator_treats_upstream_timeout_as_terminal(self):
         resp = FakeResponse([TimeoutError("timed out"), b'{"message":{"content":"ok"},"done":false}\n'])
         handler = FakeHandler(wfile=object())
 
-        with mock.patch.object(claude_any, "router_client_connection_closed", return_value=False):
-            with mock.patch.object(claude_any.time, "sleep") as sleep_mock:
+        with mock.patch.object(ciel_runtime, "router_client_connection_closed", return_value=False):
+            with mock.patch.object(ciel_runtime.time, "sleep") as sleep_mock:
                 with self.assertRaises(TimeoutError):
-                    list(claude_any.iter_upstream_lines_until_client_disconnect(handler, resp, 30.0))
+                    list(ciel_runtime.iter_upstream_lines_until_client_disconnect(handler, resp, 30.0))
 
         sleep_mock.assert_not_called()
         self.assertEqual(resp.items, [b'{"message":{"content":"ok"},"done":false}\n'])
@@ -87,10 +87,10 @@ class UpstreamCancelTests(unittest.TestCase):
         resp = FakeResponse([OSError("cannot read from timed out object"), b"should-not-read\n"])
         handler = FakeHandler(wfile=object())
 
-        with mock.patch.object(claude_any, "router_client_connection_closed", return_value=False):
-            with mock.patch.object(claude_any.time, "sleep") as sleep_mock:
+        with mock.patch.object(ciel_runtime, "router_client_connection_closed", return_value=False):
+            with mock.patch.object(ciel_runtime.time, "sleep") as sleep_mock:
                 with self.assertRaises(OSError):
-                    list(claude_any.iter_upstream_lines_until_client_disconnect(handler, resp, 30.0))
+                    list(ciel_runtime.iter_upstream_lines_until_client_disconnect(handler, resp, 30.0))
 
         sleep_mock.assert_not_called()
         self.assertEqual(resp.items, [b"should-not-read\n"])
@@ -104,7 +104,7 @@ class UpstreamCancelTests(unittest.TestCase):
         )
         handler = FakeHandler(wfile=BrokenWrite())
 
-        claude_any._ollama_stream_to_anthropic_sse(handler, resp, "gemma4:12b", idle_timeout=30.0)
+        ciel_runtime._ollama_stream_to_anthropic_sse(handler, resp, "gemma4:12b", idle_timeout=30.0)
 
         self.assertTrue(resp.closed)
 
@@ -113,8 +113,8 @@ class UpstreamCancelTests(unittest.TestCase):
         wfile = CaptureWrite()
         handler = FakeHandler(wfile=wfile)
 
-        with mock.patch.object(claude_any, "router_client_connection_closed", return_value=False):
-            claude_any._ollama_stream_to_anthropic_sse(handler, resp, "gemma4:12b", idle_timeout=30.0)
+        with mock.patch.object(ciel_runtime, "router_client_connection_closed", return_value=False):
+            ciel_runtime._ollama_stream_to_anthropic_sse(handler, resp, "gemma4:12b", idle_timeout=30.0)
 
         text = wfile.data.decode("utf-8")
         self.assertIn("Upstream stream error", text)
@@ -127,8 +127,8 @@ class UpstreamCancelTests(unittest.TestCase):
     def test_try_write_json_returns_false_when_client_is_gone(self):
         handler = BrokenHeaderHandler(wfile=object())
 
-        with mock.patch.object(claude_any, "router_log"):
-            ok = claude_any.try_write_json(handler, {"error": "x"}, 500)
+        with mock.patch.object(ciel_runtime, "router_log"):
+            ok = ciel_runtime.try_write_json(handler, {"error": "x"}, 500)
 
         self.assertFalse(ok)
 
@@ -138,7 +138,7 @@ class UpstreamCancelTests(unittest.TestCase):
                 raise RuntimeError("programming error")
 
         with self.assertRaises(RuntimeError):
-            claude_any.try_write_json(BadHandler(wfile=object()), {"error": "x"}, 500)
+            ciel_runtime.try_write_json(BadHandler(wfile=object()), {"error": "x"}, 500)
 
 
 if __name__ == "__main__":

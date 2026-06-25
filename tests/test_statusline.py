@@ -8,21 +8,21 @@ import unittest
 import hashlib
 from pathlib import Path
 
-import claude_any
+import ciel_runtime
 
 
 class StatuslineTests(unittest.TestCase):
     def run_statusline(self, env_extra: dict[str, str] | None = None) -> str:
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "statusline.py"
-            script.write_text(claude_any.STATUSLINE_SCRIPT, encoding="utf-8")
+            script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
             env = os.environ.copy()
-            env.pop("CLAUDE_ANY_PROVIDER", None)
-            env.pop("CLAUDE_ANY_MODEL_ALIAS", None)
-            env.pop("CLAUDE_ANY_STATUSLINE_FORCE", None)
+            env.pop("CIEL_RUNTIME_PROVIDER", None)
+            env.pop("CIEL_RUNTIME_MODEL_ALIAS", None)
+            env.pop("CIEL_RUNTIME_STATUSLINE_FORCE", None)
             env.update({
-                "CLAUDE_ANY_CONFIG_DIR": tmp,
-                "CLAUDE_ANY_STATUSLINE_ANSI": "0",
+                "CIEL_RUNTIME_CONFIG_DIR": tmp,
+                "CIEL_RUNTIME_STATUSLINE_ANSI": "0",
             })
             if env_extra:
                 env.update(env_extra)
@@ -43,15 +43,15 @@ class StatuslineTests(unittest.TestCase):
     def test_statusline_is_silent_for_native_claude_session(self):
         self.assertEqual("", self.run_statusline())
 
-    def test_statusline_outputs_for_claude_any_session(self):
-        out = self.run_statusline({"CLAUDE_ANY_PROVIDER": "ollama-cloud", "CLAUDE_ANY_MODEL_ALIAS": "claude-any-test"})
+    def test_statusline_outputs_for_ciel_runtime_session(self):
+        out = self.run_statusline({"CIEL_RUNTIME_PROVIDER": "ollama-cloud", "CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-test"})
 
         self.assertIn("[claude-sonnet-4-6]", out)
 
-    def test_statusline_prefers_router_context_for_claude_any_session(self):
+    def test_statusline_prefers_router_context_for_ciel_runtime_session(self):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "statusline.py"
-            script.write_text(claude_any.STATUSLINE_SCRIPT, encoding="utf-8")
+            script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
             config_dir = Path(tmp)
             (config_dir / "config.json").write_text(
                 json.dumps(
@@ -82,14 +82,14 @@ class StatuslineTests(unittest.TestCase):
             env = os.environ.copy()
             env.update(
                 {
-                    "CLAUDE_ANY_CONFIG_DIR": tmp,
-                    "CLAUDE_ANY_STATUSLINE_ANSI": "0",
-                    "CLAUDE_ANY_PROVIDER": "vllm",
-                    "CLAUDE_ANY_MODEL_ALIAS": "claude-any-test",
+                    "CIEL_RUNTIME_CONFIG_DIR": tmp,
+                    "CIEL_RUNTIME_STATUSLINE_ANSI": "0",
+                    "CIEL_RUNTIME_PROVIDER": "vllm",
+                    "CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-test",
                 }
             )
             session = {
-                "model": {"display_name": "claude-any-test"},
+                "model": {"display_name": "ciel-runtime-test"},
                 "workspace": {"current_dir": tmp},
                 "context_window": {
                     "current_usage": {"input_tokens": 100724},
@@ -112,7 +112,7 @@ class StatuslineTests(unittest.TestCase):
     def test_statusline_uses_current_configured_context_limit_over_stale_router_limit(self):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "statusline.py"
-            script.write_text(claude_any.STATUSLINE_SCRIPT, encoding="utf-8")
+            script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
             config_dir = Path(tmp)
             (config_dir / "config.json").write_text(
                 json.dumps(
@@ -134,7 +134,7 @@ class StatuslineTests(unittest.TestCase):
                     {
                         "updated_at": time.time(),
                         "provider": "opencode",
-                        "model": "claude-any-opencode-deepseek-v4-flash-free",
+                        "model": "ciel-runtime-opencode-deepseek-v4-flash-free",
                         "tokens": 93342,
                         "context_limit": 1048576,
                     }
@@ -144,14 +144,14 @@ class StatuslineTests(unittest.TestCase):
             env = os.environ.copy()
             env.update(
                 {
-                    "CLAUDE_ANY_CONFIG_DIR": tmp,
-                    "CLAUDE_ANY_STATUSLINE_ANSI": "0",
-                    "CLAUDE_ANY_PROVIDER": "opencode",
-                    "CLAUDE_ANY_MODEL_ALIAS": "claude-any-opencode-deepseek-v4-flash-free",
+                    "CIEL_RUNTIME_CONFIG_DIR": tmp,
+                    "CIEL_RUNTIME_STATUSLINE_ANSI": "0",
+                    "CIEL_RUNTIME_PROVIDER": "opencode",
+                    "CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-opencode-deepseek-v4-flash-free",
                 }
             )
             session = {
-                "model": {"display_name": "claude-any-opencode-deepseek-v4-flash-free"},
+                "model": {"display_name": "ciel-runtime-opencode-deepseek-v4-flash-free"},
                 "workspace": {"current_dir": tmp},
                 "context_window": {
                     "current_usage": {"input_tokens": 93342},
@@ -174,7 +174,7 @@ class StatuslineTests(unittest.TestCase):
     def test_statusline_shows_pending_channel_queue_count(self):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "statusline.py"
-            script.write_text(claude_any.STATUSLINE_SCRIPT, encoding="utf-8")
+            script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
             config_dir = Path(tmp)
             (config_dir / "channel-llm-cursor.json").write_text('{"last_id":1}\n', encoding="utf-8")
             messages = [
@@ -190,14 +190,14 @@ class StatuslineTests(unittest.TestCase):
             env = os.environ.copy()
             env.update(
                 {
-                    "CLAUDE_ANY_CONFIG_DIR": tmp,
-                    "CLAUDE_ANY_STATUSLINE_ANSI": "0",
-                    "CLAUDE_ANY_PROVIDER": "ollama-cloud",
-                    "CLAUDE_ANY_MODEL_ALIAS": "claude-any-test",
+                    "CIEL_RUNTIME_CONFIG_DIR": tmp,
+                    "CIEL_RUNTIME_STATUSLINE_ANSI": "0",
+                    "CIEL_RUNTIME_PROVIDER": "ollama-cloud",
+                    "CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-test",
                 }
             )
             session = {
-                "model": {"display_name": "claude-any-test"},
+                "model": {"display_name": "ciel-runtime-test"},
                 "workspace": {"current_dir": tmp},
             }
             proc = subprocess.run(
@@ -214,7 +214,7 @@ class StatuslineTests(unittest.TestCase):
     def test_statusline_shows_multi_key_rate_limit_summary(self):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "statusline.py"
-            script.write_text(claude_any.STATUSLINE_SCRIPT, encoding="utf-8")
+            script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
             config_dir = Path(tmp)
             keys = ["sk-k1", "sk-k2", "sk-k3", "sk-k4"]
             config = {
@@ -253,14 +253,14 @@ class StatuslineTests(unittest.TestCase):
             env = os.environ.copy()
             env.update(
                 {
-                    "CLAUDE_ANY_CONFIG_DIR": tmp,
-                    "CLAUDE_ANY_STATUSLINE_ANSI": "0",
-                    "CLAUDE_ANY_PROVIDER": "opencode",
-                    "CLAUDE_ANY_MODEL_ALIAS": "claude-any-test",
+                    "CIEL_RUNTIME_CONFIG_DIR": tmp,
+                    "CIEL_RUNTIME_STATUSLINE_ANSI": "0",
+                    "CIEL_RUNTIME_PROVIDER": "opencode",
+                    "CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-test",
                 }
             )
             session = {
-                "model": {"display_name": "claude-any-test"},
+                "model": {"display_name": "ciel-runtime-test"},
                 "workspace": {"current_dir": tmp},
             }
             proc = subprocess.run(
@@ -280,7 +280,7 @@ class StatuslineTests(unittest.TestCase):
     def test_statusline_shows_context_compact_chunks(self):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "statusline.py"
-            script.write_text(claude_any.STATUSLINE_SCRIPT, encoding="utf-8")
+            script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
             config_dir = Path(tmp)
             config = {
                 "current_provider": "vllm",
@@ -308,14 +308,14 @@ class StatuslineTests(unittest.TestCase):
             env = os.environ.copy()
             env.update(
                 {
-                    "CLAUDE_ANY_CONFIG_DIR": tmp,
-                    "CLAUDE_ANY_STATUSLINE_ANSI": "0",
-                    "CLAUDE_ANY_PROVIDER": "vllm",
-                    "CLAUDE_ANY_MODEL_ALIAS": "claude-any-test",
+                    "CIEL_RUNTIME_CONFIG_DIR": tmp,
+                    "CIEL_RUNTIME_STATUSLINE_ANSI": "0",
+                    "CIEL_RUNTIME_PROVIDER": "vllm",
+                    "CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-test",
                 }
             )
             session = {
-                "model": {"display_name": "claude-any-test"},
+                "model": {"display_name": "ciel-runtime-test"},
                 "workspace": {"current_dir": tmp},
             }
             proc = subprocess.run(
@@ -332,7 +332,7 @@ class StatuslineTests(unittest.TestCase):
     def test_statusline_shows_parallel_context_compact_sessions(self):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "statusline.py"
-            script.write_text(claude_any.STATUSLINE_SCRIPT, encoding="utf-8")
+            script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
             config_dir = Path(tmp)
             config = {
                 "current_provider": "vllm",
@@ -355,13 +355,13 @@ class StatuslineTests(unittest.TestCase):
             env = os.environ.copy()
             env.update(
                 {
-                    "CLAUDE_ANY_CONFIG_DIR": tmp,
-                    "CLAUDE_ANY_STATUSLINE_ANSI": "0",
-                    "CLAUDE_ANY_PROVIDER": "vllm",
-                    "CLAUDE_ANY_MODEL_ALIAS": "claude-any-test",
+                    "CIEL_RUNTIME_CONFIG_DIR": tmp,
+                    "CIEL_RUNTIME_STATUSLINE_ANSI": "0",
+                    "CIEL_RUNTIME_PROVIDER": "vllm",
+                    "CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-test",
                 }
             )
-            session = {"model": {"display_name": "claude-any-test"}, "workspace": {"current_dir": tmp}}
+            session = {"model": {"display_name": "ciel-runtime-test"}, "workspace": {"current_dir": tmp}}
             proc = subprocess.run(
                 [sys.executable, str(script)],
                 input=json.dumps(session),

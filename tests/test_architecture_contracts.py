@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from claude_any_support.architecture import (
+from ciel_runtime_support.architecture import (
     LaunchSpec,
     ModelInfo,
     ProviderAdapter,

@@ -35,8 +35,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, Iterable
 
-from claude_any_support.observability import EventBus, render_events_html
-from claude_any_support.transcript_filter import (
+from ciel_runtime_support.observability import EventBus, render_events_html
+from ciel_runtime_support.transcript_filter import (
     is_claude_code_transcript_event,
 )
 
@@ -76,14 +76,14 @@ def platform_config_dir(app_name: str) -> Path:
     return HOME / ".config" / app_name
 
 
-def claude_any_user_bin_dir() -> Path:
+def ciel_runtime_user_bin_dir() -> Path:
     if os.name == "nt":
-        return windows_local_appdata_root() / "claude-any" / "bin"
+        return windows_local_appdata_root() / "ciel-runtime" / "bin"
     return HOME / ".local" / "bin"
 
 
-def path_with_claude_any_user_dirs(env: dict[str, str]) -> str:
-    dirs = [claude_any_user_bin_dir()]
+def path_with_ciel_runtime_user_dirs(env: dict[str, str]) -> str:
+    dirs = [ciel_runtime_user_bin_dir()]
     if os.name == "nt":
         appdata = env.get("APPDATA") or os.environ.get("APPDATA")
         if appdata:
@@ -97,7 +97,7 @@ def path_with_claude_any_user_dirs(env: dict[str, str]) -> str:
 
 
 def default_router_port() -> int:
-    configured = str(os.environ.get("CLAUDE_ANY_ROUTER_PORT") or "").strip()
+    configured = str(os.environ.get("CIEL_RUNTIME_ROUTER_PORT") or "").strip()
     if configured:
         try:
             port = int(configured)
@@ -120,7 +120,7 @@ def default_router_port() -> int:
     return base + (int(digest[:8], 16) % 1000)
 
 
-CONFIG_DIR = Path(os.environ.get("CLAUDE_ANY_CONFIG_DIR") or platform_config_dir("claude-any"))
+CONFIG_DIR = Path(os.environ.get("CIEL_RUNTIME_CONFIG_DIR") or platform_config_dir("ciel-runtime"))
 CONFIG_PATH = CONFIG_DIR / "config.json"
 LOG_PATH = CONFIG_DIR / "router.log"
 LOG_LEVEL_PATH = CONFIG_DIR / "log-level"
@@ -156,13 +156,13 @@ CHANNEL_LLM_SUMMARY_QUEUE_PATH = CONFIG_DIR / "channel-llm-summary-queue.jsonl"
 CHANNEL_LLM_SUMMARY_CURSOR_PATH = CONFIG_DIR / "channel-llm-summary-cursor.json"
 CHANNEL_PROBE_CACHE_PATH = CONFIG_DIR / "channel-probe-cache.json"
 MCP_PROXY_CONFIG = CONFIG_DIR / "mcp-proxy.json"
-ROUTER_HOST = os.environ.get("CLAUDE_ANY_ROUTER_CLIENT_HOST", "127.0.0.1").strip() or "127.0.0.1"
+ROUTER_HOST = os.environ.get("CIEL_RUNTIME_ROUTER_CLIENT_HOST", "127.0.0.1").strip() or "127.0.0.1"
 ROUTER_PORT = default_router_port()
 ROUTER_BASE = f"http://{ROUTER_HOST}:{ROUTER_PORT}"
 CLAUDE_GATEWAY_CACHE = HOME / ".claude" / "cache" / "gateway-models.json"
 CLAUDE_SETTINGS_PATH = HOME / ".claude" / "settings.json"
 CLAUDE_COMMANDS_DIR = HOME / ".claude" / "commands"
-CLAUDE_ANY_STATUSLINE_PATH = claude_any_user_bin_dir() / "claude-any-statusline.py"
+CIEL_RUNTIME_STATUSLINE_PATH = ciel_runtime_user_bin_dir() / "ciel-runtime-statusline.py"
 NCP_ENV = platform_config_dir("nvd-claude-proxy") / ".env"
 NCP_LOG = platform_config_dir("nvd-claude-proxy") / "proxy.log"
 MODEL_CACHE_TTL_SECONDS = 300
@@ -193,10 +193,21 @@ ZAI_ANTHROPIC_BASE_URL = "https://api.z.ai/api/anthropic"
 ZAI_DEFAULT_MODEL = "glm-5.2[1m]"
 ZAI_MODEL_FALLBACK_IDS: tuple[str, ...] = (
     "glm-5.2[1m]",
-    "glm-5-turbo[1m]",
-    "glm-4.7",
     "glm-5.2",
+    "glm-5.1",
+    "glm-5",
+    "glm-5-turbo[1m]",
     "glm-5-turbo",
+    "glm-4.7",
+    "glm-4.7-flashx",
+    "glm-4.7-flash",
+    "glm-4.6",
+    "glm-4.5",
+    "glm-4.5-x",
+    "glm-4.5-airx",
+    "glm-4.5-air",
+    "glm-4.5-flash",
+    "glm-4-32b-0414-128k",
 )
 ZAI_MODEL_CONTEXT_HINTS: tuple[tuple[str, int], ...] = (
     ("glm-5.2", 1_000_000),
@@ -204,6 +215,9 @@ ZAI_MODEL_CONTEXT_HINTS: tuple[tuple[str, int], ...] = (
     ("glm-5.1", 200_000),
     ("glm-5", 200_000),
     ("glm-4.7", 200_000),
+    ("glm-4.6", 200_000),
+    ("glm-4.5", 128_000),
+    ("glm-4-32b-0414-128k", 128_000),
 )
 ZAI_MANAGED_MCP_SERVERS: tuple[tuple[str, str], ...] = (
     ("web-search-prime", "https://api.z.ai/api/mcp/web_search_prime/mcp"),
@@ -311,7 +325,7 @@ OFFICIAL_CHANNEL_PLUGINS = {
     "imessage": "plugin:imessage@claude-plugins-official",
     "fakechat": "plugin:fakechat@claude-plugins-official",
 }
-APP_NAME = "Claude Any"
+APP_NAME = "Ciel Runtime"
 VERSION = "0.1.0"
 DEFAULT_UPSTREAM_USER_AGENT = "claude-cli"
 
@@ -320,10 +334,10 @@ def upstream_user_agent() -> str:
     """Return the User-Agent used for upstream provider HTTP calls.
 
     Some provider gateways/WAFs treat Python's default urllib identity as a
-    non-CLI browser signature. claude-any is acting as the Claude CLI transport
+    non-CLI browser signature. ciel-runtime is acting as the Claude CLI transport
     here, so keep that identity explicit and generic across providers.
     """
-    configured = str(os.environ.get("CLAUDE_ANY_UPSTREAM_USER_AGENT") or "").strip()
+    configured = str(os.environ.get("CIEL_RUNTIME_UPSTREAM_USER_AGENT") or "").strip()
     return configured or DEFAULT_UPSTREAM_USER_AGENT
 
 
@@ -470,7 +484,7 @@ def provider_ip_family_probe_lines(provider: str, pcfg: dict[str, Any]) -> list[
     ]
 
 
-def claude_any_source_fingerprint() -> str:
+def ciel_runtime_source_fingerprint() -> str:
     try:
         return hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:16]
     except Exception:
@@ -481,7 +495,7 @@ def claude_any_source_fingerprint() -> str:
             return "unknown"
 
 
-SOURCE_FINGERPRINT = claude_any_source_fingerprint()
+SOURCE_FINGERPRINT = ciel_runtime_source_fingerprint()
 CREDITS = "Credits: One Ciel LLC"
 
 LOG_LEVELS = {"SILENT": 0, "ERROR": 1, "WARN": 2, "INFO": 3, "DEBUG": 4, "TRACE": 5}
@@ -526,8 +540,8 @@ _CHANNEL_STDIN_WAKE_LOCK = threading.Lock()
 _CHANNEL_STDIN_INJECT_LOCK = threading.Lock()
 _CHANNEL_STDIN_WAKE_DELIVERED: set[int] = set()
 _NATIVE_CHANNEL_NOTIFICATION_METHOD = "notifications/claude/channel"
-BUILTIN_CHANNEL_SPEC = "server:claude-any-router"
-_NATIVE_ROUTER_CHANNEL_NAMES = {"claude-any-router", "mcp-claude-any-router"}
+BUILTIN_CHANNEL_SPEC = "server:ciel-runtime-router"
+_NATIVE_ROUTER_CHANNEL_NAMES = {"ciel-runtime-router", "mcp-ciel-runtime-router"}
 _MCP_NOTIFICATION_DEDUP_TTL_SECONDS = 3.0
 _MCP_NOTIFICATION_DEDUP_LOCK = threading.Lock()
 _MCP_NOTIFICATION_DEDUP_RECENT: dict[str, tuple[str, float]] = {}
@@ -535,8 +549,8 @@ _TOOL_SIDE_EFFECT_DEDUP_TTL_SECONDS = 10 * 60.0
 _TOOL_SIDE_EFFECT_DEDUP_LOCK = threading.Lock()
 _TOOL_SIDE_EFFECT_DEDUP_RECENT: dict[str, float] = {}
 EVENT_BUS = EventBus()
-ADVISOR_FEEDBACK_MARKER = "CLAUDE_ANY_ADVISOR_FEEDBACK"
-PLAN_GUARD_MARKER = "[claude-any-plan-guard]"
+ADVISOR_FEEDBACK_MARKER = "CIEL_RUNTIME_ADVISOR_FEEDBACK"
+PLAN_GUARD_MARKER = "[ciel-runtime-plan-guard]"
 TASK_UPDATE_STATUSES = {"pending", "in_progress", "completed", "deleted"}
 TASK_UPDATE_STATUS_ALIASES = {
     "active": "in_progress",
@@ -594,7 +608,7 @@ def positive_env_int(name: str, default: int) -> int:
     return default
 
 
-SUPPRESSED_THINKING_PASSBACK_MAX = positive_env_int("CLAUDE_ANY_THINKING_PASSBACK_MAX", 4096)
+SUPPRESSED_THINKING_PASSBACK_MAX = positive_env_int("CIEL_RUNTIME_THINKING_PASSBACK_MAX", 4096)
 SUPPRESSED_THINKING_PASSBACK_CACHE: list[dict[str, Any]] = []
 DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC: tuple[str, ...] = (
     "EnterWorktree",
@@ -615,12 +629,12 @@ DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC: tuple[str, ...] = (
 )
 CLAUDE_SERVER_SIDE_WEB_TOOLS: tuple[str, ...] = ("WebSearch", "WebFetch")
 ROUTED_COMPAT_PROMPT = (
-    "You are running inside Claude Code through the claude-any router. "
+    "You are running inside Claude Code through the ciel-runtime router. "
     "Do not stop after announcing what you plan to do. When the user asks you to create, edit, or run code, "
     "immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, "
     "except while Claude Code is in Plan Mode. In Plan Mode, first explore/read as needed, write or update the plan file named "
     "by the plan_mode attachment, and only then call ExitPlanMode to leave Plan Mode; when bypass permissions is active, "
-    "claude-any auto-approves that plan exit, so do not ask the user separately and do not call EnterPlanMode again. "
+    "ciel-runtime auto-approves that plan exit, so do not ask the user separately and do not call EnterPlanMode again. "
     "then report the concrete result. If the task has several reasonable implementation parts, do all in-scope parts; "
     "do not ask the user which part to start or whether to do all unless the user explicitly requested a choice. "
     "If you decide not to use tools, provide the complete requested code or answer in the same turn. "
@@ -1695,7 +1709,7 @@ def _is_mcp_notification_wait_tool(tool_name: str) -> bool:
 
 
 def _mcp_notification_wait_timeout_cap_ms() -> int:
-    raw = os.environ.get("CLAUDE_ANY_MCP_NOTIFICATION_WAIT_TIMEOUT_MS")
+    raw = os.environ.get("CIEL_RUNTIME_MCP_NOTIFICATION_WAIT_TIMEOUT_MS")
     if raw is None:
         return 1000
     try:
@@ -1708,7 +1722,7 @@ def _mcp_notification_wait_timeout_cap_ms() -> int:
 
 
 def _mcp_notification_wait_duplicate_cap_ms() -> int:
-    raw = os.environ.get("CLAUDE_ANY_MCP_NOTIFICATION_WAIT_DUPLICATE_TIMEOUT_MS")
+    raw = os.environ.get("CIEL_RUNTIME_MCP_NOTIFICATION_WAIT_DUPLICATE_TIMEOUT_MS")
     if raw is None:
         return 100
     try:
@@ -1721,7 +1735,7 @@ def _mcp_notification_wait_duplicate_cap_ms() -> int:
 
 
 def _mcp_notification_wait_duplicate_window_seconds() -> float:
-    raw = os.environ.get("CLAUDE_ANY_MCP_NOTIFICATION_WAIT_DUPLICATE_WINDOW_SECONDS")
+    raw = os.environ.get("CIEL_RUNTIME_MCP_NOTIFICATION_WAIT_DUPLICATE_WINDOW_SECONDS")
     if raw is None:
         return 90.0
     try:
@@ -1818,7 +1832,7 @@ UI_TEXT = {
         "back": "Back",
         "launch": "Launch Claude Code",
         "quit": "Quit",
-        "title": "claude-any pre-launch",
+        "title": "ciel-runtime pre-launch",
     },
     "ko": {
         "language": "언어",
@@ -1841,7 +1855,7 @@ UI_TEXT = {
         "back": "뒤로",
         "launch": "Claude Code 실행",
         "quit": "종료",
-        "title": "claude-any 실행 전 설정",
+        "title": "ciel-runtime 실행 전 설정",
     },
     "ja": {
         "language": "言語",
@@ -1864,7 +1878,7 @@ UI_TEXT = {
         "back": "戻る",
         "launch": "Claude Codeを起動",
         "quit": "終了",
-        "title": "claude-any 起動前設定",
+        "title": "ciel-runtime 起動前設定",
     },
     "zh": {
         "language": "语言",
@@ -1887,7 +1901,7 @@ UI_TEXT = {
         "back": "返回",
         "launch": "启动 Claude Code",
         "quit": "退出",
-        "title": "claude-any 启动前设置",
+        "title": "ciel-runtime 启动前设置",
     },
 }
 
@@ -1913,7 +1927,7 @@ PROVIDER_NOTES = {
         ],
         "vllm": [
             "vLLM: Anthropic Messages API is the default; OpenAI-only chat completions endpoints are auto-detected.",
-            "If auto-detection finds only /v1/chat/completions, claude-any disables Native compatibility and routes through the local converter.",
+            "If auto-detection finds only /v1/chat/completions, ciel-runtime disables Native compatibility and routes through the local converter.",
         ],
         "lm-studio": [
             "LM Studio: uses the local Anthropic-compatible /v1/messages server by default.",
@@ -1925,7 +1939,7 @@ PROVIDER_NOTES = {
         ],
         "nvidia-hosted": [
             "NVIDIA hosted: uses NVIDIA API Catalog at https://integrate.api.nvidia.com/v1.",
-            "Hosted API Catalog currently uses the claude-any router path; self-hosted NIM uses native Messages.",
+            "Hosted API Catalog currently uses the ciel-runtime router path; self-hosted NIM uses native Messages.",
         ],
     },
     "ko": {
@@ -1955,7 +1969,7 @@ PROVIDER_NOTES = {
         ],
         "nvidia-hosted": [
             "NVIDIA hosted: https://integrate.api.nvidia.com/v1 의 NVIDIA API Catalog를 사용합니다.",
-            "Hosted API Catalog는 claude-any router 경로를 기본 사용합니다. self-hosted NIM은 native Messages를 사용합니다.",
+            "Hosted API Catalog는 ciel-runtime router 경로를 기본 사용합니다. self-hosted NIM은 native Messages를 사용합니다.",
         ],
     },
     "ja": {
@@ -1985,7 +1999,7 @@ PROVIDER_NOTES = {
         ],
         "nvidia-hosted": [
             "NVIDIA hosted: https://integrate.api.nvidia.com/v1 のNVIDIA API Catalogを使います。",
-            "Hosted API Catalogはclaude-any router経路を既定で使います。self-hosted NIMはnative Messagesを使います。",
+            "Hosted API Catalogはciel-runtime router経路を既定で使います。self-hosted NIMはnative Messagesを使います。",
         ],
     },
     "zh": {
@@ -2003,7 +2017,7 @@ PROVIDER_NOTES = {
         ],
         "vllm": [
             "vLLM: 默认使用 Anthropic Messages API。仅 OpenAI chat completions 的端点会自动检测。",
-            "如果自动检测只发现 /v1/chat/completions，claude-any 会关闭 Native compatibility 并使用本地转换路由。",
+            "如果自动检测只发现 /v1/chat/completions，ciel-runtime 会关闭 Native compatibility 并使用本地转换路由。",
         ],
         "lm-studio": [
             "LM Studio: 默认直接使用本地 Anthropic-compatible /v1/messages 服务器。",
@@ -2015,7 +2029,7 @@ PROVIDER_NOTES = {
         ],
         "nvidia-hosted": [
             "NVIDIA hosted: 使用 https://integrate.api.nvidia.com/v1 的 NVIDIA API Catalog。",
-            "Hosted API Catalog 默认使用 claude-any router 路径；self-hosted NIM 使用 native Messages。",
+            "Hosted API Catalog 默认使用 ciel-runtime router 路径；self-hosted NIM 使用 native Messages。",
         ],
     },
 }
@@ -2172,6 +2186,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "custom_models": [KIMI_DEFAULT_MODEL],
             "native_compat": True,
             "preserve_anthropic_thinking": True,
+            "normalize_anthropic_tool_use": True,
+            "supports_tool_choice": False,
             "claude_code_supported_capabilities": ["effort", "thinking"],
             "context_window": 262144,
             "max_output_tokens": 32768,
@@ -2498,6 +2514,15 @@ def apply_config_migrations(cfg: dict[str, Any]) -> None:
                 pcfg["ip_family"] = "ipv6-preferred"
         migrations[marker] = True
 
+    marker = "kimi_tool_choice_auto_only_20260625"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        pcfg = providers.get("kimi")
+        if isinstance(pcfg, dict):
+            pcfg["normalize_anthropic_tool_use"] = True
+            pcfg["supports_tool_choice"] = False
+        migrations[marker] = True
+
 
 _config_cache: dict[str, Any] | None = None
 _config_cache_mtime: float = 0.0
@@ -2643,14 +2668,14 @@ def upstream_api_model_id(provider: str, model_id: str | None) -> str:
 def alias_for(provider: str, model_id: str) -> str:
     if provider == "nvidia-hosted" and model_id.startswith("claude-"):
         return model_id
-    return f"claude-any-{provider}-{slug(model_id)}"
+    return f"ciel-runtime-{provider}-{slug(model_id)}"
 
 
 def unslug_provider_alias(provider: str, alias: str, model_map: dict[str, str]) -> str | None:
     alias = strip_claude_context_suffix(alias)
     if alias in model_map:
         return model_map[alias]
-    prefix = f"claude-any-{provider}-"
+    prefix = f"ciel-runtime-{provider}-"
     if alias.startswith(prefix):
         target_slug = alias[len(prefix):]
         for _, model_id in model_map.items():
@@ -2679,13 +2704,13 @@ def model_object(provider: str, model_id: str, pcfg: dict[str, Any] | None = Non
         "created_at": 1700000000,
         "object": "model",
         "created": 1700000000,
-        "owned_by": f"claude-any/{provider}",
-        "claude_any": {"provider": provider, "upstream_model": model_id},
+        "owned_by": f"ciel-runtime/{provider}",
+        "ciel_runtime": {"provider": provider, "upstream_model": model_id},
     }
     if provider in OPENCODE_PROVIDER_NAMES:
         endpoint = opencode_endpoint_kind(provider, model_id, pcfg)
-        obj["claude_any"]["opencode_endpoint"] = endpoint
-        obj["claude_any"]["router_supported"] = opencode_model_supported_by_router(provider, model_id, pcfg)
+        obj["ciel_runtime"]["opencode_endpoint"] = endpoint
+        obj["ciel_runtime"]["router_supported"] = opencode_model_supported_by_router(provider, model_id, pcfg)
     return obj
 
 
@@ -2893,7 +2918,7 @@ def executable_candidates(name: str) -> list[str]:
 
 
 def executable_extra_dirs() -> list[Path]:
-    dirs = [claude_any_user_bin_dir()]
+    dirs = [ciel_runtime_user_bin_dir()]
     for env_name in ("UV_INSTALL_DIR", "CARGO_HOME"):
         root = os.environ.get(env_name)
         if root:
@@ -3001,16 +3026,16 @@ def shell_command_string(args: list[str]) -> str:
 
 def find_tool_guard_script() -> Path | None:
     candidates = [
-        Path(__file__).resolve().with_name("claude-any-tool-guard.py"),
-        claude_any_user_bin_dir() / "claude-any-tool-guard.py",
-        claude_any_user_bin_dir() / "claude-any-tool-guard",
-        HOME / ".local" / "bin" / "claude-any-tool-guard.py",
-        HOME / ".local" / "bin" / "claude-any-tool-guard",
+        Path(__file__).resolve().with_name("ciel-runtime-tool-guard.py"),
+        ciel_runtime_user_bin_dir() / "ciel-runtime-tool-guard.py",
+        ciel_runtime_user_bin_dir() / "ciel-runtime-tool-guard",
+        HOME / ".local" / "bin" / "ciel-runtime-tool-guard.py",
+        HOME / ".local" / "bin" / "ciel-runtime-tool-guard",
     ]
-    found = find_executable("claude-any-tool-guard")
+    found = find_executable("ciel-runtime-tool-guard")
     if found:
         candidates.append(Path(found))
-    found_py = find_executable("claude-any-tool-guard.py")
+    found_py = find_executable("ciel-runtime-tool-guard.py")
     if found_py:
         candidates.append(Path(found_py))
     for path in candidates:
@@ -3019,7 +3044,7 @@ def find_tool_guard_script() -> Path | None:
     return None
 
 
-def claude_any_tool_guard_command() -> str | None:
+def ciel_runtime_tool_guard_command() -> str | None:
     script = find_tool_guard_script()
     if script is None:
         return None
@@ -3064,9 +3089,9 @@ TOOL_GUARD_EVENTS_WITHOUT_MATCHER: tuple[str, ...] = (
 
 
 def install_tool_guard_hooks() -> None:
-    command = claude_any_tool_guard_command()
+    command = ciel_runtime_tool_guard_command()
     if not command:
-        print("Claude Any warning: tool guard hook was not installed; claude-any-tool-guard was not found.", flush=True)
+        print("Ciel Runtime warning: tool guard hook was not installed; ciel-runtime-tool-guard was not found.", flush=True)
         return
 
     if CLAUDE_SETTINGS_PATH.exists():
@@ -3075,14 +3100,14 @@ def install_tool_guard_hooks() -> None:
             if not isinstance(settings, dict):
                 settings = {}
         except Exception as exc:
-            print(f"Claude Any warning: could not read {CLAUDE_SETTINGS_PATH} ({type(exc).__name__}); tool guard hook was not installed.", flush=True)
+            print(f"Ciel Runtime warning: could not read {CLAUDE_SETTINGS_PATH} ({type(exc).__name__}); tool guard hook was not installed.", flush=True)
             return
     else:
         settings = {}
 
     hooks = settings.setdefault("hooks", {})
     if not isinstance(hooks, dict):
-        print(f"Claude Any warning: {CLAUDE_SETTINGS_PATH} has non-object hooks; tool guard hook was not installed.", flush=True)
+        print(f"Ciel Runtime warning: {CLAUDE_SETTINGS_PATH} has non-object hooks; tool guard hook was not installed.", flush=True)
         return
 
     changed = False
@@ -3094,7 +3119,7 @@ def install_tool_guard_hooks() -> None:
     for event, with_matcher in all_events:
         groups = hooks.setdefault(event, [])
         if not isinstance(groups, list):
-            print(f"Claude Any warning: {CLAUDE_SETTINGS_PATH} hooks.{event} is not a list; tool guard hook was not installed.", flush=True)
+            print(f"Ciel Runtime warning: {CLAUDE_SETTINGS_PATH} hooks.{event} is not a list; tool guard hook was not installed.", flush=True)
             return
         existing = False
         for group in groups:
@@ -3104,7 +3129,7 @@ def install_tool_guard_hooks() -> None:
             if not isinstance(handlers, list):
                 continue
             for handler in handlers:
-                if isinstance(handler, dict) and "claude-any-tool-guard" in str(handler.get("command", "")):
+                if isinstance(handler, dict) and "ciel-runtime-tool-guard" in str(handler.get("command", "")):
                     existing = True
                     if handler.get("command") != command:
                         handler["command"] = command
@@ -3141,15 +3166,15 @@ HOME = Path.home()
 
 
 def default_config_dir():
-    configured = os.environ.get("CLAUDE_ANY_CONFIG_DIR")
+    configured = os.environ.get("CIEL_RUNTIME_CONFIG_DIR")
     if configured:
         return Path(configured)
     if os.name == "nt":
         root = os.environ.get("APPDATA") or os.environ.get("LOCALAPPDATA")
         if root:
-            return Path(root) / "claude-any"
-        return HOME / "AppData" / "Roaming" / "claude-any"
-    return HOME / ".config" / "claude-any"
+            return Path(root) / "ciel-runtime"
+        return HOME / "AppData" / "Roaming" / "ciel-runtime"
+    return HOME / ".config" / "ciel-runtime"
 
 
 CONFIG_DIR = default_config_dir()
@@ -3259,7 +3284,7 @@ def _status_key_cooldown_summary(provider, pcfg, state, now):
 
 
 def color(text):
-    if os.environ.get("CLAUDE_ANY_STATUSLINE_ANSI", "1").lower() in ("0", "false", "no"):
+    if os.environ.get("CIEL_RUNTIME_STATUSLINE_ANSI", "1").lower() in ("0", "false", "no"):
         return text
     phase = int(time.monotonic() * 8)
     out = []
@@ -3272,7 +3297,7 @@ def color(text):
 
 
 def gray(text):
-    if os.environ.get("CLAUDE_ANY_STATUSLINE_ANSI", "1").lower() in ("0", "false", "no"):
+    if os.environ.get("CIEL_RUNTIME_STATUSLINE_ANSI", "1").lower() in ("0", "false", "no"):
         return text
     return f"\033[38;5;245m{text}\033[0m"
 
@@ -3479,13 +3504,13 @@ def channel_pending_status_count():
     return count
 
 
-def is_claude_any_session(session):
-    if os.environ.get("CLAUDE_ANY_PROVIDER") or os.environ.get("CLAUDE_ANY_MODEL_ALIAS"):
+def is_ciel_runtime_session(session):
+    if os.environ.get("CIEL_RUNTIME_PROVIDER") or os.environ.get("CIEL_RUNTIME_MODEL_ALIAS"):
         return True
-    if os.environ.get("CLAUDE_ANY_STATUSLINE_FORCE", "").lower() in ("1", "true", "yes", "on"):
+    if os.environ.get("CIEL_RUNTIME_STATUSLINE_FORCE", "").lower() in ("1", "true", "yes", "on"):
         return True
     model_name = ((session.get("model") or {}).get("display_name") if isinstance(session.get("model"), dict) else None) or ""
-    return str(model_name).startswith("claude-any-")
+    return str(model_name).startswith("ciel-runtime-")
 
 
 def display_capacity(rpm):
@@ -3502,7 +3527,7 @@ def main():
             session = {}
     except Exception:
         session = {}
-    if not is_claude_any_session(session):
+    if not is_ciel_runtime_session(session):
         return
     cfg = load_json(CONFIG_PATH, {})
     providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
@@ -3700,13 +3725,13 @@ if __name__ == "__main__":
 '''
 
 
-def install_claude_any_statusline() -> None:
+def install_ciel_runtime_statusline() -> None:
     try:
-        CLAUDE_ANY_STATUSLINE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        if not CLAUDE_ANY_STATUSLINE_PATH.exists() or CLAUDE_ANY_STATUSLINE_PATH.read_text(encoding="utf-8") != STATUSLINE_SCRIPT:
-            CLAUDE_ANY_STATUSLINE_PATH.write_text(STATUSLINE_SCRIPT, encoding="utf-8")
+        CIEL_RUNTIME_STATUSLINE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        if not CIEL_RUNTIME_STATUSLINE_PATH.exists() or CIEL_RUNTIME_STATUSLINE_PATH.read_text(encoding="utf-8") != STATUSLINE_SCRIPT:
+            CIEL_RUNTIME_STATUSLINE_PATH.write_text(STATUSLINE_SCRIPT, encoding="utf-8")
         try:
-            os.chmod(CLAUDE_ANY_STATUSLINE_PATH, 0o700)
+            os.chmod(CIEL_RUNTIME_STATUSLINE_PATH, 0o700)
         except Exception:
             pass
         if CLAUDE_SETTINGS_PATH.exists():
@@ -3715,11 +3740,11 @@ def install_claude_any_statusline() -> None:
                 if not isinstance(settings, dict):
                     settings = {}
             except Exception as exc:
-                print(f"Claude Any warning: could not read {CLAUDE_SETTINGS_PATH} ({type(exc).__name__}); status line was not installed.", flush=True)
+                print(f"Ciel Runtime warning: could not read {CLAUDE_SETTINGS_PATH} ({type(exc).__name__}); status line was not installed.", flush=True)
                 return
         else:
             settings = {}
-        command = f"{shlex.quote(sys.executable)} {shlex.quote(str(CLAUDE_ANY_STATUSLINE_PATH))}"
+        command = f"{shlex.quote(sys.executable)} {shlex.quote(str(CIEL_RUNTIME_STATUSLINE_PATH))}"
         current = settings.get("statusLine")
         if isinstance(current, dict) and current.get("command") == command:
             return
@@ -3738,89 +3763,89 @@ def install_claude_any_statusline() -> None:
             pass
         tmp.replace(CLAUDE_SETTINGS_PATH)
     except Exception as exc:
-        print(f"Claude Any warning: could not install status line ({type(exc).__name__}: {exc}).", flush=True)
+        print(f"Ciel Runtime warning: could not install status line ({type(exc).__name__}: {exc}).", flush=True)
 
 
 ADVISOR_SLASH_COMMAND = """---
-description: Run the selected claude-any Advisor Model
+description: Run the selected ciel-runtime Advisor Model
 argument-hint: [question or focus]
 ---
 
-CLAUDE_ANY_ADVISOR_CALL
+CIEL_RUNTIME_ADVISOR_CALL
 
 Focus: $ARGUMENTS
 
-Use the Advisor Model selected in the claude-any launch menu. If the Advisor Model is off, explain how to enable it. Otherwise review the current conversation, tool history, and task state. Return concise guidance with the blocker, next concrete action, and validation step.
+Use the Advisor Model selected in the ciel-runtime launch menu. If the Advisor Model is off, explain how to enable it. Otherwise review the current conversation, tool history, and task state. Return concise guidance with the blocker, next concrete action, and validation step.
 """
 
 ADVISOR_NATIVE_DISABLED_SLASH_COMMAND = """---
-description: Claude Any Advisor unavailable in Claude Native mode
+description: Ciel Runtime Advisor unavailable in Claude Native mode
 argument-hint: [ignored]
 ---
 
-Claude Any Advisor is unavailable in direct Claude Native mode.
+Ciel Runtime Advisor is unavailable in direct Claude Native mode.
 
 Do not run tools, shell commands, file searches, config scans, or environment checks for this command. Reply immediately with this exact status and the short enablement hint below.
 
-This session bypasses the claude-any router, so /advisor cannot call the configured Advisor Model here. To use /advisor, launch a non-native provider or enable Anthropic routed mode in claude-any.
+This session bypasses the ciel-runtime router, so /advisor cannot call the configured Advisor Model here. To use /advisor, launch a non-native provider or enable Anthropic routed mode in ciel-runtime.
 """
 
 ROUTER_DEBUG_SLASH_COMMAND = """---
-description: Toggle claude-any router external debug access
+description: Toggle ciel-runtime router external debug access
 argument-hint: [on|off|status]
 ---
 
-CLAUDE_ANY_ROUTER_DEBUG_ACCESS
+CIEL_RUNTIME_ROUTER_DEBUG_ACCESS
 
 Value: $ARGUMENTS
 
-Toggle claude-any router debug external access. With no argument, this toggles the current state. Use `on`, `off`, or `status` for explicit control.
+Toggle ciel-runtime router debug external access. With no argument, this toggles the current state. Use `on`, `off`, or `status` for explicit control.
 """
 
 ROUTER_DEBUG_NATIVE_DISABLED_SLASH_COMMAND = """---
-description: claude-any router debug unavailable in Claude Native mode
+description: ciel-runtime router debug unavailable in Claude Native mode
 argument-hint: [ignored]
 ---
 
-claude-any router debug controls are unavailable in direct Claude Native mode.
+ciel-runtime router debug controls are unavailable in direct Claude Native mode.
 
 Do not run tools, shell commands, file searches, config scans, or environment checks for this command. Reply immediately with this exact status and the short enablement hint below.
 
-This session bypasses the claude-any router. Launch a non-native provider or enable Anthropic routed mode to use /router-debug.
+This session bypasses the ciel-runtime router. Launch a non-native provider or enable Anthropic routed mode to use /router-debug.
 """
 
 LLM_SLIDER_SLASH_COMMAND = """---
-description: Move/select claude-any live LLM preset slider
+description: Move/select ciel-runtime live LLM preset slider
 argument-hint: [left|right|status|list|restore|preset-id]
 ---
 
-CLAUDE_ANY_LIVE_LLM_OPTIONS
+CIEL_RUNTIME_LIVE_LLM_OPTIONS
 
 Value: $0
 Arguments: $ARGUMENTS
 
-Use one compact claude-any live LLM preset control. With no argument, show the current slider. Use `left` or `right` to move one preset, `restore` to return to captured options, or a preset id/alias such as `coding`, `300k`, `512k`, or `1m`.
+Use one compact ciel-runtime live LLM preset control. With no argument, show the current slider. Use `left` or `right` to move one preset, `restore` to return to captured options, or a preset id/alias such as `coding`, `300k`, `512k`, or `1m`.
 """
 
 LLM_OPTIONS_SLASH_COMMAND = """---
-description: Show or change claude-any live LLM options
+description: Show or change ciel-runtime live LLM options
 argument-hint: [left|right|status|list|restore|preset-id]
 ---
 
-CLAUDE_ANY_LIVE_LLM_OPTIONS
+CIEL_RUNTIME_LIVE_LLM_OPTIONS
 
 Value: $0
 Arguments: $ARGUMENTS
 
-Show or change the live claude-any LLM preset for this routed session. With no argument, show status and the compact preset slider. Use `left` or `right` to move one preset, `restore` to return to captured options, or a preset id/alias such as `coding`, `300k`, `512k`, or `1m`.
+Show or change the live ciel-runtime LLM preset for this routed session. With no argument, show status and the compact preset slider. Use `left` or `right` to move one preset, `restore` to return to captured options, or a preset id/alias such as `coding`, `300k`, `512k`, or `1m`.
 """
 
 LLM_RESTORE_SLASH_COMMAND = """---
-description: Restore claude-any live LLM options
+description: Restore ciel-runtime live LLM options
 argument-hint: [ignored]
 ---
 
-CLAUDE_ANY_LIVE_LLM_OPTIONS
+CIEL_RUNTIME_LIVE_LLM_OPTIONS
 
 Value: restore
 
@@ -3828,57 +3853,57 @@ Restore the LLM options captured before the first live preset change in this rou
 """
 
 CHANNEL_CLEAR_SLASH_COMMAND = """---
-description: Discard pending claude-any external channel backlog
+description: Discard pending ciel-runtime external channel backlog
 argument-hint: [all|status]
 ---
 
-CLAUDE_ANY_CHANNEL_CLEAR_BACKLOG
+CIEL_RUNTIME_CHANNEL_CLEAR_BACKLOG
 
 Value: $ARGUMENTS
 
-Discard pending claude-any external channel backlog without sending it to the model. Use `status` to show pending counts without clearing.
+Discard pending ciel-runtime external channel backlog without sending it to the model. Use `status` to show pending counts without clearing.
 """
 
 API_KEYS_SLASH_COMMAND = """---
-description: Set/show claude-any live API key(s)
+description: Set/show ciel-runtime live API key(s)
 argument-hint: [status|clear|KEY|KEY1,KEY2]
 ---
 
-Set API key(s) for the current claude-any provider without restarting Claude Code. With no argument, show masked key status. Use `clear` or `unset` to remove keys for only the current provider. Multiple keys may be comma-, semicolon-, or newline-separated and are used round-robin. Never print raw keys.
+Set API key(s) for the current ciel-runtime provider without restarting Claude Code. With no argument, show masked key status. Use `clear` or `unset` to remove keys for only the current provider. Multiple keys may be comma-, semicolon-, or newline-separated and are used round-robin. Never print raw keys.
 
-CLAUDE_ANY_LIVE_API_KEYS
+CIEL_RUNTIME_LIVE_API_KEYS
 
 Value: $0
 Arguments:
 $ARGUMENTS
 """
 
-CLAUDE_ANY_ADVISOR_COMMAND_MARKERS = (
-    "CLAUDE_ANY_ADVISOR_CALL",
-    "Run the selected claude-any Advisor Model",
-    "Claude Any Advisor is unavailable in direct Claude Native mode",
+CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS = (
+    "CIEL_RUNTIME_ADVISOR_CALL",
+    "Run the selected ciel-runtime Advisor Model",
+    "Ciel Runtime Advisor is unavailable in direct Claude Native mode",
 )
-CLAUDE_ANY_ROUTER_DEBUG_COMMAND_MARKERS = (
-    "CLAUDE_ANY_ROUTER_DEBUG_ACCESS",
-    "Toggle claude-any router external debug access",
-    "claude-any router debug controls are unavailable in direct Claude Native mode",
+CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS = (
+    "CIEL_RUNTIME_ROUTER_DEBUG_ACCESS",
+    "Toggle ciel-runtime router external debug access",
+    "ciel-runtime router debug controls are unavailable in direct Claude Native mode",
 )
-CLAUDE_ANY_LLM_OPTIONS_COMMAND_MARKERS = (
-    "CLAUDE_ANY_LIVE_LLM_OPTIONS",
-    "Show or change claude-any live LLM options",
-    "Restore claude-any live LLM options",
+CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS = (
+    "CIEL_RUNTIME_LIVE_LLM_OPTIONS",
+    "Show or change ciel-runtime live LLM options",
+    "Restore ciel-runtime live LLM options",
 )
-CLAUDE_ANY_CHANNEL_CLEAR_COMMAND_MARKERS = (
-    "CLAUDE_ANY_CHANNEL_CLEAR_BACKLOG",
-    "Discard pending claude-any external channel backlog",
+CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS = (
+    "CIEL_RUNTIME_CHANNEL_CLEAR_BACKLOG",
+    "Discard pending ciel-runtime external channel backlog",
 )
-CLAUDE_ANY_API_KEYS_COMMAND_MARKERS = (
-    "CLAUDE_ANY_LIVE_API_KEYS",
-    "Set/show claude-any live API key(s)",
+CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS = (
+    "CIEL_RUNTIME_LIVE_API_KEYS",
+    "Set/show ciel-runtime live API key(s)",
 )
 
 
-def command_file_is_claude_any_owned(path: Path, markers: tuple[str, ...]) -> bool:
+def command_file_is_ciel_runtime_owned(path: Path, markers: tuple[str, ...]) -> bool:
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except Exception:
@@ -3886,18 +3911,18 @@ def command_file_is_claude_any_owned(path: Path, markers: tuple[str, ...]) -> bo
     return any(marker in text for marker in markers)
 
 
-def remove_claude_any_advisor_command() -> None:
-    """Remove the claude-any-owned /advisor command so Claude Code's built-in
+def remove_ciel_runtime_advisor_command() -> None:
+    """Remove the ciel-runtime-owned /advisor command so Claude Code's built-in
     /advisor (the standard flow for the anthropic provider) surfaces."""
     try:
         path = CLAUDE_COMMANDS_DIR / "advisor.md"
-        if path.exists() and command_file_is_claude_any_owned(path, CLAUDE_ANY_ADVISOR_COMMAND_MARKERS):
+        if path.exists() and command_file_is_ciel_runtime_owned(path, CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS):
             path.unlink()
     except Exception as exc:
-        print(f"Claude Any warning: could not remove claude-any /advisor command ({type(exc).__name__}: {exc}).", flush=True)
+        print(f"Ciel Runtime warning: could not remove ciel-runtime /advisor command ({type(exc).__name__}: {exc}).", flush=True)
 
 
-def install_claude_any_slash_commands(include_advisor: bool = True) -> None:
+def install_ciel_runtime_slash_commands(include_advisor: bool = True) -> None:
     try:
         CLAUDE_COMMANDS_DIR.mkdir(parents=True, exist_ok=True)
         commands = {
@@ -3912,11 +3937,11 @@ def install_claude_any_slash_commands(include_advisor: bool = True) -> None:
         if include_advisor:
             commands["advisor.md"] = ADVISOR_SLASH_COMMAND
         else:
-            remove_claude_any_advisor_command()
+            remove_ciel_runtime_advisor_command()
         for path in CLAUDE_COMMANDS_DIR.glob("llm-*.md"):
             if path.name in commands:
                 continue
-            if command_file_is_claude_any_owned(path, CLAUDE_ANY_LLM_OPTIONS_COMMAND_MARKERS):
+            if command_file_is_ciel_runtime_owned(path, CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS):
                 try:
                     path.unlink()
                 except Exception:
@@ -3925,7 +3950,7 @@ def install_claude_any_slash_commands(include_advisor: bool = True) -> None:
         if stale_channel.exists():
             try:
                 stale_text = stale_channel.read_text(encoding="utf-8", errors="replace")
-                if "CLAUDE_ANY_CHANNEL_BRIDGE" in stale_text or "claude-any channel bridge" in stale_text:
+                if "CIEL_RUNTIME_CHANNEL_BRIDGE" in stale_text or "ciel-runtime channel bridge" in stale_text:
                     stale_channel.unlink()
             except Exception:
                 pass
@@ -3934,19 +3959,19 @@ def install_claude_any_slash_commands(include_advisor: bool = True) -> None:
             if path.exists():
                 existing = path.read_text(encoding="utf-8", errors="replace")
                 markers = (
-                    CLAUDE_ANY_ADVISOR_COMMAND_MARKERS
+                    CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS
                     if name == "advisor.md"
-                    else CLAUDE_ANY_ROUTER_DEBUG_COMMAND_MARKERS
+                    else CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS
                     if name == "router-debug.md"
-                    else CLAUDE_ANY_LLM_OPTIONS_COMMAND_MARKERS
+                    else CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS
                     if name == "llm-options.md" or name == "llm-restore.md" or name.startswith("llm-")
-                    else CLAUDE_ANY_API_KEYS_COMMAND_MARKERS
+                    else CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS
                     if name in {"api-key.md", "api-keys.md"}
-                    else CLAUDE_ANY_CHANNEL_CLEAR_COMMAND_MARKERS
+                    else CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS
                 )
                 if existing == content:
                     continue
-                if not command_file_is_claude_any_owned(path, markers):
+                if not command_file_is_ciel_runtime_owned(path, markers):
                     continue
             path.write_text(content, encoding="utf-8")
             try:
@@ -3954,35 +3979,35 @@ def install_claude_any_slash_commands(include_advisor: bool = True) -> None:
             except Exception:
                 pass
     except Exception as exc:
-        print(f"Claude Any warning: could not install claude-any slash commands ({type(exc).__name__}: {exc}).", flush=True)
+        print(f"Ciel Runtime warning: could not install ciel-runtime slash commands ({type(exc).__name__}: {exc}).", flush=True)
 
 
-def disable_claude_any_slash_commands_for_native() -> None:
+def disable_ciel_runtime_slash_commands_for_native() -> None:
     try:
         if not CLAUDE_COMMANDS_DIR.exists():
             return
         commands = {
-            "advisor.md": CLAUDE_ANY_ADVISOR_COMMAND_MARKERS,
-            "router-debug.md": CLAUDE_ANY_ROUTER_DEBUG_COMMAND_MARKERS,
-            "llm.md": CLAUDE_ANY_LLM_OPTIONS_COMMAND_MARKERS,
-            "llm-options.md": CLAUDE_ANY_LLM_OPTIONS_COMMAND_MARKERS,
-            "llm-restore.md": CLAUDE_ANY_LLM_OPTIONS_COMMAND_MARKERS,
-            "channel-clear.md": CLAUDE_ANY_CHANNEL_CLEAR_COMMAND_MARKERS,
-            "api-key.md": CLAUDE_ANY_API_KEYS_COMMAND_MARKERS,
-            "api-keys.md": CLAUDE_ANY_API_KEYS_COMMAND_MARKERS,
+            "advisor.md": CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS,
+            "router-debug.md": CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS,
+            "llm.md": CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
+            "llm-options.md": CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
+            "llm-restore.md": CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
+            "channel-clear.md": CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS,
+            "api-key.md": CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS,
+            "api-keys.md": CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS,
         }
         for name, markers in commands.items():
             path = CLAUDE_COMMANDS_DIR / name
-            if not path.exists() or not command_file_is_claude_any_owned(path, markers):
+            if not path.exists() or not command_file_is_ciel_runtime_owned(path, markers):
                 continue
             path.unlink()
         for path in CLAUDE_COMMANDS_DIR.glob("llm-*.md"):
             if path.name in commands:
                 continue
-            if command_file_is_claude_any_owned(path, CLAUDE_ANY_LLM_OPTIONS_COMMAND_MARKERS):
+            if command_file_is_ciel_runtime_owned(path, CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS):
                 path.unlink()
     except Exception as exc:
-        print(f"Claude Any warning: could not remove claude-any slash commands for native mode ({type(exc).__name__}: {exc}).", flush=True)
+        print(f"Ciel Runtime warning: could not remove ciel-runtime slash commands for native mode ({type(exc).__name__}: {exc}).", flush=True)
 
 
 def http_json(
@@ -4020,7 +4045,7 @@ def current_log_level() -> int:
     except Exception:
         pass
     if level is None:
-        env = os.environ.get("CLAUDE_ANY_LOG_LEVEL", "").strip().upper()
+        env = os.environ.get("CIEL_RUNTIME_LOG_LEVEL", "").strip().upper()
         if env in LOG_LEVELS:
             level = LOG_LEVELS[env]
         elif env.isdigit():
@@ -4045,7 +4070,7 @@ def log_level_name(value: int | None = None) -> str:
 def log_level_source() -> str:
     if LOG_LEVEL_PATH.exists():
         return "file"
-    if os.environ.get("CLAUDE_ANY_LOG_LEVEL", "").strip():
+    if os.environ.get("CIEL_RUNTIME_LOG_LEVEL", "").strip():
         return "env"
     return "default"
 
@@ -4242,14 +4267,14 @@ def resolve_emitted_tool_name(raw_name: str, source_body: dict[str, Any] | None)
 def synthetic_tool_use_response(model: str, tool_name: str, tool_input: dict[str, Any] | None = None) -> dict[str, Any]:
     now = int(time.time() * 1000)
     return {
-        "id": f"msg_claude_any_tool_{now}",
+        "id": f"msg_ciel_runtime_tool_{now}",
         "type": "message",
         "role": "assistant",
-        "model": model or "claude-any-router",
+        "model": model or "ciel-runtime-router",
         "content": [
             {
                 "type": "tool_use",
-                "id": f"toolu_claude_any_{tool_name}_{now}",
+                "id": f"toolu_ciel_runtime_{tool_name}_{now}",
                 "name": tool_name,
                 "input": tool_input or {},
             }
@@ -4273,7 +4298,7 @@ def body_ultracode_runtime_enabled(body: dict[str, Any]) -> bool:
     """Infer Claude Code's per-session ultracode runtime state from the prompt.
 
     `/effort ultracode` is session-scoped in Claude Code and is not persisted in
-    claude-any provider config. Claude Code advertises that runtime state via
+    ciel-runtime provider config. Claude Code advertises that runtime state via
     system reminder text, so the router must infer it from the current request
     body rather than from config alone.
     """
@@ -4380,7 +4405,7 @@ def strip_anthropic_thinking_blocks_from_messages(body: dict[str, Any]) -> dict[
     return out
 
 
-def has_claude_any_synthetic_tool_use(body: dict[str, Any]) -> bool:
+def has_ciel_runtime_synthetic_tool_use(body: dict[str, Any]) -> bool:
     for message in body.get("messages") or []:
         if not isinstance(message, dict) or message.get("role") != "assistant":
             continue
@@ -4388,7 +4413,7 @@ def has_claude_any_synthetic_tool_use(body: dict[str, Any]) -> bool:
             if not isinstance(block, dict) or block.get("type") != "tool_use":
                 continue
             tool_id = str(block.get("id") or "")
-            if tool_id.startswith("toolu_claude_any_"):
+            if tool_id.startswith("toolu_ciel_runtime_"):
                 return True
     return False
 
@@ -4404,6 +4429,13 @@ def preserves_anthropic_thinking_contract(provider: str, pcfg: dict[str, Any]) -
     if configured is not None:
         return bool(configured)
     return provider == "anthropic"
+
+
+def should_normalize_anthropic_stream_tool_use(provider: str, pcfg: dict[str, Any]) -> bool:
+    configured = pcfg.get("normalize_anthropic_tool_use")
+    if configured is not None:
+        return bool(configured)
+    return provider != "anthropic" and not preserves_anthropic_thinking_contract(provider, pcfg)
 
 
 def normalize_thinking_for_non_anthropic_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
@@ -4424,7 +4456,7 @@ def normalize_thinking_for_non_anthropic_provider(provider: str, pcfg: dict[str,
             f"for OpenAI-chat reasoning passback provider={provider} thinking_blocks={thinking_blocks}",
         )
         return out
-    synthetic_tool = has_claude_any_synthetic_tool_use(body)
+    synthetic_tool = has_ciel_runtime_synthetic_tool_use(body)
     continuation_blocks = anthropic_tool_continuation_block_count(body)
     assistant_history = anthropic_assistant_history_count(body)
     out = strip_anthropic_thinking_blocks_from_messages(body)
@@ -4719,7 +4751,7 @@ def is_guard_feedback_text(text: str) -> bool:
     stripped = (text or "").strip()
     return (
         stripped.startswith("Stop hook feedback:")
-        or stripped.startswith("Claude Any plan guard:")
+        or stripped.startswith("Ciel Runtime plan guard:")
         or PLAN_GUARD_MARKER in stripped
     )
 
@@ -4790,7 +4822,7 @@ def latest_user_is_claude_code_suggestion_mode(body: dict[str, Any]) -> bool:
 
 def router_debug_message_preview_chars(cfg: dict[str, Any] | None = None) -> int:
     cfg = cfg or load_config()
-    env = os.environ.get("CLAUDE_ANY_ROUTER_MESSAGE_PREVIEW_CHARS", "").strip()
+    env = os.environ.get("CIEL_RUNTIME_ROUTER_MESSAGE_PREVIEW_CHARS", "").strip()
     if env:
         value = positive_int(env)
         return min(value or 0, 4000)
@@ -4843,9 +4875,9 @@ def body_is_channel_prompt(body: dict[str, Any]) -> bool:
     metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
     latest_text = latest_user_text(body)
     return bool(
-        metadata.get("claude_any_channel_injected")
-        or latest_text.startswith("[claude-any channel inbox]")
-        or latest_text.startswith("[claude-any external channel message")
+        metadata.get("ciel_runtime_channel_injected")
+        or latest_text.startswith("[ciel-runtime channel inbox]")
+        or latest_text.startswith("[ciel-runtime external channel message")
     )
 
 
@@ -5016,7 +5048,7 @@ def synthetic_tasklist_tool_use_id(tool_id: str, name: str) -> bool:
         "toolu_openai_keepalive_",
         "toolu_openai_choice_",
         "toolu_anthropic_choice_",
-        "toolu_claude_any_TaskList_",
+        "toolu_ciel_runtime_TaskList_",
     )
     return any(tool_id.startswith(prefix) for prefix in prefixes)
 
@@ -5203,7 +5235,7 @@ def should_recover_empty_end_turn_with_tasklist(body: dict[str, Any], response_t
 
 def empty_end_turn_notice() -> str:
     return (
-        "[claude-any] Upstream model returned an empty end_turn with no text or "
+        "[ciel-runtime] Upstream model returned an empty end_turn with no text or "
         "tool call. No work was performed; please retry or ask me to continue."
     )
 
@@ -5211,7 +5243,7 @@ def empty_end_turn_notice() -> str:
 def empty_end_turn_notice_for_body(body: dict[str, Any] | None) -> str:
     if isinstance(body, dict) and latest_tasklist_result_has_no_active_work(body):
         return (
-            "[claude-any] TaskList returned no active tasks. No automatic continuation "
+            "[ciel-runtime] TaskList returned no active tasks. No automatic continuation "
             "is available; provide the next instruction or ask for current status."
         )
     return empty_end_turn_notice()
@@ -5239,14 +5271,14 @@ def append_synthetic_tasklist_to_message(
     out_content.append(
         {
             "type": "tool_use",
-            "id": f"toolu_claude_any_TaskList_{reason}_{now}",
+            "id": f"toolu_ciel_runtime_TaskList_{reason}_{now}",
             "name": "TaskList",
             "input": {},
         }
     )
     out["content"] = out_content
     out["stop_reason"] = "tool_use"
-    out.setdefault("model", model or message.get("model") or "claude-any-router")
+    out.setdefault("model", model or message.get("model") or "ciel-runtime-router")
     router_log("WARN", f"auto-synthesized TaskList after clarification question ({reason})")
     return out
 
@@ -5464,7 +5496,7 @@ def dump_response_for_trace(provider: str, model: str, text_so_far: str, tool_ca
 
 
 def sse_trace_enabled() -> bool:
-    value = os.environ.get("CLAUDE_ANY_SSE_TRACE", "").strip().lower()
+    value = os.environ.get("CIEL_RUNTIME_SSE_TRACE", "").strip().lower()
     if value in {"1", "true", "yes", "on", "trace"}:
         return True
     return current_log_level() >= LOG_LEVELS["TRACE"]
@@ -5829,7 +5861,7 @@ def model_registry_recommendations(provider: str, models: list[str]) -> dict[str
             "limits": anthropic_model_limit_hints(model_id),
             "runtime": anthropic_model_runtime_hints(model_id),
             "notes": [
-                "Native Claude Code manages the real context window; claude-any stores context limits as model metadata only.",
+                "Native Claude Code manages the real context window; ciel-runtime stores context limits as model metadata only.",
                 "Recommended max_output_tokens is intentionally lower than the provider hard limit for interactive CLI use.",
             ],
         }
@@ -5988,7 +6020,7 @@ def cached_or_configured_model_ids(provider: str, pcfg: dict[str, Any]) -> list[
         if mid and mid not in ids:
             ids.append(mid)
     cur = normalize_model_id(provider, pcfg.get("current_model") or "")
-    if cur and cur not in ids and not cur.startswith(f"claude-any-{provider}-"):
+    if cur and cur not in ids and not cur.startswith(f"ciel-runtime-{provider}-"):
         ids.insert(0, cur)
     ids = unique_model_ids(provider, ids)
     if provider == "anthropic":
@@ -6201,7 +6233,7 @@ def anthropic_model_ids_from_docs_text(text: str) -> list[str]:
     """Extract public Claude API model IDs from Anthropic's models overview page.
 
     Claude Native usually runs on Claude Code OAuth rather than an API key, so
-    `/v1/models` is not available to claude-any. The public docs are the only
+    `/v1/models` is not available to ciel-runtime. The public docs are the only
     unauthenticated source for the current model picker seed.
     """
     ids: list[str] = []
@@ -6257,8 +6289,8 @@ def fetch_anthropic_public_model_ids(timeout: float = 8.0) -> list[str]:
 def opencode_zen_endpoint_kind(model_id: str) -> str:
     """Return the documented OpenCode Zen endpoint family for a model id."""
     model = strip_claude_context_suffix(model_id).strip().lower()
-    if model.startswith("claude-any-opencode-"):
-        model = model[len("claude-any-opencode-"):]
+    if model.startswith("ciel-runtime-opencode-"):
+        model = model[len("ciel-runtime-opencode-"):]
     if model.startswith("claude-") or model.startswith("qwen3."):
         return "anthropic-messages"
     if model.startswith("gpt-"):
@@ -6303,8 +6335,8 @@ def opencode_endpoint_override(provider: str, model_id: str, pcfg: dict[str, Any
 def opencode_go_endpoint_kind(model_id: str) -> str:
     """Return the documented OpenCode Go endpoint family for a model id."""
     model = strip_claude_context_suffix(model_id).strip().lower()
-    if model.startswith("claude-any-opencode-go-"):
-        model = model[len("claude-any-opencode-go-"):]
+    if model.startswith("ciel-runtime-opencode-go-"):
+        model = model[len("ciel-runtime-opencode-go-"):]
     if model.startswith("qwen3.") or model.startswith("minimax-"):
         return "anthropic-messages"
     if model.startswith(("glm-", "kimi-", "deepseek-", "mimo-", "hy3-")):
@@ -6891,7 +6923,7 @@ def provider_has_live_api_key(provider: str, pcfg: dict[str, Any]) -> bool:
 def reset_api_key_cooldowns_for_router_start() -> int:
     """Clear per-API-key cooldowns when a fresh router process starts.
 
-    Key cooldowns are runtime retry state. Keeping them across a new Claude Any
+    Key cooldowns are runtime retry state. Keeping them across a new Ciel Runtime
     router process can make a restarted session use only the one key that did
     not hit a prior 429. Provider/global RPM state is intentionally preserved.
     """
@@ -7003,7 +7035,7 @@ RATE_LIMIT_NOTICE_PALETTE = (203, 209, 215, 221, 229, 187, 151, 116, 111, 147, 1
 
 
 def colorize_status_text(text: str) -> str:
-    if os.environ.get("CLAUDE_ANY_RATE_LIMIT_ANSI", "1").lower() in ("0", "false", "no"):
+    if os.environ.get("CIEL_RUNTIME_RATE_LIMIT_ANSI", "1").lower() in ("0", "false", "no"):
         return text
     parts: list[str] = []
     phase = int(time.monotonic() * 8)
@@ -7049,11 +7081,11 @@ def nvidia_api_key() -> str:
 
 
 def install_ncp_proxy() -> str | None:
-    if os.environ.get("CLAUDE_ANY_AUTO_INSTALL_NCP", "1").lower() in ("0", "false", "no"):
+    if os.environ.get("CIEL_RUNTIME_AUTO_INSTALL_NCP", "1").lower() in ("0", "false", "no"):
         return None
     NCP_LOG.parent.mkdir(parents=True, exist_ok=True)
     with open(NCP_LOG, "ab", buffering=0) as log:
-        log.write(b"\n[claude-any] installing nvd-claude-proxy with pip\n")
+        log.write(b"\n[ciel-runtime] installing nvd-claude-proxy with pip\n")
         proc = subprocess.run(
             [sys.executable, "-m", "pip", "install", "--user", "--upgrade", NCP_PYPI_PACKAGE],
             stdout=log,
@@ -7101,10 +7133,10 @@ def ensure_ncp() -> None:
     with open(NCP_LOG, "ab", buffering=0) as log:
         if ncp_exe:
             cmd = [ncp_exe]
-            log.write(f"\n[claude-any] starting nvd-claude-proxy executable: {ncp_exe}\n".encode())
+            log.write(f"\n[ciel-runtime] starting nvd-claude-proxy executable: {ncp_exe}\n".encode())
         else:
             cmd = [sys.executable, "-m", "nvd_claude_proxy.main"]
-            log.write(b"\n[claude-any] starting nvd-claude-proxy module\n")
+            log.write(b"\n[ciel-runtime] starting nvd-claude-proxy module\n")
         subprocess.Popen(
             cmd,
             stdout=log,
@@ -7122,7 +7154,7 @@ def ensure_ncp() -> None:
 
 
 def ncp_model_id_for_nvidia_hosted(model_id: str) -> str:
-    if model_id.startswith("claude-") and not model_id.startswith("claude-any-"):
+    if model_id.startswith("claude-") and not model_id.startswith("ciel-runtime-"):
         return model_id
     try:
         data = http_json(join_url(nvidia_proxy_base_url(), "/v1/models"), timeout=3.0)
@@ -7396,7 +7428,7 @@ def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool 
         if mid and mid not in ids:
             ids.append(mid)
     cur = normalize_model_id(provider, pcfg.get("current_model") or "")
-    if cur and provider != "nvidia-hosted" and cur.startswith(f"claude-any-{provider}-"):
+    if cur and provider != "nvidia-hosted" and cur.startswith(f"ciel-runtime-{provider}-"):
         pass
     elif cur and cur not in ids and not (provider == "nvidia-hosted" and cur.startswith("claude-")):
         ids.insert(0, cur)
@@ -7892,7 +7924,7 @@ def current_alias(cfg: dict[str, Any]) -> str:
     cur = normalize_model_id(provider, pcfg.get("current_model") or "model")
     if provider == "nvidia-hosted" and cur.startswith("claude-"):
         return cur
-    if cur.startswith(f"claude-any-{provider}-"):
+    if cur.startswith(f"ciel-runtime-{provider}-"):
         return cur
     return alias_for(provider, cur)
 
@@ -7917,7 +7949,7 @@ def nvidia_hosted_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> 
     # NVIDIA's self-hosted NIM server exposes Anthropic-compatible /v1/messages.
     # The hosted API Catalog endpoint at integrate.api.nvidia.com currently
     # exposes OpenAI-compatible /v1/chat/completions instead, so keep it on the
-    # claude-any router conversion path even if an old config has native=true.
+    # ciel-runtime router conversion path even if an old config has native=true.
     return False
 
 
@@ -7961,7 +7993,7 @@ def provider_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
 
 def current_upstream_model_id(provider: str, pcfg: dict[str, Any]) -> str:
     cur = normalize_model_id(provider, pcfg.get("current_model") or "model")
-    if cur.startswith(f"claude-any-{provider}-"):
+    if cur.startswith(f"ciel-runtime-{provider}-"):
         try:
             return unslug_provider_alias(provider, cur, model_map_for(provider, pcfg)) or cur
         except Exception:
@@ -7969,11 +8001,65 @@ def current_upstream_model_id(provider: str, pcfg: dict[str, Any]) -> str:
     return cur
 
 
+MODEL_LIST_BACKED_SELECTION_PROVIDERS = ("vllm", "lm-studio", "self-hosted-nim")
+
+
+def provider_placeholder_model_ids(provider: str) -> set[str]:
+    base = {"", "model"}
+    if provider == "vllm":
+        base.add("my-model")
+    elif provider == "lm-studio":
+        base.add("local-model")
+    return base
+
+
+def current_model_needs_provider_selection(provider: str, pcfg: dict[str, Any]) -> bool:
+    if provider not in MODEL_LIST_BACKED_SELECTION_PROVIDERS:
+        return False
+    current = normalize_model_id(provider, str(pcfg.get("current_model") or ""))
+    return current in provider_placeholder_model_ids(provider)
+
+
+def ensure_current_model_from_provider_list(
+    provider: str,
+    pcfg: dict[str, Any],
+    *,
+    force_refresh: bool = False,
+) -> tuple[bool, list[str]]:
+    """Ensure model-list-backed providers do not send placeholder model ids."""
+    if provider not in MODEL_LIST_BACKED_SELECTION_PROVIDERS:
+        return True, []
+    current = normalize_model_id(provider, str(pcfg.get("current_model") or ""))
+    placeholders = provider_placeholder_model_ids(provider)
+    if current and current not in placeholders:
+        return True, []
+    try:
+        ids = unique_model_ids(provider, upstream_model_ids(provider, pcfg, force_refresh=force_refresh))
+    except Exception as exc:
+        if current:
+            return True, [f"Model list unavailable for {provider}; keeping configured model {current} ({type(exc).__name__}: {exc})."]
+        return False, [f"Model selection required for {provider}: model list unavailable ({type(exc).__name__}: {exc})."]
+    if current and current in ids:
+        return True, []
+    candidates = [mid for mid in ids if normalize_model_id(provider, mid) not in placeholders]
+    if len(candidates) == 1:
+        selected = normalize_model_id(provider, candidates[0])
+        pcfg["current_model"] = selected
+        context_messages = apply_current_model_specs_to_provider(provider, pcfg)
+        timeout_messages = apply_recommended_timeout_for_model_context(provider, pcfg, use_context_fallback=False)
+        return True, [f"Model auto-selected from provider list: {selected}.", *context_messages, *timeout_messages]
+    if len(candidates) > 1:
+        return False, [f"Model selection required for {provider}: provider returned {len(candidates)} models; choose one before launch/test."]
+    if current:
+        return True, [f"Model list for {provider} did not include a non-placeholder model; keeping configured model {current}."]
+    return False, [f"Model selection required for {provider}: provider returned no usable model ids."]
+
+
 def launch_model_id(provider: str, pcfg: dict[str, Any]) -> str:
     cur = normalize_model_id(provider, pcfg.get("current_model") or "model")
     if provider != "ollama":
         return alias_for(provider, cur) if not (provider == "nvidia-hosted" and cur.startswith("claude-")) else cur
-    if not cur.startswith("claude-any-ollama-"):
+    if not cur.startswith("ciel-runtime-ollama-"):
         return cur
     try:
         return unslug_provider_alias("ollama", cur, model_map_for("ollama", pcfg)) or cur
@@ -8002,7 +8088,7 @@ def resolve_requested_model(provider: str, pcfg: dict[str, Any], requested: str 
         if requested in set(mmap.values()):
             return upstream_api_model_id(provider, requested)
         # Built-in Claude aliases and stale aliases from another provider route to current provider's model.
-        if requested.startswith("claude-") or requested.startswith("claude-any-"):
+        if requested.startswith("claude-") or requested.startswith("ciel-runtime-"):
             return upstream_api_model_id(provider, fallback)
         return upstream_api_model_id(provider, normalize_model_id(provider, requested))
     return upstream_api_model_id(provider, fallback)
@@ -8204,7 +8290,7 @@ def try_write_json(handler: BaseHTTPRequestHandler, obj: Any, status: int = 200)
 
 
 def _handler_response_status(handler: BaseHTTPRequestHandler) -> int | None:
-    status = getattr(handler, "_claude_any_response_status", None)
+    status = getattr(handler, "_ciel_runtime_response_status", None)
     try:
         return int(status)
     except Exception:
@@ -8215,8 +8301,8 @@ def _channel_delivery_metadata(metadata: dict[str, Any] | None) -> bool:
     if not isinstance(metadata, dict):
         return False
     return bool(
-        metadata.get("claude_any_channel_cursor_last_id")
-        or metadata.get("claude_any_channel_summary_cursor_last_id")
+        metadata.get("ciel_runtime_channel_cursor_last_id")
+        or metadata.get("ciel_runtime_channel_summary_cursor_last_id")
     )
 
 
@@ -8230,9 +8316,9 @@ def begin_pending_channel_delivery(
     if not _channel_delivery_metadata(metadata):
         return
     try:
-        setattr(handler, "_claude_any_channel_delivery_guard", True)
-        setattr(handler, "_claude_any_channel_delivery_ok", False)
-        setattr(handler, "_claude_any_channel_delivery_reason", "pending")
+        setattr(handler, "_ciel_runtime_channel_delivery_guard", True)
+        setattr(handler, "_ciel_runtime_channel_delivery_ok", False)
+        setattr(handler, "_ciel_runtime_channel_delivery_reason", "pending")
     except Exception:
         pass
 
@@ -8241,11 +8327,11 @@ def mark_pending_channel_delivery_success(
     handler: BaseHTTPRequestHandler | None,
     reason: str = "response_complete",
 ) -> None:
-    if handler is None or not getattr(handler, "_claude_any_channel_delivery_guard", False):
+    if handler is None or not getattr(handler, "_ciel_runtime_channel_delivery_guard", False):
         return
     try:
-        setattr(handler, "_claude_any_channel_delivery_ok", True)
-        setattr(handler, "_claude_any_channel_delivery_reason", reason)
+        setattr(handler, "_ciel_runtime_channel_delivery_ok", True)
+        setattr(handler, "_ciel_runtime_channel_delivery_reason", reason)
     except Exception:
         pass
 
@@ -8254,19 +8340,19 @@ def mark_pending_channel_delivery_failed(
     handler: BaseHTTPRequestHandler | None,
     reason: str = "response_failed",
 ) -> None:
-    if handler is None or not getattr(handler, "_claude_any_channel_delivery_guard", False):
+    if handler is None or not getattr(handler, "_ciel_runtime_channel_delivery_guard", False):
         return
     try:
-        setattr(handler, "_claude_any_channel_delivery_ok", False)
-        setattr(handler, "_claude_any_channel_delivery_reason", reason)
+        setattr(handler, "_ciel_runtime_channel_delivery_ok", False)
+        setattr(handler, "_ciel_runtime_channel_delivery_reason", reason)
     except Exception:
         pass
 
 
 def pending_channel_delivery_confirmed(handler: BaseHTTPRequestHandler | None) -> bool:
-    if handler is None or not getattr(handler, "_claude_any_channel_delivery_guard", False):
+    if handler is None or not getattr(handler, "_ciel_runtime_channel_delivery_guard", False):
         return True
-    return bool(getattr(handler, "_claude_any_channel_delivery_ok", False))
+    return bool(getattr(handler, "_ciel_runtime_channel_delivery_ok", False))
 
 
 def write_empty_response(handler: BaseHTTPRequestHandler, status: int = 202) -> None:
@@ -8293,7 +8379,7 @@ def reject_external_router_request(handler: BaseHTTPRequestHandler, cfg: dict[st
             "type": "error",
             "error": {
                 "type": "forbidden",
-                "message": "claude-any router external debug access is off.",
+                "message": "ciel-runtime router external debug access is off.",
             },
         },
         403,
@@ -8563,7 +8649,7 @@ def render_router_home_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Claude Any Router</title>
+  <title>Ciel Runtime Router</title>
   <style>
     :root {{ color-scheme: dark; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }}
     body {{ margin: 0; background: #090b0f; color: #e8edf4; }}
@@ -8607,7 +8693,7 @@ def render_router_home_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, 
 </head>
 <body>
   <header>
-    <h1>Claude Any Router</h1>
+    <h1>Ciel Runtime Router</h1>
     <div class="sub">v{html_lib.escape(VERSION)} · {html_lib.escape(provider)} · {html_lib.escape(model)}</div>
   </header>
   <nav class="topnav" aria-label="Router sections">
@@ -8734,7 +8820,7 @@ def render_web_chat_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Claude Any Web Chat</title>
+  <title>Ciel Runtime Web Chat</title>
   <style>
     :root {{
       color-scheme: dark;
@@ -8853,7 +8939,7 @@ def render_web_chat_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any
 <body>
   <div class="shell">
     <aside>
-      <div class="brand">Claude Any</div>
+      <div class="brand">Ciel Runtime</div>
       <div class="status-card">
         <div><div class="meta-label">Provider</div><div class="meta-value">{escaped_provider}</div></div>
         <div><div class="meta-label">Mode</div><div class="meta-value">{escaped_mode}</div></div>
@@ -8874,7 +8960,7 @@ def render_web_chat_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any
       <header>
         <div>
           <h1>Session Web Chat</h1>
-          <div class="sub">Send messages into the active Claude Code session through the Claude Any channel bridge and stream replies from the same channel.</div>
+          <div class="sub">Send messages into the active Claude Code session through the Ciel Runtime channel bridge and stream replies from the same channel.</div>
         </div>
         <div class="pill" id="statePill">ready</div>
       </header>
@@ -8889,7 +8975,7 @@ def render_web_chat_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any
           <input id="fileInput" type="file" multiple>
           <div class="attachment-tray" id="attachmentTray" aria-live="polite"></div>
         </div>
-        <div class="hint">Enter sends. Shift+Enter inserts a new line. The active Claude Code session handles the message, so its configured tools and MCP servers remain available. If replies stay queued, restart Claude Any so the session wake bridge wraps the terminal.</div>
+        <div class="hint">Enter sends. Shift+Enter inserts a new line. The active Claude Code session handles the message, so its configured tools and MCP servers remain available. If replies stay queued, restart Ciel Runtime so the session wake bridge wraps the terminal.</div>
       </form>
     </main>
   </div>
@@ -8905,8 +8991,8 @@ def render_web_chat_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any
     const shareButton = document.getElementById('shareButton');
     const clearButton = document.getElementById('clearButton');
     const statePill = document.getElementById('statePill');
-    const SESSION_KEY = 'claude-any-web-chat-session';
-    const LAST_ID_KEY = 'claude-any-web-chat-last-id';
+    const SESSION_KEY = 'ciel-runtime-web-chat-session';
+    const LAST_ID_KEY = 'ciel-runtime-web-chat-last-id';
     const HISTORY_PAGE_SIZE = 80;
     const renderedIds = new Set();
     let oldestId = 0;
@@ -9331,11 +9417,11 @@ def render_web_chat_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any
             kind: 'web_chat',
             message: outboundText,
             meta: {{
-              source: 'claude-any-web-chat',
+              source: 'ciel-runtime-web-chat',
               web_chat_session: sessionId,
               reply_channel: channel,
               reply_recipient: 'web',
-              reply_instruction: 'Use the claude-any-router send_message tool to answer this browser chat on the same channel/thread_id with recipients web and delivery web. Use send_file when returning a file attachment to this browser chat.',
+              reply_instruction: 'Use the ciel-runtime-router send_message tool to answer this browser chat on the same channel/thread_id with recipients web and delivery web. Use send_file when returning a file attachment to this browser chat.',
               attachments: uploads
             }}
           }})
@@ -9346,7 +9432,7 @@ def render_web_chat_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any
         }}
         const json = await response.json();
         if (json.message) rememberLastId(json.message.id);
-        addBubble('system', 'Message queued for the active Claude Code session. Waiting for a channel reply. If this never changes, restart Claude Any so the session wake bridge is active.');
+        addBubble('system', 'Message queued for the active Claude Code session. Waiting for a channel reply. If this never changes, restart Ciel Runtime so the session wake bridge is active.');
         setState('waiting for session');
       }} catch (err) {{
         const bubble = addBubble('assistant', String(err && err.message ? err.message : err));
@@ -9507,7 +9593,7 @@ def _safe_segment(value: str, fallback: str = "item") -> str:
 
 
 def chat_file_max_bytes() -> int:
-    raw = str(os.environ.get("CLAUDE_ANY_CHAT_FILE_MAX_BYTES") or "").strip()
+    raw = str(os.environ.get("CIEL_RUNTIME_CHAT_FILE_MAX_BYTES") or "").strip()
     try:
         value = int(raw)
         if value > 0:
@@ -9668,7 +9754,7 @@ def _chat_message_epoch_seconds(item: dict[str, Any]) -> float | None:
 
 
 def _channel_launch_recent_seconds() -> float:
-    raw = str(os.environ.get("CLAUDE_ANY_CHANNEL_LAUNCH_RECENT_SECONDS") or "").strip()
+    raw = str(os.environ.get("CIEL_RUNTIME_CHANNEL_LAUNCH_RECENT_SECONDS") or "").strip()
     if not raw:
         return CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT
     try:
@@ -9968,7 +10054,7 @@ def append_chat_message(payload: dict[str, Any]) -> dict[str, Any]:
             if duplicate:
                 existing_id = duplicate.get("id")
                 returned = dict(duplicate)
-                returned["_claude_any_duplicate"] = True
+                returned["_ciel_runtime_duplicate"] = True
                 router_log(
                     "INFO",
                     f"chat_message_skipped_duplicate existing_id={existing_id} channel={message.get('channel')} kind={message.get('kind')}",
@@ -10563,7 +10649,7 @@ def _channel_sse_maybe_initialize_mcp(name: str, endpoint_text: str) -> None:
             "params": {
                 "protocolVersion": protocol_version,
                 "capabilities": {},
-                "clientInfo": {"name": "claude-any-channel-bridge", "version": VERSION},
+                "clientInfo": {"name": "ciel-runtime-channel-bridge", "version": VERSION},
             },
         }
         _mcp_sse_post_json(endpoint, headers, initialize, timeout)
@@ -10598,7 +10684,7 @@ def _channel_streamable_http_initialize_mcp(name: str) -> None:
             "params": {
                 "protocolVersion": protocol_version,
                 "capabilities": {},
-                "clientInfo": {"name": "claude-any-channel-bridge", "version": VERSION},
+                "clientInfo": {"name": "ciel-runtime-channel-bridge", "version": VERSION},
             },
         }
         _result, session_id = _mcp_streamable_post_json(endpoint, headers, initialize, timeout, protocol_version)
@@ -10672,7 +10758,7 @@ def _channel_sse_dispatch(name: str, event_name: str, data_lines: list[str], eve
         return
     payload = _mark_channel_payload_direct_llm_pending(payload)
     saved = append_chat_message(payload)
-    if saved.get("_claude_any_duplicate"):
+    if saved.get("_ciel_runtime_duplicate"):
         router_log(
             "INFO",
             f"channel_sse_message_skipped_duplicate name={name} event={event_name or 'message'} existing_id={saved.get('id')} channel={saved.get('channel')}",
@@ -10952,7 +11038,7 @@ def start_channel_sse_connection(config: dict[str, Any]) -> dict[str, Any]:
         }
         _CHANNEL_SSE_CONNECTIONS[name] = state
     worker = _channel_streamable_http_worker if transport == "streamable-http" else _channel_sse_worker
-    thread = threading.Thread(target=worker, args=(name,), daemon=True, name=f"claude-any-channel-{transport}-{name}")
+    thread = threading.Thread(target=worker, args=(name,), daemon=True, name=f"ciel-runtime-channel-{transport}-{name}")
     thread.start()
     return _channel_sse_status_public(name, state)
 
@@ -10997,7 +11083,7 @@ def _native_channel_meta(message: dict[str, Any]) -> dict[str, str]:
         meta[name] = _native_channel_meta_value(value)
     message_recipients = _as_string_list(message.get("recipients")) if message.get("recipients") is not None else None
     base = {
-        "claude_any_message_id": message.get("id"),
+        "ciel_runtime_message_id": message.get("id"),
         "channel": message.get("channel") or "default",
         "sender_id": message.get("sender_id") or "channel",
         "thread_id": message.get("thread_id"),
@@ -11009,7 +11095,7 @@ def _native_channel_meta(message: dict[str, Any]) -> dict[str, str]:
         if value is not None:
             meta[key] = _native_channel_meta_value(value)
     if raw_meta:
-        meta["claude_any_meta_json"] = json.dumps(_json_safe_metadata(raw_meta), ensure_ascii=False, separators=(",", ":"), default=str)
+        meta["ciel_runtime_meta_json"] = json.dumps(_json_safe_metadata(raw_meta), ensure_ascii=False, separators=(",", ":"), default=str)
     return meta
 
 
@@ -11123,7 +11209,7 @@ def _channel_mcp_initialize_response(request_id: Any, protocol: str) -> dict[str
         "result": {
             "protocolVersion": protocol,
             "capabilities": _channel_mcp_capabilities(),
-            "serverInfo": {"name": "claude-any-router", "version": VERSION},
+            "serverInfo": {"name": "ciel-runtime-router", "version": VERSION},
         },
     }
 
@@ -11133,8 +11219,8 @@ def _channel_mcp_tool_schemas() -> list[dict[str, Any]]:
         {
             "name": "send_message",
             "description": (
-                "Send a reply or status message to a Claude Any channel. "
-                "Use this to answer messages delivered through the Claude Any channel inbox, "
+                "Send a reply or status message to a Ciel Runtime channel. "
+                "Use this to answer messages delivered through the Ciel Runtime channel inbox, "
                 "including /ca/web/chat browser sessions."
             ),
             "inputSchema": {
@@ -11174,7 +11260,7 @@ def _channel_mcp_tool_schemas() -> list[dict[str, Any]]:
         {
             "name": "send_file",
             "description": (
-                "Send a file attachment to a Claude Any channel. "
+                "Send a file attachment to a Ciel Runtime channel. "
                 "Use this to return files to /ca/web/chat browser sessions. "
                 "Provide either path for an existing local file, or content with encoding='text' or encoding='base64'."
             ),
@@ -11230,7 +11316,7 @@ def _channel_mcp_tool_schemas() -> list[dict[str, Any]]:
         },
         {
             "name": "get_messages",
-            "description": "Read recent Claude Any channel messages for a channel/thread.",
+            "description": "Read recent Ciel Runtime channel messages for a channel/thread.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -11244,7 +11330,7 @@ def _channel_mcp_tool_schemas() -> list[dict[str, Any]]:
         {
             "name": "llm_options",
             "description": (
-                "Show, apply, or restore claude-any live LLM option presets for the current routed session. "
+                "Show, apply, or restore ciel-runtime live LLM option presets for the current routed session. "
                 "Use action='list' to show keyboard-selectable slash commands, action='apply' with preset, "
                 "or action='restore' to return to the captured original options."
             ),
@@ -11295,7 +11381,7 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
                 "kind": args.get("kind") or "reply",
                 "message": message,
                 "delivery": args.get("delivery", ["web"]),
-                "meta": {"source": "claude-any-router-tool", **meta},
+                "meta": {"source": "ciel-runtime-router-tool", **meta},
             }
         )
         return _channel_mcp_tool_response(
@@ -11339,7 +11425,7 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
                 "kind": args.get("kind") or "file",
                 "message": chat_file_message_text(str(args.get("message") or ""), uploads),
                 "delivery": args.get("delivery", ["web"]),
-                "meta": {"source": "claude-any-router-tool", "attachments": uploads, **meta},
+                "meta": {"source": "ciel-runtime-router-tool", "attachments": uploads, **meta},
             }
         )
         return _channel_mcp_tool_response(
@@ -11373,7 +11459,7 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
             request_id,
             json.dumps({"ok": True, "changed": changed, "lines": lines}, ensure_ascii=False, separators=(",", ":")),
         )
-    return _channel_mcp_tool_response(request_id, f"Unknown claude-any-router tool: {name}", True)
+    return _channel_mcp_tool_response(request_id, f"Unknown ciel-runtime-router tool: {name}", True)
 
 
 def _channel_mcp_write_cursor_locked(last_id: int) -> None:
@@ -11524,7 +11610,7 @@ def _channel_mcp_notifications_for_messages(
 
 def handle_channel_mcp_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
     if path == "/ca/mcp/health":
-        write_json(handler, {"ok": True, "name": "claude-any-router", "sse": "/ca/mcp/sse"})
+        write_json(handler, {"ok": True, "name": "ciel-runtime-router", "sse": "/ca/mcp/sse"})
         return True
     if path != "/ca/mcp/sse":
         return False
@@ -11662,7 +11748,7 @@ def handle_chat_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
                 "sse_status": "/ca/channel/sse/status",
                 "sse_connect": "POST /ca/channel/sse/connect",
                 "sse_disconnect": "POST /ca/channel/sse/disconnect",
-                "native_note": "This is the Claude Any bridge API, not Claude Code's gated native --channels path.",
+                "native_note": "This is the Ciel Runtime bridge API, not Claude Code's gated native --channels path.",
             },
         )
         return True
@@ -11890,6 +11976,52 @@ def anthropic_content_to_text(content: Any) -> str:
     return "\n".join(part for part in parts if part)
 
 
+COMPACT_TEXT_ONLY_SYSTEM_PROMPT = (
+    "Claude Code is compacting the conversation. Return only the requested summary text. "
+    "Do not call tools, browse, inspect files, or request external data during compaction."
+)
+
+
+def is_claude_code_compact_request(body: dict[str, Any]) -> bool:
+    """Detect Claude Code's internal /compact summarization request.
+
+    Compact requests must produce text. If an upstream model sees the normal
+    tool list and chooses a tool instead, Claude Code reports an empty compact
+    summary even though the router returned HTTP 200.
+    """
+    if not isinstance(body, dict):
+        return False
+    text = latest_user_text(body).lower()
+    if not text:
+        return False
+    if "<command-name>/compact</command-name>" in text:
+        return True
+    if "<command-message>compact</command-message>" in text and "<command-name>" in text:
+        return True
+    if "create a detailed summary of the conversation" in text and "compact" in text:
+        return True
+    if "summarize the conversation so far" in text and "compact" in text:
+        return True
+    return False
+
+
+def compact_request_text_only_body(body: dict[str, Any]) -> dict[str, Any]:
+    if not is_claude_code_compact_request(body):
+        return body
+    out = dict(body)
+    removed_tools = bool(out.pop("tools", None))
+    removed_tool_choice = bool(out.pop("tool_choice", None))
+    out.pop("parallel_tool_calls", None)
+    out["system"] = append_anthropic_system_texts(out.get("system"), [COMPACT_TEXT_ONLY_SYSTEM_PROMPT])
+    if removed_tools or removed_tool_choice:
+        router_log(
+            "INFO",
+            "compact_request_text_only removed_tools=%s removed_tool_choice=%s"
+            % (str(removed_tools).lower(), str(removed_tool_choice).lower()),
+        )
+    return out
+
+
 PROMPT_TOOL_INPUT_FIELD_LIMIT = 1200
 PROMPT_TOOL_RESULT_LIMIT = 12000
 PROMPT_MESSAGE_TEXT_LIMIT = 20000
@@ -12001,7 +12133,7 @@ def build_chunked_context_guard_summary(
     omitted_tokens = sum(estimate_tokens(message) for message in omitted_messages)
     if omitted_count <= 0:
         return (
-            "[claude-any context guard: older conversation history was compacted because "
+            "[ciel-runtime context guard: older conversation history was compacted because "
             f"the provider context budget is {budget_tokens} tokens.]"
         )
     max_summary_tokens = max(1024, min(24576, max(1, budget_tokens) // 10))
@@ -12009,7 +12141,7 @@ def build_chunked_context_guard_summary(
     chunk_count = context_guard_chunk_count(omitted_messages, budget_tokens)
     lines: list[str] = [
         (
-            f"[claude-any context guard: compacted {omitted_count} older messages, approx "
+            f"[ciel-runtime context guard: compacted {omitted_count} older messages, approx "
             f"{omitted_tokens} tokens, because the provider context budget is {budget_tokens} tokens.]"
         ),
         "The recent tail is preserved verbatim. Older history is represented below as deterministic chunk summaries; use file reads or MCP queries if exact old content is needed.",
@@ -12040,24 +12172,334 @@ def build_chunked_context_guard_summary(
     return summary
 
 
+def context_compact_message_text(message: dict[str, Any], index: int) -> str:
+    role = str(message.get("role") or "unknown")
+    parts = [f"Message {index} role={role}"]
+    name = message.get("name") or message.get("tool_name")
+    if name:
+        parts.append(f"name={name}")
+    if message.get("tool_call_id"):
+        parts.append(f"tool_call_id={message.get('tool_call_id')}")
+    header = " ".join(parts)
+    content = anthropic_content_to_text(message.get("content"))
+    if not content and message.get("tool_calls"):
+        content = "tool_calls=" + _compact_json_for_prompt(message.get("tool_calls"), max_chars=6000)
+    elif message.get("tool_calls"):
+        content += "\n\ntool_calls=" + _compact_json_for_prompt(message.get("tool_calls"), max_chars=6000)
+    return f"{header}\n{compact_message_text_for_prompt(content)}"
+
+
+def context_compact_instruction_index(messages: list[dict[str, Any]]) -> int | None:
+    fallback: int | None = None
+    for idx, message in enumerate(messages):
+        if str(message.get("role") or "") != "user":
+            continue
+        text = anthropic_content_to_text(message.get("content")).lower()
+        if text:
+            fallback = idx
+        if "<command-name>/compact</command-name>" in text:
+            return idx
+        if "<command-message>compact</command-message>" in text and "<command-name>" in text:
+            return idx
+        if "create a detailed summary of the conversation" in text and "compact" in text:
+            return idx
+        if "summarize the conversation so far" in text and "compact" in text:
+            return idx
+    return fallback
+
+
+def context_compact_chunk_target_tokens(pcfg: dict[str, Any] | None, budget_tokens: int) -> int:
+    configured = positive_int((pcfg or {}).get("context_compact_chunk_tokens"))
+    if configured:
+        return max(8192, configured)
+    return max(8192, min(65536, max(1, budget_tokens) // 4))
+
+
+def context_compact_summary_output_tokens(pcfg: dict[str, Any] | None, budget_tokens: int) -> int:
+    configured = positive_int((pcfg or {}).get("context_compact_summary_tokens"))
+    if configured:
+        return max(512, configured)
+    return max(1024, min(8192, max(1, budget_tokens) // 64))
+
+
+def context_compact_parallel_sessions(pcfg: dict[str, Any] | None, chunks: int) -> int:
+    # Chunk compaction is currently sequential; keep status-line reporting honest.
+    return 1
+
+
+def split_messages_for_context_compact(
+    messages: list[dict[str, Any]],
+    target_tokens: int,
+) -> list[tuple[int, list[dict[str, Any]]]]:
+    chunks: list[tuple[int, list[dict[str, Any]]]] = []
+    current: list[dict[str, Any]] = []
+    current_start = 0
+    current_tokens = 0
+    for idx, message in enumerate(messages):
+        tokens = max(1, estimate_tokens(message))
+        if current and current_tokens + tokens > target_tokens:
+            chunks.append((current_start, current))
+            current = []
+            current_tokens = 0
+            current_start = idx
+        if not current:
+            current_start = idx
+        current.append(message)
+        current_tokens += tokens
+    if current:
+        chunks.append((current_start, current))
+    return chunks
+
+
+CONTEXT_COMPACT_MAP_SYSTEM_PROMPT = (
+    "You are compacting one segment of a larger Claude Code conversation. "
+    "Return only a concise but durable summary of this segment. Preserve user goals, "
+    "decisions, file paths, tool results, unresolved tasks, errors, and any facts needed "
+    "to continue later. Do not call tools."
+)
+
+
+def build_context_compact_chunk_prompt(chunk: list[dict[str, Any]], start_index: int, chunk_no: int, chunk_total: int) -> str:
+    parts = [
+        f"Segment {chunk_no}/{chunk_total}. Summarize messages {start_index}-{start_index + len(chunk) - 1}.",
+        "Return only the segment summary.",
+    ]
+    for offset, message in enumerate(chunk):
+        parts.append(context_compact_message_text(message, start_index + offset))
+    return "\n\n".join(parts)
+
+
+def context_compact_extract_text(data: Any, wire: str) -> str:
+    if not isinstance(data, dict):
+        return ""
+    if wire == "ollama":
+        message = data.get("message") if isinstance(data.get("message"), dict) else {}
+        return str(message.get("content") or data.get("response") or "").strip()
+    if wire == "openai":
+        choices = data.get("choices")
+        if isinstance(choices, list) and choices:
+            choice = choices[0] if isinstance(choices[0], dict) else {}
+            message = choice.get("message") if isinstance(choice.get("message"), dict) else {}
+            return str(message.get("content") or "").strip()
+        return ""
+    if wire == "anthropic":
+        return anthropic_content_to_text(data.get("content")).strip()
+    return ""
+
+
+def context_compact_request_summary(
+    provider: str,
+    model: str,
+    pcfg: dict[str, Any],
+    prompt: str,
+    *,
+    wire: str,
+    budget_tokens: int,
+) -> str:
+    max_tokens = context_compact_summary_output_tokens(pcfg, budget_tokens)
+    timeout = provider_request_timeout_seconds(pcfg)
+    if wire == "ollama":
+        req: dict[str, Any] = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": CONTEXT_COMPACT_MAP_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            "stream": False,
+            "think": False,
+            "options": {"num_predict": max_tokens},
+        }
+        if pcfg.get("keep_alive"):
+            req["keep_alive"] = str(pcfg["keep_alive"])
+        url = join_url(str(pcfg.get("base_url") or "").rstrip("/"), "/api/chat")
+        data = post_json_with_rate_retry(
+            url,
+            req,
+            provider_headers(provider, pcfg),
+            timeout,
+            provider,
+            pcfg,
+            model,
+            retry_rate_limits=True,
+        )
+        return context_compact_extract_text(data, wire)
+    if wire == "openai":
+        req = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": CONTEXT_COMPACT_MAP_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            "stream": False,
+            "max_tokens": max_tokens,
+        }
+        url = join_url(provider_upstream_request_base(provider, pcfg), "/v1/chat/completions")
+        data = post_json_with_rate_retry(
+            url,
+            req,
+            provider_headers(provider, pcfg),
+            timeout,
+            provider,
+            pcfg,
+            model,
+            retry_rate_limits=True,
+        )
+        return context_compact_extract_text(data, wire)
+    req = {
+        "model": model,
+        "system": CONTEXT_COMPACT_MAP_SYSTEM_PROMPT,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
+        "stream": False,
+    }
+    base = native_anthropic_base_url(provider, pcfg) if provider_native_compat_enabled(provider, pcfg) else provider_upstream_request_base(provider, pcfg)
+    url = join_url(base, "/v1/messages")
+    data = post_json_with_rate_retry(
+        url,
+        req,
+        provider_headers(provider, pcfg),
+        timeout,
+        provider,
+        pcfg,
+        model,
+        retry_rate_limits=True,
+    )
+    return context_compact_extract_text(data, "anthropic")
+
+
+def build_context_compact_reduce_prompt(
+    summaries: list[str],
+    compact_instruction: str,
+    *,
+    budget_tokens: int,
+    source_message_count: int,
+) -> str:
+    parts = [
+        "[ciel-runtime segmented compact]",
+        (
+            f"The previous conversation was too large for a single compact request. "
+            f"It was summarized in {len(summaries)} segment(s) from {source_message_count} message(s)."
+        ),
+        "Segment summaries:",
+    ]
+    for idx, summary in enumerate(summaries, start=1):
+        parts.append(f"## Segment {idx}\n{summary.strip()}")
+    parts.append("Claude Code compact instruction:")
+    parts.append(compact_message_text_for_prompt(compact_instruction))
+    parts.append("Using the segment summaries above, return only the final compact summary text requested by Claude Code.")
+    text = "\n\n".join(parts)
+    max_chars = max(8192, max(1, budget_tokens) * 3)
+    if len(text) > max_chars:
+        text = truncate_for_prompt(text, max_chars)
+    return text
+
+
+def maybe_build_llm_compacted_messages(
+    provider: str,
+    model: str,
+    pcfg: dict[str, Any] | None,
+    messages: list[dict[str, Any]],
+    budget_tokens: int,
+    *,
+    wire: str,
+) -> list[dict[str, Any]] | None:
+    if not pcfg or not messages:
+        return None
+    if parse_bool(pcfg.get("context_compact_llm"), default=True) is False:
+        return None
+    if provider == "anthropic" and not meaningful_key(str(provider_primary_api_key(provider, pcfg) or "")):
+        return None
+    instruction_idx = context_compact_instruction_index(messages)
+    if instruction_idx is None:
+        return None
+    compact_instruction = anthropic_content_to_text(messages[instruction_idx].get("content"))
+    history = [message for idx, message in enumerate(messages) if idx != instruction_idx and str(message.get("role") or "") != "system"]
+    system_messages = [message for message in messages if str(message.get("role") or "") == "system"]
+    if not history:
+        return None
+    target_tokens = context_compact_chunk_target_tokens(pcfg, budget_tokens)
+    chunks = split_messages_for_context_compact(history, target_tokens)
+    if not chunks:
+        return None
+    parallel_sessions = context_compact_parallel_sessions(pcfg, len(chunks))
+    write_context_compact_activity(
+        provider or "provider",
+        model,
+        chunks=len(chunks),
+        parallel_sessions=parallel_sessions,
+        tokens=estimate_tokens({"messages": messages}),
+        final_tokens=0,
+        budget=budget_tokens,
+        phase="map",
+        completed_chunks=0,
+    )
+    summaries: list[str] = []
+    for chunk_no, (start, chunk) in enumerate(chunks, start=1):
+        prompt = build_context_compact_chunk_prompt(chunk, start, chunk_no, len(chunks))
+        try:
+            summary = context_compact_request_summary(provider, model, pcfg, prompt, wire=wire, budget_tokens=budget_tokens)
+        except Exception as exc:
+            router_log("WARN", f"context_compact_chunk_failed provider={provider} model={model} chunk={chunk_no}/{len(chunks)} error={type(exc).__name__}: {exc}")
+            summary = build_chunked_context_guard_summary(chunk, target_tokens, start_index=start)
+        if not summary.strip():
+            summary = build_chunked_context_guard_summary(chunk, target_tokens, start_index=start)
+        summaries.append(summary.strip())
+        write_context_compact_activity(
+            provider or "provider",
+            model,
+            chunks=len(chunks),
+            parallel_sessions=parallel_sessions,
+            tokens=estimate_tokens({"messages": messages}),
+            final_tokens=sum(estimate_tokens(item) for item in summaries),
+            budget=budget_tokens,
+            phase="map",
+            completed_chunks=chunk_no,
+        )
+    reduce_prompt = build_context_compact_reduce_prompt(
+        summaries,
+        compact_instruction,
+        budget_tokens=budget_tokens,
+        source_message_count=len(history),
+    )
+    out = list(system_messages)
+    out.append({"role": "user", "content": reduce_prompt})
+    router_log(
+        "WARN",
+        f"context_compact_map_reduce provider={provider} model={model} chunks={len(chunks)} messages {len(messages)}->{len(out)} tokens {estimate_tokens({'messages': messages})}->{estimate_tokens({'messages': out})} budget={budget_tokens}",
+    )
+    write_context_compact_activity(
+        provider or "provider",
+        model,
+        chunks=len(chunks),
+        parallel_sessions=parallel_sessions,
+        tokens=estimate_tokens({"messages": messages}),
+        final_tokens=estimate_tokens({"messages": out}),
+        budget=budget_tokens,
+        phase="reduce",
+        completed_chunks=len(chunks),
+        retained_messages=len(out),
+    )
+    return out
+
+
 def is_advisor_request(body: dict[str, Any]) -> bool:
-    return "CLAUDE_ANY_ADVISOR_CALL" in latest_user_text(body)
+    return "CIEL_RUNTIME_ADVISOR_CALL" in latest_user_text(body)
 
 
 def is_router_debug_request(body: dict[str, Any]) -> bool:
-    return "CLAUDE_ANY_ROUTER_DEBUG_ACCESS" in latest_user_text(body)
+    return "CIEL_RUNTIME_ROUTER_DEBUG_ACCESS" in latest_user_text(body)
 
 
 def is_channel_clear_request(body: dict[str, Any]) -> bool:
-    return "CLAUDE_ANY_CHANNEL_CLEAR_BACKLOG" in latest_user_text(body)
+    return "CIEL_RUNTIME_CHANNEL_CLEAR_BACKLOG" in latest_user_text(body)
 
 
 def is_live_llm_options_request(body: dict[str, Any]) -> bool:
-    return "CLAUDE_ANY_LIVE_LLM_OPTIONS" in latest_user_text(body)
+    return "CIEL_RUNTIME_LIVE_LLM_OPTIONS" in latest_user_text(body)
 
 
 def is_live_api_keys_request(body: dict[str, Any]) -> bool:
-    return "CLAUDE_ANY_LIVE_API_KEYS" in latest_user_text(body)
+    return "CIEL_RUNTIME_LIVE_API_KEYS" in latest_user_text(body)
 
 
 def parse_channel_bridge_args(raw: str) -> tuple[str, dict[str, str]]:
@@ -12109,7 +12551,7 @@ def format_channel_messages(messages: list[dict[str, Any]], after: int) -> str:
 
 def router_debug_value_from_body(body: dict[str, Any]) -> str:
     text = latest_user_text(body)
-    marker = "CLAUDE_ANY_ROUTER_DEBUG_ACCESS"
+    marker = "CIEL_RUNTIME_ROUTER_DEBUG_ACCESS"
     if marker not in text:
         return "status"
     tail = text.split(marker, 1)[1]
@@ -12125,7 +12567,7 @@ def router_debug_value_from_body(body: dict[str, Any]) -> str:
 
 def channel_clear_value_from_body(body: dict[str, Any]) -> str:
     text = latest_user_text(body)
-    marker = "CLAUDE_ANY_CHANNEL_CLEAR_BACKLOG"
+    marker = "CIEL_RUNTIME_CHANNEL_CLEAR_BACKLOG"
     if marker not in text:
         return "all"
     tail = text.split(marker, 1)[1]
@@ -12141,7 +12583,7 @@ def channel_clear_value_from_body(body: dict[str, Any]) -> str:
 
 def live_llm_options_value_from_body(body: dict[str, Any]) -> str:
     text = latest_user_text(body)
-    marker = "CLAUDE_ANY_LIVE_LLM_OPTIONS"
+    marker = "CIEL_RUNTIME_LIVE_LLM_OPTIONS"
     if marker not in text:
         return "status"
     tail = text.split(marker, 1)[1]
@@ -12175,7 +12617,7 @@ def live_llm_options_value_from_body(body: dict[str, Any]) -> str:
 
 def live_api_keys_value_from_body(body: dict[str, Any]) -> str:
     text = latest_user_text(body)
-    marker = "CLAUDE_ANY_LIVE_API_KEYS"
+    marker = "CIEL_RUNTIME_LIVE_API_KEYS"
     if marker not in text:
         return "status"
     tail = text.split(marker, 1)[1]
@@ -12217,7 +12659,7 @@ def live_api_keys_value_from_body(body: dict[str, Any]) -> str:
 
 def advisor_focus_from_body(body: dict[str, Any]) -> str:
     text = latest_user_text(body)
-    marker = "CLAUDE_ANY_ADVISOR_CALL"
+    marker = "CIEL_RUNTIME_ADVISOR_CALL"
     if marker not in text:
         return ""
     return text.split(marker, 1)[1].strip()
@@ -12331,23 +12773,184 @@ def normalize_anthropic_system_role_messages(body: dict[str, Any]) -> dict[str, 
 _PSEUDO_TOOL_INVOKE_RE = re.compile(
     r"(?is)(?:^|\n)[ \t]*(?:court[ \t]*(?:\r?\n)+)?<invoke\s+name=[\"'][^\"']+[\"'][\s\S]*?</invoke>[ \t]*(?=\n|$)"
 )
+_PSEUDO_TOOL_INVOKE_CALL_RE = re.compile(
+    r"(?is)(?:^|\n)[ \t]*(?:court[ \t]*(?:\r?\n)+)?"
+    r"<invoke\s+name=[\"'](?P<name>[^\"']+)[\"'][^>]*>(?P<body>[\s\S]*?)</invoke>[ \t]*(?=\n|$)"
+)
+_PSEUDO_TOOL_INVOKE_OPEN_RE = re.compile(
+    r"(?is)(?:^|\n)[ \t]*(?:court[ \t]*(?:\r?\n)+)?<invoke\s+name=[\"'](?P<name>[^\"']+)[\"'][^>]*>"
+)
+_PSEUDO_TOOL_XML_RE = re.compile(
+    r"(?is)(?:^|\n)[ \t]*(?:court[ \t]*(?:\r?\n)+)?<(?P<name>[A-Za-z_][\w.-]{0,96})\b[^>]*>[\s\S]*?</(?P=name)>[ \t]*(?=\n|$)"
+)
+_PSEUDO_TOOL_XML_CALL_RE = re.compile(
+    r"(?is)(?:^|\n)[ \t]*(?:court[ \t]*(?:\r?\n)+)?"
+    r"<(?P<name>[A-Za-z_][\w.-]{0,96})\b[^>]*>(?P<body>[\s\S]*?)</(?P=name)>[ \t]*(?=\n|$)"
+)
+_PSEUDO_TOOL_XML_OPEN_RE = re.compile(
+    r"(?is)(?:^|\n)[ \t]*(?:court[ \t]*(?:\r?\n)+)?<(?P<name>[A-Za-z_][\w.-]{0,96})\b[^>]*>"
+)
+_PSEUDO_TOOL_PARAMETER_RE = re.compile(
+    r"(?is)<parameter\s+name=[\"'](?P<name>[^\"']+)[\"'][^>]*>(?P<value>[\s\S]*?)</parameter>"
+)
+_PSEUDO_TOOL_CHILD_ARG_RE = re.compile(
+    r"(?is)<(?P<name>[A-Za-z_][\w.-]{0,96})\b[^>]*>(?P<value>[\s\S]*?)</(?P=name)>"
+)
+
+
+def _request_tool_name_aliases(body: dict[str, Any]) -> set[str]:
+    aliases: set[str] = set()
+    tools = body.get("tools")
+    if not isinstance(tools, list):
+        return aliases
+    for tool in tools:
+        if not isinstance(tool, dict):
+            continue
+        name = str(tool.get("name") or "").strip()
+        if not name:
+            continue
+        lowered = name.lower()
+        aliases.add(lowered)
+        aliases.add(lowered.replace("-", "_"))
+        if "__" in lowered:
+            short = lowered.rsplit("__", 1)[-1]
+            aliases.add(short)
+            aliases.add(short.replace("-", "_"))
+    return aliases
+
+
+def _resolve_pseudo_xml_tool_name(raw_name: str, source_body: dict[str, Any] | None) -> str | None:
+    if not isinstance(source_body, dict):
+        return None
+    raw = str(raw_name or "").strip()
+    if not raw:
+        return None
+    available = tool_names_in_body(source_body)
+    if not available:
+        return None
+    matched = _match_available_tool_name(raw, available)
+    if matched:
+        return matched
+    aliases = _request_tool_name_aliases(source_body)
+    lowered = raw.lower()
+    normalized = lowered.replace("-", "_")
+    if lowered not in aliases and normalized not in aliases:
+        return None
+    return resolve_emitted_tool_name(raw, source_body)
+
+
+def _xml_unescape_text(value: str) -> str:
+    return html_lib.unescape(str(value or "")).strip()
+
+
+def _parse_pseudo_xml_tool_args(tool_name: str, body: str) -> dict[str, Any]:
+    inner = str(body or "").strip()
+    args: dict[str, Any] = {}
+    for match in _PSEUDO_TOOL_PARAMETER_RE.finditer(inner):
+        key = str(match.group("name") or "").strip()
+        if key:
+            args[key] = _xml_unescape_text(match.group("value") or "")
+    if args:
+        return args
+    for match in _PSEUDO_TOOL_CHILD_ARG_RE.finditer(inner):
+        key = str(match.group("name") or "").strip()
+        if key and key.lower() not in {"invoke", tool_name.lower()}:
+            args[key] = _xml_unescape_text(match.group("value") or "")
+    if args:
+        return args
+    try:
+        parsed = json.loads(inner)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+    return normalize_tool_arguments(tool_name, _xml_unescape_text(inner))
+
+
+def _find_pseudo_xml_tool_start(text: str, source_body: dict[str, Any] | None) -> int:
+    if not isinstance(source_body, dict) or "<" not in text:
+        return -1
+    for match in sorted(
+        list(_PSEUDO_TOOL_INVOKE_CALL_RE.finditer(text))
+        + list(_PSEUDO_TOOL_XML_CALL_RE.finditer(text))
+        + list(_PSEUDO_TOOL_INVOKE_OPEN_RE.finditer(text))
+        + list(_PSEUDO_TOOL_XML_OPEN_RE.finditer(text)),
+        key=lambda item: item.start(),
+    ):
+        raw_name = str(match.group("name") or "")
+        if raw_name.lower() == "invoke":
+            continue
+        if _resolve_pseudo_xml_tool_name(raw_name, source_body):
+            return match.start()
+    return -1
+
+
+def _parse_xml_pseudo_tool_calls(text: str, source_body: dict[str, Any] | None) -> tuple[str, list[dict[str, Any]]]:
+    if not isinstance(source_body, dict) or "<" not in text:
+        return text, []
+    matches: list[tuple[int, int, str, str]] = []
+    for match in _PSEUDO_TOOL_INVOKE_CALL_RE.finditer(text):
+        matches.append((match.start(), match.end(), str(match.group("name") or ""), str(match.group("body") or "")))
+    for match in _PSEUDO_TOOL_XML_CALL_RE.finditer(text):
+        raw_name = str(match.group("name") or "")
+        if raw_name.lower() == "invoke":
+            continue
+        matches.append((match.start(), match.end(), raw_name, str(match.group("body") or "")))
+    if not matches:
+        return text, []
+    visible_parts: list[str] = []
+    calls: list[dict[str, Any]] = []
+    pos = 0
+    for start, end, raw_name, body in sorted(matches, key=lambda item: item[0]):
+        if start < pos:
+            continue
+        matched_name = _resolve_pseudo_xml_tool_name(raw_name, source_body)
+        if not matched_name:
+            continue
+        visible_parts.append(text[pos:start])
+        args = _parse_pseudo_xml_tool_args(matched_name, body)
+        calls.append({"function": {"name": matched_name, "arguments": args}, "id": f"xml:{raw_name}:{start}"})
+        pos = end
+    if not calls:
+        return text, []
+    visible_parts.append(text[pos:])
+    return "".join(visible_parts), calls
+
+
+def _remove_assistant_pseudo_tool_xml(text: str, tool_aliases: set[str], replacement: str) -> tuple[str, int]:
+    if not text:
+        return text, 0
+    removed = 0
+
+    def repl(match: re.Match[str]) -> str:
+        nonlocal removed
+        name = str(match.group("name") or "").strip().lower()
+        if not name:
+            return match.group(0)
+        if name not in tool_aliases and name.replace("-", "_") not in tool_aliases:
+            return match.group(0)
+        removed += 1
+        return replacement
+
+    return _PSEUDO_TOOL_XML_RE.sub(repl, text), removed
 
 
 def sanitize_assistant_pseudo_tool_text_history(body: dict[str, Any]) -> dict[str, Any]:
     """Remove prior assistant text that looks like a fake tool invocation.
 
     Claude Code only executes structured ``tool_use`` blocks. If an earlier
-    routed turn accidentally emitted XML-like ``<invoke ...>`` text, continuing
+    routed turn accidentally emitted XML-like tool-call text, continuing
     the same transcript can teach the model to repeat that invalid pattern.
     Keep real tool_use blocks untouched and only rewrite assistant text blocks.
     """
     messages = body.get("messages")
     if not isinstance(messages, list):
         return body
+    tool_aliases = _request_tool_name_aliases(body)
     changed = False
     sanitized_messages: list[Any] = []
     removed_blocks = 0
-    replacement = "\n[claude-any removed prior assistant pseudo tool-call text; it was not an actual tool_use block.]\n"
+    replacement = "\n[ciel-runtime removed prior assistant pseudo tool-call text; it was not an actual tool_use block.]\n"
     for message in messages:
         if not isinstance(message, dict) or str(message.get("role") or "") != "assistant":
             sanitized_messages.append(message)
@@ -12355,6 +12958,9 @@ def sanitize_assistant_pseudo_tool_text_history(body: dict[str, Any]) -> dict[st
         content = message.get("content")
         if isinstance(content, str):
             next_text, count = _PSEUDO_TOOL_INVOKE_RE.subn(replacement, content)
+            if tool_aliases:
+                next_text, xml_count = _remove_assistant_pseudo_tool_xml(next_text, tool_aliases, replacement)
+                count += xml_count
             if count:
                 changed = True
                 removed_blocks += count
@@ -12369,6 +12975,9 @@ def sanitize_assistant_pseudo_tool_text_history(body: dict[str, Any]) -> dict[st
                 if isinstance(block, dict) and block.get("type") == "text":
                     text = str(block.get("text") or "")
                     next_text, count = _PSEUDO_TOOL_INVOKE_RE.subn(replacement, text)
+                    if tool_aliases:
+                        next_text, xml_count = _remove_assistant_pseudo_tool_xml(next_text, tool_aliases, replacement)
+                        count += xml_count
                     if count:
                         content_changed = True
                         removed_blocks += count
@@ -12420,7 +13029,7 @@ def _historical_tool_use_as_text(block: dict[str, Any]) -> dict[str, str]:
     return {
         "type": "text",
         "text": (
-            "[claude-any preserved a historical tool request as text because its matching "
+            "[ciel-runtime preserved a historical tool request as text because its matching "
             f"tool_result is not present in the retained transcript. tool={name} id={tool_id} input={input_text}]"
         ),
     }
@@ -12432,7 +13041,7 @@ def _historical_tool_result_as_text(block: dict[str, Any]) -> dict[str, str]:
     return {
         "type": "text",
         "text": (
-            "[claude-any preserved a historical tool result as text because its matching "
+            "[ciel-runtime preserved a historical tool result as text because its matching "
             f"assistant tool_use is not present in the retained transcript. tool_use_id={tool_id}]\n{text}"
         ),
     }
@@ -13402,10 +14011,10 @@ def anthropic_tool_choice_to_openai(tool_choice: Any) -> Any:
 def opencode_model_id_hint(provider: str, pcfg: dict[str, Any], model: str | None) -> str:
     requested = strip_claude_context_suffix(model).strip()
     fallback = normalize_model_id(provider, pcfg.get("current_model") or "")
-    prefix = f"claude-any-{provider}-"
+    prefix = f"ciel-runtime-{provider}-"
     if requested.startswith(prefix):
         return requested[len(prefix):]
-    if requested.startswith("claude-any-"):
+    if requested.startswith("ciel-runtime-"):
         return fallback
     return normalize_model_id(provider, requested or fallback)
 
@@ -13431,7 +14040,7 @@ def openai_reasoning_to_anthropic_thinking_block(reasoning_content: Any) -> dict
     return {
         "type": "thinking",
         "thinking": reasoning,
-        "signature": f"claude-any-openai-reasoning-{digest}",
+        "signature": f"ciel-runtime-openai-reasoning-{digest}",
     }
 
 
@@ -13497,7 +14106,7 @@ def parse_bool(value: Any, default: bool = False) -> bool:
 
 
 def router_debug_external_access_enabled(cfg: dict[str, Any] | None = None) -> bool:
-    env = env_bool(os.environ.get("CLAUDE_ANY_ROUTER_DEBUG_EXTERNAL"), None)
+    env = env_bool(os.environ.get("CIEL_RUNTIME_ROUTER_DEBUG_EXTERNAL"), None)
     if env is not None:
         return bool(env)
     if cfg is None:
@@ -13509,7 +14118,7 @@ def router_debug_external_access_enabled(cfg: dict[str, Any] | None = None) -> b
 
 
 def router_bind_host(cfg: dict[str, Any] | None = None) -> str:
-    env_host = (os.environ.get("CLAUDE_ANY_ROUTER_BIND_HOST") or os.environ.get("CLAUDE_ANY_ROUTER_HOST") or "").strip()
+    env_host = (os.environ.get("CIEL_RUNTIME_ROUTER_BIND_HOST") or os.environ.get("CIEL_RUNTIME_ROUTER_HOST") or "").strip()
     if env_host:
         return env_host
     return "0.0.0.0" if router_debug_external_access_enabled(cfg) else "127.0.0.1"
@@ -13599,7 +14208,7 @@ def ollama_effective_context_limit(pcfg: dict[str, Any]) -> int | None:
 
 
 def ollama_num_ctx_for_payload(pcfg: dict[str, Any], payload: Any, _token_cache: dict[int, int] | None = None) -> int | None:
-    override = os.environ.get("CLAUDE_ANY_OLLAMA_NUM_CTX")
+    override = os.environ.get("CIEL_RUNTIME_OLLAMA_NUM_CTX")
     if override:
         return positive_int(override)
     raw = pcfg.get("num_ctx", "auto")
@@ -13685,13 +14294,20 @@ def cap_output_tokens_for_context(
         return None
     if not context_limit:
         return configured
-    reserve = positive_int(pcfg.get("context_reserve_tokens")) or 1024
+    reserve = context_guard_reserve_tokens(pcfg, context_limit)
     estimated_input = estimate_tokens(payload, _token_cache)
     available = context_limit - estimated_input - reserve
     if available <= 0:
         return min(configured, 256)
     return max(1, min(configured, available))
 
+def context_guard_reserve_tokens(pcfg: dict[str, Any], context_limit: int | None) -> int:
+    configured = positive_int(pcfg.get("context_reserve_tokens"))
+    if configured:
+        return configured
+    if not context_limit:
+        return 1024
+    return max(1024, min(32768, int(context_limit) // 32))
 
 def ollama_context_limit_for_budget(pcfg: dict[str, Any]) -> int:
     raw = pcfg.get("num_ctx", "auto")
@@ -13701,17 +14317,18 @@ def ollama_context_limit_for_budget(pcfg: dict[str, Any]) -> int:
 
 
 def openai_context_limit_for_budget(provider: str, pcfg: dict[str, Any]) -> int:
+    configured = positive_int(pcfg.get("context_window")) or positive_int(pcfg.get("max_model_len"))
     if provider in ("vllm", "self-hosted-nim"):
         runtime = provider_model_context_capacity(provider, pcfg)
+        if configured and str(pcfg.get("llm_preset") or "").strip():
+            return min(configured, runtime) if runtime else configured
         if runtime:
             return runtime
-    configured = positive_int(pcfg.get("context_window")) or positive_int(pcfg.get("max_model_len"))
     if configured:
         return configured
     if provider == "nvidia-hosted":
         return nvidia_hosted_context_default(str(pcfg.get("current_model") or ""))
     return 65536
-
 
 def compact_ollama_messages_for_budget(
     messages: list[dict[str, Any]],
@@ -13720,6 +14337,9 @@ def compact_ollama_messages_for_budget(
     *,
     provider: str = "",
     model: str = "",
+    pcfg: dict[str, Any] | None = None,
+    full_compact_request: bool = False,
+    wire: str | None = None,
 ) -> list[dict[str, Any]]:
     if not messages:
         return messages
@@ -13728,6 +14348,17 @@ def compact_ollama_messages_for_budget(
     initial_tokens = estimate_tokens(payload)
     if initial_tokens <= budget_tokens:
         return messages
+    if full_compact_request and pcfg is not None and provider and model:
+        compact_wire = wire or ("ollama" if provider in ("ollama", "ollama-cloud") else "openai")
+        llm_compacted = maybe_build_llm_compacted_messages(provider, model, pcfg, messages, budget_tokens, wire=compact_wire)
+        if llm_compacted:
+            final_tokens = estimate_tokens({"messages": llm_compacted, "tools": []})
+            if final_tokens <= budget_tokens:
+                return llm_compacted
+            router_log(
+                "WARN",
+                f"context_compact_map_reduce_oversize provider={provider} model={model} tokens={final_tokens} budget={budget_tokens}; falling back to deterministic compact",
+            )
 
     system_messages = [m for m in messages if m.get("role") == "system"]
     non_system = [m for m in messages if m.get("role") != "system"]
@@ -13738,7 +14369,7 @@ def compact_ollama_messages_for_budget(
     summary: dict[str, Any] = {
         "role": "user",
         "content": (
-            "[claude-any context guard: older conversation messages were omitted because the provider context "
+            "[ciel-runtime context guard: older conversation messages were omitted because the provider context "
             "budget would be exceeded. Large file contents and prior Write/Edit inputs were truncated. "
             "Use Read on specific files if exact old content is needed.]"
         ),
@@ -13789,7 +14420,6 @@ def compact_ollama_messages_for_budget(
         )
     return compacted
 
-
 def anthropic_message_has_tool_result(message: dict[str, Any]) -> bool:
     content = message.get("content")
     return isinstance(content, list) and any(isinstance(block, dict) and block.get("type") == "tool_result" for block in content)
@@ -13805,6 +14435,8 @@ def compact_anthropic_body_for_budget(
     *,
     provider: str = "",
     model: str = "",
+    pcfg: dict[str, Any] | None = None,
+    full_compact_request: bool = False,
 ) -> dict[str, Any]:
     messages = body.get("messages")
     if not isinstance(messages, list) or not messages:
@@ -13816,6 +14448,21 @@ def compact_anthropic_body_for_budget(
     initial_tokens = estimate_tokens(body)
     if initial_tokens <= budget_tokens:
         return body
+    if full_compact_request and pcfg is not None and provider and model:
+        compact_messages = maybe_build_llm_compacted_messages(provider, model, pcfg, typed_messages, budget_tokens, wire="anthropic")
+        if compact_messages:
+            out = dict(body)
+            out["messages"] = compact_messages
+            out["tools"] = []
+            out.pop("tool_choice", None)
+            out.pop("parallel_tool_calls", None)
+            final_tokens = estimate_tokens(out)
+            if final_tokens <= budget_tokens:
+                return out
+            router_log(
+                "WARN",
+                f"context_compact_map_reduce_oversize provider={provider} model={model} tokens={final_tokens} budget={budget_tokens}; falling back to deterministic compact",
+            )
 
     # Reserve part of the budget for distributed summaries of the older history.
     summary_budget = max(1024, min(24576, budget_tokens // 10))
@@ -13901,7 +14548,6 @@ def compact_anthropic_body_for_budget(
             retained_messages=len(out.get("messages") or []),
         )
     return out
-
 
 def provider_request_timeout_seconds(pcfg: dict[str, Any]) -> float:
     return ollama_request_timeout_seconds(pcfg)
@@ -14007,20 +14653,21 @@ def cap_anthropic_body_for_provider(provider: str, pcfg: dict[str, Any], body: d
     ratio_capped = cap_output_tokens_to_context_ratio(provider, pcfg, configured)
     if ratio_capped:
         capped["max_tokens"] = ratio_capped
-    reserve = positive_int(pcfg.get("context_reserve_tokens")) or 1024
+    reserve = context_guard_reserve_tokens(pcfg, context_limit)
     output_reserve = positive_int(capped.get("max_tokens")) or configured or 4096
     input_budget = max(8192, context_limit - output_reserve - reserve)
     capped = compact_anthropic_body_for_budget(
         capped,
         input_budget,
         provider=provider,
+        pcfg=pcfg,
         model=str(capped.get("model") or pcfg.get("current_model") or ""),
+        full_compact_request=is_claude_code_compact_request(capped),
     )
     output_tokens = cap_output_tokens_for_context(pcfg, capped, {k: v for k, v in capped.items() if k != "max_tokens"}, context_limit, positive_int(capped.get("max_tokens")) or configured)
     if output_tokens:
         capped["max_tokens"] = output_tokens
     return capped
-
 
 def apply_provider_request_options(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
     if provider not in PROVIDER_SAMPLING_OPTION_PROVIDERS:
@@ -14050,15 +14697,24 @@ def normalize_anthropic_model_request_options(provider: str, pcfg: dict[str, Any
     return out
 
 
-def ollama_chat_request(model: str, body: dict[str, Any], pcfg: dict[str, Any], stream: bool = True) -> dict[str, Any]:
+def ollama_chat_request(model: str, body: dict[str, Any], pcfg: dict[str, Any], stream: bool = True, provider: str = "ollama") -> dict[str, Any]:
     messages = anthropic_messages_to_ollama(body)
     tools = anthropic_tools_to_ollama(body.get("tools"))
     context_limit = ollama_context_limit_for_budget(pcfg)
     configured = configured_output_tokens(pcfg, body, "num_predict")
-    reserve = positive_int(pcfg.get("context_reserve_tokens")) or 1024
+    reserve = context_guard_reserve_tokens(pcfg, context_limit)
     output_reserve = configured or positive_int(body.get("max_tokens")) or 4096
     input_budget = max(8192, context_limit - output_reserve - reserve)
-    messages = compact_ollama_messages_for_budget(messages, tools, input_budget, provider="ollama", model=model)
+    messages = compact_ollama_messages_for_budget(
+        messages,
+        tools,
+        input_budget,
+        provider=provider,
+        model=model,
+        pcfg=pcfg,
+        full_compact_request=is_claude_code_compact_request(body),
+        wire="ollama",
+    )
     req: dict[str, Any] = {
         "model": model,
         "messages": messages,
@@ -14089,14 +14745,13 @@ def ollama_chat_request(model: str, body: dict[str, Any], pcfg: dict[str, Any], 
         req["options"] = options
     return req
 
-
 def openai_compatible_chat_request(provider: str, model: str, body: dict[str, Any], pcfg: dict[str, Any], stream: bool = False) -> dict[str, Any]:
     reasoning_passback = openai_chat_reasoning_passback_enabled(provider, model, pcfg)
     messages = anthropic_messages_to_openai(body, reasoning_passback=reasoning_passback)
     tools = anthropic_tools_to_ollama(body.get("tools"))
     context_limit = openai_context_limit_for_budget(provider, pcfg)
     configured = configured_output_tokens(pcfg, body)
-    reserve = positive_int(pcfg.get("context_reserve_tokens")) or 1024
+    reserve = context_guard_reserve_tokens(pcfg, context_limit)
     output_reserve = configured or positive_int(body.get("max_tokens")) or 4096
     messages = compact_ollama_messages_for_budget(
         messages,
@@ -14104,6 +14759,9 @@ def openai_compatible_chat_request(provider: str, model: str, body: dict[str, An
         max(8192, context_limit - output_reserve - reserve),
         provider=provider,
         model=model,
+        pcfg=pcfg,
+        full_compact_request=is_claude_code_compact_request(body),
+        wire="openai",
     )
     messages = repair_openai_tool_call_adjacency(messages)
     req: dict[str, Any] = {
@@ -14123,9 +14781,8 @@ def openai_compatible_chat_request(provider: str, model: str, body: dict[str, An
             req[key] = pcfg[key]
     return req
 
-
 ADVISOR_REVIEW_PROMPT = (
-    "You are claude-any Advisor, a stronger reviewer model. Review the current task state and provide "
+    "You are ciel-runtime Advisor, a stronger reviewer model. Review the current task state and provide "
     "concise, actionable guidance for the executor model. Review now; do not say that you will review later. "
     "Do not write code unless a small exact patch is the clearest advice. Use this exact structure: "
     "Verdict: approve, revise, or continue. Key findings: concrete gaps or risks. Required next action: "
@@ -14162,8 +14819,7 @@ def advisor_input_budget(provider: str, pcfg: dict[str, Any]) -> int:
         context_limit = context_limit_for_status(provider, pcfg) or 200000
     else:
         context_limit = openai_context_limit_for_budget(provider, pcfg)
-    return max(8192, context_limit - 4096 - (positive_int(pcfg.get("context_reserve_tokens")) or 1024))
-
+    return max(8192, context_limit - 4096 - context_guard_reserve_tokens(pcfg, context_limit))
 
 def advisor_upstream_model(provider: str, model: str) -> str:
     return ncp_model_id_for_nvidia_hosted(model) if provider == "nvidia-hosted" else model
@@ -14360,7 +15016,7 @@ def call_provider_chat_once(provider: str, pcfg: dict[str, Any], body: dict[str,
     body = normalize_tool_choice_for_provider(provider, pcfg, body)
     if provider in ("ollama", "ollama-cloud"):
         base = pcfg.get("base_url", "").rstrip("/")
-        req_body = ollama_chat_request(model, body, pcfg, stream=False)
+        req_body = ollama_chat_request(model, body, pcfg, stream=False, provider=provider)
         apply_router_rate_limit(provider, pcfg, model)
         data = post_json_with_rate_retry(
             join_url(base, "/api/chat"),
@@ -14389,7 +15045,6 @@ def call_provider_chat_once(provider: str, pcfg: dict[str, Any], body: dict[str,
         )
         return openai_chat_to_anthropic(data, upstream_model, source_body=body)
     raise RuntimeError(f"Advisor refinement is not supported for provider {provider}")
-
 
 def refine_message_with_advisor(
     provider: str,
@@ -14553,7 +15208,7 @@ def write_anthropic_open_stream_start(handler: BaseHTTPRequestHandler, model: st
     handler.send_header("cache-control", "no-cache")
     handler.send_header("connection", "close")
     handler.end_headers()
-    msg_id = f"msg_claude_any_{int(time.time() * 1000)}"
+    msg_id = f"msg_ciel_runtime_{int(time.time() * 1000)}"
     payload = {
         "type": "message_start",
         "message": {
@@ -14604,7 +15259,7 @@ def maybe_handle_advisor_request(handler: BaseHTTPRequestHandler, provider: str,
     if provider == "anthropic":
         # Claude native and Anthropic routed sessions follow Claude Code's
         # built-in /advisor flow (model picker + advisor server tool);
-        # claude-any neither installs its own /advisor command nor intercepts
+        # ciel-runtime neither installs its own /advisor command nor intercepts
         # advisor traffic for this provider.
         return False
     if not is_advisor_request(body):
@@ -14615,7 +15270,7 @@ def maybe_handle_advisor_request(handler: BaseHTTPRequestHandler, provider: str,
         write_anthropic_text_response(
             handler,
             str(body.get("model") or current_alias(load_config())),
-            "Advisor is off. Choose an Advisor Model in the claude-any launch menu (item 5), or run `claude-any advisor-model <model-id>`, then use `/advisor` again.",
+            "Advisor is off. Choose an Advisor Model in the ciel-runtime launch menu (item 5), or run `ciel-runtime advisor-model <model-id>`, then use `/advisor` again.",
             stream,
         )
         return True
@@ -14623,7 +15278,7 @@ def maybe_handle_advisor_request(handler: BaseHTTPRequestHandler, provider: str,
         write_anthropic_text_response(
             handler,
             advisor_model,
-            f"Advisor Model is configured as `{advisor_model}`, but claude-any advisor calling is not implemented for provider `{provider}`.",
+            f"Advisor Model is configured as `{advisor_model}`, but ciel-runtime advisor calling is not implemented for provider `{provider}`.",
             stream,
         )
         return True
@@ -14681,7 +15336,7 @@ def maybe_handle_router_debug_request(handler: BaseHTTPRequestHandler, body: dic
 def _format_channel_backlog_status_lines(stats: dict[str, Any], cleared: bool) -> list[str]:
     if cleared:
         return [
-            "Claude Any channel backlog discarded.",
+            "Ciel Runtime channel backlog discarded.",
             f"- chat tail: {stats.get('chat_tail')}",
             f"- LLM cursor advanced by: {stats.get('discarded_llm')}",
             f"- MCP cursor advanced by: {stats.get('discarded_mcp')}",
@@ -14693,7 +15348,7 @@ def _format_channel_backlog_status_lines(stats: dict[str, Any], cleared: bool) -
             "New channel events arriving after this point will still be delivered.",
         ]
     return [
-        "Claude Any channel backlog status.",
+        "Ciel Runtime channel backlog status.",
         f"- chat tail: {stats.get('chat_tail')}",
         f"- pending LLM items by id range: {stats.get('pending_llm')}",
         f"- pending MCP items by id range: {stats.get('pending_mcp')}",
@@ -14873,9 +15528,9 @@ def infer_tool_name_from_args(args: dict[str, Any]) -> str:
     return "TaskList" if not args else "Write"
 
 
-def parse_pseudo_tool_calls(text: str) -> tuple[str, list[dict[str, Any]]]:
+def parse_pseudo_tool_calls(text: str, source_body: dict[str, Any] | None = None) -> tuple[str, list[dict[str, Any]]]:
     if PSEUDO_TOOL_START not in text:
-        return text, []
+        return _parse_xml_pseudo_tool_calls(text, source_body)
     visible_parts: list[str] = []
     calls: list[dict[str, Any]] = []
     pos = 0
@@ -14916,14 +15571,15 @@ def parse_pseudo_tool_calls(text: str) -> tuple[str, list[dict[str, Any]]]:
             calls.append({"function": {"name": name, "arguments": args}, "id": raw_header})
         if end < 0:
             break
-    return "".join(visible_parts), calls
+    visible_text, xml_calls = _parse_xml_pseudo_tool_calls("".join(visible_parts), source_body)
+    return visible_text, calls + xml_calls
 
 
 def ollama_chat_to_anthropic(data: dict[str, Any], model: str, source_body: dict[str, Any] | None = None) -> dict[str, Any]:
     message = data.get("message") if isinstance(data.get("message"), dict) else {}
     content: list[dict[str, Any]] = []
     text = message.get("content") or ""
-    text, pseudo_tool_calls = parse_pseudo_tool_calls(text)
+    text, pseudo_tool_calls = parse_pseudo_tool_calls(text, source_body)
     if text:
         content.append({"type": "text", "text": text})
     tool_id_prefix = f"toolu_ollama_{int(time.time() * 1000)}_{os.getpid()}"
@@ -15052,7 +15708,7 @@ def _split_word_buffer(buf: str, force: bool = False, max_buffer: int = STREAM_W
 def _rebatch_anthropic_sse_text(
     handler: BaseHTTPRequestHandler,
     resp: Any,
-    model: str = "claude-any-upstream",
+    model: str = "ciel-runtime-upstream",
     word_chunking: bool = True,
     source_body: dict[str, Any] | None = None,
     preserve_thinking: bool = True,
@@ -15081,6 +15737,7 @@ def _rebatch_anthropic_sse_text(
     suppressed_thinking_blocks: dict[int, dict[str, Any]] = {}
     suppressed_thinking_passback_blocks: list[dict[str, Any]] = []
     buffered_tool_uses: dict[int, dict[str, Any]] = {}
+    held_pseudo_tool_text: dict[int, str] = {}
     pending_message_delta: tuple[str | None, str] | None = None
     pending_message_stop: tuple[str | None, str] | None = None
     last_suppressed_keepalive_at = 0.0
@@ -15396,6 +16053,25 @@ def _rebatch_anthropic_sse_text(
         emit_raw("content_block_stop", json.dumps({"type": "content_block_stop", "index": index}, ensure_ascii=False))
         emitted_tool_use = True
 
+    def emit_pseudo_tool_uses(pseudo_tool_calls: list[dict[str, Any]]) -> bool:
+        nonlocal next_content_index, saw_tool_use
+        if not pseudo_tool_calls:
+            return False
+        for call in pseudo_tool_calls:
+            fn = call.get("function") if isinstance(call, dict) else {}
+            if not isinstance(fn, dict) or not fn.get("name"):
+                continue
+            tool_index = next_content_index
+            next_content_index += 1
+            tool_state = {
+                "id": str(call.get("id") or ""),
+                "name": str(fn.get("name") or ""),
+                "partial_json": json.dumps(fn.get("arguments") or {}, ensure_ascii=False),
+            }
+            emit_normalized_tool_use(tool_index, tool_state)
+            saw_tool_use = True
+        return True
+
     def process_event(event_type: str | None, data_str: str) -> None:
         nonlocal saw_message_start, saw_message_stop, text_so_far, saw_tool_use, emitted_tool_use, next_content_index, pending_message_delta, pending_message_stop
         try:
@@ -15469,12 +16145,30 @@ def _rebatch_anthropic_sse_text(
                 data_str = json.dumps(patched, ensure_ascii=False)
                 if isinstance(mapped_index, int) and word_chunking:
                     flush_buffer(mapped_index, force=True)
+                if isinstance(mapped_index, int) and mapped_index in held_pseudo_tool_text:
+                    held_text = held_pseudo_tool_text.pop(mapped_index)
+                    visible_text, pseudo_tool_calls = parse_pseudo_tool_calls(held_text, source_body)
+                    if pseudo_tool_calls:
+                        if visible_text.strip():
+                            emit_text_delta(mapped_index, visible_text)
+                        emit_raw(event_type, data_str)
+                        emit_pseudo_tool_uses(pseudo_tool_calls)
+                        return
+                    else:
+                        emit_text_delta(mapped_index, held_text)
                 emit_raw(event_type, data_str)
                 return
         elif evt_type == "message_delta":
             delta = event.get("delta") if isinstance(event.get("delta"), dict) else {}
             stop_reason = str(delta.get("stop_reason") or "")
             tool_calls = [{"type": "tool_use"}] if emitted_tool_use else []
+            if emitted_tool_use and stop_reason == "end_turn":
+                patched = dict(event)
+                patched_delta = dict(delta)
+                patched_delta["stop_reason"] = "tool_use"
+                patched["delta"] = patched_delta
+                pending_message_delta = (event_type, json.dumps(patched, ensure_ascii=False))
+                return
             if (
                 allow_tasklist_synthesis
                 and
@@ -15551,6 +16245,25 @@ def _rebatch_anthropic_sse_text(
                 if not text:
                     return
                 text_so_far += text
+                if provider != "anthropic" and mapped_index in held_pseudo_tool_text:
+                    held_pseudo_tool_text[mapped_index] += text
+                    return
+                pseudo_start = _find_pseudo_xml_tool_start(text, source_body) if provider != "anthropic" else -1
+                if pseudo_start >= 0:
+                    prefix = text[:pseudo_start]
+                    held_pseudo_tool_text[mapped_index] = text[pseudo_start:]
+                    if not prefix:
+                        return
+                    if not word_chunking:
+                        patched = dict(event)
+                        patched_delta = dict(delta)
+                        patched_delta["text"] = prefix
+                        patched["delta"] = patched_delta
+                        emit_raw(event_type, json.dumps(patched, ensure_ascii=False))
+                        return
+                    text_buffers[mapped_index] = text_buffers.get(mapped_index, "") + prefix
+                    flush_buffer(mapped_index, force=False)
+                    return
                 if not word_chunking:
                     emit_raw(event_type, data_str)
                     return
@@ -15643,7 +16356,7 @@ def _rebatch_anthropic_sse_text(
                     payload = {
                         "type": "message_start",
                         "message": {
-                            "id": f"msg_claude_any_forward_{int(time.time() * 1000)}",
+                            "id": f"msg_ciel_runtime_forward_{int(time.time() * 1000)}",
                             "type": "message",
                             "role": "assistant",
                             "content": [],
@@ -15671,7 +16384,7 @@ def _rebatch_anthropic_sse_text(
         if stream_success:
             mark_pending_channel_delivery_success(handler, "anthropic_stream_message_stop")
         else:
-            reason = str(getattr(handler, "_claude_any_channel_delivery_reason", "anthropic_stream_incomplete") or "anthropic_stream_incomplete")
+            reason = str(getattr(handler, "_ciel_runtime_channel_delivery_reason", "anthropic_stream_incomplete") or "anthropic_stream_incomplete")
             mark_pending_channel_delivery_failed(handler, reason)
         try:
             resp.close()
@@ -16180,7 +16893,7 @@ def forward_ollama_api_chat(handler: BaseHTTPRequestHandler, provider: str, pcfg
         stream_requested = False
         router_log("INFO", f"advisor gate enabled reason={gate_reason}; collecting this turn before returning it to Claude Code")
     word_chunking = bool(pcfg.get("stream_word_chunking", False))
-    req_body = ollama_chat_request(model, upstream_body, pcfg, stream=stream_requested)
+    req_body = ollama_chat_request(model, upstream_body, pcfg, stream=stream_requested, provider=provider)
     headers = provider_headers(provider, pcfg)
     url = join_url(base, "/api/chat")
     if compatibility_test:
@@ -16412,7 +17125,6 @@ def forward_ollama_api_chat(handler: BaseHTTPRequestHandler, provider: str, pcfg
     write_json(handler, message)
     mark_pending_channel_delivery_success(handler, "ollama_json")
 
-
 def openai_chat_to_anthropic(data: dict[str, Any], model: str, source_body: dict[str, Any] | None = None) -> dict[str, Any]:
     choice = {}
     choices = data.get("choices")
@@ -16439,6 +17151,342 @@ def openai_chat_to_anthropic(data: dict[str, Any], model: str, source_body: dict
     out = dict(out)
     out["content"] = [thinking_block] + content
     return out
+
+
+def _responses_json_object(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            return {}
+    return {}
+
+
+def _responses_content_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, dict):
+        ctype = str(content.get("type") or "")
+        if ctype in ("input_text", "output_text", "text"):
+            return str(content.get("text") or "")
+        if ctype == "refusal":
+            return str(content.get("refusal") or "")
+        return str(content.get("text") or content.get("output") or "")
+    if isinstance(content, list):
+        parts = [_responses_content_text(item) for item in content]
+        return "\n".join(part for part in parts if part)
+    return ""
+
+
+def _responses_content_blocks(content: Any) -> list[dict[str, Any]]:
+    text = _responses_content_text(content)
+    return [{"type": "text", "text": text}] if text else []
+
+
+def responses_tools_to_anthropic(tools: Any) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    if not isinstance(tools, list):
+        return out
+    for tool in tools:
+        if not isinstance(tool, dict):
+            continue
+        name = tool.get("name")
+        description = tool.get("description", "")
+        parameters = tool.get("parameters")
+        if not name and isinstance(tool.get("function"), dict):
+            fn = tool["function"]
+            name = fn.get("name")
+            description = fn.get("description", description)
+            parameters = fn.get("parameters", parameters)
+        if tool.get("type") not in (None, "function") and not name:
+            continue
+        if not name:
+            continue
+        out.append(
+            {
+                "name": str(name),
+                "description": str(description or ""),
+                "input_schema": parameters if isinstance(parameters, dict) else {"type": "object", "properties": {}},
+            }
+        )
+    return out
+
+
+def responses_tool_choice_to_anthropic(tool_choice: Any) -> Any:
+    if tool_choice is None:
+        return None
+    if isinstance(tool_choice, str):
+        lowered = tool_choice.strip().lower()
+        if lowered == "required":
+            return {"type": "any"}
+        if lowered in ("auto", "none"):
+            return {"type": "auto"} if lowered == "auto" else None
+        return tool_choice
+    if not isinstance(tool_choice, dict):
+        return tool_choice
+    if tool_choice.get("type") == "function":
+        name = tool_choice.get("name")
+        if not name and isinstance(tool_choice.get("function"), dict):
+            name = tool_choice["function"].get("name")
+        if name:
+            return {"type": "tool", "name": str(name)}
+    return tool_choice
+
+
+def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model: str) -> dict[str, Any]:
+    system_parts: list[str] = []
+    instructions = str(body.get("instructions") or "").strip()
+    if instructions:
+        system_parts.append(instructions)
+    messages: list[dict[str, Any]] = []
+    raw_input = body.get("input", [])
+    if isinstance(raw_input, str):
+        raw_input = [{"type": "message", "role": "user", "content": [{"type": "input_text", "text": raw_input}]}]
+    if isinstance(raw_input, dict):
+        raw_input = [raw_input]
+    if not isinstance(raw_input, list):
+        raw_input = []
+    for item in raw_input:
+        if not isinstance(item, dict):
+            continue
+        item_type = str(item.get("type") or "message")
+        if item_type == "function_call":
+            call_id = str(item.get("call_id") or item.get("id") or f"call_{len(messages) + 1}")
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": call_id,
+                            "name": str(item.get("name") or "tool"),
+                            "input": _responses_json_object(item.get("arguments")),
+                        }
+                    ],
+                }
+            )
+            continue
+        if item_type == "function_call_output":
+            call_id = str(item.get("call_id") or item.get("id") or "call_tool")
+            output = item.get("output")
+            messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": call_id,
+                            "content": _responses_content_text(output),
+                        }
+                    ],
+                }
+            )
+            continue
+        role = str(item.get("role") or "user").strip().lower()
+        blocks = _responses_content_blocks(item.get("content", item.get("text", "")))
+        if not blocks:
+            continue
+        if role in ("system", "developer"):
+            system_parts.append(anthropic_content_to_text(blocks))
+            continue
+        if role not in ("user", "assistant"):
+            role = "user"
+        messages.append({"role": role, "content": blocks})
+    if not messages:
+        messages.append({"role": "user", "content": [{"type": "text", "text": ""}]})
+    out: dict[str, Any] = {
+        "model": str(body.get("model") or fallback_model or "model"),
+        "messages": messages,
+        "stream": bool(body.get("stream", True)),
+    }
+    tools = responses_tools_to_anthropic(body.get("tools"))
+    if tools:
+        out["tools"] = tools
+    tool_choice = responses_tool_choice_to_anthropic(body.get("tool_choice"))
+    if tool_choice is not None:
+        out["tool_choice"] = tool_choice
+    max_tokens = positive_int(body.get("max_output_tokens")) or positive_int(body.get("max_tokens"))
+    if max_tokens:
+        out["max_tokens"] = max_tokens
+    if system_parts:
+        out["system"] = [{"type": "text", "text": part} for part in system_parts if part]
+    return out
+
+
+def _responses_usage_from_anthropic(message: dict[str, Any]) -> dict[str, int]:
+    usage = message.get("usage") if isinstance(message.get("usage"), dict) else {}
+    input_tokens = positive_int(usage.get("input_tokens")) or 0
+    output_tokens = positive_int(usage.get("output_tokens")) or 0
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+    }
+
+
+def anthropic_message_to_openai_response(message: dict[str, Any], source_body: dict[str, Any] | None = None) -> dict[str, Any]:
+    response_id = f"resp_{uuid.uuid4().hex}"
+    created_at = int(time.time())
+    model = str(message.get("model") or (source_body or {}).get("model") or "")
+    output: list[dict[str, Any]] = []
+    for index, block in enumerate(message.get("content") or []):
+        if not isinstance(block, dict):
+            continue
+        btype = block.get("type")
+        if btype == "text":
+            text = str(block.get("text") or "")
+            item_id = f"msg_{response_id[5:13]}_{index}"
+            output.append(
+                {
+                    "id": item_id,
+                    "type": "message",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": text, "annotations": []}],
+                }
+            )
+        elif btype == "tool_use":
+            call_id = str(block.get("id") or f"call_{index + 1}")
+            output.append(
+                {
+                    "id": f"fc_{response_id[5:13]}_{index}",
+                    "type": "function_call",
+                    "status": "completed",
+                    "call_id": call_id,
+                    "name": str(block.get("name") or "tool"),
+                    "arguments": json.dumps(block.get("input") or {}, ensure_ascii=False),
+                }
+            )
+    return {
+        "id": response_id,
+        "object": "response",
+        "created_at": created_at,
+        "status": "completed",
+        "model": model,
+        "output": output,
+        "parallel_tool_calls": bool((source_body or {}).get("parallel_tool_calls", True)),
+        "tool_choice": (source_body or {}).get("tool_choice", "auto"),
+        "tools": (source_body or {}).get("tools", []),
+        "usage": _responses_usage_from_anthropic(message),
+    }
+
+
+def write_openai_responses_response(
+    handler: BaseHTTPRequestHandler,
+    message: dict[str, Any],
+    source_body: dict[str, Any] | None = None,
+    *,
+    stream: bool = True,
+) -> None:
+    response = anthropic_message_to_openai_response(message, source_body=source_body)
+    if not stream:
+        write_json(handler, response)
+        return
+    handler.send_response(200)
+    handler.send_header("content-type", "text/event-stream")
+    handler.send_header("cache-control", "no-cache")
+    handler.send_header("connection", "close")
+    handler.end_headers()
+
+    def emit(event_name: str, payload: dict[str, Any]) -> None:
+        handler.wfile.write(f"event: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
+
+    created = {**response, "status": "in_progress", "output": []}
+    emit("response.created", {"type": "response.created", "response": created})
+    for output_index, item in enumerate(response.get("output") or []):
+        item_added = {**item}
+        if item_added.get("type") == "message":
+            item_added["content"] = []
+        emit(
+            "response.output_item.added",
+            {
+                "type": "response.output_item.added",
+                "response_id": response["id"],
+                "output_index": output_index,
+                "item": item_added,
+            },
+        )
+        if item.get("type") == "message":
+            content = item.get("content") if isinstance(item.get("content"), list) else []
+            for content_index, part in enumerate(content):
+                if not isinstance(part, dict) or part.get("type") != "output_text":
+                    continue
+                empty_part = {**part, "text": ""}
+                emit(
+                    "response.content_part.added",
+                    {
+                        "type": "response.content_part.added",
+                        "response_id": response["id"],
+                        "item_id": item["id"],
+                        "output_index": output_index,
+                        "content_index": content_index,
+                        "part": empty_part,
+                    },
+                )
+                text = str(part.get("text") or "")
+                if text:
+                    emit(
+                        "response.output_text.delta",
+                        {
+                            "type": "response.output_text.delta",
+                            "response_id": response["id"],
+                            "item_id": item["id"],
+                            "output_index": output_index,
+                            "content_index": content_index,
+                            "delta": text,
+                        },
+                    )
+                emit(
+                    "response.output_text.done",
+                    {
+                        "type": "response.output_text.done",
+                        "response_id": response["id"],
+                        "item_id": item["id"],
+                        "output_index": output_index,
+                        "content_index": content_index,
+                        "text": text,
+                    },
+                )
+                emit(
+                    "response.content_part.done",
+                    {
+                        "type": "response.content_part.done",
+                        "response_id": response["id"],
+                        "item_id": item["id"],
+                        "output_index": output_index,
+                        "content_index": content_index,
+                        "part": part,
+                    },
+                )
+        emit(
+            "response.output_item.done",
+            {
+                "type": "response.output_item.done",
+                "response_id": response["id"],
+                "output_index": output_index,
+                "item": item,
+            },
+        )
+    emit("response.completed", {"type": "response.completed", "response": response})
+    handler.wfile.flush()
+
+
+def write_openai_responses_error(handler: BaseHTTPRequestHandler, message: str, *, stream: bool = True, status: int = 500) -> None:
+    payload = {"type": "error", "error": {"type": "api_error", "message": message}}
+    if not stream:
+        write_json(handler, payload, status)
+        return
+    handler.send_response(status)
+    handler.send_header("content-type", "text/event-stream")
+    handler.send_header("cache-control", "no-cache")
+    handler.send_header("connection", "close")
+    handler.end_headers()
+    handler.wfile.write(f"event: error\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
+    handler.wfile.flush()
 
 
 def stream_openai_chat_to_anthropic_sse(
@@ -16528,7 +17576,7 @@ def stream_openai_chat_to_anthropic_sse(
                 "index": reasoning_index,
                 "delta": {
                     "type": "signature_delta",
-                    "signature": f"claude-any-openai-reasoning-{digest}",
+                    "signature": f"ciel-runtime-openai-reasoning-{digest}",
                 },
             },
         )
@@ -16658,7 +17706,7 @@ def stream_openai_chat_to_anthropic_sse(
         close_reasoning_block()
 
         tool_calls: list[dict[str, Any]] = []
-        _, pseudo_tool_calls = parse_pseudo_tool_calls(pseudo_text)
+        _, pseudo_tool_calls = parse_pseudo_tool_calls(pseudo_text, source_body)
         for i, pseudo in enumerate(pseudo_tool_calls):
             fn = pseudo.get("function") if isinstance(pseudo, dict) else {}
             if isinstance(fn, dict):
@@ -17286,14 +18334,225 @@ def forward_openai_compatible_chat(handler: BaseHTTPRequestHandler, provider: st
     mark_pending_channel_delivery_success(handler, "openai_json")
 
 
+def collect_ollama_message_for_responses(
+    handler: BaseHTTPRequestHandler,
+    provider: str,
+    pcfg: dict[str, Any],
+    body: dict[str, Any],
+) -> dict[str, Any]:
+    body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
+    model = resolve_requested_model(provider, pcfg, body.get("model"))
+    original_body = body
+    upstream_body = body_with_advisor_tool(body, pcfg) if advisor_provider_supported(provider) else body
+    req_body = ollama_chat_request(model, upstream_body, pcfg, stream=False)
+    url = join_url(str(pcfg.get("base_url") or "").rstrip("/"), "/api/chat")
+    compatibility_test = str(handler.headers.get(COMPATIBILITY_TEST_HEADER) or "").strip().lower() in ("1", "true", "yes", "on")
+    if compatibility_test:
+        waited, rpm_used, rpm_limit = 0.0, 0, router_rate_limit_effective_rpm(provider, pcfg, model)
+    else:
+        waited, rpm_used, rpm_limit = apply_router_rate_limit(provider, pcfg, model)
+    data = post_json_with_rate_retry(
+        url,
+        req_body,
+        provider_headers(provider, pcfg, handler.headers),
+        ollama_request_timeout_seconds(pcfg),
+        provider,
+        pcfg,
+        model,
+        None,
+        retry_rate_limits=not compatibility_test,
+    )
+    message = ollama_chat_to_anthropic(data, model, source_body=original_body)
+    message = refine_message_with_advisor(provider, pcfg, original_body, message, model)
+    remember_channel_injected_tool_uses(original_body, message)
+    return prepend_anthropic_text(message, rate_limit_notice(waited, rpm_used, rpm_limit, bool(pcfg.get("rate_limit_status", False))))
+
+
+def collect_openai_chat_message_for_responses(
+    handler: BaseHTTPRequestHandler,
+    provider: str,
+    pcfg: dict[str, Any],
+    body: dict[str, Any],
+) -> dict[str, Any]:
+    body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
+    model = resolve_requested_model(provider, pcfg, body.get("model"))
+    if provider == "nvidia-hosted":
+        model = ncp_model_id_for_nvidia_hosted(model)
+    original_body = body
+    upstream_body = body_with_advisor_tool(body, pcfg) if advisor_provider_supported(provider) else body
+    url = join_url(provider_upstream_request_base(provider, pcfg), "/v1/chat/completions")
+    compatibility_test = str(handler.headers.get(COMPATIBILITY_TEST_HEADER) or "").strip().lower() in ("1", "true", "yes", "on")
+    waited, rpm_used, rpm_limit = apply_router_rate_limit(provider, pcfg, model)
+    req_body = openai_compatible_chat_request(provider, model, upstream_body, pcfg, stream=False)
+    data = post_json_with_rate_retry(
+        url,
+        req_body,
+        provider_headers(provider, pcfg, handler.headers),
+        provider_request_timeout_seconds(pcfg),
+        provider,
+        pcfg,
+        model,
+        None,
+        retry_rate_limits=not compatibility_test,
+    )
+    message = openai_chat_to_anthropic(data, model, source_body=original_body)
+    message = refine_message_with_advisor(provider, pcfg, original_body, message, model)
+    remember_channel_injected_tool_uses(original_body, message)
+    return prepend_anthropic_text(message, rate_limit_notice(waited, rpm_used, rpm_limit, bool(pcfg.get("rate_limit_status", False))))
+
+
+def collect_anthropic_message_for_responses(
+    handler: BaseHTTPRequestHandler,
+    provider: str,
+    pcfg: dict[str, Any],
+    body: dict[str, Any],
+) -> dict[str, Any]:
+    body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
+    body = normalize_anthropic_system_role_messages(body)
+    body = cap_anthropic_body_for_provider(provider, pcfg, body)
+    body = apply_provider_request_options(provider, pcfg, body)
+    body = rehydrate_suppressed_thinking_passback(provider, pcfg, body)
+    upstream_model = resolve_requested_model(provider, pcfg, body.get("model"))
+    if provider == "nvidia-hosted":
+        upstream_model = ncp_model_id_for_nvidia_hosted(upstream_model)
+    body["model"] = upstream_model
+    body = resolve_tool_model_references(provider, pcfg, body)
+    body = normalize_anthropic_model_request_options(provider, pcfg, body, upstream_model)
+    upstream_body = body_without_ciel_runtime_internal_metadata({**body, "stream": False})
+    base = native_anthropic_base_url(provider, pcfg) if provider_native_compat_enabled(provider, pcfg) else provider_upstream_request_base(provider, pcfg)
+    url = join_url(base, "/v1/messages")
+    upstream_query = upstream_messages_query(pcfg, handler.path, provider)
+    if upstream_query:
+        url = f"{url}?{upstream_query}"
+    headers = provider_headers(provider, pcfg, handler.headers)
+    for h in ("anthropic-beta", "anthropic-dangerous-direct-browser-access"):
+        if handler.headers.get(h):
+            headers[h] = handler.headers[h]
+    waited, rpm_used, rpm_limit = apply_router_rate_limit(provider, pcfg, upstream_model)
+    resp = open_provider_request_with_key_retry(
+        url,
+        upstream_body,
+        headers,
+        provider_request_timeout_seconds(pcfg),
+        provider,
+        pcfg,
+        upstream_model,
+        stream=False,
+    )
+    try:
+        raw_resp = resp.read()
+        payload = json.loads(raw_resp.decode("utf-8", errors="replace"))
+        if not isinstance(payload, dict):
+            raise RuntimeError("upstream returned non-object JSON")
+        payload = normalize_response_thinking_for_non_anthropic_provider(provider, pcfg, payload, upstream_model)
+        payload = append_synthetic_tasklist_to_message(payload, upstream_model, body, "native_json", provider=provider)
+        return prepend_anthropic_text(payload, rate_limit_notice(waited, rpm_used, rpm_limit, bool(pcfg.get("rate_limit_status", False))))
+    finally:
+        try:
+            resp.close()
+        except Exception:
+            pass
+
+
+def collect_provider_message_for_responses(
+    handler: BaseHTTPRequestHandler,
+    provider: str,
+    pcfg: dict[str, Any],
+    body: dict[str, Any],
+) -> dict[str, Any]:
+    if provider in ("ollama", "ollama-cloud"):
+        return collect_ollama_message_for_responses(handler, provider, pcfg, body)
+    if provider in OPENCODE_PROVIDER_NAMES:
+        upstream_model = resolve_requested_model(provider, pcfg, body.get("model"))
+        endpoint_kind = opencode_endpoint_kind(provider, upstream_model, pcfg)
+        if endpoint_kind == "openai-chat":
+            return collect_openai_chat_message_for_responses(handler, provider, pcfg, body)
+        if endpoint_kind not in ("anthropic-messages",):
+            provider_label = PROVIDER_LABELS.get(provider, provider)
+            raise RuntimeError(
+                f"{provider_label} model {upstream_model!r} uses the {endpoint_kind} endpoint family. "
+                f"ciel-runtime currently routes {provider_label} /v1/messages and /v1/chat/completions models."
+            )
+    if provider_openai_router_enabled(provider, pcfg):
+        return collect_openai_chat_message_for_responses(handler, provider, pcfg, body)
+    return collect_anthropic_message_for_responses(handler, provider, pcfg, body)
+
+
+def handle_openai_responses_post(
+    handler: BaseHTTPRequestHandler,
+    cfg: dict[str, Any],
+    provider: str,
+    pcfg: dict[str, Any],
+    body: dict[str, Any],
+) -> None:
+    stream = bool(body.get("stream", True))
+    anthropic_body = openai_responses_to_anthropic_messages(body, current_alias(cfg))
+    _update_tool_schema_registry(anthropic_body.get("tools"))
+    anthropic_body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, anthropic_body)
+    request_id = f"{os.getpid()}-{time.time_ns()}"
+    EVENT_BUS.publish(
+        level="info",
+        category="router.request",
+        message="OpenAI Responses request received",
+        request_id=request_id,
+        provider=provider,
+        model=str(anthropic_body.get("model") or ""),
+        data={
+            "path": "/v1/responses",
+            "messages": len(anthropic_body.get("messages") or []),
+            "tools": len(anthropic_body.get("tools") or []),
+            **router_event_message_preview(anthropic_body, cfg),
+        },
+    )
+    dump_request_for_trace(provider, "/v1/responses", body)
+    anthropic_body = filter_blocked_tools(provider, pcfg, anthropic_body)
+    anthropic_body = normalize_tool_choice_for_provider(provider, pcfg, anthropic_body)
+    write_context_usage(provider, pcfg, anthropic_body, "responses")
+    anthropic_body = strip_autonomous_advisor_server_tools(provider, anthropic_body)
+    anthropic_body = body_with_pending_channel_messages(anthropic_body)
+    anthropic_body = body_with_pending_channel_summaries(anthropic_body)
+    anthropic_body = body_with_channel_tool_result_context(anthropic_body)
+    begin_pending_channel_delivery(handler, anthropic_body)
+    anthropic_body = normalize_request_for_provider_wire(provider, pcfg, anthropic_body)
+    router_log(
+        "DEBUG",
+        f"POST /v1/responses provider={provider} model={anthropic_body.get('model')} "
+        f"tools={len(anthropic_body.get('tools') or [])} msgs={len(anthropic_body.get('messages') or [])}",
+    )
+    try:
+        message = collect_provider_message_for_responses(handler, provider, pcfg, anthropic_body)
+        write_openai_responses_response(handler, message, source_body=body, stream=stream)
+        mark_pending_channel_delivery_success(handler, "responses_json")
+        commit_pending_channel_delivery_cursors(anthropic_body, handler)
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="ignore")
+        mark_pending_channel_delivery_failed(handler, f"responses_http_error:{exc.code}")
+        write_openai_responses_error(handler, upstream_http_error_message(exc, raw), stream=stream, status=exc.code)
+    except Exception as exc:
+        if is_client_disconnect_error(exc):
+            mark_pending_channel_delivery_failed(handler, f"responses_client_disconnected:{type(exc).__name__}")
+            return
+        EVENT_BUS.publish(
+            level="error",
+            category="router.error",
+            message=str(exc),
+            request_id=request_id,
+            provider=provider,
+            model=str(anthropic_body.get("model") or ""),
+            data={"error_type": type(exc).__name__},
+        )
+        mark_pending_channel_delivery_failed(handler, f"responses_error:{type(exc).__name__}")
+        write_openai_responses_error(handler, f"{type(exc).__name__}: {exc}", stream=stream)
+
+
 class RouterHandler(BaseHTTPRequestHandler):
-    server_version = "claude-any/0.1"
+    server_version = "ciel-runtime/0.1"
 
     def send_response(self, code: int, message: str | None = None) -> None:
         try:
-            self._claude_any_response_status = int(code)
+            self._ciel_runtime_response_status = int(code)
         except Exception:
-            self._claude_any_response_status = None
+            self._ciel_runtime_response_status = None
         super().send_response(code, message)
 
     def log_message(self, fmt: str, *args: Any) -> None:
@@ -17391,6 +18650,9 @@ class RouterHandler(BaseHTTPRequestHandler):
         if handle_chat_post(self, path, body) or handle_plan_post(self, path, body):
             return
         provider, pcfg = get_current_provider(cfg)
+        if path == "/v1/responses":
+            handle_openai_responses_post(self, cfg, provider, pcfg, body)
+            return
         if path == "/v1/messages/count_tokens":
             tokens = estimate_tokens(body)
             write_context_usage(provider, pcfg, body, "count_tokens")
@@ -17476,7 +18738,7 @@ class RouterHandler(BaseHTTPRequestHandler):
                                 "type": "unsupported_model_endpoint",
                                 "message": (
                                     f"{provider_label} model {upstream_model!r} uses the {endpoint_kind} endpoint family. "
-                                    f"claude-any currently routes {provider_label} /v1/messages and /v1/chat/completions models."
+                                    f"ciel-runtime currently routes {provider_label} /v1/messages and /v1/chat/completions models."
                                 ),
                             },
                         },
@@ -17503,7 +18765,7 @@ class RouterHandler(BaseHTTPRequestHandler):
             word_chunking = bool(pcfg.get("stream_word_chunking", False))
             if not stream_enabled:
                 body["stream"] = False
-            upstream_body = body_without_claude_any_internal_metadata(body)
+            upstream_body = body_without_ciel_runtime_internal_metadata(body)
             base = native_anthropic_base_url(provider, pcfg) if provider_native_compat_enabled(provider, pcfg) else provider_upstream_request_base(provider, pcfg)
             url = join_url(base, "/v1/messages")
             upstream_query = upstream_messages_query(pcfg, self.path, provider)
@@ -17543,7 +18805,7 @@ class RouterHandler(BaseHTTPRequestHandler):
                         word_chunking=word_chunking,
                         source_body=body,
                         preserve_thinking=preserves_anthropic_thinking_contract(provider, pcfg),
-                        normalize_tool_use=not preserves_anthropic_thinking_contract(provider, pcfg),
+                        normalize_tool_use=should_normalize_anthropic_stream_tool_use(provider, pcfg),
                         provider=provider,
                     )
                 else:
@@ -17611,9 +18873,9 @@ def serve(_: argparse.Namespace) -> None:
     PID_PATH.write_text(str(os.getpid()))
     os.chmod(PID_PATH, 0o600)
     lvl = current_log_level()
-    src = "file" if LOG_LEVEL_PATH.exists() else ("env" if os.environ.get("CLAUDE_ANY_LOG_LEVEL") else "default")
+    src = "file" if LOG_LEVEL_PATH.exists() else ("env" if os.environ.get("CIEL_RUNTIME_LOG_LEVEL") else "default")
     sys.stderr.write(
-        f"claude-any router starting on {bind_host}:{ROUTER_PORT} "
+        f"ciel-runtime router starting on {bind_host}:{ROUTER_PORT} "
         f"(client base {ROUTER_BASE}, log level {LOG_LEVEL_NAMES.get(lvl, lvl)}, source={src})\n"
     )
     sys.stderr.flush()
@@ -17758,7 +19020,7 @@ def set_provider_choice_config(choice: str) -> list[str]:
         return [
             "Provider set to anthropic (Claude Native).",
             "mode: anthropic-native",
-            "Claude Code OAuth/Max can be used directly, but claude-any router features such as /advisor are unavailable.",
+            "Claude Code OAuth/Max can be used directly, but ciel-runtime router features such as /advisor are unavailable.",
         ]
     return set_provider_config(choice)
 
@@ -17777,6 +19039,7 @@ def set_base_url_config(provider: str, url: str) -> list[str]:
         pcfg["custom_models"] = []
     lines = [f"Base URL for {provider} set to {pcfg['base_url']}."]
     if reset_model:
+        clear_model_cache()
         lines.append("Model selection was reset because the provider endpoint changed.")
         detected_native, detect_reason = auto_detect_native_compat_for_base_url(provider, pcfg)
         if detected_native is None:
@@ -17787,8 +19050,13 @@ def set_base_url_config(provider: str, url: str) -> list[str]:
             pcfg["native_compat"] = bool(detected_native)
             mode = "enabled" if detected_native else "disabled"
             lines.append(f"Endpoint auto-detected ({detect_reason}); Native compatibility {mode}.")
+        selected, selection_lines = ensure_current_model_from_provider_list(provider, pcfg, force_refresh=True)
+        lines.extend(selection_lines)
+        if not selected:
+            lines.append("Choose a model before running compatibility test or Launch Claude Code.")
     save_config(cfg)
-    clear_model_cache()
+    if not reset_model:
+        clear_model_cache()
     return lines
 
 
@@ -18077,9 +19345,9 @@ def cmd_api_key(args: argparse.Namespace) -> None:
             primary = provider_primary_api_key(p, pcfg)
             suffix = f" (primary {mask_secret(primary)}; fp {secret_fingerprint(primary)})" if count else ""
             print(f" {p:<15} {label}{suffix}")
-        print("\nSet securely from terminal: claude-anyctl api-key anthropic")
-        print("Set multiple keys: claude-anyctl set-api-keys deepseek KEY1,KEY2")
-        print("For NVIDIA hosted, use: claude-anyctl api-key nvidia-hosted")
+        print("\nSet securely from terminal: ciel-runtimectl api-key anthropic")
+        print("Set multiple keys: ciel-runtimectl set-api-keys deepseek KEY1,KEY2")
+        print("For NVIDIA hosted, use: ciel-runtimectl api-key nvidia-hosted")
         return
     provider = normalize_provider(args.provider)
     action = str(getattr(args, "action", "") or "").strip()
@@ -18089,7 +19357,7 @@ def cmd_api_key(args: argparse.Namespace) -> None:
         return
     if not sys.stdin.isatty():
         print("For security, do not paste API keys into Claude Code chat.")
-        print(f"Run this in the SSH terminal instead: claude-anyctl api-key {provider}")
+        print(f"Run this in the SSH terminal instead: ciel-runtimectl api-key {provider}")
         return
     key = getpass.getpass(f"API key for {provider}: ").strip()
     if not key:
@@ -18116,9 +19384,9 @@ def cmd_model(args: argparse.Namespace) -> None:
         if len(models) > 100:
             print(f" ... {len(models) - 100} more")
         if read_model_list_cache(provider, pcfg) is None:
-            print("\nProvider model list is not cached yet. Use the menu refresh row or run: claude-anyctl models")
+            print("\nProvider model list is not cached yet. Use the menu refresh row or run: ciel-runtimectl models")
         print("\nSet direct/custom model with: /set-model MODEL_ID")
-        print("Or from terminal: claude-anyctl model MODEL_ID")
+        print("Or from terminal: ciel-runtimectl model MODEL_ID")
         return
     value = " ".join(args.value).strip()
     if value.startswith("add "):
@@ -18139,8 +19407,8 @@ def cmd_advisor_model(args: argparse.Namespace) -> None:
             return
         current = pcfg.get("advisor_model") or "off"
         print(f"Advisor Model for {provider}: {current}")
-        print("Set with: claude-anyctl advisor-model deepseek-v4-pro")
-        print("Disable with: claude-anyctl advisor-model off")
+        print("Set with: ciel-runtimectl advisor-model deepseek-v4-pro")
+        print("Disable with: ciel-runtimectl advisor-model off")
         return
     value = " ".join(args.value).strip()
     if value.lower() in ("off", "unset", "disable", "disabled", "none", "null"):
@@ -18180,7 +19448,7 @@ def provider_mode_label(provider: str, pcfg: dict[str, Any]) -> str:
         return "anthropic-native"
     if anthropic_routed_enabled(provider, pcfg):
         return "anthropic-routed"
-    return "claude-any-router"
+    return "ciel-runtime-router"
 
 
 def status_lines() -> list[str]:
@@ -18279,7 +19547,7 @@ def cmd_web_search(args: argparse.Namespace) -> None:
             web["auto_for_non_native"] = False
             save_config(cfg)
         else:
-            raise SystemExit("Use: claude-any web-search on|off|status")
+            raise SystemExit("Use: ciel-runtime web-search on|off|status")
     state = "on" if web.get("auto_for_non_native", True) else "off"
     package = web.get("package", "ddg-mcp-search")
     print(f"web_search: {state}")
@@ -18308,7 +19576,7 @@ def cmd_web_fetch(args: argparse.Namespace) -> None:
             web["fetch_ignore_robots_txt"] = False
             save_config(cfg)
         else:
-            raise SystemExit("Use: claude-any web-fetch on|off|ignore-robots-on|ignore-robots-off")
+            raise SystemExit("Use: ciel-runtime web-fetch on|off|ignore-robots-on|ignore-robots-off")
     print(f"web_fetch: {'on' if web.get('fetch_enabled', True) else 'off'}")
     print(f"fetch_package: {web.get('fetch_package', 'mcp-server-fetch')}")
     print(f"ignore_robots_txt: {bool(web.get('fetch_ignore_robots_txt', False))}")
@@ -18464,8 +19732,8 @@ def _mcp_server_force_proxy(server: dict[str, Any]) -> bool:
         return False
     return parse_bool(
         server.get(
-            "claude_any_mcp_proxy",
-            server.get("claude_any_force_mcp_proxy", server.get("force_mcp_proxy", False)),
+            "ciel_runtime_mcp_proxy",
+            server.get("ciel_runtime_force_mcp_proxy", server.get("force_mcp_proxy", False)),
         ),
         False,
     )
@@ -18476,8 +19744,8 @@ def _mcp_server_disable_proxy_notification_stream(server: dict[str, Any]) -> boo
         return False
     return parse_bool(
         server.get(
-            "claude_any_disable_notification_stream",
-            server.get("claude_any_disable_mcp_notifications", False),
+            "ciel_runtime_disable_notification_stream",
+            server.get("ciel_runtime_disable_mcp_notifications", False),
         ),
         False,
     )
@@ -18493,13 +19761,13 @@ def _channel_probe_strategy_for(server: dict[str, Any]) -> str:
 
     Servers that need LSP-style ``Content-Length: N\\r\\n\\r\\n`` framing
     (not spec for MCP, but seen in some legacy implementations) can opt in
-    with ``"claude_any_stdio": "framed"`` in their MCP config entry. This
+    with ``"ciel_runtime_stdio": "framed"`` in their MCP config entry. This
     is distinct from ``_mcp_proxy_stdio_mode``, whose history pre-dates
     the framing audit and whose default we do not change here.
     """
     if not isinstance(server, dict):
         return "jsonl"
-    mode = str(server.get("claude_any_stdio") or server.get("stdio_mode") or "").strip().lower()
+    mode = str(server.get("ciel_runtime_stdio") or server.get("stdio_mode") or "").strip().lower()
     if mode in ("framed", "framed-only", "content-length", "lsp"):
         return "framed"
     return "jsonl"
@@ -18513,7 +19781,7 @@ def _channel_probe_initialize_payload() -> bytes:
         "params": {
             "protocolVersion": "2024-11-05",
             "capabilities": {},
-            "clientInfo": {"name": "claude-any-channel-probe", "version": VERSION},
+            "clientInfo": {"name": "ciel-runtime-channel-probe", "version": VERSION},
         },
     }
     return json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -18594,9 +19862,9 @@ CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS = 15.0
 
 def channel_probe_default_timeout() -> float:
     """Default per-server probe timeout. Configurable via
-    CLAUDE_ANY_CHANNEL_PROBE_TIMEOUT_SECONDS so users with slow MCP servers
+    CIEL_RUNTIME_CHANNEL_PROBE_TIMEOUT_SECONDS so users with slow MCP servers
     (npx cold start, remote API init) can extend it without code changes."""
-    raw = os.environ.get("CLAUDE_ANY_CHANNEL_PROBE_TIMEOUT_SECONDS")
+    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_PROBE_TIMEOUT_SECONDS")
     if raw is None:
         return CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS
     try:
@@ -18832,7 +20100,7 @@ def _channel_probe_initialize_payload_dict(protocol_version: str) -> dict[str, A
         "params": {
             "protocolVersion": protocol_version,
             "capabilities": {},
-            "clientInfo": {"name": "claude-any-channel-probe", "version": VERSION},
+            "clientInfo": {"name": "ciel-runtime-channel-probe", "version": VERSION},
         },
     }
 
@@ -19295,7 +20563,7 @@ def existing_claude_mcp_config_paths(
 
     This is intentionally transport-agnostic. Channel-capable MCP servers are
     discovered separately by the channel probe cache; this helper is only for
-    preserving Claude Code's normal MCP tool surface when claude-any launches it.
+    preserving Claude Code's normal MCP tool surface when ciel-runtime launches it.
     """
     return [
         path
@@ -19328,8 +20596,8 @@ def _read_mcp_servers_from_generated_file(path: Path, cwd: Path) -> dict[str, di
     return servers
 
 
-def discovered_claude_any_managed_mcp_servers(cwd: Path | None = None) -> dict[str, dict[str, Any]]:
-    """Return MCP servers that only exist in claude-any generated config.
+def discovered_ciel_runtime_managed_mcp_servers(cwd: Path | None = None) -> dict[str, dict[str, Any]]:
+    """Return MCP servers that only exist in ciel-runtime generated config.
 
     Direct Claude Native launches should restore the user's MCP tool surface when
     switching back from a routed/non-native session.  The generated channel MCP
@@ -19367,7 +20635,7 @@ def discovered_claude_any_managed_mcp_servers(cwd: Path | None = None) -> dict[s
                             continue
                         if wrapped_name and isinstance(wrapped_server, dict):
                             restored = dict(wrapped_server)
-                            restored.pop("claude_any_disable_notification_stream", None)
+                            restored.pop("ciel_runtime_disable_notification_stream", None)
                             if wrapped_name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES:
                                 servers.setdefault(wrapped_name, restored)
                         continue
@@ -19389,7 +20657,7 @@ def write_native_mcp_config_from_discovery(
     """
     cwd = cwd or Path.cwd()
     servers = discovered_claude_mcp_servers(passthrough, cwd, home)
-    for name, server in discovered_claude_any_managed_mcp_servers(cwd).items():
+    for name, server in discovered_ciel_runtime_managed_mcp_servers(cwd).items():
         if name in servers:
             router_log("INFO", f"native_mcp_managed_duplicate_skipped server={name}")
             continue
@@ -19428,7 +20696,7 @@ CHANNEL_PROBE_CACHE_VERSION = 1
 
 def _builtin_router_probe_record() -> dict[str, Any]:
     return {
-        "name": "claude-any-router",
+        "name": "ciel-runtime-router",
         "capable": True,
         "transport": "sse",
         "source_path": "<built-in>",
@@ -19467,7 +20735,7 @@ def _probe_mcp_servers_to_records(
     seen: set[str] = set()
     if include_router_self:
         records.append(_builtin_router_probe_record())
-        seen.add("claude-any-router")
+        seen.add("ciel-runtime-router")
     for path_str in paths:
         if not path_str:
             continue
@@ -19478,7 +20746,7 @@ def _probe_mcp_servers_to_records(
             if name in seen:
                 continue
             seen.add(name)
-            if name == "claude-any-router":
+            if name == "ciel-runtime-router":
                 continue
             transport = _server_transport_label(server)
             record: dict[str, Any] = {
@@ -19606,20 +20874,20 @@ def channel_probe_record_bucket(record: dict[str, Any]) -> str:
 
 
 def cached_channel_capable_server_names() -> list[str]:
-    """Capable server names from cache, with claude-any-router always
-    present (because the router's own MCP bridge is built into claude-any)."""
+    """Capable server names from cache, with ciel-runtime-router always
+    present (because the router's own MCP bridge is built into ciel-runtime)."""
     names = [str(r.get("name")) for r in cached_channel_probe_servers() if r.get("capable") and r.get("name")]
-    if "claude-any-router" not in names:
-        names.insert(0, "claude-any-router")
+    if "ciel-runtime-router" not in names:
+        names.insert(0, "ciel-runtime-router")
     return _dedupe_strings(names)
 
 
 def cached_external_channel_capable_server_names() -> list[str]:
-    """Channel-capable MCP servers from cache, excluding claude-any's router.
+    """Channel-capable MCP servers from cache, excluding ciel-runtime's router.
 
     Claude Native launches can directly subscribe to external channel-capable
     MCP servers with --dangerously-load-development-channels. The built-in
-    claude-any-router is only valid when claude-any intentionally starts and
+    ciel-runtime-router is only valid when ciel-runtime intentionally starts and
     manages its router bridge, so it must not be auto-injected into plain
     native launches.
     """
@@ -19690,7 +20958,7 @@ def _server_names_from_channel_specs(specs: Iterable[str]) -> list[str]:
 def channel_candidate_server_names_for_launch(cfg: dict[str, Any], passthrough: list[str]) -> list[str]:
     """External MCP channel servers relevant to this launch.
 
-    Explicit claude-any channel settings remain honored, but non-native routed
+    Explicit ciel-runtime channel settings remain honored, but non-native routed
     launches must also pick up Streamable HTTP/SSE servers already present in
     Claude Code MCP config files.  That is the zero-manual-setup path for users
     switching from native Claude Code to routed/non-native providers.
@@ -19951,7 +21219,7 @@ def auto_start_sse_channels_from_mcp_configs(
 
 
 def proxy_owned_channel_server_names() -> set[str]:
-    """Servers the launch process already routes through claude-any's mcp-proxy.
+    """Servers the launch process already routes through ciel-runtime's mcp-proxy.
 
     launch_claude force-proxies channel-capable streamable-HTTP servers so the
     proxy is the single owner of their notification stream (and idle wake). The
@@ -20083,7 +21351,7 @@ def channel_status_text(cfg: dict[str, Any] | None = None) -> str:
 
 
 def set_channel_development_enabled(enabled: bool) -> list[str]:
-    return ["Channel wake delivery is always enabled by Claude Any."]
+    return ["Channel wake delivery is always enabled by Ciel Runtime."]
 
 
 def normalize_channel_delivery(value: Any) -> str:
@@ -20100,7 +21368,7 @@ def normalize_channel_delivery(value: Any) -> str:
 
 
 def channel_delivery_mode(cfg: dict[str, Any] | None = None) -> str:
-    env_value = os.environ.get("CLAUDE_ANY_CHANNEL_DELIVERY")
+    env_value = os.environ.get("CIEL_RUNTIME_CHANNEL_DELIVERY")
     if env_value is not None:
         return normalize_channel_delivery(env_value)
     cfg = cfg or load_config()
@@ -20126,7 +21394,7 @@ def add_channel_spec(spec: str, *, development: bool = False) -> list[str]:
     if not is_channel_spec_tagged(spec):
         return ["Channel spec must start with plugin: or server:."]
     if spec == BUILTIN_CHANNEL_SPEC:
-        return ["Claude Any router channel is always enabled."]
+        return ["Ciel Runtime router channel is always enabled."]
     cfg = load_config()
     cc = cfg.setdefault("claude_code", {})
     channels = [item for item in channel_specs(cfg) if item != BUILTIN_CHANNEL_SPEC]
@@ -20139,7 +21407,7 @@ def add_channel_spec(spec: str, *, development: bool = False) -> list[str]:
 
 def remove_channel_spec(spec: str) -> list[str]:
     if spec == BUILTIN_CHANNEL_SPEC:
-        return ["Claude Any router channel is always enabled and cannot be removed."]
+        return ["Ciel Runtime router channel is always enabled and cannot be removed."]
     cfg = load_config()
     cc = cfg.setdefault("claude_code", {})
     before = [item for item in channel_specs(cfg) if item != BUILTIN_CHANNEL_SPEC]
@@ -20153,7 +21421,7 @@ def clear_channel_specs() -> list[str]:
     cfg = load_config()
     cfg.setdefault("claude_code", {})["channels"] = []
     save_config(cfg)
-    return ["External Claude Code channels cleared. Claude Any router remains enabled."]
+    return ["External Claude Code channels cleared. Ciel Runtime router remains enabled."]
 
 
 def cmd_channels(args: argparse.Namespace) -> None:
@@ -20172,7 +21440,7 @@ def cmd_channels(args: argparse.Namespace) -> None:
     head = values[0].strip().lower()
     if head in ("on", "enable", "add"):
         if len(values) < 2:
-            raise SystemExit("Usage: claude-any channels add CHANNEL_SPEC")
+            raise SystemExit("Usage: ciel-runtime channels add CHANNEL_SPEC")
         for line in add_channel_spec(values[1]):
             print(line)
         return
@@ -20182,13 +21450,13 @@ def cmd_channels(args: argparse.Namespace) -> None:
                 print(line)
             return
         if len(values) < 2:
-            raise SystemExit("Usage: claude-any channels add CHANNEL_SPEC")
+            raise SystemExit("Usage: ciel-runtime channels add CHANNEL_SPEC")
         for line in add_channel_spec(values[1]):
             print(line)
         return
     if head in ("off", "disable", "remove", "rm"):
         if len(values) < 2:
-            raise SystemExit("Usage: claude-any channels remove CHANNEL_SPEC")
+            raise SystemExit("Usage: ciel-runtime channels remove CHANNEL_SPEC")
         for line in remove_channel_spec(values[1]):
             print(line)
         return
@@ -20260,8 +21528,8 @@ def cmd_channels(args: argparse.Namespace) -> None:
                 print(f"      {r.get('name')} ({transport}) reason={reason}")
         if timeout_seen:
             print("  hint: inconclusive timeout means the probe could not finish; the server may still be capable.")
-            print("        increase CLAUDE_ANY_CHANNEL_PROBE_TIMEOUT_SECONDS if cold start is the cause,")
-            print("        or re-run with the latest claude-any if this was an SSE endpoint event race.")
+            print("        increase CIEL_RUNTIME_CHANNEL_PROBE_TIMEOUT_SECONDS if cold start is the cause,")
+            print("        or re-run with the latest ciel-runtime if this was an SSE endpoint event race.")
         if exited_seen:
             print("  hint: exited_without_response means the child died before responding. Check stderr above.")
         return
@@ -20306,7 +21574,7 @@ def cmd_ollama_native(args: argparse.Namespace) -> None:
             pcfg["native_compat"] = False
             save_config(cfg)
         else:
-            raise SystemExit("Use: claude-any ollama-native on|off|status")
+            raise SystemExit("Use: ciel-runtime ollama-native on|off|status")
     state = "on" if pcfg.get("native_compat", True) else "off"
     print(f"ollama_native_compat: {state}")
     print(f"base_url: {pcfg.get('base_url')}")
@@ -20482,9 +21750,9 @@ def cmd_ollama_options(args: argparse.Namespace) -> None:
             print(f"rpm_used: {suffix}")
     print(f"ollama_options: {ollama_options_status(pcfg)}")
     print("Examples:")
-    print("  claude-anyctl ollama-options num_ctx=auto min=32768 max=131072")
-    print("  claude-anyctl ollama-options num_ctx=65536 temperature=0.7 top_p=0.8 max_tokens=32768 timeout=300000")
-    print("  claude-any --ca-ollama-option temperature=0.7 --ca-ollama-num-ctx 65536")
+    print("  ciel-runtimectl ollama-options num_ctx=auto min=32768 max=131072")
+    print("  ciel-runtimectl ollama-options num_ctx=65536 temperature=0.7 top_p=0.8 max_tokens=32768 timeout=300000")
+    print("  ciel-runtime --ca-ollama-option temperature=0.7 --ca-ollama-num-ctx 65536")
 
 
 PROVIDER_OPTION_PROVIDERS = ("anthropic", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai")
@@ -20708,15 +21976,15 @@ def llm_preset_command_name(preset_id: str) -> str:
 def llm_preset_slash_command(preset_id: str) -> str:
     label, description = llm_preset_text(preset_id, "en")
     return f"""---
-description: Apply claude-any live preset: {label}
+description: Apply ciel-runtime live preset: {label}
 argument-hint: [ignored]
 ---
 
-CLAUDE_ANY_LIVE_LLM_OPTIONS
+CIEL_RUNTIME_LIVE_LLM_OPTIONS
 
 Value: {preset_id}
 
-Apply the claude-any live LLM preset `{preset_id}` ({description}) to this routed session. The original options are captured before the first live preset change and can be restored with `/llm-restore`.
+Apply the ciel-runtime live LLM preset `{preset_id}` ({description}) to this routed session. The original options are captured before the first live preset change and can be restored with `/llm-restore`.
 """
 
 
@@ -21896,7 +23164,7 @@ def apply_llm_preset_to_provider(
         # Anthropic presets intentionally do NOT set max_output_tokens. Forcing it
         # would pin CLAUDE_CODE_MAX_OUTPUT_TOKENS and override Claude Code's native
         # per-model default (e.g. Fable 5 / Opus = 64000, Sonnet = 32000). Claude
-        # Code chooses that per-model cap itself; claude-any must not degrade it.
+        # Code chooses that per-model cap itself; ciel-runtime must not degrade it.
         # Only an explicit user value set via the options screen should emit the
         # env var. Clear any preset-origin value so a stale forced cap cannot linger
         # (older builds wrote 2048/4096/6144/8192 here).
@@ -22524,10 +23792,10 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "zh": "应用为当前 provider/模型系列调优的 LLM 预设（输出 token、采样、超时）。",
     },
     "context_setup": {
-        "en": "Begin here: choose how much of the selected model's context window claude-any may use. Larger windows read more files/history but cost more time and provider quota.",
-        "ko": "처음엔 여기부터 설정하세요. 선택한 모델의 컨텍스트 창을 claude-any가 얼마나 사용할지 고릅니다. 클수록 파일/히스토리를 더 많이 읽지만 느리고 provider 한도를 더 씁니다.",
-        "ja": "まずここから設定します。選択モデルのコンテキスト窓をclaude-anyがどれだけ使うかを選びます。大きいほど多くのファイル/履歴を読めますが、遅くなりprovider枠を使います。",
-        "zh": "先从这里设置：选择 claude-any 可使用所选模型多少上下文窗口。越大可读更多文件/历史，但更慢并消耗 provider 配额。",
+        "en": "Begin here: choose how much of the selected model's context window ciel-runtime may use. Larger windows read more files/history but cost more time and provider quota.",
+        "ko": "처음엔 여기부터 설정하세요. 선택한 모델의 컨텍스트 창을 ciel-runtime가 얼마나 사용할지 고릅니다. 클수록 파일/히스토리를 더 많이 읽지만 느리고 provider 한도를 더 씁니다.",
+        "ja": "まずここから設定します。選択モデルのコンテキスト窓をciel-runtimeがどれだけ使うかを選びます。大きいほど多くのファイル/履歴を読めますが、遅くなりprovider枠を使います。",
+        "zh": "先从这里设置：选择 ciel-runtime 可使用所选模型多少上下文窗口。越大可读更多文件/历史，但更慢并消耗 provider 配额。",
     },
     "num_ctx": {
         "en": "Ollama context window (num_ctx). Use 'auto' to size per-request between min/max, or a fixed integer like 65536.",
@@ -22560,16 +23828,16 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "zh": "传给 Claude Code 的最大输出 token（CLAUDE_CODE_MAX_OUTPUT_TOKENS），同时作为路由器输出上限。",
     },
     "context_window": {
-        "en": "vLLM/NIM context window used by claude-any caps. Native mode cannot raise the real server limit.",
-        "ko": "claude-any 라우터가 사용하는 vLLM/NIM 컨텍스트 값. native 모드에서는 실제 서버 한계를 늘릴 수 없습니다.",
-        "ja": "claude-anyルーターが使うvLLM/NIMコンテキスト値。nativeモードでは実サーバー上限は超えられません。",
-        "zh": "claude-any 路由器使用的 vLLM/NIM 上下文值。native 模式无法提高真实服务器上限。",
+        "en": "vLLM/NIM context window used by ciel-runtime caps. Native mode cannot raise the real server limit.",
+        "ko": "ciel-runtime 라우터가 사용하는 vLLM/NIM 컨텍스트 값. native 모드에서는 실제 서버 한계를 늘릴 수 없습니다.",
+        "ja": "ciel-runtimeルーターが使うvLLM/NIMコンテキスト値。nativeモードでは実サーバー上限は超えられません。",
+        "zh": "ciel-runtime 路由器使用的 vLLM/NIM 上下文值。native 模式无法提高真实服务器上限。",
     },
     "context_reserve_tokens": {
-        "en": "Tokens reserved for the input side when claude-any caps max_tokens. Ignored by direct native requests.",
-        "ko": "claude-any가 max_tokens를 줄일 때 입력 쪽 여유로 남기는 토큰. direct native 요청에는 적용되지 않습니다.",
-        "ja": "claude-anyがmax_tokensを制限する時に入力側へ残す余裕。direct native要求では無視されます。",
-        "zh": "claude-any 限制 max_tokens 时为输入侧预留的 token。direct native 请求会忽略。",
+        "en": "Tokens reserved for the input side when ciel-runtime caps max_tokens. Ignored by direct native requests.",
+        "ko": "ciel-runtime가 max_tokens를 줄일 때 입력 쪽 여유로 남기는 토큰. direct native 요청에는 적용되지 않습니다.",
+        "ja": "ciel-runtimeがmax_tokensを制限する時に入力側へ残す余裕。direct native要求では無視されます。",
+        "zh": "ciel-runtime 限制 max_tokens 时为输入侧预留的 token。direct native 请求会忽略。",
     },
     "request_timeout_ms": {
         "en": "Upstream wait timeout in milliseconds.",
@@ -22584,7 +23852,7 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "zh": "选择 timeout 预设，同时设置上游等待超时和 stream idle timeout。",
     },
     "stream_idle_timeout_ms": {
-        "en": "Maximum silence allowed while a stream is open. If no bytes arrive for this long, claude-any retries or reports a timeout.",
+        "en": "Maximum silence allowed while a stream is open. If no bytes arrive for this long, ciel-runtime retries or reports a timeout.",
         "ko": "스트림 연결이 열린 뒤 아무 byte도 오지 않아도 기다리는 최대 시간입니다. 이 시간을 넘으면 재시도하거나 timeout으로 처리합니다.",
         "ja": "stream 接続中に byte が来ないまま待つ最大時間です。超えると retry または timeout として扱います。",
         "zh": "流式连接打开后允许无字节到达的最长时间；超过后重试或作为 timeout 处理。",
@@ -22596,10 +23864,10 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "zh": "路由器侧上游每分钟请求限制。默认关闭；设置正数 RPM 后启用等待限制。",
     },
     "rate_limit_enabled": {
-        "en": "Toggle claude-any's router-side RPM limiter. Off means rate_limit_rpm=0 and no claude-any wait is inserted.",
-        "ko": "claude-any 라우터 내부 RPM 제한을 켜거나 끕니다. off면 rate_limit_rpm=0이며 claude-any가 대기 시간을 넣지 않습니다.",
-        "ja": "claude-any ルーター側 RPM 制限を切り替えます。off は rate_limit_rpm=0 で、claude-any は待機を挿入しません。",
-        "zh": "切换 claude-any 路由器侧 RPM 限制。off 表示 rate_limit_rpm=0，claude-any 不插入等待。",
+        "en": "Toggle ciel-runtime's router-side RPM limiter. Off means rate_limit_rpm=0 and no ciel-runtime wait is inserted.",
+        "ko": "ciel-runtime 라우터 내부 RPM 제한을 켜거나 끕니다. off면 rate_limit_rpm=0이며 ciel-runtime가 대기 시간을 넣지 않습니다.",
+        "ja": "ciel-runtime ルーター側 RPM 制限を切り替えます。off は rate_limit_rpm=0 で、ciel-runtime は待機を挿入しません。",
+        "zh": "切换 ciel-runtime 路由器侧 RPM 限制。off 表示 rate_limit_rpm=0，ciel-runtime 不插入等待。",
     },
     "rate_limit_status": {
         "en": "Show optional colored RPM usage status in Claude responses. Default is off.",
@@ -22638,10 +23906,10 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "zh": "请求后 Ollama 保持模型加载的时间。越长减少重载，但占用内存更久。",
     },
     "native_compat": {
-        "en": "Use direct Anthropic-compatible /v1/messages on this provider. Off routes through claude-any's translator.",
-        "ko": "이 provider의 Anthropic-호환 /v1/messages에 직접 연결합니다. off 면 claude-any 라우터를 거칩니다.",
-        "ja": "このproviderのAnthropic互換/v1/messagesに直接接続します。offだとclaude-anyルーターを経由します。",
-        "zh": "对该 provider 直接走 Anthropic 兼容 /v1/messages；关闭则经由 claude-any 路由器转换。",
+        "en": "Use direct Anthropic-compatible /v1/messages on this provider. Off routes through ciel-runtime's translator.",
+        "ko": "이 provider의 Anthropic-호환 /v1/messages에 직접 연결합니다. off 면 ciel-runtime 라우터를 거칩니다.",
+        "ja": "このproviderのAnthropic互換/v1/messagesに直接接続します。offだとciel-runtimeルーターを経由します。",
+        "zh": "对该 provider 直接走 Anthropic 兼容 /v1/messages；关闭则经由 ciel-runtime 路由器转换。",
     },
     "supports_tool_choice": {
         "en": "Forward Claude Code tool_choice upstream. For vLLM, enable only when the server was launched with --enable-auto-tool-choice and the matching --tool-call-parser.",
@@ -22662,10 +23930,10 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "zh": "在空白/单词边界处合并文本 delta 后发送 SSE 事件。工具 delta 原样透传。",
     },
     "workflows_enabled": {
-        "en": "Allow Claude Code dynamic workflow features through the claude-any gateway. This removes the experimental-beta disable env for this launch.",
-        "ko": "claude-any 게이트웨이 경유 상태에서 Claude Code dynamic workflow 기능을 허용합니다. 이 실행에서는 experimental beta 차단 env를 제거합니다.",
-        "ja": "claude-any gateway 経由で Claude Code dynamic workflow 機能を許可します。この起動では experimental beta 無効化 env を外します。",
-        "zh": "允许 Claude Code dynamic workflow 通过 claude-any gateway 工作。本次启动会移除 experimental beta 禁用环境变量。",
+        "en": "Allow Claude Code dynamic workflow features through the ciel-runtime gateway. This removes the experimental-beta disable env for this launch.",
+        "ko": "ciel-runtime 게이트웨이 경유 상태에서 Claude Code dynamic workflow 기능을 허용합니다. 이 실행에서는 experimental beta 차단 env를 제거합니다.",
+        "ja": "ciel-runtime gateway 経由で Claude Code dynamic workflow 機能を許可します。この起動では experimental beta 無効化 env を外します。",
+        "zh": "允许 Claude Code dynamic workflow 通过 ciel-runtime gateway 工作。本次启动会移除 experimental beta 禁用环境变量。",
     },
     "ultracode_enabled": {
         "en": "Start Claude Code with the ultracode session setting. Requires verified xhigh_effort model capability.",
@@ -22686,10 +23954,10 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "zh": "为了调试向外部客户端暴露路由器 UI/API。关闭时会拒绝外部请求；下次启动在没有环境变量覆盖时仅绑定本地。",
     },
     "route_through_router": {
-        "en": "Route Anthropic through the local claude-any router. This enables router features such as LLM channel injection. If no Anthropic API key is configured, the router forwards Claude Code OAuth/API auth headers.",
-        "ko": "Anthropic을 로컬 claude-any 라우터로 경유합니다. LLM 채널 주입 같은 라우터 기능을 쓸 수 있습니다. Anthropic API 키가 없으면 Claude Code의 OAuth/API 인증 헤더를 라우터가 전달합니다.",
-        "ja": "Anthropic をローカル claude-any ルーター経由にします。LLM channel injection などのルーター機能を使えます。Anthropic API key が未設定の場合は Claude Code の OAuth/API 認証ヘッダーをルーターが転送します。",
-        "zh": "通过本地 claude-any 路由器转发 Anthropic。可使用 LLM channel injection 等路由器功能。未配置 Anthropic API key 时，路由器会转发 Claude Code 的 OAuth/API 认证头。",
+        "en": "Route Anthropic through the local ciel-runtime router. This enables router features such as LLM channel injection. If no Anthropic API key is configured, the router forwards Claude Code OAuth/API auth headers.",
+        "ko": "Anthropic을 로컬 ciel-runtime 라우터로 경유합니다. LLM 채널 주입 같은 라우터 기능을 쓸 수 있습니다. Anthropic API 키가 없으면 Claude Code의 OAuth/API 인증 헤더를 라우터가 전달합니다.",
+        "ja": "Anthropic をローカル ciel-runtime ルーター経由にします。LLM channel injection などのルーター機能を使えます。Anthropic API key が未設定の場合は Claude Code の OAuth/API 認証ヘッダーをルーターが転送します。",
+        "zh": "通过本地 ciel-runtime 路由器转发 Anthropic。可使用 LLM channel injection 等路由器功能。未配置 Anthropic API key 时，路由器会转发 Claude Code 的 OAuth/API 认证头。",
     },
     "router_debug_message_preview_chars": {
         "en": "When greater than 0, include the first N characters of the latest user message in router event data for debugging. Keep 0 for privacy.",
@@ -22933,7 +24201,7 @@ def set_llm_option_config(provider: str, key: str, raw_value: str) -> list[str]:
         pcfg["route_through_router"] = parse_bool(value, default=False)
         save_config(cfg)
         clear_model_cache()
-        mode = "routed through claude-any router" if pcfg["route_through_router"] else "direct Claude Native"
+        mode = "routed through ciel-runtime router" if pcfg["route_through_router"] else "direct Claude Native"
         return ["Anthropic routing mode updated.", f"mode: {mode}"]
     if key == "rate_limit_enabled":
         enabled = parse_bool(value, default=False)
@@ -23279,25 +24547,25 @@ def cmd_provider_options(args: argparse.Namespace) -> None:
     print(f"provider_options: {provider_options_status(provider, pcfg)}")
     print("Notes:")
     print("  max_output_tokens is passed to Claude Code as CLAUDE_CODE_MAX_OUTPUT_TOKENS.")
-    print("  context_window is a claude-any/router cap; native mode still cannot raise the real server limit.")
-    print("  temperature/top_p/top_k are injected by claude-any router mode when the provider supports them.")
+    print("  context_window is a ciel-runtime/router cap; native mode still cannot raise the real server limit.")
+    print("  temperature/top_p/top_k are injected by ciel-runtime router mode when the provider supports them.")
     if provider in OPENCODE_PROVIDER_NAMES:
         print("  OpenCode endpoint override: endpoint:<model-id>=messages|chat|responses|gemini")
         print("  OpenCode ip_family options: auto, ipv4, ipv6, ipv4-preferred, ipv6-preferred")
     if provider == "fireworks":
         print("  Fireworks model list options: account_id=fireworks, model_api_base_url=https://api.fireworks.ai")
     print("Examples:")
-    print("  claude-anyctl provider-options deepseek max_output_tokens=8192 context_window=1048576")
-    print("  claude-anyctl provider-options opencode-go endpoint:custom-model=chat")
-    print("  claude-anyctl provider-options opencode ip_family=ipv6-preferred")
-    print("  claude-anyctl provider-options fireworks account_id=fireworks model_api_base_url=https://api.fireworks.ai")
-    print("  claude-anyctl provider-options nvidia-hosted max_output_tokens=4096 temperature=0.7 top_p=0.8 timeout=300000 rate_limit_rpm=40")
-    print("  claude-anyctl provider-options vllm max_output_tokens=4096 context_window=65536 timeout=300000")
-    print("  claude-anyctl provider-options self-hosted-nim native=true max_output_tokens=4096")
+    print("  ciel-runtimectl provider-options deepseek max_output_tokens=8192 context_window=1048576")
+    print("  ciel-runtimectl provider-options opencode-go endpoint:custom-model=chat")
+    print("  ciel-runtimectl provider-options opencode ip_family=ipv6-preferred")
+    print("  ciel-runtimectl provider-options fireworks account_id=fireworks model_api_base_url=https://api.fireworks.ai")
+    print("  ciel-runtimectl provider-options nvidia-hosted max_output_tokens=4096 temperature=0.7 top_p=0.8 timeout=300000 rate_limit_rpm=40")
+    print("  ciel-runtimectl provider-options vllm max_output_tokens=4096 context_window=65536 timeout=300000")
+    print("  ciel-runtimectl provider-options self-hosted-nim native=true max_output_tokens=4096")
 
 
 COMPAT_TOOL_NAME = "compat_echo"
-COMPATIBILITY_TEST_HEADER = "x-claude-any-compatibility-test"
+COMPATIBILITY_TEST_HEADER = "x-ciel-runtime-compatibility-test"
 
 
 def compatibility_tool_schema() -> dict[str, Any]:
@@ -23475,7 +24743,7 @@ def compatibility_failure_diagnosis(provider: str, code: int | None, msg: str) -
     ):
         return (
             "Diagnosis: the NVIDIA hosted upstream closed the request without a complete response. "
-            "This is usually a transient API Catalog/backend issue rather than a local claude-any configuration error. "
+            "This is usually a transient API Catalog/backend issue rather than a local ciel-runtime configuration error. "
             "Retry the test, or choose another hosted model if it repeats."
         )
     if provider == "nvidia-hosted" and "function" in lower and "not found" in lower:
@@ -23548,7 +24816,7 @@ def compatibility_api_key_probe_request(
     upstream_model = resolve_requested_model(provider, pcfg, model)
     headers = provider_headers(provider, pcfg)
     if provider in ("ollama", "ollama-cloud"):
-        req_body = ollama_chat_request(upstream_model, body, pcfg, stream=False)
+        req_body = ollama_chat_request(upstream_model, body, pcfg, stream=False, provider=provider)
         return join_url(provider_upstream_request_base(provider, pcfg), "/api/chat"), req_body, headers
     if provider in OPENCODE_PROVIDER_NAMES:
         endpoint_kind = opencode_endpoint_kind(provider, upstream_model, pcfg)
@@ -23570,7 +24838,6 @@ def compatibility_api_key_probe_request(
     body = resolve_tool_model_references(provider, pcfg, body)
     base = native_anthropic_base_url(provider, pcfg) if provider_native_compat_enabled(provider, pcfg) else provider_upstream_request_base(provider, pcfg)
     return join_url(base, "/v1/messages"), body, headers
-
 
 def run_compatibility_api_key_probes(
     provider: str,
@@ -23662,7 +24929,7 @@ def compatibility_runtime_lines(provider: str, pcfg: dict[str, Any], native: boo
     if runtime_limit and configured_output and configured_output >= runtime_limit:
         lines.append("Context warning: max_output_tokens is greater than or equal to the full runtime context length.")
     if native:
-        lines.append("Runtime mode note: native mode sends Claude Code requests directly; claude-any cannot shrink max_tokens per request.")
+        lines.append("Runtime mode note: native mode sends Claude Code requests directly; ciel-runtime cannot shrink max_tokens per request.")
     else:
         lines.append("Runtime mode note: router mode can cap max_tokens based on configured context_window.")
     return lines
@@ -23709,9 +24976,20 @@ def _cmd_test(args: argparse.Namespace) -> None:
             save_config(cfg)
         except Exception as exc:
             print("Compatibility: FAIL")
-            print("Reason: Claude Any could not automatically load the selected LM Studio model with the recommended context.")
+            print("Reason: CielRuntime could not automatically load the selected LM Studio model with the recommended context.")
             print(f"Diagnosis: LM Studio load failed ({type(exc).__name__}: {exc}).")
             sys.exit(1)
+    selected, selection_lines = ensure_current_model_from_provider_list(provider, pcfg)
+    for line in selection_lines:
+        print(line)
+    if selection_lines:
+        save_config(cfg)
+    if not selected:
+        print("Compatibility: FAIL")
+        print("Reason: No concrete provider model is selected.")
+        print("Diagnosis: choose a model from the provider model list, then retry the compatibility test.")
+        set_compatibility_cache(cfg, provider, normalize_model_id(provider, str(pcfg.get("current_model") or "")) or "(unset)", False, None, "No concrete provider model is selected.", "Choose a model from the provider model list.")
+        raise SystemExit(1)
     ollama_native = ollama_native_compat_enabled(provider, pcfg)
     provider_native = provider_native_compat_enabled(provider, pcfg)
     native = ollama_native or provider_native
@@ -23758,7 +25036,7 @@ def _cmd_test(args: argparse.Namespace) -> None:
     elif nvidia_hosted_native_compat_enabled(provider, pcfg):
         mode = "nvidia-native"
     else:
-        mode = "claude-any-router"
+        mode = "ciel-runtime-router"
     print(f"Mode: {mode}")
     print(f"Claude API URL: {url}")
     if not native:
@@ -23766,7 +25044,7 @@ def _cmd_test(args: argparse.Namespace) -> None:
         for line in provider_ip_family_probe_lines(provider, pcfg):
             print(line)
         if provider in ("ollama", "ollama-cloud"):
-            req_preview = ollama_chat_request(resolve_requested_model(provider, pcfg, model), tool_body, pcfg, stream=False)
+            req_preview = ollama_chat_request(resolve_requested_model(provider, pcfg, model), tool_body, pcfg, stream=False, provider=provider)
             print(f"Ollama num_ctx: {req_preview.get('options', {}).get('num_ctx', 'default')}")
     elif provider in OPENCODE_PROVIDER_NAMES:
         for line in provider_ip_family_probe_lines(provider, pcfg):
@@ -23854,7 +25132,7 @@ def _cmd_test(args: argparse.Namespace) -> None:
     if effective_mode == "quick":
         set_compatibility_cache(cfg, provider, model, True, 200, "text quick OK", "")
         print("Compatibility: OK")
-        print("Note: quick mode checked text only; run `claude-any test 120 smoke` for tool_use or `claude-any test 180 full` for tool_result.")
+        print("Note: quick mode checked text only; run `ciel-runtime test 120 smoke` for tool_use or `ciel-runtime test 180 full` for tool_result.")
         return
 
     tool_data = run_phase("Tool use", tool_body)
@@ -23875,7 +25153,7 @@ def _cmd_test(args: argparse.Namespace) -> None:
     if effective_mode == "smoke":
         set_compatibility_cache(cfg, provider, model, True, 200, "text/tool_use smoke OK", "")
         print("Compatibility: OK")
-        print("Note: smoke mode checked text and tool_use only; run `claude-any test 180 full` for tool_result round trip.")
+        print("Note: smoke mode checked text and tool_use only; run `ciel-runtime test 180 full` for tool_result round trip.")
         return
 
     result_body = compatibility_tool_result_request(request_model, tool_use)
@@ -23892,7 +25170,6 @@ def _cmd_test(args: argparse.Namespace) -> None:
 
     set_compatibility_cache(cfg, provider, model, True, 200, "text/tool_use/tool_result OK", "")
     print("Compatibility: OK")
-
 
 def cmd_test(args: argparse.Namespace) -> None:
     try:
@@ -23982,7 +25259,7 @@ def claude_code_default_model_aliases(provider: str, pcfg: dict[str, Any], curre
 def apply_common_claude_env(provider: str, pcfg: dict[str, Any], env: dict[str, str]) -> dict[str, str]:
     # Claude Code's AI-generated terminal/session title can be persisted as
     # ai-title records and, in some resume/queued-command states, visually bleed
-    # into the prompt area. Disable that side path for claude-any launches.
+    # into the prompt area. Disable that side path for ciel-runtime launches.
     env["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"] = "1"
     output_tokens = claude_code_output_token_limit(provider, pcfg)
     if output_tokens:
@@ -23992,8 +25269,8 @@ def apply_common_claude_env(provider: str, pcfg: dict[str, Any], env: dict[str, 
         env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = str(compact_window)
     advisor_model = str(pcfg.get("advisor_model") or "").strip()
     if advisor_model:
-        env["CLAUDE_ANY_ADVISOR_MODEL"] = advisor_model
-    claude_model = str(env.get("ANTHROPIC_MODEL") or env.get("CLAUDE_ANY_MODEL_ALIAS") or "").strip()
+        env["CIEL_RUNTIME_ADVISOR_MODEL"] = advisor_model
+    claude_model = str(env.get("ANTHROPIC_MODEL") or env.get("CIEL_RUNTIME_MODEL_ALIAS") or "").strip()
     capability_string = claude_code_capability_string(provider, pcfg, current_upstream_model_id(provider, pcfg))
     if claude_model and capability_string:
         env["ANTHROPIC_CUSTOM_MODEL_OPTION"] = claude_model
@@ -24017,21 +25294,21 @@ def apply_common_claude_env(provider: str, pcfg: dict[str, Any], env: dict[str, 
 
 
 def env_vars(cfg: dict[str, Any] | None = None) -> dict[str, str]:
-    """Build the environment overrides claude-any adds when spawning `claude`.
+    """Build the environment overrides ciel-runtime adds when spawning `claude`.
 
     Claude Native mode contract: when the selected provider is native
-    Anthropic, claude-any MUST NOT inject anything that would alter Claude
+    Anthropic, ciel-runtime MUST NOT inject anything that would alter Claude
     Code's default model selection, backend URL, advisor flow, output-token
     cap, auto-compact window, or any other Claude-Code-visible behavior.
     The only override is an optional ``ANTHROPIC_API_KEY`` if the user has
-    one stored in claude-any's config (Claude Code's OAuth credentials win
-    otherwise). ``CLAUDE_ANY_PROVIDER=anthropic`` is set purely as a marker
-    for claude-any's own helpers (statusline, hooks) so they can self-suppress.
+    one stored in ciel-runtime's config (Claude Code's OAuth credentials win
+    otherwise). ``CIEL_RUNTIME_PROVIDER=anthropic`` is set purely as a marker
+    for ciel-runtime's own helpers (statusline, hooks) so they can self-suppress.
     """
     cfg = cfg or load_config()
     provider, pcfg = get_current_provider(cfg)
     if direct_native_anthropic_enabled(provider, pcfg):
-        env = {"CLAUDE_ANY_PROVIDER": provider}
+        env = {"CIEL_RUNTIME_PROVIDER": provider}
         key = provider_primary_api_key(provider, pcfg)
         if meaningful_key(key):
             env["ANTHROPIC_API_KEY"] = str(key)
@@ -24041,7 +25318,7 @@ def env_vars(cfg: dict[str, Any] | None = None) -> dict[str, str]:
     auth_token = claude_code_router_auth_token(provider, pcfg)
     default_models = claude_code_default_model_aliases(provider, pcfg, claude_model)
     env = {
-        "CLAUDE_ANY_PROVIDER": provider,
+        "CIEL_RUNTIME_PROVIDER": provider,
         "ANTHROPIC_BASE_URL": ROUTER_BASE,
         "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1",
         "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1",
@@ -24051,8 +25328,8 @@ def env_vars(cfg: dict[str, Any] | None = None) -> dict[str, str]:
         "ANTHROPIC_DEFAULT_OPUS_MODEL": default_models["ANTHROPIC_DEFAULT_OPUS_MODEL"],
         "ANTHROPIC_DEFAULT_SONNET_MODEL": default_models["ANTHROPIC_DEFAULT_SONNET_MODEL"],
         "CLAUDE_CODE_SUBAGENT_MODEL": claude_model,
-        "CLAUDE_ANY_MODEL_ALIAS": claude_model,
-        "CLAUDE_ANY_BYPASS_PERMISSIONS": "1",
+        "CIEL_RUNTIME_MODEL_ALIAS": claude_model,
+        "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
     }
     if auth_token:
         env["ANTHROPIC_AUTH_TOKEN"] = auth_token
@@ -24118,8 +25395,8 @@ def cmd_env(_: argparse.Namespace) -> None:
         "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
         "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
         "CLAUDE_CODE_SUBAGENT_MODEL",
-        "CLAUDE_ANY_MODEL_ALIAS",
-        "CLAUDE_ANY_PROVIDER",
+        "CIEL_RUNTIME_MODEL_ALIAS",
+        "CIEL_RUNTIME_PROVIDER",
     ):
         if key in env:
             print(f"export {key}={json.dumps(env[key])}")
@@ -24130,7 +25407,7 @@ def cmd_env(_: argparse.Namespace) -> None:
 def cmd_stop(_: argparse.Namespace) -> None:
     stopped = stop_router_processes(quiet=True)
     stopped = stop_ncp_proxy(quiet=True) or stopped
-    print("claude-any managed services stopped" if stopped else "claude-any managed services were not running")
+    print("ciel-runtime managed services stopped" if stopped else "ciel-runtime managed services were not running")
 
 
 def pid_is_running(pid: int) -> bool:
@@ -24187,7 +25464,7 @@ def release_router_client(path: Path | None) -> None:
 
 
 def router_managed_idle_exit_seconds() -> float:
-    raw = os.environ.get("CLAUDE_ANY_ROUTER_IDLE_EXIT_SECONDS", "90")
+    raw = os.environ.get("CIEL_RUNTIME_ROUTER_IDLE_EXIT_SECONDS", "90")
     try:
         value = float(raw)
     except (TypeError, ValueError):
@@ -24196,7 +25473,7 @@ def router_managed_idle_exit_seconds() -> float:
 
 
 def managed_router_stop_reason(started_at: float, owner_pid: int, idle_seconds: float) -> str | None:
-    if os.environ.get("CLAUDE_ANY_MANAGED_ROUTER") != "1":
+    if os.environ.get("CIEL_RUNTIME_MANAGED_ROUTER") != "1":
         return None
     active = active_router_client_pids()
     if active:
@@ -24209,10 +25486,10 @@ def managed_router_stop_reason(started_at: float, owner_pid: int, idle_seconds: 
 
 
 def start_managed_router_lifetime_watchdog(server: ThreadingHTTPServer) -> None:
-    if os.environ.get("CLAUDE_ANY_MANAGED_ROUTER") != "1":
+    if os.environ.get("CIEL_RUNTIME_MANAGED_ROUTER") != "1":
         return
     try:
-        owner_pid = int(os.environ.get("CLAUDE_ANY_ROUTER_OWNER_PID") or "0")
+        owner_pid = int(os.environ.get("CIEL_RUNTIME_ROUTER_OWNER_PID") or "0")
     except ValueError:
         owner_pid = 0
     idle_seconds = router_managed_idle_exit_seconds()
@@ -24276,7 +25553,7 @@ def stop_router_if_no_active_clients(reason: str, quiet: bool = True) -> bool:
 
 
 def router_client_supervisor_interval_seconds() -> float:
-    raw = os.environ.get("CLAUDE_ANY_ROUTER_SUPERVISOR_SECONDS", "2")
+    raw = os.environ.get("CIEL_RUNTIME_ROUTER_SUPERVISOR_SECONDS", "2")
     try:
         value = float(raw)
     except (TypeError, ValueError):
@@ -24536,7 +25813,7 @@ def terminate_router_health_pid(health: dict[str, Any] | None, quiet: bool = Tru
         return False
     if pid in (os.getpid(), os.getppid()):
         return False
-    return terminate_pid(pid, "claude-any router", quiet=quiet)
+    return terminate_pid(pid, "ciel-runtime router", quiet=quiet)
 
 
 def ensure_router_port_available_for_spawn(
@@ -24547,8 +25824,8 @@ def ensure_router_port_available_for_spawn(
     """Clear the local router/MCP port before spawning a replacement router."""
     if router_health_has_foreign_config(health):
         raise RuntimeError(
-            f"claude-any router port {ROUTER_PORT} is already used by another claude-any config "
-            f"({health.get('config_dir')}). Set CLAUDE_ANY_ROUTER_PORT or CLAUDE_ANY_CONFIG_DIR "
+            f"ciel-runtime router port {ROUTER_PORT} is already used by another ciel-runtime config "
+            f"({health.get('config_dir')}). Set CIEL_RUNTIME_ROUTER_PORT or CIEL_RUNTIME_CONFIG_DIR "
             "for this instance instead of killing the other router."
         )
     stopped = terminate_router_health_pid(health, quiet=True)
@@ -24558,9 +25835,9 @@ def ensure_router_port_available_for_spawn(
         current_health = router_health()
         if router_health_has_foreign_config(current_health):
             raise RuntimeError(
-                f"claude-any router port {ROUTER_PORT} is already used by another claude-any config "
-                f"({current_health.get('config_dir')}). Set CLAUDE_ANY_ROUTER_PORT or "
-                "CLAUDE_ANY_CONFIG_DIR for this instance instead of killing the other router."
+                f"ciel-runtime router port {ROUTER_PORT} is already used by another ciel-runtime config "
+                f"({current_health.get('config_dir')}). Set CIEL_RUNTIME_ROUTER_PORT or "
+                "CIEL_RUNTIME_CONFIG_DIR for this instance instead of killing the other router."
             )
         if current_health is None and not router_port_listener_pids():
             router_log(
@@ -24582,9 +25859,9 @@ def ensure_router_port_available_for_spawn(
             f" pid={current_health.get('pid') or '-'}"
         )
     raise RuntimeError(
-        f"stale claude-any router is still serving on {ROUTER_BASE}; "
+        f"stale ciel-runtime router is still serving on {ROUTER_BASE}; "
         f"port {ROUTER_PORT} listener_pids={pids or '-'}{health_desc}; "
-        "run `claude-any stop` and launch again."
+        "run `ciel-runtime stop` and launch again."
     )
 
 
@@ -24719,7 +25996,7 @@ def stop_ncp_proxy(quiet: bool = False) -> bool:
 
 
 def stop_router_processes(quiet: bool = False) -> bool:
-    stopped = terminate_pid_file(PID_PATH, "claude-any router", quiet=quiet)
+    stopped = terminate_pid_file(PID_PATH, "ciel-runtime router", quiet=quiet)
     health = router_health()
     if router_health_has_foreign_config(health):
         router_log(
@@ -24734,14 +26011,14 @@ def stop_router_processes(quiet: bool = False) -> bool:
 
 
 def stop_router_with_guarantee(reason: str, max_wait_seconds: float = 5.0, quiet: bool = True) -> bool:
-    """Kill the claude-any router and verify it actually stopped.
+    """Kill the ciel-runtime router and verify it actually stopped.
 
     Unlike ``stop_router_processes`` (which signals termination and returns
     without checking), this polls ``router_up()`` until the deadline. Raises
     ``RuntimeError`` if the router is still serving after ``max_wait_seconds``.
 
     Used by Claude Native mode launches so the user has a hard guarantee that
-    no claude-any router process can intercept the subsequent ``claude`` call.
+    no ciel-runtime router process can intercept the subsequent ``claude`` call.
     """
     initial_health = router_health()
     if initial_health is None:
@@ -24772,16 +26049,16 @@ def stop_router_with_guarantee(reason: str, max_wait_seconds: float = 5.0, quiet
         time.sleep(0.1)
     router_log("ERROR", f"router_kill_guarantee reason={reason} state=still_up_after_{max_wait_seconds:.1f}s")
     raise RuntimeError(
-        f"claude-any router is still serving on {ROUTER_BASE} after a {max_wait_seconds:.1f}s "
+        f"ciel-runtime router is still serving on {ROUTER_BASE} after a {max_wait_seconds:.1f}s "
         f"shutdown attempt for '{reason}'. Aborting to prevent the subsequent claude launch "
         f"from accidentally routing through it. Investigate the PID at {PID_PATH} or use "
-        f"`claude-any stop` manually."
+        f"`ciel-runtime stop` manually."
     )
 
 
 def cleanup_managed_services_for_provider(provider: str, pcfg: dict[str, Any], cfg: dict[str, Any], quiet: bool = False) -> None:
     if direct_native_anthropic_enabled(provider, pcfg):
-        # Claude Native mode strips claude-any routing env before spawning
+        # Claude Native mode strips ciel-runtime routing env before spawning
         # `claude`. Clean up only this config's idle router; do not kill a
         # different folder/config or an active routed session.
         stop_router_if_no_active_clients("native_anthropic_launch", quiet=quiet)
@@ -25021,7 +26298,7 @@ def launch_readiness_errors(cfg: dict[str, Any] | None = None) -> list[str]:
             save_config(cfg)
         except Exception as exc:
             errors.append(
-                "Launch blocked: Claude Any could not automatically load the selected LM Studio model "
+                "Launch blocked: Ciel Runtime could not automatically load the selected LM Studio model "
                 f"with the recommended context ({type(exc).__name__}: {exc})."
             )
             return errors
@@ -25514,7 +26791,7 @@ def channel_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
     channels = set(channel_specs(cfg))
     cache = read_channel_probe_cache()
     records = cache.get("servers") or []
-    if not any(isinstance(r, dict) and r.get("name") == "claude-any-router" for r in records):
+    if not any(isinstance(r, dict) and r.get("name") == "ciel-runtime-router" for r in records):
         records = [_builtin_router_probe_record(), *records]
     probed_at = cache.get("probed_at") or 0
     capable_records = [r for r in records if channel_probe_record_bucket(r) == "capable"]
@@ -25717,7 +26994,7 @@ def render_prelaunch_screen(
         screen.append(rendered_text + padding)
 
     mode_line = f"mode: {provider_mode_label(provider, pcfg)}"
-    title_text = f"Claude Any v{VERSION}"
+    title_text = f"Ciel Runtime v{VERSION}"
     add_rendered(title_text, animated_ansi_text(title_text))
     add(CREDITS, "2")
     add("")
@@ -26086,7 +27363,7 @@ def prompt_menu_multiline_value(prompt: str, restore_tty: Callable[[], None] | N
 def portable_provider_menu() -> int:
     cfg = load_config()
     rows, values = provider_panel_rows(cfg)
-    selected = portable_select("Select claude-any provider", rows, values.index(cfg.get("current_provider", "nvidia-hosted")))
+    selected = portable_select("Select ciel-runtime provider", rows, values.index(cfg.get("current_provider", "nvidia-hosted")))
     if selected is None:
         print("Cancelled.")
         return 1
@@ -26659,13 +27936,13 @@ def has_noninteractive_claude_args(passthrough: list[str]) -> bool:
 
 def run_prelaunch_menu(passthrough: list[str], skip_menu: bool = False, force_menu: bool = False) -> int:
     if not force_menu and (
-        skip_menu or has_noninteractive_claude_args(passthrough) or os.environ.get("CLAUDE_ANY_SKIP_MENU") == "1"
+        skip_menu or has_noninteractive_claude_args(passthrough) or os.environ.get("CIEL_RUNTIME_SKIP_MENU") == "1"
     ):
         return 0
     if not (sys.stdin.isatty() and sys.stdout.isatty()):
         return 0
-    if os.environ.get("CLAUDE_ANY_USE_LEGACY_MENU") == "1":
-        rc = run_external_menu("claude-any-menu")
+    if os.environ.get("CIEL_RUNTIME_USE_LEGACY_MENU") == "1":
+        rc = run_external_menu("ciel-runtime-menu")
         if rc is not None:
             return rc
     return portable_prelaunch_menu(passthrough)
@@ -26683,7 +27960,7 @@ def start_router_if_needed() -> bool:
                     f"base={ROUTER_BASE} active_clients={','.join(map(str, active_clients))}",
                 )
                 return True
-            if env_bool(os.environ.get("CLAUDE_ANY_REUSE_ROUTER"), False):
+            if env_bool(os.environ.get("CIEL_RUNTIME_REUSE_ROUTER"), False):
                 router_log("INFO", f"router_check_state running=True spawn=False base={ROUTER_BASE} reuse=env")
                 return True
             router_log(
@@ -26697,11 +27974,11 @@ def start_router_if_needed() -> bool:
         else:
             if router_health_config_matches_current(health) and active_clients:
                 raise RuntimeError(
-                    f"claude-any router on {ROUTER_BASE} belongs to this config but has active clients "
+                    f"ciel-runtime router on {ROUTER_BASE} belongs to this config but has active clients "
                     f"({','.join(map(str, active_clients))}) and differs from this launch "
                     f"(running_version={health.get('version') or '-'}, current_version={VERSION}). "
                     "Stop the other Claude Code session or launch this instance with a different "
-                    "CLAUDE_ANY_ROUTER_PORT."
+                    "CIEL_RUNTIME_ROUTER_PORT."
                 )
             running_version = str(health.get("version") or "")
             running_fingerprint = str(health.get("source_fingerprint") or "")
@@ -26725,8 +28002,8 @@ def start_router_if_needed() -> bool:
         kwargs["start_new_session"] = True
     router_log("INFO", f"router_check_state running=False spawn=True base={ROUTER_BASE}")
     router_env = os.environ.copy()
-    router_env["CLAUDE_ANY_MANAGED_ROUTER"] = "1"
-    router_env["CLAUDE_ANY_ROUTER_OWNER_PID"] = str(os.getpid())
+    router_env["CIEL_RUNTIME_MANAGED_ROUTER"] = "1"
+    router_env["CIEL_RUNTIME_ROUTER_OWNER_PID"] = str(os.getpid())
     with open(LOG_PATH, "ab", buffering=0) as log:
         subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=log, stderr=log, env=router_env, **kwargs)
     deadline = time.time() + 30
@@ -26735,7 +28012,7 @@ def start_router_if_needed() -> bool:
             router_log("INFO", f"router_spawned running=True base={ROUTER_BASE} elapsed={time.time()-(deadline-30):.1f}s")
             return True
         time.sleep(0.5)
-    raise RuntimeError(f"claude-any router did not start. See {LOG_PATH}")
+    raise RuntimeError(f"ciel-runtime router did not start. See {LOG_PATH}")
 
 
 def should_attach_web_search(provider: str, cfg: dict[str, Any], override: bool | None) -> bool:
@@ -27038,7 +28315,7 @@ def write_web_tools_mcp_config(cfg: dict[str, Any]) -> Path:
             servers["web_fetch"] = {
                 "command": fetch_command,
                 "args": fetch_command_args,
-                "claude_any_stdio": "jsonl",
+                "ciel_runtime_stdio": "jsonl",
             }
         else:
             router_log("WARN", "web_fetch_disabled_missing_runner install=uvx_or_uv")
@@ -27113,7 +28390,7 @@ def reset_zai_mcp_config_if_inactive(provider: str) -> None:
 def write_channel_mcp_config() -> Path:
     data = {
         "mcpServers": {
-            "claude-any-router": {
+            "ciel-runtime-router": {
                 "type": "sse",
                 "url": f"{ROUTER_BASE}/ca/mcp/sse",
             }
@@ -27158,7 +28435,7 @@ def write_mcp_proxy_config(
                 server_path = server_dir / f"{_safe_mcp_proxy_name(name)}.json"
                 saved_server = dict(server)
                 if streamable_http and name in disable_proxy_notification_stream_names:
-                    saved_server["claude_any_disable_notification_stream"] = True
+                    saved_server["ciel_runtime_disable_notification_stream"] = True
                 server_path.write_text(json.dumps(saved_server, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
                 try:
                     os.chmod(server_path, 0o600)
@@ -27217,7 +28494,7 @@ def should_use_channel_screen_summary_proxy(
         llm_channel_delivery
         and channel_specs_include_external_server(detected_channel_specs)
         and not has_passthrough_option(claude_passthrough, "-p", "--print")
-        and env_bool(os.environ.get("CLAUDE_ANY_CHANNEL_SCREEN_SUMMARY"), False)
+        and env_bool(os.environ.get("CIEL_RUNTIME_CHANNEL_SCREEN_SUMMARY"), False)
     )
 
 
@@ -27335,18 +28612,17 @@ def format_channel_wake_prompt(message: dict[str, Any]) -> str:
     suffix = "If relevant to current work, respond or act now; otherwise keep working."
     if _channel_message_is_web_chat_request(message):
         suffix = (
-            "Answer back through the claude-any-router send_message tool on the same channel/thread "
+            "Answer back through the ciel-runtime-router send_message tool on the same channel/thread "
             "with recipients='web' and delivery=['web']; use send_file when returning a file attachment. "
             + suffix
         )
     return (
-        "[claude-any external channel message] "
+        "[ciel-runtime external channel message] "
         + " ".join(fields)
         + f" text={json.dumps(body, ensure_ascii=False)}"
         + ". "
         + suffix
     )
-
 
 def _format_channel_web_chat_wake_item(message: dict[str, Any]) -> str:
     channel = str(message.get("channel") or "default")
@@ -27363,9 +28639,9 @@ def format_channel_web_chat_wake_batch_prompt(messages: list[dict[str, Any]]) ->
     items = " ; ".join(_format_channel_web_chat_wake_item(message) for message in messages)
     count = len(messages)
     return (
-        f"[claude-any web chat] {count} browser message(s): {items}. "
+        f"[ciel-runtime web chat] {count} browser message(s): {items}. "
         "Answer in the active Claude Code session. Use current context and tools/MCP if useful. "
-        "Reply to the browser with claude-any-router send_message on the listed channel/thread_id, recipients='web', delivery=['web']; use send_file when returning a file attachment."
+        "Reply to the browser with ciel-runtime-router send_message on the listed channel/thread_id, recipients='web', delivery=['web']; use send_file when returning a file attachment."
     )
 
 
@@ -27575,7 +28851,7 @@ def _channel_superseded_message_ids(messages: list[dict[str, Any]]) -> set[int]:
 
 
 def _channel_pending_scan_limit() -> int:
-    raw = os.environ.get("CLAUDE_ANY_CHANNEL_PENDING_SCAN_LIMIT", "500")
+    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_PENDING_SCAN_LIMIT", "500")
     try:
         return max(100, min(5000, int(str(raw).strip())))
     except Exception:
@@ -27636,17 +28912,16 @@ def format_channel_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
     suffix = "If relevant to current work, respond or act now; otherwise keep working."
     if any(_channel_message_is_web_chat_request(message) for message in messages):
         suffix = (
-            "For claude-any-web-chat item(s), answer back through the claude-any-router send_message tool "
+            "For ciel-runtime-web-chat item(s), answer back through the ciel-runtime-router send_message tool "
             "on the same channel/thread with recipients='web' and delivery=['web']; use send_file when returning a file attachment. "
             + suffix
         )
     return (
-        f"[claude-any external channel messages] {len(messages)} new messages: "
+        f"[ciel-runtime external channel messages] {len(messages)} new messages: "
         + " ; ".join(parts)
         + ". "
         + suffix
     )
-
 
 def format_channel_llm_batch_prompt(messages: list[dict[str, Any]]) -> str:
     parts: list[str] = []
@@ -27676,12 +28951,12 @@ def format_channel_llm_batch_prompt(messages: list[dict[str, Any]]) -> str:
     web_chat_instructions = ""
     if any(_channel_message_is_web_chat_request(message) for message in messages):
         web_chat_instructions = (
-            "메시지 metadata source가 claude-any-web-chat 이거나 reply_channel/reply_recipient가 있으면, 답변 내용은 반드시 사용 가능한 claude-any-router send_message 계열 도구로 같은 channel/thread_id에 recipients='web', delivery=['web']로 보내세요. "
+            "메시지 metadata source가 ciel-runtime-web-chat 이거나 reply_channel/reply_recipient가 있으면, 답변 내용은 반드시 사용 가능한 ciel-runtime-router send_message 계열 도구로 같은 channel/thread_id에 recipients='web', delivery=['web']로 보내세요. "
             "웹 채팅 요청도 현재 Claude Code 세션의 기존 Read/Bash/Edit/MCP 도구를 사용할 수 있는 실제 작업 요청입니다. "
         )
     return (
-        "[claude-any channel inbox]\n"
-        "아래 항목은 claude-any가 자동 수신한 외부 채널/MCP 메시지입니다. "
+        "[ciel-runtime channel inbox]\n"
+        "아래 항목은 ciel-runtime가 자동 수신한 외부 채널/MCP 메시지입니다. "
         "이 메시지는 현재 Claude Code 세션의 에이전트에게 도착한 실제 업무 메시지입니다. "
         "이 inbox는 현재 에이전트의 MCP/channel 자격으로 구독된 수신함입니다. "
         "room name, DM label, 또는 'New message from ...' 같은 짧은 알림만 보고 현재 에이전트가 수신자가 아니라고 결론내리지 마세요. "
@@ -27724,7 +28999,7 @@ def _channel_injected_prompt_text(body: dict[str, Any]) -> str:
         if not isinstance(message, dict) or message.get("role") != "user":
             continue
         text = anthropic_content_to_text(message.get("content", ""))
-        if "[claude-any channel inbox]" in text:
+        if "[ciel-runtime channel inbox]" in text:
             return truncate_for_prompt(text, _CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT)
     return ""
 
@@ -27733,11 +29008,11 @@ def _remember_channel_injected_tool_use(source_body: dict[str, Any] | None, tool
     if not isinstance(source_body, dict) or not tool_use_id:
         return
     metadata = source_body.get("metadata") if isinstance(source_body.get("metadata"), dict) else {}
-    if not metadata.get("claude_any_channel_injected"):
+    if not metadata.get("ciel_runtime_channel_injected"):
         return
     context = {
         "created_at": time.time(),
-        "channel_message_ids": str(metadata.get("claude_any_channel_message_ids") or ""),
+        "channel_message_ids": str(metadata.get("ciel_runtime_channel_message_ids") or ""),
         "prompt": _channel_injected_prompt_text(source_body),
         "tool_name": tool_name,
         "tool_input": tool_input if isinstance(tool_input, (dict, list, str, int, float, bool)) or tool_input is None else str(tool_input),
@@ -27789,16 +29064,16 @@ def _take_channel_tool_result_contexts_for_body(body: dict[str, Any]) -> list[tu
 
 def body_with_channel_tool_result_context(body: dict[str, Any]) -> dict[str, Any]:
     metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
-    if body.get("claude_any_channel_direct") or metadata.get("claude_any_channel_direct"):
+    if body.get("ciel_runtime_channel_direct") or metadata.get("ciel_runtime_channel_direct"):
         return body
-    if metadata.get("claude_any_channel_tool_result_followup"):
+    if metadata.get("ciel_runtime_channel_tool_result_followup"):
         return body
     contexts = _take_channel_tool_result_contexts_for_body(body)
     if not contexts:
         return body
     parts = [
-        "[claude-any channel tool_result follow-up]",
-        "아래 tool_result는 이전 턴에서 claude-any가 SSE 알림을 LLM에 주입해 자동 처리한 도구 호출의 결과입니다.",
+        "[ciel-runtime channel tool_result follow-up]",
+        "아래 tool_result는 이전 턴에서 ciel-runtime가 SSE 알림을 LLM에 주입해 자동 처리한 도구 호출의 결과입니다.",
         "이 결과를 LLM 컨텍스트로 사용해 사용자 화면에 처리 결과를 요약하세요. 필요한 추가 자동 처리는 계속 수행해도 됩니다.",
     ]
     for tool_use_id, context in contexts:
@@ -27818,7 +29093,7 @@ def body_with_channel_tool_result_context(body: dict[str, Any]) -> dict[str, Any
     messages.append({"role": "user", "content": [{"type": "text", "text": "\n\n".join(parts)}]})
     out["messages"] = messages
     out_metadata = dict(metadata)
-    out_metadata["claude_any_channel_tool_result_followup"] = True
+    out_metadata["ciel_runtime_channel_tool_result_followup"] = True
     out["metadata"] = out_metadata
     router_log(
         "INFO",
@@ -27855,7 +29130,7 @@ def _channel_message_is_web_chat_request(message: dict[str, Any]) -> bool:
     source = str(meta.get("source") or "").strip().lower()
     kind = str(message.get("kind") or meta.get("kind") or "").strip().lower()
     return bool(
-        source == "claude-any-web-chat"
+        source == "ciel-runtime-web-chat"
         or kind == "web_chat"
         or meta.get("reply_channel")
         or meta.get("reply_recipient")
@@ -27871,7 +29146,7 @@ def _anthropic_message_text(message: dict[str, Any]) -> str:
 
 
 def _channel_direct_worker_limit() -> int:
-    raw = os.environ.get("CLAUDE_ANY_CHANNEL_DIRECT_WORKERS", "1")
+    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_DIRECT_WORKERS", "1")
     try:
         return max(1, min(8, int(str(raw).strip())))
     except Exception:
@@ -28216,7 +29491,7 @@ def _channel_direct_reply_content_should_suppress(text: str) -> bool:
     if _channel_direct_fallback_text_is_diagnostic_failure(body):
         return True
     internal_markers = (
-        "claude-any",
+        "ciel-runtime",
         "## tool_result",
         "tool_result",
         "direct_handler_summary",
@@ -28226,8 +29501,8 @@ def _channel_direct_reply_content_should_suppress(text: str) -> bool:
         "fallback loop",
         "fallback 루프",
         "fallback 라우터",
-        "claude-any 라우터",
-        "claude-any router",
+        "ciel-runtime 라우터",
+        "ciel-runtime router",
         "system-generated activity alert",
         "kind: activity",
         "사용자 액션 필요",
@@ -28374,7 +29649,7 @@ def _channel_direct_text_is_deferred_action(text: str) -> bool:
 
 def _channel_direct_deferred_action_prompt(text: str) -> str:
     return (
-        "[claude-any channel action required]\n"
+        "[ciel-runtime channel action required]\n"
         "Your previous assistant message announced a future safe channel action instead of performing it. "
         "Do not end this autonomous channel turn with 'Let me...', 'I will...', or '하겠습니다'. "
         "If the action is safe and an MCP tool can perform it, call the appropriate tool now. "
@@ -28417,7 +29692,7 @@ def _channel_direct_text_declines_reply(text: str) -> bool:
 
 def _channel_direct_reply_action_prompt(text: str) -> str:
     return (
-        "[claude-any channel reply required]\n"
+        "[ciel-runtime channel reply required]\n"
         "You handled an incoming channel notification but ended without calling any reply/send tool. "
         "This inbox is attached to the current agent's configured MCP/channel credentials; do not conclude you are not the recipient merely from a room name, DM label, or terse 'New message from ...' notification. "
         "If recipient identity is uncertain, use safe read/profile tools before choosing not to reply. "
@@ -28496,7 +29771,7 @@ def _channel_direct_fallback_reply_prompt(message: dict[str, Any], last_text: st
     incoming = truncate_for_prompt(str(message.get("message") or ""), 2000)
     previous = truncate_for_prompt(str(last_text or ""), 2000)
     return (
-        "[claude-any channel fallback reply]\n"
+        "[ciel-runtime channel fallback reply]\n"
         "The incoming channel DM/mention still needs a practical reply, but previous assistant turns did not call a reply/send tool. "
         "Write only the exact message body that should be sent now to the same channel. "
         "Do not mention internal routing, fallback handling, tool failures, or this instruction. "
@@ -28543,7 +29818,7 @@ def _channel_direct_generate_fallback_reply_text(
         "max_tokens": 512,
         "stream": False,
         "metadata": {
-            "claude_any_channel_direct": True,
+            "ciel_runtime_channel_direct": True,
             "channel_message_id": str(message_id),
             "channel_fallback_reply": True,
         },
@@ -28612,7 +29887,7 @@ def _channel_direct_fallback_text_is_diagnostic_failure(text: str) -> bool:
         return False
     lowered = body.lower()
     internal_markers = (
-        "[claude-any]",
+        "[ciel-runtime]",
         "upstream model",
         "empty end_turn",
         "no work was performed",
@@ -28735,7 +30010,7 @@ def _channel_direct_llm_http_message(message_id: int, body: dict[str, Any], prov
     headers = {
         "content-type": "application/json",
         "anthropic-version": "2023-06-01",
-        "x-claude-any-channel-direct": "1",
+        "x-ciel-runtime-channel-direct": "1",
     }
     timeout = max(30.0, min(provider_request_timeout_seconds(pcfg), 300.0))
     router_log(
@@ -28757,7 +30032,7 @@ def _channel_direct_llm_http_response(message_id: int, prompt: str, provider: st
         "max_tokens": 512,
         "stream": False,
         "metadata": {
-            "claude_any_channel_direct": True,
+            "ciel_runtime_channel_direct": True,
             "channel_message_id": str(message_id),
         },
         "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}]}],
@@ -28795,7 +30070,7 @@ def _channel_direct_llm_router_response(message_id: int, prompt: str, message: d
             "max_tokens": 768,
             "stream": False,
             "metadata": {
-                "claude_any_channel_direct": True,
+                "ciel_runtime_channel_direct": True,
                 "channel_message_id": str(message_id),
             },
             "messages": messages,
@@ -28975,7 +30250,7 @@ def _channel_direct_llm_router_response(message_id: int, prompt: str, message: d
 
 
 def _channel_direct_terminal_notice(message: dict[str, Any], text: str, stop_reason: str) -> None:
-    if not env_bool(os.environ.get("CLAUDE_ANY_CHANNEL_TERMINAL_NOTICE"), False):
+    if not env_bool(os.environ.get("CIEL_RUNTIME_CHANNEL_TERMINAL_NOTICE"), False):
         return
     if not text.strip():
         return
@@ -28992,7 +30267,7 @@ def _channel_direct_terminal_notice(message: dict[str, Any], text: str, stop_rea
     try:
         sys.stdout.write(
             "\n\n"
-            f"[claude-any channel] handled message_id={message_id} channel={channel} from={author} stop_reason={stop_reason}\n"
+            f"[ciel-runtime channel] handled message_id={message_id} channel={channel} from={author} stop_reason={stop_reason}\n"
             f"{body}\n"
         )
         sys.stdout.flush()
@@ -29290,25 +30565,25 @@ def _commit_channel_llm_summary_cursor_if_newer(last_id: int | None) -> None:
             router_log("WARN", f"channel_llm_summary_cursor_write_failed error={type(exc).__name__}: {exc}")
 
 
-CLAUDE_ANY_INTERNAL_METADATA_PREFIX = "claude_any_"
+CIEL_RUNTIME_INTERNAL_METADATA_PREFIX = "ciel_runtime_"
 
 
-def body_without_claude_any_internal_metadata(body: dict[str, Any]) -> dict[str, Any]:
-    """Return an upstream-safe copy with claude-any private metadata removed."""
+def body_without_ciel_runtime_internal_metadata(body: dict[str, Any]) -> dict[str, Any]:
+    """Return an upstream-safe copy with ciel-runtime private metadata removed."""
     metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else None
     if not metadata:
         return body
     internal_keys = [
         key
         for key in metadata
-        if str(key).startswith(CLAUDE_ANY_INTERNAL_METADATA_PREFIX)
+        if str(key).startswith(CIEL_RUNTIME_INTERNAL_METADATA_PREFIX)
     ]
     if not internal_keys:
         return body
     public_metadata = {
         key: value
         for key, value in metadata.items()
-        if not str(key).startswith(CLAUDE_ANY_INTERNAL_METADATA_PREFIX)
+        if not str(key).startswith(CIEL_RUNTIME_INTERNAL_METADATA_PREFIX)
     }
     out = dict(body)
     if public_metadata:
@@ -29336,11 +30611,11 @@ def commit_pending_channel_delivery_cursors(
             )
             return
         if _channel_delivery_metadata(metadata) and not pending_channel_delivery_confirmed(handler):
-            reason = str(getattr(handler, "_claude_any_channel_delivery_reason", "unconfirmed") or "unconfirmed")
+            reason = str(getattr(handler, "_ciel_runtime_channel_delivery_reason", "unconfirmed") or "unconfirmed")
             router_log("INFO", f"channel_delivery_cursor_deferred reason={reason}")
             return
-    message_cursor = _metadata_int(metadata, "claude_any_channel_cursor_last_id")
-    summary_cursor = _metadata_int(metadata, "claude_any_channel_summary_cursor_last_id")
+    message_cursor = _metadata_int(metadata, "ciel_runtime_channel_cursor_last_id")
+    summary_cursor = _metadata_int(metadata, "ciel_runtime_channel_summary_cursor_last_id")
     _commit_channel_llm_cursor_if_newer(message_cursor)
     _commit_channel_llm_summary_cursor_if_newer(summary_cursor)
 
@@ -29430,7 +30705,7 @@ def _channel_llm_summary_prompt_note(text: str) -> str:
         return ""
     body = re.sub(r"##\s*tool_result\b.*", "", body, flags=re.IGNORECASE | re.DOTALL).strip()
     body = re.sub(r"##\s*전송 결과\b.*", "", body, flags=re.IGNORECASE | re.DOTALL).strip()
-    body = re.sub(r"\bclaude-any\b", "channel bridge", body, flags=re.IGNORECASE)
+    body = re.sub(r"\bciel-runtime\b", "channel bridge", body, flags=re.IGNORECASE)
     body = body.replace("direct_handler_summary", "handler summary")
     body = body.replace("백그라운드 자동 처리 요약", "자동 처리 요약")
     body = body.replace("라우터가 같은 채널에 안전 fallback 회신을 직접 전송했습니다", "same-channel fallback reply was sent")
@@ -29522,7 +30797,7 @@ def _channel_llm_summary_notice_is_quiet(item: dict[str, Any]) -> bool:
 
 
 def _channel_llm_summary_notice_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    if env_bool(os.environ.get("CLAUDE_ANY_CHANNEL_SCREEN_SUMMARY_SHOW_NO_REPLY"), False):
+    if env_bool(os.environ.get("CIEL_RUNTIME_CHANNEL_SCREEN_SUMMARY_SHOW_NO_REPLY"), False):
         return records
     return [item for item in records if not _channel_llm_summary_notice_is_quiet(item)]
 
@@ -29530,7 +30805,7 @@ def _channel_llm_summary_notice_records(records: list[dict[str, Any]]) -> list[d
 def _format_channel_llm_summary_notice_verbose(records: list[dict[str, Any]]) -> str:
     lines = [
         "",
-        "[claude-any channel] background message handling summary",
+        "[ciel-runtime channel] background message handling summary",
     ]
     for item in records:
         summary = re.sub(r"\s+", " ", str(item.get("summary") or "")).strip()
@@ -29554,7 +30829,7 @@ def _format_channel_llm_summary_notice_compact(records: list[dict[str, Any]]) ->
 
 
 def format_channel_llm_summary_notice(records: list[dict[str, Any]]) -> str:
-    style = str(os.environ.get("CLAUDE_ANY_CHANNEL_SCREEN_SUMMARY_STYLE") or "compact").strip().lower()
+    style = str(os.environ.get("CIEL_RUNTIME_CHANNEL_SCREEN_SUMMARY_STYLE") or "compact").strip().lower()
     if style in {"verbose", "full", "long"}:
         return _format_channel_llm_summary_notice_verbose(records)
     return _format_channel_llm_summary_notice_compact(records)
@@ -29563,9 +30838,9 @@ def format_channel_llm_summary_notice(records: list[dict[str, Any]]) -> str:
 def body_with_pending_channel_summaries(body: dict[str, Any]) -> dict[str, Any]:
     global _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
     metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
-    if body.get("claude_any_channel_direct") or metadata.get("claude_any_channel_direct"):
+    if body.get("ciel_runtime_channel_direct") or metadata.get("ciel_runtime_channel_direct"):
         return body
-    if metadata.get("claude_any_channel_summary_injected"):
+    if metadata.get("ciel_runtime_channel_summary_injected"):
         return body
     if plan_mode_active(body):
         router_log("INFO", "channel_llm_summary_inject_skipped reason=plan_mode_active")
@@ -29593,12 +30868,12 @@ def body_with_pending_channel_summaries(body: dict[str, Any]) -> dict[str, Any]:
     messages.append({"role": "user", "content": [{"type": "text", "text": prompt}]})
     out["messages"] = messages
     out_metadata = dict(metadata)
-    out_metadata["claude_any_channel_summary_injected"] = True
-    out_metadata["claude_any_channel_summary_message_ids"] = ",".join(str(item.get("message_id") or "") for item in records)
-    out_metadata["claude_any_channel_summary_cursor_last_id"] = str(max_seen)
+    out_metadata["ciel_runtime_channel_summary_injected"] = True
+    out_metadata["ciel_runtime_channel_summary_message_ids"] = ",".join(str(item.get("message_id") or "") for item in records)
+    out_metadata["ciel_runtime_channel_summary_cursor_last_id"] = str(max_seen)
     out["metadata"] = out_metadata
     _commit_channel_llm_summary_cursor_if_newer(max_seen)
-    router_log("INFO", f"channel_llm_summary_injected count={len(records)} message_ids={out_metadata['claude_any_channel_summary_message_ids']}")
+    router_log("INFO", f"channel_llm_summary_injected count={len(records)} message_ids={out_metadata['ciel_runtime_channel_summary_message_ids']}")
     return out
 
 
@@ -29611,7 +30886,7 @@ def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]:
         if not isinstance(message, dict):
             continue
         text = anthropic_content_to_text(message.get("content"))
-        if "claude-any external channel message" not in text:
+        if "ciel-runtime external channel message" not in text:
             continue
         for match in _CHANNEL_WAKE_PROMPT_ID_RE.finditer(text):
             try:
@@ -29626,7 +30901,7 @@ def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]:
 def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
     global _CHANNEL_LLM_CURSOR_LAST_ID
     metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
-    if body.get("claude_any_channel_direct") or metadata.get("claude_any_channel_direct"):
+    if body.get("ciel_runtime_channel_direct") or metadata.get("ciel_runtime_channel_direct"):
         return body
     if plan_mode_active(body):
         router_log("INFO", "channel_llm_inject_skipped reason=plan_mode_active")
@@ -29717,9 +30992,9 @@ def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
     ids = ",".join(str(message.get("id") or "") for message in pending)
     channels = ",".join(sorted({str(message.get("channel") or "default") for message in pending}))
     out_metadata = dict(out.get("metadata") if isinstance(out.get("metadata"), dict) else {})
-    out_metadata["claude_any_channel_injected"] = True
-    out_metadata["claude_any_channel_message_ids"] = ids
-    out_metadata["claude_any_channel_cursor_last_id"] = str(max_seen)
+    out_metadata["ciel_runtime_channel_injected"] = True
+    out_metadata["ciel_runtime_channel_message_ids"] = ids
+    out_metadata["ciel_runtime_channel_cursor_last_id"] = str(max_seen)
     out["metadata"] = out_metadata
     router_log("INFO", f"channel_llm_injected count={len(pending)} message_ids={ids} channels={channels}")
     return out
@@ -29745,7 +31020,7 @@ def _channel_platform_default_enter_bytes(platform: str | None = None, os_name: 
 def _channel_wake_enter_bytes(value: str | bytes | None = None) -> bytes:
     raw: str | bytes | None = value
     if raw is None:
-        raw = os.environ.get("CLAUDE_ANY_CHANNEL_WAKE_ENTER")
+        raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_ENTER")
         if raw is None:
             return _channel_platform_default_enter_bytes()
     if isinstance(raw, bytes):
@@ -29763,7 +31038,7 @@ def _channel_wake_enter_bytes(value: str | bytes | None = None) -> bytes:
 
 
 def _channel_wake_enter_env_is_fixed() -> bool:
-    raw = os.environ.get("CLAUDE_ANY_CHANNEL_WAKE_ENTER")
+    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_ENTER")
     if raw is None:
         return False
     return str(raw).strip().lower() not in {"", "auto", "default", "platform"}
@@ -29808,7 +31083,7 @@ def _channel_wake_input_bytes(prompt: str, enter_bytes: bytes | None = None) -> 
 
 
 def _channel_wake_submit_delay_seconds() -> float:
-    raw = os.environ.get("CLAUDE_ANY_CHANNEL_WAKE_SUBMIT_DELAY_MS")
+    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_SUBMIT_DELAY_MS")
     if raw is None:
         return 0.08
     try:
@@ -30038,7 +31313,7 @@ def _channel_stdin_recover_cursor_from_queued_only(last_id: int) -> int:
 
 
 def _channel_stdin_unseen_retry_seconds() -> float:
-    raw = os.environ.get("CLAUDE_ANY_CHANNEL_WAKE_UNSEEN_RETRY_SECONDS")
+    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_UNSEEN_RETRY_SECONDS")
     if raw is None:
         return 20.0
     try:
@@ -30048,7 +31323,7 @@ def _channel_stdin_unseen_retry_seconds() -> float:
 
 
 def _channel_stdin_inflight_stale_seconds() -> float:
-    raw = os.environ.get("CLAUDE_ANY_CHANNEL_WAKE_INFLIGHT_STALE_SECONDS")
+    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_INFLIGHT_STALE_SECONDS")
     if raw is None:
         return 180.0
     try:
@@ -30645,7 +31920,7 @@ def _mcp_proxy_observe_json_message(server_name: str, payload: Any, *, schedule_
         if schedule_direct:
             chat_payload = _mark_channel_payload_direct_llm_pending(chat_payload)
         saved = append_chat_message(chat_payload)
-        if saved.get("_claude_any_duplicate"):
+        if saved.get("_ciel_runtime_duplicate"):
             router_log(
                 "INFO",
                 f"mcp_proxy_notification_skipped_duplicate_persisted server={server_name} method={payload.get('method')} existing_id={saved.get('id')}",
@@ -30804,7 +32079,7 @@ def _mcp_proxy_forward_stdin(proc: subprocess.Popen[bytes]) -> None:
 
 
 def _mcp_proxy_stdio_mode(server: dict[str, Any]) -> str:
-    mode = str(server.get("claude_any_stdio") or server.get("stdio_mode") or "").strip().lower()
+    mode = str(server.get("ciel_runtime_stdio") or server.get("stdio_mode") or "").strip().lower()
     if mode in ("jsonl", "json-lines", "json_lines", "newline-json", "line-json"):
         return "jsonl"
     return "framed"
@@ -30974,8 +32249,8 @@ def _mcp_proxy_wait_timeout_seconds(arguments: dict[str, Any]) -> float:
         except Exception:
             return default
 
-    default_timeout = max(0.0, min(60.0, _float_env("CLAUDE_ANY_MCP_WAIT_DEFAULT_SECONDS", 10.0)))
-    max_timeout = max(1.0, min(120.0, _float_env("CLAUDE_ANY_MCP_WAIT_MAX_SECONDS", 30.0)))
+    default_timeout = max(0.0, min(60.0, _float_env("CIEL_RUNTIME_MCP_WAIT_DEFAULT_SECONDS", 10.0)))
+    max_timeout = max(1.0, min(120.0, _float_env("CIEL_RUNTIME_MCP_WAIT_MAX_SECONDS", 30.0)))
     value: Any = None
     scale = 1.0
     for key in ("timeout_ms", "wait_ms", "poll_ms"):
@@ -31154,11 +32429,11 @@ def run_mcp_streamable_http_proxy(server_name: str, server_config_path: Path) ->
         server = json.loads(server_config_path.read_text(encoding="utf-8"))
     except Exception as exc:
         router_log("ERROR", f"mcp_http_proxy_config_read_failed server={server_name} error={type(exc).__name__}: {exc}")
-        print(f"claude-any mcp-proxy: cannot read server config: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+        print(f"ciel-runtime mcp-proxy: cannot read server config: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         return 2
     if not isinstance(server, dict) or not _mcp_server_is_streamable_http(server):
         router_log("ERROR", f"mcp_http_proxy_invalid_config server={server_name}")
-        print("claude-any mcp-proxy: server config is not a Streamable HTTP MCP server", file=sys.stderr, flush=True)
+        print("ciel-runtime mcp-proxy: server config is not a Streamable HTTP MCP server", file=sys.stderr, flush=True)
         return 2
     endpoint = str(server.get("url") or server.get("endpoint") or "").strip()
     custom_headers = server.get("headers") if isinstance(server.get("headers"), dict) else {}
@@ -31199,7 +32474,7 @@ def run_mcp_streamable_http_proxy(server_name: str, server_config_path: Path) ->
     def queue_proxy_notification(payload: dict[str, Any], saved: dict[str, Any] | None) -> None:
         queued = _json_safe_metadata(payload)
         if saved and saved.get("id") is not None:
-            queued["claude_any_message_id"] = saved.get("id")
+            queued["ciel_runtime_message_id"] = saved.get("id")
         with notification_condition:
             pending_notifications.append(queued)
             if len(pending_notifications) > 200:
@@ -31447,14 +32722,12 @@ def run_mcp_streamable_http_proxy(server_name: str, server_config_path: Path) ->
                 if _mcp_stream_read_timeout_error(exc):
                     with session_cond:
                         initialized_seen = initialized_payload is not None
-                        if session_id == worker_session:
-                            if initialized_seen:
-                                session_id = None
-                            session_cond.notify_all()
-                    last_event_id = None
+                        session_cond.notify_all()
                     router_log(
                         "WARN",
-                        f"mcp_http_proxy_stream_timeout_reinitialize server={server_name} event={event_name} initialized={initialized_seen} error={type(exc).__name__}: {exc}",
+                        f"mcp_http_proxy_stream_timeout_reconnect server={server_name} event={event_name} "
+                        f"initialized={initialized_seen} session={worker_session or '-'} "
+                        f"last_event_id={last_event_id or '-'} error={type(exc).__name__}: {exc}",
                     )
                     continue
                 router_log("WARN", f"mcp_http_proxy_stream_reconnect server={server_name} event={event_name} error={type(exc).__name__}: {exc}")
@@ -31608,7 +32881,7 @@ def run_mcp_streamable_http_proxy(server_name: str, server_config_path: Path) ->
         return 0
     except Exception as exc:
         router_log("ERROR", f"mcp_http_proxy_failed server={server_name} error={type(exc).__name__}: {exc}")
-        print(f"claude-any mcp-proxy: Streamable HTTP bridge failed: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+        print(f"ciel-runtime mcp-proxy: Streamable HTTP bridge failed: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         return 1
     finally:
         stream_stop.set()
@@ -31623,11 +32896,11 @@ def run_mcp_stdio_proxy(server_name: str, server_config_path: Path) -> int:
         server = json.loads(server_config_path.read_text(encoding="utf-8"))
     except Exception as exc:
         router_log("ERROR", f"mcp_proxy_config_read_failed server={server_name} error={type(exc).__name__}: {exc}")
-        print(f"claude-any mcp-proxy: cannot read server config: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+        print(f"ciel-runtime mcp-proxy: cannot read server config: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         return 2
     if not isinstance(server, dict) or not _mcp_server_is_stdio(server):
         router_log("ERROR", f"mcp_proxy_invalid_config server={server_name}")
-        print("claude-any mcp-proxy: server config is not a stdio MCP server", file=sys.stderr, flush=True)
+        print("ciel-runtime mcp-proxy: server config is not a stdio MCP server", file=sys.stderr, flush=True)
         return 2
     command = str(server.get("command") or "").strip()
     args = [str(item) for item in server.get("args", [])] if isinstance(server.get("args"), list) else []
@@ -31650,7 +32923,7 @@ def run_mcp_stdio_proxy(server_name: str, server_config_path: Path) -> int:
         )
     except Exception as exc:
         router_log("ERROR", f"mcp_proxy_start_failed server={server_name} command={command} error={type(exc).__name__}: {exc}")
-        print(f"claude-any mcp-proxy: failed to start {command}: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+        print(f"ciel-runtime mcp-proxy: failed to start {command}: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         return 127
     stdio_mode = _mcp_proxy_stdio_mode(server)
     router_log("INFO", f"mcp_proxy_started server={server_name} command={command} stdio={stdio_mode}")
@@ -31682,7 +32955,7 @@ def run_mcp_stdio_proxy(server_name: str, server_config_path: Path) -> int:
 
 
 def cmd_mcp_proxy(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(prog="claude-any mcp-proxy")
+    parser = argparse.ArgumentParser(prog="ciel-runtime mcp-proxy")
     parser.add_argument("--server-name", required=True)
     parser.add_argument("--server-config", required=True)
     args = parser.parse_args(argv)
@@ -31696,61 +32969,132 @@ def cmd_mcp_proxy(argv: list[str]) -> int:
     return run_mcp_stdio_proxy(args.server_name, server_config_path)
 
 
-def run_claude_update_check(claude: str, enabled: bool = True) -> None:
-    if not enabled:
+def npm_install_runtime_command(npm: str, package_spec: str, prefix: Path | None = None) -> list[str]:
+    cmd = npm_global_install_command(npm, package_spec, prefix)
+    cmd.insert(3, "--prefer-online")
+    return cmd
+
+
+def forced_yes_upgrade_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env.setdefault("CI", "1")
+    env["NPM_CONFIG_YES"] = "true"
+    env["npm_config_yes"] = "true"
+    env.setdefault("NPM_CONFIG_UPDATE_NOTIFIER", "false")
+    env.setdefault("npm_config_update_notifier", "false")
+    return env
+
+
+def add_npm_prefix_bin_to_path(prefix: Path | None) -> None:
+    if prefix is None:
         return
-    if os.environ.get("CLAUDE_ANY_SKIP_CLAUDE_UPDATE") == "1":
-        return
-    print("Checking Claude Code update before launch...", flush=True)
-    current = claude_code_current_version(claude)
-    if current:
-        print(f"Current Claude Code version: {current}", flush=True)
+    bin_dir = str(npm_global_bin_dir_from_prefix(prefix))
+    path = os.environ.get("PATH", "")
+    if bin_dir and bin_dir not in path.split(os.pathsep):
+        os.environ["PATH"] = bin_dir + (os.pathsep + path if path else "")
+
+
+def install_runtime_package_if_missing(
+    *,
+    executable_name: str,
+    label: str,
+    package_spec: str,
+    skip_env: str,
+) -> str | None:
+    executable = find_executable(executable_name)
+    if executable:
+        return executable
+    if os.environ.get(skip_env) == "1":
+        return None
     npm = find_executable("npm")
     if not npm:
-        print("Claude Code update check skipped: npm was not found.", flush=True)
-        return
-    package_spec = os.environ.get("CLAUDE_ANY_CLAUDE_CODE_PACKAGE", "@anthropic-ai/claude-code@latest")
-    latest = npm_latest_package_version(npm, package_spec)
-    if not latest:
-        print("Claude Code update check could not read the latest npm version; continuing.", flush=True)
-        return
-    if current and not version_newer(latest, current):
-        print(f"Claude Code is up to date ({current}).", flush=True)
-        return
-    current_label = current or "unknown"
-    print(f"Claude Code update available: {current_label} -> {latest}", flush=True)
-    if not (sys.stdin.isatty() and sys.stdout.isatty()):
-        print("Claude Code update requires confirmation; skipping in non-interactive mode.", flush=True)
-        return
-    answer = input("Update Claude Code now with `claude update`? [y/N] ").strip().lower()
-    if answer not in ("y", "yes"):
-        return
-    update_env = os.environ.copy()
-    update_env["PATH"] = path_with_claude_any_user_dirs(update_env)
-    try:
-        p = subprocess.run(
-            [claude, "update"],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=update_env,
-            timeout=180,
-        )
-    except subprocess.TimeoutExpired:
-        print("Claude Code update timed out; continuing with current version.", flush=True)
-        return
-    except Exception as exc:
-        print(f"Claude Code update failed ({type(exc).__name__}); continuing.", flush=True)
-        return
-    out = (p.stdout or "").strip()
+        print(f"{label} executable was not found, and npm is not available to install {package_spec}.", flush=True)
+        return None
+    install_prefix = current_npm_install_prefix()
+    cmd = npm_install_runtime_command(npm, package_spec, install_prefix)
+    print(f"{label} executable was not found; installing {package_spec}...", flush=True)
+    if install_prefix is not None:
+        print(f"Installing {label} into active npm prefix: {install_prefix}", flush=True)
+    rc, out = run_command_for_upgrade(cmd, timeout=300)
     if out:
         print(out, flush=True)
-    if p.returncode != 0:
-        print(f"Claude Code update exited with {p.returncode}; continuing with current version.", flush=True)
-        return
-    new_version = claude_code_current_version(find_executable("claude") or claude)
+    if rc != 0:
+        print(f"{label} install failed ({rc}).", flush=True)
+        if install_prefix is not None:
+            print(
+                f"Install targeted the active install prefix ({install_prefix}). "
+                "If this prefix is not writable, install with the permissions used for that prefix.",
+                flush=True,
+            )
+        return None
+    add_npm_prefix_bin_to_path(install_prefix)
+    executable = find_executable(executable_name)
+    if executable:
+        print(f"{label} installed: {executable}", flush=True)
+    else:
+        print(f"{label} install completed, but the {executable_name} executable is still not visible in PATH.", flush=True)
+    return executable
+
+
+def run_runtime_npm_update_check(
+    executable: str,
+    *,
+    executable_name: str,
+    label: str,
+    package_spec: str,
+    skip_env: str,
+    current_version: Callable[[str], str],
+    enabled: bool = True,
+) -> str:
+    if not enabled:
+        return executable
+    if os.environ.get(skip_env) == "1":
+        return executable
+    print(f"Checking {label} update before launch...", flush=True)
+    current = current_version(executable)
+    if current:
+        print(f"Current {label} version: {current}", flush=True)
+    npm = find_executable("npm")
+    if not npm:
+        print(f"{label} update check skipped: npm was not found.", flush=True)
+        return executable
+    latest = npm_latest_package_version(npm, package_spec)
+    if not latest:
+        print(f"{label} update check could not read the latest npm version; continuing.", flush=True)
+        return executable
+    if current and not version_newer(latest, current):
+        print(f"{label} is up to date ({current}).", flush=True)
+        return executable
+    current_label = current or "unknown"
+    print(f"{label} update available: {current_label} -> {latest}; upgrading automatically.", flush=True)
+    install_prefix = current_npm_install_prefix()
+    if install_prefix is not None:
+        print(f"Updating {label} in active npm prefix: {install_prefix}", flush=True)
+    rc, out = run_command_for_upgrade(npm_install_runtime_command(npm, package_spec, install_prefix), timeout=300)
+    if out:
+        print(out, flush=True)
+    if rc != 0:
+        print(f"{label} update failed ({rc}); continuing with current version.", flush=True)
+        return executable
+    add_npm_prefix_bin_to_path(install_prefix)
+    updated = find_executable(executable_name) or executable
+    new_version = current_version(updated)
     if new_version:
-        print(f"Claude Code version after update: {new_version}", flush=True)
+        print(f"{label} version after update: {new_version}", flush=True)
+    return updated
+
+
+def run_claude_update_check(claude: str, enabled: bool = True) -> str:
+    package_spec = os.environ.get("CIEL_RUNTIME_CLAUDE_CODE_PACKAGE", "@anthropic-ai/claude-code@latest")
+    return run_runtime_npm_update_check(
+        claude,
+        executable_name="claude",
+        label="Claude Code",
+        package_spec=package_spec,
+        skip_env="CIEL_RUNTIME_SKIP_CLAUDE_UPDATE",
+        current_version=claude_code_current_version,
+        enabled=enabled,
+    )
 
 
 def parse_version_tuple(value: str) -> tuple[int, ...]:
@@ -31787,7 +33131,7 @@ def npm_latest_package_version(npm: str, package_spec: str, timeout: float = 8.0
     return out.splitlines()[-1].strip() if out else ""
 
 
-def npm_global_package_root(npm: str, package_name: str = "@oneciel-ai/claude-any", timeout: float = 8.0) -> Path | None:
+def npm_global_package_root(npm: str, package_name: str = "@oneciel-ai/ciel-runtime", timeout: float = 8.0) -> Path | None:
     try:
         p = subprocess.run(
             [npm, "root", "-g"],
@@ -31871,11 +33215,28 @@ def claude_code_current_version(claude: str) -> str:
     return match.group(0) if match else ""
 
 
+def codex_current_version(codex: str) -> str:
+    try:
+        p = subprocess.run(
+            [codex, "--version"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=8,
+        )
+    except Exception:
+        return ""
+    if p.returncode != 0:
+        return ""
+    match = re.search(r"\d+(?:\.\d+)+", p.stdout or "")
+    return match.group(0) if match else ""
+
+
 def running_from_npm_package() -> bool:
-    if os.environ.get("CLAUDE_ANY_NPM_MODE") is not None:
+    if os.environ.get("CIEL_RUNTIME_NPM_MODE") is not None:
         return True
     path = str(Path(__file__).resolve()).replace("\\", "/")
-    return "/node_modules/@oneciel-ai/claude-any/" in path
+    return "/node_modules/@oneciel-ai/ciel-runtime/" in path
 
 
 def package_root_from_installed_path(path: Path) -> Path | None:
@@ -31886,7 +33247,7 @@ def package_root_from_installed_path(path: Path) -> Path | None:
         resolved = path
     parts = resolved.parts
     for idx in range(0, max(0, len(parts) - 2)):
-        if parts[idx] == "node_modules" and parts[idx + 1] == "@oneciel-ai" and parts[idx + 2] == "claude-any":
+        if parts[idx] == "node_modules" and parts[idx + 1] == "@oneciel-ai" and parts[idx + 2] == "ciel-runtime":
             try:
                 return Path(*parts[: idx + 3])
             except Exception:
@@ -31898,7 +33259,7 @@ def current_npm_package_root() -> Path | None:
     return package_root_from_installed_path(Path(__file__))
 
 
-def claude_any_launcher_candidate_dirs() -> list[Path]:
+def ciel_runtime_launcher_candidate_dirs() -> list[Path]:
     raw_dirs: list[Path] = []
     for entry in os.environ.get("PATH", "").split(os.pathsep):
         if entry:
@@ -31918,13 +33279,13 @@ def claude_any_launcher_candidate_dirs() -> list[Path]:
     return out
 
 
-def claude_any_launcher_candidates() -> list[Path]:
-    names = ["claude-any"]
+def ciel_runtime_launcher_candidates() -> list[Path]:
+    names = ["ciel-runtime"]
     if os.name == "nt":
-        names.extend(["claude-any.cmd", "claude-any.exe"])
+        names.extend(["ciel-runtime.cmd", "ciel-runtime.exe"])
     out: list[Path] = []
     seen: set[str] = set()
-    for directory in claude_any_launcher_candidate_dirs():
+    for directory in ciel_runtime_launcher_candidate_dirs():
         for name in names:
             candidate = directory / name
             if not candidate.exists():
@@ -31940,11 +33301,11 @@ def claude_any_launcher_candidates() -> list[Path]:
     return out
 
 
-def claude_any_launcher_version(path: Path, timeout: float = 5.0) -> str:
+def ciel_runtime_launcher_version(path: Path, timeout: float = 5.0) -> str:
     env = os.environ.copy()
-    env["CLAUDE_ANY_SKIP_INSTALL_DIAGNOSTIC"] = "1"
-    env["CLAUDE_ANY_SKIP_SELF_UPDATE"] = "1"
-    env["CLAUDE_ANY_SELF_UPDATE_CHECK"] = "off"
+    env["CIEL_RUNTIME_SKIP_INSTALL_DIAGNOSTIC"] = "1"
+    env["CIEL_RUNTIME_SKIP_SELF_UPDATE"] = "1"
+    env["CIEL_RUNTIME_SELF_UPDATE_CHECK"] = "off"
     try:
         proc = subprocess.run(
             [str(path), "--version"],
@@ -31958,41 +33319,41 @@ def claude_any_launcher_version(path: Path, timeout: float = 5.0) -> str:
         return ""
     if proc.returncode != 0:
         return ""
-    match = re.search(r"claude-any\s+(.+)", proc.stdout or "", re.IGNORECASE)
+    match = re.search(r"ciel-runtime\s+(.+)", proc.stdout or "", re.IGNORECASE)
     return match.group(1).strip() if match else (proc.stdout or "").strip().splitlines()[-1].strip()
 
 
-def claude_any_install_diagnostics() -> list[dict[str, str]]:
+def ciel_runtime_install_diagnostics() -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
-    for launcher in claude_any_launcher_candidates():
+    for launcher in ciel_runtime_launcher_candidates():
         root = package_root_from_installed_path(launcher)
         rows.append(
             {
                 "launcher": str(launcher),
                 "resolved": str(launcher.resolve(strict=False)),
                 "package_root": str(root) if root else "",
-                "version": claude_any_launcher_version(launcher),
+                "version": ciel_runtime_launcher_version(launcher),
             }
         )
     return rows
 
 
-def warn_if_multiple_claude_any_installs() -> None:
-    if os.environ.get("CLAUDE_ANY_SKIP_INSTALL_DIAGNOSTIC") == "1":
+def warn_if_multiple_ciel_runtime_installs() -> None:
+    if os.environ.get("CIEL_RUNTIME_SKIP_INSTALL_DIAGNOSTIC") == "1":
         return
     if not (sys.stdin.isatty() and sys.stdout.isatty()):
         return
-    rows = claude_any_install_diagnostics()
+    rows = ciel_runtime_install_diagnostics()
     roots = {row["package_root"] for row in rows if row.get("package_root")}
     if len(roots) <= 1:
         return
     current_root = str(current_npm_package_root() or "")
     first = rows[0] if rows else {}
     newest = max((row for row in rows if row.get("version")), key=lambda row: parse_version_tuple(row["version"]), default=None)
-    print("Claude Any warning: multiple claude-any npm installs are visible.", file=sys.stderr, flush=True)
+    print("Ciel Runtime warning: multiple ciel-runtime npm installs are visible.", file=sys.stderr, flush=True)
     if first:
         print(
-            f"  shell resolves claude-any to: {first.get('launcher')} ({first.get('version') or 'unknown version'})",
+            f"  shell resolves ciel-runtime to: {first.get('launcher')} ({first.get('version') or 'unknown version'})",
             file=sys.stderr,
             flush=True,
         )
@@ -32007,71 +33368,68 @@ def warn_if_multiple_claude_any_installs() -> None:
     print("  Fix by keeping one install prefix: update or uninstall the stale higher-priority install.", file=sys.stderr, flush=True)
 
 
-def claude_any_restart_user_args() -> list[str]:
+def ciel_runtime_restart_user_args() -> list[str]:
     args = list(sys.argv[1:])
     if args and args[0] == "cli":
         return args[1:]
     return args
 
 
-def restart_claude_any_after_update(npm: str, package_root: Path | None = None) -> None:
-    os.environ["CLAUDE_ANY_SKIP_SELF_UPDATE"] = "1"
-    user_args = claude_any_restart_user_args()
+def restart_ciel_runtime_after_update(npm: str, package_root: Path | None = None) -> None:
+    os.environ["CIEL_RUNTIME_SKIP_SELF_UPDATE"] = "1"
+    user_args = ciel_runtime_restart_user_args()
     package_root = package_root or current_npm_package_root() or npm_global_package_root(npm)
-    package_script = package_root / "claude_any.py" if package_root else None
+    package_script = package_root / "ciel_runtime.py" if package_root else None
     if package_script and package_script.exists():
         os.execv(sys.executable, [sys.executable, str(package_script), "cli", *user_args])
-    launcher = find_executable("claude-any")
+    launcher = find_executable("ciel-runtime")
     if launcher:
         raise SystemExit(subprocess.call([launcher, *user_args], env=os.environ.copy()))
     os.execv(sys.executable, [sys.executable, *sys.argv])
 
 
-def run_claude_any_update_check(enabled: bool = True) -> bool:
+def run_ciel_runtime_update_check(enabled: bool = True) -> bool:
     if not enabled:
         return False
-    if os.environ.get("CLAUDE_ANY_SKIP_SELF_UPDATE") == "1":
+    if os.environ.get("CIEL_RUNTIME_SKIP_SELF_UPDATE") == "1":
         return False
-    if env_bool(os.environ.get("CLAUDE_ANY_SELF_UPDATE_CHECK")) is False:
+    if env_bool(os.environ.get("CIEL_RUNTIME_SELF_UPDATE_CHECK")) is False:
         return False
     if not running_from_npm_package():
-        return False
-    if not (sys.stdin.isatty() and sys.stdout.isatty()):
         return False
     npm = find_executable("npm")
     if not npm:
         return False
-    latest = npm_latest_package_version(npm, "@oneciel-ai/claude-any@latest")
+    latest = npm_latest_package_version(npm, "@oneciel-ai/ciel-runtime@latest")
     if not latest or not version_newer(latest, VERSION):
         return False
-    print(f"Claude Any update available: {VERSION} -> {latest}", flush=True)
-    answer = input("Update now with npm? [y/N] ").strip().lower()
-    if answer not in ("y", "yes"):
-        return False
+    print(f"Ciel Runtime update available: {VERSION} -> {latest}; upgrading automatically.", flush=True)
     package_root = current_npm_package_root()
     install_prefix = npm_prefix_from_package_root(package_root) if package_root else None
-    update_cmd = npm_global_install_command(npm, "@oneciel-ai/claude-any@latest", install_prefix)
+    update_cmd = npm_global_install_command(npm, "@oneciel-ai/ciel-runtime@latest", install_prefix)
     if install_prefix is not None:
-        print(f"Updating current Claude Any install prefix: {install_prefix}", flush=True)
+        print(f"Updating current Ciel Runtime install prefix: {install_prefix}", flush=True)
     try:
         update = subprocess.run(
             update_cmd,
             text=True,
+            input="y\n",
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            env=forced_yes_upgrade_env(),
             timeout=300,
         )
     except subprocess.TimeoutExpired:
-        print("Claude Any update timed out; continuing with current version.", flush=True)
+        print("Ciel Runtime update timed out; continuing with current version.", flush=True)
         return False
     except Exception as exc:
-        print(f"Claude Any update failed ({type(exc).__name__}); continuing.", flush=True)
+        print(f"Ciel Runtime update failed ({type(exc).__name__}); continuing.", flush=True)
         return False
     out = (update.stdout or "").strip()
     if out:
         print(out, flush=True)
     if update.returncode != 0:
-        print(f"Claude Any update exited with {update.returncode}; continuing with current version.", flush=True)
+        print(f"Ciel Runtime update exited with {update.returncode}; continuing with current version.", flush=True)
         if install_prefix is not None:
             print(
                 f"Update targeted the active install prefix ({install_prefix}). "
@@ -32079,9 +33437,9 @@ def run_claude_any_update_check(enabled: bool = True) -> bool:
                 flush=True,
             )
         return False
-    print("Claude Any updated. Restarting with the new version...", flush=True)
+    print("Ciel Runtime updated. Restarting with the new version...", flush=True)
     try:
-        restart_claude_any_after_update(npm, package_root=package_root)
+        restart_ciel_runtime_after_update(npm, package_root=package_root)
     except SystemExit:
         raise
     except Exception as exc:
@@ -32094,8 +33452,10 @@ def run_command_for_upgrade(cmd: list[str], timeout: float = 300.0) -> tuple[int
         proc = subprocess.run(
             cmd,
             text=True,
+            input="y\n",
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            env=forced_yes_upgrade_env(),
             timeout=timeout,
         )
     except subprocess.TimeoutExpired:
@@ -32105,26 +33465,26 @@ def run_command_for_upgrade(cmd: list[str], timeout: float = 300.0) -> tuple[int
     return proc.returncode, (proc.stdout or "").strip()
 
 
-def quiet_upgrade_claude_any() -> int:
+def quiet_upgrade_ciel_runtime() -> int:
     npm = find_executable("npm")
     if not npm:
-        print("Claude Any update skipped: npm was not found.", flush=True)
+        print("Ciel Runtime update skipped: npm was not found.", flush=True)
         return 1
-    latest = npm_latest_package_version(npm, "@oneciel-ai/claude-any@latest")
+    latest = npm_latest_package_version(npm, "@oneciel-ai/ciel-runtime@latest")
     if latest and not version_newer(latest, VERSION):
-        print(f"Claude Any is up to date ({VERSION}).", flush=True)
+        print(f"Ciel Runtime is up to date ({VERSION}).", flush=True)
         return 0
     target = latest or "latest"
-    print(f"Updating Claude Any to {target}...", flush=True)
+    print(f"Updating Ciel Runtime to {target}...", flush=True)
     package_root = current_npm_package_root()
     install_prefix = npm_prefix_from_package_root(package_root) if package_root else None
     if install_prefix is not None:
-        print(f"Updating current Claude Any install prefix: {install_prefix}", flush=True)
-    rc, out = run_command_for_upgrade(npm_global_install_command(npm, "@oneciel-ai/claude-any@latest", install_prefix), timeout=300)
+        print(f"Updating current Ciel Runtime install prefix: {install_prefix}", flush=True)
+    rc, out = run_command_for_upgrade(npm_global_install_command(npm, "@oneciel-ai/ciel-runtime@latest", install_prefix), timeout=300)
     if out:
         print(out, flush=True)
     if rc != 0:
-        print(f"Claude Any update failed ({rc}).", flush=True)
+        print(f"Ciel Runtime update failed ({rc}).", flush=True)
         if install_prefix is not None:
             print(
                 f"Update targeted the active install prefix ({install_prefix}). "
@@ -32143,7 +33503,7 @@ def quiet_upgrade_claude_code() -> int:
     npm = find_executable("npm")
     latest = ""
     if npm:
-        package_spec = os.environ.get("CLAUDE_ANY_CLAUDE_CODE_PACKAGE", "@anthropic-ai/claude-code@latest")
+        package_spec = os.environ.get("CIEL_RUNTIME_CLAUDE_CODE_PACKAGE", "@anthropic-ai/claude-code@latest")
         latest = npm_latest_package_version(npm, package_spec)
     if current and latest and not version_newer(latest, current):
         print(f"Claude Code is up to date ({current}).", flush=True)
@@ -32151,7 +33511,10 @@ def quiet_upgrade_claude_code() -> int:
     target = latest or "latest"
     current_label = current or "unknown"
     print(f"Updating Claude Code ({current_label} -> {target})...", flush=True)
-    rc, out = run_command_for_upgrade([claude, "update"], timeout=180)
+    install_prefix = current_npm_install_prefix()
+    if install_prefix is not None:
+        print(f"Updating Claude Code in active npm prefix: {install_prefix}", flush=True)
+    rc, out = run_command_for_upgrade(npm_install_runtime_command(npm, package_spec, install_prefix), timeout=300)
     if out:
         print(out, flush=True)
     if rc != 0:
@@ -32159,55 +33522,73 @@ def quiet_upgrade_claude_code() -> int:
     return rc
 
 
-def install_claude_code_if_missing() -> str | None:
-    claude = find_executable("claude")
-    if claude:
-        return claude
-    if os.environ.get("CLAUDE_ANY_SKIP_CLAUDE_INSTALL") == "1":
-        return None
+def quiet_upgrade_codex() -> int:
+    codex = find_executable("codex")
+    if not codex:
+        codex = install_codex_if_missing()
+        return 0 if codex else 1
+    current = codex_current_version(codex)
     npm = find_executable("npm")
     if not npm:
-        print(
-            "Claude Code executable was not found, and npm is not available to install @anthropic-ai/claude-code.",
-            flush=True,
-        )
-        return None
-    package_spec = os.environ.get("CLAUDE_ANY_CLAUDE_CODE_PACKAGE", "@anthropic-ai/claude-code@latest")
+        print("Codex update skipped: npm was not found.", flush=True)
+        return 1
+    package_spec = os.environ.get("CIEL_RUNTIME_CODEX_PACKAGE", "@openai/codex@latest")
+    latest = npm_latest_package_version(npm, package_spec)
+    if current and latest and not version_newer(latest, current):
+        print(f"Codex is up to date ({current}).", flush=True)
+        return 0
+    target = latest or "latest"
+    current_label = current or "unknown"
+    print(f"Updating Codex ({current_label} -> {target})...", flush=True)
     install_prefix = current_npm_install_prefix()
-    cmd = npm_global_install_command(npm, package_spec, install_prefix)
-    cmd.insert(3, "--prefer-online")
-    print(f"Claude Code executable was not found; installing {package_spec}...", flush=True)
     if install_prefix is not None:
-        print(f"Installing Claude Code into active npm prefix: {install_prefix}", flush=True)
-    rc, out = run_command_for_upgrade(cmd, timeout=300)
+        print(f"Updating Codex in active npm prefix: {install_prefix}", flush=True)
+    rc, out = run_command_for_upgrade(npm_install_runtime_command(npm, package_spec, install_prefix), timeout=300)
     if out:
         print(out, flush=True)
     if rc != 0:
-        print(f"Claude Code install failed ({rc}).", flush=True)
-        if install_prefix is not None:
-            print(
-                f"Install targeted the active install prefix ({install_prefix}). "
-                "If this prefix is not writable, install Claude Code with the permissions used for that prefix.",
-                flush=True,
-            )
-        return None
-    if install_prefix is not None:
-        bin_dir = str(npm_global_bin_dir_from_prefix(install_prefix))
-        path = os.environ.get("PATH", "")
-        if bin_dir and bin_dir not in path.split(os.pathsep):
-            os.environ["PATH"] = bin_dir + (os.pathsep + path if path else "")
-    claude = find_executable("claude")
-    if claude:
-        print(f"Claude Code installed: {claude}", flush=True)
-    else:
-        print("Claude Code install completed, but the claude executable is still not visible in PATH.", flush=True)
-    return claude
+        print(f"Codex update failed ({rc}).", flush=True)
+    return rc
+
+
+def install_claude_code_if_missing() -> str | None:
+    package_spec = os.environ.get("CIEL_RUNTIME_CLAUDE_CODE_PACKAGE", "@anthropic-ai/claude-code@latest")
+    return install_runtime_package_if_missing(
+        executable_name="claude",
+        label="Claude Code",
+        package_spec=package_spec,
+        skip_env="CIEL_RUNTIME_SKIP_CLAUDE_INSTALL",
+    )
+
+
+def install_codex_if_missing() -> str | None:
+    package_spec = os.environ.get("CIEL_RUNTIME_CODEX_PACKAGE", "@openai/codex@latest")
+    return install_runtime_package_if_missing(
+        executable_name="codex",
+        label="Codex",
+        package_spec=package_spec,
+        skip_env="CIEL_RUNTIME_SKIP_CODEX_INSTALL",
+    )
+
+
+def run_codex_update_check(codex: str, enabled: bool = True) -> str:
+    package_spec = os.environ.get("CIEL_RUNTIME_CODEX_PACKAGE", "@openai/codex@latest")
+    return run_runtime_npm_update_check(
+        codex,
+        executable_name="codex",
+        label="Codex",
+        package_spec=package_spec,
+        skip_env="CIEL_RUNTIME_SKIP_CODEX_UPDATE",
+        current_version=codex_current_version,
+        enabled=enabled,
+    )
 
 
 def run_quiet_upgrade_and_exit() -> int:
-    any_rc = quiet_upgrade_claude_any()
+    any_rc = quiet_upgrade_ciel_runtime()
     claude_rc = quiet_upgrade_claude_code()
-    return 0 if any_rc == 0 and claude_rc == 0 else 1
+    codex_rc = quiet_upgrade_codex()
+    return 0 if any_rc == 0 and claude_rc == 0 and codex_rc == 0 else 1
 
 
 def launch_claude(
@@ -32219,10 +33600,9 @@ def launch_claude(
     self_update_check: bool = True,
 ) -> int:
     if has_noninteractive_claude_args(passthrough):
-        update_check = False
         self_update_check = False
-    warn_if_multiple_claude_any_installs()
-    run_claude_any_update_check(enabled=self_update_check)
+    warn_if_multiple_ciel_runtime_installs()
+    run_ciel_runtime_update_check(enabled=self_update_check)
     auto_import_passthrough_channels(passthrough)
     rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
     if rc == 10:
@@ -32233,7 +33613,7 @@ def launch_claude(
     provider, pcfg = get_current_provider(cfg)
     blockers = launch_readiness_errors(cfg)
     if blockers:
-        print("Claude Any launch blocked:", flush=True)
+        print("Ciel Runtime launch blocked:", flush=True)
         for line in blockers:
             print(f"- {line}", flush=True)
         return 2
@@ -32249,7 +33629,7 @@ def launch_claude(
     )
     cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
     env = os.environ.copy()
-    env["PATH"] = path_with_claude_any_user_dirs(env)
+    env["PATH"] = path_with_ciel_runtime_user_dirs(env)
     launch_passthrough = normalize_channel_passthrough(passthrough)
     native_channel_bridge = should_use_native_channel_bridge(use_router_mode, cfg, launch_passthrough)
     stdin_channel_proxy = should_use_channel_stdin_proxy(use_router_mode, launch_passthrough, cfg)
@@ -32271,13 +33651,22 @@ def launch_claude(
         manage_router_lifetime = bool(start_router_if_needed())
     if not use_native_anthropic:
         ensure_model_cache_for_launch(provider, pcfg)
+        selected, selection_lines = ensure_current_model_from_provider_list(provider, pcfg)
+        if selection_lines:
+            for line in selection_lines:
+                print(line)
+            save_config(cfg)
+        if not selected:
+            raise RuntimeError(
+                f"No concrete model is selected for provider {provider}; choose a model from the provider model list before launching Claude Code."
+            )
     launch_env = env_vars(cfg)
     if claude_channels_requested(cfg, launch_passthrough) or native_channel_bridge or llm_channel_delivery or native_auto_channel_specs:
         env.pop("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS", None)
         launch_env.pop("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS", None)
     if use_native_anthropic:
-        # Claude Native guarantee — strip every env var claude-any (or a
-        # prior claude-any session) might have left behind that would change
+        # Claude Native guarantee — strip every env var ciel-runtime (or a
+        # prior ciel-runtime session) might have left behind that would change
         # Claude Code's default model selection, backend, advisor flow, or
         # other behavior. See env_vars() docstring for the contract.
         for key in (
@@ -32302,9 +33691,9 @@ def launch_claude(
             "CLAUDE_CODE_EFFORT_LEVEL",
             "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
             "CLAUDE_CODE_ATTRIBUTION_HEADER",
-            "CLAUDE_ANY_ADVISOR_MODEL",
-            "CLAUDE_ANY_BYPASS_PERMISSIONS",
-            "CLAUDE_ANY_MODEL_ALIAS",
+            "CIEL_RUNTIME_ADVISOR_MODEL",
+            "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+            "CIEL_RUNTIME_MODEL_ALIAS",
         ):
             env.pop(key, None)
             launch_env.pop(key, None)
@@ -32314,11 +33703,11 @@ def launch_claude(
             "INFO",
             "claude_native_launch model=<defer-to-claude-code> advisor=off backend=<default-anthropic>",
         )
-        disable_claude_any_slash_commands_for_native()
+        disable_ciel_runtime_slash_commands_for_native()
     elif anthropic_routed_enabled(provider, pcfg):
         router_log(
             "INFO",
-            "claude_anthropic_routed_launch backend=claude-any-router upstream=anthropic",
+            "claude_anthropic_routed_launch backend=ciel-runtime-router upstream=anthropic",
         )
     env.update(launch_env)
     if not use_native_anthropic:
@@ -32326,16 +33715,18 @@ def launch_claude(
         for key in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
             if key not in launch_env and not preserve_anthropic_auth:
                 env.pop(key, None)
-        install_claude_any_slash_commands(include_advisor=provider != "anthropic")
+        install_ciel_runtime_slash_commands(include_advisor=provider != "anthropic")
         install_tool_guard_hooks()
-        install_claude_any_statusline()
+        install_ciel_runtime_statusline()
     claude = install_claude_code_if_missing()
     if not claude:
         raise RuntimeError(
-            "claude executable was not found in PATH or the Claude Any user bin directories, "
+            "claude executable was not found in PATH or the Ciel Runtime user bin directories, "
             "and automatic install of @anthropic-ai/claude-code did not make it available"
         )
-    run_claude_update_check(claude, enabled=update_check)
+    updated_claude = run_claude_update_check(claude, enabled=update_check)
+    if isinstance(updated_claude, str) and updated_claude:
+        claude = updated_claude
     claude = find_executable("claude") or claude
     if native_channel_bridge or native_auto_channel_specs:
         auth_ok, auth_reason = claude_code_channels_auth_available(claude)
@@ -32409,7 +33800,7 @@ def launch_claude(
         else:
             router_log("INFO", "channel_sse_auto_start_skipped reason=router_managed_llm_delivery")
         # Channel-capable streamable-HTTP backends (e.g. ai-net-http) are forced
-        # through claude-any's own mcp-proxy so there is exactly ONE backend
+        # through ciel-runtime's own mcp-proxy so there is exactly ONE backend
         # connection: the proxy serves Claude Code's tool calls AND owns the
         # notification stream + idle-death wake handling. Because the proxy now
         # OWNS the stream, it must NOT also be in the disable set -- forcing a
@@ -32465,7 +33856,7 @@ def launch_claude(
         and not has_passthrough_option([*extra_args, *claude_passthrough], "--disallowedTools", "--disallowed-tools")
     ):
         cmd.extend(["--disallowedTools", ",".join(CLAUDE_SERVER_SIDE_WEB_TOOLS)])
-    model = env.get("CLAUDE_ANY_MODEL_ALIAS")
+    model = env.get("CIEL_RUNTIME_MODEL_ALIAS")
     if model:
         cmd.extend(["--model", model])
     cmd.extend(extra_args)
@@ -32477,9 +33868,9 @@ def launch_claude(
         launch_cwd_key,
         provider,
         launch_mode_name(provider, pcfg, use_native_anthropic),
-        str(pcfg.get("current_model") or env.get("CLAUDE_ANY_MODEL_ALIAS") or ""),
+        str(pcfg.get("current_model") or env.get("CIEL_RUNTIME_MODEL_ALIAS") or ""),
     )
-    capture_stderr = env_bool(os.environ.get("CLAUDE_ANY_CAPTURE_CC_STDERR"), False)
+    capture_stderr = env_bool(os.environ.get("CIEL_RUNTIME_CAPTURE_CC_STDERR"), False)
     screen_summary_proxy = should_use_channel_screen_summary_proxy(
         llm_channel_delivery,
         detected_channel_specs,
@@ -32495,6 +33886,100 @@ def launch_claude(
         return subprocess.call(cmd, env=env)
 
     return run_with_router_lifetime(run_claude_process, manage_router_lifetime)
+
+
+CODEX_RUNTIME_PROVIDER_ID = "ciel-runtime"
+CODEX_RUNTIME_API_KEY_ENV = "CIEL_RUNTIME_CODEX_API_KEY"
+
+
+def toml_string(value: str) -> str:
+    return json.dumps(str(value))
+
+
+def codex_runtime_config_args(router_base: str = ROUTER_BASE) -> list[str]:
+    provider = CODEX_RUNTIME_PROVIDER_ID
+    base = router_base.rstrip("/") + "/v1"
+    return [
+        "-c",
+        f"model_provider={toml_string(provider)}",
+        "-c",
+        f"model_providers.{provider}.name={toml_string('Ciel Runtime')}",
+        "-c",
+        f"model_providers.{provider}.base_url={toml_string(base)}",
+        "-c",
+        f"model_providers.{provider}.wire_api={toml_string('responses')}",
+        "-c",
+        f"model_providers.{provider}.env_key={toml_string(CODEX_RUNTIME_API_KEY_ENV)}",
+        "-c",
+        f"model_providers.{provider}.request_max_retries=0",
+        "-c",
+        f"model_providers.{provider}.stream_max_retries=0",
+    ]
+
+
+def codex_help_requested(passthrough: list[str]) -> bool:
+    return any(arg in ("help", "--help", "-h") for arg in passthrough)
+
+
+def launch_codex(
+    passthrough: list[str],
+    skip_menu: bool = False,
+    force_menu: bool = False,
+    update_check: bool = True,
+    self_update_check: bool = True,
+) -> int:
+    warn_if_multiple_ciel_runtime_installs()
+    run_ciel_runtime_update_check(enabled=self_update_check)
+    env = os.environ.copy()
+    env["PATH"] = path_with_ciel_runtime_user_dirs(env)
+    codex = install_codex_if_missing()
+    if not codex:
+        raise RuntimeError(
+            "codex executable was not found in PATH or the Ciel Runtime user bin directories, "
+            "and automatic install of @openai/codex did not make it available"
+        )
+    updated_codex = run_codex_update_check(codex, enabled=update_check)
+    if isinstance(updated_codex, str) and updated_codex:
+        codex = updated_codex
+    codex = find_executable("codex") or codex
+    if codex_help_requested(passthrough):
+        return subprocess.call([codex, *passthrough], env=env)
+    auto_import_passthrough_channels(passthrough)
+    rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
+    if rc == 10:
+        return 0
+    if rc != 0:
+        return rc
+    cfg = load_config()
+    provider, pcfg = get_current_provider(cfg)
+    blockers = launch_readiness_errors(cfg)
+    if blockers:
+        print("Ciel Runtime Codex launch blocked:", flush=True)
+        for line in blockers:
+            print(f"- {line}", flush=True)
+        return 2
+    cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
+    manage_router_lifetime = bool(start_router_if_needed())
+    ensure_model_cache_for_launch(provider, pcfg)
+    env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
+    cmd = [codex, *codex_runtime_config_args()]
+    if not has_passthrough_option(passthrough, "-m", "--model"):
+        model = current_alias(cfg)
+        if model:
+            cmd.extend(["-m", model])
+    cmd.extend(passthrough)
+    _log_codex_command_for_diagnostics(cmd, env)
+    record_launch_state_for_cwd(
+        current_launch_cwd_key(),
+        provider,
+        "codex-router",
+        str(pcfg.get("current_model") or current_alias(cfg) or ""),
+    )
+
+    def run_codex_process() -> int:
+        return subprocess.call(cmd, env=env)
+
+    return run_with_router_lifetime(run_codex_process, manage_router_lifetime)
 
 
 CLAUDE_CODE_STDERR_LOG = CONFIG_DIR / "claude-code-stderr.log"
@@ -32527,8 +34012,8 @@ def _log_claude_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> 
         "ANTHROPIC_MODEL",
         "ANTHROPIC_API_KEY",
         "ANTHROPIC_AUTH_TOKEN",
-        "CLAUDE_ANY_PROVIDER",
-        "CLAUDE_ANY_MODEL_ALIAS",
+        "CIEL_RUNTIME_PROVIDER",
+        "CIEL_RUNTIME_MODEL_ALIAS",
         "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
         "CLAUDE_CODE_EFFORT_LEVEL",
         "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
@@ -32547,13 +34032,25 @@ def _log_claude_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> 
         router_log("INFO", "claude_launch_env " + " ".join(env_summary))
 
 
+def _log_codex_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> None:
+    provider_args = [arg for arg in cmd if arg.startswith("model_provider=") or arg.startswith("model_providers.")]
+    router_log("INFO", "codex_launch_cmd argv_len=%d provider_overrides=%d" % (len(cmd), len(provider_args)))
+    env_summary = []
+    for key in ("CIEL_RUNTIME_PROVIDER", "CIEL_RUNTIME_MODEL_ALIAS", CODEX_RUNTIME_API_KEY_ENV):
+        if key in env:
+            value = mask_secret(env[key]) if "KEY" in key or "TOKEN" in key else env[key]
+            env_summary.append(f"{key}={value}")
+    if env_summary:
+        router_log("INFO", "codex_launch_env " + " ".join(env_summary))
+
+
 def _subprocess_call_capturing_stderr(cmd: list[str], env: dict[str, str]) -> int:
     """Like subprocess.call but tees Claude Code's stderr into
-    ~/.config/claude-any/claude-code-stderr.log so the user can collect
+    ~/.config/ciel-runtime/claude-code-stderr.log so the user can collect
     the exact context around messages like
     `--dangerously-load-development-channels ignored (server:...)`.
 
-    Enabled via CLAUDE_ANY_CAPTURE_CC_STDERR=1."""
+    Enabled via CIEL_RUNTIME_CAPTURE_CC_STDERR=1."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     try:
         if CLAUDE_CODE_STDERR_LOG.exists() and CLAUDE_CODE_STDERR_LOG.stat().st_size > 2_000_000:
@@ -32613,92 +34110,95 @@ def _subprocess_call_capturing_stderr(cmd: list[str], env: dict[str, str]) -> in
 
 def cli_usage() -> str:
     return """Usage:
-  claude-any                         Launch Claude Code through claude-any router
+  ciel-runtime                         Launch Claude Code through ciel-runtime router
+  ciel-runtime codex [args...]         Launch Codex through ciel-runtime router
 
 Control plane, runs before Claude Code and does not require LLM connectivity:
-  claude-any version                 Print claude-any version
-  claude-any language [en|ko|ja|zh] Set display language
-  claude-any provider                Pick provider with arrow-key TUI
-  claude-any provider list           List providers
-  claude-any provider PROVIDER       Set provider
-  claude-any base-url PROVIDER URL   Set provider base URL
-  claude-any model MODEL_ID          Set current provider model
-  claude-any advisor-model MODEL_ID  Set current provider advisor model (off disables)
-  claude-any models [PROVIDER]       List models
-  claude-any api-key PROVIDER        Store API key securely
-  claude-any api-key PROVIDER clear  Clear stored API key(s)
-  claude-any set-api-key PROVIDER KEY
-  claude-any set-api-keys PROVIDER KEY1,KEY2
-  claude-any web-search [on|off]     Auto-attach DuckDuckGo MCP for non-native providers
-  claude-any web-fetch [on|off]      Auto-attach fetch MCP for web page content
-  claude-any log-level [LEVEL]       Show or set router log level
-  claude-any channels [cmd]          Configure external channel specs
-  claude-any channel-delivery [stdin|native]
+  ciel-runtime version                 Print ciel-runtime version
+  ciel-runtime language [en|ko|ja|zh] Set display language
+  ciel-runtime provider                Pick provider with arrow-key TUI
+  ciel-runtime provider list           List providers
+  ciel-runtime provider PROVIDER       Set provider
+  ciel-runtime base-url PROVIDER URL   Set provider base URL
+  ciel-runtime model MODEL_ID          Set current provider model
+  ciel-runtime advisor-model MODEL_ID  Set current provider advisor model (off disables)
+  ciel-runtime models [PROVIDER]       List models
+  ciel-runtime api-key PROVIDER        Store API key securely
+  ciel-runtime api-key PROVIDER clear  Clear stored API key(s)
+  ciel-runtime set-api-key PROVIDER KEY
+  ciel-runtime set-api-keys PROVIDER KEY1,KEY2
+  ciel-runtime web-search [on|off]     Auto-attach DuckDuckGo MCP for non-native providers
+  ciel-runtime web-fetch [on|off]      Auto-attach fetch MCP for web page content
+  ciel-runtime log-level [LEVEL]       Show or set router log level
+  ciel-runtime channels [cmd]          Configure external channel specs
+  ciel-runtime channel-delivery [stdin|native]
                                       Select PTY wake proxy or native claude/channel bridge
-  claude-any ollama-native [on|off]  Use Ollama's official Claude Code env path
-  claude-any ollama-options [provider] [key=value ...]
+  ciel-runtime ollama-native [on|off]  Use Ollama's official Claude Code env path
+  ciel-runtime ollama-options [provider] [key=value ...]
                                       Set Ollama num_ctx/options/keep_alive/think
-  claude-any provider-options [provider] [key=value ...]
+  ciel-runtime provider-options [provider] [key=value ...]
                                       Set vLLM/NIM/NVIDIA output/context/timeouts
-  claude-any ollama-catalog          Download Ollama model/context catalog
-  claude-any test [seconds] [mode]   Test compatibility; mode is auto, quick, smoke, or full
-  claude-any stop                    Stop router/proxy
+  ciel-runtime ollama-catalog          Download Ollama model/context catalog
+  ciel-runtime test [seconds] [mode]   Test compatibility; mode is auto, quick, smoke, or full
+  ciel-runtime stop                    Stop router/proxy
 
 Headless setup flags, namespaced to avoid Claude CLI collisions:
-  claude-any --ca-provider PROVIDER  Set provider, then launch
-  claude-any --ca-env-file PATH      Load CLAUDE_ANY_* values from a .env file
-  claude-any --ca-menu               Apply setup values, then open the menu
-  claude-any --ca-language en|ko|ja|zh
-  claude-any --ca-base-url URL       Set current provider base URL, then launch
-  claude-any --ca-model MODEL_ID     Set provider model, then launch
-  claude-any --ca-advisor-model MODEL_ID
-  claude-any --ca-auto-llm-options [MODEL_ID]
+  ciel-runtime --ca-provider PROVIDER  Set provider, then launch
+  ciel-runtime --ca-env-file PATH      Load CIEL_RUNTIME_* values from a .env file
+  ciel-runtime --ca-runtime claude|codex
+                                      Select Claude Code or Codex for this launch
+  ciel-runtime --ca-menu               Apply setup values, then open the menu
+  ciel-runtime --ca-language en|ko|ja|zh
+  ciel-runtime --ca-base-url URL       Set current provider base URL, then launch
+  ciel-runtime --ca-model MODEL_ID     Set provider model, then launch
+  ciel-runtime --ca-advisor-model MODEL_ID
+  ciel-runtime --ca-auto-llm-options [MODEL_ID]
                                       Apply recommended LLM options for MODEL_ID or the saved model
-  claude-any --ca-api-key KEY        Set current provider API key, then launch
-  claude-any --ca-api-key clear      Clear current provider API key(s), then launch
-  claude-any --ca-api-key-env ENVVAR Set current provider API key from env, then launch
-  claude-any --ca-api-keys KEY1,KEY2 Set current provider API keys with round-robin
-  claude-any --ca-api-keys-env ENVVAR
+  ciel-runtime --ca-api-key KEY        Set current provider API key, then launch
+  ciel-runtime --ca-api-key clear      Clear current provider API key(s), then launch
+  ciel-runtime --ca-api-key-env ENVVAR Set current provider API key from env, then launch
+  ciel-runtime --ca-api-keys KEY1,KEY2 Set current provider API keys with round-robin
+  ciel-runtime --ca-api-keys-env ENVVAR
                                       Set current provider API keys from env, then launch
-  claude-any --ca-set-api-key PROVIDER KEY
-  claude-any --ca-set-api-key-env PROVIDER ENVVAR
-  claude-any --ca-set-api-keys PROVIDER KEY1,KEY2
-  claude-any --ca-set-api-keys-env PROVIDER ENVVAR
-  claude-any --ca-provider-option KEY=VALUE
+  ciel-runtime --ca-set-api-key PROVIDER KEY
+  ciel-runtime --ca-set-api-key-env PROVIDER ENVVAR
+  ciel-runtime --ca-set-api-keys PROVIDER KEY1,KEY2
+  ciel-runtime --ca-set-api-keys-env PROVIDER ENVVAR
+  ciel-runtime --ca-provider-option KEY=VALUE
                                       Set a provider option for the current provider
-  claude-any --ca-set-provider-option PROVIDER KEY=VALUE
+  ciel-runtime --ca-set-provider-option PROVIDER KEY=VALUE
                                       Set a provider option for a specific provider
-  claude-any --ca-ollama-num-ctx VALUE
-  claude-any --ca-ollama-ctx-range MIN MAX
-  claude-any --ca-ollama-option KEY=VALUE
-  claude-any --ca-max-output-tokens VALUE
-  claude-any --ca-context-window VALUE
-  claude-any --ca-request-timeout-ms VALUE
-  claude-any --ca-stream-idle-timeout-ms VALUE
-  claude-any --ca-rate-limit-rpm VALUE
-  claude-any --ca-rate-limit-status on|off
-  claude-any --ca-stream on|off
-  claude-any --ca-stream-word-chunking on|off
-  claude-any --ca-log-level LEVEL    Set router log level: SILENT, ERROR, WARN, INFO, DEBUG, TRACE
-  claude-any --ca-web-search         Force DuckDuckGo MCP for this launch
-  claude-any --ca-no-web-search      Disable DuckDuckGo MCP for this launch
-  claude-any --ca-web-fetch          Enable fetch MCP
-  claude-any --ca-no-web-fetch       Disable fetch MCP
-  claude-any --ca-channel SPEC       Add an official/approved Claude Code channel
-  claude-any --ca-channel-delivery MODE
+  ciel-runtime --ca-ollama-num-ctx VALUE
+  ciel-runtime --ca-ollama-ctx-range MIN MAX
+  ciel-runtime --ca-ollama-option KEY=VALUE
+  ciel-runtime --ca-max-output-tokens VALUE
+  ciel-runtime --ca-context-window VALUE
+  ciel-runtime --ca-request-timeout-ms VALUE
+  ciel-runtime --ca-stream-idle-timeout-ms VALUE
+  ciel-runtime --ca-rate-limit-rpm VALUE
+  ciel-runtime --ca-rate-limit-status on|off
+  ciel-runtime --ca-stream on|off
+  ciel-runtime --ca-stream-word-chunking on|off
+  ciel-runtime --ca-log-level LEVEL    Set router log level: SILENT, ERROR, WARN, INFO, DEBUG, TRACE
+  ciel-runtime --ca-web-search         Force DuckDuckGo MCP for this launch
+  ciel-runtime --ca-no-web-search      Disable DuckDuckGo MCP for this launch
+  ciel-runtime --ca-web-fetch          Enable fetch MCP
+  ciel-runtime --ca-no-web-fetch       Disable fetch MCP
+  ciel-runtime --ca-channel SPEC       Add an official/approved Claude Code channel
+  ciel-runtime --ca-channel-delivery MODE
                                       Set channel delivery: stdin or native
-  claude-any --ca-clear-channels     Clear saved channel specs
-  claude-any --ca-no-self-update-check
-                                      Skip Claude Any npm self-update check
-  claude-any --ca-no-update-check    Skip Claude Code update check for this launch
-  claude-any --ca-upgrade-and-exit   Update Claude Any and Claude Code without prompts, then exit
-  claude-any --ca-no-launch          Apply setup flags/env values, then exit without launching Claude
-  claude-any --ca-stop               Stop router/proxy
-  claude-any --                      Pass all following args directly to Claude Code
+  ciel-runtime --ca-clear-channels     Clear saved channel specs
+  ciel-runtime --ca-no-self-update-check
+                                      Skip Ciel Runtime npm self-update check
+  ciel-runtime --ca-no-update-check    Skip runtime update check for this launch
+  ciel-runtime --ca-upgrade-and-exit   Update Ciel Runtime, Claude Code, and Codex without prompts, then exit
+  ciel-runtime --ca-no-launch          Apply setup flags/env values, then exit without launching a runtime
+  ciel-runtime --ca-stop               Stop router/proxy
+  ciel-runtime --                      Pass all following args directly to the selected runtime
 
 Provider names: anthropic, ollama, ollama-cloud, deepseek, opencode, opencode-go, kimi, z.ai, vllm, lm-studio, nvidia-hosted, self-hosted-nim, openrouter, fireworks
-Any other arguments are passed through to claude. Use -- before Claude flags that
-collide with claude-any setup flags."""
+Any other arguments are passed through to the selected runtime. Use -- before runtime
+flags that collide with ciel-runtime setup flags."""
 
 
 def pop_headless_env_file_args(argv: list[str]) -> list[str]:
@@ -32726,27 +34226,27 @@ def pop_headless_env_file_args(argv: list[str]) -> list[str]:
 
 
 def apply_headless_env_config() -> tuple[bool, bool | None, bool | None, bool | None, bool]:
-    skip_menu = os.environ.get("CLAUDE_ANY_SKIP_MENU") == "1"
-    force_menu = bool(env_bool(os.environ.get("CLAUDE_ANY_FORCE_MENU"), False))
-    web_search_override = env_bool(os.environ.get("CLAUDE_ANY_WEB_SEARCH"))
-    update_check_override = env_bool(os.environ.get("CLAUDE_ANY_UPDATE_CHECK"))
-    self_update_check_override = env_bool(os.environ.get("CLAUDE_ANY_SELF_UPDATE_CHECK"))
-    language = os.environ.get("CLAUDE_ANY_LANGUAGE", "").strip()
+    skip_menu = os.environ.get("CIEL_RUNTIME_SKIP_MENU") == "1"
+    force_menu = bool(env_bool(os.environ.get("CIEL_RUNTIME_FORCE_MENU"), False))
+    web_search_override = env_bool(os.environ.get("CIEL_RUNTIME_WEB_SEARCH"))
+    update_check_override = env_bool(os.environ.get("CIEL_RUNTIME_UPDATE_CHECK"))
+    self_update_check_override = env_bool(os.environ.get("CIEL_RUNTIME_SELF_UPDATE_CHECK"))
+    language = os.environ.get("CIEL_RUNTIME_LANGUAGE", "").strip()
     if language:
         cmd_language(argparse.Namespace(value=language))
         skip_menu = True
-    web_fetch = env_bool(os.environ.get("CLAUDE_ANY_WEB_FETCH"))
+    web_fetch = env_bool(os.environ.get("CIEL_RUNTIME_WEB_FETCH"))
     if web_fetch is not None:
         cmd_web_fetch(argparse.Namespace(value="on" if web_fetch else "off"))
         skip_menu = True
-    provider = os.environ.get("CLAUDE_ANY_PROVIDER", "").strip()
+    provider = os.environ.get("CIEL_RUNTIME_PROVIDER", "").strip()
     if provider:
         cmd_provider(argparse.Namespace(name=provider))
         skip_menu = True
-    api_key_env = os.environ.get("CLAUDE_ANY_API_KEY_ENV", "").strip()
-    api_key = os.environ.get("CLAUDE_ANY_API_KEY", "").strip()
-    api_keys_env = os.environ.get("CLAUDE_ANY_API_KEYS_ENV", "").strip()
-    api_keys = os.environ.get("CLAUDE_ANY_API_KEYS", "").strip()
+    api_key_env = os.environ.get("CIEL_RUNTIME_API_KEY_ENV", "").strip()
+    api_key = os.environ.get("CIEL_RUNTIME_API_KEY", "").strip()
+    api_keys_env = os.environ.get("CIEL_RUNTIME_API_KEYS_ENV", "").strip()
+    api_keys = os.environ.get("CIEL_RUNTIME_API_KEYS", "").strip()
     current_provider, _ = get_current_provider(load_config())
     if api_keys_env:
         value = os.environ.get(api_keys_env, "")
@@ -32766,28 +34266,28 @@ def apply_headless_env_config() -> tuple[bool, bool | None, bool | None, bool | 
     elif api_key:
         cmd_set_api_key(argparse.Namespace(provider=current_provider, key=api_key))
         skip_menu = True
-    base_url = os.environ.get("CLAUDE_ANY_BASE_URL", "").strip()
+    base_url = os.environ.get("CIEL_RUNTIME_BASE_URL", "").strip()
     if base_url:
         current_provider, _ = get_current_provider(load_config())
         cmd_base_url(argparse.Namespace(provider=current_provider, url=base_url))
         skip_menu = True
-    model = os.environ.get("CLAUDE_ANY_MODEL", "").strip()
+    model = os.environ.get("CIEL_RUNTIME_MODEL", "").strip()
     if model:
         cmd_model(argparse.Namespace(value=[model]))
         skip_menu = True
-    advisor_model = os.environ.get("CLAUDE_ANY_ADVISOR_MODEL", "").strip()
+    advisor_model = os.environ.get("CIEL_RUNTIME_ADVISOR_MODEL", "").strip()
     if advisor_model:
         set_advisor_model_config(advisor_model)
         skip_menu = True
     provider_option_keys = {
-        "CLAUDE_ANY_MAX_OUTPUT_TOKENS": "max_output_tokens",
-        "CLAUDE_ANY_CONTEXT_WINDOW": "context_window",
-        "CLAUDE_ANY_REQUEST_TIMEOUT_MS": "request_timeout_ms",
-        "CLAUDE_ANY_STREAM_IDLE_TIMEOUT_MS": "stream_idle_timeout_ms",
-        "CLAUDE_ANY_RATE_LIMIT_RPM": "rate_limit_rpm",
-        "CLAUDE_ANY_RATE_LIMIT_STATUS": "rate_limit_status",
-        "CLAUDE_ANY_STREAM": "stream_enabled",
-        "CLAUDE_ANY_STREAM_WORD_CHUNKING": "stream_word_chunking",
+        "CIEL_RUNTIME_MAX_OUTPUT_TOKENS": "max_output_tokens",
+        "CIEL_RUNTIME_CONTEXT_WINDOW": "context_window",
+        "CIEL_RUNTIME_REQUEST_TIMEOUT_MS": "request_timeout_ms",
+        "CIEL_RUNTIME_STREAM_IDLE_TIMEOUT_MS": "stream_idle_timeout_ms",
+        "CIEL_RUNTIME_RATE_LIMIT_RPM": "rate_limit_rpm",
+        "CIEL_RUNTIME_RATE_LIMIT_STATUS": "rate_limit_status",
+        "CIEL_RUNTIME_STREAM": "stream_enabled",
+        "CIEL_RUNTIME_STREAM_WORD_CHUNKING": "stream_word_chunking",
     }
     provider_values = [
         f"{option_key}={os.environ[env_key].strip()}"
@@ -32798,9 +34298,9 @@ def apply_headless_env_config() -> tuple[bool, bool | None, bool | None, bool | 
         cmd_provider_options(argparse.Namespace(values=provider_values))
         skip_menu = True
     ollama_values: list[str] = []
-    if os.environ.get("CLAUDE_ANY_OLLAMA_NUM_CTX", "").strip():
-        ollama_values.append(f"num_ctx={os.environ['CLAUDE_ANY_OLLAMA_NUM_CTX'].strip()}")
-    for item in os.environ.get("CLAUDE_ANY_OLLAMA_OPTIONS", "").replace(",", " ").split():
+    if os.environ.get("CIEL_RUNTIME_OLLAMA_NUM_CTX", "").strip():
+        ollama_values.append(f"num_ctx={os.environ['CIEL_RUNTIME_OLLAMA_NUM_CTX'].strip()}")
+    for item in os.environ.get("CIEL_RUNTIME_OLLAMA_OPTIONS", "").replace(",", " ").split():
         if item.strip():
             ollama_values.append(item.strip())
     if ollama_values:
@@ -32808,7 +34308,7 @@ def apply_headless_env_config() -> tuple[bool, bool | None, bool | None, bool | 
         skip_menu = True
     channel_values = [
         item.strip()
-        for item in re.split(r"[\s,]+", os.environ.get("CLAUDE_ANY_CHANNELS", "").strip())
+        for item in re.split(r"[\s,]+", os.environ.get("CIEL_RUNTIME_CHANNELS", "").strip())
         if item.strip()
     ]
     for channel_value in channel_values:
@@ -32816,13 +34316,13 @@ def apply_headless_env_config() -> tuple[bool, bool | None, bool | None, bool | 
         skip_menu = True
     dev_channel_values = [
         item.strip()
-        for item in re.split(r"[\s,]+", os.environ.get("CLAUDE_ANY_DEV_CHANNELS", "").strip())
+        for item in re.split(r"[\s,]+", os.environ.get("CIEL_RUNTIME_DEV_CHANNELS", "").strip())
         if item.strip()
     ]
     for channel_value in dev_channel_values:
         add_channel_spec(channel_value)
         skip_menu = True
-    channel_delivery = os.environ.get("CLAUDE_ANY_CHANNEL_DELIVERY", "").strip()
+    channel_delivery = os.environ.get("CIEL_RUNTIME_CHANNEL_DELIVERY", "").strip()
     if channel_delivery:
         set_channel_delivery_config(channel_delivery)
         skip_menu = True
@@ -32840,15 +34340,17 @@ def run_cli(argv: list[str]) -> int:
         return run_quiet_upgrade_and_exit()
     if argv:
         head, rest = argv[0], argv[1:]
+        if head in ("codex", "launch-codex"):
+            return launch_codex(rest)
         if head in ("version", "--version", "-v"):
-            print(f"claude-any {VERSION}")
+            print(f"ciel-runtime {VERSION}")
             return 0
         if head in ("language", "lang"):
             cmd_language(argparse.Namespace(value=rest[0] if rest else None))
             return 0
         if head == "provider":
             if not rest:
-                rc = run_external_menu("claude-any-provider")
+                rc = run_external_menu("ciel-runtime-provider")
                 return portable_provider_menu() if rc is None else rc
             if rest[0] in ("list", "ls"):
                 cmd_provider(argparse.Namespace(name=None))
@@ -32865,7 +34367,7 @@ def run_cli(argv: list[str]) -> int:
             return 0
         if head == "base-url":
             if len(rest) < 2:
-                raise SystemExit("Usage: claude-any base-url PROVIDER URL")
+                raise SystemExit("Usage: ciel-runtime base-url PROVIDER URL")
             cmd_base_url(argparse.Namespace(provider=rest[0], url=rest[1]))
             return 0
         if head == "models":
@@ -32878,12 +34380,12 @@ def run_cli(argv: list[str]) -> int:
             return 0
         if head in ("set-api-key", "set-apikey"):
             if len(rest) < 2:
-                raise SystemExit("Usage: claude-any set-api-key PROVIDER KEY")
+                raise SystemExit("Usage: ciel-runtime set-api-key PROVIDER KEY")
             cmd_set_api_key(argparse.Namespace(provider=rest[0], key=rest[1]))
             return 0
         if head in ("set-api-keys", "set-apikeys"):
             if len(rest) < 2:
-                raise SystemExit("Usage: claude-any set-api-keys PROVIDER KEY1,KEY2")
+                raise SystemExit("Usage: ciel-runtime set-api-keys PROVIDER KEY1,KEY2")
             cmd_set_api_keys(argparse.Namespace(provider=rest[0], keys=rest[1:]))
             return 0
         if head in ("web-search", "websearch"):
@@ -32922,7 +34424,7 @@ def run_cli(argv: list[str]) -> int:
                     try:
                         timeout = float(item.split("=", 1)[1])
                     except ValueError:
-                        raise SystemExit("Usage: claude-any ollama-catalog [--no-contexts] [--timeout=SECONDS]")
+                        raise SystemExit("Usage: ciel-runtime ollama-catalog [--no-contexts] [--timeout=SECONDS]")
             cmd_ollama_catalog(argparse.Namespace(no_contexts=no_contexts, timeout=timeout))
             return 0
         if head in ("test", "compat", "compatibility"):
@@ -32935,11 +34437,11 @@ def run_cli(argv: list[str]) -> int:
                 try:
                     timeout = float(rest[0])
                 except ValueError:
-                    raise SystemExit("Usage: claude-any test [timeout_seconds] [auto|quick|smoke|full]")
+                    raise SystemExit("Usage: ciel-runtime test [timeout_seconds] [auto|quick|smoke|full]")
                 if len(rest) > 1:
                     mode = rest[1]
             if mode not in ("auto", "quick", "smoke", "full"):
-                raise SystemExit("Usage: claude-any test [timeout_seconds] [auto|quick|smoke|full]")
+                raise SystemExit("Usage: ciel-runtime test [timeout_seconds] [auto|quick|smoke|full]")
             cmd_test(argparse.Namespace(timeout=timeout, mode=mode))
             return 0
         if head == "status":
@@ -32956,6 +34458,7 @@ def run_cli(argv: list[str]) -> int:
     configure_only = False
     auto_llm_options = False
     auto_llm_model: str | None = None
+    runtime = "claude"
     skip_menu, web_search_override, update_check_override, self_update_check_override, force_menu = apply_headless_env_config()
     update_check = True
     if update_check_override is not None:
@@ -32969,6 +34472,18 @@ def run_cli(argv: list[str]) -> int:
         if arg in ("--ca-menu", "--ca-interactive"):
             force_menu = True
             i += 1
+        elif arg == "--ca-runtime" or arg.startswith("--ca-runtime="):
+            value = arg.split("=", 1)[1] if "=" in arg else None
+            if value is None:
+                if i + 1 >= len(argv):
+                    raise SystemExit("Missing runtime for --ca-runtime")
+                value = argv[i + 1]
+                i += 2
+            else:
+                i += 1
+            runtime = str(value or "").strip().lower()
+            if runtime not in ("claude", "codex"):
+                raise SystemExit("--ca-runtime must be claude or codex")
         elif arg in ("--ca-no-launch", "--ca-configure-only", "--ca-setup-only"):
             configure_only = True
             skip_menu = True
@@ -32995,7 +34510,7 @@ def run_cli(argv: list[str]) -> int:
                 skip_menu = True
                 i += 2
             else:
-                rc = run_external_menu("claude-any-provider")
+                rc = run_external_menu("ciel-runtime-provider")
                 if rc is None:
                     rc = portable_provider_menu()
                 if rc != 0:
@@ -33390,6 +34905,14 @@ def run_cli(argv: list[str]) -> int:
             print(line)
     if configure_only:
         return 0
+    if runtime == "codex":
+        return launch_codex(
+            passthrough,
+            skip_menu=skip_menu,
+            force_menu=force_menu,
+            update_check=update_check,
+            self_update_check=self_update_check,
+        )
     return launch_claude(
         passthrough,
         skip_menu=skip_menu,
@@ -33408,12 +34931,16 @@ def cmd_launch(args: argparse.Namespace) -> None:
     raise SystemExit(launch_claude(args.argv))
 
 
+def cmd_launch_codex(args: argparse.Namespace) -> None:
+    raise SystemExit(launch_codex(args.argv))
+
+
 def cmd_version(args: argparse.Namespace) -> None:
-    print(f"claude-any {VERSION}")
+    print(f"ciel-runtime {VERSION}")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="claude-anyctl")
+    p = argparse.ArgumentParser(prog="ciel-runtimectl")
     sub = p.add_subparsers(dest="cmd", required=True)
     cli = sub.add_parser("cli", add_help=False)
     cli.add_argument("argv", nargs=argparse.REMAINDER)
@@ -33421,6 +34948,9 @@ def build_parser() -> argparse.ArgumentParser:
     launch = sub.add_parser("launch", add_help=False)
     launch.add_argument("argv", nargs=argparse.REMAINDER)
     launch.set_defaults(func=cmd_launch)
+    launch_codex_parser = sub.add_parser("launch-codex", add_help=False)
+    launch_codex_parser.add_argument("argv", nargs=argparse.REMAINDER)
+    launch_codex_parser.set_defaults(func=cmd_launch_codex)
     sub.add_parser("serve").set_defaults(func=serve)
     sub.add_parser("version").set_defaults(func=cmd_version)
     sub.add_parser("status").set_defaults(func=cmd_status)
@@ -33499,6 +35029,8 @@ def main() -> None:
         raise SystemExit(run_cli(sys.argv[2:]))
     if len(sys.argv) >= 2 and sys.argv[1] == "launch":
         raise SystemExit(launch_claude(sys.argv[2:]))
+    if len(sys.argv) >= 2 and sys.argv[1] in ("codex", "launch-codex"):
+        raise SystemExit(launch_codex(sys.argv[2:]))
     parser = build_parser()
     args = parser.parse_args()
     args.func(args)
@@ -33506,3 +35038,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

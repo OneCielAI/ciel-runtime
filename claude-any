@@ -1,7 +1,0 @@
-#!/usr/bin/env sh
-set -eu
-
-PYTHON_BIN="${CLAUDE_ANY_PYTHON:-python3}"
-CLAUDE_ANY_DIR="${CLAUDE_ANY_HOME:-"$HOME/.local/share/claude-any"}"
-
-exec "$PYTHON_BIN" "$CLAUDE_ANY_DIR/claude_any.py" cli "$@"

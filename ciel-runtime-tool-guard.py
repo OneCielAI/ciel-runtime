@@ -102,12 +102,12 @@ TOOL_HINTS = {
     "Grep": "Use Grep with pattern, path, glob, type, output_mode, context, head_limit, or multiline only.",
     "TaskUpdate": "Use TaskUpdate with taskId and optional status pending, in_progress, completed, or deleted.",
 }
-PLAN_GUARD_MARKER = "[claude-any-plan-guard]"
+PLAN_GUARD_MARKER = "[ciel-runtime-plan-guard]"
 TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
 
 
 def active() -> bool:
-    provider = os.environ.get("CLAUDE_ANY_PROVIDER", "").strip()
+    provider = os.environ.get("CIEL_RUNTIME_PROVIDER", "").strip()
     return provider in NON_NATIVE_PROVIDERS
 
 
@@ -116,7 +116,7 @@ def env_truthy(name: str) -> bool:
 
 
 def bypass_permissions_enabled() -> bool:
-    return env_truthy("CLAUDE_ANY_BYPASS_PERMISSIONS")
+    return env_truthy("CIEL_RUNTIME_BYPASS_PERMISSIONS")
 
 
 def event_tool_name(event: dict[str, Any]) -> str:
@@ -229,7 +229,7 @@ def post_failure_context(message: str) -> None:
 
 
 def cache_dir() -> Path:
-    path = Path.home() / ".claude" / "claude-any-tool-guard"
+    path = Path.home() / ".claude" / "ciel-runtime-tool-guard"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -350,8 +350,8 @@ def latest_user_is_channel_wake(transcript_path: str | None) -> bool:
     if not text:
         return False
     return (
-        "[claude-any external channel message" in text
-        or "[claude-any channel inbox]" in text
+        "[ciel-runtime external channel message" in text
+        or "[ciel-runtime channel inbox]" in text
     )
 
 
@@ -470,7 +470,7 @@ def transcript_latest_turn(transcript_path: str | None) -> dict[str, Any]:
             continue
         if text.startswith("Stop hook feedback:") or PLAN_GUARD_MARKER in text:
             continue
-        if text.startswith("Claude Any plan guard:"):
+        if text.startswith("Ciel Runtime plan guard:"):
             continue
         latest_user_text = text
         break
@@ -516,7 +516,7 @@ def should_block_plan_stop(transcript_path: str | None) -> tuple[bool, str]:
     if not short_resume_prompt(user_text):
         return False, ""
     reason = (
-        f"{PLAN_GUARD_MARKER} Claude Any plan guard: Claude Code is still in plan mode, "
+        f"{PLAN_GUARD_MARKER} Ciel Runtime plan guard: Claude Code is still in plan mode, "
         "but the latest response ended as a short "
         "acknowledgement without any concrete tool call. Continue now by calling the next required Claude Code "
         "plan-mode-safe tool, such as Read, Glob, Grep, or ExitPlanMode. Use TaskUpdate only when an existing "
@@ -718,7 +718,7 @@ def handle_pre_tool(event: dict[str, Any]) -> None:
         log_event(f"PreToolUse sanitized tool={tool} dropped={dropped} changed={changed} keys={list(raw.keys())}")
         pre_allow(
             updated,
-            f"Claude Any {reason} for {tool}.",
+            f"Ciel Runtime {reason} for {tool}.",
             f"{tool} was generated with non-standard parameter(s). The guard normalized the input before execution.",
         )
 
@@ -765,7 +765,7 @@ def handle_plan_exit_pre_tool(event: dict[str, Any]) -> bool:
     log_event("PreToolUse auto-allowed ExitPlanMode under bypass permissions")
     pre_allow(
         updated,
-        "ExitPlanMode auto-allowed because claude-any launched with bypass permissions.",
+        "ExitPlanMode auto-allowed because ciel-runtime launched with bypass permissions.",
         "Bypass session must not stall on plan approval; exiting plan mode and continuing.",
     )
     return True
@@ -782,7 +782,7 @@ def handle_permission_request(event: dict[str, Any]) -> bool:
     permission_allow(
         event,
         updated,
-        "PermissionRequest auto-allowed ExitPlanMode because claude-any launched with bypass permissions.",
+        "PermissionRequest auto-allowed ExitPlanMode because ciel-runtime launched with bypass permissions.",
     )
     return True
 
@@ -856,13 +856,13 @@ def main() -> int:
     except Exception:
         return 0
     name = str(event.get("hook_event_name") or "")
-    provider = os.environ.get("CLAUDE_ANY_PROVIDER", "").strip()
-    # Stay active for any session Claude Any launched with bypass permissions,
+    provider = os.environ.get("CIEL_RUNTIME_PROVIDER", "").strip()
+    # Stay active for any session Ciel Runtime launched with bypass permissions,
     # even when the provider is "anthropic" (anthropic-routed mode), which is
     # NOT in NON_NATIVE_PROVIDERS. Such a session runs --permission-mode
     # bypassPermissions and must never stall on a human plan-approval decision,
-    # so the guard's plan auto-exit has to run for it. CLAUDE_ANY_BYPASS_PERMISSIONS
-    # is set only on Claude-Any-launched sessions (it is popped for direct-native
+    # so the guard's plan auto-exit has to run for it. CIEL_RUNTIME_BYPASS_PERMISSIONS
+    # is set only on Ciel Runtime-launched sessions (it is popped for direct-native
     # launches), so this never re-activates the guard for a plain native session.
     provider_active = active()
     bypass_active = bypass_permissions_enabled()

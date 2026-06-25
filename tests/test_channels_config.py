@@ -7,7 +7,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from unittest import mock
 
-import claude_any
+import ciel_runtime
 
 
 class ChannelConfigTests(unittest.TestCase):
@@ -18,58 +18,58 @@ class ChannelConfigTests(unittest.TestCase):
                 "development_channels": False,
             }
         }
-        self.assertEqual([], claude_any.claude_channel_args(cfg, []))
-        self.assertFalse(claude_any.claude_channels_requested(cfg, []))
+        self.assertEqual([], ciel_runtime.claude_channel_args(cfg, []))
+        self.assertFalse(ciel_runtime.claude_channels_requested(cfg, []))
 
     def test_channel_passthrough_converts_channels_to_native_loading(self):
-        args = claude_any.normalize_channel_passthrough(["--channels", "server:ai-net", "-p", "hello"])
+        args = ciel_runtime.normalize_channel_passthrough(["--channels", "server:ai-net", "-p", "hello"])
         self.assertEqual(args, ["--dangerously-load-development-channels", "server:ai-net", "-p", "hello"])
 
     def test_channel_passthrough_leaves_development_loading_alone(self):
-        args = claude_any.normalize_channel_passthrough(["--dangerously-load-development-channels", "server:ai-net"])
+        args = ciel_runtime.normalize_channel_passthrough(["--dangerously-load-development-channels", "server:ai-net"])
         self.assertEqual(args, ["--dangerously-load-development-channels", "server:ai-net"])
 
     def test_channels_requested_detects_external_native_passthrough(self):
         cfg = {"claude_code": {"channels": [], "development_channels": False}}
-        self.assertTrue(claude_any.claude_channels_requested(cfg, ["--dangerously-load-development-channels", "server:ai-net"]))
-        self.assertTrue(claude_any.claude_channels_requested(cfg, ["--channels", "plugin:fakechat@claude-plugins-official"]))
+        self.assertTrue(ciel_runtime.claude_channels_requested(cfg, ["--dangerously-load-development-channels", "server:ai-net"]))
+        self.assertTrue(ciel_runtime.claude_channels_requested(cfg, ["--channels", "plugin:fakechat@claude-plugins-official"]))
 
     def test_channel_delivery_mode_supports_native_bridge(self):
         cfg = {"claude_code": {"channel_delivery": "native"}}
         with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("CLAUDE_ANY_CHANNEL_DELIVERY", None)
-            self.assertEqual("native", claude_any.channel_delivery_mode(cfg))
-            self.assertFalse(claude_any.should_use_native_channel_bridge(True, cfg, []))
-            self.assertTrue(claude_any.should_use_native_channel_bridge(False, cfg, []))
-            self.assertFalse(claude_any.should_use_channel_stdin_proxy(True, [], cfg))
-            self.assertTrue(claude_any.should_use_channel_llm_delivery(True, [], cfg))
+            os.environ.pop("CIEL_RUNTIME_CHANNEL_DELIVERY", None)
+            self.assertEqual("native", ciel_runtime.channel_delivery_mode(cfg))
+            self.assertFalse(ciel_runtime.should_use_native_channel_bridge(True, cfg, []))
+            self.assertTrue(ciel_runtime.should_use_native_channel_bridge(False, cfg, []))
+            self.assertFalse(ciel_runtime.should_use_channel_stdin_proxy(True, [], cfg))
+            self.assertTrue(ciel_runtime.should_use_channel_llm_delivery(True, [], cfg))
 
     def test_channel_delivery_mode_defaults_to_llm_injection(self):
         cfg = {"claude_code": {}}
         with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("CLAUDE_ANY_CHANNEL_DELIVERY", None)
-            self.assertEqual("llm", claude_any.channel_delivery_mode(cfg))
-            self.assertFalse(claude_any.should_use_native_channel_bridge(True, cfg, []))
-            self.assertTrue(claude_any.should_use_channel_stdin_proxy(True, [], cfg))
-            self.assertTrue(claude_any.should_use_channel_llm_delivery(True, [], cfg))
+            os.environ.pop("CIEL_RUNTIME_CHANNEL_DELIVERY", None)
+            self.assertEqual("llm", ciel_runtime.channel_delivery_mode(cfg))
+            self.assertFalse(ciel_runtime.should_use_native_channel_bridge(True, cfg, []))
+            self.assertTrue(ciel_runtime.should_use_channel_stdin_proxy(True, [], cfg))
+            self.assertTrue(ciel_runtime.should_use_channel_llm_delivery(True, [], cfg))
 
     def test_terminal_winsize_from_fd_uses_real_terminal_size(self):
         with mock.patch.object(os, "get_terminal_size", return_value=os.terminal_size((132, 43))):
-            self.assertEqual((43, 132), claude_any._terminal_winsize_from_fd(1))
+            self.assertEqual((43, 132), ciel_runtime._terminal_winsize_from_fd(1))
 
     def test_terminal_winsize_from_fd_never_returns_zero_size(self):
         with mock.patch.object(os, "get_terminal_size", return_value=os.terminal_size((0, 0))), mock.patch.object(
-            claude_any.shutil, "get_terminal_size", return_value=os.terminal_size((100, 40))
+            ciel_runtime.shutil, "get_terminal_size", return_value=os.terminal_size((100, 40))
         ):
-            self.assertEqual((40, 100), claude_any._terminal_winsize_from_fd(1))
+            self.assertEqual((40, 100), ciel_runtime._terminal_winsize_from_fd(1))
 
     def test_channel_specs_always_include_builtin_router(self):
         cfg = {"claude_code": {"channels": []}}
-        self.assertEqual(["server:claude-any-router"], claude_any.channel_specs(cfg))
+        self.assertEqual(["server:ciel-runtime-router"], ciel_runtime.channel_specs(cfg))
 
     def test_channel_delivery_migration_moves_old_default_to_native(self):
         cfg = {"migrations": {}, "claude_code": {"channel_delivery": "stdin"}, "providers": {}}
-        claude_any.apply_config_migrations(cfg)
+        ciel_runtime.apply_config_migrations(cfg)
         self.assertEqual("llm", cfg["claude_code"]["channel_delivery"])
         self.assertTrue(cfg["migrations"]["default_channel_delivery_native_20260520"])
         self.assertTrue(cfg["migrations"]["default_channel_delivery_llm_20260523"])
@@ -77,8 +77,8 @@ class ChannelConfigTests(unittest.TestCase):
     def test_prelaunch_menu_hides_channel_controls(self):
         cfg = {"language": "en", "current_provider": "ollama-cloud", "claude_code": {"channel_delivery": "llm"}}
         with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("CLAUDE_ANY_CHANNEL_DELIVERY", None)
-            rows = claude_any.main_menu_rows(cfg, "ollama-cloud", {"current_model": "m", "advisor_model": ""}, "en")
+            os.environ.pop("CIEL_RUNTIME_CHANNEL_DELIVERY", None)
+            rows = ciel_runtime.main_menu_rows(cfg, "ollama-cloud", {"current_model": "m", "advisor_model": ""}, "en")
             self.assertFalse(any("Channel delivery" in row for row in rows))
             self.assertFalse(any(row.startswith("8. Channels") for row in rows))
             self.assertIn("7. Log level", rows[7])
@@ -94,7 +94,7 @@ class ChannelConfigTests(unittest.TestCase):
                 json.dumps({"projects": {str(project): {"mcpServers": {"ai-net": {"command": "node"}}}}}),
                 encoding="utf-8",
             )
-            specs = claude_any.auto_discovered_mcp_channel_specs([], cwd=project, home=root)
+            specs = ciel_runtime.auto_discovered_mcp_channel_specs([], cwd=project, home=root)
         self.assertEqual(["server:ai-net"], specs)
 
     def test_existing_mcp_config_paths_filters_missing_files(self):
@@ -110,7 +110,7 @@ class ChannelConfigTests(unittest.TestCase):
             home_mcp.write_text(json.dumps({"mcpServers": {"home": {"command": "node"}}}), encoding="utf-8")
             settings.write_text(json.dumps({"mcpServers": {"settings": {"command": "node"}}}), encoding="utf-8")
 
-            paths = claude_any.existing_claude_mcp_config_paths([], cwd=project, home=root)
+            paths = ciel_runtime.existing_claude_mcp_config_paths([], cwd=project, home=root)
 
         self.assertIn(project_mcp, paths)
         self.assertIn(home_mcp, paths)
@@ -138,19 +138,19 @@ class ChannelConfigTests(unittest.TestCase):
             proxy_config = config_dir / "missing-mcp-proxy.json"
 
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", config_dir),
-                mock.patch.object(claude_any, "NATIVE_MCP_CONFIG", native_config),
-                mock.patch.object(claude_any, "WEB_TOOLS_MCP_CONFIG", web_tools),
-                mock.patch.object(claude_any, "MCP_PROXY_CONFIG", proxy_config),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", config_dir),
+                mock.patch.object(ciel_runtime, "NATIVE_MCP_CONFIG", native_config),
+                mock.patch.object(ciel_runtime, "WEB_TOOLS_MCP_CONFIG", web_tools),
+                mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy_config),
             ):
-                written = claude_any.write_native_mcp_config_from_discovery([], cwd=project, home=root)
+                written = ciel_runtime.write_native_mcp_config_from_discovery([], cwd=project, home=root)
                 data = json.loads(native_config.read_text(encoding="utf-8"))
 
             self.assertEqual(native_config, written)
         self.assertEqual({"project", "settings", "scoped"}, set(data["mcpServers"]))
         self.assertNotIn("permissions", data)
 
-    def test_native_mcp_config_writer_restores_claude_any_managed_sources(self):
+    def test_native_mcp_config_writer_restores_ciel_runtime_managed_sources(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             project = root / "work"
@@ -170,7 +170,7 @@ class ChannelConfigTests(unittest.TestCase):
                     {
                         "type": "http",
                         "url": "http://example.test/mcp",
-                        "claude_any_disable_notification_stream": True,
+                        "ciel_runtime_disable_notification_stream": True,
                     }
                 ),
                 encoding="utf-8",
@@ -182,7 +182,7 @@ class ChannelConfigTests(unittest.TestCase):
                             "ai-net-http": {
                                 "command": sys.executable,
                                 "args": [
-                                    str(Path(claude_any.__file__).resolve()),
+                                    str(Path(ciel_runtime.__file__).resolve()),
                                     "mcp-proxy",
                                     "--server-name",
                                     "ai-net-http",
@@ -190,7 +190,7 @@ class ChannelConfigTests(unittest.TestCase):
                                     str(wrapped_server),
                                 ],
                             },
-                            "claude-any-router": {"type": "sse", "url": "http://127.0.0.1:8799/ca/mcp/sse"},
+                            "ciel-runtime-router": {"type": "sse", "url": "http://127.0.0.1:8799/ca/mcp/sse"},
                         }
                     }
                 ),
@@ -198,18 +198,18 @@ class ChannelConfigTests(unittest.TestCase):
             )
 
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", config_dir),
-                mock.patch.object(claude_any, "NATIVE_MCP_CONFIG", native_config),
-                mock.patch.object(claude_any, "WEB_TOOLS_MCP_CONFIG", web_tools),
-                mock.patch.object(claude_any, "MCP_PROXY_CONFIG", proxy_config),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", config_dir),
+                mock.patch.object(ciel_runtime, "NATIVE_MCP_CONFIG", native_config),
+                mock.patch.object(ciel_runtime, "WEB_TOOLS_MCP_CONFIG", web_tools),
+                mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy_config),
             ):
-                written = claude_any.write_native_mcp_config_from_discovery([], cwd=project, home=root)
+                written = ciel_runtime.write_native_mcp_config_from_discovery([], cwd=project, home=root)
                 data = json.loads(native_config.read_text(encoding="utf-8"))
 
         self.assertEqual(native_config, written)
         self.assertEqual({"project", "duckduckgo", "ai-net-http"}, set(data["mcpServers"]))
         self.assertEqual("http://example.test/mcp", data["mcpServers"]["ai-net-http"]["url"])
-        self.assertNotIn("claude_any_disable_notification_stream", data["mcpServers"]["ai-net-http"])
+        self.assertNotIn("ciel_runtime_disable_notification_stream", data["mcpServers"]["ai-net-http"])
 
     def test_native_mcp_config_writer_prefers_user_mcp_over_generated_duplicate(self):
         with tempfile.TemporaryDirectory() as td:
@@ -236,7 +236,7 @@ class ChannelConfigTests(unittest.TestCase):
                             "ai-net-http": {
                                 "command": sys.executable,
                                 "args": [
-                                    str(Path(claude_any.__file__).resolve()),
+                                    str(Path(ciel_runtime.__file__).resolve()),
                                     "mcp-proxy",
                                     "--server-name",
                                     "ai-net-http",
@@ -251,12 +251,12 @@ class ChannelConfigTests(unittest.TestCase):
             )
 
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", config_dir),
-                mock.patch.object(claude_any, "NATIVE_MCP_CONFIG", native_config),
-                mock.patch.object(claude_any, "WEB_TOOLS_MCP_CONFIG", web_tools),
-                mock.patch.object(claude_any, "MCP_PROXY_CONFIG", proxy_config),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", config_dir),
+                mock.patch.object(ciel_runtime, "NATIVE_MCP_CONFIG", native_config),
+                mock.patch.object(ciel_runtime, "WEB_TOOLS_MCP_CONFIG", web_tools),
+                mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy_config),
             ):
-                written = claude_any.write_native_mcp_config_from_discovery([], cwd=project, home=root)
+                written = ciel_runtime.write_native_mcp_config_from_discovery([], cwd=project, home=root)
                 data = json.loads(native_config.read_text(encoding="utf-8"))
 
         self.assertEqual(native_config, written)
@@ -271,8 +271,8 @@ class ChannelConfigTests(unittest.TestCase):
                 json.dumps({"mcpServers": {"ai-net": {"type": "sse", "url": "http://example.test/sse"}}}),
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "start_channel_sse_connection", return_value={"name": "mcp-ai-net"}) as start:
-                started = claude_any.auto_start_sse_channels_from_mcp_configs(["--mcp-config", str(mcp_config)], cwd=root, home=root)
+            with mock.patch.object(ciel_runtime, "start_channel_sse_connection", return_value={"name": "mcp-ai-net"}) as start:
+                started = ciel_runtime.auto_start_sse_channels_from_mcp_configs(["--mcp-config", str(mcp_config)], cwd=root, home=root)
         self.assertEqual([{"name": "mcp-ai-net"}], started)
         self.assertEqual("mcp-ai-net", start.call_args.args[0]["name"])
         self.assertEqual("http://example.test/sse", start.call_args.args[0]["url"])
@@ -295,8 +295,8 @@ class ChannelConfigTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "start_channel_sse_connection", return_value={"name": "mcp-ai-net-http"}) as start:
-                started = claude_any.auto_start_sse_channels_from_mcp_configs(["--mcp-config", str(mcp_config)], cwd=root, home=root)
+            with mock.patch.object(ciel_runtime, "start_channel_sse_connection", return_value={"name": "mcp-ai-net-http"}) as start:
+                started = ciel_runtime.auto_start_sse_channels_from_mcp_configs(["--mcp-config", str(mcp_config)], cwd=root, home=root)
         self.assertEqual([{"name": "mcp-ai-net-http"}], started)
         config = start.call_args.args[0]
         self.assertEqual("mcp-ai-net-http", config["name"])
@@ -314,14 +314,14 @@ class ChannelConfigTests(unittest.TestCase):
                     "mcpServers": {
                         "ai-net-sse": {"type": "sse", "url": "http://example.test/sse"},
                         "ai-net-http": {"type": "http", "url": "http://example.test/mcp"},
-                        "claude-any-router": {"type": "sse", "url": "http://127.0.0.1:8799/ca/mcp/sse"},
+                        "ciel-runtime-router": {"type": "sse", "url": "http://127.0.0.1:8799/ca/mcp/sse"},
                         "stdio-only": {"command": "node", "args": ["server.js"]},
                     }
                 }),
                 encoding="utf-8",
             )
 
-            names = claude_any.external_mcp_channel_server_names_from_configs(["--mcp-config", str(mcp_config)], cwd=root, home=root)
+            names = ciel_runtime.external_mcp_channel_server_names_from_configs(["--mcp-config", str(mcp_config)], cwd=root, home=root)
 
         self.assertEqual(["ai-net-sse", "ai-net-http"], names)
 
@@ -333,8 +333,8 @@ class ChannelConfigTests(unittest.TestCase):
                 json.dumps({"mcpServers": {"ai-net": {"type": "sse", "url": "http://example.test/sse"}}}),
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "start_channel_sse_connection", return_value={"name": "mcp-ai-net"}) as start:
-                started = claude_any.auto_start_sse_channels_from_mcp_configs([], cwd=root, home=root, extra_config_paths=[mcp_config])
+            with mock.patch.object(ciel_runtime, "start_channel_sse_connection", return_value={"name": "mcp-ai-net"}) as start:
+                started = ciel_runtime.auto_start_sse_channels_from_mcp_configs([], cwd=root, home=root, extra_config_paths=[mcp_config])
         self.assertEqual([{"name": "mcp-ai-net"}], started)
         self.assertEqual("mcp-ai-net", start.call_args.args[0]["name"])
 
@@ -354,13 +354,13 @@ class ChannelConfigTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "CONFIG_DIR", root), mock.patch.object(claude_any, "MCP_PROXY_CONFIG", proxy_config):
-                written = claude_any.write_mcp_proxy_config(["--mcp-config", str(mcp_config)], cwd=root, home=root)
+            with mock.patch.object(ciel_runtime, "CONFIG_DIR", root), mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy_config):
+                written = ciel_runtime.write_mcp_proxy_config(["--mcp-config", str(mcp_config)], cwd=root, home=root)
 
             self.assertEqual(proxy_config, written)
             data = json.loads(proxy_config.read_text(encoding="utf-8"))
             wrapped = data["mcpServers"]["ai-net"]
-            self.assertEqual(claude_any.sys.executable, wrapped["command"])
+            self.assertEqual(ciel_runtime.sys.executable, wrapped["command"])
             self.assertIn("mcp-proxy", wrapped["args"])
             self.assertIn("--server-name", wrapped["args"])
             self.assertIn("ai-net", wrapped["args"])
@@ -384,8 +384,8 @@ class ChannelConfigTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "CONFIG_DIR", root), mock.patch.object(claude_any, "MCP_PROXY_CONFIG", proxy_config):
-                written = claude_any.write_mcp_proxy_config(["--mcp-config", str(mcp_config)], cwd=root, home=root)
+            with mock.patch.object(ciel_runtime, "CONFIG_DIR", root), mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy_config):
+                written = ciel_runtime.write_mcp_proxy_config(["--mcp-config", str(mcp_config)], cwd=root, home=root)
 
             self.assertEqual(proxy_config, written)
             data = json.loads(proxy_config.read_text(encoding="utf-8"))
@@ -411,8 +411,8 @@ class ChannelConfigTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with mock.patch.object(claude_any, "CONFIG_DIR", root), mock.patch.object(claude_any, "MCP_PROXY_CONFIG", proxy_config):
-                written = claude_any.write_mcp_proxy_config(
+            with mock.patch.object(ciel_runtime, "CONFIG_DIR", root), mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy_config):
+                written = ciel_runtime.write_mcp_proxy_config(
                     [],
                     cwd=project,
                     home=root,
@@ -436,27 +436,27 @@ class ChannelConfigTests(unittest.TestCase):
                             "ai-net-http": {
                                 "type": "http",
                                 "url": "http://example.test/mcp",
-                                "claude_any_mcp_proxy": True,
+                                "ciel_runtime_mcp_proxy": True,
                             },
                         }
                     }
                 ),
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "CONFIG_DIR", root), mock.patch.object(claude_any, "MCP_PROXY_CONFIG", proxy_config):
-                written = claude_any.write_mcp_proxy_config(["--mcp-config", str(mcp_config)], cwd=root, home=root)
+            with mock.patch.object(ciel_runtime, "CONFIG_DIR", root), mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy_config):
+                written = ciel_runtime.write_mcp_proxy_config(["--mcp-config", str(mcp_config)], cwd=root, home=root)
 
             self.assertEqual(proxy_config, written)
             data = json.loads(proxy_config.read_text(encoding="utf-8"))
             wrapped = data["mcpServers"]["ai-net-http"]
-            self.assertEqual(claude_any.sys.executable, wrapped["command"])
+            self.assertEqual(ciel_runtime.sys.executable, wrapped["command"])
             self.assertIn("mcp-proxy", wrapped["args"])
             self.assertNotIn("type", wrapped)
             server_config_path = Path(wrapped["args"][wrapped["args"].index("--server-config") + 1])
             saved_server = json.loads(server_config_path.read_text(encoding="utf-8"))
             self.assertEqual("http", saved_server["type"])
             self.assertEqual("http://example.test/mcp", saved_server["url"])
-            self.assertTrue(saved_server["claude_any_mcp_proxy"])
+            self.assertTrue(saved_server["ciel_runtime_mcp_proxy"])
 
     def test_mcp_proxy_config_wraps_streamable_http_server_via_force_names(self):
         # The launch path forces channel-capable streamable-HTTP servers through
@@ -477,8 +477,8 @@ class ChannelConfigTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "CONFIG_DIR", root), mock.patch.object(claude_any, "MCP_PROXY_CONFIG", proxy_config):
-                written = claude_any.write_mcp_proxy_config(
+            with mock.patch.object(ciel_runtime, "CONFIG_DIR", root), mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy_config):
+                written = ciel_runtime.write_mcp_proxy_config(
                     ["--mcp-config", str(mcp_config)],
                     cwd=root,
                     home=root,
@@ -487,7 +487,7 @@ class ChannelConfigTests(unittest.TestCase):
 
             data = json.loads(written.read_text(encoding="utf-8"))
             wrapped = data["mcpServers"]["ai-net-http"]
-            self.assertEqual(claude_any.sys.executable, wrapped["command"])
+            self.assertEqual(ciel_runtime.sys.executable, wrapped["command"])
             self.assertIn("mcp-proxy", wrapped["args"])
             self.assertNotIn("type", wrapped)
             server_config_path = Path(wrapped["args"][wrapped["args"].index("--server-config") + 1])
@@ -496,8 +496,8 @@ class ChannelConfigTests(unittest.TestCase):
             # still owns the notification stream. force and disable are mutually
             # exclusive per server -- disabling here would leave zero owners and
             # the agent would never wake.
-            self.assertNotIn("claude_any_disable_notification_stream", saved_server)
-            self.assertFalse(claude_any._mcp_server_disable_proxy_notification_stream(saved_server))
+            self.assertNotIn("ciel_runtime_disable_notification_stream", saved_server)
+            self.assertFalse(ciel_runtime._mcp_server_disable_proxy_notification_stream(saved_server))
 
     def test_mcp_proxy_config_force_and_disable_are_independent_sets(self):
         # A server that is forced through the proxy must not also be stamped
@@ -516,8 +516,8 @@ class ChannelConfigTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "CONFIG_DIR", root), mock.patch.object(claude_any, "MCP_PROXY_CONFIG", proxy_config):
-                written = claude_any.write_mcp_proxy_config(
+            with mock.patch.object(ciel_runtime, "CONFIG_DIR", root), mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy_config):
+                written = ciel_runtime.write_mcp_proxy_config(
                     ["--mcp-config", str(mcp_config)],
                     cwd=root,
                     home=root,
@@ -528,7 +528,7 @@ class ChannelConfigTests(unittest.TestCase):
             wrapped = data["mcpServers"]["ai-net-http"]
             server_config_path = Path(wrapped["args"][wrapped["args"].index("--server-config") + 1])
             saved_server = json.loads(server_config_path.read_text(encoding="utf-8"))
-            self.assertNotIn("claude_any_disable_notification_stream", saved_server)
+            self.assertNotIn("ciel_runtime_disable_notification_stream", saved_server)
 
     def test_router_managed_channel_sse_opens_nothing_without_channel_specs(self):
         # With channels:[] the router must NOT open a channel worker for every
@@ -537,8 +537,8 @@ class ChannelConfigTests(unittest.TestCase):
         # duplicating every digest. start_router_managed_channel_sse must short
         # out before reaching auto-start when there are no external specs.
         cfg = {"claude_code": {"channel_delivery": "llm", "channels": []}}
-        with mock.patch.object(claude_any, "auto_start_sse_channels_from_mcp_configs") as auto_start:
-            started = claude_any.start_router_managed_channel_sse(cfg)
+        with mock.patch.object(ciel_runtime, "auto_start_sse_channels_from_mcp_configs") as auto_start:
+            started = ciel_runtime.start_router_managed_channel_sse(cfg)
         self.assertEqual([], started)
         auto_start.assert_not_called()
 
@@ -552,11 +552,11 @@ class ChannelConfigTests(unittest.TestCase):
             captured["allowed"] = allowed_server_names
             return []
 
-        with mock.patch.object(claude_any, "auto_start_sse_channels_from_mcp_configs", side_effect=fake_auto_start), \
-                mock.patch.object(claude_any, "ensure_channel_probe_cache_for_launch", return_value=None), \
-                mock.patch.object(claude_any, "cached_channel_source_paths_for_specs", return_value=[]), \
-                mock.patch.object(claude_any, "proxy_owned_channel_server_names", return_value=set()):
-            claude_any.start_router_managed_channel_sse(cfg)
+        with mock.patch.object(ciel_runtime, "auto_start_sse_channels_from_mcp_configs", side_effect=fake_auto_start), \
+                mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch", return_value=None), \
+                mock.patch.object(ciel_runtime, "cached_channel_source_paths_for_specs", return_value=[]), \
+                mock.patch.object(ciel_runtime, "proxy_owned_channel_server_names", return_value=set()):
+            ciel_runtime.start_router_managed_channel_sse(cfg)
 
         self.assertIsNotNone(captured.get("allowed"))
         self.assertIn("ai-net-http", list(captured["allowed"]))
@@ -572,26 +572,26 @@ class ChannelConfigTests(unittest.TestCase):
                             # proxy-wrapped (force-proxied streamable-http) -> owned
                             "ai-net-http": {
                                 "command": "python",
-                                "args": ["claude_any.py", "mcp-proxy", "--server-name", "ai-net-http", "--server-config", "x.json"],
+                                "args": ["ciel_runtime.py", "mcp-proxy", "--server-name", "ai-net-http", "--server-config", "x.json"],
                             },
                             # passthrough sse server -> NOT owned (router still owns it)
                             "ai-net-sse": {"type": "sse", "url": "http://example.test/sse"},
                             # native router passthrough -> not wrapped
-                            "claude-any-router": {"type": "sse", "url": "http://127.0.0.1:8802/ca/mcp/sse"},
+                            "ciel-runtime-router": {"type": "sse", "url": "http://127.0.0.1:8802/ca/mcp/sse"},
                         }
                     }
                 ),
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "MCP_PROXY_CONFIG", proxy_config):
-                owned = claude_any.proxy_owned_channel_server_names()
+            with mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy_config):
+                owned = ciel_runtime.proxy_owned_channel_server_names()
             self.assertEqual({"ai-net-http"}, owned)
 
     def test_proxy_owned_channel_server_names_missing_file_is_empty(self):
         with tempfile.TemporaryDirectory() as td:
             missing = Path(td) / "nope.json"
-            with mock.patch.object(claude_any, "MCP_PROXY_CONFIG", missing):
-                self.assertEqual(set(), claude_any.proxy_owned_channel_server_names())
+            with mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", missing):
+                self.assertEqual(set(), ciel_runtime.proxy_owned_channel_server_names())
 
     def test_proxy_owned_channel_server_names_excludes_notification_disabled(self):
         # A wrapped server whose per-server config disables the proxy notification
@@ -600,7 +600,7 @@ class ChannelConfigTests(unittest.TestCase):
             root = Path(td)
             per_server = root / "ai-net-http.json"
             per_server.write_text(
-                json.dumps({"type": "http", "url": "http://example.test/mcp", "claude_any_disable_notification_stream": True}),
+                json.dumps({"type": "http", "url": "http://example.test/mcp", "ciel_runtime_disable_notification_stream": True}),
                 encoding="utf-8",
             )
             proxy_config = root / "mcp-proxy.json"
@@ -610,15 +610,15 @@ class ChannelConfigTests(unittest.TestCase):
                         "mcpServers": {
                             "ai-net-http": {
                                 "command": "python",
-                                "args": ["claude_any.py", "mcp-proxy", "--server-name", "ai-net-http", "--server-config", str(per_server)],
+                                "args": ["ciel_runtime.py", "mcp-proxy", "--server-name", "ai-net-http", "--server-config", str(per_server)],
                             }
                         }
                     }
                 ),
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "MCP_PROXY_CONFIG", proxy_config):
-                self.assertEqual(set(), claude_any.proxy_owned_channel_server_names())
+            with mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy_config):
+                self.assertEqual(set(), ciel_runtime.proxy_owned_channel_server_names())
 
     def test_router_managed_channel_sse_skips_proxy_owned_server(self):
         # Joy case: ai-net-http is BOTH an explicit channel spec AND force-proxied.
@@ -631,11 +631,11 @@ class ChannelConfigTests(unittest.TestCase):
             captured["allowed"] = allowed_server_names
             return []
 
-        with mock.patch.object(claude_any, "auto_start_sse_channels_from_mcp_configs", side_effect=fake_auto_start), \
-                mock.patch.object(claude_any, "ensure_channel_probe_cache_for_launch", return_value=None), \
-                mock.patch.object(claude_any, "cached_channel_source_paths_for_specs", return_value=[]), \
-                mock.patch.object(claude_any, "proxy_owned_channel_server_names", return_value={"ai-net-http"}):
-            claude_any.start_router_managed_channel_sse(cfg)
+        with mock.patch.object(ciel_runtime, "auto_start_sse_channels_from_mcp_configs", side_effect=fake_auto_start), \
+                mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch", return_value=None), \
+                mock.patch.object(ciel_runtime, "cached_channel_source_paths_for_specs", return_value=[]), \
+                mock.patch.object(ciel_runtime, "proxy_owned_channel_server_names", return_value={"ai-net-http"}):
+            ciel_runtime.start_router_managed_channel_sse(cfg)
 
         allowed = list(captured.get("allowed") or [])
         self.assertNotIn("ai-net-http", allowed)   # proxy owns it
@@ -646,14 +646,14 @@ class ChannelConfigTests(unittest.TestCase):
             root = Path(td)
             path = root / "web-tools-mcp.json"
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", root),
-                mock.patch.object(claude_any, "WEB_TOOLS_MCP_CONFIG", path),
-                mock.patch.object(claude_any, "find_executable", side_effect=lambda name: f"/bin/{name}"),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "WEB_TOOLS_MCP_CONFIG", path),
+                mock.patch.object(ciel_runtime, "find_executable", side_effect=lambda name: f"/bin/{name}"),
             ):
-                written = claude_any.write_web_tools_mcp_config({"web_search": {"fetch_enabled": True}})
+                written = ciel_runtime.write_web_tools_mcp_config({"web_search": {"fetch_enabled": True}})
             self.assertEqual(path, written)
             data = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual("jsonl", data["mcpServers"]["web_fetch"]["claude_any_stdio"])
+            self.assertEqual("jsonl", data["mcpServers"]["web_fetch"]["ciel_runtime_stdio"])
 
     def test_web_fetch_mcp_config_falls_back_to_uv_tool_run(self):
         with tempfile.TemporaryDirectory() as td:
@@ -664,11 +664,11 @@ class ChannelConfigTests(unittest.TestCase):
                 return "/bin/uv" if name == "uv" else None
 
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", root),
-                mock.patch.object(claude_any, "WEB_TOOLS_MCP_CONFIG", path),
-                mock.patch.object(claude_any, "find_executable", side_effect=fake_find),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "WEB_TOOLS_MCP_CONFIG", path),
+                mock.patch.object(ciel_runtime, "find_executable", side_effect=fake_find),
             ):
-                claude_any.write_web_tools_mcp_config({"web_search": {"fetch_enabled": True}})
+                ciel_runtime.write_web_tools_mcp_config({"web_search": {"fetch_enabled": True}})
             data = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual("/bin/uv", data["mcpServers"]["web_fetch"]["command"])
             self.assertEqual(["tool", "run", "mcp-server-fetch"], data["mcpServers"]["web_fetch"]["args"])
@@ -678,13 +678,13 @@ class ChannelConfigTests(unittest.TestCase):
             root = Path(td)
             path = root / "web-tools-mcp.json"
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", root),
-                mock.patch.object(claude_any, "WEB_TOOLS_MCP_CONFIG", path),
-                mock.patch.object(claude_any, "find_executable", return_value=None),
-                mock.patch.object(claude_any.importlib.util, "find_spec", return_value=None),
-                mock.patch.object(claude_any, "router_log") as log,
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "WEB_TOOLS_MCP_CONFIG", path),
+                mock.patch.object(ciel_runtime, "find_executable", return_value=None),
+                mock.patch.object(ciel_runtime.importlib.util, "find_spec", return_value=None),
+                mock.patch.object(ciel_runtime, "router_log") as log,
             ):
-                claude_any.write_web_tools_mcp_config({"web_search": {"fetch_enabled": True}})
+                ciel_runtime.write_web_tools_mcp_config({"web_search": {"fetch_enabled": True}})
             data = json.loads(path.read_text(encoding="utf-8"))
             self.assertNotIn("web_fetch", data["mcpServers"])
             self.assertIn("duckduckgo", data["mcpServers"])
@@ -694,18 +694,18 @@ class ChannelConfigTests(unittest.TestCase):
         def fake_find(name):
             return "/bin/uv" if name == "uv" else None
 
-        with mock.patch.object(claude_any, "find_executable", side_effect=fake_find):
-            command, args = claude_any.resolve_mcp_server_process("uvx", ["mcp-server-fetch"])
+        with mock.patch.object(ciel_runtime, "find_executable", side_effect=fake_find):
+            command, args = ciel_runtime.resolve_mcp_server_process("uvx", ["mcp-server-fetch"])
         self.assertEqual("/bin/uv", command)
         self.assertEqual(["tool", "run", "mcp-server-fetch"], args)
 
     def test_strip_mcp_config_passthrough_removes_all_values(self):
-        args = claude_any.strip_mcp_config_passthrough(["--mcp-config", "a.json", "b.json", "-p", "hello"])
+        args = ciel_runtime.strip_mcp_config_passthrough(["--mcp-config", "a.json", "b.json", "-p", "hello"])
         self.assertEqual(["-p", "hello"], args)
 
     def test_passthrough_boundary_needed_after_generated_greedy_option(self):
         self.assertTrue(
-            claude_any.should_insert_passthrough_option_boundary(
+            ciel_runtime.should_insert_passthrough_option_boundary(
                 ["--mcp-config", "generated.json"],
                 ["ai-net 체크인"],
             )
@@ -713,19 +713,19 @@ class ChannelConfigTests(unittest.TestCase):
 
     def test_passthrough_boundary_not_needed_for_options_or_existing_boundary(self):
         self.assertFalse(
-            claude_any.should_insert_passthrough_option_boundary(
+            ciel_runtime.should_insert_passthrough_option_boundary(
                 ["--mcp-config", "generated.json"],
                 ["-p", "hello"],
             )
         )
         self.assertFalse(
-            claude_any.should_insert_passthrough_option_boundary(
+            ciel_runtime.should_insert_passthrough_option_boundary(
                 ["--mcp-config", "generated.json"],
                 ["--", "hello"],
             )
         )
         self.assertFalse(
-            claude_any.should_insert_passthrough_option_boundary(
+            ciel_runtime.should_insert_passthrough_option_boundary(
                 ["--model", "x"],
                 ["hello"],
             )
@@ -734,40 +734,40 @@ class ChannelConfigTests(unittest.TestCase):
     def test_launch_with_external_channels_defers_to_claude_native(self):
         cfg = {"providers": {}, "claude_code": {"channels": [], "development_channels": False}}
         with ExitStack() as stack:
-            stack.enter_context(mock.patch.object(claude_any, "run_prelaunch_menu", return_value=0))
-            stack.enter_context(mock.patch.object(claude_any, "load_config", return_value=cfg))
-            stack.enter_context(mock.patch.object(claude_any, "get_current_provider", return_value=("ollama-cloud", {})))
-            stack.enter_context(mock.patch.object(claude_any, "launch_readiness_errors", return_value=[]))
-            stack.enter_context(mock.patch.object(claude_any, "native_anthropic_enabled", return_value=False))
-            stack.enter_context(mock.patch.object(claude_any, "ollama_native_compat_enabled", return_value=False))
-            stack.enter_context(mock.patch.object(claude_any, "provider_native_compat_enabled", return_value=False))
-            stack.enter_context(mock.patch.object(claude_any, "cleanup_managed_services_for_provider"))
-            stack.enter_context(mock.patch.object(claude_any, "start_router_if_needed"))
-            stack.enter_context(mock.patch.object(claude_any, "auto_import_passthrough_channels"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0))
+            stack.enter_context(mock.patch.object(ciel_runtime, "load_config", return_value=cfg))
+            stack.enter_context(mock.patch.object(ciel_runtime, "get_current_provider", return_value=("ollama-cloud", {})))
+            stack.enter_context(mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]))
+            stack.enter_context(mock.patch.object(ciel_runtime, "native_anthropic_enabled", return_value=False))
+            stack.enter_context(mock.patch.object(ciel_runtime, "ollama_native_compat_enabled", return_value=False))
+            stack.enter_context(mock.patch.object(ciel_runtime, "provider_native_compat_enabled", return_value=False))
+            stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"))
             stack.enter_context(mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "env_vars",
                 return_value={
-                    "CLAUDE_ANY_MODEL_ALIAS": "claude-any-test",
+                    "CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-test",
                     "ANTHROPIC_AUTH_TOKEN": "not-used",
                     "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1",
                 },
             ))
-            stack.enter_context(mock.patch.object(claude_any, "install_claude_any_slash_commands"))
-            stack.enter_context(mock.patch.object(claude_any, "install_tool_guard_hooks"))
-            stack.enter_context(mock.patch.object(claude_any, "install_claude_any_statusline"))
-            stack.enter_context(mock.patch.object(claude_any, "find_executable", return_value="claude"))
-            stack.enter_context(mock.patch.object(claude_any, "run_claude_update_check"))
-            stack.enter_context(mock.patch.object(claude_any, "should_attach_web_search", return_value=False))
-            stack.enter_context(mock.patch.object(claude_any, "should_append_compat_prompt", return_value=False))
-            stack.enter_context(mock.patch.object(claude_any, "ensure_channel_probe_cache_for_launch", return_value=False))
-            stack.enter_context(mock.patch.object(claude_any, "cached_channel_capable_server_names", return_value=["claude-any-router"]))
-            stack.enter_context(mock.patch.object(claude_any, "cached_channel_source_paths_for_specs", return_value=[]))
-            stack.enter_context(mock.patch.object(claude_any, "read_channel_probe_cache", return_value={"probed_at": 1700000000}))
-            stack.enter_context(mock.patch.object(claude_any, "write_mcp_proxy_config", return_value=None))
-            proxy = stack.enter_context(mock.patch.object(claude_any, "subprocess_call_with_channel_wake_proxy"))
-            call = stack.enter_context(mock.patch.object(claude_any.subprocess, "call", return_value=0))
-            rc = claude_any.launch_claude(["--channels", "server:ai-net"])
+            stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_slash_commands"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "install_tool_guard_hooks"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_statusline"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "find_executable", return_value="claude"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "run_claude_update_check"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "should_attach_web_search", return_value=False))
+            stack.enter_context(mock.patch.object(ciel_runtime, "should_append_compat_prompt", return_value=False))
+            stack.enter_context(mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch", return_value=False))
+            stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_capable_server_names", return_value=["ciel-runtime-router"]))
+            stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_source_paths_for_specs", return_value=[]))
+            stack.enter_context(mock.patch.object(ciel_runtime, "read_channel_probe_cache", return_value={"probed_at": 1700000000}))
+            stack.enter_context(mock.patch.object(ciel_runtime, "write_mcp_proxy_config", return_value=None))
+            proxy = stack.enter_context(mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy"))
+            call = stack.enter_context(mock.patch.object(ciel_runtime.subprocess, "call", return_value=0))
+            rc = ciel_runtime.launch_claude(["--channels", "server:ai-net"])
 
         self.assertEqual(0, rc)
         proxy.assert_not_called()
@@ -783,35 +783,35 @@ class ChannelConfigTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             channel_path = Path(td) / "channel-mcp.json"
             with ExitStack() as stack:
-                stack.enter_context(mock.patch.object(claude_any, "run_prelaunch_menu", return_value=0))
-                stack.enter_context(mock.patch.object(claude_any, "load_config", return_value=cfg))
-                stack.enter_context(mock.patch.object(claude_any, "get_current_provider", return_value=("ollama-cloud", {})))
-                stack.enter_context(mock.patch.object(claude_any, "launch_readiness_errors", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "native_anthropic_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "ollama_native_compat_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "provider_native_compat_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "cleanup_managed_services_for_provider"))
-                stack.enter_context(mock.patch.object(claude_any, "start_router_if_needed"))
-                stack.enter_context(mock.patch.object(claude_any, "prepare_channel_llm_delivery_for_launch"))
-                auto_start = stack.enter_context(mock.patch.object(claude_any, "auto_start_sse_channels_from_mcp_configs", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "env_vars", return_value={"CLAUDE_ANY_MODEL_ALIAS": "claude-any-test"}))
-                stack.enter_context(mock.patch.object(claude_any, "install_claude_any_slash_commands"))
-                stack.enter_context(mock.patch.object(claude_any, "install_tool_guard_hooks"))
-                stack.enter_context(mock.patch.object(claude_any, "install_claude_any_statusline"))
-                stack.enter_context(mock.patch.object(claude_any, "find_executable", return_value="claude"))
-                stack.enter_context(mock.patch.object(claude_any, "run_claude_update_check"))
-                stack.enter_context(mock.patch.object(claude_any, "should_attach_web_search", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "should_append_compat_prompt", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "external_mcp_channel_server_names_from_configs", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "ensure_channel_probe_cache_for_launch", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "cached_channel_capable_server_names", return_value=["claude-any-router"]))
-                stack.enter_context(mock.patch.object(claude_any, "cached_channel_source_paths_for_specs", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "read_channel_probe_cache", return_value={"probed_at": 1700000000}))
-                write_channel = stack.enter_context(mock.patch.object(claude_any, "write_channel_mcp_config", return_value=channel_path))
-                proxy_config = stack.enter_context(mock.patch.object(claude_any, "write_mcp_proxy_config", return_value=None))
-                proxy = stack.enter_context(mock.patch.object(claude_any, "subprocess_call_with_channel_wake_proxy", return_value=0))
-                call = stack.enter_context(mock.patch.object(claude_any.subprocess, "call", return_value=0))
-                rc = claude_any.launch_claude([])
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0))
+                stack.enter_context(mock.patch.object(ciel_runtime, "load_config", return_value=cfg))
+                stack.enter_context(mock.patch.object(ciel_runtime, "get_current_provider", return_value=("ollama-cloud", {})))
+                stack.enter_context(mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "native_anthropic_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "ollama_native_compat_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "provider_native_compat_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "prepare_channel_llm_delivery_for_launch"))
+                auto_start = stack.enter_context(mock.patch.object(ciel_runtime, "auto_start_sse_channels_from_mcp_configs", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "env_vars", return_value={"CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-test"}))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_slash_commands"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_tool_guard_hooks"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_statusline"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "find_executable", return_value="claude"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_claude_update_check"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_attach_web_search", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_append_compat_prompt", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "external_mcp_channel_server_names_from_configs", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_capable_server_names", return_value=["ciel-runtime-router"]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_source_paths_for_specs", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "read_channel_probe_cache", return_value={"probed_at": 1700000000}))
+                write_channel = stack.enter_context(mock.patch.object(ciel_runtime, "write_channel_mcp_config", return_value=channel_path))
+                proxy_config = stack.enter_context(mock.patch.object(ciel_runtime, "write_mcp_proxy_config", return_value=None))
+                proxy = stack.enter_context(mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", return_value=0))
+                call = stack.enter_context(mock.patch.object(ciel_runtime.subprocess, "call", return_value=0))
+                rc = ciel_runtime.launch_claude([])
 
         self.assertEqual(0, rc)
         write_channel.assert_called_once()
@@ -826,35 +826,35 @@ class ChannelConfigTests(unittest.TestCase):
         cfg = {"providers": {}, "claude_code": {"channels": [], "development_channels": False, "channel_delivery": "llm"}}
         with ExitStack() as stack:
             channel_path = Path("channel-mcp.json")
-            stack.enter_context(mock.patch.object(claude_any, "run_prelaunch_menu", return_value=0))
-            stack.enter_context(mock.patch.object(claude_any, "load_config", return_value=cfg))
-            stack.enter_context(mock.patch.object(claude_any, "get_current_provider", return_value=("ollama-cloud", {})))
-            stack.enter_context(mock.patch.object(claude_any, "launch_readiness_errors", return_value=[]))
-            stack.enter_context(mock.patch.object(claude_any, "native_anthropic_enabled", return_value=False))
-            stack.enter_context(mock.patch.object(claude_any, "ollama_native_compat_enabled", return_value=False))
-            stack.enter_context(mock.patch.object(claude_any, "provider_native_compat_enabled", return_value=False))
-            stack.enter_context(mock.patch.object(claude_any, "cleanup_managed_services_for_provider"))
-            stack.enter_context(mock.patch.object(claude_any, "start_router_if_needed"))
-            ensure_cursor = stack.enter_context(mock.patch.object(claude_any, "prepare_channel_llm_delivery_for_launch"))
-            auto_start = stack.enter_context(mock.patch.object(claude_any, "auto_start_sse_channels_from_mcp_configs", return_value=[]))
-            stack.enter_context(mock.patch.object(claude_any, "env_vars", return_value={"CLAUDE_ANY_MODEL_ALIAS": "claude-any-test", "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"}))
-            stack.enter_context(mock.patch.object(claude_any, "install_claude_any_slash_commands"))
-            stack.enter_context(mock.patch.object(claude_any, "install_tool_guard_hooks"))
-            stack.enter_context(mock.patch.object(claude_any, "install_claude_any_statusline"))
-            stack.enter_context(mock.patch.object(claude_any, "find_executable", return_value="claude"))
-            stack.enter_context(mock.patch.object(claude_any, "run_claude_update_check"))
-            stack.enter_context(mock.patch.object(claude_any, "should_attach_web_search", return_value=False))
-            stack.enter_context(mock.patch.object(claude_any, "should_append_compat_prompt", return_value=False))
-            stack.enter_context(mock.patch.object(claude_any, "external_mcp_channel_server_names_from_configs", return_value=[]))
-            ensure_probe = stack.enter_context(mock.patch.object(claude_any, "ensure_channel_probe_cache_for_launch", return_value=False))
-            stack.enter_context(mock.patch.object(claude_any, "cached_channel_capable_server_names", return_value=["claude-any-router"]))
-            stack.enter_context(mock.patch.object(claude_any, "cached_channel_source_paths_for_specs", return_value=[]))
-            stack.enter_context(mock.patch.object(claude_any, "read_channel_probe_cache", return_value={"probed_at": 1700000000}))
-            write_channel = stack.enter_context(mock.patch.object(claude_any, "write_channel_mcp_config", return_value=channel_path))
-            proxy_config = stack.enter_context(mock.patch.object(claude_any, "write_mcp_proxy_config", return_value=None))
-            proxy = stack.enter_context(mock.patch.object(claude_any, "subprocess_call_with_channel_wake_proxy", return_value=0))
-            call = stack.enter_context(mock.patch.object(claude_any.subprocess, "call", return_value=0))
-            rc = claude_any.launch_claude([])
+            stack.enter_context(mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0))
+            stack.enter_context(mock.patch.object(ciel_runtime, "load_config", return_value=cfg))
+            stack.enter_context(mock.patch.object(ciel_runtime, "get_current_provider", return_value=("ollama-cloud", {})))
+            stack.enter_context(mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]))
+            stack.enter_context(mock.patch.object(ciel_runtime, "native_anthropic_enabled", return_value=False))
+            stack.enter_context(mock.patch.object(ciel_runtime, "ollama_native_compat_enabled", return_value=False))
+            stack.enter_context(mock.patch.object(ciel_runtime, "provider_native_compat_enabled", return_value=False))
+            stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed"))
+            ensure_cursor = stack.enter_context(mock.patch.object(ciel_runtime, "prepare_channel_llm_delivery_for_launch"))
+            auto_start = stack.enter_context(mock.patch.object(ciel_runtime, "auto_start_sse_channels_from_mcp_configs", return_value=[]))
+            stack.enter_context(mock.patch.object(ciel_runtime, "env_vars", return_value={"CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-test", "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"}))
+            stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_slash_commands"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "install_tool_guard_hooks"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_statusline"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "find_executable", return_value="claude"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "run_claude_update_check"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "should_attach_web_search", return_value=False))
+            stack.enter_context(mock.patch.object(ciel_runtime, "should_append_compat_prompt", return_value=False))
+            stack.enter_context(mock.patch.object(ciel_runtime, "external_mcp_channel_server_names_from_configs", return_value=[]))
+            ensure_probe = stack.enter_context(mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch", return_value=False))
+            stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_capable_server_names", return_value=["ciel-runtime-router"]))
+            stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_source_paths_for_specs", return_value=[]))
+            stack.enter_context(mock.patch.object(ciel_runtime, "read_channel_probe_cache", return_value={"probed_at": 1700000000}))
+            write_channel = stack.enter_context(mock.patch.object(ciel_runtime, "write_channel_mcp_config", return_value=channel_path))
+            proxy_config = stack.enter_context(mock.patch.object(ciel_runtime, "write_mcp_proxy_config", return_value=None))
+            proxy = stack.enter_context(mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", return_value=0))
+            call = stack.enter_context(mock.patch.object(ciel_runtime.subprocess, "call", return_value=0))
+            rc = ciel_runtime.launch_claude([])
 
         self.assertEqual(0, rc)
         ensure_probe.assert_called_once_with(cfg, [])
@@ -868,7 +868,7 @@ class ChannelConfigTests(unittest.TestCase):
         call.assert_not_called()
         launch_cmd = proxy.call_args.args[0]
         self.assertNotIn("--dangerously-load-development-channels", launch_cmd)
-        self.assertNotIn("server:claude-any-router", launch_cmd)
+        self.assertNotIn("server:ciel-runtime-router", launch_cmd)
         launch_env = proxy.call_args.args[1]
         self.assertNotIn("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS", launch_env)
 
@@ -886,34 +886,34 @@ class ChannelConfigTests(unittest.TestCase):
             source_path = Path(td) / "source.mcp.json"
             proxy_path = Path(td) / "proxy.mcp.json"
             with ExitStack() as stack:
-                stack.enter_context(mock.patch.object(claude_any, "run_prelaunch_menu", return_value=0))
-                stack.enter_context(mock.patch.object(claude_any, "load_config", return_value=cfg))
-                stack.enter_context(mock.patch.object(claude_any, "get_current_provider", return_value=("ollama-cloud", {})))
-                stack.enter_context(mock.patch.object(claude_any, "launch_readiness_errors", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "native_anthropic_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "ollama_native_compat_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "provider_native_compat_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "cleanup_managed_services_for_provider"))
-                stack.enter_context(mock.patch.object(claude_any, "start_router_if_needed"))
-                stack.enter_context(mock.patch.object(claude_any, "prepare_channel_llm_delivery_for_launch"))
-                auto_start = stack.enter_context(mock.patch.object(claude_any, "auto_start_sse_channels_from_mcp_configs", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "env_vars", return_value={"CLAUDE_ANY_MODEL_ALIAS": "claude-any-test"}))
-                stack.enter_context(mock.patch.object(claude_any, "install_claude_any_slash_commands"))
-                stack.enter_context(mock.patch.object(claude_any, "install_tool_guard_hooks"))
-                stack.enter_context(mock.patch.object(claude_any, "install_claude_any_statusline"))
-                stack.enter_context(mock.patch.object(claude_any, "find_executable", return_value="claude"))
-                stack.enter_context(mock.patch.object(claude_any, "run_claude_update_check"))
-                stack.enter_context(mock.patch.object(claude_any, "should_attach_web_search", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "should_append_compat_prompt", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "external_mcp_channel_server_names_from_configs", return_value=[]))
-                ensure_probe = stack.enter_context(mock.patch.object(claude_any, "ensure_channel_probe_cache_for_launch", return_value=True))
-                stack.enter_context(mock.patch.object(claude_any, "cached_channel_capable_server_names", return_value=["claude-any-router", "ai-net-sse"]))
-                stack.enter_context(mock.patch.object(claude_any, "cached_channel_source_paths_for_specs", return_value=[source_path]))
-                stack.enter_context(mock.patch.object(claude_any, "read_channel_probe_cache", return_value={"probed_at": 1700000000}))
-                write_channel = stack.enter_context(mock.patch.object(claude_any, "write_channel_mcp_config", return_value=channel_path))
-                write_proxy = stack.enter_context(mock.patch.object(claude_any, "write_mcp_proxy_config", return_value=proxy_path))
-                call = stack.enter_context(mock.patch.object(claude_any.subprocess, "call", return_value=0))
-                rc = claude_any.launch_claude([])
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0))
+                stack.enter_context(mock.patch.object(ciel_runtime, "load_config", return_value=cfg))
+                stack.enter_context(mock.patch.object(ciel_runtime, "get_current_provider", return_value=("ollama-cloud", {})))
+                stack.enter_context(mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "native_anthropic_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "ollama_native_compat_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "provider_native_compat_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "prepare_channel_llm_delivery_for_launch"))
+                auto_start = stack.enter_context(mock.patch.object(ciel_runtime, "auto_start_sse_channels_from_mcp_configs", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "env_vars", return_value={"CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-test"}))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_slash_commands"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_tool_guard_hooks"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_statusline"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "find_executable", return_value="claude"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_claude_update_check"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_attach_web_search", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_append_compat_prompt", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "external_mcp_channel_server_names_from_configs", return_value=[]))
+                ensure_probe = stack.enter_context(mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch", return_value=True))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_capable_server_names", return_value=["ciel-runtime-router", "ai-net-sse"]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_source_paths_for_specs", return_value=[source_path]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "read_channel_probe_cache", return_value={"probed_at": 1700000000}))
+                write_channel = stack.enter_context(mock.patch.object(ciel_runtime, "write_channel_mcp_config", return_value=channel_path))
+                write_proxy = stack.enter_context(mock.patch.object(ciel_runtime, "write_mcp_proxy_config", return_value=proxy_path))
+                call = stack.enter_context(mock.patch.object(ciel_runtime.subprocess, "call", return_value=0))
+                rc = ciel_runtime.launch_claude([])
 
         self.assertEqual(0, rc)
         ensure_probe.assert_called_once_with(cfg, [])
@@ -928,7 +928,7 @@ class ChannelConfigTests(unittest.TestCase):
         launch_cmd = call.call_args.args[0]
         self.assertIn(str(proxy_path), launch_cmd)
         self.assertNotIn("--dangerously-load-development-channels", launch_cmd)
-        self.assertNotIn("server:claude-any-router", launch_cmd)
+        self.assertNotIn("server:ciel-runtime-router", launch_cmd)
         self.assertNotIn("server:ai-net-sse", launch_cmd)
 
     def test_non_native_llm_delivery_auto_discovers_streamable_http_from_claude_mcp(self):
@@ -938,35 +938,35 @@ class ChannelConfigTests(unittest.TestCase):
             source_path = Path(td) / ".mcp.json"
             proxy_path = Path(td) / "mcp-proxy.json"
             with ExitStack() as stack:
-                stack.enter_context(mock.patch.object(claude_any, "run_prelaunch_menu", return_value=0))
-                stack.enter_context(mock.patch.object(claude_any, "load_config", return_value=cfg))
-                stack.enter_context(mock.patch.object(claude_any, "get_current_provider", return_value=("kimi", {})))
-                stack.enter_context(mock.patch.object(claude_any, "launch_readiness_errors", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "native_anthropic_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "provider_native_compat_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "cleanup_managed_services_for_provider"))
-                stack.enter_context(mock.patch.object(claude_any, "start_router_if_needed"))
-                stack.enter_context(mock.patch.object(claude_any, "prepare_channel_llm_delivery_for_launch"))
-                stack.enter_context(mock.patch.object(claude_any, "auto_start_sse_channels_from_mcp_configs", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "env_vars", return_value={"CLAUDE_ANY_MODEL_ALIAS": "claude-any-test"}))
-                stack.enter_context(mock.patch.object(claude_any, "install_claude_any_slash_commands"))
-                stack.enter_context(mock.patch.object(claude_any, "install_tool_guard_hooks"))
-                stack.enter_context(mock.patch.object(claude_any, "install_claude_any_statusline"))
-                stack.enter_context(mock.patch.object(claude_any, "find_executable", return_value="claude"))
-                stack.enter_context(mock.patch.object(claude_any, "run_claude_update_check"))
-                stack.enter_context(mock.patch.object(claude_any, "should_attach_web_search", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "should_append_compat_prompt", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0))
+                stack.enter_context(mock.patch.object(ciel_runtime, "load_config", return_value=cfg))
+                stack.enter_context(mock.patch.object(ciel_runtime, "get_current_provider", return_value=("kimi", {})))
+                stack.enter_context(mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "native_anthropic_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "provider_native_compat_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "prepare_channel_llm_delivery_for_launch"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "auto_start_sse_channels_from_mcp_configs", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "env_vars", return_value={"CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-test"}))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_slash_commands"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_tool_guard_hooks"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_statusline"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "find_executable", return_value="claude"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_claude_update_check"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_attach_web_search", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_append_compat_prompt", return_value=False))
                 auto_names = stack.enter_context(
-                    mock.patch.object(claude_any, "external_mcp_channel_server_names_from_configs", return_value=["ai-net-http"])
+                    mock.patch.object(ciel_runtime, "external_mcp_channel_server_names_from_configs", return_value=["ai-net-http"])
                 )
-                ensure_probe = stack.enter_context(mock.patch.object(claude_any, "ensure_channel_probe_cache_for_launch", return_value=True))
-                stack.enter_context(mock.patch.object(claude_any, "cached_channel_capable_server_names", return_value=["claude-any-router", "ai-net-http"]))
-                stack.enter_context(mock.patch.object(claude_any, "cached_channel_source_paths_for_specs", return_value=[source_path]))
-                stack.enter_context(mock.patch.object(claude_any, "read_channel_probe_cache", return_value={"probed_at": 1700000000}))
-                stack.enter_context(mock.patch.object(claude_any, "write_channel_mcp_config", return_value=channel_path))
-                write_proxy = stack.enter_context(mock.patch.object(claude_any, "write_mcp_proxy_config", return_value=proxy_path))
-                call = stack.enter_context(mock.patch.object(claude_any.subprocess, "call", return_value=0))
-                rc = claude_any.launch_claude([])
+                ensure_probe = stack.enter_context(mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch", return_value=True))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_capable_server_names", return_value=["ciel-runtime-router", "ai-net-http"]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_source_paths_for_specs", return_value=[source_path]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "read_channel_probe_cache", return_value={"probed_at": 1700000000}))
+                stack.enter_context(mock.patch.object(ciel_runtime, "write_channel_mcp_config", return_value=channel_path))
+                write_proxy = stack.enter_context(mock.patch.object(ciel_runtime, "write_mcp_proxy_config", return_value=proxy_path))
+                call = stack.enter_context(mock.patch.object(ciel_runtime.subprocess, "call", return_value=0))
+                rc = ciel_runtime.launch_claude([])
 
         self.assertEqual(0, rc)
         auto_names.assert_called()
@@ -980,16 +980,16 @@ class ChannelConfigTests(unittest.TestCase):
     def test_channel_candidate_names_dedupe_explicit_and_auto_discovered_servers(self):
         cfg = {
             "claude_code": {
-                "channels": ["server:ai-net-http", "server:claude-any-router"],
+                "channels": ["server:ai-net-http", "server:ciel-runtime-router"],
                 "channel_delivery": "llm",
             }
         }
         with mock.patch.object(
-            claude_any,
+            ciel_runtime,
             "external_mcp_channel_server_names_from_configs",
             return_value=["ai-net-http", "other-http"],
         ):
-            names = claude_any.channel_candidate_server_names_for_launch(cfg, [])
+            names = ciel_runtime.channel_candidate_server_names_for_launch(cfg, [])
         self.assertEqual(["ai-net-http", "other-http"], names)
 
     def test_launch_ignores_stdin_delivery_setting_for_router_llm_delivery(self):
@@ -998,36 +998,36 @@ class ChannelConfigTests(unittest.TestCase):
             channel_path = Path(td) / "channel-mcp.json"
             proxy_path = Path(td) / "mcp-proxy.json"
             with ExitStack() as stack:
-                stack.enter_context(mock.patch.object(claude_any, "run_prelaunch_menu", return_value=0))
-                stack.enter_context(mock.patch.object(claude_any, "load_config", return_value=cfg))
-                stack.enter_context(mock.patch.object(claude_any, "get_current_provider", return_value=("ollama-cloud", {})))
-                stack.enter_context(mock.patch.object(claude_any, "launch_readiness_errors", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "native_anthropic_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "ollama_native_compat_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "provider_native_compat_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "cleanup_managed_services_for_provider"))
-                stack.enter_context(mock.patch.object(claude_any, "start_router_if_needed"))
-                stack.enter_context(mock.patch.object(claude_any, "auto_start_sse_channels_from_mcp_configs", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "env_vars", return_value={"CLAUDE_ANY_MODEL_ALIAS": "claude-any-test"}))
-                stack.enter_context(mock.patch.object(claude_any, "install_claude_any_slash_commands"))
-                stack.enter_context(mock.patch.object(claude_any, "install_tool_guard_hooks"))
-                stack.enter_context(mock.patch.object(claude_any, "install_claude_any_statusline"))
-                stack.enter_context(mock.patch.object(claude_any, "find_executable", return_value="claude"))
-                stack.enter_context(mock.patch.object(claude_any, "run_claude_update_check"))
-                stack.enter_context(mock.patch.object(claude_any, "claude_code_channels_auth_available", return_value=(True, "claude.ai")))
-                stack.enter_context(mock.patch.object(claude_any, "should_attach_web_search", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "should_append_compat_prompt", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "external_mcp_channel_server_names_from_configs", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "ensure_channel_probe_cache_for_launch", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "cached_channel_capable_server_names", return_value=["claude-any-router"]))
-                stack.enter_context(mock.patch.object(claude_any, "cached_channel_source_paths_for_specs", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "read_channel_probe_cache", return_value={"probed_at": 1700000000}))
-                stack.enter_context(mock.patch.object(claude_any, "prepare_channel_llm_delivery_for_launch"))
-                stack.enter_context(mock.patch.object(claude_any, "write_channel_mcp_config", return_value=channel_path))
-                stack.enter_context(mock.patch.object(claude_any, "write_mcp_proxy_config", return_value=proxy_path))
-                proxy = stack.enter_context(mock.patch.object(claude_any, "subprocess_call_with_channel_wake_proxy", return_value=0))
-                call = stack.enter_context(mock.patch.object(claude_any.subprocess, "call", return_value=0))
-                rc = claude_any.launch_claude(["--mcp-config", "original.json", "-p", "hello"])
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0))
+                stack.enter_context(mock.patch.object(ciel_runtime, "load_config", return_value=cfg))
+                stack.enter_context(mock.patch.object(ciel_runtime, "get_current_provider", return_value=("ollama-cloud", {})))
+                stack.enter_context(mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "native_anthropic_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "ollama_native_compat_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "provider_native_compat_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "auto_start_sse_channels_from_mcp_configs", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "env_vars", return_value={"CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-test"}))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_slash_commands"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_tool_guard_hooks"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_statusline"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "find_executable", return_value="claude"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_claude_update_check"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "claude_code_channels_auth_available", return_value=(True, "claude.ai")))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_attach_web_search", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_append_compat_prompt", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "external_mcp_channel_server_names_from_configs", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_capable_server_names", return_value=["ciel-runtime-router"]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_source_paths_for_specs", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "read_channel_probe_cache", return_value={"probed_at": 1700000000}))
+                stack.enter_context(mock.patch.object(ciel_runtime, "prepare_channel_llm_delivery_for_launch"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "write_channel_mcp_config", return_value=channel_path))
+                stack.enter_context(mock.patch.object(ciel_runtime, "write_mcp_proxy_config", return_value=proxy_path))
+                proxy = stack.enter_context(mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", return_value=0))
+                call = stack.enter_context(mock.patch.object(ciel_runtime.subprocess, "call", return_value=0))
+                rc = ciel_runtime.launch_claude(["--mcp-config", "original.json", "-p", "hello"])
 
         self.assertEqual(0, rc)
         proxy.assert_not_called()
@@ -1044,34 +1044,34 @@ class ChannelConfigTests(unittest.TestCase):
             channel_path = Path(td) / "channel-mcp.json"
             proxy_path = Path(td) / "mcp-proxy.json"
             with ExitStack() as stack:
-                stack.enter_context(mock.patch.object(claude_any, "run_prelaunch_menu", return_value=0))
-                stack.enter_context(mock.patch.object(claude_any, "load_config", return_value=cfg))
-                stack.enter_context(mock.patch.object(claude_any, "get_current_provider", return_value=("ollama-cloud", {})))
-                stack.enter_context(mock.patch.object(claude_any, "launch_readiness_errors", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "native_anthropic_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "ollama_native_compat_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "provider_native_compat_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "cleanup_managed_services_for_provider"))
-                stack.enter_context(mock.patch.object(claude_any, "start_router_if_needed"))
-                stack.enter_context(mock.patch.object(claude_any, "auto_start_sse_channels_from_mcp_configs", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "env_vars", return_value={"CLAUDE_ANY_MODEL_ALIAS": "claude-any-test", "ANTHROPIC_AUTH_TOKEN": "not-used", "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"}))
-                stack.enter_context(mock.patch.object(claude_any, "install_claude_any_slash_commands"))
-                stack.enter_context(mock.patch.object(claude_any, "install_tool_guard_hooks"))
-                stack.enter_context(mock.patch.object(claude_any, "install_claude_any_statusline"))
-                stack.enter_context(mock.patch.object(claude_any, "find_executable", return_value="claude"))
-                stack.enter_context(mock.patch.object(claude_any, "run_claude_update_check"))
-                stack.enter_context(mock.patch.object(claude_any, "claude_code_channels_auth_available", return_value=(True, "claude.ai")))
-                stack.enter_context(mock.patch.object(claude_any, "should_attach_web_search", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "should_append_compat_prompt", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "external_mcp_channel_server_names_from_configs", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "ensure_channel_probe_cache_for_launch", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "cached_channel_capable_server_names", return_value=["claude-any-router"]))
-                stack.enter_context(mock.patch.object(claude_any, "cached_channel_source_paths_for_specs", return_value=[]))
-                write_channel = stack.enter_context(mock.patch.object(claude_any, "write_channel_mcp_config", return_value=channel_path))
-                write_proxy = stack.enter_context(mock.patch.object(claude_any, "write_mcp_proxy_config", return_value=proxy_path))
-                proxy = stack.enter_context(mock.patch.object(claude_any, "subprocess_call_with_channel_wake_proxy", return_value=0))
-                call = stack.enter_context(mock.patch.object(claude_any.subprocess, "call", return_value=0))
-                rc = claude_any.launch_claude(["--mcp-config", "original.json"])
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0))
+                stack.enter_context(mock.patch.object(ciel_runtime, "load_config", return_value=cfg))
+                stack.enter_context(mock.patch.object(ciel_runtime, "get_current_provider", return_value=("ollama-cloud", {})))
+                stack.enter_context(mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "native_anthropic_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "ollama_native_compat_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "provider_native_compat_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "auto_start_sse_channels_from_mcp_configs", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "env_vars", return_value={"CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-test", "ANTHROPIC_AUTH_TOKEN": "not-used", "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"}))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_slash_commands"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_tool_guard_hooks"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_statusline"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "find_executable", return_value="claude"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_claude_update_check"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "claude_code_channels_auth_available", return_value=(True, "claude.ai")))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_attach_web_search", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_append_compat_prompt", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "external_mcp_channel_server_names_from_configs", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_capable_server_names", return_value=["ciel-runtime-router"]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_source_paths_for_specs", return_value=[]))
+                write_channel = stack.enter_context(mock.patch.object(ciel_runtime, "write_channel_mcp_config", return_value=channel_path))
+                write_proxy = stack.enter_context(mock.patch.object(ciel_runtime, "write_mcp_proxy_config", return_value=proxy_path))
+                proxy = stack.enter_context(mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", return_value=0))
+                call = stack.enter_context(mock.patch.object(ciel_runtime.subprocess, "call", return_value=0))
+                rc = ciel_runtime.launch_claude(["--mcp-config", "original.json"])
 
         self.assertEqual(0, rc)
         write_channel.assert_called_once()
@@ -1090,7 +1090,7 @@ class ChannelConfigTests(unittest.TestCase):
         cfg = {
             "providers": {},
             "claude_code": {
-                "channels": ["server:claude-any-router", "server:ai-net"],
+                "channels": ["server:ciel-runtime-router", "server:ai-net"],
                 "development_channels": False,
                 "channel_delivery": "native",
             },
@@ -1099,34 +1099,34 @@ class ChannelConfigTests(unittest.TestCase):
             channel_path = Path(td) / "channel-mcp.json"
             proxy_path = Path(td) / "mcp-proxy.json"
             with ExitStack() as stack:
-                stack.enter_context(mock.patch.object(claude_any, "run_prelaunch_menu", return_value=0))
-                stack.enter_context(mock.patch.object(claude_any, "load_config", return_value=cfg))
-                stack.enter_context(mock.patch.object(claude_any, "get_current_provider", return_value=("anthropic", {})))
-                stack.enter_context(mock.patch.object(claude_any, "launch_readiness_errors", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "native_anthropic_enabled", return_value=True))
-                stack.enter_context(mock.patch.object(claude_any, "ollama_native_compat_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "provider_native_compat_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "cleanup_managed_services_for_provider"))
-                start_router = stack.enter_context(mock.patch.object(claude_any, "start_router_if_needed"))
-                stack.enter_context(mock.patch.object(claude_any, "auto_start_sse_channels_from_mcp_configs", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "env_vars", return_value={"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"}))
-                stack.enter_context(mock.patch.object(claude_any, "install_claude_any_slash_commands"))
-                stack.enter_context(mock.patch.object(claude_any, "install_tool_guard_hooks"))
-                stack.enter_context(mock.patch.object(claude_any, "install_claude_any_statusline"))
-                stack.enter_context(mock.patch.object(claude_any, "find_executable", return_value="claude"))
-                stack.enter_context(mock.patch.object(claude_any, "run_claude_update_check"))
-                stack.enter_context(mock.patch.object(claude_any, "should_attach_web_search", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "should_append_compat_prompt", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "external_mcp_channel_server_names_from_configs", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "ensure_channel_probe_cache_for_launch", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "cached_channel_capable_server_names", return_value=["claude-any-router"]))
-                stack.enter_context(mock.patch.object(claude_any, "cached_channel_source_paths_for_specs", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "write_native_mcp_config_from_discovery", return_value=None))
-                write_channel = stack.enter_context(mock.patch.object(claude_any, "write_channel_mcp_config", return_value=channel_path))
-                write_proxy = stack.enter_context(mock.patch.object(claude_any, "write_mcp_proxy_config", return_value=proxy_path))
-                proxy = stack.enter_context(mock.patch.object(claude_any, "subprocess_call_with_channel_wake_proxy", return_value=0))
-                call = stack.enter_context(mock.patch.object(claude_any.subprocess, "call", return_value=0))
-                rc = claude_any.launch_claude([])
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0))
+                stack.enter_context(mock.patch.object(ciel_runtime, "load_config", return_value=cfg))
+                stack.enter_context(mock.patch.object(ciel_runtime, "get_current_provider", return_value=("anthropic", {})))
+                stack.enter_context(mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "native_anthropic_enabled", return_value=True))
+                stack.enter_context(mock.patch.object(ciel_runtime, "ollama_native_compat_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "provider_native_compat_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
+                start_router = stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "auto_start_sse_channels_from_mcp_configs", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "env_vars", return_value={"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"}))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_slash_commands"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_tool_guard_hooks"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_statusline"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "find_executable", return_value="claude"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_claude_update_check"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_attach_web_search", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_append_compat_prompt", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "external_mcp_channel_server_names_from_configs", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_capable_server_names", return_value=["ciel-runtime-router"]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cached_channel_source_paths_for_specs", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "write_native_mcp_config_from_discovery", return_value=None))
+                write_channel = stack.enter_context(mock.patch.object(ciel_runtime, "write_channel_mcp_config", return_value=channel_path))
+                write_proxy = stack.enter_context(mock.patch.object(ciel_runtime, "write_mcp_proxy_config", return_value=proxy_path))
+                proxy = stack.enter_context(mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", return_value=0))
+                call = stack.enter_context(mock.patch.object(ciel_runtime.subprocess, "call", return_value=0))
+                rc = ciel_runtime.launch_claude([])
 
         self.assertEqual(0, rc)
         start_router.assert_not_called()
@@ -1136,7 +1136,7 @@ class ChannelConfigTests(unittest.TestCase):
         launch_cmd = call.call_args.args[0]
         self.assertIn("--dangerously-load-development-channels", launch_cmd)
         self.assertIn("server:ai-net", launch_cmd)
-        self.assertNotIn("server:claude-any-router", launch_cmd)
+        self.assertNotIn("server:ciel-runtime-router", launch_cmd)
         self.assertNotIn("--mcp-config", launch_cmd)
         self.assertNotIn(str(proxy_path), launch_cmd)
         launch_env = call.call_args.kwargs["env"]
@@ -1151,30 +1151,30 @@ class ChannelConfigTests(unittest.TestCase):
             native_mcp.write_text(json.dumps({"mcpServers": {"project": {"command": "node"}}}), encoding="utf-8")
             explicit_mcp.write_text(json.dumps({"mcpServers": {"explicit": {"command": "node"}}}), encoding="utf-8")
             with ExitStack() as stack:
-                stack.enter_context(mock.patch.object(claude_any, "run_prelaunch_menu", return_value=0))
-                stack.enter_context(mock.patch.object(claude_any, "load_config", return_value=cfg))
-                stack.enter_context(mock.patch.object(claude_any, "get_current_provider", return_value=("anthropic", {"route_through_router": False})))
-                stack.enter_context(mock.patch.object(claude_any, "launch_readiness_errors", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "native_anthropic_enabled", return_value=True))
-                stack.enter_context(mock.patch.object(claude_any, "ollama_native_compat_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "provider_native_compat_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "cleanup_managed_services_for_provider"))
-                start_router = stack.enter_context(mock.patch.object(claude_any, "start_router_if_needed"))
-                stack.enter_context(mock.patch.object(claude_any, "auto_import_passthrough_channels"))
-                stack.enter_context(mock.patch.object(claude_any, "env_vars", return_value={"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"}))
-                stack.enter_context(mock.patch.object(claude_any, "disable_claude_any_slash_commands_for_native"))
-                stack.enter_context(mock.patch.object(claude_any, "find_executable", return_value="claude"))
-                stack.enter_context(mock.patch.object(claude_any, "run_claude_update_check"))
-                stack.enter_context(mock.patch.object(claude_any, "should_attach_web_search", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "should_append_compat_prompt", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "external_mcp_channel_server_names_from_configs", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "ensure_channel_probe_cache_for_launch", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "native_auto_channel_capable_server_names", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0))
+                stack.enter_context(mock.patch.object(ciel_runtime, "load_config", return_value=cfg))
+                stack.enter_context(mock.patch.object(ciel_runtime, "get_current_provider", return_value=("anthropic", {"route_through_router": False})))
+                stack.enter_context(mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "native_anthropic_enabled", return_value=True))
+                stack.enter_context(mock.patch.object(ciel_runtime, "ollama_native_compat_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "provider_native_compat_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
+                start_router = stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "env_vars", return_value={"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"}))
+                stack.enter_context(mock.patch.object(ciel_runtime, "disable_ciel_runtime_slash_commands_for_native"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "find_executable", return_value="claude"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_claude_update_check"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_attach_web_search", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_append_compat_prompt", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "external_mcp_channel_server_names_from_configs", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "native_auto_channel_capable_server_names", return_value=[]))
                 write_native = stack.enter_context(
-                    mock.patch.object(claude_any, "write_native_mcp_config_from_discovery", return_value=native_mcp)
+                    mock.patch.object(ciel_runtime, "write_native_mcp_config_from_discovery", return_value=native_mcp)
                 )
-                call = stack.enter_context(mock.patch.object(claude_any.subprocess, "call", return_value=0))
-                rc = claude_any.launch_claude(["--mcp-config", str(explicit_mcp), "--verbose"])
+                call = stack.enter_context(mock.patch.object(ciel_runtime.subprocess, "call", return_value=0))
+                rc = ciel_runtime.launch_claude(["--mcp-config", str(explicit_mcp), "--verbose"])
 
         self.assertEqual(0, rc)
         start_router.assert_not_called()
@@ -1194,35 +1194,35 @@ class ChannelConfigTests(unittest.TestCase):
             native_mcp = Path(td) / "native-mcp.json"
             native_mcp.write_text(json.dumps({"mcpServers": {"ai-net-http": {"type": "http", "url": "http://example/mcp"}}}), encoding="utf-8")
             with ExitStack() as stack:
-                stack.enter_context(mock.patch.object(claude_any, "run_prelaunch_menu", return_value=0))
-                stack.enter_context(mock.patch.object(claude_any, "load_config", return_value=cfg))
-                stack.enter_context(mock.patch.object(claude_any, "get_current_provider", return_value=("anthropic", {"route_through_router": False})))
-                stack.enter_context(mock.patch.object(claude_any, "launch_readiness_errors", return_value=[]))
-                stack.enter_context(mock.patch.object(claude_any, "native_anthropic_enabled", return_value=True))
-                stack.enter_context(mock.patch.object(claude_any, "ollama_native_compat_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "provider_native_compat_enabled", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "cleanup_managed_services_for_provider"))
-                start_router = stack.enter_context(mock.patch.object(claude_any, "start_router_if_needed"))
-                stack.enter_context(mock.patch.object(claude_any, "auto_import_passthrough_channels"))
-                stack.enter_context(mock.patch.object(claude_any, "env_vars", return_value={"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"}))
-                stack.enter_context(mock.patch.object(claude_any, "disable_claude_any_slash_commands_for_native"))
-                stack.enter_context(mock.patch.object(claude_any, "find_executable", return_value="claude"))
-                stack.enter_context(mock.patch.object(claude_any, "run_claude_update_check"))
-                stack.enter_context(mock.patch.object(claude_any, "claude_code_channels_auth_available", return_value=(True, "claude.ai")))
-                stack.enter_context(mock.patch.object(claude_any, "should_attach_web_search", return_value=False))
-                stack.enter_context(mock.patch.object(claude_any, "should_append_compat_prompt", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0))
+                stack.enter_context(mock.patch.object(ciel_runtime, "load_config", return_value=cfg))
+                stack.enter_context(mock.patch.object(ciel_runtime, "get_current_provider", return_value=("anthropic", {"route_through_router": False})))
+                stack.enter_context(mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]))
+                stack.enter_context(mock.patch.object(ciel_runtime, "native_anthropic_enabled", return_value=True))
+                stack.enter_context(mock.patch.object(ciel_runtime, "ollama_native_compat_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "provider_native_compat_enabled", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
+                start_router = stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "env_vars", return_value={"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"}))
+                stack.enter_context(mock.patch.object(ciel_runtime, "disable_ciel_runtime_slash_commands_for_native"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "find_executable", return_value="claude"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "run_claude_update_check"))
+                stack.enter_context(mock.patch.object(ciel_runtime, "claude_code_channels_auth_available", return_value=(True, "claude.ai")))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_attach_web_search", return_value=False))
+                stack.enter_context(mock.patch.object(ciel_runtime, "should_append_compat_prompt", return_value=False))
                 auto_names = stack.enter_context(
-                    mock.patch.object(claude_any, "external_mcp_channel_server_names_from_configs", return_value=["ai-net-http"])
+                    mock.patch.object(ciel_runtime, "external_mcp_channel_server_names_from_configs", return_value=["ai-net-http"])
                 )
-                ensure_probe = stack.enter_context(mock.patch.object(claude_any, "ensure_channel_probe_cache_for_launch", return_value=True))
-                stack.enter_context(mock.patch.object(claude_any, "native_auto_channel_capable_server_names", return_value=["ai-net-http"]))
-                write_channel = stack.enter_context(mock.patch.object(claude_any, "write_channel_mcp_config"))
-                write_proxy = stack.enter_context(mock.patch.object(claude_any, "write_mcp_proxy_config"))
+                ensure_probe = stack.enter_context(mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch", return_value=True))
+                stack.enter_context(mock.patch.object(ciel_runtime, "native_auto_channel_capable_server_names", return_value=["ai-net-http"]))
+                write_channel = stack.enter_context(mock.patch.object(ciel_runtime, "write_channel_mcp_config"))
+                write_proxy = stack.enter_context(mock.patch.object(ciel_runtime, "write_mcp_proxy_config"))
                 write_native = stack.enter_context(
-                    mock.patch.object(claude_any, "write_native_mcp_config_from_discovery", return_value=native_mcp)
+                    mock.patch.object(ciel_runtime, "write_native_mcp_config_from_discovery", return_value=native_mcp)
                 )
-                call = stack.enter_context(mock.patch.object(claude_any.subprocess, "call", return_value=0))
-                rc = claude_any.launch_claude([])
+                call = stack.enter_context(mock.patch.object(ciel_runtime.subprocess, "call", return_value=0))
+                rc = ciel_runtime.launch_claude([])
 
         self.assertEqual(0, rc)
         auto_names.assert_called_once_with([])
@@ -1236,7 +1236,7 @@ class ChannelConfigTests(unittest.TestCase):
         self.assertIn(str(native_mcp), launch_cmd)
         self.assertIn("--dangerously-load-development-channels", launch_cmd)
         self.assertIn("server:ai-net-http", launch_cmd)
-        self.assertNotIn("server:claude-any-router", launch_cmd)
+        self.assertNotIn("server:ciel-runtime-router", launch_cmd)
         launch_env = call.call_args.kwargs["env"]
         self.assertNotIn("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS", launch_env)
 
@@ -1248,8 +1248,8 @@ class ChannelConfigTests(unittest.TestCase):
             },
             "providers": {},
         }
-        with mock.patch.object(claude_any, "load_config", return_value=cfg), mock.patch.object(claude_any, "save_config"):
-            lines = claude_any.add_channel_spec("plugin:discord@claude-plugins-official")
+        with mock.patch.object(ciel_runtime, "load_config", return_value=cfg), mock.patch.object(ciel_runtime, "save_config"):
+            lines = ciel_runtime.add_channel_spec("plugin:discord@claude-plugins-official")
         self.assertIn("plugin:discord@claude-plugins-official", cfg["claude_code"]["channels"])
         self.assertTrue(lines[0].startswith("Channel added"))
 
@@ -1261,8 +1261,8 @@ class ChannelConfigTests(unittest.TestCase):
             },
             "providers": {},
         }
-        with mock.patch.object(claude_any, "load_config", return_value=cfg), mock.patch.object(claude_any, "save_config") as save:
-            lines = claude_any.add_channel_spec("ainet")
+        with mock.patch.object(ciel_runtime, "load_config", return_value=cfg), mock.patch.object(ciel_runtime, "save_config") as save:
+            lines = ciel_runtime.add_channel_spec("ainet")
         self.assertEqual(["Channel spec must start with plugin: or server:."], lines)
         self.assertEqual([], cfg["claude_code"]["channels"])
         save.assert_not_called()
@@ -1275,15 +1275,15 @@ class ChannelConfigTests(unittest.TestCase):
             },
             "providers": {},
         }
-        with mock.patch.object(claude_any, "load_config", return_value=cfg), mock.patch.object(claude_any, "save_config"):
-            claude_any.add_channel_spec("plugin:ainet@local", development=True)
+        with mock.patch.object(ciel_runtime, "load_config", return_value=cfg), mock.patch.object(ciel_runtime, "save_config"):
+            ciel_runtime.add_channel_spec("plugin:ainet@local", development=True)
         self.assertEqual(["plugin:ainet@local"], cfg["claude_code"]["channels"])
         self.assertFalse(cfg["claude_code"]["development_channels"])
 
 
 class PassthroughChannelImportTests(unittest.TestCase):
     def test_parse_extracts_channels_and_dangerously_loaded_specs(self):
-        specs = claude_any.parse_passthrough_channel_specs([
+        specs = ciel_runtime.parse_passthrough_channel_specs([
             "--channels",
             "server:ai-net",
             "plugin:fakechat@claude-plugins-official",
@@ -1302,7 +1302,7 @@ class PassthroughChannelImportTests(unittest.TestCase):
         )
 
     def test_parse_extracts_inline_equals_form(self):
-        specs = claude_any.parse_passthrough_channel_specs([
+        specs = ciel_runtime.parse_passthrough_channel_specs([
             "--channels=server:ai-net",
             "--dangerously-load-development-channels=plugin:telegram@claude-plugins-official",
         ])
@@ -1312,23 +1312,23 @@ class PassthroughChannelImportTests(unittest.TestCase):
         )
 
     def test_parse_skips_unrelated_args(self):
-        self.assertEqual([], claude_any.parse_passthrough_channel_specs(["-p", "hi", "--model", "x"]))
+        self.assertEqual([], ciel_runtime.parse_passthrough_channel_specs(["-p", "hi", "--model", "x"]))
 
     def test_parse_ignores_untagged_values(self):
         # A bare token after --channels that does not look like a channel spec
         # must not be misinterpreted as a spec.
-        specs = claude_any.parse_passthrough_channel_specs(["--channels", "just-a-word"])
+        specs = ciel_runtime.parse_passthrough_channel_specs(["--channels", "just-a-word"])
         self.assertEqual([], specs)
 
     def test_auto_import_adds_new_specs(self):
         cfg = {"claude_code": {"channels": []}, "providers": {}}
         with (
-            mock.patch.object(claude_any, "load_config", return_value=cfg),
-            mock.patch.object(claude_any, "save_config") as save,
-            mock.patch.object(claude_any, "invalidate_config_cache"),
-            mock.patch.object(claude_any, "router_log"),
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "save_config") as save,
+            mock.patch.object(ciel_runtime, "invalidate_config_cache"),
+            mock.patch.object(ciel_runtime, "router_log"),
         ):
-            added = claude_any.auto_import_passthrough_channels(["--channels", "server:ai-net"])
+            added = ciel_runtime.auto_import_passthrough_channels(["--channels", "server:ai-net"])
         self.assertEqual(["server:ai-net"], added)
         self.assertEqual(["server:ai-net"], cfg["claude_code"]["channels"])
         save.assert_called_once()
@@ -1336,21 +1336,21 @@ class PassthroughChannelImportTests(unittest.TestCase):
     def test_auto_import_skips_already_present_specs(self):
         cfg = {"claude_code": {"channels": ["server:ai-net"]}, "providers": {}}
         with (
-            mock.patch.object(claude_any, "load_config", return_value=cfg),
-            mock.patch.object(claude_any, "save_config") as save,
-            mock.patch.object(claude_any, "invalidate_config_cache"),
-            mock.patch.object(claude_any, "router_log"),
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "save_config") as save,
+            mock.patch.object(ciel_runtime, "invalidate_config_cache"),
+            mock.patch.object(ciel_runtime, "router_log"),
         ):
-            added = claude_any.auto_import_passthrough_channels(["--channels", "server:ai-net"])
+            added = ciel_runtime.auto_import_passthrough_channels(["--channels", "server:ai-net"])
         self.assertEqual([], added)
         save.assert_not_called()
 
     def test_auto_import_noop_for_empty_passthrough(self):
         with (
-            mock.patch.object(claude_any, "load_config") as load,
-            mock.patch.object(claude_any, "save_config") as save,
+            mock.patch.object(ciel_runtime, "load_config") as load,
+            mock.patch.object(ciel_runtime, "save_config") as save,
         ):
-            self.assertEqual([], claude_any.auto_import_passthrough_channels([]))
+            self.assertEqual([], ciel_runtime.auto_import_passthrough_channels([]))
         load.assert_not_called()
         save.assert_not_called()
 
@@ -1358,15 +1358,15 @@ class PassthroughChannelImportTests(unittest.TestCase):
 class ChannelProbeCacheTests(unittest.TestCase):
     def _isolate_cache(self, stack, td):
         root = Path(td)
-        stack.enter_context(mock.patch.object(claude_any, "CONFIG_DIR", root))
-        stack.enter_context(mock.patch.object(claude_any, "CHANNEL_PROBE_CACHE_PATH", root / "channel-probe-cache.json"))
-        stack.enter_context(mock.patch.object(claude_any, "router_log"))
+        stack.enter_context(mock.patch.object(ciel_runtime, "CONFIG_DIR", root))
+        stack.enter_context(mock.patch.object(ciel_runtime, "CHANNEL_PROBE_CACHE_PATH", root / "channel-probe-cache.json"))
+        stack.enter_context(mock.patch.object(ciel_runtime, "router_log"))
         return root
 
     def test_cache_read_returns_empty_when_missing(self):
         with tempfile.TemporaryDirectory() as td, ExitStack() as stack:
             self._isolate_cache(stack, td)
-            data = claude_any.read_channel_probe_cache()
+            data = ciel_runtime.read_channel_probe_cache()
         self.assertEqual([], data["servers"])
         self.assertEqual(0.0, data["probed_at"])
 
@@ -1380,8 +1380,8 @@ class ChannelProbeCacheTests(unittest.TestCase):
                     {"name": "ai-net", "capable": True, "transport": "stdio", "source_path": str(root / ".mcp.json")},
                 ],
             }
-            claude_any._write_channel_probe_cache(cache)
-            data = claude_any.read_channel_probe_cache()
+            ciel_runtime._write_channel_probe_cache(cache)
+            data = ciel_runtime.read_channel_probe_cache()
         self.assertEqual(1700000000.0, data["probed_at"])
         self.assertEqual("ai-net", data["servers"][0]["name"])
 
@@ -1389,12 +1389,12 @@ class ChannelProbeCacheTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td, ExitStack() as stack:
             self._isolate_cache(stack, td)
             # Empty cache → only built-in router.
-            self.assertEqual(["claude-any-router"], claude_any.cached_channel_capable_server_names())
+            self.assertEqual(["ciel-runtime-router"], ciel_runtime.cached_channel_capable_server_names())
 
     def test_cached_capable_names_returns_capable_plus_router(self):
         with tempfile.TemporaryDirectory() as td, ExitStack() as stack:
             self._isolate_cache(stack, td)
-            claude_any._write_channel_probe_cache({
+            ciel_runtime._write_channel_probe_cache({
                 "version": 1,
                 "probed_at": 1700000000.0,
                 "servers": [
@@ -1402,30 +1402,30 @@ class ChannelProbeCacheTests(unittest.TestCase):
                     {"name": "boring", "capable": False, "transport": "stdio"},
                 ],
             })
-            names = claude_any.cached_channel_capable_server_names()
-        self.assertIn("claude-any-router", names)
+            names = ciel_runtime.cached_channel_capable_server_names()
+        self.assertIn("ciel-runtime-router", names)
         self.assertIn("ai-net", names)
         self.assertNotIn("boring", names)
 
     def test_cached_external_capable_names_excludes_router_self(self):
         with tempfile.TemporaryDirectory() as td, ExitStack() as stack:
             self._isolate_cache(stack, td)
-            claude_any._write_channel_probe_cache({
+            ciel_runtime._write_channel_probe_cache({
                 "version": 1,
                 "probed_at": 1700000000.0,
                 "servers": [
-                    {"name": "claude-any-router", "capable": True, "transport": "sse"},
+                    {"name": "ciel-runtime-router", "capable": True, "transport": "sse"},
                     {"name": "ai-net-http", "capable": True, "transport": "streamable-http"},
                     {"name": "boring", "capable": False, "transport": "stdio"},
                 ],
             })
-            names = claude_any.cached_external_channel_capable_server_names()
+            names = ciel_runtime.cached_external_channel_capable_server_names()
         self.assertEqual(["ai-net-http"], names)
 
     def test_native_auto_channel_names_require_current_mcp_discovery(self):
         with tempfile.TemporaryDirectory() as td, ExitStack() as stack:
             self._isolate_cache(stack, td)
-            claude_any._write_channel_probe_cache({
+            ciel_runtime._write_channel_probe_cache({
                 "version": 1,
                 "probed_at": 1700000000.0,
                 "servers": [
@@ -1435,19 +1435,19 @@ class ChannelProbeCacheTests(unittest.TestCase):
             })
             stack.enter_context(
                 mock.patch.object(
-                    claude_any,
+                    ciel_runtime,
                     "discovered_claude_mcp_servers",
                     return_value={"current-http": {"type": "http", "url": "http://example.test/mcp"}},
                 )
             )
-            names = claude_any.native_auto_channel_capable_server_names([])
+            names = ciel_runtime.native_auto_channel_capable_server_names([])
         self.assertEqual(["current-http"], names)
 
     def test_cached_source_paths_for_selected_sse_channel(self):
         with tempfile.TemporaryDirectory() as td, ExitStack() as stack:
             root = self._isolate_cache(stack, td)
             mcp_config = root / ".mcp.json"
-            claude_any._write_channel_probe_cache({
+            ciel_runtime._write_channel_probe_cache({
                 "version": 1,
                 "probed_at": 1700000000.0,
                 "servers": [
@@ -1459,25 +1459,25 @@ class ChannelProbeCacheTests(unittest.TestCase):
                     },
                 ],
             })
-            paths = claude_any.cached_channel_source_paths_for_specs(["server:ai-net-sse"])
+            paths = ciel_runtime.cached_channel_source_paths_for_specs(["server:ai-net-sse"])
         self.assertEqual([mcp_config], paths)
 
     def test_launch_refresh_needed_when_selected_channel_cache_missing(self):
         cfg = {"claude_code": {"channels": ["server:ai-net-sse"], "channel_delivery": "native"}}
         with tempfile.TemporaryDirectory() as td, ExitStack() as stack:
             self._isolate_cache(stack, td)
-            self.assertTrue(claude_any.channel_probe_cache_needs_launch_refresh(cfg, []))
-            refresh = stack.enter_context(mock.patch.object(claude_any, "refresh_channel_probe_cache", return_value={"servers": []}))
-            self.assertTrue(claude_any.ensure_channel_probe_cache_for_launch(cfg, []))
+            self.assertTrue(ciel_runtime.channel_probe_cache_needs_launch_refresh(cfg, []))
+            refresh = stack.enter_context(mock.patch.object(ciel_runtime, "refresh_channel_probe_cache", return_value={"servers": []}))
+            self.assertTrue(ciel_runtime.ensure_channel_probe_cache_for_launch(cfg, []))
         refresh.assert_called_once_with([])
 
     def test_launch_refresh_needed_when_probe_cache_absent_even_without_external_selection(self):
         cfg = {"claude_code": {"channels": [], "channel_delivery": "native"}}
         with tempfile.TemporaryDirectory() as td, ExitStack() as stack:
             self._isolate_cache(stack, td)
-            self.assertTrue(claude_any.channel_probe_cache_needs_launch_refresh(cfg, []))
-            refresh = stack.enter_context(mock.patch.object(claude_any, "refresh_channel_probe_cache", return_value={"servers": []}))
-            self.assertTrue(claude_any.ensure_channel_probe_cache_for_launch(cfg, []))
+            self.assertTrue(ciel_runtime.channel_probe_cache_needs_launch_refresh(cfg, []))
+            refresh = stack.enter_context(mock.patch.object(ciel_runtime, "refresh_channel_probe_cache", return_value={"servers": []}))
+            self.assertTrue(ciel_runtime.ensure_channel_probe_cache_for_launch(cfg, []))
         refresh.assert_called_once_with([])
 
     def test_menu_rows_refresh_missing_probe_cache_before_rendering(self):
@@ -1498,11 +1498,11 @@ class ChannelProbeCacheTests(unittest.TestCase):
                         },
                     ],
                 }
-                claude_any._write_channel_probe_cache(cache)
+                ciel_runtime._write_channel_probe_cache(cache)
                 return cache
 
-            refresh_mock = stack.enter_context(mock.patch.object(claude_any, "refresh_channel_probe_cache", side_effect=refresh))
-            rows, values, messages = claude_any.channel_panel_rows_for_menu(cfg, [])
+            refresh_mock = stack.enter_context(mock.patch.object(ciel_runtime, "refresh_channel_probe_cache", side_effect=refresh))
+            rows, values, messages = ciel_runtime.channel_panel_rows_for_menu(cfg, [])
 
         refresh_mock.assert_called_once_with([])
         self.assertIn("server:ai-net-sse", values)
@@ -1513,7 +1513,7 @@ class ChannelProbeCacheTests(unittest.TestCase):
         cfg = {"claude_code": {"channels": ["server:ai-net-sse"], "channel_delivery": "native"}}
         with tempfile.TemporaryDirectory() as td, ExitStack() as stack:
             root = self._isolate_cache(stack, td)
-            claude_any._write_channel_probe_cache({
+            ciel_runtime._write_channel_probe_cache({
                 "version": 1,
                 "probed_at": 1700000000.0,
                 "servers": [
@@ -1525,9 +1525,9 @@ class ChannelProbeCacheTests(unittest.TestCase):
                     },
                 ],
             })
-            stack.enter_context(mock.patch.object(claude_any, "external_mcp_channel_server_names_from_configs", return_value=[]))
-            refresh_mock = stack.enter_context(mock.patch.object(claude_any, "refresh_channel_probe_cache"))
-            rows, values, messages = claude_any.channel_panel_rows_for_menu(cfg, [])
+            stack.enter_context(mock.patch.object(ciel_runtime, "external_mcp_channel_server_names_from_configs", return_value=[]))
+            refresh_mock = stack.enter_context(mock.patch.object(ciel_runtime, "refresh_channel_probe_cache"))
+            rows, values, messages = ciel_runtime.channel_panel_rows_for_menu(cfg, [])
 
         refresh_mock.assert_not_called()
         self.assertEqual([], messages)
@@ -1538,7 +1538,7 @@ class ChannelProbeCacheTests(unittest.TestCase):
         cfg = {"claude_code": {"channels": ["server:ai-net-sse"], "channel_delivery": "native"}}
         with tempfile.TemporaryDirectory() as td, ExitStack() as stack:
             root = self._isolate_cache(stack, td)
-            claude_any._write_channel_probe_cache({
+            ciel_runtime._write_channel_probe_cache({
                 "version": 1,
                 "probed_at": 1700000000.0,
                 "servers": [
@@ -1550,8 +1550,8 @@ class ChannelProbeCacheTests(unittest.TestCase):
                     },
                 ],
             })
-            with mock.patch.object(claude_any, "external_mcp_channel_server_names_from_configs", return_value=[]):
-                self.assertFalse(claude_any.channel_probe_cache_needs_launch_refresh(cfg, []))
+            with mock.patch.object(ciel_runtime, "external_mcp_channel_server_names_from_configs", return_value=[]):
+                self.assertFalse(ciel_runtime.channel_probe_cache_needs_launch_refresh(cfg, []))
 
     def test_probe_records_include_router_self_and_skip_recursion(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1568,7 +1568,7 @@ class ChannelProbeCacheTests(unittest.TestCase):
             )
             with (
                 mock.patch.object(
-                    claude_any,
+                    ciel_runtime,
                     "probe_stdio_mcp_for_channel_capability_detailed",
                     return_value={
                         "capable": True,
@@ -1579,7 +1579,7 @@ class ChannelProbeCacheTests(unittest.TestCase):
                     },
                 ) as stdio_probe,
                 mock.patch.object(
-                    claude_any,
+                    ciel_runtime,
                     "probe_sse_mcp_for_channel_capability_detailed",
                     return_value={
                         "capable": True,
@@ -1590,9 +1590,9 @@ class ChannelProbeCacheTests(unittest.TestCase):
                     },
                 ) as sse_probe,
             ):
-                records = claude_any._probe_mcp_servers_to_records([str(mcp_config)], root)
+                records = ciel_runtime._probe_mcp_servers_to_records([str(mcp_config)], root)
         names = {r["name"] for r in records}
-        self.assertIn("claude-any-router", names)
+        self.assertIn("ciel-runtime-router", names)
         self.assertIn("ai-net", names)
         self.assertIn("sse-only", names)
         # Non-router stdio server is probed via stdio, sse-only via SSE.
@@ -1617,7 +1617,7 @@ class ChannelProbeCacheTests(unittest.TestCase):
             )
             stack.enter_context(
                 mock.patch.object(
-                    claude_any,
+                    ciel_runtime,
                     "probe_stdio_mcp_for_channel_capability_detailed",
                     return_value={
                         "capable": True,
@@ -1628,16 +1628,16 @@ class ChannelProbeCacheTests(unittest.TestCase):
                     },
                 )
             )
-            result = claude_any.refresh_channel_probe_cache(cwd=project, home=root)
+            result = ciel_runtime.refresh_channel_probe_cache(cwd=project, home=root)
         self.assertGreater(result["probed_at"], 0)
         names = {r["name"] for r in result["servers"]}
-        self.assertIn("claude-any-router", names)
+        self.assertIn("ciel-runtime-router", names)
         self.assertIn("ai-net", names)
 
     def test_panel_rows_show_auto_detected_section(self):
         with tempfile.TemporaryDirectory() as td, ExitStack() as stack:
             self._isolate_cache(stack, td)
-            claude_any._write_channel_probe_cache({
+            ciel_runtime._write_channel_probe_cache({
                 "version": 1,
                 "probed_at": 1700000000.0,
                 "servers": [
@@ -1653,7 +1653,7 @@ class ChannelProbeCacheTests(unittest.TestCase):
                 ],
             })
             cfg = {"claude_code": {"channels": ["server:ai-net"]}}
-            rows, values = claude_any.channel_panel_rows(cfg)
+            rows, values = ciel_runtime.channel_panel_rows(cfg)
         self.assertIn("[Auto-detected channel-capable]", rows)
         self.assertIn("[Detected but not channel-capable]", rows)
         self.assertIn("[Probe inconclusive / selectable anyway]", rows)
@@ -1662,7 +1662,7 @@ class ChannelProbeCacheTests(unittest.TestCase):
         ai_row = rows[values.index("server:ai-net")]
         self.assertTrue(ai_row.startswith("*"))
         # Headings and noop placeholders must not be selectable on Enter.
-        first_selectable = claude_any._channel_panel_first_selectable(values)
+        first_selectable = ciel_runtime._channel_panel_first_selectable(values)
         self.assertNotIn(values[first_selectable], ("__heading__", "__noop__"))
         # The Re-probe action must be present.
         self.assertIn("__reprobe__", values)
@@ -1676,23 +1676,23 @@ class ChannelProbeCacheTests(unittest.TestCase):
         self.assertIn("select anyway", rows[inconclusive_idx + 1])
         self.assertIn("server:boring", values)
         self.assertNotIn("__noop__", values[inconclusive_idx + 1 : inconclusive_idx + 2])
-        self.assertEqual(values.index("server:boring"), claude_any._channel_panel_step(values, non_capable_idx, 1))
+        self.assertEqual(values.index("server:boring"), ciel_runtime._channel_panel_step(values, non_capable_idx, 1))
 
     def test_panel_rows_show_builtin_router_selected_without_probe_cache(self):
         cfg = {"claude_code": {"channels": []}}
         with tempfile.TemporaryDirectory() as td, ExitStack() as stack:
             self._isolate_cache(stack, td)
-            rows, values = claude_any.channel_panel_rows(cfg)
-        self.assertIn("server:claude-any-router", values)
-        router_row = rows[values.index("server:claude-any-router")]
+            rows, values = ciel_runtime.channel_panel_rows(cfg)
+        self.assertIn("server:ciel-runtime-router", values)
+        router_row = rows[values.index("server:ciel-runtime-router")]
         self.assertTrue(router_row.startswith("*"))
         self.assertIn("built-in", router_row)
 
     def test_probe_record_bucket_separates_inconclusive_from_non_capable(self):
-        self.assertEqual("capable", claude_any.channel_probe_record_bucket({"capable": True}))
+        self.assertEqual("capable", ciel_runtime.channel_probe_record_bucket({"capable": True}))
         self.assertEqual(
             "non_capable",
-            claude_any.channel_probe_record_bucket({
+            ciel_runtime.channel_probe_record_bucket({
                 "capable": False,
                 "reason": "no_experimental_claude_channel",
                 "response_received": True,
@@ -1700,33 +1700,33 @@ class ChannelProbeCacheTests(unittest.TestCase):
         )
         self.assertEqual(
             "inconclusive",
-            claude_any.channel_probe_record_bucket({"capable": False, "reason": "timeout_no_endpoint_event"}),
+            ciel_runtime.channel_probe_record_bucket({"capable": False, "reason": "timeout_no_endpoint_event"}),
         )
         self.assertEqual(
             "skipped",
-            claude_any.channel_probe_record_bucket({"capable": False, "reason": "transport_not_probed"}),
+            ciel_runtime.channel_probe_record_bucket({"capable": False, "reason": "transport_not_probed"}),
         )
 
 
 class ChannelProbeDetailedReasonTests(unittest.TestCase):
     def test_default_timeout_can_be_overridden_via_env(self):
-        with mock.patch.dict(os.environ, {"CLAUDE_ANY_CHANNEL_PROBE_TIMEOUT_SECONDS": "42"}, clear=False):
-            self.assertEqual(42.0, claude_any.channel_probe_default_timeout())
-        with mock.patch.dict(os.environ, {"CLAUDE_ANY_CHANNEL_PROBE_TIMEOUT_SECONDS": "garbage"}, clear=False):
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_PROBE_TIMEOUT_SECONDS": "42"}, clear=False):
+            self.assertEqual(42.0, ciel_runtime.channel_probe_default_timeout())
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_PROBE_TIMEOUT_SECONDS": "garbage"}, clear=False):
             self.assertEqual(
-                claude_any.CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS,
-                claude_any.channel_probe_default_timeout(),
+                ciel_runtime.CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS,
+                ciel_runtime.channel_probe_default_timeout(),
             )
-        with mock.patch.dict(os.environ, {"CLAUDE_ANY_CHANNEL_PROBE_TIMEOUT_SECONDS": "-1"}, clear=False):
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_PROBE_TIMEOUT_SECONDS": "-1"}, clear=False):
             self.assertEqual(
-                claude_any.CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS,
-                claude_any.channel_probe_default_timeout(),
+                ciel_runtime.CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS,
+                ciel_runtime.channel_probe_default_timeout(),
             )
 
     def test_default_timeout_is_at_least_ten_seconds(self):
         # The default must be large enough for typical npx/tsx cold start;
         # users testing remote MCP servers complained that 3s was too short.
-        self.assertGreaterEqual(claude_any.CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS, 10.0)
+        self.assertGreaterEqual(ciel_runtime.CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS, 10.0)
 
     def test_records_carry_stderr_preview_when_present(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1738,7 +1738,7 @@ class ChannelProbeDetailedReasonTests(unittest.TestCase):
             )
             stderr_text = "ReferenceError: AINET_BASE_URL is not defined\n  at server.js:42"
             with mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "probe_stdio_mcp_for_channel_capability_detailed",
                 return_value={
                     "capable": False,
@@ -1752,7 +1752,7 @@ class ChannelProbeDetailedReasonTests(unittest.TestCase):
                     "elapsed_ms": 380,
                 },
             ):
-                records = claude_any._probe_mcp_servers_to_records([str(mcp_config)], root)
+                records = ciel_runtime._probe_mcp_servers_to_records([str(mcp_config)], root)
         crashy = next(r for r in records if r["name"] == "crashy")
         self.assertEqual("exited_without_response", crashy["reason"])
         self.assertEqual(1, crashy["exit_code"])
@@ -1767,7 +1767,7 @@ class ChannelProbeDetailedReasonTests(unittest.TestCase):
                 encoding="utf-8",
             )
             with mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "probe_stdio_mcp_for_channel_capability_detailed",
                 return_value={
                     "capable": False,
@@ -1777,7 +1777,7 @@ class ChannelProbeDetailedReasonTests(unittest.TestCase):
                     "elapsed_ms": 15000,
                 },
             ):
-                records = claude_any._probe_mcp_servers_to_records([str(mcp_config)], root)
+                records = ciel_runtime._probe_mcp_servers_to_records([str(mcp_config)], root)
         slow = next(r for r in records if r["name"] == "slow-net")
         self.assertFalse(slow["capable"])
         self.assertEqual("timeout", slow["reason"])
@@ -1802,7 +1802,7 @@ class ChannelProbeDetailedReasonTests(unittest.TestCase):
                 encoding="utf-8",
             )
             with mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "probe_streamable_http_mcp_for_channel_capability_detailed",
                 return_value={
                     "capable": True,
@@ -1812,7 +1812,7 @@ class ChannelProbeDetailedReasonTests(unittest.TestCase):
                     "elapsed_ms": 25,
                 },
             ) as probe:
-                records = claude_any._probe_mcp_servers_to_records([str(mcp_config)], root)
+                records = ciel_runtime._probe_mcp_servers_to_records([str(mcp_config)], root)
         http_record = next(r for r in records if r["name"] == "ai-net-http")
         self.assertEqual("streamable-http", http_record["transport"])
         self.assertTrue(http_record["capable"])
@@ -1824,17 +1824,17 @@ class ChannelProbeStdioStrategyTests(unittest.TestCase):
     def test_default_strategy_is_jsonl(self):
         # MCP stdio spec uses newline-delimited JSON, so an entry with no
         # opt-in stays on NDJSON.
-        self.assertEqual("jsonl", claude_any._channel_probe_strategy_for({}))
+        self.assertEqual("jsonl", ciel_runtime._channel_probe_strategy_for({}))
         self.assertEqual(
             "jsonl",
-            claude_any._channel_probe_strategy_for({"command": "node", "args": ["server.js"]}),
+            ciel_runtime._channel_probe_strategy_for({"command": "node", "args": ["server.js"]}),
         )
 
     def test_jsonl_alias_returns_jsonl(self):
         for value in ("jsonl", "JSONL", "  jsonl  ", "newline-json"):
             self.assertEqual(
                 "jsonl",
-                claude_any._channel_probe_strategy_for({"claude_any_stdio": value}),
+                ciel_runtime._channel_probe_strategy_for({"ciel_runtime_stdio": value}),
                 msg=f"value={value!r}",
             )
 
@@ -1842,14 +1842,14 @@ class ChannelProbeStdioStrategyTests(unittest.TestCase):
         for value in ("framed", "framed-only", "content-length", "lsp", "LSP", "  framed  "):
             self.assertEqual(
                 "framed",
-                claude_any._channel_probe_strategy_for({"claude_any_stdio": value}),
+                ciel_runtime._channel_probe_strategy_for({"ciel_runtime_stdio": value}),
                 msg=f"value={value!r}",
             )
 
     def test_alternate_field_name_stdio_mode_also_recognized(self):
         self.assertEqual(
             "framed",
-            claude_any._channel_probe_strategy_for({"stdio_mode": "framed"}),
+            ciel_runtime._channel_probe_strategy_for({"stdio_mode": "framed"}),
         )
 
     def test_unrecognized_value_falls_back_to_jsonl(self):
@@ -1857,12 +1857,12 @@ class ChannelProbeStdioStrategyTests(unittest.TestCase):
         # an error, to avoid breaking config-driven launches on a typo.
         self.assertEqual(
             "jsonl",
-            claude_any._channel_probe_strategy_for({"claude_any_stdio": "bizarre"}),
+            ciel_runtime._channel_probe_strategy_for({"ciel_runtime_stdio": "bizarre"}),
         )
 
     def test_non_dict_input_returns_jsonl(self):
-        self.assertEqual("jsonl", claude_any._channel_probe_strategy_for("not-a-dict"))  # type: ignore[arg-type]
-        self.assertEqual("jsonl", claude_any._channel_probe_strategy_for(None))  # type: ignore[arg-type]
+        self.assertEqual("jsonl", ciel_runtime._channel_probe_strategy_for("not-a-dict"))  # type: ignore[arg-type]
+        self.assertEqual("jsonl", ciel_runtime._channel_probe_strategy_for(None))  # type: ignore[arg-type]
 
     def test_probe_against_real_ndjson_subprocess_detects_capable(self):
         """End-to-end: spawn a real Python subprocess that reads a single
@@ -1895,8 +1895,8 @@ class ChannelProbeStdioStrategyTests(unittest.TestCase):
             "command": sys.executable,
             "args": ["-c", script],
         }
-        with mock.patch.object(claude_any, "router_log"):
-            detail = claude_any.probe_stdio_mcp_for_channel_capability_detailed(
+        with mock.patch.object(ciel_runtime, "router_log"):
+            detail = ciel_runtime.probe_stdio_mcp_for_channel_capability_detailed(
                 "fake-ndjson", server_config, timeout=5.0
             )
         self.assertTrue(
@@ -1908,7 +1908,7 @@ class ChannelProbeStdioStrategyTests(unittest.TestCase):
 
     def test_probe_against_real_framed_subprocess_with_explicit_opt_in(self):
         """End-to-end opt-in path: a server that declares
-        `claude_any_stdio: "framed"` receives an LSP-style
+        `ciel_runtime_stdio: "framed"` receives an LSP-style
         Content-Length-prefixed initialize and is expected to reply in the
         same form. This proves the opt-in legacy path still works after
         the default flipped to NDJSON.
@@ -1945,10 +1945,10 @@ class ChannelProbeStdioStrategyTests(unittest.TestCase):
         server_config = {
             "command": sys.executable,
             "args": ["-c", script],
-            "claude_any_stdio": "framed",
+            "ciel_runtime_stdio": "framed",
         }
-        with mock.patch.object(claude_any, "router_log"):
-            detail = claude_any.probe_stdio_mcp_for_channel_capability_detailed(
+        with mock.patch.object(ciel_runtime, "router_log"):
+            detail = ciel_runtime.probe_stdio_mcp_for_channel_capability_detailed(
                 "fake-framed", server_config, timeout=5.0
             )
         self.assertTrue(
@@ -2015,7 +2015,7 @@ class _FakePostResponse:
 
 class ChannelProbeSSETests(unittest.TestCase):
     def test_sse_event_parser_splits_messages_and_endpoint(self):
-        events, leftover = claude_any._decode_sse_events(
+        events, leftover = ciel_runtime._decode_sse_events(
             bytearray(
                 b"event: endpoint\r\ndata: /messages?session=abc\r\n\r\n"
                 b"data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\n"
@@ -2066,8 +2066,8 @@ class ChannelProbeSSETests(unittest.TestCase):
             method = getattr(req, "get_method", lambda: "GET")()
             return get_resp if method == "GET" else post_resp
 
-        with mock.patch.object(claude_any.urllib.request, "urlopen", side_effect=fake_urlopen):
-            detail = claude_any.probe_sse_mcp_for_channel_capability_detailed(
+        with mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=fake_urlopen):
+            detail = ciel_runtime.probe_sse_mcp_for_channel_capability_detailed(
                 "fake-sse",
                 {"type": "sse", "url": "http://example.test/sse"},
                 timeout=3.0,
@@ -2106,8 +2106,8 @@ class ChannelProbeSSETests(unittest.TestCase):
             method = getattr(req, "get_method", lambda: "GET")()
             return get_resp if method == "GET" else post_resp
 
-        with mock.patch.object(claude_any.urllib.request, "urlopen", side_effect=fake_urlopen):
-            detail = claude_any.probe_sse_mcp_for_channel_capability_detailed(
+        with mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=fake_urlopen):
+            detail = ciel_runtime.probe_sse_mcp_for_channel_capability_detailed(
                 "fake-sse",
                 {"type": "sse", "url": "http://example.test/sse"},
                 timeout=3.0,
@@ -2124,8 +2124,8 @@ class ChannelProbeSSETests(unittest.TestCase):
             method = getattr(req, "get_method", lambda: "GET")()
             return get_resp if method == "GET" else post_resp
 
-        with mock.patch.object(claude_any.urllib.request, "urlopen", side_effect=fake_urlopen):
-            detail = claude_any.probe_sse_mcp_for_channel_capability_detailed(
+        with mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=fake_urlopen):
+            detail = ciel_runtime.probe_sse_mcp_for_channel_capability_detailed(
                 "fake-sse",
                 {"type": "sse", "url": "http://example.test/sse"},
                 timeout=3.0,
@@ -2143,8 +2143,8 @@ class ChannelProbeSSETests(unittest.TestCase):
                 return get_resp
             return _FakePostResponse()
 
-        with mock.patch.object(claude_any.urllib.request, "urlopen", side_effect=fake_urlopen):
-            detail = claude_any.probe_sse_mcp_for_channel_capability_detailed(
+        with mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=fake_urlopen):
+            detail = ciel_runtime.probe_sse_mcp_for_channel_capability_detailed(
                 "fake-sse",
                 {"type": "sse", "url": "http://example.test/sse"},
                 timeout=0.3,
@@ -2156,8 +2156,8 @@ class ChannelProbeSSETests(unittest.TestCase):
         def fake_urlopen(req, timeout=None):
             raise __import__("urllib").error.URLError("connection refused")
 
-        with mock.patch.object(claude_any.urllib.request, "urlopen", side_effect=fake_urlopen):
-            detail = claude_any.probe_sse_mcp_for_channel_capability_detailed(
+        with mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=fake_urlopen):
+            detail = ciel_runtime.probe_sse_mcp_for_channel_capability_detailed(
                 "fake-sse",
                 {"type": "sse", "url": "http://example.test/sse"},
                 timeout=2.0,
@@ -2167,7 +2167,7 @@ class ChannelProbeSSETests(unittest.TestCase):
         self.assertIn("connection refused", detail["stderr_preview"])
 
     def test_sse_probe_handles_no_url(self):
-        detail = claude_any.probe_sse_mcp_for_channel_capability_detailed(
+        detail = ciel_runtime.probe_sse_mcp_for_channel_capability_detailed(
             "fake-sse",
             {"type": "sse"},
             timeout=2.0,

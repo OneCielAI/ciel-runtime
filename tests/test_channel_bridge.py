@@ -12,27 +12,27 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest import mock
 
-import claude_any
+import ciel_runtime
 
 
 class ChannelBridgeTests(unittest.TestCase):
     def setUp(self):
-        claude_any._CHANNEL_STDIN_WAKE_DELIVERED.clear()
+        ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED.clear()
 
     def test_parse_channel_args_accepts_sse_command(self):
-        command, options = claude_any.parse_channel_bridge_args("sse")
+        command, options = ciel_runtime.parse_channel_bridge_args("sse")
         self.assertEqual(command, "sse")
         self.assertEqual(options, {})
 
     def test_parse_channel_send_quoted_message(self):
-        command, options = claude_any.parse_channel_bridge_args('send channel=default to=all message="hello agents"')
+        command, options = ciel_runtime.parse_channel_bridge_args('send channel=default to=all message="hello agents"')
         self.assertEqual(command, "send")
         self.assertEqual(options["channel"], "default")
         self.assertEqual(options["to"], "all")
         self.assertEqual(options["message"], "hello agents")
 
     def test_sse_payload_maps_mcp_notification_to_chat_payload(self):
-        payload = claude_any._sse_payload_to_chat_payload(
+        payload = ciel_runtime._sse_payload_to_chat_payload(
             '{"method":"notifications/claude/channel","params":{"content":"hello","meta":{"room_id":"room_phase1sim","thread_id":"root"}}}',
             "message",
             {"name": "ai-net", "channel": "default", "sender_id": "ai-net", "recipient": "claude"},
@@ -52,11 +52,11 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(payload["meta"]["sse_json"]["params"]["meta"]["room_id"], "room_phase1sim")
 
     def test_sse_payload_ignores_done_marker(self):
-        self.assertIsNone(claude_any._sse_payload_to_chat_payload("[DONE]", "message", {"name": "x"}))
+        self.assertIsNone(ciel_runtime._sse_payload_to_chat_payload("[DONE]", "message", {"name": "x"}))
 
     def test_sse_payload_ignores_jsonrpc_control_messages(self):
         self.assertIsNone(
-            claude_any._sse_payload_to_chat_payload(
+            ciel_runtime._sse_payload_to_chat_payload(
                 '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}',
                 "message",
                 {"name": "x"},
@@ -64,16 +64,16 @@ class ChannelBridgeTests(unittest.TestCase):
         )
 
     def test_sse_payload_ignores_mcp_endpoint_event(self):
-        self.assertIsNone(claude_any._sse_payload_to_chat_payload("/messages?session=abc", "endpoint", {"name": "x"}))
+        self.assertIsNone(ciel_runtime._sse_payload_to_chat_payload("/messages?session=abc", "endpoint", {"name": "x"}))
 
     def test_sse_payload_honors_event_filter(self):
-        payload = claude_any._sse_payload_to_chat_payload(
+        payload = ciel_runtime._sse_payload_to_chat_payload(
             '{"method":"notifications/message","params":{"content":"visible"}}',
             "message",
             {"name": "ai-net", "event_filter": ["notifications/message"]},
         )
         self.assertIsNotNone(payload)
-        hidden = claude_any._sse_payload_to_chat_payload(
+        hidden = ciel_runtime._sse_payload_to_chat_payload(
             '{"method":"tools/list","params":{"content":"hidden"}}',
             "message",
             {"name": "ai-net", "event_filter": ["notifications/message"]},
@@ -81,7 +81,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIsNone(hidden)
 
     def test_sse_payload_maps_nested_ai_net_event(self):
-        payload = claude_any._sse_payload_to_chat_payload(
+        payload = ciel_runtime._sse_payload_to_chat_payload(
             '{"method":"notifications/message","params":{"data":{"type":"message.created","room_id":"room_phase1sim","payload":{"message":{"content":"hello from ai-net"},"sender_id":"agent_a"}}}}',
             "message",
             {"name": "ai-net", "channel": "default", "sender_id": "ai-net", "recipient": "claude", "event_filter": ["notifications/message"]},
@@ -96,7 +96,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(payload["meta"]["sse_json"]["params"]["data"]["type"], "message.created")
 
     def test_sse_payload_prefers_nested_message_over_generic_notification_content(self):
-        payload = claude_any._sse_payload_to_chat_payload(
+        payload = ciel_runtime._sse_payload_to_chat_payload(
             json.dumps(
                 {
                     "method": "notifications/message",
@@ -124,7 +124,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual("room_4pyr8vvwm2cd", payload["channel"])
 
     def test_sse_payload_maps_direct_ai_net_chat_object(self):
-        payload = claude_any._sse_payload_to_chat_payload(
+        payload = ciel_runtime._sse_payload_to_chat_payload(
             json.dumps(
                 {
                     "id": 4,
@@ -154,7 +154,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual("dm_robert_sarah", payload["meta"]["room_id"])
 
     def test_sse_payload_preserves_event_id_and_redacts_sensitive_metadata(self):
-        payload = claude_any._sse_payload_to_chat_payload(
+        payload = ciel_runtime._sse_payload_to_chat_payload(
             '{"method":"notifications/message","params":{"data":{"room_id":"room_phase1sim","cursor":"123-0","api_key":"secret-value","payload":{"message":{"content":"hello with metadata"}}}}}',
             "message",
             {"name": "ai-net", "channel": "default"},
@@ -174,8 +174,8 @@ class ChannelBridgeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "chat-messages.jsonl"
             path.write_text("\n".join(__import__("json").dumps(item) for item in messages), encoding="utf-8")
-            with mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", path):
-                found = claude_any.read_chat_messages(0, "room_phase1sim", None, 10)
+            with mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", path):
+                found = ciel_runtime.read_chat_messages(0, "room_phase1sim", None, 10)
         self.assertEqual(1, len(found))
         self.assertEqual("hello", found[0]["message"])
 
@@ -190,9 +190,9 @@ class ChannelBridgeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "chat-messages.jsonl"
             path.write_text("\n".join(__import__("json").dumps(item) for item in messages), encoding="utf-8")
-            with mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", path):
-                latest = claude_any.read_chat_messages_before(0, "web-chat-a", "web", 2)
-                older = claude_any.read_chat_messages_before(4, "web-chat-a", "web", 10)
+            with mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", path):
+                latest = ciel_runtime.read_chat_messages_before(0, "web-chat-a", "web", 2)
+                older = ciel_runtime.read_chat_messages_before(4, "web-chat-a", "web", 10)
         self.assertEqual(["three", "four"], [item["message"] for item in latest])
         self.assertEqual(["one", "three"], [item["message"] for item in older])
 
@@ -202,11 +202,11 @@ class ChannelBridgeTests(unittest.TestCase):
             path = root / "chat-messages.jsonl"
             path.write_text(json.dumps({"id": 41, "message": "existing"}) + "\n", encoding="utf-8")
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", root),
-                mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", path),
-                mock.patch.object(claude_any, "_CHAT_NEXT_ID", 5),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", path),
+                mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", 5),
             ):
-                saved = claude_any.append_chat_message({"message": "new", "channel": "room"})
+                saved = ciel_runtime.append_chat_message({"message": "new", "channel": "room"})
                 rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
         self.assertEqual(42, saved["id"])
         self.assertEqual([41, 42], [row["id"] for row in rows])
@@ -227,17 +227,17 @@ class ChannelBridgeTests(unittest.TestCase):
             root = Path(td)
             path = root / "chat-messages.jsonl"
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", root),
-                mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", path),
-                mock.patch.object(claude_any, "_CHAT_NEXT_ID", None),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", path),
+                mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", None),
             ):
-                first = claude_any.append_chat_message(payload)
-                second = claude_any.append_chat_message(payload)
+                first = ciel_runtime.append_chat_message(payload)
+                second = ciel_runtime.append_chat_message(payload)
                 rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
         self.assertEqual(1, first["id"])
         self.assertEqual(1, second["id"])
-        self.assertTrue(second["_claude_any_duplicate"])
+        self.assertTrue(second["_ciel_runtime_duplicate"])
         self.assertEqual(1, len(rows))
 
     def test_append_chat_message_dedupes_recent_mcp_notification_without_stable_id(self):
@@ -255,17 +255,17 @@ class ChannelBridgeTests(unittest.TestCase):
             root = Path(td)
             path = root / "chat-messages.jsonl"
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", root),
-                mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", path),
-                mock.patch.object(claude_any, "_CHAT_NEXT_ID", None),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", path),
+                mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", None),
             ):
-                first = claude_any.append_chat_message(payload)
-                second = claude_any.append_chat_message(payload)
+                first = ciel_runtime.append_chat_message(payload)
+                second = ciel_runtime.append_chat_message(payload)
                 rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
         self.assertEqual(1, first["id"])
         self.assertEqual(1, second["id"])
-        self.assertTrue(second["_claude_any_duplicate"])
+        self.assertTrue(second["_ciel_runtime_duplicate"])
         self.assertEqual(1, len(rows))
 
     def test_append_chat_message_dedupes_identical_mcp_json_notification(self):
@@ -295,15 +295,15 @@ class ChannelBridgeTests(unittest.TestCase):
             path = root / "chat-messages.jsonl"
             path.write_text(json.dumps(old, ensure_ascii=False) + "\n", encoding="utf-8")
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", root),
-                mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", path),
-                mock.patch.object(claude_any, "_CHAT_NEXT_ID", None),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", path),
+                mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", None),
             ):
-                saved = claude_any.append_chat_message(payload)
+                saved = ciel_runtime.append_chat_message(payload)
                 rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
         self.assertEqual(1, saved["id"])
-        self.assertTrue(saved["_claude_any_duplicate"])
+        self.assertTrue(saved["_ciel_runtime_duplicate"])
         self.assertEqual(1, len(rows))
 
     def test_append_chat_message_keeps_old_fallback_duplicate_without_launch_guard(self):
@@ -325,16 +325,16 @@ class ChannelBridgeTests(unittest.TestCase):
             guard_path = root / "channel-llm-launch-guard.json"
             path.write_text(json.dumps(old, ensure_ascii=False) + "\n", encoding="utf-8")
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", root),
-                mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", path),
-                mock.patch.object(claude_any, "CHANNEL_LLM_LAUNCH_GUARD_PATH", guard_path),
-                mock.patch.object(claude_any, "_CHAT_NEXT_ID", None),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", path),
+                mock.patch.object(ciel_runtime, "CHANNEL_LLM_LAUNCH_GUARD_PATH", guard_path),
+                mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", None),
             ):
-                saved = claude_any.append_chat_message(payload)
+                saved = ciel_runtime.append_chat_message(payload)
                 rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
         self.assertEqual(2, saved["id"])
-        self.assertNotIn("_claude_any_duplicate", saved)
+        self.assertNotIn("_ciel_runtime_duplicate", saved)
         self.assertEqual(2, len(rows))
 
     def test_append_chat_message_dedupes_startup_replay_without_stable_id(self):
@@ -360,16 +360,16 @@ class ChannelBridgeTests(unittest.TestCase):
                 encoding="utf-8",
             )
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", root),
-                mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", path),
-                mock.patch.object(claude_any, "CHANNEL_LLM_LAUNCH_GUARD_PATH", guard_path),
-                mock.patch.object(claude_any, "_CHAT_NEXT_ID", None),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", path),
+                mock.patch.object(ciel_runtime, "CHANNEL_LLM_LAUNCH_GUARD_PATH", guard_path),
+                mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", None),
             ):
-                saved = claude_any.append_chat_message(payload)
+                saved = ciel_runtime.append_chat_message(payload)
                 rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
         self.assertEqual(7, saved["id"])
-        self.assertTrue(saved["_claude_any_duplicate"])
+        self.assertTrue(saved["_ciel_runtime_duplicate"])
         self.assertEqual(1, len(rows))
 
     def test_append_chat_message_does_not_dedupe_plain_user_messages(self):
@@ -378,17 +378,17 @@ class ChannelBridgeTests(unittest.TestCase):
             root = Path(td)
             path = root / "chat-messages.jsonl"
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", root),
-                mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", path),
-                mock.patch.object(claude_any, "_CHAT_NEXT_ID", None),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", path),
+                mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", None),
             ):
-                first = claude_any.append_chat_message(payload)
-                second = claude_any.append_chat_message(payload)
+                first = ciel_runtime.append_chat_message(payload)
+                second = ciel_runtime.append_chat_message(payload)
                 rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
         self.assertEqual(1, first["id"])
         self.assertEqual(2, second["id"])
-        self.assertNotIn("_claude_any_duplicate", second)
+        self.assertNotIn("_ciel_runtime_duplicate", second)
         self.assertEqual(2, len(rows))
 
     def test_prepare_channel_llm_delivery_for_launch_fast_forwards_stale_queue(self):
@@ -403,13 +403,13 @@ class ChannelBridgeTests(unittest.TestCase):
             )
             cursor_path.write_text(json.dumps({"last_id": 1}), encoding="utf-8")
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", root),
-                mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", path),
-                mock.patch.object(claude_any, "CHANNEL_LLM_CURSOR_PATH", cursor_path),
-                mock.patch.object(claude_any, "CHANNEL_LLM_LAUNCH_GUARD_PATH", root / "channel-llm-launch-guard.json"),
-                mock.patch.object(claude_any, "_CHANNEL_LLM_CURSOR_LAST_ID", None),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", path),
+                mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", cursor_path),
+                mock.patch.object(ciel_runtime, "CHANNEL_LLM_LAUNCH_GUARD_PATH", root / "channel-llm-launch-guard.json"),
+                mock.patch.object(ciel_runtime, "_CHANNEL_LLM_CURSOR_LAST_ID", None),
             ):
-                last_id = claude_any.prepare_channel_llm_delivery_for_launch()
+                last_id = ciel_runtime.prepare_channel_llm_delivery_for_launch()
                 saved = json.loads(cursor_path.read_text(encoding="utf-8"))
                 guard = json.loads((root / "channel-llm-launch-guard.json").read_text(encoding="utf-8"))
 
@@ -419,10 +419,10 @@ class ChannelBridgeTests(unittest.TestCase):
 
     def test_mcp_endpoint_event_initializes_sse_session(self):
         name = "unit-mcp"
-        original = dict(claude_any._CHANNEL_SSE_CONNECTIONS)
+        original = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)
         try:
-            claude_any._CHANNEL_SSE_CONNECTIONS.clear()
-            claude_any._CHANNEL_SSE_CONNECTIONS[name] = {
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS[name] = {
                 "name": name,
                 "url": "http://example.test/sse",
                 "headers": {"Authorization": "Bearer test"},
@@ -432,24 +432,24 @@ class ChannelBridgeTests(unittest.TestCase):
                 "mcp_protocol_version": "2024-11-05",
                 "mcp_timeout_seconds": 20.0,
             }
-            with mock.patch.object(claude_any, "_mcp_sse_post_json", return_value={"ok": True}) as post:
-                claude_any._channel_sse_dispatch(name, "endpoint", ["/messages?session=abc"])
-            state = claude_any._CHANNEL_SSE_CONNECTIONS[name]
+            with mock.patch.object(ciel_runtime, "_mcp_sse_post_json", return_value={"ok": True}) as post:
+                ciel_runtime._channel_sse_dispatch(name, "endpoint", ["/messages?session=abc"])
+            state = ciel_runtime._CHANNEL_SSE_CONNECTIONS[name]
             self.assertEqual("http://example.test/messages?session=abc", state["mcp_endpoint"])
             self.assertTrue(state["mcp_initialized"])
             self.assertEqual(2, post.call_count)
             self.assertEqual("initialize", post.call_args_list[0].args[2]["method"])
             self.assertEqual("notifications/initialized", post.call_args_list[1].args[2]["method"])
         finally:
-            claude_any._CHANNEL_SSE_CONNECTIONS.clear()
-            claude_any._CHANNEL_SSE_CONNECTIONS.update(original)
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS.update(original)
 
     def test_mcp_endpoint_event_reinitializes_changed_sse_session(self):
         name = "unit-mcp"
-        original = dict(claude_any._CHANNEL_SSE_CONNECTIONS)
+        original = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)
         try:
-            claude_any._CHANNEL_SSE_CONNECTIONS.clear()
-            claude_any._CHANNEL_SSE_CONNECTIONS[name] = {
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS[name] = {
                 "name": name,
                 "url": "http://example.test/sse",
                 "headers": {"Authorization": "Bearer test"},
@@ -462,11 +462,11 @@ class ChannelBridgeTests(unittest.TestCase):
                 "mcp_timeout_seconds": 20.0,
             }
             with (
-                mock.patch.object(claude_any, "_mcp_sse_post_json", return_value={"ok": True}) as post,
-                mock.patch.object(claude_any, "router_log") as router_log,
+                mock.patch.object(ciel_runtime, "_mcp_sse_post_json", return_value={"ok": True}) as post,
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
             ):
-                claude_any._channel_sse_dispatch(name, "endpoint", ["/messages?session=new"])
-            state = claude_any._CHANNEL_SSE_CONNECTIONS[name]
+                ciel_runtime._channel_sse_dispatch(name, "endpoint", ["/messages?session=new"])
+            state = ciel_runtime._CHANNEL_SSE_CONNECTIONS[name]
             self.assertEqual("http://example.test/messages?session=new", state["mcp_endpoint"])
             self.assertTrue(state["mcp_initialized"])
             self.assertEqual({}, state["mcp_rpc_results"])
@@ -474,8 +474,8 @@ class ChannelBridgeTests(unittest.TestCase):
             log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
             self.assertTrue(any("channel_sse_mcp_reinitializing" in item for item in log_messages))
         finally:
-            claude_any._CHANNEL_SSE_CONNECTIONS.clear()
-            claude_any._CHANNEL_SSE_CONNECTIONS.update(original)
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS.update(original)
 
     def test_start_channel_sse_connection_receives_stream_message(self):
         class Handler(BaseHTTPRequestHandler):
@@ -494,8 +494,8 @@ class ChannelBridgeTests(unittest.TestCase):
                 self.wfile.flush()
                 time.sleep(0.05)
 
-        original_connections = dict(claude_any._CHANNEL_SSE_CONNECTIONS)
-        old_next = claude_any._CHAT_NEXT_ID
+        original_connections = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)
+        old_next = ciel_runtime._CHAT_NEXT_ID
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             chat_log = root / "chat-messages.jsonl"
@@ -505,11 +505,11 @@ class ChannelBridgeTests(unittest.TestCase):
             try:
                 url = f"http://127.0.0.1:{server.server_address[1]}/events"
                 with (
-                    mock.patch.object(claude_any, "CONFIG_DIR", root),
-                    mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", chat_log),
-                    mock.patch.object(claude_any, "_CHAT_NEXT_ID", None),
+                    mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                    mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", chat_log),
+                    mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", None),
                 ):
-                    claude_any.start_channel_sse_connection(
+                    ciel_runtime.start_channel_sse_connection(
                         {
                             "name": "unit-sse",
                             "url": url,
@@ -527,13 +527,13 @@ class ChannelBridgeTests(unittest.TestCase):
                     text = chat_log.read_text(encoding="utf-8")
                     self.assertIn("hello over sse", text)
                     self.assertIn("evt-1", text)
-                    claude_any.stop_channel_sse_connection("unit-sse")
+                    ciel_runtime.stop_channel_sse_connection("unit-sse")
             finally:
                 server.shutdown()
                 server.server_close()
-                claude_any._CHANNEL_SSE_CONNECTIONS.clear()
-                claude_any._CHANNEL_SSE_CONNECTIONS.update(original_connections)
-                claude_any._CHAT_NEXT_ID = old_next
+                ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+                ciel_runtime._CHANNEL_SSE_CONNECTIONS.update(original_connections)
+                ciel_runtime._CHAT_NEXT_ID = old_next
 
     def test_start_channel_streamable_http_initializes_session_and_receives_message(self):
         seen_posts: list[dict[str, object]] = []
@@ -560,7 +560,7 @@ class ChannelBridgeTests(unittest.TestCase):
                         "jsonrpc": "2.0",
                         "id": payload.get("id"),
                         "result": {
-                            "protocolVersion": claude_any.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+                            "protocolVersion": ciel_runtime.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
                             "capabilities": {"experimental": {"claude/channel": True}},
                             "serverInfo": {"name": "unit-http", "version": "1"},
                         },
@@ -601,8 +601,8 @@ class ChannelBridgeTests(unittest.TestCase):
                 self.wfile.flush()
                 time.sleep(0.05)
 
-        original_connections = dict(claude_any._CHANNEL_SSE_CONNECTIONS)
-        old_next = claude_any._CHAT_NEXT_ID
+        original_connections = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)
+        old_next = ciel_runtime._CHAT_NEXT_ID
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             chat_log = root / "chat-messages.jsonl"
@@ -612,12 +612,12 @@ class ChannelBridgeTests(unittest.TestCase):
             try:
                 url = f"http://127.0.0.1:{server.server_address[1]}/mcp"
                 with (
-                    mock.patch.object(claude_any, "CONFIG_DIR", root),
-                    mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", chat_log),
-                    mock.patch.object(claude_any, "_CHAT_NEXT_ID", None),
-                    mock.patch.object(claude_any, "schedule_channel_direct_llm_delivery"),
+                    mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                    mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", chat_log),
+                    mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", None),
+                    mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery"),
                 ):
-                    claude_any.start_channel_sse_connection(
+                    ciel_runtime.start_channel_sse_connection(
                         {
                             "name": "unit-http",
                             "type": "http",
@@ -638,21 +638,21 @@ class ChannelBridgeTests(unittest.TestCase):
                     self.assertEqual(["initialize", "notifications/initialized"], [item["method"] for item in seen_posts[:2]])
                     self.assertIsNone(seen_posts[0]["session"])
                     self.assertEqual("sess-unit", seen_posts[1]["session"])
-                    self.assertEqual(claude_any.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION, seen_get_headers[0]["protocol"])
+                    self.assertEqual(ciel_runtime.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION, seen_get_headers[0]["protocol"])
                     self.assertEqual("sess-unit", seen_get_headers[0]["session"])
                     self.assertIn("text/event-stream", seen_get_headers[0]["accept"] or "")
-                    with claude_any._CHANNEL_SSE_LOCK:
-                        state = dict(claude_any._CHANNEL_SSE_CONNECTIONS["unit-http"])
-                    status = claude_any._channel_sse_status_public("unit-http", state)
+                    with ciel_runtime._CHANNEL_SSE_LOCK:
+                        state = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS["unit-http"])
+                    status = ciel_runtime._channel_sse_status_public("unit-http", state)
                     self.assertEqual("streamable-http", status["transport"])
                     self.assertEqual("sess-unit", status["mcp_session_id"])
-                    claude_any.stop_channel_sse_connection("unit-http")
+                    ciel_runtime.stop_channel_sse_connection("unit-http")
             finally:
                 server.shutdown()
                 server.server_close()
-                claude_any._CHANNEL_SSE_CONNECTIONS.clear()
-                claude_any._CHANNEL_SSE_CONNECTIONS.update(original_connections)
-                claude_any._CHAT_NEXT_ID = old_next
+                ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+                ciel_runtime._CHANNEL_SSE_CONNECTIONS.update(original_connections)
+                ciel_runtime._CHAT_NEXT_ID = old_next
 
     def test_streamable_http_requires_session_before_get_stream(self):
         seen_posts: list[str | None] = []
@@ -670,7 +670,7 @@ class ChannelBridgeTests(unittest.TestCase):
                     "jsonrpc": "2.0",
                     "id": payload.get("id"),
                     "result": {
-                        "protocolVersion": claude_any.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+                        "protocolVersion": ciel_runtime.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
                         "capabilities": {"experimental": {"claude/channel": True}},
                         "serverInfo": {"name": "unit-http", "version": "1"},
                     },
@@ -688,7 +688,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 self.send_header("Content-Type", "text/event-stream")
                 self.end_headers()
 
-        original_connections = dict(claude_any._CHANNEL_SSE_CONNECTIONS)
+        original_connections = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -696,8 +696,8 @@ class ChannelBridgeTests(unittest.TestCase):
             thread.start()
             try:
                 url = f"http://127.0.0.1:{server.server_address[1]}/mcp"
-                with mock.patch.object(claude_any, "CONFIG_DIR", root):
-                    claude_any.start_channel_sse_connection(
+                with mock.patch.object(ciel_runtime, "CONFIG_DIR", root):
+                    ciel_runtime.start_channel_sse_connection(
                         {
                             "name": "unit-http-no-session",
                             "type": "http",
@@ -709,16 +709,16 @@ class ChannelBridgeTests(unittest.TestCase):
                     time.sleep(0.2)
                     self.assertGreaterEqual(seen_posts.count("initialize"), 1)
                     self.assertEqual([], seen_get_headers)
-                    with claude_any._CHANNEL_SSE_LOCK:
-                        state = dict(claude_any._CHANNEL_SSE_CONNECTIONS["unit-http-no-session"])
+                    with ciel_runtime._CHANNEL_SSE_LOCK:
+                        state = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS["unit-http-no-session"])
                     self.assertFalse(state["mcp_initialized"])
                     self.assertEqual("streamable_http_missing_session_id", state["mcp_last_error"])
-                    claude_any.stop_channel_sse_connection("unit-http-no-session")
+                    ciel_runtime.stop_channel_sse_connection("unit-http-no-session")
             finally:
                 server.shutdown()
                 server.server_close()
-                claude_any._CHANNEL_SSE_CONNECTIONS.clear()
-                claude_any._CHANNEL_SSE_CONNECTIONS.update(original_connections)
+                ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+                ciel_runtime._CHANNEL_SSE_CONNECTIONS.update(original_connections)
 
     def test_streamable_http_session_not_found_reinitializes_before_get_retry(self):
         seen_posts: list[dict[str, object]] = []
@@ -741,7 +741,7 @@ class ChannelBridgeTests(unittest.TestCase):
                     "jsonrpc": "2.0",
                     "id": payload.get("id"),
                     "result": {
-                        "protocolVersion": claude_any.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+                        "protocolVersion": ciel_runtime.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
                         "capabilities": {"experimental": {"claude/channel": True}},
                         "serverInfo": {"name": "unit-http", "version": "1"},
                     },
@@ -777,8 +777,8 @@ class ChannelBridgeTests(unittest.TestCase):
                 self.wfile.flush()
                 time.sleep(0.05)
 
-        original_connections = dict(claude_any._CHANNEL_SSE_CONNECTIONS)
-        old_next = claude_any._CHAT_NEXT_ID
+        original_connections = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)
+        old_next = ciel_runtime._CHAT_NEXT_ID
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             chat_log = root / "chat-messages.jsonl"
@@ -788,12 +788,12 @@ class ChannelBridgeTests(unittest.TestCase):
             try:
                 url = f"http://127.0.0.1:{server.server_address[1]}/mcp"
                 with (
-                    mock.patch.object(claude_any, "CONFIG_DIR", root),
-                    mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", chat_log),
-                    mock.patch.object(claude_any, "_CHAT_NEXT_ID", None),
-                    mock.patch.object(claude_any, "schedule_channel_direct_llm_delivery"),
+                    mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                    mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", chat_log),
+                    mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", None),
+                    mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery"),
                 ):
-                    claude_any.start_channel_sse_connection(
+                    ciel_runtime.start_channel_sse_connection(
                         {
                             "name": "unit-http-reinit",
                             "type": "http",
@@ -812,13 +812,13 @@ class ChannelBridgeTests(unittest.TestCase):
                     self.assertGreaterEqual(init_count, 2)
                     self.assertIn("sess-one", seen_get_sessions)
                     self.assertIn("sess-two", seen_get_sessions)
-                    claude_any.stop_channel_sse_connection("unit-http-reinit")
+                    ciel_runtime.stop_channel_sse_connection("unit-http-reinit")
             finally:
                 server.shutdown()
                 server.server_close()
-                claude_any._CHANNEL_SSE_CONNECTIONS.clear()
-                claude_any._CHANNEL_SSE_CONNECTIONS.update(original_connections)
-                claude_any._CHAT_NEXT_ID = old_next
+                ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+                ciel_runtime._CHANNEL_SSE_CONNECTIONS.update(original_connections)
+                ciel_runtime._CHAT_NEXT_ID = old_next
 
     def test_sse_reconnect_sends_last_event_id(self):
         seen_headers = []
@@ -846,8 +846,8 @@ class ChannelBridgeTests(unittest.TestCase):
                 self.wfile.flush()
                 time.sleep(0.05)
 
-        original_connections = dict(claude_any._CHANNEL_SSE_CONNECTIONS)
-        old_next = claude_any._CHAT_NEXT_ID
+        original_connections = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)
+        old_next = ciel_runtime._CHAT_NEXT_ID
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             chat_log = root / "chat-messages.jsonl"
@@ -857,12 +857,12 @@ class ChannelBridgeTests(unittest.TestCase):
             try:
                 url = f"http://127.0.0.1:{server.server_address[1]}/events"
                 with (
-                    mock.patch.object(claude_any, "CONFIG_DIR", root),
-                    mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", chat_log),
-                    mock.patch.object(claude_any, "_CHAT_NEXT_ID", None),
-                    mock.patch.object(claude_any, "schedule_channel_direct_llm_delivery"),
+                    mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                    mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", chat_log),
+                    mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", None),
+                    mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery"),
                 ):
-                    claude_any.start_channel_sse_connection(
+                    ciel_runtime.start_channel_sse_connection(
                         {
                             "name": "unit-sse-resume",
                             "url": url,
@@ -875,13 +875,13 @@ class ChannelBridgeTests(unittest.TestCase):
                     self.assertGreaterEqual(len(seen_headers), 2)
                     self.assertIsNone(seen_headers[0])
                     self.assertEqual("evt-1", seen_headers[1])
-                    claude_any.stop_channel_sse_connection("unit-sse-resume")
+                    ciel_runtime.stop_channel_sse_connection("unit-sse-resume")
             finally:
                 server.shutdown()
                 server.server_close()
-                claude_any._CHANNEL_SSE_CONNECTIONS.clear()
-                claude_any._CHANNEL_SSE_CONNECTIONS.update(original_connections)
-                claude_any._CHAT_NEXT_ID = old_next
+                ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+                ciel_runtime._CHANNEL_SSE_CONNECTIONS.update(original_connections)
+                ciel_runtime._CHAT_NEXT_ID = old_next
 
     def test_auto_start_sse_channels_filters_allowed_server_names(self):
         with tempfile.TemporaryDirectory() as td:
@@ -904,8 +904,8 @@ class ChannelBridgeTests(unittest.TestCase):
                 seen.append(server["name"])
                 return {"name": server["name"], "url": server["url"]}
 
-            with mock.patch.object(claude_any, "start_channel_sse_connection", side_effect=fake_start):
-                started = claude_any.auto_start_sse_channels_from_mcp_configs(
+            with mock.patch.object(ciel_runtime, "start_channel_sse_connection", side_effect=fake_start):
+                started = ciel_runtime.auto_start_sse_channels_from_mcp_configs(
                     [],
                     cwd=root,
                     home=root,
@@ -915,13 +915,13 @@ class ChannelBridgeTests(unittest.TestCase):
             self.assertEqual(["mcp-ai-net-sse"], [item["name"] for item in started])
 
     def test_start_router_managed_channel_sse_uses_enabled_external_channels(self):
-        cfg = {"claude_code": {"channels": ["server:claude-any-router", "server:ai-net-sse"]}}
+        cfg = {"claude_code": {"channels": ["server:ciel-runtime-router", "server:ai-net-sse"]}}
         with (
-            mock.patch.object(claude_any, "ensure_channel_probe_cache_for_launch", return_value=False) as ensure_probe,
-            mock.patch.object(claude_any, "cached_channel_source_paths_for_specs", return_value=[]) as source_paths,
-            mock.patch.object(claude_any, "auto_start_sse_channels_from_mcp_configs", return_value=[{"name": "mcp-ai-net-sse"}]) as auto_start,
+            mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch", return_value=False) as ensure_probe,
+            mock.patch.object(ciel_runtime, "cached_channel_source_paths_for_specs", return_value=[]) as source_paths,
+            mock.patch.object(ciel_runtime, "auto_start_sse_channels_from_mcp_configs", return_value=[{"name": "mcp-ai-net-sse"}]) as auto_start,
         ):
-            started = claude_any.start_router_managed_channel_sse(cfg)
+            started = ciel_runtime.start_router_managed_channel_sse(cfg)
         self.assertEqual([{"name": "mcp-ai-net-sse"}], started)
         ensure_probe.assert_called_once_with(cfg, [])
         source_paths.assert_called_once_with(["server:ai-net-sse"])
@@ -934,22 +934,22 @@ class ChannelBridgeTests(unittest.TestCase):
         # server as a channel worker -- that allow-all flip held a second
         # notification stream to backends like ai-net-http and duplicated every
         # digest. With no external specs, open nothing.
-        cfg = {"claude_code": {"channels": ["server:claude-any-router"]}}
-        with mock.patch.object(claude_any, "auto_start_sse_channels_from_mcp_configs") as auto_start:
-            self.assertEqual([], claude_any.start_router_managed_channel_sse(cfg))
+        cfg = {"claude_code": {"channels": ["server:ciel-runtime-router"]}}
+        with mock.patch.object(ciel_runtime, "auto_start_sse_channels_from_mcp_configs") as auto_start:
+            self.assertEqual([], ciel_runtime.start_router_managed_channel_sse(cfg))
         auto_start.assert_not_called()
 
     def test_launch_process_does_not_start_sse_for_llm_delivery(self):
-        self.assertFalse(claude_any.should_launch_process_start_channel_sse(False, False, True))
-        self.assertFalse(claude_any.should_launch_process_start_channel_sse(True, False, True))
-        self.assertFalse(claude_any.should_launch_process_start_channel_sse(False, True, True))
-        self.assertTrue(claude_any.should_launch_process_start_channel_sse(True, False, False))
-        self.assertTrue(claude_any.should_launch_process_start_channel_sse(False, True, False))
-        self.assertFalse(claude_any.should_launch_process_start_channel_sse(False, False, False))
+        self.assertFalse(ciel_runtime.should_launch_process_start_channel_sse(False, False, True))
+        self.assertFalse(ciel_runtime.should_launch_process_start_channel_sse(True, False, True))
+        self.assertFalse(ciel_runtime.should_launch_process_start_channel_sse(False, True, True))
+        self.assertTrue(ciel_runtime.should_launch_process_start_channel_sse(True, False, False))
+        self.assertTrue(ciel_runtime.should_launch_process_start_channel_sse(False, True, False))
+        self.assertFalse(ciel_runtime.should_launch_process_start_channel_sse(False, False, False))
 
     def test_screen_summary_proxy_prints_not_input_injects(self):
-        with mock.patch.object(claude_any, "subprocess_call_with_channel_wake_proxy", return_value=0) as wake_proxy:
-            rc = claude_any.subprocess_call_with_channel_screen_summary_proxy(["claude"], {"A": "B"})
+        with mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", return_value=0) as wake_proxy:
+            rc = ciel_runtime.subprocess_call_with_channel_screen_summary_proxy(["claude"], {"A": "B"})
 
         self.assertEqual(0, rc)
         wake_proxy.assert_called_once_with(
@@ -963,26 +963,26 @@ class ChannelBridgeTests(unittest.TestCase):
     def test_screen_summary_proxy_is_off_by_default(self):
         with mock.patch.dict(os.environ, {}, clear=True):
             self.assertFalse(
-                claude_any.should_use_channel_screen_summary_proxy(
+                ciel_runtime.should_use_channel_screen_summary_proxy(
                     True,
-                    ["server:claude-any-router", "server:ai-net-sse"],
+                    ["server:ciel-runtime-router", "server:ai-net-sse"],
                     [],
                 )
             )
 
     def test_screen_summary_proxy_requires_explicit_env(self):
-        with mock.patch.dict(os.environ, {"CLAUDE_ANY_CHANNEL_SCREEN_SUMMARY": "1"}, clear=True):
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_SCREEN_SUMMARY": "1"}, clear=True):
             self.assertTrue(
-                claude_any.should_use_channel_screen_summary_proxy(
+                ciel_runtime.should_use_channel_screen_summary_proxy(
                     True,
-                    ["server:claude-any-router", "server:ai-net-sse"],
+                    ["server:ciel-runtime-router", "server:ai-net-sse"],
                     [],
                 )
             )
             self.assertFalse(
-                claude_any.should_use_channel_screen_summary_proxy(
+                ciel_runtime.should_use_channel_screen_summary_proxy(
                     True,
-                    ["server:claude-any-router", "server:ai-net-sse"],
+                    ["server:ciel-runtime-router", "server:ai-net-sse"],
                     ["-p", "hello"],
                 )
             )
@@ -1018,7 +1018,7 @@ class ChannelBridgeTests(unittest.TestCase):
             },
         ]
 
-        notice = claude_any.format_channel_llm_summary_notice(records)
+        notice = ciel_runtime.format_channel_llm_summary_notice(records)
 
         self.assertIn("channel mailbox digest", notice)
         self.assertIn("ai-net-sse에서 전달된 알림이 2개 있습니다", notice)
@@ -1029,7 +1029,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn("direct_handler_summary", notice)
 
     def test_channel_summary_notice_quiet_when_only_no_reply(self):
-        notice = claude_any.format_channel_llm_summary_notice(
+        notice = ciel_runtime.format_channel_llm_summary_notice(
             [
                 {
                     "message_id": 13,
@@ -1044,7 +1044,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual("", notice)
 
     def test_channel_summary_prompt_is_local_only_and_sanitized(self):
-        prompt = claude_any.format_channel_llm_summary_prompt(
+        prompt = ciel_runtime.format_channel_llm_summary_prompt(
             [
                 {
                     "message_id": 56,
@@ -1068,13 +1068,13 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("ai-net-sse에서 확인하세요", prompt)
         self.assertNotIn("LOCAL NOTICE ONLY", prompt)
         self.assertNotIn("local_note=", prompt)
-        self.assertNotIn("[claude-any", prompt.lower())
+        self.assertNotIn("[ciel-runtime", prompt.lower())
         self.assertNotIn("direct_handler_summary", prompt)
         self.assertNotIn("## tool_result", prompt)
         self.assertNotIn("raw body", prompt)
 
     def test_channel_llm_prompt_warns_against_dm_label_recipient_misread(self):
-        prompt = claude_any.format_channel_llm_batch_prompt(
+        prompt = ciel_runtime.format_channel_llm_batch_prompt(
             [
                 {
                     "id": 1,
@@ -1090,18 +1090,18 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("DM label", prompt)
         self.assertIn("현재 에이전트가 수신자가 아니라고 결론내리지 마세요", prompt)
         self.assertIn("자동 회신 루프", prompt)
-        self.assertNotIn("claude-any-router send_message", prompt)
+        self.assertNotIn("ciel-runtime-router send_message", prompt)
         self.assertNotIn("recipients='web'", prompt)
         self.assertNotIn("웹 채팅 요청", prompt)
 
     def test_reply_action_prompt_warns_against_dm_label_recipient_misread(self):
-        prompt = claude_any._channel_direct_reply_action_prompt("I am not the recipient.")
+        prompt = ciel_runtime._channel_direct_reply_action_prompt("I am not the recipient.")
         self.assertIn("configured MCP/channel credentials", prompt)
         self.assertIn("DM label", prompt)
         self.assertIn("automatic reply loop", prompt)
 
     def test_channel_wake_prompt_contains_routing_context(self):
-        prompt = claude_any.format_channel_wake_prompt(
+        prompt = ciel_runtime.format_channel_wake_prompt(
             {
                 "id": 9,
                 "channel": "room_phase1sim",
@@ -1111,7 +1111,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 "meta": {"room_id": "room_phase1sim"},
             }
         )
-        self.assertIn("claude-any external channel message", prompt)
+        self.assertIn("ciel-runtime external channel message", prompt)
         self.assertIn("from=robert", prompt)
         self.assertIn("id=9", prompt)
         self.assertIn("please review the latest update", prompt)
@@ -1120,10 +1120,12 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn("send_message", prompt)
         self.assertNotIn("recipients='web'", prompt)
         self.assertNotIn("send_file", prompt)
+        self.assertNotIn("XML-like", prompt)
+        self.assertNotIn("actual available Claude Code/MCP tool", prompt)
         self.assertNotIn("\n", prompt)
 
     def test_channel_wake_prompt_includes_small_event_metadata_only(self):
-        prompt = claude_any.format_channel_wake_prompt(
+        prompt = ciel_runtime.format_channel_wake_prompt(
             {
                 "id": 9,
                 "channel": "room",
@@ -1152,7 +1154,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn("x" * 100, prompt)
 
     def test_channel_wake_prompt_adds_browser_reply_instructions_only_for_web_chat(self):
-        prompt = claude_any.format_channel_wake_prompt(
+        prompt = ciel_runtime.format_channel_wake_prompt(
             {
                 "id": 10,
                 "channel": "web-chat-session",
@@ -1160,15 +1162,16 @@ class ChannelBridgeTests(unittest.TestCase):
                 "thread_id": "thread-1",
                 "message": "현재상태는",
                 "kind": "web_chat",
-                "meta": {"source": "claude-any-web-chat", "reply_channel": "web-chat-session"},
+                "meta": {"source": "ciel-runtime-web-chat", "reply_channel": "web-chat-session"},
             }
         )
         self.assertIn("send_message", prompt)
         self.assertIn("recipients='web'", prompt)
         self.assertIn("send_file", prompt)
+        self.assertNotIn("XML-like", prompt)
 
     def test_channel_wake_batch_omits_browser_reply_instructions_without_web_chat(self):
-        prompt = claude_any.format_channel_wake_batch_prompt(
+        prompt = ciel_runtime.format_channel_wake_batch_prompt(
             [
                 {"id": 1, "channel": "room", "sender_id": "agent-a", "message": "one", "meta": {}},
                 {"id": 2, "channel": "room", "sender_id": "agent-b", "message": "two", "meta": {}},
@@ -1179,7 +1182,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn("send_file", prompt)
 
     def test_web_chat_wake_prompt_is_compact_and_omits_raw_metadata(self):
-        prompt = claude_any.format_channel_web_chat_wake_batch_prompt(
+        prompt = ciel_runtime.format_channel_web_chat_wake_batch_prompt(
             [
                 {
                     "id": 6,
@@ -1189,7 +1192,7 @@ class ChannelBridgeTests(unittest.TestCase):
                     "message": "현재상태는",
                     "kind": "web_chat",
                     "meta": {
-                        "source": "claude-any-web-chat",
+                        "source": "ciel-runtime-web-chat",
                         "reply_channel": "web-chat-session",
                         "reply_recipient": "web",
                         "reply_instruction": "long routing text",
@@ -1197,7 +1200,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 }
             ]
         )
-        self.assertIn("claude-any web chat", prompt)
+        self.assertIn("ciel-runtime web chat", prompt)
         self.assertIn("현재상태는", prompt)
         self.assertIn("channel=web-chat-session", prompt)
         self.assertIn("thread=thread-1", prompt)
@@ -1210,36 +1213,36 @@ class ChannelBridgeTests(unittest.TestCase):
     def test_channel_wake_enter_bytes_can_be_overridden(self):
         with (
             mock.patch.dict(os.environ, {}, clear=True),
-            mock.patch.object(claude_any, "_channel_platform_default_enter_bytes", return_value=b"\r\n"),
+            mock.patch.object(ciel_runtime, "_channel_platform_default_enter_bytes", return_value=b"\r\n"),
         ):
-            self.assertTrue(claude_any._channel_wake_input_bytes("wake").endswith(b"\r\n"))
-            self.assertEqual(b"\r\n", claude_any._channel_wake_enter_bytes("auto"))
-            self.assertEqual(b"\r\n", claude_any._channel_wake_enter_bytes("unknown"))
-            self.assertEqual(b"\n", claude_any._channel_wake_enter_bytes("lf"))
-        with mock.patch.dict(os.environ, {"CLAUDE_ANY_CHANNEL_WAKE_ENTER": "cr"}):
-            self.assertTrue(claude_any._channel_wake_input_bytes("wake").endswith(b"\r"))
-        with mock.patch.dict(os.environ, {"CLAUDE_ANY_CHANNEL_WAKE_ENTER": "crlf"}):
-            self.assertTrue(claude_any._channel_wake_input_bytes("wake").endswith(b"\r\n"))
+            self.assertTrue(ciel_runtime._channel_wake_input_bytes("wake").endswith(b"\r\n"))
+            self.assertEqual(b"\r\n", ciel_runtime._channel_wake_enter_bytes("auto"))
+            self.assertEqual(b"\r\n", ciel_runtime._channel_wake_enter_bytes("unknown"))
+            self.assertEqual(b"\n", ciel_runtime._channel_wake_enter_bytes("lf"))
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_WAKE_ENTER": "cr"}):
+            self.assertTrue(ciel_runtime._channel_wake_input_bytes("wake").endswith(b"\r"))
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_WAKE_ENTER": "crlf"}):
+            self.assertTrue(ciel_runtime._channel_wake_input_bytes("wake").endswith(b"\r\n"))
 
     def test_channel_platform_default_enter_bytes_is_submit_safe(self):
-        self.assertEqual(b"\r\n", claude_any._channel_platform_default_enter_bytes("linux", "posix"))
-        self.assertEqual(b"\r\n", claude_any._channel_platform_default_enter_bytes("darwin", "posix"))
-        self.assertEqual(b"\r\n", claude_any._channel_platform_default_enter_bytes("win32", "nt"))
-        self.assertEqual(b"\r\n", claude_any._channel_platform_default_enter_bytes("msys", "posix"))
+        self.assertEqual(b"\r\n", ciel_runtime._channel_platform_default_enter_bytes("linux", "posix"))
+        self.assertEqual(b"\r\n", ciel_runtime._channel_platform_default_enter_bytes("darwin", "posix"))
+        self.assertEqual(b"\r\n", ciel_runtime._channel_platform_default_enter_bytes("win32", "nt"))
+        self.assertEqual(b"\r\n", ciel_runtime._channel_platform_default_enter_bytes("msys", "posix"))
 
     def test_channel_enter_bytes_from_user_input_tracks_observed_submit_key(self):
-        self.assertEqual(b"\n", claude_any._channel_enter_bytes_from_user_input(b"\n"))
-        self.assertEqual(b"\r", claude_any._channel_enter_bytes_from_user_input(b"\r"))
-        self.assertEqual(b"\r\n", claude_any._channel_enter_bytes_from_user_input(b"hello\r\n"))
-        self.assertIsNone(claude_any._channel_enter_bytes_from_user_input(b"abc"))
+        self.assertEqual(b"\n", ciel_runtime._channel_enter_bytes_from_user_input(b"\n"))
+        self.assertEqual(b"\r", ciel_runtime._channel_enter_bytes_from_user_input(b"\r"))
+        self.assertEqual(b"\r\n", ciel_runtime._channel_enter_bytes_from_user_input(b"hello\r\n"))
+        self.assertIsNone(ciel_runtime._channel_enter_bytes_from_user_input(b"abc"))
 
     def test_channel_synthetic_enter_normalizes_bare_cr_to_crlf(self):
-        self.assertEqual(b"\r\n", claude_any._channel_synthetic_enter_bytes_from_user_input(b"\r"))
-        self.assertEqual(b"\n", claude_any._channel_synthetic_enter_bytes_from_user_input(b"\n"))
-        self.assertEqual(b"\r\n", claude_any._channel_synthetic_enter_bytes_from_user_input(b"hello\r\n"))
+        self.assertEqual(b"\r\n", ciel_runtime._channel_synthetic_enter_bytes_from_user_input(b"\r"))
+        self.assertEqual(b"\n", ciel_runtime._channel_synthetic_enter_bytes_from_user_input(b"\n"))
+        self.assertEqual(b"\r\n", ciel_runtime._channel_synthetic_enter_bytes_from_user_input(b"hello\r\n"))
 
     def test_builtin_channel_mcp_exposes_reply_tools(self):
-        tools = claude_any._channel_mcp_tool_schemas()
+        tools = ciel_runtime._channel_mcp_tool_schemas()
         names = [tool.get("name") for tool in tools]
 
         self.assertIn("send_message", names)
@@ -1254,8 +1257,8 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("content", file_schema["inputSchema"]["properties"])
 
     def test_builtin_channel_mcp_send_message_appends_web_delivery_reply(self):
-        with mock.patch.object(claude_any, "append_chat_message", return_value={"id": 44, "message": "done"}) as append:
-            response = claude_any._channel_mcp_tool_call_response(
+        with mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 44, "message": "done"}) as append:
+            response = ciel_runtime._channel_mcp_tool_call_response(
                 7,
                 {
                     "name": "send_message",
@@ -1286,10 +1289,10 @@ class ChannelBridgeTests(unittest.TestCase):
             "content_type": "text/markdown",
         }
         with (
-            mock.patch.object(claude_any, "store_chat_file_from_path", return_value=upload) as store,
-            mock.patch.object(claude_any, "append_chat_message", return_value={"id": 45, "message": "file"}) as append,
+            mock.patch.object(ciel_runtime, "store_chat_file_from_path", return_value=upload) as store,
+            mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 45, "message": "file"}) as append,
         ):
-            response = claude_any._channel_mcp_tool_call_response(
+            response = ciel_runtime._channel_mcp_tool_call_response(
                 8,
                 {
                     "name": "send_file",
@@ -1316,7 +1319,7 @@ class ChannelBridgeTests(unittest.TestCase):
 
     def test_builtin_channel_mcp_send_file_accepts_inline_content(self):
         with (
-            mock.patch.object(claude_any, "store_chat_file_upload", return_value={
+            mock.patch.object(ciel_runtime, "store_chat_file_upload", return_value={
                 "name": "stored.txt",
                 "original_name": "answer.txt",
                 "url": "http://127.0.0.1:8799/ca/chat/files/stored.txt",
@@ -1324,9 +1327,9 @@ class ChannelBridgeTests(unittest.TestCase):
                 "bytes": 5,
                 "content_type": "text/plain",
             }) as store,
-            mock.patch.object(claude_any, "append_chat_message", return_value={"id": 46, "message": "file"}),
+            mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 46, "message": "file"}),
         ):
-            response = claude_any._channel_mcp_tool_call_response(
+            response = ciel_runtime._channel_mcp_tool_call_response(
                 9,
                 {
                     "name": "send_file",
@@ -1355,14 +1358,14 @@ class ChannelBridgeTests(unittest.TestCase):
             }
         ]
         with (
-            mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-            mock.patch.object(claude_any, "_channel_platform_default_enter_bytes", return_value=b"\r\n"),
-            mock.patch.object(claude_any, "_write_fd_all") as write_all,
-            mock.patch.object(claude_any, "_channel_wake_submit_delay_seconds", return_value=0),
-            mock.patch.object(claude_any, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
-            mock.patch.object(claude_any, "router_log"),
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "_channel_platform_default_enter_bytes", return_value=b"\r\n"),
+            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+            mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+            mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+            mock.patch.object(ciel_runtime, "router_log"),
         ):
-            last_id = claude_any._inject_pending_channel_messages(99, 1)
+            last_id = ciel_runtime._inject_pending_channel_messages(99, 1)
         self.assertEqual(2, last_id)
         commit_cursor.assert_called_once_with(2)
         self.assertEqual(2, write_all.call_count)
@@ -1370,15 +1373,15 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(write_all.call_args_list[0].args[1].startswith(b"\x15"))
         self.assertEqual(b"\r\n", write_all.call_args_list[1].args[1])
 
-        claude_any._CHANNEL_STDIN_WAKE_DELIVERED.clear()
+        ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED.clear()
         with (
-            mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-            mock.patch.object(claude_any, "_write_fd_all") as write_all_cr,
-            mock.patch.object(claude_any, "_channel_wake_submit_delay_seconds", return_value=0),
-            mock.patch.object(claude_any, "_commit_channel_llm_cursor_if_newer"),
-            mock.patch.object(claude_any, "router_log"),
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all_cr,
+            mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+            mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer"),
+            mock.patch.object(ciel_runtime, "router_log"),
         ):
-            claude_any._inject_pending_channel_messages(99, 1, b"\r")
+            ciel_runtime._inject_pending_channel_messages(99, 1, b"\r")
         self.assertEqual(b"\r", write_all_cr.call_args_list[1].args[1])
 
     def test_inject_pending_channel_messages_batches_and_ignores_connection_noise(self):
@@ -1388,14 +1391,14 @@ class ChannelBridgeTests(unittest.TestCase):
             {"id": 3, "channel": "generic-room", "sender_id": "agent-b", "message": "status please", "meta": {"room_id": "generic-room", "mcp_server": "generic-mcp"}},
         ]
         with (
-            mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-            mock.patch.object(claude_any, "_channel_platform_default_enter_bytes", return_value=b"\r\n"),
-            mock.patch.object(claude_any, "_write_fd_all") as write_all,
-            mock.patch.object(claude_any, "_channel_wake_submit_delay_seconds", return_value=0),
-            mock.patch.object(claude_any, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "_channel_platform_default_enter_bytes", return_value=b"\r\n"),
+            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+            mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+            mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            last_id = claude_any._inject_pending_channel_messages(99, 0)
+            last_id = ciel_runtime._inject_pending_channel_messages(99, 0)
         self.assertEqual(2, last_id)
         commit_cursor.assert_called_once_with(2)
         payload = write_all.call_args_list[0].args[1]
@@ -1416,23 +1419,23 @@ class ChannelBridgeTests(unittest.TestCase):
                 "sender_id": "web-user",
                 "message": "마지막 작업 요약",
                 "kind": "web_chat",
-                "meta": {"source": "claude-any-web-chat", "reply_channel": "web-chat-session"},
+                "meta": {"source": "ciel-runtime-web-chat", "reply_channel": "web-chat-session"},
             },
         ]
         with (
-            mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-            mock.patch.object(claude_any, "_channel_platform_default_enter_bytes", return_value=b"\r\n"),
-            mock.patch.object(claude_any, "_write_fd_all") as write_all,
-            mock.patch.object(claude_any, "_channel_wake_submit_delay_seconds", return_value=0),
-            mock.patch.object(claude_any, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "_channel_platform_default_enter_bytes", return_value=b"\r\n"),
+            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+            mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+            mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            last_id = claude_any._inject_pending_channel_messages(99, 0, web_chat_only=True)
+            last_id = ciel_runtime._inject_pending_channel_messages(99, 0, web_chat_only=True)
         self.assertEqual(3, last_id)
         commit_cursor.assert_not_called()
         payload = write_all.call_args_list[0].args[1]
         self.assertIn("마지막 작업 요약".encode("utf-8"), payload)
-        self.assertIn(b"claude-any web chat", payload)
+        self.assertIn(b"ciel-runtime web chat", payload)
         self.assertNotIn(b"metadata=", payload)
         self.assertNotIn(b"hello Sarah", payload)
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
@@ -1449,13 +1452,13 @@ class ChannelBridgeTests(unittest.TestCase):
             }
         ]
         with (
-            mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-            mock.patch.object(claude_any, "_write_fd_all") as write_all,
-            mock.patch.object(claude_any, "_channel_wake_submit_delay_seconds", return_value=0),
-            mock.patch.object(claude_any, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+            mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+            mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            last_id = claude_any._inject_pending_channel_messages(99, 0)
+            last_id = ciel_runtime._inject_pending_channel_messages(99, 0)
         self.assertEqual(4, last_id)
         commit_cursor.assert_called_once_with(4)
         self.assertEqual(2, write_all.call_count)
@@ -1476,16 +1479,16 @@ class ChannelBridgeTests(unittest.TestCase):
         ]
 
         def assert_claimed_before_write(fd, data):
-            self.assertIn(7, claude_any._CHANNEL_STDIN_WAKE_DELIVERED)
+            self.assertIn(7, ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED)
 
         with (
-            mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-            mock.patch.object(claude_any, "_write_fd_all", side_effect=assert_claimed_before_write) as write_all,
-            mock.patch.object(claude_any, "_channel_wake_submit_delay_seconds", return_value=0),
-            mock.patch.object(claude_any, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
-            mock.patch.object(claude_any, "router_log"),
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "_write_fd_all", side_effect=assert_claimed_before_write) as write_all,
+            mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+            mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+            mock.patch.object(ciel_runtime, "router_log"),
         ):
-            last_id = claude_any._inject_pending_channel_messages(99, 1)
+            last_id = ciel_runtime._inject_pending_channel_messages(99, 1)
 
         self.assertEqual(7, last_id)
         self.assertEqual(2, write_all.call_count)
@@ -1504,13 +1507,13 @@ class ChannelBridgeTests(unittest.TestCase):
         ]
         injected: list[int] = []
         with (
-            mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-            mock.patch.object(claude_any, "_write_fd_all"),
-            mock.patch.object(claude_any, "_channel_wake_submit_delay_seconds", return_value=0),
-            mock.patch.object(claude_any, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
-            mock.patch.object(claude_any, "router_log"),
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "_write_fd_all"),
+            mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+            mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+            mock.patch.object(ciel_runtime, "router_log"),
         ):
-            last_id = claude_any._inject_pending_channel_messages(
+            last_id = ciel_runtime._inject_pending_channel_messages(
                 99,
                 7,
                 commit_cursor=False,
@@ -1539,21 +1542,21 @@ class ChannelBridgeTests(unittest.TestCase):
                     {
                         "type": "queue-operation",
                         "operation": "enqueue",
-                        "content": "[claude-any external channel message] id=9 text=\"wake up\"",
+                        "content": "[ciel-runtime external channel message] id=9 text=\"wake up\"",
                     }
                 )
                 + "\n",
                 encoding="utf-8",
             )
-            claude_any._CHANNEL_STDIN_WAKE_DELIVERED.clear()
+            ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED.clear()
             with (
-                mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-                mock.patch.object(claude_any, "_latest_claude_transcript_path", return_value=transcript),
-                mock.patch.object(claude_any, "_write_fd_all") as write_all,
-                mock.patch.object(claude_any, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
-                mock.patch.object(claude_any, "router_log") as router_log,
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript),
+                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
             ):
-                last_id = claude_any._inject_pending_channel_messages(99, 8)
+                last_id = ciel_runtime._inject_pending_channel_messages(99, 8)
 
         self.assertEqual(8, last_id)
         write_all.assert_not_called()
@@ -1574,8 +1577,8 @@ class ChannelBridgeTests(unittest.TestCase):
                 + "\n",
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "_latest_claude_transcript_path", return_value=transcript):
-                self.assertFalse(claude_any._channel_stdin_wake_completed(9))
+            with mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript):
+                self.assertFalse(ciel_runtime._channel_stdin_wake_completed(9))
 
             transcript.write_text(
                 transcript.read_text(encoding="utf-8")
@@ -1583,8 +1586,8 @@ class ChannelBridgeTests(unittest.TestCase):
                 + "\n",
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "_latest_claude_transcript_path", return_value=transcript):
-                self.assertTrue(claude_any._channel_stdin_wake_completed(9))
+            with mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript):
+                self.assertTrue(ciel_runtime._channel_stdin_wake_completed(9))
 
     def test_channel_stdin_wake_state_distinguishes_missing_pending_completed(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1593,9 +1596,9 @@ class ChannelBridgeTests(unittest.TestCase):
                 json.dumps({"type": "user", "message": {"content": "id=10 text=\"hello\""}}) + "\n",
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "_latest_claude_transcript_path", return_value=transcript):
-                self.assertEqual("pending", claude_any._channel_stdin_wake_state(10))
-                self.assertEqual("missing", claude_any._channel_stdin_wake_state(11))
+            with mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript):
+                self.assertEqual("pending", ciel_runtime._channel_stdin_wake_state(10))
+                self.assertEqual("missing", ciel_runtime._channel_stdin_wake_state(11))
 
             transcript.write_text(
                 transcript.read_text(encoding="utf-8")
@@ -1603,22 +1606,22 @@ class ChannelBridgeTests(unittest.TestCase):
                 + "\n",
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "_latest_claude_transcript_path", return_value=transcript):
-                self.assertEqual("completed", claude_any._channel_stdin_wake_state(10))
+            with mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript):
+                self.assertEqual("completed", ciel_runtime._channel_stdin_wake_state(10))
 
     def test_channel_stdin_inflight_stale_only_expires_queued_or_unknown(self):
-        with mock.patch.object(claude_any, "_channel_stdin_inflight_stale_seconds", return_value=60.0):
-            self.assertTrue(claude_any._channel_stdin_inflight_is_stale("queued", 100.0, 161.0))
-            self.assertTrue(claude_any._channel_stdin_inflight_is_stale("unknown", 100.0, 161.0))
-            self.assertFalse(claude_any._channel_stdin_inflight_is_stale("queued", 100.0, 120.0))
-            self.assertFalse(claude_any._channel_stdin_inflight_is_stale("pending", 100.0, 1000.0))
-            self.assertFalse(claude_any._channel_stdin_inflight_is_stale("missing", 100.0, 1000.0))
-            self.assertFalse(claude_any._channel_stdin_inflight_is_stale("completed", 100.0, 1000.0))
+        with mock.patch.object(ciel_runtime, "_channel_stdin_inflight_stale_seconds", return_value=60.0):
+            self.assertTrue(ciel_runtime._channel_stdin_inflight_is_stale("queued", 100.0, 161.0))
+            self.assertTrue(ciel_runtime._channel_stdin_inflight_is_stale("unknown", 100.0, 161.0))
+            self.assertFalse(ciel_runtime._channel_stdin_inflight_is_stale("queued", 100.0, 120.0))
+            self.assertFalse(ciel_runtime._channel_stdin_inflight_is_stale("pending", 100.0, 1000.0))
+            self.assertFalse(ciel_runtime._channel_stdin_inflight_is_stale("missing", 100.0, 1000.0))
+            self.assertFalse(ciel_runtime._channel_stdin_inflight_is_stale("completed", 100.0, 1000.0))
 
     def test_channel_stdin_wake_state_accepts_message_role_assistant_records(self):
         transcript = "\n".join(
             [
-                json.dumps({"type": "user", "message": {"content": "[claude-any external channel message] id=4345 text=\"hello\""}}),
+                json.dumps({"type": "user", "message": {"content": "[ciel-runtime external channel message] id=4345 text=\"hello\""}}),
                 json.dumps(
                     {
                         "message": {
@@ -1631,7 +1634,7 @@ class ChannelBridgeTests(unittest.TestCase):
             ]
         )
 
-        self.assertEqual("completed", claude_any._channel_stdin_wake_state_from_text(4345, transcript))
+        self.assertEqual("completed", ciel_runtime._channel_stdin_wake_state_from_text(4345, transcript))
 
     def test_channel_stdin_wake_state_treats_queued_command_as_queued_not_missing(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1643,7 +1646,7 @@ class ChannelBridgeTests(unittest.TestCase):
                             {
                                 "type": "queue-operation",
                                 "operation": "enqueue",
-                                "content": "[claude-any external channel message] id=4971 text=\"hello\"",
+                                "content": "[ciel-runtime external channel message] id=4971 text=\"hello\"",
                             }
                         ),
                         json.dumps(
@@ -1651,7 +1654,7 @@ class ChannelBridgeTests(unittest.TestCase):
                                 "type": "attachment",
                                 "attachment": {
                                     "type": "queued_command",
-                                    "prompt": "[claude-any external channel message] id=4971 text=\"hello\"",
+                                    "prompt": "[ciel-runtime external channel message] id=4971 text=\"hello\"",
                                 },
                             }
                         ),
@@ -1662,9 +1665,9 @@ class ChannelBridgeTests(unittest.TestCase):
                 + "\n",
                 encoding="utf-8",
             )
-            with mock.patch.object(claude_any, "_latest_claude_transcript_path", return_value=transcript):
-                self.assertEqual("queued", claude_any._channel_stdin_wake_state(4971))
-                self.assertEqual("completed", claude_any._channel_stdin_wake_state(4972))
+            with mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript):
+                self.assertEqual("queued", ciel_runtime._channel_stdin_wake_state(4971))
+                self.assertEqual("completed", ciel_runtime._channel_stdin_wake_state(4972))
 
     def test_channel_stdin_recover_cursor_keeps_queued_command_message_advanced(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1676,7 +1679,7 @@ class ChannelBridgeTests(unittest.TestCase):
                             {
                                 "type": "queue-operation",
                                 "operation": "enqueue",
-                                "content": "[claude-any external channel message] id=4971 text=\"kevin\"",
+                                "content": "[ciel-runtime external channel message] id=4971 text=\"kevin\"",
                             }
                         ),
                         json.dumps(
@@ -1684,7 +1687,7 @@ class ChannelBridgeTests(unittest.TestCase):
                                 "type": "attachment",
                                 "attachment": {
                                     "type": "queued_command",
-                                    "prompt": "[claude-any external channel message] id=4971 text=\"kevin\"",
+                                    "prompt": "[ciel-runtime external channel message] id=4971 text=\"kevin\"",
                                 },
                             }
                         ),
@@ -1695,12 +1698,12 @@ class ChannelBridgeTests(unittest.TestCase):
                 + "\n",
                 encoding="utf-8",
             )
-            claude_any._CHANNEL_STDIN_RECOVERY_CACHE.clear()
+            ciel_runtime._CHANNEL_STDIN_RECOVERY_CACHE.clear()
             with (
-                mock.patch.object(claude_any, "_latest_claude_transcript_path", return_value=transcript),
-                mock.patch.object(claude_any, "router_log"),
+                mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript),
+                mock.patch.object(ciel_runtime, "router_log"),
             ):
-                self.assertEqual(4987, claude_any._channel_stdin_recover_cursor_from_queued_only(4987))
+                self.assertEqual(4987, ciel_runtime._channel_stdin_recover_cursor_from_queued_only(4987))
 
     def test_channel_stdin_recover_cursor_respects_channel_clear_floor(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1714,7 +1717,7 @@ class ChannelBridgeTests(unittest.TestCase):
                             {
                                 "type": "queue-operation",
                                 "operation": "enqueue",
-                                "content": "[claude-any external channel message] id=4971 text=\"old\"",
+                                "content": "[ciel-runtime external channel message] id=4971 text=\"old\"",
                             }
                         ),
                         json.dumps(
@@ -1722,7 +1725,7 @@ class ChannelBridgeTests(unittest.TestCase):
                                 "type": "attachment",
                                 "attachment": {
                                     "type": "queued_command",
-                                    "prompt": "[claude-any external channel message] id=4971 text=\"old\"",
+                                    "prompt": "[ciel-runtime external channel message] id=4971 text=\"old\"",
                                 },
                             }
                         ),
@@ -1732,13 +1735,13 @@ class ChannelBridgeTests(unittest.TestCase):
                 encoding="utf-8",
             )
             floor_path.write_text('{"last_id":4987}\n', encoding="utf-8")
-            claude_any._CHANNEL_STDIN_RECOVERY_CACHE.clear()
+            ciel_runtime._CHANNEL_STDIN_RECOVERY_CACHE.clear()
             with (
-                mock.patch.object(claude_any, "_latest_claude_transcript_path", return_value=transcript),
-                mock.patch.object(claude_any, "CHANNEL_LLM_CLEAR_FLOOR_PATH", floor_path),
-                mock.patch.object(claude_any, "router_log"),
+                mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript),
+                mock.patch.object(ciel_runtime, "CHANNEL_LLM_CLEAR_FLOOR_PATH", floor_path),
+                mock.patch.object(ciel_runtime, "router_log"),
             ):
-                self.assertEqual(4987, claude_any._channel_stdin_recover_cursor_from_queued_only(4987))
+                self.assertEqual(4987, ciel_runtime._channel_stdin_recover_cursor_from_queued_only(4987))
 
     def test_channel_stdin_recover_cursor_keeps_completed_messages_advanced(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1752,7 +1755,7 @@ class ChannelBridgeTests(unittest.TestCase):
                             {
                                 "type": "queue-operation",
                                 "operation": "enqueue",
-                                "content": "[claude-any external channel message] id=4971 text=\"kevin\"",
+                                "content": "[ciel-runtime external channel message] id=4971 text=\"kevin\"",
                             }
                         ),
                     ]
@@ -1760,21 +1763,21 @@ class ChannelBridgeTests(unittest.TestCase):
                 + "\n",
                 encoding="utf-8",
             )
-            claude_any._CHANNEL_STDIN_RECOVERY_CACHE.clear()
-            with mock.patch.object(claude_any, "_latest_claude_transcript_path", return_value=transcript):
-                self.assertEqual(4987, claude_any._channel_stdin_recover_cursor_from_queued_only(4987))
+            ciel_runtime._CHANNEL_STDIN_RECOVERY_CACHE.clear()
+            with mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript):
+                self.assertEqual(4987, ciel_runtime._channel_stdin_recover_cursor_from_queued_only(4987))
 
     def test_channel_stdin_unseen_retry_seconds_is_bounded(self):
-        with mock.patch.dict(os.environ, {"CLAUDE_ANY_CHANNEL_WAKE_UNSEEN_RETRY_SECONDS": "0"}):
-            self.assertEqual(2.0, claude_any._channel_stdin_unseen_retry_seconds())
-        with mock.patch.dict(os.environ, {"CLAUDE_ANY_CHANNEL_WAKE_UNSEEN_RETRY_SECONDS": "999"}):
-            self.assertEqual(300.0, claude_any._channel_stdin_unseen_retry_seconds())
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_WAKE_UNSEEN_RETRY_SECONDS": "0"}):
+            self.assertEqual(2.0, ciel_runtime._channel_stdin_unseen_retry_seconds())
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_WAKE_UNSEEN_RETRY_SECONDS": "999"}):
+            self.assertEqual(300.0, ciel_runtime._channel_stdin_unseen_retry_seconds())
 
     def test_channel_stdin_rechecks_pending_after_inflight_completion_without_marker_change(self):
         marker = (123.0, 456)
 
         self.assertTrue(
-            claude_any._channel_stdin_should_check_pending(
+            ciel_runtime._channel_stdin_should_check_pending(
                 marker,
                 marker,
                 force_recheck=True,
@@ -1782,7 +1785,7 @@ class ChannelBridgeTests(unittest.TestCase):
             )
         )
         self.assertFalse(
-            claude_any._channel_stdin_should_check_pending(
+            ciel_runtime._channel_stdin_should_check_pending(
                 marker,
                 marker,
                 force_recheck=False,
@@ -1790,7 +1793,7 @@ class ChannelBridgeTests(unittest.TestCase):
             )
         )
         self.assertFalse(
-            claude_any._channel_stdin_should_check_pending(
+            ciel_runtime._channel_stdin_should_check_pending(
                 marker,
                 marker,
                 force_recheck=True,
@@ -1808,18 +1811,18 @@ class ChannelBridgeTests(unittest.TestCase):
                 "meta": {},
             }
         ]
-        claude_any._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-        claude_any._CHANNEL_LLM_DIRECT_DELIVERED.add(4)
+        ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
+        ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.add(4)
         try:
             with (
-                mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-                mock.patch.object(claude_any, "_write_fd_all") as write_all,
-                mock.patch.object(claude_any, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
-                mock.patch.object(claude_any, "router_log") as router_log,
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
             ):
-                last_id = claude_any._inject_pending_channel_messages(99, 0)
+                last_id = ciel_runtime._inject_pending_channel_messages(99, 0)
         finally:
-            claude_any._CHANNEL_LLM_DIRECT_DELIVERED.clear()
+            ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
         self.assertEqual(4, last_id)
         commit_cursor.assert_not_called()
         write_all.assert_not_called()
@@ -1827,7 +1830,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(any("reason=llm_direct_delivered" in item for item in log_messages))
 
     def test_inject_pending_channel_summaries_writes_prompt_to_child_stdin(self):
-        original_cursor = claude_any._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
+        original_cursor = ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
         with tempfile.TemporaryDirectory() as td:
             queue_path = Path(td) / "channel-llm-summary-queue.jsonl"
             cursor_path = Path(td) / "channel-llm-summary-cursor.json"
@@ -1850,18 +1853,18 @@ class ChannelBridgeTests(unittest.TestCase):
             )
             cursor_path.write_text(json.dumps({"last_id": 0}) + "\n", encoding="utf-8")
             try:
-                claude_any._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
+                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
                 with (
-                    mock.patch.object(claude_any, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", queue_path),
-                    mock.patch.object(claude_any, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", cursor_path),
-                    mock.patch.object(claude_any, "_write_fd_all") as write_all,
-                    mock.patch.object(claude_any, "_channel_wake_submit_delay_seconds", return_value=0),
-                    mock.patch.object(claude_any, "router_log") as router_log,
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", queue_path),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", cursor_path),
+                    mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                    mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+                    mock.patch.object(ciel_runtime, "router_log") as router_log,
                 ):
-                    last_id = claude_any._inject_pending_channel_summaries(99, b"\r\n")
+                    last_id = ciel_runtime._inject_pending_channel_summaries(99, b"\r\n")
                     cursor_payload = json.loads(cursor_path.read_text(encoding="utf-8"))
             finally:
-                claude_any._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_cursor
+                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_cursor
 
         self.assertEqual(12, last_id)
         self.assertEqual({"last_id": 12}, cursor_payload)
@@ -1877,7 +1880,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(any("channel_stdin_summary_injected" in item and "message_ids=12" in item for item in log_messages))
 
     def test_missing_channel_summary_cursor_starts_at_queue_tail(self):
-        original_cursor = claude_any._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
+        original_cursor = ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
         with tempfile.TemporaryDirectory() as td:
             queue_path = Path(td) / "channel-llm-summary-queue.jsonl"
             cursor_path = Path(td) / "channel-llm-summary-cursor.json"
@@ -1898,20 +1901,43 @@ class ChannelBridgeTests(unittest.TestCase):
                 encoding="utf-8",
             )
             try:
-                claude_any._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
+                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
                 with (
-                    mock.patch.object(claude_any, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", queue_path),
-                    mock.patch.object(claude_any, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", cursor_path),
-                    mock.patch.object(claude_any, "_write_fd_all") as write_all,
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", queue_path),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", cursor_path),
+                    mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
                 ):
-                    last_id = claude_any._inject_pending_channel_summaries(99, b"\r\n")
+                    last_id = ciel_runtime._inject_pending_channel_summaries(99, b"\r\n")
                     cursor_payload = json.loads(cursor_path.read_text(encoding="utf-8"))
             finally:
-                claude_any._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_cursor
+                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_cursor
 
         self.assertEqual(12, last_id)
         self.assertEqual({"last_id": 12}, cursor_payload)
         write_all.assert_not_called()
+
+    def test_parse_pseudo_tool_calls_converts_invoke_only_for_available_tool(self):
+        body = {
+            "tools": [
+                {"name": "mcp__ai-net-http__get_messages", "input_schema": {"type": "object"}},
+            ]
+        }
+        text = (
+            "Reading latest.\n"
+            "<invoke name=\"mcp__ai-net-http__get_messages\">\n"
+            "<parameter name=\"room_id\">room1</parameter>\n"
+            "<parameter name=\"limit\">5</parameter>\n"
+            "</invoke>\n"
+            "<note>ordinary XML remains</note>"
+        )
+
+        visible, calls = ciel_runtime.parse_pseudo_tool_calls(text, body)
+
+        self.assertIn("Reading latest.", visible)
+        self.assertIn("<note>ordinary XML remains</note>", visible)
+        self.assertNotIn("<invoke", visible)
+        self.assertEqual("mcp__ai-net-http__get_messages", calls[0]["function"]["name"])
+        self.assertEqual({"room_id": "room1", "limit": "5"}, calls[0]["function"]["arguments"])
 
     def test_body_with_pending_channel_messages_injects_llm_context(self):
         body = {"messages": [{"role": "user", "content": "continue"}], "stream": True}
@@ -1927,13 +1953,13 @@ class ChannelBridgeTests(unittest.TestCase):
             },
         ]
         with (
-            mock.patch.object(claude_any, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-            mock.patch.object(claude_any, "_channel_llm_read_cursor_locked", return_value=1),
-            mock.patch.object(claude_any, "_channel_llm_write_cursor_locked") as write_cursor,
-            mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+            mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1),
+            mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            out = claude_any.body_with_pending_channel_messages(body)
+            out = ciel_runtime.body_with_pending_channel_messages(body)
 
         self.assertIsNot(out, body)
         self.assertEqual(2, len(out["messages"]))
@@ -1952,58 +1978,58 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn("ai-net.sse.connected", injected)
         self.assertNotIn("SSE MCP initialized", injected)
         write_cursor.assert_not_called()
-        self.assertEqual("3", out["metadata"]["claude_any_channel_cursor_last_id"])
-        handler = type("Handler", (), {"_claude_any_response_status": 200})()
+        self.assertEqual("3", out["metadata"]["ciel_runtime_channel_cursor_last_id"])
+        handler = type("Handler", (), {"_ciel_runtime_response_status": 200})()
         with (
-            mock.patch.object(claude_any, "_channel_llm_read_cursor_locked", return_value=1),
-            mock.patch.object(claude_any, "_channel_llm_write_cursor_locked") as commit_cursor,
+            mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1),
+            mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as commit_cursor,
         ):
-            claude_any.commit_pending_channel_delivery_cursors(out, handler)  # type: ignore[arg-type]
+            ciel_runtime.commit_pending_channel_delivery_cursors(out, handler)  # type: ignore[arg-type]
         commit_cursor.assert_called_with(3)
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("channel_llm_injected" in item and "message_ids=3" in item for item in log_messages))
         self.assertTrue(any("channel_llm_inject_skipped" in item and "transport_connected" in item for item in log_messages))
 
-    def test_body_without_claude_any_internal_metadata_strips_private_keys(self):
+    def test_body_without_ciel_runtime_internal_metadata_strips_private_keys(self):
         body = {
-            "model": "claude-any-test",
+            "model": "ciel-runtime-test",
             "metadata": {
-                "claude_any_channel_injected": True,
-                "claude_any_channel_cursor_last_id": "9",
+                "ciel_runtime_channel_injected": True,
+                "ciel_runtime_channel_cursor_last_id": "9",
                 "user_id": "user-1",
             },
         }
 
-        out = claude_any.body_without_claude_any_internal_metadata(body)
+        out = ciel_runtime.body_without_ciel_runtime_internal_metadata(body)
 
         self.assertIsNot(out, body)
         self.assertEqual({"user_id": "user-1"}, out["metadata"])
-        self.assertIn("claude_any_channel_injected", body["metadata"])
+        self.assertIn("ciel_runtime_channel_injected", body["metadata"])
 
-    def test_body_without_claude_any_internal_metadata_removes_empty_metadata(self):
+    def test_body_without_ciel_runtime_internal_metadata_removes_empty_metadata(self):
         body = {
-            "model": "claude-any-test",
+            "model": "ciel-runtime-test",
             "metadata": {
-                "claude_any_channel_summary_injected": True,
-                "claude_any_channel_summary_cursor_last_id": "12",
+                "ciel_runtime_channel_summary_injected": True,
+                "ciel_runtime_channel_summary_cursor_last_id": "12",
             },
         }
 
-        out = claude_any.body_without_claude_any_internal_metadata(body)
+        out = ciel_runtime.body_without_ciel_runtime_internal_metadata(body)
 
         self.assertIsNot(out, body)
         self.assertNotIn("metadata", out)
 
     def test_commit_pending_channel_delivery_cursors_accepts_private_metadata_override(self):
-        sanitized_body = {"model": "claude-any-test"}
-        private_metadata = {"claude_any_channel_cursor_last_id": "9"}
-        handler = type("Handler", (), {"_claude_any_response_status": 200})()
+        sanitized_body = {"model": "ciel-runtime-test"}
+        private_metadata = {"ciel_runtime_channel_cursor_last_id": "9"}
+        handler = type("Handler", (), {"_ciel_runtime_response_status": 200})()
 
         with (
-            mock.patch.object(claude_any, "_channel_llm_read_cursor_locked", return_value=1),
-            mock.patch.object(claude_any, "_channel_llm_write_cursor_locked") as commit_cursor,
+            mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1),
+            mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as commit_cursor,
         ):
-            claude_any.commit_pending_channel_delivery_cursors(
+            ciel_runtime.commit_pending_channel_delivery_cursors(
                 sanitized_body,
                 handler,  # type: ignore[arg-type]
                 metadata=private_metadata,
@@ -2015,16 +2041,16 @@ class ChannelBridgeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             cursor_path = Path(td) / "channel-llm-cursor.json"
             cursor_path.write_text('{"last_id":3}\n', encoding="utf-8")
-            original_cursor = claude_any._CHANNEL_LLM_CURSOR_LAST_ID
+            original_cursor = ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID
             try:
-                claude_any._CHANNEL_LLM_CURSOR_LAST_ID = None
+                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = None
                 with (
-                    mock.patch.object(claude_any, "CHANNEL_LLM_CURSOR_PATH", cursor_path),
-                    mock.patch.object(claude_any, "_chat_init_next_id", return_value=10),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", cursor_path),
+                    mock.patch.object(ciel_runtime, "_chat_init_next_id", return_value=10),
                 ):
-                    self.assertEqual(3, claude_any.ensure_channel_llm_delivery_cursor_initialized())
+                    self.assertEqual(3, ciel_runtime.ensure_channel_llm_delivery_cursor_initialized())
             finally:
-                claude_any._CHANNEL_LLM_CURSOR_LAST_ID = original_cursor
+                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = original_cursor
 
     def test_prepare_channel_llm_delivery_for_launch_preserves_recent_messages(self):
         with tempfile.TemporaryDirectory(prefix="ca-channel-launch-") as td:
@@ -2041,20 +2067,20 @@ class ChannelBridgeTests(unittest.TestCase):
                 encoding="utf-8",
             )
             cursor_path.write_text('{"last_id":9}\n', encoding="utf-8")
-            original_cursor = claude_any._CHANNEL_LLM_CURSOR_LAST_ID
+            original_cursor = ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID
             try:
-                claude_any._CHANNEL_LLM_CURSOR_LAST_ID = None
+                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = None
                 with (
-                    mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", chat_path),
-                    mock.patch.object(claude_any, "CHANNEL_LLM_CURSOR_PATH", cursor_path),
-                    mock.patch.object(claude_any, "CHANNEL_LLM_LAUNCH_GUARD_PATH", guard_path),
-                    mock.patch.dict(os.environ, {"CLAUDE_ANY_CHANNEL_LAUNCH_RECENT_SECONDS": "600"}, clear=False),
+                    mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", chat_path),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", cursor_path),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_LAUNCH_GUARD_PATH", guard_path),
+                    mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_LAUNCH_RECENT_SECONDS": "600"}, clear=False),
                 ):
-                    self.assertEqual(10, claude_any.prepare_channel_llm_delivery_for_launch())
+                    self.assertEqual(10, ciel_runtime.prepare_channel_llm_delivery_for_launch())
                 self.assertEqual({"last_id": 10}, json.loads(cursor_path.read_text(encoding="utf-8")))
                 self.assertEqual(10, json.loads(guard_path.read_text(encoding="utf-8"))["max_existing_id"])
             finally:
-                claude_any._CHANNEL_LLM_CURSOR_LAST_ID = original_cursor
+                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = original_cursor
 
     def test_prepare_channel_llm_delivery_for_launch_can_fast_forward_all_when_recent_disabled(self):
         with tempfile.TemporaryDirectory(prefix="ca-channel-launch-") as td:
@@ -2068,34 +2094,34 @@ class ChannelBridgeTests(unittest.TestCase):
                 encoding="utf-8",
             )
             cursor_path.write_text('{"last_id":2}\n', encoding="utf-8")
-            original_cursor = claude_any._CHANNEL_LLM_CURSOR_LAST_ID
+            original_cursor = ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID
             try:
-                claude_any._CHANNEL_LLM_CURSOR_LAST_ID = None
+                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = None
                 with (
-                    mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", chat_path),
-                    mock.patch.object(claude_any, "CHANNEL_LLM_CURSOR_PATH", cursor_path),
-                    mock.patch.object(claude_any, "CHANNEL_LLM_LAUNCH_GUARD_PATH", guard_path),
-                    mock.patch.dict(os.environ, {"CLAUDE_ANY_CHANNEL_LAUNCH_RECENT_SECONDS": "0"}, clear=False),
+                    mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", chat_path),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", cursor_path),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_LAUNCH_GUARD_PATH", guard_path),
+                    mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_LAUNCH_RECENT_SECONDS": "0"}, clear=False),
                 ):
-                    self.assertEqual(12, claude_any.prepare_channel_llm_delivery_for_launch())
+                    self.assertEqual(12, ciel_runtime.prepare_channel_llm_delivery_for_launch())
                 self.assertEqual({"last_id": 12}, json.loads(cursor_path.read_text(encoding="utf-8")))
             finally:
-                claude_any._CHANNEL_LLM_CURSOR_LAST_ID = original_cursor
+                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = original_cursor
 
     def test_commit_pending_channel_delivery_cursors_skips_failed_response(self):
         body = {
             "metadata": {
-                "claude_any_channel_cursor_last_id": "9",
-                "claude_any_channel_summary_cursor_last_id": "12",
+                "ciel_runtime_channel_cursor_last_id": "9",
+                "ciel_runtime_channel_summary_cursor_last_id": "12",
             }
         }
-        handler = type("Handler", (), {"_claude_any_response_status": 500})()
+        handler = type("Handler", (), {"_ciel_runtime_response_status": 500})()
         with (
-            mock.patch.object(claude_any, "_channel_llm_write_cursor_locked") as write_cursor,
-            mock.patch.object(claude_any, "_channel_llm_summary_write_cursor_locked") as write_summary_cursor,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
+            mock.patch.object(ciel_runtime, "_channel_llm_summary_write_cursor_locked") as write_summary_cursor,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            claude_any.commit_pending_channel_delivery_cursors(body, handler)  # type: ignore[arg-type]
+            ciel_runtime.commit_pending_channel_delivery_cursors(body, handler)  # type: ignore[arg-type]
 
         write_cursor.assert_not_called()
         write_summary_cursor.assert_not_called()
@@ -2104,26 +2130,26 @@ class ChannelBridgeTests(unittest.TestCase):
     def test_commit_pending_channel_delivery_cursors_skips_unconfirmed_channel_response(self):
         body = {
             "metadata": {
-                "claude_any_channel_cursor_last_id": "9",
-                "claude_any_channel_summary_cursor_last_id": "12",
+                "ciel_runtime_channel_cursor_last_id": "9",
+                "ciel_runtime_channel_summary_cursor_last_id": "12",
             }
         }
         handler = type(
             "Handler",
             (),
             {
-                "_claude_any_response_status": 200,
-                "_claude_any_channel_delivery_guard": True,
-                "_claude_any_channel_delivery_ok": False,
-                "_claude_any_channel_delivery_reason": "ollama_stream_error:TimeoutError",
+                "_ciel_runtime_response_status": 200,
+                "_ciel_runtime_channel_delivery_guard": True,
+                "_ciel_runtime_channel_delivery_ok": False,
+                "_ciel_runtime_channel_delivery_reason": "ollama_stream_error:TimeoutError",
             },
         )()
         with (
-            mock.patch.object(claude_any, "_channel_llm_write_cursor_locked") as write_cursor,
-            mock.patch.object(claude_any, "_channel_llm_summary_write_cursor_locked") as write_summary_cursor,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
+            mock.patch.object(ciel_runtime, "_channel_llm_summary_write_cursor_locked") as write_summary_cursor,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            claude_any.commit_pending_channel_delivery_cursors(body, handler)  # type: ignore[arg-type]
+            ciel_runtime.commit_pending_channel_delivery_cursors(body, handler)  # type: ignore[arg-type]
 
         write_cursor.assert_not_called()
         write_summary_cursor.assert_not_called()
@@ -2138,27 +2164,27 @@ class ChannelBridgeTests(unittest.TestCase):
     def test_commit_pending_channel_delivery_cursors_commits_confirmed_channel_response(self):
         body = {
             "metadata": {
-                "claude_any_channel_cursor_last_id": "9",
-                "claude_any_channel_summary_cursor_last_id": "12",
+                "ciel_runtime_channel_cursor_last_id": "9",
+                "ciel_runtime_channel_summary_cursor_last_id": "12",
             }
         }
         handler = type(
             "Handler",
             (),
             {
-                "_claude_any_response_status": 200,
-                "_claude_any_channel_delivery_guard": True,
-                "_claude_any_channel_delivery_ok": True,
-                "_claude_any_channel_delivery_reason": "ollama_stream_message_stop",
+                "_ciel_runtime_response_status": 200,
+                "_ciel_runtime_channel_delivery_guard": True,
+                "_ciel_runtime_channel_delivery_ok": True,
+                "_ciel_runtime_channel_delivery_reason": "ollama_stream_message_stop",
             },
         )()
         with (
-            mock.patch.object(claude_any, "_channel_llm_read_cursor_locked", return_value=1),
-            mock.patch.object(claude_any, "_channel_llm_write_cursor_locked") as write_cursor,
-            mock.patch.object(claude_any, "_channel_llm_summary_read_cursor_locked", return_value=1),
-            mock.patch.object(claude_any, "_channel_llm_summary_write_cursor_locked") as write_summary_cursor,
+            mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1),
+            mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
+            mock.patch.object(ciel_runtime, "_channel_llm_summary_read_cursor_locked", return_value=1),
+            mock.patch.object(ciel_runtime, "_channel_llm_summary_write_cursor_locked") as write_summary_cursor,
         ):
-            claude_any.commit_pending_channel_delivery_cursors(body, handler)  # type: ignore[arg-type]
+            ciel_runtime.commit_pending_channel_delivery_cursors(body, handler)  # type: ignore[arg-type]
 
         write_cursor.assert_called_with(9)
         write_summary_cursor.assert_called_with(12)
@@ -2179,13 +2205,13 @@ class ChannelBridgeTests(unittest.TestCase):
             {"id": 3, "channel": "room", "sender_id": "agent-a", "message": "Please read this", "meta": {"room_id": "room", "mcp_server": "generic-mcp"}}
         ]
         with (
-            mock.patch.object(claude_any, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-            mock.patch.object(claude_any, "_channel_llm_read_cursor_locked", return_value=1),
-            mock.patch.object(claude_any, "_channel_llm_write_cursor_locked"),
-            mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+            mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1),
+            mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked"),
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            out = claude_any.body_with_pending_channel_messages(body)
+            out = ciel_runtime.body_with_pending_channel_messages(body)
 
         tool_names = [tool.get("name") for tool in out["tools"]]
         self.assertIn("mcp__ai-net-sse__send_dm", tool_names)
@@ -2193,8 +2219,8 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("mcp__ai-net-sse__get_messages", tool_names)
         self.assertIn("mcp__duckduckgo__search", tool_names)
         self.assertEqual({"type": "tool", "name": "mcp__ai-net-sse__send_dm"}, out["tool_choice"])
-        self.assertTrue(out["metadata"]["claude_any_channel_injected"])
-        self.assertEqual("3", out["metadata"]["claude_any_channel_message_ids"])
+        self.assertTrue(out["metadata"]["ciel_runtime_channel_injected"])
+        self.assertEqual("3", out["metadata"]["ciel_runtime_channel_message_ids"])
         injected = out["messages"][-1]["content"][0]["text"]
         self.assertIn("자율 처리 턴", injected)
         self.assertIn("필요한 읽기/쓰기 도구를 호출", injected)
@@ -2203,7 +2229,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(any("channel_llm_injected" in item and "message_ids=3" in item for item in log_messages))
 
     def test_channel_llm_prompt_treats_ai_net_dm_as_agent_task(self):
-        prompt = claude_any.format_channel_llm_batch_prompt(
+        prompt = ciel_runtime.format_channel_llm_batch_prompt(
             [
                 {
                     "id": 110,
@@ -2228,12 +2254,12 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn('to=["agent_n3wy9gfjmcil"]', prompt)
         self.assertIn("message_id/source_message_id", prompt)
         self.assertIn("after_id/cursor", prompt)
-        self.assertNotIn("claude-any-router send_message", prompt)
+        self.assertNotIn("ciel-runtime-router send_message", prompt)
         self.assertNotIn("recipients='web'", prompt)
         self.assertNotIn("웹 채팅 요청", prompt)
 
     def test_channel_llm_prompt_adds_browser_reply_instructions_only_for_web_chat(self):
-        prompt = claude_any.format_channel_llm_batch_prompt(
+        prompt = ciel_runtime.format_channel_llm_batch_prompt(
             [
                 {
                     "id": 220,
@@ -2243,24 +2269,24 @@ class ChannelBridgeTests(unittest.TestCase):
                     "message": "현재 작업 상태를 알려줘",
                     "kind": "web_chat",
                     "meta": {
-                        "source": "claude-any-web-chat",
+                        "source": "ciel-runtime-web-chat",
                         "reply_channel": "web-chat-session",
                         "reply_recipient": "web",
                     },
                 }
             ]
         )
-        self.assertIn("claude-any-router send_message", prompt)
+        self.assertIn("ciel-runtime-router send_message", prompt)
         self.assertIn("recipients='web'", prompt)
         self.assertIn("웹 채팅 요청", prompt)
         self.assertIn("현재 작업 상태를 알려줘", prompt)
 
     def test_channel_tool_result_context_is_injected_for_remembered_tool_use(self):
-        claude_any._CHANNEL_LLM_TOOL_CONTEXT.clear()
+        ciel_runtime._CHANNEL_LLM_TOOL_CONTEXT.clear()
         source_body = {
             "metadata": {
-                "claude_any_channel_injected": True,
-                "claude_any_channel_message_ids": "110",
+                "ciel_runtime_channel_injected": True,
+                "ciel_runtime_channel_message_ids": "110",
             },
             "messages": [
                 {
@@ -2268,7 +2294,7 @@ class ChannelBridgeTests(unittest.TestCase):
                     "content": [
                         {
                             "type": "text",
-                            "text": "[claude-any channel inbox]\n<< room >> 에서 SSE 메시지가 도착했습니다.\n<< 발신자 >> Sarah\n<< 메시지 >> Robert 리드님, 준비 완료입니다.",
+                            "text": "[ciel-runtime channel inbox]\n<< room >> 에서 SSE 메시지가 도착했습니다.\n<< 발신자 >> Sarah\n<< 메시지 >> Robert 리드님, 준비 완료입니다.",
                         }
                     ],
                 }
@@ -2285,8 +2311,8 @@ class ChannelBridgeTests(unittest.TestCase):
                 }
             ],
         }
-        with mock.patch.object(claude_any, "router_log") as router_log:
-            claude_any.remember_channel_injected_tool_uses(source_body, assistant_message)
+        with mock.patch.object(ciel_runtime, "router_log") as router_log:
+            ciel_runtime.remember_channel_injected_tool_uses(source_body, assistant_message)
             followup_body = {
                 "messages": [
                     assistant_message,
@@ -2302,25 +2328,25 @@ class ChannelBridgeTests(unittest.TestCase):
                     },
                 ],
             }
-            out = claude_any.body_with_channel_tool_result_context(followup_body)
+            out = ciel_runtime.body_with_channel_tool_result_context(followup_body)
 
         self.assertIsNot(out, followup_body)
-        self.assertTrue(out["metadata"]["claude_any_channel_tool_result_followup"])
+        self.assertTrue(out["metadata"]["ciel_runtime_channel_tool_result_followup"])
         injected = out["messages"][-1]["content"][0]["text"]
         self.assertIn("channel tool_result follow-up", injected)
         self.assertIn("toolu_channel_1", injected)
         self.assertIn("mcp__ai-net-sse__send_dm", injected)
         self.assertIn("Sarah", injected)
         self.assertIn("Robert 리드님, 준비 완료입니다.", injected)
-        second = claude_any.body_with_channel_tool_result_context(followup_body)
+        second = ciel_runtime.body_with_channel_tool_result_context(followup_body)
         self.assertIs(second, followup_body)
-        self.assertEqual({}, claude_any._CHANNEL_LLM_TOOL_CONTEXT)
+        self.assertEqual({}, ciel_runtime._CHANNEL_LLM_TOOL_CONTEXT)
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("channel_llm_tool_context_stored" in item and "toolu_channel_1" in item for item in log_messages))
         self.assertTrue(any("channel_llm_tool_result_context_injected" in item and "toolu_channel_1" in item for item in log_messages))
 
     def test_summarize_messages_for_trace_includes_tool_result_blocks(self):
-        summary = claude_any.summarize_messages_for_trace(
+        summary = ciel_runtime.summarize_messages_for_trace(
             [
                 {
                     "role": "assistant",
@@ -2353,14 +2379,14 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual("sent", summary[1]["content"][0]["content"])
 
     def test_body_with_pending_channel_messages_skips_direct_router_requests(self):
-        body = {"metadata": {"claude_any_channel_direct": True}, "messages": []}
-        with mock.patch.object(claude_any, "load_config") as load_config:
-            out = claude_any.body_with_pending_channel_messages(body)
+        body = {"metadata": {"ciel_runtime_channel_direct": True}, "messages": []}
+        with mock.patch.object(ciel_runtime, "load_config") as load_config:
+            out = ciel_runtime.body_with_pending_channel_messages(body)
         self.assertIs(out, body)
         load_config.assert_not_called()
 
     def test_body_with_pending_channel_summaries_injects_direct_processing_result(self):
-        original_cursor = claude_any._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
+        original_cursor = ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
         cursor_payload = None
         with tempfile.TemporaryDirectory() as td:
             queue_path = Path(td) / "channel-llm-summary-queue.jsonl"
@@ -2384,22 +2410,22 @@ class ChannelBridgeTests(unittest.TestCase):
             )
             cursor_path.write_text(json.dumps({"last_id": 0}) + "\n", encoding="utf-8")
             try:
-                claude_any._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
+                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
                 with (
-                    mock.patch.object(claude_any, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", queue_path),
-                    mock.patch.object(claude_any, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", cursor_path),
-                    mock.patch.dict(os.environ, {"CLAUDE_ANY_CHANNEL_DELIVERY": "llm"}),
-                    mock.patch.object(claude_any, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                    mock.patch.object(claude_any, "router_log") as router_log,
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", queue_path),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", cursor_path),
+                    mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_DELIVERY": "llm"}),
+                    mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+                    mock.patch.object(ciel_runtime, "router_log") as router_log,
                 ):
-                    out = claude_any.body_with_pending_channel_summaries(
+                    out = ciel_runtime.body_with_pending_channel_summaries(
                         {"messages": [{"role": "user", "content": "continue"}]}
                     )
-                    handler = type("Handler", (), {"_claude_any_response_status": 200})()
-                    claude_any.commit_pending_channel_delivery_cursors(out, handler)  # type: ignore[arg-type]
+                    handler = type("Handler", (), {"_ciel_runtime_response_status": 200})()
+                    ciel_runtime.commit_pending_channel_delivery_cursors(out, handler)  # type: ignore[arg-type]
                     cursor_payload = json.loads(cursor_path.read_text(encoding="utf-8"))
             finally:
-                claude_any._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_cursor
+                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_cursor
 
         self.assertEqual(2, len(out["messages"]))
         injected = out["messages"][-1]["content"][0]["text"]
@@ -2408,14 +2434,14 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("message_ids=12", injected)
         self.assertNotIn("LOCAL NOTICE ONLY", injected)
         self.assertNotIn("Sarah에게 업무를 배정", injected)
-        self.assertTrue(out["metadata"]["claude_any_channel_summary_injected"])
-        self.assertEqual("12", out["metadata"]["claude_any_channel_summary_message_ids"])
-        self.assertEqual("12", out["metadata"]["claude_any_channel_summary_cursor_last_id"])
+        self.assertTrue(out["metadata"]["ciel_runtime_channel_summary_injected"])
+        self.assertEqual("12", out["metadata"]["ciel_runtime_channel_summary_message_ids"])
+        self.assertEqual("12", out["metadata"]["ciel_runtime_channel_summary_cursor_last_id"])
         self.assertEqual({"last_id": 12}, cursor_payload)
         self.assertTrue(any("channel_llm_summary_injected" in str(call.args[1]) for call in router_log.call_args_list))
 
     def test_channel_summary_injection_skips_plan_mode_without_advancing_cursor(self):
-        original_cursor = claude_any._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
+        original_cursor = ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
         with tempfile.TemporaryDirectory() as td:
             queue_path = Path(td) / "channel-llm-summary-queue.jsonl"
             cursor_path = Path(td) / "channel-llm-summary-cursor.json"
@@ -2436,7 +2462,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 encoding="utf-8",
             )
             try:
-                claude_any._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
+                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
                 body = {
                     "messages": [
                         {"role": "user", "content": [{"type": "text", "text": "continue"}]},
@@ -2444,14 +2470,14 @@ class ChannelBridgeTests(unittest.TestCase):
                     ]
                 }
                 with (
-                    mock.patch.object(claude_any, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", queue_path),
-                    mock.patch.object(claude_any, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", cursor_path),
-                    mock.patch.object(claude_any, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                    mock.patch.object(claude_any, "router_log") as router_log,
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", queue_path),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", cursor_path),
+                    mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+                    mock.patch.object(ciel_runtime, "router_log") as router_log,
                 ):
-                    out = claude_any.body_with_pending_channel_summaries(body)
+                    out = ciel_runtime.body_with_pending_channel_summaries(body)
             finally:
-                claude_any._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_cursor
+                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_cursor
 
         self.assertIs(out, body)
         self.assertFalse(cursor_path.exists())
@@ -2469,38 +2495,38 @@ class ChannelBridgeTests(unittest.TestCase):
             }
         ]
         with (
-            mock.patch.object(claude_any, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-            mock.patch.object(claude_any, "_channel_llm_read_cursor_locked", return_value=1),
-            mock.patch.object(claude_any, "_channel_llm_write_cursor_locked") as write_cursor,
-            mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+            mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1),
+            mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            out = claude_any.body_with_pending_channel_messages(body)
+            out = ciel_runtime.body_with_pending_channel_messages(body)
 
         self.assertIsNot(out, body)
         write_cursor.assert_not_called()
         injected = out["messages"][-1]["content"][0]["text"]
         self.assertIn("direct marked before scheduling", injected)
-        self.assertEqual("3", out["metadata"]["claude_any_channel_message_ids"])
+        self.assertEqual("3", out["metadata"]["ciel_runtime_channel_message_ids"])
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("stale_llm_direct_pending" in item for item in log_messages))
 
     def test_body_with_pending_channel_messages_skips_direct_delivered_messages(self):
         body = {"messages": [{"role": "user", "content": "continue"}], "stream": True}
         messages = [{"id": 3, "channel": "room", "sender_id": "sarah", "message": "already sent", "meta": {"room_id": "room"}}]
-        claude_any._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-        claude_any._CHANNEL_LLM_DIRECT_DELIVERED.add(3)
+        ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
+        ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.add(3)
         try:
             with (
-                mock.patch.object(claude_any, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                mock.patch.object(claude_any, "_channel_llm_read_cursor_locked", return_value=1),
-                mock.patch.object(claude_any, "_channel_llm_write_cursor_locked") as write_cursor,
-                mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-                mock.patch.object(claude_any, "router_log") as router_log,
+                mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+                mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1),
+                mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
             ):
-                out = claude_any.body_with_pending_channel_messages(body)
+                out = ciel_runtime.body_with_pending_channel_messages(body)
         finally:
-            claude_any._CHANNEL_LLM_DIRECT_DELIVERED.clear()
+            ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
         self.assertIs(out, body)
         write_cursor.assert_called_with(3)
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
@@ -2515,7 +2541,7 @@ class ChannelBridgeTests(unittest.TestCase):
                         {
                             "type": "text",
                             "text": (
-                                "[claude-any external channel message] channel=room "
+                                "[ciel-runtime external channel message] channel=room "
                                 "room=room from=ai-net-http id=5058 text=\"wake\""
                             ),
                         }
@@ -2534,13 +2560,13 @@ class ChannelBridgeTests(unittest.TestCase):
             }
         ]
         with (
-            mock.patch.object(claude_any, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-            mock.patch.object(claude_any, "_channel_llm_read_cursor_locked", return_value=5057),
-            mock.patch.object(claude_any, "_channel_llm_write_cursor_locked") as write_cursor,
-            mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+            mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=5057),
+            mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            out = claude_any.body_with_pending_channel_messages(body)
+            out = ciel_runtime.body_with_pending_channel_messages(body)
 
         self.assertIs(out, body)
         write_cursor.assert_called_with(5058)
@@ -2554,14 +2580,14 @@ class ChannelBridgeTests(unittest.TestCase):
                 {
                     "role": "user",
                     "content": (
-                        "[claude-any external channel messages] 2 new messages: "
+                        "[ciel-runtime external channel messages] 2 new messages: "
                         "(id=14 room=room) \"one\" | (id=15 room=room) \"two\""
                     ),
                 },
             ]
         }
 
-        self.assertEqual({14, 15}, claude_any._channel_message_ids_already_in_request(body))
+        self.assertEqual({14, 15}, ciel_runtime._channel_message_ids_already_in_request(body))
 
     def test_sanitize_assistant_pseudo_tool_text_history_removes_invoke_snippets_only(self):
         body = {
@@ -2595,13 +2621,64 @@ class ChannelBridgeTests(unittest.TestCase):
             ]
         }
 
-        out = claude_any.sanitize_assistant_pseudo_tool_text_history(body)
+        out = ciel_runtime.sanitize_assistant_pseudo_tool_text_history(body)
 
         assistant_content = out["messages"][0]["content"]
         self.assertNotIn("<invoke", assistant_content[0]["text"])
         self.assertIn("removed prior assistant pseudo tool-call", assistant_content[0]["text"])
         self.assertEqual("tool_use", assistant_content[1]["type"])
         self.assertIn("<invoke", out["messages"][1]["content"])
+
+    def test_sanitize_assistant_pseudo_tool_text_history_removes_xml_alias_tool_snippets(self):
+        body = {
+            "tools": [
+                {"name": "Read"},
+                {"name": "mcp__ai-net-http__get_assignment"},
+            ],
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "I need to read the file.\n"
+                                "<read>\n"
+                                "<file_path>/tmp/example.txt</file_path>\n"
+                                "<offset>0</offset>\n"
+                                "<limit>20</limit>\n"
+                                "</read>\n"
+                                "Then fetch the assignment.\n"
+                                "<get_assignment>\n"
+                                "<parameter name=\"assignment_id\">tasgn_123</parameter>\n"
+                                "</get_assignment>\n"
+                                "<note>This is ordinary XML and should remain.</note>"
+                            ),
+                        },
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_real",
+                            "name": "Read",
+                            "input": {"file_path": "/tmp/example.txt", "offset": 0, "limit": 20},
+                        },
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": "<get_assignment><parameter name=\"assignment_id\">tasgn_user</parameter></get_assignment>",
+                },
+            ]
+        }
+
+        out = ciel_runtime.sanitize_assistant_pseudo_tool_text_history(body)
+
+        assistant_text = out["messages"][0]["content"][0]["text"]
+        self.assertNotIn("<read>", assistant_text)
+        self.assertNotIn("<get_assignment>", assistant_text)
+        self.assertIn("<note>This is ordinary XML and should remain.</note>", assistant_text)
+        self.assertIn("removed prior assistant pseudo tool-call", assistant_text)
+        self.assertEqual("tool_use", out["messages"][0]["content"][1]["type"])
+        self.assertIn("<get_assignment>", out["messages"][1]["content"])
 
     def test_body_with_pending_channel_messages_skips_stdin_wake_delivered_messages(self):
         body = {"messages": [{"role": "user", "content": "continue"}], "stream": True}
@@ -2612,22 +2689,22 @@ class ChannelBridgeTests(unittest.TestCase):
                 "sender_id": "web-user",
                 "message": "already typed",
                 "kind": "web_chat",
-                "meta": {"source": "claude-any-web-chat"},
+                "meta": {"source": "ciel-runtime-web-chat"},
             }
         ]
-        claude_any._CHANNEL_STDIN_WAKE_DELIVERED.clear()
-        claude_any._CHANNEL_STDIN_WAKE_DELIVERED.add(3)
+        ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED.clear()
+        ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED.add(3)
         try:
             with (
-                mock.patch.object(claude_any, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                mock.patch.object(claude_any, "_channel_llm_read_cursor_locked", return_value=1),
-                mock.patch.object(claude_any, "_channel_llm_write_cursor_locked") as write_cursor,
-                mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-                mock.patch.object(claude_any, "router_log") as router_log,
+                mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+                mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1),
+                mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
             ):
-                out = claude_any.body_with_pending_channel_messages(body)
+                out = ciel_runtime.body_with_pending_channel_messages(body)
         finally:
-            claude_any._CHANNEL_STDIN_WAKE_DELIVERED.clear()
+            ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED.clear()
         self.assertIs(out, body)
         write_cursor.assert_not_called()
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
@@ -2636,19 +2713,19 @@ class ChannelBridgeTests(unittest.TestCase):
     def test_body_with_pending_channel_messages_skips_direct_inflight_messages(self):
         body = {"messages": [{"role": "user", "content": "continue"}], "stream": True}
         messages = [{"id": 3, "channel": "room", "sender_id": "sarah", "message": "direct running", "meta": {"room_id": "room"}}]
-        claude_any._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
-        claude_any._CHANNEL_LLM_DIRECT_INFLIGHT.add(3)
+        ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
+        ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.add(3)
         try:
             with (
-                mock.patch.object(claude_any, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                mock.patch.object(claude_any, "_channel_llm_read_cursor_locked", return_value=1),
-                mock.patch.object(claude_any, "_channel_llm_write_cursor_locked") as write_cursor,
-                mock.patch.object(claude_any, "read_chat_messages", return_value=messages),
-                mock.patch.object(claude_any, "router_log") as router_log,
+                mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+                mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1),
+                mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
             ):
-                out = claude_any.body_with_pending_channel_messages(body)
+                out = ciel_runtime.body_with_pending_channel_messages(body)
         finally:
-            claude_any._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
+            ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
         self.assertIs(out, body)
         write_cursor.assert_not_called()
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
@@ -2656,7 +2733,7 @@ class ChannelBridgeTests(unittest.TestCase):
 
     def test_channel_sse_dispatch_marks_direct_pending_and_schedules_background_delivery(self):
         captured: list[dict[str, object]] = []
-        original_connections = dict(claude_any._CHANNEL_SSE_CONNECTIONS)
+        original_connections = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)
 
         def fake_append(payload):
             captured.append(payload)
@@ -2665,8 +2742,8 @@ class ChannelBridgeTests(unittest.TestCase):
             return saved
 
         try:
-            claude_any._CHANNEL_SSE_CONNECTIONS.clear()
-            claude_any._CHANNEL_SSE_CONNECTIONS["mcp-ai-net-sse"] = {
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS["mcp-ai-net-sse"] = {
                 "name": "mcp-ai-net-sse",
                 "channel": "room_4pyr8vvwm2cd",
             }
@@ -2680,16 +2757,16 @@ class ChannelBridgeTests(unittest.TestCase):
                 "delivery": ["llm"],
             }
             with (
-                mock.patch.object(claude_any, "_sse_payload_to_chat_payload", return_value=payload),
-                mock.patch.object(claude_any, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                mock.patch.object(claude_any, "append_chat_message", side_effect=fake_append),
-                mock.patch.object(claude_any, "schedule_channel_direct_llm_delivery") as schedule,
-                mock.patch.object(claude_any, "router_log"),
+                mock.patch.object(ciel_runtime, "_sse_payload_to_chat_payload", return_value=payload),
+                mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+                mock.patch.object(ciel_runtime, "append_chat_message", side_effect=fake_append),
+                mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery") as schedule,
+                mock.patch.object(ciel_runtime, "router_log"),
             ):
-                claude_any._channel_sse_dispatch("mcp-ai-net-sse", "message", ["{}"])
+                ciel_runtime._channel_sse_dispatch("mcp-ai-net-sse", "message", ["{}"])
         finally:
-            claude_any._CHANNEL_SSE_CONNECTIONS.clear()
-            claude_any._CHANNEL_SSE_CONNECTIONS.update(original_connections)
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS.update(original_connections)
 
         self.assertEqual(1, len(captured))
         self.assertTrue(captured[0]["meta"]["llm_direct_pending"])
@@ -2699,27 +2776,27 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(schedule.call_args.args[0]["meta"]["llm_direct_pending"])
 
     def test_channel_sse_dispatch_ignores_native_router_self_echo(self):
-        original_connections = dict(claude_any._CHANNEL_SSE_CONNECTIONS)
+        original_connections = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)
         try:
-            claude_any._CHANNEL_SSE_CONNECTIONS.clear()
-            claude_any._CHANNEL_SSE_CONNECTIONS["mcp-claude-any-router"] = {
-                "name": "mcp-claude-any-router",
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS["mcp-ciel-runtime-router"] = {
+                "name": "mcp-ciel-runtime-router",
                 "channel": "room_4pyr8vvwm2cd",
             }
             with (
-                mock.patch.object(claude_any, "_sse_payload_to_chat_payload") as parse_payload,
-                mock.patch.object(claude_any, "append_chat_message") as append,
-                mock.patch.object(claude_any, "schedule_channel_direct_llm_delivery") as schedule,
-                mock.patch.object(claude_any, "router_log") as router_log,
+                mock.patch.object(ciel_runtime, "_sse_payload_to_chat_payload") as parse_payload,
+                mock.patch.object(ciel_runtime, "append_chat_message") as append,
+                mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery") as schedule,
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
             ):
-                claude_any._channel_sse_dispatch(
-                    "mcp-claude-any-router",
+                ciel_runtime._channel_sse_dispatch(
+                    "mcp-ciel-runtime-router",
                     "message",
                     ['{"method":"notifications/claude/channel","params":{"recipients":["all"]}}'],
                 )
         finally:
-            claude_any._CHANNEL_SSE_CONNECTIONS.clear()
-            claude_any._CHANNEL_SSE_CONNECTIONS.update(original_connections)
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS.update(original_connections)
 
         parse_payload.assert_not_called()
         append.assert_not_called()
@@ -2727,29 +2804,29 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(any("native_router_self_echo" in str(call.args[1]) for call in router_log.call_args_list))
 
     def test_channel_sse_dispatch_stores_mcp_rpc_response_without_chat_append(self):
-        original_connections = dict(claude_any._CHANNEL_SSE_CONNECTIONS)
+        original_connections = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)
         try:
-            claude_any._CHANNEL_SSE_CONNECTIONS.clear()
-            claude_any._CHANNEL_SSE_CONNECTIONS["mcp-ai-net-sse"] = {
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS["mcp-ai-net-sse"] = {
                 "name": "mcp-ai-net-sse",
                 "mcp_rpc_results": {},
             }
             with (
-                mock.patch.object(claude_any, "_sse_payload_to_chat_payload") as parse_payload,
-                mock.patch.object(claude_any, "append_chat_message") as append,
-                mock.patch.object(claude_any, "schedule_channel_direct_llm_delivery") as schedule,
-                mock.patch.object(claude_any, "router_log") as router_log,
+                mock.patch.object(ciel_runtime, "_sse_payload_to_chat_payload") as parse_payload,
+                mock.patch.object(ciel_runtime, "append_chat_message") as append,
+                mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery") as schedule,
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
             ):
-                claude_any._channel_sse_dispatch(
+                ciel_runtime._channel_sse_dispatch(
                     "mcp-ai-net-sse",
                     "message",
                     [json.dumps({"jsonrpc": "2.0", "id": 123, "result": {"ok": True}})],
                 )
-                state = claude_any._CHANNEL_SSE_CONNECTIONS["mcp-ai-net-sse"]
+                state = ciel_runtime._CHANNEL_SSE_CONNECTIONS["mcp-ai-net-sse"]
                 stored = state["mcp_rpc_results"]["123"]
         finally:
-            claude_any._CHANNEL_SSE_CONNECTIONS.clear()
-            claude_any._CHANNEL_SSE_CONNECTIONS.update(original_connections)
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+            ciel_runtime._CHANNEL_SSE_CONNECTIONS.update(original_connections)
 
         self.assertEqual({"ok": True}, stored["result"])
         parse_payload.assert_not_called()
@@ -2758,39 +2835,39 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(any("channel_sse_mcp_rpc_response" in str(call.args[1]) for call in router_log.call_args_list))
 
     def test_channel_string_list_decodes_json_array_strings(self):
-        self.assertEqual(["all"], claude_any._as_string_list('["all"]'))
-        self.assertEqual(["Robert", "Sarah"], claude_any._as_string_list(['["Robert"]', "Sarah"]))
+        self.assertEqual(["all"], ciel_runtime._as_string_list('["all"]'))
+        self.assertEqual(["Robert", "Sarah"], ciel_runtime._as_string_list(['["Robert"]', "Sarah"]))
 
     def test_channel_llm_skip_reason_rejects_internal_and_router_self_echo(self):
-        self.assertEqual("recipient_internal", claude_any._channel_llm_message_skip_reason({"message": "x", "recipients": "internal"}))
+        self.assertEqual("recipient_internal", ciel_runtime._channel_llm_message_skip_reason({"message": "x", "recipients": "internal"}))
         self.assertEqual(
             "native_router_self_echo",
-            claude_any._channel_llm_message_skip_reason(
-                {"message": "x", "sender_id": "mcp-claude-any-router", "meta": {"sse_source": "mcp-claude-any-router"}}
+            ciel_runtime._channel_llm_message_skip_reason(
+                {"message": "x", "sender_id": "mcp-ciel-runtime-router", "meta": {"sse_source": "mcp-ciel-runtime-router"}}
             ),
         )
 
     def test_channel_llm_skip_reason_rejects_unscoped_peer_messages(self):
         message = {"message": "hello", "channel": "room", "sender_id": "claude-code", "meta": {}}
-        self.assertEqual("unscoped_channel_message", claude_any._channel_llm_message_skip_reason(message))
-        self.assertEqual("unscoped_channel_message", claude_any._channel_mcp_message_skip_reason(message))
+        self.assertEqual("unscoped_channel_message", ciel_runtime._channel_llm_message_skip_reason(message))
+        self.assertEqual("unscoped_channel_message", ciel_runtime._channel_mcp_message_skip_reason(message))
 
     def test_channel_llm_skip_reason_accepts_explicit_delivery_and_mcp_provenance(self):
         self.assertIsNone(
-            claude_any._channel_llm_message_skip_reason(
+            ciel_runtime._channel_llm_message_skip_reason(
                 {"message": "hello", "channel": "room", "sender_id": "agent", "delivery": ["llm"], "meta": {}}
             )
         )
         self.assertIsNone(
-            claude_any._channel_llm_message_skip_reason(
+            ciel_runtime._channel_llm_message_skip_reason(
                 {"message": "hello", "channel": "room", "sender_id": "agent", "meta": {"mcp_server": "generic-mcp"}}
             )
         )
 
     def test_channel_skip_reason_rejects_system_event_metadata(self):
         message = {"message": "Connected", "meta": {"eventType": "system"}}
-        self.assertEqual("system", claude_any._channel_llm_message_skip_reason(message))
-        self.assertEqual("system", claude_any._channel_mcp_message_skip_reason(message))
+        self.assertEqual("system", ciel_runtime._channel_llm_message_skip_reason(message))
+        self.assertEqual("system", ciel_runtime._channel_mcp_message_skip_reason(message))
 
     def test_channel_superseded_message_ids_only_coalesces_unreferenced_notifications(self):
         messages = [
@@ -2824,7 +2901,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 "meta": {"mcp_server": "generic-mcp", "mcp_method": "notifications/message", "stream_id": "102-0"},
             },
         ]
-        self.assertEqual({10}, claude_any._channel_superseded_message_ids(messages))
+        self.assertEqual({10}, ciel_runtime._channel_superseded_message_ids(messages))
 
     def test_channel_superseded_message_ids_coalesces_empty_external_order_by_local_queue_id(self):
         messages = [
@@ -2871,7 +2948,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 },
             },
         ]
-        self.assertEqual({20}, claude_any._channel_superseded_message_ids(messages))
+        self.assertEqual({20}, ciel_runtime._channel_superseded_message_ids(messages))
 
     def test_channel_superseded_message_ids_keeps_nested_unique_reference(self):
         messages = [
@@ -2916,7 +2993,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 },
             },
         ]
-        self.assertEqual(set(), claude_any._channel_superseded_message_ids(messages))
+        self.assertEqual(set(), ciel_runtime._channel_superseded_message_ids(messages))
 
     def test_channel_direct_llm_worker_uses_router_without_hidden_print_mode(self):
         message = {
@@ -2926,26 +3003,26 @@ class ChannelBridgeTests(unittest.TestCase):
             "message": "새 이벤트",
             "meta": {"room_id": "room_4pyr8vvwm2cd"},
         }
-        claude_any._CHANNEL_LLM_DIRECT_DELIVERED.clear()
+        ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
         try:
             with (
-                mock.patch.object(claude_any, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                mock.patch.object(claude_any, "get_current_provider", return_value=("ollama-cloud", {"request_timeout_ms": 300000})),
-                mock.patch.object(claude_any, "current_alias", return_value="claude-any-ollama-cloud-test"),
-                mock.patch.object(claude_any, "_channel_llm_read_cursor_locked", return_value=0),
-                mock.patch.object(claude_any, "_channel_llm_write_cursor_locked"),
+                mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+                mock.patch.object(ciel_runtime, "get_current_provider", return_value=("ollama-cloud", {"request_timeout_ms": 300000})),
+                mock.patch.object(ciel_runtime, "current_alias", return_value="ciel-runtime-ollama-cloud-test"),
+                mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=0),
+                mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked"),
                 mock.patch.object(
-                    claude_any,
+                    ciel_runtime,
                     "_channel_direct_llm_router_response",
                     return_value=("분석 완료", "end_turn", 1),
                 ) as router_response,
-                mock.patch.object(claude_any, "_channel_direct_append_summary") as append_summary,
-                mock.patch.object(claude_any, "append_chat_message") as append,
-                mock.patch.object(claude_any, "router_log"),
+                mock.patch.object(ciel_runtime, "_channel_direct_append_summary") as append_summary,
+                mock.patch.object(ciel_runtime, "append_chat_message") as append,
+                mock.patch.object(ciel_runtime, "router_log"),
             ):
-                claude_any._channel_direct_llm_worker(message)
+                ciel_runtime._channel_direct_llm_worker(message)
         finally:
-            claude_any._CHANNEL_LLM_DIRECT_DELIVERED.clear()
+            ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
 
         router_response.assert_called_once()
         args = router_response.call_args.args
@@ -2969,29 +3046,29 @@ class ChannelBridgeTests(unittest.TestCase):
         def fake_worker(message):
             message_id = int(message.get("id") or 0)
             processed.append(message_id)
-            with claude_any._CHANNEL_LLM_DIRECT_LOCK:
-                claude_any._CHANNEL_LLM_DIRECT_INFLIGHT.discard(message_id)
+            with ciel_runtime._CHANNEL_LLM_DIRECT_LOCK:
+                ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.discard(message_id)
 
-        while not claude_any._CHANNEL_LLM_DIRECT_QUEUE.empty():
+        while not ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.empty():
             try:
-                claude_any._CHANNEL_LLM_DIRECT_QUEUE.get_nowait()
-                claude_any._CHANNEL_LLM_DIRECT_QUEUE.task_done()
+                ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.get_nowait()
+                ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.task_done()
             except Exception:
                 break
-        old_started = claude_any._CHANNEL_LLM_DIRECT_WORKERS_STARTED
-        claude_any._CHANNEL_LLM_DIRECT_WORKERS_STARTED = 0
-        claude_any._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
-        claude_any._CHANNEL_LLM_DIRECT_DELIVERED.clear()
+        old_started = ciel_runtime._CHANNEL_LLM_DIRECT_WORKERS_STARTED
+        ciel_runtime._CHANNEL_LLM_DIRECT_WORKERS_STARTED = 0
+        ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
+        ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
         try:
             with (
-                mock.patch.dict(os.environ, {"CLAUDE_ANY_CHANNEL_DIRECT_WORKERS": "1"}),
-                mock.patch.object(claude_any, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                mock.patch.object(claude_any, "_channel_direct_llm_worker", side_effect=fake_worker),
-                mock.patch.object(claude_any, "router_log"),
+                mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_DIRECT_WORKERS": "1"}),
+                mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+                mock.patch.object(ciel_runtime, "_channel_direct_llm_worker", side_effect=fake_worker),
+                mock.patch.object(ciel_runtime, "router_log"),
             ):
                 for message_id in range(1, 4):
                     self.assertTrue(
-                        claude_any.schedule_channel_direct_llm_delivery(
+                        ciel_runtime.schedule_channel_direct_llm_delivery(
                             {
                                 "id": message_id,
                                 "channel": "room",
@@ -3005,22 +3082,22 @@ class ChannelBridgeTests(unittest.TestCase):
                 while len(processed) < 3 and time.time() < deadline:
                     time.sleep(0.01)
         finally:
-            claude_any._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
-            claude_any._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-            claude_any._CHANNEL_LLM_DIRECT_WORKERS_STARTED = max(old_started, claude_any._CHANNEL_LLM_DIRECT_WORKERS_STARTED)
+            ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
+            ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
+            ciel_runtime._CHANNEL_LLM_DIRECT_WORKERS_STARTED = max(old_started, ciel_runtime._CHANNEL_LLM_DIRECT_WORKERS_STARTED)
 
         self.assertEqual([1, 2, 3], processed)
-        self.assertEqual(1, claude_any._CHANNEL_LLM_DIRECT_WORKERS_STARTED)
+        self.assertEqual(1, ciel_runtime._CHANNEL_LLM_DIRECT_WORKERS_STARTED)
 
     def test_channel_direct_deferred_action_detector_matches_future_promises(self):
         self.assertTrue(
-            claude_any._channel_direct_text_is_deferred_action(
+            ciel_runtime._channel_direct_text_is_deferred_action(
                 "Now I have the full context. Let me send her a proper DM response now."
             )
         )
-        self.assertTrue(claude_any._channel_direct_text_is_deferred_action("Sarah에게 결과를 보고하겠습니다."))
-        self.assertFalse(claude_any._channel_direct_text_is_deferred_action("Sarah에게 답장 완료했습니다."))
-        self.assertFalse(claude_any._channel_direct_text_is_deferred_action("Sarah에게 회신했습니다."))
+        self.assertTrue(ciel_runtime._channel_direct_text_is_deferred_action("Sarah에게 결과를 보고하겠습니다."))
+        self.assertFalse(ciel_runtime._channel_direct_text_is_deferred_action("Sarah에게 답장 완료했습니다."))
+        self.assertFalse(ciel_runtime._channel_direct_text_is_deferred_action("Sarah에게 회신했습니다."))
 
     def test_channel_direct_router_response_round_trips_mcp_tool_result_to_llm(self):
         calls: list[dict[str, object]] = []
@@ -3042,11 +3119,11 @@ class ChannelBridgeTests(unittest.TestCase):
             return {"content": [{"type": "text", "text": "Sarah에게 회신했습니다."}], "stop_reason": "end_turn"}
 
         with (
-            mock.patch.object(claude_any, "_channel_direct_tool_schemas", return_value=[{"name": "mcp__ai-net-sse__send_dm"}]),
-            mock.patch.object(claude_any, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(claude_any, "_channel_direct_execute_tool", return_value=("DM sent", False)) as execute_tool,
+            mock.patch.object(ciel_runtime, "_channel_direct_tool_schemas", return_value=[{"name": "mcp__ai-net-sse__send_dm"}]),
+            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
+            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("DM sent", False)) as execute_tool,
         ):
-            text, stop_reason, tool_turns = claude_any._channel_direct_llm_router_response(
+            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
                 14,
                 "수신 메시지를 처리하세요",
                 {"id": 14, "meta": {"sse_source": "mcp-ai-net-sse"}},
@@ -3098,12 +3175,12 @@ class ChannelBridgeTests(unittest.TestCase):
             return {"content": [{"type": "text", "text": "Sarah에게 현재 상황을 DM으로 회신했습니다."}], "stop_reason": "end_turn"}
 
         with (
-            mock.patch.object(claude_any, "_channel_direct_tool_schemas", return_value=[{"name": "mcp__ai-net-sse__send_dm"}]),
-            mock.patch.object(claude_any, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(claude_any, "_channel_direct_execute_tool", return_value=("DM sent", False)) as execute_tool,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_direct_tool_schemas", return_value=[{"name": "mcp__ai-net-sse__send_dm"}]),
+            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
+            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("DM sent", False)) as execute_tool,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            text, stop_reason, tool_turns = claude_any._channel_direct_llm_router_response(
+            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
                 15,
                 "수신 메시지를 처리하세요",
                 {"id": 15, "meta": {"sse_source": "mcp-ai-net-sse"}},
@@ -3118,7 +3195,7 @@ class ChannelBridgeTests(unittest.TestCase):
         execute_tool.assert_called_once()
         self.assertEqual(3, len(calls))
         retry_prompt = calls[1]["messages"][-1]["content"][0]["text"]
-        self.assertIn("[claude-any channel action required]", retry_prompt)
+        self.assertIn("[ciel-runtime channel action required]", retry_prompt)
         self.assertIn("Let me send", retry_prompt)
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("channel_llm_deferred_action_retry" in item for item in log_messages))
@@ -3161,7 +3238,7 @@ class ChannelBridgeTests(unittest.TestCase):
 
         with (
             mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "_channel_direct_tool_schemas",
                 return_value=[
                     {"name": "mcp__ai-net-sse__get_messages"},
@@ -3169,11 +3246,11 @@ class ChannelBridgeTests(unittest.TestCase):
                     {"name": "mcp__ai-net-sse__send_dm"},
                 ],
             ),
-            mock.patch.object(claude_any, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(claude_any, "_channel_direct_execute_tool", return_value=("ok", False)) as execute_tool,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
+            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("ok", False)) as execute_tool,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            text, stop_reason, tool_turns = claude_any._channel_direct_llm_router_response(
+            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
                 18,
                 "수신 메시지를 처리하세요",
                 {"id": 18, "channel": "room_dm_4wcekxw4yse", "meta": {"sse_source": "mcp-ai-net-sse"}},
@@ -3188,7 +3265,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(6, execute_tool.call_count)
         self.assertEqual(8, len(calls))
         retry_prompt = calls[6]["messages"][-1]["content"][0]["text"]
-        self.assertIn("[claude-any channel action required]", retry_prompt)
+        self.assertIn("[ciel-runtime channel action required]", retry_prompt)
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("channel_llm_deferred_action_retry" in item for item in log_messages))
 
@@ -3235,7 +3312,7 @@ class ChannelBridgeTests(unittest.TestCase):
 
         with (
             mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "_channel_direct_tool_schemas",
                 return_value=[
                     {"name": "mcp__ai-net-sse__get_messages"},
@@ -3243,11 +3320,11 @@ class ChannelBridgeTests(unittest.TestCase):
                     {"name": "mcp__ai-net-sse__send_dm"},
                 ],
             ),
-            mock.patch.object(claude_any, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(claude_any, "_channel_direct_execute_tool", return_value=("ok", False)) as execute_tool,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
+            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("ok", False)) as execute_tool,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            text, stop_reason, tool_turns = claude_any._channel_direct_llm_router_response(
+            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
                 21,
                 "수신 메시지를 처리하세요",
                 {
@@ -3268,7 +3345,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(["mcp__ai-net-sse__get_messages", "mcp__ai-net-sse__send_dm"], [call.args[0]["name"] for call in execute_tool.call_args_list])
         self.assertEqual(4, len(calls))
         retry_prompt = calls[2]["messages"][-1]["content"][0]["text"]
-        self.assertIn("[claude-any channel reply required]", retry_prompt)
+        self.assertIn("[ciel-runtime channel reply required]", retry_prompt)
         self.assertIn("NO_REPLY:", retry_prompt)
         self.assertEqual(
             ["mcp__ai-net-sse__create_room", "mcp__ai-net-sse__send_dm"],
@@ -3298,15 +3375,15 @@ class ChannelBridgeTests(unittest.TestCase):
 
         with (
             mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "_channel_direct_tool_schemas",
                 return_value=[{"name": "mcp__generic-sse__get_messages"}, {"name": "mcp__generic-sse__send_message"}],
             ),
-            mock.patch.object(claude_any, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(claude_any, "_channel_direct_execute_tool", return_value=("[]", False)) as execute_tool,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
+            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("[]", False)) as execute_tool,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            text, stop_reason, tool_turns = claude_any._channel_direct_llm_router_response(
+            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
                 31,
                 "수신 메시지를 처리하세요",
                 {
@@ -3356,15 +3433,15 @@ class ChannelBridgeTests(unittest.TestCase):
 
         with (
             mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "_channel_direct_tool_schemas",
                 return_value=[{"name": "mcp__ai-net-sse__get_messages"}, {"name": "mcp__ai-net-sse__send_dm"}],
             ),
-            mock.patch.object(claude_any, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(claude_any, "_channel_direct_execute_tool", return_value=("ok", False)) as execute_tool,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
+            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("ok", False)) as execute_tool,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            text, stop_reason, tool_turns = claude_any._channel_direct_llm_router_response(
+            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
                 23,
                 "수신 메시지를 처리하세요",
                 {
@@ -3423,7 +3500,7 @@ class ChannelBridgeTests(unittest.TestCase):
 
         with (
             mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "_channel_direct_tool_schemas",
                 return_value=[
                     {"name": "mcp__ai-net-sse__get_messages"},
@@ -3436,11 +3513,11 @@ class ChannelBridgeTests(unittest.TestCase):
                     },
                 ],
             ),
-            mock.patch.object(claude_any, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(claude_any, "_channel_direct_execute_tool", return_value=("message sent", False)) as execute_tool,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
+            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("message sent", False)) as execute_tool,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            text, stop_reason, tool_turns = claude_any._channel_direct_llm_router_response(
+            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
                 24,
                 "수신 메시지를 처리하세요",
                 {
@@ -3490,7 +3567,7 @@ class ChannelBridgeTests(unittest.TestCase):
 
         with (
             mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "_channel_direct_tool_schemas",
                 return_value=[
                     {
@@ -3502,11 +3579,11 @@ class ChannelBridgeTests(unittest.TestCase):
                     }
                 ],
             ),
-            mock.patch.object(claude_any, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(claude_any, "_channel_direct_execute_tool", return_value=("message sent", False)) as execute_tool,
-            mock.patch.object(claude_any, "router_log"),
+            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
+            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("message sent", False)) as execute_tool,
+            mock.patch.object(ciel_runtime, "router_log"),
         ):
-            text, stop_reason, _tool_turns = claude_any._channel_direct_llm_router_response(
+            text, stop_reason, _tool_turns = ciel_runtime._channel_direct_llm_router_response(
                 25,
                 "수신 메시지를 처리하세요",
                 {
@@ -3569,15 +3646,15 @@ class ChannelBridgeTests(unittest.TestCase):
 
         with (
             mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "_channel_direct_tool_schemas",
                 return_value=[{"name": "mcp__ai-net-sse__get_messages"}, {"name": "mcp__ai-net-sse__send_dm"}],
             ),
-            mock.patch.object(claude_any, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(claude_any, "_channel_direct_execute_tool", return_value=("ok", False)) as execute_tool,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
+            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("ok", False)) as execute_tool,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            text, stop_reason, tool_turns = claude_any._channel_direct_llm_router_response(
+            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
                 24,
                 "수신 메시지를 처리하세요",
                 {
@@ -3630,15 +3707,15 @@ class ChannelBridgeTests(unittest.TestCase):
 
         with (
             mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "_channel_direct_tool_schemas",
                 return_value=[{"name": "mcp__ai-net-sse__get_messages"}, {"name": "mcp__ai-net-sse__send_message"}],
             ),
-            mock.patch.object(claude_any, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(claude_any, "_channel_direct_execute_tool", return_value=("message sent", False)) as execute_tool,
-            mock.patch.object(claude_any, "router_log"),
+            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
+            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("message sent", False)) as execute_tool,
+            mock.patch.object(ciel_runtime, "router_log"),
         ):
-            text, stop_reason, tool_turns = claude_any._channel_direct_llm_router_response(
+            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
                 26,
                 "수신 메시지를 처리하세요",
                 {
@@ -3678,7 +3755,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 "content": [
                     {
                         "type": "text",
-                        "text": "[claude-any] Upstream model returned an empty end_turn with no text or tool call. No work was performed.",
+                        "text": "[ciel-runtime] Upstream model returned an empty end_turn with no text or tool call. No work was performed.",
                     }
                 ],
                 "stop_reason": "end_turn",
@@ -3686,15 +3763,15 @@ class ChannelBridgeTests(unittest.TestCase):
 
         with (
             mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "_channel_direct_tool_schemas",
                 return_value=[{"name": "mcp__ai-net-sse__get_messages"}, {"name": "mcp__ai-net-sse__send_message"}],
             ),
-            mock.patch.object(claude_any, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(claude_any, "_channel_direct_execute_tool") as execute_tool,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
+            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool") as execute_tool,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            text, stop_reason, tool_turns = claude_any._channel_direct_llm_router_response(
+            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
                 27,
                 "수신 메시지를 처리하세요",
                 {
@@ -3716,14 +3793,14 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(any("channel_llm_fallback_reply_unsafe_not_sent" in item for item in log_messages))
 
     def test_channel_direct_fallback_reply_text_does_not_reuse_internal_notice(self):
-        text = claude_any._channel_direct_fallback_reply_text(
+        text = ciel_runtime._channel_direct_fallback_reply_text(
             {"message": "New message from Sarah", "meta": {"author_name": "Sarah"}},
-            "[claude-any] Upstream model returned an empty end_turn with no text or tool call. No work was performed.",
+            "[ciel-runtime] Upstream model returned an empty end_turn with no text or tool call. No work was performed.",
         )
 
         self.assertIn("Sarah", text)
         self.assertNotIn("Upstream model", text)
-        self.assertNotIn("[claude-any]", text)
+        self.assertNotIn("[ciel-runtime]", text)
 
     def test_channel_direct_router_response_allows_explicit_no_reply_marker(self):
         calls: list[dict[str, object]] = []
@@ -3749,14 +3826,14 @@ class ChannelBridgeTests(unittest.TestCase):
 
         with (
             mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "_channel_direct_tool_schemas",
                 return_value=[{"name": "mcp__ai-net-sse__get_messages"}, {"name": "mcp__ai-net-sse__send_dm"}],
             ),
-            mock.patch.object(claude_any, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(claude_any, "_channel_direct_execute_tool", return_value=("ok", False)) as execute_tool,
+            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
+            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("ok", False)) as execute_tool,
         ):
-            text, stop_reason, tool_turns = claude_any._channel_direct_llm_router_response(
+            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
                 22,
                 "수신 메시지를 처리하세요",
                 {
@@ -3793,7 +3870,7 @@ class ChannelBridgeTests(unittest.TestCase):
                                 "content": (
                                     "No reply is needed. NO_REPLY: this activity notification was already handled.\n\n"
                                     "## tool_result\n{\"success\": true}\n"
-                                    "Claude-Any 백그라운드 자동 처리 요약 (#56)"
+                                    "Ciel Runtime 백그라운드 자동 처리 요약 (#56)"
                                 ),
                             },
                         }
@@ -3804,15 +3881,15 @@ class ChannelBridgeTests(unittest.TestCase):
 
         with (
             mock.patch.object(
-                claude_any,
+                ciel_runtime,
                 "_channel_direct_tool_schemas",
                 return_value=[{"name": "mcp__generic-sse__send_message"}],
             ),
-            mock.patch.object(claude_any, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(claude_any, "_channel_direct_execute_tool") as execute_tool,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
+            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool") as execute_tool,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            text, stop_reason, tool_turns = claude_any._channel_direct_llm_router_response(
+            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
                 32,
                 "수신 메시지를 처리하세요",
                 {
@@ -3834,7 +3911,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(any("channel_llm_reply_suppressed_internal_content" in item for item in log_messages))
 
     def test_channel_direct_fallback_reply_summary_sanitizes_tool_result(self):
-        summary = claude_any._channel_direct_fallback_reply_summary(
+        summary = ciel_runtime._channel_direct_fallback_reply_summary(
             "Public reply",
             json.dumps(
                 {
@@ -3868,12 +3945,12 @@ class ChannelBridgeTests(unittest.TestCase):
             }
 
         with (
-            mock.patch.object(claude_any, "_CHANNEL_DIRECT_MAX_ROUTER_TURNS", 1),
-            mock.patch.object(claude_any, "_channel_direct_tool_schemas", return_value=[{"name": "mcp__ai-net-sse__send_dm"}]),
-            mock.patch.object(claude_any, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(claude_any, "router_log"),
+            mock.patch.object(ciel_runtime, "_CHANNEL_DIRECT_MAX_ROUTER_TURNS", 1),
+            mock.patch.object(ciel_runtime, "_channel_direct_tool_schemas", return_value=[{"name": "mcp__ai-net-sse__send_dm"}]),
+            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
+            mock.patch.object(ciel_runtime, "router_log"),
         ):
-            text, stop_reason, tool_turns = claude_any._channel_direct_llm_router_response(
+            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
                 19,
                 "수신 메시지를 처리하세요",
                 {"id": 19, "channel": "room_dm_4wcekxw4yse", "message": "New message from Sarah"},
@@ -3910,12 +3987,12 @@ class ChannelBridgeTests(unittest.TestCase):
             }
         }
         with (
-            mock.patch.object(claude_any, "_channel_direct_source_state_name", return_value="mcp-ai-net-sse"),
-            mock.patch.object(claude_any, "_channel_sse_public_mcp_name", return_value="ai-net-sse"),
-            mock.patch.object(claude_any, "_channel_sse_rpc_request", return_value=response),
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_direct_source_state_name", return_value="mcp-ai-net-sse"),
+            mock.patch.object(ciel_runtime, "_channel_sse_public_mcp_name", return_value="ai-net-sse"),
+            mock.patch.object(ciel_runtime, "_channel_sse_rpc_request", return_value=response),
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            tools = claude_any._channel_direct_tool_schemas({"id": 20})
+            tools = ciel_runtime._channel_direct_tool_schemas({"id": 20})
 
         names = {tool["name"] for tool in tools}
         self.assertIn("mcp__ai-net-sse__get_messages", names)
@@ -3936,13 +4013,13 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(any("filtered=3" in item for item in log_messages))
 
     def test_mcp_notification_wait_tool_timeout_is_capped(self):
-        self.addCleanup(claude_any._MCP_NOTIFICATION_WAIT_RECENT.clear)
+        self.addCleanup(ciel_runtime._MCP_NOTIFICATION_WAIT_RECENT.clear)
         with (
-            mock.patch.dict(os.environ, {"CLAUDE_ANY_MCP_NOTIFICATION_WAIT_TIMEOUT_MS": "1000"}, clear=False),
-            mock.patch.object(claude_any, "router_log"),
+            mock.patch.dict(os.environ, {"CIEL_RUNTIME_MCP_NOTIFICATION_WAIT_TIMEOUT_MS": "1000"}, clear=False),
+            mock.patch.object(ciel_runtime, "router_log"),
         ):
-            claude_any._MCP_NOTIFICATION_WAIT_RECENT.clear()
-            out = claude_any.cap_mcp_notification_wait_tool_input(
+            ciel_runtime._MCP_NOTIFICATION_WAIT_RECENT.clear()
+            out = ciel_runtime.cap_mcp_notification_wait_tool_input(
                 "mcp__ai-net-http__wait_for_notifications",
                 {"timeout_ms": 30000},
             )
@@ -3950,13 +4027,13 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual({"timeout_ms": 1000}, out)
 
     def test_mcp_notification_wait_tool_empty_input_gets_short_timeout(self):
-        self.addCleanup(claude_any._MCP_NOTIFICATION_WAIT_RECENT.clear)
+        self.addCleanup(ciel_runtime._MCP_NOTIFICATION_WAIT_RECENT.clear)
         with (
-            mock.patch.dict(os.environ, {"CLAUDE_ANY_MCP_NOTIFICATION_WAIT_TIMEOUT_MS": "1000"}, clear=False),
-            mock.patch.object(claude_any, "router_log"),
+            mock.patch.dict(os.environ, {"CIEL_RUNTIME_MCP_NOTIFICATION_WAIT_TIMEOUT_MS": "1000"}, clear=False),
+            mock.patch.object(ciel_runtime, "router_log"),
         ):
-            claude_any._MCP_NOTIFICATION_WAIT_RECENT.clear()
-            out = claude_any.cap_mcp_notification_wait_tool_input(
+            ciel_runtime._MCP_NOTIFICATION_WAIT_RECENT.clear()
+            out = ciel_runtime.cap_mcp_notification_wait_tool_input(
                 "mcp__generic__wait_for_events",
                 {},
             )
@@ -3964,25 +4041,25 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual({"timeout_ms": 1000}, out)
 
     def test_mcp_notification_wait_tool_duplicate_timeout_is_capped_harder(self):
-        self.addCleanup(claude_any._MCP_NOTIFICATION_WAIT_RECENT.clear)
+        self.addCleanup(ciel_runtime._MCP_NOTIFICATION_WAIT_RECENT.clear)
         with (
             mock.patch.dict(
                 os.environ,
                 {
-                    "CLAUDE_ANY_MCP_NOTIFICATION_WAIT_TIMEOUT_MS": "1000",
-                    "CLAUDE_ANY_MCP_NOTIFICATION_WAIT_DUPLICATE_TIMEOUT_MS": "100",
-                    "CLAUDE_ANY_MCP_NOTIFICATION_WAIT_DUPLICATE_WINDOW_SECONDS": "90",
+                    "CIEL_RUNTIME_MCP_NOTIFICATION_WAIT_TIMEOUT_MS": "1000",
+                    "CIEL_RUNTIME_MCP_NOTIFICATION_WAIT_DUPLICATE_TIMEOUT_MS": "100",
+                    "CIEL_RUNTIME_MCP_NOTIFICATION_WAIT_DUPLICATE_WINDOW_SECONDS": "90",
                 },
                 clear=False,
             ),
-            mock.patch.object(claude_any, "router_log"),
+            mock.patch.object(ciel_runtime, "router_log"),
         ):
-            claude_any._MCP_NOTIFICATION_WAIT_RECENT.clear()
-            first = claude_any.cap_mcp_notification_wait_tool_input(
+            ciel_runtime._MCP_NOTIFICATION_WAIT_RECENT.clear()
+            first = ciel_runtime.cap_mcp_notification_wait_tool_input(
                 "mcp__ai-net-http__wait_for_notifications",
                 {"timeout_ms": 30000},
             )
-            second = claude_any.cap_mcp_notification_wait_tool_input(
+            second = ciel_runtime.cap_mcp_notification_wait_tool_input(
                 "mcp__ai-net-http__wait_for_notifications",
                 {"timeout_ms": 30000},
             )
@@ -3992,11 +4069,11 @@ class ChannelBridgeTests(unittest.TestCase):
 
     def test_channel_direct_execute_tool_allows_collaboration_tools(self):
         with (
-            mock.patch.object(claude_any, "_channel_sse_state_name_for_mcp_server", return_value="mcp-ai-net-sse"),
-            mock.patch.object(claude_any, "_channel_sse_rpc_request", return_value={"result": {"content": [{"type": "text", "text": "room created"}]}}) as rpc_request,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_sse_state_name_for_mcp_server", return_value="mcp-ai-net-sse"),
+            mock.patch.object(ciel_runtime, "_channel_sse_rpc_request", return_value={"result": {"content": [{"type": "text", "text": "room created"}]}}) as rpc_request,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            text, is_error = claude_any._channel_direct_execute_tool(
+            text, is_error = ciel_runtime._channel_direct_execute_tool(
                 {
                     "id": "toolu_create",
                     "name": "mcp__ai-net-sse__create_room",
@@ -4012,11 +4089,11 @@ class ChannelBridgeTests(unittest.TestCase):
 
     def test_channel_direct_execute_tool_blocks_destructive_tools(self):
         with (
-            mock.patch.object(claude_any, "_channel_sse_state_name_for_mcp_server", return_value="mcp-ai-net-sse"),
-            mock.patch.object(claude_any, "_channel_sse_rpc_request") as rpc_request,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_sse_state_name_for_mcp_server", return_value="mcp-ai-net-sse"),
+            mock.patch.object(ciel_runtime, "_channel_sse_rpc_request") as rpc_request,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            text, is_error = claude_any._channel_direct_execute_tool(
+            text, is_error = ciel_runtime._channel_direct_execute_tool(
                 {
                     "id": "toolu_blocked",
                     "name": "mcp__ai-net-sse__delete_room",
@@ -4032,11 +4109,11 @@ class ChannelBridgeTests(unittest.TestCase):
 
     def test_channel_direct_router_response_without_tools_returns_blocker(self):
         with (
-            mock.patch.object(claude_any, "_channel_direct_tool_schemas", return_value=[]),
-            mock.patch.object(claude_any, "_channel_direct_llm_http_message") as http_message,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_direct_tool_schemas", return_value=[]),
+            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message") as http_message,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            text, stop_reason, tool_turns = claude_any._channel_direct_llm_router_response(
+            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
                 16,
                 "수신 메시지를 처리하세요",
                 {
@@ -4067,30 +4144,30 @@ class ChannelBridgeTests(unittest.TestCase):
             "message": "New message from Sarah",
             "meta": {"room_id": "room_dm_4wcekxw4yse"},
         }
-        claude_any._CHANNEL_LLM_DIRECT_DELIVERED.clear()
+        ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
         try:
             with (
-                mock.patch.object(claude_any, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                mock.patch.object(claude_any, "get_current_provider", return_value=("ollama-cloud", {"request_timeout_ms": 300000})),
-                mock.patch.object(claude_any, "current_alias", return_value="claude-any-ollama-cloud-test"),
-                mock.patch.object(claude_any, "_channel_llm_read_cursor_locked", return_value=0),
-                mock.patch.object(claude_any, "_channel_llm_write_cursor_locked") as write_cursor,
+                mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+                mock.patch.object(ciel_runtime, "get_current_provider", return_value=("ollama-cloud", {"request_timeout_ms": 300000})),
+                mock.patch.object(ciel_runtime, "current_alias", return_value="ciel-runtime-ollama-cloud-test"),
+                mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=0),
+                mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
                 mock.patch.object(
-                    claude_any,
+                    ciel_runtime,
                     "_channel_direct_llm_router_response",
                     return_value=("MCP tools unavailable", "no_tools", 0),
                 ),
-                mock.patch.object(claude_any, "_channel_direct_append_summary") as append_summary,
-                mock.patch.object(claude_any, "_channel_direct_terminal_notice"),
-                mock.patch.object(claude_any, "router_log") as router_log,
+                mock.patch.object(ciel_runtime, "_channel_direct_append_summary") as append_summary,
+                mock.patch.object(ciel_runtime, "_channel_direct_terminal_notice"),
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
             ):
-                claude_any._channel_direct_llm_worker(message)
+                ciel_runtime._channel_direct_llm_worker(message)
         finally:
-            claude_any._CHANNEL_LLM_DIRECT_DELIVERED.clear()
+            ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
 
         append_summary.assert_not_called()
         write_cursor.assert_not_called()
-        self.assertNotIn(17, claude_any._CHANNEL_LLM_DIRECT_DELIVERED)
+        self.assertNotIn(17, ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED)
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("channel_llm_direct_unhandled" in item and "reason=no_tools" in item for item in log_messages))
         self.assertTrue(any("channel_llm_summary_skipped" in item and "reason=no_tools" in item for item in log_messages))
@@ -4119,9 +4196,9 @@ class ChannelBridgeTests(unittest.TestCase):
 
         with (
             mock.patch.dict(os.environ, {}, clear=True),
-            mock.patch.object(claude_any.sys, "stdout", fake_stdout),
+            mock.patch.object(ciel_runtime.sys, "stdout", fake_stdout),
         ):
-            claude_any._channel_direct_terminal_notice(message, "처리 요약", "cli")
+            ciel_runtime._channel_direct_terminal_notice(message, "처리 요약", "cli")
 
         self.assertEqual("", fake_stdout.text)
 
@@ -4148,17 +4225,17 @@ class ChannelBridgeTests(unittest.TestCase):
         }
 
         with (
-            mock.patch.dict(os.environ, {"CLAUDE_ANY_CHANNEL_TERMINAL_NOTICE": "1"}),
-            mock.patch.object(claude_any.sys, "stdout", fake_stdout),
+            mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_TERMINAL_NOTICE": "1"}),
+            mock.patch.object(ciel_runtime.sys, "stdout", fake_stdout),
         ):
-            claude_any._channel_direct_terminal_notice(message, "처리 요약", "cli")
+            ciel_runtime._channel_direct_terminal_notice(message, "처리 요약", "cli")
 
         self.assertIn("message_id=12", fake_stdout.text)
         self.assertIn("from=Sarah", fake_stdout.text)
         self.assertIn("처리 요약", fake_stdout.text)
 
     def test_router_channel_mcp_notification_wraps_chat_message(self):
-        notification = claude_any._channel_mcp_notification(
+        notification = ciel_runtime._channel_mcp_notification(
             {
                 "id": 7,
                 "channel": "room_phase1sim",
@@ -4177,11 +4254,11 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual("room_phase1sim", notification["params"]["room_id"])
         self.assertEqual("robert", notification["params"]["sender_id"])
         self.assertEqual(["sarah"], notification["params"]["recipients"])
-        self.assertEqual("7", notification["params"]["meta"]["claude_any_message_id"])
+        self.assertEqual("7", notification["params"]["meta"]["ciel_runtime_message_id"])
         self.assertEqual('["sarah"]', notification["params"]["meta"]["recipients"])
 
     def test_router_channel_mcp_notification_normalizes_json_string_recipients(self):
-        notification = claude_any._channel_mcp_notification(
+        notification = ciel_runtime._channel_mcp_notification(
             {
                 "id": 9,
                 "channel": "room",
@@ -4195,7 +4272,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual('["sarah"]', notification["params"]["meta"]["recipients"])
 
     def test_router_channel_mcp_notification_stringifies_meta_for_native_schema(self):
-        notification = claude_any._channel_mcp_notification(
+        notification = ciel_runtime._channel_mcp_notification(
             {
                 "id": 8,
                 "channel": "room",
@@ -4208,13 +4285,13 @@ class ChannelBridgeTests(unittest.TestCase):
         )
         meta = notification["params"]["meta"]
         self.assertTrue(all(isinstance(key, str) and isinstance(value, str) for key, value in meta.items()))
-        self.assertEqual("8", meta["claude_any_message_id"])
+        self.assertEqual("8", meta["ciel_runtime_message_id"])
         self.assertEqual("3", meta["count"])
         self.assertIn("notifications/message", meta["mcp_json"])
-        self.assertIn("mcp_json", meta["claude_any_meta_json"])
+        self.assertIn("mcp_json", meta["ciel_runtime_meta_json"])
 
     def test_channel_mcp_capabilities_declare_native_channel(self):
-        capabilities = claude_any._channel_mcp_capabilities()
+        capabilities = ciel_runtime._channel_mcp_capabilities()
         self.assertIn("tools", capabilities)
         self.assertIn("claude/channel", capabilities["experimental"])
 
@@ -4235,7 +4312,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 self.ended = True
 
         handler = FakeHandler()
-        claude_any._send_channel_mcp_sse_headers(handler)
+        ciel_runtime._send_channel_mcp_sse_headers(handler)
         headers = dict(handler.headers)
         self.assertEqual(200, handler.status)
         self.assertEqual("text/event-stream", headers["content-type"])
@@ -4245,34 +4322,34 @@ class ChannelBridgeTests(unittest.TestCase):
 
     def test_channel_mcp_rpc_responses_are_queued_for_sse(self):
         session = "session-rpc"
-        with claude_any._CHANNEL_MCP_LOCK:
-            original = dict(claude_any._CHANNEL_MCP_SESSIONS)
-            claude_any._CHANNEL_MCP_SESSIONS.clear()
-            claude_any._CHANNEL_MCP_SESSIONS[session] = {"outbox": []}
+        with ciel_runtime._CHANNEL_MCP_LOCK:
+            original = dict(ciel_runtime._CHANNEL_MCP_SESSIONS)
+            ciel_runtime._CHANNEL_MCP_SESSIONS.clear()
+            ciel_runtime._CHANNEL_MCP_SESSIONS[session] = {"outbox": []}
         try:
-            response = claude_any._channel_mcp_initialize_response(1, "2025-11-25")
-            self.assertTrue(claude_any._channel_mcp_enqueue(session, response))
-            outbox = claude_any._channel_mcp_take_outbox(session)
+            response = ciel_runtime._channel_mcp_initialize_response(1, "2025-11-25")
+            self.assertTrue(ciel_runtime._channel_mcp_enqueue(session, response))
+            outbox = ciel_runtime._channel_mcp_take_outbox(session)
             self.assertEqual([response], outbox)
-            self.assertEqual([], claude_any._channel_mcp_take_outbox(session))
-            self.assertEqual("claude-any-router", outbox[0]["result"]["serverInfo"]["name"])
+            self.assertEqual([], ciel_runtime._channel_mcp_take_outbox(session))
+            self.assertEqual("ciel-runtime-router", outbox[0]["result"]["serverInfo"]["name"])
             self.assertEqual("2024-11-05", outbox[0]["result"]["protocolVersion"])
             self.assertIn("claude/channel", outbox[0]["result"]["capabilities"]["experimental"])
         finally:
-            with claude_any._CHANNEL_MCP_LOCK:
-                claude_any._CHANNEL_MCP_SESSIONS.clear()
-                claude_any._CHANNEL_MCP_SESSIONS.update(original)
+            with ciel_runtime._CHANNEL_MCP_LOCK:
+                ciel_runtime._CHANNEL_MCP_SESSIONS.clear()
+                ciel_runtime._CHANNEL_MCP_SESSIONS.update(original)
 
     def test_channel_mcp_enqueue_rejects_missing_session(self):
-        self.assertFalse(claude_any._channel_mcp_enqueue("missing-session", {"jsonrpc": "2.0"}))
+        self.assertFalse(ciel_runtime._channel_mcp_enqueue("missing-session", {"jsonrpc": "2.0"}))
 
     def test_channel_mcp_notifications_ignore_transport_noise(self):
         messages = [
             {"id": 1, "channel": "generic-room", "sender_id": "generic-mcp", "message": "generic.ws.connected", "meta": {}},
             {"id": 2, "channel": "generic-room", "sender_id": "agent-a", "message": "hello recipient", "meta": {"room_id": "generic-room", "mcp_server": "generic-mcp"}},
         ]
-        with mock.patch.object(claude_any, "router_log") as router_log:
-            last_id, events = claude_any._channel_mcp_notifications_for_messages(messages, "session-1")
+        with mock.patch.object(ciel_runtime, "router_log") as router_log:
+            last_id, events = ciel_runtime._channel_mcp_notifications_for_messages(messages, "session-1")
         self.assertEqual(2, last_id)
         self.assertEqual(1, len(events))
         self.assertEqual(2, events[0][0])
@@ -4286,7 +4363,7 @@ class ChannelBridgeTests(unittest.TestCase):
             {
                 "id": 15,
                 "channel": "room",
-                "sender_id": "claude-any-llm",
+                "sender_id": "ciel-runtime-llm",
                 "recipients": ["internal"],
                 "message": "old internal response",
                 "visibility": "user",
@@ -4304,8 +4381,8 @@ class ChannelBridgeTests(unittest.TestCase):
                 "meta": {"room_id": "room"},
             },
         ]
-        with mock.patch.object(claude_any, "router_log") as router_log:
-            last_id, events = claude_any._channel_mcp_notifications_for_messages(messages, "session-1")
+        with mock.patch.object(ciel_runtime, "router_log") as router_log:
+            last_id, events = ciel_runtime._channel_mcp_notifications_for_messages(messages, "session-1")
         self.assertEqual(16, last_id)
         self.assertEqual(1, len(events))
         self.assertEqual(16, events[0][0])
@@ -4328,7 +4405,7 @@ class ChannelBridgeTests(unittest.TestCase):
             {
                 "id": 107,
                 "channel": "room",
-                "sender_id": "claude-any-llm",
+                "sender_id": "ciel-runtime-llm",
                 "recipients": ["all"],
                 "message": "direct response",
                 "visibility": "user",
@@ -4337,8 +4414,8 @@ class ChannelBridgeTests(unittest.TestCase):
                 "meta": {"room_id": "room", "source_message_id": 106, "llm_direct_delivered": True},
             },
         ]
-        with mock.patch.object(claude_any, "router_log") as router_log:
-            last_id, events = claude_any._channel_mcp_notifications_for_messages(messages, "session-1")
+        with mock.patch.object(ciel_runtime, "router_log") as router_log:
+            last_id, events = ciel_runtime._channel_mcp_notifications_for_messages(messages, "session-1")
         self.assertEqual(107, last_id)
         self.assertEqual(1, len(events))
         self.assertEqual(107, events[0][0])
@@ -4352,11 +4429,11 @@ class ChannelBridgeTests(unittest.TestCase):
             headers = {"Last-Event-ID": "10"}
 
         with (
-            mock.patch.object(claude_any, "_channel_mcp_ensure_cursor_initialized", return_value=12),
-            mock.patch.object(claude_any, "_channel_mcp_update_cursor") as update_cursor,
-            mock.patch.object(claude_any, "router_log") as router_log,
+            mock.patch.object(ciel_runtime, "_channel_mcp_ensure_cursor_initialized", return_value=12),
+            mock.patch.object(ciel_runtime, "_channel_mcp_update_cursor") as update_cursor,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
-            last_id = claude_any._channel_mcp_session_start_last_id(Handler())
+            last_id = ciel_runtime._channel_mcp_session_start_last_id(Handler())
         self.assertEqual(10, last_id)
         update_cursor.assert_not_called()
         self.assertTrue(any("channel_mcp_resume" in str(call.args[1]) and "client_last_id=10" in str(call.args[1]) for call in router_log.call_args_list))
@@ -4367,10 +4444,10 @@ class ChannelBridgeTests(unittest.TestCase):
             headers = {}
 
         with (
-            mock.patch.object(claude_any, "_channel_mcp_ensure_cursor_initialized", return_value=12),
-            mock.patch.object(claude_any, "_channel_mcp_update_cursor") as update_cursor,
+            mock.patch.object(ciel_runtime, "_channel_mcp_ensure_cursor_initialized", return_value=12),
+            mock.patch.object(ciel_runtime, "_channel_mcp_update_cursor") as update_cursor,
         ):
-            last_id = claude_any._channel_mcp_session_start_last_id(Handler())
+            last_id = ciel_runtime._channel_mcp_session_start_last_id(Handler())
         self.assertEqual(15, last_id)
         update_cursor.assert_called_once_with(15)
 
@@ -4379,12 +4456,12 @@ class ChannelBridgeTests(unittest.TestCase):
             root = Path(td)
             cursor_path = root / "cursor.json"
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", root),
-                mock.patch.object(claude_any, "CHANNEL_MCP_CURSOR_PATH", cursor_path),
-                mock.patch.object(claude_any, "_CHANNEL_MCP_CURSOR_LAST_ID", None),
-                mock.patch.object(claude_any, "_chat_scan_max_id", return_value=41),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHANNEL_MCP_CURSOR_PATH", cursor_path),
+                mock.patch.object(ciel_runtime, "_CHANNEL_MCP_CURSOR_LAST_ID", None),
+                mock.patch.object(ciel_runtime, "_chat_scan_max_id", return_value=41),
             ):
-                last_id = claude_any._channel_mcp_ensure_cursor_initialized()
+                last_id = ciel_runtime._channel_mcp_ensure_cursor_initialized()
                 self.assertEqual(41, last_id)
                 self.assertEqual({"last_id": 41}, json.loads(cursor_path.read_text(encoding="utf-8")))
 
@@ -4394,19 +4471,19 @@ class ChannelBridgeTests(unittest.TestCase):
             cursor_path = root / "cursor.json"
             cursor_path.write_text('{"last_id":9}\n', encoding="utf-8")
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", root),
-                mock.patch.object(claude_any, "CHANNEL_MCP_CURSOR_PATH", cursor_path),
-                mock.patch.object(claude_any, "_CHANNEL_MCP_CURSOR_LAST_ID", None),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHANNEL_MCP_CURSOR_PATH", cursor_path),
+                mock.patch.object(ciel_runtime, "_CHANNEL_MCP_CURSOR_LAST_ID", None),
             ):
-                self.assertEqual(9, claude_any._channel_mcp_ensure_cursor_initialized())
-                claude_any._channel_mcp_update_cursor(12)
-                self.assertEqual(12, claude_any._channel_mcp_ensure_cursor_initialized())
+                self.assertEqual(9, ciel_runtime._channel_mcp_ensure_cursor_initialized())
+                ciel_runtime._channel_mcp_update_cursor(12)
+                self.assertEqual(12, ciel_runtime._channel_mcp_ensure_cursor_initialized())
                 self.assertEqual({"last_id": 12}, json.loads(cursor_path.read_text(encoding="utf-8")))
 
     def test_clear_channel_backlog_advances_cursors_and_drains_direct_queue(self):
-        original_llm = claude_any._CHANNEL_LLM_CURSOR_LAST_ID
-        original_mcp = claude_any._CHANNEL_MCP_CURSOR_LAST_ID
-        original_summary = claude_any._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
+        original_llm = ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID
+        original_mcp = ciel_runtime._CHANNEL_MCP_CURSOR_LAST_ID
+        original_summary = ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
         with tempfile.TemporaryDirectory(prefix="ca-channel-clear-") as td:
             root = Path(td)
             chat_path = root / "chat-messages.jsonl"
@@ -4432,36 +4509,36 @@ class ChannelBridgeTests(unittest.TestCase):
             )
             summary_cursor.write_text('{"last_id":3}\n', encoding="utf-8")
 
-            while not claude_any._CHANNEL_LLM_DIRECT_QUEUE.empty():
+            while not ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.empty():
                 try:
-                    claude_any._CHANNEL_LLM_DIRECT_QUEUE.get_nowait()
-                    claude_any._CHANNEL_LLM_DIRECT_QUEUE.task_done()
+                    ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.get_nowait()
+                    ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.task_done()
                 except Exception:
                     break
-            original_inflight = set(claude_any._CHANNEL_LLM_DIRECT_INFLIGHT)
-            original_delivered = set(claude_any._CHANNEL_LLM_DIRECT_DELIVERED)
-            with claude_any._CHANNEL_MCP_LOCK:
-                original_sessions = dict(claude_any._CHANNEL_MCP_SESSIONS)
-                claude_any._CHANNEL_MCP_SESSIONS.clear()
-                claude_any._CHANNEL_MCP_SESSIONS["session-1"] = {"last_id": 1, "outbox": []}
+            original_inflight = set(ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT)
+            original_delivered = set(ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED)
+            with ciel_runtime._CHANNEL_MCP_LOCK:
+                original_sessions = dict(ciel_runtime._CHANNEL_MCP_SESSIONS)
+                ciel_runtime._CHANNEL_MCP_SESSIONS.clear()
+                ciel_runtime._CHANNEL_MCP_SESSIONS["session-1"] = {"last_id": 1, "outbox": []}
             try:
-                claude_any._CHANNEL_LLM_CURSOR_LAST_ID = None
-                claude_any._CHANNEL_MCP_CURSOR_LAST_ID = None
-                claude_any._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
-                claude_any._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
-                claude_any._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-                direct_queue = claude_any.queue.Queue()
+                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = None
+                ciel_runtime._CHANNEL_MCP_CURSOR_LAST_ID = None
+                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
+                ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
+                ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
+                direct_queue = ciel_runtime.queue.Queue()
                 direct_queue.put({"id": 4, "channel": "room"})
                 with (
-                    mock.patch.object(claude_any, "CHAT_MESSAGES_PATH", chat_path),
-                    mock.patch.object(claude_any, "CHANNEL_LLM_CURSOR_PATH", llm_cursor),
-                    mock.patch.object(claude_any, "CHANNEL_LLM_CLEAR_FLOOR_PATH", clear_floor),
-                    mock.patch.object(claude_any, "CHANNEL_MCP_CURSOR_PATH", mcp_cursor),
-                    mock.patch.object(claude_any, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", summary_queue),
-                    mock.patch.object(claude_any, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", summary_cursor),
-                    mock.patch.object(claude_any, "_CHANNEL_LLM_DIRECT_QUEUE", direct_queue),
+                    mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", chat_path),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", llm_cursor),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_CLEAR_FLOOR_PATH", clear_floor),
+                    mock.patch.object(ciel_runtime, "CHANNEL_MCP_CURSOR_PATH", mcp_cursor),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", summary_queue),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", summary_cursor),
+                    mock.patch.object(ciel_runtime, "_CHANNEL_LLM_DIRECT_QUEUE", direct_queue),
                 ):
-                    stats = claude_any.clear_channel_backlog()
+                    stats = ciel_runtime.clear_channel_backlog()
 
                 self.assertEqual(4, stats["chat_tail"])
                 self.assertEqual(5, stats["summary_tail"])
@@ -4473,28 +4550,28 @@ class ChannelBridgeTests(unittest.TestCase):
                 self.assertEqual(4, json.loads(clear_floor.read_text(encoding="utf-8"))["last_id"])
                 self.assertEqual({"last_id": 4}, json.loads(mcp_cursor.read_text(encoding="utf-8")))
                 self.assertEqual({"last_id": 5}, json.loads(summary_cursor.read_text(encoding="utf-8")))
-                with claude_any._CHANNEL_MCP_LOCK:
-                    self.assertEqual(4, claude_any._CHANNEL_MCP_SESSIONS["session-1"]["last_id"])
+                with ciel_runtime._CHANNEL_MCP_LOCK:
+                    self.assertEqual(4, ciel_runtime._CHANNEL_MCP_SESSIONS["session-1"]["last_id"])
             finally:
-                claude_any._CHANNEL_LLM_CURSOR_LAST_ID = original_llm
-                claude_any._CHANNEL_MCP_CURSOR_LAST_ID = original_mcp
-                claude_any._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_summary
-                claude_any._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
-                claude_any._CHANNEL_LLM_DIRECT_INFLIGHT.update(original_inflight)
-                claude_any._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-                claude_any._CHANNEL_LLM_DIRECT_DELIVERED.update(original_delivered)
-                while not claude_any._CHANNEL_LLM_DIRECT_QUEUE.empty():
+                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = original_llm
+                ciel_runtime._CHANNEL_MCP_CURSOR_LAST_ID = original_mcp
+                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_summary
+                ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
+                ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.update(original_inflight)
+                ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
+                ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.update(original_delivered)
+                while not ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.empty():
                     try:
-                        claude_any._CHANNEL_LLM_DIRECT_QUEUE.get_nowait()
-                        claude_any._CHANNEL_LLM_DIRECT_QUEUE.task_done()
+                        ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.get_nowait()
+                        ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.task_done()
                     except Exception:
                         break
-                with claude_any._CHANNEL_MCP_LOCK:
-                    claude_any._CHANNEL_MCP_SESSIONS.clear()
-                    claude_any._CHANNEL_MCP_SESSIONS.update(original_sessions)
+                with ciel_runtime._CHANNEL_MCP_LOCK:
+                    ciel_runtime._CHANNEL_MCP_SESSIONS.clear()
+                    ciel_runtime._CHANNEL_MCP_SESSIONS.update(original_sessions)
 
     def test_mcp_proxy_notification_maps_to_chat_payload(self):
-        payload = claude_any._mcp_proxy_notification_payload(
+        payload = ciel_runtime._mcp_proxy_notification_payload(
             "ai-net",
             {
                 "jsonrpc": "2.0",
@@ -4530,17 +4607,17 @@ class ChannelBridgeTests(unittest.TestCase):
             saved["id"] = 23
             return saved
 
-        claude_any._MCP_NOTIFICATION_DEDUP_RECENT.clear()
+        ciel_runtime._MCP_NOTIFICATION_DEDUP_RECENT.clear()
         try:
             with (
-                mock.patch.object(claude_any, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                mock.patch.object(claude_any, "append_chat_message", side_effect=fake_append),
-                mock.patch.object(claude_any, "schedule_channel_direct_llm_delivery") as schedule,
-                mock.patch.object(claude_any, "router_log"),
+                mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+                mock.patch.object(ciel_runtime, "append_chat_message", side_effect=fake_append),
+                mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery") as schedule,
+                mock.patch.object(ciel_runtime, "router_log"),
             ):
-                claude_any._mcp_proxy_observe_json_message("ai-net-http", message)
+                ciel_runtime._mcp_proxy_observe_json_message("ai-net-http", message)
         finally:
-            claude_any._MCP_NOTIFICATION_DEDUP_RECENT.clear()
+            ciel_runtime._MCP_NOTIFICATION_DEDUP_RECENT.clear()
 
         self.assertEqual(1, len(captured))
         self.assertTrue(captured[0]["meta"]["llm_direct_pending"])
@@ -4559,20 +4636,20 @@ class ChannelBridgeTests(unittest.TestCase):
             "method": "notifications/claude/channel",
             "params": {"content": "hello team", "room_id": "room_phase1sim", "sender_id": "robert", "thread_id": "root"},
         }
-        claude_any._MCP_NOTIFICATION_DEDUP_RECENT.clear()
+        ciel_runtime._MCP_NOTIFICATION_DEDUP_RECENT.clear()
         try:
             with (
-                mock.patch.object(claude_any, "append_chat_message", return_value={"id": 21}) as append,
-                mock.patch.object(claude_any, "schedule_channel_direct_llm_delivery"),
-                mock.patch.object(claude_any, "router_log") as router_log,
+                mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 21}) as append,
+                mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery"),
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
             ):
-                claude_any._mcp_proxy_observe_json_message("ai-net", generic)
-                claude_any._mcp_proxy_observe_json_message("ai-net", native)
+                ciel_runtime._mcp_proxy_observe_json_message("ai-net", generic)
+                ciel_runtime._mcp_proxy_observe_json_message("ai-net", native)
             append.assert_called_once()
             log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
             self.assertTrue(any("mcp_proxy_notification_skipped_duplicate" in item for item in log_messages))
         finally:
-            claude_any._MCP_NOTIFICATION_DEDUP_RECENT.clear()
+            ciel_runtime._MCP_NOTIFICATION_DEDUP_RECENT.clear()
 
     def test_mcp_proxy_observer_deduplicates_stable_event_across_writers(self):
         first = {
@@ -4589,20 +4666,20 @@ class ChannelBridgeTests(unittest.TestCase):
             },
         }
         second = json.loads(json.dumps(first))
-        claude_any._MCP_NOTIFICATION_DEDUP_RECENT.clear()
+        ciel_runtime._MCP_NOTIFICATION_DEDUP_RECENT.clear()
         try:
             with (
-                mock.patch.object(claude_any, "append_chat_message", return_value={"id": 24}) as append,
-                mock.patch.object(claude_any, "schedule_channel_direct_llm_delivery"),
-                mock.patch.object(claude_any, "router_log") as router_log,
+                mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 24}) as append,
+                mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery"),
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
             ):
-                claude_any._mcp_proxy_observe_json_message("ai-net", first)
-                claude_any._mcp_proxy_observe_json_message("ai-net-http", second)
+                ciel_runtime._mcp_proxy_observe_json_message("ai-net", first)
+                ciel_runtime._mcp_proxy_observe_json_message("ai-net-http", second)
             append.assert_called_once()
             log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
             self.assertTrue(any("mcp_proxy_notification_skipped_duplicate" in item for item in log_messages))
         finally:
-            claude_any._MCP_NOTIFICATION_DEDUP_RECENT.clear()
+            ciel_runtime._MCP_NOTIFICATION_DEDUP_RECENT.clear()
 
     def test_mcp_proxy_observer_allows_repeated_same_method_notifications(self):
         message = {
@@ -4610,17 +4687,17 @@ class ChannelBridgeTests(unittest.TestCase):
             "method": "notifications/message",
             "params": {"content": "repeatable alert", "room_id": "room_phase1sim", "sender_id": "robert"},
         }
-        claude_any._MCP_NOTIFICATION_DEDUP_RECENT.clear()
+        ciel_runtime._MCP_NOTIFICATION_DEDUP_RECENT.clear()
         try:
             with (
-                mock.patch.object(claude_any, "append_chat_message", return_value={"id": 22}) as append,
-                mock.patch.object(claude_any, "schedule_channel_direct_llm_delivery"),
+                mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 22}) as append,
+                mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery"),
             ):
-                claude_any._mcp_proxy_observe_json_message("ai-net", message)
-                claude_any._mcp_proxy_observe_json_message("ai-net", message)
+                ciel_runtime._mcp_proxy_observe_json_message("ai-net", message)
+                ciel_runtime._mcp_proxy_observe_json_message("ai-net", message)
             self.assertEqual(2, append.call_count)
         finally:
-            claude_any._MCP_NOTIFICATION_DEDUP_RECENT.clear()
+            ciel_runtime._MCP_NOTIFICATION_DEDUP_RECENT.clear()
 
     def test_mcp_proxy_observer_reads_content_length_framed_notification(self):
         body = __import__("json").dumps(
@@ -4639,10 +4716,10 @@ class ChannelBridgeTests(unittest.TestCase):
         ).encode("utf-8")
         frame = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii") + body
         with (
-            mock.patch.object(claude_any, "append_chat_message", return_value={"id": 11}) as append,
-            mock.patch.object(claude_any, "schedule_channel_direct_llm_delivery"),
+            mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 11}) as append,
+            mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery"),
         ):
-            observer = claude_any._McpStdoutObserver("ai-net")
+            observer = ciel_runtime._McpStdoutObserver("ai-net")
             observer.feed(frame[:10])
             observer.feed(frame[10:])
         append.assert_called_once()
@@ -4654,8 +4731,8 @@ class ChannelBridgeTests(unittest.TestCase):
     def test_mcp_proxy_observer_accepts_content_type_before_length(self):
         body = b'{"jsonrpc":"2.0","method":"notifications/message","params":{"content":"typed frame"}}'
         frame = b"Content-Type: application/vscode-jsonrpc; charset=utf-8\r\n" + f"Content-Length: {len(body)}\r\n\r\n".encode("ascii") + body
-        with mock.patch.object(claude_any, "append_chat_message", return_value={"id": 13}) as append:
-            observer = claude_any._McpStdoutObserver("generic")
+        with mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 13}) as append:
+            observer = ciel_runtime._McpStdoutObserver("generic")
             observer.feed(frame)
         append.assert_called_once()
         self.assertEqual("typed frame", append.call_args.args[0]["message"])
@@ -4671,8 +4748,8 @@ class ChannelBridgeTests(unittest.TestCase):
             )
             + "\n"
         ).encode("utf-8")
-        with mock.patch.object(claude_any, "append_chat_message", return_value={"id": 12}) as append:
-            observer = claude_any._McpStdoutObserver("generic")
+        with mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 12}) as append:
+            observer = ciel_runtime._McpStdoutObserver("generic")
             observer.feed(line)
         append.assert_called_once()
         self.assertEqual("wake from json line", append.call_args.args[0]["message"])
@@ -4720,11 +4797,11 @@ class ChannelBridgeTests(unittest.TestCase):
             body = json.dumps(request).encode("utf-8")
             input_frame = b"Content-Length: " + str(len(body)).encode("ascii") + b"\r\n\r\n" + body
             env = os.environ.copy()
-            env["CLAUDE_ANY_CONFIG_DIR"] = str(root / "config")
+            env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
             proc = subprocess.run(
                 [
                     sys.executable,
-                    str(Path(claude_any.__file__).resolve()),
+                    str(Path(ciel_runtime.__file__).resolve()),
                     "mcp-proxy",
                     "--server-name",
                     "fake",
@@ -4766,18 +4843,18 @@ class ChannelBridgeTests(unittest.TestCase):
             )
             config = root / "server.json"
             config.write_text(
-                json.dumps({"command": sys.executable, "args": [str(server)], "claude_any_stdio": "jsonl"}),
+                json.dumps({"command": sys.executable, "args": [str(server)], "ciel_runtime_stdio": "jsonl"}),
                 encoding="utf-8",
             )
             request = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
             body = json.dumps(request).encode("utf-8")
             input_frame = b"Content-Length: " + str(len(body)).encode("ascii") + b"\r\n\r\n" + body
             env = os.environ.copy()
-            env["CLAUDE_ANY_CONFIG_DIR"] = str(root / "config")
+            env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
             proc = subprocess.run(
                 [
                     sys.executable,
-                    str(Path(claude_any.__file__).resolve()),
+                    str(Path(ciel_runtime.__file__).resolve()),
                     "mcp-proxy",
                     "--server-name",
                     "fake-jsonl",
@@ -4813,7 +4890,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 seen_posts.append({"method": payload.get("method"), "session": self.headers.get("Mcp-Session-Id")})
                 if payload.get("method") == "initialize":
                     result = {
-                        "protocolVersion": claude_any.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+                        "protocolVersion": ciel_runtime.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
                         "capabilities": {"tools": {}},
                         "serverInfo": {"name": "streamable-test", "version": "1"},
                     }
@@ -4880,11 +4957,11 @@ class ChannelBridgeTests(unittest.TestCase):
                     encoding="utf-8",
                 )
                 env = os.environ.copy()
-                env["CLAUDE_ANY_CONFIG_DIR"] = str(root / "config")
+                env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
                 proc = subprocess.Popen(
                     [
                         sys.executable,
-                        str(Path(claude_any.__file__).resolve()),
+                        str(Path(ciel_runtime.__file__).resolve()),
                         "mcp-proxy",
                         "--server-name",
                         "fake-http",
@@ -4948,7 +5025,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
                 if payload.get("method") == "initialize":
                     result = {
-                        "protocolVersion": claude_any.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+                        "protocolVersion": ciel_runtime.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
                         "capabilities": {"tools": {}},
                         "serverInfo": {"name": "streamable-test", "version": "1"},
                     }
@@ -5006,11 +5083,11 @@ class ChannelBridgeTests(unittest.TestCase):
                     encoding="utf-8",
                 )
                 env = os.environ.copy()
-                env["CLAUDE_ANY_CONFIG_DIR"] = str(root / "config")
+                env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
                 proc = subprocess.Popen(
                     [
                         sys.executable,
-                        str(Path(claude_any.__file__).resolve()),
+                        str(Path(ciel_runtime.__file__).resolve()),
                         "mcp-proxy",
                         "--server-name",
                         "fake-http",
@@ -5060,7 +5137,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
                 if payload.get("method") == "initialize":
                     result = {
-                        "protocolVersion": claude_any.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+                        "protocolVersion": ciel_runtime.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
                         "capabilities": {"tools": {}},
                         "serverInfo": {"name": "streamable-test", "version": "1"},
                     }
@@ -5130,11 +5207,11 @@ class ChannelBridgeTests(unittest.TestCase):
                     encoding="utf-8",
                 )
                 env = os.environ.copy()
-                env["CLAUDE_ANY_CONFIG_DIR"] = str(root / "config")
+                env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
                 proc = subprocess.Popen(
                     [
                         sys.executable,
-                        str(Path(claude_any.__file__).resolve()),
+                        str(Path(ciel_runtime.__file__).resolve()),
                         "mcp-proxy",
                         "--server-name",
                         "fake-http",
@@ -5191,7 +5268,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
                 if payload.get("method") == "initialize":
                     result = {
-                        "protocolVersion": claude_any.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+                        "protocolVersion": ciel_runtime.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
                         "capabilities": {"tools": {}},
                         "serverInfo": {"name": "streamable-test", "version": "1"},
                     }
@@ -5230,11 +5307,11 @@ class ChannelBridgeTests(unittest.TestCase):
                     encoding="utf-8",
                 )
                 env = os.environ.copy()
-                env["CLAUDE_ANY_CONFIG_DIR"] = str(root / "config")
+                env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
                 proc = subprocess.Popen(
                     [
                         sys.executable,
-                        str(Path(claude_any.__file__).resolve()),
+                        str(Path(ciel_runtime.__file__).resolve()),
                         "mcp-proxy",
                         "--server-name",
                         "fake-http",
@@ -5287,7 +5364,7 @@ class ChannelBridgeTests(unittest.TestCase):
                         "jsonrpc": "2.0",
                         "id": payload.get("id"),
                         "result": {
-                            "protocolVersion": claude_any.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+                            "protocolVersion": ciel_runtime.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
                             "capabilities": {"tools": {}},
                             "serverInfo": {"name": "streamable-test", "version": "1"},
                         },
@@ -5336,11 +5413,11 @@ class ChannelBridgeTests(unittest.TestCase):
                     encoding="utf-8",
                 )
                 env = os.environ.copy()
-                env["CLAUDE_ANY_CONFIG_DIR"] = str(root / "config")
+                env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
                 proc = subprocess.Popen(
                     [
                         sys.executable,
-                        str(Path(claude_any.__file__).resolve()),
+                        str(Path(ciel_runtime.__file__).resolve()),
                         "mcp-proxy",
                         "--server-name",
                         "fake-http",
@@ -5409,7 +5486,7 @@ class ChannelBridgeTests(unittest.TestCase):
                         st["drop"] = False
                         sess = f"sess-{st['inits']}"
                     result = {
-                        "protocolVersion": claude_any.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+                        "protocolVersion": ciel_runtime.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
                         "capabilities": {"tools": {}},
                         "serverInfo": {"name": "t", "version": "1"},
                     }
@@ -5478,9 +5555,9 @@ class ChannelBridgeTests(unittest.TestCase):
                     encoding="utf-8",
                 )
                 env = os.environ.copy()
-                env["CLAUDE_ANY_CONFIG_DIR"] = str(root / "config")
+                env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
                 proc = subprocess.Popen(
-                    [sys.executable, str(Path(claude_any.__file__).resolve()), "mcp-proxy",
+                    [sys.executable, str(Path(ciel_runtime.__file__).resolve()), "mcp-proxy",
                      "--server-name", "t", "--server-config", str(config)],
                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
                 )
@@ -5517,18 +5594,150 @@ class ChannelBridgeTests(unittest.TestCase):
                 server.shutdown()
                 server.server_close()
 
+    def test_mcp_proxy_streamable_http_quiet_timeout_resumes_same_session(self):
+        lock = threading.Lock()
+        state = {"inits": 0}
+        seen_gets: list[dict[str, str | None]] = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                return
+
+            def do_POST(self):
+                length = int(self.headers.get("Content-Length") or "0")
+                payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+                if payload.get("method") == "initialize":
+                    with lock:
+                        state["inits"] += 1
+                    result = {
+                        "protocolVersion": ciel_runtime.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+                        "capabilities": {"tools": {}},
+                        "serverInfo": {"name": "streamable-test", "version": "1"},
+                    }
+                    data = json.dumps({"jsonrpc": "2.0", "id": payload.get("id"), "result": result}).encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Mcp-Session-Id", "sess-quiet")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
+                data = json.dumps({"jsonrpc": "2.0", "id": payload.get("id"), "result": {}}).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+            def do_GET(self):
+                incoming_last_event_id = self.headers.get("Last-Event-ID")
+                with lock:
+                    seen_gets.append(
+                        {
+                            "session": self.headers.get("Mcp-Session-Id"),
+                            "last_event_id": incoming_last_event_id,
+                        }
+                    )
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.end_headers()
+                if incoming_last_event_id != "first-event":
+                    self.wfile.write(
+                        b'id: first-event\n'
+                        b'event: message\n'
+                        b'data: {"jsonrpc":"2.0","method":"notifications/message","params":{"content":"first quiet event","room_id":"r1"}}\n\n'
+                    )
+                    self.wfile.flush()
+                    time.sleep(7.0)
+                    return
+                self.wfile.write(
+                    b'event: message\n'
+                    b'data: {"jsonrpc":"2.0","method":"notifications/message","params":{"content":"resumed after quiet timeout","room_id":"r1"}}\n\n'
+                )
+                self.wfile.flush()
+
+        def frame(payload: dict[str, object]) -> bytes:
+            body = json.dumps(payload).encode("utf-8")
+            return b"Content-Length: " + str(len(body)).encode("ascii") + b"\r\n\r\n" + body
+
+        with tempfile.TemporaryDirectory(prefix="ca-mcp-http-quiet-timeout-") as td:
+            root = Path(td)
+            server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            try:
+                config = root / "server.json"
+                config.write_text(
+                    json.dumps(
+                        {
+                            "type": "http",
+                            "url": f"http://127.0.0.1:{server.server_address[1]}/mcp",
+                            "notification_read_timeout_seconds": 5,
+                            "retry_seconds": 1,
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                env = os.environ.copy()
+                env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
+                proc = subprocess.Popen(
+                    [
+                        sys.executable,
+                        str(Path(ciel_runtime.__file__).resolve()),
+                        "mcp-proxy",
+                        "--server-name",
+                        "quiet-http",
+                        "--server-config",
+                        str(config),
+                    ],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    env=env,
+                )
+                assert proc.stdin is not None and proc.stdout is not None and proc.stderr is not None
+                proc.stdin.write(frame({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}))
+                proc.stdin.write(frame({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}))
+                proc.stdin.flush()
+                chat_log = root / "config" / "chat-messages.jsonl"
+                deadline = time.time() + 9.0
+                while time.time() < deadline:
+                    if chat_log.exists() and "resumed after quiet timeout" in chat_log.read_text(encoding="utf-8"):
+                        break
+                    time.sleep(0.05)
+                proc.stdin.close()
+                stderr = proc.stderr.read()
+                proc.wait(timeout=10)
+                proc.stdout.close()
+                proc.stderr.close()
+                self.assertEqual(0, proc.returncode, stderr.decode("utf-8", errors="replace"))
+                self.assertTrue(chat_log.exists())
+                self.assertIn("resumed after quiet timeout", chat_log.read_text(encoding="utf-8"))
+                with lock:
+                    inits = state["inits"]
+                    gets = list(seen_gets)
+                self.assertEqual(1, inits)
+                self.assertGreaterEqual(len(gets), 2)
+                self.assertEqual("sess-quiet", gets[0]["session"])
+                self.assertTrue(
+                    any(item["session"] == "sess-quiet" and item["last_event_id"] == "first-event" for item in gets[1:]),
+                    f"proxy did not resume quiet timeout with Last-Event-ID: {gets}",
+                )
+            finally:
+                server.shutdown()
+                server.server_close()
+
     def test_channel_mcp_config_points_to_router_sse(self):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "channel-mcp.json"
             with (
-                mock.patch.object(claude_any, "CONFIG_DIR", Path(td)),
-                mock.patch.object(claude_any, "CHANNEL_MCP_CONFIG", path),
-                mock.patch.object(claude_any, "_channel_mcp_ensure_cursor_initialized", return_value=0),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", Path(td)),
+                mock.patch.object(ciel_runtime, "CHANNEL_MCP_CONFIG", path),
+                mock.patch.object(ciel_runtime, "_channel_mcp_ensure_cursor_initialized", return_value=0),
             ):
-                written = claude_any.write_channel_mcp_config()
+                written = ciel_runtime.write_channel_mcp_config()
             data = __import__("json").loads(written.read_text(encoding="utf-8"))
-        self.assertEqual("sse", data["mcpServers"]["claude-any-router"]["type"])
-        self.assertTrue(data["mcpServers"]["claude-any-router"]["url"].endswith("/ca/mcp/sse"))
+        self.assertEqual("sse", data["mcpServers"]["ciel-runtime-router"]["type"])
+        self.assertTrue(data["mcpServers"]["ciel-runtime-router"]["url"].endswith("/ca/mcp/sse"))
 
     def test_channel_mcp_endpoint_uses_legacy_session_id_param(self):
         session = "session-123"
