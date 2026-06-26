@@ -45,7 +45,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn(ciel_runtime.CODEX_NATIVE_PROVIDER_CHOICE, values)
         self.assertIn(ciel_runtime.CODEX_ROUTED_PROVIDER_CHOICE, values)
         self.assertTrue(any("Codex Native" in row and row.startswith("*") for row in rows))
-        self.assertTrue(any("Codex routed" in row and "native OpenAI auth" in row for row in rows))
+        self.assertTrue(any("Codex routed" in row and "OpenAI API auth" in row for row in rows))
         labels = [row[2:18].strip() for row in rows]
         self.assertEqual(sorted(labels, key=str.casefold), labels)
 
@@ -368,13 +368,49 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertNotIn("-m", captured["cmd"])
 
     def test_codex_routed_headers_forward_native_authorization(self):
-        headers = ciel_runtime.codex_routed_upstream_headers(
-            {"api_key": ""},
-            {"authorization": "Bearer native-token", "openai-organization": "org_1"},
-        )
+        with mock.patch.dict(
+            "os.environ",
+            {"CIEL_RUNTIME_CODEX_UPSTREAM_API_KEY": "", "OPENAI_API_KEY": "", "CODEX_API_KEY": ""},
+            clear=False,
+        ):
+            headers = ciel_runtime.codex_routed_upstream_headers(
+                {"api_key": ""},
+                {"authorization": "Bearer native-token", "openai-organization": "org_1"},
+            )
 
         self.assertEqual("Bearer native-token", headers["authorization"])
         self.assertEqual("org_1", headers["openai-organization"])
+
+    def test_codex_routed_headers_prefer_configured_api_key(self):
+        headers = ciel_runtime.codex_routed_upstream_headers(
+            {"api_key": "sk-configured"},
+            {"authorization": "Bearer native-token", "openai-organization": "org_1"},
+        )
+
+        self.assertEqual("Bearer sk-configured", headers["authorization"])
+        self.assertEqual("sk-configured", headers["x-api-key"])
+        self.assertNotIn("openai-organization", headers)
+
+    def test_codex_routed_headers_use_env_api_key_before_native_auth(self):
+        with mock.patch.dict(
+            "os.environ",
+            {"CIEL_RUNTIME_CODEX_UPSTREAM_API_KEY": "", "OPENAI_API_KEY": "sk-env", "CODEX_API_KEY": ""},
+            clear=False,
+        ):
+            headers = ciel_runtime.codex_routed_upstream_headers(
+                {"api_key": ""},
+                {"authorization": "Bearer native-token"},
+            )
+
+        self.assertEqual("Bearer sk-env", headers["authorization"])
+        self.assertEqual("sk-env", headers["x-api-key"])
+
+    def test_codex_routed_auth_error_explains_api_scope_requirement(self):
+        message = ciel_runtime.codex_routed_auth_error_message("invalid_request_error: Missing scopes: api.responses.write")
+
+        self.assertIn("OpenAI Responses API", message)
+        self.assertIn("ciel-runtimectl api-key codex", message)
+        self.assertIn("Codex Native", message)
 
     def test_codex_responses_channel_context_appends_responses_input(self):
         body = {"model": "gpt-5.5", "input": "hello"}

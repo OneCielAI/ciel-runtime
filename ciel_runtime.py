@@ -18537,9 +18537,20 @@ def collect_provider_message_for_responses(
     return collect_anthropic_message_for_responses(handler, provider, pcfg, body)
 
 
+def codex_routed_upstream_api_key(pcfg: dict[str, Any]) -> tuple[str, str]:
+    key = select_provider_api_key("codex", pcfg)
+    if meaningful_key(key):
+        return key, "codex provider API key"
+    for name in CODEX_ROUTED_UPSTREAM_API_KEY_ENVS:
+        key = os.environ.get(name, "")
+        if meaningful_key(key):
+            return key, name
+    return "", ""
+
+
 def codex_routed_upstream_headers(pcfg: dict[str, Any], inbound_headers: Any | None = None) -> dict[str, str]:
     headers = with_upstream_user_agent({"content-type": "application/json"})
-    key = provider_primary_api_key("codex", pcfg)
+    key, _source = codex_routed_upstream_api_key(pcfg)
     if meaningful_key(key):
         headers["authorization"] = f"Bearer {key}"
         headers["x-api-key"] = key
@@ -18563,6 +18574,21 @@ def codex_routed_upstream_headers(pcfg: dict[str, Any], inbound_headers: Any | N
     if not headers.get("authorization"):
         raise RuntimeError("Codex routed mode did not receive native Codex/OpenAI auth headers.")
     return headers
+
+
+def codex_routed_auth_error_message(message: str) -> str:
+    low = str(message or "").lower()
+    if "api.responses.write" not in low and "insufficient permissions" not in low and "unauthorized" not in low:
+        return message
+    guidance = (
+        " Codex routed sends upstream requests through the OpenAI Responses API. "
+        "ChatGPT/Codex OAuth tokens may not include API write scopes. "
+        "Set an OpenAI Platform API key with Responses write permission using "
+        "`ciel-runtimectl api-key codex sk-...`, or export one of "
+        "`CIEL_RUNTIME_CODEX_UPSTREAM_API_KEY`, `OPENAI_API_KEY`, or `CODEX_API_KEY` before launch. "
+        "Use Codex Native if you want Codex to use only its native ChatGPT login without router features."
+    )
+    return f"{message}{guidance}"
 
 
 def _responses_input_as_list(value: Any) -> list[dict[str, Any]]:
@@ -18661,7 +18687,10 @@ def handle_openai_responses_post(
         except urllib.error.HTTPError as exc:
             raw = exc.read().decode("utf-8", errors="ignore")
             mark_pending_channel_delivery_failed(handler, f"codex_responses_http_error:{exc.code}")
-            write_openai_responses_error(handler, upstream_http_error_message(exc, raw), stream=bool(body.get("stream", True)), status=exc.code)
+            message = upstream_http_error_message(exc, raw)
+            if exc.code in (401, 403):
+                message = codex_routed_auth_error_message(message)
+            write_openai_responses_error(handler, message, stream=bool(body.get("stream", True)), status=exc.code)
         except Exception as exc:
             if is_client_disconnect_error(exc):
                 mark_pending_channel_delivery_failed(handler, f"codex_responses_client_disconnected:{type(exc).__name__}")
@@ -26342,7 +26371,11 @@ def api_key_status_line(provider: str, pcfg: dict[str, Any]) -> str:
         if codex_routed_enabled(provider, pcfg):
             if key_count > 1:
                 return f"API keys: {round_robin} (Codex routed fallback{primary_detail})"
-            return f"API key: set (Codex routed fallback{primary_detail})" if key_count else "API key: not set (uses native Codex/OpenAI auth headers)"
+            return (
+                f"API key: set (Codex routed upstream{primary_detail})"
+                if key_count
+                else "API key: not set (will forward Codex auth; ChatGPT OAuth may lack API write scope)"
+            )
         if key_count > 1:
             return f"API keys: {round_robin} (Codex fallback{primary_detail})"
         return f"API key: set (Codex fallback{primary_detail})" if key_count else "API key: not set (uses native Codex login/config)"
@@ -26962,7 +26995,7 @@ def provider_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
             native_mark = "*" if current == key and not routed else " "
             routed_mark = "*" if current == key and routed else " "
             entries.append(("Codex Native", f"{native_mark} {'Codex Native':<16} {'codex-native':<17} native Codex settings", CODEX_NATIVE_PROVIDER_CHOICE))
-            entries.append(("Codex routed", f"{routed_mark} {'Codex routed':<16} {'codex-routed':<17} router via native OpenAI auth", CODEX_ROUTED_PROVIDER_CHOICE))
+            entries.append(("Codex routed", f"{routed_mark} {'Codex routed':<16} {'codex-routed':<17} router via OpenAI API auth", CODEX_ROUTED_PROVIDER_CHOICE))
             continue
         mark = "*" if key == current else " "
         entries.append((label, f"{mark} {label:<16} {key:<15} {compact_text(pcfg.get('base_url', ''), 54)}", key))
@@ -34241,6 +34274,7 @@ CODEX_RUNTIME_PROVIDER_ID = "ciel-runtime"
 CODEX_RUNTIME_API_KEY_ENV = "CIEL_RUNTIME_CODEX_API_KEY"
 CODEX_NATIVE_PROVIDER_ID_ENV = "CIEL_RUNTIME_CODEX_NATIVE_PROVIDER_ID"
 CODEX_TUI_ALTERNATE_SCREEN_KEY = "tui.alternate_screen"
+CODEX_ROUTED_UPSTREAM_API_KEY_ENVS = ("CIEL_RUNTIME_CODEX_UPSTREAM_API_KEY", "OPENAI_API_KEY", "CODEX_API_KEY")
 
 
 def toml_string(value: str) -> str:

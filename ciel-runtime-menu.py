@@ -696,7 +696,9 @@ def api_key_status(provider: str, pcfg: dict) -> str:
     if provider == "anthropic":
         return "API key: set (Anthropic)" if meaningful_key(pcfg.get("api_key")) else "API key: not set (use API key or Claude login)"
     if provider == "codex":
-        return "API key: optional fallback (uses native Codex/OpenAI auth headers)" if pcfg.get("route_through_router") else "API key: optional fallback (uses native Codex login/config)"
+        if pcfg.get("route_through_router"):
+            return "API key: optional upstream key (ChatGPT OAuth may lack API write scope)"
+        return "API key: optional fallback (uses native Codex login/config)"
     if provider == "ollama-cloud":
         return "API key: set (Ollama Cloud)" if meaningful_key(pcfg.get("api_key")) else "API key: missing (Ollama Cloud required)"
     if provider == "deepseek":
