@@ -34392,6 +34392,13 @@ def codex_runtime_config_args(router_base: str = ROUTER_BASE) -> list[str]:
 def codex_native_routed_config_args(router_base: str = ROUTER_BASE) -> list[str]:
     provider = (os.environ.get(CODEX_NATIVE_PROVIDER_ID_ENV) or "openai").strip() or "openai"
     base = router_base.rstrip("/") + "/v1"
+    if provider == "openai":
+        return [
+            "-c",
+            f"model_provider={toml_string(provider)}",
+            "-c",
+            f"openai_base_url={toml_string(base)}",
+        ]
     return [
         "-c",
         f"model_provider={toml_string(provider)}",

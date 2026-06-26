@@ -216,8 +216,8 @@ class CodexRuntimeTests(unittest.TestCase):
         joined = "\n".join(args)
 
         self.assertIn("model_provider=\"openai\"", joined)
-        self.assertIn("model_providers.openai.base_url=\"http://127.0.0.1:9876/v1\"", joined)
-        self.assertIn("model_providers.openai.wire_api=\"responses\"", joined)
+        self.assertIn("openai_base_url=\"http://127.0.0.1:9876/v1\"", joined)
+        self.assertNotIn("model_providers.openai", joined)
         self.assertNotIn("env_key", joined)
 
     def test_codex_alternate_screen_compat_converts_legacy_boolean_config(self):
@@ -362,7 +362,8 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertEqual(0, rc)
         self.assertTrue(captured["manage_router"])
         self.assertIn("model_provider=\"openai\"", captured["cmd"])
-        self.assertIn(f"model_providers.openai.base_url=\"{ciel_runtime.ROUTER_BASE}/v1\"", captured["cmd"])
+        self.assertIn(f"openai_base_url=\"{ciel_runtime.ROUTER_BASE}/v1\"", captured["cmd"])
+        self.assertFalse(any(str(arg).startswith("model_providers.openai.") for arg in captured["cmd"]))
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
         self.assertNotIn("-m", captured["cmd"])
 
