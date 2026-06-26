@@ -1,5 +1,8 @@
 import unittest
 import json
+import os
+import threading
+import time
 from io import BytesIO
 from unittest import mock
 
@@ -1149,6 +1152,73 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         self.assertNotIn("private reasoning", output)
         self.assertIn('"text": "done"', output)
         self.assertIn('"stop_reason": "end_turn"', output)
+
+    def test_native_stream_emits_downstream_keepalive_while_upstream_is_quiet(self):
+        body = body_with_tools("continue implementation", ["Read", "Bash"])
+
+        class Handler:
+            def __init__(self):
+                self.wfile = BytesIO()
+                self.connection = None
+
+        class QuietThenReadyStream:
+            def __init__(self):
+                self.release = threading.Event()
+                self.closed = False
+
+            def __iter__(self):
+                self.release.wait(2.0)
+                events = [
+                    'event: message_start\ndata: {"type":"message_start","message":{"content":[]}}\n\n',
+                    'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+                    'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"done"}}\n\n',
+                    'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+                    'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":1}}\n\n',
+                    'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+                ]
+                for event in events:
+                    for line in event.splitlines():
+                        yield f"{line}\n".encode("utf-8")
+
+            def close(self):
+                self.closed = True
+
+        handler = Handler()
+        stream = QuietThenReadyStream()
+        errors: list[BaseException] = []
+
+        def run_stream():
+            try:
+                ciel_runtime._rebatch_anthropic_sse_text(
+                    handler,
+                    stream,
+                    "deepseek-v4-flash",
+                    word_chunking=False,
+                    source_body=body,
+                    preserve_thinking=False,
+                    provider="deepseek",
+                    normalize_tool_use=True,
+                )
+            except BaseException as exc:
+                errors.append(exc)
+
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_ANTHROPIC_STREAM_KEEPALIVE_SECONDS": "0.01"}):
+            thread = threading.Thread(target=run_stream)
+            thread.start()
+            deadline = time.time() + 1.0
+            while b": ciel-runtime-keepalive" not in handler.wfile.getvalue() and time.time() < deadline:
+                time.sleep(0.01)
+            self.assertIn(b": ciel-runtime-keepalive", handler.wfile.getvalue())
+            stream.release.set()
+            thread.join(timeout=2.0)
+
+        self.assertFalse(thread.is_alive())
+        self.assertEqual([], errors)
+        output = handler.wfile.getvalue().decode("utf-8")
+        self.assertIn('"text_delta"', output)
+        self.assertIn('"done"', output)
+        self.assertIn('"stop_reason": "end_turn"', output)
+        self.assertTrue(stream.closed)
 
     def test_native_stream_client_disconnect_is_not_forward_error(self):
         body = body_with_tools("continue implementation", ["Read", "Bash"])

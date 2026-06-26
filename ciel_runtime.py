@@ -15904,6 +15904,15 @@ def _rebatch_anthropic_sse_text(
     class ClientStreamDisconnected(Exception):
         pass
 
+    def downstream_keepalive_interval() -> float:
+        raw = os.environ.get("CIEL_RUNTIME_ANTHROPIC_STREAM_KEEPALIVE_SECONDS")
+        if raw is None:
+            return 15.0
+        try:
+            return max(0.0, min(120.0, float(raw)))
+        except Exception:
+            return 15.0
+
     def emit_raw(event_type: str | None, data_str: str) -> None:
         try:
             if event_type:
@@ -15925,6 +15934,46 @@ def _rebatch_anthropic_sse_text(
         except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError) as exc:
             raise ClientStreamDisconnected(f"{type(exc).__name__}: {exc}") from exc
         last_suppressed_keepalive_at = now
+
+    def emit_downstream_keepalive() -> None:
+        try:
+            handler.wfile.write(b": ciel-runtime-keepalive\n\n")
+            handler.wfile.flush()
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError) as exc:
+            raise ClientStreamDisconnected(f"{type(exc).__name__}: {exc}") from exc
+
+    def upstream_lines_with_downstream_keepalive() -> Iterable[Any]:
+        interval = downstream_keepalive_interval()
+        if interval <= 0:
+            yield from resp
+            return
+        line_queue: queue.Queue[tuple[str, Any]] = queue.Queue()
+
+        def reader() -> None:
+            try:
+                for raw_line in resp:
+                    line_queue.put(("line", raw_line))
+                line_queue.put(("eof", None))
+            except Exception as exc:
+                line_queue.put(("error", exc))
+
+        threading.Thread(target=reader, daemon=True, name=f"ciel-anthropic-sse-{model}").start()
+        while True:
+            try:
+                kind, value = line_queue.get(timeout=interval)
+            except queue.Empty:
+                if router_client_connection_closed(handler):
+                    raise ClientStreamDisconnected("downstream client disconnected during upstream wait")
+                emit_downstream_keepalive()
+                continue
+            if kind == "line":
+                yield value
+                continue
+            if kind == "error":
+                if router_client_connection_closed(handler):
+                    raise ClientStreamDisconnected("downstream client disconnected during upstream read") from value
+                raise value
+            return
 
     def emit_text_delta(index: int, text: str) -> None:
         if not text:
@@ -16452,7 +16501,7 @@ def _rebatch_anthropic_sse_text(
         emit_raw(event_type, data_str)
 
     try:
-        for raw in resp:
+        for raw in upstream_lines_with_downstream_keepalive():
             line = raw.decode("utf-8", errors="ignore")
             stripped = line.rstrip("\r\n")
             if stripped == "":
