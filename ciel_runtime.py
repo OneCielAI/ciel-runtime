@@ -34240,10 +34240,132 @@ def launch_claude(
 CODEX_RUNTIME_PROVIDER_ID = "ciel-runtime"
 CODEX_RUNTIME_API_KEY_ENV = "CIEL_RUNTIME_CODEX_API_KEY"
 CODEX_NATIVE_PROVIDER_ID_ENV = "CIEL_RUNTIME_CODEX_NATIVE_PROVIDER_ID"
+CODEX_TUI_ALTERNATE_SCREEN_KEY = "tui.alternate_screen"
 
 
 def toml_string(value: str) -> str:
     return json.dumps(str(value))
+
+
+def _codex_config_override_keys(passthrough: list[str]) -> set[str]:
+    keys: set[str] = set()
+    i = 0
+    while i < len(passthrough):
+        arg = str(passthrough[i])
+        value = ""
+        if arg in ("-c", "--config") and i + 1 < len(passthrough):
+            value = str(passthrough[i + 1])
+            i += 2
+        elif arg.startswith("--config="):
+            value = arg.split("=", 1)[1]
+            i += 1
+        else:
+            i += 1
+            continue
+        if "=" in value:
+            keys.add(value.split("=", 1)[0].strip())
+    return keys
+
+
+def _toml_scalar_without_comment(raw: str) -> str:
+    in_single = False
+    in_double = False
+    escaped = False
+    out: list[str] = []
+    for ch in raw:
+        if escaped:
+            out.append(ch)
+            escaped = False
+            continue
+        if ch == "\\" and in_double:
+            out.append(ch)
+            escaped = True
+            continue
+        if ch == '"' and not in_single:
+            in_double = not in_double
+        elif ch == "'" and not in_double:
+            in_single = not in_single
+        elif ch == "#" and not in_single and not in_double:
+            break
+        out.append(ch)
+    return "".join(out).strip()
+
+
+def _unquote_toml_string(raw: str) -> str:
+    value = raw.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        return value[1:-1].strip()
+    return value
+
+
+def codex_alternate_screen_value_from_config_text(text: str) -> str | None:
+    table = ""
+    for line in text.splitlines():
+        stripped = _toml_scalar_without_comment(line)
+        if not stripped:
+            continue
+        table_match = re.fullmatch(r"\[([A-Za-z0-9_.-]+)\]", stripped)
+        if table_match:
+            table = table_match.group(1).strip()
+            continue
+        match = None
+        if table == "tui":
+            match = re.match(r"alternate_screen\s*=\s*(.+)$", stripped)
+        if match is None:
+            match = re.match(r"tui\.alternate_screen\s*=\s*(.+)$", stripped)
+        if match is None:
+            continue
+        value = _unquote_toml_string(match.group(1)).casefold()
+        if value in ("false", "0", "off", "no", "disabled", "disable"):
+            return "never"
+        if value in ("true", "1", "on", "yes", "enabled", "enable"):
+            return "always"
+        if value in ("auto", "always", "never"):
+            return None
+        return "auto"
+    return None
+
+
+def codex_config_paths_for_launch(passthrough: list[str], env: dict[str, str] | None = None, cwd: Path | None = None) -> list[Path]:
+    env = env or os.environ
+    home = Path(env.get("CODEX_HOME") or (Path.home() / ".codex")).expanduser()
+    paths = [home / "config.toml"]
+    profiles = []
+    i = 0
+    while i < len(passthrough):
+        arg = str(passthrough[i])
+        if arg in ("-p", "--profile") and i + 1 < len(passthrough):
+            profiles.append(str(passthrough[i + 1]))
+            i += 2
+            continue
+        if arg.startswith("--profile="):
+            profiles.append(arg.split("=", 1)[1])
+        i += 1
+    for profile in profiles:
+        if re.fullmatch(r"[A-Za-z0-9_-]+", profile or ""):
+            paths.append(home / f"{profile}.config.toml")
+    current = (cwd or Path.cwd()).resolve()
+    for parent in (current, *current.parents):
+        path = parent / ".codex" / "config.toml"
+        if path not in paths:
+            paths.append(path)
+    return paths
+
+
+def codex_alternate_screen_compat_args(passthrough: list[str], env: dict[str, str] | None = None, cwd: Path | None = None) -> list[str]:
+    if has_passthrough_option(passthrough, "--no-alt-screen") or CODEX_TUI_ALTERNATE_SCREEN_KEY in _codex_config_override_keys(passthrough):
+        return []
+    for path in codex_config_paths_for_launch(passthrough, env=env, cwd=cwd):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        value = codex_alternate_screen_value_from_config_text(text)
+        if value:
+            router_log("WARN", f"codex_compat_alternate_screen_override path={path} value={value}")
+            print(f'Ciel Runtime warning: applying Codex config compatibility override {CODEX_TUI_ALTERNATE_SCREEN_KEY}="{value}".', flush=True)
+            return ["-c", f"{CODEX_TUI_ALTERNATE_SCREEN_KEY}={toml_string(value)}"]
+    return []
 
 
 def codex_runtime_config_args(router_base: str = ROUTER_BASE) -> list[str]:
@@ -34342,6 +34464,7 @@ def launch_codex(
     else:
         env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
         cmd = [codex, *codex_runtime_config_args()]
+    cmd.extend(codex_alternate_screen_compat_args(passthrough, env=env))
     if not native_codex_enabled(provider) and not has_passthrough_option(passthrough, "-m", "--model"):
         model = current_alias(cfg)
         if model:

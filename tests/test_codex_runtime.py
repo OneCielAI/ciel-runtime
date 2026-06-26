@@ -1,6 +1,7 @@
 import copy
 import io
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -219,6 +220,24 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("model_providers.openai.wire_api=\"responses\"", joined)
         self.assertNotIn("env_key", joined)
 
+    def test_codex_alternate_screen_compat_converts_legacy_boolean_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "config.toml"
+            config.write_text("[tui]\nalternate_screen = false\n", encoding="utf-8")
+            with mock.patch.object(ciel_runtime, "router_log"), mock.patch("builtins.print"):
+                args = ciel_runtime.codex_alternate_screen_compat_args([], env={"CODEX_HOME": tmp}, cwd=Path(tmp))
+
+        self.assertEqual(["-c", "tui.alternate_screen=\"never\""], args)
+
+    def test_codex_alternate_screen_compat_respects_explicit_passthrough(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "config.toml"
+            config.write_text("[tui]\nalternate_screen = false\n", encoding="utf-8")
+            env = {"CODEX_HOME": tmp}
+
+            self.assertEqual([], ciel_runtime.codex_alternate_screen_compat_args(["--no-alt-screen"], env=env, cwd=Path(tmp)))
+            self.assertEqual([], ciel_runtime.codex_alternate_screen_compat_args(["-c", "tui.alternate_screen=\"never\""], env=env, cwd=Path(tmp)))
+
     def test_launch_codex_builds_command_with_router_provider(self):
         cfg = {"providers": {"ollama": {"current_model": "qwen3", "base_url": "http://localhost:11434"}}}
         pcfg = cfg["providers"]["ollama"]
@@ -248,6 +267,7 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex") as codex_update,
             mock.patch.object(ciel_runtime, "find_executable", return_value="codex"),
             mock.patch.object(ciel_runtime, "current_alias", return_value="ciel-runtime-ollama-qwen3"),
+            mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]),
             mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
             mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
             mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
@@ -292,6 +312,7 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
             mock.patch.object(ciel_runtime, "find_executable", return_value="codex"),
+            mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]),
             mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
             mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
             mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
@@ -331,6 +352,7 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
             mock.patch.object(ciel_runtime, "find_executable", return_value="codex"),
+            mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]),
             mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
             mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
             mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
