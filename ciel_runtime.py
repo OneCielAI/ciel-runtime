@@ -235,6 +235,10 @@ PROVIDER_ALIASES = {
     "claude-native": "anthropic",
     "native": "anthropic",
     "claude-code": "anthropic",
+    "codex": "codex",
+    "codex-native": "codex",
+    "native-codex": "codex",
+    "openai-codex": "codex",
     "ollama": "ollama",
     "ollama-cloud": "ollama-cloud",
     "cloud-ollama": "ollama-cloud",
@@ -287,6 +291,7 @@ PROVIDER_ALIASES = {
 
 PROVIDER_LABELS = {
     "anthropic": "Claude Native",
+    "codex": "Codex Native",
     "ollama": "Ollama",
     "ollama-cloud": "Ollama Cloud",
     "deepseek": "DeepSeek.com",
@@ -304,6 +309,8 @@ PROVIDER_LABELS = {
 
 ANTHROPIC_NATIVE_PROVIDER_CHOICE = "anthropic:native"
 ANTHROPIC_ROUTED_PROVIDER_CHOICE = "anthropic:routed"
+CODEX_NATIVE_PROVIDER_CHOICE = "codex:native"
+CODEX_ROUTED_PROVIDER_CHOICE = "codex:routed"
 
 OPENCODE_PROVIDER_NAMES = ("opencode", "opencode-go")
 OPENCODE_ENDPOINT_ALIASES = {
@@ -497,6 +504,9 @@ def ciel_runtime_source_fingerprint() -> str:
 
 SOURCE_FINGERPRINT = ciel_runtime_source_fingerprint()
 CREDITS = "Credits: One Ciel LLC"
+PRELAUNCH_CANCEL = 10
+PRELAUNCH_LAUNCH_CODEX = 11
+PRELAUNCH_LAUNCH_CLAUDE = 12
 
 LOG_LEVELS = {"SILENT": 0, "ERROR": 1, "WARN": 2, "INFO": 3, "DEBUG": 4, "TRACE": 5}
 LOG_LEVEL_NAMES = {v: k for k, v in LOG_LEVELS.items()}
@@ -1831,6 +1841,7 @@ UI_TEXT = {
         "recommended_preset_is": "recommended preset is",
         "back": "Back",
         "launch": "Launch Claude Code",
+        "launch_codex": "Launch Codex",
         "quit": "Quit",
         "title": "ciel-runtime pre-launch",
     },
@@ -1854,6 +1865,7 @@ UI_TEXT = {
         "recommended_preset_is": "추천 프리셋",
         "back": "뒤로",
         "launch": "Claude Code 실행",
+        "launch_codex": "Codex 실행",
         "quit": "종료",
         "title": "ciel-runtime 실행 전 설정",
     },
@@ -1877,6 +1889,7 @@ UI_TEXT = {
         "recommended_preset_is": "推奨プリセット",
         "back": "戻る",
         "launch": "Claude Codeを起動",
+        "launch_codex": "Codexを起動",
         "quit": "終了",
         "title": "ciel-runtime 起動前設定",
     },
@@ -1900,6 +1913,7 @@ UI_TEXT = {
         "recommended_preset_is": "推荐预设",
         "back": "返回",
         "launch": "启动 Claude Code",
+        "launch_codex": "启动 Codex",
         "quit": "退出",
         "title": "ciel-runtime 启动前设置",
     },
@@ -2077,6 +2091,15 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "advisor_model": "",
             "custom_models": [],
             "route_through_router": False,
+        },
+        "codex": {
+            "base_url": "https://api.openai.com",
+            "api_key": "",
+            "current_model": "",
+            "advisor_model": "",
+            "custom_models": [],
+            "route_through_router": False,
+            "request_timeout_ms": DEFAULT_REQUEST_TIMEOUT_MS,
         },
         "ollama": {
             "base_url": "http://127.0.0.1:11434",
@@ -2601,6 +2624,30 @@ def normalize_provider(name: str) -> str:
     if key not in PROVIDER_ALIASES:
         raise SystemExit(f"Unknown provider: {name}\nKnown: {', '.join(PROVIDER_LABELS)}")
     return PROVIDER_ALIASES[key]
+
+
+def normalize_provider_choice(name: str) -> str | None:
+    raw = str(name or "").strip().lower().replace("_", "-").replace(" ", "-")
+    key = raw.replace(":", "-")
+    choices = {
+        "anthropic-native": ANTHROPIC_NATIVE_PROVIDER_CHOICE,
+        "claude-native": ANTHROPIC_NATIVE_PROVIDER_CHOICE,
+        "native": ANTHROPIC_NATIVE_PROVIDER_CHOICE,
+        "claude-code": ANTHROPIC_NATIVE_PROVIDER_CHOICE,
+        "anthropic-routed": ANTHROPIC_ROUTED_PROVIDER_CHOICE,
+        "anthropic-router": ANTHROPIC_ROUTED_PROVIDER_CHOICE,
+        "claude-routed": ANTHROPIC_ROUTED_PROVIDER_CHOICE,
+        "claude-router": ANTHROPIC_ROUTED_PROVIDER_CHOICE,
+        "codex": CODEX_NATIVE_PROVIDER_CHOICE,
+        "codex-native": CODEX_NATIVE_PROVIDER_CHOICE,
+        "native-codex": CODEX_NATIVE_PROVIDER_CHOICE,
+        "codex-routed": CODEX_ROUTED_PROVIDER_CHOICE,
+        "codex-router": CODEX_ROUTED_PROVIDER_CHOICE,
+        "routed-codex": CODEX_ROUTED_PROVIDER_CHOICE,
+    }
+    if raw in (ANTHROPIC_NATIVE_PROVIDER_CHOICE, ANTHROPIC_ROUTED_PROVIDER_CHOICE, CODEX_NATIVE_PROVIDER_CHOICE, CODEX_ROUTED_PROVIDER_CHOICE):
+        return raw
+    return choices.get(key)
 
 
 def slug(s: str) -> str:
@@ -7244,6 +7291,18 @@ def anthropic_routed_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
 
 def direct_native_anthropic_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
     return native_anthropic_enabled(provider) and not anthropic_routed_enabled(provider, pcfg)
+
+
+def native_codex_enabled(provider: str) -> bool:
+    return provider == "codex"
+
+
+def codex_routed_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
+    return provider == "codex" and parse_bool(pcfg.get("route_through_router"), default=False)
+
+
+def direct_native_codex_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
+    return native_codex_enabled(provider) and not codex_routed_enabled(provider, pcfg)
 
 
 def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool = False) -> list[str]:
@@ -18478,6 +18537,117 @@ def collect_provider_message_for_responses(
     return collect_anthropic_message_for_responses(handler, provider, pcfg, body)
 
 
+def codex_routed_upstream_headers(pcfg: dict[str, Any], inbound_headers: Any | None = None) -> dict[str, str]:
+    headers = with_upstream_user_agent({"content-type": "application/json"})
+    key = provider_primary_api_key("codex", pcfg)
+    if meaningful_key(key):
+        headers["authorization"] = f"Bearer {key}"
+        headers["x-api-key"] = key
+        return headers
+    if inbound_headers is not None:
+        for name in (
+            "authorization",
+            "openai-organization",
+            "openai-project",
+            "openai-beta",
+            "x-stainless-arch",
+            "x-stainless-lang",
+            "x-stainless-os",
+            "x-stainless-package-version",
+            "x-stainless-runtime",
+            "x-stainless-runtime-version",
+        ):
+            value = inbound_headers.get(name)
+            if value:
+                headers[name] = value
+    if not headers.get("authorization"):
+        raise RuntimeError("Codex routed mode did not receive native Codex/OpenAI auth headers.")
+    return headers
+
+
+def _responses_input_as_list(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, str):
+        return [{"type": "message", "role": "user", "content": [{"type": "input_text", "text": value}]}]
+    if isinstance(value, dict):
+        return [dict(value)]
+    if isinstance(value, list):
+        return [dict(item) for item in value if isinstance(item, dict)]
+    return []
+
+
+def _responses_message_item(role: str, text: str) -> dict[str, Any]:
+    role = role if role in ("user", "assistant", "system", "developer") else "user"
+    text_type = "output_text" if role == "assistant" else "input_text"
+    return {"type": "message", "role": role, "content": [{"type": text_type, "text": text}]}
+
+
+def codex_responses_body_with_channel_context(body: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    delivery_body = openai_responses_to_anthropic_messages(body, str(body.get("model") or ""))
+    original_count = len(delivery_body.get("messages") or [])
+    delivery_body = body_with_pending_channel_messages(delivery_body)
+    delivery_body = body_with_pending_channel_summaries(delivery_body)
+    delivery_body = body_with_channel_tool_result_context(delivery_body)
+    messages = [m for m in delivery_body.get("messages") or [] if isinstance(m, dict)]
+    additions = messages[original_count:]
+    metadata = delivery_body.get("metadata") if isinstance(delivery_body.get("metadata"), dict) else {}
+    if not additions and not metadata:
+        return body, delivery_body
+    out = dict(body)
+    input_items = _responses_input_as_list(body.get("input", []))
+    for message in additions:
+        text = anthropic_content_to_text(message.get("content"))
+        if text.strip():
+            input_items.append(_responses_message_item(str(message.get("role") or "user"), text))
+    if input_items:
+        out["input"] = input_items
+    if metadata:
+        out_metadata = dict(out.get("metadata") if isinstance(out.get("metadata"), dict) else {})
+        for key, value in metadata.items():
+            out_metadata[str(key)] = str(value)
+        out["metadata"] = out_metadata
+    return out, delivery_body
+
+
+def _copy_upstream_response_headers(handler: BaseHTTPRequestHandler, headers: Any) -> None:
+    skipped = {"connection", "content-length", "transfer-encoding", "content-encoding"}
+    try:
+        items = headers.items()
+    except Exception:
+        items = []
+    wrote_content_type = False
+    for key, value in items:
+        low = str(key).lower()
+        if low in skipped:
+            continue
+        if low == "content-type":
+            wrote_content_type = True
+        handler.send_header(str(key), str(value))
+    if not wrote_content_type:
+        handler.send_header("content-type", "application/json")
+    handler.send_header("connection", "close")
+
+
+def forward_codex_responses(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> None:
+    upstream_body, delivery_body = codex_responses_body_with_channel_context(body)
+    begin_pending_channel_delivery(handler, delivery_body)
+    url = join_url(provider_upstream_request_base(provider, pcfg) or default_base_url(provider), "/v1/responses")
+    headers = codex_routed_upstream_headers(pcfg, handler.headers)
+    data = json.dumps(upstream_body).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+    with provider_urlopen(req, timeout=provider_request_timeout_seconds(pcfg), provider=provider, pcfg=pcfg) as resp:
+        handler.send_response(getattr(resp, "status", 200))
+        _copy_upstream_response_headers(handler, resp.headers)
+        handler.end_headers()
+        while True:
+            chunk = resp.read(65536)
+            if not chunk:
+                break
+            handler.wfile.write(chunk)
+            handler.wfile.flush()
+    mark_pending_channel_delivery_success(handler, "codex_responses_proxy")
+    commit_pending_channel_delivery_cursors(delivery_body, handler)
+
+
 def handle_openai_responses_post(
     handler: BaseHTTPRequestHandler,
     cfg: dict[str, Any],
@@ -18485,6 +18655,20 @@ def handle_openai_responses_post(
     pcfg: dict[str, Any],
     body: dict[str, Any],
 ) -> None:
+    if codex_routed_enabled(provider, pcfg):
+        try:
+            forward_codex_responses(handler, provider, pcfg, body)
+        except urllib.error.HTTPError as exc:
+            raw = exc.read().decode("utf-8", errors="ignore")
+            mark_pending_channel_delivery_failed(handler, f"codex_responses_http_error:{exc.code}")
+            write_openai_responses_error(handler, upstream_http_error_message(exc, raw), stream=bool(body.get("stream", True)), status=exc.code)
+        except Exception as exc:
+            if is_client_disconnect_error(exc):
+                mark_pending_channel_delivery_failed(handler, f"codex_responses_client_disconnected:{type(exc).__name__}")
+                return
+            mark_pending_channel_delivery_failed(handler, f"codex_responses_error:{type(exc).__name__}")
+            write_openai_responses_error(handler, f"{type(exc).__name__}: {exc}", stream=bool(body.get("stream", True)))
+        return
     stream = bool(body.get("stream", True))
     anthropic_body = openai_responses_to_anthropic_messages(body, current_alias(cfg))
     _update_tool_schema_registry(anthropic_body.get("tools"))
@@ -18989,12 +19173,16 @@ def set_provider_config(provider: str) -> list[str]:
     pcfg = cfg["providers"][provider]
     if provider == "anthropic":
         pcfg["route_through_router"] = False
+    if provider == "codex":
+        pcfg["route_through_router"] = False
     fixed_base = ensure_nvidia_hosted_base_url(pcfg) if provider == "nvidia-hosted" else False
     save_config(cfg)
     clear_model_cache()
     lines = [f"Provider set to {provider} ({PROVIDER_LABELS[provider]})."]
     if provider == "anthropic":
         lines.append("mode: anthropic-native")
+    if provider == "codex":
+        lines.append("mode: codex-native")
     if fixed_base:
         lines.append(f"Base URL set to {pcfg['base_url']} for NVIDIA hosted.")
     return lines
@@ -19002,10 +19190,11 @@ def set_provider_config(provider: str) -> list[str]:
 
 def set_provider_choice_config(choice: str) -> list[str]:
     cfg = load_config()
-    if choice in (ANTHROPIC_NATIVE_PROVIDER_CHOICE, ANTHROPIC_ROUTED_PROVIDER_CHOICE):
+    normalized_choice = normalize_provider_choice(choice) or choice
+    if normalized_choice in (ANTHROPIC_NATIVE_PROVIDER_CHOICE, ANTHROPIC_ROUTED_PROVIDER_CHOICE):
         cfg["current_provider"] = "anthropic"
         pcfg = cfg["providers"]["anthropic"]
-        routed = choice == ANTHROPIC_ROUTED_PROVIDER_CHOICE
+        routed = normalized_choice == ANTHROPIC_ROUTED_PROVIDER_CHOICE
         pcfg["route_through_router"] = routed
         save_config(cfg)
         clear_model_cache()
@@ -19022,7 +19211,25 @@ def set_provider_choice_config(choice: str) -> list[str]:
             "mode: anthropic-native",
             "Claude Code OAuth/Max can be used directly, but ciel-runtime router features such as /advisor are unavailable.",
         ]
-    return set_provider_config(choice)
+    if normalized_choice in (CODEX_NATIVE_PROVIDER_CHOICE, CODEX_ROUTED_PROVIDER_CHOICE):
+        cfg["current_provider"] = "codex"
+        pcfg = cfg["providers"]["codex"]
+        routed = normalized_choice == CODEX_ROUTED_PROVIDER_CHOICE
+        pcfg["route_through_router"] = routed
+        save_config(cfg)
+        clear_model_cache()
+        if routed:
+            return [
+                "Provider set to codex (Codex routed).",
+                "mode: codex-routed",
+                "Codex uses its native OpenAI account/config, with base URL routed through ciel-runtime.",
+            ]
+        return [
+            "Provider set to codex (Codex Native).",
+            "mode: codex-native",
+            "Codex runs with its own native settings; ciel-runtime router features are unavailable.",
+        ]
+    return set_provider_config(normalized_choice)
 
 
 def set_base_url_config(provider: str, url: str) -> list[str]:
@@ -19300,17 +19507,22 @@ def cmd_provider(args: argparse.Namespace) -> None:
     cfg = load_config()
     if not args.name:
         cur = cfg["current_provider"]
-        print("Available providers (current: %s)" % cur)
-        for i, p in enumerate(PROVIDER_LABELS, 1):
-            mark = "*" if p == cur else " "
-            base = cfg["providers"][p].get("base_url", "")
-            print(f" {mark} {i}. {p:<15} {PROVIDER_LABELS[p]:<16} {base}")
+        pcfg = cfg["providers"].get(cur, {})
+        rows, _values = provider_panel_rows(cfg)
+        print("Available providers (current: %s)" % provider_menu_label(cur, pcfg))
+        for i, row in enumerate(rows, 1):
+            print(f" {i:>2}. {row}")
         print("\nUse: /provider <name>")
-        print("Example: /provider ollama")
+        print("Examples: /provider codex, /provider codex-routed, /provider ollama")
         print("Then run /model to choose a model for the selected provider.")
         return
-    provider = normalize_provider(args.name)
-    for line in set_provider_config(provider):
+    choice = normalize_provider_choice(args.name)
+    if choice:
+        lines = set_provider_choice_config(choice)
+    else:
+        provider = normalize_provider(args.name)
+        lines = set_provider_config(provider)
+    for line in lines:
         print(line)
     print("Gateway model cache cleared. Run /model to refresh the model picker.")
 
@@ -19448,6 +19660,10 @@ def provider_mode_label(provider: str, pcfg: dict[str, Any]) -> str:
         return "anthropic-native"
     if anthropic_routed_enabled(provider, pcfg):
         return "anthropic-routed"
+    if direct_native_codex_enabled(provider, pcfg):
+        return "codex-native"
+    if codex_routed_enabled(provider, pcfg):
+        return "codex-routed"
     return "ciel-runtime-router"
 
 
@@ -19473,7 +19689,7 @@ def status_lines() -> list[str]:
         *([f"max_output_tokens: {pcfg.get('max_output_tokens', 'default')}"] if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai") else []),
         *([f"request_timeout_ms: {pcfg.get('request_timeout_ms', 'default')}"] if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai") else []),
         *([f"stream_idle_timeout_ms: {pcfg.get('stream_idle_timeout_ms', 'auto')}"] if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai") else []),
-        f"claude_model: {current_upstream_model_id(provider, pcfg) if direct_native else current_alias(cfg)}",
+        f"claude_model: {'disabled for Codex provider' if provider == 'codex' else (current_upstream_model_id(provider, pcfg) if direct_native else current_alias(cfg))}",
         f"log_level: {log_level_status()}",
         f"channels: {channel_status_text(cfg)}",
         f"channel_delivery: {channel_delivery_mode(cfg)}",
@@ -21755,7 +21971,7 @@ def cmd_ollama_options(args: argparse.Namespace) -> None:
     print("  ciel-runtime --ca-ollama-option temperature=0.7 --ca-ollama-num-ctx 65536")
 
 
-PROVIDER_OPTION_PROVIDERS = ("anthropic", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai")
+PROVIDER_OPTION_PROVIDERS = ("anthropic", "codex", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai")
 PROVIDER_SAMPLING_OPTION_PROVIDERS = ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "openrouter")
 PROVIDER_SAMPLING_OPTIONS = ("temperature", "top_p", "top_k")
 
@@ -24078,7 +24294,7 @@ def llm_option_panel_rows(provider: str, pcfg: dict[str, Any], lang: str | None 
     add(ui_text("timeout_preset", lang), "timeout_profile", timeout_profile_status(pcfg, lang))
     add("Router debug external", "router_debug_external_access", "on" if router_debug_external_access_enabled() else "off")
     add("Event message preview", "router_debug_message_preview_chars", router_debug_message_preview_chars())
-    if not direct_native_anthropic_enabled(provider, pcfg):
+    if not direct_native_anthropic_enabled(provider, pcfg) and provider != "codex":
         caps = claude_code_capability_string(provider, pcfg, current_upstream_model_id(provider, pcfg))
         add("Claude Code workflows", "workflows_enabled", "on" if claude_code_workflows_enabled(provider, pcfg) else "off")
         add("Claude Code ultracode", "ultracode_enabled", "on" if claude_code_ultracode_enabled(provider, pcfg) else "off")
@@ -24133,6 +24349,9 @@ def llm_option_panel_rows(provider: str, pcfg: dict[str, Any], lang: str | None 
             add("Timeout ms", "request_timeout_ms", pcfg.get("request_timeout_ms", "Claude Code default"))
             if anthropic_routed_enabled(provider, pcfg):
                 add("IP family", "ip_family", provider_ip_family(provider, pcfg))
+        elif provider == "codex":
+            add("Route through router", "route_through_router", "on" if codex_routed_enabled(provider, pcfg) else "off")
+            add("Timeout ms", "request_timeout_ms", pcfg.get("request_timeout_ms", "Codex default"))
 
     rows.append(ui_text("back", lang))
     values.append("back")
@@ -24201,6 +24420,9 @@ def set_llm_option_config(provider: str, key: str, raw_value: str) -> list[str]:
         pcfg["route_through_router"] = parse_bool(value, default=False)
         save_config(cfg)
         clear_model_cache()
+        if provider == "codex":
+            mode = "codex-routed" if pcfg["route_through_router"] else "codex-native"
+            return ["Codex routing mode updated.", f"mode: {mode}"]
         mode = "routed through ciel-runtime router" if pcfg["route_through_router"] else "direct Claude Native"
         return ["Anthropic routing mode updated.", f"mode: {mode}"]
     if key == "rate_limit_enabled":
@@ -24279,7 +24501,7 @@ def set_llm_option_config(provider: str, key: str, raw_value: str) -> list[str]:
         apply_provider_option(provider, pcfg, token)
     elif provider in ("ollama", "ollama-cloud"):
         apply_ollama_option(pcfg, token)
-    elif provider == "anthropic":
+    elif provider in ("anthropic", "codex"):
         if key in ("route", "routed", "route_through_router", "router"):
             pcfg["route_through_router"] = parse_bool(value, default=False)
         elif key in ("max_output_tokens", "max_tokens", "maxtoken", "max_token"):
@@ -24287,7 +24509,7 @@ def set_llm_option_config(provider: str, key: str, raw_value: str) -> list[str]:
         elif key in ("timeout", "timeout_ms", "request_timeout", "request_timeout_ms"):
             apply_provider_option(provider, pcfg, token)
         else:
-            raise SystemExit(f"Unknown Anthropic option: {key}")
+            raise SystemExit(f"Unknown {PROVIDER_LABELS.get(provider, provider)} option: {key}")
     else:
         apply_provider_option(provider, pcfg, token)
     cap_lines = cap_context_settings_to_model_capacity(provider, pcfg)
@@ -26065,6 +26287,10 @@ def cleanup_managed_services_for_provider(provider: str, pcfg: dict[str, Any], c
         if provider != "nvidia-hosted" or provider_native_compat_enabled(provider, pcfg):
             stop_ncp_proxy(quiet=quiet)
         return
+    if direct_native_codex_enabled(provider, pcfg):
+        stop_router_if_no_active_clients("native_codex_launch", quiet=quiet)
+        stop_ncp_proxy(quiet=quiet)
+        return
     if not cfg.get("cleanup", {}).get("managed_services_on_launch", True):
         return
     if provider != "nvidia-hosted" or provider_native_compat_enabled(provider, pcfg):
@@ -26074,6 +26300,7 @@ def cleanup_managed_services_for_provider(provider: str, pcfg: dict[str, Any], c
 def default_base_url(provider: str) -> str:
     return {
         "anthropic": "https://api.anthropic.com",
+        "codex": "https://api.openai.com",
         "ollama": "http://your-ollama:11434",
         "ollama-cloud": "https://ollama.com",
         "deepseek": "https://api.deepseek.com/anthropic",
@@ -26111,6 +26338,14 @@ def api_key_status_line(provider: str, pcfg: dict[str, Any]) -> str:
         if key_count > 1:
             return f"API keys: {round_robin} (Anthropic{primary_detail})"
         return f"API key: set (Anthropic{primary_detail})" if key_count else "API key: not set (use API key or Claude login)"
+    if provider == "codex":
+        if codex_routed_enabled(provider, pcfg):
+            if key_count > 1:
+                return f"API keys: {round_robin} (Codex routed fallback{primary_detail})"
+            return f"API key: set (Codex routed fallback{primary_detail})" if key_count else "API key: not set (uses native Codex/OpenAI auth headers)"
+        if key_count > 1:
+            return f"API keys: {round_robin} (Codex fallback{primary_detail})"
+        return f"API key: set (Codex fallback{primary_detail})" if key_count else "API key: not set (uses native Codex login/config)"
     if provider == "ollama-cloud":
         if key_count > 1:
             return f"API keys: {round_robin} (Ollama Cloud{primary_detail})"
@@ -26151,6 +26386,10 @@ def base_url_status_line(provider: str, pcfg: dict[str, Any]) -> str:
         return "Base URL: missing"
     if "your-" in base:
         return f"Base URL: placeholder ({base})"
+    if provider == "codex":
+        if codex_routed_enabled(provider, pcfg):
+            return f"Base URL: Codex routed upstream configured ({join_url(base, '/v1/responses')})"
+        return "Base URL: native Codex config (ciel-runtime does not override it)"
     if provider == "nvidia-hosted":
         if nvidia_hosted_native_compat_enabled(provider, pcfg):
             return f"Base URL: NVIDIA hosted native ({native_anthropic_base_url(provider, pcfg)}/v1/messages)"
@@ -26251,7 +26490,7 @@ def preflight_lines() -> list[str]:
 def launch_readiness_errors(cfg: dict[str, Any] | None = None) -> list[str]:
     cfg = cfg or load_config()
     provider, pcfg = get_current_provider(cfg)
-    if direct_native_anthropic_enabled(provider, pcfg):
+    if direct_native_anthropic_enabled(provider, pcfg) or native_codex_enabled(provider):
         return []
     status = base_url_status_line(provider, pcfg)
     low = status.lower()
@@ -26326,6 +26565,8 @@ def launch_blockers_require_api_key(blockers: list[str]) -> bool:
 def settings_ready_except_api_key() -> bool:
     cfg = load_config()
     provider, pcfg = get_current_provider(cfg)
+    if provider == "codex":
+        return True
     base = pcfg.get("base_url", "")
     model = pcfg.get("current_model", "")
     return bool(provider and base and model and "your-" not in base)
@@ -26614,34 +26855,85 @@ def compact_text(value: Any, width: int = 72) -> str:
 def provider_menu_label(provider: str, pcfg: dict[str, Any]) -> str:
     if provider == "anthropic":
         return "Anthropic routed" if anthropic_routed_enabled(provider, pcfg) else "Claude Native"
+    if provider == "codex":
+        return "Codex routed" if codex_routed_enabled(provider, pcfg) else "Codex Native"
     return PROVIDER_LABELS.get(provider, provider)
 
 
 def current_provider_panel_choice(provider: str, pcfg: dict[str, Any]) -> str:
     if provider == "anthropic":
         return ANTHROPIC_ROUTED_PROVIDER_CHOICE if anthropic_routed_enabled(provider, pcfg) else ANTHROPIC_NATIVE_PROVIDER_CHOICE
+    if provider == "codex":
+        return CODEX_ROUTED_PROVIDER_CHOICE if codex_routed_enabled(provider, pcfg) else CODEX_NATIVE_PROVIDER_CHOICE
     return provider
 
 
+MAIN_MENU_ACTIONS: tuple[str, ...] = (
+    "language",
+    "provider",
+    "api-key",
+    "base-url",
+    "model",
+    "advisor-model",
+    "options",
+    "log-level",
+    "test",
+    "launch",
+    "launch-codex",
+    "quit",
+)
+
+
+def claude_launch_enabled_for_provider(provider: str) -> bool:
+    return provider != "codex"
+
+
+def codex_launch_enabled_for_provider(provider: str) -> bool:
+    return provider == "codex"
+
+
+def default_prelaunch_action(provider: str) -> str:
+    return "launch-codex" if codex_launch_enabled_for_provider(provider) else "launch"
+
+
+def prelaunch_action_index(action: str) -> int:
+    try:
+        return list(MAIN_MENU_ACTIONS).index(action)
+    except ValueError:
+        return 0
+
+
 def main_menu_rows(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any], lang: str) -> list[str]:
+    model_text = "Codex default" if provider == "codex" and not pcfg.get("current_model") else compact_text(pcfg.get("current_model", "unset"), 62)
+    advisor_text = (
+        "Claude Code native /advisor"
+        if provider == "anthropic"
+        else ("Codex native" if provider == "codex" else compact_text(pcfg.get("advisor_model") or "off", 62))
+    )
+    launch_label = ui_text("launch", lang)
+    if not claude_launch_enabled_for_provider(provider):
+        launch_label += " [disabled: Codex provider selected]"
+    launch_codex_label = ui_text("launch_codex", lang)
+    if not codex_launch_enabled_for_provider(provider):
+        launch_codex_label += " [disabled: select Codex provider]"
     return [
         f"0. {ui_text('language', lang)}  [{LANGUAGES.get(lang, lang)}]",
         f"1. {ui_text('provider', lang)}  [{provider_menu_label(provider, pcfg)}]",
         f"2. {ui_text('api_key', lang)}  [{stored_api_key_mask(provider, pcfg)}]",
         f"3. {ui_text('base_url', lang)}  [{compact_text(pcfg.get('base_url', 'unset'), 62)}]",
-        f"4. {ui_text('model', lang)}  [{compact_text(pcfg.get('current_model', 'unset'), 62)}]",
-        f"5. {ui_text('advisor_model', lang)}  [{'Claude Code native /advisor' if provider == 'anthropic' else compact_text(pcfg.get('advisor_model') or 'off', 62)}]",
+        f"4. {ui_text('model', lang)}  [{model_text}]",
+        f"5. {ui_text('advisor_model', lang)}  [{advisor_text}]",
         f"6. {ui_text('options', lang)}  [{compact_text(llm_options_status(provider, pcfg), 62)}]",
         f"7. {ui_text('log_level', lang)}  [{log_level_status()}]",
         f"8. {ui_text('test', lang)}",
-        f"9. {ui_text('launch', lang)}",
+        f"9. {launch_label}",
+        f"10. {launch_codex_label}",
         ui_text("quit", lang),
     ]
 
 
 def provider_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    rows: list[str] = []
-    values: list[str] = []
+    entries: list[tuple[str, str, str]] = []
     current = cfg.get("current_provider", "nvidia-hosted")
     for key, label in PROVIDER_LABELS.items():
         pcfg = cfg.get("providers", {}).get(key, {})
@@ -26649,16 +26941,33 @@ def provider_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
             routed = anthropic_routed_enabled(key, pcfg)
             native_mark = "*" if current == key and not routed else " "
             routed_mark = "*" if current == key and routed else " "
-            rows.append(f"{native_mark} {'Claude Native':<16} {'anthropic-native':<17} {compact_text(pcfg.get('base_url', ''), 52)}")
-            values.append(ANTHROPIC_NATIVE_PROVIDER_CHOICE)
+            entries.append(
+                (
+                    "Claude Native",
+                    f"{native_mark} {'Claude Native':<16} {'anthropic-native':<17} {compact_text(pcfg.get('base_url', ''), 52)}",
+                    ANTHROPIC_NATIVE_PROVIDER_CHOICE,
+                )
+            )
             suffix = "router via Claude Code auth" if not provider_has_api_key(key, pcfg) else "router features"
-            rows.append(f"{routed_mark} {'Anthropic routed':<16} {'anthropic-routed':<17} {suffix}")
-            values.append(ANTHROPIC_ROUTED_PROVIDER_CHOICE)
+            entries.append(
+                (
+                    "Anthropic routed",
+                    f"{routed_mark} {'Anthropic routed':<16} {'anthropic-routed':<17} {suffix}",
+                    ANTHROPIC_ROUTED_PROVIDER_CHOICE,
+                )
+            )
+            continue
+        if key == "codex":
+            routed = codex_routed_enabled(key, pcfg)
+            native_mark = "*" if current == key and not routed else " "
+            routed_mark = "*" if current == key and routed else " "
+            entries.append(("Codex Native", f"{native_mark} {'Codex Native':<16} {'codex-native':<17} native Codex settings", CODEX_NATIVE_PROVIDER_CHOICE))
+            entries.append(("Codex routed", f"{routed_mark} {'Codex routed':<16} {'codex-routed':<17} router via native OpenAI auth", CODEX_ROUTED_PROVIDER_CHOICE))
             continue
         mark = "*" if key == current else " "
-        rows.append(f"{mark} {label:<16} {key:<15} {compact_text(pcfg.get('base_url', ''), 54)}")
-        values.append(key)
-    return rows, values
+        entries.append((label, f"{mark} {label:<16} {key:<15} {compact_text(pcfg.get('base_url', ''), 54)}", key))
+    entries.sort(key=lambda item: (item[0].casefold(), item[2].casefold()))
+    return [row for _label, row, _value in entries], [value for _label, _row, value in entries]
 
 
 def language_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
@@ -27008,6 +27317,8 @@ def render_prelaunch_screen(
         line = ("> " if i == main_idx and panel is None else "  ") + row
         if i == main_idx and panel is None:
             add(line, "7;1")
+        elif "disabled:" in row:
+            add(line, "2")
         elif "Launch" in row or "실행" in row or "起動" in row or "启动" in row:
             add(line, "32;1")
         elif row == ui_text("quit", lang):
@@ -27388,7 +27699,9 @@ def portable_language_menu() -> int:
 def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
     passthrough = list(passthrough or [])
     enable_ansi()
-    main_idx = 9 if settings_ready_except_api_key() else 0
+    cfg = load_config()
+    provider, _pcfg = get_current_provider(cfg)
+    main_idx = prelaunch_action_index(default_prelaunch_action(provider)) if settings_ready_except_api_key() else 0
     panel: str | None = None
     panel_idx = 0
     panel_rows: list[str] = []
@@ -27544,8 +27857,13 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                 elif panel == "provider" and value:
                     messages = set_provider_choice_config(value)
                     refresh_checks()
-                    main_idx = 4
-                    open_panel("model")
+                    cfg = load_config()
+                    provider, _pcfg = get_current_provider(cfg)
+                    if provider == "codex":
+                        close_panel(prelaunch_action_index(default_prelaunch_action(provider)))
+                    else:
+                        main_idx = 4
+                        open_panel("model")
                 elif panel == "model":
                     if value == "back":
                         close_panel()
@@ -27885,11 +28203,17 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                 provider, pcfg = get_current_provider(cfg)
                 main_idx = (main_idx + 1) % len(main_menu_rows(cfg, provider, pcfg, cfg.get("language", "en")))
             elif key in ("esc", "q"):
-                return 10
+                return PRELAUNCH_CANCEL
             elif key == "enter":
-                actions = ["language", "provider", "api-key", "base-url", "model", "advisor-model", "options", "log-level", "test", "launch", "quit"]
+                actions = list(MAIN_MENU_ACTIONS)
                 action = actions[main_idx]
                 if action == "launch":
+                    cfg = load_config()
+                    provider, _ = get_current_provider(cfg)
+                    if not claude_launch_enabled_for_provider(provider):
+                        messages = ["Launch Claude Code is disabled while a Codex provider is selected."]
+                        refresh_checks()
+                        continue
                     blockers = launch_readiness_errors()
                     if blockers:
                         messages = blockers
@@ -27906,9 +28230,22 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                             ]
                         refresh_checks()
                         continue
-                    return 0
+                    return PRELAUNCH_LAUNCH_CLAUDE
+                if action == "launch-codex":
+                    cfg = load_config()
+                    provider, _ = get_current_provider(cfg)
+                    if not codex_launch_enabled_for_provider(provider):
+                        messages = ["Launch Codex is disabled until you select Codex or Codex routed as the provider."]
+                        refresh_checks()
+                        continue
+                    blockers = launch_readiness_errors()
+                    if blockers:
+                        messages = blockers
+                        refresh_checks()
+                        continue
+                    return PRELAUNCH_LAUNCH_CODEX
                 if action == "quit":
-                    return 10
+                    return PRELAUNCH_CANCEL
                 open_panel(action)
     finally:
         if old_settings is not None:
@@ -33605,12 +33942,24 @@ def launch_claude(
     run_ciel_runtime_update_check(enabled=self_update_check)
     auto_import_passthrough_channels(passthrough)
     rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
-    if rc == 10:
+    if rc == PRELAUNCH_LAUNCH_CODEX:
+        return launch_codex(
+            passthrough,
+            skip_menu=True,
+            force_menu=False,
+            update_check=update_check,
+            self_update_check=False,
+        )
+    if rc == PRELAUNCH_CANCEL:
         return 0
-    if rc != 0:
+    if rc not in (0, PRELAUNCH_LAUNCH_CLAUDE):
         return rc
     cfg = load_config()
     provider, pcfg = get_current_provider(cfg)
+    if not claude_launch_enabled_for_provider(provider):
+        print("Ciel Runtime launch blocked: Launch Claude Code is disabled while a Codex provider is selected.", flush=True)
+        print("Use Launch Codex or --ca-runtime codex.", flush=True)
+        return 2
     blockers = launch_readiness_errors(cfg)
     if blockers:
         print("Ciel Runtime launch blocked:", flush=True)
@@ -33890,6 +34239,7 @@ def launch_claude(
 
 CODEX_RUNTIME_PROVIDER_ID = "ciel-runtime"
 CODEX_RUNTIME_API_KEY_ENV = "CIEL_RUNTIME_CODEX_API_KEY"
+CODEX_NATIVE_PROVIDER_ID_ENV = "CIEL_RUNTIME_CODEX_NATIVE_PROVIDER_ID"
 
 
 def toml_string(value: str) -> str:
@@ -33914,6 +34264,19 @@ def codex_runtime_config_args(router_base: str = ROUTER_BASE) -> list[str]:
         f"model_providers.{provider}.request_max_retries=0",
         "-c",
         f"model_providers.{provider}.stream_max_retries=0",
+    ]
+
+
+def codex_native_routed_config_args(router_base: str = ROUTER_BASE) -> list[str]:
+    provider = (os.environ.get(CODEX_NATIVE_PROVIDER_ID_ENV) or "openai").strip() or "openai"
+    base = router_base.rstrip("/") + "/v1"
+    return [
+        "-c",
+        f"model_provider={toml_string(provider)}",
+        "-c",
+        f"model_providers.{provider}.base_url={toml_string(base)}",
+        "-c",
+        f"model_providers.{provider}.wire_api={toml_string('responses')}",
     ]
 
 
@@ -33946,9 +34309,17 @@ def launch_codex(
         return subprocess.call([codex, *passthrough], env=env)
     auto_import_passthrough_channels(passthrough)
     rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
-    if rc == 10:
+    if rc == PRELAUNCH_LAUNCH_CLAUDE:
+        return launch_claude(
+            passthrough,
+            skip_menu=True,
+            force_menu=False,
+            update_check=update_check,
+            self_update_check=False,
+        )
+    if rc == PRELAUNCH_CANCEL:
         return 0
-    if rc != 0:
+    if rc not in (0, PRELAUNCH_LAUNCH_CODEX):
         return rc
     cfg = load_config()
     provider, pcfg = get_current_provider(cfg)
@@ -33959,11 +34330,19 @@ def launch_codex(
             print(f"- {line}", flush=True)
         return 2
     cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
-    manage_router_lifetime = bool(start_router_if_needed())
-    ensure_model_cache_for_launch(provider, pcfg)
-    env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
-    cmd = [codex, *codex_runtime_config_args()]
-    if not has_passthrough_option(passthrough, "-m", "--model"):
+    use_native_codex = direct_native_codex_enabled(provider, pcfg)
+    use_codex_routed = codex_routed_enabled(provider, pcfg)
+    manage_router_lifetime = False if use_native_codex else bool(start_router_if_needed())
+    if not native_codex_enabled(provider):
+        ensure_model_cache_for_launch(provider, pcfg)
+    if use_native_codex:
+        cmd = [codex]
+    elif use_codex_routed:
+        cmd = [codex, *codex_native_routed_config_args()]
+    else:
+        env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
+        cmd = [codex, *codex_runtime_config_args()]
+    if not native_codex_enabled(provider) and not has_passthrough_option(passthrough, "-m", "--model"):
         model = current_alias(cfg)
         if model:
             cmd.extend(["-m", model])
@@ -33972,8 +34351,8 @@ def launch_codex(
     record_launch_state_for_cwd(
         current_launch_cwd_key(),
         provider,
-        "codex-router",
-        str(pcfg.get("current_model") or current_alias(cfg) or ""),
+        provider_mode_label(provider, pcfg) if native_codex_enabled(provider) else "codex-router",
+        str(pcfg.get("current_model") or ("" if native_codex_enabled(provider) else current_alias(cfg)) or ""),
     )
 
     def run_codex_process() -> int:
