@@ -180,6 +180,67 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertLessEqual(ciel_runtime.estimate_tokens({"messages": compacted, "tools": tools}), budget)
         self.assertEqual(499712, budget)
 
+    def test_ollama_compact_hard_caps_oversized_first_user_message(self):
+        messages = [
+            {"role": "system", "content": "system prompt"},
+            {"role": "user", "content": "initial paste " + ("x" * 180000)},
+            {"role": "assistant", "content": "old answer " + ("y" * 4000)},
+            {"role": "user", "content": "current task must survive"},
+        ]
+        budget = 8192
+
+        with mock.patch.object(ciel_runtime, "write_context_compact_activity") as write_compact:
+            compacted = ciel_runtime.compact_ollama_messages_for_budget(
+                messages,
+                [],
+                budget,
+                provider="ollama",
+                model="qwen3.6:35b-a3b-mtp-2gpu-ctx256k",
+            )
+
+        self.assertLessEqual(ciel_runtime.estimate_tokens({"messages": compacted, "tools": []}), budget)
+        self.assertIn("current task must survive", compacted[-1]["content"])
+        self.assertIn("Latest retained message compacted", compacted[-1]["content"])
+        self.assertLess(len(compacted), len(messages))
+        write_compact.assert_called_once()
+
+    def test_ollama_context_error_retry_config_compacts_to_reported_n_ctx(self):
+        raw = '{"error":"request (58940 tokens) exceeds the available context size (32768 tokens), try increasing the context length","n_ctx":32768}'
+        pcfg = {
+            "current_model": "qwen3.6:35b-a3b-mtp-2gpu-ctx256k",
+            "num_ctx": "auto",
+            "num_ctx_min": 32768,
+            "num_ctx_max": 262144,
+            "model_context_model": "qwen3.6:35b-a3b-mtp-2gpu-ctx256k",
+            "model_context_max": 262144,
+            "max_output_tokens": 32768,
+            "ollama_options": {"num_predict": 32768},
+        }
+        body = {
+            "model": "qwen3.6:35b-a3b-mtp-2gpu-ctx256k",
+            "max_tokens": 32768,
+            "messages": [
+                *[
+                    {"role": "user" if idx % 2 == 0 else "assistant", "content": f"history {idx} " + ("x" * 4000)}
+                    for idx in range(80)
+                ],
+                {"role": "user", "content": "current task must survive"},
+            ],
+        }
+
+        self.assertEqual(32768, ciel_runtime.ollama_context_error_limit(raw))
+        retry_pcfg = ciel_runtime.ollama_context_retry_config(pcfg, 32768)
+        with mock.patch.object(ciel_runtime, "write_context_usage"):
+            normal_req = ciel_runtime.ollama_chat_request(body["model"], body, pcfg, stream=True)
+            retry_req = ciel_runtime.ollama_chat_request(body["model"], body, retry_pcfg, stream=True)
+
+        self.assertEqual(262144, normal_req["options"]["num_ctx"])
+        self.assertGreater(ciel_runtime.estimate_tokens(normal_req), 32768)
+        self.assertEqual(32768, retry_req["options"]["num_ctx"])
+        self.assertLessEqual(retry_req["options"]["num_predict"], 2048)
+        self.assertLessEqual(ciel_runtime.estimate_tokens(retry_req), 32768)
+        self.assertIn("current task must survive", retry_req["messages"][-1]["content"])
+
     def test_compact_request_uses_segmented_llm_compaction(self):
         calls = []
         original = ciel_runtime.context_compact_request_summary

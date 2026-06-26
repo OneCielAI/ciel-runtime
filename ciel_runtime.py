@@ -14333,6 +14333,42 @@ def ollama_request_timeout_seconds(pcfg: dict[str, Any]) -> float:
     return value
 
 
+def ollama_context_error_limit(raw: str | None) -> int | None:
+    text = str(raw or "")
+    low = text.lower()
+    if "context" not in low and "n_ctx" not in low:
+        return None
+    patterns = (
+        r"available context size\s*\(\s*(\d+)\s+tokens?\s*\)",
+        r'"n_ctx"\s*:\s*(\d+)',
+        r"\bn_ctx\s*[=:]\s*(\d+)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return positive_int(match.group(1))
+    return None
+
+
+def ollama_context_retry_config(pcfg: dict[str, Any], context_limit: int) -> dict[str, Any]:
+    retry_pcfg = dict(pcfg)
+    context_limit = max(8192, int(context_limit))
+    retry_pcfg["num_ctx"] = context_limit
+    retry_pcfg["num_ctx_max"] = context_limit
+    minimum = positive_int(retry_pcfg.get("num_ctx_min"))
+    if minimum and minimum > context_limit:
+        retry_pcfg["num_ctx_min"] = context_limit
+    output_cap = max(256, min(2048, context_limit // 8))
+    configured_output = positive_int(retry_pcfg.get("max_output_tokens"))
+    retry_pcfg["max_output_tokens"] = min(configured_output, output_cap) if configured_output else output_cap
+    opts = dict(ollama_extra_options(retry_pcfg))
+    configured_num_predict = positive_int(opts.get("num_predict"))
+    if configured_num_predict:
+        opts["num_predict"] = min(configured_num_predict, output_cap)
+    retry_pcfg["ollama_options"] = opts
+    return retry_pcfg
+
+
 def configured_output_tokens(pcfg: dict[str, Any], body: dict[str, Any], option_key: str | None = None) -> int | None:
     configured = positive_int(pcfg.get("max_output_tokens"))
     if option_key:
@@ -14422,6 +14458,53 @@ def compact_ollama_messages_for_budget(
                 f"context_compact_map_reduce_oversize provider={provider} model={model} tokens={final_tokens} budget={budget_tokens}; falling back to deterministic compact",
             )
 
+    def compact_chat_message_for_budget(message: dict[str, Any], max_chars: int, prefix: str) -> dict[str, Any]:
+        role = str(message.get("role") or "user")
+        if role not in ("system", "user", "assistant", "tool"):
+            role = "user"
+        content = message.get("content")
+        text = content if isinstance(content, str) else anthropic_content_to_text(content)
+        out: dict[str, Any] = {"role": role}
+        if message.get("name"):
+            out["name"] = str(message.get("name"))
+        out["content"] = truncate_for_prompt(f"{prefix}\n{text}", max(256, max_chars))
+        return out
+
+    def hard_cap_ollama_messages(
+        system_messages: list[dict[str, Any]],
+        latest_message: dict[str, Any] | None,
+        omitted_messages: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        summary_text = build_chunked_context_guard_summary(omitted_messages, max(8192, budget_tokens // 2))
+        summary_prefix = (
+            "[ciel-runtime context guard: older conversation history and oversized retained messages were "
+            "compacted because they exceeded the provider context budget.]"
+        )
+        latest_prefix = "[Latest retained message compacted because the previous payload exceeded the provider context budget.]"
+        system_chars = max(512, min(8192, budget_tokens))
+        summary_chars = max(512, min(4096, budget_tokens))
+        latest_chars = max(1024, budget_tokens * 4)
+        last_candidate: list[dict[str, Any]] = []
+        for _ in range(10):
+            per_system_chars = max(256, system_chars // max(1, len(system_messages)))
+            capped_systems = [
+                compact_chat_message_for_budget(message, per_system_chars, "[System message compacted for context budget.]")
+                for message in system_messages
+            ]
+            summary_message = {"role": "user", "content": truncate_for_prompt(f"{summary_prefix}\n{summary_text}", summary_chars)}
+            candidate = [*capped_systems, summary_message]
+            base_tokens = estimate_tokens({"messages": candidate, "tools": tools})
+            remaining_chars = max(256, (budget_tokens - base_tokens) * 4 - 1024)
+            if latest_message is not None:
+                candidate.append(compact_chat_message_for_budget(latest_message, min(latest_chars, remaining_chars), latest_prefix))
+            last_candidate = candidate
+            if estimate_tokens({"messages": candidate, "tools": tools}) <= budget_tokens:
+                return candidate
+            system_chars = max(256, system_chars // 2)
+            summary_chars = max(256, summary_chars // 2)
+            latest_chars = max(256, latest_chars // 2)
+        return last_candidate
+
     system_messages = [m for m in messages if m.get("role") == "system"]
     non_system = [m for m in messages if m.get("role") != "system"]
     first_user: dict[str, Any] | None = next((m for m in non_system if m.get("role") == "user"), None)
@@ -14463,6 +14546,14 @@ def compact_ollama_messages_for_budget(
         omitted_messages.append(removed)
         summary["content"] = build_chunked_context_guard_summary(omitted_messages, budget_tokens)
         compacted = fixed_prefix + list(reversed(preserved_tail))
+    if estimate_tokens({"messages": compacted, "tools": tools}) > budget_tokens:
+        latest_message = next((m for m in reversed(non_system) if isinstance(m, dict)), None)
+        omitted_for_hard_cap = [
+            message
+            for message in messages
+            if message not in system_messages and (latest_message is None or message is not latest_message)
+        ]
+        compacted = hard_cap_ollama_messages(system_messages, latest_message, omitted_for_hard_cap)
     router_log(
         "WARN",
         f"compacted ollama payload messages {len(messages)}->{len(compacted)} tokens {initial_tokens}->{estimate_tokens({'messages': compacted, 'tools': tools})} budget={budget_tokens}",
@@ -14777,6 +14868,7 @@ def ollama_chat_request(model: str, body: dict[str, Any], pcfg: dict[str, Any], 
         full_compact_request=is_claude_code_compact_request(body),
         wire="ollama",
     )
+    write_context_usage(provider, pcfg, {"messages": messages, "tools": tools}, "ollama_upstream")
     req: dict[str, Any] = {
         "model": model,
         "messages": messages,
@@ -16970,9 +17062,11 @@ def forward_ollama_api_chat(handler: BaseHTTPRequestHandler, provider: str, pcfg
         req_bytes = len(data_bytes)
         gateway_retries = 0 if compatibility_test else configured_gateway_retries(pcfg)
         max_attempts = max(1, gateway_retries + 1)
+        loop_attempts = max_attempts + 1
+        context_retry_used = False
         resp = None
         stream_idle_timeout = provider_stream_idle_timeout_seconds(pcfg)
-        for attempt in range(max_attempts):
+        for attempt in range(loop_attempts):
             req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
             try:
                 write_router_activity(
@@ -16994,6 +17088,32 @@ def forward_ollama_api_chat(handler: BaseHTTPRequestHandler, provider: str, pcfg
             except urllib.error.HTTPError as exc:
                 raw = exc.read().decode("utf-8", errors="ignore")
                 learn_router_rate_limit_headers(provider, pcfg, model, exc.headers)
+                context_limit = ollama_context_error_limit(raw)
+                if exc.code == 400 and context_limit and not context_retry_used:
+                    context_retry_used = True
+                    retry_pcfg = ollama_context_retry_config(pcfg, context_limit)
+                    req_body = ollama_chat_request(model, upstream_body, retry_pcfg, stream=stream_requested, provider=provider)
+                    data_bytes = json.dumps(req_body).encode("utf-8")
+                    req_tokens = estimate_tokens(req_body)
+                    req_bytes = len(data_bytes)
+                    write_router_activity(
+                        "retry",
+                        provider,
+                        model,
+                        attempt=attempt + 1,
+                        total=max_attempts,
+                        code=exc.code,
+                        reason="context_compact_retry",
+                        context_limit=context_limit,
+                        tokens=req_tokens,
+                        bytes=req_bytes,
+                        stream=True,
+                    )
+                    router_log(
+                        "WARN",
+                        f"ollama_stream_context_retry provider={provider} model={model} n_ctx={context_limit} tokens={req_tokens} bytes={req_bytes}",
+                    )
+                    continue
                 if exc.code == 429 and attempt + 1 < max_attempts:
                     retry_no = attempt + 1
                     wait = register_router_rate_limit_backoff(provider, pcfg, model, exc.headers.get("Retry-After"))
@@ -17099,8 +17219,10 @@ def forward_ollama_api_chat(handler: BaseHTTPRequestHandler, provider: str, pcfg
     req_bytes = len(data_bytes)
     gateway_retries = 0 if compatibility_test else configured_gateway_retries(pcfg)
     max_attempts = max(1, gateway_retries + 1)
+    loop_attempts = max_attempts + 1
+    context_retry_used = False
     data = None
-    for attempt in range(max_attempts):
+    for attempt in range(loop_attempts):
         req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
         try:
             write_router_activity(
@@ -17121,6 +17243,31 @@ def forward_ollama_api_chat(handler: BaseHTTPRequestHandler, provider: str, pcfg
         except urllib.error.HTTPError as exc:
             raw = exc.read().decode("utf-8", errors="ignore")
             learn_router_rate_limit_headers(provider, pcfg, model, exc.headers)
+            context_limit = ollama_context_error_limit(raw)
+            if exc.code == 400 and context_limit and not context_retry_used:
+                context_retry_used = True
+                retry_pcfg = ollama_context_retry_config(pcfg, context_limit)
+                req_body = ollama_chat_request(model, upstream_body, retry_pcfg, stream=stream_requested, provider=provider)
+                data_bytes = json.dumps(req_body).encode("utf-8")
+                req_tokens = estimate_tokens(req_body)
+                req_bytes = len(data_bytes)
+                write_router_activity(
+                    "retry",
+                    provider,
+                    model,
+                    attempt=attempt + 1,
+                    total=max_attempts,
+                    code=exc.code,
+                    reason="context_compact_retry",
+                    context_limit=context_limit,
+                    tokens=req_tokens,
+                    bytes=req_bytes,
+                )
+                router_log(
+                    "WARN",
+                    f"ollama_context_retry provider={provider} model={model} n_ctx={context_limit} tokens={req_tokens} bytes={req_bytes}",
+                )
+                continue
             if exc.code == 429 and attempt + 1 < max_attempts:
                 retry_no = attempt + 1
                 wait = register_router_rate_limit_backoff(provider, pcfg, model, exc.headers.get("Retry-After"))
