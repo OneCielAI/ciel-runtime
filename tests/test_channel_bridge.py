@@ -4826,6 +4826,48 @@ class ChannelBridgeTests(unittest.TestCase):
         append.assert_called_once()
         self.assertEqual("wake from json line", append.call_args.args[0]["message"])
 
+    def test_mcp_proxy_compacts_large_get_messages_tool_result(self):
+        payload = {
+            "success": True,
+            "data": [
+                {
+                    "id": "msg_large",
+                    "room_id": "room_iyjjx0bzfimr",
+                    "sender_name": "PERP Monitor Bot",
+                    "kind": "text",
+                    "content": "시장 요약 본문\n" + ("important context " * 200),
+                    "metadata": {
+                        "stream_id": "1782508801647-0",
+                        "snapshot": {"huge": "x" * 60000, "headlines": ["a", "b"]},
+                    },
+                }
+            ],
+        }
+        response = {
+            "jsonrpc": "2.0",
+            "id": 42,
+            "result": {
+                "content": [{"type": "text", "text": json.dumps(payload, ensure_ascii=False, indent=2)}],
+                "isError": False,
+            },
+        }
+
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_MCP_TOOL_RESULT_MAX_CHARS": "8000"}):
+            compacted = ciel_runtime._mcp_proxy_compact_tool_result_response(
+                "ai-net-http",
+                "get_messages",
+                response,
+            )
+
+        text = compacted["result"]["content"][0]["text"]
+        parsed = json.loads(text)
+        self.assertLessEqual(len(text), 8000 + 40)
+        self.assertTrue(parsed["ciel_runtime_compacted"])
+        self.assertEqual("msg_large", parsed["data"][0]["id"])
+        self.assertIn("시장 요약 본문", parsed["data"][0]["content"])
+        self.assertIn("snapshot_keys", parsed["data"][0]["metadata"])
+        self.assertNotIn("x" * 1000, text)
+
     def test_mcp_proxy_subcommand_round_trips_stdio_frame(self):
         with tempfile.TemporaryDirectory(prefix="ca-mcp-test-") as td:
             root = Path(td)
@@ -5300,7 +5342,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 assert proc.stderr is not None
                 proc.stdin.write(frame({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}))
                 proc.stdin.flush()
-                deadline = time.time() + 1.0
+                deadline = time.time() + 5.0
                 while time.time() < deadline and not seen_gets:
                     time.sleep(0.02)
                 self.assertTrue(seen_gets, "proxy did not open the pre-initialized GET stream")

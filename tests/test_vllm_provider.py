@@ -509,6 +509,22 @@ class VllmProviderTests(unittest.TestCase):
 
         self.assertEqual("8192", env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"])
 
+    def test_vllm_256k_launch_env_does_not_claim_one_million_context(self):
+        cfg = {
+            "current_provider": "vllm",
+            "providers": {"vllm": dict(ciel_runtime.DEFAULT_CONFIG["providers"]["vllm"])},
+        }
+        pcfg = cfg["providers"]["vllm"]
+        pcfg["current_model"] = "qwen3.6-35b-a3b-nvfp4-512k-spark"
+        pcfg["context_window"] = 262144
+        pcfg["max_model_len"] = 262144
+
+        with mock.patch.object(ciel_runtime, "upstream_model_context_limit", return_value=None):
+            env = ciel_runtime.env_vars(cfg)
+
+        self.assertEqual("ciel-runtime-vllm-qwen3.6-35b-a3b-nvfp4-512k-spark", env["ANTHROPIC_MODEL"])
+        self.assertEqual("262144", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
+
     def test_small_context_output_cap_rounds_down_for_200k_custom_model(self):
         pcfg = dict(ciel_runtime.DEFAULT_CONFIG["providers"]["vllm"])
         pcfg["context_window"] = 200000

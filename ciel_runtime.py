@@ -559,6 +559,8 @@ _NATIVE_ROUTER_CHANNEL_NAMES = {"ciel-runtime-router", "mcp-ciel-runtime-router"
 _MCP_NOTIFICATION_DEDUP_TTL_SECONDS = 3.0
 _MCP_NOTIFICATION_DEDUP_LOCK = threading.Lock()
 _MCP_NOTIFICATION_DEDUP_RECENT: dict[str, tuple[str, float]] = {}
+MCP_PROXY_TOOL_RESULT_MAX_CHARS_DEFAULT = 24000
+MCP_PROXY_TOOL_RESULT_ITEM_TEXT_CHARS = 6000
 _TOOL_SIDE_EFFECT_DEDUP_TTL_SECONDS = 10 * 60.0
 _TOOL_SIDE_EFFECT_DEDUP_LOCK = threading.Lock()
 _TOOL_SIDE_EFFECT_DEDUP_RECENT: dict[str, float] = {}
@@ -25529,14 +25531,27 @@ def claude_code_auto_compact_window(provider: str, pcfg: dict[str, Any]) -> int 
     return None
 
 
+def claude_code_model_claims_one_million_context(provider: str, pcfg: dict[str, Any], model: str) -> bool:
+    candidates = [
+        str(model or ""),
+        str(pcfg.get("current_model") or ""),
+        str(current_upstream_model_id(provider, pcfg) or ""),
+    ]
+    if any("[1m]" in candidate.lower() for candidate in candidates):
+        return True
+    for candidate in candidates:
+        hint = model_context_hint_from_model_id(candidate)
+        if hint and hint >= 1_000_000:
+            return True
+    limit = context_limit_for_status(provider, pcfg)
+    return bool(limit and limit >= 1_000_000)
+
+
 def claude_code_context_model_alias(provider: str, pcfg: dict[str, Any], model: str) -> str:
     model = strip_claude_context_suffix(model)
-    limit = context_limit_for_status(provider, pcfg)
-    # Claude Code treats custom model aliases without an explicit long-context
-    # hint as roughly 200K-context models. For routed/non-native providers the
-    # router still enforces the real provider window, but Claude Code needs the
-    # long-context hint to avoid compacting at ~180K for 256K/300K/512K presets.
-    if limit and limit > 200000 and "[1m]" not in model.lower():
+    # Claude Code treats [1m] as a real one-million-context model marker. Do
+    # not use it as a generic long-context hint for 256K/512K routed models.
+    if claude_code_model_claims_one_million_context(provider, pcfg, model) and "[1m]" not in model.lower():
         return f"{model}[1m]"
     return model
 
@@ -32835,6 +32850,200 @@ def _mcp_proxy_notification_wait_response(
     }
 
 
+def _mcp_proxy_tool_result_max_chars() -> int:
+    return max(
+        4000,
+        min(200000, positive_env_int("CIEL_RUNTIME_MCP_TOOL_RESULT_MAX_CHARS", MCP_PROXY_TOOL_RESULT_MAX_CHARS_DEFAULT)),
+    )
+
+
+def _mcp_proxy_tool_result_is_message_read(tool_name: str) -> bool:
+    normalized = re.sub(r"[^a-z0-9_]+", "_", _mcp_tool_leaf_name(tool_name)).strip("_")
+    if not normalized:
+        return False
+    if not normalized.startswith(("get_", "list_", "read_", "search_", "fetch_")):
+        return False
+    return any(term in normalized for term in ("message", "messages", "notification", "notifications", "inbox"))
+
+
+def _mcp_proxy_compact_metadata_for_tool_result(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    out: dict[str, Any] = {}
+    for key in (
+        "id",
+        "message_id",
+        "source_message_id",
+        "room_id",
+        "channel",
+        "thread_id",
+        "sender_id",
+        "sender_name",
+        "author_name",
+        "kind",
+        "type",
+        "created_at",
+        "updated_at",
+        "stream_id",
+        "seq",
+        "sequence",
+    ):
+        if key in value and value.get(key) is not None:
+            item = value.get(key)
+            out[key] = truncate_for_prompt(item, 1000) if isinstance(item, str) else item
+    if "snapshot" in value and isinstance(value.get("snapshot"), dict):
+        out["snapshot_keys"] = sorted(str(key) for key in value["snapshot"].keys())[:40]
+    remaining_keys = sorted(str(key) for key in value.keys() if key not in out and key != "snapshot")
+    if remaining_keys:
+        out["keys"] = remaining_keys[:80]
+    return out or {"keys": sorted(str(key) for key in value.keys())[:80]}
+
+
+def _mcp_proxy_compact_message_item_for_tool_result(item: Any, text_limit: int) -> Any:
+    if not isinstance(item, dict):
+        if isinstance(item, str):
+            return truncate_for_prompt(item, text_limit)
+        return item
+    out: dict[str, Any] = {}
+    scalar_keys = (
+        "id",
+        "message_id",
+        "room_id",
+        "channel",
+        "thread_id",
+        "parent_id",
+        "sender_type",
+        "sender_id",
+        "sender_name",
+        "author_name",
+        "kind",
+        "type",
+        "created_at",
+        "updated_at",
+        "timestamp",
+        "stream_id",
+        "seq",
+        "sequence",
+    )
+    text_keys = ("content", "message", "text", "body", "summary")
+    for key in scalar_keys:
+        if key in item and item.get(key) is not None:
+            value = item.get(key)
+            out[key] = truncate_for_prompt(value, 1000) if isinstance(value, str) else value
+    for key in text_keys:
+        if key in item and item.get(key) is not None:
+            value = item.get(key)
+            if isinstance(value, str):
+                out[key] = truncate_for_prompt(value, text_limit)
+            else:
+                out[key] = value
+    metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else None
+    if metadata:
+        out["metadata"] = _mcp_proxy_compact_metadata_for_tool_result(metadata)
+    for key, value in item.items():
+        if key in out or key == "metadata":
+            continue
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            out[key] = truncate_for_prompt(value, 1000) if isinstance(value, str) else value
+        if len(out) >= 30:
+            break
+    return out
+
+
+def _mcp_proxy_compact_message_json_for_tool_result(parsed: Any, original_chars: int, max_chars: int) -> str:
+    item_limit = max(1000, min(MCP_PROXY_TOOL_RESULT_ITEM_TEXT_CHARS, max_chars // 3))
+    if isinstance(parsed, dict):
+        out: dict[str, Any] = {}
+        for key, value in parsed.items():
+            if isinstance(value, (str, int, float, bool)) or value is None:
+                out[key] = truncate_for_prompt(value, 1000) if isinstance(value, str) else value
+        for key in ("messages", "data", "items", "results", "notifications"):
+            value = parsed.get(key)
+            if not isinstance(value, list):
+                continue
+            kept_items = value[:20]
+            out[key] = [_mcp_proxy_compact_message_item_for_tool_result(item, item_limit) for item in kept_items]
+            if len(value) > len(kept_items):
+                out[f"{key}_omitted"] = len(value) - len(kept_items)
+            break
+        else:
+            out["data"] = _mcp_proxy_compact_message_item_for_tool_result(parsed, item_limit)
+    elif isinstance(parsed, list):
+        kept_items = parsed[:20]
+        out = {"data": [_mcp_proxy_compact_message_item_for_tool_result(item, item_limit) for item in kept_items]}
+        if len(parsed) > len(kept_items):
+            out["data_omitted"] = len(parsed) - len(kept_items)
+    else:
+        return truncate_for_prompt(str(parsed), max_chars)
+    out["ciel_runtime_compacted"] = True
+    out["ciel_runtime_original_chars"] = original_chars
+    out["ciel_runtime_note"] = (
+        "Large MCP message-read result compacted before returning to Claude Code. "
+        "Message text is preserved up to a bounded size; bulky metadata is summarized."
+    )
+    text = json.dumps(out, ensure_ascii=False, indent=2, default=str)
+    return truncate_for_prompt(text, max_chars)
+
+
+def _mcp_proxy_compact_tool_result_text(tool_name: str, text: str, max_chars: int) -> str:
+    original = str(text or "")
+    if len(original) <= max_chars:
+        return original
+    if not _mcp_proxy_tool_result_is_message_read(tool_name):
+        return original
+    try:
+        parsed = json.loads(original)
+    except Exception:
+        prefix = (
+            f"[ciel-runtime compacted MCP tool result: tool={tool_name or '-'} "
+            f"original_chars={len(original)} max_chars={max_chars}]\n"
+        )
+        return prefix + truncate_for_prompt(original, max(1000, max_chars - len(prefix)))
+    return _mcp_proxy_compact_message_json_for_tool_result(parsed, len(original), max_chars)
+
+
+def _mcp_proxy_compact_tool_result_response(server_name: str, tool_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, dict) or not _mcp_proxy_tool_result_is_message_read(tool_name):
+        return payload
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else None
+    if not isinstance(result, dict) or result.get("isError") or result.get("is_error"):
+        return payload
+    content = result.get("content")
+    if not isinstance(content, list):
+        return payload
+    max_chars = _mcp_proxy_tool_result_max_chars()
+    original_chars = 0
+    changed = False
+    new_content: list[Any] = []
+    for block in content:
+        if not isinstance(block, dict) or block.get("type") != "text":
+            new_content.append(block)
+            continue
+        text = str(block.get("text") or "")
+        original_chars += len(text)
+        compacted = _mcp_proxy_compact_tool_result_text(tool_name, text, max_chars)
+        if compacted != text:
+            changed = True
+            new_block = dict(block)
+            new_block["text"] = compacted
+            new_content.append(new_block)
+        else:
+            new_content.append(block)
+    if not changed:
+        return payload
+    out = dict(payload)
+    out_result = dict(result)
+    out_result["content"] = new_content
+    out["result"] = out_result
+    compacted_chars = sum(len(str(block.get("text") or "")) for block in new_content if isinstance(block, dict) and block.get("type") == "text")
+    router_log(
+        "INFO",
+        f"mcp_proxy_tool_result_compacted server={server_name} tool={tool_name or '-'} "
+        f"original_chars={original_chars} compacted_chars={compacted_chars}",
+    )
+    return out
+
+
 def _mcp_proxy_drain_input_messages(buffer: bytearray, *, final: bool = False) -> list[dict[str, Any]]:
     messages: list[dict[str, Any]] = []
     while buffer:
@@ -33355,8 +33564,10 @@ def run_mcp_streamable_http_proxy(server_name: str, server_config_path: Path) ->
                     result, _returned = _mcp_proxy_streamable_http_request(
                         endpoint, headers, payload, timeout, protocol_version, active_session,
                     )
+                    tool_name = _mcp_proxy_tool_call_name(payload)
                     if isinstance(result, dict):
                         _mcp_proxy_observe_json_message(server_name, result)
+                        result = _mcp_proxy_compact_tool_result_response(server_name, tool_name, result)
                     if payload.get("id") is not None:
                         if isinstance(result, dict):
                             _mcp_proxy_write_json_response(result)
@@ -33383,8 +33594,10 @@ def run_mcp_streamable_http_proxy(server_name: str, server_config_path: Path) ->
                                 result, _r = _mcp_proxy_streamable_http_request(
                                     endpoint, headers, payload, timeout, protocol_version, active_session,
                                 )
+                                tool_name = _mcp_proxy_tool_call_name(payload)
                                 if isinstance(result, dict):
                                     _mcp_proxy_observe_json_message(server_name, result)
+                                    result = _mcp_proxy_compact_tool_result_response(server_name, tool_name, result)
                                 if payload.get("id") is not None:
                                     _mcp_proxy_write_json_response(result if isinstance(result, dict) else {"jsonrpc": "2.0", "id": request_id, "result": result if result is not None else {}})
                                 continue
@@ -33403,6 +33616,9 @@ def run_mcp_streamable_http_proxy(server_name: str, server_config_path: Path) ->
                     _mcp_proxy_write_json_response(wait_for_proxy_notifications(payload))
                     continue
                 result, _r = _mcp_proxy_streamable_http_request(endpoint, headers, payload, timeout, protocol_version, current_session_id())
+                tool_name = _mcp_proxy_tool_call_name(payload)
+                if isinstance(result, dict):
+                    result = _mcp_proxy_compact_tool_result_response(server_name, tool_name, result)
                 if payload.get("id") is not None:
                     _mcp_proxy_write_json_response(result if isinstance(result, dict) else {"jsonrpc": "2.0", "id": request_id, "result": result if result is not None else {}})
             except Exception as exc:
