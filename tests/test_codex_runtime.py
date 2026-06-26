@@ -45,7 +45,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn(ciel_runtime.CODEX_NATIVE_PROVIDER_CHOICE, values)
         self.assertIn(ciel_runtime.CODEX_ROUTED_PROVIDER_CHOICE, values)
         self.assertTrue(any("Codex Native" in row and row.startswith("*") for row in rows))
-        self.assertTrue(any("Codex routed" in row and "OpenAI API auth" in row for row in rows))
+        self.assertTrue(any("Codex routed" in row and "native Codex auth" in row for row in rows))
         labels = [row[2:18].strip() for row in rows]
         self.assertEqual(sorted(labels, key=str.casefold), labels)
 
@@ -211,13 +211,16 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("model_providers.ciel-runtime.wire_api=\"responses\"", joined)
         self.assertIn("model_providers.ciel-runtime.env_key=\"CIEL_RUNTIME_CODEX_API_KEY\"", joined)
 
-    def test_codex_native_routed_config_args_override_openai_base_only(self):
+    def test_codex_native_routed_config_args_use_chatgpt_codex_backend_provider(self):
         args = ciel_runtime.codex_native_routed_config_args("http://127.0.0.1:9876")
         joined = "\n".join(args)
 
-        self.assertIn("model_provider=\"openai\"", joined)
-        self.assertIn("openai_base_url=\"http://127.0.0.1:9876/v1\"", joined)
-        self.assertNotIn("model_providers.openai", joined)
+        self.assertIn("model_provider=\"ciel-runtime-codex\"", joined)
+        self.assertIn("model_providers.ciel-runtime-codex.name=\"Ciel Runtime Codex\"", joined)
+        self.assertIn("model_providers.ciel-runtime-codex.base_url=\"http://127.0.0.1:9876/backend-api/codex\"", joined)
+        self.assertIn("model_providers.ciel-runtime-codex.wire_api=\"responses\"", joined)
+        self.assertIn("model_providers.ciel-runtime-codex.requires_openai_auth=true", joined)
+        self.assertIn("model_providers.ciel-runtime-codex.supports_websockets=false", joined)
         self.assertNotIn("env_key", joined)
 
     def test_codex_alternate_screen_compat_converts_legacy_boolean_config(self):
@@ -325,7 +328,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertEqual(["codex", "exec", "hello"], captured["cmd"])
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
 
-    def test_launch_codex_routed_uses_native_openai_provider_override(self):
+    def test_launch_codex_routed_uses_native_auth_router_provider(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": ""}}}
         pcfg = cfg["providers"]["codex"]
         captured = {}
@@ -361,56 +364,50 @@ class CodexRuntimeTests(unittest.TestCase):
 
         self.assertEqual(0, rc)
         self.assertTrue(captured["manage_router"])
-        self.assertIn("model_provider=\"openai\"", captured["cmd"])
-        self.assertIn(f"openai_base_url=\"{ciel_runtime.ROUTER_BASE}/v1\"", captured["cmd"])
-        self.assertFalse(any(str(arg).startswith("model_providers.openai.") for arg in captured["cmd"]))
+        self.assertIn("model_provider=\"ciel-runtime-codex\"", captured["cmd"])
+        self.assertIn(f"model_providers.ciel-runtime-codex.base_url=\"{ciel_runtime.ROUTER_BASE}/backend-api/codex\"", captured["cmd"])
+        self.assertIn("model_providers.ciel-runtime-codex.requires_openai_auth=true", captured["cmd"])
+        self.assertIn("model_providers.ciel-runtime-codex.supports_websockets=false", captured["cmd"])
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
         self.assertNotIn("-m", captured["cmd"])
 
-    def test_codex_routed_headers_forward_native_authorization(self):
-        with mock.patch.dict(
-            "os.environ",
-            {"CIEL_RUNTIME_CODEX_UPSTREAM_API_KEY": "", "OPENAI_API_KEY": "", "CODEX_API_KEY": ""},
-            clear=False,
-        ):
-            headers = ciel_runtime.codex_routed_upstream_headers(
-                {"api_key": ""},
-                {"authorization": "Bearer native-token", "openai-organization": "org_1"},
-            )
-
-        self.assertEqual("Bearer native-token", headers["authorization"])
-        self.assertEqual("org_1", headers["openai-organization"])
-
-    def test_codex_routed_headers_prefer_configured_api_key(self):
-        headers = ciel_runtime.codex_routed_upstream_headers(
-            {"api_key": "sk-configured"},
-            {"authorization": "Bearer native-token", "openai-organization": "org_1"},
+    def test_codex_backend_upstream_url_maps_local_backend_prefix(self):
+        self.assertEqual(
+            "https://chatgpt.com/backend-api/codex/responses",
+            ciel_runtime.codex_backend_upstream_url("/backend-api/codex/responses"),
+        )
+        self.assertEqual(
+            "https://chatgpt.com/backend-api/codex/models?client_version=0.142.2",
+            ciel_runtime.codex_backend_upstream_url("/backend-api/codex/models", "client_version=0.142.2"),
+        )
+        self.assertEqual(
+            "https://chatgpt.com/backend-api/codex/responses",
+            ciel_runtime.codex_backend_upstream_url("/v1/responses"),
         )
 
-        self.assertEqual("Bearer sk-configured", headers["authorization"])
-        self.assertEqual("sk-configured", headers["x-api-key"])
-        self.assertNotIn("openai-organization", headers)
+    def test_codex_routed_headers_forward_native_codex_auth_headers(self):
+        headers = ciel_runtime.codex_routed_upstream_headers(
+            {"api_key": "sk-ignored"},
+            {
+                "authorization": "Bearer native-token",
+                "ChatGPT-Account-ID": "account_1",
+                "X-OpenAI-Fedramp": "true",
+                "accept-encoding": "gzip",
+                "host": "127.0.0.1:8800",
+            },
+        )
 
-    def test_codex_routed_headers_use_env_api_key_before_native_auth(self):
-        with mock.patch.dict(
-            "os.environ",
-            {"CIEL_RUNTIME_CODEX_UPSTREAM_API_KEY": "", "OPENAI_API_KEY": "sk-env", "CODEX_API_KEY": ""},
-            clear=False,
-        ):
-            headers = ciel_runtime.codex_routed_upstream_headers(
-                {"api_key": ""},
-                {"authorization": "Bearer native-token"},
-            )
+        self.assertEqual("Bearer native-token", headers["authorization"])
+        self.assertEqual("account_1", headers["ChatGPT-Account-ID"])
+        self.assertEqual("true", headers["X-OpenAI-Fedramp"])
+        self.assertEqual("identity", headers["accept-encoding"])
+        self.assertNotIn("host", {key.lower(): value for key, value in headers.items()})
 
-        self.assertEqual("Bearer sk-env", headers["authorization"])
-        self.assertEqual("sk-env", headers["x-api-key"])
-
-    def test_codex_routed_auth_error_explains_api_scope_requirement(self):
+    def test_codex_routed_auth_error_explains_wrong_platform_endpoint(self):
         message = ciel_runtime.codex_routed_auth_error_message("invalid_request_error: Missing scopes: api.responses.write")
 
-        self.assertIn("OpenAI Responses API", message)
-        self.assertIn("ciel-runtimectl api-key codex", message)
-        self.assertIn("Codex Native", message)
+        self.assertIn("ChatGPT Codex backend", message)
+        self.assertIn("/backend-api/codex", message)
 
     def test_codex_responses_channel_context_appends_responses_input(self):
         body = {"model": "gpt-5.5", "input": "hello"}

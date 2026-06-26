@@ -697,7 +697,7 @@ def api_key_status(provider: str, pcfg: dict) -> str:
         return "API key: set (Anthropic)" if meaningful_key(pcfg.get("api_key")) else "API key: not set (use API key or Claude login)"
     if provider == "codex":
         if pcfg.get("route_through_router"):
-            return "API key: optional upstream key (ChatGPT OAuth may lack API write scope)"
+            return "API key: not set (uses native Codex login/auth headers)"
         return "API key: optional fallback (uses native Codex login/config)"
     if provider == "ollama-cloud":
         return "API key: set (Ollama Cloud)" if meaningful_key(pcfg.get("api_key")) else "API key: missing (Ollama Cloud required)"
@@ -732,7 +732,7 @@ def probe_base_url(provider: str, pcfg: dict) -> str:
         return f"Base URL: NVIDIA hosted ({base}); local router http://127.0.0.1:8799 starts on launch"
     if provider == "codex":
         if pcfg.get("route_through_router"):
-            return f"Base URL: Codex routed upstream ({join_url(base, '/v1/responses')})"
+            return "Base URL: Codex routed through local router (/backend-api/codex)"
         return "Base URL: native Codex config (not overridden)"
     if provider == "deepseek":
         return f"Base URL: DeepSeek Anthropic API configured ({base})"

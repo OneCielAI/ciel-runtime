@@ -18537,42 +18537,38 @@ def collect_provider_message_for_responses(
     return collect_anthropic_message_for_responses(handler, provider, pcfg, body)
 
 
-def codex_routed_upstream_api_key(pcfg: dict[str, Any]) -> tuple[str, str]:
-    key = select_provider_api_key("codex", pcfg)
-    if meaningful_key(key):
-        return key, "codex provider API key"
-    for name in CODEX_ROUTED_UPSTREAM_API_KEY_ENVS:
-        key = os.environ.get(name, "")
-        if meaningful_key(key):
-            return key, name
-    return "", ""
-
-
 def codex_routed_upstream_headers(pcfg: dict[str, Any], inbound_headers: Any | None = None) -> dict[str, str]:
-    headers = with_upstream_user_agent({"content-type": "application/json"})
-    key, _source = codex_routed_upstream_api_key(pcfg)
-    if meaningful_key(key):
-        headers["authorization"] = f"Bearer {key}"
-        headers["x-api-key"] = key
-        return headers
+    del pcfg
+    headers: dict[str, str] = {}
+    hop_by_hop = {
+        "connection",
+        "content-length",
+        "host",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "te",
+        "trailer",
+        "transfer-encoding",
+        "upgrade",
+    }
     if inbound_headers is not None:
-        for name in (
-            "authorization",
-            "openai-organization",
-            "openai-project",
-            "openai-beta",
-            "x-stainless-arch",
-            "x-stainless-lang",
-            "x-stainless-os",
-            "x-stainless-package-version",
-            "x-stainless-runtime",
-            "x-stainless-runtime-version",
-        ):
-            value = inbound_headers.get(name)
+        for name, value in inbound_headers.items():
+            low = str(name).lower()
+            if low in hop_by_hop:
+                continue
+            if low == "accept-encoding":
+                headers["accept-encoding"] = "identity"
+                continue
+            if low == "content-type":
+                headers["content-type"] = str(value)
+                continue
             if value:
-                headers[name] = value
-    if not headers.get("authorization"):
-        raise RuntimeError("Codex routed mode did not receive native Codex/OpenAI auth headers.")
+                headers[str(name)] = str(value)
+    if not any(str(k).lower() == "content-type" for k in headers):
+        headers["content-type"] = "application/json"
+    headers = with_upstream_user_agent(headers)
+    if not any(str(k).lower() == "authorization" for k in headers):
+        raise RuntimeError("Codex routed mode did not receive native Codex auth headers from the Codex CLI.")
     return headers
 
 
@@ -18581,12 +18577,9 @@ def codex_routed_auth_error_message(message: str) -> str:
     if "api.responses.write" not in low and "insufficient permissions" not in low and "unauthorized" not in low:
         return message
     guidance = (
-        " Codex routed sends upstream requests through the OpenAI Responses API. "
-        "ChatGPT/Codex OAuth tokens may not include API write scopes. "
-        "Set an OpenAI Platform API key with Responses write permission using "
-        "`ciel-runtimectl api-key codex sk-...`, or export one of "
-        "`CIEL_RUNTIME_CODEX_UPSTREAM_API_KEY`, `OPENAI_API_KEY`, or `CODEX_API_KEY` before launch. "
-        "Use Codex Native if you want Codex to use only its native ChatGPT login without router features."
+        " Codex routed is expected to forward Codex CLI native auth to the ChatGPT Codex backend. "
+        "If this mentions api.responses.write, the request is still using the OpenAI Platform /v1 endpoint; "
+        "upgrade ciel-runtime and relaunch Codex routed so the local base URL is /backend-api/codex."
     )
     return f"{message}{guidance}"
 
@@ -18653,10 +18646,38 @@ def _copy_upstream_response_headers(handler: BaseHTTPRequestHandler, headers: An
     handler.send_header("connection", "close")
 
 
-def forward_codex_responses(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> None:
-    upstream_body, delivery_body = codex_responses_body_with_channel_context(body)
-    begin_pending_channel_delivery(handler, delivery_body)
-    url = join_url(provider_upstream_request_base(provider, pcfg) or default_base_url(provider), "/v1/responses")
+def codex_backend_upstream_url(request_path: str, query: str = "") -> str:
+    parsed_path = urllib.parse.urlparse(request_path).path
+    prefixes = ("/backend-api/codex", "/v1")
+    suffix = parsed_path
+    for prefix in prefixes:
+        if parsed_path == prefix:
+            suffix = ""
+            break
+        if parsed_path.startswith(prefix + "/"):
+            suffix = parsed_path[len(prefix):]
+            break
+    url = join_url(CODEX_ROUTED_UPSTREAM_BASE, suffix)
+    if query:
+        url = f"{url}?{query}"
+    return url
+
+
+def forward_codex_backend_json(
+    handler: BaseHTTPRequestHandler,
+    provider: str,
+    pcfg: dict[str, Any],
+    body: dict[str, Any],
+    *,
+    mutate_responses: bool = False,
+) -> dict[str, Any] | None:
+    upstream_body = body
+    delivery_body: dict[str, Any] | None = None
+    if mutate_responses:
+        upstream_body, delivery_body = codex_responses_body_with_channel_context(body)
+        begin_pending_channel_delivery(handler, delivery_body)
+    parsed = urllib.parse.urlparse(handler.path)
+    url = codex_backend_upstream_url(parsed.path, parsed.query)
     headers = codex_routed_upstream_headers(pcfg, handler.headers)
     data = json.dumps(upstream_body).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
@@ -18670,6 +18691,30 @@ def forward_codex_responses(handler: BaseHTTPRequestHandler, provider: str, pcfg
                 break
             handler.wfile.write(chunk)
             handler.wfile.flush()
+    return delivery_body
+
+
+def forward_codex_backend_get(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any]) -> None:
+    parsed = urllib.parse.urlparse(handler.path)
+    url = codex_backend_upstream_url(parsed.path, parsed.query)
+    headers = codex_routed_upstream_headers(pcfg, handler.headers)
+    req = urllib.request.Request(url, headers=headers, method="GET")
+    with provider_urlopen(req, timeout=provider_request_timeout_seconds(pcfg), provider=provider, pcfg=pcfg) as resp:
+        handler.send_response(getattr(resp, "status", 200))
+        _copy_upstream_response_headers(handler, resp.headers)
+        handler.end_headers()
+        while True:
+            chunk = resp.read(65536)
+            if not chunk:
+                break
+            handler.wfile.write(chunk)
+            handler.wfile.flush()
+
+
+def forward_codex_responses(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> None:
+    delivery_body = forward_codex_backend_json(handler, provider, pcfg, body, mutate_responses=True)
+    if delivery_body is None:
+        return
     mark_pending_channel_delivery_success(handler, "codex_responses_proxy")
     commit_pending_channel_delivery_cursors(delivery_body, handler)
 
@@ -18758,6 +18803,35 @@ def handle_openai_responses_post(
         write_openai_responses_error(handler, f"{type(exc).__name__}: {exc}", stream=stream)
 
 
+def handle_codex_backend_passthrough_post(
+    handler: BaseHTTPRequestHandler,
+    provider: str,
+    pcfg: dict[str, Any],
+    body: dict[str, Any],
+) -> None:
+    try:
+        forward_codex_backend_json(handler, provider, pcfg, body, mutate_responses=False)
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="ignore")
+        write_openai_responses_error(handler, upstream_http_error_message(exc, raw), stream=False, status=exc.code)
+    except Exception as exc:
+        if is_client_disconnect_error(exc):
+            return
+        write_openai_responses_error(handler, f"{type(exc).__name__}: {exc}", stream=False)
+
+
+def handle_codex_backend_passthrough_get(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any]) -> None:
+    try:
+        forward_codex_backend_get(handler, provider, pcfg)
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="ignore")
+        write_json(handler, {"error": {"message": upstream_http_error_message(exc, raw)}}, status=exc.code)
+    except Exception as exc:
+        if is_client_disconnect_error(exc):
+            return
+        write_json(handler, {"error": {"message": f"{type(exc).__name__}: {exc}"}}, status=502)
+
+
 class RouterHandler(BaseHTTPRequestHandler):
     server_version = "ciel-runtime/0.1"
 
@@ -18837,6 +18911,9 @@ class RouterHandler(BaseHTTPRequestHandler):
                 },
             )
             return
+        if codex_routed_enabled(provider, pcfg) and path.startswith("/backend-api/codex/"):
+            handle_codex_backend_passthrough_get(self, provider, pcfg)
+            return
         if path == "/v1/models":
             data = list_model_objects_for_request(provider, pcfg, self.headers)
             write_json(self, {"object": "list", "data": data, "has_more": False})
@@ -18863,6 +18940,12 @@ class RouterHandler(BaseHTTPRequestHandler):
         if handle_chat_post(self, path, body) or handle_plan_post(self, path, body):
             return
         provider, pcfg = get_current_provider(cfg)
+        if codex_routed_enabled(provider, pcfg) and path.startswith("/backend-api/codex/"):
+            if path == "/backend-api/codex/responses":
+                handle_openai_responses_post(self, cfg, provider, pcfg, body)
+            else:
+                handle_codex_backend_passthrough_post(self, provider, pcfg, body)
+            return
         if path == "/v1/responses":
             handle_openai_responses_post(self, cfg, provider, pcfg, body)
             return
@@ -26370,11 +26453,11 @@ def api_key_status_line(provider: str, pcfg: dict[str, Any]) -> str:
     if provider == "codex":
         if codex_routed_enabled(provider, pcfg):
             if key_count > 1:
-                return f"API keys: {round_robin} (Codex routed fallback{primary_detail})"
+                return f"API keys: {round_robin} (stored; Codex routed uses native login/auth headers{primary_detail})"
             return (
-                f"API key: set (Codex routed upstream{primary_detail})"
+                f"API key: set (stored; Codex routed uses native login/auth headers{primary_detail})"
                 if key_count
-                else "API key: not set (will forward Codex auth; ChatGPT OAuth may lack API write scope)"
+                else "API key: not set (uses native Codex login/auth headers)"
             )
         if key_count > 1:
             return f"API keys: {round_robin} (Codex fallback{primary_detail})"
@@ -26421,7 +26504,7 @@ def base_url_status_line(provider: str, pcfg: dict[str, Any]) -> str:
         return f"Base URL: placeholder ({base})"
     if provider == "codex":
         if codex_routed_enabled(provider, pcfg):
-            return f"Base URL: Codex routed upstream configured ({join_url(base, '/v1/responses')})"
+            return f"Base URL: Codex routed through local router ({ROUTER_BASE}/backend-api/codex)"
         return "Base URL: native Codex config (ciel-runtime does not override it)"
     if provider == "nvidia-hosted":
         if nvidia_hosted_native_compat_enabled(provider, pcfg):
@@ -26995,7 +27078,7 @@ def provider_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
             native_mark = "*" if current == key and not routed else " "
             routed_mark = "*" if current == key and routed else " "
             entries.append(("Codex Native", f"{native_mark} {'Codex Native':<16} {'codex-native':<17} native Codex settings", CODEX_NATIVE_PROVIDER_CHOICE))
-            entries.append(("Codex routed", f"{routed_mark} {'Codex routed':<16} {'codex-routed':<17} router via OpenAI API auth", CODEX_ROUTED_PROVIDER_CHOICE))
+            entries.append(("Codex routed", f"{routed_mark} {'Codex routed':<16} {'codex-routed':<17} router via native Codex auth", CODEX_ROUTED_PROVIDER_CHOICE))
             continue
         mark = "*" if key == current else " "
         entries.append((label, f"{mark} {label:<16} {key:<15} {compact_text(pcfg.get('base_url', ''), 54)}", key))
@@ -34273,8 +34356,9 @@ def launch_claude(
 CODEX_RUNTIME_PROVIDER_ID = "ciel-runtime"
 CODEX_RUNTIME_API_KEY_ENV = "CIEL_RUNTIME_CODEX_API_KEY"
 CODEX_NATIVE_PROVIDER_ID_ENV = "CIEL_RUNTIME_CODEX_NATIVE_PROVIDER_ID"
+CODEX_ROUTED_PROVIDER_ID = "ciel-runtime-codex"
+CODEX_ROUTED_UPSTREAM_BASE = "https://chatgpt.com/backend-api/codex"
 CODEX_TUI_ALTERNATE_SCREEN_KEY = "tui.alternate_screen"
-CODEX_ROUTED_UPSTREAM_API_KEY_ENVS = ("CIEL_RUNTIME_CODEX_UPSTREAM_API_KEY", "OPENAI_API_KEY", "CODEX_API_KEY")
 
 
 def toml_string(value: str) -> str:
@@ -34424,12 +34508,12 @@ def codex_runtime_config_args(router_base: str = ROUTER_BASE) -> list[str]:
 
 
 def codex_native_routed_config_args(router_base: str = ROUTER_BASE) -> list[str]:
-    provider = (os.environ.get(CODEX_NATIVE_PROVIDER_ID_ENV) or "openai").strip() or "openai"
-    base = router_base.rstrip("/") + "/v1"
+    provider = (os.environ.get(CODEX_NATIVE_PROVIDER_ID_ENV) or CODEX_ROUTED_PROVIDER_ID).strip() or CODEX_ROUTED_PROVIDER_ID
+    base = router_base.rstrip("/") + "/backend-api/codex"
     if provider == "openai":
         return [
             "-c",
-            f"model_provider={toml_string(provider)}",
+            "model_provider=\"openai\"",
             "-c",
             f"openai_base_url={toml_string(base)}",
         ]
@@ -34437,9 +34521,15 @@ def codex_native_routed_config_args(router_base: str = ROUTER_BASE) -> list[str]
         "-c",
         f"model_provider={toml_string(provider)}",
         "-c",
+        f"model_providers.{provider}.name={toml_string('Ciel Runtime Codex')}",
+        "-c",
         f"model_providers.{provider}.base_url={toml_string(base)}",
         "-c",
         f"model_providers.{provider}.wire_api={toml_string('responses')}",
+        "-c",
+        f"model_providers.{provider}.requires_openai_auth=true",
+        "-c",
+        f"model_providers.{provider}.supports_websockets=false",
     ]
 
 
