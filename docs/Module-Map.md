@@ -51,6 +51,35 @@
 
 → [[Architecture]]
 
+### `ciel_runtime_support/agent_router.py`
+
+런타임 HTTP 라우터 공통 계약:
+- `RuntimeRouter` 프로토콜
+- `RouterCapability`
+- `COMMON_RUNTIME_ROUTER_CAPABILITIES`
+- 라우터 capability matrix / gap 검사
+
+→ [[Architecture]]
+
+### `ciel_runtime_support/claude_router.py`
+
+Claude Code용 HTTP 라우터:
+- `/v1/messages`
+- `/v1/messages/count_tokens`
+- Anthropic Messages 기반 SSE, 채널 주입, 토큰 카운트 경로 소유
+
+→ [[Architecture]]
+
+### `ciel_runtime_support/codex_router.py`
+
+Codex용 HTTP 라우터:
+- `/backend-api/codex/*`
+- `/backend-api/codex/responses`
+- `/v1/responses`
+- native Codex auth passthrough, Responses SSE proxy, 채널 주입 경로 소유
+
+→ [[Architecture]]
+
 ### `ciel_runtime_support/observability.py`
 
 이벤트 버스 및 HTML 렌더러:

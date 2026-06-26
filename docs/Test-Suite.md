@@ -13,6 +13,7 @@
 | 파일 | 테스트 대상 |
 |------|-----------|
 | `test_architecture_contracts.py` | `architecture.py` 추상 클래스 구현 계약 |
+| `test_runtime_routers.py` | Claude/Codex 라우터 경로 소유권 및 공통 capability parity |
 
 ---
 

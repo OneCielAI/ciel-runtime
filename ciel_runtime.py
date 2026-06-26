@@ -35,6 +35,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, Iterable
 
+from ciel_runtime_support.agent_router import missing_common_capabilities, router_capability_matrix
+from ciel_runtime_support.claude_router import ClaudeRouter
+from ciel_runtime_support.codex_router import CodexRouter
 from ciel_runtime_support.observability import EventBus, render_events_html
 from ciel_runtime_support.transcript_filter import (
     is_claude_code_transcript_event,
@@ -18727,6 +18730,21 @@ def handle_openai_responses_post(
     body: dict[str, Any],
 ) -> None:
     if codex_routed_enabled(provider, pcfg):
+        request_id = f"{os.getpid()}-{time.time_ns()}"
+        EVENT_BUS.publish(
+            level="info",
+            category="router.request",
+            message="Codex Responses request received",
+            request_id=request_id,
+            provider=provider,
+            model=str(body.get("model") or ""),
+            data={
+                "path": urllib.parse.urlparse(handler.path).path,
+                "input_items": len(_responses_input_as_list(body.get("input", []))),
+                "tools": len(body.get("tools") or []),
+            },
+        )
+        dump_request_for_trace(provider, urllib.parse.urlparse(handler.path).path, body)
         try:
             forward_codex_responses(handler, provider, pcfg, body)
         except urllib.error.HTTPError as exc:
@@ -18832,6 +18850,47 @@ def handle_codex_backend_passthrough_get(handler: BaseHTTPRequestHandler, provid
         write_json(handler, {"error": {"message": f"{type(exc).__name__}: {exc}"}}, status=502)
 
 
+def build_runtime_routers() -> tuple[Any, ...]:
+    return (
+        CodexRouter(
+            routed_enabled=codex_routed_enabled,
+            handle_responses_post=handle_openai_responses_post,
+            handle_backend_passthrough_post=handle_codex_backend_passthrough_post,
+            handle_backend_passthrough_get=handle_codex_backend_passthrough_get,
+        ),
+        ClaudeRouter(runtime_deps=globals()),
+    )
+
+
+def runtime_router_capability_matrix() -> dict[str, dict[str, Any]]:
+    return router_capability_matrix(build_runtime_routers())
+
+
+def runtime_router_capability_gaps() -> dict[str, list[str]]:
+    return missing_common_capabilities(build_runtime_routers())
+
+
+def route_runtime_get(handler: BaseHTTPRequestHandler, path: str, provider: str, pcfg: dict[str, Any]) -> bool:
+    for router in build_runtime_routers():
+        if router.can_handle_get(path, provider, pcfg):
+            return bool(router.handle_get(handler, path, provider, pcfg))
+    return False
+
+
+def route_runtime_post(
+    handler: BaseHTTPRequestHandler,
+    cfg: dict[str, Any],
+    provider: str,
+    pcfg: dict[str, Any],
+    path: str,
+    body: dict[str, Any],
+) -> bool:
+    for router in build_runtime_routers():
+        if router.can_handle_post(path, provider, pcfg):
+            return bool(router.handle_post(handler, cfg, provider, pcfg, path, body))
+    return False
+
+
 class RouterHandler(BaseHTTPRequestHandler):
     server_version = "ciel-runtime/0.1"
 
@@ -18911,8 +18970,7 @@ class RouterHandler(BaseHTTPRequestHandler):
                 },
             )
             return
-        if codex_routed_enabled(provider, pcfg) and path.startswith("/backend-api/codex/"):
-            handle_codex_backend_passthrough_get(self, provider, pcfg)
+        if route_runtime_get(self, path, provider, pcfg):
             return
         if path == "/v1/models":
             data = list_model_objects_for_request(provider, pcfg, self.headers)
@@ -18940,225 +18998,10 @@ class RouterHandler(BaseHTTPRequestHandler):
         if handle_chat_post(self, path, body) or handle_plan_post(self, path, body):
             return
         provider, pcfg = get_current_provider(cfg)
-        if codex_routed_enabled(provider, pcfg) and path.startswith("/backend-api/codex/"):
-            if path == "/backend-api/codex/responses":
-                handle_openai_responses_post(self, cfg, provider, pcfg, body)
-            else:
-                handle_codex_backend_passthrough_post(self, provider, pcfg, body)
+        if route_runtime_post(self, cfg, provider, pcfg, path, body):
             return
-        if path == "/v1/responses":
-            handle_openai_responses_post(self, cfg, provider, pcfg, body)
-            return
-        if path == "/v1/messages/count_tokens":
-            tokens = estimate_tokens(body)
-            write_context_usage(provider, pcfg, body, "count_tokens")
-            write_json(self, {"input_tokens": tokens})
-            return
-        if path != "/v1/messages":
-            write_json(self, {"type": "error", "error": {"type": "not_found_error", "message": path}}, 404)
-            return
-        _update_tool_schema_registry(body.get("tools"))
-        body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
-        request_id = f"{os.getpid()}-{time.time_ns()}"
-        EVENT_BUS.publish(
-            level="info",
-            category="router.request",
-            message="Anthropic messages request received",
-            request_id=request_id,
-            provider=provider,
-            model=str(body.get("model") or ""),
-            data={
-                "path": path,
-                "messages": len(body.get("messages") or []),
-                "tools": len(body.get("tools") or []),
-                **router_event_message_preview(body, cfg),
-            },
-        )
-        dump_request_for_trace(provider, path, body)
-        if maybe_handle_plan_mode_tool_choice(self, provider, pcfg, body):
-            EVENT_BUS.publish(level="info", category="plan_mode.short_circuit", message="plan mode tool choice handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
-            return
-        body = filter_blocked_tools(provider, pcfg, body)
-        body = normalize_tool_choice_for_provider(provider, pcfg, body)
-        write_context_usage(provider, pcfg, body, "messages")
-        if maybe_handle_router_debug_request(self, body):
-            EVENT_BUS.publish(level="info", category="router_debug.short_circuit", message="router debug request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
-            return
-        if maybe_handle_channel_clear_request(self, body):
-            EVENT_BUS.publish(level="info", category="channel_clear.short_circuit", message="channel backlog clear request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
-            return
-        if maybe_handle_live_llm_options_request(self, body):
-            EVENT_BUS.publish(level="info", category="llm_options.short_circuit", message="live LLM options request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
-            return
-        if maybe_handle_live_api_keys_request(self, body):
-            EVENT_BUS.publish(level="info", category="api_keys.short_circuit", message="live API key request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
-            return
-        if maybe_handle_advisor_request(self, provider, pcfg, body):
-            EVENT_BUS.publish(level="info", category="advisor.short_circuit", message="advisor request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
-            return
-        body = strip_autonomous_advisor_server_tools(provider, body)
-        body = body_with_pending_channel_messages(body)
-        body = body_with_pending_channel_summaries(body)
-        body = body_with_channel_tool_result_context(body)
-        begin_pending_channel_delivery(self, body)
-        body = normalize_request_for_provider_wire(provider, pcfg, body)
-        router_log("DEBUG", f"POST {path} provider={provider} model={body.get('model')} tools={len(body.get('tools') or [])} msgs={len(body.get('messages') or [])}")
-        try:
-            if provider in ("ollama", "ollama-cloud"):
-                EVENT_BUS.publish(level="info", category="upstream.request", message="forwarding to Ollama-compatible provider", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
-                forward_ollama_api_chat(self, provider, pcfg, body)
-                commit_pending_channel_delivery_cursors(body, self)
-                return
-            if provider in OPENCODE_PROVIDER_NAMES:
-                upstream_model = resolve_requested_model(provider, pcfg, body.get("model"))
-                endpoint_kind = opencode_endpoint_kind(provider, upstream_model, pcfg)
-                provider_label = PROVIDER_LABELS.get(provider, provider)
-                if endpoint_kind == "openai-chat":
-                    EVENT_BUS.publish(
-                        level="info",
-                        category="upstream.request",
-                        message=f"forwarding to {provider_label} chat-compatible provider",
-                        request_id=request_id,
-                        provider=provider,
-                        model=upstream_model,
-                    )
-                    forward_openai_compatible_chat(self, provider, pcfg, body)
-                    commit_pending_channel_delivery_cursors(body, self)
-                    return
-                if endpoint_kind not in ("anthropic-messages",):
-                    write_json(
-                        self,
-                        {
-                            "type": "error",
-                            "error": {
-                                "type": "unsupported_model_endpoint",
-                                "message": (
-                                    f"{provider_label} model {upstream_model!r} uses the {endpoint_kind} endpoint family. "
-                                    f"ciel-runtime currently routes {provider_label} /v1/messages and /v1/chat/completions models."
-                                ),
-                            },
-                        },
-                        400,
-                    )
-                    return
-            if provider_openai_router_enabled(provider, pcfg):
-                EVENT_BUS.publish(level="info", category="upstream.request", message="forwarding to OpenAI-compatible provider", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
-                forward_openai_compatible_chat(self, provider, pcfg, body)
-                commit_pending_channel_delivery_cursors(body, self)
-                return
-            body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
-            body = normalize_anthropic_system_role_messages(body)
-            body = cap_anthropic_body_for_provider(provider, pcfg, body)
-            body = apply_provider_request_options(provider, pcfg, body)
-            body = rehydrate_suppressed_thinking_passback(provider, pcfg, body)
-            upstream_model = resolve_requested_model(provider, pcfg, body.get("model"))
-            if provider == "nvidia-hosted":
-                upstream_model = ncp_model_id_for_nvidia_hosted(upstream_model)
-            body["model"] = upstream_model
-            body = resolve_tool_model_references(provider, pcfg, body)
-            body = normalize_anthropic_model_request_options(provider, pcfg, body, upstream_model)
-            stream_enabled = bool(pcfg.get("stream_enabled", True))
-            word_chunking = bool(pcfg.get("stream_word_chunking", False))
-            if not stream_enabled:
-                body["stream"] = False
-            upstream_body = body_without_ciel_runtime_internal_metadata(body)
-            base = native_anthropic_base_url(provider, pcfg) if provider_native_compat_enabled(provider, pcfg) else provider_upstream_request_base(provider, pcfg)
-            url = join_url(base, "/v1/messages")
-            upstream_query = upstream_messages_query(pcfg, self.path, provider)
-            if upstream_query:
-                url = f"{url}?{upstream_query}"
-            headers = provider_headers(provider, pcfg, self.headers)
-            for h in ("anthropic-beta", "anthropic-dangerous-direct-browser-access"):
-                if self.headers.get(h):
-                    headers[h] = self.headers[h]
-            waited, rpm_used, rpm_limit = apply_router_rate_limit(provider, pcfg, upstream_model)
-            try:
-                EVENT_BUS.publish(level="info", category="upstream.request", message="forwarding to Anthropic-compatible provider", request_id=request_id, provider=provider, model=upstream_model, data={"url": url, "stream": bool(body.get("stream", stream_enabled))})
-                resp = open_provider_request_with_key_retry(
-                    url,
-                    upstream_body,
-                    headers,
-                    provider_request_timeout_seconds(pcfg),
-                    provider,
-                    pcfg,
-                    upstream_model,
-                    stream=bool(body.get("stream", stream_enabled)),
-                )
-                if bool(body.get("stream", stream_enabled)):
-                    set_upstream_stream_read_timeout(resp, provider_stream_idle_timeout_seconds(pcfg))
-                status = getattr(resp, "status", 200)
-                ctype = resp.headers.get("content-type", "application/json")
-                if stream_enabled and "text/event-stream" in ctype:
-                    self.send_response(status)
-                    self.send_header("content-type", ctype)
-                    self.send_header("cache-control", "no-cache")
-                    self.send_header("connection", "close")
-                    self.end_headers()
-                    _rebatch_anthropic_sse_text(
-                        self,
-                        resp,
-                        upstream_model,
-                        word_chunking=word_chunking,
-                        source_body=body,
-                        preserve_thinking=preserves_anthropic_thinking_contract(provider, pcfg),
-                        normalize_tool_use=should_normalize_anthropic_stream_tool_use(provider, pcfg),
-                        provider=provider,
-                    )
-                else:
-                    self.send_response(status)
-                    self.send_header("content-type", ctype)
-                    self.end_headers()
-                    raw_resp = resp.read()
-                    notice = rate_limit_notice(waited, rpm_used, rpm_limit, bool(pcfg.get("rate_limit_status", False)))
-                    if "application/json" in ctype:
-                        try:
-                            payload = json.loads(raw_resp.decode("utf-8", errors="replace"))
-                            if isinstance(payload, dict):
-                                payload = normalize_response_thinking_for_non_anthropic_provider(provider, pcfg, payload, upstream_model)
-                                payload = append_synthetic_tasklist_to_message(payload, upstream_model, body, "native_json", provider=provider)
-                                if notice:
-                                    payload = prepend_anthropic_text(payload, notice)
-                                raw_resp = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-                        except Exception:
-                            pass
-                    self.wfile.write(raw_resp)
-                    self.wfile.flush()
-                    mark_pending_channel_delivery_success(self, "anthropic_json")
-                commit_pending_channel_delivery_cursors(body, self)
-            except urllib.error.HTTPError as e:
-                err = e.read()
-                if e.code == 429:
-                    register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), e.headers)
-                EVENT_BUS.publish(level="error", category="upstream.error", message=f"upstream HTTP {e.code}", request_id=request_id, provider=provider, model=upstream_model, data={"status": e.code})
-                self.send_response(e.code)
-                self.send_header("content-type", e.headers.get("content-type", "application/json"))
-                self.end_headers()
-                self.wfile.write(err)
-        except Exception as exc:
-            if is_client_disconnect_error(exc):
-                mark_pending_channel_delivery_failed(self, f"client_disconnected:{type(exc).__name__}")
-                write_router_activity(
-                    "cancel",
-                    provider,
-                    str(body.get("model") or ""),
-                    error=type(exc).__name__,
-                    stream=bool(body.get("stream", True)),
-                )
-                router_log(
-                    "WARN",
-                    f"router_client_disconnected provider={provider} model={body.get('model')} error={type(exc).__name__}: {exc}",
-                )
-                EVENT_BUS.publish(
-                    level="warning",
-                    category="router.client_disconnected",
-                    message=f"client disconnected: {type(exc).__name__}",
-                    request_id=request_id,
-                    provider=provider,
-                    model=str(body.get("model") or ""),
-                )
-                return
-            EVENT_BUS.publish(level="error", category="router.error", message=str(exc), request_id=request_id, provider=provider, model=str(body.get("model") or ""), data={"error_type": type(exc).__name__})
-            try_write_json(self, {"type": "error", "error": {"type": "api_error", "message": str(exc)}}, 500)
+        write_json(self, {"type": "error", "error": {"type": "not_found_error", "message": path}}, 404)
+        return
 
 
 def serve(_: argparse.Namespace) -> None:
