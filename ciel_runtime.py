@@ -32977,7 +32977,7 @@ def npm_install_runtime_command(npm: str, package_spec: str, prefix: Path | None
 
 def forced_yes_upgrade_env() -> dict[str, str]:
     env = os.environ.copy()
-    env.setdefault("CI", "1")
+    env["CI"] = "1"
     env["NPM_CONFIG_YES"] = "true"
     env["npm_config_yes"] = "true"
     env.setdefault("NPM_CONFIG_UPDATE_NOTIFIER", "false")
