@@ -1636,6 +1636,78 @@ class ChannelBridgeTests(unittest.TestCase):
 
         self.assertEqual("completed", ciel_runtime._channel_stdin_wake_state_from_text(4345, transcript))
 
+    def test_channel_stdin_detects_active_tool_call_until_result(self):
+        transcript = "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "assistant",
+                        "message": {
+                            "role": "assistant",
+                            "stop_reason": "tool_use",
+                            "content": [{"type": "tool_use", "id": "toolu_active", "name": "Bash", "input": {}}],
+                        },
+                    }
+                ),
+            ]
+        )
+
+        self.assertTrue(ciel_runtime._channel_stdin_active_tool_call_from_text(transcript))
+
+        transcript += "\n" + json.dumps(
+            {
+                "type": "user",
+                "message": {
+                    "role": "user",
+                    "content": [{"type": "tool_result", "tool_use_id": "toolu_active", "content": "ok"}],
+                },
+            }
+        )
+
+        self.assertFalse(ciel_runtime._channel_stdin_active_tool_call_from_text(transcript))
+
+    def test_inject_pending_channel_messages_defers_while_tool_call_active(self):
+        messages = [
+            {
+                "id": 12,
+                "channel": "room",
+                "sender_id": "agent",
+                "message": "wake after tool",
+                "meta": {},
+                "delivery": ["llm"],
+            }
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            transcript = Path(td) / "session.jsonl"
+            transcript.write_text(
+                json.dumps(
+                    {
+                        "type": "assistant",
+                        "message": {
+                            "role": "assistant",
+                            "stop_reason": "tool_use",
+                            "content": [{"type": "tool_use", "id": "toolu_active", "name": "Bash", "input": {}}],
+                        },
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            with (
+                mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript),
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
+            ):
+                last_id = ciel_runtime._inject_pending_channel_messages(99, 11)
+
+        self.assertEqual(11, last_id)
+        write_all.assert_not_called()
+        commit_cursor.assert_not_called()
+        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
+        self.assertTrue(any("active_tool_call" in item for item in log_messages))
+
     def test_channel_stdin_wake_state_treats_queued_command_as_queued_not_missing(self):
         with tempfile.TemporaryDirectory() as td:
             transcript = Path(td) / "session.jsonl"

@@ -31677,6 +31677,82 @@ def _channel_stdin_wake_state_from_text(message_id: int, text: str) -> str:
     return "queued" if seen_queued_prompt else "missing"
 
 
+def _channel_message_content_blocks(message: dict[str, Any]) -> list[dict[str, Any]]:
+    content = message.get("content")
+    if isinstance(content, dict):
+        return [content]
+    if isinstance(content, list):
+        return [item for item in content if isinstance(item, dict)]
+    return []
+
+
+def _channel_tool_use_ids_from_message(message: dict[str, Any]) -> set[str]:
+    ids: set[str] = set()
+    for block in _channel_message_content_blocks(message):
+        if block.get("type") != "tool_use":
+            continue
+        tool_id = str(block.get("id") or "").strip()
+        if tool_id:
+            ids.add(tool_id)
+    return ids
+
+
+def _channel_tool_result_ids_from_message(message: dict[str, Any]) -> set[str]:
+    ids: set[str] = set()
+    for block in _channel_message_content_blocks(message):
+        if block.get("type") != "tool_result":
+            continue
+        tool_id = str(block.get("tool_use_id") or "").strip()
+        if tool_id:
+            ids.add(tool_id)
+    return ids
+
+
+def _channel_stdin_active_tool_call_from_text(text: str) -> bool:
+    pending_tool_ids: set[str] = set()
+    unknown_tool_active = False
+    for raw_line in text.splitlines():
+        try:
+            record = json.loads(raw_line)
+        except Exception:
+            continue
+        if not isinstance(record, dict):
+            continue
+        record_type = str(record.get("type") or "")
+        message = record.get("message")
+        message_obj = message if isinstance(message, dict) else {}
+        message_role = str(message_obj.get("role") or "")
+        if record_type == "assistant" or message_role == "assistant":
+            tool_use_ids = _channel_tool_use_ids_from_message(message_obj)
+            if str(message_obj.get("stop_reason") or "") == "tool_use" or tool_use_ids:
+                pending_tool_ids.update(tool_use_ids)
+                if not tool_use_ids:
+                    unknown_tool_active = True
+            else:
+                pending_tool_ids.clear()
+                unknown_tool_active = False
+            continue
+        if record_type == "user" or message_role == "user":
+            tool_result_ids = _channel_tool_result_ids_from_message(message_obj)
+            if tool_result_ids:
+                pending_tool_ids.difference_update(tool_result_ids)
+                unknown_tool_active = False
+            elif record.get("toolUseResult") is not None:
+                pending_tool_ids.clear()
+                unknown_tool_active = False
+    return bool(pending_tool_ids or unknown_tool_active)
+
+
+def _channel_stdin_active_tool_call() -> bool:
+    path = _latest_claude_transcript_path()
+    if path is None:
+        return False
+    text = _read_file_tail_text(path)
+    if not text:
+        return False
+    return _channel_stdin_active_tool_call_from_text(text)
+
+
 def _channel_stdin_wake_completed(message_id: int) -> bool:
     return _channel_stdin_wake_state(message_id) == "completed"
 
@@ -31804,6 +31880,9 @@ def _inject_pending_channel_messages(
     injected_message_ids: list[int] | None = None,
 ) -> int:
     with _CHANNEL_STDIN_INJECT_LOCK:
+        if _channel_stdin_active_tool_call():
+            router_log("INFO", f"channel_stdin_proxy_deferred cursor={last_id} reason=active_tool_call")
+            return last_id
         if not web_chat_only:
             last_id = _channel_stdin_recover_cursor_from_queued_only(last_id)
         pending: list[dict[str, Any]] = []
@@ -32053,6 +32132,7 @@ def subprocess_call_with_channel_wake_proxy(
     channel_inflight_logged_at = 0.0
     channel_inflight_started_at = 0.0
     channel_pending_recheck = False
+    channel_tool_defer_logged_at = 0.0
     channel_enter_bytes = _channel_wake_enter_bytes()
     router_log(
         "INFO",
@@ -32163,24 +32243,30 @@ def subprocess_call_with_channel_wake_proxy(
                     channel_pending_recheck,
                     channel_inflight_id,
                 ):
-                    if marker != last_channel_marker:
-                        last_channel_marker = marker
-                    channel_pending_recheck = False
-                    last_id = max(last_id, ensure_channel_llm_delivery_cursor_initialized())
-                    injected_ids: list[int] = []
-                    last_id = _inject_pending_channel_messages(
-                        master_fd,
-                        last_id,
-                        channel_enter_bytes,
-                        web_chat_only=inject_web_chat_only,
-                        commit_cursor=False,
-                        injected_message_ids=injected_ids,
-                    )
-                    if injected_ids:
-                        channel_inflight_id = injected_ids[-1]
-                        channel_inflight_cursor = last_id
-                        channel_inflight_logged_at = now
-                        channel_inflight_started_at = now
+                    if _channel_stdin_active_tool_call():
+                        channel_pending_recheck = True
+                        if now - channel_tool_defer_logged_at >= 30.0:
+                            channel_tool_defer_logged_at = now
+                            router_log("INFO", f"channel_stdin_proxy_deferred cursor={last_id} reason=active_tool_call")
+                    else:
+                        if marker != last_channel_marker:
+                            last_channel_marker = marker
+                        channel_pending_recheck = False
+                        last_id = max(last_id, ensure_channel_llm_delivery_cursor_initialized())
+                        injected_ids: list[int] = []
+                        last_id = _inject_pending_channel_messages(
+                            master_fd,
+                            last_id,
+                            channel_enter_bytes,
+                            web_chat_only=inject_web_chat_only,
+                            commit_cursor=False,
+                            injected_message_ids=injected_ids,
+                        )
+                        if injected_ids:
+                            channel_inflight_id = injected_ids[-1]
+                            channel_inflight_cursor = last_id
+                            channel_inflight_logged_at = now
+                            channel_inflight_started_at = now
                 summary_marker = _channel_llm_summary_file_marker()
                 if inject_channel_summaries and summary_marker != last_summary_marker:
                     last_summary_marker = summary_marker
