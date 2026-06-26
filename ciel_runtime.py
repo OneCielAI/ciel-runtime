@@ -37,6 +37,7 @@ from typing import Any, Callable, Iterable
 
 from ciel_runtime_support.agent_router import missing_common_capabilities, router_capability_matrix
 from ciel_runtime_support.claude_router import ClaudeRouter
+from ciel_runtime_support.codex_cli import codex_passthrough_args_for_launch
 from ciel_runtime_support.codex_router import CodexRouter
 from ciel_runtime_support.observability import EventBus, render_events_html
 from ciel_runtime_support.transcript_filter import (
@@ -34523,6 +34524,16 @@ def codex_native_routed_config_args(router_base: str = ROUTER_BASE) -> list[str]
     ]
 
 
+def log_codex_passthrough_mapping(notes: list[str]) -> None:
+    if not notes:
+        return
+    deduped = _dedupe_strings(notes)
+    router_log("INFO", "codex_passthrough_mapping " + "; ".join(deduped))
+    print("Ciel Runtime Codex passthrough mapping:", flush=True)
+    for note in deduped:
+        print(f"- {note}", flush=True)
+
+
 def codex_help_requested(passthrough: list[str]) -> bool:
     return any(arg in ("help", "--help", "-h") for arg in passthrough)
 
@@ -34548,8 +34559,10 @@ def launch_codex(
     if isinstance(updated_codex, str) and updated_codex:
         codex = updated_codex
     codex = find_executable("codex") or codex
-    if codex_help_requested(passthrough):
-        return subprocess.call([codex, *passthrough], env=env)
+    codex_passthrough, codex_passthrough_notes = codex_passthrough_args_for_launch(passthrough)
+    if codex_help_requested(codex_passthrough):
+        log_codex_passthrough_mapping(codex_passthrough_notes)
+        return subprocess.call([codex, *codex_passthrough], env=env)
     auto_import_passthrough_channels(passthrough)
     rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
     if rc == PRELAUNCH_LAUNCH_CLAUDE:
@@ -34585,12 +34598,13 @@ def launch_codex(
     else:
         env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
         cmd = [codex, *codex_runtime_config_args()]
-    cmd.extend(codex_alternate_screen_compat_args(passthrough, env=env))
-    if not native_codex_enabled(provider) and not has_passthrough_option(passthrough, "-m", "--model"):
+    log_codex_passthrough_mapping(codex_passthrough_notes)
+    cmd.extend(codex_alternate_screen_compat_args(codex_passthrough, env=env))
+    if not native_codex_enabled(provider) and not has_passthrough_option(codex_passthrough, "-m", "--model"):
         model = current_alias(cfg)
         if model:
             cmd.extend(["-m", model])
-    cmd.extend(passthrough)
+    cmd.extend(codex_passthrough)
     _log_codex_command_for_diagnostics(cmd, env)
     record_launch_state_for_cwd(
         current_launch_cwd_key(),

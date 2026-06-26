@@ -241,6 +241,50 @@ class CodexRuntimeTests(unittest.TestCase):
             self.assertEqual([], ciel_runtime.codex_alternate_screen_compat_args(["--no-alt-screen"], env=env, cwd=Path(tmp)))
             self.assertEqual([], ciel_runtime.codex_alternate_screen_compat_args(["-c", "tui.alternate_screen=\"never\""], env=env, cwd=Path(tmp)))
 
+    def test_codex_passthrough_maps_claude_session_flags(self):
+        args, notes = ciel_runtime.codex_passthrough_args_for_launch(
+            [
+                "--continue",
+                "--channels",
+                "server:ai-net",
+                "--permission-mode",
+                "bypassPermissions",
+                "--mcp-config",
+                "claude-mcp.json",
+                "-c",
+                "model=\"gpt-5\"",
+                "finish the task",
+            ]
+        )
+
+        self.assertEqual(
+            [
+                "resume",
+                "--last",
+                "--dangerously-bypass-approvals-and-sandbox",
+                "-c",
+                "model=\"gpt-5\"",
+                "finish the task",
+            ],
+            args,
+        )
+        self.assertIn("--continue -> resume --last", notes)
+        self.assertIn("--channels ignored for Codex launch", notes)
+        self.assertIn("--mcp-config ignored for Codex launch", notes)
+
+    def test_codex_passthrough_maps_resume_and_print_forms(self):
+        args, _ = ciel_runtime.codex_passthrough_args_for_launch(["--resume", "session-1", "continue work"])
+        self.assertEqual(["resume", "session-1", "continue work"], args)
+
+        args, _ = ciel_runtime.codex_passthrough_args_for_launch(["--print", "summarize"])
+        self.assertEqual(["exec", "summarize"], args)
+
+        args, _ = ciel_runtime.codex_passthrough_args_for_launch(["--fork-session", "--session-id", "session-2", "inspect"])
+        self.assertEqual(["fork", "session-2", "inspect"], args)
+
+        args, _ = ciel_runtime.codex_passthrough_args_for_launch(["exec", "hello", "--continue"])
+        self.assertEqual(["exec", "hello"], args)
+
     def test_launch_codex_builds_command_with_router_provider(self):
         cfg = {"providers": {"ollama": {"current_model": "qwen3", "base_url": "http://localhost:11434"}}}
         pcfg = cfg["providers"]["ollama"]
@@ -370,6 +414,48 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("model_providers.ciel-runtime-codex.supports_websockets=false", captured["cmd"])
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
         self.assertNotIn("-m", captured["cmd"])
+
+    def test_launch_codex_maps_continue_to_resume_last(self):
+        cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": ""}}}
+        pcfg = cfg["providers"]["codex"]
+        captured = {}
+
+        def run_with_router_lifetime(runner, manage_router):
+            captured["manage_router"] = manage_router
+            return runner()
+
+        def subprocess_call(cmd, env):
+            captured["cmd"] = cmd
+            captured["env"] = env
+            return 0
+
+        with (
+            mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
+            mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
+            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
+            mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
+            mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
+            mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
+            mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
+            mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
+            mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
+            mock.patch.object(ciel_runtime, "find_executable", return_value="codex"),
+            mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]),
+            mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
+            mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
+            mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
+            mock.patch("builtins.print"),
+        ):
+            rc = ciel_runtime.launch_codex(["--continue"], skip_menu=True)
+
+        self.assertEqual(0, rc)
+        self.assertTrue(captured["manage_router"])
+        self.assertNotIn("--continue", captured["cmd"])
+        self.assertIn("resume", captured["cmd"])
+        self.assertIn("--last", captured["cmd"])
+        self.assertLess(captured["cmd"].index("resume"), captured["cmd"].index("--last"))
 
     def test_codex_backend_upstream_url_maps_local_backend_prefix(self):
         self.assertEqual(
