@@ -3955,6 +3955,23 @@ CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS = (
     "CIEL_RUNTIME_LIVE_API_KEYS",
     "Set/show ciel-runtime live API key(s)",
 )
+LEGACY_MARKER_PREFIX = "CLAUDE" + "_ANY"
+LEGACY_ADVISOR_CALL_MARKER = LEGACY_MARKER_PREFIX + "_ADVISOR_CALL"
+LEGACY_ROUTER_DEBUG_ACCESS_MARKER = LEGACY_MARKER_PREFIX + "_ROUTER_DEBUG_ACCESS"
+LEGACY_LIVE_LLM_OPTIONS_MARKER = LEGACY_MARKER_PREFIX + "_LIVE_LLM_OPTIONS"
+LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER = LEGACY_MARKER_PREFIX + "_CHANNEL_CLEAR_BACKLOG"
+LEGACY_LIVE_API_KEYS_MARKER = LEGACY_MARKER_PREFIX + "_LIVE_API_KEYS"
+ADVISOR_REQUEST_MARKERS = ("CIEL_RUNTIME_ADVISOR_CALL", LEGACY_ADVISOR_CALL_MARKER)
+ROUTER_DEBUG_REQUEST_MARKERS = ("CIEL_RUNTIME_ROUTER_DEBUG_ACCESS", LEGACY_ROUTER_DEBUG_ACCESS_MARKER)
+LIVE_LLM_OPTIONS_REQUEST_MARKERS = ("CIEL_RUNTIME_LIVE_LLM_OPTIONS", LEGACY_LIVE_LLM_OPTIONS_MARKER)
+CHANNEL_CLEAR_REQUEST_MARKERS = ("CIEL_RUNTIME_CHANNEL_CLEAR_BACKLOG", LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER)
+LIVE_API_KEYS_REQUEST_MARKERS = ("CIEL_RUNTIME_LIVE_API_KEYS", LEGACY_LIVE_API_KEYS_MARKER)
+
+CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS = (*CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS, LEGACY_ADVISOR_CALL_MARKER)
+CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS = (*CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS, LEGACY_ROUTER_DEBUG_ACCESS_MARKER)
+CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS = (*CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS, LEGACY_LIVE_LLM_OPTIONS_MARKER)
+CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS = (*CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS, LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER)
+CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS = (*CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS, LEGACY_LIVE_API_KEYS_MARKER)
 
 
 def command_file_is_ciel_runtime_owned(path: Path, markers: tuple[str, ...]) -> bool:
@@ -4018,7 +4035,7 @@ def install_ciel_runtime_slash_commands(include_advisor: bool = True) -> None:
                     else CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS
                     if name == "router-debug.md"
                     else CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS
-                    if name == "llm-options.md" or name == "llm-restore.md" or name.startswith("llm-")
+                    if name == "llm.md" or name == "llm-options.md" or name == "llm-restore.md" or name.startswith("llm-")
                     else CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS
                     if name in {"api-key.md", "api-keys.md"}
                     else CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS
@@ -4728,6 +4745,12 @@ def plan_mode_active(body: dict[str, Any]) -> bool:
                 elif block.get("type") == "plan_mode_exit":
                     active = False
     return active
+
+
+def channel_llm_wake_request(body: dict[str, Any]) -> bool:
+    text = latest_user_text(body)
+    text = re.sub(r"^[\x00-\x1f\x7f\s]+", "", text)
+    return text.startswith("[ciel-runtime channel wake]")
 
 
 def has_plan_mode_exit(body: dict[str, Any]) -> bool:
@@ -12549,24 +12572,37 @@ def maybe_build_llm_compacted_messages(
     return out
 
 
+def latest_user_text_has_marker(body: dict[str, Any], markers: tuple[str, ...]) -> bool:
+    text = latest_user_text(body)
+    return any(marker in text for marker in markers)
+
+
+def latest_user_text_marker_tail(body: dict[str, Any], markers: tuple[str, ...]) -> str:
+    text = latest_user_text(body)
+    for marker in markers:
+        if marker in text:
+            return text.split(marker, 1)[1]
+    return ""
+
+
 def is_advisor_request(body: dict[str, Any]) -> bool:
-    return "CIEL_RUNTIME_ADVISOR_CALL" in latest_user_text(body)
+    return latest_user_text_has_marker(body, ADVISOR_REQUEST_MARKERS)
 
 
 def is_router_debug_request(body: dict[str, Any]) -> bool:
-    return "CIEL_RUNTIME_ROUTER_DEBUG_ACCESS" in latest_user_text(body)
+    return latest_user_text_has_marker(body, ROUTER_DEBUG_REQUEST_MARKERS)
 
 
 def is_channel_clear_request(body: dict[str, Any]) -> bool:
-    return "CIEL_RUNTIME_CHANNEL_CLEAR_BACKLOG" in latest_user_text(body)
+    return latest_user_text_has_marker(body, CHANNEL_CLEAR_REQUEST_MARKERS)
 
 
 def is_live_llm_options_request(body: dict[str, Any]) -> bool:
-    return "CIEL_RUNTIME_LIVE_LLM_OPTIONS" in latest_user_text(body)
+    return latest_user_text_has_marker(body, LIVE_LLM_OPTIONS_REQUEST_MARKERS)
 
 
 def is_live_api_keys_request(body: dict[str, Any]) -> bool:
-    return "CIEL_RUNTIME_LIVE_API_KEYS" in latest_user_text(body)
+    return latest_user_text_has_marker(body, LIVE_API_KEYS_REQUEST_MARKERS)
 
 
 def parse_channel_bridge_args(raw: str) -> tuple[str, dict[str, str]]:
@@ -12617,11 +12653,9 @@ def format_channel_messages(messages: list[dict[str, Any]], after: int) -> str:
 
 
 def router_debug_value_from_body(body: dict[str, Any]) -> str:
-    text = latest_user_text(body)
-    marker = "CIEL_RUNTIME_ROUTER_DEBUG_ACCESS"
-    if marker not in text:
+    tail = latest_user_text_marker_tail(body, ROUTER_DEBUG_REQUEST_MARKERS)
+    if not tail:
         return "status"
-    tail = text.split(marker, 1)[1]
     for line in tail.splitlines():
         stripped = line.strip()
         if not stripped:
@@ -12633,11 +12667,9 @@ def router_debug_value_from_body(body: dict[str, Any]) -> str:
 
 
 def channel_clear_value_from_body(body: dict[str, Any]) -> str:
-    text = latest_user_text(body)
-    marker = "CIEL_RUNTIME_CHANNEL_CLEAR_BACKLOG"
-    if marker not in text:
+    tail = latest_user_text_marker_tail(body, CHANNEL_CLEAR_REQUEST_MARKERS)
+    if not tail:
         return "all"
-    tail = text.split(marker, 1)[1]
     for line in tail.splitlines():
         stripped = line.strip()
         if not stripped:
@@ -12649,11 +12681,9 @@ def channel_clear_value_from_body(body: dict[str, Any]) -> str:
 
 
 def live_llm_options_value_from_body(body: dict[str, Any]) -> str:
-    text = latest_user_text(body)
-    marker = "CIEL_RUNTIME_LIVE_LLM_OPTIONS"
-    if marker not in text:
+    tail = latest_user_text_marker_tail(body, LIVE_LLM_OPTIONS_REQUEST_MARKERS)
+    if not tail:
         return "status"
-    tail = text.split(marker, 1)[1]
     placeholder_values = {"$0", "${0}", "$ARGUMENTS", "${ARGUMENTS}"}
     fallback_values: list[str] = []
     saw_structured_value = False
@@ -12683,11 +12713,9 @@ def live_llm_options_value_from_body(body: dict[str, Any]) -> str:
 
 
 def live_api_keys_value_from_body(body: dict[str, Any]) -> str:
-    text = latest_user_text(body)
-    marker = "CIEL_RUNTIME_LIVE_API_KEYS"
-    if marker not in text:
+    tail = latest_user_text_marker_tail(body, LIVE_API_KEYS_REQUEST_MARKERS)
+    if not tail:
         return "status"
-    tail = text.split(marker, 1)[1]
     placeholder_values = {"$0", "${0}", "$ARGUMENTS", "${ARGUMENTS}"}
     value_line = ""
     argument_lines: list[str] = []
@@ -31437,8 +31465,10 @@ def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
     if body.get("ciel_runtime_channel_direct") or metadata.get("ciel_runtime_channel_direct"):
         return body
     if plan_mode_active(body):
-        router_log("INFO", "channel_llm_inject_skipped reason=plan_mode_active")
-        return body
+        if not channel_llm_wake_request(body):
+            router_log("INFO", "channel_llm_inject_skipped reason=plan_mode_active")
+            return body
+        router_log("INFO", "channel_llm_inject_plan_mode_override reason=channel_wake")
     cfg = load_config()
     if channel_delivery_mode(cfg) != "llm":
         return body

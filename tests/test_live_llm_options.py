@@ -121,6 +121,22 @@ class LiveLlmOptionsTests(unittest.TestCase):
             self.assertIn("Value: $0", llm_command)
             self.assertIn("Arguments: $ARGUMENTS", llm_command)
 
+    def test_slash_command_install_replaces_legacy_live_llm_command(self):
+        with tempfile.TemporaryDirectory() as td:
+            commands_dir = Path(td)
+            legacy_marker = ciel_runtime.LEGACY_LIVE_LLM_OPTIONS_MARKER
+            (commands_dir / "llm.md").write_text(
+                f"---\ndescription: old runtime command\n---\n\n{legacy_marker}\n\nValue: $ARGUMENTS\n",
+                encoding="utf-8",
+            )
+
+            with mock.patch.object(ciel_runtime, "CLAUDE_COMMANDS_DIR", commands_dir):
+                ciel_runtime.install_ciel_runtime_slash_commands(include_advisor=False)
+
+            llm_command = (commands_dir / "llm.md").read_text(encoding="utf-8")
+            self.assertIn("CIEL_RUNTIME_LIVE_LLM_OPTIONS", llm_command)
+            self.assertNotIn(legacy_marker, llm_command)
+
     def test_live_llm_slash_value_uses_arg0(self):
         body = {
             "messages": [
@@ -154,6 +170,23 @@ class LiveLlmOptionsTests(unittest.TestCase):
         }
 
         self.assertEqual("left", ciel_runtime.live_llm_options_value_from_body(body))
+
+    def test_live_llm_slash_value_accepts_legacy_marker(self):
+        body = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"{ciel_runtime.LEGACY_LIVE_LLM_OPTIONS_MARKER}\n\nValue: $0\nArguments: 300K",
+                        }
+                    ],
+                }
+            ]
+        }
+
+        self.assertEqual("300K", ciel_runtime.live_llm_options_value_from_body(body))
 
     def test_live_llm_slash_value_ignores_unexpanded_placeholders(self):
         body = {

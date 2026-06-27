@@ -2131,6 +2131,42 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(any("channel_llm_injected" in item and "message_ids=3" in item for item in log_messages))
         self.assertTrue(any("channel_llm_inject_skipped" in item and "transport_connected" in item for item in log_messages))
 
+    def test_body_with_pending_channel_messages_allows_wake_during_stale_plan_mode(self):
+        body = {
+            "messages": [
+                {"role": "user", "attachment": {"type": "plan_mode"}, "content": []},
+                {
+                    "role": "user",
+                    "content": "\x15[ciel-runtime channel wake] id=3 pending_ids=3 channels=room. This is a wake trigger only.",
+                },
+            ],
+            "stream": True,
+        }
+        messages = [
+            {
+                "id": 3,
+                "channel": "room",
+                "sender_id": "agent-a",
+                "message": "Wake-relevant channel message.",
+                "meta": {"room_id": "room", "mcp_server": "generic-mcp"},
+            }
+        ]
+        with (
+            mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+            mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1),
+            mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
+        ):
+            out = ciel_runtime.body_with_pending_channel_messages(body)
+
+        self.assertIsNot(out, body)
+        self.assertIn("Wake-relevant channel message.", out["messages"][-1]["content"][0]["text"])
+        self.assertEqual("3", out["metadata"]["ciel_runtime_channel_message_ids"])
+        write_cursor.assert_not_called()
+        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
+        self.assertTrue(any("channel_llm_inject_plan_mode_override" in item for item in log_messages))
+
     def test_body_without_ciel_runtime_internal_metadata_strips_private_keys(self):
         body = {
             "model": "ciel-runtime-test",
