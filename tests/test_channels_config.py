@@ -865,6 +865,7 @@ class ChannelConfigTests(unittest.TestCase):
         self.assertEqual([channel_path], proxy_config.call_args.kwargs["extra_config_paths"])
         proxy.assert_called_once()
         self.assertFalse(proxy.call_args.kwargs.get("inject_web_chat_only", False))
+        self.assertTrue(proxy.call_args.kwargs.get("wake_for_llm_delivery", False))
         call.assert_not_called()
         launch_cmd = proxy.call_args.args[0]
         self.assertNotIn("--dangerously-load-development-channels", launch_cmd)

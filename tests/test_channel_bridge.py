@@ -1524,6 +1524,75 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual([8], injected)
         commit_cursor.assert_not_called()
 
+    def test_llm_delivery_wake_prompt_omits_raw_channel_message(self):
+        prompt = ciel_runtime.format_channel_llm_delivery_wake_prompt(
+            [
+                {
+                    "id": 8,
+                    "channel": "room",
+                    "sender_id": "agent",
+                    "message": "secret raw message body",
+                    "meta": {},
+                }
+            ]
+        )
+
+        self.assertIn("[ciel-runtime channel wake]", prompt)
+        self.assertIn("id=8", prompt)
+        self.assertNotIn("secret raw message body", prompt)
+        self.assertNotIn("external channel message", prompt)
+
+    def test_inject_pending_channel_messages_wake_only_for_llm_delivery(self):
+        messages = [
+            {
+                "id": 8,
+                "channel": "room",
+                "sender_id": "agent",
+                "message": "wake up later",
+                "meta": {},
+                "delivery": ["llm"],
+            }
+        ]
+        injected: list[int] = []
+        with (
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+            mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+            mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+            mock.patch.object(ciel_runtime, "router_log"),
+        ):
+            last_id = ciel_runtime._inject_pending_channel_messages(
+                99,
+                7,
+                wake_for_llm_delivery=True,
+                commit_cursor=False,
+                injected_message_ids=injected,
+            )
+
+        self.assertEqual(7, last_id)
+        self.assertEqual([8], injected)
+        self.assertNotIn(8, ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED)
+        self.assertEqual(2, write_all.call_count)
+        wake_bytes = write_all.call_args_list[0].args[1]
+        self.assertIn(b"[ciel-runtime channel wake]", wake_bytes)
+        self.assertIn(b"id=8", wake_bytes)
+        self.assertNotIn(b"wake up later", wake_bytes)
+        commit_cursor.assert_not_called()
+
+    def test_channel_wake_prompt_does_not_auto_synthesize_plan_mode(self):
+        body = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": "[ciel-runtime channel wake] id=8 pending_ids=8."}],
+                }
+            ],
+            "tools": [{"name": "EnterPlanMode", "input_schema": {"type": "object"}}],
+        }
+
+        self.assertTrue(ciel_runtime.body_is_channel_prompt(body))
+        self.assertFalse(ciel_runtime.should_auto_enter_plan_mode(body, "", []))
+
     def test_inject_pending_channel_messages_waits_for_queued_command(self):
         messages = [
             {
