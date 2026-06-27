@@ -25983,6 +25983,11 @@ def router_client_supervisor_interval_seconds() -> float:
 def ensure_managed_router_running_for_client() -> bool:
     if router_up():
         return True
+    for attempt in range(2):
+        time.sleep(0.5)
+        if router_up():
+            router_log("INFO", f"router_lifetime_keep_alive reason=transient_health_miss retry={attempt + 1} base={ROUTER_BASE}")
+            return True
     router_log("WARN", f"router_lifetime_restart reason=router_down_active_client base={ROUTER_BASE}")
     try:
         return bool(start_router_if_needed())

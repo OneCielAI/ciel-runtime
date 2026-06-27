@@ -1080,9 +1080,22 @@ class RouterLifetimeTests(unittest.TestCase):
         register.assert_not_called()
         stop.assert_not_called()
 
+    def test_router_client_supervisor_ignores_transient_health_miss(self):
+        with (
+            mock.patch.object(ciel_runtime, "router_up", side_effect=[False, True]),
+            mock.patch.object(ciel_runtime.time, "sleep"),
+            mock.patch.object(ciel_runtime, "start_router_if_needed") as start,
+            mock.patch.object(ciel_runtime, "router_log") as log,
+        ):
+            self.assertTrue(ciel_runtime.ensure_managed_router_running_for_client())
+
+        start.assert_not_called()
+        self.assertTrue(any("transient_health_miss" in call.args[1] for call in log.call_args_list))
+
     def test_router_client_supervisor_restarts_when_router_disappears(self):
         with (
             mock.patch.object(ciel_runtime, "router_up", return_value=False),
+            mock.patch.object(ciel_runtime.time, "sleep"),
             mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True) as start,
             mock.patch.object(ciel_runtime, "router_log") as log,
         ):
