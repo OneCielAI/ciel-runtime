@@ -1021,8 +1021,8 @@ class ChannelBridgeTests(unittest.TestCase):
         notice = ciel_runtime.format_channel_llm_summary_notice(records)
 
         self.assertIn("channel mailbox digest", notice)
-        self.assertIn("ai-net-sse에서 전달된 알림이 2개 있습니다", notice)
-        self.assertIn("ai-net-sse에서 확인하세요", notice)
+        self.assertIn("source=ai-net-sse notification_count=2", notice)
+        self.assertNotIn("확인하세요", notice)
         self.assertIn("message_ids=11..12", notice)
         self.assertIn("channels=room_dm_a, room_team", notice)
         self.assertNotIn("NO_REPLY", notice)
@@ -1064,8 +1064,8 @@ class ChannelBridgeTests(unittest.TestCase):
         )
 
         self.assertIn("channel mailbox digest", prompt)
-        self.assertIn("ai-net-sse에서 전달된 알림이 1개 있습니다", prompt)
-        self.assertIn("ai-net-sse에서 확인하세요", prompt)
+        self.assertIn("source=ai-net-sse notification_count=1", prompt)
+        self.assertNotIn("확인하세요", prompt)
         self.assertNotIn("LOCAL NOTICE ONLY", prompt)
         self.assertNotIn("local_note=", prompt)
         self.assertNotIn("[ciel-runtime", prompt.lower())
@@ -1073,7 +1073,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn("## tool_result", prompt)
         self.assertNotIn("raw body", prompt)
 
-    def test_channel_llm_prompt_warns_against_dm_label_recipient_misread(self):
+    def test_channel_llm_prompt_is_data_only_for_dm_label_notice(self):
         prompt = ciel_runtime.format_channel_llm_batch_prompt(
             [
                 {
@@ -1086,10 +1086,12 @@ class ChannelBridgeTests(unittest.TestCase):
                 }
             ]
         )
-        self.assertIn("MCP/channel 자격", prompt)
-        self.assertIn("DM label", prompt)
-        self.assertIn("현재 에이전트가 수신자가 아니라고 결론내리지 마세요", prompt)
-        self.assertIn("자동 회신 루프", prompt)
+        self.assertIn("external channel/MCP message data", prompt)
+        self.assertIn("incoming channel message", prompt)
+        self.assertIn("New message from Robert", prompt)
+        self.assertIn('"room_name":"DM-Robert"', prompt)
+        self.assertNotIn("결론내리지 마세요", prompt)
+        self.assertNotIn("자동 회신 루프", prompt)
         self.assertNotIn("ciel-runtime-router send_message", prompt)
         self.assertNotIn("recipients='web'", prompt)
         self.assertNotIn("웹 채팅 요청", prompt)
@@ -1153,7 +1155,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn("secret", prompt)
         self.assertNotIn("x" * 100, prompt)
 
-    def test_channel_wake_prompt_adds_browser_reply_instructions_only_for_web_chat(self):
+    def test_channel_wake_prompt_omits_browser_reply_instructions_for_web_chat(self):
         prompt = ciel_runtime.format_channel_wake_prompt(
             {
                 "id": 10,
@@ -1165,9 +1167,11 @@ class ChannelBridgeTests(unittest.TestCase):
                 "meta": {"source": "ciel-runtime-web-chat", "reply_channel": "web-chat-session"},
             }
         )
-        self.assertIn("send_message", prompt)
-        self.assertIn("recipients='web'", prompt)
-        self.assertIn("send_file", prompt)
+        self.assertIn("ciel-runtime external channel message", prompt)
+        self.assertIn("현재상태는", prompt)
+        self.assertNotIn("send_message", prompt)
+        self.assertNotIn("recipients='web'", prompt)
+        self.assertNotIn("send_file", prompt)
         self.assertNotIn("XML-like", prompt)
 
     def test_channel_wake_batch_omits_browser_reply_instructions_without_web_chat(self):
@@ -1204,8 +1208,9 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("현재상태는", prompt)
         self.assertIn("channel=web-chat-session", prompt)
         self.assertIn("thread=thread-1", prompt)
-        self.assertIn("send_message", prompt)
-        self.assertIn("send_file", prompt)
+        self.assertNotIn("Answer in the active Claude Code session", prompt)
+        self.assertNotIn("send_message", prompt)
+        self.assertNotIn("send_file", prompt)
         self.assertNotIn("metadata=", prompt)
         self.assertNotIn("reply_instruction", prompt)
         self.assertNotIn("\n", prompt)
@@ -1541,6 +1546,9 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("id=8", prompt)
         self.assertNotIn("secret raw message body", prompt)
         self.assertNotIn("external channel message", prompt)
+        self.assertNotIn("do not answer", prompt)
+        self.assertNotIn("Start a normal turn", prompt)
+        self.assertNotIn("ExitPlanMode", prompt)
 
     def test_inject_pending_channel_messages_wake_only_for_llm_delivery(self):
         messages = [
@@ -2012,8 +2020,8 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(2, write_all.call_count)
         payload = write_all.call_args_list[0].args[1]
         self.assertIn("channel mailbox digest".encode("utf-8"), payload)
-        self.assertIn("ai-net-sse에서 전달된 알림이 1개 있습니다".encode("utf-8"), payload)
-        self.assertIn("ai-net-sse에서 확인하세요".encode("utf-8"), payload)
+        self.assertIn("source=ai-net-sse notification_count=1".encode("utf-8"), payload)
+        self.assertNotIn("확인하세요".encode("utf-8"), payload)
         self.assertNotIn("LOCAL NOTICE ONLY".encode("utf-8"), payload)
         self.assertTrue(payload.startswith(b"\x15"))
         self.assertEqual(b"\r\n", write_all.call_args_list[1].args[1])
@@ -2108,13 +2116,12 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("channel inbox", injected)
         self.assertIn("incoming channel message for the current agent", injected)
         self.assertIn("<< 메시지 >>", injected)
-        self.assertIn("실제 업무 메시지", injected)
-        self.assertIn("외부 채널/MCP 메시지", injected)
-        self.assertIn("로컬 사용자 승인 없이 같은 채널/DM에 답장", injected)
-        self.assertIn("답장 여부를 묻고 멈추지 마세요", injected)
-        self.assertIn("미래 행동을 약속하는 말만 남기고 턴을 끝내지 마세요", injected)
-        self.assertIn("같은 턴에서 필요한 조사/도구 호출/채널 보고까지 수행", injected)
-        self.assertIn("실제 결제/투자 실행", injected)
+        self.assertIn("external channel/MCP message data", injected)
+        self.assertNotIn("로컬 사용자 승인 없이 같은 채널/DM에 답장", injected)
+        self.assertNotIn("답장 여부를 묻고 멈추지 마세요", injected)
+        self.assertNotIn("미래 행동을 약속하는 말만 남기고 턴을 끝내지 마세요", injected)
+        self.assertNotIn("같은 턴에서 필요한 조사/도구 호출/채널 보고까지 수행", injected)
+        self.assertNotIn("실제 결제/투자 실행", injected)
         self.assertIn("Please check this.", injected)
         self.assertNotIn("ai-net.sse.connected", injected)
         self.assertNotIn("SSE MCP initialized", injected)
@@ -2137,7 +2144,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 {"role": "user", "attachment": {"type": "plan_mode"}, "content": []},
                 {
                     "role": "user",
-                    "content": "\x15[ciel-runtime channel wake] id=3 pending_ids=3 channels=room. This is a wake trigger only.",
+                    "content": "\x15[ciel-runtime channel wake] id=3 pending_ids=3 channels=room",
                 },
             ],
             "stream": True,
@@ -2399,13 +2406,15 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(out["metadata"]["ciel_runtime_channel_injected"])
         self.assertEqual("3", out["metadata"]["ciel_runtime_channel_message_ids"])
         injected = out["messages"][-1]["content"][0]["text"]
-        self.assertIn("자율 처리 턴", injected)
-        self.assertIn("필요한 읽기/쓰기 도구를 호출", injected)
-        self.assertIn("tool_result", injected)
+        self.assertIn("external channel/MCP message data", injected)
+        self.assertIn("Please read this", injected)
+        self.assertNotIn("자율 처리 턴", injected)
+        self.assertNotIn("필요한 읽기/쓰기 도구를 호출", injected)
+        self.assertNotIn("tool_result", injected)
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("channel_llm_injected" in item and "message_ids=3" in item for item in log_messages))
 
-    def test_channel_llm_prompt_treats_ai_net_dm_as_agent_task(self):
+    def test_channel_llm_prompt_keeps_ai_net_dm_as_data_only(self):
         prompt = ciel_runtime.format_channel_llm_batch_prompt(
             [
                 {
@@ -2418,24 +2427,24 @@ class ChannelBridgeTests(unittest.TestCase):
                 }
             ]
         )
-        self.assertIn("현재 Claude Code 세션의 에이전트에게 도착한 실제 업무 메시지", prompt)
-        self.assertIn("외부 채널/MCP 메시지", prompt)
-        self.assertIn("DM/업무 지시/상태 확인/컨텍스트 요청", prompt)
-        self.assertIn("로컬 사용자 승인 없이 같은 채널/DM에 답장", prompt)
-        self.assertIn("답장 여부를 묻고 멈추지 마세요", prompt)
-        self.assertIn("진행하겠습니다", prompt)
-        self.assertIn("같은 턴에서 필요한 조사/도구 호출/채널 보고까지 수행", prompt)
-        self.assertIn("단순 온보딩/인사/중복 테스트 메시지", prompt)
+        self.assertIn("external channel/MCP message data", prompt)
+        self.assertNotIn("현재 Claude Code 세션의 에이전트에게 도착한 실제 업무 메시지", prompt)
+        self.assertNotIn("DM/업무 지시/상태 확인/컨텍스트 요청", prompt)
+        self.assertNotIn("로컬 사용자 승인 없이 같은 채널/DM에 답장", prompt)
+        self.assertNotIn("답장 여부를 묻고 멈추지 마세요", prompt)
+        self.assertNotIn("진행하겠습니다", prompt)
+        self.assertNotIn("같은 턴에서 필요한 조사/도구 호출/채널 보고까지 수행", prompt)
+        self.assertNotIn("단순 온보딩/인사/중복 테스트 메시지", prompt)
         self.assertNotIn("NO_REPLY", prompt)
         self.assertIn("Sarah, 추가 매크로 분석 보고서를 보내주세요.", prompt)
         self.assertIn('to=["agent_n3wy9gfjmcil"]', prompt)
-        self.assertIn("message_id/source_message_id", prompt)
-        self.assertIn("after_id/cursor", prompt)
+        self.assertIn('"message_id":"msg_task"', prompt)
+        self.assertNotIn("after_id/cursor", prompt)
         self.assertNotIn("ciel-runtime-router send_message", prompt)
         self.assertNotIn("recipients='web'", prompt)
         self.assertNotIn("웹 채팅 요청", prompt)
 
-    def test_channel_llm_prompt_adds_browser_reply_instructions_only_for_web_chat(self):
+    def test_channel_llm_prompt_omits_browser_reply_instructions_for_web_chat(self):
         prompt = ciel_runtime.format_channel_llm_batch_prompt(
             [
                 {
@@ -2453,9 +2462,9 @@ class ChannelBridgeTests(unittest.TestCase):
                 }
             ]
         )
-        self.assertIn("ciel-runtime-router send_message", prompt)
-        self.assertIn("recipients='web'", prompt)
-        self.assertIn("웹 채팅 요청", prompt)
+        self.assertNotIn("ciel-runtime-router send_message", prompt)
+        self.assertNotIn("recipients='web'", prompt)
+        self.assertNotIn("웹 채팅 요청", prompt)
         self.assertIn("현재 작업 상태를 알려줘", prompt)
 
     def test_channel_tool_result_context_is_injected_for_remembered_tool_use(self):
@@ -2607,7 +2616,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(2, len(out["messages"]))
         injected = out["messages"][-1]["content"][0]["text"]
         self.assertIn("channel mailbox digest", injected)
-        self.assertIn("ai-net-sse에서 전달된 알림이 1개 있습니다", injected)
+        self.assertIn("source=ai-net-sse notification_count=1", injected)
         self.assertIn("message_ids=12", injected)
         self.assertNotIn("LOCAL NOTICE ONLY", injected)
         self.assertNotIn("Sarah에게 업무를 배정", injected)
@@ -3206,13 +3215,14 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(9, args[0])
         prompt = args[1]
         self.assertIn("<< room_4pyr8vvwm2cd >> incoming channel message for the current agent", prompt)
-        self.assertIn("자율 처리 턴", prompt)
-        self.assertIn("로컬 사용자 승인 없이 같은 채널/DM에 답장", prompt)
-        self.assertIn("답장 여부를 묻고 멈추지 마세요", prompt)
-        self.assertIn("미래 행동을 약속하는 말만 남기고 턴을 끝내지 마세요", prompt)
-        self.assertIn("범위를 작게 유지", prompt)
-        self.assertIn("새 방 생성", prompt)
-        self.assertIn("Let me send", prompt)
+        self.assertIn("external channel/MCP message data", prompt)
+        self.assertNotIn("자율 처리 턴", prompt)
+        self.assertNotIn("로컬 사용자 승인 없이 같은 채널/DM에 답장", prompt)
+        self.assertNotIn("답장 여부를 묻고 멈추지 마세요", prompt)
+        self.assertNotIn("미래 행동을 약속하는 말만 남기고 턴을 끝내지 마세요", prompt)
+        self.assertNotIn("범위를 작게 유지", prompt)
+        self.assertNotIn("새 방 생성", prompt)
+        self.assertNotIn("Let me send", prompt)
         self.assertIn("새 이벤트", prompt)
         append_summary.assert_called_once_with(message, "분석 완료", "end_turn", tool_turns=1)
         append.assert_not_called()

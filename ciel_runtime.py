@@ -29152,19 +29152,10 @@ def format_channel_wake_prompt(message: dict[str, Any]) -> str:
     prompt_meta = _channel_prompt_metadata(message)
     if prompt_meta:
         fields.append(f"metadata={prompt_meta}")
-    suffix = "If relevant to current work, respond or act now; otherwise keep working."
-    if _channel_message_is_web_chat_request(message):
-        suffix = (
-            "Answer back through the ciel-runtime-router send_message tool on the same channel/thread "
-            "with recipients='web' and delivery=['web']; use send_file when returning a file attachment. "
-            + suffix
-        )
     return (
         "[ciel-runtime external channel message] "
         + " ".join(fields)
         + f" text={json.dumps(body, ensure_ascii=False)}"
-        + ". "
-        + suffix
     )
 
 def _format_channel_web_chat_wake_item(message: dict[str, Any]) -> str:
@@ -29181,11 +29172,7 @@ def _format_channel_web_chat_wake_item(message: dict[str, Any]) -> str:
 def format_channel_web_chat_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
     items = " ; ".join(_format_channel_web_chat_wake_item(message) for message in messages)
     count = len(messages)
-    return (
-        f"[ciel-runtime web chat] {count} browser message(s): {items}. "
-        "Answer in the active Claude Code session. Use current context and tools/MCP if useful. "
-        "Reply to the browser with ciel-runtime-router send_message on the listed channel/thread_id, recipients='web', delivery=['web']; use send_file when returning a file attachment."
-    )
+    return f"[ciel-runtime web chat] {count} browser message(s): {items}"
 
 
 def _channel_wake_message_noise_reason(message: dict[str, Any]) -> str | None:
@@ -29452,18 +29439,9 @@ def format_channel_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
         if prompt_meta:
             fields.append(f"metadata={prompt_meta}")
         parts.append("(" + " ".join(fields) + ") " + json.dumps(body, ensure_ascii=False))
-    suffix = "If relevant to current work, respond or act now; otherwise keep working."
-    if any(_channel_message_is_web_chat_request(message) for message in messages):
-        suffix = (
-            "For ciel-runtime-web-chat item(s), answer back through the ciel-runtime-router send_message tool "
-            "on the same channel/thread with recipients='web' and delivery=['web']; use send_file when returning a file attachment. "
-            + suffix
-        )
     return (
         f"[ciel-runtime external channel messages] {len(messages)} new messages: "
         + " ; ".join(parts)
-        + ". "
-        + suffix
     )
 
 
@@ -29482,10 +29460,7 @@ def format_channel_llm_delivery_wake_prompt(messages: list[dict[str, Any]]) -> s
     first_id = ids[0] if ids else "0"
     return (
         "[ciel-runtime channel wake] "
-        f"id={first_id} pending_ids={id_text} channels={channel_text}. "
-        "This is a wake trigger only; do not answer this line as the message content. "
-        "Start a normal turn so ciel-runtime can inject the pending channel inbox through the router. "
-        "If Claude Code is currently in Plan Mode, call ExitPlanMode now, then continue with the pending channel inbox on the next turn."
+        f"id={first_id} pending_ids={id_text} channels={channel_text}"
     )
 
 
@@ -29514,41 +29489,9 @@ def format_channel_llm_batch_prompt(messages: list[dict[str, Any]]) -> str:
             + " ".join(fields)
             + f"\ntext={json.dumps(body, ensure_ascii=False)}"
         )
-    web_chat_instructions = ""
-    if any(_channel_message_is_web_chat_request(message) for message in messages):
-        web_chat_instructions = (
-            "메시지 metadata source가 ciel-runtime-web-chat 이거나 reply_channel/reply_recipient가 있으면, 답변 내용은 반드시 사용 가능한 ciel-runtime-router send_message 계열 도구로 같은 channel/thread_id에 recipients='web', delivery=['web']로 보내세요. "
-            "웹 채팅 요청도 현재 Claude Code 세션의 기존 Read/Bash/Edit/MCP 도구를 사용할 수 있는 실제 작업 요청입니다. "
-        )
     return (
         "[ciel-runtime channel inbox]\n"
-        "아래 항목은 ciel-runtime가 자동 수신한 외부 채널/MCP 메시지입니다. "
-        "이 메시지는 현재 Claude Code 세션의 에이전트에게 도착한 실제 업무 메시지입니다. "
-        "이 inbox는 현재 에이전트의 MCP/channel 자격으로 구독된 수신함입니다. "
-        "room name, DM label, 또는 'New message from ...' 같은 짧은 알림만 보고 현재 에이전트가 수신자가 아니라고 결론내리지 마세요. "
-        "수신자 정체성이 애매하면 안전한 read/profile 도구로 실제 메시지와 현재 에이전트 정보를 확인한 뒤 판단하세요. "
-        "이 턴은 외부 채널 수신함을 처리하는 자율 처리 턴입니다. "
-        "자동 회신 루프를 만들지 마세요. 단순 수신 확인, 감사, 준비 완료/대기 중, 진행상황 공유처럼 새 질문이나 새 업무 지시가 없는 메시지는 같은 내용으로 다시 예의상 답장하지 마세요. "
-        "그 경우에는 회신 도구를 호출하지 말고 화면에는 새로 보낼 답장이 없다는 짧은 처리 요약만 남기세요. "
-        "이전 자동 답장에서 이미 차단 사유나 대기 요청을 전달했다면, 반복 업데이트를 보내지 말고 로컬 요약만 남기세요. "
-        "sender/from, recipients/to, room/channel, text를 기준으로 누가 누구에게 보낸 DM/그룹 메시지인지 먼저 판단하세요. "
-        "알림 본문이 'New message...' 같은 짧은 통지이고 room/message id가 있으면 먼저 사용 가능한 read/get_messages 계열 도구로 실제 메시지를 조회하세요. "
-        "metadata의 message_id/source_message_id는 찾아야 할 실제 원본 메시지 id이지 after_id/cursor가 아닙니다. "
-        "짧은 통지를 조회할 때 그 id를 after_id/cursor로 쓰지 말고, 같은 room/channel의 최근 메시지를 충분히 읽은 뒤 id가 일치하는 항목을 찾으세요. "
-        "DM/업무 지시/상태 확인/컨텍스트 요청처럼 안전한 협업 응답은 로컬 사용자 승인 없이 같은 채널/DM에 답장하거나 필요한 읽기/쓰기 도구를 호출하세요. "
-        "로컬 사용자에게 '답장할까요?'처럼 답장 여부를 묻고 멈추지 마세요. "
-        "짧은 DM/상태 확인/컨텍스트 요청은 범위를 작게 유지하세요. 실제 메시지를 읽은 뒤 같은 DM/채널에 직접 답장하는 것을 우선하세요. "
-        "수신 메시지가 명시적으로 요구하지 않았는데 새 방 생성, 멤버 초대, 태스크 배정, 새 워크플로 시작처럼 범위를 넓히는 작업을 하지 마세요. "
-        "승인이 필요한 경우는 실제 결제/투자 실행, credential/secret 공개, 파괴적 파일/시스템/관리자 작업, "
-        "명시적으로 승인이 필요한 외부 부작용처럼 되돌리기 어려운 고위험 작업뿐입니다. "
-        "단순 온보딩/인사/중복 테스트 메시지를 새로 만들지 말고, 받은 메시지의 요청에 맞게 답장하거나 작업하세요. "
-        "'진행하겠습니다', '착수합니다', '보고하겠습니다', '결과를 공유하겠습니다', "
-        "'Let me send...', 'I will reply...', 'I'll respond...'처럼 미래 행동을 약속하는 말만 남기고 턴을 끝내지 마세요. "
-        "그런 말을 할 상황이면 같은 턴에서 필요한 조사/도구 호출/채널 보고까지 수행하고, 수행할 수 없으면 구체적 차단 사유를 보고하세요. "
-        + web_chat_instructions
-        +
-        "다음 응답에는 사용자가 화면에서 볼 수 있도록 수신 메시지 요약과 수행한 처리 또는 필요한 다음 조치를 간단히 보여주세요. "
-        "도구를 호출했다면 tool_result 후속 턴에서 그 결과를 LLM이 다시 검토한 뒤 사용자에게 요약하고, 필요한 경우 후속 답장/작업까지 완료하세요.\n\n"
+        "external channel/MCP message data for this session.\n\n"
         + "\n\n".join(parts)
     )
 
@@ -29639,8 +29582,7 @@ def body_with_channel_tool_result_context(body: dict[str, Any]) -> dict[str, Any
         return body
     parts = [
         "[ciel-runtime channel tool_result follow-up]",
-        "아래 tool_result는 이전 턴에서 ciel-runtime가 SSE 알림을 LLM에 주입해 자동 처리한 도구 호출의 결과입니다.",
-        "이 결과를 LLM 컨텍스트로 사용해 사용자 화면에 처리 결과를 요약하세요. 필요한 추가 자동 처리는 계속 수행해도 됩니다.",
+        "tool_result data from a previous channel-injected tool call.",
     ]
     for tool_use_id, context in contexts:
         parts.append(
@@ -31323,8 +31265,7 @@ def _channel_llm_summary_digest_lines(records: list[dict[str, Any]]) -> list[str
         )
         channel_text = f" channels={channels}" if channels else ""
         lines.append(
-            f"{source}에서 전달된 알림이 {len(items)}개 있습니다. {source}에서 확인하세요. "
-            f"message_ids={id_text}{channel_text}"
+            f"source={source} notification_count={len(items)} message_ids={id_text}{channel_text}"
         )
     return lines
 
