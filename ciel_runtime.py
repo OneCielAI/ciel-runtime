@@ -37,7 +37,7 @@ from typing import Any, Callable, Iterable
 
 from ciel_runtime_support.agent_router import missing_common_capabilities, router_capability_matrix
 from ciel_runtime_support.claude_router import ClaudeRouter
-from ciel_runtime_support.codex_cli import codex_passthrough_args_for_launch
+from ciel_runtime_support.codex_cli import codex_passthrough_args_for_launch, codex_passthrough_has_command
 from ciel_runtime_support.codex_router import CodexRouter
 from ciel_runtime_support.observability import EventBus, render_events_html
 from ciel_runtime_support.transcript_filter import (
@@ -34948,6 +34948,8 @@ def launch_codex(
     if codex_help_requested(codex_passthrough):
         log_codex_passthrough_mapping(codex_passthrough_notes)
         return subprocess.call([codex, *codex_passthrough], env=env)
+    if codex_passthrough_has_command(codex_passthrough):
+        skip_menu = True
     auto_import_passthrough_channels(passthrough)
     rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
     if rc == PRELAUNCH_LAUNCH_CLAUDE:
@@ -35134,6 +35136,7 @@ def cli_usage() -> str:
     return """Usage:
   ciel-runtime                         Launch Claude Code through ciel-runtime router
   ciel-runtime codex [args...]         Launch Codex through ciel-runtime router
+  ciel-runtime resume                  Resume Codex when Codex is the selected provider
 
 Control plane, runs before Claude Code and does not require LLM connectivity:
   ciel-runtime version                 Print ciel-runtime version
@@ -35475,6 +35478,11 @@ def run_cli(argv: list[str]) -> int:
             if ncp:
                 subprocess.run([ncp, "kill"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return 0
+        if codex_passthrough_has_command(argv):
+            cfg = load_config()
+            provider, _ = get_current_provider(cfg)
+            if native_codex_enabled(provider):
+                return launch_codex(argv)
 
     passthrough: list[str] = []
     configure_only = False

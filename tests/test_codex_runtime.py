@@ -285,6 +285,51 @@ class CodexRuntimeTests(unittest.TestCase):
         args, _ = ciel_runtime.codex_passthrough_args_for_launch(["exec", "hello", "--continue"])
         self.assertEqual(["exec", "hello"], args)
 
+    def test_run_cli_routes_bare_resume_to_codex_when_codex_provider_selected(self):
+        cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True}}}
+        with (
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", cfg["providers"]["codex"])),
+            mock.patch.object(ciel_runtime, "launch_codex", return_value=0) as launch_codex,
+            mock.patch.object(ciel_runtime, "launch_claude") as launch_claude,
+        ):
+            rc = ciel_runtime.run_cli(["resume"])
+
+        self.assertEqual(0, rc)
+        launch_codex.assert_called_once_with(["resume"])
+        launch_claude.assert_not_called()
+
+    def test_launch_codex_skips_prelaunch_menu_for_resume_command(self):
+        cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": False, "base_url": "https://api.openai.com", "current_model": ""}}}
+        pcfg = cfg["providers"]["codex"]
+        captured = {}
+
+        def subprocess_call(cmd, env):
+            captured["cmd"] = cmd
+            return 0
+
+        with (
+            mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
+            mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
+            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
+            mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0) as prelaunch,
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
+            mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
+            mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
+            mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
+            mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
+            mock.patch.object(ciel_runtime, "find_executable", return_value="codex"),
+            mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]),
+            mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
+            mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
+        ):
+            rc = ciel_runtime.launch_codex(["resume"])
+
+        self.assertEqual(0, rc)
+        prelaunch.assert_called_once_with(["resume"], skip_menu=True, force_menu=False)
+        self.assertEqual(["codex", "resume"], captured["cmd"])
+
     def test_launch_codex_builds_command_with_router_provider(self):
         cfg = {"providers": {"ollama": {"current_model": "qwen3", "base_url": "http://localhost:11434"}}}
         pcfg = cfg["providers"]["ollama"]
