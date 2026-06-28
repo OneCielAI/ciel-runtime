@@ -720,7 +720,6 @@ args = ["server.py"]
 
         with (
             mock.patch.object(ciel_runtime, "body_with_pending_channel_messages", side_effect=inject_channel),
-            mock.patch.object(ciel_runtime, "body_with_pending_channel_summaries", side_effect=lambda value: value),
             mock.patch.object(ciel_runtime, "body_with_channel_tool_result_context", side_effect=lambda value: value),
         ):
             out, delivery = ciel_runtime.codex_responses_body_with_channel_context(body)
@@ -735,7 +734,6 @@ args = ["server.py"]
 
         with (
             mock.patch.object(ciel_runtime, "body_with_pending_channel_messages", side_effect=lambda value: value),
-            mock.patch.object(ciel_runtime, "body_with_pending_channel_summaries", side_effect=lambda value: value),
             mock.patch.object(ciel_runtime, "body_with_channel_tool_result_context", side_effect=lambda value: value),
         ):
             out, delivery = ciel_runtime.codex_responses_body_with_channel_context(body)

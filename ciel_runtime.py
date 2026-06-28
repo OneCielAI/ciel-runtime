@@ -167,8 +167,6 @@ CHANNEL_MCP_CURSOR_PATH = CONFIG_DIR / "channel-mcp-cursor.json"
 CHANNEL_LLM_CURSOR_PATH = CONFIG_DIR / "channel-llm-cursor.json"
 CHANNEL_LLM_CLEAR_FLOOR_PATH = CONFIG_DIR / "channel-llm-clear-floor.json"
 CHANNEL_LLM_LAUNCH_GUARD_PATH = CONFIG_DIR / "channel-llm-launch-guard.json"
-CHANNEL_LLM_SUMMARY_QUEUE_PATH = CONFIG_DIR / "channel-llm-summary-queue.jsonl"
-CHANNEL_LLM_SUMMARY_CURSOR_PATH = CONFIG_DIR / "channel-llm-summary-cursor.json"
 CHANNEL_COMPACT_REQUEST_PATH = CONFIG_DIR / "channel-compact-request.json"
 CHANNEL_STDIN_WAKE_CLAIMS_PATH = CONFIG_DIR / "channel-stdin-wake-claims.json"
 CHANNEL_PROBE_CACHE_PATH = CONFIG_DIR / "channel-probe-cache.json"
@@ -565,13 +563,6 @@ _CHANNEL_MCP_CURSOR_LOCK = threading.Lock()
 _CHANNEL_MCP_CURSOR_LAST_ID: int | None = None
 _CHANNEL_LLM_CURSOR_LOCK = threading.Lock()
 _CHANNEL_LLM_CURSOR_LAST_ID: int | None = None
-_CHANNEL_LLM_SUMMARY_LOCK = threading.Lock()
-_CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID: int | None = None
-_CHANNEL_LLM_DIRECT_LOCK = threading.Lock()
-_CHANNEL_LLM_DIRECT_INFLIGHT: set[int] = set()
-_CHANNEL_LLM_DIRECT_DELIVERED: set[int] = set()
-_CHANNEL_LLM_DIRECT_QUEUE: queue.Queue[dict[str, Any]] = queue.Queue()
-_CHANNEL_LLM_DIRECT_WORKERS_STARTED = 0
 _CHANNEL_STDIN_WAKE_LOCK = threading.Lock()
 _CHANNEL_STDIN_INJECT_LOCK = threading.Lock()
 _CHANNEL_STDIN_WAKE_DELIVERED: set[int] = set()
@@ -3617,8 +3608,6 @@ def _status_as_string_list(value):
 
 def _status_channel_message_has_external_provenance(message):
     meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    if meta.get("llm_direct_pending") or meta.get("llm_direct_delivered"):
-        return True
     for key in (
         "mcp_server",
         "mcp_method",
@@ -3687,8 +3676,6 @@ def _status_channel_message_skip_reason(message):
         return kind
     if re.fullmatch(r"[a-z0-9_.:-]{1,80}\.(ws|sse)\.connected", body):
         return "transport_connected"
-    if meta.get("llm_direct_delivered"):
-        return "llm_direct_delivered"
     if not delivery and not _status_channel_message_has_external_provenance(message):
         return "unscoped_channel_message"
     return ""
@@ -8646,10 +8633,7 @@ def _handler_response_status(handler: BaseHTTPRequestHandler) -> int | None:
 def _channel_delivery_metadata(metadata: dict[str, Any] | None) -> bool:
     if not isinstance(metadata, dict):
         return False
-    return bool(
-        metadata.get("ciel_runtime_channel_cursor_last_id")
-        or metadata.get("ciel_runtime_channel_summary_cursor_last_id")
-    )
+    return bool(metadata.get("ciel_runtime_channel_cursor_last_id"))
 
 
 def begin_pending_channel_delivery(
@@ -11245,7 +11229,6 @@ def _channel_sse_dispatch(name: str, event_name: str, data_lines: list[str], eve
     payload = _sse_payload_to_chat_payload(data_text, event_name, defaults, event_id=event_id)
     if not payload:
         return
-    payload = _mark_channel_payload_direct_llm_pending(payload)
     saved = append_chat_message(payload)
     if saved.get("_ciel_runtime_duplicate"):
         router_log(
@@ -11264,7 +11247,6 @@ def _channel_sse_dispatch(name: str, event_name: str, data_lines: list[str], eve
         "INFO",
         f"channel_sse_message_received name={name} event={event_name or 'message'} message_id={saved.get('id')} channel={saved.get('channel')}",
     )
-    schedule_channel_direct_llm_delivery(saved)
 
 
 def _channel_sse_worker(name: str) -> None:
@@ -12135,8 +12117,6 @@ def _channel_mcp_message_skip_reason(message: dict[str, Any]) -> str | None:
     meta_kind = str(meta.get("kind") or meta.get("type") or meta.get("event_type") or meta.get("eventType") or meta.get("event") or meta.get("status") or "").strip().lower()
     if meta_kind in _CHANNEL_CONTROL_KINDS:
         return meta_kind
-    if meta.get("llm_direct_pending"):
-        return "llm_direct_pending"
     recipients = {item.strip().lower() for item in _as_string_list(message.get("recipients"))}
     if "internal" in recipients:
         return "recipient_internal"
@@ -16034,10 +16014,6 @@ def _format_channel_backlog_status_lines(stats: dict[str, Any], cleared: bool) -
             f"- chat tail: {stats.get('chat_tail')}",
             f"- LLM cursor advanced by: {stats.get('discarded_llm')}",
             f"- MCP cursor advanced by: {stats.get('discarded_mcp')}",
-            f"- summary cursor advanced by: {stats.get('discarded_summaries')}",
-            f"- direct worker queue drained: {stats.get('direct_queue_drained')}",
-            f"- direct worker items marked handled: {stats.get('direct_queue_remembered')}",
-            f"- direct worker inflight still running: {stats.get('direct_inflight')}",
             f"- active MCP channel sessions updated: {stats.get('mcp_sessions_updated')}",
             "New channel events arriving after this point will still be delivered.",
         ]
@@ -16046,9 +16022,6 @@ def _format_channel_backlog_status_lines(stats: dict[str, Any], cleared: bool) -
         f"- chat tail: {stats.get('chat_tail')}",
         f"- pending LLM items by id range: {stats.get('pending_llm')}",
         f"- pending MCP items by id range: {stats.get('pending_mcp')}",
-        f"- pending direct summaries by id range: {stats.get('pending_summaries')}",
-        f"- direct worker queue depth: {stats.get('direct_queue')}",
-        f"- direct worker inflight: {stats.get('direct_inflight')}",
         f"- active MCP channel sessions: {stats.get('mcp_sessions')}",
     ]
 
@@ -19358,7 +19331,6 @@ def codex_responses_body_with_channel_context(body: dict[str, Any]) -> tuple[dic
     delivery_body = openai_responses_to_anthropic_messages(body, str(body.get("model") or ""))
     original_count = len(delivery_body.get("messages") or [])
     delivery_body = body_with_pending_channel_messages(delivery_body)
-    delivery_body = body_with_pending_channel_summaries(delivery_body)
     delivery_body = body_with_channel_tool_result_context(delivery_body)
     messages = [m for m in delivery_body.get("messages") or [] if isinstance(m, dict)]
     additions = messages[original_count:]
@@ -19535,7 +19507,6 @@ def handle_openai_responses_post(
     write_context_usage(provider, pcfg, anthropic_body, "responses")
     anthropic_body = strip_autonomous_advisor_server_tools(provider, anthropic_body)
     anthropic_body = body_with_pending_channel_messages(anthropic_body)
-    anthropic_body = body_with_pending_channel_summaries(anthropic_body)
     anthropic_body = body_with_channel_tool_result_context(anthropic_body)
     begin_pending_channel_delivery(handler, anthropic_body)
     anthropic_body = normalize_request_for_provider_wire(provider, pcfg, anthropic_body)
@@ -29889,19 +29860,6 @@ def should_launch_process_start_channel_sse(
     return bool((stdin_channel_proxy or native_channel_bridge) and not llm_channel_delivery)
 
 
-def should_use_channel_screen_summary_proxy(
-    llm_channel_delivery: bool,
-    detected_channel_specs: list[str],
-    claude_passthrough: list[str],
-) -> bool:
-    return bool(
-        llm_channel_delivery
-        and channel_specs_include_external_server(detected_channel_specs)
-        and not has_passthrough_option(claude_passthrough, "-p", "--print")
-        and env_bool(os.environ.get("CIEL_RUNTIME_CHANNEL_SCREEN_SUMMARY"), False)
-    )
-
-
 _CHANNEL_PROMPT_META_KEYS = (
     "kind",
     "type",
@@ -30111,11 +30069,21 @@ def _channel_message_delivery_targets(message: dict[str, Any]) -> set[str]:
     return {item.strip().lower() for item in _as_string_list(message.get("delivery")) if item.strip()}
 
 
+def _channel_message_is_web_chat_request(message: dict[str, Any]) -> bool:
+    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
+    source = str(meta.get("source") or "").strip().lower()
+    kind = str(message.get("kind") or meta.get("kind") or "").strip().lower()
+    return bool(
+        source == "ciel-runtime-web-chat"
+        or kind == "web_chat"
+        or meta.get("reply_channel")
+        or meta.get("reply_recipient")
+    )
+
+
 def _channel_message_has_external_provenance(message: dict[str, Any]) -> bool:
     meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
     if _channel_message_is_web_chat_request(message):
-        return True
-    if meta.get("llm_direct_pending") or meta.get("llm_direct_delivered"):
         return True
     for key in _CHANNEL_EXTERNAL_PROVENANCE_META_KEYS:
         value = meta.get(key)
@@ -30432,8 +30400,6 @@ def _take_channel_tool_result_contexts_for_body(body: dict[str, Any]) -> list[tu
 
 def body_with_channel_tool_result_context(body: dict[str, Any]) -> dict[str, Any]:
     metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
-    if body.get("ciel_runtime_channel_direct") or metadata.get("ciel_runtime_channel_direct"):
-        return body
     if metadata.get("ciel_runtime_channel_tool_result_followup"):
         return body
     contexts = _take_channel_tool_result_contexts_for_body(body)
@@ -30468,1218 +30434,6 @@ def body_with_channel_tool_result_context(body: dict[str, Any]) -> dict[str, Any
         + ",".join(tool_use_id for tool_use_id, _context in contexts),
     )
     return out
-
-
-def _mark_channel_payload_direct_llm_pending(payload: dict[str, Any]) -> dict[str, Any]:
-    try:
-        cfg = load_config()
-        if not should_use_channel_llm_delivery(True, [], cfg):
-            return payload
-        if _channel_llm_message_skip_reason(payload):
-            return payload
-    except Exception as exc:
-        router_log("WARN", f"channel_llm_direct_mark_failed error={type(exc).__name__}: {exc}")
-        return payload
-    out = dict(payload)
-    meta = dict(out.get("meta") if isinstance(out.get("meta"), dict) else {})
-    meta["llm_direct_pending"] = True
-    out["meta"] = meta
-    return out
-
-
-def _channel_message_is_direct_llm_owned(message: dict[str, Any]) -> bool:
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    return bool(meta.get("llm_direct_pending") or meta.get("llm_direct_delivered"))
-
-
-def _channel_message_is_web_chat_request(message: dict[str, Any]) -> bool:
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    source = str(meta.get("source") or "").strip().lower()
-    kind = str(message.get("kind") or meta.get("kind") or "").strip().lower()
-    return bool(
-        source == "ciel-runtime-web-chat"
-        or kind == "web_chat"
-        or meta.get("reply_channel")
-        or meta.get("reply_recipient")
-    )
-
-
-def _anthropic_message_text(message: dict[str, Any]) -> str:
-    parts: list[str] = []
-    for block in message.get("content") or []:
-        if isinstance(block, dict) and block.get("type") == "text":
-            parts.append(str(block.get("text") or ""))
-    return "".join(parts).strip()
-
-
-def _channel_direct_worker_limit() -> int:
-    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_DIRECT_WORKERS", "1")
-    try:
-        return max(1, min(8, int(str(raw).strip())))
-    except Exception:
-        return 1
-
-
-def _ensure_channel_direct_workers_locked() -> None:
-    global _CHANNEL_LLM_DIRECT_WORKERS_STARTED
-    wanted = _channel_direct_worker_limit()
-    while _CHANNEL_LLM_DIRECT_WORKERS_STARTED < wanted:
-        _CHANNEL_LLM_DIRECT_WORKERS_STARTED += 1
-        worker_no = _CHANNEL_LLM_DIRECT_WORKERS_STARTED
-        thread = threading.Thread(
-            target=_channel_direct_llm_queue_worker,
-            daemon=True,
-            name=f"ca-channel-llm-worker-{worker_no}",
-        )
-        thread.start()
-        router_log("INFO", f"channel_llm_direct_worker_started worker={worker_no} limit={wanted}")
-
-
-def schedule_channel_direct_llm_delivery(message: dict[str, Any]) -> bool:
-    try:
-        message_id = int(message.get("id") or 0)
-    except Exception:
-        message_id = 0
-    if message_id <= 0:
-        return False
-    try:
-        cfg = load_config()
-        if not should_use_channel_llm_delivery(True, [], cfg):
-            return False
-        skip_reason = _channel_llm_message_skip_reason(message)
-        if skip_reason:
-            router_log("INFO", f"channel_llm_direct_skipped message_id={message_id} channel={message.get('channel')} reason={skip_reason}")
-            return False
-    except Exception as exc:
-        router_log("WARN", f"channel_llm_direct_skipped message_id={message_id} error={type(exc).__name__}: {exc}")
-        return False
-    with _CHANNEL_LLM_DIRECT_LOCK:
-        if message_id in _CHANNEL_LLM_DIRECT_INFLIGHT or message_id in _CHANNEL_LLM_DIRECT_DELIVERED:
-            return False
-        _CHANNEL_LLM_DIRECT_INFLIGHT.add(message_id)
-        _CHANNEL_LLM_DIRECT_QUEUE.put(dict(message))
-        queue_depth = _CHANNEL_LLM_DIRECT_QUEUE.qsize()
-        _ensure_channel_direct_workers_locked()
-    router_log("INFO", f"channel_llm_direct_queued message_id={message_id} channel={message.get('channel')} queue_depth={queue_depth}")
-    return True
-
-
-def _channel_direct_llm_queue_worker() -> None:
-    while True:
-        message = _CHANNEL_LLM_DIRECT_QUEUE.get()
-        try:
-            _channel_direct_llm_worker(message)
-        finally:
-            _CHANNEL_LLM_DIRECT_QUEUE.task_done()
-
-
-def _channel_direct_source_state_name(message: dict[str, Any]) -> str | None:
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    source = str(meta.get("sse_source") or meta.get("source") or "").strip()
-    if source:
-        found = _channel_sse_state_name_for_mcp_server(source)
-        if found:
-            return found
-    with _CHANNEL_SSE_LOCK:
-        for name, state in _CHANNEL_SSE_CONNECTIONS.items():
-            if str(name).strip().lower() in _NATIVE_ROUTER_CHANNEL_NAMES:
-                continue
-            if state.get("mcp_initialized"):
-                return name
-    return None
-
-
-_CHANNEL_DIRECT_EXACT_TOOL_ALLOWLIST = {
-    "echo",
-    "send_dm",
-    "send_message",
-    "reply",
-    "send_reply",
-    "post_message",
-    "post_dm",
-}
-_CHANNEL_DIRECT_REPLY_TOOL_NAMES = {
-    "send_dm",
-    "send_message",
-    "reply",
-    "send_reply",
-    "post_message",
-    "post_dm",
-}
-_CHANNEL_DIRECT_READ_TOOL_PREFIXES = ("get_", "list_", "read_", "search_")
-_CHANNEL_DIRECT_COLLAB_WRITE_TOOL_PREFIXES = (
-    "ack_",
-    "add_",
-    "assign_",
-    "create_",
-    "evaluate_",
-    "record_",
-    "submit_",
-)
-_CHANNEL_DIRECT_BLOCKED_TOOL_PREFIXES = (
-    "clear_",
-    "delete_",
-    "destroy_",
-    "disable_",
-    "drop_",
-    "kill_",
-    "purge_",
-    "remove_",
-    "reset_",
-    "revoke_",
-    "shutdown_",
-    "stop_",
-    "truncate_",
-    "wait_",
-    "watch_",
-)
-_CHANNEL_DIRECT_BLOCKED_TOOL_TERMS = (
-    "credential",
-    "payment",
-    "purchase",
-    "secret",
-    "trade",
-    "transfer",
-    "withdraw",
-)
-
-
-def _channel_direct_tool_is_allowed(tool_name: str) -> bool:
-    normalized = re.sub(r"[^a-z0-9_]+", "_", str(tool_name or "").strip().lower()).strip("_")
-    if not normalized:
-        return False
-    if any(normalized.startswith(prefix) for prefix in _CHANNEL_DIRECT_BLOCKED_TOOL_PREFIXES):
-        return False
-    if any(term in normalized for term in _CHANNEL_DIRECT_BLOCKED_TOOL_TERMS):
-        return False
-    if normalized in _CHANNEL_DIRECT_EXACT_TOOL_ALLOWLIST:
-        return True
-    if any(normalized.startswith(prefix) for prefix in _CHANNEL_DIRECT_READ_TOOL_PREFIXES):
-        return True
-    return any(normalized.startswith(prefix) for prefix in _CHANNEL_DIRECT_COLLAB_WRITE_TOOL_PREFIXES)
-
-
-def _channel_direct_tool_is_reply_action(tool_name: str) -> bool:
-    normalized = re.sub(r"[^a-z0-9_]+", "_", str(tool_name or "").strip().lower()).strip("_")
-    return normalized in _CHANNEL_DIRECT_REPLY_TOOL_NAMES
-
-
-def _channel_direct_tool_is_collab_write_action(tool_name: str) -> bool:
-    normalized = re.sub(r"[^a-z0-9_]+", "_", str(tool_name or "").strip().lower()).strip("_")
-    return _channel_direct_tool_is_allowed(normalized) and any(
-        normalized.startswith(prefix) for prefix in _CHANNEL_DIRECT_COLLAB_WRITE_TOOL_PREFIXES
-    )
-
-
-def _channel_direct_tool_schema_short_name(tool: dict[str, Any]) -> str:
-    parts = _channel_direct_tool_name_parts(str(tool.get("name") or ""))
-    if parts is None:
-        return str(tool.get("name") or "")
-    return parts[1]
-
-
-def _channel_direct_reply_tool_schemas(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [tool for tool in tools if _channel_direct_tool_is_reply_action(_channel_direct_tool_schema_short_name(tool))]
-
-
-def _channel_direct_reply_followup_tool_schemas(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        tool
-        for tool in tools
-        if (
-            _channel_direct_tool_is_reply_action(_channel_direct_tool_schema_short_name(tool))
-            or _channel_direct_tool_is_collab_write_action(_channel_direct_tool_schema_short_name(tool))
-        )
-    ]
-
-
-def _channel_direct_tool_schemas(message: dict[str, Any]) -> list[dict[str, Any]]:
-    state_name = _channel_direct_source_state_name(message)
-    if not state_name:
-        return []
-    public_server = _channel_sse_public_mcp_name(state_name)
-    try:
-        response = _channel_sse_rpc_request(state_name, "tools/list", {}, timeout=20.0)
-    except Exception as exc:
-        router_log("WARN", f"channel_llm_tools_list_failed server={state_name} error={type(exc).__name__}: {exc}")
-        return []
-    if response.get("error"):
-        router_log("WARN", f"channel_llm_tools_list_failed server={state_name} error={truncate_for_prompt(json.dumps(response.get('error'), ensure_ascii=False), 500)}")
-        return []
-    result = response.get("result") if isinstance(response.get("result"), dict) else {}
-    tools = result.get("tools") if isinstance(result.get("tools"), list) else []
-    converted: list[dict[str, Any]] = []
-    filtered = 0
-    for tool in tools:
-        if not isinstance(tool, dict):
-            continue
-        raw_name = str(tool.get("name") or "").strip()
-        if not raw_name:
-            continue
-        if not _channel_direct_tool_is_allowed(raw_name):
-            filtered += 1
-            continue
-        schema = tool.get("inputSchema") if isinstance(tool.get("inputSchema"), dict) else None
-        if schema is None:
-            schema = tool.get("input_schema") if isinstance(tool.get("input_schema"), dict) else None
-        if schema is None:
-            schema = {"type": "object", "properties": {}}
-        converted.append(
-            {
-                "name": f"mcp__{public_server}__{raw_name}",
-                "description": str(tool.get("description") or f"MCP tool {raw_name} on {public_server}"),
-                "input_schema": schema,
-            }
-        )
-    suffix = f" filtered={filtered}" if filtered else ""
-    router_log("INFO", f"channel_llm_tools_list server={state_name} count={len(converted)}{suffix}")
-    return converted
-
-
-def _channel_direct_no_tools_summary(message: dict[str, Any]) -> str:
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    source = str(meta.get("sse_source") or meta.get("source") or "channel")
-    channel = str(message.get("channel") or meta.get("room_id") or "default")
-    incoming = truncate_for_prompt(str(message.get("message") or ""), 1000)
-    return (
-        "채널 메시지는 수신됐지만 자동 처리에 필요한 MCP 도구 목록을 가져오지 못했습니다. "
-        "없는 도구를 가정한 텍스트 명령은 실행하지 않았습니다.\n\n"
-        f"- source: {source}\n"
-        f"- channel: {channel}\n"
-        f"- incoming: {incoming}\n\n"
-        "SSE/MCP endpoint가 재연결 중이거나 stale session일 수 있습니다. "
-        "다음 알림에서 endpoint가 재초기화되면 자동 처리가 재개됩니다."
-    )
-
-
-def _channel_direct_tool_name_parts(name: str) -> tuple[str, str] | None:
-    text = str(name or "").strip()
-    if not text.startswith("mcp__"):
-        return None
-    rest = text[len("mcp__"):]
-    if "__" not in rest:
-        return None
-    server_name, tool_name = rest.split("__", 1)
-    server_name = server_name.strip()
-    tool_name = tool_name.strip()
-    if not server_name or not tool_name:
-        return None
-    return server_name, tool_name
-
-
-def _channel_direct_mcp_result_text(response: dict[str, Any]) -> tuple[str, bool]:
-    if response.get("error"):
-        return json.dumps(response.get("error"), ensure_ascii=False, indent=2), True
-    result = response.get("result") if isinstance(response.get("result"), dict) else {}
-    is_error = bool(result.get("isError") or result.get("is_error"))
-    content = result.get("content")
-    parts: list[str] = []
-    if isinstance(content, list):
-        for block in content:
-            if not isinstance(block, dict):
-                parts.append(str(block))
-                continue
-            if block.get("type") == "text":
-                parts.append(str(block.get("text") or ""))
-            else:
-                parts.append(json.dumps(block, ensure_ascii=False))
-    elif content is not None:
-        parts.append(anthropic_content_to_text(content))
-    if not parts:
-        parts.append(json.dumps(result, ensure_ascii=False, indent=2))
-    return "\n".join(part for part in parts if part).strip(), is_error
-
-
-def _channel_direct_execute_tool(tool_use: dict[str, Any]) -> tuple[str, bool]:
-    tool_id = str(tool_use.get("id") or "")
-    name = str(tool_use.get("name") or "")
-    parts = _channel_direct_tool_name_parts(name)
-    if parts is None:
-        return f"Unsupported automatic channel tool: {name}", True
-    server_name, tool_name = parts
-    if not _channel_direct_tool_is_allowed(tool_name):
-        router_log("WARN", f"channel_llm_tool_blocked tool_use_id={tool_id} tool={tool_name}")
-        return f"Automatic channel handling is not allowed to call tool {tool_name}", True
-    state_name = _channel_sse_state_name_for_mcp_server(server_name)
-    if not state_name:
-        return f"MCP SSE server for tool {name} is not connected", True
-    arguments = tool_use.get("input") if isinstance(tool_use.get("input"), dict) else {}
-    router_log("INFO", f"channel_llm_tool_call tool_use_id={tool_id} server={state_name} tool={tool_name}")
-    try:
-        response = _channel_sse_rpc_request(
-            state_name,
-            "tools/call",
-            {"name": tool_name, "arguments": arguments},
-            timeout=120.0,
-        )
-        text, is_error = _channel_direct_mcp_result_text(response)
-        router_log(
-            "INFO",
-            f"channel_llm_tool_result_forwarded tool_use_id={tool_id} server={state_name} tool={tool_name} chars={len(text)} is_error={is_error}",
-        )
-        return text or "(empty MCP tool result)", is_error
-    except Exception as exc:
-        router_log("WARN", f"channel_llm_tool_call_failed tool_use_id={tool_id} server={state_name} tool={tool_name} error={type(exc).__name__}: {exc}")
-        return f"{type(exc).__name__}: {exc}", True
-
-
-def _channel_direct_reply_tool_content(tool_use: dict[str, Any]) -> str:
-    arguments = tool_use.get("input") if isinstance(tool_use.get("input"), dict) else {}
-    for key in ("content", "message", "text", "body"):
-        if key in arguments:
-            return str(arguments.get(key) or "")
-    return ""
-
-
-def _channel_direct_text_contains_no_reply_directive(text: str) -> bool:
-    body = re.sub(r"\s+", " ", str(text or "")).strip()
-    if not body:
-        return False
-    lowered = body.lower()
-    return bool(
-        _channel_direct_text_declines_reply(body)
-        or re.search(r"\bno[_ -]?reply\s*:", lowered)
-        or "no reply is needed" in lowered
-        or "no response needed" in lowered
-        or "reply is not needed" in lowered
-        or "회신 불필요" in body
-        or "응답 불필요" in body
-        or "추가 답장은 불필요" in body
-    )
-
-
-def _channel_direct_reply_content_should_suppress(text: str) -> bool:
-    body = re.sub(r"\s+", " ", str(text or "")).strip()
-    if not body:
-        return False
-    lowered = body.lower()
-    if _channel_direct_text_contains_no_reply_directive(body):
-        return True
-    if _channel_direct_fallback_text_is_diagnostic_failure(body):
-        return True
-    internal_markers = (
-        "ciel-runtime",
-        "## tool_result",
-        "tool_result",
-        "direct_handler_summary",
-        "background auto handling summary",
-        "background message handling summary",
-        "백그라운드 자동 처리 요약",
-        "fallback loop",
-        "fallback 루프",
-        "fallback 라우터",
-        "ciel-runtime 라우터",
-        "ciel-runtime router",
-        "system-generated activity alert",
-        "kind: activity",
-        "사용자 액션 필요",
-    )
-    return any(marker in lowered for marker in internal_markers)
-
-
-_CHANNEL_DIRECT_MESSAGE_CURSOR_KEYS = (
-    "after_id",
-    "after",
-    "before_id",
-    "before",
-    "cursor",
-    "page_token",
-    "next_cursor",
-)
-_CHANNEL_DIRECT_MESSAGE_LIMIT_KEYS = ("limit", "count", "max_results", "page_size")
-
-
-def _channel_direct_tool_reads_messages(tool_name: str) -> bool:
-    normalized = re.sub(r"[^a-z0-9_]+", "_", str(tool_name or "").strip().lower()).strip("_")
-    return bool(normalized and "message" in normalized and normalized.startswith(("get_", "list_", "read_", "search_")))
-
-
-def _channel_direct_message_has_reference_notification(message: dict[str, Any]) -> bool:
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    if not (meta.get("message_id") or meta.get("source_message_id")):
-        return False
-    body = re.sub(r"\s+", " ", str(message.get("message") or "")).strip().lower()
-    kind = str(meta.get("kind") or meta.get("event") or meta.get("type") or "").strip().lower()
-    if kind in {"activity", "message", "messages", "mention", "mentioned", "dm", "direct", "direct_message"}:
-        return True
-    return bool(
-        "new message" in body
-        or "mentioned" in body
-        or "mention" in body
-        or "dm" in body
-        or "direct message" in body
-        or "멘션" in body
-    )
-
-
-def _channel_direct_prepare_read_tool_use(tool_use: dict[str, Any], message: dict[str, Any]) -> dict[str, Any]:
-    parts = _channel_direct_tool_name_parts(str(tool_use.get("name") or ""))
-    if parts is None or not _channel_direct_tool_reads_messages(parts[1]):
-        return tool_use
-    if not _channel_direct_message_has_reference_notification(message):
-        return tool_use
-    raw_input = tool_use.get("input") if isinstance(tool_use.get("input"), dict) else {}
-    adjusted = dict(raw_input)
-    removed = [key for key in _CHANNEL_DIRECT_MESSAGE_CURSOR_KEYS if key in adjusted]
-    for key in removed:
-        adjusted.pop(key, None)
-    if not any(key in adjusted for key in _CHANNEL_DIRECT_MESSAGE_LIMIT_KEYS):
-        adjusted["limit"] = 20
-    else:
-        for key in _CHANNEL_DIRECT_MESSAGE_LIMIT_KEYS:
-            if key not in adjusted:
-                continue
-            try:
-                current = int(float(adjusted.get(key) or 0))
-            except Exception:
-                current = 0
-            if current < 20:
-                adjusted[key] = 20
-            break
-    if adjusted == raw_input:
-        return tool_use
-    out = dict(tool_use)
-    out["input"] = adjusted
-    if removed:
-        meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-        router_log(
-            "INFO",
-            "channel_llm_read_cursor_normalized "
-            f"tool={parts[1]} message_ref={meta.get('message_id') or meta.get('source_message_id') or ''} "
-            f"removed={','.join(removed)}",
-        )
-    return out
-
-
-def _channel_direct_tool_uses(message: dict[str, Any]) -> list[dict[str, Any]]:
-    found: list[dict[str, Any]] = []
-    for block in message.get("content") or []:
-        if isinstance(block, dict) and block.get("type") == "tool_use":
-            found.append(block)
-    return found
-
-
-_CHANNEL_DIRECT_DEFERRED_ACTION_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(
-        r"\b(?:let me|i(?:'|’)ll|i will|i need to|i should|now i(?:'| will)?|next,?\s*i(?:'| will)?)\b"
-        r".{0,220}\b(?:send|respond|reply|post|message|dm|report|share|follow\s*up|call|fetch|check|read|look\s*up)\b",
-        re.IGNORECASE | re.DOTALL,
-    ),
-    re.compile(
-        r"\b(?:send|respond|reply|post|message|dm|report|share|follow\s*up)\b"
-        r".{0,120}\b(?:now|next)\b",
-        re.IGNORECASE | re.DOTALL,
-    ),
-    re.compile(
-        r"(?:진행|착수|보고|공유|전송|답장|회신|확인|조회|조사|처리)"
-        r".{0,80}(?:하겠습니다|하겠다|하겠어요|할게요|하겠습니다\.|하겠습니다!)",
-        re.DOTALL,
-    ),
-    re.compile(
-        r"(?:보내겠습니다|답장하겠습니다|회신하겠습니다|보고하겠습니다|공유하겠습니다|처리하겠습니다)",
-        re.DOTALL,
-    ),
-    re.compile(
-        r"(?:이제|먼저|다음으로).{0,100}(?:보내|답장|회신|보고|공유|조회|확인|조사|처리)"
-        r".{0,80}(?:하겠습니다|하겠다|합니다)",
-        re.DOTALL,
-    ),
-)
-
-
-_CHANNEL_DIRECT_MAX_ROUTER_TURNS = 10
-
-
-def _channel_direct_text_is_deferred_action(text: str) -> bool:
-    body = re.sub(r"\s+", " ", str(text or "")).strip()
-    if not body:
-        return False
-    completed_markers = (
-        "sent",
-        "replied",
-        "responded",
-        "posted",
-        "completed",
-        "done",
-        "전송 완료",
-        "답장 완료",
-        "회신 완료",
-        "처리 완료",
-        "보고 완료",
-        "공유 완료",
-    )
-    lowered = body.lower()
-    if any(marker in lowered for marker in completed_markers[:6]) or any(marker in body for marker in completed_markers[6:]):
-        return False
-    return any(pattern.search(body) for pattern in _CHANNEL_DIRECT_DEFERRED_ACTION_PATTERNS)
-
-
-def _channel_direct_deferred_action_prompt(text: str) -> str:
-    return (
-        "[ciel-runtime channel action required]\n"
-        "Your previous assistant message announced a future safe channel action instead of performing it. "
-        "Do not end this autonomous channel turn with 'Let me...', 'I will...', or '하겠습니다'. "
-        "If the action is safe and an MCP tool can perform it, call the appropriate tool now. "
-        "If no tool can perform it, give a concise blocker summary instead.\n\n"
-        "previous_assistant_text="
-        + json.dumps(truncate_for_prompt(str(text or ""), 2000), ensure_ascii=False)
-    )
-
-
-def _channel_direct_message_requires_reply(message: dict[str, Any]) -> bool:
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    kind = str(meta.get("kind") or meta.get("event") or meta.get("type") or "").strip().lower()
-    body = re.sub(r"\s+", " ", str(message.get("message") or "")).strip().lower()
-    has_message_reference = bool(meta.get("message_id") or meta.get("source_message_id"))
-    if kind in {"activity", "message", "messages", "mention", "mentioned", "dm", "direct", "direct_message"}:
-        return True
-    if has_message_reference and any(marker in body for marker in ("new message", "mentioned", "mention", "dm", "direct message")):
-        return True
-    if body.startswith("new message from ") or "new message from " in body:
-        return True
-    if "mentioned you" in body or "멘션" in body:
-        return True
-    return False
-
-
-def _channel_direct_text_declines_reply(text: str) -> bool:
-    body = re.sub(r"\s+", " ", str(text or "")).strip()
-    if not body:
-        return False
-    lowered = body.lower()
-    return (
-        lowered.startswith("no_reply:")
-        or lowered.startswith("no reply:")
-        or lowered.startswith("no response needed")
-        or lowered.startswith("no reply needed")
-        or body.startswith("응답 불필요:")
-        or body.startswith("회신 불필요:")
-    )
-
-
-def _channel_direct_reply_action_prompt(text: str) -> str:
-    return (
-        "[ciel-runtime channel reply required]\n"
-        "You handled an incoming channel notification but ended without calling any reply/send tool. "
-        "This inbox is attached to the current agent's configured MCP/channel credentials; do not conclude you are not the recipient merely from a room name, DM label, or terse 'New message from ...' notification. "
-        "If recipient identity is uncertain, use safe read/profile tools before choosing not to reply. "
-        "Do not create an automatic reply loop: acknowledgements, thanks, readiness/waiting confirmations, or progress updates that ask no new question and assign no new task should end with NO_REPLY: instead of sending another courtesy reply. "
-        "If the incoming message is addressed to this agent, asks for status/context, or expects a normal collaboration response, "
-        "call the appropriate safe channel reply tool now. "
-        "Do not only summarize. Do not ask the local user whether to reply. "
-        "If and only if no channel reply is appropriate, end with a concise final answer that starts exactly with NO_REPLY:.\n\n"
-        "previous_assistant_text="
-        + json.dumps(truncate_for_prompt(str(text or ""), 2000), ensure_ascii=False)
-    )
-
-
-def _channel_direct_max_turns_summary(message: dict[str, Any], last_text: str, tool_turns: int) -> str:
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    channel = str(message.get("channel") or meta.get("room_id") or "default")
-    incoming = truncate_for_prompt(str(message.get("message") or ""), 1000)
-    previous = truncate_for_prompt(str(last_text or ""), 1200)
-    return (
-        "채널 메시지 자동 처리가 도구 호출 한도에 도달해 완료되지 않았습니다. "
-        "마지막 응답이 미래 행동 약속이어서 실제 처리 완료로 표시하지 않았습니다.\n\n"
-        f"- channel: {channel}\n"
-        f"- incoming: {incoming}\n"
-        f"- tool_turns: {tool_turns}\n"
-        f"- last_assistant_text: {previous}"
-    )
-
-
-def _channel_direct_reply_required_summary(message: dict[str, Any], last_text: str, tool_turns: int) -> str:
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    channel = str(message.get("channel") or meta.get("room_id") or "default")
-    incoming = truncate_for_prompt(str(message.get("message") or ""), 1000)
-    previous = truncate_for_prompt(str(last_text or ""), 1200)
-    return (
-        "채널 DM/멘션은 수신됐지만 reply/send 도구 호출 없이 자동 처리가 종료되어 실제 회신하지 않았습니다. "
-        "이 결과는 완료가 아니라 미처리 상태입니다.\n\n"
-        f"- channel: {channel}\n"
-        f"- incoming: {incoming}\n"
-        f"- tool_turns: {tool_turns}\n"
-        f"- last_assistant_text: {previous}"
-    )
-
-
-def _channel_direct_schema_properties(tool: dict[str, Any]) -> dict[str, Any]:
-    schema = tool.get("input_schema") if isinstance(tool.get("input_schema"), dict) else {}
-    props = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
-    return props
-
-
-def _channel_direct_pick_schema_key(props: dict[str, Any], candidates: tuple[str, ...], default: str) -> str:
-    for key in candidates:
-        if key in props:
-            return key
-    return default
-
-
-def _channel_direct_same_channel_reply_tool(tools: list[dict[str, Any]]) -> dict[str, Any] | None:
-    preferred = (
-        "send_message",
-        "post_message",
-        "reply_message",
-        "send_channel_message",
-        "post_channel_message",
-    )
-    for wanted in preferred:
-        for tool in tools:
-            if _channel_direct_tool_schema_short_name(tool) == wanted:
-                return tool
-    return None
-
-
-def _channel_direct_fallback_reply_prompt(message: dict[str, Any], last_text: str) -> str:
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    author = str(meta.get("author_name") or message.get("sender_id") or "the sender")
-    channel = str(message.get("channel") or meta.get("room_id") or "default")
-    incoming = truncate_for_prompt(str(message.get("message") or ""), 2000)
-    previous = truncate_for_prompt(str(last_text or ""), 2000)
-    return (
-        "[ciel-runtime channel fallback reply]\n"
-        "The incoming channel DM/mention still needs a practical reply, but previous assistant turns did not call a reply/send tool. "
-        "Write only the exact message body that should be sent now to the same channel. "
-        "Do not mention internal routing, fallback handling, tool failures, or this instruction. "
-        "If tool results in this conversation show that a room was created or an action succeeded, include the useful public details. "
-        "If and only if the sender's latest message truly requires no response, output exactly 'NO_REPLY:' followed by one concise reason. "
-        "Otherwise produce a concise collaboration reply in the agent's voice.\n\n"
-        f"sender={author}\n"
-        f"channel={channel}\n"
-        f"incoming_notification={incoming}\n"
-        "previous_assistant_text="
-        + json.dumps(previous, ensure_ascii=False)
-    )
-
-
-def _channel_direct_message_actor(message: dict[str, Any]) -> str:
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    author = str(meta.get("author_name") or "").strip()
-    if author:
-        return author
-    incoming = str(message.get("message") or "")
-    for pattern in (
-        r"\bNew message from\s+([A-Za-z0-9_.@ -]{1,80})",
-        r"\b([A-Za-z0-9_.@ -]{1,80})\s+@mentioned you\b",
-    ):
-        match = re.search(pattern, incoming, re.IGNORECASE)
-        if match:
-            actor = re.sub(r"\s+", " ", match.group(1)).strip(" -")
-            if actor:
-                return actor
-    return "there"
-
-
-def _channel_direct_generate_fallback_reply_text(
-    message_id: int,
-    messages: list[dict[str, Any]],
-    message: dict[str, Any],
-    last_text: str,
-    provider: str,
-    pcfg: dict[str, Any],
-    model: str,
-) -> str:
-    body: dict[str, Any] = {
-        "model": model,
-        "max_tokens": 512,
-        "stream": False,
-        "metadata": {
-            "ciel_runtime_channel_direct": True,
-            "channel_message_id": str(message_id),
-            "channel_fallback_reply": True,
-        },
-        "messages": messages
-        + [
-            {
-                "role": "user",
-                "content": [{"type": "text", "text": _channel_direct_fallback_reply_prompt(message, last_text)}],
-            }
-        ],
-    }
-    try:
-        parsed = _channel_direct_llm_http_message(message_id, body, provider, pcfg, model)
-    except Exception as exc:
-        router_log("WARN", f"channel_llm_fallback_reply_generation_failed message_id={message_id} error={type(exc).__name__}: {exc}")
-        return ""
-    return _anthropic_message_text(parsed).strip()
-
-
-def _channel_direct_fallback_reply_text(message: dict[str, Any], last_text: str) -> str:
-    author = _channel_direct_message_actor(message)
-    prior = re.sub(r"\s+", " ", str(last_text or "")).strip()
-    if (
-        prior
-        and prior.lower().strip(" .!。") not in {"acknowledged", "ok", "okay", "understood", "noted", "확인했습니다", "알겠습니다"}
-        and not _channel_direct_text_declines_reply(prior)
-        and not _channel_direct_text_is_deferred_action(prior)
-        and not _channel_direct_fallback_text_is_internal_action(prior)
-    ):
-        return truncate_for_prompt(prior, 1200)
-    return (
-        f"{author}, 메시지 확인했습니다. 현재 채널 컨텍스트를 확인했고 필요한 조치를 이어서 진행하겠습니다. "
-        "세부 상태를 정리해서 다시 공유하겠습니다."
-    )
-
-
-def _channel_direct_fallback_text_is_internal_action(text: str) -> bool:
-    body = re.sub(r"\s+", " ", str(text or "")).strip()
-    if not body:
-        return False
-    lowered = body.lower()
-    if _channel_direct_fallback_text_is_diagnostic_failure(text):
-        return True
-    if re.match(r"^(?:right[,. ]*)?(?:let me|i should|i need to|i will|i'll|now let me)\b", lowered):
-        return True
-    if re.search(
-        r"\b(?:let me|i should|i need to|i will|i'll|now let me)\s+"
-        r"(?:check|fetch|read|send|reply|respond|acknowledge|provide|post|create|look|investigate|try|assess|confirm|share|continue|do)\b",
-        lowered,
-    ):
-        return True
-    if re.match(r"^(?:i have been|i've been|i am|i'm)\s+(?:scrolling|checking|looking|reading|trying|fetching)\b", lowered):
-        return True
-    if re.match(r"^(?:i cannot|i can't|unable to|could not)\s+(?:fetch|read|retrieve|access)\b", lowered):
-        return True
-    if "messages i've retrieved" in lowered or "messages i have retrieved" in lowered:
-        return True
-    if "notification-only event" in lowered or "hasn't appeared in the messages" in lowered:
-        return True
-    return bool(re.match(r"^(?:이제|먼저|다음으로)\b.{0,120}(?:보내|답장|회신|조회|확인|조사|처리).{0,80}(?:하겠습니다|하겠다|합니다)", body))
-
-
-def _channel_direct_fallback_text_is_diagnostic_failure(text: str) -> bool:
-    body = re.sub(r"\s+", " ", str(text or "")).strip()
-    if not body:
-        return False
-    lowered = body.lower()
-    internal_markers = (
-        "[ciel-runtime]",
-        "upstream model",
-        "empty end_turn",
-        "no work was performed",
-        "retry or ask me to continue",
-        "internal routing",
-        "fallback handling",
-        "reply/send tool",
-        "tool_result",
-    )
-    return any(marker in lowered for marker in internal_markers)
-
-
-def _channel_direct_send_same_channel_fallback_reply(
-    message_id: int,
-    message: dict[str, Any],
-    tools: list[dict[str, Any]],
-    reply_text: str,
-) -> tuple[str, bool]:
-    text = str(reply_text or "").strip()
-    if not text or _channel_direct_text_declines_reply(text):
-        return text, False
-    tool = _channel_direct_same_channel_reply_tool(tools)
-    if not tool:
-        return "No same-channel reply tool is available", False
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    channel = str(message.get("channel") or meta.get("room_id") or "").strip()
-    if not channel:
-        return "No channel/room id is available for fallback reply", False
-    props = _channel_direct_schema_properties(tool)
-    room_key = _channel_direct_pick_schema_key(
-        props,
-        ("room_id", "channel_id", "channel", "room", "conversation_id", "thread_id"),
-        "room_id",
-    )
-    content_key = _channel_direct_pick_schema_key(
-        props,
-        ("content", "message", "text", "body"),
-        "content",
-    )
-    tool_use = {
-        "id": f"channel_fallback_reply_{message_id}",
-        "name": str(tool.get("name") or ""),
-        "input": {room_key: channel, content_key: text},
-    }
-    result_text, is_error = _channel_direct_execute_tool(tool_use)
-    return result_text, not is_error
-
-
-def _channel_direct_fallback_reply_summary(reply_text: str, tool_result: str) -> str:
-    sent = truncate_for_prompt(str(reply_text or "").strip(), 4000)
-    result = _channel_direct_fallback_tool_result_summary(tool_result)
-    return (
-        "reply-required 채널 메시지가 일반 재시도에서는 reply/send 호출 없이 끝나서, "
-        "라우터가 같은 채널에 안전 fallback 회신을 직접 전송했습니다.\n\n"
-        "## 보낸 메시지\n"
-        f"{sent}\n\n"
-        "## 전송 결과\n"
-        f"{result}"
-    )
-
-
-def _channel_direct_fallback_tool_result_summary(tool_result: str) -> str:
-    raw = str(tool_result or "").strip()
-    if not raw:
-        return "tool returned an empty result"
-    try:
-        parsed = json.loads(raw)
-    except Exception:
-        return truncate_for_prompt(re.sub(r"\s+", " ", raw), 500)
-    if not isinstance(parsed, dict):
-        return truncate_for_prompt(re.sub(r"\s+", " ", raw), 500)
-    success = parsed.get("success")
-    data = parsed.get("data") if isinstance(parsed.get("data"), dict) else {}
-    fields: list[str] = []
-    if success is not None:
-        fields.append(f"success={bool(success)}")
-    for key in ("id", "message_id", "room_id", "channel", "sender_name", "created_at"):
-        value = data.get(key) if key in data else parsed.get(key)
-        if value:
-            fields.append(f"{key}={value}")
-    if fields:
-        return ", ".join(fields)
-    if parsed.get("error"):
-        return "error=" + truncate_for_prompt(json.dumps(parsed.get("error"), ensure_ascii=False), 400)
-    return truncate_for_prompt(json.dumps(parsed, ensure_ascii=False, separators=(",", ":")), 500)
-
-
-def _channel_direct_append_summary(message: dict[str, Any], text: str, stop_reason: str, tool_turns: int = 0) -> None:
-    try:
-        message_id = int(message.get("id") or 0)
-    except Exception:
-        message_id = 0
-    if message_id <= 0:
-        return
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    record = {
-        "message_id": message_id,
-        "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-        "channel": message.get("channel") or meta.get("room_id") or "default",
-        "source": meta.get("sse_source") or meta.get("source") or "",
-        "sender_id": message.get("sender_id") or meta.get("sender_id") or "",
-        "kind": meta.get("kind") or meta.get("type") or message.get("kind") or "",
-        "stop_reason": stop_reason,
-        "tool_turns": tool_turns,
-        "incoming": truncate_for_prompt(str(message.get("message") or ""), 4000),
-        "summary": truncate_for_prompt(text.strip(), 12000),
-    }
-    try:
-        CHANNEL_LLM_SUMMARY_QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        line = json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n"
-        with _CHANNEL_LLM_SUMMARY_LOCK:
-            if _channel_llm_summary_queue_has_message_id_locked(message_id):
-                router_log("INFO", f"channel_llm_summary_skipped_duplicate message_id={message_id}")
-                return
-            with CHANNEL_LLM_SUMMARY_QUEUE_PATH.open("a", encoding="utf-8") as fh:
-                fh.write(line)
-        router_log("INFO", f"channel_llm_summary_queued message_id={message_id} chars={len(record['summary'])} stop_reason={stop_reason}")
-    except Exception as exc:
-        router_log("WARN", f"channel_llm_summary_queue_failed message_id={message_id} error={type(exc).__name__}: {exc}")
-
-
-def _channel_direct_llm_http_message(message_id: int, body: dict[str, Any], provider: str, pcfg: dict[str, Any], model: str) -> dict[str, Any]:
-    data = json.dumps(body, ensure_ascii=False).encode("utf-8")
-    headers = {
-        "content-type": "application/json",
-        "anthropic-version": "2023-06-01",
-        "x-ciel-runtime-channel-direct": "1",
-    }
-    timeout = max(30.0, min(provider_request_timeout_seconds(pcfg), 300.0))
-    router_log(
-        "INFO",
-        f"channel_llm_direct_router_request message_id={message_id} provider={provider} model={model} bytes={len(data)}",
-    )
-    req = urllib.request.Request(join_url(ROUTER_BASE, "/v1/messages"), data=data, headers=headers, method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        raw = resp.read(2_000_000).decode("utf-8", errors="replace")
-    parsed = json.loads(raw)
-    if not isinstance(parsed, dict):
-        raise RuntimeError("direct router response was not a JSON object")
-    return parsed
-
-
-def _channel_direct_llm_http_response(message_id: int, prompt: str, provider: str, pcfg: dict[str, Any], model: str) -> tuple[str, str]:
-    body = {
-        "model": model,
-        "max_tokens": 512,
-        "stream": False,
-        "metadata": {
-            "ciel_runtime_channel_direct": True,
-            "channel_message_id": str(message_id),
-        },
-        "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}]}],
-    }
-    parsed = _channel_direct_llm_http_message(message_id, body, provider, pcfg, model)
-    text = _anthropic_message_text(parsed) if isinstance(parsed, dict) else ""
-    stop_reason = str(parsed.get("stop_reason") if isinstance(parsed, dict) else "")
-    return text, stop_reason
-
-
-def _channel_direct_llm_router_response(message_id: int, prompt: str, message: dict[str, Any], provider: str, pcfg: dict[str, Any], model: str) -> tuple[str, str, int]:
-    tools = _channel_direct_tool_schemas(message)
-    if not tools:
-        router_log("WARN", f"channel_llm_no_tools message_id={message_id}")
-        return _channel_direct_no_tools_summary(message), "no_tools", 0
-    messages: list[dict[str, Any]] = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
-    last_text = ""
-    stop_reason = ""
-    tool_turns = 0
-    deferred_action_retried = False
-    reply_action_retried = False
-    reply_required = _channel_direct_message_requires_reply(message)
-    executed_tool_names: list[str] = []
-    for _turn in range(_CHANNEL_DIRECT_MAX_ROUTER_TURNS):
-        reply_already_attempted = any(_channel_direct_tool_is_reply_action(name) for name in executed_tool_names)
-        active_tools = tools
-        if reply_required and reply_action_retried and not reply_already_attempted:
-            reply_tools = _channel_direct_reply_tool_schemas(tools)
-            if not reply_tools:
-                router_log("WARN", f"channel_llm_reply_required_no_tool message_id={message_id} turn={_turn + 1}")
-                return _channel_direct_reply_required_summary(message, last_text, tool_turns), "reply_required_no_tool", tool_turns
-            active_tools = _channel_direct_reply_followup_tool_schemas(tools)
-        body: dict[str, Any] = {
-            "model": model,
-            "max_tokens": 768,
-            "stream": False,
-            "metadata": {
-                "ciel_runtime_channel_direct": True,
-                "channel_message_id": str(message_id),
-            },
-            "messages": messages,
-        }
-        if active_tools:
-            body["tools"] = active_tools
-        parsed = _channel_direct_llm_http_message(message_id, body, provider, pcfg, model)
-        stop_reason = str(parsed.get("stop_reason") or "")
-        text = _anthropic_message_text(parsed)
-        if text.strip():
-            last_text = text
-        tool_uses = _channel_direct_tool_uses(parsed)
-        messages.append({"role": "assistant", "content": parsed.get("content") or []})
-        if not tool_uses:
-            if (
-                tools
-                and reply_required
-                and not any(_channel_direct_tool_is_reply_action(name) for name in executed_tool_names)
-                and not _channel_direct_text_declines_reply(text)
-            ):
-                if reply_action_retried and not deferred_action_retried and _channel_direct_text_is_deferred_action(text):
-                    deferred_action_retried = True
-                    router_log("INFO", f"channel_llm_deferred_action_retry message_id={message_id} turn={_turn + 1} reason=reply_required")
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": [{"type": "text", "text": _channel_direct_deferred_action_prompt(text)}],
-                        }
-                    )
-                    continue
-                if not reply_action_retried:
-                    reply_action_retried = True
-                    router_log("INFO", f"channel_llm_reply_action_retry message_id={message_id} turn={_turn + 1}")
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": [{"type": "text", "text": _channel_direct_reply_action_prompt(text)}],
-                        }
-                    )
-                    continue
-                router_log("WARN", f"channel_llm_reply_required_unfulfilled message_id={message_id} turn={_turn + 1}")
-                if _channel_direct_same_channel_reply_tool(tools):
-                    fallback_text = _channel_direct_generate_fallback_reply_text(
-                        message_id,
-                        messages,
-                        message,
-                        text or last_text,
-                        provider,
-                        pcfg,
-                        model,
-                    )
-                    if _channel_direct_text_declines_reply(fallback_text):
-                        return fallback_text, "end_turn", tool_turns
-                    if _channel_direct_fallback_text_is_diagnostic_failure(fallback_text):
-                        router_log(
-                            "WARN",
-                            f"channel_llm_fallback_reply_unsafe_not_sent message_id={message_id} chars={len(fallback_text)}",
-                        )
-                        return _channel_direct_reply_required_summary(message, text or last_text, tool_turns), "reply_required_unfulfilled", tool_turns
-                    if _channel_direct_fallback_text_is_internal_action(fallback_text) or not fallback_text.strip():
-                        fallback_text = _channel_direct_fallback_reply_text(message, text or last_text)
-                    fallback_result, fallback_sent = _channel_direct_send_same_channel_fallback_reply(
-                        message_id,
-                        message,
-                        tools,
-                        fallback_text,
-                    )
-                    if fallback_sent:
-                        router_log("INFO", f"channel_llm_fallback_reply_sent message_id={message_id} chars={len(fallback_text)}")
-                        return (
-                            _channel_direct_fallback_reply_summary(fallback_text, fallback_result),
-                            "fallback_reply_sent",
-                            tool_turns + 1,
-                        )
-                    router_log("WARN", f"channel_llm_fallback_reply_failed message_id={message_id} result={truncate_for_prompt(fallback_result, 300)}")
-                return _channel_direct_reply_required_summary(message, text, tool_turns), "reply_required_unfulfilled", tool_turns
-            if tools and not deferred_action_retried and _channel_direct_text_is_deferred_action(text):
-                deferred_action_retried = True
-                router_log("INFO", f"channel_llm_deferred_action_retry message_id={message_id} turn={_turn + 1}")
-                messages.append(
-                    {
-                        "role": "user",
-                        "content": [{"type": "text", "text": _channel_direct_deferred_action_prompt(text)}],
-                    }
-                )
-                continue
-            return last_text, stop_reason or "end_turn", tool_turns
-        tool_turns += 1
-        results: list[dict[str, Any]] = []
-        allowed_tool_names = {str(tool.get("name") or "") for tool in active_tools}
-        for tool_use in tool_uses:
-            requested_name = str(tool_use.get("name") or "")
-            parts = _channel_direct_tool_name_parts(str(tool_use.get("name") or ""))
-            if requested_name not in allowed_tool_names:
-                router_log("WARN", f"channel_llm_tool_not_in_turn_schema tool_use_id={tool_use.get('id')} tool={requested_name}")
-                results.append(
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": str(tool_use.get("id") or ""),
-                        "content": f"Tool {requested_name} is not available for this reply-required turn. Use an available reply/send tool or end with NO_REPLY: if no reply is appropriate.",
-                        "is_error": True,
-                    }
-                )
-                continue
-            if parts is not None:
-                if _channel_direct_tool_is_reply_action(parts[1]):
-                    reply_content = _channel_direct_reply_tool_content(tool_use)
-                    if _channel_direct_reply_content_should_suppress(reply_content):
-                        router_log(
-                            "WARN",
-                            f"channel_llm_reply_suppressed_internal_content tool_use_id={tool_use.get('id')} tool={parts[1]} chars={len(reply_content)}",
-                        )
-                        results.append(
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": str(tool_use.get("id") or ""),
-                                "content": (
-                                    "Automatic channel reply was suppressed because the proposed message body contained "
-                                    "an internal no-reply directive or router/tool diagnostic text. End with NO_REPLY: "
-                                    "if no external response is needed, or call a reply tool again with only the public message body."
-                                ),
-                                "is_error": False,
-                            }
-                        )
-                        continue
-                executed_tool_names.append(parts[1])
-            tool_use_for_call = _channel_direct_prepare_read_tool_use(tool_use, message)
-            result_text, is_error = _channel_direct_execute_tool(tool_use_for_call)
-            results.append(
-                {
-                    "type": "tool_result",
-                    "tool_use_id": str(tool_use.get("id") or ""),
-                    "content": result_text,
-                    "is_error": is_error,
-                }
-            )
-        messages.append({"role": "user", "content": results})
-    if _channel_direct_text_is_deferred_action(last_text):
-        return _channel_direct_max_turns_summary(message, last_text, tool_turns), "max_tool_turns", tool_turns
-    if reply_required and not any(_channel_direct_tool_is_reply_action(name) for name in executed_tool_names):
-        if _channel_direct_same_channel_reply_tool(tools):
-            fallback_text = _channel_direct_generate_fallback_reply_text(
-                message_id,
-                messages,
-                message,
-                last_text,
-                provider,
-                pcfg,
-                model,
-            )
-            if _channel_direct_text_declines_reply(fallback_text):
-                return fallback_text, "end_turn", tool_turns
-            if _channel_direct_fallback_text_is_diagnostic_failure(fallback_text):
-                router_log(
-                    "WARN",
-                    f"channel_llm_fallback_reply_unsafe_not_sent message_id={message_id} chars={len(fallback_text)} reason=max_turns",
-                )
-                return _channel_direct_reply_required_summary(message, last_text, tool_turns), "reply_required_unfulfilled", tool_turns
-            if _channel_direct_fallback_text_is_internal_action(fallback_text) or not fallback_text.strip():
-                fallback_text = _channel_direct_fallback_reply_text(message, last_text)
-            fallback_result, fallback_sent = _channel_direct_send_same_channel_fallback_reply(
-                message_id,
-                message,
-                tools,
-                fallback_text,
-            )
-            if fallback_sent:
-                router_log("INFO", f"channel_llm_fallback_reply_sent message_id={message_id} chars={len(fallback_text)} reason=max_turns")
-                return (
-                    _channel_direct_fallback_reply_summary(fallback_text, fallback_result),
-                    "fallback_reply_sent",
-                    tool_turns + 1,
-                )
-            router_log("WARN", f"channel_llm_fallback_reply_failed message_id={message_id} result={truncate_for_prompt(fallback_result, 300)} reason=max_turns")
-        return _channel_direct_reply_required_summary(message, last_text, tool_turns), "reply_required_unfulfilled", tool_turns
-    return last_text, "max_tool_turns", tool_turns
-
-
-def _channel_direct_terminal_notice(message: dict[str, Any], text: str, stop_reason: str) -> None:
-    if not env_bool(os.environ.get("CIEL_RUNTIME_CHANNEL_TERMINAL_NOTICE"), False):
-        return
-    if not text.strip():
-        return
-    try:
-        if not sys.stdout.isatty():
-            return
-    except Exception:
-        return
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    author = str(meta.get("author_name") or message.get("sender_id") or "channel")
-    channel = str(message.get("channel") or meta.get("room_id") or "default")
-    message_id = str(message.get("id") or "-")
-    body = truncate_for_prompt(text.strip(), 3000)
-    try:
-        sys.stdout.write(
-            "\n\n"
-            f"[ciel-runtime channel] handled message_id={message_id} channel={channel} from={author} stop_reason={stop_reason}\n"
-            f"{body}\n"
-        )
-        sys.stdout.flush()
-    except Exception:
-        pass
-
-
-def _channel_direct_llm_worker(message: dict[str, Any]) -> None:
-    global _CHANNEL_LLM_CURSOR_LAST_ID
-    try:
-        message_id = int(message.get("id") or 0)
-    except Exception:
-        message_id = 0
-    try:
-        cfg = load_config()
-        provider, pcfg = get_current_provider(cfg)
-        model = current_alias(cfg)
-        prompt = format_channel_llm_batch_prompt([message])
-        text, stop_reason, tool_turns = _channel_direct_llm_router_response(message_id, prompt, message, provider, pcfg, model)
-        if stop_reason == "no_tools":
-            router_log("WARN", f"channel_llm_direct_unhandled message_id={message_id} reason=no_tools")
-            router_log("INFO", f"channel_llm_summary_skipped message_id={message_id} reason=no_tools")
-        else:
-            with _CHANNEL_LLM_DIRECT_LOCK:
-                _CHANNEL_LLM_DIRECT_DELIVERED.add(message_id)
-                if len(_CHANNEL_LLM_DIRECT_DELIVERED) > 1000:
-                    for old_id in sorted(_CHANNEL_LLM_DIRECT_DELIVERED)[:500]:
-                        _CHANNEL_LLM_DIRECT_DELIVERED.discard(old_id)
-            with _CHANNEL_LLM_CURSOR_LOCK:
-                current = _channel_llm_read_cursor_locked()
-                if message_id > current:
-                    _CHANNEL_LLM_CURSOR_LAST_ID = message_id
-                    _channel_llm_write_cursor_locked(message_id)
-            _channel_direct_append_summary(message, text, stop_reason, tool_turns=tool_turns)
-        router_log("INFO", f"channel_llm_direct_response message_id={message_id} chars={len(text)} stop_reason={stop_reason} tool_turns={tool_turns}")
-        _channel_direct_terminal_notice(message, text, stop_reason)
-    except Exception as exc:
-        router_log("WARN", f"channel_llm_direct_failed message_id={message_id} error={type(exc).__name__}: {exc}")
-    finally:
-        with _CHANNEL_LLM_DIRECT_LOCK:
-            _CHANNEL_LLM_DIRECT_INFLIGHT.discard(message_id)
 
 
 def _channel_llm_write_cursor_locked(last_id: int) -> None:
@@ -31780,41 +30534,9 @@ def prepare_channel_llm_delivery_for_launch() -> int:
     return last_id
 
 
-def _drain_channel_direct_queue() -> tuple[int, int]:
-    drained = 0
-    remembered = 0
-    with _CHANNEL_LLM_DIRECT_LOCK:
-        while True:
-            try:
-                item = _CHANNEL_LLM_DIRECT_QUEUE.get_nowait()
-            except queue.Empty:
-                break
-            except Exception:
-                break
-            drained += 1
-            try:
-                message_id = int(item.get("id") or 0) if isinstance(item, dict) else 0
-            except Exception:
-                message_id = 0
-            if message_id > 0:
-                _CHANNEL_LLM_DIRECT_INFLIGHT.discard(message_id)
-                _CHANNEL_LLM_DIRECT_DELIVERED.add(message_id)
-                remembered += 1
-            try:
-                _CHANNEL_LLM_DIRECT_QUEUE.task_done()
-            except Exception:
-                pass
-        if len(_CHANNEL_LLM_DIRECT_DELIVERED) > 1000:
-            for old_id in sorted(_CHANNEL_LLM_DIRECT_DELIVERED)[: len(_CHANNEL_LLM_DIRECT_DELIVERED) - 1000]:
-                _CHANNEL_LLM_DIRECT_DELIVERED.discard(old_id)
-    return drained, remembered
-
-
 def clear_channel_backlog() -> dict[str, Any]:
-    global _CHANNEL_LLM_CURSOR_LAST_ID, _CHANNEL_MCP_CURSOR_LAST_ID, _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
+    global _CHANNEL_LLM_CURSOR_LAST_ID, _CHANNEL_MCP_CURSOR_LAST_ID
     chat_tail = max(0, _chat_scan_max_id())
-    with _CHANNEL_LLM_SUMMARY_LOCK:
-        summary_tail = max(0, _channel_llm_summary_scan_max_id_locked())
 
     with _CHANNEL_LLM_CURSOR_LOCK:
         old_llm = _channel_llm_read_cursor_locked()
@@ -31844,35 +30566,20 @@ def clear_channel_backlog() -> dict[str, Any]:
             except Exception:
                 state["last_id"] = chat_tail
 
-    with _CHANNEL_LLM_SUMMARY_LOCK:
-        old_summary = _channel_llm_summary_read_cursor_locked()
-        _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = summary_tail
-        try:
-            _channel_llm_summary_write_cursor_locked(summary_tail)
-        except Exception as exc:
-            router_log("WARN", f"channel_llm_summary_cursor_write_failed error={type(exc).__name__}: {exc}")
-
-    drained_direct, remembered_direct = _drain_channel_direct_queue()
     with _CHAT_CONDITION:
         _CHAT_CONDITION.notify_all()
     stats = {
         "chat_tail": chat_tail,
-        "summary_tail": summary_tail,
         "discarded_llm": max(0, chat_tail - int(old_llm or 0)),
         "discarded_mcp": max(0, chat_tail - int(old_mcp or 0)),
-        "discarded_summaries": max(0, summary_tail - int(old_summary or 0)),
-        "direct_queue_drained": drained_direct,
-        "direct_queue_remembered": remembered_direct,
-        "direct_inflight": len(_CHANNEL_LLM_DIRECT_INFLIGHT),
         "mcp_sessions_updated": len(_CHANNEL_MCP_SESSIONS),
     }
     router_log(
         "INFO",
         "channel_backlog_cleared "
-        f"chat_tail={chat_tail} summary_tail={summary_tail} "
+        f"chat_tail={chat_tail} "
         f"discarded_llm={stats['discarded_llm']} discarded_mcp={stats['discarded_mcp']} "
-        f"discarded_summaries={stats['discarded_summaries']} direct_queue_drained={drained_direct} "
-        f"direct_inflight={stats['direct_inflight']} mcp_sessions_updated={stats['mcp_sessions_updated']}",
+        f"mcp_sessions_updated={stats['mcp_sessions_updated']}",
     )
     return stats
 
@@ -31883,17 +30590,10 @@ def channel_backlog_status() -> dict[str, Any]:
         llm_cursor = _channel_llm_read_cursor_locked()
     with _CHANNEL_MCP_CURSOR_LOCK:
         mcp_cursor = _channel_mcp_read_cursor_locked()
-    with _CHANNEL_LLM_SUMMARY_LOCK:
-        summary_tail = _channel_llm_summary_scan_max_id_locked()
-        summary_cursor = _channel_llm_summary_read_cursor_locked()
     return {
         "chat_tail": chat_tail,
-        "summary_tail": summary_tail,
         "pending_llm": max(0, chat_tail - int(llm_cursor or 0)),
         "pending_mcp": max(0, chat_tail - int(mcp_cursor or 0)),
-        "pending_summaries": max(0, summary_tail - int(summary_cursor or 0)),
-        "direct_queue": _CHANNEL_LLM_DIRECT_QUEUE.qsize(),
-        "direct_inflight": len(_CHANNEL_LLM_DIRECT_INFLIGHT),
         "mcp_sessions": len(_CHANNEL_MCP_SESSIONS),
     }
 
@@ -31921,21 +30621,6 @@ def _commit_channel_llm_cursor_if_newer(last_id: int | None) -> None:
             _channel_llm_write_cursor_locked(last_id)
         except Exception as exc:
             router_log("WARN", f"channel_llm_cursor_write_failed error={type(exc).__name__}: {exc}")
-
-
-def _commit_channel_llm_summary_cursor_if_newer(last_id: int | None) -> None:
-    global _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
-    if last_id is None:
-        return
-    with _CHANNEL_LLM_SUMMARY_LOCK:
-        current = _channel_llm_summary_read_cursor_locked()
-        if last_id <= current:
-            return
-        _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = last_id
-        try:
-            _channel_llm_summary_write_cursor_locked(last_id)
-        except Exception as exc:
-            router_log("WARN", f"channel_llm_summary_cursor_write_failed error={type(exc).__name__}: {exc}")
 
 
 CIEL_RUNTIME_INTERNAL_METADATA_PREFIX = "ciel_runtime_"
@@ -31988,339 +30673,7 @@ def commit_pending_channel_delivery_cursors(
             router_log("INFO", f"channel_delivery_cursor_deferred reason={reason}")
             return
     message_cursor = _metadata_int(metadata, "ciel_runtime_channel_cursor_last_id")
-    summary_cursor = _metadata_int(metadata, "ciel_runtime_channel_summary_cursor_last_id")
     _commit_channel_llm_cursor_if_newer(message_cursor)
-    _commit_channel_llm_summary_cursor_if_newer(summary_cursor)
-
-
-def _channel_llm_summary_write_cursor_locked(last_id: int) -> None:
-    CHANNEL_LLM_SUMMARY_CURSOR_PATH.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = CHANNEL_LLM_SUMMARY_CURSOR_PATH.with_suffix(".json.tmp")
-    tmp_path.write_text(json.dumps({"last_id": max(0, int(last_id))}, separators=(",", ":")) + "\n", encoding="utf-8")
-    tmp_path.replace(CHANNEL_LLM_SUMMARY_CURSOR_PATH)
-
-
-def _channel_llm_summary_scan_max_id_locked() -> int:
-    if not CHANNEL_LLM_SUMMARY_QUEUE_PATH.exists():
-        return 0
-    max_id = 0
-    try:
-        with CHANNEL_LLM_SUMMARY_QUEUE_PATH.open("r", encoding="utf-8") as fh:
-            for line in fh:
-                try:
-                    item = json.loads(line)
-                except Exception:
-                    continue
-                if not isinstance(item, dict):
-                    continue
-                try:
-                    message_id = int(item.get("message_id") or 0)
-                except Exception:
-                    message_id = 0
-                if message_id > max_id:
-                    max_id = message_id
-    except Exception as exc:
-        router_log("WARN", f"channel_llm_summary_queue_scan_failed error={type(exc).__name__}: {exc}")
-    return max_id
-
-
-def _channel_llm_summary_queue_has_message_id_locked(message_id: int) -> bool:
-    if message_id <= 0 or not CHANNEL_LLM_SUMMARY_QUEUE_PATH.exists():
-        return False
-    try:
-        with CHANNEL_LLM_SUMMARY_QUEUE_PATH.open("r", encoding="utf-8") as fh:
-            for line in fh:
-                try:
-                    item = json.loads(line)
-                except Exception:
-                    continue
-                if not isinstance(item, dict):
-                    continue
-                try:
-                    if int(item.get("message_id") or 0) == message_id:
-                        return True
-                except Exception:
-                    continue
-    except Exception as exc:
-        router_log("WARN", f"channel_llm_summary_duplicate_scan_failed message_id={message_id} error={type(exc).__name__}: {exc}")
-    return False
-
-
-def _channel_llm_summary_read_cursor_locked() -> int:
-    global _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
-    if _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID is not None:
-        return _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
-    if CHANNEL_LLM_SUMMARY_CURSOR_PATH.exists():
-        try:
-            data = json.loads(CHANNEL_LLM_SUMMARY_CURSOR_PATH.read_text(encoding="utf-8"))
-            _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = max(0, int(data.get("last_id") or 0))
-            return _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
-        except Exception as exc:
-            router_log("WARN", f"channel_llm_summary_cursor_read_failed error={type(exc).__name__}: {exc}")
-    _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = max(0, _channel_llm_summary_scan_max_id_locked())
-    try:
-        _channel_llm_summary_write_cursor_locked(_CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID)
-    except Exception as exc:
-        router_log("WARN", f"channel_llm_summary_cursor_write_failed error={type(exc).__name__}: {exc}")
-    return _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
-
-
-def _read_channel_llm_summary_records(after_id: int, limit: int = 20) -> list[dict[str, Any]]:
-    if not CHANNEL_LLM_SUMMARY_QUEUE_PATH.exists():
-        return []
-    records: list[dict[str, Any]] = []
-    try:
-        with CHANNEL_LLM_SUMMARY_QUEUE_PATH.open("r", encoding="utf-8") as fh:
-            for line in fh:
-                if len(records) >= limit:
-                    break
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    item = json.loads(line)
-                except Exception:
-                    continue
-                if not isinstance(item, dict):
-                    continue
-                try:
-                    message_id = int(item.get("message_id") or 0)
-                except Exception:
-                    message_id = 0
-                if message_id > after_id:
-                    records.append(item)
-    except Exception as exc:
-        router_log("WARN", f"channel_llm_summary_queue_read_failed error={type(exc).__name__}: {exc}")
-    return records
-
-
-def _channel_llm_summary_prompt_note(text: str) -> str:
-    body = re.sub(r"\s+", " ", str(text or "")).strip()
-    if not body:
-        return ""
-    body = re.sub(r"##\s*tool_result\b.*", "", body, flags=re.IGNORECASE | re.DOTALL).strip()
-    body = re.sub(r"##\s*전송 결과\b.*", "", body, flags=re.IGNORECASE | re.DOTALL).strip()
-    body = re.sub(r"\bciel-runtime\b", "channel bridge", body, flags=re.IGNORECASE)
-    body = body.replace("direct_handler_summary", "handler summary")
-    body = body.replace("백그라운드 자동 처리 요약", "자동 처리 요약")
-    body = body.replace("라우터가 같은 채널에 안전 fallback 회신을 직접 전송했습니다", "same-channel fallback reply was sent")
-    return truncate_for_prompt(body, 700)
-
-
-def _channel_llm_summary_source_name(item: dict[str, Any]) -> str:
-    source = str(item.get("source") or "").strip()
-    if source:
-        return _channel_sse_public_mcp_name(source)
-    sender = str(item.get("sender_id") or "").strip()
-    if sender:
-        return _channel_sse_public_mcp_name(sender)
-    return "external-channel"
-
-
-def _channel_llm_summary_record_id(item: dict[str, Any]) -> int:
-    try:
-        return int(item.get("message_id") or 0)
-    except Exception:
-        return 0
-
-
-def _channel_llm_summary_digest_lines(records: list[dict[str, Any]]) -> list[str]:
-    visible = _channel_llm_summary_notice_records(records)
-    if not visible:
-        return []
-    grouped: dict[str, list[dict[str, Any]]] = {}
-    for item in visible:
-        grouped.setdefault(_channel_llm_summary_source_name(item), []).append(item)
-    lines: list[str] = ["[channel mailbox digest]"]
-    for source in sorted(grouped):
-        items = grouped[source]
-        ids = sorted(message_id for message_id in (_channel_llm_summary_record_id(item) for item in items) if message_id > 0)
-        if len(ids) >= 2:
-            id_text = f"{ids[0]}..{ids[-1]}"
-        elif ids:
-            id_text = str(ids[0])
-        else:
-            id_text = "-"
-        channels = ", ".join(
-            sorted(
-                {
-                    str(item.get("channel") or "default")
-                    for item in items
-                    if str(item.get("channel") or "default").strip()
-                }
-            )[:6]
-        )
-        channel_text = f" channels={channels}" if channels else ""
-        lines.append(
-            f"source={source} notification_count={len(items)} message_ids={id_text}{channel_text}"
-        )
-    return lines
-
-
-def format_channel_llm_summary_prompt(records: list[dict[str, Any]]) -> str:
-    return "\n".join(_channel_llm_summary_digest_lines(records))
-
-
-def _channel_llm_summary_notice_actor(item: dict[str, Any]) -> str:
-    meta_sender = str(item.get("sender_id") or "").strip()
-    incoming = str(item.get("incoming") or "")
-    for pattern in (
-        r"\bNew message from\s+([A-Za-z0-9_.@ -]{1,80})",
-        r"\b([A-Za-z0-9_.@ -]{1,80})\s+@mentioned you\b",
-        r"\bFrom:\*\*\s*([^*\n]{1,80})",
-        r"\*\*발신[:：]\*\*\s*([^(\n]{1,80})",
-    ):
-        match = re.search(pattern, incoming, re.IGNORECASE)
-        if match:
-            actor = re.sub(r"\s+", " ", match.group(1)).strip(" -")
-            if actor:
-                return actor
-    if meta_sender and meta_sender != "ai-net-sse":
-        return meta_sender
-    return "channel"
-
-
-def _channel_llm_summary_notice_is_quiet(item: dict[str, Any]) -> bool:
-    summary = re.sub(r"\s+", " ", str(item.get("summary") or "")).strip()
-    stop_reason = str(item.get("stop_reason") or "").strip().lower()
-    if summary.lower().startswith("no_reply:"):
-        return True
-    if summary.startswith("NO_REPLY:") or summary.startswith("응답 불필요:") or summary.startswith("회신 불필요:"):
-        return True
-    if _channel_llm_summary_notice_is_presence_only(item):
-        return True
-    return stop_reason in {"no_reply", "no-reply"}
-
-
-def _channel_llm_summary_notice_is_presence_only(item: dict[str, Any]) -> bool:
-    kind = str(item.get("kind") or "").strip().lower()
-    incoming = re.sub(r"\s+", " ", str(item.get("incoming") or "")).strip()
-    summary = re.sub(r"\s+", " ", str(item.get("summary") or "")).strip()
-    text = f"{incoming} {summary}".strip()
-    lowered = text.lower()
-    if not lowered:
-        return False
-    presence_patterns = (
-        r"\b\d+\s+colleagues?\s+checked in\b",
-        r"\bcolleagues?\s+checked in\b",
-        r"\bchecked in\s*:\s*[a-z0-9_.@ -]{1,120}\b",
-        r"\b[a-z0-9_.@ -]{1,80}\s+checked in\b",
-        r"\bpresence\b",
-        r"\bcheck[- ]?in\b",
-        r"체크인",
-        r"접속\s*(?:확인|알림)",
-    )
-    if kind in {"presence", "checkin", "check-in", "checked_in", "user_presence"}:
-        return True
-    if not any(re.search(pattern, lowered, re.IGNORECASE) for pattern in presence_patterns):
-        return False
-    action_markers = (
-        "mentioned you",
-        "@mentioned",
-        "new message from",
-        "dm",
-        "direct message",
-        "task",
-        "assign",
-        "request",
-        "please",
-        "status",
-        "question",
-        "reply-required",
-        "fallback reply",
-        "send",
-        "sent",
-        "멘션",
-        "요청",
-        "질문",
-        "업무",
-        "작업",
-        "답장",
-        "회신",
-        "전송",
-    )
-    return not any(marker in lowered for marker in action_markers)
-
-
-def _channel_llm_summary_notice_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    if env_bool(os.environ.get("CIEL_RUNTIME_CHANNEL_SCREEN_SUMMARY_SHOW_NO_REPLY"), False):
-        return records
-    return [item for item in records if not _channel_llm_summary_notice_is_quiet(item)]
-
-
-def _format_channel_llm_summary_notice_verbose(records: list[dict[str, Any]]) -> str:
-    lines = [
-        "",
-        "[ciel-runtime channel] background message handling summary",
-    ]
-    for item in records:
-        summary = re.sub(r"\s+", " ", str(item.get("summary") or "")).strip()
-        incoming = re.sub(r"\s+", " ", str(item.get("incoming") or "")).strip()
-        lines.extend(
-            [
-                f"- message_id={item.get('message_id')} channel={item.get('channel') or 'default'} sender={item.get('sender_id') or ''} stop_reason={item.get('stop_reason') or ''} tool_turns={item.get('tool_turns') or 0}",
-                f"  incoming: {truncate_for_prompt(incoming, 500)}",
-                f"  result: {truncate_for_prompt(summary, 1200)}",
-            ]
-        )
-    lines.append("")
-    return "\r\n".join(lines)
-
-
-def _format_channel_llm_summary_notice_compact(records: list[dict[str, Any]]) -> str:
-    lines = _channel_llm_summary_digest_lines(records)
-    if not lines:
-        return ""
-    return "\r\n" + " ".join(lines) + "\r\n"
-
-
-def format_channel_llm_summary_notice(records: list[dict[str, Any]]) -> str:
-    style = str(os.environ.get("CIEL_RUNTIME_CHANNEL_SCREEN_SUMMARY_STYLE") or "compact").strip().lower()
-    if style in {"verbose", "full", "long"}:
-        return _format_channel_llm_summary_notice_verbose(records)
-    return _format_channel_llm_summary_notice_compact(records)
-
-
-def body_with_pending_channel_summaries(body: dict[str, Any]) -> dict[str, Any]:
-    global _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
-    metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
-    if body.get("ciel_runtime_channel_direct") or metadata.get("ciel_runtime_channel_direct"):
-        return body
-    if metadata.get("ciel_runtime_channel_summary_injected"):
-        return body
-    if plan_mode_active(body):
-        router_log("INFO", "channel_llm_summary_inject_skipped reason=plan_mode_active")
-        return body
-    cfg = load_config()
-    if channel_delivery_mode(cfg) != "llm":
-        return body
-    with _CHANNEL_LLM_SUMMARY_LOCK:
-        last_id = _channel_llm_summary_read_cursor_locked()
-        records = _read_channel_llm_summary_records(last_id, 20)
-        if not records:
-            return body
-        max_seen = last_id
-        for item in records:
-            try:
-                max_seen = max(max_seen, int(item.get("message_id") or 0))
-            except Exception:
-                pass
-    prompt = format_channel_llm_summary_prompt(records)
-    if not prompt.strip():
-        _commit_channel_llm_summary_cursor_if_newer(max_seen)
-        return body
-    out = dict(body)
-    messages = [m for m in body.get("messages", []) if isinstance(m, dict)]
-    messages.append({"role": "user", "content": [{"type": "text", "text": prompt}]})
-    out["messages"] = messages
-    out_metadata = dict(metadata)
-    out_metadata["ciel_runtime_channel_summary_injected"] = True
-    out_metadata["ciel_runtime_channel_summary_message_ids"] = ",".join(str(item.get("message_id") or "") for item in records)
-    out_metadata["ciel_runtime_channel_summary_cursor_last_id"] = str(max_seen)
-    out["metadata"] = out_metadata
-    _commit_channel_llm_summary_cursor_if_newer(max_seen)
-    router_log("INFO", f"channel_llm_summary_injected count={len(records)} message_ids={out_metadata['ciel_runtime_channel_summary_message_ids']}")
-    return out
 
 
 _CHANNEL_WAKE_PROMPT_IDS_RE = re.compile(r"\b(?:id|ids|pending_ids|message_ids)\s*=\s*([0-9][0-9,\s]*)")
@@ -32470,8 +30823,6 @@ def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]:
 def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
     global _CHANNEL_LLM_CURSOR_LAST_ID
     metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
-    if body.get("ciel_runtime_channel_direct") or metadata.get("ciel_runtime_channel_direct"):
-        return body
     wake_request = channel_llm_wake_request(body)
     if plan_mode_active(body):
         if not wake_request:
@@ -32507,24 +30858,7 @@ def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
                     f"channel_llm_inject_skipped message_id={message.get('id')} channel={message.get('channel')} reason=superseded_channel_notice",
                 )
                 continue
-            with _CHANNEL_LLM_DIRECT_LOCK:
-                direct_inflight = message_id in _CHANNEL_LLM_DIRECT_INFLIGHT
-                direct_delivered = message_id in _CHANNEL_LLM_DIRECT_DELIVERED
             meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-            persisted_direct_delivered = bool(meta.get("llm_direct_delivered"))
-            if direct_inflight or direct_delivered or persisted_direct_delivered:
-                reason = (
-                    "llm_direct_inflight"
-                    if direct_inflight
-                    else "llm_direct_delivered"
-                )
-                router_log(
-                    "INFO",
-                    f"channel_llm_inject_skipped message_id={message.get('id')} channel={message.get('channel')} reason={reason}",
-                )
-                if direct_delivered or persisted_direct_delivered:
-                    max_seen = max(max_seen, message_id)
-                continue
             skip_reason = _channel_llm_message_skip_reason(message)
             if skip_reason:
                 max_seen = max(max_seen, message_id)
@@ -32533,11 +30867,6 @@ def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
                     f"channel_llm_inject_skipped message_id={message.get('id')} channel={message.get('channel')} reason={skip_reason}",
                 )
                 continue
-            if meta.get("llm_direct_pending"):
-                router_log(
-                    "INFO",
-                    f"channel_llm_inject_fallback message_id={message.get('id')} channel={message.get('channel')} reason=stale_llm_direct_pending",
-                )
             with _CHANNEL_STDIN_WAKE_LOCK:
                 stdin_wake_delivered = message_id in _CHANNEL_STDIN_WAKE_DELIVERED
             if stdin_wake_delivered:
@@ -33304,19 +31633,6 @@ def _inject_pending_channel_messages(
             except Exception:
                 continue
             meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-            with _CHANNEL_LLM_DIRECT_LOCK:
-                direct_delivered = message_id in _CHANNEL_LLM_DIRECT_DELIVERED
-            if direct_delivered or meta.get("llm_direct_delivered"):
-                router_log(
-                    "INFO",
-                    f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=llm_direct_delivered",
-                )
-                continue
-            if meta.get("llm_direct_pending"):
-                router_log(
-                    "INFO",
-                    f"channel_stdin_proxy_inject_fallback message_id={message.get('id')} channel={message.get('channel')} reason=llm_direct_pending",
-                )
             if web_chat_only and not _channel_message_is_web_chat_request(message):
                 router_log(
                     "INFO",
@@ -33523,88 +31839,9 @@ def _inject_pending_compact_request(
     return "injected"
 
 
-def _inject_pending_channel_summaries(
-    master_fd: int,
-    enter_bytes: bytes | None = None,
-    *,
-    submit_retry_count: int = 1,
-    confirm_submit: bool = False,
-    bracketed_paste: bool = False,
-    submit_delay_seconds: float | None = None,
-) -> int:
-    global _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
-    with _CHANNEL_LLM_SUMMARY_LOCK:
-        last_id = _channel_llm_summary_read_cursor_locked()
-        records = _read_channel_llm_summary_records(last_id, 20)
-        if not records:
-            return last_id
-        max_seen = last_id
-        for item in records:
-            try:
-                max_seen = max(max_seen, int(item.get("message_id") or 0))
-            except Exception:
-                pass
-    prompt = format_channel_llm_summary_prompt(records)
-    if not prompt.strip():
-        ids = ",".join(str(item.get("message_id") or "") for item in records)
-        router_log("INFO", f"channel_stdin_summary_skipped_quiet count={len(records)} message_ids={ids}")
-        _commit_channel_llm_summary_cursor_if_newer(max_seen)
-        return max_seen
-    submit_bytes = _channel_wake_enter_bytes(enter_bytes)
-    _write_channel_wake_prompt(
-        master_fd,
-        prompt,
-        submit_bytes,
-        submit_retry_count=submit_retry_count,
-        confirm_submit=confirm_submit,
-        bracketed_paste=bracketed_paste,
-        submit_delay_seconds=submit_delay_seconds,
-    )
-    _commit_channel_llm_summary_cursor_if_newer(max_seen)
-    ids = ",".join(str(item.get("message_id") or "") for item in records)
-    router_log(
-        "INFO",
-        f"channel_stdin_summary_injected count={len(records)} message_ids={ids} enter={_channel_enter_label(submit_bytes)}",
-    )
-    return max_seen
-
-
-def _print_pending_channel_summaries(stdout_fd: int) -> int:
-    global _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
-    with _CHANNEL_LLM_SUMMARY_LOCK:
-        last_id = _channel_llm_summary_read_cursor_locked()
-        records = _read_channel_llm_summary_records(last_id, 20)
-        if not records:
-            return last_id
-        max_seen = last_id
-        for item in records:
-            try:
-                max_seen = max(max_seen, int(item.get("message_id") or 0))
-            except Exception:
-                pass
-    ids = ",".join(str(item.get("message_id") or "") for item in records)
-    notice = format_channel_llm_summary_notice(records)
-    if not notice.strip():
-        router_log("INFO", f"channel_screen_summary_skipped_quiet count={len(records)} message_ids={ids}")
-        _commit_channel_llm_summary_cursor_if_newer(max_seen)
-        return max_seen
-    _write_fd_all(stdout_fd, notice.encode("utf-8", errors="replace"))
-    _commit_channel_llm_summary_cursor_if_newer(max_seen)
-    router_log("INFO", f"channel_screen_summary_printed count={len(records)} message_ids={ids}")
-    return max_seen
-
-
 def _chat_messages_file_marker() -> tuple[float, int]:
     try:
         stat = CHAT_MESSAGES_PATH.stat()
-        return (stat.st_mtime, stat.st_size)
-    except Exception:
-        return (0.0, 0)
-
-
-def _channel_llm_summary_file_marker() -> tuple[float, int]:
-    try:
-        stat = CHANNEL_LLM_SUMMARY_QUEUE_PATH.stat()
         return (stat.st_mtime, stat.st_size)
     except Exception:
         return (0.0, 0)
@@ -33650,8 +31887,6 @@ def subprocess_call_with_channel_wake_proxy(
     env: dict[str, str],
     *,
     inject_channel_messages: bool = True,
-    inject_channel_summaries: bool = True,
-    print_channel_summaries: bool = False,
     inject_web_chat_only: bool = False,
     wake_for_llm_delivery: bool = False,
     synthetic_enter_bytes: str | bytes | None = None,
@@ -33671,7 +31906,6 @@ def subprocess_call_with_channel_wake_proxy(
 
     last_id = ensure_channel_llm_delivery_cursor_initialized()
     last_channel_marker: tuple[float, int] = (0.0, -1)
-    last_summary_marker = _channel_llm_summary_file_marker()
     master_fd, slave_fd = pty.openpty()
     stdout_fd = sys.stdout.fileno()
     rows, cols = _terminal_winsize_from_fd(stdout_fd)
@@ -33717,8 +31951,6 @@ def subprocess_call_with_channel_wake_proxy(
         except Exception:
             sigwinch_installed = False
         tty.setraw(stdin_fd)
-        if print_channel_summaries:
-            _print_pending_channel_summaries(stdout_fd)
         while proc.poll() is None:
             try:
                 readable, _, _ = select.select([stdin_fd, master_fd], [], [], 0.2)
@@ -33863,20 +32095,6 @@ def subprocess_call_with_channel_wake_proxy(
                             channel_inflight_cursor = last_id
                             channel_inflight_logged_at = now
                             channel_inflight_started_at = now
-                summary_marker = _channel_llm_summary_file_marker()
-                if inject_channel_summaries and summary_marker != last_summary_marker:
-                    last_summary_marker = summary_marker
-                    if print_channel_summaries:
-                        _print_pending_channel_summaries(stdout_fd)
-                    else:
-                        _inject_pending_channel_summaries(
-                            master_fd,
-                            channel_enter_bytes,
-                            submit_retry_count=submit_retry_count,
-                            confirm_submit=channel_wake_confirm_submit,
-                            bracketed_paste=channel_wake_bracketed_paste,
-                            submit_delay_seconds=channel_wake_submit_delay_seconds,
-                        )
         while True:
             try:
                 readable, _, _ = select.select([master_fd], [], [], 0)
@@ -33908,18 +32126,6 @@ def subprocess_call_with_channel_wake_proxy(
                 proc.terminate()
             except Exception:
                 pass
-
-
-def subprocess_call_with_channel_screen_summary_proxy(cmd: list[str], env: dict[str, str]) -> int:
-    return subprocess_call_with_channel_wake_proxy(
-        cmd,
-        env,
-        inject_channel_messages=False,
-        inject_channel_summaries=True,
-        print_channel_summaries=True,
-    )
-
-
 def _mcp_proxy_notification_payload(server_name: str, message: dict[str, Any]) -> dict[str, Any] | None:
     method = str(message.get("method") or "").strip()
     if not method.startswith("notifications/"):
@@ -34056,8 +32262,6 @@ def _mcp_proxy_observe_json_message(server_name: str, payload: Any, *, schedule_
         )
         return None
     try:
-        if schedule_direct:
-            chat_payload = _mark_channel_payload_direct_llm_pending(chat_payload)
         saved = append_chat_message(chat_payload)
         if saved.get("_ciel_runtime_duplicate"):
             router_log(
@@ -34069,8 +32273,6 @@ def _mcp_proxy_observe_json_message(server_name: str, payload: Any, *, schedule_
             "INFO",
             f"mcp_proxy_notification server={server_name} method={payload.get('method')} message_id={saved.get('id')}",
         )
-        if schedule_direct:
-            schedule_channel_direct_llm_delivery(saved)
         return saved
     except Exception as exc:
         router_log("WARN", f"mcp_proxy_notification_failed server={server_name} error={type(exc).__name__}: {exc}")
@@ -36392,15 +34594,8 @@ def launch_claude(
         str(pcfg.get("current_model") or env.get("CIEL_RUNTIME_MODEL_ALIAS") or ""),
     )
     capture_stderr = env_bool(os.environ.get("CIEL_RUNTIME_CAPTURE_CC_STDERR"), False)
-    screen_summary_proxy = should_use_channel_screen_summary_proxy(
-        llm_channel_delivery,
-        detected_channel_specs,
-        claude_passthrough,
-    )
     def run_claude_process() -> int:
-        if stdin_channel_proxy or screen_summary_proxy:
-            if screen_summary_proxy and not stdin_channel_proxy:
-                return subprocess_call_with_channel_screen_summary_proxy(cmd, env)
+        if stdin_channel_proxy:
             return subprocess_call_with_channel_wake_proxy(cmd, env, wake_for_llm_delivery=llm_channel_delivery)
         if capture_stderr:
             return _subprocess_call_capturing_stderr(cmd, env)

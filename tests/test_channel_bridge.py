@@ -145,36 +145,6 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual("agent_n3wy9gfjmcil", payload["sender_id"])
         self.assertEqual("room_4pyr8vvwm2cd", payload["channel"])
 
-    def test_sse_payload_maps_direct_ai_net_chat_object(self):
-        payload = ciel_runtime._sse_payload_to_chat_payload(
-            json.dumps(
-                {
-                    "id": 4,
-                    "channel": "ai-net",
-                    "sender_id": "Sarah",
-                    "recipients": ["Robert"],
-                    "thread_id": "dm-sarah-robert",
-                    "message": "Robert님, DM 확인 부탁드립니다.",
-                    "kind": "message",
-                    "meta": {
-                        "room_id": "dm_robert_sarah",
-                        "recipient_id": "Robert",
-                    },
-                },
-                ensure_ascii=False,
-            ),
-            "message",
-            {"name": "mcp-ai-net-sse", "channel": "ai-net-sse", "sender_id": "ai-net-sse", "recipient": "all"},
-        )
-        self.assertIsNotNone(payload)
-        assert payload is not None
-        self.assertEqual("Robert님, DM 확인 부탁드립니다.", json.loads(payload["message"])["message"])
-        self.assertEqual("ai-net", payload["channel"])
-        self.assertEqual("Sarah", payload["sender_id"])
-        self.assertEqual(["Robert"], payload["recipients"])
-        self.assertEqual("dm-sarah-robert", payload["thread_id"])
-        self.assertEqual("dm_robert_sarah", payload["meta"]["room_id"])
-
     def test_sse_payload_preserves_event_id_and_redacts_sensitive_metadata(self):
         payload = ciel_runtime._sse_payload_to_chat_payload(
             '{"method":"notifications/message","params":{"data":{"room_id":"room_phase1sim","cursor":"123-0","api_key":"secret-value","payload":{"message":{"content":"hello with metadata"}}}}}',
@@ -753,7 +723,6 @@ class ChannelBridgeTests(unittest.TestCase):
                     mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
                     mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", chat_log),
                     mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", None),
-                    mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery"),
                 ):
                     ciel_runtime.start_channel_sse_connection(
                         {
@@ -929,7 +898,6 @@ class ChannelBridgeTests(unittest.TestCase):
                     mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
                     mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", chat_log),
                     mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", None),
-                    mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery"),
                 ):
                     ciel_runtime.start_channel_sse_connection(
                         {
@@ -998,7 +966,6 @@ class ChannelBridgeTests(unittest.TestCase):
                     mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
                     mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", chat_log),
                     mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", None),
-                    mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery"),
                 ):
                     ciel_runtime.start_channel_sse_connection(
                         {
@@ -1085,150 +1052,6 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(ciel_runtime.should_launch_process_start_channel_sse(False, True, False))
         self.assertFalse(ciel_runtime.should_launch_process_start_channel_sse(False, False, False))
 
-    def test_screen_summary_proxy_prints_not_input_injects(self):
-        with mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", return_value=0) as wake_proxy:
-            rc = ciel_runtime.subprocess_call_with_channel_screen_summary_proxy(["claude"], {"A": "B"})
-
-        self.assertEqual(0, rc)
-        wake_proxy.assert_called_once_with(
-            ["claude"],
-            {"A": "B"},
-            inject_channel_messages=False,
-            inject_channel_summaries=True,
-            print_channel_summaries=True,
-        )
-
-    def test_screen_summary_proxy_is_off_by_default(self):
-        with mock.patch.dict(os.environ, {}, clear=True):
-            self.assertFalse(
-                ciel_runtime.should_use_channel_screen_summary_proxy(
-                    True,
-                    ["server:ciel-runtime-router", "server:ai-net-sse"],
-                    [],
-                )
-            )
-
-    def test_screen_summary_proxy_requires_explicit_env(self):
-        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_SCREEN_SUMMARY": "1"}, clear=True):
-            self.assertTrue(
-                ciel_runtime.should_use_channel_screen_summary_proxy(
-                    True,
-                    ["server:ciel-runtime-router", "server:ai-net-sse"],
-                    [],
-                )
-            )
-            self.assertFalse(
-                ciel_runtime.should_use_channel_screen_summary_proxy(
-                    True,
-                    ["server:ciel-runtime-router", "server:ai-net-sse"],
-                    ["-p", "hello"],
-                )
-            )
-
-    def test_channel_summary_notice_is_compact_and_hides_no_reply(self):
-        records = [
-            {
-                "message_id": 10,
-                "channel": "room_dm_a",
-                "source": "mcp-ai-net-sse",
-                "incoming": "New message from Sarah",
-                "stop_reason": "end_turn",
-                "tool_turns": 1,
-                "summary": "NO_REPLY: Sarah only acknowledged the previous update.",
-            },
-            {
-                "message_id": 11,
-                "channel": "room_dm_a",
-                "source": "mcp-ai-net-sse",
-                "incoming": "New message from Sarah",
-                "stop_reason": "fallback_reply_sent",
-                "tool_turns": 5,
-                "summary": "reply-required 채널 메시지가 일반 재시도에서는 reply/send 호출 없이 끝나서 fallback 회신을 전송했습니다.",
-            },
-            {
-                "message_id": 12,
-                "channel": "room_team",
-                "source": "mcp-ai-net-sse",
-                "incoming": "New message from Joy",
-                "stop_reason": "end_turn",
-                "tool_turns": 3,
-                "summary": "Joy의 리스크 보고를 확인하고 그룹 채팅방에 응답했습니다.",
-            },
-        ]
-
-        notice = ciel_runtime.format_channel_llm_summary_notice(records)
-
-        self.assertIn("channel mailbox digest", notice)
-        self.assertIn("source=ai-net-sse notification_count=2", notice)
-        self.assertNotIn("확인하세요", notice)
-        self.assertIn("message_ids=11..12", notice)
-        self.assertIn("channels=room_dm_a, room_team", notice)
-        self.assertNotIn("NO_REPLY", notice)
-        self.assertNotIn("direct_handler_summary", notice)
-
-    def test_channel_summary_notice_quiet_when_only_no_reply(self):
-        notice = ciel_runtime.format_channel_llm_summary_notice(
-            [
-                {
-                    "message_id": 13,
-                    "channel": "room_dm_a",
-                    "incoming": "New message from Sarah",
-                    "stop_reason": "end_turn",
-                    "summary": "NO_REPLY: no new task.",
-                }
-            ]
-        )
-
-        self.assertEqual("", notice)
-
-    def test_channel_summary_notice_quiet_when_only_presence_checkin(self):
-        notice = ciel_runtime.format_channel_llm_summary_notice(
-            [
-                {
-                    "message_id": 14,
-                    "channel": "room_dm_a",
-                    "source": "mcp-ai-net-sse",
-                    "sender_id": "Sarah",
-                    "kind": "presence",
-                    "incoming": "1 colleague checked in: Sarah.",
-                    "stop_reason": "end_turn",
-                    "summary": "Sarah checked in.",
-                }
-            ]
-        )
-
-        self.assertEqual("", notice)
-
-    def test_channel_summary_prompt_is_local_only_and_sanitized(self):
-        prompt = ciel_runtime.format_channel_llm_summary_prompt(
-            [
-                {
-                    "message_id": 56,
-                    "channel": "room_generic",
-                    "source": "mcp-ai-net-sse",
-                    "incoming": "New message from teammate",
-                    "stop_reason": "fallback_reply_sent",
-                    "tool_turns": 8,
-                    "summary": (
-                        "reply-required 채널 메시지가 일반 재시도에서는 reply/send 호출 없이 끝나서, "
-                        "라우터가 같은 채널에 안전 fallback 회신을 직접 전송했습니다.\n\n"
-                        "## 보낸 메시지\nPublic message\n\n"
-                        "## tool_result\n{\"success\": true, \"data\": {\"content\": \"raw body\"}}"
-                    ),
-                }
-            ]
-        )
-
-        self.assertIn("channel mailbox digest", prompt)
-        self.assertIn("source=ai-net-sse notification_count=1", prompt)
-        self.assertNotIn("확인하세요", prompt)
-        self.assertNotIn("LOCAL NOTICE ONLY", prompt)
-        self.assertNotIn("local_note=", prompt)
-        self.assertNotIn("[ciel-runtime", prompt.lower())
-        self.assertNotIn("direct_handler_summary", prompt)
-        self.assertNotIn("## tool_result", prompt)
-        self.assertNotIn("raw body", prompt)
-
     def test_channel_llm_prompt_is_data_only_for_dm_label_notice(self):
         prompt = ciel_runtime.format_channel_llm_batch_prompt(
             [
@@ -1262,12 +1085,6 @@ class ChannelBridgeTests(unittest.TestCase):
 
         self.assertEqual("  raw body from external channel\n", ciel_runtime.format_channel_llm_batch_prompt([message]))
         self.assertEqual("  raw body from external channel\n", ciel_runtime.format_channel_llm_delivery_wake_prompt([message]))
-
-    def test_reply_action_prompt_warns_against_dm_label_recipient_misread(self):
-        prompt = ciel_runtime._channel_direct_reply_action_prompt("I am not the recipient.")
-        self.assertIn("configured MCP/channel credentials", prompt)
-        self.assertIn("DM label", prompt)
-        self.assertIn("automatic reply loop", prompt)
 
     def test_channel_wake_prompt_contains_routing_context(self):
         prompt = ciel_runtime.format_channel_wake_prompt(
@@ -1814,31 +1631,6 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn(b"hello Sarah", payload)
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("reason=not_web_chat" in item and "message_id=2" in item for item in log_messages))
-
-    def test_inject_pending_channel_messages_wakes_direct_pending_messages(self):
-        messages = [
-            {
-                "id": 4,
-                "channel": "room_dm_generic",
-                "sender_id": "ai-net-sse",
-                "message": "New message from Sarah",
-                "meta": {"llm_direct_pending": True},
-            }
-        ]
-        with (
-            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
-            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
-            mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
-            mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
-            mock.patch.object(ciel_runtime, "router_log") as router_log,
-        ):
-            last_id = ciel_runtime._inject_pending_channel_messages(99, 0)
-        self.assertEqual(4, last_id)
-        commit_cursor.assert_called_once_with(4)
-        self.assertEqual(2, write_all.call_count)
-        self.assertIn(b"New message from Sarah", write_all.call_args_list[0].args[1])
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_stdin_proxy_inject_fallback" in item and "reason=llm_direct_pending" in item for item in log_messages))
 
     def test_inject_pending_channel_messages_claims_before_terminal_write(self):
         messages = [
@@ -2846,153 +2638,6 @@ class ChannelBridgeTests(unittest.TestCase):
             )
         )
 
-    def test_inject_pending_channel_messages_skips_direct_delivered_messages(self):
-        messages = [
-            {
-                "id": 4,
-                "channel": "room_dm_generic",
-                "sender_id": "ai-net-sse",
-                "message": "New message from Sarah",
-                "meta": {},
-            }
-        ]
-        ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-        ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.add(4)
-        try:
-            with (
-                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
-                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
-                mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
-                mock.patch.object(ciel_runtime, "router_log") as router_log,
-            ):
-                last_id = ciel_runtime._inject_pending_channel_messages(99, 0)
-        finally:
-            ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-        self.assertEqual(4, last_id)
-        commit_cursor.assert_not_called()
-        write_all.assert_not_called()
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("reason=llm_direct_delivered" in item for item in log_messages))
-
-    def test_inject_pending_channel_summaries_writes_prompt_to_child_stdin(self):
-        original_cursor = ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
-        with tempfile.TemporaryDirectory() as td:
-            queue_path = Path(td) / "channel-llm-summary-queue.jsonl"
-            cursor_path = Path(td) / "channel-llm-summary-cursor.json"
-            queue_path.write_text(
-                json.dumps(
-                    {
-                        "message_id": 12,
-                        "channel": "room_dm_generic",
-                        "source": "mcp-ai-net-sse",
-                        "sender_id": "Sarah",
-                        "stop_reason": "end_turn",
-                        "tool_turns": 2,
-                        "incoming": "New message from Sarah",
-                        "summary": "Sarah에게 현재 상황을 DM으로 회신했습니다.",
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-            cursor_path.write_text(json.dumps({"last_id": 0}) + "\n", encoding="utf-8")
-            try:
-                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
-                with (
-                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", queue_path),
-                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", cursor_path),
-                    mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
-                    mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
-                    mock.patch.object(ciel_runtime, "router_log") as router_log,
-                ):
-                    last_id = ciel_runtime._inject_pending_channel_summaries(99, b"\r\n")
-                    cursor_payload = json.loads(cursor_path.read_text(encoding="utf-8"))
-            finally:
-                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_cursor
-
-        self.assertEqual(12, last_id)
-        self.assertEqual({"last_id": 12}, cursor_payload)
-        self.assertEqual(2, write_all.call_count)
-        payload = write_all.call_args_list[0].args[1]
-        self.assertIn("channel mailbox digest".encode("utf-8"), payload)
-        self.assertIn("source=ai-net-sse notification_count=1".encode("utf-8"), payload)
-        self.assertNotIn("확인하세요".encode("utf-8"), payload)
-        self.assertNotIn("LOCAL NOTICE ONLY".encode("utf-8"), payload)
-        self.assertTrue(payload.startswith(b"\x15"))
-        self.assertEqual(b"\r\n", write_all.call_args_list[1].args[1])
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_stdin_summary_injected" in item and "message_ids=12" in item for item in log_messages))
-
-    def test_channel_direct_append_summary_dedupes_message_id(self):
-        original_cursor = ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
-        with tempfile.TemporaryDirectory() as td:
-            queue_path = Path(td) / "channel-llm-summary-queue.jsonl"
-            cursor_path = Path(td) / "channel-llm-summary-cursor.json"
-            message = {
-                "id": 12,
-                "channel": "room_dm_generic",
-                "sender_id": "Sarah",
-                "message": "New message from Sarah",
-                "meta": {"kind": "activity", "sse_source": "mcp-ai-net-sse"},
-            }
-            try:
-                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
-                with (
-                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", queue_path),
-                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", cursor_path),
-                    mock.patch.object(ciel_runtime, "router_log") as router_log,
-                ):
-                    ciel_runtime._channel_direct_append_summary(message, "handled once", "end_turn", tool_turns=1)
-                    ciel_runtime._channel_direct_append_summary(message, "handled twice", "end_turn", tool_turns=1)
-                    rows = [json.loads(line) for line in queue_path.read_text(encoding="utf-8").splitlines()]
-            finally:
-                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_cursor
-
-        self.assertEqual(1, len(rows))
-        self.assertEqual(12, rows[0]["message_id"])
-        self.assertEqual("activity", rows[0]["kind"])
-        self.assertEqual("handled once", rows[0]["summary"])
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_llm_summary_skipped_duplicate" in item and "message_id=12" in item for item in log_messages))
-
-    def test_missing_channel_summary_cursor_starts_at_queue_tail(self):
-        original_cursor = ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
-        with tempfile.TemporaryDirectory() as td:
-            queue_path = Path(td) / "channel-llm-summary-queue.jsonl"
-            cursor_path = Path(td) / "channel-llm-summary-cursor.json"
-            queue_path.write_text(
-                json.dumps(
-                    {
-                        "message_id": 12,
-                        "channel": "room_dm_generic",
-                        "source": "mcp-generic",
-                        "sender_id": "agent",
-                        "stop_reason": "end_turn",
-                        "incoming": "stale restart summary",
-                        "summary": "Already surfaced before restart.",
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-            try:
-                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
-                with (
-                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", queue_path),
-                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", cursor_path),
-                    mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
-                ):
-                    last_id = ciel_runtime._inject_pending_channel_summaries(99, b"\r\n")
-                    cursor_payload = json.loads(cursor_path.read_text(encoding="utf-8"))
-            finally:
-                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_cursor
-
-        self.assertEqual(12, last_id)
-        self.assertEqual({"last_id": 12}, cursor_payload)
-        write_all.assert_not_called()
-
     def test_parse_pseudo_tool_calls_converts_invoke_only_for_available_tool(self):
         body = {
             "tools": [
@@ -3274,26 +2919,22 @@ class ChannelBridgeTests(unittest.TestCase):
         body = {
             "metadata": {
                 "ciel_runtime_channel_cursor_last_id": "9",
-                "ciel_runtime_channel_summary_cursor_last_id": "12",
             }
         }
         handler = type("Handler", (), {"_ciel_runtime_response_status": 500})()
         with (
             mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
-            mock.patch.object(ciel_runtime, "_channel_llm_summary_write_cursor_locked") as write_summary_cursor,
             mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
             ciel_runtime.commit_pending_channel_delivery_cursors(body, handler)  # type: ignore[arg-type]
 
         write_cursor.assert_not_called()
-        write_summary_cursor.assert_not_called()
         self.assertTrue(any("channel_delivery_cursor_deferred" in str(call.args[1]) for call in router_log.call_args_list))
 
     def test_commit_pending_channel_delivery_cursors_skips_unconfirmed_channel_response(self):
         body = {
             "metadata": {
                 "ciel_runtime_channel_cursor_last_id": "9",
-                "ciel_runtime_channel_summary_cursor_last_id": "12",
             }
         }
         handler = type(
@@ -3308,13 +2949,11 @@ class ChannelBridgeTests(unittest.TestCase):
         )()
         with (
             mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
-            mock.patch.object(ciel_runtime, "_channel_llm_summary_write_cursor_locked") as write_summary_cursor,
             mock.patch.object(ciel_runtime, "router_log") as router_log,
         ):
             ciel_runtime.commit_pending_channel_delivery_cursors(body, handler)  # type: ignore[arg-type]
 
         write_cursor.assert_not_called()
-        write_summary_cursor.assert_not_called()
         self.assertTrue(
             any(
                 "channel_delivery_cursor_deferred" in str(call.args[1])
@@ -3327,7 +2966,6 @@ class ChannelBridgeTests(unittest.TestCase):
         body = {
             "metadata": {
                 "ciel_runtime_channel_cursor_last_id": "9",
-                "ciel_runtime_channel_summary_cursor_last_id": "12",
             }
         }
         handler = type(
@@ -3343,13 +2981,10 @@ class ChannelBridgeTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1),
             mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
-            mock.patch.object(ciel_runtime, "_channel_llm_summary_read_cursor_locked", return_value=1),
-            mock.patch.object(ciel_runtime, "_channel_llm_summary_write_cursor_locked") as write_summary_cursor,
         ):
             ciel_runtime.commit_pending_channel_delivery_cursors(body, handler)  # type: ignore[arg-type]
 
         write_cursor.assert_called_with(9)
-        write_summary_cursor.assert_called_with(12)
 
     def test_body_with_pending_channel_messages_keeps_ai_net_write_tools(self):
         body = {
@@ -3542,160 +3177,6 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual("toolu_trace_1", summary[1]["content"][0]["tool_use_id"])
         self.assertEqual("sent", summary[1]["content"][0]["content"])
 
-    def test_body_with_pending_channel_messages_skips_direct_router_requests(self):
-        body = {"metadata": {"ciel_runtime_channel_direct": True}, "messages": []}
-        with mock.patch.object(ciel_runtime, "load_config") as load_config:
-            out = ciel_runtime.body_with_pending_channel_messages(body)
-        self.assertIs(out, body)
-        load_config.assert_not_called()
-
-    def test_body_with_pending_channel_summaries_injects_direct_processing_result(self):
-        original_cursor = ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
-        cursor_payload = None
-        with tempfile.TemporaryDirectory() as td:
-            queue_path = Path(td) / "channel-llm-summary-queue.jsonl"
-            cursor_path = Path(td) / "channel-llm-summary-cursor.json"
-            queue_path.write_text(
-                json.dumps(
-                    {
-                        "message_id": 12,
-                        "channel": "room_4pyr8vvwm2cd",
-                        "source": "mcp-ai-net-sse",
-                        "sender": "Sarah",
-                        "stop_reason": "end_turn",
-                        "tool_turns": 1,
-                        "incoming": "Robert 리드님, 보고드립니다.",
-                        "summary": "Sarah에게 업무를 배정했고 DM 전송 결과를 확인했습니다.",
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-            cursor_path.write_text(json.dumps({"last_id": 0}) + "\n", encoding="utf-8")
-            try:
-                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
-                with (
-                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", queue_path),
-                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", cursor_path),
-                    mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_DELIVERY": "llm"}),
-                    mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                    mock.patch.object(ciel_runtime, "router_log") as router_log,
-                ):
-                    out = ciel_runtime.body_with_pending_channel_summaries(
-                        {"messages": [{"role": "user", "content": "continue"}]}
-                    )
-                    handler = type("Handler", (), {"_ciel_runtime_response_status": 200})()
-                    ciel_runtime.commit_pending_channel_delivery_cursors(out, handler)  # type: ignore[arg-type]
-                    cursor_payload = json.loads(cursor_path.read_text(encoding="utf-8"))
-            finally:
-                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_cursor
-
-        self.assertEqual(2, len(out["messages"]))
-        injected = out["messages"][-1]["content"][0]["text"]
-        self.assertIn("channel mailbox digest", injected)
-        self.assertIn("source=ai-net-sse notification_count=1", injected)
-        self.assertIn("message_ids=12", injected)
-        self.assertNotIn("LOCAL NOTICE ONLY", injected)
-        self.assertNotIn("Sarah에게 업무를 배정", injected)
-        self.assertTrue(out["metadata"]["ciel_runtime_channel_summary_injected"])
-        self.assertEqual("12", out["metadata"]["ciel_runtime_channel_summary_message_ids"])
-        self.assertEqual("12", out["metadata"]["ciel_runtime_channel_summary_cursor_last_id"])
-        self.assertEqual({"last_id": 12}, cursor_payload)
-        self.assertTrue(any("channel_llm_summary_injected" in str(call.args[1]) for call in router_log.call_args_list))
-
-    def test_channel_summary_injection_skips_plan_mode_without_advancing_cursor(self):
-        original_cursor = ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
-        with tempfile.TemporaryDirectory() as td:
-            queue_path = Path(td) / "channel-llm-summary-queue.jsonl"
-            cursor_path = Path(td) / "channel-llm-summary-cursor.json"
-            queue_path.write_text(
-                json.dumps(
-                    {
-                        "message_id": 13,
-                        "channel": "room_team",
-                        "source": "mcp-ai-net-http",
-                        "sender": "Robert",
-                        "stop_reason": "end_turn",
-                        "incoming": "New message from Robert",
-                        "summary": "Robert mentioned Frank.",
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-            try:
-                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
-                body = {
-                    "messages": [
-                        {"role": "user", "content": [{"type": "text", "text": "continue"}]},
-                        {"role": "user", "attachment": {"type": "plan_mode"}, "content": []},
-                    ]
-                }
-                with (
-                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", queue_path),
-                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", cursor_path),
-                    mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                    mock.patch.object(ciel_runtime, "router_log") as router_log,
-                ):
-                    out = ciel_runtime.body_with_pending_channel_summaries(body)
-            finally:
-                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_cursor
-
-        self.assertIs(out, body)
-        self.assertFalse(cursor_path.exists())
-        self.assertTrue(any("plan_mode_active" in str(call.args[1]) for call in router_log.call_args_list))
-
-    def test_body_with_pending_channel_messages_recovers_stale_direct_pending_messages(self):
-        body = {"messages": [{"role": "user", "content": "continue"}], "stream": True}
-        messages = [
-            {
-                "id": 3,
-                "channel": "room",
-                "sender_id": "sarah",
-                "message": "direct marked before scheduling",
-                "meta": {"room_id": "room", "llm_direct_pending": True},
-            }
-        ]
-        with (
-            mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-            mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1),
-            mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
-            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
-            mock.patch.object(ciel_runtime, "router_log") as router_log,
-        ):
-            out = ciel_runtime.body_with_pending_channel_messages(body)
-
-        self.assertIsNot(out, body)
-        write_cursor.assert_not_called()
-        injected = out["messages"][-1]["content"][0]["text"]
-        self.assertIn("direct marked before scheduling", injected)
-        self.assertEqual("3", out["metadata"]["ciel_runtime_channel_message_ids"])
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("stale_llm_direct_pending" in item for item in log_messages))
-
-    def test_body_with_pending_channel_messages_skips_direct_delivered_messages(self):
-        body = {"messages": [{"role": "user", "content": "continue"}], "stream": True}
-        messages = [{"id": 3, "channel": "room", "sender_id": "sarah", "message": "already sent", "meta": {"room_id": "room"}}]
-        ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-        ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.add(3)
-        try:
-            with (
-                mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1),
-                mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
-                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
-                mock.patch.object(ciel_runtime, "router_log") as router_log,
-            ):
-                out = ciel_runtime.body_with_pending_channel_messages(body)
-        finally:
-            ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-        self.assertIs(out, body)
-        write_cursor.assert_called_with(3)
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("llm_direct_delivered" in item for item in log_messages))
-
     def test_body_with_pending_channel_messages_skips_message_already_in_request(self):
         body = {
             "messages": [
@@ -3886,71 +3367,6 @@ class ChannelBridgeTests(unittest.TestCase):
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("stdin_wake_delivered" in item for item in log_messages))
 
-    def test_body_with_pending_channel_messages_skips_direct_inflight_messages(self):
-        body = {"messages": [{"role": "user", "content": "continue"}], "stream": True}
-        messages = [{"id": 3, "channel": "room", "sender_id": "sarah", "message": "direct running", "meta": {"room_id": "room"}}]
-        ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
-        ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.add(3)
-        try:
-            with (
-                mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1),
-                mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
-                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
-                mock.patch.object(ciel_runtime, "router_log") as router_log,
-            ):
-                out = ciel_runtime.body_with_pending_channel_messages(body)
-        finally:
-            ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
-        self.assertIs(out, body)
-        write_cursor.assert_not_called()
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("llm_direct_inflight" in item for item in log_messages))
-
-    def test_channel_sse_dispatch_marks_direct_pending_and_schedules_background_delivery(self):
-        captured: list[dict[str, object]] = []
-        original_connections = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)
-
-        def fake_append(payload):
-            captured.append(payload)
-            saved = dict(payload)
-            saved["id"] = 7
-            return saved
-
-        try:
-            ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
-            ciel_runtime._CHANNEL_SSE_CONNECTIONS["mcp-ai-net-sse"] = {
-                "name": "mcp-ai-net-sse",
-                "channel": "room_4pyr8vvwm2cd",
-            }
-            payload = {
-                "channel": "room_4pyr8vvwm2cd",
-                "sender_id": "sarah",
-                "message": "새 이벤트",
-                "kind": "message",
-                "meta": {"room_id": "room_4pyr8vvwm2cd"},
-                "visibility": "user",
-                "delivery": ["llm"],
-            }
-            with (
-                mock.patch.object(ciel_runtime, "_sse_payload_to_chat_payload", return_value=payload),
-                mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                mock.patch.object(ciel_runtime, "append_chat_message", side_effect=fake_append),
-                mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery") as schedule,
-                mock.patch.object(ciel_runtime, "router_log"),
-            ):
-                ciel_runtime._channel_sse_dispatch("mcp-ai-net-sse", "message", ["{}"])
-        finally:
-            ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
-            ciel_runtime._CHANNEL_SSE_CONNECTIONS.update(original_connections)
-
-        self.assertEqual(1, len(captured))
-        self.assertTrue(captured[0]["meta"]["llm_direct_pending"])
-        self.assertEqual(["llm"], captured[0]["delivery"])
-        schedule.assert_called_once()
-        self.assertEqual(7, schedule.call_args.args[0]["id"])
-        self.assertTrue(schedule.call_args.args[0]["meta"]["llm_direct_pending"])
-
     def test_channel_sse_dispatch_ignores_native_router_self_echo(self):
         original_connections = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)
         try:
@@ -3962,7 +3378,6 @@ class ChannelBridgeTests(unittest.TestCase):
             with (
                 mock.patch.object(ciel_runtime, "_sse_payload_to_chat_payload") as parse_payload,
                 mock.patch.object(ciel_runtime, "append_chat_message") as append,
-                mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery") as schedule,
                 mock.patch.object(ciel_runtime, "router_log") as router_log,
             ):
                 ciel_runtime._channel_sse_dispatch(
@@ -3976,7 +3391,6 @@ class ChannelBridgeTests(unittest.TestCase):
 
         parse_payload.assert_not_called()
         append.assert_not_called()
-        schedule.assert_not_called()
         self.assertTrue(any("native_router_self_echo" in str(call.args[1]) for call in router_log.call_args_list))
 
     def test_channel_sse_dispatch_stores_mcp_rpc_response_without_chat_append(self):
@@ -3990,7 +3404,6 @@ class ChannelBridgeTests(unittest.TestCase):
             with (
                 mock.patch.object(ciel_runtime, "_sse_payload_to_chat_payload") as parse_payload,
                 mock.patch.object(ciel_runtime, "append_chat_message") as append,
-                mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery") as schedule,
                 mock.patch.object(ciel_runtime, "router_log") as router_log,
             ):
                 ciel_runtime._channel_sse_dispatch(
@@ -4007,7 +3420,6 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual({"ok": True}, stored["result"])
         parse_payload.assert_not_called()
         append.assert_not_called()
-        schedule.assert_not_called()
         self.assertTrue(any("channel_sse_mcp_rpc_response" in str(call.args[1]) for call in router_log.call_args_list))
 
     def test_channel_string_list_decodes_json_array_strings(self):
@@ -4215,1025 +3627,6 @@ class ChannelBridgeTests(unittest.TestCase):
 
         self.assertEqual(set(), ciel_runtime._channel_superseded_message_ids(messages))
 
-    def test_channel_direct_llm_worker_uses_router_without_hidden_print_mode(self):
-        message = {
-            "id": 9,
-            "channel": "room_4pyr8vvwm2cd",
-            "sender_id": "ai-net",
-            "message": "새 이벤트",
-            "meta": {"room_id": "room_4pyr8vvwm2cd"},
-        }
-        ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-        try:
-            with (
-                mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                mock.patch.object(ciel_runtime, "get_current_provider", return_value=("ollama-cloud", {"request_timeout_ms": 300000})),
-                mock.patch.object(ciel_runtime, "current_alias", return_value="ciel-runtime-ollama-cloud-test"),
-                mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=0),
-                mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked"),
-                mock.patch.object(
-                    ciel_runtime,
-                    "_channel_direct_llm_router_response",
-                    return_value=("분석 완료", "end_turn", 1),
-                ) as router_response,
-                mock.patch.object(ciel_runtime, "_channel_direct_append_summary") as append_summary,
-                mock.patch.object(ciel_runtime, "append_chat_message") as append,
-                mock.patch.object(ciel_runtime, "router_log"),
-            ):
-                ciel_runtime._channel_direct_llm_worker(message)
-        finally:
-            ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-
-        router_response.assert_called_once()
-        args = router_response.call_args.args
-        self.assertEqual(9, args[0])
-        prompt = args[1]
-        self.assertEqual("새 이벤트", prompt)
-        self.assertNotIn("<< room_4pyr8vvwm2cd >>", prompt)
-        self.assertNotIn("[external channel input]", prompt)
-        self.assertNotIn("자율 처리 턴", prompt)
-        self.assertNotIn("로컬 사용자 승인 없이 같은 채널/DM에 답장", prompt)
-        self.assertNotIn("답장 여부를 묻고 멈추지 마세요", prompt)
-        self.assertNotIn("미래 행동을 약속하는 말만 남기고 턴을 끝내지 마세요", prompt)
-        self.assertNotIn("범위를 작게 유지", prompt)
-        self.assertNotIn("새 방 생성", prompt)
-        self.assertNotIn("Let me send", prompt)
-        self.assertIn("새 이벤트", prompt)
-        append_summary.assert_called_once_with(message, "분석 완료", "end_turn", tool_turns=1)
-        append.assert_not_called()
-
-    def test_channel_direct_delivery_queues_burst_without_spawning_per_message_threads(self):
-        processed: list[int] = []
-
-        def fake_worker(message):
-            message_id = int(message.get("id") or 0)
-            processed.append(message_id)
-            with ciel_runtime._CHANNEL_LLM_DIRECT_LOCK:
-                ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.discard(message_id)
-
-        while not ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.empty():
-            try:
-                ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.get_nowait()
-                ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.task_done()
-            except Exception:
-                break
-        old_started = ciel_runtime._CHANNEL_LLM_DIRECT_WORKERS_STARTED
-        ciel_runtime._CHANNEL_LLM_DIRECT_WORKERS_STARTED = 0
-        ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
-        ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-        try:
-            with (
-                mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_DIRECT_WORKERS": "1"}),
-                mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                mock.patch.object(ciel_runtime, "_channel_direct_llm_worker", side_effect=fake_worker),
-                mock.patch.object(ciel_runtime, "router_log"),
-            ):
-                for message_id in range(1, 4):
-                    self.assertTrue(
-                        ciel_runtime.schedule_channel_direct_llm_delivery(
-                            {
-                                "id": message_id,
-                                "channel": "room",
-                                "sender_id": "external",
-                                "message": f"event {message_id}",
-                                "delivery": ["llm"],
-                            }
-                        )
-                    )
-                deadline = time.time() + 3
-                while len(processed) < 3 and time.time() < deadline:
-                    time.sleep(0.01)
-        finally:
-            ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
-            ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-            ciel_runtime._CHANNEL_LLM_DIRECT_WORKERS_STARTED = max(old_started, ciel_runtime._CHANNEL_LLM_DIRECT_WORKERS_STARTED)
-
-        self.assertEqual([1, 2, 3], processed)
-        self.assertEqual(1, ciel_runtime._CHANNEL_LLM_DIRECT_WORKERS_STARTED)
-
-    def test_channel_direct_deferred_action_detector_matches_future_promises(self):
-        self.assertTrue(
-            ciel_runtime._channel_direct_text_is_deferred_action(
-                "Now I have the full context. Let me send her a proper DM response now."
-            )
-        )
-        self.assertTrue(ciel_runtime._channel_direct_text_is_deferred_action("Sarah에게 결과를 보고하겠습니다."))
-        self.assertFalse(ciel_runtime._channel_direct_text_is_deferred_action("Sarah에게 답장 완료했습니다."))
-        self.assertFalse(ciel_runtime._channel_direct_text_is_deferred_action("Sarah에게 회신했습니다."))
-
-    def test_channel_direct_router_response_round_trips_mcp_tool_result_to_llm(self):
-        calls: list[dict[str, object]] = []
-
-        def fake_http(_message_id, body, _provider, _pcfg, _model):
-            calls.append(json.loads(json.dumps(body, ensure_ascii=False)))
-            if len(calls) == 1:
-                return {
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": "toolu_direct_1",
-                            "name": "mcp__ai-net-sse__send_dm",
-                            "input": {"to_agent_id": "agent_sarah", "content": "확인했습니다."},
-                        }
-                    ],
-                    "stop_reason": "tool_use",
-                }
-            return {"content": [{"type": "text", "text": "Sarah에게 회신했습니다."}], "stop_reason": "end_turn"}
-
-        with (
-            mock.patch.object(ciel_runtime, "_channel_direct_tool_schemas", return_value=[{"name": "mcp__ai-net-sse__send_dm"}]),
-            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("DM sent", False)) as execute_tool,
-        ):
-            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
-                14,
-                "수신 메시지를 처리하세요",
-                {"id": 14, "meta": {"sse_source": "mcp-ai-net-sse"}},
-                "deepseek",
-                {"request_timeout_ms": 300000},
-                "deepseek-v4-pro",
-            )
-
-        self.assertEqual("Sarah에게 회신했습니다.", text)
-        self.assertEqual("end_turn", stop_reason)
-        self.assertEqual(1, tool_turns)
-        execute_tool.assert_called_once()
-        self.assertEqual(2, len(calls))
-        second_messages = calls[1]["messages"]
-        self.assertEqual("assistant", second_messages[-2]["role"])
-        self.assertEqual("user", second_messages[-1]["role"])
-        tool_result = second_messages[-1]["content"][0]
-        self.assertEqual("tool_result", tool_result["type"])
-        self.assertEqual("toolu_direct_1", tool_result["tool_use_id"])
-        self.assertEqual("DM sent", tool_result["content"])
-
-    def test_channel_direct_router_response_retries_deferred_action_text(self):
-        calls: list[dict[str, object]] = []
-
-        def fake_http(_message_id, body, _provider, _pcfg, _model):
-            calls.append(json.loads(json.dumps(body, ensure_ascii=False)))
-            if len(calls) == 1:
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "Now I have the full context. Let me send her a proper DM response now.",
-                        }
-                    ],
-                    "stop_reason": "end_turn",
-                }
-            if len(calls) == 2:
-                return {
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": "toolu_direct_retry_1",
-                            "name": "mcp__ai-net-sse__send_dm",
-                            "input": {"to_agent_id": "agent_sarah", "content": "현재 상황입니다."},
-                        }
-                    ],
-                    "stop_reason": "tool_use",
-                }
-            return {"content": [{"type": "text", "text": "Sarah에게 현재 상황을 DM으로 회신했습니다."}], "stop_reason": "end_turn"}
-
-        with (
-            mock.patch.object(ciel_runtime, "_channel_direct_tool_schemas", return_value=[{"name": "mcp__ai-net-sse__send_dm"}]),
-            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("DM sent", False)) as execute_tool,
-            mock.patch.object(ciel_runtime, "router_log") as router_log,
-        ):
-            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
-                15,
-                "수신 메시지를 처리하세요",
-                {"id": 15, "meta": {"sse_source": "mcp-ai-net-sse"}},
-                "deepseek",
-                {"request_timeout_ms": 300000},
-                "deepseek-v4-pro",
-            )
-
-        self.assertEqual("Sarah에게 현재 상황을 DM으로 회신했습니다.", text)
-        self.assertEqual("end_turn", stop_reason)
-        self.assertEqual(1, tool_turns)
-        execute_tool.assert_called_once()
-        self.assertEqual(3, len(calls))
-        retry_prompt = calls[1]["messages"][-1]["content"][0]["text"]
-        self.assertIn("[ciel-runtime channel action required]", retry_prompt)
-        self.assertIn("Let me send", retry_prompt)
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_llm_deferred_action_retry" in item for item in log_messages))
-
-    def test_channel_direct_router_response_retries_deferred_action_after_sixth_turn(self):
-        calls: list[dict[str, object]] = []
-
-        def fake_http(_message_id, body, _provider, _pcfg, _model):
-            calls.append(json.loads(json.dumps(body, ensure_ascii=False)))
-            if len(calls) <= 5:
-                return {
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": f"toolu_many_{len(calls)}",
-                            "name": "mcp__ai-net-sse__get_messages",
-                            "input": {"room_id": "room_dm_4wcekxw4yse", "limit": 5},
-                        }
-                    ],
-                    "stop_reason": "tool_use",
-                }
-            if len(calls) == 6:
-                return {
-                    "content": [{"type": "text", "text": "All members invited. Now let me reply to Sarah's DM."}],
-                    "stop_reason": "end_turn",
-                }
-            if len(calls) == 7:
-                return {
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": "toolu_after_retry",
-                            "name": "mcp__ai-net-sse__send_dm",
-                            "input": {"to_agent_id": "agent_sarah", "content": "현재 상황입니다."},
-                        }
-                    ],
-                    "stop_reason": "tool_use",
-                }
-            return {"content": [{"type": "text", "text": "Sarah에게 현재 상황을 DM으로 회신했습니다."}], "stop_reason": "end_turn"}
-
-        with (
-            mock.patch.object(
-                ciel_runtime,
-                "_channel_direct_tool_schemas",
-                return_value=[
-                    {"name": "mcp__ai-net-sse__get_messages"},
-                    {"name": "mcp__ai-net-sse__create_room"},
-                    {"name": "mcp__ai-net-sse__send_dm"},
-                ],
-            ),
-            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("ok", False)) as execute_tool,
-            mock.patch.object(ciel_runtime, "router_log") as router_log,
-        ):
-            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
-                18,
-                "수신 메시지를 처리하세요",
-                {"id": 18, "channel": "room_dm_4wcekxw4yse", "meta": {"sse_source": "mcp-ai-net-sse"}},
-                "deepseek",
-                {"request_timeout_ms": 300000},
-                "deepseek-v4-pro",
-            )
-
-        self.assertEqual("Sarah에게 현재 상황을 DM으로 회신했습니다.", text)
-        self.assertEqual("end_turn", stop_reason)
-        self.assertEqual(6, tool_turns)
-        self.assertEqual(6, execute_tool.call_count)
-        self.assertEqual(8, len(calls))
-        retry_prompt = calls[6]["messages"][-1]["content"][0]["text"]
-        self.assertIn("[ciel-runtime channel action required]", retry_prompt)
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_llm_deferred_action_retry" in item for item in log_messages))
-
-    def test_channel_direct_router_response_retries_reply_required_without_send_tool(self):
-        calls: list[dict[str, object]] = []
-
-        def fake_http(_message_id, body, _provider, _pcfg, _model):
-            calls.append(json.loads(json.dumps(body, ensure_ascii=False)))
-            if len(calls) == 1:
-                return {
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": "toolu_read",
-                            "name": "mcp__ai-net-sse__get_messages",
-                            "input": {"room_id": "room_dm_generic", "limit": 5},
-                        }
-                    ],
-                    "stop_reason": "tool_use",
-                }
-            if len(calls) == 2:
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "Sarah asked for the current context. I have enough information to respond.",
-                        }
-                    ],
-                    "stop_reason": "end_turn",
-                }
-            if len(calls) == 3:
-                return {
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": "toolu_reply",
-                            "name": "mcp__ai-net-sse__send_dm",
-                            "input": {"to_agent_id": "agent_sarah", "content": "현재 상황을 공유합니다."},
-                        }
-                    ],
-                    "stop_reason": "tool_use",
-                }
-            return {"content": [{"type": "text", "text": "Sarah에게 DM으로 답장했습니다."}], "stop_reason": "end_turn"}
-
-        with (
-            mock.patch.object(
-                ciel_runtime,
-                "_channel_direct_tool_schemas",
-                return_value=[
-                    {"name": "mcp__ai-net-sse__get_messages"},
-                    {"name": "mcp__ai-net-sse__create_room"},
-                    {"name": "mcp__ai-net-sse__send_dm"},
-                ],
-            ),
-            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("ok", False)) as execute_tool,
-            mock.patch.object(ciel_runtime, "router_log") as router_log,
-        ):
-            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
-                21,
-                "수신 메시지를 처리하세요",
-                {
-                    "id": 21,
-                    "channel": "room_dm_generic",
-                    "message": "New message from Sarah",
-                    "meta": {"sse_source": "mcp-ai-net-sse", "message_id": "msg_sarah"},
-                },
-                "deepseek",
-                {"request_timeout_ms": 300000},
-                "deepseek-v4-pro",
-            )
-
-        self.assertEqual("Sarah에게 DM으로 답장했습니다.", text)
-        self.assertEqual("end_turn", stop_reason)
-        self.assertEqual(2, tool_turns)
-        self.assertEqual(2, execute_tool.call_count)
-        self.assertEqual(["mcp__ai-net-sse__get_messages", "mcp__ai-net-sse__send_dm"], [call.args[0]["name"] for call in execute_tool.call_args_list])
-        self.assertEqual(4, len(calls))
-        retry_prompt = calls[2]["messages"][-1]["content"][0]["text"]
-        self.assertIn("[ciel-runtime channel reply required]", retry_prompt)
-        self.assertIn("NO_REPLY:", retry_prompt)
-        self.assertEqual(
-            ["mcp__ai-net-sse__create_room", "mcp__ai-net-sse__send_dm"],
-            [tool["name"] for tool in calls[2]["tools"]],
-        )
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_llm_reply_action_retry" in item for item in log_messages))
-
-    def test_channel_direct_router_response_expands_notification_message_reads(self):
-        calls: list[dict[str, object]] = []
-
-        def fake_http(_message_id, body, _provider, _pcfg, _model):
-            calls.append(json.loads(json.dumps(body, ensure_ascii=False)))
-            if len(calls) == 1:
-                return {
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": "toolu_read",
-                            "name": "mcp__generic-sse__get_messages",
-                            "input": {"room_id": "room_dm_generic", "after_id": "msg_target", "limit": 3},
-                        }
-                    ],
-                    "stop_reason": "tool_use",
-                }
-            return {"content": [{"type": "text", "text": "NO_REPLY: checked message history."}], "stop_reason": "end_turn"}
-
-        with (
-            mock.patch.object(
-                ciel_runtime,
-                "_channel_direct_tool_schemas",
-                return_value=[{"name": "mcp__generic-sse__get_messages"}, {"name": "mcp__generic-sse__send_message"}],
-            ),
-            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("[]", False)) as execute_tool,
-            mock.patch.object(ciel_runtime, "router_log") as router_log,
-        ):
-            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
-                31,
-                "수신 메시지를 처리하세요",
-                {
-                    "id": 31,
-                    "channel": "room_dm_generic",
-                    "message": "New message from teammate",
-                    "meta": {"sse_source": "generic-sse", "message_id": "msg_target", "kind": "activity"},
-                },
-                "deepseek",
-                {"request_timeout_ms": 300000},
-                "deepseek-v4-pro",
-            )
-
-        self.assertEqual("NO_REPLY: checked message history.", text)
-        self.assertEqual("end_turn", stop_reason)
-        self.assertEqual(1, tool_turns)
-        self.assertEqual({"room_id": "room_dm_generic", "limit": 20}, execute_tool.call_args.args[0]["input"])
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_llm_read_cursor_normalized" in item for item in log_messages))
-
-    def test_channel_direct_router_response_marks_reply_required_unfulfilled(self):
-        calls: list[dict[str, object]] = []
-
-        def fake_http(_message_id, body, _provider, _pcfg, _model):
-            calls.append(json.loads(json.dumps(body, ensure_ascii=False)))
-            if len(calls) == 1:
-                return {
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": "toolu_read",
-                            "name": "mcp__ai-net-sse__get_messages",
-                            "input": {"room_id": "room_dm_generic", "limit": 5},
-                        }
-                    ],
-                    "stop_reason": "tool_use",
-                }
-            if len(calls) == 2:
-                return {
-                    "content": [{"type": "text", "text": "I have enough context. Let me reply to Sarah now."}],
-                    "stop_reason": "end_turn",
-                }
-            return {
-                "content": [{"type": "text", "text": "I should send Sarah a reply with the current status."}],
-                "stop_reason": "end_turn",
-            }
-
-        with (
-            mock.patch.object(
-                ciel_runtime,
-                "_channel_direct_tool_schemas",
-                return_value=[{"name": "mcp__ai-net-sse__get_messages"}, {"name": "mcp__ai-net-sse__send_dm"}],
-            ),
-            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("ok", False)) as execute_tool,
-            mock.patch.object(ciel_runtime, "router_log") as router_log,
-        ):
-            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
-                23,
-                "수신 메시지를 처리하세요",
-                {
-                    "id": 23,
-                    "channel": "room_dm_generic",
-                    "message": "New message from Sarah",
-                    "meta": {"sse_source": "mcp-ai-net-sse", "message_id": "msg_sarah"},
-                },
-                "deepseek",
-                {"request_timeout_ms": 300000},
-                "deepseek-v4-pro",
-            )
-
-        self.assertEqual("reply_required_unfulfilled", stop_reason)
-        self.assertEqual(1, tool_turns)
-        self.assertIn("실제 회신하지 않았습니다", text)
-        execute_tool.assert_called_once()
-        self.assertEqual(4, len(calls))
-        self.assertEqual(["mcp__ai-net-sse__send_dm"], [tool["name"] for tool in calls[2]["tools"]])
-        self.assertEqual(["mcp__ai-net-sse__send_dm"], [tool["name"] for tool in calls[3]["tools"]])
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_llm_reply_required_unfulfilled" in item for item in log_messages))
-        self.assertTrue(any("channel_llm_deferred_action_retry" in item and "reason=reply_required" in item for item in log_messages))
-
-    def test_channel_direct_router_response_fallback_sends_same_channel_reply(self):
-        calls: list[dict[str, object]] = []
-
-        def fake_http(_message_id, body, _provider, _pcfg, _model):
-            calls.append(json.loads(json.dumps(body, ensure_ascii=False)))
-            if len(calls) == 1:
-                return {
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": "toolu_read",
-                            "name": "mcp__ai-net-sse__get_messages",
-                            "input": {"room_id": "room_dm_generic", "limit": 5},
-                        }
-                    ],
-                    "stop_reason": "tool_use",
-                }
-            if len(calls) == 2:
-                return {
-                    "content": [{"type": "text", "text": "I have enough context. Let me reply to Sarah now."}],
-                    "stop_reason": "end_turn",
-                }
-            if len(calls) == 3:
-                return {
-                    "content": [{"type": "text", "text": "I should send Sarah a reply with the current status."}],
-                    "stop_reason": "end_turn",
-                }
-            return {
-                "content": [{"type": "text", "text": "Sarah, 메시지 확인했습니다. 현재 방을 만들었고 이어서 초대와 업무 배정을 진행하겠습니다."}],
-                "stop_reason": "end_turn",
-            }
-
-        with (
-            mock.patch.object(
-                ciel_runtime,
-                "_channel_direct_tool_schemas",
-                return_value=[
-                    {"name": "mcp__ai-net-sse__get_messages"},
-                    {
-                        "name": "mcp__ai-net-sse__send_message",
-                        "input_schema": {
-                            "type": "object",
-                            "properties": {"room_id": {"type": "string"}, "content": {"type": "string"}},
-                        },
-                    },
-                ],
-            ),
-            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("message sent", False)) as execute_tool,
-            mock.patch.object(ciel_runtime, "router_log") as router_log,
-        ):
-            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
-                24,
-                "수신 메시지를 처리하세요",
-                {
-                    "id": 24,
-                    "channel": "room_dm_generic",
-                    "message": "New message from Sarah",
-                    "meta": {"sse_source": "mcp-ai-net-sse", "message_id": "msg_sarah"},
-                },
-                "deepseek",
-                {"request_timeout_ms": 300000},
-                "deepseek-v4-pro",
-            )
-
-        self.assertEqual("fallback_reply_sent", stop_reason)
-        self.assertEqual(2, tool_turns)
-        self.assertIn("fallback 회신", text)
-        self.assertIn("Sarah, 메시지 확인했습니다", text)
-        self.assertEqual(
-            ["mcp__ai-net-sse__get_messages", "mcp__ai-net-sse__send_message"],
-            [call.args[0]["name"] for call in execute_tool.call_args_list],
-        )
-        self.assertEqual({"room_id": "room_dm_generic", "content": "Sarah, 메시지 확인했습니다. 현재 방을 만들었고 이어서 초대와 업무 배정을 진행하겠습니다."}, execute_tool.call_args_list[-1].args[0]["input"])
-        self.assertEqual(5, len(calls))
-        self.assertNotIn("tools", calls[-1])
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_llm_fallback_reply_sent" in item for item in log_messages))
-
-    def test_channel_direct_router_response_fallback_replaces_deferred_text(self):
-        calls: list[dict[str, object]] = []
-
-        def fake_http(_message_id, body, _provider, _pcfg, _model):
-            calls.append(json.loads(json.dumps(body, ensure_ascii=False)))
-            if len(calls) == 1:
-                return {
-                    "content": [{"type": "text", "text": "I should reply to Sarah now."}],
-                    "stop_reason": "end_turn",
-                }
-            if len(calls) == 2:
-                return {
-                    "content": [{"type": "text", "text": "Let me send the fill-me-in response now."}],
-                    "stop_reason": "end_turn",
-                }
-            return {
-                "content": [{"type": "text", "text": "Let me send the fill-me-in response now."}],
-                "stop_reason": "end_turn",
-            }
-
-        with (
-            mock.patch.object(
-                ciel_runtime,
-                "_channel_direct_tool_schemas",
-                return_value=[
-                    {
-                        "name": "mcp__ai-net-sse__send_message",
-                        "input_schema": {
-                            "type": "object",
-                            "properties": {"room_id": {"type": "string"}, "content": {"type": "string"}},
-                        },
-                    }
-                ],
-            ),
-            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("message sent", False)) as execute_tool,
-            mock.patch.object(ciel_runtime, "router_log"),
-        ):
-            text, stop_reason, _tool_turns = ciel_runtime._channel_direct_llm_router_response(
-                25,
-                "수신 메시지를 처리하세요",
-                {
-                    "id": 25,
-                    "channel": "room_dm_generic",
-                    "message": "New message from Sarah",
-                    "meta": {"sse_source": "mcp-ai-net-sse", "message_id": "msg_sarah", "author_name": "Sarah"},
-                },
-                "deepseek",
-                {"request_timeout_ms": 300000},
-                "deepseek-v4-pro",
-            )
-
-        self.assertEqual("fallback_reply_sent", stop_reason)
-        sent_content = execute_tool.call_args_list[-1].args[0]["input"]["content"]
-        self.assertIn("Sarah, 메시지 확인했습니다", sent_content)
-        self.assertNotIn("Let me", sent_content)
-        self.assertIn("Sarah, 메시지 확인했습니다", text)
-
-    def test_channel_direct_router_response_retries_deferred_reply_required_text(self):
-        calls: list[dict[str, object]] = []
-
-        def fake_http(_message_id, body, _provider, _pcfg, _model):
-            calls.append(json.loads(json.dumps(body, ensure_ascii=False)))
-            if len(calls) == 1:
-                return {
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": "toolu_read",
-                            "name": "mcp__ai-net-sse__get_messages",
-                            "input": {"room_id": "room_dm_generic", "limit": 5},
-                        }
-                    ],
-                    "stop_reason": "tool_use",
-                }
-            if len(calls) == 2:
-                return {
-                    "content": [{"type": "text", "text": "I read Sarah's DM. Let me send the reply now."}],
-                    "stop_reason": "end_turn",
-                }
-            if len(calls) == 3:
-                return {
-                    "content": [{"type": "text", "text": "Right, I need to actually send the reply to Sarah now."}],
-                    "stop_reason": "end_turn",
-                }
-            if len(calls) == 4:
-                return {
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": "toolu_reply",
-                            "name": "mcp__ai-net-sse__send_dm",
-                            "input": {"to_agent_id": "agent_sarah", "content": "현재 상황을 공유합니다."},
-                        }
-                    ],
-                    "stop_reason": "tool_use",
-                }
-            return {"content": [{"type": "text", "text": "Sarah에게 DM으로 답장했습니다."}], "stop_reason": "end_turn"}
-
-        with (
-            mock.patch.object(
-                ciel_runtime,
-                "_channel_direct_tool_schemas",
-                return_value=[{"name": "mcp__ai-net-sse__get_messages"}, {"name": "mcp__ai-net-sse__send_dm"}],
-            ),
-            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("ok", False)) as execute_tool,
-            mock.patch.object(ciel_runtime, "router_log") as router_log,
-        ):
-            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
-                24,
-                "수신 메시지를 처리하세요",
-                {
-                    "id": 24,
-                    "channel": "room_dm_generic",
-                    "message": "New message from Sarah",
-                    "meta": {"sse_source": "mcp-ai-net-sse", "message_id": "msg_sarah"},
-                },
-                "deepseek",
-                {"request_timeout_ms": 300000},
-                "deepseek-v4-pro",
-            )
-
-        self.assertEqual("Sarah에게 DM으로 답장했습니다.", text)
-        self.assertEqual("end_turn", stop_reason)
-        self.assertEqual(2, tool_turns)
-        self.assertEqual(
-            ["mcp__ai-net-sse__get_messages", "mcp__ai-net-sse__send_dm"],
-            [call.args[0]["name"] for call in execute_tool.call_args_list],
-        )
-        self.assertEqual(["mcp__ai-net-sse__send_dm"], [tool["name"] for tool in calls[2]["tools"]])
-        self.assertEqual(["mcp__ai-net-sse__send_dm"], [tool["name"] for tool in calls[3]["tools"]])
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_llm_deferred_action_retry" in item and "reason=reply_required" in item for item in log_messages))
-
-    def test_channel_direct_router_response_replaces_internal_fallback_text(self):
-        calls: list[dict[str, object]] = []
-
-        def fake_http(_message_id, body, _provider, _pcfg, _model):
-            calls.append(json.loads(json.dumps(body, ensure_ascii=False)))
-            if len(calls) == 1:
-                return {
-                    "content": [{"type": "text", "text": "I reviewed the notification."}],
-                    "stop_reason": "end_turn",
-                }
-            if len(calls) == 2:
-                return {
-                    "content": [{"type": "text", "text": "Acknowledged."}],
-                    "stop_reason": "end_turn",
-                }
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "I've been scrolling through the room history extensively. Let me acknowledge Joy's mention and provide a status update.",
-                    }
-                ],
-                "stop_reason": "end_turn",
-            }
-
-        with (
-            mock.patch.object(
-                ciel_runtime,
-                "_channel_direct_tool_schemas",
-                return_value=[{"name": "mcp__ai-net-sse__get_messages"}, {"name": "mcp__ai-net-sse__send_message"}],
-            ),
-            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("message sent", False)) as execute_tool,
-            mock.patch.object(ciel_runtime, "router_log"),
-        ):
-            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
-                26,
-                "수신 메시지를 처리하세요",
-                {
-                    "id": 26,
-                    "channel": "room_generic",
-                    "message": "Joy @mentioned you",
-                    "meta": {"sse_source": "mcp-ai-net-sse", "message_id": "msg_joy", "mentioned_by": "Joy"},
-                },
-                "deepseek",
-                {"request_timeout_ms": 300000},
-                "deepseek-v4-pro",
-            )
-
-        self.assertEqual("fallback_reply_sent", stop_reason)
-        self.assertEqual(1, tool_turns)
-        sent_content = execute_tool.call_args_list[-1].args[0]["input"]["content"]
-        self.assertIn("Joy", sent_content)
-        self.assertNotIn("I've been scrolling", sent_content)
-        self.assertNotIn("Let me acknowledge", sent_content)
-
-    def test_channel_direct_router_response_does_not_send_diagnostic_fallback_text(self):
-        calls: list[dict[str, object]] = []
-
-        def fake_http(_message_id, body, _provider, _pcfg, _model):
-            calls.append(json.loads(json.dumps(body, ensure_ascii=False)))
-            if len(calls) == 1:
-                return {
-                    "content": [{"type": "text", "text": "I reviewed the notification."}],
-                    "stop_reason": "end_turn",
-                }
-            if len(calls) == 2:
-                return {
-                    "content": [{"type": "text", "text": "Acknowledged."}],
-                    "stop_reason": "end_turn",
-                }
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "[ciel-runtime] Upstream model returned an empty end_turn with no text or tool call. No work was performed.",
-                    }
-                ],
-                "stop_reason": "end_turn",
-            }
-
-        with (
-            mock.patch.object(
-                ciel_runtime,
-                "_channel_direct_tool_schemas",
-                return_value=[{"name": "mcp__ai-net-sse__get_messages"}, {"name": "mcp__ai-net-sse__send_message"}],
-            ),
-            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool") as execute_tool,
-            mock.patch.object(ciel_runtime, "router_log") as router_log,
-        ):
-            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
-                27,
-                "수신 메시지를 처리하세요",
-                {
-                    "id": 27,
-                    "channel": "room_generic",
-                    "message": "Joy @mentioned you",
-                    "meta": {"sse_source": "mcp-ai-net-sse", "message_id": "msg_joy", "mentioned_by": "Joy"},
-                },
-                "deepseek",
-                {"request_timeout_ms": 300000},
-                "deepseek-v4-pro",
-            )
-
-        self.assertEqual("reply_required_unfulfilled", stop_reason)
-        self.assertEqual(0, tool_turns)
-        self.assertIn("실제 회신하지 않았습니다", text)
-        execute_tool.assert_not_called()
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_llm_fallback_reply_unsafe_not_sent" in item for item in log_messages))
-
-    def test_channel_direct_fallback_reply_text_does_not_reuse_internal_notice(self):
-        text = ciel_runtime._channel_direct_fallback_reply_text(
-            {"message": "New message from Sarah", "meta": {"author_name": "Sarah"}},
-            "[ciel-runtime] Upstream model returned an empty end_turn with no text or tool call. No work was performed.",
-        )
-
-        self.assertIn("Sarah", text)
-        self.assertNotIn("Upstream model", text)
-        self.assertNotIn("[ciel-runtime]", text)
-
-    def test_channel_direct_router_response_allows_explicit_no_reply_marker(self):
-        calls: list[dict[str, object]] = []
-
-        def fake_http(_message_id, body, _provider, _pcfg, _model):
-            calls.append(json.loads(json.dumps(body, ensure_ascii=False)))
-            if len(calls) == 1:
-                return {
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": "toolu_read",
-                            "name": "mcp__ai-net-sse__get_messages",
-                            "input": {"room_id": "room_generic", "limit": 5},
-                        }
-                    ],
-                    "stop_reason": "tool_use",
-                }
-            return {
-                "content": [{"type": "text", "text": "NO_REPLY: informational activity only."}],
-                "stop_reason": "end_turn",
-            }
-
-        with (
-            mock.patch.object(
-                ciel_runtime,
-                "_channel_direct_tool_schemas",
-                return_value=[{"name": "mcp__ai-net-sse__get_messages"}, {"name": "mcp__ai-net-sse__send_dm"}],
-            ),
-            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool", return_value=("ok", False)) as execute_tool,
-        ):
-            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
-                22,
-                "수신 메시지를 처리하세요",
-                {
-                    "id": 22,
-                    "channel": "room_generic",
-                    "message": "New activity",
-                    "meta": {"sse_source": "mcp-ai-net-sse", "kind": "activity"},
-                },
-                "deepseek",
-                {"request_timeout_ms": 300000},
-                "deepseek-v4-pro",
-            )
-
-        self.assertEqual("NO_REPLY: informational activity only.", text)
-        self.assertEqual("end_turn", stop_reason)
-        self.assertEqual(1, tool_turns)
-        execute_tool.assert_called_once()
-        self.assertEqual(2, len(calls))
-
-    def test_channel_direct_router_response_suppresses_internal_reply_content(self):
-        calls: list[dict[str, object]] = []
-
-        def fake_http(_message_id, body, _provider, _pcfg, _model):
-            calls.append(json.loads(json.dumps(body, ensure_ascii=False)))
-            if len(calls) == 1:
-                return {
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": "toolu_reply",
-                            "name": "mcp__generic-sse__send_message",
-                            "input": {
-                                "room_id": "room_generic",
-                                "content": (
-                                    "No reply is needed. NO_REPLY: this activity notification was already handled.\n\n"
-                                    "## tool_result\n{\"success\": true}\n"
-                                    "Ciel Runtime 백그라운드 자동 처리 요약 (#56)"
-                                ),
-                            },
-                        }
-                    ],
-                    "stop_reason": "tool_use",
-                }
-            return {"content": [{"type": "text", "text": "NO_REPLY: already handled."}], "stop_reason": "end_turn"}
-
-        with (
-            mock.patch.object(
-                ciel_runtime,
-                "_channel_direct_tool_schemas",
-                return_value=[{"name": "mcp__generic-sse__send_message"}],
-            ),
-            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(ciel_runtime, "_channel_direct_execute_tool") as execute_tool,
-            mock.patch.object(ciel_runtime, "router_log") as router_log,
-        ):
-            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
-                32,
-                "수신 메시지를 처리하세요",
-                {
-                    "id": 32,
-                    "channel": "room_generic",
-                    "message": "New message from teammate",
-                    "meta": {"sse_source": "generic-sse", "message_id": "msg_target", "kind": "activity"},
-                },
-                "deepseek",
-                {"request_timeout_ms": 300000},
-                "deepseek-v4-pro",
-            )
-
-        self.assertEqual("NO_REPLY: already handled.", text)
-        self.assertEqual("end_turn", stop_reason)
-        self.assertEqual(1, tool_turns)
-        execute_tool.assert_not_called()
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_llm_reply_suppressed_internal_content" in item for item in log_messages))
-
-    def test_channel_direct_fallback_reply_summary_sanitizes_tool_result(self):
-        summary = ciel_runtime._channel_direct_fallback_reply_summary(
-            "Public reply",
-            json.dumps(
-                {
-                    "success": True,
-                    "data": {
-                        "id": "msg_public",
-                        "room_id": "room_generic",
-                        "sender_name": "Agent",
-                        "content": "full public message body should not be repeated here",
-                    },
-                },
-                ensure_ascii=False,
-            ),
-        )
-
-        self.assertIn("## 전송 결과", summary)
-        self.assertIn("success=True", summary)
-        self.assertIn("id=msg_public", summary)
-        self.assertIn("room_id=room_generic", summary)
-        self.assertNotIn("## tool_result", summary)
-        self.assertNotIn("full public message body", summary)
-
-    def test_channel_direct_router_response_replaces_deferred_text_at_max_turns(self):
-        calls: list[dict[str, object]] = []
-
-        def fake_http(_message_id, body, _provider, _pcfg, _model):
-            calls.append(json.loads(json.dumps(body, ensure_ascii=False)))
-            return {
-                "content": [{"type": "text", "text": "All three members invited. Now let me send the group room announcement."}],
-                "stop_reason": "end_turn",
-            }
-
-        with (
-            mock.patch.object(ciel_runtime, "_CHANNEL_DIRECT_MAX_ROUTER_TURNS", 1),
-            mock.patch.object(ciel_runtime, "_channel_direct_tool_schemas", return_value=[{"name": "mcp__ai-net-sse__send_dm"}]),
-            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message", side_effect=fake_http),
-            mock.patch.object(ciel_runtime, "router_log"),
-        ):
-            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
-                19,
-                "수신 메시지를 처리하세요",
-                {"id": 19, "channel": "room_dm_4wcekxw4yse", "message": "New message from Sarah"},
-                "deepseek",
-                {"request_timeout_ms": 300000},
-                "deepseek-v4-pro",
-            )
-
-        self.assertEqual("max_tool_turns", stop_reason)
-        self.assertEqual(0, tool_turns)
-        self.assertIn("도구 호출 한도", text)
-        self.assertIn("실제 처리 완료로 표시하지 않았습니다", text)
-        self.assertIn("Now let me send", text)
-
-    def test_channel_direct_tool_schemas_allows_collaboration_tools(self):
-        response = {
-            "result": {
-                "tools": [
-                    {"name": "get_messages", "inputSchema": {"type": "object"}},
-                    {"name": "send_dm", "inputSchema": {"type": "object"}},
-                    {"name": "send_message", "inputSchema": {"type": "object"}},
-                    {"name": "list_rooms", "inputSchema": {"type": "object"}},
-                    {"name": "create_room", "inputSchema": {"type": "object"}},
-                    {"name": "add_room_member", "inputSchema": {"type": "object"}},
-                    {"name": "assign_task", "inputSchema": {"type": "object"}},
-                    {"name": "submit_finding", "inputSchema": {"type": "object"}},
-                    {"name": "record_prediction", "inputSchema": {"type": "object"}},
-                    {"name": "evaluate_prediction", "inputSchema": {"type": "object"}},
-                    {"name": "ack_notifications", "inputSchema": {"type": "object"}},
-                    {"name": "wait_for_notifications", "inputSchema": {"type": "object"}},
-                    {"name": "delete_room", "inputSchema": {"type": "object"}},
-                    {"name": "transfer_funds", "inputSchema": {"type": "object"}},
-                ]
-            }
-        }
-        with (
-            mock.patch.object(ciel_runtime, "_channel_direct_source_state_name", return_value="mcp-ai-net-sse"),
-            mock.patch.object(ciel_runtime, "_channel_sse_public_mcp_name", return_value="ai-net-sse"),
-            mock.patch.object(ciel_runtime, "_channel_sse_rpc_request", return_value=response),
-            mock.patch.object(ciel_runtime, "router_log") as router_log,
-        ):
-            tools = ciel_runtime._channel_direct_tool_schemas({"id": 20})
-
-        names = {tool["name"] for tool in tools}
-        self.assertIn("mcp__ai-net-sse__get_messages", names)
-        self.assertIn("mcp__ai-net-sse__send_dm", names)
-        self.assertIn("mcp__ai-net-sse__send_message", names)
-        self.assertIn("mcp__ai-net-sse__list_rooms", names)
-        self.assertIn("mcp__ai-net-sse__create_room", names)
-        self.assertIn("mcp__ai-net-sse__add_room_member", names)
-        self.assertIn("mcp__ai-net-sse__assign_task", names)
-        self.assertIn("mcp__ai-net-sse__submit_finding", names)
-        self.assertIn("mcp__ai-net-sse__record_prediction", names)
-        self.assertIn("mcp__ai-net-sse__evaluate_prediction", names)
-        self.assertIn("mcp__ai-net-sse__ack_notifications", names)
-        self.assertNotIn("mcp__ai-net-sse__wait_for_notifications", names)
-        self.assertNotIn("mcp__ai-net-sse__delete_room", names)
-        self.assertNotIn("mcp__ai-net-sse__transfer_funds", names)
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("filtered=3" in item for item in log_messages))
-
     def test_mcp_notification_wait_tool_timeout_is_capped(self):
         self.addCleanup(ciel_runtime._MCP_NOTIFICATION_WAIT_RECENT.clear)
         with (
@@ -5288,173 +3681,6 @@ class ChannelBridgeTests(unittest.TestCase):
 
         self.assertEqual({"timeout_ms": 1000}, first)
         self.assertEqual({"timeout_ms": 100}, second)
-
-    def test_channel_direct_execute_tool_allows_collaboration_tools(self):
-        with (
-            mock.patch.object(ciel_runtime, "_channel_sse_state_name_for_mcp_server", return_value="mcp-ai-net-sse"),
-            mock.patch.object(ciel_runtime, "_channel_sse_rpc_request", return_value={"result": {"content": [{"type": "text", "text": "room created"}]}}) as rpc_request,
-            mock.patch.object(ciel_runtime, "router_log") as router_log,
-        ):
-            text, is_error = ciel_runtime._channel_direct_execute_tool(
-                {
-                    "id": "toolu_create",
-                    "name": "mcp__ai-net-sse__create_room",
-                    "input": {"name": "new room"},
-                }
-            )
-
-        self.assertFalse(is_error)
-        self.assertIn("room created", text)
-        rpc_request.assert_called_once()
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_llm_tool_call" in item for item in log_messages))
-
-    def test_channel_direct_execute_tool_blocks_destructive_tools(self):
-        with (
-            mock.patch.object(ciel_runtime, "_channel_sse_state_name_for_mcp_server", return_value="mcp-ai-net-sse"),
-            mock.patch.object(ciel_runtime, "_channel_sse_rpc_request") as rpc_request,
-            mock.patch.object(ciel_runtime, "router_log") as router_log,
-        ):
-            text, is_error = ciel_runtime._channel_direct_execute_tool(
-                {
-                    "id": "toolu_blocked",
-                    "name": "mcp__ai-net-sse__delete_room",
-                    "input": {"room_id": "room_1"},
-                }
-            )
-
-        self.assertTrue(is_error)
-        self.assertIn("not allowed", text)
-        rpc_request.assert_not_called()
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_llm_tool_blocked" in item for item in log_messages))
-
-    def test_channel_direct_router_response_without_tools_returns_blocker(self):
-        with (
-            mock.patch.object(ciel_runtime, "_channel_direct_tool_schemas", return_value=[]),
-            mock.patch.object(ciel_runtime, "_channel_direct_llm_http_message") as http_message,
-            mock.patch.object(ciel_runtime, "router_log") as router_log,
-        ):
-            text, stop_reason, tool_turns = ciel_runtime._channel_direct_llm_router_response(
-                16,
-                "수신 메시지를 처리하세요",
-                {
-                    "id": 16,
-                    "channel": "room_dm_4wcekxw4yse",
-                    "message": "New message from Sarah",
-                    "meta": {"sse_source": "mcp-ai-net-sse", "room_id": "room_dm_4wcekxw4yse"},
-                },
-                "deepseek",
-                {"request_timeout_ms": 300000},
-                "deepseek-v4-pro",
-            )
-
-        self.assertIn("MCP 도구 목록을 가져오지 못했습니다", text)
-        self.assertIn("없는 도구를 가정한 텍스트 명령은 실행하지 않았습니다", text)
-        self.assertIn("room_dm_4wcekxw4yse", text)
-        self.assertEqual("no_tools", stop_reason)
-        self.assertEqual(0, tool_turns)
-        http_message.assert_not_called()
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_llm_no_tools" in item for item in log_messages))
-
-    def test_channel_direct_worker_does_not_enqueue_no_tools_summary(self):
-        message = {
-            "id": 17,
-            "channel": "room_dm_4wcekxw4yse",
-            "sender_id": "ai-net",
-            "message": "New message from Sarah",
-            "meta": {"room_id": "room_dm_4wcekxw4yse"},
-        }
-        ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-        try:
-            with (
-                mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                mock.patch.object(ciel_runtime, "get_current_provider", return_value=("ollama-cloud", {"request_timeout_ms": 300000})),
-                mock.patch.object(ciel_runtime, "current_alias", return_value="ciel-runtime-ollama-cloud-test"),
-                mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=0),
-                mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
-                mock.patch.object(
-                    ciel_runtime,
-                    "_channel_direct_llm_router_response",
-                    return_value=("MCP tools unavailable", "no_tools", 0),
-                ),
-                mock.patch.object(ciel_runtime, "_channel_direct_append_summary") as append_summary,
-                mock.patch.object(ciel_runtime, "_channel_direct_terminal_notice"),
-                mock.patch.object(ciel_runtime, "router_log") as router_log,
-            ):
-                ciel_runtime._channel_direct_llm_worker(message)
-        finally:
-            ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-
-        append_summary.assert_not_called()
-        write_cursor.assert_not_called()
-        self.assertNotIn(17, ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED)
-        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_llm_direct_unhandled" in item and "reason=no_tools" in item for item in log_messages))
-        self.assertTrue(any("channel_llm_summary_skipped" in item and "reason=no_tools" in item for item in log_messages))
-
-    def test_channel_direct_terminal_notice_is_quiet_by_default(self):
-        class FakeStdout:
-            def __init__(self):
-                self.text = ""
-
-            def isatty(self):
-                return True
-
-            def write(self, text):
-                self.text += text
-
-            def flush(self):
-                pass
-
-        fake_stdout = FakeStdout()
-        message = {
-            "id": 12,
-            "channel": "room_dm",
-            "sender_id": "ai-net-sse",
-            "meta": {"author_name": "Sarah"},
-        }
-
-        with (
-            mock.patch.dict(os.environ, {}, clear=True),
-            mock.patch.object(ciel_runtime.sys, "stdout", fake_stdout),
-        ):
-            ciel_runtime._channel_direct_terminal_notice(message, "처리 요약", "cli")
-
-        self.assertEqual("", fake_stdout.text)
-
-    def test_channel_direct_terminal_notice_prints_when_enabled_and_stdout_is_tty(self):
-        class FakeStdout:
-            def __init__(self):
-                self.text = ""
-
-            def isatty(self):
-                return True
-
-            def write(self, text):
-                self.text += text
-
-            def flush(self):
-                pass
-
-        fake_stdout = FakeStdout()
-        message = {
-            "id": 12,
-            "channel": "room_dm",
-            "sender_id": "ai-net-sse",
-            "meta": {"author_name": "Sarah"},
-        }
-
-        with (
-            mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_TERMINAL_NOTICE": "1"}),
-            mock.patch.object(ciel_runtime.sys, "stdout", fake_stdout),
-        ):
-            ciel_runtime._channel_direct_terminal_notice(message, "처리 요약", "cli")
-
-        self.assertIn("message_id=12", fake_stdout.text)
-        self.assertIn("from=Sarah", fake_stdout.text)
-        self.assertIn("처리 요약", fake_stdout.text)
 
     def test_router_channel_mcp_notification_wraps_chat_message(self):
         notification = ciel_runtime._channel_mcp_notification(
@@ -5633,7 +3859,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 "visibility": "user",
                 "delivery": ["native"],
                 "kind": "channel_llm_response",
-                "meta": {"room_id": "room", "source_message_id": 106, "llm_direct_delivered": True},
+                "meta": {"room_id": "room", "source_message_id": 106},
             },
         ]
         with mock.patch.object(ciel_runtime, "router_log") as router_log:
@@ -5702,96 +3928,6 @@ class ChannelBridgeTests(unittest.TestCase):
                 self.assertEqual(12, ciel_runtime._channel_mcp_ensure_cursor_initialized())
                 self.assertEqual({"last_id": 12}, json.loads(cursor_path.read_text(encoding="utf-8")))
 
-    def test_clear_channel_backlog_advances_cursors_and_drains_direct_queue(self):
-        original_llm = ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID
-        original_mcp = ciel_runtime._CHANNEL_MCP_CURSOR_LAST_ID
-        original_summary = ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
-        with tempfile.TemporaryDirectory(prefix="ca-channel-clear-") as td:
-            root = Path(td)
-            chat_path = root / "chat-messages.jsonl"
-            llm_cursor = root / "channel-llm-cursor.json"
-            clear_floor = root / "channel-llm-clear-floor.json"
-            mcp_cursor = root / "channel-mcp-cursor.json"
-            summary_queue = root / "channel-llm-summary-queue.jsonl"
-            summary_cursor = root / "channel-llm-summary-cursor.json"
-            chat_path.write_text(
-                "\n".join(
-                    json.dumps({"id": i, "channel": "room", "sender_id": "mcp", "message": f"m{i}", "meta": {"mcp_server": "mcp"}})
-                    for i in range(1, 5)
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-            llm_cursor.write_text('{"last_id":1}\n', encoding="utf-8")
-            mcp_cursor.write_text('{"last_id":2}\n', encoding="utf-8")
-            summary_queue.write_text(
-                json.dumps({"message_id": 3, "summary": "old"}, ensure_ascii=False) + "\n"
-                + json.dumps({"message_id": 5, "summary": "new"}, ensure_ascii=False) + "\n",
-                encoding="utf-8",
-            )
-            summary_cursor.write_text('{"last_id":3}\n', encoding="utf-8")
-
-            while not ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.empty():
-                try:
-                    ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.get_nowait()
-                    ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.task_done()
-                except Exception:
-                    break
-            original_inflight = set(ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT)
-            original_delivered = set(ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED)
-            with ciel_runtime._CHANNEL_MCP_LOCK:
-                original_sessions = dict(ciel_runtime._CHANNEL_MCP_SESSIONS)
-                ciel_runtime._CHANNEL_MCP_SESSIONS.clear()
-                ciel_runtime._CHANNEL_MCP_SESSIONS["session-1"] = {"last_id": 1, "outbox": []}
-            try:
-                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = None
-                ciel_runtime._CHANNEL_MCP_CURSOR_LAST_ID = None
-                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
-                ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
-                ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-                direct_queue = ciel_runtime.queue.Queue()
-                direct_queue.put({"id": 4, "channel": "room"})
-                with (
-                    mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", chat_path),
-                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", llm_cursor),
-                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_CLEAR_FLOOR_PATH", clear_floor),
-                    mock.patch.object(ciel_runtime, "CHANNEL_MCP_CURSOR_PATH", mcp_cursor),
-                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", summary_queue),
-                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", summary_cursor),
-                    mock.patch.object(ciel_runtime, "_CHANNEL_LLM_DIRECT_QUEUE", direct_queue),
-                ):
-                    stats = ciel_runtime.clear_channel_backlog()
-
-                self.assertEqual(4, stats["chat_tail"])
-                self.assertEqual(5, stats["summary_tail"])
-                self.assertEqual(3, stats["discarded_llm"])
-                self.assertEqual(2, stats["discarded_mcp"])
-                self.assertEqual(2, stats["discarded_summaries"])
-                self.assertEqual(1, stats["direct_queue_drained"])
-                self.assertEqual({"last_id": 4}, json.loads(llm_cursor.read_text(encoding="utf-8")))
-                self.assertEqual(4, json.loads(clear_floor.read_text(encoding="utf-8"))["last_id"])
-                self.assertEqual({"last_id": 4}, json.loads(mcp_cursor.read_text(encoding="utf-8")))
-                self.assertEqual({"last_id": 5}, json.loads(summary_cursor.read_text(encoding="utf-8")))
-                with ciel_runtime._CHANNEL_MCP_LOCK:
-                    self.assertEqual(4, ciel_runtime._CHANNEL_MCP_SESSIONS["session-1"]["last_id"])
-            finally:
-                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = original_llm
-                ciel_runtime._CHANNEL_MCP_CURSOR_LAST_ID = original_mcp
-                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_summary
-                ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.clear()
-                ciel_runtime._CHANNEL_LLM_DIRECT_INFLIGHT.update(original_inflight)
-                ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.clear()
-                ciel_runtime._CHANNEL_LLM_DIRECT_DELIVERED.update(original_delivered)
-                while not ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.empty():
-                    try:
-                        ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.get_nowait()
-                        ciel_runtime._CHANNEL_LLM_DIRECT_QUEUE.task_done()
-                    except Exception:
-                        break
-                with ciel_runtime._CHANNEL_MCP_LOCK:
-                    ciel_runtime._CHANNEL_MCP_SESSIONS.clear()
-                    ciel_runtime._CHANNEL_MCP_SESSIONS.update(original_sessions)
-
     def test_mcp_proxy_notification_maps_to_chat_payload(self):
         payload = ciel_runtime._mcp_proxy_notification_payload(
             "ai-net",
@@ -5815,38 +3951,6 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual("notifications/message", payload["meta"]["mcp_method"])
         self.assertEqual("wake from server", payload["meta"]["mcp_json"]["params"]["data"]["payload"]["message"]["content"])
 
-    def test_mcp_proxy_observer_marks_direct_pending_and_schedules_background_delivery(self):
-        captured: list[dict[str, object]] = []
-        message = {
-            "jsonrpc": "2.0",
-            "method": "notifications/message",
-            "params": {"content": "wake from proxy mcp", "room_id": "room_phase1sim", "sender_id": "robert"},
-        }
-
-        def fake_append(payload):
-            captured.append(payload)
-            saved = dict(payload)
-            saved["id"] = 23
-            return saved
-
-        ciel_runtime._MCP_NOTIFICATION_DEDUP_RECENT.clear()
-        try:
-            with (
-                mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
-                mock.patch.object(ciel_runtime, "append_chat_message", side_effect=fake_append),
-                mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery") as schedule,
-                mock.patch.object(ciel_runtime, "router_log"),
-            ):
-                ciel_runtime._mcp_proxy_observe_json_message("ai-net-http", message)
-        finally:
-            ciel_runtime._MCP_NOTIFICATION_DEDUP_RECENT.clear()
-
-        self.assertEqual(1, len(captured))
-        self.assertTrue(captured[0]["meta"]["llm_direct_pending"])
-        schedule.assert_called_once()
-        self.assertEqual(23, schedule.call_args.args[0]["id"])
-        self.assertTrue(schedule.call_args.args[0]["meta"]["llm_direct_pending"])
-
     def test_mcp_proxy_observer_deduplicates_generic_and_native_channel_notifications(self):
         generic = {
             "jsonrpc": "2.0",
@@ -5862,7 +3966,6 @@ class ChannelBridgeTests(unittest.TestCase):
         try:
             with (
                 mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 21}) as append,
-                mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery"),
                 mock.patch.object(ciel_runtime, "router_log") as router_log,
             ):
                 ciel_runtime._mcp_proxy_observe_json_message("ai-net", generic)
@@ -5892,7 +3995,6 @@ class ChannelBridgeTests(unittest.TestCase):
         try:
             with (
                 mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 24}) as append,
-                mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery"),
                 mock.patch.object(ciel_runtime, "router_log") as router_log,
             ):
                 ciel_runtime._mcp_proxy_observe_json_message("ai-net", first)
@@ -5913,7 +4015,6 @@ class ChannelBridgeTests(unittest.TestCase):
         try:
             with (
                 mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 22}) as append,
-                mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery"),
             ):
                 ciel_runtime._mcp_proxy_observe_json_message("ai-net", message)
                 ciel_runtime._mcp_proxy_observe_json_message("ai-net", message)
@@ -5939,7 +4040,6 @@ class ChannelBridgeTests(unittest.TestCase):
         frame = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii") + body
         with (
             mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 11}) as append,
-            mock.patch.object(ciel_runtime, "schedule_channel_direct_llm_delivery"),
         ):
             observer = ciel_runtime._McpStdoutObserver("ai-net")
             observer.feed(frame[:10])

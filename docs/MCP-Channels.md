@@ -113,12 +113,11 @@ Claude Code 세션 (프롬프트로 전달)
 
 ---
 
-## 채널 LLM 연동
+## 채널 LLM 전달
 
-채널 메시지에 LLM 응답을 자동으로 생성하는 기능:
+채널 메시지를 실행 중인 에이전트 입력으로 전달하기 위한 커서:
 
 - `CHANNEL_LLM_CURSOR_PATH` — LLM 처리 커서
-- `CHANNEL_LLM_SUMMARY_QUEUE_PATH` — 요약 큐
 - `CHANNEL_LLM_LAUNCH_GUARD_PATH` — 중복 실행 방지
 - `CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT` = 600초
 
@@ -154,7 +153,6 @@ Router가 관리하는 SSE 연결 상태:
 | `channel-llm-cursor.json` | LLM 커서 상태 |
 | `channel-llm-clear-floor.json` | LLM 플로어 초기화 |
 | `channel-llm-launch-guard.json` | LLM 실행 가드 |
-| `channel-llm-summary-queue.jsonl` | LLM 요약 큐 |
 
 ---
 

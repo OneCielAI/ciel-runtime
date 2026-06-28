@@ -24,7 +24,6 @@ CLAUDE_RUNTIME_DEPENDENCIES: tuple[str, ...] = (
     "begin_pending_channel_delivery",
     "body_with_channel_tool_result_context",
     "body_with_pending_channel_messages",
-    "body_with_pending_channel_summaries",
     "body_without_ciel_runtime_internal_metadata",
     "cap_anthropic_body_for_provider",
     "commit_pending_channel_delivery_cursors",
@@ -114,7 +113,6 @@ def handle_claude_messages_post(
     begin_pending_channel_delivery = deps["begin_pending_channel_delivery"]
     body_with_channel_tool_result_context = deps["body_with_channel_tool_result_context"]
     body_with_pending_channel_messages = deps["body_with_pending_channel_messages"]
-    body_with_pending_channel_summaries = deps["body_with_pending_channel_summaries"]
     body_without_ciel_runtime_internal_metadata = deps["body_without_ciel_runtime_internal_metadata"]
     cap_anthropic_body_for_provider = deps["cap_anthropic_body_for_provider"]
     commit_pending_channel_delivery_cursors = deps["commit_pending_channel_delivery_cursors"]
@@ -216,7 +214,6 @@ def handle_claude_messages_post(
         return
     body = strip_autonomous_advisor_server_tools(provider, body)
     body = body_with_pending_channel_messages(body)
-    body = body_with_pending_channel_summaries(body)
     body = body_with_channel_tool_result_context(body)
     begin_pending_channel_delivery(self, body)
     body = normalize_request_for_provider_wire(provider, pcfg, body)

@@ -136,7 +136,6 @@ class VllmProviderTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "maybe_handle_router_debug_request", return_value=False),
             mock.patch.object(ciel_runtime, "maybe_handle_advisor_request", return_value=False),
             mock.patch.object(ciel_runtime, "body_with_pending_channel_messages", side_effect=lambda b: b),
-            mock.patch.object(ciel_runtime, "body_with_pending_channel_summaries", side_effect=lambda b: b),
             mock.patch.object(ciel_runtime, "body_with_channel_tool_result_context", side_effect=lambda b: b),
             mock.patch.object(ciel_runtime, "dump_request_for_trace"),
             mock.patch.object(ciel_runtime, "parse_json_body", return_value={
