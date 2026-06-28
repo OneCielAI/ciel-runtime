@@ -1,5 +1,6 @@
 import copy
 import io
+import json
 import sys
 import tempfile
 import unittest
@@ -318,6 +319,8 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
+            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
+            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
             mock.patch.object(ciel_runtime, "find_executable", return_value="codex"),
@@ -356,6 +359,8 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("ollama", pcfg)),
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
+            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
+            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
             mock.patch.object(ciel_runtime, "ensure_model_cache_for_launch"),
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex") as install_codex,
@@ -406,6 +411,8 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
+            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
+            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "start_router_if_needed") as start_router,
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
@@ -448,6 +455,8 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
+            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
+            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
@@ -494,6 +503,8 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
+            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
+            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
@@ -539,6 +550,8 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
+            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
+            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "start_router_if_needed") as start_router,
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
@@ -555,6 +568,75 @@ class CodexRuntimeTests(unittest.TestCase):
         start_router.assert_not_called()
         self.assertEqual(["codex", "--yolo", "exec", "hello"], captured["cmd"])
         self.assertTrue(captured["wake_for_llm_delivery"])
+
+    def test_codex_mcp_config_writer_normalizes_http_servers_only(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            codex_home = root / ".codex"
+            codex_home.mkdir()
+            config = codex_home / "config.toml"
+            config.write_text(
+                """
+[mcp_servers.ai-net]
+url = "http://example.test/mcp"
+bearer_token_env_var = "AINET_API_KEY"
+
+[mcp_servers.local-stdio]
+command = "python3"
+args = ["server.py"]
+""",
+                encoding="utf-8",
+            )
+            generated = root / "codex-mcp.json"
+
+            with (
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CODEX_MCP_CONFIG", generated),
+            ):
+                written = ciel_runtime.write_codex_mcp_config_for_channel_discovery(
+                    [],
+                    env={"CODEX_HOME": str(codex_home)},
+                    cwd=root,
+                )
+
+            self.assertEqual(generated, written)
+            data = json.loads(generated.read_text(encoding="utf-8"))
+            self.assertEqual(["ai-net"], sorted(data["mcpServers"]))
+            self.assertEqual("http", data["mcpServers"]["ai-net"]["type"])
+            self.assertEqual("AINET_API_KEY", data["mcpServers"]["ai-net"]["bearer_token_env_var"])
+
+    def test_mcp_runtime_headers_resolve_bearer_token_env_var(self):
+        with mock.patch.dict("os.environ", {"AINET_API_KEY": "token-123"}, clear=False):
+            headers = ciel_runtime.mcp_server_runtime_headers({"bearer_token_env_var": "AINET_API_KEY"})
+
+        self.assertEqual("Bearer token-123", headers["Authorization"])
+
+    def test_codex_channel_sse_starts_only_capable_unowned_codex_servers(self):
+        cfg = {"claude_code": {"channel_delivery": "llm", "channels": ["server:already-owned"]}}
+        captured = {}
+
+        def fake_auto_start(passthrough, extra_config_paths=None, allowed_server_names=None):
+            captured["passthrough"] = passthrough
+            captured["extra"] = extra_config_paths
+            captured["allowed"] = allowed_server_names
+            return [{"name": "mcp-ai-net"}]
+
+        with tempfile.TemporaryDirectory() as td:
+            config = Path(td) / "codex-mcp.json"
+            config.write_text('{"mcpServers": {}}', encoding="utf-8")
+            with (
+                mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch") as ensure_probe,
+                mock.patch.object(ciel_runtime, "external_mcp_channel_server_names_from_configs", return_value=["ai-net", "other", "already-owned"]),
+                mock.patch.object(ciel_runtime, "cached_channel_capable_server_names", return_value=["ciel-runtime-router", "ai-net", "already-owned"]),
+                mock.patch.object(ciel_runtime, "auto_start_sse_channels_from_mcp_configs", side_effect=fake_auto_start),
+            ):
+                started = ciel_runtime.start_codex_mcp_channel_sse_for_launch(cfg, config)
+
+        self.assertEqual([{"name": "mcp-ai-net"}], started)
+        ensure_probe.assert_called_once_with(cfg, [], extra_config_paths=[config])
+        self.assertEqual([], captured["passthrough"])
+        self.assertEqual([config], captured["extra"])
+        self.assertEqual(["ai-net"], captured["allowed"])
 
     def test_codex_backend_upstream_url_maps_local_backend_prefix(self):
         self.assertEqual(

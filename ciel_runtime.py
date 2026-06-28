@@ -152,6 +152,7 @@ DUCKDUCKGO_MCP_CONFIG = CONFIG_DIR / "duckduckgo-mcp.json"
 ZAI_MCP_CONFIG = CONFIG_DIR / "zai-mcp.json"
 CHANNEL_MCP_CONFIG = CONFIG_DIR / "channel-mcp.json"
 NATIVE_MCP_CONFIG = CONFIG_DIR / "native-mcp.json"
+CODEX_MCP_CONFIG = CONFIG_DIR / "codex-mcp.json"
 CHANNEL_MCP_CURSOR_PATH = CONFIG_DIR / "channel-mcp-cursor.json"
 CHANNEL_LLM_CURSOR_PATH = CONFIG_DIR / "channel-llm-cursor.json"
 CHANNEL_LLM_CLEAR_FLOOR_PATH = CONFIG_DIR / "channel-llm-clear-floor.json"
@@ -20530,12 +20531,11 @@ def probe_sse_mcp_for_channel_capability_detailed(
     effective_timeout = timeout if timeout is not None else channel_probe_default_timeout()
     open_timeout = min(CHANNEL_PROBE_SSE_OPEN_TIMEOUT_SECONDS, effective_timeout)
 
-    request_headers: dict[str, str] = {"Accept": "text/event-stream", "Cache-Control": "no-cache"}
-    custom_headers = server.get("headers")
-    if isinstance(custom_headers, dict):
-        for key, value in custom_headers.items():
-            if key and value is not None:
-                request_headers[str(key)] = str(value)
+    request_headers: dict[str, str] = {
+        **mcp_server_runtime_headers(server),
+        "Accept": "text/event-stream",
+        "Cache-Control": "no-cache",
+    }
 
     try:
         get_req = urllib.request.Request(url, headers=request_headers, method="GET")
@@ -20723,12 +20723,7 @@ def probe_streamable_http_mcp_for_channel_capability_detailed(
         }
     effective_timeout = timeout if timeout is not None else channel_probe_default_timeout()
     protocol_version = str(server.get("protocolVersion") or server.get("protocol_version") or MCP_STREAMABLE_HTTP_PROTOCOL_VERSION)
-    headers: dict[str, str] = {}
-    custom_headers = server.get("headers")
-    if isinstance(custom_headers, dict):
-        for key, value in custom_headers.items():
-            if key and value is not None:
-                headers[str(key)] = str(value)
+    headers = mcp_server_runtime_headers(server)
 
     bytes_seen = 0
     response_received = False
@@ -21416,11 +21411,13 @@ def refresh_channel_probe_cache(
     cwd: Path | None = None,
     home: Path | None = None,
     timeout_per_server: float | None = None,
+    extra_config_paths: list[Path | str] | None = None,
 ) -> dict[str, Any]:
     """Re-scan known MCP config files, probe each stdio entry for the
     channel capability, write the result to disk and return it."""
     cwd = cwd or Path.cwd()
-    paths = [str(p) for p in claude_mcp_config_paths(passthrough or [], cwd, home)]
+    paths = [str(Path(path).expanduser()) for path in extra_config_paths or []]
+    paths.extend(str(p) for p in claude_mcp_config_paths(passthrough or [], cwd, home))
     records = _probe_mcp_servers_to_records(paths, cwd, timeout_per_server=timeout_per_server)
     cache = {
         "version": CHANNEL_PROBE_CACHE_VERSION,
@@ -21544,7 +21541,11 @@ def _server_names_from_channel_specs(specs: Iterable[str]) -> list[str]:
     return _dedupe_strings(names)
 
 
-def channel_candidate_server_names_for_launch(cfg: dict[str, Any], passthrough: list[str]) -> list[str]:
+def channel_candidate_server_names_for_launch(
+    cfg: dict[str, Any],
+    passthrough: list[str],
+    extra_config_paths: list[Path | str] | None = None,
+) -> list[str]:
     """External MCP channel servers relevant to this launch.
 
     Explicit ciel-runtime channel settings remain honored, but non-native routed
@@ -21557,19 +21558,26 @@ def channel_candidate_server_names_for_launch(cfg: dict[str, Any], passthrough: 
         if name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES
     ]
     try:
-        discovered_names = external_mcp_channel_server_names_from_configs(passthrough)
+        discovered_names = external_mcp_channel_server_names_from_configs(
+            passthrough,
+            extra_config_paths=extra_config_paths,
+        )
     except Exception as exc:
         router_log("WARN", f"channel_auto_discovery_failed error={type(exc).__name__}: {exc}")
         discovered_names = []
     return _dedupe_strings([*explicit_names, *discovered_names])
 
 
-def channel_probe_cache_needs_launch_refresh(cfg: dict[str, Any], passthrough: list[str]) -> bool:
+def channel_probe_cache_needs_launch_refresh(
+    cfg: dict[str, Any],
+    passthrough: list[str],
+    extra_config_paths: list[Path | str] | None = None,
+) -> bool:
     cache = read_channel_probe_cache()
     records = cached_channel_probe_servers()
     if not cache.get("probed_at") or not records:
         return True
-    candidate_names = channel_candidate_server_names_for_launch(cfg, passthrough)
+    candidate_names = channel_candidate_server_names_for_launch(cfg, passthrough, extra_config_paths=extra_config_paths)
     if not candidate_names:
         return False
     if not cache.get("probed_at"):
@@ -21585,16 +21593,72 @@ def channel_probe_cache_needs_launch_refresh(cfg: dict[str, Any], passthrough: l
     return False
 
 
-def ensure_channel_probe_cache_for_launch(cfg: dict[str, Any], passthrough: list[str]) -> bool:
-    if not channel_probe_cache_needs_launch_refresh(cfg, passthrough):
+def ensure_channel_probe_cache_for_launch(
+    cfg: dict[str, Any],
+    passthrough: list[str],
+    extra_config_paths: list[Path | str] | None = None,
+) -> bool:
+    if not channel_probe_cache_needs_launch_refresh(cfg, passthrough, extra_config_paths=extra_config_paths):
         return False
     try:
         router_log("INFO", "channel_probe_launch_refresh reason=missing_cache_or_selected_server")
-        refresh_channel_probe_cache(passthrough)
+        if extra_config_paths is None:
+            refresh_channel_probe_cache(passthrough)
+        else:
+            refresh_channel_probe_cache(passthrough, extra_config_paths=extra_config_paths)
         return True
     except Exception as exc:
         router_log("WARN", f"channel_probe_launch_refresh_failed error={type(exc).__name__}: {exc}")
         return False
+
+
+def start_codex_mcp_channel_sse_for_launch(
+    cfg: dict[str, Any],
+    codex_mcp_config: Path | None,
+) -> list[dict[str, Any]]:
+    if not codex_mcp_config or channel_delivery_mode(cfg) != "llm":
+        return []
+    if not codex_mcp_config.exists() or not codex_mcp_config.is_file():
+        return []
+    extra_paths: list[Path | str] = [codex_mcp_config]
+    ensure_channel_probe_cache_for_launch(cfg, [], extra_config_paths=extra_paths)
+    try:
+        candidate_names = external_mcp_channel_server_names_from_configs([], extra_config_paths=extra_paths)
+    except Exception as exc:
+        router_log("WARN", f"codex_channel_discovery_failed error={type(exc).__name__}: {exc}")
+        return []
+    capable = set(cached_channel_capable_server_names())
+    explicit = {
+        name
+        for name in _server_names_from_channel_specs(channel_specs_for_launch(cfg, []))
+        if name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES
+    }
+    names = [
+        name for name in candidate_names
+        if name in capable and name not in explicit and name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES
+    ]
+    if not names:
+        router_log(
+            "INFO",
+            "codex_channel_sse_skipped reason=no_capable_unowned_codex_mcp candidates=%s capable=%s explicit=%s"
+            % (
+                ",".join(candidate_names) or "-",
+                ",".join(sorted(capable)) or "-",
+                ",".join(sorted(explicit)) or "-",
+            ),
+        )
+        return []
+    started = auto_start_sse_channels_from_mcp_configs(
+        [],
+        extra_config_paths=extra_paths,
+        allowed_server_names=names,
+    )
+    router_log(
+        "INFO",
+        "codex_channel_sse_started count=%d servers=%s"
+        % (len(started), ",".join(str(item.get("name") or "") for item in started) or "-"),
+    )
+    return started
 
 
 def channel_probe_summary_message(prefix: str, cache: dict[str, Any]) -> str:
@@ -21678,6 +21742,28 @@ def auto_import_passthrough_channels(passthrough: list[str]) -> list[str]:
     return added
 
 
+def mcp_server_runtime_headers(server: dict[str, Any]) -> dict[str, str]:
+    headers = server.get("headers") if isinstance(server.get("headers"), dict) else {}
+    out = {str(k): str(v) for k, v in headers.items() if str(k).strip() and v is not None}
+    env_headers = server.get("env_http_headers")
+    if isinstance(env_headers, dict):
+        for raw_header, raw_env_name in env_headers.items():
+            header = str(raw_header or "").strip()
+            env_name = str(raw_env_name or "").strip()
+            if not header or not env_name:
+                continue
+            value = os.environ.get(env_name)
+            if value:
+                out[header] = value
+    token = str(server.get("bearer_token") or server.get("token") or "").strip()
+    token_env = str(server.get("bearer_token_env_var") or server.get("token_env_var") or "").strip()
+    if not token and token_env:
+        token = str(os.environ.get(token_env) or "").strip()
+    if token and not any(str(key).lower() == "authorization" for key in out):
+        out["Authorization"] = f"Bearer {token}"
+    return out
+
+
 def _mcp_sse_servers_from_mapping(mapping: Any) -> list[dict[str, Any]]:
     if not isinstance(mapping, dict):
         return []
@@ -21697,7 +21783,7 @@ def _mcp_sse_servers_from_mapping(mapping: Any) -> list[dict[str, Any]]:
             if server_type and server_type not in ("sse", "http", "streamable-http"):
                 continue
             transport = "streamable-http" if server_type in ("http", "streamable-http") else "sse"
-            headers = raw_server.get("headers") if isinstance(raw_server.get("headers"), dict) else {}
+            headers = mcp_server_runtime_headers(raw_server)
             streamable_requires_session = raw_server.get(
                 "streamable_requires_session",
                 raw_server.get("require_session", raw_server.get("mcp_session_required", True)),
@@ -33836,11 +33922,7 @@ def run_mcp_streamable_http_proxy(server_name: str, server_config_path: Path) ->
         print("ciel-runtime mcp-proxy: server config is not a Streamable HTTP MCP server", file=sys.stderr, flush=True)
         return 2
     endpoint = str(server.get("url") or server.get("endpoint") or "").strip()
-    custom_headers = server.get("headers") if isinstance(server.get("headers"), dict) else {}
-    headers = {str(k): str(v) for k, v in custom_headers.items() if str(k).strip()}
-    token = str(server.get("bearer_token") or server.get("token") or "").strip()
-    if token and "Authorization" not in headers:
-        headers["Authorization"] = f"Bearer {token}"
+    headers = mcp_server_runtime_headers(server)
     protocol_version = str(server.get("mcp_protocol_version") or server.get("protocolVersion") or server.get("protocol_version") or MCP_STREAMABLE_HTTP_PROTOCOL_VERSION)
     timeout = max(5.0, min(120.0, float(server.get("mcp_timeout_seconds") or server.get("timeout") or 20.0)))
     requires_session = parse_bool(server.get("streamable_requires_session", server.get("require_session", server.get("mcp_session_required", True))), True)
@@ -35424,6 +35506,230 @@ def codex_config_paths_for_launch(passthrough: list[str], env: dict[str, str] | 
     return paths
 
 
+def _normalize_codex_mcp_server(raw_name: Any, raw_server: Any) -> tuple[str, dict[str, Any]] | None:
+    name = str(raw_name or "").strip()
+    if not name or not isinstance(raw_server, dict):
+        return None
+    url = str(raw_server.get("url") or raw_server.get("endpoint") or "").strip()
+    if not url.startswith(("http://", "https://")):
+        return None
+    server_type = str(raw_server.get("type") or raw_server.get("transport") or "http").strip().lower()
+    if server_type in {"streamable-http", "streamable_http"}:
+        server_type = "http"
+    if server_type not in {"http", "sse"}:
+        server_type = "http"
+    out: dict[str, Any] = {
+        "type": server_type,
+        "url": url,
+    }
+    for key in (
+        "headers",
+        "env_http_headers",
+        "bearer_token_env_var",
+        "token_env_var",
+        "bearer_token",
+        "token",
+        "streamable_requires_session",
+        "require_session",
+        "mcp_session_required",
+        "mcp_protocol_version",
+        "protocolVersion",
+        "protocol_version",
+        "mcp_timeout_seconds",
+        "timeout",
+    ):
+        value = raw_server.get(key)
+        if value is not None:
+            out[key] = value
+    return name, out
+
+
+def _codex_mcp_servers_from_toml_data(data: Any) -> dict[str, dict[str, Any]]:
+    if not isinstance(data, dict):
+        return {}
+    servers = data.get("mcp_servers")
+    if not isinstance(servers, dict):
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for raw_name, raw_server in servers.items():
+        normalized = _normalize_codex_mcp_server(raw_name, raw_server)
+        if normalized is None:
+            continue
+        name, server = normalized
+        out[name] = server
+    return out
+
+
+def _toml_table_parts(raw: str) -> list[str]:
+    parts: list[str] = []
+    current: list[str] = []
+    quote = ""
+    escaped = False
+    for ch in raw:
+        if escaped:
+            current.append(ch)
+            escaped = False
+            continue
+        if ch == "\\" and quote == '"':
+            current.append(ch)
+            escaped = True
+            continue
+        if ch in {"'", '"'}:
+            if quote == ch:
+                quote = ""
+            elif not quote:
+                quote = ch
+            current.append(ch)
+            continue
+        if ch == "." and not quote:
+            part = _unquote_toml_string("".join(current).strip())
+            if part:
+                parts.append(part)
+            current = []
+            continue
+        current.append(ch)
+    part = _unquote_toml_string("".join(current).strip())
+    if part:
+        parts.append(part)
+    return parts
+
+
+def _parse_simple_toml_value(raw: str) -> Any:
+    value = _toml_scalar_without_comment(raw).strip()
+    if not value:
+        return ""
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return _unquote_toml_string(value)
+    low = value.lower()
+    if low in {"true", "false"}:
+        return low == "true"
+    if value.startswith("[") and value.endswith("]"):
+        items: list[str] = []
+        body = value[1:-1]
+        current: list[str] = []
+        quote = ""
+        escaped = False
+        for ch in body:
+            if escaped:
+                current.append(ch)
+                escaped = False
+                continue
+            if ch == "\\" and quote == '"':
+                current.append(ch)
+                escaped = True
+                continue
+            if ch in {"'", '"'}:
+                if quote == ch:
+                    quote = ""
+                elif not quote:
+                    quote = ch
+                current.append(ch)
+                continue
+            if ch == "," and not quote:
+                item = _unquote_toml_string("".join(current).strip())
+                if item:
+                    items.append(item)
+                current = []
+                continue
+            current.append(ch)
+        item = _unquote_toml_string("".join(current).strip())
+        if item:
+            items.append(item)
+        return items
+    try:
+        return int(value)
+    except ValueError:
+        return value
+
+
+def _fallback_codex_mcp_servers_from_config_text(text: str) -> dict[str, dict[str, Any]]:
+    raw_servers: dict[str, dict[str, Any]] = {}
+    current_name = ""
+    current_subtable = ""
+    for line in text.splitlines():
+        stripped = _toml_scalar_without_comment(line)
+        if not stripped:
+            continue
+        table_match = re.fullmatch(r"\[(.+)\]", stripped)
+        if table_match:
+            parts = _toml_table_parts(table_match.group(1).strip())
+            current_name = ""
+            current_subtable = ""
+            if len(parts) >= 2 and parts[0] == "mcp_servers":
+                current_name = parts[1]
+                current_subtable = parts[2] if len(parts) >= 3 else ""
+                raw_servers.setdefault(current_name, {})
+            continue
+        if not current_name or "=" not in stripped:
+            continue
+        key, raw_value = stripped.split("=", 1)
+        key = key.strip()
+        value = _parse_simple_toml_value(raw_value)
+        server = raw_servers.setdefault(current_name, {})
+        if current_subtable:
+            nested = server.setdefault(current_subtable, {})
+            if isinstance(nested, dict):
+                nested[key] = value
+            continue
+        server[key] = value
+    return _codex_mcp_servers_from_toml_data({"mcp_servers": raw_servers})
+
+
+def codex_mcp_servers_from_config_text(text: str) -> dict[str, dict[str, Any]]:
+    try:
+        import tomllib  # type: ignore[import-not-found]
+        data = tomllib.loads(text)
+        parsed = _codex_mcp_servers_from_toml_data(data)
+        if parsed:
+            return parsed
+    except Exception:
+        pass
+    return _fallback_codex_mcp_servers_from_config_text(text)
+
+
+def discovered_codex_mcp_servers(
+    passthrough: list[str] | None = None,
+    env: dict[str, str] | None = None,
+    cwd: Path | None = None,
+) -> dict[str, dict[str, Any]]:
+    servers: dict[str, dict[str, Any]] = {}
+    for path in codex_config_paths_for_launch(passthrough or [], env=env, cwd=cwd):
+        if not path.exists() or not path.is_file():
+            continue
+        try:
+            parsed = codex_mcp_servers_from_config_text(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            router_log("WARN", f"codex_mcp_config_read_failed path={path} error={type(exc).__name__}: {exc}")
+            continue
+        for name, server in parsed.items():
+            servers[name] = server
+    return servers
+
+
+def write_codex_mcp_config_for_channel_discovery(
+    passthrough: list[str] | None = None,
+    env: dict[str, str] | None = None,
+    cwd: Path | None = None,
+) -> Path | None:
+    servers = discovered_codex_mcp_servers(passthrough or [], env=env, cwd=cwd)
+    if not servers:
+        try:
+            CODEX_MCP_CONFIG.unlink()
+        except FileNotFoundError:
+            pass
+        except Exception as exc:
+            router_log("WARN", f"codex_mcp_config_remove_failed error={type(exc).__name__}: {exc}")
+        return None
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CODEX_MCP_CONFIG.write_text(json.dumps({"mcpServers": servers}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    try:
+        os.chmod(CODEX_MCP_CONFIG, 0o600)
+    except Exception:
+        pass
+    router_log("INFO", f"codex_mcp_config_written servers={','.join(sorted(servers))}")
+    return CODEX_MCP_CONFIG
+
+
 def codex_alternate_screen_compat_args(passthrough: list[str], env: dict[str, str] | None = None, cwd: Path | None = None) -> list[str]:
     if has_passthrough_option(passthrough, "--no-alt-screen") or CODEX_TUI_ALTERNATE_SCREEN_KEY in _codex_config_override_keys(passthrough):
         return []
@@ -35557,6 +35863,7 @@ def launch_codex(
     cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
     use_native_codex = direct_native_codex_enabled(provider, pcfg)
     use_codex_routed = codex_routed_enabled(provider, pcfg)
+    codex_mcp_config = write_codex_mcp_config_for_channel_discovery(codex_passthrough, env=env)
     manage_router_lifetime = False if use_native_codex else bool(start_router_if_needed())
     if not native_codex_enabled(provider):
         ensure_model_cache_for_launch(provider, pcfg)
@@ -35584,6 +35891,7 @@ def launch_codex(
     )
 
     def run_codex_process() -> int:
+        start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config)
         return subprocess_call_with_channel_wake_proxy(
             cmd,
             env,
