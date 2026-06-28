@@ -1044,6 +1044,24 @@ class ChannelBridgeTests(unittest.TestCase):
 
         self.assertEqual("", notice)
 
+    def test_channel_summary_notice_quiet_when_only_presence_checkin(self):
+        notice = ciel_runtime.format_channel_llm_summary_notice(
+            [
+                {
+                    "message_id": 14,
+                    "channel": "room_dm_a",
+                    "source": "mcp-ai-net-sse",
+                    "sender_id": "Sarah",
+                    "kind": "presence",
+                    "incoming": "1 colleague checked in: Sarah.",
+                    "stop_reason": "end_turn",
+                    "summary": "Sarah checked in.",
+                }
+            ]
+        )
+
+        self.assertEqual("", notice)
+
     def test_channel_summary_prompt_is_local_only_and_sanitized(self):
         prompt = ciel_runtime.format_channel_llm_summary_prompt(
             [
@@ -2182,6 +2200,38 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(b"\r\n", write_all.call_args_list[1].args[1])
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("channel_stdin_summary_injected" in item and "message_ids=12" in item for item in log_messages))
+
+    def test_channel_direct_append_summary_dedupes_message_id(self):
+        original_cursor = ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
+        with tempfile.TemporaryDirectory() as td:
+            queue_path = Path(td) / "channel-llm-summary-queue.jsonl"
+            cursor_path = Path(td) / "channel-llm-summary-cursor.json"
+            message = {
+                "id": 12,
+                "channel": "room_dm_generic",
+                "sender_id": "Sarah",
+                "message": "New message from Sarah",
+                "meta": {"kind": "activity", "sse_source": "mcp-ai-net-sse"},
+            }
+            try:
+                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = None
+                with (
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_QUEUE_PATH", queue_path),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_SUMMARY_CURSOR_PATH", cursor_path),
+                    mock.patch.object(ciel_runtime, "router_log") as router_log,
+                ):
+                    ciel_runtime._channel_direct_append_summary(message, "handled once", "end_turn", tool_turns=1)
+                    ciel_runtime._channel_direct_append_summary(message, "handled twice", "end_turn", tool_turns=1)
+                    rows = [json.loads(line) for line in queue_path.read_text(encoding="utf-8").splitlines()]
+            finally:
+                ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID = original_cursor
+
+        self.assertEqual(1, len(rows))
+        self.assertEqual(12, rows[0]["message_id"])
+        self.assertEqual("activity", rows[0]["kind"])
+        self.assertEqual("handled once", rows[0]["summary"])
+        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
+        self.assertTrue(any("channel_llm_summary_skipped_duplicate" in item and "message_id=12" in item for item in log_messages))
 
     def test_missing_channel_summary_cursor_starts_at_queue_tail(self):
         original_cursor = ciel_runtime._CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID

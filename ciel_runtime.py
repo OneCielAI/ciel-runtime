@@ -30578,6 +30578,7 @@ def _channel_direct_append_summary(message: dict[str, Any], text: str, stop_reas
         "channel": message.get("channel") or meta.get("room_id") or "default",
         "source": meta.get("sse_source") or meta.get("source") or "",
         "sender_id": message.get("sender_id") or meta.get("sender_id") or "",
+        "kind": meta.get("kind") or meta.get("type") or message.get("kind") or "",
         "stop_reason": stop_reason,
         "tool_turns": tool_turns,
         "incoming": truncate_for_prompt(str(message.get("message") or ""), 4000),
@@ -30587,6 +30588,9 @@ def _channel_direct_append_summary(message: dict[str, Any], text: str, stop_reas
         CHANNEL_LLM_SUMMARY_QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
         line = json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n"
         with _CHANNEL_LLM_SUMMARY_LOCK:
+            if _channel_llm_summary_queue_has_message_id_locked(message_id):
+                router_log("INFO", f"channel_llm_summary_skipped_duplicate message_id={message_id}")
+                return
             with CHANNEL_LLM_SUMMARY_QUEUE_PATH.open("a", encoding="utf-8") as fh:
                 fh.write(line)
         router_log("INFO", f"channel_llm_summary_queued message_id={message_id} chars={len(record['summary'])} stop_reason={stop_reason}")
@@ -31240,6 +31244,28 @@ def _channel_llm_summary_scan_max_id_locked() -> int:
     return max_id
 
 
+def _channel_llm_summary_queue_has_message_id_locked(message_id: int) -> bool:
+    if message_id <= 0 or not CHANNEL_LLM_SUMMARY_QUEUE_PATH.exists():
+        return False
+    try:
+        with CHANNEL_LLM_SUMMARY_QUEUE_PATH.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    item = json.loads(line)
+                except Exception:
+                    continue
+                if not isinstance(item, dict):
+                    continue
+                try:
+                    if int(item.get("message_id") or 0) == message_id:
+                        return True
+                except Exception:
+                    continue
+    except Exception as exc:
+        router_log("WARN", f"channel_llm_summary_duplicate_scan_failed message_id={message_id} error={type(exc).__name__}: {exc}")
+    return False
+
+
 def _channel_llm_summary_read_cursor_locked() -> int:
     global _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
     if _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID is not None:
@@ -31381,7 +31407,59 @@ def _channel_llm_summary_notice_is_quiet(item: dict[str, Any]) -> bool:
         return True
     if summary.startswith("NO_REPLY:") or summary.startswith("응답 불필요:") or summary.startswith("회신 불필요:"):
         return True
+    if _channel_llm_summary_notice_is_presence_only(item):
+        return True
     return stop_reason in {"no_reply", "no-reply"}
+
+
+def _channel_llm_summary_notice_is_presence_only(item: dict[str, Any]) -> bool:
+    kind = str(item.get("kind") or "").strip().lower()
+    incoming = re.sub(r"\s+", " ", str(item.get("incoming") or "")).strip()
+    summary = re.sub(r"\s+", " ", str(item.get("summary") or "")).strip()
+    text = f"{incoming} {summary}".strip()
+    lowered = text.lower()
+    if not lowered:
+        return False
+    presence_patterns = (
+        r"\b\d+\s+colleagues?\s+checked in\b",
+        r"\bcolleagues?\s+checked in\b",
+        r"\bchecked in\s*:\s*[a-z0-9_.@ -]{1,120}\b",
+        r"\b[a-z0-9_.@ -]{1,80}\s+checked in\b",
+        r"\bpresence\b",
+        r"\bcheck[- ]?in\b",
+        r"체크인",
+        r"접속\s*(?:확인|알림)",
+    )
+    if kind in {"presence", "checkin", "check-in", "checked_in", "user_presence"}:
+        return True
+    if not any(re.search(pattern, lowered, re.IGNORECASE) for pattern in presence_patterns):
+        return False
+    action_markers = (
+        "mentioned you",
+        "@mentioned",
+        "new message from",
+        "dm",
+        "direct message",
+        "task",
+        "assign",
+        "request",
+        "please",
+        "status",
+        "question",
+        "reply-required",
+        "fallback reply",
+        "send",
+        "sent",
+        "멘션",
+        "요청",
+        "질문",
+        "업무",
+        "작업",
+        "답장",
+        "회신",
+        "전송",
+    )
+    return not any(marker in lowered for marker in action_markers)
 
 
 def _channel_llm_summary_notice_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
