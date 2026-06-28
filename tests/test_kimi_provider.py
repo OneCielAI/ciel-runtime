@@ -35,7 +35,7 @@ class KimiProviderTests(unittest.TestCase):
         self.assertTrue(pcfg["native_compat"])
         self.assertTrue(pcfg["preserve_anthropic_thinking"])
         self.assertTrue(pcfg["normalize_anthropic_tool_use"])
-        self.assertFalse(pcfg["supports_tool_choice"])
+        self.assertTrue(pcfg["supports_tool_choice"])
         self.assertIn("thinking", pcfg["claude_code_supported_capabilities"])
 
     def test_kimi_aliases_normalize_to_documented_model_id(self):
@@ -110,14 +110,34 @@ class KimiProviderTests(unittest.TestCase):
         self.assertEqual(600000, pcfg["request_timeout_ms"])
         self.assertTrue(pcfg["native_compat"])
 
-    def test_kimi_strips_forced_tool_choice_by_default(self):
+    def test_kimi_keeps_forced_tool_choice_by_default(self):
         pcfg = self.kimi_cfg()["providers"]["kimi"]
+        body = ciel_runtime.compatibility_tool_request("kimi-for-coding")
+
+        out = ciel_runtime.normalize_tool_choice_for_provider("kimi", pcfg, body)
+
+        self.assertIs(out, body)
+        self.assertIn("tool_choice", out)
+
+    def test_kimi_tool_choice_can_still_be_disabled(self):
+        pcfg = self.kimi_cfg(supports_tool_choice=False)["providers"]["kimi"]
         body = ciel_runtime.compatibility_tool_request("kimi-for-coding")
 
         out = ciel_runtime.normalize_tool_choice_for_provider("kimi", pcfg, body)
 
         self.assertIn("tool_choice", body)
         self.assertNotIn("tool_choice", out)
+
+    def test_kimi_migration_forwards_tool_choice_for_existing_configs(self):
+        cfg = self.kimi_cfg(supports_tool_choice=False)
+        cfg["migrations"] = {"kimi_tool_choice_auto_only_20260625": True}
+
+        ciel_runtime.apply_config_migrations(cfg)
+
+        pcfg = cfg["providers"]["kimi"]
+        self.assertTrue(pcfg["normalize_anthropic_tool_use"])
+        self.assertTrue(pcfg["supports_tool_choice"])
+        self.assertTrue(cfg["migrations"]["kimi_forward_tool_choice_20260628"])
 
     def test_kimi_preserves_thinking_while_normalizing_tool_use_stream(self):
         class FakeHandler:

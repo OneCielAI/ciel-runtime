@@ -41,6 +41,7 @@ from typing import Any, Callable, Iterable
 from ciel_runtime_support.agent_router import missing_common_capabilities, router_capability_matrix
 from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
 from ciel_runtime_support.claude_router import ClaudeRouter
+from ciel_runtime_support.codex_app_server import codex_app_server_launch_args
 from ciel_runtime_support.codex_cli import codex_passthrough_args_for_launch, codex_passthrough_has_command
 from ciel_runtime_support.codex_router import CodexRouter
 from ciel_runtime_support.observability import EventBus, render_events_html
@@ -531,6 +532,7 @@ PRELAUNCH_CANCEL = 10
 PRELAUNCH_LAUNCH_CODEX = 11
 PRELAUNCH_LAUNCH_CLAUDE = 12
 PRELAUNCH_LAUNCH_AGY = 13
+PRELAUNCH_LAUNCH_CODEX_APP_SERVER = 14
 
 LOG_LEVELS = {"SILENT": 0, "ERROR": 1, "WARN": 2, "INFO": 3, "DEBUG": 4, "TRACE": 5}
 LOG_LEVEL_NAMES = {v: k for k, v in LOG_LEVELS.items()}
@@ -1865,6 +1867,7 @@ UI_TEXT = {
         "back": "Back",
         "launch": "Launch Claude Code",
         "launch_agy": "Launch AGY",
+        "launch_codex_app_server": "Launch Codex App Server",
         "launch_codex": "Launch Codex",
         "quit": "Quit",
         "title": "ciel-runtime pre-launch",
@@ -1890,6 +1893,7 @@ UI_TEXT = {
         "back": "뒤로",
         "launch": "Claude Code 실행",
         "launch_agy": "AGY 실행",
+        "launch_codex_app_server": "Codex App Server 실행",
         "launch_codex": "Codex 실행",
         "quit": "종료",
         "title": "ciel-runtime 실행 전 설정",
@@ -1915,6 +1919,7 @@ UI_TEXT = {
         "back": "戻る",
         "launch": "Claude Codeを起動",
         "launch_agy": "AGYを起動",
+        "launch_codex_app_server": "Codex App Serverを起動",
         "launch_codex": "Codexを起動",
         "quit": "終了",
         "title": "ciel-runtime 起動前設定",
@@ -1940,6 +1945,7 @@ UI_TEXT = {
         "back": "返回",
         "launch": "启动 Claude Code",
         "launch_agy": "启动 AGY",
+        "launch_codex_app_server": "启动 Codex App Server",
         "launch_codex": "启动 Codex",
         "quit": "退出",
         "title": "ciel-runtime 启动前设置",
@@ -2262,7 +2268,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "native_compat": True,
             "preserve_anthropic_thinking": True,
             "normalize_anthropic_tool_use": True,
-            "supports_tool_choice": False,
+            "supports_tool_choice": True,
             "claude_code_supported_capabilities": ["effort", "thinking"],
             "context_window": 262144,
             "max_output_tokens": 32768,
@@ -2596,6 +2602,15 @@ def apply_config_migrations(cfg: dict[str, Any]) -> None:
         if isinstance(pcfg, dict):
             pcfg["normalize_anthropic_tool_use"] = True
             pcfg["supports_tool_choice"] = False
+        migrations[marker] = True
+
+    marker = "kimi_forward_tool_choice_20260628"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        pcfg = providers.get("kimi")
+        if isinstance(pcfg, dict):
+            pcfg["normalize_anthropic_tool_use"] = True
+            pcfg["supports_tool_choice"] = True
         migrations[marker] = True
 
 
@@ -27858,6 +27873,7 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "test",
     "launch",
     "launch-codex",
+    "launch-codex-app-server",
     "launch-agy",
     "quit",
 )
@@ -27911,6 +27927,9 @@ def main_menu_rows(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any], lan
     launch_codex_label = ui_text("launch_codex", lang)
     if not codex_launch_enabled_for_provider(provider):
         launch_codex_label += " [disabled: select Codex provider]"
+    launch_codex_app_server_label = ui_text("launch_codex_app_server", lang)
+    if not codex_launch_enabled_for_provider(provider):
+        launch_codex_app_server_label += " [disabled: select Codex provider]"
     return [
         f"0. {ui_text('language', lang)}  [{LANGUAGES.get(lang, lang)}]",
         f"1. {ui_text('provider', lang)}  [{provider_menu_label(provider, pcfg)}]",
@@ -27923,7 +27942,8 @@ def main_menu_rows(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any], lan
         f"8. {ui_text('test', lang)}",
         f"9. {launch_label}",
         f"10. {launch_codex_label}",
-        f"11. {launch_agy_label}",
+        f"11. {launch_codex_app_server_label}",
+        f"12. {launch_agy_label}",
         ui_text("quit", lang),
     ]
 
@@ -29261,6 +29281,19 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                         refresh_checks()
                         continue
                     return PRELAUNCH_LAUNCH_CODEX
+                if action == "launch-codex-app-server":
+                    cfg = load_config()
+                    provider, _ = get_current_provider(cfg)
+                    if not codex_launch_enabled_for_provider(provider):
+                        messages = ["Launch Codex App Server is disabled until you select Codex or Codex routed as the provider."]
+                        refresh_checks()
+                        continue
+                    blockers = launch_readiness_errors()
+                    if blockers:
+                        messages = blockers
+                        refresh_checks()
+                        continue
+                    return PRELAUNCH_LAUNCH_CODEX_APP_SERVER
                 if action == "quit":
                     return PRELAUNCH_CANCEL
                 open_panel(action)
@@ -34321,6 +34354,14 @@ def launch_claude(
             update_check=update_check,
             self_update_check=False,
         )
+    if rc == PRELAUNCH_LAUNCH_CODEX_APP_SERVER:
+        return launch_codex_app_server(
+            passthrough,
+            skip_menu=True,
+            force_menu=False,
+            update_check=update_check,
+            self_update_check=False,
+        )
     if rc == PRELAUNCH_CANCEL:
         return 0
     if rc not in (0, PRELAUNCH_LAUNCH_CLAUDE):
@@ -34329,7 +34370,7 @@ def launch_claude(
     provider, pcfg = get_current_provider(cfg)
     if not claude_launch_enabled_for_provider(provider):
         print(f"Ciel Runtime launch blocked: Launch Claude Code is disabled while {provider_menu_label(provider, pcfg)} provider is selected.", flush=True)
-        print("Use the matching Launch menu item or --ca-runtime agy|codex.", flush=True)
+        print("Use the matching Launch menu item or --ca-runtime agy|codex|codex-app-server.", flush=True)
         return 2
     blockers = launch_readiness_errors(cfg)
     if blockers:
@@ -35068,6 +35109,14 @@ def launch_codex(
             update_check=update_check,
             self_update_check=False,
         )
+    if rc == PRELAUNCH_LAUNCH_CODEX_APP_SERVER:
+        return launch_codex_app_server(
+            passthrough,
+            skip_menu=True,
+            force_menu=False,
+            update_check=update_check,
+            self_update_check=False,
+        )
     if rc == PRELAUNCH_CANCEL:
         return 0
     if rc not in (0, PRELAUNCH_LAUNCH_CODEX):
@@ -35126,6 +35175,141 @@ def launch_codex(
         )
 
     return run_with_router_lifetime(run_codex_process, manage_router_lifetime)
+
+
+def codex_app_server_default_listen_url() -> str:
+    configured = str(os.environ.get("CIEL_RUNTIME_CODEX_APP_SERVER_LISTEN") or "").strip()
+    if configured:
+        return configured
+    port = ROUTER_PORT + 20 if ROUTER_PORT <= 65515 else ROUTER_PORT - 20
+    return f"ws://127.0.0.1:{port}"
+
+
+def _log_codex_app_server_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> None:
+    provider_args = [arg for arg in cmd if arg.startswith("model_provider=") or arg.startswith("model_providers.")]
+    listen = ""
+    for i, arg in enumerate(cmd):
+        if arg == "--listen" and i + 1 < len(cmd):
+            listen = str(cmd[i + 1])
+            break
+        if arg.startswith("--listen="):
+            listen = arg.split("=", 1)[1]
+            break
+    router_log(
+        "INFO",
+        "codex_app_server_launch_cmd argv_len=%d provider_overrides=%d listen=%s"
+        % (len(cmd), len(provider_args), listen or "stdio/default"),
+    )
+    env_summary = []
+    for key in ("CIEL_RUNTIME_PROVIDER", "CIEL_RUNTIME_MODEL_ALIAS", CODEX_RUNTIME_API_KEY_ENV):
+        if key in env:
+            value = mask_secret(env[key]) if "KEY" in key or "TOKEN" in key else env[key]
+            env_summary.append(f"{key}={value}")
+    if env_summary:
+        router_log("INFO", "codex_app_server_launch_env " + " ".join(env_summary))
+
+
+def launch_codex_app_server(
+    passthrough: list[str],
+    skip_menu: bool = True,
+    force_menu: bool = False,
+    update_check: bool = True,
+    self_update_check: bool = True,
+) -> int:
+    warn_if_multiple_ciel_runtime_installs()
+    run_ciel_runtime_update_check(enabled=self_update_check)
+    env = os.environ.copy()
+    env["PATH"] = path_with_ciel_runtime_user_dirs(env)
+    codex = install_codex_if_missing()
+    if not codex:
+        raise RuntimeError(
+            "codex executable was not found in PATH or the Ciel Runtime user bin directories, "
+            "and automatic install of @openai/codex did not make it available"
+        )
+    updated_codex = run_codex_update_check(codex, enabled=update_check)
+    if isinstance(updated_codex, str) and updated_codex:
+        codex = updated_codex
+    codex = find_executable("codex") or codex
+    auto_import_passthrough_channels(passthrough)
+    rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
+    if rc == PRELAUNCH_LAUNCH_CLAUDE:
+        return launch_claude(
+            passthrough,
+            skip_menu=True,
+            force_menu=False,
+            update_check=update_check,
+            self_update_check=False,
+        )
+    if rc == PRELAUNCH_LAUNCH_CODEX:
+        return launch_codex(
+            passthrough,
+            skip_menu=True,
+            force_menu=False,
+            update_check=update_check,
+            self_update_check=False,
+        )
+    if rc == PRELAUNCH_LAUNCH_AGY:
+        return launch_agy(
+            passthrough,
+            skip_menu=True,
+            force_menu=False,
+            update_check=update_check,
+            self_update_check=False,
+        )
+    if rc == PRELAUNCH_CANCEL:
+        return 0
+    if rc not in (0, PRELAUNCH_LAUNCH_CODEX_APP_SERVER):
+        return rc
+    cfg = load_config()
+    provider, pcfg = get_current_provider(cfg)
+    if not codex_launch_enabled_for_provider(provider):
+        print("Ciel Runtime Codex App Server launch blocked:", flush=True)
+        print("- Select Codex or Codex routed as the provider before launching Codex App Server.", flush=True)
+        return 2
+    blockers = launch_readiness_errors(cfg)
+    if blockers:
+        print("Ciel Runtime Codex App Server launch blocked:", flush=True)
+        for line in blockers:
+            print(f"- {line}", flush=True)
+        return 2
+    cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
+    use_native_codex = direct_native_codex_enabled(provider, pcfg)
+    use_codex_routed = codex_routed_enabled(provider, pcfg)
+    manage_router_lifetime = False if use_native_codex else bool(start_router_if_needed())
+    if use_codex_routed:
+        config_args = codex_native_routed_config_args()
+    elif use_native_codex:
+        config_args = []
+    else:
+        env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
+        config_args = codex_runtime_config_args()
+    if not native_codex_enabled(provider):
+        ensure_model_cache_for_launch(provider, pcfg)
+    listen_url = codex_app_server_default_listen_url()
+    app_server_args = codex_app_server_launch_args(
+        passthrough,
+        config_args=config_args,
+        default_listen_url=listen_url,
+    )
+    cmd = [codex, *app_server_args]
+    print("Launching Codex App Server through Ciel Runtime.", flush=True)
+    if "--listen" in cmd:
+        try:
+            print(f"Codex App Server listen: {cmd[cmd.index('--listen') + 1]}", flush=True)
+        except Exception:
+            pass
+    _log_codex_app_server_command_for_diagnostics(cmd, env)
+    record_launch_state_for_cwd(
+        current_launch_cwd_key(),
+        provider,
+        provider_mode_label(provider, pcfg) if native_codex_enabled(provider) else "codex-app-server-router",
+        str(pcfg.get("current_model") or ("" if native_codex_enabled(provider) else current_alias(cfg)) or ""),
+    )
+
+    def run_codex_app_server_process() -> int:
+        return subprocess.call(cmd, env=env)
+
+    return run_with_router_lifetime(run_codex_app_server_process, manage_router_lifetime)
 
 
 def agy_help_requested(passthrough: list[str]) -> bool:
@@ -35189,6 +35373,14 @@ def launch_agy(
         )
     if rc == PRELAUNCH_LAUNCH_CODEX:
         return launch_codex(
+            passthrough,
+            skip_menu=True,
+            force_menu=False,
+            update_check=update_check,
+            self_update_check=False,
+        )
+    if rc == PRELAUNCH_LAUNCH_CODEX_APP_SERVER:
+        return launch_codex_app_server(
             passthrough,
             skip_menu=True,
             force_menu=False,
@@ -35373,6 +35565,7 @@ def cli_usage() -> str:
     return """Usage:
   ciel-runtime                         Launch Claude Code through ciel-runtime router
   ciel-runtime codex [args...]         Launch Codex through ciel-runtime router
+  ciel-runtime codex-app-server [args...]  Launch Codex app-server through ciel-runtime
   ciel-runtime agy [args...]           Launch Google Antigravity CLI through ciel-runtime
   ciel-runtime resume                  Resume Codex/AGY when that runtime provider is selected
 
@@ -35408,8 +35601,8 @@ Control plane, runs before Claude Code and does not require LLM connectivity:
 Headless setup flags, namespaced to avoid Claude CLI collisions:
   ciel-runtime --ca-provider PROVIDER  Set provider, then launch
   ciel-runtime --ca-env-file PATH      Load CIEL_RUNTIME_* values from a .env file
-  ciel-runtime --ca-runtime claude|codex|agy
-                                      Select Claude Code, Codex, or AGY for this launch
+  ciel-runtime --ca-runtime claude|codex|codex-app-server|agy
+                                      Select Claude Code, Codex, Codex app-server, or AGY for this launch
   ciel-runtime --ca-menu               Apply setup values, then open the menu
   ciel-runtime --ca-language en|ko|ja|zh
   ciel-runtime --ca-base-url URL       Set current provider base URL, then launch
@@ -35762,8 +35955,10 @@ def run_cli(argv: list[str]) -> int:
             else:
                 i += 1
             runtime = str(value or "").strip().lower()
-            if runtime not in ("claude", "codex", "agy"):
-                raise SystemExit("--ca-runtime must be claude, codex, or agy")
+            if runtime in ("codex-app", "codex-appserver"):
+                runtime = "codex-app-server"
+            if runtime not in ("claude", "codex", "codex-app-server", "agy"):
+                raise SystemExit("--ca-runtime must be claude, codex, codex-app-server, or agy")
         elif arg in ("--ca-no-launch", "--ca-configure-only", "--ca-setup-only"):
             configure_only = True
             skip_menu = True
@@ -36201,6 +36396,14 @@ def run_cli(argv: list[str]) -> int:
             update_check=update_check,
             self_update_check=self_update_check,
         )
+    if runtime == "codex-app-server":
+        return launch_codex_app_server(
+            passthrough,
+            skip_menu=skip_menu,
+            force_menu=force_menu,
+            update_check=update_check,
+            self_update_check=self_update_check,
+        )
     return launch_claude(
         passthrough,
         skip_menu=skip_menu,
@@ -36223,6 +36426,10 @@ def cmd_launch_codex(args: argparse.Namespace) -> None:
     raise SystemExit(launch_codex(args.argv))
 
 
+def cmd_launch_codex_app_server(args: argparse.Namespace) -> None:
+    raise SystemExit(launch_codex_app_server(args.argv))
+
+
 def cmd_launch_agy(args: argparse.Namespace) -> None:
     raise SystemExit(launch_agy(args.argv))
 
@@ -36243,6 +36450,9 @@ def build_parser() -> argparse.ArgumentParser:
     launch_codex_parser = sub.add_parser("launch-codex", add_help=False)
     launch_codex_parser.add_argument("argv", nargs=argparse.REMAINDER)
     launch_codex_parser.set_defaults(func=cmd_launch_codex)
+    launch_codex_app_server_parser = sub.add_parser("launch-codex-app-server", add_help=False)
+    launch_codex_app_server_parser.add_argument("argv", nargs=argparse.REMAINDER)
+    launch_codex_app_server_parser.set_defaults(func=cmd_launch_codex_app_server)
     launch_agy_parser = sub.add_parser("launch-agy", add_help=False)
     launch_agy_parser.add_argument("argv", nargs=argparse.REMAINDER)
     launch_agy_parser.set_defaults(func=cmd_launch_agy)
@@ -36326,6 +36536,8 @@ def main() -> None:
         raise SystemExit(launch_claude(sys.argv[2:]))
     if len(sys.argv) >= 2 and sys.argv[1] in ("codex", "launch-codex"):
         raise SystemExit(launch_codex(sys.argv[2:]))
+    if len(sys.argv) >= 2 and sys.argv[1] in ("codex-app", "codex-app-server", "codex-appserver", "launch-codex-app-server"):
+        raise SystemExit(launch_codex_app_server(sys.argv[2:]))
     if len(sys.argv) >= 2 and sys.argv[1] in ("agy", "launch-agy", "antigravity"):
         raise SystemExit(launch_agy(sys.argv[2:]))
     parser = build_parser()
