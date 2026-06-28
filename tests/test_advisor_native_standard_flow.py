@@ -45,12 +45,16 @@ class AdvisorSlashCommandInstallTests(unittest.TestCase):
         ciel_runtime.install_ciel_runtime_slash_commands(include_advisor=True)
         self.assertTrue((Path(self._tmp.name) / "advisor.md").exists())
         self.assertTrue((Path(self._tmp.name) / "router-debug.md").exists())
+        self.assertTrue((Path(self._tmp.name) / "ciel-version.md").exists())
         self.assertTrue((Path(self._tmp.name) / "channel-clear.md").exists())
 
     def test_install_without_advisor_skips_advisor_command(self):
         ciel_runtime.install_ciel_runtime_slash_commands(include_advisor=False)
         self.assertFalse((Path(self._tmp.name) / "advisor.md").exists())
         self.assertTrue((Path(self._tmp.name) / "router-debug.md").exists())
+        version_command = Path(self._tmp.name) / "ciel-version.md"
+        self.assertTrue(version_command.exists())
+        self.assertIn("CIEL_RUNTIME_VERSION_STATUS", version_command.read_text(encoding="utf-8"))
         self.assertTrue((Path(self._tmp.name) / "channel-clear.md").exists())
 
     def test_install_without_advisor_removes_ciel_runtime_owned_command(self):

@@ -3897,6 +3897,16 @@ Do not run tools, shell commands, file searches, config scans, or environment ch
 This session bypasses the ciel-runtime router. Launch a non-native provider or enable Anthropic routed mode to use /router-debug.
 """
 
+VERSION_SLASH_COMMAND = """---
+description: Show ciel-runtime version
+argument-hint: [ignored]
+---
+
+CIEL_RUNTIME_VERSION_STATUS
+
+Show the running ciel-runtime version for this session. This command is handled locally by the ciel-runtime router and must not be forwarded upstream.
+"""
+
 LLM_SLIDER_SLASH_COMMAND = """---
 description: Move/select ciel-runtime live LLM preset slider
 argument-hint: [left|right|status|list|restore|preset-id]
@@ -3971,6 +3981,10 @@ CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS = (
     "Toggle ciel-runtime router external debug access",
     "ciel-runtime router debug controls are unavailable in direct Claude Native mode",
 )
+CIEL_RUNTIME_VERSION_COMMAND_MARKERS = (
+    "CIEL_RUNTIME_VERSION_STATUS",
+    "Show ciel-runtime version",
+)
 CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS = (
     "CIEL_RUNTIME_LIVE_LLM_OPTIONS",
     "Show or change ciel-runtime live LLM options",
@@ -3992,6 +4006,7 @@ LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER = LEGACY_MARKER_PREFIX + "_CHANNEL_CLEAR_BAC
 LEGACY_LIVE_API_KEYS_MARKER = LEGACY_MARKER_PREFIX + "_LIVE_API_KEYS"
 ADVISOR_REQUEST_MARKERS = ("CIEL_RUNTIME_ADVISOR_CALL", LEGACY_ADVISOR_CALL_MARKER)
 ROUTER_DEBUG_REQUEST_MARKERS = ("CIEL_RUNTIME_ROUTER_DEBUG_ACCESS", LEGACY_ROUTER_DEBUG_ACCESS_MARKER)
+VERSION_REQUEST_MARKERS = ("CIEL_RUNTIME_VERSION_STATUS",)
 LIVE_LLM_OPTIONS_REQUEST_MARKERS = ("CIEL_RUNTIME_LIVE_LLM_OPTIONS", LEGACY_LIVE_LLM_OPTIONS_MARKER)
 CHANNEL_CLEAR_REQUEST_MARKERS = ("CIEL_RUNTIME_CHANNEL_CLEAR_BACKLOG", LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER)
 LIVE_API_KEYS_REQUEST_MARKERS = ("CIEL_RUNTIME_LIVE_API_KEYS", LEGACY_LIVE_API_KEYS_MARKER)
@@ -4027,6 +4042,7 @@ def install_ciel_runtime_slash_commands(include_advisor: bool = True) -> None:
         CLAUDE_COMMANDS_DIR.mkdir(parents=True, exist_ok=True)
         commands = {
             "router-debug.md": ROUTER_DEBUG_SLASH_COMMAND,
+            "ciel-version.md": VERSION_SLASH_COMMAND,
             "llm.md": LLM_SLIDER_SLASH_COMMAND,
             "llm-options.md": LLM_OPTIONS_SLASH_COMMAND,
             "llm-restore.md": LLM_RESTORE_SLASH_COMMAND,
@@ -4063,6 +4079,8 @@ def install_ciel_runtime_slash_commands(include_advisor: bool = True) -> None:
                     if name == "advisor.md"
                     else CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS
                     if name == "router-debug.md"
+                    else CIEL_RUNTIME_VERSION_COMMAND_MARKERS
+                    if name == "ciel-version.md"
                     else CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS
                     if name == "llm.md" or name == "llm-options.md" or name == "llm-restore.md" or name.startswith("llm-")
                     else CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS
@@ -4089,6 +4107,7 @@ def disable_ciel_runtime_slash_commands_for_native() -> None:
         commands = {
             "advisor.md": CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS,
             "router-debug.md": CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS,
+            "ciel-version.md": CIEL_RUNTIME_VERSION_COMMAND_MARKERS,
             "llm.md": CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
             "llm-options.md": CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
             "llm-restore.md": CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
@@ -12746,6 +12765,10 @@ def is_router_debug_request(body: dict[str, Any]) -> bool:
     return latest_user_text_has_marker(body, ROUTER_DEBUG_REQUEST_MARKERS)
 
 
+def is_version_request(body: dict[str, Any]) -> bool:
+    return latest_user_text_has_marker(body, VERSION_REQUEST_MARKERS)
+
+
 def is_channel_clear_request(body: dict[str, Any]) -> bool:
     return latest_user_text_has_marker(body, CHANNEL_CLEAR_REQUEST_MARKERS)
 
@@ -15670,6 +15693,19 @@ def maybe_handle_router_debug_request(handler: BaseHTTPRequestHandler, body: dic
     write_anthropic_text_response(handler, str(body.get("model") or current_alias(load_config())), "\n".join(lines), stream)
     if should_restart:
         schedule_router_process_restart()
+    return True
+
+
+def maybe_handle_version_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool:
+    if not is_version_request(body):
+        return False
+    stream = bool(body.get("stream", True))
+    lines = [
+        f"ciel-runtime {VERSION}",
+        f"source: {SOURCE_FINGERPRINT[:12]}",
+        f"config dir: {CONFIG_DIR}",
+    ]
+    write_anthropic_text_response(handler, str(body.get("model") or current_alias(load_config())), "\n".join(lines), stream)
     return True
 
 

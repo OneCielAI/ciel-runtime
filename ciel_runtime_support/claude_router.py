@@ -44,6 +44,7 @@ CLAUDE_RUNTIME_DEPENDENCIES: tuple[str, ...] = (
     "maybe_handle_live_llm_options_request",
     "maybe_handle_plan_mode_tool_choice",
     "maybe_handle_router_debug_request",
+    "maybe_handle_version_request",
     "native_anthropic_base_url",
     "ncp_model_id_for_nvidia_hosted",
     "normalize_anthropic_model_request_options",
@@ -133,6 +134,7 @@ def handle_claude_messages_post(
     maybe_handle_live_llm_options_request = deps["maybe_handle_live_llm_options_request"]
     maybe_handle_plan_mode_tool_choice = deps["maybe_handle_plan_mode_tool_choice"]
     maybe_handle_router_debug_request = deps["maybe_handle_router_debug_request"]
+    maybe_handle_version_request = deps["maybe_handle_version_request"]
     native_anthropic_base_url = deps["native_anthropic_base_url"]
     ncp_model_id_for_nvidia_hosted = deps["ncp_model_id_for_nvidia_hosted"]
     normalize_anthropic_model_request_options = deps["normalize_anthropic_model_request_options"]
@@ -196,6 +198,9 @@ def handle_claude_messages_post(
     write_context_usage(provider, pcfg, body, "messages")
     if maybe_handle_router_debug_request(self, body):
         event_bus.publish(level="info", category="router_debug.short_circuit", message="router debug request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
+        return
+    if maybe_handle_version_request(self, body):
+        event_bus.publish(level="info", category="version.short_circuit", message="version request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
     if maybe_handle_channel_clear_request(self, body):
         event_bus.publish(level="info", category="channel_clear.short_circuit", message="channel backlog clear request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))

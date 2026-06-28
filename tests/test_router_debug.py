@@ -109,6 +109,26 @@ class RouterDebugTests(unittest.TestCase):
         write.assert_called_once()
         self.assertIn("channel backlog discarded", write.call_args.args[2])
 
+    def test_version_slash_short_circuits(self):
+        handler = object()
+        body = {
+            "model": "ciel-runtime-test",
+            "stream": False,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": "CIEL_RUNTIME_VERSION_STATUS"}],
+                }
+            ],
+        }
+
+        with patch.object(ciel_runtime, "write_anthropic_text_response") as write:
+            self.assertTrue(ciel_runtime.maybe_handle_version_request(handler, body))  # type: ignore[arg-type]
+
+        write.assert_called_once()
+        self.assertIn(f"ciel-runtime {ciel_runtime.VERSION}", write.call_args.args[2])
+        self.assertIn("config dir:", write.call_args.args[2])
+
     def test_router_event_message_preview_defaults_to_off(self):
         body = {"messages": [{"role": "user", "content": "secret prompt"}]}
 

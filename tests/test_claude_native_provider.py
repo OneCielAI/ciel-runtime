@@ -410,10 +410,12 @@ class NativeSlashCommandContractTests(unittest.TestCase):
             commands_dir.mkdir()
             advisor = commands_dir / "advisor.md"
             router_debug = commands_dir / "router-debug.md"
+            ciel_version = commands_dir / "ciel-version.md"
             channel_clear = commands_dir / "channel-clear.md"
             api_key = commands_dir / "api-key.md"
             advisor.write_text(ciel_runtime.ADVISOR_SLASH_COMMAND, encoding="utf-8")
             router_debug.write_text(ciel_runtime.ROUTER_DEBUG_SLASH_COMMAND, encoding="utf-8")
+            ciel_version.write_text(ciel_runtime.VERSION_SLASH_COMMAND, encoding="utf-8")
             channel_clear.write_text(ciel_runtime.CHANNEL_CLEAR_SLASH_COMMAND, encoding="utf-8")
             api_key.write_text(ciel_runtime.API_KEYS_SLASH_COMMAND, encoding="utf-8")
 
@@ -422,6 +424,7 @@ class NativeSlashCommandContractTests(unittest.TestCase):
 
             self.assertFalse(advisor.exists())
             self.assertFalse(router_debug.exists())
+            self.assertFalse(ciel_version.exists())
             self.assertFalse(channel_clear.exists())
             self.assertFalse(api_key.exists())
 
