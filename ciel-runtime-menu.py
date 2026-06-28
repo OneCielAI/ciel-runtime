@@ -207,10 +207,12 @@ CTL = str(Path.home() / ".local/bin/ciel-runtimectl")
 CONFIG = Path.home() / ".config/ciel-runtime/config.json"
 NCP_ENV = Path.home() / ".config/nvd-claude-proxy/.env"
 PROVIDERS = [
+    ("agy:native", "AGY"),
+    ("agy:routed", "AGY Routed"),
     ("anthropic:routed", "Anthropic routed"),
+    ("anthropic:native", "Claude Native"),
     ("codex:native", "Codex Native"),
     ("codex:routed", "Codex routed"),
-    ("anthropic:native", "Claude Native"),
     ("deepseek", "DeepSeek.com"),
     ("lm-studio", "LM Studio"),
     ("nvidia-hosted", "Nvidia Hosted"),
@@ -239,6 +241,7 @@ CREDITS = "Credits: One Ciel LLC"
 PRELAUNCH_CANCEL = 10
 PRELAUNCH_LAUNCH_CODEX = 11
 PRELAUNCH_LAUNCH_CLAUDE = 12
+PRELAUNCH_LAUNCH_AGY = 13
 LANGUAGES = {
     "en": "English",
     "ko": "한국어",
@@ -257,6 +260,7 @@ UI_TEXT = {
         "provider_options": "Provider options",
         "test": "Test compatibility",
         "launch": "Launch Claude Code",
+        "launch_agy": "Launch AGY",
         "launch_codex": "Launch Codex",
         "quit": "Quit",
         "title": "ciel-runtime pre-launch",
@@ -268,6 +272,7 @@ UI_TEXT = {
         "select_provider_options": "Enter applies this provider option. Custom input accepts KEY=VALUE or unset:KEY.",
         "test_result": "Compatibility result is shown inline. Esc closes the result. Enter runs the test again.",
         "help_launch": "Enter launches Claude Code with the selected provider and model.",
+        "help_launch_agy": "Enter launches AGY with the selected provider mode.",
         "help_launch_codex": "Enter launches Codex with the selected provider mode.",
         "help_test": "Enter tests current provider/model with a minimal Claude Code tool request.",
         "help_language": "Enter expands language submenu inline.",
@@ -296,6 +301,7 @@ UI_TEXT = {
         "provider_options": "프로바이더 옵션",
         "test": "호환성 테스트",
         "launch": "Claude Code 실행",
+        "launch_agy": "AGY 실행",
         "launch_codex": "Codex 실행",
         "quit": "종료",
         "title": "ciel-runtime 실행 전 설정",
@@ -307,6 +313,7 @@ UI_TEXT = {
         "select_provider_options": "Enter로 프로바이더 옵션을 적용합니다. 직접 입력은 KEY=VALUE 또는 unset:KEY를 받습니다.",
         "test_result": "호환성 결과가 메뉴 안에 표시됩니다. Esc로 닫고 Enter로 다시 테스트합니다.",
         "help_launch": "선택한 프로바이더와 모델로 Claude Code를 실행합니다.",
+        "help_launch_agy": "선택한 프로바이더 모드로 AGY를 실행합니다.",
         "help_launch_codex": "선택한 프로바이더 모드로 Codex를 실행합니다.",
         "help_test": "현재 프로바이더/모델에 최소 Claude Code 도구 요청을 보내 호환성을 확인합니다.",
         "help_language": "언어 선택 메뉴를 펼칩니다.",
@@ -335,6 +342,7 @@ UI_TEXT = {
         "provider_options": "プロバイダーオプション",
         "test": "互換性テスト",
         "launch": "Claude Codeを起動",
+        "launch_agy": "AGYを起動",
         "launch_codex": "Codexを起動",
         "quit": "終了",
         "title": "ciel-runtime 起動前設定",
@@ -346,6 +354,7 @@ UI_TEXT = {
         "select_provider_options": "Enterでプロバイダーオプションを適用します。手入力はKEY=VALUEまたはunset:KEYです。",
         "test_result": "互換性結果はメニュー内に表示されます。Escで閉じ、Enterで再テストします。",
         "help_launch": "選択したプロバイダーとモデルでClaude Codeを起動します。",
+        "help_launch_agy": "選択したプロバイダーモードでAGYを起動します。",
         "help_launch_codex": "選択したプロバイダーモードでCodexを起動します。",
         "help_test": "現在のプロバイダー/モデルへ最小のClaude Codeツール要求を送り互換性を確認します。",
         "help_language": "言語選択メニューを展開します。",
@@ -374,6 +383,7 @@ UI_TEXT = {
         "provider_options": "提供商选项",
         "test": "兼容性测试",
         "launch": "启动 Claude Code",
+        "launch_agy": "启动 AGY",
         "launch_codex": "启动 Codex",
         "quit": "退出",
         "title": "ciel-runtime 启动前设置",
@@ -385,6 +395,7 @@ UI_TEXT = {
         "select_provider_options": "按 Enter 应用提供商选项。手动输入支持 KEY=VALUE 或 unset:KEY。",
         "test_result": "兼容性结果会在菜单内显示。Esc 关闭，Enter 重新测试。",
         "help_launch": "使用所选提供商和模型启动 Claude Code。",
+        "help_launch_agy": "使用所选提供商模式启动 AGY。",
         "help_launch_codex": "使用所选提供商模式启动 Codex。",
         "help_test": "向当前提供商/模型发送最小 Claude Code 工具请求以检查兼容性。",
         "help_language": "展开语言选择菜单。",
@@ -695,6 +706,10 @@ def api_key_status(provider: str, pcfg: dict) -> str:
         return "API key: set (NVIDIA)" if meaningful_key(read_env_file(NCP_ENV).get("NVIDIA_API_KEY")) else "API key: missing (NVIDIA required)"
     if provider == "anthropic":
         return "API key: set (Anthropic)" if meaningful_key(pcfg.get("api_key")) else "API key: not set (use API key or Claude login)"
+    if provider == "agy":
+        if pcfg.get("route_through_router"):
+            return "API key: not set (uses native AGY Google sign-in/keyring)"
+        return "API key: not set (uses native AGY Google sign-in/config)"
     if provider == "codex":
         if pcfg.get("route_through_router"):
             return "API key: not set (uses native Codex login/auth headers)"
@@ -734,6 +749,10 @@ def probe_base_url(provider: str, pcfg: dict) -> str:
         if pcfg.get("route_through_router"):
             return "Base URL: Codex routed through local router (/backend-api/codex)"
         return "Base URL: native Codex config (not overridden)"
+    if provider == "agy":
+        if pcfg.get("route_through_router"):
+            return "Base URL: AGY routed uses native upstream; Ciel routes channel/PTY wake only"
+        return "Base URL: native AGY config (not overridden)"
     if provider == "deepseek":
         return f"Base URL: DeepSeek Anthropic API configured ({base})"
     path = "/api/tags" if provider in ("ollama", "ollama-cloud") else "/v1/models"
@@ -790,13 +809,19 @@ def provider_choice_for_cfg(cfg: dict) -> str:
     pcfg = cfg.get("providers", {}).get(provider, {})
     if provider == "anthropic":
         return "anthropic:routed" if bool(pcfg.get("route_through_router", False)) else "anthropic:native"
+    if provider == "agy":
+        return "agy:routed" if bool(pcfg.get("route_through_router", False)) else "agy:native"
     if provider == "codex":
         return "codex:routed" if bool(pcfg.get("route_through_router", False)) else "codex:native"
     return provider
 
 
 def claude_launch_enabled(provider: str) -> bool:
-    return provider != "codex"
+    return provider not in ("agy", "codex")
+
+
+def agy_launch_enabled(provider: str) -> bool:
+    return provider == "agy"
 
 
 def codex_launch_enabled(provider: str) -> bool:
@@ -845,7 +870,7 @@ def is_ollama_provider(provider: str) -> bool:
 
 
 def has_provider_options(provider: str) -> bool:
-    return provider in ("anthropic", "codex", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek")
+    return provider in ("anthropic", "agy", "codex", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek")
 
 
 def ollama_ctx_text(pcfg: dict) -> str:
@@ -900,6 +925,8 @@ def provider_options_summary(provider: str, pcfg: dict) -> str:
 def provider_menu_label(provider: str, pcfg: dict) -> str:
     if provider == "anthropic":
         return "Anthropic routed" if bool(pcfg.get("route_through_router", False)) else "Claude Native"
+    if provider == "agy":
+        return "AGY Routed" if bool(pcfg.get("route_through_router", False)) else "AGY"
     if provider == "codex":
         return "Codex routed" if bool(pcfg.get("route_through_router", False)) else "Codex Native"
     return provider
@@ -908,8 +935,8 @@ def provider_menu_label(provider: str, pcfg: dict) -> str:
 def main_items() -> list[tuple[str, str]]:
     provider, pcfg = current_provider_cfg()
     lang = current_language()
-    model = "Codex default" if provider == "codex" and not pcfg.get("current_model") else pcfg.get("current_model", "unset")
-    advisor_model = "Claude Code native /advisor" if provider == "anthropic" else ("Codex native" if provider == "codex" else (pcfg.get("advisor_model") or "off"))
+    model = "AGY default" if provider == "agy" and not pcfg.get("current_model") else ("Codex default" if provider == "codex" and not pcfg.get("current_model") else pcfg.get("current_model", "unset"))
+    advisor_model = "Claude Code native /advisor" if provider == "anthropic" else ("AGY native" if provider == "agy" else ("Codex native" if provider == "codex" else (pcfg.get("advisor_model") or "off")))
     base = pcfg.get("base_url", "unset")
     rows: list[tuple[str, str]] = []
 
@@ -929,12 +956,17 @@ def main_items() -> list[tuple[str, str]]:
     add("test", t("test"))
     launch_label = t("launch")
     if not claude_launch_enabled(provider):
-        launch_label += " [disabled: Codex provider selected]"
+        family = "AGY" if provider == "agy" else "Codex" if provider == "codex" else provider_menu_label(provider, pcfg)
+        launch_label += f" [disabled: {family} provider selected]"
     add("launch", launch_label)
     launch_codex_label = t("launch_codex")
     if not codex_launch_enabled(provider):
         launch_codex_label += " [disabled: select Codex provider]"
     add("launch-codex", launch_codex_label)
+    launch_agy_label = t("launch_agy")
+    if not agy_launch_enabled(provider):
+        launch_agy_label += " [disabled: select AGY provider]"
+    add("launch-agy", launch_agy_label)
     rows.append(("quit", t("quit")))
     return rows
 
@@ -942,6 +974,8 @@ def main_items() -> list[tuple[str, str]]:
 def settings_ready_except_api_key() -> bool:
     provider, pcfg = current_provider_cfg()
     if provider == "codex":
+        return True
+    if provider == "agy":
         return True
     base = pcfg.get("base_url", "")
     model = pcfg.get("current_model", "")
@@ -951,6 +985,7 @@ def default_base_url(provider: str) -> str:
     return {
         "anthropic": "https://api.anthropic.com",
         "codex": "https://api.openai.com",
+        "agy": "https://antigravity.google",
         "ollama": "http://your-ollama:11434",
         "ollama-cloud": "https://ollama.com",
         "deepseek": "https://api.deepseek.com/anthropic",
@@ -978,6 +1013,7 @@ def help_for_action(action: str, sub_kind: str | None = None) -> str:
         return t("test_result")
     return {
         "launch": t("help_launch"),
+        "launch-agy": t("help_launch_agy"),
         "launch-codex": t("help_launch_codex"),
         "test": t("help_test"),
         "language": t("help_language"),
@@ -1613,6 +1649,8 @@ def index_for_action(action: str) -> int:
 
 
 def default_launch_action() -> str:
+    if agy_launch_enabled(current_provider()):
+        return "launch-agy"
     return "launch-codex" if codex_launch_enabled(current_provider()) else "launch"
 
 
@@ -1689,9 +1727,9 @@ def render(stdscr, idx: int, sub: dict | None, notice: list[str], checks: list[s
             break
         if i == idx and (sub is None or sub.get("readonly")):
             style = _style(reverse=True, bold=True)
-        elif key in ("launch", "launch-codex") and "disabled:" in label:
+        elif key in ("launch", "launch-codex", "launch-agy") and "disabled:" in label:
             style = _style(dim=True)
-        elif key in ("launch", "launch-codex"):
+        elif key in ("launch", "launch-codex", "launch-agy"):
             style = cp(2) + _style(bold=True)
         elif key == "test":
             style = cp(3) + _style(bold=True)
@@ -1820,7 +1858,7 @@ def main() -> int:
                 if action == "launch":
                     provider, pcfg = current_provider_cfg()
                     if not claude_launch_enabled(provider):
-                        notice = ["Launch Claude Code is disabled while a Codex provider is selected."]
+                        notice = [f"Launch Claude Code is disabled while {provider_menu_label(provider, pcfg)} provider is selected."]
                         sub = None
                         continue
                     if launch_requires_api_key(provider, pcfg):
@@ -1833,6 +1871,22 @@ def main() -> int:
                         sub = None
                         continue
                     return PRELAUNCH_LAUNCH_CLAUDE
+                if action == "launch-agy":
+                    provider, pcfg = current_provider_cfg()
+                    if not agy_launch_enabled(provider):
+                        notice = ["Launch AGY is disabled until you select AGY or AGY Routed as the provider."]
+                        sub = None
+                        continue
+                    if launch_requires_api_key(provider, pcfg):
+                        label = dict(PROVIDERS).get(provider, provider)
+                        notice = [
+                            f"Launch blocked: {label} requires an API key.",
+                            "Opening API key setup.",
+                        ]
+                        idx = index_for_action("api-key")
+                        sub = None
+                        continue
+                    return PRELAUNCH_LAUNCH_AGY
                 if action == "launch-codex":
                     provider, pcfg = current_provider_cfg()
                     if not codex_launch_enabled(provider):
@@ -2057,7 +2111,7 @@ def main() -> int:
         if action == "launch":
             provider, pcfg = current_provider_cfg()
             if not claude_launch_enabled(provider):
-                notice = ["Launch Claude Code is disabled while a Codex provider is selected."]
+                notice = [f"Launch Claude Code is disabled while {provider_menu_label(provider, pcfg)} provider is selected."]
                 continue
             if launch_requires_api_key(provider, pcfg):
                 label = dict(PROVIDERS).get(provider, provider)
@@ -2068,6 +2122,20 @@ def main() -> int:
                 idx = index_for_action("api-key")
                 continue
             return PRELAUNCH_LAUNCH_CLAUDE
+        if action == "launch-agy":
+            provider, pcfg = current_provider_cfg()
+            if not agy_launch_enabled(provider):
+                notice = ["Launch AGY is disabled until you select AGY or AGY Routed as the provider."]
+                continue
+            if launch_requires_api_key(provider, pcfg):
+                label = dict(PROVIDERS).get(provider, provider)
+                notice = [
+                    f"Launch blocked: {label} requires an API key.",
+                    "Opening API key setup.",
+                ]
+                idx = index_for_action("api-key")
+                continue
+            return PRELAUNCH_LAUNCH_AGY
         if action == "launch-codex":
             provider, pcfg = current_provider_cfg()
             if not codex_launch_enabled(provider):

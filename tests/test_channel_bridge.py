@@ -2329,6 +2329,84 @@ class ChannelBridgeTests(unittest.TestCase):
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("reason=stdin_wake_claimed" in item and "message_id=368" in item for item in log_messages))
 
+    def test_inject_pending_channel_messages_continues_past_queued_wake_when_nonblocking(self):
+        queued_prompt = (
+            "[AI-Net new messages]\n"
+            '• room_id2w78yhq8c8: 1 new (Kevin) → get_messages(room_id="room_id2w78yhq8c8", after_seq=42050)'
+        )
+        next_prompt = (
+            "[AI-Net new messages]\n"
+            '• room_id2w78yhq8c8: 1 new (Joy) → get_messages(room_id="room_id2w78yhq8c8", after_seq=42053)'
+        )
+        messages = [
+            {
+                "id": 616,
+                "channel": "ai-net-http",
+                "sender_id": "ai-net-http",
+                "message": queued_prompt,
+                "meta": {
+                    "mcp_server": "ai-net-http",
+                    "mcp_method": "notifications/claude/channel",
+                    "kind": "digest",
+                    "rooms": json.dumps([{"room_id": "room_id2w78yhq8c8", "message_ids": ["msg_old"]}]),
+                },
+            },
+            {
+                "id": 617,
+                "channel": "ai-net-http",
+                "sender_id": "ai-net-http",
+                "message": next_prompt,
+                "meta": {
+                    "mcp_server": "ai-net-http",
+                    "mcp_method": "notifications/claude/channel",
+                    "kind": "digest",
+                    "rooms": json.dumps([{"room_id": "room_id2w78yhq8c8", "message_ids": ["msg_next"]}]),
+                },
+            },
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            transcript = Path(td) / "session.jsonl"
+            transcript.write_text(
+                json.dumps(
+                    {
+                        "type": "queue-operation",
+                        "operation": "enqueue",
+                        "content": "\x15" + queued_prompt,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            claims_path = Path(td) / "claims.json"
+            injected: list[int] = []
+            with (
+                mock.patch.object(ciel_runtime, "CHANNEL_STDIN_WAKE_CLAIMS_PATH", claims_path),
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript),
+                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+                mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
+            ):
+                last_id = ciel_runtime._inject_pending_channel_messages(
+                    99,
+                    615,
+                    wake_for_llm_delivery=True,
+                    commit_cursor=False,
+                    injected_message_ids=injected,
+                    skip_blocking_wake_states=True,
+                )
+
+        self.assertEqual(616, last_id)
+        self.assertEqual([617], injected)
+        self.assertEqual(2, write_all.call_count)
+        wake_text = write_all.call_args_list[0].args[1].decode("utf-8", errors="replace")
+        self.assertNotIn("after_seq=42050", wake_text)
+        self.assertIn("after_seq=42053", wake_text)
+        commit_cursor.assert_not_called()
+        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
+        self.assertTrue(any("reason=stdin_wake_queued_continue" in item and "message_id=616" in item for item in log_messages))
+
     def test_inject_pending_channel_messages_skips_stale_queued_and_injects_next(self):
         stale_prompt = (
             "[AI-Net new messages]\n"
@@ -2751,11 +2829,19 @@ class ChannelBridgeTests(unittest.TestCase):
                 channel_inflight_id=None,
             )
         )
-        self.assertFalse(
+        self.assertTrue(
             ciel_runtime._channel_stdin_should_check_pending(
                 marker,
                 marker,
                 force_recheck=True,
+                channel_inflight_id=3807,
+            )
+        )
+        self.assertTrue(
+            ciel_runtime._channel_stdin_should_check_pending(
+                (124.0, 456),
+                marker,
+                force_recheck=False,
                 channel_inflight_id=3807,
             )
         )

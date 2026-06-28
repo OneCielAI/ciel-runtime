@@ -13,6 +13,7 @@ import json
 import math
 import mimetypes
 import os
+import platform
 import queue
 import re
 import select
@@ -22,6 +23,8 @@ import shutil
 import socket
 import subprocess
 import sys
+import tarfile
+import tempfile
 import threading
 import time
 import unicodedata
@@ -36,6 +39,7 @@ from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, Iterable
 
 from ciel_runtime_support.agent_router import missing_common_capabilities, router_capability_matrix
+from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
 from ciel_runtime_support.claude_router import ClaudeRouter
 from ciel_runtime_support.codex_cli import codex_passthrough_args_for_launch, codex_passthrough_has_command
 from ciel_runtime_support.codex_router import CodexRouter
@@ -86,8 +90,14 @@ def ciel_runtime_user_bin_dir() -> Path:
     return HOME / ".local" / "bin"
 
 
+def agy_user_bin_dir() -> Path:
+    if os.name == "nt":
+        return windows_local_appdata_root() / "agy" / "bin"
+    return HOME / ".local" / "bin"
+
+
 def path_with_ciel_runtime_user_dirs(env: dict[str, str]) -> str:
-    dirs = [ciel_runtime_user_bin_dir()]
+    dirs = [ciel_runtime_user_bin_dir(), agy_user_bin_dir()]
     if os.name == "nt":
         appdata = env.get("APPDATA") or os.environ.get("APPDATA")
         if appdata:
@@ -242,6 +252,11 @@ PROVIDER_ALIASES = {
     "claude-native": "anthropic",
     "native": "anthropic",
     "claude-code": "anthropic",
+    "agy": "agy",
+    "antigravity": "agy",
+    "google-antigravity": "agy",
+    "agy-native": "agy",
+    "native-agy": "agy",
     "codex": "codex",
     "codex-native": "codex",
     "native-codex": "codex",
@@ -298,6 +313,7 @@ PROVIDER_ALIASES = {
 
 PROVIDER_LABELS = {
     "anthropic": "Claude Native",
+    "agy": "AGY",
     "codex": "Codex Native",
     "ollama": "Ollama",
     "ollama-cloud": "Ollama Cloud",
@@ -316,6 +332,8 @@ PROVIDER_LABELS = {
 
 ANTHROPIC_NATIVE_PROVIDER_CHOICE = "anthropic:native"
 ANTHROPIC_ROUTED_PROVIDER_CHOICE = "anthropic:routed"
+AGY_NATIVE_PROVIDER_CHOICE = "agy:native"
+AGY_ROUTED_PROVIDER_CHOICE = "agy:routed"
 CODEX_NATIVE_PROVIDER_CHOICE = "codex:native"
 CODEX_ROUTED_PROVIDER_CHOICE = "codex:routed"
 
@@ -514,6 +532,7 @@ CREDITS = "Credits: One Ciel LLC"
 PRELAUNCH_CANCEL = 10
 PRELAUNCH_LAUNCH_CODEX = 11
 PRELAUNCH_LAUNCH_CLAUDE = 12
+PRELAUNCH_LAUNCH_AGY = 13
 
 LOG_LEVELS = {"SILENT": 0, "ERROR": 1, "WARN": 2, "INFO": 3, "DEBUG": 4, "TRACE": 5}
 LOG_LEVEL_NAMES = {v: k for k, v in LOG_LEVELS.items()}
@@ -1854,6 +1873,7 @@ UI_TEXT = {
         "recommended_preset_is": "recommended preset is",
         "back": "Back",
         "launch": "Launch Claude Code",
+        "launch_agy": "Launch AGY",
         "launch_codex": "Launch Codex",
         "quit": "Quit",
         "title": "ciel-runtime pre-launch",
@@ -1878,6 +1898,7 @@ UI_TEXT = {
         "recommended_preset_is": "추천 프리셋",
         "back": "뒤로",
         "launch": "Claude Code 실행",
+        "launch_agy": "AGY 실행",
         "launch_codex": "Codex 실행",
         "quit": "종료",
         "title": "ciel-runtime 실행 전 설정",
@@ -1902,6 +1923,7 @@ UI_TEXT = {
         "recommended_preset_is": "推奨プリセット",
         "back": "戻る",
         "launch": "Claude Codeを起動",
+        "launch_agy": "AGYを起動",
         "launch_codex": "Codexを起動",
         "quit": "終了",
         "title": "ciel-runtime 起動前設定",
@@ -1926,6 +1948,7 @@ UI_TEXT = {
         "recommended_preset_is": "推荐预设",
         "back": "返回",
         "launch": "启动 Claude Code",
+        "launch_agy": "启动 AGY",
         "launch_codex": "启动 Codex",
         "quit": "退出",
         "title": "ciel-runtime 启动前设置",
@@ -1943,6 +1966,10 @@ PROVIDER_NOTES = {
         "anthropic": [
             "Anthropic: uses Claude Code's native Anthropic connection.",
             "Set an Anthropic API key here, or run `claude /login` separately to use your Claude account login.",
+        ],
+        "agy": [
+            "AGY: uses Google Antigravity CLI's native sign-in and settings.",
+            "AGY routed currently adds Ciel Runtime channel/PTY wake support; it does not override AGY model upstream traffic.",
         ],
         "ollama": [
             "Ollama: uses your local Ollama daemon; API key is normally not required.",
@@ -1974,6 +2001,10 @@ PROVIDER_NOTES = {
             "Anthropic: Claude Code의 기본 Anthropic 연결을 사용합니다.",
             "여기에 Anthropic API key를 넣거나, 별도로 `claude /login`을 실행해 Claude 계정 로그인을 사용하세요.",
         ],
+        "agy": [
+            "AGY: Google Antigravity CLI의 기본 로그인과 설정을 사용합니다.",
+            "AGY routed는 현재 Ciel Runtime channel/PTY wake 보조 기능을 붙이는 모드이며 AGY 모델 upstream 트래픽을 바꾸지는 않습니다.",
+        ],
         "ollama": [
             "Ollama: 로컬 Ollama 데몬을 사용합니다. 일반 로컬 모델은 API key가 필요 없습니다.",
             "로컬 Ollama로 :cloud 모델을 쓰려면 Ollama가 실행되는 호스트에서 `ollama signin`이 필요합니다.",
@@ -2004,6 +2035,10 @@ PROVIDER_NOTES = {
             "Anthropic: Claude CodeのネイティブAnthropic接続を使います。",
             "ここでAnthropic API keyを設定するか、別途`claude /login`を実行してClaudeアカウントログインを使ってください。",
         ],
+        "agy": [
+            "AGY: Google Antigravity CLIのネイティブサインインと設定を使います。",
+            "AGY routedは現時点でCiel Runtime channel/PTY wake補助を追加し、AGYのモデルupstream trafficは上書きしません。",
+        ],
         "ollama": [
             "Ollama: ローカルのOllama daemonを使います。通常のローカルモデルではAPI keyは不要です。",
             "ローカルOllama経由で:cloudモデルを使うには、Ollamaホストで`ollama signin`が必要です。",
@@ -2033,6 +2068,10 @@ PROVIDER_NOTES = {
         "anthropic": [
             "Anthropic: 使用Claude Code原生Anthropic连接。",
             "可在此设置Anthropic API key，或另行运行`claude /login`使用Claude账号登录。",
+        ],
+        "agy": [
+            "AGY: 使用 Google Antigravity CLI 原生登录和设置。",
+            "AGY routed 当前添加 Ciel Runtime channel/PTY wake 辅助，不覆盖 AGY 模型 upstream 流量。",
         ],
         "ollama": [
             "Ollama: 使用本地Ollama daemon；普通本地模型通常不需要API key。",
@@ -2104,6 +2143,15 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "advisor_model": "",
             "custom_models": [],
             "route_through_router": False,
+        },
+        "agy": {
+            "base_url": "https://antigravity.google",
+            "api_key": "",
+            "current_model": "",
+            "advisor_model": "",
+            "custom_models": [],
+            "route_through_router": False,
+            "request_timeout_ms": DEFAULT_REQUEST_TIMEOUT_MS,
         },
         "codex": {
             "base_url": "https://api.openai.com",
@@ -2651,6 +2699,15 @@ def normalize_provider_choice(name: str) -> str | None:
         "anthropic-router": ANTHROPIC_ROUTED_PROVIDER_CHOICE,
         "claude-routed": ANTHROPIC_ROUTED_PROVIDER_CHOICE,
         "claude-router": ANTHROPIC_ROUTED_PROVIDER_CHOICE,
+        "agy": AGY_NATIVE_PROVIDER_CHOICE,
+        "agy-native": AGY_NATIVE_PROVIDER_CHOICE,
+        "native-agy": AGY_NATIVE_PROVIDER_CHOICE,
+        "antigravity": AGY_NATIVE_PROVIDER_CHOICE,
+        "google-antigravity": AGY_NATIVE_PROVIDER_CHOICE,
+        "agy-routed": AGY_ROUTED_PROVIDER_CHOICE,
+        "agy-router": AGY_ROUTED_PROVIDER_CHOICE,
+        "routed-agy": AGY_ROUTED_PROVIDER_CHOICE,
+        "antigravity-routed": AGY_ROUTED_PROVIDER_CHOICE,
         "codex": CODEX_NATIVE_PROVIDER_CHOICE,
         "codex-native": CODEX_NATIVE_PROVIDER_CHOICE,
         "native-codex": CODEX_NATIVE_PROVIDER_CHOICE,
@@ -2658,7 +2715,14 @@ def normalize_provider_choice(name: str) -> str | None:
         "codex-router": CODEX_ROUTED_PROVIDER_CHOICE,
         "routed-codex": CODEX_ROUTED_PROVIDER_CHOICE,
     }
-    if raw in (ANTHROPIC_NATIVE_PROVIDER_CHOICE, ANTHROPIC_ROUTED_PROVIDER_CHOICE, CODEX_NATIVE_PROVIDER_CHOICE, CODEX_ROUTED_PROVIDER_CHOICE):
+    if raw in (
+        ANTHROPIC_NATIVE_PROVIDER_CHOICE,
+        ANTHROPIC_ROUTED_PROVIDER_CHOICE,
+        AGY_NATIVE_PROVIDER_CHOICE,
+        AGY_ROUTED_PROVIDER_CHOICE,
+        CODEX_NATIVE_PROVIDER_CHOICE,
+        CODEX_ROUTED_PROVIDER_CHOICE,
+    ):
         return raw
     return choices.get(key)
 
@@ -2978,7 +3042,7 @@ def executable_candidates(name: str) -> list[str]:
 
 
 def executable_extra_dirs() -> list[Path]:
-    dirs = [ciel_runtime_user_bin_dir()]
+    dirs = [ciel_runtime_user_bin_dir(), agy_user_bin_dir()]
     for env_name in ("UV_INSTALL_DIR", "CARGO_HOME"):
         root = os.environ.get(env_name)
         if root:
@@ -7467,6 +7531,18 @@ def direct_native_anthropic_enabled(provider: str, pcfg: dict[str, Any]) -> bool
     return native_anthropic_enabled(provider) and not anthropic_routed_enabled(provider, pcfg)
 
 
+def native_agy_enabled(provider: str) -> bool:
+    return provider == "agy"
+
+
+def agy_routed_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
+    return provider == "agy" and parse_bool(pcfg.get("route_through_router"), default=False)
+
+
+def direct_native_agy_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
+    return native_agy_enabled(provider) and not agy_routed_enabled(provider, pcfg)
+
+
 def native_codex_enabled(provider: str) -> bool:
     return provider == "codex"
 
@@ -7483,6 +7559,11 @@ def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool 
     cached = None if force_refresh else read_model_list_cache(provider, pcfg)
     if cached is not None:
         return cached
+    if provider == "agy":
+        ids = unique_model_ids(provider, [*(pcfg.get("custom_models", []) or []), pcfg.get("current_model") or ""])
+        if ids:
+            write_model_list_cache(provider, pcfg, ids)
+        return ids
     if provider == "deepseek":
         ids = unique_model_ids(provider, [
             "deepseek-v4-pro[1m]",
@@ -19749,6 +19830,8 @@ def set_provider_config(provider: str) -> list[str]:
     pcfg = cfg["providers"][provider]
     if provider == "anthropic":
         pcfg["route_through_router"] = False
+    if provider == "agy":
+        pcfg["route_through_router"] = False
     if provider == "codex":
         pcfg["route_through_router"] = False
     fixed_base = ensure_nvidia_hosted_base_url(pcfg) if provider == "nvidia-hosted" else False
@@ -19757,6 +19840,8 @@ def set_provider_config(provider: str) -> list[str]:
     lines = [f"Provider set to {provider} ({PROVIDER_LABELS[provider]})."]
     if provider == "anthropic":
         lines.append("mode: anthropic-native")
+    if provider == "agy":
+        lines.append("mode: agy-native")
     if provider == "codex":
         lines.append("mode: codex-native")
     if fixed_base:
@@ -19786,6 +19871,24 @@ def set_provider_choice_config(choice: str) -> list[str]:
             "Provider set to anthropic (Claude Native).",
             "mode: anthropic-native",
             "Claude Code OAuth/Max can be used directly, but ciel-runtime router features such as /advisor are unavailable.",
+        ]
+    if normalized_choice in (AGY_NATIVE_PROVIDER_CHOICE, AGY_ROUTED_PROVIDER_CHOICE):
+        cfg["current_provider"] = "agy"
+        pcfg = cfg["providers"]["agy"]
+        routed = normalized_choice == AGY_ROUTED_PROVIDER_CHOICE
+        pcfg["route_through_router"] = routed
+        save_config(cfg)
+        clear_model_cache()
+        if routed:
+            return [
+                "Provider set to agy (AGY routed).",
+                "mode: agy-routed",
+                "AGY uses native Google Antigravity auth/settings; Ciel Runtime adds channel/PTY wake support only.",
+            ]
+        return [
+            "Provider set to agy (AGY).",
+            "mode: agy-native",
+            "AGY runs with its own native settings; Ciel Runtime router features are unavailable.",
         ]
     if normalized_choice in (CODEX_NATIVE_PROVIDER_CHOICE, CODEX_ROUTED_PROVIDER_CHOICE):
         cfg["current_provider"] = "codex"
@@ -20236,6 +20339,10 @@ def provider_mode_label(provider: str, pcfg: dict[str, Any]) -> str:
         return "anthropic-native"
     if anthropic_routed_enabled(provider, pcfg):
         return "anthropic-routed"
+    if direct_native_agy_enabled(provider, pcfg):
+        return "agy-native"
+    if agy_routed_enabled(provider, pcfg):
+        return "agy-routed"
     if direct_native_codex_enabled(provider, pcfg):
         return "codex-native"
     if codex_routed_enabled(provider, pcfg):
@@ -20265,7 +20372,7 @@ def status_lines() -> list[str]:
         *([f"max_output_tokens: {pcfg.get('max_output_tokens', 'default')}"] if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai") else []),
         *([f"request_timeout_ms: {pcfg.get('request_timeout_ms', 'default')}"] if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai") else []),
         *([f"stream_idle_timeout_ms: {pcfg.get('stream_idle_timeout_ms', 'auto')}"] if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai") else []),
-        f"claude_model: {'disabled for Codex provider' if provider == 'codex' else (current_upstream_model_id(provider, pcfg) if direct_native else current_alias(cfg))}",
+        f"claude_model: {'disabled for native runtime provider' if provider in ('agy', 'codex') else (current_upstream_model_id(provider, pcfg) if direct_native else current_alias(cfg))}",
         f"log_level: {log_level_status()}",
         f"channels: {channel_status_text(cfg)}",
         f"channel_delivery: {channel_delivery_mode(cfg)}",
@@ -22632,7 +22739,7 @@ def cmd_ollama_options(args: argparse.Namespace) -> None:
     print("  ciel-runtime --ca-ollama-option temperature=0.7 --ca-ollama-num-ctx 65536")
 
 
-PROVIDER_OPTION_PROVIDERS = ("anthropic", "codex", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai")
+PROVIDER_OPTION_PROVIDERS = ("anthropic", "agy", "codex", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai")
 PROVIDER_SAMPLING_OPTION_PROVIDERS = ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "openrouter")
 PROVIDER_SAMPLING_OPTIONS = ("temperature", "top_p", "top_k")
 
@@ -22706,6 +22813,10 @@ def provider_options_status(provider: str, pcfg: dict[str, Any]) -> str:
         parts.append(f"endpoint_overrides={count}")
     if provider == "anthropic":
         parts.append(f"routed={'on' if anthropic_routed_enabled(provider, pcfg) else 'off'}")
+    elif provider == "agy":
+        parts.append(f"routed={'on' if agy_routed_enabled(provider, pcfg) else 'off'}")
+    elif provider == "codex":
+        parts.append(f"routed={'on' if codex_routed_enabled(provider, pcfg) else 'off'}")
     elif provider in PROVIDER_OPTION_PROVIDERS:
         parts.append(f"tool_choice={provider_tool_choice_status(provider, pcfg)}")
     forced_query = str(pcfg.get("force_query_string") or "").strip()
@@ -25010,6 +25121,9 @@ def llm_option_panel_rows(provider: str, pcfg: dict[str, Any], lang: str | None 
             add("Timeout ms", "request_timeout_ms", pcfg.get("request_timeout_ms", "Claude Code default"))
             if anthropic_routed_enabled(provider, pcfg):
                 add("IP family", "ip_family", provider_ip_family(provider, pcfg))
+        elif provider == "agy":
+            add("Route through router", "route_through_router", "on" if agy_routed_enabled(provider, pcfg) else "off")
+            add("Timeout ms", "request_timeout_ms", pcfg.get("request_timeout_ms", "AGY default"))
         elif provider == "codex":
             add("Route through router", "route_through_router", "on" if codex_routed_enabled(provider, pcfg) else "off")
             add("Timeout ms", "request_timeout_ms", pcfg.get("request_timeout_ms", "Codex default"))
@@ -25023,6 +25137,10 @@ def llm_option_prompt_default(provider: str, pcfg: dict[str, Any], key: str) -> 
     if key == "router_debug_external_access":
         return "true" if router_debug_external_access_enabled() else "false"
     if key == "route_through_router":
+        if provider == "agy":
+            return "true" if agy_routed_enabled(provider, pcfg) else "false"
+        if provider == "codex":
+            return "true" if codex_routed_enabled(provider, pcfg) else "false"
         return "true" if anthropic_routed_enabled(provider, pcfg) else "false"
     if key == "router_debug_message_preview_chars":
         return str(router_debug_message_preview_chars())
@@ -25081,6 +25199,9 @@ def set_llm_option_config(provider: str, key: str, raw_value: str) -> list[str]:
         pcfg["route_through_router"] = parse_bool(value, default=False)
         save_config(cfg)
         clear_model_cache()
+        if provider == "agy":
+            mode = "agy-routed" if pcfg["route_through_router"] else "agy-native"
+            return ["AGY routing mode updated.", f"mode: {mode}"]
         if provider == "codex":
             mode = "codex-routed" if pcfg["route_through_router"] else "codex-native"
             return ["Codex routing mode updated.", f"mode: {mode}"]
@@ -27109,6 +27230,10 @@ def cleanup_managed_services_for_provider(provider: str, pcfg: dict[str, Any], c
         stop_router_if_no_active_clients("native_codex_launch", quiet=quiet)
         stop_ncp_proxy(quiet=quiet)
         return
+    if direct_native_agy_enabled(provider, pcfg):
+        stop_router_if_no_active_clients("native_agy_launch", quiet=quiet)
+        stop_ncp_proxy(quiet=quiet)
+        return
     if not cfg.get("cleanup", {}).get("managed_services_on_launch", True):
         return
     if provider != "nvidia-hosted" or provider_native_compat_enabled(provider, pcfg):
@@ -27118,6 +27243,7 @@ def cleanup_managed_services_for_provider(provider: str, pcfg: dict[str, Any], c
 def default_base_url(provider: str) -> str:
     return {
         "anthropic": "https://api.anthropic.com",
+        "agy": "https://antigravity.google",
         "codex": "https://api.openai.com",
         "ollama": "http://your-ollama:11434",
         "ollama-cloud": "https://ollama.com",
@@ -27156,6 +27282,10 @@ def api_key_status_line(provider: str, pcfg: dict[str, Any]) -> str:
         if key_count > 1:
             return f"API keys: {round_robin} (Anthropic{primary_detail})"
         return f"API key: set (Anthropic{primary_detail})" if key_count else "API key: not set (use API key or Claude login)"
+    if provider == "agy":
+        if agy_routed_enabled(provider, pcfg):
+            return "API key: not set (uses native AGY Google sign-in/keyring)"
+        return "API key: not set (uses native AGY Google sign-in/config)"
     if provider == "codex":
         if codex_routed_enabled(provider, pcfg):
             if key_count > 1:
@@ -27212,6 +27342,10 @@ def base_url_status_line(provider: str, pcfg: dict[str, Any]) -> str:
         if codex_routed_enabled(provider, pcfg):
             return f"Base URL: Codex routed through local router ({ROUTER_BASE}/backend-api/codex)"
         return "Base URL: native Codex config (ciel-runtime does not override it)"
+    if provider == "agy":
+        if agy_routed_enabled(provider, pcfg):
+            return "Base URL: AGY routed uses native Antigravity model upstream; Ciel routes channel/PTY wake only"
+        return "Base URL: native AGY config (ciel-runtime does not override it)"
     if provider == "nvidia-hosted":
         if nvidia_hosted_native_compat_enabled(provider, pcfg):
             return f"Base URL: NVIDIA hosted native ({native_anthropic_base_url(provider, pcfg)}/v1/messages)"
@@ -27312,7 +27446,7 @@ def preflight_lines() -> list[str]:
 def launch_readiness_errors(cfg: dict[str, Any] | None = None) -> list[str]:
     cfg = cfg or load_config()
     provider, pcfg = get_current_provider(cfg)
-    if direct_native_anthropic_enabled(provider, pcfg) or native_codex_enabled(provider):
+    if direct_native_anthropic_enabled(provider, pcfg) or native_agy_enabled(provider) or native_codex_enabled(provider):
         return []
     status = base_url_status_line(provider, pcfg)
     low = status.lower()
@@ -27677,6 +27811,8 @@ def compact_text(value: Any, width: int = 72) -> str:
 def provider_menu_label(provider: str, pcfg: dict[str, Any]) -> str:
     if provider == "anthropic":
         return "Anthropic routed" if anthropic_routed_enabled(provider, pcfg) else "Claude Native"
+    if provider == "agy":
+        return "AGY Routed" if agy_routed_enabled(provider, pcfg) else "AGY"
     if provider == "codex":
         return "Codex routed" if codex_routed_enabled(provider, pcfg) else "Codex Native"
     return PROVIDER_LABELS.get(provider, provider)
@@ -27685,6 +27821,8 @@ def provider_menu_label(provider: str, pcfg: dict[str, Any]) -> str:
 def current_provider_panel_choice(provider: str, pcfg: dict[str, Any]) -> str:
     if provider == "anthropic":
         return ANTHROPIC_ROUTED_PROVIDER_CHOICE if anthropic_routed_enabled(provider, pcfg) else ANTHROPIC_NATIVE_PROVIDER_CHOICE
+    if provider == "agy":
+        return AGY_ROUTED_PROVIDER_CHOICE if agy_routed_enabled(provider, pcfg) else AGY_NATIVE_PROVIDER_CHOICE
     if provider == "codex":
         return CODEX_ROUTED_PROVIDER_CHOICE if codex_routed_enabled(provider, pcfg) else CODEX_NATIVE_PROVIDER_CHOICE
     return provider
@@ -27702,12 +27840,17 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "test",
     "launch",
     "launch-codex",
+    "launch-agy",
     "quit",
 )
 
 
 def claude_launch_enabled_for_provider(provider: str) -> bool:
-    return provider != "codex"
+    return provider not in ("agy", "codex")
+
+
+def agy_launch_enabled_for_provider(provider: str) -> bool:
+    return provider == "agy"
 
 
 def codex_launch_enabled_for_provider(provider: str) -> bool:
@@ -27715,6 +27858,8 @@ def codex_launch_enabled_for_provider(provider: str) -> bool:
 
 
 def default_prelaunch_action(provider: str) -> str:
+    if agy_launch_enabled_for_provider(provider):
+        return "launch-agy"
     return "launch-codex" if codex_launch_enabled_for_provider(provider) else "launch"
 
 
@@ -27726,15 +27871,25 @@ def prelaunch_action_index(action: str) -> int:
 
 
 def main_menu_rows(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any], lang: str) -> list[str]:
-    model_text = "Codex default" if provider == "codex" and not pcfg.get("current_model") else compact_text(pcfg.get("current_model", "unset"), 62)
+    model_text = (
+        "AGY default"
+        if provider == "agy" and not pcfg.get("current_model")
+        else "Codex default"
+        if provider == "codex" and not pcfg.get("current_model")
+        else compact_text(pcfg.get("current_model", "unset"), 62)
+    )
     advisor_text = (
         "Claude Code native /advisor"
         if provider == "anthropic"
-        else ("Codex native" if provider == "codex" else compact_text(pcfg.get("advisor_model") or "off", 62))
+        else ("AGY native" if provider == "agy" else ("Codex native" if provider == "codex" else compact_text(pcfg.get("advisor_model") or "off", 62)))
     )
     launch_label = ui_text("launch", lang)
     if not claude_launch_enabled_for_provider(provider):
-        launch_label += " [disabled: Codex provider selected]"
+        family = "AGY" if provider == "agy" else "Codex" if provider == "codex" else provider_menu_label(provider, pcfg)
+        launch_label += f" [disabled: {family} provider selected]"
+    launch_agy_label = ui_text("launch_agy", lang)
+    if not agy_launch_enabled_for_provider(provider):
+        launch_agy_label += " [disabled: select AGY provider]"
     launch_codex_label = ui_text("launch_codex", lang)
     if not codex_launch_enabled_for_provider(provider):
         launch_codex_label += " [disabled: select Codex provider]"
@@ -27750,6 +27905,7 @@ def main_menu_rows(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any], lan
         f"8. {ui_text('test', lang)}",
         f"9. {launch_label}",
         f"10. {launch_codex_label}",
+        f"11. {launch_agy_label}",
         ui_text("quit", lang),
     ]
 
@@ -27778,6 +27934,13 @@ def provider_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
                     ANTHROPIC_ROUTED_PROVIDER_CHOICE,
                 )
             )
+            continue
+        if key == "agy":
+            routed = agy_routed_enabled(key, pcfg)
+            native_mark = "*" if current == key and not routed else " "
+            routed_mark = "*" if current == key and routed else " "
+            entries.append(("AGY", f"{native_mark} {'AGY':<16} {'agy-native':<17} native Antigravity settings", AGY_NATIVE_PROVIDER_CHOICE))
+            entries.append(("AGY Routed", f"{routed_mark} {'AGY Routed':<16} {'agy-routed':<17} channel/PTY wake support", AGY_ROUTED_PROVIDER_CHOICE))
             continue
         if key == "codex":
             routed = codex_routed_enabled(key, pcfg)
@@ -29033,7 +29196,8 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                     cfg = load_config()
                     provider, _ = get_current_provider(cfg)
                     if not claude_launch_enabled_for_provider(provider):
-                        messages = ["Launch Claude Code is disabled while a Codex provider is selected."]
+                        provider_label = provider_menu_label(provider, cfg.get("providers", {}).get(provider, {}))
+                        messages = [f"Launch Claude Code is disabled while {provider_label} provider is selected."]
                         refresh_checks()
                         continue
                     blockers = launch_readiness_errors()
@@ -29053,6 +29217,19 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                         refresh_checks()
                         continue
                     return PRELAUNCH_LAUNCH_CLAUDE
+                if action == "launch-agy":
+                    cfg = load_config()
+                    provider, _ = get_current_provider(cfg)
+                    if not agy_launch_enabled_for_provider(provider):
+                        messages = ["Launch AGY is disabled until you select AGY or AGY Routed as the provider."]
+                        refresh_checks()
+                        continue
+                    blockers = launch_readiness_errors()
+                    if blockers:
+                        messages = blockers
+                        refresh_checks()
+                        continue
+                    return PRELAUNCH_LAUNCH_AGY
                 if action == "launch-codex":
                     cfg = load_config()
                     provider, _ = get_current_provider(cfg)
@@ -33042,8 +33219,6 @@ def _channel_stdin_should_check_pending(
     force_recheck: bool,
     channel_inflight_id: int | None,
 ) -> bool:
-    if channel_inflight_id is not None:
-        return False
     return force_recheck or marker != last_marker
 
 
@@ -33060,6 +33235,7 @@ def _inject_pending_channel_messages(
     confirm_submit: bool = False,
     bracketed_paste: bool = False,
     submit_delay_seconds: float | None = None,
+    skip_blocking_wake_states: bool = False,
 ) -> int:
     with _CHANNEL_STDIN_INJECT_LOCK:
         if _channel_stdin_active_tool_call():
@@ -33133,6 +33309,12 @@ def _inject_pending_channel_messages(
                     f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=stdin_wake_completed",
                 )
                 continue
+            if skip_blocking_wake_states and wake_state == "missing" and _channel_stdin_wake_claim_prompt(message_id):
+                router_log(
+                    "INFO",
+                    f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=stdin_wake_claimed_continue",
+                )
+                continue
             if wake_state in {"pending", "queued"}:
                 if wake_state == "queued" and _channel_stdin_wake_queued_is_stale_for_message(message, message_prompt):
                     with _CHANNEL_STDIN_WAKE_LOCK:
@@ -33144,6 +33326,12 @@ def _inject_pending_channel_messages(
                     router_log(
                         "WARN",
                         f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=stale_queued_wake",
+                    )
+                    continue
+                if skip_blocking_wake_states:
+                    router_log(
+                        "INFO",
+                        f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=stdin_wake_{wake_state}_continue",
                     )
                     continue
                 router_log(
@@ -33621,6 +33809,7 @@ def subprocess_call_with_channel_wake_proxy(
                             confirm_submit=channel_wake_confirm_submit,
                             bracketed_paste=channel_wake_bracketed_paste,
                             submit_delay_seconds=channel_wake_submit_delay_seconds,
+                            skip_blocking_wake_states=channel_inflight_id is not None,
                         )
                         if injected_ids:
                             channel_inflight_id = injected_ids[-1]
@@ -35651,6 +35840,15 @@ def quiet_upgrade_codex() -> int:
     return rc
 
 
+def quiet_upgrade_agy() -> int:
+    agy = find_executable("agy")
+    if not agy:
+        agy = install_agy_if_missing()
+        return 0 if agy else 1
+    updated = run_agy_update_check(agy, enabled=True)
+    return 0 if updated else 1
+
+
 def install_claude_code_if_missing() -> str | None:
     package_spec = os.environ.get("CIEL_RUNTIME_CLAUDE_CODE_PACKAGE", "@anthropic-ai/claude-code@latest")
     return install_runtime_package_if_missing(
@@ -35684,11 +35882,167 @@ def run_codex_update_check(codex: str, enabled: bool = True) -> str:
     )
 
 
+AGY_MANIFEST_BASE_URL = "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app"
+
+
+def agy_manifest_name() -> str:
+    machine = platform.machine().lower()
+    arch = "arm64" if machine in ("arm64", "aarch64") else "amd64"
+    if os.name == "nt":
+        platform_name = "windows"
+    elif sys.platform == "darwin":
+        platform_name = "darwin"
+    else:
+        platform_name = "linux"
+    return f"{platform_name}_{arch}.json"
+
+
+def agy_manifest_url() -> str:
+    override = str(os.environ.get("CIEL_RUNTIME_AGY_MANIFEST_URL") or "").strip()
+    if override:
+        return override
+    return f"{AGY_MANIFEST_BASE_URL}/manifests/{agy_manifest_name()}"
+
+
+def agy_download_file(url: str, target: Path, timeout: float = 120.0) -> None:
+    with urllib.request.urlopen(url, timeout=timeout) as resp, target.open("wb") as out:
+        shutil.copyfileobj(resp, out)
+
+
+def agy_latest_manifest(timeout: float = 15.0) -> dict[str, Any] | None:
+    try:
+        with urllib.request.urlopen(agy_manifest_url(), timeout=timeout) as resp:
+            data = json.loads(resp.read(65536).decode("utf-8", errors="replace"))
+        if isinstance(data, dict) and data.get("url") and data.get("version"):
+            return data
+    except Exception as exc:
+        print(f"AGY manifest check failed ({type(exc).__name__}); continuing.", flush=True)
+    return None
+
+
+def agy_current_version(agy: str) -> str:
+    try:
+        proc = subprocess.run(
+            [agy, "--version"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=8,
+        )
+    except Exception:
+        return ""
+    if proc.returncode != 0:
+        return ""
+    match = re.search(r"\d+(?:\.\d+)+(?:[-+][A-Za-z0-9_.-]+)?", proc.stdout or "")
+    return match.group(0) if match else (proc.stdout or "").strip()
+
+
+def verify_sha512(path: Path, expected: str) -> bool:
+    expected = str(expected or "").strip().lower()
+    if not expected:
+        return True
+    digest = hashlib.sha512()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest().lower() == expected
+
+
+def install_agy_from_manifest(manifest: dict[str, Any]) -> str | None:
+    url = str(manifest.get("url") or "").strip()
+    version = str(manifest.get("version") or "").strip()
+    sha512 = str(manifest.get("sha512") or "").strip()
+    if not url:
+        print("AGY install failed: manifest did not include a download URL.", flush=True)
+        return None
+    install_dir = agy_user_bin_dir()
+    install_dir.mkdir(parents=True, exist_ok=True)
+    exe_name = "agy.exe" if os.name == "nt" else "agy"
+    target = install_dir / exe_name
+    suffix = ".exe" if os.name == "nt" else ".tar.gz"
+    with tempfile.TemporaryDirectory(prefix="ciel-runtime-agy-") as td:
+        download = Path(td) / f"agy{suffix}"
+        print(f"Downloading AGY {version or 'latest'} from Google official manifest...", flush=True)
+        agy_download_file(url, download)
+        if not verify_sha512(download, sha512):
+            print("AGY install failed: sha512 verification did not match manifest.", flush=True)
+            return None
+        if os.name == "nt":
+            shutil.copy2(download, target)
+        else:
+            with tarfile.open(download, "r:gz") as archive:
+                member = next((item for item in archive.getmembers() if Path(item.name).name == "agy" and item.isfile()), None)
+                if member is None:
+                    member = next((item for item in archive.getmembers() if item.isfile()), None)
+                if member is None:
+                    print("AGY install failed: archive did not contain an executable file.", flush=True)
+                    return None
+                extracted = archive.extractfile(member)
+                if extracted is None:
+                    print("AGY install failed: could not extract executable from archive.", flush=True)
+                    return None
+                with target.open("wb") as out:
+                    shutil.copyfileobj(extracted, out)
+            target.chmod(target.stat().st_mode | 0o755)
+    try:
+        subprocess.run([str(target), "install"], input="y\n", text=True, env=forced_yes_upgrade_env(), timeout=120, check=False)
+    except Exception as exc:
+        print(f"AGY post-install setup skipped ({type(exc).__name__}); continuing.", flush=True)
+    print(f"AGY installed: {target}", flush=True)
+    return str(target)
+
+
+def install_agy_if_missing() -> str | None:
+    agy = find_executable("agy")
+    if agy:
+        return agy
+    if os.environ.get("CIEL_RUNTIME_SKIP_AGY_INSTALL") == "1":
+        return None
+    manifest = agy_latest_manifest()
+    if not manifest:
+        print("AGY executable was not found, and the official AGY manifest could not be read.", flush=True)
+        return None
+    return install_agy_from_manifest(manifest)
+
+
+def run_agy_update_check(agy: str, enabled: bool = True) -> str:
+    if not enabled or os.environ.get("CIEL_RUNTIME_SKIP_AGY_UPDATE") == "1":
+        return agy
+    print("Checking AGY update before launch...", flush=True)
+    current = agy_current_version(agy)
+    if current:
+        print(f"Current AGY version: {current}", flush=True)
+    manifest = agy_latest_manifest()
+    latest = str((manifest or {}).get("version") or "").strip()
+    if current and latest and not version_newer(latest, current):
+        print(f"AGY is up to date ({current}).", flush=True)
+        return agy
+    if latest:
+        print(f"AGY update available: {current or 'unknown'} -> {latest}; upgrading automatically.", flush=True)
+    else:
+        print("AGY update version could not be confirmed; running native updater.", flush=True)
+    rc, out = run_command_for_upgrade([agy, "update"], timeout=300)
+    if out:
+        print(out, flush=True)
+    if rc != 0:
+        if manifest and latest and (not current or version_newer(latest, current)):
+            installed = install_agy_from_manifest(manifest)
+            return installed or agy
+        print(f"AGY update failed ({rc}); continuing with current version.", flush=True)
+        return agy
+    updated = find_executable("agy") or agy
+    new_version = agy_current_version(updated)
+    if new_version:
+        print(f"AGY version after update: {new_version}", flush=True)
+    return updated
+
+
 def run_quiet_upgrade_and_exit() -> int:
     any_rc = quiet_upgrade_ciel_runtime()
     claude_rc = quiet_upgrade_claude_code()
     codex_rc = quiet_upgrade_codex()
-    return 0 if any_rc == 0 and claude_rc == 0 and codex_rc == 0 else 1
+    agy_rc = quiet_upgrade_agy()
+    return 0 if any_rc == 0 and claude_rc == 0 and codex_rc == 0 and agy_rc == 0 else 1
 
 
 def launch_claude(
@@ -35713,6 +36067,14 @@ def launch_claude(
             update_check=update_check,
             self_update_check=False,
         )
+    if rc == PRELAUNCH_LAUNCH_AGY:
+        return launch_agy(
+            passthrough,
+            skip_menu=True,
+            force_menu=False,
+            update_check=update_check,
+            self_update_check=False,
+        )
     if rc == PRELAUNCH_CANCEL:
         return 0
     if rc not in (0, PRELAUNCH_LAUNCH_CLAUDE):
@@ -35720,8 +36082,8 @@ def launch_claude(
     cfg = load_config()
     provider, pcfg = get_current_provider(cfg)
     if not claude_launch_enabled_for_provider(provider):
-        print("Ciel Runtime launch blocked: Launch Claude Code is disabled while a Codex provider is selected.", flush=True)
-        print("Use Launch Codex or --ca-runtime codex.", flush=True)
+        print(f"Ciel Runtime launch blocked: Launch Claude Code is disabled while {provider_menu_label(provider, pcfg)} provider is selected.", flush=True)
+        print("Use the matching Launch menu item or --ca-runtime agy|codex.", flush=True)
         return 2
     blockers = launch_readiness_errors(cfg)
     if blockers:
@@ -36459,6 +36821,14 @@ def launch_codex(
             update_check=update_check,
             self_update_check=False,
         )
+    if rc == PRELAUNCH_LAUNCH_AGY:
+        return launch_agy(
+            passthrough,
+            skip_menu=True,
+            force_menu=False,
+            update_check=update_check,
+            self_update_check=False,
+        )
     if rc == PRELAUNCH_CANCEL:
         return 0
     if rc not in (0, PRELAUNCH_LAUNCH_CODEX):
@@ -36517,6 +36887,121 @@ def launch_codex(
         )
 
     return run_with_router_lifetime(run_codex_process, manage_router_lifetime)
+
+
+def agy_help_requested(passthrough: list[str]) -> bool:
+    return any(arg in ("--help", "-h", "help") for arg in passthrough)
+
+
+def log_agy_passthrough_mapping(notes: list[str]) -> None:
+    if not notes:
+        return
+    print("Ciel Runtime AGY passthrough mapping:", flush=True)
+    for note in notes:
+        print(f"- {note}", flush=True)
+
+
+def _log_agy_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> None:
+    router_log("INFO", "agy_launch_cmd argv_len=%d routed_flags=%s" % (len(cmd), "yes" if "--dangerously-skip-permissions" in cmd else "no"))
+    env_summary = []
+    for key in ("CIEL_RUNTIME_PROVIDER", "CIEL_RUNTIME_MODEL_ALIAS"):
+        if key in env:
+            env_summary.append(f"{key}={env[key]}")
+    if env_summary:
+        router_log("INFO", "agy_launch_env " + " ".join(env_summary))
+
+
+def launch_agy(
+    passthrough: list[str],
+    skip_menu: bool = False,
+    force_menu: bool = False,
+    update_check: bool = True,
+    self_update_check: bool = True,
+) -> int:
+    warn_if_multiple_ciel_runtime_installs()
+    run_ciel_runtime_update_check(enabled=self_update_check)
+    env = os.environ.copy()
+    env["PATH"] = path_with_ciel_runtime_user_dirs(env)
+    agy = install_agy_if_missing()
+    if not agy:
+        raise RuntimeError(
+            "agy executable was not found in PATH or the Ciel Runtime/AGY user bin directories, "
+            "and automatic install from Google's official AGY manifest did not make it available"
+        )
+    updated_agy = run_agy_update_check(agy, enabled=update_check)
+    if isinstance(updated_agy, str) and updated_agy:
+        agy = updated_agy
+    agy = find_executable("agy") or agy
+    agy_passthrough, agy_passthrough_notes = agy_passthrough_args_for_launch(passthrough)
+    if agy_help_requested(agy_passthrough):
+        log_agy_passthrough_mapping(agy_passthrough_notes)
+        return subprocess.call([agy, *agy_passthrough], env=env)
+    if agy_passthrough_has_command(agy_passthrough):
+        skip_menu = True
+    auto_import_passthrough_channels(passthrough)
+    rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
+    if rc == PRELAUNCH_LAUNCH_CLAUDE:
+        return launch_claude(
+            passthrough,
+            skip_menu=True,
+            force_menu=False,
+            update_check=update_check,
+            self_update_check=False,
+        )
+    if rc == PRELAUNCH_LAUNCH_CODEX:
+        return launch_codex(
+            passthrough,
+            skip_menu=True,
+            force_menu=False,
+            update_check=update_check,
+            self_update_check=False,
+        )
+    if rc == PRELAUNCH_CANCEL:
+        return 0
+    if rc not in (0, PRELAUNCH_LAUNCH_AGY):
+        return rc
+    cfg = load_config()
+    provider, pcfg = get_current_provider(cfg)
+    if not native_agy_enabled(provider):
+        print("Ciel Runtime AGY launch blocked:", flush=True)
+        print("- Select AGY or AGY Routed as the provider before launching AGY.", flush=True)
+        return 2
+    blockers = launch_readiness_errors(cfg)
+    if blockers:
+        print("Ciel Runtime AGY launch blocked:", flush=True)
+        for line in blockers:
+            print(f"- {line}", flush=True)
+        return 2
+    cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
+    use_agy_routed = agy_routed_enabled(provider, pcfg)
+    manage_router_lifetime = bool(start_router_if_needed()) if use_agy_routed and channel_delivery_mode(cfg) == "llm" else False
+    agy_dangerous_args = agy_dangerous_launch_args(agy_passthrough)
+    cmd = [agy, *agy_dangerous_args, *agy_passthrough]
+    log_agy_passthrough_mapping(agy_passthrough_notes)
+    _log_agy_command_for_diagnostics(cmd, env)
+    record_launch_state_for_cwd(
+        current_launch_cwd_key(),
+        provider,
+        provider_mode_label(provider, pcfg),
+        str(pcfg.get("current_model") or ""),
+    )
+
+    def run_agy_process() -> int:
+        if use_agy_routed:
+            return subprocess_call_with_channel_wake_proxy(
+                cmd,
+                env,
+                wake_for_llm_delivery=channel_delivery_mode(cfg) == "llm",
+                synthetic_enter_bytes=None,
+                normalize_bare_cr_for_synthetic_enter=False,
+                channel_wake_submit_retries=_codex_channel_wake_submit_retries(),
+                channel_wake_confirm_submit=True,
+                channel_wake_bracketed_paste=True,
+                channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds(),
+            )
+        return subprocess.call(cmd, env=env)
+
+    return run_with_router_lifetime(run_agy_process, manage_router_lifetime)
 
 
 CLAUDE_CODE_STDERR_LOG = CONFIG_DIR / "claude-code-stderr.log"
@@ -36649,7 +37134,8 @@ def cli_usage() -> str:
     return """Usage:
   ciel-runtime                         Launch Claude Code through ciel-runtime router
   ciel-runtime codex [args...]         Launch Codex through ciel-runtime router
-  ciel-runtime resume                  Resume Codex when Codex is the selected provider
+  ciel-runtime agy [args...]           Launch Google Antigravity CLI through ciel-runtime
+  ciel-runtime resume                  Resume Codex/AGY when that runtime provider is selected
 
 Control plane, runs before Claude Code and does not require LLM connectivity:
   ciel-runtime version                 Print ciel-runtime version
@@ -36683,8 +37169,8 @@ Control plane, runs before Claude Code and does not require LLM connectivity:
 Headless setup flags, namespaced to avoid Claude CLI collisions:
   ciel-runtime --ca-provider PROVIDER  Set provider, then launch
   ciel-runtime --ca-env-file PATH      Load CIEL_RUNTIME_* values from a .env file
-  ciel-runtime --ca-runtime claude|codex
-                                      Select Claude Code or Codex for this launch
+  ciel-runtime --ca-runtime claude|codex|agy
+                                      Select Claude Code, Codex, or AGY for this launch
   ciel-runtime --ca-menu               Apply setup values, then open the menu
   ciel-runtime --ca-language en|ko|ja|zh
   ciel-runtime --ca-base-url URL       Set current provider base URL, then launch
@@ -36729,12 +37215,12 @@ Headless setup flags, namespaced to avoid Claude CLI collisions:
   ciel-runtime --ca-no-self-update-check
                                       Skip Ciel Runtime npm self-update check
   ciel-runtime --ca-no-update-check    Skip runtime update check for this launch
-  ciel-runtime --ca-upgrade-and-exit   Update Ciel Runtime, Claude Code, and Codex without prompts, then exit
+  ciel-runtime --ca-upgrade-and-exit   Update Ciel Runtime, Claude Code, Codex, and AGY without prompts, then exit
   ciel-runtime --ca-no-launch          Apply setup flags/env values, then exit without launching a runtime
   ciel-runtime --ca-stop               Stop router/proxy
   ciel-runtime --                      Pass all following args directly to the selected runtime
 
-Provider names: anthropic, ollama, ollama-cloud, deepseek, opencode, opencode-go, kimi, z.ai, vllm, lm-studio, nvidia-hosted, self-hosted-nim, openrouter, fireworks
+Provider names: agy, agy-routed, anthropic, ollama, ollama-cloud, deepseek, opencode, opencode-go, kimi, z.ai, vllm, lm-studio, nvidia-hosted, self-hosted-nim, openrouter, fireworks
 Any other arguments are passed through to the selected runtime. Use -- before runtime
 flags that collide with ciel-runtime setup flags."""
 
@@ -36878,6 +37364,8 @@ def run_cli(argv: list[str]) -> int:
         return run_quiet_upgrade_and_exit()
     if argv:
         head, rest = argv[0], argv[1:]
+        if head in ("agy", "launch-agy", "antigravity"):
+            return launch_agy(rest)
         if head in ("codex", "launch-codex"):
             return launch_codex(rest)
         if head in ("version", "--version", "-v"):
@@ -36996,6 +37484,16 @@ def run_cli(argv: list[str]) -> int:
             provider, _ = get_current_provider(cfg)
             if native_codex_enabled(provider):
                 return launch_codex(argv)
+        if argv[0] == "resume":
+            cfg = load_config()
+            provider, _ = get_current_provider(cfg)
+            if native_agy_enabled(provider):
+                return launch_agy(argv)
+        if agy_passthrough_has_command(argv):
+            cfg = load_config()
+            provider, _ = get_current_provider(cfg)
+            if native_agy_enabled(provider):
+                return launch_agy(argv)
 
     passthrough: list[str] = []
     configure_only = False
@@ -37025,8 +37523,8 @@ def run_cli(argv: list[str]) -> int:
             else:
                 i += 1
             runtime = str(value or "").strip().lower()
-            if runtime not in ("claude", "codex"):
-                raise SystemExit("--ca-runtime must be claude or codex")
+            if runtime not in ("claude", "codex", "agy"):
+                raise SystemExit("--ca-runtime must be claude, codex, or agy")
         elif arg in ("--ca-no-launch", "--ca-configure-only", "--ca-setup-only"):
             configure_only = True
             skip_menu = True
@@ -37448,6 +37946,14 @@ def run_cli(argv: list[str]) -> int:
             print(line)
     if configure_only:
         return 0
+    if runtime == "agy":
+        return launch_agy(
+            passthrough,
+            skip_menu=skip_menu,
+            force_menu=force_menu,
+            update_check=update_check,
+            self_update_check=self_update_check,
+        )
     if runtime == "codex":
         return launch_codex(
             passthrough,
@@ -37478,6 +37984,10 @@ def cmd_launch_codex(args: argparse.Namespace) -> None:
     raise SystemExit(launch_codex(args.argv))
 
 
+def cmd_launch_agy(args: argparse.Namespace) -> None:
+    raise SystemExit(launch_agy(args.argv))
+
+
 def cmd_version(args: argparse.Namespace) -> None:
     print(f"ciel-runtime {VERSION}")
 
@@ -37494,6 +38004,9 @@ def build_parser() -> argparse.ArgumentParser:
     launch_codex_parser = sub.add_parser("launch-codex", add_help=False)
     launch_codex_parser.add_argument("argv", nargs=argparse.REMAINDER)
     launch_codex_parser.set_defaults(func=cmd_launch_codex)
+    launch_agy_parser = sub.add_parser("launch-agy", add_help=False)
+    launch_agy_parser.add_argument("argv", nargs=argparse.REMAINDER)
+    launch_agy_parser.set_defaults(func=cmd_launch_agy)
     sub.add_parser("serve").set_defaults(func=serve)
     sub.add_parser("version").set_defaults(func=cmd_version)
     sub.add_parser("status").set_defaults(func=cmd_status)
@@ -37574,6 +38087,8 @@ def main() -> None:
         raise SystemExit(launch_claude(sys.argv[2:]))
     if len(sys.argv) >= 2 and sys.argv[1] in ("codex", "launch-codex"):
         raise SystemExit(launch_codex(sys.argv[2:]))
+    if len(sys.argv) >= 2 and sys.argv[1] in ("agy", "launch-agy", "antigravity"):
+        raise SystemExit(launch_agy(sys.argv[2:]))
     parser = build_parser()
     args = parser.parse_args()
     args.func(args)

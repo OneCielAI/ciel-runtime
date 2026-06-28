@@ -69,6 +69,7 @@ class HeadlessUpdateCheckTests(unittest.TestCase):
             patch("ciel_runtime.quiet_upgrade_ciel_runtime", return_value=0) as any_update,
             patch("ciel_runtime.quiet_upgrade_claude_code", return_value=0) as claude_update,
             patch("ciel_runtime.quiet_upgrade_codex", return_value=0) as codex_update,
+            patch("ciel_runtime.quiet_upgrade_agy", return_value=0) as agy_update,
         ):
             rc = ciel_runtime.run_quiet_upgrade_and_exit()
 
@@ -76,12 +77,14 @@ class HeadlessUpdateCheckTests(unittest.TestCase):
         any_update.assert_called_once_with()
         claude_update.assert_called_once_with()
         codex_update.assert_called_once_with()
+        agy_update.assert_called_once_with()
 
     def test_quiet_upgrade_reports_failure_when_any_updater_fails(self):
         with (
             patch("ciel_runtime.quiet_upgrade_ciel_runtime", return_value=0),
             patch("ciel_runtime.quiet_upgrade_claude_code", return_value=1),
             patch("ciel_runtime.quiet_upgrade_codex", return_value=0),
+            patch("ciel_runtime.quiet_upgrade_agy", return_value=0),
         ):
             self.assertEqual(1, ciel_runtime.run_quiet_upgrade_and_exit())
 
