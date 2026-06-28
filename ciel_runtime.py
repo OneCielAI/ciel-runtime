@@ -35125,6 +35125,10 @@ def codex_help_requested(passthrough: list[str]) -> bool:
     return any(arg in ("help", "--help", "-h") for arg in passthrough)
 
 
+def codex_yolo_launch_args(passthrough: list[str]) -> list[str]:
+    return [] if has_passthrough_option(passthrough, "--yolo") else ["--yolo"]
+
+
 def launch_codex(
     passthrough: list[str],
     skip_menu: bool = False,
@@ -35180,13 +35184,14 @@ def launch_codex(
     manage_router_lifetime = False if use_native_codex else bool(start_router_if_needed())
     if not native_codex_enabled(provider):
         ensure_model_cache_for_launch(provider, pcfg)
+    codex_yolo_args = codex_yolo_launch_args(codex_passthrough)
     if use_native_codex:
-        cmd = [codex]
+        cmd = [codex, *codex_yolo_args]
     elif use_codex_routed:
-        cmd = [codex, *codex_native_routed_config_args()]
+        cmd = [codex, *codex_yolo_args, *codex_native_routed_config_args()]
     else:
         env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
-        cmd = [codex, *codex_runtime_config_args()]
+        cmd = [codex, *codex_yolo_args, *codex_runtime_config_args()]
     log_codex_passthrough_mapping(codex_passthrough_notes)
     cmd.extend(codex_alternate_screen_compat_args(codex_passthrough, env=env))
     if not native_codex_enabled(provider) and not has_passthrough_option(codex_passthrough, "-m", "--model"):
