@@ -94,14 +94,15 @@ class InstallDiagnosticsTests(unittest.TestCase):
         self.assertIn("/home/user/.local/bin/ciel-runtime", text)
         self.assertIn("0.1.104-nightly.20260601-012855.916d3dc", text)
 
-    def test_npm_postinstall_best_effort_stops_managed_services(self):
+    def test_npm_package_has_no_install_scripts(self):
         root = Path(__file__).resolve().parents[1]
         package = json.loads((root / "package.json").read_text(encoding="utf-8"))
 
-        self.assertEqual("node npm-bin/postinstall.js", package["scripts"]["postinstall"])
-        postinstall = (root / "npm-bin" / "postinstall.js").read_text(encoding="utf-8")
-        self.assertIn('"cli", "stop"', postinstall)
-        self.assertIn("CIEL_RUNTIME_SKIP_POSTINSTALL_STOP", postinstall)
+        scripts = package.get("scripts", {})
+        self.assertNotIn("preinstall", scripts)
+        self.assertNotIn("install", scripts)
+        self.assertNotIn("postinstall", scripts)
+        self.assertFalse((root / "npm-bin" / "postinstall.js").exists())
 
 
 if __name__ == "__main__":

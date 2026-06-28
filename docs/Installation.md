@@ -1,6 +1,6 @@
 # Installation — 설치 방법
 
-> 소스: `install.sh`, `install.ps1`, `npm-bin/postinstall.js`, `package.json`
+> 소스: `install.sh`, `install.ps1`, `package.json`
 
 ---
 
@@ -22,11 +22,15 @@ npm install -g @oneciel-ai/ciel-runtime
 - Node.js ≥ 18
 - Python 3 (`python3` 또는 `python`)
 
-### 포스트인스톨 동작
+### npm install script
 
-`npm-bin/postinstall.js` — 설치 시 기존 Router 프로세스 자동 중지:
-```
-python3 ciel_runtime.py cli stop
+npm 패키지는 `postinstall` 같은 install script를 사용하지 않는다. 따라서 `allow-scripts` 설정이 엄격한 환경에서도 추가 승인 없이 설치된다.
+
+업그레이드 후 이미 실행 중인 세션이 새 코드를 쓰게 하려면 명시적으로 재시작한다:
+
+```bash
+ciel-runtime-stop
+ciel-runtime --continue
 ```
 
 ---

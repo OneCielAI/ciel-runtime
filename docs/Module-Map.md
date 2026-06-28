@@ -132,7 +132,6 @@ Claude Code 트랜스크립트 이벤트 필터:
 | `npm-bin/ciel-runtimectl.js` | npm 글로벌 바이너리 (`ciel-runtimectl`) |
 | `npm-bin/ciel-runtime-stop.js` | npm 글로벌 바이너리 (`ciel-runtime-stop`) |
 | `npm-bin/run-ciel-runtime.js` | Python 프로세스 실행 헬퍼 |
-| `npm-bin/postinstall.js` | npm install 후 훅 (기존 Router 중지) |
 
 ---
 
