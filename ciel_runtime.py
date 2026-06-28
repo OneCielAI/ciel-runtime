@@ -3113,6 +3113,38 @@ def ciel_runtime_tool_guard_command() -> str | None:
     return shell_command_string([str(script)])
 
 
+def install_legacy_tool_guard_compat_shim() -> None:
+    """Keep already-running pre-rename Claude sessions from failing old hooks."""
+    try:
+        package_root = Path(__file__).resolve().parent
+        if package_root.name != "ciel-runtime" or package_root.parent.name != "@oneciel-ai":
+            return
+        target = find_tool_guard_script()
+        if target is None or not target.exists():
+            return
+        legacy_guard = package_root.parent / "claude-any" / "claude-any-tool-guard.py"
+        if legacy_guard.exists() and not legacy_guard.is_symlink():
+            return
+        legacy_guard.parent.mkdir(parents=True, exist_ok=True)
+        if legacy_guard.is_symlink() or legacy_guard.exists():
+            legacy_guard.unlink()
+        try:
+            legacy_guard.symlink_to(target.resolve())
+        except Exception:
+            wrapper = (
+                "#!/usr/bin/env python3\n"
+                "import runpy\n"
+                f"runpy.run_path({json.dumps(str(target.resolve()))}, run_name='__main__')\n"
+            )
+            legacy_guard.write_text(wrapper, encoding="utf-8")
+            try:
+                os.chmod(legacy_guard, 0o755)
+            except Exception:
+                pass
+    except Exception as exc:
+        router_log("WARN", f"legacy_tool_guard_compat_shim_failed error={type(exc).__name__}: {exc}")
+
+
 TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER: tuple[str, ...] = (
     "PreToolUse",
     "PostToolUse",
@@ -3153,6 +3185,7 @@ def install_tool_guard_hooks() -> None:
     if not command:
         print("Ciel Runtime warning: tool guard hook was not installed; ciel-runtime-tool-guard was not found.", flush=True)
         return
+    install_legacy_tool_guard_compat_shim()
 
     if CLAUDE_SETTINGS_PATH.exists():
         try:

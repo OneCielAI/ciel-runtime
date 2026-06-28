@@ -14,6 +14,26 @@ GUARD = ROOT / "ciel-runtime-tool-guard.py"
 
 
 class ToolGuardTests(unittest.TestCase):
+    def test_legacy_tool_guard_compat_shim_is_created_for_packaged_install(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            package_root = Path(tmp) / "lib" / "node_modules" / "@oneciel-ai" / "ciel-runtime"
+            package_root.mkdir(parents=True)
+            runtime_py = package_root / "ciel_runtime.py"
+            runtime_py.write_text("# packaged runtime placeholder\n", encoding="utf-8")
+            guard = package_root / "ciel-runtime-tool-guard.py"
+            guard.write_text("import sys\nsys.exit(0)\n", encoding="utf-8")
+
+            with (
+                mock.patch.object(ciel_runtime, "__file__", str(runtime_py)),
+                mock.patch.object(ciel_runtime, "find_tool_guard_script", return_value=guard),
+            ):
+                ciel_runtime.install_legacy_tool_guard_compat_shim()
+
+            legacy = package_root.parent / "claude-any" / "claude-any-tool-guard.py"
+            self.assertTrue(legacy.exists())
+            proc = subprocess.run([sys.executable, str(legacy)], text=True, capture_output=True, check=False)
+            self.assertEqual(0, proc.returncode, proc.stderr)
+
     def test_install_tool_guard_hooks_migrates_legacy_claude_any_hooks(self):
         with tempfile.TemporaryDirectory() as tmp:
             settings_path = Path(tmp) / "settings.json"
