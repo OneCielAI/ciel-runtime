@@ -3520,7 +3520,30 @@ def _status_channel_message_skip_reason(message):
             return "delivery_not_llm"
     meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
     meta_kind = str(meta.get("kind") or meta.get("type") or meta.get("event_type") or meta.get("eventType") or meta.get("event") or meta.get("status") or "").strip().lower()
-    if meta_kind in {"connection", "connected", "disconnect", "disconnected", "endpoint", "heartbeat", "initialized", "init", "keepalive", "ping", "pong", "ready", "status", "system"}:
+    if meta_kind in {
+        "agent_presence",
+        "check-in",
+        "checkin",
+        "checkins",
+        "checked_in",
+        "colleague_presence",
+        "connection",
+        "connected",
+        "disconnect",
+        "disconnected",
+        "endpoint",
+        "heartbeat",
+        "initialized",
+        "init",
+        "keepalive",
+        "ping",
+        "pong",
+        "presence",
+        "ready",
+        "status",
+        "system",
+        "user_presence",
+    }:
         return meta_kind
     body = re.sub(r"\s+", " ", str(message.get("message") or "")).strip().lower()
     kind = str(message.get("kind") or "").strip().lower()
@@ -10351,6 +10374,12 @@ def _compact_json_for_prompt(value: Any, max_chars: int = 2400) -> str:
 
 
 _CHANNEL_CONTROL_KINDS = {
+    "agent_presence",
+    "check-in",
+    "checkin",
+    "checkins",
+    "checked_in",
+    "colleague_presence",
     "connection",
     "connected",
     "disconnect",
@@ -10362,9 +10391,11 @@ _CHANNEL_CONTROL_KINDS = {
     "keepalive",
     "ping",
     "pong",
+    "presence",
     "ready",
     "status",
     "system",
+    "user_presence",
 }
 
 
@@ -29392,6 +29423,27 @@ def _channel_message_has_unique_reference(message: dict[str, Any]) -> bool:
             value = meta.get(key)
             if value is not None and str(value).strip():
                 return True
+    for meta in meta_sources:
+        message_ids = meta.get("message_ids")
+        if isinstance(message_ids, (list, tuple)) and any(str(item).strip() for item in message_ids):
+            return True
+        if isinstance(message_ids, str) and message_ids.strip():
+            return True
+        rooms = meta.get("rooms")
+        if not isinstance(rooms, str) or not rooms.strip():
+            continue
+        try:
+            parsed_rooms = json.loads(rooms)
+        except Exception:
+            continue
+        if not isinstance(parsed_rooms, list):
+            continue
+        for room in parsed_rooms:
+            if not isinstance(room, dict):
+                continue
+            room_message_ids = room.get("message_ids")
+            if isinstance(room_message_ids, (list, tuple)) and any(str(item).strip() for item in room_message_ids):
+                return True
     return False
 
 
@@ -31973,6 +32025,115 @@ def _channel_stdin_wake_state_for_message(message: dict[str, Any], prompt: str |
     return _channel_stdin_wake_state_from_text(message_id, text, prompt_candidates)
 
 
+def _channel_transcript_record_timestamp_seconds(record: dict[str, Any]) -> float | None:
+    raw = record.get("timestamp")
+    if raw is None and isinstance(record.get("attachment"), dict):
+        raw = record["attachment"].get("timestamp")
+    if raw is None:
+        return None
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
+    except Exception:
+        return None
+
+
+def _channel_stdin_wake_queued_age_seconds_from_text(
+    message_id: int,
+    text: str,
+    prompt_texts: list[str] | tuple[str, ...] | None = None,
+    *,
+    now: float | None = None,
+) -> float | None:
+    if message_id <= 0:
+        return None
+    prompt_candidates: list[str] = []
+    if prompt_texts:
+        prompt_candidates.extend(str(item) for item in prompt_texts if str(item or "").strip())
+    claimed_prompt = _channel_stdin_wake_claim_prompt(message_id)
+    if claimed_prompt:
+        prompt_candidates.append(claimed_prompt)
+    latest_queued_at: float | None = None
+
+    def _record_content_text(value: Any) -> str:
+        if isinstance(value, str):
+            return value
+        if isinstance(value, list):
+            parts: list[str] = []
+            for item in value:
+                if isinstance(item, str):
+                    parts.append(item)
+                elif isinstance(item, dict):
+                    for key in ("text", "content"):
+                        raw = item.get(key)
+                        if isinstance(raw, str):
+                            parts.append(raw)
+            return "\n".join(parts)
+        return ""
+
+    for raw_line in text.splitlines():
+        try:
+            record = json.loads(raw_line)
+        except Exception:
+            continue
+        if not isinstance(record, dict):
+            continue
+        record_type = str(record.get("type") or "")
+        candidate = ""
+        if record_type == "queue-operation" and record.get("operation") == "enqueue":
+            raw = record.get("content")
+            if isinstance(raw, str):
+                candidate = raw
+        elif record_type == "attachment":
+            attachment = record.get("attachment")
+            if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
+                raw = attachment.get("prompt")
+                if isinstance(raw, str):
+                    candidate = raw
+        elif record_type == "user":
+            message = record.get("message")
+            message_obj = message if isinstance(message, dict) else {}
+            if message_obj:
+                candidate = _record_content_text(message_obj.get("content"))
+                if _channel_prompt_references_message_id(candidate, message_id, prompt_candidates):
+                    return None
+        if not candidate or not _channel_prompt_references_message_id(candidate, message_id, prompt_candidates):
+            continue
+        timestamp = _channel_transcript_record_timestamp_seconds(record)
+        if timestamp is not None:
+            latest_queued_at = max(latest_queued_at or 0.0, timestamp)
+    if latest_queued_at is None:
+        return None
+    return max(0.0, (time.time() if now is None else float(now)) - latest_queued_at)
+
+
+def _channel_stdin_wake_queued_is_stale_for_message(message: dict[str, Any], prompt: str | None = None) -> bool:
+    try:
+        message_id = int(message.get("id") or 0)
+    except Exception:
+        message_id = 0
+    if message_id <= 0:
+        return False
+    path = _latest_claude_transcript_path()
+    if path is None:
+        return False
+    text = _read_file_tail_text(path)
+    if not text:
+        return False
+    prompt_candidates: list[str] = []
+    if prompt:
+        prompt_candidates.append(prompt)
+    body = str(message.get("message") if message.get("message") is not None else "")
+    if body:
+        prompt_candidates.append(body)
+    age = _channel_stdin_wake_queued_age_seconds_from_text(message_id, text, prompt_candidates)
+    return age is not None and age >= _channel_stdin_inflight_stale_seconds()
+
+
 def _channel_stdin_wake_state_from_text(
     message_id: int,
     text: str,
@@ -32315,6 +32476,18 @@ def _inject_pending_channel_messages(
                 )
                 continue
             if wake_state in {"pending", "queued"}:
+                if wake_state == "queued" and _channel_stdin_wake_queued_is_stale_for_message(message, message_prompt):
+                    with _CHANNEL_STDIN_WAKE_LOCK:
+                        _CHANNEL_STDIN_WAKE_DELIVERED.discard(message_id)
+                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(message_id, None)
+                    _channel_stdin_clear_wake_claim(message_id)
+                    if not web_chat_only:
+                        _commit_channel_llm_cursor_if_newer(message_id)
+                    router_log(
+                        "WARN",
+                        f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=stale_queued_wake",
+                    )
+                    continue
                 router_log(
                     "INFO",
                     f"channel_stdin_proxy_waiting_for_turn_completion message_id={message.get('id')} channel={message.get('channel')} state={wake_state}",
@@ -35375,7 +35548,11 @@ def launch_codex(
     )
 
     def run_codex_process() -> int:
-        return subprocess.call(cmd, env=env)
+        return subprocess_call_with_channel_wake_proxy(
+            cmd,
+            env,
+            wake_for_llm_delivery=channel_delivery_mode(cfg) == "llm",
+        )
 
     return run_with_router_lifetime(run_codex_process, manage_router_lifetime)
 

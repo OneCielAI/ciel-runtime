@@ -304,8 +304,9 @@ class CodexRuntimeTests(unittest.TestCase):
         pcfg = cfg["providers"]["codex"]
         captured = {}
 
-        def subprocess_call(cmd, env):
+        def subprocess_call(cmd, env, **kwargs):
             captured["cmd"] = cmd
+            captured["wake_for_llm_delivery"] = kwargs.get("wake_for_llm_delivery")
             return 0
 
         with (
@@ -322,13 +323,14 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "find_executable", return_value="codex"),
             mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]),
             mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
-            mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
+            mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", side_effect=subprocess_call),
         ):
             rc = ciel_runtime.launch_codex(["resume"])
 
         self.assertEqual(0, rc)
         prelaunch.assert_called_once_with(["resume"], skip_menu=True, force_menu=False)
         self.assertEqual(["codex", "--yolo", "resume"], captured["cmd"])
+        self.assertTrue(captured["wake_for_llm_delivery"])
 
     def test_launch_codex_builds_command_with_router_provider(self):
         cfg = {"providers": {"ollama": {"current_model": "qwen3", "base_url": "http://localhost:11434"}}}
@@ -339,9 +341,10 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["manage_router"] = manage_router
             return runner()
 
-        def subprocess_call(cmd, env):
+        def subprocess_call(cmd, env, **kwargs):
             captured["cmd"] = cmd
             captured["env"] = env
+            captured["wake_for_llm_delivery"] = kwargs.get("wake_for_llm_delivery")
             return 0
 
         with (
@@ -362,7 +365,7 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]),
             mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
             mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
-            mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
+            mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", side_effect=subprocess_call),
         ):
             rc = ciel_runtime.launch_codex(["--no-alt-screen"], skip_menu=True)
 
@@ -377,6 +380,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("ciel-runtime-ollama-qwen3", captured["cmd"])
         self.assertIn("--no-alt-screen", captured["cmd"])
         self.assertEqual("ciel-runtime-router-local-key", captured["env"]["CIEL_RUNTIME_CODEX_API_KEY"])
+        self.assertTrue(captured["wake_for_llm_delivery"])
 
     def test_launch_codex_native_uses_plain_codex_command(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": False, "base_url": "https://api.openai.com", "current_model": ""}}}
@@ -387,9 +391,10 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["manage_router"] = manage_router
             return runner()
 
-        def subprocess_call(cmd, env):
+        def subprocess_call(cmd, env, **kwargs):
             captured["cmd"] = cmd
             captured["env"] = env
+            captured["wake_for_llm_delivery"] = kwargs.get("wake_for_llm_delivery")
             return 0
 
         with (
@@ -408,7 +413,7 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]),
             mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
             mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
-            mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
+            mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", side_effect=subprocess_call),
         ):
             rc = ciel_runtime.launch_codex(["exec", "hello"], skip_menu=True)
 
@@ -417,6 +422,7 @@ class CodexRuntimeTests(unittest.TestCase):
         start_router.assert_not_called()
         self.assertEqual(["codex", "--yolo", "exec", "hello"], captured["cmd"])
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
+        self.assertTrue(captured["wake_for_llm_delivery"])
 
     def test_launch_codex_routed_uses_native_auth_router_provider(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": ""}}}
@@ -427,9 +433,10 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["manage_router"] = manage_router
             return runner()
 
-        def subprocess_call(cmd, env):
+        def subprocess_call(cmd, env, **kwargs):
             captured["cmd"] = cmd
             captured["env"] = env
+            captured["wake_for_llm_delivery"] = kwargs.get("wake_for_llm_delivery")
             return 0
 
         with (
@@ -448,7 +455,7 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]),
             mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
             mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
-            mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
+            mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", side_effect=subprocess_call),
         ):
             rc = ciel_runtime.launch_codex(["exec", "hello"], skip_menu=True)
 
@@ -461,6 +468,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("model_providers.ciel-runtime-codex.supports_websockets=false", captured["cmd"])
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
         self.assertNotIn("-m", captured["cmd"])
+        self.assertTrue(captured["wake_for_llm_delivery"])
 
     def test_launch_codex_maps_continue_to_resume_last(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": ""}}}
@@ -471,9 +479,10 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["manage_router"] = manage_router
             return runner()
 
-        def subprocess_call(cmd, env):
+        def subprocess_call(cmd, env, **kwargs):
             captured["cmd"] = cmd
             captured["env"] = env
+            captured["wake_for_llm_delivery"] = kwargs.get("wake_for_llm_delivery")
             return 0
 
         with (
@@ -492,7 +501,7 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]),
             mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
             mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
-            mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
+            mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", side_effect=subprocess_call),
             mock.patch("builtins.print"),
         ):
             rc = ciel_runtime.launch_codex(["--continue"], skip_menu=True)
@@ -504,6 +513,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("resume", captured["cmd"])
         self.assertIn("--last", captured["cmd"])
         self.assertLess(captured["cmd"].index("resume"), captured["cmd"].index("--last"))
+        self.assertTrue(captured["wake_for_llm_delivery"])
 
     def test_launch_codex_does_not_duplicate_explicit_yolo_flag(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": False, "base_url": "https://api.openai.com", "current_model": ""}}}
@@ -514,9 +524,10 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["manage_router"] = manage_router
             return runner()
 
-        def subprocess_call(cmd, env):
+        def subprocess_call(cmd, env, **kwargs):
             captured["cmd"] = cmd
             captured["env"] = env
+            captured["wake_for_llm_delivery"] = kwargs.get("wake_for_llm_delivery")
             return 0
 
         with (
@@ -535,7 +546,7 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]),
             mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
             mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
-            mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
+            mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", side_effect=subprocess_call),
         ):
             rc = ciel_runtime.launch_codex(["--yolo", "exec", "hello"], skip_menu=True)
 
@@ -543,6 +554,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertFalse(captured["manage_router"])
         start_router.assert_not_called()
         self.assertEqual(["codex", "--yolo", "exec", "hello"], captured["cmd"])
+        self.assertTrue(captured["wake_for_llm_delivery"])
 
     def test_codex_backend_upstream_url_maps_local_backend_prefix(self):
         self.assertEqual(

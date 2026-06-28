@@ -1863,6 +1863,84 @@ class ChannelBridgeTests(unittest.TestCase):
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("reason=stdin_wake_claimed" in item and "message_id=368" in item for item in log_messages))
 
+    def test_inject_pending_channel_messages_skips_stale_queued_and_injects_next(self):
+        stale_prompt = (
+            "[AI-Net new messages]\n"
+            '• [DM] DM-Robert: 1 new (Joy) → get_messages(room_id="room_dm_a90xk3afh8", after_seq=41197)'
+        )
+        next_prompt = (
+            "[AI-Net new messages]\n"
+            '• [DM] DM-Robert: 1 new (Joy) → get_messages(room_id="room_dm_a90xk3afh8", after_seq=41214)'
+        )
+        messages = [
+            {
+                "id": 368,
+                "channel": "ai-net-http",
+                "sender_id": "ai-net-http",
+                "message": stale_prompt,
+                "meta": {
+                    "mcp_server": "ai-net-http",
+                    "mcp_method": "notifications/claude/channel",
+                    "kind": "digest",
+                    "rooms": json.dumps([{"room_id": "room_dm_a90xk3afh8", "message_ids": ["msg_db3w1s056014"]}]),
+                },
+            },
+            {
+                "id": 375,
+                "channel": "ai-net-http",
+                "sender_id": "ai-net-http",
+                "message": next_prompt,
+                "meta": {
+                    "mcp_server": "ai-net-http",
+                    "mcp_method": "notifications/claude/channel",
+                    "kind": "digest",
+                    "rooms": json.dumps([{"room_id": "room_dm_a90xk3afh8", "message_ids": ["msg_z8ao45uuy55m"]}]),
+                },
+            },
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            transcript = Path(td) / "session.jsonl"
+            transcript.write_text(
+                json.dumps(
+                    {
+                        "type": "queue-operation",
+                        "operation": "enqueue",
+                        "timestamp": "2026-06-28T07:12:06.900Z",
+                        "content": "\x15" + stale_prompt,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            claims_path = Path(td) / "claims.json"
+            injected: list[int] = []
+            with (
+                mock.patch.object(ciel_runtime, "CHANNEL_STDIN_WAKE_CLAIMS_PATH", claims_path),
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript),
+                mock.patch.object(ciel_runtime, "_channel_stdin_inflight_stale_seconds", return_value=180.0),
+                mock.patch.object(ciel_runtime.time, "time", return_value=1782631318.0),
+                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+                mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
+            ):
+                last_id = ciel_runtime._inject_pending_channel_messages(
+                    99,
+                    367,
+                    wake_for_llm_delivery=True,
+                    commit_cursor=False,
+                    injected_message_ids=injected,
+                )
+
+        self.assertEqual(368, last_id)
+        self.assertEqual([375], injected)
+        self.assertEqual(2, write_all.call_count)
+        self.assertIn(next_prompt.encode("utf-8"), write_all.call_args_list[0].args[1])
+        commit_cursor.assert_called_with(368)
+        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
+        self.assertTrue(any("reason=stale_queued_wake" in item and "message_id=368" in item for item in log_messages))
+
     def test_channel_stdin_wake_completed_requires_assistant_after_prompt(self):
         with tempfile.TemporaryDirectory() as td:
             transcript = Path(td) / "session.jsonl"
@@ -3384,6 +3462,16 @@ class ChannelBridgeTests(unittest.TestCase):
             )
         )
 
+    def test_channel_llm_skip_reason_rejects_presence_checkins(self):
+        message = {
+            "message": "1 colleague checked in: Kevin.",
+            "channel": "ai-net-http",
+            "sender_id": "ai-net-http",
+            "meta": {"mcp_server": "ai-net-http", "mcp_method": "notifications/claude/channel", "kind": "checkins"},
+        }
+
+        self.assertEqual("checkins", ciel_runtime._channel_llm_message_skip_reason(message))
+
     def test_channel_skip_reason_rejects_system_event_metadata(self):
         message = {"message": "Connected", "meta": {"eventType": "system"}}
         self.assertEqual("system", ciel_runtime._channel_llm_message_skip_reason(message))
@@ -3513,6 +3601,40 @@ class ChannelBridgeTests(unittest.TestCase):
                 },
             },
         ]
+        self.assertEqual(set(), ciel_runtime._channel_superseded_message_ids(messages))
+
+    def test_channel_superseded_message_ids_keeps_ai_net_digest_message_ids(self):
+        messages = [
+            {
+                "id": 374,
+                "channel": "ai-net-http",
+                "sender_id": "ai-net-http",
+                "message": "[AI-Net new messages]\n• room_id2w78yhq8c8: 1 new (Test)",
+                "kind": "channel",
+                "meta": {
+                    "mcp_server": "ai-net-http",
+                    "mcp_method": "notifications/claude/channel",
+                    "kind": "digest",
+                    "rooms": json.dumps([{"room_id": "room_id2w78yhq8c8", "message_ids": ["msg_leporpuku7pl"]}]),
+                    "cursor": "1782631241601-0",
+                },
+            },
+            {
+                "id": 375,
+                "channel": "ai-net-http",
+                "sender_id": "ai-net-http",
+                "message": "[AI-Net new messages]\n• [DM] DM-Robert: 1 new (Joy)",
+                "kind": "channel",
+                "meta": {
+                    "mcp_server": "ai-net-http",
+                    "mcp_method": "notifications/claude/channel",
+                    "kind": "digest",
+                    "rooms": json.dumps([{"room_id": "room_dm_a90xk3afh8", "message_ids": ["msg_z8ao45uuy55m"]}]),
+                    "cursor": "1782631318836-0",
+                },
+            },
+        ]
+
         self.assertEqual(set(), ciel_runtime._channel_superseded_message_ids(messages))
 
     def test_channel_direct_llm_worker_uses_router_without_hidden_print_mode(self):
