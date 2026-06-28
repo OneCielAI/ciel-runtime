@@ -158,6 +158,7 @@ CHANNEL_LLM_CLEAR_FLOOR_PATH = CONFIG_DIR / "channel-llm-clear-floor.json"
 CHANNEL_LLM_LAUNCH_GUARD_PATH = CONFIG_DIR / "channel-llm-launch-guard.json"
 CHANNEL_LLM_SUMMARY_QUEUE_PATH = CONFIG_DIR / "channel-llm-summary-queue.jsonl"
 CHANNEL_LLM_SUMMARY_CURSOR_PATH = CONFIG_DIR / "channel-llm-summary-cursor.json"
+CHANNEL_COMPACT_REQUEST_PATH = CONFIG_DIR / "channel-compact-request.json"
 CHANNEL_PROBE_CACHE_PATH = CONFIG_DIR / "channel-probe-cache.json"
 MCP_PROXY_CONFIG = CONFIG_DIR / "mcp-proxy.json"
 ROUTER_HOST = os.environ.get("CIEL_RUNTIME_ROUTER_CLIENT_HOST", "127.0.0.1").strip() or "127.0.0.1"
@@ -553,6 +554,7 @@ _CHANNEL_LLM_DIRECT_WORKERS_STARTED = 0
 _CHANNEL_STDIN_WAKE_LOCK = threading.Lock()
 _CHANNEL_STDIN_INJECT_LOCK = threading.Lock()
 _CHANNEL_STDIN_WAKE_DELIVERED: set[int] = set()
+_CHANNEL_COMPACT_REQUEST_LOCK = threading.Lock()
 _NATIVE_CHANNEL_NOTIFICATION_METHOD = "notifications/claude/channel"
 BUILTIN_CHANNEL_SPEC = "server:ciel-runtime-router"
 _NATIVE_ROUTER_CHANNEL_NAMES = {"ciel-runtime-router", "mcp-ciel-runtime-router"}
@@ -11304,8 +11306,112 @@ def _channel_mcp_initialize_response(request_id: Any, protocol: str) -> dict[str
     }
 
 
+def _channel_compact_request_ttl_seconds() -> float:
+    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_COMPACT_REQUEST_TTL_SECONDS")
+    if raw is None:
+        return 600.0
+    try:
+        return max(5.0, min(3600.0, float(str(raw).strip())))
+    except Exception:
+        return 600.0
+
+
+def _channel_compact_request_payload(source: str, reason: str) -> dict[str, Any]:
+    now = time.time()
+    return {
+        "id": uuid.uuid4().hex,
+        "command": "/compact",
+        "source": str(source or "mcp"),
+        "reason": truncate_for_prompt(str(reason or ""), 1000),
+        "requested_at": now,
+        "expires_at": now + _channel_compact_request_ttl_seconds(),
+        "pid": os.getpid(),
+    }
+
+
+def _write_channel_compact_request(source: str = "mcp", reason: str = "") -> dict[str, Any]:
+    request = _channel_compact_request_payload(source, reason)
+    with _CHANNEL_COMPACT_REQUEST_LOCK:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        tmp_path = CHANNEL_COMPACT_REQUEST_PATH.with_name(
+            f"{CHANNEL_COMPACT_REQUEST_PATH.name}.{os.getpid()}.{time.time_ns()}.tmp"
+        )
+        tmp_path.write_text(json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+        try:
+            os.chmod(tmp_path, 0o600)
+        except Exception:
+            pass
+        tmp_path.replace(CHANNEL_COMPACT_REQUEST_PATH)
+    router_log("INFO", f"channel_compact_request_queued id={request['id']} source={request['source']}")
+    return request
+
+
+def _read_channel_compact_request() -> dict[str, Any] | None:
+    with _CHANNEL_COMPACT_REQUEST_LOCK:
+        try:
+            data = json.loads(CHANNEL_COMPACT_REQUEST_PATH.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return None
+        except Exception as exc:
+            router_log("WARN", f"channel_compact_request_read_failed error={type(exc).__name__}: {exc}")
+            return None
+        if not isinstance(data, dict):
+            return None
+        try:
+            expires_at = float(data.get("expires_at") or 0)
+        except Exception:
+            expires_at = 0.0
+        if expires_at and time.time() > expires_at:
+            try:
+                CHANNEL_COMPACT_REQUEST_PATH.unlink()
+            except FileNotFoundError:
+                pass
+            except Exception as exc:
+                router_log("WARN", f"channel_compact_request_clear_failed id={data.get('id') or '-'} error={type(exc).__name__}: {exc}")
+            router_log("INFO", f"channel_compact_request_expired id={data.get('id') or '-'}")
+            return None
+        return data
+
+
+def _clear_channel_compact_request(request_id: str | None = None) -> bool:
+    with _CHANNEL_COMPACT_REQUEST_LOCK:
+        if request_id:
+            try:
+                data = json.loads(CHANNEL_COMPACT_REQUEST_PATH.read_text(encoding="utf-8"))
+            except FileNotFoundError:
+                return False
+            except Exception:
+                data = {}
+            if isinstance(data, dict) and str(data.get("id") or "") != str(request_id):
+                return False
+        try:
+            CHANNEL_COMPACT_REQUEST_PATH.unlink()
+            return True
+        except FileNotFoundError:
+            return False
+        except Exception as exc:
+            router_log("WARN", f"channel_compact_request_clear_failed id={request_id or '-'} error={type(exc).__name__}: {exc}")
+            return False
+
+
 def _channel_mcp_tool_schemas() -> list[dict[str, Any]]:
     return [
+        {
+            "name": "compact_session",
+            "description": (
+                "Queue Claude Code's /compact slash command for the active Ciel Runtime-launched session. "
+                "Use this when the conversation context is too large and the session should compact itself."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "Optional short reason shown in Ciel Runtime logs.",
+                    },
+                },
+            },
+        },
         {
             "name": "send_message",
             "description": (
@@ -11455,6 +11561,25 @@ def _channel_mcp_tool_response(request_id: Any, text: str, is_error: bool = Fals
 def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
     name = str(params.get("name") or "")
     args = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
+    if name == "compact_session":
+        request = _write_channel_compact_request(
+            source="ciel-runtime-router-tool",
+            reason=str(args.get("reason") or ""),
+        )
+        return _channel_mcp_tool_response(
+            request_id,
+            json.dumps(
+                {
+                    "ok": True,
+                    "queued": True,
+                    "command": request.get("command"),
+                    "request_id": request.get("id"),
+                    "expires_at": request.get("expires_at"),
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+        )
     if name == "send_message":
         channel = str(args.get("channel") or "").strip()
         message = str(args.get("message") or args.get("text") or "").strip()
@@ -32061,6 +32186,33 @@ def _inject_pending_channel_messages(
         return return_last_id if pending and wake_for_llm_delivery else last_id
 
 
+def _inject_pending_compact_request(
+    master_fd: int,
+    enter_bytes: bytes | None = None,
+    *,
+    log_defer: bool = True,
+) -> str:
+    request = _read_channel_compact_request()
+    if not request:
+        return "none"
+    request_id = str(request.get("id") or "")
+    if _channel_stdin_active_tool_call():
+        if log_defer:
+            router_log("INFO", f"channel_compact_request_deferred id={request_id or '-'} reason=active_tool_call")
+        return "deferred"
+    command = str(request.get("command") or "/compact").strip() or "/compact"
+    if command != "/compact":
+        command = "/compact"
+    submit_bytes = _channel_wake_enter_bytes(enter_bytes)
+    _write_channel_wake_prompt(master_fd, command, submit_bytes)
+    _clear_channel_compact_request(request_id or None)
+    router_log(
+        "INFO",
+        f"channel_compact_request_injected id={request_id or '-'} enter={_channel_enter_label(submit_bytes)}",
+    )
+    return "injected"
+
+
 def _inject_pending_channel_summaries(master_fd: int, enter_bytes: bytes | None = None) -> int:
     global _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
     with _CHANNEL_LLM_SUMMARY_LOCK:
@@ -32200,12 +32352,14 @@ def subprocess_call_with_channel_wake_proxy(
     old_sigwinch = None
     sigwinch_installed = False
     last_channel_poll = 0.0
+    last_compact_poll = 0.0
     channel_inflight_id: int | None = None
     channel_inflight_cursor: int | None = None
     channel_inflight_logged_at = 0.0
     channel_inflight_started_at = 0.0
     channel_pending_recheck = False
     channel_tool_defer_logged_at = 0.0
+    compact_defer_logged_at = 0.0
     channel_enter_bytes = _channel_wake_enter_bytes()
     router_log(
         "INFO",
@@ -32307,6 +32461,19 @@ def subprocess_call_with_channel_wake_proxy(
                         "INFO",
                         f"channel_stdin_proxy_waiting_for_turn_completion message_id={channel_inflight_id} state={channel_inflight_state}",
                     )
+            if now - last_compact_poll >= 0.5:
+                last_compact_poll = now
+                if channel_inflight_id is None:
+                    log_defer = now - compact_defer_logged_at >= 30.0
+                    compact_status = _inject_pending_compact_request(
+                        master_fd,
+                        channel_enter_bytes,
+                        log_defer=log_defer,
+                    )
+                    if compact_status == "deferred" and log_defer:
+                        compact_defer_logged_at = now
+                    elif compact_status == "injected":
+                        compact_defer_logged_at = 0.0
             if now - last_channel_poll >= 0.5:
                 last_channel_poll = now
                 marker = _chat_messages_file_marker()

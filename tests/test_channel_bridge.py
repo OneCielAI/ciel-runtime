@@ -1253,6 +1253,9 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("send_message", names)
         self.assertIn("send_file", names)
         self.assertIn("get_messages", names)
+        self.assertIn("compact_session", names)
+        compact_schema = next(tool for tool in tools if tool.get("name") == "compact_session")
+        self.assertIn("reason", compact_schema["inputSchema"]["properties"])
         send_schema = next(tool for tool in tools if tool.get("name") == "send_message")
         self.assertIn("channel", send_schema["inputSchema"]["required"])
         self.assertIn("message", send_schema["inputSchema"]["required"])
@@ -1350,6 +1353,73 @@ class ChannelBridgeTests(unittest.TestCase):
         store.assert_called_once()
         self.assertEqual("answer.txt", store.call_args.args[0]["name"])
         self.assertEqual("hello", store.call_args.args[0]["content"])
+
+    def test_builtin_channel_mcp_compact_session_queues_request_file(self):
+        with tempfile.TemporaryDirectory(prefix="ca-compact-request-") as td:
+            root = Path(td)
+            request_path = root / "channel-compact-request.json"
+            with (
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHANNEL_COMPACT_REQUEST_PATH", request_path),
+                mock.patch.object(ciel_runtime, "router_log"),
+            ):
+                response = ciel_runtime._channel_mcp_tool_call_response(
+                    10,
+                    {"name": "compact_session", "arguments": {"reason": "large MCP result"}},
+                )
+
+            self.assertEqual(10, response["id"])
+            self.assertFalse(response["result"]["isError"])
+            result = json.loads(response["result"]["content"][0]["text"])
+            self.assertTrue(result["queued"])
+            self.assertEqual("/compact", result["command"])
+            saved = json.loads(request_path.read_text(encoding="utf-8"))
+            self.assertEqual(result["request_id"], saved["id"])
+            self.assertEqual("/compact", saved["command"])
+            self.assertEqual("large MCP result", saved["reason"])
+
+    def test_compact_request_injection_defers_while_tool_call_active(self):
+        with tempfile.TemporaryDirectory(prefix="ca-compact-request-") as td:
+            root = Path(td)
+            request_path = root / "channel-compact-request.json"
+            with (
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHANNEL_COMPACT_REQUEST_PATH", request_path),
+                mock.patch.object(ciel_runtime, "router_log"),
+            ):
+                ciel_runtime._write_channel_compact_request("test", "active tool")
+                with (
+                    mock.patch.object(ciel_runtime, "_channel_stdin_active_tool_call", return_value=True),
+                    mock.patch.object(ciel_runtime, "_write_channel_wake_prompt") as write_prompt,
+                ):
+                    status = ciel_runtime._inject_pending_compact_request(123, b"\n")
+
+            self.assertEqual("deferred", status)
+            write_prompt.assert_not_called()
+            self.assertTrue(request_path.exists())
+
+    def test_compact_request_injection_writes_slash_compact_once(self):
+        with tempfile.TemporaryDirectory(prefix="ca-compact-request-") as td:
+            root = Path(td)
+            request_path = root / "channel-compact-request.json"
+            with (
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHANNEL_COMPACT_REQUEST_PATH", request_path),
+                mock.patch.object(ciel_runtime, "router_log"),
+            ):
+                ciel_runtime._write_channel_compact_request("test", "ready")
+                with (
+                    mock.patch.object(ciel_runtime, "_channel_stdin_active_tool_call", return_value=False),
+                    mock.patch.object(ciel_runtime, "_write_channel_wake_prompt") as write_prompt,
+                ):
+                    status = ciel_runtime._inject_pending_compact_request(123, b"\n")
+
+            self.assertEqual("injected", status)
+            write_prompt.assert_called_once()
+            self.assertEqual(123, write_prompt.call_args.args[0])
+            self.assertEqual("/compact", write_prompt.call_args.args[1])
+            self.assertEqual(b"\n", write_prompt.call_args.args[2])
+            self.assertFalse(request_path.exists())
 
     def test_inject_pending_channel_messages_writes_prompt_to_child_stdin(self):
         messages = [
