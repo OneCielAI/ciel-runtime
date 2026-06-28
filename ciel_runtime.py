@@ -4980,6 +4980,7 @@ def body_is_channel_prompt(body: dict[str, Any]) -> bool:
     latest_text = latest_user_text(body)
     return bool(
         metadata.get("ciel_runtime_channel_injected")
+        or latest_text.startswith("[external channel input]")
         or latest_text.startswith("[ciel-runtime channel inbox]")
         or latest_text.startswith(CHANNEL_LLM_WAKE_PREFIX)
         or any(latest_text.startswith(prefix) for prefix in CHANNEL_LLM_WAKE_LEGACY_PREFIXES)
@@ -29582,7 +29583,7 @@ def format_channel_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
         meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
         room = str(meta.get("room_id") or meta.get("room") or channel)
         thread = str(message.get("thread_id") or meta.get("thread_id") or "")
-        body = re.sub(r"\s+", " ", str(message.get("message") or "")).strip()
+        body = str(message.get("message") or "")
         fields = [f"id={mid}", f"room={room}", f"from={sender}"]
         if thread:
             fields.append(f"thread={thread}")
@@ -29600,6 +29601,7 @@ def format_channel_llm_delivery_wake_prompt(messages: list[dict[str, Any]]) -> s
     ids: list[str] = []
     channels: list[str] = []
     sources: list[str] = []
+    bodies: list[str] = []
     for message in messages:
         mid = str(message.get("id") or "").strip()
         if mid:
@@ -29611,13 +29613,17 @@ def format_channel_llm_delivery_wake_prompt(messages: list[dict[str, Any]]) -> s
         source = str(meta.get("mcp_server") or meta.get("source") or message.get("sender_id") or channel or "external").strip()
         if source:
             sources.append(source)
+        body = str(message.get("message") or "")
+        if body:
+            bodies.append(body)
     id_text = ",".join(ids) or "-"
     channel_text = ",".join(sorted(set(channels))) or "default"
     source_text = ",".join(sorted(set(sources))) or "external"
-    return (
+    header = (
         f"{CHANNEL_LLM_WAKE_PREFIX} "
-        f"type=mcp_notification source={source_text} ids={id_text} channels={channel_text}"
+        f"type=mcp_notification source={source_text} id={ids[0] if ids else '-'} ids={id_text} channels={channel_text}"
     )
+    return header if not bodies else header + "\n" + "\n\n".join(bodies)
 
 
 def format_channel_llm_batch_prompt(messages: list[dict[str, Any]]) -> str:
@@ -29630,7 +29636,7 @@ def format_channel_llm_batch_prompt(messages: list[dict[str, Any]]) -> str:
         meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
         room = str(meta.get("room_id") or meta.get("room") or channel)
         thread = str(message.get("thread_id") or meta.get("thread_id") or "")
-        body = re.sub(r"\s+", " ", str(message.get("message") or "")).strip()
+        body = str(message.get("message") or "")
         fields = [f"id={mid}", f"channel={channel}", f"room={room}", f"from={sender}"]
         if recipients:
             fields.append(f"to={_compact_json_for_prompt(recipients, max_chars=400)}")
@@ -29640,16 +29646,11 @@ def format_channel_llm_batch_prompt(messages: list[dict[str, Any]]) -> str:
         if prompt_meta:
             fields.append(f"metadata={prompt_meta}")
         parts.append(
-            f"<< {channel} >> incoming channel message for the current agent.\n"
-            f"<< 메시지 >>\n"
+            f"<< {channel} >>\n"
             + " ".join(fields)
-            + f"\ntext={json.dumps(body, ensure_ascii=False)}"
+            + f"\n{body}"
         )
-    return (
-        "[ciel-runtime channel inbox]\n"
-        "external channel/MCP message data for this session.\n\n"
-        + "\n\n".join(parts)
-    )
+    return "[external channel input]\n" + "\n\n".join(parts)
 
 
 _CHANNEL_LLM_TOOL_CONTEXT_LOCK = threading.Lock()
@@ -29664,7 +29665,7 @@ def _channel_injected_prompt_text(body: dict[str, Any]) -> str:
         if not isinstance(message, dict) or message.get("role") != "user":
             continue
         text = anthropic_content_to_text(message.get("content", ""))
-        if "[ciel-runtime channel inbox]" in text:
+        if "[external channel input]" in text or "[ciel-runtime channel inbox]" in text:
             return truncate_for_prompt(text, _CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT)
     return ""
 
@@ -31540,7 +31541,26 @@ def body_with_pending_channel_summaries(body: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-_CHANNEL_WAKE_PROMPT_ID_RE = re.compile(r"\bid=(\d+)(?:\D|$)")
+_CHANNEL_WAKE_PROMPT_IDS_RE = re.compile(r"\b(?:id|ids|pending_ids|message_ids)\s*=\s*([0-9][0-9,\s]*)")
+
+
+def _channel_prompt_message_ids(text: str) -> set[int]:
+    ids: set[int] = set()
+    for match in _CHANNEL_WAKE_PROMPT_IDS_RE.finditer(str(text or "")):
+        for raw in re.split(r"\D+", match.group(1)):
+            if not raw:
+                continue
+            try:
+                message_id = int(raw)
+            except Exception:
+                continue
+            if message_id > 0:
+                ids.add(message_id)
+    return ids
+
+
+def _channel_prompt_references_message_id(text: str, message_id: int) -> bool:
+    return message_id in _channel_prompt_message_ids(text)
 
 
 def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]:
@@ -31549,15 +31569,9 @@ def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]:
         if not isinstance(message, dict):
             continue
         text = anthropic_content_to_text(message.get("content"))
-        if "ciel-runtime external channel message" not in text:
+        if "ciel-runtime external channel message" not in text and "[external channel input]" not in text:
             continue
-        for match in _CHANNEL_WAKE_PROMPT_ID_RE.finditer(text):
-            try:
-                message_id = int(match.group(1))
-            except Exception:
-                continue
-            if message_id > 0:
-                ids.add(message_id)
+        ids.update(_channel_prompt_message_ids(text))
     return ids
 
 
@@ -31827,13 +31841,6 @@ def _channel_stdin_wake_state(message_id: int) -> str:
 def _channel_stdin_wake_state_from_text(message_id: int, text: str) -> str:
     if message_id <= 0:
         return "completed"
-    prompt_markers = (
-        f"id={message_id} ",
-        f"id={message_id}\n",
-        f"id={message_id}\\n",
-        f"id={message_id}\"",
-        f"id={message_id}'",
-    )
 
     def _record_text(value: Any) -> str:
         if isinstance(value, str):
@@ -31874,14 +31881,14 @@ def _channel_stdin_wake_state_from_text(message_id: int, text: str) -> str:
             return "completed"
         if record_type == "queue-operation" and record.get("operation") == "enqueue":
             raw = record.get("content")
-            if isinstance(raw, str) and any(marker in raw for marker in prompt_markers):
+            if isinstance(raw, str) and _channel_prompt_references_message_id(raw, message_id):
                 seen_queued_prompt = True
             continue
         if record_type == "attachment":
             attachment = record.get("attachment")
             if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
                 raw = attachment.get("prompt")
-                if isinstance(raw, str) and any(marker in raw for marker in prompt_markers):
+                if isinstance(raw, str) and _channel_prompt_references_message_id(raw, message_id):
                     seen_queued_prompt = True
             continue
         if record_type != "user":
@@ -31893,7 +31900,7 @@ def _channel_stdin_wake_state_from_text(message_id: int, text: str) -> str:
         # superseded by later typed/queued prompts.  Only commit delivery after
         # the prompt is present as an actual user message.
         content_text = _record_text(message_obj.get("content"))
-        if any(marker in content_text for marker in prompt_markers):
+        if _channel_prompt_references_message_id(content_text, message_id):
             seen_real_prompt = True
     if seen_real_prompt:
         return "pending"
@@ -32002,11 +32009,7 @@ def _channel_stdin_queued_command_ids_from_text(text: str) -> set[int]:
                     candidate = raw
         if not candidate:
             continue
-        for match in re.finditer(r"\bid=(\d+)(?:\D|$)", candidate):
-            try:
-                ids.add(int(match.group(1)))
-            except Exception:
-                continue
+        ids.update(_channel_prompt_message_ids(candidate))
     return ids
 
 

@@ -258,7 +258,7 @@ class ToolGuardTests(unittest.TestCase):
         self.assertEqual("deny", output["permissionDecision"])
         self.assertIn("External channel messages", output["permissionDecisionReason"])
 
-    def test_enter_plan_pretooluse_denies_channel_inbox_prompt(self):
+    def test_enter_plan_pretooluse_denies_external_channel_input_prompt(self):
         with tempfile.TemporaryDirectory() as tmp:
             transcript = Path(tmp) / "session.jsonl"
             transcript.write_text(
@@ -267,7 +267,7 @@ class ToolGuardTests(unittest.TestCase):
                         "type": "user",
                         "message": {
                             "role": "user",
-                            "content": "[ciel-runtime channel inbox]\n<< ai-net-http >> incoming channel message.",
+                            "content": "[external channel input]\n<< ai-net-http >>\nid=42 channel=ai-net-http\nhello",
                         },
                     }
                 )

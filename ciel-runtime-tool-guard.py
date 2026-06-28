@@ -352,6 +352,8 @@ def latest_user_is_channel_wake(transcript_path: str | None) -> bool:
     return (
         "[ciel-runtime external channel message" in text
         or "[ciel-runtime channel inbox]" in text
+        or "[external channel input]" in text
+        or text.startswith("[external input pending]")
     )
 
 

@@ -1086,8 +1086,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 }
             ]
         )
-        self.assertIn("external channel/MCP message data", prompt)
-        self.assertIn("incoming channel message", prompt)
+        self.assertIn("[external channel input]", prompt)
         self.assertIn("New message from Robert", prompt)
         self.assertIn('"room_name":"DM-Robert"', prompt)
         self.assertNotIn("결론내리지 마세요", prompt)
@@ -1599,7 +1598,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual([8], injected)
         commit_cursor.assert_not_called()
 
-    def test_llm_delivery_wake_prompt_omits_raw_channel_message(self):
+    def test_llm_delivery_wake_prompt_includes_external_content(self):
         prompt = ciel_runtime.format_channel_llm_delivery_wake_prompt(
             [
                 {
@@ -1616,8 +1615,9 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("type=mcp_notification", prompt)
         self.assertIn("source=agent", prompt)
         self.assertNotIn("ciel-runtime", prompt)
+        self.assertIn("id=8", prompt)
         self.assertIn("ids=8", prompt)
-        self.assertNotIn("secret raw message body", prompt)
+        self.assertIn("secret raw message body", prompt)
         self.assertNotIn("external channel message", prompt)
         self.assertNotIn("do not answer", prompt)
         self.assertNotIn("Start a normal turn", prompt)
@@ -1658,8 +1658,9 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn(b"[external input pending]", wake_bytes)
         self.assertIn(b"type=mcp_notification", wake_bytes)
         self.assertNotIn(b"ciel-runtime", wake_bytes)
+        self.assertIn(b"id=8", wake_bytes)
         self.assertIn(b"ids=8", wake_bytes)
-        self.assertNotIn(b"wake up later", wake_bytes)
+        self.assertIn(b"wake up later", wake_bytes)
         commit_cursor.assert_not_called()
 
     def test_channel_wake_prompt_does_not_auto_synthesize_plan_mode(self):
@@ -1786,6 +1787,23 @@ class ChannelBridgeTests(unittest.TestCase):
             )
             with mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript):
                 self.assertEqual("completed", ciel_runtime._channel_stdin_wake_state(10))
+
+    def test_channel_stdin_wake_state_accepts_ids_marker(self):
+        transcript = "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "user",
+                        "message": {
+                            "content": "[external input pending] type=mcp_notification ids=363 channels=ai-net-http",
+                        },
+                    }
+                ),
+                json.dumps({"type": "assistant", "message": {"content": []}}),
+            ]
+        )
+
+        self.assertEqual("completed", ciel_runtime._channel_stdin_wake_state_from_text(363, transcript))
 
     def test_channel_stdin_inflight_stale_only_expires_queued_or_unknown(self):
         with mock.patch.object(ciel_runtime, "_channel_stdin_inflight_stale_seconds", return_value=60.0):
@@ -2214,10 +2232,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIsNot(out, body)
         self.assertEqual(2, len(out["messages"]))
         injected = out["messages"][-1]["content"][0]["text"]
-        self.assertIn("channel inbox", injected)
-        self.assertIn("incoming channel message for the current agent", injected)
-        self.assertIn("<< 메시지 >>", injected)
-        self.assertIn("external channel/MCP message data", injected)
+        self.assertIn("[external channel input]", injected)
         self.assertNotIn("로컬 사용자 승인 없이 같은 채널/DM에 답장", injected)
         self.assertNotIn("답장 여부를 묻고 멈추지 마세요", injected)
         self.assertNotIn("미래 행동을 약속하는 말만 남기고 턴을 끝내지 마세요", injected)
@@ -2533,7 +2548,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(out["metadata"]["ciel_runtime_channel_injected"])
         self.assertEqual("3", out["metadata"]["ciel_runtime_channel_message_ids"])
         injected = out["messages"][-1]["content"][0]["text"]
-        self.assertIn("external channel/MCP message data", injected)
+        self.assertIn("[external channel input]", injected)
         self.assertIn("Please read this", injected)
         self.assertNotIn("자율 처리 턴", injected)
         self.assertNotIn("필요한 읽기/쓰기 도구를 호출", injected)
@@ -2554,7 +2569,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 }
             ]
         )
-        self.assertIn("external channel/MCP message data", prompt)
+        self.assertIn("[external channel input]", prompt)
         self.assertNotIn("현재 Claude Code 세션의 에이전트에게 도착한 실제 업무 메시지", prompt)
         self.assertNotIn("DM/업무 지시/상태 확인/컨텍스트 요청", prompt)
         self.assertNotIn("로컬 사용자 승인 없이 같은 채널/DM에 답장", prompt)
@@ -2897,6 +2912,18 @@ class ChannelBridgeTests(unittest.TestCase):
                         "(id=14 room=room) \"one\" | (id=15 room=room) \"two\""
                     ),
                 },
+            ]
+        }
+
+        self.assertEqual({14, 15}, ciel_runtime._channel_message_ids_already_in_request(body))
+
+    def test_channel_message_ids_already_in_request_accepts_external_input_ids(self):
+        body = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "[external channel input]\n<< room >>\nids=14,15 channel=room\nhello",
+                }
             ]
         }
 
@@ -3341,8 +3368,8 @@ class ChannelBridgeTests(unittest.TestCase):
         args = router_response.call_args.args
         self.assertEqual(9, args[0])
         prompt = args[1]
-        self.assertIn("<< room_4pyr8vvwm2cd >> incoming channel message for the current agent", prompt)
-        self.assertIn("external channel/MCP message data", prompt)
+        self.assertIn("<< room_4pyr8vvwm2cd >>", prompt)
+        self.assertIn("[external channel input]", prompt)
         self.assertNotIn("자율 처리 턴", prompt)
         self.assertNotIn("로컬 사용자 승인 없이 같은 채널/DM에 답장", prompt)
         self.assertNotIn("답장 여부를 묻고 멈추지 마세요", prompt)
