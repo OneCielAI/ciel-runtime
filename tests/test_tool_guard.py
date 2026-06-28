@@ -5,13 +5,107 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+import ciel_runtime
 
 ROOT = Path(__file__).resolve().parents[1]
 GUARD = ROOT / "ciel-runtime-tool-guard.py"
 
 
 class ToolGuardTests(unittest.TestCase):
+    def test_install_tool_guard_hooks_migrates_legacy_claude_any_hooks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            settings_path = Path(tmp) / "settings.json"
+            settings_path.write_text(
+                json.dumps(
+                    {
+                        "hooks": {
+                            "PreToolUse": [
+                                {
+                                    "matcher": "*",
+                                    "hooks": [
+                                        {
+                                            "type": "command",
+                                            "command": "/usr/bin/python3 /old/@oneciel-ai/claude-any/claude-any-tool-guard.py",
+                                        }
+                                    ],
+                                },
+                                {
+                                    "hooks": [
+                                        {
+                                            "type": "command",
+                                            "command": "/usr/bin/python3 /old/ciel-runtime-tool-guard.py",
+                                        }
+                                    ],
+                                },
+                            ],
+                            "Stop": [
+                                {
+                                    "hooks": [
+                                        {
+                                            "type": "command",
+                                            "command": "/usr/bin/python3 /old/@oneciel-ai/claude-any/claude-any-tool-guard.py",
+                                        }
+                                    ],
+                                },
+                                {
+                                    "hooks": [
+                                        {
+                                            "type": "command",
+                                            "command": "/usr/bin/python3 /old/ciel-runtime-tool-guard.py",
+                                        }
+                                    ],
+                                },
+                                {"hooks": [{"type": "command", "command": "echo keep"}]},
+                            ],
+                        }
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+
+            with (
+                mock.patch.object(ciel_runtime, "CLAUDE_SETTINGS_PATH", settings_path),
+                mock.patch.object(
+                    ciel_runtime,
+                    "ciel_runtime_tool_guard_command",
+                    return_value="/usr/bin/python3 /new/ciel-runtime-tool-guard.py",
+                ),
+            ):
+                ciel_runtime.install_tool_guard_hooks()
+
+            data = json.loads(settings_path.read_text(encoding="utf-8"))
+
+        for event, groups in data["hooks"].items():
+            commands = [
+                hook.get("command", "")
+                for group in groups
+                if isinstance(group, dict)
+                for hook in group.get("hooks", [])
+                if isinstance(hook, dict)
+            ]
+            self.assertFalse(any("claude-any" in command for command in commands), event)
+            current = [command for command in commands if "ciel-runtime-tool-guard" in command]
+            self.assertEqual(["/usr/bin/python3 /new/ciel-runtime-tool-guard.py"], current, event)
+
+        pretool_current_groups = [
+            group
+            for group in data["hooks"]["PreToolUse"]
+            if any(
+                isinstance(hook, dict) and "ciel-runtime-tool-guard" in str(hook.get("command", ""))
+                for hook in group.get("hooks", [])
+            )
+        ]
+        self.assertEqual("*", pretool_current_groups[0].get("matcher"))
+        self.assertIn("echo keep", [
+            hook.get("command", "")
+            for group in data["hooks"]["Stop"]
+            for hook in group.get("hooks", [])
+            if isinstance(hook, dict)
+        ])
+
     def run_guard(self, event: dict, env_extra: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as tmp:
             env = os.environ.copy()

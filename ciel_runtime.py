@@ -3176,24 +3176,60 @@ def install_tool_guard_hooks() -> None:
     ) + tuple(
         (event, False) for event in TOOL_GUARD_EVENTS_WITHOUT_MATCHER
     )
+    legacy_markers = (
+        "claude-any-tool-guard",
+        "@oneciel-ai/claude-any",
+        "/claude-any/",
+        "\\claude-any\\",
+    )
     for event, with_matcher in all_events:
         groups = hooks.setdefault(event, [])
         if not isinstance(groups, list):
             print(f"Ciel Runtime warning: {CLAUDE_SETTINGS_PATH} hooks.{event} is not a list; tool guard hook was not installed.", flush=True)
             return
         existing = False
+        cleaned_groups: list[Any] = []
         for group in groups:
             if not isinstance(group, dict):
+                cleaned_groups.append(group)
                 continue
             handlers = group.get("hooks")
             if not isinstance(handlers, list):
+                cleaned_groups.append(group)
                 continue
+            cleaned_handlers: list[Any] = []
+            group_has_current = False
             for handler in handlers:
-                if isinstance(handler, dict) and "ciel-runtime-tool-guard" in str(handler.get("command", "")):
+                if not isinstance(handler, dict):
+                    cleaned_handlers.append(handler)
+                    continue
+                handler_command = str(handler.get("command", ""))
+                if any(marker in handler_command for marker in legacy_markers):
+                    changed = True
+                    continue
+                if "ciel-runtime-tool-guard" in handler_command:
+                    if existing or group_has_current:
+                        changed = True
+                        continue
                     existing = True
+                    group_has_current = True
                     if handler.get("command") != command:
                         handler["command"] = command
                         changed = True
+                cleaned_handlers.append(handler)
+            if cleaned_handlers != handlers:
+                group["hooks"] = cleaned_handlers
+                changed = True
+            if not cleaned_handlers:
+                changed = True
+                continue
+            if group_has_current and with_matcher and group.get("matcher") != "*":
+                group["matcher"] = "*"
+                changed = True
+            cleaned_groups.append(group)
+        if cleaned_groups != groups:
+            hooks[event] = cleaned_groups
+            groups = cleaned_groups
         if existing:
             continue
         group: dict[str, Any] = {"hooks": [{"type": "command", "command": command}]}
