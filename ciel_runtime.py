@@ -29942,6 +29942,14 @@ def _channel_pending_scan_limit() -> int:
         return 500
 
 
+def _channel_stdin_wake_batch_limit() -> int:
+    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_BATCH_LIMIT", "8")
+    try:
+        return max(1, min(50, int(str(raw).strip())))
+    except Exception:
+        return 8
+
+
 def _channel_llm_message_skip_reason(message: dict[str, Any]) -> str | None:
     visibility = str(message.get("visibility") or "user").strip().lower()
     if visibility in {"hidden", "internal", "transport", "control", "system"}:
@@ -32813,6 +32821,7 @@ def _inject_pending_channel_messages(
         return_last_id = last_id
         candidates = read_chat_messages(last_id, None, None, _channel_pending_scan_limit())
         superseded_ids = _channel_superseded_message_ids(candidates)
+        batch_limit = _channel_stdin_wake_batch_limit() if wake_for_llm_delivery else 1
         for message in candidates:
             previous_last_id = last_id
             try:
@@ -32883,6 +32892,8 @@ def _inject_pending_channel_messages(
                     "INFO",
                     f"channel_stdin_proxy_waiting_for_turn_completion message_id={message.get('id')} channel={message.get('channel')} state={wake_state}",
                 )
+                if pending:
+                    break
                 return previous_last_id
             if not wake_for_llm_delivery:
                 with _CHANNEL_STDIN_WAKE_LOCK:
@@ -32897,10 +32908,11 @@ def _inject_pending_channel_messages(
                         for old_id in sorted(_CHANNEL_STDIN_WAKE_DELIVERED)[:500]:
                             _CHANNEL_STDIN_WAKE_DELIVERED.discard(old_id)
             pending.append(message)
-            if wake_for_llm_delivery:
+            if wake_for_llm_delivery and len(pending) == 1:
                 return_last_id = previous_last_id
             last_id = message_id
-            break
+            if len(pending) >= batch_limit:
+                break
         if pending:
             if wake_for_llm_delivery:
                 prompt = format_channel_llm_delivery_wake_prompt(pending)

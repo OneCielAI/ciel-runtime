@@ -1750,6 +1750,100 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual("wake up later", ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS[8])
         commit_cursor.assert_not_called()
 
+    def test_inject_pending_channel_messages_batches_llm_delivery_wakes(self):
+        messages = [
+            {
+                "id": 8,
+                "channel": "room",
+                "sender_id": "agent-a",
+                "message": "first wake",
+                "meta": {},
+                "delivery": ["llm"],
+            },
+            {
+                "id": 9,
+                "channel": "room",
+                "sender_id": "agent-b",
+                "message": "second wake",
+                "meta": {},
+                "delivery": ["llm"],
+            },
+            {
+                "id": 10,
+                "channel": "room",
+                "sender_id": "agent-c",
+                "message": "third wake",
+                "meta": {},
+                "delivery": ["llm"],
+            },
+        ]
+        injected: list[int] = []
+        with tempfile.TemporaryDirectory() as td:
+            claims_path = Path(td) / "claims.json"
+            with (
+                mock.patch.object(ciel_runtime, "CHANNEL_STDIN_WAKE_CLAIMS_PATH", claims_path),
+                mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=None),
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+                mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
+            ):
+                last_id = ciel_runtime._inject_pending_channel_messages(
+                    99,
+                    7,
+                    wake_for_llm_delivery=True,
+                    commit_cursor=False,
+                    injected_message_ids=injected,
+                )
+
+        self.assertEqual(7, last_id)
+        self.assertEqual([8, 9, 10], injected)
+        self.assertEqual(2, write_all.call_count)
+        wake_bytes = write_all.call_args_list[0].args[1]
+        self.assertIn(b"first wake", wake_bytes)
+        self.assertIn(b"second wake", wake_bytes)
+        self.assertIn(b"third wake", wake_bytes)
+        self.assertEqual("first wake\n\nsecond wake\n\nthird wake", ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS[8])
+        self.assertEqual(ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS[8], ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS[10])
+        commit_cursor.assert_not_called()
+        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
+        self.assertTrue(any("channel_stdin_proxy_injected" in item and "count=3" in item and "message_ids=8,9,10" in item for item in log_messages))
+
+    def test_inject_pending_channel_messages_respects_llm_delivery_wake_batch_limit(self):
+        messages = [
+            {"id": 8, "channel": "room", "sender_id": "agent-a", "message": "first wake", "meta": {}, "delivery": ["llm"]},
+            {"id": 9, "channel": "room", "sender_id": "agent-b", "message": "second wake", "meta": {}, "delivery": ["llm"]},
+            {"id": 10, "channel": "room", "sender_id": "agent-c", "message": "third wake", "meta": {}, "delivery": ["llm"]},
+        ]
+        injected: list[int] = []
+        with tempfile.TemporaryDirectory() as td:
+            claims_path = Path(td) / "claims.json"
+            with (
+                mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_WAKE_BATCH_LIMIT": "2"}),
+                mock.patch.object(ciel_runtime, "CHANNEL_STDIN_WAKE_CLAIMS_PATH", claims_path),
+                mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=None),
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+                mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer"),
+                mock.patch.object(ciel_runtime, "router_log"),
+            ):
+                last_id = ciel_runtime._inject_pending_channel_messages(
+                    99,
+                    7,
+                    wake_for_llm_delivery=True,
+                    commit_cursor=False,
+                    injected_message_ids=injected,
+                )
+
+        self.assertEqual(7, last_id)
+        self.assertEqual([8, 9], injected)
+        wake_bytes = write_all.call_args_list[0].args[1]
+        self.assertIn(b"first wake", wake_bytes)
+        self.assertIn(b"second wake", wake_bytes)
+        self.assertNotIn(b"third wake", wake_bytes)
+
     def test_channel_wake_prompt_does_not_auto_synthesize_plan_mode(self):
         body = {
             "messages": [
