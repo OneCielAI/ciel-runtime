@@ -1612,9 +1612,11 @@ class ChannelBridgeTests(unittest.TestCase):
             ]
         )
 
-        self.assertIn("[channel pending]", prompt)
+        self.assertIn("[external input pending]", prompt)
+        self.assertIn("type=mcp_notification", prompt)
+        self.assertIn("source=agent", prompt)
         self.assertNotIn("ciel-runtime", prompt)
-        self.assertIn("id=8", prompt)
+        self.assertIn("ids=8", prompt)
         self.assertNotIn("secret raw message body", prompt)
         self.assertNotIn("external channel message", prompt)
         self.assertNotIn("do not answer", prompt)
@@ -1653,9 +1655,10 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn(8, ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED)
         self.assertEqual(2, write_all.call_count)
         wake_bytes = write_all.call_args_list[0].args[1]
-        self.assertIn(b"[channel pending]", wake_bytes)
+        self.assertIn(b"[external input pending]", wake_bytes)
+        self.assertIn(b"type=mcp_notification", wake_bytes)
         self.assertNotIn(b"ciel-runtime", wake_bytes)
-        self.assertIn(b"id=8", wake_bytes)
+        self.assertIn(b"ids=8", wake_bytes)
         self.assertNotIn(b"wake up later", wake_bytes)
         commit_cursor.assert_not_called()
 
@@ -1664,7 +1667,7 @@ class ChannelBridgeTests(unittest.TestCase):
             "messages": [
                 {
                     "role": "user",
-                    "content": [{"type": "text", "text": "[channel pending] id=8 pending_ids=8."}],
+                    "content": [{"type": "text", "text": "[external input pending] type=mcp_notification ids=8."}],
                 }
             ],
             "tools": [{"name": "EnterPlanMode", "input_schema": {"type": "object"}}],
@@ -1679,6 +1682,19 @@ class ChannelBridgeTests(unittest.TestCase):
                 {
                     "role": "user",
                     "content": [{"type": "text", "text": "[ciel-runtime channel wake] id=8 pending_ids=8."}],
+                }
+            ],
+        }
+
+        self.assertTrue(ciel_runtime.channel_llm_wake_request(body))
+        self.assertTrue(ciel_runtime.body_is_channel_prompt(body))
+
+    def test_channel_pending_wake_prompt_is_still_recognized(self):
+        body = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": "[channel pending] id=8 pending_ids=8."}],
                 }
             ],
         }
@@ -2229,7 +2245,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 {"role": "user", "attachment": {"type": "plan_mode"}, "content": []},
                 {
                     "role": "user",
-                    "content": "\x15[channel pending] id=3 pending_ids=3 channels=room",
+                    "content": "\x15[external input pending] type=mcp_notification ids=3 channels=room",
                 },
             ],
             "stream": True,
@@ -2254,7 +2270,7 @@ class ChannelBridgeTests(unittest.TestCase):
 
         self.assertIsNot(out, body)
         self.assertIn("Wake-relevant channel message.", out["messages"][-1]["content"][0]["text"])
-        self.assertNotIn("[channel pending]", json.dumps(out["messages"], ensure_ascii=False))
+        self.assertNotIn("[external input pending]", json.dumps(out["messages"], ensure_ascii=False))
         self.assertEqual("3", out["metadata"]["ciel_runtime_channel_message_ids"])
         write_cursor.assert_not_called()
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
@@ -2265,7 +2281,7 @@ class ChannelBridgeTests(unittest.TestCase):
         body = {
             "messages": [
                 {"role": "user", "content": "previous user request"},
-                {"role": "user", "content": "\x15[channel pending] id=3 pending_ids=3 channels=room"},
+                {"role": "user", "content": "\x15[external input pending] type=mcp_notification ids=3 channels=room"},
             ],
             "stream": True,
         }
@@ -2280,7 +2296,7 @@ class ChannelBridgeTests(unittest.TestCase):
 
         self.assertIsNot(out, body)
         self.assertEqual([{"role": "user", "content": "previous user request"}], out["messages"])
-        self.assertNotIn("[channel pending]", json.dumps(out["messages"], ensure_ascii=False))
+        self.assertNotIn("[external input pending]", json.dumps(out["messages"], ensure_ascii=False))
         write_cursor.assert_not_called()
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("channel_llm_wake_prompt_stripped" in item for item in log_messages))
