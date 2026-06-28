@@ -7240,10 +7240,12 @@ def retry_after_exceeds_request_timeout(headers: Any, timeout: float) -> tuple[b
 def apply_router_rate_limit(provider: str, pcfg: dict[str, Any], model: str | None = None) -> tuple[float, int, int | None]:
     rpm = router_rate_limit_effective_rpm(provider, pcfg, model)
     if rpm is None:
-        return 0.0, 0, None
+        waited = wait_for_router_rate_limit_penalty(provider, pcfg, model, rpm)
+        return waited, 0, None
     if rpm <= 0:
+        waited = wait_for_router_rate_limit_penalty(provider, pcfg, model, rpm)
         used, limit = record_router_rate_usage(provider, pcfg, model, rpm)
-        return 0.0, used, limit
+        return waited, used, limit
     window = 60.0
     base_interval = window / float(rpm)
     capacity = router_rate_limit_capacity(rpm)
@@ -7312,6 +7314,36 @@ def apply_router_rate_limit(provider: str, pcfg: dict[str, Any], model: str | No
                 return waited + wait, len(recent), rpm
         sleep_for = min(wait, 10.0)
         router_log("INFO", f"rate_limit_wait provider={provider} model={model or ''} rpm={rpm} wait={wait:.2f}s waited={waited:.2f}s")
+        time.sleep(sleep_for)
+        waited += sleep_for
+
+
+def wait_for_router_rate_limit_penalty(provider: str, pcfg: dict[str, Any], model: str | None, rpm: int | None) -> float:
+    key = router_rate_limit_key(provider, pcfg, model)
+    multi_key = provider_api_key_count(provider, pcfg) > 1
+    waited = 0.0
+    while True:
+        with _RATE_LIMIT_LOCK:
+            try:
+                state = json.loads(RATE_LIMIT_STATE_PATH.read_text(encoding="utf-8")) if RATE_LIMIT_STATE_PATH.exists() else {}
+                if not isinstance(state, dict):
+                    state = {}
+            except Exception:
+                state = {}
+            now = time.time()
+            entry = state.get(key)
+            if not isinstance(entry, dict):
+                legacy_key = f"{provider}:{model or current_upstream_model_id(provider, pcfg)}"
+                entry = state.get(legacy_key)
+            try:
+                penalty_until = 0.0 if multi_key else float(entry.get("penalty_until") or 0.0) if isinstance(entry, dict) else 0.0
+            except Exception:
+                penalty_until = 0.0
+            wait = max(0.0, penalty_until - now)
+            if wait <= 0.001:
+                return waited
+        sleep_for = min(wait, 10.0)
+        router_log("INFO", f"rate_limit_penalty_wait provider={provider} model={model or ''} rpm={rpm if rpm is not None else 'auto'} wait={wait:.2f}s waited={waited:.2f}s")
         time.sleep(sleep_for)
         waited += sleep_for
 
@@ -18884,6 +18916,21 @@ def open_provider_request_with_key_retry(
                 next_hash = hashlib.sha256(key_from_request_headers(headers).encode("utf-8")).hexdigest()[:12]
                 write_router_activity("retry", provider, model, attempt=retry_no, total=rate_limit_max_attempts - 1, code=exc.code, wait=0, tokens=token_estimate, bytes=byte_estimate, stream=stream)
                 router_log("WARN", f"upstream_direct_rate_limit_key_retry provider={provider} model={model} attempt={retry_no}/{rate_limit_max_attempts - 1} next_key_hash={next_hash} tokens={token_estimate} bytes={byte_estimate}")
+                continue
+            if exc.code == 429 and retry_rate_limits and attempt + 1 < max_attempts:
+                skip_retry, retry_after_seconds = retry_after_exceeds_request_timeout(exc.headers, timeout)
+                if skip_retry:
+                    write_router_activity("error", provider, model, code=exc.code, retry_after=retry_after_seconds, tokens=token_estimate, bytes=byte_estimate, stream=stream)
+                    router_log(
+                        "WARN",
+                        f"upstream_direct_rate_limit_no_retry provider={provider} model={model} retry_after={retry_after_seconds:.2f}s timeout={timeout:.2f}s tokens={token_estimate} bytes={byte_estimate}",
+                    )
+                    raise
+                retry_no = attempt + 1
+                wait = register_router_rate_limit_backoff(provider, pcfg, model, exc.headers.get("Retry-After"))
+                write_router_activity("retry", provider, model, attempt=retry_no, total=gateway_retries, code=exc.code, wait=wait, tokens=token_estimate, bytes=byte_estimate, stream=stream)
+                router_log("WARN", f"upstream_direct_rate_limit_retry provider={provider} model={model} attempt={retry_no}/{gateway_retries} wait={wait:.2f}s tokens={token_estimate} bytes={byte_estimate}")
+                time.sleep(wait)
                 continue
             if exc.code in UPSTREAM_RETRY_HTTP_CODES and attempt + 1 < max_attempts:
                 retry_no = attempt + 1

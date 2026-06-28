@@ -600,6 +600,75 @@ class ApiKeyRotationTests(unittest.TestCase):
         self.assertEqual("Bearer sk-two", calls[1].get("Authorization"))
         sleep.assert_not_called()
 
+    def test_direct_anthropic_compatible_single_oauth_429_retries_same_headers(self):
+        pcfg = self.provider_pcfg(
+            "anthropic",
+            api_key="",
+            api_keys=[],
+            base_url="https://api.anthropic.com",
+            gateway_retries=2,
+        )
+        error = urllib.error.HTTPError(
+            "https://api.anthropic.com/v1/messages",
+            429,
+            "Too Many Requests",
+            {"Retry-After": "1"},
+            io.BytesIO(b'{"error":{"type":"rate_limit_error","message":"Rate limited"}}'),
+        )
+        calls = []
+
+        class FakeResponse:
+            headers = {}
+
+            def read(self):
+                return b'{"content":[{"type":"text","text":"OK"}]}'
+
+        def fake_urlopen(req, timeout):
+            del timeout
+            calls.append(dict(req.header_items()))
+            if len(calls) == 1:
+                raise error
+            return FakeResponse()
+
+        def auth_header(call):
+            for key, value in call.items():
+                if key.lower() == "authorization":
+                    return value
+            return None
+
+        headers = {
+            "content-type": "application/json",
+            "anthropic-version": "2023-06-01",
+            "authorization": "Bearer oauth-token",
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with (
+                mock.patch.object(ciel_runtime, "RATE_LIMIT_STATE_PATH", Path(tmpdir) / "rate-limit-state.json"),
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", Path(tmpdir)),
+                mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=fake_urlopen),
+                mock.patch.object(ciel_runtime, "write_router_activity"),
+                mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
+                mock.patch.object(ciel_runtime, "register_router_rate_limit_backoff", return_value=0.25) as backoff,
+                mock.patch.object(ciel_runtime.time, "sleep") as sleep,
+            ):
+                resp = ciel_runtime.open_provider_request_with_key_retry(
+                    "https://api.anthropic.com/v1/messages",
+                    {"model": "claude-opus-4-8", "messages": [], "stream": True},
+                    headers,
+                    300.0,
+                    "anthropic",
+                    pcfg,
+                    "claude-opus-4-8",
+                    stream=True,
+                )
+
+        self.assertEqual(b'{"content":[{"type":"text","text":"OK"}]}', resp.read())
+        self.assertEqual(2, len(calls))
+        self.assertEqual("Bearer oauth-token", auth_header(calls[0]))
+        self.assertEqual("Bearer oauth-token", auth_header(calls[1]))
+        backoff.assert_called_once()
+        sleep.assert_called_once_with(0.25)
+
     def test_stream_429_can_disable_rate_limit_retry_for_compatibility_tests(self):
         pcfg = self.provider_pcfg("opencode", api_key="sk-one", current_model="deepseek-v4-flash-free")
         error = urllib.error.HTTPError(

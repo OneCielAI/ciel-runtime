@@ -206,6 +206,24 @@ class ApiKeyCooldownTests(unittest.TestCase):
         state = json.loads(Path(self._tmp.name).read_text(encoding="utf-8"))
         self.assertGreater(state["openrouter:__global__"]["penalty_until"], time.time())
 
+    def test_disabled_rate_limit_still_honors_server_penalty(self):
+        pcfg = self.pcfg(api_key="sk-k1", api_keys=[], rate_limit_rpm=0)
+        Path(self._tmp.name).write_text(
+            json.dumps({"openrouter:__global__": {"timestamps": [], "rpm": 0, "penalty_until": 105.0}}),
+            encoding="utf-8",
+        )
+
+        with (
+            mock.patch.object(ciel_runtime.time, "time", side_effect=[100.0, 105.1, 105.1, 105.1]),
+            mock.patch.object(ciel_runtime.time, "sleep") as sleep,
+        ):
+            waited, used, rpm = ciel_runtime.apply_router_rate_limit("openrouter", pcfg, "model")
+
+        self.assertEqual(5.0, waited)
+        self.assertEqual(0, rpm)
+        self.assertEqual(1, used)
+        sleep.assert_called_once_with(5.0)
+
     def test_multi_key_apply_rate_limit_ignores_existing_global_penalty(self):
         pcfg = self.pcfg(api_key="", api_keys=["sk-k1", "sk-k2"], rate_limit_rpm=50)
         Path(self._tmp.name).write_text(
