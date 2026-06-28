@@ -18,6 +18,7 @@ import ciel_runtime
 class ChannelBridgeTests(unittest.TestCase):
     def setUp(self):
         ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED.clear()
+        ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS.clear()
 
     def test_parse_channel_args_accepts_sse_command(self):
         command, options = ciel_runtime.parse_channel_bridge_args("sse")
@@ -1086,14 +1087,26 @@ class ChannelBridgeTests(unittest.TestCase):
                 }
             ]
         )
-        self.assertIn("[external channel input]", prompt)
-        self.assertIn("New message from Robert", prompt)
-        self.assertIn('"room_name":"DM-Robert"', prompt)
+        self.assertEqual("New message from Robert", prompt)
+        self.assertNotIn("[external channel input]", prompt)
+        self.assertNotIn('"room_name":"DM-Robert"', prompt)
         self.assertNotIn("결론내리지 마세요", prompt)
         self.assertNotIn("자동 회신 루프", prompt)
         self.assertNotIn("ciel-runtime-router send_message", prompt)
         self.assertNotIn("recipients='web'", prompt)
         self.assertNotIn("웹 채팅 요청", prompt)
+
+    def test_channel_llm_prompts_preserve_raw_message_body(self):
+        message = {
+            "id": 2,
+            "channel": "ai-net-http",
+            "sender_id": "ai-net-http",
+            "message": "  raw body from external channel\n",
+            "meta": {"room_id": "room"},
+        }
+
+        self.assertEqual("  raw body from external channel\n", ciel_runtime.format_channel_llm_batch_prompt([message]))
+        self.assertEqual("  raw body from external channel\n", ciel_runtime.format_channel_llm_delivery_wake_prompt([message]))
 
     def test_reply_action_prompt_warns_against_dm_label_recipient_misread(self):
         prompt = ciel_runtime._channel_direct_reply_action_prompt("I am not the recipient.")
@@ -1251,8 +1264,9 @@ class ChannelBridgeTests(unittest.TestCase):
 
         self.assertIn("send_message", names)
         self.assertIn("send_file", names)
-        self.assertIn("get_messages", names)
+        self.assertNotIn("get_messages", names)
         self.assertIn("compact_session", names)
+        self.assertIn("llm_options", names)
         compact_schema = next(tool for tool in tools if tool.get("name") == "compact_session")
         self.assertIn("reason", compact_schema["inputSchema"]["properties"])
         send_schema = next(tool for tool in tools if tool.get("name") == "send_message")
@@ -1262,6 +1276,15 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("channel", file_schema["inputSchema"]["required"])
         self.assertIn("path", file_schema["inputSchema"]["properties"])
         self.assertIn("content", file_schema["inputSchema"]["properties"])
+
+    def test_builtin_channel_mcp_rejects_removed_get_messages_tool(self):
+        response = ciel_runtime._channel_mcp_tool_call_response(
+            1,
+            {"name": "get_messages", "arguments": {"limit": 5}},
+        )
+
+        self.assertTrue(response["result"]["isError"])
+        self.assertIn("Unknown ciel-runtime-router tool: get_messages", response["result"]["content"][0]["text"])
 
     def test_builtin_channel_mcp_send_message_appends_web_delivery_reply(self):
         with mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 44, "message": "done"}) as append:
@@ -1611,13 +1634,13 @@ class ChannelBridgeTests(unittest.TestCase):
             ]
         )
 
-        self.assertIn("[external input pending]", prompt)
-        self.assertIn("type=mcp_notification", prompt)
-        self.assertIn("source=agent", prompt)
+        self.assertEqual("secret raw message body", prompt)
+        self.assertNotIn("[external input pending]", prompt)
+        self.assertNotIn("type=mcp_notification", prompt)
+        self.assertNotIn("source=agent", prompt)
         self.assertNotIn("ciel-runtime", prompt)
-        self.assertIn("id=8", prompt)
-        self.assertIn("ids=8", prompt)
-        self.assertIn("secret raw message body", prompt)
+        self.assertNotIn("id=8", prompt)
+        self.assertNotIn("ids=8", prompt)
         self.assertNotIn("external channel message", prompt)
         self.assertNotIn("do not answer", prompt)
         self.assertNotIn("Start a normal turn", prompt)
@@ -1655,12 +1678,13 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn(8, ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED)
         self.assertEqual(2, write_all.call_count)
         wake_bytes = write_all.call_args_list[0].args[1]
-        self.assertIn(b"[external input pending]", wake_bytes)
-        self.assertIn(b"type=mcp_notification", wake_bytes)
+        self.assertNotIn(b"[external input pending]", wake_bytes)
+        self.assertNotIn(b"type=mcp_notification", wake_bytes)
         self.assertNotIn(b"ciel-runtime", wake_bytes)
-        self.assertIn(b"id=8", wake_bytes)
-        self.assertIn(b"ids=8", wake_bytes)
+        self.assertNotIn(b"id=8", wake_bytes)
+        self.assertNotIn(b"ids=8", wake_bytes)
         self.assertIn(b"wake up later", wake_bytes)
+        self.assertEqual("wake up later", ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS[8])
         commit_cursor.assert_not_called()
 
     def test_channel_wake_prompt_does_not_auto_synthesize_plan_mode(self):
@@ -1799,6 +1823,18 @@ class ChannelBridgeTests(unittest.TestCase):
                         },
                     }
                 ),
+                json.dumps({"type": "assistant", "message": {"content": []}}),
+            ]
+        )
+
+        self.assertEqual("completed", ciel_runtime._channel_stdin_wake_state_from_text(363, transcript))
+
+    def test_channel_stdin_wake_state_accepts_recorded_raw_wake_prompt(self):
+        with ciel_runtime._CHANNEL_STDIN_WAKE_LOCK:
+            ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS[363] = "raw ai-net body"
+        transcript = "\n".join(
+            [
+                json.dumps({"type": "user", "message": {"content": "raw ai-net body"}}),
                 json.dumps({"type": "assistant", "message": {"content": []}}),
             ]
         )
@@ -2232,7 +2268,8 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIsNot(out, body)
         self.assertEqual(2, len(out["messages"]))
         injected = out["messages"][-1]["content"][0]["text"]
-        self.assertIn("[external channel input]", injected)
+        self.assertEqual("Please check this.", injected)
+        self.assertNotIn("[external channel input]", injected)
         self.assertNotIn("로컬 사용자 승인 없이 같은 채널/DM에 답장", injected)
         self.assertNotIn("답장 여부를 묻고 멈추지 마세요", injected)
         self.assertNotIn("미래 행동을 약속하는 말만 남기고 턴을 끝내지 마세요", injected)
@@ -2548,8 +2585,8 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(out["metadata"]["ciel_runtime_channel_injected"])
         self.assertEqual("3", out["metadata"]["ciel_runtime_channel_message_ids"])
         injected = out["messages"][-1]["content"][0]["text"]
-        self.assertIn("[external channel input]", injected)
-        self.assertIn("Please read this", injected)
+        self.assertEqual("Please read this", injected)
+        self.assertNotIn("[external channel input]", injected)
         self.assertNotIn("자율 처리 턴", injected)
         self.assertNotIn("필요한 읽기/쓰기 도구를 호출", injected)
         self.assertNotIn("tool_result", injected)
@@ -2569,7 +2606,8 @@ class ChannelBridgeTests(unittest.TestCase):
                 }
             ]
         )
-        self.assertIn("[external channel input]", prompt)
+        self.assertEqual("Sarah, 추가 매크로 분석 보고서를 보내주세요.", prompt)
+        self.assertNotIn("[external channel input]", prompt)
         self.assertNotIn("현재 Claude Code 세션의 에이전트에게 도착한 실제 업무 메시지", prompt)
         self.assertNotIn("DM/업무 지시/상태 확인/컨텍스트 요청", prompt)
         self.assertNotIn("로컬 사용자 승인 없이 같은 채널/DM에 답장", prompt)
@@ -2578,9 +2616,8 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn("같은 턴에서 필요한 조사/도구 호출/채널 보고까지 수행", prompt)
         self.assertNotIn("단순 온보딩/인사/중복 테스트 메시지", prompt)
         self.assertNotIn("NO_REPLY", prompt)
-        self.assertIn("Sarah, 추가 매크로 분석 보고서를 보내주세요.", prompt)
-        self.assertIn('to=["agent_n3wy9gfjmcil"]', prompt)
-        self.assertIn('"message_id":"msg_task"', prompt)
+        self.assertNotIn('to=["agent_n3wy9gfjmcil"]', prompt)
+        self.assertNotIn('"message_id":"msg_task"', prompt)
         self.assertNotIn("after_id/cursor", prompt)
         self.assertNotIn("ciel-runtime-router send_message", prompt)
         self.assertNotIn("recipients='web'", prompt)
@@ -3368,8 +3405,9 @@ class ChannelBridgeTests(unittest.TestCase):
         args = router_response.call_args.args
         self.assertEqual(9, args[0])
         prompt = args[1]
-        self.assertIn("<< room_4pyr8vvwm2cd >>", prompt)
-        self.assertIn("[external channel input]", prompt)
+        self.assertEqual("새 이벤트", prompt)
+        self.assertNotIn("<< room_4pyr8vvwm2cd >>", prompt)
+        self.assertNotIn("[external channel input]", prompt)
         self.assertNotIn("자율 처리 턴", prompt)
         self.assertNotIn("로컬 사용자 승인 없이 같은 채널/DM에 답장", prompt)
         self.assertNotIn("답장 여부를 묻고 멈추지 마세요", prompt)

@@ -554,6 +554,7 @@ _CHANNEL_LLM_DIRECT_WORKERS_STARTED = 0
 _CHANNEL_STDIN_WAKE_LOCK = threading.Lock()
 _CHANNEL_STDIN_INJECT_LOCK = threading.Lock()
 _CHANNEL_STDIN_WAKE_DELIVERED: set[int] = set()
+_CHANNEL_STDIN_WAKE_PROMPTS: dict[int, str] = {}
 _CHANNEL_COMPACT_REQUEST_LOCK = threading.Lock()
 _NATIVE_CHANNEL_NOTIFICATION_METHOD = "notifications/claude/channel"
 BUILTIN_CHANNEL_SPEC = "server:ciel-runtime-router"
@@ -11538,19 +11539,6 @@ def _channel_mcp_tool_schemas() -> list[dict[str, Any]]:
             },
         },
         {
-            "name": "get_messages",
-            "description": "Read recent Ciel Runtime channel messages for a channel/thread.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "after": {"type": "integer", "description": "Only return messages after this id."},
-                    "channel": {"type": "string", "description": "Optional channel filter."},
-                    "recipient": {"type": "string", "description": "Optional recipient visibility filter."},
-                    "limit": {"type": "integer", "description": "Maximum number of messages to return."},
-                },
-            },
-        },
-        {
             "name": "llm_options",
             "description": (
                 "Show, apply, or restore ciel-runtime live LLM option presets for the current routed session. "
@@ -11673,25 +11661,6 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
         return _channel_mcp_tool_response(
             request_id,
             json.dumps({"ok": True, "file": upload, "message": saved}, ensure_ascii=False, separators=(",", ":")),
-        )
-    if name == "get_messages":
-        try:
-            after = int(args.get("after") or 0)
-        except Exception:
-            after = 0
-        try:
-            limit = max(1, min(100, int(args.get("limit") or 20)))
-        except Exception:
-            limit = 20
-        messages = read_chat_messages(
-            after,
-            str(args.get("channel") or "") or None,
-            str(args.get("recipient") or args.get("recipient_id") or "") or None,
-            limit,
-        )
-        return _channel_mcp_tool_response(
-            request_id,
-            json.dumps({"ok": True, "messages": messages}, ensure_ascii=False, separators=(",", ":")),
         )
     if name == "llm_options":
         action = str(args.get("action") or "status")
@@ -29598,59 +29567,11 @@ def format_channel_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
 
 
 def format_channel_llm_delivery_wake_prompt(messages: list[dict[str, Any]]) -> str:
-    ids: list[str] = []
-    channels: list[str] = []
-    sources: list[str] = []
-    bodies: list[str] = []
-    for message in messages:
-        mid = str(message.get("id") or "").strip()
-        if mid:
-            ids.append(mid)
-        channel = str(message.get("channel") or "default").strip()
-        if channel:
-            channels.append(channel)
-        meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-        source = str(meta.get("mcp_server") or meta.get("source") or message.get("sender_id") or channel or "external").strip()
-        if source:
-            sources.append(source)
-        body = str(message.get("message") or "")
-        if body:
-            bodies.append(body)
-    id_text = ",".join(ids) or "-"
-    channel_text = ",".join(sorted(set(channels))) or "default"
-    source_text = ",".join(sorted(set(sources))) or "external"
-    header = (
-        f"{CHANNEL_LLM_WAKE_PREFIX} "
-        f"type=mcp_notification source={source_text} id={ids[0] if ids else '-'} ids={id_text} channels={channel_text}"
-    )
-    return header if not bodies else header + "\n" + "\n\n".join(bodies)
+    return "\n\n".join(str(message.get("message") if message.get("message") is not None else "") for message in messages)
 
 
 def format_channel_llm_batch_prompt(messages: list[dict[str, Any]]) -> str:
-    parts: list[str] = []
-    for message in messages:
-        channel = str(message.get("channel") or "default")
-        sender = str(message.get("sender_id") or "channel")
-        recipients = message.get("recipients")
-        mid = str(message.get("id") or "")
-        meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-        room = str(meta.get("room_id") or meta.get("room") or channel)
-        thread = str(message.get("thread_id") or meta.get("thread_id") or "")
-        body = str(message.get("message") or "")
-        fields = [f"id={mid}", f"channel={channel}", f"room={room}", f"from={sender}"]
-        if recipients:
-            fields.append(f"to={_compact_json_for_prompt(recipients, max_chars=400)}")
-        if thread:
-            fields.append(f"thread={thread}")
-        prompt_meta = _channel_prompt_metadata(message)
-        if prompt_meta:
-            fields.append(f"metadata={prompt_meta}")
-        parts.append(
-            f"<< {channel} >>\n"
-            + " ".join(fields)
-            + f"\n{body}"
-        )
-    return "[external channel input]\n" + "\n\n".join(parts)
+    return "\n\n".join(str(message.get("message") if message.get("message") is not None else "") for message in messages)
 
 
 _CHANNEL_LLM_TOOL_CONTEXT_LOCK = threading.Lock()
@@ -29661,10 +29582,13 @@ _CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT = 4000
 
 
 def _channel_injected_prompt_text(body: dict[str, Any]) -> str:
+    metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
     for message in reversed(body.get("messages") or []):
         if not isinstance(message, dict) or message.get("role") != "user":
             continue
         text = anthropic_content_to_text(message.get("content", ""))
+        if metadata.get("ciel_runtime_channel_injected") and text:
+            return truncate_for_prompt(text, _CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT)
         if "[external channel input]" in text or "[ciel-runtime channel inbox]" in text:
             return truncate_for_prompt(text, _CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT)
     return ""
@@ -31560,7 +31484,11 @@ def _channel_prompt_message_ids(text: str) -> set[int]:
 
 
 def _channel_prompt_references_message_id(text: str, message_id: int) -> bool:
-    return message_id in _channel_prompt_message_ids(text)
+    if message_id in _channel_prompt_message_ids(text):
+        return True
+    with _CHANNEL_STDIN_WAKE_LOCK:
+        prompt = _CHANNEL_STDIN_WAKE_PROMPTS.get(message_id)
+    return bool(prompt and prompt in str(text or ""))
 
 
 def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]:
@@ -32196,13 +32124,26 @@ def _inject_pending_channel_messages(
             submit_bytes = _channel_wake_enter_bytes(enter_bytes)
             try:
                 _write_channel_wake_prompt(master_fd, prompt, submit_bytes)
+                with _CHANNEL_STDIN_WAKE_LOCK:
+                    for message in pending:
+                        try:
+                            message_id_for_prompt = int(message.get("id") or 0)
+                        except Exception:
+                            continue
+                        if message_id_for_prompt > 0:
+                            _CHANNEL_STDIN_WAKE_PROMPTS[message_id_for_prompt] = prompt
+                    if len(_CHANNEL_STDIN_WAKE_PROMPTS) > 1000:
+                        for old_id in sorted(_CHANNEL_STDIN_WAKE_PROMPTS)[:500]:
+                            _CHANNEL_STDIN_WAKE_PROMPTS.pop(old_id, None)
             except Exception:
                 with _CHANNEL_STDIN_WAKE_LOCK:
                     for message in pending:
                         try:
-                            _CHANNEL_STDIN_WAKE_DELIVERED.discard(int(message.get("id") or 0))
+                            failed_id = int(message.get("id") or 0)
                         except Exception:
                             continue
+                        _CHANNEL_STDIN_WAKE_DELIVERED.discard(failed_id)
+                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(failed_id, None)
                 raise
             if not web_chat_only:
                 if commit_cursor:
@@ -32449,6 +32390,8 @@ def subprocess_call_with_channel_wake_proxy(
                 if channel_inflight_state == "completed":
                     if channel_inflight_cursor is not None:
                         _commit_channel_llm_cursor_if_newer(channel_inflight_cursor)
+                    with _CHANNEL_STDIN_WAKE_LOCK:
+                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
                     router_log(
                         "INFO",
                         f"channel_stdin_proxy_confirmed message_id={channel_inflight_id} cursor={channel_inflight_cursor or '-'}",
@@ -32464,6 +32407,7 @@ def subprocess_call_with_channel_wake_proxy(
                 ):
                     with _CHANNEL_STDIN_WAKE_LOCK:
                         _CHANNEL_STDIN_WAKE_DELIVERED.discard(channel_inflight_id)
+                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
                     router_log(
                         "WARN",
                         f"channel_stdin_proxy_unseen_retry message_id={channel_inflight_id} age={now - channel_inflight_started_at:.1f}s",
@@ -32479,6 +32423,7 @@ def subprocess_call_with_channel_wake_proxy(
                         _commit_channel_llm_cursor_if_newer(channel_inflight_cursor)
                     with _CHANNEL_STDIN_WAKE_LOCK:
                         _CHANNEL_STDIN_WAKE_DELIVERED.discard(channel_inflight_id)
+                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
                     router_log(
                         "WARN",
                         "channel_stdin_proxy_stale_inflight_skipped "
