@@ -19,6 +19,16 @@ class ChannelBridgeTests(unittest.TestCase):
     def setUp(self):
         ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED.clear()
         ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS.clear()
+        ciel_runtime._CHANNEL_TRANSCRIPT_CACHE.clear()
+        ciel_runtime._CHANNEL_TRANSCRIPT_CACHE.update({"checked_at": 0.0, "path": None})
+        self._home_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._home_tmp.cleanup)
+        self._home_patch = mock.patch.object(ciel_runtime, "HOME", Path(self._home_tmp.name))
+        self._home_patch.start()
+        self.addCleanup(self._home_patch.stop)
+        self.addCleanup(
+            lambda: ciel_runtime._CHANNEL_TRANSCRIPT_CACHE.update({"checked_at": 0.0, "path": None})
+        )
 
     def test_parse_channel_args_accepts_sse_command(self):
         command, options = ciel_runtime.parse_channel_bridge_args("sse")
@@ -1432,6 +1442,98 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(2, write_all.call_count)
         self.assertEqual(b"\x15wake", write_all.call_args_list[0].args[1])
         self.assertEqual(b"\r", write_all.call_args_list[1].args[1])
+
+    def test_channel_wake_prompt_can_use_bracketed_paste_for_codex(self):
+        with mock.patch.object(ciel_runtime, "_write_fd_all") as write_all:
+            ciel_runtime._write_channel_wake_prompt(
+                99,
+                "hello\nworld",
+                b"\r",
+                bracketed_paste=True,
+                submit_delay_seconds=0,
+            )
+
+        self.assertEqual(2, write_all.call_count)
+        self.assertEqual(b"\x15\x1b[200~hello\nworld\x1b[201~", write_all.call_args_list[0].args[1])
+        self.assertEqual(b"\r", write_all.call_args_list[1].args[1])
+
+    def test_latest_transcript_path_checks_codex_sessions(self):
+        with tempfile.TemporaryDirectory() as td:
+            home = Path(td)
+            claude_dir = home / ".claude" / "projects" / "repo"
+            codex_dir = home / ".codex" / "sessions" / "2026" / "06" / "28"
+            claude_dir.mkdir(parents=True)
+            codex_dir.mkdir(parents=True)
+            claude_transcript = claude_dir / "old.jsonl"
+            codex_transcript = codex_dir / "new.jsonl"
+            claude_transcript.write_text("{}\n", encoding="utf-8")
+            codex_transcript.write_text("{}\n", encoding="utf-8")
+            os.utime(claude_transcript, (100, 100))
+            os.utime(codex_transcript, (200, 200))
+            ciel_runtime._CHANNEL_TRANSCRIPT_CACHE.clear()
+            ciel_runtime._CHANNEL_TRANSCRIPT_CACHE.update({"checked_at": 0.0, "path": None})
+            with mock.patch.object(ciel_runtime, "HOME", home):
+                self.assertEqual(codex_transcript, ciel_runtime._latest_claude_transcript_path(ttl_seconds=0))
+
+    def test_channel_stdin_wake_state_accepts_codex_response_item_records(self):
+        transcript = "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "response_item",
+                        "payload": {
+                            "type": "message",
+                            "role": "user",
+                            "content": [{"type": "input_text", "text": "id=179 text=\"hello\""}],
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "response_item",
+                        "payload": {
+                            "type": "message",
+                            "role": "assistant",
+                            "content": [{"type": "output_text", "text": "handled"}],
+                        },
+                    }
+                ),
+            ]
+        )
+
+        self.assertEqual("completed", ciel_runtime._channel_stdin_wake_state_from_text(179, transcript))
+
+    def test_channel_stdin_wake_state_accepts_codex_event_msg_user_records(self):
+        transcript = "\n".join(
+            [
+                json.dumps({"type": "event_msg", "payload": {"type": "user_message", "message": "id=180 text=\"hello\""}}),
+                json.dumps(
+                    {
+                        "type": "response_item",
+                        "payload": {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "ok"}]},
+                    }
+                ),
+            ]
+        )
+
+        self.assertEqual("completed", ciel_runtime._channel_stdin_wake_state_from_text(180, transcript))
+
+    def test_channel_stdin_detects_codex_active_tool_call_until_output(self):
+        active_transcript = json.dumps(
+            {
+                "type": "response_item",
+                "payload": {"type": "function_call", "call_id": "call_1", "name": "shell_command"},
+            }
+        )
+        completed_transcript = "\n".join(
+            [
+                active_transcript,
+                json.dumps({"type": "response_item", "payload": {"type": "function_call_output", "call_id": "call_1"}}),
+            ]
+        )
+
+        self.assertTrue(ciel_runtime._channel_stdin_active_tool_call_from_text(active_transcript))
+        self.assertFalse(ciel_runtime._channel_stdin_active_tool_call_from_text(completed_transcript))
 
     def test_builtin_channel_mcp_exposes_reply_tools(self):
         tools = ciel_runtime._channel_mcp_tool_schemas()

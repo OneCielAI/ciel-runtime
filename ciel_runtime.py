@@ -32441,6 +32441,13 @@ def _channel_wake_submit_delay_seconds() -> float:
         return 0.08
 
 
+def _bounded_delay_seconds(raw: Any, default_seconds: float, *, minimum: float, maximum: float) -> float:
+    try:
+        return max(minimum, min(maximum, float(raw) / 1000.0))
+    except Exception:
+        return default_seconds
+
+
 def _channel_current_tmux_pane_text() -> str | None:
     pane = str(os.environ.get("TMUX_PANE") or "").strip()
     if not pane or not find_executable("tmux"):
@@ -32481,6 +32488,13 @@ def _codex_channel_wake_submit_retries() -> int:
         return 4
 
 
+def _codex_channel_wake_submit_delay_seconds() -> float:
+    raw = os.environ.get("CIEL_RUNTIME_CODEX_CHANNEL_WAKE_SUBMIT_DELAY_MS")
+    if raw is None:
+        return 0.25
+    return _bounded_delay_seconds(raw, 0.25, minimum=0.13, maximum=5.0)
+
+
 def _write_channel_wake_prompt(
     master_fd: int,
     prompt: str,
@@ -32488,9 +32502,15 @@ def _write_channel_wake_prompt(
     *,
     submit_retry_count: int = 1,
     confirm_submit: bool = False,
+    bracketed_paste: bool = False,
+    submit_delay_seconds: float | None = None,
 ) -> None:
-    _write_fd_all(master_fd, b"\x15" + prompt.encode("utf-8", errors="replace"))
-    delay = _channel_wake_submit_delay_seconds()
+    prompt_bytes = prompt.encode("utf-8", errors="replace")
+    if bracketed_paste:
+        _write_fd_all(master_fd, b"\x15\x1b[200~" + prompt_bytes + b"\x1b[201~")
+    else:
+        _write_fd_all(master_fd, b"\x15" + prompt_bytes)
+    delay = _channel_wake_submit_delay_seconds() if submit_delay_seconds is None else max(0.0, float(submit_delay_seconds))
     if delay > 0:
         time.sleep(delay)
     submit_bytes = _channel_wake_enter_bytes(enter_bytes)
@@ -32526,11 +32546,18 @@ def _latest_claude_transcript_path(ttl_seconds: float = 2.0) -> Path | None:
     cached_path = _CHANNEL_TRANSCRIPT_CACHE.get("path")
     if now - cached_at < ttl_seconds:
         return cached_path if isinstance(cached_path, Path) else None
-    root = Path.home() / ".claude" / "projects"
     latest: Path | None = None
     latest_mtime = -1.0
-    try:
-        for path in root.glob("*/*.jsonl"):
+    transcript_roots = (
+        (HOME / ".claude" / "projects", "*/*.jsonl"),
+        (HOME / ".codex" / "sessions", "**/*.jsonl"),
+    )
+    for root, pattern in transcript_roots:
+        try:
+            paths = root.glob(pattern)
+        except Exception:
+            continue
+        for path in paths:
             try:
                 mtime = path.stat().st_mtime
             except OSError:
@@ -32538,8 +32565,6 @@ def _latest_claude_transcript_path(ttl_seconds: float = 2.0) -> Path | None:
             if mtime > latest_mtime:
                 latest = path
                 latest_mtime = mtime
-    except Exception:
-        latest = None
     _CHANNEL_TRANSCRIPT_CACHE["checked_at"] = now
     _CHANNEL_TRANSCRIPT_CACHE["path"] = latest
     return latest
@@ -32607,6 +32632,71 @@ def _channel_transcript_record_timestamp_seconds(record: dict[str, Any]) -> floa
         return None
 
 
+def _channel_transcript_content_text(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        parts: list[str] = []
+        for key in ("text", "content", "input_text", "output_text", "message"):
+            raw = value.get(key)
+            if isinstance(raw, str):
+                parts.append(raw)
+            elif isinstance(raw, (dict, list)):
+                nested = _channel_transcript_content_text(raw)
+                if nested:
+                    parts.append(nested)
+        return "\n".join(parts)
+    if isinstance(value, list):
+        parts = []
+        for item in value:
+            nested = _channel_transcript_content_text(item)
+            if nested:
+                parts.append(nested)
+        return "\n".join(parts)
+    return ""
+
+
+def _channel_transcript_user_text(record: dict[str, Any]) -> str:
+    record_type = str(record.get("type") or "")
+    message = record.get("message")
+    message_obj = message if isinstance(message, dict) else {}
+    if record_type == "user" or str(message_obj.get("role") or "") == "user":
+        return _channel_transcript_content_text(message_obj.get("content"))
+    payload = record.get("payload")
+    payload_obj = payload if isinstance(payload, dict) else {}
+    payload_type = str(payload_obj.get("type") or "")
+    payload_role = str(payload_obj.get("role") or "")
+    if record_type == "response_item" and payload_type == "message" and payload_role == "user":
+        return _channel_transcript_content_text(payload_obj.get("content"))
+    if record_type == "event_msg" and payload_type == "user_message":
+        return _channel_transcript_content_text(payload_obj.get("message"))
+    return ""
+
+
+def _channel_transcript_is_assistant_message(record: dict[str, Any]) -> bool:
+    record_type = str(record.get("type") or "")
+    message = record.get("message")
+    message_obj = message if isinstance(message, dict) else {}
+    message_role = str(message_obj.get("role") or "")
+    if record_type == "assistant" or message_role == "assistant" or str(record.get("subtype") or "") == "turn_duration":
+        return True
+    payload = record.get("payload")
+    payload_obj = payload if isinstance(payload, dict) else {}
+    return (
+        record_type == "response_item"
+        and str(payload_obj.get("type") or "") == "message"
+        and str(payload_obj.get("role") or "") == "assistant"
+    )
+
+
+def _channel_transcript_tool_call_id(value: dict[str, Any]) -> str:
+    for key in ("call_id", "id", "tool_call_id"):
+        raw = value.get(key)
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+    return ""
+
+
 def _channel_stdin_wake_queued_age_seconds_from_text(
     message_id: int,
     text: str,
@@ -32623,22 +32713,6 @@ def _channel_stdin_wake_queued_age_seconds_from_text(
     if claimed_prompt:
         prompt_candidates.append(claimed_prompt)
     latest_queued_at: float | None = None
-
-    def _record_content_text(value: Any) -> str:
-        if isinstance(value, str):
-            return value
-        if isinstance(value, list):
-            parts: list[str] = []
-            for item in value:
-                if isinstance(item, str):
-                    parts.append(item)
-                elif isinstance(item, dict):
-                    for key in ("text", "content"):
-                        raw = item.get(key)
-                        if isinstance(raw, str):
-                            parts.append(raw)
-            return "\n".join(parts)
-        return ""
 
     for raw_line in text.splitlines():
         try:
@@ -32659,13 +32733,9 @@ def _channel_stdin_wake_queued_age_seconds_from_text(
                 raw = attachment.get("prompt")
                 if isinstance(raw, str):
                     candidate = raw
-        elif record_type == "user":
-            message = record.get("message")
-            message_obj = message if isinstance(message, dict) else {}
-            if message_obj:
-                candidate = _record_content_text(message_obj.get("content"))
-                if _channel_prompt_references_message_id(candidate, message_id, prompt_candidates):
-                    return None
+        user_text = _channel_transcript_user_text(record)
+        if user_text and _channel_prompt_references_message_id(user_text, message_id, prompt_candidates):
+            return None
         if not candidate or not _channel_prompt_references_message_id(candidate, message_id, prompt_candidates):
             continue
         timestamp = _channel_transcript_record_timestamp_seconds(record)
@@ -32713,24 +32783,6 @@ def _channel_stdin_wake_state_from_text(
     if claimed_prompt:
         prompt_candidates.append(claimed_prompt)
 
-    def _record_text(value: Any) -> str:
-        if isinstance(value, str):
-            return value
-        if isinstance(value, list):
-            parts: list[str] = []
-            for item in value:
-                if isinstance(item, str):
-                    parts.append(item)
-                elif isinstance(item, dict):
-                    raw = item.get("text")
-                    if isinstance(raw, str):
-                        parts.append(raw)
-                    raw = item.get("content")
-                    if isinstance(raw, str):
-                        parts.append(raw)
-            return "\n".join(parts)
-        return ""
-
     seen_queued_prompt = False
     seen_real_prompt = False
     for raw_line in text.splitlines():
@@ -32741,14 +32793,7 @@ def _channel_stdin_wake_state_from_text(
         if not isinstance(record, dict):
             continue
         record_type = str(record.get("type") or "")
-        message = record.get("message")
-        message_obj = message if isinstance(message, dict) else {}
-        message_role = str(message_obj.get("role") or "")
-        if seen_real_prompt and (
-            record_type == "assistant"
-            or message_role == "assistant"
-            or str(record.get("subtype") or "") == "turn_duration"
-        ):
+        if seen_real_prompt and _channel_transcript_is_assistant_message(record):
             return "completed"
         if record_type == "queue-operation" and record.get("operation") == "enqueue":
             raw = record.get("content")
@@ -32762,15 +32807,11 @@ def _channel_stdin_wake_state_from_text(
                 if isinstance(raw, str) and _channel_prompt_references_message_id(raw, message_id, prompt_candidates):
                     seen_queued_prompt = True
             continue
-        if record_type != "user":
-            continue
-        if not message_obj:
-            continue
         # A queued_command attachment only means Claude Code accepted text into
         # its line editor queue.  It is not a real user turn and can be
         # superseded by later typed/queued prompts.  Only commit delivery after
         # the prompt is present as an actual user message.
-        content_text = _record_text(message_obj.get("content"))
+        content_text = _channel_transcript_user_text(record)
         if _channel_prompt_references_message_id(content_text, message_id, prompt_candidates):
             seen_real_prompt = True
     if seen_real_prompt:
@@ -32823,6 +32864,45 @@ def _channel_stdin_active_tool_call_from_text(text: str) -> bool:
         message = record.get("message")
         message_obj = message if isinstance(message, dict) else {}
         message_role = str(message_obj.get("role") or "")
+        payload = record.get("payload")
+        payload_obj = payload if isinstance(payload, dict) else {}
+        payload_type = str(payload_obj.get("type") or "")
+        if record_type == "response_item":
+            if payload_type in {"function_call", "custom_tool_call", "local_shell_call"}:
+                tool_id = _channel_transcript_tool_call_id(payload_obj)
+                if tool_id:
+                    pending_tool_ids.add(tool_id)
+                else:
+                    unknown_tool_active = True
+                continue
+            if payload_type in {"function_call_output", "custom_tool_call_output", "local_shell_call_output"}:
+                tool_id = _channel_transcript_tool_call_id(payload_obj)
+                if tool_id:
+                    pending_tool_ids.discard(tool_id)
+                else:
+                    pending_tool_ids.clear()
+                unknown_tool_active = False
+                continue
+            if _channel_transcript_is_assistant_message(record):
+                pending_tool_ids.clear()
+                unknown_tool_active = False
+                continue
+        if record_type == "event_msg":
+            if payload_type in {"mcp_tool_call_begin", "tool_call_begin"}:
+                tool_id = _channel_transcript_tool_call_id(payload_obj)
+                if tool_id:
+                    pending_tool_ids.add(tool_id)
+                else:
+                    unknown_tool_active = True
+                continue
+            if payload_type in {"mcp_tool_call_end", "tool_call_end"}:
+                tool_id = _channel_transcript_tool_call_id(payload_obj)
+                if tool_id:
+                    pending_tool_ids.discard(tool_id)
+                else:
+                    pending_tool_ids.clear()
+                unknown_tool_active = False
+                continue
         if record_type == "assistant" or message_role == "assistant":
             tool_use_ids = _channel_tool_use_ids_from_message(message_obj)
             if str(message_obj.get("stop_reason") or "") == "tool_use" or tool_use_ids:
@@ -32978,6 +33058,8 @@ def _inject_pending_channel_messages(
     injected_message_ids: list[int] | None = None,
     submit_retry_count: int = 1,
     confirm_submit: bool = False,
+    bracketed_paste: bool = False,
+    submit_delay_seconds: float | None = None,
 ) -> int:
     with _CHANNEL_STDIN_INJECT_LOCK:
         if _channel_stdin_active_tool_call():
@@ -33122,6 +33204,8 @@ def _inject_pending_channel_messages(
                     submit_bytes,
                     submit_retry_count=submit_retry_count,
                     confirm_submit=confirm_submit,
+                    bracketed_paste=bracketed_paste,
+                    submit_delay_seconds=submit_delay_seconds,
                 )
                 with _CHANNEL_STDIN_WAKE_LOCK:
                     for message in pending:
@@ -33172,6 +33256,8 @@ def _inject_pending_compact_request(
     log_defer: bool = True,
     submit_retry_count: int = 1,
     confirm_submit: bool = False,
+    bracketed_paste: bool = False,
+    submit_delay_seconds: float | None = None,
 ) -> str:
     request = _read_channel_compact_request()
     if not request:
@@ -33191,6 +33277,8 @@ def _inject_pending_compact_request(
         submit_bytes,
         submit_retry_count=submit_retry_count,
         confirm_submit=confirm_submit,
+        bracketed_paste=bracketed_paste,
+        submit_delay_seconds=submit_delay_seconds,
     )
     _clear_channel_compact_request(request_id or None)
     router_log(
@@ -33206,6 +33294,8 @@ def _inject_pending_channel_summaries(
     *,
     submit_retry_count: int = 1,
     confirm_submit: bool = False,
+    bracketed_paste: bool = False,
+    submit_delay_seconds: float | None = None,
 ) -> int:
     global _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
     with _CHANNEL_LLM_SUMMARY_LOCK:
@@ -33232,6 +33322,8 @@ def _inject_pending_channel_summaries(
         submit_bytes,
         submit_retry_count=submit_retry_count,
         confirm_submit=confirm_submit,
+        bracketed_paste=bracketed_paste,
+        submit_delay_seconds=submit_delay_seconds,
     )
     _commit_channel_llm_summary_cursor_if_newer(max_seen)
     ids = ",".join(str(item.get("message_id") or "") for item in records)
@@ -33331,6 +33423,8 @@ def subprocess_call_with_channel_wake_proxy(
     normalize_bare_cr_for_synthetic_enter: bool = True,
     channel_wake_submit_retries: int = 1,
     channel_wake_confirm_submit: bool = False,
+    channel_wake_bracketed_paste: bool = False,
+    channel_wake_submit_delay_seconds: float | None = None,
 ) -> int:
     if os.name != "posix" or not sys.stdin.isatty() or not sys.stdout.isatty():
         router_log("INFO", "channel_stdin_proxy_unavailable; using direct subprocess call")
@@ -33369,7 +33463,8 @@ def subprocess_call_with_channel_wake_proxy(
         "INFO",
         "channel_stdin_proxy_enter_default "
         f"enter={_channel_enter_label(channel_enter_bytes)} os={os.name} platform={sys.platform} "
-        f"submit_retries={submit_retry_count} confirm_submit={bool(channel_wake_confirm_submit)}",
+        f"submit_retries={submit_retry_count} confirm_submit={bool(channel_wake_confirm_submit)} "
+        f"bracketed_paste={bool(channel_wake_bracketed_paste)}",
     )
 
     def _handle_sigwinch(signum: int, frame: Any) -> None:
@@ -33487,6 +33582,8 @@ def subprocess_call_with_channel_wake_proxy(
                         log_defer=log_defer,
                         submit_retry_count=submit_retry_count,
                         confirm_submit=channel_wake_confirm_submit,
+                        bracketed_paste=channel_wake_bracketed_paste,
+                        submit_delay_seconds=channel_wake_submit_delay_seconds,
                     )
                     if compact_status == "deferred" and log_defer:
                         compact_defer_logged_at = now
@@ -33522,6 +33619,8 @@ def subprocess_call_with_channel_wake_proxy(
                             injected_message_ids=injected_ids,
                             submit_retry_count=submit_retry_count,
                             confirm_submit=channel_wake_confirm_submit,
+                            bracketed_paste=channel_wake_bracketed_paste,
+                            submit_delay_seconds=channel_wake_submit_delay_seconds,
                         )
                         if injected_ids:
                             channel_inflight_id = injected_ids[-1]
@@ -33539,6 +33638,8 @@ def subprocess_call_with_channel_wake_proxy(
                             channel_enter_bytes,
                             submit_retry_count=submit_retry_count,
                             confirm_submit=channel_wake_confirm_submit,
+                            bracketed_paste=channel_wake_bracketed_paste,
+                            submit_delay_seconds=channel_wake_submit_delay_seconds,
                         )
         while True:
             try:
@@ -36411,6 +36512,8 @@ def launch_codex(
             normalize_bare_cr_for_synthetic_enter=False,
             channel_wake_submit_retries=_codex_channel_wake_submit_retries(),
             channel_wake_confirm_submit=True,
+            channel_wake_bracketed_paste=True,
+            channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds(),
         )
 
     return run_with_router_lifetime(run_codex_process, manage_router_lifetime)
