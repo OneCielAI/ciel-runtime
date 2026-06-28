@@ -30822,7 +30822,6 @@ def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]:
 
 def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
     global _CHANNEL_LLM_CURSOR_LAST_ID
-    metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
     wake_request = channel_llm_wake_request(body)
     if plan_mode_active(body):
         if not wake_request:
@@ -30858,7 +30857,6 @@ def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
                     f"channel_llm_inject_skipped message_id={message.get('id')} channel={message.get('channel')} reason=superseded_channel_notice",
                 )
                 continue
-            meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
             skip_reason = _channel_llm_message_skip_reason(message)
             if skip_reason:
                 max_seen = max(max_seen, message_id)
@@ -31632,7 +31630,6 @@ def _inject_pending_channel_messages(
                 last_id = max(last_id, message_id)
             except Exception:
                 continue
-            meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
             if web_chat_only and not _channel_message_is_web_chat_request(message):
                 router_log(
                     "INFO",
