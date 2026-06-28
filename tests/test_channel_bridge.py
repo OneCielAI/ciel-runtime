@@ -2254,10 +2254,36 @@ class ChannelBridgeTests(unittest.TestCase):
 
         self.assertIsNot(out, body)
         self.assertIn("Wake-relevant channel message.", out["messages"][-1]["content"][0]["text"])
+        self.assertNotIn("[channel pending]", json.dumps(out["messages"], ensure_ascii=False))
         self.assertEqual("3", out["metadata"]["ciel_runtime_channel_message_ids"])
         write_cursor.assert_not_called()
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("channel_llm_inject_plan_mode_override" in item for item in log_messages))
+        self.assertTrue(any("channel_llm_wake_prompt_stripped" in item for item in log_messages))
+
+    def test_body_with_pending_channel_messages_strips_wake_when_no_pending(self):
+        body = {
+            "messages": [
+                {"role": "user", "content": "previous user request"},
+                {"role": "user", "content": "\x15[channel pending] id=3 pending_ids=3 channels=room"},
+            ],
+            "stream": True,
+        }
+        with (
+            mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+            mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=3),
+            mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=[]),
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
+        ):
+            out = ciel_runtime.body_with_pending_channel_messages(body)
+
+        self.assertIsNot(out, body)
+        self.assertEqual([{"role": "user", "content": "previous user request"}], out["messages"])
+        self.assertNotIn("[channel pending]", json.dumps(out["messages"], ensure_ascii=False))
+        write_cursor.assert_not_called()
+        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
+        self.assertTrue(any("channel_llm_wake_prompt_stripped" in item for item in log_messages))
 
     def test_body_without_ciel_runtime_internal_metadata_strips_private_keys(self):
         body = {

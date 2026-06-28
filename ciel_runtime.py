@@ -4751,10 +4751,31 @@ def plan_mode_active(body: dict[str, Any]) -> bool:
     return active
 
 
-def channel_llm_wake_request(body: dict[str, Any]) -> bool:
-    text = latest_user_text(body)
+def channel_llm_wake_text(text: str) -> bool:
     text = re.sub(r"^[\x00-\x1f\x7f\s]+", "", text)
     return text.startswith(CHANNEL_LLM_WAKE_PREFIX) or text.startswith(CHANNEL_LLM_WAKE_LEGACY_PREFIX)
+
+
+def channel_llm_wake_request(body: dict[str, Any]) -> bool:
+    return channel_llm_wake_text(latest_user_text(body))
+
+
+def body_without_channel_llm_wake_prompt(body: dict[str, Any]) -> dict[str, Any]:
+    if not channel_llm_wake_request(body):
+        return body
+    messages = [m for m in body.get("messages", []) if isinstance(m, dict)]
+    removed = False
+    for index in range(len(messages) - 1, -1, -1):
+        if channel_llm_wake_text(user_intent_text_from_message(messages[index])):
+            del messages[index]
+            removed = True
+            break
+    if not removed:
+        return body
+    out = dict(body)
+    out["messages"] = messages
+    router_log("INFO", "channel_llm_wake_prompt_stripped")
+    return out
 
 
 def has_plan_mode_exit(body: dict[str, Any]) -> bool:
@@ -31538,8 +31559,9 @@ def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
     metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
     if body.get("ciel_runtime_channel_direct") or metadata.get("ciel_runtime_channel_direct"):
         return body
+    wake_request = channel_llm_wake_request(body)
     if plan_mode_active(body):
-        if not channel_llm_wake_request(body):
+        if not wake_request:
             router_log("INFO", "channel_llm_inject_skipped reason=plan_mode_active")
             return body
         router_log("INFO", "channel_llm_inject_plan_mode_override reason=channel_wake")
@@ -31621,10 +31643,11 @@ def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
                     _channel_llm_write_cursor_locked(max_seen)
                 except Exception as exc:
                     router_log("WARN", f"channel_llm_cursor_write_failed error={type(exc).__name__}: {exc}")
-            return body
-    messages = [m for m in body.get("messages", []) if isinstance(m, dict)]
+            return body_without_channel_llm_wake_prompt(body) if wake_request else body
+    base_body = body_without_channel_llm_wake_prompt(body) if wake_request else body
+    messages = [m for m in base_body.get("messages", []) if isinstance(m, dict)]
     messages.append({"role": "user", "content": [{"type": "text", "text": format_channel_llm_batch_prompt(pending)}]})
-    out = dict(body)
+    out = dict(base_body)
     out["messages"] = messages
     ids = ",".join(str(message.get("id") or "") for message in pending)
     channels = ",".join(sorted({str(message.get("channel") or "default") for message in pending}))
