@@ -1612,7 +1612,8 @@ class ChannelBridgeTests(unittest.TestCase):
             ]
         )
 
-        self.assertIn("[ciel-runtime channel wake]", prompt)
+        self.assertIn("[channel pending]", prompt)
+        self.assertNotIn("ciel-runtime", prompt)
         self.assertIn("id=8", prompt)
         self.assertNotIn("secret raw message body", prompt)
         self.assertNotIn("external channel message", prompt)
@@ -1652,7 +1653,8 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn(8, ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED)
         self.assertEqual(2, write_all.call_count)
         wake_bytes = write_all.call_args_list[0].args[1]
-        self.assertIn(b"[ciel-runtime channel wake]", wake_bytes)
+        self.assertIn(b"[channel pending]", wake_bytes)
+        self.assertNotIn(b"ciel-runtime", wake_bytes)
         self.assertIn(b"id=8", wake_bytes)
         self.assertNotIn(b"wake up later", wake_bytes)
         commit_cursor.assert_not_called()
@@ -1662,7 +1664,7 @@ class ChannelBridgeTests(unittest.TestCase):
             "messages": [
                 {
                     "role": "user",
-                    "content": [{"type": "text", "text": "[ciel-runtime channel wake] id=8 pending_ids=8."}],
+                    "content": [{"type": "text", "text": "[channel pending] id=8 pending_ids=8."}],
                 }
             ],
             "tools": [{"name": "EnterPlanMode", "input_schema": {"type": "object"}}],
@@ -1670,6 +1672,19 @@ class ChannelBridgeTests(unittest.TestCase):
 
         self.assertTrue(ciel_runtime.body_is_channel_prompt(body))
         self.assertFalse(ciel_runtime.should_auto_enter_plan_mode(body, "", []))
+
+    def test_legacy_channel_wake_prompt_is_still_recognized(self):
+        body = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": "[ciel-runtime channel wake] id=8 pending_ids=8."}],
+                }
+            ],
+        }
+
+        self.assertTrue(ciel_runtime.channel_llm_wake_request(body))
+        self.assertTrue(ciel_runtime.body_is_channel_prompt(body))
 
     def test_inject_pending_channel_messages_waits_for_queued_command(self):
         messages = [
@@ -2214,7 +2229,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 {"role": "user", "attachment": {"type": "plan_mode"}, "content": []},
                 {
                     "role": "user",
-                    "content": "\x15[ciel-runtime channel wake] id=3 pending_ids=3 channels=room",
+                    "content": "\x15[channel pending] id=3 pending_ids=3 channels=room",
                 },
             ],
             "stream": True,

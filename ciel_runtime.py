@@ -558,6 +558,8 @@ _CHANNEL_COMPACT_REQUEST_LOCK = threading.Lock()
 _NATIVE_CHANNEL_NOTIFICATION_METHOD = "notifications/claude/channel"
 BUILTIN_CHANNEL_SPEC = "server:ciel-runtime-router"
 _NATIVE_ROUTER_CHANNEL_NAMES = {"ciel-runtime-router", "mcp-ciel-runtime-router"}
+CHANNEL_LLM_WAKE_PREFIX = "[channel pending]"
+CHANNEL_LLM_WAKE_LEGACY_PREFIX = "[ciel-runtime channel wake]"
 _MCP_NOTIFICATION_DEDUP_TTL_SECONDS = 3.0
 _MCP_NOTIFICATION_DEDUP_LOCK = threading.Lock()
 _MCP_NOTIFICATION_DEDUP_RECENT: dict[str, tuple[str, float]] = {}
@@ -4752,7 +4754,7 @@ def plan_mode_active(body: dict[str, Any]) -> bool:
 def channel_llm_wake_request(body: dict[str, Any]) -> bool:
     text = latest_user_text(body)
     text = re.sub(r"^[\x00-\x1f\x7f\s]+", "", text)
-    return text.startswith("[ciel-runtime channel wake]")
+    return text.startswith(CHANNEL_LLM_WAKE_PREFIX) or text.startswith(CHANNEL_LLM_WAKE_LEGACY_PREFIX)
 
 
 def has_plan_mode_exit(body: dict[str, Any]) -> bool:
@@ -4956,7 +4958,8 @@ def body_is_channel_prompt(body: dict[str, Any]) -> bool:
     return bool(
         metadata.get("ciel_runtime_channel_injected")
         or latest_text.startswith("[ciel-runtime channel inbox]")
-        or latest_text.startswith("[ciel-runtime channel wake]")
+        or latest_text.startswith(CHANNEL_LLM_WAKE_PREFIX)
+        or latest_text.startswith(CHANNEL_LLM_WAKE_LEGACY_PREFIX)
         or latest_text.startswith("[ciel-runtime external channel message")
     )
 
@@ -29584,7 +29587,7 @@ def format_channel_llm_delivery_wake_prompt(messages: list[dict[str, Any]]) -> s
     channel_text = ",".join(sorted(set(channels))) or "default"
     first_id = ids[0] if ids else "0"
     return (
-        "[ciel-runtime channel wake] "
+        f"{CHANNEL_LLM_WAKE_PREFIX} "
         f"id={first_id} pending_ids={id_text} channels={channel_text}"
     )
 
