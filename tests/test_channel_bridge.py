@@ -318,6 +318,57 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(saved["_ciel_runtime_duplicate"])
         self.assertEqual(1, len(rows))
 
+    def test_append_chat_message_dedupes_same_sse_event_across_transports(self):
+        event = {
+            "method": "notifications/claude/channel",
+            "params": {
+                "content": "New message from Test",
+                "meta": {
+                    "kind": "activity",
+                    "room_id": "room_asset",
+                    "message_id": "msg_same",
+                    "stream_id": "1782645817112-0",
+                },
+            },
+            "jsonrpc": "2.0",
+        }
+        first_payload = {
+            "message": json.dumps(event, ensure_ascii=False, indent=2),
+            "channel": "room_asset",
+            "sender_id": "ai-net-http",
+            "kind": "channel",
+            "meta": {
+                "sse_event": "message",
+                "sse_source": "mcp-ai-net-http",
+                "sse_json": event,
+                "mcp_method": "notifications/claude/channel",
+                "kind": "activity",
+                "room_id": "room_asset",
+                "message_id": "msg_same",
+                "stream_id": "1782645817112-0",
+            },
+            "delivery": ["llm"],
+        }
+        second_payload = json.loads(json.dumps(first_payload))
+        second_payload["sender_id"] = "ai-net"
+        second_payload["meta"]["sse_source"] = "mcp-ai-net"
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            path = root / "chat-messages.jsonl"
+            with (
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", path),
+                mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", None),
+            ):
+                first = ciel_runtime.append_chat_message(first_payload)
+                second = ciel_runtime.append_chat_message(second_payload)
+                rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+        self.assertEqual(1, first["id"])
+        self.assertEqual(1, second["id"])
+        self.assertTrue(second["_ciel_runtime_duplicate"])
+        self.assertEqual(1, len(rows))
+
     def test_append_chat_message_keeps_old_fallback_duplicate_without_launch_guard(self):
         payload = {
             "message": "board updated",
@@ -1843,6 +1894,88 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn(b"first wake", wake_bytes)
         self.assertIn(b"second wake", wake_bytes)
         self.assertNotIn(b"third wake", wake_bytes)
+
+    def test_inject_pending_channel_messages_dedupes_llm_delivery_batch_by_event_identity(self):
+        same_event = {
+            "method": "notifications/claude/channel",
+            "params": {
+                "content": "New message from Test",
+                "meta": {
+                    "kind": "activity",
+                    "room_id": "room_asset",
+                    "message_id": "msg_same",
+                    "stream_id": "1782645817112-0",
+                },
+            },
+            "jsonrpc": "2.0",
+        }
+        next_event = {
+            "method": "notifications/claude/channel",
+            "params": {
+                "content": "New message from Joy",
+                "meta": {
+                    "kind": "activity",
+                    "room_id": "room_asset",
+                    "message_id": "msg_next",
+                    "stream_id": "1782645817999-0",
+                },
+            },
+            "jsonrpc": "2.0",
+        }
+
+        def make_message(message_id: int, sender: str, event: dict[str, object]) -> dict[str, object]:
+            event_meta = event["params"]["meta"]  # type: ignore[index]
+            return {
+                "id": message_id,
+                "channel": "room_asset",
+                "sender_id": sender,
+                "message": json.dumps(event, ensure_ascii=False, indent=2),
+                "kind": "channel",
+                "meta": {
+                    "sse_event": "message",
+                    "sse_source": f"mcp-{sender}",
+                    "sse_json": event,
+                    "mcp_method": "notifications/claude/channel",
+                    "kind": "activity",
+                    "room_id": "room_asset",
+                    "message_id": event_meta["message_id"],  # type: ignore[index]
+                    "stream_id": event_meta["stream_id"],  # type: ignore[index]
+                },
+                "delivery": ["llm"],
+            }
+
+        messages = [
+            make_message(8, "ai-net-http", same_event),
+            make_message(9, "ai-net", same_event),
+            make_message(10, "ai-net-http", next_event),
+        ]
+        injected: list[int] = []
+        with tempfile.TemporaryDirectory() as td:
+            claims_path = Path(td) / "claims.json"
+            with (
+                mock.patch.object(ciel_runtime, "CHANNEL_STDIN_WAKE_CLAIMS_PATH", claims_path),
+                mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=None),
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+                mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer"),
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
+            ):
+                last_id = ciel_runtime._inject_pending_channel_messages(
+                    99,
+                    7,
+                    wake_for_llm_delivery=True,
+                    commit_cursor=False,
+                    injected_message_ids=injected,
+                )
+
+        self.assertEqual(7, last_id)
+        self.assertEqual([8, 10], injected)
+        wake_text = write_all.call_args_list[0].args[1].decode("utf-8", errors="replace")
+        self.assertEqual(1, wake_text.count("msg_same"))
+        self.assertIn("msg_next", wake_text)
+        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
+        self.assertTrue(any("reason=duplicate_channel_event" in item and "message_id=9" in item for item in log_messages))
 
     def test_channel_wake_prompt_does_not_auto_synthesize_plan_mode(self):
         body = {

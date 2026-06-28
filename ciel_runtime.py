@@ -10158,7 +10158,87 @@ def _chat_message_recent_rows_locked(limit: int = CHAT_MESSAGE_DEDUPE_SCAN_LIMIT
     return rows
 
 
+_CHANNEL_EVENT_IDENTITY_META_KEYS = (
+    "stream_id",
+    "message_id",
+    "source_message_id",
+    "event_id",
+    "sse_id",
+    "cursor",
+    "sequence",
+    "seq",
+)
+
+
+def _channel_message_event_identity_key(message: dict[str, Any]) -> tuple[str, ...] | None:
+    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
+    envelopes: list[dict[str, Any]] = []
+    for key in ("sse_json", "mcp_json"):
+        value = meta.get(key)
+        if isinstance(value, dict):
+            envelopes.append(value)
+    raw_message = message.get("message")
+    if isinstance(raw_message, str):
+        stripped = raw_message.strip()
+        if stripped.startswith("{"):
+            try:
+                parsed = json.loads(stripped)
+            except Exception:
+                parsed = None
+            if isinstance(parsed, dict):
+                envelopes.append(parsed)
+
+    sources: list[dict[str, Any]] = [meta]
+    method = str(meta.get("mcp_method") or meta.get("sse_event") or "").strip()
+    content: Any = message.get("message")
+    for envelope in envelopes:
+        envelope_method = str(envelope.get("method") or "").strip()
+        if envelope_method:
+            method = envelope_method
+        params = envelope.get("params") if isinstance(envelope.get("params"), dict) else {}
+        if params:
+            sources.append(params)
+            params_meta = params.get("meta")
+            if isinstance(params_meta, dict):
+                sources.append(params_meta)
+            if params.get("content") is not None:
+                content = params.get("content")
+    if method and not method.startswith("notifications/"):
+        return None
+
+    room = ""
+    kind = ""
+    for source in sources:
+        if not room:
+            room = str(source.get("room_id") or source.get("room") or source.get("channel") or "").strip()
+        if not kind:
+            kind = str(source.get("kind") or source.get("type") or source.get("event_type") or source.get("eventType") or "").strip()
+    if not room:
+        room = str(message.get("channel") or "").strip()
+
+    for key in _CHANNEL_EVENT_IDENTITY_META_KEYS:
+        for source in sources:
+            value = source.get(key)
+            if value is None:
+                continue
+            stable_value = str(value).strip()
+            if stable_value:
+                return (
+                    "event",
+                    method,
+                    room,
+                    kind,
+                    key,
+                    stable_value,
+                    _chat_message_payload_hash(content),
+                )
+    return None
+
+
 def _chat_message_stable_dedupe_key(message: dict[str, Any]) -> tuple[str, ...] | None:
+    event_identity = _channel_message_event_identity_key(message)
+    if event_identity:
+        return ("stable",) + event_identity
     meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
     source = str(meta.get("mcp_server") or meta.get("sse_source") or meta.get("source") or message.get("sender_id") or "").strip()
     method = str(meta.get("mcp_method") or "").strip()
@@ -32822,6 +32902,7 @@ def _inject_pending_channel_messages(
         candidates = read_chat_messages(last_id, None, None, _channel_pending_scan_limit())
         superseded_ids = _channel_superseded_message_ids(candidates)
         batch_limit = _channel_stdin_wake_batch_limit() if wake_for_llm_delivery else 1
+        seen_event_keys: set[tuple[str, ...]] = set()
         for message in candidates:
             previous_last_id = last_id
             try:
@@ -32860,6 +32941,13 @@ def _inject_pending_channel_messages(
                 router_log(
                     "INFO",
                     f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=superseded_channel_notice",
+                )
+                continue
+            event_key = _channel_message_event_identity_key(message)
+            if event_key and event_key in seen_event_keys:
+                router_log(
+                    "INFO",
+                    f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=duplicate_channel_event",
                 )
                 continue
             if wake_for_llm_delivery:
@@ -32908,6 +32996,8 @@ def _inject_pending_channel_messages(
                         for old_id in sorted(_CHANNEL_STDIN_WAKE_DELIVERED)[:500]:
                             _CHANNEL_STDIN_WAKE_DELIVERED.discard(old_id)
             pending.append(message)
+            if event_key:
+                seen_event_keys.add(event_key)
             if wake_for_llm_delivery and len(pending) == 1:
                 return_last_id = previous_last_id
             last_id = message_id
