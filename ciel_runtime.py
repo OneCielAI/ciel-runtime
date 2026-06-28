@@ -19031,9 +19031,12 @@ def codex_responses_body_with_channel_context(body: dict[str, Any]) -> tuple[dic
     messages = [m for m in delivery_body.get("messages") or [] if isinstance(m, dict)]
     additions = messages[original_count:]
     metadata = delivery_body.get("metadata") if isinstance(delivery_body.get("metadata"), dict) else {}
-    if not additions and not metadata:
-        return body, delivery_body
     out = dict(body)
+    # ChatGPT Codex backend rejects metadata. Keep Ciel Runtime delivery cursors
+    # in delivery_body only; do not forward them upstream.
+    out.pop("metadata", None)
+    if not additions and not metadata:
+        return out, delivery_body
     input_items = _responses_input_as_list(body.get("input", []))
     for message in additions:
         text = anthropic_content_to_text(message.get("content"))
@@ -19041,11 +19044,6 @@ def codex_responses_body_with_channel_context(body: dict[str, Any]) -> tuple[dic
             input_items.append(_responses_message_item(str(message.get("role") or "user"), text))
     if input_items:
         out["input"] = input_items
-    if metadata:
-        out_metadata = dict(out.get("metadata") if isinstance(out.get("metadata"), dict) else {})
-        for key, value in metadata.items():
-            out_metadata[str(key)] = str(value)
-        out["metadata"] = out_metadata
     return out, delivery_body
 
 

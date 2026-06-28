@@ -698,7 +698,20 @@ args = ["server.py"]
         self.assertEqual("7", delivery["metadata"]["ciel_runtime_channel_cursor_last_id"])
         self.assertEqual("hello", out["input"][0]["content"][0]["text"])
         self.assertEqual("[channel] wake up", out["input"][1]["content"][0]["text"])
-        self.assertEqual("7", out["metadata"]["ciel_runtime_channel_cursor_last_id"])
+        self.assertNotIn("metadata", out)
+
+    def test_codex_responses_channel_context_strips_upstream_metadata(self):
+        body = {"model": "gpt-5.5", "input": "hello", "metadata": {"client": "native"}}
+
+        with (
+            mock.patch.object(ciel_runtime, "body_with_pending_channel_messages", side_effect=lambda value: value),
+            mock.patch.object(ciel_runtime, "body_with_pending_channel_summaries", side_effect=lambda value: value),
+            mock.patch.object(ciel_runtime, "body_with_channel_tool_result_context", side_effect=lambda value: value),
+        ):
+            out, delivery = ciel_runtime.codex_responses_body_with_channel_context(body)
+
+        self.assertNotIn("metadata", out)
+        self.assertNotIn("metadata", delivery)
 
     def test_headless_runtime_flag_launches_codex(self):
         with (
