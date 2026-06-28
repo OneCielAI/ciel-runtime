@@ -159,6 +159,7 @@ CHANNEL_LLM_LAUNCH_GUARD_PATH = CONFIG_DIR / "channel-llm-launch-guard.json"
 CHANNEL_LLM_SUMMARY_QUEUE_PATH = CONFIG_DIR / "channel-llm-summary-queue.jsonl"
 CHANNEL_LLM_SUMMARY_CURSOR_PATH = CONFIG_DIR / "channel-llm-summary-cursor.json"
 CHANNEL_COMPACT_REQUEST_PATH = CONFIG_DIR / "channel-compact-request.json"
+CHANNEL_STDIN_WAKE_CLAIMS_PATH = CONFIG_DIR / "channel-stdin-wake-claims.json"
 CHANNEL_PROBE_CACHE_PATH = CONFIG_DIR / "channel-probe-cache.json"
 MCP_PROXY_CONFIG = CONFIG_DIR / "mcp-proxy.json"
 ROUTER_HOST = os.environ.get("CIEL_RUNTIME_ROUTER_CLIENT_HOST", "127.0.0.1").strip() or "127.0.0.1"
@@ -31546,6 +31547,18 @@ def body_with_pending_channel_summaries(body: dict[str, Any]) -> dict[str, Any]:
 _CHANNEL_WAKE_PROMPT_IDS_RE = re.compile(r"\b(?:id|ids|pending_ids|message_ids)\s*=\s*([0-9][0-9,\s]*)")
 
 
+def _channel_prompt_match_text(text: str) -> str:
+    return re.sub(r"\s+", " ", str(text or "")).strip()
+
+
+def _channel_prompt_contains(candidate: str, prompt: str) -> bool:
+    needle = _channel_prompt_match_text(prompt)
+    if not needle:
+        return False
+    haystack = _channel_prompt_match_text(candidate)
+    return bool(haystack and needle in haystack)
+
+
 def _channel_prompt_message_ids(text: str) -> set[int]:
     ids: set[int] = set()
     for match in _CHANNEL_WAKE_PROMPT_IDS_RE.finditer(str(text or "")):
@@ -31561,12 +31574,106 @@ def _channel_prompt_message_ids(text: str) -> set[int]:
     return ids
 
 
-def _channel_prompt_references_message_id(text: str, message_id: int) -> bool:
-    if message_id in _channel_prompt_message_ids(text):
-        return True
+def _channel_stdin_wake_claim_ttl_seconds() -> float:
+    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_CLAIM_TTL_SECONDS")
+    if raw is None:
+        return 300.0
+    try:
+        return max(5.0, min(1800.0, float(raw)))
+    except Exception:
+        return 300.0
+
+
+def _channel_stdin_wake_claims_read_locked(now: float | None = None) -> dict[str, Any]:
+    current = time.time() if now is None else float(now)
+    ttl = _channel_stdin_wake_claim_ttl_seconds()
+    try:
+        data = json.loads(CHANNEL_STDIN_WAKE_CLAIMS_PATH.read_text(encoding="utf-8"))
+        claims = data.get("claims") if isinstance(data, dict) else {}
+        if not isinstance(claims, dict):
+            return {}
+        out: dict[str, Any] = {}
+        for key, value in claims.items():
+            if not isinstance(value, dict):
+                continue
+            try:
+                claimed_at = float(value.get("claimed_at") or 0)
+            except Exception:
+                claimed_at = 0.0
+            if claimed_at > 0 and current - claimed_at > ttl:
+                continue
+            out[str(key)] = dict(value)
+        return out
+    except FileNotFoundError:
+        return {}
+    except Exception as exc:
+        router_log("WARN", f"channel_stdin_wake_claims_read_failed error={type(exc).__name__}: {exc}")
+        return {}
+
+
+def _channel_stdin_wake_claims_write_locked(claims: dict[str, Any]) -> None:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    tmp_path = CHANNEL_STDIN_WAKE_CLAIMS_PATH.with_suffix(".json.tmp")
+    tmp_path.write_text(json.dumps({"claims": claims}, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
+    tmp_path.replace(CHANNEL_STDIN_WAKE_CLAIMS_PATH)
+
+
+def _channel_stdin_wake_claim_prompt(message_id: int) -> str:
+    if message_id <= 0:
+        return ""
     with _CHANNEL_STDIN_WAKE_LOCK:
         prompt = _CHANNEL_STDIN_WAKE_PROMPTS.get(message_id)
-    return bool(prompt and prompt in str(text or ""))
+    if prompt:
+        return prompt
+    with _chat_messages_file_lock():
+        claim = _channel_stdin_wake_claims_read_locked().get(str(message_id))
+    if not isinstance(claim, dict):
+        return ""
+    prompt = claim.get("prompt")
+    return str(prompt) if isinstance(prompt, str) else ""
+
+
+def _channel_stdin_claim_wake_prompt(message_id: int, prompt: str) -> bool:
+    if message_id <= 0:
+        return True
+    normalized_prompt = _channel_prompt_match_text(prompt)
+    if not normalized_prompt:
+        return True
+    with _chat_messages_file_lock():
+        claims = _channel_stdin_wake_claims_read_locked()
+        existing = claims.get(str(message_id))
+        if isinstance(existing, dict):
+            return False
+        claims[str(message_id)] = {"claimed_at": time.time(), "prompt": prompt}
+        _channel_stdin_wake_claims_write_locked(claims)
+    return True
+
+
+def _channel_stdin_clear_wake_claim(message_id: int) -> None:
+    if message_id <= 0:
+        return
+    with _chat_messages_file_lock():
+        claims = _channel_stdin_wake_claims_read_locked()
+        if str(message_id) not in claims:
+            return
+        claims.pop(str(message_id), None)
+        _channel_stdin_wake_claims_write_locked(claims)
+
+
+def _channel_prompt_references_message_id(text: str, message_id: int, prompt_texts: list[str] | tuple[str, ...] | None = None) -> bool:
+    if message_id in _channel_prompt_message_ids(text):
+        return True
+    prompts: list[str] = []
+    if prompt_texts:
+        prompts.extend(str(item) for item in prompt_texts if str(item or "").strip())
+    if prompt_texts is None:
+        claimed_prompt = _channel_stdin_wake_claim_prompt(message_id)
+        if claimed_prompt:
+            prompts.append(claimed_prompt)
+    for prompt in prompts:
+        if _channel_prompt_contains(str(text or ""), prompt):
+            return True
+    return False
 
 
 def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]:
@@ -31844,9 +31951,41 @@ def _channel_stdin_wake_state(message_id: int) -> str:
     return _channel_stdin_wake_state_from_text(message_id, text)
 
 
-def _channel_stdin_wake_state_from_text(message_id: int, text: str) -> str:
+def _channel_stdin_wake_state_for_message(message: dict[str, Any], prompt: str | None = None) -> str:
+    try:
+        message_id = int(message.get("id") or 0)
+    except Exception:
+        message_id = 0
     if message_id <= 0:
         return "completed"
+    path = _latest_claude_transcript_path()
+    if path is None:
+        return "unknown"
+    text = _read_file_tail_text(path)
+    if not text:
+        return "unknown"
+    prompt_candidates: list[str] = []
+    if prompt:
+        prompt_candidates.append(prompt)
+    body = str(message.get("message") if message.get("message") is not None else "")
+    if body:
+        prompt_candidates.append(body)
+    return _channel_stdin_wake_state_from_text(message_id, text, prompt_candidates)
+
+
+def _channel_stdin_wake_state_from_text(
+    message_id: int,
+    text: str,
+    prompt_texts: list[str] | tuple[str, ...] | None = None,
+) -> str:
+    if message_id <= 0:
+        return "completed"
+    prompt_candidates: list[str] = []
+    if prompt_texts:
+        prompt_candidates.extend(str(item) for item in prompt_texts if str(item or "").strip())
+    claimed_prompt = _channel_stdin_wake_claim_prompt(message_id)
+    if claimed_prompt:
+        prompt_candidates.append(claimed_prompt)
 
     def _record_text(value: Any) -> str:
         if isinstance(value, str):
@@ -31887,14 +32026,14 @@ def _channel_stdin_wake_state_from_text(message_id: int, text: str) -> str:
             return "completed"
         if record_type == "queue-operation" and record.get("operation") == "enqueue":
             raw = record.get("content")
-            if isinstance(raw, str) and _channel_prompt_references_message_id(raw, message_id):
+            if isinstance(raw, str) and _channel_prompt_references_message_id(raw, message_id, prompt_candidates):
                 seen_queued_prompt = True
             continue
         if record_type == "attachment":
             attachment = record.get("attachment")
             if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
                 raw = attachment.get("prompt")
-                if isinstance(raw, str) and _channel_prompt_references_message_id(raw, message_id):
+                if isinstance(raw, str) and _channel_prompt_references_message_id(raw, message_id, prompt_candidates):
                     seen_queued_prompt = True
             continue
         if record_type != "user":
@@ -31906,7 +32045,7 @@ def _channel_stdin_wake_state_from_text(message_id: int, text: str) -> str:
         # superseded by later typed/queued prompts.  Only commit delivery after
         # the prompt is present as an actual user message.
         content_text = _record_text(message_obj.get("content"))
-        if _channel_prompt_references_message_id(content_text, message_id):
+        if _channel_prompt_references_message_id(content_text, message_id, prompt_candidates):
             seen_real_prompt = True
     if seen_real_prompt:
         return "pending"
@@ -32162,7 +32301,13 @@ def _inject_pending_channel_messages(
                     f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=superseded_channel_notice",
                 )
                 continue
-            wake_state = _channel_stdin_wake_state(message_id)
+            if wake_for_llm_delivery:
+                message_prompt = format_channel_llm_delivery_wake_prompt([message])
+            elif web_chat_only and _channel_message_is_web_chat_request(message):
+                message_prompt = format_channel_web_chat_wake_batch_prompt([message])
+            else:
+                message_prompt = format_channel_wake_batch_prompt([message])
+            wake_state = _channel_stdin_wake_state_for_message(message, message_prompt)
             if wake_state == "completed":
                 router_log(
                     "INFO",
@@ -32199,6 +32344,22 @@ def _inject_pending_channel_messages(
                 prompt = format_channel_web_chat_wake_batch_prompt(pending)
             else:
                 prompt = format_channel_wake_batch_prompt(pending)
+            claimed_ids: list[int] = []
+            if wake_for_llm_delivery:
+                for message in pending:
+                    try:
+                        claim_id = int(message.get("id") or 0)
+                    except Exception:
+                        continue
+                    if claim_id <= 0:
+                        continue
+                    if not _channel_stdin_claim_wake_prompt(claim_id, prompt):
+                        router_log(
+                            "INFO",
+                            f"channel_stdin_proxy_skipped_noise message_id={claim_id} channel={message.get('channel')} reason=stdin_wake_claimed",
+                        )
+                        return return_last_id
+                    claimed_ids.append(claim_id)
             submit_bytes = _channel_wake_enter_bytes(enter_bytes)
             try:
                 _write_channel_wake_prompt(master_fd, prompt, submit_bytes)
@@ -32222,6 +32383,9 @@ def _inject_pending_channel_messages(
                             continue
                         _CHANNEL_STDIN_WAKE_DELIVERED.discard(failed_id)
                         _CHANNEL_STDIN_WAKE_PROMPTS.pop(failed_id, None)
+                        _channel_stdin_clear_wake_claim(failed_id)
+                for failed_id in claimed_ids:
+                    _channel_stdin_clear_wake_claim(failed_id)
                 raise
             if not web_chat_only:
                 if commit_cursor:
@@ -32470,6 +32634,7 @@ def subprocess_call_with_channel_wake_proxy(
                         _commit_channel_llm_cursor_if_newer(channel_inflight_cursor)
                     with _CHANNEL_STDIN_WAKE_LOCK:
                         _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
+                    _channel_stdin_clear_wake_claim(channel_inflight_id)
                     router_log(
                         "INFO",
                         f"channel_stdin_proxy_confirmed message_id={channel_inflight_id} cursor={channel_inflight_cursor or '-'}",
@@ -32486,6 +32651,7 @@ def subprocess_call_with_channel_wake_proxy(
                     with _CHANNEL_STDIN_WAKE_LOCK:
                         _CHANNEL_STDIN_WAKE_DELIVERED.discard(channel_inflight_id)
                         _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
+                    _channel_stdin_clear_wake_claim(channel_inflight_id)
                     router_log(
                         "WARN",
                         f"channel_stdin_proxy_unseen_retry message_id={channel_inflight_id} age={now - channel_inflight_started_at:.1f}s",
@@ -32502,6 +32668,7 @@ def subprocess_call_with_channel_wake_proxy(
                     with _CHANNEL_STDIN_WAKE_LOCK:
                         _CHANNEL_STDIN_WAKE_DELIVERED.discard(channel_inflight_id)
                         _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
+                    _channel_stdin_clear_wake_claim(channel_inflight_id)
                     router_log(
                         "WARN",
                         "channel_stdin_proxy_stale_inflight_skipped "

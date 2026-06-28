@@ -1676,20 +1676,23 @@ class ChannelBridgeTests(unittest.TestCase):
             }
         ]
         injected: list[int] = []
-        with (
-            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
-            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
-            mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
-            mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
-            mock.patch.object(ciel_runtime, "router_log"),
-        ):
-            last_id = ciel_runtime._inject_pending_channel_messages(
-                99,
-                7,
-                wake_for_llm_delivery=True,
-                commit_cursor=False,
-                injected_message_ids=injected,
-            )
+        with tempfile.TemporaryDirectory() as td:
+            claims_path = Path(td) / "claims.json"
+            with (
+                mock.patch.object(ciel_runtime, "CHANNEL_STDIN_WAKE_CLAIMS_PATH", claims_path),
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+                mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+                mock.patch.object(ciel_runtime, "router_log"),
+            ):
+                last_id = ciel_runtime._inject_pending_channel_messages(
+                    99,
+                    7,
+                    wake_for_llm_delivery=True,
+                    commit_cursor=False,
+                    injected_message_ids=injected,
+                )
 
         self.assertEqual(7, last_id)
         self.assertEqual([8], injected)
@@ -1785,6 +1788,81 @@ class ChannelBridgeTests(unittest.TestCase):
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("state=queued" in item for item in log_messages))
 
+    def test_inject_pending_channel_messages_skips_raw_prompt_already_in_transcript(self):
+        raw_prompt = (
+            "[AI-Net new messages]\n"
+            '• Bitcoin Strategy Team: 1 new (Joy) → get_messages(room_id="room_id2w78yhq8c8", after_seq=41182)'
+        )
+        messages = [
+            {
+                "id": 367,
+                "channel": "ai-net-http",
+                "sender_id": "ai-net-http",
+                "message": raw_prompt,
+                "meta": {"mcp_server": "ai-net-http", "mcp_method": "notifications/claude/channel", "kind": "digest"},
+            }
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            transcript = Path(td) / "session.jsonl"
+            transcript.write_text(
+                "\n".join(
+                    [
+                        json.dumps({"type": "user", "message": {"role": "user", "content": "\x15" + raw_prompt}}),
+                        json.dumps({"type": "assistant", "message": {"role": "assistant", "content": []}}),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            claims_path = Path(td) / "claims.json"
+            with (
+                mock.patch.object(ciel_runtime, "CHANNEL_STDIN_WAKE_CLAIMS_PATH", claims_path),
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript),
+                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
+            ):
+                last_id = ciel_runtime._inject_pending_channel_messages(99, 366, wake_for_llm_delivery=True)
+
+        self.assertEqual(367, last_id)
+        write_all.assert_not_called()
+        commit_cursor.assert_not_called()
+        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
+        self.assertTrue(any("reason=stdin_wake_completed" in item and "message_id=367" in item for item in log_messages))
+
+    def test_inject_pending_channel_messages_skips_cross_process_claim(self):
+        raw_prompt = "raw ai-net digest"
+        messages = [
+            {
+                "id": 368,
+                "channel": "ai-net-http",
+                "sender_id": "ai-net-http",
+                "message": raw_prompt,
+                "meta": {"mcp_server": "ai-net-http", "mcp_method": "notifications/claude/channel", "kind": "digest"},
+            }
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            claims_path = Path(td) / "claims.json"
+            with (
+                mock.patch.object(ciel_runtime, "CHANNEL_STDIN_WAKE_CLAIMS_PATH", claims_path),
+                mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=None),
+            ):
+                self.assertTrue(ciel_runtime._channel_stdin_claim_wake_prompt(368, raw_prompt))
+                with (
+                    mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                    mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                    mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,
+                    mock.patch.object(ciel_runtime, "router_log") as router_log,
+                ):
+                    last_id = ciel_runtime._inject_pending_channel_messages(99, 367, wake_for_llm_delivery=True)
+
+        self.assertEqual(367, last_id)
+        write_all.assert_not_called()
+        commit_cursor.assert_not_called()
+        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
+        self.assertTrue(any("reason=stdin_wake_claimed" in item and "message_id=368" in item for item in log_messages))
+
     def test_channel_stdin_wake_completed_requires_assistant_after_prompt(self):
         with tempfile.TemporaryDirectory() as td:
             transcript = Path(td) / "session.jsonl"
@@ -1858,6 +1936,21 @@ class ChannelBridgeTests(unittest.TestCase):
         )
 
         self.assertEqual("completed", ciel_runtime._channel_stdin_wake_state_from_text(363, transcript))
+
+    def test_channel_stdin_wake_state_accepts_explicit_raw_prompt_without_memory(self):
+        raw_prompt = (
+            "[AI-Net new messages]\n"
+            '• Bitcoin Strategy Team: 1 new (Joy) → get_messages(room_id="room_id2w78yhq8c8", after_seq=41182)'
+        )
+        transcript = "\n".join(
+            [
+                json.dumps({"type": "queue-operation", "operation": "enqueue", "content": "\x15" + raw_prompt}),
+                json.dumps({"type": "user", "message": {"role": "user", "content": "\x15" + raw_prompt}}),
+                json.dumps({"type": "assistant", "message": {"role": "assistant", "content": []}}),
+            ]
+        )
+
+        self.assertEqual("completed", ciel_runtime._channel_stdin_wake_state_from_text(367, transcript, [raw_prompt]))
 
     def test_channel_stdin_inflight_stale_only_expires_queued_or_unknown(self):
         with mock.patch.object(ciel_runtime, "_channel_stdin_inflight_stale_seconds", return_value=60.0):
