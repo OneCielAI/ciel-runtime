@@ -10367,6 +10367,36 @@ def _event_payload_text(value: Any, depth: int = 0) -> str | None:
     return None
 
 
+def _pretty_json_text_or_raw(text: str) -> str:
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return text
+    return json.dumps(parsed, ensure_ascii=False, indent=2, default=str)
+
+
+def _pretty_json_value(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, indent=2, default=str)
+
+
+def _notification_semantic_text_from_envelope(envelope: Any) -> str | None:
+    if not isinstance(envelope, dict):
+        return None
+    params = envelope.get("params") if isinstance(envelope.get("params"), dict) else {}
+    payload = envelope.get("payload") if isinstance(envelope.get("payload"), dict) else {}
+    data = params.get("data") if isinstance(params.get("data"), dict) else {}
+    event = params.get("event") if isinstance(params.get("event"), dict) else {}
+    nested_payload = (
+        data.get("payload") if isinstance(data.get("payload"), dict) else
+        event.get("payload") if isinstance(event.get("payload"), dict) else {}
+    )
+    content = _event_payload_text(nested_payload) or _event_payload_text(payload)
+    for source in (data, event):
+        direct = _first_present_dict_value(source, keys=("content", "message", "text", "body", "summary"))
+        content = content or _event_payload_text(direct)
+    return content or _event_payload_text(params) or _event_payload_text(envelope)
+
+
 def _event_meta_from_sources(*sources: Any) -> dict[str, Any]:
     meta: dict[str, Any] = {}
     for source in sources:
@@ -10505,14 +10535,15 @@ def _channel_event_is_user_visible(kind: str, method: str, event_name: str, cont
 
 
 def _sse_payload_to_chat_payload(data_text: str, event_name: str, defaults: dict[str, Any], event_id: str | None = None) -> dict[str, Any] | None:
-    text = (data_text or "").strip()
-    if not text or text == "[DONE]":
+    raw_text = data_text or ""
+    stripped_text = raw_text.strip()
+    if not stripped_text or stripped_text == "[DONE]":
         return None
     if (event_name or "").strip().lower() == "endpoint":
         return None
     parsed: Any = None
     try:
-        parsed = json.loads(text)
+        parsed = json.loads(stripped_text)
     except Exception:
         parsed = None
 
@@ -10522,7 +10553,7 @@ def _sse_payload_to_chat_payload(data_text: str, event_name: str, defaults: dict
     }
     if event_id:
         meta["sse_id"] = event_id
-    content = text
+    content = raw_text
     kind = "sse"
     method = str(event_name or "message")
     event_filter = defaults.get("event_filter")
@@ -10565,7 +10596,7 @@ def _sse_payload_to_chat_payload(data_text: str, event_name: str, defaults: dict
         "thread_id": meta.get("thread_id"),
         "parent_id": meta.get("parent_id"),
         "kind": kind,
-        "message": content,
+        "message": _pretty_json_text_or_raw(raw_text),
         "meta": meta,
         "visibility": "user",
         "delivery": ["llm"],
@@ -29968,12 +29999,21 @@ def format_channel_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
     )
 
 
+def _channel_message_llm_display_text(message: dict[str, Any]) -> str:
+    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
+    for key in ("mcp_json", "sse_json"):
+        value = meta.get(key)
+        if isinstance(value, (dict, list)):
+            return _pretty_json_value(value)
+    return str(message.get("message") if message.get("message") is not None else "")
+
+
 def format_channel_llm_delivery_wake_prompt(messages: list[dict[str, Any]]) -> str:
-    return "\n\n".join(str(message.get("message") if message.get("message") is not None else "") for message in messages)
+    return "\n\n".join(_channel_message_llm_display_text(message) for message in messages)
 
 
 def format_channel_llm_batch_prompt(messages: list[dict[str, Any]]) -> str:
-    return "\n\n".join(str(message.get("message") if message.get("message") is not None else "") for message in messages)
+    return "\n\n".join(_channel_message_llm_display_text(message) for message in messages)
 
 
 _CHANNEL_LLM_TOOL_CONTEXT_LOCK = threading.Lock()
@@ -33334,6 +33374,7 @@ def _mcp_proxy_notification_payload(server_name: str, message: dict[str, Any]) -
         content = json.dumps(params, ensure_ascii=False, separators=(",", ":"), default=str)
     if not content:
         return None
+    raw_message = _pretty_json_value(message)
     channel = str(meta.get("channel") or meta.get("room_id") or meta.get("room") or server_name)
     return {
         "channel": channel,
@@ -33342,7 +33383,7 @@ def _mcp_proxy_notification_payload(server_name: str, message: dict[str, Any]) -
         "thread_id": meta.get("thread_id"),
         "parent_id": meta.get("parent_id"),
         "kind": method.replace("notifications/claude/", "").replace("notifications/", "").replace("/", "."),
-        "message": content,
+        "message": raw_message,
         "meta": meta,
     }
 
@@ -33370,7 +33411,12 @@ def _mcp_proxy_stable_event_identity(chat_payload: dict[str, Any]) -> tuple[str,
 
 def _mcp_proxy_notification_dedupe_key(server_name: str, chat_payload: dict[str, Any]) -> tuple[str, bool]:
     meta = chat_payload.get("meta") if isinstance(chat_payload.get("meta"), dict) else {}
-    body = re.sub(r"\s+", " ", str(chat_payload.get("message") or "")).strip()
+    body_source = (
+        _notification_semantic_text_from_envelope(meta.get("mcp_json"))
+        or _notification_semantic_text_from_envelope(meta.get("sse_json"))
+        or str(chat_payload.get("message") or "")
+    )
+    body = re.sub(r"\s+", " ", body_source).strip()
     room = str(meta.get("room_id") or meta.get("room") or chat_payload.get("channel") or server_name)
     kind = str(meta.get("kind") or chat_payload.get("kind") or "")
     stable_identity = _mcp_proxy_stable_event_identity(chat_payload)

@@ -40,7 +40,7 @@ class ChannelBridgeTests(unittest.TestCase):
         )
         self.assertIsNotNone(payload)
         assert payload is not None
-        self.assertEqual(payload["message"], "hello")
+        self.assertEqual("hello", json.loads(payload["message"])["params"]["content"])
         self.assertEqual(payload["kind"], "channel")
         self.assertEqual(payload["channel"], "room_phase1sim")
         self.assertEqual(payload["sender_id"], "ai-net")
@@ -51,6 +51,17 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(payload["meta"]["room_id"], "room_phase1sim")
         self.assertEqual(payload["meta"]["mcp_method"], "notifications/claude/channel")
         self.assertEqual(payload["meta"]["sse_json"]["params"]["meta"]["room_id"], "room_phase1sim")
+
+    def test_sse_payload_preserves_plain_text_exactly(self):
+        payload = ciel_runtime._sse_payload_to_chat_payload(
+            "  plain SSE body\nsecond line  ",
+            "message",
+            {"name": "plain-sse"},
+        )
+
+        self.assertIsNotNone(payload)
+        assert payload is not None
+        self.assertEqual("  plain SSE body\nsecond line  ", payload["message"])
 
     def test_sse_payload_ignores_done_marker(self):
         self.assertIsNone(ciel_runtime._sse_payload_to_chat_payload("[DONE]", "message", {"name": "x"}))
@@ -89,7 +100,7 @@ class ChannelBridgeTests(unittest.TestCase):
         )
         self.assertIsNotNone(payload)
         assert payload is not None
-        self.assertEqual(payload["message"], "hello from ai-net")
+        self.assertEqual("hello from ai-net", json.loads(payload["message"])["params"]["data"]["payload"]["message"]["content"])
         self.assertEqual(payload["sender_id"], "agent_a")
         self.assertEqual(payload["channel"], "room_phase1sim")
         self.assertEqual(payload["meta"]["room_id"], "room_phase1sim")
@@ -120,7 +131,7 @@ class ChannelBridgeTests(unittest.TestCase):
         )
         self.assertIsNotNone(payload)
         assert payload is not None
-        self.assertEqual("Robert 리드님, 매크로 분석 보고서입니다.", payload["message"])
+        self.assertEqual("Robert 리드님, 매크로 분석 보고서입니다.", json.loads(payload["message"])["params"]["data"]["payload"]["message"]["content"])
         self.assertEqual("agent_n3wy9gfjmcil", payload["sender_id"])
         self.assertEqual("room_4pyr8vvwm2cd", payload["channel"])
 
@@ -147,7 +158,7 @@ class ChannelBridgeTests(unittest.TestCase):
         )
         self.assertIsNotNone(payload)
         assert payload is not None
-        self.assertEqual("Robert님, DM 확인 부탁드립니다.", payload["message"])
+        self.assertEqual("Robert님, DM 확인 부탁드립니다.", json.loads(payload["message"])["message"])
         self.assertEqual("ai-net", payload["channel"])
         self.assertEqual("Sarah", payload["sender_id"])
         self.assertEqual(["Robert"], payload["recipients"])
@@ -1661,6 +1672,37 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn("ids=8", prompt)
         self.assertNotIn("external channel message", prompt)
         self.assertNotIn("do not answer", prompt)
+
+    def test_llm_delivery_wake_prompt_prefers_original_mcp_json(self):
+        prompt = ciel_runtime.format_channel_llm_delivery_wake_prompt(
+            [
+                {
+                    "id": 8,
+                    "channel": "room",
+                    "sender_id": "ai-net-http",
+                    "message": "Test @mentioned you",
+                    "meta": {
+                        "mcp_json": {
+                            "jsonrpc": "2.0",
+                            "method": "notifications/claude/channel",
+                            "params": {
+                                "content": "Test @mentioned you",
+                                "meta": {
+                                    "kind": "mentioned",
+                                    "room_id": "room_iyjjx0bzfimr",
+                                    "message_id": "msg_w9cj0ff3ahou",
+                                },
+                            },
+                        }
+                    },
+                }
+            ]
+        )
+
+        parsed = json.loads(prompt)
+        self.assertEqual("notifications/claude/channel", parsed["method"])
+        self.assertEqual("room_iyjjx0bzfimr", parsed["params"]["meta"]["room_id"])
+        self.assertEqual("msg_w9cj0ff3ahou", parsed["params"]["meta"]["message_id"])
         self.assertNotIn("Start a normal turn", prompt)
         self.assertNotIn("ExitPlanMode", prompt)
 
@@ -5231,7 +5273,7 @@ class ChannelBridgeTests(unittest.TestCase):
         )
         self.assertIsNotNone(payload)
         assert payload is not None
-        self.assertEqual("wake from server", payload["message"])
+        self.assertEqual("wake from server", json.loads(payload["message"])["params"]["data"]["payload"]["message"]["content"])
         self.assertEqual("robert", payload["sender_id"])
         self.assertEqual("room_phase1sim", payload["channel"])
         self.assertEqual("notifications/message", payload["meta"]["mcp_method"])
@@ -5368,7 +5410,7 @@ class ChannelBridgeTests(unittest.TestCase):
             observer.feed(frame[10:])
         append.assert_called_once()
         payload = append.call_args.args[0]
-        self.assertEqual("wake from framed mcp", payload["message"])
+        self.assertEqual("wake from framed mcp", json.loads(payload["message"])["params"]["data"]["payload"]["message"]["content"])
         self.assertEqual("robert", payload["sender_id"])
         self.assertEqual("room_phase1sim", payload["channel"])
 
@@ -5379,7 +5421,7 @@ class ChannelBridgeTests(unittest.TestCase):
             observer = ciel_runtime._McpStdoutObserver("generic")
             observer.feed(frame)
         append.assert_called_once()
-        self.assertEqual("typed frame", append.call_args.args[0]["message"])
+        self.assertEqual("typed frame", json.loads(append.call_args.args[0]["message"])["params"]["content"])
 
     def test_mcp_proxy_observer_reads_jsonl_notification(self):
         line = (
@@ -5396,7 +5438,7 @@ class ChannelBridgeTests(unittest.TestCase):
             observer = ciel_runtime._McpStdoutObserver("generic")
             observer.feed(line)
         append.assert_called_once()
-        self.assertEqual("wake from json line", append.call_args.args[0]["message"])
+        self.assertEqual("wake from json line", json.loads(append.call_args.args[0]["message"])["params"]["content"])
 
     def test_mcp_proxy_compacts_large_get_messages_tool_result(self):
         payload = {
