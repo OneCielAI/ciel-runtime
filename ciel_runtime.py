@@ -26332,7 +26332,7 @@ def ensure_managed_router_running_for_client() -> bool:
             return True
     router_log("WARN", f"router_lifetime_restart reason=router_down_active_client base={ROUTER_BASE}")
     try:
-        return bool(start_router_if_needed())
+        return bool(start_router_if_needed(replace_active_clients=False))
     except Exception as exc:
         router_log("ERROR", f"router_lifetime_restart_failed error={type(exc).__name__}: {exc}")
         return False
@@ -26389,6 +26389,96 @@ def terminate_pid(pid: int, label: str, quiet: bool = False) -> bool:
         if not quiet:
             print(f"Could not stop existing {label} session ({type(exc).__name__}).")
         return False
+
+
+def descendant_pids(pid: int) -> list[int]:
+    if pid <= 0 or os.name == "nt":
+        return []
+    try:
+        proc = subprocess.run(
+            ["ps", "-eo", "pid=,ppid="],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+    except Exception:
+        return []
+    children: dict[int, list[int]] = {}
+    for line in proc.stdout.splitlines():
+        parts = line.strip().split()
+        if len(parts) < 2:
+            continue
+        try:
+            child = int(parts[0])
+            parent = int(parts[1])
+        except ValueError:
+            continue
+        children.setdefault(parent, []).append(child)
+    out: list[int] = []
+    stack = list(children.get(pid, []))
+    while stack:
+        child = stack.pop()
+        if child in out:
+            continue
+        out.append(child)
+        stack.extend(children.get(child, []))
+    return out
+
+
+def terminate_pid_tree(pid: int, label: str, quiet: bool = False) -> bool:
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        return terminate_pid(pid, label, quiet=quiet)
+    protected = {os.getpid(), os.getppid()}
+    targets = [p for p in [pid, *descendant_pids(pid)] if p > 0 and p not in protected]
+    if not targets:
+        return False
+    stopped = False
+    for target in targets:
+        try:
+            if pid_is_running(target):
+                os.kill(target, signal.SIGTERM)
+                stopped = True
+        except Exception:
+            pass
+    deadline = time.time() + 4
+    while time.time() < deadline:
+        if not any(pid_is_running(target) for target in targets):
+            break
+        time.sleep(0.1)
+    for target in targets:
+        if pid_is_running(target):
+            try:
+                os.kill(target, signal.SIGKILL)
+                stopped = True
+            except Exception:
+                pass
+    if stopped and not quiet:
+        print(f"Stopped existing {label} session(s): {', '.join(map(str, targets))}.")
+    return stopped
+
+
+def terminate_active_router_clients(reason: str, active_clients: list[int] | None = None, quiet: bool = True) -> bool:
+    clients = active_clients if active_clients is not None else active_router_client_pids()
+    stopped = False
+    for pid in sorted(set(int(p) for p in clients if int(p or 0) > 0)):
+        if pid in (os.getpid(), os.getppid()):
+            continue
+        if terminate_pid_tree(pid, "previous ciel-runtime client", quiet=quiet):
+            stopped = True
+        try:
+            (ROUTER_CLIENTS_DIR / f"{pid}.json").unlink()
+        except FileNotFoundError:
+            pass
+        except Exception:
+            pass
+    router_log(
+        "INFO",
+        f"router_active_clients_terminated reason={reason} clients={','.join(map(str, clients)) or '-'} stopped={str(stopped).lower()}",
+    )
+    return stopped
 
 
 def terminate_pid_file(path: Path, label: str, quiet: bool = False) -> bool:
@@ -28833,47 +28923,68 @@ def run_prelaunch_menu(passthrough: list[str], skip_menu: bool = False, force_me
     return portable_prelaunch_menu(passthrough)
 
 
-def start_router_if_needed() -> bool:
+def start_router_if_needed(*, replace_active_clients: bool = True) -> bool:
     health = router_health()
     if health is not None:
         active_clients = active_router_client_pids()
         if router_health_matches_current(health):
             if active_clients:
+                if replace_active_clients:
+                    router_log(
+                        "WARN",
+                        "router_prelaunch_replace_active_clients "
+                        f"base={ROUTER_BASE} active_clients={','.join(map(str, active_clients))}",
+                    )
+                    terminate_active_router_clients("prelaunch_active_clients", active_clients, quiet=True)
+                    ensure_router_port_available_for_spawn("prelaunch_active_clients", health)
+                else:
+                    router_log(
+                        "INFO",
+                        "router_check_state running=True spawn=False "
+                        f"base={ROUTER_BASE} active_clients={','.join(map(str, active_clients))}",
+                    )
+                    return True
+            else:
+                if env_bool(os.environ.get("CIEL_RUNTIME_REUSE_ROUTER"), False):
+                    router_log("INFO", f"router_check_state running=True spawn=False base={ROUTER_BASE} reuse=env")
+                    return True
                 router_log(
                     "INFO",
-                    "router_check_state running=True spawn=False "
-                    f"base={ROUTER_BASE} active_clients={','.join(map(str, active_clients))}",
+                    "router_prelaunch_replace "
+                    f"running_version={health.get('version') or '-'} current_version={VERSION} "
+                    f"running_source={health.get('source_fingerprint') or '-'} current_source={SOURCE_FINGERPRINT} "
+                    f"pid={health.get('pid') or '-'}",
                 )
-                return True
-            if env_bool(os.environ.get("CIEL_RUNTIME_REUSE_ROUTER"), False):
-                router_log("INFO", f"router_check_state running=True spawn=False base={ROUTER_BASE} reuse=env")
-                return True
-            router_log(
-                "INFO",
-                "router_prelaunch_replace "
-                f"running_version={health.get('version') or '-'} current_version={VERSION} "
-                f"running_source={health.get('source_fingerprint') or '-'} current_source={SOURCE_FINGERPRINT} "
-                f"pid={health.get('pid') or '-'}",
-            )
-            ensure_router_port_available_for_spawn("prelaunch_replace", health)
+                ensure_router_port_available_for_spawn("prelaunch_replace", health)
         else:
             if router_health_config_matches_current(health) and active_clients:
-                raise RuntimeError(
-                    f"ciel-runtime router on {ROUTER_BASE} belongs to this config but has active clients "
-                    f"({','.join(map(str, active_clients))}) and differs from this launch "
-                    f"(running_version={health.get('version') or '-'}, current_version={VERSION}). "
-                    "Stop the other Claude Code session or launch this instance with a different "
-                    "CIEL_RUNTIME_ROUTER_PORT."
+                if replace_active_clients:
+                    router_log(
+                        "WARN",
+                        "router_version_mismatch_replace_active_clients "
+                        f"running_version={health.get('version') or '-'} current_version={VERSION} "
+                        f"active_clients={','.join(map(str, active_clients))}",
+                    )
+                    terminate_active_router_clients("version_mismatch_active_clients", active_clients, quiet=True)
+                    ensure_router_port_available_for_spawn("version_mismatch_active_clients", health)
+                else:
+                    raise RuntimeError(
+                        f"ciel-runtime router on {ROUTER_BASE} belongs to this config but has active clients "
+                        f"({','.join(map(str, active_clients))}) and differs from this launch "
+                        f"(running_version={health.get('version') or '-'}, current_version={VERSION}). "
+                        "Stop the other Claude Code session or launch this instance with a different "
+                        "CIEL_RUNTIME_ROUTER_PORT."
+                    )
+            else:
+                running_version = str(health.get("version") or "")
+                running_fingerprint = str(health.get("source_fingerprint") or "")
+                router_log(
+                    "WARN",
+                    "router_version_mismatch_restart "
+                    f"running_version={running_version or '-'} current_version={VERSION} "
+                    f"running_source={running_fingerprint or '-'} current_source={SOURCE_FINGERPRINT}",
                 )
-            running_version = str(health.get("version") or "")
-            running_fingerprint = str(health.get("source_fingerprint") or "")
-            router_log(
-                "WARN",
-                "router_version_mismatch_restart "
-                f"running_version={running_version or '-'} current_version={VERSION} "
-                f"running_source={running_fingerprint or '-'} current_source={SOURCE_FINGERPRINT}",
-            )
-            ensure_router_port_available_for_spawn("version_mismatch", health)
+                ensure_router_port_available_for_spawn("version_mismatch", health)
     else:
         ensure_router_port_available_for_spawn("pre_spawn", None)
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
