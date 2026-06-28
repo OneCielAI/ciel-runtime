@@ -1404,6 +1404,35 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(b"\n", ciel_runtime._channel_synthetic_enter_bytes_from_user_input(b"\n"))
         self.assertEqual(b"\r\n", ciel_runtime._channel_synthetic_enter_bytes_from_user_input(b"hello\r\n"))
 
+    def test_channel_wake_prompt_retries_until_tmux_pane_changes(self):
+        with (
+            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+            mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+            mock.patch.object(ciel_runtime, "_channel_wake_submit_retry_delay_seconds", return_value=0),
+            mock.patch.object(ciel_runtime, "_channel_current_tmux_pane_text", side_effect=["before", "before", "after"]),
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
+        ):
+            ciel_runtime._write_channel_wake_prompt(99, "wake", b"\r", submit_retry_count=4, confirm_submit=True)
+
+        self.assertEqual(3, write_all.call_count)
+        self.assertEqual(b"\x15wake", write_all.call_args_list[0].args[1])
+        self.assertEqual(b"\r", write_all.call_args_list[1].args[1])
+        self.assertEqual(b"\r", write_all.call_args_list[2].args[1])
+        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
+        self.assertTrue(any("channel_stdin_proxy_submit_confirmed attempt=2" in item for item in log_messages))
+
+    def test_channel_wake_prompt_does_not_retry_without_tmux_confirmation(self):
+        with (
+            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+            mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+            mock.patch.object(ciel_runtime, "_channel_current_tmux_pane_text", return_value=None),
+        ):
+            ciel_runtime._write_channel_wake_prompt(99, "wake", b"\r", submit_retry_count=4, confirm_submit=True)
+
+        self.assertEqual(2, write_all.call_count)
+        self.assertEqual(b"\x15wake", write_all.call_args_list[0].args[1])
+        self.assertEqual(b"\r", write_all.call_args_list[1].args[1])
+
     def test_builtin_channel_mcp_exposes_reply_tools(self):
         tools = ciel_runtime._channel_mcp_tool_schemas()
         names = [tool.get("name") for tool in tools]

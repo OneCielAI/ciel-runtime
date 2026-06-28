@@ -32441,12 +32441,74 @@ def _channel_wake_submit_delay_seconds() -> float:
         return 0.08
 
 
-def _write_channel_wake_prompt(master_fd: int, prompt: str, enter_bytes: bytes | None = None) -> None:
+def _channel_current_tmux_pane_text() -> str | None:
+    pane = str(os.environ.get("TMUX_PANE") or "").strip()
+    if not pane or not find_executable("tmux"):
+        return None
+    try:
+        result = subprocess.run(
+            ["tmux", "capture-pane", "-pt", pane, "-S", "-200"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=1.0,
+            check=False,
+        )
+    except Exception:
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout or ""
+
+
+def _channel_wake_submit_retry_delay_seconds() -> float:
+    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_SUBMIT_RETRY_DELAY_MS")
+    if raw is None:
+        return 0.9
+    try:
+        return max(0.05, min(5.0, float(raw) / 1000.0))
+    except Exception:
+        return 0.9
+
+
+def _codex_channel_wake_submit_retries() -> int:
+    raw = os.environ.get("CIEL_RUNTIME_CODEX_CHANNEL_WAKE_SUBMIT_RETRIES")
+    if raw is None:
+        return 4
+    try:
+        return max(1, min(8, int(str(raw).strip())))
+    except Exception:
+        return 4
+
+
+def _write_channel_wake_prompt(
+    master_fd: int,
+    prompt: str,
+    enter_bytes: bytes | None = None,
+    *,
+    submit_retry_count: int = 1,
+    confirm_submit: bool = False,
+) -> None:
     _write_fd_all(master_fd, b"\x15" + prompt.encode("utf-8", errors="replace"))
     delay = _channel_wake_submit_delay_seconds()
     if delay > 0:
         time.sleep(delay)
-    _write_fd_all(master_fd, _channel_wake_enter_bytes(enter_bytes))
+    submit_bytes = _channel_wake_enter_bytes(enter_bytes)
+    retry_count = max(1, min(8, int(submit_retry_count or 1)))
+    before = _channel_current_tmux_pane_text() if confirm_submit and retry_count > 1 else None
+    for attempt in range(retry_count):
+        _write_fd_all(master_fd, submit_bytes)
+        if attempt >= retry_count - 1:
+            break
+        if not before:
+            break
+        retry_delay = _channel_wake_submit_retry_delay_seconds()
+        if retry_delay > 0:
+            time.sleep(retry_delay)
+        after = _channel_current_tmux_pane_text()
+        if after and after != before:
+            router_log("INFO", f"channel_stdin_proxy_submit_confirmed attempt={attempt + 1}")
+            break
 
 
 _CHANNEL_TRANSCRIPT_CACHE: dict[str, Any] = {"checked_at": 0.0, "path": None}
@@ -32914,6 +32976,8 @@ def _inject_pending_channel_messages(
     wake_for_llm_delivery: bool = False,
     commit_cursor: bool = True,
     injected_message_ids: list[int] | None = None,
+    submit_retry_count: int = 1,
+    confirm_submit: bool = False,
 ) -> int:
     with _CHANNEL_STDIN_INJECT_LOCK:
         if _channel_stdin_active_tool_call():
@@ -33052,7 +33116,13 @@ def _inject_pending_channel_messages(
                     claimed_ids.append(claim_id)
             submit_bytes = _channel_wake_enter_bytes(enter_bytes)
             try:
-                _write_channel_wake_prompt(master_fd, prompt, submit_bytes)
+                _write_channel_wake_prompt(
+                    master_fd,
+                    prompt,
+                    submit_bytes,
+                    submit_retry_count=submit_retry_count,
+                    confirm_submit=confirm_submit,
+                )
                 with _CHANNEL_STDIN_WAKE_LOCK:
                     for message in pending:
                         try:
@@ -33100,6 +33170,8 @@ def _inject_pending_compact_request(
     enter_bytes: bytes | None = None,
     *,
     log_defer: bool = True,
+    submit_retry_count: int = 1,
+    confirm_submit: bool = False,
 ) -> str:
     request = _read_channel_compact_request()
     if not request:
@@ -33113,7 +33185,13 @@ def _inject_pending_compact_request(
     if command != "/compact":
         command = "/compact"
     submit_bytes = _channel_wake_enter_bytes(enter_bytes)
-    _write_channel_wake_prompt(master_fd, command, submit_bytes)
+    _write_channel_wake_prompt(
+        master_fd,
+        command,
+        submit_bytes,
+        submit_retry_count=submit_retry_count,
+        confirm_submit=confirm_submit,
+    )
     _clear_channel_compact_request(request_id or None)
     router_log(
         "INFO",
@@ -33122,7 +33200,13 @@ def _inject_pending_compact_request(
     return "injected"
 
 
-def _inject_pending_channel_summaries(master_fd: int, enter_bytes: bytes | None = None) -> int:
+def _inject_pending_channel_summaries(
+    master_fd: int,
+    enter_bytes: bytes | None = None,
+    *,
+    submit_retry_count: int = 1,
+    confirm_submit: bool = False,
+) -> int:
     global _CHANNEL_LLM_SUMMARY_CURSOR_LAST_ID
     with _CHANNEL_LLM_SUMMARY_LOCK:
         last_id = _channel_llm_summary_read_cursor_locked()
@@ -33142,7 +33226,13 @@ def _inject_pending_channel_summaries(master_fd: int, enter_bytes: bytes | None 
         _commit_channel_llm_summary_cursor_if_newer(max_seen)
         return max_seen
     submit_bytes = _channel_wake_enter_bytes(enter_bytes)
-    _write_channel_wake_prompt(master_fd, prompt, submit_bytes)
+    _write_channel_wake_prompt(
+        master_fd,
+        prompt,
+        submit_bytes,
+        submit_retry_count=submit_retry_count,
+        confirm_submit=confirm_submit,
+    )
     _commit_channel_llm_summary_cursor_if_newer(max_seen)
     ids = ",".join(str(item.get("message_id") or "") for item in records)
     router_log(
@@ -33239,6 +33329,8 @@ def subprocess_call_with_channel_wake_proxy(
     wake_for_llm_delivery: bool = False,
     synthetic_enter_bytes: str | bytes | None = None,
     normalize_bare_cr_for_synthetic_enter: bool = True,
+    channel_wake_submit_retries: int = 1,
+    channel_wake_confirm_submit: bool = False,
 ) -> int:
     if os.name != "posix" or not sys.stdin.isatty() or not sys.stdout.isatty():
         router_log("INFO", "channel_stdin_proxy_unavailable; using direct subprocess call")
@@ -33272,9 +33364,12 @@ def subprocess_call_with_channel_wake_proxy(
     channel_tool_defer_logged_at = 0.0
     compact_defer_logged_at = 0.0
     channel_enter_bytes = _channel_wake_enter_bytes(synthetic_enter_bytes)
+    submit_retry_count = max(1, min(8, int(channel_wake_submit_retries or 1)))
     router_log(
         "INFO",
-        f"channel_stdin_proxy_enter_default enter={_channel_enter_label(channel_enter_bytes)} os={os.name} platform={sys.platform}",
+        "channel_stdin_proxy_enter_default "
+        f"enter={_channel_enter_label(channel_enter_bytes)} os={os.name} platform={sys.platform} "
+        f"submit_retries={submit_retry_count} confirm_submit={bool(channel_wake_confirm_submit)}",
     )
 
     def _handle_sigwinch(signum: int, frame: Any) -> None:
@@ -33390,6 +33485,8 @@ def subprocess_call_with_channel_wake_proxy(
                         master_fd,
                         channel_enter_bytes,
                         log_defer=log_defer,
+                        submit_retry_count=submit_retry_count,
+                        confirm_submit=channel_wake_confirm_submit,
                     )
                     if compact_status == "deferred" and log_defer:
                         compact_defer_logged_at = now
@@ -33423,6 +33520,8 @@ def subprocess_call_with_channel_wake_proxy(
                             wake_for_llm_delivery=wake_for_llm_delivery,
                             commit_cursor=False,
                             injected_message_ids=injected_ids,
+                            submit_retry_count=submit_retry_count,
+                            confirm_submit=channel_wake_confirm_submit,
                         )
                         if injected_ids:
                             channel_inflight_id = injected_ids[-1]
@@ -33435,7 +33534,12 @@ def subprocess_call_with_channel_wake_proxy(
                     if print_channel_summaries:
                         _print_pending_channel_summaries(stdout_fd)
                     else:
-                        _inject_pending_channel_summaries(master_fd, channel_enter_bytes)
+                        _inject_pending_channel_summaries(
+                            master_fd,
+                            channel_enter_bytes,
+                            submit_retry_count=submit_retry_count,
+                            confirm_submit=channel_wake_confirm_submit,
+                        )
         while True:
             try:
                 readable, _, _ = select.select([master_fd], [], [], 0)
@@ -36305,6 +36409,8 @@ def launch_codex(
             wake_for_llm_delivery=channel_delivery_mode(cfg) == "llm",
             synthetic_enter_bytes=codex_synthetic_enter,
             normalize_bare_cr_for_synthetic_enter=False,
+            channel_wake_submit_retries=_codex_channel_wake_submit_retries(),
+            channel_wake_confirm_submit=True,
         )
 
     return run_with_router_lifetime(run_codex_process, manage_router_lifetime)

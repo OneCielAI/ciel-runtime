@@ -350,6 +350,8 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["wake_for_llm_delivery"] = kwargs.get("wake_for_llm_delivery")
             captured["synthetic_enter_bytes"] = kwargs.get("synthetic_enter_bytes")
             captured["normalize_bare_cr_for_synthetic_enter"] = kwargs.get("normalize_bare_cr_for_synthetic_enter")
+            captured["channel_wake_submit_retries"] = kwargs.get("channel_wake_submit_retries")
+            captured["channel_wake_confirm_submit"] = kwargs.get("channel_wake_confirm_submit")
             return 0
 
         with (
@@ -404,6 +406,8 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["wake_for_llm_delivery"] = kwargs.get("wake_for_llm_delivery")
             captured["synthetic_enter_bytes"] = kwargs.get("synthetic_enter_bytes")
             captured["normalize_bare_cr_for_synthetic_enter"] = kwargs.get("normalize_bare_cr_for_synthetic_enter")
+            captured["channel_wake_submit_retries"] = kwargs.get("channel_wake_submit_retries")
+            captured["channel_wake_confirm_submit"] = kwargs.get("channel_wake_confirm_submit")
             return 0
 
         with (
@@ -434,6 +438,8 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertEqual(["codex", "--yolo", "exec", "hello"], captured["cmd"])
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
         self.assertTrue(captured["wake_for_llm_delivery"])
+        self.assertEqual(4, captured["channel_wake_submit_retries"])
+        self.assertTrue(captured["channel_wake_confirm_submit"])
 
     def test_launch_codex_routed_uses_native_auth_router_provider(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": ""}}}
@@ -450,6 +456,8 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["wake_for_llm_delivery"] = kwargs.get("wake_for_llm_delivery")
             captured["synthetic_enter_bytes"] = kwargs.get("synthetic_enter_bytes")
             captured["normalize_bare_cr_for_synthetic_enter"] = kwargs.get("normalize_bare_cr_for_synthetic_enter")
+            captured["channel_wake_submit_retries"] = kwargs.get("channel_wake_submit_retries")
+            captured["channel_wake_confirm_submit"] = kwargs.get("channel_wake_confirm_submit")
             return 0
 
         with (
@@ -486,6 +494,8 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertTrue(captured["wake_for_llm_delivery"])
         self.assertEqual(b"\r", captured["synthetic_enter_bytes"])
         self.assertFalse(captured["normalize_bare_cr_for_synthetic_enter"])
+        self.assertEqual(4, captured["channel_wake_submit_retries"])
+        self.assertTrue(captured["channel_wake_confirm_submit"])
 
     def test_launch_codex_maps_continue_to_resume_last(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": ""}}}
