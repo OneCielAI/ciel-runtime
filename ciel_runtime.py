@@ -10170,6 +10170,34 @@ _CHANNEL_EVENT_IDENTITY_META_KEYS = (
 )
 
 
+def _channel_event_identity_room_key(message: dict[str, Any], sources: list[dict[str, Any]]) -> str:
+    room_ids: list[str] = []
+    for source in sources:
+        rooms = source.get("rooms")
+        if not isinstance(rooms, str) or not rooms.strip():
+            continue
+        try:
+            parsed_rooms = json.loads(rooms)
+        except Exception:
+            continue
+        if not isinstance(parsed_rooms, list):
+            continue
+        for room in parsed_rooms:
+            if not isinstance(room, dict):
+                continue
+            room_id = str(room.get("room_id") or room.get("room") or "").strip()
+            if room_id and room_id not in room_ids:
+                room_ids.append(room_id)
+    if room_ids:
+        return ",".join(sorted(room_ids))
+
+    for source in sources:
+        room = str(source.get("room_id") or source.get("room") or source.get("channel") or "").strip()
+        if room:
+            return room
+    return str(message.get("channel") or "").strip()
+
+
 def _channel_message_event_identity_key(message: dict[str, Any]) -> tuple[str, ...] | None:
     meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
     envelopes: list[dict[str, Any]] = []
@@ -10206,15 +10234,11 @@ def _channel_message_event_identity_key(message: dict[str, Any]) -> tuple[str, .
     if method and not method.startswith("notifications/"):
         return None
 
-    room = ""
     kind = ""
     for source in sources:
-        if not room:
-            room = str(source.get("room_id") or source.get("room") or source.get("channel") or "").strip()
         if not kind:
             kind = str(source.get("kind") or source.get("type") or source.get("event_type") or source.get("eventType") or "").strip()
-    if not room:
-        room = str(message.get("channel") or "").strip()
+    room = _channel_event_identity_room_key(message, sources)
 
     for key in _CHANNEL_EVENT_IDENTITY_META_KEYS:
         for source in sources:
@@ -32383,9 +32407,9 @@ def _channel_enter_bytes_from_user_input(data: bytes) -> bytes | None:
     return b"\r\n" if last_cr + 1 < len(data) and data[last_cr + 1 : last_cr + 2] == b"\n" else b"\r"
 
 
-def _channel_synthetic_enter_bytes_from_user_input(data: bytes) -> bytes | None:
+def _channel_synthetic_enter_bytes_from_user_input(data: bytes, *, normalize_bare_cr: bool = True) -> bytes | None:
     observed = _channel_enter_bytes_from_user_input(data)
-    if observed == b"\r":
+    if observed == b"\r" and normalize_bare_cr:
         # Bare CR is common from raw POSIX terminals, but synthetic CR-only
         # writes can sit in Claude Code's line editor on some PTY stacks.
         return b"\r\n"
@@ -33213,6 +33237,8 @@ def subprocess_call_with_channel_wake_proxy(
     print_channel_summaries: bool = False,
     inject_web_chat_only: bool = False,
     wake_for_llm_delivery: bool = False,
+    synthetic_enter_bytes: str | bytes | None = None,
+    normalize_bare_cr_for_synthetic_enter: bool = True,
 ) -> int:
     if os.name != "posix" or not sys.stdin.isatty() or not sys.stdout.isatty():
         router_log("INFO", "channel_stdin_proxy_unavailable; using direct subprocess call")
@@ -33245,7 +33271,7 @@ def subprocess_call_with_channel_wake_proxy(
     channel_pending_recheck = False
     channel_tool_defer_logged_at = 0.0
     compact_defer_logged_at = 0.0
-    channel_enter_bytes = _channel_wake_enter_bytes()
+    channel_enter_bytes = _channel_wake_enter_bytes(synthetic_enter_bytes)
     router_log(
         "INFO",
         f"channel_stdin_proxy_enter_default enter={_channel_enter_label(channel_enter_bytes)} os={os.name} platform={sys.platform}",
@@ -33276,7 +33302,10 @@ def subprocess_call_with_channel_wake_proxy(
             if stdin_fd in readable:
                 data = os.read(stdin_fd, 4096)
                 if data:
-                    observed_enter = _channel_synthetic_enter_bytes_from_user_input(data)
+                    observed_enter = _channel_synthetic_enter_bytes_from_user_input(
+                        data,
+                        normalize_bare_cr=normalize_bare_cr_for_synthetic_enter,
+                    )
                     if observed_enter and not _channel_wake_enter_env_is_fixed():
                         if observed_enter != channel_enter_bytes:
                             router_log(
@@ -36269,10 +36298,13 @@ def launch_codex(
 
     def run_codex_process() -> int:
         start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config)
+        codex_synthetic_enter = None if _channel_wake_enter_env_is_fixed() else b"\r"
         return subprocess_call_with_channel_wake_proxy(
             cmd,
             env,
             wake_for_llm_delivery=channel_delivery_mode(cfg) == "llm",
+            synthetic_enter_bytes=codex_synthetic_enter,
+            normalize_bare_cr_for_synthetic_enter=False,
         )
 
     return run_with_router_lifetime(run_codex_process, manage_router_lifetime)

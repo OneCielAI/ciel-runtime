@@ -348,6 +348,8 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["cmd"] = cmd
             captured["env"] = env
             captured["wake_for_llm_delivery"] = kwargs.get("wake_for_llm_delivery")
+            captured["synthetic_enter_bytes"] = kwargs.get("synthetic_enter_bytes")
+            captured["normalize_bare_cr_for_synthetic_enter"] = kwargs.get("normalize_bare_cr_for_synthetic_enter")
             return 0
 
         with (
@@ -400,6 +402,8 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["cmd"] = cmd
             captured["env"] = env
             captured["wake_for_llm_delivery"] = kwargs.get("wake_for_llm_delivery")
+            captured["synthetic_enter_bytes"] = kwargs.get("synthetic_enter_bytes")
+            captured["normalize_bare_cr_for_synthetic_enter"] = kwargs.get("normalize_bare_cr_for_synthetic_enter")
             return 0
 
         with (
@@ -444,6 +448,8 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["cmd"] = cmd
             captured["env"] = env
             captured["wake_for_llm_delivery"] = kwargs.get("wake_for_llm_delivery")
+            captured["synthetic_enter_bytes"] = kwargs.get("synthetic_enter_bytes")
+            captured["normalize_bare_cr_for_synthetic_enter"] = kwargs.get("normalize_bare_cr_for_synthetic_enter")
             return 0
 
         with (
@@ -478,6 +484,8 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
         self.assertNotIn("-m", captured["cmd"])
         self.assertTrue(captured["wake_for_llm_delivery"])
+        self.assertEqual(b"\r", captured["synthetic_enter_bytes"])
+        self.assertFalse(captured["normalize_bare_cr_for_synthetic_enter"])
 
     def test_launch_codex_maps_continue_to_resume_last(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": ""}}}

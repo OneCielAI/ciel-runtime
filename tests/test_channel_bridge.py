@@ -369,6 +369,71 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(second["_ciel_runtime_duplicate"])
         self.assertEqual(1, len(rows))
 
+    def test_append_chat_message_dedupes_same_digest_event_across_transports(self):
+        event = {
+            "method": "notifications/claude/channel",
+            "params": {
+                "content": '[AI-Net new messages]\n• Stakeholder Hotline: 1 new (Test) -> get_messages(room_id="room_hotline", after_seq=41439)',
+                "meta": {
+                    "source": "ai-net",
+                    "kind": "digest",
+                    "rooms": json.dumps(
+                        [
+                            {
+                                "room_id": "room_hotline",
+                                "room_name": "Stakeholder Hotline",
+                                "authors": ["Test"],
+                                "count": 1,
+                                "message_ids": ["msg_same"],
+                                "since_seq": 41439,
+                                "latest_seq": 41440,
+                            }
+                        ],
+                        ensure_ascii=False,
+                    ),
+                    "cursor": "1782646488940-0",
+                },
+            },
+            "jsonrpc": "2.0",
+        }
+        first_payload = {
+            "message": json.dumps(event, ensure_ascii=False, indent=2),
+            "channel": "ai-net-http",
+            "sender_id": "ai-net-http",
+            "kind": "channel",
+            "meta": {
+                "sse_event": "message",
+                "sse_source": "mcp-ai-net-http",
+                "sse_json": event,
+                "mcp_method": "notifications/claude/channel",
+                "source": "ai-net",
+                "kind": "digest",
+                "rooms": event["params"]["meta"]["rooms"],
+                "cursor": "1782646488940-0",
+            },
+            "delivery": ["llm"],
+        }
+        second_payload = json.loads(json.dumps(first_payload))
+        second_payload["channel"] = "ai-net"
+        second_payload["sender_id"] = "ai-net"
+        second_payload["meta"]["sse_source"] = "mcp-ai-net"
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            path = root / "chat-messages.jsonl"
+            with (
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", path),
+                mock.patch.object(ciel_runtime, "_CHAT_NEXT_ID", None),
+            ):
+                first = ciel_runtime.append_chat_message(first_payload)
+                second = ciel_runtime.append_chat_message(second_payload)
+                rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+        self.assertEqual(1, first["id"])
+        self.assertEqual(1, second["id"])
+        self.assertTrue(second["_ciel_runtime_duplicate"])
+        self.assertEqual(1, len(rows))
+
     def test_append_chat_message_keeps_old_fallback_duplicate_without_launch_guard(self):
         payload = {
             "message": "board updated",
@@ -1335,6 +1400,7 @@ class ChannelBridgeTests(unittest.TestCase):
 
     def test_channel_synthetic_enter_normalizes_bare_cr_to_crlf(self):
         self.assertEqual(b"\r\n", ciel_runtime._channel_synthetic_enter_bytes_from_user_input(b"\r"))
+        self.assertEqual(b"\r", ciel_runtime._channel_synthetic_enter_bytes_from_user_input(b"\r", normalize_bare_cr=False))
         self.assertEqual(b"\n", ciel_runtime._channel_synthetic_enter_bytes_from_user_input(b"\n"))
         self.assertEqual(b"\r\n", ciel_runtime._channel_synthetic_enter_bytes_from_user_input(b"hello\r\n"))
 
