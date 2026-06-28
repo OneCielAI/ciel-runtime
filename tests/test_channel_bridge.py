@@ -2678,6 +2678,32 @@ class ChannelBridgeTests(unittest.TestCase):
             finally:
                 ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = original_cursor
 
+    def test_channel_llm_cursor_read_refreshes_newer_file_cursor(self):
+        with tempfile.TemporaryDirectory() as td:
+            cursor_path = Path(td) / "channel-llm-cursor.json"
+            cursor_path.write_text('{"last_id":66}\n', encoding="utf-8")
+            original_cursor = ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID
+            try:
+                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = 51
+                with mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", cursor_path):
+                    self.assertEqual(66, ciel_runtime._channel_llm_read_cursor_locked())
+                self.assertEqual(66, ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID)
+            finally:
+                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = original_cursor
+
+    def test_channel_llm_cursor_read_keeps_memory_when_file_is_older(self):
+        with tempfile.TemporaryDirectory() as td:
+            cursor_path = Path(td) / "channel-llm-cursor.json"
+            cursor_path.write_text('{"last_id":12}\n', encoding="utf-8")
+            original_cursor = ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID
+            try:
+                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = 66
+                with mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", cursor_path):
+                    self.assertEqual(66, ciel_runtime._channel_llm_read_cursor_locked())
+                self.assertEqual(66, ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID)
+            finally:
+                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = original_cursor
+
     def test_prepare_channel_llm_delivery_for_launch_preserves_recent_messages(self):
         with tempfile.TemporaryDirectory(prefix="ca-channel-launch-") as td:
             root = Path(td)

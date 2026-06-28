@@ -31355,15 +31355,17 @@ def _channel_llm_write_cursor_locked(last_id: int) -> None:
 
 def _channel_llm_read_cursor_locked() -> int:
     global _CHANNEL_LLM_CURSOR_LAST_ID
-    if _CHANNEL_LLM_CURSOR_LAST_ID is not None:
-        return _CHANNEL_LLM_CURSOR_LAST_ID
     if CHANNEL_LLM_CURSOR_PATH.exists():
         try:
             data = json.loads(CHANNEL_LLM_CURSOR_PATH.read_text(encoding="utf-8"))
-            _CHANNEL_LLM_CURSOR_LAST_ID = max(0, int(data.get("last_id") or 0))
+            file_cursor = max(0, int(data.get("last_id") or 0))
+            if _CHANNEL_LLM_CURSOR_LAST_ID is None or file_cursor > _CHANNEL_LLM_CURSOR_LAST_ID:
+                _CHANNEL_LLM_CURSOR_LAST_ID = file_cursor
             return _CHANNEL_LLM_CURSOR_LAST_ID
         except Exception as exc:
             router_log("WARN", f"channel_llm_cursor_read_failed error={type(exc).__name__}: {exc}")
+    if _CHANNEL_LLM_CURSOR_LAST_ID is not None:
+        return _CHANNEL_LLM_CURSOR_LAST_ID
     _CHANNEL_LLM_CURSOR_LAST_ID = max(0, _chat_scan_max_id())
     try:
         _channel_llm_write_cursor_locked(_CHANNEL_LLM_CURSOR_LAST_ID)
