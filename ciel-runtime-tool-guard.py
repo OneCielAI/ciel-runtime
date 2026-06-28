@@ -59,6 +59,7 @@ GLOB_KEYS = {"pattern", "path"}
 GREP_KEYS = {"pattern", "path", "glob", "type", "output_mode", "-A", "-B", "-C", "head_limit", "multiline"}
 LS_KEYS = {"path", "ignore"}
 TASKLIST_KEYS: set[str] = set()
+TRANSCRIPT_TAIL_BYTES = 1024 * 1024
 TASKUPDATE_KEYS = {
     "taskId",
     "subject",
@@ -313,16 +314,34 @@ def has_in_progress_task(session_id: str | None) -> bool:
     return False
 
 
-def transcript_latest_user_text(transcript_path: str | None) -> str:
-    if not transcript_path:
-        return ""
+def transcript_tail_lines(transcript_path: str | None, max_lines: int) -> list[str]:
+    if not transcript_path or max_lines <= 0:
+        return []
     path = Path(transcript_path)
     if not path.exists():
-        return ""
+        return []
     try:
-        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()[-80:]
+        size = path.stat().st_size
+        offset = max(0, size - TRANSCRIPT_TAIL_BYTES)
+        with path.open("rb") as f:
+            if offset:
+                f.seek(offset)
+            data = f.read(TRANSCRIPT_TAIL_BYTES)
     except Exception:
-        return ""
+        return []
+    if offset:
+        newline = data.find(b"\n")
+        if newline >= 0:
+            data = data[newline + 1 :]
+    try:
+        text = data.decode("utf-8", errors="ignore")
+    except Exception:
+        return []
+    return text.splitlines()[-max_lines:]
+
+
+def transcript_latest_user_text(transcript_path: str | None) -> str:
+    lines = transcript_tail_lines(transcript_path, 80)
     for line in reversed(lines):
         try:
             data = json.loads(line)
@@ -358,15 +377,7 @@ def latest_user_is_channel_wake(transcript_path: str | None) -> bool:
 
 
 def transcript_plan_mode_active(transcript_path: str | None) -> bool:
-    if not transcript_path:
-        return False
-    path = Path(transcript_path)
-    if not path.exists():
-        return False
-    try:
-        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()[-240:]
-    except Exception:
-        return False
+    lines = transcript_tail_lines(transcript_path, 240)
     active = False
     tool_names_by_id: dict[str, str] = {}
     for line in lines:
@@ -431,15 +442,7 @@ def message_has_tool_use(message: dict[str, Any]) -> bool:
 
 
 def transcript_latest_turn(transcript_path: str | None) -> dict[str, Any]:
-    if not transcript_path:
-        return {}
-    path = Path(transcript_path)
-    if not path.exists():
-        return {}
-    try:
-        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()[-160:]
-    except Exception:
-        return {}
+    lines = transcript_tail_lines(transcript_path, 160)
 
     latest_assistant: dict[str, Any] | None = None
     latest_assistant_index = -1

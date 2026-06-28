@@ -126,7 +126,12 @@ class ToolGuardTests(unittest.TestCase):
             if isinstance(hook, dict)
         ])
 
-    def run_guard(self, event: dict, env_extra: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    def run_guard(
+        self,
+        event: dict,
+        env_extra: dict[str, str] | None = None,
+        timeout: float = 10,
+    ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as tmp:
             env = os.environ.copy()
             # Drop Ciel Runtime vars that may be exported on a dev host (where
@@ -146,6 +151,7 @@ class ToolGuardTests(unittest.TestCase):
                 text=True,
                 capture_output=True,
                 env=env,
+                timeout=timeout,
                 check=True,
             )
 
@@ -317,6 +323,39 @@ class ToolGuardTests(unittest.TestCase):
                 "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
             },
         )
+        self.assertEqual("", proc.stdout.strip())
+        self.assertEqual("", proc.stderr.strip())
+
+    def test_stop_hook_handles_large_transcript_without_full_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            transcript = Path(tmp) / "large-session.jsonl"
+            with transcript.open("wb") as f:
+                f.seek(230 * 1024 * 1024)
+                f.write(
+                    (
+                        "\n"
+                        + json.dumps(
+                            {
+                                "type": "assistant",
+                                "message": {"role": "assistant", "content": "Done."},
+                            }
+                        )
+                        + "\n"
+                    ).encode("utf-8")
+                )
+            proc = self.run_guard(
+                {
+                    "hook_event_name": "Stop",
+                    "session_id": "large-session",
+                    "transcript_path": str(transcript),
+                },
+                {
+                    "CIEL_RUNTIME_PROVIDER": "ollama-cloud",
+                    "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
+                },
+                timeout=5,
+            )
+
         self.assertEqual("", proc.stdout.strip())
         self.assertEqual("", proc.stderr.strip())
 
