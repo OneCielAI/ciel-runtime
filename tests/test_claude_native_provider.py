@@ -1037,6 +1037,23 @@ class StopRouterGuaranteeTests(unittest.TestCase):
         ensure.assert_called_once_with("version_mismatch_active_clients", health)
         popen.assert_called_once()
 
+    def test_terminate_active_router_clients_uses_ciel_runtime_wrapper_parent(self):
+        with tempfile.TemporaryDirectory() as td:
+            clients_dir = Path(td) / "router-clients"
+            clients_dir.mkdir()
+            (clients_dir / "222.json").write_text('{"pid": 222}', encoding="utf-8")
+            with (
+                mock.patch.object(ciel_runtime, "ROUTER_CLIENTS_DIR", clients_dir),
+                mock.patch.object(ciel_runtime, "ciel_runtime_client_wrapper_parent_pids", return_value=[111]),
+                mock.patch.object(ciel_runtime, "terminate_pid_tree", return_value=True) as terminate_tree,
+                mock.patch.object(ciel_runtime, "router_log"),
+            ):
+                stopped = ciel_runtime.terminate_active_router_clients("test", [222], quiet=True)
+
+        self.assertTrue(stopped)
+        terminate_tree.assert_called_once_with(111, "previous ciel-runtime client", quiet=True)
+        self.assertFalse((clients_dir / "222.json").exists())
+
     def test_start_router_refuses_foreign_config_router(self):
         health = {
             "version": ciel_runtime.VERSION,

@@ -26426,6 +26426,53 @@ def descendant_pids(pid: int) -> list[int]:
     return out
 
 
+def parent_pid_and_command(pid: int) -> tuple[int, str] | None:
+    if pid <= 0 or os.name == "nt":
+        return None
+    try:
+        proc = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "ppid=,command="],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+    except Exception:
+        return None
+    line = proc.stdout.strip()
+    if not line:
+        return None
+    parts = line.split(maxsplit=1)
+    if not parts:
+        return None
+    try:
+        parent = int(parts[0])
+    except ValueError:
+        return None
+    command = parts[1] if len(parts) > 1 else ""
+    return parent, command
+
+
+def ciel_runtime_client_wrapper_parent_pids(pid: int) -> list[int]:
+    wrappers: list[int] = []
+    current = pid
+    protected = {os.getpid(), os.getppid()}
+    for _ in range(4):
+        parent_info = parent_pid_and_command(current)
+        if parent_info is None:
+            break
+        parent, command = parent_info
+        if parent <= 0 or parent in protected:
+            break
+        if "ciel-runtime" not in command and "ciel_runtime.py" not in command:
+            break
+        if " serve" in command or " mcp-proxy" in command:
+            break
+        wrappers.append(parent)
+        current = parent
+    return wrappers
+
+
 def terminate_pid_tree(pid: int, label: str, quiet: bool = False) -> bool:
     if pid <= 0:
         return False
@@ -26466,7 +26513,9 @@ def terminate_active_router_clients(reason: str, active_clients: list[int] | Non
     for pid in sorted(set(int(p) for p in clients if int(p or 0) > 0)):
         if pid in (os.getpid(), os.getppid()):
             continue
-        if terminate_pid_tree(pid, "previous ciel-runtime client", quiet=quiet):
+        wrapper_roots = ciel_runtime_client_wrapper_parent_pids(pid)
+        root = wrapper_roots[-1] if wrapper_roots else pid
+        if terminate_pid_tree(root, "previous ciel-runtime client", quiet=quiet):
             stopped = True
         try:
             (ROUTER_CLIENTS_DIR / f"{pid}.json").unlink()
