@@ -1739,12 +1739,54 @@ class ChannelBridgeTests(unittest.TestCase):
             ]
         )
 
-        parsed = json.loads(prompt)
+        header, json_text = prompt.split("\n\n", 1)
+        self.assertEqual("[Source channel] room_iyjjx0bzfimr", header)
+        parsed = json.loads(json_text)
         self.assertEqual("notifications/claude/channel", parsed["method"])
         self.assertEqual("room_iyjjx0bzfimr", parsed["params"]["meta"]["room_id"])
         self.assertEqual("msg_w9cj0ff3ahou", parsed["params"]["meta"]["message_id"])
         self.assertNotIn("Start a normal turn", prompt)
         self.assertNotIn("ExitPlanMode", prompt)
+
+    def test_llm_delivery_wake_prompt_adds_source_channel_header_for_native_notification(self):
+        event = {
+            "method": "notifications/claude/channel",
+            "params": {
+                "content": "New message from Test",
+                "meta": {
+                    "kind": "activity",
+                    "room_id": "room_id2w78yhq8c8",
+                    "room_name": "Bitcoin Strategy Team",
+                    "message_id": "msg_c8iqayxm58ha",
+                    "author_name": "Test",
+                    "stream_id": "1782702185312-0",
+                },
+            },
+            "jsonrpc": "2.0",
+        }
+        prompt = ciel_runtime.format_channel_llm_delivery_wake_prompt(
+            [
+                {
+                    "id": 9,
+                    "channel": "ai-net-http",
+                    "sender_id": "ai-net-http",
+                    "message": json.dumps(event, ensure_ascii=False, indent=2),
+                    "meta": {"sse_json": event, "mcp_method": "notifications/claude/channel"},
+                }
+            ]
+        )
+
+        header, json_text = prompt.split("\n\n", 1)
+        self.assertEqual(
+            "[Source channel] Bitcoin Strategy Team (room_id=room_id2w78yhq8c8)",
+            header,
+        )
+        parsed = json.loads(json_text)
+        self.assertEqual("New message from Test", parsed["params"]["content"])
+        self.assertEqual("Bitcoin Strategy Team", parsed["params"]["meta"]["room_name"])
+        self.assertEqual("Test", parsed["params"]["meta"]["author_name"])
+        self.assertEqual("msg_c8iqayxm58ha", parsed["params"]["meta"]["message_id"])
+        self.assertEqual("1782702185312-0", parsed["params"]["meta"]["stream_id"])
 
     def test_inject_pending_channel_messages_wake_only_for_llm_delivery(self):
         messages = [

@@ -14628,6 +14628,73 @@ def openai_reasoning_to_anthropic_thinking_block(reasoning_content: Any) -> dict
     }
 
 
+VISIBLE_THINKING_MARKUP_TAG_RE = re.compile(r"</?think(?:ing)?\b[^>]*>", re.I)
+VISIBLE_THINKING_MARKUP_PREFIXES = ("<think", "</think", "<thinking", "</thinking")
+
+
+def _visible_thinking_markup_partial_start(text: str) -> int:
+    lt = text.rfind("<")
+    if lt < 0 or lt <= text.rfind(">"):
+        return -1
+    suffix = text[lt:].lower()
+    if any(prefix.startswith(suffix) or suffix.startswith(prefix) for prefix in VISIBLE_THINKING_MARKUP_PREFIXES):
+        return lt
+    return -1
+
+
+class VisibleThinkingMarkupFilter:
+    def __init__(self) -> None:
+        self.in_thinking = False
+        self.pending = ""
+
+    def feed(self, text: Any) -> str:
+        raw = str(text or "")
+        if not raw:
+            return ""
+        value = self.pending + raw
+        self.pending = ""
+        partial_start = _visible_thinking_markup_partial_start(value)
+        if partial_start >= 0:
+            self.pending = value[partial_start:]
+            value = value[:partial_start]
+        return self._strip_complete_tags(value)
+
+    def finish(self) -> str:
+        pending = self.pending
+        self.pending = ""
+        if not pending or self.in_thinking or _visible_thinking_markup_partial_start(pending) == 0:
+            self.in_thinking = False
+            return ""
+        return self._strip_complete_tags(pending)
+
+    def _strip_complete_tags(self, text: str) -> str:
+        out: list[str] = []
+        pos = 0
+        for match in VISIBLE_THINKING_MARKUP_TAG_RE.finditer(text):
+            tag = match.group(0).lstrip().lower()
+            closing = tag.startswith("</")
+            if self.in_thinking:
+                if closing:
+                    self.in_thinking = False
+                pos = match.end()
+                continue
+            out.append(text[pos:match.start()])
+            pos = match.end()
+            if not closing:
+                self.in_thinking = True
+        if not self.in_thinking:
+            out.append(text[pos:])
+        return "".join(out)
+
+
+def strip_visible_thinking_markup(text: Any) -> str:
+    raw = str(text or "")
+    if "<think" not in raw.lower() and "</think" not in raw.lower():
+        return raw
+    filter_state = VisibleThinkingMarkupFilter()
+    return (filter_state.feed(raw) + filter_state.finish()).lstrip()
+
+
 def should_omit_openai_chat_tool_choice(provider: str, model: str, body: dict[str, Any], pcfg: dict[str, Any]) -> bool:
     """Return true when an OpenAI-chat backend should receive tools without a forced tool_choice."""
     if body.get("tool_choice") is None:
@@ -15372,6 +15439,25 @@ def normalize_anthropic_model_request_options(provider: str, pcfg: dict[str, Any
     return out
 
 
+def ollama_model_forces_think_disabled(model: str | None) -> bool:
+    normalized = strip_claude_context_suffix(str(model or "")).strip().lower()
+    if normalized.endswith(":cloud"):
+        normalized = normalized[:-6]
+    return bool(re.match(r"^glm-5\.2(?:$|[:\[-])", normalized))
+
+
+def ollama_request_think_enabled(model: str | None, pcfg: dict[str, Any]) -> bool:
+    return bool(pcfg.get("think", False)) and not ollama_model_forces_think_disabled(model)
+
+
+def ollama_think_status(model: str | None, pcfg: dict[str, Any]) -> str:
+    configured = bool(pcfg.get("think", False))
+    effective = ollama_request_think_enabled(model, pcfg)
+    if configured and not effective:
+        return "False (forced for glm-5.2)"
+    return str(effective)
+
+
 def ollama_chat_request(model: str, body: dict[str, Any], pcfg: dict[str, Any], stream: bool = True, provider: str = "ollama") -> dict[str, Any]:
     messages = anthropic_messages_to_ollama(body)
     tools = anthropic_tools_to_ollama(body.get("tools"))
@@ -15395,7 +15481,7 @@ def ollama_chat_request(model: str, body: dict[str, Any], pcfg: dict[str, Any], 
         "model": model,
         "messages": messages,
         "stream": stream,
-        "think": bool(pcfg.get("think", False)),
+        "think": ollama_request_think_enabled(model, pcfg),
     }
     if pcfg.get("keep_alive"):
         req["keep_alive"] = str(pcfg["keep_alive"])
@@ -15540,7 +15626,7 @@ def advisor_request(provider: str, model: str, body: dict[str, Any], pcfg: dict[
         "model": upstream_model,
         "messages": messages,
         "stream": False,
-        "think": bool(pcfg.get("think", False)),
+        "think": ollama_request_think_enabled(upstream_model, pcfg),
     }
     options = ollama_extra_options(pcfg)
     options.setdefault("num_predict", min(4096, positive_int(options.get("num_predict")) or 4096))
@@ -16260,7 +16346,10 @@ def parse_pseudo_tool_calls(text: str, source_body: dict[str, Any] | None = None
 def ollama_chat_to_anthropic(data: dict[str, Any], model: str, source_body: dict[str, Any] | None = None) -> dict[str, Any]:
     message = data.get("message") if isinstance(data.get("message"), dict) else {}
     content: list[dict[str, Any]] = []
-    text = message.get("content") or ""
+    raw_text = str(message.get("content") or "")
+    text = strip_visible_thinking_markup(raw_text)
+    if text != raw_text:
+        router_log("WARN", f"suppressed visible Ollama thinking markup model={model} removed_chars={len(raw_text) - len(text)}")
     text, pseudo_tool_calls = parse_pseudo_tool_calls(text, source_body)
     if text:
         content.append({"type": "text", "text": text})
@@ -17155,6 +17244,8 @@ def _ollama_stream_to_anthropic_sse(
     chunks_seen = 0
     text_stopped = False
     last_activity_update = 0.0
+    thinking_markup_filter = VisibleThinkingMarkupFilter()
+    thinking_markup_suppressed = False
     sse_trace = make_outgoing_sse_trace(provider, model, "ollama_stream", source_body)
     sse_trace_outcome = "started"
     sse_trace_error: str | None = None
@@ -17210,6 +17301,76 @@ def _ollama_stream_to_anthropic_sse(
             stream=True,
         )
 
+    def handle_text_chunk(text_chunk: str) -> None:
+        nonlocal next_content_index, text_buffer, text_index, text_so_far, text_started, text_suppressed_for_plan
+        if not text_chunk:
+            return
+        if source_body is not None and not text_started and not tool_calls and should_auto_enter_plan_mode(source_body, text_so_far + text_chunk, []):
+            text_so_far += text_chunk
+            text_suppressed_for_plan = True
+            return
+        if text_suppressed_for_plan and not text_started and text_so_far:
+            pending_text = text_so_far + text_chunk
+            text_so_far = pending_text
+            text_suppressed_for_plan = False
+            text_started = True
+            text_index = next_content_index
+            next_content_index += 1
+            event = {
+                "type": "content_block_start",
+                "index": text_index,
+                "content_block": {"type": "text", "text": ""},
+            }
+            emit("content_block_start", event)
+            if word_chunking:
+                text_buffer += pending_text
+                to_flush, text_buffer = _split_word_buffer(text_buffer, force=False)
+                if to_flush:
+                    event = {
+                        "type": "content_block_delta",
+                        "index": text_index,
+                        "delta": {"type": "text_delta", "text": to_flush},
+                    }
+                    emit("content_block_delta", event)
+            else:
+                event = {
+                    "type": "content_block_delta",
+                    "index": text_index,
+                    "delta": {"type": "text_delta", "text": pending_text},
+                }
+                emit("content_block_delta", event)
+            update_stream_activity()
+            return
+        if not text_started:
+            text_started = True
+            text_index = next_content_index
+            next_content_index += 1
+            event = {
+                "type": "content_block_start",
+                "index": text_index,
+                "content_block": {"type": "text", "text": ""},
+            }
+            emit("content_block_start", event)
+        text_so_far += text_chunk
+        if word_chunking:
+            text_buffer += text_chunk
+            to_flush, text_buffer = _split_word_buffer(text_buffer, force=False)
+            if to_flush:
+                event = {
+                    "type": "content_block_delta",
+                    "index": text_index,
+                    "delta": {"type": "text_delta", "text": to_flush},
+                }
+                emit("content_block_delta", event)
+        else:
+            event = {
+                "type": "content_block_delta",
+                "index": text_index,
+                "delta": {"type": "text_delta", "text": text_chunk},
+            }
+            emit("content_block_delta", event)
+        update_stream_activity()
+
     try:
         for line in iter_upstream_lines_until_client_disconnect(handler, resp, idle_timeout):
             chunks_seen += 1
@@ -17228,73 +17389,12 @@ def _ollama_stream_to_anthropic_sse(
             if not started:
                 ensure_message_started()
             # Handle text content
-            text_chunk = message.get("content") or ""
+            raw_text_chunk = str(message.get("content") or "")
+            text_chunk = thinking_markup_filter.feed(raw_text_chunk)
+            if text_chunk != raw_text_chunk:
+                thinking_markup_suppressed = True
             if text_chunk:
-                if source_body is not None and not text_started and not tool_calls and should_auto_enter_plan_mode(source_body, text_so_far + text_chunk, []):
-                    text_so_far += text_chunk
-                    text_suppressed_for_plan = True
-                    continue
-                if text_suppressed_for_plan and not text_started and text_so_far:
-                    pending_text = text_so_far + text_chunk
-                    text_so_far = pending_text
-                    text_suppressed_for_plan = False
-                    text_started = True
-                    text_index = next_content_index
-                    next_content_index += 1
-                    event = {
-                        "type": "content_block_start",
-                        "index": text_index,
-                        "content_block": {"type": "text", "text": ""},
-                    }
-                    emit("content_block_start", event)
-                    if word_chunking:
-                        text_buffer += pending_text
-                        to_flush, text_buffer = _split_word_buffer(text_buffer, force=False)
-                        if to_flush:
-                            event = {
-                                "type": "content_block_delta",
-                                "index": text_index,
-                                "delta": {"type": "text_delta", "text": to_flush},
-                            }
-                            emit("content_block_delta", event)
-                    else:
-                        event = {
-                            "type": "content_block_delta",
-                            "index": text_index,
-                            "delta": {"type": "text_delta", "text": pending_text},
-                        }
-                        emit("content_block_delta", event)
-                    update_stream_activity()
-                    continue
-                if not text_started:
-                    text_started = True
-                    text_index = next_content_index
-                    next_content_index += 1
-                    event = {
-                        "type": "content_block_start",
-                        "index": text_index,
-                        "content_block": {"type": "text", "text": ""},
-                    }
-                    emit("content_block_start", event)
-                text_so_far += text_chunk
-                if word_chunking:
-                    text_buffer += text_chunk
-                    to_flush, text_buffer = _split_word_buffer(text_buffer, force=False)
-                    if to_flush:
-                        event = {
-                            "type": "content_block_delta",
-                            "index": text_index,
-                            "delta": {"type": "text_delta", "text": to_flush},
-                        }
-                        emit("content_block_delta", event)
-                else:
-                    event = {
-                        "type": "content_block_delta",
-                        "index": text_index,
-                        "delta": {"type": "text_delta", "text": text_chunk},
-                    }
-                    emit("content_block_delta", event)
-                update_stream_activity()
+                handle_text_chunk(text_chunk)
             # Handle tool calls
             for call in message.get("tool_calls") or []:
                 fn = call.get("function") if isinstance(call.get("function"), dict) else {}
@@ -17354,6 +17454,11 @@ def _ollama_stream_to_anthropic_sse(
                 emit("content_block_delta", delta_event)
                 update_stream_activity()
             update_stream_activity()
+        trailing_text = thinking_markup_filter.finish()
+        if trailing_text:
+            handle_text_chunk(trailing_text)
+        if thinking_markup_suppressed:
+            router_log("WARN", f"suppressed visible Ollama thinking markup from stream model={model}")
         update_stream_activity(force=True)
         # Flush any remaining buffered text when word-chunking is active
         if source_body is not None and should_auto_enter_plan_mode(source_body, text_so_far, tool_calls):
@@ -20397,7 +20502,7 @@ def status_lines() -> list[str]:
         *([f"num_ctx: {ollama_num_ctx_status(pcfg)}"] if provider in ("ollama", "ollama-cloud") else []),
         *([f"ollama_options: {ollama_options_status(pcfg)}"] if provider in ("ollama", "ollama-cloud") else []),
         *([f"keep_alive: {pcfg.get('keep_alive', 'default')}"] if provider in ("ollama", "ollama-cloud") else []),
-        *([f"think: {bool(pcfg.get('think', False))}"] if provider in ("ollama", "ollama-cloud") else []),
+        *([f"think: {ollama_think_status(current_upstream_model_id(provider, pcfg), pcfg)}"] if provider in ("ollama", "ollama-cloud") else []),
         *([f"request_timeout_ms: {pcfg.get('request_timeout_ms', 'default')}"] if provider in ("ollama", "ollama-cloud") else []),
         *([f"stream_idle_timeout_ms: {pcfg.get('stream_idle_timeout_ms', 'auto')}"] if provider in ("ollama", "ollama-cloud") else []),
         *([f"context_window: {pcfg.get('context_window', 'default')}"] if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai") else []),
@@ -23889,7 +23994,7 @@ def infer_preset_id_from_options(provider: str, pcfg: dict[str, Any]) -> str | N
         num_ctx = positive_int(pcfg.get("num_ctx")) or 0
         num_ctx_min = positive_int(pcfg.get("num_ctx_min")) or 0
         num_ctx_max = positive_int(pcfg.get("num_ctx_max")) or 0
-        if bool(pcfg.get("think", False)):
+        if ollama_request_think_enabled(current_upstream_model_id(provider, pcfg), pcfg):
             return "reasoning"
         if num_ctx_max >= 1048576:
             return "million-context-1m"
@@ -25115,7 +25220,7 @@ def llm_option_panel_rows(provider: str, pcfg: dict[str, Any], lang: str | None 
         add("Temperature", "temperature", opts.get("temperature", "default"))
         add("Top P", "top_p", opts.get("top_p", "default"))
         add("Top K", "top_k", opts.get("top_k", "default"))
-        add("Think", "think", bool(pcfg.get("think", False)))
+        add("Think", "think", ollama_think_status(current_upstream_model_id(provider, pcfg), pcfg))
         add("Keep alive", "keep_alive", pcfg.get("keep_alive", "default"))
         add("Timeout ms", "request_timeout_ms", pcfg.get("request_timeout_ms", "default"))
         add("Stream", "stream_enabled", "on" if bool(pcfg.get("stream_enabled", True)) else "off")
@@ -30341,8 +30446,47 @@ def _channel_message_llm_display_text(message: dict[str, Any]) -> str:
     for key in ("mcp_json", "sse_json"):
         value = meta.get(key)
         if isinstance(value, (dict, list)):
-            return _pretty_json_value(value)
+            text = _pretty_json_value(value)
+            header = _channel_message_source_header(message)
+            return f"{header}\n\n{text}" if header else text
     return str(message.get("message") if message.get("message") is not None else "")
+
+
+def _channel_source_header_scalar(value: Any) -> str:
+    if value is None or isinstance(value, (dict, list)):
+        return ""
+    text = re.sub(r"\s+", " ", str(value)).strip()
+    if not text or len(text) > 240:
+        return ""
+    return text
+
+
+def _channel_first_source_header_value(message: dict[str, Any], keys: tuple[str, ...]) -> str:
+    for source in _channel_message_meta_sources(message):
+        for key in keys:
+            if _metadata_key_is_sensitive(key):
+                continue
+            text = _channel_source_header_scalar(source.get(key))
+            if text:
+                return text
+    return ""
+
+
+def _channel_message_source_header(message: dict[str, Any]) -> str:
+    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
+    if not any(isinstance(meta.get(key), (dict, list)) for key in ("mcp_json", "sse_json")):
+        return ""
+    room_name = _channel_first_source_header_value(message, ("room_name", "room_label", "title", "name"))
+    room_id = _channel_first_source_header_value(message, ("room_id", "room"))
+    channel = _channel_first_source_header_value(message, ("channel",)) or _channel_source_header_scalar(message.get("channel"))
+    source = room_name or room_id or channel
+    if not source:
+        return ""
+    if room_name and room_id and room_id != room_name:
+        source_text = f"{room_name} (room_id={room_id})"
+    else:
+        source_text = source
+    return f"[Source channel] {source_text}"
 
 
 def format_channel_llm_delivery_wake_prompt(messages: list[dict[str, Any]]) -> str:

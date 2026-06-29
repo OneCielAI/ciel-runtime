@@ -1,7 +1,50 @@
+import json
 import unittest
 from unittest import mock
 
 import ciel_runtime
+
+
+class _FakeOllamaStreamResponse:
+    def __init__(self, lines):
+        self.lines = list(lines)
+        self.closed = False
+
+    def readline(self):
+        if not self.lines:
+            return b""
+        return self.lines.pop(0)
+
+    def close(self):
+        self.closed = True
+
+
+class _CaptureWrite:
+    def __init__(self):
+        self.data = bytearray()
+
+    def write(self, data):
+        self.data.extend(data)
+
+    def flush(self):
+        pass
+
+
+class _FakeSSEHandler:
+    headers = {}
+    connection = None
+
+    def __init__(self):
+        self.wfile = _CaptureWrite()
+
+    def send_response(self, _status):
+        pass
+
+    def send_header(self, _name, _value):
+        pass
+
+    def end_headers(self):
+        pass
 
 
 class OllamaProviderOptionTests(unittest.TestCase):
@@ -204,6 +247,41 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertLess(len(compacted), len(messages))
         write_compact.assert_called_once()
 
+    def test_glm_52_forces_ollama_think_off_even_when_configured_on(self):
+        pcfg = {
+            "current_model": "glm-5.2",
+            "think": True,
+            "num_ctx": "auto",
+            "num_ctx_min": 32768,
+            "num_ctx_max": 1048576,
+            "ollama_options": {"num_predict": 1024},
+        }
+        body = {"messages": [{"role": "user", "content": "hello"}], "tools": []}
+
+        with mock.patch.object(ciel_runtime, "write_context_usage"):
+            request = ciel_runtime.ollama_chat_request("glm-5.2", body, pcfg, stream=False, provider="ollama-cloud")
+
+        self.assertFalse(request["think"])
+        self.assertEqual("False (forced for glm-5.2)", ciel_runtime.ollama_think_status("glm-5.2", pcfg))
+        self.assertNotEqual("reasoning", ciel_runtime.infer_preset_id_from_options("ollama-cloud", pcfg))
+
+    def test_non_glm_52_ollama_think_still_respects_config(self):
+        pcfg = {
+            "current_model": "qwen3-coder",
+            "think": True,
+            "num_ctx": "auto",
+            "num_ctx_min": 32768,
+            "num_ctx_max": 131072,
+            "ollama_options": {"num_predict": 1024},
+        }
+        body = {"messages": [{"role": "user", "content": "hello"}], "tools": []}
+
+        with mock.patch.object(ciel_runtime, "write_context_usage"):
+            request = ciel_runtime.ollama_chat_request("qwen3-coder", body, pcfg, stream=False, provider="ollama")
+
+        self.assertTrue(request["think"])
+        self.assertEqual("True", ciel_runtime.ollama_think_status("qwen3-coder", pcfg))
+
     def test_ollama_context_error_retry_config_compacts_to_reported_n_ctx(self):
         raw = '{"error":"request (58940 tokens) exceeds the available context size (32768 tokens), try increasing the context length","n_ctx":32768}'
         pcfg = {
@@ -370,6 +448,58 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertEqual(8192, pcfg["ollama_options"]["num_predict"])
         self.assertEqual(8192, pcfg["max_output_tokens"])
         self.assertEqual([], messages)
+
+    def test_ollama_chat_to_anthropic_suppresses_visible_thinking_markup(self):
+        data = {
+            "message": {
+                "content": "Kevin이 assignment를 생성했습니다.</think>Kevin이 assignment를 생성했습니다. 읽겠습니다.",
+                "tool_calls": [
+                    {
+                        "function": {
+                            "name": "Read",
+                            "arguments": {"file_path": "/tmp/task.txt"},
+                        }
+                    }
+                ],
+            },
+            "done": True,
+        }
+        body = {"tools": [{"name": "Read", "input_schema": {"type": "object", "properties": {}}}], "messages": []}
+
+        out = ciel_runtime.ollama_chat_to_anthropic(data, "glm-5.2", source_body=body)
+
+        text = ciel_runtime.anthropic_content_to_text(out["content"])
+        self.assertNotIn("</think>", text)
+        self.assertEqual("Kevin이 assignment를 생성했습니다.Kevin이 assignment를 생성했습니다. 읽겠습니다.", text)
+        self.assertEqual("tool_use", out["stop_reason"])
+
+    def test_ollama_stream_suppresses_split_visible_thinking_markup(self):
+        chunks = [
+            {"message": {"content": "<thi"}, "done": False},
+            {"message": {"content": "nk>private reasoning</thi"}, "done": False},
+            {"message": {"content": "nk>visible answer"}, "done": False},
+            {"message": {"content": ""}, "done": True, "done_reason": "stop", "eval_count": 4},
+        ]
+        resp = _FakeOllamaStreamResponse(
+            [(json.dumps(chunk, ensure_ascii=False) + "\n").encode("utf-8") for chunk in chunks]
+        )
+        handler = _FakeSSEHandler()
+
+        with mock.patch.object(ciel_runtime, "write_router_activity"):
+            ciel_runtime._ollama_stream_to_anthropic_sse(handler, resp, "glm-5.2", idle_timeout=30.0)
+
+        output = handler.wfile.data.decode("utf-8")
+        self.assertIn("visible answer", output)
+        self.assertNotIn("private reasoning", output)
+        self.assertNotIn("<think", output)
+        self.assertNotIn("</think", output)
+        self.assertTrue(resp.closed)
+
+    def test_visible_thinking_filter_drops_trailing_partial_tag(self):
+        filter_state = ciel_runtime.VisibleThinkingMarkupFilter()
+
+        self.assertEqual("visible ", filter_state.feed("visible <thi"))
+        self.assertEqual("", filter_state.finish())
 
 
 if __name__ == "__main__":
