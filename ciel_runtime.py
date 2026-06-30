@@ -14695,6 +14695,45 @@ def strip_visible_thinking_markup(text: Any) -> str:
     return (filter_state.feed(raw) + filter_state.finish()).lstrip()
 
 
+VISIBLE_TOOL_CALL_ARTIFACT_SUFFIX_RE = re.compile(
+    r"(?s)(?:^|(?:\r?\n){1,3})[ \t]*call[ \t]*(?:\r?\n)[ \t]*ignore[ \t]*(?:\r?\n)?[ \t]*$"
+)
+VISIBLE_TOOL_CALL_ARTIFACT_HOLD_CHARS = 96
+
+
+def strip_visible_tool_call_artifact_suffix(text: Any) -> str:
+    raw = str(text or "")
+    if "call" not in raw or "ignore" not in raw:
+        return raw
+    return VISIBLE_TOOL_CALL_ARTIFACT_SUFFIX_RE.sub("", raw)
+
+
+class VisibleToolCallArtifactFilter:
+    def __init__(self, hold_chars: int = VISIBLE_TOOL_CALL_ARTIFACT_HOLD_CHARS) -> None:
+        self.hold_chars = max(16, int(hold_chars))
+        self.pending = ""
+        self.stripped = False
+
+    def feed(self, text: Any) -> str:
+        raw = str(text or "")
+        if not raw:
+            return ""
+        value = self.pending + raw
+        if len(value) <= self.hold_chars:
+            self.pending = value
+            return ""
+        emit_len = len(value) - self.hold_chars
+        self.pending = value[emit_len:]
+        return value[:emit_len]
+
+    def finish(self) -> str:
+        pending = self.pending
+        self.pending = ""
+        stripped = strip_visible_tool_call_artifact_suffix(pending)
+        self.stripped = self.stripped or stripped != pending
+        return stripped
+
+
 def should_omit_openai_chat_tool_choice(provider: str, model: str, body: dict[str, Any], pcfg: dict[str, Any]) -> bool:
     """Return true when an OpenAI-chat backend should receive tools without a forced tool_choice."""
     if body.get("tool_choice") is None:
@@ -16514,6 +16553,12 @@ def _rebatch_anthropic_sse_text(
     last_suppressed_keepalive_at = 0.0
     stream_success = False
     allow_tasklist_synthesis = should_synthesize_tasklist_for_provider(provider)
+    filter_visible_tool_call_artifacts = bool(
+        provider == "anthropic"
+        and isinstance(source_body, dict)
+        and ultracode_workflow_preferred(source_body)
+    )
+    visible_tool_call_artifact_filters: dict[int, VisibleToolCallArtifactFilter] = {}
 
     class ClientStreamDisconnected(Exception):
         pass
@@ -16589,7 +16634,7 @@ def _rebatch_anthropic_sse_text(
                 raise value
             return
 
-    def emit_text_delta(index: int, text: str) -> None:
+    def emit_text_delta_raw(index: int, text: str) -> None:
         if not text:
             return
         payload = {
@@ -16598,6 +16643,28 @@ def _rebatch_anthropic_sse_text(
             "delta": {"type": "text_delta", "text": text},
         }
         emit_raw("content_block_delta", json.dumps(payload, ensure_ascii=False))
+
+    def emit_text_delta(index: int, text: str) -> None:
+        if not text:
+            return
+        if filter_visible_tool_call_artifacts:
+            filter_state = visible_tool_call_artifact_filters.setdefault(index, VisibleToolCallArtifactFilter())
+            text = filter_state.feed(text)
+        emit_text_delta_raw(index, text)
+
+    def finish_visible_tool_call_artifact_filter(index: int) -> None:
+        if not filter_visible_tool_call_artifacts:
+            return
+        filter_state = visible_tool_call_artifact_filters.pop(index, None)
+        if filter_state is None:
+            return
+        text = filter_state.finish()
+        if filter_state.stripped:
+            router_log(
+                "WARN",
+                f"stripped visible Anthropic workflow tool-call artifact provider={provider} model={model} index={index}",
+            )
+        emit_text_delta_raw(index, text)
 
     def emit_text_block(index: int, text: str) -> None:
         emit_raw(
@@ -16612,6 +16679,7 @@ def _rebatch_anthropic_sse_text(
             ),
         )
         emit_text_delta(index, text)
+        finish_visible_tool_call_artifact_filter(index)
         emit_raw("content_block_stop", json.dumps({"type": "content_block_stop", "index": index}, ensure_ascii=False))
 
     def flush_buffer(index: int, force: bool = False) -> None:
@@ -16971,11 +17039,13 @@ def _rebatch_anthropic_sse_text(
                     if pseudo_tool_calls:
                         if visible_text.strip():
                             emit_text_delta(mapped_index, visible_text)
+                        finish_visible_tool_call_artifact_filter(mapped_index)
                         emit_raw(event_type, data_str)
                         emit_pseudo_tool_uses(pseudo_tool_calls)
                         return
                     else:
                         emit_text_delta(mapped_index, held_text)
+                finish_visible_tool_call_artifact_filter(mapped_index)
                 emit_raw(event_type, data_str)
                 return
         elif evt_type == "message_delta":
@@ -17108,6 +17178,8 @@ def _rebatch_anthropic_sse_text(
                 data_str = json.dumps(event, ensure_ascii=False)
             if isinstance(mapped_index, int) and word_chunking:
                 flush_buffer(mapped_index, force=True)
+            if isinstance(mapped_index, int):
+                finish_visible_tool_call_artifact_filter(mapped_index)
             emit_raw(event_type, data_str)
             return
         if evt_type == "message_stop":

@@ -485,6 +485,110 @@ class ThinkingPassthroughTests(unittest.TestCase):
         emitted_input = ciel_runtime.json.loads(tool_deltas[0]["delta"]["partial_json"])
         self.assertEqual("echo hello", emitted_input["command"])
 
+    def test_rebatch_strips_ultracode_workflow_call_ignore_artifact_before_tool_use(self):
+        class FakeHandler:
+            def __init__(self):
+                self.wfile = io.BytesIO()
+
+        def sse(event_name, payload):
+            return f"event: {event_name}\ndata: {ciel_runtime.json.dumps(payload, ensure_ascii=False)}\n\n".encode()
+
+        chunks = [
+            sse("message_start", {"type": "message_start", "message": {"id": "msg", "type": "message", "role": "assistant", "content": [], "model": "model"}}),
+            sse("content_block_start", {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}),
+            sse("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "checking customSeries.\n\nca"}}),
+            sse("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "ll\nignore"}}),
+            sse("content_block_stop", {"type": "content_block_stop", "index": 0}),
+            sse("content_block_start", {"type": "content_block_start", "index": 1, "content_block": {"type": "tool_use", "id": "toolu_read", "name": "Read", "input": {}}}),
+            sse("content_block_delta", {"type": "content_block_delta", "index": 1, "delta": {"type": "input_json_delta", "partial_json": '{"file_path":"chart-view.tsx"}'}}),
+            sse("content_block_stop", {"type": "content_block_stop", "index": 1}),
+            sse("message_delta", {"type": "message_delta", "delta": {"stop_reason": "tool_use", "stop_sequence": None}, "usage": {"output_tokens": 3}}),
+            sse("message_stop", {"type": "message_stop"}),
+        ]
+        handler = FakeHandler()
+
+        ciel_runtime._rebatch_anthropic_sse_text(
+            handler,
+            io.BytesIO(b"".join(chunks)),
+            "model",
+            source_body={
+                "system": [{"type": "text", "text": "Ultracode is on"}],
+                "tools": [
+                    {"name": "Workflow", "input_schema": {"type": "object"}},
+                    {"name": "Read", "input_schema": {"type": "object"}},
+                ],
+            },
+            preserve_thinking=True,
+            normalize_tool_use=False,
+            provider="anthropic",
+        )
+
+        payloads = []
+        for event_block in handler.wfile.getvalue().decode("utf-8").split("\n\n"):
+            data_lines = [line[5:].strip() for line in event_block.splitlines() if line.startswith("data:")]
+            if data_lines:
+                payloads.append(ciel_runtime.json.loads("\n".join(data_lines)))
+        visible_text = "".join(
+            payload["delta"]["text"]
+            for payload in payloads
+            if payload.get("type") == "content_block_delta"
+            and isinstance(payload.get("delta"), dict)
+            and payload["delta"].get("type") == "text_delta"
+        )
+        tool_names = [
+            payload["content_block"]["name"]
+            for payload in payloads
+            if payload.get("type") == "content_block_start"
+            and isinstance(payload.get("content_block"), dict)
+            and payload["content_block"].get("type") == "tool_use"
+        ]
+
+        self.assertEqual("checking customSeries.", visible_text)
+        self.assertEqual(["Read"], tool_names)
+
+    def test_rebatch_keeps_call_ignore_text_without_ultracode_workflow(self):
+        class FakeHandler:
+            def __init__(self):
+                self.wfile = io.BytesIO()
+
+        def sse(event_name, payload):
+            return f"event: {event_name}\ndata: {ciel_runtime.json.dumps(payload, ensure_ascii=False)}\n\n".encode()
+
+        chunks = [
+            sse("message_start", {"type": "message_start", "message": {"id": "msg", "type": "message", "role": "assistant", "content": [], "model": "model"}}),
+            sse("content_block_start", {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}),
+            sse("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "literal\n\ncall\nignore"}}),
+            sse("content_block_stop", {"type": "content_block_stop", "index": 0}),
+            sse("message_delta", {"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": 3}}),
+            sse("message_stop", {"type": "message_stop"}),
+        ]
+        handler = FakeHandler()
+
+        ciel_runtime._rebatch_anthropic_sse_text(
+            handler,
+            io.BytesIO(b"".join(chunks)),
+            "model",
+            source_body={"tools": [{"name": "Read", "input_schema": {"type": "object"}}]},
+            preserve_thinking=True,
+            normalize_tool_use=False,
+            provider="anthropic",
+        )
+
+        payloads = []
+        for event_block in handler.wfile.getvalue().decode("utf-8").split("\n\n"):
+            data_lines = [line[5:].strip() for line in event_block.splitlines() if line.startswith("data:")]
+            if data_lines:
+                payloads.append(ciel_runtime.json.loads("\n".join(data_lines)))
+        visible_text = "".join(
+            payload["delta"]["text"]
+            for payload in payloads
+            if payload.get("type") == "content_block_delta"
+            and isinstance(payload.get("delta"), dict)
+            and payload["delta"].get("type") == "text_delta"
+        )
+
+        self.assertEqual("literal\n\ncall\nignore", visible_text)
+
     def test_rebatch_caps_wait_tool_timeout_in_anthropic_passthrough_stream(self):
         self.addCleanup(ciel_runtime._MCP_NOTIFICATION_WAIT_RECENT.clear)
 
