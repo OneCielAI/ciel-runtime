@@ -70,6 +70,7 @@ class CodexRuntimeTests(unittest.TestCase):
         cfg = {"language": "en"}
         codex = {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": ""}
         anthropic = {"route_through_router": True, "base_url": "https://api.anthropic.com", "current_model": "claude"}
+        zai = {"route_through_router": True, "base_url": "https://api.z.ai/api/anthropic", "current_model": "glm-5.2"}
 
         codex_rows = ciel_runtime.main_menu_rows(cfg, "codex", codex, "en")
         self.assertIn("9. Launch Claude Code [disabled: Codex provider selected]", codex_rows)
@@ -80,8 +81,16 @@ class CodexRuntimeTests(unittest.TestCase):
 
         claude_rows = ciel_runtime.main_menu_rows(cfg, "anthropic", anthropic, "en")
         self.assertIn("9. Launch Claude Code", claude_rows)
-        self.assertIn("10. Launch Codex [disabled: select Codex provider]", claude_rows)
-        self.assertIn("11. Launch Codex App Server [disabled: select Codex provider]", claude_rows)
+        self.assertIn("10. Launch Codex [disabled: Anthropic provider selected]", claude_rows)
+        self.assertIn("11. Launch Codex App Server [disabled: Anthropic provider selected]", claude_rows)
+
+        zai_rows = ciel_runtime.main_menu_rows(cfg, "zai", zai, "en")
+        self.assertIn("9. Launch Claude Code", zai_rows)
+        self.assertNotIn("9. Launch Claude Code [disabled", zai_rows)
+        self.assertIn("10. Launch Codex", zai_rows)
+        self.assertNotIn("10. Launch Codex [disabled", zai_rows)
+        self.assertIn("11. Launch Codex App Server", zai_rows)
+        self.assertNotIn("11. Launch Codex App Server [disabled", zai_rows)
 
     def test_provider_choice_toggles_codex_routing(self):
         cfg = {
@@ -673,6 +682,62 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertEqual(0, rc)
         self.assertIn("-c", captured["cmd"])
         self.assertIn('model="gpt-5.1-codex"', captured["cmd"])
+
+    def test_launch_codex_app_server_builds_router_provider_for_zai(self):
+        cfg = {
+            "current_provider": "zai",
+            "providers": {
+                "zai": {
+                    "route_through_router": True,
+                    "base_url": "https://api.z.ai/api/anthropic",
+                    "api_key": "sk-zai-test",
+                    "current_model": "glm-5.2",
+                }
+            },
+        }
+        pcfg = cfg["providers"]["zai"]
+        captured = {}
+
+        def run_with_router_lifetime(runner, manage_router):
+            captured["manage_router"] = manage_router
+            return runner()
+
+        def subprocess_call(cmd, env):
+            captured["cmd"] = cmd
+            captured["env"] = env
+            return 0
+
+        with (
+            mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
+            mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
+            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
+            mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "get_current_provider", return_value=("zai", pcfg)),
+            mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
+            mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
+            mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
+            mock.patch.object(ciel_runtime, "ensure_model_cache_for_launch"),
+            mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
+            mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
+            mock.patch.object(ciel_runtime, "find_executable", return_value="codex"),
+            mock.patch.object(ciel_runtime, "codex_app_server_default_listen_url", return_value="ws://127.0.0.1:8899"),
+            mock.patch.object(ciel_runtime, "current_alias", return_value="ciel-runtime-zai-glm-5.2[1m]"),
+            mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
+            mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
+            mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
+        ):
+            rc = ciel_runtime.launch_codex_app_server([], skip_menu=True)
+
+        self.assertEqual(0, rc)
+        self.assertTrue(captured["manage_router"])
+        self.assertEqual(["codex", "app-server"], captured["cmd"][:2])
+        self.assertIn("model_provider=\"ciel-runtime\"", captured["cmd"])
+        self.assertIn(f"model_providers.ciel-runtime.base_url=\"{ciel_runtime.ROUTER_BASE}/v1\"", captured["cmd"])
+        self.assertIn("model_providers.ciel-runtime.wire_api=\"responses\"", captured["cmd"])
+        self.assertIn("-c", captured["cmd"])
+        self.assertIn('model="ciel-runtime-zai-glm-5.2[1m]"', captured["cmd"])
+        self.assertEqual("ciel-runtime-router-local-key", captured["env"]["CIEL_RUNTIME_CODEX_API_KEY"])
 
     def test_launch_codex_app_server_native_uses_plain_provider_and_default_listen(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": False, "base_url": "https://api.openai.com", "current_model": ""}}}

@@ -28152,7 +28152,7 @@ def agy_launch_enabled_for_provider(provider: str) -> bool:
 
 
 def codex_launch_enabled_for_provider(provider: str) -> bool:
-    return provider == "codex"
+    return provider not in ("anthropic", "agy")
 
 
 def default_prelaunch_action(provider: str) -> str:
@@ -28190,10 +28190,12 @@ def main_menu_rows(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any], lan
         launch_agy_label += " [disabled: select AGY provider]"
     launch_codex_label = ui_text("launch_codex", lang)
     if not codex_launch_enabled_for_provider(provider):
-        launch_codex_label += " [disabled: select Codex provider]"
+        family = "AGY" if provider == "agy" else "Anthropic" if provider == "anthropic" else provider_menu_label(provider, pcfg)
+        launch_codex_label += f" [disabled: {family} provider selected]"
     launch_codex_app_server_label = ui_text("launch_codex_app_server", lang)
     if not codex_launch_enabled_for_provider(provider):
-        launch_codex_app_server_label += " [disabled: select Codex provider]"
+        family = "AGY" if provider == "agy" else "Anthropic" if provider == "anthropic" else provider_menu_label(provider, pcfg)
+        launch_codex_app_server_label += f" [disabled: {family} provider selected]"
     return [
         f"0. {ui_text('language', lang)}  [{LANGUAGES.get(lang, lang)}]",
         f"1. {ui_text('provider', lang)}  [{provider_menu_label(provider, pcfg)}]",
@@ -29534,9 +29536,9 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                     return PRELAUNCH_LAUNCH_AGY
                 if action == "launch-codex":
                     cfg = load_config()
-                    provider, _ = get_current_provider(cfg)
+                    provider, pcfg = get_current_provider(cfg)
                     if not codex_launch_enabled_for_provider(provider):
-                        messages = ["Launch Codex is disabled until you select Codex or Codex routed as the provider."]
+                        messages = [f"Launch Codex is disabled while {provider_menu_label(provider, pcfg)} provider is selected."]
                         refresh_checks()
                         continue
                     blockers = launch_readiness_errors()
@@ -29547,9 +29549,9 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                     return PRELAUNCH_LAUNCH_CODEX
                 if action == "launch-codex-app-server":
                     cfg = load_config()
-                    provider, _ = get_current_provider(cfg)
+                    provider, pcfg = get_current_provider(cfg)
                     if not codex_launch_enabled_for_provider(provider):
-                        messages = ["Launch Codex App Server is disabled until you select Codex or Codex routed as the provider."]
+                        messages = [f"Launch Codex App Server is disabled while {provider_menu_label(provider, pcfg)} provider is selected."]
                         refresh_checks()
                         continue
                     blockers = launch_readiness_errors()
@@ -35608,6 +35610,9 @@ def launch_codex_app_server(
         config_args = [*config_args, *codex_current_model_config_args(pcfg, passthrough)]
     if not native_codex_enabled(provider):
         ensure_model_cache_for_launch(provider, pcfg)
+        model = current_alias(cfg)
+        if model and not codex_passthrough_has_model_override(passthrough):
+            config_args = [*config_args, "-c", f"model={toml_string(model)}"]
     listen_url = codex_app_server_default_listen_url()
     app_server_args = codex_app_server_launch_args(
         passthrough,

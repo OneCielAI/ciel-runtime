@@ -56,8 +56,8 @@ class AgyRuntimeTests(unittest.TestCase):
 
         agy_rows = ciel_runtime.main_menu_rows(cfg, "agy", agy, "en")
         self.assertIn("9. Launch Claude Code [disabled: AGY provider selected]", agy_rows)
-        self.assertIn("10. Launch Codex [disabled: select Codex provider]", agy_rows)
-        self.assertIn("11. Launch Codex App Server [disabled: select Codex provider]", agy_rows)
+        self.assertIn("10. Launch Codex [disabled: AGY provider selected]", agy_rows)
+        self.assertIn("11. Launch Codex App Server [disabled: AGY provider selected]", agy_rows)
         self.assertIn("12. Launch AGY", agy_rows)
         self.assertNotIn("12. Launch AGY [disabled", agy_rows)
 
@@ -68,7 +68,7 @@ class AgyRuntimeTests(unittest.TestCase):
 
         claude_rows = ciel_runtime.main_menu_rows(cfg, "anthropic", anthropic, "en")
         self.assertIn("9. Launch Claude Code", claude_rows)
-        self.assertIn("11. Launch Codex App Server [disabled: select Codex provider]", claude_rows)
+        self.assertIn("11. Launch Codex App Server [disabled: Anthropic provider selected]", claude_rows)
         self.assertIn("12. Launch AGY [disabled: select AGY provider]", claude_rows)
 
     def test_provider_choice_toggles_agy_routing(self):
