@@ -250,6 +250,45 @@ class ZaiProviderTests(unittest.TestCase):
         self.assertIn("Model: glm-5.2[1m]", stdout.getvalue())
         self.assertIn("API model: glm-5.2", stdout.getvalue())
 
+    def test_zai_glm47_flash_compatibility_fails_fast_before_tool_timeout(self):
+        cfg = self.zai_cfg(api_key="sk-zai-test", current_model="glm-4.7-flash")
+        response = {
+            "id": "msg_test",
+            "type": "message",
+            "role": "assistant",
+            "model": "glm-4.7-flash",
+            "content": [{"type": "text", "text": "OK"}],
+            "stop_reason": "end_turn",
+            "usage": {"input_tokens": 17, "output_tokens": 2},
+        }
+        args = type("Args", (), {"mode": "full", "timeout": 120})()
+
+        with (
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "save_config"),
+            mock.patch.object(ciel_runtime, "run_compatibility_api_key_probes", return_value=[]),
+            mock.patch.object(ciel_runtime, "post_json", return_value=response) as post_json,
+        ):
+            stdout = io.StringIO()
+            with redirect_stdout(stdout), self.assertRaises(SystemExit) as raised:
+                ciel_runtime._cmd_test(args)
+
+        self.assertEqual(1, raised.exception.code)
+        self.assertEqual(1, post_json.call_count)
+        output = stdout.getvalue()
+        self.assertIn("Text response: OK", output)
+        self.assertIn("Compatibility: FAIL", output)
+        self.assertIn("GLM-4.7-Flash", output)
+        self.assertIn("direct Anthropic tool-use probes time out", output)
+
+    def test_zai_glm47_flash_is_the_only_known_tool_use_blocker(self):
+        self.assertIn(
+            "tool-use probes time out",
+            ciel_runtime.known_compatibility_tool_use_blocker("zai", "glm-4.7-flash"),
+        )
+        self.assertEqual("", ciel_runtime.known_compatibility_tool_use_blocker("zai", "glm-4.5-flash"))
+        self.assertEqual("", ciel_runtime.known_compatibility_tool_use_blocker("zai", "glm-4.7"))
+
     def test_zai_managed_mcp_config_contains_official_servers(self):
         pcfg = self.zai_cfg(api_key="sk-zai-test")["providers"]["zai"]
         with tempfile.TemporaryDirectory() as td:

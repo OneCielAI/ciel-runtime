@@ -26002,6 +26002,17 @@ def compatibility_failure_diagnosis(provider: str, code: int | None, msg: str) -
     return None
 
 
+def known_compatibility_tool_use_blocker(provider: str, model: str) -> str:
+    normalized = strip_claude_context_suffix(str(model or "")).strip().lower()
+    if provider == "zai" and normalized == "glm-4.7-flash":
+        return (
+            "Z.AI GLM-4.7-Flash responds to text requests but direct Anthropic tool-use probes time out. "
+            "Claude Code requires tool calling for normal work; use glm-4.5-flash for a Flash/free model, "
+            "or use glm-4.7/glm-5.2 if your Z.AI account can access them."
+        )
+    return ""
+
+
 class CompatibilityApiKeyProbeError(Exception):
     def __init__(self, message: str, code: int | None = None, diagnosis: str = "") -> None:
         super().__init__(message)
@@ -26382,6 +26393,16 @@ def _cmd_test(args: argparse.Namespace) -> None:
         print("Compatibility: OK")
         print("Note: quick mode checked text only; run `ciel-runtime test 120 smoke` for tool_use or `ciel-runtime test 180 full` for tool_result.")
         return
+
+    tool_blocker = known_compatibility_tool_use_blocker(provider, request_model)
+    if tool_blocker:
+        fail(
+            f"Tool use: {tool_blocker}",
+            diagnosis=(
+                "Diagnosis: the selected model is not suitable for Claude Code through the Anthropic "
+                "compatibility path because Claude Code depends on reliable tool_use responses."
+            ),
+        )
 
     tool_data = run_phase("Tool use", tool_body)
     tool_use, tool_error = find_compat_tool_use(tool_data)
