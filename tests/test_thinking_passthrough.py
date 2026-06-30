@@ -590,6 +590,91 @@ class ThinkingPassthroughTests(unittest.TestCase):
 
         self.assertEqual("literal\n\ncall\nignore", visible_text)
 
+    def test_rebatch_repairs_ask_user_question_json_string_array_for_anthropic_passthrough(self):
+        class FakeHandler:
+            def __init__(self):
+                self.wfile = io.BytesIO()
+
+        def sse(event_name, payload):
+            return f"event: {event_name}\ndata: {ciel_runtime.json.dumps(payload, ensure_ascii=False)}\n\n".encode()
+
+        source_body = {
+            "tools": [
+                {
+                    "name": "AskUserQuestion",
+                    "input_schema": {
+                        "type": "object",
+                        "required": ["questions"],
+                        "properties": {"questions": {"type": "array"}},
+                    },
+                }
+            ],
+        }
+        question_payload = ciel_runtime.json.dumps(
+            [
+                {
+                    "header": "작업 범위/순서",
+                    "question": "이번 요청은 어떤 순서로 처리할까요?",
+                    "options": [{"label": "바로 패치", "description": "코드를 수정합니다."}],
+                }
+            ],
+            ensure_ascii=False,
+        )
+        chunks = [
+            sse("message_start", {"type": "message_start", "message": {"id": "msg", "type": "message", "role": "assistant", "content": [], "model": "model"}}),
+            sse(
+                "content_block_start",
+                {
+                    "type": "content_block_start",
+                    "index": 0,
+                    "content_block": {"type": "tool_use", "id": "toolu_question", "name": "AskUserQuestion", "input": {}},
+                },
+            ),
+            sse(
+                "content_block_delta",
+                {
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": {
+                        "type": "input_json_delta",
+                        "partial_json": ciel_runtime.json.dumps({"questions": question_payload}, ensure_ascii=False),
+                    },
+                },
+            ),
+            sse("content_block_stop", {"type": "content_block_stop", "index": 0}),
+            sse("message_delta", {"type": "message_delta", "delta": {"stop_reason": "tool_use", "stop_sequence": None}, "usage": {"output_tokens": 3}}),
+            sse("message_stop", {"type": "message_stop"}),
+        ]
+        handler = FakeHandler()
+
+        ciel_runtime._rebatch_anthropic_sse_text(
+            handler,
+            io.BytesIO(b"".join(chunks)),
+            "model",
+            source_body=source_body,
+            preserve_thinking=True,
+            normalize_tool_use=False,
+            provider="anthropic",
+            word_chunking=False,
+        )
+
+        payloads = []
+        for event_block in handler.wfile.getvalue().decode("utf-8").split("\n\n"):
+            data_lines = [line[5:].strip() for line in event_block.splitlines() if line.startswith("data:")]
+            if data_lines:
+                payloads.append(ciel_runtime.json.loads("\n".join(data_lines)))
+        tool_deltas = [
+            payload
+            for payload in payloads
+            if payload.get("type") == "content_block_delta"
+            and isinstance(payload.get("delta"), dict)
+            and payload["delta"].get("type") == "input_json_delta"
+        ]
+
+        emitted_input = ciel_runtime.json.loads(tool_deltas[0]["delta"]["partial_json"])
+        self.assertIsInstance(emitted_input["questions"], list)
+        self.assertEqual("작업 범위/순서", emitted_input["questions"][0]["header"])
+
     def test_rebatch_caps_wait_tool_timeout_in_anthropic_passthrough_stream(self):
         self.addCleanup(ciel_runtime._MCP_NOTIFICATION_WAIT_RECENT.clear)
 

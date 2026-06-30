@@ -1397,7 +1397,14 @@ def _coerce_value(value: Any, expected_type: str | None) -> Any:
         if isinstance(value, tuple):
             return list(value)
         if isinstance(value, str) and value.strip():
-            return [value.strip()]
+            text = value.strip()
+            try:
+                parsed = json.loads(text)
+                if isinstance(parsed, list):
+                    return parsed
+            except Exception:
+                pass
+            return [text]
         if value is None:
             return []
         return value
@@ -1481,7 +1488,11 @@ def _move_first_present(fixed: dict[str, Any], target: str, aliases: tuple[str, 
             break
 
 
-def _validate_and_fix_tool_input(tool_name: str, input_dict: dict[str, Any]) -> dict[str, Any]:
+def _validate_and_fix_tool_input(
+    tool_name: str,
+    input_dict: dict[str, Any],
+    source_body: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Validate tool_use input against schema and fix common errors:
       - fuzzy-match tool name
@@ -1489,7 +1500,9 @@ def _validate_and_fix_tool_input(tool_name: str, input_dict: dict[str, Any]) -> 
       - add defaults for missing required fields
       - keep unknown fields (Claude Code may accept extra fields)
     """
-    schema = _lookup_tool_schema(tool_name)
+    schema = tool_schema_in_body(source_body, tool_name) if isinstance(source_body, dict) else None
+    if schema is None:
+        schema = _lookup_tool_schema(tool_name)
     matched_name = tool_name
     if schema is None:
         matched = _fuzzy_match_tool_name(tool_name)
@@ -4517,6 +4530,20 @@ def _mcp_tool_name_server_normalized_key(name: str) -> tuple[str, str] | None:
 def resolve_emitted_tool_name(raw_name: str, source_body: dict[str, Any] | None) -> str:
     available = tool_names_in_body(source_body or {}) if isinstance(source_body, dict) else set()
     return _match_available_tool_name(raw_name, available) or _fuzzy_match_tool_name(raw_name) or raw_name
+
+
+ANTHROPIC_PASSTHROUGH_TOOL_INPUT_REPAIR_TOOLS = {"AskUserQuestion"}
+
+
+def should_repair_anthropic_passthrough_tool_input(
+    provider: str,
+    raw_name: str,
+    source_body: dict[str, Any] | None,
+) -> bool:
+    if provider != "anthropic":
+        return False
+    matched_name = resolve_emitted_tool_name(raw_name, source_body)
+    return matched_name in ANTHROPIC_PASSTHROUGH_TOOL_INPUT_REPAIR_TOOLS
 
 
 def synthetic_tool_use_response(model: str, tool_name: str, tool_input: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -16888,7 +16915,7 @@ def _rebatch_anthropic_sse_text(
         matched_name = resolve_emitted_tool_name(raw_name, source_body)
         if not matched_name:
             matched_name = infer_tool_name_from_args(parsed_args)
-        fixed_input = _validate_and_fix_tool_input(matched_name, parsed_args)
+        fixed_input = _validate_and_fix_tool_input(matched_name, parsed_args, source_body)
         if isinstance(source_body, dict):
             mapped_name, mapped_input = plan_mode_tool_name_for_emit(source_body, matched_name, fixed_input)
             if mapped_name is None:
@@ -17004,7 +17031,11 @@ def _rebatch_anthropic_sse_text(
                 tool_name = str(content_block.get("name") or "")
                 should_buffer_tool_use = bool(
                     mapped_index is not None
-                    and (normalize_tool_use or _is_mcp_notification_wait_tool(tool_name))
+                    and (
+                        normalize_tool_use
+                        or _is_mcp_notification_wait_tool(tool_name)
+                        or should_repair_anthropic_passthrough_tool_input(provider, tool_name, source_body)
+                    )
                 )
                 if should_buffer_tool_use and mapped_index is not None:
                     buffered_tool_uses[mapped_index] = {
