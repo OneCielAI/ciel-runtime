@@ -520,6 +520,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             preserve_thinking=True,
             normalize_tool_use=False,
             provider="anthropic",
+            word_chunking=False,
         )
 
         payloads = []
@@ -571,6 +572,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
             preserve_thinking=True,
             normalize_tool_use=False,
             provider="anthropic",
+            word_chunking=False,
         )
 
         payloads = []

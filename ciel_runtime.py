@@ -17145,17 +17145,13 @@ def _rebatch_anthropic_sse_text(
                     if not prefix:
                         return
                     if not word_chunking:
-                        patched = dict(event)
-                        patched_delta = dict(delta)
-                        patched_delta["text"] = prefix
-                        patched["delta"] = patched_delta
-                        emit_raw(event_type, json.dumps(patched, ensure_ascii=False))
+                        emit_text_delta(mapped_index, prefix)
                         return
                     text_buffers[mapped_index] = text_buffers.get(mapped_index, "") + prefix
                     flush_buffer(mapped_index, force=False)
                     return
                 if not word_chunking:
-                    emit_raw(event_type, data_str)
+                    emit_text_delta(mapped_index, text)
                     return
                 text_buffers[mapped_index] = text_buffers.get(mapped_index, "") + text
                 flush_buffer(mapped_index, force=False)
