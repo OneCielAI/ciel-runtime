@@ -16556,7 +16556,7 @@ def _rebatch_anthropic_sse_text(
     filter_visible_tool_call_artifacts = bool(
         provider == "anthropic"
         and isinstance(source_body, dict)
-        and ultracode_workflow_preferred(source_body)
+        and (has_tool(source_body, "Workflow") or body_ultracode_runtime_enabled(source_body))
     )
     visible_tool_call_artifact_filters: dict[int, VisibleToolCallArtifactFilter] = {}
 

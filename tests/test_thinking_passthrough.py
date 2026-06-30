@@ -512,7 +512,6 @@ class ThinkingPassthroughTests(unittest.TestCase):
             io.BytesIO(b"".join(chunks)),
             "model",
             source_body={
-                "system": [{"type": "text", "text": "Ultracode is on"}],
                 "tools": [
                     {"name": "Workflow", "input_schema": {"type": "object"}},
                     {"name": "Read", "input_schema": {"type": "object"}},
