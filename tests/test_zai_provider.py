@@ -162,6 +162,55 @@ class ZaiProviderTests(unittest.TestCase):
         self.assertEqual("ciel-runtime-zai-glm-5.2-1m[1m]", env["ANTHROPIC_DEFAULT_SONNET_MODEL"])
         self.assertIn("thinking", env["ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES"])
 
+    def test_zai_glm52_without_suffix_still_exposes_one_million_marker_to_claude_code(self):
+        cfg = self.zai_cfg(api_key="sk-zai-test", current_model="glm-5.2", opus_model="glm-5.2", sonnet_model="glm-5.2")
+
+        env = ciel_runtime.env_vars(cfg)
+
+        self.assertEqual("ciel-runtime-zai-glm-5.2[1m]", env["ANTHROPIC_MODEL"])
+        self.assertEqual("ciel-runtime-zai-glm-5.2[1m]", env["ANTHROPIC_DEFAULT_OPUS_MODEL"])
+        self.assertEqual("ciel-runtime-zai-glm-5.2[1m]", env["ANTHROPIC_DEFAULT_SONNET_MODEL"])
+
+    def test_zai_turbo_context_suffix_does_not_expose_one_million_marker_to_claude_code(self):
+        cfg = self.zai_cfg(
+            api_key="sk-zai-test",
+            current_model="glm-5-turbo[1m]",
+            opus_model="glm-5-turbo[1m]",
+            sonnet_model="glm-5-turbo[1m]",
+        )
+
+        env = ciel_runtime.env_vars(cfg)
+
+        self.assertNotIn("[1m]", env["ANTHROPIC_MODEL"])
+        self.assertNotIn("[1m]", env["ANTHROPIC_DEFAULT_OPUS_MODEL"])
+        self.assertNotIn("[1m]", env["ANTHROPIC_DEFAULT_SONNET_MODEL"])
+        self.assertEqual("200000", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
+
+    def test_zai_set_model_aligns_claude_code_default_families_with_selected_model(self):
+        cfg = self.zai_cfg(api_key="sk-zai-test")
+
+        with (
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "save_config"),
+            mock.patch.object(ciel_runtime, "clear_model_cache"),
+            mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=["glm-4.7-flash"]),
+            mock.patch.object(ciel_runtime, "read_model_info_cache", return_value={}),
+        ):
+            messages = ciel_runtime.set_model_config("glm-4.7-flash")
+
+        pcfg = cfg["providers"]["zai"]
+        self.assertEqual("glm-4.7-flash", pcfg["current_model"])
+        self.assertEqual("glm-4.7-flash", pcfg["haiku_model"])
+        self.assertEqual("glm-4.7-flash", pcfg["opus_model"])
+        self.assertEqual("glm-4.7-flash", pcfg["sonnet_model"])
+        self.assertTrue(any("Model for zai set to glm-4.7-flash" in message for message in messages))
+
+        env = ciel_runtime.env_vars(cfg)
+        self.assertEqual("ciel-runtime-zai-glm-4.7-flash", env["ANTHROPIC_MODEL"])
+        self.assertEqual("ciel-runtime-zai-glm-4.7-flash", env["ANTHROPIC_DEFAULT_HAIKU_MODEL"])
+        self.assertEqual("ciel-runtime-zai-glm-4.7-flash", env["ANTHROPIC_DEFAULT_OPUS_MODEL"])
+        self.assertEqual("ciel-runtime-zai-glm-4.7-flash", env["ANTHROPIC_DEFAULT_SONNET_MODEL"])
+
     def test_resolve_requested_model_strips_zai_context_suffix_for_api(self):
         cfg = self.zai_cfg(api_key="sk-zai-test")
         pcfg = cfg["providers"]["zai"]

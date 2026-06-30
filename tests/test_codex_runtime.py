@@ -512,6 +512,86 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertTrue(captured["channel_wake_bracketed_paste"])
         self.assertEqual(0.25, captured["channel_wake_submit_delay_seconds"])
 
+    def test_launch_codex_routed_passes_configured_current_model(self):
+        cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": "gpt-5.1-codex"}}}
+        pcfg = cfg["providers"]["codex"]
+        captured = {}
+
+        def run_with_router_lifetime(runner, manage_router):
+            captured["manage_router"] = manage_router
+            return runner()
+
+        def subprocess_call(cmd, env, **kwargs):
+            captured["cmd"] = cmd
+            captured["env"] = env
+            return 0
+
+        with (
+            mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
+            mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
+            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
+            mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
+            mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
+            mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
+            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
+            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
+            mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
+            mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
+            mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
+            mock.patch.object(ciel_runtime, "find_executable", return_value="codex"),
+            mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]),
+            mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
+            mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
+            mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", side_effect=subprocess_call),
+        ):
+            rc = ciel_runtime.launch_codex(["exec", "hello"], skip_menu=True)
+
+        self.assertEqual(0, rc)
+        self.assertIn("-m", captured["cmd"])
+        self.assertIn("gpt-5.1-codex", captured["cmd"])
+
+    def test_launch_codex_routed_respects_explicit_model_passthrough(self):
+        cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": "gpt-5.1-codex"}}}
+        pcfg = cfg["providers"]["codex"]
+        captured = {}
+
+        def run_with_router_lifetime(runner, manage_router):
+            captured["manage_router"] = manage_router
+            return runner()
+
+        def subprocess_call(cmd, env, **kwargs):
+            captured["cmd"] = cmd
+            captured["env"] = env
+            return 0
+
+        with (
+            mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
+            mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
+            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
+            mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
+            mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
+            mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
+            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
+            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
+            mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
+            mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
+            mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
+            mock.patch.object(ciel_runtime, "find_executable", return_value="codex"),
+            mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]),
+            mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
+            mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
+            mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", side_effect=subprocess_call),
+        ):
+            rc = ciel_runtime.launch_codex(["--model", "gpt-explicit", "exec", "hello"], skip_menu=True)
+
+        self.assertEqual(0, rc)
+        self.assertNotIn("gpt-5.1-codex", captured["cmd"])
+        self.assertIn("gpt-explicit", captured["cmd"])
+
     def test_launch_codex_app_server_routed_uses_native_auth_router_provider(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": ""}}}
         pcfg = cfg["providers"]["codex"]
@@ -555,6 +635,44 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("--listen", captured["cmd"])
         self.assertIn("ws://127.0.0.1:8899", captured["cmd"])
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
+
+    def test_launch_codex_app_server_routed_passes_configured_current_model(self):
+        cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": "gpt-5.1-codex"}}}
+        pcfg = cfg["providers"]["codex"]
+        captured = {}
+
+        def run_with_router_lifetime(runner, manage_router):
+            captured["manage_router"] = manage_router
+            return runner()
+
+        def subprocess_call(cmd, env):
+            captured["cmd"] = cmd
+            captured["env"] = env
+            return 0
+
+        with (
+            mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
+            mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
+            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
+            mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
+            mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
+            mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
+            mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
+            mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
+            mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
+            mock.patch.object(ciel_runtime, "find_executable", return_value="codex"),
+            mock.patch.object(ciel_runtime, "codex_app_server_default_listen_url", return_value="ws://127.0.0.1:8899"),
+            mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
+            mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
+            mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
+        ):
+            rc = ciel_runtime.launch_codex_app_server([], skip_menu=True)
+
+        self.assertEqual(0, rc)
+        self.assertIn("-c", captured["cmd"])
+        self.assertIn('model="gpt-5.1-codex"', captured["cmd"])
 
     def test_launch_codex_app_server_native_uses_plain_provider_and_default_listen(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": False, "base_url": "https://api.openai.com", "current_model": ""}}}

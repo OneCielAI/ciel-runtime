@@ -212,7 +212,6 @@ ZAI_MODEL_FALLBACK_IDS: tuple[str, ...] = (
     "glm-5.2",
     "glm-5.1",
     "glm-5",
-    "glm-5-turbo[1m]",
     "glm-5-turbo",
     "glm-4.7",
     "glm-4.7-flashx",
@@ -20189,6 +20188,14 @@ def set_model_config(value: str) -> list[str]:
     mmap = model_map_for(provider, pcfg, fetch=False)
     model_id = normalize_model_id(provider, unslug_provider_alias(provider, value, mmap) or value)
     pcfg["current_model"] = model_id
+    if provider == "zai":
+        # Claude Code primarily selects through its default Haiku/Sonnet/Opus
+        # model environment variables. Keep those aligned when the user
+        # explicitly changes the Z.AI model from the menu/CLI; otherwise a
+        # Flash selection can still run through the previous Sonnet/Opus model.
+        pcfg["haiku_model"] = model_id
+        pcfg["opus_model"] = model_id
+        pcfg["sonnet_model"] = model_id
     selected_info = read_model_info_cache(provider, pcfg).get(model_id) or {}
     selected_context = positive_int(selected_info.get("max_model_len"))
     if selected_context:
@@ -26445,27 +26452,59 @@ def claude_code_auto_compact_window(provider: str, pcfg: dict[str, Any]) -> int 
     return None
 
 
-def claude_code_model_claims_one_million_context(provider: str, pcfg: dict[str, Any], model: str) -> bool:
-    candidates = [
-        str(model or ""),
-        str(pcfg.get("current_model") or ""),
-        str(current_upstream_model_id(provider, pcfg) or ""),
-    ]
-    if any("[1m]" in candidate.lower() for candidate in candidates):
-        return True
+def claude_code_model_claims_one_million_context(
+    provider: str,
+    pcfg: dict[str, Any],
+    model: str,
+    *,
+    include_current: bool = True,
+) -> bool:
+    candidates = [str(model or "")]
+    if include_current:
+        candidates.extend([
+            str(pcfg.get("current_model") or ""),
+            str(current_upstream_model_id(provider, pcfg) or ""),
+        ])
+    explicit_unknown_one_million = False
     for candidate in candidates:
-        hint = model_context_hint_from_model_id(candidate)
-        if hint and hint >= 1_000_000:
-            return True
-    limit = context_limit_for_status(provider, pcfg)
-    return bool(limit and limit >= 1_000_000)
+        candidate = str(candidate or "").strip()
+        if not candidate:
+            continue
+        if candidate.startswith(f"ciel-runtime-{provider}-"):
+            resolved = unslug_provider_alias(provider, candidate, model_map_for(provider, pcfg, fetch=False))
+            if not resolved:
+                continue
+            candidate = resolved
+        hint = model_context_hint_from_model_id(strip_claude_context_suffix(candidate))
+        if hint is not None:
+            if hint >= 1_000_000:
+                return True
+            continue
+        if "[1m]" in candidate.lower():
+            explicit_unknown_one_million = True
+    if explicit_unknown_one_million:
+        return True
+    if include_current:
+        limit = context_limit_for_status(provider, pcfg)
+        return bool(limit and limit >= 1_000_000)
+    return False
 
 
-def claude_code_context_model_alias(provider: str, pcfg: dict[str, Any], model: str) -> str:
+def claude_code_context_model_alias(
+    provider: str,
+    pcfg: dict[str, Any],
+    model: str,
+    upstream_model: str | None = None,
+) -> str:
     model = strip_claude_context_suffix(model)
     # Claude Code treats [1m] as a real one-million-context model marker. Do
     # not use it as a generic long-context hint for 256K/512K routed models.
-    if claude_code_model_claims_one_million_context(provider, pcfg, model) and "[1m]" not in model.lower():
+    probe_model = upstream_model if upstream_model is not None else model
+    include_current = upstream_model is None
+    if (
+        claude_code_model_claims_one_million_context(provider, pcfg, probe_model, include_current=include_current)
+        and "[1m]" not in model.lower()
+    ):
         return f"{model}[1m]"
     return model
 
@@ -26504,7 +26543,7 @@ def claude_code_default_model_aliases(provider: str, pcfg: dict[str, Any], curre
                     break
         alias = alias_for(provider, selected) if selected else current_model_alias
         if selected_from_config:
-            out[key] = f"{alias}[1m]" if "[1m]" in selected.lower() and "[1m]" not in alias.lower() else alias
+            out[key] = claude_code_context_model_alias(provider, pcfg, alias, selected)
         else:
             out[key] = claude_code_context_model_alias(provider, pcfg, alias)
     return out
@@ -35289,6 +35328,24 @@ def codex_native_routed_config_args(router_base: str = ROUTER_BASE) -> list[str]
     ]
 
 
+def codex_passthrough_has_model_override(passthrough: list[str]) -> bool:
+    return has_passthrough_option(passthrough, "-m", "--model") or "model" in _codex_config_override_keys(passthrough)
+
+
+def codex_current_model_cli_args(pcfg: dict[str, Any], passthrough: list[str]) -> list[str]:
+    model = str(pcfg.get("current_model") or "").strip()
+    if not model or codex_passthrough_has_model_override(passthrough):
+        return []
+    return ["-m", model]
+
+
+def codex_current_model_config_args(pcfg: dict[str, Any], passthrough: list[str]) -> list[str]:
+    model = str(pcfg.get("current_model") or "").strip()
+    if not model or codex_passthrough_has_model_override(passthrough):
+        return []
+    return ["-c", f"model={toml_string(model)}"]
+
+
 def log_codex_passthrough_mapping(notes: list[str]) -> None:
     if not notes:
         return
@@ -35381,9 +35438,9 @@ def launch_codex(
         ensure_model_cache_for_launch(provider, pcfg)
     codex_yolo_args = codex_yolo_launch_args(codex_passthrough)
     if use_native_codex:
-        cmd = [codex, *codex_yolo_args]
+        cmd = [codex, *codex_yolo_args, *codex_current_model_cli_args(pcfg, codex_passthrough)]
     elif use_codex_routed:
-        cmd = [codex, *codex_yolo_args, *codex_native_routed_config_args()]
+        cmd = [codex, *codex_yolo_args, *codex_native_routed_config_args(), *codex_current_model_cli_args(pcfg, codex_passthrough)]
     else:
         env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
         cmd = [codex, *codex_yolo_args, *codex_runtime_config_args()]
@@ -35526,6 +35583,8 @@ def launch_codex_app_server(
     else:
         env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
         config_args = codex_runtime_config_args()
+    if native_codex_enabled(provider):
+        config_args = [*config_args, *codex_current_model_config_args(pcfg, passthrough)]
     if not native_codex_enabled(provider):
         ensure_model_cache_for_launch(provider, pcfg)
     listen_url = codex_app_server_default_listen_url()
