@@ -35386,6 +35386,7 @@ def codex_mcp_proxy_config_args(cfg: dict[str, Any], codex_mcp_config: Path | No
         while alias in proxied_names or alias in aliases:
             alias = f"{alias}-proxy"
         aliases.add(alias)
+        args.extend(["-c", f"mcp_servers.{key}.type=null"])
         args.extend(["-c", f"mcp_servers.{key}.enabled=false"])
         args.extend(["-c", f"mcp_servers.{alias}={_codex_mcp_proxy_inline_table(entry)}"])
         active.add(name)

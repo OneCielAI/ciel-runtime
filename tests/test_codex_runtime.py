@@ -414,6 +414,8 @@ class CodexRuntimeTests(unittest.TestCase):
         codex_mcp_config = Path("codex-mcp.json")
         proxy_args = [
             "-c",
+            "mcp_servers.ai-net.type=null",
+            "-c",
             "mcp_servers.ai-net.enabled=false",
             "-c",
             'mcp_servers.ai-net-ciel-runtime-proxy={command="python",args=["ciel_runtime.py","mcp-proxy"]}',
@@ -454,6 +456,7 @@ class CodexRuntimeTests(unittest.TestCase):
             rc = ciel_runtime.launch_codex(["exec", "hello"], skip_menu=True)
 
         self.assertEqual(0, rc)
+        self.assertIn("mcp_servers.ai-net.type=null", captured["cmd"])
         self.assertIn("mcp_servers.ai-net.enabled=false", captured["cmd"])
         self.assertIn('mcp_servers.ai-net-ciel-runtime-proxy={command="python",args=["ciel_runtime.py","mcp-proxy"]}', captured["cmd"])
         start_sse.assert_called_once_with(cfg, codex_mcp_config, skip_server_names={"ai-net"})
@@ -965,6 +968,7 @@ args = ["server.py"]
             config.write_text(
                 """
 [mcp_servers.ai-net]
+type = "http"
 url = "http://example.test/mcp"
 bearer_token_env_var = "AINET_API_KEY"
 """,
@@ -989,6 +993,7 @@ bearer_token_env_var = "AINET_API_KEY"
                 args, proxied = ciel_runtime.codex_mcp_proxy_config_args({"claude_code": {"channel_delivery": "llm"}}, codex_mcp_config)
 
             self.assertEqual({"ai-net"}, proxied)
+            self.assertIn("mcp_servers.ai-net.type=null", args)
             self.assertIn("mcp_servers.ai-net.enabled=false", args)
             proxy_arg = next(arg for arg in args if arg.startswith("mcp_servers.ai-net-ciel-runtime-proxy="))
             self.assertIn("command=", proxy_arg)
