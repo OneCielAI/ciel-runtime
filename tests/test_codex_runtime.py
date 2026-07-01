@@ -1,4 +1,5 @@
 import copy
+import contextlib
 import io
 import json
 import sys
@@ -406,6 +407,56 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertTrue(captured["wake_for_llm_delivery"])
         self.assertTrue(captured["channel_wake_bracketed_paste"])
         self.assertEqual(0.25, captured["channel_wake_submit_delay_seconds"])
+
+    def test_launch_codex_injects_mcp_proxy_overrides_and_skips_direct_channel_sse(self):
+        cfg = {"providers": {"ollama": {"current_model": "qwen3", "base_url": "http://localhost:11434"}}}
+        pcfg = cfg["providers"]["ollama"]
+        codex_mcp_config = Path("codex-mcp.json")
+        proxy_args = [
+            "-c",
+            "mcp_servers.ai-net.enabled=false",
+            "-c",
+            'mcp_servers.ai-net-ciel-runtime-proxy={command="python",args=["ciel_runtime.py","mcp-proxy"]}',
+        ]
+        captured = {}
+
+        def run_with_router_lifetime(runner, manage_router):
+            captured["manage_router"] = manage_router
+            return runner()
+
+        def subprocess_call(cmd, env, **kwargs):
+            captured["cmd"] = cmd
+            captured["env"] = env
+            return 0
+
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0))
+            stack.enter_context(mock.patch.object(ciel_runtime, "load_config", return_value=cfg))
+            stack.enter_context(mock.patch.object(ciel_runtime, "get_current_provider", return_value=("ollama", pcfg)))
+            stack.enter_context(mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]))
+            stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=codex_mcp_config))
+            stack.enter_context(mock.patch.object(ciel_runtime, "codex_mcp_proxy_config_args", return_value=(proxy_args, {"ai-net"})))
+            start_sse = stack.enter_context(mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]))
+            stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True))
+            stack.enter_context(mock.patch.object(ciel_runtime, "ensure_model_cache_for_launch"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "find_executable", return_value="codex"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "current_alias", return_value="ciel-runtime-ollama-qwen3"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]))
+            stack.enter_context(mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime))
+            stack.enter_context(mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", side_effect=subprocess_call))
+            rc = ciel_runtime.launch_codex(["exec", "hello"], skip_menu=True)
+
+        self.assertEqual(0, rc)
+        self.assertIn("mcp_servers.ai-net.enabled=false", captured["cmd"])
+        self.assertIn('mcp_servers.ai-net-ciel-runtime-proxy={command="python",args=["ciel_runtime.py","mcp-proxy"]}', captured["cmd"])
+        start_sse.assert_called_once_with(cfg, codex_mcp_config, skip_server_names={"ai-net"})
 
     def test_launch_codex_native_uses_plain_codex_command(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": False, "base_url": "https://api.openai.com", "current_model": ""}}}
@@ -904,6 +955,49 @@ args = ["server.py"]
             self.assertEqual(["ai-net"], sorted(data["mcpServers"]))
             self.assertEqual("http", data["mcpServers"]["ai-net"]["type"])
             self.assertEqual("AINET_API_KEY", data["mcpServers"]["ai-net"]["bearer_token_env_var"])
+
+    def test_codex_mcp_proxy_args_disable_direct_http_and_add_stdio_proxy(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            codex_home = root / ".codex"
+            codex_home.mkdir()
+            config = codex_home / "config.toml"
+            config.write_text(
+                """
+[mcp_servers.ai-net]
+url = "http://example.test/mcp"
+bearer_token_env_var = "AINET_API_KEY"
+""",
+                encoding="utf-8",
+            )
+            generated = root / "codex-mcp.json"
+            proxy_config = root / "mcp-proxy.json"
+
+            with (
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CODEX_MCP_CONFIG", generated),
+                mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy_config),
+                mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch"),
+                mock.patch.object(ciel_runtime, "external_mcp_channel_server_names_from_configs", return_value=["ai-net"]),
+                mock.patch.object(ciel_runtime, "cached_channel_capable_server_names", return_value=["ai-net"]),
+            ):
+                codex_mcp_config = ciel_runtime.write_codex_mcp_config_for_channel_discovery(
+                    [],
+                    env={"CODEX_HOME": str(codex_home)},
+                    cwd=root,
+                )
+                args, proxied = ciel_runtime.codex_mcp_proxy_config_args({"claude_code": {"channel_delivery": "llm"}}, codex_mcp_config)
+
+            self.assertEqual({"ai-net"}, proxied)
+            self.assertIn("mcp_servers.ai-net.enabled=false", args)
+            proxy_arg = next(arg for arg in args if arg.startswith("mcp_servers.ai-net-ciel-runtime-proxy="))
+            self.assertIn("command=", proxy_arg)
+            self.assertIn("mcp-proxy", proxy_arg)
+            self.assertIn("--server-name", proxy_arg)
+            self.assertIn("ai-net", proxy_arg)
+            data = json.loads(proxy_config.read_text(encoding="utf-8"))
+            self.assertIn("ai-net", data["mcpServers"])
+            self.assertEqual("http://example.test/mcp", json.loads((root / "mcp-proxy-servers" / "ai-net.json").read_text(encoding="utf-8"))["url"])
 
     def test_mcp_runtime_headers_resolve_bearer_token_env_var(self):
         with mock.patch.dict("os.environ", {"AINET_API_KEY": "token-123"}, clear=False):
