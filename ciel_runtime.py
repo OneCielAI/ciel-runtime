@@ -35346,8 +35346,27 @@ def codex_channel_capable_mcp_server_names(cfg: dict[str, Any], codex_mcp_config
     return _dedupe_strings(names)
 
 
+def codex_streamable_http_mcp_server_names(codex_mcp_config: Path | None) -> list[str]:
+    if not codex_mcp_config or not codex_mcp_config.exists() or not codex_mcp_config.is_file():
+        return []
+    try:
+        data = json.loads(codex_mcp_config.read_text(encoding="utf-8"))
+    except Exception as exc:
+        router_log("WARN", f"codex_mcp_proxy_source_read_failed error={type(exc).__name__}: {exc}")
+        return []
+    servers = data.get("mcpServers") if isinstance(data, dict) else None
+    if not isinstance(servers, dict):
+        return []
+    names = [
+        str(name).strip()
+        for name, server in servers.items()
+        if str(name).strip() and isinstance(server, dict) and _mcp_server_is_streamable_http(server)
+    ]
+    return _dedupe_strings(names)
+
+
 def codex_mcp_proxy_config_args(cfg: dict[str, Any], codex_mcp_config: Path | None) -> tuple[list[str], set[str]]:
-    names = codex_channel_capable_mcp_server_names(cfg, codex_mcp_config)
+    names = codex_streamable_http_mcp_server_names(codex_mcp_config)
     if not names or not codex_mcp_config:
         return [], set()
     proxied_names = {name for name in names if _codex_config_bare_key(name)}

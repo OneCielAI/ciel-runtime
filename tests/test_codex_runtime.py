@@ -981,9 +981,7 @@ bearer_token_env_var = "AINET_API_KEY"
                 mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
                 mock.patch.object(ciel_runtime, "CODEX_MCP_CONFIG", generated),
                 mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy_config),
-                mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch"),
-                mock.patch.object(ciel_runtime, "external_mcp_channel_server_names_from_configs", return_value=["ai-net"]),
-                mock.patch.object(ciel_runtime, "cached_channel_capable_server_names", return_value=["ai-net"]),
+                mock.patch.object(ciel_runtime, "cached_channel_capable_server_names", return_value=[]),
             ):
                 codex_mcp_config = ciel_runtime.write_codex_mcp_config_for_channel_discovery(
                     [],
