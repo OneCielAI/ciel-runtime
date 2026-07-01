@@ -30,6 +30,12 @@ class FakeSSEHandler:
 
 
 class CodexRuntimeTests(unittest.TestCase):
+    def setUp(self):
+        super().setUp()
+        patcher = mock.patch.object(ciel_runtime, "terminate_existing_codex_processes_for_launch", return_value=False)
+        self.addCleanup(patcher.stop)
+        self.terminate_existing_codex_processes_for_launch = patcher.start()
+
     def test_provider_menu_exposes_native_and_routed_codex_choices(self):
         cfg = {
             "current_provider": "codex",
@@ -457,6 +463,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertNotIn("mcp_servers.ai-net.enabled=false", captured["cmd"])
         self.assertFalse(any("ciel-runtime-proxy" in str(arg) for arg in captured["cmd"]))
         compat.assert_called_once_with(codex_mcp_config, split_http_proxy=False)
+        self.terminate_existing_codex_processes_for_launch.assert_called_once()
         terminate_clients.assert_called_once_with("codex_prelaunch_active_clients", quiet=True)
         start_sse.assert_called_once_with(cfg, codex_mcp_config)
 
@@ -667,9 +674,10 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["manage_router"] = manage_router
             return runner()
 
-        def subprocess_call(cmd, env):
+        def subprocess_call(cmd, env, pid_path=None):
             captured["cmd"] = cmd
             captured["env"] = env
+            captured["pid_path"] = pid_path
             return 0
 
         with (
@@ -688,7 +696,7 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "codex_app_server_default_listen_url", return_value="ws://127.0.0.1:8899"),
             mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
             mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
-            mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
+            mock.patch.object(ciel_runtime, "subprocess_call_with_child_pid_record", side_effect=subprocess_call),
         ):
             rc = ciel_runtime.launch_codex_app_server([], skip_menu=True)
 
@@ -701,6 +709,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("--listen", captured["cmd"])
         self.assertIn("ws://127.0.0.1:8899", captured["cmd"])
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
+        self.assertIn("app-server", str(captured["pid_path"]))
 
     def test_launch_codex_app_server_routed_passes_configured_current_model(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": "gpt-5.1-codex"}}}
@@ -711,9 +720,10 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["manage_router"] = manage_router
             return runner()
 
-        def subprocess_call(cmd, env):
+        def subprocess_call(cmd, env, pid_path=None):
             captured["cmd"] = cmd
             captured["env"] = env
+            captured["pid_path"] = pid_path
             return 0
 
         with (
@@ -732,13 +742,14 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "codex_app_server_default_listen_url", return_value="ws://127.0.0.1:8899"),
             mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
             mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
-            mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
+            mock.patch.object(ciel_runtime, "subprocess_call_with_child_pid_record", side_effect=subprocess_call),
         ):
             rc = ciel_runtime.launch_codex_app_server([], skip_menu=True)
 
         self.assertEqual(0, rc)
         self.assertIn("-c", captured["cmd"])
         self.assertIn('model="gpt-5.1-codex"', captured["cmd"])
+        self.assertIn("app-server", str(captured["pid_path"]))
 
     def test_launch_codex_app_server_builds_router_provider_for_zai(self):
         cfg = {
@@ -759,9 +770,10 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["manage_router"] = manage_router
             return runner()
 
-        def subprocess_call(cmd, env):
+        def subprocess_call(cmd, env, pid_path=None):
             captured["cmd"] = cmd
             captured["env"] = env
+            captured["pid_path"] = pid_path
             return 0
 
         with (
@@ -782,7 +794,7 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "current_alias", return_value="ciel-runtime-zai-glm-5.2[1m]"),
             mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
             mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
-            mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
+            mock.patch.object(ciel_runtime, "subprocess_call_with_child_pid_record", side_effect=subprocess_call),
         ):
             rc = ciel_runtime.launch_codex_app_server([], skip_menu=True)
 
@@ -795,6 +807,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("-c", captured["cmd"])
         self.assertIn('model="ciel-runtime-zai-glm-5.2[1m]"', captured["cmd"])
         self.assertEqual("ciel-runtime-router-local-key", captured["env"]["CIEL_RUNTIME_CODEX_API_KEY"])
+        self.assertIn("app-server", str(captured["pid_path"]))
 
     def test_launch_codex_app_server_native_uses_plain_provider_and_default_listen(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": False, "base_url": "https://api.openai.com", "current_model": ""}}}
@@ -805,9 +818,10 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["manage_router"] = manage_router
             return runner()
 
-        def subprocess_call(cmd, env):
+        def subprocess_call(cmd, env, pid_path=None):
             captured["cmd"] = cmd
             captured["env"] = env
+            captured["pid_path"] = pid_path
             return 0
 
         with (
@@ -826,7 +840,7 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "codex_app_server_default_listen_url", return_value="ws://127.0.0.1:8899"),
             mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
             mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
-            mock.patch.object(ciel_runtime.subprocess, "call", side_effect=subprocess_call),
+            mock.patch.object(ciel_runtime, "subprocess_call_with_child_pid_record", side_effect=subprocess_call),
         ):
             rc = ciel_runtime.launch_codex_app_server([], skip_menu=True)
 
@@ -835,6 +849,7 @@ class CodexRuntimeTests(unittest.TestCase):
         start_router.assert_not_called()
         self.assertEqual(["codex", "app-server", "--listen", "ws://127.0.0.1:8899"], captured["cmd"])
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
+        self.assertIn("app-server", str(captured["pid_path"]))
 
     def test_launch_codex_maps_continue_to_resume_last(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": ""}}}
@@ -925,6 +940,57 @@ class CodexRuntimeTests(unittest.TestCase):
         start_router.assert_not_called()
         self.assertEqual(["codex", "--yolo", "exec", "hello"], captured["cmd"])
         self.assertTrue(captured["wake_for_llm_delivery"])
+
+    def test_terminate_tracked_codex_processes_kills_recorded_child(self):
+        with tempfile.TemporaryDirectory() as td:
+            process_dir = Path(td) / "codex-processes"
+            process_dir.mkdir()
+            record = process_dir / "100-client.json"
+            record.write_text(json.dumps({"pid": 12345, "cmd": ["codex", "--yolo"]}), encoding="utf-8")
+
+            with (
+                mock.patch.object(ciel_runtime, "CODEX_PROCESS_DIR", process_dir),
+                mock.patch.object(ciel_runtime, "pid_is_running", return_value=True),
+                mock.patch.object(ciel_runtime, "_process_command_line", return_value="/usr/bin/node /usr/bin/codex --yolo"),
+                mock.patch.object(ciel_runtime, "_process_environ_contains", return_value=False),
+                mock.patch.object(ciel_runtime, "terminate_pid_tree", return_value=True) as terminate_tree,
+            ):
+                stopped = ciel_runtime.terminate_tracked_codex_processes("test", quiet=True)
+            record_exists_after = record.exists()
+
+        self.assertTrue(stopped)
+        terminate_tree.assert_called_once_with(12345, "previous Codex", quiet=True)
+        self.assertFalse(record_exists_after)
+
+    def test_child_pid_record_wrapper_terminates_child_on_interrupt(self):
+        class FakeProc:
+            pid = 23456
+
+            def wait(self, timeout=None):
+                if timeout is None:
+                    raise KeyboardInterrupt
+                return 0
+
+            def poll(self):
+                return None
+
+            def kill(self):
+                return None
+
+        with tempfile.TemporaryDirectory() as td:
+            record = Path(td) / "codex-processes" / "23456-client.json"
+            fake_proc = FakeProc()
+
+            with (
+                mock.patch.object(ciel_runtime.subprocess, "Popen", return_value=fake_proc),
+                mock.patch.object(ciel_runtime, "terminate_pid_tree", return_value=True) as terminate_tree,
+            ):
+                with self.assertRaises(KeyboardInterrupt):
+                    ciel_runtime.subprocess_call_with_child_pid_record(["codex", "--yolo"], {}, record)
+            record_exists_after = record.exists()
+
+        terminate_tree.assert_called_once_with(23456, "current Codex", quiet=True)
+        self.assertFalse(record_exists_after)
 
     def test_codex_mcp_config_writer_normalizes_http_servers_only(self):
         with tempfile.TemporaryDirectory() as td:
