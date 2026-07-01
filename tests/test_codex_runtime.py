@@ -438,6 +438,7 @@ class CodexRuntimeTests(unittest.TestCase):
             stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
             stack.enter_context(mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=codex_mcp_config))
             stack.enter_context(mock.patch.object(ciel_runtime, "codex_mcp_native_http_compat_args", return_value=compat_args))
+            terminate_clients = stack.enter_context(mock.patch.object(ciel_runtime, "terminate_existing_router_clients_for_launch", return_value=False))
             start_sse = stack.enter_context(mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]))
             stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True))
             stack.enter_context(mock.patch.object(ciel_runtime, "ensure_model_cache_for_launch"))
@@ -455,6 +456,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("mcp_servers.ai-net.type=null", captured["cmd"])
         self.assertNotIn("mcp_servers.ai-net.enabled=false", captured["cmd"])
         self.assertFalse(any("ciel-runtime-proxy" in str(arg) for arg in captured["cmd"]))
+        terminate_clients.assert_called_once_with("codex_prelaunch_active_clients", quiet=True)
         start_sse.assert_called_once_with(cfg, codex_mcp_config)
 
     def test_launch_codex_native_uses_plain_codex_command(self):
@@ -488,6 +490,7 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
             mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
+            mock.patch.object(ciel_runtime, "terminate_existing_router_clients_for_launch") as terminate_clients,
             mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "start_router_if_needed") as start_router,
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
@@ -503,6 +506,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertEqual(0, rc)
         self.assertFalse(captured["manage_router"])
         start_router.assert_not_called()
+        terminate_clients.assert_not_called()
         self.assertEqual(["codex", "--yolo", "exec", "hello"], captured["cmd"])
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
         self.assertTrue(captured["wake_for_llm_delivery"])
@@ -542,6 +546,7 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
             mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
+            mock.patch.object(ciel_runtime, "terminate_existing_router_clients_for_launch") as terminate_clients,
             mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
@@ -556,6 +561,7 @@ class CodexRuntimeTests(unittest.TestCase):
 
         self.assertEqual(0, rc)
         self.assertTrue(captured["manage_router"])
+        terminate_clients.assert_called_once_with("codex_prelaunch_active_clients", quiet=True)
         self.assertEqual(["codex", "--yolo"], captured["cmd"][:2])
         self.assertIn("model_provider=\"ciel-runtime-codex\"", captured["cmd"])
         self.assertIn(f"model_providers.ciel-runtime-codex.base_url=\"{ciel_runtime.ROUTER_BASE}/backend-api/codex\"", captured["cmd"])
@@ -955,7 +961,7 @@ args = ["server.py"]
             self.assertEqual("http", data["mcpServers"]["ai-net"]["type"])
             self.assertEqual("AINET_API_KEY", data["mcpServers"]["ai-net"]["bearer_token_env_var"])
 
-    def test_codex_mcp_native_http_compat_args_neutralizes_type_without_disabling_native_server(self):
+    def test_codex_mcp_native_http_compat_args_can_route_http_through_split_proxy(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             codex_home = root / ".codex"
@@ -987,6 +993,14 @@ bearer_token_env_var = "AINET_API_KEY"
             self.assertIn("mcp_servers.ai-net.type=null", args)
             self.assertNotIn("mcp_servers.ai-net.enabled=false", args)
             self.assertFalse(any("ciel-runtime-proxy" in str(arg) for arg in args))
+
+            with mock.patch.object(ciel_runtime, "ROUTER_BASE", "http://127.0.0.1:8800"):
+                split_args = ciel_runtime.codex_mcp_native_http_compat_args(codex_mcp_config, split_http_proxy=True)
+
+            self.assertIn("mcp_servers.ai-net.type=null", split_args)
+            self.assertIn('mcp_servers.ai-net.url="http://127.0.0.1:8800/ca/codex-mcp/ai-net"', split_args)
+            self.assertNotIn("mcp_servers.ai-net.enabled=false", split_args)
+            self.assertFalse(any("ciel-runtime-proxy" in str(arg) for arg in split_args))
 
     def test_mcp_runtime_headers_resolve_bearer_token_env_var(self):
         with mock.patch.dict("os.environ", {"AINET_API_KEY": "token-123"}, clear=False):

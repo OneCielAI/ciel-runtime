@@ -4417,6 +4417,78 @@ class ChannelBridgeTests(unittest.TestCase):
                 server.shutdown()
                 server.server_close()
 
+    def test_codex_mcp_split_proxy_forwards_post_without_upstream_get(self):
+        seen_posts: list[dict[str, object]] = []
+        seen_gets: list[dict[str, object]] = []
+
+        class UpstreamHandler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                return
+
+            def do_POST(self):
+                length = int(self.headers.get("Content-Length") or "0")
+                payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+                seen_posts.append({"method": payload.get("method"), "session": self.headers.get("Mcp-Session-Id")})
+                body = json.dumps({"jsonrpc": "2.0", "id": payload.get("id"), "result": {}}).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Mcp-Session-Id", "sess-upstream")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_GET(self):
+                seen_gets.append({"session": self.headers.get("Mcp-Session-Id"), "accept": self.headers.get("Accept")})
+                self.send_response(500)
+                self.end_headers()
+
+        upstream = ThreadingHTTPServer(("127.0.0.1", 0), UpstreamHandler)
+        router = ThreadingHTTPServer(("127.0.0.1", 0), ciel_runtime.RouterHandler)
+        threading.Thread(target=upstream.serve_forever, daemon=True).start()
+        threading.Thread(target=router.serve_forever, daemon=True).start()
+        try:
+            upstream_url = f"http://127.0.0.1:{upstream.server_address[1]}/mcp"
+            router_url = f"http://127.0.0.1:{router.server_address[1]}"
+            with tempfile.TemporaryDirectory(prefix="ca-codex-split-proxy-") as td:
+                config = Path(td) / "codex-mcp.json"
+                config.write_text(
+                    json.dumps({"mcpServers": {"ai-net": {"type": "http", "url": upstream_url}}}),
+                    encoding="utf-8",
+                )
+                with (
+                    mock.patch.object(ciel_runtime, "CODEX_MCP_CONFIG", config),
+                    mock.patch.object(ciel_runtime, "reject_external_router_request", return_value=False),
+                    mock.patch.dict(os.environ, {"CIEL_RUNTIME_CODEX_MCP_LOCAL_SSE_SECONDS": "0.01"}, clear=False),
+                ):
+                    post_req = ciel_runtime.urllib.request.Request(
+                        f"{router_url}/ca/codex-mcp/ai-net",
+                        data=b'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}',
+                        headers={"Content-Type": "application/json", "Mcp-Session-Id": "sess-client"},
+                        method="POST",
+                    )
+                    with ciel_runtime.urllib.request.urlopen(post_req, timeout=2) as response:
+                        post_body = json.loads(response.read().decode("utf-8"))
+                        returned_session = response.headers.get("Mcp-Session-Id")
+
+                    get_req = ciel_runtime.urllib.request.Request(
+                        f"{router_url}/ca/codex-mcp/ai-net",
+                        headers={"Accept": "text/event-stream", "Mcp-Session-Id": "sess-client"},
+                        method="GET",
+                    )
+                    with ciel_runtime.urllib.request.urlopen(get_req, timeout=2) as response:
+                        get_body = response.read().decode("utf-8")
+
+            self.assertEqual({"jsonrpc": "2.0", "id": 1, "result": {}}, post_body)
+            self.assertEqual("sess-upstream", returned_session)
+            self.assertEqual([{"method": "tools/list", "session": "sess-client"}], seen_posts)
+            self.assertEqual([], seen_gets)
+            self.assertIn("ciel-runtime owns upstream SSE", get_body)
+        finally:
+            router.shutdown()
+            router.server_close()
+            upstream.shutdown()
+            upstream.server_close()
+
     def test_mcp_proxy_streamable_http_waits_for_initialized_before_get(self):
         lock = threading.Lock()
         state = {"initialized": False}

@@ -10964,6 +10964,125 @@ def _mcp_streamable_post_json(
     return result, str(returned_session).strip() if returned_session else None
 
 
+CODEX_MCP_SPLIT_PROXY_PREFIX = "/ca/codex-mcp/"
+
+
+def codex_mcp_split_proxy_url(server_name: str) -> str:
+    return f"{ROUTER_BASE}{CODEX_MCP_SPLIT_PROXY_PREFIX}{urllib.parse.quote(str(server_name), safe='')}"
+
+
+def codex_mcp_split_proxy_server_name(path: str) -> str | None:
+    if not path.startswith(CODEX_MCP_SPLIT_PROXY_PREFIX):
+        return None
+    suffix = path[len(CODEX_MCP_SPLIT_PROXY_PREFIX):]
+    if not suffix or "/" in suffix:
+        return None
+    name = urllib.parse.unquote(suffix).strip()
+    return name or None
+
+
+def codex_mcp_split_proxy_server(path: str) -> tuple[str, dict[str, Any]] | None:
+    name = codex_mcp_split_proxy_server_name(path)
+    if not name:
+        return None
+    server = codex_streamable_http_mcp_servers(CODEX_MCP_CONFIG).get(name)
+    if not isinstance(server, dict):
+        return None
+    return name, server
+
+
+def _codex_mcp_split_proxy_upstream_url(server: dict[str, Any], query: str = "") -> str:
+    url = str(server.get("url") or server.get("endpoint") or "").strip()
+    if query:
+        separator = "&" if urllib.parse.urlparse(url).query else "?"
+        url = f"{url}{separator}{query}"
+    return url
+
+
+def _codex_mcp_split_proxy_headers(handler: BaseHTTPRequestHandler, server: dict[str, Any]) -> dict[str, str]:
+    out = mcp_server_runtime_headers(server)
+    skipped = {"host", "content-length", "connection", "transfer-encoding", "content-encoding"}
+    for key, value in handler.headers.items():
+        if str(key).lower() in skipped:
+            continue
+        out[str(key)] = str(value)
+    return out
+
+
+def codex_mcp_local_sse_hold_seconds() -> float:
+    raw = os.environ.get("CIEL_RUNTIME_CODEX_MCP_LOCAL_SSE_SECONDS", "3600")
+    try:
+        value = float(str(raw).strip())
+    except (TypeError, ValueError):
+        value = 3600.0
+    return max(0.0, min(24 * 3600.0, value))
+
+
+def handle_codex_mcp_split_proxy_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
+    resolved = codex_mcp_split_proxy_server(path)
+    if resolved is None:
+        return False
+    name, _server = resolved
+    handler.send_response(200)
+    handler.send_header("content-type", "text/event-stream")
+    handler.send_header("cache-control", "no-cache")
+    handler.send_header("connection", "close")
+    handler.end_headers()
+    router_log("INFO", f"codex_mcp_split_proxy_local_sse name={name} upstream_get=false")
+    deadline = time.time() + codex_mcp_local_sse_hold_seconds()
+    try:
+        while time.time() < deadline:
+            handler.wfile.write(b": ciel-runtime owns upstream SSE for this MCP server\n\n")
+            handler.wfile.flush()
+            time.sleep(min(15.0, max(0.05, deadline - time.time())))
+    except (BrokenPipeError, ConnectionError, ConnectionResetError):
+        pass
+    return True
+
+
+def handle_codex_mcp_split_proxy_request(
+    handler: BaseHTTPRequestHandler,
+    path: str,
+    raw_body: bytes,
+    method: str,
+) -> bool:
+    resolved = codex_mcp_split_proxy_server(path)
+    if resolved is None:
+        return False
+    name, server = resolved
+    parsed = urllib.parse.urlparse(handler.path)
+    upstream_url = _codex_mcp_split_proxy_upstream_url(server, parsed.query)
+    headers = _codex_mcp_split_proxy_headers(handler, server)
+    data = raw_body if method.upper() in {"POST", "PUT", "PATCH"} else None
+    try:
+        req = urllib.request.Request(upstream_url, data=data, headers=headers, method=method.upper())
+        with urllib.request.urlopen(req, timeout=120.0) as resp:
+            handler.send_response(getattr(resp, "status", 200))
+            _copy_upstream_response_headers(handler, resp.headers)
+            handler.end_headers()
+            while True:
+                chunk = resp.read(65536)
+                if not chunk:
+                    break
+                handler.wfile.write(chunk)
+                handler.wfile.flush()
+        router_log("INFO", f"codex_mcp_split_proxy_forwarded name={name} method={method.upper()} upstream={upstream_url}")
+    except urllib.error.HTTPError as exc:
+        raw = exc.read()
+        handler.send_response(exc.code)
+        _copy_upstream_response_headers(handler, exc.headers)
+        handler.end_headers()
+        if raw:
+            handler.wfile.write(raw)
+        router_log("WARN", f"codex_mcp_split_proxy_http_error name={name} method={method.upper()} status={exc.code}")
+    except Exception as exc:
+        if is_client_disconnect_error(exc):
+            return True
+        write_json(handler, {"error": {"message": f"{type(exc).__name__}: {exc}"}}, status=502)
+        router_log("WARN", f"codex_mcp_split_proxy_failed name={name} method={method.upper()} error={type(exc).__name__}: {exc}")
+    return True
+
+
 def _http_error_body_text(exc: urllib.error.HTTPError) -> str:
     try:
         data = exc.read()
@@ -19873,6 +19992,8 @@ class RouterHandler(BaseHTTPRequestHandler):
         cfg = load_config()
         if reject_external_router_request(self, cfg):
             return
+        if handle_codex_mcp_split_proxy_get(self, path):
+            return
         if handle_events_get(self, path, query):
             return
         if handle_llm_config_get(self, path):
@@ -19928,6 +20049,8 @@ class RouterHandler(BaseHTTPRequestHandler):
             return
         length = int(self.headers.get("content-length", "0") or 0)
         raw = self.rfile.read(length) if length else b"{}"
+        if handle_codex_mcp_split_proxy_request(self, path, raw, "POST"):
+            return
         body = parse_json_body(raw)
         if handle_llm_config_post(self, path, body):
             return
@@ -19937,6 +20060,16 @@ class RouterHandler(BaseHTTPRequestHandler):
             return
         provider, pcfg = get_current_provider(cfg)
         if route_runtime_post(self, cfg, provider, pcfg, path, body):
+            return
+        write_json(self, {"type": "error", "error": {"type": "not_found_error", "message": path}}, 404)
+        return
+
+    def do_DELETE(self) -> None:
+        path = urllib.parse.urlparse(self.path).path
+        cfg = load_config()
+        if reject_external_router_request(self, cfg):
+            return
+        if handle_codex_mcp_split_proxy_request(self, path, b"", "DELETE"):
             return
         write_json(self, {"type": "error", "error": {"type": "not_found_error", "message": path}}, 404)
         return
@@ -27083,6 +27216,17 @@ def terminate_active_router_clients(reason: str, active_clients: list[int] | Non
         f"router_active_clients_terminated reason={reason} clients={','.join(map(str, clients)) or '-'} stopped={str(stopped).lower()}",
     )
     return stopped
+
+
+def terminate_existing_router_clients_for_launch(reason: str, quiet: bool = True) -> bool:
+    active_clients = active_router_client_pids()
+    if not active_clients:
+        return False
+    router_log(
+        "WARN",
+        f"router_prelaunch_terminate_existing_clients reason={reason} active_clients={','.join(map(str, active_clients))}",
+    )
+    return terminate_active_router_clients(reason, active_clients, quiet=quiet)
 
 
 def terminate_pid_file(path: Path, label: str, quiet: bool = False) -> bool:
@@ -35335,7 +35479,7 @@ def codex_streamable_http_mcp_servers(codex_mcp_config: Path | None) -> dict[str
     return out
 
 
-def codex_mcp_native_http_compat_args(codex_mcp_config: Path | None) -> list[str]:
+def codex_mcp_native_http_compat_args(codex_mcp_config: Path | None, *, split_http_proxy: bool = False) -> list[str]:
     servers = codex_streamable_http_mcp_servers(codex_mcp_config)
     if not servers:
         return []
@@ -35348,9 +35492,15 @@ def codex_mcp_native_http_compat_args(codex_mcp_config: Path | None) -> list[str
             continue
         if server.get("type") is not None:
             args.extend(["-c", f"mcp_servers.{key}.type=null"])
+        if split_http_proxy:
+            args.extend(["-c", f"mcp_servers.{key}.url={toml_string(codex_mcp_split_proxy_url(name))}"])
         active.append(name)
     if active:
-        router_log("INFO", "codex_mcp_native_http_compat servers=%s" % ",".join(active))
+        router_log(
+            "INFO",
+            "codex_mcp_native_http_compat servers=%s split_http_proxy=%s"
+            % (",".join(active), str(bool(split_http_proxy)).lower()),
+        )
     return args
 
 
@@ -35522,10 +35672,12 @@ def launch_codex(
     use_native_codex = direct_native_codex_enabled(provider, pcfg)
     use_codex_routed = codex_routed_enabled(provider, pcfg)
     codex_mcp_config = write_codex_mcp_config_for_channel_discovery(codex_passthrough, env=env)
+    if not use_native_codex:
+        terminate_existing_router_clients_for_launch("codex_prelaunch_active_clients", quiet=True)
     manage_router_lifetime = False if use_native_codex else bool(start_router_if_needed())
     if not native_codex_enabled(provider):
         ensure_model_cache_for_launch(provider, pcfg)
-    codex_mcp_compat_args = codex_mcp_native_http_compat_args(codex_mcp_config)
+    codex_mcp_compat_args = codex_mcp_native_http_compat_args(codex_mcp_config, split_http_proxy=not use_native_codex)
     codex_yolo_args = codex_yolo_launch_args(codex_passthrough)
     if use_native_codex:
         cmd = [codex, *codex_yolo_args, *codex_current_model_cli_args(pcfg, codex_passthrough)]
@@ -35654,7 +35806,6 @@ def launch_codex_app_server(
     cfg = load_config()
     provider, pcfg = get_current_provider(cfg)
     codex_mcp_config = write_codex_mcp_config_for_channel_discovery(passthrough, env=env)
-    codex_mcp_compat_args = codex_mcp_native_http_compat_args(codex_mcp_config)
     if not codex_launch_enabled_for_provider(provider):
         print("Ciel Runtime Codex App Server launch blocked:", flush=True)
         print("- Select Codex or Codex routed as the provider before launching Codex App Server.", flush=True)
@@ -35668,6 +35819,8 @@ def launch_codex_app_server(
     cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
     use_native_codex = direct_native_codex_enabled(provider, pcfg)
     use_codex_routed = codex_routed_enabled(provider, pcfg)
+    if not use_native_codex:
+        terminate_existing_router_clients_for_launch("codex_app_server_prelaunch_active_clients", quiet=True)
     manage_router_lifetime = False if use_native_codex else bool(start_router_if_needed())
     if use_codex_routed:
         config_args = codex_native_routed_config_args()
@@ -35683,6 +35836,7 @@ def launch_codex_app_server(
         model = current_alias(cfg)
         if model and not codex_passthrough_has_model_override(passthrough):
             config_args = [*config_args, "-c", f"model={toml_string(model)}"]
+    codex_mcp_compat_args = codex_mcp_native_http_compat_args(codex_mcp_config, split_http_proxy=not use_native_codex)
     config_args = [*config_args, *codex_mcp_compat_args]
     listen_url = codex_app_server_default_listen_url()
     app_server_args = codex_app_server_launch_args(
@@ -35706,6 +35860,8 @@ def launch_codex_app_server(
     )
 
     def run_codex_app_server_process() -> int:
+        if not use_native_codex:
+            start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config)
         return subprocess.call(cmd, env=env)
 
     return run_with_router_lifetime(run_codex_app_server_process, manage_router_lifetime)
