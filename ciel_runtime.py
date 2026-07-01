@@ -27292,7 +27292,7 @@ def _looks_like_ciel_managed_codex_process(pid: int, command: str | None = None)
     if _process_environ_contains(pid, "CIEL_RUNTIME_CODEX_MANAGED", "1"):
         return True
     text = (command if command is not None else _process_command_line(pid)).lower()
-    return "codex" in text and "--yolo" in text
+    return "codex" in text and ("--yolo" in text or "app-server" in text)
 
 
 def _write_codex_child_process_record(path: Path | None, pid: int, cmd: list[str], cwd: Path | None = None) -> None:

@@ -962,6 +962,15 @@ class CodexRuntimeTests(unittest.TestCase):
         terminate_tree.assert_called_once_with(12345, "previous Codex", quiet=True)
         self.assertFalse(record_exists_after)
 
+    def test_codex_process_match_includes_app_server_without_yolo(self):
+        with mock.patch.object(ciel_runtime, "_process_environ_contains", return_value=False):
+            self.assertTrue(
+                ciel_runtime._looks_like_ciel_managed_codex_process(
+                    12345,
+                    "/home/user/.npm-global/bin/codex app-server --listen ws://127.0.0.1:8899",
+                )
+            )
+
     def test_child_pid_record_wrapper_terminates_child_on_interrupt(self):
         class FakeProc:
             pid = 23456
