@@ -22168,7 +22168,6 @@ def ensure_channel_probe_cache_for_launch(
 def start_codex_mcp_channel_sse_for_launch(
     cfg: dict[str, Any],
     codex_mcp_config: Path | None,
-    skip_server_names: Iterable[str] | None = None,
 ) -> list[dict[str, Any]]:
     if not codex_mcp_config or channel_delivery_mode(cfg) != "llm":
         return []
@@ -22187,23 +22186,20 @@ def start_codex_mcp_channel_sse_for_launch(
         for name in _server_names_from_channel_specs(channel_specs_for_launch(cfg, []))
         if name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES
     }
-    skipped = {str(name or "").strip() for name in (skip_server_names or []) if str(name or "").strip()}
     names = [
         name for name in candidate_names
         if name in capable
         and name not in explicit
-        and name not in skipped
         and name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES
     ]
     if not names:
         router_log(
             "INFO",
-            "codex_channel_sse_skipped reason=no_capable_unowned_codex_mcp candidates=%s capable=%s explicit=%s skipped=%s"
+            "codex_channel_sse_skipped reason=no_capable_unowned_codex_mcp candidates=%s capable=%s explicit=%s"
             % (
                 ",".join(candidate_names) or "-",
                 ",".join(sorted(capable)) or "-",
                 ",".join(sorted(explicit)) or "-",
-                ",".join(sorted(skipped)) or "-",
             ),
         )
         return []
@@ -34965,10 +34961,6 @@ def toml_string(value: str) -> str:
     return json.dumps(str(value))
 
 
-def toml_array(values: Iterable[Any]) -> str:
-    return "[" + ",".join(toml_string(str(value)) for value in values) + "]"
-
-
 def _codex_config_override_keys(passthrough: list[str]) -> set[str]:
     keys: set[str] = set()
     i = 0
@@ -35305,28 +35297,6 @@ def _codex_config_bare_key(name: str) -> str | None:
     return None
 
 
-def codex_mcp_proxy_alias(name: str) -> str:
-    base = re.sub(r"[^A-Za-z0-9_-]+", "-", str(name or "").strip()).strip("-") or "server"
-    return f"{base[:80]}-ciel-runtime-proxy"
-
-
-def _codex_mcp_proxy_inline_table(entry: dict[str, Any]) -> str:
-    command = str(entry.get("command") or "").strip()
-    args = entry.get("args") if isinstance(entry.get("args"), list) else []
-    parts = [f"command={toml_string(command)}", f"args={toml_array(args)}"]
-    env = entry.get("env")
-    if isinstance(env, dict) and env:
-        env_items = []
-        for key, value in sorted(env.items(), key=lambda item: str(item[0])):
-            env_key = _codex_config_bare_key(str(key))
-            if not env_key:
-                continue
-            env_items.append(f"{env_key}={toml_string(str(value))}")
-        if env_items:
-            parts.append("env={" + ",".join(env_items) + "}")
-    return "{" + ",".join(parts) + "}"
-
-
 def codex_channel_capable_mcp_server_names(cfg: dict[str, Any], codex_mcp_config: Path | None) -> list[str]:
     if not codex_mcp_config or not codex_mcp_config.exists() or not codex_mcp_config.is_file():
         return []
@@ -35346,72 +35316,42 @@ def codex_channel_capable_mcp_server_names(cfg: dict[str, Any], codex_mcp_config
     return _dedupe_strings(names)
 
 
-def codex_streamable_http_mcp_server_names(codex_mcp_config: Path | None) -> list[str]:
+def codex_streamable_http_mcp_servers(codex_mcp_config: Path | None) -> dict[str, dict[str, Any]]:
     if not codex_mcp_config or not codex_mcp_config.exists() or not codex_mcp_config.is_file():
-        return []
+        return {}
     try:
         data = json.loads(codex_mcp_config.read_text(encoding="utf-8"))
     except Exception as exc:
-        router_log("WARN", f"codex_mcp_proxy_source_read_failed error={type(exc).__name__}: {exc}")
-        return []
+        router_log("WARN", f"codex_mcp_compat_source_read_failed error={type(exc).__name__}: {exc}")
+        return {}
     servers = data.get("mcpServers") if isinstance(data, dict) else None
     if not isinstance(servers, dict):
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for raw_name, raw_server in servers.items():
+        name = str(raw_name).strip()
+        if name and isinstance(raw_server, dict) and _mcp_server_is_streamable_http(raw_server):
+            out[name] = raw_server
+    return out
+
+
+def codex_mcp_native_http_compat_args(codex_mcp_config: Path | None) -> list[str]:
+    servers = codex_streamable_http_mcp_servers(codex_mcp_config)
+    if not servers:
         return []
-    names = [
-        str(name).strip()
-        for name, server in servers.items()
-        if str(name).strip() and isinstance(server, dict) and _mcp_server_is_streamable_http(server)
-    ]
-    return _dedupe_strings(names)
-
-
-def codex_mcp_proxy_config_args(cfg: dict[str, Any], codex_mcp_config: Path | None) -> tuple[list[str], set[str]]:
-    names = codex_streamable_http_mcp_server_names(codex_mcp_config)
-    if not names or not codex_mcp_config:
-        return [], set()
-    proxied_names = {name for name in names if _codex_config_bare_key(name)}
-    skipped = sorted(set(names) - proxied_names)
-    if skipped:
-        router_log("WARN", "codex_mcp_proxy_skipped_unsafe_names servers=%s" % ",".join(skipped))
-    if not proxied_names:
-        return [], set()
-    proxy_config = write_mcp_proxy_config(
-        [],
-        extra_config_paths=[codex_mcp_config],
-        force_proxy_server_names=proxied_names,
-        disable_proxy_notification_stream_names=None,
-    )
-    if not proxy_config or not proxy_config.exists():
-        return [], set()
-    try:
-        data = json.loads(proxy_config.read_text(encoding="utf-8"))
-    except Exception as exc:
-        router_log("WARN", f"codex_mcp_proxy_config_read_failed error={type(exc).__name__}: {exc}")
-        return [], set()
-    servers = data.get("mcpServers") if isinstance(data, dict) else None
-    if not isinstance(servers, dict):
-        return [], set()
     args: list[str] = []
-    active: set[str] = set()
-    aliases: set[str] = set()
-    for name in sorted(proxied_names):
-        entry = servers.get(name)
-        if not isinstance(entry, dict) or not entry.get("command"):
-            continue
+    active: list[str] = []
+    for name, server in sorted(servers.items()):
         key = _codex_config_bare_key(name)
-        alias = _codex_config_bare_key(codex_mcp_proxy_alias(name))
-        if not key or not alias:
+        if not key:
+            router_log("WARN", f"codex_mcp_compat_skipped_unsafe_name server={name}")
             continue
-        while alias in proxied_names or alias in aliases:
-            alias = f"{alias}-proxy"
-        aliases.add(alias)
-        args.extend(["-c", f"mcp_servers.{key}.type=null"])
-        args.extend(["-c", f"mcp_servers.{key}.enabled=false"])
-        args.extend(["-c", f"mcp_servers.{alias}={_codex_mcp_proxy_inline_table(entry)}"])
-        active.add(name)
+        if server.get("type") is not None:
+            args.extend(["-c", f"mcp_servers.{key}.type=null"])
+        active.append(name)
     if active:
-        router_log("INFO", "codex_mcp_proxy_overrides servers=%s" % ",".join(sorted(active)))
-    return args, active
+        router_log("INFO", "codex_mcp_native_http_compat servers=%s" % ",".join(active))
+    return args
 
 
 def codex_alternate_screen_compat_args(passthrough: list[str], env: dict[str, str] | None = None, cwd: Path | None = None) -> list[str]:
@@ -35585,7 +35525,7 @@ def launch_codex(
     manage_router_lifetime = False if use_native_codex else bool(start_router_if_needed())
     if not native_codex_enabled(provider):
         ensure_model_cache_for_launch(provider, pcfg)
-    codex_mcp_proxy_args, codex_mcp_proxy_names = codex_mcp_proxy_config_args(cfg, codex_mcp_config)
+    codex_mcp_compat_args = codex_mcp_native_http_compat_args(codex_mcp_config)
     codex_yolo_args = codex_yolo_launch_args(codex_passthrough)
     if use_native_codex:
         cmd = [codex, *codex_yolo_args, *codex_current_model_cli_args(pcfg, codex_passthrough)]
@@ -35596,7 +35536,7 @@ def launch_codex(
         cmd = [codex, *codex_yolo_args, *codex_runtime_config_args()]
     log_codex_passthrough_mapping(codex_passthrough_notes)
     cmd.extend(codex_alternate_screen_compat_args(codex_passthrough, env=env))
-    cmd.extend(codex_mcp_proxy_args)
+    cmd.extend(codex_mcp_compat_args)
     if not native_codex_enabled(provider) and not has_passthrough_option(codex_passthrough, "-m", "--model"):
         model = current_alias(cfg)
         if model:
@@ -35611,7 +35551,7 @@ def launch_codex(
     )
 
     def run_codex_process() -> int:
-        start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config, skip_server_names=codex_mcp_proxy_names)
+        start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config)
         codex_synthetic_enter = None if _channel_wake_enter_env_is_fixed() else b"\r"
         return subprocess_call_with_channel_wake_proxy(
             cmd,
@@ -35714,7 +35654,7 @@ def launch_codex_app_server(
     cfg = load_config()
     provider, pcfg = get_current_provider(cfg)
     codex_mcp_config = write_codex_mcp_config_for_channel_discovery(passthrough, env=env)
-    codex_mcp_proxy_args, _codex_mcp_proxy_names = codex_mcp_proxy_config_args(cfg, codex_mcp_config)
+    codex_mcp_compat_args = codex_mcp_native_http_compat_args(codex_mcp_config)
     if not codex_launch_enabled_for_provider(provider):
         print("Ciel Runtime Codex App Server launch blocked:", flush=True)
         print("- Select Codex or Codex routed as the provider before launching Codex App Server.", flush=True)
@@ -35743,7 +35683,7 @@ def launch_codex_app_server(
         model = current_alias(cfg)
         if model and not codex_passthrough_has_model_override(passthrough):
             config_args = [*config_args, "-c", f"model={toml_string(model)}"]
-    config_args = [*config_args, *codex_mcp_proxy_args]
+    config_args = [*config_args, *codex_mcp_compat_args]
     listen_url = codex_app_server_default_listen_url()
     app_server_args = codex_app_server_launch_args(
         passthrough,
