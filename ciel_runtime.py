@@ -11018,6 +11018,10 @@ def codex_mcp_local_sse_hold_seconds() -> float:
     return max(0.0, min(24 * 3600.0, value))
 
 
+def codex_mcp_split_proxy_enabled() -> bool:
+    return env_bool(os.environ.get("CIEL_RUNTIME_CODEX_MCP_SPLIT_PROXY"), False)
+
+
 def handle_codex_mcp_split_proxy_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
     resolved = codex_mcp_split_proxy_server(path)
     if resolved is None:
@@ -35677,7 +35681,10 @@ def launch_codex(
     manage_router_lifetime = False if use_native_codex else bool(start_router_if_needed())
     if not native_codex_enabled(provider):
         ensure_model_cache_for_launch(provider, pcfg)
-    codex_mcp_compat_args = codex_mcp_native_http_compat_args(codex_mcp_config, split_http_proxy=not use_native_codex)
+    codex_mcp_compat_args = codex_mcp_native_http_compat_args(
+        codex_mcp_config,
+        split_http_proxy=(not use_native_codex and codex_mcp_split_proxy_enabled()),
+    )
     codex_yolo_args = codex_yolo_launch_args(codex_passthrough)
     if use_native_codex:
         cmd = [codex, *codex_yolo_args, *codex_current_model_cli_args(pcfg, codex_passthrough)]
@@ -35836,7 +35843,10 @@ def launch_codex_app_server(
         model = current_alias(cfg)
         if model and not codex_passthrough_has_model_override(passthrough):
             config_args = [*config_args, "-c", f"model={toml_string(model)}"]
-    codex_mcp_compat_args = codex_mcp_native_http_compat_args(codex_mcp_config, split_http_proxy=not use_native_codex)
+    codex_mcp_compat_args = codex_mcp_native_http_compat_args(
+        codex_mcp_config,
+        split_http_proxy=(not use_native_codex and codex_mcp_split_proxy_enabled()),
+    )
     config_args = [*config_args, *codex_mcp_compat_args]
     listen_url = codex_app_server_default_listen_url()
     app_server_args = codex_app_server_launch_args(
@@ -35859,8 +35869,10 @@ def launch_codex_app_server(
         str(pcfg.get("current_model") or ("" if native_codex_enabled(provider) else current_alias(cfg)) or ""),
     )
 
+    split_proxy_enabled = bool(not use_native_codex and codex_mcp_split_proxy_enabled())
+
     def run_codex_app_server_process() -> int:
-        if not use_native_codex:
+        if split_proxy_enabled:
             start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config)
         return subprocess.call(cmd, env=env)
 

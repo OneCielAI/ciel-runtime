@@ -437,7 +437,7 @@ class CodexRuntimeTests(unittest.TestCase):
             stack.enter_context(mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]))
             stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
             stack.enter_context(mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=codex_mcp_config))
-            stack.enter_context(mock.patch.object(ciel_runtime, "codex_mcp_native_http_compat_args", return_value=compat_args))
+            compat = stack.enter_context(mock.patch.object(ciel_runtime, "codex_mcp_native_http_compat_args", return_value=compat_args))
             terminate_clients = stack.enter_context(mock.patch.object(ciel_runtime, "terminate_existing_router_clients_for_launch", return_value=False))
             start_sse = stack.enter_context(mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]))
             stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True))
@@ -456,6 +456,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("mcp_servers.ai-net.type=null", captured["cmd"])
         self.assertNotIn("mcp_servers.ai-net.enabled=false", captured["cmd"])
         self.assertFalse(any("ciel-runtime-proxy" in str(arg) for arg in captured["cmd"]))
+        compat.assert_called_once_with(codex_mcp_config, split_http_proxy=False)
         terminate_clients.assert_called_once_with("codex_prelaunch_active_clients", quiet=True)
         start_sse.assert_called_once_with(cfg, codex_mcp_config)
 
@@ -1001,6 +1002,12 @@ bearer_token_env_var = "AINET_API_KEY"
             self.assertIn('mcp_servers.ai-net.url="http://127.0.0.1:8800/ca/codex-mcp/ai-net"', split_args)
             self.assertNotIn("mcp_servers.ai-net.enabled=false", split_args)
             self.assertFalse(any("ciel-runtime-proxy" in str(arg) for arg in split_args))
+
+    def test_codex_mcp_split_proxy_is_opt_in(self):
+        with mock.patch.dict("os.environ", {}, clear=True):
+            self.assertFalse(ciel_runtime.codex_mcp_split_proxy_enabled())
+        with mock.patch.dict("os.environ", {"CIEL_RUNTIME_CODEX_MCP_SPLIT_PROXY": "1"}, clear=True):
+            self.assertTrue(ciel_runtime.codex_mcp_split_proxy_enabled())
 
     def test_mcp_runtime_headers_resolve_bearer_token_env_var(self):
         with mock.patch.dict("os.environ", {"AINET_API_KEY": "token-123"}, clear=False):
