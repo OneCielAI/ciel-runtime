@@ -420,7 +420,7 @@ class CodexRuntimeTests(unittest.TestCase):
         codex_mcp_config = Path("codex-mcp.json")
         compat_args = [
             "-c",
-            "mcp_servers.ai-net.type=null",
+            "mcp_servers.ai-net.enabled=false",
         ]
         captured = {}
 
@@ -460,8 +460,8 @@ class CodexRuntimeTests(unittest.TestCase):
             rc = ciel_runtime.launch_codex(["exec", "hello"], skip_menu=True)
 
         self.assertEqual(0, rc)
-        self.assertIn("mcp_servers.ai-net.type=null", captured["cmd"])
-        self.assertNotIn("mcp_servers.ai-net.enabled=false", captured["cmd"])
+        self.assertIn("mcp_servers.ai-net.enabled=false", captured["cmd"])
+        self.assertNotIn("mcp_servers.ai-net.type=null", captured["cmd"])
         self.assertFalse(any("ciel-runtime-proxy" in str(arg) for arg in captured["cmd"]))
         channel_owned.assert_called_once_with(cfg, codex_mcp_config)
         compat.assert_called_once_with(codex_mcp_config, split_http_proxy=False, channel_owned_server_names=["ai-net"])
@@ -1068,14 +1068,14 @@ bearer_token_env_var = "AINET_API_KEY"
                 )
                 args = ciel_runtime.codex_mcp_native_http_compat_args(codex_mcp_config)
 
-            self.assertIn("mcp_servers.ai-net.type=null", args)
+            self.assertNotIn("mcp_servers.ai-net.type=null", args)
             self.assertNotIn("mcp_servers.ai-net.enabled=false", args)
             self.assertFalse(any("ciel-runtime-proxy" in str(arg) for arg in args))
 
             with mock.patch.object(ciel_runtime, "ROUTER_BASE", "http://127.0.0.1:8800"):
                 split_args = ciel_runtime.codex_mcp_native_http_compat_args(codex_mcp_config, split_http_proxy=True)
 
-            self.assertIn("mcp_servers.ai-net.type=null", split_args)
+            self.assertNotIn("mcp_servers.ai-net.type=null", split_args)
             self.assertIn('mcp_servers.ai-net.url="http://127.0.0.1:8800/ca/codex-mcp/ai-net"', split_args)
             self.assertNotIn("mcp_servers.ai-net.enabled=false", split_args)
             self.assertFalse(any("ciel-runtime-proxy" in str(arg) for arg in split_args))
@@ -1116,7 +1116,7 @@ Authorization = "SUPABASE_MCP_AUTHORIZATION"
         self.assertNotIn("mcp_servers.supabase.type=null", split_args)
         self.assertIn('mcp_servers.supabase.url="http://127.0.0.1:8800/ca/codex-mcp/supabase"', split_args)
 
-    def test_codex_mcp_native_http_compat_nulls_implicit_channel_owned_http_server(self):
+    def test_codex_mcp_native_http_compat_disables_implicit_channel_owned_http_server(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             codex_home = root / ".codex"
@@ -1146,8 +1146,8 @@ bearer_token_env_var = "AINET_API_KEY"
                     channel_owned_server_names=["ai-net"],
                 )
 
-        self.assertIn("mcp_servers.ai-net.type=null", args)
-        self.assertNotIn("mcp_servers.ai-net.enabled=false", args)
+        self.assertIn("mcp_servers.ai-net.enabled=false", args)
+        self.assertNotIn("mcp_servers.ai-net.type=null", args)
 
     def test_codex_mcp_split_proxy_is_opt_in(self):
         with mock.patch.dict("os.environ", {}, clear=True):

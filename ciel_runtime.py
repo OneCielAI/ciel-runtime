@@ -36391,11 +36391,8 @@ def codex_mcp_native_http_compat_args(
         if not key:
             router_log("WARN", f"codex_mcp_compat_skipped_unsafe_name server={name}")
             continue
-        if (
-            _channel_sse_public_mcp_name(name) in channel_owned
-            or (server.get("_ciel_runtime_explicit_type") and server.get("type") is not None)
-        ):
-            args.extend(["-c", f"mcp_servers.{key}.type=null"])
+        if _channel_sse_public_mcp_name(name) in channel_owned:
+            args.extend(["-c", f"mcp_servers.{key}.enabled=false"])
         if split_http_proxy:
             args.extend(["-c", f"mcp_servers.{key}.url={toml_string(codex_mcp_split_proxy_url(name))}"])
         active.append(name)
