@@ -110,14 +110,14 @@ class KimiProviderTests(unittest.TestCase):
         self.assertEqual(600000, pcfg["request_timeout_ms"])
         self.assertTrue(pcfg["native_compat"])
 
-    def test_kimi_keeps_forced_tool_choice_by_default(self):
+    def test_kimi_downgrades_forced_tool_choice_to_auto_by_default(self):
         pcfg = self.kimi_cfg()["providers"]["kimi"]
         body = ciel_runtime.compatibility_tool_request("kimi-for-coding")
 
         out = ciel_runtime.normalize_tool_choice_for_provider("kimi", pcfg, body)
 
-        self.assertIs(out, body)
-        self.assertIn("tool_choice", out)
+        self.assertIsNot(out, body)
+        self.assertEqual({"type": "auto"}, out["tool_choice"])
 
     def test_kimi_tool_choice_can_still_be_disabled(self):
         pcfg = self.kimi_cfg(supports_tool_choice=False)["providers"]["kimi"]
@@ -138,6 +138,50 @@ class KimiProviderTests(unittest.TestCase):
         self.assertTrue(pcfg["normalize_anthropic_tool_use"])
         self.assertTrue(pcfg["supports_tool_choice"])
         self.assertTrue(cfg["migrations"]["kimi_forward_tool_choice_20260628"])
+
+    def test_kimi_claude_path_sends_mcp_tools_with_auto_tool_choice(self):
+        pcfg = self.kimi_cfg()["providers"]["kimi"]
+        body = {
+            "model": "ciel-runtime-kimi-kimi-for-coding",
+            "messages": [{"role": "user", "content": [{"type": "text", "text": "read ai-net"}]}],
+            "tools": [
+                {
+                    "name": "mcp__ai-net-http__get_messages",
+                    "description": "read messages",
+                    "input_schema": {"type": "object", "properties": {"room_id": {"type": "string"}}},
+                }
+            ],
+            "tool_choice": {"type": "any"},
+        }
+
+        normalized = ciel_runtime.normalize_request_for_provider_wire("kimi", pcfg, body)
+        req = ciel_runtime.openai_compatible_chat_request("kimi", "kimi-for-coding", normalized, pcfg)
+
+        self.assertEqual("auto", req["tool_choice"])
+        self.assertEqual("mcp__ai-net-http__get_messages", req["tools"][0]["function"]["name"])
+
+    def test_kimi_codex_responses_path_sends_mcp_tools_with_auto_tool_choice(self):
+        pcfg = self.kimi_cfg()["providers"]["kimi"]
+        body = {
+            "model": "kimi-for-coding",
+            "input": "read ai-net",
+            "tools": [
+                {
+                    "type": "function",
+                    "name": "mcp__ai-net-http__get_messages",
+                    "description": "read messages",
+                    "parameters": {"type": "object", "properties": {"room_id": {"type": "string"}}},
+                }
+            ],
+            "tool_choice": "required",
+        }
+
+        anthropic = ciel_runtime.openai_responses_to_anthropic_messages(body, "kimi-for-coding")
+        normalized = ciel_runtime.normalize_request_for_provider_wire("kimi", pcfg, anthropic)
+        req = ciel_runtime.openai_compatible_chat_request("kimi", "kimi-for-coding", normalized, pcfg)
+
+        self.assertEqual("auto", req["tool_choice"])
+        self.assertEqual("mcp__ai-net-http__get_messages", req["tools"][0]["function"]["name"])
 
     def test_kimi_preserves_thinking_while_normalizing_tool_use_stream(self):
         class FakeHandler:

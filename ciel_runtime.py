@@ -4845,6 +4845,18 @@ def provider_tool_choice_status(provider: str, pcfg: dict[str, Any]) -> str:
 def normalize_tool_choice_for_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
     if body.get("tool_choice") is None:
         return body
+    if provider == "kimi" and pcfg.get("supports_tool_choice") is not False:
+        tool_choice = body.get("tool_choice")
+        if isinstance(tool_choice, dict):
+            choice_type = str(tool_choice.get("type") or "").strip().lower()
+            if choice_type in ("any", "tool"):
+                out = dict(body)
+                out["tool_choice"] = {"type": "auto"}
+                router_log(
+                    "WARN",
+                    f"downgraded unsupported forced tool_choice for kimi to auto: model={body.get('model')} tool_choice={tool_choice}",
+                )
+                return out
     if provider_supports_tool_choice(provider, pcfg, body):
         return body
     out = dict(body)
