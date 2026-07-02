@@ -165,6 +165,7 @@ CHANNEL_MCP_CONFIG = CONFIG_DIR / "channel-mcp.json"
 NATIVE_MCP_CONFIG = CONFIG_DIR / "native-mcp.json"
 CODEX_MCP_CONFIG = CONFIG_DIR / "codex-mcp.json"
 CODEX_PROCESS_DIR = CONFIG_DIR / "codex-processes"
+CODEX_PROMPTS_DIR_NAME = "prompts"
 CHANNEL_MCP_CURSOR_PATH = CONFIG_DIR / "channel-mcp-cursor.json"
 CHANNEL_LLM_CURSOR_PATH = CONFIG_DIR / "channel-llm-cursor.json"
 CHANNEL_LLM_CLEAR_FLOOR_PATH = CONFIG_DIR / "channel-llm-clear-floor.json"
@@ -4120,6 +4121,20 @@ Arguments:
 $ARGUMENTS
 """
 
+IMPORT_SESSION_SLASH_COMMAND = """---
+description: Import a Claude/Codex session transcript into this session
+argument-hint: Codex|Claude [transcript-path]
+---
+
+CIEL_RUNTIME_IMPORT_SESSION
+
+Target: $1
+Path: $2
+Arguments: $ARGUMENTS
+
+Import a session transcript into the current Ciel Runtime-routed session. `Target` names the source transcript format and must be `Codex` or `Claude`.
+"""
+
 CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS = (
     "CIEL_RUNTIME_ADVISOR_CALL",
     "Run the selected ciel-runtime Advisor Model",
@@ -4147,6 +4162,10 @@ CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS = (
     "CIEL_RUNTIME_LIVE_API_KEYS",
     "Set/show ciel-runtime live API key(s)",
 )
+CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS = (
+    "CIEL_RUNTIME_IMPORT_SESSION",
+    "Import a Claude/Codex session transcript",
+)
 LEGACY_MARKER_PREFIX = "CLAUDE" + "_ANY"
 LEGACY_ADVISOR_CALL_MARKER = LEGACY_MARKER_PREFIX + "_ADVISOR_CALL"
 LEGACY_ROUTER_DEBUG_ACCESS_MARKER = LEGACY_MARKER_PREFIX + "_ROUTER_DEBUG_ACCESS"
@@ -4159,6 +4178,7 @@ VERSION_REQUEST_MARKERS = ("CIEL_RUNTIME_VERSION_STATUS",)
 LIVE_LLM_OPTIONS_REQUEST_MARKERS = ("CIEL_RUNTIME_LIVE_LLM_OPTIONS", LEGACY_LIVE_LLM_OPTIONS_MARKER)
 CHANNEL_CLEAR_REQUEST_MARKERS = ("CIEL_RUNTIME_CHANNEL_CLEAR_BACKLOG", LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER)
 LIVE_API_KEYS_REQUEST_MARKERS = ("CIEL_RUNTIME_LIVE_API_KEYS", LEGACY_LIVE_API_KEYS_MARKER)
+IMPORT_SESSION_REQUEST_MARKERS = ("CIEL_RUNTIME_IMPORT_SESSION",)
 
 CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS = (*CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS, LEGACY_ADVISOR_CALL_MARKER)
 CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS = (*CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS, LEGACY_ROUTER_DEBUG_ACCESS_MARKER)
@@ -4186,6 +4206,42 @@ def remove_ciel_runtime_advisor_command() -> None:
         print(f"Ciel Runtime warning: could not remove ciel-runtime /advisor command ({type(exc).__name__}: {exc}).", flush=True)
 
 
+def codex_prompts_dir(env: dict[str, str] | None = None) -> Path:
+    raw_home = (env or os.environ).get("CODEX_HOME")
+    home = Path(raw_home).expanduser() if raw_home else HOME / ".codex"
+    return home / CODEX_PROMPTS_DIR_NAME
+
+
+def install_ciel_runtime_codex_prompts(env: dict[str, str] | None = None) -> None:
+    try:
+        prompts_dir = codex_prompts_dir(env)
+        prompts_dir.mkdir(parents=True, exist_ok=True)
+        path = prompts_dir / "ImportSession.md"
+        if path.exists():
+            existing = path.read_text(encoding="utf-8", errors="replace")
+            if existing == IMPORT_SESSION_SLASH_COMMAND:
+                return
+            if not command_file_is_ciel_runtime_owned(path, CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS):
+                return
+        path.write_text(IMPORT_SESSION_SLASH_COMMAND, encoding="utf-8")
+        try:
+            os.chmod(path, 0o600)
+        except Exception:
+            pass
+    except Exception as exc:
+        print(f"Ciel Runtime warning: could not install Codex ImportSession prompt ({type(exc).__name__}: {exc}).", flush=True)
+
+
+def disable_ciel_runtime_codex_prompts_for_native(env: dict[str, str] | None = None) -> None:
+    try:
+        prompts_dir = codex_prompts_dir(env)
+        path = prompts_dir / "ImportSession.md"
+        if path.exists() and command_file_is_ciel_runtime_owned(path, CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS):
+            path.unlink()
+    except Exception as exc:
+        print(f"Ciel Runtime warning: could not remove Codex ImportSession prompt for native mode ({type(exc).__name__}: {exc}).", flush=True)
+
+
 def install_ciel_runtime_slash_commands(include_advisor: bool = True) -> None:
     try:
         CLAUDE_COMMANDS_DIR.mkdir(parents=True, exist_ok=True)
@@ -4198,6 +4254,7 @@ def install_ciel_runtime_slash_commands(include_advisor: bool = True) -> None:
             "channel-clear.md": CHANNEL_CLEAR_SLASH_COMMAND,
             "api-key.md": API_KEYS_SLASH_COMMAND,
             "api-keys.md": API_KEYS_SLASH_COMMAND,
+            "ImportSession.md": IMPORT_SESSION_SLASH_COMMAND,
         }
         if include_advisor:
             commands["advisor.md"] = ADVISOR_SLASH_COMMAND
@@ -4234,6 +4291,8 @@ def install_ciel_runtime_slash_commands(include_advisor: bool = True) -> None:
                     if name == "llm.md" or name == "llm-options.md" or name == "llm-restore.md" or name.startswith("llm-")
                     else CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS
                     if name in {"api-key.md", "api-keys.md"}
+                    else CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS
+                    if name == "ImportSession.md"
                     else CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS
                 )
                 if existing == content:
@@ -4263,6 +4322,7 @@ def disable_ciel_runtime_slash_commands_for_native() -> None:
             "channel-clear.md": CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS,
             "api-key.md": CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS,
             "api-keys.md": CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS,
+            "ImportSession.md": CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS,
         }
         for name, markers in commands.items():
             path = CLAUDE_COMMANDS_DIR / name
@@ -13244,6 +13304,10 @@ def is_live_api_keys_request(body: dict[str, Any]) -> bool:
     return latest_user_text_has_marker(body, LIVE_API_KEYS_REQUEST_MARKERS)
 
 
+def is_import_session_request(body: dict[str, Any]) -> bool:
+    return latest_user_text_has_marker(body, IMPORT_SESSION_REQUEST_MARKERS)
+
+
 def parse_channel_bridge_args(raw: str) -> tuple[str, dict[str, str]]:
     text = (raw or "").strip()
     if not text:
@@ -13389,6 +13453,96 @@ def live_api_keys_value_from_body(body: dict[str, Any]) -> str:
     if not fallback or fallback in placeholder_values:
         return "status"
     return fallback
+
+
+def _placeholder_import_value(value: str) -> bool:
+    text = str(value or "").strip()
+    return text in {"", "$0", "${0}", "$1", "${1}", "$2", "${2}", "$ARGUMENTS", "${ARGUMENTS}"}
+
+
+def _strip_wrapping_quotes(value: str) -> str:
+    text = str(value or "").strip()
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {"'", '"'}:
+        return text[1:-1]
+    return text
+
+
+def _split_import_session_arguments(value: str) -> tuple[str, str]:
+    raw = str(value or "").strip()
+    if not raw:
+        return "", ""
+    try:
+        parts = shlex.split(raw, posix=(os.name != "nt"))
+        parts = [_strip_wrapping_quotes(part) for part in parts]
+    except Exception:
+        parts = raw.split()
+    if not parts:
+        return "", ""
+    target = parts[0].strip()
+    path_parts: list[str] = []
+    i = 1
+    while i < len(parts):
+        part = str(parts[i]).strip()
+        low = part.lower()
+        if low in {"--path", "-p", "path", "file", "transcript"} and i + 1 < len(parts):
+            path_parts = [str(parts[i + 1])]
+            i += 2
+            continue
+        if low.startswith(("--path=", "path=", "file=", "transcript=")):
+            path_parts = [part.split("=", 1)[1]]
+            i += 1
+            continue
+        path_parts.append(part)
+        i += 1
+    return target, _strip_wrapping_quotes(" ".join(path_parts).strip())
+
+
+def import_session_args_from_body(body: dict[str, Any]) -> tuple[str, str]:
+    tail = latest_user_text_marker_tail(body, IMPORT_SESSION_REQUEST_MARKERS)
+    if not tail:
+        return "", ""
+    target = ""
+    path = ""
+    argument_lines: list[str] = []
+    capture_arguments = False
+    for line in tail.splitlines():
+        stripped = line.strip()
+        if capture_arguments:
+            if stripped and not _placeholder_import_value(stripped):
+                argument_lines.append(stripped)
+            continue
+        lowered = stripped.lower()
+        if lowered.startswith(("target:", "source:", "format:", "runtime:")):
+            value = stripped.split(":", 1)[1].strip()
+            if not _placeholder_import_value(value):
+                target = value
+            continue
+        if lowered.startswith(("path:", "file:", "transcript:")):
+            value = stripped.split(":", 1)[1].strip()
+            if not _placeholder_import_value(value):
+                path = _strip_wrapping_quotes(value)
+            continue
+        if lowered.startswith("arguments:"):
+            capture_arguments = True
+            value = stripped.split(":", 1)[1].strip()
+            if value and not _placeholder_import_value(value):
+                argument_lines.append(value)
+            continue
+    arg_target, arg_path = _split_import_session_arguments("\n".join(argument_lines).strip())
+    if arg_target:
+        target = arg_target
+    if arg_path:
+        path = arg_path
+    if not target:
+        fallback = "\n".join(
+            line
+            for line in tail.splitlines()
+            if not line.strip().lower().startswith(("target:", "source:", "format:", "runtime:", "path:", "file:", "transcript:", "arguments:"))
+        ).strip()
+        arg_target, arg_path = _split_import_session_arguments(fallback)
+        target = arg_target
+        path = path or arg_path
+    return target.strip(), _strip_wrapping_quotes(path)
 
 
 def advisor_focus_from_body(body: dict[str, Any]) -> str:
@@ -16204,6 +16358,255 @@ def prepend_anthropic_text(message: dict[str, Any], text: str) -> dict[str, Any]
     blocks.insert(0, {"type": "text", "text": text})
     out["content"] = blocks
     return out
+
+
+def import_session_max_bytes() -> int:
+    return max(4096, positive_env_int("CIEL_RUNTIME_IMPORT_SESSION_MAX_BYTES", 512 * 1024))
+
+
+def import_session_max_chars() -> int:
+    return max(4096, positive_env_int("CIEL_RUNTIME_IMPORT_SESSION_MAX_CHARS", 240000))
+
+
+def normalize_import_session_source(value: str) -> str:
+    low = re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
+    if low in {"codex", "openai", "codexcli"}:
+        return "codex"
+    if low in {"claude", "claudecode", "anthropic"}:
+        return "claude"
+    return ""
+
+
+def latest_import_session_transcript_path(source: str) -> Path | None:
+    if source == "claude":
+        roots = [(HOME / ".claude" / "projects", "*/*.jsonl")]
+    elif source == "codex":
+        codex_home = Path(os.environ.get("CODEX_HOME") or (HOME / ".codex")).expanduser()
+        roots = [(codex_home / "sessions", "**/*.jsonl")]
+    else:
+        return None
+    latest: Path | None = None
+    latest_mtime = -1.0
+    for root, pattern in roots:
+        try:
+            paths = root.glob(pattern)
+        except Exception:
+            continue
+        for path in paths:
+            try:
+                if not path.is_file():
+                    continue
+                mtime = path.stat().st_mtime
+            except OSError:
+                continue
+            if mtime > latest_mtime:
+                latest = path
+                latest_mtime = mtime
+    return latest
+
+
+def resolve_import_session_transcript_path(source: str, path_text: str) -> tuple[Path | None, str]:
+    raw = str(path_text or "").strip()
+    if not raw:
+        latest = latest_import_session_transcript_path(source)
+        if latest is None:
+            return None, f"No {source} transcript path was provided and no recent {source} transcript was found."
+        return latest, ""
+    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", raw):
+        return None, "ImportSession only reads local transcript files, not URLs."
+    path = Path(os.path.expandvars(raw)).expanduser()
+    if path.is_dir():
+        latest: Path | None = None
+        latest_mtime = -1.0
+        try:
+            candidates = path.glob("**/*.jsonl")
+        except Exception as exc:
+            return None, f"Could not scan transcript directory: {type(exc).__name__}: {exc}"
+        for candidate in candidates:
+            try:
+                if candidate.is_file() and candidate.stat().st_mtime > latest_mtime:
+                    latest = candidate
+                    latest_mtime = candidate.stat().st_mtime
+            except OSError:
+                continue
+        if latest is None:
+            return None, f"No .jsonl transcript files found under {path}."
+        return latest, ""
+    if not path.exists():
+        return None, f"Transcript file not found: {path}"
+    if not path.is_file():
+        return None, f"Transcript path is not a regular file: {path}"
+    return path, ""
+
+
+def _import_session_tool_text(record: dict[str, Any]) -> str:
+    record_type = str(record.get("type") or "")
+    payload = record.get("payload")
+    payload_obj = payload if isinstance(payload, dict) else {}
+    payload_type = str(payload_obj.get("type") or "")
+    if record_type == "response_item" and payload_type in {"function_call", "custom_tool_call", "local_shell_call"}:
+        name = str(payload_obj.get("name") or payload_obj.get("tool_name") or payload_type).strip()
+        args = payload_obj.get("arguments")
+        if not isinstance(args, str):
+            args = json.dumps(args, ensure_ascii=False, default=str) if args is not None else ""
+        return f"tool_call {name}: {args}".strip()
+    if record_type == "response_item" and payload_type in {"function_call_output", "custom_tool_call_output", "local_shell_call_output"}:
+        text = _channel_transcript_content_text(payload_obj.get("output") or payload_obj.get("content") or payload_obj.get("message"))
+        return f"tool_result: {text}".strip() if text else "tool_result"
+    message = record.get("message")
+    message_obj = message if isinstance(message, dict) else {}
+    content = message_obj.get("content")
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "tool_use":
+                parts.append(f"tool_call {block.get('name') or 'tool'}: {json.dumps(block.get('input') or {}, ensure_ascii=False, default=str)}")
+            elif block.get("type") == "tool_result":
+                text = _channel_transcript_content_text(block.get("content"))
+                parts.append(f"tool_result: {text}".strip())
+        return "\n".join(part for part in parts if part)
+    return ""
+
+
+def _import_session_record_to_line(record: dict[str, Any]) -> str:
+    user_text = _channel_transcript_user_text(record).strip()
+    if user_text:
+        return "User: " + user_text
+    if _channel_transcript_is_assistant_message(record):
+        message = record.get("message")
+        message_obj = message if isinstance(message, dict) else {}
+        payload = record.get("payload")
+        payload_obj = payload if isinstance(payload, dict) else {}
+        text = _channel_transcript_content_text(message_obj.get("content")).strip()
+        if not text:
+            text = _channel_transcript_content_text(payload_obj.get("content") or payload_obj.get("message")).strip()
+        if text:
+            return "Assistant: " + text
+    tool_text = _import_session_tool_text(record).strip()
+    if tool_text:
+        return "Tool: " + tool_text
+    return ""
+
+
+def read_import_session_transcript(source: str, path: Path) -> tuple[str, dict[str, Any]]:
+    max_bytes = import_session_max_bytes()
+    max_chars = import_session_max_chars()
+    size = path.stat().st_size
+    truncated_bytes = size > max_bytes
+    with path.open("rb") as f:
+        if truncated_bytes:
+            f.seek(max(0, size - max_bytes))
+        raw = f.read(max_bytes)
+    text = raw.decode("utf-8", errors="replace")
+    lines: list[str] = []
+    parsed_jsonl = False
+    for raw_line in text.splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        try:
+            record = json.loads(stripped)
+        except Exception:
+            continue
+        if not isinstance(record, dict):
+            continue
+        parsed_jsonl = True
+        line = _import_session_record_to_line(record)
+        if line:
+            lines.append(line)
+    imported = "\n\n".join(lines).strip() if parsed_jsonl else text.strip()
+    truncated_chars = len(imported) > max_chars
+    if truncated_chars:
+        imported = imported[-max_chars:].lstrip()
+    return imported, {
+        "source": source,
+        "path": str(path),
+        "bytes": size,
+        "bytes_read": len(raw),
+        "byte_truncated": truncated_bytes,
+        "char_truncated": truncated_chars,
+        "jsonl": parsed_jsonl,
+        "records": len(lines),
+    }
+
+
+def import_session_response_text(client_runtime: str, body: dict[str, Any]) -> str:
+    raw_source, raw_path = import_session_args_from_body(body)
+    source = normalize_import_session_source(raw_source)
+    if not source:
+        return "Usage: `/ImportSession Codex [transcript-path]` or `/ImportSession Claude [transcript-path]`."
+    if client_runtime == "claude" and source == "claude":
+        return "Claude transcript import into a Claude session is blocked. Use Claude Code's native resume/continue flow for Claude-to-Claude sessions. Use ImportSession for cross-runtime import, for example `/ImportSession Codex <path>`."
+    path, error = resolve_import_session_transcript_path(source, raw_path)
+    if error or path is None:
+        return f"ImportSession failed: {error}"
+    try:
+        imported, meta = read_import_session_transcript(source, path)
+    except Exception as exc:
+        return f"ImportSession failed while reading {path}: {type(exc).__name__}: {exc}"
+    if not imported:
+        return f"ImportSession found no importable transcript content in {path}."
+    warnings: list[str] = []
+    if meta.get("byte_truncated"):
+        warnings.append(f"read tail only: {meta.get('bytes_read'):,}/{meta.get('bytes'):,} bytes")
+    if meta.get("char_truncated"):
+        warnings.append(f"trimmed to last {import_session_max_chars():,} chars")
+    warning_text = "\n".join(f"- warning: {line}" for line in warnings)
+    header = [
+        "Ciel Runtime ImportSession completed.",
+        f"- current client: {client_runtime}",
+        f"- source transcript format: {source}",
+        f"- transcript: {path}",
+        f"- parsed jsonl: {str(bool(meta.get('jsonl'))).lower()}",
+        f"- imported records: {meta.get('records')}",
+    ]
+    if warning_text:
+        header.append(warning_text)
+    header.append("")
+    header.append("Imported transcript context:")
+    header.append(f"<ciel-runtime-imported-session source=\"{source}\" path=\"{path}\">")
+    header.append(imported)
+    header.append("</ciel-runtime-imported-session>")
+    return "\n".join(header)
+
+
+def maybe_handle_import_session_request(
+    handler: BaseHTTPRequestHandler,
+    body: dict[str, Any],
+    *,
+    client_runtime: str,
+    response_format: str = "anthropic",
+    source_body: dict[str, Any] | None = None,
+) -> bool:
+    if not is_import_session_request(body):
+        return False
+    text = import_session_response_text(client_runtime, body)
+    model = str(body.get("model") or current_alias(load_config()))
+    stream = bool((source_body or body).get("stream", True))
+    if response_format == "openai":
+        message = {
+            "id": f"msg_ciel_runtime_import_{uuid.uuid4().hex[:12]}",
+            "type": "message",
+            "role": "assistant",
+            "model": model,
+            "content": [{"type": "text", "text": text}],
+            "stop_reason": "end_turn",
+            "usage": {"input_tokens": 1, "output_tokens": max(1, estimate_tokens({"text": text}))},
+        }
+        write_openai_responses_response(handler, message, source_body=source_body or body, stream=stream)
+    else:
+        write_anthropic_text_response(handler, model, text, stream)
+    EVENT_BUS.publish(
+        level="info",
+        category="import_session.short_circuit",
+        message="ImportSession request handled locally",
+        provider=get_current_provider(load_config())[0],
+        model=model,
+        data={"client_runtime": client_runtime},
+    )
+    return True
 
 
 def maybe_handle_advisor_request(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> bool:
@@ -19792,6 +20195,15 @@ def handle_openai_responses_post(
     pcfg: dict[str, Any],
     body: dict[str, Any],
 ) -> None:
+    import_check_body = openai_responses_to_anthropic_messages(body, current_alias(cfg))
+    if maybe_handle_import_session_request(
+        handler,
+        import_check_body,
+        client_runtime="codex",
+        response_format="openai",
+        source_body=body,
+    ):
+        return
     if codex_routed_enabled(provider, pcfg):
         request_id = f"{os.getpid()}-{time.time_ns()}"
         EVENT_BUS.publish(
@@ -19825,7 +20237,7 @@ def handle_openai_responses_post(
             write_openai_responses_error(handler, f"{type(exc).__name__}: {exc}", stream=bool(body.get("stream", True)))
         return
     stream = bool(body.get("stream", True))
-    anthropic_body = openai_responses_to_anthropic_messages(body, current_alias(cfg))
+    anthropic_body = import_check_body
     _update_tool_schema_registry(anthropic_body.get("tools"))
     anthropic_body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, anthropic_body)
     request_id = f"{os.getpid()}-{time.time_ns()}"
@@ -35937,6 +36349,10 @@ def launch_codex(
     use_native_codex = direct_native_codex_enabled(provider, pcfg)
     use_codex_routed = codex_routed_enabled(provider, pcfg)
     launch_cwd = Path.cwd()
+    if use_native_codex:
+        disable_ciel_runtime_codex_prompts_for_native(env)
+    else:
+        install_ciel_runtime_codex_prompts(env)
     codex_mcp_config = write_codex_mcp_config_for_channel_discovery(codex_passthrough, env=env)
     env["CIEL_RUNTIME_CODEX_MANAGED"] = "1"
     env["CIEL_RUNTIME_CONFIG_DIR"] = str(CONFIG_DIR)

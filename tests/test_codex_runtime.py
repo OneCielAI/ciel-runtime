@@ -1120,6 +1120,60 @@ Authorization = "SUPABASE_MCP_AUTHORIZATION"
         with mock.patch.dict("os.environ", {"CIEL_RUNTIME_CODEX_MCP_SPLIT_PROXY": "1"}, clear=True):
             self.assertTrue(ciel_runtime.codex_mcp_split_proxy_enabled())
 
+    def test_codex_responses_import_session_short_circuits_before_upstream(self):
+        handler = object()
+        with tempfile.TemporaryDirectory() as td:
+            transcript = Path(td) / "claude.jsonl"
+            transcript.write_text(
+                ciel_runtime.json.dumps(
+                    {
+                        "type": "user",
+                        "message": {
+                            "role": "user",
+                            "content": [{"type": "text", "text": "claude task"}],
+                        },
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            cfg = {
+                "current_provider": "kimi",
+                "providers": {
+                    "kimi": {
+                        "current_model": "kimi-for-coding",
+                        "api_key": "sk-kimi-test",
+                    }
+                },
+            }
+            pcfg = cfg["providers"]["kimi"]
+            body = {
+                "model": "ciel-runtime-kimi-kimi-for-coding",
+                "stream": False,
+                "input": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": f"CIEL_RUNTIME_IMPORT_SESSION\n\nArguments: Claude {transcript}",
+                            }
+                        ],
+                    }
+                ],
+            }
+
+            with (
+                mock.patch.object(ciel_runtime, "write_openai_responses_response") as write,
+                mock.patch.object(ciel_runtime, "collect_provider_message_for_responses") as collect,
+            ):
+                ciel_runtime.handle_openai_responses_post(handler, cfg, "kimi", pcfg, body)  # type: ignore[arg-type]
+
+        write.assert_called_once()
+        collect.assert_not_called()
+        message = write.call_args.args[1]
+        self.assertIn("User: claude task", message["content"][0]["text"])
+
     def test_mcp_runtime_headers_resolve_bearer_token_env_var(self):
         with mock.patch.dict("os.environ", {"AINET_API_KEY": "token-123"}, clear=False):
             headers = ciel_runtime.mcp_server_runtime_headers({"bearer_token_env_var": "AINET_API_KEY"})

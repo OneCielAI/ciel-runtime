@@ -39,6 +39,7 @@ CLAUDE_RUNTIME_DEPENDENCIES: tuple[str, ...] = (
     "mark_pending_channel_delivery_success",
     "maybe_handle_advisor_request",
     "maybe_handle_channel_clear_request",
+    "maybe_handle_import_session_request",
     "maybe_handle_live_api_keys_request",
     "maybe_handle_live_llm_options_request",
     "maybe_handle_plan_mode_tool_choice",
@@ -128,6 +129,7 @@ def handle_claude_messages_post(
     mark_pending_channel_delivery_success = deps["mark_pending_channel_delivery_success"]
     maybe_handle_advisor_request = deps["maybe_handle_advisor_request"]
     maybe_handle_channel_clear_request = deps["maybe_handle_channel_clear_request"]
+    maybe_handle_import_session_request = deps["maybe_handle_import_session_request"]
     maybe_handle_live_api_keys_request = deps["maybe_handle_live_api_keys_request"]
     maybe_handle_live_llm_options_request = deps["maybe_handle_live_llm_options_request"]
     maybe_handle_plan_mode_tool_choice = deps["maybe_handle_plan_mode_tool_choice"]
@@ -202,6 +204,9 @@ def handle_claude_messages_post(
         return
     if maybe_handle_channel_clear_request(self, body):
         event_bus.publish(level="info", category="channel_clear.short_circuit", message="channel backlog clear request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
+        return
+    if maybe_handle_import_session_request(self, body, client_runtime="claude"):
+        event_bus.publish(level="info", category="import_session.short_circuit", message="ImportSession request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
     if maybe_handle_live_llm_options_request(self, body):
         event_bus.publish(level="info", category="llm_options.short_circuit", message="live LLM options request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
