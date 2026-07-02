@@ -14,7 +14,7 @@
 | `deepseek` | DeepSeek.com | OpenAI Chat | `https://api.deepseek.com` |
 | `opencode` | OpenCode Zen | Anthropic Messages / OpenAI Chat | `https://opencode.ai/zen` |
 | `opencode-go` | OpenCode Go | Anthropic Messages / OpenAI Chat | `https://opencode.ai/zen/go` |
-| `kimi` | Kimi.com | OpenAI Chat | `https://api.kimi.com/coding` |
+| `kimi` | Kimi.com | Anthropic Messages / OpenAI Chat | `https://api.kimi.com/coding` |
 | `zai` | Z.AI GLM | Anthropic Messages | `https://api.z.ai/api/anthropic` |
 | `vllm` | vLLM | OpenAI Chat | 로컬/원격 vLLM |
 | `lm-studio` | LM Studio | OpenAI Chat | 로컬 LM Studio |
@@ -84,7 +84,8 @@
 ## Kimi (Moonshot)
 
 - 기본 모델: `kimi-for-coding`
-- OpenAI Chat 호환.
+- Claude Code 경로는 Kimi 공식 Claude Code 설정과 맞춰 Anthropic Messages 호환 엔드포인트를 우선 사용한다.
+- Codex/Codex App 경로는 Codex의 OpenAI Responses 입력을 OpenAI Chat 호환 요청으로 변환해 `https://api.kimi.com/coding/v1/chat/completions`로 보낸다.
 
 ---
 

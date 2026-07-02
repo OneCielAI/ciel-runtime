@@ -577,6 +577,101 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         self.assertIn('"name": "TaskList"', output)
         self.assertIn('"stop_reason": "tool_use"', output)
 
+    def test_native_stream_tool_use_stop_without_tool_block_downgrades_to_end_turn(self):
+        body = body_with_tools("continue implementation", ["Read", "Bash"])
+
+        class Handler:
+            def __init__(self):
+                self.wfile = BytesIO()
+
+        handler = Handler()
+        events = [
+            'event: message_start\ndata: {"type":"message_start","message":{"content":[]}}\n\n',
+            'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+            'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"I will continue."}}\n\n',
+            'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+            'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use","stop_sequence":null},"usage":{"output_tokens":1}}\n\n',
+            'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+        ]
+
+        lines = []
+        for event in events:
+            lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
+        ciel_runtime._rebatch_anthropic_sse_text(
+            handler,
+            lines,
+            "kimi-for-coding",
+            word_chunking=False,
+            source_body=body,
+            preserve_thinking=True,
+            provider="kimi",
+            normalize_tool_use=True,
+        )
+        output = handler.wfile.getvalue().decode("utf-8")
+
+        self.assertIn("I will continue.", output)
+        self.assertNotIn('"name": "ExitPlanMode"', output)
+        self.assertIn('"stop_reason": "end_turn"', output)
+
+    def test_native_stream_plan_exit_text_with_tool_use_stop_synthesizes_exit_plan_mode(self):
+        body = body_with_tools("continue implementation", ["ExitPlanMode", "Bash"])
+        body["tools"][0]["input_schema"] = {
+            "type": "object",
+            "properties": {
+                "allowedPrompts": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "tool": {"type": "string", "enum": ["Bash"]},
+                            "prompt": {"type": "string"},
+                        },
+                    },
+                }
+            },
+        }
+        body["messages"].append(
+            {
+                "role": "user",
+                "content": [],
+                "attachment": {"type": "plan_mode", "planFilePath": "/tmp/plan.md"},
+            }
+        )
+
+        class Handler:
+            def __init__(self):
+                self.wfile = BytesIO()
+
+        handler = Handler()
+        events = [
+            'event: message_start\ndata: {"type":"message_start","message":{"content":[]}}\n\n',
+            'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+            'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Plan Mode를 종료하고 계속하겠습니다."}}\n\n',
+            'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+            'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use","stop_sequence":null},"usage":{"output_tokens":1}}\n\n',
+            'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+        ]
+
+        lines = []
+        for event in events:
+            lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
+        ciel_runtime._rebatch_anthropic_sse_text(
+            handler,
+            lines,
+            "kimi-for-coding",
+            word_chunking=False,
+            source_body=body,
+            preserve_thinking=True,
+            provider="kimi",
+            normalize_tool_use=True,
+        )
+        output = handler.wfile.getvalue().decode("utf-8")
+
+        self.assertIn("Plan Mode를 종료", output)
+        self.assertIn('"name": "ExitPlanMode"', output)
+        self.assertIn("use Bash as needed to implement and verify the approved plan", output)
+        self.assertIn('"stop_reason": "tool_use"', output)
+
     def test_native_stream_hidden_only_after_tool_result_synthesizes_tasklist(self):
         body = body_with_tools("continue implementation", ["TaskList", "Read", "Bash"])
         body["messages"].append(

@@ -5287,6 +5287,33 @@ def should_auto_enter_plan_mode(body: dict[str, Any], response_text: str, tool_c
     return likely_implementation_planning_request(latest_user_text(body))
 
 
+def response_text_signals_plan_exit(text: str) -> bool:
+    lowered = str(text or "").lower()
+    if "exitplanmode" in lowered:
+        return True
+    mentions_plan_mode = (
+        "plan mode" in lowered
+        or "plan-mode" in lowered
+        or "플랜모드" in lowered
+        or "플랜 모드" in lowered
+    )
+    if not mentions_plan_mode:
+        return False
+    return any(token in lowered for token in ("exit", "leave", "exiting", "leaving", "종료", "탈출", "나가"))
+
+
+def should_auto_exit_plan_mode(body: dict[str, Any], response_text: str, tool_calls: list[dict[str, Any]]) -> bool:
+    if tool_calls:
+        return False
+    if not plan_mode_active(body):
+        return False
+    if not has_tool(body, "ExitPlanMode"):
+        return False
+    if not response_text_signals_plan_exit(response_text):
+        return False
+    return True
+
+
 WORK_CONTINUATION_RESULT_TOOLS: frozenset[str] = frozenset(
     {
         "Bash",
@@ -8609,11 +8636,25 @@ def native_anthropic_base_url(provider: str, pcfg: dict[str, Any]) -> str:
 
 
 OPENAI_COMPATIBLE_ROUTER_PROVIDERS = ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "openrouter")
+CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS = (
+    "vllm",
+    "lm-studio",
+    "nvidia-hosted",
+    "self-hosted-nim",
+    "openrouter",
+    "kimi",
+    "fireworks",
+)
 AUTO_DETECT_NATIVE_COMPAT_PROVIDERS = ("vllm", "lm-studio", "self-hosted-nim")
 
 
 def provider_openai_router_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
     return provider in OPENAI_COMPATIBLE_ROUTER_PROVIDERS and not provider_native_compat_enabled(provider, pcfg)
+
+
+def codex_openai_router_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
+    del pcfg
+    return provider in CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS
 
 
 def provider_wire_profile(provider: str, pcfg: dict[str, Any], body: dict[str, Any] | None = None) -> dict[str, str]:
@@ -17481,6 +17522,37 @@ def _rebatch_anthropic_sse_text(
         emit_raw("content_block_stop", json.dumps({"type": "content_block_stop", "index": index}, ensure_ascii=False))
         emitted_tool_use = True
 
+    def emit_exit_plan_mode_tool(index: int) -> None:
+        nonlocal emitted_tool_use
+        tool_id = f"toolu_anthropic_exit_plan_{int(time.time() * 1000)}"
+        tool_input = {}
+        if isinstance(source_body, dict):
+            tool_input = backfill_exit_plan_mode_allowed_prompts(source_body, tool_input)
+        emit_raw(
+            "content_block_start",
+            json.dumps(
+                {
+                    "type": "content_block_start",
+                    "index": index,
+                    "content_block": {"type": "tool_use", "id": tool_id, "name": "ExitPlanMode", "input": {}},
+                },
+                ensure_ascii=False,
+            ),
+        )
+        emit_raw(
+            "content_block_delta",
+            json.dumps(
+                {
+                    "type": "content_block_delta",
+                    "index": index,
+                    "delta": {"type": "input_json_delta", "partial_json": json.dumps(tool_input, ensure_ascii=False)},
+                },
+                ensure_ascii=False,
+            ),
+        )
+        emit_raw("content_block_stop", json.dumps({"type": "content_block_stop", "index": index}, ensure_ascii=False))
+        emitted_tool_use = True
+
     def mapped_content_index(index: Any) -> int | None:
         if not isinstance(index, int):
             return None
@@ -17819,6 +17891,29 @@ def _rebatch_anthropic_sse_text(
             delta = event.get("delta") if isinstance(event.get("delta"), dict) else {}
             stop_reason = str(delta.get("stop_reason") or "")
             tool_calls = [{"type": "tool_use"}] if emitted_tool_use else []
+            if stop_reason == "tool_use" and not emitted_tool_use:
+                for index in list(text_buffers.keys()):
+                    flush_buffer(index, force=True)
+                if source_body is not None and should_auto_exit_plan_mode(source_body, text_so_far, []):
+                    router_log("WARN", "auto-synthesized ExitPlanMode from malformed Anthropic-compatible tool_use stream")
+                    emit_exit_plan_mode_tool(next_content_index)
+                    next_content_index += 1
+                    saw_tool_use = True
+                    pending_message_delta = (
+                        event_type,
+                        patched_message_delta("tool_use"),
+                    )
+                    return
+                router_log(
+                    "WARN",
+                    f"downgraded malformed Anthropic-compatible tool_use stop without emitted tool "
+                    f"provider={provider} model={model} text_len={len(text_so_far.strip())}",
+                )
+                pending_message_delta = (
+                    event_type,
+                    patched_message_delta("end_turn"),
+                )
+                return
             if emitted_tool_use and stop_reason == "end_turn":
                 patched = dict(event)
                 patched_delta = dict(delta)
@@ -20214,6 +20309,8 @@ def collect_provider_message_for_responses(
                 f"{provider_label} model {upstream_model!r} uses the {endpoint_kind} endpoint family. "
                 f"ciel-runtime currently routes {provider_label} /v1/messages and /v1/chat/completions models."
             )
+    if codex_openai_router_enabled(provider, pcfg):
+        return collect_openai_chat_message_for_responses(handler, provider, pcfg, body)
     if provider_openai_router_enabled(provider, pcfg):
         return collect_openai_chat_message_for_responses(handler, provider, pcfg, body)
     return collect_anthropic_message_for_responses(handler, provider, pcfg, body)

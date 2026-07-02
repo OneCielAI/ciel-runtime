@@ -38,6 +38,21 @@ class KimiProviderTests(unittest.TestCase):
         self.assertTrue(pcfg["supports_tool_choice"])
         self.assertIn("thinking", pcfg["claude_code_supported_capabilities"])
 
+    def test_kimi_endpoint_policy_splits_claude_and_codex_protocols(self):
+        pcfg = self.kimi_cfg()["providers"]["kimi"]
+
+        self.assertTrue(ciel_runtime.provider_native_compat_enabled("kimi", pcfg))
+        self.assertFalse(ciel_runtime.provider_openai_router_enabled("kimi", pcfg))
+        self.assertTrue(ciel_runtime.codex_openai_router_enabled("kimi", pcfg))
+        self.assertEqual(
+            "https://api.kimi.com/coding/v1/messages",
+            ciel_runtime.join_url(ciel_runtime.native_anthropic_base_url("kimi", pcfg), "/v1/messages"),
+        )
+        self.assertEqual(
+            "https://api.kimi.com/coding/v1/chat/completions",
+            ciel_runtime.join_url(ciel_runtime.provider_upstream_request_base("kimi", pcfg), "/v1/chat/completions"),
+        )
+
     def test_kimi_aliases_normalize_to_documented_model_id(self):
         for raw in (
             "kimi-code/kimi-for-coding",
@@ -182,6 +197,34 @@ class KimiProviderTests(unittest.TestCase):
 
         self.assertEqual("auto", req["tool_choice"])
         self.assertEqual("mcp__ai-net-http__get_messages", req["tools"][0]["function"]["name"])
+
+    def test_kimi_codex_responses_collection_uses_openai_compatible_endpoint(self):
+        class Handler:
+            headers = {}
+            path = "/v1/responses"
+
+        pcfg = self.kimi_cfg(api_key="sk-kimi-test")["providers"]["kimi"]
+        body = {
+            "model": "kimi-for-coding",
+            "messages": [{"role": "user", "content": [{"type": "text", "text": "read ai-net"}]}],
+            "tools": [],
+            "stream": False,
+        }
+        response = {
+            "id": "chatcmpl-test",
+            "choices": [{"message": {"role": "assistant", "content": "OK"}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+        }
+
+        with (
+            mock.patch.object(ciel_runtime, "post_json_with_rate_retry", return_value=response) as post_json,
+            mock.patch.object(ciel_runtime, "open_provider_request_with_key_retry") as anthropic_request,
+        ):
+            message = ciel_runtime.collect_provider_message_for_responses(Handler(), "kimi", pcfg, body)
+
+        self.assertEqual("OK", message["content"][0]["text"])
+        self.assertEqual("https://api.kimi.com/coding/v1/chat/completions", post_json.call_args.args[0])
+        anthropic_request.assert_not_called()
 
     def test_kimi_preserves_thinking_while_normalizing_tool_use_stream(self):
         class FakeHandler:
