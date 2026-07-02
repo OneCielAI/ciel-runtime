@@ -646,6 +646,7 @@ class ChannelBridgeTests(unittest.TestCase):
     def test_start_channel_streamable_http_initializes_session_and_receives_message(self):
         seen_posts: list[dict[str, object]] = []
         seen_get_headers: list[dict[str, str | None]] = []
+        seen_deletes: list[str | None] = []
 
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *_args):
@@ -709,6 +710,11 @@ class ChannelBridgeTests(unittest.TestCase):
                 self.wfile.flush()
                 time.sleep(0.05)
 
+            def do_DELETE(self):
+                seen_deletes.append(self.headers.get("Mcp-Session-Id"))
+                self.send_response(202)
+                self.end_headers()
+
         original_connections = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)
         old_next = ciel_runtime._CHAT_NEXT_ID
         with tempfile.TemporaryDirectory() as td:
@@ -754,12 +760,92 @@ class ChannelBridgeTests(unittest.TestCase):
                     self.assertEqual("streamable-http", status["transport"])
                     self.assertEqual("sess-unit", status["mcp_session_id"])
                     ciel_runtime.stop_channel_sse_connection("unit-http")
+                    self.assertIn("sess-unit", seen_deletes)
             finally:
                 server.shutdown()
                 server.server_close()
                 ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
                 ciel_runtime._CHANNEL_SSE_CONNECTIONS.update(original_connections)
                 ciel_runtime._CHAT_NEXT_ID = old_next
+
+    def test_streamable_http_start_deletes_recorded_stale_sessions(self):
+        seen_deletes: list[str | None] = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                return
+
+            def do_DELETE(self):
+                seen_deletes.append(self.headers.get("Mcp-Session-Id"))
+                self.send_response(202)
+                self.end_headers()
+
+            def do_POST(self):
+                length = int(self.headers.get("Content-Length") or "0")
+                payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": payload.get("id"),
+                    "result": {
+                        "protocolVersion": ciel_runtime.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+                        "capabilities": {"experimental": {"claude/channel": True}},
+                        "serverInfo": {"name": "unit-http", "version": "1"},
+                    },
+                }
+                data = json.dumps(response).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                if payload.get("method") == "initialize":
+                    self.send_header("Mcp-Session-Id", "new-session")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.end_headers()
+                time.sleep(0.2)
+
+        original_connections = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                url = f"http://127.0.0.1:{server.server_address[1]}/mcp"
+                records = {
+                    "sessions": [
+                        {
+                            "name": "unit-http",
+                            "url": url,
+                            "session_id": "old-session",
+                            "protocol_version": ciel_runtime.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+                        }
+                    ]
+                }
+                with mock.patch.object(ciel_runtime, "CONFIG_DIR", root):
+                    ciel_runtime.channel_streamable_sessions_path().write_text(json.dumps(records), encoding="utf-8")
+                    ciel_runtime.start_channel_sse_connection(
+                        {
+                            "name": "unit-http",
+                            "type": "http",
+                            "url": url,
+                            "retry_seconds": 60,
+                            "read_timeout_seconds": 5,
+                        }
+                    )
+                    deadline = time.time() + 2
+                    while time.time() < deadline and "old-session" not in seen_deletes:
+                        time.sleep(0.02)
+                    self.assertIn("old-session", seen_deletes)
+                    ciel_runtime.stop_channel_sse_connection("unit-http")
+            finally:
+                server.shutdown()
+                server.server_close()
+                ciel_runtime._CHANNEL_SSE_CONNECTIONS.clear()
+                ciel_runtime._CHANNEL_SSE_CONNECTIONS.update(original_connections)
 
     def test_streamable_http_requires_session_before_get_stream(self):
         seen_posts: list[str | None] = []
