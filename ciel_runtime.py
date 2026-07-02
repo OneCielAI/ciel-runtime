@@ -36391,9 +36391,7 @@ def codex_mcp_native_http_compat_args(
         if not key:
             router_log("WARN", f"codex_mcp_compat_skipped_unsafe_name server={name}")
             continue
-        if _channel_sse_public_mcp_name(name) in channel_owned:
-            args.extend(["-c", f"mcp_servers.{key}.enabled=false"])
-        if split_http_proxy:
+        if split_http_proxy or _channel_sse_public_mcp_name(name) in channel_owned:
             args.extend(["-c", f"mcp_servers.{key}.url={toml_string(codex_mcp_split_proxy_url(name))}"])
         active.append(name)
     if active:
@@ -36794,7 +36792,7 @@ def launch_codex_app_server(
         str(pcfg.get("current_model") or ("" if native_codex_enabled(provider) else current_alias(cfg)) or ""),
     )
 
-    split_proxy_enabled = bool(not use_native_codex and codex_mcp_split_proxy_enabled())
+    split_proxy_enabled = bool(not use_native_codex and (codex_mcp_split_proxy_enabled() or codex_channel_owned_names))
 
     def run_codex_app_server_process() -> int:
         if split_proxy_enabled:

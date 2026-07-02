@@ -420,7 +420,7 @@ class CodexRuntimeTests(unittest.TestCase):
         codex_mcp_config = Path("codex-mcp.json")
         compat_args = [
             "-c",
-            "mcp_servers.ai-net.enabled=false",
+            'mcp_servers.ai-net.url="http://127.0.0.1:8800/ca/codex-mcp/ai-net"',
         ]
         captured = {}
 
@@ -460,7 +460,8 @@ class CodexRuntimeTests(unittest.TestCase):
             rc = ciel_runtime.launch_codex(["exec", "hello"], skip_menu=True)
 
         self.assertEqual(0, rc)
-        self.assertIn("mcp_servers.ai-net.enabled=false", captured["cmd"])
+        self.assertIn('mcp_servers.ai-net.url="http://127.0.0.1:8800/ca/codex-mcp/ai-net"', captured["cmd"])
+        self.assertNotIn("mcp_servers.ai-net.enabled=false", captured["cmd"])
         self.assertNotIn("mcp_servers.ai-net.type=null", captured["cmd"])
         self.assertFalse(any("ciel-runtime-proxy" in str(arg) for arg in captured["cmd"]))
         channel_owned.assert_called_once_with(cfg, codex_mcp_config)
@@ -712,6 +713,58 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("ws://127.0.0.1:8899", captured["cmd"])
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
         self.assertIn("app-server", str(captured["pid_path"]))
+
+    def test_launch_codex_app_server_routes_channel_owned_mcp_through_split_proxy(self):
+        cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": ""}}}
+        pcfg = cfg["providers"]["codex"]
+        codex_mcp_config = Path("codex-mcp.json")
+        compat_args = [
+            "-c",
+            'mcp_servers.ai-net.url="http://127.0.0.1:8800/ca/codex-mcp/ai-net"',
+        ]
+        captured = {}
+
+        def run_with_router_lifetime(runner, manage_router):
+            captured["manage_router"] = manage_router
+            return runner()
+
+        def subprocess_call(cmd, env, pid_path=None):
+            captured["cmd"] = cmd
+            captured["env"] = env
+            captured["pid_path"] = pid_path
+            return 0
+
+        with (
+            mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
+            mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
+            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
+            mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
+            mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
+            mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
+            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=codex_mcp_config),
+            mock.patch.object(ciel_runtime, "codex_channel_capable_mcp_server_names", return_value=["ai-net"]) as channel_owned,
+            mock.patch.object(ciel_runtime, "codex_mcp_native_http_compat_args", return_value=compat_args) as compat,
+            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]) as start_sse,
+            mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
+            mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
+            mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
+            mock.patch.object(ciel_runtime, "find_executable", return_value="codex"),
+            mock.patch.object(ciel_runtime, "codex_app_server_default_listen_url", return_value="ws://127.0.0.1:8899"),
+            mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
+            mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
+            mock.patch.object(ciel_runtime, "subprocess_call_with_child_pid_record", side_effect=subprocess_call),
+        ):
+            rc = ciel_runtime.launch_codex_app_server([], skip_menu=True)
+
+        self.assertEqual(0, rc)
+        self.assertIn('mcp_servers.ai-net.url="http://127.0.0.1:8800/ca/codex-mcp/ai-net"', captured["cmd"])
+        self.assertNotIn("mcp_servers.ai-net.enabled=false", captured["cmd"])
+        self.assertNotIn("mcp_servers.ai-net.type=null", captured["cmd"])
+        channel_owned.assert_called_once_with(cfg, codex_mcp_config)
+        compat.assert_called_once_with(codex_mcp_config, split_http_proxy=False, channel_owned_server_names=["ai-net"])
+        start_sse.assert_called_once_with(cfg, codex_mcp_config, allowed_server_names=["ai-net"])
 
     def test_launch_codex_app_server_routed_passes_configured_current_model(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": "gpt-5.1-codex"}}}
@@ -1116,7 +1169,7 @@ Authorization = "SUPABASE_MCP_AUTHORIZATION"
         self.assertNotIn("mcp_servers.supabase.type=null", split_args)
         self.assertIn('mcp_servers.supabase.url="http://127.0.0.1:8800/ca/codex-mcp/supabase"', split_args)
 
-    def test_codex_mcp_native_http_compat_disables_implicit_channel_owned_http_server(self):
+    def test_codex_mcp_native_http_compat_routes_implicit_channel_owned_http_server_through_split_proxy(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             codex_home = root / ".codex"
@@ -1146,7 +1199,11 @@ bearer_token_env_var = "AINET_API_KEY"
                     channel_owned_server_names=["ai-net"],
                 )
 
-        self.assertIn("mcp_servers.ai-net.enabled=false", args)
+        self.assertTrue(
+            any(str(arg).startswith('mcp_servers.ai-net.url="http://127.0.0.1:') and str(arg).endswith('/ca/codex-mcp/ai-net"') for arg in args),
+            args,
+        )
+        self.assertNotIn("mcp_servers.ai-net.enabled=false", args)
         self.assertNotIn("mcp_servers.ai-net.type=null", args)
 
     def test_codex_mcp_split_proxy_is_opt_in(self):
