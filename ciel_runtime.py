@@ -22033,6 +22033,7 @@ def probe_streamable_http_mcp_for_channel_capability_detailed(
     stderr_preview = ""
     stdout_preview = ""
     initialized_failed = False
+    session_id: str | None = None
     try:
         initialize = _channel_probe_initialize_payload_dict(protocol_version)
         response, session_id = _mcp_streamable_post_json(
@@ -22081,6 +22082,17 @@ def probe_streamable_http_mcp_for_channel_capability_detailed(
     except Exception as exc:
         reason = f"streamable_http_open_failed:{type(exc).__name__}"
         stderr_preview = str(exc)[:CHANNEL_PROBE_STDERR_PREVIEW_CHARS]
+    finally:
+        if session_id:
+            _channel_streamable_http_delete_session(
+                f"probe-{server_name}",
+                url,
+                headers,
+                protocol_version,
+                session_id,
+                "channel_probe_cleanup",
+                timeout=min(10.0, max(1.0, effective_timeout)),
+            )
 
     elapsed_ms = int((time.time() - started) * 1000)
     router_log(
