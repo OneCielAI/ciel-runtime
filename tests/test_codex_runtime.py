@@ -444,6 +444,7 @@ class CodexRuntimeTests(unittest.TestCase):
             stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
             stack.enter_context(mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=codex_mcp_config))
             compat = stack.enter_context(mock.patch.object(ciel_runtime, "codex_mcp_native_http_compat_args", return_value=compat_args))
+            channel_owned = stack.enter_context(mock.patch.object(ciel_runtime, "codex_channel_capable_mcp_server_names", return_value=["ai-net"]))
             terminate_clients = stack.enter_context(mock.patch.object(ciel_runtime, "terminate_existing_router_clients_for_launch", return_value=False))
             start_sse = stack.enter_context(mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]))
             stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True))
@@ -462,10 +463,11 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("mcp_servers.ai-net.type=null", captured["cmd"])
         self.assertNotIn("mcp_servers.ai-net.enabled=false", captured["cmd"])
         self.assertFalse(any("ciel-runtime-proxy" in str(arg) for arg in captured["cmd"]))
-        compat.assert_called_once_with(codex_mcp_config, split_http_proxy=False)
+        channel_owned.assert_called_once_with(cfg, codex_mcp_config)
+        compat.assert_called_once_with(codex_mcp_config, split_http_proxy=False, channel_owned_server_names=["ai-net"])
         self.terminate_existing_codex_processes_for_launch.assert_called_once()
         terminate_clients.assert_called_once_with("codex_prelaunch_active_clients", quiet=True)
-        start_sse.assert_called_once_with(cfg, codex_mcp_config)
+        start_sse.assert_called_once_with(cfg, codex_mcp_config, allowed_server_names=["ai-net"])
 
     def test_launch_codex_native_uses_plain_codex_command(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": False, "base_url": "https://api.openai.com", "current_model": ""}}}
@@ -1114,6 +1116,39 @@ Authorization = "SUPABASE_MCP_AUTHORIZATION"
         self.assertNotIn("mcp_servers.supabase.type=null", split_args)
         self.assertIn('mcp_servers.supabase.url="http://127.0.0.1:8800/ca/codex-mcp/supabase"', split_args)
 
+    def test_codex_mcp_native_http_compat_nulls_implicit_channel_owned_http_server(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            codex_home = root / ".codex"
+            codex_home.mkdir()
+            config = codex_home / "config.toml"
+            config.write_text(
+                """
+[mcp_servers.ai-net]
+url = "http://example.test/mcp"
+bearer_token_env_var = "AINET_API_KEY"
+""",
+                encoding="utf-8",
+            )
+            generated = root / "codex-mcp.json"
+
+            with (
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CODEX_MCP_CONFIG", generated),
+            ):
+                codex_mcp_config = ciel_runtime.write_codex_mcp_config_for_channel_discovery(
+                    [],
+                    env={"CODEX_HOME": str(codex_home)},
+                    cwd=root,
+                )
+                args = ciel_runtime.codex_mcp_native_http_compat_args(
+                    codex_mcp_config,
+                    channel_owned_server_names=["ai-net"],
+                )
+
+        self.assertIn("mcp_servers.ai-net.type=null", args)
+        self.assertNotIn("mcp_servers.ai-net.enabled=false", args)
+
     def test_codex_mcp_split_proxy_is_opt_in(self):
         with mock.patch.dict("os.environ", {}, clear=True):
             self.assertFalse(ciel_runtime.codex_mcp_split_proxy_enabled())
@@ -1184,19 +1219,30 @@ Authorization = "SUPABASE_MCP_AUTHORIZATION"
         cfg = {"claude_code": {"channel_delivery": "llm", "channels": ["server:already-owned"]}}
         captured = {}
 
-        def fake_auto_start(passthrough, extra_config_paths=None, allowed_server_names=None):
+        def fake_auto_start(passthrough, extra_config_paths=None, allowed_server_names=None, include_default_paths=True):
             captured["passthrough"] = passthrough
             captured["extra"] = extra_config_paths
             captured["allowed"] = allowed_server_names
+            captured["include_default_paths"] = include_default_paths
             return [{"name": "mcp-ai-net"}]
 
         with tempfile.TemporaryDirectory() as td:
             config = Path(td) / "codex-mcp.json"
-            config.write_text('{"mcpServers": {}}', encoding="utf-8")
+            config.write_text(
+                '{"mcpServers": {"ai-net": {"type": "http", "url": "http://example.test/mcp"}}}',
+                encoding="utf-8",
+            )
             with (
                 mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch") as ensure_probe,
-                mock.patch.object(ciel_runtime, "external_mcp_channel_server_names_from_configs", return_value=["ai-net", "other", "already-owned"]),
-                mock.patch.object(ciel_runtime, "cached_channel_capable_server_names", return_value=["ciel-runtime-router", "ai-net", "already-owned"]),
+                mock.patch.object(
+                    ciel_runtime,
+                    "cached_channel_probe_servers",
+                    return_value=[
+                        {"name": "ai-net", "capable": True, "source_path": str(config)},
+                        {"name": "already-owned", "capable": True, "source_path": str(config)},
+                        {"name": "ai-net-http", "capable": True, "source_path": str(Path(td) / ".mcp.json")},
+                    ],
+                ),
                 mock.patch.object(ciel_runtime, "auto_start_sse_channels_from_mcp_configs", side_effect=fake_auto_start),
             ):
                 started = ciel_runtime.start_codex_mcp_channel_sse_for_launch(cfg, config)
@@ -1206,6 +1252,48 @@ Authorization = "SUPABASE_MCP_AUTHORIZATION"
         self.assertEqual([], captured["passthrough"])
         self.assertEqual([config], captured["extra"])
         self.assertEqual(["ai-net"], captured["allowed"])
+        self.assertFalse(captured["include_default_paths"])
+
+    def test_codex_channel_capable_names_filter_to_codex_mcp_config_source(self):
+        cfg = {"claude_code": {"channel_delivery": "llm", "channels": []}}
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            codex_config = root / "codex-mcp.json"
+            default_mcp = root / ".mcp.json"
+            codex_config.write_text(
+                json.dumps({"mcpServers": {"ai-net": {"type": "http", "url": "http://example.test/mcp"}}}),
+                encoding="utf-8",
+            )
+            default_mcp.write_text(
+                json.dumps({"mcpServers": {"ai-net-http": {"type": "http", "url": "http://example.test/mcp"}}}),
+                encoding="utf-8",
+            )
+            cache = {
+                "servers": [
+                    {
+                        "name": "ai-net",
+                        "capable": True,
+                        "transport": "streamable-http",
+                        "source_path": str(codex_config),
+                        "url": "http://example.test/mcp",
+                    },
+                    {
+                        "name": "ai-net-http",
+                        "capable": True,
+                        "transport": "streamable-http",
+                        "source_path": str(default_mcp),
+                        "url": "http://example.test/mcp",
+                    },
+                ]
+            }
+
+            with (
+                mock.patch.object(ciel_runtime, "ensure_channel_probe_cache_for_launch"),
+                mock.patch.object(ciel_runtime, "cached_channel_probe_servers", return_value=cache["servers"]),
+            ):
+                names = ciel_runtime.codex_channel_capable_mcp_server_names(cfg, codex_config)
+
+        self.assertEqual(["ai-net"], names)
 
     def test_codex_backend_upstream_url_maps_local_backend_prefix(self):
         self.assertEqual(

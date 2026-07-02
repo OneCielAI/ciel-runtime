@@ -11201,19 +11201,19 @@ def _record_channel_streamable_session(name: str, url: str, session_id: str | No
     if not session:
         return
     records = _channel_streamable_session_records()
+    url_text = str(url)
     records = [
         item
         for item in records
         if not (
-            str(item.get("name") or "") == str(name)
-            and str(item.get("url") or "") == str(url)
-            and str(item.get("session_id") or "") == session
+            str(item.get("url") or "") == url_text
+            or str(item.get("session_id") or "") == session
         )
     ]
     records.append(
         {
             "name": str(name),
-            "url": str(url),
+            "url": url_text,
             "session_id": session,
             "protocol_version": str(protocol_version or MCP_STREAMABLE_HTTP_PROTOCOL_VERSION),
             "pid": os.getpid(),
@@ -11231,11 +11231,7 @@ def _forget_channel_streamable_session(name: str, url: str, session_id: str | No
     kept = [
         item
         for item in records
-        if not (
-            str(item.get("name") or "") == str(name)
-            and str(item.get("url") or "") == str(url)
-            and str(item.get("session_id") or "") == session
-        )
+        if str(item.get("session_id") or "") != session
     ]
     if len(kept) != len(records):
         _write_channel_streamable_session_records(kept)
@@ -11318,8 +11314,6 @@ def _channel_streamable_http_cleanup_stale_sessions(
     keep = str(keep_session_id or "").strip()
     records = _channel_streamable_session_records()
     for record in records:
-        if str(record.get("name") or "") != str(name):
-            continue
         if str(record.get("url") or "") != str(url):
             continue
         session = str(record.get("session_id") or "").strip()
@@ -22922,45 +22916,40 @@ def ensure_channel_probe_cache_for_launch(
 def start_codex_mcp_channel_sse_for_launch(
     cfg: dict[str, Any],
     codex_mcp_config: Path | None,
+    allowed_server_names: Iterable[str] | None = None,
 ) -> list[dict[str, Any]]:
     if not codex_mcp_config or channel_delivery_mode(cfg) != "llm":
         return []
     if not codex_mcp_config.exists() or not codex_mcp_config.is_file():
         return []
     extra_paths: list[Path | str] = [codex_mcp_config]
-    ensure_channel_probe_cache_for_launch(cfg, [], extra_config_paths=extra_paths)
-    try:
-        candidate_names = external_mcp_channel_server_names_from_configs([], extra_config_paths=extra_paths)
-    except Exception as exc:
-        router_log("WARN", f"codex_channel_discovery_failed error={type(exc).__name__}: {exc}")
-        return []
-    capable = set(cached_channel_capable_server_names())
     explicit = {
         name
         for name in _server_names_from_channel_specs(channel_specs_for_launch(cfg, []))
         if name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES
     }
-    names = [
-        name for name in candidate_names
-        if name in capable
-        and name not in explicit
-        and name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES
-    ]
+    if allowed_server_names is None:
+        names = codex_channel_capable_mcp_server_names(cfg, codex_mcp_config)
+    else:
+        names = _dedupe_strings(
+            name
+            for name in allowed_server_names
+            if str(name or "").strip()
+            and str(name or "").strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES
+        )
+    names = [name for name in names if name not in explicit]
     if not names:
         router_log(
             "INFO",
-            "codex_channel_sse_skipped reason=no_capable_unowned_codex_mcp candidates=%s capable=%s explicit=%s"
-            % (
-                ",".join(candidate_names) or "-",
-                ",".join(sorted(capable)) or "-",
-                ",".join(sorted(explicit)) or "-",
-            ),
+            "codex_channel_sse_skipped reason=no_capable_unowned_codex_mcp allowed=%s explicit=%s"
+            % (",".join(names) or "-", ",".join(sorted(explicit)) or "-"),
         )
         return []
     started = auto_start_sse_channels_from_mcp_configs(
         [],
         extra_config_paths=extra_paths,
         allowed_server_names=names,
+        include_default_paths=False,
     )
     router_log(
         "INFO",
@@ -23169,6 +23158,7 @@ def auto_start_sse_channels_from_mcp_configs(
     home: Path | None = None,
     extra_config_paths: list[Path | str] | None = None,
     allowed_server_names: Iterable[str] | None = None,
+    include_default_paths: bool = True,
 ) -> list[dict[str, Any]]:
     cwd = cwd or Path.cwd()
     started: list[dict[str, Any]] = []
@@ -23180,7 +23170,8 @@ def auto_start_sse_channels_from_mcp_configs(
             if str(name or "").strip()
         }
     paths = [Path(path).expanduser() for path in extra_config_paths or []]
-    paths.extend(claude_mcp_config_paths(passthrough, cwd, home))
+    if include_default_paths:
+        paths.extend(claude_mcp_config_paths(passthrough, cwd, home))
     seen: set[str] = set()
     for path in paths:
         key = _path_for_compare(path)
@@ -36327,12 +36318,19 @@ def codex_channel_capable_mcp_server_names(cfg: dict[str, Any], codex_mcp_config
         return []
     extra_paths: list[Path | str] = [codex_mcp_config]
     ensure_channel_probe_cache_for_launch(cfg, [], extra_config_paths=extra_paths)
-    try:
-        candidate_names = external_mcp_channel_server_names_from_configs([], extra_config_paths=extra_paths)
-    except Exception as exc:
-        router_log("WARN", f"codex_channel_discovery_failed error={type(exc).__name__}: {exc}")
-        return []
-    capable = set(cached_channel_capable_server_names())
+    candidate_names = [
+        str(server.get("channel") or "").strip()
+        for server in _read_mcp_sse_servers_from_json(codex_mcp_config, Path.cwd())
+        if str(server.get("channel") or "").strip()
+    ]
+    source_key = _path_for_compare(codex_mcp_config)
+    capable = {
+        str(record.get("name") or "").strip()
+        for record in cached_channel_probe_servers()
+        if record.get("capable")
+        and str(record.get("name") or "").strip()
+        and _path_for_compare(Path(str(record.get("source_path") or ""))) == source_key
+    }
     names = [
         name
         for name in candidate_names
@@ -36360,18 +36358,31 @@ def codex_streamable_http_mcp_servers(codex_mcp_config: Path | None) -> dict[str
     return out
 
 
-def codex_mcp_native_http_compat_args(codex_mcp_config: Path | None, *, split_http_proxy: bool = False) -> list[str]:
+def codex_mcp_native_http_compat_args(
+    codex_mcp_config: Path | None,
+    *,
+    split_http_proxy: bool = False,
+    channel_owned_server_names: Iterable[str] | None = None,
+) -> list[str]:
     servers = codex_streamable_http_mcp_servers(codex_mcp_config)
     if not servers:
         return []
     args: list[str] = []
     active: list[str] = []
+    channel_owned = {
+        _channel_sse_public_mcp_name(str(name or "").strip())
+        for name in channel_owned_server_names or []
+        if str(name or "").strip()
+    }
     for name, server in sorted(servers.items()):
         key = _codex_config_bare_key(name)
         if not key:
             router_log("WARN", f"codex_mcp_compat_skipped_unsafe_name server={name}")
             continue
-        if server.get("_ciel_runtime_explicit_type") and server.get("type") is not None:
+        if (
+            _channel_sse_public_mcp_name(name) in channel_owned
+            or (server.get("_ciel_runtime_explicit_type") and server.get("type") is not None)
+        ):
             args.extend(["-c", f"mcp_servers.{key}.type=null"])
         if split_http_proxy:
             args.extend(["-c", f"mcp_servers.{key}.url={toml_string(codex_mcp_split_proxy_url(name))}"])
@@ -36567,9 +36578,15 @@ def launch_codex(
     manage_router_lifetime = False if use_native_codex else bool(start_router_if_needed())
     if not native_codex_enabled(provider):
         ensure_model_cache_for_launch(provider, pcfg)
+    codex_channel_owned_names = (
+        codex_channel_capable_mcp_server_names(cfg, codex_mcp_config)
+        if not use_native_codex and channel_delivery_mode(cfg) == "llm"
+        else []
+    )
     codex_mcp_compat_args = codex_mcp_native_http_compat_args(
         codex_mcp_config,
         split_http_proxy=(not use_native_codex and codex_mcp_split_proxy_enabled()),
+        channel_owned_server_names=codex_channel_owned_names,
     )
     codex_yolo_args = codex_yolo_launch_args(codex_passthrough)
     if use_native_codex:
@@ -36596,7 +36613,8 @@ def launch_codex(
     )
 
     def run_codex_process() -> int:
-        start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config)
+        if not use_native_codex:
+            start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config, allowed_server_names=codex_channel_owned_names)
         codex_synthetic_enter = None if _channel_wake_enter_env_is_fixed() else b"\r"
         return subprocess_call_with_channel_wake_proxy(
             cmd,
@@ -36735,9 +36753,15 @@ def launch_codex_app_server(
         model = current_alias(cfg)
         if model and not codex_passthrough_has_model_override(passthrough):
             config_args = [*config_args, "-c", f"model={toml_string(model)}"]
+    codex_channel_owned_names = (
+        codex_channel_capable_mcp_server_names(cfg, codex_mcp_config)
+        if not use_native_codex and channel_delivery_mode(cfg) == "llm"
+        else []
+    )
     codex_mcp_compat_args = codex_mcp_native_http_compat_args(
         codex_mcp_config,
         split_http_proxy=(not use_native_codex and codex_mcp_split_proxy_enabled()),
+        channel_owned_server_names=codex_channel_owned_names,
     )
     config_args = [*config_args, *codex_mcp_compat_args]
     listen_url = codex_app_server_default_listen_url()
@@ -36765,7 +36789,7 @@ def launch_codex_app_server(
 
     def run_codex_app_server_process() -> int:
         if split_proxy_enabled:
-            start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config)
+            start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config, allowed_server_names=codex_channel_owned_names)
         return subprocess_call_with_child_pid_record(cmd, env, codex_process_record_path("app-server"))
 
     return run_with_router_lifetime(run_codex_app_server_process, manage_router_lifetime)
