@@ -1078,6 +1078,42 @@ bearer_token_env_var = "AINET_API_KEY"
             self.assertNotIn("mcp_servers.ai-net.enabled=false", split_args)
             self.assertFalse(any("ciel-runtime-proxy" in str(arg) for arg in split_args))
 
+    def test_codex_mcp_native_http_compat_does_not_null_implicit_oauth_type(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            codex_home = root / ".codex"
+            codex_home.mkdir()
+            config = codex_home / "config.toml"
+            config.write_text(
+                """
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp"
+
+[mcp_servers.supabase.env_http_headers]
+Authorization = "SUPABASE_MCP_AUTHORIZATION"
+""",
+                encoding="utf-8",
+            )
+            generated = root / "codex-mcp.json"
+
+            with (
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CODEX_MCP_CONFIG", generated),
+            ):
+                codex_mcp_config = ciel_runtime.write_codex_mcp_config_for_channel_discovery(
+                    [],
+                    env={"CODEX_HOME": str(codex_home)},
+                    cwd=root,
+                )
+                args = ciel_runtime.codex_mcp_native_http_compat_args(codex_mcp_config)
+
+                with mock.patch.object(ciel_runtime, "ROUTER_BASE", "http://127.0.0.1:8800"):
+                    split_args = ciel_runtime.codex_mcp_native_http_compat_args(codex_mcp_config, split_http_proxy=True)
+
+        self.assertNotIn("mcp_servers.supabase.type=null", args)
+        self.assertNotIn("mcp_servers.supabase.type=null", split_args)
+        self.assertIn('mcp_servers.supabase.url="http://127.0.0.1:8800/ca/codex-mcp/supabase"', split_args)
+
     def test_codex_mcp_split_proxy_is_opt_in(self):
         with mock.patch.dict("os.environ", {}, clear=True):
             self.assertFalse(ciel_runtime.codex_mcp_split_proxy_enabled())

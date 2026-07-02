@@ -35479,6 +35479,7 @@ def _normalize_codex_mcp_server(raw_name: Any, raw_server: Any) -> tuple[str, di
     url = str(raw_server.get("url") or raw_server.get("endpoint") or "").strip()
     if not url.startswith(("http://", "https://")):
         return None
+    explicit_type = raw_server.get("type") is not None or raw_server.get("transport") is not None
     server_type = str(raw_server.get("type") or raw_server.get("transport") or "http").strip().lower()
     if server_type in {"streamable-http", "streamable_http"}:
         server_type = "http"
@@ -35488,6 +35489,8 @@ def _normalize_codex_mcp_server(raw_name: Any, raw_server: Any) -> tuple[str, di
         "type": server_type,
         "url": url,
     }
+    if explicit_type:
+        out["_ciel_runtime_explicit_type"] = True
     for key in (
         "headers",
         "env_http_headers",
@@ -35752,7 +35755,7 @@ def codex_mcp_native_http_compat_args(codex_mcp_config: Path | None, *, split_ht
         if not key:
             router_log("WARN", f"codex_mcp_compat_skipped_unsafe_name server={name}")
             continue
-        if server.get("type") is not None:
+        if server.get("_ciel_runtime_explicit_type") and server.get("type") is not None:
             args.extend(["-c", f"mcp_servers.{key}.type=null"])
         if split_http_proxy:
             args.extend(["-c", f"mcp_servers.{key}.url={toml_string(codex_mcp_split_proxy_url(name))}"])
