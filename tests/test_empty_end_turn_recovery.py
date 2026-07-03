@@ -672,6 +672,132 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         self.assertIn("use Bash as needed to implement and verify the approved plan", output)
         self.assertIn('"stop_reason": "tool_use"', output)
 
+    def test_native_stream_after_exit_plan_short_end_turn_synthesizes_tasklist(self):
+        body = body_with_tools("continue implementation", ["TaskList", "Bash"])
+        body["messages"].append(
+            {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "tool_exit",
+                        "name": "ExitPlanMode",
+                        "input": {
+                            "allowedPrompts": [
+                                {"tool": "Bash", "prompt": "deploy edge function and rebuild frontend"}
+                            ]
+                        },
+                    }
+                ],
+            }
+        )
+        body["messages"].append(
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "tool_exit",
+                        "content": "User has approved your plan. You can now start coding.",
+                    }
+                ],
+            }
+        )
+
+        class Handler:
+            def __init__(self):
+                self.wfile = BytesIO()
+
+        handler = Handler()
+        events = [
+            'event: message_start\ndata: {"type":"message_start","message":{"content":[]}}\n\n',
+            'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+            'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Plan mode 종료. Edge Function 배포 진행."}}\n\n',
+            'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+            'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":1}}\n\n',
+            'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+        ]
+
+        lines = []
+        for event in events:
+            lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
+        ciel_runtime._rebatch_anthropic_sse_text(
+            handler,
+            lines,
+            "kimi-for-coding",
+            word_chunking=False,
+            source_body=body,
+            preserve_thinking=True,
+            provider="kimi",
+            normalize_tool_use=True,
+        )
+        output = handler.wfile.getvalue().decode("utf-8")
+
+        self.assertIn("Plan mode 종료", output)
+        self.assertIn('"name": "TaskList"', output)
+        self.assertIn('"stop_reason": "tool_use"', output)
+
+    def test_native_stream_after_exit_plan_drops_reentry_and_synthesizes_tasklist(self):
+        body = body_with_tools("continue implementation", ["TaskList", "EnterPlanMode", "Bash"])
+        body["messages"].append(
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "tool_use", "id": "tool_exit", "name": "ExitPlanMode", "input": {}}
+                ],
+            }
+        )
+        body["messages"].append(
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "tool_exit",
+                        "content": "User has approved your plan. You can now start coding.",
+                    }
+                ],
+            }
+        )
+
+        class Handler:
+            def __init__(self):
+                self.wfile = BytesIO()
+
+        handler = Handler()
+        events = [
+            'event: message_start\ndata: {"type":"message_start","message":{"content":[]}}\n\n',
+            'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
+            'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Plan mode 종료. Edge Function 재배포 진행."}}\n\n',
+            'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
+            'event: content_block_start\ndata: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"tool_reenter","name":"EnterPlanMode","input":{}}}\n\n',
+            'event: content_block_delta\ndata: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{}"}}\n\n',
+            'event: content_block_stop\ndata: {"type":"content_block_stop","index":1}\n\n',
+            'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use","stop_sequence":null},"usage":{"output_tokens":1}}\n\n',
+            'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+        ]
+
+        lines = []
+        for event in events:
+            lines.extend(f"{line}\n".encode("utf-8") for line in event.splitlines())
+        ciel_runtime._rebatch_anthropic_sse_text(
+            handler,
+            lines,
+            "kimi-for-coding",
+            word_chunking=False,
+            source_body=body,
+            preserve_thinking=True,
+            provider="kimi",
+            normalize_tool_use=True,
+        )
+        output = handler.wfile.getvalue().decode("utf-8")
+
+        self.assertIn("Plan mode 종료", output)
+        self.assertNotIn("tool_reenter", output)
+        self.assertNotIn('"name": "EnterPlanMode"', output)
+        self.assertIn('"name": "TaskList"', output)
+        self.assertIn('"stop_reason": "tool_use"', output)
+
     def test_native_stream_hidden_only_after_tool_result_synthesizes_tasklist(self):
         body = body_with_tools("continue implementation", ["TaskList", "Read", "Bash"])
         body["messages"].append(

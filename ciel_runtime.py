@@ -5116,6 +5116,9 @@ def plan_mode_tool_name_for_emit(body: dict[str, Any], name: str, tool_input: di
     if name == "EnterPlanMode" and body_is_channel_prompt(body):
         router_log("WARN", "dropped EnterPlanMode for external channel prompt")
         return None, tool_input
+    if name == "EnterPlanMode" and "ExitPlanMode" in latest_user_tool_result_names(body):
+        router_log("WARN", "dropped EnterPlanMode immediately after ExitPlanMode result")
+        return None, tool_input
     if name == "EnterPlanMode" and active:
         router_log("WARN", "dropped repeated EnterPlanMode while plan mode is active")
         return None, tool_input
@@ -5328,6 +5331,7 @@ WORK_CONTINUATION_RESULT_TOOLS: frozenset[str] = frozenset(
         "TaskList",
         "TaskUpdate",
         "TaskStop",
+        "ExitPlanMode",
     }
 )
 
@@ -17975,6 +17979,20 @@ def _rebatch_anthropic_sse_text(
                 if source_body is not None and should_auto_exit_plan_mode(source_body, text_so_far, []):
                     router_log("WARN", "auto-synthesized ExitPlanMode from malformed Anthropic-compatible tool_use stream")
                     emit_exit_plan_mode_tool(next_content_index)
+                    next_content_index += 1
+                    saw_tool_use = True
+                    pending_message_delta = (
+                        event_type,
+                        patched_message_delta("tool_use"),
+                    )
+                    return
+                if (
+                    allow_tasklist_synthesis
+                    and source_body is not None
+                    and should_keep_work_alive_with_tasklist(source_body, text_so_far, [])
+                ):
+                    router_log("WARN", "auto-synthesized TaskList after dropped Anthropic-compatible tool_use")
+                    emit_tasklist_tool(next_content_index)
                     next_content_index += 1
                     saw_tool_use = True
                     pending_message_delta = (
