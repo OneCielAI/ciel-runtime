@@ -239,6 +239,7 @@ class ZaiProviderTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "save_config"),
+            mock.patch.object(ciel_runtime, "endpoint_route_exists", return_value=None),
             mock.patch.object(ciel_runtime, "post_json", return_value=response) as post_json,
         ):
             stdout = io.StringIO()
@@ -266,6 +267,7 @@ class ZaiProviderTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "save_config"),
+            mock.patch.object(ciel_runtime, "endpoint_route_exists", return_value=None),
             mock.patch.object(ciel_runtime, "run_compatibility_api_key_probes", return_value=[]),
             mock.patch.object(ciel_runtime, "post_json", return_value=response) as post_json,
         ):

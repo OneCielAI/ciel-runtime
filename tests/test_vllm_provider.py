@@ -63,12 +63,13 @@ class VllmProviderTests(unittest.TestCase):
         pcfg["base_url"] = "http://vllm.local:8000/v1"
         pcfg["native_compat"] = False
 
-        url, req_body, _headers = ciel_runtime.compatibility_api_key_probe_request(
-            "vllm",
-            pcfg,
-            "test-model",
-            {"messages": [{"role": "user", "content": "hi"}], "max_tokens": 1},
-        )
+        with mock.patch.object(ciel_runtime, "upstream_model_ids", return_value=["test-model"]):
+            url, req_body, _headers = ciel_runtime.compatibility_api_key_probe_request(
+                "vllm",
+                pcfg,
+                "test-model",
+                {"messages": [{"role": "user", "content": "hi"}], "max_tokens": 1},
+            )
 
         self.assertEqual("http://vllm.local:8000/v1/chat/completions", url)
         self.assertEqual("test-model", req_body["model"])
@@ -184,6 +185,32 @@ class VllmProviderTests(unittest.TestCase):
         self.assertFalse(cfg["providers"]["vllm"]["native_compat"])
         self.assertTrue(any("Native compatibility disabled" in line for line in lines))
         save.assert_called_once()
+
+    def test_compatibility_endpoint_probe_checks_anthropic_and_openai_routes(self):
+        pcfg = dict(ciel_runtime.DEFAULT_CONFIG["providers"]["vllm"])
+        pcfg["base_url"] = "http://vllm.local:8000/v1"
+        calls = []
+
+        def route_exists(url, _headers, timeout=1.5):
+            calls.append(url)
+            if url.endswith("/v1/messages"):
+                return False
+            if url.endswith("/v1/chat/completions"):
+                return True
+            return None
+
+        with mock.patch.object(ciel_runtime, "endpoint_route_exists", side_effect=route_exists):
+            lines = ciel_runtime.compatibility_endpoint_probe_lines("vllm", pcfg, timeout=10)
+
+        self.assertEqual(
+            [
+                "http://vllm.local:8000/v1/messages",
+                "http://vllm.local:8000/v1/chat/completions",
+            ],
+            calls,
+        )
+        self.assertTrue(any("Anthropic Messages" in line and "missing" in line for line in lines))
+        self.assertTrue(any("OpenAI Chat" in line and "available" in line for line in lines))
 
     def test_set_base_url_keeps_anthropic_default_when_detection_is_inconclusive(self):
         cfg = {

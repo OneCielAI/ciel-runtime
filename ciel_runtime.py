@@ -8646,6 +8646,7 @@ CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS = (
     "fireworks",
 )
 AUTO_DETECT_NATIVE_COMPAT_PROVIDERS = ("vllm", "lm-studio", "self-hosted-nim")
+CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS = ("deepseek", "kimi", "zai", "fireworks")
 
 
 def provider_openai_router_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
@@ -8655,6 +8656,52 @@ def provider_openai_router_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
 def codex_openai_router_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
     del pcfg
     return provider in CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS
+
+
+def preferred_native_compat_for_launch_runtime(runtime: str, provider: str, pcfg: dict[str, Any]) -> tuple[bool | None, str]:
+    runtime = str(runtime or "").strip().lower()
+    if provider in ("anthropic", "codex", "agy", "ollama", "ollama-cloud"):
+        return None, ""
+    if runtime == "claude":
+        if provider in AUTO_DETECT_NATIVE_COMPAT_PROVIDERS:
+            return auto_detect_native_compat_for_base_url(provider, pcfg)
+        if provider in CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS:
+            return True, "Claude Code prefers the provider's Anthropic Messages compatible endpoint"
+        if provider in OPENCODE_PROVIDER_NAMES:
+            endpoint_kind = opencode_endpoint_kind(provider, str(pcfg.get("current_model") or ""), pcfg)
+            if endpoint_kind == "anthropic-messages":
+                return True, "Claude Code prefers the model's Anthropic Messages endpoint"
+            if endpoint_kind == "openai-chat":
+                return False, "selected model uses an OpenAI Chat endpoint"
+        return None, ""
+    if runtime in ("codex", "codex-app-server"):
+        if provider in OPENCODE_PROVIDER_NAMES:
+            endpoint_kind = opencode_endpoint_kind(provider, str(pcfg.get("current_model") or ""), pcfg)
+            if endpoint_kind == "openai-chat":
+                return False, "Codex prefers the model's OpenAI Chat compatible endpoint"
+            return None, ""
+        if provider in CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS:
+            return False, "Codex prefers OpenAI Chat compatible upstream routing"
+        return None, ""
+    return None, ""
+
+
+def apply_launch_endpoint_policy(cfg: dict[str, Any], runtime: str) -> list[str]:
+    provider, pcfg = get_current_provider(cfg)
+    desired, reason = preferred_native_compat_for_launch_runtime(runtime, provider, pcfg)
+    if desired is None:
+        return []
+    current = bool(pcfg.get("native_compat", True))
+    if current == desired:
+        router_log("INFO", f"launch_endpoint_policy runtime={runtime} provider={provider} native_compat={current} unchanged reason={reason}")
+        return []
+    pcfg["native_compat"] = desired
+    clear_model_cache()
+    save_config(cfg)
+    mode = "Anthropic Messages compatible" if desired else "OpenAI Chat compatible"
+    line = f"Endpoint policy updated for {runtime}: {PROVIDER_LABELS.get(provider, provider)} -> {mode} ({reason})."
+    router_log("INFO", f"launch_endpoint_policy runtime={runtime} provider={provider} native_compat={desired} changed reason={reason}")
+    return [line]
 
 
 def provider_wire_profile(provider: str, pcfg: dict[str, Any], body: dict[str, Any] | None = None) -> dict[str, str]:
@@ -8740,6 +8787,37 @@ def auto_detect_native_compat_for_base_url(provider: str, pcfg: dict[str, Any]) 
     if openai_route is True:
         return None, "OpenAI route detected, Anthropic route inconclusive; keeping Anthropic default"
     return None, "endpoint family inconclusive; keeping Anthropic default"
+
+
+def endpoint_probe_status_label(value: bool | None) -> str:
+    if value is True:
+        return "available"
+    if value is False:
+        return "missing"
+    return "inconclusive"
+
+
+def compatibility_endpoint_probe_headers(provider: str, pcfg: dict[str, Any]) -> dict[str, str]:
+    try:
+        return provider_headers(provider, pcfg)
+    except Exception:
+        return provider_model_list_headers(provider, pcfg)
+
+
+def compatibility_endpoint_probe_lines(provider: str, pcfg: dict[str, Any], timeout: float = 1.5) -> list[str]:
+    if provider in ("agy", "codex", "ollama", "ollama-cloud"):
+        return []
+    probe_timeout = max(0.25, min(float(timeout or 1.5), 3.0))
+    headers = compatibility_endpoint_probe_headers(provider, pcfg)
+    anthropic_url = join_url(native_anthropic_base_url(provider, pcfg), "/v1/messages")
+    openai_url = join_url(provider_upstream_request_base(provider, pcfg), "/v1/chat/completions")
+    anthropic_status = endpoint_route_exists(anthropic_url, headers, timeout=probe_timeout)
+    openai_status = endpoint_route_exists(openai_url, headers, timeout=probe_timeout)
+    return [
+        "Endpoint probes:",
+        f"- Anthropic Messages (/v1/messages): {endpoint_probe_status_label(anthropic_status)} ({anthropic_url})",
+        f"- OpenAI Chat (/v1/chat/completions): {endpoint_probe_status_label(openai_status)} ({openai_url})",
+    ]
 
 
 def write_json(handler: BaseHTTPRequestHandler, obj: Any, status: int = 200) -> None:
@@ -27183,6 +27261,8 @@ def _cmd_test(args: argparse.Namespace) -> None:
         print(line)
     for line in compatibility_runtime_lines(provider, pcfg, native):
         print(line)
+    for line in compatibility_endpoint_probe_lines(provider, pcfg, timeout=min(float(args.timeout or 1.5), 3.0)):
+        print(line)
     if provider == "lm-studio":
         info = upstream_model_runtime_info(provider, pcfg, timeout=1.5)
         loaded = positive_int(info.get("loaded_context_len")) if info else None
@@ -35809,6 +35889,9 @@ def launch_claude(
         return rc
     cfg = load_config()
     provider, pcfg = get_current_provider(cfg)
+    for line in apply_launch_endpoint_policy(cfg, "claude"):
+        print(line, flush=True)
+    provider, pcfg = get_current_provider(cfg)
     if not claude_launch_enabled_for_provider(provider):
         print(f"Ciel Runtime launch blocked: Launch Claude Code is disabled while {provider_menu_label(provider, pcfg)} provider is selected.", flush=True)
         print("Use the matching Launch menu item or --ca-runtime agy|codex|codex-app-server.", flush=True)
@@ -36670,6 +36753,9 @@ def launch_codex(
         return rc
     cfg = load_config()
     provider, pcfg = get_current_provider(cfg)
+    for line in apply_launch_endpoint_policy(cfg, "codex"):
+        print(line, flush=True)
+    provider, pcfg = get_current_provider(cfg)
     blockers = launch_readiness_errors(cfg)
     if blockers:
         print("Ciel Runtime Codex launch blocked:", flush=True)
@@ -36832,6 +36918,9 @@ def launch_codex_app_server(
     if rc not in (0, PRELAUNCH_LAUNCH_CODEX_APP_SERVER):
         return rc
     cfg = load_config()
+    provider, pcfg = get_current_provider(cfg)
+    for line in apply_launch_endpoint_policy(cfg, "codex-app-server"):
+        print(line, flush=True)
     provider, pcfg = get_current_provider(cfg)
     codex_mcp_config = write_codex_mcp_config_for_channel_discovery(passthrough, env=env)
     if not codex_launch_enabled_for_provider(provider):

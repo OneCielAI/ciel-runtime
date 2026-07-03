@@ -53,6 +53,33 @@ class KimiProviderTests(unittest.TestCase):
             ciel_runtime.join_url(ciel_runtime.provider_upstream_request_base("kimi", pcfg), "/v1/chat/completions"),
         )
 
+    def test_launch_endpoint_policy_switches_kimi_for_selected_runtime(self):
+        cfg = self.kimi_cfg()
+        pcfg = cfg["providers"]["kimi"]
+        pcfg["native_compat"] = False
+
+        with (
+            mock.patch.object(ciel_runtime, "save_config") as save,
+            mock.patch.object(ciel_runtime, "clear_model_cache") as clear_cache,
+        ):
+            claude_lines = ciel_runtime.apply_launch_endpoint_policy(cfg, "claude")
+
+        self.assertTrue(pcfg["native_compat"])
+        self.assertTrue(any("Anthropic Messages" in line for line in claude_lines))
+        save.assert_called_once_with(cfg)
+        clear_cache.assert_called_once()
+
+        with (
+            mock.patch.object(ciel_runtime, "save_config") as save,
+            mock.patch.object(ciel_runtime, "clear_model_cache") as clear_cache,
+        ):
+            codex_lines = ciel_runtime.apply_launch_endpoint_policy(cfg, "codex")
+
+        self.assertFalse(pcfg["native_compat"])
+        self.assertTrue(any("OpenAI Chat" in line for line in codex_lines))
+        save.assert_called_once_with(cfg)
+        clear_cache.assert_called_once()
+
     def test_kimi_aliases_normalize_to_documented_model_id(self):
         for raw in (
             "kimi-code/kimi-for-coding",
