@@ -32452,6 +32452,10 @@ def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
 
 
 def _write_fd_all(fd: int, data: bytes) -> None:
+    writer = getattr(fd, "write", None)
+    if callable(writer):
+        writer(data)
+        return
     view = memoryview(data)
     while view:
         written = os.write(fd, view)
@@ -33430,6 +33434,275 @@ def _apply_pty_winsize(pty_fd: int, rows: int, cols: int) -> bool:
         return False
 
 
+def _windows_console_input_handle() -> Any:
+    if os.name != "nt":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        handle = ctypes.WinDLL("kernel32", use_last_error=True).GetStdHandle(wintypes.DWORD(-10 & 0xFFFFFFFF))
+        if not handle or int(handle) in (-1, 0):
+            return None
+        return handle
+    except Exception:
+        return None
+
+
+def _windows_console_input_supported() -> bool:
+    return _windows_console_input_handle() is not None
+
+
+class _WindowsConsoleInputWriter:
+    """Inject keystrokes into the active Windows console input queue."""
+
+    def __init__(self) -> None:
+        self.handle = _windows_console_input_handle()
+        if self.handle is None:
+            raise RuntimeError("Windows console input handle is not available")
+
+    def write(self, data: bytes) -> None:
+        if not data:
+            return
+        text = data.decode("utf-8", errors="replace")
+        chars: list[str] = []
+        i = 0
+        while i < len(text):
+            ch = text[i]
+            if ch == "\r" and i + 1 < len(text) and text[i + 1] == "\n":
+                chars.append("\r")
+                i += 2
+                continue
+            if ch == "\n":
+                chars.append("\r")
+            else:
+                chars.append(ch)
+            i += 1
+        self._write_chars(chars)
+
+    def _write_chars(self, chars: list[str]) -> None:
+        import ctypes
+        from ctypes import wintypes
+
+        if not chars:
+            return
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+        class KEY_EVENT_RECORD(ctypes.Structure):
+            _fields_ = [
+                ("bKeyDown", wintypes.BOOL),
+                ("wRepeatCount", wintypes.WORD),
+                ("wVirtualKeyCode", wintypes.WORD),
+                ("wVirtualScanCode", wintypes.WORD),
+                ("uChar", wintypes.WCHAR),
+                ("dwControlKeyState", wintypes.DWORD),
+            ]
+
+        class EVENT_UNION(ctypes.Union):
+            _fields_ = [("KeyEvent", KEY_EVENT_RECORD)]
+
+        class INPUT_RECORD(ctypes.Structure):
+            _fields_ = [("EventType", wintypes.WORD), ("Event", EVENT_UNION)]
+
+        KEY_EVENT = 0x0001
+        LEFT_CTRL_PRESSED = 0x0008
+        vk_map = {
+            "\r": 0x0D,
+            "\x1b": 0x1B,
+            "\x08": 0x08,
+            "\t": 0x09,
+        }
+        records: list[Any] = []
+        for ch in chars:
+            vk = vk_map.get(ch)
+            if vk is None and len(ch) == 1 and "A" <= ch.upper() <= "Z":
+                vk = ord(ch.upper())
+            elif vk is None:
+                vk = 0
+            control = LEFT_CTRL_PRESSED if ch == "\x15" else 0
+            for key_down in (True, False):
+                record = INPUT_RECORD()
+                record.EventType = KEY_EVENT
+                record.Event.KeyEvent = KEY_EVENT_RECORD(
+                    bool(key_down),
+                    1,
+                    int(vk),
+                    0,
+                    ch,
+                    control,
+                )
+                records.append(record)
+        array_type = INPUT_RECORD * len(records)
+        written = wintypes.DWORD(0)
+        ok = kernel32.WriteConsoleInputW(self.handle, array_type(*records), len(records), ctypes.byref(written))
+        if not ok or int(written.value) != len(records):
+            raise OSError(f"WriteConsoleInputW failed: written={int(written.value)} expected={len(records)}")
+
+
+def subprocess_call_with_windows_console_wake_proxy(
+    cmd: list[str],
+    env: dict[str, str],
+    *,
+    inject_channel_messages: bool = True,
+    inject_web_chat_only: bool = False,
+    wake_for_llm_delivery: bool = False,
+    synthetic_enter_bytes: str | bytes | None = None,
+    normalize_bare_cr_for_synthetic_enter: bool = True,
+    channel_wake_submit_retries: int = 1,
+    channel_wake_confirm_submit: bool = False,
+    channel_wake_bracketed_paste: bool = False,
+    channel_wake_submit_delay_seconds: float | None = None,
+    tracked_child_pid_path: Path | None = None,
+) -> int:
+    proc = subprocess.Popen(cmd, env=env)
+    _write_codex_child_process_record(tracked_child_pid_path, proc.pid, cmd)
+    writer = _WindowsConsoleInputWriter()
+    last_id = ensure_channel_llm_delivery_cursor_initialized()
+    last_channel_marker: tuple[float, int] = (0.0, -1)
+    last_channel_poll = 0.0
+    last_compact_poll = 0.0
+    channel_inflight_id: int | None = None
+    channel_inflight_cursor: int | None = None
+    channel_inflight_logged_at = 0.0
+    channel_inflight_started_at = 0.0
+    channel_pending_recheck = False
+    channel_tool_defer_logged_at = 0.0
+    compact_defer_logged_at = 0.0
+    channel_enter_bytes = _channel_wake_enter_bytes(synthetic_enter_bytes)
+    submit_retry_count = max(1, min(8, int(channel_wake_submit_retries or 1)))
+    router_log(
+        "INFO",
+        "channel_windows_console_proxy_started "
+        f"pid={proc.pid} enter={_channel_enter_label(channel_enter_bytes)} "
+        f"submit_retries={submit_retry_count} confirm_submit={bool(channel_wake_confirm_submit)} "
+        f"bracketed_paste={bool(channel_wake_bracketed_paste)}",
+    )
+    try:
+        while proc.poll() is None:
+            now = time.time()
+            if channel_inflight_id is not None:
+                channel_inflight_state = _channel_stdin_wake_state(channel_inflight_id)
+                if channel_inflight_state == "completed":
+                    if channel_inflight_cursor is not None:
+                        _commit_channel_llm_cursor_if_newer(channel_inflight_cursor)
+                    with _CHANNEL_STDIN_WAKE_LOCK:
+                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
+                    _channel_stdin_clear_wake_claim(channel_inflight_id)
+                    router_log(
+                        "INFO",
+                        f"channel_windows_console_confirmed message_id={channel_inflight_id} cursor={channel_inflight_cursor or '-'}",
+                    )
+                    channel_inflight_id = None
+                    channel_inflight_cursor = None
+                    channel_inflight_started_at = 0.0
+                    channel_pending_recheck = True
+                elif (
+                    channel_inflight_state == "missing"
+                    and channel_inflight_started_at > 0
+                    and now - channel_inflight_started_at >= _channel_stdin_unseen_retry_seconds()
+                ):
+                    with _CHANNEL_STDIN_WAKE_LOCK:
+                        _CHANNEL_STDIN_WAKE_DELIVERED.discard(channel_inflight_id)
+                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
+                    _channel_stdin_clear_wake_claim(channel_inflight_id)
+                    router_log(
+                        "WARN",
+                        f"channel_windows_console_unseen_retry message_id={channel_inflight_id} age={now - channel_inflight_started_at:.1f}s",
+                    )
+                    channel_inflight_id = None
+                    channel_inflight_cursor = None
+                    channel_inflight_started_at = 0.0
+                    channel_pending_recheck = True
+                    last_id = ensure_channel_llm_delivery_cursor_initialized()
+                    channel_inflight_logged_at = now
+                elif _channel_stdin_inflight_is_stale(channel_inflight_state, channel_inflight_started_at, now):
+                    if channel_inflight_cursor is not None:
+                        _commit_channel_llm_cursor_if_newer(channel_inflight_cursor)
+                    with _CHANNEL_STDIN_WAKE_LOCK:
+                        _CHANNEL_STDIN_WAKE_DELIVERED.discard(channel_inflight_id)
+                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
+                    _channel_stdin_clear_wake_claim(channel_inflight_id)
+                    router_log(
+                        "WARN",
+                        "channel_windows_console_stale_inflight_skipped "
+                        f"message_id={channel_inflight_id} state={channel_inflight_state} "
+                        f"age={now - channel_inflight_started_at:.1f}s cursor={channel_inflight_cursor or '-'}",
+                    )
+                    channel_inflight_id = None
+                    channel_inflight_cursor = None
+                    channel_inflight_started_at = 0.0
+                    channel_pending_recheck = True
+                    last_id = ensure_channel_llm_delivery_cursor_initialized()
+                    channel_inflight_logged_at = now
+                elif now - channel_inflight_logged_at >= 30.0:
+                    channel_inflight_logged_at = now
+                    router_log(
+                        "INFO",
+                        f"channel_windows_console_waiting_for_turn_completion message_id={channel_inflight_id} state={channel_inflight_state}",
+                    )
+            if now - last_compact_poll >= 0.5:
+                last_compact_poll = now
+                if channel_inflight_id is None:
+                    log_defer = now - compact_defer_logged_at >= 30.0
+                    compact_status = _inject_pending_compact_request(
+                        writer,
+                        channel_enter_bytes,
+                        log_defer=log_defer,
+                        submit_retry_count=submit_retry_count,
+                        confirm_submit=channel_wake_confirm_submit,
+                        bracketed_paste=channel_wake_bracketed_paste,
+                        submit_delay_seconds=channel_wake_submit_delay_seconds,
+                    )
+                    if compact_status == "deferred" and log_defer:
+                        compact_defer_logged_at = now
+                    elif compact_status == "injected":
+                        compact_defer_logged_at = 0.0
+            if now - last_channel_poll >= 0.5:
+                last_channel_poll = now
+                marker = _chat_messages_file_marker()
+                if inject_channel_messages and _channel_stdin_should_check_pending(
+                    marker,
+                    last_channel_marker,
+                    channel_pending_recheck,
+                    channel_inflight_id,
+                ):
+                    if _channel_stdin_active_tool_call():
+                        channel_pending_recheck = True
+                        if now - channel_tool_defer_logged_at >= 30.0:
+                            channel_tool_defer_logged_at = now
+                            router_log("INFO", f"channel_windows_console_deferred cursor={last_id} reason=active_tool_call")
+                    else:
+                        if marker != last_channel_marker:
+                            last_channel_marker = marker
+                        channel_pending_recheck = False
+                        last_id = max(last_id, ensure_channel_llm_delivery_cursor_initialized())
+                        injected_ids: list[int] = []
+                        last_id = _inject_pending_channel_messages(
+                            writer,
+                            last_id,
+                            channel_enter_bytes,
+                            web_chat_only=inject_web_chat_only,
+                            wake_for_llm_delivery=wake_for_llm_delivery,
+                            commit_cursor=False,
+                            injected_message_ids=injected_ids,
+                            submit_retry_count=submit_retry_count,
+                            confirm_submit=channel_wake_confirm_submit,
+                            bracketed_paste=channel_wake_bracketed_paste,
+                            submit_delay_seconds=channel_wake_submit_delay_seconds,
+                            skip_blocking_wake_states=channel_inflight_id is not None,
+                        )
+                        if injected_ids:
+                            channel_inflight_id = injected_ids[-1]
+                            channel_inflight_cursor = last_id
+                            channel_inflight_logged_at = now
+                            channel_inflight_started_at = now
+            time.sleep(0.05)
+        return proc.wait()
+    finally:
+        _terminate_recorded_child_process(proc, "current Codex")
+        _release_codex_child_process_record(tracked_child_pid_path, proc.pid)
+
+
 def subprocess_call_with_channel_wake_proxy(
     cmd: list[str],
     env: dict[str, str],
@@ -33445,6 +33718,27 @@ def subprocess_call_with_channel_wake_proxy(
     channel_wake_submit_delay_seconds: float | None = None,
     tracked_child_pid_path: Path | None = None,
 ) -> int:
+    if os.name == "nt" and sys.stdin.isatty() and sys.stdout.isatty() and _windows_console_input_supported():
+        try:
+            return subprocess_call_with_windows_console_wake_proxy(
+                cmd,
+                env,
+                inject_channel_messages=inject_channel_messages,
+                inject_web_chat_only=inject_web_chat_only,
+                wake_for_llm_delivery=wake_for_llm_delivery,
+                synthetic_enter_bytes=synthetic_enter_bytes,
+                normalize_bare_cr_for_synthetic_enter=normalize_bare_cr_for_synthetic_enter,
+                channel_wake_submit_retries=channel_wake_submit_retries,
+                channel_wake_confirm_submit=channel_wake_confirm_submit,
+                channel_wake_bracketed_paste=channel_wake_bracketed_paste,
+                channel_wake_submit_delay_seconds=channel_wake_submit_delay_seconds,
+                tracked_child_pid_path=tracked_child_pid_path,
+            )
+        except Exception as exc:
+            router_log(
+                "WARN",
+                f"channel_windows_console_proxy_failed error={type(exc).__name__}: {exc}; using direct subprocess call",
+            )
     if os.name != "posix" or not sys.stdin.isatty() or not sys.stdout.isatty():
         router_log("INFO", "channel_stdin_proxy_unavailable; using direct subprocess call")
         if tracked_child_pid_path is None:

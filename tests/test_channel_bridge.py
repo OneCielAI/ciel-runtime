@@ -1386,6 +1386,49 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(b"\r\n", ciel_runtime._channel_platform_default_enter_bytes("win32", "nt"))
         self.assertEqual(b"\r\n", ciel_runtime._channel_platform_default_enter_bytes("msys", "posix"))
 
+    def test_windows_channel_wake_proxy_uses_console_input_writer(self):
+        with (
+            mock.patch.object(ciel_runtime.os, "name", "nt"),
+            mock.patch.object(ciel_runtime.sys.stdin, "isatty", return_value=True),
+            mock.patch.object(ciel_runtime.sys.stdout, "isatty", return_value=True),
+            mock.patch.object(ciel_runtime, "_windows_console_input_supported", return_value=True),
+            mock.patch.object(ciel_runtime, "subprocess_call_with_windows_console_wake_proxy", return_value=77) as proxy,
+            mock.patch.object(ciel_runtime.subprocess, "call") as direct,
+        ):
+            rc = ciel_runtime.subprocess_call_with_channel_wake_proxy(
+                ["codex", "--yolo"],
+                {"PATH": "x"},
+                wake_for_llm_delivery=True,
+                synthetic_enter_bytes=b"\r",
+                channel_wake_submit_retries=4,
+                channel_wake_confirm_submit=True,
+                channel_wake_bracketed_paste=True,
+                channel_wake_submit_delay_seconds=0.25,
+            )
+
+        self.assertEqual(77, rc)
+        direct.assert_not_called()
+        proxy.assert_called_once()
+        kwargs = proxy.call_args.kwargs
+        self.assertTrue(kwargs["wake_for_llm_delivery"])
+        self.assertEqual(b"\r", kwargs["synthetic_enter_bytes"])
+        self.assertEqual(4, kwargs["channel_wake_submit_retries"])
+        self.assertTrue(kwargs["channel_wake_confirm_submit"])
+        self.assertTrue(kwargs["channel_wake_bracketed_paste"])
+        self.assertEqual(0.25, kwargs["channel_wake_submit_delay_seconds"])
+
+    def test_write_fd_all_accepts_writer_object(self):
+        class Writer:
+            def __init__(self):
+                self.data = bytearray()
+
+            def write(self, data):
+                self.data.extend(data)
+
+        writer = Writer()
+        ciel_runtime._write_fd_all(writer, b"wake")
+        self.assertEqual(b"wake", bytes(writer.data))
+
     def test_channel_enter_bytes_from_user_input_tracks_observed_submit_key(self):
         self.assertEqual(b"\n", ciel_runtime._channel_enter_bytes_from_user_input(b"\n"))
         self.assertEqual(b"\r", ciel_runtime._channel_enter_bytes_from_user_input(b"\r"))
