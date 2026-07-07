@@ -1,7 +1,7 @@
 # ciel-runtime (ciel-runtime) — Wiki 홈
 
 > **패키지명**: `@oneciel-ai/ciel-runtime`  
-> **버전**: 0.1.0  
+> **버전**: 0.1.1  
 > **제작**: One Ciel LLC  
 > **라이선스**: MIT
 

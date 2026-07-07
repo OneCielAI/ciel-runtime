@@ -130,7 +130,7 @@ Codex 경로는 `write_openai_responses_response()`가 Responses SSE를 생성�
 
 ```
 GET /ca/health
-→ {"status": "ok", "version": "0.1.0", "provider": "...", "model": "...", ...}
+→ {"status": "ok", "version": "0.1.1", "provider": "...", "model": "...", ...}
 ```
 
 - `router_health()` — 라우터 상태 JSON 반환

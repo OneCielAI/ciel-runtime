@@ -358,7 +358,7 @@ OFFICIAL_CHANNEL_PLUGINS = {
     "fakechat": "plugin:fakechat@claude-plugins-official",
 }
 APP_NAME = "Ciel Runtime"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 DEFAULT_UPSTREAM_USER_AGENT = "claude-cli"
 
 

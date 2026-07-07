@@ -271,7 +271,7 @@ ciel-runtimectl install-diag
 #### `version`
 ```bash
 ciel-runtimectl version
-# → 0.1.0
+# → 0.1.1
 ```
 
 ---
