@@ -791,7 +791,8 @@ class NativeModelListTests(unittest.TestCase):
 class StopRouterGuaranteeTests(unittest.TestCase):
     def test_returns_false_when_router_already_down(self):
         with (
-            mock.patch.object(ciel_runtime, "router_up", return_value=False),
+            mock.patch.object(ciel_runtime, "router_health", return_value=None),
+            mock.patch.object(ciel_runtime, "router_port_listener_pids", return_value=[]),
             mock.patch.object(ciel_runtime, "stop_router_processes") as stop,
             mock.patch.object(ciel_runtime, "router_log"),
         ):
@@ -1156,8 +1157,14 @@ class RouterLifetimeTests(unittest.TestCase):
         stop.assert_not_called()
 
     def test_router_client_supervisor_ignores_transient_health_miss(self):
+        health = {
+            "version": ciel_runtime.VERSION,
+            "source_fingerprint": ciel_runtime.SOURCE_FINGERPRINT,
+            "user": ciel_runtime.getpass.getuser(),
+            "config_dir": str(ciel_runtime.CONFIG_DIR),
+        }
         with (
-            mock.patch.object(ciel_runtime, "router_up", side_effect=[False, True]),
+            mock.patch.object(ciel_runtime, "router_health", side_effect=[None, health]),
             mock.patch.object(ciel_runtime.time, "sleep"),
             mock.patch.object(ciel_runtime, "start_router_if_needed") as start,
             mock.patch.object(ciel_runtime, "router_log") as log,
@@ -1169,7 +1176,7 @@ class RouterLifetimeTests(unittest.TestCase):
 
     def test_router_client_supervisor_restarts_when_router_disappears(self):
         with (
-            mock.patch.object(ciel_runtime, "router_up", return_value=False),
+            mock.patch.object(ciel_runtime, "router_health", return_value=None),
             mock.patch.object(ciel_runtime.time, "sleep"),
             mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True) as start,
             mock.patch.object(ciel_runtime, "router_log") as log,

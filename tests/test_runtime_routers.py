@@ -79,6 +79,34 @@ class RuntimeRouterTests(unittest.TestCase):
         write_context_usage.assert_called_once()
         write_json.assert_called_once_with(mock.ANY, {"input_tokens": 42})
 
+    def test_router_post_uncaught_exception_returns_api_error(self):
+        cfg = {"current_provider": "anthropic", "providers": {"anthropic": {}}}
+        handler = object.__new__(ciel_runtime.RouterHandler)
+        handler.path = "/v1/responses"
+        handler.headers = {"content-length": "17"}
+        handler.rfile = mock.Mock()
+        handler.rfile.read.return_value = b'{"stream": false}'
+
+        with (
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "reject_external_router_request", return_value=False),
+            mock.patch.object(ciel_runtime, "handle_codex_mcp_split_proxy_request", return_value=False),
+            mock.patch.object(ciel_runtime, "handle_llm_config_post", return_value=False),
+            mock.patch.object(ciel_runtime, "handle_channel_mcp_post", return_value=False),
+            mock.patch.object(ciel_runtime, "handle_chat_post", return_value=False),
+            mock.patch.object(ciel_runtime, "handle_plan_post", return_value=False),
+            mock.patch.object(ciel_runtime, "route_runtime_post", side_effect=RuntimeError("boom")),
+            mock.patch.object(ciel_runtime, "write_openai_responses_error") as write_error,
+            mock.patch.object(ciel_runtime, "router_log") as log,
+        ):
+            handler.do_POST()
+
+        write_error.assert_called_once()
+        self.assertIn("Ciel Runtime router error: RuntimeError: boom", write_error.call_args.args[1])
+        self.assertFalse(write_error.call_args.kwargs["stream"])
+        self.assertEqual(500, write_error.call_args.kwargs["status"])
+        self.assertTrue(any("router_post_uncaught" in call.args[1] for call in log.call_args_list))
+
 
 if __name__ == "__main__":
     unittest.main()

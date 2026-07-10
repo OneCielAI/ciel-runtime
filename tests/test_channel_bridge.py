@@ -1426,6 +1426,38 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("\x1b[?1006l", stream.text)
         self.assertTrue(stream.flushed)
 
+    def test_windows_console_mouse_input_guard_disables_and_restores_mouse_mode(self):
+        modes = {"value": 0x01F7}
+
+        def set_mode(value):
+            modes["value"] = value
+            return True
+
+        with (
+            mock.patch.object(ciel_runtime.os, "name", "nt"),
+            mock.patch.object(ciel_runtime, "_windows_console_input_mode", side_effect=lambda: modes["value"]),
+            mock.patch.object(ciel_runtime, "_set_windows_console_input_mode", side_effect=set_mode) as setter,
+            mock.patch.dict(os.environ, {}, clear=True),
+        ):
+            guard = ciel_runtime._WindowsConsoleMouseInputGuard()
+            guard.apply()
+            self.assertEqual(0x01E7, modes["value"])
+            guard.restore()
+            self.assertEqual(0x01F7, modes["value"])
+
+        self.assertGreaterEqual(setter.call_count, 2)
+
+    def test_windows_console_mouse_input_guard_can_be_disabled_by_env(self):
+        with (
+            mock.patch.object(ciel_runtime.os, "name", "nt"),
+            mock.patch.object(ciel_runtime, "_windows_console_input_mode", return_value=0x0010),
+            mock.patch.object(ciel_runtime, "_set_windows_console_input_mode") as setter,
+            mock.patch.dict(os.environ, {"CIEL_RUNTIME_WINDOWS_CONSOLE_MOUSE_FILTER": "0"}, clear=True),
+        ):
+            ciel_runtime._WindowsConsoleMouseInputGuard().apply()
+
+        setter.assert_not_called()
+
     def test_windows_channel_wake_proxy_uses_console_input_writer(self):
         with (
             mock.patch.object(ciel_runtime.os, "name", "nt"),

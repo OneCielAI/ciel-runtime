@@ -27,6 +27,7 @@ import tarfile
 import tempfile
 import threading
 import time
+import traceback
 import unicodedata
 import urllib.error
 import urllib.parse
@@ -20864,25 +20865,54 @@ class RouterHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urllib.parse.urlparse(self.path).path
-        cfg = load_config()
-        if reject_external_router_request(self, cfg):
+        cfg: dict[str, Any] = {}
+        body: dict[str, Any] = {}
+        try:
+            cfg = load_config()
+            if reject_external_router_request(self, cfg):
+                return
+            length = int(self.headers.get("content-length", "0") or 0)
+            raw = self.rfile.read(length) if length else b"{}"
+            if handle_codex_mcp_split_proxy_request(self, path, raw, "POST"):
+                return
+            body = parse_json_body(raw)
+            if handle_llm_config_post(self, path, body):
+                return
+            if handle_channel_mcp_post(self, path, body):
+                return
+            if handle_chat_post(self, path, body) or handle_plan_post(self, path, body):
+                return
+            provider, pcfg = get_current_provider(cfg)
+            if route_runtime_post(self, cfg, provider, pcfg, path, body):
+                return
+            write_json(self, {"type": "error", "error": {"type": "not_found_error", "message": path}}, 404)
             return
-        length = int(self.headers.get("content-length", "0") or 0)
-        raw = self.rfile.read(length) if length else b"{}"
-        if handle_codex_mcp_split_proxy_request(self, path, raw, "POST"):
+        except Exception as exc:
+            if is_client_disconnect_error(exc):
+                router_log("WARN", f"router_post_client_disconnected path={path} error={type(exc).__name__}: {exc}")
+                return
+            trace = traceback.format_exc(limit=20).replace("\n", "\\n")
+            router_log("ERROR", f"router_post_uncaught path={path} error={type(exc).__name__}: {exc} trace={trace}")
+            message = f"Ciel Runtime router error: {type(exc).__name__}: {exc}"
+            stream = bool(body.get("stream", True)) if isinstance(body, dict) else True
+            try:
+                if path == "/v1/responses":
+                    write_openai_responses_error(self, message, stream=stream, status=500)
+                elif "text/event-stream" in str(self.headers.get("accept") or "").lower() or stream:
+                    self.send_response(500)
+                    self.send_header("content-type", "text/event-stream")
+                    self.send_header("cache-control", "no-cache")
+                    self.send_header("connection", "close")
+                    self.end_headers()
+                    payload = {"type": "error", "error": {"type": "api_error", "message": message}}
+                    self.wfile.write(f"event: error\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
+                    self.wfile.flush()
+                else:
+                    try_write_json(self, {"type": "error", "error": {"type": "api_error", "message": message}}, 500)
+            except Exception as write_exc:
+                if not is_client_disconnect_error(write_exc):
+                    router_log("ERROR", f"router_post_uncaught_response_failed path={path} error={type(write_exc).__name__}: {write_exc}")
             return
-        body = parse_json_body(raw)
-        if handle_llm_config_post(self, path, body):
-            return
-        if handle_channel_mcp_post(self, path, body):
-            return
-        if handle_chat_post(self, path, body) or handle_plan_post(self, path, body):
-            return
-        provider, pcfg = get_current_provider(cfg)
-        if route_runtime_post(self, cfg, provider, pcfg, path, body):
-            return
-        write_json(self, {"type": "error", "error": {"type": "not_found_error", "message": path}}, 404)
-        return
 
     def do_DELETE(self) -> None:
         path = urllib.parse.urlparse(self.path).path
@@ -20933,6 +20963,40 @@ def router_health() -> dict[str, Any] | None:
         return data if isinstance(data, dict) else None
     except Exception:
         return None
+
+
+def router_port_connectivity_summary(timeout: float = 0.5) -> str:
+    parsed = urllib.parse.urlparse(ROUTER_BASE)
+    host = parsed.hostname or "127.0.0.1"
+    port = parsed.port or ROUTER_PORT
+    try:
+        with socket.create_connection((host, port), timeout=max(0.1, float(timeout))):
+            return f"tcp={host}:{port}:ok"
+    except Exception as exc:
+        return f"tcp={host}:{port}:{type(exc).__name__}: {exc}"
+
+
+def router_health_summary(health: dict[str, Any] | None = None) -> str:
+    if health is None:
+        health = router_health()
+    if isinstance(health, dict):
+        return (
+            "health=ok "
+            f"base={ROUTER_BASE} "
+            f"pid={health.get('pid') or '-'} "
+            f"version={health.get('version') or '-'} "
+            f"source={health.get('source_fingerprint') or '-'} "
+            f"provider={health.get('provider') or '-'} "
+            f"model={health.get('model') or '-'} "
+            f"config_dir={health.get('config_dir') or '-'}"
+        )
+    pid_state = "missing"
+    try:
+        if PID_PATH.exists():
+            pid_state = PID_PATH.read_text(encoding="utf-8").strip() or "empty"
+    except Exception as exc:
+        pid_state = f"read_failed:{type(exc).__name__}"
+    return f"health=down base={ROUTER_BASE} pid_file={pid_state} {router_port_connectivity_summary()}"
 
 
 def router_up() -> bool:
@@ -27833,21 +27897,30 @@ def stop_router_if_no_active_clients(reason: str, quiet: bool = True) -> bool:
 
 
 def router_client_supervisor_interval_seconds() -> float:
-    raw = os.environ.get("CIEL_RUNTIME_ROUTER_SUPERVISOR_SECONDS", "2")
+    raw = os.environ.get("CIEL_RUNTIME_ROUTER_SUPERVISOR_SECONDS", "0.5")
     try:
         value = float(raw)
     except (TypeError, ValueError):
-        value = 2.0
+        value = 0.5
     return max(0.5, min(30.0, value))
 
 
 def ensure_managed_router_running_for_client() -> bool:
-    if router_up():
+    health = router_health()
+    if router_health_matches_current(health):
         return True
+    if health is not None:
+        router_log("WARN", f"router_lifetime_health_mismatch_active_client {router_health_summary(health)}")
+        try:
+            return bool(start_router_if_needed(replace_active_clients=False))
+        except Exception as exc:
+            router_log("ERROR", f"router_lifetime_restart_failed error={type(exc).__name__}: {exc}")
+            return False
     for attempt in range(2):
         time.sleep(0.5)
-        if router_up():
-            router_log("INFO", f"router_lifetime_keep_alive reason=transient_health_miss retry={attempt + 1} base={ROUTER_BASE}")
+        health = router_health()
+        if router_health_matches_current(health):
+            router_log("INFO", f"router_lifetime_keep_alive reason=transient_health_miss retry={attempt + 1} {router_health_summary(health)}")
             return True
     router_log("WARN", f"router_lifetime_restart reason=router_down_active_client base={ROUTER_BASE}")
     try:
@@ -27866,6 +27939,103 @@ def start_router_client_supervisor(stop_event: threading.Event) -> threading.Thr
     thread = threading.Thread(target=watch, daemon=True, name="ca-router-client-supervisor")
     thread.start()
     return thread
+
+
+def file_size_or_zero(path: Path) -> int:
+    try:
+        return int(path.stat().st_size)
+    except Exception:
+        return 0
+
+
+def _read_text_file_from_offset(path: Path, offset: int = 0, max_bytes: int = 262_144) -> str:
+    try:
+        size = path.stat().st_size
+        start = max(0, min(int(offset or 0), int(size)))
+        if size - start > max_bytes:
+            start = max(0, size - max_bytes)
+        with path.open("rb") as f:
+            f.seek(start)
+            return f.read(max_bytes).decode("utf-8", errors="replace")
+    except Exception:
+        return ""
+
+
+def router_recent_diagnostic_lines(since_offset: int = 0, limit: int = 8) -> list[str]:
+    text = _read_text_file_from_offset(LOG_PATH, since_offset)
+    if not text:
+        return []
+    markers = (
+        "[ERROR]",
+        "[WARN]",
+        "ConnectionRefused",
+        "connection refused",
+        "URLError",
+        "router_lifetime",
+        "router_spawned",
+        "router_check_state",
+        "claude_exit",
+        "upstream_",
+        "ollama_",
+        "anthropic_sse_forward_error",
+    )
+    lines = [line.strip() for line in text.splitlines() if line.strip() and any(marker in line for marker in markers)]
+    return lines[-max(1, int(limit or 8)):]
+
+
+def provider_upstream_summary_for_launch(provider: str, pcfg: dict[str, Any]) -> str:
+    base = str(pcfg.get("base_url") or "").rstrip("/") or "-"
+    try:
+        if provider in ("ollama", "ollama-cloud"):
+            return f"upstream={join_url(base, '/api/chat')}"
+        if provider_openai_router_enabled(provider, pcfg) or codex_openai_router_enabled(provider, pcfg):
+            return f"upstream={join_url(provider_upstream_request_base(provider, pcfg), '/v1/chat/completions')}"
+        native_base = native_anthropic_base_url(provider, pcfg) if provider_native_compat_enabled(provider, pcfg) else provider_upstream_request_base(provider, pcfg)
+        return f"upstream={join_url(native_base, '/v1/messages')}"
+    except Exception:
+        return f"upstream_base={base}"
+
+
+def should_print_routed_claude_diagnostics(rc: int, recent_lines: list[str]) -> bool:
+    if rc != 0:
+        return True
+    text = "\n".join(recent_lines).lower()
+    return any(
+        marker in text
+        for marker in (
+            "connectionrefused",
+            "connection refused",
+            "urlerror",
+            "router_lifetime_restart_failed",
+            "router_lifetime_health_mismatch",
+            "anthropic_sse_forward_error",
+        )
+    )
+
+
+def print_routed_claude_exit_diagnostics(
+    rc: int,
+    provider: str,
+    pcfg: dict[str, Any],
+    *,
+    log_offset: int = 0,
+) -> None:
+    recent = router_recent_diagnostic_lines(log_offset)
+    if not should_print_routed_claude_diagnostics(rc, recent):
+        return
+    health = router_health()
+    lines = [
+        f"Ciel Runtime diagnostic: Claude Code exited with code {rc} while routed through {ROUTER_BASE}.",
+        f"Router: {router_health_summary(health)}",
+        f"Provider: {provider} {provider_upstream_summary_for_launch(provider, pcfg)}",
+        f"Router log: {LOG_PATH}",
+    ]
+    if recent:
+        lines.append("Recent router events:")
+        lines.extend(f"  {line}" for line in recent)
+    for line in lines:
+        print(line, flush=True)
+    router_log("WARN", "claude_routed_exit_diagnostic " + " | ".join(lines[:4]))
 
 
 def run_with_router_lifetime(runner: Callable[[], int], manage_router: bool) -> int:
@@ -33441,14 +33611,14 @@ def _terminal_input_mode_reset_enabled() -> bool:
     return parse_bool(os.environ.get("CIEL_RUNTIME_TERMINAL_INPUT_MODE_RESET"), True)
 
 
-def _terminal_input_mode_reset_interval_seconds() -> float:
+def _terminal_input_mode_reset_interval_seconds(default: float = 2.0) -> float:
     raw = os.environ.get("CIEL_RUNTIME_TERMINAL_INPUT_MODE_RESET_INTERVAL_SECONDS")
     if raw is None:
-        return 2.0
+        return default
     try:
         return max(0.25, min(60.0, float(raw)))
     except Exception:
-        return 2.0
+        return default
 
 
 def _write_terminal_input_mode_reset(stream: Any | None = None) -> None:
@@ -33562,6 +33732,65 @@ def _windows_console_input_supported() -> bool:
     return _windows_console_input_handle() is not None
 
 
+def _windows_console_mouse_input_filter_enabled() -> bool:
+    return parse_bool(os.environ.get("CIEL_RUNTIME_WINDOWS_CONSOLE_MOUSE_FILTER"), True)
+
+
+def _windows_console_input_mode() -> int | None:
+    handle = _windows_console_input_handle()
+    if handle is None:
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        mode = wintypes.DWORD(0)
+        ok = ctypes.WinDLL("kernel32", use_last_error=True).GetConsoleMode(handle, ctypes.byref(mode))
+        if not ok:
+            return None
+        return int(mode.value)
+    except Exception:
+        return None
+
+
+def _set_windows_console_input_mode(mode: int) -> bool:
+    handle = _windows_console_input_handle()
+    if handle is None:
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        ok = ctypes.WinDLL("kernel32", use_last_error=True).SetConsoleMode(handle, wintypes.DWORD(int(mode)))
+        return bool(ok)
+    except Exception:
+        return False
+
+
+class _WindowsConsoleMouseInputGuard:
+    ENABLE_MOUSE_INPUT = 0x0010
+
+    def __init__(self) -> None:
+        self.original_mode: int | None = None
+
+    def apply(self) -> None:
+        if os.name != "nt" or not _windows_console_mouse_input_filter_enabled():
+            return
+        current = _windows_console_input_mode()
+        if current is None:
+            return
+        if self.original_mode is None:
+            self.original_mode = current
+        filtered = current & ~self.ENABLE_MOUSE_INPUT
+        if filtered != current and _set_windows_console_input_mode(filtered):
+            router_log("INFO", f"windows_console_mouse_input_disabled mode={current:#x}->{filtered:#x}")
+
+    def restore(self) -> None:
+        if os.name != "nt" or self.original_mode is None:
+            return
+        _set_windows_console_input_mode(self.original_mode)
+
+
 class _WindowsConsoleInputWriter:
     """Inject keystrokes into the active Windows console input queue."""
 
@@ -33668,6 +33897,8 @@ def subprocess_call_with_windows_console_wake_proxy(
     tracked_child_pid_path: Path | None = None,
 ) -> int:
     _write_terminal_input_mode_reset()
+    input_mode_guard = _WindowsConsoleMouseInputGuard()
+    input_mode_guard.apply()
     proc = subprocess.Popen(cmd, env=env)
     _write_codex_child_process_record(tracked_child_pid_path, proc.pid, cmd)
     writer = _WindowsConsoleInputWriter()
@@ -33685,7 +33916,7 @@ def subprocess_call_with_windows_console_wake_proxy(
     channel_enter_bytes = _channel_wake_enter_bytes(synthetic_enter_bytes)
     submit_retry_count = max(1, min(8, int(channel_wake_submit_retries or 1)))
     last_terminal_input_mode_reset = 0.0
-    terminal_input_mode_reset_interval = _terminal_input_mode_reset_interval_seconds()
+    terminal_input_mode_reset_interval = _terminal_input_mode_reset_interval_seconds(0.25)
     router_log(
         "INFO",
         "channel_windows_console_proxy_started "
@@ -33699,6 +33930,7 @@ def subprocess_call_with_windows_console_wake_proxy(
             if now - last_terminal_input_mode_reset >= terminal_input_mode_reset_interval:
                 last_terminal_input_mode_reset = now
                 _write_terminal_input_mode_reset()
+                input_mode_guard.apply()
             if channel_inflight_id is not None:
                 channel_inflight_state = _channel_stdin_wake_state(channel_inflight_id)
                 if channel_inflight_state == "completed":
@@ -33819,6 +34051,7 @@ def subprocess_call_with_windows_console_wake_proxy(
         return proc.wait()
     finally:
         _write_terminal_input_mode_reset()
+        input_mode_guard.restore()
         _terminate_recorded_child_process(proc, "current Codex")
         _release_codex_child_process_record(tracked_child_pid_path, proc.pid)
 
@@ -36592,13 +36825,27 @@ def launch_claude(
         launch_mode_name(provider, pcfg, use_native_anthropic),
         str(pcfg.get("current_model") or env.get("CIEL_RUNTIME_MODEL_ALIAS") or ""),
     )
+    launch_log_offset = file_size_or_zero(LOG_PATH)
     capture_stderr = env_bool(os.environ.get("CIEL_RUNTIME_CAPTURE_CC_STDERR"), False)
     def run_claude_process() -> int:
-        if stdin_channel_proxy:
-            return subprocess_call_with_channel_wake_proxy(cmd, env, wake_for_llm_delivery=llm_channel_delivery)
-        if capture_stderr:
-            return _subprocess_call_capturing_stderr(cmd, env)
-        return subprocess.call(cmd, env=env)
+        rc = 1
+        try:
+            if use_router_mode and not ensure_managed_router_running_for_client():
+                print(
+                    "Ciel Runtime warning: local router health check failed immediately before launching Claude Code.",
+                    flush=True,
+                )
+                print(f"  {router_health_summary()}", flush=True)
+            if stdin_channel_proxy:
+                rc = subprocess_call_with_channel_wake_proxy(cmd, env, wake_for_llm_delivery=llm_channel_delivery)
+            elif capture_stderr:
+                rc = _subprocess_call_capturing_stderr(cmd, env)
+            else:
+                rc = subprocess.call(cmd, env=env)
+            return rc
+        finally:
+            if use_router_mode:
+                print_routed_claude_exit_diagnostics(rc, provider, pcfg, log_offset=launch_log_offset)
 
     return run_with_router_lifetime(run_claude_process, manage_router_lifetime)
 
