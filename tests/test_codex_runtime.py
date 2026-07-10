@@ -351,7 +351,7 @@ class CodexRuntimeTests(unittest.TestCase):
 
         self.assertEqual(0, rc)
         prelaunch.assert_called_once_with(["resume"], skip_menu=True, force_menu=False)
-        self.assertEqual(["codex", "--yolo", "resume"], captured["cmd"])
+        self.assertEqual(["codex", "--yolo", "resume", "--all"], captured["cmd"])
         self.assertTrue(captured["wake_for_llm_delivery"])
 
     def test_launch_codex_builds_command_with_router_provider(self):
@@ -952,6 +952,27 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("--last", captured["cmd"])
         self.assertLess(captured["cmd"].index("resume"), captured["cmd"].index("--last"))
         self.assertTrue(captured["wake_for_llm_delivery"])
+
+    def test_codex_resume_picker_shows_sessions_from_all_cwds(self):
+        args, notes = ciel_runtime.codex_passthrough_args_for_launch(["resume"])
+        self.assertEqual(["resume", "--all"], args)
+        self.assertIn("resume -> resume --all (show sessions from every cwd)", notes)
+
+        args, _ = ciel_runtime.codex_passthrough_args_for_launch(["--resume"])
+        self.assertEqual(["resume", "--all"], args)
+
+        args, _ = ciel_runtime.codex_passthrough_args_for_launch(["resume", "--include-non-interactive"])
+        self.assertEqual(["resume", "--all", "--include-non-interactive"], args)
+
+    def test_codex_resume_all_is_not_added_for_specific_resume_target(self):
+        args, _ = ciel_runtime.codex_passthrough_args_for_launch(["resume", "--last"])
+        self.assertEqual(["resume", "--last"], args)
+
+        args, _ = ciel_runtime.codex_passthrough_args_for_launch(["resume", "--all"])
+        self.assertEqual(["resume", "--all"], args)
+
+        args, _ = ciel_runtime.codex_passthrough_args_for_launch(["resume", "session-1"])
+        self.assertEqual(["resume", "session-1"], args)
 
     def test_launch_codex_does_not_duplicate_explicit_yolo_flag(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": False, "base_url": "https://api.openai.com", "current_model": ""}}}

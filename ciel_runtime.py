@@ -33608,6 +33608,10 @@ TERMINAL_INPUT_MODE_RESET = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1
 
 
 def _terminal_input_mode_reset_enabled() -> bool:
+    # On Windows cmd/conhost, DECSET mouse reset sequences can be printed
+    # literally. The Windows launch path uses SetConsoleMode instead.
+    if os.name == "nt" and os.environ.get("CIEL_RUNTIME_TERMINAL_INPUT_MODE_RESET") is None:
+        return False
     return parse_bool(os.environ.get("CIEL_RUNTIME_TERMINAL_INPUT_MODE_RESET"), True)
 
 

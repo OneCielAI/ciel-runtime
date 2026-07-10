@@ -1419,12 +1419,40 @@ class ChannelBridgeTests(unittest.TestCase):
                 self.flushed = True
 
         stream = Stream()
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with (
+            mock.patch.object(ciel_runtime.os, "name", "posix"),
+            mock.patch.dict(os.environ, {}, clear=True),
+        ):
             ciel_runtime._write_terminal_input_mode_reset(stream)
 
         self.assertIn("\x1b[?1000l", stream.text)
         self.assertIn("\x1b[?1006l", stream.text)
         self.assertTrue(stream.flushed)
+
+    def test_windows_terminal_input_mode_reset_does_not_write_ansi_by_default(self):
+        class Stream:
+            def __init__(self):
+                self.text = ""
+                self.flushed = False
+
+            def isatty(self):
+                return True
+
+            def write(self, text):
+                self.text += text
+
+            def flush(self):
+                self.flushed = True
+
+        stream = Stream()
+        with (
+            mock.patch.object(ciel_runtime.os, "name", "nt"),
+            mock.patch.dict(os.environ, {}, clear=True),
+        ):
+            ciel_runtime._write_terminal_input_mode_reset(stream)
+
+        self.assertEqual("", stream.text)
+        self.assertFalse(stream.flushed)
 
     def test_windows_console_mouse_input_guard_disables_and_restores_mouse_mode(self):
         modes = {"value": 0x01F7}

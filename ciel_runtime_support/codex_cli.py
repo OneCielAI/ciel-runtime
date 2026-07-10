@@ -72,11 +72,16 @@ CODEX_CLAUDE_ONLY_VALUE_FLAGS = {
 
 
 def codex_passthrough_first_non_option_arg(passthrough: list[str]) -> str:
+    index = codex_passthrough_first_non_option_index(passthrough)
+    return str(passthrough[index]) if index >= 0 else ""
+
+
+def codex_passthrough_first_non_option_index(passthrough: list[str]) -> int:
     i = 0
     while i < len(passthrough):
         arg = str(passthrough[i])
         if arg == "--":
-            return str(passthrough[i + 1]) if i + 1 < len(passthrough) else ""
+            return i + 1 if i + 1 < len(passthrough) else -1
         if arg.startswith("--") and "=" in arg:
             i += 1
             continue
@@ -86,8 +91,8 @@ def codex_passthrough_first_non_option_arg(passthrough: list[str]) -> str:
         if arg.startswith("-") and arg != "-":
             i += 1
             continue
-        return arg
-    return ""
+        return i
+    return -1
 
 
 def codex_passthrough_has_command(passthrough: list[str]) -> bool:
@@ -134,6 +139,41 @@ def _codex_session_id_after_index(passthrough: list[str], index: int) -> str:
             return value if value != "--" and not value.startswith("-") else ""
         i += 1
     return ""
+
+
+def codex_resume_picker_needs_all(passthrough: list[str]) -> bool:
+    command_index = codex_passthrough_first_non_option_index(passthrough)
+    if command_index < 0 or str(passthrough[command_index]) != "resume":
+        return False
+    i = command_index + 1
+    while i < len(passthrough):
+        arg = str(passthrough[i])
+        if arg == "--":
+            return False
+        if arg in ("--all", "--last"):
+            return False
+        if arg.startswith("--all=") or arg.startswith("--last="):
+            return False
+        if arg.startswith("--") and "=" in arg:
+            i += 1
+            continue
+        if arg in CODEX_OPTIONS_WITH_VALUE:
+            i += 2 if i + 1 < len(passthrough) else 1
+            continue
+        if arg.startswith("-") and arg != "-":
+            i += 1
+            continue
+        return False
+    return True
+
+
+def codex_resume_with_all_sessions(passthrough: list[str]) -> tuple[list[str], bool]:
+    if not codex_resume_picker_needs_all(passthrough):
+        return passthrough, False
+    command_index = codex_passthrough_first_non_option_index(passthrough)
+    out = list(passthrough)
+    out.insert(command_index + 1, "--all")
+    return out, True
 
 
 def codex_passthrough_args_for_launch(passthrough: list[str]) -> tuple[list[str], list[str]]:
@@ -298,6 +338,8 @@ def codex_passthrough_args_for_launch(passthrough: list[str]) -> tuple[list[str]
         out.append(arg)
         i += 1
 
-    if mapped_command and not existing_codex_command:
-        return [*mapped_command, *out], notes
-    return out, notes
+    result = [*mapped_command, *out] if mapped_command and not existing_codex_command else out
+    result, added_all = codex_resume_with_all_sessions(result)
+    if added_all:
+        notes.append("resume -> resume --all (show sessions from every cwd)")
+    return result, notes
