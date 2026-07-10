@@ -1386,6 +1386,46 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(b"\r\n", ciel_runtime._channel_platform_default_enter_bytes("win32", "nt"))
         self.assertEqual(b"\r\n", ciel_runtime._channel_platform_default_enter_bytes("msys", "posix"))
 
+    def test_terminal_mouse_input_filter_strips_sgr_mouse_reports(self):
+        raw = b"hello\x1b[<35;84;42M world\x1b[<35;84;42m"
+        self.assertEqual(b"hello world", ciel_runtime._strip_terminal_mouse_input_reports(raw))
+
+    def test_terminal_mouse_input_filter_handles_split_sgr_mouse_reports(self):
+        filt = ciel_runtime._TerminalMouseInputFilter()
+        self.assertEqual(b"hello", filt.feed(b"hello\x1b[<35;"))
+        self.assertEqual(b" world", filt.feed(b"84;42M world"))
+        self.assertEqual(b"", filt.flush())
+
+    def test_terminal_mouse_input_filter_preserves_arrow_keys(self):
+        self.assertEqual(b"\x1b[A", ciel_runtime._strip_terminal_mouse_input_reports(b"\x1b[A"))
+
+    def test_terminal_mouse_input_filter_strips_x10_and_urxvt_reports(self):
+        raw = b"a\x1b[M !!b\x1b[35;84;42Mc"
+        self.assertEqual(b"abc", ciel_runtime._strip_terminal_mouse_input_reports(raw))
+
+    def test_terminal_input_mode_reset_writes_mouse_disable_sequences(self):
+        class Stream:
+            def __init__(self):
+                self.text = ""
+                self.flushed = False
+
+            def isatty(self):
+                return True
+
+            def write(self, text):
+                self.text += text
+
+            def flush(self):
+                self.flushed = True
+
+        stream = Stream()
+        with mock.patch.dict(os.environ, {}, clear=True):
+            ciel_runtime._write_terminal_input_mode_reset(stream)
+
+        self.assertIn("\x1b[?1000l", stream.text)
+        self.assertIn("\x1b[?1006l", stream.text)
+        self.assertTrue(stream.flushed)
+
     def test_windows_channel_wake_proxy_uses_console_input_writer(self):
         with (
             mock.patch.object(ciel_runtime.os, "name", "nt"),

@@ -33434,6 +33434,115 @@ def _apply_pty_winsize(pty_fd: int, rows: int, cols: int) -> bool:
         return False
 
 
+TERMINAL_INPUT_MODE_RESET = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l"
+
+
+def _terminal_input_mode_reset_enabled() -> bool:
+    return parse_bool(os.environ.get("CIEL_RUNTIME_TERMINAL_INPUT_MODE_RESET"), True)
+
+
+def _terminal_input_mode_reset_interval_seconds() -> float:
+    raw = os.environ.get("CIEL_RUNTIME_TERMINAL_INPUT_MODE_RESET_INTERVAL_SECONDS")
+    if raw is None:
+        return 2.0
+    try:
+        return max(0.25, min(60.0, float(raw)))
+    except Exception:
+        return 2.0
+
+
+def _write_terminal_input_mode_reset(stream: Any | None = None) -> None:
+    if not _terminal_input_mode_reset_enabled():
+        return
+    target = stream if stream is not None else sys.stdout
+    try:
+        if hasattr(target, "isatty") and not target.isatty():
+            return
+        target.write(TERMINAL_INPUT_MODE_RESET)
+        target.flush()
+    except Exception:
+        return
+
+
+class _TerminalMouseInputFilter:
+    """Strip terminal mouse reports that can leak into TUI prompt buffers."""
+
+    def __init__(self) -> None:
+        self._pending = b""
+
+    def feed(self, data: bytes) -> bytes:
+        if not data:
+            return b""
+        buf = self._pending + data
+        self._pending = b""
+        out = bytearray()
+        i = 0
+        while i < len(buf):
+            if buf[i] != 0x1B:
+                out.append(buf[i])
+                i += 1
+                continue
+            if i + 1 >= len(buf):
+                self._pending = buf[i:]
+                break
+            if buf[i + 1] != ord("["):
+                out.append(buf[i])
+                i += 1
+                continue
+            if i + 2 >= len(buf):
+                self._pending = buf[i:]
+                break
+            marker = buf[i + 2]
+            if marker == ord("<"):
+                j = i + 3
+                while j < len(buf) and (48 <= buf[j] <= 57 or buf[j] == ord(";")):
+                    j += 1
+                if j >= len(buf):
+                    self._pending = buf[i:]
+                    break
+                if j > i + 3 and buf[j] in (ord("M"), ord("m")):
+                    i = j + 1
+                    continue
+                out.append(buf[i])
+                i += 1
+                continue
+            if marker == ord("M"):
+                if i + 6 <= len(buf):
+                    i += 6
+                    continue
+                self._pending = buf[i:]
+                break
+            if 48 <= marker <= 57:
+                j = i + 2
+                semicolons = 0
+                while j < len(buf) and (48 <= buf[j] <= 57 or buf[j] == ord(";")):
+                    if buf[j] == ord(";"):
+                        semicolons += 1
+                    j += 1
+                if j >= len(buf):
+                    self._pending = buf[i:]
+                    break
+                if semicolons >= 2 and buf[j] in (ord("M"), ord("m")):
+                    i = j + 1
+                    continue
+                out.append(buf[i])
+                i += 1
+                continue
+            out.append(buf[i])
+            i += 1
+        return bytes(out)
+
+    def flush(self) -> bytes:
+        pending = self._pending
+        self._pending = b""
+        return pending
+
+
+def _strip_terminal_mouse_input_reports(data: bytes) -> bytes:
+    filt = _TerminalMouseInputFilter()
+    return filt.feed(data) + filt.flush()
+
+
 def _windows_console_input_handle() -> Any:
     if os.name != "nt":
         return None
@@ -33460,8 +33569,12 @@ class _WindowsConsoleInputWriter:
         self.handle = _windows_console_input_handle()
         if self.handle is None:
             raise RuntimeError("Windows console input handle is not available")
+        self._mouse_filter = _TerminalMouseInputFilter()
 
     def write(self, data: bytes) -> None:
+        if not data:
+            return
+        data = self._mouse_filter.feed(data)
         if not data:
             return
         text = data.decode("utf-8", errors="replace")
@@ -33554,6 +33667,7 @@ def subprocess_call_with_windows_console_wake_proxy(
     channel_wake_submit_delay_seconds: float | None = None,
     tracked_child_pid_path: Path | None = None,
 ) -> int:
+    _write_terminal_input_mode_reset()
     proc = subprocess.Popen(cmd, env=env)
     _write_codex_child_process_record(tracked_child_pid_path, proc.pid, cmd)
     writer = _WindowsConsoleInputWriter()
@@ -33570,6 +33684,8 @@ def subprocess_call_with_windows_console_wake_proxy(
     compact_defer_logged_at = 0.0
     channel_enter_bytes = _channel_wake_enter_bytes(synthetic_enter_bytes)
     submit_retry_count = max(1, min(8, int(channel_wake_submit_retries or 1)))
+    last_terminal_input_mode_reset = 0.0
+    terminal_input_mode_reset_interval = _terminal_input_mode_reset_interval_seconds()
     router_log(
         "INFO",
         "channel_windows_console_proxy_started "
@@ -33580,6 +33696,9 @@ def subprocess_call_with_windows_console_wake_proxy(
     try:
         while proc.poll() is None:
             now = time.time()
+            if now - last_terminal_input_mode_reset >= terminal_input_mode_reset_interval:
+                last_terminal_input_mode_reset = now
+                _write_terminal_input_mode_reset()
             if channel_inflight_id is not None:
                 channel_inflight_state = _channel_stdin_wake_state(channel_inflight_id)
                 if channel_inflight_state == "completed":
@@ -33699,6 +33818,7 @@ def subprocess_call_with_windows_console_wake_proxy(
             time.sleep(0.05)
         return proc.wait()
     finally:
+        _write_terminal_input_mode_reset()
         _terminate_recorded_child_process(proc, "current Codex")
         _release_codex_child_process_record(tracked_child_pid_path, proc.pid)
 
@@ -33769,6 +33889,7 @@ def subprocess_call_with_channel_wake_proxy(
     old_attrs = termios.tcgetattr(stdin_fd)
     old_sigwinch = None
     sigwinch_installed = False
+    mouse_input_filter = _TerminalMouseInputFilter()
     last_channel_poll = 0.0
     last_compact_poll = 0.0
     channel_inflight_id: int | None = None
@@ -33787,6 +33908,7 @@ def subprocess_call_with_channel_wake_proxy(
         f"submit_retries={submit_retry_count} confirm_submit={bool(channel_wake_confirm_submit)} "
         f"bracketed_paste={bool(channel_wake_bracketed_paste)}",
     )
+    _write_terminal_input_mode_reset()
 
     def _handle_sigwinch(signum: int, frame: Any) -> None:
         new_rows, new_cols = _terminal_winsize_from_fd(stdout_fd)
@@ -33811,18 +33933,20 @@ def subprocess_call_with_channel_wake_proxy(
             if stdin_fd in readable:
                 data = os.read(stdin_fd, 4096)
                 if data:
-                    observed_enter = _channel_synthetic_enter_bytes_from_user_input(
-                        data,
-                        normalize_bare_cr=normalize_bare_cr_for_synthetic_enter,
-                    )
-                    if observed_enter and not _channel_wake_enter_env_is_fixed():
-                        if observed_enter != channel_enter_bytes:
-                            router_log(
-                                "INFO",
-                                f"channel_stdin_proxy_enter_observed enter={_channel_enter_label(observed_enter)}",
-                            )
-                        channel_enter_bytes = observed_enter
-                    _write_fd_all(master_fd, data)
+                    filtered_data = mouse_input_filter.feed(data)
+                    if filtered_data:
+                        observed_enter = _channel_synthetic_enter_bytes_from_user_input(
+                            filtered_data,
+                            normalize_bare_cr=normalize_bare_cr_for_synthetic_enter,
+                        )
+                        if observed_enter and not _channel_wake_enter_env_is_fixed():
+                            if observed_enter != channel_enter_bytes:
+                                router_log(
+                                    "INFO",
+                                    f"channel_stdin_proxy_enter_observed enter={_channel_enter_label(observed_enter)}",
+                                )
+                            channel_enter_bytes = observed_enter
+                        _write_fd_all(master_fd, filtered_data)
             if master_fd in readable:
                 try:
                     data = os.read(master_fd, 4096)
@@ -33969,6 +34093,7 @@ def subprocess_call_with_channel_wake_proxy(
             termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_attrs)
         except Exception:
             pass
+        _write_terminal_input_mode_reset()
         try:
             os.close(master_fd)
         except Exception:
