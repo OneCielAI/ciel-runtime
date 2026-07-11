@@ -1494,6 +1494,12 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn('WinDLL("user32"', source)
         self.assertIn("MapVirtualKeyW", source)
         self.assertIn("scan_code,", source)
+        self.assertIn("_windows_console_utf16_units", source)
+
+    def test_windows_console_expands_non_bmp_input_to_utf16_units(self):
+        units = ciel_runtime._windows_console_utf16_units(["A", "\U0001f680", "한"])
+
+        self.assertEqual(["A", "\ud83d", "\ude80", "한"], units)
 
     def test_windows_console_writer_waits_for_text_batch_before_submit(self):
         writer_source = inspect.getsource(ciel_runtime._WindowsConsoleInputWriter.wait_until_input_consumed)

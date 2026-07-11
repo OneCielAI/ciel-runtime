@@ -33948,6 +33948,19 @@ class _WindowsConsoleMouseInputGuard:
         _set_windows_console_input_mode(self.original_mode)
 
 
+def _windows_console_utf16_units(chars: Iterable[str]) -> list[str]:
+    """Expand non-BMP code points into WCHAR-sized UTF-16 surrogate units."""
+    units: list[str] = []
+    for ch in chars:
+        codepoint = ord(ch)
+        if codepoint > 0xFFFF:
+            codepoint -= 0x10000
+            units.extend((chr(0xD800 + (codepoint >> 10)), chr(0xDC00 + (codepoint & 0x3FF))))
+        else:
+            units.append(ch)
+    return units
+
+
 class _WindowsConsoleInputWriter:
     """Inject keystrokes into the active Windows console input queue."""
 
@@ -34052,7 +34065,7 @@ class _WindowsConsoleInputWriter:
             "\x15": 0x55,
         }
         records: list[Any] = []
-        for ch in chars:
+        for ch in _windows_console_utf16_units(chars):
             vk = vk_map.get(ch)
             if vk is None and len(ch) == 1 and "A" <= ch.upper() <= "Z":
                 vk = ord(ch.upper())
