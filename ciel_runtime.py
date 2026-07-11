@@ -37581,6 +37581,16 @@ def launch_codex(
     cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
     use_native_codex = direct_native_codex_enabled(provider, pcfg)
     use_codex_routed = codex_routed_enabled(provider, pcfg)
+    mapped_continue = any(note.startswith("--continue -> resume --last") for note in codex_passthrough_notes)
+    if not use_native_codex and mapped_continue:
+        try:
+            resume_index = codex_passthrough.index("resume")
+        except ValueError:
+            resume_index = -1
+        if resume_index >= 0 and resume_index + 1 < len(codex_passthrough):
+            if codex_passthrough[resume_index + 1] == "--last":
+                del codex_passthrough[resume_index + 1]
+                codex_passthrough_notes.append("routed --continue -> provider-independent session picker")
     if not use_native_codex and codex_resume_picker_requested(codex_passthrough):
         session_id = select_codex_resume_session(
             env,

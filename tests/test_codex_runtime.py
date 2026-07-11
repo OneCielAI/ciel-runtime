@@ -920,7 +920,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
         self.assertIn("app-server", str(captured["pid_path"]))
 
-    def test_launch_codex_maps_continue_to_resume_last(self):
+    def test_launch_codex_maps_routed_continue_to_cross_provider_picker(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": ""}}}
         pcfg = cfg["providers"]["codex"]
         captured = {}
@@ -951,6 +951,7 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
             mock.patch.object(ciel_runtime, "find_executable", return_value="codex"),
             mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]),
+            mock.patch.object(ciel_runtime, "select_codex_resume_session", return_value="native-session-1") as picker,
             mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
             mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
             mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", side_effect=subprocess_call),
@@ -963,8 +964,10 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("--yolo", captured["cmd"])
         self.assertNotIn("--continue", captured["cmd"])
         self.assertIn("resume", captured["cmd"])
-        self.assertIn("--last", captured["cmd"])
-        self.assertLess(captured["cmd"].index("resume"), captured["cmd"].index("--last"))
+        self.assertNotIn("--last", captured["cmd"])
+        self.assertIn("native-session-1", captured["cmd"])
+        picker.assert_called_once()
+        self.assertLess(captured["cmd"].index("resume"), captured["cmd"].index("native-session-1"))
         self.assertTrue(captured["wake_for_llm_delivery"])
 
     def test_codex_resume_picker_preserves_native_codex_behavior(self):
