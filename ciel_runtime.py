@@ -43,6 +43,12 @@ from typing import Any, Callable, Iterable
 from ciel_runtime_support.agent_router import missing_common_capabilities, router_capability_matrix
 from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
 from ciel_runtime_support.claude_router import ClaudeRouter
+from ciel_runtime_support.channel_injection import (
+    CallableInputTransport,
+    ChannelPromptInjector,
+    PromptInjection,
+    RuntimeInjectionPolicy,
+)
 from ciel_runtime_support.codex_app_server import codex_app_server_launch_args
 from ciel_runtime_support.codex_cli import (
     codex_passthrough_args_for_launch,
@@ -32803,33 +32809,30 @@ def _write_channel_wake_prompt(
     bracketed_paste: bool = False,
     submit_delay_seconds: float | None = None,
 ) -> None:
-    prompt_bytes = prompt.encode("utf-8", errors="replace")
-    if bracketed_paste:
-        _write_fd_all(master_fd, b"\x15\x1b[200~" + prompt_bytes + b"\x1b[201~")
-    else:
-        _write_fd_all(master_fd, b"\x15" + prompt_bytes)
-    wait_until_consumed = getattr(master_fd, "wait_until_input_consumed", None)
-    if callable(wait_until_consumed) and not wait_until_consumed():
-        router_log("WARN", "channel_windows_console_input_drain_timeout")
     delay = _channel_wake_submit_delay_seconds() if submit_delay_seconds is None else max(0.0, float(submit_delay_seconds))
-    if delay > 0:
-        time.sleep(delay)
     submit_bytes = _channel_wake_enter_bytes(enter_bytes)
     retry_count = max(1, min(8, int(submit_retry_count or 1)))
-    before = _channel_current_tmux_pane_text() if confirm_submit and retry_count > 1 else None
-    for attempt in range(retry_count):
-        _write_fd_all(master_fd, submit_bytes)
-        if attempt >= retry_count - 1:
-            break
-        if not before:
-            break
-        retry_delay = _channel_wake_submit_retry_delay_seconds()
-        if retry_delay > 0:
-            time.sleep(retry_delay)
-        after = _channel_current_tmux_pane_text()
-        if after and after != before:
-            router_log("INFO", f"channel_stdin_proxy_submit_confirmed attempt={attempt + 1}")
-            break
+    injector = ChannelPromptInjector(
+        sleep=time.sleep,
+        retry_delay_seconds=_channel_wake_submit_retry_delay_seconds,
+        snapshot=_channel_current_tmux_pane_text,
+        log=router_log,
+    )
+    injector.inject(
+        CallableInputTransport(master_fd, _write_fd_all),
+        PromptInjection(
+            prompt=prompt,
+            policy=RuntimeInjectionPolicy(
+                runtime="interactive-cli",
+                clear_input=b"\x15",
+                submit_input=submit_bytes,
+                submit_delay_seconds=delay,
+                submit_attempts=retry_count,
+                confirm_submission=confirm_submit,
+                bracketed_paste=bracketed_paste,
+            ),
+        ),
+    )
 
 
 _CHANNEL_TRANSCRIPT_CACHE: dict[str, Any] = {"checked_at": 0.0, "path": None}

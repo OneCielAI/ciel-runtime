@@ -14,6 +14,7 @@
 | **Protocol Adapter** | 요청/응답 Wire 형식 변환 | — |
 | **Tool Dialect** | 런타임별 툴 이름 및 수정 | — |
 | **Runtime Router** | 런타임별 HTTP 경로와 라우터 기능 소유 | 다른 런타임의 경로 직접 처리 금지 |
+| **Channel Injection** | 런타임 입력 정책과 터미널 전송 조정 | SSE/MCP 수집, cursor 저장, subprocess 생명주기 금지 |
 
 ---
 
@@ -135,6 +136,21 @@ class RateLimitState:
 - upstream error mapping
 
 `tests/test_runtime_routers.py`가 Claude/Codex 라우터가 공통 기능을 모두 제공하는지와 경로 소유권이 섞이지 않는지 확인한다.
+
+## Channel Injection 구조
+
+`ciel_runtime_support/channel_injection.py`는 외부 메시지를 대화 입력으로 제출하는 마지막 단계만 담당한다.
+
+| 구성요소 | 패턴 | 책임 |
+|----------|------|------|
+| `InputTransport` | Port / Adapter | PTY 또는 Windows Console 입력 전송 계약 |
+| `CallableInputTransport` | Adapter | 기존 descriptor/writer를 전송 계약에 연결 |
+| `RuntimeInjectionPolicy` | Strategy value | clear, paste, Enter, 지연, 재시도 등 런타임 의미 |
+| `PromptInjection` | Command | 변경 불가능한 한 번의 주입 요청 |
+| `ChannelPromptInjector` | Application Service | 정책과 transport를 조정하며 제출 순서를 보장 |
+
+의존성 방향은 `channel source -> delivery coordinator -> prompt injector -> input transport`이다.
+`ChannelPromptInjector`는 SSE, MCP, cursor, transcript 또는 subprocess를 참조하지 않는다. 플랫폼별 transport도 메시지 의미를 해석하지 않는다. 이 경계를 통해 Claude, Codex, AGY 정책과 Windows/PTY 구현을 독립적으로 테스트하고 교체한다.
 
 ---
 

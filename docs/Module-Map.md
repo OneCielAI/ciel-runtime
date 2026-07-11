@@ -51,6 +51,19 @@
 
 → [[Architecture]]
 
+### `ciel_runtime_support/channel_injection.py`
+
+대화형 CLI 메시지 주입 계층:
+- `InputTransport` 포트
+- `CallableInputTransport` 레거시 입력 어댑터
+- `RuntimeInjectionPolicy` 런타임별 제출 전략
+- `PromptInjection` 명령 객체
+- `ChannelPromptInjector` 주입 오케스트레이터
+
+SSE/MCP 수집 및 cursor 상태와 분리되어 있으며 Windows Console과 PTY가 같은 제출 계약을 사용한다.
+
+→ [[Architecture]]
+
 ### `ciel_runtime_support/agent_router.py`
 
 런타임 HTTP 라우터 공통 계약:
