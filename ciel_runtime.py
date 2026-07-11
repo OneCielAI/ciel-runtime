@@ -31205,6 +31205,22 @@ def previous_launch_state_for_cwd(cwd_key: str) -> dict[str, Any]:
     return {}
 
 
+def last_launch_runtime() -> str:
+    state = read_launch_state()
+    item = previous_launch_state_for_cwd(current_launch_cwd_key())
+    if not item:
+        candidate = state.get("last")
+        item = candidate if isinstance(candidate, dict) else {}
+    mode = str(item.get("mode") or "").strip().lower()
+    if mode.startswith("codex"):
+        return "codex"
+    if mode.startswith("agy"):
+        return "agy"
+    if mode.startswith("anthropic") or mode.startswith("router:"):
+        return "claude"
+    return ""
+
+
 def record_launch_state_for_cwd(cwd_key: str, provider: str, mode: str, model: str) -> None:
     state = read_launch_state()
     by_cwd = state.get("by_cwd")
@@ -37388,14 +37404,48 @@ def codex_yolo_launch_args(passthrough: list[str]) -> list[str]:
     return [] if has_passthrough_option(passthrough, "--yolo") else ["--yolo"]
 
 
+def codex_sqlite_home_for_launch(
+    passthrough: list[str] | None = None,
+    env: dict[str, str] | None = None,
+    cwd: Path | None = None,
+) -> Path:
+    launch_env = env or os.environ
+    launch_cwd = (cwd or Path.cwd()).resolve()
+    configured: str | None = None
+    for path in codex_config_paths_for_launch(passthrough or [], env=launch_env, cwd=launch_cwd):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        table = ""
+        for line in text.splitlines():
+            stripped = _toml_scalar_without_comment(line)
+            if not stripped:
+                continue
+            table_match = re.fullmatch(r"\[(.+)\]", stripped)
+            if table_match:
+                table = table_match.group(1).strip()
+                continue
+            if table:
+                continue
+            match = re.match(r"sqlite_home\s*=\s*(.+)$", stripped)
+            if match:
+                configured = _unquote_toml_string(match.group(1))
+    raw = configured or str(launch_env.get("CODEX_SQLITE_HOME") or "").strip()
+    if raw:
+        path = Path(os.path.expandvars(raw)).expanduser()
+        return path if path.is_absolute() else launch_cwd / path
+    return Path(launch_env.get("CODEX_HOME") or (Path.home() / ".codex")).expanduser()
+
+
 def codex_local_resume_sessions(
     env: dict[str, str] | None = None,
     limit: int = 200,
     include_non_interactive: bool = False,
+    passthrough: list[str] | None = None,
+    cwd: Path | None = None,
 ) -> list[dict[str, Any]]:
-    launch_env = env or os.environ
-    codex_home = Path(launch_env.get("CODEX_HOME") or (Path.home() / ".codex")).expanduser()
-    database = codex_home / "state_5.sqlite"
+    database = codex_sqlite_home_for_launch(passthrough, env=env, cwd=cwd) / "state_5.sqlite"
     if not database.is_file():
         return []
     uri = database.resolve().as_uri() + "?mode=ro"
@@ -37439,9 +37489,16 @@ def codex_resume_session_row(session: dict[str, Any]) -> str:
 def select_codex_resume_session(
     env: dict[str, str] | None = None,
     include_non_interactive: bool = False,
+    passthrough: list[str] | None = None,
 ) -> str | None:
-    sessions = codex_local_resume_sessions(env, include_non_interactive=include_non_interactive)
+    sessions = codex_local_resume_sessions(
+        env,
+        include_non_interactive=include_non_interactive,
+        passthrough=passthrough,
+    )
     if not sessions:
+        database = codex_sqlite_home_for_launch(passthrough, env=env) / "state_5.sqlite"
+        print(f"Ciel Runtime could not find resumable Codex sessions in: {database}", flush=True)
         return None
     selected = portable_select(
         "Resume Codex session",
@@ -37528,6 +37585,7 @@ def launch_codex(
         session_id = select_codex_resume_session(
             env,
             include_non_interactive="--include-non-interactive" in codex_passthrough,
+            passthrough=codex_passthrough,
         )
         if session_id == "":
             return 0
@@ -38368,6 +38426,12 @@ def run_cli(argv: list[str]) -> int:
             if ncp:
                 subprocess.run([ncp, "kill"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return 0
+        if argv[0] == "resume":
+            runtime = last_launch_runtime()
+            if runtime == "codex":
+                return launch_codex(argv)
+            if runtime == "agy":
+                return launch_agy(argv)
         if codex_passthrough_has_command(argv):
             cfg = load_config()
             provider, _ = get_current_provider(cfg)

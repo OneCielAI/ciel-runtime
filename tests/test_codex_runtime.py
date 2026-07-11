@@ -319,6 +319,20 @@ class CodexRuntimeTests(unittest.TestCase):
         launch_codex.assert_called_once_with(["resume"])
         launch_claude.assert_not_called()
 
+    def test_run_cli_routes_resume_to_last_codex_runtime_for_other_provider(self):
+        cfg = {"current_provider": "kimi", "providers": {"kimi": {}}}
+        with (
+            mock.patch.object(ciel_runtime, "last_launch_runtime", return_value="codex"),
+            mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
+            mock.patch.object(ciel_runtime, "launch_codex", return_value=0) as launch_codex,
+            mock.patch.object(ciel_runtime, "launch_claude") as launch_claude,
+        ):
+            rc = ciel_runtime.run_cli(["resume"])
+
+        self.assertEqual(0, rc)
+        launch_codex.assert_called_once_with(["resume"])
+        launch_claude.assert_not_called()
+
     def test_launch_codex_skips_prelaunch_menu_for_resume_command(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": False, "base_url": "https://api.openai.com", "current_model": ""}}}
         pcfg = cfg["providers"]["codex"]
@@ -1016,6 +1030,38 @@ class CodexRuntimeTests(unittest.TestCase):
 
         self.assertEqual(["routed-session", "openai-session"], [session["id"] for session in sessions])
         self.assertEqual(["ciel-runtime-codex", "openai"], [session["model_provider"] for session in sessions])
+
+    def test_codex_sqlite_home_matches_codex_precedence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            codex_home = root / "codex-home"
+            codex_home.mkdir()
+            configured_home = root / "configured-state"
+            (codex_home / "config.toml").write_text(
+                f"sqlite_home = {json.dumps(str(configured_home))}\n",
+                encoding="utf-8",
+            )
+            env = {
+                "CODEX_HOME": str(codex_home),
+                "CODEX_SQLITE_HOME": str(root / "environment-state"),
+            }
+
+            resolved = ciel_runtime.codex_sqlite_home_for_launch([], env=env, cwd=root)
+
+        self.assertEqual(configured_home, resolved)
+
+    def test_codex_sqlite_home_uses_relative_environment_path_from_cwd(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            codex_home = root / "codex-home"
+            codex_home.mkdir()
+            resolved = ciel_runtime.codex_sqlite_home_for_launch(
+                [],
+                env={"CODEX_HOME": str(codex_home), "CODEX_SQLITE_HOME": "relative-state"},
+                cwd=root,
+            )
+
+        self.assertEqual(root / "relative-state", resolved)
 
     def test_launch_codex_does_not_duplicate_explicit_yolo_flag(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": False, "base_url": "https://api.openai.com", "current_model": ""}}}
