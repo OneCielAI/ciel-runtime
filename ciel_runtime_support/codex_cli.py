@@ -141,41 +141,6 @@ def _codex_session_id_after_index(passthrough: list[str], index: int) -> str:
     return ""
 
 
-def codex_resume_picker_needs_all(passthrough: list[str]) -> bool:
-    command_index = codex_passthrough_first_non_option_index(passthrough)
-    if command_index < 0 or str(passthrough[command_index]) != "resume":
-        return False
-    i = command_index + 1
-    while i < len(passthrough):
-        arg = str(passthrough[i])
-        if arg == "--":
-            return False
-        if arg in ("--all", "--last"):
-            return False
-        if arg.startswith("--all=") or arg.startswith("--last="):
-            return False
-        if arg.startswith("--") and "=" in arg:
-            i += 1
-            continue
-        if arg in CODEX_OPTIONS_WITH_VALUE:
-            i += 2 if i + 1 < len(passthrough) else 1
-            continue
-        if arg.startswith("-") and arg != "-":
-            i += 1
-            continue
-        return False
-    return True
-
-
-def codex_resume_with_all_sessions(passthrough: list[str]) -> tuple[list[str], bool]:
-    if not codex_resume_picker_needs_all(passthrough):
-        return passthrough, False
-    command_index = codex_passthrough_first_non_option_index(passthrough)
-    out = list(passthrough)
-    out.insert(command_index + 1, "--all")
-    return out, True
-
-
 def codex_passthrough_args_for_launch(passthrough: list[str]) -> tuple[list[str], list[str]]:
     """Translate Claude-oriented passthrough flags before launching Codex.
 
@@ -339,7 +304,4 @@ def codex_passthrough_args_for_launch(passthrough: list[str]) -> tuple[list[str]
         i += 1
 
     result = [*mapped_command, *out] if mapped_command and not existing_codex_command else out
-    result, added_all = codex_resume_with_all_sessions(result)
-    if added_all:
-        notes.append("resume -> resume --all (show sessions from every cwd)")
     return result, notes
