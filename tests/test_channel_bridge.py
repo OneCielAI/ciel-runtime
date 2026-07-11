@@ -1529,6 +1529,78 @@ class ChannelBridgeTests(unittest.TestCase):
         ciel_runtime._write_fd_all(writer, b"wake")
         self.assertEqual(b"wake", bytes(writer.data))
 
+    def test_windows_console_retries_enter_when_injected_prompt_is_missing(self):
+        class Writer:
+            def __init__(self):
+                self.data = bytearray()
+
+            def write(self, data):
+                self.data.extend(data)
+
+        writer = Writer()
+        with mock.patch.object(ciel_runtime, "_channel_wake_submit_retry_delay_seconds", return_value=0.9):
+            attempts, attempted_at = ciel_runtime._retry_windows_console_channel_submit(
+                writer,
+                b"\r",
+                "missing",
+                1,
+                4,
+                10.0,
+                11.0,
+                confirm_submit=True,
+            )
+
+        self.assertEqual(2, attempts)
+        self.assertEqual(11.0, attempted_at)
+        self.assertEqual(b"\r", bytes(writer.data))
+
+    def test_windows_console_does_not_retry_enter_after_prompt_is_observed(self):
+        writer = mock.Mock()
+        attempts, attempted_at = ciel_runtime._retry_windows_console_channel_submit(
+            writer,
+            b"\r",
+            "pending",
+            1,
+            4,
+            10.0,
+            12.0,
+            confirm_submit=True,
+        )
+
+        self.assertEqual(1, attempts)
+        self.assertEqual(10.0, attempted_at)
+        writer.write.assert_not_called()
+
+    def test_windows_console_does_not_retry_enter_after_turn_starts(self):
+        writer = mock.Mock()
+        attempts, attempted_at = ciel_runtime._retry_windows_console_channel_submit(
+            writer,
+            b"\r",
+            "missing",
+            1,
+            4,
+            10.0,
+            12.0,
+            confirm_submit=True,
+            turn_active=True,
+        )
+
+        self.assertEqual(1, attempts)
+        self.assertEqual(10.0, attempted_at)
+        writer.write.assert_not_called()
+
+    def test_channel_active_turn_tracks_codex_start_complete_and_abort(self):
+        started = '\n'.join([
+            '{"type":"event_msg","payload":{"type":"task_started","turn_id":"turn-1"}}',
+            '{"type":"response_item","payload":{"type":"reasoning"}}',
+        ])
+        completed = started + '\n{"type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-1"}}'
+        aborted = started + '\n{"type":"event_msg","payload":{"type":"turn_aborted"}}'
+
+        self.assertTrue(ciel_runtime._channel_stdin_active_turn_from_text(started))
+        self.assertFalse(ciel_runtime._channel_stdin_active_turn_from_text(completed))
+        self.assertFalse(ciel_runtime._channel_stdin_active_turn_from_text(aborted))
+
     def test_channel_enter_bytes_from_user_input_tracks_observed_submit_key(self):
         self.assertEqual(b"\n", ciel_runtime._channel_enter_bytes_from_user_input(b"\n"))
         self.assertEqual(b"\r", ciel_runtime._channel_enter_bytes_from_user_input(b"\r"))

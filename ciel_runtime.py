@@ -33232,6 +33232,35 @@ def _channel_stdin_active_tool_call() -> bool:
     return _channel_stdin_active_tool_call_from_text(text)
 
 
+def _channel_stdin_active_turn_from_text(text: str) -> bool:
+    active = False
+    for raw_line in text.splitlines():
+        try:
+            record = json.loads(raw_line)
+        except Exception:
+            continue
+        if not isinstance(record, dict):
+            continue
+        payload = record.get("payload")
+        payload_obj = payload if isinstance(payload, dict) else {}
+        event_type = str(payload_obj.get("type") or record.get("type") or "")
+        if event_type in {"task_started", "turn_started"}:
+            active = True
+        elif event_type in {"task_complete", "turn_complete", "turn_aborted"}:
+            active = False
+    return active
+
+
+def _channel_stdin_active_turn() -> bool:
+    path = _latest_claude_transcript_path()
+    if path is None:
+        return False
+    text = _read_file_tail_text(path)
+    if not text:
+        return False
+    return _channel_stdin_active_turn_from_text(text)
+
+
 def _channel_stdin_wake_completed(message_id: int) -> bool:
     return _channel_stdin_wake_state(message_id) == "completed"
 
@@ -33361,6 +33390,9 @@ def _inject_pending_channel_messages(
     with _CHANNEL_STDIN_INJECT_LOCK:
         if _channel_stdin_active_tool_call():
             router_log("INFO", f"channel_stdin_proxy_deferred cursor={last_id} reason=active_tool_call")
+            return last_id
+        if _channel_stdin_active_turn():
+            router_log("INFO", f"channel_stdin_proxy_deferred cursor={last_id} reason=active_turn")
             return last_id
         if not web_chat_only:
             last_id = _channel_stdin_recover_cursor_from_queued_only(last_id)
@@ -33561,6 +33593,10 @@ def _inject_pending_compact_request(
     if _channel_stdin_active_tool_call():
         if log_defer:
             router_log("INFO", f"channel_compact_request_deferred id={request_id or '-'} reason=active_tool_call")
+        return "deferred"
+    if _channel_stdin_active_turn():
+        if log_defer:
+            router_log("INFO", f"channel_compact_request_deferred id={request_id or '-'} reason=active_turn")
         return "deferred"
     command = str(request.get("command") or "/compact").strip() or "/compact"
     if command != "/compact":
@@ -33907,6 +33943,28 @@ class _WindowsConsoleInputWriter:
             raise OSError(f"WriteConsoleInputW failed: written={int(written.value)} expected={len(records)}")
 
 
+def _retry_windows_console_channel_submit(
+    writer: Any,
+    enter_bytes: bytes,
+    state: str,
+    attempts: int,
+    retry_count: int,
+    last_attempt_at: float,
+    now: float,
+    *,
+    confirm_submit: bool,
+    turn_active: bool = False,
+) -> tuple[int, float]:
+    if not confirm_submit or turn_active or state != "missing" or attempts >= retry_count:
+        return attempts, last_attempt_at
+    if now - last_attempt_at < _channel_wake_submit_retry_delay_seconds():
+        return attempts, last_attempt_at
+    _write_fd_all(writer, enter_bytes)
+    next_attempt = attempts + 1
+    router_log("INFO", f"channel_windows_console_submit_retry attempt={next_attempt}/{retry_count}")
+    return next_attempt, now
+
+
 def subprocess_call_with_windows_console_wake_proxy(
     cmd: list[str],
     env: dict[str, str],
@@ -33936,6 +33994,8 @@ def subprocess_call_with_windows_console_wake_proxy(
     channel_inflight_cursor: int | None = None
     channel_inflight_logged_at = 0.0
     channel_inflight_started_at = 0.0
+    channel_submit_attempts = 0
+    channel_last_submit_at = 0.0
     channel_pending_recheck = False
     channel_tool_defer_logged_at = 0.0
     compact_defer_logged_at = 0.0
@@ -33959,6 +34019,18 @@ def subprocess_call_with_windows_console_wake_proxy(
                 input_mode_guard.apply()
             if channel_inflight_id is not None:
                 channel_inflight_state = _channel_stdin_wake_state(channel_inflight_id)
+                channel_turn_active = _channel_stdin_active_turn()
+                channel_submit_attempts, channel_last_submit_at = _retry_windows_console_channel_submit(
+                    writer,
+                    channel_enter_bytes,
+                    channel_inflight_state,
+                    channel_submit_attempts,
+                    submit_retry_count,
+                    channel_last_submit_at,
+                    now,
+                    confirm_submit=channel_wake_confirm_submit,
+                    turn_active=channel_turn_active,
+                )
                 if channel_inflight_state == "completed":
                     if channel_inflight_cursor is not None:
                         _commit_channel_llm_cursor_if_newer(channel_inflight_cursor)
@@ -33972,6 +34044,8 @@ def subprocess_call_with_windows_console_wake_proxy(
                     channel_inflight_id = None
                     channel_inflight_cursor = None
                     channel_inflight_started_at = 0.0
+                    channel_submit_attempts = 0
+                    channel_last_submit_at = 0.0
                     channel_pending_recheck = True
                 elif (
                     channel_inflight_state == "missing"
@@ -33989,6 +34063,8 @@ def subprocess_call_with_windows_console_wake_proxy(
                     channel_inflight_id = None
                     channel_inflight_cursor = None
                     channel_inflight_started_at = 0.0
+                    channel_submit_attempts = 0
+                    channel_last_submit_at = 0.0
                     channel_pending_recheck = True
                     last_id = ensure_channel_llm_delivery_cursor_initialized()
                     channel_inflight_logged_at = now
@@ -34008,6 +34084,8 @@ def subprocess_call_with_windows_console_wake_proxy(
                     channel_inflight_id = None
                     channel_inflight_cursor = None
                     channel_inflight_started_at = 0.0
+                    channel_submit_attempts = 0
+                    channel_last_submit_at = 0.0
                     channel_pending_recheck = True
                     last_id = ensure_channel_llm_delivery_cursor_initialized()
                     channel_inflight_logged_at = now
@@ -34043,11 +34121,11 @@ def subprocess_call_with_windows_console_wake_proxy(
                     channel_pending_recheck,
                     channel_inflight_id,
                 ):
-                    if _channel_stdin_active_tool_call():
+                    if _channel_stdin_active_tool_call() or _channel_stdin_active_turn():
                         channel_pending_recheck = True
                         if now - channel_tool_defer_logged_at >= 30.0:
                             channel_tool_defer_logged_at = now
-                            router_log("INFO", f"channel_windows_console_deferred cursor={last_id} reason=active_tool_call")
+                            router_log("INFO", f"channel_windows_console_deferred cursor={last_id} reason=active_turn")
                     else:
                         if marker != last_channel_marker:
                             last_channel_marker = marker
@@ -34073,6 +34151,8 @@ def subprocess_call_with_windows_console_wake_proxy(
                             channel_inflight_cursor = last_id
                             channel_inflight_logged_at = now
                             channel_inflight_started_at = now
+                            channel_submit_attempts = 1
+                            channel_last_submit_at = now
             time.sleep(0.05)
         return proc.wait()
     finally:
