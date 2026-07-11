@@ -34103,6 +34103,10 @@ def subprocess_call_with_windows_console_wake_proxy(
     channel_tool_defer_logged_at = 0.0
     compact_defer_logged_at = 0.0
     channel_enter_bytes = _channel_wake_enter_bytes(synthetic_enter_bytes)
+    # Crossterm's Windows backend reads INPUT_RECORD key events directly. ANSI
+    # bracketed-paste delimiters would arrive as Esc + literal characters, not
+    # as Event::Paste, so only the POSIX byte-stream proxy may use them.
+    windows_bracketed_paste = False
     submit_retry_count = max(1, min(8, int(channel_wake_submit_retries or 1)))
     last_terminal_input_mode_reset = 0.0
     terminal_input_mode_reset_interval = _terminal_input_mode_reset_interval_seconds(0.25)
@@ -34111,7 +34115,7 @@ def subprocess_call_with_windows_console_wake_proxy(
         "channel_windows_console_proxy_started "
         f"pid={proc.pid} enter={_channel_enter_label(channel_enter_bytes)} "
         f"submit_retries={submit_retry_count} confirm_submit={bool(channel_wake_confirm_submit)} "
-        f"bracketed_paste={bool(channel_wake_bracketed_paste)}",
+        f"bracketed_paste={windows_bracketed_paste}",
     )
     try:
         while proc.poll() is None:
@@ -34206,7 +34210,7 @@ def subprocess_call_with_windows_console_wake_proxy(
                         log_defer=log_defer,
                         submit_retry_count=submit_retry_count,
                         confirm_submit=channel_wake_confirm_submit,
-                        bracketed_paste=channel_wake_bracketed_paste,
+                        bracketed_paste=windows_bracketed_paste,
                         submit_delay_seconds=channel_wake_submit_delay_seconds,
                     )
                     if compact_status == "deferred" and log_defer:
@@ -34243,7 +34247,7 @@ def subprocess_call_with_windows_console_wake_proxy(
                             injected_message_ids=injected_ids,
                             submit_retry_count=submit_retry_count,
                             confirm_submit=channel_wake_confirm_submit,
-                            bracketed_paste=channel_wake_bracketed_paste,
+                            bracketed_paste=windows_bracketed_paste,
                             submit_delay_seconds=channel_wake_submit_delay_seconds,
                             skip_blocking_wake_states=channel_inflight_id is not None,
                         )

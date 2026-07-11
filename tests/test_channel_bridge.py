@@ -1495,6 +1495,12 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("MapVirtualKeyW", source)
         self.assertIn("scan_code,", source)
 
+    def test_windows_console_proxy_does_not_send_ansi_bracketed_paste(self):
+        source = inspect.getsource(ciel_runtime.subprocess_call_with_windows_console_wake_proxy)
+
+        self.assertIn("windows_bracketed_paste = False", source)
+        self.assertIn("bracketed_paste=windows_bracketed_paste", source)
+
     def test_windows_console_input_handle_falls_back_to_conin(self):
         source = inspect.getsource(ciel_runtime._windows_console_input_handle)
 
