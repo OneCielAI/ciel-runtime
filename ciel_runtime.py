@@ -32830,12 +32830,38 @@ def _write_channel_wake_prompt(
 
 
 _CHANNEL_TRANSCRIPT_CACHE: dict[str, Any] = {"checked_at": 0.0, "path": None}
+_CHANNEL_TRANSCRIPT_SCOPE: dict[str, Any] = {
+    "runtime": "",
+    "started_at": 0.0,
+    "codex_home": None,
+}
 _CHANNEL_STDIN_RECOVERY_CACHE: dict[str, Any] = {
     "checked_at": 0.0,
     "last_id": None,
     "marker": None,
     "recovered_last_id": None,
 }
+
+
+def _set_channel_transcript_scope(runtime: str, *, started_at: float | None = None, codex_home: Path | None = None) -> None:
+    _CHANNEL_TRANSCRIPT_SCOPE["runtime"] = str(runtime or "").strip().lower()
+    _CHANNEL_TRANSCRIPT_SCOPE["started_at"] = time.time() if started_at is None else float(started_at)
+    _CHANNEL_TRANSCRIPT_SCOPE["codex_home"] = Path(codex_home).expanduser() if codex_home is not None else None
+    _CHANNEL_TRANSCRIPT_CACHE.clear()
+    _CHANNEL_TRANSCRIPT_CACHE.update({"checked_at": 0.0, "path": None})
+
+
+def _channel_transcript_roots() -> tuple[tuple[Path, str], ...]:
+    runtime = str(_CHANNEL_TRANSCRIPT_SCOPE.get("runtime") or "").strip().lower()
+    claude_root = (HOME / ".claude" / "projects", "*/*.jsonl")
+    configured_codex_home = _CHANNEL_TRANSCRIPT_SCOPE.get("codex_home")
+    codex_home = Path(configured_codex_home) if isinstance(configured_codex_home, Path) else HOME / ".codex"
+    codex_root = (codex_home / "sessions", "**/*.jsonl")
+    if runtime == "codex":
+        return (codex_root,)
+    if runtime == "claude":
+        return (claude_root,)
+    return (claude_root, codex_root)
 
 
 def _latest_claude_transcript_path(ttl_seconds: float = 2.0) -> Path | None:
@@ -32846,10 +32872,8 @@ def _latest_claude_transcript_path(ttl_seconds: float = 2.0) -> Path | None:
         return cached_path if isinstance(cached_path, Path) else None
     latest: Path | None = None
     latest_mtime = -1.0
-    transcript_roots = (
-        (HOME / ".claude" / "projects", "*/*.jsonl"),
-        (HOME / ".codex" / "sessions", "**/*.jsonl"),
-    )
+    transcript_roots = _channel_transcript_roots()
+    scope_started_at = float(_CHANNEL_TRANSCRIPT_SCOPE.get("started_at") or 0.0)
     for root, pattern in transcript_roots:
         try:
             paths = root.glob(pattern)
@@ -32859,6 +32883,11 @@ def _latest_claude_transcript_path(ttl_seconds: float = 2.0) -> Path | None:
             try:
                 mtime = path.stat().st_mtime
             except OSError:
+                continue
+            # A previous interrupted run can end with task_started and no matching
+            # completion event. It must not make a newly launched idle client look
+            # permanently busy and suppress external input injection.
+            if scope_started_at > 0 and mtime < scope_started_at - 1.0:
                 continue
             if mtime > latest_mtime:
                 latest = path
@@ -37732,6 +37761,10 @@ def launch_codex(
     )
 
     def run_codex_process() -> int:
+        _set_channel_transcript_scope(
+            "codex",
+            codex_home=Path(env.get("CODEX_HOME") or (Path.home() / ".codex")),
+        )
         if not use_native_codex:
             start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config, allowed_server_names=codex_channel_owned_names)
         codex_synthetic_enter = None if _channel_wake_enter_env_is_fixed() else b"\r"

@@ -1674,6 +1674,35 @@ class ChannelBridgeTests(unittest.TestCase):
             with mock.patch.object(ciel_runtime, "HOME", home):
                 self.assertEqual(codex_transcript, ciel_runtime._latest_claude_transcript_path(ttl_seconds=0))
 
+    def test_codex_transcript_scope_ignores_claude_and_stale_codex_sessions(self):
+        with tempfile.TemporaryDirectory() as td:
+            home = Path(td)
+            claude_dir = home / ".claude" / "projects" / "repo"
+            codex_home = home / "custom-codex"
+            codex_dir = codex_home / "sessions" / "2026" / "07" / "11"
+            claude_dir.mkdir(parents=True)
+            codex_dir.mkdir(parents=True)
+            claude_transcript = claude_dir / "active.jsonl"
+            stale_codex = codex_dir / "stale.jsonl"
+            current_codex = codex_dir / "current.jsonl"
+            claude_transcript.write_text('{"type":"event_msg","payload":{"type":"task_started"}}\n', encoding="utf-8")
+            stale_codex.write_text('{"type":"event_msg","payload":{"type":"task_started"}}\n', encoding="utf-8")
+            current_codex.write_text("{}\n", encoding="utf-8")
+            os.utime(claude_transcript, (300, 300))
+            os.utime(stale_codex, (100, 100))
+            os.utime(current_codex, (201, 201))
+
+            old_scope = dict(ciel_runtime._CHANNEL_TRANSCRIPT_SCOPE)
+            try:
+                with mock.patch.object(ciel_runtime, "HOME", home):
+                    ciel_runtime._set_channel_transcript_scope("codex", started_at=200, codex_home=codex_home)
+                    self.assertEqual(current_codex, ciel_runtime._latest_claude_transcript_path(ttl_seconds=0))
+            finally:
+                ciel_runtime._CHANNEL_TRANSCRIPT_SCOPE.clear()
+                ciel_runtime._CHANNEL_TRANSCRIPT_SCOPE.update(old_scope)
+                ciel_runtime._CHANNEL_TRANSCRIPT_CACHE.clear()
+                ciel_runtime._CHANNEL_TRANSCRIPT_CACHE.update({"checked_at": 0.0, "path": None})
+
     def test_channel_stdin_wake_state_accepts_codex_response_item_records(self):
         transcript = "\n".join(
             [
