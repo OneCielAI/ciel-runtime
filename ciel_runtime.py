@@ -33820,7 +33820,10 @@ def _windows_console_input_handle() -> Any:
 
 
 def _windows_console_input_supported() -> bool:
-    return _windows_console_input_handle() is not None
+    # Python's isatty() can be false through npm.cmd -> py.exe launch chains even
+    # when the process is attached to a real Windows console. GetConsoleMode is
+    # the authoritative check and rejects redirected pipe/file handles.
+    return _windows_console_input_mode() is not None
 
 
 def _windows_console_mouse_input_filter_enabled() -> bool:
@@ -34207,7 +34210,7 @@ def subprocess_call_with_channel_wake_proxy(
     channel_wake_submit_delay_seconds: float | None = None,
     tracked_child_pid_path: Path | None = None,
 ) -> int:
-    if os.name == "nt" and sys.stdin.isatty() and sys.stdout.isatty() and _windows_console_input_supported():
+    if os.name == "nt" and _windows_console_input_supported():
         try:
             return subprocess_call_with_windows_console_wake_proxy(
                 cmd,

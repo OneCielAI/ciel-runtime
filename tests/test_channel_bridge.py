@@ -1497,8 +1497,8 @@ class ChannelBridgeTests(unittest.TestCase):
     def test_windows_channel_wake_proxy_uses_console_input_writer(self):
         with (
             mock.patch.object(ciel_runtime.os, "name", "nt"),
-            mock.patch.object(ciel_runtime.sys.stdin, "isatty", return_value=True),
-            mock.patch.object(ciel_runtime.sys.stdout, "isatty", return_value=True),
+            mock.patch.object(ciel_runtime.sys.stdin, "isatty", return_value=False),
+            mock.patch.object(ciel_runtime.sys.stdout, "isatty", return_value=False),
             mock.patch.object(ciel_runtime, "_windows_console_input_supported", return_value=True),
             mock.patch.object(ciel_runtime, "subprocess_call_with_windows_console_wake_proxy", return_value=77) as proxy,
             mock.patch.object(ciel_runtime.subprocess, "call") as direct,
