@@ -99,6 +99,38 @@ def codex_passthrough_has_command(passthrough: list[str]) -> bool:
     return codex_passthrough_first_non_option_arg(passthrough) in CODEX_COMMAND_NAMES
 
 
+def codex_resume_picker_requested(passthrough: list[str]) -> bool:
+    command_index = codex_passthrough_first_non_option_index(passthrough)
+    if command_index < 0 or str(passthrough[command_index]) != "resume":
+        return False
+    i = command_index + 1
+    while i < len(passthrough):
+        arg = str(passthrough[i])
+        if arg in ("--last", "--all") or arg.startswith(("--last=", "--all=")):
+            i += 1
+            continue
+        if arg.startswith("--") and "=" in arg:
+            i += 1
+            continue
+        if arg in CODEX_OPTIONS_WITH_VALUE:
+            i += 2 if i + 1 < len(passthrough) else 1
+            continue
+        if arg.startswith("-") and arg != "-":
+            i += 1
+            continue
+        return False
+    return "--last" not in passthrough and not any(str(arg).startswith("--last=") for arg in passthrough)
+
+
+def codex_resume_with_session_id(passthrough: list[str], session_id: str) -> list[str]:
+    command_index = codex_passthrough_first_non_option_index(passthrough)
+    if command_index < 0 or str(passthrough[command_index]) != "resume":
+        return list(passthrough)
+    out = list(passthrough)
+    out.insert(command_index + 1, session_id)
+    return out
+
+
 def _codex_consume_optional_value(passthrough: list[str], index: int) -> tuple[str, int]:
     if index + 1 < len(passthrough):
         value = str(passthrough[index + 1])

@@ -21,6 +21,7 @@ import signal
 import shlex
 import shutil
 import socket
+import sqlite3
 import subprocess
 import sys
 import tarfile
@@ -43,7 +44,12 @@ from ciel_runtime_support.agent_router import missing_common_capabilities, route
 from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
 from ciel_runtime_support.claude_router import ClaudeRouter
 from ciel_runtime_support.codex_app_server import codex_app_server_launch_args
-from ciel_runtime_support.codex_cli import codex_passthrough_args_for_launch, codex_passthrough_has_command
+from ciel_runtime_support.codex_cli import (
+    codex_passthrough_args_for_launch,
+    codex_passthrough_has_command,
+    codex_resume_picker_requested,
+    codex_resume_with_session_id,
+)
 from ciel_runtime_support.codex_router import CodexRouter
 from ciel_runtime_support.observability import EventBus, render_events_html
 from ciel_runtime_support.transcript_filter import (
@@ -37382,6 +37388,71 @@ def codex_yolo_launch_args(passthrough: list[str]) -> list[str]:
     return [] if has_passthrough_option(passthrough, "--yolo") else ["--yolo"]
 
 
+def codex_local_resume_sessions(
+    env: dict[str, str] | None = None,
+    limit: int = 200,
+    include_non_interactive: bool = False,
+) -> list[dict[str, Any]]:
+    launch_env = env or os.environ
+    codex_home = Path(launch_env.get("CODEX_HOME") or (Path.home() / ".codex")).expanduser()
+    database = codex_home / "state_5.sqlite"
+    if not database.is_file():
+        return []
+    uri = database.resolve().as_uri() + "?mode=ro"
+    sources = ["cli", "vscode"]
+    if include_non_interactive:
+        sources.extend(["exec", "app-server"])
+    source_placeholders = ", ".join("?" for _ in sources)
+    try:
+        with contextlib.closing(sqlite3.connect(uri, uri=True, timeout=1.0)) as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(
+                f"""
+                SELECT id, title, first_user_message, cwd, model_provider,
+                       COALESCE(NULLIF(updated_at_ms, 0), updated_at * 1000) AS activity_ms
+                FROM threads
+                WHERE archived = 0 AND source IN ({source_placeholders})
+                ORDER BY COALESCE(NULLIF(recency_at_ms, 0), NULLIF(updated_at_ms, 0), updated_at * 1000) DESC
+                LIMIT ?
+                """,
+                (*sources, max(1, min(1000, int(limit)))),
+            ).fetchall()
+    except (OSError, sqlite3.Error) as exc:
+        router_log("WARN", f"codex_resume_index_read_failed error={type(exc).__name__}: {exc}")
+        return []
+    return [dict(row) for row in rows]
+
+
+def codex_resume_session_row(session: dict[str, Any]) -> str:
+    title = str(session.get("title") or session.get("first_user_message") or "Untitled session").strip()
+    title = re.sub(r"\s+", " ", title)
+    cwd = str(session.get("cwd") or "").strip()
+    folder = Path(cwd).name if cwd else "-"
+    provider = str(session.get("model_provider") or "-").strip()
+    try:
+        activity = datetime.fromtimestamp(int(session.get("activity_ms") or 0) / 1000).strftime("%Y-%m-%d %H:%M")
+    except (OSError, OverflowError, TypeError, ValueError):
+        activity = "unknown time"
+    return f"{compact_text(title, 66)}  [{folder} | {provider} | {activity}]"
+
+
+def select_codex_resume_session(
+    env: dict[str, str] | None = None,
+    include_non_interactive: bool = False,
+) -> str | None:
+    sessions = codex_local_resume_sessions(env, include_non_interactive=include_non_interactive)
+    if not sessions:
+        return None
+    selected = portable_select(
+        "Resume Codex session",
+        [codex_resume_session_row(session) for session in sessions],
+        footer="Up/Down moves. Enter resumes. Esc/q cancels.",
+    )
+    if selected is None:
+        return ""
+    return str(sessions[selected].get("id") or "").strip()
+
+
 def launch_codex(
     passthrough: list[str],
     skip_menu: bool = False,
@@ -37453,6 +37524,16 @@ def launch_codex(
     cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
     use_native_codex = direct_native_codex_enabled(provider, pcfg)
     use_codex_routed = codex_routed_enabled(provider, pcfg)
+    if not use_native_codex and codex_resume_picker_requested(codex_passthrough):
+        session_id = select_codex_resume_session(
+            env,
+            include_non_interactive="--include-non-interactive" in codex_passthrough,
+        )
+        if session_id == "":
+            return 0
+        if session_id:
+            codex_passthrough = codex_resume_with_session_id(codex_passthrough, session_id)
+            codex_passthrough_notes.append("resume picker -> selected local Codex session")
     launch_cwd = Path.cwd()
     if use_native_codex:
         disable_ciel_runtime_codex_prompts_for_native(env)

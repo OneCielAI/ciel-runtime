@@ -974,6 +974,49 @@ class CodexRuntimeTests(unittest.TestCase):
         args, _ = ciel_runtime.codex_passthrough_args_for_launch(["resume", "session-1"])
         self.assertEqual(["resume", "session-1"], args)
 
+    def test_codex_resume_picker_detection_and_session_id_insertion(self):
+        self.assertTrue(ciel_runtime.codex_resume_picker_requested(["resume"]))
+        self.assertTrue(ciel_runtime.codex_resume_picker_requested(["resume", "--all"]))
+        self.assertFalse(ciel_runtime.codex_resume_picker_requested(["resume", "--last"]))
+        self.assertFalse(ciel_runtime.codex_resume_picker_requested(["resume", "session-1"]))
+        self.assertEqual(
+            ["resume", "session-1", "--include-non-interactive"],
+            ciel_runtime.codex_resume_with_session_id(["resume", "--include-non-interactive"], "session-1"),
+        )
+
+    def test_codex_local_resume_sessions_include_other_providers(self):
+        import sqlite3
+
+        with tempfile.TemporaryDirectory() as tmp:
+            codex_home = Path(tmp)
+            database = codex_home / "state_5.sqlite"
+            connection = sqlite3.connect(database)
+            try:
+                connection.execute(
+                    """
+                    CREATE TABLE threads (
+                        id TEXT PRIMARY KEY, title TEXT, first_user_message TEXT, cwd TEXT,
+                        model_provider TEXT, updated_at INTEGER, updated_at_ms INTEGER,
+                        recency_at_ms INTEGER, archived INTEGER, source TEXT
+                    )
+                    """
+                )
+                connection.executemany(
+                    "INSERT INTO threads VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'cli')",
+                    [
+                        ("openai-session", "Native session", "", "C:/work/a", "openai", 1, 1000, 1000),
+                        ("routed-session", "Routed session", "", "C:/work/b", "ciel-runtime-codex", 2, 2000, 2000),
+                    ],
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+            sessions = ciel_runtime.codex_local_resume_sessions({"CODEX_HOME": str(codex_home)})
+
+        self.assertEqual(["routed-session", "openai-session"], [session["id"] for session in sessions])
+        self.assertEqual(["ciel-runtime-codex", "openai"], [session["model_provider"] for session in sessions])
+
     def test_launch_codex_does_not_duplicate_explicit_yolo_flag(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": False, "base_url": "https://api.openai.com", "current_model": ""}}}
         pcfg = cfg["providers"]["codex"]
