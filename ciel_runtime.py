@@ -32808,6 +32808,9 @@ def _write_channel_wake_prompt(
         _write_fd_all(master_fd, b"\x15\x1b[200~" + prompt_bytes + b"\x1b[201~")
     else:
         _write_fd_all(master_fd, b"\x15" + prompt_bytes)
+    wait_until_consumed = getattr(master_fd, "wait_until_input_consumed", None)
+    if callable(wait_until_consumed) and not wait_until_consumed():
+        router_log("WARN", "channel_windows_console_input_drain_timeout")
     delay = _channel_wake_submit_delay_seconds() if submit_delay_seconds is None else max(0.0, float(submit_delay_seconds))
     if delay > 0:
         time.sleep(delay)
@@ -33950,6 +33953,28 @@ class _WindowsConsoleInputWriter:
         if self.handle is None:
             raise RuntimeError("Windows console input handle is not available")
         self._mouse_filter = _TerminalMouseInputFilter()
+        self._queue_baseline: int | None = None
+
+    def wait_until_input_consumed(self, timeout_seconds: float = 2.0) -> bool:
+        """Wait until the most recently written console-input batch leaves the queue."""
+        if self._queue_baseline is None:
+            return True
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.GetNumberOfConsoleInputEvents.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        kernel32.GetNumberOfConsoleInputEvents.restype = wintypes.BOOL
+        deadline = time.monotonic() + max(0.0, timeout_seconds)
+        while True:
+            pending = wintypes.DWORD(0)
+            if not kernel32.GetNumberOfConsoleInputEvents(self.handle, ctypes.byref(pending)):
+                return False
+            if int(pending.value) <= self._queue_baseline:
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.01)
 
     def write(self, data: bytes) -> None:
         if not data:
@@ -34007,6 +34032,11 @@ class _WindowsConsoleInputWriter:
             ctypes.POINTER(wintypes.DWORD),
         ]
         kernel32.WriteConsoleInputW.restype = wintypes.BOOL
+        kernel32.GetNumberOfConsoleInputEvents.argtypes = [
+            wintypes.HANDLE,
+            ctypes.POINTER(wintypes.DWORD),
+        ]
+        kernel32.GetNumberOfConsoleInputEvents.restype = wintypes.BOOL
 
         KEY_EVENT = 0x0001
         LEFT_CTRL_PRESSED = 0x0008
@@ -34041,6 +34071,11 @@ class _WindowsConsoleInputWriter:
                 records.append(record)
         array_type = INPUT_RECORD * len(records)
         written = wintypes.DWORD(0)
+        pending_before = wintypes.DWORD(0)
+        if kernel32.GetNumberOfConsoleInputEvents(self.handle, ctypes.byref(pending_before)):
+            self._queue_baseline = int(pending_before.value)
+        else:
+            self._queue_baseline = None
         ok = kernel32.WriteConsoleInputW(self.handle, array_type(*records), len(records), ctypes.byref(written))
         if not ok or int(written.value) != len(records):
             raise OSError(f"WriteConsoleInputW failed: written={int(written.value)} expected={len(records)}")

@@ -1495,6 +1495,17 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("MapVirtualKeyW", source)
         self.assertIn("scan_code,", source)
 
+    def test_windows_console_writer_waits_for_text_batch_before_submit(self):
+        writer_source = inspect.getsource(ciel_runtime._WindowsConsoleInputWriter.wait_until_input_consumed)
+        prompt_source = inspect.getsource(ciel_runtime._write_channel_wake_prompt)
+
+        self.assertIn("GetNumberOfConsoleInputEvents", writer_source)
+        self.assertIn('getattr(master_fd, "wait_until_input_consumed", None)', prompt_source)
+        self.assertLess(
+            prompt_source.index("wait_until_consumed()"),
+            prompt_source.index("time.sleep(delay)"),
+        )
+
     def test_windows_console_proxy_does_not_send_ansi_bracketed_paste(self):
         source = inspect.getsource(ciel_runtime.subprocess_call_with_windows_console_wake_proxy)
 
