@@ -33980,6 +33980,7 @@ class _WindowsConsoleInputWriter:
         if not chars:
             return
         kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
 
         class KEY_EVENT_RECORD(ctypes.Structure):
             _fields_ = [
@@ -33997,8 +33998,8 @@ class _WindowsConsoleInputWriter:
         class INPUT_RECORD(ctypes.Structure):
             _fields_ = [("EventType", wintypes.WORD), ("Event", EVENT_UNION)]
 
-        kernel32.MapVirtualKeyW.argtypes = [wintypes.UINT, wintypes.UINT]
-        kernel32.MapVirtualKeyW.restype = wintypes.UINT
+        user32.MapVirtualKeyW.argtypes = [wintypes.UINT, wintypes.UINT]
+        user32.MapVirtualKeyW.restype = wintypes.UINT
         kernel32.WriteConsoleInputW.argtypes = [
             wintypes.HANDLE,
             ctypes.POINTER(INPUT_RECORD),
@@ -34025,7 +34026,7 @@ class _WindowsConsoleInputWriter:
             elif vk is None:
                 vk = 0
             control = LEFT_CTRL_PRESSED if ch == "\x15" else 0
-            scan_code = int(kernel32.MapVirtualKeyW(int(vk), MAPVK_VK_TO_VSC)) if vk else 0
+            scan_code = int(user32.MapVirtualKeyW(int(vk), MAPVK_VK_TO_VSC)) if vk else 0
             for key_down in (True, False):
                 record = INPUT_RECORD()
                 record.EventType = KEY_EVENT

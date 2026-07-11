@@ -1491,6 +1491,7 @@ class ChannelBridgeTests(unittest.TestCase):
         source = inspect.getsource(ciel_runtime._WindowsConsoleInputWriter._write_chars)
 
         self.assertIn('"\\x15": 0x55', source)
+        self.assertIn('WinDLL("user32"', source)
         self.assertIn("MapVirtualKeyW", source)
         self.assertIn("scan_code,", source)
 
