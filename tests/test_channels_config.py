@@ -916,6 +916,9 @@ class ChannelConfigTests(unittest.TestCase):
                 write_channel = stack.enter_context(mock.patch.object(ciel_runtime, "write_channel_mcp_config", return_value=channel_path))
                 write_proxy = stack.enter_context(mock.patch.object(ciel_runtime, "write_mcp_proxy_config", return_value=proxy_path))
                 call = stack.enter_context(mock.patch.object(ciel_runtime.subprocess, "call", return_value=0))
+                stack.enter_context(
+                    mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", side_effect=ciel_runtime.subprocess.call)
+                )
                 rc = ciel_runtime.launch_claude([])
 
         self.assertEqual(0, rc)
@@ -969,6 +972,9 @@ class ChannelConfigTests(unittest.TestCase):
                 stack.enter_context(mock.patch.object(ciel_runtime, "write_channel_mcp_config", return_value=channel_path))
                 write_proxy = stack.enter_context(mock.patch.object(ciel_runtime, "write_mcp_proxy_config", return_value=proxy_path))
                 call = stack.enter_context(mock.patch.object(ciel_runtime.subprocess, "call", return_value=0))
+                stack.enter_context(
+                    mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", side_effect=ciel_runtime.subprocess.call)
+                )
                 rc = ciel_runtime.launch_claude([])
 
         self.assertEqual(0, rc)

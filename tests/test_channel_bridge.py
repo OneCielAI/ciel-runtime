@@ -1494,6 +1494,13 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("MapVirtualKeyW", source)
         self.assertIn("scan_code,", source)
 
+    def test_windows_console_input_handle_falls_back_to_conin(self):
+        source = inspect.getsource(ciel_runtime._windows_console_input_handle)
+
+        self.assertIn('"CONIN$"', source)
+        self.assertIn("CreateFileW", source)
+        self.assertIn("GetConsoleMode", source)
+
     def test_windows_channel_wake_proxy_uses_console_input_writer(self):
         with (
             mock.patch.object(ciel_runtime.os, "name", "nt"),
