@@ -3634,7 +3634,9 @@ class ChannelBridgeTests(unittest.TestCase):
 
         assistant_content = out["messages"][0]["content"]
         self.assertNotIn("<invoke", assistant_content[0]["text"])
-        self.assertIn("removed prior assistant pseudo tool-call", assistant_content[0]["text"])
+        self.assertNotIn("ciel-runtime", assistant_content[0]["text"])
+        self.assertIn("I will send it now.", assistant_content[0]["text"])
+        self.assertIn("Done.", assistant_content[0]["text"])
         self.assertEqual("tool_use", assistant_content[1]["type"])
         self.assertIn("<invoke", out["messages"][1]["content"])
 
@@ -3685,7 +3687,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn("<read>", assistant_text)
         self.assertNotIn("<get_assignment>", assistant_text)
         self.assertIn("<note>This is ordinary XML and should remain.</note>", assistant_text)
-        self.assertIn("removed prior assistant pseudo tool-call", assistant_text)
+        self.assertNotIn("ciel-runtime", assistant_text)
         self.assertEqual("tool_use", out["messages"][0]["content"][1]["type"])
         self.assertIn("<get_assignment>", out["messages"][1]["content"])
 

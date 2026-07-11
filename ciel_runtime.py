@@ -14178,7 +14178,7 @@ def sanitize_assistant_pseudo_tool_text_history(body: dict[str, Any]) -> dict[st
     changed = False
     sanitized_messages: list[Any] = []
     removed_blocks = 0
-    replacement = "\n[ciel-runtime removed prior assistant pseudo tool-call text; it was not an actual tool_use block.]\n"
+    replacement = "\n"
     for message in messages:
         if not isinstance(message, dict) or str(message.get("role") or "") != "assistant":
             sanitized_messages.append(message)
