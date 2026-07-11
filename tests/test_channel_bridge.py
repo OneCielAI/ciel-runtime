@@ -1,3 +1,4 @@
+import inspect
 import json
 import os
 import subprocess
@@ -1484,7 +1485,14 @@ class ChannelBridgeTests(unittest.TestCase):
         ):
             ciel_runtime._WindowsConsoleMouseInputGuard().apply()
 
-        setter.assert_not_called()
+            setter.assert_not_called()
+
+    def test_windows_console_input_writer_uses_scan_codes_for_control_and_enter(self):
+        source = inspect.getsource(ciel_runtime._WindowsConsoleInputWriter._write_chars)
+
+        self.assertIn('"\\x15": 0x55', source)
+        self.assertIn("MapVirtualKeyW", source)
+        self.assertIn("scan_code,", source)
 
     def test_windows_channel_wake_proxy_uses_console_input_writer(self):
         with (

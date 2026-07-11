@@ -33939,11 +33939,13 @@ class _WindowsConsoleInputWriter:
 
         KEY_EVENT = 0x0001
         LEFT_CTRL_PRESSED = 0x0008
+        MAPVK_VK_TO_VSC = 0
         vk_map = {
             "\r": 0x0D,
             "\x1b": 0x1B,
             "\x08": 0x08,
             "\t": 0x09,
+            "\x15": 0x55,
         }
         records: list[Any] = []
         for ch in chars:
@@ -33953,6 +33955,7 @@ class _WindowsConsoleInputWriter:
             elif vk is None:
                 vk = 0
             control = LEFT_CTRL_PRESSED if ch == "\x15" else 0
+            scan_code = int(kernel32.MapVirtualKeyW(int(vk), MAPVK_VK_TO_VSC)) if vk else 0
             for key_down in (True, False):
                 record = INPUT_RECORD()
                 record.EventType = KEY_EVENT
@@ -33960,7 +33963,7 @@ class _WindowsConsoleInputWriter:
                     bool(key_down),
                     1,
                     int(vk),
-                    0,
+                    scan_code,
                     ch,
                     control,
                 )
@@ -34098,15 +34101,13 @@ def subprocess_call_with_windows_console_wake_proxy(
                     last_id = ensure_channel_llm_delivery_cursor_initialized()
                     channel_inflight_logged_at = now
                 elif _channel_stdin_inflight_is_stale(channel_inflight_state, channel_inflight_started_at, now):
-                    if channel_inflight_cursor is not None:
-                        _commit_channel_llm_cursor_if_newer(channel_inflight_cursor)
                     with _CHANNEL_STDIN_WAKE_LOCK:
                         _CHANNEL_STDIN_WAKE_DELIVERED.discard(channel_inflight_id)
                         _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
                     _channel_stdin_clear_wake_claim(channel_inflight_id)
                     router_log(
                         "WARN",
-                        "channel_windows_console_stale_inflight_skipped "
+                        "channel_windows_console_stale_inflight_retry "
                         f"message_id={channel_inflight_id} state={channel_inflight_state} "
                         f"age={now - channel_inflight_started_at:.1f}s cursor={channel_inflight_cursor or '-'}",
                     )
