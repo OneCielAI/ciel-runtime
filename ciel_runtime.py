@@ -32799,6 +32799,14 @@ def _codex_channel_wake_submit_delay_seconds() -> float:
     return _bounded_delay_seconds(raw, 0.25, minimum=0.13, maximum=5.0)
 
 
+def _windows_channel_startup_grace_seconds() -> float:
+    """Allow an interactive Windows TUI to begin reading console input."""
+    raw = os.environ.get("CIEL_RUNTIME_WINDOWS_CHANNEL_STARTUP_GRACE_MS")
+    if raw is None:
+        return 8.0
+    return _bounded_delay_seconds(raw, 8.0, minimum=0.0, maximum=60.0)
+
+
 def _write_channel_wake_prompt(
     master_fd: int,
     prompt: str,
@@ -34154,6 +34162,7 @@ def subprocess_call_with_windows_console_wake_proxy(
     channel_tool_defer_logged_at = 0.0
     compact_defer_logged_at = 0.0
     channel_enter_bytes = _channel_wake_enter_bytes(synthetic_enter_bytes)
+    channel_input_ready_at = time.time() + _windows_channel_startup_grace_seconds()
     # Crossterm's Windows backend reads INPUT_RECORD key events directly. ANSI
     # bracketed-paste delimiters would arrive as Esc + literal characters, not
     # as Event::Paste, so only the POSIX byte-stream proxy may use them.
@@ -34251,7 +34260,7 @@ def subprocess_call_with_windows_console_wake_proxy(
                         "INFO",
                         f"channel_windows_console_waiting_for_turn_completion message_id={channel_inflight_id} state={channel_inflight_state}",
                     )
-            if now - last_compact_poll >= 0.5:
+            if now >= channel_input_ready_at and now - last_compact_poll >= 0.5:
                 last_compact_poll = now
                 if channel_inflight_id is None:
                     log_defer = now - compact_defer_logged_at >= 30.0
@@ -34268,7 +34277,7 @@ def subprocess_call_with_windows_console_wake_proxy(
                         compact_defer_logged_at = now
                     elif compact_status == "injected":
                         compact_defer_logged_at = 0.0
-            if now - last_channel_poll >= 0.5:
+            if now >= channel_input_ready_at and now - last_channel_poll >= 0.5:
                 last_channel_poll = now
                 marker = _chat_messages_file_marker()
                 if inject_channel_messages and _channel_stdin_should_check_pending(

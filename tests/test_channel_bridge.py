@@ -1501,6 +1501,13 @@ class ChannelBridgeTests(unittest.TestCase):
 
         self.assertEqual(["A", "\ud83d", "\ude80", "한"], units)
 
+    def test_windows_channel_startup_grace_defaults_past_codex_initialization(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(8.0, ciel_runtime._windows_channel_startup_grace_seconds())
+
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_WINDOWS_CHANNEL_STARTUP_GRACE_MS": "1500"}, clear=True):
+            self.assertEqual(1.5, ciel_runtime._windows_channel_startup_grace_seconds())
+
     def test_windows_console_writer_waits_for_text_batch_before_submit(self):
         writer_source = inspect.getsource(ciel_runtime._WindowsConsoleInputWriter.wait_until_input_consumed)
         prompt_source = inspect.getsource(ciel_runtime._write_channel_wake_prompt)
