@@ -33811,8 +33811,13 @@ def _windows_console_input_handle() -> Any:
         import ctypes
         from ctypes import wintypes
 
-        handle = ctypes.WinDLL("kernel32", use_last_error=True).GetStdHandle(wintypes.DWORD(-10 & 0xFFFFFFFF))
-        if not handle or int(handle) in (-1, 0):
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.GetStdHandle.argtypes = [wintypes.DWORD]
+        kernel32.GetStdHandle.restype = wintypes.HANDLE
+        handle = kernel32.GetStdHandle(wintypes.DWORD(-10 & 0xFFFFFFFF))
+        handle_value = int(handle) if isinstance(handle, int) else int(getattr(handle, "value", 0) or 0)
+        invalid_handle = int(ctypes.c_void_p(-1).value or -1)
+        if not handle_value or handle_value == invalid_handle:
             return None
         return handle
     except Exception:
@@ -33839,7 +33844,10 @@ def _windows_console_input_mode() -> int | None:
         from ctypes import wintypes
 
         mode = wintypes.DWORD(0)
-        ok = ctypes.WinDLL("kernel32", use_last_error=True).GetConsoleMode(handle, ctypes.byref(mode))
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.GetConsoleMode.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        kernel32.GetConsoleMode.restype = wintypes.BOOL
+        ok = kernel32.GetConsoleMode(handle, ctypes.byref(mode))
         if not ok:
             return None
         return int(mode.value)
@@ -33855,7 +33863,10 @@ def _set_windows_console_input_mode(mode: int) -> bool:
         import ctypes
         from ctypes import wintypes
 
-        ok = ctypes.WinDLL("kernel32", use_last_error=True).SetConsoleMode(handle, wintypes.DWORD(int(mode)))
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.SetConsoleMode.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        kernel32.SetConsoleMode.restype = wintypes.BOOL
+        ok = kernel32.SetConsoleMode(handle, wintypes.DWORD(int(mode)))
         return bool(ok)
     except Exception:
         return False
@@ -33939,6 +33950,16 @@ class _WindowsConsoleInputWriter:
 
         class INPUT_RECORD(ctypes.Structure):
             _fields_ = [("EventType", wintypes.WORD), ("Event", EVENT_UNION)]
+
+        kernel32.MapVirtualKeyW.argtypes = [wintypes.UINT, wintypes.UINT]
+        kernel32.MapVirtualKeyW.restype = wintypes.UINT
+        kernel32.WriteConsoleInputW.argtypes = [
+            wintypes.HANDLE,
+            ctypes.POINTER(INPUT_RECORD),
+            wintypes.DWORD,
+            ctypes.POINTER(wintypes.DWORD),
+        ]
+        kernel32.WriteConsoleInputW.restype = wintypes.BOOL
 
         KEY_EVENT = 0x0001
         LEFT_CTRL_PRESSED = 0x0008
