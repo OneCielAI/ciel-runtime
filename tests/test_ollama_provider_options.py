@@ -247,7 +247,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertLess(len(compacted), len(messages))
         write_compact.assert_called_once()
 
-    def test_glm_52_forces_ollama_think_off_even_when_configured_on(self):
+    def test_glm_52_uses_ollama_thinking_when_configured_on(self):
         pcfg = {
             "current_model": "glm-5.2",
             "think": True,
@@ -261,9 +261,33 @@ class OllamaProviderOptionTests(unittest.TestCase):
         with mock.patch.object(ciel_runtime, "write_context_usage"):
             request = ciel_runtime.ollama_chat_request("glm-5.2", body, pcfg, stream=False, provider="ollama-cloud")
 
-        self.assertFalse(request["think"])
-        self.assertEqual("False (forced for glm-5.2)", ciel_runtime.ollama_think_status("glm-5.2", pcfg))
-        self.assertNotEqual("reasoning", ciel_runtime.infer_preset_id_from_options("ollama-cloud", pcfg))
+        self.assertTrue(request["think"])
+        self.assertEqual("True", ciel_runtime.ollama_think_status("glm-5.2", pcfg))
+        self.assertEqual("reasoning", ciel_runtime.infer_preset_id_from_options("ollama-cloud", pcfg))
+
+    def test_glm_52_ollama_preset_matches_published_976k_context(self):
+        for model in ("glm-5.2", "glm-5.2:cloud"):
+            preset = ciel_runtime.MODEL_PRESETS[model]
+            self.assertTrue(preset["thinking"])
+            self.assertEqual(976 * 1024, preset["num_ctx_max"])
+
+    def test_glm_52_ollama_cloud_migration_enables_thinking_and_976k(self):
+        cfg = {
+            "providers": {
+                "ollama-cloud": {
+                    "current_model": "glm-5.2:cloud",
+                    "think": False,
+                    "num_ctx_max": 131072,
+                }
+            },
+            "migrations": {},
+        }
+
+        ciel_runtime.apply_config_migrations(cfg)
+
+        pcfg = cfg["providers"]["ollama-cloud"]
+        self.assertTrue(pcfg["think"])
+        self.assertEqual(976 * 1024, pcfg["num_ctx_max"])
 
     def test_non_glm_52_ollama_think_still_respects_config(self):
         pcfg = {

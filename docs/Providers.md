@@ -55,10 +55,17 @@
 
 | 모델 | compat_max_tokens | thinking |
 |------|------------------|---------|
+| `glm-5.2:cloud` | 64 | ✅ |
 | `glm-4.7` | 64 | ✅ |
 | `deepseek-r1` | 64 | ✅ |
 | `qwen3-coder` | 16 | ❌ |
 | `llama3.3:70b` | 16 | ❌ |
+
+Ollama의 GLM-5.2 모델 메타데이터와 Chat API에 맞춰 `think: true`와 최대
+`options.num_ctx: 999424`(표시값 976K)를 사용한다. `tools`, `keep_alive`,
+`options.num_predict`는 Ollama Chat API의 공식 필드 위치를 유지한다. Z.AI의
+Anthropic thinking 객체나 문서로 확인되지 않은 GLM-5.2 effort 문자열은 Ollama
+요청에 복사하지 않는다.
 
 ---
 

@@ -710,6 +710,8 @@ LANGUAGES = {
 }
 
 MODEL_PRESETS: dict[str, dict[str, Any]] = {
+    "glm-5.2": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 999424},
+    "glm-5.2:cloud": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 999424},
     "glm-4.7": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 131072},
     "glm-5.1": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 131072},
     "glm-4.7:cloud": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 131072},
@@ -2222,7 +2224,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "num_ctx_min": 32768,
             "num_ctx_max": 131072,
             "keep_alive": "5m",
-            "think": False,
+            "think": True,
             "request_timeout_ms": DEFAULT_REQUEST_TIMEOUT_MS,
             "stream_enabled": True,
             "stream_word_chunking": False,
@@ -2455,6 +2457,17 @@ def apply_config_migrations(cfg: dict[str, Any]) -> None:
     if not isinstance(migrations, dict):
         migrations = {}
         cfg["migrations"] = migrations
+
+    marker = "ollama_cloud_glm52_thinking_context_20260711"
+    if not migrations.get(marker):
+        pcfg = cfg.get("providers", {}).get("ollama-cloud", {})
+        if isinstance(pcfg, dict):
+            model = strip_claude_context_suffix(str(pcfg.get("current_model") or "")).lower()
+            if model in {"glm-5.2", "glm-5.2:cloud"}:
+                pcfg["think"] = True
+                if positive_int(pcfg.get("num_ctx_max")) in {0, 131072, 1048576}:
+                    pcfg["num_ctx_max"] = 999424
+        migrations[marker] = True
 
     marker = "nvidia_hosted_router_default_20260509"
     if not migrations.get(marker):
@@ -16128,23 +16141,12 @@ def normalize_anthropic_model_request_options(provider: str, pcfg: dict[str, Any
     return out
 
 
-def ollama_model_forces_think_disabled(model: str | None) -> bool:
-    normalized = strip_claude_context_suffix(str(model or "")).strip().lower()
-    if normalized.endswith(":cloud"):
-        normalized = normalized[:-6]
-    return bool(re.match(r"^glm-5\.2(?:$|[:\[-])", normalized))
-
-
 def ollama_request_think_enabled(model: str | None, pcfg: dict[str, Any]) -> bool:
-    return bool(pcfg.get("think", False)) and not ollama_model_forces_think_disabled(model)
+    return bool(pcfg.get("think", False))
 
 
 def ollama_think_status(model: str | None, pcfg: dict[str, Any]) -> str:
-    configured = bool(pcfg.get("think", False))
-    effective = ollama_request_think_enabled(model, pcfg)
-    if configured and not effective:
-        return "False (forced for glm-5.2)"
-    return str(effective)
+    return str(ollama_request_think_enabled(model, pcfg))
 
 
 def ollama_chat_request(model: str, body: dict[str, Any], pcfg: dict[str, Any], stream: bool = True, provider: str = "ollama") -> dict[str, Any]:
