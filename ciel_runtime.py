@@ -32667,10 +32667,12 @@ def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
                 continue
             with _CHANNEL_STDIN_WAKE_LOCK:
                 stdin_wake_delivered = message_id in _CHANNEL_STDIN_WAKE_DELIVERED
-            if stdin_wake_delivered:
+            stdin_wake_claimed = bool(_channel_stdin_wake_claim_prompt(message_id))
+            if stdin_wake_delivered or stdin_wake_claimed:
+                reason = "stdin_wake_delivered" if stdin_wake_delivered else "stdin_wake_claimed"
                 router_log(
                     "INFO",
-                    f"channel_llm_inject_skipped message_id={message.get('id')} channel={message.get('channel')} reason=stdin_wake_delivered",
+                    f"channel_llm_inject_skipped message_id={message.get('id')} channel={message.get('channel')} reason={reason}",
                 )
                 continue
             pending.append(message)

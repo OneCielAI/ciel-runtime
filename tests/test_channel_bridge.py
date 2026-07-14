@@ -3865,6 +3865,34 @@ class ChannelBridgeTests(unittest.TestCase):
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("stdin_wake_delivered" in item for item in log_messages))
 
+    def test_body_with_pending_channel_messages_skips_cross_process_stdin_wake_claim(self):
+        body = {"messages": [{"role": "user", "content": "externally injected prompt"}], "stream": True}
+        messages = [
+            {
+                "id": 4581,
+                "channel": "room_dm_7129prgnwa",
+                "sender_id": "ai-net",
+                "message": '{"method":"notifications/claude/channel"}',
+                "kind": "activity",
+                "meta": {"message_id": "msg_s1wgbiw9pnqo"},
+            }
+        ]
+        ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED.clear()
+        with (
+            mock.patch.object(ciel_runtime, "load_config", return_value={"claude_code": {"channel_delivery": "llm"}}),
+            mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=4580),
+            mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as write_cursor,
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "_channel_stdin_wake_claim_prompt", return_value="[Source channel] DM-Samuel"),
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
+        ):
+            out = ciel_runtime.body_with_pending_channel_messages(body)
+
+        self.assertIs(out, body)
+        write_cursor.assert_not_called()
+        log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
+        self.assertTrue(any("stdin_wake_claimed" in item and "message_id=4581" in item for item in log_messages))
+
     def test_channel_sse_dispatch_ignores_native_router_self_echo(self):
         original_connections = dict(ciel_runtime._CHANNEL_SSE_CONNECTIONS)
         try:
