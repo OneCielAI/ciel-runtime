@@ -4945,6 +4945,81 @@ class ChannelBridgeTests(unittest.TestCase):
             upstream.shutdown()
             upstream.server_close()
 
+    def test_codex_mcp_split_proxy_suppresses_channel_notification_from_post_sse(self):
+        seen_gets: list[bool] = []
+
+        class UpstreamHandler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                return
+
+            def do_POST(self):
+                length = int(self.headers.get("Content-Length") or "0")
+                payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+                events = [
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "notifications/claude/channel",
+                        "params": {"content": "duplicate channel event", "meta": {"stream_id": "stream-1"}},
+                    },
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "notifications/progress",
+                        "params": {"progressToken": "tool-1", "progress": 0.5},
+                    },
+                    {"jsonrpc": "2.0", "id": payload.get("id"), "result": {"tools": []}},
+                ]
+                body = b"".join(
+                    b"event: message\n" + b"data: " + json.dumps(event).encode("utf-8") + b"\n\n"
+                    for event in events
+                )
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_GET(self):
+                seen_gets.append(True)
+                self.send_response(500)
+                self.end_headers()
+
+        upstream = ThreadingHTTPServer(("127.0.0.1", 0), UpstreamHandler)
+        router = ThreadingHTTPServer(("127.0.0.1", 0), ciel_runtime.RouterHandler)
+        threading.Thread(target=upstream.serve_forever, daemon=True).start()
+        threading.Thread(target=router.serve_forever, daemon=True).start()
+        try:
+            upstream_url = f"http://127.0.0.1:{upstream.server_address[1]}/mcp"
+            router_url = f"http://127.0.0.1:{router.server_address[1]}"
+            with tempfile.TemporaryDirectory(prefix="ca-codex-split-proxy-sse-") as td:
+                config = Path(td) / "codex-mcp.json"
+                config.write_text(
+                    json.dumps({"mcpServers": {"ai-net": {"type": "http", "url": upstream_url}}}),
+                    encoding="utf-8",
+                )
+                with (
+                    mock.patch.object(ciel_runtime, "CODEX_MCP_CONFIG", config),
+                    mock.patch.object(ciel_runtime, "reject_external_router_request", return_value=False),
+                ):
+                    request = ciel_runtime.urllib.request.Request(
+                        f"{router_url}/ca/codex-mcp/ai-net",
+                        data=b'{"jsonrpc":"2.0","id":7,"method":"tools/list","params":{}}',
+                        headers={"Content-Type": "application/json", "Accept": "application/json, text/event-stream"},
+                        method="POST",
+                    )
+                    with ciel_runtime.urllib.request.urlopen(request, timeout=2) as response:
+                        body = response.read().decode("utf-8")
+
+            self.assertNotIn("duplicate channel event", body)
+            self.assertNotIn("notifications/claude/channel", body)
+            self.assertIn("notifications/progress", body)
+            self.assertIn('"id": 7', body)
+            self.assertEqual([], seen_gets)
+        finally:
+            router.shutdown()
+            router.server_close()
+            upstream.shutdown()
+            upstream.server_close()
+
     def test_mcp_proxy_streamable_http_waits_for_initialized_before_get(self):
         lock = threading.Lock()
         state = {"initialized": False}

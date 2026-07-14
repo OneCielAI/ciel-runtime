@@ -11266,6 +11266,51 @@ def handle_codex_mcp_split_proxy_get(handler: BaseHTTPRequestHandler, path: str)
     return True
 
 
+def _codex_mcp_split_proxy_is_channel_sse_event(event: bytes) -> bool:
+    data_lines: list[str] = []
+    for raw_line in event.splitlines():
+        line = raw_line.decode("utf-8", errors="replace")
+        field, separator, value = line.partition(":")
+        if separator and field == "data":
+            data_lines.append(value[1:] if value.startswith(" ") else value)
+    if not data_lines:
+        return False
+    try:
+        payload = json.loads("\n".join(data_lines))
+    except Exception:
+        return False
+    return bool(
+        isinstance(payload, dict)
+        and str(payload.get("method") or "").strip() == _NATIVE_CHANNEL_NOTIFICATION_METHOD
+    )
+
+
+def _forward_codex_mcp_split_proxy_sse(
+    handler: BaseHTTPRequestHandler,
+    response: Any,
+    server_name: str,
+) -> None:
+    event = bytearray()
+    while True:
+        line = response.readline()
+        if line:
+            event.extend(line)
+        if not line or line in {b"\n", b"\r\n"}:
+            if event:
+                raw_event = bytes(event)
+                if _codex_mcp_split_proxy_is_channel_sse_event(raw_event):
+                    router_log(
+                        "INFO",
+                        f"codex_mcp_split_proxy_channel_notification_suppressed name={server_name} source=post_sse",
+                    )
+                else:
+                    handler.wfile.write(raw_event)
+                    handler.wfile.flush()
+                event.clear()
+            if not line:
+                break
+
+
 def handle_codex_mcp_split_proxy_request(
     handler: BaseHTTPRequestHandler,
     path: str,
@@ -11286,12 +11331,16 @@ def handle_codex_mcp_split_proxy_request(
             handler.send_response(getattr(resp, "status", 200))
             _copy_upstream_response_headers(handler, resp.headers)
             handler.end_headers()
-            while True:
-                chunk = resp.read(65536)
-                if not chunk:
-                    break
-                handler.wfile.write(chunk)
-                handler.wfile.flush()
+            content_type = str(resp.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+            if content_type == "text/event-stream":
+                _forward_codex_mcp_split_proxy_sse(handler, resp, name)
+            else:
+                while True:
+                    chunk = resp.read(65536)
+                    if not chunk:
+                        break
+                    handler.wfile.write(chunk)
+                    handler.wfile.flush()
         router_log("INFO", f"codex_mcp_split_proxy_forwarded name={name} method={method.upper()} upstream={upstream_url}")
     except urllib.error.HTTPError as exc:
         raw = exc.read()
