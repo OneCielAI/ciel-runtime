@@ -220,6 +220,8 @@ OPENCODE_ZEN_BASE_URL = "https://opencode.ai/zen"
 OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go"
 KIMI_CODING_BASE_URL = "https://api.kimi.com/coding"
 KIMI_DEFAULT_MODEL = "kimi-for-coding"
+KIMI_K3_MODEL = "k3"
+KIMI_MODEL_FALLBACK_IDS: tuple[str, ...] = (KIMI_K3_MODEL, KIMI_DEFAULT_MODEL)
 ZAI_ANTHROPIC_BASE_URL = "https://api.z.ai/api/anthropic"
 ZAI_DEFAULT_MODEL = "glm-5.2[1m]"
 ZAI_MODEL_FALLBACK_IDS: tuple[str, ...] = (
@@ -2293,7 +2295,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "api_key": "",
             "current_model": KIMI_DEFAULT_MODEL,
             "advisor_model": "",
-            "custom_models": [KIMI_DEFAULT_MODEL],
+            "custom_models": list(KIMI_MODEL_FALLBACK_IDS),
             "native_compat": True,
             "preserve_anthropic_thinking": True,
             "normalize_anthropic_tool_use": True,
@@ -2653,6 +2655,20 @@ def apply_config_migrations(cfg: dict[str, Any]) -> None:
             pcfg["supports_tool_choice"] = True
         migrations[marker] = True
 
+    marker = "kimi_k3_model_20260716"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        pcfg = providers.get("kimi")
+        if isinstance(pcfg, dict):
+            custom = pcfg.get("custom_models")
+            if not isinstance(custom, list):
+                custom = []
+                pcfg["custom_models"] = custom
+            normalized_custom = {normalize_model_id("kimi", str(mid)) for mid in custom if str(mid).strip()}
+            if KIMI_K3_MODEL not in normalized_custom:
+                custom.append(KIMI_K3_MODEL)
+        migrations[marker] = True
+
 
 _config_cache: dict[str, Any] | None = None
 _config_cache_mtime: float = 0.0
@@ -2804,6 +2820,8 @@ def normalize_model_id(provider: str, model_id: str) -> str:
     model_id = str(model_id or "").strip() if provider in ("deepseek", "zai") else strip_claude_context_suffix(model_id).strip()
     if provider == "kimi":
         lowered = model_id.lower().replace("_", "-").strip()
+        if lowered in ("k3", "kimi-k3", "kimi/k3", "kimi-code/k3"):
+            return KIMI_K3_MODEL
         if lowered in (
             "kimi-code/kimi-for-coding",
             "kimi/kimi-for-coding",
@@ -6255,10 +6273,12 @@ def infer_claude_code_supported_capabilities_from_model(model_id: str) -> list[s
 def claude_code_supported_capabilities(provider: str, pcfg: dict[str, Any], model_id: str | None = None) -> list[str]:
     configured = pcfg.get("claude_code_supported_capabilities")
     caps = normalize_claude_code_supported_capabilities(configured)
-    if caps:
-        return caps
     model = model_id or current_upstream_model_id(provider, pcfg)
-    return infer_claude_code_supported_capabilities_from_model(model)
+    if not caps:
+        caps = infer_claude_code_supported_capabilities_from_model(model)
+    if provider == "kimi" and is_kimi_k3_model_id(model) and "max_effort" not in caps:
+        caps.append("max_effort")
+    return caps
 
 
 def claude_code_capability_string(provider: str, pcfg: dict[str, Any], model_id: str | None = None) -> str:
@@ -14455,6 +14475,14 @@ def normalize_request_for_provider_wire(provider: str, pcfg: dict[str, Any], bod
     """Normalize a Claude Code /v1/messages request for the active provider wire profile."""
     profile = provider_wire_profile(provider, pcfg, body)
     out = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
+    requested_model = str(out.get("model") or pcfg.get("current_model") or "")
+    if provider == "kimi" and is_kimi_k3_model_id(requested_model):
+        thinking = out.get("thinking")
+        if isinstance(thinking, dict) and str(thinking.get("type") or "").lower() != "disabled":
+            normalized_thinking = dict(thinking)
+            normalized_thinking["effort"] = "max"
+            out = dict(out)
+            out["thinking"] = normalized_thinking
     out = normalize_tool_choice_for_provider(provider, pcfg, out)
     out = sanitize_assistant_pseudo_tool_text_history(out)
     out = normalize_anthropic_tool_turns_for_provider(provider, pcfg, out)
@@ -16277,6 +16305,8 @@ def openai_compatible_chat_request(provider: str, model: str, body: dict[str, An
         "messages": messages,
         "stream": stream,
     }
+    if provider == "kimi" and is_kimi_k3_model_id(model):
+        req["reasoning_effort"] = "max"
     if tools:
         req["tools"] = tools
     if body.get("tool_choice") is not None and not should_omit_openai_chat_tool_choice(provider, model, body, pcfg):
@@ -21274,6 +21304,7 @@ def set_model_config(value: str) -> list[str]:
     mmap = model_map_for(provider, pcfg, fetch=False)
     model_id = normalize_model_id(provider, unslug_provider_alias(provider, value, mmap) or value)
     pcfg["current_model"] = model_id
+    model_profile_msgs = apply_kimi_model_profile(provider, pcfg)
     if provider == "zai":
         # Claude Code primarily selects through its default Haiku/Sonnet/Opus
         # model environment variables. Keep those aligned when the user
@@ -21302,6 +21333,7 @@ def set_model_config(value: str) -> list[str]:
     save_config(cfg)
     clear_model_cache()
     msgs = [f"Model for {provider} set to {model_id}.", f"Claude Code alias: {alias_for(provider, model_id)}"]
+    msgs.extend(model_profile_msgs)
     if selected_context:
         msgs.append(f"Model context size: {format_context_tokens(selected_context)} ({selected_context:,} tokens).")
     msgs.extend(context_msgs)
@@ -24587,6 +24619,27 @@ def is_qwen36_plus_model_id(model_id: str) -> bool:
     return "qwen36plus" in compact
 
 
+def is_kimi_k3_model_id(model_id: str) -> bool:
+    normalized = strip_claude_context_suffix(model_id).strip().lower().replace("_", "-")
+    if normalized.startswith("ciel-runtime-kimi-"):
+        normalized = normalized[len("ciel-runtime-kimi-"):]
+    return normalized in {"k3", "kimi-k3", "kimi/k3", "kimi-code/k3"}
+
+
+def apply_kimi_model_profile(provider: str, pcfg: dict[str, Any]) -> list[str]:
+    if provider != "kimi" or not is_kimi_k3_model_id(current_upstream_model_id(provider, pcfg)):
+        return []
+    changed = (
+        positive_int(pcfg.get("context_window")) != 1048576
+        or positive_int(pcfg.get("max_model_len")) != 1048576
+        or str(pcfg.get("effort_level") or "").lower() != "max"
+    )
+    pcfg["context_window"] = 1048576
+    pcfg["max_model_len"] = 1048576
+    pcfg["effort_level"] = "max"
+    return ["Kimi K3 profile applied: 1M context and max reasoning effort."] if changed else []
+
+
 def zai_model_context_hint(model_id: str) -> int | None:
     model = strip_claude_context_suffix(model_id).strip().lower().replace("_", "-")
     if not model:
@@ -24605,6 +24658,8 @@ def model_context_hint_from_model_id(model_id: str) -> int | None:
     if zai_hint:
         return zai_hint
     if is_qwen36_plus_model_id(model_id):
+        return 1048576
+    if is_kimi_k3_model_id(model_id):
         return 1048576
     catalog_limit, _, _ = ollama_catalog_context_for_model(model_id)
     if catalog_limit:
@@ -24636,7 +24691,13 @@ def provider_model_context_capacity(provider: str, pcfg: dict[str, Any]) -> int 
             or model_context_hint_from_model_id(model)
             or positive_int(pcfg.get("context_window"))
         )
-    if provider in ("deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks"):
+    if provider == "kimi":
+        return (
+            model_context_hint_from_model_id(model)
+            or positive_int(pcfg.get("max_model_len"))
+            or positive_int(pcfg.get("context_window"))
+        )
+    if provider in ("deepseek", "opencode", "opencode-go", "openrouter", "fireworks"):
         return (
             positive_int(pcfg.get("max_model_len"))
             or model_context_hint_from_model_id(model)
@@ -24755,12 +24816,12 @@ def cached_current_model_info(provider: str, pcfg: dict[str, Any]) -> dict[str, 
 
 
 def apply_current_model_specs_to_provider(provider: str, pcfg: dict[str, Any]) -> list[str]:
+    messages = apply_kimi_model_profile(provider, pcfg)
     info = cached_current_model_info(provider, pcfg)
     max_context = positive_int(info.get("max_model_len")) if info else None
     if not max_context:
-        return []
+        return messages
     model = normalize_model_id(provider, current_upstream_model_id(provider, pcfg))
-    messages: list[str] = []
     if provider in ("ollama", "ollama-cloud"):
         if not ollama_context_model_matches(model, str(pcfg.get("model_context_model") or "")) or positive_int(pcfg.get("model_context_max")) != max_context:
             pcfg["model_context_max"] = max_context
@@ -37648,6 +37709,82 @@ def codex_runtime_config_args(router_base: str = ROUTER_BASE) -> list[str]:
     ]
 
 
+def write_codex_runtime_model_catalog(codex: str, cfg: dict[str, Any]) -> Path | None:
+    """Add the routed model alias to Codex's own version-matched model catalog."""
+    provider, pcfg = get_current_provider(cfg)
+    if native_codex_enabled(provider):
+        return None
+    alias = current_alias(cfg)
+    if not alias:
+        return None
+    try:
+        catalog_env = os.environ.copy()
+        catalog_env["PATH"] = path_with_ciel_runtime_user_dirs(catalog_env)
+        result = subprocess.run(
+            [codex, "debug", "models", "--bundled"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+            check=False,
+            env=catalog_env,
+        )
+        if result.returncode != 0:
+            raise RuntimeError((result.stderr or result.stdout or f"exit {result.returncode}").strip())
+        catalog = json.loads(result.stdout)
+        models = catalog.get("models") if isinstance(catalog, dict) else None
+        if not isinstance(models, list) or not models:
+            raise ValueError("bundled catalog contains no models")
+        template = next((item for item in models if isinstance(item, dict) and item.get("slug") == "gpt-5.2"), None)
+        if template is None:
+            template = next((item for item in models if isinstance(item, dict)), None)
+        if template is None:
+            raise ValueError("bundled catalog contains no model metadata")
+
+        routed = json.loads(json.dumps(template))
+        context_window = context_limit_for_status(provider, pcfg) or provider_model_context_capacity(provider, pcfg) or 272000
+        routed.update({
+            "slug": alias,
+            "display_name": f"Ciel Runtime {PROVIDER_LABELS.get(provider, provider)}",
+            "description": f"{PROVIDER_LABELS.get(provider, provider)} routed through Ciel Runtime.",
+            "visibility": "none",
+            "supported_in_api": True,
+            "priority": 99,
+            "context_window": context_window,
+            "max_context_window": context_window,
+            "auto_compact_token_limit": max(1, (context_window * 9) // 10),
+        })
+        effort = str(pcfg.get("effort_level") or "").strip().lower()
+        if effort:
+            routed["default_reasoning_level"] = effort
+            supported = routed.get("supported_reasoning_levels")
+            if not isinstance(supported, list):
+                supported = []
+            if not any(isinstance(item, dict) and item.get("effort") == effort for item in supported):
+                supported.append({"effort": effort, "description": f"{effort.title()} reasoning effort"})
+            routed["supported_reasoning_levels"] = supported
+        models = [item for item in models if not (isinstance(item, dict) and item.get("slug") == alias)]
+        models.append(routed)
+        catalog["models"] = models
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        catalog_path = CONFIG_DIR / "codex-model-catalog.json"
+        temp_path = catalog_path.with_suffix(".json.tmp")
+        temp_path.write_text(json.dumps(catalog, ensure_ascii=False), encoding="utf-8")
+        temp_path.replace(catalog_path)
+        return catalog_path
+    except Exception as exc:
+        router_log("WARN", f"codex_model_catalog_generation_failed error={type(exc).__name__}: {exc}")
+        return None
+
+
+def codex_runtime_model_catalog_args(codex: str, cfg: dict[str, Any]) -> list[str]:
+    path = write_codex_runtime_model_catalog(codex, cfg)
+    if path is None:
+        return []
+    return ["-c", f"model_catalog_json={toml_string(str(path.resolve()))}"]
+
+
 def codex_native_routed_config_args(router_base: str = ROUTER_BASE) -> list[str]:
     provider = (os.environ.get(CODEX_NATIVE_PROVIDER_ID_ENV) or CODEX_ROUTED_PROVIDER_ID).strip() or CODEX_ROUTED_PROVIDER_ID
     base = router_base.rstrip("/") + "/backend-api/codex"
@@ -37941,6 +38078,8 @@ def launch_codex(
     else:
         env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
         cmd = [codex, *codex_yolo_args, *codex_runtime_config_args()]
+    if not use_native_codex:
+        cmd.extend(codex_runtime_model_catalog_args(codex, cfg))
     log_codex_passthrough_mapping(codex_passthrough_notes)
     cmd.extend(codex_alternate_screen_compat_args(codex_passthrough, env=env))
     cmd.extend(codex_mcp_compat_args)

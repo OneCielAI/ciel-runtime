@@ -30,6 +30,40 @@ class FakeSSEHandler:
 
 
 class CodexRuntimeTests(unittest.TestCase):
+    def test_runtime_model_catalog_registers_zai_alias_metadata(self):
+        cfg = {
+            "current_provider": "zai",
+            "providers": {"zai": copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["zai"])},
+        }
+        bundled = {
+            "models": [{
+                "slug": "gpt-5.2",
+                "display_name": "GPT-5.2",
+                "base_instructions": "bundled instructions",
+                "supported_reasoning_levels": [{"effort": "medium", "description": "Medium"}],
+            }]
+        }
+        completed = mock.Mock(returncode=0, stdout=json.dumps(bundled), stderr="")
+
+        with (
+            tempfile.TemporaryDirectory() as td,
+            mock.patch.object(ciel_runtime, "CONFIG_DIR", Path(td)),
+            mock.patch.object(ciel_runtime.subprocess, "run", return_value=completed) as run,
+        ):
+            args = ciel_runtime.codex_runtime_model_catalog_args("codex", cfg)
+            path = Path(json.loads(args[1].split("=", 1)[1]))
+            catalog = json.loads(path.read_text(encoding="utf-8"))
+
+        run.assert_called_once()
+        self.assertEqual("-c", args[0])
+        model = next(item for item in catalog["models"] if item["slug"] == "ciel-runtime-zai-glm-5.2-1m")
+        self.assertEqual(1000000, model["context_window"])
+        self.assertEqual(1000000, model["max_context_window"])
+        self.assertEqual(900000, model["auto_compact_token_limit"])
+        self.assertEqual("max", model["default_reasoning_level"])
+        self.assertIn("max", [item["effort"] for item in model["supported_reasoning_levels"]])
+        self.assertEqual("bundled instructions", model["base_instructions"])
+
     def setUp(self):
         super().setUp()
         patcher = mock.patch.object(ciel_runtime, "terminate_existing_codex_processes_for_launch", return_value=False)

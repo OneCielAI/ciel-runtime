@@ -28,6 +28,7 @@ class KimiProviderTests(unittest.TestCase):
         pcfg = ciel_runtime.DEFAULT_CONFIG["providers"]["kimi"]
         self.assertEqual("https://api.kimi.com/coding", pcfg["base_url"])
         self.assertEqual("kimi-for-coding", pcfg["current_model"])
+        self.assertIn("k3", pcfg["custom_models"])
         self.assertEqual(262144, pcfg["context_window"])
         self.assertEqual(32768, pcfg["max_output_tokens"])
         self.assertEqual(32768, pcfg["context_reserve_tokens"])
@@ -88,6 +89,42 @@ class KimiProviderTests(unittest.TestCase):
             "k2.7-code",
         ):
             self.assertEqual("kimi-for-coding", ciel_runtime.normalize_model_id("kimi", raw))
+
+        for raw in ("k3", "kimi-k3", "kimi/k3", "kimi-code/k3"):
+            self.assertEqual("k3", ciel_runtime.normalize_model_id("kimi", raw))
+
+    def test_k3_profile_uses_documented_context_and_max_effort(self):
+        pcfg = self.kimi_cfg(current_model="k3")["providers"]["kimi"]
+
+        messages = ciel_runtime.apply_kimi_model_profile("kimi", pcfg)
+
+        self.assertEqual(1048576, pcfg["context_window"])
+        self.assertEqual(1048576, pcfg["max_model_len"])
+        self.assertEqual("max", pcfg["effort_level"])
+        self.assertEqual(1048576, ciel_runtime.provider_model_context_capacity("kimi", pcfg))
+        self.assertIn("max_effort", ciel_runtime.claude_code_supported_capabilities("kimi", pcfg))
+        self.assertTrue(any("1M context" in message for message in messages))
+
+    def test_k3_anthropic_request_forces_supported_max_effort(self):
+        pcfg = self.kimi_cfg(current_model="k3")["providers"]["kimi"]
+        body = {
+            "model": "ciel-runtime-kimi-k3",
+            "messages": [{"role": "user", "content": "hello"}],
+            "thinking": {"type": "enabled", "effort": "high"},
+        }
+
+        out = ciel_runtime.normalize_request_for_provider_wire("kimi", pcfg, body)
+
+        self.assertEqual("max", out["thinking"]["effort"])
+        self.assertEqual("high", body["thinking"]["effort"])
+
+    def test_k3_openai_request_uses_reasoning_effort_max(self):
+        pcfg = self.kimi_cfg(current_model="k3")["providers"]["kimi"]
+        body = {"messages": [{"role": "user", "content": "hello"}]}
+
+        request = ciel_runtime.openai_compatible_chat_request("kimi", "k3", body, pcfg)
+
+        self.assertEqual("max", request["reasoning_effort"])
 
     def test_provider_headers_include_kimi_api_key(self):
         pcfg = self.kimi_cfg(api_key="sk-kimi-test")["providers"]["kimi"]
