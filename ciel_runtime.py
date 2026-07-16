@@ -9038,6 +9038,12 @@ def write_context_compact_activity(provider: str, model: str | None = None, **fi
 def context_limit_for_status(provider: str, pcfg: dict[str, Any]) -> int | None:
     if provider in ("ollama", "ollama-cloud"):
         return ollama_context_limit_for_budget(pcfg)
+    if provider == "anthropic" and anthropic_routed_enabled(provider, pcfg):
+        configured = positive_int(pcfg.get("context_window")) or positive_int(pcfg.get("max_model_len"))
+        if configured:
+            return configured
+        model = str(pcfg.get("current_model") or "")
+        return positive_int(anthropic_model_limit_hints(model).get("context_window"))
     if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim"):
         return openai_context_limit_for_budget(provider, pcfg)
     if provider == "zai":
@@ -27590,6 +27596,8 @@ def claude_code_model_claims_one_million_context(
                 continue
             candidate = resolved
         hint = model_context_hint_from_model_id(strip_claude_context_suffix(candidate))
+        if hint is None and provider == "anthropic":
+            hint = positive_int(anthropic_model_limit_hints(candidate).get("context_window"))
         if hint is not None:
             if hint >= 1_000_000:
                 return True
@@ -27656,7 +27664,7 @@ def claude_code_default_model_aliases(provider: str, pcfg: dict[str, Any], curre
                     selected = model_id
                     break
         alias = alias_for(provider, selected) if selected else current_model_alias
-        if selected_from_config:
+        if selected_from_config or provider == "anthropic":
             out[key] = claude_code_context_model_alias(provider, pcfg, alias, selected)
         else:
             out[key] = claude_code_context_model_alias(provider, pcfg, alias)

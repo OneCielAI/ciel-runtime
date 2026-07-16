@@ -40,6 +40,22 @@ class AnthropicPresetOutputTokensTests(unittest.TestCase):
         env = ciel_runtime.env_vars(cfg)
         self.assertEqual("120000", env.get("CLAUDE_CODE_MAX_OUTPUT_TOKENS"))
 
+    def test_routed_one_million_model_exposes_context_to_claude_code(self):
+        cfg = _anthropic_cfg(current_model="claude-opus-4-8")
+
+        env = ciel_runtime.env_vars(cfg)
+
+        self.assertEqual("1048576", env.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW"))
+        self.assertEqual("ciel-runtime-anthropic-claude-opus-4-8[1m]", env.get("ANTHROPIC_MODEL"))
+
+    def test_routed_haiku_uses_its_smaller_context_without_one_million_marker(self):
+        cfg = _anthropic_cfg(current_model="claude-haiku-4-5")
+
+        env = ciel_runtime.env_vars(cfg)
+
+        self.assertEqual("200000", env.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW"))
+        self.assertEqual("ciel-runtime-anthropic-claude-haiku-4-5", env.get("ANTHROPIC_MODEL"))
+
 
 class AnthropicOutputTokenLimitTests(unittest.TestCase):
     def test_limit_none_without_value(self):

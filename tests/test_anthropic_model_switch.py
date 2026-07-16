@@ -86,11 +86,11 @@ class AnthropicModelSwitchTests(unittest.TestCase):
             )
 
         self.assertEqual(
-            "ciel-runtime-anthropic-claude-opus-4-8",
+            "ciel-runtime-anthropic-claude-opus-4-8[1m]",
             aliases["ANTHROPIC_DEFAULT_OPUS_MODEL"],
         )
         self.assertEqual(
-            "ciel-runtime-anthropic-claude-sonnet-4-6",
+            "ciel-runtime-anthropic-claude-sonnet-4-6[1m]",
             aliases["ANTHROPIC_DEFAULT_SONNET_MODEL"],
         )
         self.assertEqual(
