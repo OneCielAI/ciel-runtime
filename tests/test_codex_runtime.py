@@ -29,6 +29,29 @@ class FakeSSEHandler:
         return None
 
 
+class FakeUpstreamResponse(io.BytesIO):
+    def __init__(self, payload, status=200, headers=None):
+        super().__init__(payload)
+        self.status = status
+        self.headers = headers or {"content-type": "text/event-stream"}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        self.close()
+        return False
+
+
+class FakeRequestHeaders(list):
+    def __init__(self, request_headers=None):
+        super().__init__()
+        self.request_headers = request_headers or {}
+
+    def items(self):
+        return self.request_headers.items()
+
+
 class CodexRuntimeTests(unittest.TestCase):
     def test_runtime_model_catalog_registers_zai_alias_metadata(self):
         cfg = {
@@ -1536,6 +1559,89 @@ bearer_token_env_var = "AINET_API_KEY"
 
         self.assertIn("ChatGPT Codex backend", message)
         self.assertIn("/backend-api/codex", message)
+
+    def test_codex_routed_retries_capacity_failure_before_output(self):
+        capacity = (
+            b"event: response.created\n"
+            b'data: {"type":"response.created","response":{"id":"failed"}}\n\n'
+            b"event: response.failed\n"
+            b'data: {"type":"response.failed","response":{"error":{"code":"server_is_overloaded"}}}\n\n'
+        )
+        success = (
+            b"event: response.created\n"
+            b'data: {"type":"response.created","response":{"id":"ok"}}\n\n'
+            b"event: response.output_text.delta\n"
+            b'data: {"type":"response.output_text.delta","delta":"done"}\n\n'
+        )
+        handler = FakeSSEHandler()
+        handler.path = "/backend-api/codex/responses"
+        handler.headers = FakeRequestHeaders({"authorization": "Bearer native-token"})
+
+        with (
+            mock.patch.object(
+                ciel_runtime,
+                "provider_urlopen",
+                side_effect=[FakeUpstreamResponse(capacity), FakeUpstreamResponse(success)],
+            ) as urlopen,
+            mock.patch.object(
+                ciel_runtime,
+                "codex_responses_body_with_channel_context",
+                return_value=({"model": "gpt-test"}, {"model": "gpt-test"}),
+            ),
+            mock.patch.object(ciel_runtime.time, "sleep") as sleep,
+        ):
+            ciel_runtime.forward_codex_backend_json(
+                handler,
+                "codex",
+                {},
+                {"model": "gpt-test"},
+                mutate_responses=True,
+            )
+
+        self.assertEqual(2, urlopen.call_count)
+        sleep.assert_called_once_with(2.0)
+        self.assertEqual(success, handler.wfile.getvalue())
+        self.assertNotIn(b"server_is_overloaded", handler.wfile.getvalue())
+
+    def test_codex_routed_does_not_retry_after_output_starts(self):
+        payload = (
+            b"event: response.created\n"
+            b'data: {"type":"response.created","response":{"id":"partial"}}\n\n'
+            b"event: response.output_text.delta\n"
+            b'data: {"type":"response.output_text.delta","delta":"started"}\n\n'
+            b"event: response.failed\n"
+            b'data: {"type":"response.failed","response":{"error":{"code":"slow_down"}}}\n\n'
+        )
+        handler = FakeSSEHandler()
+        handler.path = "/backend-api/codex/responses"
+        handler.headers = FakeRequestHeaders({"authorization": "Bearer native-token"})
+
+        with (
+            mock.patch.object(ciel_runtime, "provider_urlopen", return_value=FakeUpstreamResponse(payload)) as urlopen,
+            mock.patch.object(
+                ciel_runtime,
+                "codex_responses_body_with_channel_context",
+                return_value=({"model": "gpt-test"}, {"model": "gpt-test"}),
+            ),
+            mock.patch.object(ciel_runtime.time, "sleep") as sleep,
+        ):
+            ciel_runtime.forward_codex_backend_json(
+                handler,
+                "codex",
+                {},
+                {"model": "gpt-test"},
+                mutate_responses=True,
+            )
+
+        urlopen.assert_called_once()
+        sleep.assert_not_called()
+        self.assertEqual(payload, handler.wfile.getvalue())
+
+    def test_codex_capacity_retry_limit_is_bounded_and_tolerates_invalid_env(self):
+        with mock.patch.dict("os.environ", {"CIEL_RUNTIME_CODEX_CAPACITY_RETRIES": "99"}):
+            self.assertEqual(10, ciel_runtime.codex_capacity_retry_limit())
+        with mock.patch.dict("os.environ", {"CIEL_RUNTIME_CODEX_CAPACITY_RETRIES": "invalid"}):
+            self.assertEqual(3, ciel_runtime.codex_capacity_retry_limit())
 
     def test_codex_responses_channel_context_appends_responses_input(self):
         body = {"model": "gpt-5.5", "input": "hello"}

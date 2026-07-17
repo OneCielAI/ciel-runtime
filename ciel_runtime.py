@@ -56,7 +56,7 @@ from ciel_runtime_support.codex_cli import (
     codex_resume_picker_requested,
     codex_resume_with_session_id,
 )
-from ciel_runtime_support.codex_router import CodexRouter
+from ciel_runtime_support.codex_router import CodexRouter, read_codex_response_preamble
 from ciel_runtime_support.observability import EventBus, render_events_html
 from ciel_runtime_support.transcript_filter import (
     is_claude_code_transcript_event,
@@ -20652,18 +20652,58 @@ def forward_codex_backend_json(
     url = codex_backend_upstream_url(parsed.path, parsed.query)
     headers = codex_routed_upstream_headers(pcfg, handler.headers)
     data = json.dumps(upstream_body).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    with provider_urlopen(req, timeout=provider_request_timeout_seconds(pcfg), provider=provider, pcfg=pcfg) as resp:
-        handler.send_response(getattr(resp, "status", 200))
-        _copy_upstream_response_headers(handler, resp.headers)
-        handler.end_headers()
-        while True:
-            chunk = resp.read(65536)
-            if not chunk:
-                break
-            handler.wfile.write(chunk)
-            handler.wfile.flush()
+    max_capacity_retries = codex_capacity_retry_limit() if mutate_responses else 0
+    for attempt in range(max_capacity_retries + 1):
+        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+        with provider_urlopen(req, timeout=provider_request_timeout_seconds(pcfg), provider=provider, pcfg=pcfg) as resp:
+            preamble = read_codex_response_preamble(resp) if mutate_responses else None
+            if preamble is not None and preamble.capacity_error_code and attempt < max_capacity_retries:
+                retry_no = attempt + 1
+                wait = upstream_retry_wait_seconds(retry_no)
+                model = str(upstream_body.get("model") or "")
+                router_log(
+                    "WARN",
+                    "codex_capacity_retry model=%s attempt=%d/%d code=%s wait=%.2fs"
+                    % (model, retry_no, max_capacity_retries, preamble.capacity_error_code, wait),
+                )
+                EVENT_BUS.publish(
+                    level="warn",
+                    category="router.retry",
+                    message="Codex model capacity retry",
+                    provider=provider,
+                    model=model,
+                    data={
+                        "attempt": retry_no,
+                        "total": max_capacity_retries,
+                        "code": preamble.capacity_error_code,
+                        "wait_seconds": wait,
+                    },
+                )
+                time.sleep(wait)
+                continue
+
+            handler.send_response(getattr(resp, "status", 200))
+            _copy_upstream_response_headers(handler, resp.headers)
+            handler.end_headers()
+            if preamble is not None and preamble.payload:
+                handler.wfile.write(preamble.payload)
+                handler.wfile.flush()
+            while True:
+                chunk = resp.read(65536)
+                if not chunk:
+                    break
+                handler.wfile.write(chunk)
+                handler.wfile.flush()
+            break
     return delivery_body
+
+
+def codex_capacity_retry_limit() -> int:
+    raw = str(os.environ.get("CIEL_RUNTIME_CODEX_CAPACITY_RETRIES") or "3").strip()
+    try:
+        return max(0, min(10, int(raw)))
+    except ValueError:
+        return 3
 
 
 def forward_codex_backend_get(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any]) -> None:
