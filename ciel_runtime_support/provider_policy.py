@@ -6,14 +6,12 @@ from typing import Any, Callable
 
 @dataclass(frozen=True, slots=True)
 class ProviderWireServices:
-    OPENCODE_PROVIDER_NAMES: Any
     normalize_model_id: Callable[..., Any]
     openai_chat_reasoning_passback_enabled_for_body: Callable[..., Any]
-    opencode_endpoint_kind: Callable[..., Any]
     preserves_anthropic_thinking_contract: Callable[..., Any]
-    provider_openai_router_enabled: Callable[..., Any]
     provider_supports_tool_choice: Callable[..., Any]
     resolve_requested_model: Callable[..., Any]
+    select_provider_protocol: Callable[..., Any]
 
 
 def resolve_provider_wire_profile(provider: str, pcfg: dict[str, Any], body: dict[str, Any] | None = None,
@@ -27,32 +25,21 @@ def resolve_provider_wire_profile(provider: str, pcfg: dict[str, Any], body: dic
     supplies limits and hints.
     """
 
-    OPENCODE_PROVIDER_NAMES = services.OPENCODE_PROVIDER_NAMES
     normalize_model_id = services.normalize_model_id
     openai_chat_reasoning_passback_enabled_for_body = services.openai_chat_reasoning_passback_enabled_for_body
-    opencode_endpoint_kind = services.opencode_endpoint_kind
     preserves_anthropic_thinking_contract = services.preserves_anthropic_thinking_contract
-    provider_openai_router_enabled = services.provider_openai_router_enabled
     provider_supports_tool_choice = services.provider_supports_tool_choice
     resolve_requested_model = services.resolve_requested_model
+    select_provider_protocol = services.select_provider_protocol
     request_model = str((body or {}).get("model") or pcfg.get("current_model") or "")
     try:
         model = resolve_requested_model(provider, pcfg, request_model)
     except Exception:
         model = normalize_model_id(provider, request_model)
 
-    if provider in ("ollama", "ollama-cloud"):
-        upstream_format = "ollama-chat"
-        endpoint_family = "ollama-chat"
-    elif provider in OPENCODE_PROVIDER_NAMES:
-        endpoint_family = opencode_endpoint_kind(provider, model, pcfg)
-        upstream_format = "openai-chat" if endpoint_family == "openai-chat" else endpoint_family
-    elif provider_openai_router_enabled(provider, pcfg):
-        upstream_format = "openai-chat"
-        endpoint_family = "openai-chat"
-    else:
-        upstream_format = "anthropic-messages"
-        endpoint_family = "anthropic-messages"
+    selected_protocol = select_provider_protocol(provider, pcfg, "anthropic_messages", model)
+    upstream_format = str(selected_protocol).replace("_", "-")
+    endpoint_family = upstream_format
 
     if preserves_anthropic_thinking_contract(provider, pcfg):
         thinking_policy = "preserve"

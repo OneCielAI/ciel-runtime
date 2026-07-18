@@ -113,6 +113,8 @@ class RateLimitState:
 - `list_models(config: ProviderConfig)` → `list[ModelInfo]`
 - `build_headers(config, api_key)` → `dict[str, str]`
 - `capabilities(config)` → upstream protocol 및 tools/thinking/local 특성
+- `supported_protocols(config, model)` → 모델별 지원 protocol 집합
+- `select_protocol(operation, config, model)` → 요청 목적별 upstream protocol 선택
 - `request_policy(config)` → chat/models/model-info endpoint와 timeout 기본값
 - `resolve_endpoint(operation, config)` → provider-owned endpoint 선택
 - `model_paths(config)` → provider별 모델 discovery fallback 순서
@@ -178,6 +180,7 @@ class RateLimitState:
 아키텍처 계약은 테스트용 모델에 머무르지 않고 운영 경로의 composition root에서 실제로 적용된다.
 
 - `ciel_runtime_support/provider_adapters.py`는 Anthropic, Ollama, OpenRouter, LM Studio, vLLM, NVIDIA NIM, DeepSeek, Kimi, Z.AI, Fireworks, OpenCode 등 Provider별 구체 Adapter를 Registry에 등록한다. `HttpBearerProviderAdapter`는 이들의 공통 인증 기반일 뿐 Provider 선택 단위가 아니다.
+- wire profile, thinking passback 및 tool-choice 정책은 Provider 이름 조건문 대신 구체 Adapter의 protocol/capability 메서드를 사용한다. Kimi·Fireworks의 dual protocol과 OpenCode의 모델별 endpoint도 Adapter가 선택한다.
 - `ciel_runtime_support/runtime_adapters.py`의 `CliRuntimeAdapter`가 Claude, Codex, AGY의 정규화된 `LaunchSpec`을 `RuntimeCommand`로 변환한다.
 - `ciel_runtime_support/protocols/openai_responses.py`는 설정이나 네트워크에 의존하지 않고 OpenAI Responses와 Anthropic Messages 사이를 변환한다.
 - `ciel_runtime_support/registry.py`는 provider, runtime, protocol, tool dialect 구현을 조건문 대신 이름 기반 factory로 선택한다.

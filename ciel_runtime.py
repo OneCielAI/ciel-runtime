@@ -43,7 +43,7 @@ from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, Iterable
 
 from ciel_runtime_support.agent_router import missing_common_capabilities, router_capability_matrix
-from ciel_runtime_support.architecture import LaunchSpec, ProviderConfig, RuntimeConfig
+from ciel_runtime_support.architecture import LaunchSpec, MessageProtocol, ProviderConfig, RuntimeConfig
 from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
 from ciel_runtime_support.claude_router import ClaudeRouter
 from ciel_runtime_support.channel_injection import (
@@ -2665,6 +2665,16 @@ def provider_model_paths(provider: str, pcfg: dict[str, Any]) -> tuple[str, ...]
     return adapter.model_paths(provider_contract_config(provider, pcfg))
 
 
+def select_provider_protocol(
+    provider: str,
+    pcfg: dict[str, Any],
+    operation: MessageProtocol,
+    model: str | None = None,
+) -> MessageProtocol:
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.select_protocol(operation, provider_contract_config(provider, pcfg), model)
+
+
 def provider_has_api_key(provider: str, pcfg: dict[str, Any]) -> bool:
     return bool(provider_config_api_keys(provider, pcfg))
 
@@ -4382,10 +4392,8 @@ def should_defer_forced_tool_choice_for_thinking(provider: str, pcfg: dict[str, 
 
 
 def preserves_anthropic_thinking_contract(provider: str, pcfg: dict[str, Any]) -> bool:
-    configured = pcfg.get("preserve_anthropic_thinking")
-    if configured is not None:
-        return bool(configured)
-    return provider == "anthropic"
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.preserves_anthropic_thinking(provider_contract_config(provider, pcfg))
 
 
 def should_normalize_anthropic_stream_tool_use(provider: str, pcfg: dict[str, Any]) -> bool:
@@ -4433,19 +4441,9 @@ def normalize_thinking_for_non_anthropic_native_provider(provider: str, pcfg: di
 
 
 def provider_supports_tool_choice(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> bool:
-    configured = pcfg.get("supports_tool_choice")
-    if configured is not None:
-        return bool(configured)
-    if provider == "vllm":
-        return False
-    if provider != "deepseek":
-        return True
     model_hint = strip_claude_context_suffix(str(body.get("model") or pcfg.get("current_model") or "")).lower()
-    # DeepSeek's own V4 thinking-mode integration notes require
-    # supportsToolChoice=false for agent tools. V4 thinking is enabled by
-    # default, so treat forced tool_choice as unsupported for V4 models unless
-    # the user explicitly overrides supports_tool_choice in provider options.
-    return "deepseek-v4" not in model_hint
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.supports_tool_choice(provider_contract_config(provider, pcfg), model_hint)
 
 
 def provider_tool_choice_status(provider: str, pcfg: dict[str, Any]) -> str:
@@ -7921,7 +7919,8 @@ CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS = ("deepseek", "kimi", "zai", "fireworks")
 
 
 def provider_openai_router_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return provider in OPENAI_COMPATIBLE_ROUTER_PROVIDERS and not provider_native_compat_enabled(provider, pcfg)
+    model = str(pcfg.get("current_model") or pcfg.get("model") or "")
+    return select_provider_protocol(provider, pcfg, "anthropic_messages", model) == "openai_chat"
 
 
 def codex_openai_router_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
@@ -7979,14 +7978,12 @@ def provider_wire_profile(provider: str, pcfg: dict[str, Any], body: dict[str, A
     return resolve_provider_wire_profile(
         provider, pcfg, body,
         services=ProviderWireServices(
-            OPENCODE_PROVIDER_NAMES=OPENCODE_PROVIDER_NAMES,
             normalize_model_id=normalize_model_id,
             openai_chat_reasoning_passback_enabled_for_body=openai_chat_reasoning_passback_enabled_for_body,
-            opencode_endpoint_kind=opencode_endpoint_kind,
             preserves_anthropic_thinking_contract=preserves_anthropic_thinking_contract,
-            provider_openai_router_enabled=provider_openai_router_enabled,
             provider_supports_tool_choice=provider_supports_tool_choice,
-            resolve_requested_model=resolve_requested_model
+            resolve_requested_model=resolve_requested_model,
+            select_provider_protocol=select_provider_protocol,
         ),
     )
 

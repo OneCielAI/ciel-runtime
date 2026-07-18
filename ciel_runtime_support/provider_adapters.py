@@ -7,6 +7,7 @@ from typing import Any, Mapping, Sequence
 
 from .architecture import (
     ModelInfo,
+    MessageProtocol,
     ProviderAdapter,
     ProviderCapabilities,
     ProviderConfig,
@@ -135,6 +136,25 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
 class OpenAICompatibleProviderAdapter(HttpBearerProviderAdapter):
     """Base for providers that implement the OpenAI Chat/Models wire surface."""
 
+    def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
+        del model
+        protocols: set[MessageProtocol] = {"openai_chat"}
+        native = config.options.get("native_compat")
+        if native is True or str(native).strip().lower() in {"1", "true", "yes", "on"}:
+            protocols.add("anthropic_messages")
+        return frozenset(protocols)
+
+    def select_protocol(
+        self,
+        operation: MessageProtocol,
+        config: ProviderConfig,
+        model: str | None = None,
+    ) -> MessageProtocol:
+        supported = self.supported_protocols(config, model)
+        if operation == "anthropic_messages" and "anthropic_messages" in supported:
+            return "anthropic_messages"
+        return "openai_chat"
+
 
 @dataclass(frozen=True)
 class OllamaProviderAdapter(HttpBearerProviderAdapter):
@@ -201,7 +221,11 @@ class VllmProviderAdapter(OpenAICompatibleProviderAdapter):
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["vllm"]
     send_placeholder_key: bool = True
     capabilities_value: ProviderCapabilities = field(
-        default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", local=True)
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="openai_chat",
+            supports_tool_choice=False,
+            local=True,
+        )
     )
 
 
@@ -233,6 +257,12 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
         default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/messages", models_path="/v1/models")
     )
 
+    def supports_tool_choice(self, config: ProviderConfig, model: str | None = None) -> bool:
+        configured = config.options.get("supports_tool_choice")
+        if configured is not None:
+            return bool(configured)
+        return "deepseek-v4" not in str(model or config.model or "").split("[", 1)[0].lower()
+
 
 @dataclass(frozen=True)
 class KimiProviderAdapter(HttpBearerProviderAdapter):
@@ -245,6 +275,14 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/messages", models_path="/v1/models")
     )
+
+    def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
+        del config, model
+        return frozenset({"anthropic_messages", "openai_chat"})
+
+    def select_protocol(self, operation: MessageProtocol, config: ProviderConfig, model: str | None = None) -> MessageProtocol:
+        del config, model
+        return "openai_chat" if operation in {"openai_chat", "openai_responses"} else "anthropic_messages"
 
 
 @dataclass(frozen=True)
@@ -266,6 +304,14 @@ class FireworksProviderAdapter(OpenAICompatibleProviderAdapter):
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["fireworks"]
     send_placeholder_key: bool = True
 
+    def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
+        del config, model
+        return frozenset({"anthropic_messages", "openai_chat"})
+
+    def select_protocol(self, operation: MessageProtocol, config: ProviderConfig, model: str | None = None) -> MessageProtocol:
+        del config, model
+        return "openai_chat" if operation in {"openai_chat", "openai_responses"} else "anthropic_messages"
+
 
 @dataclass(frozen=True)
 class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
@@ -278,6 +324,47 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(chat_path="/messages", models_path="/v1/models")
     )
+
+    def select_protocol(self, operation: MessageProtocol, config: ProviderConfig, model: str | None = None) -> MessageProtocol:
+        del operation
+        raw_model = str(model or config.model or "").strip()
+        overrides = config.options.get("model_endpoints")
+        if isinstance(overrides, Mapping):
+            raw = overrides.get(raw_model)
+            key = str(raw or "").strip().lower().replace("_", "-")
+            mapped = {
+                "anthropic": "anthropic_messages",
+                "anthropic-messages": "anthropic_messages",
+                "messages": "anthropic_messages",
+                "openai": "openai_chat",
+                "openai-chat": "openai_chat",
+                "chat": "openai_chat",
+                "openai-responses": "openai_responses",
+                "responses": "openai_responses",
+                "google-generative": "google_generative",
+                "gemini": "google_generative",
+            }.get(key)
+            if mapped is not None:
+                return mapped
+        normalized = raw_model.split("[", 1)[0].lower()
+        for prefix in ("ciel-runtime-opencode-go-", "ciel-runtime-opencode-"):
+            if normalized.startswith(prefix):
+                normalized = normalized[len(prefix):]
+                break
+        if self.name == "opencode-go":
+            if normalized.startswith(("glm-", "kimi-", "deepseek-", "mimo-", "hy3-")):
+                return "openai_chat"
+            return "anthropic_messages"
+        if normalized.startswith("gpt-"):
+            return "openai_responses"
+        if normalized.startswith("gemini-"):
+            return "google_generative"
+        if normalized.startswith(("minimax-", "glm-", "kimi-", "grok-", "big-pickle", "deepseek-", "mimo-", "nemotron-", "north-")):
+            return "openai_chat"
+        return "anthropic_messages"
+
+    def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
+        return frozenset({self.select_protocol("anthropic_messages", config, model)})
 
 
 @dataclass(frozen=True)

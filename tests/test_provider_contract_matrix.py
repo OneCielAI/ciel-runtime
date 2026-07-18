@@ -1,0 +1,88 @@
+import unittest
+
+from ciel_runtime_support.architecture import ProviderConfig
+from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS
+
+
+def config(provider, model="model", **options):
+    return ProviderConfig(
+        name=provider,
+        base_url=f"https://{provider}.invalid",
+        model=model,
+        options=options,
+    )
+
+
+class ProviderContractMatrixTests(unittest.TestCase):
+    def test_primary_protocol_matrix(self):
+        cases = {
+            "anthropic": "anthropic_messages",
+            "codex": "openai_responses",
+            "agy": "openai_responses",
+            "ollama": "ollama_chat",
+            "ollama-cloud": "ollama_chat",
+            "openrouter": "openai_chat",
+            "vllm": "openai_chat",
+            "lm-studio": "openai_chat",
+            "nvidia-hosted": "openai_chat",
+            "self-hosted-nim": "openai_chat",
+            "deepseek": "anthropic_messages",
+            "kimi": "anthropic_messages",
+            "zai": "anthropic_messages",
+            "fireworks": "openai_chat",
+            "opencode": "anthropic_messages",
+            "opencode-go": "anthropic_messages",
+        }
+        for provider, protocol in cases.items():
+            with self.subTest(provider=provider):
+                adapter = PROVIDER_ADAPTERS.create(provider)
+                self.assertEqual(protocol, adapter.capabilities(config(provider)).upstream_protocol)
+
+    def test_dual_protocol_provider_selection(self):
+        for provider in ("kimi", "fireworks"):
+            adapter = PROVIDER_ADAPTERS.create(provider)
+            configured = config(provider)
+            with self.subTest(provider=provider):
+                self.assertEqual("anthropic_messages", adapter.select_protocol("anthropic_messages", configured))
+                self.assertEqual("openai_chat", adapter.select_protocol("openai_responses", configured))
+
+    def test_openai_compatible_native_mode_selection(self):
+        for provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "openrouter"):
+            adapter = PROVIDER_ADAPTERS.create(provider)
+            with self.subTest(provider=provider):
+                self.assertEqual(
+                    "openai_chat",
+                    adapter.select_protocol("anthropic_messages", config(provider, native_compat=False)),
+                )
+                self.assertEqual(
+                    "anthropic_messages",
+                    adapter.select_protocol("anthropic_messages", config(provider, native_compat=True)),
+                )
+
+    def test_opencode_model_protocol_selection(self):
+        adapter = PROVIDER_ADAPTERS.create("opencode")
+        configured = config("opencode")
+        cases = {
+            "claude-sonnet-4-6": "anthropic_messages",
+            "qwen3.5-coder": "anthropic_messages",
+            "deepseek-v4": "openai_chat",
+            "gpt-5.4": "openai_responses",
+            "gemini-3-pro": "google_generative",
+        }
+        for model, protocol in cases.items():
+            with self.subTest(model=model):
+                self.assertEqual(protocol, adapter.select_protocol("anthropic_messages", configured, model))
+
+    def test_provider_owned_tool_choice_policy(self):
+        vllm = PROVIDER_ADAPTERS.create("vllm")
+        deepseek = PROVIDER_ADAPTERS.create("deepseek")
+        self.assertFalse(vllm.supports_tool_choice(config("vllm"), "model"))
+        self.assertFalse(deepseek.supports_tool_choice(config("deepseek"), "deepseek-v4-pro"))
+        self.assertTrue(deepseek.supports_tool_choice(config("deepseek"), "deepseek-chat"))
+        self.assertTrue(
+            deepseek.supports_tool_choice(config("deepseek", supports_tool_choice=True), "deepseek-v4-pro")
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -23,7 +23,13 @@ from typing import Any, Literal, Mapping, Sequence
 
 
 LaunchMode = Literal["native", "routed", "router"]
-MessageProtocol = Literal["anthropic_messages", "openai_chat", "openai_responses", "ollama_chat"]
+MessageProtocol = Literal[
+    "anthropic_messages",
+    "openai_chat",
+    "openai_responses",
+    "ollama_chat",
+    "google_generative",
+]
 
 
 @dataclass(frozen=True)
@@ -107,10 +113,15 @@ class ProviderCapabilities:
     upstream_protocol: MessageProtocol = "openai_chat"
     supports_streaming: bool = True
     supports_tools: bool = True
+    supports_tool_choice: bool = True
     supports_thinking: bool = False
     preserves_anthropic_thinking: bool = False
     requires_api_key: bool = False
     local: bool = False
+
+    @property
+    def supported_protocols(self) -> frozenset[MessageProtocol]:
+        return frozenset({self.upstream_protocol})
 
 
 @dataclass(frozen=True)
@@ -212,6 +223,38 @@ class ProviderAdapter(ABC):
 
         primary = self.request_policy(config).models_path
         return (primary,) if primary == "/models" else (primary, "/models")
+
+    def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
+        """Return protocols this provider can use for the selected model."""
+
+        del model
+        return self.capabilities(config).supported_protocols
+
+    def select_protocol(
+        self,
+        operation: MessageProtocol,
+        config: ProviderConfig,
+        model: str | None = None,
+    ) -> MessageProtocol:
+        """Choose the upstream protocol for an inbound protocol operation."""
+
+        supported = self.supported_protocols(config, model)
+        if operation in supported:
+            return operation
+        return self.capabilities(config).upstream_protocol
+
+    def supports_tool_choice(self, config: ProviderConfig, model: str | None = None) -> bool:
+        configured = config.options.get("supports_tool_choice")
+        if configured is not None:
+            return bool(configured)
+        del model
+        return self.capabilities(config).supports_tool_choice
+
+    def preserves_anthropic_thinking(self, config: ProviderConfig) -> bool:
+        configured = config.options.get("preserve_anthropic_thinking")
+        if configured is not None:
+            return bool(configured)
+        return self.capabilities(config).preserves_anthropic_thinking
 
 
 class MessageProtocolAdapter(ABC):
