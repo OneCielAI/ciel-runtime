@@ -38,6 +38,12 @@ from ciel_runtime_support.llm_presets import (
     PresetProviderMutation,
     PresetServices,
 )
+from ciel_runtime_support.llm_option_config import (
+    LlmOptionConfigServices,
+    LlmOptionMutation,
+    LlmOptionPolicy,
+    LlmOptionRepository,
+)
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS, OpenAIResponsesProtocolAdapter
 from ciel_runtime_support.provider_models import (
     ModelCatalogHttp,
@@ -337,6 +343,16 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_preset_ports_stay_below_dependency_limit(self):
         for port in (PresetServices, PresetDefinition, PresetContextPolicy, PresetProviderMutation):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_llm_option_config_ports_stay_below_dependency_limit(self):
+        for port in (
+            LlmOptionRepository,
+            LlmOptionMutation,
+            LlmOptionPolicy,
+            LlmOptionConfigServices,
+        ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 

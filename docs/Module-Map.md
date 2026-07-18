@@ -57,6 +57,10 @@ SSE/MCP 수집 및 cursor 상태와 분리되어 있으며 Windows Console과 PT
 
 모델 용량과 공급자 특성을 반영해 LLM 프리셋을 적용하는 애플리케이션 서비스.
 
+### `ciel_runtime_support/llm_option_config.py`
+
+LLM 옵션의 입력 검증, Provider 설정 변경, 컨텍스트·출력 보정 및 설정 저장을 조정하는 Configuration Application Service. Repository, Mutation, Policy 포트를 분리해 각 포트를 6필드 이하로 유지한다.
+
 ### `ciel_runtime_support/cli_dispatch.py`
 
 명시적 `CliServices` dependency object를 사용하는 CLI Application Service와 command dispatcher.

@@ -80,6 +80,13 @@ from ciel_runtime_support.llm_presets import (
     PresetServices,
     apply_preset_to_provider,
 )
+from ciel_runtime_support.llm_option_config import (
+    LlmOptionConfigServices,
+    LlmOptionMutation,
+    LlmOptionPolicy,
+    LlmOptionRepository,
+    set_llm_option_config as apply_llm_option_config,
+)
 from ciel_runtime_support.mcp_transport import (
     CODEX_MCP_SPLIT_PROXY_PREFIX,
     MCP_LEGACY_SSE_PROTOCOL_VERSION,
@@ -22098,128 +22105,38 @@ def llm_option_prompt_default(provider: str, pcfg: dict[str, Any], key: str) -> 
     return "" if value is None else str(value)
 
 
+def llm_option_config_services() -> LlmOptionConfigServices:
+    return LlmOptionConfigServices(
+        repository=LlmOptionRepository(
+            clear_model_cache=clear_model_cache,
+            load_config=load_config,
+            save_config=save_config,
+        ),
+        mutation=LlmOptionMutation(
+            apply_ollama_option=apply_ollama_option,
+            apply_provider_option=apply_provider_option,
+            normalize_capabilities=normalize_claude_code_supported_capabilities,
+            parse_bool=parse_bool,
+            positive_int=positive_int,
+            set_router_debug_external_access=set_router_debug_external_access_config,
+        ),
+        policy=LlmOptionPolicy(
+            apply_recommended_timeout=apply_recommended_timeout_for_model_context,
+            cap_context_settings=cap_context_settings_to_model_capacity,
+            cap_output_settings=cap_output_settings_to_context_ratio,
+            configured_rate_limit_rpm=router_rate_limit_configured_rpm,
+            provider_labels=PROVIDER_LABELS,
+        ),
+    )
+
+
 def set_llm_option_config(provider: str, key: str, raw_value: str) -> list[str]:
-    cfg = load_config()
-    pcfg = cfg["providers"][provider]
-    value = raw_value.strip()
-    if not value:
-        return ["Option unchanged."]
-    if key == "router_debug_external_access":
-        return set_router_debug_external_access_config(value)
-    if key == "router_debug_message_preview_chars":
-        fixed = positive_int(value)
-        if str(value).lower() in ("0", "false", "off", "disable", "disabled", "none", "unset"):
-            fixed = 0
-        if fixed is None:
-            return ["router_debug_message_preview_chars: enter digits only, or 0/off to disable."]
-        cfg["router_debug_message_preview_chars"] = min(fixed, 4000)
-        save_config(cfg)
-        return ["Router event message preview updated.", f"preview chars: {cfg['router_debug_message_preview_chars']}"]
-    if key == "route_through_router":
-        pcfg["route_through_router"] = parse_bool(value, default=False)
-        save_config(cfg)
-        clear_model_cache()
-        if provider == "agy":
-            mode = "agy-routed" if pcfg["route_through_router"] else "agy-native"
-            return ["AGY routing mode updated.", f"mode: {mode}"]
-        if provider == "codex":
-            mode = "codex-routed" if pcfg["route_through_router"] else "codex-native"
-            return ["Codex routing mode updated.", f"mode: {mode}"]
-        mode = "routed through ciel-runtime router" if pcfg["route_through_router"] else "direct Claude Native"
-        return ["Anthropic routing mode updated.", f"mode: {mode}"]
-    if key == "rate_limit_enabled":
-        enabled = parse_bool(value, default=False)
-        if enabled:
-            if not router_rate_limit_configured_rpm(provider, pcfg):
-                pcfg["rate_limit_rpm"] = 60
-            save_config(cfg)
-            clear_model_cache()
-            return ["RPM limiter enabled.", f"rate_limit_rpm: {router_rate_limit_configured_rpm(provider, pcfg)}"]
-        pcfg["rate_limit_rpm"] = 0
-        pcfg["rate_limit_status"] = False
-        save_config(cfg)
-        clear_model_cache()
-        return ["RPM limiter disabled.", "rate_limit_rpm: 0", "rate_limit_status: off"]
-    if key in ("workflows_enabled", "workflow", "workflows"):
-        pcfg["workflows_enabled"] = parse_bool(value, default=False)
-        save_config(cfg)
-        clear_model_cache()
-        return ["Claude Code workflow support updated.", f"workflows_enabled: {pcfg['workflows_enabled']}"]
-    if key in ("ultracode_enabled", "ultracode"):
-        pcfg["ultracode_enabled"] = parse_bool(value, default=False)
-        if pcfg["ultracode_enabled"]:
-            pcfg["workflows_enabled"] = True
-        save_config(cfg)
-        clear_model_cache()
-        return ["Claude Code ultracode setting updated.", f"ultracode_enabled: {pcfg['ultracode_enabled']}"]
-    if key in ("claude_code_supported_capabilities", "supported_capabilities", "capabilities"):
-        caps = normalize_claude_code_supported_capabilities(value)
-        pcfg["claude_code_supported_capabilities"] = caps
-        save_config(cfg)
-        clear_model_cache()
-        return ["Claude Code model capabilities updated.", f"capabilities: {','.join(caps) or 'none'}"]
-    numeric_keys = {
-        "context_window",
-        "context",
-        "max_model_len",
-        "context_reserve_tokens",
-        "reserve",
-        "max_output_tokens",
-        "max_tokens",
-        "maxtoken",
-        "max_token",
-        "num_ctx_min",
-        "num_ctx_max",
-        "num_predict",
-        "timeout",
-        "timeout_ms",
-        "request_timeout",
-        "request_timeout_ms",
-        "stream_idle_timeout",
-        "stream_idle_timeout_ms",
-        "idle_timeout",
-        "idle_timeout_ms",
-        "rate_limit",
-        "rate_limit_rpm",
-        "rpm",
-        "top_k",
-    }
-    disable_words = ("0", "false", "off", "disable", "disabled")
-    rate_limit_keys = ("rate_limit", "rate_limit_rpm", "rpm")
-    if (
-        key in numeric_keys
-        and value.lower() not in ("default", "unset", "none", "null", "0")
-        and not (key in rate_limit_keys and value.lower() in disable_words)
-    ):
-        if not re.fullmatch(r"\d+", value):
-            return [f"{key}: enter digits only, or use default/unset to clear."]
-    clear_words = ("default", "unset", "none", "null")
-    token = f"unset:{key}" if value.lower() in clear_words else f"{key}={value}"
-    context_changed = key in ("context_window", "context", "max_model_len", "num_ctx", "ctx", "num_ctx_min", "ctx_min", "min", "num_ctx_max", "ctx_max", "max")
-    explicit_timeout = key in ("timeout", "timeout_ms", "request_timeout", "request_timeout_ms", "stream_idle_timeout", "stream_idle_timeout_ms", "idle_timeout", "idle_timeout_ms")
-    if key in ("force_query_string", "force_query", "upstream_query", "test_query_string"):
-        apply_provider_option(provider, pcfg, token)
-    elif key in ("supports_tool_choice", "tool_choice", "tool-choice", "auto_tool_choice"):
-        apply_provider_option(provider, pcfg, token)
-    elif provider in ("ollama", "ollama-cloud"):
-        apply_ollama_option(pcfg, token)
-    elif provider in ("anthropic", "codex"):
-        if key in ("route", "routed", "route_through_router", "router"):
-            pcfg["route_through_router"] = parse_bool(value, default=False)
-        elif key in ("max_output_tokens", "max_tokens", "maxtoken", "max_token"):
-            apply_provider_option(provider, pcfg, token)
-        elif key in ("timeout", "timeout_ms", "request_timeout", "request_timeout_ms"):
-            apply_provider_option(provider, pcfg, token)
-        else:
-            raise SystemExit(f"Unknown {PROVIDER_LABELS.get(provider, provider)} option: {key}")
-    else:
-        apply_provider_option(provider, pcfg, token)
-    cap_lines = cap_context_settings_to_model_capacity(provider, pcfg)
-    cap_lines.extend(cap_output_settings_to_context_ratio(provider, pcfg))
-    timeout_lines = apply_recommended_timeout_for_model_context(provider, pcfg) if context_changed and not explicit_timeout else []
-    save_config(cfg)
-    clear_model_cache()
-    return [f"{PROVIDER_LABELS.get(provider, provider)} option updated.", f"{key}: {value}", *cap_lines, *timeout_lines]
+    return apply_llm_option_config(
+        provider,
+        key,
+        raw_value,
+        services=llm_option_config_services(),
+    )
 
 
 def apply_provider_option(provider: str, pcfg: dict[str, Any], token: str) -> None:
