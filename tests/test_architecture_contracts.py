@@ -1,3 +1,4 @@
+import ast
 import unittest
 from pathlib import Path
 
@@ -128,6 +129,50 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("runtime_deps=globals()", source)
         self.assertNotIn("def _legacy_openai_responses_to_anthropic_messages", source)
         self.assertNotIn("def _legacy_anthropic_message_to_openai_response", source)
+
+    def test_support_modules_do_not_import_the_composition_root(self):
+        support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
+        for path in support.rglob("*.py"):
+            source = path.read_text(encoding="utf-8")
+            tree = ast.parse(source, filename=str(path))
+            imported = {
+                alias.name
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Import)
+                for alias in node.names
+            }
+            imported.update(
+                node.module or ""
+                for node in ast.walk(tree)
+                if isinstance(node, ast.ImportFrom)
+            )
+            self.assertNotIn("ciel_runtime", imported, path.name)
+
+    def test_composition_root_delegates_major_application_services(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        expected_calls = {
+            "_rebatch_anthropic_sse_text": "rebatch_anthropic_sse_text",
+            "_ollama_stream_to_anthropic_sse": "ollama_stream_to_anthropic_sse",
+            "stream_openai_chat_to_anthropic_sse": "forward_openai_chat_to_anthropic_sse",
+            "provider_wire_profile": "resolve_provider_wire_profile",
+            "normalize_request_for_provider_wire": "normalize_provider_request",
+            "apply_llm_preset_to_provider": "apply_preset_to_provider",
+            "portable_prelaunch_menu": "execute_prelaunch_menu",
+            "launch_claude": "run_claude",
+            "launch_codex": "run_codex",
+            "launch_codex_app_server": "run_codex_app_server",
+            "launch_agy": "run_agy",
+            "upstream_model_ids": "fetch_upstream_model_ids",
+        }
+        functions = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
+        for wrapper, target in expected_calls.items():
+            calls = {
+                node.func.id
+                for node in ast.walk(functions[wrapper])
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            }
+            self.assertIn(target, calls, wrapper)
 
     def test_cli_runtime_adapter_materializes_launch_spec(self):
         provider = ProviderConfig(name="test", base_url="http://localhost", model="model")
