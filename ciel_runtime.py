@@ -64,6 +64,7 @@ from ciel_runtime_support.codex_cli import (
 )
 from ciel_runtime_support.codex_router import CodexRouter, read_codex_response_preamble
 from ciel_runtime_support.observability import EventBus, render_events_html
+from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, ZAI_MODEL_FALLBACK_IDS
 from ciel_runtime_support.provider_limits import (
@@ -778,49 +779,19 @@ def compat_max_tokens_for_model(model_id: str) -> int:
 
 
 def ollama_library_model_parts(model_id: str) -> tuple[str, str] | None:
-    model = (model_id or "").strip()
-    if not model:
-        return None
-    base, tag = (model.split(":", 1) + ["latest"])[:2] if ":" in model else (model, "latest")
-    base = base.strip()
-    tag = tag.strip() or "latest"
-    # Ollama library pages are /library/<model>/tags. Skip custom namespaces
-    # such as hf.co/... or registry paths that do not map cleanly to this URL.
-    if "/" in base or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", base):
-        return None
-    return base, tag
+    return ollama_catalog_policy.library_model_parts(model_id)
 
 
 def context_label_to_tokens(number: str, unit: str | None) -> int | None:
-    try:
-        value = float(number)
-    except Exception:
-        return None
-    if value <= 0 or not math.isfinite(value):
-        return None
-    unit = (unit or "").strip().lower()
-    multiplier = {"k": 1024, "m": 1024 * 1024, "g": 1024 * 1024 * 1024}.get(unit, 1)
-    return int(round(value * multiplier))
+    return ollama_catalog_policy.context_label_to_tokens(number, unit)
 
 
 def recommended_timeout_ms_for_context(context_tokens: int | None) -> int:
-    """Return the default upstream wait timeout for a model/context size."""
-    tokens = positive_int(context_tokens)
-    if not tokens:
-        return DEFAULT_REQUEST_TIMEOUT_MS
-    if tokens and tokens >= 1024 * 1024:
-        return 300000
-    if tokens and tokens >= 512 * 1024:
-        return 180000
-    return 120000
+    return ollama_catalog_policy.recommended_timeout_ms(context_tokens, DEFAULT_REQUEST_TIMEOUT_MS)
 
 
 def ollama_model_catalog_key(model_id: str) -> tuple[str, str, str] | None:
-    parts = ollama_library_model_parts(model_id)
-    if not parts:
-        return None
-    base, tag = parts
-    return base.lower(), base, tag.lower()
+    return ollama_catalog_policy.model_catalog_key(model_id)
 
 
 def load_ollama_model_catalog() -> dict[str, Any]:
@@ -843,40 +814,15 @@ def save_ollama_model_catalog(catalog: dict[str, Any]) -> None:
 
 
 def ollama_catalog_model_ids(provider: str = "ollama-cloud", catalog: dict[str, Any] | None = None) -> list[str]:
-    catalog = catalog if isinstance(catalog, dict) else load_ollama_model_catalog()
-    models = catalog.get("models") if isinstance(catalog, dict) else None
-    if not isinstance(models, dict):
-        return []
-    ids: list[str] = []
-    for entry in models.values():
-        if not isinstance(entry, dict):
-            continue
-        raw_models = entry.get("models")
-        if isinstance(raw_models, list):
-            for raw_model in raw_models:
-                mid = normalize_model_id(provider, str(raw_model))
-                if mid:
-                    ids.append(mid)
-        base = str(entry.get("id") or "").strip()
-        if base:
-            ids.append(normalize_model_id(provider, base))
-            tags = entry.get("tags")
-            if isinstance(tags, list):
-                for tag in tags:
-                    tag_text = str(tag or "").strip()
-                    if tag_text and tag_text.lower() not in ("latest", ""):
-                        ids.append(normalize_model_id(provider, f"{base}:{tag_text}"))
-    return sorted_model_ids(unique_model_ids(provider, ids))
+    source = catalog if isinstance(catalog, dict) else load_ollama_model_catalog()
+    return ollama_catalog_policy.catalog_model_ids(
+        source, provider, normalize_model_id=normalize_model_id,
+        unique_model_ids=unique_model_ids, sorted_model_ids=sorted_model_ids,
+    )
 
 
 def ollama_catalog_is_stale(catalog: dict[str, Any], ttl_seconds: int = OLLAMA_MODEL_CATALOG_TTL_SECONDS) -> bool:
-    if not isinstance(catalog, dict) or not isinstance(catalog.get("models"), dict):
-        return True
-    try:
-        updated_at = float(catalog.get("updated_at") or 0)
-    except Exception:
-        updated_at = 0.0
-    return updated_at <= 0 or time.time() - updated_at > ttl_seconds
+    return ollama_catalog_policy.catalog_is_stale(catalog, ttl_seconds)
 
 
 def fetch_json_url(url: str, timeout: float = 12.0) -> Any:
@@ -886,38 +832,11 @@ def fetch_json_url(url: str, timeout: float = 12.0) -> Any:
 
 
 def context_tokens_from_ollama_snippet(snippet: str, table_fallback: bool = True) -> int | None:
-    match = re.search(r"\b(\d+(?:\.\d+)?)\s*([KMG])\s+context\s+window\b", snippet, re.IGNORECASE)
-    if match:
-        return context_label_to_tokens(match.group(1), match.group(2))
-    if table_fallback:
-        match = re.search(r">\s*(\d+(?:\.\d+)?)\s*([KM])\s*</p>", snippet, re.IGNORECASE)
-        if match:
-            return context_label_to_tokens(match.group(1), match.group(2))
-    return None
+    return ollama_catalog_policy.context_tokens_from_snippet(snippet, table_fallback)
 
 
 def parse_ollama_library_context_map(page_html: str, base_model: str) -> dict[str, int]:
-    text = html_lib.unescape(page_html or "")
-    base = (base_model or "").strip()
-    if not text or not base:
-        return {}
-    contexts: dict[str, int] = {}
-    pattern = re.compile(r"(?<![A-Za-z0-9._/-])" + re.escape(base) + r":([A-Za-z0-9][A-Za-z0-9._-]*)", re.IGNORECASE)
-    for match in pattern.finditer(text):
-        tag = match.group(1).strip().lower()
-        if not tag:
-            continue
-        snippet = text[max(0, match.start() - 700): match.end() + 3000]
-        tokens = context_tokens_from_ollama_snippet(snippet)
-        if tokens:
-            contexts[tag] = max(contexts.get(tag, 0), tokens)
-
-    if not contexts:
-        match = re.search(r"\b(\d+(?:\.\d+)?)\s*([KMG])\s+context\s+window\b", text, re.IGNORECASE)
-        tokens = context_label_to_tokens(match.group(1), match.group(2)) if match else None
-        if tokens:
-            contexts["latest"] = tokens
-    return contexts
+    return ollama_catalog_policy.parse_library_context_map(page_html, base_model)
 
 
 def fetch_ollama_library_context_map(base_model: str, timeout: float = 10.0) -> tuple[dict[str, int], str | None]:
@@ -1027,127 +946,26 @@ def refresh_ollama_model_catalog(include_contexts: bool = True, timeout: float =
 
 
 def ollama_catalog_context_for_model(model_id: str) -> tuple[int | None, str | None, str | None]:
-    catalog = load_ollama_model_catalog()
-    models = catalog.get("models", {})
-    if not isinstance(models, dict):
-        return None, None, None
-    for candidate_model in model_lookup_ids(model_id):
-        parts = ollama_model_catalog_key(candidate_model)
-        if not parts:
-            continue
-        key, base, tag = parts
-        entry = models.get(key)
-        if not isinstance(entry, dict):
-            continue
-        windows = entry.get("context_windows")
-        source = str(entry.get("context_source") or catalog.get("source") or "")
-        if isinstance(windows, dict):
-            candidates = [tag]
-            if tag in ("latest", ""):
-                candidates.extend(["cloud", "latest"])
-            candidates.extend(["cloud", "latest"])
-            for candidate in candidates:
-                value = positive_int(windows.get(candidate))
-                if value:
-                    return value, f"{base}:{candidate}", source or None
-        value = positive_int(entry.get("context_window"))
-        if value:
-            return value, base, source or None
-    return None, None, None
+    return ollama_catalog_policy.catalog_context_for_model(
+        load_ollama_model_catalog(), model_id, model_lookup_ids,
+    )
 
 
 def ollama_catalog_timeout_for_model(model_id: str) -> int | None:
-    catalog = load_ollama_model_catalog()
-    models = catalog.get("models", {})
-    if not isinstance(models, dict):
-        return None
-    for candidate_model in model_lookup_ids(model_id):
-        parts = ollama_model_catalog_key(candidate_model)
-        if not parts:
-            continue
-        key, _, tag = parts
-        entry = models.get(key)
-        if not isinstance(entry, dict):
-            continue
-        per_tag = entry.get("recommended_timeout_ms_by_tag")
-        if isinstance(per_tag, dict):
-            candidates = [tag]
-            if tag in ("latest", ""):
-                candidates.extend(["cloud", "latest"])
-            candidates.extend(["cloud", "latest"])
-            for candidate in candidates:
-                value = positive_int(per_tag.get(candidate))
-                if value:
-                    return value
-        value = positive_int(entry.get("recommended_timeout_ms"))
-        if value:
-            return value
-    return None
+    return ollama_catalog_policy.catalog_timeout_for_model(
+        load_ollama_model_catalog(), model_id, model_lookup_ids,
+    )
 
 
 def update_ollama_catalog_context(model_id: str, limit: int, matched_model: str | None, source_url: str | None) -> None:
-    parts = ollama_model_catalog_key(model_id)
-    if not parts or not limit:
-        return
-    key, base, tag = parts
-    catalog = load_ollama_model_catalog()
-    if not isinstance(catalog.get("models"), dict):
-        catalog = {
-            "schema": 1,
-            "source": OLLAMA_MODEL_CATALOG_URL,
-            "updated_at": time.time(),
-            "model_count": 0,
-            "base_model_count": 0,
-            "models": {},
-        }
-    entry = catalog["models"].setdefault(
-        key,
-        {"id": base, "models": [], "tags": [], "raw": [], "context_windows": {}, "context_source": None},
+    catalog = ollama_catalog_policy.with_updated_context(
+        load_ollama_model_catalog(), model_id, limit, matched_model, source_url,
     )
-    if model_id not in entry["models"]:
-        entry["models"].append(model_id)
-    tag_to_store = tag
-    matched_parts = ollama_model_catalog_key(matched_model or "")
-    if matched_parts:
-        tag_to_store = matched_parts[2]
-    entry.setdefault("tags", [])
-    if tag_to_store not in entry["tags"]:
-        entry["tags"].append(tag_to_store)
-    windows = entry.setdefault("context_windows", {})
-    if isinstance(windows, dict):
-        windows[tag_to_store] = int(limit)
-    recommended_by_tag = entry.setdefault("recommended_timeout_ms_by_tag", {})
-    if isinstance(recommended_by_tag, dict):
-        recommended_by_tag[tag_to_store] = recommended_timeout_ms_for_context(limit)
-    entry["context_window"] = max([positive_int(v) or 0 for v in entry.get("context_windows", {}).values()] + [int(limit)])
-    entry["recommended_timeout_ms"] = recommended_timeout_ms_for_context(positive_int(entry.get("context_window")))
-    entry["context_source"] = source_url or entry.get("context_source")
-    catalog["updated_at"] = time.time()
-    catalog["base_model_count"] = len(catalog.get("models", {}))
     save_ollama_model_catalog(catalog)
 
 
 def parse_ollama_library_context_limit(tags_html: str, full_model_id: str) -> int | None:
-    text = html_lib.unescape(tags_html or "")
-    target = (full_model_id or "").strip()
-    if not text or not target:
-        return None
-    lower = text.lower()
-    target_lower = target.lower()
-    positions: list[int] = []
-    start = 0
-    while True:
-        idx = lower.find(target_lower, start)
-        if idx < 0:
-            break
-        positions.append(idx)
-        start = idx + len(target_lower)
-    for idx in positions:
-        snippet = text[max(0, idx - 500): idx + 2500]
-        tokens = context_tokens_from_ollama_snippet(snippet)
-        if tokens:
-            return tokens
-    return None
+    return ollama_catalog_policy.parse_library_context_limit(tags_html, full_model_id)
 
 
 def fetch_ollama_library_context_limit(model_id: str, timeout: float = 6.0) -> tuple[int | None, str | None, str | None]:
@@ -1166,21 +984,7 @@ def fetch_ollama_library_context_limit(model_id: str, timeout: float = 6.0) -> t
 
 
 def ollama_context_model_matches(current_model: str, cached_model: str | None) -> bool:
-    current = (current_model or "").strip().lower()
-    cached = (cached_model or "").strip().lower()
-    if not current or not cached:
-        return False
-
-    def aliases(value: str) -> set[str]:
-        result = {value}
-        if ":" not in value:
-            result.add(f"{value}:latest")
-            result.add(f"{value}:cloud")
-        if value.endswith(":latest") or value.endswith(":cloud"):
-            result.add(value.rsplit(":", 1)[0])
-        return result
-
-    return bool(aliases(current) & aliases(cached))
+    return ollama_catalog_policy.context_model_matches(current_model, cached_model)
 
 
 def sync_ollama_library_context_limit(provider: str, pcfg: dict[str, Any], model_id: str) -> list[str]:

@@ -77,6 +77,10 @@ Codex App Server 프로세스와 JSON-RPC/WebSocket 상태 조정.
 
 Anthropic, Ollama, OpenRouter, LM Studio, vLLM, NVIDIA NIM, DeepSeek, Kimi, Z.AI, Fireworks, OpenCode 등 Provider별 구체 Adapter와 Registry. 각 Adapter가 인증, protocol capability, endpoint 및 모델 discovery 경로를 소유한다.
 
+### `ciel_runtime_support/ollama_catalog.py`
+
+Ollama Library 모델 ID, context window, timeout 및 catalog 갱신을 부작용 없이 계산하는 Functional Core. 파일·네트워크 I/O는 composition root의 wrapper가 담당한다.
+
 ### `ciel_runtime_support/provider_limits.py`
 
 API 키 순환과 학습형 rate-limit 상태·backoff·적용 정책을 캡슐화한 공급자 서비스.
