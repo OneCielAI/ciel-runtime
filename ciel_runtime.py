@@ -69,6 +69,8 @@ from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
 from ciel_runtime_support.protocols.ollama_chat import (
     anthropic_system_to_ollama_messages,
     anthropic_tools_to_ollama,
+    decode_ollama_chat_response,
+    encode_anthropic_message,
     ollama_claude_code_reminder,
 )
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, ZAI_MODEL_FALLBACK_IDS
@@ -15509,9 +15511,9 @@ def parse_pseudo_tool_calls(text: str, source_body: dict[str, Any] | None = None
 
 
 def ollama_chat_to_anthropic(data: dict[str, Any], model: str, source_body: dict[str, Any] | None = None) -> dict[str, Any]:
-    message = data.get("message") if isinstance(data.get("message"), dict) else {}
+    decoded = decode_ollama_chat_response(data)
     content: list[dict[str, Any]] = []
-    raw_text = str(message.get("content") or "")
+    raw_text = decoded.text
     text = strip_visible_thinking_markup(raw_text)
     if text != raw_text:
         router_log("WARN", f"suppressed visible Ollama thinking markup model={model} removed_chars={len(raw_text) - len(text)}")
@@ -15519,7 +15521,7 @@ def ollama_chat_to_anthropic(data: dict[str, Any], model: str, source_body: dict
     if text:
         content.append({"type": "text", "text": text})
     tool_id_prefix = f"toolu_ollama_{int(time.time() * 1000)}_{os.getpid()}"
-    for i, call in enumerate(list(message.get("tool_calls") or []) + pseudo_tool_calls):
+    for i, call in enumerate(list(decoded.tool_calls) + pseudo_tool_calls):
         fn = call.get("function") if isinstance(call, dict) else {}
         if not isinstance(fn, dict) or not fn.get("name"):
             continue
@@ -15587,29 +15589,20 @@ def ollama_chat_to_anthropic(data: dict[str, Any], model: str, source_body: dict
         text = empty_end_turn_notice_for_body(source_body)
         router_log("WARN", f"ollama_empty_end_turn_notice model={model} latest_tool_results={','.join(latest_user_tool_result_names(source_body)) or '-'}")
         content.append({"type": "text", "text": text})
-    done_reason = data.get("done_reason")
-    stop_reason = "tool_use" if any(block.get("type") == "tool_use" for block in content) else "end_turn"
-    if done_reason == "length":
-        stop_reason = "max_tokens"
-    input_tokens = int(data.get("prompt_eval_count") or 0)
+    input_tokens = decoded.input_tokens
     if input_tokens <= 0 and isinstance(source_body, dict):
         input_tokens = estimate_tokens(source_body)
-    output_tokens = int(data.get("eval_count") or 0)
+    output_tokens = decoded.output_tokens
     if output_tokens <= 0:
         output_tokens = max(1, len(text) // 4)
-    return {
-        "id": f"msg_ollama_{int(time.time() * 1000)}",
-        "type": "message",
-        "role": "assistant",
-        "model": model,
-        "content": content or [{"type": "text", "text": ""}],
-        "stop_reason": stop_reason,
-        "stop_sequence": None,
-        "usage": {
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-        },
-    }
+    return encode_anthropic_message(
+        message_id=f"msg_ollama_{int(time.time() * 1000)}",
+        model=model,
+        content=content,
+        done_reason=decoded.done_reason,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    )
 
 
 STREAM_WORD_CHUNK_MAX_BUFFER = 64
