@@ -23,6 +23,7 @@ from ciel_runtime_support.cli_dispatch import (
     CliServices,
     CliSpecialCommands,
 )
+from ciel_runtime_support.channel_panel import ChannelPanelPolicy
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
 from ciel_runtime_support.mcp_proxy_codec import McpProxyCodecPolicy
 from ciel_runtime_support.mcp_http_proxy import (
@@ -408,6 +409,9 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_provider_option_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ProviderOptionPolicy)), 10)
+
+    def test_channel_panel_policy_stays_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(ChannelPanelPolicy)), 10)
 
     def test_mcp_proxy_codec_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(McpProxyCodecPolicy)), 10)
