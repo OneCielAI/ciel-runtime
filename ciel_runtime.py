@@ -7,6 +7,7 @@ import contextlib
 import errno
 import getpass
 import hashlib
+import hmac
 import html as html_lib
 import importlib.util
 import json
@@ -17,6 +18,7 @@ import platform
 import queue
 import re
 import select
+import secrets
 import signal
 import shlex
 import shutil
@@ -41,6 +43,7 @@ from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, Iterable
 
 from ciel_runtime_support.agent_router import missing_common_capabilities, router_capability_matrix
+from ciel_runtime_support.architecture import LaunchSpec, ProviderConfig, RuntimeConfig
 from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
 from ciel_runtime_support.claude_router import ClaudeRouter
 from ciel_runtime_support.channel_injection import (
@@ -58,6 +61,9 @@ from ciel_runtime_support.codex_cli import (
 )
 from ciel_runtime_support.codex_router import CodexRouter, read_codex_response_preamble
 from ciel_runtime_support.observability import EventBus, render_events_html
+from ciel_runtime_support.protocols import anthropic_message_to_openai_response, openai_responses_to_anthropic_messages
+from ciel_runtime_support.provider_adapters import HttpBearerProviderAdapter
+from ciel_runtime_support.runtime_adapters import CliRuntimeAdapter
 from ciel_runtime_support.transcript_filter import (
     is_claude_code_transcript_event,
 )
@@ -167,6 +173,7 @@ CHAT_FILES_DIR = CONFIG_DIR / "chat-files"
 MENU_KEY_DEBUG_PATH = CONFIG_DIR / "ca-key-debug.log"
 PLAN_ARTIFACTS_DIR = CONFIG_DIR / "plan-artifacts"
 PID_PATH = CONFIG_DIR / "router.pid"
+ROUTER_EXTERNAL_TOKEN_PATH = CONFIG_DIR / "router-external-token"
 ROUTER_CLIENTS_DIR = CONFIG_DIR / "router-clients"
 MODEL_LIST_CACHE_PATH = CONFIG_DIR / "model-list-cache.json"
 MODEL_REGISTRY_PATH = CONFIG_DIR / "model-registry.json"
@@ -7705,28 +7712,85 @@ def provider_headers(provider: str, pcfg: dict[str, Any], inbound_headers: Any |
                 raise RuntimeError("Anthropic routed mode did not receive Claude Code OAuth/API auth headers.")
         else:
             raise RuntimeError("Anthropic routed mode needs a configured API key or inbound Claude Code auth headers.")
-    elif provider == "openrouter":
-        if not meaningful_key(key):
-            raise RuntimeError("OpenRouter requires a configured API key.")
-        headers["x-api-key"] = key
-        headers["Authorization"] = f"Bearer {key}"
-    elif provider in ("ollama", "ollama-cloud", "vllm", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "zai", "fireworks"):
-        headers["x-api-key"] = key
-        headers["authorization"] = f"Bearer {key}"
-    elif provider == "lm-studio":
-        if meaningful_key(key):
-            headers["x-api-key"] = str(key)
-            headers["authorization"] = f"Bearer {key}"
-    elif provider == "nvidia-hosted":
-        if meaningful_key(key):
-            headers["authorization"] = f"Bearer {key}"
-            headers["x-api-key"] = key
+    else:
+        meaningful = str(key) if meaningful_key(key) else None
+        generic = provider in (
+            "ollama",
+            "ollama-cloud",
+            "vllm",
+            "self-hosted-nim",
+            "deepseek",
+            "opencode",
+            "opencode-go",
+            "kimi",
+            "zai",
+            "fireworks",
+        )
+        adapter = HttpBearerProviderAdapter(
+            name="OpenRouter" if provider == "openrouter" else provider,
+            authorization_header="Authorization" if provider == "openrouter" else "authorization",
+            require_api_key=provider == "openrouter",
+            send_placeholder_key=generic,
+        )
+        config = ProviderConfig(
+            name=provider,
+            base_url=str(pcfg.get("base_url") or ""),
+            model=str(pcfg.get("model") or ""),
+            api_keys=(meaningful,) if meaningful else (),
+            options=pcfg,
+        )
+        headers.update(adapter.build_headers(config, meaningful))
     return headers
 
 
 def get_current_provider(cfg: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     provider = normalize_provider(cfg.get("current_provider", "nvidia-hosted"))
     return provider, cfg["providers"][provider]
+
+
+def materialize_runtime_command(
+    runtime_name: str,
+    cmd: list[str],
+    env: dict[str, str],
+    provider: str,
+    pcfg: dict[str, Any],
+    *,
+    mode: str,
+    protocol: str,
+    cwd: Path | None = None,
+    enable_channels: bool = False,
+) -> tuple[list[str], dict[str, str]]:
+    """Cross the runtime/provider ownership boundary using normalized contracts."""
+    if not cmd:
+        raise RuntimeError(f"{runtime_name} runtime command is empty")
+    provider_config = ProviderConfig(
+        name=provider,
+        base_url=str(pcfg.get("base_url") or ""),
+        model=str(pcfg.get("current_model") or pcfg.get("model") or ""),
+        api_keys=tuple(parse_api_key_list(pcfg.get("api_keys") or pcfg.get("api_key") or "")),
+        options=pcfg,
+    )
+    runtime_config = RuntimeConfig(
+        name=runtime_name,
+        executable=cmd[0],
+        enable_channels=enable_channels,
+    )
+    spec = LaunchSpec(
+        runtime=runtime_config,
+        provider=provider_config,
+        mode=mode,  # type: ignore[arg-type]
+        protocol=protocol,  # type: ignore[arg-type]
+        passthrough=tuple(cmd[1:]),
+        cwd=cwd,
+    )
+    adapter = CliRuntimeAdapter(
+        name=runtime_name,
+        executable=cmd[0],
+        environment=env,
+        channel_injection=enable_channels,
+    )
+    command = adapter.build_command(spec)
+    return list(command.argv), dict(command.env)
 
 
 def native_anthropic_enabled(provider: str) -> bool:
@@ -8986,17 +9050,24 @@ def write_accepted_response(handler: BaseHTTPRequestHandler) -> None:
 def reject_external_router_request(handler: BaseHTTPRequestHandler, cfg: dict[str, Any] | None = None) -> bool:
     if router_request_allowed(handler, cfg):
         return False
-    write_json(
-        handler,
-        {
-            "type": "error",
-            "error": {
-                "type": "forbidden",
-                "message": "ciel-runtime router external debug access is off.",
-            },
-        },
-        403,
+    external_enabled = router_debug_external_access_enabled(cfg)
+    status = 401 if external_enabled else 403
+    message = (
+        "ciel-runtime router external authentication is required."
+        if external_enabled
+        else "ciel-runtime router external debug access is off."
     )
+    payload = json.dumps(
+        {"type": "error", "error": {"type": "unauthorized" if status == 401 else "forbidden", "message": message}},
+        ensure_ascii=False,
+    ).encode("utf-8")
+    handler.send_response(status)
+    handler.send_header("content-type", "application/json; charset=utf-8")
+    handler.send_header("content-length", str(len(payload)))
+    if status == 401:
+        handler.send_header("www-authenticate", 'Bearer realm="ciel-runtime"')
+    handler.end_headers()
+    handler.wfile.write(payload)
     return True
 
 
@@ -15565,13 +15636,52 @@ def is_loopback_address(host: str | None) -> bool:
     return host in ("127.0.0.1", "::1", "localhost") or host.startswith("127.")
 
 
-def router_request_allowed(handler: BaseHTTPRequestHandler, cfg: dict[str, Any] | None = None) -> bool:
-    if router_debug_external_access_enabled(cfg):
-        return True
+def router_external_access_token() -> str:
+    configured = str(os.environ.get("CIEL_RUNTIME_ROUTER_EXTERNAL_TOKEN") or "").strip()
+    if configured:
+        return configured
     try:
-        return is_loopback_address(str(handler.client_address[0]))
+        return ROUTER_EXTERNAL_TOKEN_PATH.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def ensure_router_external_access_token() -> str:
+    existing = router_external_access_token()
+    if existing:
+        return existing
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    token = secrets.token_urlsafe(32)
+    tmp = ROUTER_EXTERNAL_TOKEN_PATH.with_name(
+        f"{ROUTER_EXTERNAL_TOKEN_PATH.name}.{os.getpid()}.{time.time_ns()}.tmp"
+    )
+    tmp.write_text(token + "\n", encoding="utf-8")
+    os.chmod(tmp, 0o600)
+    tmp.replace(ROUTER_EXTERNAL_TOKEN_PATH)
+    return token
+
+
+def router_request_bearer_token(handler: BaseHTTPRequestHandler) -> str:
+    try:
+        authorization = str(handler.headers.get("authorization") or handler.headers.get("Authorization") or "")
+        if authorization.lower().startswith("bearer "):
+            return authorization[7:].strip()
+        return str(handler.headers.get("x-ciel-runtime-token") or "").strip()
+    except Exception:
+        return ""
+
+
+def router_request_allowed(handler: BaseHTTPRequestHandler, cfg: dict[str, Any] | None = None) -> bool:
+    try:
+        if is_loopback_address(str(handler.client_address[0])):
+            return True
     except Exception:
         return False
+    if not router_debug_external_access_enabled(cfg):
+        return False
+    expected = router_external_access_token()
+    supplied = router_request_bearer_token(handler)
+    return bool(expected and supplied and hmac.compare_digest(expected, supplied))
 
 
 def set_router_debug_external_access_config(value: Any) -> list[str]:
@@ -15583,10 +15693,12 @@ def set_router_debug_external_access_config(value: Any) -> list[str]:
     clear_model_cache()
     bind = router_bind_host(cfg)
     if enabled:
+        token = ensure_router_external_access_token()
         return [
             "Router debug external access: on.",
             f"Router bind host for next launch: {bind}.",
-            "External clients are allowed while the router is bound to an external interface.",
+            "External clients must authenticate with Authorization: Bearer <token>.",
+            f"External access token: {token}",
         ]
     return [
         "Router debug external access: off.",
@@ -19254,7 +19366,7 @@ def responses_tool_choice_to_anthropic(tool_choice: Any) -> Any:
     return tool_choice
 
 
-def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model: str) -> dict[str, Any]:
+def _legacy_openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model: str) -> dict[str, Any]:
     system_parts: list[str] = []
     instructions = str(body.get("instructions") or "").strip()
     if instructions:
@@ -19345,7 +19457,7 @@ def _responses_usage_from_anthropic(message: dict[str, Any]) -> dict[str, int]:
     }
 
 
-def anthropic_message_to_openai_response(message: dict[str, Any], source_body: dict[str, Any] | None = None) -> dict[str, Any]:
+def _legacy_anthropic_message_to_openai_response(message: dict[str, Any], source_body: dict[str, Any] | None = None) -> dict[str, Any]:
     response_id = f"resp_{uuid.uuid4().hex}"
     created_at = int(time.time())
     model = str(message.get("model") or (source_body or {}).get("model") or "")
@@ -22658,8 +22770,18 @@ def probe_stdio_mcp_for_channel_capability_detailed(
         except Exception:
             pass
 
-    threading.Thread(target=_stdout_reader, daemon=True, name=f"channel-probe-stdout-{server_name}").start()
-    threading.Thread(target=_stderr_reader, daemon=True, name=f"channel-probe-stderr-{server_name}").start()
+    stdout_thread = threading.Thread(
+        target=_stdout_reader,
+        daemon=True,
+        name=f"channel-probe-stdout-{server_name}",
+    )
+    stderr_thread = threading.Thread(
+        target=_stderr_reader,
+        daemon=True,
+        name=f"channel-probe-stderr-{server_name}",
+    )
+    stdout_thread.start()
+    stderr_thread.start()
 
     body = _channel_probe_initialize_payload()
     if framed:
@@ -22706,6 +22828,15 @@ def probe_stdio_mcp_for_channel_capability_detailed(
         except Exception:
             try:
                 proc.kill()
+                proc.wait(timeout=1.0)
+            except Exception:
+                pass
+        stdout_thread.join(timeout=1.0)
+        stderr_thread.join(timeout=1.0)
+        for stream in (proc.stdout, proc.stderr):
+            try:
+                if stream:
+                    stream.close()
             except Exception:
                 pass
 
@@ -37251,6 +37382,17 @@ def launch_claude(
     if should_insert_passthrough_option_boundary(extra_args, claude_passthrough):
         cmd.append("--")
     cmd.extend(claude_passthrough)
+    cmd, env = materialize_runtime_command(
+        "claude",
+        cmd,
+        env,
+        provider,
+        pcfg,
+        mode="native" if use_native_anthropic else "routed",
+        protocol="anthropic_messages",
+        cwd=Path.cwd(),
+        enable_channels=bool(stdin_channel_proxy or native_channel_bridge or llm_channel_delivery),
+    )
     _log_claude_command_for_diagnostics(cmd, env)
     record_launch_state_for_cwd(
         launch_cwd_key,
@@ -38128,6 +38270,17 @@ def launch_codex(
         if model:
             cmd.extend(["-m", model])
     cmd.extend(codex_passthrough)
+    cmd, env = materialize_runtime_command(
+        "codex",
+        cmd,
+        env,
+        provider,
+        pcfg,
+        mode="native" if use_native_codex else "routed",
+        protocol="openai_responses",
+        cwd=launch_cwd,
+        enable_channels=bool(codex_channel_owned_names),
+    )
     _log_codex_command_for_diagnostics(cmd, env)
     record_launch_state_for_cwd(
         current_launch_cwd_key(),
@@ -38422,6 +38575,17 @@ def launch_agy(
     manage_router_lifetime = bool(start_router_if_needed()) if use_agy_routed and channel_delivery_mode(cfg) == "llm" else False
     agy_dangerous_args = agy_dangerous_launch_args(agy_passthrough)
     cmd = [agy, *agy_dangerous_args, *agy_passthrough]
+    cmd, env = materialize_runtime_command(
+        "agy",
+        cmd,
+        env,
+        provider,
+        pcfg,
+        mode="routed" if use_agy_routed else "native",
+        protocol="anthropic_messages",
+        cwd=Path.cwd(),
+        enable_channels=use_agy_routed,
+    )
     log_agy_passthrough_mapping(agy_passthrough_notes)
     _log_agy_command_for_diagnostics(cmd, env)
     record_launch_state_for_cwd(

@@ -4,37 +4,22 @@
 
 ## Python 소스
 
-### `ciel_runtime.py` (약 30,600줄)
+### `ciel_runtime.py`
 
-메인 엔트리포인트. 라우터, 제공자 로직, CLI 전체가 단일 파일에 포함된다.
+메인 호환 엔트리포인트. 라우터 조정, 제공자 설정, CLI 및 레거시 변환 로직을 포함한다.
+파일 크기와 줄 번호는 빠르게 변하므로 아래 표는 물리적 줄 범위가 아니라 논리적 영역을 나타낸다.
 
 주요 구역:
 
-| 줄 범위 | 내용 |
+| 영역 | 내용 |
 |---------|------|
-| 1–50 | 임포트, 전역 설정 |
-| 51–200 | 플랫폼 유틸리티, 경로, 포트 계산 |
-| 200–660 | 상수: 제공자 목록, 모델 ID, URL, 시스템 프롬프트 |
-| 660–1290 | Ollama 모델 카탈로그, 컨텍스트 감지 |
-| 1290–1900 | 툴 스키마 레지스트리, 입력 검증/교정 |
-| 1900–2320 | UI 텍스트 (다국어), i18n |
-| 2320–2570 | 설정 로드/저장, 캐시 |
-| 2570–2870 | 모델 ID 정규화, URL 조합 |
-| 2870–3140 | API 키 파싱, 제공자 키 선택 |
-| 3140–3500 | `main()`, 상태 표시, statusline |
-| 3500–3990 | Slash 커맨드 설치, HTTP 헬퍼 |
-| 4000–4130 | 로그 레벨 시스템 |
-| 4130–4900 | 툴 차단, thinking 정규화, Plan Mode |
-| 4900–5500 | 메시지 분석, 컨텍스트 요약 |
-| 5500–12400 | 메시지 변환 (Anthropic ↔ Ollama/OpenAI) |
-| 12400–14200 | Wire 정규화, Advisor 시스템 |
-| 14200–16200 | 스트리밍 변환 (`_rebatch_*`, `_ollama_stream_*`) |
-| 16200–17300 | Forward 함수 (Ollama, OpenAI 호환) |
-| 17300–17640 | `RouterHandler` 클래스 |
-| 17640–18050 | Router 건강/설정 체크 함수들 |
-| 18050–18320 | CLI 커맨드 (`cmd_*`) |
-| 18320–20500 | 채널/MCP 시스템 |
-| 20500–30600 | 나머지 채널, 설치, 유틸리티 |
+| 기반 | 임포트, 플랫폼 유틸리티, 경로, 포트 및 전역 설정 |
+| 설정 | 설정 마이그레이션, 캐시, 제공자·모델·API 키 선택 |
+| 프로토콜 | Anthropic, OpenAI, Ollama 요청·응답과 스트리밍 호환 계층 |
+| 라우터 | `RouterHandler`, 런타임 라우터 위임, 업스트림 전달 |
+| 채널 | MCP 탐색, cursor, delivery acknowledgement, 터미널 주입 |
+| 런처 | Claude, Codex, Codex App Server, AGY 프로세스 실행 |
+| CLI/UI | 메뉴, 상태, 설정 명령, 설치 및 업데이트 진단 |
 
 ---
 
@@ -63,6 +48,30 @@
 SSE/MCP 수집 및 cursor 상태와 분리되어 있으며 Windows Console과 PTY가 같은 제출 계약을 사용한다.
 
 → [[Architecture]]
+
+### `ciel_runtime_support/agy_cli.py`
+
+AGY passthrough 인수 분석과 Claude 호환 인수 매핑.
+
+### `ciel_runtime_support/codex_cli.py`
+
+Codex passthrough, resume 및 채널 관련 인수 정규화.
+
+### `ciel_runtime_support/codex_app_server.py`
+
+Codex App Server 프로세스와 JSON-RPC/WebSocket 상태 조정.
+
+### `ciel_runtime_support/provider_adapters.py`
+
+`ProviderAdapter` 계약을 사용하는 실제 HTTP 인증 어댑터.
+
+### `ciel_runtime_support/runtime_adapters.py`
+
+정규화된 `LaunchSpec`을 최종 `RuntimeCommand`로 변환하는 실제 CLI 런타임 어댑터.
+
+### `ciel_runtime_support/protocols/openai_responses.py`
+
+전역 설정과 네트워크 의존성이 없는 OpenAI Responses ↔ Anthropic Messages 순수 변환.
 
 ### `ciel_runtime_support/agent_router.py`
 

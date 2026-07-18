@@ -10,6 +10,7 @@ const extra = process.argv.slice(2);
 const mode = Object.prototype.hasOwnProperty.call(process.env, "CIEL_RUNTIME_NPM_MODE")
   ? process.env.CIEL_RUNTIME_NPM_MODE
   : "cli";
+const minimumPython = { major: 3, minor: 10 };
 
 function candidates() {
   const configuredPython = process.env.CIEL_RUNTIME_PYTHON;
@@ -31,7 +32,11 @@ function candidates() {
 
 let lastError = null;
 for (const [command, prefix] of candidates()) {
-  const probe = spawnSync(command, [...prefix, "--version"], { encoding: "utf8", stdio: "pipe" });
+  const probe = spawnSync(
+    command,
+    [...prefix, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"],
+    { encoding: "utf8", stdio: "pipe" },
+  );
   if (probe.error && probe.error.code === "ENOENT") {
     lastError = probe.error;
     continue;
@@ -42,7 +47,22 @@ for (const [command, prefix] of candidates()) {
   }
   if ((probe.status ?? 1) !== 0) {
     const detail = String(probe.stderr || probe.stdout || "").trim();
-    lastError = new Error(detail || `${command} ${prefix.join(" ")} --version failed`);
+    lastError = new Error(detail || `${command} ${prefix.join(" ")} version probe failed`);
+    continue;
+  }
+  const versionText = String(probe.stdout || "").trim();
+  const versionMatch = /^(\d+)\.(\d+)(?:\.(\d+))?/.exec(versionText);
+  if (!versionMatch) {
+    lastError = new Error(`Could not parse Python version reported by ${command}: ${versionText || "<empty>"}`);
+    continue;
+  }
+  const major = Number(versionMatch[1]);
+  const minor = Number(versionMatch[2]);
+  if (major < minimumPython.major || (major === minimumPython.major && minor < minimumPython.minor)) {
+    lastError = new Error(
+      `Found Python ${versionText} via ${command}, but Ciel Runtime requires Python ` +
+        `${minimumPython.major}.${minimumPython.minor} or newer.`,
+    );
     continue;
   }
   const scriptArgs = mode ? [mode, ...extra] : extra;

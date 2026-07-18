@@ -23,6 +23,7 @@
 | `router.log` | 라우터 로그 |
 | `log-level` | 로그 레벨 파일 |
 | `router.pid` | 라우터 프로세스 PID |
+| `router-external-token` | 외부 디버그 접근용 Bearer 토큰 (`0600`) |
 | `router-activity.json` | 라우터 활동 상태 |
 | `rate-limit-state.json` | 레이트 리밋 상태 |
 | `requests.jsonl` | 요청 덤프 (디버그용, 최대 5MB) |
@@ -78,6 +79,7 @@
 | `CIEL_RUNTIME_CONFIG_DIR` | 설정 디렉터리 재정의 |
 | `CIEL_RUNTIME_ROUTER_PORT` | 라우터 포트 재정의 |
 | `CIEL_RUNTIME_ROUTER_CLIENT_HOST` | 라우터 클라이언트 바인드 호스트 |
+| `CIEL_RUNTIME_ROUTER_EXTERNAL_TOKEN` | 외부 디버그 접근용 Bearer 토큰 재정의 |
 | `CIEL_RUNTIME_UPSTREAM_USER_AGENT` | 업스트림 User-Agent (기본: `claude-cli`) |
 | `CIEL_RUNTIME_EVENT_LOG` | 이벤트 로그 활성화 (기본: `true`) |
 | `CIEL_RUNTIME_EVENT_LEVEL` | 이벤트 로그 레벨 (기본: `info`) |
@@ -120,6 +122,19 @@ ciel-runtimectl log-level DEBUG
 
 파일 `log-level`에 레벨 문자열을 저장하거나,  
 `config.json`의 `"log_level"` 키로도 설정 가능.
+
+## 외부 라우터 접근
+
+라우터는 기본적으로 `127.0.0.1`에만 바인딩된다. 외부 디버그 접근을 활성화하면
+`router-external-token` 파일에 제한된 권한으로 토큰을 생성한다. 외부 클라이언트는
+모든 요청에 다음 헤더를 보내야 한다.
+
+```http
+Authorization: Bearer <token>
+```
+
+`CIEL_RUNTIME_ROUTER_EXTERNAL_TOKEN` 환경 변수로 파일 토큰을 재정의할 수 있다.
+루프백 요청은 기존 로컬 CLI 호환성을 위해 토큰 없이 허용된다.
 
 ---
 

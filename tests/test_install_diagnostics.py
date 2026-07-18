@@ -104,6 +104,14 @@ class InstallDiagnosticsTests(unittest.TestCase):
         self.assertNotIn("postinstall", scripts)
         self.assertFalse((root / "npm-bin" / "postinstall.js").exists())
 
+    def test_npm_launcher_rejects_python_older_than_310(self):
+        root = Path(__file__).resolve().parents[1]
+        launcher = (root / "npm-bin" / "run-ciel-runtime.js").read_text(encoding="utf-8")
+
+        self.assertIn("minimumPython = { major: 3, minor: 10 }", launcher)
+        self.assertIn("sys.version_info.major", launcher)
+        self.assertIn("but Ciel Runtime requires Python", launcher)
+
 
 if __name__ == "__main__":
     unittest.main()

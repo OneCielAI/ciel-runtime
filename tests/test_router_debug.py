@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -7,6 +8,10 @@ import ciel_runtime
 
 
 class RouterDebugTests(unittest.TestCase):
+    @staticmethod
+    def _handler(host: str, headers: dict[str, str] | None = None):
+        return SimpleNamespace(client_address=(host, 12345), headers=headers or {})
+
     def test_default_router_port_uses_env_override(self):
         with patch.dict("os.environ", {"CIEL_RUNTIME_ROUTER_PORT": "9876"}, clear=False):
             self.assertEqual(9876, ciel_runtime.default_router_port())
@@ -50,6 +55,28 @@ class RouterDebugTests(unittest.TestCase):
     def test_bind_host_environment_still_overrides_debug_setting(self):
         with patch.dict("os.environ", {"CIEL_RUNTIME_ROUTER_BIND_HOST": "192.0.2.10"}, clear=True):
             self.assertEqual("192.0.2.10", ciel_runtime.router_bind_host({"router_debug_external_access": False}))
+
+    def test_loopback_router_request_does_not_require_token(self):
+        handler = self._handler("127.0.0.1")
+
+        self.assertTrue(ciel_runtime.router_request_allowed(handler, {}))
+
+    def test_external_router_request_requires_matching_bearer_token(self):
+        cfg = {"router_debug_external_access": True, "router_debug_external_access_confirmed": True}
+        handler = self._handler("192.0.2.20", {"Authorization": "Bearer expected-token"})
+
+        with patch.object(ciel_runtime, "router_external_access_token", return_value="expected-token"):
+            self.assertTrue(ciel_runtime.router_request_allowed(handler, cfg))
+
+        handler.headers = {"Authorization": "Bearer wrong-token"}
+        with patch.object(ciel_runtime, "router_external_access_token", return_value="expected-token"):
+            self.assertFalse(ciel_runtime.router_request_allowed(handler, cfg))
+
+    def test_external_router_request_is_denied_when_debug_access_is_off(self):
+        handler = self._handler("192.0.2.20", {"Authorization": "Bearer expected-token"})
+
+        with patch.object(ciel_runtime, "router_external_access_token", return_value="expected-token"):
+            self.assertFalse(ciel_runtime.router_request_allowed(handler, {}))
 
     def test_router_debug_slash_value_parsing(self):
         body = {

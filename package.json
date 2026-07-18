@@ -22,6 +22,7 @@
   "files": [
     "ciel_runtime.py",
     "ciel_runtime_support/*.py",
+    "ciel_runtime_support/protocols/*.py",
     "ciel-runtime",
     "ciel-runtime.cmd",
     "ciel-runtime.ps1",
@@ -42,7 +43,12 @@
     "docs/"
   ],
   "scripts": {
-    "test": "python -m py_compile ciel_runtime.py ciel_runtime_support/__init__.py ciel_runtime_support/architecture.py ciel_runtime_support/agent_router.py ciel_runtime_support/channel_injection.py ciel_runtime_support/claude_router.py ciel_runtime_support/codex_app_server.py ciel_runtime_support/codex_cli.py ciel_runtime_support/codex_router.py ciel_runtime_support/observability.py ciel_runtime_support/transcript_filter.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py && python -m unittest discover -s tests -p \"test_*.py\"",
+    "test": "python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts && python -m unittest discover -s tests -p \"test_*.py\"",
+    "test:unit": "python scripts/run_test_group.py unit",
+    "test:router": "python scripts/run_test_group.py router",
+    "test:channel": "python scripts/run_test_group.py channel",
+    "test:runtime": "python scripts/run_test_group.py runtime",
+    "check:docs": "python scripts/check_project_metadata.py",
     "lint": "python -m ruff check .",
     "demo:assets": "python scripts/make_demo_assets.py"
   },

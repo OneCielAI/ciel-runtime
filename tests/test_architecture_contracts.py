@@ -11,6 +11,7 @@ from ciel_runtime_support.architecture import (
     RuntimeConfig,
     ToolDialect,
 )
+from ciel_runtime_support.runtime_adapters import CliRuntimeAdapter
 
 
 class DummyRuntime(RuntimeAdapter):
@@ -57,6 +58,30 @@ class DummyDialect(ToolDialect):
 
 
 class ArchitectureContractTests(unittest.TestCase):
+    def test_cli_runtime_adapter_materializes_launch_spec(self):
+        provider = ProviderConfig(name="test", base_url="http://localhost", model="model")
+        runtime = RuntimeConfig(name="codex", executable="codex", enable_channels=True)
+        spec = LaunchSpec(
+            runtime=runtime,
+            provider=provider,
+            mode="routed",
+            protocol="openai_responses",
+            passthrough=("--model", "model"),
+            cwd=Path("workspace"),
+        )
+        adapter = CliRuntimeAdapter(
+            name="codex",
+            executable="codex",
+            environment={"CODEX_HOME": "state"},
+            channel_injection=True,
+        )
+
+        command = adapter.build_command(spec)
+
+        self.assertEqual(("codex", "--model", "model"), command.argv)
+        self.assertEqual("state", command.env["CODEX_HOME"])
+        self.assertEqual(Path("workspace"), command.cwd)
+        self.assertTrue(adapter.supports_channel_injection(spec))
     def test_runtime_and_provider_are_separate_boundaries(self):
         provider = ProviderConfig(
             name="dummy-provider",

@@ -168,3 +168,13 @@ class RateLimitState:
 - [[Providers]] — 제공자 목록
 - [[Router]] — HTTP 라우터
 - [[Configuration]] — 설정 시스템
+
+## 단계적 실제 적용
+
+아키텍처 계약은 운영 경로에도 단계적으로 적용된다.
+
+- `ciel_runtime_support/provider_adapters.py`의 `HttpBearerProviderAdapter`가 OpenAI 호환 제공자의 실제 인증 헤더 생성을 담당한다.
+- `ciel_runtime_support/runtime_adapters.py`의 `CliRuntimeAdapter`가 Claude, Codex, AGY의 정규화된 `LaunchSpec`을 `RuntimeCommand`로 변환한다.
+- `ciel_runtime_support/protocols/openai_responses.py`는 설정이나 네트워크에 의존하지 않고 OpenAI Responses와 Anthropic Messages 사이를 변환한다.
+
+메인 진입점은 레거시 공개 함수 호환성을 유지하면서 이 모듈들에 위임한다. 이후 제공자와 프로토콜은 같은 경계를 따라 작은 단위로 이전한다.
