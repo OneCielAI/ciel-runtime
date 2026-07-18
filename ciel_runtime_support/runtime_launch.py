@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)
-class ClaudeLaunchServices:
+class ClaudeLaunchConstants:
     CLAUDE_SERVER_SIDE_WEB_TOOLS: Any
     LOG_PATH: Any
     PRELAUNCH_CANCEL: Any
@@ -19,83 +19,133 @@ class ClaudeLaunchServices:
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER: Any
     ROUTED_COMPAT_PROMPT: Any
     _NATIVE_ROUTER_CHANNEL_NAMES: Any
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeLaunchProcess:
     _log_claude_command_for_diagnostics: Callable[..., Any]
     _subprocess_call_capturing_stderr: Callable[..., Any]
-    anthropic_routed_enabled: Callable[..., Any]
-    append_claude_code_runtime_settings_args: Callable[..., Any]
-    apply_launch_endpoint_policy: Callable[..., Any]
-    auto_import_passthrough_channels: Callable[..., Any]
-    auto_start_sse_channels_from_mcp_configs: Callable[..., Any]
-    cached_channel_capable_server_names: Callable[..., Any]
-    cached_channel_source_paths_for_specs: Callable[..., Any]
-    channel_candidate_server_names_for_launch: Callable[..., Any]
-    channel_specs_for_launch: Callable[..., Any]
-    claude_channel_args: Callable[..., Any]
-    claude_channels_requested: Callable[..., Any]
-    claude_code_channels_auth_available: Callable[..., Any]
-    claude_launch_enabled_for_provider: Callable[..., Any]
-    claude_supports_permission_mode_arg: Callable[..., Any]
-    cleanup_managed_services_for_provider: Callable[..., Any]
-    current_launch_cwd_key: Callable[..., Any]
-    direct_native_anthropic_enabled: Callable[..., Any]
-    disable_ciel_runtime_slash_commands_for_native: Callable[..., Any]
-    ensure_channel_probe_cache_for_launch: Callable[..., Any]
-    ensure_current_model_from_provider_list: Callable[..., Any]
-    ensure_managed_router_running_for_client: Callable[..., Any]
-    ensure_model_cache_for_launch: Callable[..., Any]
     env_bool: Callable[..., Any]
     env_vars: Callable[..., Any]
-    external_mcp_channel_server_names_from_configs: Callable[..., Any]
     file_size_or_zero: Callable[..., Any]
+    path_with_ciel_runtime_user_dirs: Callable[..., Any]
+    print_routed_claude_exit_diagnostics: Callable[..., Any]
+    subprocess_call_with_channel_wake_proxy: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeLaunchInstallation:
     find_executable: Callable[..., Any]
-    get_current_provider: Callable[..., Any]
-    has_noninteractive_claude_args: Callable[..., Any]
-    has_passthrough_option: Callable[..., Any]
     install_ciel_runtime_slash_commands: Callable[..., Any]
     install_ciel_runtime_statusline: Callable[..., Any]
     install_claude_code_if_missing: Callable[..., Any]
     install_tool_guard_hooks: Callable[..., Any]
+    disable_ciel_runtime_slash_commands_for_native: Callable[..., Any]
+    launch_readiness_errors: Callable[..., Any]
+    warn_if_multiple_ciel_runtime_installs: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeLaunchDispatch:
     launch_agy: Callable[..., Any]
     launch_codex: Callable[..., Any]
     launch_codex_app_server: Callable[..., Any]
-    launch_mode_name: Callable[..., Any]
-    launch_readiness_errors: Callable[..., Any]
-    load_config: Callable[..., Any]
     materialize_runtime_command: Callable[..., Any]
-    native_channel_passthrough_requested: Callable[..., Any]
-    normalize_channel_passthrough: Callable[..., Any]
-    path_with_ciel_runtime_user_dirs: Callable[..., Any]
-    prepare_channel_llm_delivery_for_launch: Callable[..., Any]
-    print_routed_claude_exit_diagnostics: Callable[..., Any]
-    provider_menu_label: Callable[..., Any]
-    read_channel_probe_cache: Callable[..., Any]
-    record_launch_state_for_cwd: Callable[..., Any]
-    reset_zai_mcp_config_if_inactive: Callable[..., Any]
-    router_health_summary: Callable[..., Any]
-    router_log: Callable[..., Any]
     run_ciel_runtime_update_check: Callable[..., Any]
     run_claude_update_check: Callable[..., Any]
     run_prelaunch_menu: Callable[..., Any]
-    run_with_router_lifetime: Callable[..., Any]
+    claude_launch_enabled_for_provider: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeLaunchConfig:
+    load_config: Callable[..., Any]
     save_config: Callable[..., Any]
+    get_current_provider: Callable[..., Any]
+    ensure_current_model_from_provider_list: Callable[..., Any]
+    ensure_model_cache_for_launch: Callable[..., Any]
+    apply_launch_endpoint_policy: Callable[..., Any]
+    provider_menu_label: Callable[..., Any]
+    launch_mode_name: Callable[..., Any]
+    current_launch_cwd_key: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeLaunchRouting:
+    anthropic_routed_enabled: Callable[..., Any]
+    direct_native_anthropic_enabled: Callable[..., Any]
+    cleanup_managed_services_for_provider: Callable[..., Any]
+    ensure_managed_router_running_for_client: Callable[..., Any]
+    reset_zai_mcp_config_if_inactive: Callable[..., Any]
+    router_health_summary: Callable[..., Any]
+    router_log: Callable[..., Any]
+    start_router_if_needed: Callable[..., Any]
+    run_with_router_lifetime: Callable[..., Any]
+    record_launch_state_for_cwd: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeLaunchPolicy:
+    append_claude_code_runtime_settings_args: Callable[..., Any]
+    claude_supports_permission_mode_arg: Callable[..., Any]
+    has_noninteractive_claude_args: Callable[..., Any]
+    has_passthrough_option: Callable[..., Any]
     should_append_compat_prompt: Callable[..., Any]
     should_attach_web_search: Callable[..., Any]
     should_disallow_claude_server_side_web_tools: Callable[..., Any]
     should_fork_native_session_after_mode_switch: Callable[..., Any]
     should_insert_passthrough_option_boundary: Callable[..., Any]
+    strip_mcp_config_passthrough: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeLaunchChannelDiscovery:
+    auto_import_passthrough_channels: Callable[..., Any]
+    cached_channel_capable_server_names: Callable[..., Any]
+    cached_channel_source_paths_for_specs: Callable[..., Any]
+    channel_candidate_server_names_for_launch: Callable[..., Any]
+    channel_specs_for_launch: Callable[..., Any]
+    claude_channels_requested: Callable[..., Any]
+    claude_code_channels_auth_available: Callable[..., Any]
+    ensure_channel_probe_cache_for_launch: Callable[..., Any]
+    external_mcp_channel_server_names_from_configs: Callable[..., Any]
+    read_channel_probe_cache: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeLaunchChannelDelivery:
+    auto_start_sse_channels_from_mcp_configs: Callable[..., Any]
+    claude_channel_args: Callable[..., Any]
+    native_channel_passthrough_requested: Callable[..., Any]
+    normalize_channel_passthrough: Callable[..., Any]
+    prepare_channel_llm_delivery_for_launch: Callable[..., Any]
     should_launch_process_start_channel_sse: Callable[..., Any]
     should_use_channel_llm_delivery: Callable[..., Any]
     should_use_channel_stdin_proxy: Callable[..., Any]
     should_use_native_channel_bridge: Callable[..., Any]
-    start_router_if_needed: Callable[..., Any]
-    strip_mcp_config_passthrough: Callable[..., Any]
-    subprocess_call_with_channel_wake_proxy: Callable[..., Any]
-    warn_if_multiple_ciel_runtime_installs: Callable[..., Any]
     write_channel_mcp_config: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeLaunchMcpConfig:
     write_duckduckgo_mcp_config: Callable[..., Any]
     write_mcp_proxy_config: Callable[..., Any]
     write_native_mcp_config_from_discovery: Callable[..., Any]
     write_zai_mcp_config: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeLaunchServices:
+    constants: ClaudeLaunchConstants
+    process: ClaudeLaunchProcess
+    installation: ClaudeLaunchInstallation
+    dispatch: ClaudeLaunchDispatch
+    config: ClaudeLaunchConfig
+    routing: ClaudeLaunchRouting
+    policy: ClaudeLaunchPolicy
+    channel_discovery: ClaudeLaunchChannelDiscovery
+    channel_delivery: ClaudeLaunchChannelDelivery
+    mcp_config: ClaudeLaunchMcpConfig
 
 
 def run_claude(
@@ -108,92 +158,92 @@ def run_claude(
     *,
     services: ClaudeLaunchServices,
 ) -> int:
-    CLAUDE_SERVER_SIDE_WEB_TOOLS = services.CLAUDE_SERVER_SIDE_WEB_TOOLS
-    LOG_PATH = services.LOG_PATH
-    PRELAUNCH_CANCEL = services.PRELAUNCH_CANCEL
-    PRELAUNCH_LAUNCH_AGY = services.PRELAUNCH_LAUNCH_AGY
-    PRELAUNCH_LAUNCH_CLAUDE = services.PRELAUNCH_LAUNCH_CLAUDE
-    PRELAUNCH_LAUNCH_CODEX = services.PRELAUNCH_LAUNCH_CODEX
-    PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
-    ROUTED_COMPAT_PROMPT = services.ROUTED_COMPAT_PROMPT
-    _NATIVE_ROUTER_CHANNEL_NAMES = services._NATIVE_ROUTER_CHANNEL_NAMES
-    _log_claude_command_for_diagnostics = services._log_claude_command_for_diagnostics
-    _subprocess_call_capturing_stderr = services._subprocess_call_capturing_stderr
-    anthropic_routed_enabled = services.anthropic_routed_enabled
-    append_claude_code_runtime_settings_args = services.append_claude_code_runtime_settings_args
-    apply_launch_endpoint_policy = services.apply_launch_endpoint_policy
-    auto_import_passthrough_channels = services.auto_import_passthrough_channels
-    auto_start_sse_channels_from_mcp_configs = services.auto_start_sse_channels_from_mcp_configs
-    cached_channel_capable_server_names = services.cached_channel_capable_server_names
-    cached_channel_source_paths_for_specs = services.cached_channel_source_paths_for_specs
-    channel_candidate_server_names_for_launch = services.channel_candidate_server_names_for_launch
-    channel_specs_for_launch = services.channel_specs_for_launch
-    claude_channel_args = services.claude_channel_args
-    claude_channels_requested = services.claude_channels_requested
-    claude_code_channels_auth_available = services.claude_code_channels_auth_available
-    claude_launch_enabled_for_provider = services.claude_launch_enabled_for_provider
-    claude_supports_permission_mode_arg = services.claude_supports_permission_mode_arg
-    cleanup_managed_services_for_provider = services.cleanup_managed_services_for_provider
-    current_launch_cwd_key = services.current_launch_cwd_key
-    direct_native_anthropic_enabled = services.direct_native_anthropic_enabled
-    disable_ciel_runtime_slash_commands_for_native = services.disable_ciel_runtime_slash_commands_for_native
-    ensure_channel_probe_cache_for_launch = services.ensure_channel_probe_cache_for_launch
-    ensure_current_model_from_provider_list = services.ensure_current_model_from_provider_list
-    ensure_managed_router_running_for_client = services.ensure_managed_router_running_for_client
-    ensure_model_cache_for_launch = services.ensure_model_cache_for_launch
-    env_bool = services.env_bool
-    env_vars = services.env_vars
-    external_mcp_channel_server_names_from_configs = services.external_mcp_channel_server_names_from_configs
-    file_size_or_zero = services.file_size_or_zero
-    find_executable = services.find_executable
-    get_current_provider = services.get_current_provider
-    has_noninteractive_claude_args = services.has_noninteractive_claude_args
-    has_passthrough_option = services.has_passthrough_option
-    install_ciel_runtime_slash_commands = services.install_ciel_runtime_slash_commands
-    install_ciel_runtime_statusline = services.install_ciel_runtime_statusline
-    install_claude_code_if_missing = services.install_claude_code_if_missing
-    install_tool_guard_hooks = services.install_tool_guard_hooks
-    launch_agy = services.launch_agy
-    launch_codex = services.launch_codex
-    launch_codex_app_server = services.launch_codex_app_server
-    launch_mode_name = services.launch_mode_name
-    launch_readiness_errors = services.launch_readiness_errors
-    load_config = services.load_config
-    materialize_runtime_command = services.materialize_runtime_command
-    native_channel_passthrough_requested = services.native_channel_passthrough_requested
-    normalize_channel_passthrough = services.normalize_channel_passthrough
-    path_with_ciel_runtime_user_dirs = services.path_with_ciel_runtime_user_dirs
-    prepare_channel_llm_delivery_for_launch = services.prepare_channel_llm_delivery_for_launch
-    print_routed_claude_exit_diagnostics = services.print_routed_claude_exit_diagnostics
-    provider_menu_label = services.provider_menu_label
-    read_channel_probe_cache = services.read_channel_probe_cache
-    record_launch_state_for_cwd = services.record_launch_state_for_cwd
-    reset_zai_mcp_config_if_inactive = services.reset_zai_mcp_config_if_inactive
-    router_health_summary = services.router_health_summary
-    router_log = services.router_log
-    run_ciel_runtime_update_check = services.run_ciel_runtime_update_check
-    run_claude_update_check = services.run_claude_update_check
-    run_prelaunch_menu = services.run_prelaunch_menu
-    run_with_router_lifetime = services.run_with_router_lifetime
-    save_config = services.save_config
-    should_append_compat_prompt = services.should_append_compat_prompt
-    should_attach_web_search = services.should_attach_web_search
-    should_disallow_claude_server_side_web_tools = services.should_disallow_claude_server_side_web_tools
-    should_fork_native_session_after_mode_switch = services.should_fork_native_session_after_mode_switch
-    should_insert_passthrough_option_boundary = services.should_insert_passthrough_option_boundary
-    should_launch_process_start_channel_sse = services.should_launch_process_start_channel_sse
-    should_use_channel_llm_delivery = services.should_use_channel_llm_delivery
-    should_use_channel_stdin_proxy = services.should_use_channel_stdin_proxy
-    should_use_native_channel_bridge = services.should_use_native_channel_bridge
-    start_router_if_needed = services.start_router_if_needed
-    strip_mcp_config_passthrough = services.strip_mcp_config_passthrough
-    subprocess_call_with_channel_wake_proxy = services.subprocess_call_with_channel_wake_proxy
-    warn_if_multiple_ciel_runtime_installs = services.warn_if_multiple_ciel_runtime_installs
-    write_channel_mcp_config = services.write_channel_mcp_config
-    write_duckduckgo_mcp_config = services.write_duckduckgo_mcp_config
-    write_mcp_proxy_config = services.write_mcp_proxy_config
-    write_native_mcp_config_from_discovery = services.write_native_mcp_config_from_discovery
-    write_zai_mcp_config = services.write_zai_mcp_config
+    CLAUDE_SERVER_SIDE_WEB_TOOLS = services.constants.CLAUDE_SERVER_SIDE_WEB_TOOLS
+    LOG_PATH = services.constants.LOG_PATH
+    PRELAUNCH_CANCEL = services.constants.PRELAUNCH_CANCEL
+    PRELAUNCH_LAUNCH_AGY = services.constants.PRELAUNCH_LAUNCH_AGY
+    PRELAUNCH_LAUNCH_CLAUDE = services.constants.PRELAUNCH_LAUNCH_CLAUDE
+    PRELAUNCH_LAUNCH_CODEX = services.constants.PRELAUNCH_LAUNCH_CODEX
+    PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.constants.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
+    ROUTED_COMPAT_PROMPT = services.constants.ROUTED_COMPAT_PROMPT
+    _NATIVE_ROUTER_CHANNEL_NAMES = services.constants._NATIVE_ROUTER_CHANNEL_NAMES
+    _log_claude_command_for_diagnostics = services.process._log_claude_command_for_diagnostics
+    _subprocess_call_capturing_stderr = services.process._subprocess_call_capturing_stderr
+    anthropic_routed_enabled = services.routing.anthropic_routed_enabled
+    append_claude_code_runtime_settings_args = services.policy.append_claude_code_runtime_settings_args
+    apply_launch_endpoint_policy = services.config.apply_launch_endpoint_policy
+    auto_import_passthrough_channels = services.channel_discovery.auto_import_passthrough_channels
+    auto_start_sse_channels_from_mcp_configs = services.channel_delivery.auto_start_sse_channels_from_mcp_configs
+    cached_channel_capable_server_names = services.channel_discovery.cached_channel_capable_server_names
+    cached_channel_source_paths_for_specs = services.channel_discovery.cached_channel_source_paths_for_specs
+    channel_candidate_server_names_for_launch = services.channel_discovery.channel_candidate_server_names_for_launch
+    channel_specs_for_launch = services.channel_discovery.channel_specs_for_launch
+    claude_channel_args = services.channel_delivery.claude_channel_args
+    claude_channels_requested = services.channel_discovery.claude_channels_requested
+    claude_code_channels_auth_available = services.channel_discovery.claude_code_channels_auth_available
+    claude_launch_enabled_for_provider = services.dispatch.claude_launch_enabled_for_provider
+    claude_supports_permission_mode_arg = services.policy.claude_supports_permission_mode_arg
+    cleanup_managed_services_for_provider = services.routing.cleanup_managed_services_for_provider
+    current_launch_cwd_key = services.config.current_launch_cwd_key
+    direct_native_anthropic_enabled = services.routing.direct_native_anthropic_enabled
+    disable_ciel_runtime_slash_commands_for_native = services.installation.disable_ciel_runtime_slash_commands_for_native
+    ensure_channel_probe_cache_for_launch = services.channel_discovery.ensure_channel_probe_cache_for_launch
+    ensure_current_model_from_provider_list = services.config.ensure_current_model_from_provider_list
+    ensure_managed_router_running_for_client = services.routing.ensure_managed_router_running_for_client
+    ensure_model_cache_for_launch = services.config.ensure_model_cache_for_launch
+    env_bool = services.process.env_bool
+    env_vars = services.process.env_vars
+    external_mcp_channel_server_names_from_configs = services.channel_discovery.external_mcp_channel_server_names_from_configs
+    file_size_or_zero = services.process.file_size_or_zero
+    find_executable = services.installation.find_executable
+    get_current_provider = services.config.get_current_provider
+    has_noninteractive_claude_args = services.policy.has_noninteractive_claude_args
+    has_passthrough_option = services.policy.has_passthrough_option
+    install_ciel_runtime_slash_commands = services.installation.install_ciel_runtime_slash_commands
+    install_ciel_runtime_statusline = services.installation.install_ciel_runtime_statusline
+    install_claude_code_if_missing = services.installation.install_claude_code_if_missing
+    install_tool_guard_hooks = services.installation.install_tool_guard_hooks
+    launch_agy = services.dispatch.launch_agy
+    launch_codex = services.dispatch.launch_codex
+    launch_codex_app_server = services.dispatch.launch_codex_app_server
+    launch_mode_name = services.config.launch_mode_name
+    launch_readiness_errors = services.installation.launch_readiness_errors
+    load_config = services.config.load_config
+    materialize_runtime_command = services.dispatch.materialize_runtime_command
+    native_channel_passthrough_requested = services.channel_delivery.native_channel_passthrough_requested
+    normalize_channel_passthrough = services.channel_delivery.normalize_channel_passthrough
+    path_with_ciel_runtime_user_dirs = services.process.path_with_ciel_runtime_user_dirs
+    prepare_channel_llm_delivery_for_launch = services.channel_delivery.prepare_channel_llm_delivery_for_launch
+    print_routed_claude_exit_diagnostics = services.process.print_routed_claude_exit_diagnostics
+    provider_menu_label = services.config.provider_menu_label
+    read_channel_probe_cache = services.channel_discovery.read_channel_probe_cache
+    record_launch_state_for_cwd = services.routing.record_launch_state_for_cwd
+    reset_zai_mcp_config_if_inactive = services.routing.reset_zai_mcp_config_if_inactive
+    router_health_summary = services.routing.router_health_summary
+    router_log = services.routing.router_log
+    run_ciel_runtime_update_check = services.dispatch.run_ciel_runtime_update_check
+    run_claude_update_check = services.dispatch.run_claude_update_check
+    run_prelaunch_menu = services.dispatch.run_prelaunch_menu
+    run_with_router_lifetime = services.routing.run_with_router_lifetime
+    save_config = services.config.save_config
+    should_append_compat_prompt = services.policy.should_append_compat_prompt
+    should_attach_web_search = services.policy.should_attach_web_search
+    should_disallow_claude_server_side_web_tools = services.policy.should_disallow_claude_server_side_web_tools
+    should_fork_native_session_after_mode_switch = services.policy.should_fork_native_session_after_mode_switch
+    should_insert_passthrough_option_boundary = services.policy.should_insert_passthrough_option_boundary
+    should_launch_process_start_channel_sse = services.channel_delivery.should_launch_process_start_channel_sse
+    should_use_channel_llm_delivery = services.channel_delivery.should_use_channel_llm_delivery
+    should_use_channel_stdin_proxy = services.channel_delivery.should_use_channel_stdin_proxy
+    should_use_native_channel_bridge = services.channel_delivery.should_use_native_channel_bridge
+    start_router_if_needed = services.routing.start_router_if_needed
+    strip_mcp_config_passthrough = services.policy.strip_mcp_config_passthrough
+    subprocess_call_with_channel_wake_proxy = services.process.subprocess_call_with_channel_wake_proxy
+    warn_if_multiple_ciel_runtime_installs = services.installation.warn_if_multiple_ciel_runtime_installs
+    write_channel_mcp_config = services.channel_delivery.write_channel_mcp_config
+    write_duckduckgo_mcp_config = services.mcp_config.write_duckduckgo_mcp_config
+    write_mcp_proxy_config = services.mcp_config.write_mcp_proxy_config
+    write_native_mcp_config_from_discovery = services.mcp_config.write_native_mcp_config_from_discovery
+    write_zai_mcp_config = services.mcp_config.write_zai_mcp_config
     if has_noninteractive_claude_args(passthrough):
         self_update_check = False
     warn_if_multiple_ciel_runtime_installs()
@@ -1290,4 +1340,23 @@ def run_agy(
 
 
 
-__all__ = ['run_claude','ClaudeLaunchServices','run_codex','CodexLaunchServices','run_codex_app_server','CodexAppServerLaunchServices','run_agy','AgyLaunchServices']
+__all__ = [
+    "AgyLaunchServices",
+    "ClaudeLaunchChannelDelivery",
+    "ClaudeLaunchChannelDiscovery",
+    "ClaudeLaunchConfig",
+    "ClaudeLaunchConstants",
+    "ClaudeLaunchDispatch",
+    "ClaudeLaunchInstallation",
+    "ClaudeLaunchMcpConfig",
+    "ClaudeLaunchPolicy",
+    "ClaudeLaunchProcess",
+    "ClaudeLaunchRouting",
+    "ClaudeLaunchServices",
+    "CodexAppServerLaunchServices",
+    "CodexLaunchServices",
+    "run_agy",
+    "run_claude",
+    "run_codex",
+    "run_codex_app_server",
+]

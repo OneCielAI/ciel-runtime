@@ -22,6 +22,19 @@ from ciel_runtime_support.provider_models import (
     ProviderCatalogSources,
     ProviderModelServices,
 )
+from ciel_runtime_support.runtime_launch import (
+    ClaudeLaunchChannelDelivery,
+    ClaudeLaunchChannelDiscovery,
+    ClaudeLaunchConfig,
+    ClaudeLaunchConstants,
+    ClaudeLaunchDispatch,
+    ClaudeLaunchInstallation,
+    ClaudeLaunchMcpConfig,
+    ClaudeLaunchPolicy,
+    ClaudeLaunchProcess,
+    ClaudeLaunchRouting,
+    ClaudeLaunchServices,
+)
 from ciel_runtime_support.provider_adapters import (
     PROVIDER_ADAPTERS,
     AgyProviderAdapter,
@@ -104,6 +117,25 @@ class ArchitectureContractTests(unittest.TestCase):
             ProviderCatalogSources,
             ModelCatalogResponseCodec,
             ModelCatalogPolicy,
+        )
+
+        for port in ports:
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_claude_launch_ports_stay_below_dependency_limit(self):
+        ports = (
+            ClaudeLaunchServices,
+            ClaudeLaunchConstants,
+            ClaudeLaunchProcess,
+            ClaudeLaunchInstallation,
+            ClaudeLaunchDispatch,
+            ClaudeLaunchConfig,
+            ClaudeLaunchRouting,
+            ClaudeLaunchPolicy,
+            ClaudeLaunchChannelDiscovery,
+            ClaudeLaunchChannelDelivery,
+            ClaudeLaunchMcpConfig,
         )
 
         for port in ports:
