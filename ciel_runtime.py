@@ -65,6 +65,14 @@ from ciel_runtime_support.mcp_transport import (
     streamable_post_json as _mcp_streamable_post_json,
     upstream_url as _codex_mcp_split_proxy_upstream_url,
 )
+from ciel_runtime_support.mcp_probe_codec import (
+    channel_capability_present as _channel_probe_capability_present,
+    decode_sse_events as _decode_sse_events,
+    find_initialize_response as _channel_probe_find_initialize_response,
+    initialize_payload as _mcp_probe_initialize_payload,
+    initialize_payload_bytes as _mcp_probe_initialize_payload_bytes,
+    probe_strategy as _channel_probe_strategy_for,
+)
 from ciel_runtime_support.codex_app_server import codex_app_server_launch_args
 from ciel_runtime_support.codex_cli import (
     codex_passthrough_args_for_launch,
@@ -18359,110 +18367,8 @@ def _mcp_server_disable_proxy_notification_stream(server: dict[str, Any]) -> boo
     )
 
 
-def _channel_probe_strategy_for(server: dict[str, Any]) -> str:
-    """How to frame the initialize request we send to this stdio server.
-
-    Default is ``"jsonl"`` (newline-delimited JSON), which is the MCP
-    stdio wire format per modelcontextprotocol.io:
-        "Messages are delimited by newlines, and MUST NOT contain embedded
-         newlines."
-
-    Servers that need LSP-style ``Content-Length: N\\r\\n\\r\\n`` framing
-    (not spec for MCP, but seen in some legacy implementations) can opt in
-    with ``"ciel_runtime_stdio": "framed"`` in their MCP config entry. This
-    is distinct from ``_mcp_proxy_stdio_mode``, whose history pre-dates
-    the framing audit and whose default we do not change here.
-    """
-    if not isinstance(server, dict):
-        return "jsonl"
-    mode = str(server.get("ciel_runtime_stdio") or server.get("stdio_mode") or "").strip().lower()
-    if mode in ("framed", "framed-only", "content-length", "lsp"):
-        return "framed"
-    return "jsonl"
-
-
 def _channel_probe_initialize_payload() -> bytes:
-    payload = {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "initialize",
-        "params": {
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {"name": "ciel-runtime-channel-probe", "version": VERSION},
-        },
-    }
-    return json.dumps(payload, ensure_ascii=False).encode("utf-8")
-
-
-def _channel_probe_parse_framed_responses(buffer: bytes) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    idx = 0
-    while idx < len(buffer):
-        header_end = buffer.find(b"\r\n\r\n", idx)
-        if header_end < 0:
-            return out
-        header = buffer[idx:header_end].decode("ascii", errors="replace")
-        length: int | None = None
-        for line in header.split("\r\n"):
-            if line.lower().startswith("content-length:"):
-                try:
-                    length = int(line.split(":", 1)[1].strip())
-                except Exception:
-                    return out
-                break
-        if length is None:
-            return out
-        body_start = header_end + 4
-        body_end = body_start + length
-        if len(buffer) < body_end:
-            return out
-        try:
-            msg = json.loads(buffer[body_start:body_end].decode("utf-8", errors="replace"))
-        except Exception:
-            idx = body_end
-            continue
-        if isinstance(msg, dict):
-            out.append(msg)
-        idx = body_end
-    return out
-
-
-def _channel_probe_parse_jsonl_responses(buffer: bytes) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    for raw_line in buffer.split(b"\n"):
-        line = raw_line.strip()
-        if not line:
-            continue
-        try:
-            msg = json.loads(line.decode("utf-8", errors="replace"))
-        except Exception:
-            continue
-        if isinstance(msg, dict):
-            out.append(msg)
-    return out
-
-
-def _channel_probe_find_initialize_response(buffer: bytes, framed: bool) -> dict[str, Any] | None:
-    msgs = _channel_probe_parse_framed_responses(buffer) if framed else _channel_probe_parse_jsonl_responses(buffer)
-    for msg in msgs:
-        if msg.get("id") == 1 and "result" in msg:
-            return msg
-    return None
-
-
-def _channel_probe_capability_present(initialize_response: dict[str, Any]) -> bool:
-    result = initialize_response.get("result")
-    if not isinstance(result, dict):
-        return False
-    capabilities = result.get("capabilities")
-    if not isinstance(capabilities, dict):
-        return False
-    experimental = capabilities.get("experimental")
-    if not isinstance(experimental, dict):
-        return False
-    value = experimental.get("claude/channel")
-    return value is not None and value is not False
+    return _mcp_probe_initialize_payload_bytes(VERSION)
 
 
 CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS = 15.0
@@ -18489,35 +18395,6 @@ CHANNEL_PROBE_STDOUT_PREVIEW_BYTES = 200
 CHANNEL_PROBE_STDERR_PREVIEW_CHARS = 500
 CHANNEL_PROBE_SSE_OPEN_TIMEOUT_SECONDS = 5.0
 CHANNEL_PROBE_SSE_INIT_POST_TIMEOUT_SECONDS = 5.0
-
-
-def _decode_sse_events(buf: bytearray) -> tuple[list[tuple[str, str]], bytearray]:
-    """Drain complete SSE events from buf. Each event is (event_name, data).
-    Multi-line `data:` fields are joined with '\\n'. Returns the parsed
-    events and the leftover (incomplete) buffer."""
-    events: list[tuple[str, str]] = []
-    text = bytes(buf).decode("utf-8", errors="replace")
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    while True:
-        sep = text.find("\n\n")
-        if sep < 0:
-            break
-        event_text = text[:sep]
-        text = text[sep + 2:]
-        event_name = "message"
-        data_lines: list[str] = []
-        for line in event_text.split("\n"):
-            if not line or line.startswith(":"):
-                continue
-            if line.startswith("event:"):
-                event_name = line[len("event:"):].lstrip()
-            elif line.startswith("data:"):
-                payload = line[len("data:"):]
-                if payload.startswith(" "):
-                    payload = payload[1:]
-                data_lines.append(payload)
-        events.append((event_name, "\n".join(data_lines)))
-    return events, bytearray(text.encode("utf-8"))
 
 
 def probe_sse_mcp_for_channel_capability_detailed(
@@ -18700,16 +18577,7 @@ def probe_sse_mcp_for_channel_capability_detailed(
 
 
 def _channel_probe_initialize_payload_dict(protocol_version: str) -> dict[str, Any]:
-    return {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "initialize",
-        "params": {
-            "protocolVersion": protocol_version,
-            "capabilities": {},
-            "clientInfo": {"name": "ciel-runtime-channel-probe", "version": VERSION},
-        },
-    }
+    return _mcp_probe_initialize_payload(VERSION, protocol_version)
 
 
 def probe_streamable_http_mcp_for_channel_capability_detailed(
