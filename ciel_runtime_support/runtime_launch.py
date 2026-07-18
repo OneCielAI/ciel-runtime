@@ -1214,45 +1214,85 @@ def run_codex_app_server(
 
 
 @dataclass(frozen=True, slots=True)
-class AgyLaunchServices:
+class AgyLaunchConstants:
     PRELAUNCH_CANCEL: Any
     PRELAUNCH_LAUNCH_AGY: Any
     PRELAUNCH_LAUNCH_CLAUDE: Any
     PRELAUNCH_LAUNCH_CODEX: Any
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER: Any
+
+
+@dataclass(frozen=True, slots=True)
+class AgyLaunchProcess:
     _codex_channel_wake_submit_delay_seconds: Callable[..., Any]
     _codex_channel_wake_submit_retries: Callable[..., Any]
     _log_agy_command_for_diagnostics: Callable[..., Any]
+    path_with_ciel_runtime_user_dirs: Callable[..., Any]
+    subprocess_call_with_channel_wake_proxy: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class AgyLaunchCliPolicy:
     agy_dangerous_launch_args: Callable[..., Any]
     agy_help_requested: Callable[..., Any]
     agy_passthrough_args_for_launch: Callable[..., Any]
     agy_passthrough_has_command: Callable[..., Any]
-    agy_routed_enabled: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class AgyLaunchChannel:
     auto_import_passthrough_channels: Callable[..., Any]
     channel_delivery_mode: Callable[..., Any]
-    cleanup_managed_services_for_provider: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class AgyLaunchConfig:
     current_launch_cwd_key: Callable[..., Any]
-    find_executable: Callable[..., Any]
     get_current_provider: Callable[..., Any]
+    load_config: Callable[..., Any]
+    provider_mode_label: Callable[..., Any]
+    record_launch_state_for_cwd: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class AgyLaunchInstallation:
+    find_executable: Callable[..., Any]
     install_agy_if_missing: Callable[..., Any]
+    warn_if_multiple_ciel_runtime_installs: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class AgyLaunchDispatch:
     launch_claude: Callable[..., Any]
     launch_codex: Callable[..., Any]
     launch_codex_app_server: Callable[..., Any]
-    launch_readiness_errors: Callable[..., Any]
-    load_config: Callable[..., Any]
     log_agy_passthrough_mapping: Callable[..., Any]
     materialize_runtime_command: Callable[..., Any]
-    native_agy_enabled: Callable[..., Any]
-    path_with_ciel_runtime_user_dirs: Callable[..., Any]
-    provider_mode_label: Callable[..., Any]
-    record_launch_state_for_cwd: Callable[..., Any]
     run_agy_update_check: Callable[..., Any]
     run_ciel_runtime_update_check: Callable[..., Any]
     run_prelaunch_menu: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class AgyLaunchRouting:
+    agy_routed_enabled: Callable[..., Any]
+    cleanup_managed_services_for_provider: Callable[..., Any]
+    launch_readiness_errors: Callable[..., Any]
+    native_agy_enabled: Callable[..., Any]
     run_with_router_lifetime: Callable[..., Any]
     start_router_if_needed: Callable[..., Any]
-    subprocess_call_with_channel_wake_proxy: Callable[..., Any]
-    warn_if_multiple_ciel_runtime_installs: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class AgyLaunchServices:
+    constants: AgyLaunchConstants
+    process: AgyLaunchProcess
+    cli_policy: AgyLaunchCliPolicy
+    channel: AgyLaunchChannel
+    config: AgyLaunchConfig
+    installation: AgyLaunchInstallation
+    dispatch: AgyLaunchDispatch
+    routing: AgyLaunchRouting
 
 
 def run_agy(
@@ -1264,44 +1304,44 @@ def run_agy(
     *,
     services: AgyLaunchServices,
 ) -> int:
-    PRELAUNCH_CANCEL = services.PRELAUNCH_CANCEL
-    PRELAUNCH_LAUNCH_AGY = services.PRELAUNCH_LAUNCH_AGY
-    PRELAUNCH_LAUNCH_CLAUDE = services.PRELAUNCH_LAUNCH_CLAUDE
-    PRELAUNCH_LAUNCH_CODEX = services.PRELAUNCH_LAUNCH_CODEX
-    PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
-    _codex_channel_wake_submit_delay_seconds = services._codex_channel_wake_submit_delay_seconds
-    _codex_channel_wake_submit_retries = services._codex_channel_wake_submit_retries
-    _log_agy_command_for_diagnostics = services._log_agy_command_for_diagnostics
-    agy_dangerous_launch_args = services.agy_dangerous_launch_args
-    agy_help_requested = services.agy_help_requested
-    agy_passthrough_args_for_launch = services.agy_passthrough_args_for_launch
-    agy_passthrough_has_command = services.agy_passthrough_has_command
-    agy_routed_enabled = services.agy_routed_enabled
-    auto_import_passthrough_channels = services.auto_import_passthrough_channels
-    channel_delivery_mode = services.channel_delivery_mode
-    cleanup_managed_services_for_provider = services.cleanup_managed_services_for_provider
-    current_launch_cwd_key = services.current_launch_cwd_key
-    find_executable = services.find_executable
-    get_current_provider = services.get_current_provider
-    install_agy_if_missing = services.install_agy_if_missing
-    launch_claude = services.launch_claude
-    launch_codex = services.launch_codex
-    launch_codex_app_server = services.launch_codex_app_server
-    launch_readiness_errors = services.launch_readiness_errors
-    load_config = services.load_config
-    log_agy_passthrough_mapping = services.log_agy_passthrough_mapping
-    materialize_runtime_command = services.materialize_runtime_command
-    native_agy_enabled = services.native_agy_enabled
-    path_with_ciel_runtime_user_dirs = services.path_with_ciel_runtime_user_dirs
-    provider_mode_label = services.provider_mode_label
-    record_launch_state_for_cwd = services.record_launch_state_for_cwd
-    run_agy_update_check = services.run_agy_update_check
-    run_ciel_runtime_update_check = services.run_ciel_runtime_update_check
-    run_prelaunch_menu = services.run_prelaunch_menu
-    run_with_router_lifetime = services.run_with_router_lifetime
-    start_router_if_needed = services.start_router_if_needed
-    subprocess_call_with_channel_wake_proxy = services.subprocess_call_with_channel_wake_proxy
-    warn_if_multiple_ciel_runtime_installs = services.warn_if_multiple_ciel_runtime_installs
+    PRELAUNCH_CANCEL = services.constants.PRELAUNCH_CANCEL
+    PRELAUNCH_LAUNCH_AGY = services.constants.PRELAUNCH_LAUNCH_AGY
+    PRELAUNCH_LAUNCH_CLAUDE = services.constants.PRELAUNCH_LAUNCH_CLAUDE
+    PRELAUNCH_LAUNCH_CODEX = services.constants.PRELAUNCH_LAUNCH_CODEX
+    PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.constants.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
+    _codex_channel_wake_submit_delay_seconds = services.process._codex_channel_wake_submit_delay_seconds
+    _codex_channel_wake_submit_retries = services.process._codex_channel_wake_submit_retries
+    _log_agy_command_for_diagnostics = services.process._log_agy_command_for_diagnostics
+    agy_dangerous_launch_args = services.cli_policy.agy_dangerous_launch_args
+    agy_help_requested = services.cli_policy.agy_help_requested
+    agy_passthrough_args_for_launch = services.cli_policy.agy_passthrough_args_for_launch
+    agy_passthrough_has_command = services.cli_policy.agy_passthrough_has_command
+    agy_routed_enabled = services.routing.agy_routed_enabled
+    auto_import_passthrough_channels = services.channel.auto_import_passthrough_channels
+    channel_delivery_mode = services.channel.channel_delivery_mode
+    cleanup_managed_services_for_provider = services.routing.cleanup_managed_services_for_provider
+    current_launch_cwd_key = services.config.current_launch_cwd_key
+    find_executable = services.installation.find_executable
+    get_current_provider = services.config.get_current_provider
+    install_agy_if_missing = services.installation.install_agy_if_missing
+    launch_claude = services.dispatch.launch_claude
+    launch_codex = services.dispatch.launch_codex
+    launch_codex_app_server = services.dispatch.launch_codex_app_server
+    launch_readiness_errors = services.routing.launch_readiness_errors
+    load_config = services.config.load_config
+    log_agy_passthrough_mapping = services.dispatch.log_agy_passthrough_mapping
+    materialize_runtime_command = services.dispatch.materialize_runtime_command
+    native_agy_enabled = services.routing.native_agy_enabled
+    path_with_ciel_runtime_user_dirs = services.process.path_with_ciel_runtime_user_dirs
+    provider_mode_label = services.config.provider_mode_label
+    record_launch_state_for_cwd = services.config.record_launch_state_for_cwd
+    run_agy_update_check = services.dispatch.run_agy_update_check
+    run_ciel_runtime_update_check = services.dispatch.run_ciel_runtime_update_check
+    run_prelaunch_menu = services.dispatch.run_prelaunch_menu
+    run_with_router_lifetime = services.routing.run_with_router_lifetime
+    start_router_if_needed = services.routing.start_router_if_needed
+    subprocess_call_with_channel_wake_proxy = services.process.subprocess_call_with_channel_wake_proxy
+    warn_if_multiple_ciel_runtime_installs = services.installation.warn_if_multiple_ciel_runtime_installs
     warn_if_multiple_ciel_runtime_installs()
     run_ciel_runtime_update_check(enabled=self_update_check)
     env = os.environ.copy()
@@ -1411,6 +1451,14 @@ def run_agy(
 
 __all__ = [
     "AgyLaunchServices",
+    "AgyLaunchChannel",
+    "AgyLaunchCliPolicy",
+    "AgyLaunchConfig",
+    "AgyLaunchConstants",
+    "AgyLaunchDispatch",
+    "AgyLaunchInstallation",
+    "AgyLaunchProcess",
+    "AgyLaunchRouting",
     "ClaudeLaunchChannelDelivery",
     "ClaudeLaunchChannelDiscovery",
     "ClaudeLaunchConfig",

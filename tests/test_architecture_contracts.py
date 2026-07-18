@@ -36,6 +36,15 @@ from ciel_runtime_support.prelaunch import (
     PrelaunchTerminal,
 )
 from ciel_runtime_support.runtime_launch import (
+    AgyLaunchChannel,
+    AgyLaunchCliPolicy,
+    AgyLaunchConfig,
+    AgyLaunchConstants,
+    AgyLaunchDispatch,
+    AgyLaunchInstallation,
+    AgyLaunchProcess,
+    AgyLaunchRouting,
+    AgyLaunchServices,
     ClaudeLaunchChannelDelivery,
     ClaudeLaunchChannelDiscovery,
     ClaudeLaunchConfig,
@@ -218,6 +227,23 @@ class ArchitectureContractTests(unittest.TestCase):
             CodexAppServerDispatch,
             CodexAppServerRouting,
             CodexAppServerChannel,
+        )
+
+        for port in ports:
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_agy_launch_ports_stay_below_dependency_limit(self):
+        ports = (
+            AgyLaunchServices,
+            AgyLaunchConstants,
+            AgyLaunchProcess,
+            AgyLaunchCliPolicy,
+            AgyLaunchChannel,
+            AgyLaunchConfig,
+            AgyLaunchInstallation,
+            AgyLaunchDispatch,
+            AgyLaunchRouting,
         )
 
         for port in ports:
