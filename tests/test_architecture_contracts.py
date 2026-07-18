@@ -368,6 +368,36 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_provider_option_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ProviderOptionPolicy)), 10)
 
+    def test_critical_mcp_and_process_paths_do_not_silence_exceptions(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        critical_names = {
+            "subprocess_call_with_channel_wake_proxy",
+            "_mcp_proxy_forward_stdin",
+            "_mcp_proxy_forward_stdin_jsonl",
+            "_mcp_proxy_emit_jsonl_stdout_line",
+            "_mcp_proxy_forward_stderr",
+            "run_mcp_streamable_http_proxy",
+            "run_mcp_stdio_proxy",
+        }
+        critical_functions = [
+            node
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in critical_names
+        ]
+
+        self.assertEqual({node.name for node in critical_functions}, critical_names)
+        for function in critical_functions:
+            silent_handlers = [
+                node
+                for node in ast.walk(function)
+                if isinstance(node, ast.ExceptHandler)
+                and len(node.body) == 1
+                and isinstance(node.body[0], ast.Pass)
+            ]
+            with self.subTest(function=function.name):
+                self.assertEqual([], silent_handlers)
+
     def test_named_registries_produce_real_contract_implementations(self):
         protocol = PROTOCOL_ADAPTERS.create("openai-responses", fallback_model="fallback")
         provider = PROVIDER_ADAPTERS.create("openrouter")

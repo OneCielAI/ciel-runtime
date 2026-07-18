@@ -29488,17 +29488,17 @@ def subprocess_call_with_channel_wake_proxy(
         if sigwinch_installed:
             try:
                 signal.signal(signal.SIGWINCH, old_sigwinch)
-            except Exception:
-                pass
+            except (OSError, ValueError) as exc:
+                router_log("WARN", f"channel_sigwinch_restore_failed error={type(exc).__name__}: {exc}")
         try:
             termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_attrs)
-        except Exception:
-            pass
+        except Exception as exc:
+            router_log("WARN", f"channel_terminal_restore_failed error={type(exc).__name__}: {exc}")
         _write_terminal_input_mode_reset()
         try:
             os.close(master_fd)
-        except Exception:
-            pass
+        except Exception as exc:
+            router_log("WARN", f"channel_pty_close_failed error={type(exc).__name__}: {exc}")
         _terminate_recorded_child_process(proc, "current Codex")
         _release_codex_child_process_record(tracked_child_pid_path, proc.pid)
 
@@ -29798,14 +29798,14 @@ def _mcp_proxy_forward_stdin(proc: subprocess.Popen[bytes]) -> None:
             if proc.stdin:
                 proc.stdin.write(chunk)
                 proc.stdin.flush()
-    except Exception:
-        pass
+    except Exception as exc:
+        router_log("WARN", f"mcp_proxy_stdin_forward_failed error={type(exc).__name__}: {exc}")
     finally:
         try:
             if proc.stdin:
                 proc.stdin.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            router_log("WARN", f"mcp_proxy_stdin_close_failed error={type(exc).__name__}: {exc}")
 
 
 def _mcp_proxy_stdio_mode(server: dict[str, Any]) -> str:
@@ -29881,14 +29881,14 @@ def _mcp_proxy_forward_stdin_jsonl(proc: subprocess.Popen[bytes]) -> None:
             buffer.extend(chunk)
             _mcp_proxy_drain_stdin_jsonl_buffer(proc, buffer)
         _mcp_proxy_drain_stdin_jsonl_buffer(proc, buffer, final=True)
-    except Exception:
-        pass
+    except Exception as exc:
+        router_log("WARN", f"mcp_proxy_jsonl_stdin_forward_failed error={type(exc).__name__}: {exc}")
     finally:
         try:
             if proc.stdin:
                 proc.stdin.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            router_log("WARN", f"mcp_proxy_jsonl_stdin_close_failed error={type(exc).__name__}: {exc}")
 
 
 def _mcp_proxy_write_stdout_frame(body: bytes) -> None:
@@ -30296,8 +30296,12 @@ def _mcp_proxy_emit_jsonl_stdout_line(server_name: str, line: bytes) -> None:
         try:
             sys.stderr.buffer.write(body + b"\n")
             sys.stderr.buffer.flush()
-        except Exception:
-            pass
+        except Exception as write_exc:
+            router_log(
+                "WARN",
+                f"mcp_proxy_invalid_stdout_log_failed server={server_name} "
+                f"error={type(write_exc).__name__}: {write_exc}",
+            )
         return
     _mcp_proxy_observe_json_message(server_name, payload)
     _mcp_proxy_write_stdout_frame(body)
@@ -30333,8 +30337,8 @@ def _mcp_proxy_forward_stderr(proc: subprocess.Popen[bytes]) -> None:
                 break
             sys.stderr.buffer.write(chunk)
             sys.stderr.buffer.flush()
-    except Exception:
-        pass
+    except Exception as exc:
+        router_log("WARN", f"mcp_proxy_stderr_forward_failed error={type(exc).__name__}: {exc}")
 
 
 def _mcp_proxy_streamable_http_request(
@@ -30512,8 +30516,12 @@ def run_mcp_streamable_http_proxy(server_name: str, server_config_path: Path) ->
                 _mcp_proxy_streamable_http_request(
                     endpoint, headers, initialized_payload, timeout, protocol_version, new_session,
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                router_log(
+                    "WARN",
+                    f"mcp_http_proxy_initialized_notification_failed server={server_name} "
+                    f"error={type(exc).__name__}: {exc}",
+                )
         if new_session:
             router_log("INFO", f"mcp_http_proxy_session_initialized server={server_name} session={new_session}")
         return new_session
@@ -30625,8 +30633,12 @@ def run_mcp_streamable_http_proxy(server_name: str, server_config_path: Path) ->
                         elif field == "retry":
                             try:
                                 retry_seconds = max(1.0, min(60.0, int(value) / 1000.0))
-                            except Exception:
-                                pass
+                            except (TypeError, ValueError) as exc:
+                                router_log(
+                                    "WARN",
+                                    f"mcp_http_proxy_invalid_retry server={server_name} value={value!r} "
+                                    f"error={type(exc).__name__}: {exc}",
+                                )
                 continue
             except urllib.error.HTTPError as exc:
                 body_text = _http_error_body_text(exc)
@@ -30877,8 +30889,12 @@ def run_mcp_stdio_proxy(server_name: str, server_config_path: Path) -> int:
         if proc.poll() is None:
             try:
                 proc.terminate()
-            except Exception:
-                pass
+            except Exception as exc:
+                router_log(
+                    "WARN",
+                    f"mcp_stdio_proxy_terminate_failed server={server_name} "
+                    f"error={type(exc).__name__}: {exc}",
+                )
 
 
 def cmd_mcp_proxy(argv: list[str]) -> int:
