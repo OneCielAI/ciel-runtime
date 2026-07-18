@@ -53,37 +53,47 @@ def choose_provider_api_key(provider: str, pcfg: dict[str, Any], *, rotate: bool
 
 
 @dataclass(frozen=True, slots=True)
-class RateLimitLearningServices:
+class RateLimitStateStore:
     CONFIG_DIR: Any
     RATE_LIMIT_STATE_PATH: Any
     _RATE_LIMIT_LOCK: Any
+    router_log: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class RateLimitLearningPolicy:
     current_upstream_model_id: Callable[..., Any]
     first_header: Callable[..., Any]
     first_int_in_header: Callable[..., Any]
     provider_api_key_count: Callable[..., Any]
     rate_limit_reset_seconds: Callable[..., Any]
-    router_log: Callable[..., Any]
     router_rate_limit_configured_rpm: Callable[..., Any]
     router_rate_limit_key: Callable[..., Any]
     router_rate_limit_recent: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class RateLimitLearningServices:
+    state_store: RateLimitStateStore
+    policy: RateLimitLearningPolicy
 
 
 def learn_rate_limit_headers(provider: str, pcfg: dict[str, Any], model: str | None, headers: Any,
     *,
     services: RateLimitLearningServices,
 ) -> None:
-    CONFIG_DIR = services.CONFIG_DIR
-    RATE_LIMIT_STATE_PATH = services.RATE_LIMIT_STATE_PATH
-    _RATE_LIMIT_LOCK = services._RATE_LIMIT_LOCK
-    current_upstream_model_id = services.current_upstream_model_id
-    first_header = services.first_header
-    first_int_in_header = services.first_int_in_header
-    provider_api_key_count = services.provider_api_key_count
-    rate_limit_reset_seconds = services.rate_limit_reset_seconds
-    router_log = services.router_log
-    router_rate_limit_configured_rpm = services.router_rate_limit_configured_rpm
-    router_rate_limit_key = services.router_rate_limit_key
-    router_rate_limit_recent = services.router_rate_limit_recent
+    CONFIG_DIR = services.state_store.CONFIG_DIR
+    RATE_LIMIT_STATE_PATH = services.state_store.RATE_LIMIT_STATE_PATH
+    _RATE_LIMIT_LOCK = services.state_store._RATE_LIMIT_LOCK
+    router_log = services.state_store.router_log
+    current_upstream_model_id = services.policy.current_upstream_model_id
+    first_header = services.policy.first_header
+    first_int_in_header = services.policy.first_int_in_header
+    provider_api_key_count = services.policy.provider_api_key_count
+    rate_limit_reset_seconds = services.policy.rate_limit_reset_seconds
+    router_rate_limit_configured_rpm = services.policy.router_rate_limit_configured_rpm
+    router_rate_limit_key = services.policy.router_rate_limit_key
+    router_rate_limit_recent = services.policy.router_rate_limit_recent
     limit = first_int_in_header(first_header(headers, [
         "x-ratelimit-limit-requests",
         "x-rate-limit-limit-requests",
@@ -210,14 +220,10 @@ def learn_rate_limit_headers(provider: str, pcfg: dict[str, Any], model: str | N
 
 
 @dataclass(frozen=True, slots=True)
-class RateLimitBackoffServices:
-    CONFIG_DIR: Any
-    RATE_LIMIT_STATE_PATH: Any
-    _RATE_LIMIT_LOCK: Any
+class RateLimitBackoffPolicy:
     current_upstream_model_id: Callable[..., Any]
     parse_retry_after_seconds: Callable[..., Any]
     provider_api_key_count: Callable[..., Any]
-    router_log: Callable[..., Any]
     router_rate_limit_capacity: Callable[..., Any]
     router_rate_limit_configured_rpm: Callable[..., Any]
     router_rate_limit_effective_rpm: Callable[..., Any]
@@ -225,22 +231,28 @@ class RateLimitBackoffServices:
     router_rate_limit_recent: Callable[..., Any]
 
 
+@dataclass(frozen=True, slots=True)
+class RateLimitBackoffServices:
+    state_store: RateLimitStateStore
+    policy: RateLimitBackoffPolicy
+
+
 def register_rate_limit_backoff(provider: str, pcfg: dict[str, Any], model: str | None, retry_after: str | None = None,
     *,
     services: RateLimitBackoffServices,
 ) -> float:
-    CONFIG_DIR = services.CONFIG_DIR
-    RATE_LIMIT_STATE_PATH = services.RATE_LIMIT_STATE_PATH
-    _RATE_LIMIT_LOCK = services._RATE_LIMIT_LOCK
-    current_upstream_model_id = services.current_upstream_model_id
-    parse_retry_after_seconds = services.parse_retry_after_seconds
-    provider_api_key_count = services.provider_api_key_count
-    router_log = services.router_log
-    router_rate_limit_capacity = services.router_rate_limit_capacity
-    router_rate_limit_configured_rpm = services.router_rate_limit_configured_rpm
-    router_rate_limit_effective_rpm = services.router_rate_limit_effective_rpm
-    router_rate_limit_key = services.router_rate_limit_key
-    router_rate_limit_recent = services.router_rate_limit_recent
+    CONFIG_DIR = services.state_store.CONFIG_DIR
+    RATE_LIMIT_STATE_PATH = services.state_store.RATE_LIMIT_STATE_PATH
+    _RATE_LIMIT_LOCK = services.state_store._RATE_LIMIT_LOCK
+    router_log = services.state_store.router_log
+    current_upstream_model_id = services.policy.current_upstream_model_id
+    parse_retry_after_seconds = services.policy.parse_retry_after_seconds
+    provider_api_key_count = services.policy.provider_api_key_count
+    router_rate_limit_capacity = services.policy.router_rate_limit_capacity
+    router_rate_limit_configured_rpm = services.policy.router_rate_limit_configured_rpm
+    router_rate_limit_effective_rpm = services.policy.router_rate_limit_effective_rpm
+    router_rate_limit_key = services.policy.router_rate_limit_key
+    router_rate_limit_recent = services.policy.router_rate_limit_recent
     rpm = router_rate_limit_effective_rpm(provider, pcfg, model)
     fallback = 60.0 / float(rpm) if rpm and rpm > 0 else 15.0
     wait = parse_retry_after_seconds(retry_after)
@@ -315,14 +327,10 @@ def register_rate_limit_backoff(provider: str, pcfg: dict[str, Any], model: str 
 
 
 @dataclass(frozen=True, slots=True)
-class RateLimitApplyServices:
-    CONFIG_DIR: Any
-    RATE_LIMIT_STATE_PATH: Any
-    _RATE_LIMIT_LOCK: Any
+class RateLimitApplyPolicy:
     current_upstream_model_id: Callable[..., Any]
     provider_api_key_count: Callable[..., Any]
     record_router_rate_usage: Callable[..., Any]
-    router_log: Callable[..., Any]
     router_rate_limit_capacity: Callable[..., Any]
     router_rate_limit_effective_rpm: Callable[..., Any]
     router_rate_limit_key: Callable[..., Any]
@@ -330,22 +338,28 @@ class RateLimitApplyServices:
     wait_for_router_rate_limit_penalty: Callable[..., Any]
 
 
+@dataclass(frozen=True, slots=True)
+class RateLimitApplyServices:
+    state_store: RateLimitStateStore
+    policy: RateLimitApplyPolicy
+
+
 def apply_rate_limit(provider: str, pcfg: dict[str, Any], model: str | None = None,
     *,
     services: RateLimitApplyServices,
 ) -> tuple[float, int, int | None]:
-    CONFIG_DIR = services.CONFIG_DIR
-    RATE_LIMIT_STATE_PATH = services.RATE_LIMIT_STATE_PATH
-    _RATE_LIMIT_LOCK = services._RATE_LIMIT_LOCK
-    current_upstream_model_id = services.current_upstream_model_id
-    provider_api_key_count = services.provider_api_key_count
-    record_router_rate_usage = services.record_router_rate_usage
-    router_log = services.router_log
-    router_rate_limit_capacity = services.router_rate_limit_capacity
-    router_rate_limit_effective_rpm = services.router_rate_limit_effective_rpm
-    router_rate_limit_key = services.router_rate_limit_key
-    router_rate_limit_recent = services.router_rate_limit_recent
-    wait_for_router_rate_limit_penalty = services.wait_for_router_rate_limit_penalty
+    CONFIG_DIR = services.state_store.CONFIG_DIR
+    RATE_LIMIT_STATE_PATH = services.state_store.RATE_LIMIT_STATE_PATH
+    _RATE_LIMIT_LOCK = services.state_store._RATE_LIMIT_LOCK
+    router_log = services.state_store.router_log
+    current_upstream_model_id = services.policy.current_upstream_model_id
+    provider_api_key_count = services.policy.provider_api_key_count
+    record_router_rate_usage = services.policy.record_router_rate_usage
+    router_rate_limit_capacity = services.policy.router_rate_limit_capacity
+    router_rate_limit_effective_rpm = services.policy.router_rate_limit_effective_rpm
+    router_rate_limit_key = services.policy.router_rate_limit_key
+    router_rate_limit_recent = services.policy.router_rate_limit_recent
+    wait_for_router_rate_limit_penalty = services.policy.wait_for_router_rate_limit_penalty
     rpm = router_rate_limit_effective_rpm(provider, pcfg, model)
     if rpm is None:
         waited = wait_for_router_rate_limit_penalty(provider, pcfg, model, rpm)
@@ -427,4 +441,17 @@ def apply_rate_limit(provider: str, pcfg: dict[str, Any], model: str | None = No
 
 
 
-__all__ = ['choose_provider_api_key','ProviderKeyServices','learn_rate_limit_headers','RateLimitLearningServices','register_rate_limit_backoff','RateLimitBackoffServices','apply_rate_limit','RateLimitApplyServices']
+__all__ = [
+    "ProviderKeyServices",
+    "RateLimitApplyPolicy",
+    "RateLimitApplyServices",
+    "RateLimitBackoffPolicy",
+    "RateLimitBackoffServices",
+    "RateLimitLearningPolicy",
+    "RateLimitLearningServices",
+    "RateLimitStateStore",
+    "apply_rate_limit",
+    "choose_provider_api_key",
+    "learn_rate_limit_headers",
+    "register_rate_limit_backoff",
+]

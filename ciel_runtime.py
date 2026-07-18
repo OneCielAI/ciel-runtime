@@ -110,9 +110,13 @@ from ciel_runtime_support.protocols.ollama_chat import (
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, ZAI_MODEL_FALLBACK_IDS
 from ciel_runtime_support.provider_limits import (
     ProviderKeyServices,
+    RateLimitApplyPolicy,
     RateLimitApplyServices,
+    RateLimitBackoffPolicy,
     RateLimitBackoffServices,
+    RateLimitLearningPolicy,
     RateLimitLearningServices,
+    RateLimitStateStore,
     apply_rate_limit,
     choose_provider_api_key,
     learn_rate_limit_headers,
@@ -6565,18 +6569,22 @@ def learn_router_rate_limit_headers(provider: str, pcfg: dict[str, Any], model: 
     return learn_rate_limit_headers(
         provider, pcfg, model, headers,
         services=RateLimitLearningServices(
-            CONFIG_DIR=CONFIG_DIR,
-            RATE_LIMIT_STATE_PATH=RATE_LIMIT_STATE_PATH,
-            _RATE_LIMIT_LOCK=_RATE_LIMIT_LOCK,
-            current_upstream_model_id=current_upstream_model_id,
-            first_header=first_header,
-            first_int_in_header=first_int_in_header,
-            provider_api_key_count=provider_api_key_count,
-            rate_limit_reset_seconds=rate_limit_reset_seconds,
-            router_log=router_log,
-            router_rate_limit_configured_rpm=router_rate_limit_configured_rpm,
-            router_rate_limit_key=router_rate_limit_key,
-            router_rate_limit_recent=router_rate_limit_recent
+            state_store=RateLimitStateStore(
+                CONFIG_DIR=CONFIG_DIR,
+                RATE_LIMIT_STATE_PATH=RATE_LIMIT_STATE_PATH,
+                _RATE_LIMIT_LOCK=_RATE_LIMIT_LOCK,
+                router_log=router_log,
+            ),
+            policy=RateLimitLearningPolicy(
+                current_upstream_model_id=current_upstream_model_id,
+                first_header=first_header,
+                first_int_in_header=first_int_in_header,
+                provider_api_key_count=provider_api_key_count,
+                rate_limit_reset_seconds=rate_limit_reset_seconds,
+                router_rate_limit_configured_rpm=router_rate_limit_configured_rpm,
+                router_rate_limit_key=router_rate_limit_key,
+                router_rate_limit_recent=router_rate_limit_recent,
+            ),
         ),
     )
 
@@ -6585,18 +6593,22 @@ def register_router_rate_limit_backoff(provider: str, pcfg: dict[str, Any], mode
     return register_rate_limit_backoff(
         provider, pcfg, model, retry_after,
         services=RateLimitBackoffServices(
-            CONFIG_DIR=CONFIG_DIR,
-            RATE_LIMIT_STATE_PATH=RATE_LIMIT_STATE_PATH,
-            _RATE_LIMIT_LOCK=_RATE_LIMIT_LOCK,
-            current_upstream_model_id=current_upstream_model_id,
-            parse_retry_after_seconds=parse_retry_after_seconds,
-            provider_api_key_count=provider_api_key_count,
-            router_log=router_log,
-            router_rate_limit_capacity=router_rate_limit_capacity,
-            router_rate_limit_configured_rpm=router_rate_limit_configured_rpm,
-            router_rate_limit_effective_rpm=router_rate_limit_effective_rpm,
-            router_rate_limit_key=router_rate_limit_key,
-            router_rate_limit_recent=router_rate_limit_recent
+            state_store=RateLimitStateStore(
+                CONFIG_DIR=CONFIG_DIR,
+                RATE_LIMIT_STATE_PATH=RATE_LIMIT_STATE_PATH,
+                _RATE_LIMIT_LOCK=_RATE_LIMIT_LOCK,
+                router_log=router_log,
+            ),
+            policy=RateLimitBackoffPolicy(
+                current_upstream_model_id=current_upstream_model_id,
+                parse_retry_after_seconds=parse_retry_after_seconds,
+                provider_api_key_count=provider_api_key_count,
+                router_rate_limit_capacity=router_rate_limit_capacity,
+                router_rate_limit_configured_rpm=router_rate_limit_configured_rpm,
+                router_rate_limit_effective_rpm=router_rate_limit_effective_rpm,
+                router_rate_limit_key=router_rate_limit_key,
+                router_rate_limit_recent=router_rate_limit_recent,
+            ),
         ),
     )
 
@@ -6728,18 +6740,22 @@ def apply_router_rate_limit(provider: str, pcfg: dict[str, Any], model: str | No
     return apply_rate_limit(
         provider, pcfg, model,
         services=RateLimitApplyServices(
-            CONFIG_DIR=CONFIG_DIR,
-            RATE_LIMIT_STATE_PATH=RATE_LIMIT_STATE_PATH,
-            _RATE_LIMIT_LOCK=_RATE_LIMIT_LOCK,
-            current_upstream_model_id=current_upstream_model_id,
-            provider_api_key_count=provider_api_key_count,
-            record_router_rate_usage=record_router_rate_usage,
-            router_log=router_log,
-            router_rate_limit_capacity=router_rate_limit_capacity,
-            router_rate_limit_effective_rpm=router_rate_limit_effective_rpm,
-            router_rate_limit_key=router_rate_limit_key,
-            router_rate_limit_recent=router_rate_limit_recent,
-            wait_for_router_rate_limit_penalty=wait_for_router_rate_limit_penalty
+            state_store=RateLimitStateStore(
+                CONFIG_DIR=CONFIG_DIR,
+                RATE_LIMIT_STATE_PATH=RATE_LIMIT_STATE_PATH,
+                _RATE_LIMIT_LOCK=_RATE_LIMIT_LOCK,
+                router_log=router_log,
+            ),
+            policy=RateLimitApplyPolicy(
+                current_upstream_model_id=current_upstream_model_id,
+                provider_api_key_count=provider_api_key_count,
+                record_router_rate_usage=record_router_rate_usage,
+                router_rate_limit_capacity=router_rate_limit_capacity,
+                router_rate_limit_effective_rpm=router_rate_limit_effective_rpm,
+                router_rate_limit_key=router_rate_limit_key,
+                router_rate_limit_recent=router_rate_limit_recent,
+                wait_for_router_rate_limit_penalty=wait_for_router_rate_limit_penalty,
+            ),
         ),
     )
 

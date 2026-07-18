@@ -38,6 +38,15 @@ from ciel_runtime_support.provider_models import (
     ProviderCatalogSources,
     ProviderModelServices,
 )
+from ciel_runtime_support.provider_limits import (
+    RateLimitApplyPolicy,
+    RateLimitApplyServices,
+    RateLimitBackoffPolicy,
+    RateLimitBackoffServices,
+    RateLimitLearningPolicy,
+    RateLimitLearningServices,
+    RateLimitStateStore,
+)
 from ciel_runtime_support.prelaunch import (
     PrelaunchChannelCommands,
     PrelaunchChannelQuery,
@@ -284,6 +293,20 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_preset_ports_stay_below_dependency_limit(self):
         for port in (PresetServices, PresetDefinition, PresetContextPolicy, PresetProviderMutation):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_rate_limit_ports_stay_below_dependency_limit(self):
+        ports = (
+            RateLimitStateStore,
+            RateLimitLearningServices,
+            RateLimitLearningPolicy,
+            RateLimitBackoffServices,
+            RateLimitBackoffPolicy,
+            RateLimitApplyServices,
+            RateLimitApplyPolicy,
+        )
+        for port in ports:
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
