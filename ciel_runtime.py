@@ -65,7 +65,7 @@ from ciel_runtime_support.codex_cli import (
 from ciel_runtime_support.codex_router import CodexRouter, read_codex_response_preamble
 from ciel_runtime_support.observability import EventBus, render_events_html
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
-from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS
+from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, ZAI_MODEL_FALLBACK_IDS
 from ciel_runtime_support.provider_limits import (
     ProviderKeyServices,
     RateLimitApplyServices,
@@ -279,23 +279,6 @@ KIMI_K3_MODEL = "k3"
 KIMI_MODEL_FALLBACK_IDS: tuple[str, ...] = (KIMI_K3_MODEL, KIMI_DEFAULT_MODEL)
 ZAI_ANTHROPIC_BASE_URL = "https://api.z.ai/api/anthropic"
 ZAI_DEFAULT_MODEL = "glm-5.2[1m]"
-ZAI_MODEL_FALLBACK_IDS: tuple[str, ...] = (
-    "glm-5.2[1m]",
-    "glm-5.2",
-    "glm-5.1",
-    "glm-5",
-    "glm-5-turbo",
-    "glm-4.7",
-    "glm-4.7-flashx",
-    "glm-4.7-flash",
-    "glm-4.6",
-    "glm-4.5",
-    "glm-4.5-x",
-    "glm-4.5-airx",
-    "glm-4.5-air",
-    "glm-4.5-flash",
-    "glm-4-32b-0414-128k",
-)
 ZAI_MODEL_CONTEXT_HINTS: tuple[tuple[str, int], ...] = (
     ("glm-5.2", 1_000_000),
     ("glm-5-turbo", 200_000),
@@ -2665,6 +2648,11 @@ def provider_model_paths(provider: str, pcfg: dict[str, Any]) -> tuple[str, ...]
     return adapter.model_paths(provider_contract_config(provider, pcfg))
 
 
+def provider_model_catalog_policy(provider: str, pcfg: dict[str, Any]):
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.model_catalog_policy(provider_contract_config(provider, pcfg))
+
+
 def select_provider_protocol(
     provider: str,
     pcfg: dict[str, Any],
@@ -2673,6 +2661,16 @@ def select_provider_protocol(
 ) -> MessageProtocol:
     adapter = configured_provider_adapter(provider, pcfg)
     return adapter.select_protocol(operation, provider_contract_config(provider, pcfg), model)
+
+
+def apply_provider_adapter_request_policy(
+    provider: str,
+    pcfg: dict[str, Any],
+    body: dict[str, Any],
+) -> dict[str, Any]:
+    adapter = configured_provider_adapter(provider, pcfg)
+    normalized = adapter.normalize_request_options(provider_contract_config(provider, pcfg), body)
+    return dict(normalized)
 
 
 def provider_has_api_key(provider: str, pcfg: dict[str, Any]) -> bool:
@@ -4458,18 +4456,22 @@ def provider_tool_choice_status(provider: str, pcfg: dict[str, Any]) -> str:
 def normalize_tool_choice_for_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
     if body.get("tool_choice") is None:
         return body
-    if provider == "kimi" and pcfg.get("supports_tool_choice") is not False:
-        tool_choice = body.get("tool_choice")
-        if isinstance(tool_choice, dict):
-            choice_type = str(tool_choice.get("type") or "").strip().lower()
-            if choice_type in ("any", "tool"):
-                out = dict(body)
-                out["tool_choice"] = {"type": "auto"}
-                router_log(
-                    "WARN",
-                    f"downgraded unsupported forced tool_choice for kimi to auto: model={body.get('model')} tool_choice={tool_choice}",
-                )
-                return out
+    adapter = configured_provider_adapter(provider, pcfg)
+    tool_choice = body.get("tool_choice")
+    normalized_choice = adapter.normalize_tool_choice(
+        provider_contract_config(provider, pcfg),
+        str(body.get("model") or pcfg.get("current_model") or ""),
+        tool_choice,
+    )
+    if normalized_choice != tool_choice:
+        out = dict(body)
+        out["tool_choice"] = normalized_choice
+        router_log(
+            "WARN",
+            f"normalized unsupported forced tool_choice for provider={provider}: "
+            f"model={body.get('model')} tool_choice={tool_choice}",
+        )
+        return out
     if provider_supports_tool_choice(provider, pcfg, body):
         return body
     out = dict(body)
@@ -7154,8 +7156,6 @@ def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool 
         provider, pcfg, force_refresh,
         services=ProviderModelServices(
             ANTHROPIC_MODEL_DOCS_URLS=ANTHROPIC_MODEL_DOCS_URLS,
-            OPENCODE_PROVIDER_NAMES=OPENCODE_PROVIDER_NAMES,
-            ZAI_MODEL_FALLBACK_IDS=ZAI_MODEL_FALLBACK_IDS,
             fetch_anthropic_api_model_ids=fetch_anthropic_api_model_ids,
             fetch_anthropic_public_model_ids=fetch_anthropic_public_model_ids,
             fetch_fireworks_model_ids=fetch_fireworks_model_ids,
@@ -7171,6 +7171,7 @@ def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool 
             nvidia_upstream_base_url=nvidia_upstream_base_url,
             ollama_catalog_model_ids=ollama_catalog_model_ids,
             provider_has_api_key=provider_has_api_key,
+            provider_model_catalog_policy=provider_model_catalog_policy,
             provider_model_paths=provider_model_paths,
             provider_model_list_headers=provider_model_list_headers,
             provider_upstream_request_base=provider_upstream_request_base,
@@ -12807,7 +12808,7 @@ def normalize_request_for_provider_wire(provider: str, pcfg: dict[str, Any], bod
     return normalize_provider_request(
         provider, pcfg, body,
         services=ProviderRequestServices(
-            is_kimi_k3_model_id=is_kimi_k3_model_id,
+            apply_provider_adapter_request_policy=apply_provider_adapter_request_policy,
             normalize_anthropic_system_role_messages=normalize_anthropic_system_role_messages,
             normalize_anthropic_tool_turns_for_provider=normalize_anthropic_tool_turns_for_provider,
             normalize_thinking_for_non_anthropic_provider=normalize_thinking_for_non_anthropic_provider,

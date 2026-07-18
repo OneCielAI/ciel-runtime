@@ -134,6 +134,17 @@ class ProviderRequestPolicy:
     default_timeout_seconds: float = 60.0
 
 
+@dataclass(frozen=True)
+class ProviderModelCatalogPolicy:
+    """Select a reusable model-catalog strategy without provider-name branching."""
+
+    kind: Literal["configured", "anthropic", "openai", "ollama", "lm_studio", "nvidia", "fireworks"] = "openai"
+    fallback_models: tuple[str, ...] = ()
+    allow_configured_fallback: bool = False
+    allow_public_without_auth: bool = False
+    use_bundled_catalog_fallback: bool = False
+
+
 class RuntimeAdapter(ABC):
     """Adapter for a local/interactive coding runtime.
 
@@ -255,6 +266,18 @@ class ProviderAdapter(ABC):
         if configured is not None:
             return bool(configured)
         return self.capabilities(config).preserves_anthropic_thinking
+
+    def model_catalog_policy(self, config: ProviderConfig) -> ProviderModelCatalogPolicy:
+        del config
+        return ProviderModelCatalogPolicy()
+
+    def normalize_request_options(self, config: ProviderConfig, request: Mapping[str, Any]) -> Mapping[str, Any]:
+        del config
+        return request
+
+    def normalize_tool_choice(self, config: ProviderConfig, model: str, tool_choice: Any) -> Any:
+        del config, model
+        return tool_choice
 
 
 class MessageProtocolAdapter(ABC):

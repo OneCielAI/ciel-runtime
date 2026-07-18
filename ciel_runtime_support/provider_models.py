@@ -7,8 +7,6 @@ from typing import Any, Callable
 @dataclass(frozen=True, slots=True)
 class ProviderModelServices:
     ANTHROPIC_MODEL_DOCS_URLS: Any
-    OPENCODE_PROVIDER_NAMES: Any
-    ZAI_MODEL_FALLBACK_IDS: Any
     fetch_anthropic_api_model_ids: Callable[..., Any]
     fetch_anthropic_public_model_ids: Callable[..., Any]
     fetch_fireworks_model_ids: Callable[..., Any]
@@ -24,6 +22,7 @@ class ProviderModelServices:
     nvidia_upstream_base_url: Callable[..., Any]
     ollama_catalog_model_ids: Callable[..., Any]
     provider_has_api_key: Callable[..., Any]
+    provider_model_catalog_policy: Callable[..., Any]
     provider_model_paths: Callable[..., Any]
     provider_model_list_headers: Callable[..., Any]
     provider_upstream_request_base: Callable[..., Any]
@@ -41,8 +40,6 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
     services: ProviderModelServices,
 ) -> list[str]:
     ANTHROPIC_MODEL_DOCS_URLS = services.ANTHROPIC_MODEL_DOCS_URLS
-    OPENCODE_PROVIDER_NAMES = services.OPENCODE_PROVIDER_NAMES
-    ZAI_MODEL_FALLBACK_IDS = services.ZAI_MODEL_FALLBACK_IDS
     fetch_anthropic_api_model_ids = services.fetch_anthropic_api_model_ids
     fetch_anthropic_public_model_ids = services.fetch_anthropic_public_model_ids
     fetch_fireworks_model_ids = services.fetch_fireworks_model_ids
@@ -58,6 +55,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
     nvidia_upstream_base_url = services.nvidia_upstream_base_url
     ollama_catalog_model_ids = services.ollama_catalog_model_ids
     provider_has_api_key = services.provider_has_api_key
+    provider_model_catalog_policy = services.provider_model_catalog_policy
     provider_model_paths = services.provider_model_paths
     provider_model_list_headers = services.provider_model_list_headers
     provider_upstream_request_base = services.provider_upstream_request_base
@@ -71,43 +69,18 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
     cached = None if force_refresh else read_model_list_cache(provider, pcfg)
     if cached is not None:
         return cached
-    if provider == "agy":
-        ids = unique_model_ids(provider, [*(pcfg.get("custom_models", []) or []), pcfg.get("current_model") or ""])
-        if ids:
-            write_model_list_cache(provider, pcfg, ids)
-        return ids
-    if provider == "deepseek":
+    catalog_policy = provider_model_catalog_policy(provider, pcfg)
+    if catalog_policy.kind == "configured":
         ids = unique_model_ids(provider, [
-            "deepseek-v4-pro[1m]",
-            "deepseek-v4-flash",
+            *catalog_policy.fallback_models,
             *(pcfg.get("custom_models", []) or []),
             pcfg.get("current_model") or "",
         ])
         sorted_ids = sorted_model_ids(ids)
-        write_model_list_cache(provider, pcfg, sorted_ids)
+        if sorted_ids:
+            write_model_list_cache(provider, pcfg, sorted_ids)
         return sorted_ids
-    if provider == "zai":
-        ids: list[str] = []
-        model_info: dict[str, dict[str, Any]] = {}
-        base = provider_upstream_request_base(provider, pcfg)
-        headers = provider_model_list_headers(provider, pcfg)
-        try:
-            data = http_json(join_url(base, "/v1/models"), headers=headers, timeout=6.0, provider=provider, pcfg=pcfg)
-            ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
-            model_info.update(model_info_from_response(provider, data))
-        except Exception as exc:
-            router_log("DEBUG", f"zai model list fetch failed: {type(exc).__name__}: {exc}")
-        ids = unique_model_ids(provider, [
-            *ids,
-            *ZAI_MODEL_FALLBACK_IDS,
-            *(pcfg.get("custom_models", []) or []),
-            pcfg.get("current_model") or "",
-        ])
-        sorted_ids = sorted_model_ids(ids)
-        metadata = {"model_info": model_info, "source": "zai:/v1/models+docs"} if model_info else {"source": "zai:docs"}
-        write_model_list_cache(provider, pcfg, sorted_ids, metadata)
-        return sorted_ids
-    if provider == "anthropic":
+    if catalog_policy.kind == "anthropic":
         ids: list[str] = []
         source = ""
         if provider_has_api_key(provider, pcfg):
@@ -128,7 +101,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
         write_model_list_cache(provider, pcfg, sorted_ids)
         write_model_registry(provider, pcfg, sorted_ids, source, {"urls": list(ANTHROPIC_MODEL_DOCS_URLS) if source == "anthropic-docs" else []})
         return sorted_ids
-    if provider == "fireworks":
+    if catalog_policy.kind == "fireworks":
         headers = provider_model_list_headers(provider, pcfg)
         model_info: dict[str, dict[str, Any]] = {}
         source = ""
@@ -174,7 +147,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
         }
         write_model_list_cache(provider, pcfg, sorted_ids, metadata)
         return sorted_ids
-    if provider == "nvidia-hosted":
+    if catalog_policy.kind == "nvidia":
         base = (pcfg.get("base_url") or nvidia_upstream_base_url()).rstrip("/")
     else:
         base = provider_upstream_request_base(provider, pcfg)
@@ -182,7 +155,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
     model_info: dict[str, dict[str, Any]] = {}
     fetched = False
     try:
-        if provider == "nvidia-hosted":
+        if catalog_policy.kind == "nvidia":
             data = http_json(join_url(base, "/v1/models"), headers=nvidia_hosted_list_headers(), timeout=8.0, provider=provider, pcfg=pcfg)
             ids = model_ids_from_response(data)
             model_info.update(model_info_from_response(provider, data))
@@ -191,8 +164,8 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
             headers = provider_model_list_headers(provider, pcfg)
             for path in provider_model_paths(provider, pcfg):
                 try:
-                    request_base = lm_studio_api_base(pcfg) if provider == "lm-studio" and path.startswith("/api/") else base
-                    timeout = 2.0 if provider == "lm-studio" else (4.0 if provider in ("ollama", "ollama-cloud") else 6.0)
+                    request_base = lm_studio_api_base(pcfg) if catalog_policy.kind == "lm_studio" and path.startswith("/api/") else base
+                    timeout = 2.0 if catalog_policy.kind == "lm_studio" else (4.0 if catalog_policy.kind == "ollama" else 6.0)
                     data = http_json(join_url(request_base, path), headers=headers, timeout=timeout, provider=provider, pcfg=pcfg)
                     ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
                     model_info.update(model_info_from_response(provider, data))
@@ -201,7 +174,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
                         break
                 except Exception:
                     continue
-            if not fetched and provider in OPENCODE_PROVIDER_NAMES:
+            if not fetched and catalog_policy.allow_public_without_auth:
                 # OpenCode publishes the model catalog at /v1/models. Keep the
                 # picker independent from key-specific auth/rate-limit failures.
                 try:
@@ -214,10 +187,10 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
                     router_log("DEBUG", f"{provider} public model catalog fetch failed: {type(exc).__name__}: {exc}")
     except Exception:
         ids = []
-    if provider == "ollama-cloud" and not ids:
+    if catalog_policy.use_bundled_catalog_fallback and not ids:
         ids = ollama_catalog_model_ids(provider)
         fetched = bool(ids)
-    if not fetched and provider in (*OPENCODE_PROVIDER_NAMES, "kimi"):
+    if not fetched and catalog_policy.allow_configured_fallback:
         ids = unique_model_ids(provider, [
             *(pcfg.get("custom_models", []) or []),
             pcfg.get("current_model") or "",
@@ -226,21 +199,28 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
         if sorted_ids:
             write_model_list_cache(provider, pcfg, sorted_ids)
         return sorted_ids
+    if not fetched and catalog_policy.fallback_models:
+        ids = list(catalog_policy.fallback_models)
+        fetched = True
     if not fetched:
         return []
+    for mid in catalog_policy.fallback_models:
+        mid = normalize_model_id(provider, mid)
+        if mid and mid not in ids:
+            ids.append(mid)
     for mid in pcfg.get("custom_models", []) or []:
         mid = normalize_model_id(provider, mid)
         if mid and mid not in ids:
             ids.append(mid)
     cur = normalize_model_id(provider, pcfg.get("current_model") or "")
-    if cur and provider != "nvidia-hosted" and cur.startswith(f"ciel-runtime-{provider}-"):
+    if cur and catalog_policy.kind != "nvidia" and cur.startswith(f"ciel-runtime-{provider}-"):
         pass
-    elif cur and cur not in ids and not (provider == "nvidia-hosted" and cur.startswith("claude-")):
+    elif cur and cur not in ids and not (catalog_policy.kind == "nvidia" and cur.startswith("claude-")):
         ids.insert(0, cur)
-    if provider == "nvidia-hosted" and cur and cur not in ids:
+    if catalog_policy.kind == "nvidia" and cur and cur not in ids:
         ids.insert(0, cur)
     sorted_ids = unique_model_ids(provider, ids)
-    if provider != "anthropic":
+    if catalog_policy.kind != "anthropic":
         sorted_ids = sorted_model_ids(sorted_ids)
     metadata = {"model_info": model_info} if model_info else None
     write_model_list_cache(provider, pcfg, sorted_ids, metadata)

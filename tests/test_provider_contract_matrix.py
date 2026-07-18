@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from ciel_runtime_support.architecture import ProviderConfig
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS
@@ -81,6 +82,48 @@ class ProviderContractMatrixTests(unittest.TestCase):
         self.assertTrue(deepseek.supports_tool_choice(config("deepseek"), "deepseek-chat"))
         self.assertTrue(
             deepseek.supports_tool_choice(config("deepseek", supports_tool_choice=True), "deepseek-v4-pro")
+        )
+
+    def test_model_catalog_strategy_matrix(self):
+        cases = {
+            "agy": "configured",
+            "anthropic": "anthropic",
+            "deepseek": "configured",
+            "fireworks": "fireworks",
+            "kimi": "openai",
+            "lm-studio": "lm_studio",
+            "nvidia-hosted": "nvidia",
+            "ollama": "ollama",
+            "ollama-cloud": "ollama",
+            "opencode": "openai",
+            "openrouter": "openai",
+            "vllm": "openai",
+            "zai": "openai",
+        }
+        for provider, kind in cases.items():
+            with self.subTest(provider=provider):
+                adapter = PROVIDER_ADAPTERS.create(provider)
+                self.assertEqual(kind, adapter.model_catalog_policy(config(provider)).kind)
+
+    def test_model_catalog_service_has_no_provider_name_dispatch(self):
+        support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
+        for filename in ("provider_models.py", "provider_policy.py"):
+            source = (support / filename).read_text(encoding="utf-8")
+            with self.subTest(filename=filename):
+                self.assertNotIn('provider == "', source)
+                self.assertNotIn("provider in (", source)
+
+    def test_kimi_request_options_are_adapter_owned(self):
+        adapter = PROVIDER_ADAPTERS.create("kimi")
+        configured = config("kimi", model="k3")
+        normalized = adapter.normalize_request_options(
+            configured,
+            {"model": "k3", "thinking": {"type": "enabled"}},
+        )
+        self.assertEqual("max", normalized["thinking"]["effort"])
+        self.assertEqual(
+            {"type": "auto"},
+            adapter.normalize_tool_choice(configured, "k3", {"type": "any"}),
         )
 
 

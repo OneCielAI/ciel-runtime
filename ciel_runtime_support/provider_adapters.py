@@ -11,6 +11,7 @@ from .architecture import (
     ProviderAdapter,
     ProviderCapabilities,
     ProviderConfig,
+    ProviderModelCatalogPolicy,
     ProviderRequestPolicy,
 )
 from .registry import AdapterRegistry
@@ -35,6 +36,24 @@ PROVIDER_DEFAULT_BASE_URLS: dict[str, str] = {
     "fireworks": "https://api.fireworks.ai/inference",
 }
 
+ZAI_MODEL_FALLBACK_IDS: tuple[str, ...] = (
+    "glm-5.2[1m]",
+    "glm-5.2",
+    "glm-5.1",
+    "glm-5",
+    "glm-5-turbo",
+    "glm-4.7",
+    "glm-4.7-flashx",
+    "glm-4.7-flash",
+    "glm-4.6",
+    "glm-4.5",
+    "glm-4.5-x",
+    "glm-4.5-airx",
+    "glm-4.5-air",
+    "glm-4.5-flash",
+    "glm-4-32b-0414-128k",
+)
+
 
 @dataclass(frozen=True)
 class HttpBearerProviderAdapter(ProviderAdapter):
@@ -53,6 +72,7 @@ class HttpBearerProviderAdapter(ProviderAdapter):
             models_path="/v1/models",
         )
     )
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(default_factory=ProviderModelCatalogPolicy)
 
     def default_base_url(self) -> str:
         return self.base_url
@@ -93,6 +113,10 @@ class HttpBearerProviderAdapter(ProviderAdapter):
         del config
         return self.request_policy_value
 
+    def model_catalog_policy(self, config: ProviderConfig) -> ProviderModelCatalogPolicy:
+        del config
+        return self.model_catalog_policy_value
+
     def build_model_headers(self, config: ProviderConfig, api_key: str | None) -> Mapping[str, str]:
         del config
         key = str(api_key or "").strip()
@@ -124,6 +148,9 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
     )
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/messages", models_path="/v1/models")
+    )
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
+        default_factory=lambda: ProviderModelCatalogPolicy(kind="anthropic")
     )
 
     def build_model_headers(self, config: ProviderConfig, api_key: str | None) -> Mapping[str, str]:
@@ -176,6 +203,9 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
             default_timeout_seconds=300.0,
         )
     )
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
+        default_factory=lambda: ProviderModelCatalogPolicy(kind="ollama")
+    )
 
     def model_paths(self, config: ProviderConfig) -> tuple[str, ...]:
         del config
@@ -188,6 +218,9 @@ class OllamaCloudProviderAdapter(OllamaProviderAdapter):
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["ollama-cloud"]
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="ollama_chat", supports_thinking=True)
+    )
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
+        default_factory=lambda: ProviderModelCatalogPolicy(kind="ollama", use_bundled_catalog_fallback=True)
     )
 
 
@@ -208,6 +241,9 @@ class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["lm-studio"]
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", local=True)
+    )
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
+        default_factory=lambda: ProviderModelCatalogPolicy(kind="lm_studio")
     )
 
     def model_paths(self, config: ProviderConfig) -> tuple[str, ...]:
@@ -233,6 +269,9 @@ class VllmProviderAdapter(OpenAICompatibleProviderAdapter):
 class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
     name: str = "nvidia-hosted"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["nvidia-hosted"]
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
+        default_factory=lambda: ProviderModelCatalogPolicy(kind="nvidia")
+    )
 
 
 @dataclass(frozen=True)
@@ -256,6 +295,12 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/messages", models_path="/v1/models")
     )
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
+        default_factory=lambda: ProviderModelCatalogPolicy(
+            kind="configured",
+            fallback_models=("deepseek-v4-pro[1m]", "deepseek-v4-flash"),
+        )
+    )
 
     def supports_tool_choice(self, config: ProviderConfig, model: str | None = None) -> bool:
         configured = config.options.get("supports_tool_choice")
@@ -275,6 +320,9 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/messages", models_path="/v1/models")
     )
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
+        default_factory=lambda: ProviderModelCatalogPolicy(kind="openai", allow_configured_fallback=True)
+    )
 
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
         del config, model
@@ -283,6 +331,28 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
     def select_protocol(self, operation: MessageProtocol, config: ProviderConfig, model: str | None = None) -> MessageProtocol:
         del config, model
         return "openai_chat" if operation in {"openai_chat", "openai_responses"} else "anthropic_messages"
+
+    def normalize_request_options(self, config: ProviderConfig, request: Mapping[str, Any]) -> Mapping[str, Any]:
+        del config
+        model = str(request.get("model") or "").split("[", 1)[0].strip().lower().replace("_", "-")
+        if model.startswith("ciel-runtime-kimi-"):
+            model = model[len("ciel-runtime-kimi-"):]
+        thinking = request.get("thinking")
+        if model not in {"k3", "kimi-k3", "kimi/k3", "kimi-code/k3"} or not isinstance(thinking, Mapping):
+            return request
+        if str(thinking.get("type") or "").lower() == "disabled":
+            return request
+        normalized = dict(request)
+        normalized["thinking"] = {**thinking, "effort": "max"}
+        return normalized
+
+    def normalize_tool_choice(self, config: ProviderConfig, model: str, tool_choice: Any) -> Any:
+        del model
+        if config.options.get("supports_tool_choice") is False or not isinstance(tool_choice, Mapping):
+            return tool_choice
+        if str(tool_choice.get("type") or "").strip().lower() in {"any", "tool"}:
+            return {"type": "auto"}
+        return tool_choice
 
 
 @dataclass(frozen=True)
@@ -296,6 +366,9 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/messages", models_path="/v1/models")
     )
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
+        default_factory=lambda: ProviderModelCatalogPolicy(kind="openai", fallback_models=ZAI_MODEL_FALLBACK_IDS)
+    )
 
 
 @dataclass(frozen=True)
@@ -303,6 +376,9 @@ class FireworksProviderAdapter(OpenAICompatibleProviderAdapter):
     name: str = "fireworks"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["fireworks"]
     send_placeholder_key: bool = True
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
+        default_factory=lambda: ProviderModelCatalogPolicy(kind="fireworks")
+    )
 
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
         del config, model
@@ -323,6 +399,13 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
     )
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(chat_path="/messages", models_path="/v1/models")
+    )
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
+        default_factory=lambda: ProviderModelCatalogPolicy(
+            kind="openai",
+            allow_configured_fallback=True,
+            allow_public_without_auth=True,
+        )
     )
 
     def select_protocol(self, operation: MessageProtocol, config: ProviderConfig, model: str | None = None) -> MessageProtocol:
@@ -383,6 +466,9 @@ class CodexProviderAdapter(NoAuthProviderAdapter):
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/responses", models_path="/v1/models")
     )
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
+        default_factory=lambda: ProviderModelCatalogPolicy(kind="configured")
+    )
 
 
 @dataclass(frozen=True)
@@ -391,6 +477,9 @@ class AgyProviderAdapter(NoAuthProviderAdapter):
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["agy"]
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_responses")
+    )
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
+        default_factory=lambda: ProviderModelCatalogPolicy(kind="configured")
     )
 
 
@@ -447,4 +536,5 @@ __all__ = [
     "SelfHostedNimProviderAdapter",
     "VllmProviderAdapter",
     "ZaiProviderAdapter",
+    "ZAI_MODEL_FALLBACK_IDS",
 ]

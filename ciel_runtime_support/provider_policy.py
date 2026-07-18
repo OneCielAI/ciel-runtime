@@ -65,7 +65,7 @@ def resolve_provider_wire_profile(provider: str, pcfg: dict[str, Any], body: dic
 
 @dataclass(frozen=True, slots=True)
 class ProviderRequestServices:
-    is_kimi_k3_model_id: Callable[..., Any]
+    apply_provider_adapter_request_policy: Callable[..., Any]
     normalize_anthropic_system_role_messages: Callable[..., Any]
     normalize_anthropic_tool_turns_for_provider: Callable[..., Any]
     normalize_thinking_for_non_anthropic_provider: Callable[..., Any]
@@ -80,7 +80,7 @@ def normalize_provider_request(provider: str, pcfg: dict[str, Any], body: dict[s
 ) -> dict[str, Any]:
     """Normalize a Claude Code /v1/messages request for the active provider wire profile."""
 
-    is_kimi_k3_model_id = services.is_kimi_k3_model_id
+    apply_provider_adapter_request_policy = services.apply_provider_adapter_request_policy
     normalize_anthropic_system_role_messages = services.normalize_anthropic_system_role_messages
     normalize_anthropic_tool_turns_for_provider = services.normalize_anthropic_tool_turns_for_provider
     normalize_thinking_for_non_anthropic_provider = services.normalize_thinking_for_non_anthropic_provider
@@ -89,14 +89,7 @@ def normalize_provider_request(provider: str, pcfg: dict[str, Any], body: dict[s
     sanitize_assistant_pseudo_tool_text_history = services.sanitize_assistant_pseudo_tool_text_history
     profile = provider_wire_profile(provider, pcfg, body)
     out = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
-    requested_model = str(out.get("model") or pcfg.get("current_model") or "")
-    if provider == "kimi" and is_kimi_k3_model_id(requested_model):
-        thinking = out.get("thinking")
-        if isinstance(thinking, dict) and str(thinking.get("type") or "").lower() != "disabled":
-            normalized_thinking = dict(thinking)
-            normalized_thinking["effort"] = "max"
-            out = dict(out)
-            out["thinking"] = normalized_thinking
+    out = apply_provider_adapter_request_policy(provider, pcfg, out)
     out = normalize_tool_choice_for_provider(provider, pcfg, out)
     out = sanitize_assistant_pseudo_tool_text_history(out)
     out = normalize_anthropic_tool_turns_for_provider(provider, pcfg, out)
