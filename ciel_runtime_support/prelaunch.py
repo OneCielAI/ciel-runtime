@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 
 @dataclass(frozen=True, slots=True)
-class PrelaunchServices:
+class PrelaunchConstants:
     LANGUAGES: Any
     LLM_OPTION_TOGGLE_KEYS: Any
     MAIN_MENU_ACTIONS: Any
@@ -17,151 +17,201 @@ class PrelaunchServices:
     PRELAUNCH_LAUNCH_CODEX: Any
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER: Any
     PROVIDER_LABELS: Any
+
+
+@dataclass(frozen=True, slots=True)
+class PrelaunchChannelQuery:
     _channel_panel_first_selectable: Callable[..., Any]
     _channel_panel_step: Callable[..., Any]
-    add_channel_spec: Callable[..., Any]
-    advisor_model_panel_rows: Callable[..., Any]
-    agy_launch_enabled_for_provider: Callable[..., Any]
-    api_key_panel_rows: Callable[..., Any]
-    apply_context_setup_config: Callable[..., Any]
-    apply_llm_preset_config: Callable[..., Any]
-    apply_timeout_profile_to_provider: Callable[..., Any]
-    base_url_panel_rows: Callable[..., Any]
     channel_delivery_panel_rows: Callable[..., Any]
     channel_panel_rows: Callable[..., Any]
     channel_panel_rows_for_menu: Callable[..., Any]
     channel_probe_summary_message: Callable[..., Any]
     channel_specs: Callable[..., Any]
-    claude_launch_enabled_for_provider: Callable[..., Any]
-    clear_api_key_config: Callable[..., Any]
+    refresh_channel_probe_cache: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class PrelaunchChannelCommands:
+    add_channel_spec: Callable[..., Any]
     clear_channel_specs: Callable[..., Any]
-    clear_model_cache: Callable[..., Any]
+    remove_channel_spec: Callable[..., Any]
+    set_channel_delivery_config: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class PrelaunchLaunchPolicy:
+    agy_launch_enabled_for_provider: Callable[..., Any]
+    claude_launch_enabled_for_provider: Callable[..., Any]
     codex_launch_enabled_for_provider: Callable[..., Any]
-    context_setup_panel_rows: Callable[..., Any]
-    current_provider_panel_choice: Callable[..., Any]
-    default_base_url: Callable[..., Any]
-    default_prelaunch_action: Callable[..., Any]
-    enable_ansi: Callable[..., Any]
-    get_current_provider: Callable[..., Any]
-    language_panel_rows: Callable[..., Any]
     launch_blockers_require_api_key: Callable[..., Any]
     launch_readiness_errors: Callable[..., Any]
-    llm_option_current_bool: Callable[..., Any]
-    llm_option_panel_rows: Callable[..., Any]
-    llm_option_prompt_default: Callable[..., Any]
-    llm_preset_panel_rows: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class PrelaunchConfig:
+    clear_model_cache: Callable[..., Any]
+    current_provider_panel_choice: Callable[..., Any]
+    default_base_url: Callable[..., Any]
+    get_current_provider: Callable[..., Any]
     load_config: Callable[..., Any]
-    log_level_panel_rows: Callable[..., Any]
-    main_menu_rows: Callable[..., Any]
-    mask_secret: Callable[..., Any]
-    model_panel_rows: Callable[..., Any]
-    parse_api_key_list: Callable[..., Any]
     preflight_lines: Callable[..., Any]
+    provider_menu_label: Callable[..., Any]
+    save_config: Callable[..., Any]
+    settings_ready_except_api_key: Callable[..., Any]
+    read_model_list_cache: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class PrelaunchTerminal:
+    default_prelaunch_action: Callable[..., Any]
+    enable_ansi: Callable[..., Any]
+    main_menu_rows: Callable[..., Any]
     prelaunch_action_index: Callable[..., Any]
     prompt_menu_multiline_value: Callable[..., Any]
     prompt_menu_value: Callable[..., Any]
-    provider_menu_label: Callable[..., Any]
-    provider_panel_rows: Callable[..., Any]
     read_clipboard_text: Callable[..., Any]
     read_menu_key: Callable[..., Any]
-    read_model_list_cache: Callable[..., Any]
-    refresh_channel_probe_cache: Callable[..., Any]
-    remove_channel_spec: Callable[..., Any]
     render_prelaunch_screen: Callable[..., Any]
-    save_config: Callable[..., Any]
-    secret_fingerprint: Callable[..., Any]
     self_cmd: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class PrelaunchPanelRows:
+    advisor_model_panel_rows: Callable[..., Any]
+    api_key_panel_rows: Callable[..., Any]
+    base_url_panel_rows: Callable[..., Any]
+    context_setup_panel_rows: Callable[..., Any]
+    language_panel_rows: Callable[..., Any]
+    llm_option_panel_rows: Callable[..., Any]
+    llm_preset_panel_rows: Callable[..., Any]
+    log_level_panel_rows: Callable[..., Any]
+    model_panel_rows: Callable[..., Any]
+    provider_panel_rows: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class PrelaunchSecrets:
+    clear_api_key_config: Callable[..., Any]
+    mask_secret: Callable[..., Any]
+    parse_api_key_list: Callable[..., Any]
+    secret_fingerprint: Callable[..., Any]
+    store_api_key_input_config: Callable[..., Any]
+    store_api_keys_config: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class PrelaunchMutations:
+    apply_context_setup_config: Callable[..., Any]
+    apply_llm_preset_config: Callable[..., Any]
+    apply_timeout_profile_to_provider: Callable[..., Any]
     set_advisor_model_config: Callable[..., Any]
     set_base_url_config: Callable[..., Any]
-    set_channel_delivery_config: Callable[..., Any]
     set_llm_option_config: Callable[..., Any]
     set_log_level_config: Callable[..., Any]
     set_model_config: Callable[..., Any]
     set_provider_choice_config: Callable[..., Any]
-    settings_ready_except_api_key: Callable[..., Any]
-    store_api_key_input_config: Callable[..., Any]
-    store_api_keys_config: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class PrelaunchOptions:
+    llm_option_current_bool: Callable[..., Any]
+    llm_option_prompt_default: Callable[..., Any]
     timeout_profile_panel_rows: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class PrelaunchServices:
+    constants: PrelaunchConstants
+    terminal: PrelaunchTerminal
+    config: PrelaunchConfig
+    launch_policy: PrelaunchLaunchPolicy
+    panel_rows: PrelaunchPanelRows
+    channel_query: PrelaunchChannelQuery
+    channel_commands: PrelaunchChannelCommands
+    mutations: PrelaunchMutations
+    secrets: PrelaunchSecrets
+    options: PrelaunchOptions
 
 
 def run_prelaunch_menu(passthrough: list[str] | None = None,
     *,
     services: PrelaunchServices,
 ) -> int:
-    LANGUAGES = services.LANGUAGES
-    LLM_OPTION_TOGGLE_KEYS = services.LLM_OPTION_TOGGLE_KEYS
-    MAIN_MENU_ACTIONS = services.MAIN_MENU_ACTIONS
-    PRELAUNCH_CANCEL = services.PRELAUNCH_CANCEL
-    PRELAUNCH_LAUNCH_AGY = services.PRELAUNCH_LAUNCH_AGY
-    PRELAUNCH_LAUNCH_CLAUDE = services.PRELAUNCH_LAUNCH_CLAUDE
-    PRELAUNCH_LAUNCH_CODEX = services.PRELAUNCH_LAUNCH_CODEX
-    PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
-    PROVIDER_LABELS = services.PROVIDER_LABELS
-    _channel_panel_first_selectable = services._channel_panel_first_selectable
-    _channel_panel_step = services._channel_panel_step
-    add_channel_spec = services.add_channel_spec
-    advisor_model_panel_rows = services.advisor_model_panel_rows
-    agy_launch_enabled_for_provider = services.agy_launch_enabled_for_provider
-    api_key_panel_rows = services.api_key_panel_rows
-    apply_context_setup_config = services.apply_context_setup_config
-    apply_llm_preset_config = services.apply_llm_preset_config
-    apply_timeout_profile_to_provider = services.apply_timeout_profile_to_provider
-    base_url_panel_rows = services.base_url_panel_rows
-    channel_delivery_panel_rows = services.channel_delivery_panel_rows
-    channel_panel_rows = services.channel_panel_rows
-    channel_panel_rows_for_menu = services.channel_panel_rows_for_menu
-    channel_probe_summary_message = services.channel_probe_summary_message
-    channel_specs = services.channel_specs
-    claude_launch_enabled_for_provider = services.claude_launch_enabled_for_provider
-    clear_api_key_config = services.clear_api_key_config
-    clear_channel_specs = services.clear_channel_specs
-    clear_model_cache = services.clear_model_cache
-    codex_launch_enabled_for_provider = services.codex_launch_enabled_for_provider
-    context_setup_panel_rows = services.context_setup_panel_rows
-    current_provider_panel_choice = services.current_provider_panel_choice
-    default_base_url = services.default_base_url
-    default_prelaunch_action = services.default_prelaunch_action
-    enable_ansi = services.enable_ansi
-    get_current_provider = services.get_current_provider
-    language_panel_rows = services.language_panel_rows
-    launch_blockers_require_api_key = services.launch_blockers_require_api_key
-    launch_readiness_errors = services.launch_readiness_errors
-    llm_option_current_bool = services.llm_option_current_bool
-    llm_option_panel_rows = services.llm_option_panel_rows
-    llm_option_prompt_default = services.llm_option_prompt_default
-    llm_preset_panel_rows = services.llm_preset_panel_rows
-    load_config = services.load_config
-    log_level_panel_rows = services.log_level_panel_rows
-    main_menu_rows = services.main_menu_rows
-    mask_secret = services.mask_secret
-    model_panel_rows = services.model_panel_rows
-    parse_api_key_list = services.parse_api_key_list
-    preflight_lines = services.preflight_lines
-    prelaunch_action_index = services.prelaunch_action_index
-    prompt_menu_multiline_value = services.prompt_menu_multiline_value
-    prompt_menu_value = services.prompt_menu_value
-    provider_menu_label = services.provider_menu_label
-    provider_panel_rows = services.provider_panel_rows
-    read_clipboard_text = services.read_clipboard_text
-    read_menu_key = services.read_menu_key
-    read_model_list_cache = services.read_model_list_cache
-    refresh_channel_probe_cache = services.refresh_channel_probe_cache
-    remove_channel_spec = services.remove_channel_spec
-    render_prelaunch_screen = services.render_prelaunch_screen
-    save_config = services.save_config
-    secret_fingerprint = services.secret_fingerprint
-    self_cmd = services.self_cmd
-    set_advisor_model_config = services.set_advisor_model_config
-    set_base_url_config = services.set_base_url_config
-    set_channel_delivery_config = services.set_channel_delivery_config
-    set_llm_option_config = services.set_llm_option_config
-    set_log_level_config = services.set_log_level_config
-    set_model_config = services.set_model_config
-    set_provider_choice_config = services.set_provider_choice_config
-    settings_ready_except_api_key = services.settings_ready_except_api_key
-    store_api_key_input_config = services.store_api_key_input_config
-    store_api_keys_config = services.store_api_keys_config
-    timeout_profile_panel_rows = services.timeout_profile_panel_rows
+    LANGUAGES = services.constants.LANGUAGES
+    LLM_OPTION_TOGGLE_KEYS = services.constants.LLM_OPTION_TOGGLE_KEYS
+    MAIN_MENU_ACTIONS = services.constants.MAIN_MENU_ACTIONS
+    PRELAUNCH_CANCEL = services.constants.PRELAUNCH_CANCEL
+    PRELAUNCH_LAUNCH_AGY = services.constants.PRELAUNCH_LAUNCH_AGY
+    PRELAUNCH_LAUNCH_CLAUDE = services.constants.PRELAUNCH_LAUNCH_CLAUDE
+    PRELAUNCH_LAUNCH_CODEX = services.constants.PRELAUNCH_LAUNCH_CODEX
+    PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.constants.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
+    PROVIDER_LABELS = services.constants.PROVIDER_LABELS
+    _channel_panel_first_selectable = services.channel_query._channel_panel_first_selectable
+    _channel_panel_step = services.channel_query._channel_panel_step
+    add_channel_spec = services.channel_commands.add_channel_spec
+    advisor_model_panel_rows = services.panel_rows.advisor_model_panel_rows
+    agy_launch_enabled_for_provider = services.launch_policy.agy_launch_enabled_for_provider
+    api_key_panel_rows = services.panel_rows.api_key_panel_rows
+    apply_context_setup_config = services.mutations.apply_context_setup_config
+    apply_llm_preset_config = services.mutations.apply_llm_preset_config
+    apply_timeout_profile_to_provider = services.mutations.apply_timeout_profile_to_provider
+    base_url_panel_rows = services.panel_rows.base_url_panel_rows
+    channel_delivery_panel_rows = services.channel_query.channel_delivery_panel_rows
+    channel_panel_rows = services.channel_query.channel_panel_rows
+    channel_panel_rows_for_menu = services.channel_query.channel_panel_rows_for_menu
+    channel_probe_summary_message = services.channel_query.channel_probe_summary_message
+    channel_specs = services.channel_query.channel_specs
+    claude_launch_enabled_for_provider = services.launch_policy.claude_launch_enabled_for_provider
+    clear_api_key_config = services.secrets.clear_api_key_config
+    clear_channel_specs = services.channel_commands.clear_channel_specs
+    clear_model_cache = services.config.clear_model_cache
+    codex_launch_enabled_for_provider = services.launch_policy.codex_launch_enabled_for_provider
+    context_setup_panel_rows = services.panel_rows.context_setup_panel_rows
+    current_provider_panel_choice = services.config.current_provider_panel_choice
+    default_base_url = services.config.default_base_url
+    default_prelaunch_action = services.terminal.default_prelaunch_action
+    enable_ansi = services.terminal.enable_ansi
+    get_current_provider = services.config.get_current_provider
+    language_panel_rows = services.panel_rows.language_panel_rows
+    launch_blockers_require_api_key = services.launch_policy.launch_blockers_require_api_key
+    launch_readiness_errors = services.launch_policy.launch_readiness_errors
+    llm_option_current_bool = services.options.llm_option_current_bool
+    llm_option_panel_rows = services.panel_rows.llm_option_panel_rows
+    llm_option_prompt_default = services.options.llm_option_prompt_default
+    llm_preset_panel_rows = services.panel_rows.llm_preset_panel_rows
+    load_config = services.config.load_config
+    log_level_panel_rows = services.panel_rows.log_level_panel_rows
+    main_menu_rows = services.terminal.main_menu_rows
+    mask_secret = services.secrets.mask_secret
+    model_panel_rows = services.panel_rows.model_panel_rows
+    parse_api_key_list = services.secrets.parse_api_key_list
+    preflight_lines = services.config.preflight_lines
+    prelaunch_action_index = services.terminal.prelaunch_action_index
+    prompt_menu_multiline_value = services.terminal.prompt_menu_multiline_value
+    prompt_menu_value = services.terminal.prompt_menu_value
+    provider_menu_label = services.config.provider_menu_label
+    provider_panel_rows = services.panel_rows.provider_panel_rows
+    read_clipboard_text = services.terminal.read_clipboard_text
+    read_menu_key = services.terminal.read_menu_key
+    read_model_list_cache = services.config.read_model_list_cache
+    refresh_channel_probe_cache = services.channel_query.refresh_channel_probe_cache
+    remove_channel_spec = services.channel_commands.remove_channel_spec
+    render_prelaunch_screen = services.terminal.render_prelaunch_screen
+    save_config = services.config.save_config
+    secret_fingerprint = services.secrets.secret_fingerprint
+    self_cmd = services.terminal.self_cmd
+    set_advisor_model_config = services.mutations.set_advisor_model_config
+    set_base_url_config = services.mutations.set_base_url_config
+    set_channel_delivery_config = services.channel_commands.set_channel_delivery_config
+    set_llm_option_config = services.mutations.set_llm_option_config
+    set_log_level_config = services.mutations.set_log_level_config
+    set_model_config = services.mutations.set_model_config
+    set_provider_choice_config = services.mutations.set_provider_choice_config
+    settings_ready_except_api_key = services.config.settings_ready_except_api_key
+    store_api_key_input_config = services.secrets.store_api_key_input_config
+    store_api_keys_config = services.secrets.store_api_keys_config
+    timeout_profile_panel_rows = services.options.timeout_profile_panel_rows
     passthrough = list(passthrough or [])
     enable_ansi()
     cfg = load_config()
@@ -750,4 +800,17 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
         sys.stdout.flush()
 
 
-__all__ = ["PrelaunchServices", "run_prelaunch_menu"]
+__all__ = [
+    "PrelaunchChannelCommands",
+    "PrelaunchChannelQuery",
+    "PrelaunchConfig",
+    "PrelaunchConstants",
+    "PrelaunchLaunchPolicy",
+    "PrelaunchMutations",
+    "PrelaunchOptions",
+    "PrelaunchPanelRows",
+    "PrelaunchSecrets",
+    "PrelaunchServices",
+    "PrelaunchTerminal",
+    "run_prelaunch_menu",
+]

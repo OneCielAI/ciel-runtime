@@ -22,6 +22,19 @@ from ciel_runtime_support.provider_models import (
     ProviderCatalogSources,
     ProviderModelServices,
 )
+from ciel_runtime_support.prelaunch import (
+    PrelaunchChannelCommands,
+    PrelaunchChannelQuery,
+    PrelaunchConfig,
+    PrelaunchConstants,
+    PrelaunchLaunchPolicy,
+    PrelaunchMutations,
+    PrelaunchOptions,
+    PrelaunchPanelRows,
+    PrelaunchSecrets,
+    PrelaunchServices,
+    PrelaunchTerminal,
+)
 from ciel_runtime_support.runtime_launch import (
     ClaudeLaunchChannelDelivery,
     ClaudeLaunchChannelDiscovery,
@@ -136,6 +149,25 @@ class ArchitectureContractTests(unittest.TestCase):
             ClaudeLaunchChannelDiscovery,
             ClaudeLaunchChannelDelivery,
             ClaudeLaunchMcpConfig,
+        )
+
+        for port in ports:
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_prelaunch_ports_stay_below_dependency_limit(self):
+        ports = (
+            PrelaunchServices,
+            PrelaunchConstants,
+            PrelaunchTerminal,
+            PrelaunchConfig,
+            PrelaunchLaunchPolicy,
+            PrelaunchPanelRows,
+            PrelaunchChannelQuery,
+            PrelaunchChannelCommands,
+            PrelaunchMutations,
+            PrelaunchSecrets,
+            PrelaunchOptions,
         )
 
         for port in ports:
