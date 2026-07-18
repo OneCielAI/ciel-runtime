@@ -77,6 +77,14 @@ Codex App Server 프로세스와 JSON-RPC/WebSocket 상태 조정.
 
 `ProviderAdapter` 계약을 사용하는 실제 HTTP 인증 어댑터.
 
+### `ciel_runtime_support/provider_limits.py`
+
+API 키 순환과 학습형 rate-limit 상태·backoff·적용 정책을 캡슐화한 공급자 서비스.
+
+### `ciel_runtime_support/provider_models.py`
+
+공급자별 모델 카탈로그 조회, fallback, cache 및 registry 갱신을 조정하는 모델 서비스.
+
 ### `ciel_runtime_support/provider_policy.py`
 
 공급자별 wire profile과 요청 메시지·thinking·tool-choice 정규화를 담당하는 순수 정책 서비스.

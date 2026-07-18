@@ -66,6 +66,17 @@ from ciel_runtime_support.codex_router import CodexRouter, read_codex_response_p
 from ciel_runtime_support.observability import EventBus, render_events_html
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS
+from ciel_runtime_support.provider_limits import (
+    ProviderKeyServices,
+    RateLimitApplyServices,
+    RateLimitBackoffServices,
+    RateLimitLearningServices,
+    apply_rate_limit,
+    choose_provider_api_key,
+    learn_rate_limit_headers,
+    register_rate_limit_backoff,
+)
+from ciel_runtime_support.provider_models import ProviderModelServices, fetch_upstream_model_ids
 from ciel_runtime_support.provider_policy import (
     ProviderRequestServices,
     ProviderWireServices,
@@ -2646,30 +2657,17 @@ def provider_api_key_rotation_name(provider: str, pcfg: dict[str, Any]) -> str:
 
 
 def select_provider_api_key(provider: str, pcfg: dict[str, Any], *, rotate: bool = True) -> str:
-    keys = provider_config_api_keys(provider, pcfg)
-    if not keys:
-        return ""
-    if not rotate or len(keys) == 1:
-        return keys[0]
-    name = provider_api_key_rotation_name(provider, pcfg)
-    # Skip keys that are resting after a 429; round-robin over the live ones so a
-    # rate-limited key rests while the rest keep serving. If every key is cooling,
-    # use the one that frees up soonest.
-    now = time.time()
-    live = [k for k in keys if api_key_cooldown_until(provider, pcfg, k) <= now]
-    if not live:
-        soonest = min(keys, key=lambda k: api_key_cooldown_until(provider, pcfg, k))
-        router_log("DEBUG", f"api_key_round_robin provider={provider} all_cooling={len(keys)} using_soonest")
-        return soonest
-    with _API_KEY_ROTATION_LOCK:
-        counter = _API_KEY_ROTATION_CURSOR.get(name, 0)
-        _API_KEY_ROTATION_CURSOR[name] = counter + 1
-    idx = counter % len(live)
-    if len(live) < len(keys):
-        router_log("DEBUG", f"api_key_round_robin provider={provider} key_index={idx + 1}/{len(live)} cooling={len(keys) - len(live)}")
-    else:
-        router_log("DEBUG", f"api_key_round_robin provider={provider} key_index={idx + 1}/{len(keys)}")
-    return live[idx]
+    return choose_provider_api_key(
+        provider, pcfg, rotate=rotate,
+        services=ProviderKeyServices(
+            _API_KEY_ROTATION_CURSOR=_API_KEY_ROTATION_CURSOR,
+            _API_KEY_ROTATION_LOCK=_API_KEY_ROTATION_LOCK,
+            api_key_cooldown_until=api_key_cooldown_until,
+            provider_api_key_rotation_name=provider_api_key_rotation_name,
+            provider_config_api_keys=provider_config_api_keys,
+            router_log=router_log
+        ),
+    )
 
 
 def env_bool(value: str | None, default: bool | None = None) -> bool | None:
@@ -6642,201 +6640,43 @@ def rate_limit_reset_seconds(value: str | None) -> float | None:
 
 
 def learn_router_rate_limit_headers(provider: str, pcfg: dict[str, Any], model: str | None, headers: Any) -> None:
-    limit = first_int_in_header(first_header(headers, [
-        "x-ratelimit-limit-requests",
-        "x-rate-limit-limit-requests",
-        "ratelimit-limit",
-        "rate-limit-limit",
-        "x-ratelimit-limit",
-        "x-rate-limit-limit",
-    ]))
-    remaining = first_int_in_header(first_header(headers, [
-        "x-ratelimit-remaining-requests",
-        "x-rate-limit-remaining-requests",
-        "ratelimit-remaining",
-        "rate-limit-remaining",
-        "x-ratelimit-remaining",
-        "x-rate-limit-remaining",
-    ]))
-    reset = rate_limit_reset_seconds(first_header(headers, [
-        "x-ratelimit-reset-requests",
-        "x-rate-limit-reset-requests",
-        "ratelimit-reset",
-        "rate-limit-reset",
-        "x-ratelimit-reset",
-        "x-rate-limit-reset",
-    ]))
-    max_concurrent = first_int_in_header(first_header(headers, [
-        "x-ratelimit-max-concurrent",
-        "x-rate-limit-max-concurrent",
-        "ratelimit-max-concurrent",
-        "rate-limit-max-concurrent",
-    ]))
-    active = first_int_in_header(first_header(headers, [
-        "x-ratelimit-active",
-        "x-rate-limit-active",
-        "ratelimit-active",
-        "rate-limit-active",
-    ]))
-    queue_limit = first_int_in_header(first_header(headers, [
-        "x-ratelimit-queue-limit",
-        "x-rate-limit-queue-limit",
-        "ratelimit-queue-limit",
-        "rate-limit-queue-limit",
-    ]))
-    queued = first_int_in_header(first_header(headers, [
-        "x-ratelimit-queued",
-        "x-rate-limit-queued",
-        "ratelimit-queued",
-        "rate-limit-queued",
-    ]))
-    if (
-        limit is None
-        and remaining is None
-        and reset is None
-        and max_concurrent is None
-        and active is None
-        and queue_limit is None
-        and queued is None
-    ):
-        return
-    configured = router_rate_limit_configured_rpm(provider, pcfg)
-    rpm = limit if limit and limit > 0 else configured
-    if rpm is None:
-        rpm = 0
-    multi_key = provider_api_key_count(provider, pcfg) > 1
-    key = router_rate_limit_key(provider, pcfg, model)
-    with _RATE_LIMIT_LOCK:
-        try:
-            state = json.loads(RATE_LIMIT_STATE_PATH.read_text(encoding="utf-8")) if RATE_LIMIT_STATE_PATH.exists() else {}
-            if not isinstance(state, dict):
-                state = {}
-        except Exception:
-            state = {}
-        now = time.time()
-        entry = state.get(key)
-        if not isinstance(entry, dict):
-            legacy_key = f"{provider}:{model or current_upstream_model_id(provider, pcfg)}"
-            entry = state.get(legacy_key)
-        timestamps = entry.get("timestamps") if isinstance(entry, dict) else []
-        recent = router_rate_limit_recent(timestamps, now, 60.0, include_future=True)
-        penalty_until = 0.0 if multi_key else (float(entry.get("penalty_until") or 0.0) if isinstance(entry, dict) else 0.0)
-        if remaining == 0 and reset and reset > 0 and not multi_key:
-            penalty_until = max(penalty_until, now + reset)
-        new_entry: dict[str, Any] = {
-            "timestamps": recent[-max(int(rpm or 0), 240):],
-            "rpm": int(rpm or 0),
-            "updated_at": now,
-            "last_wait": float(entry.get("last_wait") or 0.0) if isinstance(entry, dict) else 0.0,
-            "server_remaining": remaining,
-            "server_reset_seconds": reset,
-        }
-        if max_concurrent is not None:
-            new_entry["server_max_concurrent"] = max_concurrent
-        elif isinstance(entry, dict) and entry.get("server_max_concurrent") is not None:
-            new_entry["server_max_concurrent"] = entry.get("server_max_concurrent")
-        if active is not None:
-            new_entry["server_active"] = active
-        elif isinstance(entry, dict) and entry.get("server_active") is not None:
-            new_entry["server_active"] = entry.get("server_active")
-        if queue_limit is not None:
-            new_entry["server_queue_limit"] = queue_limit
-        elif isinstance(entry, dict) and entry.get("server_queue_limit") is not None:
-            new_entry["server_queue_limit"] = entry.get("server_queue_limit")
-        if queued is not None:
-            new_entry["server_queued"] = queued
-        elif isinstance(entry, dict) and entry.get("server_queued") is not None:
-            new_entry["server_queued"] = entry.get("server_queued")
-        if limit and limit > 0:
-            new_entry["server_rpm"] = int(limit)
-            new_entry["server_rpm_updated_at"] = now
-        elif isinstance(entry, dict) and entry.get("server_rpm"):
-            new_entry["server_rpm"] = entry.get("server_rpm")
-            new_entry["server_rpm_updated_at"] = entry.get("server_rpm_updated_at")
-        if penalty_until > now:
-            new_entry["penalty_until"] = penalty_until
-        state[key] = new_entry
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        RATE_LIMIT_STATE_PATH.write_text(json.dumps(state, ensure_ascii=False) + "\n", encoding="utf-8")
-    extra = " multi_key_no_global_penalty=1" if multi_key and remaining == 0 and reset and reset > 0 else ""
-    router_log(
-        "INFO",
-        f"rate_limit_headers provider={provider} model={model or ''} limit={limit} remaining={remaining} reset={reset}"
-        f" max_concurrent={max_concurrent} active={active} queue_limit={queue_limit} queued={queued}{extra}",
+    return learn_rate_limit_headers(
+        provider, pcfg, model, headers,
+        services=RateLimitLearningServices(
+            CONFIG_DIR=CONFIG_DIR,
+            RATE_LIMIT_STATE_PATH=RATE_LIMIT_STATE_PATH,
+            _RATE_LIMIT_LOCK=_RATE_LIMIT_LOCK,
+            current_upstream_model_id=current_upstream_model_id,
+            first_header=first_header,
+            first_int_in_header=first_int_in_header,
+            provider_api_key_count=provider_api_key_count,
+            rate_limit_reset_seconds=rate_limit_reset_seconds,
+            router_log=router_log,
+            router_rate_limit_configured_rpm=router_rate_limit_configured_rpm,
+            router_rate_limit_key=router_rate_limit_key,
+            router_rate_limit_recent=router_rate_limit_recent
+        ),
     )
 
 
 def register_router_rate_limit_backoff(provider: str, pcfg: dict[str, Any], model: str | None, retry_after: str | None = None) -> float:
-    rpm = router_rate_limit_effective_rpm(provider, pcfg, model)
-    fallback = 60.0 / float(rpm) if rpm and rpm > 0 else 15.0
-    wait = parse_retry_after_seconds(retry_after)
-    if wait is None:
-        wait = max(10.0, min(60.0, fallback * 4.0))
-    wait = max(1.0, min(300.0, wait))
-    key = router_rate_limit_key(provider, pcfg, model)
-    multi_key = provider_api_key_count(provider, pcfg) > 1
-    with _RATE_LIMIT_LOCK:
-        try:
-            state = json.loads(RATE_LIMIT_STATE_PATH.read_text(encoding="utf-8")) if RATE_LIMIT_STATE_PATH.exists() else {}
-            if not isinstance(state, dict):
-                state = {}
-        except Exception:
-            state = {}
-        now = time.time()
-        entry = state.get(key)
-        if not isinstance(entry, dict):
-            legacy_key = f"{provider}:{model or current_upstream_model_id(provider, pcfg)}"
-            entry = state.get(legacy_key)
-        timestamps = entry.get("timestamps") if isinstance(entry, dict) else []
-        recent = router_rate_limit_recent(timestamps, now, 60.0, include_future=True)
-        actual_recent = router_rate_limit_recent(timestamps, now, 60.0, include_future=False)
-        configured_rpm = router_rate_limit_configured_rpm(provider, pcfg)
-        inferred_rpm: int | None = None
-        if (
-            isinstance(entry, dict)
-            and not entry.get("server_rpm")
-            and configured_rpm
-            and configured_rpm > 0
-            and 0 < len(actual_recent) < configured_rpm
-        ):
-            inferred_rpm = max(1, len(actual_recent))
-            rpm = inferred_rpm
-        capacity = router_rate_limit_capacity(int(rpm or 0)) if rpm and rpm > 0 else int(rpm or 0)
-        if capacity and capacity > 0 and len(actual_recent) >= capacity and actual_recent:
-            wait = max(wait, max(0.0, actual_recent[0] + 60.0 - now))
-        existing_penalty_until = 0.0 if multi_key else (float(entry.get("penalty_until") or 0.0) if isinstance(entry, dict) else 0.0)
-        penalty_until = max(existing_penalty_until, now + wait) if not multi_key else 0.0
-        state[key] = {
-            "timestamps": recent[-max(int(rpm or 0), 240):],
-            "rpm": int(rpm or 0),
-            "updated_at": now,
-            "last_wait": wait,
-            "last_429_at": now,
-        }
-        if penalty_until > now:
-            state[key]["penalty_until"] = penalty_until
-        if isinstance(entry, dict):
-            for preserve_key in (
-                "server_rpm",
-                "server_rpm_updated_at",
-                "server_remaining",
-                "server_reset_seconds",
-                "server_max_concurrent",
-                "server_active",
-                "server_queue_limit",
-                "server_queued",
-            ):
-                if preserve_key in entry:
-                    state[key][preserve_key] = entry[preserve_key]
-        if inferred_rpm:
-            state[key]["server_rpm"] = inferred_rpm
-            state[key]["server_rpm_updated_at"] = now
-            state[key]["server_rpm_reason"] = "inferred_from_429"
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        RATE_LIMIT_STATE_PATH.write_text(json.dumps(state, ensure_ascii=False) + "\n", encoding="utf-8")
-    extra = " multi_key_no_global_penalty=1" if multi_key else ""
-    router_log("WARN", f"rate_limit_429_backoff provider={provider} model={model or ''} wait={wait:.2f}s{extra}")
-    return wait
+    return register_rate_limit_backoff(
+        provider, pcfg, model, retry_after,
+        services=RateLimitBackoffServices(
+            CONFIG_DIR=CONFIG_DIR,
+            RATE_LIMIT_STATE_PATH=RATE_LIMIT_STATE_PATH,
+            _RATE_LIMIT_LOCK=_RATE_LIMIT_LOCK,
+            current_upstream_model_id=current_upstream_model_id,
+            parse_retry_after_seconds=parse_retry_after_seconds,
+            provider_api_key_count=provider_api_key_count,
+            router_log=router_log,
+            router_rate_limit_capacity=router_rate_limit_capacity,
+            router_rate_limit_configured_rpm=router_rate_limit_configured_rpm,
+            router_rate_limit_effective_rpm=router_rate_limit_effective_rpm,
+            router_rate_limit_key=router_rate_limit_key,
+            router_rate_limit_recent=router_rate_limit_recent
+        ),
+    )
 
 
 _RATE_LIMIT_RESET_HEADER_NAMES = (
@@ -6963,84 +6803,23 @@ def retry_after_exceeds_request_timeout(headers: Any, timeout: float) -> tuple[b
 
 
 def apply_router_rate_limit(provider: str, pcfg: dict[str, Any], model: str | None = None) -> tuple[float, int, int | None]:
-    rpm = router_rate_limit_effective_rpm(provider, pcfg, model)
-    if rpm is None:
-        waited = wait_for_router_rate_limit_penalty(provider, pcfg, model, rpm)
-        return waited, 0, None
-    if rpm <= 0:
-        waited = wait_for_router_rate_limit_penalty(provider, pcfg, model, rpm)
-        used, limit = record_router_rate_usage(provider, pcfg, model, rpm)
-        return waited, used, limit
-    window = 60.0
-    base_interval = window / float(rpm)
-    capacity = router_rate_limit_capacity(rpm)
-    key = router_rate_limit_key(provider, pcfg, model)
-    multi_key = provider_api_key_count(provider, pcfg) > 1
-    waited = 0.0
-    while True:
-        with _RATE_LIMIT_LOCK:
-            try:
-                state = json.loads(RATE_LIMIT_STATE_PATH.read_text(encoding="utf-8")) if RATE_LIMIT_STATE_PATH.exists() else {}
-                if not isinstance(state, dict):
-                    state = {}
-            except Exception:
-                state = {}
-            now = time.time()
-            entry = state.get(key)
-            if not isinstance(entry, dict):
-                legacy_key = f"{provider}:{model or current_upstream_model_id(provider, pcfg)}"
-                entry = state.get(legacy_key)
-            if isinstance(entry, dict):
-                timestamps = entry.get("timestamps")
-                try:
-                    penalty_until = 0.0 if multi_key else float(entry.get("penalty_until") or 0.0)
-                except Exception:
-                    penalty_until = 0.0
-            elif isinstance(entry, (int, float)):
-                timestamps = [float(entry)]
-                penalty_until = 0.0
-            else:
-                timestamps = []
-                penalty_until = 0.0
-            recent = router_rate_limit_recent(timestamps, now, window, include_future=True)
-            used = len(recent)
-            usage_ratio = min(1.0, used / float(capacity))
-            wait = 0.0
-            if penalty_until > now:
-                wait = max(wait, penalty_until - now)
-            if used >= capacity and recent:
-                wait = max(0.0, recent[0] + window - now)
-            elif recent:
-                elapsed_since_last = max(0.0, now - recent[-1])
-                wait = max(0.0, base_interval - elapsed_since_last)
-                if usage_ratio >= 0.70:
-                    pressure = (usage_ratio - 0.70) / 0.30
-                    target_interval = base_interval * (1.0 + max(0.0, min(1.0, pressure)) * 3.0)
-                    wait = max(wait, target_interval - elapsed_since_last)
-            CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-            if wait <= 0.001:
-                recent.append(now)
-                new_entry = {"timestamps": recent[-rpm:], "rpm": rpm, "updated_at": now, "last_wait": waited}
-                if penalty_until > now:
-                    new_entry["penalty_until"] = penalty_until
-                state[key] = new_entry
-                RATE_LIMIT_STATE_PATH.write_text(json.dumps(state, ensure_ascii=False) + "\n", encoding="utf-8")
-                return waited, len(recent), rpm
-            if used < capacity:
-                scheduled = now + wait
-                recent.append(scheduled)
-                new_entry = {"timestamps": recent[-rpm:], "rpm": rpm, "updated_at": scheduled, "last_wait": wait}
-                if penalty_until > now:
-                    new_entry["penalty_until"] = penalty_until
-                state[key] = new_entry
-                RATE_LIMIT_STATE_PATH.write_text(json.dumps(state, ensure_ascii=False) + "\n", encoding="utf-8")
-                router_log("INFO", f"rate_limit_soft_wait provider={provider} model={model or ''} rpm={rpm} wait={wait:.2f}s")
-                time.sleep(wait)
-                return waited + wait, len(recent), rpm
-        sleep_for = min(wait, 10.0)
-        router_log("INFO", f"rate_limit_wait provider={provider} model={model or ''} rpm={rpm} wait={wait:.2f}s waited={waited:.2f}s")
-        time.sleep(sleep_for)
-        waited += sleep_for
+    return apply_rate_limit(
+        provider, pcfg, model,
+        services=RateLimitApplyServices(
+            CONFIG_DIR=CONFIG_DIR,
+            RATE_LIMIT_STATE_PATH=RATE_LIMIT_STATE_PATH,
+            _RATE_LIMIT_LOCK=_RATE_LIMIT_LOCK,
+            current_upstream_model_id=current_upstream_model_id,
+            provider_api_key_count=provider_api_key_count,
+            record_router_rate_usage=record_router_rate_usage,
+            router_log=router_log,
+            router_rate_limit_capacity=router_rate_limit_capacity,
+            router_rate_limit_effective_rpm=router_rate_limit_effective_rpm,
+            router_rate_limit_key=router_rate_limit_key,
+            router_rate_limit_recent=router_rate_limit_recent,
+            wait_for_router_rate_limit_penalty=wait_for_router_rate_limit_penalty
+        ),
+    )
 
 
 def wait_for_router_rate_limit_penalty(provider: str, pcfg: dict[str, Any], model: str | None, rpm: int | None) -> float:
@@ -7356,204 +7135,38 @@ def direct_native_codex_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
 
 
 def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool = False) -> list[str]:
-    cached = None if force_refresh else read_model_list_cache(provider, pcfg)
-    if cached is not None:
-        return cached
-    if provider == "agy":
-        ids = unique_model_ids(provider, [*(pcfg.get("custom_models", []) or []), pcfg.get("current_model") or ""])
-        if ids:
-            write_model_list_cache(provider, pcfg, ids)
-        return ids
-    if provider == "deepseek":
-        ids = unique_model_ids(provider, [
-            "deepseek-v4-pro[1m]",
-            "deepseek-v4-flash",
-            *(pcfg.get("custom_models", []) or []),
-            pcfg.get("current_model") or "",
-        ])
-        sorted_ids = sorted_model_ids(ids)
-        write_model_list_cache(provider, pcfg, sorted_ids)
-        return sorted_ids
-    if provider == "zai":
-        ids: list[str] = []
-        model_info: dict[str, dict[str, Any]] = {}
-        base = provider_upstream_request_base(provider, pcfg)
-        headers = provider_model_list_headers(provider, pcfg)
-        try:
-            data = http_json(join_url(base, "/v1/models"), headers=headers, timeout=6.0, provider=provider, pcfg=pcfg)
-            ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
-            model_info.update(model_info_from_response(provider, data))
-        except Exception as exc:
-            router_log("DEBUG", f"zai model list fetch failed: {type(exc).__name__}: {exc}")
-        ids = unique_model_ids(provider, [
-            *ids,
-            *ZAI_MODEL_FALLBACK_IDS,
-            *(pcfg.get("custom_models", []) or []),
-            pcfg.get("current_model") or "",
-        ])
-        sorted_ids = sorted_model_ids(ids)
-        metadata = {"model_info": model_info, "source": "zai:/v1/models+docs"} if model_info else {"source": "zai:docs"}
-        write_model_list_cache(provider, pcfg, sorted_ids, metadata)
-        return sorted_ids
-    if provider == "anthropic":
-        ids: list[str] = []
-        source = ""
-        if provider_has_api_key(provider, pcfg):
-            ids, source = fetch_anthropic_api_model_ids(pcfg, provider_model_list_headers(provider, pcfg), timeout=6.0)
-        if not ids:
-            ids = fetch_anthropic_public_model_ids()
-            source = "anthropic-docs"
-        if not ids:
-            return []
-        for mid in pcfg.get("custom_models", []) or []:
-            mid = normalize_model_id(provider, mid)
-            if mid and mid not in ids:
-                ids.append(mid)
-        cur = normalize_model_id(provider, pcfg.get("current_model") or "")
-        if cur and cur not in ids:
-            ids.insert(0, cur)
-        sorted_ids = unique_model_ids(provider, ids)
-        write_model_list_cache(provider, pcfg, sorted_ids)
-        write_model_registry(provider, pcfg, sorted_ids, source, {"urls": list(ANTHROPIC_MODEL_DOCS_URLS) if source == "anthropic-docs" else []})
-        return sorted_ids
-    if provider == "fireworks":
-        headers = provider_model_list_headers(provider, pcfg)
-        model_info: dict[str, dict[str, Any]] = {}
-        source = ""
-        try:
-            ids, model_info, source = fetch_fireworks_model_ids(pcfg, headers, timeout=8.0)
-            fetched = bool(ids)
-        except Exception as exc:
-            router_log("DEBUG", f"fireworks model API fetch failed: {type(exc).__name__}: {exc}")
-            ids = []
-            fetched = False
-        if not fetched:
-            base = provider_upstream_request_base(provider, pcfg)
-            try:
-                data = http_json(join_url(base, "/v1/models"), headers=headers, timeout=6.0, provider=provider, pcfg=pcfg)
-                ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
-                model_info.update(model_info_from_response(provider, data))
-                fetched = bool(ids)
-                source = "fireworks:/v1/models"
-            except Exception as exc:
-                router_log("DEBUG", f"fireworks inference model list fetch failed: {type(exc).__name__}: {exc}")
-        if not fetched:
-            ids = unique_model_ids(provider, [
-                *(pcfg.get("custom_models", []) or []),
-                pcfg.get("current_model") or "",
-            ])
-            sorted_ids = sorted_model_ids(ids)
-            if sorted_ids:
-                write_model_list_cache(provider, pcfg, sorted_ids)
-            return sorted_ids
-        for mid in pcfg.get("custom_models", []) or []:
-            mid = normalize_model_id(provider, mid)
-            if mid and mid not in ids:
-                ids.append(mid)
-        cur = normalize_model_id(provider, pcfg.get("current_model") or "")
-        if cur and cur not in ids:
-            ids.insert(0, cur)
-        sorted_ids = sorted_model_ids(unique_model_ids(provider, ids))
-        metadata = {
-            "model_info": model_info,
-            "source": source,
-            "account_id": fireworks_account_id(pcfg),
-            "model_api_base_url": fireworks_management_base_url(pcfg),
-        }
-        write_model_list_cache(provider, pcfg, sorted_ids, metadata)
-        return sorted_ids
-    if provider == "nvidia-hosted":
-        base = (pcfg.get("base_url") or nvidia_upstream_base_url()).rstrip("/")
-    else:
-        base = provider_upstream_request_base(provider, pcfg)
-    ids: list[str] = []
-    model_info: dict[str, dict[str, Any]] = {}
-    fetched = False
-    try:
-        if provider in ("ollama", "ollama-cloud"):
-            try:
-                data = http_json(join_url(base, "/api/tags"), headers=provider_model_list_headers(provider, pcfg), timeout=4.0, provider=provider, pcfg=pcfg)
-                ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
-                model_info.update(model_info_from_response(provider, data))
-                fetched = True
-            except Exception:
-                data = http_json(join_url(base, "/v1/models"), headers=provider_model_list_headers(provider, pcfg), timeout=4.0, provider=provider, pcfg=pcfg)
-                ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
-                model_info.update(model_info_from_response(provider, data))
-                fetched = True
-        elif provider == "nvidia-hosted":
-            data = http_json(join_url(base, "/v1/models"), headers=nvidia_hosted_list_headers(), timeout=8.0, provider=provider, pcfg=pcfg)
-            ids = model_ids_from_response(data)
-            model_info.update(model_info_from_response(provider, data))
-            fetched = True
-        elif provider == "lm-studio":
-            headers = provider_model_list_headers(provider, pcfg)
-            for path in ("/api/v0/models", "/api/v1/models", "/v1/models", "/models"):
-                try:
-                    data = http_json(join_url(lm_studio_api_base(pcfg) if path.startswith("/api/") else base, path), headers=headers, timeout=2.0, provider=provider, pcfg=pcfg)
-                    ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
-                    model_info.update(model_info_from_response(provider, data))
-                    fetched = True
-                    if ids:
-                        break
-                except Exception:
-                    continue
-        else:
-            headers = provider_model_list_headers(provider, pcfg)
-            for path in ("/v1/models", "/models"):
-                try:
-                    data = http_json(join_url(base, path), headers=headers, timeout=6.0, provider=provider, pcfg=pcfg)
-                    ids = model_ids_from_response(data)
-                    model_info.update(model_info_from_response(provider, data))
-                    fetched = True
-                    if ids:
-                        break
-                except Exception:
-                    continue
-            if not fetched and provider in OPENCODE_PROVIDER_NAMES:
-                # OpenCode publishes the model catalog at /v1/models. Keep the
-                # picker independent from key-specific auth/rate-limit failures.
-                try:
-                    public_headers = with_upstream_user_agent({"content-type": "application/json"})
-                    data = http_json(join_url(base, "/v1/models"), headers=public_headers, timeout=6.0, provider=provider, pcfg=pcfg)
-                    ids = model_ids_from_response(data)
-                    model_info.update(model_info_from_response(provider, data))
-                    fetched = True
-                except Exception as exc:
-                    router_log("DEBUG", f"{provider} public model catalog fetch failed: {type(exc).__name__}: {exc}")
-    except Exception:
-        ids = []
-    if provider == "ollama-cloud" and not ids:
-        ids = ollama_catalog_model_ids(provider)
-        fetched = bool(ids)
-    if not fetched and provider in (*OPENCODE_PROVIDER_NAMES, "kimi"):
-        ids = unique_model_ids(provider, [
-            *(pcfg.get("custom_models", []) or []),
-            pcfg.get("current_model") or "",
-        ])
-        sorted_ids = sorted_model_ids(ids)
-        if sorted_ids:
-            write_model_list_cache(provider, pcfg, sorted_ids)
-        return sorted_ids
-    if not fetched:
-        return []
-    for mid in pcfg.get("custom_models", []) or []:
-        mid = normalize_model_id(provider, mid)
-        if mid and mid not in ids:
-            ids.append(mid)
-    cur = normalize_model_id(provider, pcfg.get("current_model") or "")
-    if cur and provider != "nvidia-hosted" and cur.startswith(f"ciel-runtime-{provider}-"):
-        pass
-    elif cur and cur not in ids and not (provider == "nvidia-hosted" and cur.startswith("claude-")):
-        ids.insert(0, cur)
-    if provider == "nvidia-hosted" and cur and cur not in ids:
-        ids.insert(0, cur)
-    sorted_ids = unique_model_ids(provider, ids)
-    if provider != "anthropic":
-        sorted_ids = sorted_model_ids(sorted_ids)
-    metadata = {"model_info": model_info} if model_info else None
-    write_model_list_cache(provider, pcfg, sorted_ids, metadata)
-    return sorted_ids
+    return fetch_upstream_model_ids(
+        provider, pcfg, force_refresh,
+        services=ProviderModelServices(
+            ANTHROPIC_MODEL_DOCS_URLS=ANTHROPIC_MODEL_DOCS_URLS,
+            OPENCODE_PROVIDER_NAMES=OPENCODE_PROVIDER_NAMES,
+            ZAI_MODEL_FALLBACK_IDS=ZAI_MODEL_FALLBACK_IDS,
+            fetch_anthropic_api_model_ids=fetch_anthropic_api_model_ids,
+            fetch_anthropic_public_model_ids=fetch_anthropic_public_model_ids,
+            fetch_fireworks_model_ids=fetch_fireworks_model_ids,
+            fireworks_account_id=fireworks_account_id,
+            fireworks_management_base_url=fireworks_management_base_url,
+            http_json=http_json,
+            join_url=join_url,
+            lm_studio_api_base=lm_studio_api_base,
+            model_ids_from_response=model_ids_from_response,
+            model_info_from_response=model_info_from_response,
+            normalize_model_id=normalize_model_id,
+            nvidia_hosted_list_headers=nvidia_hosted_list_headers,
+            nvidia_upstream_base_url=nvidia_upstream_base_url,
+            ollama_catalog_model_ids=ollama_catalog_model_ids,
+            provider_has_api_key=provider_has_api_key,
+            provider_model_list_headers=provider_model_list_headers,
+            provider_upstream_request_base=provider_upstream_request_base,
+            read_model_list_cache=read_model_list_cache,
+            router_log=router_log,
+            sorted_model_ids=sorted_model_ids,
+            unique_model_ids=unique_model_ids,
+            with_upstream_user_agent=with_upstream_user_agent,
+            write_model_list_cache=write_model_list_cache,
+            write_model_registry=write_model_registry
+        ),
+    )
 
 
 def model_context_field(item: dict[str, Any]) -> int | None:
