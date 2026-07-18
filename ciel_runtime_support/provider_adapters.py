@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
-from .architecture import ModelInfo, ProviderAdapter, ProviderConfig
+from .architecture import (
+    ModelInfo,
+    ProviderAdapter,
+    ProviderCapabilities,
+    ProviderConfig,
+    ProviderRequestPolicy,
+)
 from .registry import AdapterRegistry
 
 
@@ -39,6 +45,13 @@ class HttpBearerProviderAdapter(ProviderAdapter):
     include_x_api_key: bool = True
     require_api_key: bool = False
     send_placeholder_key: bool = False
+    capabilities_value: ProviderCapabilities = field(default_factory=ProviderCapabilities)
+    request_policy_value: ProviderRequestPolicy = field(
+        default_factory=lambda: ProviderRequestPolicy(
+            chat_path="/v1/chat/completions",
+            models_path="/v1/models",
+        )
+    )
 
     def default_base_url(self) -> str:
         return self.base_url
@@ -71,6 +84,24 @@ class HttpBearerProviderAdapter(ProviderAdapter):
             headers["x-api-key"] = key
         return headers
 
+    def capabilities(self, config: ProviderConfig) -> ProviderCapabilities:
+        del config
+        return self.capabilities_value
+
+    def request_policy(self, config: ProviderConfig) -> ProviderRequestPolicy:
+        del config
+        return self.request_policy_value
+
+    def build_model_headers(self, config: ProviderConfig, api_key: str | None) -> Mapping[str, str]:
+        del config
+        key = str(api_key or "").strip()
+        if not key:
+            return {}
+        headers = {self.authorization_header: f"Bearer {key}"}
+        if self.include_x_api_key:
+            headers["x-api-key"] = key
+        return headers
+
 
 @dataclass(frozen=True)
 class NoAuthProviderAdapter(HttpBearerProviderAdapter):
@@ -79,71 +110,233 @@ class NoAuthProviderAdapter(HttpBearerProviderAdapter):
         return {}
 
 
+@dataclass(frozen=True)
+class AnthropicProviderAdapter(NoAuthProviderAdapter):
+    name: str = "anthropic"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["anthropic"]
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="anthropic_messages",
+            supports_thinking=True,
+            preserves_anthropic_thinking=True,
+        )
+    )
+    request_policy_value: ProviderRequestPolicy = field(
+        default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/messages", models_path="/v1/models")
+    )
+
+    def build_model_headers(self, config: ProviderConfig, api_key: str | None) -> Mapping[str, str]:
+        del config
+        key = str(api_key or "").strip()
+        return {"anthropic-version": "2023-06-01", "x-api-key": key} if key else {"anthropic-version": "2023-06-01"}
+
+
+@dataclass(frozen=True)
+class OpenAICompatibleProviderAdapter(HttpBearerProviderAdapter):
+    """Base for providers that implement the OpenAI Chat/Models wire surface."""
+
+
+@dataclass(frozen=True)
+class OllamaProviderAdapter(HttpBearerProviderAdapter):
+    name: str = "ollama"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["ollama"]
+    send_placeholder_key: bool = True
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="ollama_chat",
+            supports_thinking=True,
+            local=True,
+        )
+    )
+    request_policy_value: ProviderRequestPolicy = field(
+        default_factory=lambda: ProviderRequestPolicy(
+            chat_path="/api/chat",
+            models_path="/api/tags",
+            model_info_path="/api/show",
+            default_timeout_seconds=300.0,
+        )
+    )
+
+    def model_paths(self, config: ProviderConfig) -> tuple[str, ...]:
+        del config
+        return ("/api/tags", "/v1/models")
+
+
+@dataclass(frozen=True)
+class OllamaCloudProviderAdapter(OllamaProviderAdapter):
+    name: str = "ollama-cloud"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["ollama-cloud"]
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(upstream_protocol="ollama_chat", supports_thinking=True)
+    )
+
+
+@dataclass(frozen=True)
+class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
+    name: str = "OpenRouter"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["openrouter"]
+    authorization_header: str = "Authorization"
+    require_api_key: bool = True
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", requires_api_key=True)
+    )
+
+
+@dataclass(frozen=True)
+class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
+    name: str = "lm-studio"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["lm-studio"]
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", local=True)
+    )
+
+    def model_paths(self, config: ProviderConfig) -> tuple[str, ...]:
+        del config
+        return ("/api/v0/models", "/api/v1/models", "/v1/models", "/models")
+
+
+@dataclass(frozen=True)
+class VllmProviderAdapter(OpenAICompatibleProviderAdapter):
+    name: str = "vllm"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["vllm"]
+    send_placeholder_key: bool = True
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", local=True)
+    )
+
+
+@dataclass(frozen=True)
+class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
+    name: str = "nvidia-hosted"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["nvidia-hosted"]
+
+
+@dataclass(frozen=True)
+class SelfHostedNimProviderAdapter(OpenAICompatibleProviderAdapter):
+    name: str = "self-hosted-nim"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["self-hosted-nim"]
+    send_placeholder_key: bool = True
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", local=True)
+    )
+
+
+@dataclass(frozen=True)
+class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
+    name: str = "deepseek"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["deepseek"]
+    send_placeholder_key: bool = True
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(upstream_protocol="anthropic_messages", supports_thinking=True)
+    )
+    request_policy_value: ProviderRequestPolicy = field(
+        default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/messages", models_path="/v1/models")
+    )
+
+
+@dataclass(frozen=True)
+class KimiProviderAdapter(HttpBearerProviderAdapter):
+    name: str = "kimi"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["kimi"]
+    send_placeholder_key: bool = True
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(upstream_protocol="anthropic_messages", supports_thinking=True)
+    )
+    request_policy_value: ProviderRequestPolicy = field(
+        default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/messages", models_path="/v1/models")
+    )
+
+
+@dataclass(frozen=True)
+class ZaiProviderAdapter(HttpBearerProviderAdapter):
+    name: str = "zai"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["zai"]
+    send_placeholder_key: bool = True
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(upstream_protocol="anthropic_messages", supports_thinking=True)
+    )
+    request_policy_value: ProviderRequestPolicy = field(
+        default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/messages", models_path="/v1/models")
+    )
+
+
+@dataclass(frozen=True)
+class FireworksProviderAdapter(OpenAICompatibleProviderAdapter):
+    name: str = "fireworks"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["fireworks"]
+    send_placeholder_key: bool = True
+
+
+@dataclass(frozen=True)
+class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
+    name: str = "opencode"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["opencode"]
+    send_placeholder_key: bool = True
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(upstream_protocol="anthropic_messages", supports_thinking=True)
+    )
+    request_policy_value: ProviderRequestPolicy = field(
+        default_factory=lambda: ProviderRequestPolicy(chat_path="/messages", models_path="/v1/models")
+    )
+
+
+@dataclass(frozen=True)
+class OpenCodeGoProviderAdapter(OpenCodeProviderAdapter):
+    name: str = "opencode-go"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["opencode-go"]
+
+
+@dataclass(frozen=True)
+class CodexProviderAdapter(NoAuthProviderAdapter):
+    name: str = "codex"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["codex"]
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_responses")
+    )
+    request_policy_value: ProviderRequestPolicy = field(
+        default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/responses", models_path="/v1/models")
+    )
+
+
+@dataclass(frozen=True)
+class AgyProviderAdapter(NoAuthProviderAdapter):
+    name: str = "agy"
+    base_url: str = PROVIDER_DEFAULT_BASE_URLS["agy"]
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_responses")
+    )
+
+
 PROVIDER_ADAPTERS: AdapterRegistry[ProviderAdapter] = AdapterRegistry()
 
 
-def _bearer_factory(
-    *,
-    provider_name: str,
-    base_url: str = "",
-    authorization_header: str = "authorization",
-    require_api_key: bool = False,
-    send_placeholder_key: bool = False,
-) -> HttpBearerProviderAdapter:
-    return HttpBearerProviderAdapter(
-        name=provider_name,
-        base_url=base_url or PROVIDER_DEFAULT_BASE_URLS.get(provider_name.lower(), ""),
-        authorization_header=authorization_header,
-        require_api_key=require_api_key,
-        send_placeholder_key=send_placeholder_key,
-    )
+def _configured_factory(adapter_type: type[ProviderAdapter]):
+    def create(**kwargs: Any) -> ProviderAdapter:
+        base_url = str(kwargs.get("base_url") or "").strip()
+        return adapter_type(**({"base_url": base_url} if base_url else {}))
+
+    return create
 
 
-for _provider_name in (
-    "ollama",
-    "ollama-cloud",
-    "vllm",
-    "self-hosted-nim",
-    "deepseek",
-    "opencode",
-    "opencode-go",
-    "kimi",
-    "zai",
-    "fireworks",
-):
-    PROVIDER_ADAPTERS.register(
-        _provider_name,
-        lambda provider_name=_provider_name, **kwargs: _bearer_factory(
-            provider_name=provider_name,
-            send_placeholder_key=True,
-            **kwargs,
-        ),
-    )
-
-PROVIDER_ADAPTERS.register(
-    "openrouter",
-    lambda **kwargs: _bearer_factory(
-        provider_name="OpenRouter",
-        authorization_header="Authorization",
-        require_api_key=True,
-        **kwargs,
-    ),
-)
-for _provider_name in ("lm-studio", "nvidia-hosted"):
-    PROVIDER_ADAPTERS.register(
-        _provider_name,
-        lambda provider_name=_provider_name, **kwargs: _bearer_factory(provider_name=provider_name, **kwargs),
-    )
-
-for _provider_name in ("anthropic", "codex", "agy"):
-    PROVIDER_ADAPTERS.register(
-        _provider_name,
-        lambda provider_name=_provider_name, **kwargs: NoAuthProviderAdapter(
-            name=provider_name,
-            base_url=str(kwargs.get("base_url") or PROVIDER_DEFAULT_BASE_URLS.get(provider_name, "")),
-            include_x_api_key=False,
-        ),
-    )
+for _provider_name, _adapter_type in {
+    "agy": AgyProviderAdapter,
+    "anthropic": AnthropicProviderAdapter,
+    "codex": CodexProviderAdapter,
+    "deepseek": DeepSeekProviderAdapter,
+    "fireworks": FireworksProviderAdapter,
+    "kimi": KimiProviderAdapter,
+    "lm-studio": LMStudioProviderAdapter,
+    "nvidia-hosted": NvidiaHostedProviderAdapter,
+    "ollama": OllamaProviderAdapter,
+    "ollama-cloud": OllamaCloudProviderAdapter,
+    "opencode": OpenCodeProviderAdapter,
+    "opencode-go": OpenCodeGoProviderAdapter,
+    "openrouter": OpenRouterProviderAdapter,
+    "self-hosted-nim": SelfHostedNimProviderAdapter,
+    "vllm": VllmProviderAdapter,
+    "zai": ZaiProviderAdapter,
+}.items():
+    PROVIDER_ADAPTERS.register(_provider_name, _configured_factory(_adapter_type))
 
 
 __all__ = [
@@ -151,4 +344,20 @@ __all__ = [
     "PROVIDER_DEFAULT_BASE_URLS",
     "HttpBearerProviderAdapter",
     "NoAuthProviderAdapter",
+    "AgyProviderAdapter",
+    "AnthropicProviderAdapter",
+    "CodexProviderAdapter",
+    "DeepSeekProviderAdapter",
+    "FireworksProviderAdapter",
+    "KimiProviderAdapter",
+    "LMStudioProviderAdapter",
+    "NvidiaHostedProviderAdapter",
+    "OllamaCloudProviderAdapter",
+    "OllamaProviderAdapter",
+    "OpenCodeGoProviderAdapter",
+    "OpenCodeProviderAdapter",
+    "OpenRouterProviderAdapter",
+    "SelfHostedNimProviderAdapter",
+    "VllmProviderAdapter",
+    "ZaiProviderAdapter",
 ]

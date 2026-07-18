@@ -2639,6 +2639,32 @@ def provider_config_api_keys(provider: str, pcfg: dict[str, Any]) -> list[str]:
     return deduped
 
 
+def provider_contract_config(provider: str, pcfg: dict[str, Any]) -> ProviderConfig:
+    """Translate legacy configuration into the provider-owned contract."""
+
+    return ProviderConfig(
+        name=provider,
+        base_url=str(pcfg.get("base_url") or ""),
+        model=str(pcfg.get("current_model") or pcfg.get("model") or ""),
+        api_keys=tuple(provider_config_api_keys(provider, pcfg)),
+        options=pcfg,
+    )
+
+
+def configured_provider_adapter(provider: str, pcfg: dict[str, Any]):
+    return PROVIDER_ADAPTERS.create(provider, base_url=str(pcfg.get("base_url") or ""))
+
+
+def provider_endpoint(provider: str, pcfg: dict[str, Any], operation: str) -> str:
+    adapter = configured_provider_adapter(provider, pcfg)
+    return join_url(provider_upstream_request_base(provider, pcfg), adapter.resolve_endpoint(operation, provider_contract_config(provider, pcfg)))
+
+
+def provider_model_paths(provider: str, pcfg: dict[str, Any]) -> tuple[str, ...]:
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.model_paths(provider_contract_config(provider, pcfg))
+
+
 def provider_has_api_key(provider: str, pcfg: dict[str, Any]) -> bool:
     return bool(provider_config_api_keys(provider, pcfg))
 
@@ -6393,12 +6419,9 @@ def nvidia_hosted_list_headers() -> dict[str, str]:
 def provider_model_list_headers(provider: str, pcfg: dict[str, Any]) -> dict[str, str]:
     headers = with_upstream_user_agent({"content-type": "application/json"})
     key = provider_primary_api_key(provider, pcfg)
-    if provider == "anthropic" and key:
-        headers["anthropic-version"] = "2023-06-01"
-        headers["x-api-key"] = str(key)
-    elif meaningful_key(str(key) if key is not None else None):
-        headers["authorization"] = f"Bearer {key}"
-        headers["x-api-key"] = str(key)
+    meaningful = str(key) if meaningful_key(str(key) if key is not None else None) else None
+    adapter = configured_provider_adapter(provider, pcfg)
+    headers.update(adapter.build_model_headers(provider_contract_config(provider, pcfg), meaningful))
     return headers
 
 
@@ -7033,14 +7056,8 @@ def provider_headers(provider: str, pcfg: dict[str, Any], inbound_headers: Any |
             raise RuntimeError("Anthropic routed mode needs a configured API key or inbound Claude Code auth headers.")
     else:
         meaningful = str(key) if meaningful_key(key) else None
-        adapter = PROVIDER_ADAPTERS.create(provider, base_url=str(pcfg.get("base_url") or ""))
-        config = ProviderConfig(
-            name=provider,
-            base_url=str(pcfg.get("base_url") or ""),
-            model=str(pcfg.get("model") or ""),
-            api_keys=(meaningful,) if meaningful else (),
-            options=pcfg,
-        )
+        adapter = configured_provider_adapter(provider, pcfg)
+        config = provider_contract_config(provider, pcfg)
         headers.update(adapter.build_headers(config, meaningful))
     return headers
 
@@ -7156,6 +7173,7 @@ def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool 
             nvidia_upstream_base_url=nvidia_upstream_base_url,
             ollama_catalog_model_ids=ollama_catalog_model_ids,
             provider_has_api_key=provider_has_api_key,
+            provider_model_paths=provider_model_paths,
             provider_model_list_headers=provider_model_list_headers,
             provider_upstream_request_base=provider_upstream_request_base,
             read_model_list_cache=read_model_list_cache,
@@ -7878,7 +7896,7 @@ def list_model_objects_for_request(provider: str, pcfg: dict[str, Any], inbound_
 
 
 def provider_upstream_request_base(provider: str, pcfg: dict[str, Any]) -> str:
-    return pcfg.get("base_url", "").rstrip("/")
+    return configured_provider_adapter(provider, pcfg).default_base_url().rstrip("/")
 
 
 def native_anthropic_base_url(provider: str, pcfg: dict[str, Any]) -> str:
@@ -11847,7 +11865,7 @@ def context_compact_request_summary(
         }
         if pcfg.get("keep_alive"):
             req["keep_alive"] = str(pcfg["keep_alive"])
-        url = join_url(str(pcfg.get("base_url") or "").rstrip("/"), "/api/chat")
+        url = provider_endpoint(provider, pcfg, "ollama_chat")
         data = post_json_with_rate_retry(
             url,
             req,
@@ -11869,7 +11887,7 @@ def context_compact_request_summary(
             "stream": False,
             "max_tokens": max_tokens,
         }
-        url = join_url(provider_upstream_request_base(provider, pcfg), "/v1/chat/completions")
+        url = provider_endpoint(provider, pcfg, "openai_chat")
         data = post_json_with_rate_retry(
             url,
             req,
@@ -15961,7 +15979,6 @@ def forward_ollama_api_chat(handler: BaseHTTPRequestHandler, provider: str, pcfg
     _update_tool_schema_registry(body.get("tools"))
     body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
     model = resolve_requested_model(provider, pcfg, body.get("model"))
-    base = pcfg.get("base_url", "").rstrip("/")
     compatibility_test = str(handler.headers.get(COMPATIBILITY_TEST_HEADER) or "").strip().lower() in ("1", "true", "yes", "on")
     original_body = body
     upstream_body = body_with_advisor_tool(body, pcfg) if advisor_provider_supported(provider) else body
@@ -15978,7 +15995,7 @@ def forward_ollama_api_chat(handler: BaseHTTPRequestHandler, provider: str, pcfg
     word_chunking = bool(pcfg.get("stream_word_chunking", False))
     req_body = ollama_chat_request(model, upstream_body, pcfg, stream=stream_requested, provider=provider)
     headers = provider_headers(provider, pcfg)
-    url = join_url(base, "/api/chat")
+    url = provider_endpoint(provider, pcfg, "ollama_chat")
     if compatibility_test:
         waited, rpm_used, rpm_limit = 0.0, 0, router_rate_limit_effective_rpm(provider, pcfg, model)
     else:
@@ -16946,7 +16963,7 @@ def collect_ollama_message_for_responses(
     original_body = body
     upstream_body = body_with_advisor_tool(body, pcfg) if advisor_provider_supported(provider) else body
     req_body = ollama_chat_request(model, upstream_body, pcfg, stream=False)
-    url = join_url(str(pcfg.get("base_url") or "").rstrip("/"), "/api/chat")
+    url = provider_endpoint(provider, pcfg, "ollama_chat")
     compatibility_test = str(handler.headers.get(COMPATIBILITY_TEST_HEADER) or "").strip().lower() in ("1", "true", "yes", "on")
     if compatibility_test:
         waited, rpm_used, rpm_limit = 0.0, 0, router_rate_limit_effective_rpm(provider, pcfg, model)
@@ -16981,7 +16998,7 @@ def collect_openai_chat_message_for_responses(
         model = ncp_model_id_for_nvidia_hosted(model)
     original_body = body
     upstream_body = body_with_advisor_tool(body, pcfg) if advisor_provider_supported(provider) else body
-    url = join_url(provider_upstream_request_base(provider, pcfg), "/v1/chat/completions")
+    url = provider_endpoint(provider, pcfg, "openai_chat")
     compatibility_test = str(handler.headers.get(COMPATIBILITY_TEST_HEADER) or "").strip().lower() in ("1", "true", "yes", "on")
     waited, rpm_used, rpm_limit = apply_router_rate_limit(provider, pcfg, model)
     req_body = openai_compatible_chat_request(provider, model, upstream_body, pcfg, stream=False)
@@ -23334,7 +23351,7 @@ def compatibility_api_key_probe_request(
     headers = provider_headers(provider, pcfg)
     if provider in ("ollama", "ollama-cloud"):
         req_body = ollama_chat_request(upstream_model, body, pcfg, stream=False, provider=provider)
-        return join_url(provider_upstream_request_base(provider, pcfg), "/api/chat"), req_body, headers
+        return provider_endpoint(provider, pcfg, "ollama_chat"), req_body, headers
     if provider in OPENCODE_PROVIDER_NAMES:
         endpoint_kind = opencode_endpoint_kind(provider, upstream_model, pcfg)
         if endpoint_kind == "openai-chat":
@@ -23347,7 +23364,7 @@ def compatibility_api_key_probe_request(
     if provider_openai_router_enabled(provider, pcfg):
         upstream_model = ncp_model_id_for_nvidia_hosted(upstream_model) if provider == "nvidia-hosted" else upstream_model
         req_body = openai_compatible_chat_request(provider, upstream_model, body, pcfg, stream=False)
-        return join_url(provider_upstream_request_base(provider, pcfg), "/v1/chat/completions"), req_body, headers
+        return provider_endpoint(provider, pcfg, "openai_chat"), req_body, headers
     body = cap_anthropic_body_for_provider(provider, pcfg, body)
     body = apply_provider_request_options(provider, pcfg, body)
     body = dict(body)

@@ -24,6 +24,7 @@ class ProviderModelServices:
     nvidia_upstream_base_url: Callable[..., Any]
     ollama_catalog_model_ids: Callable[..., Any]
     provider_has_api_key: Callable[..., Any]
+    provider_model_paths: Callable[..., Any]
     provider_model_list_headers: Callable[..., Any]
     provider_upstream_request_base: Callable[..., Any]
     read_model_list_cache: Callable[..., Any]
@@ -57,6 +58,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
     nvidia_upstream_base_url = services.nvidia_upstream_base_url
     ollama_catalog_model_ids = services.ollama_catalog_model_ids
     provider_has_api_key = services.provider_has_api_key
+    provider_model_paths = services.provider_model_paths
     provider_model_list_headers = services.provider_model_list_headers
     provider_upstream_request_base = services.provider_upstream_request_base
     read_model_list_cache = services.read_model_list_cache
@@ -180,40 +182,19 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
     model_info: dict[str, dict[str, Any]] = {}
     fetched = False
     try:
-        if provider in ("ollama", "ollama-cloud"):
-            try:
-                data = http_json(join_url(base, "/api/tags"), headers=provider_model_list_headers(provider, pcfg), timeout=4.0, provider=provider, pcfg=pcfg)
-                ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
-                model_info.update(model_info_from_response(provider, data))
-                fetched = True
-            except Exception:
-                data = http_json(join_url(base, "/v1/models"), headers=provider_model_list_headers(provider, pcfg), timeout=4.0, provider=provider, pcfg=pcfg)
-                ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
-                model_info.update(model_info_from_response(provider, data))
-                fetched = True
-        elif provider == "nvidia-hosted":
+        if provider == "nvidia-hosted":
             data = http_json(join_url(base, "/v1/models"), headers=nvidia_hosted_list_headers(), timeout=8.0, provider=provider, pcfg=pcfg)
             ids = model_ids_from_response(data)
             model_info.update(model_info_from_response(provider, data))
             fetched = True
-        elif provider == "lm-studio":
-            headers = provider_model_list_headers(provider, pcfg)
-            for path in ("/api/v0/models", "/api/v1/models", "/v1/models", "/models"):
-                try:
-                    data = http_json(join_url(lm_studio_api_base(pcfg) if path.startswith("/api/") else base, path), headers=headers, timeout=2.0, provider=provider, pcfg=pcfg)
-                    ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
-                    model_info.update(model_info_from_response(provider, data))
-                    fetched = True
-                    if ids:
-                        break
-                except Exception:
-                    continue
         else:
             headers = provider_model_list_headers(provider, pcfg)
-            for path in ("/v1/models", "/models"):
+            for path in provider_model_paths(provider, pcfg):
                 try:
-                    data = http_json(join_url(base, path), headers=headers, timeout=6.0, provider=provider, pcfg=pcfg)
-                    ids = model_ids_from_response(data)
+                    request_base = lm_studio_api_base(pcfg) if provider == "lm-studio" and path.startswith("/api/") else base
+                    timeout = 2.0 if provider == "lm-studio" else (4.0 if provider in ("ollama", "ollama-cloud") else 6.0)
+                    data = http_json(join_url(request_base, path), headers=headers, timeout=timeout, provider=provider, pcfg=pcfg)
+                    ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
                     model_info.update(model_info_from_response(provider, data))
                     fetched = True
                     if ids:

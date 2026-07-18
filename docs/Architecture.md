@@ -112,6 +112,10 @@ class RateLimitState:
 - `default_base_url()` → `str`
 - `list_models(config: ProviderConfig)` → `list[ModelInfo]`
 - `build_headers(config, api_key)` → `dict[str, str]`
+- `capabilities(config)` → upstream protocol 및 tools/thinking/local 특성
+- `request_policy(config)` → chat/models/model-info endpoint와 timeout 기본값
+- `resolve_endpoint(operation, config)` → provider-owned endpoint 선택
+- `model_paths(config)` → provider별 모델 discovery fallback 순서
 
 ### `ToolDialect` (ABC)
 런타임별 툴 이름 정규화 인터페이스.
@@ -173,7 +177,7 @@ class RateLimitState:
 
 아키텍처 계약은 테스트용 모델에 머무르지 않고 운영 경로의 composition root에서 실제로 적용된다.
 
-- `ciel_runtime_support/provider_adapters.py`의 `HttpBearerProviderAdapter`가 OpenAI 호환 제공자의 실제 인증 헤더 생성을 담당한다.
+- `ciel_runtime_support/provider_adapters.py`는 Anthropic, Ollama, OpenRouter, LM Studio, vLLM, NVIDIA NIM, DeepSeek, Kimi, Z.AI, Fireworks, OpenCode 등 Provider별 구체 Adapter를 Registry에 등록한다. `HttpBearerProviderAdapter`는 이들의 공통 인증 기반일 뿐 Provider 선택 단위가 아니다.
 - `ciel_runtime_support/runtime_adapters.py`의 `CliRuntimeAdapter`가 Claude, Codex, AGY의 정규화된 `LaunchSpec`을 `RuntimeCommand`로 변환한다.
 - `ciel_runtime_support/protocols/openai_responses.py`는 설정이나 네트워크에 의존하지 않고 OpenAI Responses와 Anthropic Messages 사이를 변환한다.
 - `ciel_runtime_support/registry.py`는 provider, runtime, protocol, tool dialect 구현을 조건문 대신 이름 기반 factory로 선택한다.

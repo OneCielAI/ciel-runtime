@@ -13,7 +13,26 @@ from ciel_runtime_support.architecture import (
     ToolDialect,
 )
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS, OpenAIResponsesProtocolAdapter
-from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, HttpBearerProviderAdapter
+from ciel_runtime_support.provider_adapters import (
+    PROVIDER_ADAPTERS,
+    AgyProviderAdapter,
+    AnthropicProviderAdapter,
+    CodexProviderAdapter,
+    DeepSeekProviderAdapter,
+    FireworksProviderAdapter,
+    HttpBearerProviderAdapter,
+    KimiProviderAdapter,
+    LMStudioProviderAdapter,
+    NvidiaHostedProviderAdapter,
+    OllamaCloudProviderAdapter,
+    OllamaProviderAdapter,
+    OpenCodeGoProviderAdapter,
+    OpenCodeProviderAdapter,
+    OpenRouterProviderAdapter,
+    SelfHostedNimProviderAdapter,
+    VllmProviderAdapter,
+    ZaiProviderAdapter,
+)
 from ciel_runtime_support.registry import AdapterRegistry
 from ciel_runtime_support.runtime_adapters import (
     RUNTIME_ADAPTERS,
@@ -88,6 +107,41 @@ class ArchitectureContractTests(unittest.TestCase):
             registry.register("one", object)
         with self.assertRaisesRegex(KeyError, "unknown adapter"):
             registry.create("missing")
+
+    def test_each_configurable_provider_has_a_concrete_adapter(self):
+        expected = {
+            "agy": AgyProviderAdapter,
+            "anthropic": AnthropicProviderAdapter,
+            "codex": CodexProviderAdapter,
+            "deepseek": DeepSeekProviderAdapter,
+            "fireworks": FireworksProviderAdapter,
+            "kimi": KimiProviderAdapter,
+            "lm-studio": LMStudioProviderAdapter,
+            "nvidia-hosted": NvidiaHostedProviderAdapter,
+            "ollama": OllamaProviderAdapter,
+            "ollama-cloud": OllamaCloudProviderAdapter,
+            "opencode": OpenCodeProviderAdapter,
+            "opencode-go": OpenCodeGoProviderAdapter,
+            "openrouter": OpenRouterProviderAdapter,
+            "self-hosted-nim": SelfHostedNimProviderAdapter,
+            "vllm": VllmProviderAdapter,
+            "zai": ZaiProviderAdapter,
+        }
+        for provider, adapter_type in expected.items():
+            with self.subTest(provider=provider):
+                self.assertIsInstance(PROVIDER_ADAPTERS.create(provider), adapter_type)
+
+    def test_provider_adapters_own_protocol_endpoints_and_model_paths(self):
+        ollama = PROVIDER_ADAPTERS.create("ollama")
+        ollama_config = ProviderConfig(name="ollama", base_url="http://localhost:11434", model="qwen")
+        openrouter = PROVIDER_ADAPTERS.create("openrouter")
+        openrouter_config = ProviderConfig(name="openrouter", base_url="https://openrouter.ai/api/v1", model="model")
+
+        self.assertEqual("ollama_chat", ollama.capabilities(ollama_config).upstream_protocol)
+        self.assertEqual("/api/chat", ollama.resolve_endpoint("chat", ollama_config))
+        self.assertEqual(("/api/tags", "/v1/models"), ollama.model_paths(ollama_config))
+        self.assertEqual("openai_chat", openrouter.capabilities(openrouter_config).upstream_protocol)
+        self.assertEqual("/v1/chat/completions", openrouter.resolve_endpoint("chat", openrouter_config))
 
     def test_openai_responses_adapter_normalizes_both_directions(self):
         adapter = PROTOCOL_ADAPTERS.create("openai_responses", fallback_model="fallback")
