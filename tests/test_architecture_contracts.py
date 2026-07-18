@@ -7,6 +7,7 @@ from ciel_runtime_support.architecture import (
     LaunchSpec,
     ModelInfo,
     ProviderAdapter,
+    ProviderConfigurationPolicy,
     ProviderConfig,
     RuntimeAdapter,
     RuntimeCommand,
@@ -414,6 +415,24 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_provider_option_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ProviderOptionPolicy)), 10)
+        self.assertLessEqual(len(fields(ProviderConfigurationPolicy)), 10)
+
+    def test_provider_option_mutations_do_not_branch_on_provider_names(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "provider_config_mutations.py"
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        provider_comparisons = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Compare):
+                continue
+            compared_names = {
+                item.id
+                for item in (node.left, *node.comparators)
+                if isinstance(item, ast.Name)
+            }
+            if "provider" in compared_names:
+                provider_comparisons.append(node.lineno)
+
+        self.assertEqual([], provider_comparisons)
 
     def test_channel_panel_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelPanelPolicy)), 10)
@@ -557,6 +576,30 @@ class ArchitectureContractTests(unittest.TestCase):
             deepseek.advisor_model_badge(deepseek_config, "deepseek-v4-pro"),
         )
         self.assertEqual("", openrouter.model_panel_badge(openrouter_config, "model"))
+
+    def test_provider_adapters_own_configuration_mutation_capabilities(self):
+        cases = {
+            "anthropic": {"supports_route_through_router": True},
+            "fireworks": {"text_option": "account_id"},
+            "nvidia-hosted": {"native_error": True},
+            "ollama": {"mutation_strategy": "ollama"},
+            "ollama-cloud": {"mutation_strategy": "ollama"},
+            "opencode": {"supports_model_endpoint_overrides": True},
+            "opencode-go": {"supports_model_endpoint_overrides": True},
+        }
+        for provider, expected in cases.items():
+            adapter = PROVIDER_ADAPTERS.create(provider)
+            config = ProviderConfig(name=provider, base_url=adapter.default_base_url(), model="model")
+            policy = adapter.configuration_policy(config)
+            with self.subTest(provider=provider):
+                self.assertIsInstance(policy, ProviderConfigurationPolicy)
+                for key, value in expected.items():
+                    if key == "text_option":
+                        self.assertEqual(value, policy.text_option_aliases["account"])
+                    elif key == "native_error":
+                        self.assertEqual(value, bool(policy.native_compat_error))
+                    else:
+                        self.assertEqual(value, getattr(policy, key))
 
     def test_openai_responses_adapter_normalizes_both_directions(self):
         adapter = PROTOCOL_ADAPTERS.create("openai_responses", fallback_model="fallback")

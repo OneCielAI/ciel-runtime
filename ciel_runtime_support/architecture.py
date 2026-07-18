@@ -145,6 +145,18 @@ class ProviderModelCatalogPolicy:
     use_bundled_catalog_fallback: bool = False
 
 
+@dataclass(frozen=True)
+class ProviderConfigurationPolicy:
+    """Provider-owned configuration mutation capabilities."""
+
+    mutation_strategy: Literal["common", "ollama"] = "common"
+    supports_route_through_router: bool = False
+    supports_model_endpoint_overrides: bool = False
+    native_compat_error: str | None = None
+    text_option_aliases: Mapping[str, str] = field(default_factory=dict)
+    strip_trailing_slash_fields: frozenset[str] = frozenset()
+
+
 class RuntimeAdapter(ABC):
     """Adapter for a local/interactive coding runtime.
 
@@ -270,6 +282,12 @@ class ProviderAdapter(ABC):
     def model_catalog_policy(self, config: ProviderConfig) -> ProviderModelCatalogPolicy:
         del config
         return ProviderModelCatalogPolicy()
+
+    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+        """Return provider-owned option mutation behavior."""
+
+        del config
+        return ProviderConfigurationPolicy()
 
     def model_panel_badge(self, config: ProviderConfig, model: str) -> str:
         """Return an optional provider-owned model label for selection UIs."""

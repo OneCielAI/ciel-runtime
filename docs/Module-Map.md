@@ -171,7 +171,7 @@ Streamable HTTP MCP session의 initialize, notification GET stream 재연결, to
 
 ### `ciel_runtime_support/provider_config_mutations.py`
 
-CLI와 저장소에 의존하지 않고 Ollama 및 공통 Provider option의 검증·정규화·설정 변경을 수행하는 Configuration policy. `ProviderOptionPolicy`가 정규화 규칙을 주입받아 프로바이더별 설정 변경을 메인 composition root에서 분리한다.
+CLI와 저장소에 의존하지 않고 Provider option의 검증·정규화·설정 변경을 수행하는 Configuration policy. 프로바이더 이름 분기 없이 각 Provider Adapter의 `ProviderConfigurationPolicy`가 Ollama mutation 전략, endpoint override, native 제한, route 지원 및 텍스트 option alias를 선언한다.
 
 ### `ciel_runtime_support/agent_router.py`
 

@@ -5,10 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .architecture import ProviderConfigurationPolicy
+
 
 @dataclass(frozen=True, slots=True)
 class ProviderOptionPolicy:
-    opencode_provider_names: tuple[str, ...]
     normalize_claude_code_supported_capabilities: Callable[..., Any]
     normalize_ip_family: Callable[..., Any]
     normalize_model_id: Callable[..., Any]
@@ -154,8 +155,8 @@ def apply_provider_option(
     token: str,
     *,
     policy: ProviderOptionPolicy,
+    capabilities: ProviderConfigurationPolicy,
 ) -> None:
-    OPENCODE_PROVIDER_NAMES = policy.opencode_provider_names
     normalize_claude_code_supported_capabilities = policy.normalize_claude_code_supported_capabilities
     normalize_ip_family = policy.normalize_ip_family
     normalize_model_id = policy.normalize_model_id
@@ -165,7 +166,7 @@ def apply_provider_option(
     positive_int = policy.positive_int
     sampling_option_key = policy.sampling_option_key
     validate_sampling_option = policy.validate_sampling_option
-    if provider in OPENCODE_PROVIDER_NAMES and token.startswith("endpoint:") and "=" in token:
+    if capabilities.supports_model_endpoint_overrides and token.startswith("endpoint:") and "=" in token:
         key, raw_value = token.split("=", 1)
         model_id = key.split(":", 1)[1].strip()
         endpoint = normalize_opencode_endpoint_kind(raw_value)
@@ -194,7 +195,7 @@ def apply_provider_option(
         "tool-choice",
         "auto_tool_choice",
     }
-    if provider in ("ollama", "ollama-cloud") and token_key not in provider_common_keys:
+    if capabilities.mutation_strategy == "ollama" and token_key not in provider_common_keys:
         apply_ollama_option(pcfg, token, policy=policy)
         return
     if token.startswith("unset:"):
@@ -215,11 +216,8 @@ def apply_provider_option(
         elif key in ("rate_limit_status", "rpm_status"):
             pcfg["rate_limit_status"] = False
         elif key in ("native", "native_compat"):
-            if provider == "nvidia-hosted":
-                raise SystemExit(
-                    f"{provider} does not expose Anthropic /v1/messages; use router mode. "
-                    "Use self-hosted-nim or vLLM for native /v1/messages."
-                )
+            if capabilities.native_compat_error:
+                raise SystemExit(capabilities.native_compat_error)
             pcfg["native_compat"] = True
         elif key in ("route", "routed", "route_through_router", "router"):
             pcfg["route_through_router"] = False
@@ -233,17 +231,15 @@ def apply_provider_option(
             pcfg.pop("force_query_string", None)
         elif key in ("supports_tool_choice", "tool_choice", "tool-choice", "auto_tool_choice"):
             pcfg.pop("supports_tool_choice", None)
-        elif provider == "fireworks" and key in ("account_id", "account"):
-            pcfg.pop("account_id", None)
-        elif provider == "fireworks" and key in ("model_api_base_url", "model_base_url", "models_base_url", "management_base_url"):
-            pcfg.pop("model_api_base_url", None)
+        elif key in capabilities.text_option_aliases:
+            pcfg.pop(capabilities.text_option_aliases[key], None)
         elif key in ("workflows_enabled", "workflow", "workflows"):
             pcfg["workflows_enabled"] = False
         elif key in ("ultracode_enabled", "ultracode"):
             pcfg["ultracode_enabled"] = False
         elif key in ("claude_code_supported_capabilities", "supported_capabilities", "capabilities"):
             pcfg.pop("claude_code_supported_capabilities", None)
-        elif provider in OPENCODE_PROVIDER_NAMES and key.startswith("endpoint:"):
+        elif capabilities.supports_model_endpoint_overrides and key.startswith("endpoint:"):
             model_id = normalize_model_id(provider, key.split(":", 1)[1].strip())
             endpoints = pcfg.get("model_endpoints")
             if isinstance(endpoints, dict):
@@ -314,15 +310,12 @@ def apply_provider_option(
         pcfg["rate_limit_rpm"] = fixed
         return
     if key in ("native", "native_compat"):
-        if provider == "nvidia-hosted":
-            raise SystemExit(
-                f"{provider} does not expose Anthropic /v1/messages; use router mode. "
-                "Use self-hosted-nim or vLLM for native /v1/messages."
-            )
+        if capabilities.native_compat_error:
+            raise SystemExit(capabilities.native_compat_error)
         pcfg["native_compat"] = bool(value)
         return
     if key in ("route", "routed", "route_through_router", "router"):
-        if provider != "anthropic":
+        if not capabilities.supports_route_through_router:
             raise SystemExit("route_through_router is only available for the Anthropic provider")
         pcfg["route_through_router"] = parse_bool(value, default=False)
         return
@@ -335,19 +328,15 @@ def apply_provider_option(
     if key in ("ip_family", "network_family", "address_family", "addr_family"):
         pcfg["ip_family"] = normalize_ip_family(value)
         return
-    if provider == "fireworks" and key in ("account_id", "account"):
+    if key in capabilities.text_option_aliases:
+        target = capabilities.text_option_aliases[key]
         text = "" if value is None else str(value).strip()
+        if target in capabilities.strip_trailing_slash_fields:
+            text = text.rstrip("/")
         if not text:
-            pcfg.pop("account_id", None)
+            pcfg.pop(target, None)
         else:
-            pcfg["account_id"] = text
-        return
-    if provider == "fireworks" and key in ("model_api_base_url", "model_base_url", "models_base_url", "management_base_url"):
-        text = "" if value is None else str(value).strip().rstrip("/")
-        if not text:
-            pcfg.pop("model_api_base_url", None)
-        else:
-            pcfg["model_api_base_url"] = text
+            pcfg[target] = text
         return
     if key in ("rate_limit_status", "rpm_status"):
         pcfg["rate_limit_status"] = parse_bool(value, default=False)

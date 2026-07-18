@@ -20177,7 +20177,6 @@ def cmd_ollama_native(args: argparse.Namespace) -> None:
 
 def provider_option_policy() -> ProviderOptionPolicy:
     return ProviderOptionPolicy(
-        opencode_provider_names=OPENCODE_PROVIDER_NAMES,
         normalize_claude_code_supported_capabilities=normalize_claude_code_supported_capabilities,
         normalize_ip_family=normalize_ip_family,
         normalize_model_id=normalize_model_id,
@@ -22154,7 +22153,15 @@ def set_llm_option_config(provider: str, key: str, raw_value: str) -> list[str]:
 
 
 def apply_provider_option(provider: str, pcfg: dict[str, Any], token: str) -> None:
-    mutate_provider_option(provider, pcfg, token, policy=provider_option_policy())
+    adapter = configured_provider_adapter(provider, pcfg)
+    capabilities = adapter.configuration_policy(provider_contract_config(provider, pcfg))
+    mutate_provider_option(
+        provider,
+        pcfg,
+        token,
+        policy=provider_option_policy(),
+        capabilities=capabilities,
+    )
 
 
 def cmd_provider_options(args: argparse.Namespace) -> None:

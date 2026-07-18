@@ -10,6 +10,7 @@ from .architecture import (
     MessageProtocol,
     ProviderAdapter,
     ProviderCapabilities,
+    ProviderConfigurationPolicy,
     ProviderConfig,
     ProviderModelCatalogPolicy,
     ProviderRequestPolicy,
@@ -164,6 +165,10 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
             ("back", "back", "back"),
         )
 
+    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+        del config
+        return ProviderConfigurationPolicy(supports_route_through_router=True)
+
     def build_model_headers(self, config: ProviderConfig, api_key: str | None) -> Mapping[str, str]:
         del config
         key = str(api_key or "").strip()
@@ -221,6 +226,10 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
     def model_paths(self, config: ProviderConfig) -> tuple[str, ...]:
         del config
         return ("/api/tags", "/v1/models")
+
+    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+        del config
+        return ProviderConfigurationPolicy(mutation_strategy="ollama")
 
 
 @dataclass(frozen=True)
@@ -283,6 +292,15 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(kind="nvidia")
     )
+
+    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+        del config
+        return ProviderConfigurationPolicy(
+            native_compat_error=(
+                "nvidia-hosted does not expose Anthropic /v1/messages; use router mode. "
+                "Use self-hosted-nim or vLLM for native /v1/messages."
+            )
+        )
 
 
 @dataclass(frozen=True)
@@ -403,6 +421,20 @@ class FireworksProviderAdapter(OpenAICompatibleProviderAdapter):
         del config, model
         return "openai_chat" if operation in {"openai_chat", "openai_responses"} else "anthropic_messages"
 
+    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+        del config
+        return ProviderConfigurationPolicy(
+            text_option_aliases={
+                "account": "account_id",
+                "account_id": "account_id",
+                "management_base_url": "model_api_base_url",
+                "model_api_base_url": "model_api_base_url",
+                "model_base_url": "model_api_base_url",
+                "models_base_url": "model_api_base_url",
+            },
+            strip_trailing_slash_fields=frozenset({"model_api_base_url"}),
+        )
+
 
 @dataclass(frozen=True)
 class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
@@ -476,6 +508,10 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
         if isinstance(overrides, Mapping) and model in overrides:
             label += " override"
         return label
+
+    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+        del config
+        return ProviderConfigurationPolicy(supports_model_endpoint_overrides=True)
 
 
 @dataclass(frozen=True)
