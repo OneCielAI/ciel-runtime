@@ -69,6 +69,13 @@ from ciel_runtime_support.prelaunch import (
     PrelaunchServices,
     PrelaunchTerminal,
 )
+from ciel_runtime_support.prelaunch_terminal import (
+    PrelaunchInputStyle,
+    PrelaunchRenderBrand,
+    PrelaunchRenderData,
+    PrelaunchRenderServices,
+    PrelaunchRenderText,
+)
 from ciel_runtime_support.runtime_launch import (
     AgyLaunchChannel,
     AgyLaunchCliPolicy,
@@ -248,6 +255,17 @@ class ArchitectureContractTests(unittest.TestCase):
         )
 
         for port in ports:
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_prelaunch_terminal_ports_stay_below_dependency_limit(self):
+        for port in (
+            PrelaunchRenderBrand,
+            PrelaunchRenderText,
+            PrelaunchRenderData,
+            PrelaunchRenderServices,
+            PrelaunchInputStyle,
+        ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
