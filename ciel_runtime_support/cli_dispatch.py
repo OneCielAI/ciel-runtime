@@ -10,106 +10,141 @@ from typing import Any
 
 
 @dataclass(frozen=True)
-class CliServices:
+class CliCore:
     VERSION: Any
-    add_channel_spec: Any
-    agy_passthrough_has_command: Any
-    apply_auto_llm_options_config: Any
-    apply_headless_env_config: Any
-    channel_delivery_mode: Any
-    clear_channel_specs: Any
     cli_usage: Any
-    cmd_advisor_model: Any
-    cmd_api_key: Any
-    cmd_base_url: Any
-    cmd_channels: Any
-    cmd_language: Any
-    cmd_log_level: Any
-    cmd_mcp_proxy: Any
-    cmd_model: Any
-    cmd_models: Any
-    cmd_ollama_catalog: Any
-    cmd_ollama_native: Any
-    cmd_ollama_options: Any
-    cmd_provider: Any
-    cmd_provider_options: Any
-    cmd_set_api_key: Any
-    cmd_set_api_keys: Any
-    cmd_status: Any
-    cmd_stop: Any
-    cmd_test: Any
-    cmd_web_fetch: Any
-    cmd_web_search: Any
-    codex_passthrough_has_command: Any
     find_executable: Any
     get_current_provider: Any
+    load_config: Any
+    pop_headless_env_file_args: Any
+    portable_provider_menu: Any
+    run_external_menu: Any
+    run_quiet_upgrade_and_exit: Any
+
+
+@dataclass(frozen=True)
+class CliRuntime:
+    agy_passthrough_has_command: Any
+    codex_passthrough_has_command: Any
     last_launch_runtime: Any
     launch_agy: Any
     launch_claude: Any
     launch_codex: Any
     launch_codex_app_server: Any
-    load_config: Any
     native_agy_enabled: Any
     native_codex_enabled: Any
-    pop_headless_env_file_args: Any
-    portable_provider_menu: Any
-    run_external_menu: Any
-    run_quiet_upgrade_and_exit: Any
-    set_advisor_model_config: Any
+
+
+@dataclass(frozen=True)
+class CliProviderCommands:
+    cmd_advisor_model: Any
+    cmd_api_key: Any
+    cmd_base_url: Any
+    cmd_language: Any
+    cmd_log_level: Any
+    cmd_model: Any
+    cmd_models: Any
+    cmd_provider: Any
+    cmd_provider_options: Any
+    cmd_set_api_key: Any
+
+
+@dataclass(frozen=True)
+class CliChannelCommands:
+    add_channel_spec: Any
+    channel_delivery_mode: Any
+    clear_channel_specs: Any
+    cmd_channels: Any
+    cmd_mcp_proxy: Any
     set_channel_delivery_config: Any
     set_channel_development_enabled: Any
+
+
+@dataclass(frozen=True)
+class CliSpecialCommands:
+    cmd_ollama_catalog: Any
+    cmd_ollama_native: Any
+    cmd_ollama_options: Any
+    cmd_web_fetch: Any
+    cmd_web_search: Any
+
+
+@dataclass(frozen=True)
+class CliOperations:
+    cmd_status: Any
+    cmd_stop: Any
+    cmd_test: Any
+
+
+@dataclass(frozen=True)
+class CliConfiguration:
+    apply_auto_llm_options_config: Any
+    apply_headless_env_config: Any
+    set_advisor_model_config: Any
     set_log_level_config: Any
+    cmd_set_api_keys: Any
+
+
+@dataclass(frozen=True)
+class CliServices:
+    core: CliCore
+    runtime: CliRuntime
+    provider_commands: CliProviderCommands
+    channel_commands: CliChannelCommands
+    special_commands: CliSpecialCommands
+    operations: CliOperations
+    configuration: CliConfiguration
 
 
 def dispatch_cli(argv: list[str], services: CliServices) -> int:
-    VERSION = services.VERSION
-    add_channel_spec = services.add_channel_spec
-    agy_passthrough_has_command = services.agy_passthrough_has_command
-    apply_auto_llm_options_config = services.apply_auto_llm_options_config
-    apply_headless_env_config = services.apply_headless_env_config
-    channel_delivery_mode = services.channel_delivery_mode
-    clear_channel_specs = services.clear_channel_specs
-    cli_usage = services.cli_usage
-    cmd_advisor_model = services.cmd_advisor_model
-    cmd_api_key = services.cmd_api_key
-    cmd_base_url = services.cmd_base_url
-    cmd_channels = services.cmd_channels
-    cmd_language = services.cmd_language
-    cmd_log_level = services.cmd_log_level
-    cmd_mcp_proxy = services.cmd_mcp_proxy
-    cmd_model = services.cmd_model
-    cmd_models = services.cmd_models
-    cmd_ollama_catalog = services.cmd_ollama_catalog
-    cmd_ollama_native = services.cmd_ollama_native
-    cmd_ollama_options = services.cmd_ollama_options
-    cmd_provider = services.cmd_provider
-    cmd_provider_options = services.cmd_provider_options
-    cmd_set_api_key = services.cmd_set_api_key
-    cmd_set_api_keys = services.cmd_set_api_keys
-    cmd_status = services.cmd_status
-    cmd_stop = services.cmd_stop
-    cmd_test = services.cmd_test
-    cmd_web_fetch = services.cmd_web_fetch
-    cmd_web_search = services.cmd_web_search
-    codex_passthrough_has_command = services.codex_passthrough_has_command
-    find_executable = services.find_executable
-    get_current_provider = services.get_current_provider
-    last_launch_runtime = services.last_launch_runtime
-    launch_agy = services.launch_agy
-    launch_claude = services.launch_claude
-    launch_codex = services.launch_codex
-    launch_codex_app_server = services.launch_codex_app_server
-    load_config = services.load_config
-    native_agy_enabled = services.native_agy_enabled
-    native_codex_enabled = services.native_codex_enabled
-    pop_headless_env_file_args = services.pop_headless_env_file_args
-    portable_provider_menu = services.portable_provider_menu
-    run_external_menu = services.run_external_menu
-    run_quiet_upgrade_and_exit = services.run_quiet_upgrade_and_exit
-    set_advisor_model_config = services.set_advisor_model_config
-    set_channel_delivery_config = services.set_channel_delivery_config
-    set_channel_development_enabled = services.set_channel_development_enabled
-    set_log_level_config = services.set_log_level_config
+    VERSION = services.core.VERSION
+    add_channel_spec = services.channel_commands.add_channel_spec
+    agy_passthrough_has_command = services.runtime.agy_passthrough_has_command
+    apply_auto_llm_options_config = services.configuration.apply_auto_llm_options_config
+    apply_headless_env_config = services.configuration.apply_headless_env_config
+    channel_delivery_mode = services.channel_commands.channel_delivery_mode
+    clear_channel_specs = services.channel_commands.clear_channel_specs
+    cli_usage = services.core.cli_usage
+    cmd_advisor_model = services.provider_commands.cmd_advisor_model
+    cmd_api_key = services.provider_commands.cmd_api_key
+    cmd_base_url = services.provider_commands.cmd_base_url
+    cmd_channels = services.channel_commands.cmd_channels
+    cmd_language = services.provider_commands.cmd_language
+    cmd_log_level = services.provider_commands.cmd_log_level
+    cmd_mcp_proxy = services.channel_commands.cmd_mcp_proxy
+    cmd_model = services.provider_commands.cmd_model
+    cmd_models = services.provider_commands.cmd_models
+    cmd_ollama_catalog = services.special_commands.cmd_ollama_catalog
+    cmd_ollama_native = services.special_commands.cmd_ollama_native
+    cmd_ollama_options = services.special_commands.cmd_ollama_options
+    cmd_provider = services.provider_commands.cmd_provider
+    cmd_provider_options = services.provider_commands.cmd_provider_options
+    cmd_set_api_key = services.provider_commands.cmd_set_api_key
+    cmd_set_api_keys = services.configuration.cmd_set_api_keys
+    cmd_status = services.operations.cmd_status
+    cmd_stop = services.operations.cmd_stop
+    cmd_test = services.operations.cmd_test
+    cmd_web_fetch = services.special_commands.cmd_web_fetch
+    cmd_web_search = services.special_commands.cmd_web_search
+    codex_passthrough_has_command = services.runtime.codex_passthrough_has_command
+    find_executable = services.core.find_executable
+    get_current_provider = services.core.get_current_provider
+    last_launch_runtime = services.runtime.last_launch_runtime
+    launch_agy = services.runtime.launch_agy
+    launch_claude = services.runtime.launch_claude
+    launch_codex = services.runtime.launch_codex
+    launch_codex_app_server = services.runtime.launch_codex_app_server
+    load_config = services.core.load_config
+    native_agy_enabled = services.runtime.native_agy_enabled
+    native_codex_enabled = services.runtime.native_codex_enabled
+    pop_headless_env_file_args = services.core.pop_headless_env_file_args
+    portable_provider_menu = services.core.portable_provider_menu
+    run_external_menu = services.core.run_external_menu
+    run_quiet_upgrade_and_exit = services.core.run_quiet_upgrade_and_exit
+    set_advisor_model_config = services.configuration.set_advisor_model_config
+    set_channel_delivery_config = services.channel_commands.set_channel_delivery_config
+    set_channel_development_enabled = services.channel_commands.set_channel_development_enabled
+    set_log_level_config = services.configuration.set_log_level_config
     if argv and argv[0] == "mcp-proxy":
         return cmd_mcp_proxy(argv[1:])
     if argv and argv[0] in ("help", "--help", "-h"):
@@ -744,4 +779,14 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
     )
 
 
-__all__ = ["CliServices", "dispatch_cli"]
+__all__ = [
+    "CliChannelCommands",
+    "CliConfiguration",
+    "CliCore",
+    "CliOperations",
+    "CliProviderCommands",
+    "CliRuntime",
+    "CliServices",
+    "CliSpecialCommands",
+    "dispatch_cli",
+]

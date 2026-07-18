@@ -13,6 +13,16 @@ from ciel_runtime_support.architecture import (
     RuntimeConfig,
     ToolDialect,
 )
+from ciel_runtime_support.cli_dispatch import (
+    CliChannelCommands,
+    CliConfiguration,
+    CliCore,
+    CliOperations,
+    CliProviderCommands,
+    CliRuntime,
+    CliServices,
+    CliSpecialCommands,
+)
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS, OpenAIResponsesProtocolAdapter
 from ciel_runtime_support.provider_models import (
     ModelCatalogHttp,
@@ -244,6 +254,22 @@ class ArchitectureContractTests(unittest.TestCase):
             AgyLaunchInstallation,
             AgyLaunchDispatch,
             AgyLaunchRouting,
+        )
+
+        for port in ports:
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_cli_ports_stay_below_dependency_limit(self):
+        ports = (
+            CliServices,
+            CliCore,
+            CliRuntime,
+            CliProviderCommands,
+            CliChannelCommands,
+            CliSpecialCommands,
+            CliOperations,
+            CliConfiguration,
         )
 
         for port in ports:
