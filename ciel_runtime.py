@@ -52,6 +52,9 @@ from ciel_runtime_support.channel_injection import (
     PromptInjection,
     RuntimeInjectionPolicy,
 )
+from ciel_runtime_support.cli_dispatch import CliServices, dispatch_cli
+from ciel_runtime_support.config_repository import JsonConfigRepository
+from ciel_runtime_support.llm_presets import PresetServices, apply_preset_to_provider
 from ciel_runtime_support.codex_app_server import codex_app_server_launch_args
 from ciel_runtime_support.codex_cli import (
     codex_passthrough_args_for_launch,
@@ -61,12 +64,57 @@ from ciel_runtime_support.codex_cli import (
 )
 from ciel_runtime_support.codex_router import CodexRouter, read_codex_response_preamble
 from ciel_runtime_support.observability import EventBus, render_events_html
-from ciel_runtime_support.protocols import anthropic_message_to_openai_response, openai_responses_to_anthropic_messages
-from ciel_runtime_support.provider_adapters import HttpBearerProviderAdapter
-from ciel_runtime_support.runtime_adapters import CliRuntimeAdapter
+from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
+from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS
+from ciel_runtime_support.provider_limits import (
+    ProviderKeyServices,
+    RateLimitApplyServices,
+    RateLimitBackoffServices,
+    RateLimitLearningServices,
+    apply_rate_limit,
+    choose_provider_api_key,
+    learn_rate_limit_headers,
+    register_rate_limit_backoff,
+)
+from ciel_runtime_support.provider_models import ProviderModelServices, fetch_upstream_model_ids
+from ciel_runtime_support.provider_policy import (
+    ProviderRequestServices,
+    ProviderWireServices,
+    normalize_provider_request,
+    resolve_provider_wire_profile,
+)
+from ciel_runtime_support.prelaunch import PrelaunchServices, run_prelaunch_menu as execute_prelaunch_menu
+from ciel_runtime_support.runtime_adapters import RUNTIME_ADAPTERS
+from ciel_runtime_support.runtime_launch import (
+    AgyLaunchServices,
+    ClaudeLaunchServices,
+    CodexAppServerLaunchServices,
+    CodexLaunchServices,
+    run_agy,
+    run_claude,
+    run_codex,
+    run_codex_app_server,
+)
+from ciel_runtime_support.streaming_anthropic import (
+    AnthropicStreamServices,
+    OllamaStreamServices,
+    OpenAIChatStreamServices,
+    forward_openai_chat_to_anthropic_sse,
+    ollama_stream_to_anthropic_sse,
+    rebatch_anthropic_sse_text,
+)
+from ciel_runtime_support.tool_dialects import TOOL_DIALECTS, mcp_server_normalized_key
+from ciel_runtime_support.tool_schema import (
+    _fuzzy_match_tool_name,
+    _lookup_tool_schema,
+    _missing_required_tool_fields,
+    _update_tool_schema_registry,
+    _validate_and_fix_tool_input as _tool_schema_validate_and_fix,
+)
 from ciel_runtime_support.transcript_filter import (
     is_claude_code_transcript_event,
 )
+from ciel_runtime_support.web_ui import render_router_home_page, render_web_chat_page
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -601,6 +649,8 @@ CHANNEL_LLM_WAKE_LEGACY_PREFIXES = ("[ciel-runtime channel wake]", "[channel pen
 _MCP_NOTIFICATION_DEDUP_TTL_SECONDS = 3.0
 _MCP_NOTIFICATION_DEDUP_LOCK = threading.Lock()
 _MCP_NOTIFICATION_DEDUP_RECENT: dict[str, tuple[str, float]] = {}
+_MCP_NOTIFICATION_WAIT_RECENT: dict[str, float] = {}
+_MCP_NOTIFICATION_WAIT_RECENT_LOCK = threading.Lock()
 MCP_PROXY_TOOL_RESULT_MAX_CHARS_DEFAULT = 24000
 MCP_PROXY_TOOL_RESULT_ITEM_TEXT_CHARS = 6000
 _TOOL_SIDE_EFFECT_DEDUP_TTL_SECONDS = 10 * 60.0
@@ -609,44 +659,6 @@ _TOOL_SIDE_EFFECT_DEDUP_RECENT: dict[str, float] = {}
 EVENT_BUS = EventBus()
 ADVISOR_FEEDBACK_MARKER = "CIEL_RUNTIME_ADVISOR_FEEDBACK"
 PLAN_GUARD_MARKER = "[ciel-runtime-plan-guard]"
-TASK_UPDATE_STATUSES = {"pending", "in_progress", "completed", "deleted"}
-TASK_UPDATE_STATUS_ALIASES = {
-    "active": "in_progress",
-    "assigned": "in_progress",
-    "current": "in_progress",
-    "doing": "in_progress",
-    "inprogress": "in_progress",
-    "in_progress": "in_progress",
-    "in-progress": "in_progress",
-    "in progress": "in_progress",
-    "ongoing": "in_progress",
-    "processing": "in_progress",
-    "running": "in_progress",
-    "started": "in_progress",
-    "working": "in_progress",
-    "complete": "completed",
-    "completed": "completed",
-    "done": "completed",
-    "finished": "completed",
-    "resolved": "completed",
-    "success": "completed",
-    "closed": "completed",
-    "open": "pending",
-    "pending": "pending",
-    "queued": "pending",
-    "todo": "pending",
-    "to_do": "pending",
-    "to-do": "pending",
-    "waiting": "pending",
-    "cancel": "deleted",
-    "cancelled": "deleted",
-    "canceled": "deleted",
-    "delete": "deleted",
-    "deleted": "deleted",
-    "remove": "deleted",
-    "removed": "deleted",
-}
-
 # Tools Claude Code injects into every model's tool list that misfire when called
 # by non-Anthropic models. See docs/notes from anthropics/claude-code issues
 # #25720, #29950 and Piebald-AI/claude-code-system-prompts for tool semantics.
@@ -1245,423 +1257,16 @@ def sync_ollama_library_context_limit(provider: str, pcfg: dict[str, Any], model
 # Tool schema registry and parameter validation
 # ---------------------------------------------------------------------------
 
-_TOOL_SCHEMA_REGISTRY: dict[str, dict[str, Any]] = {}
-_MCP_NOTIFICATION_WAIT_RECENT: dict[str, float] = {}
-_MCP_NOTIFICATION_WAIT_RECENT_LOCK = threading.Lock()
-
-_BUILTIN_TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
-    "Bash": {
-        "required": ["command"],
-        "properties": {
-            "command": {"type": "string"},
-            "description": {"type": "string"},
-            "timeout": {"type": "integer"},
-            "run_in_background": {"type": "boolean"},
-        },
-    },
-    "Read": {
-        "required": ["file_path"],
-        "properties": {
-            "file_path": {"type": "string"},
-            "offset": {"type": "integer"},
-            "limit": {"type": "integer"},
-        },
-    },
-    "Write": {
-        "required": ["file_path", "content"],
-        "properties": {
-            "file_path": {"type": "string"},
-            "content": {"type": "string"},
-        },
-    },
-    "Edit": {
-        "required": ["file_path", "old_string", "new_string"],
-        "properties": {
-            "file_path": {"type": "string"},
-            "old_string": {"type": "string"},
-            "new_string": {"type": "string"},
-            "replace_all": {"type": "boolean"},
-        },
-    },
-    "Glob": {
-        "required": ["pattern"],
-        "properties": {
-            "pattern": {"type": "string"},
-            "path": {"type": "string"},
-        },
-    },
-    "Grep": {
-        "required": ["pattern"],
-        "properties": {
-            "pattern": {"type": "string"},
-            "path": {"type": "string"},
-            "output_mode": {"type": "string"},
-        },
-    },
-    "TaskList": {
-        "required": [],
-        "properties": {},
-    },
-    "TaskUpdate": {
-        "required": ["taskId"],
-        "properties": {
-            "taskId": {"type": "string"},
-            "subject": {"type": "string"},
-            "description": {"type": "string"},
-            "activeForm": {"type": "string"},
-            "status": {"type": "string", "enum": ["pending", "in_progress", "completed", "deleted"]},
-            "owner": {"type": "string"},
-            "addBlocks": {"type": "array"},
-            "addBlockedBy": {"type": "array"},
-            "metadata": {"type": "object"},
-        },
-    },
-    "TaskCreate": {
-        "required": ["subject", "description"],
-        "properties": {
-            "subject": {"type": "string"},
-            "description": {"type": "string"},
-        },
-    },
-    "TaskGet": {
-        "required": ["taskId"],
-        "properties": {
-            "taskId": {"type": "string"},
-        },
-    },
-    "TaskStop": {
-        "required": ["task_id"],
-        "properties": {
-            "task_id": {"type": "string"},
-        },
-    },
-    "CronCreate": {
-        "required": ["cron", "prompt"],
-        "properties": {
-            "cron": {"type": "string"},
-            "prompt": {"type": "string"},
-            "recurring": {"type": "boolean"},
-            "durable": {"type": "boolean"},
-        },
-    },
-    "CronDelete": {
-        "required": ["id"],
-        "properties": {
-            "id": {"type": "string"},
-        },
-    },
-    "CronList": {
-        "required": [],
-        "properties": {},
-    },
-    "advisor": {
-        "required": ["question"],
-        "properties": {
-            "question": {"type": "string"},
-        },
-    },
-}
-
-
-def _update_tool_schema_registry(tools: Any) -> None:
-    """Cache tool schemas from incoming Anthropic requests."""
-    if not isinstance(tools, list):
-        return
-    for tool in tools:
-        if not isinstance(tool, dict):
-            continue
-        name = tool.get("name")
-        if not name:
-            continue
-        _TOOL_SCHEMA_REGISTRY[name] = tool.get("input_schema") or {}
-
-
-def _lookup_tool_schema(tool_name: str) -> dict[str, Any] | None:
-    """Look up a tool schema by name, checking registry then builtins."""
-    if tool_name in _TOOL_SCHEMA_REGISTRY:
-        return _TOOL_SCHEMA_REGISTRY[tool_name]
-    if tool_name in _BUILTIN_TOOL_SCHEMAS:
-        return _BUILTIN_TOOL_SCHEMAS[tool_name]
-    return None
-
-
-def _fuzzy_match_tool_name(name: str) -> str | None:
-    """Fuzzy match a tool name against known schemas (case-insensitive, prefix)."""
-    low = name.lower()
-    candidates = list(_TOOL_SCHEMA_REGISTRY.keys()) + list(_BUILTIN_TOOL_SCHEMAS.keys())
-    # Exact match first
-    for c in candidates:
-        if c == name:
-            return c
-    # Case-insensitive
-    for c in candidates:
-        if c.lower() == low:
-            return c
-    # Prefix/substring match
-    for c in candidates:
-        if low in c.lower() or c.lower() in low:
-            return c
-    return None
-
-
-def _coerce_value(value: Any, expected_type: str | None) -> Any:
-    """Coerce a value to the expected JSON schema type."""
-    if expected_type is None:
-        return value
-    if isinstance(value, bool) and expected_type == "boolean":
-        return value
-    if isinstance(value, (int, float)) and expected_type == "integer":
-        return int(value)
-    if isinstance(value, (int, float)) and expected_type == "number":
-        return float(value)
-    if isinstance(value, str) and expected_type == "string":
-        return value
-    if expected_type == "array":
-        if isinstance(value, list):
-            return value
-        if isinstance(value, tuple):
-            return list(value)
-        if isinstance(value, str) and value.strip():
-            text = value.strip()
-            try:
-                parsed = json.loads(text)
-                if isinstance(parsed, list):
-                    return parsed
-            except Exception:
-                pass
-            return [text]
-        if value is None:
-            return []
-        return value
-    if expected_type == "object":
-        if isinstance(value, dict):
-            return value
-        if isinstance(value, str) and value.strip():
-            try:
-                parsed = json.loads(value)
-                if isinstance(parsed, dict):
-                    return parsed
-            except Exception:
-                pass
-        return value
-    # Coerce string -> integer
-    if isinstance(value, str) and expected_type in ("integer", "number"):
-        try:
-            return int(value) if expected_type == "integer" else float(value)
-        except Exception:
-            pass
-    # Coerce string -> boolean
-    if isinstance(value, str) and expected_type == "boolean":
-        low = value.lower()
-        if low in ("true", "yes", "on", "1"):
-            return True
-        if low in ("false", "no", "off", "0"):
-            return False
-    # Coerce int/float -> string
-    if isinstance(value, (int, float)) and expected_type == "string":
-        return str(value)
-    # Coerce anything -> string as last resort
-    if expected_type == "string" and value is not None:
-        return str(value)
-    return value
-
-
-def normalize_task_update_status(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    if not text:
-        return None
-    normalized = re.sub(r"[\s\-]+", "_", text.lower())
-    normalized = re.sub(r"[^a-z0-9_]", "", normalized)
-    if normalized in TASK_UPDATE_STATUSES:
-        return normalized
-    return TASK_UPDATE_STATUS_ALIASES.get(text.lower()) or TASK_UPDATE_STATUS_ALIASES.get(normalized)
-
-
-def _default_for_missing_required(tool_name: str, field: str) -> Any:
-    """Return a safe default for known required fields."""
-    defaults: dict[str, dict[str, Any]] = {
-        "Bash": {"command": "true", "timeout": 30000, "description": "", "run_in_background": False},
-        "Read": {"offset": 0, "limit": 0},
-        "Edit": {"replace_all": False},
-        "Glob": {"path": "."},
-        "Grep": {"output_mode": "content"},
-        "TaskCreate": {"description": ""},
-        "TaskStop": {},
-    }
-    return defaults.get(tool_name, {}).get(field)
-
-
-def _is_empty_value(value: Any) -> bool:
-    """Check if a value is effectively empty and should be defaulted."""
-    if value is None:
-        return True
-    if isinstance(value, str) and value.strip() == "":
-        return True
-    return False
-
-
-def _move_first_present(fixed: dict[str, Any], target: str, aliases: tuple[str, ...]) -> None:
-    """Move the first non-empty alias value to the target field."""
-    if target in fixed and not _is_empty_value(fixed.get(target)):
-        return
-    for alias in aliases:
-        value = fixed.get(alias)
-        if not _is_empty_value(value):
-            fixed[target] = value
-            break
-
-
 def _validate_and_fix_tool_input(
     tool_name: str,
     input_dict: dict[str, Any],
     source_body: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """
-    Validate tool_use input against schema and fix common errors:
-      - fuzzy-match tool name
-      - coerce types to match schema
-      - add defaults for missing required fields
-      - keep unknown fields (Claude Code may accept extra fields)
-    """
-    schema = tool_schema_in_body(source_body, tool_name) if isinstance(source_body, dict) else None
-    if schema is None:
-        schema = _lookup_tool_schema(tool_name)
-    matched_name = tool_name
-    if schema is None:
-        matched = _fuzzy_match_tool_name(tool_name)
-        if matched:
-            matched_name = matched
-            schema = _lookup_tool_schema(matched)
-
-    if schema is None:
-        # No schema known: just ensure it's a dict and return
-        return input_dict if isinstance(input_dict, dict) else {}
-
-    properties = schema.get("properties") or {}
-    required = set(schema.get("required") or [])
-    fixed: dict[str, Any] = {}
-
-    for key, raw_value in input_dict.items():
-        prop_schema = properties.get(key)
-        if prop_schema is None:
-            # Unknown field: keep it rather than dropping it.
-            # Claude Code may accept fields not in our static registry.
-            fixed[key] = raw_value
-            continue
-        expected_type = prop_schema.get("type") if isinstance(prop_schema, dict) else None
-        fixed[key] = _coerce_value(raw_value, expected_type)
-
-    if matched_name == "TaskUpdate":
-        if "taskId" not in fixed or _is_empty_value(fixed.get("taskId")):
-            for alias in ("task_id", "id"):
-                value = fixed.get(alias)
-                if isinstance(value, (str, int, float)) and not isinstance(value, bool) and str(value).strip():
-                    fixed["taskId"] = str(value)
-                    break
-        if "status" in fixed:
-            status = normalize_task_update_status(fixed.get("status"))
-            if status:
-                fixed["status"] = status
-        for alias in ("task_id", "id"):
-            fixed.pop(alias, None)
-
-    if matched_name == "CronCreate":
-        _move_first_present(
-            fixed,
-            "cron",
-            ("schedule", "cronExpression", "cron_expression", "expression", "interval", "time"),
-        )
-        _move_first_present(
-            fixed,
-            "prompt",
-            ("message", "task", "instruction", "instructions", "command", "query"),
-        )
-        for key in ("cron", "prompt", "recurring", "durable"):
-            prop_schema = properties.get(key)
-            expected_type = prop_schema.get("type") if isinstance(prop_schema, dict) else None
-            if key in fixed:
-                fixed[key] = _coerce_value(fixed[key], expected_type)
-        for alias in (
-            "schedule",
-            "cronExpression",
-            "cron_expression",
-            "expression",
-            "interval",
-            "time",
-            "message",
-            "task",
-            "instruction",
-            "instructions",
-            "command",
-            "query",
-        ):
-            fixed.pop(alias, None)
-
-    if matched_name == "CronDelete":
-        _move_first_present(fixed, "id", ("taskId", "task_id", "jobId", "job_id", "cronId", "cron_id"))
-        if "id" in fixed:
-            fixed["id"] = _coerce_value(fixed["id"], "string")
-        for alias in ("taskId", "task_id", "jobId", "job_id", "cronId", "cron_id"):
-            fixed.pop(alias, None)
-
-    if matched_name == "CronList":
-        fixed = {}
-
-    # Fill in missing or empty required fields with defaults
-    injected: list[str] = []
-    for req in required:
-        if req not in fixed or _is_empty_value(fixed.get(req)):
-            default = _default_for_missing_required(matched_name, req)
-            if default is not None:
-                fixed[req] = default
-            elif matched_name == "TaskUpdate" and req == "taskId":
-                continue
-            elif req not in fixed:
-                # No known default: inject empty value matching expected type
-                prop_schema = properties.get(req)
-                expected_type = prop_schema.get("type") if isinstance(prop_schema, dict) else None
-                if expected_type == "string":
-                    fixed[req] = ""
-                elif expected_type == "integer":
-                    fixed[req] = 0
-                elif expected_type == "number":
-                    fixed[req] = 0.0
-                elif expected_type == "boolean":
-                    fixed[req] = False
-                elif expected_type == "array":
-                    fixed[req] = []
-                elif expected_type == "object":
-                    fixed[req] = {}
-                else:
-                    fixed[req] = ""
-            injected.append(req)
-
-    if injected:
-        router_log("WARN", f"tool_guard: {matched_name}: injected missing required fields: {', '.join(injected)}")
-
-    return fixed
-
-
-def _missing_required_tool_fields(tool_name: str, input_dict: dict[str, Any], source_body: dict[str, Any] | None = None) -> list[str]:
-    schema = tool_schema_in_body(source_body, tool_name) if isinstance(source_body, dict) else None
-    if schema is None:
-        schema = _lookup_tool_schema(tool_name)
-    if not isinstance(schema, dict):
-        return []
-    required = schema.get("required") or []
-    if not isinstance(required, list):
-        return []
-    missing: list[str] = []
-    for field in required:
-        if not isinstance(field, str):
-            continue
-        if field not in input_dict or _is_empty_value(input_dict.get(field)):
-            missing.append(field)
-    return missing
-
-
+    dialect = TOOL_DIALECTS.create(
+        "claude",
+        repair=lambda name, value: _tool_schema_validate_and_fix(name, value, source_body, log=router_log),
+    )
+    return dict(dialect.repair_tool_input(tool_name, input_dict))
 def should_drop_emitted_tool_call(
     tool_name: str,
     tool_input: dict[str, Any],
@@ -2677,27 +2282,10 @@ def apply_config_migrations(cfg: dict[str, Any]) -> None:
         migrations[marker] = True
 
 
-_config_cache: dict[str, Any] | None = None
-_config_cache_mtime: float = 0.0
+_CONFIG_REPOSITORY: JsonConfigRepository | None = None
 
 
-def load_config() -> dict[str, Any]:
-    global _config_cache, _config_cache_mtime
-    try:
-        mtime = CONFIG_PATH.stat().st_mtime
-    except OSError:
-        mtime = 0.0
-    if _config_cache is not None and mtime == _config_cache_mtime:
-        return json.loads(json.dumps(_config_cache))
-    if CONFIG_PATH.exists():
-        try:
-            data = json.loads(CONFIG_PATH.read_text())
-        except Exception:
-            data = {}
-    else:
-        data = {}
-    cfg = deep_merge(DEFAULT_CONFIG, data)
-    apply_config_migrations(cfg)
+def _normalize_loaded_config(cfg: dict[str, Any]) -> None:
     cloud = cfg["providers"].get("ollama-cloud", {})
     local_key = cfg["providers"].get("ollama", {}).get("api_key", "")
     if not cloud.get("api_key") and local_key and local_key not in ("ollama", "dummy", "not-used"):
@@ -2707,30 +2295,36 @@ def load_config() -> dict[str, Any]:
             if pcfg.get("current_model"):
                 pcfg["current_model"] = normalize_model_id(provider_name, str(pcfg["current_model"]))
             if isinstance(pcfg.get("custom_models"), list):
-                pcfg["custom_models"] = [normalize_model_id(provider_name, str(mid)) for mid in pcfg["custom_models"] if str(mid).strip()]
-    _config_cache = cfg
-    _config_cache_mtime = mtime
-    return cfg
+                pcfg["custom_models"] = [
+                    normalize_model_id(provider_name, str(model_id))
+                    for model_id in pcfg["custom_models"]
+                    if str(model_id).strip()
+                ]
+
+
+def config_repository() -> JsonConfigRepository:
+    global _CONFIG_REPOSITORY
+    if _CONFIG_REPOSITORY is None or _CONFIG_REPOSITORY.path != CONFIG_PATH:
+        _CONFIG_REPOSITORY = JsonConfigRepository(
+            path=CONFIG_PATH,
+            defaults=DEFAULT_CONFIG,
+            merge=deep_merge,
+            migrate=apply_config_migrations,
+            normalize=_normalize_loaded_config,
+        )
+    return _CONFIG_REPOSITORY
+
+
+def load_config() -> dict[str, Any]:
+    return config_repository().load()
 
 
 def invalidate_config_cache() -> None:
-    global _config_cache, _config_cache_mtime
-    _config_cache = None
-    _config_cache_mtime = 0.0
+    config_repository().invalidate()
 
 
 def save_config(cfg: dict[str, Any]) -> None:
-    global _config_cache, _config_cache_mtime
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    tmp = CONFIG_PATH.with_name(f"{CONFIG_PATH.name}.{os.getpid()}.{time.time_ns()}.tmp")
-    tmp.write_text(json.dumps(cfg, indent=2, sort_keys=True) + "\n")
-    os.chmod(tmp, 0o600)
-    tmp.replace(CONFIG_PATH)
-    _config_cache = cfg
-    try:
-        _config_cache_mtime = CONFIG_PATH.stat().st_mtime
-    except OSError:
-        _config_cache_mtime = 0.0
+    config_repository().save(cfg)
 
 
 def clear_model_cache() -> None:
@@ -3063,30 +2657,17 @@ def provider_api_key_rotation_name(provider: str, pcfg: dict[str, Any]) -> str:
 
 
 def select_provider_api_key(provider: str, pcfg: dict[str, Any], *, rotate: bool = True) -> str:
-    keys = provider_config_api_keys(provider, pcfg)
-    if not keys:
-        return ""
-    if not rotate or len(keys) == 1:
-        return keys[0]
-    name = provider_api_key_rotation_name(provider, pcfg)
-    # Skip keys that are resting after a 429; round-robin over the live ones so a
-    # rate-limited key rests while the rest keep serving. If every key is cooling,
-    # use the one that frees up soonest.
-    now = time.time()
-    live = [k for k in keys if api_key_cooldown_until(provider, pcfg, k) <= now]
-    if not live:
-        soonest = min(keys, key=lambda k: api_key_cooldown_until(provider, pcfg, k))
-        router_log("DEBUG", f"api_key_round_robin provider={provider} all_cooling={len(keys)} using_soonest")
-        return soonest
-    with _API_KEY_ROTATION_LOCK:
-        counter = _API_KEY_ROTATION_CURSOR.get(name, 0)
-        _API_KEY_ROTATION_CURSOR[name] = counter + 1
-    idx = counter % len(live)
-    if len(live) < len(keys):
-        router_log("DEBUG", f"api_key_round_robin provider={provider} key_index={idx + 1}/{len(live)} cooling={len(keys) - len(live)}")
-    else:
-        router_log("DEBUG", f"api_key_round_robin provider={provider} key_index={idx + 1}/{len(keys)}")
-    return live[idx]
+    return choose_provider_api_key(
+        provider, pcfg, rotate=rotate,
+        services=ProviderKeyServices(
+            _API_KEY_ROTATION_CURSOR=_API_KEY_ROTATION_CURSOR,
+            _API_KEY_ROTATION_LOCK=_API_KEY_ROTATION_LOCK,
+            api_key_cooldown_until=api_key_cooldown_until,
+            provider_api_key_rotation_name=provider_api_key_rotation_name,
+            provider_config_api_keys=provider_config_api_keys,
+            router_log=router_log
+        ),
+    )
 
 
 def env_bool(value: str | None, default: bool | None = None) -> bool | None:
@@ -4579,43 +4160,9 @@ def tool_schema_in_body(body: dict[str, Any], tool_name: str) -> dict[str, Any] 
 
 
 def _match_available_tool_name(name: str, available: set[str]) -> str | None:
-    if not available:
-        return None
-    low = name.lower()
-    for candidate in sorted(available):
-        if candidate == name:
-            return candidate
-    for candidate in sorted(available):
-        if candidate.lower() == low:
-            return candidate
-    # Non-native models often change only casing/separators for built-in tool
-    # names, e.g. ``WebSearch`` -> ``web_search``. Normalize punctuation for
-    # non-MCP names only; MCP server/tool segments have stricter semantics.
-    if not name.startswith("mcp__"):
-        normalized = re.sub(r"[^a-z0-9]+", "", low)
-        if normalized:
-            matches = [
-                candidate
-                for candidate in sorted(available)
-                if not candidate.startswith("mcp__")
-                and re.sub(r"[^a-z0-9]+", "", candidate.lower()) == normalized
-            ]
-            if len(matches) == 1:
-                return matches[0]
-    mcp_key = _mcp_tool_name_server_normalized_key(name)
-    if mcp_key is not None:
-        matches = [
-            candidate
-            for candidate in sorted(available)
-            if _mcp_tool_name_server_normalized_key(candidate) == mcp_key
-        ]
-        if len(matches) == 1:
-            return matches[0]
-    for candidate in sorted(available):
-        candidate_low = candidate.lower()
-        if low and (low in candidate_low or candidate_low in low):
-            return candidate
-    return None
+    dialect = TOOL_DIALECTS.create("claude", available_tools=available)
+    normalized = dialect.normalize_tool_name(name)
+    return normalized if normalized in available else None
 
 
 def _mcp_tool_name_server_normalized_key(name: str) -> tuple[str, str] | None:
@@ -4626,16 +4173,7 @@ def _mcp_tool_name_server_normalized_key(name: str) -> tuple[str, str] | None:
     ``mcp__ai-net_http__get_messages``. Only the server segment is normalized;
     the tool name segment must still match exactly case-insensitively.
     """
-    if not isinstance(name, str) or not name.startswith("mcp__"):
-        return None
-    rest = name[5:]
-    if "__" not in rest:
-        return None
-    server_name, tool_name = rest.split("__", 1)
-    if not server_name or not tool_name:
-        return None
-    normalized_server = re.sub(r"[-_]+", "", server_name).lower()
-    return normalized_server, tool_name.lower()
+    return mcp_server_normalized_key(name)
 
 
 def resolve_emitted_tool_name(raw_name: str, source_body: dict[str, Any] | None) -> str:
@@ -7102,201 +6640,43 @@ def rate_limit_reset_seconds(value: str | None) -> float | None:
 
 
 def learn_router_rate_limit_headers(provider: str, pcfg: dict[str, Any], model: str | None, headers: Any) -> None:
-    limit = first_int_in_header(first_header(headers, [
-        "x-ratelimit-limit-requests",
-        "x-rate-limit-limit-requests",
-        "ratelimit-limit",
-        "rate-limit-limit",
-        "x-ratelimit-limit",
-        "x-rate-limit-limit",
-    ]))
-    remaining = first_int_in_header(first_header(headers, [
-        "x-ratelimit-remaining-requests",
-        "x-rate-limit-remaining-requests",
-        "ratelimit-remaining",
-        "rate-limit-remaining",
-        "x-ratelimit-remaining",
-        "x-rate-limit-remaining",
-    ]))
-    reset = rate_limit_reset_seconds(first_header(headers, [
-        "x-ratelimit-reset-requests",
-        "x-rate-limit-reset-requests",
-        "ratelimit-reset",
-        "rate-limit-reset",
-        "x-ratelimit-reset",
-        "x-rate-limit-reset",
-    ]))
-    max_concurrent = first_int_in_header(first_header(headers, [
-        "x-ratelimit-max-concurrent",
-        "x-rate-limit-max-concurrent",
-        "ratelimit-max-concurrent",
-        "rate-limit-max-concurrent",
-    ]))
-    active = first_int_in_header(first_header(headers, [
-        "x-ratelimit-active",
-        "x-rate-limit-active",
-        "ratelimit-active",
-        "rate-limit-active",
-    ]))
-    queue_limit = first_int_in_header(first_header(headers, [
-        "x-ratelimit-queue-limit",
-        "x-rate-limit-queue-limit",
-        "ratelimit-queue-limit",
-        "rate-limit-queue-limit",
-    ]))
-    queued = first_int_in_header(first_header(headers, [
-        "x-ratelimit-queued",
-        "x-rate-limit-queued",
-        "ratelimit-queued",
-        "rate-limit-queued",
-    ]))
-    if (
-        limit is None
-        and remaining is None
-        and reset is None
-        and max_concurrent is None
-        and active is None
-        and queue_limit is None
-        and queued is None
-    ):
-        return
-    configured = router_rate_limit_configured_rpm(provider, pcfg)
-    rpm = limit if limit and limit > 0 else configured
-    if rpm is None:
-        rpm = 0
-    multi_key = provider_api_key_count(provider, pcfg) > 1
-    key = router_rate_limit_key(provider, pcfg, model)
-    with _RATE_LIMIT_LOCK:
-        try:
-            state = json.loads(RATE_LIMIT_STATE_PATH.read_text(encoding="utf-8")) if RATE_LIMIT_STATE_PATH.exists() else {}
-            if not isinstance(state, dict):
-                state = {}
-        except Exception:
-            state = {}
-        now = time.time()
-        entry = state.get(key)
-        if not isinstance(entry, dict):
-            legacy_key = f"{provider}:{model or current_upstream_model_id(provider, pcfg)}"
-            entry = state.get(legacy_key)
-        timestamps = entry.get("timestamps") if isinstance(entry, dict) else []
-        recent = router_rate_limit_recent(timestamps, now, 60.0, include_future=True)
-        penalty_until = 0.0 if multi_key else (float(entry.get("penalty_until") or 0.0) if isinstance(entry, dict) else 0.0)
-        if remaining == 0 and reset and reset > 0 and not multi_key:
-            penalty_until = max(penalty_until, now + reset)
-        new_entry: dict[str, Any] = {
-            "timestamps": recent[-max(int(rpm or 0), 240):],
-            "rpm": int(rpm or 0),
-            "updated_at": now,
-            "last_wait": float(entry.get("last_wait") or 0.0) if isinstance(entry, dict) else 0.0,
-            "server_remaining": remaining,
-            "server_reset_seconds": reset,
-        }
-        if max_concurrent is not None:
-            new_entry["server_max_concurrent"] = max_concurrent
-        elif isinstance(entry, dict) and entry.get("server_max_concurrent") is not None:
-            new_entry["server_max_concurrent"] = entry.get("server_max_concurrent")
-        if active is not None:
-            new_entry["server_active"] = active
-        elif isinstance(entry, dict) and entry.get("server_active") is not None:
-            new_entry["server_active"] = entry.get("server_active")
-        if queue_limit is not None:
-            new_entry["server_queue_limit"] = queue_limit
-        elif isinstance(entry, dict) and entry.get("server_queue_limit") is not None:
-            new_entry["server_queue_limit"] = entry.get("server_queue_limit")
-        if queued is not None:
-            new_entry["server_queued"] = queued
-        elif isinstance(entry, dict) and entry.get("server_queued") is not None:
-            new_entry["server_queued"] = entry.get("server_queued")
-        if limit and limit > 0:
-            new_entry["server_rpm"] = int(limit)
-            new_entry["server_rpm_updated_at"] = now
-        elif isinstance(entry, dict) and entry.get("server_rpm"):
-            new_entry["server_rpm"] = entry.get("server_rpm")
-            new_entry["server_rpm_updated_at"] = entry.get("server_rpm_updated_at")
-        if penalty_until > now:
-            new_entry["penalty_until"] = penalty_until
-        state[key] = new_entry
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        RATE_LIMIT_STATE_PATH.write_text(json.dumps(state, ensure_ascii=False) + "\n", encoding="utf-8")
-    extra = " multi_key_no_global_penalty=1" if multi_key and remaining == 0 and reset and reset > 0 else ""
-    router_log(
-        "INFO",
-        f"rate_limit_headers provider={provider} model={model or ''} limit={limit} remaining={remaining} reset={reset}"
-        f" max_concurrent={max_concurrent} active={active} queue_limit={queue_limit} queued={queued}{extra}",
+    return learn_rate_limit_headers(
+        provider, pcfg, model, headers,
+        services=RateLimitLearningServices(
+            CONFIG_DIR=CONFIG_DIR,
+            RATE_LIMIT_STATE_PATH=RATE_LIMIT_STATE_PATH,
+            _RATE_LIMIT_LOCK=_RATE_LIMIT_LOCK,
+            current_upstream_model_id=current_upstream_model_id,
+            first_header=first_header,
+            first_int_in_header=first_int_in_header,
+            provider_api_key_count=provider_api_key_count,
+            rate_limit_reset_seconds=rate_limit_reset_seconds,
+            router_log=router_log,
+            router_rate_limit_configured_rpm=router_rate_limit_configured_rpm,
+            router_rate_limit_key=router_rate_limit_key,
+            router_rate_limit_recent=router_rate_limit_recent
+        ),
     )
 
 
 def register_router_rate_limit_backoff(provider: str, pcfg: dict[str, Any], model: str | None, retry_after: str | None = None) -> float:
-    rpm = router_rate_limit_effective_rpm(provider, pcfg, model)
-    fallback = 60.0 / float(rpm) if rpm and rpm > 0 else 15.0
-    wait = parse_retry_after_seconds(retry_after)
-    if wait is None:
-        wait = max(10.0, min(60.0, fallback * 4.0))
-    wait = max(1.0, min(300.0, wait))
-    key = router_rate_limit_key(provider, pcfg, model)
-    multi_key = provider_api_key_count(provider, pcfg) > 1
-    with _RATE_LIMIT_LOCK:
-        try:
-            state = json.loads(RATE_LIMIT_STATE_PATH.read_text(encoding="utf-8")) if RATE_LIMIT_STATE_PATH.exists() else {}
-            if not isinstance(state, dict):
-                state = {}
-        except Exception:
-            state = {}
-        now = time.time()
-        entry = state.get(key)
-        if not isinstance(entry, dict):
-            legacy_key = f"{provider}:{model or current_upstream_model_id(provider, pcfg)}"
-            entry = state.get(legacy_key)
-        timestamps = entry.get("timestamps") if isinstance(entry, dict) else []
-        recent = router_rate_limit_recent(timestamps, now, 60.0, include_future=True)
-        actual_recent = router_rate_limit_recent(timestamps, now, 60.0, include_future=False)
-        configured_rpm = router_rate_limit_configured_rpm(provider, pcfg)
-        inferred_rpm: int | None = None
-        if (
-            isinstance(entry, dict)
-            and not entry.get("server_rpm")
-            and configured_rpm
-            and configured_rpm > 0
-            and 0 < len(actual_recent) < configured_rpm
-        ):
-            inferred_rpm = max(1, len(actual_recent))
-            rpm = inferred_rpm
-        capacity = router_rate_limit_capacity(int(rpm or 0)) if rpm and rpm > 0 else int(rpm or 0)
-        if capacity and capacity > 0 and len(actual_recent) >= capacity and actual_recent:
-            wait = max(wait, max(0.0, actual_recent[0] + 60.0 - now))
-        existing_penalty_until = 0.0 if multi_key else (float(entry.get("penalty_until") or 0.0) if isinstance(entry, dict) else 0.0)
-        penalty_until = max(existing_penalty_until, now + wait) if not multi_key else 0.0
-        state[key] = {
-            "timestamps": recent[-max(int(rpm or 0), 240):],
-            "rpm": int(rpm or 0),
-            "updated_at": now,
-            "last_wait": wait,
-            "last_429_at": now,
-        }
-        if penalty_until > now:
-            state[key]["penalty_until"] = penalty_until
-        if isinstance(entry, dict):
-            for preserve_key in (
-                "server_rpm",
-                "server_rpm_updated_at",
-                "server_remaining",
-                "server_reset_seconds",
-                "server_max_concurrent",
-                "server_active",
-                "server_queue_limit",
-                "server_queued",
-            ):
-                if preserve_key in entry:
-                    state[key][preserve_key] = entry[preserve_key]
-        if inferred_rpm:
-            state[key]["server_rpm"] = inferred_rpm
-            state[key]["server_rpm_updated_at"] = now
-            state[key]["server_rpm_reason"] = "inferred_from_429"
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        RATE_LIMIT_STATE_PATH.write_text(json.dumps(state, ensure_ascii=False) + "\n", encoding="utf-8")
-    extra = " multi_key_no_global_penalty=1" if multi_key else ""
-    router_log("WARN", f"rate_limit_429_backoff provider={provider} model={model or ''} wait={wait:.2f}s{extra}")
-    return wait
+    return register_rate_limit_backoff(
+        provider, pcfg, model, retry_after,
+        services=RateLimitBackoffServices(
+            CONFIG_DIR=CONFIG_DIR,
+            RATE_LIMIT_STATE_PATH=RATE_LIMIT_STATE_PATH,
+            _RATE_LIMIT_LOCK=_RATE_LIMIT_LOCK,
+            current_upstream_model_id=current_upstream_model_id,
+            parse_retry_after_seconds=parse_retry_after_seconds,
+            provider_api_key_count=provider_api_key_count,
+            router_log=router_log,
+            router_rate_limit_capacity=router_rate_limit_capacity,
+            router_rate_limit_configured_rpm=router_rate_limit_configured_rpm,
+            router_rate_limit_effective_rpm=router_rate_limit_effective_rpm,
+            router_rate_limit_key=router_rate_limit_key,
+            router_rate_limit_recent=router_rate_limit_recent
+        ),
+    )
 
 
 _RATE_LIMIT_RESET_HEADER_NAMES = (
@@ -7423,84 +6803,23 @@ def retry_after_exceeds_request_timeout(headers: Any, timeout: float) -> tuple[b
 
 
 def apply_router_rate_limit(provider: str, pcfg: dict[str, Any], model: str | None = None) -> tuple[float, int, int | None]:
-    rpm = router_rate_limit_effective_rpm(provider, pcfg, model)
-    if rpm is None:
-        waited = wait_for_router_rate_limit_penalty(provider, pcfg, model, rpm)
-        return waited, 0, None
-    if rpm <= 0:
-        waited = wait_for_router_rate_limit_penalty(provider, pcfg, model, rpm)
-        used, limit = record_router_rate_usage(provider, pcfg, model, rpm)
-        return waited, used, limit
-    window = 60.0
-    base_interval = window / float(rpm)
-    capacity = router_rate_limit_capacity(rpm)
-    key = router_rate_limit_key(provider, pcfg, model)
-    multi_key = provider_api_key_count(provider, pcfg) > 1
-    waited = 0.0
-    while True:
-        with _RATE_LIMIT_LOCK:
-            try:
-                state = json.loads(RATE_LIMIT_STATE_PATH.read_text(encoding="utf-8")) if RATE_LIMIT_STATE_PATH.exists() else {}
-                if not isinstance(state, dict):
-                    state = {}
-            except Exception:
-                state = {}
-            now = time.time()
-            entry = state.get(key)
-            if not isinstance(entry, dict):
-                legacy_key = f"{provider}:{model or current_upstream_model_id(provider, pcfg)}"
-                entry = state.get(legacy_key)
-            if isinstance(entry, dict):
-                timestamps = entry.get("timestamps")
-                try:
-                    penalty_until = 0.0 if multi_key else float(entry.get("penalty_until") or 0.0)
-                except Exception:
-                    penalty_until = 0.0
-            elif isinstance(entry, (int, float)):
-                timestamps = [float(entry)]
-                penalty_until = 0.0
-            else:
-                timestamps = []
-                penalty_until = 0.0
-            recent = router_rate_limit_recent(timestamps, now, window, include_future=True)
-            used = len(recent)
-            usage_ratio = min(1.0, used / float(capacity))
-            wait = 0.0
-            if penalty_until > now:
-                wait = max(wait, penalty_until - now)
-            if used >= capacity and recent:
-                wait = max(0.0, recent[0] + window - now)
-            elif recent:
-                elapsed_since_last = max(0.0, now - recent[-1])
-                wait = max(0.0, base_interval - elapsed_since_last)
-                if usage_ratio >= 0.70:
-                    pressure = (usage_ratio - 0.70) / 0.30
-                    target_interval = base_interval * (1.0 + max(0.0, min(1.0, pressure)) * 3.0)
-                    wait = max(wait, target_interval - elapsed_since_last)
-            CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-            if wait <= 0.001:
-                recent.append(now)
-                new_entry = {"timestamps": recent[-rpm:], "rpm": rpm, "updated_at": now, "last_wait": waited}
-                if penalty_until > now:
-                    new_entry["penalty_until"] = penalty_until
-                state[key] = new_entry
-                RATE_LIMIT_STATE_PATH.write_text(json.dumps(state, ensure_ascii=False) + "\n", encoding="utf-8")
-                return waited, len(recent), rpm
-            if used < capacity:
-                scheduled = now + wait
-                recent.append(scheduled)
-                new_entry = {"timestamps": recent[-rpm:], "rpm": rpm, "updated_at": scheduled, "last_wait": wait}
-                if penalty_until > now:
-                    new_entry["penalty_until"] = penalty_until
-                state[key] = new_entry
-                RATE_LIMIT_STATE_PATH.write_text(json.dumps(state, ensure_ascii=False) + "\n", encoding="utf-8")
-                router_log("INFO", f"rate_limit_soft_wait provider={provider} model={model or ''} rpm={rpm} wait={wait:.2f}s")
-                time.sleep(wait)
-                return waited + wait, len(recent), rpm
-        sleep_for = min(wait, 10.0)
-        router_log("INFO", f"rate_limit_wait provider={provider} model={model or ''} rpm={rpm} wait={wait:.2f}s waited={waited:.2f}s")
-        time.sleep(sleep_for)
-        waited += sleep_for
+    return apply_rate_limit(
+        provider, pcfg, model,
+        services=RateLimitApplyServices(
+            CONFIG_DIR=CONFIG_DIR,
+            RATE_LIMIT_STATE_PATH=RATE_LIMIT_STATE_PATH,
+            _RATE_LIMIT_LOCK=_RATE_LIMIT_LOCK,
+            current_upstream_model_id=current_upstream_model_id,
+            provider_api_key_count=provider_api_key_count,
+            record_router_rate_usage=record_router_rate_usage,
+            router_log=router_log,
+            router_rate_limit_capacity=router_rate_limit_capacity,
+            router_rate_limit_effective_rpm=router_rate_limit_effective_rpm,
+            router_rate_limit_key=router_rate_limit_key,
+            router_rate_limit_recent=router_rate_limit_recent,
+            wait_for_router_rate_limit_penalty=wait_for_router_rate_limit_penalty
+        ),
+    )
 
 
 def wait_for_router_rate_limit_penalty(provider: str, pcfg: dict[str, Any], model: str | None, rpm: int | None) -> float:
@@ -7714,24 +7033,7 @@ def provider_headers(provider: str, pcfg: dict[str, Any], inbound_headers: Any |
             raise RuntimeError("Anthropic routed mode needs a configured API key or inbound Claude Code auth headers.")
     else:
         meaningful = str(key) if meaningful_key(key) else None
-        generic = provider in (
-            "ollama",
-            "ollama-cloud",
-            "vllm",
-            "self-hosted-nim",
-            "deepseek",
-            "opencode",
-            "opencode-go",
-            "kimi",
-            "zai",
-            "fireworks",
-        )
-        adapter = HttpBearerProviderAdapter(
-            name="OpenRouter" if provider == "openrouter" else provider,
-            authorization_header="Authorization" if provider == "openrouter" else "authorization",
-            require_api_key=provider == "openrouter",
-            send_placeholder_key=generic,
-        )
+        adapter = PROVIDER_ADAPTERS.create(provider, base_url=str(pcfg.get("base_url") or ""))
         config = ProviderConfig(
             name=provider,
             base_url=str(pcfg.get("base_url") or ""),
@@ -7750,7 +7052,7 @@ def get_current_provider(cfg: dict[str, Any]) -> tuple[str, dict[str, Any]]:
 
 def materialize_runtime_command(
     runtime_name: str,
-    cmd: list[str],
+    executable: str,
     env: dict[str, str],
     provider: str,
     pcfg: dict[str, Any],
@@ -7759,9 +7061,11 @@ def materialize_runtime_command(
     protocol: str,
     cwd: Path | None = None,
     enable_channels: bool = False,
+    passthrough: Iterable[str] = (),
+    options: dict[str, Any] | None = None,
 ) -> tuple[list[str], dict[str, str]]:
     """Cross the runtime/provider ownership boundary using normalized contracts."""
-    if not cmd:
+    if not executable:
         raise RuntimeError(f"{runtime_name} runtime command is empty")
     provider_config = ProviderConfig(
         name=provider,
@@ -7772,20 +7076,21 @@ def materialize_runtime_command(
     )
     runtime_config = RuntimeConfig(
         name=runtime_name,
-        executable=cmd[0],
+        executable=executable,
         enable_channels=enable_channels,
+        options=options or {},
     )
     spec = LaunchSpec(
         runtime=runtime_config,
         provider=provider_config,
         mode=mode,  # type: ignore[arg-type]
         protocol=protocol,  # type: ignore[arg-type]
-        passthrough=tuple(cmd[1:]),
+        passthrough=tuple(str(value) for value in passthrough),
         cwd=cwd,
     )
-    adapter = CliRuntimeAdapter(
-        name=runtime_name,
-        executable=cmd[0],
+    adapter = RUNTIME_ADAPTERS.create(
+        runtime_name,
+        executable=executable,
         environment=env,
         channel_injection=enable_channels,
     )
@@ -7830,204 +7135,38 @@ def direct_native_codex_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
 
 
 def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool = False) -> list[str]:
-    cached = None if force_refresh else read_model_list_cache(provider, pcfg)
-    if cached is not None:
-        return cached
-    if provider == "agy":
-        ids = unique_model_ids(provider, [*(pcfg.get("custom_models", []) or []), pcfg.get("current_model") or ""])
-        if ids:
-            write_model_list_cache(provider, pcfg, ids)
-        return ids
-    if provider == "deepseek":
-        ids = unique_model_ids(provider, [
-            "deepseek-v4-pro[1m]",
-            "deepseek-v4-flash",
-            *(pcfg.get("custom_models", []) or []),
-            pcfg.get("current_model") or "",
-        ])
-        sorted_ids = sorted_model_ids(ids)
-        write_model_list_cache(provider, pcfg, sorted_ids)
-        return sorted_ids
-    if provider == "zai":
-        ids: list[str] = []
-        model_info: dict[str, dict[str, Any]] = {}
-        base = provider_upstream_request_base(provider, pcfg)
-        headers = provider_model_list_headers(provider, pcfg)
-        try:
-            data = http_json(join_url(base, "/v1/models"), headers=headers, timeout=6.0, provider=provider, pcfg=pcfg)
-            ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
-            model_info.update(model_info_from_response(provider, data))
-        except Exception as exc:
-            router_log("DEBUG", f"zai model list fetch failed: {type(exc).__name__}: {exc}")
-        ids = unique_model_ids(provider, [
-            *ids,
-            *ZAI_MODEL_FALLBACK_IDS,
-            *(pcfg.get("custom_models", []) or []),
-            pcfg.get("current_model") or "",
-        ])
-        sorted_ids = sorted_model_ids(ids)
-        metadata = {"model_info": model_info, "source": "zai:/v1/models+docs"} if model_info else {"source": "zai:docs"}
-        write_model_list_cache(provider, pcfg, sorted_ids, metadata)
-        return sorted_ids
-    if provider == "anthropic":
-        ids: list[str] = []
-        source = ""
-        if provider_has_api_key(provider, pcfg):
-            ids, source = fetch_anthropic_api_model_ids(pcfg, provider_model_list_headers(provider, pcfg), timeout=6.0)
-        if not ids:
-            ids = fetch_anthropic_public_model_ids()
-            source = "anthropic-docs"
-        if not ids:
-            return []
-        for mid in pcfg.get("custom_models", []) or []:
-            mid = normalize_model_id(provider, mid)
-            if mid and mid not in ids:
-                ids.append(mid)
-        cur = normalize_model_id(provider, pcfg.get("current_model") or "")
-        if cur and cur not in ids:
-            ids.insert(0, cur)
-        sorted_ids = unique_model_ids(provider, ids)
-        write_model_list_cache(provider, pcfg, sorted_ids)
-        write_model_registry(provider, pcfg, sorted_ids, source, {"urls": list(ANTHROPIC_MODEL_DOCS_URLS) if source == "anthropic-docs" else []})
-        return sorted_ids
-    if provider == "fireworks":
-        headers = provider_model_list_headers(provider, pcfg)
-        model_info: dict[str, dict[str, Any]] = {}
-        source = ""
-        try:
-            ids, model_info, source = fetch_fireworks_model_ids(pcfg, headers, timeout=8.0)
-            fetched = bool(ids)
-        except Exception as exc:
-            router_log("DEBUG", f"fireworks model API fetch failed: {type(exc).__name__}: {exc}")
-            ids = []
-            fetched = False
-        if not fetched:
-            base = provider_upstream_request_base(provider, pcfg)
-            try:
-                data = http_json(join_url(base, "/v1/models"), headers=headers, timeout=6.0, provider=provider, pcfg=pcfg)
-                ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
-                model_info.update(model_info_from_response(provider, data))
-                fetched = bool(ids)
-                source = "fireworks:/v1/models"
-            except Exception as exc:
-                router_log("DEBUG", f"fireworks inference model list fetch failed: {type(exc).__name__}: {exc}")
-        if not fetched:
-            ids = unique_model_ids(provider, [
-                *(pcfg.get("custom_models", []) or []),
-                pcfg.get("current_model") or "",
-            ])
-            sorted_ids = sorted_model_ids(ids)
-            if sorted_ids:
-                write_model_list_cache(provider, pcfg, sorted_ids)
-            return sorted_ids
-        for mid in pcfg.get("custom_models", []) or []:
-            mid = normalize_model_id(provider, mid)
-            if mid and mid not in ids:
-                ids.append(mid)
-        cur = normalize_model_id(provider, pcfg.get("current_model") or "")
-        if cur and cur not in ids:
-            ids.insert(0, cur)
-        sorted_ids = sorted_model_ids(unique_model_ids(provider, ids))
-        metadata = {
-            "model_info": model_info,
-            "source": source,
-            "account_id": fireworks_account_id(pcfg),
-            "model_api_base_url": fireworks_management_base_url(pcfg),
-        }
-        write_model_list_cache(provider, pcfg, sorted_ids, metadata)
-        return sorted_ids
-    if provider == "nvidia-hosted":
-        base = (pcfg.get("base_url") or nvidia_upstream_base_url()).rstrip("/")
-    else:
-        base = provider_upstream_request_base(provider, pcfg)
-    ids: list[str] = []
-    model_info: dict[str, dict[str, Any]] = {}
-    fetched = False
-    try:
-        if provider in ("ollama", "ollama-cloud"):
-            try:
-                data = http_json(join_url(base, "/api/tags"), headers=provider_model_list_headers(provider, pcfg), timeout=4.0, provider=provider, pcfg=pcfg)
-                ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
-                model_info.update(model_info_from_response(provider, data))
-                fetched = True
-            except Exception:
-                data = http_json(join_url(base, "/v1/models"), headers=provider_model_list_headers(provider, pcfg), timeout=4.0, provider=provider, pcfg=pcfg)
-                ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
-                model_info.update(model_info_from_response(provider, data))
-                fetched = True
-        elif provider == "nvidia-hosted":
-            data = http_json(join_url(base, "/v1/models"), headers=nvidia_hosted_list_headers(), timeout=8.0, provider=provider, pcfg=pcfg)
-            ids = model_ids_from_response(data)
-            model_info.update(model_info_from_response(provider, data))
-            fetched = True
-        elif provider == "lm-studio":
-            headers = provider_model_list_headers(provider, pcfg)
-            for path in ("/api/v0/models", "/api/v1/models", "/v1/models", "/models"):
-                try:
-                    data = http_json(join_url(lm_studio_api_base(pcfg) if path.startswith("/api/") else base, path), headers=headers, timeout=2.0, provider=provider, pcfg=pcfg)
-                    ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
-                    model_info.update(model_info_from_response(provider, data))
-                    fetched = True
-                    if ids:
-                        break
-                except Exception:
-                    continue
-        else:
-            headers = provider_model_list_headers(provider, pcfg)
-            for path in ("/v1/models", "/models"):
-                try:
-                    data = http_json(join_url(base, path), headers=headers, timeout=6.0, provider=provider, pcfg=pcfg)
-                    ids = model_ids_from_response(data)
-                    model_info.update(model_info_from_response(provider, data))
-                    fetched = True
-                    if ids:
-                        break
-                except Exception:
-                    continue
-            if not fetched and provider in OPENCODE_PROVIDER_NAMES:
-                # OpenCode publishes the model catalog at /v1/models. Keep the
-                # picker independent from key-specific auth/rate-limit failures.
-                try:
-                    public_headers = with_upstream_user_agent({"content-type": "application/json"})
-                    data = http_json(join_url(base, "/v1/models"), headers=public_headers, timeout=6.0, provider=provider, pcfg=pcfg)
-                    ids = model_ids_from_response(data)
-                    model_info.update(model_info_from_response(provider, data))
-                    fetched = True
-                except Exception as exc:
-                    router_log("DEBUG", f"{provider} public model catalog fetch failed: {type(exc).__name__}: {exc}")
-    except Exception:
-        ids = []
-    if provider == "ollama-cloud" and not ids:
-        ids = ollama_catalog_model_ids(provider)
-        fetched = bool(ids)
-    if not fetched and provider in (*OPENCODE_PROVIDER_NAMES, "kimi"):
-        ids = unique_model_ids(provider, [
-            *(pcfg.get("custom_models", []) or []),
-            pcfg.get("current_model") or "",
-        ])
-        sorted_ids = sorted_model_ids(ids)
-        if sorted_ids:
-            write_model_list_cache(provider, pcfg, sorted_ids)
-        return sorted_ids
-    if not fetched:
-        return []
-    for mid in pcfg.get("custom_models", []) or []:
-        mid = normalize_model_id(provider, mid)
-        if mid and mid not in ids:
-            ids.append(mid)
-    cur = normalize_model_id(provider, pcfg.get("current_model") or "")
-    if cur and provider != "nvidia-hosted" and cur.startswith(f"ciel-runtime-{provider}-"):
-        pass
-    elif cur and cur not in ids and not (provider == "nvidia-hosted" and cur.startswith("claude-")):
-        ids.insert(0, cur)
-    if provider == "nvidia-hosted" and cur and cur not in ids:
-        ids.insert(0, cur)
-    sorted_ids = unique_model_ids(provider, ids)
-    if provider != "anthropic":
-        sorted_ids = sorted_model_ids(sorted_ids)
-    metadata = {"model_info": model_info} if model_info else None
-    write_model_list_cache(provider, pcfg, sorted_ids, metadata)
-    return sorted_ids
+    return fetch_upstream_model_ids(
+        provider, pcfg, force_refresh,
+        services=ProviderModelServices(
+            ANTHROPIC_MODEL_DOCS_URLS=ANTHROPIC_MODEL_DOCS_URLS,
+            OPENCODE_PROVIDER_NAMES=OPENCODE_PROVIDER_NAMES,
+            ZAI_MODEL_FALLBACK_IDS=ZAI_MODEL_FALLBACK_IDS,
+            fetch_anthropic_api_model_ids=fetch_anthropic_api_model_ids,
+            fetch_anthropic_public_model_ids=fetch_anthropic_public_model_ids,
+            fetch_fireworks_model_ids=fetch_fireworks_model_ids,
+            fireworks_account_id=fireworks_account_id,
+            fireworks_management_base_url=fireworks_management_base_url,
+            http_json=http_json,
+            join_url=join_url,
+            lm_studio_api_base=lm_studio_api_base,
+            model_ids_from_response=model_ids_from_response,
+            model_info_from_response=model_info_from_response,
+            normalize_model_id=normalize_model_id,
+            nvidia_hosted_list_headers=nvidia_hosted_list_headers,
+            nvidia_upstream_base_url=nvidia_upstream_base_url,
+            ollama_catalog_model_ids=ollama_catalog_model_ids,
+            provider_has_api_key=provider_has_api_key,
+            provider_model_list_headers=provider_model_list_headers,
+            provider_upstream_request_base=provider_upstream_request_base,
+            read_model_list_cache=read_model_list_cache,
+            router_log=router_log,
+            sorted_model_ids=sorted_model_ids,
+            unique_model_ids=unique_model_ids,
+            with_upstream_user_agent=with_upstream_user_agent,
+            write_model_list_cache=write_model_list_cache,
+            write_model_registry=write_model_registry
+        ),
+    )
 
 
 def model_context_field(item: dict[str, Any]) -> int | None:
@@ -8819,51 +7958,19 @@ def apply_launch_endpoint_policy(cfg: dict[str, Any], runtime: str) -> list[str]
 
 
 def provider_wire_profile(provider: str, pcfg: dict[str, Any], body: dict[str, Any] | None = None) -> dict[str, str]:
-    """Return the active provider/base-url wire profile for this request.
-
-    The same model id can travel through different protocol adapters depending
-    on provider and base URL. Keep this provider-scoped; model metadata only
-    supplies limits and hints.
-    """
-    request_model = str((body or {}).get("model") or pcfg.get("current_model") or "")
-    try:
-        model = resolve_requested_model(provider, pcfg, request_model)
-    except Exception:
-        model = normalize_model_id(provider, request_model)
-
-    if provider in ("ollama", "ollama-cloud"):
-        upstream_format = "ollama-chat"
-        endpoint_family = "ollama-chat"
-    elif provider in OPENCODE_PROVIDER_NAMES:
-        endpoint_family = opencode_endpoint_kind(provider, model, pcfg)
-        upstream_format = "openai-chat" if endpoint_family == "openai-chat" else endpoint_family
-    elif provider_openai_router_enabled(provider, pcfg):
-        upstream_format = "openai-chat"
-        endpoint_family = "openai-chat"
-    else:
-        upstream_format = "anthropic-messages"
-        endpoint_family = "anthropic-messages"
-
-    if preserves_anthropic_thinking_contract(provider, pcfg):
-        thinking_policy = "preserve"
-    elif (
-        upstream_format == "openai-chat"
-        and body is not None
-        and openai_chat_reasoning_passback_enabled_for_body(provider, pcfg, body)
-    ):
-        thinking_policy = "openai-reasoning-passback"
-    else:
-        thinking_policy = "strip"
-
-    return {
-        "provider": provider,
-        "model": model,
-        "endpoint_family": endpoint_family,
-        "upstream_format": upstream_format,
-        "thinking_policy": thinking_policy,
-        "tool_choice_policy": "forward" if provider_supports_tool_choice(provider, pcfg, body or {}) else "strip",
-        "metadata_policy": "strip-internal-upstream-only",
-    }
+    return resolve_provider_wire_profile(
+        provider, pcfg, body,
+        services=ProviderWireServices(
+            OPENCODE_PROVIDER_NAMES=OPENCODE_PROVIDER_NAMES,
+            normalize_model_id=normalize_model_id,
+            openai_chat_reasoning_passback_enabled_for_body=openai_chat_reasoning_passback_enabled_for_body,
+            opencode_endpoint_kind=opencode_endpoint_kind,
+            preserves_anthropic_thinking_contract=preserves_anthropic_thinking_contract,
+            provider_openai_router_enabled=provider_openai_router_enabled,
+            provider_supports_tool_choice=provider_supports_tool_choice,
+            resolve_requested_model=resolve_requested_model
+        ),
+    )
 
 
 def endpoint_route_exists(url: str, headers: dict[str, str], timeout: float = 1.5) -> bool | None:
@@ -9311,895 +8418,34 @@ def render_router_home_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, 
         context_text = f"{context_tokens or 0:,}/{context_limit or 0:,} tok ({context_pct}%)"
     else:
         context_text = f"{context_tokens or 0:,}/{context_limit or 0:,} tok" if context_limit else "unknown"
-    upstream_bits = [
-        str(upstream.get("event") or "idle"),
-        str(upstream.get("provider") or provider),
-        str(upstream.get("model") or pcfg.get("current_model") or ""),
-    ]
-    upstream_text = " · ".join(bit for bit in upstream_bits if bit)
-    links = [
-        ("Events UI", "/ca/events", "Live router event stream with filters"),
-        ("Session web chat", "/ca/web/chat", "Bridge messages into the active Claude Code session"),
-        ("Recent events JSON", "/ca/events/recent", "Latest structured event records"),
-        ("Events SSE", "/ca/events/stream", "Server-sent events stream"),
-        ("Chat health", "/ca/chat/health", "Agent chat component status"),
-        ("Chat messages", "/ca/chat/messages", "Stored agent chat messages"),
-        ("Channel bridge", "/ca/channel/health", "External channel bridge API"),
-        ("Channel messages", "/ca/channel/messages", "Messages posted through channel bridge"),
-        ("Plan artifacts", "/ca/plan/artifacts", "Plan mode artifacts served by router"),
-        ("Models", "/v1/models", "Claude-compatible model list"),
-        ("Health", "/health", "Machine-readable health JSON"),
-    ]
-    link_html = "\n".join(
-        f'<a class="link" href="{html_lib.escape(href)}"><strong>{html_lib.escape(label)}</strong><span>{html_lib.escape(desc)}</span></a>'
-        for label, href, desc in links
+    upstream_text = " · ".join(
+        bit
+        for bit in (
+            str(upstream.get("event") or "idle"),
+            str(upstream.get("provider") or provider),
+            str(upstream.get("model") or pcfg.get("current_model") or ""),
+        )
+        if bit
     )
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ciel Runtime Router</title>
-  <style>
-    :root {{ color-scheme: dark; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }}
-    body {{ margin: 0; background: #090b0f; color: #e8edf4; }}
-    header {{ padding: 22px 24px 16px; border-bottom: 1px solid #253044; background: #101722; }}
-    h1 {{ margin: 0 0 6px; font-size: 24px; letter-spacing: 0; }}
-    .sub {{ color: #a8b3c5; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }}
-    .topnav {{ position: sticky; top: 0; z-index: 10; display: flex; gap: 6px; padding: 10px 24px; background: #0b111a; border-bottom: 1px solid #253044; overflow-x: auto; }}
-    .tab {{ min-width: 96px; min-height: 34px; border-radius: 6px; border: 1px solid #334155; background: #101722; color: #cbd5e1; cursor: pointer; }}
-    .tab:hover {{ border-color: #60a5fa; color: #eff6ff; }}
-    .tab.active {{ background: #1d4ed8; border-color: #60a5fa; color: white; }}
-    main {{ max-width: 1180px; margin: 0 auto; padding: 18px; }}
-    .view {{ display: none; }}
-    .view.active {{ display: block; }}
-    .view h2 {{ margin: 0 0 12px; font-size: 20px; }}
-    .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }}
-    .card, .link, .events {{ background: #0d131d; border: 1px solid #253044; border-radius: 8px; padding: 12px; }}
-    .label {{ color: #93a4ba; font-size: 12px; text-transform: uppercase; }}
-    .value {{ margin-top: 5px; font-size: 15px; word-break: break-word; }}
-    .links {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin-top: 18px; }}
-    a.link {{ display: block; color: #dbeafe; text-decoration: none; }}
-    a.link:hover {{ border-color: #60a5fa; }}
-    a.link span {{ display: block; margin-top: 4px; color: #93a4ba; font-size: 13px; }}
-    .events {{ margin-top: 18px; }}
-    .settings {{ background: #0d131d; border: 1px solid #253044; border-radius: 8px; padding: 12px; }}
-    .settings h2, .events h2 {{ margin: 0 0 10px; font-size: 18px; }}
-    .settings-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }}
-    .control {{ display: grid; gap: 6px; }}
-    .control label {{ color: #93a4ba; font-size: 12px; text-transform: uppercase; }}
-    input, select, button {{ min-height: 34px; border-radius: 6px; border: 1px solid #334155; background: #080d14; color: #e8edf4; padding: 6px 8px; }}
-    button {{ cursor: pointer; background: #12304f; border-color: #2563eb; }}
-    button:hover {{ background: #17406a; }}
-    .option-row {{ display: grid; grid-template-columns: minmax(240px, 1fr) minmax(160px, 260px) auto; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid #1f2937; }}
-    .option-row .name {{ color: #dbeafe; word-break: break-word; }}
-    .messages {{ margin-top: 10px; color: #c4b5fd; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }}
-    .event {{ padding: 8px 0; border-top: 1px solid #1f2937; }}
-    .event:first-child {{ border-top: 0; }}
-    .meta {{ color: #93a4ba; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; }}
-    .preview {{ margin-top: 4px; color: #cbd5e1; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; }}
-    code {{ color: #bfdbfe; }}
-  </style>
-</head>
-<body>
-  <header>
-    <h1>Ciel Runtime Router</h1>
-    <div class="sub">v{html_lib.escape(VERSION)} · {html_lib.escape(provider)} · {html_lib.escape(model)}</div>
-  </header>
-  <nav class="topnav" aria-label="Router sections">
-    <button class="tab active" data-view="overview">Overview</button>
-    <button class="tab" data-view="settings">LLM Settings</button>
-    <button class="tab" data-view="events">Events</button>
-    <button class="tab" data-view="endpoints">Endpoints</button>
-  </nav>
-  <main>
-    <section id="view-overview" class="view active">
-      <h2>Overview</h2>
-      <div class="grid">
-      <div class="card"><div class="label">Provider</div><div class="value">{html_lib.escape(provider)}</div></div>
-      <div class="card"><div class="label">Model</div><div class="value">{html_lib.escape(model)}</div></div>
-      <div class="card"><div class="label">Context</div><div class="value">{html_lib.escape(context_text)}</div></div>
-      <div class="card"><div class="label">Timeout</div><div class="value">{timeout_ms:,} ms · idle {idle_ms:,} ms</div></div>
-      <div class="card"><div class="label">RPM</div><div class="value">{html_lib.escape(rpm_text)}</div></div>
-      <div class="card"><div class="label">Upstream</div><div class="value">{html_lib.escape(upstream_text)}</div></div>
-      </div>
-    </section>
-    <section id="view-settings" class="view">
-      <h2>LLM Settings</h2>
-      <div class="settings">
-      <div class="settings-grid">
-        <div class="control"><label>Model</label><input id="modelInput"><button id="modelApply">Apply model</button></div>
-        <div class="control"><label>Advisor Model</label><input id="advisorInput" placeholder="off or model id"><button id="advisorApply">Apply advisor</button></div>
-        <div class="control"><label>Preset</label><select id="presetSelect"></select><button id="presetApply">Apply preset</button></div>
-        <div class="control"><label>Context Setup</label><select id="contextSelect"></select><button id="contextApply">Apply context</button></div>
-        <div class="control"><label>Timeout Profile</label><select id="timeoutSelect"></select><button id="timeoutApply">Apply timeout</button></div>
-      </div>
-      <div id="optionRows"></div>
-      <div id="settingsMessages" class="messages"></div>
-      </div>
-    </section>
-    <section id="view-events" class="view events">
-      <h2>Recent Events</h2>
-      <div id="events"><div class="meta">Loading /ca/events/recent...</div></div>
-    </section>
-    <section id="view-endpoints" class="view">
-      <h2>Endpoints</h2>
-      <div class="links">{link_html}</div>
-    </section>
-  </main>
-  <script>
-    const tabs = Array.from(document.querySelectorAll('.tab'));
-    const views = Array.from(document.querySelectorAll('.view'));
-    function showView(name) {{
-      tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.view === name));
-      views.forEach(view => view.classList.toggle('active', view.id === 'view-' + name));
-      if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
-    }}
-    tabs.forEach(tab => tab.addEventListener('click', () => showView(tab.dataset.view)));
-    const initialView = (location.hash || '#overview').slice(1);
-    if (tabs.some(tab => tab.dataset.view === initialView)) showView(initialView);
-    const el = document.getElementById('events');
-    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c]));
-    const modelInput = document.getElementById('modelInput');
-    const advisorInput = document.getElementById('advisorInput');
-    const presetSelect = document.getElementById('presetSelect');
-    const contextSelect = document.getElementById('contextSelect');
-    const timeoutSelect = document.getElementById('timeoutSelect');
-    const optionRows = document.getElementById('optionRows');
-    const settingsMessages = document.getElementById('settingsMessages');
-    function fillSelect(select, rows, current) {{
-      select.innerHTML = (rows || []).map(item => `<option value="${{esc(item.value)}}">${{esc(item.label)}}</option>`).join('');
-      if (current) select.value = current;
-    }}
-    async function loadSettings(messages = []) {{
-      const res = await fetch('/ca/config/llm');
-      const data = await res.json();
-      modelInput.value = data.model || '';
-      advisorInput.value = data.advisor_model || '';
-      fillSelect(presetSelect, data.presets, data.preset);
-      fillSelect(contextSelect, data.contexts);
-      fillSelect(timeoutSelect, data.timeouts);
-      optionRows.innerHTML = (data.options || []).map(item => `<div class="option-row"><div class="name">${{esc(item.label)}}</div><input data-key="${{esc(item.key)}}" value="${{esc(item.value)}}"><button data-key="${{esc(item.key)}}">Apply</button></div>`).join('');
-      settingsMessages.textContent = (messages.length ? messages : data.messages || []).join('\\n');
-    }}
-    async function postSettings(payload) {{
-      settingsMessages.textContent = 'Saving...';
-      const res = await fetch('/ca/config/llm', {{method:'POST', headers:{{'content-type':'application/json'}}, body: JSON.stringify(payload)}});
-      const data = await res.json();
-      if (!res.ok || !data.ok) {{
-        settingsMessages.textContent = (data.messages || [data.error || 'Update failed']).join('\\n');
-        return;
-      }}
-      await loadSettings(data.messages || []);
-    }}
-    document.getElementById('modelApply').onclick = () => postSettings({{action:'model', value:modelInput.value}});
-    document.getElementById('advisorApply').onclick = () => postSettings({{action:'advisor_model', value:advisorInput.value}});
-    document.getElementById('presetApply').onclick = () => postSettings({{action:'preset', value:presetSelect.value}});
-    document.getElementById('contextApply').onclick = () => postSettings({{action:'context_setup', value:contextSelect.value}});
-    document.getElementById('timeoutApply').onclick = () => postSettings({{action:'timeout_profile', value:timeoutSelect.value}});
-    optionRows.addEventListener('click', ev => {{
-      const button = ev.target.closest('button[data-key]');
-      if (!button) return;
-      const input = optionRows.querySelector(`input[data-key="${{CSS.escape(button.dataset.key)}}"]`);
-      postSettings({{action:'option', key:button.dataset.key, value:input ? input.value : ''}});
-    }});
-    loadSettings();
-    fetch('/ca/events/recent?limit=20').then(r => r.json()).then(j => {{
-      const events = j.events || [];
-      el.innerHTML = events.length ? events.reverse().map(e => {{
-        const preview = e.data && e.data.message_preview ? `<div class="preview">${{esc(e.data.message_preview)}}${{e.data.message_preview_truncated ? '…' : ''}}</div>` : '';
-        return `<div class="event"><div class="meta">#${{e.id}} ${{esc(e.time)}} · ${{esc(e.level)}} · ${{esc(e.category)}} · ${{esc(e.provider)}} ${{esc(e.model)}}</div><div>${{esc(e.message)}}</div>${{preview}}</div>`;
-      }}).join('') : '<div class="meta">No events yet.</div>';
-    }}).catch(err => {{ el.innerHTML = '<div class="meta">Could not load events: ' + esc(err) + '</div>'; }});
-  </script>
-</body>
-</html>"""
-
+    return render_router_home_page(
+        version=VERSION,
+        provider=provider,
+        model=model,
+        context_text=context_text,
+        timeout_ms=timeout_ms,
+        idle_ms=idle_ms,
+        rpm_text=rpm_text,
+        upstream_text=upstream_text,
+    )
 
 def render_web_chat_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any]) -> str:
-    model = current_alias(cfg)
-    timeout_ms = positive_int(pcfg.get("request_timeout_ms")) or DEFAULT_REQUEST_TIMEOUT_MS
-    api_status = api_key_status_line(provider, pcfg)
-    mode = provider_mode_label(provider, pcfg)
-    escaped_model = html_lib.escape(model)
-    escaped_provider = html_lib.escape(provider)
-    escaped_mode = html_lib.escape(mode)
-    escaped_api_status = html_lib.escape(api_status)
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ciel Runtime Web Chat</title>
-  <style>
-    :root {{
-      color-scheme: dark;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
-      --bg: #0a0d12;
-      --panel: #111827;
-      --panel-2: #162033;
-      --line: #283548;
-      --text: #eef2f8;
-      --muted: #a9b4c6;
-      --user: #174c6b;
-      --assistant: #243447;
-      --accent: #2f9e8f;
-      --danger: #fca5a5;
-      --ok: #86efac;
-    }}
-    * {{ box-sizing: border-box; }}
-    body {{ margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); }}
-    .shell {{ display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: 100vh; }}
-    aside {{ border-right: 1px solid var(--line); background: #0e1521; padding: 18px; }}
-    .brand {{ font-size: 19px; font-weight: 700; letter-spacing: 0; margin: 0 0 12px; }}
-    .status-card {{ border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 12px; display: grid; gap: 10px; }}
-    .meta-label {{ color: var(--muted); font-size: 11px; text-transform: uppercase; }}
-    .meta-value {{ margin-top: 3px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; word-break: break-word; }}
-    .nav {{ margin-top: 14px; display: grid; gap: 8px; }}
-    .nav a, .ghost {{
-      display: flex; align-items: center; justify-content: center;
-      min-height: 36px; border-radius: 6px; border: 1px solid var(--line);
-      background: #0b111b; color: var(--text); text-decoration: none; cursor: pointer;
-    }}
-    .nav a:hover, .ghost:hover {{ border-color: var(--accent); }}
-    main {{ display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; }}
-    header {{ min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); background: #0d1420; }}
-    h1 {{ margin: 0; font-size: 18px; letter-spacing: 0; }}
-    .sub {{ color: var(--muted); font-size: 12px; margin-top: 4px; }}
-    .pill {{ border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; color: var(--muted); font-size: 12px; white-space: nowrap; }}
-    #transcript {{ overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 12px; }}
-    .row {{ display: flex; width: 100%; }}
-    .row.user {{ justify-content: flex-end; }}
-    .bubble {{
-      max-width: min(760px, 86%);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 10px 12px;
-      line-height: 1.45;
-      white-space: normal;
-      word-break: break-word;
-      box-shadow: 0 1px 0 rgba(255,255,255,.03) inset;
-    }}
-    .row.user .bubble {{ background: var(--user); border-color: #276a8d; }}
-    .row.assistant .bubble {{ background: var(--assistant); }}
-    .row.system .bubble {{ background: #191f2b; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; white-space: pre-wrap; }}
-    .markdown > :first-child {{ margin-top: 0; }}
-    .markdown > :last-child {{ margin-bottom: 0; }}
-    .markdown p {{ margin: 0 0 10px; }}
-    .markdown h1, .markdown h2, .markdown h3, .markdown h4 {{ margin: 12px 0 8px; line-height: 1.2; }}
-    .markdown h1 {{ font-size: 1.35rem; }}
-    .markdown h2 {{ font-size: 1.2rem; }}
-    .markdown h3 {{ font-size: 1.08rem; }}
-    .markdown ul, .markdown ol {{ margin: 0 0 10px 20px; padding: 0; }}
-    .markdown li {{ margin: 3px 0; }}
-    .markdown blockquote {{ margin: 0 0 10px; padding-left: 12px; border-left: 3px solid #4b6585; color: var(--muted); }}
-    .markdown pre {{ margin: 0 0 10px; padding: 10px; overflow-x: auto; border: 1px solid #33445b; border-radius: 6px; background: #0b111b; white-space: pre; }}
-    .markdown code {{ font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .92em; }}
-    .markdown :not(pre) > code {{ padding: 1px 4px; border-radius: 4px; background: rgba(191, 219, 254, .12); }}
-    .markdown a {{ color: #8bd7ff; text-decoration: underline; text-underline-offset: 2px; }}
-    .markdown table {{ width: 100%; border-collapse: collapse; margin: 0 0 10px; display: block; overflow-x: auto; }}
-    .markdown th, .markdown td {{ border: 1px solid #3a4b63; padding: 6px 8px; text-align: left; vertical-align: top; }}
-    .markdown th {{ background: rgba(255,255,255,.06); font-weight: 700; }}
-    .markdown hr {{ border: 0; border-top: 1px solid var(--line); margin: 12px 0; }}
-    .composer {{ border-top: 1px solid var(--line); padding: 12px 18px; background: #0d1420; }}
-    .composer-inner {{ display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }}
-    textarea {{
-      width: 100%; min-height: 54px; max-height: 180px; resize: vertical;
-      border: 1px solid var(--line); border-radius: 8px; background: #080d14; color: var(--text);
-      padding: 10px 12px; line-height: 1.4; font: inherit;
-    }}
-    button.primary {{
-      width: 86px; min-height: 54px; border: 1px solid #37b7a4; border-radius: 8px;
-      background: #127668; color: white; font-weight: 700; cursor: pointer;
-    }}
-    button.primary:disabled {{ opacity: .55; cursor: not-allowed; }}
-    .composer-actions {{ display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }}
-    .attach-button {{
-      min-height: 34px; border: 1px solid var(--line); border-radius: 6px;
-      background: #0b111b; color: var(--text); padding: 0 12px; cursor: pointer;
-    }}
-    .attach-button:hover {{ border-color: var(--accent); }}
-    .attach-button:disabled {{ opacity: .55; cursor: not-allowed; }}
-    #fileInput {{ display: none; }}
-    .attachment-tray {{ display: flex; gap: 7px; flex-wrap: wrap; min-height: 0; }}
-    .attachment-chip {{
-      display: inline-flex; align-items: center; gap: 7px; max-width: min(360px, 100%);
-      border: 1px solid #33445b; border-radius: 999px; background: #121b2a;
-      padding: 5px 8px; color: var(--muted); font-size: 12px;
-    }}
-    .attachment-chip span {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-    .attachment-chip button {{
-      width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;
-      border: 0; border-radius: 999px; background: #243447; color: var(--text); cursor: pointer;
-    }}
-    .drop-active textarea {{ border-color: var(--accent); box-shadow: 0 0 0 2px rgba(47, 158, 143, .18); }}
-    .hint {{ margin-top: 7px; color: var(--muted); font-size: 12px; }}
-    .error {{ color: var(--danger); }}
-    .ok {{ color: var(--ok); }}
-    code {{ color: #bfdbfe; }}
-    @media (max-width: 820px) {{
-      .shell {{ grid-template-columns: 1fr; }}
-      aside {{ display: none; }}
-      .bubble {{ max-width: 94%; }}
-      header {{ align-items: flex-start; flex-direction: column; }}
-      .pill {{ white-space: normal; }}
-    }}
-  </style>
-</head>
-<body>
-  <div class="shell">
-    <aside>
-      <div class="brand">Ciel Runtime</div>
-      <div class="status-card">
-        <div><div class="meta-label">Provider</div><div class="meta-value">{escaped_provider}</div></div>
-        <div><div class="meta-label">Mode</div><div class="meta-value">{escaped_mode}</div></div>
-        <div><div class="meta-label">Model</div><div class="meta-value">{escaped_model}</div></div>
-        <div><div class="meta-label">API</div><div class="meta-value">{escaped_api_status}</div></div>
-        <div><div class="meta-label">Timeout</div><div class="meta-value">{timeout_ms:,} ms</div></div>
-        <div><div class="meta-label">Bridge</div><div class="meta-value">active session channel</div></div>
-      </div>
-      <div class="nav">
-        <a href="/">Router Home</a>
-        <a href="/ca/events">Events</a>
-        <a href="/health">Health JSON</a>
-        <button class="ghost" id="shareButton" type="button">Copy Chat Link</button>
-        <button class="ghost" id="clearButton" type="button">Clear Chat</button>
-      </div>
-    </aside>
-    <main>
-      <header>
-        <div>
-          <h1>Session Web Chat</h1>
-          <div class="sub">Send messages into the active Claude Code session through the Ciel Runtime channel bridge and stream replies from the same channel.</div>
-        </div>
-        <div class="pill" id="statePill">ready</div>
-      </header>
-      <section id="transcript" aria-live="polite"></section>
-      <form class="composer" id="composer">
-        <div class="composer-inner">
-          <textarea id="prompt" placeholder="Type a message..." autocomplete="off"></textarea>
-          <button class="primary" id="sendButton" type="submit">Send</button>
-        </div>
-        <div class="composer-actions">
-          <button class="attach-button" id="attachButton" type="button">Attach files</button>
-          <input id="fileInput" type="file" multiple>
-          <div class="attachment-tray" id="attachmentTray" aria-live="polite"></div>
-        </div>
-        <div class="hint">Enter sends. Shift+Enter inserts a new line. The active Claude Code session handles the message, so its configured tools and MCP servers remain available. If replies stay queued, restart Ciel Runtime so the session wake bridge wraps the terminal.</div>
-      </form>
-    </main>
-  </div>
-  <script>
-    const MODEL = {json.dumps(model)};
-    const transcript = document.getElementById('transcript');
-    const composer = document.getElementById('composer');
-    const prompt = document.getElementById('prompt');
-    const sendButton = document.getElementById('sendButton');
-    const attachButton = document.getElementById('attachButton');
-    const fileInput = document.getElementById('fileInput');
-    const attachmentTray = document.getElementById('attachmentTray');
-    const shareButton = document.getElementById('shareButton');
-    const clearButton = document.getElementById('clearButton');
-    const statePill = document.getElementById('statePill');
-    const SESSION_KEY = 'ciel-runtime-web-chat-session';
-    const LAST_ID_KEY = 'ciel-runtime-web-chat-last-id';
-    const HISTORY_PAGE_SIZE = 80;
-    const renderedIds = new Set();
-    let oldestId = 0;
-    let historyLoading = false;
-    let historyExhausted = false;
-    function cleanSessionId(value) {{
-      return String(value || '').replace(/[^a-zA-Z0-9_.:-]/g, '').slice(0, 128);
-    }}
-    const urlParams = new URLSearchParams(location.search);
-    const urlSessionId = cleanSessionId(urlParams.get('session') || urlParams.get('s') || '');
-    const storedSessionId = cleanSessionId(localStorage.getItem(SESSION_KEY) || '');
-    const sessionId = urlSessionId || storedSessionId || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(16).slice(2));
-    localStorage.setItem(SESSION_KEY, sessionId);
-    if (!urlSessionId) {{
-      urlParams.set('session', sessionId);
-      const nextUrl = location.pathname + '?' + urlParams.toString() + location.hash;
-      history.replaceState(null, '', nextUrl);
-    }}
-    const channel = 'web-chat-' + sessionId;
-    const scopedLastIdKey = LAST_ID_KEY + ':' + sessionId;
-    let lastId = Number(localStorage.getItem(scopedLastIdKey) || '0') || 0;
-    let eventSource = null;
-    let selectedFiles = [];
-    function setState(text, cls = '') {{
-      statePill.textContent = text;
-      statePill.className = 'pill ' + cls;
-    }}
-    function escapeHtml(value) {{
-      return String(value ?? '').replace(/[&<>"']/g, ch => ({{
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-      }}[ch]));
-    }}
-    function safeHref(value) {{
-      const href = String(value || '').trim();
-      if (/^(https?:|mailto:)/i.test(href)) return escapeHtml(href);
-      return '#';
-    }}
-    function renderInlineMarkdown(value) {{
-      const codeBlocks = [];
-      const linkBlocks = [];
-      let raw = String(value ?? '').replace(/`([^`\\n]+)`/g, (_match, code) => {{
-        const token = '\\u0000CODE' + codeBlocks.length + '\\u0000';
-        codeBlocks.push('<code>' + escapeHtml(code) + '</code>');
-        return token;
-      }});
-      raw = raw.replace(/\\[([^\\]]+)\\]\\(([^)\\s]+)\\)/g, (_match, label, href) => {{
-        const token = '\\u0000LINK' + linkBlocks.length + '\\u0000';
-        linkBlocks.push('<a href="' + safeHref(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + '</a>');
-        return token;
-      }});
-      let html = escapeHtml(raw);
-      html = html.replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>');
-      html = html.replace(/(^|[\\s(])\\*([^*\\n]+)\\*/g, '$1<em>$2</em>');
-      html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
-      linkBlocks.forEach((link, index) => {{
-        html = html.replace('\\u0000LINK' + index + '\\u0000', link);
-      }});
-      codeBlocks.forEach((code, index) => {{
-        html = html.replace('\\u0000CODE' + index + '\\u0000', code);
-      }});
-      return html;
-    }}
-    function splitMarkdownTableRow(line) {{
-      let row = String(line || '').trim();
-      if (row.startsWith('|')) row = row.slice(1);
-      if (row.endsWith('|')) row = row.slice(0, -1);
-      return row.split('|').map(cell => cell.trim());
-    }}
-    function isMarkdownDelimiterCell(cell) {{
-      const compact = String(cell || '').replace(/\\s+/g, '');
-      const core = compact.replace(/^:/, '').replace(/:$/, '');
-      return core.length >= 3 && /^-+$/.test(core);
-    }}
-    function isMarkdownTableDelimiter(line) {{
-      const cells = splitMarkdownTableRow(line);
-      return cells.length > 1 && cells.every(isMarkdownDelimiterCell);
-    }}
-    function isMarkdownTableStart(lines, index) {{
-      return index + 1 < lines.length
-        && String(lines[index] || '').includes('|')
-        && splitMarkdownTableRow(lines[index]).length > 1
-        && isMarkdownTableDelimiter(lines[index + 1]);
-    }}
-    function isMarkdownBlockStart(lines, index) {{
-      const line = String(lines[index] || '');
-      const trimmed = line.trim();
-      if (!trimmed) return true;
-      return trimmed.startsWith('```')
-        || isMarkdownTableStart(lines, index)
-        || /^(####|###|##|#)\\s+/.test(trimmed)
-        || /^([-*+]\\s+|\\d+[.)]\\s+|>\\s?)/.test(trimmed)
-        || /^(---+|\\*\\*\\*+|___+)$/.test(trimmed);
-    }}
-    function renderMarkdownTable(lines, startIndex) {{
-      const headers = splitMarkdownTableRow(lines[startIndex]);
-      const rows = [];
-      let index = startIndex + 2;
-      while (index < lines.length && String(lines[index] || '').trim() && String(lines[index] || '').includes('|')) {{
-        rows.push(splitMarkdownTableRow(lines[index]));
-        index += 1;
-      }}
-      const head = '<thead><tr>' + headers.map(cell => '<th>' + renderInlineMarkdown(cell) + '</th>').join('') + '</tr></thead>';
-      const body = '<tbody>' + rows.map(row => {{
-        const cells = headers.map((_header, cellIndex) => '<td>' + renderInlineMarkdown(row[cellIndex] || '') + '</td>').join('');
-        return '<tr>' + cells + '</tr>';
-      }}).join('') + '</tbody>';
-      return {{ html: '<table>' + head + body + '</table>', nextIndex: index }};
-    }}
-    function renderMarkdown(text) {{
-      const lines = String(text ?? '').replace(/\\r\\n?/g, '\\n').split('\\n');
-      const blocks = [];
-      let index = 0;
-      while (index < lines.length) {{
-        const line = lines[index];
-        const trimmed = String(line || '').trim();
-        if (!trimmed) {{
-          index += 1;
-          continue;
-        }}
-        if (trimmed.startsWith('```')) {{
-          const code = [];
-          index += 1;
-          while (index < lines.length && !String(lines[index] || '').trim().startsWith('```')) {{
-            code.push(lines[index]);
-            index += 1;
-          }}
-          if (index < lines.length) index += 1;
-          blocks.push('<pre><code>' + escapeHtml(code.join('\\n')) + '</code></pre>');
-          continue;
-        }}
-        if (isMarkdownTableStart(lines, index)) {{
-          const table = renderMarkdownTable(lines, index);
-          blocks.push(table.html);
-          index = table.nextIndex;
-          continue;
-        }}
-        const heading = trimmed.match(/^(####|###|##|#)\\s+(.+)$/);
-        if (heading) {{
-          const level = Math.min(4, heading[1].length);
-          blocks.push('<h' + level + '>' + renderInlineMarkdown(heading[2]) + '</h' + level + '>');
-          index += 1;
-          continue;
-        }}
-        if (/^(---+|\\*\\*\\*+|___+)$/.test(trimmed)) {{
-          blocks.push('<hr>');
-          index += 1;
-          continue;
-        }}
-        if (/^[-*+]\\s+/.test(trimmed)) {{
-          const items = [];
-          while (index < lines.length && /^[-*+]\\s+/.test(String(lines[index] || '').trim())) {{
-            items.push(String(lines[index] || '').trim().replace(/^[-*+]\\s+/, ''));
-            index += 1;
-          }}
-          blocks.push('<ul>' + items.map(item => '<li>' + renderInlineMarkdown(item) + '</li>').join('') + '</ul>');
-          continue;
-        }}
-        if (/^\\d+[.)]\\s+/.test(trimmed)) {{
-          const items = [];
-          while (index < lines.length && /^\\d+[.)]\\s+/.test(String(lines[index] || '').trim())) {{
-            items.push(String(lines[index] || '').trim().replace(/^\\d+[.)]\\s+/, ''));
-            index += 1;
-          }}
-          blocks.push('<ol>' + items.map(item => '<li>' + renderInlineMarkdown(item) + '</li>').join('') + '</ol>');
-          continue;
-        }}
-        if (/^>\\s?/.test(trimmed)) {{
-          const quotes = [];
-          while (index < lines.length && /^>\\s?/.test(String(lines[index] || '').trim())) {{
-            quotes.push(String(lines[index] || '').trim().replace(/^>\\s?/, ''));
-            index += 1;
-          }}
-          blocks.push('<blockquote>' + renderInlineMarkdown(quotes.join('\\n')) + '</blockquote>');
-          continue;
-        }}
-        const paragraph = [trimmed];
-        index += 1;
-        while (index < lines.length && !isMarkdownBlockStart(lines, index)) {{
-          paragraph.push(String(lines[index] || '').trim());
-          index += 1;
-        }}
-        blocks.push('<p>' + renderInlineMarkdown(paragraph.join(' ')) + '</p>');
-      }}
-      return blocks.join('');
-    }}
-    function addBubble(role, text, mode = 'append', id = null) {{
-      if (id !== null && id !== undefined) {{
-        const key = String(id);
-        if (renderedIds.has(key)) return null;
-        renderedIds.add(key);
-      }}
-      const row = document.createElement('div');
-      row.className = 'row ' + role;
-      const bubble = document.createElement('div');
-      bubble.className = 'bubble';
-      if (role === 'system') {{
-        bubble.textContent = text;
-      }} else {{
-        bubble.classList.add('markdown');
-        bubble.innerHTML = renderMarkdown(text);
-      }}
-      row.appendChild(bubble);
-      if (mode === 'prepend') {{
-        transcript.insertBefore(row, transcript.firstChild);
-      }} else {{
-        transcript.appendChild(row);
-        transcript.scrollTop = transcript.scrollHeight;
-      }}
-      return bubble;
-    }}
-    function rememberLastId(id) {{
-      const numeric = Number(id || 0) || 0;
-      if (numeric > lastId) {{
-        lastId = numeric;
-        localStorage.setItem(scopedLastIdKey, String(lastId));
-      }}
-    }}
-    function roleForMessage(message) {{
-      return message.sender_id === 'web-user' ? 'user' : 'assistant';
-    }}
-    function renderIncomingMessage(message, mode = 'append') {{
-      if (mode !== 'prepend') rememberLastId(message.id);
-      const text = message.message || '';
-      if (!text.trim()) return;
-      addBubble(roleForMessage(message), text, mode, message.id);
-      if (mode !== 'prepend' && message.sender_id !== 'web-user') setState('reply received', 'ok');
-    }}
-    function formatBytes(bytes) {{
-      const value = Number(bytes || 0);
-      if (value < 1024) return value + ' B';
-      if (value < 1024 * 1024) return (value / 1024).toFixed(1).replace(/\\.0$/, '') + ' KB';
-      return (value / (1024 * 1024)).toFixed(1).replace(/\\.0$/, '') + ' MB';
-    }}
-    function renderAttachmentTray() {{
-      attachmentTray.innerHTML = '';
-      selectedFiles.forEach((file, index) => {{
-        const chip = document.createElement('div');
-        chip.className = 'attachment-chip';
-        const label = document.createElement('span');
-        label.textContent = file.name + ' (' + formatBytes(file.size) + ')';
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.setAttribute('aria-label', 'Remove ' + file.name);
-        remove.textContent = 'x';
-        remove.addEventListener('click', () => {{
-          selectedFiles.splice(index, 1);
-          renderAttachmentTray();
-        }});
-        chip.appendChild(label);
-        chip.appendChild(remove);
-        attachmentTray.appendChild(chip);
-      }});
-    }}
-    function addSelectedFiles(fileList) {{
-      const incoming = Array.from(fileList || []);
-      if (!incoming.length) return;
-      selectedFiles = selectedFiles.concat(incoming);
-      renderAttachmentTray();
-      setState(selectedFiles.length + ' file(s) ready', 'ok');
-    }}
-    function fileToBase64(file) {{
-      return new Promise((resolve, reject) => {{
-        const reader = new FileReader();
-        reader.onload = () => {{
-          const dataUrl = String(reader.result || '');
-          const comma = dataUrl.indexOf(',');
-          resolve(comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl);
-        }};
-        reader.onerror = () => reject(reader.error || new Error('Could not read file'));
-        reader.readAsDataURL(file);
-      }});
-    }}
-    async function uploadAttachment(file) {{
-      const content = await fileToBase64(file);
-      const response = await fetch('/ca/channel/files', {{
-        method: 'POST',
-        headers: {{'content-type': 'application/json', 'accept': 'application/json'}},
-        body: JSON.stringify({{
-          channel,
-          sender_id: 'web-user',
-          recipients: ['all'],
-          thread_id: sessionId,
-          announce: false,
-          name: file.name,
-          content_type: file.type || 'application/octet-stream',
-          encoding: 'base64',
-          content
-        }})
-      }});
-      const text = await response.text();
-      let json = {{}};
-      try {{ json = text ? JSON.parse(text) : {{}}; }} catch {{}}
-      if (!response.ok || !json.ok) {{
-        throw new Error(json.error || text || `Upload failed with HTTP ${{response.status}}`);
-      }}
-      return {{
-        name: json.name,
-        original_name: json.original_name || file.name,
-        url: json.url,
-        path: json.path,
-        bytes: json.bytes,
-        content_type: json.content_type || file.type || 'application/octet-stream'
-      }};
-    }}
-    async function uploadAttachments(files) {{
-      const uploads = [];
-      for (const file of files) {{
-        setState('uploading ' + file.name);
-        uploads.push(await uploadAttachment(file));
-      }}
-      return uploads;
-    }}
-    function attachmentSummary(uploads) {{
-      if (!uploads.length) return '';
-      const lines = uploads.map(file => {{
-        const label = file.original_name || file.name || 'file';
-        const size = formatBytes(file.bytes);
-        const type = file.content_type || 'application/octet-stream';
-        const url = file.url || file.path || '';
-        return '- [' + label + '](' + url + ') (' + size + ', ' + type + ') - router URL: ' + url;
-      }});
-      return 'Attached files:\\n' + lines.join('\\n');
-    }}
-    function buildOutboundText(text, uploads) {{
-      const trimmed = String(text || '').trim();
-      const summary = attachmentSummary(uploads);
-      if (trimmed && summary) return trimmed + '\\n\\n' + summary;
-      return trimmed || summary;
-    }}
-    function updateHistoryBounds(messages) {{
-      if (!Array.isArray(messages) || messages.length === 0) return;
-      const ids = messages.map(message => Number(message.id || 0)).filter(id => id > 0);
-      if (!ids.length) return;
-      const minId = Math.min(...ids);
-      const maxId = Math.max(...ids);
-      oldestId = oldestId ? Math.min(oldestId, minId) : minId;
-      rememberLastId(maxId);
-    }}
-    async function fetchMessagePage(params) {{
-      const query = new URLSearchParams({{
-        channel,
-        recipient: 'web',
-        limit: String(HISTORY_PAGE_SIZE),
-        ...params
-      }});
-      const response = await fetch('/ca/channel/messages?' + query.toString(), {{headers: {{'accept': 'application/json'}}}});
-      if (!response.ok) throw new Error(await response.text() || `HTTP ${{response.status}}`);
-      return await response.json();
-    }}
-    async function loadInitialHistory() {{
-      try {{
-        const json = await fetchMessagePage({{latest: '1'}});
-        const messages = Array.isArray(json.messages) ? json.messages : [];
-        messages.forEach(message => renderIncomingMessage(message, 'append'));
-        updateHistoryBounds(messages);
-        historyExhausted = messages.length < HISTORY_PAGE_SIZE;
-      }} catch (err) {{
-        addBubble('system', 'Could not load chat history: ' + String(err && err.message ? err.message : err));
-      }}
-    }}
-    async function loadOlderHistory() {{
-      if (historyLoading || historyExhausted || !oldestId) return;
-      historyLoading = true;
-      const previousHeight = transcript.scrollHeight;
-      try {{
-        const json = await fetchMessagePage({{before: String(oldestId)}});
-        const messages = Array.isArray(json.messages) ? json.messages : [];
-        if (!messages.length) {{
-          historyExhausted = true;
-          return;
-        }}
-        for (let i = messages.length - 1; i >= 0; i -= 1) {{
-          renderIncomingMessage(messages[i], 'prepend');
-        }}
-        updateHistoryBounds(messages);
-        historyExhausted = messages.length < HISTORY_PAGE_SIZE;
-        transcript.scrollTop = transcript.scrollHeight - previousHeight;
-      }} catch (err) {{
-        addBubble('system', 'Could not load older history: ' + String(err && err.message ? err.message : err));
-      }} finally {{
-        historyLoading = false;
-      }}
-    }}
-    function startChannelStream() {{
-      if (eventSource) eventSource.close();
-      const url = `/ca/channel/stream?channel=${{encodeURIComponent(channel)}}&recipient=web&after=${{lastId}}&timeout=3600`;
-      eventSource = new EventSource(url);
-      eventSource.onopen = () => setState('listening', 'ok');
-      eventSource.onmessage = ev => {{
-        try {{
-          const message = JSON.parse(ev.data);
-          renderIncomingMessage(message);
-        }} catch {{}}
-      }};
-      eventSource.onerror = () => {{
-        if (eventSource) eventSource.close();
-        setState('reconnecting');
-        setTimeout(startChannelStream, 1200);
-      }};
-    }}
-    async function sendMessage(text, files = []) {{
-      setState('queued');
-      sendButton.disabled = true;
-      attachButton.disabled = true;
-      try {{
-        const uploads = await uploadAttachments(files);
-        const outboundText = buildOutboundText(text, uploads);
-        addBubble('user', outboundText);
-        const response = await fetch('/ca/channel/messages', {{
-          method: 'POST',
-          headers: {{'content-type': 'application/json', 'accept': 'application/json'}},
-          body: JSON.stringify({{
-            channel,
-            sender_id: 'web-user',
-            recipients: ['all'],
-            delivery: ['llm', 'native'],
-            thread_id: sessionId,
-            kind: 'web_chat',
-            message: outboundText,
-            meta: {{
-              source: 'ciel-runtime-web-chat',
-              web_chat_session: sessionId,
-              reply_channel: channel,
-              reply_recipient: 'web',
-              reply_instruction: 'Use the ciel-runtime-router send_message tool to answer this browser chat on the same channel/thread_id with recipients web and delivery web. Use send_file when returning a file attachment to this browser chat.',
-              attachments: uploads
-            }}
-          }})
-        }});
-        if (!response.ok) {{
-          const fallback = await response.text();
-          throw new Error(fallback || `HTTP ${{response.status}}`);
-        }}
-        const json = await response.json();
-        if (json.message) rememberLastId(json.message.id);
-        addBubble('system', 'Message queued for the active Claude Code session. Waiting for a channel reply. If this never changes, restart Ciel Runtime so the session wake bridge is active.');
-        setState('waiting for session');
-      }} catch (err) {{
-        const bubble = addBubble('assistant', String(err && err.message ? err.message : err));
-        bubble.classList.add('error');
-        setState('error', 'error');
-      }} finally {{
-        sendButton.disabled = false;
-        attachButton.disabled = false;
-        prompt.focus();
-      }}
-    }}
-    composer.addEventListener('submit', ev => {{
-      ev.preventDefault();
-      const text = prompt.value.trim();
-      const files = selectedFiles.slice();
-      if (!text && !files.length) return;
-      prompt.value = '';
-      selectedFiles = [];
-      renderAttachmentTray();
-      sendMessage(text, files);
-    }});
-    prompt.addEventListener('keydown', ev => {{
-      if (ev.key === 'Enter' && !ev.shiftKey) {{
-        ev.preventDefault();
-        composer.requestSubmit();
-      }}
-    }});
-    attachButton.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', () => {{
-      addSelectedFiles(fileInput.files);
-      fileInput.value = '';
-    }});
-    composer.addEventListener('dragover', ev => {{
-      if (!ev.dataTransfer || !ev.dataTransfer.files || !ev.dataTransfer.files.length) return;
-      ev.preventDefault();
-      composer.classList.add('drop-active');
-    }});
-    composer.addEventListener('dragleave', () => composer.classList.remove('drop-active'));
-    composer.addEventListener('drop', ev => {{
-      if (!ev.dataTransfer || !ev.dataTransfer.files || !ev.dataTransfer.files.length) return;
-      ev.preventDefault();
-      composer.classList.remove('drop-active');
-      addSelectedFiles(ev.dataTransfer.files);
-    }});
-    clearButton.addEventListener('click', () => {{
-      transcript.innerHTML = '';
-      renderedIds.clear();
-      oldestId = 0;
-      historyExhausted = false;
-      selectedFiles = [];
-      renderAttachmentTray();
-      addBubble('system', `Chat cleared. This browser sends to active Claude Code session channel ${{channel}}.`);
-      startChannelStream();
-    }});
-    shareButton.addEventListener('click', async () => {{
-      const url = new URL(location.href);
-      url.searchParams.set('session', sessionId);
-      try {{
-        await navigator.clipboard.writeText(url.toString());
-        setState('link copied', 'ok');
-      }} catch {{
-        prompt.value = url.toString();
-        prompt.focus();
-        prompt.select();
-        setState('copy manually');
-      }}
-    }});
-    transcript.addEventListener('scroll', () => {{
-      if (transcript.scrollTop < 48) loadOlderHistory();
-    }});
-    addBubble('system', `Connected to active session bridge for ${{MODEL}}. Messages are queued on channel ${{channel}} and replies stream back from /ca/channel/stream.`);
-    loadInitialHistory().finally(startChannelStream);
-    prompt.focus();
-  </script>
-</body>
-</html>"""
-
+    return render_web_chat_page(
+        model=current_alias(cfg),
+        provider=provider,
+        mode=provider_mode_label(provider, pcfg),
+        api_status=api_key_status_line(provider, pcfg),
+        timeout_ms=positive_int(pcfg.get("request_timeout_ms")) or DEFAULT_REQUEST_TIMEOUT_MS,
+    )
 
 def handle_web_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
     if path not in ("/ca/web/chat", "/ca/web/chat/"):
@@ -14543,23 +12789,18 @@ def normalize_anthropic_tool_turns_for_provider(provider: str, pcfg: dict[str, A
 
 
 def normalize_request_for_provider_wire(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
-    """Normalize a Claude Code /v1/messages request for the active provider wire profile."""
-    profile = provider_wire_profile(provider, pcfg, body)
-    out = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
-    requested_model = str(out.get("model") or pcfg.get("current_model") or "")
-    if provider == "kimi" and is_kimi_k3_model_id(requested_model):
-        thinking = out.get("thinking")
-        if isinstance(thinking, dict) and str(thinking.get("type") or "").lower() != "disabled":
-            normalized_thinking = dict(thinking)
-            normalized_thinking["effort"] = "max"
-            out = dict(out)
-            out["thinking"] = normalized_thinking
-    out = normalize_tool_choice_for_provider(provider, pcfg, out)
-    out = sanitize_assistant_pseudo_tool_text_history(out)
-    out = normalize_anthropic_tool_turns_for_provider(provider, pcfg, out)
-    if profile.get("upstream_format") == "anthropic-messages":
-        out = normalize_anthropic_system_role_messages(out)
-    return out
+    return normalize_provider_request(
+        provider, pcfg, body,
+        services=ProviderRequestServices(
+            is_kimi_k3_model_id=is_kimi_k3_model_id,
+            normalize_anthropic_system_role_messages=normalize_anthropic_system_role_messages,
+            normalize_anthropic_tool_turns_for_provider=normalize_anthropic_tool_turns_for_provider,
+            normalize_thinking_for_non_anthropic_provider=normalize_thinking_for_non_anthropic_provider,
+            normalize_tool_choice_for_provider=normalize_tool_choice_for_provider,
+            provider_wire_profile=provider_wire_profile,
+            sanitize_assistant_pseudo_tool_text_history=sanitize_assistant_pseudo_tool_text_history
+        ),
+    )
 
 
 def anthropic_advisor_messages_and_system(body: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str]]:
@@ -17623,831 +15864,53 @@ def _rebatch_anthropic_sse_text(
     normalize_tool_use: bool = False,
     provider: str = "",
 ) -> None:
-    """
-    Parse upstream Anthropic SSE and re-emit it with text_delta events buffered
-    to word boundaries. Non-text events are forwarded in the same SSE framing.
-    When the selected provider cannot preserve Anthropic's thinking passback
-    contract, thinking blocks are suppressed and later content block indices are
-    compacted.
-    """
-    text_buffers: dict[int, str] = {}
-    pending_event_type: str | None = None
-    pending_event_lines: list[str] = []
-    saw_message_start = False
-    saw_message_stop = False
-    text_so_far = ""
-    saw_tool_use = False
-    emitted_tool_use = False
-    next_content_index = 0
-    open_content_blocks: set[int] = set()
-    content_index_map: dict[int, int] = {}
-    suppressed_content_indices: set[int] = set()
-    suppressed_thinking_blocks: dict[int, dict[str, Any]] = {}
-    suppressed_thinking_passback_blocks: list[dict[str, Any]] = []
-    buffered_tool_uses: dict[int, dict[str, Any]] = {}
-    held_pseudo_tool_text: dict[int, str] = {}
-    pending_message_delta: tuple[str | None, str] | None = None
-    pending_message_stop: tuple[str | None, str] | None = None
-    last_suppressed_keepalive_at = 0.0
-    stream_success = False
-    allow_tasklist_synthesis = should_synthesize_tasklist_for_provider(provider)
-    filter_visible_tool_call_artifacts = bool(
-        provider == "anthropic"
-        and isinstance(source_body, dict)
-        and (has_tool(source_body, "Workflow") or body_ultracode_runtime_enabled(source_body))
+    return rebatch_anthropic_sse_text(
+        handler,
+        resp,
+        model=model,
+        word_chunking=word_chunking,
+        source_body=source_body,
+        preserve_thinking=preserve_thinking,
+        normalize_tool_use=normalize_tool_use,
+        provider=provider,
+        services=AnthropicStreamServices(
+            ANTHROPIC_THINKING_BLOCK_TYPES=ANTHROPIC_THINKING_BLOCK_TYPES,
+            VisibleToolCallArtifactFilter=VisibleToolCallArtifactFilter,
+            _find_pseudo_xml_tool_start=_find_pseudo_xml_tool_start,
+            _is_mcp_notification_wait_tool=_is_mcp_notification_wait_tool,
+            _remember_channel_injected_tool_use=_remember_channel_injected_tool_use,
+            _split_word_buffer=_split_word_buffer,
+            _validate_and_fix_tool_input=_validate_and_fix_tool_input,
+            append_tool_call_log=append_tool_call_log,
+            backfill_exit_plan_mode_allowed_prompts=backfill_exit_plan_mode_allowed_prompts,
+            body_ultracode_runtime_enabled=body_ultracode_runtime_enabled,
+            cap_mcp_notification_wait_tool_input=cap_mcp_notification_wait_tool_input,
+            empty_end_turn_notice_for_body=empty_end_turn_notice_for_body,
+            has_tool=has_tool,
+            infer_tool_name_from_args=infer_tool_name_from_args,
+            latest_user_intent_message_index=latest_user_intent_message_index,
+            latest_user_is_claude_code_suggestion_mode=latest_user_is_claude_code_suggestion_mode,
+            latest_user_tool_result_names=latest_user_tool_result_names,
+            mark_pending_channel_delivery_failed=mark_pending_channel_delivery_failed,
+            mark_pending_channel_delivery_success=mark_pending_channel_delivery_success,
+            normalize_tool_arguments=normalize_tool_arguments,
+            parse_pseudo_tool_calls=parse_pseudo_tool_calls,
+            plan_mode_tool_name_for_emit=plan_mode_tool_name_for_emit,
+            recent_synthetic_tasklist_count=recent_synthetic_tasklist_count,
+            remember_suppressed_thinking_passback=remember_suppressed_thinking_passback,
+            resolve_emitted_tool_name=resolve_emitted_tool_name,
+            router_client_connection_closed=router_client_connection_closed,
+            router_log=router_log,
+            should_auto_continue_choice_question_with_tasklist=should_auto_continue_choice_question_with_tasklist,
+            should_auto_exit_plan_mode=should_auto_exit_plan_mode,
+            should_drop_duplicate_side_effect_tool_call=should_drop_duplicate_side_effect_tool_call,
+            should_drop_emitted_tool_call=should_drop_emitted_tool_call,
+            should_keep_work_alive_with_tasklist=should_keep_work_alive_with_tasklist,
+            should_recover_empty_end_turn_with_tasklist=should_recover_empty_end_turn_with_tasklist,
+            should_repair_anthropic_passthrough_tool_input=should_repair_anthropic_passthrough_tool_input,
+            should_synthesize_tasklist_for_provider=should_synthesize_tasklist_for_provider
+        ),
     )
-    visible_tool_call_artifact_filters: dict[int, VisibleToolCallArtifactFilter] = {}
-
-    class ClientStreamDisconnected(Exception):
-        pass
-
-    def downstream_keepalive_interval() -> float:
-        raw = os.environ.get("CIEL_RUNTIME_ANTHROPIC_STREAM_KEEPALIVE_SECONDS")
-        if raw is None:
-            return 15.0
-        try:
-            return max(0.0, min(120.0, float(raw)))
-        except Exception:
-            return 15.0
-
-    def emit_raw(event_type: str | None, data_str: str) -> None:
-        try:
-            if event_type:
-                handler.wfile.write(f"event: {event_type}\ndata: {data_str}\n\n".encode())
-            else:
-                handler.wfile.write(f"data: {data_str}\n\n".encode())
-            handler.wfile.flush()
-        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError) as exc:
-            raise ClientStreamDisconnected(f"{type(exc).__name__}: {exc}") from exc
-
-    def emit_suppressed_keepalive(force: bool = False) -> None:
-        nonlocal last_suppressed_keepalive_at
-        now = time.time()
-        if not force and now - last_suppressed_keepalive_at < 1.0:
-            return
-        try:
-            handler.wfile.write(b": suppressed-thinking\n\n")
-            handler.wfile.flush()
-        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError) as exc:
-            raise ClientStreamDisconnected(f"{type(exc).__name__}: {exc}") from exc
-        last_suppressed_keepalive_at = now
-
-    def emit_downstream_keepalive() -> None:
-        try:
-            handler.wfile.write(b": ciel-runtime-keepalive\n\n")
-            handler.wfile.flush()
-        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError) as exc:
-            raise ClientStreamDisconnected(f"{type(exc).__name__}: {exc}") from exc
-
-    def upstream_lines_with_downstream_keepalive() -> Iterable[Any]:
-        interval = downstream_keepalive_interval()
-        if interval <= 0:
-            yield from resp
-            return
-        line_queue: queue.Queue[tuple[str, Any]] = queue.Queue()
-
-        def reader() -> None:
-            try:
-                for raw_line in resp:
-                    line_queue.put(("line", raw_line))
-                line_queue.put(("eof", None))
-            except Exception as exc:
-                line_queue.put(("error", exc))
-
-        threading.Thread(target=reader, daemon=True, name=f"ciel-anthropic-sse-{model}").start()
-        while True:
-            try:
-                kind, value = line_queue.get(timeout=interval)
-            except queue.Empty:
-                if router_client_connection_closed(handler):
-                    raise ClientStreamDisconnected("downstream client disconnected during upstream wait")
-                emit_downstream_keepalive()
-                continue
-            if kind == "line":
-                yield value
-                continue
-            if kind == "error":
-                if router_client_connection_closed(handler):
-                    raise ClientStreamDisconnected("downstream client disconnected during upstream read") from value
-                raise value
-            return
-
-    def emit_text_delta_raw(index: int, text: str) -> None:
-        if not text:
-            return
-        payload = {
-            "type": "content_block_delta",
-            "index": index,
-            "delta": {"type": "text_delta", "text": text},
-        }
-        emit_raw("content_block_delta", json.dumps(payload, ensure_ascii=False))
-
-    def emit_text_delta(index: int, text: str) -> None:
-        if not text:
-            return
-        if filter_visible_tool_call_artifacts:
-            filter_state = visible_tool_call_artifact_filters.setdefault(index, VisibleToolCallArtifactFilter())
-            text = filter_state.feed(text)
-        emit_text_delta_raw(index, text)
-
-    def finish_visible_tool_call_artifact_filter(index: int) -> None:
-        if not filter_visible_tool_call_artifacts:
-            return
-        filter_state = visible_tool_call_artifact_filters.pop(index, None)
-        if filter_state is None:
-            return
-        text = filter_state.finish()
-        if filter_state.stripped:
-            router_log(
-                "WARN",
-                f"stripped visible Anthropic workflow tool-call artifact provider={provider} model={model} index={index}",
-            )
-        emit_text_delta_raw(index, text)
-
-    def emit_text_block(index: int, text: str) -> None:
-        emit_raw(
-            "content_block_start",
-            json.dumps(
-                {
-                    "type": "content_block_start",
-                    "index": index,
-                    "content_block": {"type": "text", "text": ""},
-                },
-                ensure_ascii=False,
-            ),
-        )
-        emit_text_delta(index, text)
-        finish_visible_tool_call_artifact_filter(index)
-        emit_raw("content_block_stop", json.dumps({"type": "content_block_stop", "index": index}, ensure_ascii=False))
-
-    def flush_buffer(index: int, force: bool = False) -> None:
-        buf = text_buffers.get(index, "")
-        if not buf:
-            return
-        to_flush, remainder = _split_word_buffer(buf, force=force)
-        text_buffers[index] = remainder
-        emit_text_delta(index, to_flush)
-
-    def emit_tasklist_tool(index: int) -> None:
-        nonlocal emitted_tool_use
-        tool_id = f"toolu_anthropic_choice_{int(time.time() * 1000)}"
-        emit_raw(
-            "content_block_start",
-            json.dumps(
-                {
-                    "type": "content_block_start",
-                    "index": index,
-                    "content_block": {"type": "tool_use", "id": tool_id, "name": "TaskList", "input": {}},
-                },
-                ensure_ascii=False,
-            ),
-        )
-        emit_raw(
-            "content_block_delta",
-            json.dumps(
-                {
-                    "type": "content_block_delta",
-                    "index": index,
-                    "delta": {"type": "input_json_delta", "partial_json": "{}"},
-                },
-                ensure_ascii=False,
-            ),
-        )
-        emit_raw("content_block_stop", json.dumps({"type": "content_block_stop", "index": index}, ensure_ascii=False))
-        emitted_tool_use = True
-
-    def emit_exit_plan_mode_tool(index: int) -> None:
-        nonlocal emitted_tool_use
-        tool_id = f"toolu_anthropic_exit_plan_{int(time.time() * 1000)}"
-        tool_input = {}
-        if isinstance(source_body, dict):
-            tool_input = backfill_exit_plan_mode_allowed_prompts(source_body, tool_input)
-        emit_raw(
-            "content_block_start",
-            json.dumps(
-                {
-                    "type": "content_block_start",
-                    "index": index,
-                    "content_block": {"type": "tool_use", "id": tool_id, "name": "ExitPlanMode", "input": {}},
-                },
-                ensure_ascii=False,
-            ),
-        )
-        emit_raw(
-            "content_block_delta",
-            json.dumps(
-                {
-                    "type": "content_block_delta",
-                    "index": index,
-                    "delta": {"type": "input_json_delta", "partial_json": json.dumps(tool_input, ensure_ascii=False)},
-                },
-                ensure_ascii=False,
-            ),
-        )
-        emit_raw("content_block_stop", json.dumps({"type": "content_block_stop", "index": index}, ensure_ascii=False))
-        emitted_tool_use = True
-
-    def mapped_content_index(index: Any) -> int | None:
-        if not isinstance(index, int):
-            return None
-        if index in suppressed_content_indices:
-            return None
-        return content_index_map.get(index, index)
-
-    def append_suppressed_thinking_delta(index: Any, delta: dict[str, Any]) -> None:
-        if not isinstance(index, int):
-            return
-        block = suppressed_thinking_blocks.get(index)
-        if not isinstance(block, dict):
-            return
-        delta_type = delta.get("type")
-        if delta_type == "thinking_delta":
-            block["thinking"] = str(block.get("thinking") or "") + str(delta.get("thinking") or "")
-        elif delta_type == "signature_delta":
-            block["signature"] = str(delta.get("signature") or "")
-
-    def finish_suppressed_thinking_block(index: Any) -> None:
-        if not isinstance(index, int):
-            return
-        block = suppressed_thinking_blocks.pop(index, None)
-        if isinstance(block, dict) and block.get("type") in ANTHROPIC_THINKING_BLOCK_TYPES:
-            suppressed_thinking_passback_blocks.append(block)
-
-    def flush_suppressed_thinking_passback() -> None:
-        if preserve_thinking or not suppressed_thinking_passback_blocks:
-            return
-        if source_body is not None and latest_user_is_claude_code_suggestion_mode(source_body):
-            router_log(
-                "DEBUG",
-                f"discarded suppressed Anthropic thinking passback blocks for suggestion-mode request "
-                f"provider={provider} model={model} blocks={len(suppressed_thinking_passback_blocks)}",
-            )
-            suppressed_thinking_passback_blocks.clear()
-            return
-        remember_suppressed_thinking_passback(provider, model, suppressed_thinking_passback_blocks)
-        suppressed_thinking_passback_blocks.clear()
-
-    def patched_message_delta(stop_reason: str) -> str:
-        event: dict[str, Any] = {}
-        if pending_message_delta is not None:
-            try:
-                parsed = json.loads(pending_message_delta[1])
-                if isinstance(parsed, dict):
-                    event = dict(parsed)
-            except Exception:
-                event = {}
-        if not event:
-            event = {
-                "type": "message_delta",
-                "delta": {"stop_reason": None, "stop_sequence": None},
-                "usage": {"output_tokens": max(1, len(text_so_far) // 4)},
-            }
-        delta = event.get("delta") if isinstance(event.get("delta"), dict) else {}
-        patched_delta = dict(delta)
-        patched_delta["stop_reason"] = stop_reason
-        patched_delta.setdefault("stop_sequence", None)
-        event["delta"] = patched_delta
-        event.setdefault("type", "message_delta")
-        event.setdefault("usage", {"output_tokens": max(1, len(text_so_far) // 4)})
-        return json.dumps(event, ensure_ascii=False)
-
-    def emit_pending_message_end(default_stop_reason: str = "end_turn") -> None:
-        stop_reason = default_stop_reason
-        if pending_message_delta is not None:
-            try:
-                parsed = json.loads(pending_message_delta[1])
-                if isinstance(parsed, dict):
-                    delta = parsed.get("delta") if isinstance(parsed.get("delta"), dict) else {}
-                    stop_reason = str(delta.get("stop_reason") or stop_reason)
-            except Exception:
-                pass
-        emit_raw(
-            pending_message_delta[0] if pending_message_delta is not None else "message_delta",
-            patched_message_delta(stop_reason),
-        )
-        emit_raw(
-            pending_message_stop[0] if pending_message_stop is not None else "message_stop",
-            pending_message_stop[1] if pending_message_stop is not None else "{\"type\":\"message_stop\"}",
-        )
-
-    def recover_hidden_only_response_if_needed() -> None:
-        nonlocal next_content_index, saw_tool_use, emitted_tool_use, text_so_far, pending_message_delta
-        recovery_reason = ""
-        latest_names: list[str] = []
-        synthetic_count = 0
-        has_tasklist_tool = False
-        if source_body is not None:
-            try:
-                latest_names = latest_user_tool_result_names(source_body)
-                intent_index = latest_user_intent_message_index(source_body)
-                synthetic_count = recent_synthetic_tasklist_count(source_body, after_message_index=intent_index)
-                has_tasklist_tool = has_tool(source_body, "TaskList")
-                if emitted_tool_use:
-                    recovery_reason = ""
-                elif allow_tasklist_synthesis and should_recover_empty_end_turn_with_tasklist(source_body, text_so_far, []):
-                    recovery_reason = "hidden-only" if suppressed_thinking_passback_blocks else "empty"
-                elif allow_tasklist_synthesis and should_keep_work_alive_with_tasklist(source_body, text_so_far, []):
-                    recovery_reason = "keepalive"
-            except Exception as exc:
-                router_log(
-                    "WARN",
-                    "anthropic_hidden_recovery_state_error "
-                    f"provider={provider} model={model} error={type(exc).__name__}: {exc}",
-                )
-        if recovery_reason:
-            router_log(
-                "WARN",
-                f"auto-synthesized TaskList from {recovery_reason} Anthropic-compatible stream "
-                f"latest_tool_results={','.join(latest_names) or '-'} synthetic_tasklists={synthetic_count}",
-            )
-            emit_tasklist_tool(next_content_index)
-            next_content_index += 1
-            saw_tool_use = True
-            pending_message_delta = (
-                pending_message_delta[0] if pending_message_delta is not None else "message_delta",
-                patched_message_delta("tool_use"),
-            )
-            return
-        if text_so_far.strip() or emitted_tool_use:
-            if suppressed_thinking_passback_blocks:
-                router_log(
-                    "DEBUG",
-                    "anthropic_hidden_recovery_skipped "
-                    f"provider={provider} model={model} reason=visible_or_tool "
-                    f"text_len={len(text_so_far.strip())} emitted_tool_use={emitted_tool_use} "
-                    f"latest_tool_results={','.join(latest_names) or '-'} "
-                    f"synthetic_tasklists={synthetic_count} suppressed_blocks={len(suppressed_thinking_passback_blocks)}",
-                )
-            return
-        if not suppressed_thinking_passback_blocks:
-            return
-        router_log(
-            "WARN",
-            "anthropic_hidden_recovery_not_applicable "
-            f"provider={provider} model={model} has_tasklist={has_tasklist_tool} "
-            f"latest_tool_results={','.join(latest_names) or '-'} synthetic_tasklists={synthetic_count} "
-            f"suppressed_blocks={len(suppressed_thinking_passback_blocks)}",
-        )
-        notice = empty_end_turn_notice_for_body(source_body) if source_body is not None else ""
-        router_log("WARN", f"anthropic_hidden_only_stream provider={provider} model={model}")
-        emit_text_block(next_content_index, notice)
-        next_content_index += 1
-        if notice:
-            text_so_far = notice
-        pending_message_delta = (
-            pending_message_delta[0] if pending_message_delta is not None else "message_delta",
-            patched_message_delta("end_turn"),
-        )
-
-    def append_tool_partial(tool_state: dict[str, Any], partial: Any) -> None:
-        if partial is None:
-            return
-        if isinstance(partial, str):
-            tool_state["partial_json"] = str(tool_state.get("partial_json") or "") + partial
-        else:
-            tool_state["partial_json"] = str(tool_state.get("partial_json") or "") + json.dumps(partial, ensure_ascii=False)
-
-    def emit_normalized_tool_use(index: int, tool_state: dict[str, Any]) -> None:
-        nonlocal emitted_tool_use
-        raw_name = str(tool_state.get("name") or "")
-        raw_args = str(tool_state.get("partial_json") or "")
-        parsed_args = normalize_tool_arguments(raw_name, raw_args)
-        if not raw_name:
-            raw_name = infer_tool_name_from_args(parsed_args)
-        matched_name = resolve_emitted_tool_name(raw_name, source_body)
-        if not matched_name:
-            matched_name = infer_tool_name_from_args(parsed_args)
-        fixed_input = _validate_and_fix_tool_input(matched_name, parsed_args, source_body)
-        if isinstance(source_body, dict):
-            mapped_name, mapped_input = plan_mode_tool_name_for_emit(source_body, matched_name, fixed_input)
-            if mapped_name is None:
-                router_log(
-                    "WARN",
-                    f"dropped upstream tool_use before emit raw_name={raw_name!r} matched_name={matched_name!r}",
-                )
-                return
-            matched_name, fixed_input = mapped_name, mapped_input
-        fixed_input = cap_mcp_notification_wait_tool_input(matched_name, fixed_input)
-        if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body):
-            return
-        if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name):
-            return
-        tool_id = str(tool_state.get("id") or f"toolu_anthropic_{int(time.time() * 1000)}_{index}")
-        _remember_channel_injected_tool_use(source_body, tool_id, matched_name, fixed_input)
-        append_tool_call_log(
-            "anthropic_stream_tool_call",
-            {
-                "model": model,
-                "raw_name": raw_name,
-                "matched_name": matched_name,
-                "raw_arguments": raw_args,
-                "emitted_input": fixed_input,
-                "sse_index": index,
-            },
-        )
-        emit_raw(
-            "content_block_start",
-            json.dumps(
-                {
-                    "type": "content_block_start",
-                    "index": index,
-                    "content_block": {"type": "tool_use", "id": tool_id, "name": matched_name, "input": {}},
-                },
-                ensure_ascii=False,
-            ),
-        )
-        emit_raw(
-            "content_block_delta",
-            json.dumps(
-                {
-                    "type": "content_block_delta",
-                    "index": index,
-                    "delta": {"type": "input_json_delta", "partial_json": json.dumps(fixed_input, ensure_ascii=False)},
-                },
-                ensure_ascii=False,
-            ),
-        )
-        emit_raw("content_block_stop", json.dumps({"type": "content_block_stop", "index": index}, ensure_ascii=False))
-        emitted_tool_use = True
-
-    def emit_pseudo_tool_uses(pseudo_tool_calls: list[dict[str, Any]]) -> bool:
-        nonlocal next_content_index, saw_tool_use
-        if not pseudo_tool_calls:
-            return False
-        for call in pseudo_tool_calls:
-            fn = call.get("function") if isinstance(call, dict) else {}
-            if not isinstance(fn, dict) or not fn.get("name"):
-                continue
-            tool_index = next_content_index
-            next_content_index += 1
-            tool_state = {
-                "id": str(call.get("id") or ""),
-                "name": str(fn.get("name") or ""),
-                "partial_json": json.dumps(fn.get("arguments") or {}, ensure_ascii=False),
-            }
-            emit_normalized_tool_use(tool_index, tool_state)
-            saw_tool_use = True
-        return True
-
-    def process_event(event_type: str | None, data_str: str) -> None:
-        nonlocal saw_message_start, saw_message_stop, text_so_far, saw_tool_use, emitted_tool_use, next_content_index, pending_message_delta, pending_message_stop
-        try:
-            event = json.loads(data_str)
-        except Exception:
-            emit_raw(event_type, data_str)
-            return
-        if not isinstance(event, dict):
-            emit_raw(event_type, data_str)
-            return
-        evt_type = event.get("type") or event_type
-        if evt_type == "message_start":
-            saw_message_start = True
-        elif evt_type == "message_stop":
-            saw_message_stop = True
-            pending_message_stop = (event_type, data_str)
-            return
-        elif evt_type == "content_block_start":
-            index = event.get("index")
-            content_block = event.get("content_block") if isinstance(event.get("content_block"), dict) else {}
-            mapped_index: int | None = None
-            if isinstance(index, int):
-                if not preserve_thinking and content_block.get("type") in ANTHROPIC_THINKING_BLOCK_TYPES:
-                    suppressed_content_indices.add(index)
-                    suppressed_thinking_blocks[index] = dict(content_block)
-                    router_log("WARN", f"suppressed Anthropic thinking response block for non-Anthropic provider model={model}")
-                    emit_suppressed_keepalive(force=True)
-                    return
-                if index in content_index_map:
-                    mapped_index = content_index_map[index]
-                else:
-                    mapped_index = next_content_index
-                    content_index_map[index] = mapped_index
-                    next_content_index += 1
-                open_content_blocks.add(mapped_index)
-                patched = dict(event)
-                patched["index"] = mapped_index
-                event = patched
-                data_str = json.dumps(event, ensure_ascii=False)
-            if content_block.get("type") == "tool_use":
-                saw_tool_use = True
-                tool_name = str(content_block.get("name") or "")
-                should_buffer_tool_use = bool(
-                    mapped_index is not None
-                    and (
-                        normalize_tool_use
-                        or _is_mcp_notification_wait_tool(tool_name)
-                        or should_repair_anthropic_passthrough_tool_input(provider, tool_name, source_body)
-                    )
-                )
-                if should_buffer_tool_use and mapped_index is not None:
-                    buffered_tool_uses[mapped_index] = {
-                        "id": str(content_block.get("id") or ""),
-                        "name": tool_name,
-                        "partial_json": "",
-                    }
-                    initial_input = content_block.get("input")
-                    if isinstance(initial_input, dict) and initial_input:
-                        append_tool_partial(buffered_tool_uses[mapped_index], initial_input)
-                    return
-                emitted_tool_use = True
-        elif evt_type == "content_block_stop":
-            index = event.get("index")
-            mapped_index = mapped_content_index(index)
-            if isinstance(index, int) and mapped_index is None:
-                finish_suppressed_thinking_block(index)
-                return
-            if mapped_index is not None:
-                open_content_blocks.discard(mapped_index)
-                if mapped_index in buffered_tool_uses:
-                    emit_normalized_tool_use(mapped_index, buffered_tool_uses.pop(mapped_index))
-                    return
-                patched = dict(event)
-                patched["index"] = mapped_index
-                data_str = json.dumps(patched, ensure_ascii=False)
-                if isinstance(mapped_index, int) and word_chunking:
-                    flush_buffer(mapped_index, force=True)
-                if isinstance(mapped_index, int) and mapped_index in held_pseudo_tool_text:
-                    held_text = held_pseudo_tool_text.pop(mapped_index)
-                    visible_text, pseudo_tool_calls = parse_pseudo_tool_calls(held_text, source_body)
-                    if pseudo_tool_calls:
-                        if visible_text.strip():
-                            emit_text_delta(mapped_index, visible_text)
-                        finish_visible_tool_call_artifact_filter(mapped_index)
-                        emit_raw(event_type, data_str)
-                        emit_pseudo_tool_uses(pseudo_tool_calls)
-                        return
-                    else:
-                        emit_text_delta(mapped_index, held_text)
-                finish_visible_tool_call_artifact_filter(mapped_index)
-                emit_raw(event_type, data_str)
-                return
-        elif evt_type == "message_delta":
-            delta = event.get("delta") if isinstance(event.get("delta"), dict) else {}
-            stop_reason = str(delta.get("stop_reason") or "")
-            tool_calls = [{"type": "tool_use"}] if emitted_tool_use else []
-            if stop_reason == "tool_use" and not emitted_tool_use:
-                for index in list(text_buffers.keys()):
-                    flush_buffer(index, force=True)
-                if source_body is not None and should_auto_exit_plan_mode(source_body, text_so_far, []):
-                    router_log("WARN", "auto-synthesized ExitPlanMode from malformed Anthropic-compatible tool_use stream")
-                    emit_exit_plan_mode_tool(next_content_index)
-                    next_content_index += 1
-                    saw_tool_use = True
-                    pending_message_delta = (
-                        event_type,
-                        patched_message_delta("tool_use"),
-                    )
-                    return
-                if (
-                    allow_tasklist_synthesis
-                    and source_body is not None
-                    and should_keep_work_alive_with_tasklist(source_body, text_so_far, [])
-                ):
-                    router_log("WARN", "auto-synthesized TaskList after dropped Anthropic-compatible tool_use")
-                    emit_tasklist_tool(next_content_index)
-                    next_content_index += 1
-                    saw_tool_use = True
-                    pending_message_delta = (
-                        event_type,
-                        patched_message_delta("tool_use"),
-                    )
-                    return
-                router_log(
-                    "WARN",
-                    f"downgraded malformed Anthropic-compatible tool_use stop without emitted tool "
-                    f"provider={provider} model={model} text_len={len(text_so_far.strip())}",
-                )
-                pending_message_delta = (
-                    event_type,
-                    patched_message_delta("end_turn"),
-                )
-                return
-            if emitted_tool_use and stop_reason == "end_turn":
-                patched = dict(event)
-                patched_delta = dict(delta)
-                patched_delta["stop_reason"] = "tool_use"
-                patched["delta"] = patched_delta
-                pending_message_delta = (event_type, json.dumps(patched, ensure_ascii=False))
-                return
-            if (
-                allow_tasklist_synthesis
-                and
-                stop_reason == "end_turn"
-                and source_body is not None
-                and should_auto_continue_choice_question_with_tasklist(source_body, text_so_far, tool_calls)
-            ):
-                for index in list(text_buffers.keys()):
-                    flush_buffer(index, force=True)
-                router_log("WARN", "auto-synthesized TaskList after clarification question Anthropic-compatible stream")
-                emit_tasklist_tool(next_content_index)
-                next_content_index += 1
-                saw_tool_use = True
-                patched = dict(event)
-                patched_delta = dict(delta)
-                patched_delta["stop_reason"] = "tool_use"
-                patched["delta"] = patched_delta
-                pending_message_delta = (event_type, json.dumps(patched, ensure_ascii=False))
-                return
-            should_recover = (
-                allow_tasklist_synthesis
-                and source_body is not None
-                and should_recover_empty_end_turn_with_tasklist(source_body, text_so_far, tool_calls)
-            )
-            should_keep_alive = (
-                allow_tasklist_synthesis
-                and
-                source_body is not None
-                and not should_recover
-                and should_keep_work_alive_with_tasklist(source_body, text_so_far, tool_calls)
-            )
-            if should_recover or should_keep_alive:
-                for index in list(text_buffers.keys()):
-                    flush_buffer(index, force=True)
-                reason = "empty" if should_recover else "keepalive"
-                router_log(
-                    "WARN",
-                    f"auto-synthesized TaskList from {reason} Anthropic-compatible message_delta "
-                    f"stop_reason={stop_reason or '-'}",
-                )
-                emit_tasklist_tool(next_content_index)
-                next_content_index += 1
-                saw_tool_use = True
-                patched = dict(event)
-                patched_delta = dict(delta)
-                patched_delta["stop_reason"] = "tool_use"
-                patched["delta"] = patched_delta
-                pending_message_delta = (event_type, json.dumps(patched, ensure_ascii=False))
-                return
-            pending_message_delta = (event_type, data_str)
-            return
-        if evt_type == "content_block_delta":
-            delta = event.get("delta") if isinstance(event.get("delta"), dict) else {}
-            index = event.get("index")
-            mapped_index = mapped_content_index(index)
-            if isinstance(index, int) and mapped_index is None:
-                append_suppressed_thinking_delta(index, delta)
-                emit_suppressed_keepalive()
-                return
-            if not preserve_thinking and delta.get("type") in {"thinking_delta", "signature_delta"}:
-                emit_suppressed_keepalive()
-                return
-            if isinstance(mapped_index, int) and mapped_index in buffered_tool_uses:
-                if delta.get("type") == "input_json_delta":
-                    append_tool_partial(buffered_tool_uses[mapped_index], delta.get("partial_json"))
-                return
-            if mapped_index is not None:
-                patched = dict(event)
-                patched["index"] = mapped_index
-                event = patched
-                data_str = json.dumps(event, ensure_ascii=False)
-            if isinstance(mapped_index, int) and delta.get("type") == "text_delta":
-                text = delta.get("text") or ""
-                if not text:
-                    return
-                text_so_far += text
-                if provider != "anthropic" and mapped_index in held_pseudo_tool_text:
-                    held_pseudo_tool_text[mapped_index] += text
-                    return
-                pseudo_start = _find_pseudo_xml_tool_start(text, source_body) if provider != "anthropic" else -1
-                if pseudo_start >= 0:
-                    prefix = text[:pseudo_start]
-                    held_pseudo_tool_text[mapped_index] = text[pseudo_start:]
-                    if not prefix:
-                        return
-                    if not word_chunking:
-                        emit_text_delta(mapped_index, prefix)
-                        return
-                    text_buffers[mapped_index] = text_buffers.get(mapped_index, "") + prefix
-                    flush_buffer(mapped_index, force=False)
-                    return
-                if not word_chunking:
-                    emit_text_delta(mapped_index, text)
-                    return
-                text_buffers[mapped_index] = text_buffers.get(mapped_index, "") + text
-                flush_buffer(mapped_index, force=False)
-                return
-            emit_raw(event_type, data_str)
-            return
-        if evt_type == "content_block_stop":
-            index = event.get("index")
-            mapped_index = mapped_content_index(index)
-            if isinstance(index, int) and mapped_index is None:
-                finish_suppressed_thinking_block(index)
-                return
-            if mapped_index is not None:
-                if mapped_index in buffered_tool_uses:
-                    emit_normalized_tool_use(mapped_index, buffered_tool_uses.pop(mapped_index))
-                    return
-                patched = dict(event)
-                patched["index"] = mapped_index
-                event = patched
-                data_str = json.dumps(event, ensure_ascii=False)
-            if isinstance(mapped_index, int) and word_chunking:
-                flush_buffer(mapped_index, force=True)
-            if isinstance(mapped_index, int):
-                finish_visible_tool_call_artifact_filter(mapped_index)
-            emit_raw(event_type, data_str)
-            return
-        if evt_type == "message_stop":
-            flush_suppressed_thinking_passback()
-        emit_raw(event_type, data_str)
-
-    try:
-        for raw in upstream_lines_with_downstream_keepalive():
-            line = raw.decode("utf-8", errors="ignore")
-            stripped = line.rstrip("\r\n")
-            if stripped == "":
-                if pending_event_lines:
-                    data_str = "\n".join(pending_event_lines)
-                    process_event(pending_event_type, data_str)
-                pending_event_type = None
-                pending_event_lines = []
-                continue
-            if stripped.startswith("event:"):
-                pending_event_type = stripped[len("event:"):].strip() or None
-                continue
-            if stripped.startswith("data:"):
-                pending_event_lines.append(stripped[len("data:"):].lstrip())
-                continue
-        if pending_event_lines:
-            data_str = "\n".join(pending_event_lines)
-            process_event(pending_event_type, data_str)
-        for index in list(text_buffers.keys()):
-            flush_buffer(index, force=True)
-        for index in list(suppressed_thinking_blocks.keys()):
-            finish_suppressed_thinking_block(index)
-        recover_hidden_only_response_if_needed()
-        flush_suppressed_thinking_passback()
-        if pending_message_delta is not None or pending_message_stop is not None:
-            emit_pending_message_end()
-        stream_success = bool(saw_message_stop)
-    except ClientStreamDisconnected as exc:
-        mark_pending_channel_delivery_failed(handler, "anthropic_stream_client_disconnected")
-        router_log(
-            "WARN",
-            f"anthropic_sse_client_disconnected model={model} "
-            f"text_len={len(text_so_far)} emitted_tool_use={emitted_tool_use} "
-            f"suppressed_blocks={len(suppressed_thinking_passback_blocks) + len(suppressed_thinking_blocks)} "
-            f"error={exc}",
-        )
-    except Exception as exc:
-        router_log("ERROR", f"anthropic_sse_forward_error model={model} error={type(exc).__name__}: {exc}")
-        try:
-            if pending_event_lines:
-                data_str = "\n".join(pending_event_lines)
-                process_event(pending_event_type, data_str)
-                pending_event_lines = []
-                pending_event_type = None
-            for index in list(text_buffers.keys()):
-                flush_buffer(index, force=True)
-            for index in list(suppressed_thinking_blocks.keys()):
-                finish_suppressed_thinking_block(index)
-            recover_hidden_only_response_if_needed()
-            flush_suppressed_thinking_passback()
-            if pending_message_delta is not None or pending_message_stop is not None:
-                emit_pending_message_end()
-            for index in sorted(open_content_blocks):
-                emit_raw("content_block_stop", json.dumps({"type": "content_block_stop", "index": index}, ensure_ascii=False))
-            open_content_blocks.clear()
-            if not saw_message_stop:
-                if not saw_message_start:
-                    payload = {
-                        "type": "message_start",
-                        "message": {
-                            "id": f"msg_ciel_runtime_forward_{int(time.time() * 1000)}",
-                            "type": "message",
-                            "role": "assistant",
-                            "content": [],
-                            "model": model,
-                            "stop_reason": None,
-                            "stop_sequence": None,
-                            "usage": {"input_tokens": 0, "output_tokens": 0},
-                        },
-                    }
-                    emit_raw("message_start", json.dumps(payload, ensure_ascii=False))
-                    emit_raw(
-                        "content_block_start",
-                        json.dumps({"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}, ensure_ascii=False),
-                    )
-                    emit_text_delta(0, f"Upstream stream error: {type(exc).__name__}: {exc}")
-                    emit_raw("content_block_stop", json.dumps({"type": "content_block_stop", "index": 0}, ensure_ascii=False))
-                emit_raw(
-                    "message_delta",
-                    json.dumps({"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": 1}}, ensure_ascii=False),
-                )
-                emit_raw("message_stop", "{\"type\":\"message_stop\"}")
-        except Exception:
-            pass
-    finally:
-        if stream_success:
-            mark_pending_channel_delivery_success(handler, "anthropic_stream_message_stop")
-        else:
-            reason = str(getattr(handler, "_ciel_runtime_channel_delivery_reason", "anthropic_stream_incomplete") or "anthropic_stream_incomplete")
-            mark_pending_channel_delivery_failed(handler, reason)
-        try:
-            resp.close()
-        except Exception:
-            pass
 
 
 def _ollama_stream_to_anthropic_sse(
@@ -18459,493 +15922,39 @@ def _ollama_stream_to_anthropic_sse(
     source_body: dict[str, Any] | None = None,
     idle_timeout: float = 30.0,
 ) -> None:
-    """Stream Ollama NDJSON /api/chat response as Anthropic SSE /v1/messages format."""
-    handler.send_response(200)
-    handler.send_header("content-type", "text/event-stream")
-    handler.send_header("cache-control", "no-cache")
-    handler.send_header("connection", "close")
-    handler.end_headers()
-    msg_id = f"msg_ollama_{int(time.time() * 1000)}"
-    started = False
-    text_started = False
-    text_suppressed_for_plan = False
-    next_content_index = 0
-    text_index: int | None = None
-    text_so_far = ""
-    text_buffer = ""
-    tool_calls: list[dict[str, Any]] = []
-    tool_indices: list[int] = []
-    stopped_tool_indices: set[int] = set()
-    input_tokens = estimate_tokens(source_body) if isinstance(source_body, dict) else 0
-    output_tokens = 0
-    chunk: dict[str, Any] = {}
-    chunks_seen = 0
-    text_stopped = False
-    last_activity_update = 0.0
-    thinking_markup_filter = VisibleThinkingMarkupFilter()
-    thinking_markup_suppressed = False
-    sse_trace = make_outgoing_sse_trace(provider, model, "ollama_stream", source_body)
-    sse_trace_outcome = "started"
-    sse_trace_error: str | None = None
-
-    def emit(event_name: str, payload: dict[str, Any]) -> None:
-        try:
-            record_outgoing_sse_event(sse_trace, event_name, payload)
-            handler.wfile.write(f"event: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
-            handler.wfile.flush()
-        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError, OSError) as exc:
-            raise UpstreamClientDisconnected(f"downstream write failed: {type(exc).__name__}: {exc}") from exc
-
-    def ensure_message_started() -> None:
-        nonlocal started
-        if started:
-            return
-        started = True
-        event = {
-            "type": "message_start",
-            "message": {
-                "id": msg_id,
-                "type": "message",
-                "role": "assistant",
-                "content": [],
-                "model": model,
-                "stop_reason": None,
-                "stop_sequence": None,
-                "usage": {"input_tokens": input_tokens, "output_tokens": 0},
-            },
-        }
-        emit("message_start", event)
-
-    def emit_text_block(index: int, text: str) -> None:
-        emit("content_block_start", {"type": "content_block_start", "index": index, "content_block": {"type": "text", "text": ""}})
-        if text:
-            emit("content_block_delta", {"type": "content_block_delta", "index": index, "delta": {"type": "text_delta", "text": text}})
-        emit("content_block_stop", {"type": "content_block_stop", "index": index})
-
-    def update_stream_activity(force: bool = False) -> None:
-        nonlocal last_activity_update
-        now = time.time()
-        if not force and now - last_activity_update < 0.5:
-            return
-        last_activity_update = now
-        estimated_output = output_tokens or max(0, len(text_so_far) // 4)
-        write_router_activity(
-            "request",
-            provider,
-            model,
-            tokens=input_tokens,
-            output_tokens=estimated_output,
-            chunks=chunks_seen,
-            stream=True,
-        )
-
-    def handle_text_chunk(text_chunk: str) -> None:
-        nonlocal next_content_index, text_buffer, text_index, text_so_far, text_started, text_suppressed_for_plan
-        if not text_chunk:
-            return
-        if source_body is not None and not text_started and not tool_calls and should_auto_enter_plan_mode(source_body, text_so_far + text_chunk, []):
-            text_so_far += text_chunk
-            text_suppressed_for_plan = True
-            return
-        if text_suppressed_for_plan and not text_started and text_so_far:
-            pending_text = text_so_far + text_chunk
-            text_so_far = pending_text
-            text_suppressed_for_plan = False
-            text_started = True
-            text_index = next_content_index
-            next_content_index += 1
-            event = {
-                "type": "content_block_start",
-                "index": text_index,
-                "content_block": {"type": "text", "text": ""},
-            }
-            emit("content_block_start", event)
-            if word_chunking:
-                text_buffer += pending_text
-                to_flush, text_buffer = _split_word_buffer(text_buffer, force=False)
-                if to_flush:
-                    event = {
-                        "type": "content_block_delta",
-                        "index": text_index,
-                        "delta": {"type": "text_delta", "text": to_flush},
-                    }
-                    emit("content_block_delta", event)
-            else:
-                event = {
-                    "type": "content_block_delta",
-                    "index": text_index,
-                    "delta": {"type": "text_delta", "text": pending_text},
-                }
-                emit("content_block_delta", event)
-            update_stream_activity()
-            return
-        if not text_started:
-            text_started = True
-            text_index = next_content_index
-            next_content_index += 1
-            event = {
-                "type": "content_block_start",
-                "index": text_index,
-                "content_block": {"type": "text", "text": ""},
-            }
-            emit("content_block_start", event)
-        text_so_far += text_chunk
-        if word_chunking:
-            text_buffer += text_chunk
-            to_flush, text_buffer = _split_word_buffer(text_buffer, force=False)
-            if to_flush:
-                event = {
-                    "type": "content_block_delta",
-                    "index": text_index,
-                    "delta": {"type": "text_delta", "text": to_flush},
-                }
-                emit("content_block_delta", event)
-        else:
-            event = {
-                "type": "content_block_delta",
-                "index": text_index,
-                "delta": {"type": "text_delta", "text": text_chunk},
-            }
-            emit("content_block_delta", event)
-        update_stream_activity()
-
-    try:
-        for line in iter_upstream_lines_until_client_disconnect(handler, resp, idle_timeout):
-            chunks_seen += 1
-            line = line.decode("utf-8", errors="ignore").strip()
-            if not line:
-                continue
-            try:
-                chunk = json.loads(line)
-            except Exception:
-                continue
-            if not isinstance(chunk, dict):
-                continue
-            message = chunk.get("message") if isinstance(chunk.get("message"), dict) else {}
-            input_tokens = max(input_tokens, int(chunk.get("prompt_eval_count") or 0))
-            output_tokens = max(output_tokens, int(chunk.get("eval_count") or 0))
-            if not started:
-                ensure_message_started()
-            # Handle text content
-            raw_text_chunk = str(message.get("content") or "")
-            text_chunk = thinking_markup_filter.feed(raw_text_chunk)
-            if text_chunk != raw_text_chunk:
-                thinking_markup_suppressed = True
-            if text_chunk:
-                handle_text_chunk(text_chunk)
-            # Handle tool calls
-            for call in message.get("tool_calls") or []:
-                fn = call.get("function") if isinstance(call.get("function"), dict) else {}
-                if not isinstance(fn, dict) or not fn.get("name"):
-                    continue
-                raw_name = str(fn["name"])
-                matched_name = resolve_emitted_tool_name(raw_name, source_body)
-                raw_args = fn.get("arguments")
-                normalized_args = normalize_tool_arguments(matched_name, raw_args)
-                fixed_input = _validate_and_fix_tool_input(matched_name, normalized_args)
-                if source_body is not None:
-                    matched_name, fixed_input = plan_mode_tool_name_for_emit(source_body, matched_name, fixed_input)
-                    if matched_name is None:
-                        continue
-                fixed_input = cap_mcp_notification_wait_tool_input(matched_name, fixed_input)
-                if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body):
-                    continue
-                if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name):
-                    continue
-                tool_calls.append({"function": {"name": matched_name, "arguments": fixed_input}})
-                tool_id = f"toolu_ollama_{int(time.time() * 1000)}_{len(tool_calls) - 1}"
-                tool_index = next_content_index
-                next_content_index += 1
-                tool_indices.append(tool_index)
-                _remember_channel_injected_tool_use(source_body, tool_id, matched_name, fixed_input)
-                append_tool_call_log(
-                    "ollama_stream_tool_call",
-                    {
-                        "model": model,
-                        "raw_name": raw_name,
-                        "matched_name": matched_name,
-                        "raw_arguments": raw_args,
-                        "normalized_arguments": normalized_args,
-                        "emitted_input": fixed_input,
-                        "sse_index": tool_index,
-                    },
-                )
-                tool_event = {
-                    "type": "content_block_start",
-                    "index": tool_index,
-                    "content_block": {
-                        "type": "tool_use",
-                        "id": tool_id,
-                        "name": matched_name,
-                        "input": {},
-                    },
-                }
-                emit("content_block_start", tool_event)
-                delta_event = {
-                    "type": "content_block_delta",
-                    "index": tool_index,
-                    "delta": {
-                        "type": "input_json_delta",
-                        "partial_json": json.dumps(fixed_input, ensure_ascii=False),
-                    },
-                }
-                emit("content_block_delta", delta_event)
-                update_stream_activity()
-            update_stream_activity()
-        trailing_text = thinking_markup_filter.finish()
-        if trailing_text:
-            handle_text_chunk(trailing_text)
-        if thinking_markup_suppressed:
-            router_log("WARN", f"suppressed visible Ollama thinking markup from stream model={model}")
-        update_stream_activity(force=True)
-        # Flush any remaining buffered text when word-chunking is active
-        if source_body is not None and should_auto_enter_plan_mode(source_body, text_so_far, tool_calls):
-            ensure_message_started()
-            router_log("WARN", "auto-synthesized EnterPlanMode from short/empty upstream stream")
-            tool_calls.append({"function": {"name": "EnterPlanMode", "arguments": {}}})
-            tool_id = f"toolu_ollama_plan_{int(time.time() * 1000)}"
-            tool_index = next_content_index
-            next_content_index += 1
-            tool_indices.append(tool_index)
-            tool_event = {
-                "type": "content_block_start",
-                "index": tool_index,
-                "content_block": {
-                    "type": "tool_use",
-                    "id": tool_id,
-                    "name": "EnterPlanMode",
-                    "input": {},
-                },
-            }
-            emit("content_block_start", tool_event)
-            delta_event = {
-                "type": "content_block_delta",
-                "index": tool_index,
-                "delta": {"type": "input_json_delta", "partial_json": "{}"},
-            }
-            emit("content_block_delta", delta_event)
-        elif source_body is not None and should_recover_empty_end_turn_with_tasklist(source_body, text_so_far, tool_calls):
-            ensure_message_started()
-            router_log("WARN", "auto-synthesized TaskList from empty upstream end_turn stream")
-            tool_calls.append({"function": {"name": "TaskList", "arguments": {}}})
-            tool_id = f"toolu_ollama_empty_{int(time.time() * 1000)}"
-            tool_index = next_content_index
-            next_content_index += 1
-            tool_indices.append(tool_index)
-            tool_event = {
-                "type": "content_block_start",
-                "index": tool_index,
-                "content_block": {
-                    "type": "tool_use",
-                    "id": tool_id,
-                    "name": "TaskList",
-                    "input": {},
-                },
-            }
-            emit("content_block_start", tool_event)
-            delta_event = {
-                "type": "content_block_delta",
-                "index": tool_index,
-                "delta": {"type": "input_json_delta", "partial_json": "{}"},
-            }
-            emit("content_block_delta", delta_event)
-        elif text_suppressed_for_plan and not text_started and text_so_far:
-            text_started = True
-            text_index = next_content_index
-            next_content_index += 1
-            event = {
-                "type": "content_block_start",
-                "index": text_index,
-                "content_block": {"type": "text", "text": ""},
-            }
-            emit("content_block_start", event)
-            event = {
-                "type": "content_block_delta",
-                "index": text_index,
-                "delta": {"type": "text_delta", "text": text_so_far},
-            }
-            emit("content_block_delta", event)
-        if word_chunking and text_started and text_buffer:
-            to_flush, text_buffer = _split_word_buffer(text_buffer, force=True)
-            if to_flush:
-                event = {
-                    "type": "content_block_delta",
-                    "index": text_index,
-                    "delta": {"type": "text_delta", "text": to_flush},
-                }
-                emit("content_block_delta", event)
-        if source_body is not None and should_keep_work_alive_with_tasklist(source_body, text_so_far, tool_calls):
-            ensure_message_started()
-            router_log("WARN", "auto-synthesized TaskList to keep work moving after tool result stream")
-            tool_calls.append({"function": {"name": "TaskList", "arguments": {}}})
-            tool_id = f"toolu_ollama_keepalive_{int(time.time() * 1000)}"
-            tool_index = next_content_index
-            next_content_index += 1
-            tool_indices.append(tool_index)
-            tool_event = {
-                "type": "content_block_start",
-                "index": tool_index,
-                "content_block": {
-                    "type": "tool_use",
-                    "id": tool_id,
-                    "name": "TaskList",
-                    "input": {},
-                },
-            }
-            emit("content_block_start", tool_event)
-            delta_event = {
-                "type": "content_block_delta",
-                "index": tool_index,
-                "delta": {"type": "input_json_delta", "partial_json": "{}"},
-            }
-            emit("content_block_delta", delta_event)
-        if source_body is not None and should_auto_continue_choice_question_with_tasklist(source_body, text_so_far, tool_calls):
-            ensure_message_started()
-            router_log("WARN", "auto-synthesized TaskList after clarification question stream")
-            tool_calls.append({"function": {"name": "TaskList", "arguments": {}}})
-            tool_id = f"toolu_ollama_choice_{int(time.time() * 1000)}"
-            tool_index = next_content_index
-            next_content_index += 1
-            tool_indices.append(tool_index)
-            tool_event = {
-                "type": "content_block_start",
-                "index": tool_index,
-                "content_block": {
-                    "type": "tool_use",
-                    "id": tool_id,
-                    "name": "TaskList",
-                    "input": {},
-                },
-            }
-            emit("content_block_start", tool_event)
-            delta_event = {
-                "type": "content_block_delta",
-                "index": tool_index,
-                "delta": {"type": "input_json_delta", "partial_json": "{}"},
-            }
-            emit("content_block_delta", delta_event)
-        # Send content_block_stop for text if any
-        if text_started:
-            event = {"type": "content_block_stop", "index": text_index}
-            emit("content_block_stop", event)
-            text_stopped = True
-        # Send content_block_stop for each tool call
-        for tool_index in tool_indices:
-            event = {"type": "content_block_stop", "index": tool_index}
-            emit("content_block_stop", event)
-            stopped_tool_indices.add(tool_index)
-        if not started:
-            ensure_message_started()
-        if not text_started and not tool_indices:
-            router_log("WARN", f"ollama_empty_stream provider={provider} model={model} chunks={chunks_seen}")
-            write_router_activity("error", provider, model, error="empty_stream", stream=True)
-            empty_index = next_content_index
-            next_content_index += 1
-            notice = empty_end_turn_notice_for_body(source_body) if source_body is not None else ""
-            if notice:
-                text_so_far = notice
-            emit_text_block(empty_index, notice)
-        # Determine stop reason
-        stop_reason = "tool_use" if tool_calls else "end_turn"
-        if chunk.get("done_reason") == "length":
-            stop_reason = "max_tokens"
-        # Send message_delta with final stop_reason
-        event = {
-            "type": "message_delta",
-            "delta": {"stop_reason": stop_reason, "stop_sequence": None},
-            "usage": {"output_tokens": output_tokens},
-        }
-        emit("message_delta", event)
-        # Send message_stop
-        emit("message_stop", {"type": "message_stop"})
-        sse_trace_outcome = "success"
-        if text_started or tool_indices:
-            write_router_activity(
-                "success",
-                provider,
-                model,
-                tokens=input_tokens,
-                output_tokens=output_tokens or max(1, len(text_so_far) // 4),
-                chunks=chunks_seen,
-                stream=True,
-            )
-        mark_pending_channel_delivery_success(handler, "ollama_stream_message_stop")
-    except UpstreamClientDisconnected as exc:
-        sse_trace_outcome = "client_disconnected"
-        sse_trace_error = f"{type(exc).__name__}: {exc}"
-        mark_pending_channel_delivery_failed(handler, "ollama_stream_client_disconnected")
-        router_log(
-            "WARN",
-            f"ollama_stream_client_disconnected provider={provider} model={model} "
-            f"chunks={chunks_seen} text_len={len(text_so_far)} error={exc}",
-        )
-        write_router_activity(
-            "cancel",
-            provider,
-            model,
-            error=type(exc).__name__,
-            tokens=input_tokens,
-            output_tokens=output_tokens or max(0, len(text_so_far) // 4),
-            chunks=chunks_seen,
-            stream=True,
-        )
-    except Exception as exc:
-        sse_trace_outcome = "error"
-        sse_trace_error = f"{type(exc).__name__}: {exc}"
-        mark_pending_channel_delivery_failed(handler, f"ollama_stream_error:{type(exc).__name__}")
-        router_log("ERROR", f"ollama_stream_error provider={provider} model={model} error={type(exc).__name__}: {exc}")
-        write_router_activity("error", provider, model, error=type(exc).__name__, stream=True)
-        try:
-            ensure_message_started()
-            if text_started and not text_stopped:
-                emit("content_block_stop", {"type": "content_block_stop", "index": text_index})
-            if not text_started and not tool_indices:
-                error_index = next_content_index
-                next_content_index += 1
-                emit_text_block(error_index, f"Upstream stream error: {type(exc).__name__}: {exc}")
-            for tool_index in tool_indices:
-                if tool_index not in stopped_tool_indices:
-                    emit("content_block_stop", {"type": "content_block_stop", "index": tool_index})
-                    stopped_tool_indices.add(tool_index)
-            emit(
-                "message_delta",
-                {
-                    "type": "message_delta",
-                    "delta": {"stop_reason": "end_turn", "stop_sequence": None},
-                    "usage": {"output_tokens": output_tokens or 1},
-                },
-            )
-            emit("message_stop", {"type": "message_stop"})
-        except Exception:
-            pass
-    finally:
-        try:
-            resp.close()
-        except Exception:
-            pass
-        try:
-            final_stop_reason = locals().get("stop_reason")
-            finish_outgoing_sse_trace(
-                sse_trace,
-                outcome=sse_trace_outcome,
-                text_len=len(text_so_far),
-                tool_call_count=len(tool_calls),
-                chunks=chunks_seen,
-                stop_reason=final_stop_reason if isinstance(final_stop_reason, str) else None,
-                error=sse_trace_error,
-            )
-            dump_response_for_trace(
-                provider=provider,
-                model=model,
-                text_so_far=text_so_far,
-                tool_calls=tool_calls,
-                stop_reason=final_stop_reason if isinstance(final_stop_reason, str) else None,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                last_chunk=chunk if isinstance(chunk, dict) else None,
-            )
-        except Exception:
-            pass
+    return ollama_stream_to_anthropic_sse(
+        handler, resp, model, word_chunking=word_chunking, provider=provider,
+        source_body=source_body, idle_timeout=idle_timeout,
+        services=OllamaStreamServices(
+            UpstreamClientDisconnected=UpstreamClientDisconnected,
+            VisibleThinkingMarkupFilter=VisibleThinkingMarkupFilter,
+            _remember_channel_injected_tool_use=_remember_channel_injected_tool_use,
+            _split_word_buffer=_split_word_buffer,
+            _validate_and_fix_tool_input=_validate_and_fix_tool_input,
+            append_tool_call_log=append_tool_call_log,
+            cap_mcp_notification_wait_tool_input=cap_mcp_notification_wait_tool_input,
+            dump_response_for_trace=dump_response_for_trace,
+            empty_end_turn_notice_for_body=empty_end_turn_notice_for_body,
+            estimate_tokens=estimate_tokens,
+            finish_outgoing_sse_trace=finish_outgoing_sse_trace,
+            iter_upstream_lines_until_client_disconnect=iter_upstream_lines_until_client_disconnect,
+            make_outgoing_sse_trace=make_outgoing_sse_trace,
+            mark_pending_channel_delivery_failed=mark_pending_channel_delivery_failed,
+            mark_pending_channel_delivery_success=mark_pending_channel_delivery_success,
+            normalize_tool_arguments=normalize_tool_arguments,
+            plan_mode_tool_name_for_emit=plan_mode_tool_name_for_emit,
+            record_outgoing_sse_event=record_outgoing_sse_event,
+            resolve_emitted_tool_name=resolve_emitted_tool_name,
+            router_log=router_log,
+            should_auto_continue_choice_question_with_tasklist=should_auto_continue_choice_question_with_tasklist,
+            should_auto_enter_plan_mode=should_auto_enter_plan_mode,
+            should_drop_duplicate_side_effect_tool_call=should_drop_duplicate_side_effect_tool_call,
+            should_drop_emitted_tool_call=should_drop_emitted_tool_call,
+            should_keep_work_alive_with_tasklist=should_keep_work_alive_with_tasklist,
+            should_recover_empty_end_turn_with_tasklist=should_recover_empty_end_turn_with_tasklist,
+            write_router_activity=write_router_activity
+        ),
+    )
 
 
 def forward_ollama_api_chat(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> None:
@@ -19282,226 +16291,16 @@ def openai_chat_to_anthropic(data: dict[str, Any], model: str, source_body: dict
     return out
 
 
-def _responses_json_object(value: Any) -> dict[str, Any]:
-    if isinstance(value, dict):
-        return value
-    if isinstance(value, str) and value.strip():
-        try:
-            parsed = json.loads(value)
-            if isinstance(parsed, dict):
-                return parsed
-        except Exception:
-            return {}
-    return {}
+def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model: str) -> dict[str, Any]:
+    adapter = PROTOCOL_ADAPTERS.create("openai_responses", fallback_model=fallback_model)
+    return dict(adapter.normalize_request(body))
 
 
-def _responses_content_text(content: Any) -> str:
-    if isinstance(content, str):
-        return content
-    if isinstance(content, dict):
-        ctype = str(content.get("type") or "")
-        if ctype in ("input_text", "output_text", "text"):
-            return str(content.get("text") or "")
-        if ctype == "refusal":
-            return str(content.get("refusal") or "")
-        return str(content.get("text") or content.get("output") or "")
-    if isinstance(content, list):
-        parts = [_responses_content_text(item) for item in content]
-        return "\n".join(part for part in parts if part)
-    return ""
-
-
-def _responses_content_blocks(content: Any) -> list[dict[str, Any]]:
-    text = _responses_content_text(content)
-    return [{"type": "text", "text": text}] if text else []
-
-
-def responses_tools_to_anthropic(tools: Any) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    if not isinstance(tools, list):
-        return out
-    for tool in tools:
-        if not isinstance(tool, dict):
-            continue
-        name = tool.get("name")
-        description = tool.get("description", "")
-        parameters = tool.get("parameters")
-        if not name and isinstance(tool.get("function"), dict):
-            fn = tool["function"]
-            name = fn.get("name")
-            description = fn.get("description", description)
-            parameters = fn.get("parameters", parameters)
-        if tool.get("type") not in (None, "function") and not name:
-            continue
-        if not name:
-            continue
-        out.append(
-            {
-                "name": str(name),
-                "description": str(description or ""),
-                "input_schema": parameters if isinstance(parameters, dict) else {"type": "object", "properties": {}},
-            }
-        )
-    return out
-
-
-def responses_tool_choice_to_anthropic(tool_choice: Any) -> Any:
-    if tool_choice is None:
-        return None
-    if isinstance(tool_choice, str):
-        lowered = tool_choice.strip().lower()
-        if lowered == "required":
-            return {"type": "any"}
-        if lowered in ("auto", "none"):
-            return {"type": "auto"} if lowered == "auto" else None
-        return tool_choice
-    if not isinstance(tool_choice, dict):
-        return tool_choice
-    if tool_choice.get("type") == "function":
-        name = tool_choice.get("name")
-        if not name and isinstance(tool_choice.get("function"), dict):
-            name = tool_choice["function"].get("name")
-        if name:
-            return {"type": "tool", "name": str(name)}
-    return tool_choice
-
-
-def _legacy_openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model: str) -> dict[str, Any]:
-    system_parts: list[str] = []
-    instructions = str(body.get("instructions") or "").strip()
-    if instructions:
-        system_parts.append(instructions)
-    messages: list[dict[str, Any]] = []
-    raw_input = body.get("input", [])
-    if isinstance(raw_input, str):
-        raw_input = [{"type": "message", "role": "user", "content": [{"type": "input_text", "text": raw_input}]}]
-    if isinstance(raw_input, dict):
-        raw_input = [raw_input]
-    if not isinstance(raw_input, list):
-        raw_input = []
-    for item in raw_input:
-        if not isinstance(item, dict):
-            continue
-        item_type = str(item.get("type") or "message")
-        if item_type == "function_call":
-            call_id = str(item.get("call_id") or item.get("id") or f"call_{len(messages) + 1}")
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": call_id,
-                            "name": str(item.get("name") or "tool"),
-                            "input": _responses_json_object(item.get("arguments")),
-                        }
-                    ],
-                }
-            )
-            continue
-        if item_type == "function_call_output":
-            call_id = str(item.get("call_id") or item.get("id") or "call_tool")
-            output = item.get("output")
-            messages.append(
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": call_id,
-                            "content": _responses_content_text(output),
-                        }
-                    ],
-                }
-            )
-            continue
-        role = str(item.get("role") or "user").strip().lower()
-        blocks = _responses_content_blocks(item.get("content", item.get("text", "")))
-        if not blocks:
-            continue
-        if role in ("system", "developer"):
-            system_parts.append(anthropic_content_to_text(blocks))
-            continue
-        if role not in ("user", "assistant"):
-            role = "user"
-        messages.append({"role": role, "content": blocks})
-    if not messages:
-        messages.append({"role": "user", "content": [{"type": "text", "text": ""}]})
-    out: dict[str, Any] = {
-        "model": str(body.get("model") or fallback_model or "model"),
-        "messages": messages,
-        "stream": bool(body.get("stream", True)),
-    }
-    tools = responses_tools_to_anthropic(body.get("tools"))
-    if tools:
-        out["tools"] = tools
-    tool_choice = responses_tool_choice_to_anthropic(body.get("tool_choice"))
-    if tool_choice is not None:
-        out["tool_choice"] = tool_choice
-    max_tokens = positive_int(body.get("max_output_tokens")) or positive_int(body.get("max_tokens"))
-    if max_tokens:
-        out["max_tokens"] = max_tokens
-    if system_parts:
-        out["system"] = [{"type": "text", "text": part} for part in system_parts if part]
-    return out
-
-
-def _responses_usage_from_anthropic(message: dict[str, Any]) -> dict[str, int]:
-    usage = message.get("usage") if isinstance(message.get("usage"), dict) else {}
-    input_tokens = positive_int(usage.get("input_tokens")) or 0
-    output_tokens = positive_int(usage.get("output_tokens")) or 0
-    return {
-        "input_tokens": input_tokens,
-        "output_tokens": output_tokens,
-        "total_tokens": input_tokens + output_tokens,
-    }
-
-
-def _legacy_anthropic_message_to_openai_response(message: dict[str, Any], source_body: dict[str, Any] | None = None) -> dict[str, Any]:
-    response_id = f"resp_{uuid.uuid4().hex}"
-    created_at = int(time.time())
-    model = str(message.get("model") or (source_body or {}).get("model") or "")
-    output: list[dict[str, Any]] = []
-    for index, block in enumerate(message.get("content") or []):
-        if not isinstance(block, dict):
-            continue
-        btype = block.get("type")
-        if btype == "text":
-            text = str(block.get("text") or "")
-            item_id = f"msg_{response_id[5:13]}_{index}"
-            output.append(
-                {
-                    "id": item_id,
-                    "type": "message",
-                    "status": "completed",
-                    "role": "assistant",
-                    "content": [{"type": "output_text", "text": text, "annotations": []}],
-                }
-            )
-        elif btype == "tool_use":
-            call_id = str(block.get("id") or f"call_{index + 1}")
-            output.append(
-                {
-                    "id": f"fc_{response_id[5:13]}_{index}",
-                    "type": "function_call",
-                    "status": "completed",
-                    "call_id": call_id,
-                    "name": str(block.get("name") or "tool"),
-                    "arguments": json.dumps(block.get("input") or {}, ensure_ascii=False),
-                }
-            )
-    return {
-        "id": response_id,
-        "object": "response",
-        "created_at": created_at,
-        "status": "completed",
-        "model": model,
-        "output": output,
-        "parallel_tool_calls": bool((source_body or {}).get("parallel_tool_calls", True)),
-        "tool_choice": (source_body or {}).get("tool_choice", "auto"),
-        "tools": (source_body or {}).get("tools", []),
-        "usage": _responses_usage_from_anthropic(message),
-    }
+def anthropic_message_to_openai_response(
+    message: dict[str, Any], source_body: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    adapter = PROTOCOL_ADAPTERS.create("openai_responses", source_body=source_body)
+    return dict(adapter.normalize_response(message))
 
 
 def write_openai_responses_response(
@@ -19629,378 +16428,36 @@ def stream_openai_chat_to_anthropic_sse(
     input_tokens: int | None = None,
     input_bytes: int | None = None,
 ) -> bool:
-    next_content_index = start_index
-    text_started = False
-    text_suppressed_for_plan = False
-    text_index: int | None = None
-    text_so_far = ""
-    pseudo_text = ""
-    pseudo_mode = False
-    text_buffer = ""
-    text_stopped = False
-    reasoning_started = False
-    reasoning_stopped = False
-    reasoning_index: int | None = None
-    reasoning_so_far = ""
-    tool_fragments: dict[int, dict[str, Any]] = {}
-    output_tokens = 0
-    finish_reason = "stop"
-    chunks_seen = 0
-    last_activity_update = 0.0
-
-    def emit(event_name: str, payload: dict[str, Any]) -> None:
-        handler.wfile.write(f"event: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
-        handler.wfile.flush()
-
-    def ensure_text_started() -> int:
-        nonlocal text_started, text_index, next_content_index, text_stopped
-        if text_started and text_index is not None:
-            return text_index
-        text_started = True
-        text_stopped = False
-        text_index = next_content_index
-        next_content_index += 1
-        emit(
-            "content_block_start",
-            {"type": "content_block_start", "index": text_index, "content_block": {"type": "text", "text": ""}},
-        )
-        return text_index
-
-    def ensure_reasoning_started() -> int:
-        nonlocal reasoning_started, reasoning_index, next_content_index, reasoning_stopped
-        if reasoning_started and reasoning_index is not None:
-            return reasoning_index
-        reasoning_started = True
-        reasoning_stopped = False
-        reasoning_index = next_content_index
-        next_content_index += 1
-        emit(
-            "content_block_start",
-            {
-                "type": "content_block_start",
-                "index": reasoning_index,
-                "content_block": {"type": "thinking", "thinking": ""},
-            },
-        )
-        return reasoning_index
-
-    def emit_reasoning_delta(text: str) -> None:
-        if not text:
-            return
-        idx = ensure_reasoning_started()
-        emit(
-            "content_block_delta",
-            {"type": "content_block_delta", "index": idx, "delta": {"type": "thinking_delta", "thinking": text}},
-        )
-
-    def close_reasoning_block() -> None:
-        nonlocal reasoning_stopped
-        if not reasoning_started or reasoning_index is None or reasoning_stopped:
-            return
-        digest = hashlib.sha256(reasoning_so_far.encode("utf-8", errors="replace")).hexdigest()[:24]
-        emit(
-            "content_block_delta",
-            {
-                "type": "content_block_delta",
-                "index": reasoning_index,
-                "delta": {
-                    "type": "signature_delta",
-                    "signature": f"ciel-runtime-openai-reasoning-{digest}",
-                },
-            },
-        )
-        emit("content_block_stop", {"type": "content_block_stop", "index": reasoning_index})
-        reasoning_stopped = True
-
-    def emit_text_delta(text: str) -> None:
-        if not text:
-            return
-        idx = ensure_text_started()
-        emit(
-            "content_block_delta",
-            {"type": "content_block_delta", "index": idx, "delta": {"type": "text_delta", "text": text}},
-        )
-
-    def update_stream_activity(force: bool = False) -> None:
-        nonlocal last_activity_update
-        now = time.time()
-        if not force and now - last_activity_update < 0.5:
-            return
-        last_activity_update = now
-        estimated_output = output_tokens or max(0, len(text_so_far) // 4)
-        write_router_activity(
-            "request",
-            provider,
-            model,
-            tokens=input_tokens,
-            bytes=input_bytes,
-            output_tokens=estimated_output,
-            chunks=chunks_seen,
-            stream=True,
-        )
-
-    try:
-        for raw_line in resp:
-            chunks_seen += 1
-            line = raw_line.decode("utf-8", errors="ignore").strip()
-            if not line or line.startswith(":"):
-                continue
-            if line.startswith("data:"):
-                line = line[5:].strip()
-            if not line or line == "[DONE]":
-                break
-            try:
-                event = json.loads(line)
-            except Exception:
-                continue
-            if not isinstance(event, dict):
-                continue
-            usage = event.get("usage")
-            if isinstance(usage, dict):
-                output_tokens = max(output_tokens, positive_int(usage.get("completion_tokens")) or 0)
-            choices = event.get("choices")
-            if not isinstance(choices, list) or not choices:
-                continue
-            choice = choices[0] if isinstance(choices[0], dict) else {}
-            if choice.get("finish_reason"):
-                finish_reason = str(choice.get("finish_reason"))
-            delta = choice.get("delta") if isinstance(choice.get("delta"), dict) else {}
-            reasoning_chunk = delta.get("reasoning_content") or ""
-            if reasoning_chunk:
-                reasoning_so_far += str(reasoning_chunk)
-                emit_reasoning_delta(str(reasoning_chunk))
-                update_stream_activity()
-            text_chunk = delta.get("content") or ""
-            if text_chunk:
-                close_reasoning_block()
-                if pseudo_mode or PSEUDO_TOOL_START in text_chunk:
-                    before, sep, after = text_chunk.partition(PSEUDO_TOOL_START)
-                    if before and not pseudo_mode:
-                        text_so_far += before
-                        if word_chunking:
-                            text_buffer += before
-                            to_flush, text_buffer = _split_word_buffer(text_buffer, force=False)
-                            emit_text_delta(to_flush)
-                        else:
-                            emit_text_delta(before)
-                    pseudo_mode = True
-                    pseudo_text += (sep + after) if sep else text_chunk
-                    if PSEUDO_TOOL_END in pseudo_text:
-                        pseudo_mode = False
-                    continue
-                if source_body is not None and not text_started and not tool_fragments and should_auto_enter_plan_mode(source_body, text_so_far + text_chunk, []):
-                    text_so_far += text_chunk
-                    text_suppressed_for_plan = True
-                    continue
-                if text_suppressed_for_plan and not text_started and text_so_far:
-                    pending_text = text_so_far + text_chunk
-                    text_so_far = pending_text
-                    text_suppressed_for_plan = False
-                    if word_chunking:
-                        text_buffer += pending_text
-                        to_flush, text_buffer = _split_word_buffer(text_buffer, force=False)
-                        emit_text_delta(to_flush)
-                    else:
-                        emit_text_delta(pending_text)
-                    update_stream_activity()
-                    continue
-                text_so_far += text_chunk
-                if word_chunking:
-                    text_buffer += text_chunk
-                    to_flush, text_buffer = _split_word_buffer(text_buffer, force=False)
-                    emit_text_delta(to_flush)
-                else:
-                    emit_text_delta(text_chunk)
-                update_stream_activity()
-            for call in delta.get("tool_calls") or []:
-                if not isinstance(call, dict):
-                    continue
-                try:
-                    call_index = int(call.get("index"))
-                except Exception:
-                    call_index = len(tool_fragments)
-                slot = tool_fragments.setdefault(call_index, {"id": "", "name": "", "arguments": ""})
-                if call.get("id"):
-                    slot["id"] = str(call.get("id"))
-                fn = call.get("function") if isinstance(call.get("function"), dict) else {}
-                if fn.get("name"):
-                    slot["name"] += str(fn.get("name"))
-                if fn.get("arguments"):
-                    slot["arguments"] += str(fn.get("arguments"))
-                update_stream_activity()
-        update_stream_activity(force=True)
-        if word_chunking and text_buffer:
-            to_flush, text_buffer = _split_word_buffer(text_buffer, force=True)
-            emit_text_delta(to_flush)
-        close_reasoning_block()
-
-        tool_calls: list[dict[str, Any]] = []
-        _, pseudo_tool_calls = parse_pseudo_tool_calls(pseudo_text, source_body)
-        for i, pseudo in enumerate(pseudo_tool_calls):
-            fn = pseudo.get("function") if isinstance(pseudo, dict) else {}
-            if isinstance(fn, dict):
-                tool_fragments.setdefault(100000 + i, {
-                    "id": str(pseudo.get("id") or ""),
-                    "name": str(fn.get("name") or ""),
-                    "arguments": json.dumps(fn.get("arguments") or {}, ensure_ascii=False),
-                })
-        for _, fragment in sorted(tool_fragments.items()):
-            raw_name = str(fragment.get("name") or "")
-            if not raw_name:
-                continue
-            matched_name = resolve_emitted_tool_name(raw_name, source_body)
-            normalized_args = normalize_tool_arguments(matched_name, fragment.get("arguments") or {})
-            fixed_input = _validate_and_fix_tool_input(matched_name, normalized_args)
-            if source_body is not None:
-                matched_name, fixed_input = plan_mode_tool_name_for_emit(source_body, matched_name, fixed_input)
-                if matched_name is None:
-                    continue
-            fixed_input = cap_mcp_notification_wait_tool_input(matched_name, fixed_input)
-            if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body):
-                continue
-            if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name):
-                continue
-            tool_calls.append({"function": {"name": matched_name, "arguments": fixed_input}})
-            tool_index = next_content_index
-            next_content_index += 1
-            tool_id = str(fragment.get("id") or f"toolu_openai_{int(time.time() * 1000)}_{tool_index}")
-            _remember_channel_injected_tool_use(source_body, tool_id, matched_name, fixed_input)
-            append_tool_call_log(
-                "openai_stream_tool_call",
-                {
-                    "model": model,
-                    "raw_name": raw_name,
-                    "matched_name": matched_name,
-                    "raw_arguments": fragment.get("arguments"),
-                    "emitted_input": fixed_input,
-                    "sse_index": tool_index,
-                },
-            )
-            emit(
-                "content_block_start",
-                {
-                    "type": "content_block_start",
-                    "index": tool_index,
-                    "content_block": {"type": "tool_use", "id": tool_id, "name": matched_name, "input": {}},
-                },
-            )
-            emit(
-                "content_block_delta",
-                {
-                    "type": "content_block_delta",
-                    "index": tool_index,
-                    "delta": {"type": "input_json_delta", "partial_json": json.dumps(fixed_input, ensure_ascii=False)},
-                },
-            )
-            emit("content_block_stop", {"type": "content_block_stop", "index": tool_index})
-
-        if source_body is not None and should_auto_enter_plan_mode(source_body, text_so_far, tool_calls):
-            router_log("WARN", "auto-synthesized EnterPlanMode from short/empty upstream OpenAI stream")
-            tool_index = next_content_index
-            next_content_index += 1
-            tool_calls.append({"function": {"name": "EnterPlanMode", "arguments": {}}})
-            emit(
-                "content_block_start",
-                {
-                    "type": "content_block_start",
-                    "index": tool_index,
-                    "content_block": {"type": "tool_use", "id": f"toolu_openai_plan_{int(time.time() * 1000)}", "name": "EnterPlanMode", "input": {}},
-                },
-            )
-            emit("content_block_delta", {"type": "content_block_delta", "index": tool_index, "delta": {"type": "input_json_delta", "partial_json": "{}"}})
-            emit("content_block_stop", {"type": "content_block_stop", "index": tool_index})
-        elif source_body is not None and should_recover_empty_end_turn_with_tasklist(source_body, text_so_far, tool_calls):
-            router_log("WARN", "auto-synthesized TaskList from empty upstream end_turn OpenAI stream")
-            tool_index = next_content_index
-            next_content_index += 1
-            tool_calls.append({"function": {"name": "TaskList", "arguments": {}}})
-            emit(
-                "content_block_start",
-                {
-                    "type": "content_block_start",
-                    "index": tool_index,
-                    "content_block": {"type": "tool_use", "id": f"toolu_openai_empty_{int(time.time() * 1000)}", "name": "TaskList", "input": {}},
-                },
-            )
-            emit("content_block_delta", {"type": "content_block_delta", "index": tool_index, "delta": {"type": "input_json_delta", "partial_json": "{}"}})
-            emit("content_block_stop", {"type": "content_block_stop", "index": tool_index})
-        elif text_suppressed_for_plan and not text_started and text_so_far:
-            emit_text_delta(text_so_far)
-
-        if source_body is not None and should_keep_work_alive_with_tasklist(source_body, text_so_far, tool_calls):
-            router_log("WARN", "auto-synthesized TaskList to keep work moving after OpenAI stream")
-            tool_index = next_content_index
-            next_content_index += 1
-            tool_calls.append({"function": {"name": "TaskList", "arguments": {}}})
-            emit(
-                "content_block_start",
-                {
-                    "type": "content_block_start",
-                    "index": tool_index,
-                    "content_block": {"type": "tool_use", "id": f"toolu_openai_keepalive_{int(time.time() * 1000)}", "name": "TaskList", "input": {}},
-                },
-            )
-            emit("content_block_delta", {"type": "content_block_delta", "index": tool_index, "delta": {"type": "input_json_delta", "partial_json": "{}"}})
-            emit("content_block_stop", {"type": "content_block_stop", "index": tool_index})
-
-        if source_body is not None and should_auto_continue_choice_question_with_tasklist(source_body, text_so_far, tool_calls):
-            router_log("WARN", "auto-synthesized TaskList after clarification question OpenAI stream")
-            tool_index = next_content_index
-            next_content_index += 1
-            tool_calls.append({"function": {"name": "TaskList", "arguments": {}}})
-            emit(
-                "content_block_start",
-                {
-                    "type": "content_block_start",
-                    "index": tool_index,
-                    "content_block": {"type": "tool_use", "id": f"toolu_openai_choice_{int(time.time() * 1000)}", "name": "TaskList", "input": {}},
-                },
-            )
-            emit("content_block_delta", {"type": "content_block_delta", "index": tool_index, "delta": {"type": "input_json_delta", "partial_json": "{}"}})
-            emit("content_block_stop", {"type": "content_block_stop", "index": tool_index})
-
-        if text_started and text_index is not None:
-            emit("content_block_stop", {"type": "content_block_stop", "index": text_index})
-            text_stopped = True
-        if not text_started and not tool_calls:
-            text_so_far = empty_end_turn_notice_for_body(source_body) if source_body is not None else ""
-            if source_body is not None:
-                router_log(
-                    "WARN",
-                    f"openai_empty_end_turn_notice provider={provider} model={model} "
-                    f"latest_tool_results={','.join(latest_user_tool_result_names(source_body)) or '-'}",
-                )
-            emit_text_delta(text_so_far)
-            if text_index is not None:
-                emit("content_block_stop", {"type": "content_block_stop", "index": text_index})
-                text_stopped = True
-        stop_reason = "tool_use" if tool_calls else ("max_tokens" if finish_reason == "length" else "end_turn")
-        write_anthropic_open_stream_stop(handler, {"stop_reason": stop_reason, "usage": {"output_tokens": output_tokens or max(1, len(text_so_far) // 4)}})
-        return True
-    except Exception as exc:
-        router_log("ERROR", f"openai_stream_error provider={provider} model={model} error={type(exc).__name__}: {exc}")
-        write_router_activity("error", provider, model, error=type(exc).__name__, stream=True)
-        try:
-            if word_chunking and text_buffer:
-                to_flush, text_buffer = _split_word_buffer(text_buffer, force=True)
-                emit_text_delta(to_flush)
-            if not text_started:
-                emit_text_delta(f"Upstream stream error: {type(exc).__name__}: {exc}")
-            if text_started and text_index is not None and not text_stopped:
-                emit("content_block_stop", {"type": "content_block_stop", "index": text_index})
-                text_stopped = True
-            write_anthropic_open_stream_stop(
-                handler,
-                {"stop_reason": "end_turn", "usage": {"output_tokens": output_tokens or max(1, len(text_so_far) // 4)}},
-            )
-        except Exception:
-            pass
-        return False
-    finally:
-        try:
-            resp.close()
-        except Exception:
-            pass
+    return forward_openai_chat_to_anthropic_sse(
+        handler, resp, model, provider, source_body=source_body,
+        start_index=start_index, word_chunking=word_chunking,
+        input_tokens=input_tokens, input_bytes=input_bytes,
+        services=OpenAIChatStreamServices(
+            PSEUDO_TOOL_END=PSEUDO_TOOL_END,
+            PSEUDO_TOOL_START=PSEUDO_TOOL_START,
+            _remember_channel_injected_tool_use=_remember_channel_injected_tool_use,
+            _split_word_buffer=_split_word_buffer,
+            _validate_and_fix_tool_input=_validate_and_fix_tool_input,
+            append_tool_call_log=append_tool_call_log,
+            cap_mcp_notification_wait_tool_input=cap_mcp_notification_wait_tool_input,
+            empty_end_turn_notice_for_body=empty_end_turn_notice_for_body,
+            latest_user_tool_result_names=latest_user_tool_result_names,
+            normalize_tool_arguments=normalize_tool_arguments,
+            parse_pseudo_tool_calls=parse_pseudo_tool_calls,
+            plan_mode_tool_name_for_emit=plan_mode_tool_name_for_emit,
+            positive_int=positive_int,
+            resolve_emitted_tool_name=resolve_emitted_tool_name,
+            router_log=router_log,
+            should_auto_continue_choice_question_with_tasklist=should_auto_continue_choice_question_with_tasklist,
+            should_auto_enter_plan_mode=should_auto_enter_plan_mode,
+            should_drop_duplicate_side_effect_tool_call=should_drop_duplicate_side_effect_tool_call,
+            should_drop_emitted_tool_call=should_drop_emitted_tool_call,
+            should_keep_work_alive_with_tasklist=should_keep_work_alive_with_tasklist,
+            should_recover_empty_end_turn_with_tasklist=should_recover_empty_end_turn_with_tasklist,
+            write_anthropic_open_stream_stop=write_anthropic_open_stream_stop,
+            write_router_activity=write_router_activity
+        ),
+    )
 
 
 def upstream_http_error_message(exc: urllib.error.HTTPError, raw: str | None = None) -> str:
@@ -20979,6 +17436,77 @@ def handle_codex_backend_passthrough_get(handler: BaseHTTPRequestHandler, provid
         write_json(handler, {"error": {"message": f"{type(exc).__name__}: {exc}"}}, status=502)
 
 
+def build_claude_router_dependencies() -> dict[str, Any]:
+    """Explicit composition root for the legacy Claude request service."""
+    return {
+        "EVENT_BUS": EVENT_BUS,
+        "OPENCODE_PROVIDER_NAMES": OPENCODE_PROVIDER_NAMES,
+        "PROVIDER_LABELS": PROVIDER_LABELS,
+        "_rebatch_anthropic_sse_text": _rebatch_anthropic_sse_text,
+        "_update_tool_schema_registry": _update_tool_schema_registry,
+        "append_synthetic_tasklist_to_message": append_synthetic_tasklist_to_message,
+        "apply_provider_request_options": apply_provider_request_options,
+        "apply_router_rate_limit": apply_router_rate_limit,
+        "begin_pending_channel_delivery": begin_pending_channel_delivery,
+        "body_with_channel_tool_result_context": body_with_channel_tool_result_context,
+        "body_with_pending_channel_messages": body_with_pending_channel_messages,
+        "body_without_ciel_runtime_internal_metadata": body_without_ciel_runtime_internal_metadata,
+        "cap_anthropic_body_for_provider": cap_anthropic_body_for_provider,
+        "commit_pending_channel_delivery_cursors": commit_pending_channel_delivery_cursors,
+        "dump_request_for_trace": dump_request_for_trace,
+        "estimate_tokens": estimate_tokens,
+        "filter_blocked_tools": filter_blocked_tools,
+        "forward_ollama_api_chat": forward_ollama_api_chat,
+        "forward_openai_compatible_chat": forward_openai_compatible_chat,
+        "is_client_disconnect_error": is_client_disconnect_error,
+        "join_url": join_url,
+        "key_from_request_headers": key_from_request_headers,
+        "mark_pending_channel_delivery_failed": mark_pending_channel_delivery_failed,
+        "mark_pending_channel_delivery_success": mark_pending_channel_delivery_success,
+        "maybe_handle_advisor_request": maybe_handle_advisor_request,
+        "maybe_handle_channel_clear_request": maybe_handle_channel_clear_request,
+        "maybe_handle_import_session_request": maybe_handle_import_session_request,
+        "maybe_handle_live_api_keys_request": maybe_handle_live_api_keys_request,
+        "maybe_handle_live_llm_options_request": maybe_handle_live_llm_options_request,
+        "maybe_handle_plan_mode_tool_choice": maybe_handle_plan_mode_tool_choice,
+        "maybe_handle_router_debug_request": maybe_handle_router_debug_request,
+        "maybe_handle_version_request": maybe_handle_version_request,
+        "native_anthropic_base_url": native_anthropic_base_url,
+        "ncp_model_id_for_nvidia_hosted": ncp_model_id_for_nvidia_hosted,
+        "normalize_anthropic_model_request_options": normalize_anthropic_model_request_options,
+        "normalize_anthropic_system_role_messages": normalize_anthropic_system_role_messages,
+        "normalize_request_for_provider_wire": normalize_request_for_provider_wire,
+        "normalize_response_thinking_for_non_anthropic_provider": normalize_response_thinking_for_non_anthropic_provider,
+        "normalize_thinking_for_non_anthropic_provider": normalize_thinking_for_non_anthropic_provider,
+        "normalize_tool_choice_for_provider": normalize_tool_choice_for_provider,
+        "open_provider_request_with_key_retry": open_provider_request_with_key_retry,
+        "opencode_endpoint_kind": opencode_endpoint_kind,
+        "prepend_anthropic_text": prepend_anthropic_text,
+        "preserves_anthropic_thinking_contract": preserves_anthropic_thinking_contract,
+        "provider_headers": provider_headers,
+        "provider_native_compat_enabled": provider_native_compat_enabled,
+        "provider_openai_router_enabled": provider_openai_router_enabled,
+        "provider_request_timeout_seconds": provider_request_timeout_seconds,
+        "provider_stream_idle_timeout_seconds": provider_stream_idle_timeout_seconds,
+        "provider_upstream_request_base": provider_upstream_request_base,
+        "rate_limit_notice": rate_limit_notice,
+        "register_api_key_cooldown": register_api_key_cooldown,
+        "rehydrate_suppressed_thinking_passback": rehydrate_suppressed_thinking_passback,
+        "resolve_requested_model": resolve_requested_model,
+        "resolve_tool_model_references": resolve_tool_model_references,
+        "router_event_message_preview": router_event_message_preview,
+        "router_log": router_log,
+        "set_upstream_stream_read_timeout": set_upstream_stream_read_timeout,
+        "should_normalize_anthropic_stream_tool_use": should_normalize_anthropic_stream_tool_use,
+        "strip_autonomous_advisor_server_tools": strip_autonomous_advisor_server_tools,
+        "try_write_json": try_write_json,
+        "upstream_messages_query": upstream_messages_query,
+        "write_context_usage": write_context_usage,
+        "write_json": write_json,
+        "write_router_activity": write_router_activity,
+    }
+
+
 def build_runtime_routers() -> tuple[Any, ...]:
     return (
         CodexRouter(
@@ -20987,7 +17515,7 @@ def build_runtime_routers() -> tuple[Any, ...]:
             handle_backend_passthrough_post=handle_codex_backend_passthrough_post,
             handle_backend_passthrough_get=handle_codex_backend_passthrough_get,
         ),
-        ClaudeRouter(runtime_deps=globals()),
+        ClaudeRouter(runtime_deps=build_claude_router_dependencies()),
     )
 
 
@@ -25516,634 +22044,35 @@ def apply_llm_preset_to_provider(
     sync_ollama_context: bool = True,
     load_lm_studio: bool = False,
 ) -> list[str]:
-    if preset_id not in LLM_PRESETS:
-        raise SystemExit(f"Unknown preset: {preset_id}")
-    lang = lang or load_config().get("language", "en")
-    label = llm_preset_text(preset_id, lang)[0]
-    pcfg["llm_preset"] = preset_id
-    context_msgs: list[str] = []
-    if provider in ("ollama", "ollama-cloud"):
-        tokens_by_preset = {
-            "balanced": [
-                "num_ctx=auto",
-                "num_ctx_min=32768",
-                "num_ctx_max=65536",
-                "num_predict=4096",
-                "temperature=0.3",
-                "top_p=0.9",
-                "top_k=40",
-                "think=false",
-                "keep_alive=5m",
-                "timeout=300000",
-            ],
-            "coding": [
-                "num_ctx=auto",
-                "num_ctx_min=32768",
-                "num_ctx_max=65536",
-                "num_predict=4096",
-                "temperature=0.2",
-                "top_p=0.8",
-                "top_k=40",
-                "think=false",
-                "keep_alive=5m",
-                "timeout=300000",
-            ],
-            "fast": [
-                "num_ctx=32768",
-                "num_predict=2048",
-                "temperature=0.2",
-                "top_p=0.8",
-                "top_k=40",
-                "think=false",
-                "keep_alive=5m",
-                "timeout=300000",
-            ],
-            "long-context-65k": [
-                "num_ctx=auto",
-                "num_ctx_min=65536",
-                "num_ctx_max=131072",
-                "num_predict=4096",
-                "temperature=0.3",
-                "top_p=0.9",
-                "top_k=40",
-                "think=false",
-                "keep_alive=10m",
-                "timeout=300000",
-            ],
-            "long-context-128k": [
-                "num_ctx=auto",
-                "num_ctx_min=65536",
-                "num_ctx_max=131072",
-                "num_predict=8192",
-                "temperature=0.3",
-                "top_p=0.9",
-                "top_k=40",
-                "think=false",
-                "keep_alive=10m",
-                "timeout=300000",
-            ],
-            "long-context-256k": [
-                "num_ctx=auto",
-                "num_ctx_min=131072",
-                "num_ctx_max=262144",
-                "num_predict=8192",
-                "temperature=0.3",
-                "top_p=0.9",
-                "top_k=40",
-                "think=false",
-                "keep_alive=15m",
-                "timeout=300000",
-            ],
-            "long-context-300k": [
-                "num_ctx=auto",
-                "num_ctx_min=131072",
-                "num_ctx_max=307200",
-                "num_predict=8192",
-                "temperature=0.3",
-                "top_p=0.9",
-                "top_k=40",
-                "think=false",
-                "keep_alive=15m",
-                "timeout=300000",
-            ],
-            "long-context-512k": [
-                "num_ctx=auto",
-                "num_ctx_min=262144",
-                "num_ctx_max=524288",
-                "num_predict=8192",
-                "temperature=0.3",
-                "top_p=0.9",
-                "top_k=40",
-                "think=false",
-                "keep_alive=15m",
-                "timeout=300000",
-            ],
-            "million-context-1m": [
-                "num_ctx=auto",
-                "num_ctx_min=262144",
-                "num_ctx_max=1048576",
-                "num_predict=8192",
-                "temperature=0.3",
-                "top_p=0.9",
-                "top_k=40",
-                "think=false",
-                "keep_alive=15m",
-                "timeout=300000",
-            ],
-            "large-output": [
-                "num_ctx=auto",
-                "num_ctx_min=65536",
-                "num_ctx_max=131072",
-                "num_predict=8192",
-                "temperature=0.3",
-                "top_p=0.9",
-                "top_k=40",
-                "think=false",
-                "keep_alive=10m",
-                "timeout=300000",
-            ],
-            "reasoning": [
-                "num_ctx=auto",
-                "num_ctx_min=65536",
-                "num_ctx_max=131072",
-                "num_predict=4096",
-                "temperature=0.6",
-                "top_p=0.95",
-                "top_k=40",
-                "think=true",
-                "keep_alive=10m",
-                "timeout=300000",
-            ],
-            "novelist": [
-                "num_ctx=auto",
-                "num_ctx_min=65536",
-                "num_ctx_max=262144",
-                "num_predict=8192",
-                "temperature=0.85",
-                "top_p=0.95",
-                "top_k=80",
-                "think=false",
-                "keep_alive=10m",
-                "timeout=300000",
-            ],
-            "humanities-researcher": [
-                "num_ctx=auto",
-                "num_ctx_min=131072",
-                "num_ctx_max=524288",
-                "num_predict=8192",
-                "temperature=0.45",
-                "top_p=0.9",
-                "top_k=50",
-                "think=false",
-                "keep_alive=15m",
-                "timeout=300000",
-            ],
-            "mathematician": [
-                "num_ctx=auto",
-                "num_ctx_min=65536",
-                "num_ctx_max=262144",
-                "num_predict=8192",
-                "temperature=0.15",
-                "top_p=0.85",
-                "top_k=40",
-                "think=true",
-                "keep_alive=15m",
-                "timeout=300000",
-            ],
-            "product-architect": [
-                "num_ctx=auto",
-                "num_ctx_min=65536",
-                "num_ctx_max=262144",
-                "num_predict=8192",
-                "temperature=0.25",
-                "top_p=0.85",
-                "top_k=40",
-                "think=false",
-                "keep_alive=10m",
-                "timeout=300000",
-            ],
-            "teacher": [
-                "num_ctx=auto",
-                "num_ctx_min=32768",
-                "num_ctx_max=131072",
-                "num_predict=6144",
-                "temperature=0.55",
-                "top_p=0.9",
-                "top_k=60",
-                "think=false",
-                "keep_alive=10m",
-                "timeout=300000",
-            ],
-        }
-        for token in with_preset_timeout_tokens(tokens_by_preset[preset_id], preset_id):
-            apply_ollama_option(pcfg, token)
-        model_id = str(pcfg.get("current_model") or "").strip()
-        if model_id and sync_ollama_context:
-            context_msgs = sync_ollama_library_context_limit(provider, pcfg, model_id)
-        context_msgs.extend(apply_ollama_runtime_output_guard(provider, pcfg))
-    elif provider == "anthropic":
-        # Anthropic presets intentionally do NOT set max_output_tokens. Forcing it
-        # would pin CLAUDE_CODE_MAX_OUTPUT_TOKENS and override Claude Code's native
-        # per-model default (e.g. Fable 5 / Opus = 64000, Sonnet = 32000). Claude
-        # Code chooses that per-model cap itself; ciel-runtime must not degrade it.
-        # Only an explicit user value set via the options screen should emit the
-        # env var. Clear any preset-origin value so a stale forced cap cannot linger
-        # (older builds wrote 2048/4096/6144/8192 here).
-        pcfg.pop("max_output_tokens", None)
-        tokens_by_preset = {
-            "balanced": ["timeout=300000"],
-            "coding": ["timeout=300000"],
-            "fast": ["timeout=300000"],
-            "long-context-65k": ["timeout=300000"],
-            "long-context-128k": ["timeout=300000"],
-            "long-context-256k": ["timeout=300000"],
-            "long-context-300k": ["timeout=300000"],
-            "long-context-512k": ["timeout=300000"],
-            "million-context-1m": ["timeout=300000"],
-            "large-output": ["timeout=300000"],
-            "reasoning": ["timeout=300000"],
-            "novelist": ["timeout=300000"],
-            "humanities-researcher": ["timeout=300000"],
-            "mathematician": ["timeout=300000"],
-            "product-architect": ["timeout=300000"],
-            "teacher": ["timeout=300000"],
-        }
-        for token in with_preset_timeout_tokens(tokens_by_preset[preset_id], preset_id):
-            apply_provider_option(provider, pcfg, token)
-    else:
-        native_default = "false" if provider == "nvidia-hosted" else "true"
-        if provider == "lm-studio":
-            server_limit = provider_model_context_capacity(provider, pcfg)
-        else:
-            server_limit = upstream_model_context_limit(provider, pcfg) if provider in ("vllm", "self-hosted-nim") else None
-        if provider == "nvidia-hosted":
-            tokens_by_preset = {
-                "balanced": [
-                    "context_window=65536",
-                    "reserve=4096",
-                    "max_output_tokens=4096",
-                    "timeout=300000",
-                    "temperature=0.3",
-                    "unset:top_p",
-                    "unset:top_k",
-                ],
-                "coding": [
-                    "context_window=65536",
-                    "reserve=4096",
-                    "max_output_tokens=4096",
-                    "timeout=300000",
-                    "temperature=0.2",
-                    "unset:top_p",
-                    "unset:top_k",
-                ],
-                "fast": [
-                    "context_window=65536",
-                    "reserve=2048",
-                    "max_output_tokens=2048",
-                    "timeout=300000",
-                    "temperature=0.2",
-                    "unset:top_p",
-                    "unset:top_k",
-                ],
-                "long-context-65k": [
-                    "context_window=131072",
-                    "reserve=8192",
-                    "max_output_tokens=4096",
-                    "timeout=300000",
-                    "temperature=0.3",
-                    "unset:top_p",
-                    "unset:top_k",
-                ],
-                "long-context-128k": [
-                    "context_window=131072",
-                    "reserve=8192",
-                    "max_output_tokens=8192",
-                    "timeout=300000",
-                    "temperature=0.3",
-                    "unset:top_p",
-                    "unset:top_k",
-                ],
-                "long-context-256k": [
-                    "context_window=262144",
-                    "reserve=8192",
-                    "max_output_tokens=8192",
-                    "timeout=300000",
-                    "temperature=0.3",
-                    "unset:top_p",
-                    "unset:top_k",
-                ],
-                "long-context-300k": [
-                    "context_window=307200",
-                    "reserve=8192",
-                    "max_output_tokens=8192",
-                    "timeout=300000",
-                    "temperature=0.3",
-                    "unset:top_p",
-                    "unset:top_k",
-                ],
-                "long-context-512k": [
-                    "context_window=524288",
-                    "reserve=16384",
-                    "max_output_tokens=8192",
-                    "timeout=300000",
-                    "temperature=0.3",
-                    "unset:top_p",
-                    "unset:top_k",
-                ],
-                "million-context-1m": [
-                    "context_window=1048576",
-                    "reserve=16384",
-                    "max_output_tokens=8192",
-                    "timeout=300000",
-                    "temperature=0.3",
-                    "unset:top_p",
-                    "unset:top_k",
-                ],
-                "large-output": [
-                    "context_window=262144",
-                    "reserve=8192",
-                    "max_output_tokens=8192",
-                    "timeout=300000",
-                    "temperature=0.3",
-                    "unset:top_p",
-                    "unset:top_k",
-                ],
-                "reasoning": [
-                    "context_window=262144",
-                    "reserve=8192",
-                    "max_output_tokens=4096",
-                    "timeout=300000",
-                    "temperature=0.6",
-                    "unset:top_p",
-                    "unset:top_k",
-                ],
-                "novelist": [
-                    "context_window=262144",
-                    "reserve=8192",
-                    "max_output_tokens=8192",
-                    "timeout=300000",
-                    "temperature=0.85",
-                    "top_p=0.95",
-                    "top_k=80",
-                ],
-                "humanities-researcher": [
-                    "context_window=262144",
-                    "reserve=8192",
-                    "max_output_tokens=8192",
-                    "timeout=300000",
-                    "temperature=0.45",
-                    "top_p=0.9",
-                    "top_k=50",
-                ],
-                "mathematician": [
-                    "context_window=262144",
-                    "reserve=8192",
-                    "max_output_tokens=8192",
-                    "timeout=300000",
-                    "temperature=0.15",
-                    "top_p=0.85",
-                    "top_k=40",
-                ],
-                "product-architect": [
-                    "context_window=262144",
-                    "reserve=8192",
-                    "max_output_tokens=8192",
-                    "timeout=300000",
-                    "temperature=0.25",
-                    "top_p=0.85",
-                    "top_k=40",
-                ],
-                "teacher": [
-                    "context_window=131072",
-                    "reserve=4096",
-                    "max_output_tokens=6144",
-                    "timeout=300000",
-                    "temperature=0.55",
-                    "top_p=0.9",
-                    "top_k=60",
-                ],
-            }
-        else:
-            tokens_by_preset = {
-            "balanced": [
-                "context_window=32768",
-                "reserve=2048",
-                "max_output_tokens=4096",
-                "timeout=300000",
-                "temperature=0.3",
-                "unset:top_p",
-                "unset:top_k",
-                f"native={native_default}",
-            ],
-            "coding": [
-                "context_window=32768",
-                "reserve=2048",
-                "max_output_tokens=4096",
-                "timeout=300000",
-                "temperature=0.2",
-                "unset:top_p",
-                "unset:top_k",
-                f"native={native_default}",
-            ],
-            "fast": [
-                "context_window=32768",
-                "reserve=1024",
-                "max_output_tokens=2048",
-                "timeout=300000",
-                "temperature=0.2",
-                "unset:top_p",
-                "unset:top_k",
-                f"native={native_default}",
-            ],
-            "long-context-65k": [
-                "context_window=65536",
-                "reserve=4096",
-                "max_output_tokens=4096",
-                "timeout=300000",
-                "temperature=0.3",
-                "unset:top_p",
-                "unset:top_k",
-                f"native={native_default}",
-            ],
-            "long-context-128k": [
-                "context_window=131072",
-                "reserve=8192",
-                "max_output_tokens=8192",
-                "timeout=300000",
-                "temperature=0.3",
-                "unset:top_p",
-                "unset:top_k",
-                f"native={native_default}",
-            ],
-            "long-context-256k": [
-                "context_window=262144",
-                "reserve=8192",
-                "max_output_tokens=8192",
-                "timeout=300000",
-                "temperature=0.3",
-                "unset:top_p",
-                "unset:top_k",
-                f"native={native_default}",
-            ],
-            "long-context-300k": [
-                "context_window=307200",
-                "reserve=8192",
-                "max_output_tokens=8192",
-                "timeout=300000",
-                "temperature=0.3",
-                "unset:top_p",
-                "unset:top_k",
-                f"native={native_default}",
-            ],
-            "long-context-512k": [
-                "context_window=524288",
-                "reserve=16384",
-                "max_output_tokens=8192",
-                "timeout=300000",
-                "temperature=0.3",
-                "unset:top_p",
-                "unset:top_k",
-                f"native={native_default}",
-            ],
-            "million-context-1m": [
-                "context_window=1048576",
-                "reserve=16384",
-                "max_output_tokens=8192",
-                "timeout=300000",
-                "temperature=0.3",
-                "unset:top_p",
-                "unset:top_k",
-                f"native={native_default}",
-            ],
-            "large-output": [
-                "context_window=65536",
-                "reserve=4096",
-                "max_output_tokens=8192",
-                "timeout=300000",
-                "temperature=0.3",
-                "unset:top_p",
-                "unset:top_k",
-                f"native={native_default}",
-            ],
-            "reasoning": [
-                "context_window=65536",
-                "reserve=4096",
-                "max_output_tokens=4096",
-                "timeout=300000",
-                "temperature=0.6",
-                "unset:top_p",
-                "unset:top_k",
-                f"native={native_default}",
-            ],
-            "novelist": [
-                "context_window=262144",
-                "reserve=8192",
-                "max_output_tokens=8192",
-                "timeout=300000",
-                "temperature=0.85",
-                "top_p=0.95",
-                "top_k=80",
-                f"native={native_default}",
-            ],
-            "humanities-researcher": [
-                "context_window=262144",
-                "reserve=8192",
-                "max_output_tokens=8192",
-                "timeout=300000",
-                "temperature=0.45",
-                "top_p=0.9",
-                "top_k=50",
-                f"native={native_default}",
-            ],
-            "mathematician": [
-                "context_window=262144",
-                "reserve=8192",
-                "max_output_tokens=8192",
-                "timeout=300000",
-                "temperature=0.15",
-                "top_p=0.85",
-                "top_k=40",
-                f"native={native_default}",
-            ],
-            "product-architect": [
-                "context_window=262144",
-                "reserve=8192",
-                "max_output_tokens=8192",
-                "timeout=300000",
-                "temperature=0.25",
-                "top_p=0.85",
-                "top_k=40",
-                f"native={native_default}",
-            ],
-            "teacher": [
-                "context_window=131072",
-                "reserve=4096",
-                "max_output_tokens=6144",
-                "timeout=300000",
-                "temperature=0.55",
-                "top_p=0.9",
-                "top_k=60",
-                f"native={native_default}",
-            ],
-            }
-            if provider == "kimi":
-                tokens_by_preset["long-context-128k"] = [
-                    "context_window=262144",
-                    "reserve=32768",
-                    "max_output_tokens=32768",
-                    "timeout=600000",
-                    "temperature=0.3",
-                    "unset:top_p",
-                    "unset:top_k",
-                    "native=true",
-                ]
-                tokens_by_preset["long-context-256k"] = [
-                    "context_window=262144",
-                    "reserve=32768",
-                    "max_output_tokens=32768",
-                    "timeout=600000",
-                    "temperature=0.3",
-                    "unset:top_p",
-                    "unset:top_k",
-                    "native=true",
-                ]
-        for token in with_preset_timeout_tokens(tokens_by_preset[preset_id], preset_id):
-            if provider == "nvidia-hosted" and token.startswith("native="):
-                continue
-            apply_provider_option(provider, pcfg, token)
-        if server_limit:
-            requested_context = positive_int(pcfg.get("context_window"))
-            if requested_context and requested_context > server_limit:
-                pcfg["context_window"] = server_limit
-                if server_limit <= 32768:
-                    pcfg["max_output_tokens"] = min(positive_int(pcfg.get("max_output_tokens")) or 2048, 2048)
-                else:
-                    pcfg["max_output_tokens"] = min(positive_int(pcfg.get("max_output_tokens")) or 4096, max(1024, server_limit // 8))
-    context_msgs.extend(cap_context_settings_to_model_capacity(provider, pcfg))
-    context_msgs.extend(cap_output_settings_to_context_ratio(provider, pcfg))
-    if provider == "lm-studio":
-        context_msgs.extend(apply_lm_studio_loaded_context_guard(pcfg, load=load_lm_studio))
-    context_msgs.extend(apply_recommended_timeout_for_model_context(provider, pcfg))
-    family = model_option_family(provider, pcfg)
-    lines = [
-        f"{ui_text('apply_preset', lang)}: {label}",
-        f"Provider: {provider}; {ui_text('model_family', lang)}: {model_family_text(family, lang)}",
-    ]
-    lines.extend(context_msgs)
-    if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim"):
-        server_limit = provider_model_context_capacity(provider, pcfg) if provider == "lm-studio" else upstream_model_context_limit(provider, pcfg)
-        required_context = required_context_for_preset(preset_id, provider) or 65536
-        if server_limit:
-            label = "Model max context" if provider == "lm-studio" else "Server max_model_len"
-            lines.append(f"{label}: {server_limit}")
-            if preset_id in CONTEXT_HEAVY_PRESETS and server_limit < required_context:
-                lines.append(f"This preset requires restarting the server with --max-model-len {required_context} or higher.")
-                lines.append("Client settings were capped to the server-reported context length.")
-        elif preset_id in CONTEXT_HEAVY_PRESETS and provider != "lm-studio":
-            lines.append("Could not verify server max_model_len; vLLM/NIM must be started with a matching context limit.")
-    if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim"):
-        lines.append(
-            "Applied options: "
-            f"context_window={pcfg.get('context_window', 'default')}, "
-            f"reserve={pcfg.get('context_reserve_tokens', 'default')}, "
-            f"max_output_tokens={pcfg.get('max_output_tokens', 'default')}, "
-            f"timeout={pcfg.get('request_timeout_ms', 'default')}ms"
-        )
-    elif provider in ("ollama", "ollama-cloud"):
-        opts = ollama_extra_options(pcfg)
-        lines.append(
-            "Applied options: "
-            f"num_ctx={ollama_num_ctx_status(pcfg)}, "
-            f"num_predict={opts.get('num_predict', 'default')}, "
-            f"timeout={pcfg.get('request_timeout_ms', 'default')}ms"
-        )
-    elif provider == "anthropic":
-        lines.append(
-            "Applied options: "
-            f"max_output_tokens={pcfg.get('max_output_tokens', 'default')}, "
-            f"timeout={pcfg.get('request_timeout_ms', 'default')}ms"
-        )
-    return lines
+    return apply_preset_to_provider(
+        provider, pcfg, preset_id, lang,
+        sync_ollama_context=sync_ollama_context,
+        load_lm_studio=load_lm_studio,
+        services=PresetServices(
+            CONTEXT_HEAVY_PRESETS=CONTEXT_HEAVY_PRESETS,
+            LLM_PRESETS=LLM_PRESETS,
+            apply_lm_studio_loaded_context_guard=apply_lm_studio_loaded_context_guard,
+            apply_ollama_option=apply_ollama_option,
+            apply_ollama_runtime_output_guard=apply_ollama_runtime_output_guard,
+            apply_provider_option=apply_provider_option,
+            apply_recommended_timeout_for_model_context=apply_recommended_timeout_for_model_context,
+            cap_context_settings_to_model_capacity=cap_context_settings_to_model_capacity,
+            cap_output_settings_to_context_ratio=cap_output_settings_to_context_ratio,
+            llm_preset_text=llm_preset_text,
+            load_config=load_config,
+            model_family_text=model_family_text,
+            model_option_family=model_option_family,
+            ollama_extra_options=ollama_extra_options,
+            ollama_num_ctx_status=ollama_num_ctx_status,
+            positive_int=positive_int,
+            provider_model_context_capacity=provider_model_context_capacity,
+            required_context_for_preset=required_context_for_preset,
+            sync_ollama_library_context_limit=sync_ollama_library_context_limit,
+            ui_text=ui_text,
+            upstream_model_context_limit=upstream_model_context_limit,
+            with_preset_timeout_tokens=with_preset_timeout_tokens
+        ),
+    )
 
 
 def auto_apply_recommended_llm_preset_for_model(provider: str, pcfg: dict[str, Any], lang: str | None = None) -> list[str]:
@@ -29224,24 +25153,13 @@ def cleanup_managed_services_for_provider(provider: str, pcfg: dict[str, Any], c
 
 
 def default_base_url(provider: str) -> str:
-    return {
-        "anthropic": "https://api.anthropic.com",
-        "agy": "https://antigravity.google",
-        "codex": "https://api.openai.com",
-        "ollama": "http://your-ollama:11434",
-        "ollama-cloud": "https://ollama.com",
-        "deepseek": "https://api.deepseek.com/anthropic",
-        "opencode": OPENCODE_ZEN_BASE_URL,
-        "opencode-go": OPENCODE_GO_BASE_URL,
-        "kimi": KIMI_CODING_BASE_URL,
-        "zai": ZAI_ANTHROPIC_BASE_URL,
-        "vllm": "http://your-vllm:8000",
-        "lm-studio": "http://127.0.0.1:1234/v1",
-        "nvidia-hosted": nvidia_upstream_base_url(),
-        "self-hosted-nim": "http://your-nim:8000",
-        "openrouter": "https://openrouter.ai/api/v1",
-        "fireworks": FIREWORKS_INFERENCE_BASE_URL,
-    }.get(provider, "http://localhost:8000")
+    if provider == "nvidia-hosted":
+        return nvidia_upstream_base_url()
+    if PROVIDER_ADAPTERS.contains(provider):
+        configured = PROVIDER_ADAPTERS.create(provider).default_base_url()
+        if configured:
+            return configured
+    return "http://localhost:8000"
 
 
 def meaningful_key(value: str | None) -> bool:
@@ -30672,592 +26590,85 @@ def portable_language_menu() -> int:
 
 
 def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
-    passthrough = list(passthrough or [])
-    enable_ansi()
-    cfg = load_config()
-    provider, _pcfg = get_current_provider(cfg)
-    main_idx = prelaunch_action_index(default_prelaunch_action(provider)) if settings_ready_except_api_key() else 0
-    panel: str | None = None
-    panel_idx = 0
-    panel_rows: list[str] = []
-    panel_values: list[str] = []
-    panel_last_idx: dict[str, int] = {}
-    checks = preflight_lines()
-    messages: list[str] = []
-    first_render = True
-
-    def open_panel(name: str) -> None:
-        nonlocal panel, panel_idx, panel_rows, panel_values, messages, first_render
-        cfg = load_config()
-        provider, pcfg = get_current_provider(cfg)
-        panel = name
-        panel_idx = panel_last_idx.get(name, 0)
-        if name == "language":
-            panel_rows, panel_values = language_panel_rows(cfg)
-            panel_idx = panel_values.index(cfg.get("language", "en"))
-        elif name == "provider":
-            panel_rows, panel_values = provider_panel_rows(cfg)
-            current_choice = current_provider_panel_choice(provider, pcfg)
-            panel_idx = panel_values.index(current_choice) if current_choice in panel_values else 0
-        elif name == "api-key":
-            panel_rows, panel_values = api_key_panel_rows(provider, pcfg)
-        elif name == "base-url":
-            panel_rows, panel_values = base_url_panel_rows(provider, pcfg)
-        elif name == "model":
-            try:
-                panel_rows, panel_values = model_panel_rows(
-                    provider,
-                    pcfg,
-                    fetch=provider == "anthropic" and read_model_list_cache(provider, pcfg) is None,
-                )
-            except Exception as exc:
-                panel_rows, panel_values = [f"Model list failed: {type(exc).__name__}: {exc}", "+ Custom model id..."], []
-        elif name == "advisor-model":
-            try:
-                panel_rows, panel_values = advisor_model_panel_rows(
-                    provider,
-                    pcfg,
-                    fetch=provider == "anthropic" and read_model_list_cache(provider, pcfg) is None,
-                )
-            except Exception as exc:
-                panel_rows, panel_values = [f"Advisor model list failed: {type(exc).__name__}: {exc}", "+ Custom advisor model id..."], []
-        elif name == "test":
-            panel_rows, panel_values = ["Run compatibility test", "Back"], ["run", "back"]
-        elif name == "options":
-            panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
-        elif name == "channel-delivery":
-            panel_rows, panel_values = channel_delivery_panel_rows(cfg)
-        elif name == "log-level":
-            panel_rows, panel_values = log_level_panel_rows(cfg)
-        elif name == "channels":
-            panel_rows, panel_values, probe_messages = channel_panel_rows_for_menu(cfg, passthrough)
-            if probe_messages:
-                messages = probe_messages
-            if panel_values:
-                panel_idx = _channel_panel_first_selectable(panel_values)
-        elif name == "context":
-            panel_rows, panel_values = context_setup_panel_rows(provider, pcfg, cfg.get("language", "en"))
-        elif name == "preset":
-            panel_rows, panel_values = llm_preset_panel_rows(provider, pcfg, cfg.get("language", "en"))
-        elif name == "timeout":
-            panel_rows, panel_values = timeout_profile_panel_rows(pcfg, cfg.get("language", "en"))
-        if panel_rows:
-            panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
-
-    def close_panel(next_idx: int | None = None) -> None:
-        nonlocal panel, panel_idx, panel_rows, panel_values, main_idx
-        if panel:
-            panel_last_idx[panel] = panel_idx
-        panel = None
-        panel_idx = 0
-        panel_rows = []
-        panel_values = []
-        if next_idx is not None:
-            main_idx = next_idx
-
-    def refresh_checks() -> None:
-        nonlocal checks
-        checks = preflight_lines()
-
-    fd = sys.stdin.fileno()
-    old_settings = None
-    if os.name != "nt" and os.isatty(fd):
-        try:
-            import termios
-            old_settings = termios.tcgetattr(fd)
-            new = termios.tcgetattr(fd)
-            new[3] = new[3] & ~(termios.ECHO | termios.ICANON)
-            new[6][termios.VMIN] = 1
-            new[6][termios.VTIME] = 0
-            termios.tcsetattr(fd, termios.TCSANOW, new)
-        except Exception:
-            fd = -1
-    if sys.stdout.isatty():
-        sys.stdout.write("\033[?25l")
-        sys.stdout.flush()
-    def restore_line_mode() -> None:
-        if old_settings is not None and fd >= 0:
-            try:
-                import termios
-                termios.tcsetattr(fd, termios.TCSANOW, old_settings)
-            except Exception:
-                pass
-
-    def restore_raw_mode() -> None:
-        if old_settings is not None and fd >= 0:
-            try:
-                import termios
-                new = termios.tcgetattr(fd)
-                new[3] = new[3] & ~(termios.ECHO | termios.ICANON)
-                new[6][termios.VMIN] = 1
-                new[6][termios.VTIME] = 0
-                termios.tcsetattr(fd, termios.TCSANOW, new)
-            except Exception:
-                pass
-
-    try:
-        while True:
-            first_render = render_prelaunch_screen(main_idx, panel, panel_idx, panel_rows, checks, messages, first_render)
-            key = read_menu_key(fd) if fd >= 0 else read_menu_key()
-            if panel:
-                panel_name = panel
-                if key in ("up", "k"):
-                    if panel == "channels":
-                        panel_idx = _channel_panel_step(panel_values, panel_idx, -1)
-                    else:
-                        panel_idx = (panel_idx - 1) % max(1, len(panel_rows))
-                    panel_last_idx[panel_name] = panel_idx
-                    continue
-                if key in ("down", "j"):
-                    if panel == "channels":
-                        panel_idx = _channel_panel_step(panel_values, panel_idx, 1)
-                    else:
-                        panel_idx = (panel_idx + 1) % max(1, len(panel_rows))
-                    panel_last_idx[panel_name] = panel_idx
-                    continue
-                if key in ("esc", "left", "q"):
-                    close_panel()
-                    continue
-                if key != "enter":
-                    continue
-                cfg = load_config()
-                provider, pcfg = get_current_provider(cfg)
-                value = panel_values[panel_idx] if panel_idx < len(panel_values) else ""
-                if panel == "language" and value:
-                    cfg["language"] = value
-                    save_config(cfg)
-                    messages = [f"Language set to {value} ({LANGUAGES[value]})."]
-                    refresh_checks()
-                    close_panel(1)
-                elif panel == "provider" and value:
-                    messages = set_provider_choice_config(value)
-                    refresh_checks()
-                    cfg = load_config()
-                    provider, _pcfg = get_current_provider(cfg)
-                    if provider == "codex":
-                        close_panel(prelaunch_action_index(default_prelaunch_action(provider)))
-                    else:
-                        main_idx = 4
-                        open_panel("model")
-                elif panel == "model":
-                    if value == "back":
-                        close_panel()
-                        continue
-                    if value == "__refresh_models__":
-                        panel_rows, panel_values = ["Refreshing provider model list..."], []
-                        first_render = render_prelaunch_screen(main_idx, panel, 0, panel_rows, checks, messages, first_render)
-                        try:
-                            panel_rows, panel_values = model_panel_rows(provider, pcfg, fetch=True, force_refresh=True)
-                            messages = [f"Model list refreshed: {max(0, len(panel_values) - 3)} model(s)."]
-                        except Exception as exc:
-                            messages = [f"Model list refresh failed: {type(exc).__name__}: {exc}"]
-                            panel_rows, panel_values = model_panel_rows(provider, pcfg, fetch=False)
-                        panel_idx = 0
-                        panel_last_idx["model"] = 0
-                        refresh_checks()
-                        continue
-                    if value == "__custom__" or panel_idx >= len(panel_values):
-                        model_value = prompt_menu_value("Model id or alias", restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                    else:
-                        model_value = value
-                    if model_value:
-                        messages = set_model_config(model_value)
-                        refresh_checks()
-                    close_panel(5)
-                elif panel == "advisor-model":
-                    if value == "back":
-                        close_panel()
-                        continue
-                    if value == "__refresh_models__":
-                        panel_rows, panel_values = ["Refreshing provider model list..."], []
-                        first_render = render_prelaunch_screen(main_idx, panel, 0, panel_rows, checks, messages, first_render)
-                        try:
-                            panel_rows, panel_values = advisor_model_panel_rows(provider, pcfg, fetch=True, force_refresh=True)
-                            messages = [f"Model list refreshed: {max(0, len(panel_values) - 4)} advisor model(s)."]
-                        except Exception as exc:
-                            messages = [f"Model list refresh failed: {type(exc).__name__}: {exc}"]
-                            panel_rows, panel_values = advisor_model_panel_rows(provider, pcfg, fetch=False)
-                        panel_idx = 0
-                        panel_last_idx["advisor-model"] = 0
-                        refresh_checks()
-                        continue
-                    if value == "__custom__" or panel_idx >= len(panel_values):
-                        advisor_value = prompt_menu_value("Advisor model id", "deepseek-v4-pro", restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                    else:
-                        advisor_value = value
-                    messages = set_advisor_model_config(advisor_value)
-                    refresh_checks()
-                    close_panel(6)
-                elif panel == "api-key":
-                    if value == "back":
-                        close_panel()
-                    elif value == "input":
-                        key_value = prompt_menu_value(f"API key for {provider}", secret=True, restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        if key_value:
-                            messages = store_api_key_input_config(provider, key_value)
-                            refresh_checks()
-                        close_panel(3)
-                    elif value == "multi-input":
-                        key_value = prompt_menu_multiline_value(
-                            f"API keys for {provider} (comma/newline separated)",
-                            restore_tty=restore_line_mode,
-                            raw_tty=restore_raw_mode,
-                        )
-                        if key_value:
-                            messages = store_api_keys_config(provider, parse_api_key_list(key_value))
-                            refresh_checks()
-                        close_panel(3)
-                    elif value == "env":
-                        default_env = {
-                            "anthropic": "ANTHROPIC_API_KEY",
-                            "deepseek": "DEEPSEEK_API_KEY",
-                            "opencode": "OPENCODE_API_KEY",
-                            "opencode-go": "OPENCODE_API_KEY",
-                            "kimi": "KIMI_API_KEY",
-                            "nvidia-hosted": "NVIDIA_API_KEY",
-                            "ollama-cloud": "OLLAMA_API_KEY",
-                            "openrouter": "OPENROUTER_API_KEY",
-                            "fireworks": "FIREWORKS_API_KEY",
-                        }.get(provider, "API_KEY")
-                        env_name = prompt_menu_value("Environment variable name", default_env, restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        key_value = os.environ.get(env_name, "").strip()
-                        if key_value:
-                            messages = store_api_key_input_config(provider, key_value)
-                        else:
-                            messages = [f"Environment variable {env_name} is empty or not set."]
-                        refresh_checks()
-                        close_panel(3)
-                    elif value == "multi-env":
-                        default_env = {
-                            "anthropic": "ANTHROPIC_API_KEYS",
-                            "deepseek": "DEEPSEEK_API_KEYS",
-                            "opencode": "OPENCODE_API_KEYS",
-                            "opencode-go": "OPENCODE_API_KEYS",
-                            "kimi": "KIMI_API_KEYS",
-                            "nvidia-hosted": "NVIDIA_API_KEYS",
-                            "ollama-cloud": "OLLAMA_API_KEYS",
-                            "openrouter": "OPENROUTER_API_KEYS",
-                            "fireworks": "FIREWORKS_API_KEYS",
-                        }.get(provider, "API_KEYS")
-                        env_name = prompt_menu_value("Environment variable name", default_env, restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        key_value = os.environ.get(env_name, "").strip()
-                        if key_value:
-                            messages = store_api_keys_config(provider, parse_api_key_list(key_value))
-                        else:
-                            messages = [f"Environment variable {env_name} is empty or not set."]
-                        refresh_checks()
-                        close_panel(3)
-                    elif value == "clipboard":
-                        key_value = read_clipboard_text()
-                        if not key_value:
-                            messages = ["Clipboard did not contain readable text."]
-                        else:
-                            confirm = prompt_menu_value(f"Clipboard contains {mask_secret(key_value)}. Store it? y/N", restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                            if confirm.lower().startswith("y"):
-                                messages = store_api_key_input_config(provider, key_value)
-                            else:
-                                messages = ["Clipboard API key was not stored."]
-                        refresh_checks()
-                        close_panel(3)
-                    elif value == "multi-clipboard":
-                        key_value = read_clipboard_text()
-                        keys = parse_api_key_list(key_value)
-                        if not keys:
-                            messages = ["Clipboard did not contain readable API keys."]
-                        else:
-                            primary = f"{mask_secret(keys[0])}; fp {secret_fingerprint(keys[0])}"
-                            confirm = prompt_menu_value(
-                                f"Clipboard contains {len(keys)} key(s); primary {primary}. Store with round-robin? y/N",
-                                restore_tty=restore_line_mode,
-                                raw_tty=restore_raw_mode,
-                            )
-                            if confirm.lower().startswith("y"):
-                                messages = store_api_keys_config(provider, keys)
-                            else:
-                                messages = ["Clipboard API keys were not stored."]
-                        refresh_checks()
-                        close_panel(3)
-                    elif value == "clear":
-                        messages = clear_api_key_config(provider)
-                        refresh_checks()
-                        close_panel(3)
-                elif panel == "base-url":
-                    if value == "back":
-                        close_panel()
-                    elif value == "default":
-                        messages = set_base_url_config(provider, default_base_url(provider))
-                        refresh_checks()
-                        close_panel(4)
-                    elif value == "edit":
-                        default = pcfg.get("base_url") or default_base_url(provider)
-                        url = prompt_menu_value(f"Base URL for {provider}", default, restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        if url:
-                            messages = set_base_url_config(provider, url)
-                            refresh_checks()
-                        close_panel(4)
-                elif panel == "test":
-                    if value == "back":
-                        close_panel()
-                    else:
-                        panel_rows, panel_values = ["Testing current provider/model..."], []
-                        first_render = render_prelaunch_screen(main_idx, panel, 0, panel_rows, checks, messages, first_render)
-                        _, out = self_cmd(["test"])
-                        lines = [line for line in out.splitlines() if line.strip()]
-                        messages = lines[-8:] if lines else ["Test produced no output."]
-                        test_ok = "Compatibility: OK" in out
-                        refresh_checks()
-                        close_panel(9 if test_ok else 4)
-                elif panel == "log-level":
-                    if value == "back":
-                        close_panel()
-                    elif value:
-                        messages = set_log_level_config(value)
-                        refresh_checks()
-                        cfg = load_config()
-                        panel_rows, panel_values = log_level_panel_rows(cfg)
-                        panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
-                elif panel == "channel-delivery":
-                    if value == "back":
-                        close_panel()
-                    elif value:
-                        messages = set_channel_delivery_config(value)
-                        refresh_checks()
-                        cfg = load_config()
-                        panel_rows, panel_values = channel_delivery_panel_rows(cfg)
-                        panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
-                elif panel == "channels":
-                    if value == "back":
-                        close_panel()
-                    elif value in ("__heading__", "__noop__"):
-                        continue
-                    elif value == "__reprobe__":
-                        panel_rows, panel_values = ["Re-probing MCP channel capability..."], []
-                        first_render = render_prelaunch_screen(main_idx, panel, 0, panel_rows, checks, messages, first_render)
-                        try:
-                            result = refresh_channel_probe_cache(passthrough)
-                            messages = [channel_probe_summary_message("Probe complete", result)]
-                        except Exception as exc:
-                            messages = [f"Re-probe failed: {type(exc).__name__}: {exc}"]
-                        cfg = load_config()
-                        panel_rows, panel_values = channel_panel_rows(cfg)
-                        if panel_values:
-                            panel_idx = _channel_panel_first_selectable(panel_values)
-                    elif value == "__add_custom__":
-                        spec = prompt_menu_value("Channel spec (for example plugin:ainet@local or server:ainet)", restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        if spec:
-                            messages = add_channel_spec(spec)
-                            cfg = load_config()
-                            panel_rows, panel_values = channel_panel_rows(cfg)
-                            if panel_values:
-                                panel_idx = _channel_panel_first_selectable(panel_values)
-                    elif value == "__remove__":
-                        spec = prompt_menu_value("Channel spec to remove", "", restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        if spec:
-                            messages = remove_channel_spec(spec)
-                            cfg = load_config()
-                            panel_rows, panel_values = channel_panel_rows(cfg)
-                            if panel_values:
-                                panel_idx = _channel_panel_first_selectable(panel_values)
-                    elif value == "__clear__":
-                        messages = clear_channel_specs()
-                        cfg = load_config()
-                        panel_rows, panel_values = channel_panel_rows(cfg)
-                        if panel_values:
-                            panel_idx = _channel_panel_first_selectable(panel_values)
-                    elif value:
-                        if value in channel_specs(cfg):
-                            messages = remove_channel_spec(value)
-                        else:
-                            messages = add_channel_spec(value)
-                        cfg = load_config()
-                        panel_rows, panel_values = channel_panel_rows(cfg)
-                    refresh_checks()
-                elif panel == "options":
-                    if value == "back":
-                        close_panel()
-                    elif value == "context_setup":
-                        open_panel("context")
-                    elif value == "preset":
-                        open_panel("preset")
-                    elif value == "timeout_profile":
-                        open_panel("timeout")
-                    elif value in LLM_OPTION_TOGGLE_KEYS:
-                        # Boolean toggles flip on Enter — no input prompt.
-                        current = llm_option_current_bool(provider, pcfg, value)
-                        try:
-                            messages = set_llm_option_config(provider, value, "false" if current else "true")
-                        except Exception as exc:
-                            messages = [f"Option update failed: {type(exc).__name__}: {exc}"]
-                        refresh_checks()
-                        cfg = load_config()
-                        provider, pcfg = get_current_provider(cfg)
-                        old_idx = panel_idx
-                        panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
-                        panel_idx = max(0, min(old_idx, len(panel_rows) - 1))
-                        panel_last_idx["options"] = panel_idx
-                    else:
-                        default = llm_option_prompt_default(provider, pcfg, value)
-                        entered = prompt_menu_value(f"{value} for {provider} (default/unset clears)", default, restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        try:
-                            messages = set_llm_option_config(provider, value, entered)
-                        except Exception as exc:
-                            messages = [f"Option update failed: {type(exc).__name__}: {exc}"]
-                        refresh_checks()
-                        cfg = load_config()
-                        provider, pcfg = get_current_provider(cfg)
-                        old_idx = panel_idx
-                        panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
-                        panel_idx = max(0, min(old_idx, len(panel_rows) - 1))
-                        panel_last_idx["options"] = panel_idx
-                elif panel == "context":
-                    if value == "back":
-                        open_panel("options")
-                    elif value == "__info__":
-                        continue
-                    else:
-                        try:
-                            messages = apply_context_setup_config(provider, value)
-                        except Exception as exc:
-                            messages = [f"Context setup failed: {type(exc).__name__}: {exc}"]
-                        refresh_checks()
-                        cfg = load_config()
-                        provider, pcfg = get_current_provider(cfg)
-                        panel = "options"
-                        panel_idx = panel_last_idx.get("options", 0)
-                        panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
-                        panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
-                        panel_last_idx["options"] = panel_idx
-                elif panel == "preset":
-                    if value == "back":
-                        open_panel("options")
-                    elif value == "__info__":
-                        continue
-                    else:
-                        try:
-                            messages = apply_llm_preset_config(provider, value)
-                        except Exception as exc:
-                            messages = [f"Preset failed: {type(exc).__name__}: {exc}"]
-                        refresh_checks()
-                        cfg = load_config()
-                        provider, pcfg = get_current_provider(cfg)
-                        panel = "options"
-                        panel_idx = panel_last_idx.get("options", 0)
-                        panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
-                        panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
-                        panel_last_idx["options"] = panel_idx
-                elif panel == "timeout":
-                    if value == "back":
-                        open_panel("options")
-                    elif value == "__info__":
-                        continue
-                    else:
-                        try:
-                            cfg = load_config()
-                            provider, pcfg = get_current_provider(cfg)
-                            messages = apply_timeout_profile_to_provider(pcfg, value, cfg.get("language", "en"))
-                            save_config(cfg)
-                            clear_model_cache()
-                        except Exception as exc:
-                            messages = [f"Timeout preset failed: {type(exc).__name__}: {exc}"]
-                        refresh_checks()
-                        cfg = load_config()
-                        provider, pcfg = get_current_provider(cfg)
-                        panel = "options"
-                        panel_idx = panel_last_idx.get("options", 0)
-                        panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
-                        panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
-                        panel_last_idx["options"] = panel_idx
-                continue
-
-            if key in ("up", "k"):
-                cfg = load_config()
-                provider, pcfg = get_current_provider(cfg)
-                main_idx = (main_idx - 1) % len(main_menu_rows(cfg, provider, pcfg, cfg.get("language", "en")))
-            elif key in ("down", "j"):
-                cfg = load_config()
-                provider, pcfg = get_current_provider(cfg)
-                main_idx = (main_idx + 1) % len(main_menu_rows(cfg, provider, pcfg, cfg.get("language", "en")))
-            elif key in ("esc", "q"):
-                return PRELAUNCH_CANCEL
-            elif key == "enter":
-                actions = list(MAIN_MENU_ACTIONS)
-                action = actions[main_idx]
-                if action == "launch":
-                    cfg = load_config()
-                    provider, _ = get_current_provider(cfg)
-                    if not claude_launch_enabled_for_provider(provider):
-                        provider_label = provider_menu_label(provider, cfg.get("providers", {}).get(provider, {}))
-                        messages = [f"Launch Claude Code is disabled while {provider_label} provider is selected."]
-                        refresh_checks()
-                        continue
-                    blockers = launch_readiness_errors()
-                    if blockers:
-                        messages = blockers
-                        if launch_blockers_require_api_key(blockers):
-                            cfg = load_config()
-                            provider, _ = get_current_provider(cfg)
-                            main_idx = actions.index("api-key")
-                            open_panel("api-key")
-                            if "input" in panel_values:
-                                panel_idx = panel_values.index("input")
-                            messages = [
-                                *blockers,
-                                f"Opening API key setup for {PROVIDER_LABELS.get(provider, provider)}.",
-                            ]
-                        refresh_checks()
-                        continue
-                    return PRELAUNCH_LAUNCH_CLAUDE
-                if action == "launch-agy":
-                    cfg = load_config()
-                    provider, _ = get_current_provider(cfg)
-                    if not agy_launch_enabled_for_provider(provider):
-                        messages = ["Launch AGY is disabled until you select AGY or AGY Routed as the provider."]
-                        refresh_checks()
-                        continue
-                    blockers = launch_readiness_errors()
-                    if blockers:
-                        messages = blockers
-                        refresh_checks()
-                        continue
-                    return PRELAUNCH_LAUNCH_AGY
-                if action == "launch-codex":
-                    cfg = load_config()
-                    provider, pcfg = get_current_provider(cfg)
-                    if not codex_launch_enabled_for_provider(provider):
-                        messages = [f"Launch Codex is disabled while {provider_menu_label(provider, pcfg)} provider is selected."]
-                        refresh_checks()
-                        continue
-                    blockers = launch_readiness_errors()
-                    if blockers:
-                        messages = blockers
-                        refresh_checks()
-                        continue
-                    return PRELAUNCH_LAUNCH_CODEX
-                if action == "launch-codex-app-server":
-                    cfg = load_config()
-                    provider, pcfg = get_current_provider(cfg)
-                    if not codex_launch_enabled_for_provider(provider):
-                        messages = [f"Launch Codex App Server is disabled while {provider_menu_label(provider, pcfg)} provider is selected."]
-                        refresh_checks()
-                        continue
-                    blockers = launch_readiness_errors()
-                    if blockers:
-                        messages = blockers
-                        refresh_checks()
-                        continue
-                    return PRELAUNCH_LAUNCH_CODEX_APP_SERVER
-                if action == "quit":
-                    return PRELAUNCH_CANCEL
-                open_panel(action)
-    finally:
-        if old_settings is not None:
-            try:
-                import termios
-                termios.tcsetattr(fd, termios.TCSANOW, old_settings)
-            except Exception:
-                pass
-        sys.stdout.write("\033[?25h")
-        sys.stdout.flush()
+    return execute_prelaunch_menu(
+        passthrough,
+        services=PrelaunchServices(
+            LANGUAGES=LANGUAGES,
+            LLM_OPTION_TOGGLE_KEYS=LLM_OPTION_TOGGLE_KEYS,
+            MAIN_MENU_ACTIONS=MAIN_MENU_ACTIONS,
+            PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
+            PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
+            PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
+            PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
+            PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+            PROVIDER_LABELS=PROVIDER_LABELS,
+            _channel_panel_first_selectable=_channel_panel_first_selectable,
+            _channel_panel_step=_channel_panel_step,
+            add_channel_spec=add_channel_spec,
+            advisor_model_panel_rows=advisor_model_panel_rows,
+            agy_launch_enabled_for_provider=agy_launch_enabled_for_provider,
+            api_key_panel_rows=api_key_panel_rows,
+            apply_context_setup_config=apply_context_setup_config,
+            apply_llm_preset_config=apply_llm_preset_config,
+            apply_timeout_profile_to_provider=apply_timeout_profile_to_provider,
+            base_url_panel_rows=base_url_panel_rows,
+            channel_delivery_panel_rows=channel_delivery_panel_rows,
+            channel_panel_rows=channel_panel_rows,
+            channel_panel_rows_for_menu=channel_panel_rows_for_menu,
+            channel_probe_summary_message=channel_probe_summary_message,
+            channel_specs=channel_specs,
+            claude_launch_enabled_for_provider=claude_launch_enabled_for_provider,
+            clear_api_key_config=clear_api_key_config,
+            clear_channel_specs=clear_channel_specs,
+            clear_model_cache=clear_model_cache,
+            codex_launch_enabled_for_provider=codex_launch_enabled_for_provider,
+            context_setup_panel_rows=context_setup_panel_rows,
+            current_provider_panel_choice=current_provider_panel_choice,
+            default_base_url=default_base_url,
+            default_prelaunch_action=default_prelaunch_action,
+            enable_ansi=enable_ansi,
+            get_current_provider=get_current_provider,
+            language_panel_rows=language_panel_rows,
+            launch_blockers_require_api_key=launch_blockers_require_api_key,
+            launch_readiness_errors=launch_readiness_errors,
+            llm_option_current_bool=llm_option_current_bool,
+            llm_option_panel_rows=llm_option_panel_rows,
+            llm_option_prompt_default=llm_option_prompt_default,
+            llm_preset_panel_rows=llm_preset_panel_rows,
+            load_config=load_config,
+            log_level_panel_rows=log_level_panel_rows,
+            main_menu_rows=main_menu_rows,
+            mask_secret=mask_secret,
+            model_panel_rows=model_panel_rows,
+            parse_api_key_list=parse_api_key_list,
+            preflight_lines=preflight_lines,
+            prelaunch_action_index=prelaunch_action_index,
+            prompt_menu_multiline_value=prompt_menu_multiline_value,
+            prompt_menu_value=prompt_menu_value,
+            provider_menu_label=provider_menu_label,
+            provider_panel_rows=provider_panel_rows,
+            read_clipboard_text=read_clipboard_text,
+            read_menu_key=read_menu_key,
+            read_model_list_cache=read_model_list_cache,
+            refresh_channel_probe_cache=refresh_channel_probe_cache,
+            remove_channel_spec=remove_channel_spec,
+            render_prelaunch_screen=render_prelaunch_screen,
+            save_config=save_config,
+            secret_fingerprint=secret_fingerprint,
+            self_cmd=self_cmd,
+            set_advisor_model_config=set_advisor_model_config,
+            set_base_url_config=set_base_url_config,
+            set_channel_delivery_config=set_channel_delivery_config,
+            set_llm_option_config=set_llm_option_config,
+            set_log_level_config=set_log_level_config,
+            set_model_config=set_model_config,
+            set_provider_choice_config=set_provider_choice_config,
+            settings_ready_except_api_key=settings_ready_except_api_key,
+            store_api_key_input_config=store_api_key_input_config,
+            store_api_keys_config=store_api_keys_config,
+            timeout_profile_panel_rows=timeout_profile_panel_rows
+        ),
+    )
 
 
 def run_external_menu(name: str) -> int | None:
@@ -37087,342 +32498,99 @@ def launch_claude(
     update_check: bool = True,
     self_update_check: bool = True,
 ) -> int:
-    if has_noninteractive_claude_args(passthrough):
-        self_update_check = False
-    warn_if_multiple_ciel_runtime_installs()
-    run_ciel_runtime_update_check(enabled=self_update_check)
-    auto_import_passthrough_channels(passthrough)
-    rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
-    if rc == PRELAUNCH_LAUNCH_CODEX:
-        return launch_codex(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_AGY:
-        return launch_agy(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_CODEX_APP_SERVER:
-        return launch_codex_app_server(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_CANCEL:
-        return 0
-    if rc not in (0, PRELAUNCH_LAUNCH_CLAUDE):
-        return rc
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    for line in apply_launch_endpoint_policy(cfg, "claude"):
-        print(line, flush=True)
-    provider, pcfg = get_current_provider(cfg)
-    if not claude_launch_enabled_for_provider(provider):
-        print(f"Ciel Runtime launch blocked: Launch Claude Code is disabled while {provider_menu_label(provider, pcfg)} provider is selected.", flush=True)
-        print("Use the matching Launch menu item or --ca-runtime agy|codex|codex-app-server.", flush=True)
-        return 2
-    blockers = launch_readiness_errors(cfg)
-    if blockers:
-        print("Ciel Runtime launch blocked:", flush=True)
-        for line in blockers:
-            print(f"- {line}", flush=True)
-        return 2
-    use_native_anthropic = direct_native_anthropic_enabled(provider, pcfg)
-    use_router_mode = not use_native_anthropic
-    launch_cwd_key = current_launch_cwd_key()
-    fork_native_session, previous_launch_mode = should_fork_native_session_after_mode_switch(
-        provider,
-        pcfg,
-        use_native_anthropic,
-        passthrough,
-        launch_cwd_key,
+    return run_claude(
+        passthrough, skip_menu=skip_menu, force_menu=force_menu,
+        web_search_override=web_search_override, update_check=update_check,
+        self_update_check=self_update_check,
+        services=ClaudeLaunchServices(
+            CLAUDE_SERVER_SIDE_WEB_TOOLS=CLAUDE_SERVER_SIDE_WEB_TOOLS,
+            LOG_PATH=LOG_PATH,
+            PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
+            PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
+            PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
+            PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
+            PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+            ROUTED_COMPAT_PROMPT=ROUTED_COMPAT_PROMPT,
+            _NATIVE_ROUTER_CHANNEL_NAMES=_NATIVE_ROUTER_CHANNEL_NAMES,
+            _log_claude_command_for_diagnostics=_log_claude_command_for_diagnostics,
+            _subprocess_call_capturing_stderr=_subprocess_call_capturing_stderr,
+            anthropic_routed_enabled=anthropic_routed_enabled,
+            append_claude_code_runtime_settings_args=append_claude_code_runtime_settings_args,
+            apply_launch_endpoint_policy=apply_launch_endpoint_policy,
+            auto_import_passthrough_channels=auto_import_passthrough_channels,
+            auto_start_sse_channels_from_mcp_configs=auto_start_sse_channels_from_mcp_configs,
+            cached_channel_capable_server_names=cached_channel_capable_server_names,
+            cached_channel_source_paths_for_specs=cached_channel_source_paths_for_specs,
+            channel_candidate_server_names_for_launch=channel_candidate_server_names_for_launch,
+            channel_specs_for_launch=channel_specs_for_launch,
+            claude_channel_args=claude_channel_args,
+            claude_channels_requested=claude_channels_requested,
+            claude_code_channels_auth_available=claude_code_channels_auth_available,
+            claude_launch_enabled_for_provider=claude_launch_enabled_for_provider,
+            claude_supports_permission_mode_arg=claude_supports_permission_mode_arg,
+            cleanup_managed_services_for_provider=cleanup_managed_services_for_provider,
+            current_launch_cwd_key=current_launch_cwd_key,
+            direct_native_anthropic_enabled=direct_native_anthropic_enabled,
+            disable_ciel_runtime_slash_commands_for_native=disable_ciel_runtime_slash_commands_for_native,
+            ensure_channel_probe_cache_for_launch=ensure_channel_probe_cache_for_launch,
+            ensure_current_model_from_provider_list=ensure_current_model_from_provider_list,
+            ensure_managed_router_running_for_client=ensure_managed_router_running_for_client,
+            ensure_model_cache_for_launch=ensure_model_cache_for_launch,
+            env_bool=env_bool,
+            env_vars=env_vars,
+            external_mcp_channel_server_names_from_configs=external_mcp_channel_server_names_from_configs,
+            file_size_or_zero=file_size_or_zero,
+            find_executable=find_executable,
+            get_current_provider=get_current_provider,
+            has_noninteractive_claude_args=has_noninteractive_claude_args,
+            has_passthrough_option=has_passthrough_option,
+            install_ciel_runtime_slash_commands=install_ciel_runtime_slash_commands,
+            install_ciel_runtime_statusline=install_ciel_runtime_statusline,
+            install_claude_code_if_missing=install_claude_code_if_missing,
+            install_tool_guard_hooks=install_tool_guard_hooks,
+            launch_agy=launch_agy,
+            launch_codex=launch_codex,
+            launch_codex_app_server=launch_codex_app_server,
+            launch_mode_name=launch_mode_name,
+            launch_readiness_errors=launch_readiness_errors,
+            load_config=load_config,
+            materialize_runtime_command=materialize_runtime_command,
+            native_channel_passthrough_requested=native_channel_passthrough_requested,
+            normalize_channel_passthrough=normalize_channel_passthrough,
+            path_with_ciel_runtime_user_dirs=path_with_ciel_runtime_user_dirs,
+            prepare_channel_llm_delivery_for_launch=prepare_channel_llm_delivery_for_launch,
+            print_routed_claude_exit_diagnostics=print_routed_claude_exit_diagnostics,
+            provider_menu_label=provider_menu_label,
+            read_channel_probe_cache=read_channel_probe_cache,
+            record_launch_state_for_cwd=record_launch_state_for_cwd,
+            reset_zai_mcp_config_if_inactive=reset_zai_mcp_config_if_inactive,
+            router_health_summary=router_health_summary,
+            router_log=router_log,
+            run_ciel_runtime_update_check=run_ciel_runtime_update_check,
+            run_claude_update_check=run_claude_update_check,
+            run_prelaunch_menu=run_prelaunch_menu,
+            run_with_router_lifetime=run_with_router_lifetime,
+            save_config=save_config,
+            should_append_compat_prompt=should_append_compat_prompt,
+            should_attach_web_search=should_attach_web_search,
+            should_disallow_claude_server_side_web_tools=should_disallow_claude_server_side_web_tools,
+            should_fork_native_session_after_mode_switch=should_fork_native_session_after_mode_switch,
+            should_insert_passthrough_option_boundary=should_insert_passthrough_option_boundary,
+            should_launch_process_start_channel_sse=should_launch_process_start_channel_sse,
+            should_use_channel_llm_delivery=should_use_channel_llm_delivery,
+            should_use_channel_stdin_proxy=should_use_channel_stdin_proxy,
+            should_use_native_channel_bridge=should_use_native_channel_bridge,
+            start_router_if_needed=start_router_if_needed,
+            strip_mcp_config_passthrough=strip_mcp_config_passthrough,
+            subprocess_call_with_channel_wake_proxy=subprocess_call_with_channel_wake_proxy,
+            warn_if_multiple_ciel_runtime_installs=warn_if_multiple_ciel_runtime_installs,
+            write_channel_mcp_config=write_channel_mcp_config,
+            write_duckduckgo_mcp_config=write_duckduckgo_mcp_config,
+            write_mcp_proxy_config=write_mcp_proxy_config,
+            write_native_mcp_config_from_discovery=write_native_mcp_config_from_discovery,
+            write_zai_mcp_config=write_zai_mcp_config
+        ),
     )
-    cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
-    env = os.environ.copy()
-    env["PATH"] = path_with_ciel_runtime_user_dirs(env)
-    launch_passthrough = normalize_channel_passthrough(passthrough)
-    native_channel_bridge = should_use_native_channel_bridge(use_router_mode, cfg, launch_passthrough)
-    stdin_channel_proxy = should_use_channel_stdin_proxy(use_router_mode, launch_passthrough, cfg)
-    llm_channel_delivery = should_use_channel_llm_delivery(use_router_mode, launch_passthrough, cfg)
-    native_auto_channel_specs: list[str] = []
-    if use_native_anthropic and not native_channel_bridge and not native_channel_passthrough_requested(launch_passthrough):
-        try:
-            auto_channel_names = external_mcp_channel_server_names_from_configs(launch_passthrough)
-            native_auto_channel_specs = [f"server:{name}" for name in auto_channel_names]
-            if native_auto_channel_specs:
-                router_log(
-                    "INFO",
-                    "channel_native_auto_specs servers=%s" % ",".join(auto_channel_names),
-                )
-        except Exception as exc:
-            router_log("WARN", f"channel_native_auto_probe_failed error={type(exc).__name__}: {exc}")
-    manage_router_lifetime = False
-    if use_router_mode or llm_channel_delivery:
-        manage_router_lifetime = bool(start_router_if_needed())
-    if not use_native_anthropic:
-        ensure_model_cache_for_launch(provider, pcfg)
-        selected, selection_lines = ensure_current_model_from_provider_list(provider, pcfg)
-        if selection_lines:
-            for line in selection_lines:
-                print(line)
-            save_config(cfg)
-        if not selected:
-            raise RuntimeError(
-                f"No concrete model is selected for provider {provider}; choose a model from the provider model list before launching Claude Code."
-            )
-    launch_env = env_vars(cfg)
-    if claude_channels_requested(cfg, launch_passthrough) or native_channel_bridge or llm_channel_delivery or native_auto_channel_specs:
-        env.pop("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS", None)
-        launch_env.pop("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS", None)
-    if use_native_anthropic:
-        # Claude Native guarantee — strip every env var ciel-runtime (or a
-        # prior ciel-runtime session) might have left behind that would change
-        # Claude Code's default model selection, backend, advisor flow, or
-        # other behavior. See env_vars() docstring for the contract.
-        for key in (
-            "ANTHROPIC_BASE_URL",
-            "ANTHROPIC_MODEL",
-            "ANTHROPIC_CUSTOM_MODEL_OPTION",
-            "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
-            "ANTHROPIC_DEFAULT_HAIKU_MODEL",
-            "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
-            "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
-            "ANTHROPIC_DEFAULT_OPUS_MODEL",
-            "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
-            "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
-            "ANTHROPIC_DEFAULT_SONNET_MODEL",
-            "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
-            "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
-            "CLAUDE_CODE_SUBAGENT_MODEL",
-            "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
-            "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
-            "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
-            "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
-            "CLAUDE_CODE_EFFORT_LEVEL",
-            "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
-            "CLAUDE_CODE_ATTRIBUTION_HEADER",
-            "CIEL_RUNTIME_ADVISOR_MODEL",
-            "CIEL_RUNTIME_BYPASS_PERMISSIONS",
-            "CIEL_RUNTIME_MODEL_ALIAS",
-        ):
-            env.pop(key, None)
-            launch_env.pop(key, None)
-        if "ANTHROPIC_API_KEY" in launch_env:
-            env.pop("ANTHROPIC_AUTH_TOKEN", None)
-        router_log(
-            "INFO",
-            "claude_native_launch model=<defer-to-claude-code> advisor=off backend=<default-anthropic>",
-        )
-        disable_ciel_runtime_slash_commands_for_native()
-    elif anthropic_routed_enabled(provider, pcfg):
-        router_log(
-            "INFO",
-            "claude_anthropic_routed_launch backend=ciel-runtime-router upstream=anthropic",
-        )
-    env.update(launch_env)
-    if not use_native_anthropic:
-        preserve_anthropic_auth = anthropic_routed_enabled(provider, pcfg)
-        for key in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
-            if key not in launch_env and not preserve_anthropic_auth:
-                env.pop(key, None)
-        install_ciel_runtime_slash_commands(include_advisor=provider != "anthropic")
-        install_tool_guard_hooks()
-        install_ciel_runtime_statusline()
-    claude = install_claude_code_if_missing()
-    if not claude:
-        raise RuntimeError(
-            "claude executable was not found in PATH or the Ciel Runtime user bin directories, "
-            "and automatic install of @anthropic-ai/claude-code did not make it available"
-        )
-    updated_claude = run_claude_update_check(claude, enabled=update_check)
-    if isinstance(updated_claude, str) and updated_claude:
-        claude = updated_claude
-    claude = find_executable("claude") or claude
-    if native_channel_bridge or native_auto_channel_specs:
-        auth_ok, auth_reason = claude_code_channels_auth_available(claude)
-        if not auth_ok:
-            if native_channel_bridge:
-                router_log("WARN", f"channel_native_unavailable_fallback reason={auth_reason} delivery=llm")
-                native_channel_bridge = False
-                llm_channel_delivery = True
-            else:
-                router_log("WARN", f"channel_native_auto_disabled reason={auth_reason}")
-                native_auto_channel_specs = []
-    extra_args: list[str] = []
-    mcp_config_paths: list[str] = []
-    reset_zai_mcp_config_if_inactive(provider)
-    zai_mcp_config = write_zai_mcp_config(provider, pcfg)
-    if zai_mcp_config:
-        mcp_config_paths.append(str(zai_mcp_config))
-    if should_attach_web_search(provider, cfg, web_search_override):
-        mcp_config_paths.append(str(write_duckduckgo_mcp_config(cfg)))
-    if llm_channel_delivery:
-        mcp_config_paths.append(str(write_channel_mcp_config()))
-    native_direct_mcp_config_paths: list[str] = []
-    if use_native_anthropic:
-        native_mcp_config = write_native_mcp_config_from_discovery(launch_passthrough)
-        if native_mcp_config:
-            native_direct_mcp_config_paths = [str(native_mcp_config)]
-    detected_channel_specs: list[str] = []
-    detected_channel_capable_names: list[str] = []
-    channel_probe_source_paths: list[Path] = []
-    if stdin_channel_proxy or llm_channel_delivery:
-        try:
-            candidate_channel_names = channel_candidate_server_names_for_launch(cfg, launch_passthrough)
-            ensure_channel_probe_cache_for_launch(cfg, launch_passthrough)
-            capable_names = cached_channel_capable_server_names()
-            capable_name_set = set(capable_names)
-            detected_channel_capable_names = [
-                name for name in candidate_channel_names
-                if name in capable_name_set and name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES
-            ]
-            detected_channel_specs = [f"server:{name}" for name in detected_channel_capable_names]
-            channel_launch_specs = channel_specs_for_launch(cfg, launch_passthrough, detected_channel_specs)
-            channel_probe_source_paths = cached_channel_source_paths_for_specs(channel_launch_specs)
-            if channel_probe_source_paths:
-                mcp_config_paths.extend(str(path) for path in channel_probe_source_paths)
-            cache_age = read_channel_probe_cache().get("probed_at") or 0
-            router_log(
-                "INFO",
-                "channel_probe_loaded source=cache cache_age_ts=%d count=%d servers=%s sources=%s"
-                % (
-                    int(cache_age),
-                    len(detected_channel_capable_names),
-                    ",".join(detected_channel_capable_names) or "-",
-                    ",".join(str(path) for path in channel_probe_source_paths) or "-",
-                ),
-            )
-        except Exception as exc:
-            router_log("WARN", f"channel_probe_cache_load_failed error={type(exc).__name__}: {exc}")
-    claude_passthrough = list(launch_passthrough)
-    if use_native_anthropic:
-        if native_direct_mcp_config_paths:
-            mcp_config_paths.extend(native_direct_mcp_config_paths)
-            claude_passthrough = strip_mcp_config_passthrough(launch_passthrough)
-    elif stdin_channel_proxy or llm_channel_delivery or native_auto_channel_specs:
-        if llm_channel_delivery:
-            prepare_channel_llm_delivery_for_launch()
-        if should_launch_process_start_channel_sse(stdin_channel_proxy, native_channel_bridge, llm_channel_delivery):
-            auto_start_sse_channels_from_mcp_configs(
-                launch_passthrough,
-                extra_config_paths=[Path(path) for path in mcp_config_paths],
-            )
-        else:
-            router_log("INFO", "channel_sse_auto_start_skipped reason=router_managed_llm_delivery")
-        # Channel-capable streamable-HTTP backends (e.g. ai-net-http) are forced
-        # through ciel-runtime's own mcp-proxy so there is exactly ONE backend
-        # connection: the proxy serves Claude Code's tool calls AND owns the
-        # notification stream + idle-death wake handling. Because the proxy now
-        # OWNS the stream, it must NOT also be in the disable set -- forcing a
-        # server while disabling its stream would leave zero notification owners
-        # and the agent would never wake. force and disable are mutually
-        # exclusive per server, so the disable set excludes anything we force.
-        forced_channel_names = (
-            set(detected_channel_capable_names)
-            if (stdin_channel_proxy or llm_channel_delivery)
-            else set()
-        )
-        proxy_config = write_mcp_proxy_config(
-            launch_passthrough,
-            extra_config_paths=[Path(path) for path in mcp_config_paths],
-            force_proxy_server_names=forced_channel_names or None,
-            disable_proxy_notification_stream_names=None,
-        )
-        if proxy_config:
-            mcp_config_paths = [str(proxy_config)]
-            claude_passthrough = strip_mcp_config_passthrough(launch_passthrough)
-    if mcp_config_paths:
-        extra_args.extend(["--mcp-config", *mcp_config_paths])
-    if should_append_compat_prompt(provider, pcfg, cfg) and not has_passthrough_option(launch_passthrough, "--system-prompt"):
-        extra_args.extend(["--append-system-prompt", ROUTED_COMPAT_PROMPT])
-    extra_args.extend(
-        claude_channel_args(
-            cfg,
-            launch_passthrough,
-            extra_specs=native_auto_channel_specs if native_auto_channel_specs else detected_channel_specs,
-            native_channel_bridge=bool(native_channel_bridge or native_auto_channel_specs),
-        )
-    )
-    append_claude_code_runtime_settings_args(extra_args, launch_passthrough, provider, pcfg)
-    if fork_native_session:
-        session_id = str(uuid.uuid4())
-        extra_args.extend(["--session-id", session_id])
-        router_log(
-            "INFO",
-            f"claude_native_session_boundary previous_mode={previous_launch_mode} cwd={launch_cwd_key} session_id={session_id}",
-        )
-    cmd = [
-        claude,
-        "--dangerously-skip-permissions",
-    ]
-    if (
-        not use_native_anthropic
-        and not has_passthrough_option([*extra_args, *claude_passthrough], "--permission-mode")
-        and claude_supports_permission_mode_arg(claude)
-    ):
-        cmd.extend(["--permission-mode", "bypassPermissions"])
-    if (
-        should_disallow_claude_server_side_web_tools(provider, pcfg, use_native_anthropic)
-        and not has_passthrough_option([*extra_args, *claude_passthrough], "--disallowedTools", "--disallowed-tools")
-    ):
-        cmd.extend(["--disallowedTools", ",".join(CLAUDE_SERVER_SIDE_WEB_TOOLS)])
-    model = env.get("CIEL_RUNTIME_MODEL_ALIAS")
-    if model:
-        cmd.extend(["--model", model])
-    cmd.extend(extra_args)
-    if should_insert_passthrough_option_boundary(extra_args, claude_passthrough):
-        cmd.append("--")
-    cmd.extend(claude_passthrough)
-    cmd, env = materialize_runtime_command(
-        "claude",
-        cmd,
-        env,
-        provider,
-        pcfg,
-        mode="native" if use_native_anthropic else "routed",
-        protocol="anthropic_messages",
-        cwd=Path.cwd(),
-        enable_channels=bool(stdin_channel_proxy or native_channel_bridge or llm_channel_delivery),
-    )
-    _log_claude_command_for_diagnostics(cmd, env)
-    record_launch_state_for_cwd(
-        launch_cwd_key,
-        provider,
-        launch_mode_name(provider, pcfg, use_native_anthropic),
-        str(pcfg.get("current_model") or env.get("CIEL_RUNTIME_MODEL_ALIAS") or ""),
-    )
-    launch_log_offset = file_size_or_zero(LOG_PATH)
-    capture_stderr = env_bool(os.environ.get("CIEL_RUNTIME_CAPTURE_CC_STDERR"), False)
-    def run_claude_process() -> int:
-        rc = 1
-        try:
-            if use_router_mode and not ensure_managed_router_running_for_client():
-                print(
-                    "Ciel Runtime warning: local router health check failed immediately before launching Claude Code.",
-                    flush=True,
-                )
-                print(f"  {router_health_summary()}", flush=True)
-            if stdin_channel_proxy:
-                rc = subprocess_call_with_channel_wake_proxy(cmd, env, wake_for_llm_delivery=llm_channel_delivery)
-            elif capture_stderr:
-                rc = _subprocess_call_capturing_stderr(cmd, env)
-            else:
-                rc = subprocess.call(cmd, env=env)
-            return rc
-        finally:
-            if use_router_mode:
-                print_routed_claude_exit_diagnostics(rc, provider, pcfg, log_offset=launch_log_offset)
-
-    return run_with_router_lifetime(run_claude_process, manage_router_lifetime)
 
 
 CODEX_RUNTIME_PROVIDER_ID = "ciel-runtime"
@@ -38142,175 +33310,77 @@ def launch_codex(
     update_check: bool = True,
     self_update_check: bool = True,
 ) -> int:
-    warn_if_multiple_ciel_runtime_installs()
-    run_ciel_runtime_update_check(enabled=self_update_check)
-    env = os.environ.copy()
-    env["PATH"] = path_with_ciel_runtime_user_dirs(env)
-    codex = install_codex_if_missing()
-    if not codex:
-        raise RuntimeError(
-            "codex executable was not found in PATH or the Ciel Runtime user bin directories, "
-            "and automatic install of @openai/codex did not make it available"
-        )
-    updated_codex = run_codex_update_check(codex, enabled=update_check)
-    if isinstance(updated_codex, str) and updated_codex:
-        codex = updated_codex
-    codex = find_executable("codex") or codex
-    codex_passthrough, codex_passthrough_notes = codex_passthrough_args_for_launch(passthrough)
-    if codex_help_requested(codex_passthrough):
-        log_codex_passthrough_mapping(codex_passthrough_notes)
-        return subprocess.call([codex, *codex_passthrough], env=env)
-    if codex_passthrough_has_command(codex_passthrough):
-        skip_menu = True
-    auto_import_passthrough_channels(passthrough)
-    rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
-    if rc == PRELAUNCH_LAUNCH_CLAUDE:
-        return launch_claude(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_AGY:
-        return launch_agy(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_CODEX_APP_SERVER:
-        return launch_codex_app_server(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_CANCEL:
-        return 0
-    if rc not in (0, PRELAUNCH_LAUNCH_CODEX):
-        return rc
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    for line in apply_launch_endpoint_policy(cfg, "codex"):
-        print(line, flush=True)
-    provider, pcfg = get_current_provider(cfg)
-    blockers = launch_readiness_errors(cfg)
-    if blockers:
-        print("Ciel Runtime Codex launch blocked:", flush=True)
-        for line in blockers:
-            print(f"- {line}", flush=True)
-        return 2
-    cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
-    use_native_codex = direct_native_codex_enabled(provider, pcfg)
-    use_codex_routed = codex_routed_enabled(provider, pcfg)
-    mapped_continue = any(note.startswith("--continue -> resume --last") for note in codex_passthrough_notes)
-    if not use_native_codex and mapped_continue:
-        try:
-            resume_index = codex_passthrough.index("resume")
-        except ValueError:
-            resume_index = -1
-        if resume_index >= 0 and resume_index + 1 < len(codex_passthrough):
-            if codex_passthrough[resume_index + 1] == "--last":
-                del codex_passthrough[resume_index + 1]
-                codex_passthrough_notes.append("routed --continue -> provider-independent session picker")
-    if not use_native_codex and codex_resume_picker_requested(codex_passthrough):
-        session_id = select_codex_resume_session(
-            env,
-            include_non_interactive="--include-non-interactive" in codex_passthrough,
-            passthrough=codex_passthrough,
-        )
-        if session_id == "":
-            return 0
-        if session_id:
-            codex_passthrough = codex_resume_with_session_id(codex_passthrough, session_id)
-            codex_passthrough_notes.append("resume picker -> selected local Codex session")
-    launch_cwd = Path.cwd()
-    if use_native_codex:
-        disable_ciel_runtime_codex_prompts_for_native(env)
-    else:
-        install_ciel_runtime_codex_prompts(env)
-    codex_mcp_config = write_codex_mcp_config_for_channel_discovery(codex_passthrough, env=env)
-    env["CIEL_RUNTIME_CODEX_MANAGED"] = "1"
-    env["CIEL_RUNTIME_CONFIG_DIR"] = str(CONFIG_DIR)
-    env["CIEL_RUNTIME_LAUNCH_CWD"] = str(launch_cwd)
-    terminate_existing_codex_processes_for_launch("codex_prelaunch_processes", cwd=launch_cwd, quiet=True)
-    if not use_native_codex:
-        terminate_existing_router_clients_for_launch("codex_prelaunch_active_clients", quiet=True)
-    manage_router_lifetime = False if use_native_codex else bool(start_router_if_needed())
-    if not native_codex_enabled(provider):
-        ensure_model_cache_for_launch(provider, pcfg)
-    codex_channel_owned_names = (
-        codex_channel_capable_mcp_server_names(cfg, codex_mcp_config)
-        if not use_native_codex and channel_delivery_mode(cfg) == "llm"
-        else []
+    return run_codex(
+        passthrough, skip_menu=skip_menu, force_menu=force_menu,
+        update_check=update_check, self_update_check=self_update_check,
+        services=CodexLaunchServices(
+            CODEX_RUNTIME_API_KEY_ENV=CODEX_RUNTIME_API_KEY_ENV,
+            CONFIG_DIR=CONFIG_DIR,
+            PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
+            PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
+            PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
+            PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
+            PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+            _channel_wake_enter_env_is_fixed=_channel_wake_enter_env_is_fixed,
+            _codex_channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds,
+            _codex_channel_wake_submit_retries=_codex_channel_wake_submit_retries,
+            _log_codex_command_for_diagnostics=_log_codex_command_for_diagnostics,
+            _set_channel_transcript_scope=_set_channel_transcript_scope,
+            apply_launch_endpoint_policy=apply_launch_endpoint_policy,
+            auto_import_passthrough_channels=auto_import_passthrough_channels,
+            channel_delivery_mode=channel_delivery_mode,
+            cleanup_managed_services_for_provider=cleanup_managed_services_for_provider,
+            codex_alternate_screen_compat_args=codex_alternate_screen_compat_args,
+            codex_channel_capable_mcp_server_names=codex_channel_capable_mcp_server_names,
+            codex_current_model_cli_args=codex_current_model_cli_args,
+            codex_help_requested=codex_help_requested,
+            codex_mcp_native_http_compat_args=codex_mcp_native_http_compat_args,
+            codex_mcp_split_proxy_enabled=codex_mcp_split_proxy_enabled,
+            codex_native_routed_config_args=codex_native_routed_config_args,
+            codex_passthrough_args_for_launch=codex_passthrough_args_for_launch,
+            codex_passthrough_has_command=codex_passthrough_has_command,
+            codex_process_record_path=codex_process_record_path,
+            codex_resume_picker_requested=codex_resume_picker_requested,
+            codex_resume_with_session_id=codex_resume_with_session_id,
+            codex_routed_enabled=codex_routed_enabled,
+            codex_runtime_config_args=codex_runtime_config_args,
+            codex_runtime_model_catalog_args=codex_runtime_model_catalog_args,
+            codex_yolo_launch_args=codex_yolo_launch_args,
+            current_alias=current_alias,
+            current_launch_cwd_key=current_launch_cwd_key,
+            direct_native_codex_enabled=direct_native_codex_enabled,
+            disable_ciel_runtime_codex_prompts_for_native=disable_ciel_runtime_codex_prompts_for_native,
+            ensure_model_cache_for_launch=ensure_model_cache_for_launch,
+            find_executable=find_executable,
+            get_current_provider=get_current_provider,
+            has_passthrough_option=has_passthrough_option,
+            install_ciel_runtime_codex_prompts=install_ciel_runtime_codex_prompts,
+            install_codex_if_missing=install_codex_if_missing,
+            launch_agy=launch_agy,
+            launch_claude=launch_claude,
+            launch_codex_app_server=launch_codex_app_server,
+            launch_readiness_errors=launch_readiness_errors,
+            load_config=load_config,
+            log_codex_passthrough_mapping=log_codex_passthrough_mapping,
+            materialize_runtime_command=materialize_runtime_command,
+            native_codex_enabled=native_codex_enabled,
+            path_with_ciel_runtime_user_dirs=path_with_ciel_runtime_user_dirs,
+            provider_mode_label=provider_mode_label,
+            record_launch_state_for_cwd=record_launch_state_for_cwd,
+            run_ciel_runtime_update_check=run_ciel_runtime_update_check,
+            run_codex_update_check=run_codex_update_check,
+            run_prelaunch_menu=run_prelaunch_menu,
+            run_with_router_lifetime=run_with_router_lifetime,
+            select_codex_resume_session=select_codex_resume_session,
+            start_codex_mcp_channel_sse_for_launch=start_codex_mcp_channel_sse_for_launch,
+            start_router_if_needed=start_router_if_needed,
+            subprocess_call_with_channel_wake_proxy=subprocess_call_with_channel_wake_proxy,
+            terminate_existing_codex_processes_for_launch=terminate_existing_codex_processes_for_launch,
+            terminate_existing_router_clients_for_launch=terminate_existing_router_clients_for_launch,
+            warn_if_multiple_ciel_runtime_installs=warn_if_multiple_ciel_runtime_installs,
+            write_codex_mcp_config_for_channel_discovery=write_codex_mcp_config_for_channel_discovery
+        ),
     )
-    codex_mcp_compat_args = codex_mcp_native_http_compat_args(
-        codex_mcp_config,
-        split_http_proxy=(not use_native_codex and codex_mcp_split_proxy_enabled()),
-        channel_owned_server_names=codex_channel_owned_names,
-    )
-    codex_yolo_args = codex_yolo_launch_args(codex_passthrough)
-    if use_native_codex:
-        cmd = [codex, *codex_yolo_args, *codex_current_model_cli_args(pcfg, codex_passthrough)]
-    elif use_codex_routed:
-        cmd = [codex, *codex_yolo_args, *codex_native_routed_config_args(), *codex_current_model_cli_args(pcfg, codex_passthrough)]
-    else:
-        env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
-        cmd = [codex, *codex_yolo_args, *codex_runtime_config_args()]
-    if not use_native_codex:
-        cmd.extend(codex_runtime_model_catalog_args(codex, cfg))
-    log_codex_passthrough_mapping(codex_passthrough_notes)
-    cmd.extend(codex_alternate_screen_compat_args(codex_passthrough, env=env))
-    cmd.extend(codex_mcp_compat_args)
-    if not native_codex_enabled(provider) and not has_passthrough_option(codex_passthrough, "-m", "--model"):
-        model = current_alias(cfg)
-        if model:
-            cmd.extend(["-m", model])
-    cmd.extend(codex_passthrough)
-    cmd, env = materialize_runtime_command(
-        "codex",
-        cmd,
-        env,
-        provider,
-        pcfg,
-        mode="native" if use_native_codex else "routed",
-        protocol="openai_responses",
-        cwd=launch_cwd,
-        enable_channels=bool(codex_channel_owned_names),
-    )
-    _log_codex_command_for_diagnostics(cmd, env)
-    record_launch_state_for_cwd(
-        current_launch_cwd_key(),
-        provider,
-        provider_mode_label(provider, pcfg) if native_codex_enabled(provider) else "codex-router",
-        str(pcfg.get("current_model") or ("" if native_codex_enabled(provider) else current_alias(cfg)) or ""),
-    )
-
-    def run_codex_process() -> int:
-        _set_channel_transcript_scope(
-            "codex",
-            codex_home=Path(env.get("CODEX_HOME") or (Path.home() / ".codex")),
-        )
-        if not use_native_codex:
-            start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config, allowed_server_names=codex_channel_owned_names)
-        codex_synthetic_enter = None if _channel_wake_enter_env_is_fixed() else b"\r"
-        return subprocess_call_with_channel_wake_proxy(
-            cmd,
-            env,
-            wake_for_llm_delivery=channel_delivery_mode(cfg) == "llm",
-            synthetic_enter_bytes=codex_synthetic_enter,
-            normalize_bare_cr_for_synthetic_enter=False,
-            channel_wake_submit_retries=_codex_channel_wake_submit_retries(),
-            channel_wake_confirm_submit=True,
-            channel_wake_bracketed_paste=True,
-            channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds(),
-            tracked_child_pid_path=codex_process_record_path("client"),
-        )
-
-    return run_with_router_lifetime(run_codex_process, manage_router_lifetime)
 
 
 def codex_app_server_default_listen_url() -> str:
@@ -38352,131 +33422,64 @@ def launch_codex_app_server(
     update_check: bool = True,
     self_update_check: bool = True,
 ) -> int:
-    warn_if_multiple_ciel_runtime_installs()
-    run_ciel_runtime_update_check(enabled=self_update_check)
-    env = os.environ.copy()
-    env["PATH"] = path_with_ciel_runtime_user_dirs(env)
-    codex = install_codex_if_missing()
-    if not codex:
-        raise RuntimeError(
-            "codex executable was not found in PATH or the Ciel Runtime user bin directories, "
-            "and automatic install of @openai/codex did not make it available"
-        )
-    updated_codex = run_codex_update_check(codex, enabled=update_check)
-    if isinstance(updated_codex, str) and updated_codex:
-        codex = updated_codex
-    codex = find_executable("codex") or codex
-    auto_import_passthrough_channels(passthrough)
-    rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
-    if rc == PRELAUNCH_LAUNCH_CLAUDE:
-        return launch_claude(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_CODEX:
-        return launch_codex(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_AGY:
-        return launch_agy(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_CANCEL:
-        return 0
-    if rc not in (0, PRELAUNCH_LAUNCH_CODEX_APP_SERVER):
-        return rc
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    for line in apply_launch_endpoint_policy(cfg, "codex-app-server"):
-        print(line, flush=True)
-    provider, pcfg = get_current_provider(cfg)
-    codex_mcp_config = write_codex_mcp_config_for_channel_discovery(passthrough, env=env)
-    if not codex_launch_enabled_for_provider(provider):
-        print("Ciel Runtime Codex App Server launch blocked:", flush=True)
-        print("- Select Codex or Codex routed as the provider before launching Codex App Server.", flush=True)
-        return 2
-    blockers = launch_readiness_errors(cfg)
-    if blockers:
-        print("Ciel Runtime Codex App Server launch blocked:", flush=True)
-        for line in blockers:
-            print(f"- {line}", flush=True)
-        return 2
-    cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
-    use_native_codex = direct_native_codex_enabled(provider, pcfg)
-    use_codex_routed = codex_routed_enabled(provider, pcfg)
-    launch_cwd = Path.cwd()
-    env["CIEL_RUNTIME_CODEX_MANAGED"] = "1"
-    env["CIEL_RUNTIME_CONFIG_DIR"] = str(CONFIG_DIR)
-    env["CIEL_RUNTIME_LAUNCH_CWD"] = str(launch_cwd)
-    terminate_existing_codex_processes_for_launch("codex_app_server_prelaunch_processes", cwd=launch_cwd, quiet=True)
-    if not use_native_codex:
-        terminate_existing_router_clients_for_launch("codex_app_server_prelaunch_active_clients", quiet=True)
-    manage_router_lifetime = False if use_native_codex else bool(start_router_if_needed())
-    if use_codex_routed:
-        config_args = codex_native_routed_config_args()
-    elif use_native_codex:
-        config_args = []
-    else:
-        env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
-        config_args = codex_runtime_config_args()
-    if native_codex_enabled(provider):
-        config_args = [*config_args, *codex_current_model_config_args(pcfg, passthrough)]
-    if not native_codex_enabled(provider):
-        ensure_model_cache_for_launch(provider, pcfg)
-        model = current_alias(cfg)
-        if model and not codex_passthrough_has_model_override(passthrough):
-            config_args = [*config_args, "-c", f"model={toml_string(model)}"]
-    codex_channel_owned_names = (
-        codex_channel_capable_mcp_server_names(cfg, codex_mcp_config)
-        if not use_native_codex and channel_delivery_mode(cfg) == "llm"
-        else []
+    return run_codex_app_server(
+        passthrough, skip_menu=skip_menu, force_menu=force_menu,
+        update_check=update_check, self_update_check=self_update_check,
+        services=CodexAppServerLaunchServices(
+            CODEX_RUNTIME_API_KEY_ENV=CODEX_RUNTIME_API_KEY_ENV,
+            CONFIG_DIR=CONFIG_DIR,
+            PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
+            PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
+            PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
+            PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
+            PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+            _log_codex_app_server_command_for_diagnostics=_log_codex_app_server_command_for_diagnostics,
+            apply_launch_endpoint_policy=apply_launch_endpoint_policy,
+            auto_import_passthrough_channels=auto_import_passthrough_channels,
+            channel_delivery_mode=channel_delivery_mode,
+            cleanup_managed_services_for_provider=cleanup_managed_services_for_provider,
+            codex_app_server_default_listen_url=codex_app_server_default_listen_url,
+            codex_app_server_launch_args=codex_app_server_launch_args,
+            codex_channel_capable_mcp_server_names=codex_channel_capable_mcp_server_names,
+            codex_current_model_config_args=codex_current_model_config_args,
+            codex_launch_enabled_for_provider=codex_launch_enabled_for_provider,
+            codex_mcp_native_http_compat_args=codex_mcp_native_http_compat_args,
+            codex_mcp_split_proxy_enabled=codex_mcp_split_proxy_enabled,
+            codex_native_routed_config_args=codex_native_routed_config_args,
+            codex_passthrough_has_model_override=codex_passthrough_has_model_override,
+            codex_process_record_path=codex_process_record_path,
+            codex_routed_enabled=codex_routed_enabled,
+            codex_runtime_config_args=codex_runtime_config_args,
+            current_alias=current_alias,
+            current_launch_cwd_key=current_launch_cwd_key,
+            direct_native_codex_enabled=direct_native_codex_enabled,
+            ensure_model_cache_for_launch=ensure_model_cache_for_launch,
+            find_executable=find_executable,
+            get_current_provider=get_current_provider,
+            install_codex_if_missing=install_codex_if_missing,
+            launch_agy=launch_agy,
+            launch_claude=launch_claude,
+            launch_codex=launch_codex,
+            launch_readiness_errors=launch_readiness_errors,
+            load_config=load_config,
+            native_codex_enabled=native_codex_enabled,
+            path_with_ciel_runtime_user_dirs=path_with_ciel_runtime_user_dirs,
+            provider_mode_label=provider_mode_label,
+            record_launch_state_for_cwd=record_launch_state_for_cwd,
+            run_ciel_runtime_update_check=run_ciel_runtime_update_check,
+            run_codex_update_check=run_codex_update_check,
+            run_prelaunch_menu=run_prelaunch_menu,
+            run_with_router_lifetime=run_with_router_lifetime,
+            start_codex_mcp_channel_sse_for_launch=start_codex_mcp_channel_sse_for_launch,
+            start_router_if_needed=start_router_if_needed,
+            subprocess_call_with_child_pid_record=subprocess_call_with_child_pid_record,
+            terminate_existing_codex_processes_for_launch=terminate_existing_codex_processes_for_launch,
+            terminate_existing_router_clients_for_launch=terminate_existing_router_clients_for_launch,
+            toml_string=toml_string,
+            warn_if_multiple_ciel_runtime_installs=warn_if_multiple_ciel_runtime_installs,
+            write_codex_mcp_config_for_channel_discovery=write_codex_mcp_config_for_channel_discovery
+        ),
     )
-    codex_mcp_compat_args = codex_mcp_native_http_compat_args(
-        codex_mcp_config,
-        split_http_proxy=(not use_native_codex and codex_mcp_split_proxy_enabled()),
-        channel_owned_server_names=codex_channel_owned_names,
-    )
-    config_args = [*config_args, *codex_mcp_compat_args]
-    listen_url = codex_app_server_default_listen_url()
-    app_server_args = codex_app_server_launch_args(
-        passthrough,
-        config_args=config_args,
-        default_listen_url=listen_url,
-    )
-    cmd = [codex, *app_server_args]
-    print("Launching Codex App Server through Ciel Runtime.", flush=True)
-    if "--listen" in cmd:
-        try:
-            print(f"Codex App Server listen: {cmd[cmd.index('--listen') + 1]}", flush=True)
-        except Exception:
-            pass
-    _log_codex_app_server_command_for_diagnostics(cmd, env)
-    record_launch_state_for_cwd(
-        current_launch_cwd_key(),
-        provider,
-        provider_mode_label(provider, pcfg) if native_codex_enabled(provider) else "codex-app-server-router",
-        str(pcfg.get("current_model") or ("" if native_codex_enabled(provider) else current_alias(cfg)) or ""),
-    )
-
-    split_proxy_enabled = bool(not use_native_codex and (codex_mcp_split_proxy_enabled() or codex_channel_owned_names))
-
-    def run_codex_app_server_process() -> int:
-        if split_proxy_enabled:
-            start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config, allowed_server_names=codex_channel_owned_names)
-        return subprocess_call_with_child_pid_record(cmd, env, codex_process_record_path("app-server"))
-
-    return run_with_router_lifetime(run_codex_app_server_process, manage_router_lifetime)
 
 
 def agy_help_requested(passthrough: list[str]) -> bool:
@@ -38508,109 +33511,50 @@ def launch_agy(
     update_check: bool = True,
     self_update_check: bool = True,
 ) -> int:
-    warn_if_multiple_ciel_runtime_installs()
-    run_ciel_runtime_update_check(enabled=self_update_check)
-    env = os.environ.copy()
-    env["PATH"] = path_with_ciel_runtime_user_dirs(env)
-    agy = install_agy_if_missing()
-    if not agy:
-        raise RuntimeError(
-            "agy executable was not found in PATH or the Ciel Runtime/AGY user bin directories, "
-            "and automatic install from Google's official AGY manifest did not make it available"
-        )
-    updated_agy = run_agy_update_check(agy, enabled=update_check)
-    if isinstance(updated_agy, str) and updated_agy:
-        agy = updated_agy
-    agy = find_executable("agy") or agy
-    agy_passthrough, agy_passthrough_notes = agy_passthrough_args_for_launch(passthrough)
-    if agy_help_requested(agy_passthrough):
-        log_agy_passthrough_mapping(agy_passthrough_notes)
-        return subprocess.call([agy, *agy_passthrough], env=env)
-    if agy_passthrough_has_command(agy_passthrough):
-        skip_menu = True
-    auto_import_passthrough_channels(passthrough)
-    rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
-    if rc == PRELAUNCH_LAUNCH_CLAUDE:
-        return launch_claude(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_CODEX:
-        return launch_codex(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_CODEX_APP_SERVER:
-        return launch_codex_app_server(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_CANCEL:
-        return 0
-    if rc not in (0, PRELAUNCH_LAUNCH_AGY):
-        return rc
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    if not native_agy_enabled(provider):
-        print("Ciel Runtime AGY launch blocked:", flush=True)
-        print("- Select AGY or AGY Routed as the provider before launching AGY.", flush=True)
-        return 2
-    blockers = launch_readiness_errors(cfg)
-    if blockers:
-        print("Ciel Runtime AGY launch blocked:", flush=True)
-        for line in blockers:
-            print(f"- {line}", flush=True)
-        return 2
-    cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
-    use_agy_routed = agy_routed_enabled(provider, pcfg)
-    manage_router_lifetime = bool(start_router_if_needed()) if use_agy_routed and channel_delivery_mode(cfg) == "llm" else False
-    agy_dangerous_args = agy_dangerous_launch_args(agy_passthrough)
-    cmd = [agy, *agy_dangerous_args, *agy_passthrough]
-    cmd, env = materialize_runtime_command(
-        "agy",
-        cmd,
-        env,
-        provider,
-        pcfg,
-        mode="routed" if use_agy_routed else "native",
-        protocol="anthropic_messages",
-        cwd=Path.cwd(),
-        enable_channels=use_agy_routed,
+    return run_agy(
+        passthrough, skip_menu=skip_menu, force_menu=force_menu,
+        update_check=update_check, self_update_check=self_update_check,
+        services=AgyLaunchServices(
+            PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
+            PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
+            PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
+            PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
+            PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+            _codex_channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds,
+            _codex_channel_wake_submit_retries=_codex_channel_wake_submit_retries,
+            _log_agy_command_for_diagnostics=_log_agy_command_for_diagnostics,
+            agy_dangerous_launch_args=agy_dangerous_launch_args,
+            agy_help_requested=agy_help_requested,
+            agy_passthrough_args_for_launch=agy_passthrough_args_for_launch,
+            agy_passthrough_has_command=agy_passthrough_has_command,
+            agy_routed_enabled=agy_routed_enabled,
+            auto_import_passthrough_channels=auto_import_passthrough_channels,
+            channel_delivery_mode=channel_delivery_mode,
+            cleanup_managed_services_for_provider=cleanup_managed_services_for_provider,
+            current_launch_cwd_key=current_launch_cwd_key,
+            find_executable=find_executable,
+            get_current_provider=get_current_provider,
+            install_agy_if_missing=install_agy_if_missing,
+            launch_claude=launch_claude,
+            launch_codex=launch_codex,
+            launch_codex_app_server=launch_codex_app_server,
+            launch_readiness_errors=launch_readiness_errors,
+            load_config=load_config,
+            log_agy_passthrough_mapping=log_agy_passthrough_mapping,
+            materialize_runtime_command=materialize_runtime_command,
+            native_agy_enabled=native_agy_enabled,
+            path_with_ciel_runtime_user_dirs=path_with_ciel_runtime_user_dirs,
+            provider_mode_label=provider_mode_label,
+            record_launch_state_for_cwd=record_launch_state_for_cwd,
+            run_agy_update_check=run_agy_update_check,
+            run_ciel_runtime_update_check=run_ciel_runtime_update_check,
+            run_prelaunch_menu=run_prelaunch_menu,
+            run_with_router_lifetime=run_with_router_lifetime,
+            start_router_if_needed=start_router_if_needed,
+            subprocess_call_with_channel_wake_proxy=subprocess_call_with_channel_wake_proxy,
+            warn_if_multiple_ciel_runtime_installs=warn_if_multiple_ciel_runtime_installs
+        ),
     )
-    log_agy_passthrough_mapping(agy_passthrough_notes)
-    _log_agy_command_for_diagnostics(cmd, env)
-    record_launch_state_for_cwd(
-        current_launch_cwd_key(),
-        provider,
-        provider_mode_label(provider, pcfg),
-        str(pcfg.get("current_model") or ""),
-    )
-
-    def run_agy_process() -> int:
-        if use_agy_routed:
-            return subprocess_call_with_channel_wake_proxy(
-                cmd,
-                env,
-                wake_for_llm_delivery=channel_delivery_mode(cfg) == "llm",
-                synthetic_enter_bytes=None,
-                normalize_bare_cr_for_synthetic_enter=False,
-                channel_wake_submit_retries=_codex_channel_wake_submit_retries(),
-                channel_wake_confirm_submit=True,
-                channel_wake_bracketed_paste=True,
-                channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds(),
-            )
-        return subprocess.call(cmd, env=env)
-
-    return run_with_router_lifetime(run_agy_process, manage_router_lifetime)
 
 
 CLAUDE_CODE_STDERR_LOG = CONFIG_DIR / "claude-code-stderr.log"
@@ -38964,638 +33908,57 @@ def apply_headless_env_config() -> tuple[bool, bool | None, bool | None, bool | 
 
 
 def run_cli(argv: list[str]) -> int:
-    if argv and argv[0] == "mcp-proxy":
-        return cmd_mcp_proxy(argv[1:])
-    if argv and argv[0] in ("help", "--help", "-h"):
-        print(cli_usage())
-        return 0
-    argv = pop_headless_env_file_args(argv)
-    if any(arg in ("--ca-upgrade-and-exit", "--ca-quiet-upgrade", "--ca-upgrade-exit") for arg in argv):
-        return run_quiet_upgrade_and_exit()
-    if argv:
-        head, rest = argv[0], argv[1:]
-        if head in ("agy", "launch-agy", "antigravity"):
-            return launch_agy(rest)
-        if head in ("codex", "launch-codex"):
-            return launch_codex(rest)
-        if head in ("version", "--version", "-v"):
-            print(f"ciel-runtime {VERSION}")
-            return 0
-        if head in ("language", "lang"):
-            cmd_language(argparse.Namespace(value=rest[0] if rest else None))
-            return 0
-        if head == "provider":
-            if not rest:
-                rc = run_external_menu("ciel-runtime-provider")
-                return portable_provider_menu() if rc is None else rc
-            if rest[0] in ("list", "ls"):
-                cmd_provider(argparse.Namespace(name=None))
-                return 0
-            cmd_provider(argparse.Namespace(name=rest[0]))
-            return 0
-        if head == "model":
-            if not rest:
-                raise SystemExit("Missing model id")
-            cmd_model(argparse.Namespace(value=rest))
-            return 0
-        if head in ("advisor-model", "advisormodel", "advisor"):
-            cmd_advisor_model(argparse.Namespace(value=rest))
-            return 0
-        if head == "base-url":
-            if len(rest) < 2:
-                raise SystemExit("Usage: ciel-runtime base-url PROVIDER URL")
-            cmd_base_url(argparse.Namespace(provider=rest[0], url=rest[1]))
-            return 0
-        if head == "models":
-            cmd_models(argparse.Namespace(provider=rest[0] if rest else None))
-            return 0
-        if head in ("api-key", "apikey"):
-            if not rest:
-                raise SystemExit("Missing provider")
-            cmd_api_key(argparse.Namespace(provider=rest[0], action=rest[1] if len(rest) > 1 else None))
-            return 0
-        if head in ("set-api-key", "set-apikey"):
-            if len(rest) < 2:
-                raise SystemExit("Usage: ciel-runtime set-api-key PROVIDER KEY")
-            cmd_set_api_key(argparse.Namespace(provider=rest[0], key=rest[1]))
-            return 0
-        if head in ("set-api-keys", "set-apikeys"):
-            if len(rest) < 2:
-                raise SystemExit("Usage: ciel-runtime set-api-keys PROVIDER KEY1,KEY2")
-            cmd_set_api_keys(argparse.Namespace(provider=rest[0], keys=rest[1:]))
-            return 0
-        if head in ("web-search", "websearch"):
-            cmd_web_search(argparse.Namespace(value=rest[0] if rest else None))
-            return 0
-        if head in ("web-fetch", "webfetch"):
-            cmd_web_fetch(argparse.Namespace(value=rest[0] if rest else None))
-            return 0
-        if head in ("log-level", "loglevel", "logging"):
-            cmd_log_level(argparse.Namespace(value=rest[0] if rest else None))
-            return 0
-        if head in ("channels", "channel"):
-            cmd_channels(argparse.Namespace(values=rest))
-            return 0
-        if head in ("channel-delivery", "channel_delivery"):
-            if rest:
-                for line in set_channel_delivery_config(rest[0]):
-                    print(line)
-            else:
-                print(f"channel_delivery: {channel_delivery_mode()}")
-            return 0
-        if head in ("ollama-native", "ollama-compat"):
-            cmd_ollama_native(argparse.Namespace(value=rest[0] if rest else None))
-            return 0
-        if head in ("ollama-options", "ollama-option", "ollama-opts"):
-            cmd_ollama_options(argparse.Namespace(values=rest))
-            return 0
-        if head in ("provider-options", "provider-option", "provider-opts", "vllm-options", "nim-options"):
-            cmd_provider_options(argparse.Namespace(values=rest))
-            return 0
-        if head in ("ollama-catalog", "ollama-catalog-refresh"):
-            no_contexts = "--no-contexts" in rest
-            timeout = 10.0
-            for item in rest:
-                if item.startswith("--timeout="):
-                    try:
-                        timeout = float(item.split("=", 1)[1])
-                    except ValueError:
-                        raise SystemExit("Usage: ciel-runtime ollama-catalog [--no-contexts] [--timeout=SECONDS]")
-            cmd_ollama_catalog(argparse.Namespace(no_contexts=no_contexts, timeout=timeout))
-            return 0
-        if head in ("test", "compat", "compatibility"):
-            timeout = 60.0
-            mode = "auto"
-            if rest and rest[0] in ("auto", "quick", "smoke", "full"):
-                mode = rest[0]
-                rest = rest[1:]
-            if rest:
-                try:
-                    timeout = float(rest[0])
-                except ValueError:
-                    raise SystemExit("Usage: ciel-runtime test [timeout_seconds] [auto|quick|smoke|full]")
-                if len(rest) > 1:
-                    mode = rest[1]
-            if mode not in ("auto", "quick", "smoke", "full"):
-                raise SystemExit("Usage: ciel-runtime test [timeout_seconds] [auto|quick|smoke|full]")
-            cmd_test(argparse.Namespace(timeout=timeout, mode=mode))
-            return 0
-        if head == "status":
-            cmd_status(argparse.Namespace())
-            return 0
-        if head == "stop":
-            cmd_stop(argparse.Namespace())
-            ncp = find_executable("ncp")
-            if ncp:
-                subprocess.run([ncp, "kill"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            return 0
-        if argv[0] == "resume":
-            runtime = last_launch_runtime()
-            if runtime == "codex":
-                return launch_codex(argv)
-            if runtime == "agy":
-                return launch_agy(argv)
-        if codex_passthrough_has_command(argv):
-            cfg = load_config()
-            provider, _ = get_current_provider(cfg)
-            if native_codex_enabled(provider):
-                return launch_codex(argv)
-        if argv[0] == "resume":
-            cfg = load_config()
-            provider, _ = get_current_provider(cfg)
-            if native_agy_enabled(provider):
-                return launch_agy(argv)
-        if agy_passthrough_has_command(argv):
-            cfg = load_config()
-            provider, _ = get_current_provider(cfg)
-            if native_agy_enabled(provider):
-                return launch_agy(argv)
-
-    passthrough: list[str] = []
-    configure_only = False
-    auto_llm_options = False
-    auto_llm_model: str | None = None
-    runtime = "claude"
-    skip_menu, web_search_override, update_check_override, self_update_check_override, force_menu = apply_headless_env_config()
-    update_check = True
-    if update_check_override is not None:
-        update_check = update_check_override
-    self_update_check = True
-    if self_update_check_override is not None:
-        self_update_check = self_update_check_override
-    i = 0
-    while i < len(argv):
-        arg = argv[i]
-        if arg in ("--ca-menu", "--ca-interactive"):
-            force_menu = True
-            i += 1
-        elif arg == "--ca-runtime" or arg.startswith("--ca-runtime="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing runtime for --ca-runtime")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            runtime = str(value or "").strip().lower()
-            if runtime in ("codex-app", "codex-appserver"):
-                runtime = "codex-app-server"
-            if runtime not in ("claude", "codex", "codex-app-server", "agy"):
-                raise SystemExit("--ca-runtime must be claude, codex, codex-app-server, or agy")
-        elif arg in ("--ca-no-launch", "--ca-configure-only", "--ca-setup-only"):
-            configure_only = True
-            skip_menu = True
-            i += 1
-        elif arg == "--ca-language" or arg.startswith("--ca-language="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing language for --ca-language")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            cmd_language(argparse.Namespace(value=value))
-            skip_menu = True
-        elif arg == "--ca-provider" or arg.startswith("--ca-provider="):
-            provider_value = arg.split("=", 1)[1] if "=" in arg else None
-            if provider_value:
-                cmd_provider(argparse.Namespace(name=provider_value))
-                skip_menu = True
-                i += 1
-            elif i + 1 < len(argv) and not argv[i + 1].startswith("--"):
-                cmd_provider(argparse.Namespace(name=argv[i + 1]))
-                skip_menu = True
-                i += 2
-            else:
-                rc = run_external_menu("ciel-runtime-provider")
-                if rc is None:
-                    rc = portable_provider_menu()
-                if rc != 0:
-                    return rc
-                skip_menu = True
-                i += 1
-        elif arg == "--ca-base-url" or arg.startswith("--ca-base-url="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing URL for --ca-base-url")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            provider, _ = get_current_provider(load_config())
-            cmd_base_url(argparse.Namespace(provider=provider, url=value))
-            skip_menu = True
-        elif arg == "--ca-model" or arg.startswith("--ca-model="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing model id for --ca-model")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            cmd_model(argparse.Namespace(value=[value]))
-            skip_menu = True
-        elif arg == "--ca-advisor-model" or arg.startswith("--ca-advisor-model="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing model id for --ca-advisor-model")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            for line in set_advisor_model_config(value):
-                print(line)
-            skip_menu = True
-        elif arg in ("--ca-auto-llm-options", "--ca-auto-llm", "--ca-recommended-llm") or arg.startswith(
-            ("--ca-auto-llm-options=", "--ca-auto-llm=", "--ca-recommended-llm=")
-        ):
-            auto_llm_options = True
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None and i + 1 < len(argv) and not argv[i + 1].startswith("--"):
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            if value:
-                auto_llm_model = value
-            skip_menu = True
-        elif arg == "--ca-models":
-            cmd_models(argparse.Namespace(provider=None))
-            return 0
-        elif arg == "--ca-api-key" or arg.startswith("--ca-api-key="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing key for --ca-api-key")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            provider, _ = get_current_provider(load_config())
-            cmd_set_api_key(argparse.Namespace(provider=provider, key=value))
-            skip_menu = True
-        elif arg == "--ca-api-key-env" or arg.startswith("--ca-api-key-env="):
-            env_name = arg.split("=", 1)[1] if "=" in arg else None
-            if env_name is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing env var name for --ca-api-key-env")
-                env_name = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            value = os.environ.get(env_name, "")
-            if not value:
-                raise SystemExit(f"Environment variable {env_name} is empty or not set")
-            provider, _ = get_current_provider(load_config())
-            cmd_set_api_key(argparse.Namespace(provider=provider, key=value))
-            skip_menu = True
-        elif arg == "--ca-api-keys" or arg.startswith("--ca-api-keys="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing key list for --ca-api-keys")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            provider, _ = get_current_provider(load_config())
-            cmd_set_api_keys(argparse.Namespace(provider=provider, keys=[value]))
-            skip_menu = True
-        elif arg == "--ca-api-keys-env" or arg.startswith("--ca-api-keys-env="):
-            env_name = arg.split("=", 1)[1] if "=" in arg else None
-            if env_name is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing env var name for --ca-api-keys-env")
-                env_name = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            value = os.environ.get(env_name, "")
-            if not value:
-                raise SystemExit(f"Environment variable {env_name} is empty or not set")
-            provider, _ = get_current_provider(load_config())
-            cmd_set_api_keys(argparse.Namespace(provider=provider, keys=[value]))
-            skip_menu = True
-        elif arg == "--ca-set-api-key":
-            if i + 2 >= len(argv):
-                raise SystemExit("Usage: --ca-set-api-key PROVIDER KEY")
-            cmd_set_api_key(argparse.Namespace(provider=argv[i + 1], key=argv[i + 2]))
-            skip_menu = True
-            i += 3
-        elif arg == "--ca-set-api-key-env":
-            if i + 2 >= len(argv):
-                raise SystemExit("Usage: --ca-set-api-key-env PROVIDER ENVVAR")
-            value = os.environ.get(argv[i + 2], "")
-            if not value:
-                raise SystemExit(f"Environment variable {argv[i + 2]} is empty or not set")
-            cmd_set_api_key(argparse.Namespace(provider=argv[i + 1], key=value))
-            skip_menu = True
-            i += 3
-        elif arg == "--ca-set-api-keys":
-            if i + 2 >= len(argv):
-                raise SystemExit("Usage: --ca-set-api-keys PROVIDER KEY1,KEY2")
-            cmd_set_api_keys(argparse.Namespace(provider=argv[i + 1], keys=[argv[i + 2]]))
-            skip_menu = True
-            i += 3
-        elif arg == "--ca-set-api-keys-env":
-            if i + 2 >= len(argv):
-                raise SystemExit("Usage: --ca-set-api-keys-env PROVIDER ENVVAR")
-            value = os.environ.get(argv[i + 2], "")
-            if not value:
-                raise SystemExit(f"Environment variable {argv[i + 2]} is empty or not set")
-            cmd_set_api_keys(argparse.Namespace(provider=argv[i + 1], keys=[value]))
-            skip_menu = True
-            i += 3
-        elif arg in ("--ca-provider-option", "--ca-provider-options") or arg.startswith(
-            ("--ca-provider-option=", "--ca-provider-options=")
-        ):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing KEY=VALUE for --ca-provider-option")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            cmd_provider_options(argparse.Namespace(values=[value]))
-            skip_menu = True
-        elif arg == "--ca-set-provider-option":
-            if i + 2 >= len(argv):
-                raise SystemExit("Usage: --ca-set-provider-option PROVIDER KEY=VALUE")
-            cmd_provider_options(argparse.Namespace(values=[argv[i + 1], argv[i + 2]]))
-            skip_menu = True
-            i += 3
-        elif arg == "--ca-ollama-num-ctx" or arg.startswith("--ca-ollama-num-ctx="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing value for --ca-ollama-num-ctx")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            cmd_ollama_options(argparse.Namespace(values=[f"num_ctx={value}"]))
-            skip_menu = True
-        elif arg == "--ca-ollama-ctx-range" or arg.startswith("--ca-ollama-ctx-range="):
-            if "=" in arg:
-                raw = arg.split("=", 1)[1]
-                sep = ":" if ":" in raw else "-"
-                parts = [p.strip() for p in raw.split(sep, 1)]
-                if len(parts) != 2 or not parts[0] or not parts[1]:
-                    raise SystemExit("Usage: --ca-ollama-ctx-range MIN MAX")
-                min_value, max_value = parts
-                i += 1
-            else:
-                if i + 2 >= len(argv):
-                    raise SystemExit("Usage: --ca-ollama-ctx-range MIN MAX")
-                min_value, max_value = argv[i + 1], argv[i + 2]
-                i += 3
-            cmd_ollama_options(
-                argparse.Namespace(values=[f"min={min_value}", f"max={max_value}", "num_ctx=auto"])
-            )
-            skip_menu = True
-        elif arg == "--ca-ollama-option" or arg.startswith("--ca-ollama-option="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing KEY=VALUE for --ca-ollama-option")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            cmd_ollama_options(argparse.Namespace(values=[value]))
-            skip_menu = True
-        elif arg == "--ca-max-output-tokens" or arg.startswith("--ca-max-output-tokens="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing value for --ca-max-output-tokens")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            cmd_provider_options(argparse.Namespace(values=[f"max_output_tokens={value}"]))
-            skip_menu = True
-        elif arg == "--ca-context-window" or arg.startswith("--ca-context-window="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing value for --ca-context-window")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            cmd_provider_options(argparse.Namespace(values=[f"context_window={value}"]))
-            skip_menu = True
-        elif arg == "--ca-request-timeout-ms" or arg.startswith("--ca-request-timeout-ms="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing value for --ca-request-timeout-ms")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            cmd_provider_options(argparse.Namespace(values=[f"request_timeout_ms={value}"]))
-            skip_menu = True
-        elif arg == "--ca-stream-idle-timeout-ms" or arg.startswith("--ca-stream-idle-timeout-ms="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing value for --ca-stream-idle-timeout-ms")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            cmd_provider_options(argparse.Namespace(values=[f"stream_idle_timeout_ms={value}"]))
-            skip_menu = True
-        elif arg == "--ca-rate-limit-rpm" or arg.startswith("--ca-rate-limit-rpm="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing value for --ca-rate-limit-rpm")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            cmd_provider_options(argparse.Namespace(values=[f"rate_limit_rpm={value}"]))
-            skip_menu = True
-        elif arg == "--ca-rate-limit-status" or arg.startswith("--ca-rate-limit-status="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing on/off for --ca-rate-limit-status")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            cmd_provider_options(argparse.Namespace(values=[f"rate_limit_status={value}"]))
-            skip_menu = True
-        elif arg == "--ca-stream" or arg.startswith("--ca-stream="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing on/off for --ca-stream")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            cmd_provider_options(argparse.Namespace(values=[f"stream_enabled={value}"]))
-            skip_menu = True
-        elif arg == "--ca-stream-word-chunking" or arg.startswith("--ca-stream-word-chunking="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing on/off for --ca-stream-word-chunking")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            cmd_provider_options(argparse.Namespace(values=[f"stream_word_chunking={value}"]))
-            skip_menu = True
-        elif arg == "--ca-log-level" or arg.startswith("--ca-log-level="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing level for --ca-log-level")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            for line in set_log_level_config(value):
-                print(line)
-            skip_menu = True
-        elif arg == "--ca-web-search":
-            web_search_override = True
-            skip_menu = True
-            i += 1
-        elif arg == "--ca-no-web-search":
-            web_search_override = False
-            skip_menu = True
-            i += 1
-        elif arg == "--ca-web-fetch":
-            cmd_web_fetch(argparse.Namespace(value="on"))
-            skip_menu = True
-            i += 1
-        elif arg == "--ca-no-web-fetch":
-            cmd_web_fetch(argparse.Namespace(value="off"))
-            skip_menu = True
-            i += 1
-        elif arg == "--ca-channel" or arg.startswith("--ca-channel="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing channel spec for --ca-channel")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            for line in add_channel_spec(value):
-                print(line)
-            skip_menu = True
-        elif arg == "--ca-channel-delivery" or arg.startswith("--ca-channel-delivery="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing mode for --ca-channel-delivery")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            for line in set_channel_delivery_config(value):
-                print(line)
-            skip_menu = True
-        elif arg == "--ca-dev-channel" or arg.startswith("--ca-dev-channel="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing channel spec for --ca-dev-channel")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            for line in add_channel_spec(value):
-                print(line)
-            skip_menu = True
-        elif arg == "--ca-development-channels" or arg.startswith("--ca-development-channels="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing on/off for --ca-development-channels")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            for line in set_channel_development_enabled(True):
-                print(line)
-            skip_menu = True
-        elif arg == "--ca-clear-channels":
-            for line in clear_channel_specs():
-                print(line)
-            skip_menu = True
-            i += 1
-        elif arg == "--ca-no-update-check":
-            update_check = False
-            skip_menu = True
-            i += 1
-        elif arg == "--ca-no-self-update-check":
-            self_update_check = False
-            skip_menu = True
-            i += 1
-        elif arg == "--ca-status":
-            cmd_status(argparse.Namespace())
-            return 0
-        elif arg == "--ca-stop":
-            cmd_stop(argparse.Namespace())
-            return 0
-        elif arg == "--":
-            passthrough.extend(argv[i + 1 :])
-            break
-        else:
-            passthrough.append(arg)
-            i += 1
-    if auto_llm_options:
-        for line in apply_auto_llm_options_config(auto_llm_model):
-            print(line)
-    if configure_only:
-        return 0
-    if runtime == "agy":
-        return launch_agy(
-            passthrough,
-            skip_menu=skip_menu,
-            force_menu=force_menu,
-            update_check=update_check,
-            self_update_check=self_update_check,
-        )
-    if runtime == "codex":
-        return launch_codex(
-            passthrough,
-            skip_menu=skip_menu,
-            force_menu=force_menu,
-            update_check=update_check,
-            self_update_check=self_update_check,
-        )
-    if runtime == "codex-app-server":
-        return launch_codex_app_server(
-            passthrough,
-            skip_menu=skip_menu,
-            force_menu=force_menu,
-            update_check=update_check,
-            self_update_check=self_update_check,
-        )
-    return launch_claude(
-        passthrough,
-        skip_menu=skip_menu,
-        force_menu=force_menu,
-        web_search_override=web_search_override,
-        update_check=update_check,
-        self_update_check=self_update_check,
+    services = CliServices(
+        VERSION=VERSION,
+        add_channel_spec=add_channel_spec,
+        agy_passthrough_has_command=agy_passthrough_has_command,
+        apply_auto_llm_options_config=apply_auto_llm_options_config,
+        apply_headless_env_config=apply_headless_env_config,
+        channel_delivery_mode=channel_delivery_mode,
+        clear_channel_specs=clear_channel_specs,
+        cli_usage=cli_usage,
+        cmd_advisor_model=cmd_advisor_model,
+        cmd_api_key=cmd_api_key,
+        cmd_base_url=cmd_base_url,
+        cmd_channels=cmd_channels,
+        cmd_language=cmd_language,
+        cmd_log_level=cmd_log_level,
+        cmd_mcp_proxy=cmd_mcp_proxy,
+        cmd_model=cmd_model,
+        cmd_models=cmd_models,
+        cmd_ollama_catalog=cmd_ollama_catalog,
+        cmd_ollama_native=cmd_ollama_native,
+        cmd_ollama_options=cmd_ollama_options,
+        cmd_provider=cmd_provider,
+        cmd_provider_options=cmd_provider_options,
+        cmd_set_api_key=cmd_set_api_key,
+        cmd_set_api_keys=cmd_set_api_keys,
+        cmd_status=cmd_status,
+        cmd_stop=cmd_stop,
+        cmd_test=cmd_test,
+        cmd_web_fetch=cmd_web_fetch,
+        cmd_web_search=cmd_web_search,
+        codex_passthrough_has_command=codex_passthrough_has_command,
+        find_executable=find_executable,
+        get_current_provider=get_current_provider,
+        last_launch_runtime=last_launch_runtime,
+        launch_agy=launch_agy,
+        launch_claude=launch_claude,
+        launch_codex=launch_codex,
+        launch_codex_app_server=launch_codex_app_server,
+        load_config=load_config,
+        native_agy_enabled=native_agy_enabled,
+        native_codex_enabled=native_codex_enabled,
+        pop_headless_env_file_args=pop_headless_env_file_args,
+        portable_provider_menu=portable_provider_menu,
+        run_external_menu=run_external_menu,
+        run_quiet_upgrade_and_exit=run_quiet_upgrade_and_exit,
+        set_advisor_model_config=set_advisor_model_config,
+        set_channel_delivery_config=set_channel_delivery_config,
+        set_channel_development_enabled=set_channel_development_enabled,
+        set_log_level_config=set_log_level_config,
     )
+    return dispatch_cli(argv, services)
 
 
 def cmd_cli(args: argparse.Namespace) -> None:

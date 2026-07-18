@@ -49,6 +49,18 @@ SSE/MCP 수집 및 cursor 상태와 분리되어 있으며 Windows Console과 PT
 
 → [[Architecture]]
 
+### `ciel_runtime_support/config_repository.py`
+
+원자적 JSON 설정 저장, mtime cache, migration 및 정규화 callback을 소유하는 Repository 구현.
+
+### `ciel_runtime_support/llm_presets.py`
+
+모델 용량과 공급자 특성을 반영해 LLM 프리셋을 적용하는 애플리케이션 서비스.
+
+### `ciel_runtime_support/cli_dispatch.py`
+
+명시적 `CliServices` dependency object를 사용하는 CLI Application Service와 command dispatcher.
+
 ### `ciel_runtime_support/agy_cli.py`
 
 AGY passthrough 인수 분석과 Claude 호환 인수 매핑.
@@ -65,9 +77,45 @@ Codex App Server 프로세스와 JSON-RPC/WebSocket 상태 조정.
 
 `ProviderAdapter` 계약을 사용하는 실제 HTTP 인증 어댑터.
 
+### `ciel_runtime_support/provider_limits.py`
+
+API 키 순환과 학습형 rate-limit 상태·backoff·적용 정책을 캡슐화한 공급자 서비스.
+
+### `ciel_runtime_support/provider_models.py`
+
+공급자별 모델 카탈로그 조회, fallback, cache 및 registry 갱신을 조정하는 모델 서비스.
+
+### `ciel_runtime_support/provider_policy.py`
+
+공급자별 wire profile과 요청 메시지·thinking·tool-choice 정규화를 담당하는 순수 정책 서비스.
+
+### `ciel_runtime_support/prelaunch.py`
+
+공급자·모델·채널·컨텍스트 설정 패널을 조정하는 사전 실행 메뉴 애플리케이션 서비스.
+
 ### `ciel_runtime_support/runtime_adapters.py`
 
 정규화된 `LaunchSpec`을 최종 `RuntimeCommand`로 변환하는 실제 CLI 런타임 어댑터.
+
+### `ciel_runtime_support/runtime_launch.py`
+
+Claude, Codex, Codex App Server, AGY 프로세스 실행과 라우터·채널 수명주기를 조정하는 런타임 애플리케이션 서비스.
+
+### `ciel_runtime_support/streaming_anthropic.py`
+
+Anthropic SSE 재배치와 thinking/tool-use 보존 정책을 실행하는 명시적 의존성 기반 스트리밍 서비스.
+
+### `ciel_runtime_support/registry.py`
+
+Provider, Runtime, Protocol, Tool 확장 지점에서 사용하는 이름·별칭 기반 typed factory registry.
+
+### `ciel_runtime_support/tool_dialects.py`
+
+Claude 도구 이름 dialect, MCP 서버 이름 정규화 및 Tool Dialect registry.
+
+### `ciel_runtime_support/tool_schema.py`
+
+도구 schema registry, JSON Schema 기반 입력 보정, Cron/Task 별칭 변환 및 필수 필드 검증.
 
 ### `ciel_runtime_support/protocols/openai_responses.py`
 
@@ -118,6 +166,10 @@ Claude Code 트랜스크립트 이벤트 필터:
 - `CLAUDE_CODE_TRANSCRIPT_EVENT_TYPES`
 
 → [[Observability]]
+
+### `ciel_runtime_support/web_ui.py`
+
+설정·파일·네트워크에 의존하지 않는 Router Web Chat HTML renderer.
 
 ---
 

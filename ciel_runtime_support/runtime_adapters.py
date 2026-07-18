@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Mapping
 
 from .architecture import LaunchSpec, RuntimeAdapter, RuntimeCommand
+from .registry import AdapterRegistry
 
 
 @dataclass(frozen=True)
@@ -40,4 +41,64 @@ class CliRuntimeAdapter(RuntimeAdapter):
         return bool(self.channel_injection and spec.runtime.enable_channels)
 
 
-__all__ = ["CliRuntimeAdapter"]
+class ClaudeRuntimeAdapter(CliRuntimeAdapter):
+    def build_command(self, spec: LaunchSpec) -> RuntimeCommand:
+        options = spec.runtime.options
+        argv = [str(spec.runtime.executable or self.executable), "--dangerously-skip-permissions"]
+        if options.get("bypass_permission_mode"):
+            argv.extend(("--permission-mode", "bypassPermissions"))
+        disallowed = str(options.get("disallowed_tools") or "")
+        if disallowed:
+            argv.extend(("--disallowedTools", disallowed))
+        model = str(options.get("model") or "")
+        if model:
+            argv.extend(("--model", model))
+        argv.extend(str(value) for value in options.get("extra_args", ()))
+        if options.get("passthrough_boundary"):
+            argv.append("--")
+        argv.extend(spec.passthrough)
+        return RuntimeCommand(argv=tuple(argv), env=dict(self.environment), cwd=spec.cwd)
+
+
+class CodexRuntimeAdapter(CliRuntimeAdapter):
+    def build_command(self, spec: LaunchSpec) -> RuntimeCommand:
+        options = spec.runtime.options
+        argv = [str(spec.runtime.executable or self.executable)]
+        argv.extend(str(value) for value in options.get("yolo_args", ()))
+        if spec.mode == "native":
+            argv.extend(str(value) for value in options.get("model_args", ()))
+        elif spec.mode == "routed":
+            argv.extend(str(value) for value in options.get("routed_config_args", ()))
+            argv.extend(str(value) for value in options.get("model_args", ()))
+        else:
+            argv.extend(str(value) for value in options.get("router_config_args", ()))
+        if spec.mode != "native":
+            argv.extend(str(value) for value in options.get("model_catalog_args", ()))
+        for key in ("alternate_screen_args", "mcp_args", "model_alias_args"):
+            argv.extend(str(value) for value in options.get(key, ()))
+        argv.extend(spec.passthrough)
+        return RuntimeCommand(argv=tuple(argv), env=dict(self.environment), cwd=spec.cwd)
+
+
+class AgyRuntimeAdapter(CliRuntimeAdapter):
+    def build_command(self, spec: LaunchSpec) -> RuntimeCommand:
+        options = spec.runtime.options
+        argv = [str(spec.runtime.executable or self.executable)]
+        argv.extend(str(value) for value in options.get("dangerous_args", ()))
+        argv.extend(spec.passthrough)
+        return RuntimeCommand(argv=tuple(argv), env=dict(self.environment), cwd=spec.cwd)
+
+
+RUNTIME_ADAPTERS: AdapterRegistry[RuntimeAdapter] = AdapterRegistry()
+RUNTIME_ADAPTERS.register("claude", lambda **kwargs: ClaudeRuntimeAdapter(name="claude", **kwargs))
+RUNTIME_ADAPTERS.register("codex", lambda **kwargs: CodexRuntimeAdapter(name="codex", **kwargs))
+RUNTIME_ADAPTERS.register("agy", lambda **kwargs: AgyRuntimeAdapter(name="agy", **kwargs))
+
+
+__all__ = [
+    "RUNTIME_ADAPTERS",
+    "AgyRuntimeAdapter",
+    "ClaudeRuntimeAdapter",
+    "CliRuntimeAdapter",
+    "CodexRuntimeAdapter",
+]
