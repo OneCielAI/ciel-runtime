@@ -64,7 +64,13 @@ from ciel_runtime_support.cli_dispatch import (
     dispatch_cli,
 )
 from ciel_runtime_support.config_repository import JsonConfigRepository
-from ciel_runtime_support.llm_presets import PresetServices, apply_preset_to_provider
+from ciel_runtime_support.llm_presets import (
+    PresetContextPolicy,
+    PresetDefinition,
+    PresetProviderMutation,
+    PresetServices,
+    apply_preset_to_provider,
+)
 from ciel_runtime_support.mcp_transport import (
     CODEX_MCP_SPLIT_PROXY_PREFIX,
     MCP_LEGACY_SSE_PROTOCOL_VERSION,
@@ -21658,28 +21664,34 @@ def apply_llm_preset_to_provider(
         sync_ollama_context=sync_ollama_context,
         load_lm_studio=load_lm_studio,
         services=PresetServices(
-            CONTEXT_HEAVY_PRESETS=CONTEXT_HEAVY_PRESETS,
-            LLM_PRESETS=LLM_PRESETS,
-            apply_lm_studio_loaded_context_guard=apply_lm_studio_loaded_context_guard,
-            apply_ollama_option=apply_ollama_option,
-            apply_ollama_runtime_output_guard=apply_ollama_runtime_output_guard,
-            apply_provider_option=apply_provider_option,
-            apply_recommended_timeout_for_model_context=apply_recommended_timeout_for_model_context,
-            cap_context_settings_to_model_capacity=cap_context_settings_to_model_capacity,
-            cap_output_settings_to_context_ratio=cap_output_settings_to_context_ratio,
-            llm_preset_text=llm_preset_text,
-            load_config=load_config,
-            model_family_text=model_family_text,
-            model_option_family=model_option_family,
-            ollama_extra_options=ollama_extra_options,
-            ollama_num_ctx_status=ollama_num_ctx_status,
-            positive_int=positive_int,
-            provider_model_context_capacity=provider_model_context_capacity,
-            required_context_for_preset=required_context_for_preset,
-            sync_ollama_library_context_limit=sync_ollama_library_context_limit,
-            ui_text=ui_text,
-            upstream_model_context_limit=upstream_model_context_limit,
-            with_preset_timeout_tokens=with_preset_timeout_tokens
+            definition=PresetDefinition(
+                CONTEXT_HEAVY_PRESETS=CONTEXT_HEAVY_PRESETS,
+                LLM_PRESETS=LLM_PRESETS,
+                llm_preset_text=llm_preset_text,
+                load_config=load_config,
+                model_family_text=model_family_text,
+                model_option_family=model_option_family,
+                positive_int=positive_int,
+                required_context_for_preset=required_context_for_preset,
+                ui_text=ui_text,
+            ),
+            context_policy=PresetContextPolicy(
+                apply_lm_studio_loaded_context_guard=apply_lm_studio_loaded_context_guard,
+                apply_ollama_runtime_output_guard=apply_ollama_runtime_output_guard,
+                apply_recommended_timeout_for_model_context=apply_recommended_timeout_for_model_context,
+                cap_context_settings_to_model_capacity=cap_context_settings_to_model_capacity,
+                cap_output_settings_to_context_ratio=cap_output_settings_to_context_ratio,
+                ollama_num_ctx_status=ollama_num_ctx_status,
+                provider_model_context_capacity=provider_model_context_capacity,
+                sync_ollama_library_context_limit=sync_ollama_library_context_limit,
+                upstream_model_context_limit=upstream_model_context_limit,
+                with_preset_timeout_tokens=with_preset_timeout_tokens,
+            ),
+            provider_mutation=PresetProviderMutation(
+                apply_ollama_option=apply_ollama_option,
+                apply_provider_option=apply_provider_option,
+                ollama_extra_options=ollama_extra_options,
+            ),
         ),
     )
 

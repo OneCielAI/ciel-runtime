@@ -5,29 +5,44 @@ from typing import Any, Callable
 
 
 @dataclass(frozen=True, slots=True)
-class PresetServices:
+class PresetDefinition:
     CONTEXT_HEAVY_PRESETS: Any
     LLM_PRESETS: Any
-    apply_lm_studio_loaded_context_guard: Callable[..., Any]
-    apply_ollama_option: Callable[..., Any]
-    apply_ollama_runtime_output_guard: Callable[..., Any]
-    apply_provider_option: Callable[..., Any]
-    apply_recommended_timeout_for_model_context: Callable[..., Any]
-    cap_context_settings_to_model_capacity: Callable[..., Any]
-    cap_output_settings_to_context_ratio: Callable[..., Any]
     llm_preset_text: Callable[..., Any]
     load_config: Callable[..., Any]
     model_family_text: Callable[..., Any]
     model_option_family: Callable[..., Any]
-    ollama_extra_options: Callable[..., Any]
-    ollama_num_ctx_status: Callable[..., Any]
     positive_int: Callable[..., Any]
-    provider_model_context_capacity: Callable[..., Any]
     required_context_for_preset: Callable[..., Any]
-    sync_ollama_library_context_limit: Callable[..., Any]
     ui_text: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class PresetContextPolicy:
+    apply_lm_studio_loaded_context_guard: Callable[..., Any]
+    apply_ollama_runtime_output_guard: Callable[..., Any]
+    apply_recommended_timeout_for_model_context: Callable[..., Any]
+    cap_context_settings_to_model_capacity: Callable[..., Any]
+    cap_output_settings_to_context_ratio: Callable[..., Any]
+    ollama_num_ctx_status: Callable[..., Any]
+    provider_model_context_capacity: Callable[..., Any]
+    sync_ollama_library_context_limit: Callable[..., Any]
     upstream_model_context_limit: Callable[..., Any]
     with_preset_timeout_tokens: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class PresetProviderMutation:
+    apply_ollama_option: Callable[..., Any]
+    apply_provider_option: Callable[..., Any]
+    ollama_extra_options: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class PresetServices:
+    definition: PresetDefinition
+    context_policy: PresetContextPolicy
+    provider_mutation: PresetProviderMutation
 
 
 def apply_preset_to_provider(
@@ -40,28 +55,28 @@ def apply_preset_to_provider(
     *,
     services: PresetServices,
 ) -> list[str]:
-    CONTEXT_HEAVY_PRESETS = services.CONTEXT_HEAVY_PRESETS
-    LLM_PRESETS = services.LLM_PRESETS
-    apply_lm_studio_loaded_context_guard = services.apply_lm_studio_loaded_context_guard
-    apply_ollama_option = services.apply_ollama_option
-    apply_ollama_runtime_output_guard = services.apply_ollama_runtime_output_guard
-    apply_provider_option = services.apply_provider_option
-    apply_recommended_timeout_for_model_context = services.apply_recommended_timeout_for_model_context
-    cap_context_settings_to_model_capacity = services.cap_context_settings_to_model_capacity
-    cap_output_settings_to_context_ratio = services.cap_output_settings_to_context_ratio
-    llm_preset_text = services.llm_preset_text
-    load_config = services.load_config
-    model_family_text = services.model_family_text
-    model_option_family = services.model_option_family
-    ollama_extra_options = services.ollama_extra_options
-    ollama_num_ctx_status = services.ollama_num_ctx_status
-    positive_int = services.positive_int
-    provider_model_context_capacity = services.provider_model_context_capacity
-    required_context_for_preset = services.required_context_for_preset
-    sync_ollama_library_context_limit = services.sync_ollama_library_context_limit
-    ui_text = services.ui_text
-    upstream_model_context_limit = services.upstream_model_context_limit
-    with_preset_timeout_tokens = services.with_preset_timeout_tokens
+    CONTEXT_HEAVY_PRESETS = services.definition.CONTEXT_HEAVY_PRESETS
+    LLM_PRESETS = services.definition.LLM_PRESETS
+    apply_lm_studio_loaded_context_guard = services.context_policy.apply_lm_studio_loaded_context_guard
+    apply_ollama_option = services.provider_mutation.apply_ollama_option
+    apply_ollama_runtime_output_guard = services.context_policy.apply_ollama_runtime_output_guard
+    apply_provider_option = services.provider_mutation.apply_provider_option
+    apply_recommended_timeout_for_model_context = services.context_policy.apply_recommended_timeout_for_model_context
+    cap_context_settings_to_model_capacity = services.context_policy.cap_context_settings_to_model_capacity
+    cap_output_settings_to_context_ratio = services.context_policy.cap_output_settings_to_context_ratio
+    llm_preset_text = services.definition.llm_preset_text
+    load_config = services.definition.load_config
+    model_family_text = services.definition.model_family_text
+    model_option_family = services.definition.model_option_family
+    ollama_extra_options = services.provider_mutation.ollama_extra_options
+    ollama_num_ctx_status = services.context_policy.ollama_num_ctx_status
+    positive_int = services.definition.positive_int
+    provider_model_context_capacity = services.context_policy.provider_model_context_capacity
+    required_context_for_preset = services.definition.required_context_for_preset
+    sync_ollama_library_context_limit = services.context_policy.sync_ollama_library_context_limit
+    ui_text = services.definition.ui_text
+    upstream_model_context_limit = services.context_policy.upstream_model_context_limit
+    with_preset_timeout_tokens = services.context_policy.with_preset_timeout_tokens
     if preset_id not in LLM_PRESETS:
         raise SystemExit(f"Unknown preset: {preset_id}")
     lang = lang or load_config().get("language", "en")
@@ -692,4 +707,10 @@ def apply_preset_to_provider(
     return lines
 
 
-__all__ = ["PresetServices", "apply_preset_to_provider"]
+__all__ = [
+    "PresetContextPolicy",
+    "PresetDefinition",
+    "PresetProviderMutation",
+    "PresetServices",
+    "apply_preset_to_provider",
+]
