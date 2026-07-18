@@ -53,6 +53,10 @@ SSE/MCP 수집 및 cursor 상태와 분리되어 있으며 Windows Console과 PT
 
 원자적 JSON 설정 저장, mtime cache, migration 및 정규화 callback을 소유하는 Repository 구현.
 
+### `ciel_runtime_support/llm_presets.py`
+
+모델 용량과 공급자 특성을 반영해 LLM 프리셋을 적용하는 애플리케이션 서비스.
+
 ### `ciel_runtime_support/cli_dispatch.py`
 
 명시적 `CliServices` dependency object를 사용하는 CLI Application Service와 command dispatcher.
@@ -72,6 +76,10 @@ Codex App Server 프로세스와 JSON-RPC/WebSocket 상태 조정.
 ### `ciel_runtime_support/provider_adapters.py`
 
 `ProviderAdapter` 계약을 사용하는 실제 HTTP 인증 어댑터.
+
+### `ciel_runtime_support/provider_policy.py`
+
+공급자별 wire profile과 요청 메시지·thinking·tool-choice 정규화를 담당하는 순수 정책 서비스.
 
 ### `ciel_runtime_support/runtime_adapters.py`
 
