@@ -25,6 +25,12 @@ from ciel_runtime_support.cli_dispatch import (
 )
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
 from ciel_runtime_support.mcp_proxy_codec import McpProxyCodecPolicy
+from ciel_runtime_support.mcp_http_proxy import (
+    McpHttpProxyCodec,
+    McpHttpProxyRuntime,
+    McpHttpProxyServices,
+    McpHttpProxyTransport,
+)
 from ciel_runtime_support.provider_config_mutations import ProviderOptionPolicy
 from ciel_runtime_support.llm_presets import (
     PresetContextPolicy,
@@ -372,10 +378,21 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_mcp_proxy_codec_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(McpProxyCodecPolicy)), 10)
 
+    def test_mcp_http_proxy_ports_stay_below_dependency_limit(self):
+        for port in (
+            McpHttpProxyCodec,
+            McpHttpProxyTransport,
+            McpHttpProxyRuntime,
+            McpHttpProxyServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
     def test_critical_mcp_and_process_paths_do_not_silence_exceptions(self):
         source_root = Path(__file__).resolve().parents[1]
         source_paths = (
             source_root / "ciel_runtime.py",
+            source_root / "ciel_runtime_support" / "mcp_http_proxy.py",
             source_root / "ciel_runtime_support" / "mcp_proxy_process.py",
         )
         critical_names = {
