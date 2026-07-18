@@ -271,6 +271,24 @@ class ProviderAdapter(ABC):
         del config
         return ProviderModelCatalogPolicy()
 
+    def model_panel_badge(self, config: ProviderConfig, model: str) -> str:
+        """Return an optional provider-owned model label for selection UIs."""
+
+        del config, model
+        return ""
+
+    def advisor_panel_notice(self, config: ProviderConfig) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
+        """Return a provider-owned advisor panel replacement, when applicable."""
+
+        del config
+        return None
+
+    def advisor_model_badge(self, config: ProviderConfig, model: str) -> str:
+        """Return an optional provider-owned advisor model annotation."""
+
+        del config, model
+        return ""
+
     def normalize_request_options(self, config: ProviderConfig, request: Mapping[str, Any]) -> Mapping[str, Any]:
         del config
         return request

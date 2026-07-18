@@ -26,6 +26,11 @@ from ciel_runtime_support.cli_dispatch import (
 from ciel_runtime_support.channel_panel import ChannelPanelPolicy
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
 from ciel_runtime_support.mcp_proxy_codec import McpProxyCodecPolicy
+from ciel_runtime_support.model_panel import (
+    ModelPanelCatalog,
+    ModelPanelPresentation,
+    ModelPanelServices,
+)
 from ciel_runtime_support.mcp_http_proxy import (
     McpHttpProxyCodec,
     McpHttpProxyRuntime,
@@ -413,6 +418,11 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_channel_panel_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelPanelPolicy)), 10)
 
+    def test_model_panel_ports_stay_below_dependency_limit(self):
+        for port in (ModelPanelCatalog, ModelPanelPresentation, ModelPanelServices):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
     def test_mcp_proxy_codec_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(McpProxyCodecPolicy)), 10)
 
@@ -518,6 +528,35 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertEqual(("/api/tags", "/v1/models"), ollama.model_paths(ollama_config))
         self.assertEqual("openai_chat", openrouter.capabilities(openrouter_config).upstream_protocol)
         self.assertEqual("/v1/chat/completions", openrouter.resolve_endpoint("chat", openrouter_config))
+
+    def test_provider_adapters_own_model_panel_annotations(self):
+        opencode = PROVIDER_ADAPTERS.create("opencode")
+        opencode_config = ProviderConfig(
+            name="opencode",
+            base_url="https://opencode.ai/zen/v1",
+            model="gpt-5",
+            options={"model_endpoints": {"gpt-5": "chat"}},
+        )
+        anthropic = PROVIDER_ADAPTERS.create("anthropic")
+        anthropic_config = ProviderConfig(
+            name="anthropic", base_url="https://api.anthropic.com", model="claude-sonnet-4-6"
+        )
+        deepseek = PROVIDER_ADAPTERS.create("deepseek")
+        deepseek_config = ProviderConfig(
+            name="deepseek", base_url="https://api.deepseek.com", model="deepseek-v4-pro"
+        )
+        openrouter = PROVIDER_ADAPTERS.create("openrouter")
+        openrouter_config = ProviderConfig(
+            name="openrouter", base_url="https://openrouter.ai/api/v1", model="model"
+        )
+
+        self.assertEqual("chat override", opencode.model_panel_badge(opencode_config, "gpt-5"))
+        self.assertIsNotNone(anthropic.advisor_panel_notice(anthropic_config))
+        self.assertEqual(
+            "recommended for long context",
+            deepseek.advisor_model_badge(deepseek_config, "deepseek-v4-pro"),
+        )
+        self.assertEqual("", openrouter.model_panel_badge(openrouter_config, "model"))
 
     def test_openai_responses_adapter_normalizes_both_directions(self):
         adapter = PROTOCOL_ADAPTERS.create("openai_responses", fallback_model="fallback")

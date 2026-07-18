@@ -59,6 +59,13 @@ from ciel_runtime_support.channel_panel import (
     channel_delivery_panel_rows as project_channel_delivery_panel_rows,
     channel_panel_rows as project_channel_panel_rows,
 )
+from ciel_runtime_support.model_panel import (
+    ModelPanelCatalog,
+    ModelPanelPresentation,
+    ModelPanelServices,
+    advisor_model_panel_rows as project_advisor_model_panel_rows,
+    model_panel_rows as project_model_panel_rows,
+)
 from ciel_runtime_support.cli_dispatch import (
     CliChannelCommands,
     CliConfiguration,
@@ -25035,49 +25042,58 @@ def log_level_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
     return rows, values
 
 
+def provider_model_panel_badge(provider: str, pcfg: dict[str, Any], model: str) -> str:
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.model_panel_badge(provider_contract_config(provider, pcfg), model)
+
+
+def provider_advisor_panel_notice(
+    provider: str, pcfg: dict[str, Any]
+) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.advisor_panel_notice(provider_contract_config(provider, pcfg))
+
+
+def provider_advisor_model_badge(provider: str, pcfg: dict[str, Any], model: str) -> str:
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.advisor_model_badge(provider_contract_config(provider, pcfg), model)
+
+
+def model_panel_services() -> ModelPanelServices:
+    return ModelPanelServices(
+        catalog=ModelPanelCatalog(
+            alias_for=alias_for,
+            cached_or_configured_model_ids=cached_or_configured_model_ids,
+            read_model_info_cache=read_model_info_cache,
+            read_model_list_cache=read_model_list_cache,
+            unique_model_ids=unique_model_ids,
+            upstream_model_ids=upstream_model_ids,
+        ),
+        presentation=ModelPanelPresentation(
+            advisor_model_badge=provider_advisor_model_badge,
+            advisor_panel_notice=provider_advisor_panel_notice,
+            format_context_tokens=format_context_tokens,
+            format_parameter_count=format_parameter_count,
+            model_panel_badge=provider_model_panel_badge,
+            normalize_model_id=normalize_model_id,
+            positive_int=positive_int,
+        ),
+    )
+
+
 def model_panel_rows(
     provider: str,
     pcfg: dict[str, Any],
     fetch: bool = True,
     force_refresh: bool = False,
 ) -> tuple[list[str], list[str]]:
-    values = unique_model_ids(
+    return project_model_panel_rows(
         provider,
-        upstream_model_ids(provider, pcfg, force_refresh=force_refresh)
-        if fetch else cached_or_configured_model_ids(provider, pcfg),
+        pcfg,
+        fetch,
+        force_refresh,
+        services=model_panel_services(),
     )
-    rows: list[str] = []
-    current = pcfg.get("current_model")
-    seen_aliases: set[str] = set()
-    deduped_values: list[str] = []
-    cache = read_model_list_cache(provider, pcfg)
-    cached_info = read_model_info_cache(provider, pcfg)
-    rows.append("Refresh provider model list..." if cache is None else "Refresh provider model list")
-    deduped_values.append("__refresh_models__")
-    for mid in values:
-        alias = alias_for(provider, mid)
-        suffix = ""
-        info = cached_info.get(normalize_model_id(provider, mid), {})
-        max_context = positive_int(info.get("max_model_len"))
-        if max_context:
-            suffix += f"  [ctx {format_context_tokens(max_context)}]"
-        parameter_count = format_parameter_count(info.get("parameter_count"))
-        if parameter_count:
-            suffix += f"  [{parameter_count} params]"
-        if provider in OPENCODE_PROVIDER_NAMES:
-            suffix += f"  [{opencode_endpoint_display(provider, mid, pcfg)}]"
-        alias_key = alias.casefold()
-        if alias_key in seen_aliases:
-            continue
-        seen_aliases.add(alias_key)
-        deduped_values.append(mid)
-        mark = "*" if mid == current else " "
-        rows.append(f"{mark} {mid}  {alias}{suffix}")
-    rows.append("+ Custom model id...")
-    deduped_values.append("__custom__")
-    rows.append("Back")
-    deduped_values.append("back")
-    return rows, deduped_values
 
 
 def advisor_model_panel_rows(
@@ -25086,44 +25102,13 @@ def advisor_model_panel_rows(
     fetch: bool = True,
     force_refresh: bool = False,
 ) -> tuple[list[str], list[str]]:
-    if provider == "anthropic":
-        return (
-            [
-                "Claude native and Anthropic routed sessions use Claude Code's",
-                "built-in /advisor (run /advisor in the session to pick its model).",
-                "Back",
-            ],
-            ["back", "back", "back"],
-        )
-    current = normalize_model_id(provider, pcfg.get("advisor_model", ""))
-    values = unique_model_ids(
+    return project_advisor_model_panel_rows(
         provider,
-        (
-            upstream_model_ids(provider, pcfg, force_refresh=force_refresh)
-            if fetch else cached_or_configured_model_ids(provider, pcfg)
-        )
-        + ([current] if current else []),
+        pcfg,
+        fetch,
+        force_refresh,
+        services=model_panel_services(),
     )
-    rows: list[str] = []
-    rows.append(("* Disable Advisor Model" if not current else "  Disable Advisor Model"))
-    deduped_values = [""]
-    cache = read_model_list_cache(provider, pcfg)
-    rows.append("Refresh provider model list..." if cache is None else "Refresh provider model list")
-    deduped_values.append("__refresh_models__")
-    seen: set[str] = set()
-    for mid in values:
-        if not mid or mid in seen:
-            continue
-        seen.add(mid)
-        mark = "*" if mid == current else " "
-        suffix = "  recommended for long context" if mid == "deepseek-v4-pro" else ""
-        rows.append(f"{mark} {mid}{suffix}")
-        deduped_values.append(mid)
-    rows.append("+ Custom advisor model id...")
-    deduped_values.append("__custom__")
-    rows.append("Back")
-    deduped_values.append("back")
-    return rows, deduped_values
 
 
 def channel_panel_policy() -> ChannelPanelPolicy:

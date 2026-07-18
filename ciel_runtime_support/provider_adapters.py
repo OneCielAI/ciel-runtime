@@ -153,6 +153,17 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         default_factory=lambda: ProviderModelCatalogPolicy(kind="anthropic")
     )
 
+    def advisor_panel_notice(self, config: ProviderConfig) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        del config
+        return (
+            (
+                "Claude native and Anthropic routed sessions use Claude Code's",
+                "built-in /advisor (run /advisor in the session to pick its model).",
+                "Back",
+            ),
+            ("back", "back", "back"),
+        )
+
     def build_model_headers(self, config: ProviderConfig, api_key: str | None) -> Mapping[str, str]:
         del config
         key = str(api_key or "").strip()
@@ -302,6 +313,10 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
         )
     )
 
+    def advisor_model_badge(self, config: ProviderConfig, model: str) -> str:
+        del config
+        return "recommended for long context" if model == "deepseek-v4-pro" else ""
+
     def supports_tool_choice(self, config: ProviderConfig, model: str | None = None) -> bool:
         configured = config.options.get("supports_tool_choice")
         if configured is not None:
@@ -448,6 +463,19 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
 
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
         return frozenset({self.select_protocol("anthropic_messages", config, model)})
+
+    def model_panel_badge(self, config: ProviderConfig, model: str) -> str:
+        protocol = self.select_protocol("anthropic_messages", config, model)
+        label = {
+            "anthropic_messages": "messages",
+            "openai_chat": "chat",
+            "openai_responses": "responses unsupported",
+            "google_generative": "gemini unsupported",
+        }.get(protocol, str(protocol))
+        overrides = config.options.get("model_endpoints")
+        if isinstance(overrides, Mapping) and model in overrides:
+            label += " override"
+        return label
 
 
 @dataclass(frozen=True)
