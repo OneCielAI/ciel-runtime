@@ -69,6 +69,14 @@ Codex App Server 프로세스와 JSON-RPC/WebSocket 상태 조정.
 
 정규화된 `LaunchSpec`을 최종 `RuntimeCommand`로 변환하는 실제 CLI 런타임 어댑터.
 
+### `ciel_runtime_support/registry.py`
+
+Provider, Runtime, Protocol, Tool 확장 지점에서 사용하는 이름·별칭 기반 typed factory registry.
+
+### `ciel_runtime_support/tool_dialects.py`
+
+Claude 도구 이름 dialect, MCP 서버 이름 정규화 및 Tool Dialect registry.
+
 ### `ciel_runtime_support/protocols/openai_responses.py`
 
 전역 설정과 네트워크 의존성이 없는 OpenAI Responses ↔ Anthropic Messages 순수 변환.

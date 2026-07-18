@@ -10,6 +10,8 @@ import time
 import uuid
 from typing import Any
 
+from ..architecture import MessageProtocolAdapter
+
 
 def _positive_int(value: Any) -> int | None:
     try:
@@ -240,4 +242,24 @@ def anthropic_message_to_openai_response(
     }
 
 
-__all__ = ["anthropic_message_to_openai_response", "openai_responses_to_anthropic_messages"]
+class OpenAIResponsesProtocolAdapter(MessageProtocolAdapter):
+    """Concrete adapter between OpenAI Responses and Anthropic Messages."""
+
+    name = "openai_responses"
+
+    def __init__(self, *, fallback_model: str = "model", source_body: dict[str, Any] | None = None) -> None:
+        self._fallback_model = fallback_model
+        self._source_body = source_body
+
+    def normalize_request(self, request: Any) -> dict[str, Any]:
+        return openai_responses_to_anthropic_messages(dict(request), self._fallback_model)
+
+    def normalize_response(self, response: Any) -> dict[str, Any]:
+        return anthropic_message_to_openai_response(dict(response), self._source_body)
+
+
+__all__ = [
+    "OpenAIResponsesProtocolAdapter",
+    "anthropic_message_to_openai_response",
+    "openai_responses_to_anthropic_messages",
+]

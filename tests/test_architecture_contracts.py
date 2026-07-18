@@ -11,7 +11,16 @@ from ciel_runtime_support.architecture import (
     RuntimeConfig,
     ToolDialect,
 )
-from ciel_runtime_support.runtime_adapters import CliRuntimeAdapter
+from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS, OpenAIResponsesProtocolAdapter
+from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, HttpBearerProviderAdapter
+from ciel_runtime_support.registry import AdapterRegistry
+from ciel_runtime_support.runtime_adapters import (
+    RUNTIME_ADAPTERS,
+    ClaudeRuntimeAdapter,
+    CliRuntimeAdapter,
+    CodexRuntimeAdapter,
+)
+from ciel_runtime_support.tool_dialects import TOOL_DIALECTS, ClaudeToolDialect
 
 
 class DummyRuntime(RuntimeAdapter):
@@ -58,6 +67,68 @@ class DummyDialect(ToolDialect):
 
 
 class ArchitectureContractTests(unittest.TestCase):
+    def test_named_registries_produce_real_contract_implementations(self):
+        protocol = PROTOCOL_ADAPTERS.create("openai-responses", fallback_model="fallback")
+        provider = PROVIDER_ADAPTERS.create("openrouter")
+        runtime = RUNTIME_ADAPTERS.create("codex", executable="codex")
+        dialect = TOOL_DIALECTS.create("claude-code", available_tools={"WebSearch"})
+
+        self.assertIsInstance(protocol, OpenAIResponsesProtocolAdapter)
+        self.assertIsInstance(provider, HttpBearerProviderAdapter)
+        self.assertIsInstance(runtime, CodexRuntimeAdapter)
+        self.assertIsInstance(dialect, ClaudeToolDialect)
+        self.assertEqual("WebSearch", dialect.normalize_tool_name("web_search"))
+
+    def test_registry_rejects_duplicate_and_unknown_names(self):
+        registry: AdapterRegistry[object] = AdapterRegistry()
+        registry.register("one", object)
+
+        with self.assertRaisesRegex(ValueError, "already registered"):
+            registry.register("one", object)
+        with self.assertRaisesRegex(KeyError, "unknown adapter"):
+            registry.create("missing")
+
+    def test_openai_responses_adapter_normalizes_both_directions(self):
+        adapter = PROTOCOL_ADAPTERS.create("openai_responses", fallback_model="fallback")
+        anthropic = adapter.normalize_request({"input": "hello", "stream": False})
+        response = adapter.normalize_response(
+            {"model": "fallback", "content": [{"type": "text", "text": "world"}], "usage": {}}
+        )
+
+        self.assertEqual("fallback", anthropic["model"])
+        self.assertEqual("hello", anthropic["messages"][0]["content"][0]["text"])
+        self.assertEqual("response", response["object"])
+
+    def test_runtime_specific_adapters_own_cli_syntax(self):
+        provider = ProviderConfig(name="test", base_url="http://localhost", model="model")
+        claude_spec = LaunchSpec(
+            runtime=RuntimeConfig(
+                name="claude",
+                executable="claude",
+                options={"bypass_permission_mode": True, "model": "alias", "extra_args": ("--debug",)},
+            ),
+            provider=provider,
+            mode="routed",
+            protocol="anthropic_messages",
+            passthrough=("prompt",),
+        )
+        adapter = RUNTIME_ADAPTERS.create("claude", executable="claude")
+
+        command = adapter.build_command(claude_spec)
+
+        self.assertIsInstance(adapter, ClaudeRuntimeAdapter)
+        self.assertEqual(
+            ("claude", "--dangerously-skip-permissions", "--permission-mode", "bypassPermissions", "--model", "alias", "--debug", "prompt"),
+            command.argv,
+        )
+
+    def test_main_composition_root_has_no_globals_service_locator_or_legacy_protocol_copy(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("runtime_deps=globals()", source)
+        self.assertNotIn("def _legacy_openai_responses_to_anthropic_messages", source)
+        self.assertNotIn("def _legacy_anthropic_message_to_openai_response", source)
+
     def test_cli_runtime_adapter_materializes_launch_spec(self):
         provider = ProviderConfig(name="test", base_url="http://localhost", model="model")
         runtime = RuntimeConfig(name="codex", executable="codex", enable_channels=True)

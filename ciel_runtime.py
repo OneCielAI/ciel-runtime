@@ -61,9 +61,10 @@ from ciel_runtime_support.codex_cli import (
 )
 from ciel_runtime_support.codex_router import CodexRouter, read_codex_response_preamble
 from ciel_runtime_support.observability import EventBus, render_events_html
-from ciel_runtime_support.protocols import anthropic_message_to_openai_response, openai_responses_to_anthropic_messages
-from ciel_runtime_support.provider_adapters import HttpBearerProviderAdapter
-from ciel_runtime_support.runtime_adapters import CliRuntimeAdapter
+from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
+from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS
+from ciel_runtime_support.runtime_adapters import RUNTIME_ADAPTERS
+from ciel_runtime_support.tool_dialects import match_available_tool_name, mcp_server_normalized_key
 from ciel_runtime_support.transcript_filter import (
     is_claude_code_transcript_event,
 )
@@ -4579,43 +4580,7 @@ def tool_schema_in_body(body: dict[str, Any], tool_name: str) -> dict[str, Any] 
 
 
 def _match_available_tool_name(name: str, available: set[str]) -> str | None:
-    if not available:
-        return None
-    low = name.lower()
-    for candidate in sorted(available):
-        if candidate == name:
-            return candidate
-    for candidate in sorted(available):
-        if candidate.lower() == low:
-            return candidate
-    # Non-native models often change only casing/separators for built-in tool
-    # names, e.g. ``WebSearch`` -> ``web_search``. Normalize punctuation for
-    # non-MCP names only; MCP server/tool segments have stricter semantics.
-    if not name.startswith("mcp__"):
-        normalized = re.sub(r"[^a-z0-9]+", "", low)
-        if normalized:
-            matches = [
-                candidate
-                for candidate in sorted(available)
-                if not candidate.startswith("mcp__")
-                and re.sub(r"[^a-z0-9]+", "", candidate.lower()) == normalized
-            ]
-            if len(matches) == 1:
-                return matches[0]
-    mcp_key = _mcp_tool_name_server_normalized_key(name)
-    if mcp_key is not None:
-        matches = [
-            candidate
-            for candidate in sorted(available)
-            if _mcp_tool_name_server_normalized_key(candidate) == mcp_key
-        ]
-        if len(matches) == 1:
-            return matches[0]
-    for candidate in sorted(available):
-        candidate_low = candidate.lower()
-        if low and (low in candidate_low or candidate_low in low):
-            return candidate
-    return None
+    return match_available_tool_name(name, available)
 
 
 def _mcp_tool_name_server_normalized_key(name: str) -> tuple[str, str] | None:
@@ -4626,16 +4591,7 @@ def _mcp_tool_name_server_normalized_key(name: str) -> tuple[str, str] | None:
     ``mcp__ai-net_http__get_messages``. Only the server segment is normalized;
     the tool name segment must still match exactly case-insensitively.
     """
-    if not isinstance(name, str) or not name.startswith("mcp__"):
-        return None
-    rest = name[5:]
-    if "__" not in rest:
-        return None
-    server_name, tool_name = rest.split("__", 1)
-    if not server_name or not tool_name:
-        return None
-    normalized_server = re.sub(r"[-_]+", "", server_name).lower()
-    return normalized_server, tool_name.lower()
+    return mcp_server_normalized_key(name)
 
 
 def resolve_emitted_tool_name(raw_name: str, source_body: dict[str, Any] | None) -> str:
@@ -7714,24 +7670,7 @@ def provider_headers(provider: str, pcfg: dict[str, Any], inbound_headers: Any |
             raise RuntimeError("Anthropic routed mode needs a configured API key or inbound Claude Code auth headers.")
     else:
         meaningful = str(key) if meaningful_key(key) else None
-        generic = provider in (
-            "ollama",
-            "ollama-cloud",
-            "vllm",
-            "self-hosted-nim",
-            "deepseek",
-            "opencode",
-            "opencode-go",
-            "kimi",
-            "zai",
-            "fireworks",
-        )
-        adapter = HttpBearerProviderAdapter(
-            name="OpenRouter" if provider == "openrouter" else provider,
-            authorization_header="Authorization" if provider == "openrouter" else "authorization",
-            require_api_key=provider == "openrouter",
-            send_placeholder_key=generic,
-        )
+        adapter = PROVIDER_ADAPTERS.create(provider, base_url=str(pcfg.get("base_url") or ""))
         config = ProviderConfig(
             name=provider,
             base_url=str(pcfg.get("base_url") or ""),
@@ -7750,7 +7689,7 @@ def get_current_provider(cfg: dict[str, Any]) -> tuple[str, dict[str, Any]]:
 
 def materialize_runtime_command(
     runtime_name: str,
-    cmd: list[str],
+    executable: str,
     env: dict[str, str],
     provider: str,
     pcfg: dict[str, Any],
@@ -7759,9 +7698,11 @@ def materialize_runtime_command(
     protocol: str,
     cwd: Path | None = None,
     enable_channels: bool = False,
+    passthrough: Iterable[str] = (),
+    options: dict[str, Any] | None = None,
 ) -> tuple[list[str], dict[str, str]]:
     """Cross the runtime/provider ownership boundary using normalized contracts."""
-    if not cmd:
+    if not executable:
         raise RuntimeError(f"{runtime_name} runtime command is empty")
     provider_config = ProviderConfig(
         name=provider,
@@ -7772,20 +7713,21 @@ def materialize_runtime_command(
     )
     runtime_config = RuntimeConfig(
         name=runtime_name,
-        executable=cmd[0],
+        executable=executable,
         enable_channels=enable_channels,
+        options=options or {},
     )
     spec = LaunchSpec(
         runtime=runtime_config,
         provider=provider_config,
         mode=mode,  # type: ignore[arg-type]
         protocol=protocol,  # type: ignore[arg-type]
-        passthrough=tuple(cmd[1:]),
+        passthrough=tuple(str(value) for value in passthrough),
         cwd=cwd,
     )
-    adapter = CliRuntimeAdapter(
-        name=runtime_name,
-        executable=cmd[0],
+    adapter = RUNTIME_ADAPTERS.create(
+        runtime_name,
+        executable=executable,
         environment=env,
         channel_injection=enable_channels,
     )
@@ -19282,226 +19224,16 @@ def openai_chat_to_anthropic(data: dict[str, Any], model: str, source_body: dict
     return out
 
 
-def _responses_json_object(value: Any) -> dict[str, Any]:
-    if isinstance(value, dict):
-        return value
-    if isinstance(value, str) and value.strip():
-        try:
-            parsed = json.loads(value)
-            if isinstance(parsed, dict):
-                return parsed
-        except Exception:
-            return {}
-    return {}
+def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model: str) -> dict[str, Any]:
+    adapter = PROTOCOL_ADAPTERS.create("openai_responses", fallback_model=fallback_model)
+    return dict(adapter.normalize_request(body))
 
 
-def _responses_content_text(content: Any) -> str:
-    if isinstance(content, str):
-        return content
-    if isinstance(content, dict):
-        ctype = str(content.get("type") or "")
-        if ctype in ("input_text", "output_text", "text"):
-            return str(content.get("text") or "")
-        if ctype == "refusal":
-            return str(content.get("refusal") or "")
-        return str(content.get("text") or content.get("output") or "")
-    if isinstance(content, list):
-        parts = [_responses_content_text(item) for item in content]
-        return "\n".join(part for part in parts if part)
-    return ""
-
-
-def _responses_content_blocks(content: Any) -> list[dict[str, Any]]:
-    text = _responses_content_text(content)
-    return [{"type": "text", "text": text}] if text else []
-
-
-def responses_tools_to_anthropic(tools: Any) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    if not isinstance(tools, list):
-        return out
-    for tool in tools:
-        if not isinstance(tool, dict):
-            continue
-        name = tool.get("name")
-        description = tool.get("description", "")
-        parameters = tool.get("parameters")
-        if not name and isinstance(tool.get("function"), dict):
-            fn = tool["function"]
-            name = fn.get("name")
-            description = fn.get("description", description)
-            parameters = fn.get("parameters", parameters)
-        if tool.get("type") not in (None, "function") and not name:
-            continue
-        if not name:
-            continue
-        out.append(
-            {
-                "name": str(name),
-                "description": str(description or ""),
-                "input_schema": parameters if isinstance(parameters, dict) else {"type": "object", "properties": {}},
-            }
-        )
-    return out
-
-
-def responses_tool_choice_to_anthropic(tool_choice: Any) -> Any:
-    if tool_choice is None:
-        return None
-    if isinstance(tool_choice, str):
-        lowered = tool_choice.strip().lower()
-        if lowered == "required":
-            return {"type": "any"}
-        if lowered in ("auto", "none"):
-            return {"type": "auto"} if lowered == "auto" else None
-        return tool_choice
-    if not isinstance(tool_choice, dict):
-        return tool_choice
-    if tool_choice.get("type") == "function":
-        name = tool_choice.get("name")
-        if not name and isinstance(tool_choice.get("function"), dict):
-            name = tool_choice["function"].get("name")
-        if name:
-            return {"type": "tool", "name": str(name)}
-    return tool_choice
-
-
-def _legacy_openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model: str) -> dict[str, Any]:
-    system_parts: list[str] = []
-    instructions = str(body.get("instructions") or "").strip()
-    if instructions:
-        system_parts.append(instructions)
-    messages: list[dict[str, Any]] = []
-    raw_input = body.get("input", [])
-    if isinstance(raw_input, str):
-        raw_input = [{"type": "message", "role": "user", "content": [{"type": "input_text", "text": raw_input}]}]
-    if isinstance(raw_input, dict):
-        raw_input = [raw_input]
-    if not isinstance(raw_input, list):
-        raw_input = []
-    for item in raw_input:
-        if not isinstance(item, dict):
-            continue
-        item_type = str(item.get("type") or "message")
-        if item_type == "function_call":
-            call_id = str(item.get("call_id") or item.get("id") or f"call_{len(messages) + 1}")
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": call_id,
-                            "name": str(item.get("name") or "tool"),
-                            "input": _responses_json_object(item.get("arguments")),
-                        }
-                    ],
-                }
-            )
-            continue
-        if item_type == "function_call_output":
-            call_id = str(item.get("call_id") or item.get("id") or "call_tool")
-            output = item.get("output")
-            messages.append(
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": call_id,
-                            "content": _responses_content_text(output),
-                        }
-                    ],
-                }
-            )
-            continue
-        role = str(item.get("role") or "user").strip().lower()
-        blocks = _responses_content_blocks(item.get("content", item.get("text", "")))
-        if not blocks:
-            continue
-        if role in ("system", "developer"):
-            system_parts.append(anthropic_content_to_text(blocks))
-            continue
-        if role not in ("user", "assistant"):
-            role = "user"
-        messages.append({"role": role, "content": blocks})
-    if not messages:
-        messages.append({"role": "user", "content": [{"type": "text", "text": ""}]})
-    out: dict[str, Any] = {
-        "model": str(body.get("model") or fallback_model or "model"),
-        "messages": messages,
-        "stream": bool(body.get("stream", True)),
-    }
-    tools = responses_tools_to_anthropic(body.get("tools"))
-    if tools:
-        out["tools"] = tools
-    tool_choice = responses_tool_choice_to_anthropic(body.get("tool_choice"))
-    if tool_choice is not None:
-        out["tool_choice"] = tool_choice
-    max_tokens = positive_int(body.get("max_output_tokens")) or positive_int(body.get("max_tokens"))
-    if max_tokens:
-        out["max_tokens"] = max_tokens
-    if system_parts:
-        out["system"] = [{"type": "text", "text": part} for part in system_parts if part]
-    return out
-
-
-def _responses_usage_from_anthropic(message: dict[str, Any]) -> dict[str, int]:
-    usage = message.get("usage") if isinstance(message.get("usage"), dict) else {}
-    input_tokens = positive_int(usage.get("input_tokens")) or 0
-    output_tokens = positive_int(usage.get("output_tokens")) or 0
-    return {
-        "input_tokens": input_tokens,
-        "output_tokens": output_tokens,
-        "total_tokens": input_tokens + output_tokens,
-    }
-
-
-def _legacy_anthropic_message_to_openai_response(message: dict[str, Any], source_body: dict[str, Any] | None = None) -> dict[str, Any]:
-    response_id = f"resp_{uuid.uuid4().hex}"
-    created_at = int(time.time())
-    model = str(message.get("model") or (source_body or {}).get("model") or "")
-    output: list[dict[str, Any]] = []
-    for index, block in enumerate(message.get("content") or []):
-        if not isinstance(block, dict):
-            continue
-        btype = block.get("type")
-        if btype == "text":
-            text = str(block.get("text") or "")
-            item_id = f"msg_{response_id[5:13]}_{index}"
-            output.append(
-                {
-                    "id": item_id,
-                    "type": "message",
-                    "status": "completed",
-                    "role": "assistant",
-                    "content": [{"type": "output_text", "text": text, "annotations": []}],
-                }
-            )
-        elif btype == "tool_use":
-            call_id = str(block.get("id") or f"call_{index + 1}")
-            output.append(
-                {
-                    "id": f"fc_{response_id[5:13]}_{index}",
-                    "type": "function_call",
-                    "status": "completed",
-                    "call_id": call_id,
-                    "name": str(block.get("name") or "tool"),
-                    "arguments": json.dumps(block.get("input") or {}, ensure_ascii=False),
-                }
-            )
-    return {
-        "id": response_id,
-        "object": "response",
-        "created_at": created_at,
-        "status": "completed",
-        "model": model,
-        "output": output,
-        "parallel_tool_calls": bool((source_body or {}).get("parallel_tool_calls", True)),
-        "tool_choice": (source_body or {}).get("tool_choice", "auto"),
-        "tools": (source_body or {}).get("tools", []),
-        "usage": _responses_usage_from_anthropic(message),
-    }
+def anthropic_message_to_openai_response(
+    message: dict[str, Any], source_body: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    adapter = PROTOCOL_ADAPTERS.create("openai_responses", source_body=source_body)
+    return dict(adapter.normalize_response(message))
 
 
 def write_openai_responses_response(
@@ -20979,6 +20711,77 @@ def handle_codex_backend_passthrough_get(handler: BaseHTTPRequestHandler, provid
         write_json(handler, {"error": {"message": f"{type(exc).__name__}: {exc}"}}, status=502)
 
 
+def build_claude_router_dependencies() -> dict[str, Any]:
+    """Explicit composition root for the legacy Claude request service."""
+    return {
+        "EVENT_BUS": EVENT_BUS,
+        "OPENCODE_PROVIDER_NAMES": OPENCODE_PROVIDER_NAMES,
+        "PROVIDER_LABELS": PROVIDER_LABELS,
+        "_rebatch_anthropic_sse_text": _rebatch_anthropic_sse_text,
+        "_update_tool_schema_registry": _update_tool_schema_registry,
+        "append_synthetic_tasklist_to_message": append_synthetic_tasklist_to_message,
+        "apply_provider_request_options": apply_provider_request_options,
+        "apply_router_rate_limit": apply_router_rate_limit,
+        "begin_pending_channel_delivery": begin_pending_channel_delivery,
+        "body_with_channel_tool_result_context": body_with_channel_tool_result_context,
+        "body_with_pending_channel_messages": body_with_pending_channel_messages,
+        "body_without_ciel_runtime_internal_metadata": body_without_ciel_runtime_internal_metadata,
+        "cap_anthropic_body_for_provider": cap_anthropic_body_for_provider,
+        "commit_pending_channel_delivery_cursors": commit_pending_channel_delivery_cursors,
+        "dump_request_for_trace": dump_request_for_trace,
+        "estimate_tokens": estimate_tokens,
+        "filter_blocked_tools": filter_blocked_tools,
+        "forward_ollama_api_chat": forward_ollama_api_chat,
+        "forward_openai_compatible_chat": forward_openai_compatible_chat,
+        "is_client_disconnect_error": is_client_disconnect_error,
+        "join_url": join_url,
+        "key_from_request_headers": key_from_request_headers,
+        "mark_pending_channel_delivery_failed": mark_pending_channel_delivery_failed,
+        "mark_pending_channel_delivery_success": mark_pending_channel_delivery_success,
+        "maybe_handle_advisor_request": maybe_handle_advisor_request,
+        "maybe_handle_channel_clear_request": maybe_handle_channel_clear_request,
+        "maybe_handle_import_session_request": maybe_handle_import_session_request,
+        "maybe_handle_live_api_keys_request": maybe_handle_live_api_keys_request,
+        "maybe_handle_live_llm_options_request": maybe_handle_live_llm_options_request,
+        "maybe_handle_plan_mode_tool_choice": maybe_handle_plan_mode_tool_choice,
+        "maybe_handle_router_debug_request": maybe_handle_router_debug_request,
+        "maybe_handle_version_request": maybe_handle_version_request,
+        "native_anthropic_base_url": native_anthropic_base_url,
+        "ncp_model_id_for_nvidia_hosted": ncp_model_id_for_nvidia_hosted,
+        "normalize_anthropic_model_request_options": normalize_anthropic_model_request_options,
+        "normalize_anthropic_system_role_messages": normalize_anthropic_system_role_messages,
+        "normalize_request_for_provider_wire": normalize_request_for_provider_wire,
+        "normalize_response_thinking_for_non_anthropic_provider": normalize_response_thinking_for_non_anthropic_provider,
+        "normalize_thinking_for_non_anthropic_provider": normalize_thinking_for_non_anthropic_provider,
+        "normalize_tool_choice_for_provider": normalize_tool_choice_for_provider,
+        "open_provider_request_with_key_retry": open_provider_request_with_key_retry,
+        "opencode_endpoint_kind": opencode_endpoint_kind,
+        "prepend_anthropic_text": prepend_anthropic_text,
+        "preserves_anthropic_thinking_contract": preserves_anthropic_thinking_contract,
+        "provider_headers": provider_headers,
+        "provider_native_compat_enabled": provider_native_compat_enabled,
+        "provider_openai_router_enabled": provider_openai_router_enabled,
+        "provider_request_timeout_seconds": provider_request_timeout_seconds,
+        "provider_stream_idle_timeout_seconds": provider_stream_idle_timeout_seconds,
+        "provider_upstream_request_base": provider_upstream_request_base,
+        "rate_limit_notice": rate_limit_notice,
+        "register_api_key_cooldown": register_api_key_cooldown,
+        "rehydrate_suppressed_thinking_passback": rehydrate_suppressed_thinking_passback,
+        "resolve_requested_model": resolve_requested_model,
+        "resolve_tool_model_references": resolve_tool_model_references,
+        "router_event_message_preview": router_event_message_preview,
+        "router_log": router_log,
+        "set_upstream_stream_read_timeout": set_upstream_stream_read_timeout,
+        "should_normalize_anthropic_stream_tool_use": should_normalize_anthropic_stream_tool_use,
+        "strip_autonomous_advisor_server_tools": strip_autonomous_advisor_server_tools,
+        "try_write_json": try_write_json,
+        "upstream_messages_query": upstream_messages_query,
+        "write_context_usage": write_context_usage,
+        "write_json": write_json,
+        "write_router_activity": write_router_activity,
+    }
+
+
 def build_runtime_routers() -> tuple[Any, ...]:
     return (
         CodexRouter(
@@ -20987,7 +20790,7 @@ def build_runtime_routers() -> tuple[Any, ...]:
             handle_backend_passthrough_post=handle_codex_backend_passthrough_post,
             handle_backend_passthrough_get=handle_codex_backend_passthrough_get,
         ),
-        ClaudeRouter(runtime_deps=globals()),
+        ClaudeRouter(runtime_deps=build_claude_router_dependencies()),
     )
 
 
@@ -29224,24 +29027,13 @@ def cleanup_managed_services_for_provider(provider: str, pcfg: dict[str, Any], c
 
 
 def default_base_url(provider: str) -> str:
-    return {
-        "anthropic": "https://api.anthropic.com",
-        "agy": "https://antigravity.google",
-        "codex": "https://api.openai.com",
-        "ollama": "http://your-ollama:11434",
-        "ollama-cloud": "https://ollama.com",
-        "deepseek": "https://api.deepseek.com/anthropic",
-        "opencode": OPENCODE_ZEN_BASE_URL,
-        "opencode-go": OPENCODE_GO_BASE_URL,
-        "kimi": KIMI_CODING_BASE_URL,
-        "zai": ZAI_ANTHROPIC_BASE_URL,
-        "vllm": "http://your-vllm:8000",
-        "lm-studio": "http://127.0.0.1:1234/v1",
-        "nvidia-hosted": nvidia_upstream_base_url(),
-        "self-hosted-nim": "http://your-nim:8000",
-        "openrouter": "https://openrouter.ai/api/v1",
-        "fireworks": FIREWORKS_INFERENCE_BASE_URL,
-    }.get(provider, "http://localhost:8000")
+    if provider == "nvidia-hosted":
+        return nvidia_upstream_base_url()
+    if PROVIDER_ADAPTERS.contains(provider):
+        configured = PROVIDER_ADAPTERS.create(provider).default_base_url()
+        if configured:
+            return configured
+    return "http://localhost:8000"
 
 
 def meaningful_key(value: str | None) -> bool:
@@ -37360,31 +37152,21 @@ def launch_claude(
             "INFO",
             f"claude_native_session_boundary previous_mode={previous_launch_mode} cwd={launch_cwd_key} session_id={session_id}",
         )
-    cmd = [
-        claude,
-        "--dangerously-skip-permissions",
-    ]
-    if (
+    bypass_permission_mode = (
         not use_native_anthropic
         and not has_passthrough_option([*extra_args, *claude_passthrough], "--permission-mode")
         and claude_supports_permission_mode_arg(claude)
-    ):
-        cmd.extend(["--permission-mode", "bypassPermissions"])
+    )
+    disallowed_tools = ""
     if (
         should_disallow_claude_server_side_web_tools(provider, pcfg, use_native_anthropic)
         and not has_passthrough_option([*extra_args, *claude_passthrough], "--disallowedTools", "--disallowed-tools")
     ):
-        cmd.extend(["--disallowedTools", ",".join(CLAUDE_SERVER_SIDE_WEB_TOOLS)])
+        disallowed_tools = ",".join(CLAUDE_SERVER_SIDE_WEB_TOOLS)
     model = env.get("CIEL_RUNTIME_MODEL_ALIAS")
-    if model:
-        cmd.extend(["--model", model])
-    cmd.extend(extra_args)
-    if should_insert_passthrough_option_boundary(extra_args, claude_passthrough):
-        cmd.append("--")
-    cmd.extend(claude_passthrough)
     cmd, env = materialize_runtime_command(
         "claude",
-        cmd,
+        claude,
         env,
         provider,
         pcfg,
@@ -37392,6 +37174,14 @@ def launch_claude(
         protocol="anthropic_messages",
         cwd=Path.cwd(),
         enable_channels=bool(stdin_channel_proxy or native_channel_bridge or llm_channel_delivery),
+        passthrough=claude_passthrough,
+        options={
+            "bypass_permission_mode": bypass_permission_mode,
+            "disallowed_tools": disallowed_tools,
+            "model": model or "",
+            "extra_args": tuple(extra_args),
+            "passthrough_boundary": should_insert_passthrough_option_boundary(extra_args, claude_passthrough),
+        },
     )
     _log_claude_command_for_diagnostics(cmd, env)
     record_launch_state_for_cwd(
@@ -38253,33 +38043,36 @@ def launch_codex(
         channel_owned_server_names=codex_channel_owned_names,
     )
     codex_yolo_args = codex_yolo_launch_args(codex_passthrough)
-    if use_native_codex:
-        cmd = [codex, *codex_yolo_args, *codex_current_model_cli_args(pcfg, codex_passthrough)]
-    elif use_codex_routed:
-        cmd = [codex, *codex_yolo_args, *codex_native_routed_config_args(), *codex_current_model_cli_args(pcfg, codex_passthrough)]
-    else:
+    if not use_native_codex and not use_codex_routed:
         env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
-        cmd = [codex, *codex_yolo_args, *codex_runtime_config_args()]
-    if not use_native_codex:
-        cmd.extend(codex_runtime_model_catalog_args(codex, cfg))
     log_codex_passthrough_mapping(codex_passthrough_notes)
-    cmd.extend(codex_alternate_screen_compat_args(codex_passthrough, env=env))
-    cmd.extend(codex_mcp_compat_args)
+    model_alias_args: list[str] = []
     if not native_codex_enabled(provider) and not has_passthrough_option(codex_passthrough, "-m", "--model"):
         model = current_alias(cfg)
         if model:
-            cmd.extend(["-m", model])
-    cmd.extend(codex_passthrough)
+            model_alias_args.extend(["-m", model])
+    codex_mode = "native" if use_native_codex else ("routed" if use_codex_routed else "router")
     cmd, env = materialize_runtime_command(
         "codex",
-        cmd,
+        codex,
         env,
         provider,
         pcfg,
-        mode="native" if use_native_codex else "routed",
+        mode=codex_mode,
         protocol="openai_responses",
         cwd=launch_cwd,
         enable_channels=bool(codex_channel_owned_names),
+        passthrough=codex_passthrough,
+        options={
+            "yolo_args": tuple(codex_yolo_args),
+            "model_args": tuple(codex_current_model_cli_args(pcfg, codex_passthrough)),
+            "routed_config_args": tuple(codex_native_routed_config_args()),
+            "router_config_args": tuple(codex_runtime_config_args()),
+            "model_catalog_args": tuple(codex_runtime_model_catalog_args(codex, cfg)),
+            "alternate_screen_args": tuple(codex_alternate_screen_compat_args(codex_passthrough, env=env)),
+            "mcp_args": tuple(codex_mcp_compat_args),
+            "model_alias_args": tuple(model_alias_args),
+        },
     )
     _log_codex_command_for_diagnostics(cmd, env)
     record_launch_state_for_cwd(
@@ -38574,10 +38367,9 @@ def launch_agy(
     use_agy_routed = agy_routed_enabled(provider, pcfg)
     manage_router_lifetime = bool(start_router_if_needed()) if use_agy_routed and channel_delivery_mode(cfg) == "llm" else False
     agy_dangerous_args = agy_dangerous_launch_args(agy_passthrough)
-    cmd = [agy, *agy_dangerous_args, *agy_passthrough]
     cmd, env = materialize_runtime_command(
         "agy",
-        cmd,
+        agy,
         env,
         provider,
         pcfg,
@@ -38585,6 +38377,8 @@ def launch_agy(
         protocol="anthropic_messages",
         cwd=Path.cwd(),
         enable_channels=use_agy_routed,
+        passthrough=agy_passthrough,
+        options={"dangerous_args": tuple(agy_dangerous_args)},
     )
     log_agy_passthrough_mapping(agy_passthrough_notes)
     _log_agy_command_for_diagnostics(cmd, env)

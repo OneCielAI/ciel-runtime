@@ -176,5 +176,7 @@ class RateLimitState:
 - `ciel_runtime_support/provider_adapters.py`의 `HttpBearerProviderAdapter`가 OpenAI 호환 제공자의 실제 인증 헤더 생성을 담당한다.
 - `ciel_runtime_support/runtime_adapters.py`의 `CliRuntimeAdapter`가 Claude, Codex, AGY의 정규화된 `LaunchSpec`을 `RuntimeCommand`로 변환한다.
 - `ciel_runtime_support/protocols/openai_responses.py`는 설정이나 네트워크에 의존하지 않고 OpenAI Responses와 Anthropic Messages 사이를 변환한다.
+- `ciel_runtime_support/registry.py`는 provider, runtime, protocol, tool dialect 구현을 조건문 대신 이름 기반 factory로 선택한다.
+- `ciel_runtime_support/tool_dialects.py`는 Claude 도구 이름과 MCP 서버 이름 변형을 `ToolDialect` 구현으로 정규화한다.
 
-메인 진입점은 레거시 공개 함수 호환성을 유지하면서 이 모듈들에 위임한다. 이후 제공자와 프로토콜은 같은 경계를 따라 작은 단위로 이전한다.
+메인 진입점은 공개 함수 호환성을 유지하면서 이 모듈들에 위임한다. Claude Router 의존성은 composition root에서 명시적으로 구성하며 모듈 전역 namespace 전체를 전달하지 않는다.
