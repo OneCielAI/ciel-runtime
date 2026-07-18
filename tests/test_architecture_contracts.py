@@ -24,6 +24,7 @@ from ciel_runtime_support.cli_dispatch import (
     CliSpecialCommands,
 )
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
+from ciel_runtime_support.mcp_proxy_codec import McpProxyCodecPolicy
 from ciel_runtime_support.provider_config_mutations import ProviderOptionPolicy
 from ciel_runtime_support.llm_presets import (
     PresetContextPolicy,
@@ -367,6 +368,9 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_provider_option_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ProviderOptionPolicy)), 10)
+
+    def test_mcp_proxy_codec_policy_stays_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(McpProxyCodecPolicy)), 10)
 
     def test_critical_mcp_and_process_paths_do_not_silence_exceptions(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
