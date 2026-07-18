@@ -9641,8 +9641,12 @@ def _channel_streamable_http_delete_session(
         with urllib.request.urlopen(req, timeout=max(1.0, min(30.0, timeout))) as response:
             try:
                 response.read()
-            except Exception:
-                pass
+            except (OSError, ValueError) as exc:
+                router_log(
+                    "WARN",
+                    f"channel_http_mcp_session_delete_body_read_failed name={name} session={session} "
+                    f"error={type(exc).__name__}: {exc}",
+                )
         router_log("INFO", f"channel_http_mcp_session_deleted name={name} session={session} reason={reason}")
         _forget_channel_streamable_session(name, endpoint, session)
         return True
@@ -10078,8 +10082,8 @@ def _channel_sse_worker(name: str, connection_id: str | None = None) -> None:
                     elif field == "retry":
                         try:
                             retry_seconds = max(1.0, min(60.0, int(value) / 1000.0))
-                        except Exception:
-                            pass
+                        except (TypeError, ValueError):
+                            router_log("WARN", f"channel_sse_invalid_retry name={name} value={value!r}")
         except Exception as exc:
             with _CHANNEL_SSE_LOCK:
                 state = _CHANNEL_SSE_CONNECTIONS.get(name)
@@ -10181,8 +10185,8 @@ def _channel_streamable_http_worker(name: str, connection_id: str | None = None)
                         elif field == "retry":
                             try:
                                 retry_seconds = max(1.0, min(60.0, int(value) / 1000.0))
-                            except Exception:
-                                pass
+                            except (TypeError, ValueError):
+                                router_log("WARN", f"channel_http_invalid_retry name={name} value={value!r}")
             except urllib.error.HTTPError as exc:
                 body_text = _http_error_body_text(exc)
                 with _CHANNEL_SSE_LOCK:
@@ -10888,16 +10892,16 @@ def _channel_mcp_client_last_event_id(handler: BaseHTTPRequestHandler) -> int | 
         event_id = _channel_mcp_parse_event_id(handler.headers.get("Last-Event-ID"))
         if event_id is not None:
             return event_id
-    except Exception:
-        pass
+    except (AttributeError, TypeError, ValueError) as exc:
+        router_log("WARN", f"channel_mcp_last_event_header_invalid error={type(exc).__name__}: {exc}")
     try:
         params = _query_params(handler)
         for key in ("lastEventId", "last_event_id", "last_id"):
             event_id = _channel_mcp_parse_event_id(_first_param(params, key))
             if event_id is not None:
                 return event_id
-    except Exception:
-        pass
+    except (AttributeError, TypeError, ValueError) as exc:
+        router_log("WARN", f"channel_mcp_last_event_query_invalid error={type(exc).__name__}: {exc}")
     return None
 
 

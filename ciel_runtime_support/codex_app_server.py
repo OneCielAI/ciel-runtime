@@ -144,17 +144,32 @@ class CodexAppServerClient:
         with self._lock:
             return self._state
 
-    def close(self) -> None:
+    def close(self, timeout: float = 2.0) -> None:
+        """Close pipes and reap the child, surfacing cleanup failures."""
+
+        errors: list[str] = []
         try:
             if self.process.stdin is not None:
                 self.process.stdin.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            errors.append(f"stdin close failed: {type(exc).__name__}: {exc}")
         if self.process.poll() is None:
             try:
                 self.process.terminate()
-            except Exception:
-                pass
+            except Exception as exc:
+                errors.append(f"terminate failed: {type(exc).__name__}: {exc}")
+            try:
+                self.process.wait(timeout=max(0.0, timeout))
+            except subprocess.TimeoutExpired:
+                try:
+                    self.process.kill()
+                    self.process.wait(timeout=max(0.0, timeout))
+                except Exception as exc:
+                    errors.append(f"kill failed: {type(exc).__name__}: {exc}")
+            except Exception as exc:
+                errors.append(f"wait failed: {type(exc).__name__}: {exc}")
+        if errors:
+            raise CodexAppServerError("; ".join(errors))
 
     def initialize(
         self,
