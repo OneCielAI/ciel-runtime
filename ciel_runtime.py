@@ -72,7 +72,18 @@ from ciel_runtime_support.provider_policy import (
     normalize_provider_request,
     resolve_provider_wire_profile,
 )
+from ciel_runtime_support.prelaunch import PrelaunchServices, run_prelaunch_menu as execute_prelaunch_menu
 from ciel_runtime_support.runtime_adapters import RUNTIME_ADAPTERS
+from ciel_runtime_support.runtime_launch import (
+    AgyLaunchServices,
+    ClaudeLaunchServices,
+    CodexAppServerLaunchServices,
+    CodexLaunchServices,
+    run_agy,
+    run_claude,
+    run_codex,
+    run_codex_app_server,
+)
 from ciel_runtime_support.streaming_anthropic import (
     AnthropicStreamServices,
     OllamaStreamServices,
@@ -26966,592 +26977,85 @@ def portable_language_menu() -> int:
 
 
 def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
-    passthrough = list(passthrough or [])
-    enable_ansi()
-    cfg = load_config()
-    provider, _pcfg = get_current_provider(cfg)
-    main_idx = prelaunch_action_index(default_prelaunch_action(provider)) if settings_ready_except_api_key() else 0
-    panel: str | None = None
-    panel_idx = 0
-    panel_rows: list[str] = []
-    panel_values: list[str] = []
-    panel_last_idx: dict[str, int] = {}
-    checks = preflight_lines()
-    messages: list[str] = []
-    first_render = True
-
-    def open_panel(name: str) -> None:
-        nonlocal panel, panel_idx, panel_rows, panel_values, messages, first_render
-        cfg = load_config()
-        provider, pcfg = get_current_provider(cfg)
-        panel = name
-        panel_idx = panel_last_idx.get(name, 0)
-        if name == "language":
-            panel_rows, panel_values = language_panel_rows(cfg)
-            panel_idx = panel_values.index(cfg.get("language", "en"))
-        elif name == "provider":
-            panel_rows, panel_values = provider_panel_rows(cfg)
-            current_choice = current_provider_panel_choice(provider, pcfg)
-            panel_idx = panel_values.index(current_choice) if current_choice in panel_values else 0
-        elif name == "api-key":
-            panel_rows, panel_values = api_key_panel_rows(provider, pcfg)
-        elif name == "base-url":
-            panel_rows, panel_values = base_url_panel_rows(provider, pcfg)
-        elif name == "model":
-            try:
-                panel_rows, panel_values = model_panel_rows(
-                    provider,
-                    pcfg,
-                    fetch=provider == "anthropic" and read_model_list_cache(provider, pcfg) is None,
-                )
-            except Exception as exc:
-                panel_rows, panel_values = [f"Model list failed: {type(exc).__name__}: {exc}", "+ Custom model id..."], []
-        elif name == "advisor-model":
-            try:
-                panel_rows, panel_values = advisor_model_panel_rows(
-                    provider,
-                    pcfg,
-                    fetch=provider == "anthropic" and read_model_list_cache(provider, pcfg) is None,
-                )
-            except Exception as exc:
-                panel_rows, panel_values = [f"Advisor model list failed: {type(exc).__name__}: {exc}", "+ Custom advisor model id..."], []
-        elif name == "test":
-            panel_rows, panel_values = ["Run compatibility test", "Back"], ["run", "back"]
-        elif name == "options":
-            panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
-        elif name == "channel-delivery":
-            panel_rows, panel_values = channel_delivery_panel_rows(cfg)
-        elif name == "log-level":
-            panel_rows, panel_values = log_level_panel_rows(cfg)
-        elif name == "channels":
-            panel_rows, panel_values, probe_messages = channel_panel_rows_for_menu(cfg, passthrough)
-            if probe_messages:
-                messages = probe_messages
-            if panel_values:
-                panel_idx = _channel_panel_first_selectable(panel_values)
-        elif name == "context":
-            panel_rows, panel_values = context_setup_panel_rows(provider, pcfg, cfg.get("language", "en"))
-        elif name == "preset":
-            panel_rows, panel_values = llm_preset_panel_rows(provider, pcfg, cfg.get("language", "en"))
-        elif name == "timeout":
-            panel_rows, panel_values = timeout_profile_panel_rows(pcfg, cfg.get("language", "en"))
-        if panel_rows:
-            panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
-
-    def close_panel(next_idx: int | None = None) -> None:
-        nonlocal panel, panel_idx, panel_rows, panel_values, main_idx
-        if panel:
-            panel_last_idx[panel] = panel_idx
-        panel = None
-        panel_idx = 0
-        panel_rows = []
-        panel_values = []
-        if next_idx is not None:
-            main_idx = next_idx
-
-    def refresh_checks() -> None:
-        nonlocal checks
-        checks = preflight_lines()
-
-    fd = sys.stdin.fileno()
-    old_settings = None
-    if os.name != "nt" and os.isatty(fd):
-        try:
-            import termios
-            old_settings = termios.tcgetattr(fd)
-            new = termios.tcgetattr(fd)
-            new[3] = new[3] & ~(termios.ECHO | termios.ICANON)
-            new[6][termios.VMIN] = 1
-            new[6][termios.VTIME] = 0
-            termios.tcsetattr(fd, termios.TCSANOW, new)
-        except Exception:
-            fd = -1
-    if sys.stdout.isatty():
-        sys.stdout.write("\033[?25l")
-        sys.stdout.flush()
-    def restore_line_mode() -> None:
-        if old_settings is not None and fd >= 0:
-            try:
-                import termios
-                termios.tcsetattr(fd, termios.TCSANOW, old_settings)
-            except Exception:
-                pass
-
-    def restore_raw_mode() -> None:
-        if old_settings is not None and fd >= 0:
-            try:
-                import termios
-                new = termios.tcgetattr(fd)
-                new[3] = new[3] & ~(termios.ECHO | termios.ICANON)
-                new[6][termios.VMIN] = 1
-                new[6][termios.VTIME] = 0
-                termios.tcsetattr(fd, termios.TCSANOW, new)
-            except Exception:
-                pass
-
-    try:
-        while True:
-            first_render = render_prelaunch_screen(main_idx, panel, panel_idx, panel_rows, checks, messages, first_render)
-            key = read_menu_key(fd) if fd >= 0 else read_menu_key()
-            if panel:
-                panel_name = panel
-                if key in ("up", "k"):
-                    if panel == "channels":
-                        panel_idx = _channel_panel_step(panel_values, panel_idx, -1)
-                    else:
-                        panel_idx = (panel_idx - 1) % max(1, len(panel_rows))
-                    panel_last_idx[panel_name] = panel_idx
-                    continue
-                if key in ("down", "j"):
-                    if panel == "channels":
-                        panel_idx = _channel_panel_step(panel_values, panel_idx, 1)
-                    else:
-                        panel_idx = (panel_idx + 1) % max(1, len(panel_rows))
-                    panel_last_idx[panel_name] = panel_idx
-                    continue
-                if key in ("esc", "left", "q"):
-                    close_panel()
-                    continue
-                if key != "enter":
-                    continue
-                cfg = load_config()
-                provider, pcfg = get_current_provider(cfg)
-                value = panel_values[panel_idx] if panel_idx < len(panel_values) else ""
-                if panel == "language" and value:
-                    cfg["language"] = value
-                    save_config(cfg)
-                    messages = [f"Language set to {value} ({LANGUAGES[value]})."]
-                    refresh_checks()
-                    close_panel(1)
-                elif panel == "provider" and value:
-                    messages = set_provider_choice_config(value)
-                    refresh_checks()
-                    cfg = load_config()
-                    provider, _pcfg = get_current_provider(cfg)
-                    if provider == "codex":
-                        close_panel(prelaunch_action_index(default_prelaunch_action(provider)))
-                    else:
-                        main_idx = 4
-                        open_panel("model")
-                elif panel == "model":
-                    if value == "back":
-                        close_panel()
-                        continue
-                    if value == "__refresh_models__":
-                        panel_rows, panel_values = ["Refreshing provider model list..."], []
-                        first_render = render_prelaunch_screen(main_idx, panel, 0, panel_rows, checks, messages, first_render)
-                        try:
-                            panel_rows, panel_values = model_panel_rows(provider, pcfg, fetch=True, force_refresh=True)
-                            messages = [f"Model list refreshed: {max(0, len(panel_values) - 3)} model(s)."]
-                        except Exception as exc:
-                            messages = [f"Model list refresh failed: {type(exc).__name__}: {exc}"]
-                            panel_rows, panel_values = model_panel_rows(provider, pcfg, fetch=False)
-                        panel_idx = 0
-                        panel_last_idx["model"] = 0
-                        refresh_checks()
-                        continue
-                    if value == "__custom__" or panel_idx >= len(panel_values):
-                        model_value = prompt_menu_value("Model id or alias", restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                    else:
-                        model_value = value
-                    if model_value:
-                        messages = set_model_config(model_value)
-                        refresh_checks()
-                    close_panel(5)
-                elif panel == "advisor-model":
-                    if value == "back":
-                        close_panel()
-                        continue
-                    if value == "__refresh_models__":
-                        panel_rows, panel_values = ["Refreshing provider model list..."], []
-                        first_render = render_prelaunch_screen(main_idx, panel, 0, panel_rows, checks, messages, first_render)
-                        try:
-                            panel_rows, panel_values = advisor_model_panel_rows(provider, pcfg, fetch=True, force_refresh=True)
-                            messages = [f"Model list refreshed: {max(0, len(panel_values) - 4)} advisor model(s)."]
-                        except Exception as exc:
-                            messages = [f"Model list refresh failed: {type(exc).__name__}: {exc}"]
-                            panel_rows, panel_values = advisor_model_panel_rows(provider, pcfg, fetch=False)
-                        panel_idx = 0
-                        panel_last_idx["advisor-model"] = 0
-                        refresh_checks()
-                        continue
-                    if value == "__custom__" or panel_idx >= len(panel_values):
-                        advisor_value = prompt_menu_value("Advisor model id", "deepseek-v4-pro", restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                    else:
-                        advisor_value = value
-                    messages = set_advisor_model_config(advisor_value)
-                    refresh_checks()
-                    close_panel(6)
-                elif panel == "api-key":
-                    if value == "back":
-                        close_panel()
-                    elif value == "input":
-                        key_value = prompt_menu_value(f"API key for {provider}", secret=True, restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        if key_value:
-                            messages = store_api_key_input_config(provider, key_value)
-                            refresh_checks()
-                        close_panel(3)
-                    elif value == "multi-input":
-                        key_value = prompt_menu_multiline_value(
-                            f"API keys for {provider} (comma/newline separated)",
-                            restore_tty=restore_line_mode,
-                            raw_tty=restore_raw_mode,
-                        )
-                        if key_value:
-                            messages = store_api_keys_config(provider, parse_api_key_list(key_value))
-                            refresh_checks()
-                        close_panel(3)
-                    elif value == "env":
-                        default_env = {
-                            "anthropic": "ANTHROPIC_API_KEY",
-                            "deepseek": "DEEPSEEK_API_KEY",
-                            "opencode": "OPENCODE_API_KEY",
-                            "opencode-go": "OPENCODE_API_KEY",
-                            "kimi": "KIMI_API_KEY",
-                            "nvidia-hosted": "NVIDIA_API_KEY",
-                            "ollama-cloud": "OLLAMA_API_KEY",
-                            "openrouter": "OPENROUTER_API_KEY",
-                            "fireworks": "FIREWORKS_API_KEY",
-                        }.get(provider, "API_KEY")
-                        env_name = prompt_menu_value("Environment variable name", default_env, restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        key_value = os.environ.get(env_name, "").strip()
-                        if key_value:
-                            messages = store_api_key_input_config(provider, key_value)
-                        else:
-                            messages = [f"Environment variable {env_name} is empty or not set."]
-                        refresh_checks()
-                        close_panel(3)
-                    elif value == "multi-env":
-                        default_env = {
-                            "anthropic": "ANTHROPIC_API_KEYS",
-                            "deepseek": "DEEPSEEK_API_KEYS",
-                            "opencode": "OPENCODE_API_KEYS",
-                            "opencode-go": "OPENCODE_API_KEYS",
-                            "kimi": "KIMI_API_KEYS",
-                            "nvidia-hosted": "NVIDIA_API_KEYS",
-                            "ollama-cloud": "OLLAMA_API_KEYS",
-                            "openrouter": "OPENROUTER_API_KEYS",
-                            "fireworks": "FIREWORKS_API_KEYS",
-                        }.get(provider, "API_KEYS")
-                        env_name = prompt_menu_value("Environment variable name", default_env, restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        key_value = os.environ.get(env_name, "").strip()
-                        if key_value:
-                            messages = store_api_keys_config(provider, parse_api_key_list(key_value))
-                        else:
-                            messages = [f"Environment variable {env_name} is empty or not set."]
-                        refresh_checks()
-                        close_panel(3)
-                    elif value == "clipboard":
-                        key_value = read_clipboard_text()
-                        if not key_value:
-                            messages = ["Clipboard did not contain readable text."]
-                        else:
-                            confirm = prompt_menu_value(f"Clipboard contains {mask_secret(key_value)}. Store it? y/N", restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                            if confirm.lower().startswith("y"):
-                                messages = store_api_key_input_config(provider, key_value)
-                            else:
-                                messages = ["Clipboard API key was not stored."]
-                        refresh_checks()
-                        close_panel(3)
-                    elif value == "multi-clipboard":
-                        key_value = read_clipboard_text()
-                        keys = parse_api_key_list(key_value)
-                        if not keys:
-                            messages = ["Clipboard did not contain readable API keys."]
-                        else:
-                            primary = f"{mask_secret(keys[0])}; fp {secret_fingerprint(keys[0])}"
-                            confirm = prompt_menu_value(
-                                f"Clipboard contains {len(keys)} key(s); primary {primary}. Store with round-robin? y/N",
-                                restore_tty=restore_line_mode,
-                                raw_tty=restore_raw_mode,
-                            )
-                            if confirm.lower().startswith("y"):
-                                messages = store_api_keys_config(provider, keys)
-                            else:
-                                messages = ["Clipboard API keys were not stored."]
-                        refresh_checks()
-                        close_panel(3)
-                    elif value == "clear":
-                        messages = clear_api_key_config(provider)
-                        refresh_checks()
-                        close_panel(3)
-                elif panel == "base-url":
-                    if value == "back":
-                        close_panel()
-                    elif value == "default":
-                        messages = set_base_url_config(provider, default_base_url(provider))
-                        refresh_checks()
-                        close_panel(4)
-                    elif value == "edit":
-                        default = pcfg.get("base_url") or default_base_url(provider)
-                        url = prompt_menu_value(f"Base URL for {provider}", default, restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        if url:
-                            messages = set_base_url_config(provider, url)
-                            refresh_checks()
-                        close_panel(4)
-                elif panel == "test":
-                    if value == "back":
-                        close_panel()
-                    else:
-                        panel_rows, panel_values = ["Testing current provider/model..."], []
-                        first_render = render_prelaunch_screen(main_idx, panel, 0, panel_rows, checks, messages, first_render)
-                        _, out = self_cmd(["test"])
-                        lines = [line for line in out.splitlines() if line.strip()]
-                        messages = lines[-8:] if lines else ["Test produced no output."]
-                        test_ok = "Compatibility: OK" in out
-                        refresh_checks()
-                        close_panel(9 if test_ok else 4)
-                elif panel == "log-level":
-                    if value == "back":
-                        close_panel()
-                    elif value:
-                        messages = set_log_level_config(value)
-                        refresh_checks()
-                        cfg = load_config()
-                        panel_rows, panel_values = log_level_panel_rows(cfg)
-                        panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
-                elif panel == "channel-delivery":
-                    if value == "back":
-                        close_panel()
-                    elif value:
-                        messages = set_channel_delivery_config(value)
-                        refresh_checks()
-                        cfg = load_config()
-                        panel_rows, panel_values = channel_delivery_panel_rows(cfg)
-                        panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
-                elif panel == "channels":
-                    if value == "back":
-                        close_panel()
-                    elif value in ("__heading__", "__noop__"):
-                        continue
-                    elif value == "__reprobe__":
-                        panel_rows, panel_values = ["Re-probing MCP channel capability..."], []
-                        first_render = render_prelaunch_screen(main_idx, panel, 0, panel_rows, checks, messages, first_render)
-                        try:
-                            result = refresh_channel_probe_cache(passthrough)
-                            messages = [channel_probe_summary_message("Probe complete", result)]
-                        except Exception as exc:
-                            messages = [f"Re-probe failed: {type(exc).__name__}: {exc}"]
-                        cfg = load_config()
-                        panel_rows, panel_values = channel_panel_rows(cfg)
-                        if panel_values:
-                            panel_idx = _channel_panel_first_selectable(panel_values)
-                    elif value == "__add_custom__":
-                        spec = prompt_menu_value("Channel spec (for example plugin:ainet@local or server:ainet)", restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        if spec:
-                            messages = add_channel_spec(spec)
-                            cfg = load_config()
-                            panel_rows, panel_values = channel_panel_rows(cfg)
-                            if panel_values:
-                                panel_idx = _channel_panel_first_selectable(panel_values)
-                    elif value == "__remove__":
-                        spec = prompt_menu_value("Channel spec to remove", "", restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        if spec:
-                            messages = remove_channel_spec(spec)
-                            cfg = load_config()
-                            panel_rows, panel_values = channel_panel_rows(cfg)
-                            if panel_values:
-                                panel_idx = _channel_panel_first_selectable(panel_values)
-                    elif value == "__clear__":
-                        messages = clear_channel_specs()
-                        cfg = load_config()
-                        panel_rows, panel_values = channel_panel_rows(cfg)
-                        if panel_values:
-                            panel_idx = _channel_panel_first_selectable(panel_values)
-                    elif value:
-                        if value in channel_specs(cfg):
-                            messages = remove_channel_spec(value)
-                        else:
-                            messages = add_channel_spec(value)
-                        cfg = load_config()
-                        panel_rows, panel_values = channel_panel_rows(cfg)
-                    refresh_checks()
-                elif panel == "options":
-                    if value == "back":
-                        close_panel()
-                    elif value == "context_setup":
-                        open_panel("context")
-                    elif value == "preset":
-                        open_panel("preset")
-                    elif value == "timeout_profile":
-                        open_panel("timeout")
-                    elif value in LLM_OPTION_TOGGLE_KEYS:
-                        # Boolean toggles flip on Enter — no input prompt.
-                        current = llm_option_current_bool(provider, pcfg, value)
-                        try:
-                            messages = set_llm_option_config(provider, value, "false" if current else "true")
-                        except Exception as exc:
-                            messages = [f"Option update failed: {type(exc).__name__}: {exc}"]
-                        refresh_checks()
-                        cfg = load_config()
-                        provider, pcfg = get_current_provider(cfg)
-                        old_idx = panel_idx
-                        panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
-                        panel_idx = max(0, min(old_idx, len(panel_rows) - 1))
-                        panel_last_idx["options"] = panel_idx
-                    else:
-                        default = llm_option_prompt_default(provider, pcfg, value)
-                        entered = prompt_menu_value(f"{value} for {provider} (default/unset clears)", default, restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        try:
-                            messages = set_llm_option_config(provider, value, entered)
-                        except Exception as exc:
-                            messages = [f"Option update failed: {type(exc).__name__}: {exc}"]
-                        refresh_checks()
-                        cfg = load_config()
-                        provider, pcfg = get_current_provider(cfg)
-                        old_idx = panel_idx
-                        panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
-                        panel_idx = max(0, min(old_idx, len(panel_rows) - 1))
-                        panel_last_idx["options"] = panel_idx
-                elif panel == "context":
-                    if value == "back":
-                        open_panel("options")
-                    elif value == "__info__":
-                        continue
-                    else:
-                        try:
-                            messages = apply_context_setup_config(provider, value)
-                        except Exception as exc:
-                            messages = [f"Context setup failed: {type(exc).__name__}: {exc}"]
-                        refresh_checks()
-                        cfg = load_config()
-                        provider, pcfg = get_current_provider(cfg)
-                        panel = "options"
-                        panel_idx = panel_last_idx.get("options", 0)
-                        panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
-                        panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
-                        panel_last_idx["options"] = panel_idx
-                elif panel == "preset":
-                    if value == "back":
-                        open_panel("options")
-                    elif value == "__info__":
-                        continue
-                    else:
-                        try:
-                            messages = apply_llm_preset_config(provider, value)
-                        except Exception as exc:
-                            messages = [f"Preset failed: {type(exc).__name__}: {exc}"]
-                        refresh_checks()
-                        cfg = load_config()
-                        provider, pcfg = get_current_provider(cfg)
-                        panel = "options"
-                        panel_idx = panel_last_idx.get("options", 0)
-                        panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
-                        panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
-                        panel_last_idx["options"] = panel_idx
-                elif panel == "timeout":
-                    if value == "back":
-                        open_panel("options")
-                    elif value == "__info__":
-                        continue
-                    else:
-                        try:
-                            cfg = load_config()
-                            provider, pcfg = get_current_provider(cfg)
-                            messages = apply_timeout_profile_to_provider(pcfg, value, cfg.get("language", "en"))
-                            save_config(cfg)
-                            clear_model_cache()
-                        except Exception as exc:
-                            messages = [f"Timeout preset failed: {type(exc).__name__}: {exc}"]
-                        refresh_checks()
-                        cfg = load_config()
-                        provider, pcfg = get_current_provider(cfg)
-                        panel = "options"
-                        panel_idx = panel_last_idx.get("options", 0)
-                        panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
-                        panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
-                        panel_last_idx["options"] = panel_idx
-                continue
-
-            if key in ("up", "k"):
-                cfg = load_config()
-                provider, pcfg = get_current_provider(cfg)
-                main_idx = (main_idx - 1) % len(main_menu_rows(cfg, provider, pcfg, cfg.get("language", "en")))
-            elif key in ("down", "j"):
-                cfg = load_config()
-                provider, pcfg = get_current_provider(cfg)
-                main_idx = (main_idx + 1) % len(main_menu_rows(cfg, provider, pcfg, cfg.get("language", "en")))
-            elif key in ("esc", "q"):
-                return PRELAUNCH_CANCEL
-            elif key == "enter":
-                actions = list(MAIN_MENU_ACTIONS)
-                action = actions[main_idx]
-                if action == "launch":
-                    cfg = load_config()
-                    provider, _ = get_current_provider(cfg)
-                    if not claude_launch_enabled_for_provider(provider):
-                        provider_label = provider_menu_label(provider, cfg.get("providers", {}).get(provider, {}))
-                        messages = [f"Launch Claude Code is disabled while {provider_label} provider is selected."]
-                        refresh_checks()
-                        continue
-                    blockers = launch_readiness_errors()
-                    if blockers:
-                        messages = blockers
-                        if launch_blockers_require_api_key(blockers):
-                            cfg = load_config()
-                            provider, _ = get_current_provider(cfg)
-                            main_idx = actions.index("api-key")
-                            open_panel("api-key")
-                            if "input" in panel_values:
-                                panel_idx = panel_values.index("input")
-                            messages = [
-                                *blockers,
-                                f"Opening API key setup for {PROVIDER_LABELS.get(provider, provider)}.",
-                            ]
-                        refresh_checks()
-                        continue
-                    return PRELAUNCH_LAUNCH_CLAUDE
-                if action == "launch-agy":
-                    cfg = load_config()
-                    provider, _ = get_current_provider(cfg)
-                    if not agy_launch_enabled_for_provider(provider):
-                        messages = ["Launch AGY is disabled until you select AGY or AGY Routed as the provider."]
-                        refresh_checks()
-                        continue
-                    blockers = launch_readiness_errors()
-                    if blockers:
-                        messages = blockers
-                        refresh_checks()
-                        continue
-                    return PRELAUNCH_LAUNCH_AGY
-                if action == "launch-codex":
-                    cfg = load_config()
-                    provider, pcfg = get_current_provider(cfg)
-                    if not codex_launch_enabled_for_provider(provider):
-                        messages = [f"Launch Codex is disabled while {provider_menu_label(provider, pcfg)} provider is selected."]
-                        refresh_checks()
-                        continue
-                    blockers = launch_readiness_errors()
-                    if blockers:
-                        messages = blockers
-                        refresh_checks()
-                        continue
-                    return PRELAUNCH_LAUNCH_CODEX
-                if action == "launch-codex-app-server":
-                    cfg = load_config()
-                    provider, pcfg = get_current_provider(cfg)
-                    if not codex_launch_enabled_for_provider(provider):
-                        messages = [f"Launch Codex App Server is disabled while {provider_menu_label(provider, pcfg)} provider is selected."]
-                        refresh_checks()
-                        continue
-                    blockers = launch_readiness_errors()
-                    if blockers:
-                        messages = blockers
-                        refresh_checks()
-                        continue
-                    return PRELAUNCH_LAUNCH_CODEX_APP_SERVER
-                if action == "quit":
-                    return PRELAUNCH_CANCEL
-                open_panel(action)
-    finally:
-        if old_settings is not None:
-            try:
-                import termios
-                termios.tcsetattr(fd, termios.TCSANOW, old_settings)
-            except Exception:
-                pass
-        sys.stdout.write("\033[?25h")
-        sys.stdout.flush()
+    return execute_prelaunch_menu(
+        passthrough,
+        services=PrelaunchServices(
+            LANGUAGES=LANGUAGES,
+            LLM_OPTION_TOGGLE_KEYS=LLM_OPTION_TOGGLE_KEYS,
+            MAIN_MENU_ACTIONS=MAIN_MENU_ACTIONS,
+            PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
+            PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
+            PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
+            PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
+            PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+            PROVIDER_LABELS=PROVIDER_LABELS,
+            _channel_panel_first_selectable=_channel_panel_first_selectable,
+            _channel_panel_step=_channel_panel_step,
+            add_channel_spec=add_channel_spec,
+            advisor_model_panel_rows=advisor_model_panel_rows,
+            agy_launch_enabled_for_provider=agy_launch_enabled_for_provider,
+            api_key_panel_rows=api_key_panel_rows,
+            apply_context_setup_config=apply_context_setup_config,
+            apply_llm_preset_config=apply_llm_preset_config,
+            apply_timeout_profile_to_provider=apply_timeout_profile_to_provider,
+            base_url_panel_rows=base_url_panel_rows,
+            channel_delivery_panel_rows=channel_delivery_panel_rows,
+            channel_panel_rows=channel_panel_rows,
+            channel_panel_rows_for_menu=channel_panel_rows_for_menu,
+            channel_probe_summary_message=channel_probe_summary_message,
+            channel_specs=channel_specs,
+            claude_launch_enabled_for_provider=claude_launch_enabled_for_provider,
+            clear_api_key_config=clear_api_key_config,
+            clear_channel_specs=clear_channel_specs,
+            clear_model_cache=clear_model_cache,
+            codex_launch_enabled_for_provider=codex_launch_enabled_for_provider,
+            context_setup_panel_rows=context_setup_panel_rows,
+            current_provider_panel_choice=current_provider_panel_choice,
+            default_base_url=default_base_url,
+            default_prelaunch_action=default_prelaunch_action,
+            enable_ansi=enable_ansi,
+            get_current_provider=get_current_provider,
+            language_panel_rows=language_panel_rows,
+            launch_blockers_require_api_key=launch_blockers_require_api_key,
+            launch_readiness_errors=launch_readiness_errors,
+            llm_option_current_bool=llm_option_current_bool,
+            llm_option_panel_rows=llm_option_panel_rows,
+            llm_option_prompt_default=llm_option_prompt_default,
+            llm_preset_panel_rows=llm_preset_panel_rows,
+            load_config=load_config,
+            log_level_panel_rows=log_level_panel_rows,
+            main_menu_rows=main_menu_rows,
+            mask_secret=mask_secret,
+            model_panel_rows=model_panel_rows,
+            parse_api_key_list=parse_api_key_list,
+            preflight_lines=preflight_lines,
+            prelaunch_action_index=prelaunch_action_index,
+            prompt_menu_multiline_value=prompt_menu_multiline_value,
+            prompt_menu_value=prompt_menu_value,
+            provider_menu_label=provider_menu_label,
+            provider_panel_rows=provider_panel_rows,
+            read_clipboard_text=read_clipboard_text,
+            read_menu_key=read_menu_key,
+            read_model_list_cache=read_model_list_cache,
+            refresh_channel_probe_cache=refresh_channel_probe_cache,
+            remove_channel_spec=remove_channel_spec,
+            render_prelaunch_screen=render_prelaunch_screen,
+            save_config=save_config,
+            secret_fingerprint=secret_fingerprint,
+            self_cmd=self_cmd,
+            set_advisor_model_config=set_advisor_model_config,
+            set_base_url_config=set_base_url_config,
+            set_channel_delivery_config=set_channel_delivery_config,
+            set_llm_option_config=set_llm_option_config,
+            set_log_level_config=set_log_level_config,
+            set_model_config=set_model_config,
+            set_provider_choice_config=set_provider_choice_config,
+            settings_ready_except_api_key=settings_ready_except_api_key,
+            store_api_key_input_config=store_api_key_input_config,
+            store_api_keys_config=store_api_keys_config,
+            timeout_profile_panel_rows=timeout_profile_panel_rows
+        ),
+    )
 
 
 def run_external_menu(name: str) -> int | None:
@@ -33381,340 +32885,99 @@ def launch_claude(
     update_check: bool = True,
     self_update_check: bool = True,
 ) -> int:
-    if has_noninteractive_claude_args(passthrough):
-        self_update_check = False
-    warn_if_multiple_ciel_runtime_installs()
-    run_ciel_runtime_update_check(enabled=self_update_check)
-    auto_import_passthrough_channels(passthrough)
-    rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
-    if rc == PRELAUNCH_LAUNCH_CODEX:
-        return launch_codex(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_AGY:
-        return launch_agy(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_CODEX_APP_SERVER:
-        return launch_codex_app_server(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_CANCEL:
-        return 0
-    if rc not in (0, PRELAUNCH_LAUNCH_CLAUDE):
-        return rc
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    for line in apply_launch_endpoint_policy(cfg, "claude"):
-        print(line, flush=True)
-    provider, pcfg = get_current_provider(cfg)
-    if not claude_launch_enabled_for_provider(provider):
-        print(f"Ciel Runtime launch blocked: Launch Claude Code is disabled while {provider_menu_label(provider, pcfg)} provider is selected.", flush=True)
-        print("Use the matching Launch menu item or --ca-runtime agy|codex|codex-app-server.", flush=True)
-        return 2
-    blockers = launch_readiness_errors(cfg)
-    if blockers:
-        print("Ciel Runtime launch blocked:", flush=True)
-        for line in blockers:
-            print(f"- {line}", flush=True)
-        return 2
-    use_native_anthropic = direct_native_anthropic_enabled(provider, pcfg)
-    use_router_mode = not use_native_anthropic
-    launch_cwd_key = current_launch_cwd_key()
-    fork_native_session, previous_launch_mode = should_fork_native_session_after_mode_switch(
-        provider,
-        pcfg,
-        use_native_anthropic,
-        passthrough,
-        launch_cwd_key,
+    return run_claude(
+        passthrough, skip_menu=skip_menu, force_menu=force_menu,
+        web_search_override=web_search_override, update_check=update_check,
+        self_update_check=self_update_check,
+        services=ClaudeLaunchServices(
+            CLAUDE_SERVER_SIDE_WEB_TOOLS=CLAUDE_SERVER_SIDE_WEB_TOOLS,
+            LOG_PATH=LOG_PATH,
+            PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
+            PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
+            PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
+            PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
+            PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+            ROUTED_COMPAT_PROMPT=ROUTED_COMPAT_PROMPT,
+            _NATIVE_ROUTER_CHANNEL_NAMES=_NATIVE_ROUTER_CHANNEL_NAMES,
+            _log_claude_command_for_diagnostics=_log_claude_command_for_diagnostics,
+            _subprocess_call_capturing_stderr=_subprocess_call_capturing_stderr,
+            anthropic_routed_enabled=anthropic_routed_enabled,
+            append_claude_code_runtime_settings_args=append_claude_code_runtime_settings_args,
+            apply_launch_endpoint_policy=apply_launch_endpoint_policy,
+            auto_import_passthrough_channels=auto_import_passthrough_channels,
+            auto_start_sse_channels_from_mcp_configs=auto_start_sse_channels_from_mcp_configs,
+            cached_channel_capable_server_names=cached_channel_capable_server_names,
+            cached_channel_source_paths_for_specs=cached_channel_source_paths_for_specs,
+            channel_candidate_server_names_for_launch=channel_candidate_server_names_for_launch,
+            channel_specs_for_launch=channel_specs_for_launch,
+            claude_channel_args=claude_channel_args,
+            claude_channels_requested=claude_channels_requested,
+            claude_code_channels_auth_available=claude_code_channels_auth_available,
+            claude_launch_enabled_for_provider=claude_launch_enabled_for_provider,
+            claude_supports_permission_mode_arg=claude_supports_permission_mode_arg,
+            cleanup_managed_services_for_provider=cleanup_managed_services_for_provider,
+            current_launch_cwd_key=current_launch_cwd_key,
+            direct_native_anthropic_enabled=direct_native_anthropic_enabled,
+            disable_ciel_runtime_slash_commands_for_native=disable_ciel_runtime_slash_commands_for_native,
+            ensure_channel_probe_cache_for_launch=ensure_channel_probe_cache_for_launch,
+            ensure_current_model_from_provider_list=ensure_current_model_from_provider_list,
+            ensure_managed_router_running_for_client=ensure_managed_router_running_for_client,
+            ensure_model_cache_for_launch=ensure_model_cache_for_launch,
+            env_bool=env_bool,
+            env_vars=env_vars,
+            external_mcp_channel_server_names_from_configs=external_mcp_channel_server_names_from_configs,
+            file_size_or_zero=file_size_or_zero,
+            find_executable=find_executable,
+            get_current_provider=get_current_provider,
+            has_noninteractive_claude_args=has_noninteractive_claude_args,
+            has_passthrough_option=has_passthrough_option,
+            install_ciel_runtime_slash_commands=install_ciel_runtime_slash_commands,
+            install_ciel_runtime_statusline=install_ciel_runtime_statusline,
+            install_claude_code_if_missing=install_claude_code_if_missing,
+            install_tool_guard_hooks=install_tool_guard_hooks,
+            launch_agy=launch_agy,
+            launch_codex=launch_codex,
+            launch_codex_app_server=launch_codex_app_server,
+            launch_mode_name=launch_mode_name,
+            launch_readiness_errors=launch_readiness_errors,
+            load_config=load_config,
+            materialize_runtime_command=materialize_runtime_command,
+            native_channel_passthrough_requested=native_channel_passthrough_requested,
+            normalize_channel_passthrough=normalize_channel_passthrough,
+            path_with_ciel_runtime_user_dirs=path_with_ciel_runtime_user_dirs,
+            prepare_channel_llm_delivery_for_launch=prepare_channel_llm_delivery_for_launch,
+            print_routed_claude_exit_diagnostics=print_routed_claude_exit_diagnostics,
+            provider_menu_label=provider_menu_label,
+            read_channel_probe_cache=read_channel_probe_cache,
+            record_launch_state_for_cwd=record_launch_state_for_cwd,
+            reset_zai_mcp_config_if_inactive=reset_zai_mcp_config_if_inactive,
+            router_health_summary=router_health_summary,
+            router_log=router_log,
+            run_ciel_runtime_update_check=run_ciel_runtime_update_check,
+            run_claude_update_check=run_claude_update_check,
+            run_prelaunch_menu=run_prelaunch_menu,
+            run_with_router_lifetime=run_with_router_lifetime,
+            save_config=save_config,
+            should_append_compat_prompt=should_append_compat_prompt,
+            should_attach_web_search=should_attach_web_search,
+            should_disallow_claude_server_side_web_tools=should_disallow_claude_server_side_web_tools,
+            should_fork_native_session_after_mode_switch=should_fork_native_session_after_mode_switch,
+            should_insert_passthrough_option_boundary=should_insert_passthrough_option_boundary,
+            should_launch_process_start_channel_sse=should_launch_process_start_channel_sse,
+            should_use_channel_llm_delivery=should_use_channel_llm_delivery,
+            should_use_channel_stdin_proxy=should_use_channel_stdin_proxy,
+            should_use_native_channel_bridge=should_use_native_channel_bridge,
+            start_router_if_needed=start_router_if_needed,
+            strip_mcp_config_passthrough=strip_mcp_config_passthrough,
+            subprocess_call_with_channel_wake_proxy=subprocess_call_with_channel_wake_proxy,
+            warn_if_multiple_ciel_runtime_installs=warn_if_multiple_ciel_runtime_installs,
+            write_channel_mcp_config=write_channel_mcp_config,
+            write_duckduckgo_mcp_config=write_duckduckgo_mcp_config,
+            write_mcp_proxy_config=write_mcp_proxy_config,
+            write_native_mcp_config_from_discovery=write_native_mcp_config_from_discovery,
+            write_zai_mcp_config=write_zai_mcp_config
+        ),
     )
-    cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
-    env = os.environ.copy()
-    env["PATH"] = path_with_ciel_runtime_user_dirs(env)
-    launch_passthrough = normalize_channel_passthrough(passthrough)
-    native_channel_bridge = should_use_native_channel_bridge(use_router_mode, cfg, launch_passthrough)
-    stdin_channel_proxy = should_use_channel_stdin_proxy(use_router_mode, launch_passthrough, cfg)
-    llm_channel_delivery = should_use_channel_llm_delivery(use_router_mode, launch_passthrough, cfg)
-    native_auto_channel_specs: list[str] = []
-    if use_native_anthropic and not native_channel_bridge and not native_channel_passthrough_requested(launch_passthrough):
-        try:
-            auto_channel_names = external_mcp_channel_server_names_from_configs(launch_passthrough)
-            native_auto_channel_specs = [f"server:{name}" for name in auto_channel_names]
-            if native_auto_channel_specs:
-                router_log(
-                    "INFO",
-                    "channel_native_auto_specs servers=%s" % ",".join(auto_channel_names),
-                )
-        except Exception as exc:
-            router_log("WARN", f"channel_native_auto_probe_failed error={type(exc).__name__}: {exc}")
-    manage_router_lifetime = False
-    if use_router_mode or llm_channel_delivery:
-        manage_router_lifetime = bool(start_router_if_needed())
-    if not use_native_anthropic:
-        ensure_model_cache_for_launch(provider, pcfg)
-        selected, selection_lines = ensure_current_model_from_provider_list(provider, pcfg)
-        if selection_lines:
-            for line in selection_lines:
-                print(line)
-            save_config(cfg)
-        if not selected:
-            raise RuntimeError(
-                f"No concrete model is selected for provider {provider}; choose a model from the provider model list before launching Claude Code."
-            )
-    launch_env = env_vars(cfg)
-    if claude_channels_requested(cfg, launch_passthrough) or native_channel_bridge or llm_channel_delivery or native_auto_channel_specs:
-        env.pop("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS", None)
-        launch_env.pop("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS", None)
-    if use_native_anthropic:
-        # Claude Native guarantee — strip every env var ciel-runtime (or a
-        # prior ciel-runtime session) might have left behind that would change
-        # Claude Code's default model selection, backend, advisor flow, or
-        # other behavior. See env_vars() docstring for the contract.
-        for key in (
-            "ANTHROPIC_BASE_URL",
-            "ANTHROPIC_MODEL",
-            "ANTHROPIC_CUSTOM_MODEL_OPTION",
-            "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
-            "ANTHROPIC_DEFAULT_HAIKU_MODEL",
-            "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
-            "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
-            "ANTHROPIC_DEFAULT_OPUS_MODEL",
-            "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
-            "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
-            "ANTHROPIC_DEFAULT_SONNET_MODEL",
-            "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
-            "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
-            "CLAUDE_CODE_SUBAGENT_MODEL",
-            "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
-            "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
-            "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
-            "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
-            "CLAUDE_CODE_EFFORT_LEVEL",
-            "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
-            "CLAUDE_CODE_ATTRIBUTION_HEADER",
-            "CIEL_RUNTIME_ADVISOR_MODEL",
-            "CIEL_RUNTIME_BYPASS_PERMISSIONS",
-            "CIEL_RUNTIME_MODEL_ALIAS",
-        ):
-            env.pop(key, None)
-            launch_env.pop(key, None)
-        if "ANTHROPIC_API_KEY" in launch_env:
-            env.pop("ANTHROPIC_AUTH_TOKEN", None)
-        router_log(
-            "INFO",
-            "claude_native_launch model=<defer-to-claude-code> advisor=off backend=<default-anthropic>",
-        )
-        disable_ciel_runtime_slash_commands_for_native()
-    elif anthropic_routed_enabled(provider, pcfg):
-        router_log(
-            "INFO",
-            "claude_anthropic_routed_launch backend=ciel-runtime-router upstream=anthropic",
-        )
-    env.update(launch_env)
-    if not use_native_anthropic:
-        preserve_anthropic_auth = anthropic_routed_enabled(provider, pcfg)
-        for key in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
-            if key not in launch_env and not preserve_anthropic_auth:
-                env.pop(key, None)
-        install_ciel_runtime_slash_commands(include_advisor=provider != "anthropic")
-        install_tool_guard_hooks()
-        install_ciel_runtime_statusline()
-    claude = install_claude_code_if_missing()
-    if not claude:
-        raise RuntimeError(
-            "claude executable was not found in PATH or the Ciel Runtime user bin directories, "
-            "and automatic install of @anthropic-ai/claude-code did not make it available"
-        )
-    updated_claude = run_claude_update_check(claude, enabled=update_check)
-    if isinstance(updated_claude, str) and updated_claude:
-        claude = updated_claude
-    claude = find_executable("claude") or claude
-    if native_channel_bridge or native_auto_channel_specs:
-        auth_ok, auth_reason = claude_code_channels_auth_available(claude)
-        if not auth_ok:
-            if native_channel_bridge:
-                router_log("WARN", f"channel_native_unavailable_fallback reason={auth_reason} delivery=llm")
-                native_channel_bridge = False
-                llm_channel_delivery = True
-            else:
-                router_log("WARN", f"channel_native_auto_disabled reason={auth_reason}")
-                native_auto_channel_specs = []
-    extra_args: list[str] = []
-    mcp_config_paths: list[str] = []
-    reset_zai_mcp_config_if_inactive(provider)
-    zai_mcp_config = write_zai_mcp_config(provider, pcfg)
-    if zai_mcp_config:
-        mcp_config_paths.append(str(zai_mcp_config))
-    if should_attach_web_search(provider, cfg, web_search_override):
-        mcp_config_paths.append(str(write_duckduckgo_mcp_config(cfg)))
-    if llm_channel_delivery:
-        mcp_config_paths.append(str(write_channel_mcp_config()))
-    native_direct_mcp_config_paths: list[str] = []
-    if use_native_anthropic:
-        native_mcp_config = write_native_mcp_config_from_discovery(launch_passthrough)
-        if native_mcp_config:
-            native_direct_mcp_config_paths = [str(native_mcp_config)]
-    detected_channel_specs: list[str] = []
-    detected_channel_capable_names: list[str] = []
-    channel_probe_source_paths: list[Path] = []
-    if stdin_channel_proxy or llm_channel_delivery:
-        try:
-            candidate_channel_names = channel_candidate_server_names_for_launch(cfg, launch_passthrough)
-            ensure_channel_probe_cache_for_launch(cfg, launch_passthrough)
-            capable_names = cached_channel_capable_server_names()
-            capable_name_set = set(capable_names)
-            detected_channel_capable_names = [
-                name for name in candidate_channel_names
-                if name in capable_name_set and name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES
-            ]
-            detected_channel_specs = [f"server:{name}" for name in detected_channel_capable_names]
-            channel_launch_specs = channel_specs_for_launch(cfg, launch_passthrough, detected_channel_specs)
-            channel_probe_source_paths = cached_channel_source_paths_for_specs(channel_launch_specs)
-            if channel_probe_source_paths:
-                mcp_config_paths.extend(str(path) for path in channel_probe_source_paths)
-            cache_age = read_channel_probe_cache().get("probed_at") or 0
-            router_log(
-                "INFO",
-                "channel_probe_loaded source=cache cache_age_ts=%d count=%d servers=%s sources=%s"
-                % (
-                    int(cache_age),
-                    len(detected_channel_capable_names),
-                    ",".join(detected_channel_capable_names) or "-",
-                    ",".join(str(path) for path in channel_probe_source_paths) or "-",
-                ),
-            )
-        except Exception as exc:
-            router_log("WARN", f"channel_probe_cache_load_failed error={type(exc).__name__}: {exc}")
-    claude_passthrough = list(launch_passthrough)
-    if use_native_anthropic:
-        if native_direct_mcp_config_paths:
-            mcp_config_paths.extend(native_direct_mcp_config_paths)
-            claude_passthrough = strip_mcp_config_passthrough(launch_passthrough)
-    elif stdin_channel_proxy or llm_channel_delivery or native_auto_channel_specs:
-        if llm_channel_delivery:
-            prepare_channel_llm_delivery_for_launch()
-        if should_launch_process_start_channel_sse(stdin_channel_proxy, native_channel_bridge, llm_channel_delivery):
-            auto_start_sse_channels_from_mcp_configs(
-                launch_passthrough,
-                extra_config_paths=[Path(path) for path in mcp_config_paths],
-            )
-        else:
-            router_log("INFO", "channel_sse_auto_start_skipped reason=router_managed_llm_delivery")
-        # Channel-capable streamable-HTTP backends (e.g. ai-net-http) are forced
-        # through ciel-runtime's own mcp-proxy so there is exactly ONE backend
-        # connection: the proxy serves Claude Code's tool calls AND owns the
-        # notification stream + idle-death wake handling. Because the proxy now
-        # OWNS the stream, it must NOT also be in the disable set -- forcing a
-        # server while disabling its stream would leave zero notification owners
-        # and the agent would never wake. force and disable are mutually
-        # exclusive per server, so the disable set excludes anything we force.
-        forced_channel_names = (
-            set(detected_channel_capable_names)
-            if (stdin_channel_proxy or llm_channel_delivery)
-            else set()
-        )
-        proxy_config = write_mcp_proxy_config(
-            launch_passthrough,
-            extra_config_paths=[Path(path) for path in mcp_config_paths],
-            force_proxy_server_names=forced_channel_names or None,
-            disable_proxy_notification_stream_names=None,
-        )
-        if proxy_config:
-            mcp_config_paths = [str(proxy_config)]
-            claude_passthrough = strip_mcp_config_passthrough(launch_passthrough)
-    if mcp_config_paths:
-        extra_args.extend(["--mcp-config", *mcp_config_paths])
-    if should_append_compat_prompt(provider, pcfg, cfg) and not has_passthrough_option(launch_passthrough, "--system-prompt"):
-        extra_args.extend(["--append-system-prompt", ROUTED_COMPAT_PROMPT])
-    extra_args.extend(
-        claude_channel_args(
-            cfg,
-            launch_passthrough,
-            extra_specs=native_auto_channel_specs if native_auto_channel_specs else detected_channel_specs,
-            native_channel_bridge=bool(native_channel_bridge or native_auto_channel_specs),
-        )
-    )
-    append_claude_code_runtime_settings_args(extra_args, launch_passthrough, provider, pcfg)
-    if fork_native_session:
-        session_id = str(uuid.uuid4())
-        extra_args.extend(["--session-id", session_id])
-        router_log(
-            "INFO",
-            f"claude_native_session_boundary previous_mode={previous_launch_mode} cwd={launch_cwd_key} session_id={session_id}",
-        )
-    bypass_permission_mode = (
-        not use_native_anthropic
-        and not has_passthrough_option([*extra_args, *claude_passthrough], "--permission-mode")
-        and claude_supports_permission_mode_arg(claude)
-    )
-    disallowed_tools = ""
-    if (
-        should_disallow_claude_server_side_web_tools(provider, pcfg, use_native_anthropic)
-        and not has_passthrough_option([*extra_args, *claude_passthrough], "--disallowedTools", "--disallowed-tools")
-    ):
-        disallowed_tools = ",".join(CLAUDE_SERVER_SIDE_WEB_TOOLS)
-    model = env.get("CIEL_RUNTIME_MODEL_ALIAS")
-    cmd, env = materialize_runtime_command(
-        "claude",
-        claude,
-        env,
-        provider,
-        pcfg,
-        mode="native" if use_native_anthropic else "routed",
-        protocol="anthropic_messages",
-        cwd=Path.cwd(),
-        enable_channels=bool(stdin_channel_proxy or native_channel_bridge or llm_channel_delivery),
-        passthrough=claude_passthrough,
-        options={
-            "bypass_permission_mode": bypass_permission_mode,
-            "disallowed_tools": disallowed_tools,
-            "model": model or "",
-            "extra_args": tuple(extra_args),
-            "passthrough_boundary": should_insert_passthrough_option_boundary(extra_args, claude_passthrough),
-        },
-    )
-    _log_claude_command_for_diagnostics(cmd, env)
-    record_launch_state_for_cwd(
-        launch_cwd_key,
-        provider,
-        launch_mode_name(provider, pcfg, use_native_anthropic),
-        str(pcfg.get("current_model") or env.get("CIEL_RUNTIME_MODEL_ALIAS") or ""),
-    )
-    launch_log_offset = file_size_or_zero(LOG_PATH)
-    capture_stderr = env_bool(os.environ.get("CIEL_RUNTIME_CAPTURE_CC_STDERR"), False)
-    def run_claude_process() -> int:
-        rc = 1
-        try:
-            if use_router_mode and not ensure_managed_router_running_for_client():
-                print(
-                    "Ciel Runtime warning: local router health check failed immediately before launching Claude Code.",
-                    flush=True,
-                )
-                print(f"  {router_health_summary()}", flush=True)
-            if stdin_channel_proxy:
-                rc = subprocess_call_with_channel_wake_proxy(cmd, env, wake_for_llm_delivery=llm_channel_delivery)
-            elif capture_stderr:
-                rc = _subprocess_call_capturing_stderr(cmd, env)
-            else:
-                rc = subprocess.call(cmd, env=env)
-            return rc
-        finally:
-            if use_router_mode:
-                print_routed_claude_exit_diagnostics(rc, provider, pcfg, log_offset=launch_log_offset)
-
-    return run_with_router_lifetime(run_claude_process, manage_router_lifetime)
 
 
 CODEX_RUNTIME_PROVIDER_ID = "ciel-runtime"
@@ -34434,178 +33697,77 @@ def launch_codex(
     update_check: bool = True,
     self_update_check: bool = True,
 ) -> int:
-    warn_if_multiple_ciel_runtime_installs()
-    run_ciel_runtime_update_check(enabled=self_update_check)
-    env = os.environ.copy()
-    env["PATH"] = path_with_ciel_runtime_user_dirs(env)
-    codex = install_codex_if_missing()
-    if not codex:
-        raise RuntimeError(
-            "codex executable was not found in PATH or the Ciel Runtime user bin directories, "
-            "and automatic install of @openai/codex did not make it available"
-        )
-    updated_codex = run_codex_update_check(codex, enabled=update_check)
-    if isinstance(updated_codex, str) and updated_codex:
-        codex = updated_codex
-    codex = find_executable("codex") or codex
-    codex_passthrough, codex_passthrough_notes = codex_passthrough_args_for_launch(passthrough)
-    if codex_help_requested(codex_passthrough):
-        log_codex_passthrough_mapping(codex_passthrough_notes)
-        return subprocess.call([codex, *codex_passthrough], env=env)
-    if codex_passthrough_has_command(codex_passthrough):
-        skip_menu = True
-    auto_import_passthrough_channels(passthrough)
-    rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
-    if rc == PRELAUNCH_LAUNCH_CLAUDE:
-        return launch_claude(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_AGY:
-        return launch_agy(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_CODEX_APP_SERVER:
-        return launch_codex_app_server(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_CANCEL:
-        return 0
-    if rc not in (0, PRELAUNCH_LAUNCH_CODEX):
-        return rc
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    for line in apply_launch_endpoint_policy(cfg, "codex"):
-        print(line, flush=True)
-    provider, pcfg = get_current_provider(cfg)
-    blockers = launch_readiness_errors(cfg)
-    if blockers:
-        print("Ciel Runtime Codex launch blocked:", flush=True)
-        for line in blockers:
-            print(f"- {line}", flush=True)
-        return 2
-    cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
-    use_native_codex = direct_native_codex_enabled(provider, pcfg)
-    use_codex_routed = codex_routed_enabled(provider, pcfg)
-    mapped_continue = any(note.startswith("--continue -> resume --last") for note in codex_passthrough_notes)
-    if not use_native_codex and mapped_continue:
-        try:
-            resume_index = codex_passthrough.index("resume")
-        except ValueError:
-            resume_index = -1
-        if resume_index >= 0 and resume_index + 1 < len(codex_passthrough):
-            if codex_passthrough[resume_index + 1] == "--last":
-                del codex_passthrough[resume_index + 1]
-                codex_passthrough_notes.append("routed --continue -> provider-independent session picker")
-    if not use_native_codex and codex_resume_picker_requested(codex_passthrough):
-        session_id = select_codex_resume_session(
-            env,
-            include_non_interactive="--include-non-interactive" in codex_passthrough,
-            passthrough=codex_passthrough,
-        )
-        if session_id == "":
-            return 0
-        if session_id:
-            codex_passthrough = codex_resume_with_session_id(codex_passthrough, session_id)
-            codex_passthrough_notes.append("resume picker -> selected local Codex session")
-    launch_cwd = Path.cwd()
-    if use_native_codex:
-        disable_ciel_runtime_codex_prompts_for_native(env)
-    else:
-        install_ciel_runtime_codex_prompts(env)
-    codex_mcp_config = write_codex_mcp_config_for_channel_discovery(codex_passthrough, env=env)
-    env["CIEL_RUNTIME_CODEX_MANAGED"] = "1"
-    env["CIEL_RUNTIME_CONFIG_DIR"] = str(CONFIG_DIR)
-    env["CIEL_RUNTIME_LAUNCH_CWD"] = str(launch_cwd)
-    terminate_existing_codex_processes_for_launch("codex_prelaunch_processes", cwd=launch_cwd, quiet=True)
-    if not use_native_codex:
-        terminate_existing_router_clients_for_launch("codex_prelaunch_active_clients", quiet=True)
-    manage_router_lifetime = False if use_native_codex else bool(start_router_if_needed())
-    if not native_codex_enabled(provider):
-        ensure_model_cache_for_launch(provider, pcfg)
-    codex_channel_owned_names = (
-        codex_channel_capable_mcp_server_names(cfg, codex_mcp_config)
-        if not use_native_codex and channel_delivery_mode(cfg) == "llm"
-        else []
+    return run_codex(
+        passthrough, skip_menu=skip_menu, force_menu=force_menu,
+        update_check=update_check, self_update_check=self_update_check,
+        services=CodexLaunchServices(
+            CODEX_RUNTIME_API_KEY_ENV=CODEX_RUNTIME_API_KEY_ENV,
+            CONFIG_DIR=CONFIG_DIR,
+            PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
+            PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
+            PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
+            PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
+            PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+            _channel_wake_enter_env_is_fixed=_channel_wake_enter_env_is_fixed,
+            _codex_channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds,
+            _codex_channel_wake_submit_retries=_codex_channel_wake_submit_retries,
+            _log_codex_command_for_diagnostics=_log_codex_command_for_diagnostics,
+            _set_channel_transcript_scope=_set_channel_transcript_scope,
+            apply_launch_endpoint_policy=apply_launch_endpoint_policy,
+            auto_import_passthrough_channels=auto_import_passthrough_channels,
+            channel_delivery_mode=channel_delivery_mode,
+            cleanup_managed_services_for_provider=cleanup_managed_services_for_provider,
+            codex_alternate_screen_compat_args=codex_alternate_screen_compat_args,
+            codex_channel_capable_mcp_server_names=codex_channel_capable_mcp_server_names,
+            codex_current_model_cli_args=codex_current_model_cli_args,
+            codex_help_requested=codex_help_requested,
+            codex_mcp_native_http_compat_args=codex_mcp_native_http_compat_args,
+            codex_mcp_split_proxy_enabled=codex_mcp_split_proxy_enabled,
+            codex_native_routed_config_args=codex_native_routed_config_args,
+            codex_passthrough_args_for_launch=codex_passthrough_args_for_launch,
+            codex_passthrough_has_command=codex_passthrough_has_command,
+            codex_process_record_path=codex_process_record_path,
+            codex_resume_picker_requested=codex_resume_picker_requested,
+            codex_resume_with_session_id=codex_resume_with_session_id,
+            codex_routed_enabled=codex_routed_enabled,
+            codex_runtime_config_args=codex_runtime_config_args,
+            codex_runtime_model_catalog_args=codex_runtime_model_catalog_args,
+            codex_yolo_launch_args=codex_yolo_launch_args,
+            current_alias=current_alias,
+            current_launch_cwd_key=current_launch_cwd_key,
+            direct_native_codex_enabled=direct_native_codex_enabled,
+            disable_ciel_runtime_codex_prompts_for_native=disable_ciel_runtime_codex_prompts_for_native,
+            ensure_model_cache_for_launch=ensure_model_cache_for_launch,
+            find_executable=find_executable,
+            get_current_provider=get_current_provider,
+            has_passthrough_option=has_passthrough_option,
+            install_ciel_runtime_codex_prompts=install_ciel_runtime_codex_prompts,
+            install_codex_if_missing=install_codex_if_missing,
+            launch_agy=launch_agy,
+            launch_claude=launch_claude,
+            launch_codex_app_server=launch_codex_app_server,
+            launch_readiness_errors=launch_readiness_errors,
+            load_config=load_config,
+            log_codex_passthrough_mapping=log_codex_passthrough_mapping,
+            materialize_runtime_command=materialize_runtime_command,
+            native_codex_enabled=native_codex_enabled,
+            path_with_ciel_runtime_user_dirs=path_with_ciel_runtime_user_dirs,
+            provider_mode_label=provider_mode_label,
+            record_launch_state_for_cwd=record_launch_state_for_cwd,
+            run_ciel_runtime_update_check=run_ciel_runtime_update_check,
+            run_codex_update_check=run_codex_update_check,
+            run_prelaunch_menu=run_prelaunch_menu,
+            run_with_router_lifetime=run_with_router_lifetime,
+            select_codex_resume_session=select_codex_resume_session,
+            start_codex_mcp_channel_sse_for_launch=start_codex_mcp_channel_sse_for_launch,
+            start_router_if_needed=start_router_if_needed,
+            subprocess_call_with_channel_wake_proxy=subprocess_call_with_channel_wake_proxy,
+            terminate_existing_codex_processes_for_launch=terminate_existing_codex_processes_for_launch,
+            terminate_existing_router_clients_for_launch=terminate_existing_router_clients_for_launch,
+            warn_if_multiple_ciel_runtime_installs=warn_if_multiple_ciel_runtime_installs,
+            write_codex_mcp_config_for_channel_discovery=write_codex_mcp_config_for_channel_discovery
+        ),
     )
-    codex_mcp_compat_args = codex_mcp_native_http_compat_args(
-        codex_mcp_config,
-        split_http_proxy=(not use_native_codex and codex_mcp_split_proxy_enabled()),
-        channel_owned_server_names=codex_channel_owned_names,
-    )
-    codex_yolo_args = codex_yolo_launch_args(codex_passthrough)
-    if not use_native_codex and not use_codex_routed:
-        env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
-    log_codex_passthrough_mapping(codex_passthrough_notes)
-    model_alias_args: list[str] = []
-    if not native_codex_enabled(provider) and not has_passthrough_option(codex_passthrough, "-m", "--model"):
-        model = current_alias(cfg)
-        if model:
-            model_alias_args.extend(["-m", model])
-    codex_mode = "native" if use_native_codex else ("routed" if use_codex_routed else "router")
-    cmd, env = materialize_runtime_command(
-        "codex",
-        codex,
-        env,
-        provider,
-        pcfg,
-        mode=codex_mode,
-        protocol="openai_responses",
-        cwd=launch_cwd,
-        enable_channels=bool(codex_channel_owned_names),
-        passthrough=codex_passthrough,
-        options={
-            "yolo_args": tuple(codex_yolo_args),
-            "model_args": tuple(codex_current_model_cli_args(pcfg, codex_passthrough)),
-            "routed_config_args": tuple(codex_native_routed_config_args()),
-            "router_config_args": tuple(codex_runtime_config_args()),
-            "model_catalog_args": tuple(codex_runtime_model_catalog_args(codex, cfg)),
-            "alternate_screen_args": tuple(codex_alternate_screen_compat_args(codex_passthrough, env=env)),
-            "mcp_args": tuple(codex_mcp_compat_args),
-            "model_alias_args": tuple(model_alias_args),
-        },
-    )
-    _log_codex_command_for_diagnostics(cmd, env)
-    record_launch_state_for_cwd(
-        current_launch_cwd_key(),
-        provider,
-        provider_mode_label(provider, pcfg) if native_codex_enabled(provider) else "codex-router",
-        str(pcfg.get("current_model") or ("" if native_codex_enabled(provider) else current_alias(cfg)) or ""),
-    )
-
-    def run_codex_process() -> int:
-        _set_channel_transcript_scope(
-            "codex",
-            codex_home=Path(env.get("CODEX_HOME") or (Path.home() / ".codex")),
-        )
-        if not use_native_codex:
-            start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config, allowed_server_names=codex_channel_owned_names)
-        codex_synthetic_enter = None if _channel_wake_enter_env_is_fixed() else b"\r"
-        return subprocess_call_with_channel_wake_proxy(
-            cmd,
-            env,
-            wake_for_llm_delivery=channel_delivery_mode(cfg) == "llm",
-            synthetic_enter_bytes=codex_synthetic_enter,
-            normalize_bare_cr_for_synthetic_enter=False,
-            channel_wake_submit_retries=_codex_channel_wake_submit_retries(),
-            channel_wake_confirm_submit=True,
-            channel_wake_bracketed_paste=True,
-            channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds(),
-            tracked_child_pid_path=codex_process_record_path("client"),
-        )
-
-    return run_with_router_lifetime(run_codex_process, manage_router_lifetime)
 
 
 def codex_app_server_default_listen_url() -> str:
@@ -34647,131 +33809,64 @@ def launch_codex_app_server(
     update_check: bool = True,
     self_update_check: bool = True,
 ) -> int:
-    warn_if_multiple_ciel_runtime_installs()
-    run_ciel_runtime_update_check(enabled=self_update_check)
-    env = os.environ.copy()
-    env["PATH"] = path_with_ciel_runtime_user_dirs(env)
-    codex = install_codex_if_missing()
-    if not codex:
-        raise RuntimeError(
-            "codex executable was not found in PATH or the Ciel Runtime user bin directories, "
-            "and automatic install of @openai/codex did not make it available"
-        )
-    updated_codex = run_codex_update_check(codex, enabled=update_check)
-    if isinstance(updated_codex, str) and updated_codex:
-        codex = updated_codex
-    codex = find_executable("codex") or codex
-    auto_import_passthrough_channels(passthrough)
-    rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
-    if rc == PRELAUNCH_LAUNCH_CLAUDE:
-        return launch_claude(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_CODEX:
-        return launch_codex(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_AGY:
-        return launch_agy(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_CANCEL:
-        return 0
-    if rc not in (0, PRELAUNCH_LAUNCH_CODEX_APP_SERVER):
-        return rc
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    for line in apply_launch_endpoint_policy(cfg, "codex-app-server"):
-        print(line, flush=True)
-    provider, pcfg = get_current_provider(cfg)
-    codex_mcp_config = write_codex_mcp_config_for_channel_discovery(passthrough, env=env)
-    if not codex_launch_enabled_for_provider(provider):
-        print("Ciel Runtime Codex App Server launch blocked:", flush=True)
-        print("- Select Codex or Codex routed as the provider before launching Codex App Server.", flush=True)
-        return 2
-    blockers = launch_readiness_errors(cfg)
-    if blockers:
-        print("Ciel Runtime Codex App Server launch blocked:", flush=True)
-        for line in blockers:
-            print(f"- {line}", flush=True)
-        return 2
-    cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
-    use_native_codex = direct_native_codex_enabled(provider, pcfg)
-    use_codex_routed = codex_routed_enabled(provider, pcfg)
-    launch_cwd = Path.cwd()
-    env["CIEL_RUNTIME_CODEX_MANAGED"] = "1"
-    env["CIEL_RUNTIME_CONFIG_DIR"] = str(CONFIG_DIR)
-    env["CIEL_RUNTIME_LAUNCH_CWD"] = str(launch_cwd)
-    terminate_existing_codex_processes_for_launch("codex_app_server_prelaunch_processes", cwd=launch_cwd, quiet=True)
-    if not use_native_codex:
-        terminate_existing_router_clients_for_launch("codex_app_server_prelaunch_active_clients", quiet=True)
-    manage_router_lifetime = False if use_native_codex else bool(start_router_if_needed())
-    if use_codex_routed:
-        config_args = codex_native_routed_config_args()
-    elif use_native_codex:
-        config_args = []
-    else:
-        env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
-        config_args = codex_runtime_config_args()
-    if native_codex_enabled(provider):
-        config_args = [*config_args, *codex_current_model_config_args(pcfg, passthrough)]
-    if not native_codex_enabled(provider):
-        ensure_model_cache_for_launch(provider, pcfg)
-        model = current_alias(cfg)
-        if model and not codex_passthrough_has_model_override(passthrough):
-            config_args = [*config_args, "-c", f"model={toml_string(model)}"]
-    codex_channel_owned_names = (
-        codex_channel_capable_mcp_server_names(cfg, codex_mcp_config)
-        if not use_native_codex and channel_delivery_mode(cfg) == "llm"
-        else []
+    return run_codex_app_server(
+        passthrough, skip_menu=skip_menu, force_menu=force_menu,
+        update_check=update_check, self_update_check=self_update_check,
+        services=CodexAppServerLaunchServices(
+            CODEX_RUNTIME_API_KEY_ENV=CODEX_RUNTIME_API_KEY_ENV,
+            CONFIG_DIR=CONFIG_DIR,
+            PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
+            PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
+            PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
+            PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
+            PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+            _log_codex_app_server_command_for_diagnostics=_log_codex_app_server_command_for_diagnostics,
+            apply_launch_endpoint_policy=apply_launch_endpoint_policy,
+            auto_import_passthrough_channels=auto_import_passthrough_channels,
+            channel_delivery_mode=channel_delivery_mode,
+            cleanup_managed_services_for_provider=cleanup_managed_services_for_provider,
+            codex_app_server_default_listen_url=codex_app_server_default_listen_url,
+            codex_app_server_launch_args=codex_app_server_launch_args,
+            codex_channel_capable_mcp_server_names=codex_channel_capable_mcp_server_names,
+            codex_current_model_config_args=codex_current_model_config_args,
+            codex_launch_enabled_for_provider=codex_launch_enabled_for_provider,
+            codex_mcp_native_http_compat_args=codex_mcp_native_http_compat_args,
+            codex_mcp_split_proxy_enabled=codex_mcp_split_proxy_enabled,
+            codex_native_routed_config_args=codex_native_routed_config_args,
+            codex_passthrough_has_model_override=codex_passthrough_has_model_override,
+            codex_process_record_path=codex_process_record_path,
+            codex_routed_enabled=codex_routed_enabled,
+            codex_runtime_config_args=codex_runtime_config_args,
+            current_alias=current_alias,
+            current_launch_cwd_key=current_launch_cwd_key,
+            direct_native_codex_enabled=direct_native_codex_enabled,
+            ensure_model_cache_for_launch=ensure_model_cache_for_launch,
+            find_executable=find_executable,
+            get_current_provider=get_current_provider,
+            install_codex_if_missing=install_codex_if_missing,
+            launch_agy=launch_agy,
+            launch_claude=launch_claude,
+            launch_codex=launch_codex,
+            launch_readiness_errors=launch_readiness_errors,
+            load_config=load_config,
+            native_codex_enabled=native_codex_enabled,
+            path_with_ciel_runtime_user_dirs=path_with_ciel_runtime_user_dirs,
+            provider_mode_label=provider_mode_label,
+            record_launch_state_for_cwd=record_launch_state_for_cwd,
+            run_ciel_runtime_update_check=run_ciel_runtime_update_check,
+            run_codex_update_check=run_codex_update_check,
+            run_prelaunch_menu=run_prelaunch_menu,
+            run_with_router_lifetime=run_with_router_lifetime,
+            start_codex_mcp_channel_sse_for_launch=start_codex_mcp_channel_sse_for_launch,
+            start_router_if_needed=start_router_if_needed,
+            subprocess_call_with_child_pid_record=subprocess_call_with_child_pid_record,
+            terminate_existing_codex_processes_for_launch=terminate_existing_codex_processes_for_launch,
+            terminate_existing_router_clients_for_launch=terminate_existing_router_clients_for_launch,
+            toml_string=toml_string,
+            warn_if_multiple_ciel_runtime_installs=warn_if_multiple_ciel_runtime_installs,
+            write_codex_mcp_config_for_channel_discovery=write_codex_mcp_config_for_channel_discovery
+        ),
     )
-    codex_mcp_compat_args = codex_mcp_native_http_compat_args(
-        codex_mcp_config,
-        split_http_proxy=(not use_native_codex and codex_mcp_split_proxy_enabled()),
-        channel_owned_server_names=codex_channel_owned_names,
-    )
-    config_args = [*config_args, *codex_mcp_compat_args]
-    listen_url = codex_app_server_default_listen_url()
-    app_server_args = codex_app_server_launch_args(
-        passthrough,
-        config_args=config_args,
-        default_listen_url=listen_url,
-    )
-    cmd = [codex, *app_server_args]
-    print("Launching Codex App Server through Ciel Runtime.", flush=True)
-    if "--listen" in cmd:
-        try:
-            print(f"Codex App Server listen: {cmd[cmd.index('--listen') + 1]}", flush=True)
-        except Exception:
-            pass
-    _log_codex_app_server_command_for_diagnostics(cmd, env)
-    record_launch_state_for_cwd(
-        current_launch_cwd_key(),
-        provider,
-        provider_mode_label(provider, pcfg) if native_codex_enabled(provider) else "codex-app-server-router",
-        str(pcfg.get("current_model") or ("" if native_codex_enabled(provider) else current_alias(cfg)) or ""),
-    )
-
-    split_proxy_enabled = bool(not use_native_codex and (codex_mcp_split_proxy_enabled() or codex_channel_owned_names))
-
-    def run_codex_app_server_process() -> int:
-        if split_proxy_enabled:
-            start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config, allowed_server_names=codex_channel_owned_names)
-        return subprocess_call_with_child_pid_record(cmd, env, codex_process_record_path("app-server"))
-
-    return run_with_router_lifetime(run_codex_app_server_process, manage_router_lifetime)
 
 
 def agy_help_requested(passthrough: list[str]) -> bool:
@@ -34803,110 +33898,50 @@ def launch_agy(
     update_check: bool = True,
     self_update_check: bool = True,
 ) -> int:
-    warn_if_multiple_ciel_runtime_installs()
-    run_ciel_runtime_update_check(enabled=self_update_check)
-    env = os.environ.copy()
-    env["PATH"] = path_with_ciel_runtime_user_dirs(env)
-    agy = install_agy_if_missing()
-    if not agy:
-        raise RuntimeError(
-            "agy executable was not found in PATH or the Ciel Runtime/AGY user bin directories, "
-            "and automatic install from Google's official AGY manifest did not make it available"
-        )
-    updated_agy = run_agy_update_check(agy, enabled=update_check)
-    if isinstance(updated_agy, str) and updated_agy:
-        agy = updated_agy
-    agy = find_executable("agy") or agy
-    agy_passthrough, agy_passthrough_notes = agy_passthrough_args_for_launch(passthrough)
-    if agy_help_requested(agy_passthrough):
-        log_agy_passthrough_mapping(agy_passthrough_notes)
-        return subprocess.call([agy, *agy_passthrough], env=env)
-    if agy_passthrough_has_command(agy_passthrough):
-        skip_menu = True
-    auto_import_passthrough_channels(passthrough)
-    rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
-    if rc == PRELAUNCH_LAUNCH_CLAUDE:
-        return launch_claude(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_CODEX:
-        return launch_codex(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_LAUNCH_CODEX_APP_SERVER:
-        return launch_codex_app_server(
-            passthrough,
-            skip_menu=True,
-            force_menu=False,
-            update_check=update_check,
-            self_update_check=False,
-        )
-    if rc == PRELAUNCH_CANCEL:
-        return 0
-    if rc not in (0, PRELAUNCH_LAUNCH_AGY):
-        return rc
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    if not native_agy_enabled(provider):
-        print("Ciel Runtime AGY launch blocked:", flush=True)
-        print("- Select AGY or AGY Routed as the provider before launching AGY.", flush=True)
-        return 2
-    blockers = launch_readiness_errors(cfg)
-    if blockers:
-        print("Ciel Runtime AGY launch blocked:", flush=True)
-        for line in blockers:
-            print(f"- {line}", flush=True)
-        return 2
-    cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
-    use_agy_routed = agy_routed_enabled(provider, pcfg)
-    manage_router_lifetime = bool(start_router_if_needed()) if use_agy_routed and channel_delivery_mode(cfg) == "llm" else False
-    agy_dangerous_args = agy_dangerous_launch_args(agy_passthrough)
-    cmd, env = materialize_runtime_command(
-        "agy",
-        agy,
-        env,
-        provider,
-        pcfg,
-        mode="routed" if use_agy_routed else "native",
-        protocol="anthropic_messages",
-        cwd=Path.cwd(),
-        enable_channels=use_agy_routed,
-        passthrough=agy_passthrough,
-        options={"dangerous_args": tuple(agy_dangerous_args)},
+    return run_agy(
+        passthrough, skip_menu=skip_menu, force_menu=force_menu,
+        update_check=update_check, self_update_check=self_update_check,
+        services=AgyLaunchServices(
+            PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
+            PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
+            PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
+            PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
+            PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+            _codex_channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds,
+            _codex_channel_wake_submit_retries=_codex_channel_wake_submit_retries,
+            _log_agy_command_for_diagnostics=_log_agy_command_for_diagnostics,
+            agy_dangerous_launch_args=agy_dangerous_launch_args,
+            agy_help_requested=agy_help_requested,
+            agy_passthrough_args_for_launch=agy_passthrough_args_for_launch,
+            agy_passthrough_has_command=agy_passthrough_has_command,
+            agy_routed_enabled=agy_routed_enabled,
+            auto_import_passthrough_channels=auto_import_passthrough_channels,
+            channel_delivery_mode=channel_delivery_mode,
+            cleanup_managed_services_for_provider=cleanup_managed_services_for_provider,
+            current_launch_cwd_key=current_launch_cwd_key,
+            find_executable=find_executable,
+            get_current_provider=get_current_provider,
+            install_agy_if_missing=install_agy_if_missing,
+            launch_claude=launch_claude,
+            launch_codex=launch_codex,
+            launch_codex_app_server=launch_codex_app_server,
+            launch_readiness_errors=launch_readiness_errors,
+            load_config=load_config,
+            log_agy_passthrough_mapping=log_agy_passthrough_mapping,
+            materialize_runtime_command=materialize_runtime_command,
+            native_agy_enabled=native_agy_enabled,
+            path_with_ciel_runtime_user_dirs=path_with_ciel_runtime_user_dirs,
+            provider_mode_label=provider_mode_label,
+            record_launch_state_for_cwd=record_launch_state_for_cwd,
+            run_agy_update_check=run_agy_update_check,
+            run_ciel_runtime_update_check=run_ciel_runtime_update_check,
+            run_prelaunch_menu=run_prelaunch_menu,
+            run_with_router_lifetime=run_with_router_lifetime,
+            start_router_if_needed=start_router_if_needed,
+            subprocess_call_with_channel_wake_proxy=subprocess_call_with_channel_wake_proxy,
+            warn_if_multiple_ciel_runtime_installs=warn_if_multiple_ciel_runtime_installs
+        ),
     )
-    log_agy_passthrough_mapping(agy_passthrough_notes)
-    _log_agy_command_for_diagnostics(cmd, env)
-    record_launch_state_for_cwd(
-        current_launch_cwd_key(),
-        provider,
-        provider_mode_label(provider, pcfg),
-        str(pcfg.get("current_model") or ""),
-    )
-
-    def run_agy_process() -> int:
-        if use_agy_routed:
-            return subprocess_call_with_channel_wake_proxy(
-                cmd,
-                env,
-                wake_for_llm_delivery=channel_delivery_mode(cfg) == "llm",
-                synthetic_enter_bytes=None,
-                normalize_bare_cr_for_synthetic_enter=False,
-                channel_wake_submit_retries=_codex_channel_wake_submit_retries(),
-                channel_wake_confirm_submit=True,
-                channel_wake_bracketed_paste=True,
-                channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds(),
-            )
-        return subprocess.call(cmd, env=env)
-
-    return run_with_router_lifetime(run_agy_process, manage_router_lifetime)
 
 
 CLAUDE_CODE_STDERR_LOG = CONFIG_DIR / "claude-code-stderr.log"

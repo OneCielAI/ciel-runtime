@@ -81,9 +81,17 @@ Codex App Server 프로세스와 JSON-RPC/WebSocket 상태 조정.
 
 공급자별 wire profile과 요청 메시지·thinking·tool-choice 정규화를 담당하는 순수 정책 서비스.
 
+### `ciel_runtime_support/prelaunch.py`
+
+공급자·모델·채널·컨텍스트 설정 패널을 조정하는 사전 실행 메뉴 애플리케이션 서비스.
+
 ### `ciel_runtime_support/runtime_adapters.py`
 
 정규화된 `LaunchSpec`을 최종 `RuntimeCommand`로 변환하는 실제 CLI 런타임 어댑터.
+
+### `ciel_runtime_support/runtime_launch.py`
+
+Claude, Codex, Codex App Server, AGY 프로세스 실행과 라우터·채널 수명주기를 조정하는 런타임 애플리케이션 서비스.
 
 ### `ciel_runtime_support/streaming_anthropic.py`
 
