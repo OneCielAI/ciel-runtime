@@ -129,6 +129,10 @@ Claude 도구 이름 dialect, MCP 서버 이름 정규화 및 Tool Dialect regis
 
 Anthropic system/tool schema를 Ollama `/api/chat` wire 구조로 투영하는 순수 Protocol codec.
 
+### `ciel_runtime_support/mcp_transport.py`
+
+채널 상태나 라우터 설정을 소유하지 않는 MCP SSE/Streamable HTTP 전송 codec과 split-proxy URL 규칙.
+
 ### `ciel_runtime_support/agent_router.py`
 
 런타임 HTTP 라우터 공통 계약:
