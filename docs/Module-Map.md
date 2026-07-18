@@ -141,6 +141,10 @@ MCP 채널 capability probe의 JSONL/LSP 프레임, SSE 이벤트 및 initialize
 
 파일 저장이나 런타임 I/O 없이 구성 schema migration을 순서대로 적용하는 Configuration policy.
 
+### `ciel_runtime_support/provider_config_mutations.py`
+
+CLI와 저장소에 의존하지 않고 Ollama 및 공통 Provider option의 검증·정규화·설정 변경을 수행하는 Configuration policy. `ProviderOptionPolicy`가 정규화 규칙을 주입받아 프로바이더별 설정 변경을 메인 composition root에서 분리한다.
+
 ### `ciel_runtime_support/agent_router.py`
 
 런타임 HTTP 라우터 공통 계약:
