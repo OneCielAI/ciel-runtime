@@ -23,7 +23,7 @@ from typing import Any, Literal, Mapping, Sequence
 
 
 LaunchMode = Literal["native", "routed", "router"]
-MessageProtocol = Literal["anthropic_messages", "openai_chat", "openai_responses"]
+MessageProtocol = Literal["anthropic_messages", "openai_chat", "openai_responses", "ollama_chat"]
 
 
 @dataclass(frozen=True)
@@ -100,6 +100,29 @@ class RateLimitState:
     detail: str | None = None
 
 
+@dataclass(frozen=True)
+class ProviderCapabilities:
+    """Provider-owned features that affect routing without naming providers."""
+
+    upstream_protocol: MessageProtocol = "openai_chat"
+    supports_streaming: bool = True
+    supports_tools: bool = True
+    supports_thinking: bool = False
+    preserves_anthropic_thinking: bool = False
+    requires_api_key: bool = False
+    local: bool = False
+
+
+@dataclass(frozen=True)
+class ProviderRequestPolicy:
+    """Provider-owned endpoint and transport defaults."""
+
+    chat_path: str
+    models_path: str
+    model_info_path: str | None = None
+    default_timeout_seconds: float = 60.0
+
+
 class RuntimeAdapter(ABC):
     """Adapter for a local/interactive coding runtime.
 
@@ -148,6 +171,47 @@ class ProviderAdapter(ABC):
         """Return a rate-limit observation when the provider exposes one."""
 
         return None
+
+    def capabilities(self, config: ProviderConfig) -> ProviderCapabilities:
+        """Return routing capabilities for this configured provider."""
+
+        del config
+        return ProviderCapabilities()
+
+    def request_policy(self, config: ProviderConfig) -> ProviderRequestPolicy:
+        """Return endpoint and transport defaults for this provider."""
+
+        del config
+        return ProviderRequestPolicy(chat_path="/v1/chat/completions", models_path="/v1/models")
+
+    def resolve_endpoint(self, operation: str, config: ProviderConfig) -> str:
+        """Resolve a provider operation to a path without exposing provider conditionals."""
+
+        policy = self.request_policy(config)
+        paths = {
+            "chat": policy.chat_path,
+            "models": policy.models_path,
+            "model_info": policy.model_info_path,
+            "anthropic_messages": "/v1/messages",
+            "openai_chat": "/v1/chat/completions",
+            "openai_responses": "/v1/responses",
+            "ollama_chat": "/api/chat",
+        }
+        path = paths.get(operation)
+        if not path:
+            raise KeyError(f"{self.name} does not support provider operation: {operation}")
+        return path
+
+    def build_model_headers(self, config: ProviderConfig, api_key: str | None) -> Mapping[str, str]:
+        """Build headers for model discovery; providers may override request auth."""
+
+        return self.build_headers(config, api_key)
+
+    def model_paths(self, config: ProviderConfig) -> tuple[str, ...]:
+        """Return model discovery paths in provider-preferred fallback order."""
+
+        primary = self.request_policy(config).models_path
+        return (primary,) if primary == "/models" else (primary, "/models")
 
 
 class MessageProtocolAdapter(ABC):
