@@ -926,34 +926,54 @@ def rebatch_anthropic_sse_text(
 
 
 @dataclass(frozen=True, slots=True)
-class OllamaStreamServices:
+class OllamaStreamIO:
     UpstreamClientDisconnected: type[BaseException]
     VisibleThinkingMarkupFilter: type[Any]
-    _remember_channel_injected_tool_use: Callable[..., Any]
     _split_word_buffer: Callable[..., Any]
+    estimate_tokens: Callable[..., Any]
+    iter_upstream_lines_until_client_disconnect: Callable[..., Any]
+    mark_pending_channel_delivery_failed: Callable[..., Any]
+    mark_pending_channel_delivery_success: Callable[..., Any]
+    router_log: Callable[..., Any]
+    write_router_activity: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class OllamaStreamTrace:
+    dump_response_for_trace: Callable[..., Any]
+    finish_outgoing_sse_trace: Callable[..., Any]
+    make_outgoing_sse_trace: Callable[..., Any]
+    record_outgoing_sse_event: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class OllamaToolProjection:
+    _remember_channel_injected_tool_use: Callable[..., Any]
     _validate_and_fix_tool_input: Callable[..., Any]
     append_tool_call_log: Callable[..., Any]
     cap_mcp_notification_wait_tool_input: Callable[..., Any]
-    dump_response_for_trace: Callable[..., Any]
-    empty_end_turn_notice_for_body: Callable[..., Any]
-    estimate_tokens: Callable[..., Any]
-    finish_outgoing_sse_trace: Callable[..., Any]
-    iter_upstream_lines_until_client_disconnect: Callable[..., Any]
-    make_outgoing_sse_trace: Callable[..., Any]
-    mark_pending_channel_delivery_failed: Callable[..., Any]
-    mark_pending_channel_delivery_success: Callable[..., Any]
     normalize_tool_arguments: Callable[..., Any]
     plan_mode_tool_name_for_emit: Callable[..., Any]
-    record_outgoing_sse_event: Callable[..., Any]
     resolve_emitted_tool_name: Callable[..., Any]
-    router_log: Callable[..., Any]
-    should_auto_continue_choice_question_with_tasklist: Callable[..., Any]
-    should_auto_enter_plan_mode: Callable[..., Any]
     should_drop_duplicate_side_effect_tool_call: Callable[..., Any]
     should_drop_emitted_tool_call: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class OllamaContinuationPolicy:
+    empty_end_turn_notice_for_body: Callable[..., Any]
+    should_auto_continue_choice_question_with_tasklist: Callable[..., Any]
+    should_auto_enter_plan_mode: Callable[..., Any]
     should_keep_work_alive_with_tasklist: Callable[..., Any]
     should_recover_empty_end_turn_with_tasklist: Callable[..., Any]
-    write_router_activity: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class OllamaStreamServices:
+    io: OllamaStreamIO
+    trace: OllamaStreamTrace
+    tool_projection: OllamaToolProjection
+    continuation: OllamaContinuationPolicy
 
 
 def ollama_stream_to_anthropic_sse(
@@ -969,33 +989,33 @@ def ollama_stream_to_anthropic_sse(
 ) -> None:
     """Stream Ollama NDJSON /api/chat response as Anthropic SSE /v1/messages format."""
 
-    UpstreamClientDisconnected = services.UpstreamClientDisconnected
-    VisibleThinkingMarkupFilter = services.VisibleThinkingMarkupFilter
-    _remember_channel_injected_tool_use = services._remember_channel_injected_tool_use
-    _split_word_buffer = services._split_word_buffer
-    _validate_and_fix_tool_input = services._validate_and_fix_tool_input
-    append_tool_call_log = services.append_tool_call_log
-    cap_mcp_notification_wait_tool_input = services.cap_mcp_notification_wait_tool_input
-    dump_response_for_trace = services.dump_response_for_trace
-    empty_end_turn_notice_for_body = services.empty_end_turn_notice_for_body
-    estimate_tokens = services.estimate_tokens
-    finish_outgoing_sse_trace = services.finish_outgoing_sse_trace
-    iter_upstream_lines_until_client_disconnect = services.iter_upstream_lines_until_client_disconnect
-    make_outgoing_sse_trace = services.make_outgoing_sse_trace
-    mark_pending_channel_delivery_failed = services.mark_pending_channel_delivery_failed
-    mark_pending_channel_delivery_success = services.mark_pending_channel_delivery_success
-    normalize_tool_arguments = services.normalize_tool_arguments
-    plan_mode_tool_name_for_emit = services.plan_mode_tool_name_for_emit
-    record_outgoing_sse_event = services.record_outgoing_sse_event
-    resolve_emitted_tool_name = services.resolve_emitted_tool_name
-    router_log = services.router_log
-    should_auto_continue_choice_question_with_tasklist = services.should_auto_continue_choice_question_with_tasklist
-    should_auto_enter_plan_mode = services.should_auto_enter_plan_mode
-    should_drop_duplicate_side_effect_tool_call = services.should_drop_duplicate_side_effect_tool_call
-    should_drop_emitted_tool_call = services.should_drop_emitted_tool_call
-    should_keep_work_alive_with_tasklist = services.should_keep_work_alive_with_tasklist
-    should_recover_empty_end_turn_with_tasklist = services.should_recover_empty_end_turn_with_tasklist
-    write_router_activity = services.write_router_activity
+    UpstreamClientDisconnected = services.io.UpstreamClientDisconnected
+    VisibleThinkingMarkupFilter = services.io.VisibleThinkingMarkupFilter
+    _split_word_buffer = services.io._split_word_buffer
+    estimate_tokens = services.io.estimate_tokens
+    iter_upstream_lines_until_client_disconnect = services.io.iter_upstream_lines_until_client_disconnect
+    mark_pending_channel_delivery_failed = services.io.mark_pending_channel_delivery_failed
+    mark_pending_channel_delivery_success = services.io.mark_pending_channel_delivery_success
+    router_log = services.io.router_log
+    write_router_activity = services.io.write_router_activity
+    dump_response_for_trace = services.trace.dump_response_for_trace
+    finish_outgoing_sse_trace = services.trace.finish_outgoing_sse_trace
+    make_outgoing_sse_trace = services.trace.make_outgoing_sse_trace
+    record_outgoing_sse_event = services.trace.record_outgoing_sse_event
+    _remember_channel_injected_tool_use = services.tool_projection._remember_channel_injected_tool_use
+    _validate_and_fix_tool_input = services.tool_projection._validate_and_fix_tool_input
+    append_tool_call_log = services.tool_projection.append_tool_call_log
+    cap_mcp_notification_wait_tool_input = services.tool_projection.cap_mcp_notification_wait_tool_input
+    normalize_tool_arguments = services.tool_projection.normalize_tool_arguments
+    plan_mode_tool_name_for_emit = services.tool_projection.plan_mode_tool_name_for_emit
+    resolve_emitted_tool_name = services.tool_projection.resolve_emitted_tool_name
+    should_drop_duplicate_side_effect_tool_call = services.tool_projection.should_drop_duplicate_side_effect_tool_call
+    should_drop_emitted_tool_call = services.tool_projection.should_drop_emitted_tool_call
+    empty_end_turn_notice_for_body = services.continuation.empty_end_turn_notice_for_body
+    should_auto_continue_choice_question_with_tasklist = services.continuation.should_auto_continue_choice_question_with_tasklist
+    should_auto_enter_plan_mode = services.continuation.should_auto_enter_plan_mode
+    should_keep_work_alive_with_tasklist = services.continuation.should_keep_work_alive_with_tasklist
+    should_recover_empty_end_turn_with_tasklist = services.continuation.should_recover_empty_end_turn_with_tasklist
     handler.send_response(200)
     handler.send_header("content-type", "text/event-stream")
     handler.send_header("cache-control", "no-cache")
@@ -1939,7 +1959,11 @@ def forward_openai_chat_to_anthropic_sse(
 
 __all__ = [
     "AnthropicStreamServices",
+    "OllamaContinuationPolicy",
+    "OllamaStreamIO",
     "OllamaStreamServices",
+    "OllamaStreamTrace",
+    "OllamaToolProjection",
     "OpenAIChatContinuationPolicy",
     "OpenAIChatStreamIO",
     "OpenAIChatStreamServices",

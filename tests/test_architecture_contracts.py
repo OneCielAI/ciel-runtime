@@ -100,6 +100,11 @@ from ciel_runtime_support.runtime_launch import (
     CodexAppServerRouting,
 )
 from ciel_runtime_support.streaming_anthropic import (
+    OllamaContinuationPolicy,
+    OllamaStreamIO,
+    OllamaStreamServices,
+    OllamaStreamTrace,
+    OllamaToolProjection,
     OpenAIChatContinuationPolicy,
     OpenAIChatStreamIO,
     OpenAIChatStreamServices,
@@ -322,6 +327,17 @@ class ArchitectureContractTests(unittest.TestCase):
             OpenAIChatStreamIO,
             OpenAIChatToolProjection,
             OpenAIChatContinuationPolicy,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_ollama_stream_ports_stay_below_dependency_limit(self):
+        for port in (
+            OllamaStreamServices,
+            OllamaStreamIO,
+            OllamaStreamTrace,
+            OllamaToolProjection,
+            OllamaContinuationPolicy,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
