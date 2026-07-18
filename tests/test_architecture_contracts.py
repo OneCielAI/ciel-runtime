@@ -56,6 +56,14 @@ from ciel_runtime_support.runtime_launch import (
     CodexLaunchProcess,
     CodexLaunchRouting,
     CodexLaunchServices,
+    CodexAppServerChannel,
+    CodexAppServerCliPolicy,
+    CodexAppServerConfig,
+    CodexAppServerDispatch,
+    CodexAppServerInstallation,
+    CodexAppServerLaunchServices,
+    CodexAppServerProcess,
+    CodexAppServerRouting,
 )
 from ciel_runtime_support.provider_adapters import (
     PROVIDER_ADAPTERS,
@@ -194,6 +202,22 @@ class ArchitectureContractTests(unittest.TestCase):
             CodexLaunchDispatch,
             CodexLaunchRouting,
             CodexLaunchChannel,
+        )
+
+        for port in ports:
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_codex_app_server_ports_stay_below_dependency_limit(self):
+        ports = (
+            CodexAppServerLaunchServices,
+            CodexAppServerProcess,
+            CodexAppServerConfig,
+            CodexAppServerCliPolicy,
+            CodexAppServerInstallation,
+            CodexAppServerDispatch,
+            CodexAppServerRouting,
+            CodexAppServerChannel,
         )
 
         for port in ports:
