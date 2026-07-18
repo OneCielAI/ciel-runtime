@@ -582,7 +582,7 @@ def run_claude(
 
 
 @dataclass(frozen=True, slots=True)
-class CodexLaunchServices:
+class CodexLaunchConstants:
     CODEX_RUNTIME_API_KEY_ENV: Any
     CONFIG_DIR: Any
     PRELAUNCH_CANCEL: Any
@@ -590,64 +590,104 @@ class CodexLaunchServices:
     PRELAUNCH_LAUNCH_CLAUDE: Any
     PRELAUNCH_LAUNCH_CODEX: Any
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER: Any
+
+
+@dataclass(frozen=True, slots=True)
+class CodexLaunchProcess:
     _channel_wake_enter_env_is_fixed: Callable[..., Any]
     _codex_channel_wake_submit_delay_seconds: Callable[..., Any]
     _codex_channel_wake_submit_retries: Callable[..., Any]
     _log_codex_command_for_diagnostics: Callable[..., Any]
     _set_channel_transcript_scope: Callable[..., Any]
-    apply_launch_endpoint_policy: Callable[..., Any]
-    auto_import_passthrough_channels: Callable[..., Any]
-    channel_delivery_mode: Callable[..., Any]
-    cleanup_managed_services_for_provider: Callable[..., Any]
-    codex_alternate_screen_compat_args: Callable[..., Any]
-    codex_channel_capable_mcp_server_names: Callable[..., Any]
-    codex_current_model_cli_args: Callable[..., Any]
-    codex_help_requested: Callable[..., Any]
-    codex_mcp_native_http_compat_args: Callable[..., Any]
-    codex_mcp_split_proxy_enabled: Callable[..., Any]
-    codex_native_routed_config_args: Callable[..., Any]
-    codex_passthrough_args_for_launch: Callable[..., Any]
-    codex_passthrough_has_command: Callable[..., Any]
     codex_process_record_path: Callable[..., Any]
-    codex_resume_picker_requested: Callable[..., Any]
-    codex_resume_with_session_id: Callable[..., Any]
-    codex_routed_enabled: Callable[..., Any]
-    codex_runtime_config_args: Callable[..., Any]
-    codex_runtime_model_catalog_args: Callable[..., Any]
-    codex_yolo_launch_args: Callable[..., Any]
-    current_alias: Callable[..., Any]
-    current_launch_cwd_key: Callable[..., Any]
-    direct_native_codex_enabled: Callable[..., Any]
-    disable_ciel_runtime_codex_prompts_for_native: Callable[..., Any]
-    ensure_model_cache_for_launch: Callable[..., Any]
-    find_executable: Callable[..., Any]
-    get_current_provider: Callable[..., Any]
-    has_passthrough_option: Callable[..., Any]
-    install_ciel_runtime_codex_prompts: Callable[..., Any]
-    install_codex_if_missing: Callable[..., Any]
-    launch_agy: Callable[..., Any]
-    launch_claude: Callable[..., Any]
-    launch_codex_app_server: Callable[..., Any]
-    launch_readiness_errors: Callable[..., Any]
-    load_config: Callable[..., Any]
-    log_codex_passthrough_mapping: Callable[..., Any]
-    materialize_runtime_command: Callable[..., Any]
-    native_codex_enabled: Callable[..., Any]
     path_with_ciel_runtime_user_dirs: Callable[..., Any]
-    provider_mode_label: Callable[..., Any]
-    record_launch_state_for_cwd: Callable[..., Any]
-    run_ciel_runtime_update_check: Callable[..., Any]
-    run_codex_update_check: Callable[..., Any]
-    run_prelaunch_menu: Callable[..., Any]
-    run_with_router_lifetime: Callable[..., Any]
-    select_codex_resume_session: Callable[..., Any]
-    start_codex_mcp_channel_sse_for_launch: Callable[..., Any]
-    start_router_if_needed: Callable[..., Any]
     subprocess_call_with_channel_wake_proxy: Callable[..., Any]
     terminate_existing_codex_processes_for_launch: Callable[..., Any]
     terminate_existing_router_clients_for_launch: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class CodexLaunchCliPolicy:
+    codex_alternate_screen_compat_args: Callable[..., Any]
+    codex_current_model_cli_args: Callable[..., Any]
+    codex_help_requested: Callable[..., Any]
+    codex_native_routed_config_args: Callable[..., Any]
+    codex_passthrough_args_for_launch: Callable[..., Any]
+    codex_passthrough_has_command: Callable[..., Any]
+    codex_resume_picker_requested: Callable[..., Any]
+    codex_resume_with_session_id: Callable[..., Any]
+    codex_runtime_config_args: Callable[..., Any]
+    codex_yolo_launch_args: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class CodexLaunchConfig:
+    apply_launch_endpoint_policy: Callable[..., Any]
+    current_alias: Callable[..., Any]
+    current_launch_cwd_key: Callable[..., Any]
+    ensure_model_cache_for_launch: Callable[..., Any]
+    get_current_provider: Callable[..., Any]
+    load_config: Callable[..., Any]
+    provider_mode_label: Callable[..., Any]
+    record_launch_state_for_cwd: Callable[..., Any]
+    codex_runtime_model_catalog_args: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class CodexLaunchInstallation:
+    disable_ciel_runtime_codex_prompts_for_native: Callable[..., Any]
+    find_executable: Callable[..., Any]
+    has_passthrough_option: Callable[..., Any]
+    install_ciel_runtime_codex_prompts: Callable[..., Any]
+    install_codex_if_missing: Callable[..., Any]
     warn_if_multiple_ciel_runtime_installs: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class CodexLaunchDispatch:
+    launch_agy: Callable[..., Any]
+    launch_claude: Callable[..., Any]
+    launch_codex_app_server: Callable[..., Any]
+    log_codex_passthrough_mapping: Callable[..., Any]
+    materialize_runtime_command: Callable[..., Any]
+    run_ciel_runtime_update_check: Callable[..., Any]
+    run_codex_update_check: Callable[..., Any]
+    run_prelaunch_menu: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class CodexLaunchRouting:
+    cleanup_managed_services_for_provider: Callable[..., Any]
+    codex_routed_enabled: Callable[..., Any]
+    direct_native_codex_enabled: Callable[..., Any]
+    launch_readiness_errors: Callable[..., Any]
+    native_codex_enabled: Callable[..., Any]
+    run_with_router_lifetime: Callable[..., Any]
+    start_router_if_needed: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class CodexLaunchChannel:
+    auto_import_passthrough_channels: Callable[..., Any]
+    channel_delivery_mode: Callable[..., Any]
+    codex_channel_capable_mcp_server_names: Callable[..., Any]
+    codex_mcp_native_http_compat_args: Callable[..., Any]
+    codex_mcp_split_proxy_enabled: Callable[..., Any]
+    select_codex_resume_session: Callable[..., Any]
+    start_codex_mcp_channel_sse_for_launch: Callable[..., Any]
     write_codex_mcp_config_for_channel_discovery: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class CodexLaunchServices:
+    constants: CodexLaunchConstants
+    process: CodexLaunchProcess
+    cli_policy: CodexLaunchCliPolicy
+    config: CodexLaunchConfig
+    installation: CodexLaunchInstallation
+    dispatch: CodexLaunchDispatch
+    routing: CodexLaunchRouting
+    channel: CodexLaunchChannel
 
 
 def run_codex(
@@ -659,71 +699,71 @@ def run_codex(
     *,
     services: CodexLaunchServices,
 ) -> int:
-    CODEX_RUNTIME_API_KEY_ENV = services.CODEX_RUNTIME_API_KEY_ENV
-    CONFIG_DIR = services.CONFIG_DIR
-    PRELAUNCH_CANCEL = services.PRELAUNCH_CANCEL
-    PRELAUNCH_LAUNCH_AGY = services.PRELAUNCH_LAUNCH_AGY
-    PRELAUNCH_LAUNCH_CLAUDE = services.PRELAUNCH_LAUNCH_CLAUDE
-    PRELAUNCH_LAUNCH_CODEX = services.PRELAUNCH_LAUNCH_CODEX
-    PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
-    _channel_wake_enter_env_is_fixed = services._channel_wake_enter_env_is_fixed
-    _codex_channel_wake_submit_delay_seconds = services._codex_channel_wake_submit_delay_seconds
-    _codex_channel_wake_submit_retries = services._codex_channel_wake_submit_retries
-    _log_codex_command_for_diagnostics = services._log_codex_command_for_diagnostics
-    _set_channel_transcript_scope = services._set_channel_transcript_scope
-    apply_launch_endpoint_policy = services.apply_launch_endpoint_policy
-    auto_import_passthrough_channels = services.auto_import_passthrough_channels
-    channel_delivery_mode = services.channel_delivery_mode
-    cleanup_managed_services_for_provider = services.cleanup_managed_services_for_provider
-    codex_alternate_screen_compat_args = services.codex_alternate_screen_compat_args
-    codex_channel_capable_mcp_server_names = services.codex_channel_capable_mcp_server_names
-    codex_current_model_cli_args = services.codex_current_model_cli_args
-    codex_help_requested = services.codex_help_requested
-    codex_mcp_native_http_compat_args = services.codex_mcp_native_http_compat_args
-    codex_mcp_split_proxy_enabled = services.codex_mcp_split_proxy_enabled
-    codex_native_routed_config_args = services.codex_native_routed_config_args
-    codex_passthrough_args_for_launch = services.codex_passthrough_args_for_launch
-    codex_passthrough_has_command = services.codex_passthrough_has_command
-    codex_process_record_path = services.codex_process_record_path
-    codex_resume_picker_requested = services.codex_resume_picker_requested
-    codex_resume_with_session_id = services.codex_resume_with_session_id
-    codex_routed_enabled = services.codex_routed_enabled
-    codex_runtime_config_args = services.codex_runtime_config_args
-    codex_runtime_model_catalog_args = services.codex_runtime_model_catalog_args
-    codex_yolo_launch_args = services.codex_yolo_launch_args
-    current_alias = services.current_alias
-    current_launch_cwd_key = services.current_launch_cwd_key
-    direct_native_codex_enabled = services.direct_native_codex_enabled
-    disable_ciel_runtime_codex_prompts_for_native = services.disable_ciel_runtime_codex_prompts_for_native
-    ensure_model_cache_for_launch = services.ensure_model_cache_for_launch
-    find_executable = services.find_executable
-    get_current_provider = services.get_current_provider
-    has_passthrough_option = services.has_passthrough_option
-    install_ciel_runtime_codex_prompts = services.install_ciel_runtime_codex_prompts
-    install_codex_if_missing = services.install_codex_if_missing
-    launch_agy = services.launch_agy
-    launch_claude = services.launch_claude
-    launch_codex_app_server = services.launch_codex_app_server
-    launch_readiness_errors = services.launch_readiness_errors
-    load_config = services.load_config
-    log_codex_passthrough_mapping = services.log_codex_passthrough_mapping
-    materialize_runtime_command = services.materialize_runtime_command
-    native_codex_enabled = services.native_codex_enabled
-    path_with_ciel_runtime_user_dirs = services.path_with_ciel_runtime_user_dirs
-    provider_mode_label = services.provider_mode_label
-    record_launch_state_for_cwd = services.record_launch_state_for_cwd
-    run_ciel_runtime_update_check = services.run_ciel_runtime_update_check
-    run_codex_update_check = services.run_codex_update_check
-    run_prelaunch_menu = services.run_prelaunch_menu
-    run_with_router_lifetime = services.run_with_router_lifetime
-    select_codex_resume_session = services.select_codex_resume_session
-    start_codex_mcp_channel_sse_for_launch = services.start_codex_mcp_channel_sse_for_launch
-    start_router_if_needed = services.start_router_if_needed
-    subprocess_call_with_channel_wake_proxy = services.subprocess_call_with_channel_wake_proxy
-    terminate_existing_codex_processes_for_launch = services.terminate_existing_codex_processes_for_launch
-    terminate_existing_router_clients_for_launch = services.terminate_existing_router_clients_for_launch
-    warn_if_multiple_ciel_runtime_installs = services.warn_if_multiple_ciel_runtime_installs
-    write_codex_mcp_config_for_channel_discovery = services.write_codex_mcp_config_for_channel_discovery
+    CODEX_RUNTIME_API_KEY_ENV = services.constants.CODEX_RUNTIME_API_KEY_ENV
+    CONFIG_DIR = services.constants.CONFIG_DIR
+    PRELAUNCH_CANCEL = services.constants.PRELAUNCH_CANCEL
+    PRELAUNCH_LAUNCH_AGY = services.constants.PRELAUNCH_LAUNCH_AGY
+    PRELAUNCH_LAUNCH_CLAUDE = services.constants.PRELAUNCH_LAUNCH_CLAUDE
+    PRELAUNCH_LAUNCH_CODEX = services.constants.PRELAUNCH_LAUNCH_CODEX
+    PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.constants.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
+    _channel_wake_enter_env_is_fixed = services.process._channel_wake_enter_env_is_fixed
+    _codex_channel_wake_submit_delay_seconds = services.process._codex_channel_wake_submit_delay_seconds
+    _codex_channel_wake_submit_retries = services.process._codex_channel_wake_submit_retries
+    _log_codex_command_for_diagnostics = services.process._log_codex_command_for_diagnostics
+    _set_channel_transcript_scope = services.process._set_channel_transcript_scope
+    apply_launch_endpoint_policy = services.config.apply_launch_endpoint_policy
+    auto_import_passthrough_channels = services.channel.auto_import_passthrough_channels
+    channel_delivery_mode = services.channel.channel_delivery_mode
+    cleanup_managed_services_for_provider = services.routing.cleanup_managed_services_for_provider
+    codex_alternate_screen_compat_args = services.cli_policy.codex_alternate_screen_compat_args
+    codex_channel_capable_mcp_server_names = services.channel.codex_channel_capable_mcp_server_names
+    codex_current_model_cli_args = services.cli_policy.codex_current_model_cli_args
+    codex_help_requested = services.cli_policy.codex_help_requested
+    codex_mcp_native_http_compat_args = services.channel.codex_mcp_native_http_compat_args
+    codex_mcp_split_proxy_enabled = services.channel.codex_mcp_split_proxy_enabled
+    codex_native_routed_config_args = services.cli_policy.codex_native_routed_config_args
+    codex_passthrough_args_for_launch = services.cli_policy.codex_passthrough_args_for_launch
+    codex_passthrough_has_command = services.cli_policy.codex_passthrough_has_command
+    codex_process_record_path = services.process.codex_process_record_path
+    codex_resume_picker_requested = services.cli_policy.codex_resume_picker_requested
+    codex_resume_with_session_id = services.cli_policy.codex_resume_with_session_id
+    codex_routed_enabled = services.routing.codex_routed_enabled
+    codex_runtime_config_args = services.cli_policy.codex_runtime_config_args
+    codex_runtime_model_catalog_args = services.config.codex_runtime_model_catalog_args
+    codex_yolo_launch_args = services.cli_policy.codex_yolo_launch_args
+    current_alias = services.config.current_alias
+    current_launch_cwd_key = services.config.current_launch_cwd_key
+    direct_native_codex_enabled = services.routing.direct_native_codex_enabled
+    disable_ciel_runtime_codex_prompts_for_native = services.installation.disable_ciel_runtime_codex_prompts_for_native
+    ensure_model_cache_for_launch = services.config.ensure_model_cache_for_launch
+    find_executable = services.installation.find_executable
+    get_current_provider = services.config.get_current_provider
+    has_passthrough_option = services.installation.has_passthrough_option
+    install_ciel_runtime_codex_prompts = services.installation.install_ciel_runtime_codex_prompts
+    install_codex_if_missing = services.installation.install_codex_if_missing
+    launch_agy = services.dispatch.launch_agy
+    launch_claude = services.dispatch.launch_claude
+    launch_codex_app_server = services.dispatch.launch_codex_app_server
+    launch_readiness_errors = services.routing.launch_readiness_errors
+    load_config = services.config.load_config
+    log_codex_passthrough_mapping = services.dispatch.log_codex_passthrough_mapping
+    materialize_runtime_command = services.dispatch.materialize_runtime_command
+    native_codex_enabled = services.routing.native_codex_enabled
+    path_with_ciel_runtime_user_dirs = services.process.path_with_ciel_runtime_user_dirs
+    provider_mode_label = services.config.provider_mode_label
+    record_launch_state_for_cwd = services.config.record_launch_state_for_cwd
+    run_ciel_runtime_update_check = services.dispatch.run_ciel_runtime_update_check
+    run_codex_update_check = services.dispatch.run_codex_update_check
+    run_prelaunch_menu = services.dispatch.run_prelaunch_menu
+    run_with_router_lifetime = services.routing.run_with_router_lifetime
+    select_codex_resume_session = services.channel.select_codex_resume_session
+    start_codex_mcp_channel_sse_for_launch = services.channel.start_codex_mcp_channel_sse_for_launch
+    start_router_if_needed = services.routing.start_router_if_needed
+    subprocess_call_with_channel_wake_proxy = services.process.subprocess_call_with_channel_wake_proxy
+    terminate_existing_codex_processes_for_launch = services.process.terminate_existing_codex_processes_for_launch
+    terminate_existing_router_clients_for_launch = services.process.terminate_existing_router_clients_for_launch
+    warn_if_multiple_ciel_runtime_installs = services.installation.warn_if_multiple_ciel_runtime_installs
+    write_codex_mcp_config_for_channel_discovery = services.channel.write_codex_mcp_config_for_channel_discovery
     warn_if_multiple_ciel_runtime_installs()
     run_ciel_runtime_update_check(enabled=self_update_check)
     env = os.environ.copy()
@@ -1354,6 +1394,14 @@ __all__ = [
     "ClaudeLaunchRouting",
     "ClaudeLaunchServices",
     "CodexAppServerLaunchServices",
+    "CodexLaunchChannel",
+    "CodexLaunchCliPolicy",
+    "CodexLaunchConfig",
+    "CodexLaunchConstants",
+    "CodexLaunchDispatch",
+    "CodexLaunchInstallation",
+    "CodexLaunchProcess",
+    "CodexLaunchRouting",
     "CodexLaunchServices",
     "run_agy",
     "run_claude",

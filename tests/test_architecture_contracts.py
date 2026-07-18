@@ -47,6 +47,15 @@ from ciel_runtime_support.runtime_launch import (
     ClaudeLaunchProcess,
     ClaudeLaunchRouting,
     ClaudeLaunchServices,
+    CodexLaunchChannel,
+    CodexLaunchCliPolicy,
+    CodexLaunchConfig,
+    CodexLaunchConstants,
+    CodexLaunchDispatch,
+    CodexLaunchInstallation,
+    CodexLaunchProcess,
+    CodexLaunchRouting,
+    CodexLaunchServices,
 )
 from ciel_runtime_support.provider_adapters import (
     PROVIDER_ADAPTERS,
@@ -168,6 +177,23 @@ class ArchitectureContractTests(unittest.TestCase):
             PrelaunchMutations,
             PrelaunchSecrets,
             PrelaunchOptions,
+        )
+
+        for port in ports:
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_codex_launch_ports_stay_below_dependency_limit(self):
+        ports = (
+            CodexLaunchServices,
+            CodexLaunchConstants,
+            CodexLaunchProcess,
+            CodexLaunchCliPolicy,
+            CodexLaunchConfig,
+            CodexLaunchInstallation,
+            CodexLaunchDispatch,
+            CodexLaunchRouting,
+            CodexLaunchChannel,
         )
 
         for port in ports:
