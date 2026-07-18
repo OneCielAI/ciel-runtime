@@ -419,8 +419,8 @@ def rebatch_anthropic_sse_text(
                 if isinstance(parsed, dict):
                     delta = parsed.get("delta") if isinstance(parsed.get("delta"), dict) else {}
                     stop_reason = str(delta.get("stop_reason") or stop_reason)
-            except Exception:
-                pass
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                router_log("WARN", f"anthropic_stream_pending_delta_parse_failed error={type(exc).__name__}: {exc}")
         emit_raw(
             pending_message_delta[0] if pending_message_delta is not None else "message_delta",
             patched_message_delta(stop_reason),
@@ -936,8 +936,8 @@ def rebatch_anthropic_sse_text(
                     json.dumps({"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": 1}}, ensure_ascii=False),
                 )
                 emit_raw("message_stop", "{\"type\":\"message_stop\"}")
-        except Exception:
-            pass
+        except Exception as exc:
+            router_log("WARN", f"anthropic_stream_fallback_emit_failed error={type(exc).__name__}: {exc}")
     finally:
         if stream_success:
             mark_pending_channel_delivery_success(handler, "anthropic_stream_message_stop")
@@ -946,8 +946,8 @@ def rebatch_anthropic_sse_text(
             mark_pending_channel_delivery_failed(handler, reason)
         try:
             resp.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            router_log("WARN", f"anthropic_stream_response_close_failed error={type(exc).__name__}: {exc}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1497,13 +1497,13 @@ def ollama_stream_to_anthropic_sse(
                 },
             )
             emit("message_stop", {"type": "message_stop"})
-        except Exception:
-            pass
+        except Exception as exc:
+            router_log("WARN", f"ollama_stream_fallback_emit_failed model={model} error={type(exc).__name__}: {exc}")
     finally:
         try:
             resp.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            router_log("WARN", f"ollama_stream_response_close_failed model={model} error={type(exc).__name__}: {exc}")
         try:
             final_stop_reason = locals().get("stop_reason")
             finish_outgoing_sse_trace(
@@ -1525,8 +1525,8 @@ def ollama_stream_to_anthropic_sse(
                 output_tokens=output_tokens,
                 last_chunk=chunk if isinstance(chunk, dict) else None,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            router_log("WARN", f"ollama_stream_trace_finalize_failed model={model} error={type(exc).__name__}: {exc}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1972,14 +1972,14 @@ def forward_openai_chat_to_anthropic_sse(
                 handler,
                 {"stop_reason": "end_turn", "usage": {"output_tokens": output_tokens or max(1, len(text_so_far) // 4)}},
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            router_log("WARN", f"openai_stream_fallback_emit_failed provider={provider} model={model} error={type(exc).__name__}: {exc}")
         return False
     finally:
         try:
             resp.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            router_log("WARN", f"openai_stream_response_close_failed provider={provider} model={model} error={type(exc).__name__}: {exc}")
 
 
 __all__ = [
