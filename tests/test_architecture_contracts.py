@@ -373,8 +373,11 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(McpProxyCodecPolicy)), 10)
 
     def test_critical_mcp_and_process_paths_do_not_silence_exceptions(self):
-        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
-        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        source_root = Path(__file__).resolve().parents[1]
+        source_paths = (
+            source_root / "ciel_runtime.py",
+            source_root / "ciel_runtime_support" / "mcp_proxy_process.py",
+        )
         critical_names = {
             "subprocess_call_with_channel_wake_proxy",
             "_mcp_proxy_forward_stdin",
@@ -384,11 +387,14 @@ class ArchitectureContractTests(unittest.TestCase):
             "run_mcp_streamable_http_proxy",
             "run_mcp_stdio_proxy",
         }
-        critical_functions = [
-            node
-            for node in tree.body
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in critical_names
-        ]
+        critical_functions = []
+        for source_path in source_paths:
+            tree = ast.parse(source_path.read_text(encoding="utf-8"))
+            critical_functions.extend(
+                node
+                for node in tree.body
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in critical_names
+            )
 
         self.assertEqual({node.name for node in critical_functions}, critical_names)
         for function in critical_functions:

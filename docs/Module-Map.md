@@ -141,6 +141,10 @@ MCP 채널 capability probe의 JSONL/LSP 프레임, SSE 이벤트 및 initialize
 
 MCP 프록시의 JSON-RPC 오류·notification wait 응답과 대형 메시지 조회 결과 압축을 담당하는 codec. 전송 및 프로세스 수명주기와 분리되며 환경·로그·문자열 제한 규칙은 6필드 `McpProxyCodecPolicy` 포트로 주입된다.
 
+### `ciel_runtime_support/mcp_proxy_process.py`
+
+MCP stdio의 Content-Length/JSONL framing, stdin/stdout/stderr 전달과 Streamable HTTP 요청 어댑터. notification 관찰·로그·HTTP 전송은 호출 시 명시적으로 주입되어 채널 저장소 및 메인 composition root와의 숨은 결합을 만들지 않는다.
+
 ### `ciel_runtime_support/config_migrations.py`
 
 파일 저장이나 런타임 I/O 없이 구성 schema migration을 순서대로 적용하는 Configuration policy.
