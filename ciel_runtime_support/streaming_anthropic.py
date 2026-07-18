@@ -12,42 +12,67 @@ from typing import Any, Callable, Iterable
 
 
 @dataclass(frozen=True, slots=True)
-class AnthropicStreamServices:
+class AnthropicStreamIO:
     ANTHROPIC_THINKING_BLOCK_TYPES: Any
     VisibleToolCallArtifactFilter: type[Any]
     _find_pseudo_xml_tool_start: Callable[..., Any]
-    _is_mcp_notification_wait_tool: Callable[..., Any]
-    _remember_channel_injected_tool_use: Callable[..., Any]
     _split_word_buffer: Callable[..., Any]
-    _validate_and_fix_tool_input: Callable[..., Any]
-    append_tool_call_log: Callable[..., Any]
-    backfill_exit_plan_mode_allowed_prompts: Callable[..., Any]
-    body_ultracode_runtime_enabled: Callable[..., Any]
-    cap_mcp_notification_wait_tool_input: Callable[..., Any]
-    empty_end_turn_notice_for_body: Callable[..., Any]
-    has_tool: Callable[..., Any]
-    infer_tool_name_from_args: Callable[..., Any]
-    latest_user_intent_message_index: Callable[..., Any]
-    latest_user_is_claude_code_suggestion_mode: Callable[..., Any]
-    latest_user_tool_result_names: Callable[..., Any]
     mark_pending_channel_delivery_failed: Callable[..., Any]
     mark_pending_channel_delivery_success: Callable[..., Any]
+    remember_suppressed_thinking_passback: Callable[..., Any]
+    router_client_connection_closed: Callable[..., Any]
+    router_log: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class AnthropicToolProjection:
+    _is_mcp_notification_wait_tool: Callable[..., Any]
+    _remember_channel_injected_tool_use: Callable[..., Any]
+    _validate_and_fix_tool_input: Callable[..., Any]
+    append_tool_call_log: Callable[..., Any]
+    cap_mcp_notification_wait_tool_input: Callable[..., Any]
+    infer_tool_name_from_args: Callable[..., Any]
     normalize_tool_arguments: Callable[..., Any]
     parse_pseudo_tool_calls: Callable[..., Any]
     plan_mode_tool_name_for_emit: Callable[..., Any]
-    recent_synthetic_tasklist_count: Callable[..., Any]
-    remember_suppressed_thinking_passback: Callable[..., Any]
     resolve_emitted_tool_name: Callable[..., Any]
-    router_client_connection_closed: Callable[..., Any]
-    router_log: Callable[..., Any]
-    should_auto_continue_choice_question_with_tasklist: Callable[..., Any]
-    should_auto_exit_plan_mode: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class AnthropicToolPolicy:
     should_drop_duplicate_side_effect_tool_call: Callable[..., Any]
     should_drop_emitted_tool_call: Callable[..., Any]
+    should_repair_anthropic_passthrough_tool_input: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class AnthropicConversationContext:
+    backfill_exit_plan_mode_allowed_prompts: Callable[..., Any]
+    body_ultracode_runtime_enabled: Callable[..., Any]
+    empty_end_turn_notice_for_body: Callable[..., Any]
+    has_tool: Callable[..., Any]
+    latest_user_intent_message_index: Callable[..., Any]
+    latest_user_is_claude_code_suggestion_mode: Callable[..., Any]
+    latest_user_tool_result_names: Callable[..., Any]
+    recent_synthetic_tasklist_count: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class AnthropicContinuationPolicy:
+    should_auto_continue_choice_question_with_tasklist: Callable[..., Any]
+    should_auto_exit_plan_mode: Callable[..., Any]
     should_keep_work_alive_with_tasklist: Callable[..., Any]
     should_recover_empty_end_turn_with_tasklist: Callable[..., Any]
-    should_repair_anthropic_passthrough_tool_input: Callable[..., Any]
     should_synthesize_tasklist_for_provider: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class AnthropicStreamServices:
+    io: AnthropicStreamIO
+    tool_projection: AnthropicToolProjection
+    tool_policy: AnthropicToolPolicy
+    conversation: AnthropicConversationContext
+    continuation: AnthropicContinuationPolicy
 
 
 def rebatch_anthropic_sse_text(
@@ -70,41 +95,41 @@ def rebatch_anthropic_sse_text(
     compacted.
     """
 
-    ANTHROPIC_THINKING_BLOCK_TYPES = services.ANTHROPIC_THINKING_BLOCK_TYPES
-    VisibleToolCallArtifactFilter = services.VisibleToolCallArtifactFilter
-    _find_pseudo_xml_tool_start = services._find_pseudo_xml_tool_start
-    _is_mcp_notification_wait_tool = services._is_mcp_notification_wait_tool
-    _remember_channel_injected_tool_use = services._remember_channel_injected_tool_use
-    _split_word_buffer = services._split_word_buffer
-    _validate_and_fix_tool_input = services._validate_and_fix_tool_input
-    append_tool_call_log = services.append_tool_call_log
-    backfill_exit_plan_mode_allowed_prompts = services.backfill_exit_plan_mode_allowed_prompts
-    body_ultracode_runtime_enabled = services.body_ultracode_runtime_enabled
-    cap_mcp_notification_wait_tool_input = services.cap_mcp_notification_wait_tool_input
-    empty_end_turn_notice_for_body = services.empty_end_turn_notice_for_body
-    has_tool = services.has_tool
-    infer_tool_name_from_args = services.infer_tool_name_from_args
-    latest_user_intent_message_index = services.latest_user_intent_message_index
-    latest_user_is_claude_code_suggestion_mode = services.latest_user_is_claude_code_suggestion_mode
-    latest_user_tool_result_names = services.latest_user_tool_result_names
-    mark_pending_channel_delivery_failed = services.mark_pending_channel_delivery_failed
-    mark_pending_channel_delivery_success = services.mark_pending_channel_delivery_success
-    normalize_tool_arguments = services.normalize_tool_arguments
-    parse_pseudo_tool_calls = services.parse_pseudo_tool_calls
-    plan_mode_tool_name_for_emit = services.plan_mode_tool_name_for_emit
-    recent_synthetic_tasklist_count = services.recent_synthetic_tasklist_count
-    remember_suppressed_thinking_passback = services.remember_suppressed_thinking_passback
-    resolve_emitted_tool_name = services.resolve_emitted_tool_name
-    router_client_connection_closed = services.router_client_connection_closed
-    router_log = services.router_log
-    should_auto_continue_choice_question_with_tasklist = services.should_auto_continue_choice_question_with_tasklist
-    should_auto_exit_plan_mode = services.should_auto_exit_plan_mode
-    should_drop_duplicate_side_effect_tool_call = services.should_drop_duplicate_side_effect_tool_call
-    should_drop_emitted_tool_call = services.should_drop_emitted_tool_call
-    should_keep_work_alive_with_tasklist = services.should_keep_work_alive_with_tasklist
-    should_recover_empty_end_turn_with_tasklist = services.should_recover_empty_end_turn_with_tasklist
-    should_repair_anthropic_passthrough_tool_input = services.should_repair_anthropic_passthrough_tool_input
-    should_synthesize_tasklist_for_provider = services.should_synthesize_tasklist_for_provider
+    ANTHROPIC_THINKING_BLOCK_TYPES = services.io.ANTHROPIC_THINKING_BLOCK_TYPES
+    VisibleToolCallArtifactFilter = services.io.VisibleToolCallArtifactFilter
+    _find_pseudo_xml_tool_start = services.io._find_pseudo_xml_tool_start
+    _split_word_buffer = services.io._split_word_buffer
+    mark_pending_channel_delivery_failed = services.io.mark_pending_channel_delivery_failed
+    mark_pending_channel_delivery_success = services.io.mark_pending_channel_delivery_success
+    remember_suppressed_thinking_passback = services.io.remember_suppressed_thinking_passback
+    router_client_connection_closed = services.io.router_client_connection_closed
+    router_log = services.io.router_log
+    _is_mcp_notification_wait_tool = services.tool_projection._is_mcp_notification_wait_tool
+    _remember_channel_injected_tool_use = services.tool_projection._remember_channel_injected_tool_use
+    _validate_and_fix_tool_input = services.tool_projection._validate_and_fix_tool_input
+    append_tool_call_log = services.tool_projection.append_tool_call_log
+    cap_mcp_notification_wait_tool_input = services.tool_projection.cap_mcp_notification_wait_tool_input
+    infer_tool_name_from_args = services.tool_projection.infer_tool_name_from_args
+    normalize_tool_arguments = services.tool_projection.normalize_tool_arguments
+    parse_pseudo_tool_calls = services.tool_projection.parse_pseudo_tool_calls
+    plan_mode_tool_name_for_emit = services.tool_projection.plan_mode_tool_name_for_emit
+    resolve_emitted_tool_name = services.tool_projection.resolve_emitted_tool_name
+    should_drop_duplicate_side_effect_tool_call = services.tool_policy.should_drop_duplicate_side_effect_tool_call
+    should_drop_emitted_tool_call = services.tool_policy.should_drop_emitted_tool_call
+    should_repair_anthropic_passthrough_tool_input = services.tool_policy.should_repair_anthropic_passthrough_tool_input
+    backfill_exit_plan_mode_allowed_prompts = services.conversation.backfill_exit_plan_mode_allowed_prompts
+    body_ultracode_runtime_enabled = services.conversation.body_ultracode_runtime_enabled
+    empty_end_turn_notice_for_body = services.conversation.empty_end_turn_notice_for_body
+    has_tool = services.conversation.has_tool
+    latest_user_intent_message_index = services.conversation.latest_user_intent_message_index
+    latest_user_is_claude_code_suggestion_mode = services.conversation.latest_user_is_claude_code_suggestion_mode
+    latest_user_tool_result_names = services.conversation.latest_user_tool_result_names
+    recent_synthetic_tasklist_count = services.conversation.recent_synthetic_tasklist_count
+    should_auto_continue_choice_question_with_tasklist = services.continuation.should_auto_continue_choice_question_with_tasklist
+    should_auto_exit_plan_mode = services.continuation.should_auto_exit_plan_mode
+    should_keep_work_alive_with_tasklist = services.continuation.should_keep_work_alive_with_tasklist
+    should_recover_empty_end_turn_with_tasklist = services.continuation.should_recover_empty_end_turn_with_tasklist
+    should_synthesize_tasklist_for_provider = services.continuation.should_synthesize_tasklist_for_provider
     text_buffers: dict[int, str] = {}
     pending_event_type: str | None = None
     pending_event_lines: list[str] = []
@@ -1958,7 +1983,12 @@ def forward_openai_chat_to_anthropic_sse(
 
 
 __all__ = [
+    "AnthropicContinuationPolicy",
+    "AnthropicConversationContext",
+    "AnthropicStreamIO",
     "AnthropicStreamServices",
+    "AnthropicToolPolicy",
+    "AnthropicToolProjection",
     "OllamaContinuationPolicy",
     "OllamaStreamIO",
     "OllamaStreamServices",

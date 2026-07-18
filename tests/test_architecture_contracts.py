@@ -100,6 +100,12 @@ from ciel_runtime_support.runtime_launch import (
     CodexAppServerRouting,
 )
 from ciel_runtime_support.streaming_anthropic import (
+    AnthropicContinuationPolicy,
+    AnthropicConversationContext,
+    AnthropicStreamIO,
+    AnthropicStreamServices,
+    AnthropicToolPolicy,
+    AnthropicToolProjection,
     OllamaContinuationPolicy,
     OllamaStreamIO,
     OllamaStreamServices,
@@ -338,6 +344,18 @@ class ArchitectureContractTests(unittest.TestCase):
             OllamaStreamTrace,
             OllamaToolProjection,
             OllamaContinuationPolicy,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_anthropic_stream_ports_stay_below_dependency_limit(self):
+        for port in (
+            AnthropicStreamServices,
+            AnthropicStreamIO,
+            AnthropicToolProjection,
+            AnthropicToolPolicy,
+            AnthropicConversationContext,
+            AnthropicContinuationPolicy,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
