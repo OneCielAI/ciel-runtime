@@ -125,6 +125,10 @@ Claude 도구 이름 dialect, MCP 서버 이름 정규화 및 Tool Dialect regis
 
 전역 설정과 네트워크 의존성이 없는 OpenAI Responses ↔ Anthropic Messages 순수 변환.
 
+### `ciel_runtime_support/protocols/ollama_chat.py`
+
+Anthropic system/tool schema를 Ollama `/api/chat` wire 구조로 투영하는 순수 Protocol codec.
+
 ### `ciel_runtime_support/agent_router.py`
 
 런타임 HTTP 라우터 공통 계약:

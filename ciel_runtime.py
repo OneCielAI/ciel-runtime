@@ -66,6 +66,11 @@ from ciel_runtime_support.codex_router import CodexRouter, read_codex_response_p
 from ciel_runtime_support.observability import EventBus, render_events_html
 from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
+from ciel_runtime_support.protocols.ollama_chat import (
+    anthropic_system_to_ollama_messages,
+    anthropic_tools_to_ollama,
+    ollama_claude_code_reminder,
+)
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, ZAI_MODEL_FALLBACK_IDS
 from ciel_runtime_support.provider_limits import (
     ProviderKeyServices,
@@ -12844,28 +12849,8 @@ def advisor_gate_reason_for_body(provider: str, pcfg: dict[str, Any], body: dict
     return ""
 
 
-def anthropic_system_to_ollama_messages(system: Any) -> list[dict[str, Any]]:
-    if not system:
-        return []
-    if isinstance(system, str):
-        text = system
-    else:
-        text = anthropic_content_to_text(system)
-    return [{"role": "system", "content": text}] if text else []
 
 
-def ollama_claude_code_reminder() -> dict[str, str]:
-    return {
-        "role": "system",
-        "content": (
-            "Claude Code execution reminder: when the user asks to create, edit, or run code, "
-            "use the available tools such as Write, Edit, Read, and Bash. Do not stop after saying "
-            "you will run something. Do not present a code block as a substitute for creating the file "
-            "unless the user explicitly asks for code only. Exception: while Claude Code is in Plan Mode, "
-            "do not implement normal project files; explore as needed, write or update the plan file, "
-            "then call ExitPlanMode when the plan is ready for approval."
-        ),
-    }
 
 
 READ_UNCHANGED_RESULT_RE = re.compile(
@@ -13222,24 +13207,6 @@ def anthropic_messages_to_ollama(body: dict[str, Any]) -> list[dict[str, Any]]:
     return messages
 
 
-def anthropic_tools_to_ollama(tools: Any) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    if not isinstance(tools, list):
-        return out
-    for tool in tools:
-        if not isinstance(tool, dict) or not tool.get("name"):
-            continue
-        out.append(
-            {
-                "type": "function",
-                "function": {
-                    "name": tool["name"],
-                    "description": tool.get("description", ""),
-                    "parameters": tool.get("input_schema") or {"type": "object", "properties": {}},
-                },
-            }
-        )
-    return out
 
 
 def anthropic_messages_to_openai(body: dict[str, Any], reasoning_passback: bool = False) -> list[dict[str, Any]]:
