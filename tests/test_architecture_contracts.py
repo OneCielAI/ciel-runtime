@@ -23,6 +23,7 @@ from ciel_runtime_support.cli_dispatch import (
     CliServices,
     CliSpecialCommands,
 )
+from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
 from ciel_runtime_support.llm_presets import (
     PresetContextPolicy,
     PresetDefinition,
@@ -359,6 +360,9 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_config_migration_policy_stays_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(ConfigMigrationPolicy)), 10)
 
     def test_named_registries_produce_real_contract_implementations(self):
         protocol = PROTOCOL_ADAPTERS.create("openai-responses", fallback_model="fallback")
