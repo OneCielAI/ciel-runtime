@@ -1,5 +1,6 @@
 import ast
 import unittest
+from dataclasses import fields
 from pathlib import Path
 
 from ciel_runtime_support.architecture import (
@@ -13,6 +14,14 @@ from ciel_runtime_support.architecture import (
     ToolDialect,
 )
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS, OpenAIResponsesProtocolAdapter
+from ciel_runtime_support.provider_models import (
+    ModelCatalogHttp,
+    ModelCatalogPolicy,
+    ModelCatalogResponseCodec,
+    ModelCatalogStorage,
+    ProviderCatalogSources,
+    ProviderModelServices,
+)
 from ciel_runtime_support.provider_adapters import (
     PROVIDER_ADAPTERS,
     AgyProviderAdapter,
@@ -87,6 +96,20 @@ class DummyDialect(ToolDialect):
 
 
 class ArchitectureContractTests(unittest.TestCase):
+    def test_provider_model_ports_stay_below_dependency_limit(self):
+        ports = (
+            ProviderModelServices,
+            ModelCatalogStorage,
+            ModelCatalogHttp,
+            ProviderCatalogSources,
+            ModelCatalogResponseCodec,
+            ModelCatalogPolicy,
+        )
+
+        for port in ports:
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
     def test_named_registries_produce_real_contract_implementations(self):
         protocol = PROTOCOL_ADAPTERS.create("openai-responses", fallback_model="fallback")
         provider = PROVIDER_ADAPTERS.create("openrouter")

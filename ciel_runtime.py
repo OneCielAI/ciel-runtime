@@ -102,7 +102,15 @@ from ciel_runtime_support.provider_limits import (
     learn_rate_limit_headers,
     register_rate_limit_backoff,
 )
-from ciel_runtime_support.provider_models import ProviderModelServices, fetch_upstream_model_ids
+from ciel_runtime_support.provider_models import (
+    ModelCatalogHttp,
+    ModelCatalogPolicy,
+    ModelCatalogResponseCodec,
+    ModelCatalogStorage,
+    ProviderCatalogSources,
+    ProviderModelServices,
+    fetch_upstream_model_ids,
+)
 from ciel_runtime_support.provider_policy import (
     ProviderRequestServices,
     ProviderWireServices,
@@ -6984,33 +6992,43 @@ def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool 
     return fetch_upstream_model_ids(
         provider, pcfg, force_refresh,
         services=ProviderModelServices(
-            ANTHROPIC_MODEL_DOCS_URLS=ANTHROPIC_MODEL_DOCS_URLS,
-            fetch_anthropic_api_model_ids=fetch_anthropic_api_model_ids,
-            fetch_anthropic_public_model_ids=fetch_anthropic_public_model_ids,
-            fetch_fireworks_model_ids=fetch_fireworks_model_ids,
-            fireworks_account_id=fireworks_account_id,
-            fireworks_management_base_url=fireworks_management_base_url,
-            http_json=http_json,
-            join_url=join_url,
-            lm_studio_api_base=lm_studio_api_base,
-            model_ids_from_response=model_ids_from_response,
-            model_info_from_response=model_info_from_response,
-            normalize_model_id=normalize_model_id,
-            nvidia_hosted_list_headers=nvidia_hosted_list_headers,
-            nvidia_upstream_base_url=nvidia_upstream_base_url,
-            ollama_catalog_model_ids=ollama_catalog_model_ids,
-            provider_has_api_key=provider_has_api_key,
-            provider_model_catalog_policy=provider_model_catalog_policy,
-            provider_model_paths=provider_model_paths,
-            provider_model_list_headers=provider_model_list_headers,
-            provider_upstream_request_base=provider_upstream_request_base,
-            read_model_list_cache=read_model_list_cache,
-            router_log=router_log,
-            sorted_model_ids=sorted_model_ids,
-            unique_model_ids=unique_model_ids,
-            with_upstream_user_agent=with_upstream_user_agent,
-            write_model_list_cache=write_model_list_cache,
-            write_model_registry=write_model_registry
+            storage=ModelCatalogStorage(
+                read_model_list_cache=read_model_list_cache,
+                write_model_list_cache=write_model_list_cache,
+                write_model_registry=write_model_registry,
+                router_log=router_log,
+            ),
+            http=ModelCatalogHttp(
+                http_json=http_json,
+                join_url=join_url,
+                with_upstream_user_agent=with_upstream_user_agent,
+                lm_studio_api_base=lm_studio_api_base,
+                nvidia_hosted_list_headers=nvidia_hosted_list_headers,
+                nvidia_upstream_base_url=nvidia_upstream_base_url,
+            ),
+            sources=ProviderCatalogSources(
+                ANTHROPIC_MODEL_DOCS_URLS=ANTHROPIC_MODEL_DOCS_URLS,
+                fetch_anthropic_api_model_ids=fetch_anthropic_api_model_ids,
+                fetch_anthropic_public_model_ids=fetch_anthropic_public_model_ids,
+                fetch_fireworks_model_ids=fetch_fireworks_model_ids,
+                fireworks_account_id=fireworks_account_id,
+                fireworks_management_base_url=fireworks_management_base_url,
+            ),
+            response_codec=ModelCatalogResponseCodec(
+                model_ids_from_response=model_ids_from_response,
+                model_info_from_response=model_info_from_response,
+            ),
+            policy=ModelCatalogPolicy(
+                normalize_model_id=normalize_model_id,
+                ollama_catalog_model_ids=ollama_catalog_model_ids,
+                provider_has_api_key=provider_has_api_key,
+                provider_model_catalog_policy=provider_model_catalog_policy,
+                provider_model_paths=provider_model_paths,
+                provider_model_list_headers=provider_model_list_headers,
+                provider_upstream_request_base=provider_upstream_request_base,
+                sorted_model_ids=sorted_model_ids,
+                unique_model_ids=unique_model_ids,
+            ),
         ),
     )
 

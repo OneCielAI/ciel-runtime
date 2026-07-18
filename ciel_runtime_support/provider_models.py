@@ -5,67 +5,92 @@ from typing import Any, Callable
 
 
 @dataclass(frozen=True, slots=True)
-class ProviderModelServices:
+class ModelCatalogStorage:
+    read_model_list_cache: Callable[..., Any]
+    write_model_list_cache: Callable[..., Any]
+    write_model_registry: Callable[..., Any]
+    router_log: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ModelCatalogHttp:
+    http_json: Callable[..., Any]
+    join_url: Callable[..., Any]
+    with_upstream_user_agent: Callable[..., Any]
+    lm_studio_api_base: Callable[..., Any]
+    nvidia_hosted_list_headers: Callable[..., Any]
+    nvidia_upstream_base_url: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderCatalogSources:
     ANTHROPIC_MODEL_DOCS_URLS: Any
     fetch_anthropic_api_model_ids: Callable[..., Any]
     fetch_anthropic_public_model_ids: Callable[..., Any]
     fetch_fireworks_model_ids: Callable[..., Any]
     fireworks_account_id: Callable[..., Any]
     fireworks_management_base_url: Callable[..., Any]
-    http_json: Callable[..., Any]
-    join_url: Callable[..., Any]
-    lm_studio_api_base: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ModelCatalogResponseCodec:
     model_ids_from_response: Callable[..., Any]
     model_info_from_response: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ModelCatalogPolicy:
     normalize_model_id: Callable[..., Any]
-    nvidia_hosted_list_headers: Callable[..., Any]
-    nvidia_upstream_base_url: Callable[..., Any]
     ollama_catalog_model_ids: Callable[..., Any]
     provider_has_api_key: Callable[..., Any]
     provider_model_catalog_policy: Callable[..., Any]
     provider_model_paths: Callable[..., Any]
     provider_model_list_headers: Callable[..., Any]
     provider_upstream_request_base: Callable[..., Any]
-    read_model_list_cache: Callable[..., Any]
-    router_log: Callable[..., Any]
     sorted_model_ids: Callable[..., Any]
     unique_model_ids: Callable[..., Any]
-    with_upstream_user_agent: Callable[..., Any]
-    write_model_list_cache: Callable[..., Any]
-    write_model_registry: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderModelServices:
+    storage: ModelCatalogStorage
+    http: ModelCatalogHttp
+    sources: ProviderCatalogSources
+    response_codec: ModelCatalogResponseCodec
+    policy: ModelCatalogPolicy
 
 
 def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool = False,
     *,
     services: ProviderModelServices,
 ) -> list[str]:
-    ANTHROPIC_MODEL_DOCS_URLS = services.ANTHROPIC_MODEL_DOCS_URLS
-    fetch_anthropic_api_model_ids = services.fetch_anthropic_api_model_ids
-    fetch_anthropic_public_model_ids = services.fetch_anthropic_public_model_ids
-    fetch_fireworks_model_ids = services.fetch_fireworks_model_ids
-    fireworks_account_id = services.fireworks_account_id
-    fireworks_management_base_url = services.fireworks_management_base_url
-    http_json = services.http_json
-    join_url = services.join_url
-    lm_studio_api_base = services.lm_studio_api_base
-    model_ids_from_response = services.model_ids_from_response
-    model_info_from_response = services.model_info_from_response
-    normalize_model_id = services.normalize_model_id
-    nvidia_hosted_list_headers = services.nvidia_hosted_list_headers
-    nvidia_upstream_base_url = services.nvidia_upstream_base_url
-    ollama_catalog_model_ids = services.ollama_catalog_model_ids
-    provider_has_api_key = services.provider_has_api_key
-    provider_model_catalog_policy = services.provider_model_catalog_policy
-    provider_model_paths = services.provider_model_paths
-    provider_model_list_headers = services.provider_model_list_headers
-    provider_upstream_request_base = services.provider_upstream_request_base
-    read_model_list_cache = services.read_model_list_cache
-    router_log = services.router_log
-    sorted_model_ids = services.sorted_model_ids
-    unique_model_ids = services.unique_model_ids
-    with_upstream_user_agent = services.with_upstream_user_agent
-    write_model_list_cache = services.write_model_list_cache
-    write_model_registry = services.write_model_registry
+    ANTHROPIC_MODEL_DOCS_URLS = services.sources.ANTHROPIC_MODEL_DOCS_URLS
+    fetch_anthropic_api_model_ids = services.sources.fetch_anthropic_api_model_ids
+    fetch_anthropic_public_model_ids = services.sources.fetch_anthropic_public_model_ids
+    fetch_fireworks_model_ids = services.sources.fetch_fireworks_model_ids
+    fireworks_account_id = services.sources.fireworks_account_id
+    fireworks_management_base_url = services.sources.fireworks_management_base_url
+    http_json = services.http.http_json
+    join_url = services.http.join_url
+    lm_studio_api_base = services.http.lm_studio_api_base
+    model_ids_from_response = services.response_codec.model_ids_from_response
+    model_info_from_response = services.response_codec.model_info_from_response
+    normalize_model_id = services.policy.normalize_model_id
+    nvidia_hosted_list_headers = services.http.nvidia_hosted_list_headers
+    nvidia_upstream_base_url = services.http.nvidia_upstream_base_url
+    ollama_catalog_model_ids = services.policy.ollama_catalog_model_ids
+    provider_has_api_key = services.policy.provider_has_api_key
+    provider_model_catalog_policy = services.policy.provider_model_catalog_policy
+    provider_model_paths = services.policy.provider_model_paths
+    provider_model_list_headers = services.policy.provider_model_list_headers
+    provider_upstream_request_base = services.policy.provider_upstream_request_base
+    read_model_list_cache = services.storage.read_model_list_cache
+    router_log = services.storage.router_log
+    sorted_model_ids = services.policy.sorted_model_ids
+    unique_model_ids = services.policy.unique_model_ids
+    with_upstream_user_agent = services.http.with_upstream_user_agent
+    write_model_list_cache = services.storage.write_model_list_cache
+    write_model_registry = services.storage.write_model_registry
     cached = None if force_refresh else read_model_list_cache(provider, pcfg)
     if cached is not None:
         return cached
@@ -227,4 +252,12 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
     return sorted_ids
 
 
-__all__ = ["ProviderModelServices", "fetch_upstream_model_ids"]
+__all__ = [
+    "ModelCatalogHttp",
+    "ModelCatalogPolicy",
+    "ModelCatalogResponseCodec",
+    "ModelCatalogStorage",
+    "ProviderCatalogSources",
+    "ProviderModelServices",
+    "fetch_upstream_model_ids",
+]
