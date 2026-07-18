@@ -77,6 +77,10 @@ Codex App Server 프로세스와 JSON-RPC/WebSocket 상태 조정.
 
 정규화된 `LaunchSpec`을 최종 `RuntimeCommand`로 변환하는 실제 CLI 런타임 어댑터.
 
+### `ciel_runtime_support/streaming_anthropic.py`
+
+Anthropic SSE 재배치와 thinking/tool-use 보존 정책을 실행하는 명시적 의존성 기반 스트리밍 서비스.
+
 ### `ciel_runtime_support/registry.py`
 
 Provider, Runtime, Protocol, Tool 확장 지점에서 사용하는 이름·별칭 기반 typed factory registry.
