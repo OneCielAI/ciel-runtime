@@ -1485,30 +1485,45 @@ def ollama_stream_to_anthropic_sse(
 
 
 @dataclass(frozen=True, slots=True)
-class OpenAIChatStreamServices:
+class OpenAIChatStreamIO:
     PSEUDO_TOOL_END: str
     PSEUDO_TOOL_START: str
-    _remember_channel_injected_tool_use: Callable[..., Any]
     _split_word_buffer: Callable[..., Any]
+    positive_int: Callable[..., Any]
+    router_log: Callable[..., Any]
+    write_anthropic_open_stream_stop: Callable[..., Any]
+    write_router_activity: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class OpenAIChatToolProjection:
+    _remember_channel_injected_tool_use: Callable[..., Any]
     _validate_and_fix_tool_input: Callable[..., Any]
     append_tool_call_log: Callable[..., Any]
     cap_mcp_notification_wait_tool_input: Callable[..., Any]
-    empty_end_turn_notice_for_body: Callable[..., Any]
-    latest_user_tool_result_names: Callable[..., Any]
     normalize_tool_arguments: Callable[..., Any]
     parse_pseudo_tool_calls: Callable[..., Any]
     plan_mode_tool_name_for_emit: Callable[..., Any]
-    positive_int: Callable[..., Any]
     resolve_emitted_tool_name: Callable[..., Any]
-    router_log: Callable[..., Any]
-    should_auto_continue_choice_question_with_tasklist: Callable[..., Any]
-    should_auto_enter_plan_mode: Callable[..., Any]
     should_drop_duplicate_side_effect_tool_call: Callable[..., Any]
     should_drop_emitted_tool_call: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class OpenAIChatContinuationPolicy:
+    empty_end_turn_notice_for_body: Callable[..., Any]
+    latest_user_tool_result_names: Callable[..., Any]
+    should_auto_continue_choice_question_with_tasklist: Callable[..., Any]
+    should_auto_enter_plan_mode: Callable[..., Any]
     should_keep_work_alive_with_tasklist: Callable[..., Any]
     should_recover_empty_end_turn_with_tasklist: Callable[..., Any]
-    write_anthropic_open_stream_stop: Callable[..., Any]
-    write_router_activity: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class OpenAIChatStreamServices:
+    io: OpenAIChatStreamIO
+    tool_projection: OpenAIChatToolProjection
+    continuation: OpenAIChatContinuationPolicy
 
 
 def forward_openai_chat_to_anthropic_sse(
@@ -1525,29 +1540,29 @@ def forward_openai_chat_to_anthropic_sse(
     services: OpenAIChatStreamServices,
 ) -> bool:
 
-    PSEUDO_TOOL_END = services.PSEUDO_TOOL_END
-    PSEUDO_TOOL_START = services.PSEUDO_TOOL_START
-    _remember_channel_injected_tool_use = services._remember_channel_injected_tool_use
-    _split_word_buffer = services._split_word_buffer
-    _validate_and_fix_tool_input = services._validate_and_fix_tool_input
-    append_tool_call_log = services.append_tool_call_log
-    cap_mcp_notification_wait_tool_input = services.cap_mcp_notification_wait_tool_input
-    empty_end_turn_notice_for_body = services.empty_end_turn_notice_for_body
-    latest_user_tool_result_names = services.latest_user_tool_result_names
-    normalize_tool_arguments = services.normalize_tool_arguments
-    parse_pseudo_tool_calls = services.parse_pseudo_tool_calls
-    plan_mode_tool_name_for_emit = services.plan_mode_tool_name_for_emit
-    positive_int = services.positive_int
-    resolve_emitted_tool_name = services.resolve_emitted_tool_name
-    router_log = services.router_log
-    should_auto_continue_choice_question_with_tasklist = services.should_auto_continue_choice_question_with_tasklist
-    should_auto_enter_plan_mode = services.should_auto_enter_plan_mode
-    should_drop_duplicate_side_effect_tool_call = services.should_drop_duplicate_side_effect_tool_call
-    should_drop_emitted_tool_call = services.should_drop_emitted_tool_call
-    should_keep_work_alive_with_tasklist = services.should_keep_work_alive_with_tasklist
-    should_recover_empty_end_turn_with_tasklist = services.should_recover_empty_end_turn_with_tasklist
-    write_anthropic_open_stream_stop = services.write_anthropic_open_stream_stop
-    write_router_activity = services.write_router_activity
+    PSEUDO_TOOL_END = services.io.PSEUDO_TOOL_END
+    PSEUDO_TOOL_START = services.io.PSEUDO_TOOL_START
+    _split_word_buffer = services.io._split_word_buffer
+    positive_int = services.io.positive_int
+    router_log = services.io.router_log
+    write_anthropic_open_stream_stop = services.io.write_anthropic_open_stream_stop
+    write_router_activity = services.io.write_router_activity
+    _remember_channel_injected_tool_use = services.tool_projection._remember_channel_injected_tool_use
+    _validate_and_fix_tool_input = services.tool_projection._validate_and_fix_tool_input
+    append_tool_call_log = services.tool_projection.append_tool_call_log
+    cap_mcp_notification_wait_tool_input = services.tool_projection.cap_mcp_notification_wait_tool_input
+    normalize_tool_arguments = services.tool_projection.normalize_tool_arguments
+    parse_pseudo_tool_calls = services.tool_projection.parse_pseudo_tool_calls
+    plan_mode_tool_name_for_emit = services.tool_projection.plan_mode_tool_name_for_emit
+    resolve_emitted_tool_name = services.tool_projection.resolve_emitted_tool_name
+    should_drop_duplicate_side_effect_tool_call = services.tool_projection.should_drop_duplicate_side_effect_tool_call
+    should_drop_emitted_tool_call = services.tool_projection.should_drop_emitted_tool_call
+    empty_end_turn_notice_for_body = services.continuation.empty_end_turn_notice_for_body
+    latest_user_tool_result_names = services.continuation.latest_user_tool_result_names
+    should_auto_continue_choice_question_with_tasklist = services.continuation.should_auto_continue_choice_question_with_tasklist
+    should_auto_enter_plan_mode = services.continuation.should_auto_enter_plan_mode
+    should_keep_work_alive_with_tasklist = services.continuation.should_keep_work_alive_with_tasklist
+    should_recover_empty_end_turn_with_tasklist = services.continuation.should_recover_empty_end_turn_with_tasklist
     next_content_index = start_index
     text_started = False
     text_suppressed_for_plan = False
@@ -1925,7 +1940,10 @@ def forward_openai_chat_to_anthropic_sse(
 __all__ = [
     "AnthropicStreamServices",
     "OllamaStreamServices",
+    "OpenAIChatContinuationPolicy",
+    "OpenAIChatStreamIO",
     "OpenAIChatStreamServices",
+    "OpenAIChatToolProjection",
     "forward_openai_chat_to_anthropic_sse",
     "ollama_stream_to_anthropic_sse",
     "rebatch_anthropic_sse_text",

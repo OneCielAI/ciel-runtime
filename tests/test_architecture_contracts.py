@@ -99,6 +99,12 @@ from ciel_runtime_support.runtime_launch import (
     CodexAppServerProcess,
     CodexAppServerRouting,
 )
+from ciel_runtime_support.streaming_anthropic import (
+    OpenAIChatContinuationPolicy,
+    OpenAIChatStreamIO,
+    OpenAIChatStreamServices,
+    OpenAIChatToolProjection,
+)
 from ciel_runtime_support.provider_adapters import (
     PROVIDER_ADAPTERS,
     AgyProviderAdapter,
@@ -307,6 +313,16 @@ class ArchitectureContractTests(unittest.TestCase):
             RateLimitApplyPolicy,
         )
         for port in ports:
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_openai_stream_ports_stay_below_dependency_limit(self):
+        for port in (
+            OpenAIChatStreamServices,
+            OpenAIChatStreamIO,
+            OpenAIChatToolProjection,
+            OpenAIChatContinuationPolicy,
+        ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
