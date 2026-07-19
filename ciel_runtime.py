@@ -86,6 +86,12 @@ from ciel_runtime_support.channel_injection import (
 )
 from ciel_runtime_support.channel_inflight import ChannelInflightEffects
 from ciel_runtime_support.channel_connection_registry import ChannelConnectionRegistry
+from ciel_runtime_support.channel_connection_worker import (
+    ChannelConnectionWorker,
+    ChannelWorkerEffects,
+    ChannelWorkerPolicy,
+    ChannelWorkerStateStore,
+)
 from ciel_runtime_support.channel_event_projection import (
     CHANNEL_CONTROL_KINDS as _CHANNEL_CONTROL_KINDS,
     compact_json_for_prompt as _compact_json_for_prompt,
@@ -606,7 +612,6 @@ from ciel_runtime_support.router_http import (
     RouterHttpPresentation,
     RouterHttpServices,
 )
-from ciel_runtime_support.sse_stream import SseRetryState, SseStreamServices, consume_sse_stream
 from ciel_runtime_support.provider_policy import (
     ProviderRequestServices,
     ProviderWireServices,
@@ -7990,173 +7995,37 @@ def _channel_worker_running(name: str, connection_id: str | None) -> bool:
         return bool(state and state.get("running") and _channel_connection_matches(state, connection_id))
 
 
+def channel_connection_worker() -> ChannelConnectionWorker:
+    return ChannelConnectionWorker(
+        state_store=ChannelWorkerStateStore(_CHANNEL_SSE_CONNECTIONS, _CHANNEL_SSE_LOCK),
+        effects=ChannelWorkerEffects(
+            log=router_log,
+            dispatch=lambda name, event, data, event_id: _channel_sse_dispatch(
+                name, event, data, event_id=event_id
+            ),
+            set_state=_channel_sse_set_state,
+            initialize_streamable=_channel_streamable_http_initialize_mcp,
+            close_state_session=_channel_streamable_http_close_state_session,
+            streamable_headers=lambda headers, protocol, session, accept: _mcp_streamable_headers(
+                headers, protocol, session, accept=accept
+            ),
+            session_not_found=_streamable_http_session_not_found,
+            http_error_body=_http_error_body_text,
+        ),
+        policy=ChannelWorkerPolicy(
+            streamable_protocol_version=MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+            legacy_sse_protocol_version=MCP_LEGACY_SSE_PROTOCOL_VERSION,
+            parse_bool=parse_bool,
+        ),
+    )
+
+
 def _channel_sse_worker(name: str, connection_id: str | None = None) -> None:
-    while True:
-        with _CHANNEL_SSE_LOCK:
-            state = _CHANNEL_SSE_CONNECTIONS.get(name)
-            if not state or not state.get("running") or not _channel_connection_matches(state, connection_id):
-                return
-            url = str(state.get("url") or "")
-            headers = dict(state.get("headers") or {})
-            last_event_id = state.get("last_sse_event_id")
-            read_timeout = max(5.0, min(3600.0, float(state.get("read_timeout_seconds") or 300.0)))
-            retry_seconds = max(1.0, min(60.0, float(state.get("retry_seconds") or 5.0)))
-        retry = SseRetryState(retry_seconds)
-        try:
-            request_headers = {**headers, "Accept": "text/event-stream"}
-            if last_event_id is not None and str(last_event_id) != "":
-                request_headers["Last-Event-ID"] = str(last_event_id)
-            req = urllib.request.Request(url, headers=request_headers)
-            with urllib.request.urlopen(req, timeout=read_timeout) as response:
-                _channel_sse_set_state(name, last_error=None)
-                resumed = str(last_event_id) if last_event_id is not None and str(last_event_id) != "" else "-"
-                router_log("INFO", f"channel_sse_connected name={name} url={url} last_event_id={resumed}")
-                consume_sse_stream(
-                    response,
-                    retry,
-                    "SSE stream ended",
-                    SseStreamServices(
-                        should_continue=lambda: _channel_worker_running(name, connection_id),
-                        dispatch=lambda event, data, event_id: _channel_sse_dispatch(
-                            name, event, data, event_id=event_id
-                        ),
-                        invalid_retry=lambda value: router_log(
-                            "WARN", f"channel_sse_invalid_retry name={name} value={value!r}"
-                        ),
-                    ),
-                )
-        except Exception as exc:
-            with _CHANNEL_SSE_LOCK:
-                state = _CHANNEL_SSE_CONNECTIONS.get(name)
-                if not state or not state.get("running") or not _channel_connection_matches(state, connection_id):
-                    return
-                state["last_error"] = f"{type(exc).__name__}: {exc}"
-                state["sse_reconnects"] = int(state.get("sse_reconnects") or 0) + 1
-                last_event_id = state.get("last_sse_event_id")
-            resumed = str(last_event_id) if last_event_id is not None and str(last_event_id) != "" else "-"
-            router_log("WARN", f"channel_sse_reconnect name={name} last_event_id={resumed} error={type(exc).__name__}: {exc}")
-            time.sleep(retry.seconds)
+    channel_connection_worker().run_sse(name, connection_id)
 
 
 def _channel_streamable_http_worker(name: str, connection_id: str | None = None) -> None:
-    switch_to_sse = False
-    try:
-        while True:
-            with _CHANNEL_SSE_LOCK:
-                state = _CHANNEL_SSE_CONNECTIONS.get(name)
-                if not state or not state.get("running") or not _channel_connection_matches(state, connection_id):
-                    return
-                url = str(state.get("url") or "")
-                headers = dict(state.get("headers") or {})
-                protocol_version = str(state.get("mcp_protocol_version") or MCP_STREAMABLE_HTTP_PROTOCOL_VERSION)
-                session_id = str(state.get("mcp_session_id") or "").strip() or None
-                requires_session = parse_bool(state.get("streamable_requires_session"), True)
-                needs_initialize = bool(not state.get("mcp_initialized") or (requires_session and not session_id))
-                last_event_id = state.get("last_sse_event_id")
-                read_timeout = max(5.0, min(3600.0, float(state.get("read_timeout_seconds") or 300.0)))
-                retry_seconds = max(1.0, min(60.0, float(state.get("retry_seconds") or 5.0)))
-            if needs_initialize:
-                _channel_streamable_http_initialize_mcp(name)
-                sleep_after_initialize = False
-                with _CHANNEL_SSE_LOCK:
-                    state = _CHANNEL_SSE_CONNECTIONS.get(name)
-                    if not state or not state.get("running") or not _channel_connection_matches(state, connection_id):
-                        return
-                    if str(state.get("transport") or "").strip().lower() == "sse":
-                        router_log("INFO", f"channel_http_worker_switching_to_sse name={name}")
-                        switch_to_sse = True
-                        break
-                    if not state.get("mcp_initialized"):
-                        sleep_after_initialize = True
-                    else:
-                        session_id = str(state.get("mcp_session_id") or "").strip() or None
-                        requires_session = parse_bool(state.get("streamable_requires_session"), True)
-                        if requires_session and not session_id:
-                            state["mcp_initialized"] = False
-                            state["mcp_last_error"] = "streamable_http_missing_session_id"
-                            sleep_after_initialize = True
-                if sleep_after_initialize:
-                    time.sleep(retry_seconds)
-                    continue
-            retry = SseRetryState(retry_seconds)
-            try:
-                request_headers = _mcp_streamable_headers(
-                    headers,
-                    protocol_version,
-                    session_id,
-                    accept="text/event-stream",
-                )
-                if last_event_id is not None and str(last_event_id) != "":
-                    request_headers["Last-Event-ID"] = str(last_event_id)
-                req = urllib.request.Request(url, headers=request_headers, method="GET")
-                with urllib.request.urlopen(req, timeout=read_timeout) as response:
-                    _channel_sse_set_state(name, last_error=None)
-                    resumed = str(last_event_id) if last_event_id is not None and str(last_event_id) != "" else "-"
-                    visible_session = session_id or "-"
-                    router_log(
-                        "INFO",
-                        f"channel_http_connected name={name} url={url} session={visible_session} last_event_id={resumed}",
-                    )
-                    consume_sse_stream(
-                        response,
-                        retry,
-                        "Streamable HTTP SSE stream ended",
-                        SseStreamServices(
-                            should_continue=lambda: _channel_worker_running(name, connection_id),
-                            dispatch=lambda event, data, event_id: _channel_sse_dispatch(
-                                name, event, data, event_id=event_id
-                            ),
-                            invalid_retry=lambda value: router_log(
-                                "WARN", f"channel_http_invalid_retry name={name} value={value!r}"
-                            ),
-                        ),
-                    )
-            except urllib.error.HTTPError as exc:
-                body_text = _http_error_body_text(exc)
-                with _CHANNEL_SSE_LOCK:
-                    state = _CHANNEL_SSE_CONNECTIONS.get(name)
-                    if not state or not state.get("running") or not _channel_connection_matches(state, connection_id):
-                        return
-                    if exc.code == 405:
-                        state["transport"] = "sse"
-                        state["mcp_protocol_version"] = MCP_LEGACY_SSE_PROTOCOL_VERSION
-                        state["mcp_initialized"] = False
-                        state["mcp_session_id"] = None
-                        state["last_error"] = "streamable_http_405_fallback_sse"
-                        router_log("WARN", f"channel_http_fallback_sse name={name} url={url} reason=HTTPError:405")
-                        switch_to_sse = True
-                        break
-                    if _streamable_http_session_not_found(exc, body_text):
-                        state["mcp_initialized"] = False
-                        state["mcp_session_id"] = None
-                        state["mcp_last_error"] = f"streamable_http_session_not_found:HTTPError:{exc.code}"
-                    state["last_error"] = f"HTTPError: {exc.code} {exc.reason}"
-                    state["sse_reconnects"] = int(state.get("sse_reconnects") or 0) + 1
-                    last_event_id = state.get("last_sse_event_id")
-                resumed = str(last_event_id) if last_event_id is not None and str(last_event_id) != "" else "-"
-                if _streamable_http_session_not_found(exc, body_text):
-                    router_log("WARN", f"channel_http_session_lost_reinitialize name={name} last_event_id={resumed} error=HTTPError:{exc.code}:{exc.reason}")
-                else:
-                    router_log("WARN", f"channel_http_reconnect name={name} last_event_id={resumed} error=HTTPError:{exc.code}:{exc.reason}")
-                time.sleep(retry.seconds)
-            except Exception as exc:
-                with _CHANNEL_SSE_LOCK:
-                    state = _CHANNEL_SSE_CONNECTIONS.get(name)
-                    if not state or not state.get("running") or not _channel_connection_matches(state, connection_id):
-                        return
-                    state["last_error"] = f"{type(exc).__name__}: {exc}"
-                    state["sse_reconnects"] = int(state.get("sse_reconnects") or 0) + 1
-                    last_event_id = state.get("last_sse_event_id")
-                resumed = str(last_event_id) if last_event_id is not None and str(last_event_id) != "" else "-"
-                router_log("WARN", f"channel_http_reconnect name={name} last_event_id={resumed} error={type(exc).__name__}: {exc}")
-                time.sleep(retry.seconds)
-    finally:
-        with _CHANNEL_SSE_LOCK:
-            state = _CHANNEL_SSE_CONNECTIONS.get(name)
-        if state and _channel_connection_matches(state, connection_id) and not switch_to_sse:
-            _channel_streamable_http_close_state_session(state, "worker_exit")
-    if switch_to_sse:
-        _channel_sse_worker(name, connection_id)
+    channel_connection_worker().run_streamable_http(name, connection_id)
 
 
 def start_channel_sse_connection(config: dict[str, Any]) -> dict[str, Any]:
