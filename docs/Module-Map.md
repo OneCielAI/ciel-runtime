@@ -643,6 +643,10 @@ Codex용 HTTP 라우터:
 
 → [[Observability]]
 
+### `ciel_runtime_support/sse_trace.py`
+
+Anthropic SSE lifecycle event의 bounded 요약·선택적 raw payload, atomic last-trace snapshot, 회전 JSONL과 tool-call audit log를 소유하는 Observability Repository. trace enablement, payload truncation과 logging은 typed port로 주입한다.
+
 ### `ciel_runtime_support/runtime_logging.py`
 
 log-level 파일·환경 우선순위, mtime cache, 설정 저장·reset과 router.log 회전을 소유하는 Repository/Infrastructure Adapter. 메인 facade는 기존 logging 함수명을 유지하면서 저장소와 file logger만 조립한다.

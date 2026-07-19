@@ -768,6 +768,12 @@ from ciel_runtime_support.runtime_logging import (
     RouterFileLogger,
     normalize_log_level as normalize_runtime_log_level,
 )
+from ciel_runtime_support.sse_trace import (
+    SseTraceConfig,
+    SseTracePorts,
+    SseTraceRepository,
+    summarize_payload as summarize_sse_payload,
+)
 from ciel_runtime_support.runtime_launch import (
     AgyLaunchChannel,
     AgyLaunchCliPolicy,
@@ -3237,116 +3243,31 @@ def sse_trace_enabled() -> bool:
     return current_log_level() >= LOG_LEVELS["TRACE"]
 
 
+def sse_trace_repository() -> SseTraceRepository:
+    return SseTraceRepository(
+        SseTraceConfig(
+            CONFIG_DIR,
+            SSE_LAST_PATH,
+            SSE_TRACE_PATH,
+            TOOL_CALL_LOG_PATH,
+            SSE_TRACE_EVENT_LIMIT,
+            SSE_TRACE_PAYLOAD_LIMIT,
+            SSE_TRACE_MAX_BYTES,
+        ),
+        SseTracePorts(sse_trace_enabled, _truncate_for_dump, router_log),
+    )
+
+
 def _summarize_sse_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    summary: dict[str, Any] = {
-        "type": payload.get("type"),
-    }
-    if "index" in payload:
-        summary["index"] = payload.get("index")
-    if payload.get("type") == "message_start":
-        message = payload.get("message") if isinstance(payload.get("message"), dict) else {}
-        summary["message"] = {
-            "id": message.get("id"),
-            "model": message.get("model"),
-            "role": message.get("role"),
-            "content_len": len(message.get("content") or []),
-            "usage": message.get("usage"),
-        }
-    elif payload.get("type") == "message_delta":
-        summary["delta"] = payload.get("delta")
-        summary["usage"] = payload.get("usage")
-    elif payload.get("type") == "content_block_start":
-        block = payload.get("content_block") if isinstance(payload.get("content_block"), dict) else {}
-        block_summary = {
-            "type": block.get("type"),
-        }
-        if block.get("type") == "tool_use":
-            block_summary.update(
-                {
-                    "id": block.get("id"),
-                    "name": block.get("name"),
-                    "input": block.get("input"),
-                }
-            )
-        elif block.get("type") == "text":
-            block_summary["text_len"] = len(str(block.get("text") or ""))
-        else:
-            block_summary["keys"] = sorted(str(k) for k in block.keys())
-        summary["content_block"] = block_summary
-    elif payload.get("type") == "content_block_delta":
-        delta = payload.get("delta") if isinstance(payload.get("delta"), dict) else {}
-        delta_type = delta.get("type")
-        delta_summary: dict[str, Any] = {"type": delta_type}
-        if delta_type == "text_delta":
-            text = str(delta.get("text") or "")
-            delta_summary["text_len"] = len(text)
-            delta_summary["text"] = _truncate_for_dump(text, 500)
-        elif delta_type == "input_json_delta":
-            partial_json = str(delta.get("partial_json") or "")
-            delta_summary["partial_json_len"] = len(partial_json)
-            delta_summary["partial_json"] = _truncate_for_dump(partial_json, 1000)
-        else:
-            delta_summary["keys"] = sorted(str(k) for k in delta.keys())
-        summary["delta"] = delta_summary
-    else:
-        summary["keys"] = sorted(str(k) for k in payload.keys())
-    return summary
+    return summarize_sse_payload(payload, _truncate_for_dump)
 
 
 def make_outgoing_sse_trace(provider: str, model: str, source: str, source_body: dict[str, Any] | None = None) -> dict[str, Any]:
-    return {
-        "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
-        "provider": provider,
-        "model": model,
-        "source": source,
-        "stream": True,
-        "messages_count": len(source_body.get("messages") or []) if isinstance(source_body, dict) else None,
-        "tools_count": len(source_body.get("tools") or []) if isinstance(source_body, dict) else None,
-        "metadata_keys": sorted(str(k) for k in (source_body.get("metadata") or {}).keys()) if isinstance(source_body, dict) and isinstance(source_body.get("metadata"), dict) else [],
-        "event_count": 0,
-        "events_truncated": False,
-        "events": [],
-    }
+    return sse_trace_repository().begin(provider, model, source, source_body)
 
 
 def record_outgoing_sse_event(trace: dict[str, Any] | None, event_name: str, payload: dict[str, Any]) -> None:
-    if not isinstance(trace, dict):
-        return
-    try:
-        trace["event_count"] = int(trace.get("event_count") or 0) + 1
-        events = trace.get("events")
-        if not isinstance(events, list):
-            events = []
-            trace["events"] = events
-        if len(events) >= SSE_TRACE_EVENT_LIMIT:
-            trace["events_truncated"] = True
-            return
-        payload_summary = _summarize_sse_payload(payload)
-        raw = ""
-        if sse_trace_enabled():
-            try:
-                raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-                raw = _truncate_for_dump(raw, SSE_TRACE_PAYLOAD_LIMIT)
-            except (TypeError, ValueError, OverflowError) as exc:
-                router_log(
-                    "WARN",
-                    f"sse_trace_payload_encode_failed event={event_name} "
-                    f"error={type(exc).__name__}: {exc}",
-                )
-                raw = ""
-        event = {
-            "n": trace["event_count"],
-            "event": event_name,
-            "payload": payload_summary,
-        }
-        if raw:
-            event["raw"] = raw
-        events.append(event)
-    except Exception as exc:
-        router_log(
-            "WARN",
-            f"sse_trace_event_record_failed event={event_name} error={type(exc).__name__}: {exc}",
-        )
+    sse_trace_repository().record(trace, event_name, payload)
 
 
 def finish_outgoing_sse_trace(
@@ -3359,50 +3280,20 @@ def finish_outgoing_sse_trace(
     stop_reason: str | None = None,
     error: str | None = None,
 ) -> None:
-    if not isinstance(trace, dict):
-        return
-    try:
-        trace["finished_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
-        trace["outcome"] = outcome
-        trace["text_len"] = text_len
-        trace["tool_call_count"] = tool_call_count
-        trace["chunks"] = chunks
-        trace["stop_reason"] = stop_reason
-        if error:
-            trace["error"] = error
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        tmp = SSE_LAST_PATH.with_name(f"{SSE_LAST_PATH.name}.{os.getpid()}.{time.time_ns()}.tmp")
-        tmp.write_text(json.dumps(trace, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-        tmp.replace(SSE_LAST_PATH)
-        if sse_trace_enabled():
-            if SSE_TRACE_PATH.exists() and SSE_TRACE_PATH.stat().st_size > SSE_TRACE_MAX_BYTES:
-                SSE_TRACE_PATH.replace(SSE_TRACE_PATH.with_suffix(".jsonl.1"))
-            with SSE_TRACE_PATH.open("a", encoding="utf-8") as f:
-                f.write(json.dumps(trace, ensure_ascii=False, separators=(",", ":")) + "\n")
-    except Exception as exc:
-        router_log(
-            "WARN",
-            f"sse_trace_finish_failed outcome={outcome} error={type(exc).__name__}: {exc}",
-        )
+    result: dict[str, Any] = {
+        "outcome": outcome,
+        "text_len": text_len,
+        "tool_call_count": tool_call_count,
+        "chunks": chunks,
+        "stop_reason": stop_reason,
+    }
+    if error:
+        result["error"] = error
+    sse_trace_repository().finish(trace, **result)
 
 
 def append_tool_call_log(event: str, payload: dict[str, Any]) -> None:
-    try:
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        if TOOL_CALL_LOG_PATH.exists() and TOOL_CALL_LOG_PATH.stat().st_size > 2_000_000:
-            TOOL_CALL_LOG_PATH.replace(TOOL_CALL_LOG_PATH.with_suffix(".jsonl.1"))
-        record = {
-            "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "event": event,
-            **payload,
-        }
-        with TOOL_CALL_LOG_PATH.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
-    except Exception as exc:
-        router_log(
-            "WARN",
-            f"tool_call_log_write_failed event={event} error={type(exc).__name__}: {exc}",
-        )
+    sse_trace_repository().append_tool_call(event, payload)
 
 
 def model_cache_key(provider: str, pcfg: dict[str, Any]) -> str:
