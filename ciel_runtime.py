@@ -57,6 +57,12 @@ from ciel_runtime_support.channel_inflight import (
     ChannelInflightSnapshot,
     advance_channel_inflight,
 )
+from ciel_runtime_support.channel_mcp_tools import (
+    ChannelMcpToolServices,
+    channel_mcp_tool_response,
+    channel_mcp_tool_schemas,
+    dispatch_channel_mcp_tool,
+)
 from ciel_runtime_support.channel_pending_injection import (
     ChannelInjectionIO,
     ChannelInjectionPolicy,
@@ -10588,254 +10594,26 @@ def _clear_channel_compact_request(request_id: str | None = None) -> bool:
 
 
 def _channel_mcp_tool_schemas() -> list[dict[str, Any]]:
-    return [
-        {
-            "name": "compact_session",
-            "description": (
-                "Queue Claude Code's /compact slash command for the active Ciel Runtime-launched session. "
-                "Use this when the conversation context is too large and the session should compact itself."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "reason": {
-                        "type": "string",
-                        "description": "Optional short reason shown in Ciel Runtime logs.",
-                    },
-                },
-            },
-        },
-        {
-            "name": "send_message",
-            "description": (
-                "Send a reply or status message to a Ciel Runtime channel. "
-                "Use this to answer messages delivered through the Ciel Runtime channel inbox, "
-                "including /ca/web/chat browser sessions."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "channel": {
-                        "type": "string",
-                        "description": "Destination channel id from the incoming message.",
-                    },
-                    "message": {
-                        "type": "string",
-                        "description": "Message body to send.",
-                    },
-                    "recipients": {
-                        "description": "Recipient id, 'all', or an array of recipients. Use 'web' for /ca/web/chat replies.",
-                    },
-                    "thread_id": {
-                        "type": "string",
-                        "description": "Thread/conversation id to continue.",
-                    },
-                    "parent_id": {
-                        "description": "Optional parent message id.",
-                    },
-                    "delivery": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Delivery targets. Use ['web'] for browser-only replies.",
-                    },
-                    "kind": {
-                        "type": "string",
-                        "description": "Optional message kind, for example 'reply' or 'status'.",
-                    },
-                },
-                "required": ["channel", "message"],
-            },
-        },
-        {
-            "name": "send_file",
-            "description": (
-                "Send a file attachment to a Ciel Runtime channel. "
-                "Use this to return files to /ca/web/chat browser sessions. "
-                "Provide either path for an existing local file, or content with encoding='text' or encoding='base64'."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "channel": {
-                        "type": "string",
-                        "description": "Destination channel id from the incoming message.",
-                    },
-                    "path": {
-                        "type": "string",
-                        "description": "Optional local file path to attach.",
-                    },
-                    "content": {
-                        "type": "string",
-                        "description": "Optional inline file content when path is not used.",
-                    },
-                    "encoding": {
-                        "type": "string",
-                        "description": "Inline content encoding: text or base64.",
-                    },
-                    "name": {
-                        "type": "string",
-                        "description": "Display filename. Defaults to the source path basename or file.txt.",
-                    },
-                    "content_type": {
-                        "type": "string",
-                        "description": "Optional MIME type.",
-                    },
-                    "message": {
-                        "type": "string",
-                        "description": "Optional message body to show with the file link.",
-                    },
-                    "recipients": {
-                        "description": "Recipient id, 'all', or an array of recipients. Use 'web' for /ca/web/chat replies.",
-                    },
-                    "thread_id": {
-                        "type": "string",
-                        "description": "Thread/conversation id to continue.",
-                    },
-                    "parent_id": {
-                        "description": "Optional parent message id.",
-                    },
-                    "delivery": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Delivery targets. Use ['web'] for browser-only replies.",
-                    },
-                },
-                "required": ["channel"],
-            },
-        },
-        {
-            "name": "llm_options",
-            "description": (
-                "Show, apply, or restore ciel-runtime live LLM option presets for the current routed session. "
-                "Use action='list' to show keyboard-selectable slash commands, action='apply' with preset, "
-                "or action='restore' to return to the captured original options."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "action": {
-                        "type": "string",
-                        "description": "One of status, list, apply, or restore.",
-                    },
-                    "preset": {
-                        "type": "string",
-                        "description": "Preset id or alias when action is apply, for example balanced, long-context-256k, long-context-300k, long-context-512k, or million-context-1m.",
-                    },
-                },
-            },
-        },
-    ]
+    return channel_mcp_tool_schemas()
 
 
 def _channel_mcp_tool_response(request_id: Any, text: str, is_error: bool = False) -> dict[str, Any]:
-    return {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "result": {
-            "content": [{"type": "text", "text": text}],
-            "isError": bool(is_error),
-        },
-    }
+    return channel_mcp_tool_response(request_id, text, is_error)
 
 
 def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
-    name = str(params.get("name") or "")
-    args = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
-    if name == "compact_session":
-        request = _write_channel_compact_request(
-            source="ciel-runtime-router-tool",
-            reason=str(args.get("reason") or ""),
-        )
-        return _channel_mcp_tool_response(
-            request_id,
-            json.dumps(
-                {
-                    "ok": True,
-                    "queued": True,
-                    "command": request.get("command"),
-                    "request_id": request.get("id"),
-                    "expires_at": request.get("expires_at"),
-                },
-                ensure_ascii=False,
-                separators=(",", ":"),
-            ),
-        )
-    if name == "send_message":
-        channel = str(args.get("channel") or "").strip()
-        message = str(args.get("message") or args.get("text") or "").strip()
-        if not channel or not message:
-            return _channel_mcp_tool_response(request_id, "send_message requires channel and message.", True)
-        meta = args.get("meta") if isinstance(args.get("meta"), dict) else {}
-        saved = append_chat_message(
-            {
-                "channel": channel,
-                "sender_id": args.get("sender_id") or "claude-code",
-                "recipients": args.get("recipients", args.get("recipient_id", "web")),
-                "thread_id": args.get("thread_id"),
-                "parent_id": args.get("parent_id"),
-                "kind": args.get("kind") or "reply",
-                "message": message,
-                "delivery": args.get("delivery", ["web"]),
-                "meta": {"source": "ciel-runtime-router-tool", **meta},
-            }
-        )
-        return _channel_mcp_tool_response(
-            request_id,
-            json.dumps({"ok": True, "message": saved}, ensure_ascii=False, separators=(",", ":")),
-        )
-    if name == "send_file":
-        channel = str(args.get("channel") or "").strip()
-        if not channel:
-            return _channel_mcp_tool_response(request_id, "send_file requires channel.", True)
-        try:
-            if args.get("path"):
-                upload = store_chat_file_from_path(
-                    args.get("path"),
-                    str(args.get("name") or "").strip() or None,
-                    str(args.get("content_type") or args.get("mime_type") or "").strip() or None,
-                )
-            else:
-                inline_body = {
-                    "name": str(args.get("name") or "file.txt"),
-                    "encoding": str(args.get("encoding") or "text"),
-                    "content": args.get("content", ""),
-                    "content_type": str(args.get("content_type") or args.get("mime_type") or "text/plain"),
-                }
-                upload = store_chat_file_upload(inline_body)
-        except FileNotFoundError as exc:
-            return _channel_mcp_tool_response(request_id, str(exc), True)
-        except OverflowError as exc:
-            return _channel_mcp_tool_response(request_id, str(exc), True)
-        except ValueError as exc:
-            return _channel_mcp_tool_response(request_id, str(exc), True)
-        meta = args.get("meta") if isinstance(args.get("meta"), dict) else {}
-        uploads = [upload]
-        saved = append_chat_message(
-            {
-                "channel": channel,
-                "sender_id": args.get("sender_id") or "claude-code",
-                "recipients": args.get("recipients", args.get("recipient_id", "web")),
-                "thread_id": args.get("thread_id"),
-                "parent_id": args.get("parent_id"),
-                "kind": args.get("kind") or "file",
-                "message": chat_file_message_text(str(args.get("message") or ""), uploads),
-                "delivery": args.get("delivery", ["web"]),
-                "meta": {"source": "ciel-runtime-router-tool", "attachments": uploads, **meta},
-            }
-        )
-        return _channel_mcp_tool_response(
-            request_id,
-            json.dumps({"ok": True, "file": upload, "message": saved}, ensure_ascii=False, separators=(",", ":")),
-        )
-    if name == "llm_options":
-        action = str(args.get("action") or "status")
-        preset = str(args.get("preset") or "")
-        lines, changed = handle_live_llm_options_action(action, preset)
-        return _channel_mcp_tool_response(
-            request_id,
-            json.dumps({"ok": True, "changed": changed, "lines": lines}, ensure_ascii=False, separators=(",", ":")),
-        )
-    return _channel_mcp_tool_response(request_id, f"Unknown ciel-runtime-router tool: {name}", True)
+    return dispatch_channel_mcp_tool(
+        request_id,
+        params,
+        ChannelMcpToolServices(
+            queue_compact=_write_channel_compact_request,
+            append_message=append_chat_message,
+            store_file_path=store_chat_file_from_path,
+            store_file_upload=store_chat_file_upload,
+            file_message_text=chat_file_message_text,
+            handle_llm_options=handle_live_llm_options_action,
+        ),
+    )
 
 
 def _channel_mcp_write_cursor_locked(last_id: int) -> None:

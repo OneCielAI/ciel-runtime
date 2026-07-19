@@ -33,6 +33,7 @@ from ciel_runtime_support.channel_inflight import (
     ChannelInflightSnapshot,
     ChannelInflightUpdate,
 )
+from ciel_runtime_support.channel_mcp_tools import ChannelMcpToolServices
 from ciel_runtime_support.channel_pending_injection import (
     ChannelInjectionIO,
     ChannelInjectionPolicy,
@@ -566,6 +567,9 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_channel_mcp_tool_services_stay_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(ChannelMcpToolServices)), 10)
 
     def test_cli_ports_stay_below_dependency_limit(self):
         ports = (

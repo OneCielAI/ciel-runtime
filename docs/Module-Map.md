@@ -61,6 +61,10 @@ SSE/MCP 수집 및 cursor 상태와 분리되어 있으며 Windows Console과 PT
 
 터미널에 주입된 channel 메시지의 확인, 재조회, stale 복구 및 대기 전이를 담당하는 상태 머신. Windows Console과 POSIX PTY 프록시는 동일한 순수 전이 정책을 사용하고 cursor·wake 저장소·로그는 effect 포트로 주입한다.
 
+### `ciel_runtime_support/channel_mcp_tools.py`
+
+내장 Channel MCP 도구의 schema catalog와 호출 dispatcher를 소유하는 Application Service. compact 요청, 채팅·파일 저장, LLM 옵션 변경은 6필드 `ChannelMcpToolServices` 포트로 주입되어 MCP protocol projection과 인프라 구현을 분리한다.
+
 ### `ciel_runtime_support/windows_console_input.py`
 
 Windows Console `INPUT_RECORD` 생성, UTF-16 surrogate 변환, 입력 queue 소비 확인을 담당하는 플랫폼 Adapter. Channel wake 오케스트레이션과 Win32 입력 세부 구현을 분리한다.
