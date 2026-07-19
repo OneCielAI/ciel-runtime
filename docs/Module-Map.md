@@ -365,6 +365,10 @@ Codex 및 AGY native provider-selection Adapter. native/routed 표시, API-key �
 
 로컬 Ollama와 Ollama Cloud Adapter. Ollama protocol endpoint, context·option 정책, catalog fallback 및 launch model alias 전략을 소유한다.
 
+### `ciel_runtime_support/providers/ollama_runtime.py`
+
+Ollama `/api/show` model specification, `/api/ps` loaded runtime inspection, tag matching과 runtime context 기반 output guard를 소유하는 Provider-specific Runtime Service. HTTP·model/context codec은 9필드 typed service port로 주입된다.
+
 ### `ciel_runtime_support/providers/openrouter.py`
 
 OpenRouter 인증, OpenAI protocol capability와 hosted context 정책을 소유하는 독립 Adapter.

@@ -703,6 +703,10 @@ from ciel_runtime_support.provider_readiness import (
     ProviderReadinessServices,
     launch_readiness_errors as evaluate_provider_readiness,
 )
+from ciel_runtime_support.providers.ollama_runtime import (
+    OllamaRuntimeService,
+    OllamaRuntimeServices,
+)
 from ciel_runtime_support.provider_status import (
     ProviderStatusCatalog,
     ProviderStatusGeneric,
@@ -4430,159 +4434,54 @@ def model_context_field(item: dict[str, Any]) -> int | None:
     return None
 
 
+def ollama_runtime_service() -> OllamaRuntimeService:
+    return OllamaRuntimeService(
+        OllamaRuntimeServices(
+            request_base=provider_upstream_request_base,
+            post_json=post_json,
+            http_json=http_json,
+            join_url=join_url,
+            model_headers=provider_model_list_headers,
+            current_model=current_upstream_model_id,
+            positive_int=positive_int,
+            model_context=model_context_field,
+            format_context=format_context_tokens,
+        )
+    )
+
+
 def ollama_api_base(pcfg: dict[str, Any]) -> str:
-    base = provider_upstream_request_base("ollama", pcfg)
-    if base.endswith("/api"):
-        return base[:-4].rstrip("/")
-    return base.rstrip("/")
+    return ollama_runtime_service().api_base("ollama", pcfg)
 
 
 def ollama_provider_api_base(provider: str, pcfg: dict[str, Any]) -> str:
-    base = provider_upstream_request_base(provider, pcfg)
-    if base.endswith("/api"):
-        return base[:-4].rstrip("/")
-    return base.rstrip("/")
+    return ollama_runtime_service().api_base(provider, pcfg)
 
 
 def ollama_show_parameters(data: dict[str, Any]) -> dict[str, Any]:
-    out: dict[str, Any] = {}
-    raw = data.get("parameters")
-    if isinstance(raw, dict):
-        out.update(raw)
-    elif isinstance(raw, str):
-        for line in raw.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            parts = line.split(None, 1)
-            if len(parts) == 2:
-                out[parts[0].strip()] = parts[1].strip().strip('"')
-    modelfile = data.get("modelfile")
-    if isinstance(modelfile, str):
-        for line in modelfile.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            parts = line.split(None, 2)
-            if len(parts) == 3 and parts[0].lower() == "parameter":
-                out.setdefault(parts[1].strip(), parts[2].strip().strip('"'))
-    return out
+    return ollama_runtime_service().show_parameters(data)
 
 
 def fetch_ollama_api_model_specs(provider: str, pcfg: dict[str, Any], model_id: str, timeout: float = 3.0) -> dict[str, Any]:
-    if provider not in ("ollama", "ollama-cloud") or not model_id:
-        return {}
-    base = ollama_provider_api_base(provider, pcfg)
-    if not base:
-        return {}
-    data = post_json(
-        join_url(base, "/api/show"),
-        {"model": model_id},
-        headers=provider_model_list_headers(provider, pcfg),
-        timeout=timeout,
-        provider=provider,
-        pcfg=pcfg,
-    )
-    if not isinstance(data, dict):
-        return {}
-    model_info = data.get("model_info") if isinstance(data.get("model_info"), dict) else {}
-    params = ollama_show_parameters(data)
-    max_context = (
-        model_context_field(data)
-        or model_context_field(model_info)
-        or positive_int(params.get("num_ctx"))
-        or positive_int(params.get("context_length"))
-    )
-    num_predict = positive_int(params.get("num_predict"))
-    out: dict[str, Any] = {}
-    if max_context:
-        out["max_model_len"] = max_context
-    if num_predict:
-        out["num_predict"] = num_predict
-    return out
+    return ollama_runtime_service().fetch_model_specs(provider, pcfg, model_id, timeout)
 
 
 def ollama_model_id_matches(left: str, right: str) -> bool:
-    lhs = (left or "").strip().lower()
-    rhs = (right or "").strip().lower()
-    if lhs == rhs:
-        return True
-    if ":" not in lhs:
-        lhs = f"{lhs}:latest"
-    if ":" not in rhs:
-        rhs = f"{rhs}:latest"
-    return lhs == rhs
+    return ollama_runtime_service().model_id_matches(left, right)
 
 
 def ollama_runtime_info(pcfg: dict[str, Any], timeout: float = 1.5) -> dict[str, Any] | None:
-    base = ollama_api_base(pcfg)
-    current = current_upstream_model_id("ollama", pcfg)
-    if not base or not current:
-        return None
-    data = http_json(join_url(base, "/api/ps"), headers=provider_model_list_headers("ollama", pcfg), timeout=timeout)
-    items = data.get("models") if isinstance(data, dict) else None
-    if not isinstance(items, list):
-        return None
-    selected = None
-    fallback = None
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        if fallback is None:
-            fallback = item
-        names = (
-            str(item.get("name") or ""),
-            str(item.get("model") or ""),
-            str(item.get("id") or ""),
-        )
-        if any(ollama_model_id_matches(name, current) for name in names):
-            selected = item
-            break
-    if selected is None and not current:
-        selected = fallback
-    if not isinstance(selected, dict):
-        return None
-    details = selected.get("details") if isinstance(selected.get("details"), dict) else {}
-    return {
-        "requested_model": current,
-        "runtime_model": str(selected.get("name") or selected.get("model") or ""),
-        "loaded_context_len": positive_int(selected.get("context_length")) or model_context_field(selected),
-        "size_vram": positive_int(selected.get("size_vram")),
-        "parameter_size": details.get("parameter_size"),
-        "quantization_level": details.get("quantization_level"),
-        "family": details.get("family"),
-        "families": details.get("families"),
-    }
+    return ollama_runtime_service().runtime_info(pcfg, timeout)
 
 
 def ollama_output_cap_for_context(context_length: int | None) -> int | None:
-    context = positive_int(context_length)
-    if not context:
-        return None
-    return max(2048, min(8192, context // 16))
+    return ollama_runtime_service().output_cap(context_length)
 
 
 def apply_ollama_runtime_output_guard(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    if provider != "ollama":
-        return []
-    try:
-        info = ollama_runtime_info(pcfg)
-    except Exception:
-        return []
-    loaded_context = positive_int((info or {}).get("loaded_context_len"))
-    cap = ollama_output_cap_for_context(loaded_context)
-    if not cap:
-        return []
-    opts = pcfg.setdefault("ollama_options", {})
-    configured = positive_int(opts.get("num_predict")) or positive_int(pcfg.get("max_output_tokens"))
-    if not configured or configured <= cap:
-        return []
-    opts["num_predict"] = cap
-    pcfg["max_output_tokens"] = cap
-    model = str((info or {}).get("runtime_model") or pcfg.get("current_model") or "")
-    return [
-        f"Ollama runtime context {format_context_tokens(loaded_context)} for {model or 'current model'}; output capped to {cap:,} tokens."
-    ]
+    return ollama_runtime_service().apply_output_guard(
+        provider, pcfg, runtime_info=ollama_runtime_info
+    )
 
 
 def lm_studio_api_base(pcfg: dict[str, Any]) -> str:
