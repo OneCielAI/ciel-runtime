@@ -16175,10 +16175,9 @@ def build_claude_router_services() -> ClaudeRouterServices:
         routing=ClaudeRouterRouting(
             forward_ollama=forward_ollama_api_chat,
             forward_openai=forward_openai_compatible_chat,
-            openai_router_enabled=provider_openai_router_enabled,
+            select_protocol=select_provider_protocol,
+            request_policy=provider_request_policy,
             resolve_model=resolve_requested_model,
-            opencode_endpoint_kind=opencode_endpoint_kind,
-            opencode_provider_names=frozenset(OPENCODE_PROVIDER_NAMES),
             provider_labels=PROVIDER_LABELS,
             write_json=write_json,
         ),

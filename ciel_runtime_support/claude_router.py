@@ -66,10 +66,9 @@ class ClaudeRouterDelivery:
 class ClaudeRouterRouting:
     forward_ollama: Callable[..., Any]
     forward_openai: Callable[..., Any]
-    openai_router_enabled: Callable[..., Any]
+    select_protocol: Callable[..., Any]
+    request_policy: Callable[..., Any]
     resolve_model: Callable[..., Any]
-    opencode_endpoint_kind: Callable[..., Any]
-    opencode_provider_names: frozenset[str]
     provider_labels: Mapping[str, str]
     write_json: Callable[..., Any]
 
@@ -197,14 +196,12 @@ def handle_claude_messages_post(
     normalize_thinking_for_non_anthropic_provider = normalization.normalize_thinking
     normalize_tool_choice_for_provider = pipeline.normalize_tool_choice
     open_provider_request_with_key_retry = transport.open_request
-    opencode_endpoint_kind = routing.opencode_endpoint_kind
-    opencode_provider_names = routing.opencode_provider_names
     prepend_anthropic_text = response.prepend_text
     preserves_anthropic_thinking_contract = response.preserves_thinking
     provider_headers = transport.provider_headers
     provider_labels = routing.provider_labels
     provider_native_compat_enabled = transport.native_compat_enabled
-    provider_openai_router_enabled = routing.openai_router_enabled
+    provider_request_policy = routing.request_policy
     provider_request_timeout_seconds = transport.request_timeout
     provider_stream_idle_timeout_seconds = transport.idle_timeout
     provider_upstream_request_base = transport.upstream_base
@@ -212,6 +209,7 @@ def handle_claude_messages_post(
     register_api_key_cooldown = response.register_key_cooldown
     rehydrate_suppressed_thinking_passback = normalization.rehydrate_thinking
     resolve_requested_model = routing.resolve_model
+    select_provider_protocol = routing.select_protocol
     resolve_tool_model_references = normalization.resolve_tool_models
     router_event_message_preview = pipeline.router_event_message_preview
     router_log = core.log
@@ -277,47 +275,42 @@ def handle_claude_messages_post(
     body = normalize_request_for_provider_wire(provider, pcfg, body)
     router_log("DEBUG", f"POST {path} provider={provider} model={body.get('model')} tools={len(body.get('tools') or [])} msgs={len(body.get('messages') or [])}")
     try:
-        if provider in ("ollama", "ollama-cloud"):
-            event_bus.publish(level="info", category="upstream.request", message="forwarding to Ollama-compatible provider", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
+        upstream_model = resolve_requested_model(provider, pcfg, body.get("model"))
+        selected_protocol = select_provider_protocol(provider, pcfg, "anthropic_messages", upstream_model)
+        provider_label = provider_labels.get(provider, provider)
+        if selected_protocol == "ollama_chat":
+            event_bus.publish(level="info", category="upstream.request", message="forwarding to Ollama-compatible provider", request_id=request_id, provider=provider, model=upstream_model)
             forward_ollama_api_chat(self, provider, pcfg, body)
             commit_pending_channel_delivery_cursors(body, self)
             return
-        if provider in opencode_provider_names:
-            upstream_model = resolve_requested_model(provider, pcfg, body.get("model"))
-            endpoint_kind = opencode_endpoint_kind(provider, upstream_model, pcfg)
-            provider_label = provider_labels.get(provider, provider)
-            if endpoint_kind == "openai-chat":
-                event_bus.publish(
-                    level="info",
-                    category="upstream.request",
-                    message=f"forwarding to {provider_label} chat-compatible provider",
-                    request_id=request_id,
-                    provider=provider,
-                    model=upstream_model,
-                )
-                forward_openai_compatible_chat(self, provider, pcfg, body)
-                commit_pending_channel_delivery_cursors(body, self)
-                return
-            if endpoint_kind not in ("anthropic-messages",):
-                write_json(
-                    self,
-                    {
-                        "type": "error",
-                        "error": {
-                            "type": "unsupported_model_endpoint",
-                            "message": (
-                                f"{provider_label} model {upstream_model!r} uses the {endpoint_kind} endpoint family. "
-                                f"ciel-runtime currently routes {provider_label} /v1/messages and /v1/chat/completions models."
-                            ),
-                        },
-                    },
-                    400,
-                )
-                return
-        if provider_openai_router_enabled(provider, pcfg):
-            event_bus.publish(level="info", category="upstream.request", message="forwarding to OpenAI-compatible provider", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
+        if selected_protocol == "openai_chat":
+            event_bus.publish(
+                level="info",
+                category="upstream.request",
+                message=f"forwarding to {provider_label} chat-compatible provider",
+                request_id=request_id,
+                provider=provider,
+                model=upstream_model,
+            )
             forward_openai_compatible_chat(self, provider, pcfg, body)
             commit_pending_channel_delivery_cursors(body, self)
+            return
+        if selected_protocol != "anthropic_messages":
+            endpoint = str(selected_protocol).replace("_", "-")
+            write_json(
+                self,
+                {
+                    "type": "error",
+                    "error": {
+                        "type": "unsupported_model_endpoint",
+                        "message": (
+                            f"{provider_label} model {upstream_model!r} uses the {endpoint} endpoint family. "
+                            f"ciel-runtime currently routes Anthropic Messages and OpenAI Chat models."
+                        ),
+                    },
+                },
+                400,
+            )
             return
         body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
         body = normalize_anthropic_system_role_messages(body)
@@ -325,7 +318,7 @@ def handle_claude_messages_post(
         body = apply_provider_request_options(provider, pcfg, body)
         body = rehydrate_suppressed_thinking_passback(provider, pcfg, body)
         upstream_model = resolve_requested_model(provider, pcfg, body.get("model"))
-        if provider == "nvidia-hosted":
+        if provider_request_policy(provider, pcfg).model_alias_strategy == "ncp":
             upstream_model = ncp_model_id_for_nvidia_hosted(upstream_model)
         body["model"] = upstream_model
         body = resolve_tool_model_references(provider, pcfg, body)

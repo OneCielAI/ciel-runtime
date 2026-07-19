@@ -133,6 +133,7 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "openai_forwarding.py",
             "response_collection.py",
             "anthropic_tool_turns.py",
+            "claude_router.py",
         ):
             source = (support / filename).read_text(encoding="utf-8")
             with self.subTest(filename=filename):
