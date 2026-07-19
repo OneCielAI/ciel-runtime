@@ -670,6 +670,12 @@ from ciel_runtime_support.provider_models import (
     ProviderModelServices,
     fetch_upstream_model_ids,
 )
+from ciel_runtime_support.provider_model_selection import (
+    ModelCatalogPorts,
+    ModelIdentityPorts,
+    ModelSelectionPorts,
+    ProviderModelSelection,
+)
 from ciel_runtime_support.response_collection import (
     AnthropicCollectionProjection,
     AnthropicCollectionRequest,
@@ -4683,27 +4689,48 @@ def provider_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
     )
 
 
+def provider_model_selection() -> ProviderModelSelection:
+    return ProviderModelSelection(
+        ModelIdentityPorts(
+            normalize=normalize_model_id,
+            model_map=model_map_for,
+            unslug=unslug_provider_alias,
+            api_model_id=upstream_api_model_id,
+            strip_context_suffix=strip_claude_context_suffix,
+            alias=alias_for,
+        ),
+        ModelSelectionPorts(
+            adapter=configured_provider_adapter,
+            contract=provider_contract_config,
+            placeholders=lambda provider: set(
+                PROVIDER_ADAPTERS.create(provider).placeholder_model_ids()
+            ),
+            upstream_ids=upstream_model_ids,
+            unique_ids=unique_model_ids,
+            apply_specs=apply_current_model_specs_to_provider,
+            apply_timeout=apply_recommended_timeout_for_model_context,
+        ),
+        ModelCatalogPorts(
+            model_object=model_object,
+            headers=provider_headers,
+            fetch_anthropic=fetch_anthropic_api_model_ids,
+            sorted_ids=sorted_model_ids,
+            routed_anthropic=anthropic_routed_enabled,
+            log=router_log,
+        ),
+    )
+
+
 def current_upstream_model_id(provider: str, pcfg: dict[str, Any]) -> str:
-    cur = normalize_model_id(provider, pcfg.get("current_model") or "model")
-    if cur.startswith(f"ciel-runtime-{provider}-"):
-        try:
-            return unslug_provider_alias(provider, cur, model_map_for(provider, pcfg)) or cur
-        except Exception:
-            return cur
-    return cur
+    return provider_model_selection().current_upstream_id(provider, pcfg)
 
 
 def provider_placeholder_model_ids(provider: str) -> set[str]:
-    return set(PROVIDER_ADAPTERS.create(provider).placeholder_model_ids())
+    return provider_model_selection().selection.placeholders(provider)
 
 
 def current_model_needs_provider_selection(provider: str, pcfg: dict[str, Any]) -> bool:
-    adapter = configured_provider_adapter(provider, pcfg)
-    config = provider_contract_config(provider, pcfg)
-    if not adapter.requires_catalog_model_selection(config):
-        return False
-    current = normalize_model_id(provider, str(pcfg.get("current_model") or ""))
-    return current in provider_placeholder_model_ids(provider)
+    return provider_model_selection().needs_selection(provider, pcfg)
 
 
 def ensure_current_model_from_provider_list(
@@ -4712,132 +4739,31 @@ def ensure_current_model_from_provider_list(
     *,
     force_refresh: bool = False,
 ) -> tuple[bool, list[str]]:
-    """Ensure model-list-backed providers do not send placeholder model ids."""
-    adapter = configured_provider_adapter(provider, pcfg)
-    config = provider_contract_config(provider, pcfg)
-    if not adapter.requires_catalog_model_selection(config):
-        return True, []
-    current = normalize_model_id(provider, str(pcfg.get("current_model") or ""))
-    placeholders = provider_placeholder_model_ids(provider)
-    if current and current not in placeholders:
-        return True, []
-    try:
-        ids = unique_model_ids(provider, upstream_model_ids(provider, pcfg, force_refresh=force_refresh))
-    except Exception as exc:
-        if current:
-            return True, [f"Model list unavailable for {provider}; keeping configured model {current} ({type(exc).__name__}: {exc})."]
-        return False, [f"Model selection required for {provider}: model list unavailable ({type(exc).__name__}: {exc})."]
-    if current and current in ids:
-        return True, []
-    candidates = [mid for mid in ids if normalize_model_id(provider, mid) not in placeholders]
-    if len(candidates) == 1:
-        selected = normalize_model_id(provider, candidates[0])
-        pcfg["current_model"] = selected
-        context_messages = apply_current_model_specs_to_provider(provider, pcfg)
-        timeout_messages = apply_recommended_timeout_for_model_context(provider, pcfg, use_context_fallback=False)
-        return True, [f"Model auto-selected from provider list: {selected}.", *context_messages, *timeout_messages]
-    if len(candidates) > 1:
-        return False, [f"Model selection required for {provider}: provider returned {len(candidates)} models; choose one before launch/test."]
-    if current:
-        return True, [f"Model list for {provider} did not include a non-placeholder model; keeping configured model {current}."]
-    return False, [f"Model selection required for {provider}: provider returned no usable model ids."]
+    return provider_model_selection().ensure_selected(
+        provider, pcfg, force_refresh=force_refresh
+    )
 
 
 def launch_model_id(provider: str, pcfg: dict[str, Any]) -> str:
-    cur = normalize_model_id(provider, pcfg.get("current_model") or "model")
-    adapter = configured_provider_adapter(provider, pcfg)
-    contract = provider_contract_config(provider, pcfg)
-    if adapter.launch_model_strategy(contract) != "ollama_unslug":
-        return cur if adapter.preserves_claude_model_alias(cur) else alias_for(provider, cur)
-    if not cur.startswith(f"ciel-runtime-{provider}-"):
-        return cur
-    try:
-        return unslug_provider_alias(provider, cur, model_map_for(provider, pcfg)) or cur
-    except Exception:
-        return cur
+    return provider_model_selection().launch_id(provider, pcfg)
 
 
 def resolve_requested_model(provider: str, pcfg: dict[str, Any], requested: str | None) -> str:
-    requested = strip_claude_context_suffix(requested)
-    fallback = normalize_model_id(provider, pcfg.get("current_model") or "model")
-    if provider == "nvidia-hosted":
-        if requested and requested.startswith("claude-nvidia-"):
-            return upstream_api_model_id(provider, requested)
-        if fallback:
-            return upstream_api_model_id(provider, fallback)
-    mmap = model_map_for(provider, pcfg)
-    if requested:
-        resolved = unslug_provider_alias(provider, requested, mmap)
-        if resolved:
-            return upstream_api_model_id(provider, resolved)
-        # If Claude Code sends a bare model id from the gateway /v1/models list
-        # during /model switching, route it to that exact upstream model. This is
-        # especially important for third-party providers that expose Claude-named
-        # models: unknown/stale Claude ids must still fall back, but models the
-        # router advertised are valid for this provider.
-        if requested in set(mmap.values()):
-            return upstream_api_model_id(provider, requested)
-        # Built-in Claude aliases and stale aliases from another provider route to current provider's model.
-        if requested.startswith("claude-") or requested.startswith("ciel-runtime-"):
-            return upstream_api_model_id(provider, fallback)
-        return upstream_api_model_id(provider, normalize_model_id(provider, requested))
-    return upstream_api_model_id(provider, fallback)
+    return provider_model_selection().resolve_requested(provider, pcfg, requested)
 
 
 def resolve_tool_model_references(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
-    tools = body.get("tools")
-    if not isinstance(tools, list) or not tools:
-        return body
-    changed = False
-    resolved_count = 0
-    next_tools: list[Any] = []
-    for tool in tools:
-        if not isinstance(tool, dict):
-            next_tools.append(tool)
-            continue
-        model = tool.get("model")
-        if not isinstance(model, str) or not model.strip():
-            next_tools.append(tool)
-            continue
-        resolved = resolve_requested_model(provider, pcfg, model)
-        if resolved and resolved != model:
-            next_tool = dict(tool)
-            next_tool["model"] = resolved
-            next_tools.append(next_tool)
-            changed = True
-            resolved_count += 1
-        else:
-            next_tools.append(tool)
-    if not changed:
-        return body
-    out = dict(body)
-    out["tools"] = next_tools
-    router_log("INFO", f"resolved upstream tool model references for {provider}: {resolved_count}")
-    return out
+    return provider_model_selection().resolve_tool_models(provider, pcfg, body)
 
 
 def list_model_objects(provider: str, pcfg: dict[str, Any]) -> list[dict[str, Any]]:
-    return [model_object(provider, mid, pcfg) for mid in upstream_model_ids(provider, pcfg)]
+    return provider_model_selection().list_objects(provider, pcfg)
 
 
 def list_model_objects_for_request(provider: str, pcfg: dict[str, Any], inbound_headers: Any | None = None) -> list[dict[str, Any]]:
-    if anthropic_routed_enabled(provider, pcfg):
-        try:
-            headers = provider_headers(provider, pcfg, inbound_headers)
-            ids, source = fetch_anthropic_api_model_ids(pcfg, headers, timeout=6.0)
-            if ids:
-                for mid in pcfg.get("custom_models", []) or []:
-                    mid = normalize_model_id(provider, mid)
-                    if mid and mid not in ids:
-                        ids.append(mid)
-                cur = normalize_model_id(provider, pcfg.get("current_model") or "")
-                if cur and cur not in ids:
-                    ids.append(cur)
-                router_log("DEBUG", f"anthropic routed model discovery source={source} count={len(ids)}")
-                return [model_object(provider, mid, pcfg) for mid in sorted_model_ids(unique_model_ids(provider, ids))]
-        except Exception as exc:
-            router_log("DEBUG", f"anthropic routed model discovery fallback error={type(exc).__name__}: {exc}")
-    return list_model_objects(provider, pcfg)
+    return provider_model_selection().list_objects_for_request(
+        provider, pcfg, inbound_headers
+    )
 
 
 def provider_upstream_request_base(provider: str, pcfg: dict[str, Any]) -> str:

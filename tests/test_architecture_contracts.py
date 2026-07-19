@@ -1219,22 +1219,23 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertGreater(len(defaults), len(common_keys))
 
     def test_model_launch_and_runtime_info_dispatch_through_provider_adapter(self):
-        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
-        source = source_path.read_text(encoding="utf-8")
-        tree = ast.parse(source)
-        expected_hooks = {
-            "launch_model_id": "launch_model_strategy",
-            "upstream_model_runtime_info": "runtime_model_info_strategy",
-        }
-        functions = {
-            node.name: ast.get_source_segment(source, node) or ""
-            for node in tree.body
-            if isinstance(node, ast.FunctionDef) and node.name in expected_hooks
-        }
-        for name, hook in expected_hooks.items():
-            self.assertIn(hook, functions[name])
-            self.assertNotIn('provider == "', functions[name])
-            self.assertNotIn("provider in (", functions[name])
+        root = Path(__file__).resolve().parents[1]
+        checks = (
+            (root / "ciel_runtime_support" / "provider_model_selection.py", "launch_id", "launch_model_strategy"),
+            (root / "ciel_runtime.py", "upstream_model_runtime_info", "runtime_model_info_strategy"),
+        )
+        for source_path, name, hook in checks:
+            source = source_path.read_text(encoding="utf-8")
+            tree = ast.parse(source)
+            function = next(
+                node
+                for node in ast.walk(tree)
+                if isinstance(node, ast.FunctionDef) and node.name == name
+            )
+            function_source = ast.get_source_segment(source, function) or ""
+            self.assertIn(hook, function_source)
+            self.assertNotIn('provider == "', function_source)
+            self.assertNotIn("provider in (", function_source)
 
     def test_claude_launch_enrichment_dispatches_through_compatibility_registry(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
