@@ -53,6 +53,12 @@ from ciel_runtime_support.advisor_policy import (
     strip_autonomous_advisor_server_tools as project_strip_advisor_server_tools,
     tool_review_context_from_message as project_tool_review_context,
 )
+from ciel_runtime_support.advisor_request_builder import (
+    AdvisorBudgetPorts,
+    AdvisorEndpointPorts,
+    AdvisorProjectionPorts,
+    AdvisorRequestBuilder,
+)
 from ciel_runtime_support.architecture import LaunchSpec, MessageProtocol, ProviderConfig, RuntimeConfig
 from ciel_runtime_support.anthropic_tool_turns import (
     AnthropicToolTurnServices,
@@ -7964,118 +7970,67 @@ ADVISOR_REVIEW_PROMPT = (
 )
 
 
+def advisor_request_builder() -> AdvisorRequestBuilder:
+    return AdvisorRequestBuilder(
+        ADVISOR_REVIEW_PROMPT,
+        AdvisorProjectionPorts(
+            provider_kind=advisor_provider_kind,
+            anthropic_messages=anthropic_advisor_messages_and_system,
+            openai_messages=anthropic_messages_to_openai,
+            ollama_messages=anthropic_messages_to_ollama,
+            focus_from_body=advisor_focus_from_body,
+            compact_text=compact_message_text_for_prompt,
+            anthropic_system=anthropic_system_with_advisor,
+            anthropic_text=anthropic_content_to_text,
+        ),
+        AdvisorBudgetPorts(
+            ollama_context=ollama_context_limit_for_budget,
+            provider_context=context_limit_for_status,
+            openai_context=openai_context_limit_for_budget,
+            reserve=context_guard_reserve_tokens,
+            compact_messages=compact_ollama_messages_for_budget,
+            configured_output=configured_output_tokens,
+            ollama_options=ollama_extra_options,
+            positive_int=positive_int,
+            ollama_num_ctx=ollama_num_ctx_for_payload,
+            think_enabled=ollama_request_think_enabled,
+        ),
+        AdvisorEndpointPorts(
+            join_url=join_url,
+            upstream_query=upstream_messages_query,
+            provider_request_base=provider_upstream_request_base,
+            upstream_model=ncp_model_id_for_nvidia_hosted,
+        ),
+    )
+
+
 def advisor_messages_for_provider(provider: str, body: dict[str, Any], focus_override: str = "") -> list[dict[str, Any]]:
-    kind = advisor_provider_kind(provider)
-    if kind == "anthropic":
-        messages, _ = anthropic_advisor_messages_and_system(body)
-    elif kind == "openai-compatible":
-        messages = anthropic_messages_to_openai(body)
-    else:
-        messages = anthropic_messages_to_ollama(body)
-    focus = focus_override or advisor_focus_from_body(body)
-    if kind != "anthropic":
-        messages.insert(0, {"role": "system", "content": ADVISOR_REVIEW_PROMPT})
-    if focus:
-        focus_text = f"Advisor focus:\n{compact_message_text_for_prompt(focus)}"
-        if kind == "anthropic":
-            messages.append({"role": "user", "content": [{"type": "text", "text": focus_text}]})
-        else:
-            messages.append({"role": "user", "content": focus_text})
-    return messages
+    return advisor_request_builder().messages(provider, body, focus_override)
 
 
 def advisor_input_budget(provider: str, pcfg: dict[str, Any]) -> int:
-    kind = advisor_provider_kind(provider)
-    if kind == "ollama":
-        context_limit = ollama_context_limit_for_budget(pcfg)
-    elif kind == "anthropic":
-        context_limit = context_limit_for_status(provider, pcfg) or 200000
-    else:
-        context_limit = openai_context_limit_for_budget(provider, pcfg)
-    return max(8192, context_limit - 4096 - context_guard_reserve_tokens(pcfg, context_limit))
+    return advisor_request_builder().input_budget(provider, pcfg)
 
 def advisor_upstream_model(provider: str, model: str) -> str:
-    return ncp_model_id_for_nvidia_hosted(model) if provider == "nvidia-hosted" else model
+    return advisor_request_builder().model(provider, model)
 
 
 def advisor_request(provider: str, model: str, body: dict[str, Any], pcfg: dict[str, Any], focus_override: str = "") -> dict[str, Any]:
-    messages = advisor_messages_for_provider(provider, body, focus_override=focus_override)
-    if advisor_provider_kind(provider) != "anthropic":
-        messages = compact_ollama_messages_for_budget(
-            messages,
-            [],
-            advisor_input_budget(provider, pcfg),
-            provider=provider,
-            model=model,
-        )
-    upstream_model = advisor_upstream_model(provider, model)
-    if advisor_provider_kind(provider) == "anthropic":
-        _, extra_system_texts = anthropic_advisor_messages_and_system(body)
-        req = {
-            "model": upstream_model,
-            "system": anthropic_system_with_advisor(body.get("system"), extra_system_texts),
-            "messages": messages,
-            "stream": False,
-            "max_tokens": min(4096, configured_output_tokens(pcfg, body) or 4096),
-        }
-        for key in ("temperature", "top_p"):
-            if pcfg.get(key) is not None:
-                req[key] = pcfg[key]
-        return req
-    if advisor_provider_kind(provider) == "openai-compatible":
-        req: dict[str, Any] = {
-            "model": upstream_model,
-            "messages": messages,
-            "stream": False,
-            "max_tokens": min(4096, configured_output_tokens(pcfg, body) or 4096),
-        }
-        for key in ("temperature", "top_p"):
-            if pcfg.get(key) is not None:
-                req[key] = pcfg[key]
-        return req
-    req: dict[str, Any] = {
-        "model": upstream_model,
-        "messages": messages,
-        "stream": False,
-        "think": ollama_request_think_enabled(upstream_model, pcfg),
-    }
-    options = ollama_extra_options(pcfg)
-    options.setdefault("num_predict", min(4096, positive_int(options.get("num_predict")) or 4096))
-    num_ctx = ollama_num_ctx_for_payload(pcfg, {"messages": messages, "tools": []})
-    if num_ctx:
-        options.setdefault("num_ctx", num_ctx)
-    if options:
-        req["options"] = options
-    return req
+    return advisor_request_builder().request(
+        provider,
+        model,
+        body,
+        pcfg,
+        focus_override,
+    )
 
 
 def advisor_response_text(provider: str, data: Any) -> str:
-    if not isinstance(data, dict):
-        return ""
-    if advisor_provider_kind(provider) == "anthropic":
-        return anthropic_content_to_text(data.get("content")).strip()
-    if advisor_provider_kind(provider) == "openai-compatible":
-        choices = data.get("choices")
-        if isinstance(choices, list) and choices:
-            message = choices[0].get("message") if isinstance(choices[0], dict) else {}
-            if isinstance(message, dict):
-                return str(message.get("content") or "").strip()
-        return ""
-    message = data.get("message") if isinstance(data, dict) else {}
-    return str((message or {}).get("content") or "").strip()
+    return advisor_request_builder().response_text(provider, data)
 
 
 def advisor_endpoint(provider: str, pcfg: dict[str, Any]) -> str:
-    base = pcfg.get("base_url", "").rstrip("/")
-    if advisor_provider_kind(provider) == "anthropic":
-        url = join_url(base, "/v1/messages")
-        # Honor force_query_string like the main forwarding path; the advisor
-        # call has no inbound request path, so only the explicit override applies.
-        query = upstream_messages_query(pcfg, "", provider)
-        return f"{url}?{query}" if query else url
-    if advisor_provider_kind(provider) == "openai-compatible":
-        return join_url(provider_upstream_request_base(provider, pcfg), "/v1/chat/completions")
-    return join_url(base, "/api/chat")
+    return advisor_request_builder().endpoint_url(provider, pcfg)
 
 
 def call_advisor_text(

@@ -74,6 +74,10 @@ Upstream socket timeout, downstream disconnect detection, cancellable line
 iteration, and retry sleep live in the Infrastructure Adapter
 `upstream_stream_io.py`.
 
+Provider-specific Advisor message projection, input budgeting, request/response
+mapping, and endpoint selection live in `advisor_request_builder.py`. Network
+and rate-limit side effects remain outside this pure Builder boundary.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file
