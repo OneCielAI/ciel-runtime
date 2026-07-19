@@ -1353,6 +1353,18 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("def _legacy_openai_responses_to_anthropic_messages", source)
         self.assertNotIn("def _legacy_anthropic_message_to_openai_response", source)
 
+    def test_channel_transcript_parsers_live_outside_composition_root(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        for function_name in (
+            "_channel_transcript_content_text",
+            "_channel_transcript_user_text",
+            "_channel_transcript_is_assistant_message",
+            "_channel_stdin_active_tool_call_from_text",
+            "_channel_stdin_active_turn_from_text",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):

@@ -135,6 +135,14 @@ from ciel_runtime_support.channel_terminal_proxy import (
     run_posix_channel_terminal_proxy,
     run_windows_channel_terminal_proxy,
 )
+from ciel_runtime_support.channel_transcript import (
+    active_tool_call_from_text as _channel_stdin_active_tool_call_from_text,
+    active_turn_from_text as _channel_stdin_active_turn_from_text,
+    content_text as _channel_transcript_content_text,
+    is_assistant_message as _channel_transcript_is_assistant_message,
+    record_timestamp_seconds as _channel_transcript_record_timestamp_seconds,
+    user_text as _channel_transcript_user_text,
+)
 from ciel_runtime_support.channel_probe_report import (
     ChannelProbeReportServices,
     channel_probe_report_lines,
@@ -23870,88 +23878,6 @@ def _channel_stdin_wake_state_for_message(message: dict[str, Any], prompt: str |
     return _channel_stdin_wake_state_from_text(message_id, text, prompt_candidates)
 
 
-def _channel_transcript_record_timestamp_seconds(record: dict[str, Any]) -> float | None:
-    raw = record.get("timestamp")
-    if raw is None and isinstance(record.get("attachment"), dict):
-        raw = record["attachment"].get("timestamp")
-    if raw is None:
-        return None
-    if isinstance(raw, (int, float)):
-        return float(raw)
-    text = str(raw or "").strip()
-    if not text:
-        return None
-    try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
-    except Exception:
-        return None
-
-
-def _channel_transcript_content_text(value: Any) -> str:
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        parts: list[str] = []
-        for key in ("text", "content", "input_text", "output_text", "message"):
-            raw = value.get(key)
-            if isinstance(raw, str):
-                parts.append(raw)
-            elif isinstance(raw, (dict, list)):
-                nested = _channel_transcript_content_text(raw)
-                if nested:
-                    parts.append(nested)
-        return "\n".join(parts)
-    if isinstance(value, list):
-        parts = []
-        for item in value:
-            nested = _channel_transcript_content_text(item)
-            if nested:
-                parts.append(nested)
-        return "\n".join(parts)
-    return ""
-
-
-def _channel_transcript_user_text(record: dict[str, Any]) -> str:
-    record_type = str(record.get("type") or "")
-    message = record.get("message")
-    message_obj = message if isinstance(message, dict) else {}
-    if record_type == "user" or str(message_obj.get("role") or "") == "user":
-        return _channel_transcript_content_text(message_obj.get("content"))
-    payload = record.get("payload")
-    payload_obj = payload if isinstance(payload, dict) else {}
-    payload_type = str(payload_obj.get("type") or "")
-    payload_role = str(payload_obj.get("role") or "")
-    if record_type == "response_item" and payload_type == "message" and payload_role == "user":
-        return _channel_transcript_content_text(payload_obj.get("content"))
-    if record_type == "event_msg" and payload_type == "user_message":
-        return _channel_transcript_content_text(payload_obj.get("message"))
-    return ""
-
-
-def _channel_transcript_is_assistant_message(record: dict[str, Any]) -> bool:
-    record_type = str(record.get("type") or "")
-    message = record.get("message")
-    message_obj = message if isinstance(message, dict) else {}
-    message_role = str(message_obj.get("role") or "")
-    if record_type == "assistant" or message_role == "assistant" or str(record.get("subtype") or "") == "turn_duration":
-        return True
-    payload = record.get("payload")
-    payload_obj = payload if isinstance(payload, dict) else {}
-    return (
-        record_type == "response_item"
-        and str(payload_obj.get("type") or "") == "message"
-        and str(payload_obj.get("role") or "") == "assistant"
-    )
-
-
-def _channel_transcript_tool_call_id(value: dict[str, Any]) -> str:
-    for key in ("call_id", "id", "tool_call_id"):
-        raw = value.get(key)
-        if isinstance(raw, str) and raw.strip():
-            return raw.strip()
-    return ""
-
-
 def _channel_stdin_wake_queued_age_seconds_from_text(
     message_id: int,
     text: str,
@@ -24074,111 +24000,6 @@ def _channel_stdin_wake_state_from_text(
     return "queued" if seen_queued_prompt else "missing"
 
 
-def _channel_message_content_blocks(message: dict[str, Any]) -> list[dict[str, Any]]:
-    content = message.get("content")
-    if isinstance(content, dict):
-        return [content]
-    if isinstance(content, list):
-        return [item for item in content if isinstance(item, dict)]
-    return []
-
-
-def _channel_tool_use_ids_from_message(message: dict[str, Any]) -> set[str]:
-    ids: set[str] = set()
-    for block in _channel_message_content_blocks(message):
-        if block.get("type") != "tool_use":
-            continue
-        tool_id = str(block.get("id") or "").strip()
-        if tool_id:
-            ids.add(tool_id)
-    return ids
-
-
-def _channel_tool_result_ids_from_message(message: dict[str, Any]) -> set[str]:
-    ids: set[str] = set()
-    for block in _channel_message_content_blocks(message):
-        if block.get("type") != "tool_result":
-            continue
-        tool_id = str(block.get("tool_use_id") or "").strip()
-        if tool_id:
-            ids.add(tool_id)
-    return ids
-
-
-def _channel_stdin_active_tool_call_from_text(text: str) -> bool:
-    pending_tool_ids: set[str] = set()
-    unknown_tool_active = False
-    for raw_line in text.splitlines():
-        try:
-            record = json.loads(raw_line)
-        except Exception:
-            continue
-        if not isinstance(record, dict):
-            continue
-        record_type = str(record.get("type") or "")
-        message = record.get("message")
-        message_obj = message if isinstance(message, dict) else {}
-        message_role = str(message_obj.get("role") or "")
-        payload = record.get("payload")
-        payload_obj = payload if isinstance(payload, dict) else {}
-        payload_type = str(payload_obj.get("type") or "")
-        if record_type == "response_item":
-            if payload_type in {"function_call", "custom_tool_call", "local_shell_call"}:
-                tool_id = _channel_transcript_tool_call_id(payload_obj)
-                if tool_id:
-                    pending_tool_ids.add(tool_id)
-                else:
-                    unknown_tool_active = True
-                continue
-            if payload_type in {"function_call_output", "custom_tool_call_output", "local_shell_call_output"}:
-                tool_id = _channel_transcript_tool_call_id(payload_obj)
-                if tool_id:
-                    pending_tool_ids.discard(tool_id)
-                else:
-                    pending_tool_ids.clear()
-                unknown_tool_active = False
-                continue
-            if _channel_transcript_is_assistant_message(record):
-                pending_tool_ids.clear()
-                unknown_tool_active = False
-                continue
-        if record_type == "event_msg":
-            if payload_type in {"mcp_tool_call_begin", "tool_call_begin"}:
-                tool_id = _channel_transcript_tool_call_id(payload_obj)
-                if tool_id:
-                    pending_tool_ids.add(tool_id)
-                else:
-                    unknown_tool_active = True
-                continue
-            if payload_type in {"mcp_tool_call_end", "tool_call_end"}:
-                tool_id = _channel_transcript_tool_call_id(payload_obj)
-                if tool_id:
-                    pending_tool_ids.discard(tool_id)
-                else:
-                    pending_tool_ids.clear()
-                unknown_tool_active = False
-                continue
-        if record_type == "assistant" or message_role == "assistant":
-            tool_use_ids = _channel_tool_use_ids_from_message(message_obj)
-            if str(message_obj.get("stop_reason") or "") == "tool_use" or tool_use_ids:
-                pending_tool_ids.update(tool_use_ids)
-                if not tool_use_ids:
-                    unknown_tool_active = True
-            else:
-                pending_tool_ids.clear()
-                unknown_tool_active = False
-            continue
-        if record_type == "user" or message_role == "user":
-            tool_result_ids = _channel_tool_result_ids_from_message(message_obj)
-            if tool_result_ids:
-                pending_tool_ids.difference_update(tool_result_ids)
-                unknown_tool_active = False
-            elif record.get("toolUseResult") is not None:
-                pending_tool_ids.clear()
-                unknown_tool_active = False
-    return bool(pending_tool_ids or unknown_tool_active)
-
-
 def _channel_stdin_active_tool_call() -> bool:
     path = _latest_claude_transcript_path()
     if path is None:
@@ -24187,25 +24008,6 @@ def _channel_stdin_active_tool_call() -> bool:
     if not text:
         return False
     return _channel_stdin_active_tool_call_from_text(text)
-
-
-def _channel_stdin_active_turn_from_text(text: str) -> bool:
-    active = False
-    for raw_line in text.splitlines():
-        try:
-            record = json.loads(raw_line)
-        except Exception:
-            continue
-        if not isinstance(record, dict):
-            continue
-        payload = record.get("payload")
-        payload_obj = payload if isinstance(payload, dict) else {}
-        event_type = str(payload_obj.get("type") or record.get("type") or "")
-        if event_type in {"task_started", "turn_started"}:
-            active = True
-        elif event_type in {"task_complete", "turn_complete", "turn_aborted"}:
-            active = False
-    return active
 
 
 def _channel_stdin_active_turn() -> bool:
