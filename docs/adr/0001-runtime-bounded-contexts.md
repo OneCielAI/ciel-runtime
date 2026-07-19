@@ -123,6 +123,11 @@ The controller coordinates provider selection, persistence, model-cache
 invalidation, recommended limits, and presentation through three ports of at
 most five dependencies; mutation rules remain in provider policies.
 
+Context-relative output caps are pure policies in `provider_context.py`.
+Context-aware request timeout calculation and mutation live in
+`provider_timeout_policy.py`, which composes adapter context policy with model,
+catalog, preset, and output information through explicit settings and ports.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

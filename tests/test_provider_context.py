@@ -6,11 +6,14 @@ from ciel_runtime_support.provider_context import (
     ContextPresetServices,
     ProviderContextServices,
     cap_context_settings,
+    cap_output_settings,
+    cap_output_tokens,
     classify_model_family,
     infer_context_preset,
     recommended_preset,
     required_context_for_preset,
     resolve_context_capacity,
+    small_context_output_token_cap,
 )
 
 
@@ -80,6 +83,54 @@ class ProviderContextTests(unittest.TestCase):
         )
         self.assertEqual(200, standard["context_window"])
         self.assertEqual(500, standard["num_ctx_max"])
+
+    def test_small_context_output_cap_scales_and_rounds_to_token_blocks(self):
+        self.assertEqual(
+            4096,
+            small_context_output_token_cap(65536, positive_int=positive_int),
+        )
+        self.assertEqual(
+            8192,
+            small_context_output_token_cap(262144, positive_int=positive_int),
+        )
+        self.assertIsNone(
+            small_context_output_token_cap(524288, positive_int=positive_int)
+        )
+
+    def test_output_cap_mutates_only_the_adapter_owned_setting(self):
+        ollama = {
+            "max_output_tokens": 32768,
+            "ollama_options": {"num_predict": 32768},
+        }
+        messages = cap_output_settings(
+            ollama,
+            ProviderContextPolicy(settings_strategy="ollama"),
+            131072,
+            positive_int=positive_int,
+            format_context=lambda value: f"{value}",
+        )
+        self.assertEqual(8192, ollama["max_output_tokens"])
+        self.assertEqual(8192, ollama["ollama_options"]["num_predict"])
+        self.assertEqual(1, len(messages))
+
+        self.assertEqual(
+            8192,
+            cap_output_tokens(
+                32768,
+                ProviderContextPolicy(settings_strategy="standard"),
+                131072,
+                positive_int=positive_int,
+            ),
+        )
+        self.assertEqual(
+            32768,
+            cap_output_tokens(
+                32768,
+                ProviderContextPolicy(settings_strategy="managed"),
+                131072,
+                positive_int=positive_int,
+            ),
+        )
 
     def test_preset_inference_uses_context_setting_strategy(self):
         services = ContextPresetServices(

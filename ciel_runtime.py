@@ -725,11 +725,14 @@ from ciel_runtime_support.provider_context import (
     ContextPresetServices,
     ProviderContextServices,
     cap_context_settings as apply_context_capacity_cap,
+    cap_output_settings as apply_output_context_cap,
+    cap_output_tokens as apply_output_token_cap,
     classify_model_family,
     infer_context_preset,
     recommended_preset,
     required_context_for_preset as context_required_for_preset,
     resolve_context_capacity,
+    small_context_output_token_cap as resolve_small_context_output_cap,
 )
 from ciel_runtime_support.provider_option_panel import (
     OptionPanelPolicy,
@@ -745,6 +748,11 @@ from ciel_runtime_support.provider_option_panel import (
 from ciel_runtime_support.provider_option_status import (
     ProviderOptionStatusPorts,
     ProviderOptionStatusProjection,
+)
+from ciel_runtime_support.provider_timeout_policy import (
+    ProviderTimeoutPolicy,
+    ProviderTimeoutPorts,
+    ProviderTimeoutSettings,
 )
 from ciel_runtime_support.provider_limits import (
     ProviderKeyServices,
@@ -11941,52 +11949,29 @@ def cap_context_settings_to_model_capacity(provider: str, pcfg: dict[str, Any]) 
 
 
 def small_context_output_token_cap(context_window: int | None) -> int | None:
-    context = positive_int(context_window)
-    if not context or context > 262144:
-        return None
-    divisor = 16 if context <= 131072 else 32
-    cap = max(1024, min(8192, context // divisor))
-    return max(1024, (cap // 1024) * 1024)
+    return resolve_small_context_output_cap(
+        context_window,
+        positive_int=positive_int,
+    )
 
 
 def cap_output_tokens_to_context_ratio(provider: str, pcfg: dict[str, Any], configured: int | None) -> int | None:
-    value = positive_int(configured)
-    if not value or provider_context_policy(provider, pcfg).settings_strategy == "managed":
-        return value
-    context = context_limit_for_status(provider, pcfg)
-    cap = small_context_output_token_cap(context)
-    if not cap:
-        return value
-    return min(value, cap)
+    return apply_output_token_cap(
+        configured,
+        provider_context_policy(provider, pcfg),
+        context_limit_for_status(provider, pcfg),
+        positive_int=positive_int,
+    )
 
 
 def cap_output_settings_to_context_ratio(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    settings_strategy = provider_context_policy(provider, pcfg).settings_strategy
-    if settings_strategy == "managed":
-        return []
-    context = context_limit_for_status(provider, pcfg)
-    cap = small_context_output_token_cap(context)
-    if not cap:
-        return []
-    messages: list[str] = []
-    if settings_strategy == "ollama":
-        opts = pcfg.setdefault("ollama_options", {})
-        current = positive_int(opts.get("num_predict")) or positive_int(pcfg.get("max_output_tokens"))
-        if current and current > cap:
-            opts["num_predict"] = cap
-            pcfg["max_output_tokens"] = cap
-            messages.append(
-                f"Max output capped to {cap:,} tokens for context {format_context_tokens(context)}."
-            )
-        return messages
-    if settings_strategy == "standard":
-        current = positive_int(pcfg.get("max_output_tokens"))
-        if current and current > cap:
-            pcfg["max_output_tokens"] = cap
-            messages.append(
-                f"Max output capped to {cap:,} tokens for context {format_context_tokens(context)}."
-            )
-    return messages
+    return apply_output_context_cap(
+        pcfg,
+        provider_context_policy(provider, pcfg),
+        context_limit_for_status(provider, pcfg),
+        positive_int=positive_int,
+        format_context=format_context_tokens,
+    )
 
 
 def cached_current_model_info(provider: str, pcfg: dict[str, Any]) -> dict[str, Any]:
@@ -12143,35 +12128,40 @@ def context_setting_status(provider: str, pcfg: dict[str, Any]) -> str:
     return f"model max {cap_text}"
 
 
+def provider_timeout_policy() -> ProviderTimeoutPolicy:
+    return ProviderTimeoutPolicy(
+        ProviderTimeoutSettings(
+            default_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+            minimum_ms=AUTO_TIMEOUT_MIN_MS,
+            maximum_ms=AUTO_TIMEOUT_MAX_MS,
+            round_ms=AUTO_TIMEOUT_ROUND_MS,
+            idle_max_ms=300000,
+            preset_timeouts=LLM_PRESET_TIMEOUT_MS,
+        ),
+        ProviderTimeoutPorts(
+            positive_int=positive_int,
+            context_policy=provider_context_policy,
+            context_capacity=provider_model_context_capacity,
+            output_token_cap=cap_output_tokens_to_context_ratio,
+            ollama_options=ollama_extra_options,
+            catalog_timeout=ollama_catalog_timeout_for_model,
+            model_preset=model_preset,
+            timeout_for_context=recommended_timeout_ms_for_context,
+            format_context=format_context_tokens,
+        ),
+    )
+
+
 def configured_context_window_for_timeout(provider: str, pcfg: dict[str, Any]) -> int | None:
-    settings_strategy = provider_context_policy(provider, pcfg).settings_strategy
-    if settings_strategy == "ollama":
-        raw_ctx = pcfg.get("num_ctx")
-        fixed_ctx = positive_int(raw_ctx)
-        if fixed_ctx:
-            return fixed_ctx
-        return (
-            provider_model_context_capacity(provider, pcfg)
-            or positive_int(pcfg.get("num_ctx_max"))
-        )
-    if settings_strategy == "standard":
-        return positive_int(pcfg.get("context_window")) or provider_model_context_capacity(provider, pcfg)
-    return provider_model_context_capacity(provider, pcfg)
+    return provider_timeout_policy().configured_context(provider, pcfg)
 
 
 def configured_output_tokens_for_timeout(provider: str, pcfg: dict[str, Any]) -> int | None:
-    if provider_context_policy(provider, pcfg).settings_strategy == "ollama":
-        opts = ollama_extra_options(pcfg)
-        configured = positive_int(opts.get("num_predict")) or positive_int(pcfg.get("max_output_tokens"))
-        return cap_output_tokens_to_context_ratio(provider, pcfg, configured)
-    configured = positive_int(pcfg.get("max_output_tokens")) or positive_int(pcfg.get("num_predict"))
-    return cap_output_tokens_to_context_ratio(provider, pcfg, configured)
+    return provider_timeout_policy().configured_output(provider, pcfg)
 
 
 def clamp_auto_timeout_ms(ms: int | float | None) -> int:
-    value = positive_int(ms) or DEFAULT_REQUEST_TIMEOUT_MS
-    value = max(AUTO_TIMEOUT_MIN_MS, min(AUTO_TIMEOUT_MAX_MS, value))
-    return int(math.ceil(value / AUTO_TIMEOUT_ROUND_MS) * AUTO_TIMEOUT_ROUND_MS)
+    return provider_timeout_policy().clamp(ms)
 
 
 def calculated_request_timeout_ms(
@@ -12179,48 +12169,15 @@ def calculated_request_timeout_ms(
     pcfg: dict[str, Any],
     timeout_candidates: list[int] | None = None,
 ) -> int:
-    context_policy = provider_context_policy(provider, pcfg)
-    context_tokens = positive_int(configured_context_window_for_timeout(provider, pcfg))
-    output_tokens = positive_int(configured_output_tokens_for_timeout(provider, pcfg))
-    timeout_ms = AUTO_TIMEOUT_MIN_MS
-    if context_tokens:
-        # 64K -> +0, 128K -> +1m, 256K -> +2m, 512K -> +3m, 1M+ -> +4m.
-        context_score = max(0.0, min(1.0, math.log2(max(context_tokens, 65536) / 65536) / 4.0))
-        timeout_ms += int(240000 * context_score)
-    if output_tokens:
-        # 2K output is cheap; 8K+ output gets the full +2m allowance.
-        output_score = max(0.0, min(1.0, (output_tokens - 2048) / 6144))
-        timeout_ms += int(120000 * output_score)
-    if context_policy.hosted_timeout:
-        timeout_ms += 60000
-    for candidate in timeout_candidates or []:
-        fixed = positive_int(candidate)
-        if fixed:
-            timeout_ms = max(timeout_ms, fixed)
-    timeout_ms *= context_policy.timeout_weight
-    return clamp_auto_timeout_ms(timeout_ms)
+    return provider_timeout_policy().calculated(provider, pcfg, timeout_candidates)
 
 
 def recommended_request_timeout_ms(provider: str, pcfg: dict[str, Any], use_context_fallback: bool = True) -> int:
-    model = str(pcfg.get("current_model") or "")
-    candidates: list[int] = []
-    context_policy = provider_context_policy(provider, pcfg)
-    active_preset_timeout = active_llm_preset_timeout_ms(pcfg)
-    if active_preset_timeout:
-        candidates.append(active_preset_timeout)
-    if context_policy.uses_catalog_timeout:
-        catalog_timeout = ollama_catalog_timeout_for_model(model)
-        if catalog_timeout:
-            candidates.append(catalog_timeout)
-    model_timeout = positive_int(model_preset(model).get("recommended_timeout_ms"))
-    if model_timeout:
-        candidates.append(model_timeout)
-    if candidates:
-        return calculated_request_timeout_ms(provider, pcfg, candidates)
-    if not use_context_fallback:
-        return DEFAULT_REQUEST_TIMEOUT_MS
-    context_timeout = recommended_timeout_ms_for_context(configured_context_window_for_timeout(provider, pcfg))
-    return calculated_request_timeout_ms(provider, pcfg, [context_timeout])
+    return provider_timeout_policy().recommended(
+        provider,
+        pcfg,
+        use_context_fallback=use_context_fallback,
+    )
 
 
 def apply_recommended_timeout_for_model_context(
@@ -12228,18 +12185,11 @@ def apply_recommended_timeout_for_model_context(
     pcfg: dict[str, Any],
     use_context_fallback: bool = True,
 ) -> list[str]:
-    timeout_ms = recommended_request_timeout_ms(provider, pcfg, use_context_fallback=use_context_fallback)
-    idle_ms = timeout_profile_idle_ms(timeout_ms)
-    changed = positive_int(pcfg.get("request_timeout_ms")) != timeout_ms or positive_int(pcfg.get("stream_idle_timeout_ms")) != idle_ms
-    pcfg["request_timeout_ms"] = timeout_ms
-    pcfg["stream_idle_timeout_ms"] = idle_ms
-    context = configured_context_window_for_timeout(provider, pcfg)
-    if not changed:
-        return []
-    return [
-        f"Auto timeout: {timeout_ms}ms for context {format_context_tokens(context)}.",
-        f"stream_idle_timeout_ms: {idle_ms}",
-    ]
+    return provider_timeout_policy().apply(
+        provider,
+        pcfg,
+        use_context_fallback=use_context_fallback,
+    )
 
 
 def context_mode_values_for_capacity(capacity: int | None) -> dict[str, tuple[int, int, int]]:

@@ -176,6 +176,10 @@ from ciel_runtime_support.provider_option_cli import (
     ProviderOptionCliConfig,
     ProviderOptionCommands,
 )
+from ciel_runtime_support.provider_timeout_policy import (
+    ProviderTimeoutPorts,
+    ProviderTimeoutSettings,
+)
 from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy, ToolGuardHookServices
 from ciel_runtime_support.process_control import (
     ProcessControlServices,
@@ -517,6 +521,10 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_provider_timeout_policy_ports_stay_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(ProviderTimeoutSettings)), 10)
+        self.assertLessEqual(len(fields(ProviderTimeoutPorts)), 10)
 
     def test_claude_launch_ports_stay_below_dependency_limit(self):
         ports = (

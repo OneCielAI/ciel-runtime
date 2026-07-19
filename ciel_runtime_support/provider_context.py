@@ -96,6 +96,80 @@ def cap_context_settings(
     return []
 
 
+def small_context_output_token_cap(
+    context_window: int | None,
+    *,
+    positive_int: Callable[[Any], int | None],
+) -> int | None:
+    context = positive_int(context_window)
+    if not context or context > 262144:
+        return None
+    divisor = 16 if context <= 131072 else 32
+    cap = max(1024, min(8192, context // divisor))
+    return max(1024, (cap // 1024) * 1024)
+
+
+def cap_output_tokens(
+    configured: int | None,
+    policy: ProviderContextPolicy,
+    context_window: int | None,
+    *,
+    positive_int: Callable[[Any], int | None],
+) -> int | None:
+    value = positive_int(configured)
+    if not value or policy.settings_strategy == "managed":
+        return value
+    cap = small_context_output_token_cap(
+        context_window,
+        positive_int=positive_int,
+    )
+    return min(value, cap) if cap else value
+
+
+def cap_output_settings(
+    config: dict[str, Any],
+    policy: ProviderContextPolicy,
+    context_window: int | None,
+    *,
+    positive_int: Callable[[Any], int | None],
+    format_context: Callable[[int | None], str],
+) -> list[str]:
+    if policy.settings_strategy == "managed":
+        return []
+    cap = small_context_output_token_cap(
+        context_window,
+        positive_int=positive_int,
+    )
+    if not cap:
+        return []
+    if policy.settings_strategy == "ollama":
+        options = config.setdefault("ollama_options", {})
+        current = positive_int(options.get("num_predict")) or positive_int(
+            config.get("max_output_tokens")
+        )
+        if current and current > cap:
+            options["num_predict"] = cap
+            config["max_output_tokens"] = cap
+            return [_output_cap_message(cap, context_window, format_context)]
+    elif policy.settings_strategy == "standard":
+        current = positive_int(config.get("max_output_tokens"))
+        if current and current > cap:
+            config["max_output_tokens"] = cap
+            return [_output_cap_message(cap, context_window, format_context)]
+    return []
+
+
+def _output_cap_message(
+    cap: int,
+    context_window: int | None,
+    format_context: Callable[[int | None], str],
+) -> str:
+    return (
+        f"Max output capped to {cap:,} tokens for context "
+        f"{format_context(context_window)}."
+    )
+
+
 def infer_context_preset(
     config: dict[str, Any],
     policy: ProviderContextPolicy,
@@ -223,9 +297,12 @@ __all__ = [
     "ContextPresetServices",
     "ProviderContextServices",
     "cap_context_settings",
+    "cap_output_settings",
+    "cap_output_tokens",
     "infer_context_preset",
     "classify_model_family",
     "recommended_preset",
     "required_context_for_preset",
     "resolve_context_capacity",
+    "small_context_output_token_cap",
 ]

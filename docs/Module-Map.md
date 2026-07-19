@@ -507,7 +507,11 @@ provider model registry와 단기 model-list cache의 key 호환, TTL, metadata 
 
 ### `ciel_runtime_support/provider_context.py`
 
-Provider Adapter의 `ProviderContextPolicy`에 따라 모델 컨텍스트 용량 탐색 순서, 설정 상한 및 LLM preset 추론을 수행하는 Provider-neutral 정책 서비스. 중앙 Provider 이름 분기 없이 managed/Ollama/standard 설정 전략을 실행한다.
+Provider Adapter의 `ProviderContextPolicy`에 따라 모델 컨텍스트 용량 탐색 순서, context·output 설정 상한 및 LLM preset 추론을 수행하는 Provider-neutral 정책 서비스. 중앙 Provider 이름 분기 없이 managed/Ollama/standard 설정 전략을 실행한다.
+
+### `ciel_runtime_support/provider_timeout_policy.py`
+
+Provider context·output 크기, hosted 가중치, model/catalog/preset 권장값을 합성해 request/idle timeout을 계산·적용하는 Application Policy. 계산 상수와 최대 9개 의존성 포트를 분리하며 Provider Adapter의 `ProviderContextPolicy`만 소비한다.
 
 ### `ciel_runtime_support/provider_network.py`
 
