@@ -28,6 +28,12 @@ from ciel_runtime_support.cli_dispatch import (
     CliSpecialCommands,
 )
 from ciel_runtime_support.channel_panel import ChannelPanelPolicy
+from ciel_runtime_support.channel_compact_poll import (
+    ChannelCompactInjectionOptions,
+    ChannelCompactPollPolicy,
+    ChannelCompactPollServices,
+    ChannelCompactPollState,
+)
 from ciel_runtime_support.channel_inflight import (
     ChannelInflightEffects,
     ChannelInflightPolicy,
@@ -42,6 +48,12 @@ from ciel_runtime_support.channel_pending_injection import (
     ChannelInjectionServices,
     ChannelInjectionState,
     ChannelInjectionWakeStore,
+)
+from ciel_runtime_support.channel_pending_poll import (
+    ChannelPendingInjectionOptions,
+    ChannelPendingPollPolicy,
+    ChannelPendingPollServices,
+    ChannelPendingPollState,
 )
 from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
@@ -567,12 +579,32 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
+    def test_pending_channel_poll_ports_stay_below_dependency_limit(self):
+        for port in (
+            ChannelPendingPollState,
+            ChannelPendingInjectionOptions,
+            ChannelPendingPollPolicy,
+            ChannelPendingPollServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
     def test_channel_inflight_state_stays_below_dependency_limit(self):
         for port in (
             ChannelInflightSnapshot,
             ChannelInflightPolicy,
             ChannelInflightEffects,
             ChannelInflightUpdate,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_channel_compact_poll_ports_stay_below_dependency_limit(self):
+        for port in (
+            ChannelCompactPollState,
+            ChannelCompactInjectionOptions,
+            ChannelCompactPollPolicy,
+            ChannelCompactPollServices,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)

@@ -53,6 +53,10 @@ SSE/MCP 수집 및 cursor 상태와 분리되어 있으며 Windows Console과 PT
 
 → [[Architecture]]
 
+### `ciel_runtime_support/channel_compact_poll.py`
+
+대기 중인 `/compact` 요청의 polling cadence, in-flight 차단, defer 로그 간격과 injection 옵션을 관리하는 Channel Application Service. Windows Console과 POSIX PTY 루프가 동일 상태 전이를 사용한다.
+
 ### `ciel_runtime_support/channel_panel.py`
 
 채널 probe cache와 현재 설정을 사전 실행 메뉴의 행/값 projection으로 변환하는 Channel UI policy. 공식 플러그인, probe 분류, delivery mode는 6필드 `ChannelPanelPolicy`로 주입한다.
@@ -60,6 +64,10 @@ SSE/MCP 수집 및 cursor 상태와 분리되어 있으며 Windows Console과 PT
 ### `ciel_runtime_support/channel_pending_injection.py`
 
 대기 중인 channel 메시지의 필터링, 중복 제거, wake claim, prompt 생성 및 터미널 주입을 조정하는 Channel Application Service. 상태 판정, prompt 전략, wake 저장소, I/O를 각각 10필드 이하 포트로 분리한다.
+
+### `ciel_runtime_support/channel_pending_poll.py`
+
+채널 메시지 파일 marker, active-turn defer, delivery cursor와 in-flight 시작을 조정하는 polling 상태 머신. Windows Console과 POSIX PTY는 플랫폼별 active predicate와 로그 policy만 제공하고 동일 injection workflow를 사용한다.
 
 ### `ciel_runtime_support/channel_probe_report.py`
 
