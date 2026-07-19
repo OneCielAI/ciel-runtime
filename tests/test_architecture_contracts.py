@@ -143,6 +143,12 @@ from ciel_runtime_support.model_panel import (
 )
 from ciel_runtime_support.model_catalog_projection import ModelCatalogProjectionServices
 from ciel_runtime_support.lm_studio_runtime import LmStudioRuntimeServices
+from ciel_runtime_support.provider_request_builder import (
+    OllamaRequestPorts,
+    OpenAIRequestPorts,
+    ProviderOptionPorts,
+    ProviderRequestBudget,
+)
 from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy, ToolGuardHookServices
 from ciel_runtime_support.process_control import (
     ProcessControlServices,
@@ -460,6 +466,16 @@ class ArchitectureContractTests(unittest.TestCase):
         )
 
         for port in ports:
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_provider_request_builder_ports_stay_below_dependency_limit(self):
+        for port in (
+            ProviderRequestBudget,
+            OllamaRequestPorts,
+            OpenAIRequestPorts,
+            ProviderOptionPorts,
+        ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 

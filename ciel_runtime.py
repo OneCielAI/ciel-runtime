@@ -765,6 +765,13 @@ from ciel_runtime_support.provider_readiness import (
     ProviderReadinessServices,
     launch_readiness_errors as evaluate_provider_readiness,
 )
+from ciel_runtime_support.provider_request_builder import (
+    OllamaRequestPorts,
+    OpenAIRequestPorts,
+    ProviderOptionPorts,
+    ProviderRequestBudget,
+    ProviderRequestBuilder,
+)
 from ciel_runtime_support.providers.ollama_runtime import (
     OllamaRuntimeService,
     OllamaRuntimeServices,
@@ -7904,64 +7911,60 @@ def sleep_until_or_client_disconnect(handler: BaseHTTPRequestHandler, seconds: f
         time.sleep(min(0.25, remaining))
 
 
+def provider_request_builder() -> ProviderRequestBuilder:
+    return ProviderRequestBuilder(
+        ProviderRequestBudget(
+            context_limit=context_limit_for_status,
+            positive_int=positive_int,
+            configured_output=configured_output_tokens,
+            cap_output_ratio=cap_output_tokens_to_context_ratio,
+            reserve=context_guard_reserve_tokens,
+            compact_anthropic=compact_anthropic_body_for_budget,
+            compact_messages=compact_ollama_messages_for_budget,
+            compact_requested=is_claude_code_compact_request,
+            cap_output=cap_output_tokens_for_context,
+            write_usage=write_context_usage,
+        ),
+        OllamaRequestPorts(
+            messages=anthropic_messages_to_ollama,
+            tools=anthropic_tools_to_ollama,
+            extra_options=ollama_extra_options,
+            context_limit=ollama_context_limit_for_budget,
+            num_ctx=ollama_num_ctx_for_payload,
+            think_enabled=ollama_request_think_enabled,
+        ),
+        OpenAIRequestPorts(
+            messages=anthropic_messages_to_openai,
+            tools=anthropic_tools_to_ollama,
+            context_limit=openai_context_limit_for_budget,
+            reasoning_passback=openai_chat_reasoning_passback_enabled,
+            repair_tools=repair_openai_tool_call_adjacency,
+            is_kimi_k3=is_kimi_k3_model_id,
+            omit_tool_choice=should_omit_openai_chat_tool_choice,
+            tool_choice=anthropic_tool_choice_to_openai,
+        ),
+        ProviderOptionPorts(
+            sampling_providers=frozenset(PROVIDER_SAMPLING_OPTION_PROVIDERS),
+            sampling_options=tuple(PROVIDER_SAMPLING_OPTIONS),
+            anthropic_runtime_hints=anthropic_model_runtime_hints,
+            log=router_log,
+        ),
+    )
+
+
 def cap_anthropic_body_for_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
-    capped = dict(body)
-    if provider == "anthropic":
-        return capped
-    context_limit = (
-        context_limit_for_status(provider, pcfg)
-        or positive_int(pcfg.get("max_model_len"))
-        or positive_int(pcfg.get("context_window"))
-        or (32768 if provider == "vllm" else 0)
-    )
-    if not context_limit:
-        return capped
-    configured = configured_output_tokens(pcfg, capped)
-    ratio_capped = cap_output_tokens_to_context_ratio(provider, pcfg, configured)
-    if ratio_capped:
-        capped["max_tokens"] = ratio_capped
-    reserve = context_guard_reserve_tokens(pcfg, context_limit)
-    output_reserve = positive_int(capped.get("max_tokens")) or configured or 4096
-    input_budget = max(8192, context_limit - output_reserve - reserve)
-    capped = compact_anthropic_body_for_budget(
-        capped,
-        input_budget,
-        provider=provider,
-        pcfg=pcfg,
-        model=str(capped.get("model") or pcfg.get("current_model") or ""),
-        full_compact_request=is_claude_code_compact_request(capped),
-    )
-    output_tokens = cap_output_tokens_for_context(pcfg, capped, {k: v for k, v in capped.items() if k != "max_tokens"}, context_limit, positive_int(capped.get("max_tokens")) or configured)
-    if output_tokens:
-        capped["max_tokens"] = output_tokens
-    return capped
+    return provider_request_builder().cap_anthropic_body(provider, pcfg, body)
 
 def apply_provider_request_options(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
-    if provider not in PROVIDER_SAMPLING_OPTION_PROVIDERS:
-        return body
-    out = dict(body)
-    for key in PROVIDER_SAMPLING_OPTIONS:
-        value = pcfg.get(key)
-        if value is not None:
-            out[key] = value
-    return out
+    return provider_request_builder().apply_options(provider, pcfg, body)
 
 
 def normalize_anthropic_model_request_options(provider: str, pcfg: dict[str, Any], body: dict[str, Any], model_id: str) -> dict[str, Any]:
-    if provider != "anthropic":
-        return body
-    unsupported = anthropic_model_runtime_hints(model_id).get("unsupported_sampling_parameters")
-    if not isinstance(unsupported, list) or not unsupported:
-        return body
-    out = dict(body)
-    removed: list[str] = []
-    for key in unsupported:
-        if isinstance(key, str) and key in out:
-            out.pop(key, None)
-            removed.append(key)
-    if removed:
-        router_log("INFO", f"anthropic_request_options_removed model={model_id} keys={','.join(removed)}")
-    return out
+    return provider_request_builder().normalize_anthropic_options(
+        provider,
+        body,
+        model_id,
+    )
 
 
 def ollama_request_think_enabled(model: str | None, pcfg: dict[str, Any]) -> bool:
@@ -7973,91 +7976,22 @@ def ollama_think_status(model: str | None, pcfg: dict[str, Any]) -> str:
 
 
 def ollama_chat_request(model: str, body: dict[str, Any], pcfg: dict[str, Any], stream: bool = True, provider: str = "ollama") -> dict[str, Any]:
-    messages = anthropic_messages_to_ollama(body)
-    tools = anthropic_tools_to_ollama(body.get("tools"))
-    context_limit = ollama_context_limit_for_budget(pcfg)
-    configured = configured_output_tokens(pcfg, body, "num_predict")
-    reserve = context_guard_reserve_tokens(pcfg, context_limit)
-    output_reserve = configured or positive_int(body.get("max_tokens")) or 4096
-    input_budget = max(8192, context_limit - output_reserve - reserve)
-    messages = compact_ollama_messages_for_budget(
-        messages,
-        tools,
-        input_budget,
-        provider=provider,
-        model=model,
-        pcfg=pcfg,
-        full_compact_request=is_claude_code_compact_request(body),
-        wire="ollama",
-    )
-    write_context_usage(provider, pcfg, {"messages": messages, "tools": tools}, "ollama_upstream")
-    req: dict[str, Any] = {
-        "model": model,
-        "messages": messages,
-        "stream": stream,
-        "think": ollama_request_think_enabled(model, pcfg),
-    }
-    if pcfg.get("keep_alive"):
-        req["keep_alive"] = str(pcfg["keep_alive"])
-    if tools:
-        req["tools"] = tools
-    options: dict[str, Any] = ollama_extra_options(pcfg)
-    payload_for_est = {"messages": messages, "tools": tools}
-    token_cache: dict[int, int] = {}
-    num_ctx = ollama_num_ctx_for_payload(pcfg, payload_for_est, _token_cache=token_cache)
-    num_predict = cap_output_tokens_for_context(
-        pcfg,
+    return provider_request_builder().ollama_chat(
+        model,
         body,
-        payload_for_est,
-        num_ctx,
-        configured,
-        _token_cache=token_cache,
+        pcfg,
+        stream=stream,
+        provider=provider,
     )
-    if num_predict:
-        options["num_predict"] = num_predict
-    if num_ctx:
-        options.setdefault("num_ctx", num_ctx)
-    if options:
-        req["options"] = options
-    return req
 
 def openai_compatible_chat_request(provider: str, model: str, body: dict[str, Any], pcfg: dict[str, Any], stream: bool = False) -> dict[str, Any]:
-    reasoning_passback = openai_chat_reasoning_passback_enabled(provider, model, pcfg)
-    messages = anthropic_messages_to_openai(body, reasoning_passback=reasoning_passback)
-    tools = anthropic_tools_to_ollama(body.get("tools"))
-    context_limit = openai_context_limit_for_budget(provider, pcfg)
-    configured = configured_output_tokens(pcfg, body)
-    reserve = context_guard_reserve_tokens(pcfg, context_limit)
-    output_reserve = configured or positive_int(body.get("max_tokens")) or 4096
-    messages = compact_ollama_messages_for_budget(
-        messages,
-        tools,
-        max(8192, context_limit - output_reserve - reserve),
-        provider=provider,
-        model=model,
-        pcfg=pcfg,
-        full_compact_request=is_claude_code_compact_request(body),
-        wire="openai",
+    return provider_request_builder().openai_chat(
+        provider,
+        model,
+        body,
+        pcfg,
+        stream=stream,
     )
-    messages = repair_openai_tool_call_adjacency(messages)
-    req: dict[str, Any] = {
-        "model": model,
-        "messages": messages,
-        "stream": stream,
-    }
-    if provider == "kimi" and is_kimi_k3_model_id(model):
-        req["reasoning_effort"] = "max"
-    if tools:
-        req["tools"] = tools
-    if body.get("tool_choice") is not None and not should_omit_openai_chat_tool_choice(provider, model, body, pcfg):
-        req["tool_choice"] = anthropic_tool_choice_to_openai(body.get("tool_choice"))
-    max_tokens = configured_output_tokens(pcfg, body)
-    if max_tokens:
-        req["max_tokens"] = max_tokens
-    for key in ("temperature", "top_p"):
-        if pcfg.get(key) is not None:
-            req[key] = pcfg[key]
-    return req
 
 ADVISOR_REVIEW_PROMPT = (
     "You are ciel-runtime Advisor, a stronger reviewer model. Review the current task state and provide "

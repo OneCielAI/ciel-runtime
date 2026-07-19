@@ -66,6 +66,10 @@ Adapter in `anthropic_response_writer.py`. Its single block serializer handles
 text, thinking, redacted-thinking, and tool-use projections without facade
 duplication.
 
+Provider wire request construction lives in `provider_request_builder.py`.
+Separate typed ports own budgeting, Ollama projection, OpenAI projection, and
+provider option policy; each port is capped at ten dependencies.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file
