@@ -229,6 +229,10 @@ Claude command와 Codex prompt의 소유권 표식, 사용자 파일 보존, sta
 
 Windows CIM/taskkill과 POSIX ps/signal 기반 프로세스 검색·종료를 캡슐화하는 Runtime Infrastructure Adapter. Query, Inspection, Signal 포트를 분리하며 명령행·환경·cwd 조회, Windows netstat와 Linux procfs/lsof/ss 기반 port listener 탐색, TERM/KILL 및 taskkill 실패를 구조화된 경고로 노출한다.
 
+### `ciel_runtime_support/executable_discovery.py`
+
+플랫폼별 실행 파일 확장자·추가 설치 경로, PATH 탐색, subprocess command 해석, uvx fallback과 tool-guard 위치 탐색을 소유하는 Runtime Infrastructure Resolver. launch와 MCP 설정 코드에서 Windows/POSIX 경로 분기를 제거한다.
+
 ### `ciel_runtime_support/cli_parser.py`
 
 `ciel-runtimectl`의 argparse 문법과 명령-handler 연결을 소유하는 CLI Adapter. Launch, Runtime, Settings, Provider, Models 명령군을 각각 10필드 이하 typed port로 나누고 메인 composition root는 실제 handler만 조립한다.

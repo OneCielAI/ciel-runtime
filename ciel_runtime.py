@@ -19,7 +19,6 @@ import re
 import select
 import secrets
 import signal
-import shlex
 import shutil
 import socket
 import sqlite3
@@ -103,6 +102,7 @@ from ciel_runtime_support.command_asset_installer import (
     CommandAssetInstaller,
     is_owned_command_file,
 )
+from ciel_runtime_support.executable_discovery import ExecutableDiscovery
 from ciel_runtime_support.channel_event_projection import (
     CHANNEL_CONTROL_KINDS as _CHANNEL_CONTROL_KINDS,
     compact_json_for_prompt as _compact_json_for_prompt,
@@ -2166,136 +2166,41 @@ def load_dotenv_into_environ(path: Path, *, override: bool = True) -> None:
 
 
 def executable_candidates(name: str) -> list[str]:
-    if os.name == "nt" and not platform_path(name).suffix:
-        return [f"{name}.exe", f"{name}.cmd", f"{name}.bat", name]
-    return [name]
+    return ExecutableDiscovery.candidates(name)
+
+
+def executable_discovery() -> ExecutableDiscovery:
+    return ExecutableDiscovery(
+        HOME,
+        Path(__file__),
+        platform_path,
+        ciel_runtime_user_bin_dir,
+        agy_user_bin_dir,
+    )
 
 
 def executable_extra_dirs() -> list[Path]:
-    dirs = [ciel_runtime_user_bin_dir(), agy_user_bin_dir()]
-    for env_name in ("UV_INSTALL_DIR", "CARGO_HOME"):
-        root = os.environ.get(env_name)
-        if root:
-            path = Path(root)
-            dirs.append(path if path.name == "bin" else path / "bin")
-    if os.name == "nt":
-        appdata = os.environ.get("APPDATA")
-        if appdata:
-            dirs.append(platform_path(appdata) / "npm")
-        local_appdata = os.environ.get("LOCALAPPDATA")
-        if local_appdata:
-            dirs.append(platform_path(local_appdata) / "Programs" / "nodejs")
-        pyver = f"Python{sys.version_info.major}{sys.version_info.minor}"
-        for env_name in ("APPDATA", "LOCALAPPDATA"):
-            root = os.environ.get(env_name)
-            if root:
-                dirs.append(platform_path(root) / "Python" / pyver / "Scripts")
-        try:
-            import site
-
-            dirs.append(platform_path(site.getuserbase()) / "Scripts")
-        except Exception:
-            pass
-        dirs.append(platform_path(sys.executable).parent / "Scripts")
-    else:
-        dirs.extend(
-            [
-                HOME / ".local" / "bin",
-                HOME / ".cargo" / "bin",
-                HOME / ".npm-global" / "bin",
-                HOME / ".bun" / "bin",
-                Path(sys.executable).resolve().parent,
-                Path("/usr/local/bin"),
-                Path("/usr/bin"),
-                Path("/bin"),
-                Path("/opt/homebrew/bin"),
-            ]
-        )
-    out: list[Path] = []
-    seen: set[str] = set()
-    for directory in dirs:
-        key = str(directory)
-        if key and key not in seen:
-            seen.add(key)
-            out.append(directory)
-    return out
+    return executable_discovery().extra_dirs()
 
 
 def find_executable(name: str) -> str | None:
-    for candidate in executable_candidates(name):
-        found = shutil.which(candidate)
-        if found:
-            return found
-    for directory in executable_extra_dirs():
-        for candidate in executable_candidates(name):
-            path = directory / candidate
-            if path.exists():
-                return str(path)
-    return None
+    return executable_discovery().find(name)
 
 
 def resolve_executable_for_subprocess(command: str) -> str:
-    command = str(command or "").strip()
-    if not command:
-        return command
-    pathish = Path(command).is_absolute() or os.sep in command or bool(os.altsep and os.altsep in command)
-    if pathish:
-        return command
-    return find_executable(command) or command
+    return executable_discovery().resolve(command)
 
 
 def resolve_mcp_server_process(command: str, args: list[str]) -> tuple[str, list[str]]:
-    command = str(command or "").strip()
-    resolved = resolve_executable_for_subprocess(command)
-    name = Path(command).name.lower()
-    if resolved == command and name in ("uvx", "uvx.exe", "uvx.cmd", "uvx.bat"):
-        uv = find_executable("uv")
-        if uv:
-            return uv, ["tool", "run", *args]
-        if importlib.util.find_spec("uv") is not None:
-            return sys.executable, ["-m", "uv", "tool", "run", *args]
-    return resolved, args
+    return executable_discovery().resolve_mcp_process(command, args, find_executable)
 
 
 def shell_command_string(args: list[str]) -> str:
-    if os.name == "nt":
-        # Claude Code on Windows runs hook commands through sh/bash, which treats
-        # backslashes in unquoted Windows paths as escape characters (so
-        # "C:\Users\djlov" becomes "C:Usersdjlov"). Convert backslashes to
-        # forward slashes for path-like args (Python and sh both accept them on
-        # Windows) and use POSIX quoting.
-        normalized: list[str] = []
-        for arg in args:
-            looks_like_path = "\\" in arg and (
-                (len(arg) >= 2 and arg[1] == ":")
-                or arg.startswith("\\\\")
-                or arg.endswith((".py", ".exe", ".cmd", ".bat", ".ps1"))
-            )
-            if looks_like_path:
-                arg = arg.replace("\\", "/")
-            normalized.append(shlex.quote(arg))
-        return " ".join(normalized)
-    return " ".join(shlex.quote(arg) for arg in args)
+    return ExecutableDiscovery.shell_command(args)
 
 
 def find_tool_guard_script() -> Path | None:
-    candidates = [
-        Path(__file__).resolve().with_name("ciel-runtime-tool-guard.py"),
-        ciel_runtime_user_bin_dir() / "ciel-runtime-tool-guard.py",
-        ciel_runtime_user_bin_dir() / "ciel-runtime-tool-guard",
-        HOME / ".local" / "bin" / "ciel-runtime-tool-guard.py",
-        HOME / ".local" / "bin" / "ciel-runtime-tool-guard",
-    ]
-    found = find_executable("ciel-runtime-tool-guard")
-    if found:
-        candidates.append(Path(found))
-    found_py = find_executable("ciel-runtime-tool-guard.py")
-    if found_py:
-        candidates.append(Path(found_py))
-    for path in candidates:
-        if path.exists():
-            return path
-    return None
+    return executable_discovery().find_tool_guard(find_executable)
 
 
 def ciel_runtime_tool_guard_command() -> str | None:
