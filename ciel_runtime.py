@@ -270,8 +270,13 @@ from ciel_runtime_support.tool_guard_hooks import (
 )
 from ciel_runtime_support.process_control import (
     ProcessControlServices,
+    ProcessInspectionServices,
     ProcessQueryServices,
     ProcessSignalServices,
+    posix_process_rows,
+    process_command_line as inspect_process_command_line,
+    process_cwd as inspect_process_cwd,
+    process_environ_contains as inspect_process_environ_contains,
     terminate_matching_processes as run_terminate_matching_processes,
 )
 from ciel_runtime_support.provider_config_mutations import (
@@ -20097,53 +20102,28 @@ def codex_process_record_path(kind: str = "client") -> Path:
     return CODEX_PROCESS_DIR / f"{os.getpid()}-{safe_kind}.json"
 
 
+def process_inspection_services() -> ProcessInspectionServices:
+    return ProcessInspectionServices(
+        run=subprocess.run,
+        read_bytes=lambda path: path.read_bytes(),
+        readlink=lambda path: os.readlink(path),
+        username=getpass.getuser,
+        log=router_log,
+    )
+
+
 def _process_command_line(pid: int) -> str:
-    if pid <= 0:
-        return ""
-    if os.name == "nt":
-        script = (
-            "Get-CimInstance Win32_Process -Filter "
-            f"\"ProcessId = {int(pid)}\" | Select-Object -ExpandProperty CommandLine"
-        )
-        try:
-            proc = subprocess.run(
-                ["powershell", "-NoProfile", "-Command", script],
-                text=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                timeout=5,
-            )
-            return proc.stdout.strip()
-        except Exception:
-            return ""
-    try:
-        proc = subprocess.run(
-            ["ps", "-p", str(pid), "-o", "command="],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            timeout=5,
-        )
-        return proc.stdout.strip()
-    except Exception:
-        return ""
+    return inspect_process_command_line(pid, process_inspection_services(), platform_name=os.name)
 
 
 def _process_environ_contains(pid: int, key: str, value: str | None = None) -> bool:
-    if os.name == "nt" or pid <= 0:
-        return False
-    try:
-        data = (Path("/proc") / str(pid) / "environ").read_bytes()
-    except Exception:
-        return False
-    needle = f"{key}=".encode("utf-8")
-    for item in data.split(b"\0"):
-        if not item.startswith(needle):
-            continue
-        if value is None:
-            return True
-        return item[len(needle):].decode("utf-8", errors="replace") == value
-    return False
+    return inspect_process_environ_contains(
+        pid,
+        key,
+        value,
+        process_inspection_services(),
+        platform_name=os.name,
+    )
 
 
 def _looks_like_ciel_managed_codex_process(pid: int, command: str | None = None) -> bool:
@@ -20197,7 +20177,8 @@ def _release_codex_child_process_record(path: Path | None, pid: int | None = Non
 def _terminate_recorded_child_process(proc: Any, label: str) -> None:
     try:
         pid = int(getattr(proc, "pid", 0) or 0)
-    except Exception:
+    except (TypeError, ValueError) as exc:
+        router_log("WARN", f"codex_child_process_pid_invalid error={type(exc).__name__}: {exc}")
         return
     if pid <= 0:
         return
@@ -20233,11 +20214,21 @@ def terminate_tracked_codex_processes(reason: str, quiet: bool = True) -> bool:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             pid = int(data.get("pid") or 0)
-        except Exception:
+        except (OSError, UnicodeError, json.JSONDecodeError, AttributeError, TypeError, ValueError) as exc:
+            router_log(
+                "WARN",
+                f"codex_tracked_process_record_invalid path={path} error={type(exc).__name__}: {exc}",
+            )
             try:
                 path.unlink()
-            except Exception:
+            except FileNotFoundError:
                 pass
+            except OSError as unlink_exc:
+                router_log(
+                    "WARN",
+                    f"codex_tracked_process_record_cleanup_failed path={path} "
+                    f"error={type(unlink_exc).__name__}: {unlink_exc}",
+                )
             continue
         if pid <= 0 or not pid_is_running(pid):
             _release_codex_child_process_record(path, pid)
@@ -20272,12 +20263,7 @@ def _current_process_ancestor_pids(limit: int = 12) -> set[int]:
 
 
 def _posix_process_cwd(pid: int) -> Path | None:
-    if os.name == "nt" or pid <= 0:
-        return None
-    try:
-        return Path(os.readlink(Path("/proc") / str(pid) / "cwd")).resolve()
-    except Exception:
-        return None
+    return inspect_process_cwd(pid, process_inspection_services(), platform_name=os.name)
 
 
 def _untracked_codex_process_pids_for_cwd(cwd: Path | None = None) -> list[int]:
@@ -20285,26 +20271,8 @@ def _untracked_codex_process_pids_for_cwd(cwd: Path | None = None) -> list[int]:
         return []
     target_cwd = (cwd or Path.cwd()).resolve()
     protected = _current_process_ancestor_pids()
-    try:
-        proc = subprocess.run(
-            ["ps", "-u", getpass.getuser(), "-o", "pid=,stat=,command="],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            timeout=5,
-        )
-    except Exception:
-        return []
     matches: list[int] = []
-    for line in proc.stdout.splitlines():
-        parts = line.strip().split(maxsplit=2)
-        if len(parts) < 3:
-            continue
-        try:
-            pid = int(parts[0])
-        except ValueError:
-            continue
-        stat, command = parts[1], parts[2]
+    for pid, stat, command in posix_process_rows(process_inspection_services()):
         if pid in protected or stat.startswith("Z"):
             continue
         if not _looks_like_ciel_managed_codex_process(pid, command):

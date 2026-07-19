@@ -143,6 +143,7 @@ from ciel_runtime_support.lm_studio_runtime import LmStudioRuntimeServices
 from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy, ToolGuardHookServices
 from ciel_runtime_support.process_control import (
     ProcessControlServices,
+    ProcessInspectionServices,
     ProcessQueryServices,
     ProcessSignalServices,
 )
@@ -1096,9 +1097,36 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertLessEqual(len(fields(port)), 10)
 
     def test_process_control_ports_stay_below_dependency_limit(self):
-        for port in (ProcessQueryServices, ProcessSignalServices, ProcessControlServices):
+        for port in (
+            ProcessQueryServices,
+            ProcessSignalServices,
+            ProcessControlServices,
+            ProcessInspectionServices,
+        ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_process_inspection_effects_live_outside_composition_root(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        functions = {
+            node.name: ast.unparse(node)
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name
+            in {
+                "_process_command_line",
+                "_process_environ_contains",
+                "_posix_process_cwd",
+                "_untracked_codex_process_pids_for_cwd",
+            }
+        }
+        self.assertEqual(4, len(functions))
+        for name, function_source in functions.items():
+            with self.subTest(function=name):
+                self.assertNotIn("subprocess.run", function_source)
+                self.assertNotIn('Path("/proc")', function_source)
+                self.assertNotIn("os.readlink", function_source)
 
     def test_cli_parser_ports_stay_below_dependency_limit(self):
         for port in (

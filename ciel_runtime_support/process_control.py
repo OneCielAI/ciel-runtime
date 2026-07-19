@@ -7,6 +7,7 @@ import signal
 import subprocess
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 
@@ -32,6 +33,129 @@ class ProcessControlServices:
     signals: ProcessSignalServices
     log: Callable[[str, str], None]
     output: Callable[[str], None] = print
+
+
+@dataclass(frozen=True)
+class ProcessInspectionServices:
+    run: Callable[..., subprocess.CompletedProcess[str]]
+    read_bytes: Callable[[Path], bytes]
+    readlink: Callable[[Path], str]
+    username: Callable[[], str]
+    log: Callable[[str, str], None]
+
+
+def process_command_line(
+    pid: int,
+    services: ProcessInspectionServices,
+    *,
+    platform_name: str = os.name,
+) -> str:
+    if pid <= 0:
+        return ""
+    if platform_name == "nt":
+        script = (
+            "Get-CimInstance Win32_Process -Filter "
+            f'"ProcessId = {int(pid)}" | Select-Object -ExpandProperty CommandLine'
+        )
+        command = ["powershell", "-NoProfile", "-Command", script]
+    else:
+        command = ["ps", "-p", str(pid), "-o", "command="]
+    try:
+        result = services.run(
+            command,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        services.log(
+            "WARN",
+            f"process_command_line_query_failed pid={pid} platform={platform_name} "
+            f"error={type(exc).__name__}: {exc}",
+        )
+        return ""
+    return result.stdout.strip()
+
+
+def process_environ_contains(
+    pid: int,
+    key: str,
+    value: str | None,
+    services: ProcessInspectionServices,
+    *,
+    platform_name: str = os.name,
+) -> bool:
+    if platform_name == "nt" or pid <= 0:
+        return False
+    path = Path("/proc") / str(pid) / "environ"
+    try:
+        data = services.read_bytes(path)
+    except (FileNotFoundError, ProcessLookupError, PermissionError):
+        return False
+    except OSError as exc:
+        services.log(
+            "WARN",
+            f"process_environ_query_failed pid={pid} error={type(exc).__name__}: {exc}",
+        )
+        return False
+    needle = f"{key}=".encode()
+    for item in data.split(b"\0"):
+        if not item.startswith(needle):
+            continue
+        if value is None:
+            return True
+        return item[len(needle) :].decode("utf-8", errors="replace") == value
+    return False
+
+
+def process_cwd(
+    pid: int,
+    services: ProcessInspectionServices,
+    *,
+    platform_name: str = os.name,
+) -> Path | None:
+    if platform_name == "nt" or pid <= 0:
+        return None
+    path = Path("/proc") / str(pid) / "cwd"
+    try:
+        return Path(services.readlink(path)).resolve()
+    except (FileNotFoundError, ProcessLookupError, PermissionError):
+        return None
+    except OSError as exc:
+        services.log(
+            "WARN",
+            f"process_cwd_query_failed pid={pid} error={type(exc).__name__}: {exc}",
+        )
+        return None
+
+
+def posix_process_rows(services: ProcessInspectionServices) -> list[tuple[int, str, str]]:
+    try:
+        result = services.run(
+            ["ps", "-u", services.username(), "-o", "pid=,stat=,command="],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        services.log(
+            "WARN",
+            f"process_list_query_failed platform=posix error={type(exc).__name__}: {exc}",
+        )
+        return []
+    rows: list[tuple[int, str, str]] = []
+    for line in result.stdout.splitlines():
+        parts = line.strip().split(maxsplit=2)
+        if len(parts) < 3:
+            continue
+        try:
+            pid = int(parts[0])
+        except ValueError:
+            continue
+        rows.append((pid, parts[1], parts[2]))
+    return rows
 
 
 def terminate_matching_processes(
