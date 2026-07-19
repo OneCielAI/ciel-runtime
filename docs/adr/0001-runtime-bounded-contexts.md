@@ -100,6 +100,10 @@ HTTP MCP configuration projection, environment-backed authentication headers,
 external server discovery, allow-list filtering, and automatic connection
 startup live in `channel_mcp_discovery.py`.
 
+Notification-stream ownership is read by `ChannelProxyOwnershipRepository`,
+while `ChannelRouterLifecycle` filters proxy-owned servers and starts only the
+router-owned workers. Both live in `channel_mcp_ownership.py`.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

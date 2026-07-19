@@ -93,6 +93,7 @@ from ciel_runtime_support.channel_llm_context import (
 )
 from ciel_runtime_support.channel_mcp_tools import ChannelMcpToolServices
 from ciel_runtime_support.channel_mcp_discovery import ChannelMcpDiscoveryPorts
+from ciel_runtime_support.channel_mcp_ownership import ChannelRouterLifecyclePorts
 from ciel_runtime_support.channel_pending_injection import (
     ChannelInjectionIO,
     ChannelInjectionPolicy,
@@ -850,6 +851,9 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_channel_mcp_discovery_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelMcpDiscoveryPorts)), 10)
+
+    def test_channel_router_lifecycle_ports_stay_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(ChannelRouterLifecyclePorts)), 10)
 
     def test_sse_stream_state_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(SseStreamServices)), 10)

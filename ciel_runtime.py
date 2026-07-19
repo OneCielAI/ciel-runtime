@@ -166,6 +166,11 @@ from ciel_runtime_support.channel_mcp_discovery import (
     ChannelMcpDiscoveryPorts,
     ChannelMcpDiscoveryService,
 )
+from ciel_runtime_support.channel_mcp_ownership import (
+    ChannelProxyOwnershipRepository,
+    ChannelRouterLifecycle,
+    ChannelRouterLifecyclePorts,
+)
 from ciel_runtime_support.channel_mcp_http_controller import (
     ChannelMcpHttpController,
     ChannelMcpRpcServices,
@@ -11442,125 +11447,47 @@ def auto_start_sse_channels_from_mcp_configs(
     )
 
 
+def channel_proxy_ownership_repository() -> ChannelProxyOwnershipRepository:
+    return ChannelProxyOwnershipRepository(
+        MCP_PROXY_CONFIG,
+        _mcp_server_disable_proxy_notification_stream,
+        router_log,
+    )
+
+
 def proxy_owned_channel_server_names() -> set[str]:
-    """Servers the launch process already routes through ciel-runtime's mcp-proxy.
-
-    launch_claude force-proxies channel-capable streamable-HTTP servers so the
-    proxy is the single owner of their notification stream (and idle wake). The
-    router runs in a separate process and would otherwise ALSO open a channel
-    SSE worker for the same server if it appears in config channels, producing a
-    second owner and duplicate notifications. The proxied servers are recorded
-    in the generated mcp-proxy.json (each as a `mcp-proxy --server-name X`
-    command wrapper), so the router reads that file to learn which servers to
-    leave to the proxy.
-
-    A wrapped server whose per-server config disables the proxy notification
-    stream is NOT proxy-owned for notifications (the proxy suppresses its GET
-    stream), so it is excluded here -- the router worker must still own it, or
-    there would be zero notification owners.
-    """
-    owned: set[str] = set()
-    try:
-        if not MCP_PROXY_CONFIG.exists():
-            return owned
-        data = json.loads(MCP_PROXY_CONFIG.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError, TypeError) as exc:
-        router_log(
-            "WARN",
-            f"proxy_owned_channel_config_read_failed path={MCP_PROXY_CONFIG} "
-            f"error={type(exc).__name__}: {exc}",
-        )
-        return owned
-    servers = data.get("mcpServers") if isinstance(data, dict) else None
-    if not isinstance(servers, dict):
-        return owned
-    for name, entry in servers.items():
-        if not isinstance(entry, dict):
-            continue
-        args = entry.get("args")
-        if not isinstance(args, list):
-            continue
-        args_s = [str(a) for a in args]
-        if "mcp-proxy" not in args_s or "--server-name" not in args_s:
-            continue
-        try:
-            wrapped_name = args_s[args_s.index("--server-name") + 1].strip()
-        except IndexError:
-            wrapped_name = str(name).strip()
-        # Skip servers whose proxy notification stream is disabled -- the proxy
-        # does not own notifications for them, so the router must keep its worker.
-        if _proxy_server_config_disables_notifications(args_s):
-            continue
-        if wrapped_name:
-            owned.add(wrapped_name)
-    return owned
+    return channel_proxy_ownership_repository().owned_names()
 
 
 def _proxy_server_config_disables_notifications(args_s: list[str]) -> bool:
-    try:
-        cfg_path = args_s[args_s.index("--server-config") + 1]
-    except (ValueError, IndexError):
-        return False
-    try:
-        server = json.loads(Path(cfg_path).read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError, TypeError) as exc:
-        router_log(
-            "WARN",
-            f"proxy_server_config_read_failed path={cfg_path} error={type(exc).__name__}: {exc}",
-        )
-        return False
-    return _mcp_server_disable_proxy_notification_stream(server) if isinstance(server, dict) else False
+    return channel_proxy_ownership_repository().server_config_disables_notifications(
+        args_s
+    )
+
+
+def channel_router_lifecycle() -> ChannelRouterLifecycle:
+    return ChannelRouterLifecycle(
+        frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
+        ChannelRouterLifecyclePorts(
+            delivery_enabled=should_use_channel_llm_delivery,
+            launch_specs=channel_specs_for_launch,
+            server_names=_server_names_from_channel_specs,
+            owned_names=proxy_owned_channel_server_names,
+            public_name=_channel_sse_public_mcp_name,
+            ensure_probe=ensure_channel_probe_cache_for_launch,
+            source_paths=cached_channel_source_paths_for_specs,
+            auto_start=auto_start_sse_channels_from_mcp_configs,
+            log=router_log,
+        ),
+    )
 
 
 def router_managed_channel_server_names(cfg: dict[str, Any]) -> list[str]:
-    names = _server_names_from_channel_specs(channel_specs_for_launch(cfg, []))
-    names = [name for name in names if name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES]
-    owned = proxy_owned_channel_server_names()
-    if not owned:
-        return names
-    owned_public = {_channel_sse_public_mcp_name(n) for n in owned}
-    kept = [n for n in names if _channel_sse_public_mcp_name(n) not in owned_public]
-    if len(kept) != len(names):
-        dropped = sorted({n for n in names} - {n for n in kept})
-        router_log(
-            "INFO",
-            "router_channel_sse_skipped_proxy_owned servers=%s" % (",".join(dropped) or "-"),
-        )
-    return kept
+    return channel_router_lifecycle().managed_names(cfg)
 
 
 def start_router_managed_channel_sse(cfg: dict[str, Any]) -> list[dict[str, Any]]:
-    if not should_use_channel_llm_delivery(True, [], cfg):
-        return []
-    names = router_managed_channel_server_names(cfg)
-    source_paths: list[Path] = []
-    # Pass the (possibly empty) name list straight through. An empty list MUST
-    # remain an empty allow-list ("open nothing"), not collapse to None which
-    # auto_start_sse_channels_from_mcp_configs treats as "open every MCP server"
-    # -- that allow-all flip made the router open a second held notification
-    # stream to backends like ai-net-http even when no channels were configured,
-    # so the same digest arrived twice (router worker + Claude Code's own MCP).
-    allowed_names: list[str] = list(names)
-    if names:
-        try:
-            ensure_channel_probe_cache_for_launch(cfg, [])
-            source_paths = cached_channel_source_paths_for_specs([f"server:{name}" for name in names])
-        except Exception as exc:
-            router_log("WARN", f"router_channel_probe_cache_failed error={type(exc).__name__}: {exc}")
-    else:
-        router_log("INFO", "router_channel_sse_skipped reason=no_external_channel_specs")
-        return []
-    started = auto_start_sse_channels_from_mcp_configs(
-        [],
-        extra_config_paths=source_paths,
-        allowed_server_names=allowed_names,
-    )
-    router_log(
-        "INFO",
-        "router_channel_sse_started count=%d servers=%s"
-        % (len(started), ",".join(str(item.get("name") or "") for item in started) or "-"),
-    )
-    return started
+    return channel_router_lifecycle().start(cfg)
 
 
 def channel_specs_for_launch(cfg: dict[str, Any], passthrough: list[str], extra_specs: list[str] | None = None) -> list[str]:
