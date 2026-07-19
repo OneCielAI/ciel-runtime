@@ -385,6 +385,7 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "infer_preset_id_from_options",
             "model_option_family",
             "recommended_preset_id",
+            "required_context_for_preset",
         }
         functions = {
             node.name: ast.get_source_segment(source, node) or ""

@@ -193,6 +193,7 @@ class ProviderContextPolicy:
     uses_catalog_timeout: bool = False
     managed_preset_inference: bool = False
     context_family_before_size_markers: bool = False
+    preset_context_profile: Literal["default", "ollama", "nvidia"] = "default"
 
 
 @dataclass(frozen=True)

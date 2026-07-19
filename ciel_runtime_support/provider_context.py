@@ -183,6 +183,31 @@ def recommended_preset(family: str, capacity: int | None) -> str:
     return "balanced"
 
 
+def required_context_for_preset(preset_id: str, policy: ProviderContextPolicy) -> int | None:
+    profile = policy.preset_context_profile
+    if preset_id == "million-context-1m":
+        return 1048576
+    if preset_id == "humanities-researcher":
+        return 524288 if profile == "ollama" else 262144
+    if preset_id in {"novelist", "mathematician", "product-architect"}:
+        return 262144
+    if preset_id == "teacher":
+        return 131072
+    if preset_id == "reasoning":
+        return 262144 if profile == "nvidia" else 131072
+    if preset_id == "large-output":
+        if profile == "nvidia":
+            return 262144
+        return 131072 if profile == "ollama" else 65536
+    return {
+        "long-context-512k": 524288,
+        "long-context-300k": 307200,
+        "long-context-256k": 262144,
+        "long-context-128k": 131072,
+        "long-context-65k": 131072 if profile == "nvidia" else 65536,
+    }.get(preset_id)
+
+
 def _context_family(capacity: int | None) -> str:
     if capacity and capacity >= 1048576:
         return "million-context"
@@ -198,5 +223,6 @@ __all__ = [
     "infer_context_preset",
     "classify_model_family",
     "recommended_preset",
+    "required_context_for_preset",
     "resolve_context_capacity",
 ]

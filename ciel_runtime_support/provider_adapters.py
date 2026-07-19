@@ -320,7 +320,10 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
         return ProviderContextPolicy(
-            capacity_strategy="ollama", settings_strategy="ollama", uses_catalog_timeout=True
+            capacity_strategy="ollama",
+            settings_strategy="ollama",
+            uses_catalog_timeout=True,
+            preset_context_profile="ollama",
         )
 
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
@@ -377,6 +380,7 @@ class OllamaCloudProviderAdapter(OllamaProviderAdapter):
             hosted_timeout=True,
             timeout_weight=1.2,
             uses_catalog_timeout=True,
+            preset_context_profile="ollama",
         )
 
 
@@ -515,7 +519,10 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
         return ProviderContextPolicy(
-            capacity_strategy="nvidia", settings_strategy="standard", hosted_timeout=True
+            capacity_strategy="nvidia",
+            settings_strategy="standard",
+            hosted_timeout=True,
+            preset_context_profile="nvidia",
         )
 
     def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:

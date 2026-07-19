@@ -9,6 +9,7 @@ from ciel_runtime_support.provider_context import (
     classify_model_family,
     infer_context_preset,
     recommended_preset,
+    required_context_for_preset,
     resolve_context_capacity,
 )
 
@@ -124,6 +125,14 @@ class ProviderContextTests(unittest.TestCase):
         self.assertEqual("large", regular)
         self.assertEqual("long-context", context_first)
         self.assertEqual("long-context-128k", recommended_preset(context_first, 131072))
+
+    def test_required_context_uses_provider_profile(self):
+        ollama = ProviderContextPolicy(preset_context_profile="ollama")
+        nvidia = ProviderContextPolicy(preset_context_profile="nvidia")
+        default = ProviderContextPolicy()
+        self.assertEqual(524288, required_context_for_preset("humanities-researcher", ollama))
+        self.assertEqual(262144, required_context_for_preset("reasoning", nvidia))
+        self.assertEqual(65536, required_context_for_preset("large-output", default))
 
 
 if __name__ == "__main__":

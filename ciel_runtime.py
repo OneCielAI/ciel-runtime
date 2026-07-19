@@ -403,6 +403,7 @@ from ciel_runtime_support.provider_context import (
     classify_model_family,
     infer_context_preset,
     recommended_preset,
+    required_context_for_preset as context_required_for_preset,
     resolve_context_capacity,
 )
 from ciel_runtime_support.provider_option_panel import (
@@ -18024,34 +18025,10 @@ def apply_lm_studio_loaded_context_guard(pcfg: dict[str, Any], load: bool = Fals
 
 
 def required_context_for_preset(preset_id: str, provider: str | None = None) -> int | None:
-    provider = provider or ""
-    if preset_id == "million-context-1m":
-        return 1048576
-    if preset_id == "humanities-researcher":
-        return 524288 if provider in ("ollama", "ollama-cloud") else 262144
-    if preset_id in ("novelist", "mathematician", "product-architect"):
-        return 262144
-    if preset_id == "teacher":
-        return 131072
-    if preset_id == "reasoning":
-        return 262144 if provider == "nvidia-hosted" else 131072
-    if preset_id == "large-output":
-        if provider == "nvidia-hosted":
-            return 262144
-        if provider in ("ollama", "ollama-cloud"):
-            return 131072
-        return 65536
-    if preset_id == "long-context-512k":
-        return 524288
-    if preset_id == "long-context-300k":
-        return 307200
-    if preset_id == "long-context-256k":
-        return 262144
-    if preset_id == "long-context-128k":
-        return 131072
-    if preset_id == "long-context-65k":
-        return 131072 if provider == "nvidia-hosted" else 65536
-    return None
+    provider = provider or "anthropic"
+    return context_required_for_preset(
+        preset_id, provider_context_policy(provider, {})
+    )
 
 
 def preset_available_for_model(provider: str, pcfg: dict[str, Any], preset_id: str) -> bool:
