@@ -181,6 +181,10 @@ MCP 채널 capability probe의 JSONL/LSP 프레임, SSE 이벤트 및 initialize
 
 SSE와 Streamable HTTP MCP capability probe의 수명주기를 조정하는 Transport Application Service. codec, HTTP I/O, timeout 정책을 각각 6필드 이하 포트로 분리하고 reader·cleanup 실패를 구조화 로그로 노출한다.
 
+### `ciel_runtime_support/mcp_stdio_probe.py`
+
+stdio MCP server의 spawn, initialize framing, stdout/stderr 수집 및 종료 수명주기를 담당하는 Process Adapter. codec, process I/O, timeout·preview 정책 포트를 분리하며 모든 reader·write·cleanup 실패를 관측 가능하게 유지한다.
+
 ### `ciel_runtime_support/mcp_proxy_codec.py`
 
 MCP 프록시의 JSON-RPC 오류·notification wait 응답과 대형 메시지 조회 결과 압축을 담당하는 codec. 전송 및 프로세스 수명주기와 분리되며 환경·로그·문자열 제한 규칙은 6필드 `McpProxyCodecPolicy` 포트로 주입된다.

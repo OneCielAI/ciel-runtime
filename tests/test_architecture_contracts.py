@@ -43,6 +43,12 @@ from ciel_runtime_support.mcp_probe_transport import (
     McpProbePolicy,
     McpProbeServices,
 )
+from ciel_runtime_support.mcp_stdio_probe import (
+    StdioProbeCodec,
+    StdioProbePolicy,
+    StdioProbeProcess,
+    StdioProbeServices,
+)
 from ciel_runtime_support.model_panel import (
     ModelPanelCatalog,
     ModelPanelPresentation,
@@ -456,7 +462,9 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertLessEqual(len(fields(port)), 10)
 
     def test_stdio_mcp_probe_has_no_silent_exception_handlers(self):
-        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        source = (
+            Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "mcp_stdio_probe.py"
+        ).read_text(encoding="utf-8")
         tree = ast.parse(source)
         function = next(
             node
@@ -472,6 +480,11 @@ class ArchitectureContractTests(unittest.TestCase):
             and isinstance(node.body[0], ast.Pass)
         ]
         self.assertEqual([], silent_handlers)
+
+    def test_stdio_mcp_probe_ports_stay_below_dependency_limit(self):
+        for port in (StdioProbeCodec, StdioProbeProcess, StdioProbePolicy, StdioProbeServices):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
 
     def test_mcp_probe_transport_ports_stay_below_dependency_limit(self):
         for port in (McpProbeCodec, McpProbeHttp, McpProbePolicy, McpProbeServices):
