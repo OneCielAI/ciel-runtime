@@ -27,6 +27,14 @@ from ciel_runtime_support.cli_dispatch import (
     CliServices,
     CliSpecialCommands,
 )
+from ciel_runtime_support.cli_parser import (
+    CliParserLaunch,
+    CliParserModels,
+    CliParserProvider,
+    CliParserRuntime,
+    CliParserServices,
+    CliParserSettings,
+)
 from ciel_runtime_support.channel_panel import ChannelPanelPolicy
 from ciel_runtime_support.claude_router import (
     ClaudeRouterCore,
@@ -965,6 +973,18 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_process_control_ports_stay_below_dependency_limit(self):
         for port in (ProcessQueryServices, ProcessSignalServices, ProcessControlServices):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_cli_parser_ports_stay_below_dependency_limit(self):
+        for port in (
+            CliParserLaunch,
+            CliParserRuntime,
+            CliParserSettings,
+            CliParserProvider,
+            CliParserModels,
+            CliParserServices,
+        ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 

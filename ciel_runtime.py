@@ -130,6 +130,15 @@ from ciel_runtime_support.cli_dispatch import (
     dispatch_cli,
 )
 from ciel_runtime_support.cli_usage import cli_usage_text
+from ciel_runtime_support.cli_parser import (
+    CliParserLaunch,
+    CliParserModels,
+    CliParserProvider,
+    CliParserRuntime,
+    CliParserServices,
+    CliParserSettings,
+    build_cli_parser,
+)
 from ciel_runtime_support.compatibility_test import (
     CompatibilityTestConfig,
     CompatibilityTestConstants,
@@ -28890,92 +28899,49 @@ def cmd_version(args: argparse.Namespace) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="ciel-runtimectl")
-    sub = p.add_subparsers(dest="cmd", required=True)
-    cli = sub.add_parser("cli", add_help=False)
-    cli.add_argument("argv", nargs=argparse.REMAINDER)
-    cli.set_defaults(func=cmd_cli)
-    launch = sub.add_parser("launch", add_help=False)
-    launch.add_argument("argv", nargs=argparse.REMAINDER)
-    launch.set_defaults(func=cmd_launch)
-    launch_codex_parser = sub.add_parser("launch-codex", add_help=False)
-    launch_codex_parser.add_argument("argv", nargs=argparse.REMAINDER)
-    launch_codex_parser.set_defaults(func=cmd_launch_codex)
-    launch_codex_app_server_parser = sub.add_parser("launch-codex-app-server", add_help=False)
-    launch_codex_app_server_parser.add_argument("argv", nargs=argparse.REMAINDER)
-    launch_codex_app_server_parser.set_defaults(func=cmd_launch_codex_app_server)
-    launch_agy_parser = sub.add_parser("launch-agy", add_help=False)
-    launch_agy_parser.add_argument("argv", nargs=argparse.REMAINDER)
-    launch_agy_parser.set_defaults(func=cmd_launch_agy)
-    sub.add_parser("serve").set_defaults(func=serve)
-    sub.add_parser("version").set_defaults(func=cmd_version)
-    sub.add_parser("status").set_defaults(func=cmd_status)
-    sub.add_parser("env").set_defaults(func=cmd_env)
-    sub.add_parser("stop").set_defaults(func=cmd_stop)
-    lang = sub.add_parser("language")
-    lang.add_argument("value", nargs="?")
-    lang.set_defaults(func=cmd_language)
-    ws = sub.add_parser("web-search")
-    ws.add_argument("value", nargs="?")
-    ws.set_defaults(func=cmd_web_search)
-    wf = sub.add_parser("web-fetch")
-    wf.add_argument("value", nargs="?")
-    wf.set_defaults(func=cmd_web_fetch)
-    ll = sub.add_parser("log-level")
-    ll.add_argument("value", nargs="?")
-    ll.set_defaults(func=cmd_log_level)
-    ch = sub.add_parser("channels")
-    ch.add_argument("values", nargs="*")
-    ch.set_defaults(func=cmd_channels)
-    cd = sub.add_parser("channel-delivery")
-    cd.add_argument("value", nargs="?")
-    cd.set_defaults(func=cmd_channel_delivery)
-    on = sub.add_parser("ollama-native")
-    on.add_argument("value", nargs="?")
-    on.set_defaults(func=cmd_ollama_native)
-    oo = sub.add_parser("ollama-options")
-    oo.add_argument("values", nargs="*")
-    oo.set_defaults(func=cmd_ollama_options)
-    po = sub.add_parser("provider-options")
-    po.add_argument("values", nargs="*")
-    po.set_defaults(func=cmd_provider_options)
-    oc = sub.add_parser("ollama-catalog")
-    oc.add_argument("--no-contexts", action="store_true")
-    oc.add_argument("--timeout", type=float, default=10.0)
-    oc.set_defaults(func=cmd_ollama_catalog)
-    test = sub.add_parser("test")
-    test.add_argument("timeout", nargs="?", type=float, default=120.0)
-    test.add_argument("mode", nargs="?", choices=("auto", "quick", "smoke", "full"), default="auto")
-    test.set_defaults(func=cmd_test)
-    pp = sub.add_parser("provider")
-    pp.add_argument("name", nargs="?")
-    pp.set_defaults(func=cmd_provider)
-    ak = sub.add_parser("api-key")
-    ak.add_argument("provider", nargs="?")
-    ak.add_argument("action", nargs="?")
-    ak.set_defaults(func=cmd_api_key)
-    sak = sub.add_parser("set-api-key")
-    sak.add_argument("provider")
-    sak.add_argument("key")
-    sak.set_defaults(func=cmd_set_api_key)
-    saks = sub.add_parser("set-api-keys")
-    saks.add_argument("provider")
-    saks.add_argument("keys", nargs="+")
-    saks.set_defaults(func=cmd_set_api_keys)
-    bu = sub.add_parser("base-url")
-    bu.add_argument("provider")
-    bu.add_argument("url")
-    bu.set_defaults(func=cmd_base_url)
-    mo = sub.add_parser("model")
-    mo.add_argument("value", nargs="*")
-    mo.set_defaults(func=cmd_model)
-    am = sub.add_parser("advisor-model")
-    am.add_argument("value", nargs="*")
-    am.set_defaults(func=cmd_advisor_model)
-    ml = sub.add_parser("models")
-    ml.add_argument("provider", nargs="?")
-    ml.set_defaults(func=cmd_models)
-    return p
+    return build_cli_parser(
+        CliParserServices(
+            launch=CliParserLaunch(
+                cli=cmd_cli,
+                launch=cmd_launch,
+                launch_codex=cmd_launch_codex,
+                launch_codex_app_server=cmd_launch_codex_app_server,
+                launch_agy=cmd_launch_agy,
+                serve=serve,
+            ),
+            runtime=CliParserRuntime(
+                version=cmd_version,
+                status=cmd_status,
+                env=cmd_env,
+                stop=cmd_stop,
+                test=cmd_test,
+            ),
+            settings=CliParserSettings(
+                language=cmd_language,
+                web_search=cmd_web_search,
+                web_fetch=cmd_web_fetch,
+                log_level=cmd_log_level,
+                channels=cmd_channels,
+                channel_delivery=cmd_channel_delivery,
+            ),
+            provider=CliParserProvider(
+                ollama_native=cmd_ollama_native,
+                ollama_options=cmd_ollama_options,
+                provider_options=cmd_provider_options,
+                ollama_catalog=cmd_ollama_catalog,
+                provider=cmd_provider,
+                api_key=cmd_api_key,
+                set_api_key=cmd_set_api_key,
+                set_api_keys=cmd_set_api_keys,
+                base_url=cmd_base_url,
+            ),
+            models=CliParserModels(
+                model=cmd_model,
+                advisor_model=cmd_advisor_model,
+                models=cmd_models,
+            ),
+        )
+    )
 
 
 def main() -> None:
