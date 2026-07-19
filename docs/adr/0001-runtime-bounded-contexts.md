@@ -47,6 +47,10 @@ Codex configuration parsing and MCP server discovery live in
 `codex_config.py`; runtime launch orchestration consumes their projections and
 does not parse TOML itself.
 
+Codex launch argument decisions live in `codex_launch_policy.py`, the local
+resume index is isolated behind `codex_session_repository.py`, and bundled
+model projection plus atomic catalog writes live in `codex_model_catalog.py`.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

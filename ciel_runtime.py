@@ -20,7 +20,6 @@ import secrets
 import signal
 import shutil
 import socket
-import sqlite3
 import subprocess
 import sys
 import tarfile
@@ -511,6 +510,17 @@ from ciel_runtime_support.codex_config import (
     toml_table_parts as project_toml_table_parts,
     unquote_toml_string as project_unquote_toml_string,
 )
+from ciel_runtime_support.codex_launch_policy import (
+    current_model_args as project_codex_current_model_args,
+    help_requested as project_codex_help_requested,
+    native_routed_config_args as project_codex_native_routed_config_args,
+    passthrough_has_model_override as project_codex_model_overridden,
+    yolo_launch_args as project_codex_yolo_launch_args,
+)
+from ciel_runtime_support.codex_model_catalog import (
+    CodexModelCatalogService,
+    CodexModelCatalogSpec,
+)
 from ciel_runtime_support.codex_cli import (
     codex_passthrough_args_for_launch,
     codex_passthrough_has_command,
@@ -518,6 +528,10 @@ from ciel_runtime_support.codex_cli import (
     codex_resume_with_session_id,
 )
 from ciel_runtime_support.codex_router import CodexRouter, read_codex_response_preamble
+from ciel_runtime_support.codex_session_repository import (
+    CodexSessionRepository,
+    codex_sqlite_home,
+)
 from ciel_runtime_support.observability import EventBus, render_events_html
 from ciel_runtime_support.request_trace import (
     RequestTracePolicy,
@@ -19836,65 +19850,23 @@ def write_codex_runtime_model_catalog(codex: str, cfg: dict[str, Any]) -> Path |
     alias = current_alias(cfg)
     if not alias:
         return None
-    try:
-        catalog_env = os.environ.copy()
-        catalog_env["PATH"] = path_with_ciel_runtime_user_dirs(catalog_env)
-        result = subprocess.run(
-            [codex, "debug", "models", "--bundled"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=15,
-            check=False,
-            env=catalog_env,
-        )
-        if result.returncode != 0:
-            raise RuntimeError((result.stderr or result.stdout or f"exit {result.returncode}").strip())
-        catalog = json.loads(result.stdout)
-        models = catalog.get("models") if isinstance(catalog, dict) else None
-        if not isinstance(models, list) or not models:
-            raise ValueError("bundled catalog contains no models")
-        template = next((item for item in models if isinstance(item, dict) and item.get("slug") == "gpt-5.2"), None)
-        if template is None:
-            template = next((item for item in models if isinstance(item, dict)), None)
-        if template is None:
-            raise ValueError("bundled catalog contains no model metadata")
-
-        routed = json.loads(json.dumps(template))
-        context_window = context_limit_for_status(provider, pcfg) or provider_model_context_capacity(provider, pcfg) or 272000
-        routed.update({
-            "slug": alias,
-            "display_name": f"Ciel Runtime {PROVIDER_LABELS.get(provider, provider)}",
-            "description": f"{PROVIDER_LABELS.get(provider, provider)} routed through Ciel Runtime.",
-            "visibility": "none",
-            "supported_in_api": True,
-            "priority": 99,
-            "context_window": context_window,
-            "max_context_window": context_window,
-            "auto_compact_token_limit": max(1, (context_window * 9) // 10),
-        })
-        effort = str(pcfg.get("effort_level") or "").strip().lower()
-        if effort:
-            routed["default_reasoning_level"] = effort
-            supported = routed.get("supported_reasoning_levels")
-            if not isinstance(supported, list):
-                supported = []
-            if not any(isinstance(item, dict) and item.get("effort") == effort for item in supported):
-                supported.append({"effort": effort, "description": f"{effort.title()} reasoning effort"})
-            routed["supported_reasoning_levels"] = supported
-        models = [item for item in models if not (isinstance(item, dict) and item.get("slug") == alias)]
-        models.append(routed)
-        catalog["models"] = models
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        catalog_path = CONFIG_DIR / "codex-model-catalog.json"
-        temp_path = catalog_path.with_suffix(".json.tmp")
-        temp_path.write_text(json.dumps(catalog, ensure_ascii=False), encoding="utf-8")
-        temp_path.replace(catalog_path)
-        return catalog_path
-    except Exception as exc:
-        router_log("WARN", f"codex_model_catalog_generation_failed error={type(exc).__name__}: {exc}")
-        return None
+    context_window = (
+        context_limit_for_status(provider, pcfg)
+        or provider_model_context_capacity(provider, pcfg)
+        or 272000
+    )
+    catalog_env = os.environ.copy()
+    catalog_env["PATH"] = path_with_ciel_runtime_user_dirs(catalog_env)
+    return CodexModelCatalogService(CONFIG_DIR, subprocess.run, router_log).write(
+        codex,
+        CodexModelCatalogSpec(
+            alias=alias,
+            provider_label=PROVIDER_LABELS.get(provider, provider),
+            context_window=context_window,
+            effort=str(pcfg.get("effort_level") or "").strip().lower(),
+        ),
+        catalog_env,
+    )
 
 
 def codex_runtime_model_catalog_args(codex: str, cfg: dict[str, Any]) -> list[str]:
@@ -19906,46 +19878,37 @@ def codex_runtime_model_catalog_args(codex: str, cfg: dict[str, Any]) -> list[st
 
 def codex_native_routed_config_args(router_base: str = ROUTER_BASE) -> list[str]:
     provider = (os.environ.get(CODEX_NATIVE_PROVIDER_ID_ENV) or CODEX_ROUTED_PROVIDER_ID).strip() or CODEX_ROUTED_PROVIDER_ID
-    base = router_base.rstrip("/") + "/backend-api/codex"
-    if provider == "openai":
-        return [
-            "-c",
-            "model_provider=\"openai\"",
-            "-c",
-            f"openai_base_url={toml_string(base)}",
-        ]
-    return [
-        "-c",
-        f"model_provider={toml_string(provider)}",
-        "-c",
-        f"model_providers.{provider}.name={toml_string('Ciel Runtime Codex')}",
-        "-c",
-        f"model_providers.{provider}.base_url={toml_string(base)}",
-        "-c",
-        f"model_providers.{provider}.wire_api={toml_string('responses')}",
-        "-c",
-        f"model_providers.{provider}.requires_openai_auth=true",
-        "-c",
-        f"model_providers.{provider}.supports_websockets=false",
-    ]
+    return project_codex_native_routed_config_args(
+        router_base,
+        provider,
+        toml_string=toml_string,
+    )
 
 
 def codex_passthrough_has_model_override(passthrough: list[str]) -> bool:
-    return has_passthrough_option(passthrough, "-m", "--model") or "model" in _codex_config_override_keys(passthrough)
+    return project_codex_model_overridden(
+        passthrough,
+        has_option=has_passthrough_option,
+        config_override_keys=_codex_config_override_keys,
+    )
 
 
 def codex_current_model_cli_args(pcfg: dict[str, Any], passthrough: list[str]) -> list[str]:
-    model = str(pcfg.get("current_model") or "").strip()
-    if not model or codex_passthrough_has_model_override(passthrough):
-        return []
-    return ["-m", model]
+    return project_codex_current_model_args(
+        pcfg,
+        passthrough,
+        overridden=codex_passthrough_has_model_override,
+    )
 
 
 def codex_current_model_config_args(pcfg: dict[str, Any], passthrough: list[str]) -> list[str]:
-    model = str(pcfg.get("current_model") or "").strip()
-    if not model or codex_passthrough_has_model_override(passthrough):
-        return []
-    return ["-c", f"model={toml_string(model)}"]
+    return project_codex_current_model_args(
+        pcfg,
+        passthrough,
+        overridden=codex_passthrough_has_model_override,
+        config_style=True,
+        toml_string=toml_string,
+    )
 
 
 def log_codex_passthrough_mapping(notes: list[str]) -> None:
@@ -19959,11 +19922,14 @@ def log_codex_passthrough_mapping(notes: list[str]) -> None:
 
 
 def codex_help_requested(passthrough: list[str]) -> bool:
-    return any(arg in ("help", "--help", "-h") for arg in passthrough)
+    return project_codex_help_requested(passthrough)
 
 
 def codex_yolo_launch_args(passthrough: list[str]) -> list[str]:
-    return [] if has_passthrough_option(passthrough, "--yolo") else ["--yolo"]
+    return project_codex_yolo_launch_args(
+        passthrough,
+        has_option=has_passthrough_option,
+    )
 
 
 def codex_sqlite_home_for_launch(
@@ -19971,33 +19937,7 @@ def codex_sqlite_home_for_launch(
     env: dict[str, str] | None = None,
     cwd: Path | None = None,
 ) -> Path:
-    launch_env = env or os.environ
-    launch_cwd = (cwd or Path.cwd()).resolve()
-    configured: str | None = None
-    for path in codex_config_paths_for_launch(passthrough or [], env=launch_env, cwd=launch_cwd):
-        try:
-            text = path.read_text(encoding="utf-8")
-        except OSError:
-            continue
-        table = ""
-        for line in text.splitlines():
-            stripped = _toml_scalar_without_comment(line)
-            if not stripped:
-                continue
-            table_match = re.fullmatch(r"\[(.+)\]", stripped)
-            if table_match:
-                table = table_match.group(1).strip()
-                continue
-            if table:
-                continue
-            match = re.match(r"sqlite_home\s*=\s*(.+)$", stripped)
-            if match:
-                configured = _unquote_toml_string(match.group(1))
-    raw = configured or str(launch_env.get("CODEX_SQLITE_HOME") or "").strip()
-    if raw:
-        path = Path(os.path.expandvars(raw)).expanduser()
-        return path if path.is_absolute() else launch_cwd / path
-    return Path(launch_env.get("CODEX_HOME") or (Path.home() / ".codex")).expanduser()
+    return codex_sqlite_home(passthrough, env=env, cwd=cwd)
 
 
 def codex_local_resume_sessions(
@@ -20008,31 +19948,10 @@ def codex_local_resume_sessions(
     cwd: Path | None = None,
 ) -> list[dict[str, Any]]:
     database = codex_sqlite_home_for_launch(passthrough, env=env, cwd=cwd) / "state_5.sqlite"
-    if not database.is_file():
-        return []
-    uri = database.resolve().as_uri() + "?mode=ro"
-    sources = ["cli", "vscode"]
-    if include_non_interactive:
-        sources.extend(["exec", "app-server"])
-    source_placeholders = ", ".join("?" for _ in sources)
-    try:
-        with contextlib.closing(sqlite3.connect(uri, uri=True, timeout=1.0)) as connection:
-            connection.row_factory = sqlite3.Row
-            rows = connection.execute(
-                f"""
-                SELECT id, title, first_user_message, cwd, model_provider,
-                       COALESCE(NULLIF(updated_at_ms, 0), updated_at * 1000) AS activity_ms
-                FROM threads
-                WHERE archived = 0 AND source IN ({source_placeholders})
-                ORDER BY COALESCE(NULLIF(recency_at_ms, 0), NULLIF(updated_at_ms, 0), updated_at * 1000) DESC
-                LIMIT ?
-                """,
-                (*sources, max(1, min(1000, int(limit)))),
-            ).fetchall()
-    except (OSError, sqlite3.Error) as exc:
-        router_log("WARN", f"codex_resume_index_read_failed error={type(exc).__name__}: {exc}")
-        return []
-    return [dict(row) for row in rows]
+    return CodexSessionRepository(database, router_log).resumable(
+        limit,
+        include_non_interactive=include_non_interactive,
+    )
 
 
 def codex_resume_session_row(session: dict[str, Any]) -> str:
