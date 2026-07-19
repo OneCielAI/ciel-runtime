@@ -59,6 +59,11 @@ from ciel_runtime_support.anthropic_tool_turns import (
     AnthropicToolTurnServices,
     normalize_historical_anthropic_tool_turns,
 )
+from ciel_runtime_support.anthropic_response_writer import (
+    AnthropicResponseWriter,
+    anthropic_text_response as project_anthropic_text_response,
+    prepend_anthropic_text as project_prepend_anthropic_text,
+)
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
 from ciel_runtime_support.claude_router import (
@@ -8354,179 +8359,39 @@ def refine_message_with_advisor(
 
 
 def anthropic_text_response(model: str, text: str, stop_reason: str = "end_turn") -> dict[str, Any]:
-    return {
-        "id": f"msg_ollama_advisor_{int(time.time() * 1000)}",
-        "type": "message",
-        "role": "assistant",
-        "model": model,
-        "content": [{"type": "text", "text": text}],
-        "stop_reason": stop_reason,
-        "stop_sequence": None,
-        "usage": {"input_tokens": 0, "output_tokens": max(1, len(text) // 4)},
-    }
+    return project_anthropic_text_response(model, text, stop_reason)
+
+
+def anthropic_response_writer() -> AnthropicResponseWriter:
+    return AnthropicResponseWriter(write_json)
 
 
 def write_anthropic_text_response(handler: BaseHTTPRequestHandler, model: str, text: str, stream: bool) -> None:
-    if not stream:
-        write_json(handler, anthropic_text_response(model, text))
-        return
-    handler.send_response(200)
-    handler.send_header("content-type", "text/event-stream")
-    handler.send_header("cache-control", "no-cache")
-    handler.send_header("connection", "close")
-    handler.end_headers()
-    msg_id = f"msg_ollama_advisor_{int(time.time() * 1000)}"
-    events = [
-        ("message_start", {
-            "type": "message_start",
-            "message": {
-                "id": msg_id,
-                "type": "message",
-                "role": "assistant",
-                "content": [],
-                "model": model,
-                "stop_reason": None,
-                "stop_sequence": None,
-                "usage": {"input_tokens": 0, "output_tokens": 0},
-            },
-        }),
-        ("content_block_start", {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}),
-        ("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": text}}),
-        ("content_block_stop", {"type": "content_block_stop", "index": 0}),
-        ("message_delta", {"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": max(1, len(text) // 4)}}),
-        ("message_stop", {"type": "message_stop"}),
-    ]
-    for event_name, payload in events:
-        handler.wfile.write(f"event: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
-    handler.wfile.flush()
+    anthropic_response_writer().text(handler, model, text, stream)
 
 
 def write_anthropic_message_response(handler: BaseHTTPRequestHandler, message: dict[str, Any], stream: bool) -> None:
-    if not stream:
-        write_json(handler, message)
-        return
-    handler.send_response(200)
-    handler.send_header("content-type", "text/event-stream")
-    handler.send_header("cache-control", "no-cache")
-    handler.send_header("connection", "close")
-    handler.end_headers()
-    handler.wfile.write(f"event: message_start\ndata: {json.dumps({'type': 'message_start', 'message': {**message, 'content': [], 'stop_reason': None}}, ensure_ascii=False)}\n\n".encode())
-    for index, block in enumerate(message.get("content") or []):
-        btype = block.get("type")
-        if btype == "text":
-            handler.wfile.write(f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': index, 'content_block': {'type': 'text', 'text': ''}}, ensure_ascii=False)}\n\n".encode())
-            handler.wfile.write(f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': index, 'delta': {'type': 'text_delta', 'text': block.get('text', '')}}, ensure_ascii=False)}\n\n".encode())
-            handler.wfile.write(f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': index}, ensure_ascii=False)}\n\n".encode())
-        elif btype == "thinking":
-            start = {"type": "content_block_start", "index": index, "content_block": {"type": "thinking", "thinking": ""}}
-            handler.wfile.write(f"event: content_block_start\ndata: {json.dumps(start, ensure_ascii=False)}\n\n".encode())
-            thinking_text = str(block.get("thinking") or "")
-            if thinking_text:
-                delta = {"type": "content_block_delta", "index": index, "delta": {"type": "thinking_delta", "thinking": thinking_text}}
-                handler.wfile.write(f"event: content_block_delta\ndata: {json.dumps(delta, ensure_ascii=False)}\n\n".encode())
-            signature = str(block.get("signature") or "")
-            if signature:
-                delta = {"type": "content_block_delta", "index": index, "delta": {"type": "signature_delta", "signature": signature}}
-                handler.wfile.write(f"event: content_block_delta\ndata: {json.dumps(delta, ensure_ascii=False)}\n\n".encode())
-            handler.wfile.write(f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': index}, ensure_ascii=False)}\n\n".encode())
-        elif btype == "redacted_thinking":
-            start = {"type": "content_block_start", "index": index, "content_block": block}
-            handler.wfile.write(f"event: content_block_start\ndata: {json.dumps(start, ensure_ascii=False)}\n\n".encode())
-            handler.wfile.write(f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': index}, ensure_ascii=False)}\n\n".encode())
-        elif btype == "tool_use":
-            tool_input = block.get("input") or {}
-            start = {"type": "content_block_start", "index": index, "content_block": {**block, "input": {}}}
-            delta = {"type": "content_block_delta", "index": index, "delta": {"type": "input_json_delta", "partial_json": json.dumps(tool_input, ensure_ascii=False)}}
-            handler.wfile.write(f"event: content_block_start\ndata: {json.dumps(start, ensure_ascii=False)}\n\n".encode())
-            handler.wfile.write(f"event: content_block_delta\ndata: {json.dumps(delta, ensure_ascii=False)}\n\n".encode())
-            handler.wfile.write(f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': index}, ensure_ascii=False)}\n\n".encode())
-    handler.wfile.write(f"event: message_delta\ndata: {json.dumps({'type': 'message_delta', 'delta': {'stop_reason': message.get('stop_reason') or 'end_turn', 'stop_sequence': None}, 'usage': message.get('usage') or {'output_tokens': 1}}, ensure_ascii=False)}\n\n".encode())
-    handler.wfile.write(b"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n")
-    handler.wfile.flush()
+    anthropic_response_writer().message(handler, message, stream)
 
 
 def _write_anthropic_stream_block(handler: BaseHTTPRequestHandler, index: int, block: dict[str, Any]) -> None:
-    btype = block.get("type")
-    if btype == "text":
-        handler.wfile.write(f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': index, 'content_block': {'type': 'text', 'text': ''}}, ensure_ascii=False)}\n\n".encode())
-        handler.wfile.write(f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': index, 'delta': {'type': 'text_delta', 'text': block.get('text', '')}}, ensure_ascii=False)}\n\n".encode())
-        handler.wfile.write(f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': index}, ensure_ascii=False)}\n\n".encode())
-    elif btype == "thinking":
-        start = {"type": "content_block_start", "index": index, "content_block": {"type": "thinking", "thinking": ""}}
-        handler.wfile.write(f"event: content_block_start\ndata: {json.dumps(start, ensure_ascii=False)}\n\n".encode())
-        thinking_text = str(block.get("thinking") or "")
-        if thinking_text:
-            delta = {"type": "content_block_delta", "index": index, "delta": {"type": "thinking_delta", "thinking": thinking_text}}
-            handler.wfile.write(f"event: content_block_delta\ndata: {json.dumps(delta, ensure_ascii=False)}\n\n".encode())
-        signature = str(block.get("signature") or "")
-        if signature:
-            delta = {"type": "content_block_delta", "index": index, "delta": {"type": "signature_delta", "signature": signature}}
-            handler.wfile.write(f"event: content_block_delta\ndata: {json.dumps(delta, ensure_ascii=False)}\n\n".encode())
-        handler.wfile.write(f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': index}, ensure_ascii=False)}\n\n".encode())
-    elif btype == "redacted_thinking":
-        start = {"type": "content_block_start", "index": index, "content_block": block}
-        handler.wfile.write(f"event: content_block_start\ndata: {json.dumps(start, ensure_ascii=False)}\n\n".encode())
-        handler.wfile.write(f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': index}, ensure_ascii=False)}\n\n".encode())
-    elif btype == "tool_use":
-        tool_input = block.get("input") or {}
-        start = {"type": "content_block_start", "index": index, "content_block": {**block, "input": {}}}
-        delta = {"type": "content_block_delta", "index": index, "delta": {"type": "input_json_delta", "partial_json": json.dumps(tool_input, ensure_ascii=False)}}
-        handler.wfile.write(f"event: content_block_start\ndata: {json.dumps(start, ensure_ascii=False)}\n\n".encode())
-        handler.wfile.write(f"event: content_block_delta\ndata: {json.dumps(delta, ensure_ascii=False)}\n\n".encode())
-        handler.wfile.write(f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': index}, ensure_ascii=False)}\n\n".encode())
+    anthropic_response_writer().block(handler, index, block)
 
 
 def write_anthropic_open_stream_start(handler: BaseHTTPRequestHandler, model: str, input_tokens: int = 0) -> None:
-    handler.send_response(200)
-    handler.send_header("content-type", "text/event-stream")
-    handler.send_header("cache-control", "no-cache")
-    handler.send_header("connection", "close")
-    handler.end_headers()
-    msg_id = f"msg_ciel_runtime_{int(time.time() * 1000)}"
-    payload = {
-        "type": "message_start",
-        "message": {
-            "id": msg_id,
-            "type": "message",
-            "role": "assistant",
-            "content": [],
-            "model": model,
-            "stop_reason": None,
-            "stop_sequence": None,
-            "usage": {"input_tokens": max(0, int(input_tokens or 0)), "output_tokens": 0},
-        },
-    }
-    handler.wfile.write(f"event: message_start\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
-    handler.wfile.flush()
+    anthropic_response_writer().start(handler, model, input_tokens)
 
 
 def write_anthropic_stream_blocks(handler: BaseHTTPRequestHandler, blocks: list[dict[str, Any]], start_index: int = 0) -> int:
-    index = start_index
-    for block in blocks:
-        _write_anthropic_stream_block(handler, index, block)
-        index += 1
-    handler.wfile.flush()
-    return index
+    return anthropic_response_writer().blocks(handler, blocks, start_index)
 
 
 def write_anthropic_open_stream_stop(handler: BaseHTTPRequestHandler, message: dict[str, Any] | None = None) -> None:
-    message = message or {}
-    stop_reason = message.get("stop_reason") or "end_turn"
-    usage = message.get("usage") or {"output_tokens": 1}
-    handler.wfile.write(f"event: message_delta\ndata: {json.dumps({'type': 'message_delta', 'delta': {'stop_reason': stop_reason, 'stop_sequence': None}, 'usage': usage}, ensure_ascii=False)}\n\n".encode())
-    handler.wfile.write(b"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n")
-    handler.wfile.flush()
+    anthropic_response_writer().stop(handler, message)
 
 
 def prepend_anthropic_text(message: dict[str, Any], text: str) -> dict[str, Any]:
-    if not text:
-        return message
-    out = dict(message)
-    content = out.get("content")
-    blocks = list(content) if isinstance(content, list) else []
-    blocks.insert(0, {"type": "text", "text": text})
-    out["content"] = blocks
-    return out
+    return project_prepend_anthropic_text(message, text)
 
 
 def import_session_max_bytes() -> int:

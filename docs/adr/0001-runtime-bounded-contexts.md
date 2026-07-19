@@ -61,6 +61,11 @@ Upstream failure classification and localized retry presentation live in
 reading, and response projection live behind the Repository and Application
 Service in `session_import.py`.
 
+Locally generated Anthropic JSON/SSE responses are serialized by the HTTP
+Adapter in `anthropic_response_writer.py`. Its single block serializer handles
+text, thinking, redacted-thinking, and tool-use projections without facade
+duplication.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file
