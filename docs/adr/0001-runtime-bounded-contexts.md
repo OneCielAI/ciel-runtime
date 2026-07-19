@@ -92,6 +92,10 @@ classification, capable-server projection, and source-path lookup live behind
 `ChannelProbeCacheRepository` and `ChannelProbeService` in
 `channel_probe_cache.py`.
 
+The same service owns launch candidate projection, cache-refresh decisions,
+and refresh failure isolation so launch orchestration does not depend on the
+probe cache schema.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

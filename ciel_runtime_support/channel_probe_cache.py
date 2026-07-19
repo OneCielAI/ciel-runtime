@@ -286,3 +286,80 @@ class ChannelProbeService:
                 seen.add(key)
                 paths.append(path)
         return paths
+
+    def server_names_from_specs(self, specs: Iterable[str]) -> list[str]:
+        names = []
+        for spec in specs:
+            text = str(spec or "").strip()
+            if text.startswith("server:"):
+                name = text.split(":", 1)[1].strip()
+                if name:
+                    names.append(name)
+        return self.dedupe(names)
+
+    def candidate_names(
+        self,
+        specs: Iterable[str],
+        discover: Callable[[], list[str]],
+    ) -> list[str]:
+        explicit = [
+            name
+            for name in self.server_names_from_specs(specs)
+            if name.lower() not in self.native_router_names
+        ]
+        try:
+            discovered = discover()
+        except Exception as exc:
+            self.ports.log(
+                "WARN",
+                f"channel_auto_discovery_failed error={type(exc).__name__}: {exc}",
+            )
+            discovered = []
+        return self.dedupe([*explicit, *discovered])
+
+    @staticmethod
+    def needs_refresh(
+        cache: dict[str, Any],
+        records: list[dict[str, Any]],
+        candidate_names: list[str],
+    ) -> bool:
+        if not cache.get("probed_at") or not records:
+            return True
+        if not candidate_names:
+            return False
+        by_name = {
+            str(record.get("name") or ""): record
+            for record in records
+            if record.get("name")
+        }
+        for name in candidate_names:
+            record = by_name.get(name)
+            if not record or not record.get("capable"):
+                return True
+            source = str(record.get("source_path") or "")
+            if not source or source == "<built-in>":
+                return True
+        return False
+
+    def ensure_refresh(
+        self,
+        refresh_needed: bool,
+        refresh: Callable[[], Any],
+    ) -> bool:
+        if not refresh_needed:
+            return False
+        try:
+            self.ports.log(
+                "INFO",
+                "channel_probe_launch_refresh "
+                "reason=missing_cache_or_selected_server",
+            )
+            refresh()
+            return True
+        except Exception as exc:
+            self.ports.log(
+                "WARN",
+                f"channel_probe_launch_refresh_failed "
+                f"error={type(exc).__name__}: {exc}",
+            )
+            return False

@@ -11194,15 +11194,7 @@ def cached_channel_source_paths_for_specs(specs: Iterable[str]) -> list[Path]:
 
 
 def _server_names_from_channel_specs(specs: Iterable[str]) -> list[str]:
-    names: list[str] = []
-    for spec in specs:
-        text = str(spec or "").strip()
-        if not text.startswith("server:"):
-            continue
-        name = text.split(":", 1)[1].strip()
-        if name:
-            names.append(name)
-    return _dedupe_strings(names)
+    return channel_probe_service().server_names_from_specs(specs)
 
 
 def channel_candidate_server_names_for_launch(
@@ -11210,26 +11202,13 @@ def channel_candidate_server_names_for_launch(
     passthrough: list[str],
     extra_config_paths: list[Path | str] | None = None,
 ) -> list[str]:
-    """External MCP channel servers relevant to this launch.
-
-    Explicit ciel-runtime channel settings remain honored, but non-native routed
-    launches must also pick up Streamable HTTP/SSE servers already present in
-    Claude Code MCP config files.  That is the zero-manual-setup path for users
-    switching from native Claude Code to routed/non-native providers.
-    """
-    explicit_names = [
-        name for name in _server_names_from_channel_specs(channel_specs_for_launch(cfg, passthrough))
-        if name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES
-    ]
-    try:
-        discovered_names = external_mcp_channel_server_names_from_configs(
+    return channel_probe_service().candidate_names(
+        channel_specs_for_launch(cfg, passthrough),
+        lambda: external_mcp_channel_server_names_from_configs(
             passthrough,
             extra_config_paths=extra_config_paths,
-        )
-    except Exception as exc:
-        router_log("WARN", f"channel_auto_discovery_failed error={type(exc).__name__}: {exc}")
-        discovered_names = []
-    return _dedupe_strings([*explicit_names, *discovered_names])
+        ),
+    )
 
 
 def channel_probe_cache_needs_launch_refresh(
@@ -11239,22 +11218,8 @@ def channel_probe_cache_needs_launch_refresh(
 ) -> bool:
     cache = read_channel_probe_cache()
     records = cached_channel_probe_servers()
-    if not cache.get("probed_at") or not records:
-        return True
     candidate_names = channel_candidate_server_names_for_launch(cfg, passthrough, extra_config_paths=extra_config_paths)
-    if not candidate_names:
-        return False
-    if not cache.get("probed_at"):
-        return True
-    by_name = {str(r.get("name") or ""): r for r in records if r.get("name")}
-    for name in candidate_names:
-        record = by_name.get(name)
-        if not record or not record.get("capable"):
-            return True
-        source = str(record.get("source_path") or "")
-        if not source or source == "<built-in>":
-            return True
-    return False
+    return channel_probe_service().needs_refresh(cache, records, candidate_names)
 
 
 def ensure_channel_probe_cache_for_launch(
@@ -11262,18 +11227,22 @@ def ensure_channel_probe_cache_for_launch(
     passthrough: list[str],
     extra_config_paths: list[Path | str] | None = None,
 ) -> bool:
-    if not channel_probe_cache_needs_launch_refresh(cfg, passthrough, extra_config_paths=extra_config_paths):
-        return False
-    try:
-        router_log("INFO", "channel_probe_launch_refresh reason=missing_cache_or_selected_server")
-        if extra_config_paths is None:
-            refresh_channel_probe_cache(passthrough)
-        else:
-            refresh_channel_probe_cache(passthrough, extra_config_paths=extra_config_paths)
-        return True
-    except Exception as exc:
-        router_log("WARN", f"channel_probe_launch_refresh_failed error={type(exc).__name__}: {exc}")
-        return False
+    needed = channel_probe_cache_needs_launch_refresh(
+        cfg,
+        passthrough,
+        extra_config_paths=extra_config_paths,
+    )
+    return channel_probe_service().ensure_refresh(
+        needed,
+        lambda: refresh_channel_probe_cache(
+            passthrough,
+            **(
+                {"extra_config_paths": extra_config_paths}
+                if extra_config_paths is not None
+                else {}
+            ),
+        ),
+    )
 
 
 def start_codex_mcp_channel_sse_for_launch(
