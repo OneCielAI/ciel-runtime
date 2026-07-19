@@ -123,6 +123,7 @@ from ciel_runtime_support.channel_cursor_repository import ChannelCursorReposito
 from ciel_runtime_support.channel_session_repository import ChannelSessionRepository
 from ciel_runtime_support.channel_session_lifecycle import ChannelSessionLifecycleServices
 from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices
+from ciel_runtime_support.channel_probe_cache import ChannelProbePorts
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
 from ciel_runtime_support.compatibility_test import (
     CompatibilityTestConfig,
@@ -843,6 +844,9 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_channel_probe_report_services_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelProbeReportServices)), 10)
 
+    def test_channel_probe_ports_stay_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(ChannelProbePorts)), 10)
+
     def test_sse_stream_state_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(SseStreamServices)), 10)
         self.assertLessEqual(len(fields(SseRetryState)), 10)
@@ -1359,7 +1363,6 @@ class ArchitectureContractTests(unittest.TestCase):
         tree = ast.parse(source_path.read_text(encoding="utf-8"))
         target_names = {
             "write_native_mcp_config_from_discovery",
-            "_write_channel_probe_cache",
             "write_web_tools_mcp_config",
             "write_zai_mcp_config",
             "write_channel_mcp_config",
@@ -1386,6 +1389,15 @@ class ArchitectureContractTests(unittest.TestCase):
         compact_source = ast.unparse(compact_factory)
         self.assertIn("json_artifact_repository", compact_source)
         self.assertNotIn("os.chmod", compact_source)
+
+        probe_factory = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "channel_probe_service"
+        )
+        probe_source = ast.unparse(probe_factory)
+        self.assertIn("json_artifact_repository", probe_source)
+        self.assertNotIn("os.chmod", probe_source)
 
     def test_mcp_config_readers_delegate_io_and_project_scope(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"

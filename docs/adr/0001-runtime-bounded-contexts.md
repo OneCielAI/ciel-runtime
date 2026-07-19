@@ -87,6 +87,11 @@ Advisor network execution and refinement provider calls live in
 `ProviderChatExecutor` selects the Ollama or OpenAI-compatible transport
 strategy through typed policy and I/O ports.
 
+MCP channel capability probing, durable cache persistence, record
+classification, capable-server projection, and source-path lookup live behind
+`ChannelProbeCacheRepository` and `ChannelProbeService` in
+`channel_probe_cache.py`.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

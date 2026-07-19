@@ -260,6 +260,11 @@ from ciel_runtime_support.channel_probe_report import (
     ChannelProbeReportServices,
     channel_probe_report_lines,
 )
+from ciel_runtime_support.channel_probe_cache import (
+    ChannelProbeCacheRepository,
+    ChannelProbePorts,
+    ChannelProbeService,
+)
 from ciel_runtime_support.channel_panel import (
     ChannelPanelPolicy,
     _channel_panel_first_selectable as first_selectable_channel_row,
@@ -11088,31 +11093,37 @@ def auto_discovered_mcp_channel_specs(
 CHANNEL_PROBE_CACHE_VERSION = 1
 
 
+def channel_probe_service() -> ChannelProbeService:
+    artifact = json_artifact_repository(CHANNEL_PROBE_CACHE_PATH)
+    return ChannelProbeService(
+        ROUTER_BASE,
+        ChannelProbeCacheRepository(
+            CHANNEL_PROBE_CACHE_PATH,
+            CHANNEL_PROBE_CACHE_VERSION,
+            artifact.save,
+            router_log,
+        ),
+        ChannelProbePorts(
+            read_servers=_read_mcp_servers_from_json,
+            is_stdio=_mcp_server_is_stdio,
+            probe_stdio=probe_stdio_mcp_for_channel_capability_detailed,
+            probe_sse=probe_sse_mcp_for_channel_capability_detailed,
+            probe_http=probe_streamable_http_mcp_for_channel_capability_detailed,
+            log=router_log,
+        ),
+        claude_mcp_config_paths,
+        _dedupe_strings,
+        _path_for_compare,
+        frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
+    )
+
+
 def _builtin_router_probe_record() -> dict[str, Any]:
-    return {
-        "name": "ciel-runtime-router",
-        "capable": True,
-        "transport": "sse",
-        "source_path": "<built-in>",
-        "url": f"{ROUTER_BASE}/ca/mcp/sse",
-        "response_bytes": 0,
-        "reason": "built-in",
-    }
+    return channel_probe_service().builtin_record()
 
 
 def _server_transport_label(server: dict[str, Any]) -> str:
-    if not isinstance(server, dict):
-        return "unknown"
-    declared = str(server.get("type") or "").strip().lower()
-    if declared in {"http", "streamable-http"}:
-        return "streamable-http"
-    if declared:
-        return declared
-    if server.get("url"):
-        return "sse"
-    if server.get("command"):
-        return "stdio"
-    return "unknown"
+    return channel_probe_service().transport_label(server)
 
 
 def _probe_mcp_servers_to_records(
@@ -11122,94 +11133,20 @@ def _probe_mcp_servers_to_records(
     include_router_self: bool = True,
     timeout_per_server: float | None = None,
 ) -> list[dict[str, Any]]:
-    """Probe every MCP server referenced from the given config paths and
-    return one record per server (capable and non-capable alike) for cache
-    consumers and menu rendering."""
-    records: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    if include_router_self:
-        records.append(_builtin_router_probe_record())
-        seen.add("ciel-runtime-router")
-    for path_str in paths:
-        if not path_str:
-            continue
-        path = Path(path_str)
-        if not path.exists() or not path.is_file():
-            continue
-        for name, server in _read_mcp_servers_from_json(path, cwd):
-            if name in seen:
-                continue
-            seen.add(name)
-            if name == "ciel-runtime-router":
-                continue
-            transport = _server_transport_label(server)
-            record: dict[str, Any] = {
-                "name": name,
-                "capable": False,
-                "transport": transport,
-                "source_path": str(path),
-                "response_bytes": 0,
-                "response_received": False,
-                "elapsed_ms": 0,
-                "exit_code": None,
-                "stderr_bytes": 0,
-                "stderr_preview": "",
-                "stdout_preview": "",
-                "reason": "",
-            }
-            if isinstance(server.get("url"), str):
-                record["url"] = str(server.get("url"))
-            probe_fn: Callable[..., dict[str, Any]] | None = None
-            if _mcp_server_is_stdio(server):
-                probe_fn = probe_stdio_mcp_for_channel_capability_detailed
-            elif transport == "sse" and isinstance(server.get("url"), str):
-                probe_fn = probe_sse_mcp_for_channel_capability_detailed
-            elif transport == "streamable-http" and isinstance(server.get("url"), str):
-                probe_fn = probe_streamable_http_mcp_for_channel_capability_detailed
-            else:
-                record["reason"] = "transport_not_probed"
-                records.append(record)
-                continue
-            try:
-                detail = probe_fn(name, server, timeout=timeout_per_server)
-                record["capable"] = bool(detail.get("capable"))
-                record["reason"] = str(detail.get("reason") or "")
-                record["response_bytes"] = int(detail.get("response_bytes") or 0)
-                record["response_received"] = bool(detail.get("response_received"))
-                record["elapsed_ms"] = int(detail.get("elapsed_ms") or 0)
-                record["exit_code"] = detail.get("exit_code")
-                record["stderr_bytes"] = int(detail.get("stderr_bytes") or 0)
-                record["stderr_preview"] = str(detail.get("stderr_preview") or "")
-                record["stdout_preview"] = str(detail.get("stdout_preview") or "")
-            except Exception as exc:
-                record["reason"] = f"probe_exception:{type(exc).__name__}"
-                router_log("WARN", f"channel_probe_exception server={name} error={type(exc).__name__}: {exc}")
-            records.append(record)
-    return records
+    return channel_probe_service().probe(
+        paths,
+        cwd,
+        include_router_self=include_router_self,
+        timeout_per_server=timeout_per_server,
+    )
 
 
 def read_channel_probe_cache() -> dict[str, Any]:
-    if not CHANNEL_PROBE_CACHE_PATH.exists():
-        return {"version": CHANNEL_PROBE_CACHE_VERSION, "probed_at": 0.0, "servers": []}
-    try:
-        data = json.loads(CHANNEL_PROBE_CACHE_PATH.read_text(encoding="utf-8"))
-    except Exception as exc:
-        router_log("WARN", f"channel_probe_cache_read_failed error={type(exc).__name__}: {exc}")
-        return {"version": CHANNEL_PROBE_CACHE_VERSION, "probed_at": 0.0, "servers": []}
-    if not isinstance(data, dict):
-        return {"version": CHANNEL_PROBE_CACHE_VERSION, "probed_at": 0.0, "servers": []}
-    data.setdefault("version", CHANNEL_PROBE_CACHE_VERSION)
-    data.setdefault("probed_at", 0.0)
-    servers = data.get("servers")
-    data["servers"] = [item for item in servers if isinstance(item, dict)] if isinstance(servers, list) else []
-    return data
+    return channel_probe_service().repository.read()
 
 
 def _write_channel_probe_cache(cache: dict[str, Any]) -> None:
-    json_artifact_repository(CHANNEL_PROBE_CACHE_PATH).save(
-        cache,
-        "channel_probe_cache",
-    )
+    channel_probe_service().repository.write(cache)
 
 
 def refresh_channel_probe_cache(
@@ -11219,79 +11156,29 @@ def refresh_channel_probe_cache(
     timeout_per_server: float | None = None,
     extra_config_paths: list[Path | str] | None = None,
 ) -> dict[str, Any]:
-    """Re-scan known MCP config files, probe each stdio entry for the
-    channel capability, write the result to disk and return it."""
-    cwd = cwd or Path.cwd()
-    paths = [str(Path(path).expanduser()) for path in extra_config_paths or []]
-    paths.extend(str(p) for p in claude_mcp_config_paths(passthrough or [], cwd, home))
-    records = _probe_mcp_servers_to_records(paths, cwd, timeout_per_server=timeout_per_server)
-    cache = {
-        "version": CHANNEL_PROBE_CACHE_VERSION,
-        "probed_at": time.time(),
-        "servers": records,
-    }
-    _write_channel_probe_cache(cache)
-    capable = [r["name"] for r in records if r.get("capable")]
-    router_log(
-        "INFO",
-        f"channel_probe_cache_refreshed total={len(records)} capable={len(capable)} servers={','.join(capable) or '-'}",
+    return channel_probe_service().refresh(
+        passthrough,
+        cwd,
+        home,
+        timeout_per_server,
+        extra_config_paths,
     )
-    return cache
 
 
 def cached_channel_probe_servers() -> list[dict[str, Any]]:
-    cache = read_channel_probe_cache()
-    servers = cache.get("servers")
-    if isinstance(servers, list):
-        return [item for item in servers if isinstance(item, dict)]
-    return []
+    return channel_probe_service().servers()
 
 
 def channel_probe_record_bucket(record: dict[str, Any]) -> str:
-    """Classify a probe record for display.
-
-    `non-capable` is reserved for a server that answered initialize and did
-    not advertise claude/channel. Timeouts and transport failures are
-    inconclusive: the server may still be channel-capable, but the probe did
-    not complete.
-    """
-    if record.get("capable"):
-        return "capable"
-    reason = str(record.get("reason") or "").strip()
-    if reason == "no_experimental_claude_channel" and record.get("response_received"):
-        return "non_capable"
-    if reason in {"transport_not_probed", "no_url"}:
-        return "skipped"
-    return "inconclusive"
+    return channel_probe_service().bucket(record)
 
 
 def cached_channel_capable_server_names() -> list[str]:
-    """Capable server names from cache, with ciel-runtime-router always
-    present (because the router's own MCP bridge is built into ciel-runtime)."""
-    names = [str(r.get("name")) for r in cached_channel_probe_servers() if r.get("capable") and r.get("name")]
-    if "ciel-runtime-router" not in names:
-        names.insert(0, "ciel-runtime-router")
-    return _dedupe_strings(names)
+    return channel_probe_service().capable_names()
 
 
 def cached_external_channel_capable_server_names() -> list[str]:
-    """Channel-capable MCP servers from cache, excluding ciel-runtime's router.
-
-    Claude Native launches can directly subscribe to external channel-capable
-    MCP servers with --dangerously-load-development-channels. The built-in
-    ciel-runtime-router is only valid when ciel-runtime intentionally starts and
-    manages its router bridge, so it must not be auto-injected into plain
-    native launches.
-    """
-    names: list[str] = []
-    for record in cached_channel_probe_servers():
-        if not record.get("capable"):
-            continue
-        name = str(record.get("name") or "").strip()
-        if not name or name.strip().lower() in _NATIVE_ROUTER_CHANNEL_NAMES:
-            continue
-        names.append(name)
-    return _dedupe_strings(names)
+    return channel_probe_service().external_capable_names()
 
 
 def native_auto_channel_capable_server_names(passthrough: list[str] | None = None) -> list[str]:
@@ -11303,36 +11190,7 @@ def native_auto_channel_capable_server_names(passthrough: list[str] | None = Non
 
 
 def cached_channel_source_paths_for_specs(specs: Iterable[str]) -> list[Path]:
-    """Return MCP config files that supplied the selected channel servers.
-
-    The channel picker is driven by the probe cache, so launch should also
-    honor the cache's source_path. This keeps a selected server available even
-    when it came from an explicit/probed config path rather than the default
-    discovery set for the current working directory.
-    """
-    wanted = {
-        str(spec).split(":", 1)[1]
-        for spec in specs
-        if str(spec).startswith("server:") and str(spec).split(":", 1)[1]
-    }
-    if not wanted:
-        return []
-    out: list[Path] = []
-    seen: set[str] = set()
-    for record in cached_channel_probe_servers():
-        name = str(record.get("name") or "")
-        if name not in wanted:
-            continue
-        source = str(record.get("source_path") or "")
-        if not source or source == "<built-in>":
-            continue
-        path = Path(source).expanduser()
-        key = _path_for_compare(path)
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(path)
-    return out
+    return channel_probe_service().source_paths(specs)
 
 
 def _server_names_from_channel_specs(specs: Iterable[str]) -> list[str]:
