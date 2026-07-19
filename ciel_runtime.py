@@ -85,6 +85,7 @@ from ciel_runtime_support.channel_injection import (
     RuntimeInjectionPolicy,
 )
 from ciel_runtime_support.channel_inflight import ChannelInflightEffects
+from ciel_runtime_support.channel_connection_registry import ChannelConnectionRegistry
 from ciel_runtime_support.channel_event_projection import (
     CHANNEL_CONTROL_KINDS as _CHANNEL_CONTROL_KINDS,
     compact_json_for_prompt as _compact_json_for_prompt,
@@ -7416,41 +7417,51 @@ def append_chat_message(payload: dict[str, Any]) -> dict[str, Any]:
         return message
 
 
+
+
+
+
+
+
+def channel_connection_registry() -> ChannelConnectionRegistry:
+    return ChannelConnectionRegistry(
+        states=_CHANNEL_SSE_CONNECTIONS,
+        lock=_CHANNEL_SSE_LOCK,
+        rpc_condition=_CHANNEL_SSE_RPC_CONDITION,
+        log=router_log,
+    )
+
+
 def _channel_sse_status_public(name: str, state: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "name": name,
-        "url": state.get("url"),
-        "channel": state.get("channel"),
-        "sender_id": state.get("sender_id"),
-        "recipient": state.get("recipient"),
-        "running": bool(state.get("running")),
-        "started_at": state.get("started_at"),
-        "last_event_at": state.get("last_event_at"),
-        "messages_received": int(state.get("messages_received") or 0),
-        "event_filter": state.get("event_filter") or [],
-        "read_timeout_seconds": state.get("read_timeout_seconds"),
-        "last_sse_event_id": state.get("last_sse_event_id"),
-        "sse_reconnects": int(state.get("sse_reconnects") or 0),
-        "transport": state.get("transport") or "sse",
-        "mcp_endpoint": state.get("mcp_endpoint"),
-        "mcp_initialized": bool(state.get("mcp_initialized")),
-        "mcp_session_id": state.get("mcp_session_id"),
-        "mcp_protocol_version": state.get("mcp_protocol_version"),
-        "mcp_last_error": state.get("mcp_last_error"),
-        "last_error": state.get("last_error"),
-    }
+    return ChannelConnectionRegistry.public_status(name, state)
 
 
 def channel_sse_status() -> dict[str, Any]:
-    with _CHANNEL_SSE_LOCK:
-        return {name: _channel_sse_status_public(name, state) for name, state in _CHANNEL_SSE_CONNECTIONS.items()}
+    return channel_connection_registry().statuses()
 
 
 def _channel_sse_set_state(name: str, **updates: Any) -> None:
-    with _CHANNEL_SSE_LOCK:
-        state = _CHANNEL_SSE_CONNECTIONS.get(name)
-        if state:
-            state.update(updates)
+    channel_connection_registry().update(name, **updates)
+
+
+def _channel_streamable_http_mark_session_lost(name: str, reason: str) -> None:
+    channel_connection_registry().mark_session_lost(name, reason)
+
+
+def _channel_sse_store_rpc_response(name: str, data_text: str) -> bool:
+    return channel_connection_registry().store_rpc_response(name, data_text)
+
+
+def _channel_sse_take_rpc_response(name: str, rpc_id: Any, timeout: float) -> dict[str, Any] | None:
+    return channel_connection_registry().take_rpc_response(name, rpc_id, timeout)
+
+
+def _channel_sse_public_mcp_name(name: str) -> str:
+    return ChannelConnectionRegistry.public_mcp_name(name)
+
+
+def _channel_sse_state_name_for_mcp_server(server_name: str) -> str | None:
+    return channel_connection_registry().state_name_for_mcp_server(server_name)
 
 
 def _channel_sse_absolute_endpoint(stream_url: str, endpoint: str) -> str:
@@ -7738,85 +7749,14 @@ def _mcp_stream_read_timeout_error(exc: BaseException) -> bool:
     return "timed out" in str(exc).lower()
 
 
-def _channel_streamable_http_mark_session_lost(name: str, reason: str) -> None:
-    with _CHANNEL_SSE_LOCK:
-        state = _CHANNEL_SSE_CONNECTIONS.get(name)
-        if not state:
-            return
-        state["mcp_initialized"] = False
-        state["mcp_session_id"] = None
-        state["mcp_last_error"] = reason
-        state["last_error"] = reason
-        state["sse_reconnects"] = int(state.get("sse_reconnects") or 0) + 1
 
 
-def _channel_sse_store_rpc_response(name: str, data_text: str) -> bool:
-    try:
-        payload = json.loads((data_text or "").strip())
-    except (json.JSONDecodeError, TypeError):
-        return False
-    if not isinstance(payload, dict) or payload.get("id") is None:
-        return False
-    if "result" not in payload and "error" not in payload:
-        return False
-    rpc_id = str(payload.get("id"))
-    with _CHANNEL_SSE_RPC_CONDITION:
-        with _CHANNEL_SSE_LOCK:
-            state = _CHANNEL_SSE_CONNECTIONS.get(name)
-            if not state:
-                return True
-            results = state.get("mcp_rpc_results")
-            if not isinstance(results, dict):
-                results = {}
-                state["mcp_rpc_results"] = results
-            results[rpc_id] = payload
-            if len(results) > 200:
-                for old_id in list(results)[: len(results) - 200]:
-                    results.pop(old_id, None)
-        _CHANNEL_SSE_RPC_CONDITION.notify_all()
-    router_log("INFO", f"channel_sse_mcp_rpc_response name={name} id={rpc_id}")
-    return True
 
 
-def _channel_sse_take_rpc_response(name: str, rpc_id: Any, timeout: float) -> dict[str, Any] | None:
-    key = str(rpc_id)
-    deadline = time.time() + max(0.1, timeout)
-    with _CHANNEL_SSE_RPC_CONDITION:
-        while True:
-            with _CHANNEL_SSE_LOCK:
-                state = _CHANNEL_SSE_CONNECTIONS.get(name)
-                results = state.get("mcp_rpc_results") if isinstance(state, dict) else None
-                if isinstance(results, dict) and key in results:
-                    found = results.pop(key)
-                    return found if isinstance(found, dict) else None
-            remaining = deadline - time.time()
-            if remaining <= 0:
-                return None
-            _CHANNEL_SSE_RPC_CONDITION.wait(min(remaining, 1.0))
 
 
-def _channel_sse_public_mcp_name(name: str) -> str:
-    text = str(name or "").strip()
-    return text[4:] if text.startswith("mcp-") else text
 
 
-def _channel_sse_state_name_for_mcp_server(server_name: str) -> str | None:
-    candidates = []
-    text = str(server_name or "").strip()
-    if text:
-        candidates.append(text)
-        if text.startswith("mcp-"):
-            candidates.append(text[4:])
-        else:
-            candidates.append(f"mcp-{text}")
-    with _CHANNEL_SSE_LOCK:
-        for candidate in candidates:
-            if candidate in _CHANNEL_SSE_CONNECTIONS:
-                return candidate
-        for name in _CHANNEL_SSE_CONNECTIONS:
-            if _channel_sse_public_mcp_name(name) == text:
-                return name
-    return None
 
 
 def _channel_sse_rpc_request(name: str, method: str, params: dict[str, Any] | None = None, timeout: float | None = None) -> dict[str, Any]:
