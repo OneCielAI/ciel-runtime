@@ -77,6 +77,10 @@ SSE/MCP 수집 및 cursor 상태와 분리되어 있으며 Windows Console과 PT
 
 SSE/MCP envelope에서 사용자 메시지와 metadata를 추출하고, 제어 이벤트를 제외하며, 민감 키를 redaction한 chat payload로 투영하는 순수 Channel Presentation Service. Transport, 저장소, 전역 상태에 의존하지 않아 SSE와 MCP notification 경로가 같은 해석 규칙을 공유한다.
 
+### `ciel_runtime_support/channel_session_repository.py`
+
+Streamable HTTP session record의 조회, URL/session 중복 교체, 최대 보관 수 제한과 삭제를 소유하는 파일 기반 Repository. 경로·프로토콜 기본값·시간·프로세스·권한 효과를 주입하며 손상된 JSON과 chmod 실패를 경고로 노출한다.
+
 ### `ciel_runtime_support/channel_compact_poll.py`
 
 대기 중인 `/compact` 요청의 polling cadence, in-flight 차단, defer 로그 간격과 injection 옵션을 관리하는 Channel Application Service. Windows Console과 POSIX PTY 루프가 동일 상태 전이를 사용한다.

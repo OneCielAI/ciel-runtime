@@ -90,6 +90,7 @@ from ciel_runtime_support.channel_terminal_proxy import (
     ChannelWindowsConsole,
     ChannelWindowsServices,
 )
+from ciel_runtime_support.channel_session_repository import ChannelSessionRepository
 from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
 from ciel_runtime_support.compatibility_test import (
@@ -965,6 +966,9 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_channel_session_repository_stays_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(ChannelSessionRepository)), 10)
 
     def test_tool_guard_hook_ports_stay_below_dependency_limit(self):
         for port in (ToolGuardHookPolicy, ToolGuardHookServices):

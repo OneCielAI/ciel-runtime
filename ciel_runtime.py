@@ -78,6 +78,7 @@ from ciel_runtime_support.channel_event_projection import (
     pretty_json_value as _pretty_json_value,
     sse_payload_to_chat_payload as _sse_payload_to_chat_payload,
 )
+from ciel_runtime_support.channel_session_repository import ChannelSessionRepository
 from ciel_runtime_support.channel_llm_context import (
     ChannelLlmContextPolicy,
     ChannelLlmContextProjection,
@@ -9304,71 +9305,29 @@ def channel_streamable_sessions_path() -> Path:
     return CONFIG_DIR / "channel-streamable-sessions.json"
 
 
+def build_channel_session_repository() -> ChannelSessionRepository:
+    return ChannelSessionRepository(
+        path=channel_streamable_sessions_path(),
+        default_protocol_version=MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+        log=router_log,
+    )
+
+
 def _channel_streamable_session_records() -> list[dict[str, Any]]:
-    path = channel_streamable_sessions_path()
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return []
-    records = data.get("sessions") if isinstance(data, dict) else data
-    if not isinstance(records, list):
-        return []
-    return [item for item in records if isinstance(item, dict)]
+    return build_channel_session_repository().records()
 
 
 def _write_channel_streamable_session_records(records: list[dict[str, Any]]) -> None:
-    path = channel_streamable_sessions_path()
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"sessions": records[-100:]}
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        try:
-            os.chmod(path, 0o600)
-        except Exception:
-            pass
-    except Exception as exc:
-        router_log("WARN", f"channel_http_session_record_write_failed error={type(exc).__name__}: {exc}")
+    build_channel_session_repository().write(records)
 
 
 def _record_channel_streamable_session(name: str, url: str, session_id: str | None, protocol_version: str) -> None:
-    session = str(session_id or "").strip()
-    if not session:
-        return
-    records = _channel_streamable_session_records()
-    url_text = str(url)
-    records = [
-        item
-        for item in records
-        if not (
-            str(item.get("url") or "") == url_text
-            or str(item.get("session_id") or "") == session
-        )
-    ]
-    records.append(
-        {
-            "name": str(name),
-            "url": url_text,
-            "session_id": session,
-            "protocol_version": str(protocol_version or MCP_STREAMABLE_HTTP_PROTOCOL_VERSION),
-            "pid": os.getpid(),
-            "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-        }
-    )
-    _write_channel_streamable_session_records(records)
+    build_channel_session_repository().record(name, url, session_id, protocol_version)
 
 
 def _forget_channel_streamable_session(name: str, url: str, session_id: str | None) -> None:
-    session = str(session_id or "").strip()
-    if not session:
-        return
-    records = _channel_streamable_session_records()
-    kept = [
-        item
-        for item in records
-        if str(item.get("session_id") or "") != session
-    ]
-    if len(kept) != len(records):
-        _write_channel_streamable_session_records(kept)
+    del name, url
+    build_channel_session_repository().forget(session_id)
 
 
 def _channel_streamable_http_delete_session(
