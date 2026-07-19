@@ -239,9 +239,18 @@ class ProviderContractMatrixTests(unittest.TestCase):
             )
             function_source = ast.get_source_segment(source, function) or ""
             with self.subTest(function=function_name):
-                self.assertIn("option_presentation_policy", function_source)
+                self.assertIn("provider_option_status_projection", function_source)
                 self.assertNotIn('provider == "', function_source)
                 self.assertNotIn("provider in (", function_source)
+
+        projection_source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "provider_option_status.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("option_presentation_policy", projection_source)
+        self.assertNotIn('provider == "', projection_source)
+        self.assertNotIn("provider in (", projection_source)
 
     def test_main_option_panel_delegates_without_provider_dispatch(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")

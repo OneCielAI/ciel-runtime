@@ -112,6 +112,12 @@ Channel CLI parsing and presentation live in `channel_cli.py`. Its controller
 uses separate view and command ports and never reads or writes configuration
 files directly.
 
+Provider and LLM option status projection lives in
+`provider_option_status.py`. It consumes adapter-declared context and
+presentation policies through an explicit ten-field port, keeping
+provider-specific display rules outside the compatibility facade without
+reintroducing provider-name dispatch.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

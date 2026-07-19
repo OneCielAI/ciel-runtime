@@ -170,6 +170,7 @@ from ciel_runtime_support.provider_request_builder import (
     ProviderOptionPorts,
     ProviderRequestBudget,
 )
+from ciel_runtime_support.provider_option_status import ProviderOptionStatusPorts
 from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy, ToolGuardHookServices
 from ciel_runtime_support.process_control import (
     ProcessControlServices,
@@ -499,6 +500,9 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_provider_option_status_ports_stay_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(ProviderOptionStatusPorts)), 10)
 
     def test_claude_launch_ports_stay_below_dependency_limit(self):
         ports = (

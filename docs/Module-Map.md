@@ -625,6 +625,94 @@ Streamable HTTP MCP session의 initialize, notification GET stream 재연결, to
 
 CLI와 저장소에 의존하지 않고 Provider option의 검증·정규화·설정 변경을 수행하는 Configuration policy. 프로바이더 이름 분기 없이 각 Provider Adapter의 `ProviderConfigurationPolicy`가 Ollama mutation 전략, endpoint override, native 제한, route 지원 및 텍스트 option alias를 선언한다.
 
+### `ciel_runtime_support/provider_option_status.py`
+
+Provider Adapter가 선언한 context·presentation policy를 CLI/UI 상태 문자열로 투영하는 Presentation Service. 최대 10개 의존성의 명시적 포트를 사용하며 provider 이름 분기나 설정 저장 책임을 갖지 않는다.
+
+### `ciel_runtime_support/advisor_client.py`
+
+Advisor 검토·개선 요청의 provider 호출을 조정하는 Application Client. 전송 I/O와 재시도 정책을 명시적 포트로 분리한다.
+
+### `ciel_runtime_support/advisor_refinement.py`
+
+Advisor 피드백을 원 응답 주위에 적용하는 bounded refinement decorator. 반복 횟수, 텍스트 추출, 실패 처리 정책을 호출부에서 주입받는다.
+
+### `ciel_runtime_support/advisor_request_builder.py`
+
+I/O 없이 provider별 Advisor 요청을 구성하고 응답을 해석하는 Request Builder. endpoint, budget, projection 책임을 분리된 포트로 표현한다.
+
+### `ciel_runtime_support/anthropic_response_writer.py`
+
+로컬 Anthropic message 응답을 JSON 또는 SSE로 기록하는 HTTP Adapter. protocol framing과 handler 출력 책임을 캡슐화한다.
+
+### `ciel_runtime_support/channel_cli.py`
+
+Channel 설정·capability probe 명령을 조정하는 CLI Controller. parsing/presentation과 실제 command 수행을 view·command 포트로 분리한다.
+
+### `ciel_runtime_support/channel_compact_request_repository.py`
+
+채널 compact 요청의 단일 슬롯을 원자적으로 저장·소비하는 Repository. 파일 schema와 만료·claim 규칙을 composition root에서 격리한다.
+
+### `ciel_runtime_support/channel_config_service.py`
+
+지속 Channel 설정, passthrough import, delivery mode 정규화를 담당하는 Application Service. 저장 I/O는 명시적 포트 뒤에 둔다.
+
+### `ciel_runtime_support/channel_cursor_service.py`
+
+MCP cursor와 resume 동작을 조정하는 Channel Application Service. cursor 저장소와 메시지 조회를 분리한다.
+
+### `ciel_runtime_support/channel_mcp_discovery.py`
+
+설정 파일에서 HTTP MCP channel transport를 발견·투영·시작하는 Discovery Service. 인증 환경 변수와 allow-list 정책을 경계 안에서 처리한다.
+
+### `ciel_runtime_support/channel_mcp_ownership.py`
+
+MCP notification stream 소유권 Repository와 router lifecycle을 제공한다. proxy 소유 server와 router 소유 worker의 중복 실행을 방지한다.
+
+### `ciel_runtime_support/channel_probe_cache.py`
+
+MCP channel capability probe 결과의 저장, 분류, refresh 결정을 담당하는 Repository와 Application Service.
+
+### `ciel_runtime_support/codex_config.py`
+
+Codex 설정 경로 발견과 TOML projection을 담당하는 Configuration Policy. 환경·파일 I/O와 순수 변환 규칙을 분리한다.
+
+### `ciel_runtime_support/codex_launch_policy.py`
+
+Codex 명령행 인수를 결정하는 순수 Launch Policy. process 실행이나 전역 설정 mutation을 수행하지 않는다.
+
+### `ciel_runtime_support/codex_model_catalog.py`
+
+Codex bundled model catalog를 투영하고 원자적으로 저장하는 Catalog Repository.
+
+### `ciel_runtime_support/codex_session_repository.py`
+
+Codex 로컬 resume index를 조회하는 read-only Repository. SQLite와 filesystem 세부사항을 호출부에서 격리한다.
+
+### `ciel_runtime_support/provider_request_builder.py`
+
+정규화된 Anthropic message를 각 provider wire request로 변환하는 Request Builder. Ollama/OpenAI option projection과 token budget을 포트로 분리한다.
+
+### `ciel_runtime_support/pseudo_tool_parser.py`
+
+Provider가 텍스트로 출력한 pseudo tool-call envelope를 해석하는 Parser Strategy. JSON·tag 형식 정규화를 protocol layer에 한정한다.
+
+### `ciel_runtime_support/session_import.py`
+
+다른 runtime transcript를 발견·읽기·변환하는 Repository와 Application Service. runtime별 형식과 import orchestration을 분리한다.
+
+### `ciel_runtime_support/stream_chunk_policy.py`
+
+단어 경계를 유지하면서 streaming buffer를 분할하는 순수 Chunking Policy.
+
+### `ciel_runtime_support/upstream_error_policy.py`
+
+Upstream failure를 분류하고 사용자 메시지로 투영하는 순수 Error Policy. 전송과 HTTP 응답 기록을 소유하지 않는다.
+
+### `ciel_runtime_support/upstream_stream_io.py`
+
+취소 가능한 upstream response stream을 읽는 Socket Adapter. readiness polling, timeout, cancellation을 stream projection에서 분리한다.
+
 ### `ciel_runtime_support/agent_router.py`
 
 런타임 HTTP 라우터 공통 계약:
