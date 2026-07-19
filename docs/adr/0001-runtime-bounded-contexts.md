@@ -51,6 +51,11 @@ Codex launch argument decisions live in `codex_launch_policy.py`, the local
 resume index is isolated behind `codex_session_repository.py`, and bundled
 model projection plus atomic catalog writes live in `codex_model_catalog.py`.
 
+Provider-emitted pseudo tool envelopes are parsed by
+`pseudo_tool_parser.py`, and transport-independent word buffering lives in
+`stream_chunk_policy.py`. Provider adapters compose these policies instead of
+embedding their grammars.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

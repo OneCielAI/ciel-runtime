@@ -902,6 +902,13 @@ from ciel_runtime_support.streaming_anthropic import (
     ollama_stream_to_anthropic_sse,
     rebatch_anthropic_sse_text,
 )
+from ciel_runtime_support.pseudo_tool_parser import (
+    PseudoToolParserServices,
+    infer_tool_name_from_args as project_infer_tool_name,
+    normalize_tool_arguments as project_normalize_tool_arguments,
+    parse_pseudo_tool_calls as project_parse_pseudo_tool_calls,
+)
+from ciel_runtime_support.stream_chunk_policy import split_word_buffer
 from ciel_runtime_support.upstream_retry import (
     UpstreamRetryHttp,
     UpstreamRetryKeys,
@@ -8998,21 +9005,7 @@ def maybe_handle_live_api_keys_request(handler: BaseHTTPRequestHandler, body: di
 
 
 def normalize_tool_arguments(tool_name: str, args: Any) -> dict[str, Any]:
-    if isinstance(args, dict):
-        return args
-    if isinstance(args, str):
-        text = args.strip()
-        if not text:
-            return {}
-        try:
-            parsed = json.loads(text)
-            if isinstance(parsed, dict):
-                return parsed
-        except Exception:
-            pass
-        if tool_name == "Bash":
-            return {"command": text}
-    return {}
+    return project_normalize_tool_arguments(tool_name, args)
 
 
 PSEUDO_TOOL_START = "<|tool_calls_section_begin|>"
@@ -9023,66 +9016,18 @@ PSEUDO_CALL_END = "<|tool_call_end|>"
 
 
 def infer_tool_name_from_args(args: dict[str, Any]) -> str:
-    keys = set(args)
-    if "command" in keys:
-        return "Bash"
-    if {"file_path", "content"}.issubset(keys):
-        return "Write"
-    if {"file_path", "old_string", "new_string"}.issubset(keys):
-        return "Edit"
-    if "file_path" in keys:
-        return "Read"
-    task_update_keys = {"taskId", "task_id", "addBlocks", "addBlockedBy"}
-    if keys & task_update_keys:
-        return "TaskUpdate"
-    return "TaskList" if not args else "Write"
+    return project_infer_tool_name(args)
 
 
 def parse_pseudo_tool_calls(text: str, source_body: dict[str, Any] | None = None) -> tuple[str, list[dict[str, Any]]]:
-    if PSEUDO_TOOL_START not in text:
-        return _parse_xml_pseudo_tool_calls(text, source_body)
-    visible_parts: list[str] = []
-    calls: list[dict[str, Any]] = []
-    pos = 0
-    while True:
-        start = text.find(PSEUDO_TOOL_START, pos)
-        if start < 0:
-            visible_parts.append(text[pos:])
-            break
-        visible_parts.append(text[pos:start])
-        end = text.find(PSEUDO_TOOL_END, start)
-        if end < 0:
-            section = text[start + len(PSEUDO_TOOL_START):]
-            pos = len(text)
-        else:
-            section = text[start + len(PSEUDO_TOOL_START):end]
-            pos = end + len(PSEUDO_TOOL_END)
-        for match in re.finditer(
-            re.escape(PSEUDO_CALL_BEGIN) + r"(.*?)" + re.escape(PSEUDO_ARG_BEGIN) + r"(.*?)" + re.escape(PSEUDO_CALL_END),
-            section,
-            flags=re.DOTALL,
-        ):
-            raw_header = match.group(1).strip()
-            raw_args = match.group(2).strip()
-            try:
-                args = json.loads(raw_args)
-            except Exception:
-                continue
-            if not isinstance(args, dict):
-                continue
-            name = ""
-            for part in re.split(r"[\s:|,]+", raw_header):
-                candidate = _fuzzy_match_tool_name(part)
-                if candidate:
-                    name = candidate
-                    break
-            if not name:
-                name = infer_tool_name_from_args(args)
-            calls.append({"function": {"name": name, "arguments": args}, "id": raw_header})
-        if end < 0:
-            break
-    visible_text, xml_calls = _parse_xml_pseudo_tool_calls("".join(visible_parts), source_body)
-    return visible_text, calls + xml_calls
+    return project_parse_pseudo_tool_calls(
+        text,
+        source_body,
+        PseudoToolParserServices(
+            parse_xml=_parse_xml_pseudo_tool_calls,
+            fuzzy_tool_name=_fuzzy_match_tool_name,
+        ),
+    )
 
 
 def ollama_response_services() -> OllamaResponseServices:
@@ -9132,29 +9077,7 @@ STREAM_WORD_CHUNK_MAX_BUFFER = 64
 
 
 def _split_word_buffer(buf: str, force: bool = False, max_buffer: int = STREAM_WORD_CHUNK_MAX_BUFFER) -> tuple[str, str]:
-    """
-    Split text into (to_flush, remainder) for word-boundary streaming.
-
-    Without force: flush up to and including the last whitespace, unless the
-    buffer length is at least max_buffer (then flush the entire buffer to avoid
-    unbounded buffering on input without whitespace, e.g. very long words or
-    CJK text).
-    With force=True: flush the entire buffer (used at content_block_stop).
-    """
-    if not buf:
-        return "", ""
-    if force:
-        return buf, ""
-    last_ws = -1
-    for i in range(len(buf) - 1, -1, -1):
-        if buf[i].isspace():
-            last_ws = i
-            break
-    if last_ws >= 0:
-        return buf[:last_ws + 1], buf[last_ws + 1:]
-    if len(buf) >= max_buffer:
-        return buf, ""
-    return "", buf
+    return split_word_buffer(buf, force=force, max_buffer=max_buffer)
 
 
 def _rebatch_anthropic_sse_text(
