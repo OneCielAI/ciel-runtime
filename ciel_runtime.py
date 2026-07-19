@@ -141,6 +141,13 @@ from ciel_runtime_support.channel_mcp_http_controller import (
     ChannelMcpSessionStore,
     ChannelMcpStreamServices,
 )
+from ciel_runtime_support.channel_mcp_transport import (
+    ChannelMcpEffects,
+    ChannelMcpHttpPorts,
+    ChannelMcpTransport,
+    ChannelMcpTransportConfig,
+    ChannelMcpTransportState,
+)
 from ciel_runtime_support.channel_pending_injection import (
     ChannelInjectionIO,
     ChannelInjectionPolicy,
@@ -5962,223 +5969,50 @@ def _mcp_stream_read_timeout_error(exc: BaseException) -> bool:
 
 
 
+def channel_mcp_transport() -> ChannelMcpTransport:
+    return ChannelMcpTransport(
+        ChannelMcpTransportConfig(
+            VERSION,
+            MCP_LEGACY_SSE_PROTOCOL_VERSION,
+            MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+            _NATIVE_ROUTER_CHANNEL_NAMES,
+        ),
+        ChannelMcpTransportState(_CHANNEL_SSE_CONNECTIONS, _CHANNEL_SSE_LOCK),
+        ChannelMcpHttpPorts(
+            legacy_post=_mcp_sse_post_json,
+            streamable_post=_mcp_streamable_post_json,
+            error_body=_http_error_body_text,
+            session_not_found=_streamable_http_session_not_found,
+            parse_bool=parse_bool,
+        ),
+        ChannelMcpEffects(
+            set_state=_channel_sse_set_state,
+            take_response=_channel_sse_take_rpc_response,
+            mark_session_lost=_channel_streamable_http_mark_session_lost,
+            absolute_endpoint=_channel_sse_absolute_endpoint,
+            record_session=_record_channel_streamable_session,
+            store_response=_channel_sse_store_rpc_response,
+            project_payload=_sse_payload_to_chat_payload,
+            append_message=append_chat_message,
+            log=router_log,
+        ),
+    )
+
+
 def _channel_sse_rpc_request(name: str, method: str, params: dict[str, Any] | None = None, timeout: float | None = None) -> dict[str, Any]:
-    request_id = int(time.time_ns() % 9_000_000_000_000_000)
-    payload = {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params or {}}
-    for attempt in range(2):
-        with _CHANNEL_SSE_LOCK:
-            state = _CHANNEL_SSE_CONNECTIONS.get(name)
-            if not state:
-                raise RuntimeError(f"SSE channel {name} is not connected")
-            transport = str(state.get("transport") or "sse").strip().lower()
-            if transport in {"http", "streamable-http"} and not state.get("mcp_initialized"):
-                needs_http_initialize = True
-            else:
-                needs_http_initialize = False
-        if needs_http_initialize:
-            _channel_streamable_http_initialize_mcp(name)
-        with _CHANNEL_SSE_LOCK:
-            state = _CHANNEL_SSE_CONNECTIONS.get(name)
-            if not state:
-                raise RuntimeError(f"SSE channel {name} is not connected")
-            if not state.get("mcp_initialized"):
-                raise RuntimeError(f"SSE channel {name} is not MCP initialized")
-            endpoint = str(state.get("mcp_endpoint") or "")
-            headers = dict(state.get("headers") or {})
-            transport = str(state.get("transport") or "sse").strip().lower()
-            protocol_version = str(state.get("mcp_protocol_version") or MCP_LEGACY_SSE_PROTOCOL_VERSION)
-            session_id = str(state.get("mcp_session_id") or "").strip() or None
-            requires_session = parse_bool(state.get("streamable_requires_session"), True)
-            effective_timeout = float(timeout if timeout is not None else state.get("mcp_timeout_seconds") or 20.0)
-        if not endpoint:
-            raise RuntimeError(f"SSE channel {name} has no MCP endpoint")
-        if transport in {"http", "streamable-http"}:
-            if requires_session and not session_id:
-                raise RuntimeError(f"Streamable HTTP MCP channel {name} has no Mcp-Session-Id")
-            try:
-                posted, returned_session = _mcp_streamable_post_json(
-                    endpoint,
-                    headers,
-                    payload,
-                    max(1.0, min(120.0, effective_timeout)),
-                    protocol_version,
-                    session_id,
-                )
-            except urllib.error.HTTPError as exc:
-                body_text = _http_error_body_text(exc)
-                if attempt == 0 and _streamable_http_session_not_found(exc, body_text):
-                    reason = f"streamable_http_session_not_found:HTTPError:{exc.code}"
-                    _channel_streamable_http_mark_session_lost(name, reason)
-                    router_log("WARN", f"channel_http_mcp_session_lost name={name} method={method} error=HTTPError:{exc.code}:{exc.reason}")
-                    continue
-                raise
-            if returned_session:
-                _channel_sse_set_state(name, mcp_session_id=returned_session)
-        else:
-            posted = _mcp_sse_post_json(endpoint, headers, payload, max(1.0, min(120.0, effective_timeout)))
-        break
-    else:
-        raise RuntimeError(f"SSE channel {name} could not send MCP request")
-    if isinstance(posted, dict) and posted.get("id") == request_id and ("result" in posted or "error" in posted):
-        return posted
-    response = _channel_sse_take_rpc_response(name, request_id, max(1.0, min(120.0, effective_timeout)))
-    if response is None:
-        raise TimeoutError(f"timed out waiting for MCP SSE response id={request_id} method={method} channel={name}")
-    return response
+    return channel_mcp_transport().rpc_request(name, method, params, timeout)
 
 
 def _channel_sse_maybe_initialize_mcp(name: str, endpoint_text: str) -> None:
-    with _CHANNEL_SSE_LOCK:
-        state = _CHANNEL_SSE_CONNECTIONS.get(name)
-        if not state:
-            return
-        if not bool(state.get("mcp_enabled", True)):
-            return
-        stream_url = str(state.get("url") or "")
-        endpoint = _channel_sse_absolute_endpoint(stream_url, endpoint_text)
-        current_endpoint = str(state.get("mcp_endpoint") or "")
-        was_initialized = bool(state.get("mcp_initialized"))
-        if was_initialized and current_endpoint == endpoint:
-            return
-        headers = dict(state.get("headers") or {})
-        timeout = max(5.0, min(120.0, float(state.get("mcp_timeout_seconds") or 20.0)))
-        protocol_version = str(state.get("mcp_protocol_version") or "2024-11-05")
-    try:
-        if was_initialized and current_endpoint:
-            router_log("INFO", f"channel_sse_mcp_reinitializing name={name} old_endpoint={current_endpoint} new_endpoint={endpoint}")
-        initialize = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "protocolVersion": protocol_version,
-                "capabilities": {},
-                "clientInfo": {"name": "ciel-runtime-channel-bridge", "version": VERSION},
-            },
-        }
-        _mcp_sse_post_json(endpoint, headers, initialize, timeout)
-        initialized = {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}
-        _mcp_sse_post_json(endpoint, headers, initialized, timeout)
-        _channel_sse_set_state(name, mcp_endpoint=endpoint, mcp_initialized=True, mcp_last_error=None, mcp_rpc_results={})
-        router_log("INFO", f"channel_sse_mcp_initialized name={name} endpoint={endpoint}")
-    except Exception as exc:
-        _channel_sse_set_state(name, mcp_endpoint=endpoint, mcp_initialized=False, mcp_last_error=f"{type(exc).__name__}: {exc}")
-        router_log("WARN", f"channel_sse_mcp_initialize_failed name={name} endpoint={endpoint} error={type(exc).__name__}: {exc}")
+    channel_mcp_transport().maybe_initialize(name, endpoint_text)
 
 
 def _channel_streamable_http_initialize_mcp(name: str) -> None:
-    with _CHANNEL_SSE_LOCK:
-        state = _CHANNEL_SSE_CONNECTIONS.get(name)
-        if not state:
-            return
-        if not bool(state.get("mcp_enabled", True)):
-            return
-        endpoint = str(state.get("url") or "")
-        if bool(state.get("mcp_initialized")) and str(state.get("mcp_endpoint") or "") == endpoint:
-            return
-        headers = dict(state.get("headers") or {})
-        timeout = max(5.0, min(120.0, float(state.get("mcp_timeout_seconds") or 20.0)))
-        protocol_version = str(state.get("mcp_protocol_version") or MCP_STREAMABLE_HTTP_PROTOCOL_VERSION)
-        requires_session = parse_bool(state.get("streamable_requires_session"), True)
-    try:
-        initialize = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "protocolVersion": protocol_version,
-                "capabilities": {},
-                "clientInfo": {"name": "ciel-runtime-channel-bridge", "version": VERSION},
-            },
-        }
-        _result, session_id = _mcp_streamable_post_json(endpoint, headers, initialize, timeout, protocol_version)
-        if requires_session and not session_id:
-            _channel_sse_set_state(
-                name,
-                mcp_endpoint=endpoint,
-                mcp_initialized=False,
-                mcp_session_id=None,
-                mcp_last_error="streamable_http_missing_session_id",
-            )
-            router_log("WARN", f"channel_http_mcp_initialize_failed name={name} endpoint={endpoint} error=missing_mcp_session_id")
-            return
-        initialized = {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}
-        _mcp_streamable_post_json(endpoint, headers, initialized, timeout, protocol_version, session_id)
-        _channel_sse_set_state(
-            name,
-            mcp_endpoint=endpoint,
-            mcp_initialized=True,
-            mcp_session_id=session_id,
-            mcp_last_error=None,
-            mcp_rpc_results={},
-        )
-        _record_channel_streamable_session(name, endpoint, session_id, protocol_version)
-        visible_session = session_id or "-"
-        router_log("INFO", f"channel_http_mcp_initialized name={name} endpoint={endpoint} session={visible_session}")
-    except urllib.error.HTTPError as exc:
-        if exc.code == 405:
-            _channel_sse_set_state(
-                name,
-                transport="sse",
-                mcp_endpoint="",
-                mcp_initialized=False,
-                mcp_session_id=None,
-                mcp_protocol_version=MCP_LEGACY_SSE_PROTOCOL_VERSION,
-                mcp_last_error="streamable_http_405_fallback_sse",
-            )
-            router_log("WARN", f"channel_http_fallback_sse name={name} endpoint={endpoint} reason=HTTPError:405")
-            return
-        _channel_sse_set_state(name, mcp_endpoint=endpoint, mcp_initialized=False, mcp_last_error=f"HTTPError: {exc.code} {exc.reason}")
-        router_log("WARN", f"channel_http_mcp_initialize_failed name={name} endpoint={endpoint} error=HTTPError:{exc.code}: {exc.reason}")
-    except Exception as exc:
-        _channel_sse_set_state(name, mcp_endpoint=endpoint, mcp_initialized=False, mcp_last_error=f"{type(exc).__name__}: {exc}")
-        router_log("WARN", f"channel_http_mcp_initialize_failed name={name} endpoint={endpoint} error={type(exc).__name__}: {exc}")
+    channel_mcp_transport().initialize_streamable(name)
 
 
 def _channel_sse_dispatch(name: str, event_name: str, data_lines: list[str], event_id: str | None = None) -> None:
-    data_text = "\n".join(data_lines)
-    if event_id is not None:
-        with _CHANNEL_SSE_LOCK:
-            state = _CHANNEL_SSE_CONNECTIONS.get(name)
-            if state:
-                state["last_sse_event_id"] = str(event_id)
-    if (event_name or "").strip().lower() == "endpoint":
-        _channel_sse_maybe_initialize_mcp(name, data_text)
-        return
-    if _channel_sse_store_rpc_response(name, data_text):
-        return
-    if str(name or "").strip().lower() in _NATIVE_ROUTER_CHANNEL_NAMES:
-        router_log(
-            "INFO",
-            f"channel_sse_message_ignored name={name} event={event_name or 'message'} reason=native_router_self_echo",
-        )
-        return
-    with _CHANNEL_SSE_LOCK:
-        state = _CHANNEL_SSE_CONNECTIONS.get(name)
-        if not state:
-            return
-        defaults = dict(state)
-    payload = _sse_payload_to_chat_payload(data_text, event_name, defaults, event_id=event_id)
-    if not payload:
-        return
-    saved = append_chat_message(payload)
-    if saved.get("_ciel_runtime_duplicate"):
-        router_log(
-            "INFO",
-            f"channel_sse_message_skipped_duplicate name={name} event={event_name or 'message'} existing_id={saved.get('id')} channel={saved.get('channel')}",
-        )
-        return
-    now = time.strftime("%Y-%m-%dT%H:%M:%S")
-    with _CHANNEL_SSE_LOCK:
-        state = _CHANNEL_SSE_CONNECTIONS.get(name)
-        if state:
-            state["last_event_at"] = now
-            state["messages_received"] = int(state.get("messages_received") or 0) + 1
-            state["last_error"] = None
-    router_log(
-        "INFO",
-        f"channel_sse_message_received name={name} event={event_name or 'message'} message_id={saved.get('id')} channel={saved.get('channel')}",
-    )
+    channel_mcp_transport().dispatch(name, event_name, data_lines, event_id)
 
 
 def _channel_connection_matches(state: dict[str, Any], connection_id: str | None) -> bool:

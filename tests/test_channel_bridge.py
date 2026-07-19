@@ -5617,7 +5617,20 @@ class ChannelBridgeTests(unittest.TestCase):
                     max_open = st["max_open_gets"]
                     inits = st["inits"]
                 # NEVER more than one concurrent notification stream (no leak).
-                self.assertLessEqual(max_open, 1, f"stream leak: max concurrent GET streams = {max_open}")
+                self.assertLessEqual(
+                    max_open,
+                    1,
+                    f"stream leak: max concurrent GET streams = {max_open}\n"
+                    + stderr.decode("utf-8", errors="replace")
+                    + "\n"
+                    + (
+                        (root / "config" / "router.log").read_text(
+                            encoding="utf-8", errors="replace"
+                        )
+                        if (root / "config" / "router.log").exists()
+                        else ""
+                    ),
+                )
                 # Self-heal happened without any tool call (>=2 initializes).
                 self.assertGreaterEqual(inits, 2, f"expected idle self-heal re-init, inits={inits}")
                 # The post-heal notification was captured (>=1; the fake server

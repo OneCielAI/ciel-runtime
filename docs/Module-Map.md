@@ -80,6 +80,10 @@ Web Chat/Channel bridge의 health, message history·long-poll·SSE, file downloa
 
 내장 Channel MCP의 session Repository, SSE read-loop와 JSON-RPC POST endpoint를 소유하는 HTTP Controller. session state, stream effects, RPC effects를 분리해 HTTP transport가 전역 dict/lock을 직접 조작하지 않게 한다.
 
+### `ciel_runtime_support/channel_mcp_transport.py`
+
+외부 Channel MCP의 legacy SSE·Streamable HTTP initialize, RPC request, response correlation과 notification dispatch를 조정하는 Transport Application Service. connection state/lock, HTTP codec와 side effects를 각각 9필드 이하 typed port로 분리한다.
+
 ### `ciel_runtime_support/plan_artifact_controller.py`
 
 공유 plan artifact의 목록·조회·저장·latest projection과 channel announce를 소유하는 HTTP Controller/Repository Adapter. 경로 정규화와 HTTP 표현을 plan 생성 호출부에서 분리한다.

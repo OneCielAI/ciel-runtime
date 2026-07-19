@@ -335,6 +335,7 @@ def run_mcp_streamable_http_proxy(
             worker_session = current_session
             event_name = "message"
             data_lines: list[str] = []
+            reopen_after_close = False
             try:
                 request_headers = _mcp_streamable_headers(
                     headers, protocol_version, worker_session, accept="text/event-stream",
@@ -349,6 +350,7 @@ def run_mcp_streamable_http_proxy(
                     while not stream_stop.is_set():
                         with session_cond:
                             if session_requested or stream_reopen_requested or session_id != worker_session:
+                                reopen_after_close = True
                                 break
                         raw = response.readline()
                         if raw == b"":
@@ -379,6 +381,12 @@ def run_mcp_streamable_http_proxy(
                                     f"mcp_http_proxy_invalid_retry server={server_name} value={value!r} "
                                     f"error={type(exc).__name__}: {exc}",
                                 )
+                if reopen_after_close:
+                    # Closing the client response does not guarantee the server
+                    # handler has released its GET immediately. Observe the
+                    # configured reconnect interval before opening the successor
+                    # stream so the single owner is also single-owner server-side.
+                    stream_stop.wait(timeout=min(retry_seconds, 0.25))
                 continue
             except urllib.error.HTTPError as exc:
                 body_text = _http_error_body_text(exc)
@@ -400,6 +408,13 @@ def run_mcp_streamable_http_proxy(
                         f"mcp_http_proxy_stream_timeout_reconnect server={server_name} event={event_name} "
                         f"initialized={initialized_seen} session={worker_session or '-'} "
                         f"last_event_id={last_event_id or '-'} error={type(exc).__name__}: {exc}",
+                    )
+                    # urllib can time out and close its client response while
+                    # the backend GET handler is still unwinding. Respect the
+                    # reconnect interval before replacing it to preserve the
+                    # single-owner invariant on both sides of the socket.
+                    stream_stop.wait(
+                        timeout=min(retry_seconds, pre_initialized_read_timeout)
                     )
                     continue
                 router_log("WARN", f"mcp_http_proxy_stream_reconnect server={server_name} event={event_name} error={type(exc).__name__}: {exc}")
