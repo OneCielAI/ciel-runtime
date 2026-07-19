@@ -168,6 +168,7 @@ from ciel_runtime_support.channel_event_identity import (
 )
 from ciel_runtime_support.channel_message_repository import ChannelMessageRepository
 from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
+from ciel_runtime_support.channel_cursor_repository import ChannelCursorRepository
 from ciel_runtime_support.channel_wake_claim_repository import (
     ChannelWakeClaimRepository,
     prompt_message_ids as _channel_prompt_message_ids,
@@ -9767,29 +9768,24 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
     )
 
 
+def channel_cursor_repository(path: Path) -> ChannelCursorRepository:
+    return ChannelCursorRepository(path=path, log=router_log)
+
+
 def _channel_mcp_write_cursor_locked(last_id: int) -> None:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    tmp_path = CHANNEL_MCP_CURSOR_PATH.with_suffix(".json.tmp")
-    tmp_path.write_text(json.dumps({"last_id": max(0, int(last_id))}, separators=(",", ":")) + "\n", encoding="utf-8")
-    tmp_path.replace(CHANNEL_MCP_CURSOR_PATH)
+    channel_cursor_repository(CHANNEL_MCP_CURSOR_PATH).write(last_id)
 
 
 def _channel_mcp_read_cursor_locked() -> int:
     global _CHANNEL_MCP_CURSOR_LAST_ID
     if _CHANNEL_MCP_CURSOR_LAST_ID is not None:
         return _CHANNEL_MCP_CURSOR_LAST_ID
-    if CHANNEL_MCP_CURSOR_PATH.exists():
-        try:
-            data = json.loads(CHANNEL_MCP_CURSOR_PATH.read_text(encoding="utf-8"))
-            _CHANNEL_MCP_CURSOR_LAST_ID = max(0, int(data.get("last_id") or 0))
-            return _CHANNEL_MCP_CURSOR_LAST_ID
-        except Exception as exc:
-            router_log("WARN", f"channel_mcp_cursor_read_failed error={type(exc).__name__}: {exc}")
+    file_cursor = channel_cursor_repository(CHANNEL_MCP_CURSOR_PATH).read()
+    if file_cursor is not None:
+        _CHANNEL_MCP_CURSOR_LAST_ID = file_cursor
+        return _CHANNEL_MCP_CURSOR_LAST_ID
     _CHANNEL_MCP_CURSOR_LAST_ID = max(0, _chat_scan_max_id())
-    try:
-        _channel_mcp_write_cursor_locked(_CHANNEL_MCP_CURSOR_LAST_ID)
-    except Exception as exc:
-        router_log("WARN", f"channel_mcp_cursor_write_failed error={type(exc).__name__}: {exc}")
+    _channel_mcp_write_cursor_locked(_CHANNEL_MCP_CURSOR_LAST_ID)
     return _CHANNEL_MCP_CURSOR_LAST_ID
 
 
@@ -9807,10 +9803,7 @@ def _channel_mcp_update_cursor(last_id: int) -> None:
         if last_id <= current:
             return
         _CHANNEL_MCP_CURSOR_LAST_ID = int(last_id)
-        try:
-            _channel_mcp_write_cursor_locked(_CHANNEL_MCP_CURSOR_LAST_ID)
-        except Exception as exc:
-            router_log("WARN", f"channel_mcp_cursor_write_failed error={type(exc).__name__}: {exc}")
+        _channel_mcp_write_cursor_locked(_CHANNEL_MCP_CURSOR_LAST_ID)
 
 
 def _channel_mcp_parse_event_id(value: Any) -> int | None:
@@ -22360,52 +22353,32 @@ def body_with_channel_tool_result_context(body: dict[str, Any]) -> dict[str, Any
 
 
 def _channel_llm_write_cursor_locked(last_id: int) -> None:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    tmp_path = CHANNEL_LLM_CURSOR_PATH.with_suffix(".json.tmp")
-    tmp_path.write_text(json.dumps({"last_id": max(0, int(last_id))}, separators=(",", ":")) + "\n", encoding="utf-8")
-    tmp_path.replace(CHANNEL_LLM_CURSOR_PATH)
+    channel_cursor_repository(CHANNEL_LLM_CURSOR_PATH).write(last_id)
 
 
 def _channel_llm_read_cursor_locked() -> int:
     global _CHANNEL_LLM_CURSOR_LAST_ID
-    if CHANNEL_LLM_CURSOR_PATH.exists():
-        try:
-            data = json.loads(CHANNEL_LLM_CURSOR_PATH.read_text(encoding="utf-8"))
-            file_cursor = max(0, int(data.get("last_id") or 0))
-            if _CHANNEL_LLM_CURSOR_LAST_ID is None or file_cursor > _CHANNEL_LLM_CURSOR_LAST_ID:
-                _CHANNEL_LLM_CURSOR_LAST_ID = file_cursor
-            return _CHANNEL_LLM_CURSOR_LAST_ID
-        except Exception as exc:
-            router_log("WARN", f"channel_llm_cursor_read_failed error={type(exc).__name__}: {exc}")
+    file_cursor = channel_cursor_repository(CHANNEL_LLM_CURSOR_PATH).read()
+    if file_cursor is not None:
+        if _CHANNEL_LLM_CURSOR_LAST_ID is None or file_cursor > _CHANNEL_LLM_CURSOR_LAST_ID:
+            _CHANNEL_LLM_CURSOR_LAST_ID = file_cursor
+        return _CHANNEL_LLM_CURSOR_LAST_ID
     if _CHANNEL_LLM_CURSOR_LAST_ID is not None:
         return _CHANNEL_LLM_CURSOR_LAST_ID
     _CHANNEL_LLM_CURSOR_LAST_ID = max(0, _chat_scan_max_id())
-    try:
-        _channel_llm_write_cursor_locked(_CHANNEL_LLM_CURSOR_LAST_ID)
-    except Exception:
-        pass
+    _channel_llm_write_cursor_locked(_CHANNEL_LLM_CURSOR_LAST_ID)
     return _CHANNEL_LLM_CURSOR_LAST_ID
 
 
 def _channel_llm_clear_floor_read() -> int:
-    try:
-        if not CHANNEL_LLM_CLEAR_FLOOR_PATH.exists():
-            return 0
-        data = json.loads(CHANNEL_LLM_CLEAR_FLOOR_PATH.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            return 0
-        return max(0, int(data.get("last_id") or 0))
-    except Exception as exc:
-        router_log("WARN", f"channel_llm_clear_floor_read_failed error={type(exc).__name__}: {exc}")
-        return 0
+    return channel_cursor_repository(CHANNEL_LLM_CLEAR_FLOOR_PATH).read() or 0
 
 
 def _channel_llm_clear_floor_write(last_id: int) -> None:
-    CHANNEL_LLM_CLEAR_FLOOR_PATH.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"last_id": max(0, int(last_id)), "updated_at": time.time()}
-    tmp_path = CHANNEL_LLM_CLEAR_FLOOR_PATH.with_suffix(".json.tmp")
-    tmp_path.write_text(json.dumps(payload, separators=(",", ":")) + "\n", encoding="utf-8")
-    tmp_path.replace(CHANNEL_LLM_CLEAR_FLOOR_PATH)
+    channel_cursor_repository(CHANNEL_LLM_CLEAR_FLOOR_PATH).write(
+        last_id,
+        metadata={"updated_at": time.time()},
+    )
 
 
 def _channel_llm_clamp_to_clear_floor(recovered: int) -> int:
@@ -22423,10 +22396,7 @@ def reset_channel_llm_delivery_cursor(last_id: int | None = None) -> int:
     global _CHANNEL_LLM_CURSOR_LAST_ID
     with _CHANNEL_LLM_CURSOR_LOCK:
         _CHANNEL_LLM_CURSOR_LAST_ID = max(0, int(last_id if last_id is not None else _chat_scan_max_id()))
-        try:
-            _channel_llm_write_cursor_locked(_CHANNEL_LLM_CURSOR_LAST_ID)
-        except Exception as exc:
-            router_log("WARN", f"channel_llm_cursor_write_failed error={type(exc).__name__}: {exc}")
+        _channel_llm_write_cursor_locked(_CHANNEL_LLM_CURSOR_LAST_ID)
         return _CHANNEL_LLM_CURSOR_LAST_ID
 
 

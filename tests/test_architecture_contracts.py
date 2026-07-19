@@ -101,6 +101,7 @@ from ciel_runtime_support.channel_transcript import ChannelWakeTranscriptService
 from ciel_runtime_support.channel_message_repository import ChannelMessageRepository
 from ciel_runtime_support.channel_wake_claim_repository import ChannelWakeClaimRepository
 from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
+from ciel_runtime_support.channel_cursor_repository import ChannelCursorRepository
 from ciel_runtime_support.channel_session_repository import ChannelSessionRepository
 from ciel_runtime_support.channel_session_lifecycle import ChannelSessionLifecycleServices
 from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices
@@ -1474,6 +1475,18 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("CHANNEL_LLM_LAUNCH_GUARD_PATH.read_text", source)
         self.assertNotIn("CHANNEL_LLM_LAUNCH_GUARD_PATH.with_suffix", source)
         self.assertLessEqual(len(fields(ChannelLaunchGuardRepository)), 10)
+
+    def test_channel_cursor_repository_owns_atomic_cursor_persistence(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        for path_name in (
+            "CHANNEL_MCP_CURSOR_PATH",
+            "CHANNEL_LLM_CURSOR_PATH",
+            "CHANNEL_LLM_CLEAR_FLOOR_PATH",
+        ):
+            with self.subTest(path=path_name):
+                self.assertNotIn(f"{path_name}.read_text", source)
+                self.assertNotIn(f"{path_name}.with_suffix", source)
+        self.assertLessEqual(len(fields(ChannelCursorRepository)), 10)
 
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
