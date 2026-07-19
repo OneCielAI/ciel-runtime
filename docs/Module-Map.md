@@ -169,6 +169,10 @@ Statusline script 설치와 Claude `statusLine` 설정 mutation을 담당하는 
 
 Anthropic message/tool block 요약과 request/response JSONL trace 저장·회전을 담당하는 Observability Adapter. trace 활성화·경로·용량 정책과 content projection을 작은 포트로 분리하고, 저장 실패를 더 이상 숨기지 않고 진단 로그로 노출한다.
 
+### `ciel_runtime_support/request_shortcuts.py`
+
+대화 메시지에 포함된 local router marker, live option/API-key 값, channel bridge 명령과 ImportSession 인자를 해석하는 Application Policy. 런타임별 message decoding은 `ShortcutTextServices` Port로 주입받는다.
+
 ### `ciel_runtime_support/prompt_injection.py`
 
 Protocol Strategy Registry. Anthropic/OpenAI Chat/OpenAI Responses/Ollama/Google 요청의 system context 배치 차이를 캡슐화하고 입력 객체와 Anthropic cache-control identity block을 보존한다.

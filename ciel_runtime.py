@@ -435,6 +435,18 @@ from ciel_runtime_support.request_trace import (
     summarize_messages_for_trace as project_messages_for_trace,
     truncate_for_dump as _truncate_for_dump,
 )
+from ciel_runtime_support.request_shortcuts import (
+    ShortcutTextServices,
+    format_channel_messages,  # noqa: F401 - compatibility export
+    has_marker as project_has_request_marker,
+    import_session_args as project_import_session_args,
+    live_api_keys_value as project_live_api_keys_value,
+    live_option_value as project_live_option_value,
+    marker_tail as project_request_marker_tail,
+    parse_channel_bridge_args,  # noqa: F401 - compatibility export
+    single_value as project_single_shortcut_value,
+    split_import_session_arguments as project_split_import_session_arguments,
+)
 from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support.ollama_forwarding import (
     OllamaForwardAdvisor,
@@ -9492,17 +9504,52 @@ def maybe_build_llm_compacted_messages(
     )
 
 
+
+
+
+
+def shortcut_text_services() -> ShortcutTextServices:
+    return ShortcutTextServices(latest_user_text=latest_user_text)
+
+
 def latest_user_text_has_marker(body: dict[str, Any], markers: tuple[str, ...]) -> bool:
-    text = latest_user_text(body)
-    return any(marker in text for marker in markers)
+    return project_has_request_marker(body, markers, shortcut_text_services())
 
 
 def latest_user_text_marker_tail(body: dict[str, Any], markers: tuple[str, ...]) -> str:
-    text = latest_user_text(body)
-    for marker in markers:
-        if marker in text:
-            return text.split(marker, 1)[1]
-    return ""
+    return project_request_marker_tail(body, markers, shortcut_text_services())
+
+
+def router_debug_value_from_body(body: dict[str, Any]) -> str:
+    return project_single_shortcut_value(
+        body, ROUTER_DEBUG_REQUEST_MARKERS, shortcut_text_services(),
+        empty_default="status", blank_value_default="toggle",
+    )
+
+
+def channel_clear_value_from_body(body: dict[str, Any]) -> str:
+    return project_single_shortcut_value(
+        body, CHANNEL_CLEAR_REQUEST_MARKERS, shortcut_text_services(),
+        empty_default="all", blank_value_default="all",
+    )
+
+
+def live_llm_options_value_from_body(body: dict[str, Any]) -> str:
+    return project_live_option_value(body, LIVE_LLM_OPTIONS_REQUEST_MARKERS, shortcut_text_services())
+
+
+def live_api_keys_value_from_body(body: dict[str, Any]) -> str:
+    return project_live_api_keys_value(body, LIVE_API_KEYS_REQUEST_MARKERS, shortcut_text_services())
+
+
+def _split_import_session_arguments(value: str) -> tuple[str, str]:
+    return project_split_import_session_arguments(value, posix=os.name != "nt")
+
+
+def import_session_args_from_body(body: dict[str, Any]) -> tuple[str, str]:
+    return project_import_session_args(
+        body, IMPORT_SESSION_REQUEST_MARKERS, shortcut_text_services(), posix=os.name != "nt"
+    )
 
 
 def is_advisor_request(body: dict[str, Any]) -> bool:
@@ -9533,241 +9580,24 @@ def is_import_session_request(body: dict[str, Any]) -> bool:
     return latest_user_text_has_marker(body, IMPORT_SESSION_REQUEST_MARKERS)
 
 
-def parse_channel_bridge_args(raw: str) -> tuple[str, dict[str, str]]:
-    text = (raw or "").strip()
-    if not text:
-        return "status", {}
-    try:
-        parts = shlex.split(text)
-    except Exception:
-        parts = text.split()
-    if not parts:
-        return "status", {}
-    command = parts[0].strip().lower()
-    if command not in {"status", "poll", "wait", "send", "post", "sse"}:
-        parts = ["status", *parts]
-        command = "status"
-    options: dict[str, str] = {}
-    loose: list[str] = []
-    for part in parts[1:]:
-        if "=" in part:
-            key, value = part.split("=", 1)
-            options[key.strip().lower().replace("-", "_")] = value.strip()
-        elif part:
-            loose.append(part)
-    if loose and "message" not in options and command in {"send", "post"}:
-        options["message"] = " ".join(loose)
-    return command, options
 
 
-def format_channel_messages(messages: list[dict[str, Any]], after: int) -> str:
-    if not messages:
-        return f"No channel messages after id {after}."
-    lines = [f"Channel bridge messages ({len(messages)}):"]
-    for item in messages:
-        recipients = item.get("recipients") or []
-        if isinstance(recipients, list):
-            recipient_text = ",".join(str(r) for r in recipients) or "all"
-        else:
-            recipient_text = str(recipients or "all")
-        text = re.sub(r"\s+", " ", str(item.get("message") or "")).strip()
-        if len(text) > 500:
-            text = text[:500].rstrip() + "..."
-        lines.append(
-            f"- #{item.get('id')} [{item.get('channel')}] {item.get('sender_id')} -> {recipient_text}: {text}"
-        )
-    lines.append(f"Last id: {messages[-1].get('id')}")
-    return "\n".join(lines)
 
 
-def router_debug_value_from_body(body: dict[str, Any]) -> str:
-    tail = latest_user_text_marker_tail(body, ROUTER_DEBUG_REQUEST_MARKERS)
-    if not tail:
-        return "status"
-    for line in tail.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        if stripped.lower().startswith("value:"):
-            value = stripped.split(":", 1)[1].strip()
-            return value or "toggle"
-    return tail.strip() or "toggle"
 
 
-def channel_clear_value_from_body(body: dict[str, Any]) -> str:
-    tail = latest_user_text_marker_tail(body, CHANNEL_CLEAR_REQUEST_MARKERS)
-    if not tail:
-        return "all"
-    for line in tail.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        if stripped.lower().startswith("value:"):
-            value = stripped.split(":", 1)[1].strip()
-            return value or "all"
-    return tail.strip() or "all"
 
 
-def live_llm_options_value_from_body(body: dict[str, Any]) -> str:
-    tail = latest_user_text_marker_tail(body, LIVE_LLM_OPTIONS_REQUEST_MARKERS)
-    if not tail:
-        return "status"
-    placeholder_values = {"$0", "${0}", "$ARGUMENTS", "${ARGUMENTS}"}
-    fallback_values: list[str] = []
-    saw_structured_value = False
-    for line in tail.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        if stripped.lower().startswith("value:"):
-            saw_structured_value = True
-            value = stripped.split(":", 1)[1].strip()
-            if value and value not in placeholder_values:
-                return value
-            continue
-        if stripped.lower().startswith("arguments:"):
-            saw_structured_value = True
-            value = stripped.split(":", 1)[1].strip()
-            if value and value not in placeholder_values:
-                fallback_values.append(value)
-    if fallback_values:
-        return fallback_values[0]
-    if saw_structured_value:
-        return "status"
-    fallback = tail.strip()
-    if not fallback or fallback in placeholder_values:
-        return "status"
-    return fallback
 
 
-def live_api_keys_value_from_body(body: dict[str, Any]) -> str:
-    tail = latest_user_text_marker_tail(body, LIVE_API_KEYS_REQUEST_MARKERS)
-    if not tail:
-        return "status"
-    placeholder_values = {"$0", "${0}", "$ARGUMENTS", "${ARGUMENTS}"}
-    value_line = ""
-    argument_lines: list[str] = []
-    saw_structured_value = False
-    capture_arguments = False
-    for line in tail.splitlines():
-        stripped = line.strip()
-        if capture_arguments:
-            if stripped and stripped not in placeholder_values:
-                argument_lines.append(stripped)
-            continue
-        if stripped.lower().startswith("value:"):
-            saw_structured_value = True
-            value = stripped.split(":", 1)[1].strip()
-            if value and value not in placeholder_values:
-                value_line = value
-            continue
-        if stripped.lower().startswith("arguments:"):
-            saw_structured_value = True
-            capture_arguments = True
-            value = stripped.split(":", 1)[1].strip()
-            if value and value not in placeholder_values:
-                argument_lines.append(value)
-            continue
-    if argument_lines:
-        return "\n".join(argument_lines)
-    if value_line:
-        return value_line
-    if saw_structured_value:
-        return "status"
-    fallback = tail.strip()
-    if not fallback or fallback in placeholder_values:
-        return "status"
-    return fallback
 
 
-def _placeholder_import_value(value: str) -> bool:
-    text = str(value or "").strip()
-    return text in {"", "$0", "${0}", "$1", "${1}", "$2", "${2}", "$ARGUMENTS", "${ARGUMENTS}"}
 
 
-def _strip_wrapping_quotes(value: str) -> str:
-    text = str(value or "").strip()
-    if len(text) >= 2 and text[0] == text[-1] and text[0] in {"'", '"'}:
-        return text[1:-1]
-    return text
 
 
-def _split_import_session_arguments(value: str) -> tuple[str, str]:
-    raw = str(value or "").strip()
-    if not raw:
-        return "", ""
-    try:
-        parts = shlex.split(raw, posix=(os.name != "nt"))
-        parts = [_strip_wrapping_quotes(part) for part in parts]
-    except Exception:
-        parts = raw.split()
-    if not parts:
-        return "", ""
-    target = parts[0].strip()
-    path_parts: list[str] = []
-    i = 1
-    while i < len(parts):
-        part = str(parts[i]).strip()
-        low = part.lower()
-        if low in {"--path", "-p", "path", "file", "transcript"} and i + 1 < len(parts):
-            path_parts = [str(parts[i + 1])]
-            i += 2
-            continue
-        if low.startswith(("--path=", "path=", "file=", "transcript=")):
-            path_parts = [part.split("=", 1)[1]]
-            i += 1
-            continue
-        path_parts.append(part)
-        i += 1
-    return target, _strip_wrapping_quotes(" ".join(path_parts).strip())
 
 
-def import_session_args_from_body(body: dict[str, Any]) -> tuple[str, str]:
-    tail = latest_user_text_marker_tail(body, IMPORT_SESSION_REQUEST_MARKERS)
-    if not tail:
-        return "", ""
-    target = ""
-    path = ""
-    argument_lines: list[str] = []
-    capture_arguments = False
-    for line in tail.splitlines():
-        stripped = line.strip()
-        if capture_arguments:
-            if stripped and not _placeholder_import_value(stripped):
-                argument_lines.append(stripped)
-            continue
-        lowered = stripped.lower()
-        if lowered.startswith(("target:", "source:", "format:", "runtime:")):
-            value = stripped.split(":", 1)[1].strip()
-            if not _placeholder_import_value(value):
-                target = value
-            continue
-        if lowered.startswith(("path:", "file:", "transcript:")):
-            value = stripped.split(":", 1)[1].strip()
-            if not _placeholder_import_value(value):
-                path = _strip_wrapping_quotes(value)
-            continue
-        if lowered.startswith("arguments:"):
-            capture_arguments = True
-            value = stripped.split(":", 1)[1].strip()
-            if value and not _placeholder_import_value(value):
-                argument_lines.append(value)
-            continue
-    arg_target, arg_path = _split_import_session_arguments("\n".join(argument_lines).strip())
-    if arg_target:
-        target = arg_target
-    if arg_path:
-        path = arg_path
-    if not target:
-        fallback = "\n".join(
-            line
-            for line in tail.splitlines()
-            if not line.strip().lower().startswith(("target:", "source:", "format:", "runtime:", "path:", "file:", "transcript:", "arguments:"))
-        ).strip()
-        arg_target, arg_path = _split_import_session_arguments(fallback)
-        target = arg_target
-        path = path or arg_path
-    return target.strip(), _strip_wrapping_quotes(path)
 
 
 def advisor_focus_from_body(body: dict[str, Any]) -> str:
