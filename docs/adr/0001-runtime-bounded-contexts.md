@@ -128,6 +128,10 @@ Context-aware request timeout calculation and mutation live in
 `provider_timeout_policy.py`, which composes adapter context policy with model,
 catalog, preset, and output information through explicit settings and ports.
 
+Context mode calculation, localized setup projection, and adapter-owned context
+mutation live in `context_setup.py`. Persistence remains outside this service,
+while post-mutation caps and timeout recalculation are explicit ports.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

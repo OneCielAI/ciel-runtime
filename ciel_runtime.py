@@ -734,6 +734,7 @@ from ciel_runtime_support.provider_context import (
     resolve_context_capacity,
     small_context_output_token_cap as resolve_small_context_output_cap,
 )
+from ciel_runtime_support.context_setup import ContextSetupPorts, ContextSetupService
 from ciel_runtime_support.provider_option_panel import (
     OptionPanelPolicy,
     OptionPanelProvider,
@@ -12193,119 +12194,39 @@ def apply_recommended_timeout_for_model_context(
 
 
 def context_mode_values_for_capacity(capacity: int | None) -> dict[str, tuple[int, int, int]]:
-    cap = capacity or 131072
-
-    def clamp(value: int) -> int:
-        return max(8192, min(cap, value))
-
-    compact = clamp(32768)
-    balanced = clamp(65536 if cap <= 131072 else 131072)
-    project = clamp(262144 if cap >= 262144 else cap)
-    full = clamp(cap)
-    return {
-        "context-compact": (compact, min(2048, max(1024, compact // 16)), 4096),
-        "context-balanced": (balanced, min(4096, max(2048, balanced // 16)), 4096),
-        "context-project": (project, min(8192, max(4096, project // 16)), 8192),
-        "context-full": (full, min(16384, max(4096, full // 16)), 8192),
-    }
+    return ContextSetupService.mode_values(capacity)
 
 
 def context_setup_text(key: str, lang: str | None = None) -> tuple[str, str]:
     lang = lang or load_config().get("language", "en")
-    entries = {
-        "en": {
-            "context-compact": ("Compact / fast", "small context, faster and cheaper"),
-            "context-balanced": ("Balanced", "good default for normal coding sessions"),
-            "context-project": ("Large project", "more files/history, slower but safer for big work"),
-            "context-full": ("Full model window", "use the selected model's maximum context"),
-        },
-        "ko": {
-            "context-compact": ("컴팩트/빠름", "작은 컨텍스트, 빠르고 가벼움"),
-            "context-balanced": ("균형형", "일반 코딩 세션의 권장 기본값"),
-            "context-project": ("대형 프로젝트", "파일/히스토리를 더 많이 사용, 큰 작업에 안정적"),
-            "context-full": ("모델 최대 컨텍스트", "선택한 모델의 최대 컨텍스트 사용"),
-        },
-        "ja": {
-            "context-compact": ("コンパクト/高速", "小さなコンテキストで高速かつ軽量"),
-            "context-balanced": ("バランス", "通常のコーディングセッション向けの既定値"),
-            "context-project": ("大規模プロジェクト", "より多くのファイル/履歴を使う大型作業向け"),
-            "context-full": ("モデル最大コンテキスト", "選択モデルの最大コンテキストを使用"),
-        },
-        "zh": {
-            "context-compact": ("紧凑/快速", "较小上下文，更快更轻"),
-            "context-balanced": ("均衡", "普通编码会话的推荐默认值"),
-            "context-project": ("大型项目", "使用更多文件/历史，适合大任务"),
-            "context-full": ("模型最大上下文", "使用所选模型的最大上下文"),
-        },
-    }
-    return entries.get(lang, entries["en"]).get(key, entries["en"][key])
+    return ContextSetupService.text(key, lang)
+
+
+def context_setup_service() -> ContextSetupService:
+    return ContextSetupService(
+        ContextSetupPorts(
+            context_capacity=provider_model_context_capacity,
+            context_policy=provider_context_policy,
+            positive_int=positive_int,
+            format_context=format_context_tokens,
+            ui_text=ui_text,
+            pad_cells=pad_cells,
+            cap_context=cap_context_settings_to_model_capacity,
+            cap_output=cap_output_settings_to_context_ratio,
+            apply_timeout=apply_recommended_timeout_for_model_context,
+            context_status=context_setting_status,
+        )
+    )
 
 
 def context_setup_panel_rows(provider: str, pcfg: dict[str, Any], lang: str | None = None) -> tuple[list[str], list[str]]:
     lang = lang or load_config().get("language", "en")
-    capacity = provider_model_context_capacity(provider, pcfg)
-    rows = [f"Model context capacity: {format_context_tokens(capacity)}"]
-    values = ["__info__"]
-    settings_strategy = provider_context_policy(provider, pcfg).settings_strategy
-    if settings_strategy == "managed":
-        rows.append("Claude Code manages Anthropic context automatically.")
-        values.append("__info__")
-        rows.append(ui_text("back", lang))
-        values.append("back")
-        return rows, values
-    current_window = positive_int(
-        pcfg.get("num_ctx_max" if settings_strategy == "ollama" else "context_window")
-    )
-    choices = context_mode_values_for_capacity(capacity)
-    ordered_keys = ["context-compact", "context-balanced", "context-project", "context-full"]
-    visible_keys: list[str] = []
-    seen_windows: set[int] = set()
-    for key in reversed(ordered_keys):
-        window = choices[key][0]
-        if window in seen_windows:
-            continue
-        seen_windows.add(window)
-        visible_keys.append(key)
-    for key in reversed(visible_keys):
-        window, reserve, output = choices[key]
-        label, description = context_setup_text(key, lang)
-        mark = "*" if current_window == window else " "
-        rows.append(
-            f"{mark} {pad_cells(label, 22)} "
-            f"{format_context_tokens(window):>6}  out {format_context_tokens(output):>5}  {description}"
-        )
-        values.append(key)
-    rows.append(ui_text("back", lang))
-    values.append("back")
-    return rows, values
+    return context_setup_service().panel_rows(provider, pcfg, lang)
 
 
 def apply_context_setup_to_provider(provider: str, pcfg: dict[str, Any], mode: str, lang: str | None = None) -> list[str]:
-    choices = context_mode_values_for_capacity(provider_model_context_capacity(provider, pcfg))
-    if mode not in choices:
-        raise SystemExit(f"Unknown context mode: {mode}")
-    window, reserve, output = choices[mode]
-    label = context_setup_text(mode, lang)[0]
-    settings_strategy = provider_context_policy(provider, pcfg).settings_strategy
-    if settings_strategy == "ollama":
-        pcfg["num_ctx"] = "auto"
-        pcfg["num_ctx_max"] = window
-        pcfg["num_ctx_min"] = min(window, 32768 if window <= 65536 else 65536)
-        pcfg.setdefault("ollama_options", {})["num_predict"] = output
-    elif settings_strategy == "standard":
-        pcfg["context_window"] = window
-        pcfg["context_reserve_tokens"] = reserve
-        pcfg["max_output_tokens"] = output
-    else:
-        return ["Context setup is managed by Claude Code for this provider."]
-    messages = cap_context_settings_to_model_capacity(provider, pcfg)
-    messages.extend(cap_output_settings_to_context_ratio(provider, pcfg))
-    messages.extend(apply_recommended_timeout_for_model_context(provider, pcfg))
-    return [
-        f"{ui_text('context_setup', lang)}: {label}",
-        f"Applied context: {context_setting_status(provider, pcfg)}",
-        *messages,
-    ]
+    lang = lang or load_config().get("language", "en")
+    return context_setup_service().apply(provider, pcfg, mode, lang)
 
 
 def apply_context_setup_config(provider: str, mode: str) -> list[str]:

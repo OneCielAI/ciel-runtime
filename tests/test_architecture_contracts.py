@@ -61,6 +61,7 @@ from ciel_runtime_support.cli_parser import (
     CliParserSettings,
 )
 from ciel_runtime_support.channel_panel import ChannelPanelPolicy
+from ciel_runtime_support.context_setup import ContextSetupPorts
 from ciel_runtime_support.claude_router import (
     ClaudeRouterCore,
     ClaudeRouterCountTokens,
@@ -525,6 +526,9 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_provider_timeout_policy_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ProviderTimeoutSettings)), 10)
         self.assertLessEqual(len(fields(ProviderTimeoutPorts)), 10)
+
+    def test_context_setup_ports_stay_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(ContextSetupPorts)), 10)
 
     def test_claude_launch_ports_stay_below_dependency_limit(self):
         ports = (

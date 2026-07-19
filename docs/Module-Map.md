@@ -513,6 +513,10 @@ Provider Adapter의 `ProviderContextPolicy`에 따라 모델 컨텍스트 용량
 
 Provider context·output 크기, hosted 가중치, model/catalog/preset 권장값을 합성해 request/idle timeout을 계산·적용하는 Application Policy. 계산 상수와 최대 9개 의존성 포트를 분리하며 Provider Adapter의 `ProviderContextPolicy`만 소비한다.
 
+### `ciel_runtime_support/context_setup.py`
+
+Model capacity에 맞는 context mode를 계산하고 다국어 panel 행을 투영하며 선택한 mode를 provider 설정에 적용하는 Application Service. 10필드 포트를 통해 managed/Ollama/standard Adapter 전략, cap 정책, timeout 정책과 협력하고 persistence는 소유하지 않는다.
+
 ### `ciel_runtime_support/provider_network.py`
 
 upstream User-Agent, provider별 IP-family 기본값·별칭, strict/preferred DNS 정렬, HTTP 연결과 IPv4/IPv6 probe를 소유하는 Infrastructure Policy. provider application logic에서 process-wide socket override와 연결 진단 세부를 격리한다.
