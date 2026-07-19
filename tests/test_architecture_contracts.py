@@ -27,6 +27,12 @@ from ciel_runtime_support.cli_dispatch import (
     CliSpecialCommands,
 )
 from ciel_runtime_support.channel_panel import ChannelPanelPolicy
+from ciel_runtime_support.channel_inflight import (
+    ChannelInflightEffects,
+    ChannelInflightPolicy,
+    ChannelInflightSnapshot,
+    ChannelInflightUpdate,
+)
 from ciel_runtime_support.channel_pending_injection import (
     ChannelInjectionIO,
     ChannelInjectionPolicy,
@@ -547,6 +553,16 @@ class ArchitectureContractTests(unittest.TestCase):
             ChannelInjectionIO,
             ChannelInjectionPolicy,
             ChannelInjectionServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_channel_inflight_state_stays_below_dependency_limit(self):
+        for port in (
+            ChannelInflightSnapshot,
+            ChannelInflightPolicy,
+            ChannelInflightEffects,
+            ChannelInflightUpdate,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)

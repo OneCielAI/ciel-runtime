@@ -51,6 +51,12 @@ from ciel_runtime_support.channel_injection import (
     PromptInjection,
     RuntimeInjectionPolicy,
 )
+from ciel_runtime_support.channel_inflight import (
+    ChannelInflightEffects,
+    ChannelInflightPolicy,
+    ChannelInflightSnapshot,
+    advance_channel_inflight,
+)
 from ciel_runtime_support.channel_pending_injection import (
     ChannelInjectionIO,
     ChannelInjectionPolicy,
@@ -26431,6 +26437,26 @@ def _channel_wake_store_release_stale(message_id: int, commit_cursor: bool) -> N
         _commit_channel_llm_cursor_if_newer(message_id)
 
 
+def _channel_inflight_complete_wake(message_id: int) -> None:
+    with _CHANNEL_STDIN_WAKE_LOCK:
+        _CHANNEL_STDIN_WAKE_PROMPTS.pop(message_id, None)
+    _channel_stdin_clear_wake_claim(message_id)
+
+
+def _channel_inflight_release_wake(message_id: int) -> None:
+    _channel_wake_store_release_stale(message_id, False)
+
+
+def channel_inflight_effects() -> ChannelInflightEffects:
+    return ChannelInflightEffects(
+        commit_cursor=_commit_channel_llm_cursor_if_newer,
+        complete_wake=_channel_inflight_complete_wake,
+        release_wake=_channel_inflight_release_wake,
+        ensure_cursor=ensure_channel_llm_delivery_cursor_initialized,
+        log=router_log,
+    )
+
+
 def _channel_wake_store_mark_delivered(message_id: int) -> bool:
     with _CHANNEL_STDIN_WAKE_LOCK:
         if message_id in _CHANNEL_STDIN_WAKE_DELIVERED:
@@ -26982,68 +27008,35 @@ def subprocess_call_with_windows_console_wake_proxy(
                     confirm_submit=channel_wake_confirm_submit,
                     turn_active=channel_turn_active,
                 )
-                if channel_inflight_state == "completed":
-                    if channel_inflight_cursor is not None:
-                        _commit_channel_llm_cursor_if_newer(channel_inflight_cursor)
-                    with _CHANNEL_STDIN_WAKE_LOCK:
-                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
-                    _channel_stdin_clear_wake_claim(channel_inflight_id)
-                    router_log(
-                        "INFO",
-                        f"channel_windows_console_confirmed message_id={channel_inflight_id} cursor={channel_inflight_cursor or '-'}",
-                    )
-                    channel_inflight_id = None
-                    channel_inflight_cursor = None
-                    channel_inflight_started_at = 0.0
+                inflight_update = advance_channel_inflight(
+                    ChannelInflightSnapshot(
+                        message_id=channel_inflight_id,
+                        cursor=channel_inflight_cursor,
+                        wake_state=channel_inflight_state,
+                        started_at=channel_inflight_started_at,
+                        logged_at=channel_inflight_logged_at,
+                        now=now,
+                        last_id=last_id,
+                    ),
+                    ChannelInflightPolicy(
+                        unseen_retry_seconds=_channel_stdin_unseen_retry_seconds(),
+                        waiting_log_interval=30.0,
+                        is_stale=_channel_stdin_inflight_is_stale,
+                        commit_cursor_on_stale=False,
+                        log_namespace="channel_windows_console",
+                        stale_event="stale_inflight_retry",
+                    ),
+                    channel_inflight_effects(),
+                )
+                channel_inflight_id = inflight_update.message_id
+                channel_inflight_cursor = inflight_update.cursor
+                channel_inflight_started_at = inflight_update.started_at
+                channel_inflight_logged_at = inflight_update.logged_at
+                channel_pending_recheck = channel_pending_recheck or inflight_update.pending_recheck
+                last_id = inflight_update.last_id
+                if inflight_update.action in {"completed", "unseen_retry", "stale"}:
                     channel_submit_attempts = 0
                     channel_last_submit_at = 0.0
-                    channel_pending_recheck = True
-                elif (
-                    channel_inflight_state == "missing"
-                    and channel_inflight_started_at > 0
-                    and now - channel_inflight_started_at >= _channel_stdin_unseen_retry_seconds()
-                ):
-                    with _CHANNEL_STDIN_WAKE_LOCK:
-                        _CHANNEL_STDIN_WAKE_DELIVERED.discard(channel_inflight_id)
-                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
-                    _channel_stdin_clear_wake_claim(channel_inflight_id)
-                    router_log(
-                        "WARN",
-                        f"channel_windows_console_unseen_retry message_id={channel_inflight_id} age={now - channel_inflight_started_at:.1f}s",
-                    )
-                    channel_inflight_id = None
-                    channel_inflight_cursor = None
-                    channel_inflight_started_at = 0.0
-                    channel_submit_attempts = 0
-                    channel_last_submit_at = 0.0
-                    channel_pending_recheck = True
-                    last_id = ensure_channel_llm_delivery_cursor_initialized()
-                    channel_inflight_logged_at = now
-                elif _channel_stdin_inflight_is_stale(channel_inflight_state, channel_inflight_started_at, now):
-                    with _CHANNEL_STDIN_WAKE_LOCK:
-                        _CHANNEL_STDIN_WAKE_DELIVERED.discard(channel_inflight_id)
-                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
-                    _channel_stdin_clear_wake_claim(channel_inflight_id)
-                    router_log(
-                        "WARN",
-                        "channel_windows_console_stale_inflight_retry "
-                        f"message_id={channel_inflight_id} state={channel_inflight_state} "
-                        f"age={now - channel_inflight_started_at:.1f}s cursor={channel_inflight_cursor or '-'}",
-                    )
-                    channel_inflight_id = None
-                    channel_inflight_cursor = None
-                    channel_inflight_started_at = 0.0
-                    channel_submit_attempts = 0
-                    channel_last_submit_at = 0.0
-                    channel_pending_recheck = True
-                    last_id = ensure_channel_llm_delivery_cursor_initialized()
-                    channel_inflight_logged_at = now
-                elif now - channel_inflight_logged_at >= 30.0:
-                    channel_inflight_logged_at = now
-                    router_log(
-                        "INFO",
-                        f"channel_windows_console_waiting_for_turn_completion message_id={channel_inflight_id} state={channel_inflight_state}",
-                    )
             if now >= channel_input_ready_at and now - last_compact_poll >= 0.5:
                 last_compact_poll = now
                 if channel_inflight_id is None:
@@ -27245,64 +27238,32 @@ def subprocess_call_with_channel_wake_proxy(
             now = time.time()
             if channel_inflight_id is not None:
                 channel_inflight_state = _channel_stdin_wake_state(channel_inflight_id)
-                if channel_inflight_state == "completed":
-                    if channel_inflight_cursor is not None:
-                        _commit_channel_llm_cursor_if_newer(channel_inflight_cursor)
-                    with _CHANNEL_STDIN_WAKE_LOCK:
-                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
-                    _channel_stdin_clear_wake_claim(channel_inflight_id)
-                    router_log(
-                        "INFO",
-                        f"channel_stdin_proxy_confirmed message_id={channel_inflight_id} cursor={channel_inflight_cursor or '-'}",
-                    )
-                    channel_inflight_id = None
-                    channel_inflight_cursor = None
-                    channel_inflight_started_at = 0.0
-                    channel_pending_recheck = True
-                elif (
-                    channel_inflight_state == "missing"
-                    and channel_inflight_started_at > 0
-                    and now - channel_inflight_started_at >= _channel_stdin_unseen_retry_seconds()
-                ):
-                    with _CHANNEL_STDIN_WAKE_LOCK:
-                        _CHANNEL_STDIN_WAKE_DELIVERED.discard(channel_inflight_id)
-                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
-                    _channel_stdin_clear_wake_claim(channel_inflight_id)
-                    router_log(
-                        "WARN",
-                        f"channel_stdin_proxy_unseen_retry message_id={channel_inflight_id} age={now - channel_inflight_started_at:.1f}s",
-                    )
-                    channel_inflight_id = None
-                    channel_inflight_cursor = None
-                    channel_inflight_started_at = 0.0
-                    channel_pending_recheck = True
-                    last_id = ensure_channel_llm_delivery_cursor_initialized()
-                    channel_inflight_logged_at = now
-                elif _channel_stdin_inflight_is_stale(channel_inflight_state, channel_inflight_started_at, now):
-                    if channel_inflight_cursor is not None:
-                        _commit_channel_llm_cursor_if_newer(channel_inflight_cursor)
-                    with _CHANNEL_STDIN_WAKE_LOCK:
-                        _CHANNEL_STDIN_WAKE_DELIVERED.discard(channel_inflight_id)
-                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(channel_inflight_id, None)
-                    _channel_stdin_clear_wake_claim(channel_inflight_id)
-                    router_log(
-                        "WARN",
-                        "channel_stdin_proxy_stale_inflight_skipped "
-                        f"message_id={channel_inflight_id} state={channel_inflight_state} "
-                        f"age={now - channel_inflight_started_at:.1f}s cursor={channel_inflight_cursor or '-'}",
-                    )
-                    channel_inflight_id = None
-                    channel_inflight_cursor = None
-                    channel_inflight_started_at = 0.0
-                    channel_pending_recheck = True
-                    last_id = ensure_channel_llm_delivery_cursor_initialized()
-                    channel_inflight_logged_at = now
-                elif now - channel_inflight_logged_at >= 30.0:
-                    channel_inflight_logged_at = now
-                    router_log(
-                        "INFO",
-                        f"channel_stdin_proxy_waiting_for_turn_completion message_id={channel_inflight_id} state={channel_inflight_state}",
-                    )
+                inflight_update = advance_channel_inflight(
+                    ChannelInflightSnapshot(
+                        message_id=channel_inflight_id,
+                        cursor=channel_inflight_cursor,
+                        wake_state=channel_inflight_state,
+                        started_at=channel_inflight_started_at,
+                        logged_at=channel_inflight_logged_at,
+                        now=now,
+                        last_id=last_id,
+                    ),
+                    ChannelInflightPolicy(
+                        unseen_retry_seconds=_channel_stdin_unseen_retry_seconds(),
+                        waiting_log_interval=30.0,
+                        is_stale=_channel_stdin_inflight_is_stale,
+                        commit_cursor_on_stale=True,
+                        log_namespace="channel_stdin_proxy",
+                        stale_event="stale_inflight_skipped",
+                    ),
+                    channel_inflight_effects(),
+                )
+                channel_inflight_id = inflight_update.message_id
+                channel_inflight_cursor = inflight_update.cursor
+                channel_inflight_started_at = inflight_update.started_at
+                channel_inflight_logged_at = inflight_update.logged_at
+                channel_pending_recheck = channel_pending_recheck or inflight_update.pending_recheck
+                last_id = inflight_update.last_id
             if now - last_compact_poll >= 0.5:
                 last_compact_poll = now
                 if channel_inflight_id is None:
