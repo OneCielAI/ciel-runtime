@@ -9,6 +9,7 @@ from ciel_runtime_support.architecture import (
     ProviderAdapter,
     ProviderConfigurationPolicy,
     ProviderConfig,
+    ProviderContextPolicy,
     ProviderRequestPolicy,
     ProviderStatusPolicy,
     RuntimeAdapter,
@@ -277,6 +278,7 @@ from ciel_runtime_support.prompt_compaction import (
     PromptCompactionServices,
     PromptCompactionText,
 )
+from ciel_runtime_support.provider_context import ProviderContextServices
 from ciel_runtime_support.context_compaction import (
     ContextCompactionProjection,
     ContextCompactionServices,
@@ -957,6 +959,10 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_provider_context_port_stays_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(ProviderContextPolicy)), 10)
+        self.assertLessEqual(len(fields(ProviderContextServices)), 10)
 
     def test_context_compaction_does_not_dispatch_on_provider_names(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "context_compaction.py"

@@ -396,6 +396,11 @@ from ciel_runtime_support.protocols.pseudo_tool_history import (
     sanitize_assistant_pseudo_tool_history,
 )
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, ZAI_MODEL_FALLBACK_IDS
+from ciel_runtime_support.provider_context import (
+    ProviderContextServices,
+    cap_context_settings as apply_context_capacity_cap,
+    resolve_context_capacity,
+)
 from ciel_runtime_support.provider_limits import (
     ProviderKeyServices,
     RateLimitApplyPolicy,
@@ -17876,74 +17881,34 @@ def model_context_hint_from_model_id(model_id: str) -> int | None:
     return positive_int(preset.get("num_ctx_max"))
 
 
+def provider_context_policy(provider: str, pcfg: dict[str, Any]):
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.context_policy(provider_contract_config(provider, pcfg))
+
+
 def provider_model_context_capacity(provider: str, pcfg: dict[str, Any]) -> int | None:
-    model = str(pcfg.get("current_model") or "")
-    if provider == "anthropic":
-        return None
-    if provider == "nvidia-hosted":
-        return nvidia_hosted_context_default(model)
-    if provider in ("vllm", "self-hosted-nim"):
-        return (
-            upstream_model_context_limit(provider, pcfg, timeout=1.0)
-            or positive_int(pcfg.get("max_model_len"))
-            or model_context_hint_from_model_id(model)
-            or positive_int(pcfg.get("context_window"))
-        )
-    if provider == "kimi":
-        return (
-            model_context_hint_from_model_id(model)
-            or positive_int(pcfg.get("max_model_len"))
-            or positive_int(pcfg.get("context_window"))
-        )
-    if provider in ("deepseek", "opencode", "opencode-go", "openrouter", "fireworks"):
-        return (
-            positive_int(pcfg.get("max_model_len"))
-            or model_context_hint_from_model_id(model)
-            or positive_int(pcfg.get("context_window"))
-        )
-    if provider == "zai":
-        return (
-            model_context_hint_from_model_id(model)
-            or positive_int(pcfg.get("max_model_len"))
-            or positive_int(pcfg.get("context_window"))
-        )
-    if provider in ("ollama", "ollama-cloud"):
-        cached = ollama_provider_context_limit(pcfg)
-        if cached:
-            return cached
-        hint = model_context_hint_from_model_id(model)
-        if hint:
-            return hint
-        return positive_int(pcfg.get("num_ctx_max")) or positive_int(pcfg.get("num_ctx"))
-    hint = model_context_hint_from_model_id(model)
-    if hint:
-        return hint
-    return positive_int(pcfg.get("context_window")) or positive_int(pcfg.get("max_model_len"))
+    return resolve_context_capacity(
+        provider,
+        pcfg,
+        provider_context_policy(provider, pcfg),
+        ProviderContextServices(
+            positive_int=positive_int,
+            model_context_hint=model_context_hint_from_model_id,
+            nvidia_context_default=nvidia_hosted_context_default,
+            upstream_context_limit=upstream_model_context_limit,
+            ollama_context_limit=ollama_provider_context_limit,
+        ),
+    )
 
 
 def cap_context_settings_to_model_capacity(provider: str, pcfg: dict[str, Any]) -> list[str]:
     capacity = provider_model_context_capacity(provider, pcfg)
-    if not capacity:
-        return []
-    messages: list[str] = []
-    if provider in ("ollama", "ollama-cloud"):
-        maximum = positive_int(pcfg.get("num_ctx_max"))
-        if maximum and maximum > capacity:
-            pcfg["num_ctx_max"] = capacity
-            messages.append(f"Context max capped to selected model limit: {capacity:,} tokens.")
-        minimum = positive_int(pcfg.get("num_ctx_min"))
-        if minimum and minimum > capacity:
-            pcfg["num_ctx_min"] = capacity
-        fixed_ctx = positive_int(pcfg.get("num_ctx"))
-        if fixed_ctx and fixed_ctx > capacity:
-            pcfg["num_ctx"] = capacity
-        return messages
-    if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai"):
-        context_window = positive_int(pcfg.get("context_window"))
-        if context_window and context_window > capacity:
-            pcfg["context_window"] = capacity
-            messages.append(f"Context window capped to selected model limit: {capacity:,} tokens.")
-    return messages
+    return apply_context_capacity_cap(
+        pcfg,
+        capacity,
+        provider_context_policy(provider, pcfg),
+        positive_int=positive_int,
+    )
 
 
 def small_context_output_token_cap(context_window: int | None) -> int | None:
@@ -17957,7 +17922,7 @@ def small_context_output_token_cap(context_window: int | None) -> int | None:
 
 def cap_output_tokens_to_context_ratio(provider: str, pcfg: dict[str, Any], configured: int | None) -> int | None:
     value = positive_int(configured)
-    if not value or provider == "anthropic":
+    if not value or provider_context_policy(provider, pcfg).settings_strategy == "managed":
         return value
     context = context_limit_for_status(provider, pcfg)
     cap = small_context_output_token_cap(context)
@@ -17967,14 +17932,15 @@ def cap_output_tokens_to_context_ratio(provider: str, pcfg: dict[str, Any], conf
 
 
 def cap_output_settings_to_context_ratio(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    if provider == "anthropic":
+    settings_strategy = provider_context_policy(provider, pcfg).settings_strategy
+    if settings_strategy == "managed":
         return []
     context = context_limit_for_status(provider, pcfg)
     cap = small_context_output_token_cap(context)
     if not cap:
         return []
     messages: list[str] = []
-    if provider in ("ollama", "ollama-cloud"):
+    if settings_strategy == "ollama":
         opts = pcfg.setdefault("ollama_options", {})
         current = positive_int(opts.get("num_predict")) or positive_int(pcfg.get("max_output_tokens"))
         if current and current > cap:
@@ -17984,7 +17950,7 @@ def cap_output_settings_to_context_ratio(provider: str, pcfg: dict[str, Any]) ->
                 f"Max output capped to {cap:,} tokens for context {format_context_tokens(context)}."
             )
         return messages
-    if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai"):
+    if settings_strategy == "standard":
         current = positive_int(pcfg.get("max_output_tokens"))
         if current and current > cap:
             pcfg["max_output_tokens"] = cap
@@ -18020,7 +17986,8 @@ def apply_current_model_specs_to_provider(provider: str, pcfg: dict[str, Any]) -
     if not max_context:
         return messages
     model = normalize_model_id(provider, current_upstream_model_id(provider, pcfg))
-    if provider in ("ollama", "ollama-cloud"):
+    settings_strategy = provider_context_policy(provider, pcfg).settings_strategy
+    if settings_strategy == "ollama":
         if not ollama_context_model_matches(model, str(pcfg.get("model_context_model") or "")) or positive_int(pcfg.get("model_context_max")) != max_context:
             pcfg["model_context_max"] = max_context
             pcfg["model_context_model"] = model
@@ -18031,7 +17998,7 @@ def apply_current_model_specs_to_provider(provider: str, pcfg: dict[str, Any]) -
         else:
             pcfg["num_ctx_max"] = min(current_max, max_context) if current_max and current_max > max_context else max_context
         return messages
-    if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai"):
+    if settings_strategy == "standard":
         if positive_int(pcfg.get("max_model_len")) != max_context:
             pcfg["max_model_len"] = max_context
             messages.append(f"Model context size from provider specs: {format_context_tokens(max_context)} ({max_context:,} tokens).")
@@ -18158,20 +18125,22 @@ def format_parameter_count(value: Any) -> str:
 def context_setting_status(provider: str, pcfg: dict[str, Any]) -> str:
     capacity = provider_model_context_capacity(provider, pcfg)
     cap_text = format_context_tokens(capacity)
-    if provider in ("ollama", "ollama-cloud"):
+    settings_strategy = provider_context_policy(provider, pcfg).settings_strategy
+    if settings_strategy == "ollama":
         return f"model max {cap_text}; {ollama_num_ctx_status(pcfg)}"
-    if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai"):
+    if settings_strategy == "standard":
         window = positive_int(pcfg.get("context_window"))
         reserve = positive_int(pcfg.get("context_reserve_tokens"))
         reserve_text = f"; reserve {format_context_tokens(reserve)}" if reserve else ""
         return f"model max {cap_text}; window {format_context_tokens(window)}{reserve_text}"
-    if provider == "anthropic":
+    if settings_strategy == "managed":
         return "managed by Claude Code"
     return f"model max {cap_text}"
 
 
 def configured_context_window_for_timeout(provider: str, pcfg: dict[str, Any]) -> int | None:
-    if provider in ("ollama", "ollama-cloud"):
+    settings_strategy = provider_context_policy(provider, pcfg).settings_strategy
+    if settings_strategy == "ollama":
         raw_ctx = pcfg.get("num_ctx")
         fixed_ctx = positive_int(raw_ctx)
         if fixed_ctx:
@@ -18180,34 +18149,16 @@ def configured_context_window_for_timeout(provider: str, pcfg: dict[str, Any]) -
             provider_model_context_capacity(provider, pcfg)
             or positive_int(pcfg.get("num_ctx_max"))
         )
-    if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai"):
+    if settings_strategy == "standard":
         return positive_int(pcfg.get("context_window")) or provider_model_context_capacity(provider, pcfg)
-    if provider == "anthropic":
-        return provider_model_context_capacity(provider, pcfg)
     return provider_model_context_capacity(provider, pcfg)
 
 
 AUTO_TIMEOUT_MIN_MS = 120000
 AUTO_TIMEOUT_MAX_MS = 600000
 AUTO_TIMEOUT_ROUND_MS = 30000
-HOSTED_TIMEOUT_PROVIDERS = {
-    "anthropic",
-    "ollama-cloud",
-    "deepseek",
-    "opencode",
-    "opencode-go",
-    "kimi",
-    "openrouter",
-    "nvidia-hosted",
-    "fireworks",
-}
-PROVIDER_TIMEOUT_WEIGHTS = {
-    "ollama-cloud": 1.2,
-}
-
-
 def configured_output_tokens_for_timeout(provider: str, pcfg: dict[str, Any]) -> int | None:
-    if provider in ("ollama", "ollama-cloud"):
+    if provider_context_policy(provider, pcfg).settings_strategy == "ollama":
         opts = ollama_extra_options(pcfg)
         configured = positive_int(opts.get("num_predict")) or positive_int(pcfg.get("max_output_tokens"))
         return cap_output_tokens_to_context_ratio(provider, pcfg, configured)
@@ -18226,6 +18177,7 @@ def calculated_request_timeout_ms(
     pcfg: dict[str, Any],
     timeout_candidates: list[int] | None = None,
 ) -> int:
+    context_policy = provider_context_policy(provider, pcfg)
     context_tokens = positive_int(configured_context_window_for_timeout(provider, pcfg))
     output_tokens = positive_int(configured_output_tokens_for_timeout(provider, pcfg))
     timeout_ms = AUTO_TIMEOUT_MIN_MS
@@ -18237,23 +18189,24 @@ def calculated_request_timeout_ms(
         # 2K output is cheap; 8K+ output gets the full +2m allowance.
         output_score = max(0.0, min(1.0, (output_tokens - 2048) / 6144))
         timeout_ms += int(120000 * output_score)
-    if provider in HOSTED_TIMEOUT_PROVIDERS:
+    if context_policy.hosted_timeout:
         timeout_ms += 60000
     for candidate in timeout_candidates or []:
         fixed = positive_int(candidate)
         if fixed:
             timeout_ms = max(timeout_ms, fixed)
-    timeout_ms *= PROVIDER_TIMEOUT_WEIGHTS.get(provider, 1.0)
+    timeout_ms *= context_policy.timeout_weight
     return clamp_auto_timeout_ms(timeout_ms)
 
 
 def recommended_request_timeout_ms(provider: str, pcfg: dict[str, Any], use_context_fallback: bool = True) -> int:
     model = str(pcfg.get("current_model") or "")
     candidates: list[int] = []
+    context_policy = provider_context_policy(provider, pcfg)
     active_preset_timeout = active_llm_preset_timeout_ms(pcfg)
     if active_preset_timeout:
         candidates.append(active_preset_timeout)
-    if provider in ("ollama", "ollama-cloud"):
+    if context_policy.uses_catalog_timeout:
         catalog_timeout = ollama_catalog_timeout_for_model(model)
         if catalog_timeout:
             candidates.append(catalog_timeout)
@@ -18341,13 +18294,16 @@ def context_setup_panel_rows(provider: str, pcfg: dict[str, Any], lang: str | No
     capacity = provider_model_context_capacity(provider, pcfg)
     rows = [f"Model context capacity: {format_context_tokens(capacity)}"]
     values = ["__info__"]
-    if provider == "anthropic":
+    settings_strategy = provider_context_policy(provider, pcfg).settings_strategy
+    if settings_strategy == "managed":
         rows.append("Claude Code manages Anthropic context automatically.")
         values.append("__info__")
         rows.append(ui_text("back", lang))
         values.append("back")
         return rows, values
-    current_window = positive_int(pcfg.get("num_ctx_max" if provider in ("ollama", "ollama-cloud") else "context_window"))
+    current_window = positive_int(
+        pcfg.get("num_ctx_max" if settings_strategy == "ollama" else "context_window")
+    )
     choices = context_mode_values_for_capacity(capacity)
     ordered_keys = ["context-compact", "context-balanced", "context-project", "context-full"]
     visible_keys: list[str] = []
@@ -18378,12 +18334,13 @@ def apply_context_setup_to_provider(provider: str, pcfg: dict[str, Any], mode: s
         raise SystemExit(f"Unknown context mode: {mode}")
     window, reserve, output = choices[mode]
     label = context_setup_text(mode, lang)[0]
-    if provider in ("ollama", "ollama-cloud"):
+    settings_strategy = provider_context_policy(provider, pcfg).settings_strategy
+    if settings_strategy == "ollama":
         pcfg["num_ctx"] = "auto"
         pcfg["num_ctx_max"] = window
         pcfg["num_ctx_min"] = min(window, 32768 if window <= 65536 else 65536)
         pcfg.setdefault("ollama_options", {})["num_predict"] = output
-    elif provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai"):
+    elif settings_strategy == "standard":
         pcfg["context_window"] = window
         pcfg["context_reserve_tokens"] = reserve
         pcfg["max_output_tokens"] = output

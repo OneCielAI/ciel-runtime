@@ -179,6 +179,19 @@ class ProviderStatusPolicy:
     readiness_validation: Literal["none", "lm_studio"] = "none"
 
 
+@dataclass(frozen=True)
+class ProviderContextPolicy:
+    """Provider-owned context capacity and configuration strategy."""
+
+    capacity_strategy: Literal[
+        "managed", "nvidia", "remote_first", "hint_first", "configured_first", "ollama", "hint_configured"
+    ] = "managed"
+    settings_strategy: Literal["managed", "ollama", "standard"] = "managed"
+    hosted_timeout: bool = False
+    timeout_weight: float = 1.0
+    uses_catalog_timeout: bool = False
+
+
 class RuntimeAdapter(ABC):
     """Adapter for a local/interactive coding runtime.
 
@@ -343,6 +356,12 @@ class ProviderAdapter(ABC):
         request = self.request_policy(config)
         count_key = "models" if request.models_path == "/api/tags" else "data"
         return ProviderStatusPolicy(catalog_path=request.models_path, catalog_count_key=count_key)
+
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        """Return provider-owned context capacity and mutation behavior."""
+
+        del config
+        return ProviderContextPolicy()
 
     def api_key_display_name(self) -> str:
         """Return the provider-owned name used in API-key status text."""

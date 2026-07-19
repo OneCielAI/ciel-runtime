@@ -14,6 +14,7 @@ from .architecture import (
     ProviderCapabilities,
     ProviderConfigurationPolicy,
     ProviderConfig,
+    ProviderContextPolicy,
     ProviderModelCatalogPolicy,
     ProviderRequestPolicy,
     ProviderStatusPolicy,
@@ -210,6 +211,10 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
     def context_compaction_available(self, config: ProviderConfig) -> bool:
         return bool(config.api_keys)
 
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        del config
+        return ProviderContextPolicy(hosted_timeout=True)
+
     def api_key_status(self, config: ProviderConfig, *, key_count: int, primary_detail: str) -> str:
         routed = bool(config.options.get("route_through_router"))
         scope = "Anthropic routed" if routed else "Anthropic"
@@ -232,6 +237,10 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
 @dataclass(frozen=True)
 class OpenAICompatibleProviderAdapter(HttpBearerProviderAdapter):
     """Base for providers that implement the OpenAI Chat/Models wire surface."""
+
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        del config
+        return ProviderContextPolicy(capacity_strategy="hint_configured", settings_strategy="standard")
 
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
         del model
@@ -278,6 +287,12 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
         default_factory=lambda: ProviderModelCatalogPolicy(kind="ollama")
     )
 
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        del config
+        return ProviderContextPolicy(
+            capacity_strategy="ollama", settings_strategy="ollama", uses_catalog_timeout=True
+        )
+
     def model_paths(self, config: ProviderConfig) -> tuple[str, ...]:
         del config
         return ("/api/tags", "/v1/models")
@@ -313,6 +328,16 @@ class OllamaCloudProviderAdapter(OllamaProviderAdapter):
         normalized = super().normalize_model_id(model_id)
         return normalized[:-6] if normalized.endswith(":cloud") else normalized
 
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        del config
+        return ProviderContextPolicy(
+            capacity_strategy="ollama",
+            settings_strategy="ollama",
+            hosted_timeout=True,
+            timeout_weight=1.2,
+            uses_catalog_timeout=True,
+        )
+
 
 @dataclass(frozen=True)
 class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
@@ -322,6 +347,12 @@ class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
     require_api_key: bool = True
     api_key_display_name_value: str = "OpenRouter"
     api_key_launch_error_value: str = "Launch blocked: OpenRouter requires an OpenRouter API key."
+
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        del config
+        return ProviderContextPolicy(
+            capacity_strategy="configured_first", settings_strategy="standard", hosted_timeout=True
+        )
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", requires_api_key=True)
     )
@@ -355,6 +386,10 @@ class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
 class VllmProviderAdapter(OpenAICompatibleProviderAdapter):
     name: str = "vllm"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["vllm"]
+
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        del config
+        return ProviderContextPolicy(capacity_strategy="remote_first", settings_strategy="standard")
     send_placeholder_key: bool = True
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
@@ -415,6 +450,12 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
     def preserves_claude_model_alias(self, model_id: str) -> bool:
         return str(model_id).startswith("claude-")
 
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        del config
+        return ProviderContextPolicy(
+            capacity_strategy="nvidia", settings_strategy="standard", hosted_timeout=True
+        )
+
 
 @dataclass(frozen=True)
 class SelfHostedNimProviderAdapter(OpenAICompatibleProviderAdapter):
@@ -424,6 +465,10 @@ class SelfHostedNimProviderAdapter(OpenAICompatibleProviderAdapter):
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", local=True)
     )
+
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        del config
+        return ProviderContextPolicy(capacity_strategy="remote_first", settings_strategy="standard")
 
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
         policy = super().status_policy(config)
@@ -461,6 +506,12 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
 
     def normalize_model_id(self, model_id: str) -> str:
         return str(model_id or "").strip()
+
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        del config
+        return ProviderContextPolicy(
+            capacity_strategy="configured_first", settings_strategy="standard", hosted_timeout=True
+        )
 
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
         del config
@@ -508,6 +559,12 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
         ):
             return "kimi-for-coding"
         return normalized
+
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        del config
+        return ProviderContextPolicy(
+            capacity_strategy="hint_first", settings_strategy="standard", hosted_timeout=True
+        )
 
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
         del config, model
@@ -569,6 +626,12 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
     def upstream_api_model_id(self, model_id: str) -> str:
         return super().normalize_model_id(model_id)
 
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        del config
+        return ProviderContextPolicy(
+            capacity_strategy="hint_first", settings_strategy="standard", hosted_timeout=True
+        )
+
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
         del config
         return ProviderStatusPolicy(kind="configured", configured_description="Z.AI Anthropic API configured")
@@ -587,6 +650,12 @@ class FireworksProviderAdapter(OpenAICompatibleProviderAdapter):
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(kind="fireworks")
     )
+
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        del config
+        return ProviderContextPolicy(
+            capacity_strategy="configured_first", settings_strategy="standard", hosted_timeout=True
+        )
 
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
         del config, model
@@ -681,6 +750,12 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             allow_public_without_auth=True,
         )
     )
+
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        del config
+        return ProviderContextPolicy(
+            capacity_strategy="configured_first", settings_strategy="standard", hosted_timeout=True
+        )
 
     def select_protocol(self, operation: MessageProtocol, config: ProviderConfig, model: str | None = None) -> MessageProtocol:
         del operation

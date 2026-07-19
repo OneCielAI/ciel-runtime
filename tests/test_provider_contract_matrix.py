@@ -219,6 +219,51 @@ class ProviderContractMatrixTests(unittest.TestCase):
         self.assertIn("context_reserve_tokens", vllm.status_fields)
         self.assertNotIn("context_reserve_tokens", nvidia.status_fields)
 
+    def test_context_strategy_matrix(self):
+        cases = {
+            "anthropic": ("managed", "managed"),
+            "ollama": ("ollama", "ollama"),
+            "ollama-cloud": ("ollama", "ollama"),
+            "vllm": ("remote_first", "standard"),
+            "self-hosted-nim": ("remote_first", "standard"),
+            "nvidia-hosted": ("nvidia", "standard"),
+            "kimi": ("hint_first", "standard"),
+            "zai": ("hint_first", "standard"),
+            "deepseek": ("configured_first", "standard"),
+            "openrouter": ("configured_first", "standard"),
+            "lm-studio": ("hint_configured", "standard"),
+        }
+        for provider, expected in cases.items():
+            adapter = PROVIDER_ADAPTERS.create(provider)
+            policy = adapter.context_policy(config(provider))
+            with self.subTest(provider=provider):
+                self.assertEqual(expected, (policy.capacity_strategy, policy.settings_strategy))
+
+    def test_context_workflows_delegate_without_provider_dispatch(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        names = {
+            "provider_model_context_capacity",
+            "cap_context_settings_to_model_capacity",
+            "cap_output_settings_to_context_ratio",
+            "configured_context_window_for_timeout",
+            "configured_output_tokens_for_timeout",
+            "calculated_request_timeout_ms",
+            "recommended_request_timeout_ms",
+            "context_setup_panel_rows",
+            "apply_context_setup_to_provider",
+        }
+        functions = {
+            node.name: ast.get_source_segment(source, node) or ""
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name in names
+        }
+        self.assertEqual(names, set(functions))
+        for name, function_source in functions.items():
+            with self.subTest(function=name):
+                self.assertNotIn('provider == "', function_source)
+                self.assertNotIn("provider in (", function_source)
+
     def test_base_url_status_strategy_matrix(self):
         cases = {
             "agy": "native_agy",
