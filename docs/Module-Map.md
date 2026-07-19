@@ -129,6 +129,14 @@ MCP/SSE notification envelope에서 transport와 무관한 event identity를 만
 
 Channel JSONL 메시지의 ID/cutoff 스캔, channel·recipient 가시성 필터, 앞뒤 방향 조회와 dedupe용 최근 행 조회를 소유하는 Repository. 경로와 진단 logger만 주입받으며 손상된 개별 행은 격리하고 파일 I/O 실패는 경고로 노출한다.
 
+### `ciel_runtime_support/channel_wake_claim_repository.py`
+
+터미널 wake prompt의 메시지 ID/문자열 참조 판정과 교차 프로세스 claim의 TTL·원자 저장을 소유하는 Repository. 파일 lock, clock, TTL policy, logger를 주입받고 메인의 in-memory fast path와 독립적으로 동작한다.
+
+### `ciel_runtime_support/channel_terminal_input.py`
+
+플랫폼·환경별 Enter sequence 선택, 실제 사용자 입력에서 submit key 관찰, synthetic CR 정규화, wake byte 조립과 bounded delay를 소유하는 Terminal Input 정책. PTY/Console write 효과와 분리되어 플랫폼 조합을 독립적으로 검증할 수 있다.
+
 ### `ciel_runtime_support/tool_guard_hooks.py`
 
 Claude 설정의 tool guard hook을 읽고, 레거시 hook 제거와 중복 정규화 후 원자적으로 저장하는 Security/Configuration Service. 이벤트 정책과 파일 시스템 효과를 분리하며 권한 제한 실패도 경고로 관측 가능하게 남긴다.

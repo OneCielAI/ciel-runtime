@@ -99,6 +99,7 @@ from ciel_runtime_support.channel_terminal_proxy import (
 )
 from ciel_runtime_support.channel_transcript import ChannelWakeTranscriptServices
 from ciel_runtime_support.channel_message_repository import ChannelMessageRepository
+from ciel_runtime_support.channel_wake_claim_repository import ChannelWakeClaimRepository
 from ciel_runtime_support.channel_session_repository import ChannelSessionRepository
 from ciel_runtime_support.channel_session_lifecycle import ChannelSessionLifecycleServices
 from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices
@@ -1413,6 +1414,31 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("def _message_visible_to(", source)
         self.assertNotIn("def _chat_message_matches(", source)
         self.assertLessEqual(len(fields(ChannelMessageRepository)), 10)
+
+    def test_channel_wake_claim_repository_owns_cross_process_claims(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        for function_name in (
+            "_channel_prompt_match_text",
+            "_channel_prompt_contains",
+            "_channel_stdin_wake_claims_read_locked",
+            "_channel_stdin_wake_claims_write_locked",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
+        self.assertLessEqual(len(fields(ChannelWakeClaimRepository)), 10)
+
+    def test_channel_terminal_input_policy_lives_outside_composition_root(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        for function_name in (
+            "_channel_platform_default_enter_bytes",
+            "_channel_enter_bytes_from_user_input",
+            "_channel_synthetic_enter_bytes_from_user_input",
+            "_channel_enter_label",
+            "_channel_wake_submit_delay_seconds",
+            "_channel_wake_submit_retry_delay_seconds",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
 
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"

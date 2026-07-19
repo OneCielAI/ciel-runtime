@@ -167,6 +167,23 @@ from ciel_runtime_support.channel_event_identity import (
     stable_dedupe_key as _chat_message_stable_dedupe_key,
 )
 from ciel_runtime_support.channel_message_repository import ChannelMessageRepository
+from ciel_runtime_support.channel_wake_claim_repository import (
+    ChannelWakeClaimRepository,
+    prompt_message_ids as _channel_prompt_message_ids,
+    prompt_references_message_id as analyze_prompt_message_reference,
+)
+from ciel_runtime_support.channel_terminal_input import (
+    bounded_delay_seconds as _bounded_delay_seconds,
+    enter_bytes_from_user_input as _channel_enter_bytes_from_user_input,  # noqa: F401 - compatibility export
+    enter_label as _channel_enter_label,
+    platform_default_enter_bytes as _channel_platform_default_enter_bytes,
+    resolve_enter_bytes as resolve_channel_enter_bytes,
+    synthetic_enter_bytes_from_user_input as _channel_synthetic_enter_bytes_from_user_input,
+    wake_enter_env_is_fixed as _channel_wake_enter_env_is_fixed,
+    wake_input_bytes as build_channel_wake_input_bytes,
+    wake_submit_delay_seconds as _channel_wake_submit_delay_seconds,
+    wake_submit_retry_delay_seconds as _channel_wake_submit_retry_delay_seconds,
+)
 from ciel_runtime_support.channel_probe_report import (
     ChannelProbeReportServices,
     channel_probe_report_lines,
@@ -22630,36 +22647,6 @@ def commit_pending_channel_delivery_cursors(
     _commit_channel_llm_cursor_if_newer(message_cursor)
 
 
-_CHANNEL_WAKE_PROMPT_IDS_RE = re.compile(r"\b(?:id|ids|pending_ids|message_ids)\s*=\s*([0-9][0-9,\s]*)")
-
-
-def _channel_prompt_match_text(text: str) -> str:
-    return re.sub(r"\s+", " ", str(text or "")).strip()
-
-
-def _channel_prompt_contains(candidate: str, prompt: str) -> bool:
-    needle = _channel_prompt_match_text(prompt)
-    if not needle:
-        return False
-    haystack = _channel_prompt_match_text(candidate)
-    return bool(haystack and needle in haystack)
-
-
-def _channel_prompt_message_ids(text: str) -> set[int]:
-    ids: set[int] = set()
-    for match in _CHANNEL_WAKE_PROMPT_IDS_RE.finditer(str(text or "")):
-        for raw in re.split(r"\D+", match.group(1)):
-            if not raw:
-                continue
-            try:
-                message_id = int(raw)
-            except Exception:
-                continue
-            if message_id > 0:
-                ids.add(message_id)
-    return ids
-
-
 def _channel_stdin_wake_claim_ttl_seconds() -> float:
     raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_CLAIM_TTL_SECONDS")
     if raw is None:
@@ -22670,38 +22657,14 @@ def _channel_stdin_wake_claim_ttl_seconds() -> float:
         return 300.0
 
 
-def _channel_stdin_wake_claims_read_locked(now: float | None = None) -> dict[str, Any]:
-    current = time.time() if now is None else float(now)
-    ttl = _channel_stdin_wake_claim_ttl_seconds()
-    try:
-        data = json.loads(CHANNEL_STDIN_WAKE_CLAIMS_PATH.read_text(encoding="utf-8"))
-        claims = data.get("claims") if isinstance(data, dict) else {}
-        if not isinstance(claims, dict):
-            return {}
-        out: dict[str, Any] = {}
-        for key, value in claims.items():
-            if not isinstance(value, dict):
-                continue
-            try:
-                claimed_at = float(value.get("claimed_at") or 0)
-            except Exception:
-                claimed_at = 0.0
-            if claimed_at > 0 and current - claimed_at > ttl:
-                continue
-            out[str(key)] = dict(value)
-        return out
-    except FileNotFoundError:
-        return {}
-    except Exception as exc:
-        router_log("WARN", f"channel_stdin_wake_claims_read_failed error={type(exc).__name__}: {exc}")
-        return {}
-
-
-def _channel_stdin_wake_claims_write_locked(claims: dict[str, Any]) -> None:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    tmp_path = CHANNEL_STDIN_WAKE_CLAIMS_PATH.with_suffix(".json.tmp")
-    tmp_path.write_text(json.dumps({"claims": claims}, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
-    tmp_path.replace(CHANNEL_STDIN_WAKE_CLAIMS_PATH)
+def channel_wake_claim_repository() -> ChannelWakeClaimRepository:
+    return ChannelWakeClaimRepository(
+        path=CHANNEL_STDIN_WAKE_CLAIMS_PATH,
+        file_lock=_chat_messages_file_lock,
+        now=time.time,
+        ttl_seconds=_channel_stdin_wake_claim_ttl_seconds,
+        log=router_log,
+    )
 
 
 def _channel_stdin_wake_claim_prompt(message_id: int) -> str:
@@ -22711,44 +22674,18 @@ def _channel_stdin_wake_claim_prompt(message_id: int) -> str:
         prompt = _CHANNEL_STDIN_WAKE_PROMPTS.get(message_id)
     if prompt:
         return prompt
-    with _chat_messages_file_lock():
-        claim = _channel_stdin_wake_claims_read_locked().get(str(message_id))
-    if not isinstance(claim, dict):
-        return ""
-    prompt = claim.get("prompt")
-    return str(prompt) if isinstance(prompt, str) else ""
+    return channel_wake_claim_repository().prompt(message_id)
 
 
 def _channel_stdin_claim_wake_prompt(message_id: int, prompt: str) -> bool:
-    if message_id <= 0:
-        return True
-    normalized_prompt = _channel_prompt_match_text(prompt)
-    if not normalized_prompt:
-        return True
-    with _chat_messages_file_lock():
-        claims = _channel_stdin_wake_claims_read_locked()
-        existing = claims.get(str(message_id))
-        if isinstance(existing, dict):
-            return False
-        claims[str(message_id)] = {"claimed_at": time.time(), "prompt": prompt}
-        _channel_stdin_wake_claims_write_locked(claims)
-    return True
+    return channel_wake_claim_repository().claim(message_id, prompt)
 
 
 def _channel_stdin_clear_wake_claim(message_id: int) -> None:
-    if message_id <= 0:
-        return
-    with _chat_messages_file_lock():
-        claims = _channel_stdin_wake_claims_read_locked()
-        if str(message_id) not in claims:
-            return
-        claims.pop(str(message_id), None)
-        _channel_stdin_wake_claims_write_locked(claims)
+    channel_wake_claim_repository().clear(message_id)
 
 
 def _channel_prompt_references_message_id(text: str, message_id: int, prompt_texts: list[str] | tuple[str, ...] | None = None) -> bool:
-    if message_id in _channel_prompt_message_ids(text):
-        return True
     prompts: list[str] = []
     if prompt_texts:
         prompts.extend(str(item) for item in prompt_texts if str(item or "").strip())
@@ -22756,10 +22693,7 @@ def _channel_prompt_references_message_id(text: str, message_id: int, prompt_tex
         claimed_prompt = _channel_stdin_wake_claim_prompt(message_id)
         if claimed_prompt:
             prompts.append(claimed_prompt)
-    for prompt in prompts:
-        if _channel_prompt_contains(str(text or ""), prompt):
-            return True
-    return False
+    return analyze_prompt_message_reference(text, message_id, prompts)
 
 
 def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]:
@@ -22831,96 +22765,13 @@ def _write_fd_all(fd: int, data: bytes) -> None:
         view = view[written:]
 
 
-def _channel_platform_default_enter_bytes(platform: str | None = None, os_name: str | None = None) -> bytes:
-    sys_platform = str(platform if platform is not None else sys.platform).lower()
-    os_family = str(os_name if os_name is not None else os.name).lower()
-    if os_family == "nt" or sys_platform.startswith(("win", "cygwin", "msys")):
-        return b"\r\n"
-    if os_family == "posix":
-        return b"\r\n"
-    return b"\r\n"
-
-
 def _channel_wake_enter_bytes(value: str | bytes | None = None) -> bytes:
-    raw: str | bytes | None = value
-    if raw is None:
-        raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_ENTER")
-        if raw is None:
-            return _channel_platform_default_enter_bytes()
-    if isinstance(raw, bytes):
-        return raw if raw in (b"\n", b"\r", b"\r\n") else _channel_platform_default_enter_bytes()
-    normalized = str(raw or "").strip().lower()
-    if normalized in {"", "auto", "default", "platform"}:
-        return _channel_platform_default_enter_bytes()
-    if normalized in {"lf", "nl", "newline", "linefeed", "\\n"}:
-        return b"\n"
-    if normalized in {"cr", "return", "carriage-return", "carriage_return", "\\r"}:
-        return b"\r"
-    if normalized in {"crlf", "cr-lf", "return-newline", "\\r\\n"}:
-        return b"\r\n"
-    return _channel_platform_default_enter_bytes()
-
-
-def _channel_wake_enter_env_is_fixed() -> bool:
-    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_ENTER")
-    if raw is None:
-        return False
-    return str(raw).strip().lower() not in {"", "auto", "default", "platform"}
-
-
-def _channel_enter_bytes_from_user_input(data: bytes) -> bytes | None:
-    if not data:
-        return None
-    if data in (b"\n", b"\r", b"\r\n"):
-        return data
-    last_lf = data.rfind(b"\n")
-    last_cr = data.rfind(b"\r")
-    if last_lf < 0 and last_cr < 0:
-        return None
-    if last_lf > last_cr:
-        return b"\r\n" if last_lf > 0 and data[last_lf - 1 : last_lf] == b"\r" else b"\n"
-    return b"\r\n" if last_cr + 1 < len(data) and data[last_cr + 1 : last_cr + 2] == b"\n" else b"\r"
-
-
-def _channel_synthetic_enter_bytes_from_user_input(data: bytes, *, normalize_bare_cr: bool = True) -> bytes | None:
-    observed = _channel_enter_bytes_from_user_input(data)
-    if observed == b"\r" and normalize_bare_cr:
-        # Bare CR is common from raw POSIX terminals, but synthetic CR-only
-        # writes can sit in Claude Code's line editor on some PTY stacks.
-        return b"\r\n"
-    return observed
-
-
-def _channel_enter_label(enter_bytes: bytes) -> str:
-    if enter_bytes == b"\r":
-        return "cr"
-    if enter_bytes == b"\r\n":
-        return "crlf"
-    return "lf"
+    configured = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_ENTER") if value is None else value
+    return resolve_channel_enter_bytes(configured, _channel_platform_default_enter_bytes())
 
 
 def _channel_wake_input_bytes(prompt: str, enter_bytes: bytes | None = None) -> bytes:
-    # Ctrl-U clears any stale line editor text before submitting the synthetic prompt.
-    # Claude Code's interactive input is terminal-driven; the submit byte can
-    # differ by PTY/input stack, so callers pass the observed Enter sequence.
-    return b"\x15" + prompt.encode("utf-8", errors="replace") + _channel_wake_enter_bytes(enter_bytes)
-
-
-def _channel_wake_submit_delay_seconds() -> float:
-    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_SUBMIT_DELAY_MS")
-    if raw is None:
-        return 0.08
-    try:
-        return max(0.0, min(2.0, float(raw) / 1000.0))
-    except Exception:
-        return 0.08
-
-
-def _bounded_delay_seconds(raw: Any, default_seconds: float, *, minimum: float, maximum: float) -> float:
-    try:
-        return max(minimum, min(maximum, float(raw) / 1000.0))
-    except Exception:
-        return default_seconds
+    return build_channel_wake_input_bytes(prompt, _channel_wake_enter_bytes(enter_bytes))
 
 
 def _channel_current_tmux_pane_text() -> str | None:
@@ -22941,16 +22792,6 @@ def _channel_current_tmux_pane_text() -> str | None:
     if result.returncode != 0:
         return None
     return result.stdout or ""
-
-
-def _channel_wake_submit_retry_delay_seconds() -> float:
-    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_SUBMIT_RETRY_DELAY_MS")
-    if raw is None:
-        return 0.9
-    try:
-        return max(0.05, min(5.0, float(raw) / 1000.0))
-    except Exception:
-        return 0.9
 
 
 def _codex_channel_wake_submit_retries() -> int:
