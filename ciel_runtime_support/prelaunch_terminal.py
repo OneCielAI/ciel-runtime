@@ -8,6 +8,8 @@ import os
 import shutil
 import sys
 import time
+import unicodedata
+from pathlib import Path
 from typing import Any, Callable
 
 
@@ -49,6 +51,260 @@ class PrelaunchRenderServices:
 class PrelaunchInputStyle:
     ansi: Callable[..., Any]
     log: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class TerminalSelectionServices:
+    enable_ansi: Callable[[], None]
+    ansi: Callable[[str, str], str]
+    intro_panel_lines: Callable[[int], list[str]]
+    status_lines: Callable[[], list[str]]
+    read_key: Callable[[int | None], str]
+
+
+ANIMATED_TEXT_PALETTE = (203, 209, 215, 221, 229, 187, 151, 116, 111, 147, 183, 219)
+
+
+def enable_ansi() -> None:
+    if os.name == "nt":
+        os.system("")
+
+
+def ansi(text: str, code: str) -> str:
+    return f"\033[{code}m{text}\033[0m" if sys.stdout.isatty() else text
+
+
+def animated_ansi_text(text: str, *, phase: int | None = None, bold: bool = True) -> str:
+    if not sys.stdout.isatty():
+        return text
+    current_phase = int(time.monotonic() * 8) if phase is None else phase
+    parts: list[str] = []
+    for index, character in enumerate(text):
+        if character.isspace():
+            parts.append(character)
+            continue
+        code = f"38;5;{ANIMATED_TEXT_PALETTE[(current_phase + index) % len(ANIMATED_TEXT_PALETTE)]}"
+        parts.append(ansi(character, f"1;{code}" if bold else code))
+    return "".join(parts)
+
+
+def cell_width(text: str) -> int:
+    return sum(
+        0
+        if unicodedata.combining(character)
+        else 2
+        if unicodedata.east_asian_width(character) in ("F", "W")
+        else 1
+        for character in text
+    )
+
+
+def fit_cells(value: Any, width: int) -> str:
+    text = str(value if value is not None else "")
+    width = max(1, width)
+    if cell_width(text) <= width:
+        return text
+    suffix = "..." if width >= 4 else ""
+    limit = max(1, width - cell_width(suffix))
+    output: list[str] = []
+    used = 0
+    for character in text:
+        character_width = (
+            0
+            if unicodedata.combining(character)
+            else 2
+            if unicodedata.east_asian_width(character) in ("F", "W")
+            else 1
+        )
+        if used + character_width > limit:
+            break
+        output.append(character)
+        used += character_width
+    return "".join(output) + suffix
+
+
+def pad_cells(value: Any, width: int) -> str:
+    text = fit_cells(value, width)
+    return text + (" " * max(0, width - cell_width(text)))
+
+
+def intro_panel_lines(width: int, app_name: str, credits: str) -> list[str]:
+    width = max(48, min(width, 120))
+    border = "-" * (width - 2)
+    lines = [f"+{border}+"]
+    title = f" {app_name} "
+    lines.append(f"|{title}{' ' * max(0, width - len(title) - 2)}|")
+    if width >= 92:
+        left_width = 39
+        right_width = width - left_width - 4
+        rows = [
+            ("Welcome back!", "Tips for getting started"),
+            ("", "Choose provider, model, base URL, and API key before launch."),
+            ("   CLAUDE", "Routes Claude Code to Anthropic, Ollama, vLLM, Nvidia, or NIM."),
+            ("      ANY", "Adds DuckDuckGo web search tooling for non-native providers."),
+            (credits, "Use --ca-* flags for headless runs; Claude flags pass through."),
+        ]
+        for left, right in rows:
+            lines.append(
+                f"| {left[:left_width].ljust(left_width)} | "
+                f"{right[:right_width].ljust(right_width)}|"
+            )
+    else:
+        rows = [
+            f"{app_name} routes Claude Code through selectable providers.",
+            "Anthropic, Ollama, vLLM, Nvidia Hosted, and self-hosted NIM.",
+            "DuckDuckGo web search is attached for non-native providers.",
+            "Headless setup uses --ca-* flags; Claude flags pass through.",
+            credits,
+        ]
+        lines.extend(f"| {row[: width - 4].ljust(width - 4)} |" for row in rows)
+    lines.append(f"+{border}+")
+    return lines
+
+
+def append_menu_key_debug_log(path: Path, line: str) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as stream:
+            stream.write(line)
+    except OSError:
+        pass
+
+
+def read_menu_key(
+    fd: int | None = None,
+    *,
+    debug_log: Callable[[str], None] = lambda _line: None,
+) -> str:
+    if os.name == "nt":
+        import msvcrt
+
+        character = msvcrt.getwch()
+        if character in ("\x00", "\xe0"):
+            code = msvcrt.getwch()
+            return {"H": "up", "P": "down", "K": "left", "M": "right"}.get(code, "")
+        if character in ("\r", "\n"):
+            return "enter"
+        if character == "\x1b":
+            return "esc"
+        return character.lower()
+    descriptor = sys.stdin.fileno() if fd is None or fd < 0 else fd
+    character = os.read(descriptor, 1)
+    log = f"{time.time():.3f} first={character!r}"
+    if character == b"\x1b":
+        sequence = character.decode("latin-1")
+        following = os.read(descriptor, 1)
+        log += f" next={following!r}"
+        if not following:
+            debug_log(log + " result='esc'\n")
+            return "esc"
+        sequence += following.decode("latin-1")
+        if following == b"[":
+            while True:
+                following = os.read(descriptor, 1)
+                log += f" next={following!r}"
+                if not following:
+                    break
+                sequence += following.decode("latin-1")
+                if 0x40 <= following[0] <= 0x7E:
+                    break
+        elif following == b"O":
+            following = os.read(descriptor, 1)
+            log += f" next={following!r}"
+            if following:
+                sequence += following.decode("latin-1")
+        result = {
+            "\x1b[A": "up",
+            "\x1b[B": "down",
+            "\x1b[D": "left",
+            "\x1b[C": "right",
+            "\x1b[5~": "pageup",
+            "\x1b[6~": "pagedown",
+            "\x1b[H": "home",
+            "\x1b[F": "end",
+        }.get(sequence, "esc")
+        debug_log(log + f" seq={sequence!r} result={result!r}\n")
+        return result
+    result = "enter" if character in (b"\r", b"\n") else character.decode("latin-1").lower()
+    debug_log(log + f" result={result!r}\n")
+    return result
+
+
+def portable_select(
+    title: str,
+    rows: list[str],
+    current: int = 0,
+    footer: str = "",
+    info_lines: list[str] | None = None,
+    show_intro: bool = False,
+    *,
+    services: TerminalSelectionServices,
+) -> int | None:
+    services.enable_ansi()
+    index = max(0, min(current, len(rows) - 1))
+    status_cache = services.status_lines()[:5]
+    output_is_tty = os.isatty(sys.stdout.fileno()) if os.name != "nt" else True
+    if output_is_tty:
+        sys.stdout.write("\033[?25l")
+        sys.stdout.flush()
+    fd = sys.stdin.fileno()
+    old_settings = None
+    if os.name != "nt" and os.isatty(fd):
+        try:
+            import termios
+
+            old_settings = termios.tcgetattr(fd)
+            new_settings = termios.tcgetattr(fd)
+            new_settings[3] &= ~(termios.ECHO | termios.ICANON)
+            new_settings[6][termios.VMIN] = 1
+            new_settings[6][termios.VTIME] = 0
+            termios.tcsetattr(fd, termios.TCSANOW, new_settings)
+        except Exception:
+            fd = -1
+    try:
+        while True:
+            columns = shutil.get_terminal_size((100, 24)).columns
+            screen = services.intro_panel_lines(columns) if show_intro else []
+            screen.append(services.ansi(title, "1"))
+            for line in status_cache:
+                color = "32" if line.startswith(("provider:", "model:")) else "2"
+                screen.append("  " + services.ansi(line, color))
+            screen.append("")
+            for row_index, row in enumerate(rows):
+                text = ("> " if row_index == index else "  ") + row
+                if row_index == index:
+                    screen.append(services.ansi(text, "7;1"))
+                elif row.startswith(("Quit", "종료", "終了", "退出")):
+                    screen.append(services.ansi(text, "31"))
+                elif any(word in row for word in ("Launch", "실행", "起動", "启动")):
+                    screen.append(services.ansi(text, "32;1"))
+                else:
+                    screen.append(text)
+            if info_lines:
+                screen.extend(("", services.ansi("-" * min(120, max(72, columns - 4)), "38;5;208")))
+                screen.extend(services.ansi(line, "1;38;5;208") for line in info_lines)
+            screen.extend(("", services.ansi(footer or "Up/Down moves. Enter selects. Esc/q cancels.", "2")))
+            sys.stdout.write("\033[2J\033[H" + "\n".join(screen) + "\n")
+            sys.stdout.flush()
+            key = services.read_key(fd if fd >= 0 else None)
+            if key in ("up", "k"):
+                index = (index - 1) % len(rows)
+            elif key in ("down", "j"):
+                index = (index + 1) % len(rows)
+            elif key == "enter":
+                return index
+            elif key in ("esc", "q"):
+                return None
+    finally:
+        if old_settings is not None:
+            try:
+                import termios
+
+                termios.tcsetattr(fd, termios.TCSANOW, old_settings)
+            except Exception:
+                pass
+        sys.stdout.write("\033[?25h")
+        sys.stdout.flush()
 
 
 def visible_rows(rows: list[str], selected: int, limit: int) -> list[tuple[int | None, str]]:
@@ -506,4 +762,3 @@ def prompt_menu_multiline_value(
         if raw_tty:
             raw_tty()
     return value.strip()
-
