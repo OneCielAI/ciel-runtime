@@ -312,6 +312,13 @@ from ciel_runtime_support.context_compaction import (
     request_context_summary,
 )
 from ciel_runtime_support.context_summary_policy import ContextSummaryPolicy
+from ciel_runtime_support.codex_process_lifecycle import (
+    CodexProcessLifecycle,
+    CodexProcessPorts,
+    CodexProcessRepository,
+    managed_process as project_managed_codex_process,
+    terminate_recorded_child as terminate_project_recorded_child,
+)
 from ciel_runtime_support.credentials import (
     api_key_clear_requested as project_api_key_clear_requested,
     meaningful_key_value as project_meaningful_key_value,
@@ -16519,6 +16526,26 @@ def process_inspection_services() -> ProcessInspectionServices:
     )
 
 
+def codex_process_lifecycle() -> CodexProcessLifecycle:
+    return CodexProcessLifecycle(
+        CodexProcessRepository(CODEX_PROCESS_DIR, router_log),
+        CodexProcessPorts(
+            pid_running=pid_is_running,
+            command_line=_process_command_line,
+            managed_process=_looks_like_ciel_managed_codex_process,
+            terminate_tree=lambda pid, label, quiet: terminate_pid_tree(
+                pid, label, quiet=quiet
+            ),
+            process_rows=lambda: posix_process_rows(process_inspection_services()),
+            process_cwd=_posix_process_cwd,
+            parent_info=parent_pid_and_command,
+            log=router_log,
+            current_pid=os.getpid,
+            parent_pid=os.getppid,
+        ),
+    )
+
+
 def _process_command_line(pid: int) -> str:
     return inspect_process_command_line(pid, process_inspection_services(), platform_name=os.name)
 
@@ -16534,139 +16561,39 @@ def _process_environ_contains(pid: int, key: str, value: str | None = None) -> b
 
 
 def _looks_like_ciel_managed_codex_process(pid: int, command: str | None = None) -> bool:
-    if _process_environ_contains(pid, "CIEL_RUNTIME_CODEX_MANAGED", "1"):
-        return True
-    text = (command if command is not None else _process_command_line(pid)).lower()
-    return "codex" in text and ("--yolo" in text or "app-server" in text)
+    return project_managed_codex_process(
+        pid,
+        command,
+        managed_environment=_process_environ_contains,
+        command_line=_process_command_line,
+    )
 
 
 def _write_codex_child_process_record(path: Path | None, pid: int, cmd: list[str], cwd: Path | None = None) -> None:
-    if path is None or pid <= 0:
-        return
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "pid": int(pid),
-            "owner_pid": os.getpid(),
-            "started_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "cwd": str(cwd or Path.cwd()),
-            "cmd": [str(item) for item in cmd],
-        }
-        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-        try:
-            os.chmod(path, 0o600)
-        except Exception as exc:
-            router_log(
-                "WARN",
-                f"codex_child_process_record_chmod_failed path={path} error={type(exc).__name__}: {exc}",
-            )
-        router_log("INFO", f"codex_child_process_registered pid={pid} path={path}")
-    except Exception as exc:
-        router_log("WARN", f"codex_child_process_register_failed pid={pid} error={type(exc).__name__}: {exc}")
+    CodexProcessRepository(CODEX_PROCESS_DIR, router_log).write(path, pid, cmd, cwd)
 
 
 def _release_codex_child_process_record(path: Path | None, pid: int | None = None) -> None:
-    if path is None:
-        return
-    try:
-        if pid is not None and path.exists():
-            data = json.loads(path.read_text(encoding="utf-8"))
-            if int(data.get("pid") or 0) != int(pid):
-                return
-        path.unlink()
-        router_log("INFO", f"codex_child_process_released path={path}")
-    except FileNotFoundError:
-        return
-    except Exception as exc:
-        router_log("WARN", f"codex_child_process_release_failed path={path} error={type(exc).__name__}: {exc}")
+    CodexProcessRepository(CODEX_PROCESS_DIR, router_log).release(path, pid)
 
 
 def _terminate_recorded_child_process(proc: Any, label: str) -> None:
-    try:
-        pid = int(getattr(proc, "pid", 0) or 0)
-    except (TypeError, ValueError) as exc:
-        router_log("WARN", f"codex_child_process_pid_invalid error={type(exc).__name__}: {exc}")
-        return
-    if pid <= 0:
-        return
-    try:
-        if proc.poll() is not None:
-            return
-    except Exception as exc:
-        router_log("WARN", f"codex_child_process_poll_failed pid={pid} error={type(exc).__name__}: {exc}")
-    terminate_pid_tree(pid, label, quiet=True)
-    try:
-        proc.wait(timeout=2)
-    except Exception as wait_exc:
-        router_log("WARN", f"codex_child_process_wait_failed pid={pid} error={type(wait_exc).__name__}: {wait_exc}")
-        try:
-            proc.kill()
-        except Exception as kill_exc:
-            router_log("WARN", f"codex_child_process_kill_failed pid={pid} error={type(kill_exc).__name__}: {kill_exc}")
-        try:
-            proc.wait(timeout=2)
-        except Exception as final_wait_exc:
-            router_log(
-                "WARN",
-                f"codex_child_process_final_wait_failed pid={pid} "
-                f"error={type(final_wait_exc).__name__}: {final_wait_exc}",
-            )
+    terminate_project_recorded_child(
+        proc,
+        label,
+        terminate_tree=lambda pid, current_label, quiet: terminate_pid_tree(
+            pid, current_label, quiet=quiet
+        ),
+        log=router_log,
+    )
 
 
 def terminate_tracked_codex_processes(reason: str, quiet: bool = True) -> bool:
-    if not CODEX_PROCESS_DIR.exists():
-        return False
-    stopped = False
-    for path in sorted(CODEX_PROCESS_DIR.glob("*.json")):
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            pid = int(data.get("pid") or 0)
-        except (OSError, UnicodeError, json.JSONDecodeError, AttributeError, TypeError, ValueError) as exc:
-            router_log(
-                "WARN",
-                f"codex_tracked_process_record_invalid path={path} error={type(exc).__name__}: {exc}",
-            )
-            try:
-                path.unlink()
-            except FileNotFoundError:
-                pass
-            except OSError as unlink_exc:
-                router_log(
-                    "WARN",
-                    f"codex_tracked_process_record_cleanup_failed path={path} "
-                    f"error={type(unlink_exc).__name__}: {unlink_exc}",
-                )
-            continue
-        if pid <= 0 or not pid_is_running(pid):
-            _release_codex_child_process_record(path, pid)
-            continue
-        command = _process_command_line(pid)
-        if not _looks_like_ciel_managed_codex_process(pid, command):
-            router_log("WARN", f"codex_tracked_process_skipped_unexpected_command pid={pid} path={path}")
-            _release_codex_child_process_record(path, pid)
-            continue
-        if terminate_pid_tree(pid, "previous Codex", quiet=quiet):
-            stopped = True
-        _release_codex_child_process_record(path, pid)
-    router_log("INFO", f"codex_tracked_processes_terminated reason={reason} stopped={str(stopped).lower()}")
-    return stopped
+    return codex_process_lifecycle().terminate_tracked(reason, quiet)
 
 
 def _current_process_ancestor_pids(limit: int = 12) -> set[int]:
-    ancestors = {os.getpid(), os.getppid()}
-    if os.name == "nt":
-        return ancestors
-    current = os.getpid()
-    for _ in range(max(0, limit)):
-        info = parent_pid_and_command(current)
-        if info is None:
-            break
-        parent, _command = info
-        if parent <= 0 or parent in ancestors:
-            break
-        ancestors.add(parent)
-        current = parent
-    return ancestors
+    return codex_process_lifecycle().ancestor_pids(os.name, limit)
 
 
 def _posix_process_cwd(pid: int) -> Path | None:
@@ -16674,35 +16601,21 @@ def _posix_process_cwd(pid: int) -> Path | None:
 
 
 def _untracked_codex_process_pids_for_cwd(cwd: Path | None = None) -> list[int]:
-    if os.name == "nt" or not env_bool(os.environ.get("CIEL_RUNTIME_CODEX_CLEAN_UNTRACKED"), True):
-        return []
-    target_cwd = (cwd or Path.cwd()).resolve()
-    protected = _current_process_ancestor_pids()
-    matches: list[int] = []
-    for pid, stat, command in posix_process_rows(process_inspection_services()):
-        if pid in protected or stat.startswith("Z"):
-            continue
-        if not _looks_like_ciel_managed_codex_process(pid, command):
-            continue
-        proc_cwd = _posix_process_cwd(pid)
-        if proc_cwd is None or proc_cwd != target_cwd:
-            continue
-        matches.append(pid)
-    return sorted(set(matches))
+    return codex_process_lifecycle().untracked_pids(
+        cwd,
+        platform_name=os.name,
+        enabled=env_bool(os.environ.get("CIEL_RUNTIME_CODEX_CLEAN_UNTRACKED"), True),
+    )
 
 
 def terminate_untracked_codex_processes_for_launch(reason: str, cwd: Path | None = None, quiet: bool = True) -> bool:
-    pids = _untracked_codex_process_pids_for_cwd(cwd)
-    if not pids:
-        return False
-    stopped = False
-    for pid in pids:
-        stopped = terminate_pid_tree(pid, "previous untracked Codex", quiet=quiet) or stopped
-    router_log(
-        "WARN",
-        f"codex_untracked_processes_terminated reason={reason} pids={','.join(map(str, pids))} stopped={str(stopped).lower()}",
+    return codex_process_lifecycle().terminate_untracked(
+        reason,
+        cwd,
+        quiet,
+        platform_name=os.name,
+        enabled=env_bool(os.environ.get("CIEL_RUNTIME_CODEX_CLEAN_UNTRACKED"), True),
     )
-    return stopped
 
 
 def terminate_existing_codex_processes_for_launch(reason: str, cwd: Path | None = None, quiet: bool = True) -> bool:
