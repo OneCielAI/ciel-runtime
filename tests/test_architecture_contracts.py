@@ -26,6 +26,15 @@ from ciel_runtime_support.cli_dispatch import (
 )
 from ciel_runtime_support.channel_panel import ChannelPanelPolicy
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
+from ciel_runtime_support.compatibility_test import (
+    CompatibilityTestConfig,
+    CompatibilityTestConstants,
+    CompatibilityTestMode,
+    CompatibilityTestOutput,
+    CompatibilityTestProtocol,
+    CompatibilityTestRequest,
+    CompatibilityTestServices,
+)
 from ciel_runtime_support.mcp_proxy_codec import McpProxyCodecPolicy
 from ciel_runtime_support.model_panel import (
     ModelPanelCatalog,
@@ -329,6 +338,19 @@ class ArchitectureContractTests(unittest.TestCase):
         )
 
         for port in ports:
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_compatibility_test_ports_stay_below_dependency_limit(self):
+        for port in (
+            CompatibilityTestConstants,
+            CompatibilityTestConfig,
+            CompatibilityTestMode,
+            CompatibilityTestRequest,
+            CompatibilityTestProtocol,
+            CompatibilityTestOutput,
+            CompatibilityTestServices,
+        ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 

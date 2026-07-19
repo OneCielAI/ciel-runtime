@@ -77,6 +77,16 @@ from ciel_runtime_support.cli_dispatch import (
     CliSpecialCommands,
     dispatch_cli,
 )
+from ciel_runtime_support.compatibility_test import (
+    CompatibilityTestConfig,
+    CompatibilityTestConstants,
+    CompatibilityTestMode,
+    CompatibilityTestOutput,
+    CompatibilityTestProtocol,
+    CompatibilityTestRequest,
+    CompatibilityTestServices,
+    run_compatibility_test as run_provider_compatibility_test,
+)
 from ciel_runtime_support.config_repository import JsonConfigRepository
 from ciel_runtime_support.config_migrations import (
     ConfigMigrationPolicy,
@@ -22644,226 +22654,73 @@ def set_compatibility_cache(
     save_config(cfg)
 
 
+def compatibility_test_services() -> CompatibilityTestServices:
+    return CompatibilityTestServices(
+        constants=CompatibilityTestConstants(
+            api_key_probe_error=CompatibilityApiKeyProbeError,
+            compatibility_test_header=COMPATIBILITY_TEST_HEADER,
+            lm_studio_min_context=LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT,
+            opencode_provider_names=OPENCODE_PROVIDER_NAMES,
+            router_base=ROUTER_BASE,
+        ),
+        config=CompatibilityTestConfig(
+            current_alias=current_alias,
+            current_upstream_model_id=current_upstream_model_id,
+            ensure_current_model=ensure_current_model_from_provider_list,
+            get_current_provider=get_current_provider,
+            launch_model_id=launch_model_id,
+            load_config=load_config,
+            normalize_model_id=normalize_model_id,
+            positive_int=positive_int,
+            save_config=save_config,
+            upstream_model_runtime_info=upstream_model_runtime_info,
+        ),
+        mode=CompatibilityTestMode(
+            ensure_lm_studio_model_loaded=ensure_lm_studio_model_loaded_for_context,
+            lm_studio_native_enabled=lm_studio_native_compat_enabled,
+            native_anthropic_base_url=native_anthropic_base_url,
+            nim_native_enabled=nim_native_compat_enabled,
+            nvidia_native_enabled=nvidia_hosted_native_compat_enabled,
+            ollama_native_enabled=ollama_native_compat_enabled,
+            provider_native_enabled=provider_native_compat_enabled,
+            upstream_api_model_id=upstream_api_model_id,
+            vllm_native_enabled=vllm_native_compat_enabled,
+            vllm_tool_parser_hint=vllm_tool_parser_hint,
+        ),
+        request=CompatibilityTestRequest(
+            compatibility_endpoint_probe_lines=compatibility_endpoint_probe_lines,
+            compatibility_failure_diagnosis=compatibility_failure_diagnosis,
+            compatibility_http_error_message=compatibility_http_error_message,
+            post_json=post_json,
+            provider_headers=provider_headers,
+            provider_ip_family_probe_lines=provider_ip_family_probe_lines,
+            run_api_key_probes=run_compatibility_api_key_probes,
+            start_router=start_router_if_needed,
+            stop_router=stop_router_processes,
+        ),
+        protocol=CompatibilityTestProtocol(
+            compatibility_text_request=compatibility_text_request,
+            compatibility_tool_request=compatibility_tool_request,
+            compatibility_tool_result_request=compatibility_tool_result_request,
+            find_compat_tool_use=find_compat_tool_use,
+            known_tool_use_blocker=known_compatibility_tool_use_blocker,
+            normalize_thinking=normalize_thinking_for_non_anthropic_provider,
+            normalize_tool_choice=normalize_tool_choice_for_provider,
+            ollama_chat_request=ollama_chat_request,
+            resolve_requested_model=resolve_requested_model,
+            response_text_preview=response_text_preview,
+        ),
+        output=CompatibilityTestOutput(
+            compatibility_runtime_lines=compatibility_runtime_lines,
+            join_url=join_url,
+            set_compatibility_cache=set_compatibility_cache,
+            summarize_compat_response=summarize_compat_response,
+        ),
+    )
+
+
 def _cmd_test(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    test_mode = getattr(args, "mode", "auto") or "auto"
-    if test_mode not in ("auto", "quick", "smoke", "full"):
-        raise SystemExit("test mode must be auto, quick, smoke, or full")
-    effective_mode = "quick" if test_mode == "auto" and provider == "nvidia-hosted" else ("full" if test_mode == "auto" else test_mode)
-    lm_studio_preflight_lines: list[str] = []
-    if provider == "lm-studio":
-        try:
-            lm_studio_preflight_lines = ensure_lm_studio_model_loaded_for_context(pcfg, timeout=1.5)
-            save_config(cfg)
-        except Exception as exc:
-            print("Compatibility: FAIL")
-            print("Reason: CielRuntime could not automatically load the selected LM Studio model with the recommended context.")
-            print(f"Diagnosis: LM Studio load failed ({type(exc).__name__}: {exc}).")
-            sys.exit(1)
-    selected, selection_lines = ensure_current_model_from_provider_list(provider, pcfg)
-    for line in selection_lines:
-        print(line)
-    if selection_lines:
-        save_config(cfg)
-    if not selected:
-        print("Compatibility: FAIL")
-        print("Reason: No concrete provider model is selected.")
-        print("Diagnosis: choose a model from the provider model list, then retry the compatibility test.")
-        set_compatibility_cache(cfg, provider, normalize_model_id(provider, str(pcfg.get("current_model") or "")) or "(unset)", False, None, "No concrete provider model is selected.", "Choose a model from the provider model list.")
-        raise SystemExit(1)
-    ollama_native = ollama_native_compat_enabled(provider, pcfg)
-    provider_native = provider_native_compat_enabled(provider, pcfg)
-    native = ollama_native or provider_native
-    model = current_upstream_model_id(provider, pcfg) if provider_native else (launch_model_id(provider, pcfg) if ollama_native else current_alias(cfg))
-    request_model = upstream_api_model_id(provider, model) if native else model
-    base = native_anthropic_base_url(provider, pcfg) if native else ROUTER_BASE
-    if not native:
-        # Compatibility tests must exercise the currently installed router.
-        # Older long-running routers can keep stale NVIDIA proxy code alive
-        # across npm upgrades, producing false nvd-claude-proxy failures.
-        stop_router_processes(quiet=True)
-        start_router_if_needed()
-    url = join_url(base, "/v1/messages")
-    headers = provider_headers(provider, pcfg)
-    headers[COMPATIBILITY_TEST_HEADER] = "1"
-    if ollama_native:
-        headers = {
-            "content-type": "application/json",
-            "anthropic-version": "2023-06-01",
-            "authorization": "Bearer ollama",
-            "x-api-key": "ollama",
-            COMPATIBILITY_TEST_HEADER: "1",
-        }
-    text_body = normalize_tool_choice_for_provider(
-        provider,
-        pcfg,
-        normalize_thinking_for_non_anthropic_provider(provider, pcfg, compatibility_text_request(request_model)),
-    )
-    tool_body = normalize_tool_choice_for_provider(
-        provider,
-        pcfg,
-        normalize_thinking_for_non_anthropic_provider(provider, pcfg, compatibility_tool_request(request_model)),
-    )
-    print(f"Testing provider: {provider}")
-    print(f"Test mode: {effective_mode}")
-    if ollama_native:
-        mode = "ollama-native"
-    elif vllm_native_compat_enabled(provider, pcfg):
-        mode = "vllm-native"
-    elif lm_studio_native_compat_enabled(provider, pcfg):
-        mode = "lm-studio-native"
-    elif nim_native_compat_enabled(provider, pcfg):
-        mode = "nim-native"
-    elif nvidia_hosted_native_compat_enabled(provider, pcfg):
-        mode = "nvidia-native"
-    else:
-        mode = "ciel-runtime-router"
-    print(f"Mode: {mode}")
-    print(f"Claude API URL: {url}")
-    if not native:
-        print(f"Upstream base URL: {pcfg.get('base_url')}")
-        for line in provider_ip_family_probe_lines(provider, pcfg):
-            print(line)
-        if provider in ("ollama", "ollama-cloud"):
-            req_preview = ollama_chat_request(resolve_requested_model(provider, pcfg, model), tool_body, pcfg, stream=False, provider=provider)
-            print(f"Ollama num_ctx: {req_preview.get('options', {}).get('num_ctx', 'default')}")
-    elif provider in OPENCODE_PROVIDER_NAMES:
-        for line in provider_ip_family_probe_lines(provider, pcfg):
-            print(line)
-    print(f"Model: {model}")
-    if request_model != model:
-        print(f"API model: {request_model}")
-    for line in lm_studio_preflight_lines:
-        print(line)
-    for line in compatibility_runtime_lines(provider, pcfg, native):
-        print(line)
-    for line in compatibility_endpoint_probe_lines(provider, pcfg, timeout=min(float(args.timeout or 1.5), 3.0)):
-        print(line)
-    if provider == "lm-studio":
-        info = upstream_model_runtime_info(provider, pcfg, timeout=1.5)
-        loaded = positive_int(info.get("loaded_context_len")) if info else None
-        state = str(info.get("state") or "") if info else ""
-        if loaded and loaded < LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT:
-            print("Compatibility: FAIL")
-            print(
-                "Reason: LM Studio loaded context is "
-                f"{loaded:,} tokens; Claude Code needs at least {LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT:,}."
-            )
-            print("Diagnosis: reload the model in LM Studio with a larger context length, then retry.")
-            sys.exit(1)
-        if state and state != "loaded":
-            print("Compatibility: FAIL")
-            print("Reason: the selected LM Studio model is not loaded, so the active context length cannot be verified.")
-            print(f"Diagnosis: load the model in LM Studio with at least {LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT:,} context tokens, then retry.")
-            sys.exit(1)
-    if provider == "vllm":
-        hint = vllm_tool_parser_hint(model)
-        if hint:
-            print(hint)
-
-    def fail(message: str, code: int | None = None, diagnosis: str = "") -> None:
-        print("Compatibility: FAIL")
-        if code is not None:
-            print(f"HTTP: {code}")
-        print(f"Reason: {message[:1000]}")
-        if diagnosis:
-            print(diagnosis)
-        set_compatibility_cache(cfg, provider, model, False, code, message, diagnosis)
-        raise SystemExit(1)
-
-    def run_phase(label: str, request_body: dict[str, Any]) -> Any:
-        print(f"{label}: running")
-        try:
-            return post_json(
-                url,
-                request_body,
-                headers=headers,
-                timeout=args.timeout,
-                provider=provider if native else None,
-                pcfg=pcfg if native else None,
-            )
-        except urllib.error.HTTPError as exc:
-            msg = compatibility_http_error_message(exc)
-            diagnosis = compatibility_failure_diagnosis(provider, exc.code, msg)
-            fail(f"{label}: {msg}", exc.code, diagnosis or "")
-        except TimeoutError:
-            print("Compatibility: TIMEOUT")
-            print(f"Reason: {label} did not respond before the {args.timeout:g}s compatibility-test timeout.")
-            print("Diagnosis: this timeout was not saved as a model failure. Retry the test or choose another model if it repeats.")
-            sys.stdout.flush()
-            sys.exit(1)
-        except Exception as exc:
-            msg = f"{type(exc).__name__}: {exc}"
-            if "timed out" in msg.lower() or "timeout" in msg.lower():
-                print("Compatibility: TIMEOUT")
-                print(f"Reason: {label}: {msg}")
-                print("Diagnosis: this timeout was not saved as a model failure. Retry the test or choose another model if it repeats.")
-                sys.stdout.flush()
-                sys.exit(1)
-            fail(f"{label}: {msg}")
-
-    try:
-        for line in run_compatibility_api_key_probes(provider, pcfg, model, text_body, args.timeout):
-            print(line)
-    except CompatibilityApiKeyProbeError as exc:
-        fail(f"API key check: {exc}", exc.code, exc.diagnosis)
-
-    text_data = run_phase("Text response", text_body)
-    for line in summarize_compat_response(text_data, "Text response"):
-        print(line)
-
-    if effective_mode == "quick":
-        set_compatibility_cache(cfg, provider, model, True, 200, "text quick OK", "")
-        print("Compatibility: OK")
-        print("Note: quick mode checked text only; run `ciel-runtime test 120 smoke` for tool_use or `ciel-runtime test 180 full` for tool_result.")
-        return
-
-    tool_blocker = known_compatibility_tool_use_blocker(provider, request_model)
-    if tool_blocker:
-        fail(
-            f"Tool use: {tool_blocker}",
-            diagnosis=(
-                "Diagnosis: the selected model is not suitable for Claude Code through the Anthropic "
-                "compatibility path because Claude Code depends on reliable tool_use responses."
-            ),
-        )
-
-    tool_data = run_phase("Tool use", tool_body)
-    tool_use, tool_error = find_compat_tool_use(tool_data)
-    if not tool_use:
-        diagnosis = (
-            "Diagnosis: the model/server did not return a valid Anthropic tool_use block. "
-            "Claude Code can fail with 'tool call could not be parsed' on this provider/model."
-        )
-        if provider == "vllm":
-            hint = vllm_tool_parser_hint(model)
-            if hint:
-                diagnosis = f"{diagnosis} {hint}"
-        fail(f"Tool use: {tool_error}", diagnosis=diagnosis)
-    for line in summarize_compat_response(tool_data, "Tool use"):
-        print(line)
-
-    if effective_mode == "smoke":
-        set_compatibility_cache(cfg, provider, model, True, 200, "text/tool_use smoke OK", "")
-        print("Compatibility: OK")
-        print("Note: smoke mode checked text and tool_use only; run `ciel-runtime test 180 full` for tool_result round trip.")
-        return
-
-    result_body = compatibility_tool_result_request(request_model, tool_use)
-    result_data = run_phase("Tool result", result_body)
-    result_preview = response_text_preview(result_data)
-    if not result_preview:
-        fail(
-            "Tool result: no final text response after tool_result.",
-            diagnosis="Diagnosis: the provider accepted tool_use but did not complete the tool_result round trip.",
-        )
-    for line in summarize_compat_response(result_data, "Tool result"):
-        print(line)
-    print(f"Tool result text: {result_preview[:120]}")
-
-    set_compatibility_cache(cfg, provider, model, True, 200, "text/tool_use/tool_result OK", "")
-    print("Compatibility: OK")
+    run_provider_compatibility_test(args, services=compatibility_test_services())
 
 def cmd_test(args: argparse.Namespace) -> None:
     try:

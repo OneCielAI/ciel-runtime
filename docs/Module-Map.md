@@ -69,6 +69,10 @@ LLM 옵션의 입력 검증, Provider 설정 변경, 컨텍스트·출력 보정
 
 명시적 `CliServices` dependency object를 사용하는 CLI Application Service와 command dispatcher.
 
+### `ciel_runtime_support/compatibility_test.py`
+
+Provider text/tool_use/tool_result 호환성 진단을 실행하는 CLI Application Service. Configuration, mode, request, protocol, output 포트를 분리하며 각 포트는 최대 10개 의존성만 갖는다.
+
 ### `ciel_runtime_support/agy_cli.py`
 
 AGY passthrough 인수 분석과 Claude 호환 인수 매핑.
