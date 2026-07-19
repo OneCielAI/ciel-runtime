@@ -4,6 +4,7 @@ from pathlib import Path
 
 from ciel_runtime_support.architecture import ProviderConfig
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, PROVIDER_LABELS
+from ciel_runtime_support.provider_compatibility import PROVIDER_COMPATIBILITY
 
 
 def config(provider, model="model", **options):
@@ -395,43 +396,40 @@ class ProviderContractMatrixTests(unittest.TestCase):
         self.assertEqual("provider", routed_anthropic.status_capacity_strategy)
 
     def test_provider_owned_compatibility_diagnosis(self):
-        vllm = PROVIDER_ADAPTERS.create("vllm")
+        vllm = PROVIDER_COMPATIBILITY.resolve("vllm")
         self.assertIn(
             "--tool-call-parser",
-            vllm.compatibility_failure_diagnosis(400, "tool parser failed") or "",
+            vllm.failure_diagnosis(400, "tool parser failed") or "",
         )
-        nvidia = PROVIDER_ADAPTERS.create("nvidia-hosted")
-        self.assertIn("API Catalog", nvidia.compatibility_failure_diagnosis(404, "missing") or "")
+        nvidia = PROVIDER_COMPATIBILITY.resolve("nvidia-hosted")
+        self.assertIn("API Catalog", nvidia.failure_diagnosis(404, "missing") or "")
         self.assertIn(
             "transient",
-            nvidia.compatibility_failure_diagnosis(503, "unavailable") or "",
+            nvidia.failure_diagnosis(503, "unavailable") or "",
         )
-        zai = PROVIDER_ADAPTERS.create("zai")
+        zai = PROVIDER_COMPATIBILITY.resolve("zai")
         self.assertIn(
             "tool-use probes time out",
-            zai.known_compatibility_tool_use_blocker("glm-4.7-flash"),
+            zai.tool_use_blocker("glm-4.7-flash"),
         )
-        self.assertEqual("", zai.known_compatibility_tool_use_blocker("glm-5.2"))
+        self.assertEqual("", zai.tool_use_blocker("glm-5.2"))
 
     def test_compatibility_runtime_metadata_matrix(self):
         enabled = {"lm-studio", "vllm", "self-hosted-nim"}
         for provider in PROVIDER_ADAPTERS.names():
-            adapter = PROVIDER_ADAPTERS.create(provider)
+            policy = PROVIDER_COMPATIBILITY.resolve(provider)
             with self.subTest(provider=provider):
                 self.assertEqual(
                     provider in enabled,
-                    adapter.exposes_compatibility_runtime_info(config(provider)),
+                    policy.exposes_runtime_info,
                 )
-        lm_studio = PROVIDER_ADAPTERS.create("lm-studio")
+        lm_studio = PROVIDER_COMPATIBILITY.resolve("lm-studio")
         self.assertEqual(
             (
                 "Runtime loaded_context_length: 32768",
                 "Runtime model state: loaded",
             ),
-            lm_studio.compatibility_runtime_metadata_lines(
-                config("lm-studio"),
-                {"loaded_context_len": 32768, "state": "loaded"},
-            ),
+            lm_studio.runtime_metadata({"loaded_context_len": 32768, "state": "loaded"}),
         )
 
     def test_model_launch_and_runtime_info_strategy_matrix(self):
@@ -452,19 +450,33 @@ class ProviderContractMatrixTests(unittest.TestCase):
         }
         for provider, expected in runtime_cases.items():
             with self.subTest(provider=provider, policy="runtime_info"):
-                adapter = PROVIDER_ADAPTERS.create(provider)
-                self.assertEqual(expected, adapter.runtime_model_info_strategy(config(provider)))
+                policy = PROVIDER_COMPATIBILITY.resolve(provider)
+                self.assertEqual(expected, policy.runtime_model_info_strategy)
 
     def test_claude_launch_enrichment_policy_matrix(self):
-        anthropic = PROVIDER_ADAPTERS.create("anthropic")
-        self.assertFalse(anthropic.allows_auto_web_search(config("anthropic")))
-        self.assertFalse(anthropic.requires_compat_prompt(config("anthropic")))
-        zai = PROVIDER_ADAPTERS.create("zai")
-        self.assertFalse(zai.allows_auto_web_search(config("zai", managed_mcp=True)))
-        self.assertTrue(zai.allows_auto_web_search(config("zai", managed_mcp=False)))
-        vllm = PROVIDER_ADAPTERS.create("vllm")
-        self.assertTrue(vllm.allows_auto_web_search(config("vllm")))
-        self.assertTrue(vllm.requires_compat_prompt(config("vllm")))
+        anthropic = PROVIDER_COMPATIBILITY.resolve("anthropic")
+        self.assertFalse(anthropic.auto_web_search(config("anthropic")))
+        self.assertFalse(anthropic.requires_compat_prompt)
+        zai = PROVIDER_COMPATIBILITY.resolve("zai")
+        self.assertFalse(zai.auto_web_search(config("zai", managed_mcp=True)))
+        self.assertTrue(zai.auto_web_search(config("zai", managed_mcp=False)))
+        vllm = PROVIDER_COMPATIBILITY.resolve("vllm")
+        self.assertTrue(vllm.auto_web_search(config("vllm")))
+        self.assertTrue(vllm.requires_compat_prompt)
+
+    def test_advisor_transport_matrix(self):
+        cases = {
+            "anthropic": "anthropic",
+            "ollama": "ollama",
+            "ollama-cloud": "ollama",
+            "lm-studio": "openai-compatible",
+            "nvidia-hosted": "openai-compatible",
+            "vllm": "",
+            "zai": "",
+        }
+        for provider, expected in cases.items():
+            with self.subTest(provider=provider):
+                self.assertEqual(expected, PROVIDER_COMPATIBILITY.resolve(provider).advisor_transport)
 
     def test_router_native_anthropic_capability_matrix(self):
         enabled = {

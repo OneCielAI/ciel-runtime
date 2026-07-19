@@ -464,6 +464,7 @@ from ciel_runtime_support.provider_adapters import (
     PROVIDER_LABELS,
     ZAI_MODEL_FALLBACK_IDS,
 )
+from ciel_runtime_support.provider_compatibility import PROVIDER_COMPATIBILITY
 from ciel_runtime_support.provider_context import (
     ContextPresetServices,
     ProviderContextServices,
@@ -7433,9 +7434,7 @@ def ensure_lm_studio_model_loaded_for_context(pcfg: dict[str, Any], timeout: flo
 
 
 def upstream_model_runtime_info(provider: str, pcfg: dict[str, Any], timeout: float = 3.0) -> dict[str, Any] | None:
-    adapter = configured_provider_adapter(provider, pcfg)
-    contract = provider_contract_config(provider, pcfg)
-    strategy = adapter.runtime_model_info_strategy(contract)
+    strategy = PROVIDER_COMPATIBILITY.resolve(provider).runtime_model_info_strategy
     if not strategy:
         return None
     if strategy == "lm_studio":
@@ -11012,9 +11011,8 @@ def advisor_model_enabled(pcfg: dict[str, Any]) -> str:
 
 
 def advisor_provider_kind(provider: str, pcfg: dict[str, Any] | None = None) -> str:
-    config = pcfg or {}
-    adapter = configured_provider_adapter(provider, config)
-    return adapter.advisor_transport_kind(provider_contract_config(provider, config))
+    del pcfg
+    return PROVIDER_COMPATIBILITY.resolve(provider).advisor_transport
 
 
 def advisor_provider_supported(provider: str) -> bool:
@@ -18956,12 +18954,12 @@ def compatibility_failure_diagnosis(provider: str, code: int | None, msg: str) -
     lower = msg.lower()
     if "does not support tools" in lower:
         return "Diagnosis: selected model does not support tool calling, so it is not suitable for normal Claude Code use."
-    return PROVIDER_ADAPTERS.create(provider).compatibility_failure_diagnosis(code, msg)
+    return PROVIDER_COMPATIBILITY.resolve(provider).failure_diagnosis(code, msg)
 
 
 def known_compatibility_tool_use_blocker(provider: str, model: str) -> str:
     normalized = strip_claude_context_suffix(str(model or "")).strip()
-    return PROVIDER_ADAPTERS.create(provider).known_compatibility_tool_use_blocker(normalized)
+    return PROVIDER_COMPATIBILITY.resolve(provider).tool_use_blocker(normalized)
 
 
 class CompatibilityApiKeyProbeError(Exception):
@@ -19107,9 +19105,8 @@ def vllm_tool_parser_hint(model: str) -> str | None:
 
 
 def compatibility_runtime_lines(provider: str, pcfg: dict[str, Any], native: bool) -> list[str]:
-    adapter = configured_provider_adapter(provider, pcfg)
-    contract = provider_contract_config(provider, pcfg)
-    if not adapter.exposes_compatibility_runtime_info(contract):
+    policy = PROVIDER_COMPATIBILITY.resolve(provider)
+    if not policy.exposes_runtime_info:
         return []
     lines: list[str] = []
     info = upstream_model_runtime_info(provider, pcfg, timeout=4.0)
@@ -19124,7 +19121,7 @@ def compatibility_runtime_lines(provider: str, pcfg: dict[str, Any], native: boo
             lines.append(f"Runtime max_model_len: {runtime_limit}")
         else:
             lines.append("Runtime max_model_len: not reported by /v1/models")
-        lines.extend(adapter.compatibility_runtime_metadata_lines(contract, info))
+        lines.extend(policy.runtime_metadata(info))
     else:
         runtime_limit = None
         lines.append("Runtime max_model_len: unavailable (/v1/models did not return model metadata)")
@@ -21659,17 +21656,14 @@ def should_attach_web_search(provider: str, cfg: dict[str, Any], override: bool 
     if override is not None:
         return override
     pcfg = cfg.get("providers", {}).get(provider, {}) if isinstance(cfg.get("providers"), dict) else {}
-    adapter = configured_provider_adapter(provider, pcfg)
     contract = provider_contract_config(provider, pcfg)
-    return adapter.allows_auto_web_search(contract) and bool(
+    return PROVIDER_COMPATIBILITY.resolve(provider).auto_web_search(contract) and bool(
         cfg.get("web_search", {}).get("auto_for_non_native", True)
     )
 
 
 def should_append_compat_prompt(provider: str, pcfg: dict[str, Any], cfg: dict[str, Any]) -> bool:
-    adapter = configured_provider_adapter(provider, pcfg)
-    contract = provider_contract_config(provider, pcfg)
-    return adapter.requires_compat_prompt(contract) and bool(
+    return PROVIDER_COMPATIBILITY.resolve(provider).requires_compat_prompt and bool(
         cfg.get("claude_code", {}).get("compat_prompt_for_non_anthropic", True)
     )
 

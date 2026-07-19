@@ -516,55 +516,6 @@ class ProviderAdapter(ABC):
         del config
         return False
 
-    def advisor_transport_kind(self, config: ProviderConfig) -> str:
-        """Return the optional transport used for one-shot advisor refinement."""
-
-        del config
-        return ""
-
-    def compatibility_failure_diagnosis(self, code: int | None, message: str) -> str | None:
-        """Return provider-owned guidance for a failed compatibility probe."""
-
-        del code, message
-        return None
-
-    def known_compatibility_tool_use_blocker(self, model: str) -> str:
-        """Return a known model-specific tool-use blocker, if one exists."""
-
-        del model
-        return ""
-
-    def exposes_compatibility_runtime_info(self, config: ProviderConfig) -> bool:
-        """Whether compatibility output should inspect upstream runtime metadata."""
-
-        return bool(self.runtime_model_info_strategy(config))
-
-    def runtime_model_info_strategy(self, config: ProviderConfig) -> str:
-        """Return the provider-owned upstream runtime metadata strategy."""
-
-        del config
-        return ""
-
-    def allows_auto_web_search(self, config: ProviderConfig) -> bool:
-        """Whether global automatic web-search injection applies to this provider."""
-
-        del config
-        return True
-
-    def requires_compat_prompt(self, config: ProviderConfig) -> bool:
-        """Whether Claude launches need the non-native compatibility prompt."""
-
-        del config
-        return True
-
-    def compatibility_runtime_metadata_lines(
-        self, config: ProviderConfig, info: Mapping[str, Any]
-    ) -> tuple[str, ...]:
-        """Return provider-owned supplemental runtime metadata rows."""
-
-        del config, info
-        return ()
-
     def context_compaction_available(self, config: ProviderConfig) -> bool:
         """Whether this configured provider can run an auxiliary summary request."""
 

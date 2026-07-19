@@ -393,6 +393,7 @@ from ciel_runtime_support.provider_adapters import (
     VllmProviderAdapter,
     ZaiProviderAdapter,
 )
+from ciel_runtime_support.provider_compatibility import ProviderCompatibilityPolicy
 from ciel_runtime_support.registry import AdapterRegistry
 from ciel_runtime_support.runtime_adapters import (
     RUNTIME_ADAPTERS,
@@ -1118,7 +1119,7 @@ class ArchitectureContractTests(unittest.TestCase):
         for provider in ("anthropic", "agy", "codex"):
             self.assertNotIn(f'provider == "{provider}"', function_source)
 
-    def test_advisor_transport_dispatches_through_adapter(self):
+    def test_advisor_transport_dispatches_through_compatibility_registry(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
         source = source_path.read_text(encoding="utf-8")
         tree = ast.parse(source)
@@ -1128,7 +1129,8 @@ class ArchitectureContractTests(unittest.TestCase):
             if isinstance(node, ast.FunctionDef)
             and node.name in {"advisor_provider_kind", "call_provider_chat_once"}
         }
-        self.assertIn("advisor_transport_kind", functions["advisor_provider_kind"])
+        self.assertIn("PROVIDER_COMPATIBILITY.resolve(provider)", functions["advisor_provider_kind"])
+        self.assertIn("advisor_transport", functions["advisor_provider_kind"])
         for function_source in functions.values():
             for provider in ("anthropic", "ollama", "ollama-cloud", "lm-studio", "nvidia-hosted"):
                 self.assertNotIn(f'provider == "{provider}"', function_source)
@@ -1146,7 +1148,7 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn('provider == "', function_source)
         self.assertNotIn("provider in (", function_source)
 
-    def test_compatibility_diagnosis_dispatches_through_provider_adapter(self):
+    def test_compatibility_diagnosis_dispatches_through_compatibility_registry(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
         source = source_path.read_text(encoding="utf-8")
         tree = ast.parse(source)
@@ -1156,12 +1158,12 @@ class ArchitectureContractTests(unittest.TestCase):
         ]
         for function in functions:
             function_source = ast.get_source_segment(source, function) or ""
-            self.assertIn("PROVIDER_ADAPTERS.create(provider)", function_source)
+            self.assertIn("PROVIDER_COMPATIBILITY.resolve(provider)", function_source)
             self.assertNotIn('provider == "', function_source)
             self.assertNotIn("provider in (", function_source)
         self.assertEqual(names, {function.name for function in functions})
 
-    def test_compatibility_runtime_output_dispatches_through_provider_adapter(self):
+    def test_compatibility_runtime_output_dispatches_through_compatibility_registry(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
         source = source_path.read_text(encoding="utf-8")
         tree = ast.parse(source)
@@ -1169,8 +1171,9 @@ class ArchitectureContractTests(unittest.TestCase):
             node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "compatibility_runtime_lines"
         )
         function_source = ast.get_source_segment(source, function) or ""
-        self.assertIn("exposes_compatibility_runtime_info", function_source)
-        self.assertIn("compatibility_runtime_metadata_lines", function_source)
+        self.assertIn("PROVIDER_COMPATIBILITY.resolve(provider)", function_source)
+        self.assertIn("exposes_runtime_info", function_source)
+        self.assertIn("runtime_metadata", function_source)
         self.assertNotIn('provider == "', function_source)
         self.assertNotIn("provider in (", function_source)
 
@@ -1218,12 +1221,12 @@ class ArchitectureContractTests(unittest.TestCase):
             self.assertNotIn('provider == "', functions[name])
             self.assertNotIn("provider in (", functions[name])
 
-    def test_claude_launch_enrichment_dispatches_through_provider_adapter(self):
+    def test_claude_launch_enrichment_dispatches_through_compatibility_registry(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
         source = source_path.read_text(encoding="utf-8")
         tree = ast.parse(source)
         expected_hooks = {
-            "should_attach_web_search": "allows_auto_web_search",
+            "should_attach_web_search": "auto_web_search",
             "should_append_compat_prompt": "requires_compat_prompt",
         }
         functions = {
@@ -1235,6 +1238,20 @@ class ArchitectureContractTests(unittest.TestCase):
             self.assertIn(hook, functions[name])
             self.assertNotIn('provider == "', functions[name])
             self.assertNotIn("provider in (", functions[name])
+
+    def test_provider_adapter_does_not_own_compatibility_workflows(self):
+        forbidden = {
+            "advisor_transport_kind",
+            "compatibility_failure_diagnosis",
+            "known_compatibility_tool_use_blocker",
+            "exposes_compatibility_runtime_info",
+            "runtime_model_info_strategy",
+            "allows_auto_web_search",
+            "requires_compat_prompt",
+            "compatibility_runtime_metadata_lines",
+        }
+        self.assertFalse(forbidden & set(ProviderAdapter.__dict__))
+        self.assertLessEqual(len(fields(ProviderCompatibilityPolicy)), 10)
 
     def test_channel_panel_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelPanelPolicy)), 10)

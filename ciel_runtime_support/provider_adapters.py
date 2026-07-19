@@ -212,18 +212,6 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         del config
         return True
 
-    def advisor_transport_kind(self, config: ProviderConfig) -> str:
-        del config
-        return "anthropic"
-
-    def allows_auto_web_search(self, config: ProviderConfig) -> bool:
-        del config
-        return False
-
-    def requires_compat_prompt(self, config: ProviderConfig) -> bool:
-        del config
-        return False
-
     def context_compaction_available(self, config: ProviderConfig) -> bool:
         return bool(config.api_keys)
 
@@ -367,10 +355,6 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
             status_capacity_strategy="ollama_budget",
         )
 
-    def advisor_transport_kind(self, config: ProviderConfig) -> str:
-        del config
-        return "ollama"
-
     def launch_model_strategy(self, config: ProviderConfig) -> str:
         del config
         return "ollama_unslug"
@@ -476,22 +460,6 @@ class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         return replace(super().context_policy(config), status_capacity_strategy="openai_budget")
 
-    def runtime_model_info_strategy(self, config: ProviderConfig) -> str:
-        del config
-        return "lm_studio"
-
-    def compatibility_runtime_metadata_lines(
-        self, config: ProviderConfig, info: Mapping[str, Any]
-    ) -> tuple[str, ...]:
-        del config
-        lines: list[str] = []
-        loaded_context = info.get("loaded_context_len")
-        if loaded_context:
-            lines.append(f"Runtime loaded_context_length: {loaded_context}")
-        if info.get("state"):
-            lines.append(f"Runtime model state: {info.get('state')}")
-        return tuple(lines)
-
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         return replace(super().option_presentation_policy(config), show_rate_limit=True)
     capabilities_value: ProviderCapabilities = field(
@@ -534,24 +502,6 @@ class VllmProviderAdapter(OpenAICompatibleProviderAdapter):
             status_capacity_strategy="openai_budget",
         )
 
-    def advisor_transport_kind(self, config: ProviderConfig) -> str:
-        del config
-        return "openai-compatible"
-
-    def compatibility_failure_diagnosis(self, code: int | None, message: str) -> str | None:
-        del code
-        lower = message.lower()
-        if "tool" not in lower and "parse" not in lower and "parser" not in lower:
-            return None
-        return (
-            "Diagnosis: vLLM tool calling depends on the server's model-specific --tool-call-parser and chat template. "
-            "For Qwen3-Coder models, current vLLM docs recommend --tool-call-parser qwen3_xml; Hermes is for Hermes-style models "
-            "and some older Qwen tool templates."
-        )
-
-    def runtime_model_info_strategy(self, config: ProviderConfig) -> str:
-        del config
-        return "openai"
     send_placeholder_key: bool = True
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
@@ -622,43 +572,6 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
             status_capacity_strategy="openai_budget",
         )
 
-    def advisor_transport_kind(self, config: ProviderConfig) -> str:
-        del config
-        return "openai-compatible"
-
-    def compatibility_failure_diagnosis(self, code: int | None, message: str) -> str | None:
-        lower = message.lower()
-        if code == 404:
-            return (
-                "Diagnosis: NVIDIA API Catalog does not expose this request path/model for the current account. "
-                "Use the default router mode for nvidia-hosted, or pick another hosted model."
-            )
-        if code in (502, 503, 504):
-            return (
-                "Diagnosis: NVIDIA API Catalog or the hosted model backend returned a transient upstream error. "
-                "Retry the compatibility test, or choose another NVIDIA hosted model if it repeats."
-            )
-        if any(
-            marker in lower
-            for marker in (
-                "remotedisconnected",
-                "remote end closed connection",
-                "connection reset",
-                "gateway timeout",
-            )
-        ):
-            return (
-                "Diagnosis: the NVIDIA hosted upstream closed the request without a complete response. "
-                "This is usually a transient API Catalog/backend issue rather than a local ciel-runtime configuration error. "
-                "Retry the test, or choose another hosted model if it repeats."
-            )
-        if "function" in lower and "not found" in lower:
-            return (
-                "Diagnosis: NVIDIA returned a missing function for this hosted model. The model is visible in /v1/models "
-                "but is not callable with the current account."
-            )
-        return None
-
     def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
         del config, model
         return False
@@ -681,10 +594,6 @@ class SelfHostedNimProviderAdapter(OpenAICompatibleProviderAdapter):
     def requires_catalog_model_selection(self, config: ProviderConfig) -> bool:
         del config
         return True
-
-    def runtime_model_info_strategy(self, config: ProviderConfig) -> str:
-        del config
-        return "openai"
 
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         return replace(super().option_presentation_policy(config), show_rate_limit=True)
@@ -894,19 +803,6 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
 
     def upstream_api_model_id(self, model_id: str) -> str:
         return super().normalize_model_id(model_id)
-
-    def known_compatibility_tool_use_blocker(self, model: str) -> str:
-        normalized = super().normalize_model_id(model).lower()
-        if normalized != "glm-4.7-flash":
-            return ""
-        return (
-            "Z.AI GLM-4.7-Flash responds to text requests but direct Anthropic tool-use probes time out. "
-            "Claude Code requires tool calling for normal work; use glm-4.5-flash for a Flash/free model, "
-            "or use glm-4.7/glm-5.2 if your Z.AI account can access them."
-        )
-
-    def allows_auto_web_search(self, config: ProviderConfig) -> bool:
-        return not bool(config.options.get("managed_mcp", True))
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
