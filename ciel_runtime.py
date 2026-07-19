@@ -19107,7 +19107,9 @@ def vllm_tool_parser_hint(model: str) -> str | None:
 
 
 def compatibility_runtime_lines(provider: str, pcfg: dict[str, Any], native: bool) -> list[str]:
-    if provider not in ("vllm", "lm-studio", "self-hosted-nim"):
+    adapter = configured_provider_adapter(provider, pcfg)
+    contract = provider_contract_config(provider, pcfg)
+    if not adapter.exposes_compatibility_runtime_info(contract):
         return []
     lines: list[str] = []
     info = upstream_model_runtime_info(provider, pcfg, timeout=4.0)
@@ -19122,11 +19124,7 @@ def compatibility_runtime_lines(provider: str, pcfg: dict[str, Any], native: boo
             lines.append(f"Runtime max_model_len: {runtime_limit}")
         else:
             lines.append("Runtime max_model_len: not reported by /v1/models")
-        loaded_context = positive_int(info.get("loaded_context_len"))
-        if provider == "lm-studio" and loaded_context:
-            lines.append(f"Runtime loaded_context_length: {loaded_context}")
-        if provider == "lm-studio" and info.get("state"):
-            lines.append(f"Runtime model state: {info.get('state')}")
+        lines.extend(adapter.compatibility_runtime_metadata_lines(contract, info))
     else:
         runtime_limit = None
         lines.append("Runtime max_model_len: unavailable (/v1/models did not return model metadata)")

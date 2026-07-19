@@ -462,6 +462,22 @@ class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         return replace(super().context_policy(config), status_capacity_strategy="openai_budget")
 
+    def exposes_compatibility_runtime_info(self, config: ProviderConfig) -> bool:
+        del config
+        return True
+
+    def compatibility_runtime_metadata_lines(
+        self, config: ProviderConfig, info: Mapping[str, Any]
+    ) -> tuple[str, ...]:
+        del config
+        lines: list[str] = []
+        loaded_context = info.get("loaded_context_len")
+        if loaded_context:
+            lines.append(f"Runtime loaded_context_length: {loaded_context}")
+        if info.get("state"):
+            lines.append(f"Runtime model state: {info.get('state')}")
+        return tuple(lines)
+
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         return replace(super().option_presentation_policy(config), show_rate_limit=True)
     capabilities_value: ProviderCapabilities = field(
@@ -518,6 +534,10 @@ class VllmProviderAdapter(OpenAICompatibleProviderAdapter):
             "For Qwen3-Coder models, current vLLM docs recommend --tool-call-parser qwen3_xml; Hermes is for Hermes-style models "
             "and some older Qwen tool templates."
         )
+
+    def exposes_compatibility_runtime_info(self, config: ProviderConfig) -> bool:
+        del config
+        return True
     send_placeholder_key: bool = True
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
@@ -645,6 +665,10 @@ class SelfHostedNimProviderAdapter(OpenAICompatibleProviderAdapter):
     )
 
     def requires_catalog_model_selection(self, config: ProviderConfig) -> bool:
+        del config
+        return True
+
+    def exposes_compatibility_runtime_info(self, config: ProviderConfig) -> bool:
         del config
         return True
 

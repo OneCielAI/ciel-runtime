@@ -396,6 +396,27 @@ class ProviderContractMatrixTests(unittest.TestCase):
         )
         self.assertEqual("", zai.known_compatibility_tool_use_blocker("glm-5.2"))
 
+    def test_compatibility_runtime_metadata_matrix(self):
+        enabled = {"lm-studio", "vllm", "self-hosted-nim"}
+        for provider in PROVIDER_ADAPTERS.names():
+            adapter = PROVIDER_ADAPTERS.create(provider)
+            with self.subTest(provider=provider):
+                self.assertEqual(
+                    provider in enabled,
+                    adapter.exposes_compatibility_runtime_info(config(provider)),
+                )
+        lm_studio = PROVIDER_ADAPTERS.create("lm-studio")
+        self.assertEqual(
+            (
+                "Runtime loaded_context_length: 32768",
+                "Runtime model state: loaded",
+            ),
+            lm_studio.compatibility_runtime_metadata_lines(
+                config("lm-studio"),
+                {"loaded_context_len": 32768, "state": "loaded"},
+            ),
+        )
+
     def test_router_native_anthropic_capability_matrix(self):
         enabled = {
             "deepseek",

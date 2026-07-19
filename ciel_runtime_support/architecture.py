@@ -521,6 +521,20 @@ class ProviderAdapter(ABC):
         del model
         return ""
 
+    def exposes_compatibility_runtime_info(self, config: ProviderConfig) -> bool:
+        """Whether compatibility output should inspect upstream runtime metadata."""
+
+        del config
+        return False
+
+    def compatibility_runtime_metadata_lines(
+        self, config: ProviderConfig, info: Mapping[str, Any]
+    ) -> tuple[str, ...]:
+        """Return provider-owned supplemental runtime metadata rows."""
+
+        del config, info
+        return ()
+
     def context_compaction_available(self, config: ProviderConfig) -> bool:
         """Whether this configured provider can run an auxiliary summary request."""
 
