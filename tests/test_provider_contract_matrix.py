@@ -239,6 +239,48 @@ class ProviderContractMatrixTests(unittest.TestCase):
             with self.subTest(provider=provider):
                 self.assertEqual(expected, (policy.capacity_strategy, policy.settings_strategy))
 
+    def test_router_native_anthropic_capability_matrix(self):
+        enabled = {
+            "deepseek",
+            "fireworks",
+            "kimi",
+            "lm-studio",
+            "opencode",
+            "opencode-go",
+            "self-hosted-nim",
+            "vllm",
+            "zai",
+        }
+        for provider in PROVIDER_ADAPTERS.names():
+            adapter = PROVIDER_ADAPTERS.create(provider)
+            configured = config(provider, native_compat=True)
+            with self.subTest(provider=provider):
+                self.assertEqual(
+                    provider in enabled,
+                    adapter.router_native_anthropic_enabled(configured, "model"),
+                )
+
+        opencode = PROVIDER_ADAPTERS.create("opencode")
+        self.assertTrue(
+            opencode.router_native_anthropic_enabled(config("opencode", native_compat=True), "claude-sonnet")
+        )
+        self.assertFalse(
+            opencode.router_native_anthropic_enabled(config("opencode", native_compat=True), "gpt-5")
+        )
+
+    def test_main_native_compatibility_delegates_to_adapter(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        function = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "provider_native_compat_enabled"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("router_native_anthropic_enabled", function_source)
+        self.assertNotIn("vllm_native_compat_enabled", function_source)
+        self.assertNotIn("opencode_native_compat_enabled", function_source)
+
     def test_context_workflows_delegate_without_provider_dispatch(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)

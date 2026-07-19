@@ -410,6 +410,12 @@ class ProviderAdapter(ABC):
         del config
         return True
 
+    def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
+        """Whether the generic router may send Anthropic Messages directly upstream."""
+
+        del config, model
+        return False
+
     def advisor_panel_notice(self, config: ProviderConfig) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
         """Return a provider-owned advisor panel replacement, when applicable."""
 

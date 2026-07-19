@@ -7433,16 +7433,10 @@ def fireworks_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> bool
 
 
 def provider_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return (
-        vllm_native_compat_enabled(provider, pcfg)
-        or lm_studio_native_compat_enabled(provider, pcfg)
-        or nim_native_compat_enabled(provider, pcfg)
-        or nvidia_hosted_native_compat_enabled(provider, pcfg)
-        or deepseek_native_compat_enabled(provider, pcfg)
-        or opencode_native_compat_enabled(provider, pcfg)
-        or kimi_native_compat_enabled(provider, pcfg)
-        or zai_native_compat_enabled(provider, pcfg)
-        or fireworks_native_compat_enabled(provider, pcfg)
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.router_native_anthropic_enabled(
+        provider_contract_config(provider, pcfg),
+        str(pcfg.get("current_model") or ""),
     )
 
 

@@ -242,6 +242,10 @@ class OpenAICompatibleProviderAdapter(HttpBearerProviderAdapter):
         del config
         return ProviderContextPolicy(capacity_strategy="hint_configured", settings_strategy="standard")
 
+    def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
+        del model
+        return bool(config.options.get("native_compat", True))
+
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
         del model
         protocols: set[MessageProtocol] = {"openai_chat"}
@@ -353,6 +357,10 @@ class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
         return ProviderContextPolicy(
             capacity_strategy="configured_first", settings_strategy="standard", hosted_timeout=True
         )
+
+    def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
+        del config, model
+        return False
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", requires_api_key=True)
     )
@@ -456,6 +464,10 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
             capacity_strategy="nvidia", settings_strategy="standard", hosted_timeout=True
         )
 
+    def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
+        del config, model
+        return False
+
 
 @dataclass(frozen=True)
 class SelfHostedNimProviderAdapter(OpenAICompatibleProviderAdapter):
@@ -513,6 +525,10 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
             capacity_strategy="configured_first", settings_strategy="standard", hosted_timeout=True
         )
 
+    def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
+        del model
+        return bool(config.options.get("native_compat", True))
+
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
         del config
         return ProviderStatusPolicy(kind="configured", configured_description="DeepSeek Anthropic API configured")
@@ -565,6 +581,10 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
         return ProviderContextPolicy(
             capacity_strategy="hint_first", settings_strategy="standard", hosted_timeout=True
         )
+
+    def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
+        del model
+        return bool(config.options.get("native_compat", True))
 
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
         del config, model
@@ -631,6 +651,10 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
         return ProviderContextPolicy(
             capacity_strategy="hint_first", settings_strategy="standard", hosted_timeout=True
         )
+
+    def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
+        del model
+        return bool(config.options.get("native_compat", True))
 
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
         del config
@@ -755,6 +779,11 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
         del config
         return ProviderContextPolicy(
             capacity_strategy="configured_first", settings_strategy="standard", hosted_timeout=True
+        )
+
+    def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
+        return bool(config.options.get("native_compat", True)) and (
+            self.select_protocol("anthropic_messages", config, model) == "anthropic_messages"
         )
 
     def select_protocol(self, operation: MessageProtocol, config: ProviderConfig, model: str | None = None) -> MessageProtocol:
