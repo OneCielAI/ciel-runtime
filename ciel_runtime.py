@@ -1297,83 +1297,18 @@ def fetch_ollama_library_context_map(base_model: str, timeout: float = 10.0) -> 
 
 
 def refresh_ollama_model_catalog(include_contexts: bool = True, timeout: float = 10.0) -> dict[str, Any]:
-    old_catalog = load_ollama_model_catalog()
-    old_models = old_catalog.get("models") if isinstance(old_catalog.get("models"), dict) else {}
-    data = fetch_json_url(OLLAMA_MODEL_CATALOG_URL, timeout=timeout)
-    raw_models = data.get("models") if isinstance(data, dict) else None
-    if raw_models is None and isinstance(data, dict):
-        raw_models = data.get("data")
-    if not isinstance(raw_models, list):
-        raw_models = []
-
-    models: dict[str, dict[str, Any]] = {}
-    for item in raw_models:
-        if not isinstance(item, dict):
-            continue
-        name = str(item.get("name") or item.get("model") or item.get("id") or "").strip()
-        parts = ollama_model_catalog_key(name)
-        if not parts:
-            continue
-        key, base, tag = parts
-        entry = models.setdefault(
-            key,
-            {
-                "id": base,
-                "models": [],
-                "tags": [],
-                "raw": [],
-                "context_windows": {},
-                "context_source": None,
-            },
-        )
-        if name not in entry["models"]:
-            entry["models"].append(name)
-        if tag not in entry["tags"]:
-            entry["tags"].append(tag)
-        entry["raw"].append(item)
-
-    if not include_contexts and isinstance(old_models, dict):
-        for key, entry in models.items():
-            old_entry = old_models.get(key)
-            if not isinstance(old_entry, dict):
-                continue
-            old_windows = old_entry.get("context_windows")
-            if isinstance(old_windows, dict) and old_windows:
-                entry["context_windows"] = old_windows
-                entry["context_window"] = positive_int(old_entry.get("context_window")) or max(
-                    positive_int(v) or 0 for v in old_windows.values()
-                )
-                if isinstance(old_entry.get("recommended_timeout_ms_by_tag"), dict):
-                    entry["recommended_timeout_ms_by_tag"] = old_entry["recommended_timeout_ms_by_tag"]
-                if positive_int(old_entry.get("recommended_timeout_ms")):
-                    entry["recommended_timeout_ms"] = positive_int(old_entry.get("recommended_timeout_ms"))
-                entry["context_source"] = old_entry.get("context_source")
-
-    if include_contexts:
-        for key in sorted(models):
-            entry = models[key]
-            context_map, source = fetch_ollama_library_context_map(str(entry["id"]), timeout=timeout)
-            if context_map:
-                entry["context_windows"] = context_map
-                entry["context_window"] = max(context_map.values())
-                entry["recommended_timeout_ms_by_tag"] = {
-                    tag: recommended_timeout_ms_for_context(tokens)
-                    for tag, tokens in context_map.items()
-                    if positive_int(tokens)
-                }
-                entry["recommended_timeout_ms"] = recommended_timeout_ms_for_context(entry["context_window"])
-                entry["context_source"] = source
-
-    catalog = {
-        "schema": 1,
-        "source": OLLAMA_MODEL_CATALOG_URL,
-        "updated_at": time.time(),
-        "model_count": len(raw_models),
-        "base_model_count": len(models),
-        "models": models,
-    }
-    save_ollama_model_catalog(catalog)
-    return catalog
+    return ollama_catalog_policy.refresh_model_catalog(
+        ollama_catalog_policy.OllamaCatalogRefreshServices(
+            load_catalog=load_ollama_model_catalog,
+            fetch_catalog=fetch_json_url,
+            fetch_context_map=fetch_ollama_library_context_map,
+            save_catalog=save_ollama_model_catalog,
+            positive_int=positive_int,
+        ),
+        include_contexts=include_contexts,
+        timeout=timeout,
+        catalog_url=OLLAMA_MODEL_CATALOG_URL,
+    )
 
 
 def ollama_catalog_context_for_model(model_id: str) -> tuple[int | None, str | None, str | None]:

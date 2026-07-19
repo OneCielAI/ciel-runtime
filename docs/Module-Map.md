@@ -199,7 +199,7 @@ Anthropic, Ollama, OpenRouter, LM Studio, vLLM, NVIDIA NIM, DeepSeek, Kimi, Z.AI
 
 ### `ciel_runtime_support/ollama_catalog.py`
 
-Ollama Library 모델 ID, context window, timeout 및 catalog 갱신을 부작용 없이 계산하는 Functional Core. 파일·네트워크 I/O는 composition root의 wrapper가 담당한다.
+Ollama Library 모델 ID, context window와 timeout을 계산하는 Functional Core이며, catalog tag 그룹화·기존 context 보존·context map 갱신 workflow도 소유한다. 파일·네트워크 효과는 6필드 `OllamaCatalogRefreshServices`로 주입되어 메인 composition root에는 실제 adapter 조립만 남는다.
 
 ### `ciel_runtime_support/ollama_forwarding.py`
 

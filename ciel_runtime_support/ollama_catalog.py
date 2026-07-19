@@ -11,10 +11,121 @@ import math
 import re
 import time
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import Any, Callable, Iterable
 
 
 OLLAMA_MODEL_CATALOG_URL = "https://ollama.com/api/tags"
+
+
+@dataclass(frozen=True)
+class OllamaCatalogRefreshServices:
+    load_catalog: Callable[[], dict[str, Any]]
+    fetch_catalog: Callable[..., dict[str, Any]]
+    fetch_context_map: Callable[..., tuple[dict[str, int], str | None]]
+    save_catalog: Callable[[dict[str, Any]], None]
+    positive_int: Callable[[Any], int | None]
+    now: Callable[[], float] = time.time
+
+
+def refresh_model_catalog(
+    services: OllamaCatalogRefreshServices,
+    *,
+    include_contexts: bool = True,
+    timeout: float = 10.0,
+    catalog_url: str = OLLAMA_MODEL_CATALOG_URL,
+) -> dict[str, Any]:
+    old_catalog = services.load_catalog()
+    old_models = old_catalog.get("models") if isinstance(old_catalog.get("models"), dict) else {}
+    data = services.fetch_catalog(catalog_url, timeout=timeout)
+    raw_models = data.get("models") if isinstance(data, dict) else None
+    if raw_models is None and isinstance(data, dict):
+        raw_models = data.get("data")
+    if not isinstance(raw_models, list):
+        raw_models = []
+    models: dict[str, dict[str, Any]] = {}
+    for item in raw_models:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or item.get("model") or item.get("id") or "").strip()
+        parts = model_catalog_key(name)
+        if not parts:
+            continue
+        key, base, tag = parts
+        entry = models.setdefault(
+            key,
+            {
+                "id": base,
+                "models": [],
+                "tags": [],
+                "raw": [],
+                "context_windows": {},
+                "context_source": None,
+            },
+        )
+        if name not in entry["models"]:
+            entry["models"].append(name)
+        if tag not in entry["tags"]:
+            entry["tags"].append(tag)
+        entry["raw"].append(item)
+    if not include_contexts and isinstance(old_models, dict):
+        _restore_cached_contexts(models, old_models, services.positive_int)
+    if include_contexts:
+        _refresh_context_maps(models, timeout, services)
+    catalog = {
+        "schema": 1,
+        "source": catalog_url,
+        "updated_at": services.now(),
+        "model_count": len(raw_models),
+        "base_model_count": len(models),
+        "models": models,
+    }
+    services.save_catalog(catalog)
+    return catalog
+
+
+def _restore_cached_contexts(
+    models: dict[str, dict[str, Any]],
+    old_models: dict[str, Any],
+    positive_int: Callable[[Any], int | None],
+) -> None:
+    for key, entry in models.items():
+        old_entry = old_models.get(key)
+        if not isinstance(old_entry, dict):
+            continue
+        old_windows = old_entry.get("context_windows")
+        if not isinstance(old_windows, dict) or not old_windows:
+            continue
+        entry["context_windows"] = old_windows
+        entry["context_window"] = positive_int(old_entry.get("context_window")) or max(
+            positive_int(value) or 0 for value in old_windows.values()
+        )
+        if isinstance(old_entry.get("recommended_timeout_ms_by_tag"), dict):
+            entry["recommended_timeout_ms_by_tag"] = old_entry["recommended_timeout_ms_by_tag"]
+        if positive_int(old_entry.get("recommended_timeout_ms")):
+            entry["recommended_timeout_ms"] = positive_int(old_entry.get("recommended_timeout_ms"))
+        entry["context_source"] = old_entry.get("context_source")
+
+
+def _refresh_context_maps(
+    models: dict[str, dict[str, Any]],
+    timeout: float,
+    services: OllamaCatalogRefreshServices,
+) -> None:
+    for key in sorted(models):
+        entry = models[key]
+        context_map, source = services.fetch_context_map(str(entry["id"]), timeout=timeout)
+        if not context_map:
+            continue
+        entry["context_windows"] = context_map
+        entry["context_window"] = max(context_map.values())
+        entry["recommended_timeout_ms_by_tag"] = {
+            tag: recommended_timeout_ms(tokens)
+            for tag, tokens in context_map.items()
+            if services.positive_int(tokens)
+        }
+        entry["recommended_timeout_ms"] = recommended_timeout_ms(entry["context_window"])
+        entry["context_source"] = source
 
 
 def _positive_int(value: Any) -> int | None:
@@ -290,6 +401,7 @@ def context_model_matches(current_model: str, cached_model: str | None) -> bool:
 
 __all__ = [
     "OLLAMA_MODEL_CATALOG_URL",
+    "OllamaCatalogRefreshServices",
     "catalog_context_for_model",
     "catalog_is_stale",
     "catalog_model_ids",
@@ -302,5 +414,6 @@ __all__ = [
     "parse_library_context_limit",
     "parse_library_context_map",
     "recommended_timeout_ms",
+    "refresh_model_catalog",
     "with_updated_context",
 ]

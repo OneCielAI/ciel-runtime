@@ -149,6 +149,7 @@ from ciel_runtime_support.ollama_forwarding import (
     OllamaForwardServices,
     OllamaForwardStreaming,
 )
+from ciel_runtime_support.ollama_catalog import OllamaCatalogRefreshServices
 from ciel_runtime_support.openai_forwarding import (
     OpenAIForwardAdvisor,
     OpenAIForwardPolicy,
@@ -591,6 +592,9 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_ollama_catalog_refresh_port_stays_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(OllamaCatalogRefreshServices)), 10)
 
     def test_ollama_response_projection_ports_stay_below_dependency_limit(self):
         for port in (
