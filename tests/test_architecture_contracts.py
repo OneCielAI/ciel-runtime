@@ -10,6 +10,7 @@ from ciel_runtime_support.architecture import (
     ProviderConfigurationPolicy,
     ProviderConfig,
     ProviderContextPolicy,
+    ProviderOptionPresentationPolicy,
     ProviderRequestPolicy,
     ProviderStatusPolicy,
     RuntimeAdapter,
@@ -964,6 +965,7 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(ProviderContextPolicy)), 10)
         self.assertLessEqual(len(fields(ProviderContextServices)), 10)
         self.assertLessEqual(len(fields(ContextPresetServices)), 10)
+        self.assertLessEqual(len(fields(ProviderOptionPresentationPolicy)), 10)
 
     def test_context_compaction_does_not_dispatch_on_provider_names(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "context_compaction.py"

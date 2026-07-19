@@ -160,6 +160,43 @@ class ProviderContractMatrixTests(unittest.TestCase):
             with self.subTest(provider=provider):
                 self.assertEqual(expected, PROVIDER_ADAPTERS.create(provider).routing_mode_update(False))
 
+    def test_option_presentation_matrix_is_adapter_owned(self):
+        cases = {
+            "anthropic": {"show_route"},
+            "ollama": {"show_rate_limit", "show_tool_choice", "show_stream"},
+            "lm-studio": {"show_rate_limit", "show_native", "show_tool_choice", "show_sampling", "show_stream"},
+            "nvidia-hosted": {"show_rate_limit", "show_tool_choice", "show_sampling", "show_stream"},
+            "opencode": {"show_native", "show_tool_choice", "show_stream", "show_ip_family"},
+        }
+        fields = (
+            "show_rate_limit",
+            "show_native",
+            "show_route",
+            "show_tool_choice",
+            "show_sampling",
+            "show_stream",
+            "show_ip_family",
+        )
+        for provider, enabled in cases.items():
+            policy = PROVIDER_ADAPTERS.create(provider).option_presentation_policy(config(provider))
+            with self.subTest(provider=provider):
+                self.assertEqual(enabled, {field for field in fields if getattr(policy, field)})
+
+    def test_main_option_status_delegates_without_provider_dispatch(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for function_name in ("provider_options_status", "llm_options_status"):
+            function = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef) and node.name == function_name
+            )
+            function_source = ast.get_source_segment(source, function) or ""
+            with self.subTest(function=function_name):
+                self.assertIn("option_presentation_policy", function_source)
+                self.assertNotIn('provider == "', function_source)
+                self.assertNotIn("provider in (", function_source)
+
     def test_llm_option_service_has_no_provider_name_dispatch(self):
         source = (
             Path(__file__).resolve().parents[1]

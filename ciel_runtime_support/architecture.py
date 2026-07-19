@@ -194,6 +194,19 @@ class ProviderContextPolicy:
     managed_preset_inference: bool = False
 
 
+@dataclass(frozen=True)
+class ProviderOptionPresentationPolicy:
+    """Provider-owned option status capabilities."""
+
+    show_rate_limit: bool = False
+    show_native: bool = False
+    show_route: bool = False
+    show_tool_choice: bool = False
+    show_sampling: bool = False
+    show_stream: bool = False
+    show_ip_family: bool = False
+
+
 class RuntimeAdapter(ABC):
     """Adapter for a local/interactive coding runtime.
 
@@ -381,6 +394,10 @@ class ProviderAdapter(ABC):
 
         del config
         return ProviderContextPolicy()
+
+    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+        del config
+        return ProviderOptionPresentationPolicy()
 
     def api_key_display_name(self) -> str:
         """Return the provider-owned name used in API-key status text."""

@@ -16,6 +16,7 @@ from .architecture import (
     ProviderConfig,
     ProviderContextPolicy,
     ProviderModelCatalogPolicy,
+    ProviderOptionPresentationPolicy,
     ProviderRequestPolicy,
     ProviderStatusPolicy,
 )
@@ -221,6 +222,10 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         mode = "routed through ciel-runtime router" if enabled else "direct Claude Native"
         return ("Anthropic routing mode updated.", f"mode: {mode}")
 
+    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+        del config
+        return ProviderOptionPresentationPolicy(show_route=True)
+
     def api_key_status(self, config: ProviderConfig, *, key_count: int, primary_detail: str) -> str:
         routed = bool(config.options.get("route_through_router"))
         scope = "Anthropic routed" if routed else "Anthropic"
@@ -251,6 +256,12 @@ class OpenAICompatibleProviderAdapter(HttpBearerProviderAdapter):
     def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
         del model
         return bool(config.options.get("native_compat", True))
+
+    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+        del config
+        return ProviderOptionPresentationPolicy(
+            show_native=True, show_tool_choice=True, show_sampling=True, show_stream=True
+        )
 
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
         del model
@@ -301,6 +312,12 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
         del config
         return ProviderContextPolicy(
             capacity_strategy="ollama", settings_strategy="ollama", uses_catalog_timeout=True
+        )
+
+    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+        del config
+        return ProviderOptionPresentationPolicy(
+            show_rate_limit=True, show_tool_choice=True, show_stream=True
         )
 
     def model_paths(self, config: ProviderConfig) -> tuple[str, ...]:
@@ -383,6 +400,9 @@ class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
 
     def placeholder_model_ids(self) -> frozenset[str]:
         return super().placeholder_model_ids() | {"local-model"}
+
+    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+        return replace(super().option_presentation_policy(config), show_rate_limit=True)
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", local=True)
     )
@@ -488,6 +508,11 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
         del config, model
         return False
 
+    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+        return replace(
+            super().option_presentation_policy(config), show_rate_limit=True, show_native=False
+        )
+
 
 @dataclass(frozen=True)
 class SelfHostedNimProviderAdapter(OpenAICompatibleProviderAdapter):
@@ -501,6 +526,9 @@ class SelfHostedNimProviderAdapter(OpenAICompatibleProviderAdapter):
     def requires_catalog_model_selection(self, config: ProviderConfig) -> bool:
         del config
         return True
+
+    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+        return replace(super().option_presentation_policy(config), show_rate_limit=True)
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
@@ -552,6 +580,12 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
     def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
         del model
         return bool(config.options.get("native_compat", True))
+
+    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+        del config
+        return ProviderOptionPresentationPolicy(
+            show_native=True, show_tool_choice=True, show_stream=True
+        )
 
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
         del config
@@ -609,6 +643,12 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
     def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
         del model
         return bool(config.options.get("native_compat", True))
+
+    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+        del config
+        return ProviderOptionPresentationPolicy(
+            show_native=True, show_tool_choice=True, show_stream=True
+        )
 
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
         del config, model
@@ -680,6 +720,12 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
         del model
         return bool(config.options.get("native_compat", True))
 
+    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+        del config
+        return ProviderOptionPresentationPolicy(
+            show_native=True, show_tool_choice=True, show_stream=True
+        )
+
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
         del config
         return ProviderStatusPolicy(kind="configured", configured_description="Z.AI Anthropic API configured")
@@ -704,6 +750,9 @@ class FireworksProviderAdapter(OpenAICompatibleProviderAdapter):
         return ProviderContextPolicy(
             capacity_strategy="configured_first", settings_strategy="standard", hosted_timeout=True
         )
+
+    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+        return replace(super().option_presentation_policy(config), show_sampling=False)
 
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
         del config, model
@@ -810,6 +859,15 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             self.select_protocol("anthropic_messages", config, model) == "anthropic_messages"
         )
 
+    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+        del config
+        return ProviderOptionPresentationPolicy(
+            show_native=True,
+            show_tool_choice=True,
+            show_stream=True,
+            show_ip_family=True,
+        )
+
     def select_protocol(self, operation: MessageProtocol, config: ProviderConfig, model: str | None = None) -> MessageProtocol:
         del operation
         raw_model = str(model or config.model or "").strip()
@@ -887,6 +945,10 @@ class CodexProviderAdapter(NoAuthProviderAdapter):
 
     def routing_mode_update(self, enabled: bool) -> tuple[str, ...]:
         return ("Codex routing mode updated.", f"mode: {'codex-routed' if enabled else 'codex-native'}")
+
+    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+        del config
+        return ProviderOptionPresentationPolicy(show_route=True)
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["codex"]
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_responses")
@@ -934,6 +996,10 @@ class AgyProviderAdapter(NoAuthProviderAdapter):
 
     def routing_mode_update(self, enabled: bool) -> tuple[str, ...]:
         return ("AGY routing mode updated.", f"mode: {'agy-routed' if enabled else 'agy-native'}")
+
+    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+        del config
+        return ProviderOptionPresentationPolicy(show_route=True)
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["agy"]
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_responses")

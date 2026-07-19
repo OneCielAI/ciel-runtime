@@ -17348,6 +17348,10 @@ def provider_sampling_status(pcfg: dict[str, Any]) -> list[str]:
 
 
 def provider_options_status(provider: str, pcfg: dict[str, Any]) -> str:
+    adapter = configured_provider_adapter(provider, pcfg)
+    config = provider_contract_config(provider, pcfg)
+    presentation = adapter.option_presentation_policy(config)
+    context_strategy = adapter.context_policy(config).settings_strategy
     timeout = pcfg.get("request_timeout_ms", "default")
     timeout_text = f"{timeout}ms" if timeout != "default" else "default"
     parts = [
@@ -17356,41 +17360,37 @@ def provider_options_status(provider: str, pcfg: dict[str, Any]) -> str:
     ]
     if pcfg.get("stream_idle_timeout_ms") is not None:
         parts.append(f"stream_idle_timeout={pcfg.get('stream_idle_timeout_ms')}ms")
-    if provider in ("lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud"):
+    if presentation.show_rate_limit:
         parts.append(f"rate_limit_rpm={pcfg.get('rate_limit_rpm', 0)}")
         if bool(pcfg.get("rate_limit_status", False)):
             used, limit = router_rate_limit_usage(provider, pcfg)
             if limit is not None:
                 suffix = f"{used}/{limit}" if limit > 0 else f"{used}/min(unmanaged)"
                 parts.append(f"rpm_used={suffix}")
-    if provider in ("ollama", "ollama-cloud"):
+    if context_strategy == "ollama":
         parts.insert(0, f"num_ctx={ollama_num_ctx_status(pcfg)}")
         parts.append(f"ollama_options={ollama_options_status(pcfg)}")
-    if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai"):
+    if context_strategy == "standard":
         parts.insert(0, f"context_window={pcfg.get('context_window', 'default')}")
         parts.insert(1, f"reserve={pcfg.get('context_reserve_tokens', 'default')}")
-    if provider in ("vllm", "lm-studio", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai"):
-        native_default = True
-        parts.append(f"native={bool(pcfg.get('native_compat', native_default))}")
-    if provider in OPENCODE_PROVIDER_NAMES:
+    if presentation.show_native:
+        parts.append(f"native={bool(pcfg.get('native_compat', True))}")
+    if presentation.show_ip_family:
         overrides = pcfg.get("model_endpoints")
         count = len(overrides) if isinstance(overrides, dict) else 0
         parts.append(f"ip_family={provider_ip_family(provider, pcfg)}")
         parts.append(f"endpoint_overrides={count}")
-    if provider == "anthropic":
-        parts.append(f"routed={'on' if anthropic_routed_enabled(provider, pcfg) else 'off'}")
-    elif provider == "agy":
-        parts.append(f"routed={'on' if agy_routed_enabled(provider, pcfg) else 'off'}")
-    elif provider == "codex":
-        parts.append(f"routed={'on' if codex_routed_enabled(provider, pcfg) else 'off'}")
-    elif provider in PROVIDER_OPTION_PROVIDERS:
+    if presentation.show_route:
+        routed = parse_bool(pcfg.get("route_through_router"), default=False)
+        parts.append(f"routed={'on' if routed else 'off'}")
+    elif presentation.show_tool_choice:
         parts.append(f"tool_choice={provider_tool_choice_status(provider, pcfg)}")
     forced_query = str(pcfg.get("force_query_string") or "").strip()
     if forced_query:
         parts.append(f"query={forced_query}")
-    if provider in PROVIDER_SAMPLING_OPTION_PROVIDERS:
+    if presentation.show_sampling:
         parts.extend(provider_sampling_status(pcfg))
-    if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai"):
+    if presentation.show_stream:
         parts.append(f"stream={'on' if bool(pcfg.get('stream_enabled', True)) else 'off'}")
         if bool(pcfg.get("stream_word_chunking", False)):
             parts.append("word_chunk=on")
@@ -17398,7 +17398,10 @@ def provider_options_status(provider: str, pcfg: dict[str, Any]) -> str:
 
 
 def llm_options_status(provider: str, pcfg: dict[str, Any]) -> str:
-    if provider in ("ollama", "ollama-cloud"):
+    adapter = configured_provider_adapter(provider, pcfg)
+    config = provider_contract_config(provider, pcfg)
+    presentation = adapter.option_presentation_policy(config)
+    if adapter.context_policy(config).settings_strategy == "ollama":
         opts = ollama_extra_options(pcfg)
         pieces = [
             f"ctx {ollama_num_ctx_status(pcfg)}",
@@ -17412,13 +17415,13 @@ def llm_options_status(provider: str, pcfg: dict[str, Any]) -> str:
             if key in opts:
                 pieces.append(f"{key}={opts[key]}")
         return "; ".join(pieces)
-    if provider == "anthropic":
+    if presentation.show_route and not adapter.configuration_policy(config).runtime_owns_model:
         return (
             f"max_output_tokens={pcfg.get('max_output_tokens', 'Claude Code default')}, "
             f"timeout={pcfg.get('request_timeout_ms', 'Claude Code default')}ms, "
             f"routed={'on' if anthropic_routed_enabled(provider, pcfg) else 'off'}"
         )
-    if provider in PROVIDER_OPTION_PROVIDERS:
+    if presentation.show_tool_choice or presentation.show_route:
         return provider_options_status(provider, pcfg)
     return "provider defaults"
 
