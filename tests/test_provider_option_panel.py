@@ -7,7 +7,10 @@ from ciel_runtime_support.provider_option_panel import (
     OptionPanelRuntime,
     OptionPanelServices,
     OptionPanelText,
+    OptionValuePolicy,
     build_option_panel_rows,
+    current_option_bool,
+    option_prompt_default,
 )
 
 
@@ -41,6 +44,7 @@ class ProviderOptionPanelTests(unittest.TestCase):
                 rate_limit_rpm=lambda _provider, _config: "0 (off)",
                 ip_family=lambda _provider, _config: "auto",
                 parse_bool=lambda value, default=False: default if value is None else bool(value),
+                configured_rate_limit=lambda _provider, config: config.get("rate_limit_rpm"),
             ),
         )
 
@@ -77,6 +81,13 @@ class ProviderOptionPanelTests(unittest.TestCase):
         self.assertIn("num_ctx", values)
         self.assertIn("num_predict", values)
         self.assertIn("keep_alive", values)
+
+    def test_option_values_share_panel_ports(self):
+        services = self.services()
+        policy = OptionValuePolicy(context_strategy="ollama", native_default=False)
+        config = {"route_through_router": True, "ollama_options": {"temperature": 0.2}}
+        self.assertTrue(current_option_bool("provider", config, "route_through_router", policy, services))
+        self.assertEqual("0.2", option_prompt_default("provider", config, "temperature", policy, services))
 
 
 if __name__ == "__main__":

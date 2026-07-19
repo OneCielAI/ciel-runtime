@@ -409,7 +409,10 @@ from ciel_runtime_support.provider_option_panel import (
     OptionPanelRuntime,
     OptionPanelServices,
     OptionPanelText,
+    OptionValuePolicy,
     build_option_panel_rows,
+    current_option_bool,
+    option_prompt_default,
 )
 from ciel_runtime_support.provider_limits import (
     ProviderKeyServices,
@@ -18947,30 +18950,18 @@ LLM_OPTION_TOGGLE_KEYS = {
 
 
 def llm_option_current_bool(provider: str, pcfg: dict[str, Any], key: str) -> bool:
-    if key == "stream_enabled":
-        return bool(pcfg.get("stream_enabled", True))
-    if key == "stream_word_chunking":
-        return bool(pcfg.get("stream_word_chunking", False))
-    if key == "native_compat":
-        adapter = configured_provider_adapter(provider, pcfg)
-        config = provider_contract_config(provider, pcfg)
-        default = adapter.option_presentation_policy(config).show_native
-        return bool(pcfg.get("native_compat", default))
-    if key == "think":
-        return bool(pcfg.get("think", False))
-    if key == "rate_limit_enabled":
-        return bool(router_rate_limit_configured_rpm(provider, pcfg))
-    if key == "rate_limit_status":
-        return bool(pcfg.get("rate_limit_status", False))
-    if key == "router_debug_external_access":
-        return router_debug_external_access_enabled()
-    if key == "route_through_router":
-        return parse_bool(pcfg.get("route_through_router"), default=False)
-    if key == "workflows_enabled":
-        return claude_code_workflows_enabled(provider, pcfg)
-    if key == "ultracode_enabled":
-        return claude_code_ultracode_enabled(provider, pcfg)
-    return bool(pcfg.get(key, False))
+    adapter = configured_provider_adapter(provider, pcfg)
+    config = provider_contract_config(provider, pcfg)
+    return current_option_bool(
+        provider,
+        pcfg,
+        key,
+        OptionValuePolicy(
+            context_strategy=adapter.context_policy(config).settings_strategy,
+            native_default=adapter.option_presentation_policy(config).show_native,
+        ),
+        option_panel_services(),
+    )
 
 
 def rate_limit_status_label(provider: str, pcfg: dict[str, Any]) -> str:
@@ -19030,49 +19021,24 @@ def option_panel_services() -> OptionPanelServices:
             rate_limit_rpm=rate_limit_rpm_label,
             ip_family=provider_ip_family,
             parse_bool=parse_bool,
+            configured_rate_limit=router_rate_limit_configured_rpm,
         ),
     )
 
 
 def llm_option_prompt_default(provider: str, pcfg: dict[str, Any], key: str) -> str:
-    if key == "router_debug_external_access":
-        return "true" if router_debug_external_access_enabled() else "false"
-    if key == "route_through_router":
-        return "true" if parse_bool(pcfg.get("route_through_router"), default=False) else "false"
-    if key == "router_debug_message_preview_chars":
-        return str(router_debug_message_preview_chars())
-    if key == "stream_enabled":
-        return "true" if bool(pcfg.get("stream_enabled", True)) else "false"
-    if key == "stream_word_chunking":
-        return "true" if bool(pcfg.get("stream_word_chunking", False)) else "false"
-    if key == "rate_limit_status":
-        return "true" if bool(pcfg.get("rate_limit_status", False)) else "false"
-    if key == "rate_limit_enabled":
-        return "true" if bool(router_rate_limit_configured_rpm(provider, pcfg)) else "false"
-    if key == "workflows_enabled":
-        return "true" if claude_code_workflows_enabled(provider, pcfg) else "false"
-    if key == "ultracode_enabled":
-        return "true" if claude_code_ultracode_enabled(provider, pcfg) else "false"
-    if key == "claude_code_supported_capabilities":
-        return claude_code_capability_string(provider, pcfg, current_upstream_model_id(provider, pcfg))
-    if key == "force_query_string":
-        return str(pcfg.get("force_query_string") or "")
-    if key == "supports_tool_choice":
-        value = pcfg.get("supports_tool_choice")
-        return "auto" if value is None else ("true" if bool(value) else "false")
-    if key == "ip_family":
-        return provider_ip_family(provider, pcfg)
-    if provider_context_policy(provider, pcfg).settings_strategy == "ollama":
-        opts = ollama_extra_options(pcfg)
-        if key == "num_ctx":
-            return str(pcfg.get("num_ctx", "auto"))
-        if key in ("num_ctx_min", "num_ctx_max", "keep_alive", "think", "request_timeout_ms", "stream_idle_timeout_ms"):
-            return str(pcfg.get(key, ""))
-        if key in opts:
-            return str(opts[key])
-        return ""
-    value = pcfg.get(key)
-    return "" if value is None else str(value)
+    adapter = configured_provider_adapter(provider, pcfg)
+    config = provider_contract_config(provider, pcfg)
+    return option_prompt_default(
+        provider,
+        pcfg,
+        key,
+        OptionValuePolicy(
+            context_strategy=adapter.context_policy(config).settings_strategy,
+            native_default=adapter.option_presentation_policy(config).show_native,
+        ),
+        option_panel_services(),
+    )
 
 
 def llm_option_config_services() -> LlmOptionConfigServices:

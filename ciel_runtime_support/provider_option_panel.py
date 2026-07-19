@@ -46,6 +46,7 @@ class OptionPanelProvider:
     rate_limit_rpm: Callable[[str, dict[str, Any]], str]
     ip_family: Callable[[str, dict[str, Any]], str]
     parse_bool: Callable[..., bool]
+    configured_rate_limit: Callable[[str, dict[str, Any]], int | None]
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,12 @@ class OptionPanelServices:
     text: OptionPanelText
     runtime: OptionPanelRuntime
     provider: OptionPanelProvider
+
+
+@dataclass(frozen=True)
+class OptionValuePolicy:
+    context_strategy: str
+    native_default: bool
 
 
 def build_option_panel_rows(
@@ -170,11 +177,99 @@ def _add_stream_controls(
         add("Stream word chunking", "stream_word_chunking", "on" if bool(config.get("stream_word_chunking", False)) else "off")
 
 
+def current_option_bool(
+    provider: str,
+    config: dict[str, Any],
+    key: str,
+    policy: OptionValuePolicy,
+    services: OptionPanelServices,
+) -> bool:
+    runtime = services.runtime
+    projection = services.provider
+    if key == "stream_enabled":
+        return bool(config.get("stream_enabled", True))
+    if key == "stream_word_chunking":
+        return bool(config.get("stream_word_chunking", False))
+    if key == "native_compat":
+        return bool(config.get("native_compat", policy.native_default))
+    if key == "think":
+        return bool(config.get("think", False))
+    if key == "rate_limit_enabled":
+        return bool(projection.configured_rate_limit(provider, config))
+    if key == "rate_limit_status":
+        return bool(config.get("rate_limit_status", False))
+    if key == "router_debug_external_access":
+        return runtime.router_debug_external()
+    if key == "route_through_router":
+        return projection.parse_bool(config.get("route_through_router"), default=False)
+    if key == "workflows_enabled":
+        return runtime.workflows_enabled(provider, config)
+    if key == "ultracode_enabled":
+        return runtime.ultracode_enabled(provider, config)
+    return bool(config.get(key, False))
+
+
+def option_prompt_default(
+    provider: str,
+    config: dict[str, Any],
+    key: str,
+    policy: OptionValuePolicy,
+    services: OptionPanelServices,
+) -> str:
+    runtime = services.runtime
+    projection = services.provider
+    boolean_keys = {
+        "router_debug_external_access",
+        "route_through_router",
+        "stream_enabled",
+        "stream_word_chunking",
+        "rate_limit_status",
+        "rate_limit_enabled",
+        "workflows_enabled",
+        "ultracode_enabled",
+    }
+    if key in boolean_keys:
+        return "true" if current_option_bool(provider, config, key, policy, services) else "false"
+    if key == "router_debug_message_preview_chars":
+        return str(runtime.message_preview_chars())
+    if key == "claude_code_supported_capabilities":
+        model = runtime.current_model(provider, config)
+        return runtime.capability_string(provider, config, model)
+    if key == "force_query_string":
+        return str(config.get("force_query_string") or "")
+    if key == "supports_tool_choice":
+        value = config.get("supports_tool_choice")
+        return "auto" if value is None else ("true" if bool(value) else "false")
+    if key == "ip_family":
+        return projection.ip_family(provider, config)
+    if policy.context_strategy == "ollama":
+        options = projection.ollama_options(config)
+        if key == "num_ctx":
+            return str(config.get("num_ctx", "auto"))
+        if key in (
+            "num_ctx_min",
+            "num_ctx_max",
+            "keep_alive",
+            "think",
+            "request_timeout_ms",
+            "stream_idle_timeout_ms",
+        ):
+            return str(config.get(key, ""))
+        if key in options:
+            return str(options[key])
+        return ""
+    value = config.get(key)
+    return "" if value is None else str(value)
+
+
 __all__ = [
     "OptionPanelPolicy",
     "OptionPanelProvider",
     "OptionPanelRuntime",
     "OptionPanelServices",
     "OptionPanelText",
+    "OptionValuePolicy",
     "build_option_panel_rows",
+    "current_option_bool",
+    "option_prompt_default",
 ]

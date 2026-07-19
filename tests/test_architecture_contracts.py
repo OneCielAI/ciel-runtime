@@ -286,6 +286,7 @@ from ciel_runtime_support.provider_option_panel import (
     OptionPanelRuntime,
     OptionPanelServices,
     OptionPanelText,
+    OptionValuePolicy,
 )
 from ciel_runtime_support.context_compaction import (
     ContextCompactionProjection,
@@ -979,6 +980,7 @@ class ArchitectureContractTests(unittest.TestCase):
             OptionPanelRuntime,
             OptionPanelProvider,
             OptionPanelServices,
+            OptionValuePolicy,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
