@@ -496,6 +496,21 @@ from ciel_runtime_support.mcp_stdio_probe import (
     probe_stdio_mcp_for_channel_capability_detailed as run_stdio_mcp_probe,
 )
 from ciel_runtime_support.codex_app_server import codex_app_server_launch_args
+from ciel_runtime_support.codex_config import (
+    codex_alternate_screen_value_from_config_text as project_codex_alternate_screen_value,
+    codex_config_override_keys as project_codex_config_override_keys,
+    codex_config_paths_for_launch as project_codex_config_paths,
+    codex_mcp_servers_from_config_text as project_codex_mcp_servers,
+    codex_mcp_servers_from_toml_data as project_codex_mcp_servers_from_toml,
+    discover_codex_mcp_servers as project_discover_codex_mcp_servers,
+    fallback_codex_mcp_servers_from_config_text as project_fallback_codex_mcp_servers,
+    normalize_codex_mcp_server as project_normalize_codex_mcp_server,
+    parse_simple_toml_value as project_parse_simple_toml_value,
+    toml_scalar_without_comment as project_toml_scalar_without_comment,
+    toml_string as project_toml_string,
+    toml_table_parts as project_toml_table_parts,
+    unquote_toml_string as project_unquote_toml_string,
+)
 from ciel_runtime_support.codex_cli import (
     codex_passthrough_args_for_launch,
     codex_passthrough_has_command,
@@ -19609,296 +19624,51 @@ CODEX_TUI_ALTERNATE_SCREEN_KEY = "tui.alternate_screen"
 
 
 def toml_string(value: str) -> str:
-    return json.dumps(str(value))
+    return project_toml_string(value)
 
 
 def _codex_config_override_keys(passthrough: list[str]) -> set[str]:
-    keys: set[str] = set()
-    i = 0
-    while i < len(passthrough):
-        arg = str(passthrough[i])
-        value = ""
-        if arg in ("-c", "--config") and i + 1 < len(passthrough):
-            value = str(passthrough[i + 1])
-            i += 2
-        elif arg.startswith("--config="):
-            value = arg.split("=", 1)[1]
-            i += 1
-        else:
-            i += 1
-            continue
-        if "=" in value:
-            keys.add(value.split("=", 1)[0].strip())
-    return keys
+    return project_codex_config_override_keys(passthrough)
 
 
 def _toml_scalar_without_comment(raw: str) -> str:
-    in_single = False
-    in_double = False
-    escaped = False
-    out: list[str] = []
-    for ch in raw:
-        if escaped:
-            out.append(ch)
-            escaped = False
-            continue
-        if ch == "\\" and in_double:
-            out.append(ch)
-            escaped = True
-            continue
-        if ch == '"' and not in_single:
-            in_double = not in_double
-        elif ch == "'" and not in_double:
-            in_single = not in_single
-        elif ch == "#" and not in_single and not in_double:
-            break
-        out.append(ch)
-    return "".join(out).strip()
+    return project_toml_scalar_without_comment(raw)
 
 
 def _unquote_toml_string(raw: str) -> str:
-    value = raw.strip()
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
-        return value[1:-1].strip()
-    return value
+    return project_unquote_toml_string(raw)
 
 
 def codex_alternate_screen_value_from_config_text(text: str) -> str | None:
-    table = ""
-    for line in text.splitlines():
-        stripped = _toml_scalar_without_comment(line)
-        if not stripped:
-            continue
-        table_match = re.fullmatch(r"\[([A-Za-z0-9_.-]+)\]", stripped)
-        if table_match:
-            table = table_match.group(1).strip()
-            continue
-        match = None
-        if table == "tui":
-            match = re.match(r"alternate_screen\s*=\s*(.+)$", stripped)
-        if match is None:
-            match = re.match(r"tui\.alternate_screen\s*=\s*(.+)$", stripped)
-        if match is None:
-            continue
-        value = _unquote_toml_string(match.group(1)).casefold()
-        if value in ("false", "0", "off", "no", "disabled", "disable"):
-            return "never"
-        if value in ("true", "1", "on", "yes", "enabled", "enable"):
-            return "always"
-        if value in ("auto", "always", "never"):
-            return None
-        return "auto"
-    return None
+    return project_codex_alternate_screen_value(text)
 
 
 def codex_config_paths_for_launch(passthrough: list[str], env: dict[str, str] | None = None, cwd: Path | None = None) -> list[Path]:
-    env = env or os.environ
-    home = Path(env.get("CODEX_HOME") or (Path.home() / ".codex")).expanduser()
-    paths = [home / "config.toml"]
-    profiles = []
-    i = 0
-    while i < len(passthrough):
-        arg = str(passthrough[i])
-        if arg in ("-p", "--profile") and i + 1 < len(passthrough):
-            profiles.append(str(passthrough[i + 1]))
-            i += 2
-            continue
-        if arg.startswith("--profile="):
-            profiles.append(arg.split("=", 1)[1])
-        i += 1
-    for profile in profiles:
-        if re.fullmatch(r"[A-Za-z0-9_-]+", profile or ""):
-            paths.append(home / f"{profile}.config.toml")
-    current = (cwd or Path.cwd()).resolve()
-    for parent in (current, *current.parents):
-        path = parent / ".codex" / "config.toml"
-        if path not in paths:
-            paths.append(path)
-    return paths
+    return project_codex_config_paths(passthrough, env=env, cwd=cwd)
 
 
 def _normalize_codex_mcp_server(raw_name: Any, raw_server: Any) -> tuple[str, dict[str, Any]] | None:
-    name = str(raw_name or "").strip()
-    if not name or not isinstance(raw_server, dict):
-        return None
-    url = str(raw_server.get("url") or raw_server.get("endpoint") or "").strip()
-    if not url.startswith(("http://", "https://")):
-        return None
-    explicit_type = raw_server.get("type") is not None or raw_server.get("transport") is not None
-    server_type = str(raw_server.get("type") or raw_server.get("transport") or "http").strip().lower()
-    if server_type in {"streamable-http", "streamable_http"}:
-        server_type = "http"
-    if server_type not in {"http", "sse"}:
-        server_type = "http"
-    out: dict[str, Any] = {
-        "type": server_type,
-        "url": url,
-    }
-    if explicit_type:
-        out["_ciel_runtime_explicit_type"] = True
-    for key in (
-        "headers",
-        "env_http_headers",
-        "bearer_token_env_var",
-        "token_env_var",
-        "bearer_token",
-        "token",
-        "streamable_requires_session",
-        "require_session",
-        "mcp_session_required",
-        "mcp_protocol_version",
-        "protocolVersion",
-        "protocol_version",
-        "mcp_timeout_seconds",
-        "timeout",
-    ):
-        value = raw_server.get(key)
-        if value is not None:
-            out[key] = value
-    return name, out
+    return project_normalize_codex_mcp_server(raw_name, raw_server)
 
 
 def _codex_mcp_servers_from_toml_data(data: Any) -> dict[str, dict[str, Any]]:
-    if not isinstance(data, dict):
-        return {}
-    servers = data.get("mcp_servers")
-    if not isinstance(servers, dict):
-        return {}
-    out: dict[str, dict[str, Any]] = {}
-    for raw_name, raw_server in servers.items():
-        normalized = _normalize_codex_mcp_server(raw_name, raw_server)
-        if normalized is None:
-            continue
-        name, server = normalized
-        out[name] = server
-    return out
+    return project_codex_mcp_servers_from_toml(data)
 
 
 def _toml_table_parts(raw: str) -> list[str]:
-    parts: list[str] = []
-    current: list[str] = []
-    quote = ""
-    escaped = False
-    for ch in raw:
-        if escaped:
-            current.append(ch)
-            escaped = False
-            continue
-        if ch == "\\" and quote == '"':
-            current.append(ch)
-            escaped = True
-            continue
-        if ch in {"'", '"'}:
-            if quote == ch:
-                quote = ""
-            elif not quote:
-                quote = ch
-            current.append(ch)
-            continue
-        if ch == "." and not quote:
-            part = _unquote_toml_string("".join(current).strip())
-            if part:
-                parts.append(part)
-            current = []
-            continue
-        current.append(ch)
-    part = _unquote_toml_string("".join(current).strip())
-    if part:
-        parts.append(part)
-    return parts
+    return project_toml_table_parts(raw)
 
 
 def _parse_simple_toml_value(raw: str) -> Any:
-    value = _toml_scalar_without_comment(raw).strip()
-    if not value:
-        return ""
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
-        return _unquote_toml_string(value)
-    low = value.lower()
-    if low in {"true", "false"}:
-        return low == "true"
-    if value.startswith("[") and value.endswith("]"):
-        items: list[str] = []
-        body = value[1:-1]
-        current: list[str] = []
-        quote = ""
-        escaped = False
-        for ch in body:
-            if escaped:
-                current.append(ch)
-                escaped = False
-                continue
-            if ch == "\\" and quote == '"':
-                current.append(ch)
-                escaped = True
-                continue
-            if ch in {"'", '"'}:
-                if quote == ch:
-                    quote = ""
-                elif not quote:
-                    quote = ch
-                current.append(ch)
-                continue
-            if ch == "," and not quote:
-                item = _unquote_toml_string("".join(current).strip())
-                if item:
-                    items.append(item)
-                current = []
-                continue
-            current.append(ch)
-        item = _unquote_toml_string("".join(current).strip())
-        if item:
-            items.append(item)
-        return items
-    try:
-        return int(value)
-    except ValueError:
-        return value
+    return project_parse_simple_toml_value(raw)
 
 
 def _fallback_codex_mcp_servers_from_config_text(text: str) -> dict[str, dict[str, Any]]:
-    raw_servers: dict[str, dict[str, Any]] = {}
-    current_name = ""
-    current_subtable = ""
-    for line in text.splitlines():
-        stripped = _toml_scalar_without_comment(line)
-        if not stripped:
-            continue
-        table_match = re.fullmatch(r"\[(.+)\]", stripped)
-        if table_match:
-            parts = _toml_table_parts(table_match.group(1).strip())
-            current_name = ""
-            current_subtable = ""
-            if len(parts) >= 2 and parts[0] == "mcp_servers":
-                current_name = parts[1]
-                current_subtable = parts[2] if len(parts) >= 3 else ""
-                raw_servers.setdefault(current_name, {})
-            continue
-        if not current_name or "=" not in stripped:
-            continue
-        key, raw_value = stripped.split("=", 1)
-        key = key.strip()
-        value = _parse_simple_toml_value(raw_value)
-        server = raw_servers.setdefault(current_name, {})
-        if current_subtable:
-            nested = server.setdefault(current_subtable, {})
-            if isinstance(nested, dict):
-                nested[key] = value
-            continue
-        server[key] = value
-    return _codex_mcp_servers_from_toml_data({"mcp_servers": raw_servers})
+    return project_fallback_codex_mcp_servers(text)
 
 
 def codex_mcp_servers_from_config_text(text: str) -> dict[str, dict[str, Any]]:
-    try:
-        import tomllib  # type: ignore[import-not-found]
-        data = tomllib.loads(text)
-        parsed = _codex_mcp_servers_from_toml_data(data)
-        if parsed:
-            return parsed
-    except (ImportError, TypeError, ValueError):
-        pass
-    return _fallback_codex_mcp_servers_from_config_text(text)
+    return project_codex_mcp_servers(text)
 
 
 def discovered_codex_mcp_servers(
@@ -19906,18 +19676,12 @@ def discovered_codex_mcp_servers(
     env: dict[str, str] | None = None,
     cwd: Path | None = None,
 ) -> dict[str, dict[str, Any]]:
-    servers: dict[str, dict[str, Any]] = {}
-    for path in codex_config_paths_for_launch(passthrough or [], env=env, cwd=cwd):
-        if not path.exists() or not path.is_file():
-            continue
-        try:
-            parsed = codex_mcp_servers_from_config_text(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            router_log("WARN", f"codex_mcp_config_read_failed path={path} error={type(exc).__name__}: {exc}")
-            continue
-        for name, server in parsed.items():
-            servers[name] = server
-    return servers
+    return project_discover_codex_mcp_servers(
+        passthrough,
+        env,
+        cwd,
+        log=router_log,
+    )
 
 
 def write_codex_mcp_config_for_channel_discovery(

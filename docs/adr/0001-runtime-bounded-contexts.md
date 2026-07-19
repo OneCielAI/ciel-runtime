@@ -43,6 +43,10 @@ monotonically decreasing ratchet and may never be raised.
 The facade only composes these objects and retains narrow compatibility
 functions for callers that still import historical private names.
 
+Codex configuration parsing and MCP server discovery live in
+`codex_config.py`; runtime launch orchestration consumes their projections and
+does not parse TOML itself.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file
