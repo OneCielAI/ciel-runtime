@@ -187,6 +187,7 @@ from ciel_runtime_support.protocols.chat_projection import (
     ChatProjectionServices,
     ChatProjectionText,
     ChatProjectionTools,
+    OpenAiHistoryServices,
 )
 from ciel_runtime_support.protocols.ollama_response import (
     OllamaResponseOutput,
@@ -696,6 +697,7 @@ class ArchitectureContractTests(unittest.TestCase):
             ChatProjectionTools,
             ChatProjectionPolicy,
             ChatProjectionServices,
+            OpenAiHistoryServices,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)

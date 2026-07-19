@@ -335,8 +335,12 @@ from ciel_runtime_support.protocols.chat_projection import (
     ChatProjectionServices,
     ChatProjectionText,
     ChatProjectionTools,
+    OpenAiHistoryServices,
     anthropic_messages_to_ollama as project_anthropic_messages_to_ollama,
     anthropic_messages_to_openai as project_anthropic_messages_to_openai,
+    missing_openai_tool_result_message as project_missing_openai_tool_result_message,
+    orphan_openai_tool_message_to_user as project_orphan_openai_tool_message_to_user,
+    repair_openai_tool_call_adjacency as project_repair_openai_tool_call_adjacency,
 )
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, ZAI_MODEL_FALLBACK_IDS
 from ciel_runtime_support.provider_limits import (
@@ -12481,106 +12485,18 @@ def anthropic_messages_to_openai(body: dict[str, Any], reasoning_passback: bool 
 
 
 def missing_openai_tool_result_message(tool_call: dict[str, Any]) -> dict[str, Any]:
-    tool_id = str(tool_call.get("id") or "call_tool")
-    fn = tool_call.get("function") if isinstance(tool_call.get("function"), dict) else {}
-    name = str(fn.get("name") or "tool")
-    return {
-        "role": "tool",
-        "tool_call_id": tool_id,
-        "id": tool_id,
-        "content": (
-            f"Tool result for historical tool call `{name}` was not present in the retained "
-            "Claude Code transcript. Treat this as missing historical context, not as a "
-            "successful tool execution."
-        ),
-    }
+    return project_missing_openai_tool_result_message(tool_call)
 
 
 def orphan_openai_tool_message_to_user(message: dict[str, Any]) -> dict[str, str]:
-    tool_id = str(message.get("tool_call_id") or message.get("id") or "unknown")
-    content = str(message.get("content") or "")
-    return {
-        "role": "user",
-        "content": (
-            f"Historical tool message without a retained assistant tool call ({tool_id}):\n"
-            f"{content}"
-        ),
-    }
+    return project_orphan_openai_tool_message_to_user(message)
 
 
 def repair_openai_tool_call_adjacency(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Make Anthropic/Claude historical tool turns valid for OpenAI chat APIs.
-
-    OpenAI-compatible providers reject any assistant message with tool_calls unless
-    the immediately following messages contain a tool response for every
-    tool_call_id. Claude Code can send compacted long histories where an old
-    assistant tool_use survives but its tool_result was dropped from the retained
-    transcript. Anthropic tolerates that historical shape better than OpenAI chat
-    does, so we repair only the wire-format sequence here.
-    """
-    repaired: list[dict[str, Any]] = []
-    missing_count = 0
-    orphan_count = 0
-    i = 0
-    while i < len(messages):
-        message = messages[i]
-        tool_calls = message.get("tool_calls") if isinstance(message, dict) else None
-        if not (message.get("role") == "assistant" and isinstance(tool_calls, list) and tool_calls):
-            if message.get("role") == "tool":
-                repaired.append(orphan_openai_tool_message_to_user(message))
-                orphan_count += 1
-            else:
-                repaired.append(message)
-            i += 1
-            continue
-
-        repaired.append(message)
-        i += 1
-
-        immediate_tools: list[dict[str, Any]] = []
-        while i < len(messages) and isinstance(messages[i], dict) and messages[i].get("role") == "tool":
-            immediate_tools.append(messages[i])
-            i += 1
-
-        by_id: dict[str, list[dict[str, Any]]] = {}
-        for tool_message in immediate_tools:
-            tool_id = str(tool_message.get("tool_call_id") or tool_message.get("id") or "")
-            by_id.setdefault(tool_id, []).append(tool_message)
-
-        required_ids: list[str] = []
-        for call in tool_calls:
-            if not isinstance(call, dict):
-                continue
-            tool_id = str(call.get("id") or "")
-            if not tool_id:
-                continue
-            required_ids.append(tool_id)
-            matches = by_id.get(tool_id) or []
-            if matches:
-                repaired.append(matches.pop(0))
-            else:
-                repaired.append(missing_openai_tool_result_message(call))
-                missing_count += 1
-
-        required = set(required_ids)
-        for tool_message in immediate_tools:
-            tool_id = str(tool_message.get("tool_call_id") or tool_message.get("id") or "")
-            if tool_id in required:
-                remaining = by_id.get(tool_id) or []
-                if tool_message in remaining:
-                    remaining.remove(tool_message)
-                    repaired.append(orphan_openai_tool_message_to_user(tool_message))
-                    orphan_count += 1
-            else:
-                repaired.append(orphan_openai_tool_message_to_user(tool_message))
-                orphan_count += 1
-
-    if missing_count or orphan_count:
-        router_log(
-            "WARN",
-            f"openai_tool_call_adjacency_repaired missing_tool_results={missing_count} orphan_tool_messages={orphan_count}",
-        )
-    return repaired
+    return project_repair_openai_tool_call_adjacency(
+        messages,
+        OpenAiHistoryServices(log=router_log),
+    )
 
 
 def anthropic_tool_choice_to_openai(tool_choice: Any) -> Any:

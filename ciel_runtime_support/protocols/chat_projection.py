@@ -42,6 +42,11 @@ class ChatProjectionServices:
     policy: ChatProjectionPolicy
 
 
+@dataclass(frozen=True, slots=True)
+class OpenAiHistoryServices:
+    log: Callable[[str, str], None]
+
+
 def anthropic_messages_to_ollama(body: dict[str, Any], *, services: ChatProjectionServices) -> list[dict[str, Any]]:
     text = services.text
     tools = services.tools
@@ -211,3 +216,100 @@ def anthropic_messages_to_openai(
             out["reasoning_content"] = ""
         messages.append(out)
     return messages
+
+
+def missing_openai_tool_result_message(tool_call: dict[str, Any]) -> dict[str, Any]:
+    tool_id = str(tool_call.get("id") or "call_tool")
+    function = tool_call.get("function") if isinstance(tool_call.get("function"), dict) else {}
+    name = str(function.get("name") or "tool")
+    return {
+        "role": "tool",
+        "tool_call_id": tool_id,
+        "id": tool_id,
+        "content": (
+            f"Tool result for historical tool call `{name}` was not present in the retained "
+            "Claude Code transcript. Treat this as missing historical context, not as a "
+            "successful tool execution."
+        ),
+    }
+
+
+def orphan_openai_tool_message_to_user(message: dict[str, Any]) -> dict[str, str]:
+    tool_id = str(message.get("tool_call_id") or message.get("id") or "unknown")
+    content = str(message.get("content") or "")
+    return {
+        "role": "user",
+        "content": (
+            f"Historical tool message without a retained assistant tool call ({tool_id}):\n"
+            f"{content}"
+        ),
+    }
+
+
+def repair_openai_tool_call_adjacency(
+    messages: list[dict[str, Any]],
+    services: OpenAiHistoryServices,
+) -> list[dict[str, Any]]:
+    """Repair OpenAI's immediate tool-result adjacency invariant."""
+    repaired: list[dict[str, Any]] = []
+    missing_count = 0
+    orphan_count = 0
+    index = 0
+    while index < len(messages):
+        message = messages[index]
+        tool_calls = message.get("tool_calls") if isinstance(message, dict) else None
+        if not (message.get("role") == "assistant" and isinstance(tool_calls, list) and tool_calls):
+            if message.get("role") == "tool":
+                repaired.append(orphan_openai_tool_message_to_user(message))
+                orphan_count += 1
+            else:
+                repaired.append(message)
+            index += 1
+            continue
+        repaired.append(message)
+        index += 1
+        immediate_tools: list[dict[str, Any]] = []
+        while (
+            index < len(messages)
+            and isinstance(messages[index], dict)
+            and messages[index].get("role") == "tool"
+        ):
+            immediate_tools.append(messages[index])
+            index += 1
+        by_id: dict[str, list[dict[str, Any]]] = {}
+        for tool_message in immediate_tools:
+            tool_id = str(tool_message.get("tool_call_id") or tool_message.get("id") or "")
+            by_id.setdefault(tool_id, []).append(tool_message)
+        required_ids: list[str] = []
+        for call in tool_calls:
+            if not isinstance(call, dict):
+                continue
+            tool_id = str(call.get("id") or "")
+            if not tool_id:
+                continue
+            required_ids.append(tool_id)
+            matches = by_id.get(tool_id) or []
+            if matches:
+                repaired.append(matches.pop(0))
+            else:
+                repaired.append(missing_openai_tool_result_message(call))
+                missing_count += 1
+        required = set(required_ids)
+        for tool_message in immediate_tools:
+            tool_id = str(tool_message.get("tool_call_id") or tool_message.get("id") or "")
+            if tool_id in required:
+                remaining = by_id.get(tool_id) or []
+                if tool_message in remaining:
+                    remaining.remove(tool_message)
+                    repaired.append(orphan_openai_tool_message_to_user(tool_message))
+                    orphan_count += 1
+            else:
+                repaired.append(orphan_openai_tool_message_to_user(tool_message))
+                orphan_count += 1
+    if missing_count or orphan_count:
+        services.log(
+            "WARN",
+            f"openai_tool_call_adjacency_repaired missing_tool_results={missing_count} "
+            f"orphan_tool_messages={orphan_count}",
+        )
+    return repaired
