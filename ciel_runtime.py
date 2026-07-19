@@ -735,6 +735,10 @@ from ciel_runtime_support.provider_context import (
     small_context_output_token_cap as resolve_small_context_output_cap,
 )
 from ciel_runtime_support.context_setup import ContextSetupPorts, ContextSetupService
+from ciel_runtime_support.model_context_hints import (
+    ModelContextHintPolicy,
+    ModelContextHintPorts,
+)
 from ciel_runtime_support.provider_option_panel import (
     OptionPanelPolicy,
     OptionPanelProvider,
@@ -11831,15 +11835,11 @@ def with_preset_timeout_tokens(tokens: list[str], preset_id: str) -> list[str]:
 
 
 def is_qwen36_plus_model_id(model_id: str) -> bool:
-    compact = re.sub(r"[^a-z0-9]+", "", (model_id or "").lower())
-    return "qwen36plus" in compact
+    return ModelContextHintPolicy.is_qwen36_plus(model_id)
 
 
 def is_kimi_k3_model_id(model_id: str) -> bool:
-    normalized = strip_claude_context_suffix(model_id).strip().lower().replace("_", "-")
-    if normalized.startswith("ciel-runtime-kimi-"):
-        normalized = normalized[len("ciel-runtime-kimi-"):]
-    return normalized in {"k3", "kimi-k3", "kimi/k3", "kimi-code/k3"}
+    return model_context_hint_policy().is_kimi_k3(model_id)
 
 
 def apply_kimi_model_profile(provider: str, pcfg: dict[str, Any]) -> list[str]:
@@ -11859,41 +11859,23 @@ def apply_provider_model_profile(provider: str, pcfg: dict[str, Any]) -> list[st
 
 
 def zai_model_context_hint(model_id: str) -> int | None:
-    model = strip_claude_context_suffix(model_id).strip().lower().replace("_", "-")
-    if not model:
-        return None
-    for prefix, limit in ZAI_MODEL_CONTEXT_HINTS:
-        if model == prefix or model.startswith(prefix + "-"):
-            return limit
-    return None
+    return model_context_hint_policy().zai_hint(model_id)
+
+
+def model_context_hint_policy() -> ModelContextHintPolicy:
+    return ModelContextHintPolicy(
+        ZAI_MODEL_CONTEXT_HINTS,
+        ModelContextHintPorts(
+            strip_context_suffix=strip_claude_context_suffix,
+            catalog_context=ollama_catalog_context_for_model,
+            model_preset=model_preset,
+            positive_int=positive_int,
+        ),
+    )
 
 
 def model_context_hint_from_model_id(model_id: str) -> int | None:
-    model = (model_id or "").lower()
-    if not model:
-        return None
-    zai_hint = zai_model_context_hint(model_id)
-    if zai_hint:
-        return zai_hint
-    if is_qwen36_plus_model_id(model_id):
-        return 1048576
-    if is_kimi_k3_model_id(model_id):
-        return 1048576
-    catalog_limit, _, _ = ollama_catalog_context_for_model(model_id)
-    if catalog_limit:
-        return catalog_limit
-    if any(marker in model for marker in ("deepseek-v4-pro", "deepseek-v4-flash", "deepseek-v4", "v4-pro", "v4-flash", "1m", "million")):
-        return 1048576
-    if any(marker in model for marker in ("kimi-for-coding", "kimi-code", "kimi-k2.7", "kimi_k2.7", "kimi2.7", "k2.7", "kimi-k2.6", "kimi_k2.6", "kimi2.6", "kimi-k2")):
-        return 262144
-    if "qwen3.6" in model:
-        return 262144
-    if "glm-4.7" in model or "glm-5.1" in model:
-        return 200000
-    if "deepseek-r1" in model or "llama3.3" in model:
-        return 131072
-    preset = model_preset(model_id)
-    return positive_int(preset.get("num_ctx_max"))
+    return model_context_hint_policy().resolve(model_id)
 
 
 def provider_context_policy(provider: str, pcfg: dict[str, Any]):

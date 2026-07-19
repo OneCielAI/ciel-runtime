@@ -144,6 +144,10 @@ LM Studio target-context discovery, load/unload lifecycle, and loaded-context
 guard behavior live together in `lm_studio_runtime.py`; the facade retains
 only compatibility wrappers and composition.
 
+Model-identity context heuristics live in `model_context_hints.py`. Qwen, Kimi,
+Z.ai, catalog, and preset hints form one pure ordered policy instead of leaking
+string matching into provider orchestration.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file
