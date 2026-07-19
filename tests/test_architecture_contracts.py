@@ -449,6 +449,24 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
+    def test_stdio_mcp_probe_has_no_silent_exception_handlers(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        function = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "probe_stdio_mcp_for_channel_capability_detailed"
+        )
+        silent_handlers = [
+            node
+            for node in ast.walk(function)
+            if isinstance(node, ast.ExceptHandler)
+            and len(node.body) == 1
+            and isinstance(node.body[0], ast.Pass)
+        ]
+        self.assertEqual([], silent_handlers)
+
     def test_chat_projection_ports_stay_below_dependency_limit(self):
         for port in (
             ChatProjectionText,

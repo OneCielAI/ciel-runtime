@@ -18302,8 +18302,11 @@ def probe_stdio_mcp_for_channel_capability_detailed(
                 if not chunk:
                     break
                 stdout_chunks.put(chunk)
-        except Exception:
-            pass
+        except Exception as exc:
+            router_log(
+                "DEBUG",
+                f"channel_probe_stdout_reader_failed server={server_name} error={type(exc).__name__}: {exc}",
+            )
         finally:
             stdout_chunks.put(None)
 
@@ -18321,8 +18324,11 @@ def probe_stdio_mcp_for_channel_capability_detailed(
                     remaining = CHANNEL_PROBE_STDERR_CAP_BYTES - len(stderr_buf)
                     if remaining > 0:
                         stderr_buf.extend(chunk[:remaining])
-        except Exception:
-            pass
+        except Exception as exc:
+            router_log(
+                "DEBUG",
+                f"channel_probe_stderr_reader_failed server={server_name} error={type(exc).__name__}: {exc}",
+            )
 
     stdout_thread = threading.Thread(
         target=_stdout_reader,
@@ -18346,8 +18352,11 @@ def probe_stdio_mcp_for_channel_capability_detailed(
         if proc.stdin:
             proc.stdin.write(frame)
             proc.stdin.flush()
-    except Exception:
-        pass
+    except Exception as exc:
+        router_log(
+            "WARN",
+            f"channel_probe_initialize_write_failed server={server_name} error={type(exc).__name__}: {exc}",
+        )
 
     deadline = time.time() + effective_timeout
     stdout_buf = bytearray()
@@ -18374,25 +18383,38 @@ def probe_stdio_mcp_for_channel_capability_detailed(
         try:
             if proc.stdin:
                 proc.stdin.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            router_log(
+                "DEBUG",
+                f"channel_probe_stdin_close_failed server={server_name} error={type(exc).__name__}: {exc}",
+            )
         try:
             proc.terminate()
             proc.wait(timeout=1.0)
-        except Exception:
+        except Exception as terminate_exc:
+            router_log(
+                "DEBUG",
+                f"channel_probe_terminate_failed server={server_name} error={type(terminate_exc).__name__}: {terminate_exc}",
+            )
             try:
                 proc.kill()
                 proc.wait(timeout=1.0)
-            except Exception:
-                pass
+            except Exception as kill_exc:
+                router_log(
+                    "WARN",
+                    f"channel_probe_kill_failed server={server_name} error={type(kill_exc).__name__}: {kill_exc}",
+                )
         stdout_thread.join(timeout=1.0)
         stderr_thread.join(timeout=1.0)
         for stream in (proc.stdout, proc.stderr):
             try:
                 if stream:
                     stream.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                router_log(
+                    "DEBUG",
+                    f"channel_probe_stream_close_failed server={server_name} error={type(exc).__name__}: {exc}",
+                )
 
     exit_code = proc.returncode if proc else None
     if capable:
