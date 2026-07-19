@@ -195,6 +195,14 @@ from ciel_runtime_support.protocols.ollama_chat import (
     encode_anthropic_message,
     ollama_claude_code_reminder,
 )
+from ciel_runtime_support.protocols.chat_projection import (
+    ChatProjectionPolicy,
+    ChatProjectionServices,
+    ChatProjectionText,
+    ChatProjectionTools,
+    anthropic_messages_to_ollama as project_anthropic_messages_to_ollama,
+    anthropic_messages_to_openai as project_anthropic_messages_to_openai,
+)
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, ZAI_MODEL_FALLBACK_IDS
 from ciel_runtime_support.provider_limits import (
     ProviderKeyServices,
@@ -13073,201 +13081,45 @@ def should_skip_upstream_message(message: dict[str, Any]) -> bool:
     return False
 
 
+def chat_projection_services() -> ChatProjectionServices:
+    return ChatProjectionServices(
+        text=ChatProjectionText(
+            system_messages=anthropic_system_to_ollama_messages,
+            execution_reminder=ollama_claude_code_reminder,
+            state_messages=claude_code_state_messages,
+            content_to_text=anthropic_content_to_text,
+            compact_text=compact_message_text_for_prompt,
+            skip_message=should_skip_upstream_message,
+            attachment_only=is_attachment_only_message,
+        ),
+        tools=ChatProjectionTools(
+            collect_result_context=collect_tool_result_context,
+            plan_mode_active=plan_mode_active,
+            input_for_prompt=tool_input_for_prompt,
+            persisted_output=is_claude_code_persisted_output_text,
+            truncate_for_prompt=truncate_for_prompt,
+            canonical_signature=canonical_tool_signature,
+            format_result=format_tool_result_for_upstream,
+        ),
+        policy=ChatProjectionPolicy(
+            thinking_block_types=ANTHROPIC_THINKING_BLOCK_TYPES,
+            tool_result_limit=PROMPT_TOOL_RESULT_LIMIT,
+        ),
+    )
+
+
 def anthropic_messages_to_ollama(body: dict[str, Any]) -> list[dict[str, Any]]:
-    messages = anthropic_system_to_ollama_messages(body.get("system"))
-    messages.append(ollama_claude_code_reminder())
-    messages.extend(claude_code_state_messages(body))
-    prior_tool_results, latest_noop_result_ids = collect_tool_result_context(body)
-    in_plan_mode = plan_mode_active(body)
-    tool_names_by_id: dict[str, str] = {}
-    tool_inputs_by_id: dict[str, Any] = {}
-    for message in body.get("messages", []) or []:
-        if not isinstance(message, dict):
-            continue
-        if is_attachment_only_message(message):
-            continue
-        if should_skip_upstream_message(message):
-            continue
-        role = message.get("role", "user")
-        content = message.get("content", "")
-
-        if role == "user" and isinstance(content, list):
-            text_blocks: list[Any] = []
-            tool_blocks: list[dict[str, Any]] = []
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "tool_result":
-                    tool_blocks.append(block)
-                else:
-                    text_blocks.append(block)
-            text = anthropic_content_to_text(text_blocks)
-            if text:
-                messages.append({"role": "user", "content": compact_message_text_for_prompt(text)})
-            for block in tool_blocks:
-                tool_use_id = str(block.get("tool_use_id") or "")
-                tool_name = tool_names_by_id.get(tool_use_id, "tool")
-                tool_input = tool_inputs_by_id.get(tool_use_id)
-                tool_input_text = tool_input_for_prompt(tool_input)
-                raw_result_text = anthropic_content_to_text(block.get("content", ""))
-                if is_claude_code_persisted_output_text(raw_result_text):
-                    result_text = raw_result_text
-                    tool_text = raw_result_text
-                    tool_summary = ""
-                else:
-                    result_text = truncate_for_prompt(raw_result_text, PROMPT_TOOL_RESULT_LIMIT)
-                    signature = canonical_tool_signature(tool_name, tool_input)
-                    tool_text, tool_summary = format_tool_result_for_upstream(
-                        tool_name=tool_name,
-                        tool_input_text=tool_input_text,
-                        result_text=result_text,
-                        is_error=bool(block.get("is_error")),
-                        prior_success_text=prior_tool_results.get(signature, ""),
-                        include_prior_success=tool_use_id in latest_noop_result_ids,
-                        in_plan_mode=in_plan_mode,
-                    )
-                    if not block.get("is_error"):
-                        if tool_name == "TaskList":
-                            tool_summary = (
-                                f"The task list is current:\n{result_text}\n\n"
-                                "If any task is in_progress and the user's request is not finished, your next response "
-                                "must call a concrete work tool such as Write, Edit, Read, or Bash. Do not respond with "
-                                "another progress announcement like 'I will write the files now'. If everything is "
-                                "actually complete, provide the final answer."
-                            )
-                messages.append({"role": "tool", "tool_name": tool_name, "content": tool_text})
-                if tool_summary:
-                    messages.append({"role": "user", "content": tool_summary})
-            continue
-
-        text = anthropic_content_to_text(content)
-        out: dict[str, Any] = {"role": role, "content": compact_message_text_for_prompt(text)}
-        if role == "assistant" and isinstance(content, list):
-            calls = []
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "tool_use":
-                    name = str(block.get("name") or "tool")
-                    tool_id = str(block.get("id") or "")
-                    if tool_id:
-                        tool_names_by_id[tool_id] = name
-                        tool_inputs_by_id[tool_id] = block.get("input") or {}
-                    calls.append({"function": {"name": name, "arguments": block.get("input") or {}}})
-            if calls:
-                out["tool_calls"] = calls
-        messages.append(out)
-    return messages
+    return project_anthropic_messages_to_ollama(body, services=chat_projection_services())
 
 
 
 
 def anthropic_messages_to_openai(body: dict[str, Any], reasoning_passback: bool = False) -> list[dict[str, Any]]:
-    messages = anthropic_system_to_ollama_messages(body.get("system"))
-    messages.append(ollama_claude_code_reminder())
-    messages.extend(claude_code_state_messages(body))
-    prior_tool_results, latest_noop_result_ids = collect_tool_result_context(body)
-    in_plan_mode = plan_mode_active(body)
-    tool_names_by_id: dict[str, str] = {}
-    tool_inputs_by_id: dict[str, Any] = {}
-    for message in body.get("messages", []) or []:
-        if not isinstance(message, dict):
-            continue
-        if is_attachment_only_message(message):
-            continue
-        if should_skip_upstream_message(message):
-            continue
-        role = message.get("role", "user")
-        content = message.get("content", "")
-        if role == "assistant" and isinstance(content, list):
-            text_blocks: list[Any] = []
-            tool_calls: list[dict[str, Any]] = []
-            reasoning_seen = False
-            reasoning_parts: list[str] = []
-            for block in content:
-                if isinstance(block, dict) and block.get("type") in ANTHROPIC_THINKING_BLOCK_TYPES:
-                    reasoning_seen = True
-                    if block.get("type") == "thinking":
-                        reasoning_parts.append(str(block.get("thinking") or ""))
-                    continue
-                if isinstance(block, dict) and block.get("type") == "tool_use":
-                    tool_id = str(block.get("id") or f"call_{len(tool_calls) + 1}")
-                    name = str(block.get("name") or "tool")
-                    tool_input = block.get("input") if isinstance(block.get("input"), dict) else {}
-                    if tool_id:
-                        tool_names_by_id[tool_id] = name
-                        tool_inputs_by_id[tool_id] = tool_input
-                    tool_calls.append({
-                        "id": tool_id,
-                        "type": "function",
-                        "function": {
-                            "name": name,
-                            "arguments": json.dumps(tool_input, ensure_ascii=False),
-                        },
-                    })
-                else:
-                    text_blocks.append(block)
-            out: dict[str, Any] = {"role": "assistant", "content": compact_message_text_for_prompt(anthropic_content_to_text(text_blocks))}
-            if reasoning_seen or reasoning_passback:
-                out["reasoning_content"] = "\n".join(reasoning_parts)
-            if tool_calls:
-                out["tool_calls"] = tool_calls
-            messages.append(out)
-            continue
-        if role == "user" and isinstance(content, list):
-            text_blocks = []
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "tool_result":
-                    tool_id = str(block.get("tool_use_id") or "call_tool")
-                    if tool_id not in tool_names_by_id:
-                        raw_result_text = anthropic_content_to_text(block.get("content", ""))
-                        result_text = (
-                            raw_result_text
-                            if is_claude_code_persisted_output_text(raw_result_text)
-                            else truncate_for_prompt(raw_result_text, PROMPT_TOOL_RESULT_LIMIT)
-                        )
-                        if is_claude_code_persisted_output_text(result_text):
-                            text_blocks.append({"type": "text", "text": result_text})
-                            continue
-                        text_blocks.append({
-                            "type": "text",
-                            "text": (
-                                f"Historical tool result without a retained assistant tool call ({tool_id}):\n"
-                                f"{result_text}"
-                            ),
-                        })
-                        continue
-                    tool_name = tool_names_by_id.get(tool_id, "tool")
-                    tool_input = tool_inputs_by_id.get(tool_id)
-                    tool_input_text = tool_input_for_prompt(tool_input)
-                    raw_result_text = anthropic_content_to_text(block.get("content", ""))
-                    if is_claude_code_persisted_output_text(raw_result_text):
-                        tool_text = raw_result_text
-                    else:
-                        result_text = truncate_for_prompt(raw_result_text, PROMPT_TOOL_RESULT_LIMIT)
-                        signature = canonical_tool_signature(tool_name, tool_input)
-                        tool_text, _ = format_tool_result_for_upstream(
-                            tool_name=tool_name,
-                            tool_input_text=tool_input_text,
-                            result_text=result_text,
-                            is_error=bool(block.get("is_error")),
-                            prior_success_text=prior_tool_results.get(signature, ""),
-                            include_prior_success=tool_id in latest_noop_result_ids,
-                            in_plan_mode=in_plan_mode,
-                        )
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_id,
-                        "id": tool_id,
-                        "content": tool_text,
-                    })
-                else:
-                    text_blocks.append(block)
-            text = anthropic_content_to_text(text_blocks)
-            if text:
-                messages.append({"role": "user", "content": compact_message_text_for_prompt(text)})
-            continue
-        out = {"role": role, "content": compact_message_text_for_prompt(anthropic_content_to_text(content))}
-        if role == "assistant" and reasoning_passback:
-            out["reasoning_content"] = ""
-        messages.append(out)
-    return messages
+    return project_anthropic_messages_to_openai(
+        body,
+        reasoning_passback,
+        services=chat_projection_services(),
+    )
 
 
 def missing_openai_tool_result_message(tool_call: dict[str, Any]) -> dict[str, Any]:
