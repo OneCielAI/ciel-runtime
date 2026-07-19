@@ -249,6 +249,14 @@ Provider 구현 패키지의 안정적인 공개 진입점. 분리된 공통 기
 
 Bearer/API-key 인증, 무인증 및 OpenAI-compatible protocol 선택을 제공하는 공통 Provider transport 기반 클래스. 구체 Provider 이름이나 Registry를 소유하지 않는다.
 
+### `ciel_runtime_support/providers/constants.py`
+
+Provider 모듈들이 공유하는 기본 endpoint와 Z.AI fallback catalog 상수. 메인 composition root나 Registry 구현에 의존하지 않는다.
+
+### `ciel_runtime_support/providers/native.py`
+
+Codex 및 AGY native provider-selection Adapter. native/routed 표시, API-key 상태와 Runtime 소유 모델 설정 정책을 중앙 Registry 구현에서 분리한다.
+
 ### `ciel_runtime_support/provider_compatibility.py`
 
 Provider transport Adapter와 분리된 Advisor 전송, 호환성 실패 진단, runtime metadata projection, 자동 웹 검색 및 Claude compatibility prompt 정책 Registry. 기본 정책과 Provider별 override를 7필드 불변 정책으로 조합한다.
