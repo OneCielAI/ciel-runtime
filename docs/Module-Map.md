@@ -61,6 +61,10 @@ SSE/MCP 수집 및 cursor 상태와 분리되어 있으며 Windows Console과 PT
 
 대기 중인 channel 메시지의 필터링, 중복 제거, wake claim, prompt 생성 및 터미널 주입을 조정하는 Channel Application Service. 상태 판정, prompt 전략, wake 저장소, I/O를 각각 10필드 이하 포트로 분리한다.
 
+### `ciel_runtime_support/channel_probe_report.py`
+
+channel capability probe 결과를 capable/non-capable/inconclusive/skipped 행과 진단 hint로 투영하는 Presentation Service. probe 실행과 CLI 명령 해석에서 결과 formatting을 분리한다.
+
 ### `ciel_runtime_support/channel_inflight.py`
 
 터미널에 주입된 channel 메시지의 확인, 재조회, stale 복구 및 대기 전이를 담당하는 상태 머신. Windows Console과 POSIX PTY 프록시는 동일한 순수 전이 정책을 사용하고 cursor·wake 저장소·로그는 effect 포트로 주입한다.

@@ -76,6 +76,10 @@ from ciel_runtime_support.channel_pending_injection import (
     ChannelInjectionWakeStore,
     inject_pending_channel_messages as run_pending_channel_injection,
 )
+from ciel_runtime_support.channel_probe_report import (
+    ChannelProbeReportServices,
+    channel_probe_report_lines,
+)
 from ciel_runtime_support.channel_panel import (
     ChannelPanelPolicy,
     _channel_panel_first_selectable as first_selectable_channel_row,
@@ -18604,69 +18608,18 @@ def cmd_channels(args: argparse.Namespace) -> None:
             result = refresh_channel_probe_cache()
         except Exception as exc:
             raise SystemExit(f"Channel probe failed: {type(exc).__name__}: {exc}")
-        servers = result.get("servers") or []
-        capable = [r for r in servers if channel_probe_record_bucket(r) == "capable"]
-        non_capable = [r for r in servers if channel_probe_record_bucket(r) == "non_capable"]
-        inconclusive = [r for r in servers if channel_probe_record_bucket(r) == "inconclusive"]
-        skipped = [r for r in servers if channel_probe_record_bucket(r) == "skipped"]
-        probed_at = result.get("probed_at") or 0
-        ts_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(probed_at)) if probed_at else "-"
-        timeout_s = channel_probe_default_timeout()
-        print(f"channel probe complete (probed at {ts_str}, timeout {timeout_s:.1f}s per server)")
-        print(f"  capable     : {len(capable)}")
-        for r in capable:
-            transport = r.get("transport") or "?"
-            source = r.get("source_path") or ""
-            suffix = " built-in" if source == "<built-in>" else f" {source}"
-            print(f"    * {r.get('name')} ({transport}){suffix}")
-        print(f"  non-capable : {len(non_capable)}")
-        for r in non_capable:
-            transport = r.get("transport") or "?"
-            reason = r.get("reason") or "-"
-            print(f"      {r.get('name')} ({transport}) reason={reason}")
-        print(f"  inconclusive: {len(inconclusive)}")
-        timeout_seen = False
-        exited_seen = False
-        for r in inconclusive:
-            transport = r.get("transport") or "?"
-            reason = r.get("reason") or "-"
-            elapsed = r.get("elapsed_ms")
-            bytes_seen = r.get("response_bytes")
-            stderr_bytes = r.get("stderr_bytes")
-            exit_code = r.get("exit_code")
-            extra = []
-            if isinstance(elapsed, int) and elapsed:
-                extra.append(f"elapsed={elapsed}ms")
-            if isinstance(bytes_seen, int) and bytes_seen:
-                extra.append(f"stdout={bytes_seen}B")
-            if isinstance(stderr_bytes, int) and stderr_bytes:
-                extra.append(f"stderr={stderr_bytes}B")
-            if exit_code is not None:
-                extra.append(f"exit={exit_code}")
-            extra_str = (" " + " ".join(extra)) if extra else ""
-            print(f"      {r.get('name')} ({transport}) reason={reason}{extra_str}")
-            stderr_preview = r.get("stderr_preview")
-            if stderr_preview:
-                print(f"        stderr: {stderr_preview}")
-            stdout_preview = r.get("stdout_preview")
-            if stdout_preview:
-                print(f"        stdout: {stdout_preview}")
-            if str(reason).startswith("timeout"):
-                timeout_seen = True
-            if reason == "exited_without_response":
-                exited_seen = True
-        if skipped:
-            print(f"  skipped     : {len(skipped)}")
-            for r in skipped:
-                transport = r.get("transport") or "?"
-                reason = r.get("reason") or "-"
-                print(f"      {r.get('name')} ({transport}) reason={reason}")
-        if timeout_seen:
-            print("  hint: inconclusive timeout means the probe could not finish; the server may still be capable.")
-            print("        increase CIEL_RUNTIME_CHANNEL_PROBE_TIMEOUT_SECONDS if cold start is the cause,")
-            print("        or re-run with the latest ciel-runtime if this was an SSE endpoint event race.")
-        if exited_seen:
-            print("  hint: exited_without_response means the child died before responding. Check stderr above.")
+        lines = channel_probe_report_lines(
+            result,
+            channel_probe_default_timeout(),
+            ChannelProbeReportServices(
+                bucket=channel_probe_record_bucket,
+                format_timestamp=lambda value: time.strftime(
+                    "%Y-%m-%d %H:%M:%S", time.localtime(value)
+                ),
+            ),
+        )
+        for line in lines:
+            print(line)
         return
     if head in ("delivery", "mode"):
         if len(values) < 2:

@@ -43,6 +43,7 @@ from ciel_runtime_support.channel_pending_injection import (
     ChannelInjectionState,
     ChannelInjectionWakeStore,
 )
+from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
 from ciel_runtime_support.compatibility_test import (
     CompatibilityTestConfig,
@@ -578,6 +579,9 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_channel_mcp_tool_services_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelMcpToolServices)), 10)
+
+    def test_channel_probe_report_services_stay_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(ChannelProbeReportServices)), 10)
 
     def test_sse_stream_state_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(SseStreamServices)), 10)
