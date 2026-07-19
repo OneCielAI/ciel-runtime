@@ -96,6 +96,10 @@ The same service owns launch candidate projection, cache-refresh decisions,
 and refresh failure isolation so launch orchestration does not depend on the
 probe cache schema.
 
+HTTP MCP configuration projection, environment-backed authentication headers,
+external server discovery, allow-list filtering, and automatic connection
+startup live in `channel_mcp_discovery.py`.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

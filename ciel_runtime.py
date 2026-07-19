@@ -162,6 +162,10 @@ from ciel_runtime_support.channel_mcp_tools import (
     channel_mcp_tool_schemas,
     dispatch_channel_mcp_tool,
 )
+from ciel_runtime_support.channel_mcp_discovery import (
+    ChannelMcpDiscoveryPorts,
+    ChannelMcpDiscoveryService,
+)
 from ciel_runtime_support.channel_mcp_http_controller import (
     ChannelMcpHttpController,
     ChannelMcpRpcServices,
@@ -11372,67 +11376,28 @@ def auto_import_passthrough_channels(passthrough: list[str]) -> list[str]:
     return added
 
 
+def channel_mcp_discovery_service() -> ChannelMcpDiscoveryService:
+    return ChannelMcpDiscoveryService(
+        ChannelMcpDiscoveryPorts(
+            environment=os.environ,
+            config_paths=claude_mcp_config_paths,
+            path_key=_path_for_compare,
+            read_config=_read_mcp_sse_servers_from_json,
+            dedupe=_dedupe_strings,
+            native_router_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
+            public_name=_channel_sse_public_mcp_name,
+            start_connection=start_channel_sse_connection,
+            log=router_log,
+        )
+    )
+
+
 def mcp_server_runtime_headers(server: dict[str, Any]) -> dict[str, str]:
-    headers = server.get("headers") if isinstance(server.get("headers"), dict) else {}
-    out = {str(k): str(v) for k, v in headers.items() if str(k).strip() and v is not None}
-    env_headers = server.get("env_http_headers")
-    if isinstance(env_headers, dict):
-        for raw_header, raw_env_name in env_headers.items():
-            header = str(raw_header or "").strip()
-            env_name = str(raw_env_name or "").strip()
-            if not header or not env_name:
-                continue
-            value = os.environ.get(env_name)
-            if value:
-                out[header] = value
-    token = str(server.get("bearer_token") or server.get("token") or "").strip()
-    token_env = str(server.get("bearer_token_env_var") or server.get("token_env_var") or "").strip()
-    if not token and token_env:
-        token = str(os.environ.get(token_env) or "").strip()
-    if token and not any(str(key).lower() == "authorization" for key in out):
-        out["Authorization"] = f"Bearer {token}"
-    return out
+    return channel_mcp_discovery_service().runtime_headers(server)
 
 
 def _mcp_sse_servers_from_mapping(mapping: Any) -> list[dict[str, Any]]:
-    if not isinstance(mapping, dict):
-        return []
-    found: list[dict[str, Any]] = []
-    for key in ("mcpServers", "servers"):
-        servers = mapping.get(key)
-        if not isinstance(servers, dict):
-            continue
-        for raw_name, raw_server in servers.items():
-            name = str(raw_name or "").strip()
-            if not name or not isinstance(raw_server, dict):
-                continue
-            url = str(raw_server.get("url") or raw_server.get("endpoint") or "").strip()
-            if not url.startswith(("http://", "https://")):
-                continue
-            server_type = str(raw_server.get("type") or "").strip().lower()
-            if server_type and server_type not in ("sse", "http", "streamable-http"):
-                continue
-            transport = "streamable-http" if server_type in ("http", "streamable-http") else "sse"
-            headers = mcp_server_runtime_headers(raw_server)
-            streamable_requires_session = raw_server.get(
-                "streamable_requires_session",
-                raw_server.get("require_session", raw_server.get("mcp_session_required", True)),
-            )
-            found.append(
-                {
-                    "name": f"mcp-{name}",
-                    "url": url,
-                    "type": server_type or transport,
-                    "transport": transport,
-                    "headers": {str(k): str(v) for k, v in headers.items() if str(k).strip()},
-                    "channel": name,
-                    "sender_id": name,
-                    "recipient": "all",
-                    "mcp": True,
-                    "streamable_requires_session": streamable_requires_session,
-                }
-            )
-    return found
+    return channel_mcp_discovery_service().servers_from_mapping(mapping)
 
 
 def _read_mcp_sse_servers_from_json(path: Path, cwd: Path) -> list[dict[str, Any]]:
@@ -11451,24 +11416,12 @@ def external_mcp_channel_server_names_from_configs(
     home: Path | None = None,
     extra_config_paths: list[Path | str] | None = None,
 ) -> list[str]:
-    cwd = cwd or Path.cwd()
-    paths = [Path(path).expanduser() for path in extra_config_paths or []]
-    paths.extend(claude_mcp_config_paths(passthrough, cwd, home))
-    names: list[str] = []
-    seen_paths: set[str] = set()
-    for path in paths:
-        key = _path_for_compare(path)
-        if key in seen_paths:
-            continue
-        seen_paths.add(key)
-        if not path.exists() or not path.is_file():
-            continue
-        for server in _read_mcp_sse_servers_from_json(path, cwd):
-            name = str(server.get("channel") or "").strip()
-            if not name or name.strip().lower() in _NATIVE_ROUTER_CHANNEL_NAMES:
-                continue
-            names.append(name)
-    return _dedupe_strings(names)
+    return channel_mcp_discovery_service().external_names(
+        passthrough,
+        cwd,
+        home,
+        extra_config_paths,
+    )
 
 
 def auto_start_sse_channels_from_mcp_configs(
@@ -11479,37 +11432,14 @@ def auto_start_sse_channels_from_mcp_configs(
     allowed_server_names: Iterable[str] | None = None,
     include_default_paths: bool = True,
 ) -> list[dict[str, Any]]:
-    cwd = cwd or Path.cwd()
-    started: list[dict[str, Any]] = []
-    allowed: set[str] | None = None
-    if allowed_server_names is not None:
-        allowed = {
-            _channel_sse_public_mcp_name(str(name or "").strip())
-            for name in allowed_server_names
-            if str(name or "").strip()
-        }
-    paths = [Path(path).expanduser() for path in extra_config_paths or []]
-    if include_default_paths:
-        paths.extend(claude_mcp_config_paths(passthrough, cwd, home))
-    seen: set[str] = set()
-    for path in paths:
-        key = _path_for_compare(path)
-        if key in seen:
-            continue
-        seen.add(key)
-        if not path.exists() or not path.is_file():
-            continue
-        for server in _read_mcp_sse_servers_from_json(path, cwd):
-            public_name = _channel_sse_public_mcp_name(str(server.get("name") or ""))
-            if allowed is not None and public_name not in allowed:
-                continue
-            try:
-                status = start_channel_sse_connection(server)
-                started.append(status)
-                router_log("INFO", f"channel_sse_auto_started name={status.get('name')} url={status.get('url')}")
-            except Exception as exc:
-                router_log("WARN", f"channel_sse_auto_start_failed path={path} error={type(exc).__name__}: {exc}")
-    return started
+    return channel_mcp_discovery_service().auto_start(
+        passthrough,
+        cwd,
+        home,
+        extra_config_paths,
+        allowed_server_names,
+        include_default_paths,
+    )
 
 
 def proxy_owned_channel_server_names() -> set[str]:
