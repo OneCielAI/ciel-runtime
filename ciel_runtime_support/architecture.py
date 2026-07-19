@@ -394,6 +394,12 @@ class ProviderAdapter(ABC):
         del model_id
         return False
 
+    def launch_model_strategy(self, config: ProviderConfig) -> str:
+        """Return the provider-owned launch alias strategy."""
+
+        del config
+        return "alias"
+
     def requires_catalog_model_selection(self, config: ProviderConfig) -> bool:
         """Whether placeholder model ids must be replaced from provider discovery."""
 
@@ -535,8 +541,13 @@ class ProviderAdapter(ABC):
     def exposes_compatibility_runtime_info(self, config: ProviderConfig) -> bool:
         """Whether compatibility output should inspect upstream runtime metadata."""
 
+        return bool(self.runtime_model_info_strategy(config))
+
+    def runtime_model_info_strategy(self, config: ProviderConfig) -> str:
+        """Return the provider-owned upstream runtime metadata strategy."""
+
         del config
-        return False
+        return ""
 
     def compatibility_runtime_metadata_lines(
         self, config: ProviderConfig, info: Mapping[str, Any]

@@ -7432,9 +7432,12 @@ def ensure_lm_studio_model_loaded_for_context(pcfg: dict[str, Any], timeout: flo
 
 
 def upstream_model_runtime_info(provider: str, pcfg: dict[str, Any], timeout: float = 3.0) -> dict[str, Any] | None:
-    if provider not in ("vllm", "lm-studio", "self-hosted-nim"):
+    adapter = configured_provider_adapter(provider, pcfg)
+    contract = provider_contract_config(provider, pcfg)
+    strategy = adapter.runtime_model_info_strategy(contract)
+    if not strategy:
         return None
-    if provider == "lm-studio":
+    if strategy == "lm_studio":
         info = lm_studio_runtime_info(pcfg, timeout=timeout)
         if info:
             return info
@@ -7610,12 +7613,14 @@ def ensure_current_model_from_provider_list(
 
 def launch_model_id(provider: str, pcfg: dict[str, Any]) -> str:
     cur = normalize_model_id(provider, pcfg.get("current_model") or "model")
-    if provider != "ollama":
-        return alias_for(provider, cur) if not (provider == "nvidia-hosted" and cur.startswith("claude-")) else cur
-    if not cur.startswith("ciel-runtime-ollama-"):
+    adapter = configured_provider_adapter(provider, pcfg)
+    contract = provider_contract_config(provider, pcfg)
+    if adapter.launch_model_strategy(contract) != "ollama_unslug":
+        return cur if adapter.preserves_claude_model_alias(cur) else alias_for(provider, cur)
+    if not cur.startswith(f"ciel-runtime-{provider}-"):
         return cur
     try:
-        return unslug_provider_alias("ollama", cur, model_map_for("ollama", pcfg)) or cur
+        return unslug_provider_alias(provider, cur, model_map_for(provider, pcfg)) or cur
     except Exception:
         return cur
 

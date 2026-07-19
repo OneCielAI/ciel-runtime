@@ -429,6 +429,27 @@ class ProviderContractMatrixTests(unittest.TestCase):
             ),
         )
 
+    def test_model_launch_and_runtime_info_strategy_matrix(self):
+        launch_cases = {
+            "ollama": "ollama_unslug",
+            "ollama-cloud": "alias",
+            "nvidia-hosted": "alias",
+        }
+        for provider, expected in launch_cases.items():
+            with self.subTest(provider=provider, policy="launch"):
+                adapter = PROVIDER_ADAPTERS.create(provider)
+                self.assertEqual(expected, adapter.launch_model_strategy(config(provider)))
+        runtime_cases = {
+            "lm-studio": "lm_studio",
+            "vllm": "openai",
+            "self-hosted-nim": "openai",
+            "ollama": "",
+        }
+        for provider, expected in runtime_cases.items():
+            with self.subTest(provider=provider, policy="runtime_info"):
+                adapter = PROVIDER_ADAPTERS.create(provider)
+                self.assertEqual(expected, adapter.runtime_model_info_strategy(config(provider)))
+
     def test_router_native_anthropic_capability_matrix(self):
         enabled = {
             "deepseek",

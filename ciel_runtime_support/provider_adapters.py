@@ -365,6 +365,10 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
         del config
         return "ollama"
 
+    def launch_model_strategy(self, config: ProviderConfig) -> str:
+        del config
+        return "ollama_unslug"
+
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(
@@ -410,6 +414,10 @@ class OllamaCloudProviderAdapter(OllamaProviderAdapter):
     def normalize_model_id(self, model_id: str) -> str:
         normalized = super().normalize_model_id(model_id)
         return normalized[:-6] if normalized.endswith(":cloud") else normalized
+
+    def launch_model_strategy(self, config: ProviderConfig) -> str:
+        del config
+        return "alias"
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
@@ -462,9 +470,9 @@ class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         return replace(super().context_policy(config), status_capacity_strategy="openai_budget")
 
-    def exposes_compatibility_runtime_info(self, config: ProviderConfig) -> bool:
+    def runtime_model_info_strategy(self, config: ProviderConfig) -> str:
         del config
-        return True
+        return "lm_studio"
 
     def compatibility_runtime_metadata_lines(
         self, config: ProviderConfig, info: Mapping[str, Any]
@@ -535,9 +543,9 @@ class VllmProviderAdapter(OpenAICompatibleProviderAdapter):
             "and some older Qwen tool templates."
         )
 
-    def exposes_compatibility_runtime_info(self, config: ProviderConfig) -> bool:
+    def runtime_model_info_strategy(self, config: ProviderConfig) -> str:
         del config
-        return True
+        return "openai"
     send_placeholder_key: bool = True
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
@@ -668,9 +676,9 @@ class SelfHostedNimProviderAdapter(OpenAICompatibleProviderAdapter):
         del config
         return True
 
-    def exposes_compatibility_runtime_info(self, config: ProviderConfig) -> bool:
+    def runtime_model_info_strategy(self, config: ProviderConfig) -> str:
         del config
-        return True
+        return "openai"
 
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         return replace(super().option_presentation_policy(config), show_rate_limit=True)
