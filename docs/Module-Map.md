@@ -56,6 +56,10 @@ Ollama `/api/chat` 응답을 Anthropic Messages content로 투영하는 Provider
 
 Attachment-only message, Plan Mode 상태, plan file write 이력, unchanged Read 결과와 tool-result history를 해석하는 순수 Protocol Policy. Transcript/guard 판정과 content codec은 6필드 Port로 주입받아 provider와 composition root에 의존하지 않는다.
 
+### `ciel_runtime_support/protocols/anthropic_thinking_policy.py`
+
+Anthropic thinking block과 강제 tool-choice의 provider 호환 변환을 소유하는 Protocol Policy. 요청·응답 정규화는 provider capability port를 통해 결정하고, client에 노출하지 않은 thinking passback은 용량 제한 Repository에 보관·복원한다. 메인 facade의 전역 캐시와 동적 monkeypatch 호환성은 composition wrapper가 유지한다.
+
 ### `ciel_runtime_support/router_http.py`
 
 HTTP parsing과 GET/POST/HEAD/DELETE endpoint dispatch를 담당하는 Router Adapter. Core, GET endpoints, POST endpoints, Presentation, Errors 포트를 통해 Runtime/Channel/Protocol 서비스에 위임하며 composition root를 직접 import하지 않는다.

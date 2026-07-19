@@ -525,6 +525,21 @@ from ciel_runtime_support.openai_responses_stream import (
     write_openai_responses_error as project_openai_responses_error,
 )
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
+from ciel_runtime_support.protocols.anthropic_thinking_policy import (
+    AnthropicThinkingPolicy,
+    SuppressedThinkingRepository,
+    ThinkingPolicyPorts,
+    ToolChoicePorts,
+    assistant_history_count as project_anthropic_assistant_history_count,
+    copy_thinking_blocks as project_copy_thinking_blocks,
+    has_synthetic_tool_use as project_has_synthetic_tool_use,
+    message_content_blocks as project_message_content_blocks,
+    normalize_tool_choice as project_normalize_tool_choice,
+    strip_thinking_blocks as project_strip_thinking_blocks,
+    thinking_block_count as project_anthropic_thinking_block_count,
+    thinking_requested as project_anthropic_thinking_requested,
+    tool_continuation_block_count as project_anthropic_tool_continuation_block_count,
+)
 from ciel_runtime_support.protocols.ollama_chat import (
     anthropic_system_to_ollama_messages,
     anthropic_tools_to_ollama,
@@ -1242,6 +1257,10 @@ def positive_env_int(name: str, default: int) -> int:
 
 SUPPRESSED_THINKING_PASSBACK_MAX = positive_env_int("CIEL_RUNTIME_THINKING_PASSBACK_MAX", 4096)
 SUPPRESSED_THINKING_PASSBACK_CACHE: list[dict[str, Any]] = []
+SUPPRESSED_THINKING_REPOSITORY = SuppressedThinkingRepository(
+    SUPPRESSED_THINKING_PASSBACK_CACHE,
+    capacity=lambda: SUPPRESSED_THINKING_PASSBACK_MAX,
+)
 DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC: tuple[str, ...] = (
     "EnterWorktree",
     "ExitWorktree",
@@ -2672,102 +2691,31 @@ def ultracode_workflow_preferred(body: dict[str, Any]) -> bool:
 
 
 def _message_content_blocks(message: dict[str, Any]) -> list[Any]:
-    content = message.get("content")
-    if isinstance(content, list):
-        return content
-    if isinstance(content, str):
-        return [{"type": "text", "text": content}]
-    return []
+    return project_message_content_blocks(message)
 
 
 def anthropic_thinking_requested(body: dict[str, Any]) -> bool:
-    thinking = body.get("thinking")
-    if isinstance(thinking, dict):
-        thinking_type = str(thinking.get("type") or "").strip().lower()
-        return thinking_type not in ("", "disabled", "none", "off", "false")
-    return bool(thinking)
+    return project_anthropic_thinking_requested(body)
 
 
 def anthropic_thinking_block_count(body: dict[str, Any]) -> int:
-    count = 0
-    for message in body.get("messages") or []:
-        if not isinstance(message, dict):
-            continue
-        for block in _message_content_blocks(message):
-            if isinstance(block, dict) and block.get("type") in ANTHROPIC_THINKING_BLOCK_TYPES:
-                count += 1
-    return count
+    return project_anthropic_thinking_block_count(body)
 
 
 def anthropic_tool_continuation_block_count(body: dict[str, Any]) -> int:
-    count = 0
-    for message in body.get("messages") or []:
-        if not isinstance(message, dict):
-            continue
-        role = message.get("role")
-        for block in _message_content_blocks(message):
-            if not isinstance(block, dict):
-                continue
-            block_type = block.get("type")
-            if role == "assistant" and block_type == "tool_use":
-                count += 1
-            elif role == "user" and block_type == "tool_result":
-                count += 1
-    return count
+    return project_anthropic_tool_continuation_block_count(body)
 
 
 def anthropic_assistant_history_count(body: dict[str, Any]) -> int:
-    count = 0
-    for message in body.get("messages") or []:
-        if isinstance(message, dict) and message.get("role") == "assistant":
-            count += 1
-    return count
+    return project_anthropic_assistant_history_count(body)
 
 
 def strip_anthropic_thinking_blocks_from_messages(body: dict[str, Any]) -> dict[str, Any]:
-    messages = body.get("messages")
-    if not isinstance(messages, list):
-        return body
-    changed = False
-    out_messages: list[Any] = []
-    for message in messages:
-        if not isinstance(message, dict):
-            out_messages.append(message)
-            continue
-        content = message.get("content")
-        if not isinstance(content, list):
-            out_messages.append(message)
-            continue
-        filtered = [
-            block
-            for block in content
-            if not (isinstance(block, dict) and block.get("type") in ANTHROPIC_THINKING_BLOCK_TYPES)
-        ]
-        if len(filtered) != len(content):
-            new_message = dict(message)
-            new_message["content"] = filtered
-            out_messages.append(new_message)
-            changed = True
-        else:
-            out_messages.append(message)
-    if not changed:
-        return body
-    out = dict(body)
-    out["messages"] = out_messages
-    return out
+    return project_strip_thinking_blocks(body)
 
 
 def has_ciel_runtime_synthetic_tool_use(body: dict[str, Any]) -> bool:
-    for message in body.get("messages") or []:
-        if not isinstance(message, dict) or message.get("role") != "assistant":
-            continue
-        for block in _message_content_blocks(message):
-            if not isinstance(block, dict) or block.get("type") != "tool_use":
-                continue
-            tool_id = str(block.get("id") or "")
-            if tool_id.startswith("toolu_ciel_runtime_"):
-                return True
-    return False
+    return project_has_synthetic_tool_use(body)
 
 
 def should_defer_forced_tool_choice_for_thinking(provider: str, pcfg: dict[str, Any], body: dict[str, Any], name: str | None) -> bool:
@@ -2781,6 +2729,19 @@ def preserves_anthropic_thinking_contract(provider: str, pcfg: dict[str, Any]) -
     return adapter.preserves_anthropic_thinking(provider_contract_config(provider, pcfg))
 
 
+def anthropic_thinking_policy() -> AnthropicThinkingPolicy:
+    """Compose protocol policy ports late to preserve facade monkeypatch support."""
+    return AnthropicThinkingPolicy(
+        ThinkingPolicyPorts(
+            preserves_contract=preserves_anthropic_thinking_contract,
+            reasoning_passback_enabled=openai_chat_reasoning_passback_enabled_for_body,
+            suggestion_mode=latest_user_is_claude_code_suggestion_mode,
+            log=router_log,
+        ),
+        SUPPRESSED_THINKING_REPOSITORY,
+    )
+
+
 def should_normalize_anthropic_stream_tool_use(provider: str, pcfg: dict[str, Any]) -> bool:
     configured = pcfg.get("normalize_anthropic_tool_use")
     if configured is not None:
@@ -2789,36 +2750,7 @@ def should_normalize_anthropic_stream_tool_use(provider: str, pcfg: dict[str, An
 
 
 def normalize_thinking_for_non_anthropic_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
-    thinking_requested = anthropic_thinking_requested(body)
-    thinking_blocks = anthropic_thinking_block_count(body)
-    if not thinking_requested and thinking_blocks <= 0:
-        return body
-    if preserves_anthropic_thinking_contract(provider, pcfg):
-        return body
-    if openai_chat_reasoning_passback_enabled_for_body(provider, pcfg, body):
-        if not thinking_requested:
-            return body
-        out = dict(body)
-        out.pop("thinking", None)
-        router_log(
-            "INFO",
-            "removed top-level Anthropic thinking request but preserved thinking blocks "
-            f"for OpenAI-chat reasoning passback provider={provider} thinking_blocks={thinking_blocks}",
-        )
-        return out
-    synthetic_tool = has_ciel_runtime_synthetic_tool_use(body)
-    continuation_blocks = anthropic_tool_continuation_block_count(body)
-    assistant_history = anthropic_assistant_history_count(body)
-    out = strip_anthropic_thinking_blocks_from_messages(body)
-    out = dict(out)
-    out.pop("thinking", None)
-    router_log(
-        "WARN",
-        "removed Anthropic thinking request and thinking content blocks for non-Anthropic provider "
-        f"provider={provider} synthetic_tool={synthetic_tool} continuation_blocks={continuation_blocks} "
-        f"assistant_history={assistant_history} thinking_blocks={thinking_blocks}",
-    )
-    return out
+    return anthropic_thinking_policy().normalize_request(provider, pcfg, body)
 
 
 def normalize_thinking_for_non_anthropic_native_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
@@ -2841,156 +2773,42 @@ def provider_tool_choice_status(provider: str, pcfg: dict[str, Any]) -> str:
 
 
 def normalize_tool_choice_for_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
-    if body.get("tool_choice") is None:
-        return body
-    adapter = configured_provider_adapter(provider, pcfg)
-    tool_choice = body.get("tool_choice")
-    normalized_choice = adapter.normalize_tool_choice(
-        provider_contract_config(provider, pcfg),
-        str(body.get("model") or pcfg.get("current_model") or ""),
-        tool_choice,
+    return project_normalize_tool_choice(
+        provider,
+        pcfg,
+        body,
+        ToolChoicePorts(
+            normalize=lambda current_provider, config, request, choice: configured_provider_adapter(
+                current_provider, config
+            ).normalize_tool_choice(
+                provider_contract_config(current_provider, config),
+                str(request.get("model") or config.get("current_model") or ""),
+                choice,
+            ),
+            supports=provider_supports_tool_choice,
+            log=router_log,
+        ),
     )
-    if normalized_choice != tool_choice:
-        out = dict(body)
-        out["tool_choice"] = normalized_choice
-        router_log(
-            "WARN",
-            f"normalized unsupported forced tool_choice for provider={provider}: "
-            f"model={body.get('model')} tool_choice={tool_choice}",
-        )
-        return out
-    if provider_supports_tool_choice(provider, pcfg, body):
-        return body
-    out = dict(body)
-    removed = out.pop("tool_choice", None)
-    router_log(
-        "WARN",
-        f"removed unsupported tool_choice for {provider}: model={body.get('model')} tool_choice={removed}",
-    )
-    return out
 
 
 def normalize_response_thinking_for_non_anthropic_provider(provider: str, pcfg: dict[str, Any], message: dict[str, Any], model: str | None = None) -> dict[str, Any]:
-    if preserves_anthropic_thinking_contract(provider, pcfg):
-        return message
-    content = message.get("content")
-    if not isinstance(content, list):
-        return message
-    filtered = [
-        block
-        for block in content
-        if not (isinstance(block, dict) and block.get("type") in ANTHROPIC_THINKING_BLOCK_TYPES)
-    ]
-    if len(filtered) == len(content):
-        return message
-    remember_suppressed_thinking_passback(provider, str(model or message.get("model") or ""), content)
-    out = dict(message)
-    out["content"] = filtered or [{"type": "text", "text": ""}]
-    router_log(
-        "WARN",
-        f"removed Anthropic thinking response blocks for non-Anthropic provider provider={provider} "
-        f"thinking_blocks={len(content) - len(filtered)}",
-    )
-    return out
+    return anthropic_thinking_policy().normalize_response(provider, pcfg, message, model)
 
 
 def clear_suppressed_thinking_passback_cache() -> None:
-    SUPPRESSED_THINKING_PASSBACK_CACHE.clear()
+    SUPPRESSED_THINKING_REPOSITORY.clear()
 
 
 def _copy_thinking_blocks(blocks: Any) -> list[dict[str, Any]]:
-    if not isinstance(blocks, list):
-        return []
-    copied: list[dict[str, Any]] = []
-    for block in blocks:
-        if isinstance(block, dict) and block.get("type") in ANTHROPIC_THINKING_BLOCK_TYPES:
-            copied.append(dict(block))
-    return copied
+    return project_copy_thinking_blocks(blocks)
 
 
 def remember_suppressed_thinking_passback(provider: str, model: str, blocks: list[Any]) -> None:
-    copied = _copy_thinking_blocks(blocks)
-    if not copied:
-        return
-    SUPPRESSED_THINKING_PASSBACK_CACHE.append(
-        {
-            "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "provider": provider,
-            "model": model,
-            "blocks": copied,
-        }
-    )
-    del SUPPRESSED_THINKING_PASSBACK_CACHE[:-SUPPRESSED_THINKING_PASSBACK_MAX]
-    router_log(
-        "WARN",
-        f"stored suppressed Anthropic thinking passback blocks provider={provider} "
-        f"model={model} blocks={len(copied)} cache={len(SUPPRESSED_THINKING_PASSBACK_CACHE)}",
-    )
+    anthropic_thinking_policy().remember(provider, model, blocks)
 
 
 def rehydrate_suppressed_thinking_passback(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
-    if preserves_anthropic_thinking_contract(provider, pcfg):
-        return body
-    if latest_user_is_claude_code_suggestion_mode(body):
-        return body
-    if not SUPPRESSED_THINKING_PASSBACK_CACHE:
-        return body
-    messages = body.get("messages")
-    if not isinstance(messages, list):
-        return body
-    assistant_indices: list[int] = []
-    for index, message in enumerate(messages):
-        if not isinstance(message, dict) or message.get("role") != "assistant":
-            continue
-        if anthropic_thinking_block_count({"messages": [message]}) > 0:
-            continue
-        content = message.get("content")
-        if isinstance(content, list) and content:
-            assistant_indices.append(index)
-        elif isinstance(content, str) and content:
-            assistant_indices.append(index)
-    if not assistant_indices:
-        return body
-    matching_records = [
-        record
-        for record in SUPPRESSED_THINKING_PASSBACK_CACHE
-        if isinstance(record, dict) and record.get("provider") == provider
-    ]
-    records = matching_records[-len(assistant_indices):]
-    if not records:
-        return body
-    selected_indices = assistant_indices[-len(records):]
-    out_messages = list(messages)
-    inserted = 0
-    for index, record in zip(selected_indices, records):
-        message = out_messages[index]
-        if not isinstance(message, dict):
-            continue
-        blocks = _copy_thinking_blocks(record.get("blocks") if isinstance(record, dict) else [])
-        if not blocks:
-            continue
-        content = message.get("content")
-        if isinstance(content, list):
-            new_content = blocks + list(content)
-        elif isinstance(content, str):
-            new_content = blocks + [{"type": "text", "text": content}]
-        else:
-            continue
-        patched = dict(message)
-        patched["content"] = new_content
-        out_messages[index] = patched
-        inserted += len(blocks)
-    if inserted <= 0:
-        return body
-    out = dict(body)
-    out["messages"] = out_messages
-    router_log(
-        "WARN",
-        f"rehydrated suppressed Anthropic thinking passback blocks for upstream provider={provider} "
-        f"blocks={inserted} assistant_messages={len(selected_indices)} cache={len(SUPPRESSED_THINKING_PASSBACK_CACHE)}",
-    )
-    return out
-
+    return anthropic_thinking_policy().rehydrate(provider, pcfg, body)
 
 def plan_mode_active(body: dict[str, Any]) -> bool:
     """Infer Claude Code Plan Mode from tool history and plan-mode attachments."""
