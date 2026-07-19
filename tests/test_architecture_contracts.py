@@ -37,6 +37,12 @@ from ciel_runtime_support.compatibility_test import (
     CompatibilityTestServices,
 )
 from ciel_runtime_support.mcp_proxy_codec import McpProxyCodecPolicy
+from ciel_runtime_support.mcp_probe_transport import (
+    McpProbeCodec,
+    McpProbeHttp,
+    McpProbePolicy,
+    McpProbeServices,
+)
 from ciel_runtime_support.model_panel import (
     ModelPanelCatalog,
     ModelPanelPresentation,
@@ -461,6 +467,23 @@ class ArchitectureContractTests(unittest.TestCase):
         silent_handlers = [
             node
             for node in ast.walk(function)
+            if isinstance(node, ast.ExceptHandler)
+            and len(node.body) == 1
+            and isinstance(node.body[0], ast.Pass)
+        ]
+        self.assertEqual([], silent_handlers)
+
+    def test_mcp_probe_transport_ports_stay_below_dependency_limit(self):
+        for port in (McpProbeCodec, McpProbeHttp, McpProbePolicy, McpProbeServices):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_mcp_probe_transport_has_no_silent_exception_handlers(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "mcp_probe_transport.py"
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        silent_handlers = [
+            node
+            for node in ast.walk(tree)
             if isinstance(node, ast.ExceptHandler)
             and len(node.body) == 1
             and isinstance(node.body[0], ast.Pass)
