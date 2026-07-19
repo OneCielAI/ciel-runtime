@@ -403,6 +403,14 @@ from ciel_runtime_support.provider_context import (
     infer_context_preset,
     resolve_context_capacity,
 )
+from ciel_runtime_support.provider_option_panel import (
+    OptionPanelPolicy,
+    OptionPanelProvider,
+    OptionPanelRuntime,
+    OptionPanelServices,
+    OptionPanelText,
+    build_option_panel_rows,
+)
 from ciel_runtime_support.provider_limits import (
     ProviderKeyServices,
     RateLimitApplyPolicy,
@@ -18977,86 +18985,53 @@ def rate_limit_rpm_label(provider: str, pcfg: dict[str, Any]) -> str:
 
 def llm_option_panel_rows(provider: str, pcfg: dict[str, Any], lang: str | None = None) -> tuple[list[str], list[str]]:
     lang = lang or load_config().get("language", "en")
-    rows: list[str] = []
-    values: list[str] = []
     adapter = configured_provider_adapter(provider, pcfg)
     config = provider_contract_config(provider, pcfg)
-    presentation = adapter.option_presentation_policy(config)
-    context_strategy = adapter.context_policy(config).settings_strategy
+    return build_option_panel_rows(
+        provider,
+        pcfg,
+        OptionPanelPolicy(
+            presentation=adapter.option_presentation_policy(config),
+            context_strategy=adapter.context_policy(config).settings_strategy,
+            shows_workflows=adapter.shows_claude_workflow_options(config),
+            timeout_default=adapter.option_timeout_default(),
+        ),
+        option_panel_services(),
+        language=lang,
+    )
 
-    def add(label: str, key: str, value: Any) -> None:
-        rows.append(f"{label:<24} [{compact_text(value, 56)}]")
-        values.append(key)
 
-    add(ui_text("context_setup", lang), "context_setup", context_setting_status(provider, pcfg))
-    add(ui_text("apply_preset", lang), "preset", llm_preset_text(applied_preset_id(provider, pcfg), lang)[0])
-    add(ui_text("timeout_preset", lang), "timeout_profile", timeout_profile_status(pcfg, lang))
-    add("Router debug external", "router_debug_external_access", "on" if router_debug_external_access_enabled() else "off")
-    add("Event message preview", "router_debug_message_preview_chars", router_debug_message_preview_chars())
-    if not direct_native_anthropic_enabled(provider, pcfg) and adapter.shows_claude_workflow_options(config):
-        caps = claude_code_capability_string(provider, pcfg, current_upstream_model_id(provider, pcfg))
-        add("Claude Code workflows", "workflows_enabled", "on" if claude_code_workflows_enabled(provider, pcfg) else "off")
-        add("Claude Code ultracode", "ultracode_enabled", "on" if claude_code_ultracode_enabled(provider, pcfg) else "off")
-        add("Claude Code capabilities", "claude_code_supported_capabilities", caps or "auto/none")
-    if context_strategy == "ollama":
-        opts = ollama_extra_options(pcfg)
-        add("Context window", "num_ctx", ollama_num_ctx_status(pcfg))
-        add("Context min", "num_ctx_min", pcfg.get("num_ctx_min", "default"))
-        add("Context max", "num_ctx_max", pcfg.get("num_ctx_max", "default"))
-        add("Max output tokens", "num_predict", opts.get("num_predict", "default"))
-        add("Query string", "force_query_string", upstream_query_string_status(provider, pcfg))
-        add("Tool choice", "supports_tool_choice", provider_tool_choice_status(provider, pcfg))
-        add("Temperature", "temperature", opts.get("temperature", "default"))
-        add("Top P", "top_p", opts.get("top_p", "default"))
-        add("Top K", "top_k", opts.get("top_k", "default"))
-        add("Think", "think", ollama_think_status(current_upstream_model_id(provider, pcfg), pcfg))
-        add("Keep alive", "keep_alive", pcfg.get("keep_alive", "default"))
-        add("Timeout ms", "request_timeout_ms", pcfg.get("request_timeout_ms", "default"))
-        add("Stream", "stream_enabled", "on" if bool(pcfg.get("stream_enabled", True)) else "off")
-        if bool(pcfg.get("stream_enabled", True)):
-            add("Stream idle timeout ms", "stream_idle_timeout_ms", pcfg.get("stream_idle_timeout_ms", "auto"))
-            add("Stream word chunking", "stream_word_chunking", "on" if bool(pcfg.get("stream_word_chunking", False)) else "off")
-        add("RPM limiter", "rate_limit_enabled", rate_limit_status_label(provider, pcfg))
-        add("Rate limit RPM", "rate_limit_rpm", rate_limit_rpm_label(provider, pcfg))
-        add("Rate limit status", "rate_limit_status", "on" if bool(pcfg.get("rate_limit_status", False)) else "off")
-        add("IP family", "ip_family", provider_ip_family(provider, pcfg))
-    else:
-        if context_strategy == "standard":
-            add("Context window", "context_window", pcfg.get("context_window", "default"))
-            add("Context reserve", "context_reserve_tokens", pcfg.get("context_reserve_tokens", "default"))
-        add("Max output tokens", "max_output_tokens", pcfg.get("max_output_tokens", "default"))
-        add("Query string", "force_query_string", upstream_query_string_status(provider, pcfg))
-        if presentation.show_tool_choice:
-            add("Tool choice", "supports_tool_choice", provider_tool_choice_status(provider, pcfg))
-        if context_strategy == "standard":
-            add("Timeout ms", "request_timeout_ms", pcfg.get("request_timeout_ms", "default"))
-            if presentation.show_rate_limit_controls:
-                add("RPM limiter", "rate_limit_enabled", rate_limit_status_label(provider, pcfg))
-                add("Rate limit RPM", "rate_limit_rpm", rate_limit_rpm_label(provider, pcfg))
-                add("Rate limit status", "rate_limit_status", "on" if bool(pcfg.get("rate_limit_status", False)) else "off")
-            if presentation.show_sampling_controls:
-                add("Temperature", "temperature", pcfg.get("temperature", "default"))
-                add("Top P", "top_p", pcfg.get("top_p", "default"))
-                add("Top K", "top_k", pcfg.get("top_k", "default"))
-            if presentation.show_native:
-                add("Native compatibility", "native_compat", bool(pcfg.get("native_compat", True)))
-            if presentation.show_stream:
-                add("Stream", "stream_enabled", "on" if bool(pcfg.get("stream_enabled", True)) else "off")
-            if presentation.show_stream and bool(pcfg.get("stream_enabled", True)):
-                add("Stream idle timeout ms", "stream_idle_timeout_ms", pcfg.get("stream_idle_timeout_ms", "auto"))
-                add("Stream word chunking", "stream_word_chunking", "on" if bool(pcfg.get("stream_word_chunking", False)) else "off")
-            if presentation.show_ip_family_control:
-                add("IP family", "ip_family", provider_ip_family(provider, pcfg))
-        elif presentation.show_route:
-            routed = parse_bool(pcfg.get("route_through_router"), default=False)
-            add("Route through router", "route_through_router", "on" if routed else "off")
-            add("Timeout ms", "request_timeout_ms", pcfg.get("request_timeout_ms", adapter.option_timeout_default()))
-            if presentation.show_ip_family_control and routed:
-                add("IP family", "ip_family", provider_ip_family(provider, pcfg))
-
-    rows.append(ui_text("back", lang))
-    values.append("back")
-    return rows, values
+def option_panel_services() -> OptionPanelServices:
+    return OptionPanelServices(
+        text=OptionPanelText(
+            compact_text=compact_text,
+            ui_text=ui_text,
+            context_status=context_setting_status,
+            applied_preset=applied_preset_id,
+            preset_text=llm_preset_text,
+            timeout_status=timeout_profile_status,
+        ),
+        runtime=OptionPanelRuntime(
+            router_debug_external=router_debug_external_access_enabled,
+            message_preview_chars=router_debug_message_preview_chars,
+            direct_native=direct_native_anthropic_enabled,
+            capability_string=claude_code_capability_string,
+            current_model=current_upstream_model_id,
+            workflows_enabled=claude_code_workflows_enabled,
+            ultracode_enabled=claude_code_ultracode_enabled,
+        ),
+        provider=OptionPanelProvider(
+            ollama_options=ollama_extra_options,
+            ollama_context_status=ollama_num_ctx_status,
+            ollama_think_status=ollama_think_status,
+            query_status=upstream_query_string_status,
+            tool_choice_status=provider_tool_choice_status,
+            rate_limit_status=rate_limit_status_label,
+            rate_limit_rpm=rate_limit_rpm_label,
+            ip_family=provider_ip_family,
+            parse_bool=parse_bool,
+        ),
+    )
 
 
 def llm_option_prompt_default(provider: str, pcfg: dict[str, Any], key: str) -> str:

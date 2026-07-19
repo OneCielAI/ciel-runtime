@@ -280,6 +280,13 @@ from ciel_runtime_support.prompt_compaction import (
     PromptCompactionText,
 )
 from ciel_runtime_support.provider_context import ContextPresetServices, ProviderContextServices
+from ciel_runtime_support.provider_option_panel import (
+    OptionPanelPolicy,
+    OptionPanelProvider,
+    OptionPanelRuntime,
+    OptionPanelServices,
+    OptionPanelText,
+)
 from ciel_runtime_support.context_compaction import (
     ContextCompactionProjection,
     ContextCompactionServices,
@@ -966,6 +973,15 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(ProviderContextServices)), 10)
         self.assertLessEqual(len(fields(ContextPresetServices)), 10)
         self.assertLessEqual(len(fields(ProviderOptionPresentationPolicy)), 10)
+        for port in (
+            OptionPanelPolicy,
+            OptionPanelText,
+            OptionPanelRuntime,
+            OptionPanelProvider,
+            OptionPanelServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
 
     def test_context_compaction_does_not_dispatch_on_provider_names(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "context_compaction.py"
