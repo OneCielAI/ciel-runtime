@@ -127,6 +127,11 @@ from ciel_runtime_support.channel_config_service import (
     ChannelConfigPorts,
     ChannelConfigService,
 )
+from ciel_runtime_support.channel_cli import (
+    ChannelCliCommands,
+    ChannelCliController,
+    ChannelCliView,
+)
 from ciel_runtime_support.channel_compact_request_repository import (
     ChannelCompactRequestRepository,
     compact_request_ttl,
@@ -11505,91 +11510,43 @@ def clear_channel_specs() -> list[str]:
     return channel_config_service().clear()
 
 
-def cmd_channels(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    values = list(getattr(args, "values", []) or [])
-    if not values:
-        print(f"channels: {channel_status_text(cfg)}")
-        print(f"delivery: {channel_delivery_mode(cfg)}")
-        for name, spec in OFFICIAL_CHANNEL_PLUGINS.items():
-            mark = "*" if spec in channel_specs(cfg) else " "
-            print(f" {mark} {name:<10} {spec}")
-        for spec in channel_specs(cfg):
-            if spec not in OFFICIAL_CHANNEL_PLUGINS.values():
-                print(f" * custom    {spec}")
-        return
-    head = values[0].strip().lower()
-    if head in ("on", "enable", "add"):
-        if len(values) < 2:
-            raise SystemExit("Usage: ciel-runtime channels add CHANNEL_SPEC")
-        for line in add_channel_spec(values[1]):
-            print(line)
-        return
-    if head in ("dev", "development"):
-        if len(values) >= 2 and values[1].lower() in ("on", "off", "true", "false", "1", "0"):
-            for line in set_channel_development_enabled(True):
-                print(line)
-            return
-        if len(values) < 2:
-            raise SystemExit("Usage: ciel-runtime channels add CHANNEL_SPEC")
-        for line in add_channel_spec(values[1]):
-            print(line)
-        return
-    if head in ("off", "disable", "remove", "rm"):
-        if len(values) < 2:
-            raise SystemExit("Usage: ciel-runtime channels remove CHANNEL_SPEC")
-        for line in remove_channel_spec(values[1]):
-            print(line)
-        return
-    if head in ("clear", "reset"):
-        for line in clear_channel_specs():
-            print(line)
-        return
-    if head in ("detect", "probe", "refresh"):
-        try:
-            result = refresh_channel_probe_cache()
-        except Exception as exc:
-            raise SystemExit(f"Channel probe failed: {type(exc).__name__}: {exc}")
-        lines = channel_probe_report_lines(
-            result,
-            channel_probe_default_timeout(),
-            ChannelProbeReportServices(
-                bucket=channel_probe_record_bucket,
-                format_timestamp=lambda value: time.strftime(
-                    "%Y-%m-%d %H:%M:%S", time.localtime(value)
+def channel_cli_controller() -> ChannelCliController:
+    return ChannelCliController(
+        ChannelCliView(
+            load_config=load_config,
+            status_text=channel_status_text,
+            delivery_mode=channel_delivery_mode,
+            configured_specs=channel_specs,
+            official_plugins=OFFICIAL_CHANNEL_PLUGINS,
+            output=print,
+        ),
+        ChannelCliCommands(
+            add=add_channel_spec,
+            development=set_channel_development_enabled,
+            remove=remove_channel_spec,
+            clear=clear_channel_specs,
+            refresh=refresh_channel_probe_cache,
+            report=lambda result: channel_probe_report_lines(
+                result,
+                channel_probe_default_timeout(),
+                ChannelProbeReportServices(
+                    bucket=channel_probe_record_bucket,
+                    format_timestamp=lambda value: time.strftime(
+                        "%Y-%m-%d %H:%M:%S", time.localtime(value)
+                    ),
                 ),
             ),
-        )
-        for line in lines:
-            print(line)
-        return
-    if head in ("delivery", "mode"):
-        if len(values) < 2:
-            print(f"channel_delivery: {channel_delivery_mode(cfg)}")
-            return
-        for line in set_channel_delivery_config(values[1]):
-            print(line)
-        return
-    if head in OFFICIAL_CHANNEL_PLUGINS:
-        spec = OFFICIAL_CHANNEL_PLUGINS[head]
-        if spec in channel_specs(cfg):
-            for line in remove_channel_spec(spec):
-                print(line)
-        else:
-            for line in add_channel_spec(spec):
-                print(line)
-        return
-    for line in add_channel_spec(values[0]):
-        print(line)
+            set_delivery=set_channel_delivery_config,
+        ),
+    )
+
+
+def cmd_channels(args: argparse.Namespace) -> None:
+    channel_cli_controller().run(args)
 
 
 def cmd_channel_delivery(args: argparse.Namespace) -> None:
-    value = getattr(args, "value", None)
-    if value:
-        for line in set_channel_delivery_config(value):
-            print(line)
-    else:
-        print(f"channel_delivery: {channel_delivery_mode()}")
+    channel_cli_controller().delivery(args)
 
 
 def cmd_ollama_native(args: argparse.Namespace) -> None:

@@ -108,6 +108,10 @@ Persisted channel lists, passthrough imports, delivery-mode normalization, and
 add/remove/clear mutations live in `channel_config_service.py`; CLI handlers
 only translate command arguments and render returned messages.
 
+Channel CLI parsing and presentation live in `channel_cli.py`. Its controller
+uses separate view and command ports and never reads or writes configuration
+files directly.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file
