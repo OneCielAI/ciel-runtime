@@ -3,7 +3,7 @@ from unittest import mock
 
 import ciel_runtime
 from ciel_runtime_support.agent_router import COMMON_RUNTIME_ROUTER_CAPABILITIES
-from ciel_runtime_support.claude_router import ClaudeRouter, missing_claude_runtime_dependencies
+from ciel_runtime_support.claude_router import ClaudeRouter, ClaudeRouterServices
 from ciel_runtime_support.codex_router import CodexRouter
 
 
@@ -57,8 +57,13 @@ class RuntimeRouterTests(unittest.TestCase):
     def test_runtime_post_delegation_returns_false_for_unowned_path(self):
         self.assertFalse(ciel_runtime.route_runtime_post(object(), {}, "anthropic", {}, "/not-found", {}))
 
-    def test_claude_router_runtime_dependencies_are_present_in_main_module(self):
-        self.assertEqual([], missing_claude_runtime_dependencies(vars(ciel_runtime)))
+    def test_claude_router_uses_typed_service_groups(self):
+        services = ciel_runtime.build_claude_router_services()
+
+        self.assertIsInstance(services, ClaudeRouterServices)
+        self.assertIs(services.core.event_bus, ciel_runtime.EVENT_BUS)
+        self.assertIs(services.routing.forward_ollama, ciel_runtime.forward_ollama_api_chat)
+        self.assertIs(services.transport.open_request, ciel_runtime.open_provider_request_with_key_retry)
 
     def test_runtime_post_delegation_uses_claude_router_for_count_tokens(self):
         with (

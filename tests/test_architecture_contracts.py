@@ -28,6 +28,18 @@ from ciel_runtime_support.cli_dispatch import (
     CliSpecialCommands,
 )
 from ciel_runtime_support.channel_panel import ChannelPanelPolicy
+from ciel_runtime_support.claude_router import (
+    ClaudeRouterCore,
+    ClaudeRouterCountTokens,
+    ClaudeRouterDelivery,
+    ClaudeRouterNativeNormalization,
+    ClaudeRouterPipeline,
+    ClaudeRouterResponse,
+    ClaudeRouterRouting,
+    ClaudeRouterServices,
+    ClaudeRouterShortcuts,
+    ClaudeRouterTransport,
+)
 from ciel_runtime_support.channel_compact_poll import (
     ChannelCompactInjectionOptions,
     ChannelCompactPollPolicy,
@@ -373,6 +385,22 @@ class ArchitectureContractTests(unittest.TestCase):
         )
 
         for port in ports:
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_claude_router_ports_stay_below_dependency_limit(self):
+        for port in (
+            ClaudeRouterCore,
+            ClaudeRouterCountTokens,
+            ClaudeRouterPipeline,
+            ClaudeRouterShortcuts,
+            ClaudeRouterDelivery,
+            ClaudeRouterRouting,
+            ClaudeRouterNativeNormalization,
+            ClaudeRouterTransport,
+            ClaudeRouterResponse,
+            ClaudeRouterServices,
+        ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
@@ -854,6 +882,7 @@ class ArchitectureContractTests(unittest.TestCase):
             source_root / "ciel_runtime.py",
             source_root / "ciel_runtime_support" / "mcp_http_proxy.py",
             source_root / "ciel_runtime_support" / "mcp_proxy_process.py",
+            source_root / "ciel_runtime_support" / "claude_router.py",
         )
         critical_names = {
             "subprocess_call_with_channel_wake_proxy",
@@ -863,6 +892,7 @@ class ArchitectureContractTests(unittest.TestCase):
             "_mcp_proxy_forward_stderr",
             "run_mcp_streamable_http_proxy",
             "run_mcp_stdio_proxy",
+            "handle_claude_messages_post",
         }
         critical_functions = []
         for source_path in source_paths:
@@ -1032,6 +1062,7 @@ class ArchitectureContractTests(unittest.TestCase):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
 
         self.assertNotIn("runtime_deps=globals()", source)
+        self.assertNotIn("build_claude_router_dependencies", source)
         self.assertNotIn("def _legacy_openai_responses_to_anthropic_messages", source)
         self.assertNotIn("def _legacy_anthropic_message_to_openai_response", source)
 

@@ -7,98 +7,143 @@ import os
 import time
 import urllib.error
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any, Callable
 
 from .agent_router import COMMON_RUNTIME_ROUTER_CAPABILITIES, RouterCapability
 
 
-CLAUDE_RUNTIME_DEPENDENCIES: tuple[str, ...] = (
-    "EVENT_BUS",
-    "OPENCODE_PROVIDER_NAMES",
-    "PROVIDER_LABELS",
-    "_rebatch_anthropic_sse_text",
-    "_update_tool_schema_registry",
-    "append_synthetic_tasklist_to_message",
-    "apply_provider_request_options",
-    "apply_router_rate_limit",
-    "begin_pending_channel_delivery",
-    "body_with_channel_tool_result_context",
-    "body_with_pending_channel_messages",
-    "body_without_ciel_runtime_internal_metadata",
-    "cap_anthropic_body_for_provider",
-    "commit_pending_channel_delivery_cursors",
-    "dump_request_for_trace",
-    "estimate_tokens",
-    "filter_blocked_tools",
-    "forward_ollama_api_chat",
-    "forward_openai_compatible_chat",
-    "is_client_disconnect_error",
-    "join_url",
-    "key_from_request_headers",
-    "mark_pending_channel_delivery_failed",
-    "mark_pending_channel_delivery_success",
-    "maybe_handle_advisor_request",
-    "maybe_handle_channel_clear_request",
-    "maybe_handle_import_session_request",
-    "maybe_handle_live_api_keys_request",
-    "maybe_handle_live_llm_options_request",
-    "maybe_handle_plan_mode_tool_choice",
-    "maybe_handle_router_debug_request",
-    "maybe_handle_version_request",
-    "native_anthropic_base_url",
-    "ncp_model_id_for_nvidia_hosted",
-    "normalize_anthropic_model_request_options",
-    "normalize_anthropic_system_role_messages",
-    "normalize_request_for_provider_wire",
-    "normalize_response_thinking_for_non_anthropic_provider",
-    "normalize_thinking_for_non_anthropic_provider",
-    "normalize_tool_choice_for_provider",
-    "open_provider_request_with_key_retry",
-    "opencode_endpoint_kind",
-    "prepend_anthropic_text",
-    "preserves_anthropic_thinking_contract",
-    "provider_headers",
-    "provider_native_compat_enabled",
-    "provider_openai_router_enabled",
-    "provider_request_timeout_seconds",
-    "provider_stream_idle_timeout_seconds",
-    "provider_upstream_request_base",
-    "rate_limit_notice",
-    "register_api_key_cooldown",
-    "rehydrate_suppressed_thinking_passback",
-    "resolve_requested_model",
-    "resolve_tool_model_references",
-    "router_event_message_preview",
-    "router_log",
-    "set_upstream_stream_read_timeout",
-    "should_normalize_anthropic_stream_tool_use",
-    "strip_autonomous_advisor_server_tools",
-    "try_write_json",
-    "upstream_messages_query",
-    "write_context_usage",
-    "write_json",
-    "write_router_activity",
-)
+@dataclass(frozen=True, slots=True)
+class ClaudeRouterCore:
+    event_bus: Any
+    log: Callable[..., Any]
+    try_write_json: Callable[..., Any]
 
 
-def missing_claude_runtime_dependencies(deps: Mapping[str, Any]) -> list[str]:
-    return [name for name in CLAUDE_RUNTIME_DEPENDENCIES if name not in deps]
+@dataclass(frozen=True, slots=True)
+class ClaudeRouterCountTokens:
+    estimate_tokens: Callable[..., Any]
+    write_context_usage: Callable[..., Any]
+    write_json: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeRouterPipeline:
+    update_tool_schema_registry: Callable[..., Any]
+    router_event_message_preview: Callable[..., Any]
+    dump_request_for_trace: Callable[..., Any]
+    filter_blocked_tools: Callable[..., Any]
+    normalize_tool_choice: Callable[..., Any]
+    write_context_usage: Callable[..., Any]
+    strip_advisor_tools: Callable[..., Any]
+    inject_channel_context: Callable[..., Any]
+    inject_tool_result_context: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeRouterShortcuts:
+    plan_mode: Callable[..., Any]
+    router_debug: Callable[..., Any]
+    version: Callable[..., Any]
+    channel_clear: Callable[..., Any]
+    import_session: Callable[..., Any]
+    llm_options: Callable[..., Any]
+    api_keys: Callable[..., Any]
+    advisor: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeRouterDelivery:
+    begin: Callable[..., Any]
+    commit: Callable[..., Any]
+    mark_failed: Callable[..., Any]
+    mark_success: Callable[..., Any]
+    is_client_disconnect: Callable[..., Any]
+    write_activity: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeRouterRouting:
+    forward_ollama: Callable[..., Any]
+    forward_openai: Callable[..., Any]
+    openai_router_enabled: Callable[..., Any]
+    resolve_model: Callable[..., Any]
+    opencode_endpoint_kind: Callable[..., Any]
+    opencode_provider_names: frozenset[str]
+    provider_labels: Mapping[str, str]
+    write_json: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeRouterNativeNormalization:
+    normalize_provider_wire: Callable[..., Any]
+    normalize_thinking: Callable[..., Any]
+    normalize_system_roles: Callable[..., Any]
+    cap_body: Callable[..., Any]
+    apply_request_options: Callable[..., Any]
+    rehydrate_thinking: Callable[..., Any]
+    ncp_model_id: Callable[..., Any]
+    resolve_tool_models: Callable[..., Any]
+    normalize_model_options: Callable[..., Any]
+    strip_internal_metadata: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeRouterTransport:
+    native_base_url: Callable[..., Any]
+    native_compat_enabled: Callable[..., Any]
+    upstream_base: Callable[..., Any]
+    join_url: Callable[..., Any]
+    upstream_query: Callable[..., Any]
+    provider_headers: Callable[..., Any]
+    apply_rate_limit: Callable[..., Any]
+    open_request: Callable[..., Any]
+    request_timeout: Callable[..., Any]
+    idle_timeout: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeRouterResponse:
+    rebatch_sse: Callable[..., Any]
+    preserves_thinking: Callable[..., Any]
+    normalize_stream_tool_use: Callable[..., Any]
+    set_stream_timeout: Callable[..., Any]
+    normalize_thinking: Callable[..., Any]
+    append_tasklist: Callable[..., Any]
+    prepend_text: Callable[..., Any]
+    rate_limit_notice: Callable[..., Any]
+    register_key_cooldown: Callable[..., Any]
+    key_from_headers: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeRouterServices:
+    core: ClaudeRouterCore
+    count_tokens: ClaudeRouterCountTokens
+    pipeline: ClaudeRouterPipeline
+    shortcuts: ClaudeRouterShortcuts
+    delivery: ClaudeRouterDelivery
+    routing: ClaudeRouterRouting
+    normalization: ClaudeRouterNativeNormalization
+    transport: ClaudeRouterTransport
+    response: ClaudeRouterResponse
 
 
 def handle_claude_count_tokens_post(
-    deps: Mapping[str, Any],
+    services: ClaudeRouterServices,
     handler: Any,
     provider: str,
     pcfg: dict[str, Any],
     body: dict[str, Any],
 ) -> None:
-    tokens = deps["estimate_tokens"](body)
-    deps["write_context_usage"](provider, pcfg, body, "count_tokens")
-    deps["write_json"](handler, {"input_tokens": tokens})
+    count = services.count_tokens
+    tokens = count.estimate_tokens(body)
+    count.write_context_usage(provider, pcfg, body, "count_tokens")
+    count.write_json(handler, {"input_tokens": tokens})
 
 
 def handle_claude_messages_post(
-    deps: Mapping[str, Any],
+    services: ClaudeRouterServices,
     handler: Any,
     cfg: dict[str, Any],
     provider: str,
@@ -106,70 +151,78 @@ def handle_claude_messages_post(
     path: str,
     body: dict[str, Any],
 ) -> None:
-    _rebatch_anthropic_sse_text = deps["_rebatch_anthropic_sse_text"]
-    _update_tool_schema_registry = deps["_update_tool_schema_registry"]
-    append_synthetic_tasklist_to_message = deps["append_synthetic_tasklist_to_message"]
-    apply_provider_request_options = deps["apply_provider_request_options"]
-    apply_router_rate_limit = deps["apply_router_rate_limit"]
-    begin_pending_channel_delivery = deps["begin_pending_channel_delivery"]
-    body_with_channel_tool_result_context = deps["body_with_channel_tool_result_context"]
-    body_with_pending_channel_messages = deps["body_with_pending_channel_messages"]
-    body_without_ciel_runtime_internal_metadata = deps["body_without_ciel_runtime_internal_metadata"]
-    cap_anthropic_body_for_provider = deps["cap_anthropic_body_for_provider"]
-    commit_pending_channel_delivery_cursors = deps["commit_pending_channel_delivery_cursors"]
-    dump_request_for_trace = deps["dump_request_for_trace"]
-    event_bus = deps["EVENT_BUS"]
-    filter_blocked_tools = deps["filter_blocked_tools"]
-    forward_ollama_api_chat = deps["forward_ollama_api_chat"]
-    forward_openai_compatible_chat = deps["forward_openai_compatible_chat"]
-    is_client_disconnect_error = deps["is_client_disconnect_error"]
-    join_url = deps["join_url"]
-    key_from_request_headers = deps["key_from_request_headers"]
-    mark_pending_channel_delivery_failed = deps["mark_pending_channel_delivery_failed"]
-    mark_pending_channel_delivery_success = deps["mark_pending_channel_delivery_success"]
-    maybe_handle_advisor_request = deps["maybe_handle_advisor_request"]
-    maybe_handle_channel_clear_request = deps["maybe_handle_channel_clear_request"]
-    maybe_handle_import_session_request = deps["maybe_handle_import_session_request"]
-    maybe_handle_live_api_keys_request = deps["maybe_handle_live_api_keys_request"]
-    maybe_handle_live_llm_options_request = deps["maybe_handle_live_llm_options_request"]
-    maybe_handle_plan_mode_tool_choice = deps["maybe_handle_plan_mode_tool_choice"]
-    maybe_handle_router_debug_request = deps["maybe_handle_router_debug_request"]
-    maybe_handle_version_request = deps["maybe_handle_version_request"]
-    native_anthropic_base_url = deps["native_anthropic_base_url"]
-    ncp_model_id_for_nvidia_hosted = deps["ncp_model_id_for_nvidia_hosted"]
-    normalize_anthropic_model_request_options = deps["normalize_anthropic_model_request_options"]
-    normalize_anthropic_system_role_messages = deps["normalize_anthropic_system_role_messages"]
-    normalize_request_for_provider_wire = deps["normalize_request_for_provider_wire"]
-    normalize_response_thinking_for_non_anthropic_provider = deps["normalize_response_thinking_for_non_anthropic_provider"]
-    normalize_thinking_for_non_anthropic_provider = deps["normalize_thinking_for_non_anthropic_provider"]
-    normalize_tool_choice_for_provider = deps["normalize_tool_choice_for_provider"]
-    open_provider_request_with_key_retry = deps["open_provider_request_with_key_retry"]
-    opencode_endpoint_kind = deps["opencode_endpoint_kind"]
-    opencode_provider_names = deps["OPENCODE_PROVIDER_NAMES"]
-    prepend_anthropic_text = deps["prepend_anthropic_text"]
-    preserves_anthropic_thinking_contract = deps["preserves_anthropic_thinking_contract"]
-    provider_headers = deps["provider_headers"]
-    provider_labels = deps["PROVIDER_LABELS"]
-    provider_native_compat_enabled = deps["provider_native_compat_enabled"]
-    provider_openai_router_enabled = deps["provider_openai_router_enabled"]
-    provider_request_timeout_seconds = deps["provider_request_timeout_seconds"]
-    provider_stream_idle_timeout_seconds = deps["provider_stream_idle_timeout_seconds"]
-    provider_upstream_request_base = deps["provider_upstream_request_base"]
-    rate_limit_notice = deps["rate_limit_notice"]
-    register_api_key_cooldown = deps["register_api_key_cooldown"]
-    rehydrate_suppressed_thinking_passback = deps["rehydrate_suppressed_thinking_passback"]
-    resolve_requested_model = deps["resolve_requested_model"]
-    resolve_tool_model_references = deps["resolve_tool_model_references"]
-    router_event_message_preview = deps["router_event_message_preview"]
-    router_log = deps["router_log"]
-    set_upstream_stream_read_timeout = deps["set_upstream_stream_read_timeout"]
-    should_normalize_anthropic_stream_tool_use = deps["should_normalize_anthropic_stream_tool_use"]
-    strip_autonomous_advisor_server_tools = deps["strip_autonomous_advisor_server_tools"]
-    try_write_json = deps["try_write_json"]
-    upstream_messages_query = deps["upstream_messages_query"]
-    write_context_usage = deps["write_context_usage"]
-    write_json = deps["write_json"]
-    write_router_activity = deps["write_router_activity"]
+    core = services.core
+    pipeline = services.pipeline
+    shortcuts = services.shortcuts
+    delivery = services.delivery
+    routing = services.routing
+    normalization = services.normalization
+    transport = services.transport
+    response = services.response
+    _rebatch_anthropic_sse_text = response.rebatch_sse
+    _update_tool_schema_registry = pipeline.update_tool_schema_registry
+    append_synthetic_tasklist_to_message = response.append_tasklist
+    apply_provider_request_options = normalization.apply_request_options
+    apply_router_rate_limit = transport.apply_rate_limit
+    begin_pending_channel_delivery = delivery.begin
+    body_with_channel_tool_result_context = pipeline.inject_tool_result_context
+    body_with_pending_channel_messages = pipeline.inject_channel_context
+    body_without_ciel_runtime_internal_metadata = normalization.strip_internal_metadata
+    cap_anthropic_body_for_provider = normalization.cap_body
+    commit_pending_channel_delivery_cursors = delivery.commit
+    dump_request_for_trace = pipeline.dump_request_for_trace
+    event_bus = core.event_bus
+    filter_blocked_tools = pipeline.filter_blocked_tools
+    forward_ollama_api_chat = routing.forward_ollama
+    forward_openai_compatible_chat = routing.forward_openai
+    is_client_disconnect_error = delivery.is_client_disconnect
+    join_url = transport.join_url
+    key_from_request_headers = response.key_from_headers
+    mark_pending_channel_delivery_failed = delivery.mark_failed
+    mark_pending_channel_delivery_success = delivery.mark_success
+    maybe_handle_advisor_request = shortcuts.advisor
+    maybe_handle_channel_clear_request = shortcuts.channel_clear
+    maybe_handle_import_session_request = shortcuts.import_session
+    maybe_handle_live_api_keys_request = shortcuts.api_keys
+    maybe_handle_live_llm_options_request = shortcuts.llm_options
+    maybe_handle_plan_mode_tool_choice = shortcuts.plan_mode
+    maybe_handle_router_debug_request = shortcuts.router_debug
+    maybe_handle_version_request = shortcuts.version
+    native_anthropic_base_url = transport.native_base_url
+    ncp_model_id_for_nvidia_hosted = normalization.ncp_model_id
+    normalize_anthropic_model_request_options = normalization.normalize_model_options
+    normalize_anthropic_system_role_messages = normalization.normalize_system_roles
+    normalize_request_for_provider_wire = normalization.normalize_provider_wire
+    normalize_response_thinking_for_non_anthropic_provider = response.normalize_thinking
+    normalize_thinking_for_non_anthropic_provider = normalization.normalize_thinking
+    normalize_tool_choice_for_provider = pipeline.normalize_tool_choice
+    open_provider_request_with_key_retry = transport.open_request
+    opencode_endpoint_kind = routing.opencode_endpoint_kind
+    opencode_provider_names = routing.opencode_provider_names
+    prepend_anthropic_text = response.prepend_text
+    preserves_anthropic_thinking_contract = response.preserves_thinking
+    provider_headers = transport.provider_headers
+    provider_labels = routing.provider_labels
+    provider_native_compat_enabled = transport.native_compat_enabled
+    provider_openai_router_enabled = routing.openai_router_enabled
+    provider_request_timeout_seconds = transport.request_timeout
+    provider_stream_idle_timeout_seconds = transport.idle_timeout
+    provider_upstream_request_base = transport.upstream_base
+    rate_limit_notice = response.rate_limit_notice
+    register_api_key_cooldown = response.register_key_cooldown
+    rehydrate_suppressed_thinking_passback = normalization.rehydrate_thinking
+    resolve_requested_model = routing.resolve_model
+    resolve_tool_model_references = normalization.resolve_tool_models
+    router_event_message_preview = pipeline.router_event_message_preview
+    router_log = core.log
+    set_upstream_stream_read_timeout = response.set_stream_timeout
+    should_normalize_anthropic_stream_tool_use = response.normalize_stream_tool_use
+    strip_autonomous_advisor_server_tools = pipeline.strip_advisor_tools
+    try_write_json = core.try_write_json
+    upstream_messages_query = transport.upstream_query
+    write_context_usage = pipeline.write_context_usage
+    write_json = routing.write_json
+    write_router_activity = delivery.write_activity
 
     self = handler
     _update_tool_schema_registry(body.get("tools"))
@@ -339,8 +392,12 @@ def handle_claude_messages_post(
                             if notice:
                                 payload = prepend_anthropic_text(payload, notice)
                             raw_resp = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-                    except Exception:
-                        pass
+                    except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
+                        router_log(
+                            "WARN",
+                            "anthropic_response_normalization_skipped "
+                            f"provider={provider} model={upstream_model} error={type(exc).__name__}: {exc}",
+                        )
                 self.wfile.write(raw_resp)
                 self.wfile.flush()
                 mark_pending_channel_delivery_success(self, "anthropic_json")
@@ -403,17 +460,14 @@ class ClaudeRouter:
     def __init__(
         self,
         *,
-        runtime_deps: Mapping[str, Any] | None = None,
+        services: ClaudeRouterServices | None = None,
         handle_count_tokens_post: Callable[[Any, str, dict[str, Any], dict[str, Any]], None] | None = None,
         handle_messages_post: Callable[[Any, dict[str, Any], str, dict[str, Any], str, dict[str, Any]], None] | None = None,
     ) -> None:
-        if runtime_deps is not None:
-            missing = missing_claude_runtime_dependencies(runtime_deps)
-            if missing:
-                raise KeyError(f"ClaudeRouter runtime_deps missing: {', '.join(missing)}")
+        if services is not None:
             self._handle_count_tokens_post = (
                 lambda handler, provider, pcfg, body: handle_claude_count_tokens_post(
-                    runtime_deps,
+                    services,
                     handler,
                     provider,
                     pcfg,
@@ -422,7 +476,7 @@ class ClaudeRouter:
             )
             self._handle_messages_post = (
                 lambda handler, cfg, provider, pcfg, path, body: handle_claude_messages_post(
-                    runtime_deps,
+                    services,
                     handler,
                     cfg,
                     provider,
@@ -433,7 +487,7 @@ class ClaudeRouter:
             )
             return
         if handle_count_tokens_post is None or handle_messages_post is None:
-            raise TypeError("ClaudeRouter requires runtime_deps or both post handlers")
+            raise TypeError("ClaudeRouter requires services or both post handlers")
         self._handle_count_tokens_post = handle_count_tokens_post
         self._handle_messages_post = handle_messages_post
 
@@ -471,9 +525,17 @@ assert all(any(capability.name == required for capability in ClaudeRouter.capabi
 
 
 __all__ = [
-    "CLAUDE_RUNTIME_DEPENDENCIES",
     "ClaudeRouter",
+    "ClaudeRouterCore",
+    "ClaudeRouterCountTokens",
+    "ClaudeRouterDelivery",
+    "ClaudeRouterNativeNormalization",
+    "ClaudeRouterPipeline",
+    "ClaudeRouterResponse",
+    "ClaudeRouterRouting",
+    "ClaudeRouterServices",
+    "ClaudeRouterShortcuts",
+    "ClaudeRouterTransport",
     "handle_claude_count_tokens_post",
     "handle_claude_messages_post",
-    "missing_claude_runtime_dependencies",
 ]
