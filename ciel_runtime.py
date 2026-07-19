@@ -237,6 +237,11 @@ from ciel_runtime_support.model_catalog_projection import (
     ModelCatalogProjectionServices,
     project_model_info,
 )
+from ciel_runtime_support.model_registry_repository import (
+    ModelRegistryPaths,
+    ModelRegistryPolicy,
+    ModelRegistryRepository,
+)
 from ciel_runtime_support.lm_studio_runtime import (
     LmStudioRuntimeServices,
     discover_lm_studio_runtime,
@@ -4234,153 +4239,66 @@ def model_registry_recommendations(provider: str, models: list[str]) -> dict[str
     return recommendations
 
 
-def read_model_registry(provider: str, pcfg: dict[str, Any], max_age_seconds: float = MODEL_CACHE_TTL_SECONDS) -> dict[str, Any] | None:
-    try:
-        data = json.loads(MODEL_REGISTRY_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    if not isinstance(data, dict):
-        return None
-    providers = data.get("providers")
-    if not isinstance(providers, dict):
-        return None
-    entry = providers.get(provider)
-    if not isinstance(entry, dict):
-        return None
-    if entry.get("key") != model_cache_key(provider, pcfg):
-        if provider != "anthropic" or entry.get("source") != "anthropic-docs":
-            return None
-        try:
-            entry_key = json.loads(str(entry.get("key") or "{}"))
-            current_key = json.loads(model_cache_key(provider, pcfg))
-            entry_key.pop("api", None)
-            current_key.pop("api", None)
-            if entry_key != current_key:
-                return None
-        except Exception:
-            return None
-    try:
-        if max_age_seconds > 0 and time.time() - float(entry.get("time", 0)) > max_age_seconds:
-            return None
-    except Exception:
-        return None
-    models = entry.get("models")
-    if not isinstance(models, list):
-        return None
-    return entry
+def model_registry_repository() -> ModelRegistryRepository:
+    return ModelRegistryRepository(
+        paths=ModelRegistryPaths(CONFIG_DIR, MODEL_REGISTRY_PATH, MODEL_LIST_CACHE_PATH),
+        policy=ModelRegistryPolicy(
+            cache_key=model_cache_key,
+            unique_ids=unique_model_ids,
+            normalize_id=normalize_model_id,
+            positive_int=positive_int,
+            recommendations=model_registry_recommendations,
+            log=router_log,
+        ),
+        ttl_seconds=MODEL_CACHE_TTL_SECONDS,
+    )
 
 
-def read_model_registry_models(provider: str, pcfg: dict[str, Any], max_age_seconds: float = MODEL_CACHE_TTL_SECONDS) -> list[str] | None:
-    entry = read_model_registry(provider, pcfg, max_age_seconds=max_age_seconds)
-    models = entry.get("models") if entry else None
-    return unique_model_ids(provider, [str(mid) for mid in models if str(mid).strip()]) if isinstance(models, list) else None
+def read_model_registry(
+    provider: str, pcfg: dict[str, Any], max_age_seconds: float = MODEL_CACHE_TTL_SECONDS
+) -> dict[str, Any] | None:
+    return model_registry_repository().read_registry(provider, pcfg, max_age_seconds)
 
 
-def read_model_registry_info(provider: str, pcfg: dict[str, Any], max_age_seconds: float = MODEL_CACHE_TTL_SECONDS) -> dict[str, dict[str, Any]]:
-    entry = read_model_registry(provider, pcfg, max_age_seconds=max_age_seconds)
-    metadata = entry.get("metadata") if entry else None
-    model_info = metadata.get("model_info") if isinstance(metadata, dict) else None
-    if not isinstance(model_info, dict):
-        return {}
-    out: dict[str, dict[str, Any]] = {}
-    for raw_id, raw_info in model_info.items():
-        model_id = normalize_model_id(provider, str(raw_id))
-        if not model_id or not isinstance(raw_info, dict):
-            continue
-        info = dict(raw_info)
-        max_context = positive_int(info.get("max_model_len"))
-        if max_context:
-            info["max_model_len"] = max_context
-        out[model_id] = info
-    return out
+def read_model_registry_models(
+    provider: str, pcfg: dict[str, Any], max_age_seconds: float = MODEL_CACHE_TTL_SECONDS
+) -> list[str] | None:
+    return model_registry_repository().read_registry_models(provider, pcfg, max_age_seconds)
 
 
-def write_model_registry(provider: str, pcfg: dict[str, Any], models: list[str], source: str = "provider", metadata: dict[str, Any] | None = None) -> None:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    try:
-        data = json.loads(MODEL_REGISTRY_PATH.read_text(encoding="utf-8")) if MODEL_REGISTRY_PATH.exists() else {}
-    except Exception:
-        data = {}
-    if not isinstance(data, dict):
-        data = {}
-    providers = data.get("providers")
-    if not isinstance(providers, dict):
-        providers = {}
-    providers[provider] = {
-        "time": time.time(),
-        "key": model_cache_key(provider, pcfg),
-        "source": source,
-        "models": unique_model_ids(provider, models),
-        "recommendations": model_registry_recommendations(provider, models),
-        "metadata": metadata or {},
-    }
-    data["schema"] = 1
-    data["providers"] = providers
-    try:
-        MODEL_REGISTRY_PATH.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        os.chmod(MODEL_REGISTRY_PATH, 0o600)
-    except Exception as exc:
-        router_log(
-            "WARN",
-            f"model_registry_write_failed provider={provider} error={type(exc).__name__}: {exc}",
-        )
+def read_model_registry_info(
+    provider: str, pcfg: dict[str, Any], max_age_seconds: float = MODEL_CACHE_TTL_SECONDS
+) -> dict[str, dict[str, Any]]:
+    return model_registry_repository().read_registry_info(provider, pcfg, max_age_seconds)
+
+
+def write_model_registry(
+    provider: str,
+    pcfg: dict[str, Any],
+    models: list[str],
+    source: str = "provider",
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    model_registry_repository().write_registry(provider, pcfg, models, source, metadata)
 
 
 def read_model_list_cache(provider: str, pcfg: dict[str, Any]) -> list[str] | None:
-    try:
-        data = json.loads(MODEL_LIST_CACHE_PATH.read_text())
-    except Exception:
-        return read_model_registry_models(provider, pcfg, max_age_seconds=0)
-    if not isinstance(data, dict):
-        return read_model_registry_models(provider, pcfg, max_age_seconds=0)
-    if data.get("key") != model_cache_key(provider, pcfg):
-        return read_model_registry_models(provider, pcfg, max_age_seconds=0)
-    if time.time() - float(data.get("time", 0)) > MODEL_CACHE_TTL_SECONDS:
-        registry_models = read_model_registry_models(provider, pcfg, max_age_seconds=0)
-        if registry_models:
-            return registry_models
-    models = data.get("models")
-    if not isinstance(models, list):
-        return None
-    return unique_model_ids(provider, [str(mid) for mid in models if str(mid).strip()])
+    return model_registry_repository().read_list_cache(provider, pcfg)
 
 
 def read_model_info_cache(provider: str, pcfg: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    try:
-        data = json.loads(MODEL_LIST_CACHE_PATH.read_text())
-    except Exception:
-        return read_model_registry_info(provider, pcfg, max_age_seconds=0)
-    if not isinstance(data, dict) or data.get("key") != model_cache_key(provider, pcfg):
-        return read_model_registry_info(provider, pcfg, max_age_seconds=0)
-    metadata = data.get("metadata")
-    model_info = metadata.get("model_info") if isinstance(metadata, dict) else None
-    if not isinstance(model_info, dict):
-        return read_model_registry_info(provider, pcfg, max_age_seconds=0)
-    out: dict[str, dict[str, Any]] = {}
-    for raw_id, raw_info in model_info.items():
-        model_id = normalize_model_id(provider, str(raw_id))
-        if not model_id or not isinstance(raw_info, dict):
-            continue
-        info = dict(raw_info)
-        max_context = positive_int(info.get("max_model_len"))
-        if max_context:
-            info["max_model_len"] = max_context
-        out[model_id] = info
-    return out
+    return model_registry_repository().read_info_cache(provider, pcfg)
 
 
-def write_model_list_cache(provider: str, pcfg: dict[str, Any], models: list[str], metadata: dict[str, Any] | None = None) -> None:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    data = {"time": time.time(), "key": model_cache_key(provider, pcfg), "models": models, "metadata": metadata or {}}
-    try:
-        MODEL_LIST_CACHE_PATH.write_text(json.dumps(data, indent=2) + "\n")
-        os.chmod(MODEL_LIST_CACHE_PATH, 0o600)
-    except Exception as exc:
-        router_log(
-            "WARN",
-            f"model_list_cache_write_failed provider={provider} error={type(exc).__name__}: {exc}",
-        )
-    write_model_registry(provider, pcfg, models, "provider", metadata)
+def write_model_list_cache(
+    provider: str,
+    pcfg: dict[str, Any],
+    models: list[str],
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    model_registry_repository().write_list_cache(provider, pcfg, models, metadata)
+
+
 
 
 def cached_or_configured_model_ids(provider: str, pcfg: dict[str, Any]) -> list[str]:
