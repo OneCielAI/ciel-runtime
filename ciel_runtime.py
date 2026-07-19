@@ -339,6 +339,17 @@ from ciel_runtime_support.process_control import (
     terminate_matching_processes as run_terminate_matching_processes,
     windows_pids_on_port,
 )
+from ciel_runtime_support.router_process_lifecycle import (
+    ClockPorts as RouterProcessClock,
+    RouterProcessConfig,
+    RouterStatePorts,
+    RouterTerminationPorts,
+    ensure_port_available as ensure_project_router_port_available,
+    stop_router_processes as stop_project_router_processes,
+    stop_with_guarantee as stop_project_router_with_guarantee,
+    terminate_health_pid as terminate_project_router_health_pid,
+    terminate_pid_file as terminate_project_pid_file,
+)
 from ciel_runtime_support.provider_config_mutations import (
     ProviderOptionPolicy,
     apply_ollama_option as mutate_ollama_option,
@@ -16700,24 +16711,39 @@ def terminate_existing_codex_processes_for_launch(reason: str, cwd: Path | None 
     return stopped
 
 
+def router_process_config() -> RouterProcessConfig:
+    return RouterProcessConfig(PID_PATH, ROUTER_PORT, ROUTER_BASE, CONFIG_DIR)
+
+
+def router_process_state_ports() -> RouterStatePorts:
+    return RouterStatePorts(
+        health=router_health,
+        foreign_config=router_health_has_foreign_config,
+        current_config=router_health_config_matches_current,
+        log=router_log,
+    )
+
+
+def router_termination_ports() -> RouterTerminationPorts:
+    return RouterTerminationPorts(
+        terminate_pid=lambda pid, label, quiet: terminate_pid(pid, label, quiet=quiet),
+        terminate_pid_file=lambda path, label, quiet: terminate_pid_file(path, label, quiet=quiet),
+        terminate_health=lambda health, quiet: terminate_router_health_pid(health, quiet=quiet),
+        stop_processes=lambda quiet: stop_router_processes(quiet=quiet),
+        listener_pids=router_port_listener_pids,
+    )
+
+
 def terminate_pid_file(path: Path, label: str, quiet: bool = False) -> bool:
-    if not path.exists():
-        return False
-    try:
-        pid = int(path.read_text().strip())
-    except Exception:
-        try:
-            path.unlink()
-        except FileNotFoundError:
-            pass
-        return False
-    stopped = terminate_pid(pid, label, quiet=quiet)
-    if stopped or not pid_is_running(pid):
-        try:
-            path.unlink()
-        except FileNotFoundError:
-            pass
-    return stopped
+    return terminate_project_pid_file(
+        path,
+        label,
+        quiet,
+        terminate_pid=lambda pid, current_label, current_quiet: terminate_pid(
+            pid, current_label, quiet=current_quiet
+        ),
+        pid_is_running=pid_is_running,
+    )
 
 
 
@@ -16747,22 +16773,16 @@ def router_port_listener_pids() -> list[int]:
 
 
 def terminate_router_health_pid(health: dict[str, Any] | None, quiet: bool = True) -> bool:
-    if not isinstance(health, dict):
-        return False
-    if not router_health_config_matches_current(health):
-        router_log(
-            "INFO",
-            "router_kill_skipped_foreign_config "
-            f"running_config={health.get('config_dir') or '-'} current_config={CONFIG_DIR}",
-        )
-        return False
-    try:
-        pid = int(health.get("pid") or 0)
-    except Exception:
-        return False
-    if pid in (os.getpid(), os.getppid()):
-        return False
-    return terminate_pid(pid, "ciel-runtime router", quiet=quiet)
+    return terminate_project_router_health_pid(
+        health,
+        quiet,
+        config=router_process_config(),
+        state=router_process_state_ports(),
+        terminate_pid=lambda pid, label, current_quiet: terminate_pid(
+            pid, label, quiet=current_quiet
+        ),
+        protected_pids=(os.getpid(), os.getppid()),
+    )
 
 
 def ensure_router_port_available_for_spawn(
@@ -16770,49 +16790,15 @@ def ensure_router_port_available_for_spawn(
     health: dict[str, Any] | None = None,
     max_wait_seconds: float = 5.0,
 ) -> None:
-    """Clear the local router/MCP port before spawning a replacement router."""
-    if router_health_has_foreign_config(health):
-        raise RuntimeError(
-            f"ciel-runtime router port {ROUTER_PORT} is already used by another ciel-runtime config "
-            f"({health.get('config_dir')}). Set CIEL_RUNTIME_ROUTER_PORT or CIEL_RUNTIME_CONFIG_DIR "
-            "for this instance instead of killing the other router."
-        )
-    stopped = terminate_router_health_pid(health, quiet=True)
-    stopped = stop_router_processes(quiet=True) or stopped
-    deadline = time.time() + max(0.1, max_wait_seconds)
-    while time.time() < deadline:
-        current_health = router_health()
-        if router_health_has_foreign_config(current_health):
-            raise RuntimeError(
-                f"ciel-runtime router port {ROUTER_PORT} is already used by another ciel-runtime config "
-                f"({current_health.get('config_dir')}). Set CIEL_RUNTIME_ROUTER_PORT or "
-                "CIEL_RUNTIME_CONFIG_DIR for this instance instead of killing the other router."
-            )
-        if current_health is None and not router_port_listener_pids():
-            router_log(
-                "INFO",
-                f"router_port_clear reason={reason} port={ROUTER_PORT} stopped={str(stopped).lower()}",
-            )
-            return
-        if current_health is not None:
-            terminate_router_health_pid(current_health, quiet=True)
-        stop_router_processes(quiet=True)
-        time.sleep(0.1)
-    pids = router_port_listener_pids()
-    current_health = router_health()
-    health_desc = ""
-    if isinstance(current_health, dict):
-        health_desc = (
-            f" version={current_health.get('version') or '-'}"
-            f" source={current_health.get('source_fingerprint') or '-'}"
-            f" pid={current_health.get('pid') or '-'}"
-        )
-    raise RuntimeError(
-        f"stale ciel-runtime router is still serving on {ROUTER_BASE}; "
-        f"port {ROUTER_PORT} listener_pids={pids or '-'}{health_desc}; "
-        "run `ciel-runtime stop` and launch again."
+    ensure_project_router_port_available(
+        reason,
+        health,
+        max_wait_seconds,
+        config=router_process_config(),
+        state=router_process_state_ports(),
+        termination=router_termination_ports(),
+        clock=RouterProcessClock(now=time.time, sleep=time.sleep),
     )
-
 
 def terminate_windows_port(port: int, label: str, quiet: bool = False) -> bool:
     pids = windows_pids_on_port(port)
@@ -16872,65 +16858,24 @@ def stop_ncp_proxy(quiet: bool = False) -> bool:
 
 
 def stop_router_processes(quiet: bool = False) -> bool:
-    stopped = terminate_pid_file(PID_PATH, "ciel-runtime router", quiet=quiet)
-    health = router_health()
-    if router_health_has_foreign_config(health):
-        router_log(
-            "INFO",
-            "router_stop_skipped_foreign_config "
-            f"running_config={health.get('config_dir') or '-'} current_config={CONFIG_DIR}",
-        )
-        return stopped
-    if router_health_config_matches_current(health):
-        stopped = terminate_router_health_pid(health, quiet=True) or stopped
-    return stopped
+    return stop_project_router_processes(
+        quiet,
+        config=router_process_config(),
+        state=router_process_state_ports(),
+        termination=router_termination_ports(),
+    )
 
 
 def stop_router_with_guarantee(reason: str, max_wait_seconds: float = 5.0, quiet: bool = True) -> bool:
-    """Kill the ciel-runtime router and verify it actually stopped.
-
-    Unlike ``stop_router_processes`` (which signals termination and returns
-    without checking), this polls ``router_up()`` until the deadline. Raises
-    ``RuntimeError`` if the router is still serving after ``max_wait_seconds``.
-
-    Used by Claude Native mode launches so the user has a hard guarantee that
-    no ciel-runtime router process can intercept the subsequent ``claude`` call.
-    """
-    initial_health = router_health()
-    if initial_health is None:
-        router_log("INFO", f"router_kill_guarantee reason={reason} state=already_down")
-        return False
-    if router_health_has_foreign_config(initial_health):
-        router_log(
-            "INFO",
-            "router_kill_guarantee_skipped_foreign_config "
-            f"reason={reason} running_config={initial_health.get('config_dir') or '-'} current_config={CONFIG_DIR}",
-        )
-        return False
-    stop_router_processes(quiet=quiet)
-    deadline = time.time() + max(0.1, max_wait_seconds)
-    while time.time() < deadline:
-        health = router_health()
-        if router_health_has_foreign_config(health):
-            router_log(
-                "INFO",
-                "router_kill_guarantee_skipped_foreign_config "
-                f"reason={reason} running_config={health.get('config_dir') or '-'} current_config={CONFIG_DIR}",
-            )
-            return False
-        if health is None:
-            elapsed_ms = int((max_wait_seconds - (deadline - time.time())) * 1000)
-            router_log("INFO", f"router_kill_guarantee reason={reason} state=killed elapsed_ms={elapsed_ms}")
-            return True
-        time.sleep(0.1)
-    router_log("ERROR", f"router_kill_guarantee reason={reason} state=still_up_after_{max_wait_seconds:.1f}s")
-    raise RuntimeError(
-        f"ciel-runtime router is still serving on {ROUTER_BASE} after a {max_wait_seconds:.1f}s "
-        f"shutdown attempt for '{reason}'. Aborting to prevent the subsequent claude launch "
-        f"from accidentally routing through it. Investigate the PID at {PID_PATH} or use "
-        f"`ciel-runtime stop` manually."
+    return stop_project_router_with_guarantee(
+        reason,
+        max_wait_seconds,
+        quiet,
+        config=router_process_config(),
+        state=router_process_state_ports(),
+        termination=router_termination_ports(),
+        clock=RouterProcessClock(now=time.time, sleep=time.sleep),
     )
-
 
 def cleanup_managed_services_for_provider(provider: str, pcfg: dict[str, Any], cfg: dict[str, Any], quiet: bool = False) -> None:
     if direct_native_anthropic_enabled(provider, pcfg):

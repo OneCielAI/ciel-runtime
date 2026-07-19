@@ -643,6 +643,10 @@ Codex용 HTTP 라우터:
 
 log-level 파일·환경 우선순위, mtime cache, 설정 저장·reset과 router.log 회전을 소유하는 Repository/Infrastructure Adapter. 메인 facade는 기존 logging 함수명을 유지하면서 저장소와 file logger만 조립한다.
 
+### `ciel_runtime_support/router_process_lifecycle.py`
+
+Router PID file 종료, health PID 보호, foreign-config 충돌 거부, 포트 교체 대기와 종료 보장을 조정하는 Process Lifecycle Application Service. OS별 process 조회·signal, health repository와 clock은 typed port로 주입되어 런처 정책에서 격리된다.
+
 ### `ciel_runtime_support/transcript_filter.py`
 
 Claude Code 트랜스크립트 이벤트 필터:
