@@ -1,8 +1,17 @@
 from __future__ import annotations
 
 from datetime import datetime
+from dataclasses import dataclass
 import json
-from typing import Any
+from typing import Any, Callable, Iterator
+
+
+@dataclass(frozen=True)
+class ChannelWakeTranscriptServices:
+    claim_prompt: Callable[[int], str]
+    prompt_references_message_id: Callable[..., bool]
+    prompt_message_ids: Callable[[str], set[int]]
+    now: Callable[[], float]
 
 
 def record_timestamp_seconds(record: dict[str, Any]) -> float | None:
@@ -209,15 +218,127 @@ def active_turn_from_text(text: str) -> bool:
     return active
 
 
+def queued_age_seconds_from_text(
+    message_id: int,
+    text: str,
+    prompt_texts: list[str] | tuple[str, ...] | None,
+    services: ChannelWakeTranscriptServices,
+    *,
+    now: float | None = None,
+) -> float | None:
+    if message_id <= 0:
+        return None
+    prompts = [str(item) for item in (prompt_texts or ()) if str(item or "").strip()]
+    claimed = services.claim_prompt(message_id)
+    if claimed:
+        prompts.append(claimed)
+    latest_queued_at: float | None = None
+    for record in _jsonl_records(text):
+        record_type = str(record.get("type") or "")
+        candidate = ""
+        if record_type == "queue-operation" and record.get("operation") == "enqueue":
+            raw = record.get("content")
+            candidate = raw if isinstance(raw, str) else ""
+        elif record_type == "attachment":
+            attachment = record.get("attachment")
+            if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
+                raw = attachment.get("prompt")
+                candidate = raw if isinstance(raw, str) else ""
+        actual_user_text = user_text(record)
+        if actual_user_text and services.prompt_references_message_id(
+            actual_user_text, message_id, prompts
+        ):
+            return None
+        if not candidate or not services.prompt_references_message_id(candidate, message_id, prompts):
+            continue
+        timestamp = record_timestamp_seconds(record)
+        if timestamp is not None:
+            latest_queued_at = max(latest_queued_at or 0.0, timestamp)
+    if latest_queued_at is None:
+        return None
+    current = services.now() if now is None else float(now)
+    return max(0.0, current - latest_queued_at)
+
+
+def wake_state_from_text(
+    message_id: int,
+    text: str,
+    prompt_texts: list[str] | tuple[str, ...] | None,
+    services: ChannelWakeTranscriptServices,
+) -> str:
+    if message_id <= 0:
+        return "completed"
+    prompts = [str(item) for item in (prompt_texts or ()) if str(item or "").strip()]
+    claimed = services.claim_prompt(message_id)
+    if claimed:
+        prompts.append(claimed)
+    seen_queued_prompt = False
+    seen_real_prompt = False
+    for record in _jsonl_records(text):
+        record_type = str(record.get("type") or "")
+        if seen_real_prompt and is_assistant_message(record):
+            return "completed"
+        if record_type == "queue-operation" and record.get("operation") == "enqueue":
+            raw = record.get("content")
+            if isinstance(raw, str) and services.prompt_references_message_id(raw, message_id, prompts):
+                seen_queued_prompt = True
+            continue
+        if record_type == "attachment":
+            attachment = record.get("attachment")
+            if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
+                raw = attachment.get("prompt")
+                if isinstance(raw, str) and services.prompt_references_message_id(raw, message_id, prompts):
+                    seen_queued_prompt = True
+            continue
+        if services.prompt_references_message_id(user_text(record), message_id, prompts):
+            seen_real_prompt = True
+    if seen_real_prompt:
+        return "pending"
+    return "queued" if seen_queued_prompt else "missing"
+
+
+def queued_command_ids_from_text(
+    text: str, services: ChannelWakeTranscriptServices
+) -> set[int]:
+    ids: set[int] = set()
+    for record in _jsonl_records(text):
+        candidate = ""
+        if record.get("type") == "queue-operation" and record.get("operation") == "enqueue":
+            raw = record.get("content")
+            candidate = raw if isinstance(raw, str) else ""
+        elif record.get("type") == "attachment":
+            attachment = record.get("attachment")
+            if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
+                raw = attachment.get("prompt")
+                candidate = raw if isinstance(raw, str) else ""
+        if candidate:
+            ids.update(services.prompt_message_ids(candidate))
+    return ids
+
+
+def _jsonl_records(text: str) -> Iterator[dict[str, Any]]:
+    for raw_line in text.splitlines():
+        try:
+            record = json.loads(raw_line)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(record, dict):
+            yield record
+
+
 __all__ = [
     "active_tool_call_from_text",
     "active_turn_from_text",
+    "ChannelWakeTranscriptServices",
     "content_text",
     "is_assistant_message",
     "message_content_blocks",
     "record_timestamp_seconds",
+    "queued_age_seconds_from_text",
+    "queued_command_ids_from_text",
     "tool_call_id",
     "tool_result_ids",
     "tool_use_ids",
     "user_text",
+    "wake_state_from_text",
 ]

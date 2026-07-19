@@ -136,12 +136,15 @@ from ciel_runtime_support.channel_terminal_proxy import (
     run_windows_channel_terminal_proxy,
 )
 from ciel_runtime_support.channel_transcript import (
+    ChannelWakeTranscriptServices,
     active_tool_call_from_text as _channel_stdin_active_tool_call_from_text,
     active_turn_from_text as _channel_stdin_active_turn_from_text,
     content_text as _channel_transcript_content_text,
     is_assistant_message as _channel_transcript_is_assistant_message,
-    record_timestamp_seconds as _channel_transcript_record_timestamp_seconds,
+    queued_age_seconds_from_text as analyze_channel_queued_age,
+    queued_command_ids_from_text as analyze_channel_queued_ids,
     user_text as _channel_transcript_user_text,
+    wake_state_from_text as analyze_channel_wake_state,
 )
 from ciel_runtime_support.channel_probe_report import (
     ChannelProbeReportServices,
@@ -23885,46 +23888,13 @@ def _channel_stdin_wake_queued_age_seconds_from_text(
     *,
     now: float | None = None,
 ) -> float | None:
-    if message_id <= 0:
-        return None
-    prompt_candidates: list[str] = []
-    if prompt_texts:
-        prompt_candidates.extend(str(item) for item in prompt_texts if str(item or "").strip())
-    claimed_prompt = _channel_stdin_wake_claim_prompt(message_id)
-    if claimed_prompt:
-        prompt_candidates.append(claimed_prompt)
-    latest_queued_at: float | None = None
-
-    for raw_line in text.splitlines():
-        try:
-            record = json.loads(raw_line)
-        except Exception:
-            continue
-        if not isinstance(record, dict):
-            continue
-        record_type = str(record.get("type") or "")
-        candidate = ""
-        if record_type == "queue-operation" and record.get("operation") == "enqueue":
-            raw = record.get("content")
-            if isinstance(raw, str):
-                candidate = raw
-        elif record_type == "attachment":
-            attachment = record.get("attachment")
-            if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
-                raw = attachment.get("prompt")
-                if isinstance(raw, str):
-                    candidate = raw
-        user_text = _channel_transcript_user_text(record)
-        if user_text and _channel_prompt_references_message_id(user_text, message_id, prompt_candidates):
-            return None
-        if not candidate or not _channel_prompt_references_message_id(candidate, message_id, prompt_candidates):
-            continue
-        timestamp = _channel_transcript_record_timestamp_seconds(record)
-        if timestamp is not None:
-            latest_queued_at = max(latest_queued_at or 0.0, timestamp)
-    if latest_queued_at is None:
-        return None
-    return max(0.0, (time.time() if now is None else float(now)) - latest_queued_at)
+    return analyze_channel_queued_age(
+        message_id,
+        text,
+        prompt_texts,
+        channel_wake_transcript_services(),
+        now=now,
+    )
 
 
 def _channel_stdin_wake_queued_is_stale_for_message(message: dict[str, Any], prompt: str | None = None) -> bool:
@@ -23955,49 +23925,9 @@ def _channel_stdin_wake_state_from_text(
     text: str,
     prompt_texts: list[str] | tuple[str, ...] | None = None,
 ) -> str:
-    if message_id <= 0:
-        return "completed"
-    prompt_candidates: list[str] = []
-    if prompt_texts:
-        prompt_candidates.extend(str(item) for item in prompt_texts if str(item or "").strip())
-    claimed_prompt = _channel_stdin_wake_claim_prompt(message_id)
-    if claimed_prompt:
-        prompt_candidates.append(claimed_prompt)
-
-    seen_queued_prompt = False
-    seen_real_prompt = False
-    for raw_line in text.splitlines():
-        try:
-            record = json.loads(raw_line)
-        except Exception:
-            continue
-        if not isinstance(record, dict):
-            continue
-        record_type = str(record.get("type") or "")
-        if seen_real_prompt and _channel_transcript_is_assistant_message(record):
-            return "completed"
-        if record_type == "queue-operation" and record.get("operation") == "enqueue":
-            raw = record.get("content")
-            if isinstance(raw, str) and _channel_prompt_references_message_id(raw, message_id, prompt_candidates):
-                seen_queued_prompt = True
-            continue
-        if record_type == "attachment":
-            attachment = record.get("attachment")
-            if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
-                raw = attachment.get("prompt")
-                if isinstance(raw, str) and _channel_prompt_references_message_id(raw, message_id, prompt_candidates):
-                    seen_queued_prompt = True
-            continue
-        # A queued_command attachment only means Claude Code accepted text into
-        # its line editor queue.  It is not a real user turn and can be
-        # superseded by later typed/queued prompts.  Only commit delivery after
-        # the prompt is present as an actual user message.
-        content_text = _channel_transcript_user_text(record)
-        if _channel_prompt_references_message_id(content_text, message_id, prompt_candidates):
-            seen_real_prompt = True
-    if seen_real_prompt:
-        return "pending"
-    return "queued" if seen_queued_prompt else "missing"
+    return analyze_channel_wake_state(
+        message_id, text, prompt_texts, channel_wake_transcript_services()
+    )
 
 
 def _channel_stdin_active_tool_call() -> bool:
@@ -24025,29 +23955,16 @@ def _channel_stdin_wake_completed(message_id: int) -> bool:
 
 
 def _channel_stdin_queued_command_ids_from_text(text: str) -> set[int]:
-    ids: set[int] = set()
-    for raw_line in text.splitlines():
-        try:
-            record = json.loads(raw_line)
-        except Exception:
-            continue
-        if not isinstance(record, dict):
-            continue
-        candidate = ""
-        if record.get("type") == "queue-operation" and record.get("operation") == "enqueue":
-            raw = record.get("content")
-            if isinstance(raw, str):
-                candidate = raw
-        elif record.get("type") == "attachment":
-            attachment = record.get("attachment")
-            if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
-                raw = attachment.get("prompt")
-                if isinstance(raw, str):
-                    candidate = raw
-        if not candidate:
-            continue
-        ids.update(_channel_prompt_message_ids(candidate))
-    return ids
+    return analyze_channel_queued_ids(text, channel_wake_transcript_services())
+
+
+def channel_wake_transcript_services() -> ChannelWakeTranscriptServices:
+    return ChannelWakeTranscriptServices(
+        claim_prompt=_channel_stdin_wake_claim_prompt,
+        prompt_references_message_id=_channel_prompt_references_message_id,
+        prompt_message_ids=_channel_prompt_message_ids,
+        now=time.time,
+    )
 
 
 def _channel_stdin_recover_cursor_from_queued_only(last_id: int) -> int:

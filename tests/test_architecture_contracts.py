@@ -97,6 +97,7 @@ from ciel_runtime_support.channel_terminal_proxy import (
     ChannelWindowsConsole,
     ChannelWindowsServices,
 )
+from ciel_runtime_support.channel_transcript import ChannelWakeTranscriptServices
 from ciel_runtime_support.channel_session_repository import ChannelSessionRepository
 from ciel_runtime_support.channel_session_lifecycle import ChannelSessionLifecycleServices
 from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices
@@ -1364,6 +1365,7 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(function=function_name):
                 self.assertNotIn(f"def {function_name}(", source)
+        self.assertLessEqual(len(fields(ChannelWakeTranscriptServices)), 10)
 
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
