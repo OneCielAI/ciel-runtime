@@ -2,7 +2,12 @@
 
 from dataclasses import dataclass, field, replace
 
-from ..architecture import ProviderCapabilities, ProviderConfig, ProviderContextPolicy, ProviderStatusPolicy
+from ..architecture import (
+    ProviderCapabilities,
+    ProviderConfig,
+    ProviderContextPolicy,
+    ProviderStatusPolicy,
+)
 from .base import OpenAICompatibleProviderAdapter
 from .constants import PROVIDER_DEFAULT_BASE_URLS
 

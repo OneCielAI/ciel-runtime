@@ -41,7 +41,9 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         default_factory=lambda: ProviderModelCatalogPolicy(kind="anthropic")
     )
 
-    def advisor_panel_notice(self, config: ProviderConfig) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    def advisor_panel_notice(
+        self, config: ProviderConfig
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
         del config
         return (
             (
@@ -52,7 +54,9 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
             ("back", "back", "back"),
         )
 
-    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+    def configuration_policy(
+        self, config: ProviderConfig
+    ) -> ProviderConfigurationPolicy:
         del config
         return ProviderConfigurationPolicy(
             supports_route_through_router=True, restricts_runtime_options=True
@@ -75,7 +79,9 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         )
 
     def routing_mode_update(self, enabled: bool) -> tuple[str, ...]:
-        mode = "routed through ciel-runtime router" if enabled else "direct Claude Native"
+        mode = (
+            "routed through ciel-runtime router" if enabled else "direct Claude Native"
+        )
         return ("Anthropic routing mode updated.", f"mode: {mode}")
 
     def selection_config_updates(self, config: ProviderConfig) -> Mapping[str, Any]:
@@ -86,9 +92,13 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         del config
         return ("mode: anthropic-native",)
 
-    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+    def option_presentation_policy(
+        self, config: ProviderConfig
+    ) -> ProviderOptionPresentationPolicy:
         del config
-        return ProviderOptionPresentationPolicy(show_route=True, show_ip_family_control=True)
+        return ProviderOptionPresentationPolicy(
+            show_route=True, show_ip_family_control=True
+        )
 
     def ui_policy(self, config: ProviderConfig) -> ProviderUiPolicy:
         del config
@@ -107,7 +117,9 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         del config
         return True
 
-    def api_key_status(self, config: ProviderConfig, *, key_count: int, primary_detail: str) -> str:
+    def api_key_status(
+        self, config: ProviderConfig, *, key_count: int, primary_detail: str
+    ) -> str:
         routed = bool(config.options.get("route_through_router"))
         scope = "Anthropic routed" if routed else "Anthropic"
         if key_count > 1:
@@ -120,7 +132,9 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
             else "API key: not set (use API key or Claude login)"
         )
 
-    def build_model_headers(self, config: ProviderConfig, api_key: str | None) -> Mapping[str, str]:
+    def build_model_headers(
+        self, config: ProviderConfig, api_key: str | None
+    ) -> Mapping[str, str]:
         del config
         key = str(api_key or "").strip()
         return (

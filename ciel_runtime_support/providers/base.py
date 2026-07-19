@@ -45,7 +45,9 @@ class HttpBearerProviderAdapter(ProviderAdapter):
     send_placeholder_key: bool = False
     api_key_display_name_value: str = ""
     api_key_launch_error_value: str = ""
-    capabilities_value: ProviderCapabilities = field(default_factory=ProviderCapabilities)
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=ProviderCapabilities
+    )
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(
             chat_path="/v1/chat/completions",
@@ -60,7 +62,9 @@ class HttpBearerProviderAdapter(ProviderAdapter):
         return self.base_url
 
     def list_models(self, config: ProviderConfig) -> Sequence[ModelInfo]:
-        raw_models: Any = config.options.get("available_models") or config.options.get("models") or ()
+        raw_models: Any = (
+            config.options.get("available_models") or config.options.get("models") or ()
+        )
         if isinstance(raw_models, str):
             raw_models = [raw_models]
         models: list[ModelInfo] = []
@@ -74,7 +78,9 @@ class HttpBearerProviderAdapter(ProviderAdapter):
             models.insert(0, ModelInfo(id=config.model))
         return tuple(models)
 
-    def build_headers(self, config: ProviderConfig, api_key: str | None) -> Mapping[str, str]:
+    def build_headers(
+        self, config: ProviderConfig, api_key: str | None
+    ) -> Mapping[str, str]:
         key = str(api_key or "").strip()
         if self.require_api_key and not key:
             raise RuntimeError(f"{self.name} requires a configured API key.")
@@ -95,11 +101,15 @@ class HttpBearerProviderAdapter(ProviderAdapter):
         del config
         return self.request_policy_value
 
-    def model_catalog_policy(self, config: ProviderConfig) -> ProviderModelCatalogPolicy:
+    def model_catalog_policy(
+        self, config: ProviderConfig
+    ) -> ProviderModelCatalogPolicy:
         del config
         return self.model_catalog_policy_value
 
-    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+    def configuration_policy(
+        self, config: ProviderConfig
+    ) -> ProviderConfigurationPolicy:
         del config
         return configuration_policy()
 
@@ -108,10 +118,14 @@ class HttpBearerProviderAdapter(ProviderAdapter):
 
     def launch_api_key_error(self, config: ProviderConfig) -> str | None:
         if self.capabilities(config).requires_api_key and not config.api_keys:
-            return self.api_key_launch_error_value or super().launch_api_key_error(config)
+            return self.api_key_launch_error_value or super().launch_api_key_error(
+                config
+            )
         return None
 
-    def build_model_headers(self, config: ProviderConfig, api_key: str | None) -> Mapping[str, str]:
+    def build_model_headers(
+        self, config: ProviderConfig, api_key: str | None
+    ) -> Mapping[str, str]:
         del config
         key = str(api_key or "").strip()
         if not key:
@@ -124,7 +138,9 @@ class HttpBearerProviderAdapter(ProviderAdapter):
 
 @dataclass(frozen=True)
 class NoAuthProviderAdapter(HttpBearerProviderAdapter):
-    def build_headers(self, config: ProviderConfig, api_key: str | None) -> Mapping[str, str]:
+    def build_headers(
+        self, config: ProviderConfig, api_key: str | None
+    ) -> Mapping[str, str]:
         del config, api_key
         return {}
 
@@ -135,7 +151,9 @@ class OpenAICompatibleProviderAdapter(HttpBearerProviderAdapter):
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
-        return ProviderContextPolicy(capacity_strategy="hint_configured", settings_strategy="standard")
+        return ProviderContextPolicy(
+            capacity_strategy="hint_configured", settings_strategy="standard"
+        )
 
     def router_native_anthropic_enabled(
         self, config: ProviderConfig, model: str | None = None
@@ -143,7 +161,9 @@ class OpenAICompatibleProviderAdapter(HttpBearerProviderAdapter):
         del model
         return bool(config.options.get("native_compat", True))
 
-    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+    def option_presentation_policy(
+        self, config: ProviderConfig
+    ) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(
             show_native=True,

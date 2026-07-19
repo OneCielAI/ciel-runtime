@@ -57,7 +57,9 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
         del config
         return "ollama_unslug"
 
-    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+    def option_presentation_policy(
+        self, config: ProviderConfig
+    ) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(
             show_rate_limit=True,
@@ -72,9 +74,13 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
         del config
         return ("/api/tags", "/v1/models")
 
-    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+    def configuration_policy(
+        self, config: ProviderConfig
+    ) -> ProviderConfigurationPolicy:
         del config
-        return ProviderConfigurationPolicy(mutation_strategy="ollama", uses_ollama_status=True)
+        return ProviderConfigurationPolicy(
+            mutation_strategy="ollama", uses_ollama_status=True
+        )
 
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
         return replace(
@@ -89,11 +95,15 @@ class OllamaCloudProviderAdapter(OllamaProviderAdapter):
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["ollama-cloud"]
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
-            upstream_protocol="ollama_chat", supports_thinking=True, requires_api_key=True
+            upstream_protocol="ollama_chat",
+            supports_thinking=True,
+            requires_api_key=True,
         )
     )
     api_key_display_name_value: str = "Ollama Cloud"
-    api_key_launch_error_value: str = "Launch blocked: Ollama Cloud requires an API key."
+    api_key_launch_error_value: str = (
+        "Launch blocked: Ollama Cloud requires an API key."
+    )
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(
             kind="ollama", use_bundled_catalog_fallback=True

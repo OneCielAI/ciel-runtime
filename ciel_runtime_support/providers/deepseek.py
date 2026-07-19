@@ -21,10 +21,14 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["deepseek"]
     send_placeholder_key: bool = True
     api_key_display_name_value: str = "DeepSeek"
-    api_key_launch_error_value: str = "Launch blocked: DeepSeek.com requires a DeepSeek API key."
+    api_key_launch_error_value: str = (
+        "Launch blocked: DeepSeek.com requires a DeepSeek API key."
+    )
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
-            upstream_protocol="anthropic_messages", supports_thinking=True, requires_api_key=True
+            upstream_protocol="anthropic_messages",
+            supports_thinking=True,
+            requires_api_key=True,
         )
     )
     request_policy_value: ProviderRequestPolicy = field(
@@ -34,7 +38,8 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
     )
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(
-            kind="configured", fallback_models=("deepseek-v4-pro[1m]", "deepseek-v4-flash")
+            kind="configured",
+            fallback_models=("deepseek-v4-pro[1m]", "deepseek-v4-flash"),
         )
     )
 
@@ -48,7 +53,9 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
         return ProviderContextPolicy(
-            capacity_strategy="configured_first", settings_strategy="standard", hosted_timeout=True
+            capacity_strategy="configured_first",
+            settings_strategy="standard",
+            hosted_timeout=True,
         )
 
     def router_native_anthropic_enabled(
@@ -57,7 +64,9 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
         del model
         return bool(config.options.get("native_compat", True))
 
-    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+    def option_presentation_policy(
+        self, config: ProviderConfig
+    ) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(
             show_native=True,
@@ -71,14 +80,20 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
         del config
         return ProviderStatusPolicy(
-            kind="configured", configured_description="DeepSeek Anthropic API configured"
+            kind="configured",
+            configured_description="DeepSeek Anthropic API configured",
         )
 
-    def supports_tool_choice(self, config: ProviderConfig, model: str | None = None) -> bool:
+    def supports_tool_choice(
+        self, config: ProviderConfig, model: str | None = None
+    ) -> bool:
         configured = config.options.get("supports_tool_choice")
         if configured is not None:
             return bool(configured)
-        return "deepseek-v4" not in str(model or config.model or "").split("[", 1)[0].lower()
+        return (
+            "deepseek-v4"
+            not in str(model or config.model or "").split("[", 1)[0].lower()
+        )
 
 
 __all__ = ["DeepSeekProviderAdapter"]

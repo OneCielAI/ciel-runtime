@@ -19,7 +19,9 @@ class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
     name: str = "lm-studio"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["lm-studio"]
     capabilities_value: ProviderCapabilities = field(
-        default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", local=True)
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="openai_chat", local=True
+        )
     )
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(kind="lm_studio")
@@ -33,9 +35,13 @@ class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
         return super().placeholder_model_ids() | {"local-model"}
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
-        return replace(super().context_policy(config), status_capacity_strategy="openai_budget")
+        return replace(
+            super().context_policy(config), status_capacity_strategy="openai_budget"
+        )
 
-    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+    def option_presentation_policy(
+        self, config: ProviderConfig
+    ) -> ProviderOptionPresentationPolicy:
         return replace(super().option_presentation_policy(config), show_rate_limit=True)
 
     def model_paths(self, config: ProviderConfig) -> tuple[str, ...]:

@@ -21,10 +21,14 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["zai"]
     send_placeholder_key: bool = True
     api_key_display_name_value: str = "Z.AI GLM"
-    api_key_launch_error_value: str = "Launch blocked: Z.AI GLM requires a Z.AI API key."
+    api_key_launch_error_value: str = (
+        "Launch blocked: Z.AI GLM requires a Z.AI API key."
+    )
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
-            upstream_protocol="anthropic_messages", supports_thinking=True, requires_api_key=True
+            upstream_protocol="anthropic_messages",
+            supports_thinking=True,
+            requires_api_key=True,
         )
     )
     request_policy_value: ProviderRequestPolicy = field(
@@ -60,7 +64,9 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
         del model
         return bool(config.options.get("native_compat", True))
 
-    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+    def option_presentation_policy(
+        self, config: ProviderConfig
+    ) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(
             show_native=True,

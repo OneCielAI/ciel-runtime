@@ -239,7 +239,7 @@ Codex App Server 프로세스와 JSON-RPC/WebSocket 상태 조정.
 
 ### `ciel_runtime_support/provider_adapters.py`
 
-Anthropic, Ollama, OpenRouter, LM Studio, vLLM, NVIDIA NIM, DeepSeek, Kimi, Z.AI, Fireworks, OpenCode 등 Provider별 구체 Adapter와 Registry. 각 Adapter가 인증, API-key 상태·launch blocker, configuration/context/option-presentation capability, protocol, endpoint, 모델-ID 정규화 및 모델 discovery 경로를 소유한다. Advisor 전송과 호환성 진단은 별도 Compatibility Registry가 소유한다.
+Provider Adapter Registry와 기존 import 경로를 위한 호환 re-export 진입점. 구체 Provider 구현은 `providers/` 하위 모듈이 소유하며, 이 모듈은 이름·표시 label·factory 조립만 담당한다.
 
 ### `ciel_runtime_support/providers/__init__.py`
 
@@ -292,6 +292,22 @@ DeepSeek Anthropic-compatible endpoint, fallback catalog, tool-choice 제약과 
 ### `ciel_runtime_support/providers/zai.py`
 
 Z.AI Anthropic-compatible endpoint, GLM fallback catalog, model-ID 정규화와 context/status 정책을 소유하는 독립 Adapter.
+
+### `ciel_runtime_support/providers/kimi.py`
+
+Kimi Anthropic/OpenAI protocol 선택, K3 1M context profile, tool-choice·thinking 정규화와 catalog/status 정책을 소유하는 독립 Adapter.
+
+### `ciel_runtime_support/providers/fireworks.py`
+
+Fireworks.ai 인증, management catalog scope, account 추론, protocol 선택과 모델 metadata projection 정책을 소유하는 독립 Adapter.
+
+### `ciel_runtime_support/providers/opencode.py`
+
+OpenCode Zen의 모델별 protocol routing, endpoint override, catalog/status와 UI 표시 정책을 소유하는 독립 Adapter.
+
+### `ciel_runtime_support/providers/opencode_go.py`
+
+OpenCode 공통 routing 정책을 확장하면서 OpenCode Go 전용 endpoint·label·인증 오류를 소유하는 독립 Adapter.
 
 ### `ciel_runtime_support/provider_compatibility.py`
 

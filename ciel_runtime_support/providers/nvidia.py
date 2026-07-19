@@ -21,7 +21,9 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
     name: str = "nvidia-hosted"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["nvidia-hosted"]
     api_key_display_name_value: str = "NVIDIA"
-    api_key_launch_error_value: str = "Launch blocked: NVIDIA hosted requires an NVIDIA API key."
+    api_key_launch_error_value: str = (
+        "Launch blocked: NVIDIA hosted requires an NVIDIA API key."
+    )
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
             upstream_protocol="openai_chat", requires_api_key=True
@@ -39,7 +41,9 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
         )
     )
 
-    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+    def configuration_policy(
+        self, config: ProviderConfig
+    ) -> ProviderConfigurationPolicy:
         del config
         return configuration_policy(
             native_compat_error=(
@@ -77,9 +81,13 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
         del config, model
         return False
 
-    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+    def option_presentation_policy(
+        self, config: ProviderConfig
+    ) -> ProviderOptionPresentationPolicy:
         return replace(
-            super().option_presentation_policy(config), show_rate_limit=True, show_native=False
+            super().option_presentation_policy(config),
+            show_rate_limit=True,
+            show_native=False,
         )
 
 

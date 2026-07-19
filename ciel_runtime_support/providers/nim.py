@@ -19,14 +19,18 @@ class SelfHostedNimProviderAdapter(OpenAICompatibleProviderAdapter):
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["self-hosted-nim"]
     send_placeholder_key: bool = True
     capabilities_value: ProviderCapabilities = field(
-        default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", local=True)
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="openai_chat", local=True
+        )
     )
 
     def requires_catalog_model_selection(self, config: ProviderConfig) -> bool:
         del config
         return True
 
-    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+    def option_presentation_policy(
+        self, config: ProviderConfig
+    ) -> ProviderOptionPresentationPolicy:
         return replace(super().option_presentation_policy(config), show_rate_limit=True)
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:

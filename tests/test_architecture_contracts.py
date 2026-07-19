@@ -1550,6 +1550,21 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(provider=provider):
                 self.assertIsInstance(PROVIDER_ADAPTERS.create(provider), adapter_type)
 
+    def test_provider_registry_does_not_define_concrete_provider_adapters(self):
+        source_path = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "provider_adapters.py"
+        )
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        concrete_adapters = [
+            node.name
+            for node in tree.body
+            if isinstance(node, ast.ClassDef) and node.name.endswith("ProviderAdapter")
+        ]
+
+        self.assertEqual([], concrete_adapters)
+
     def test_provider_adapters_own_protocol_endpoints_and_model_paths(self):
         ollama = PROVIDER_ADAPTERS.create("ollama")
         ollama_config = ProviderConfig(name="ollama", base_url="http://localhost:11434", model="qwen")

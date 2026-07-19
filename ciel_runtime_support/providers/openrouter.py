@@ -14,7 +14,9 @@ class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
     authorization_header: str = "Authorization"
     require_api_key: bool = True
     api_key_display_name_value: str = "OpenRouter"
-    api_key_launch_error_value: str = "Launch blocked: OpenRouter requires an OpenRouter API key."
+    api_key_launch_error_value: str = (
+        "Launch blocked: OpenRouter requires an OpenRouter API key."
+    )
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
             upstream_protocol="openai_chat", requires_api_key=True
@@ -24,7 +26,9 @@ class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
         return ProviderContextPolicy(
-            capacity_strategy="configured_first", settings_strategy="standard", hosted_timeout=True
+            capacity_strategy="configured_first",
+            settings_strategy="standard",
+            hosted_timeout=True,
         )
 
     def router_native_anthropic_enabled(

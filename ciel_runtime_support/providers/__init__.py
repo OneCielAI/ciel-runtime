@@ -1,7 +1,11 @@
 """Concrete provider adapters and their shared transport bases."""
 
 from .anthropic import AnthropicProviderAdapter
-from .base import HttpBearerProviderAdapter, NoAuthProviderAdapter, OpenAICompatibleProviderAdapter
+from .base import (
+    HttpBearerProviderAdapter,
+    NoAuthProviderAdapter,
+    OpenAICompatibleProviderAdapter,
+)
 from .constants import PROVIDER_DEFAULT_BASE_URLS, ZAI_MODEL_FALLBACK_IDS
 from .native import AgyProviderAdapter, CodexProviderAdapter
 from .ollama import OllamaCloudProviderAdapter, OllamaProviderAdapter
@@ -11,7 +15,11 @@ from .nim import SelfHostedNimProviderAdapter
 from .nvidia import NvidiaHostedProviderAdapter
 from .vllm import VllmProviderAdapter
 from .deepseek import DeepSeekProviderAdapter
+from .fireworks import FireworksProviderAdapter
 from .zai import ZaiProviderAdapter
+from .kimi import KimiProviderAdapter
+from .opencode import OpenCodeProviderAdapter
+from .opencode_go import OpenCodeGoProviderAdapter
 
 __all__ = [
     "HttpBearerProviderAdapter",
@@ -30,5 +38,9 @@ __all__ = [
     "SelfHostedNimProviderAdapter",
     "VllmProviderAdapter",
     "DeepSeekProviderAdapter",
+    "FireworksProviderAdapter",
     "ZaiProviderAdapter",
+    "KimiProviderAdapter",
+    "OpenCodeProviderAdapter",
+    "OpenCodeGoProviderAdapter",
 ]

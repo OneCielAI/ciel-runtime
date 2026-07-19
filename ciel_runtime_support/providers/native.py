@@ -24,7 +24,9 @@ class CodexProviderAdapter(NoAuthProviderAdapter):
     name: str = "codex"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["codex"]
     capabilities_value: ProviderCapabilities = field(
-        default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_responses")
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="openai_responses"
+        )
     )
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(
@@ -36,7 +38,10 @@ class CodexProviderAdapter(NoAuthProviderAdapter):
     )
 
     def routing_mode_update(self, enabled: bool) -> tuple[str, ...]:
-        return ("Codex routing mode updated.", f"mode: {'codex-routed' if enabled else 'codex-native'}")
+        return (
+            "Codex routing mode updated.",
+            f"mode: {'codex-routed' if enabled else 'codex-native'}",
+        )
 
     def selection_config_updates(self, config: ProviderConfig) -> Mapping[str, Any]:
         del config
@@ -46,7 +51,9 @@ class CodexProviderAdapter(NoAuthProviderAdapter):
         del config
         return ("mode: codex-native",)
 
-    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+    def option_presentation_policy(
+        self, config: ProviderConfig
+    ) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(show_route=True)
 
@@ -68,7 +75,9 @@ class CodexProviderAdapter(NoAuthProviderAdapter):
     def option_timeout_default(self) -> str:
         return "Codex default"
 
-    def api_key_status(self, config: ProviderConfig, *, key_count: int, primary_detail: str) -> str:
+    def api_key_status(
+        self, config: ProviderConfig, *, key_count: int, primary_detail: str
+    ) -> str:
         routed = bool(config.options.get("route_through_router"))
         if routed:
             if key_count > 1:
@@ -93,9 +102,13 @@ class CodexProviderAdapter(NoAuthProviderAdapter):
         del config
         return ProviderStatusPolicy(kind="native_codex")
 
-    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+    def configuration_policy(
+        self, config: ProviderConfig
+    ) -> ProviderConfigurationPolicy:
         del config
-        return ProviderConfigurationPolicy(runtime_owns_model=True, restricts_runtime_options=True)
+        return ProviderConfigurationPolicy(
+            runtime_owns_model=True, restricts_runtime_options=True
+        )
 
 
 @dataclass(frozen=True)
@@ -103,14 +116,19 @@ class AgyProviderAdapter(NoAuthProviderAdapter):
     name: str = "agy"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["agy"]
     capabilities_value: ProviderCapabilities = field(
-        default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_responses")
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="openai_responses"
+        )
     )
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(kind="configured")
     )
 
     def routing_mode_update(self, enabled: bool) -> tuple[str, ...]:
-        return ("AGY routing mode updated.", f"mode: {'agy-routed' if enabled else 'agy-native'}")
+        return (
+            "AGY routing mode updated.",
+            f"mode: {'agy-routed' if enabled else 'agy-native'}",
+        )
 
     def selection_config_updates(self, config: ProviderConfig) -> Mapping[str, Any]:
         del config
@@ -120,7 +138,9 @@ class AgyProviderAdapter(NoAuthProviderAdapter):
         del config
         return ("mode: agy-native",)
 
-    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
+    def option_presentation_policy(
+        self, config: ProviderConfig
+    ) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(show_route=True)
 
@@ -138,7 +158,9 @@ class AgyProviderAdapter(NoAuthProviderAdapter):
     def option_timeout_default(self) -> str:
         return "AGY default"
 
-    def api_key_status(self, config: ProviderConfig, *, key_count: int, primary_detail: str) -> str:
+    def api_key_status(
+        self, config: ProviderConfig, *, key_count: int, primary_detail: str
+    ) -> str:
         del key_count, primary_detail
         return (
             "API key: not set (uses native AGY Google sign-in/keyring)"
@@ -150,7 +172,9 @@ class AgyProviderAdapter(NoAuthProviderAdapter):
         del config
         return ProviderStatusPolicy(kind="native_agy")
 
-    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+    def configuration_policy(
+        self, config: ProviderConfig
+    ) -> ProviderConfigurationPolicy:
         del config
         return ProviderConfigurationPolicy(runtime_owns_model=True)
 
