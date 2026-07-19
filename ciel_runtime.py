@@ -51,6 +51,15 @@ from ciel_runtime_support.channel_injection import (
     PromptInjection,
     RuntimeInjectionPolicy,
 )
+from ciel_runtime_support.channel_pending_injection import (
+    ChannelInjectionIO,
+    ChannelInjectionPolicy,
+    ChannelInjectionPrompts,
+    ChannelInjectionServices,
+    ChannelInjectionState,
+    ChannelInjectionWakeStore,
+    inject_pending_channel_messages as run_pending_channel_injection,
+)
 from ciel_runtime_support.channel_panel import (
     ChannelPanelPolicy,
     _channel_panel_first_selectable as first_selectable_channel_row,
@@ -26670,6 +26679,95 @@ def _channel_stdin_should_check_pending(
     return force_recheck or marker != last_marker
 
 
+def _channel_wake_store_release_stale(message_id: int, commit_cursor: bool) -> None:
+    with _CHANNEL_STDIN_WAKE_LOCK:
+        _CHANNEL_STDIN_WAKE_DELIVERED.discard(message_id)
+        _CHANNEL_STDIN_WAKE_PROMPTS.pop(message_id, None)
+    _channel_stdin_clear_wake_claim(message_id)
+    if commit_cursor:
+        _commit_channel_llm_cursor_if_newer(message_id)
+
+
+def _channel_wake_store_mark_delivered(message_id: int) -> bool:
+    with _CHANNEL_STDIN_WAKE_LOCK:
+        if message_id in _CHANNEL_STDIN_WAKE_DELIVERED:
+            return False
+        _CHANNEL_STDIN_WAKE_DELIVERED.add(message_id)
+        if len(_CHANNEL_STDIN_WAKE_DELIVERED) > 1000:
+            for old_id in sorted(_CHANNEL_STDIN_WAKE_DELIVERED)[:500]:
+                _CHANNEL_STDIN_WAKE_DELIVERED.discard(old_id)
+    return True
+
+
+def _channel_wake_store_record_prompts(messages: list[dict[str, Any]], prompt: str) -> None:
+    with _CHANNEL_STDIN_WAKE_LOCK:
+        for message in messages:
+            try:
+                message_id = int(message.get("id") or 0)
+            except (TypeError, ValueError):
+                continue
+            if message_id > 0:
+                _CHANNEL_STDIN_WAKE_PROMPTS[message_id] = prompt
+        if len(_CHANNEL_STDIN_WAKE_PROMPTS) > 1000:
+            for old_id in sorted(_CHANNEL_STDIN_WAKE_PROMPTS)[:500]:
+                _CHANNEL_STDIN_WAKE_PROMPTS.pop(old_id, None)
+
+
+def _channel_wake_store_rollback(messages: list[dict[str, Any]], claimed_ids: list[int]) -> None:
+    with _CHANNEL_STDIN_WAKE_LOCK:
+        for message in messages:
+            try:
+                message_id = int(message.get("id") or 0)
+            except (TypeError, ValueError):
+                continue
+            _CHANNEL_STDIN_WAKE_DELIVERED.discard(message_id)
+            _CHANNEL_STDIN_WAKE_PROMPTS.pop(message_id, None)
+            _channel_stdin_clear_wake_claim(message_id)
+    for message_id in claimed_ids:
+        _channel_stdin_clear_wake_claim(message_id)
+
+
+def pending_channel_injection_services() -> ChannelInjectionServices:
+    return ChannelInjectionServices(
+        state=ChannelInjectionState(
+            active_tool_call=_channel_stdin_active_tool_call,
+            active_turn=_channel_stdin_active_turn,
+            recover_cursor=_channel_stdin_recover_cursor_from_queued_only,
+            pending_scan_limit=_channel_pending_scan_limit,
+            superseded_ids=_channel_superseded_message_ids,
+            message_is_web_chat=_channel_message_is_web_chat_request,
+            message_skip_reason=_channel_llm_message_skip_reason,
+            event_identity_key=_channel_message_event_identity_key,
+            wake_state_for_message=_channel_stdin_wake_state_for_message,
+            queued_wake_is_stale=_channel_stdin_wake_queued_is_stale_for_message,
+        ),
+        prompts=ChannelInjectionPrompts(
+            llm_delivery=format_channel_llm_delivery_wake_prompt,
+            web_chat=format_channel_web_chat_wake_batch_prompt,
+            standard=format_channel_wake_batch_prompt,
+            enter_bytes=_channel_wake_enter_bytes,
+            enter_label=_channel_enter_label,
+        ),
+        wake_store=ChannelInjectionWakeStore(
+            claim_for_nonblocking_scan=_channel_stdin_wake_claim_prompt,
+            claim_prompt=_channel_stdin_claim_wake_prompt,
+            clear_claim=_channel_stdin_clear_wake_claim,
+            release_stale=_channel_wake_store_release_stale,
+            mark_delivered=_channel_wake_store_mark_delivered,
+            record_prompts=_channel_wake_store_record_prompts,
+            rollback=_channel_wake_store_rollback,
+            commit_cursor=_commit_channel_llm_cursor_if_newer,
+        ),
+        io=ChannelInjectionIO(
+            inject_lock=_CHANNEL_STDIN_INJECT_LOCK,
+            read_messages=read_chat_messages,
+            write_prompt=_write_channel_wake_prompt,
+            log=router_log,
+        ),
+        policy=ChannelInjectionPolicy(wake_batch_limit=_channel_stdin_wake_batch_limit),
+    )
+
+
 def _inject_pending_channel_messages(
     master_fd: int,
     last_id: int,
@@ -26685,193 +26783,21 @@ def _inject_pending_channel_messages(
     submit_delay_seconds: float | None = None,
     skip_blocking_wake_states: bool = False,
 ) -> int:
-    with _CHANNEL_STDIN_INJECT_LOCK:
-        if _channel_stdin_active_tool_call():
-            router_log("INFO", f"channel_stdin_proxy_deferred cursor={last_id} reason=active_tool_call")
-            return last_id
-        if _channel_stdin_active_turn():
-            router_log("INFO", f"channel_stdin_proxy_deferred cursor={last_id} reason=active_turn")
-            return last_id
-        if not web_chat_only:
-            last_id = _channel_stdin_recover_cursor_from_queued_only(last_id)
-        pending: list[dict[str, Any]] = []
-        return_last_id = last_id
-        candidates = read_chat_messages(last_id, None, None, _channel_pending_scan_limit())
-        superseded_ids = _channel_superseded_message_ids(candidates)
-        batch_limit = _channel_stdin_wake_batch_limit() if wake_for_llm_delivery else 1
-        seen_event_keys: set[tuple[str, ...]] = set()
-        for message in candidates:
-            previous_last_id = last_id
-            try:
-                message_id = int(message.get("id") or 0)
-                last_id = max(last_id, message_id)
-            except Exception:
-                continue
-            if web_chat_only and not _channel_message_is_web_chat_request(message):
-                router_log(
-                    "INFO",
-                    f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=not_web_chat",
-                )
-                continue
-            skip_reason = _channel_llm_message_skip_reason(message)
-            if skip_reason:
-                router_log(
-                    "INFO",
-                    f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason={skip_reason}",
-                )
-                continue
-            if message_id in superseded_ids:
-                router_log(
-                    "INFO",
-                    f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=superseded_channel_notice",
-                )
-                continue
-            event_key = _channel_message_event_identity_key(message)
-            if event_key and event_key in seen_event_keys:
-                router_log(
-                    "INFO",
-                    f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=duplicate_channel_event",
-                )
-                continue
-            if wake_for_llm_delivery:
-                message_prompt = format_channel_llm_delivery_wake_prompt([message])
-            elif web_chat_only and _channel_message_is_web_chat_request(message):
-                message_prompt = format_channel_web_chat_wake_batch_prompt([message])
-            else:
-                message_prompt = format_channel_wake_batch_prompt([message])
-            wake_state = _channel_stdin_wake_state_for_message(message, message_prompt)
-            if wake_state == "completed":
-                router_log(
-                    "INFO",
-                    f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=stdin_wake_completed",
-                )
-                continue
-            if skip_blocking_wake_states and wake_state == "missing" and _channel_stdin_wake_claim_prompt(message_id):
-                router_log(
-                    "INFO",
-                    f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=stdin_wake_claimed_continue",
-                )
-                continue
-            if wake_state in {"pending", "queued"}:
-                if wake_state == "queued" and _channel_stdin_wake_queued_is_stale_for_message(message, message_prompt):
-                    with _CHANNEL_STDIN_WAKE_LOCK:
-                        _CHANNEL_STDIN_WAKE_DELIVERED.discard(message_id)
-                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(message_id, None)
-                    _channel_stdin_clear_wake_claim(message_id)
-                    if not web_chat_only:
-                        _commit_channel_llm_cursor_if_newer(message_id)
-                    router_log(
-                        "WARN",
-                        f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=stale_queued_wake",
-                    )
-                    continue
-                if skip_blocking_wake_states:
-                    router_log(
-                        "INFO",
-                        f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=stdin_wake_{wake_state}_continue",
-                    )
-                    continue
-                router_log(
-                    "INFO",
-                    f"channel_stdin_proxy_waiting_for_turn_completion message_id={message.get('id')} channel={message.get('channel')} state={wake_state}",
-                )
-                if pending:
-                    break
-                return previous_last_id
-            if not wake_for_llm_delivery:
-                with _CHANNEL_STDIN_WAKE_LOCK:
-                    if message_id in _CHANNEL_STDIN_WAKE_DELIVERED:
-                        router_log(
-                            "INFO",
-                            f"channel_stdin_proxy_skipped_noise message_id={message.get('id')} channel={message.get('channel')} reason=stdin_wake_delivered",
-                        )
-                        continue
-                    _CHANNEL_STDIN_WAKE_DELIVERED.add(message_id)
-                    if len(_CHANNEL_STDIN_WAKE_DELIVERED) > 1000:
-                        for old_id in sorted(_CHANNEL_STDIN_WAKE_DELIVERED)[:500]:
-                            _CHANNEL_STDIN_WAKE_DELIVERED.discard(old_id)
-            pending.append(message)
-            if event_key:
-                seen_event_keys.add(event_key)
-            if wake_for_llm_delivery and len(pending) == 1:
-                return_last_id = previous_last_id
-            last_id = message_id
-            if len(pending) >= batch_limit:
-                break
-        if pending:
-            if wake_for_llm_delivery:
-                prompt = format_channel_llm_delivery_wake_prompt(pending)
-            elif web_chat_only and all(_channel_message_is_web_chat_request(message) for message in pending):
-                prompt = format_channel_web_chat_wake_batch_prompt(pending)
-            else:
-                prompt = format_channel_wake_batch_prompt(pending)
-            claimed_ids: list[int] = []
-            if wake_for_llm_delivery:
-                for message in pending:
-                    try:
-                        claim_id = int(message.get("id") or 0)
-                    except Exception:
-                        continue
-                    if claim_id <= 0:
-                        continue
-                    if not _channel_stdin_claim_wake_prompt(claim_id, prompt):
-                        router_log(
-                            "INFO",
-                            f"channel_stdin_proxy_skipped_noise message_id={claim_id} channel={message.get('channel')} reason=stdin_wake_claimed",
-                        )
-                        return return_last_id
-                    claimed_ids.append(claim_id)
-            submit_bytes = _channel_wake_enter_bytes(enter_bytes)
-            try:
-                _write_channel_wake_prompt(
-                    master_fd,
-                    prompt,
-                    submit_bytes,
-                    submit_retry_count=submit_retry_count,
-                    confirm_submit=confirm_submit,
-                    bracketed_paste=bracketed_paste,
-                    submit_delay_seconds=submit_delay_seconds,
-                )
-                with _CHANNEL_STDIN_WAKE_LOCK:
-                    for message in pending:
-                        try:
-                            message_id_for_prompt = int(message.get("id") or 0)
-                        except Exception:
-                            continue
-                        if message_id_for_prompt > 0:
-                            _CHANNEL_STDIN_WAKE_PROMPTS[message_id_for_prompt] = prompt
-                    if len(_CHANNEL_STDIN_WAKE_PROMPTS) > 1000:
-                        for old_id in sorted(_CHANNEL_STDIN_WAKE_PROMPTS)[:500]:
-                            _CHANNEL_STDIN_WAKE_PROMPTS.pop(old_id, None)
-            except Exception:
-                with _CHANNEL_STDIN_WAKE_LOCK:
-                    for message in pending:
-                        try:
-                            failed_id = int(message.get("id") or 0)
-                        except Exception:
-                            continue
-                        _CHANNEL_STDIN_WAKE_DELIVERED.discard(failed_id)
-                        _CHANNEL_STDIN_WAKE_PROMPTS.pop(failed_id, None)
-                        _channel_stdin_clear_wake_claim(failed_id)
-                for failed_id in claimed_ids:
-                    _channel_stdin_clear_wake_claim(failed_id)
-                raise
-            if not web_chat_only:
-                if commit_cursor:
-                    _commit_channel_llm_cursor_if_newer(last_id)
-                if injected_message_ids is not None:
-                    injected_message_ids.extend(
-                        int(message.get("id") or 0)
-                        for message in pending
-                        if int(message.get("id") or 0) > 0
-                    )
-            ids = ",".join(str(message.get("id") or "") for message in pending)
-            channels = ",".join(sorted({str(message.get("channel") or "default") for message in pending}))
-            router_log(
-                "INFO",
-                f"channel_stdin_proxy_injected count={len(pending)} message_ids={ids} channels={channels} enter={_channel_enter_label(submit_bytes)} commit_cursor={commit_cursor}",
-            )
-        return return_last_id if pending and wake_for_llm_delivery else last_id
+    return run_pending_channel_injection(
+        master_fd,
+        last_id,
+        enter_bytes,
+        web_chat_only=web_chat_only,
+        wake_for_llm_delivery=wake_for_llm_delivery,
+        commit_cursor=commit_cursor,
+        injected_message_ids=injected_message_ids,
+        submit_retry_count=submit_retry_count,
+        confirm_submit=confirm_submit,
+        bracketed_paste=bracketed_paste,
+        submit_delay_seconds=submit_delay_seconds,
+        skip_blocking_wake_states=skip_blocking_wake_states,
+        services=pending_channel_injection_services(),
+    )
 
 
 def _inject_pending_compact_request(

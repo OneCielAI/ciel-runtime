@@ -26,6 +26,14 @@ from ciel_runtime_support.cli_dispatch import (
     CliSpecialCommands,
 )
 from ciel_runtime_support.channel_panel import ChannelPanelPolicy
+from ciel_runtime_support.channel_pending_injection import (
+    ChannelInjectionIO,
+    ChannelInjectionPolicy,
+    ChannelInjectionPrompts,
+    ChannelInjectionServices,
+    ChannelInjectionState,
+    ChannelInjectionWakeStore,
+)
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
 from ciel_runtime_support.compatibility_test import (
     CompatibilityTestConfig,
@@ -509,6 +517,18 @@ class ArchitectureContractTests(unittest.TestCase):
             ChatProjectionTools,
             ChatProjectionPolicy,
             ChatProjectionServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_pending_channel_injection_ports_stay_below_dependency_limit(self):
+        for port in (
+            ChannelInjectionState,
+            ChannelInjectionPrompts,
+            ChannelInjectionWakeStore,
+            ChannelInjectionIO,
+            ChannelInjectionPolicy,
+            ChannelInjectionServices,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
