@@ -156,6 +156,12 @@ from ciel_runtime_support.tool_guard_hooks import (
     ToolGuardHookServices,
     install_tool_guard_hook_settings,
 )
+from ciel_runtime_support.process_control import (
+    ProcessControlServices,
+    ProcessQueryServices,
+    ProcessSignalServices,
+    terminate_matching_processes as run_terminate_matching_processes,
+)
 from ciel_runtime_support.provider_config_mutations import (
     ProviderOptionPolicy,
     apply_ollama_option as mutate_ollama_option,
@@ -22179,93 +22185,17 @@ def terminate_windows_port(port: int, label: str, quiet: bool = False) -> bool:
 
 
 def terminate_matching_processes(needles: list[str], label: str, quiet: bool = False) -> bool:
-    if os.name == "nt":
-        script = (
-            "Get-CimInstance Win32_Process | "
-            "Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress"
-        )
-        try:
-            p = subprocess.run(
-                ["powershell", "-NoProfile", "-Command", script],
-                text=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                timeout=8,
-            )
-            rows = json.loads(p.stdout or "[]")
-        except Exception:
-            return False
-        if isinstance(rows, dict):
-            rows = [rows]
-        current = os.getpid()
-        matched: list[int] = []
-        for row in rows if isinstance(rows, list) else []:
-            try:
-                pid = int(row.get("ProcessId"))
-            except Exception:
-                continue
-            command = str(row.get("CommandLine") or "")
-            if pid == current or pid == os.getppid() or not command:
-                continue
-            if all(needle in command for needle in needles):
-                matched.append(pid)
-        stopped = False
-        for pid in matched:
-            try:
-                subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=8)
-                stopped = True
-            except Exception:
-                pass
-        if stopped and not quiet:
-            print(f"Stopped existing {label} session(s): {', '.join(map(str, matched))}.")
-        return stopped
-    try:
-        p = subprocess.run(
-            ["ps", "-u", getpass.getuser(), "-o", "pid=,stat=,command="],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            timeout=5,
-        )
-    except Exception:
-        return False
-    current = os.getpid()
-    matched: list[int] = []
-    for line in p.stdout.splitlines():
-        parts = line.strip().split(maxsplit=2)
-        if len(parts) < 3:
-            continue
-        try:
-            pid = int(parts[0])
-        except ValueError:
-            continue
-        stat, command = parts[1], parts[2]
-        if pid == current or pid == os.getppid() or stat.startswith("Z"):
-            continue
-        if all(needle in command for needle in needles):
-            matched.append(pid)
-    stopped = False
-    for pid in matched:
-        try:
-            os.kill(pid, signal.SIGTERM)
-            stopped = True
-        except Exception:
-            pass
-    deadline = time.time() + 3
-    while time.time() < deadline:
-        alive = [pid for pid in matched if pid_is_running(pid)]
-        if not alive:
-            break
-        time.sleep(0.1)
-    for pid in matched:
-        if pid_is_running(pid):
-            try:
-                os.kill(pid, signal.SIGKILL)
-            except Exception:
-                pass
-    if stopped and not quiet:
-        print(f"Stopped existing {label} session(s): {', '.join(map(str, matched))}.")
-    return stopped
+    return run_terminate_matching_processes(
+        needles,
+        label,
+        ProcessControlServices(
+            query=ProcessQueryServices(),
+            signals=ProcessSignalServices(kill=os.kill, pid_is_running=pid_is_running),
+            log=router_log,
+        ),
+        quiet=quiet,
+        platform_name=os.name,
+    )
 
 
 def stop_ncp_proxy(quiet: bool = False) -> bool:

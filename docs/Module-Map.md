@@ -97,6 +97,10 @@ POSIX PTY의 생성, 터미널 크기 동기화, 표준 입출력 전달, channe
 
 Claude 설정의 tool guard hook을 읽고, 레거시 hook 제거와 중복 정규화 후 원자적으로 저장하는 Security/Configuration Service. 이벤트 정책과 파일 시스템 효과를 분리하며 권한 제한 실패도 경고로 관측 가능하게 남긴다.
 
+### `ciel_runtime_support/process_control.py`
+
+Windows CIM/taskkill과 POSIX ps/signal 기반 프로세스 검색·종료를 캡슐화하는 Runtime Infrastructure Adapter. Query와 Signal 포트를 분리하며 조회, TERM/KILL, taskkill 실패를 구조화된 경고로 노출한다.
+
 ### `ciel_runtime_support/channel_probe_report.py`
 
 channel capability probe 결과를 capable/non-capable/inconclusive/skipped 행과 진단 hint로 투영하는 Presentation Service. probe 실행과 CLI 명령 해석에서 결과 formatting을 분리한다.

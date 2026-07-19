@@ -118,6 +118,11 @@ from ciel_runtime_support.model_panel import (
     ModelPanelServices,
 )
 from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy, ToolGuardHookServices
+from ciel_runtime_support.process_control import (
+    ProcessControlServices,
+    ProcessQueryServices,
+    ProcessSignalServices,
+)
 from ciel_runtime_support.ollama_forwarding import (
     OllamaForwardAdvisor,
     OllamaForwardConstants,
@@ -958,6 +963,11 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
+    def test_process_control_ports_stay_below_dependency_limit(self):
+        for port in (ProcessQueryServices, ProcessSignalServices, ProcessControlServices):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
     def test_model_panel_ports_stay_below_dependency_limit(self):
         for port in (ModelPanelCatalog, ModelPanelPresentation, ModelPanelServices):
             with self.subTest(port=port.__name__):
@@ -985,11 +995,13 @@ class ArchitectureContractTests(unittest.TestCase):
             source_root / "ciel_runtime_support" / "claude_router.py",
             source_root / "ciel_runtime_support" / "openai_responses_router.py",
             source_root / "ciel_runtime_support" / "channel_terminal_proxy.py",
+            source_root / "ciel_runtime_support" / "process_control.py",
         )
         critical_names = {
             "subprocess_call_with_channel_wake_proxy",
             "run_posix_channel_terminal_proxy",
             "run_windows_channel_terminal_proxy",
+            "terminate_matching_processes",
             "_mcp_proxy_forward_stdin",
             "_mcp_proxy_forward_stdin_jsonl",
             "_mcp_proxy_emit_jsonl_stdout_line",
