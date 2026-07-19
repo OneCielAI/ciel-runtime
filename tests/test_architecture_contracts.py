@@ -40,6 +40,12 @@ from ciel_runtime_support.channel_inflight import (
     ChannelInflightSnapshot,
     ChannelInflightUpdate,
 )
+from ciel_runtime_support.channel_llm_context import (
+    ChannelLlmContextPolicy,
+    ChannelLlmContextProjection,
+    ChannelLlmContextRepository,
+    ChannelLlmContextServices,
+)
 from ciel_runtime_support.channel_mcp_tools import ChannelMcpToolServices
 from ciel_runtime_support.channel_pending_injection import (
     ChannelInjectionIO,
@@ -595,6 +601,16 @@ class ArchitectureContractTests(unittest.TestCase):
             ChannelInflightPolicy,
             ChannelInflightEffects,
             ChannelInflightUpdate,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_channel_llm_context_ports_stay_below_dependency_limit(self):
+        for port in (
+            ChannelLlmContextPolicy,
+            ChannelLlmContextRepository,
+            ChannelLlmContextProjection,
+            ChannelLlmContextServices,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)

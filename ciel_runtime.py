@@ -67,6 +67,13 @@ from ciel_runtime_support.channel_inflight import (
     ChannelInflightSnapshot,
     advance_channel_inflight,
 )
+from ciel_runtime_support.channel_llm_context import (
+    ChannelLlmContextPolicy,
+    ChannelLlmContextProjection,
+    ChannelLlmContextRepository,
+    ChannelLlmContextServices,
+    inject_pending_channel_context,
+)
 from ciel_runtime_support.channel_mcp_tools import (
     ChannelMcpToolServices,
     channel_mcp_tool_response,
@@ -25202,86 +25209,50 @@ def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]:
     return ids
 
 
-def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
+def _channel_llm_commit_cursor_locked(last_id: int) -> None:
     global _CHANNEL_LLM_CURSOR_LAST_ID
-    wake_request = channel_llm_wake_request(body)
-    if plan_mode_active(body):
-        if not wake_request:
-            router_log("INFO", "channel_llm_inject_skipped reason=plan_mode_active")
-            return body
-        router_log("INFO", "channel_llm_inject_plan_mode_override reason=channel_wake")
-    cfg = load_config()
-    if channel_delivery_mode(cfg) != "llm":
-        return body
-    ids_already_in_request = _channel_message_ids_already_in_request(body)
-    with _CHANNEL_LLM_CURSOR_LOCK:
-        last_id = _channel_llm_read_cursor_locked()
-        pending: list[dict[str, Any]] = []
-        max_seen = last_id
-        candidates = read_chat_messages(last_id, None, None, _channel_pending_scan_limit())
-        superseded_ids = _channel_superseded_message_ids(candidates)
-        for message in candidates:
-            try:
-                message_id = int(message.get("id") or 0)
-            except Exception:
-                continue
-            if message_id in ids_already_in_request:
-                max_seen = max(max_seen, message_id)
-                router_log(
-                    "INFO",
-                    f"channel_llm_inject_skipped message_id={message.get('id')} channel={message.get('channel')} reason=already_in_request",
-                )
-                continue
-            if message_id in superseded_ids:
-                max_seen = max(max_seen, message_id)
-                router_log(
-                    "INFO",
-                    f"channel_llm_inject_skipped message_id={message.get('id')} channel={message.get('channel')} reason=superseded_channel_notice",
-                )
-                continue
-            skip_reason = _channel_llm_message_skip_reason(message)
-            if skip_reason:
-                max_seen = max(max_seen, message_id)
-                router_log(
-                    "INFO",
-                    f"channel_llm_inject_skipped message_id={message.get('id')} channel={message.get('channel')} reason={skip_reason}",
-                )
-                continue
-            with _CHANNEL_STDIN_WAKE_LOCK:
-                stdin_wake_delivered = message_id in _CHANNEL_STDIN_WAKE_DELIVERED
-            stdin_wake_claimed = bool(_channel_stdin_wake_claim_prompt(message_id))
-            if stdin_wake_delivered or stdin_wake_claimed:
-                reason = "stdin_wake_delivered" if stdin_wake_delivered else "stdin_wake_claimed"
-                router_log(
-                    "INFO",
-                    f"channel_llm_inject_skipped message_id={message.get('id')} channel={message.get('channel')} reason={reason}",
-                )
-                continue
-            pending.append(message)
-            max_seen = message_id
-            break
-        if not pending:
-            if max_seen != last_id:
-                _CHANNEL_LLM_CURSOR_LAST_ID = max_seen
-                try:
-                    _channel_llm_write_cursor_locked(max_seen)
-                except Exception as exc:
-                    router_log("WARN", f"channel_llm_cursor_write_failed error={type(exc).__name__}: {exc}")
-            return body_without_channel_llm_wake_prompt(body) if wake_request else body
-    base_body = body_without_channel_llm_wake_prompt(body) if wake_request else body
-    messages = [m for m in base_body.get("messages", []) if isinstance(m, dict)]
-    messages.append({"role": "user", "content": [{"type": "text", "text": format_channel_llm_batch_prompt(pending)}]})
-    out = dict(base_body)
-    out["messages"] = messages
-    ids = ",".join(str(message.get("id") or "") for message in pending)
-    channels = ",".join(sorted({str(message.get("channel") or "default") for message in pending}))
-    out_metadata = dict(out.get("metadata") if isinstance(out.get("metadata"), dict) else {})
-    out_metadata["ciel_runtime_channel_injected"] = True
-    out_metadata["ciel_runtime_channel_message_ids"] = ids
-    out_metadata["ciel_runtime_channel_cursor_last_id"] = str(max_seen)
-    out["metadata"] = out_metadata
-    router_log("INFO", f"channel_llm_injected count={len(pending)} message_ids={ids} channels={channels}")
-    return out
+    _CHANNEL_LLM_CURSOR_LAST_ID = last_id
+    try:
+        _channel_llm_write_cursor_locked(last_id)
+    except Exception as exc:
+        router_log("WARN", f"channel_llm_cursor_write_failed error={type(exc).__name__}: {exc}")
+
+
+def _channel_llm_stdin_skip_reason(message_id: int) -> str:
+    with _CHANNEL_STDIN_WAKE_LOCK:
+        delivered = message_id in _CHANNEL_STDIN_WAKE_DELIVERED
+    if delivered:
+        return "stdin_wake_delivered"
+    return "stdin_wake_claimed" if _channel_stdin_wake_claim_prompt(message_id) else ""
+
+
+def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
+    return inject_pending_channel_context(
+        body,
+        ChannelLlmContextServices(
+            policy=ChannelLlmContextPolicy(
+                wake_request=channel_llm_wake_request,
+                plan_mode_active=plan_mode_active,
+                delivery_mode=lambda: channel_delivery_mode(load_config()),
+                ids_in_request=_channel_message_ids_already_in_request,
+                scan_limit=_channel_pending_scan_limit,
+                skip_reason=_channel_llm_message_skip_reason,
+                stdin_skip_reason=_channel_llm_stdin_skip_reason,
+            ),
+            repository=ChannelLlmContextRepository(
+                lock=lambda: _CHANNEL_LLM_CURSOR_LOCK,
+                read_cursor=_channel_llm_read_cursor_locked,
+                commit_cursor=_channel_llm_commit_cursor_locked,
+                read_messages=lambda last_id, limit: read_chat_messages(last_id, None, None, limit),
+                superseded_ids=_channel_superseded_message_ids,
+            ),
+            projection=ChannelLlmContextProjection(
+                remove_wake_prompt=body_without_channel_llm_wake_prompt,
+                format_prompt=format_channel_llm_batch_prompt,
+            ),
+            log=router_log,
+        ),
+    )
 
 
 def _write_fd_all(fd: int, data: bytes) -> None:
