@@ -5,6 +5,8 @@ from .base import HttpBearerProviderAdapter, NoAuthProviderAdapter, OpenAICompat
 from .constants import PROVIDER_DEFAULT_BASE_URLS, ZAI_MODEL_FALLBACK_IDS
 from .native import AgyProviderAdapter, CodexProviderAdapter
 from .ollama import OllamaCloudProviderAdapter, OllamaProviderAdapter
+from .openrouter import OpenRouterProviderAdapter
+from .lm_studio import LMStudioProviderAdapter
 
 __all__ = [
     "HttpBearerProviderAdapter",
@@ -17,4 +19,6 @@ __all__ = [
     "CodexProviderAdapter",
     "OllamaCloudProviderAdapter",
     "OllamaProviderAdapter",
+    "OpenRouterProviderAdapter",
+    "LMStudioProviderAdapter",
 ]

@@ -30,66 +30,8 @@ from .providers.anthropic import AnthropicProviderAdapter
 from .providers.constants import PROVIDER_DEFAULT_BASE_URLS, ZAI_MODEL_FALLBACK_IDS
 from .providers.native import AgyProviderAdapter, CodexProviderAdapter
 from .providers.ollama import OllamaCloudProviderAdapter, OllamaProviderAdapter
-
-
-@dataclass(frozen=True)
-class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
-    name: str = "OpenRouter"
-    base_url: str = PROVIDER_DEFAULT_BASE_URLS["openrouter"]
-    authorization_header: str = "Authorization"
-    require_api_key: bool = True
-    api_key_display_name_value: str = "OpenRouter"
-    api_key_launch_error_value: str = "Launch blocked: OpenRouter requires an OpenRouter API key."
-
-    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
-        del config
-        return ProviderContextPolicy(
-            capacity_strategy="configured_first", settings_strategy="standard", hosted_timeout=True
-        )
-
-    def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
-        del config, model
-        return False
-    capabilities_value: ProviderCapabilities = field(
-        default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", requires_api_key=True)
-    )
-
-
-@dataclass(frozen=True)
-class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
-    name: str = "lm-studio"
-    base_url: str = PROVIDER_DEFAULT_BASE_URLS["lm-studio"]
-
-    def requires_catalog_model_selection(self, config: ProviderConfig) -> bool:
-        del config
-        return True
-
-    def placeholder_model_ids(self) -> frozenset[str]:
-        return super().placeholder_model_ids() | {"local-model"}
-
-    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
-        return replace(super().context_policy(config), status_capacity_strategy="openai_budget")
-
-    def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
-        return replace(super().option_presentation_policy(config), show_rate_limit=True)
-    capabilities_value: ProviderCapabilities = field(
-        default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", local=True)
-    )
-    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
-        default_factory=lambda: ProviderModelCatalogPolicy(kind="lm_studio")
-    )
-
-    def model_paths(self, config: ProviderConfig) -> tuple[str, ...]:
-        del config
-        return ("/api/v0/models", "/api/v1/models", "/v1/models", "/models")
-
-    def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
-        policy = super().status_policy(config)
-        return replace(
-            policy,
-            unreachable_hint="Start LM Studio's Local Server or set a reachable Anthropic-compatible Base URL before launching Claude Code.",
-            readiness_validation="lm_studio",
-        )
+from .providers.openrouter import OpenRouterProviderAdapter
+from .providers.lm_studio import LMStudioProviderAdapter
 
 
 @dataclass(frozen=True)
