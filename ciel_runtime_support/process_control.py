@@ -3,12 +3,153 @@ from __future__ import annotations
 import getpass
 import json
 import os
+import re
+import shutil
 import signal
 import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
+
+
+def windows_pids_on_port(port: int) -> list[int]:
+    if os.name != "nt":
+        return []
+    try:
+        proc = subprocess.run(
+            ["netstat", "-ano", "-p", "tcp"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+    except Exception:
+        return []
+    pids: set[int] = set()
+    marker = f":{port}"
+    for line in proc.stdout.splitlines():
+        if marker not in line or "LISTENING" not in line:
+            continue
+        parts = line.split()
+        if len(parts) < 5:
+            continue
+        try:
+            pids.add(int(parts[-1]))
+        except ValueError:
+            continue
+    return sorted(pids)
+
+
+def linux_procfs_pids_on_port(port: int) -> list[int]:
+    if os.name == "nt":
+        return []
+    wanted_port = f"{int(port):04X}"
+    inodes: set[str] = set()
+    for table in (Path("/proc/net/tcp"), Path("/proc/net/tcp6")):
+        try:
+            lines = table.read_text(encoding="utf-8", errors="replace").splitlines()[1:]
+        except Exception:
+            continue
+        for line in lines:
+            parts = line.split()
+            if len(parts) < 10:
+                continue
+            local_addr = parts[1]
+            state = parts[3]
+            inode = parts[9]
+            if state != "0A" or ":" not in local_addr:
+                continue
+            if local_addr.rsplit(":", 1)[1].upper() == wanted_port and inode and inode != "0":
+                inodes.add(inode)
+    if not inodes:
+        return []
+    pids: set[int] = set()
+    current = os.getpid()
+    parent = os.getppid()
+    try:
+        proc_entries = list(Path("/proc").iterdir())
+    except Exception:
+        return []
+    for entry in proc_entries:
+        if not entry.name.isdigit():
+            continue
+        try:
+            pid = int(entry.name)
+        except ValueError:
+            continue
+        if pid in (current, parent):
+            continue
+        fd_dir = entry / "fd"
+        try:
+            fds = list(fd_dir.iterdir())
+        except Exception:
+            continue
+        for fd in fds:
+            try:
+                target = os.readlink(fd)
+            except Exception:
+                continue
+            match = re.match(r"socket:\[(\d+)\]$", target)
+            if match and match.group(1) in inodes:
+                pids.add(pid)
+                break
+    return sorted(pids)
+
+
+def posix_pids_on_port(
+    port: int,
+    procfs_lookup: Callable[[int], list[int]] = linux_procfs_pids_on_port,
+) -> list[int]:
+    if os.name == "nt":
+        return []
+    pids: set[int] = set(procfs_lookup(port))
+
+    def add_ints(text: str, *, skip_port: bool = False) -> None:
+        for value in re.findall(r"\b\d+\b", text or ""):
+            try:
+                pid = int(value)
+            except ValueError:
+                continue
+            if skip_port and pid == port:
+                continue
+            pids.add(pid)
+
+    commands: list[tuple[list[str], str]] = [
+        (["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"], "plain"),
+        (["fuser", "-n", "tcp", str(port)], "fuser"),
+        (["ss", "-ltnp", f"sport = :{port}"], "ss"),
+        (["netstat", "-ltnp"], "netstat"),
+    ]
+    for cmd, kind in commands:
+        if not shutil.which(cmd[0]):
+            continue
+        try:
+            proc = subprocess.run(
+                cmd,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=5,
+            )
+        except Exception:
+            continue
+        text = (proc.stdout or "") + "\n" + (proc.stderr or "")
+        if kind == "plain":
+            add_ints(text)
+        elif kind == "fuser":
+            add_ints(text.split(":", 1)[1] if ":" in text else text, skip_port=True)
+        elif kind == "ss":
+            for value in re.findall(r"pid=(\d+)", text):
+                add_ints(value)
+        else:
+            for line in text.splitlines():
+                if "LISTEN" not in line or f":{port}" not in line:
+                    continue
+                match = re.search(r"\s(\d+)/", line)
+                if match:
+                    add_ints(match.group(1))
+    return sorted(pid for pid in pids if pid not in (os.getpid(), os.getppid()))
 
 
 @dataclass(frozen=True)

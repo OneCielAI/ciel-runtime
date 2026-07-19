@@ -252,6 +252,18 @@ from ciel_runtime_support.headless_config import (
 from ciel_runtime_support.config_repository import JsonConfigRepository
 from ciel_runtime_support.settings_repository import JsonSettingsRepository, SettingsFileEffects
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
+from ciel_runtime_support.slash_command_assets import (
+    ADVISOR_NATIVE_DISABLED_SLASH_COMMAND,  # noqa: F401 - compatibility export
+    ADVISOR_SLASH_COMMAND,
+    API_KEYS_SLASH_COMMAND,
+    CHANNEL_CLEAR_SLASH_COMMAND,
+    IMPORT_SESSION_SLASH_COMMAND,
+    LLM_OPTIONS_SLASH_COMMAND,
+    LLM_RESTORE_SLASH_COMMAND,
+    LLM_SLIDER_SLASH_COMMAND,
+    ROUTER_DEBUG_NATIVE_DISABLED_SLASH_COMMAND,  # noqa: F401 - compatibility export
+    ROUTER_DEBUG_SLASH_COMMAND,
+)
 from ciel_runtime_support.statusline_script import STATUSLINE_SCRIPT
 from ciel_runtime_support.statusline_settings import StatusLineServices, install_statusline_settings
 from ciel_runtime_support.config_migrations import (
@@ -285,10 +297,13 @@ from ciel_runtime_support.process_control import (
     ProcessQueryServices,
     ProcessSignalServices,
     posix_process_rows,
+    linux_procfs_pids_on_port,
+    posix_pids_on_port as project_posix_pids_on_port,
     process_command_line as inspect_process_command_line,
     process_cwd as inspect_process_cwd,
     process_environ_contains as inspect_process_environ_contains,
     terminate_matching_processes as run_terminate_matching_processes,
+    windows_pids_on_port,
 )
 from ciel_runtime_support.provider_config_mutations import (
     ProviderOptionPolicy,
@@ -2499,53 +2514,9 @@ def install_ciel_runtime_statusline() -> None:
     )
 
 
-ADVISOR_SLASH_COMMAND = """---
-description: Run the selected ciel-runtime Advisor Model
-argument-hint: [question or focus]
----
 
-CIEL_RUNTIME_ADVISOR_CALL
 
-Focus: $ARGUMENTS
 
-Use the Advisor Model selected in the ciel-runtime launch menu. If the Advisor Model is off, explain how to enable it. Otherwise review the current conversation, tool history, and task state. Return concise guidance with the blocker, next concrete action, and validation step.
-"""
-
-ADVISOR_NATIVE_DISABLED_SLASH_COMMAND = """---
-description: Ciel Runtime Advisor unavailable in Claude Native mode
-argument-hint: [ignored]
----
-
-Ciel Runtime Advisor is unavailable in direct Claude Native mode.
-
-Do not run tools, shell commands, file searches, config scans, or environment checks for this command. Reply immediately with this exact status and the short enablement hint below.
-
-This session bypasses the ciel-runtime router, so /advisor cannot call the configured Advisor Model here. To use /advisor, launch a non-native provider or enable Anthropic routed mode in ciel-runtime.
-"""
-
-ROUTER_DEBUG_SLASH_COMMAND = """---
-description: Toggle ciel-runtime router external debug access
-argument-hint: [on|off|status]
----
-
-CIEL_RUNTIME_ROUTER_DEBUG_ACCESS
-
-Value: $ARGUMENTS
-
-Toggle ciel-runtime router debug external access. With no argument, this toggles the current state. Use `on`, `off`, or `status` for explicit control.
-"""
-
-ROUTER_DEBUG_NATIVE_DISABLED_SLASH_COMMAND = """---
-description: ciel-runtime router debug unavailable in Claude Native mode
-argument-hint: [ignored]
----
-
-ciel-runtime router debug controls are unavailable in direct Claude Native mode.
-
-Do not run tools, shell commands, file searches, config scans, or environment checks for this command. Reply immediately with this exact status and the short enablement hint below.
-
-This session bypasses the ciel-runtime router. Launch a non-native provider or enable Anthropic routed mode to use /router-debug.
-"""
 
 VERSION_SLASH_COMMAND = """---
 description: Show ciel-runtime version
@@ -2557,83 +2528,11 @@ CIEL_RUNTIME_VERSION_STATUS
 Show the running ciel-runtime version for this session. This command is handled locally by the ciel-runtime router and must not be forwarded upstream.
 """
 
-LLM_SLIDER_SLASH_COMMAND = """---
-description: Move/select ciel-runtime live LLM preset slider
-argument-hint: [left|right|status|list|restore|preset-id]
----
 
-CIEL_RUNTIME_LIVE_LLM_OPTIONS
 
-Value: $0
-Arguments: $ARGUMENTS
 
-Use one compact ciel-runtime live LLM preset control. With no argument, show the current slider. Use `left` or `right` to move one preset, `restore` to return to captured options, or a preset id/alias such as `coding`, `300k`, `512k`, or `1m`.
-"""
 
-LLM_OPTIONS_SLASH_COMMAND = """---
-description: Show or change ciel-runtime live LLM options
-argument-hint: [left|right|status|list|restore|preset-id]
----
 
-CIEL_RUNTIME_LIVE_LLM_OPTIONS
-
-Value: $0
-Arguments: $ARGUMENTS
-
-Show or change the live ciel-runtime LLM preset for this routed session. With no argument, show status and the compact preset slider. Use `left` or `right` to move one preset, `restore` to return to captured options, or a preset id/alias such as `coding`, `300k`, `512k`, or `1m`.
-"""
-
-LLM_RESTORE_SLASH_COMMAND = """---
-description: Restore ciel-runtime live LLM options
-argument-hint: [ignored]
----
-
-CIEL_RUNTIME_LIVE_LLM_OPTIONS
-
-Value: restore
-
-Restore the LLM options captured before the first live preset change in this routed session.
-"""
-
-CHANNEL_CLEAR_SLASH_COMMAND = """---
-description: Discard pending ciel-runtime external channel backlog
-argument-hint: [all|status]
----
-
-CIEL_RUNTIME_CHANNEL_CLEAR_BACKLOG
-
-Value: $ARGUMENTS
-
-Discard pending ciel-runtime external channel backlog without sending it to the model. Use `status` to show pending counts without clearing.
-"""
-
-API_KEYS_SLASH_COMMAND = """---
-description: Set/show ciel-runtime live API key(s)
-argument-hint: [status|clear|KEY|KEY1,KEY2]
----
-
-Set API key(s) for the current ciel-runtime provider without restarting Claude Code. With no argument, show masked key status. Use `clear` or `unset` to remove keys for only the current provider. Multiple keys may be comma-, semicolon-, or newline-separated and are used round-robin. Never print raw keys.
-
-CIEL_RUNTIME_LIVE_API_KEYS
-
-Value: $0
-Arguments:
-$ARGUMENTS
-"""
-
-IMPORT_SESSION_SLASH_COMMAND = """---
-description: Import a Claude/Codex session transcript into this session
-argument-hint: Codex|Claude [transcript-path]
----
-
-CIEL_RUNTIME_IMPORT_SESSION
-
-Target: $1
-Path: $2
-Arguments: $ARGUMENTS
-
-Import a session transcript into the current Ciel Runtime-routed session. `Target` names the source transcript format and must be `Codex` or `Claude`.
-"""
 
 CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS = (
     "CIEL_RUNTIME_ADVISOR_CALL",
@@ -18634,140 +18533,14 @@ def terminate_pid_file(path: Path, label: str, quiet: bool = False) -> bool:
     return stopped
 
 
-def windows_pids_on_port(port: int) -> list[int]:
-    if os.name != "nt":
-        return []
-    try:
-        proc = subprocess.run(
-            ["netstat", "-ano", "-p", "tcp"],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            timeout=5,
-        )
-    except Exception:
-        return []
-    pids: set[int] = set()
-    marker = f":{port}"
-    for line in proc.stdout.splitlines():
-        if marker not in line or "LISTENING" not in line:
-            continue
-        parts = line.split()
-        if len(parts) < 5:
-            continue
-        try:
-            pids.add(int(parts[-1]))
-        except ValueError:
-            continue
-    return sorted(pids)
 
 
-def linux_procfs_pids_on_port(port: int) -> list[int]:
-    if os.name == "nt":
-        return []
-    wanted_port = f"{int(port):04X}"
-    inodes: set[str] = set()
-    for table in (Path("/proc/net/tcp"), Path("/proc/net/tcp6")):
-        try:
-            lines = table.read_text(encoding="utf-8", errors="replace").splitlines()[1:]
-        except Exception:
-            continue
-        for line in lines:
-            parts = line.split()
-            if len(parts) < 10:
-                continue
-            local_addr = parts[1]
-            state = parts[3]
-            inode = parts[9]
-            if state != "0A" or ":" not in local_addr:
-                continue
-            if local_addr.rsplit(":", 1)[1].upper() == wanted_port and inode and inode != "0":
-                inodes.add(inode)
-    if not inodes:
-        return []
-    pids: set[int] = set()
-    current = os.getpid()
-    parent = os.getppid()
-    try:
-        proc_entries = list(Path("/proc").iterdir())
-    except Exception:
-        return []
-    for entry in proc_entries:
-        if not entry.name.isdigit():
-            continue
-        try:
-            pid = int(entry.name)
-        except ValueError:
-            continue
-        if pid in (current, parent):
-            continue
-        fd_dir = entry / "fd"
-        try:
-            fds = list(fd_dir.iterdir())
-        except Exception:
-            continue
-        for fd in fds:
-            try:
-                target = os.readlink(fd)
-            except Exception:
-                continue
-            match = re.match(r"socket:\[(\d+)\]$", target)
-            if match and match.group(1) in inodes:
-                pids.add(pid)
-                break
-    return sorted(pids)
+
+
 
 
 def posix_pids_on_port(port: int) -> list[int]:
-    if os.name == "nt":
-        return []
-    pids: set[int] = set(linux_procfs_pids_on_port(port))
-
-    def add_ints(text: str, *, skip_port: bool = False) -> None:
-        for value in re.findall(r"\b\d+\b", text or ""):
-            try:
-                pid = int(value)
-            except ValueError:
-                continue
-            if skip_port and pid == port:
-                continue
-            pids.add(pid)
-
-    commands: list[tuple[list[str], str]] = [
-        (["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"], "plain"),
-        (["fuser", "-n", "tcp", str(port)], "fuser"),
-        (["ss", "-ltnp", f"sport = :{port}"], "ss"),
-        (["netstat", "-ltnp"], "netstat"),
-    ]
-    for cmd, kind in commands:
-        if not shutil.which(cmd[0]):
-            continue
-        try:
-            proc = subprocess.run(
-                cmd,
-                text=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=5,
-            )
-        except Exception:
-            continue
-        text = (proc.stdout or "") + "\n" + (proc.stderr or "")
-        if kind == "plain":
-            add_ints(text)
-        elif kind == "fuser":
-            add_ints(text.split(":", 1)[1] if ":" in text else text, skip_port=True)
-        elif kind == "ss":
-            for value in re.findall(r"pid=(\d+)", text):
-                add_ints(value)
-        else:
-            for line in text.splitlines():
-                if "LISTEN" not in line or f":{port}" not in line:
-                    continue
-                match = re.search(r"\s(\d+)/", line)
-                if match:
-                    add_ints(match.group(1))
-    return sorted(pid for pid in pids if pid not in (os.getpid(), os.getppid()))
+    return project_posix_pids_on_port(port, linux_procfs_pids_on_port)
 
 
 def terminate_posix_port(port: int, label: str, quiet: bool = False) -> bool:
