@@ -251,6 +251,7 @@ from ciel_runtime_support.headless_config import (
 )
 from ciel_runtime_support.config_repository import JsonConfigRepository
 from ciel_runtime_support.settings_repository import JsonSettingsRepository, SettingsFileEffects
+from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
 from ciel_runtime_support.statusline_settings import StatusLineServices, install_statusline_settings
 from ciel_runtime_support.config_migrations import (
     ConfigMigrationPolicy,
@@ -2382,6 +2383,13 @@ def config_repository() -> JsonConfigRepository:
             normalize=_normalize_loaded_config,
         )
     return _CONFIG_REPOSITORY
+
+
+def json_artifact_repository(path: Path) -> SecureJsonRepository:
+    return SecureJsonRepository(
+        path=path,
+        effects=SecureJsonEffects(log=router_log),
+    )
 
 
 def load_config() -> dict[str, Any]:
@@ -9712,16 +9720,10 @@ def _channel_compact_request_payload(source: str, reason: str) -> dict[str, Any]
 def _write_channel_compact_request(source: str = "mcp", reason: str = "") -> dict[str, Any]:
     request = _channel_compact_request_payload(source, reason)
     with _CHANNEL_COMPACT_REQUEST_LOCK:
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        tmp_path = CHANNEL_COMPACT_REQUEST_PATH.with_name(
-            f"{CHANNEL_COMPACT_REQUEST_PATH.name}.{os.getpid()}.{time.time_ns()}.tmp"
+        json_artifact_repository(CHANNEL_COMPACT_REQUEST_PATH).save(
+            request,
+            "channel_compact_request",
         )
-        tmp_path.write_text(json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
-        try:
-            os.chmod(tmp_path, 0o600)
-        except Exception:
-            pass
-        tmp_path.replace(CHANNEL_COMPACT_REQUEST_PATH)
     router_log("INFO", f"channel_compact_request_queued id={request['id']} source={request['source']}")
     return request
 
@@ -16075,12 +16077,10 @@ def write_native_mcp_config_from_discovery(
         servers[name] = server
     if not servers:
         return None
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    NATIVE_MCP_CONFIG.write_text(json.dumps({"mcpServers": servers}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    try:
-        os.chmod(NATIVE_MCP_CONFIG, 0o600)
-    except Exception:
-        pass
+    json_artifact_repository(NATIVE_MCP_CONFIG).save(
+        {"mcpServers": servers},
+        "native_mcp_config",
+    )
     router_log("INFO", f"native_mcp_config_written servers={','.join(sorted(servers))}")
     return NATIVE_MCP_CONFIG
 
@@ -16223,14 +16223,10 @@ def read_channel_probe_cache() -> dict[str, Any]:
 
 
 def _write_channel_probe_cache(cache: dict[str, Any]) -> None:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    tmp = CHANNEL_PROBE_CACHE_PATH.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(cache, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    tmp.replace(CHANNEL_PROBE_CACHE_PATH)
-    try:
-        os.chmod(CHANNEL_PROBE_CACHE_PATH, 0o600)
-    except Exception:
-        pass
+    json_artifact_repository(CHANNEL_PROBE_CACHE_PATH).save(
+        cache,
+        "channel_probe_cache",
+    )
 
 
 def refresh_channel_probe_cache(
@@ -20610,8 +20606,11 @@ def stop_ncp_proxy(quiet: bool = False) -> bool:
     try:
         subprocess.run([ncp, "kill"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
         stopped = True
-    except Exception:
-        pass
+    except (OSError, subprocess.SubprocessError) as exc:
+        router_log(
+            "WARN",
+            f"ncp_proxy_kill_failed executable={ncp} error={type(exc).__name__}: {exc}",
+        )
     stopped = terminate_matching_processes(["nvd-claude-proxy"], "Nvidia NCP proxy", quiet=True) or stopped
     stopped = terminate_matching_processes(["ncp", "proxy"], "Nvidia NCP proxy", quiet=True) or stopped
     stopped = terminate_matching_processes(["nvd_claude_proxy"], "Nvidia NCP proxy", quiet=True) or stopped
@@ -22084,12 +22083,7 @@ def write_web_tools_mcp_config(cfg: dict[str, Any]) -> Path:
         else:
             router_log("WARN", "web_fetch_disabled_missing_runner install=uvx_or_uv")
     data = {"mcpServers": servers}
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    WEB_TOOLS_MCP_CONFIG.write_text(json.dumps(data, indent=2) + "\n")
-    try:
-        os.chmod(WEB_TOOLS_MCP_CONFIG, 0o600)
-    except Exception:
-        pass
+    json_artifact_repository(WEB_TOOLS_MCP_CONFIG).save(data, "web_tools_mcp_config")
     return WEB_TOOLS_MCP_CONFIG
 
 
@@ -22097,8 +22091,11 @@ def write_duckduckgo_mcp_config(cfg: dict[str, Any]) -> Path:
     path = write_web_tools_mcp_config(cfg)
     try:
         DUCKDUCKGO_MCP_CONFIG.write_text(path.read_text())
-    except Exception:
-        pass
+    except (OSError, UnicodeError) as exc:
+        router_log(
+            "WARN",
+            f"duckduckgo_mcp_compat_config_write_failed error={type(exc).__name__}: {exc}",
+        )
     return path
 
 
@@ -22129,12 +22126,7 @@ def write_zai_mcp_config(provider: str, pcfg: dict[str, Any]) -> Path | None:
             "headers": dict(auth_header),
         }
     data = {"mcpServers": servers}
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    ZAI_MCP_CONFIG.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    try:
-        os.chmod(ZAI_MCP_CONFIG, 0o600)
-    except Exception:
-        pass
+    json_artifact_repository(ZAI_MCP_CONFIG).save(data, "zai_mcp_config")
     router_log("INFO", f"zai_mcp_config_written servers={','.join(sorted(servers))}")
     return ZAI_MCP_CONFIG
 
@@ -22160,12 +22152,7 @@ def write_channel_mcp_config() -> Path:
             }
         }
     }
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    CHANNEL_MCP_CONFIG.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    try:
-        os.chmod(CHANNEL_MCP_CONFIG, 0o600)
-    except Exception:
-        pass
+    json_artifact_repository(CHANNEL_MCP_CONFIG).save(data, "channel_mcp_config")
     _channel_mcp_ensure_cursor_initialized()
     return CHANNEL_MCP_CONFIG
 
@@ -22200,11 +22187,10 @@ def write_mcp_proxy_config(
                 saved_server = dict(server)
                 if streamable_http and name in disable_proxy_notification_stream_names:
                     saved_server["ciel_runtime_disable_notification_stream"] = True
-                server_path.write_text(json.dumps(saved_server, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-                try:
-                    os.chmod(server_path, 0o600)
-                except Exception:
-                    pass
+                json_artifact_repository(server_path).save(
+                    saved_server,
+                    f"mcp_proxy_server:{name}",
+                )
                 servers[name] = {
                     "command": sys.executable,
                     "args": [
@@ -22220,12 +22206,10 @@ def write_mcp_proxy_config(
                 servers[name] = server
     if not servers:
         return None
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    MCP_PROXY_CONFIG.write_text(json.dumps({"mcpServers": servers}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    try:
-        os.chmod(MCP_PROXY_CONFIG, 0o600)
-    except Exception:
-        pass
+    json_artifact_repository(MCP_PROXY_CONFIG).save(
+        {"mcpServers": servers},
+        "mcp_proxy_config",
+    )
     router_log("INFO", f"mcp_proxy_config_written servers={','.join(sorted(servers))}")
     return MCP_PROXY_CONFIG
 
@@ -25324,7 +25308,7 @@ def codex_mcp_servers_from_config_text(text: str) -> dict[str, dict[str, Any]]:
         parsed = _codex_mcp_servers_from_toml_data(data)
         if parsed:
             return parsed
-    except Exception:
+    except (ImportError, TypeError, ValueError):
         pass
     return _fallback_codex_mcp_servers_from_config_text(text)
 
@@ -25362,12 +25346,10 @@ def write_codex_mcp_config_for_channel_discovery(
         except Exception as exc:
             router_log("WARN", f"codex_mcp_config_remove_failed error={type(exc).__name__}: {exc}")
         return None
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    CODEX_MCP_CONFIG.write_text(json.dumps({"mcpServers": servers}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    try:
-        os.chmod(CODEX_MCP_CONFIG, 0o600)
-    except Exception:
-        pass
+    json_artifact_repository(CODEX_MCP_CONFIG).save(
+        {"mcpServers": servers},
+        "codex_mcp_config",
+    )
     router_log("INFO", f"codex_mcp_config_written servers={','.join(sorted(servers))}")
     return CODEX_MCP_CONFIG
 

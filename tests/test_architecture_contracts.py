@@ -149,6 +149,7 @@ from ciel_runtime_support.process_control import (
     ProcessSignalServices,
 )
 from ciel_runtime_support.settings_repository import JsonSettingsRepository, SettingsFileEffects
+from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
 from ciel_runtime_support.request_trace import (
     RequestTracePolicy,
     RequestTraceProjection,
@@ -1088,9 +1089,39 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertLessEqual(len(fields(port)), 10)
 
     def test_settings_repository_ports_stay_below_dependency_limit(self):
-        for port in (SettingsFileEffects, JsonSettingsRepository, StatusLineServices):
+        for port in (
+            SettingsFileEffects,
+            JsonSettingsRepository,
+            SecureJsonEffects,
+            SecureJsonRepository,
+            StatusLineServices,
+        ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_mcp_json_artifacts_use_secure_repository(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        target_names = {
+            "write_native_mcp_config_from_discovery",
+            "_write_channel_probe_cache",
+            "_write_channel_compact_request",
+            "write_web_tools_mcp_config",
+            "write_zai_mcp_config",
+            "write_channel_mcp_config",
+            "write_mcp_proxy_config",
+            "write_codex_mcp_config_for_channel_discovery",
+        }
+        functions = {
+            node.name: ast.unparse(node)
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name in target_names
+        }
+        self.assertEqual(target_names, set(functions))
+        for name, source in functions.items():
+            with self.subTest(function=name):
+                self.assertIn("json_artifact_repository", source)
+                self.assertNotIn("os.chmod", source)
 
     def test_request_trace_ports_stay_below_dependency_limit(self):
         for port in (RequestTracePolicy, RequestTraceProjection, RequestTraceServices):

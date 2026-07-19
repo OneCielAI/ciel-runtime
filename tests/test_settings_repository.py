@@ -26,7 +26,7 @@ class SettingsRepositoryTests(unittest.TestCase):
             repository.save({"language": "ko"}, "test")
 
             self.assertEqual({"language": "ko"}, repository.load("test"))
-            self.assertIn("settings_chmod_failed", log.call_args.args[1])
+            self.assertIn("secure_json_chmod_failed", log.call_args.args[1])
             self.assertFalse(path.with_name("settings.json.42.99.tmp").exists())
 
     def test_statusline_installer_updates_shared_settings_repository(self):
