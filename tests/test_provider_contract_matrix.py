@@ -197,6 +197,24 @@ class ProviderContractMatrixTests(unittest.TestCase):
                 self.assertNotIn('provider == "', function_source)
                 self.assertNotIn("provider in (", function_source)
 
+    def test_main_option_panel_delegates_without_provider_dispatch(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for function_name in (
+            "llm_option_current_bool",
+            "llm_option_panel_rows",
+            "llm_option_prompt_default",
+        ):
+            function = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef) and node.name == function_name
+            )
+            function_source = ast.get_source_segment(source, function) or ""
+            with self.subTest(function=function_name):
+                self.assertNotIn('provider == "', function_source)
+                self.assertNotIn("provider in (", function_source)
+
     def test_llm_option_service_has_no_provider_name_dispatch(self):
         source = (
             Path(__file__).resolve().parents[1]

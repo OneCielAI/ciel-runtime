@@ -224,7 +224,10 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
 
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config
-        return ProviderOptionPresentationPolicy(show_route=True)
+        return ProviderOptionPresentationPolicy(show_route=True, show_ip_family_control=True)
+
+    def option_timeout_default(self) -> str:
+        return "Claude Code default"
 
     def api_key_status(self, config: ProviderConfig, *, key_count: int, primary_detail: str) -> str:
         routed = bool(config.options.get("route_through_router"))
@@ -260,7 +263,13 @@ class OpenAICompatibleProviderAdapter(HttpBearerProviderAdapter):
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(
-            show_native=True, show_tool_choice=True, show_sampling=True, show_stream=True
+            show_native=True,
+            show_tool_choice=True,
+            show_sampling=True,
+            show_stream=True,
+            show_rate_limit_controls=True,
+            show_sampling_controls=True,
+            show_ip_family_control=True,
         )
 
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
@@ -317,7 +326,12 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(
-            show_rate_limit=True, show_tool_choice=True, show_stream=True
+            show_rate_limit=True,
+            show_tool_choice=True,
+            show_stream=True,
+            show_rate_limit_controls=True,
+            show_sampling_controls=True,
+            show_ip_family_control=True,
         )
 
     def model_paths(self, config: ProviderConfig) -> tuple[str, ...]:
@@ -584,7 +598,12 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(
-            show_native=True, show_tool_choice=True, show_stream=True
+            show_native=True,
+            show_tool_choice=True,
+            show_stream=True,
+            show_rate_limit_controls=True,
+            show_sampling_controls=True,
+            show_ip_family_control=True,
         )
 
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
@@ -647,7 +666,12 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(
-            show_native=True, show_tool_choice=True, show_stream=True
+            show_native=True,
+            show_tool_choice=True,
+            show_stream=True,
+            show_rate_limit_controls=True,
+            show_sampling_controls=True,
+            show_ip_family_control=True,
         )
 
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
@@ -723,7 +747,12 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(
-            show_native=True, show_tool_choice=True, show_stream=True
+            show_native=True,
+            show_tool_choice=True,
+            show_stream=True,
+            show_rate_limit_controls=True,
+            show_sampling_controls=True,
+            show_ip_family_control=True,
         )
 
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
@@ -866,6 +895,9 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             show_tool_choice=True,
             show_stream=True,
             show_ip_family=True,
+            show_rate_limit_controls=True,
+            show_sampling_controls=True,
+            show_ip_family_control=True,
         )
 
     def select_protocol(self, operation: MessageProtocol, config: ProviderConfig, model: str | None = None) -> MessageProtocol:
@@ -949,6 +981,13 @@ class CodexProviderAdapter(NoAuthProviderAdapter):
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(show_route=True)
+
+    def shows_claude_workflow_options(self, config: ProviderConfig) -> bool:
+        del config
+        return False
+
+    def option_timeout_default(self) -> str:
+        return "Codex default"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["codex"]
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_responses")
@@ -1000,6 +1039,9 @@ class AgyProviderAdapter(NoAuthProviderAdapter):
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(show_route=True)
+
+    def option_timeout_default(self) -> str:
+        return "AGY default"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["agy"]
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_responses")

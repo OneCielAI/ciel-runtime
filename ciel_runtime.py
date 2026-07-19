@@ -18944,7 +18944,9 @@ def llm_option_current_bool(provider: str, pcfg: dict[str, Any], key: str) -> bo
     if key == "stream_word_chunking":
         return bool(pcfg.get("stream_word_chunking", False))
     if key == "native_compat":
-        default = False if provider == "nvidia-hosted" else True
+        adapter = configured_provider_adapter(provider, pcfg)
+        config = provider_contract_config(provider, pcfg)
+        default = adapter.option_presentation_policy(config).show_native
         return bool(pcfg.get("native_compat", default))
     if key == "think":
         return bool(pcfg.get("think", False))
@@ -18955,7 +18957,7 @@ def llm_option_current_bool(provider: str, pcfg: dict[str, Any], key: str) -> bo
     if key == "router_debug_external_access":
         return router_debug_external_access_enabled()
     if key == "route_through_router":
-        return anthropic_routed_enabled(provider, pcfg)
+        return parse_bool(pcfg.get("route_through_router"), default=False)
     if key == "workflows_enabled":
         return claude_code_workflows_enabled(provider, pcfg)
     if key == "ultracode_enabled":
@@ -18977,6 +18979,10 @@ def llm_option_panel_rows(provider: str, pcfg: dict[str, Any], lang: str | None 
     lang = lang or load_config().get("language", "en")
     rows: list[str] = []
     values: list[str] = []
+    adapter = configured_provider_adapter(provider, pcfg)
+    config = provider_contract_config(provider, pcfg)
+    presentation = adapter.option_presentation_policy(config)
+    context_strategy = adapter.context_policy(config).settings_strategy
 
     def add(label: str, key: str, value: Any) -> None:
         rows.append(f"{label:<24} [{compact_text(value, 56)}]")
@@ -18987,12 +18993,12 @@ def llm_option_panel_rows(provider: str, pcfg: dict[str, Any], lang: str | None 
     add(ui_text("timeout_preset", lang), "timeout_profile", timeout_profile_status(pcfg, lang))
     add("Router debug external", "router_debug_external_access", "on" if router_debug_external_access_enabled() else "off")
     add("Event message preview", "router_debug_message_preview_chars", router_debug_message_preview_chars())
-    if not direct_native_anthropic_enabled(provider, pcfg) and provider != "codex":
+    if not direct_native_anthropic_enabled(provider, pcfg) and adapter.shows_claude_workflow_options(config):
         caps = claude_code_capability_string(provider, pcfg, current_upstream_model_id(provider, pcfg))
         add("Claude Code workflows", "workflows_enabled", "on" if claude_code_workflows_enabled(provider, pcfg) else "off")
         add("Claude Code ultracode", "ultracode_enabled", "on" if claude_code_ultracode_enabled(provider, pcfg) else "off")
         add("Claude Code capabilities", "claude_code_supported_capabilities", caps or "auto/none")
-    if provider in ("ollama", "ollama-cloud"):
+    if context_strategy == "ollama":
         opts = ollama_extra_options(pcfg)
         add("Context window", "num_ctx", ollama_num_ctx_status(pcfg))
         add("Context min", "num_ctx_min", pcfg.get("num_ctx_min", "default"))
@@ -19015,39 +19021,38 @@ def llm_option_panel_rows(provider: str, pcfg: dict[str, Any], lang: str | None 
         add("Rate limit status", "rate_limit_status", "on" if bool(pcfg.get("rate_limit_status", False)) else "off")
         add("IP family", "ip_family", provider_ip_family(provider, pcfg))
     else:
-        if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai"):
+        if context_strategy == "standard":
             add("Context window", "context_window", pcfg.get("context_window", "default"))
             add("Context reserve", "context_reserve_tokens", pcfg.get("context_reserve_tokens", "default"))
         add("Max output tokens", "max_output_tokens", pcfg.get("max_output_tokens", "default"))
         add("Query string", "force_query_string", upstream_query_string_status(provider, pcfg))
-        if provider in PROVIDER_OPTION_PROVIDERS and provider != "anthropic":
+        if presentation.show_tool_choice:
             add("Tool choice", "supports_tool_choice", provider_tool_choice_status(provider, pcfg))
-        if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai"):
+        if context_strategy == "standard":
             add("Timeout ms", "request_timeout_ms", pcfg.get("request_timeout_ms", "default"))
-            add("RPM limiter", "rate_limit_enabled", rate_limit_status_label(provider, pcfg))
-            add("Rate limit RPM", "rate_limit_rpm", rate_limit_rpm_label(provider, pcfg))
-            add("Rate limit status", "rate_limit_status", "on" if bool(pcfg.get("rate_limit_status", False)) else "off")
-            add("Temperature", "temperature", pcfg.get("temperature", "default"))
-            add("Top P", "top_p", pcfg.get("top_p", "default"))
-            add("Top K", "top_k", pcfg.get("top_k", "default"))
-            if provider in ("vllm", "lm-studio", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai"):
+            if presentation.show_rate_limit_controls:
+                add("RPM limiter", "rate_limit_enabled", rate_limit_status_label(provider, pcfg))
+                add("Rate limit RPM", "rate_limit_rpm", rate_limit_rpm_label(provider, pcfg))
+                add("Rate limit status", "rate_limit_status", "on" if bool(pcfg.get("rate_limit_status", False)) else "off")
+            if presentation.show_sampling_controls:
+                add("Temperature", "temperature", pcfg.get("temperature", "default"))
+                add("Top P", "top_p", pcfg.get("top_p", "default"))
+                add("Top K", "top_k", pcfg.get("top_k", "default"))
+            if presentation.show_native:
                 add("Native compatibility", "native_compat", bool(pcfg.get("native_compat", True)))
-            add("Stream", "stream_enabled", "on" if bool(pcfg.get("stream_enabled", True)) else "off")
-            if bool(pcfg.get("stream_enabled", True)):
+            if presentation.show_stream:
+                add("Stream", "stream_enabled", "on" if bool(pcfg.get("stream_enabled", True)) else "off")
+            if presentation.show_stream and bool(pcfg.get("stream_enabled", True)):
                 add("Stream idle timeout ms", "stream_idle_timeout_ms", pcfg.get("stream_idle_timeout_ms", "auto"))
                 add("Stream word chunking", "stream_word_chunking", "on" if bool(pcfg.get("stream_word_chunking", False)) else "off")
-            add("IP family", "ip_family", provider_ip_family(provider, pcfg))
-        elif provider == "anthropic":
-            add("Route through router", "route_through_router", "on" if anthropic_routed_enabled(provider, pcfg) else "off")
-            add("Timeout ms", "request_timeout_ms", pcfg.get("request_timeout_ms", "Claude Code default"))
-            if anthropic_routed_enabled(provider, pcfg):
+            if presentation.show_ip_family_control:
                 add("IP family", "ip_family", provider_ip_family(provider, pcfg))
-        elif provider == "agy":
-            add("Route through router", "route_through_router", "on" if agy_routed_enabled(provider, pcfg) else "off")
-            add("Timeout ms", "request_timeout_ms", pcfg.get("request_timeout_ms", "AGY default"))
-        elif provider == "codex":
-            add("Route through router", "route_through_router", "on" if codex_routed_enabled(provider, pcfg) else "off")
-            add("Timeout ms", "request_timeout_ms", pcfg.get("request_timeout_ms", "Codex default"))
+        elif presentation.show_route:
+            routed = parse_bool(pcfg.get("route_through_router"), default=False)
+            add("Route through router", "route_through_router", "on" if routed else "off")
+            add("Timeout ms", "request_timeout_ms", pcfg.get("request_timeout_ms", adapter.option_timeout_default()))
+            if presentation.show_ip_family_control and routed:
+                add("IP family", "ip_family", provider_ip_family(provider, pcfg))
 
     rows.append(ui_text("back", lang))
     values.append("back")
@@ -19058,11 +19063,7 @@ def llm_option_prompt_default(provider: str, pcfg: dict[str, Any], key: str) -> 
     if key == "router_debug_external_access":
         return "true" if router_debug_external_access_enabled() else "false"
     if key == "route_through_router":
-        if provider == "agy":
-            return "true" if agy_routed_enabled(provider, pcfg) else "false"
-        if provider == "codex":
-            return "true" if codex_routed_enabled(provider, pcfg) else "false"
-        return "true" if anthropic_routed_enabled(provider, pcfg) else "false"
+        return "true" if parse_bool(pcfg.get("route_through_router"), default=False) else "false"
     if key == "router_debug_message_preview_chars":
         return str(router_debug_message_preview_chars())
     if key == "stream_enabled":
@@ -19086,7 +19087,7 @@ def llm_option_prompt_default(provider: str, pcfg: dict[str, Any], key: str) -> 
         return "auto" if value is None else ("true" if bool(value) else "false")
     if key == "ip_family":
         return provider_ip_family(provider, pcfg)
-    if provider in ("ollama", "ollama-cloud"):
+    if provider_context_policy(provider, pcfg).settings_strategy == "ollama":
         opts = ollama_extra_options(pcfg)
         if key == "num_ctx":
             return str(pcfg.get("num_ctx", "auto"))

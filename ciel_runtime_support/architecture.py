@@ -205,6 +205,9 @@ class ProviderOptionPresentationPolicy:
     show_sampling: bool = False
     show_stream: bool = False
     show_ip_family: bool = False
+    show_rate_limit_controls: bool = False
+    show_sampling_controls: bool = False
+    show_ip_family_control: bool = False
 
 
 class RuntimeAdapter(ABC):
@@ -398,6 +401,13 @@ class ProviderAdapter(ABC):
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy()
+
+    def shows_claude_workflow_options(self, config: ProviderConfig) -> bool:
+        del config
+        return True
+
+    def option_timeout_default(self) -> str:
+        return "default"
 
     def api_key_display_name(self) -> str:
         """Return the provider-owned name used in API-key status text."""
