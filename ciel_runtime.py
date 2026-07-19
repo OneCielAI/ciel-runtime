@@ -279,6 +279,15 @@ from ciel_runtime_support.codex_cli import (
 )
 from ciel_runtime_support.codex_router import CodexRouter, read_codex_response_preamble
 from ciel_runtime_support.observability import EventBus, render_events_html
+from ciel_runtime_support.request_trace import (
+    RequestTracePolicy,
+    RequestTraceProjection,
+    RequestTraceServices,
+    dump_request_for_trace as write_request_trace,
+    dump_response_for_trace as write_response_trace,
+    summarize_messages_for_trace as project_messages_for_trace,
+    truncate_for_dump as _truncate_for_dump,
+)
 from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support.ollama_forwarding import (
     OllamaForwardAdvisor,
@@ -4056,16 +4065,6 @@ def router_log(level: str, message: str) -> None:
         pass
 
 
-def _truncate_for_dump(value: Any, max_len: int = 4000) -> Any:
-    try:
-        text = json.dumps(value, ensure_ascii=False) if not isinstance(value, str) else value
-    except Exception:
-        text = str(value)
-    if len(text) > max_len:
-        return text[:max_len] + f"...<truncated {len(text) - max_len} chars>"
-    return value
-
-
 def resolve_blocked_tools(provider: str, pcfg: dict[str, Any]) -> set[str]:
     """Return the set of tool names to strip from upstream requests.
     `pcfg['blocked_tools']` overrides: None/missing => default list, False/[] => disable, list => explicit set."""
@@ -5313,139 +5312,58 @@ def filter_blocked_tools(provider: str, pcfg: dict[str, Any], body: dict[str, An
 
 
 def summarize_messages_for_trace(messages: Any, max_messages: int = 30) -> list[dict[str, Any]]:
-    if not isinstance(messages, list):
-        return []
-    selected = messages[-max_messages:]
-    offset = len(messages) - len(selected)
-    summary: list[dict[str, Any]] = []
-    for index, message in enumerate(selected, start=offset):
-        if not isinstance(message, dict):
-            continue
-        entry: dict[str, Any] = {"index": index, "role": message.get("role")}
-        blocks: list[dict[str, Any]] = []
-        content = message.get("content")
-        if isinstance(content, str):
-            blocks.append({"type": "text", "text": _truncate_for_dump(content, 1000)})
-        elif isinstance(content, list):
-            for block in content:
-                if isinstance(block, str):
-                    blocks.append({"type": "text", "text": _truncate_for_dump(block, 1000)})
-                    continue
-                if not isinstance(block, dict):
-                    continue
-                block_type = str(block.get("type") or "")
-                if block_type == "text":
-                    blocks.append({"type": "text", "text": _truncate_for_dump(block.get("text", ""), 1000)})
-                elif block_type == "tool_use":
-                    blocks.append(
-                        {
-                            "type": "tool_use",
-                            "id": block.get("id"),
-                            "name": block.get("name"),
-                            "input": _truncate_for_dump(block.get("input"), 1200),
-                        }
-                    )
-                elif block_type == "tool_result":
-                    blocks.append(
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": block.get("tool_use_id"),
-                            "is_error": block.get("is_error"),
-                            "content": _truncate_for_dump(anthropic_content_to_text(block.get("content", "")), 1200),
-                        }
-                    )
-                elif block_type == "thinking":
-                    blocks.append(
-                        {
-                            "type": "thinking",
-                            "thinking_len": len(str(block.get("thinking") or "")),
-                            "has_signature": bool(block.get("signature")),
-                        }
-                    )
-                elif block_type == "redacted_thinking":
-                    blocks.append(
-                        {
-                            "type": "redacted_thinking",
-                            "data_len": len(str(block.get("data") or "")),
-                        }
-                    )
-                else:
-                    blocks.append({"type": block_type or "unknown"})
-        else:
-            blocks.append({"type": type(content).__name__, "text": _truncate_for_dump(content, 1000)})
-        entry["content"] = blocks
-        summary.append(entry)
-    return summary
+    return project_messages_for_trace(
+        messages,
+        request_trace_projection(),
+        max_messages=max_messages,
+    )
+
+
+def request_trace_projection() -> RequestTraceProjection:
+    return RequestTraceProjection(
+        content_to_text=anthropic_content_to_text,
+        thinking_block_count=anthropic_thinking_block_count,
+        tool_continuation_block_count=anthropic_tool_continuation_block_count,
+    )
+
+
+def request_trace_services() -> RequestTraceServices:
+    return RequestTraceServices(
+        policy=RequestTracePolicy(
+            enabled=lambda: current_log_level() >= LOG_LEVELS["TRACE"],
+            request_path=REQUEST_DUMP_PATH,
+            response_path=RESPONSE_DUMP_PATH,
+            request_max_bytes=REQUEST_DUMP_MAX_BYTES,
+            response_max_bytes=RESPONSE_DUMP_MAX_BYTES,
+            response_text_limit=RESPONSE_DUMP_TEXT_LIMIT,
+        ),
+        projection=request_trace_projection(),
+        log=router_log,
+    )
 
 
 def dump_request_for_trace(provider: str, path: str, body: dict[str, Any]) -> None:
     """At TRACE level, append a redacted snapshot of an inbound /v1/messages body
     (tools list, system prompt summary, message/tool block summary) to requests.jsonl.
     Used to capture tool definitions Claude Code injects (e.g. EnterPlanMode)."""
-    if current_log_level() < LOG_LEVELS["TRACE"]:
-        return
-    try:
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        if REQUEST_DUMP_PATH.exists() and REQUEST_DUMP_PATH.stat().st_size > REQUEST_DUMP_MAX_BYTES:
-            REQUEST_DUMP_PATH.replace(REQUEST_DUMP_PATH.with_suffix(".jsonl.1"))
-        record = {
-            "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "provider": provider,
-            "path": path,
-            "model": body.get("model"),
-            "stream": body.get("stream"),
-            "thinking": body.get("thinking"),
-            "thinking_blocks": anthropic_thinking_block_count(body),
-            "tool_continuation_blocks": anthropic_tool_continuation_block_count(body),
-            "messages_count": len(body.get("messages") or []),
-            "messages": summarize_messages_for_trace(body.get("messages")),
-            "system": _truncate_for_dump(body.get("system")),
-            "tools": body.get("tools"),
-        }
-        with REQUEST_DUMP_PATH.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
-    except Exception:
-        pass
+    write_request_trace(provider, path, body, request_trace_services())
 
 
 def dump_response_for_trace(provider: str, model: str, text_so_far: str, tool_calls: list[dict[str, Any]], stop_reason: str | None, input_tokens: int, output_tokens: int, last_chunk: dict[str, Any] | None = None) -> None:
     """At TRACE level, append a per-response summary to responses.jsonl.
     Used to confirm what GLM-5.1 (and other upstream models) actually sent
     when the Claude Code session appears to stall."""
-    if current_log_level() < LOG_LEVELS["TRACE"]:
-        return
-    try:
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        if RESPONSE_DUMP_PATH.exists() and RESPONSE_DUMP_PATH.stat().st_size > RESPONSE_DUMP_MAX_BYTES:
-            RESPONSE_DUMP_PATH.replace(RESPONSE_DUMP_PATH.with_suffix(".jsonl.1"))
-        text_truncated = text_so_far
-        text_full_len = len(text_so_far)
-        if text_full_len > RESPONSE_DUMP_TEXT_LIMIT:
-            text_truncated = text_so_far[:RESPONSE_DUMP_TEXT_LIMIT] + f"...<truncated {text_full_len - RESPONSE_DUMP_TEXT_LIMIT} chars>"
-        tool_summary: list[dict[str, Any]] = []
-        for call in tool_calls:
-            fn = call.get("function") if isinstance(call.get("function"), dict) else {}
-            tool_summary.append({
-                "name": (fn or {}).get("name"),
-                "arguments": (fn or {}).get("arguments"),
-            })
-        record = {
-            "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "provider": provider,
-            "model": model,
-            "stop_reason": stop_reason,
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-            "text_full_len": text_full_len,
-            "tool_call_count": len(tool_calls),
-            "text": text_truncated,
-            "tool_calls": tool_summary,
-            "done_reason": (last_chunk or {}).get("done_reason"),
-        }
-        with RESPONSE_DUMP_PATH.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
-    except Exception:
-        pass
+    write_response_trace(
+        provider,
+        model,
+        text_so_far,
+        tool_calls,
+        stop_reason,
+        input_tokens,
+        output_tokens,
+        request_trace_services(),
+        last_chunk=last_chunk,
+    )
 
 
 def sse_trace_enabled() -> bool:

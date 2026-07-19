@@ -134,6 +134,11 @@ from ciel_runtime_support.process_control import (
     ProcessSignalServices,
 )
 from ciel_runtime_support.settings_repository import JsonSettingsRepository, SettingsFileEffects
+from ciel_runtime_support.request_trace import (
+    RequestTracePolicy,
+    RequestTraceProjection,
+    RequestTraceServices,
+)
 from ciel_runtime_support.statusline_settings import StatusLineServices
 from ciel_runtime_support.ollama_forwarding import (
     OllamaForwardAdvisor,
@@ -989,6 +994,11 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_settings_repository_ports_stay_below_dependency_limit(self):
         for port in (SettingsFileEffects, JsonSettingsRepository, StatusLineServices):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_request_trace_ports_stay_below_dependency_limit(self):
+        for port in (RequestTracePolicy, RequestTraceProjection, RequestTraceServices):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
