@@ -505,6 +505,10 @@ Provider context budget을 넘는 Anthropic 및 Ollama/OpenAI chat history를 to
 
 보조 요약 요청과 map/reduce 컨텍스트 축약을 조정하는 Context Compaction Application Service. 요약 가능 여부는 Provider Adapter capability로 판단하고, 전송·워크플로·projection을 각각 10필드 이하 포트로 분리하며 Provider 이름에는 의존하지 않는다.
 
+### `ciel_runtime_support/context_summary_policy.py`
+
+compact prompt의 tool 입력 축약, persisted-output 판정, deterministic chunk 범위·summary, compact instruction 탐색과 token 기반 message 분할을 소유하는 순수 Domain Policy. token·content·JSON projection만 명시적 포트로 받는다.
+
 ### `ciel_runtime_support/runtime_adapters.py`
 
 정규화된 `LaunchSpec`을 최종 `RuntimeCommand`로 변환하는 실제 CLI 런타임 어댑터.

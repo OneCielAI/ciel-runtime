@@ -307,6 +307,7 @@ from ciel_runtime_support.context_compaction import (
     build_llm_compacted_messages,
     request_context_summary,
 )
+from ciel_runtime_support.context_summary_policy import ContextSummaryPolicy
 from ciel_runtime_support.credentials import (
     api_key_clear_requested as project_api_key_clear_requested,
     meaningful_key_value as project_meaningful_key_value,
@@ -8265,227 +8266,78 @@ PROMPT_MESSAGE_TEXT_LIMIT = 20000
 CLAUDE_CODE_PERSISTED_OUTPUT_MARKER = "<persisted-output>"
 
 
+def context_summary_policy() -> ContextSummaryPolicy:
+    return ContextSummaryPolicy(estimate_tokens, positive_int, anthropic_content_to_text, _compact_json_for_prompt)
+
+
 def truncate_for_prompt(text: str, limit: int) -> str:
-    if len(text) <= limit:
-        return text
-    omitted = len(text) - limit
-    return text[:limit] + f"\n...[truncated {omitted} chars]..."
+    return ContextSummaryPolicy.truncate(text, limit)
 
 
 def is_claude_code_persisted_output_text(text: str) -> bool:
-    return CLAUDE_CODE_PERSISTED_OUTPUT_MARKER in str(text or "")
+    return ContextSummaryPolicy.is_persisted_output(text)
 
 
 def compact_tool_value_for_prompt(value: Any, limit: int = PROMPT_TOOL_INPUT_FIELD_LIMIT) -> Any:
-    if isinstance(value, str):
-        return truncate_for_prompt(value, limit)
-    if isinstance(value, list):
-        return [compact_tool_value_for_prompt(item, limit) for item in value[:20]]
-    if isinstance(value, dict):
-        compact: dict[str, Any] = {}
-        for key, item in value.items():
-            if key in {"content", "old_string", "new_string", "command"} and isinstance(item, str):
-                compact[key] = truncate_for_prompt(item, limit)
-            else:
-                compact[key] = compact_tool_value_for_prompt(item, limit)
-        return compact
-    return value
+    return context_summary_policy().compact_tool_value(value, limit)
 
 
 def tool_input_for_prompt(tool_input: Any) -> str:
-    if not tool_input:
-        return "{}"
-    compact = compact_tool_value_for_prompt(tool_input)
-    return json.dumps(compact, ensure_ascii=False, sort_keys=True)
+    return context_summary_policy().tool_input(tool_input)
 
 
 def compact_message_text_for_prompt(text: str) -> str:
-    return truncate_for_prompt(text, PROMPT_MESSAGE_TEXT_LIMIT)
+    return context_summary_policy().message_text(text)
 
 
 def _message_tool_markers_for_summary(message: dict[str, Any]) -> list[str]:
-    content = message.get("content")
-    if not isinstance(content, list):
-        return []
-    markers: list[str] = []
-    for block in content:
-        if not isinstance(block, dict):
-            continue
-        btype = str(block.get("type") or "")
-        if btype == "tool_use":
-            name = str(block.get("name") or "tool")
-            tool_id = str(block.get("id") or "")
-            markers.append(f"tool_use:{name}{('/' + tool_id) if tool_id else ''}")
-        elif btype == "tool_result":
-            tool_id = str(block.get("tool_use_id") or "tool")
-            markers.append(f"tool_result:{tool_id}")
-    return markers
+    return ContextSummaryPolicy.tool_markers(message)
 
 
 def compact_message_summary_line(index: int, message: dict[str, Any], *, text_limit: int = 700) -> str:
-    role = str(message.get("role") or "unknown")
-    text = " ".join(anthropic_content_to_text(message.get("content")).split())
-    markers = _message_tool_markers_for_summary(message)
-    parts = [f"message {index}", f"role={role}"]
-    if markers:
-        parts.append("markers=" + ",".join(markers[:6]))
-    if text:
-        parts.append("text=" + truncate_for_prompt(text, text_limit))
-    return "- " + " | ".join(parts)
+    return context_summary_policy().summary_line(index, message, text_limit)
 
 
 def _compact_chunk_ranges(count: int, chunks: int) -> list[tuple[int, int]]:
-    chunks = max(1, min(chunks, count))
-    ranges: list[tuple[int, int]] = []
-    for idx in range(chunks):
-        start = (idx * count) // chunks
-        end = ((idx + 1) * count) // chunks
-        if start < end:
-            ranges.append((start, end))
-    return ranges
+    return ContextSummaryPolicy.chunk_ranges(count, chunks)
 
 
 def context_guard_chunk_count(omitted_messages: list[dict[str, Any]], budget_tokens: int | None = None) -> int:
-    if not omitted_messages:
-        return 0
-    omitted_tokens = sum(estimate_tokens(message) for message in omitted_messages)
-    target_chunk_tokens = 32768
-    budget = positive_int(budget_tokens)
-    if budget:
-        # This is a deterministic summary of omitted history, not a set of
-        # independent compaction jobs. Larger provider budgets can preserve a
-        # larger recent tail, so the omitted-history summary should avoid
-        # fragmenting into many tiny chunks.
-        target_chunk_tokens = max(target_chunk_tokens, min(262144, max(1, budget // 4)))
-    return max(1, min(12, (omitted_tokens + target_chunk_tokens - 1) // target_chunk_tokens))
+    return context_summary_policy().guard_chunk_count(omitted_messages, budget_tokens)
 
 
 def build_chunked_context_guard_summary(
-    omitted_messages: list[dict[str, Any]],
-    budget_tokens: int,
-    *,
-    start_index: int = 0,
+    omitted_messages: list[dict[str, Any]], budget_tokens: int, *, start_index: int = 0
 ) -> str:
-    omitted_count = len(omitted_messages)
-    omitted_tokens = sum(estimate_tokens(message) for message in omitted_messages)
-    if omitted_count <= 0:
-        return (
-            "[ciel-runtime context guard: older conversation history was compacted because "
-            f"the provider context budget is {budget_tokens} tokens.]"
-        )
-    max_summary_tokens = max(1024, min(24576, max(1, budget_tokens) // 10))
-    max_summary_chars = max_summary_tokens * 4
-    chunk_count = context_guard_chunk_count(omitted_messages, budget_tokens)
-    lines: list[str] = [
-        (
-            f"[ciel-runtime context guard: compacted {omitted_count} older messages, approx "
-            f"{omitted_tokens} tokens, because the provider context budget is {budget_tokens} tokens.]"
-        ),
-        "The recent tail is preserved verbatim. Older history is represented below as deterministic chunk summaries; use file reads or MCP queries if exact old content is needed.",
-    ]
-    for chunk_no, (start, end) in enumerate(_compact_chunk_ranges(omitted_count, chunk_count), start=1):
-        chunk = omitted_messages[start:end]
-        chunk_tokens = sum(estimate_tokens(message) for message in chunk)
-        lines.append(
-            f"Chunk {chunk_no}/{chunk_count}: messages {start_index + start}-{start_index + end - 1}, approx {chunk_tokens} tokens."
-        )
-        if len(chunk) <= 4:
-            sample_offsets = list(range(len(chunk)))
-        else:
-            sample_offsets = [0, 1, len(chunk) - 2, len(chunk) - 1]
-        seen: set[int] = set()
-        for offset in sample_offsets:
-            if offset in seen:
-                continue
-            seen.add(offset)
-            lines.append(compact_message_summary_line(start_index + start + offset, chunk[offset]))
-        current = "\n".join(lines)
-        if len(current) > max_summary_chars:
-            lines.append(f"...[context guard summary truncated to {max_summary_tokens} tokens]...")
-            break
-    summary = "\n".join(lines)
-    if len(summary) > max_summary_chars:
-        summary = truncate_for_prompt(summary, max_summary_chars)
-    return summary
+    return context_summary_policy().guard_summary(omitted_messages, budget_tokens, start_index)
 
 
 def context_compact_message_text(message: dict[str, Any], index: int) -> str:
-    role = str(message.get("role") or "unknown")
-    parts = [f"Message {index} role={role}"]
-    name = message.get("name") or message.get("tool_name")
-    if name:
-        parts.append(f"name={name}")
-    if message.get("tool_call_id"):
-        parts.append(f"tool_call_id={message.get('tool_call_id')}")
-    header = " ".join(parts)
-    content = anthropic_content_to_text(message.get("content"))
-    if not content and message.get("tool_calls"):
-        content = "tool_calls=" + _compact_json_for_prompt(message.get("tool_calls"), max_chars=6000)
-    elif message.get("tool_calls"):
-        content += "\n\ntool_calls=" + _compact_json_for_prompt(message.get("tool_calls"), max_chars=6000)
-    return f"{header}\n{compact_message_text_for_prompt(content)}"
+    return context_summary_policy().compact_message(message, index)
 
 
 def context_compact_instruction_index(messages: list[dict[str, Any]]) -> int | None:
-    fallback: int | None = None
-    for idx, message in enumerate(messages):
-        if str(message.get("role") or "") != "user":
-            continue
-        text = anthropic_content_to_text(message.get("content")).lower()
-        if text:
-            fallback = idx
-        if "<command-name>/compact</command-name>" in text:
-            return idx
-        if "<command-message>compact</command-message>" in text and "<command-name>" in text:
-            return idx
-        if "create a detailed summary of the conversation" in text and "compact" in text:
-            return idx
-        if "summarize the conversation so far" in text and "compact" in text:
-            return idx
-    return fallback
+    return context_summary_policy().instruction_index(messages)
 
 
 def context_compact_chunk_target_tokens(pcfg: dict[str, Any] | None, budget_tokens: int) -> int:
-    configured = positive_int((pcfg or {}).get("context_compact_chunk_tokens"))
-    if configured:
-        return max(8192, configured)
-    return max(8192, min(65536, max(1, budget_tokens) // 4))
+    return context_summary_policy().chunk_target_tokens(pcfg, budget_tokens)
 
 
 def context_compact_summary_output_tokens(pcfg: dict[str, Any] | None, budget_tokens: int) -> int:
-    configured = positive_int((pcfg or {}).get("context_compact_summary_tokens"))
-    if configured:
-        return max(512, configured)
-    return max(1024, min(8192, max(1, budget_tokens) // 64))
+    return context_summary_policy().summary_output_tokens(pcfg, budget_tokens)
 
 
 def context_compact_parallel_sessions(pcfg: dict[str, Any] | None, chunks: int) -> int:
-    # Chunk compaction is currently sequential; keep status-line reporting honest.
     return 1
 
 
 def split_messages_for_context_compact(
-    messages: list[dict[str, Any]],
-    target_tokens: int,
+    messages: list[dict[str, Any]], target_tokens: int
 ) -> list[tuple[int, list[dict[str, Any]]]]:
-    chunks: list[tuple[int, list[dict[str, Any]]]] = []
-    current: list[dict[str, Any]] = []
-    current_start = 0
-    current_tokens = 0
-    for idx, message in enumerate(messages):
-        tokens = max(1, estimate_tokens(message))
-        if current and current_tokens + tokens > target_tokens:
-            chunks.append((current_start, current))
-            current = []
-            current_tokens = 0
-            current_start = idx
-        if not current:
-            current_start = idx
-        current.append(message)
-        current_tokens += tokens
-    if current:
-        chunks.append((current_start, current))
-    return chunks
+    return context_summary_policy().split_messages(messages, target_tokens)
+
+
 
 
 CONTEXT_COMPACT_MAP_SYSTEM_PROMPT = (
