@@ -362,6 +362,7 @@ from ciel_runtime_support.launch_state import (
     session_control_requested as project_session_control_requested,
     should_fork_native_session as project_should_fork_native_session,
 )
+from ciel_runtime_support.launch_diagnostics import LaunchCommandDiagnostics, StderrCaptureAdapter
 from ciel_runtime_support.mcp_transport import (
     CODEX_MCP_SPLIT_PROXY_PREFIX,
     MCP_LEGACY_SSE_PROTOCOL_VERSION,
@@ -23423,13 +23424,7 @@ def log_agy_passthrough_mapping(notes: list[str]) -> None:
 
 
 def _log_agy_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> None:
-    router_log("INFO", "agy_launch_cmd argv_len=%d routed_flags=%s" % (len(cmd), "yes" if "--dangerously-skip-permissions" in cmd else "no"))
-    env_summary = []
-    for key in ("CIEL_RUNTIME_PROVIDER", "CIEL_RUNTIME_MODEL_ALIAS"):
-        if key in env:
-            env_summary.append(f"{key}={env[key]}")
-    if env_summary:
-        router_log("INFO", "agy_launch_env " + " ".join(env_summary))
+    launch_command_diagnostics().agy(cmd, env)
 
 
 def launch_agy(
@@ -23504,63 +23499,16 @@ def launch_agy(
 CLAUDE_CODE_STDERR_LOG = CONFIG_DIR / "claude-code-stderr.log"
 
 
+def launch_command_diagnostics() -> LaunchCommandDiagnostics:
+    return LaunchCommandDiagnostics(router_log, mask_secret, CODEX_RUNTIME_API_KEY_ENV)
+
+
 def _log_claude_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> None:
-    try:
-        mcp_idx = cmd.index("--mcp-config") if "--mcp-config" in cmd else -1
-        mcp_value = cmd[mcp_idx + 1] if 0 <= mcp_idx < len(cmd) - 1 else "-"
-    except Exception:
-        mcp_value = "-"
-    channel_specs_in_cmd: list[str] = []
-    if "--dangerously-load-development-channels" in cmd:
-        start = cmd.index("--dangerously-load-development-channels") + 1
-        for arg in cmd[start:]:
-            if arg.startswith("--"):
-                break
-            channel_specs_in_cmd.append(arg)
-    router_log(
-        "INFO",
-        "claude_launch_cmd mcp_config=%s channels=%s argv_len=%d"
-        % (
-            mcp_value,
-            ",".join(channel_specs_in_cmd) or "-",
-            len(cmd),
-        ),
-    )
-    relevant_env_keys = (
-        "ANTHROPIC_BASE_URL",
-        "ANTHROPIC_MODEL",
-        "ANTHROPIC_API_KEY",
-        "ANTHROPIC_AUTH_TOKEN",
-        "CIEL_RUNTIME_PROVIDER",
-        "CIEL_RUNTIME_MODEL_ALIAS",
-        "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
-        "CLAUDE_CODE_EFFORT_LEVEL",
-        "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
-    )
-    env_summary = []
-    for key in relevant_env_keys:
-        if key in env:
-            val = env[key]
-            if "KEY" in key or "TOKEN" in key:
-                val = mask_secret(val)
-            env_summary.append(f"{key}={val}")
-    if env_summary:
-        router_log("INFO", "claude_launch_env " + " ".join(env_summary))
+    launch_command_diagnostics().claude(cmd, env)
 
 
 def _log_codex_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> None:
-    provider_args = [arg for arg in cmd if arg.startswith("model_provider=") or arg.startswith("model_providers.")]
-    router_log("INFO", "codex_launch_cmd argv_len=%d provider_overrides=%d" % (len(cmd), len(provider_args)))
-    env_summary = []
-    for key in ("CIEL_RUNTIME_PROVIDER", "CIEL_RUNTIME_MODEL_ALIAS", CODEX_RUNTIME_API_KEY_ENV):
-        if key in env:
-            value = mask_secret(env[key]) if "KEY" in key or "TOKEN" in key else env[key]
-            env_summary.append(f"{key}={value}")
-    if env_summary:
-        router_log("INFO", "codex_launch_env " + " ".join(env_summary))
+    launch_command_diagnostics().codex(cmd, env)
 
 
 def _subprocess_call_capturing_stderr(cmd: list[str], env: dict[str, str]) -> int:
@@ -23570,64 +23518,7 @@ def _subprocess_call_capturing_stderr(cmd: list[str], env: dict[str, str]) -> in
     `--dangerously-load-development-channels ignored (server:...)`.
 
     Enabled via CIEL_RUNTIME_CAPTURE_CC_STDERR=1."""
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    try:
-        if CLAUDE_CODE_STDERR_LOG.exists() and CLAUDE_CODE_STDERR_LOG.stat().st_size > 2_000_000:
-            CLAUDE_CODE_STDERR_LOG.replace(CLAUDE_CODE_STDERR_LOG.with_suffix(".log.1"))
-    except Exception as exc:
-        router_log("WARN", f"claude_stderr_capture_rotate_failed error={type(exc).__name__}: {exc}")
-    try:
-        log_handle = CLAUDE_CODE_STDERR_LOG.open("ab", buffering=0)
-    except Exception as exc:
-        router_log("WARN", f"claude_stderr_capture_open_failed error={type(exc).__name__}: {exc}")
-        return subprocess.call(cmd, env=env)
-    header = f"\n===== claude launch at {time.strftime('%Y-%m-%dT%H:%M:%S')} =====\n".encode("utf-8")
-    try:
-        log_handle.write(header)
-    except Exception as exc:
-        router_log("WARN", f"claude_stderr_capture_header_failed error={type(exc).__name__}: {exc}")
-    try:
-        proc = subprocess.Popen(cmd, env=env, stderr=subprocess.PIPE)
-    except Exception as exc:
-        router_log("WARN", f"claude_stderr_capture_spawn_failed error={type(exc).__name__}: {exc}")
-        try:
-            log_handle.close()
-        except Exception as close_exc:
-            router_log(
-                "WARN",
-                f"claude_stderr_capture_close_failed error={type(close_exc).__name__}: {close_exc}",
-            )
-        return subprocess.call(cmd, env=env)
-
-    def _tee_stderr() -> None:
-        try:
-            if proc.stderr is None:
-                return
-            while True:
-                chunk = proc.stderr.read(4096)
-                if not chunk:
-                    break
-                try:
-                    sys.stderr.buffer.write(chunk)
-                    sys.stderr.buffer.flush()
-                except Exception as exc:
-                    router_log("WARN", f"claude_stderr_console_tee_failed error={type(exc).__name__}: {exc}")
-                try:
-                    log_handle.write(chunk)
-                except Exception as exc:
-                    router_log("WARN", f"claude_stderr_log_tee_failed error={type(exc).__name__}: {exc}")
-        finally:
-            try:
-                log_handle.close()
-            except Exception as exc:
-                router_log("WARN", f"claude_stderr_capture_close_failed error={type(exc).__name__}: {exc}")
-
-    tee_thread = threading.Thread(target=_tee_stderr, daemon=True, name="claude-stderr-tee")
-    tee_thread.start()
-    rc = proc.wait()
-    tee_thread.join(timeout=2.0)
-    router_log("INFO", f"claude_exit code={rc} stderr_log={CLAUDE_CODE_STDERR_LOG}")
-    return rc
+    return StderrCaptureAdapter(CONFIG_DIR, CLAUDE_CODE_STDERR_LOG, router_log).call(cmd, env)
 
 
 def cli_usage() -> str:
