@@ -5504,7 +5504,12 @@ def record_outgoing_sse_event(trace: dict[str, Any] | None, event_name: str, pay
             try:
                 raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
                 raw = _truncate_for_dump(raw, SSE_TRACE_PAYLOAD_LIMIT)
-            except Exception:
+            except (TypeError, ValueError, OverflowError) as exc:
+                router_log(
+                    "WARN",
+                    f"sse_trace_payload_encode_failed event={event_name} "
+                    f"error={type(exc).__name__}: {exc}",
+                )
                 raw = ""
         event = {
             "n": trace["event_count"],
@@ -5514,8 +5519,11 @@ def record_outgoing_sse_event(trace: dict[str, Any] | None, event_name: str, pay
         if raw:
             event["raw"] = raw
         events.append(event)
-    except Exception:
-        pass
+    except Exception as exc:
+        router_log(
+            "WARN",
+            f"sse_trace_event_record_failed event={event_name} error={type(exc).__name__}: {exc}",
+        )
 
 
 def finish_outgoing_sse_trace(
@@ -5548,8 +5556,11 @@ def finish_outgoing_sse_trace(
                 SSE_TRACE_PATH.replace(SSE_TRACE_PATH.with_suffix(".jsonl.1"))
             with SSE_TRACE_PATH.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(trace, ensure_ascii=False, separators=(",", ":")) + "\n")
-    except Exception:
-        pass
+    except Exception as exc:
+        router_log(
+            "WARN",
+            f"sse_trace_finish_failed outcome={outcome} error={type(exc).__name__}: {exc}",
+        )
 
 
 def append_tool_call_log(event: str, payload: dict[str, Any]) -> None:
@@ -5564,8 +5575,11 @@ def append_tool_call_log(event: str, payload: dict[str, Any]) -> None:
         }
         with TOOL_CALL_LOG_PATH.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
-    except Exception:
-        pass
+    except Exception as exc:
+        router_log(
+            "WARN",
+            f"tool_call_log_write_failed event={event} error={type(exc).__name__}: {exc}",
+        )
 
 
 def model_cache_key(provider: str, pcfg: dict[str, Any]) -> str:
@@ -5867,8 +5881,11 @@ def write_model_registry(provider: str, pcfg: dict[str, Any], models: list[str],
     try:
         MODEL_REGISTRY_PATH.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         os.chmod(MODEL_REGISTRY_PATH, 0o600)
-    except Exception:
-        pass
+    except Exception as exc:
+        router_log(
+            "WARN",
+            f"model_registry_write_failed provider={provider} error={type(exc).__name__}: {exc}",
+        )
 
 
 def read_model_list_cache(provider: str, pcfg: dict[str, Any]) -> list[str] | None:
@@ -5920,8 +5937,11 @@ def write_model_list_cache(provider: str, pcfg: dict[str, Any], models: list[str
     try:
         MODEL_LIST_CACHE_PATH.write_text(json.dumps(data, indent=2) + "\n")
         os.chmod(MODEL_LIST_CACHE_PATH, 0o600)
-    except Exception:
-        pass
+    except Exception as exc:
+        router_log(
+            "WARN",
+            f"model_list_cache_write_failed provider={provider} error={type(exc).__name__}: {exc}",
+        )
     write_model_registry(provider, pcfg, models, "provider", metadata)
 
 
@@ -7902,8 +7922,11 @@ def begin_pending_channel_delivery(
         setattr(handler, "_ciel_runtime_channel_delivery_guard", True)
         setattr(handler, "_ciel_runtime_channel_delivery_ok", False)
         setattr(handler, "_ciel_runtime_channel_delivery_reason", "pending")
-    except Exception:
-        pass
+    except Exception as exc:
+        router_log(
+            "WARN",
+            f"channel_delivery_guard_begin_failed error={type(exc).__name__}: {exc}",
+        )
 
 
 def mark_pending_channel_delivery_success(
@@ -7915,8 +7938,11 @@ def mark_pending_channel_delivery_success(
     try:
         setattr(handler, "_ciel_runtime_channel_delivery_ok", True)
         setattr(handler, "_ciel_runtime_channel_delivery_reason", reason)
-    except Exception:
-        pass
+    except Exception as exc:
+        router_log(
+            "WARN",
+            f"channel_delivery_guard_success_failed reason={reason} error={type(exc).__name__}: {exc}",
+        )
 
 
 def mark_pending_channel_delivery_failed(
@@ -7928,8 +7954,11 @@ def mark_pending_channel_delivery_failed(
     try:
         setattr(handler, "_ciel_runtime_channel_delivery_ok", False)
         setattr(handler, "_ciel_runtime_channel_delivery_reason", reason)
-    except Exception:
-        pass
+    except Exception as exc:
+        router_log(
+            "WARN",
+            f"channel_delivery_guard_failure_failed reason={reason} error={type(exc).__name__}: {exc}",
+        )
 
 
 def pending_channel_delivery_confirmed(handler: BaseHTTPRequestHandler | None) -> bool:
@@ -8934,7 +8963,7 @@ def _channel_streamable_http_mark_session_lost(name: str, reason: str) -> None:
 def _channel_sse_store_rpc_response(name: str, data_text: str) -> bool:
     try:
         payload = json.loads((data_text or "").strip())
-    except Exception:
+    except (json.JSONDecodeError, TypeError):
         return False
     if not isinstance(payload, dict) or payload.get("id") is None:
         return False
@@ -9812,7 +9841,7 @@ def _channel_mcp_parse_event_id(value: Any) -> int | None:
         return None
     try:
         return max(0, int(text))
-    except Exception:
+    except (TypeError, ValueError):
         return None
 
 
@@ -22709,7 +22738,11 @@ def _channel_current_tmux_pane_text() -> str | None:
             timeout=1.0,
             check=False,
         )
-    except Exception:
+    except (OSError, subprocess.SubprocessError) as exc:
+        router_log(
+            "WARN",
+            f"channel_tmux_capture_failed pane={pane} error={type(exc).__name__}: {exc}",
+        )
         return None
     if result.returncode != 0:
         return None
