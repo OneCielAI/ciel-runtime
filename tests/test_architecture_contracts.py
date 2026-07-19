@@ -126,6 +126,14 @@ from ciel_runtime_support.openai_forwarding import (
     OpenAIForwardServices,
     OpenAIForwardStreaming,
 )
+from ciel_runtime_support.openai_responses_router import (
+    OpenAIResponsesConversion,
+    OpenAIResponsesCore,
+    OpenAIResponsesDelivery,
+    OpenAIResponsesOutput,
+    OpenAIResponsesRouting,
+    OpenAIResponsesServices,
+)
 from ciel_runtime_support.mcp_http_proxy import (
     McpHttpProxyCodec,
     McpHttpProxyRuntime,
@@ -534,6 +542,18 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
+    def test_openai_responses_router_ports_stay_below_dependency_limit(self):
+        for port in (
+            OpenAIResponsesCore,
+            OpenAIResponsesConversion,
+            OpenAIResponsesRouting,
+            OpenAIResponsesDelivery,
+            OpenAIResponsesOutput,
+            OpenAIResponsesServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
     def test_response_collection_ports_stay_below_dependency_limit(self):
         for port in (
             ChatCollectionStrategy,
@@ -883,6 +903,7 @@ class ArchitectureContractTests(unittest.TestCase):
             source_root / "ciel_runtime_support" / "mcp_http_proxy.py",
             source_root / "ciel_runtime_support" / "mcp_proxy_process.py",
             source_root / "ciel_runtime_support" / "claude_router.py",
+            source_root / "ciel_runtime_support" / "openai_responses_router.py",
         )
         critical_names = {
             "subprocess_call_with_channel_wake_proxy",
@@ -893,6 +914,7 @@ class ArchitectureContractTests(unittest.TestCase):
             "run_mcp_streamable_http_proxy",
             "run_mcp_stdio_proxy",
             "handle_claude_messages_post",
+            "handle_openai_responses_request",
         }
         critical_functions = []
         for source_path in source_paths:

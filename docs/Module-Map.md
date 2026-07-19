@@ -40,6 +40,10 @@
 
 Claude Code의 Anthropic Messages HTTP routing Application Service. 문자열 키 기반의 거대 dependency dict 대신 Core, Pipeline, Shortcuts, Delivery, Routing, Normalization, Transport, Response 등 최대 10필드의 typed port 그룹을 사용한다.
 
+### `ciel_runtime_support/openai_responses_router.py`
+
+Codex/OpenAI Responses 요청의 protocol 변환, provider routing, channel delivery acknowledgement와 오류 mapping을 조정하는 Runtime Application Service. Core, Conversion, Routing, Delivery, Output 포트는 각각 최대 10필드로 제한한다.
+
 ### `ciel_runtime_support/anthropic_tool_turns.py`
 
 잘린 대화 기록의 짝 없는 Anthropic `tool_use`/`tool_result`를 안전한 text block으로 내리는 Protocol Normalization Service. 적용 여부는 provider 이름 비교가 아니라 adapter의 `ProviderRequestPolicy.normalize_historical_tool_turns`로 결정한다.

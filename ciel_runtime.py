@@ -269,6 +269,15 @@ from ciel_runtime_support.openai_forwarding import (
     OpenAIForwardStreaming,
     forward_openai_compatible_chat as run_openai_forward,
 )
+from ciel_runtime_support.openai_responses_router import (
+    OpenAIResponsesConversion,
+    OpenAIResponsesCore,
+    OpenAIResponsesDelivery,
+    OpenAIResponsesOutput,
+    OpenAIResponsesRouting,
+    OpenAIResponsesServices,
+    handle_openai_responses_request,
+)
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
 from ciel_runtime_support.protocols.ollama_chat import (
     anthropic_system_to_ollama_messages,
@@ -16002,104 +16011,55 @@ def handle_openai_responses_post(
     pcfg: dict[str, Any],
     body: dict[str, Any],
 ) -> None:
-    import_check_body = openai_responses_to_anthropic_messages(body, current_alias(cfg))
-    if maybe_handle_import_session_request(
+    handle_openai_responses_request(
         handler,
-        import_check_body,
-        client_runtime="codex",
-        response_format="openai",
-        source_body=body,
-    ):
-        return
-    if codex_routed_enabled(provider, pcfg):
-        request_id = f"{os.getpid()}-{time.time_ns()}"
-        EVENT_BUS.publish(
-            level="info",
-            category="router.request",
-            message="Codex Responses request received",
-            request_id=request_id,
-            provider=provider,
-            model=str(body.get("model") or ""),
-            data={
-                "path": urllib.parse.urlparse(handler.path).path,
-                "input_items": len(_responses_input_as_list(body.get("input", []))),
-                "tools": len(body.get("tools") or []),
-            },
-        )
-        dump_request_for_trace(provider, urllib.parse.urlparse(handler.path).path, body)
-        try:
-            forward_codex_responses(handler, provider, pcfg, body)
-        except urllib.error.HTTPError as exc:
-            raw = exc.read().decode("utf-8", errors="ignore")
-            mark_pending_channel_delivery_failed(handler, f"codex_responses_http_error:{exc.code}")
-            message = upstream_http_error_message(exc, raw)
-            if exc.code in (401, 403):
-                message = codex_routed_auth_error_message(message)
-            write_openai_responses_error(handler, message, stream=bool(body.get("stream", True)), status=exc.code)
-        except Exception as exc:
-            if is_client_disconnect_error(exc):
-                mark_pending_channel_delivery_failed(handler, f"codex_responses_client_disconnected:{type(exc).__name__}")
-                return
-            mark_pending_channel_delivery_failed(handler, f"codex_responses_error:{type(exc).__name__}")
-            write_openai_responses_error(handler, f"{type(exc).__name__}: {exc}", stream=bool(body.get("stream", True)))
-        return
-    stream = bool(body.get("stream", True))
-    anthropic_body = import_check_body
-    _update_tool_schema_registry(anthropic_body.get("tools"))
-    anthropic_body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, anthropic_body)
-    request_id = f"{os.getpid()}-{time.time_ns()}"
-    EVENT_BUS.publish(
-        level="info",
-        category="router.request",
-        message="OpenAI Responses request received",
-        request_id=request_id,
-        provider=provider,
-        model=str(anthropic_body.get("model") or ""),
-        data={
-            "path": "/v1/responses",
-            "messages": len(anthropic_body.get("messages") or []),
-            "tools": len(anthropic_body.get("tools") or []),
-            **router_event_message_preview(anthropic_body, cfg),
-        },
+        cfg,
+        provider,
+        pcfg,
+        body,
+        OpenAIResponsesServices(
+            core=OpenAIResponsesCore(
+                event_bus=EVENT_BUS,
+                request_id=lambda: f"{os.getpid()}-{time.time_ns()}",
+                input_as_list=_responses_input_as_list,
+                is_client_disconnect=is_client_disconnect_error,
+                log=router_log,
+            ),
+            conversion=OpenAIResponsesConversion(
+                to_anthropic=openai_responses_to_anthropic_messages,
+                current_alias=current_alias,
+                update_tool_schema=_update_tool_schema_registry,
+                normalize_thinking=normalize_thinking_for_non_anthropic_provider,
+                filter_blocked_tools=filter_blocked_tools,
+                normalize_tool_choice=normalize_tool_choice_for_provider,
+                write_context_usage=write_context_usage,
+                strip_advisor_tools=strip_autonomous_advisor_server_tools,
+                inject_channel_context=body_with_pending_channel_messages,
+                inject_tool_result_context=body_with_channel_tool_result_context,
+            ),
+            routing=OpenAIResponsesRouting(
+                maybe_import_session=maybe_handle_import_session_request,
+                codex_routed_enabled=codex_routed_enabled,
+                forward_codex=forward_codex_responses,
+                dump_request=dump_request_for_trace,
+                normalize_provider_wire=normalize_request_for_provider_wire,
+                collect_message=collect_provider_message_for_responses,
+            ),
+            delivery=OpenAIResponsesDelivery(
+                begin=begin_pending_channel_delivery,
+                mark_success=mark_pending_channel_delivery_success,
+                mark_failed=mark_pending_channel_delivery_failed,
+                commit=commit_pending_channel_delivery_cursors,
+            ),
+            output=OpenAIResponsesOutput(
+                write_response=write_openai_responses_response,
+                write_error=write_openai_responses_error,
+                upstream_error_message=upstream_http_error_message,
+                codex_auth_error_message=codex_routed_auth_error_message,
+                event_preview=router_event_message_preview,
+            ),
+        ),
     )
-    dump_request_for_trace(provider, "/v1/responses", body)
-    anthropic_body = filter_blocked_tools(provider, pcfg, anthropic_body)
-    anthropic_body = normalize_tool_choice_for_provider(provider, pcfg, anthropic_body)
-    write_context_usage(provider, pcfg, anthropic_body, "responses")
-    anthropic_body = strip_autonomous_advisor_server_tools(provider, anthropic_body)
-    anthropic_body = body_with_pending_channel_messages(anthropic_body)
-    anthropic_body = body_with_channel_tool_result_context(anthropic_body)
-    begin_pending_channel_delivery(handler, anthropic_body)
-    anthropic_body = normalize_request_for_provider_wire(provider, pcfg, anthropic_body)
-    router_log(
-        "DEBUG",
-        f"POST /v1/responses provider={provider} model={anthropic_body.get('model')} "
-        f"tools={len(anthropic_body.get('tools') or [])} msgs={len(anthropic_body.get('messages') or [])}",
-    )
-    try:
-        message = collect_provider_message_for_responses(handler, provider, pcfg, anthropic_body)
-        write_openai_responses_response(handler, message, source_body=body, stream=stream)
-        mark_pending_channel_delivery_success(handler, "responses_json")
-        commit_pending_channel_delivery_cursors(anthropic_body, handler)
-    except urllib.error.HTTPError as exc:
-        raw = exc.read().decode("utf-8", errors="ignore")
-        mark_pending_channel_delivery_failed(handler, f"responses_http_error:{exc.code}")
-        write_openai_responses_error(handler, upstream_http_error_message(exc, raw), stream=stream, status=exc.code)
-    except Exception as exc:
-        if is_client_disconnect_error(exc):
-            mark_pending_channel_delivery_failed(handler, f"responses_client_disconnected:{type(exc).__name__}")
-            return
-        EVENT_BUS.publish(
-            level="error",
-            category="router.error",
-            message=str(exc),
-            request_id=request_id,
-            provider=provider,
-            model=str(anthropic_body.get("model") or ""),
-            data={"error_type": type(exc).__name__},
-        )
-        mark_pending_channel_delivery_failed(handler, f"responses_error:{type(exc).__name__}")
-        write_openai_responses_error(handler, f"{type(exc).__name__}: {exc}", stream=stream)
 
 
 def handle_codex_backend_passthrough_post(
