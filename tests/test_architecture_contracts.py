@@ -1313,7 +1313,6 @@ class ArchitectureContractTests(unittest.TestCase):
         target_names = {
             "write_native_mcp_config_from_discovery",
             "_write_channel_probe_cache",
-            "_write_channel_compact_request",
             "write_web_tools_mcp_config",
             "write_zai_mcp_config",
             "write_channel_mcp_config",
@@ -1330,6 +1329,16 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(function=name):
                 self.assertIn("json_artifact_repository", source)
                 self.assertNotIn("os.chmod", source)
+
+        compact_factory = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "channel_compact_request_repository"
+        )
+        compact_source = ast.unparse(compact_factory)
+        self.assertIn("json_artifact_repository", compact_source)
+        self.assertNotIn("os.chmod", compact_source)
 
     def test_mcp_config_readers_delegate_io_and_project_scope(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"

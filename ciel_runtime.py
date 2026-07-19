@@ -100,6 +100,10 @@ from ciel_runtime_support.channel_connection_worker import (
     ChannelWorkerPolicy,
     ChannelWorkerStateStore,
 )
+from ciel_runtime_support.channel_compact_request_repository import (
+    ChannelCompactRequestRepository,
+    compact_request_ttl,
+)
 from ciel_runtime_support.command_asset_installer import (
     CommandAsset,
     CommandAssetInstaller,
@@ -208,6 +212,13 @@ from ciel_runtime_support.channel_event_identity import (
 from ciel_runtime_support.channel_message_repository import ChannelMessageRepository
 from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
 from ciel_runtime_support.channel_cursor_repository import ChannelCursorRepository
+from ciel_runtime_support.channel_cursor_service import (
+    ChannelCursorService,
+    ChannelCursorServices,
+    ChannelResumePolicy,
+    ChannelResumeServices,
+    parse_channel_event_id,
+)
 from ciel_runtime_support.channel_wake_claim_repository import (
     ChannelWakeClaimRepository,
     prompt_message_ids as _channel_prompt_message_ids,
@@ -6200,85 +6211,37 @@ def _channel_mcp_initialize_response(request_id: Any, protocol: str) -> dict[str
 
 
 def _channel_compact_request_ttl_seconds() -> float:
-    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_COMPACT_REQUEST_TTL_SECONDS")
-    if raw is None:
-        return 600.0
-    try:
-        return max(5.0, min(3600.0, float(str(raw).strip())))
-    except (TypeError, ValueError):
-        return 600.0
+    return compact_request_ttl(
+        os.environ.get("CIEL_RUNTIME_CHANNEL_COMPACT_REQUEST_TTL_SECONDS")
+    )
+
+
+def channel_compact_request_repository() -> ChannelCompactRequestRepository:
+    artifact = json_artifact_repository(CHANNEL_COMPACT_REQUEST_PATH)
+    return ChannelCompactRequestRepository(
+        CHANNEL_COMPACT_REQUEST_PATH,
+        _CHANNEL_COMPACT_REQUEST_LOCK,
+        save=artifact.save,
+        truncate=truncate_for_prompt,
+        log=router_log,
+        ttl=_channel_compact_request_ttl_seconds,
+    )
 
 
 def _channel_compact_request_payload(source: str, reason: str) -> dict[str, Any]:
-    now = time.time()
-    return {
-        "id": uuid.uuid4().hex,
-        "command": "/compact",
-        "source": str(source or "mcp"),
-        "reason": truncate_for_prompt(str(reason or ""), 1000),
-        "requested_at": now,
-        "expires_at": now + _channel_compact_request_ttl_seconds(),
-        "pid": os.getpid(),
-    }
+    return channel_compact_request_repository().payload(source, reason)
 
 
 def _write_channel_compact_request(source: str = "mcp", reason: str = "") -> dict[str, Any]:
-    request = _channel_compact_request_payload(source, reason)
-    with _CHANNEL_COMPACT_REQUEST_LOCK:
-        json_artifact_repository(CHANNEL_COMPACT_REQUEST_PATH).save(
-            request,
-            "channel_compact_request",
-        )
-    router_log("INFO", f"channel_compact_request_queued id={request['id']} source={request['source']}")
-    return request
+    return channel_compact_request_repository().queue(source, reason)
 
 
 def _read_channel_compact_request() -> dict[str, Any] | None:
-    with _CHANNEL_COMPACT_REQUEST_LOCK:
-        try:
-            data = json.loads(CHANNEL_COMPACT_REQUEST_PATH.read_text(encoding="utf-8"))
-        except FileNotFoundError:
-            return None
-        except Exception as exc:
-            router_log("WARN", f"channel_compact_request_read_failed error={type(exc).__name__}: {exc}")
-            return None
-        if not isinstance(data, dict):
-            return None
-        try:
-            expires_at = float(data.get("expires_at") or 0)
-        except Exception:
-            expires_at = 0.0
-        if expires_at and time.time() > expires_at:
-            try:
-                CHANNEL_COMPACT_REQUEST_PATH.unlink()
-            except FileNotFoundError:
-                pass
-            except Exception as exc:
-                router_log("WARN", f"channel_compact_request_clear_failed id={data.get('id') or '-'} error={type(exc).__name__}: {exc}")
-            router_log("INFO", f"channel_compact_request_expired id={data.get('id') or '-'}")
-            return None
-        return data
+    return channel_compact_request_repository().read()
 
 
 def _clear_channel_compact_request(request_id: str | None = None) -> bool:
-    with _CHANNEL_COMPACT_REQUEST_LOCK:
-        if request_id:
-            try:
-                data = json.loads(CHANNEL_COMPACT_REQUEST_PATH.read_text(encoding="utf-8"))
-            except FileNotFoundError:
-                return False
-            except Exception:
-                data = {}
-            if isinstance(data, dict) and str(data.get("id") or "") != str(request_id):
-                return False
-        try:
-            CHANNEL_COMPACT_REQUEST_PATH.unlink()
-            return True
-        except FileNotFoundError:
-            return False
-        except Exception as exc:
-            router_log("WARN", f"channel_compact_request_clear_failed id={request_id or '-'} error={type(exc).__name__}: {exc}")
-            return False
+    return channel_compact_request_repository().clear(request_id)
 
 
 def _channel_mcp_tool_schemas() -> list[dict[str, Any]]:
@@ -6308,77 +6271,65 @@ def channel_cursor_repository(path: Path) -> ChannelCursorRepository:
     return ChannelCursorRepository(path=path, log=router_log)
 
 
+def _channel_mcp_cached_cursor() -> int | None:
+    return _CHANNEL_MCP_CURSOR_LAST_ID
+
+
+def _channel_mcp_cache_cursor(last_id: int) -> None:
+    global _CHANNEL_MCP_CURSOR_LAST_ID
+    _CHANNEL_MCP_CURSOR_LAST_ID = last_id
+
+
+def channel_mcp_cursor_service() -> ChannelCursorService:
+    return ChannelCursorService(
+        ChannelCursorServices(
+            repository=channel_cursor_repository(CHANNEL_MCP_CURSOR_PATH),
+            lock=_CHANNEL_MCP_CURSOR_LOCK,
+            cached=_channel_mcp_cached_cursor,
+            cache=_channel_mcp_cache_cursor,
+            scan_tail=_chat_scan_max_id,
+        )
+    )
+
+
 def _channel_mcp_write_cursor_locked(last_id: int) -> None:
     channel_cursor_repository(CHANNEL_MCP_CURSOR_PATH).write(last_id)
 
 
 def _channel_mcp_read_cursor_locked() -> int:
-    global _CHANNEL_MCP_CURSOR_LAST_ID
-    if _CHANNEL_MCP_CURSOR_LAST_ID is not None:
-        return _CHANNEL_MCP_CURSOR_LAST_ID
-    file_cursor = channel_cursor_repository(CHANNEL_MCP_CURSOR_PATH).read()
-    if file_cursor is not None:
-        _CHANNEL_MCP_CURSOR_LAST_ID = file_cursor
-        return _CHANNEL_MCP_CURSOR_LAST_ID
-    _CHANNEL_MCP_CURSOR_LAST_ID = max(0, _chat_scan_max_id())
-    _channel_mcp_write_cursor_locked(_CHANNEL_MCP_CURSOR_LAST_ID)
-    return _CHANNEL_MCP_CURSOR_LAST_ID
+    return channel_mcp_cursor_service().read_locked()
 
 
 def _channel_mcp_ensure_cursor_initialized() -> int:
-    with _CHANNEL_MCP_CURSOR_LOCK:
-        return _channel_mcp_read_cursor_locked()
+    return channel_mcp_cursor_service().ensure_initialized()
 
 
 def _channel_mcp_update_cursor(last_id: int) -> None:
-    global _CHANNEL_MCP_CURSOR_LAST_ID
-    if last_id < 0:
-        return
-    with _CHANNEL_MCP_CURSOR_LOCK:
-        current = _channel_mcp_read_cursor_locked()
-        if last_id <= current:
-            return
-        _CHANNEL_MCP_CURSOR_LAST_ID = int(last_id)
-        _channel_mcp_write_cursor_locked(_CHANNEL_MCP_CURSOR_LAST_ID)
+    channel_mcp_cursor_service().update(last_id)
 
 
 def _channel_mcp_parse_event_id(value: Any) -> int | None:
-    text = str(value or "").strip()
-    if not text:
-        return None
-    try:
-        return max(0, int(text))
-    except (TypeError, ValueError):
-        return None
+    return parse_channel_event_id(value)
+
+
+def channel_mcp_resume_policy() -> ChannelResumePolicy:
+    return ChannelResumePolicy(
+        ChannelResumeServices(
+            query_params=_query_params,
+            first_param=_first_param,
+            ensure_cursor=_channel_mcp_ensure_cursor_initialized,
+            update_cursor=_channel_mcp_update_cursor,
+            log=router_log,
+        )
+    )
 
 
 def _channel_mcp_client_last_event_id(handler: BaseHTTPRequestHandler) -> int | None:
-    try:
-        event_id = _channel_mcp_parse_event_id(handler.headers.get("Last-Event-ID"))
-        if event_id is not None:
-            return event_id
-    except (AttributeError, TypeError, ValueError) as exc:
-        router_log("WARN", f"channel_mcp_last_event_header_invalid error={type(exc).__name__}: {exc}")
-    try:
-        params = _query_params(handler)
-        for key in ("lastEventId", "last_event_id", "last_id"):
-            event_id = _channel_mcp_parse_event_id(_first_param(params, key))
-            if event_id is not None:
-                return event_id
-    except (AttributeError, TypeError, ValueError) as exc:
-        router_log("WARN", f"channel_mcp_last_event_query_invalid error={type(exc).__name__}: {exc}")
-    return None
+    return channel_mcp_resume_policy().client_last_event_id(handler)
 
 
 def _channel_mcp_session_start_last_id(handler: BaseHTTPRequestHandler) -> int:
-    cursor_last_id = _channel_mcp_ensure_cursor_initialized()
-    client_last_id = _channel_mcp_client_last_event_id(handler)
-    if client_last_id is None:
-        return cursor_last_id
-    if client_last_id > cursor_last_id:
-        _channel_mcp_update_cursor(client_last_id)
-    router_log("INFO", f"channel_mcp_resume client_last_id={client_last_id} cursor_last_id={cursor_last_id}")
-    return client_last_id
+    return channel_mcp_resume_policy().session_start_last_id(handler)
 
 
 def _channel_mcp_message_skip_reason(message: dict[str, Any]) -> str | None:

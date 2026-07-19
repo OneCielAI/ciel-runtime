@@ -31,6 +31,18 @@ Every production Python file must remain below 5,000 physical lines. The final
 facade budget is 4,999 lines. During migration, `MAIN_FILE_LINE_BUDGET` is a
 monotonically decreasing ratchet and may never be raised.
 
+## Current channel boundaries
+
+- `channel_mcp_transport.py` owns MCP transport configuration and state.
+- `channel_notification_projection.py` maps chat records to MCP notifications.
+- `channel_compact_request_repository.py` owns the durable compact-request slot,
+  expiration, and atomic persistence boundary.
+- `channel_cursor_repository.py` owns cursor file I/O, while
+  `channel_cursor_service.py` owns cursor advancement and client-resume policy.
+
+The facade only composes these objects and retains narrow compatibility
+functions for callers that still import historical private names.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file
