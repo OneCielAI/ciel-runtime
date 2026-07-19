@@ -11019,14 +11019,10 @@ def advisor_model_enabled(pcfg: dict[str, Any]) -> str:
     return str(pcfg.get("advisor_model") or "").strip()
 
 
-def advisor_provider_kind(provider: str) -> str:
-    if provider == "anthropic":
-        return "anthropic"
-    if provider in ("ollama", "ollama-cloud"):
-        return "ollama"
-    if provider in ("lm-studio", "nvidia-hosted"):
-        return "openai-compatible"
-    return ""
+def advisor_provider_kind(provider: str, pcfg: dict[str, Any] | None = None) -> str:
+    config = pcfg or {}
+    adapter = configured_provider_adapter(provider, config)
+    return adapter.advisor_transport_kind(provider_contract_config(provider, config))
 
 
 def advisor_provider_supported(provider: str) -> bool:
@@ -12625,7 +12621,8 @@ def advisor_visible_summary(advisor_text: str, trigger: str, limit: int = 700) -
 def call_provider_chat_once(provider: str, pcfg: dict[str, Any], body: dict[str, Any], model: str) -> dict[str, Any]:
     body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
     body = normalize_tool_choice_for_provider(provider, pcfg, body)
-    if provider in ("ollama", "ollama-cloud"):
+    transport = advisor_provider_kind(provider, pcfg)
+    if transport == "ollama":
         base = pcfg.get("base_url", "").rstrip("/")
         req_body = ollama_chat_request(model, body, pcfg, stream=False, provider=provider)
         apply_router_rate_limit(provider, pcfg, model)
@@ -12640,8 +12637,8 @@ def call_provider_chat_once(provider: str, pcfg: dict[str, Any], body: dict[str,
             None,
         )
         return ollama_chat_to_anthropic(data, model, source_body=body)
-    if provider in ("lm-studio", "nvidia-hosted"):
-        upstream_model = ncp_model_id_for_nvidia_hosted(model) if provider == "nvidia-hosted" else model
+    if transport == "openai-compatible":
+        upstream_model = provider_upstream_model(provider, pcfg, model)
         req_body = openai_compatible_chat_request(provider, upstream_model, body, pcfg, stream=False)
         apply_router_rate_limit(provider, pcfg, upstream_model)
         data = post_json_with_rate_retry(
@@ -14902,22 +14899,14 @@ def set_provider_config(provider: str) -> list[str]:
     cfg = load_config()
     cfg["current_provider"] = provider
     pcfg = cfg["providers"][provider]
-    if provider == "anthropic":
-        pcfg["route_through_router"] = False
-    if provider == "agy":
-        pcfg["route_through_router"] = False
-    if provider == "codex":
-        pcfg["route_through_router"] = False
+    adapter = configured_provider_adapter(provider, pcfg)
+    contract = provider_contract_config(provider, pcfg)
+    pcfg.update(adapter.selection_config_updates(contract))
     fixed_base = ensure_nvidia_hosted_base_url(pcfg) if provider == "nvidia-hosted" else False
     save_config(cfg)
     clear_model_cache()
     lines = [f"Provider set to {provider} ({PROVIDER_LABELS[provider]})."]
-    if provider == "anthropic":
-        lines.append("mode: anthropic-native")
-    if provider == "agy":
-        lines.append("mode: agy-native")
-    if provider == "codex":
-        lines.append("mode: codex-native")
+    lines.extend(adapter.selection_status_lines(provider_contract_config(provider, pcfg)))
     if fixed_base:
         lines.append(f"Base URL set to {pcfg['base_url']} for NVIDIA hosted.")
     return lines
@@ -21059,22 +21048,18 @@ def compact_text(value: Any, width: int = 72) -> str:
 
 
 def provider_menu_label(provider: str, pcfg: dict[str, Any]) -> str:
-    if provider == "anthropic":
-        return "Anthropic routed" if anthropic_routed_enabled(provider, pcfg) else "Claude Native"
-    if provider == "agy":
-        return "AGY Routed" if agy_routed_enabled(provider, pcfg) else "AGY"
-    if provider == "codex":
-        return "Codex routed" if codex_routed_enabled(provider, pcfg) else "Codex Native"
-    return PROVIDER_LABELS.get(provider, provider)
+    policy = provider_ui_policy(provider, pcfg)
+    if pcfg.get("route_through_router") and policy.routed_menu_label:
+        return policy.routed_menu_label
+    return policy.menu_label or PROVIDER_LABELS.get(provider, provider)
 
 
 def current_provider_panel_choice(provider: str, pcfg: dict[str, Any]) -> str:
-    if provider == "anthropic":
-        return ANTHROPIC_ROUTED_PROVIDER_CHOICE if anthropic_routed_enabled(provider, pcfg) else ANTHROPIC_NATIVE_PROVIDER_CHOICE
-    if provider == "agy":
-        return AGY_ROUTED_PROVIDER_CHOICE if agy_routed_enabled(provider, pcfg) else AGY_NATIVE_PROVIDER_CHOICE
-    if provider == "codex":
-        return CODEX_ROUTED_PROVIDER_CHOICE if codex_routed_enabled(provider, pcfg) else CODEX_NATIVE_PROVIDER_CHOICE
+    policy = provider_ui_policy(provider, pcfg)
+    if pcfg.get("route_through_router") and policy.routed_choice:
+        return policy.routed_choice
+    if policy.native_choice:
+        return policy.native_choice
     return provider
 
 
@@ -21096,16 +21081,20 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
 )
 
 
-def claude_launch_enabled_for_provider(provider: str) -> bool:
-    return provider not in ("agy", "codex")
+def provider_ui_policy(provider: str, pcfg: dict[str, Any]):
+    return configured_provider_adapter(provider, pcfg).ui_policy(provider_contract_config(provider, pcfg))
 
 
-def agy_launch_enabled_for_provider(provider: str) -> bool:
-    return provider == "agy"
+def claude_launch_enabled_for_provider(provider: str, pcfg: dict[str, Any] | None = None) -> bool:
+    return provider_ui_policy(provider, pcfg or {}).supports_claude_launch
 
 
-def codex_launch_enabled_for_provider(provider: str) -> bool:
-    return provider not in ("anthropic", "agy")
+def agy_launch_enabled_for_provider(provider: str, pcfg: dict[str, Any] | None = None) -> bool:
+    return provider_ui_policy(provider, pcfg or {}).supports_agy_launch
+
+
+def codex_launch_enabled_for_provider(provider: str, pcfg: dict[str, Any] | None = None) -> bool:
+    return provider_ui_policy(provider, pcfg or {}).supports_codex_launch
 
 
 def default_prelaunch_action(provider: str) -> str:
@@ -21122,32 +21111,31 @@ def prelaunch_action_index(action: str) -> int:
 
 
 def main_menu_rows(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any], lang: str) -> list[str]:
+    policy = provider_ui_policy(provider, pcfg)
     model_text = (
-        "AGY default"
-        if provider == "agy" and not pcfg.get("current_model")
-        else "Codex default"
-        if provider == "codex" and not pcfg.get("current_model")
+        policy.model_placeholder
+        if policy.model_placeholder and not pcfg.get("current_model")
         else compact_text(pcfg.get("current_model", "unset"), 62)
     )
     advisor_text = (
-        "Claude Code native /advisor"
-        if provider == "anthropic"
-        else ("AGY native" if provider == "agy" else ("Codex native" if provider == "codex" else compact_text(pcfg.get("advisor_model") or "off", 62)))
+        policy.advisor_placeholder
+        if policy.advisor_placeholder
+        else compact_text(pcfg.get("advisor_model") or "off", 62)
     )
     launch_label = ui_text("launch", lang)
-    if not claude_launch_enabled_for_provider(provider):
-        family = "AGY" if provider == "agy" else "Codex" if provider == "codex" else provider_menu_label(provider, pcfg)
+    if not policy.supports_claude_launch:
+        family = policy.incompatible_runtime_family or provider_menu_label(provider, pcfg)
         launch_label += f" [disabled: {family} provider selected]"
     launch_agy_label = ui_text("launch_agy", lang)
-    if not agy_launch_enabled_for_provider(provider):
+    if not policy.supports_agy_launch:
         launch_agy_label += " [disabled: select AGY provider]"
     launch_codex_label = ui_text("launch_codex", lang)
-    if not codex_launch_enabled_for_provider(provider):
-        family = "AGY" if provider == "agy" else "Anthropic" if provider == "anthropic" else provider_menu_label(provider, pcfg)
+    if not policy.supports_codex_launch:
+        family = policy.incompatible_runtime_family or provider_menu_label(provider, pcfg)
         launch_codex_label += f" [disabled: {family} provider selected]"
     launch_codex_app_server_label = ui_text("launch_codex_app_server", lang)
-    if not codex_launch_enabled_for_provider(provider):
-        family = "AGY" if provider == "agy" else "Anthropic" if provider == "anthropic" else provider_menu_label(provider, pcfg)
+    if not policy.supports_codex_launch:
+        family = policy.incompatible_runtime_family or provider_menu_label(provider, pcfg)
         launch_codex_app_server_label += f" [disabled: {family} provider selected]"
     return [
         f"0. {ui_text('language', lang)}  [{LANGUAGES.get(lang, lang)}]",

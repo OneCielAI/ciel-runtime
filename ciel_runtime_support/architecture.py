@@ -212,6 +212,22 @@ class ProviderOptionPresentationPolicy:
     show_ip_family_control: bool = False
 
 
+@dataclass(frozen=True)
+class ProviderUiPolicy:
+    """Provider-owned labels and runtime compatibility used by shared menus."""
+
+    menu_label: str = ""
+    routed_menu_label: str = ""
+    native_choice: str = ""
+    routed_choice: str = ""
+    model_placeholder: str = ""
+    advisor_placeholder: str = ""
+    supports_claude_launch: bool = True
+    supports_codex_launch: bool = True
+    supports_agy_launch: bool = False
+    incompatible_runtime_family: str = ""
+
+
 class RuntimeAdapter(ABC):
     """Adapter for a local/interactive coding runtime.
 
@@ -381,6 +397,18 @@ class ProviderAdapter(ABC):
         state = "routed through ciel-runtime router" if enabled else "direct provider mode"
         return ("Provider routing mode updated.", f"mode: {state}")
 
+    def selection_config_updates(self, config: ProviderConfig) -> Mapping[str, Any]:
+        """Return provider-owned defaults applied when this provider is selected."""
+
+        del config
+        return {}
+
+    def selection_status_lines(self, config: ProviderConfig) -> tuple[str, ...]:
+        """Return provider-owned status details after selection."""
+
+        del config
+        return ()
+
     def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
         """Return provider-owned option mutation behavior."""
 
@@ -403,6 +431,12 @@ class ProviderAdapter(ABC):
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy()
+
+    def ui_policy(self, config: ProviderConfig) -> ProviderUiPolicy:
+        """Return provider-owned presentation and runtime compatibility metadata."""
+
+        del config
+        return ProviderUiPolicy(menu_label=self.name)
 
     def shows_claude_workflow_options(self, config: ProviderConfig) -> bool:
         del config
@@ -465,6 +499,12 @@ class ProviderAdapter(ABC):
 
         del config
         return False
+
+    def advisor_transport_kind(self, config: ProviderConfig) -> str:
+        """Return the optional transport used for one-shot advisor refinement."""
+
+        del config
+        return ""
 
     def context_compaction_available(self, config: ProviderConfig) -> bool:
         """Whether this configured provider can run an auxiliary summary request."""
@@ -540,6 +580,7 @@ __all__ = [
     "ModelInfo",
     "ProviderAdapter",
     "ProviderConfig",
+    "ProviderUiPolicy",
     "RateLimitState",
     "RuntimeAdapter",
     "RuntimeCommand",

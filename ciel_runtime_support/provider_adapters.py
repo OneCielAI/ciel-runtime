@@ -19,6 +19,7 @@ from .architecture import (
     ProviderOptionPresentationPolicy,
     ProviderRequestPolicy,
     ProviderStatusPolicy,
+    ProviderUiPolicy,
 )
 from .registry import AdapterRegistry
 
@@ -211,6 +212,10 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         del config
         return True
 
+    def advisor_transport_kind(self, config: ProviderConfig) -> str:
+        del config
+        return "anthropic"
+
     def context_compaction_available(self, config: ProviderConfig) -> bool:
         return bool(config.api_keys)
 
@@ -222,9 +227,29 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         mode = "routed through ciel-runtime router" if enabled else "direct Claude Native"
         return ("Anthropic routing mode updated.", f"mode: {mode}")
 
+    def selection_config_updates(self, config: ProviderConfig) -> Mapping[str, Any]:
+        del config
+        return {"route_through_router": False}
+
+    def selection_status_lines(self, config: ProviderConfig) -> tuple[str, ...]:
+        del config
+        return ("mode: anthropic-native",)
+
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(show_route=True, show_ip_family_control=True)
+
+    def ui_policy(self, config: ProviderConfig) -> ProviderUiPolicy:
+        del config
+        return ProviderUiPolicy(
+            menu_label="Claude Native",
+            routed_menu_label="Anthropic routed",
+            native_choice="anthropic:native",
+            routed_choice="anthropic:routed",
+            advisor_placeholder="Claude Code native /advisor",
+            supports_codex_launch=False,
+            incompatible_runtime_family="Anthropic",
+        )
 
     def option_timeout_default(self) -> str:
         return "Claude Code default"
@@ -329,6 +354,10 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
             uses_catalog_timeout=True,
             preset_context_profile="ollama",
         )
+
+    def advisor_transport_kind(self, config: ProviderConfig) -> str:
+        del config
+        return "ollama"
 
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config
@@ -460,6 +489,10 @@ class VllmProviderAdapter(OpenAICompatibleProviderAdapter):
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
         return ProviderContextPolicy(capacity_strategy="remote_first", settings_strategy="standard")
+
+    def advisor_transport_kind(self, config: ProviderConfig) -> str:
+        del config
+        return "openai-compatible"
     send_placeholder_key: bool = True
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
@@ -528,6 +561,10 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
             hosted_timeout=True,
             preset_context_profile="nvidia",
         )
+
+    def advisor_transport_kind(self, config: ProviderConfig) -> str:
+        del config
+        return "openai-compatible"
 
     def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
         del config, model
@@ -1004,9 +1041,30 @@ class CodexProviderAdapter(NoAuthProviderAdapter):
     def routing_mode_update(self, enabled: bool) -> tuple[str, ...]:
         return ("Codex routing mode updated.", f"mode: {'codex-routed' if enabled else 'codex-native'}")
 
+    def selection_config_updates(self, config: ProviderConfig) -> Mapping[str, Any]:
+        del config
+        return {"route_through_router": False}
+
+    def selection_status_lines(self, config: ProviderConfig) -> tuple[str, ...]:
+        del config
+        return ("mode: codex-native",)
+
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(show_route=True)
+
+    def ui_policy(self, config: ProviderConfig) -> ProviderUiPolicy:
+        del config
+        return ProviderUiPolicy(
+            menu_label="Codex Native",
+            routed_menu_label="Codex routed",
+            native_choice="codex:native",
+            routed_choice="codex:routed",
+            model_placeholder="Codex default",
+            advisor_placeholder="Codex native",
+            supports_claude_launch=False,
+            incompatible_runtime_family="Codex",
+        )
 
     def shows_claude_workflow_options(self, config: ProviderConfig) -> bool:
         del config
@@ -1062,9 +1120,32 @@ class AgyProviderAdapter(NoAuthProviderAdapter):
     def routing_mode_update(self, enabled: bool) -> tuple[str, ...]:
         return ("AGY routing mode updated.", f"mode: {'agy-routed' if enabled else 'agy-native'}")
 
+    def selection_config_updates(self, config: ProviderConfig) -> Mapping[str, Any]:
+        del config
+        return {"route_through_router": False}
+
+    def selection_status_lines(self, config: ProviderConfig) -> tuple[str, ...]:
+        del config
+        return ("mode: agy-native",)
+
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config
         return ProviderOptionPresentationPolicy(show_route=True)
+
+    def ui_policy(self, config: ProviderConfig) -> ProviderUiPolicy:
+        del config
+        return ProviderUiPolicy(
+            menu_label="AGY",
+            routed_menu_label="AGY Routed",
+            native_choice="agy:native",
+            routed_choice="agy:routed",
+            model_placeholder="AGY default",
+            advisor_placeholder="AGY native",
+            supports_claude_launch=False,
+            supports_codex_launch=False,
+            supports_agy_launch=True,
+            incompatible_runtime_family="AGY",
+        )
 
     def option_timeout_default(self) -> str:
         return "AGY default"

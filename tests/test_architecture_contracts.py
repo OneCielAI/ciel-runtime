@@ -13,6 +13,7 @@ from ciel_runtime_support.architecture import (
     ProviderOptionPresentationPolicy,
     ProviderRequestPolicy,
     ProviderStatusPolicy,
+    ProviderUiPolicy,
     RuntimeAdapter,
     RuntimeCommand,
     RuntimeConfig,
@@ -1060,6 +1061,70 @@ class ArchitectureContractTests(unittest.TestCase):
                 provider_comparisons.append(node.lineno)
 
         self.assertEqual([], provider_comparisons)
+
+    def test_provider_menu_projection_does_not_branch_on_provider_names(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        source = source_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        names = {
+            "provider_menu_label",
+            "current_provider_panel_choice",
+            "main_menu_rows",
+            "claude_launch_enabled_for_provider",
+            "agy_launch_enabled_for_provider",
+            "codex_launch_enabled_for_provider",
+        }
+        functions = [
+            node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names
+        ]
+        provider_literals = {
+            "anthropic",
+            "agy",
+            "codex",
+            "ollama",
+            "ollama-cloud",
+            "nvidia-hosted",
+        }
+        offenders = [
+            (function.name, node.lineno, node.value)
+            for function in functions
+            for node in ast.walk(function)
+            if isinstance(node, ast.Constant) and node.value in provider_literals
+        ]
+        self.assertEqual([], offenders)
+        self.assertEqual(names, {function.name for function in functions})
+
+    def test_provider_ui_policy_stays_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(ProviderUiPolicy)), 10)
+
+    def test_provider_selection_defaults_dispatch_through_adapter(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        source = source_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        function = next(
+            node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "set_provider_config"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("selection_config_updates", function_source)
+        self.assertIn("selection_status_lines", function_source)
+        for provider in ("anthropic", "agy", "codex"):
+            self.assertNotIn(f'provider == "{provider}"', function_source)
+
+    def test_advisor_transport_dispatches_through_adapter(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        source = source_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        functions = {
+            node.name: ast.get_source_segment(source, node) or ""
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name in {"advisor_provider_kind", "call_provider_chat_once"}
+        }
+        self.assertIn("advisor_transport_kind", functions["advisor_provider_kind"])
+        for function_source in functions.values():
+            for provider in ("anthropic", "ollama", "ollama-cloud", "lm-studio", "nvidia-hosted"):
+                self.assertNotIn(f'provider == "{provider}"', function_source)
+            self.assertNotIn("provider in (", function_source)
 
     def test_channel_panel_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelPanelPolicy)), 10)
