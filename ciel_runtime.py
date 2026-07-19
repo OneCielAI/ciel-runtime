@@ -750,6 +750,12 @@ from ciel_runtime_support.provider_option_status import (
     ProviderOptionStatusPorts,
     ProviderOptionStatusProjection,
 )
+from ciel_runtime_support.provider_model_specs import (
+    ModelSpecLookupPorts,
+    ModelSpecMutationPorts,
+    ModelSpecRefreshPorts,
+    ProviderModelSpecService,
+)
 from ciel_runtime_support.provider_timeout_policy import (
     ProviderTimeoutPolicy,
     ProviderTimeoutPorts,
@@ -11976,60 +11982,35 @@ def cap_output_settings_to_context_ratio(provider: str, pcfg: dict[str, Any]) ->
 
 
 def cached_current_model_info(provider: str, pcfg: dict[str, Any]) -> dict[str, Any]:
-    info = read_model_info_cache(provider, pcfg)
-    if not info:
-        return {}
-    candidates = [
-        normalize_model_id(provider, current_upstream_model_id(provider, pcfg)),
-        normalize_model_id(provider, str(pcfg.get("current_model") or "")),
-        strip_claude_context_suffix(normalize_model_id(provider, str(pcfg.get("current_model") or ""))),
-    ]
-    for model_id in candidates:
-        if model_id and model_id in info:
-            return info[model_id]
-    current = normalize_model_id(provider, current_upstream_model_id(provider, pcfg)).casefold()
-    for model_id, model_info in info.items():
-        if normalize_model_id(provider, model_id).casefold() == current:
-            return model_info
-    return {}
+    return provider_model_spec_service().current_info(provider, pcfg)
+
+
+def provider_model_spec_service() -> ProviderModelSpecService:
+    return ProviderModelSpecService(
+        ModelSpecLookupPorts(
+            read_cache=read_model_info_cache,
+            normalize_model=normalize_model_id,
+            upstream_model=current_upstream_model_id,
+            strip_context_suffix=strip_claude_context_suffix,
+        ),
+        ModelSpecMutationPorts(
+            positive_int=positive_int,
+            apply_model_profile=apply_provider_model_profile,
+            context_policy=provider_context_policy,
+            ollama_model_matches=ollama_context_model_matches,
+            preserve_ollama_cap=ollama_preserve_configured_context_cap,
+            format_context=format_context_tokens,
+        ),
+        ModelSpecRefreshPorts(refresh_models=upstream_model_ids),
+    )
 
 
 def apply_current_model_specs_to_provider(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    messages = apply_provider_model_profile(provider, pcfg)
-    info = cached_current_model_info(provider, pcfg)
-    max_context = positive_int(info.get("max_model_len")) if info else None
-    if not max_context:
-        return messages
-    model = normalize_model_id(provider, current_upstream_model_id(provider, pcfg))
-    settings_strategy = provider_context_policy(provider, pcfg).settings_strategy
-    if settings_strategy == "ollama":
-        if not ollama_context_model_matches(model, str(pcfg.get("model_context_model") or "")) or positive_int(pcfg.get("model_context_max")) != max_context:
-            pcfg["model_context_max"] = max_context
-            pcfg["model_context_model"] = model
-            messages.append(f"Model context size from provider specs: {format_context_tokens(max_context)} ({max_context:,} tokens).")
-        current_max = positive_int(pcfg.get("num_ctx_max"))
-        if current_max and current_max <= max_context and ollama_preserve_configured_context_cap(pcfg):
-            pass
-        else:
-            pcfg["num_ctx_max"] = min(current_max, max_context) if current_max and current_max > max_context else max_context
-        return messages
-    if settings_strategy == "standard":
-        if positive_int(pcfg.get("max_model_len")) != max_context:
-            pcfg["max_model_len"] = max_context
-            messages.append(f"Model context size from provider specs: {format_context_tokens(max_context)} ({max_context:,} tokens).")
-    return messages
+    return provider_model_spec_service().apply(provider, pcfg)
 
 
 def refresh_current_model_specs_for_auto_llm(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    messages: list[str] = []
-    try:
-        models = upstream_model_ids(provider, pcfg, force_refresh=True)
-        if models:
-            messages.append(f"Model specs refreshed from provider: {len(models)} model(s).")
-    except Exception as exc:
-        messages.append(f"Model specs refresh failed: {type(exc).__name__}: {exc}")
-    messages.extend(apply_current_model_specs_to_provider(provider, pcfg))
-    return messages
+    return provider_model_spec_service().refresh(provider, pcfg)
 
 
 def apply_lm_studio_loaded_context_guard(pcfg: dict[str, Any], load: bool = False) -> list[str]:

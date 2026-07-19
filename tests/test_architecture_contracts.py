@@ -181,6 +181,11 @@ from ciel_runtime_support.provider_timeout_policy import (
     ProviderTimeoutPorts,
     ProviderTimeoutSettings,
 )
+from ciel_runtime_support.provider_model_specs import (
+    ModelSpecLookupPorts,
+    ModelSpecMutationPorts,
+    ModelSpecRefreshPorts,
+)
 from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy, ToolGuardHookServices
 from ciel_runtime_support.process_control import (
     ProcessControlServices,
@@ -529,6 +534,15 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_context_setup_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ContextSetupPorts)), 10)
+
+    def test_provider_model_spec_ports_stay_below_dependency_limit(self):
+        for port in (
+            ModelSpecLookupPorts,
+            ModelSpecMutationPorts,
+            ModelSpecRefreshPorts,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
 
     def test_claude_launch_ports_stay_below_dependency_limit(self):
         ports = (

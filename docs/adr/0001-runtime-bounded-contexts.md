@@ -132,6 +132,10 @@ Context mode calculation, localized setup projection, and adapter-owned context
 mutation live in `context_setup.py`. Persistence remains outside this service,
 while post-mutation caps and timeout recalculation are explicit ports.
 
+Current-model metadata lookup, adapter-owned context projection, and refresh
+failure isolation live in `provider_model_specs.py`. Cache identity matching,
+configuration mutation, and remote refresh are separate dependency groups.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file
