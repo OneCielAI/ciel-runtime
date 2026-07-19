@@ -137,10 +137,66 @@ def infer_context_preset(
     return None
 
 
+def classify_model_family(
+    config: dict[str, Any],
+    policy: ProviderContextPolicy,
+    capacity: int | None,
+    services: ContextPresetServices,
+) -> str:
+    model = str(config.get("current_model") or "").lower()
+    if any(marker in model for marker in ("coder", "codegemma", "starcoder", "devstral")):
+        return "coding"
+    if any(marker in model for marker in ("reason", "thinking", "r1", "qwq")):
+        return "reasoning"
+    if policy.context_family_before_size_markers:
+        return _context_family(capacity)
+    if any(marker in model for marker in ("1m", "v4-pro", "million")):
+        return "million-context"
+    if any(marker in model for marker in ("70b", "120b", "253b", "405b", "480b", "large", "ultra", "pro")):
+        return "large"
+    if policy.settings_strategy == "standard":
+        return _context_family(capacity)
+    if policy.settings_strategy == "ollama":
+        context = (
+            services.positive_int(config.get("num_ctx_max"))
+            or services.positive_int(config.get("num_ctx"))
+        )
+        return _context_family(context)
+    return "general"
+
+
+def recommended_preset(family: str, capacity: int | None) -> str:
+    if family in {"reasoning", "coding"}:
+        return family
+    if family == "million-context":
+        return "million-context-1m"
+    if family == "long-context":
+        if capacity and capacity >= 524288:
+            return "long-context-512k"
+        if capacity and capacity >= 307200:
+            return "long-context-300k"
+        if capacity and capacity >= 262144:
+            return "long-context-256k"
+        if capacity and capacity >= 131072:
+            return "long-context-128k"
+        return "long-context-65k"
+    return "balanced"
+
+
+def _context_family(capacity: int | None) -> str:
+    if capacity and capacity >= 1048576:
+        return "million-context"
+    if capacity and capacity >= 65536:
+        return "long-context"
+    return "general"
+
+
 __all__ = [
     "ContextPresetServices",
     "ProviderContextServices",
     "cap_context_settings",
     "infer_context_preset",
+    "classify_model_family",
+    "recommended_preset",
     "resolve_context_capacity",
 ]

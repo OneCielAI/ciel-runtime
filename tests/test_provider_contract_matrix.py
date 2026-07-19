@@ -383,6 +383,8 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "context_setup_panel_rows",
             "apply_context_setup_to_provider",
             "infer_preset_id_from_options",
+            "model_option_family",
+            "recommended_preset_id",
         }
         functions = {
             node.name: ast.get_source_segment(source, node) or ""

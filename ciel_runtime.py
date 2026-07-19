@@ -400,7 +400,9 @@ from ciel_runtime_support.provider_context import (
     ContextPresetServices,
     ProviderContextServices,
     cap_context_settings as apply_context_capacity_cap,
+    classify_model_family,
     infer_context_preset,
+    recommended_preset,
     resolve_context_capacity,
 )
 from ciel_runtime_support.provider_option_panel import (
@@ -17438,59 +17440,18 @@ def llm_options_status(provider: str, pcfg: dict[str, Any]) -> str:
 
 
 def model_option_family(provider: str, pcfg: dict[str, Any]) -> str:
-    model = str(pcfg.get("current_model") or "").lower()
-    if any(marker in model for marker in ("coder", "codegemma", "starcoder", "devstral")):
-        return "coding"
-    if any(marker in model for marker in ("reason", "thinking", "r1", "qwq")):
-        return "reasoning"
-    if provider == "zai":
-        ctx = provider_model_context_capacity(provider, pcfg) or positive_int(pcfg.get("context_window")) or 0
-        if ctx >= 1048576:
-            return "million-context"
-        if ctx >= 65536:
-            return "long-context"
-        return "general"
-    if any(marker in model for marker in ("1m", "v4-pro", "million")):
-        return "million-context"
-    if any(marker in model for marker in ("70b", "120b", "253b", "405b", "480b", "large", "ultra", "pro")):
-        return "large"
-    if provider in ("vllm", "lm-studio", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai"):
-        ctx = provider_model_context_capacity(provider, pcfg) or positive_int(pcfg.get("context_window")) or 0
-        if ctx >= 1048576:
-            return "million-context"
-        if ctx >= 65536:
-            return "long-context"
-    if provider in ("ollama", "ollama-cloud"):
-        ctx = positive_int(pcfg.get("num_ctx_max")) or positive_int(pcfg.get("num_ctx")) or 0
-        if ctx >= 1048576:
-            return "million-context"
-        if ctx >= 65536:
-            return "long-context"
-    return "general"
+    return classify_model_family(
+        pcfg,
+        provider_context_policy(provider, pcfg),
+        provider_model_context_capacity(provider, pcfg),
+        context_preset_services(provider),
+    )
 
 
 def recommended_preset_id(provider: str, pcfg: dict[str, Any]) -> str:
-    family = model_option_family(provider, pcfg)
-    if family == "reasoning":
-        return "reasoning"
-    if family == "coding":
-        return "coding"
-    if family == "million-context":
-        return "million-context-1m"
-    if family == "long-context":
-        capacity = provider_model_context_capacity(provider, pcfg) or 0
-        if capacity >= 524288:
-            return "long-context-512k"
-        if capacity >= 307200:
-            return "long-context-300k"
-        if capacity >= 262144:
-            return "long-context-256k"
-        if capacity >= 131072:
-            return "long-context-128k"
-        return "long-context-65k"
-    if family == "large":
-        return "balanced"
-    return "balanced"
+    return recommended_preset(
+        model_option_family(provider, pcfg), provider_model_context_capacity(provider, pcfg)
+    )
 
 
 LLM_PRESETS: dict[str, tuple[str, str]] = {
@@ -18414,12 +18375,16 @@ def infer_preset_id_from_options(provider: str, pcfg: dict[str, Any]) -> str | N
     return infer_context_preset(
         pcfg,
         provider_context_policy(provider, pcfg),
-        ContextPresetServices(
-            positive_int=positive_int,
-            ollama_options=ollama_extra_options,
-            ollama_thinking_enabled=lambda _model, config: ollama_request_think_enabled(
-                current_upstream_model_id(provider, config), config
-            ),
+        context_preset_services(provider),
+    )
+
+
+def context_preset_services(provider: str) -> ContextPresetServices:
+    return ContextPresetServices(
+        positive_int=positive_int,
+        ollama_options=ollama_extra_options,
+        ollama_thinking_enabled=lambda _model, config: ollama_request_think_enabled(
+            current_upstream_model_id(provider, config), config
         ),
     )
 

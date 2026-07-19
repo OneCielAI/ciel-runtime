@@ -192,6 +192,7 @@ class ProviderContextPolicy:
     timeout_weight: float = 1.0
     uses_catalog_timeout: bool = False
     managed_preset_inference: bool = False
+    context_family_before_size_markers: bool = False
 
 
 @dataclass(frozen=True)

@@ -656,7 +656,9 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
         return ProviderContextPolicy(
-            capacity_strategy="hint_first", settings_strategy="standard", hosted_timeout=True
+            capacity_strategy="hint_first",
+            settings_strategy="standard",
+            hosted_timeout=True,
         )
 
     def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
@@ -737,7 +739,10 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
         return ProviderContextPolicy(
-            capacity_strategy="hint_first", settings_strategy="standard", hosted_timeout=True
+            capacity_strategy="hint_first",
+            settings_strategy="standard",
+            hosted_timeout=True,
+            context_family_before_size_markers=True,
         )
 
     def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:

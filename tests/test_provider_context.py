@@ -6,7 +6,9 @@ from ciel_runtime_support.provider_context import (
     ContextPresetServices,
     ProviderContextServices,
     cap_context_settings,
+    classify_model_family,
     infer_context_preset,
+    recommended_preset,
     resolve_context_capacity,
 )
 
@@ -98,6 +100,30 @@ class ProviderContextTests(unittest.TestCase):
         self.assertEqual("long-context-256k", ollama)
         self.assertEqual("long-context-128k", standard)
         self.assertIsNone(managed)
+
+    def test_family_classification_uses_provider_context_policy(self):
+        services = ContextPresetServices(
+            positive_int=positive_int,
+            ollama_options=lambda config: config.get("ollama_options", {}),
+            ollama_thinking_enabled=lambda _model, _config: False,
+        )
+        regular = classify_model_family(
+            {"current_model": "model-pro"},
+            ProviderContextPolicy(settings_strategy="standard"),
+            131072,
+            services,
+        )
+        context_first = classify_model_family(
+            {"current_model": "model-pro"},
+            ProviderContextPolicy(
+                settings_strategy="standard", context_family_before_size_markers=True
+            ),
+            131072,
+            services,
+        )
+        self.assertEqual("large", regular)
+        self.assertEqual("long-context", context_first)
+        self.assertEqual("long-context-128k", recommended_preset(context_first, 131072))
 
 
 if __name__ == "__main__":
