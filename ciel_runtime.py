@@ -86,6 +86,12 @@ from ciel_runtime_support.channel_injection import (
 )
 from ciel_runtime_support.channel_inflight import ChannelInflightEffects
 from ciel_runtime_support.channel_connection_registry import ChannelConnectionRegistry
+from ciel_runtime_support.channel_connection_lifecycle import (
+    ChannelConnectionLifecycle,
+    ChannelConnectionLifecycleEffects,
+    ChannelConnectionLifecyclePolicy,
+    ChannelConnectionLifecycleStore,
+)
 from ciel_runtime_support.channel_connection_worker import (
     ChannelConnectionWorker,
     ChannelWorkerEffects,
@@ -8028,104 +8034,32 @@ def _channel_streamable_http_worker(name: str, connection_id: str | None = None)
     channel_connection_worker().run_streamable_http(name, connection_id)
 
 
+def channel_connection_lifecycle() -> ChannelConnectionLifecycle:
+    return ChannelConnectionLifecycle(
+        store=ChannelConnectionLifecycleStore(_CHANNEL_SSE_CONNECTIONS, _CHANNEL_SSE_LOCK),
+        effects=ChannelConnectionLifecycleEffects(
+            safe_segment=_safe_segment,
+            close_session=_channel_streamable_http_close_state_session,
+            cleanup_stale_sessions=_channel_streamable_http_cleanup_stale_sessions,
+            public_status=_channel_sse_status_public,
+            all_statuses=channel_sse_status,
+            sse_worker=_channel_sse_worker,
+            streamable_http_worker=_channel_streamable_http_worker,
+        ),
+        policy=ChannelConnectionLifecyclePolicy(
+            streamable_protocol_version=MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+            legacy_sse_protocol_version=MCP_LEGACY_SSE_PROTOCOL_VERSION,
+            parse_bool=parse_bool,
+        ),
+    )
+
+
 def start_channel_sse_connection(config: dict[str, Any]) -> dict[str, Any]:
-    url = str(config.get("url") or "").strip()
-    if not url.startswith(("http://", "https://")):
-        raise ValueError("SSE url must start with http:// or https://")
-    name = _safe_segment(str(config.get("name") or urllib.parse.urlparse(url).netloc or "sse"), "sse")
-    declared_transport = str(config.get("transport") or config.get("type") or "").strip().lower()
-    transport = "streamable-http" if declared_transport in {"http", "streamable-http"} else "sse"
-    headers = config.get("headers") if isinstance(config.get("headers"), dict) else {}
-    headers = {str(k): str(v) for k, v in headers.items() if str(k).strip()}
-    token = str(config.get("bearer_token") or config.get("token") or "").strip()
-    if token and "Authorization" not in headers:
-        headers["Authorization"] = f"Bearer {token}"
-    event_filter = config.get("event_filter")
-    if isinstance(event_filter, str):
-        event_filter = [item.strip() for item in event_filter.split(",") if item.strip()]
-    elif isinstance(event_filter, list):
-        event_filter = [str(item).strip() for item in event_filter if str(item).strip()]
-    else:
-        event_filter = []
-    prior_state: dict[str, Any] | None = None
-    connection_id = uuid.uuid4().hex
-    with _CHANNEL_SSE_LOCK:
-        prior = _CHANNEL_SSE_CONNECTIONS.get(name)
-        if prior:
-            prior["running"] = False
-            prior_state = dict(prior)
-        state = {
-            "name": name,
-            "connection_id": connection_id,
-            "url": url,
-            "headers": headers,
-            "channel": str(config.get("channel") or "default"),
-            "sender_id": str(config.get("sender_id") or config.get("sender") or name),
-            "recipient": str(config.get("recipient") or config.get("recipient_id") or config.get("to") or "all"),
-            "running": True,
-            "started_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "last_event_at": None,
-            "messages_received": 0,
-            "last_error": None,
-            "event_filter": event_filter,
-            "last_sse_event_id": str(
-                config.get("last_sse_event_id")
-                or config.get("last_event_id")
-                or config.get("lastEventId")
-                or ""
-            ).strip(),
-            "sse_reconnects": 0,
-            "read_timeout_seconds": float(config.get("read_timeout_seconds") or config.get("timeout") or 300.0),
-            "retry_seconds": float(config.get("retry_seconds") or 5.0),
-            "mcp_enabled": bool(config.get("mcp", config.get("mcp_enabled", True))),
-            "mcp_endpoint": None,
-            "mcp_initialized": False,
-            "mcp_session_id": None,
-            "mcp_last_error": None,
-            "mcp_rpc_results": {},
-            "transport": transport,
-            "streamable_requires_session": parse_bool(
-                config.get("streamable_requires_session", config.get("require_session", config.get("mcp_session_required", True))),
-                True,
-            ),
-            "mcp_protocol_version": str(
-                config.get("mcp_protocol_version")
-                or (MCP_STREAMABLE_HTTP_PROTOCOL_VERSION if transport == "streamable-http" else MCP_LEGACY_SSE_PROTOCOL_VERSION)
-            ),
-            "mcp_timeout_seconds": float(config.get("mcp_timeout_seconds") or 20.0),
-        }
-        _CHANNEL_SSE_CONNECTIONS[name] = state
-    if prior_state:
-        _channel_streamable_http_close_state_session(prior_state, "replace_connection")
-    if transport == "streamable-http":
-        _channel_streamable_http_cleanup_stale_sessions(
-            name,
-            url,
-            headers,
-            str(state.get("mcp_protocol_version") or MCP_STREAMABLE_HTTP_PROTOCOL_VERSION),
-        )
-    worker = _channel_streamable_http_worker if transport == "streamable-http" else _channel_sse_worker
-    thread = threading.Thread(target=worker, args=(name, connection_id), daemon=True, name=f"ciel-runtime-channel-{transport}-{name}")
-    thread.start()
-    return _channel_sse_status_public(name, state)
+    return channel_connection_lifecycle().start(config)
 
 
 def stop_channel_sse_connection(name: str | None = None) -> dict[str, Any]:
-    stopped: list[str] = []
-    states_to_close: list[dict[str, Any]] = []
-    with _CHANNEL_SSE_LOCK:
-        targets = [name] if name else list(_CHANNEL_SSE_CONNECTIONS)
-        for target in targets:
-            if not target:
-                continue
-            state = _CHANNEL_SSE_CONNECTIONS.get(target)
-            if state:
-                state["running"] = False
-                states_to_close.append(dict(state))
-                stopped.append(target)
-    for state in states_to_close:
-        _channel_streamable_http_close_state_session(state, "stop_connection")
-    return {"stopped": stopped, "connections": channel_sse_status()}
+    return channel_connection_lifecycle().stop(name)
 
 
 def _channel_mcp_session_id() -> str:
