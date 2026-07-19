@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import base64
 import contextlib
-import errno
 import getpass
 import hashlib
 import hmac
@@ -284,6 +283,7 @@ from ciel_runtime_support.headless_config import (
     HeadlessConfigServices,
     apply_headless_config,
 )
+from ciel_runtime_support.http_response import ChannelDeliveryGuard, HttpResponseAdapter
 from ciel_runtime_support.config_repository import JsonConfigRepository
 from ciel_runtime_support.settings_repository import JsonSettingsRepository, SettingsFileEffects
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
@@ -4929,126 +4929,56 @@ def compatibility_endpoint_probe_lines(provider: str, pcfg: dict[str, Any], time
     ]
 
 
+def http_response_adapter() -> HttpResponseAdapter:
+    return HttpResponseAdapter(router_log)
+
+
+def channel_delivery_guard() -> ChannelDeliveryGuard:
+    return ChannelDeliveryGuard(router_log)
+
+
 def write_json(handler: BaseHTTPRequestHandler, obj: Any, status: int = 200) -> None:
-    body = json.dumps(obj).encode("utf-8")
-    handler.send_response(status)
-    handler.send_header("content-type", "application/json")
-    handler.send_header("content-length", str(len(body)))
-    handler.end_headers()
-    handler.wfile.write(body)
-
-
-CLIENT_DISCONNECT_ERRNOS = {
-    errno.EPIPE,
-    errno.ECONNRESET,
-    getattr(errno, "ECONNABORTED", errno.ECONNRESET),
-}
+    http_response_adapter().write_json(handler, obj, status)
 
 
 def is_client_disconnect_error(exc: BaseException) -> bool:
-    if isinstance(exc, (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)):
-        return True
-    if isinstance(exc, OSError):
-        return getattr(exc, "errno", None) in CLIENT_DISCONNECT_ERRNOS
-    return False
+    return http_response_adapter().is_client_disconnect(exc)
 
 
 def try_write_json(handler: BaseHTTPRequestHandler, obj: Any, status: int = 200) -> bool:
-    try:
-        write_json(handler, obj, status)
-        return True
-    except Exception as exc:
-        if is_client_disconnect_error(exc):
-            router_log("WARN", f"write_json_client_disconnected status={status} error={type(exc).__name__}: {exc}")
-            return False
-        raise
+    return http_response_adapter().try_write_json(handler, obj, status)
 
 
 def _handler_response_status(handler: BaseHTTPRequestHandler) -> int | None:
-    status = getattr(handler, "_ciel_runtime_response_status", None)
-    try:
-        return int(status)
-    except Exception:
-        return None
+    return http_response_adapter().response_status(handler)
 
 
 def _channel_delivery_metadata(metadata: dict[str, Any] | None) -> bool:
-    if not isinstance(metadata, dict):
-        return False
-    return bool(metadata.get("ciel_runtime_channel_cursor_last_id"))
+    return channel_delivery_guard().metadata_enabled(metadata)
 
 
-def begin_pending_channel_delivery(
-    handler: BaseHTTPRequestHandler | None,
-    body: dict[str, Any],
-) -> None:
-    if handler is None:
-        return
-    metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
-    if not _channel_delivery_metadata(metadata):
-        return
-    try:
-        setattr(handler, "_ciel_runtime_channel_delivery_guard", True)
-        setattr(handler, "_ciel_runtime_channel_delivery_ok", False)
-        setattr(handler, "_ciel_runtime_channel_delivery_reason", "pending")
-    except Exception as exc:
-        router_log(
-            "WARN",
-            f"channel_delivery_guard_begin_failed error={type(exc).__name__}: {exc}",
-        )
+def begin_pending_channel_delivery(handler: BaseHTTPRequestHandler | None, body: dict[str, Any]) -> None:
+    channel_delivery_guard().begin(handler, body)
 
 
-def mark_pending_channel_delivery_success(
-    handler: BaseHTTPRequestHandler | None,
-    reason: str = "response_complete",
-) -> None:
-    if handler is None or not getattr(handler, "_ciel_runtime_channel_delivery_guard", False):
-        return
-    try:
-        setattr(handler, "_ciel_runtime_channel_delivery_ok", True)
-        setattr(handler, "_ciel_runtime_channel_delivery_reason", reason)
-    except Exception as exc:
-        router_log(
-            "WARN",
-            f"channel_delivery_guard_success_failed reason={reason} error={type(exc).__name__}: {exc}",
-        )
+def mark_pending_channel_delivery_success(handler: BaseHTTPRequestHandler | None, reason: str = "response_complete") -> None:
+    channel_delivery_guard().success(handler, reason)
 
 
-def mark_pending_channel_delivery_failed(
-    handler: BaseHTTPRequestHandler | None,
-    reason: str = "response_failed",
-) -> None:
-    if handler is None or not getattr(handler, "_ciel_runtime_channel_delivery_guard", False):
-        return
-    try:
-        setattr(handler, "_ciel_runtime_channel_delivery_ok", False)
-        setattr(handler, "_ciel_runtime_channel_delivery_reason", reason)
-    except Exception as exc:
-        router_log(
-            "WARN",
-            f"channel_delivery_guard_failure_failed reason={reason} error={type(exc).__name__}: {exc}",
-        )
+def mark_pending_channel_delivery_failed(handler: BaseHTTPRequestHandler | None, reason: str = "response_failed") -> None:
+    channel_delivery_guard().failed(handler, reason)
 
 
 def pending_channel_delivery_confirmed(handler: BaseHTTPRequestHandler | None) -> bool:
-    if handler is None or not getattr(handler, "_ciel_runtime_channel_delivery_guard", False):
-        return True
-    return bool(getattr(handler, "_ciel_runtime_channel_delivery_ok", False))
+    return channel_delivery_guard().confirmed(handler)
 
 
 def write_empty_response(handler: BaseHTTPRequestHandler, status: int = 202) -> None:
-    handler.send_response(status)
-    handler.send_header("content-length", "0")
-    handler.end_headers()
+    http_response_adapter().write_empty(handler, status)
 
 
 def write_accepted_response(handler: BaseHTTPRequestHandler) -> None:
-    body = b"Accepted"
-    handler.send_response(202)
-    handler.send_header("content-type", "text/plain")
-    handler.send_header("content-length", str(len(body)))
-    handler.end_headers()
-    handler.wfile.write(body)
+    http_response_adapter().write_accepted(handler)
 
 
 def reject_external_router_request(handler: BaseHTTPRequestHandler, cfg: dict[str, Any] | None = None) -> bool:
