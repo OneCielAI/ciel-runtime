@@ -83,6 +83,11 @@ from ciel_runtime_support.channel_injection import (
     PromptInjection,
     RuntimeInjectionPolicy,
 )
+from ciel_runtime_support.chat_http_controller import (
+    ChatHttpController,
+    ChatHttpReadServices,
+    ChatHttpWriteServices,
+)
 from ciel_runtime_support.channel_inflight import ChannelInflightEffects
 from ciel_runtime_support.channel_connection_registry import ChannelConnectionRegistry
 from ciel_runtime_support.channel_connection_lifecycle import (
@@ -8188,167 +8193,35 @@ def _first_param(params: dict[str, list[str]], name: str, default: str = "") -> 
     return values[0] if values else default
 
 
+def chat_http_controller() -> ChatHttpController:
+    return ChatHttpController(
+        router_base=ROUTER_BASE,
+        reads=ChatHttpReadServices(
+            read_after=read_chat_messages,
+            read_before=read_chat_messages_before,
+            condition=_CHAT_CONDITION,
+            connection_statuses=channel_sse_status,
+            safe_segment=_safe_segment,
+            files_dir=CHAT_FILES_DIR,
+        ),
+        writes=ChatHttpWriteServices(
+            write_json=write_json,
+            append_message=append_chat_message,
+            store_upload=store_chat_file_upload,
+            start_connection=start_channel_sse_connection,
+            stop_connection=stop_channel_sse_connection,
+        ),
+    )
+
+
 def handle_chat_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
-    channel_alias = path.startswith("/ca/channel/")
-    if channel_alias:
-        path = "/ca/chat/" + path[len("/ca/channel/"):]
-    if path == "/ca/chat/health":
-        write_json(
-            handler,
-            {
-                "ok": True,
-                "base": ROUTER_BASE,
-                "messages": "/ca/channel/messages" if channel_alias else "/ca/chat/messages",
-                "wait": "/ca/channel/wait" if channel_alias else "/ca/chat/wait",
-                "stream": "/ca/channel/stream" if channel_alias else "/ca/chat/stream",
-                "notify": "/ca/channel/notify",
-                "sse_status": "/ca/channel/sse/status",
-                "sse_connect": "POST /ca/channel/sse/connect",
-                "sse_disconnect": "POST /ca/channel/sse/disconnect",
-                "native_note": "This is the Ciel Runtime bridge API, not Claude Code's gated native --channels path.",
-            },
-        )
-        return True
-    if path == "/ca/chat/sse/status":
-        write_json(handler, {"ok": True, "connections": channel_sse_status()})
-        return True
-    if path in ("/ca/chat/messages", "/ca/chat/wait"):
-        params = _query_params(handler)
-        after = int(_first_param(params, "after", "0") or 0)
-        before = int(_first_param(params, "before", "0") or 0)
-        limit = max(1, min(500, int(_first_param(params, "limit", "100") or 100)))
-        channel = _first_param(params, "channel", "") or None
-        recipient = _first_param(params, "recipient", "") or _first_param(params, "recipient_id", "") or None
-        latest = _first_param(params, "latest", "") or _first_param(params, "history", "")
-        timeout = 0.0 if path.endswith("/messages") else max(0.0, min(300.0, float(_first_param(params, "timeout", "60") or 60)))
-        deadline = time.time() + timeout
-        history_mode = path.endswith("/messages") and (before > 0 or latest.lower() in {"1", "true", "yes", "on"})
-        messages = read_chat_messages_before(before, channel, recipient, limit) if history_mode else read_chat_messages(after, channel, recipient, limit)
-        while not messages and timeout > 0 and time.time() < deadline:
-            with _CHAT_CONDITION:
-                _CHAT_CONDITION.wait(timeout=min(5.0, max(0.0, deadline - time.time())))
-            messages = read_chat_messages(after, channel, recipient, limit)
-        write_json(
-            handler,
-            {
-                "ok": True,
-                "messages": messages,
-                "last_id": messages[-1]["id"] if messages else after,
-                "oldest_id": messages[0]["id"] if messages else None,
-                "has_more": bool(messages and (before > 0 or len(messages) >= limit)),
-            },
-        )
-        return True
-    if path == "/ca/chat/stream":
-        params = _query_params(handler)
-        after = int(_first_param(params, "after", "0") or 0)
-        channel = _first_param(params, "channel", "") or None
-        recipient = _first_param(params, "recipient", "") or _first_param(params, "recipient_id", "") or None
-        timeout = max(1.0, min(3600.0, float(_first_param(params, "timeout", "300") or 300)))
-        handler.send_response(200)
-        handler.send_header("content-type", "text/event-stream")
-        handler.send_header("cache-control", "no-cache")
-        handler.send_header("connection", "close")
-        handler.end_headers()
-        deadline = time.time() + timeout
-        last_id = after
-        try:
-            while time.time() < deadline:
-                messages = read_chat_messages(last_id, channel, recipient, 100)
-                for message in messages:
-                    last_id = int(message["id"])
-                    handler.wfile.write(f"id: {last_id}\n".encode("utf-8"))
-                    handler.wfile.write(b"event: message\n")
-                    handler.wfile.write(("data: " + json.dumps(message, ensure_ascii=False, separators=(",", ":")) + "\n\n").encode("utf-8"))
-                    handler.wfile.flush()
-                if messages:
-                    continue
-                handler.wfile.write(b": wait\n\n")
-                handler.wfile.flush()
-                with _CHAT_CONDITION:
-                    _CHAT_CONDITION.wait(timeout=min(15.0, max(0.0, deadline - time.time())))
-        except (BrokenPipeError, ConnectionError):
-            pass
-        return True
-    if path.startswith("/ca/chat/files/"):
-        name = _safe_segment(urllib.parse.unquote(path[len("/ca/chat/files/"):]), "file")
-        target = CHAT_FILES_DIR / name
-        if not target.exists() or not target.is_file():
-            write_json(handler, {"ok": False, "error": "not_found"}, 404)
-            return True
-        data = target.read_bytes()
-        handler.send_response(200)
-        handler.send_header("content-type", "application/octet-stream")
-        handler.send_header("content-disposition", f"attachment; filename={json.dumps(name)}")
-        handler.send_header("content-length", str(len(data)))
-        handler.end_headers()
-        handler.wfile.write(data)
-        return True
-    return False
+    return chat_http_controller().get(handler, path)
 
 
 def handle_chat_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool:
-    channel_alias = path.startswith("/ca/channel/")
-    if channel_alias:
-        path = "/ca/chat/" + path[len("/ca/channel/"):]
-    if path == "/ca/chat/sse/connect":
-        try:
-            status = start_channel_sse_connection(body)
-            write_json(handler, {"ok": True, "connection": status})
-        except Exception as exc:
-            write_json(handler, {"ok": False, "error": str(exc)}, 400)
-        return True
-    if path == "/ca/chat/sse/disconnect":
-        name = body.get("name")
-        result = stop_channel_sse_connection(str(name) if name else None)
-        write_json(handler, {"ok": True, **result})
-        return True
-    if path == "/ca/chat/notify":
-        params = body.get("params") if isinstance(body.get("params"), dict) else {}
-        meta = params.get("meta") if isinstance(params.get("meta"), dict) else body.get("meta")
-        if not isinstance(meta, dict):
-            meta = {}
-        content = str(params.get("content") or body.get("content") or body.get("message") or body.get("text") or "")
-        message = append_chat_message({
-            "channel": body.get("channel") or meta.get("channel") or "default",
-            "sender_id": body.get("sender_id") or body.get("sender") or body.get("server") or meta.get("source") or "channel",
-            "recipients": body.get("recipients", body.get("recipient_id", meta.get("recipients", "all"))),
-            "thread_id": body.get("thread_id") or meta.get("thread_id"),
-            "parent_id": body.get("parent_id") or meta.get("parent_id"),
-            "kind": body.get("kind") or "channel",
-            "message": content,
-            "meta": meta,
-        })
-        write_json(handler, {"ok": True, "message": message})
-        return True
-    if path == "/ca/chat/messages":
-        message = append_chat_message(body)
-        write_json(handler, {"ok": True, "message": message})
-        return True
-    if path == "/ca/chat/files":
-        try:
-            upload = store_chat_file_upload(body)
-        except OverflowError as exc:
-            write_json(handler, {"ok": False, "error": str(exc)}, 413)
-            return True
-        except ValueError as exc:
-            write_json(handler, {"ok": False, "error": str(exc)}, 400)
-            return True
-        if body.get("announce", True):
-            attachments = [upload]
-            append_chat_message({
-                "channel": body.get("channel", "default"),
-                "sender_id": body.get("sender_id", "system"),
-                "recipients": body.get("recipients", "all"),
-                "thread_id": body.get("thread_id"),
-                "parent_id": body.get("parent_id"),
-                "kind": "file",
-                "message": str(body.get("message") or upload["url"]),
-                "meta": {"attachments": attachments, "name": upload["original_name"], "url": upload["url"]},
-            })
-        write_json(handler, {"ok": True, **upload})
-        return True
-    return False
+    return chat_http_controller().post(handler, path, body)
+
+
 
 
 def handle_plan_get(handler: BaseHTTPRequestHandler, path: str) -> bool:

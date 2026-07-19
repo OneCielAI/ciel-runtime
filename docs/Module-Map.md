@@ -60,6 +60,10 @@ Attachment-only message, Plan Mode 상태, plan file write 이력, unchanged Rea
 
 HTTP parsing과 GET/POST/HEAD/DELETE endpoint dispatch를 담당하는 Router Adapter. Core, GET endpoints, POST endpoints, Presentation, Errors 포트를 통해 Runtime/Channel/Protocol 서비스에 위임하며 composition root를 직접 import하지 않는다.
 
+### `ciel_runtime_support/chat_http_controller.py`
+
+Web Chat/Channel bridge의 health, message history·long-poll·SSE, file download/upload, notify와 transport connect/disconnect endpoint를 소유하는 HTTP Controller. read/write port를 분리해 HTTP 표현과 channel Repository·Lifecycle 구현을 격리한다.
+
 ### `ciel_runtime_support/anthropic_tool_turns.py`
 
 잘린 대화 기록의 짝 없는 Anthropic `tool_use`/`tool_result`를 안전한 text block으로 내리는 Protocol Normalization Service. 적용 여부는 provider 이름 비교가 아니라 adapter의 `ProviderRequestPolicy.normalize_historical_tool_turns`로 결정한다.

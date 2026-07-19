@@ -327,6 +327,11 @@ def run_mcp_streamable_http_proxy(
                         session_cond.wait(timeout=initialized_wait_seconds)
                     if session_requested:
                         continue
+                    # A reopen requested while no GET is active is already
+                    # satisfied by the stream we are about to open. Carrying
+                    # the flag into the read loop would close this new stream
+                    # immediately and race its server-side handler with another.
+                    stream_reopen_requested = False
             worker_session = current_session
             event_name = "message"
             data_lines: list[str] = []
