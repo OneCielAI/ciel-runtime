@@ -269,6 +269,13 @@ from ciel_runtime_support.provider_policy import (
     normalize_provider_request,
     resolve_provider_wire_profile,
 )
+from ciel_runtime_support.provider_readiness import (
+    ProviderReadinessCapabilities,
+    ProviderReadinessLmStudio,
+    ProviderReadinessMode,
+    ProviderReadinessServices,
+    launch_readiness_errors as evaluate_provider_readiness,
+)
 from ciel_runtime_support.provider_status import (
     ProviderStatusCatalog,
     ProviderStatusGeneric,
@@ -23299,54 +23306,44 @@ def preflight_lines() -> list[str]:
     ]
 
 
+def provider_readiness_services() -> ProviderReadinessServices:
+    return ProviderReadinessServices(
+        mode=ProviderReadinessMode(
+            direct_native_anthropic=direct_native_anthropic_enabled,
+            native_agy=native_agy_enabled,
+            native_codex=native_codex_enabled,
+        ),
+        capabilities=ProviderReadinessCapabilities(
+            ultracode_enabled=claude_code_ultracode_enabled,
+            supported_capabilities=claude_code_supported_capabilities,
+            current_model=current_upstream_model_id,
+        ),
+        lm_studio=ProviderReadinessLmStudio(
+            ensure_model_loaded=ensure_lm_studio_model_loaded_for_context,
+            save_config=save_config,
+            runtime_info=upstream_model_runtime_info,
+            positive_int=positive_int,
+            minimum_context=LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT,
+        ),
+        base_url_status=base_url_status_line,
+    )
+
+
 def launch_readiness_errors(cfg: dict[str, Any] | None = None) -> list[str]:
     cfg = cfg or load_config()
     provider, pcfg = get_current_provider(cfg)
-    if direct_native_anthropic_enabled(provider, pcfg) or native_agy_enabled(provider) or native_codex_enabled(provider):
-        return []
-    status = base_url_status_line(provider, pcfg)
-    low = status.lower()
-    errors: list[str] = []
     adapter = configured_provider_adapter(provider, pcfg)
     contract_config = provider_contract_config(provider, pcfg)
-    if any(marker in low for marker in ("unreachable", "placeholder", "missing")):
-        errors.append(f"Launch blocked: {status}")
-        errors.append(adapter.status_policy(contract_config).unreachable_hint)
-    api_key_error = adapter.launch_api_key_error(contract_config)
-    if api_key_error:
-        errors.append(api_key_error)
-    if claude_code_ultracode_enabled(provider, pcfg):
-        caps = set(claude_code_supported_capabilities(provider, pcfg, current_upstream_model_id(provider, pcfg)))
-        if "xhigh_effort" not in caps:
-            errors.append(
-                "Launch blocked: ultracode requires a Claude Code model capability set that includes xhigh_effort. "
-                "Use a compatible Claude model or set claude_code_supported_capabilities after verifying the provider/model supports xhigh workflow thinking."
-            )
-    if provider == "lm-studio":
-        try:
-            ensure_lm_studio_model_loaded_for_context(pcfg, timeout=1.5)
-            save_config(cfg)
-        except Exception as exc:
-            errors.append(
-                "Launch blocked: Ciel Runtime could not automatically load the selected LM Studio model "
-                f"with the recommended context ({type(exc).__name__}: {exc})."
-            )
-            return errors
-        info = upstream_model_runtime_info(provider, pcfg, timeout=1.5)
-        loaded = positive_int(info.get("loaded_context_len")) if info else None
-        state = str(info.get("state") or "") if info else ""
-        if loaded and loaded < LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT:
-            errors.append(
-                "Launch blocked: LM Studio loaded context is "
-                f"{loaded:,} tokens; Claude Code needs at least {LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT:,}. "
-                "Reload the model with a larger context length."
-            )
-        elif state and state != "loaded":
-            errors.append(
-                "Launch blocked: selected LM Studio model is not loaded, so the active context length cannot be verified. "
-                f"Load it with at least {LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT:,} context tokens."
-            )
-    return errors
+    status_policy = adapter.status_policy(contract_config)
+    return evaluate_provider_readiness(
+        cfg,
+        provider,
+        pcfg,
+        adapter,
+        contract_config,
+        status_policy,
+        services=provider_readiness_services(),
+    )
 
 
 def launch_blockers_require_api_key(blockers: list[str]) -> bool:

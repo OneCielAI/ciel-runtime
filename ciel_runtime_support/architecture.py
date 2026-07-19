@@ -174,6 +174,7 @@ class ProviderStatusPolicy:
     catalog_scope: Literal["configured", "fireworks_management"] = "configured"
     catalog_count_label: str = "models"
     unreachable_hint: str = "Set a reachable Base URL before launching Claude Code."
+    readiness_validation: Literal["none", "lm_studio"] = "none"
 
 
 class RuntimeAdapter(ABC):

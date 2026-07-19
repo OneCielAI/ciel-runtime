@@ -124,6 +124,12 @@ from ciel_runtime_support.provider_limits import (
     RateLimitLearningServices,
     RateLimitStateStore,
 )
+from ciel_runtime_support.provider_readiness import (
+    ProviderReadinessCapabilities,
+    ProviderReadinessLmStudio,
+    ProviderReadinessMode,
+    ProviderReadinessServices,
+)
 from ciel_runtime_support.provider_status import (
     ProviderStatusCatalog,
     ProviderStatusGeneric,
@@ -636,6 +642,29 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_provider_readiness_ports_stay_below_dependency_limit(self):
+        for port in (
+            ProviderReadinessMode,
+            ProviderReadinessCapabilities,
+            ProviderReadinessLmStudio,
+            ProviderReadinessServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_launch_readiness_dispatches_through_provider_policy(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        function = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "launch_readiness_errors"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("status_policy", function_source)
+        self.assertNotIn('provider == "', function_source)
+        self.assertNotIn("provider in (", function_source)
 
     def test_base_url_status_dispatches_through_provider_policy(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")

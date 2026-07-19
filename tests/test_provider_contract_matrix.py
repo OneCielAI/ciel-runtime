@@ -206,6 +206,13 @@ class ProviderContractMatrixTests(unittest.TestCase):
             with self.subTest(provider=provider):
                 self.assertIn(expected_text, adapter.status_policy(config(provider)).unreachable_hint)
 
+    def test_runtime_readiness_validation_is_provider_owned(self):
+        lm_studio = PROVIDER_ADAPTERS.create("lm-studio").status_policy(config("lm-studio"))
+        vllm = PROVIDER_ADAPTERS.create("vllm").status_policy(config("vllm"))
+
+        self.assertEqual("lm_studio", lm_studio.readiness_validation)
+        self.assertEqual("none", vllm.readiness_validation)
+
     def test_api_key_status_is_provider_owned(self):
         cases = {
             "anthropic": "Claude login",

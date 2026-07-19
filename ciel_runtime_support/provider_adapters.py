@@ -332,6 +332,7 @@ class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
         return replace(
             policy,
             unreachable_hint="Start LM Studio's Local Server or set a reachable Anthropic-compatible Base URL before launching Claude Code.",
+            readiness_validation="lm_studio",
         )
 
 
