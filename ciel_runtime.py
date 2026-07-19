@@ -1669,7 +1669,7 @@ def _mcp_notification_wait_timeout_cap_ms() -> int:
         return 1000
     try:
         value = int(float(str(raw).strip()))
-    except Exception:
+    except (TypeError, ValueError):
         return 1000
     if value <= 0:
         return 0
@@ -1682,7 +1682,7 @@ def _mcp_notification_wait_duplicate_cap_ms() -> int:
         return 100
     try:
         value = int(float(str(raw).strip()))
-    except Exception:
+    except (TypeError, ValueError):
         return 100
     if value <= 0:
         return 0
@@ -1695,7 +1695,7 @@ def _mcp_notification_wait_duplicate_window_seconds() -> float:
         return 90.0
     try:
         value = float(str(raw).strip())
-    except Exception:
+    except (TypeError, ValueError):
         return 90.0
     return max(0.0, min(600.0, value))
 
@@ -8509,7 +8509,7 @@ def _channel_launch_recent_seconds() -> float:
         return CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT
     try:
         return float(raw)
-    except Exception:
+    except (TypeError, ValueError):
         return CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT
 
 
@@ -8755,7 +8755,7 @@ def _codex_mcp_split_proxy_is_channel_sse_event(event: bytes) -> bool:
         return False
     try:
         payload = json.loads("\n".join(data_lines))
-    except Exception:
+    except (json.JSONDecodeError, TypeError):
         return False
     return bool(
         isinstance(payload, dict)
@@ -9707,7 +9707,7 @@ def _channel_compact_request_ttl_seconds() -> float:
         return 600.0
     try:
         return max(5.0, min(3600.0, float(str(raw).strip())))
-    except Exception:
+    except (TypeError, ValueError):
         return 600.0
 
 
@@ -11872,8 +11872,16 @@ def schedule_router_process_restart(delay: float = 0.8) -> None:
         except Exception as exc:
             try:
                 router_log("ERROR", f"router_debug_restart_failed {type(exc).__name__}: {exc}")
-            except Exception:
-                pass
+            except Exception as log_exc:
+                try:
+                    sys.stderr.write(
+                        "router_debug_restart_diagnostic_failed "
+                        f"restart_error={type(exc).__name__}: {exc} "
+                        f"log_error={type(log_exc).__name__}: {log_exc}\n"
+                    )
+                    sys.stderr.flush()
+                except (OSError, ValueError):
+                    return
 
     timer = threading.Timer(delay, restart)
     timer.daemon = True
@@ -15951,7 +15959,12 @@ def discovered_ciel_runtime_managed_mcp_servers(cwd: Path | None = None) -> dict
     if MCP_PROXY_CONFIG.exists() and MCP_PROXY_CONFIG.is_file():
         try:
             proxy_data = json.loads(MCP_PROXY_CONFIG.read_text(encoding="utf-8"))
-        except Exception:
+        except (OSError, UnicodeError, json.JSONDecodeError, TypeError) as exc:
+            router_log(
+                "WARN",
+                f"managed_mcp_proxy_config_read_failed path={MCP_PROXY_CONFIG} "
+                f"error={type(exc).__name__}: {exc}",
+            )
             proxy_data = {}
         proxy_servers = proxy_data.get("mcpServers") if isinstance(proxy_data, dict) else None
         if isinstance(proxy_servers, dict):
@@ -15971,7 +15984,12 @@ def discovered_ciel_runtime_managed_mcp_servers(cwd: Path | None = None) -> dict
                                 else name
                             )
                             wrapped_server = json.loads(cfg_path.read_text(encoding="utf-8"))
-                        except Exception:
+                        except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
+                            router_log(
+                                "WARN",
+                                f"managed_mcp_wrapped_config_read_failed server={name} "
+                                f"error={type(exc).__name__}: {exc}",
+                            )
                             continue
                         if wrapped_name and isinstance(wrapped_server, dict):
                             restored = dict(wrapped_server)
@@ -16651,7 +16669,12 @@ def proxy_owned_channel_server_names() -> set[str]:
         if not MCP_PROXY_CONFIG.exists():
             return owned
         data = json.loads(MCP_PROXY_CONFIG.read_text(encoding="utf-8"))
-    except Exception:
+    except (OSError, UnicodeError, json.JSONDecodeError, TypeError) as exc:
+        router_log(
+            "WARN",
+            f"proxy_owned_channel_config_read_failed path={MCP_PROXY_CONFIG} "
+            f"error={type(exc).__name__}: {exc}",
+        )
         return owned
     servers = data.get("mcpServers") if isinstance(data, dict) else None
     if not isinstance(servers, dict):
@@ -16685,7 +16708,11 @@ def _proxy_server_config_disables_notifications(args_s: list[str]) -> bool:
         return False
     try:
         server = json.loads(Path(cfg_path).read_text(encoding="utf-8"))
-    except Exception:
+    except (OSError, UnicodeError, json.JSONDecodeError, TypeError) as exc:
+        router_log(
+            "WARN",
+            f"proxy_server_config_read_failed path={cfg_path} error={type(exc).__name__}: {exc}",
+        )
         return False
     return _mcp_server_disable_proxy_notification_stream(server) if isinstance(server, dict) else False
 
@@ -21944,13 +21971,13 @@ def claude_code_channels_auth_available(claude: str) -> tuple[bool, str]:
             stderr=subprocess.PIPE,
             timeout=5,
         )
-    except Exception as exc:
+    except (OSError, subprocess.SubprocessError) as exc:
         return True, f"auth_status_unavailable:{type(exc).__name__}"
     if proc.returncode != 0:
         return True, f"auth_status_rc_{proc.returncode}"
     try:
         data = json.loads(proc.stdout or "{}")
-    except Exception:
+    except (json.JSONDecodeError, TypeError):
         return True, "auth_status_unparseable"
     if not bool(data.get("loggedIn")):
         return False, "not_logged_in"
@@ -22151,7 +22178,7 @@ def _channel_pending_scan_limit() -> int:
     raw = os.environ.get("CIEL_RUNTIME_CHANNEL_PENDING_SCAN_LIMIT", "500")
     try:
         return max(100, min(5000, int(str(raw).strip())))
-    except Exception:
+    except (TypeError, ValueError):
         return 500
 
 
@@ -22159,7 +22186,7 @@ def _channel_stdin_wake_batch_limit() -> int:
     raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_BATCH_LIMIT", "8")
     try:
         return max(1, min(50, int(str(raw).strip())))
-    except Exception:
+    except (TypeError, ValueError):
         return 8
 
 
@@ -22502,7 +22529,7 @@ def _channel_stdin_wake_claim_ttl_seconds() -> float:
         return 300.0
     try:
         return max(5.0, min(1800.0, float(raw)))
-    except Exception:
+    except (TypeError, ValueError):
         return 300.0
 
 
@@ -22653,7 +22680,7 @@ def _codex_channel_wake_submit_retries() -> int:
         return 4
     try:
         return max(1, min(8, int(str(raw).strip())))
-    except Exception:
+    except (TypeError, ValueError):
         return 4
 
 
@@ -22958,7 +22985,7 @@ def _channel_stdin_unseen_retry_seconds() -> float:
         return 20.0
     try:
         return max(2.0, min(300.0, float(raw)))
-    except Exception:
+    except (TypeError, ValueError):
         return 20.0
 
 
@@ -22968,7 +22995,7 @@ def _channel_stdin_inflight_stale_seconds() -> float:
         return 180.0
     try:
         return max(30.0, min(1800.0, float(raw)))
-    except Exception:
+    except (TypeError, ValueError):
         return 180.0
 
 

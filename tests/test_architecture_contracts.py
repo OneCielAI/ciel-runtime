@@ -1290,6 +1290,30 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(function=function.name):
                 self.assertEqual([], silent_handlers)
 
+    def test_all_named_mcp_channel_process_paths_have_no_broad_silent_fallback(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        critical_tokens = ("mcp", "channel", "process", "subprocess", "proxy", "sse")
+        violations = []
+        for function in (
+            node
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and any(token in node.name for token in critical_tokens)
+        ):
+            for handler in (node for node in ast.walk(function) if isinstance(node, ast.ExceptHandler)):
+                broad = handler.type is None or (
+                    isinstance(handler.type, ast.Name)
+                    and handler.type.id in {"Exception", "BaseException"}
+                )
+                silent = len(handler.body) == 1 and isinstance(
+                    handler.body[0],
+                    (ast.Pass, ast.Continue, ast.Return),
+                )
+                if broad and silent:
+                    violations.append((function.name, handler.lineno))
+        self.assertEqual([], violations)
+
     def test_named_registries_produce_real_contract_implementations(self):
         protocol = PROTOCOL_ADAPTERS.create("openai-responses", fallback_model="fallback")
         provider = PROVIDER_ADAPTERS.create("openrouter")

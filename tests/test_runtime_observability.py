@@ -37,6 +37,32 @@ class RuntimeObservabilityTests(unittest.TestCase):
 
         self.assertIn("channel_delivery_guard_begin_failed", log.call_args.args[1])
 
+    def test_corrupt_managed_mcp_proxy_config_is_observable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            proxy_path = root / "mcp-proxy.json"
+            proxy_path.write_text("{broken", encoding="utf-8")
+            with (
+                mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy_path),
+                mock.patch.object(ciel_runtime, "WEB_TOOLS_MCP_CONFIG", root / "missing.json"),
+                mock.patch.object(ciel_runtime, "router_log") as log,
+            ):
+                self.assertEqual({}, ciel_runtime.discovered_ciel_runtime_managed_mcp_servers(root))
+
+        self.assertIn("managed_mcp_proxy_config_read_failed", log.call_args.args[1])
+
+    def test_corrupt_proxy_ownership_config_is_observable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proxy_path = Path(tmp) / "mcp-proxy.json"
+            proxy_path.write_text("{broken", encoding="utf-8")
+            with (
+                mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy_path),
+                mock.patch.object(ciel_runtime, "router_log") as log,
+            ):
+                self.assertEqual(set(), ciel_runtime.proxy_owned_channel_server_names())
+
+        self.assertIn("proxy_owned_channel_config_read_failed", log.call_args.args[1])
+
 
 if __name__ == "__main__":
     unittest.main()
