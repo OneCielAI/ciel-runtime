@@ -175,11 +175,8 @@ from ciel_runtime_support.channel_transcript import (
     ChannelWakeTranscriptServices,
     active_tool_call_from_text as _channel_stdin_active_tool_call_from_text,
     active_turn_from_text as _channel_stdin_active_turn_from_text,
-    content_text as _channel_transcript_content_text,
-    is_assistant_message as _channel_transcript_is_assistant_message,
     queued_age_seconds_from_text as analyze_channel_queued_age,
     queued_command_ids_from_text as analyze_channel_queued_ids,
-    user_text as _channel_transcript_user_text,
     wake_state_from_text as analyze_channel_wake_state,
 )
 from ciel_runtime_support.channel_message_policy import (
@@ -909,6 +906,14 @@ from ciel_runtime_support.pseudo_tool_parser import (
     parse_pseudo_tool_calls as project_parse_pseudo_tool_calls,
 )
 from ciel_runtime_support.stream_chunk_policy import split_word_buffer
+from ciel_runtime_support.session_import import (
+    ImportSessionLimits,
+    ImportSessionRepository,
+    ImportSessionService,
+    import_record_line,
+    import_tool_text,
+    normalize_import_source,
+)
 from ciel_runtime_support.upstream_retry import (
     UpstreamRetryHttp,
     UpstreamRetryKeys,
@@ -918,6 +923,13 @@ from ciel_runtime_support.upstream_retry import (
     open_openai_stream_with_rate_retry as retry_openai_stream,
     open_provider_request_with_key_retry as retry_provider_request,
     post_json_with_rate_retry as retry_post_json,
+)
+from ciel_runtime_support.upstream_error_policy import (
+    configured_gateway_retries as project_configured_gateway_retries,
+    http_error_message as project_upstream_http_error_message,
+    retry_message as project_upstream_retry_message,
+    retry_wait_seconds as project_upstream_retry_wait_seconds,
+    retryable_exception as project_retryable_upstream_exception,
 )
 from ciel_runtime_support.tool_dialects import TOOL_DIALECTS, mcp_server_normalized_key
 from ciel_runtime_support.tool_schema import (
@@ -8526,207 +8538,42 @@ def import_session_max_chars() -> int:
 
 
 def normalize_import_session_source(value: str) -> str:
-    low = re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
-    if low in {"codex", "openai", "codexcli"}:
-        return "codex"
-    if low in {"claude", "claudecode", "anthropic"}:
-        return "claude"
-    return ""
+    return normalize_import_source(value)
+
+
+def import_session_repository() -> ImportSessionRepository:
+    return ImportSessionRepository(
+        HOME,
+        os.environ,
+        ImportSessionLimits(import_session_max_bytes(), import_session_max_chars()),
+    )
 
 
 def latest_import_session_transcript_path(source: str) -> Path | None:
-    if source == "claude":
-        roots = [(HOME / ".claude" / "projects", "*/*.jsonl")]
-    elif source == "codex":
-        codex_home = Path(os.environ.get("CODEX_HOME") or (HOME / ".codex")).expanduser()
-        roots = [(codex_home / "sessions", "**/*.jsonl")]
-    else:
-        return None
-    latest: Path | None = None
-    latest_mtime = -1.0
-    for root, pattern in roots:
-        try:
-            paths = root.glob(pattern)
-        except Exception:
-            continue
-        for path in paths:
-            try:
-                if not path.is_file():
-                    continue
-                mtime = path.stat().st_mtime
-            except OSError:
-                continue
-            if mtime > latest_mtime:
-                latest = path
-                latest_mtime = mtime
-    return latest
+    return import_session_repository().latest(source)
 
 
 def resolve_import_session_transcript_path(source: str, path_text: str) -> tuple[Path | None, str]:
-    raw = str(path_text or "").strip()
-    if not raw:
-        latest = latest_import_session_transcript_path(source)
-        if latest is None:
-            return None, f"No {source} transcript path was provided and no recent {source} transcript was found."
-        return latest, ""
-    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", raw):
-        return None, "ImportSession only reads local transcript files, not URLs."
-    path = Path(os.path.expandvars(raw)).expanduser()
-    if path.is_dir():
-        latest: Path | None = None
-        latest_mtime = -1.0
-        try:
-            candidates = path.glob("**/*.jsonl")
-        except Exception as exc:
-            return None, f"Could not scan transcript directory: {type(exc).__name__}: {exc}"
-        for candidate in candidates:
-            try:
-                if candidate.is_file() and candidate.stat().st_mtime > latest_mtime:
-                    latest = candidate
-                    latest_mtime = candidate.stat().st_mtime
-            except OSError:
-                continue
-        if latest is None:
-            return None, f"No .jsonl transcript files found under {path}."
-        return latest, ""
-    if not path.exists():
-        return None, f"Transcript file not found: {path}"
-    if not path.is_file():
-        return None, f"Transcript path is not a regular file: {path}"
-    return path, ""
+    return import_session_repository().resolve(source, path_text)
 
 
 def _import_session_tool_text(record: dict[str, Any]) -> str:
-    record_type = str(record.get("type") or "")
-    payload = record.get("payload")
-    payload_obj = payload if isinstance(payload, dict) else {}
-    payload_type = str(payload_obj.get("type") or "")
-    if record_type == "response_item" and payload_type in {"function_call", "custom_tool_call", "local_shell_call"}:
-        name = str(payload_obj.get("name") or payload_obj.get("tool_name") or payload_type).strip()
-        args = payload_obj.get("arguments")
-        if not isinstance(args, str):
-            args = json.dumps(args, ensure_ascii=False, default=str) if args is not None else ""
-        return f"tool_call {name}: {args}".strip()
-    if record_type == "response_item" and payload_type in {"function_call_output", "custom_tool_call_output", "local_shell_call_output"}:
-        text = _channel_transcript_content_text(payload_obj.get("output") or payload_obj.get("content") or payload_obj.get("message"))
-        return f"tool_result: {text}".strip() if text else "tool_result"
-    message = record.get("message")
-    message_obj = message if isinstance(message, dict) else {}
-    content = message_obj.get("content")
-    if isinstance(content, list):
-        parts: list[str] = []
-        for block in content:
-            if not isinstance(block, dict):
-                continue
-            if block.get("type") == "tool_use":
-                parts.append(f"tool_call {block.get('name') or 'tool'}: {json.dumps(block.get('input') or {}, ensure_ascii=False, default=str)}")
-            elif block.get("type") == "tool_result":
-                text = _channel_transcript_content_text(block.get("content"))
-                parts.append(f"tool_result: {text}".strip())
-        return "\n".join(part for part in parts if part)
-    return ""
+    return import_tool_text(record)
 
 
 def _import_session_record_to_line(record: dict[str, Any]) -> str:
-    user_text = _channel_transcript_user_text(record).strip()
-    if user_text:
-        return "User: " + user_text
-    if _channel_transcript_is_assistant_message(record):
-        message = record.get("message")
-        message_obj = message if isinstance(message, dict) else {}
-        payload = record.get("payload")
-        payload_obj = payload if isinstance(payload, dict) else {}
-        text = _channel_transcript_content_text(message_obj.get("content")).strip()
-        if not text:
-            text = _channel_transcript_content_text(payload_obj.get("content") or payload_obj.get("message")).strip()
-        if text:
-            return "Assistant: " + text
-    tool_text = _import_session_tool_text(record).strip()
-    if tool_text:
-        return "Tool: " + tool_text
-    return ""
+    return import_record_line(record)
 
 
 def read_import_session_transcript(source: str, path: Path) -> tuple[str, dict[str, Any]]:
-    max_bytes = import_session_max_bytes()
-    max_chars = import_session_max_chars()
-    size = path.stat().st_size
-    truncated_bytes = size > max_bytes
-    with path.open("rb") as f:
-        if truncated_bytes:
-            f.seek(max(0, size - max_bytes))
-        raw = f.read(max_bytes)
-    text = raw.decode("utf-8", errors="replace")
-    lines: list[str] = []
-    parsed_jsonl = False
-    for raw_line in text.splitlines():
-        stripped = raw_line.strip()
-        if not stripped:
-            continue
-        try:
-            record = json.loads(stripped)
-        except Exception:
-            continue
-        if not isinstance(record, dict):
-            continue
-        parsed_jsonl = True
-        line = _import_session_record_to_line(record)
-        if line:
-            lines.append(line)
-    imported = "\n\n".join(lines).strip() if parsed_jsonl else text.strip()
-    truncated_chars = len(imported) > max_chars
-    if truncated_chars:
-        imported = imported[-max_chars:].lstrip()
-    return imported, {
-        "source": source,
-        "path": str(path),
-        "bytes": size,
-        "bytes_read": len(raw),
-        "byte_truncated": truncated_bytes,
-        "char_truncated": truncated_chars,
-        "jsonl": parsed_jsonl,
-        "records": len(lines),
-    }
+    return import_session_repository().read(source, path)
 
 
 def import_session_response_text(client_runtime: str, body: dict[str, Any]) -> str:
-    raw_source, raw_path = import_session_args_from_body(body)
-    source = normalize_import_session_source(raw_source)
-    if not source:
-        return "Usage: `/ImportSession Codex [transcript-path]` or `/ImportSession Claude [transcript-path]`."
-    if client_runtime == "claude" and source == "claude":
-        return "Claude transcript import into a Claude session is blocked. Use Claude Code's native resume/continue flow for Claude-to-Claude sessions. Use ImportSession for cross-runtime import, for example `/ImportSession Codex <path>`."
-    path, error = resolve_import_session_transcript_path(source, raw_path)
-    if error or path is None:
-        return f"ImportSession failed: {error}"
-    try:
-        imported, meta = read_import_session_transcript(source, path)
-    except Exception as exc:
-        return f"ImportSession failed while reading {path}: {type(exc).__name__}: {exc}"
-    if not imported:
-        return f"ImportSession found no importable transcript content in {path}."
-    warnings: list[str] = []
-    if meta.get("byte_truncated"):
-        warnings.append(f"read tail only: {meta.get('bytes_read'):,}/{meta.get('bytes'):,} bytes")
-    if meta.get("char_truncated"):
-        warnings.append(f"trimmed to last {import_session_max_chars():,} chars")
-    warning_text = "\n".join(f"- warning: {line}" for line in warnings)
-    header = [
-        "Ciel Runtime ImportSession completed.",
-        f"- current client: {client_runtime}",
-        f"- source transcript format: {source}",
-        f"- transcript: {path}",
-        f"- parsed jsonl: {str(bool(meta.get('jsonl'))).lower()}",
-        f"- imported records: {meta.get('records')}",
-    ]
-    if warning_text:
-        header.append(warning_text)
-    header.append("")
-    header.append("Imported transcript context:")
-    header.append(f"<ciel-runtime-imported-session source=\"{source}\" path=\"{path}\">")
-    header.append(imported)
-    header.append("</ciel-runtime-imported-session>")
-    return "\n".join(header)
+    return ImportSessionService(
+        import_session_repository(),
+        import_session_args_from_body,
+    ).response_text(client_runtime, body)
 
 
 def maybe_handle_import_session_request(
@@ -9404,97 +9251,45 @@ def stream_openai_chat_to_anthropic_sse(
 
 
 def upstream_http_error_message(exc: urllib.error.HTTPError, raw: str | None = None) -> str:
-    if raw is None:
-        raw = exc.read().decode("utf-8", errors="ignore")
-    msg = raw.strip() or str(exc)
-    error_type = ""
-    try:
-        err = json.loads(raw)
-        if isinstance(err, dict):
-            if isinstance(err.get("error"), dict):
-                error_obj = err["error"]
-                error_type = str(error_obj.get("type") or "").strip()
-                msg = str(error_obj.get("message") or error_obj)
-            elif err.get("error"):
-                msg = str(err["error"])
-            elif err.get("message"):
-                msg = str(err["message"])
-                error_type = str(err.get("type") or "").strip()
-    except Exception:
-        pass
-    if error_type and error_type not in msg:
-        msg = f"{error_type}: {msg}"
-    retry_after = first_header(exc.headers, ["Retry-After", "retry-after"])
-    if retry_after:
-        retry_after_text = retry_after.strip()
-        retry_after_seconds = parse_retry_after_seconds(retry_after_text)
-        if retry_after_seconds is not None:
-            retry_after_display = format_duration_seconds(retry_after_seconds)
-            if retry_after_text and re.fullmatch(r"\d+(?:\.\d+)?", retry_after_text):
-                msg = f"{msg} Retry-After: {retry_after_display} ({retry_after_text}s)"
-            else:
-                msg = f"{msg} Retry-After: {retry_after_display}"
-        else:
-            msg = f"{msg} Retry-After: {retry_after_text}"
-    return msg
+    return project_upstream_http_error_message(
+        exc,
+        raw,
+        first_header=first_header,
+        parse_retry_after=parse_retry_after_seconds,
+        format_duration=format_duration_seconds,
+    )
 
 
 UPSTREAM_RETRY_HTTP_CODES: frozenset[int] = frozenset({502, 503, 504})
 
 
 def upstream_retry_message(attempt: int, total: int) -> str:
-    lang = str(load_config().get("language") or "en")
-    if lang == "ko":
-        return f"서버가 응답하지 않아 재시도합니다 ({attempt}/{total})."
-    if lang == "ja":
-        return f"サーバーが応答しないため再試行します ({attempt}/{total})。"
-    if lang == "zh":
-        return f"服务器未响应，正在重试 ({attempt}/{total})。"
-    return f"Upstream server did not respond; retrying ({attempt}/{total})."
+    return project_upstream_retry_message(
+        str(load_config().get("language") or "en"),
+        attempt,
+        total,
+    )
 
 
 def upstream_rate_limit_retry_message(attempt: int, total: int) -> str:
-    lang = str(load_config().get("language") or "en")
-    if lang == "ko":
-        return f"Upstream rate limit에 도달해 대기 후 재시도합니다 ({attempt}/{total})."
-    if lang == "ja":
-        return f"Upstream rate limit に達したため、待機して再試行します ({attempt}/{total})。"
-    if lang == "zh":
-        return f"已达到 upstream rate limit，等待后重试 ({attempt}/{total})。"
-    return f"Upstream rate limit reached; waiting before retry ({attempt}/{total})."
+    return project_upstream_retry_message(
+        str(load_config().get("language") or "en"),
+        attempt,
+        total,
+        rate_limit=True,
+    )
 
 
 def upstream_retry_wait_seconds(attempt: int) -> float:
-    return min(20.0, 2.0 * max(1, attempt))
+    return project_upstream_retry_wait_seconds(attempt)
 
 
 def retryable_upstream_exception(exc: BaseException) -> bool:
-    text = f"{type(exc).__name__}: {exc}".lower()
-    markers = (
-        "timed out",
-        "timeout",
-        "connection aborted",
-        "connection was aborted",
-        "connection reset",
-        "connection refused",
-        "remote end closed connection",
-        "remote disconnected",
-        "eof occurred in violation of protocol",
-        "temporarily unavailable",
-        "broken pipe",
-    )
-    return any(marker in text for marker in markers)
+    return project_retryable_upstream_exception(exc)
 
 
 def configured_gateway_retries(pcfg: dict[str, Any]) -> int:
-    value = pcfg.get("gateway_retries")
-    if value is None:
-        return 2
-    try:
-        retries = int(value)
-    except Exception:
-        return 2
-    return max(0, retries)
+    return project_configured_gateway_retries(pcfg)
 
 
 def upstream_retry_services() -> UpstreamRetryServices:

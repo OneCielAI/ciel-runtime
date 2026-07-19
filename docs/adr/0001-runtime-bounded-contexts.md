@@ -56,6 +56,11 @@ Provider-emitted pseudo tool envelopes are parsed by
 `stream_chunk_policy.py`. Provider adapters compose these policies instead of
 embedding their grammars.
 
+Upstream failure classification and localized retry presentation live in
+`upstream_error_policy.py`. Cross-runtime transcript discovery, bounded JSONL
+reading, and response projection live behind the Repository and Application
+Service in `session_import.py`.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file
