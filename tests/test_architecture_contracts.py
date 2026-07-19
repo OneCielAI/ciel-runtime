@@ -161,6 +161,13 @@ from ciel_runtime_support.protocols.chat_projection import (
     ChatProjectionText,
     ChatProjectionTools,
 )
+from ciel_runtime_support.protocols.ollama_response import (
+    OllamaResponseOutput,
+    OllamaResponseRecovery,
+    OllamaResponseServices,
+    OllamaResponseText,
+    OllamaResponseTools,
+)
 from ciel_runtime_support.provider_models import (
     ModelCatalogHttp,
     ModelCatalogPolicy,
@@ -547,6 +554,17 @@ class ArchitectureContractTests(unittest.TestCase):
             OllamaForwardAdvisor,
             OllamaForwardResponse,
             OllamaForwardServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_ollama_response_projection_ports_stay_below_dependency_limit(self):
+        for port in (
+            OllamaResponseText,
+            OllamaResponseTools,
+            OllamaResponseRecovery,
+            OllamaResponseOutput,
+            OllamaResponseServices,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)

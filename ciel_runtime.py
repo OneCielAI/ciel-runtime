@@ -290,6 +290,14 @@ from ciel_runtime_support.protocols.ollama_chat import (
     encode_anthropic_message,
     ollama_claude_code_reminder,
 )
+from ciel_runtime_support.protocols.ollama_response import (
+    OllamaResponseOutput,
+    OllamaResponseRecovery,
+    OllamaResponseServices,
+    OllamaResponseText,
+    OllamaResponseTools,
+    project_ollama_response,
+)
 from ciel_runtime_support.protocols.chat_projection import (
     ChatProjectionPolicy,
     ChatProjectionServices,
@@ -14874,99 +14882,47 @@ def parse_pseudo_tool_calls(text: str, source_body: dict[str, Any] | None = None
     return visible_text, calls + xml_calls
 
 
-def ollama_chat_to_anthropic(data: dict[str, Any], model: str, source_body: dict[str, Any] | None = None) -> dict[str, Any]:
-    decoded = decode_ollama_chat_response(data)
-    content: list[dict[str, Any]] = []
-    raw_text = decoded.text
-    text = strip_visible_thinking_markup(raw_text)
-    if text != raw_text:
-        router_log("WARN", f"suppressed visible Ollama thinking markup model={model} removed_chars={len(raw_text) - len(text)}")
-    text, pseudo_tool_calls = parse_pseudo_tool_calls(text, source_body)
-    if text:
-        content.append({"type": "text", "text": text})
-    tool_id_prefix = f"toolu_ollama_{int(time.time() * 1000)}_{os.getpid()}"
-    for i, call in enumerate(list(decoded.tool_calls) + pseudo_tool_calls):
-        fn = call.get("function") if isinstance(call, dict) else {}
-        if not isinstance(fn, dict) or not fn.get("name"):
-            continue
-        name = str(fn["name"])
-        matched_name = resolve_emitted_tool_name(name, source_body)
-        raw_args = fn.get("arguments")
-        normalized_args = normalize_tool_arguments(matched_name, raw_args)
-        fixed_input = _validate_and_fix_tool_input(matched_name, normalized_args)
-        if source_body is not None:
-            matched_name, fixed_input = plan_mode_tool_name_for_emit(source_body, matched_name, fixed_input)
-            if matched_name is None:
-                continue
-        fixed_input = cap_mcp_notification_wait_tool_input(matched_name, fixed_input)
-        if should_drop_emitted_tool_call(matched_name, fixed_input, name, source_body):
-            continue
-        append_tool_call_log(
-            "ollama_nonstream_tool_call",
-            {
-                "model": model,
-                "raw_name": name,
-                "matched_name": matched_name,
-                "raw_arguments": raw_args,
-                "normalized_arguments": normalized_args,
-                "emitted_input": fixed_input,
-            },
-        )
-        content.append(
-            {
-                "type": "tool_use",
-                "id": f"{tool_id_prefix}_{i}",
-                "name": matched_name,
-                "input": fixed_input,
-            }
-        )
-    emitted_tool_calls = [block for block in content if isinstance(block, dict) and block.get("type") == "tool_use"]
-    if source_body is not None and should_auto_enter_plan_mode(source_body, text, emitted_tool_calls):
-        router_log("WARN", "auto-synthesized EnterPlanMode from short/empty upstream response")
-        return synthetic_tool_use_response(model, "EnterPlanMode")
-    if source_body is not None and should_recover_empty_end_turn_with_tasklist(source_body, text, emitted_tool_calls):
-        router_log("WARN", "auto-synthesized TaskList from empty upstream end_turn")
-        return synthetic_tool_use_response(model, "TaskList")
-    if source_body is not None and should_keep_work_alive_with_tasklist(source_body, text, emitted_tool_calls):
-        router_log("WARN", "auto-synthesized TaskList to keep work moving after tool result")
-        content.append(
-            {
-                "type": "tool_use",
-                "id": f"{tool_id_prefix}_keepalive",
-                "name": "TaskList",
-                "input": {},
-            }
-        )
-        emitted_tool_calls.append(content[-1])
-    if source_body is not None and should_auto_continue_choice_question_with_tasklist(source_body, text, emitted_tool_calls):
-        router_log("WARN", "auto-synthesized TaskList after clarification question")
-        content.append(
-            {
-                "type": "tool_use",
-                "id": f"toolu_ollama_choice_{int(time.time() * 1000)}",
-                "name": "TaskList",
-                "input": {},
-            }
-        )
-        emitted_tool_calls.append(content[-1])
-    if source_body is not None and not text.strip() and not emitted_tool_calls:
-        text = empty_end_turn_notice_for_body(source_body)
-        router_log("WARN", f"ollama_empty_end_turn_notice model={model} latest_tool_results={','.join(latest_user_tool_result_names(source_body)) or '-'}")
-        content.append({"type": "text", "text": text})
-    input_tokens = decoded.input_tokens
-    if input_tokens <= 0 and isinstance(source_body, dict):
-        input_tokens = estimate_tokens(source_body)
-    output_tokens = decoded.output_tokens
-    if output_tokens <= 0:
-        output_tokens = max(1, len(text) // 4)
-    return encode_anthropic_message(
-        message_id=f"msg_ollama_{int(time.time() * 1000)}",
-        model=model,
-        content=content,
-        done_reason=decoded.done_reason,
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
+def ollama_response_services() -> OllamaResponseServices:
+    return OllamaResponseServices(
+        text=OllamaResponseText(
+            decode=decode_ollama_chat_response,
+            strip_thinking=strip_visible_thinking_markup,
+            parse_pseudo_tools=parse_pseudo_tool_calls,
+            log=router_log,
+        ),
+        tools=OllamaResponseTools(
+            resolve_name=resolve_emitted_tool_name,
+            normalize_arguments=normalize_tool_arguments,
+            validate_input=_validate_and_fix_tool_input,
+            plan_mode_name=plan_mode_tool_name_for_emit,
+            cap_notification_wait=cap_mcp_notification_wait_tool_input,
+            should_drop=should_drop_emitted_tool_call,
+            append_log=append_tool_call_log,
+        ),
+        recovery=OllamaResponseRecovery(
+            auto_enter_plan=should_auto_enter_plan_mode,
+            recover_empty_with_tasklist=should_recover_empty_end_turn_with_tasklist,
+            keep_alive_with_tasklist=should_keep_work_alive_with_tasklist,
+            auto_continue_choice=should_auto_continue_choice_question_with_tasklist,
+            empty_notice=empty_end_turn_notice_for_body,
+            latest_tool_result_names=latest_user_tool_result_names,
+            synthetic_tool_response=synthetic_tool_use_response,
+        ),
+        output=OllamaResponseOutput(
+            encode_message=encode_anthropic_message,
+            estimate_tokens=estimate_tokens,
+            timestamp_ms=lambda: int(time.time() * 1000),
+            process_id=os.getpid,
+        ),
     )
+
+
+def ollama_chat_to_anthropic(
+    data: dict[str, Any],
+    model: str,
+    source_body: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return project_ollama_response(data, model, source_body, ollama_response_services())
 
 
 STREAM_WORD_CHUNK_MAX_BUFFER = 64

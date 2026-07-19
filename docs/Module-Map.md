@@ -48,6 +48,10 @@ Codex/OpenAI Responses 요청의 protocol 변환, provider routing, channel deli
 
 OpenAI Responses 성공·오류 payload를 JSON 또는 Codex-compatible SSE lifecycle event sequence로 투영하는 Protocol Transport. response 변환과 JSON writer는 2필드 포트로 주입한다.
 
+### `ciel_runtime_support/protocols/ollama_response.py`
+
+Ollama `/api/chat` 응답을 Anthropic Messages content로 투영하는 Provider-specific Protocol Service. Text decoding, tool normalization, recovery policy, output encoding을 각각 10필드 이하 포트로 분리해 메인과 Provider-neutral codec에서 Ollama 실행 정책을 격리한다.
+
 ### `ciel_runtime_support/router_http.py`
 
 HTTP parsing과 GET/POST/HEAD/DELETE endpoint dispatch를 담당하는 Router Adapter. Core, GET endpoints, POST endpoints, Presentation, Errors 포트를 통해 Runtime/Channel/Protocol 서비스에 위임하며 composition root를 직접 import하지 않는다.
