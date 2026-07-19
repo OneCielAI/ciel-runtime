@@ -450,6 +450,17 @@ class ProviderContractMatrixTests(unittest.TestCase):
                 adapter = PROVIDER_ADAPTERS.create(provider)
                 self.assertEqual(expected, adapter.runtime_model_info_strategy(config(provider)))
 
+    def test_claude_launch_enrichment_policy_matrix(self):
+        anthropic = PROVIDER_ADAPTERS.create("anthropic")
+        self.assertFalse(anthropic.allows_auto_web_search(config("anthropic")))
+        self.assertFalse(anthropic.requires_compat_prompt(config("anthropic")))
+        zai = PROVIDER_ADAPTERS.create("zai")
+        self.assertFalse(zai.allows_auto_web_search(config("zai", managed_mcp=True)))
+        self.assertTrue(zai.allows_auto_web_search(config("zai", managed_mcp=False)))
+        vllm = PROVIDER_ADAPTERS.create("vllm")
+        self.assertTrue(vllm.allows_auto_web_search(config("vllm")))
+        self.assertTrue(vllm.requires_compat_prompt(config("vllm")))
+
     def test_router_native_anthropic_capability_matrix(self):
         enabled = {
             "deepseek",

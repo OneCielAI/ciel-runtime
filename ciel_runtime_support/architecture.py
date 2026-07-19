@@ -549,6 +549,18 @@ class ProviderAdapter(ABC):
         del config
         return ""
 
+    def allows_auto_web_search(self, config: ProviderConfig) -> bool:
+        """Whether global automatic web-search injection applies to this provider."""
+
+        del config
+        return True
+
+    def requires_compat_prompt(self, config: ProviderConfig) -> bool:
+        """Whether Claude launches need the non-native compatibility prompt."""
+
+        del config
+        return True
+
     def compatibility_runtime_metadata_lines(
         self, config: ProviderConfig, info: Mapping[str, Any]
     ) -> tuple[str, ...]:

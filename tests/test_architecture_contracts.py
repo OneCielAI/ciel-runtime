@@ -1210,6 +1210,24 @@ class ArchitectureContractTests(unittest.TestCase):
             self.assertNotIn('provider == "', functions[name])
             self.assertNotIn("provider in (", functions[name])
 
+    def test_claude_launch_enrichment_dispatches_through_provider_adapter(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        source = source_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        expected_hooks = {
+            "should_attach_web_search": "allows_auto_web_search",
+            "should_append_compat_prompt": "requires_compat_prompt",
+        }
+        functions = {
+            node.name: ast.get_source_segment(source, node) or ""
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name in expected_hooks
+        }
+        for name, hook in expected_hooks.items():
+            self.assertIn(hook, functions[name])
+            self.assertNotIn('provider == "', functions[name])
+            self.assertNotIn("provider in (", functions[name])
+
     def test_channel_panel_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelPanelPolicy)), 10)
 

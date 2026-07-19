@@ -216,6 +216,14 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         del config
         return "anthropic"
 
+    def allows_auto_web_search(self, config: ProviderConfig) -> bool:
+        del config
+        return False
+
+    def requires_compat_prompt(self, config: ProviderConfig) -> bool:
+        del config
+        return False
+
     def context_compaction_available(self, config: ProviderConfig) -> bool:
         return bool(config.api_keys)
 
@@ -898,6 +906,9 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
             "Claude Code requires tool calling for normal work; use glm-4.5-flash for a Flash/free model, "
             "or use glm-4.7/glm-5.2 if your Z.AI account can access them."
         )
+
+    def allows_auto_web_search(self, config: ProviderConfig) -> bool:
+        return not bool(config.options.get("managed_mcp", True))
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config

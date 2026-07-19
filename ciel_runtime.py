@@ -21646,15 +21646,19 @@ def should_attach_web_search(provider: str, cfg: dict[str, Any], override: bool 
     if override is not None:
         return override
     pcfg = cfg.get("providers", {}).get(provider, {}) if isinstance(cfg.get("providers"), dict) else {}
-    if provider == "zai" and bool(pcfg.get("managed_mcp", True)):
-        return False
-    return provider != "anthropic" and bool(cfg.get("web_search", {}).get("auto_for_non_native", True))
+    adapter = configured_provider_adapter(provider, pcfg)
+    contract = provider_contract_config(provider, pcfg)
+    return adapter.allows_auto_web_search(contract) and bool(
+        cfg.get("web_search", {}).get("auto_for_non_native", True)
+    )
 
 
 def should_append_compat_prompt(provider: str, pcfg: dict[str, Any], cfg: dict[str, Any]) -> bool:
-    if provider == "anthropic":
-        return False
-    return bool(cfg.get("claude_code", {}).get("compat_prompt_for_non_anthropic", True))
+    adapter = configured_provider_adapter(provider, pcfg)
+    contract = provider_contract_config(provider, pcfg)
+    return adapter.requires_compat_prompt(contract) and bool(
+        cfg.get("claude_code", {}).get("compat_prompt_for_non_anthropic", True)
+    )
 
 
 _CLAUDE_PERMISSION_MODE_SUPPORT_CACHE: dict[str, bool] = {}
