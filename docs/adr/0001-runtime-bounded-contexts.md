@@ -70,6 +70,10 @@ Provider wire request construction lives in `provider_request_builder.py`.
 Separate typed ports own budgeting, Ollama projection, OpenAI projection, and
 provider option policy; each port is capped at ten dependencies.
 
+Upstream socket timeout, downstream disconnect detection, cancellable line
+iteration, and retry sleep live in the Infrastructure Adapter
+`upstream_stream_io.py`.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

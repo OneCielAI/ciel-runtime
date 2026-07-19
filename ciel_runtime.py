@@ -15,7 +15,6 @@ import mimetypes
 import os
 import platform
 import re
-import select
 import secrets
 import signal
 import shutil
@@ -942,6 +941,14 @@ from ciel_runtime_support.upstream_error_policy import (
     retry_message as project_upstream_retry_message,
     retry_wait_seconds as project_upstream_retry_wait_seconds,
     retryable_exception as project_retryable_upstream_exception,
+)
+from ciel_runtime_support.upstream_stream_io import (
+    UpstreamClientDisconnected,
+    client_connection_closed as project_client_connection_closed,
+    iter_lines_until_disconnect as project_iter_upstream_lines,
+    set_stream_read_timeout as project_set_stream_read_timeout,
+    sleep_until_disconnect as project_sleep_until_disconnect,
+    stream_idle_timeout as project_stream_idle_timeout,
 )
 from ciel_runtime_support.tool_dialects import TOOL_DIALECTS, mcp_server_normalized_key
 from ciel_runtime_support.tool_schema import (
@@ -7828,52 +7835,19 @@ def provider_request_timeout_seconds(pcfg: dict[str, Any]) -> float:
 
 
 def provider_stream_idle_timeout_seconds(pcfg: dict[str, Any]) -> float:
-    raw = positive_int(pcfg.get("stream_idle_timeout_ms"))
-    if raw:
-        return max(5.0, raw / 1000.0)
-    return max(30.0, min(provider_request_timeout_seconds(pcfg), 300.0))
+    return project_stream_idle_timeout(
+        pcfg,
+        positive_int=positive_int,
+        request_timeout=provider_request_timeout_seconds,
+    )
 
 
 def set_upstream_stream_read_timeout(resp: Any, timeout: float) -> None:
-    """Keep one stalled upstream read from holding Claude Code's prompt queue forever."""
-    try:
-        if hasattr(resp, "fp") and getattr(resp, "fp") is not None:
-            raw = getattr(resp.fp, "raw", None)
-            sock = getattr(raw, "_sock", None)
-            if sock is not None and hasattr(sock, "settimeout"):
-                sock.settimeout(timeout)
-                return
-        sock = getattr(resp, "sock", None)
-        if sock is not None and hasattr(sock, "settimeout"):
-            sock.settimeout(timeout)
-    except Exception:
-        pass
-
-
-class UpstreamClientDisconnected(Exception):
-    """Raised when the downstream Claude Code client closes while upstream is still streaming."""
+    project_set_stream_read_timeout(resp, timeout)
 
 
 def router_client_connection_closed(handler: BaseHTTPRequestHandler) -> bool:
-    conn = getattr(handler, "connection", None)
-    if conn is None:
-        return False
-    try:
-        readable, _, _ = select.select([conn], [], [], 0)
-    except (OSError, ValueError):
-        return True
-    except Exception:
-        return False
-    if not readable:
-        return False
-    try:
-        flags = getattr(socket, "MSG_PEEK", 0)
-        data = conn.recv(1, flags)
-        return data == b""
-    except BlockingIOError:
-        return False
-    except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError, OSError):
-        return True
+    return project_client_connection_closed(handler)
 
 
 def iter_upstream_lines_until_client_disconnect(
@@ -7881,34 +7855,21 @@ def iter_upstream_lines_until_client_disconnect(
     resp: Any,
     idle_timeout: float,
 ) -> Iterable[bytes]:
-    try:
-        idle = max(1.0, float(idle_timeout))
-    except Exception:
-        idle = 30.0
-    set_upstream_stream_read_timeout(resp, idle)
-    while True:
-        if router_client_connection_closed(handler):
-            raise UpstreamClientDisconnected("downstream client disconnected")
-        try:
-            raw = resp.readline()
-        except (TimeoutError, OSError) as exc:
-            if router_client_connection_closed(handler):
-                raise UpstreamClientDisconnected("downstream client disconnected during upstream read") from exc
-            raise
-        if raw in (b"", ""):
-            return
-        yield raw
+    return project_iter_upstream_lines(
+        handler,
+        resp,
+        idle_timeout,
+        set_timeout=set_upstream_stream_read_timeout,
+        disconnected=router_client_connection_closed,
+    )
 
 
 def sleep_until_or_client_disconnect(handler: BaseHTTPRequestHandler, seconds: float) -> bool:
-    deadline = time.monotonic() + max(0.0, seconds)
-    while True:
-        if router_client_connection_closed(handler):
-            return False
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            return True
-        time.sleep(min(0.25, remaining))
+    return project_sleep_until_disconnect(
+        handler,
+        seconds,
+        disconnected=router_client_connection_closed,
+    )
 
 
 def provider_request_builder() -> ProviderRequestBuilder:
