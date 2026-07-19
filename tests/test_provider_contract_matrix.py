@@ -1,3 +1,4 @@
+import ast
 import unittest
 from pathlib import Path
 
@@ -129,6 +130,21 @@ class ProviderContractMatrixTests(unittest.TestCase):
             with self.subTest(filename=filename):
                 self.assertNotIn('provider == "', source)
                 self.assertNotIn("provider in (", source)
+
+    def test_response_collection_dispatch_uses_provider_protocol_contract(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        function = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "collect_provider_message_for_responses"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+
+        self.assertIn("select_provider_protocol", function_source)
+        self.assertNotIn('provider == "', function_source)
+        self.assertNotIn("provider in (", function_source)
+        self.assertNotIn("OPENCODE_PROVIDER_NAMES", function_source)
 
     def test_configuration_and_api_key_capability_matrix(self):
         required_api_key = {

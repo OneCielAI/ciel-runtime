@@ -16363,24 +16363,22 @@ def collect_provider_message_for_responses(
     pcfg: dict[str, Any],
     body: dict[str, Any],
 ) -> dict[str, Any]:
-    if provider in ("ollama", "ollama-cloud"):
-        return collect_ollama_message_for_responses(handler, provider, pcfg, body)
-    if provider in OPENCODE_PROVIDER_NAMES:
-        upstream_model = resolve_requested_model(provider, pcfg, body.get("model"))
-        endpoint_kind = opencode_endpoint_kind(provider, upstream_model, pcfg)
-        if endpoint_kind == "openai-chat":
-            return collect_openai_chat_message_for_responses(handler, provider, pcfg, body)
-        if endpoint_kind not in ("anthropic-messages",):
-            provider_label = PROVIDER_LABELS.get(provider, provider)
-            raise RuntimeError(
-                f"{provider_label} model {upstream_model!r} uses the {endpoint_kind} endpoint family. "
-                f"ciel-runtime currently routes {provider_label} /v1/messages and /v1/chat/completions models."
-            )
-    if codex_openai_router_enabled(provider, pcfg):
-        return collect_openai_chat_message_for_responses(handler, provider, pcfg, body)
-    if provider_openai_router_enabled(provider, pcfg):
-        return collect_openai_chat_message_for_responses(handler, provider, pcfg, body)
-    return collect_anthropic_message_for_responses(handler, provider, pcfg, body)
+    upstream_model = resolve_requested_model(provider, pcfg, body.get("model"))
+    protocol = select_provider_protocol(provider, pcfg, "openai_responses", upstream_model)
+    collectors = {
+        "ollama_chat": collect_ollama_message_for_responses,
+        "openai_chat": collect_openai_chat_message_for_responses,
+        "anthropic_messages": collect_anthropic_message_for_responses,
+    }
+    collector = collectors.get(protocol)
+    if collector is None:
+        provider_label = PROVIDER_LABELS.get(provider, provider)
+        endpoint_family = protocol.replace("_", "-")
+        raise RuntimeError(
+            f"{provider_label} model {upstream_model!r} uses the {endpoint_family} endpoint family. "
+            f"ciel-runtime currently routes {provider_label} /v1/messages and /v1/chat/completions models."
+        )
+    return collector(handler, provider, pcfg, body)
 
 
 def codex_routed_upstream_headers(pcfg: dict[str, Any], inbound_headers: Any | None = None) -> dict[str, str]:
