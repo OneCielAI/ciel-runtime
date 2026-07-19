@@ -65,6 +65,10 @@ SSE/MCP 수집 및 cursor 상태와 분리되어 있으며 Windows Console과 PT
 
 내장 Channel MCP 도구의 schema catalog와 호출 dispatcher를 소유하는 Application Service. compact 요청, 채팅·파일 저장, LLM 옵션 변경은 6필드 `ChannelMcpToolServices` 포트로 주입되어 MCP protocol projection과 인프라 구현을 분리한다.
 
+### `ciel_runtime_support/sse_stream.py`
+
+SSE byte stream을 event frame으로 변환하는 Transport Codec. 일반 SSE와 MCP Streamable HTTP worker가 동일 parser를 사용하며, 종료 판정·event dispatch·잘못된 retry 관측을 `SseStreamServices`로 주입한다. `SseRetryState`는 예외 종료 후에도 서버의 retry 지시가 reconnect 정책에 전달되도록 보존한다.
+
 ### `ciel_runtime_support/windows_console_input.py`
 
 Windows Console `INPUT_RECORD` 생성, UTF-16 surrogate 변환, 입력 queue 소비 확인을 담당하는 플랫폼 Adapter. Channel wake 오케스트레이션과 Win32 입력 세부 구현을 분리한다.

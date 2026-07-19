@@ -154,6 +154,7 @@ from ciel_runtime_support.response_collection import (
     ResponseCollectionRequest,
     ResponseCollectionServices,
 )
+from ciel_runtime_support.sse_stream import SseRetryState, SseStreamServices
 from ciel_runtime_support.prelaunch import (
     PrelaunchChannelCommands,
     PrelaunchChannelQuery,
@@ -570,6 +571,10 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_channel_mcp_tool_services_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelMcpToolServices)), 10)
+
+    def test_sse_stream_state_stays_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(SseStreamServices)), 10)
+        self.assertLessEqual(len(fields(SseRetryState)), 10)
 
     def test_cli_ports_stay_below_dependency_limit(self):
         ports = (

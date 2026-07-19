@@ -275,6 +275,7 @@ from ciel_runtime_support.response_collection import (
     collect_anthropic_message_for_responses as collect_anthropic_response,
     collect_chat_message_for_responses as collect_chat_response,
 )
+from ciel_runtime_support.sse_stream import SseRetryState, SseStreamServices, consume_sse_stream
 from ciel_runtime_support.provider_policy import (
     ProviderRequestServices,
     ProviderWireServices,
@@ -10042,6 +10043,12 @@ def _channel_connection_matches(state: dict[str, Any], connection_id: str | None
     return str(state.get("connection_id") or "") == str(connection_id)
 
 
+def _channel_worker_running(name: str, connection_id: str | None) -> bool:
+    with _CHANNEL_SSE_LOCK:
+        state = _CHANNEL_SSE_CONNECTIONS.get(name)
+        return bool(state and state.get("running") and _channel_connection_matches(state, connection_id))
+
+
 def _channel_sse_worker(name: str, connection_id: str | None = None) -> None:
     while True:
         with _CHANNEL_SSE_LOCK:
@@ -10053,9 +10060,7 @@ def _channel_sse_worker(name: str, connection_id: str | None = None) -> None:
             last_event_id = state.get("last_sse_event_id")
             read_timeout = max(5.0, min(3600.0, float(state.get("read_timeout_seconds") or 300.0)))
             retry_seconds = max(1.0, min(60.0, float(state.get("retry_seconds") or 5.0)))
-        event_name = "message"
-        event_id: str | None = None
-        data_lines: list[str] = []
+        retry = SseRetryState(retry_seconds)
         try:
             request_headers = {**headers, "Accept": "text/event-stream"}
             if last_event_id is not None and str(last_event_id) != "":
@@ -10065,38 +10070,20 @@ def _channel_sse_worker(name: str, connection_id: str | None = None) -> None:
                 _channel_sse_set_state(name, last_error=None)
                 resumed = str(last_event_id) if last_event_id is not None and str(last_event_id) != "" else "-"
                 router_log("INFO", f"channel_sse_connected name={name} url={url} last_event_id={resumed}")
-                while True:
-                    with _CHANNEL_SSE_LOCK:
-                        current = _CHANNEL_SSE_CONNECTIONS.get(name)
-                        if not current or not current.get("running") or not _channel_connection_matches(current, connection_id):
-                            return
-                    raw = response.readline()
-                    if raw == b"":
-                        raise ConnectionError("SSE stream ended")
-                    line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
-                    if not line:
-                        if data_lines:
-                            _channel_sse_dispatch(name, event_name, data_lines, event_id=event_id)
-                        event_name = "message"
-                        event_id = None
-                        data_lines = []
-                        continue
-                    if line.startswith(":"):
-                        continue
-                    field, _, value = line.partition(":")
-                    if value.startswith(" "):
-                        value = value[1:]
-                    if field == "event":
-                        event_name = value or "message"
-                    elif field == "data":
-                        data_lines.append(value)
-                    elif field == "id":
-                        event_id = value
-                    elif field == "retry":
-                        try:
-                            retry_seconds = max(1.0, min(60.0, int(value) / 1000.0))
-                        except (TypeError, ValueError):
-                            router_log("WARN", f"channel_sse_invalid_retry name={name} value={value!r}")
+                consume_sse_stream(
+                    response,
+                    retry,
+                    "SSE stream ended",
+                    SseStreamServices(
+                        should_continue=lambda: _channel_worker_running(name, connection_id),
+                        dispatch=lambda event, data, event_id: _channel_sse_dispatch(
+                            name, event, data, event_id=event_id
+                        ),
+                        invalid_retry=lambda value: router_log(
+                            "WARN", f"channel_sse_invalid_retry name={name} value={value!r}"
+                        ),
+                    ),
+                )
         except Exception as exc:
             with _CHANNEL_SSE_LOCK:
                 state = _CHANNEL_SSE_CONNECTIONS.get(name)
@@ -10107,7 +10094,7 @@ def _channel_sse_worker(name: str, connection_id: str | None = None) -> None:
                 last_event_id = state.get("last_sse_event_id")
             resumed = str(last_event_id) if last_event_id is not None and str(last_event_id) != "" else "-"
             router_log("WARN", f"channel_sse_reconnect name={name} last_event_id={resumed} error={type(exc).__name__}: {exc}")
-            time.sleep(retry_seconds)
+            time.sleep(retry.seconds)
 
 
 def _channel_streamable_http_worker(name: str, connection_id: str | None = None) -> None:
@@ -10150,9 +10137,7 @@ def _channel_streamable_http_worker(name: str, connection_id: str | None = None)
                 if sleep_after_initialize:
                     time.sleep(retry_seconds)
                     continue
-            event_name = "message"
-            event_id: str | None = None
-            data_lines: list[str] = []
+            retry = SseRetryState(retry_seconds)
             try:
                 request_headers = _mcp_streamable_headers(
                     headers,
@@ -10167,39 +10152,24 @@ def _channel_streamable_http_worker(name: str, connection_id: str | None = None)
                     _channel_sse_set_state(name, last_error=None)
                     resumed = str(last_event_id) if last_event_id is not None and str(last_event_id) != "" else "-"
                     visible_session = session_id or "-"
-                    router_log("INFO", f"channel_http_connected name={name} url={url} session={visible_session} last_event_id={resumed}")
-                    while True:
-                        with _CHANNEL_SSE_LOCK:
-                            current = _CHANNEL_SSE_CONNECTIONS.get(name)
-                            if not current or not current.get("running") or not _channel_connection_matches(current, connection_id):
-                                return
-                        raw = response.readline()
-                        if raw == b"":
-                            raise ConnectionError("Streamable HTTP SSE stream ended")
-                        line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
-                        if not line:
-                            if data_lines:
-                                _channel_sse_dispatch(name, event_name, data_lines, event_id=event_id)
-                            event_name = "message"
-                            event_id = None
-                            data_lines = []
-                            continue
-                        if line.startswith(":"):
-                            continue
-                        field, _, value = line.partition(":")
-                        if value.startswith(" "):
-                            value = value[1:]
-                        if field == "event":
-                            event_name = value or "message"
-                        elif field == "data":
-                            data_lines.append(value)
-                        elif field == "id":
-                            event_id = value
-                        elif field == "retry":
-                            try:
-                                retry_seconds = max(1.0, min(60.0, int(value) / 1000.0))
-                            except (TypeError, ValueError):
-                                router_log("WARN", f"channel_http_invalid_retry name={name} value={value!r}")
+                    router_log(
+                        "INFO",
+                        f"channel_http_connected name={name} url={url} session={visible_session} last_event_id={resumed}",
+                    )
+                    consume_sse_stream(
+                        response,
+                        retry,
+                        "Streamable HTTP SSE stream ended",
+                        SseStreamServices(
+                            should_continue=lambda: _channel_worker_running(name, connection_id),
+                            dispatch=lambda event, data, event_id: _channel_sse_dispatch(
+                                name, event, data, event_id=event_id
+                            ),
+                            invalid_retry=lambda value: router_log(
+                                "WARN", f"channel_http_invalid_retry name={name} value={value!r}"
+                            ),
+                        ),
+                    )
             except urllib.error.HTTPError as exc:
                 body_text = _http_error_body_text(exc)
                 with _CHANNEL_SSE_LOCK:
@@ -10227,7 +10197,7 @@ def _channel_streamable_http_worker(name: str, connection_id: str | None = None)
                     router_log("WARN", f"channel_http_session_lost_reinitialize name={name} last_event_id={resumed} error=HTTPError:{exc.code}:{exc.reason}")
                 else:
                     router_log("WARN", f"channel_http_reconnect name={name} last_event_id={resumed} error=HTTPError:{exc.code}:{exc.reason}")
-                time.sleep(retry_seconds)
+                time.sleep(retry.seconds)
             except Exception as exc:
                 with _CHANNEL_SSE_LOCK:
                     state = _CHANNEL_SSE_CONNECTIONS.get(name)
@@ -10238,7 +10208,7 @@ def _channel_streamable_http_worker(name: str, connection_id: str | None = None)
                     last_event_id = state.get("last_sse_event_id")
                 resumed = str(last_event_id) if last_event_id is not None and str(last_event_id) != "" else "-"
                 router_log("WARN", f"channel_http_reconnect name={name} last_event_id={resumed} error={type(exc).__name__}: {exc}")
-                time.sleep(retry_seconds)
+                time.sleep(retry.seconds)
     finally:
         with _CHANNEL_SSE_LOCK:
             state = _CHANNEL_SSE_CONNECTIONS.get(name)
