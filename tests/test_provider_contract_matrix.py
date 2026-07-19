@@ -388,6 +388,11 @@ class ProviderContractMatrixTests(unittest.TestCase):
             with self.subTest(provider=provider):
                 policy = PROVIDER_ADAPTERS.create(provider).context_policy(config(provider))
                 self.assertEqual(expected, policy.status_capacity_strategy)
+        routed_anthropic = PROVIDER_ADAPTERS.create("anthropic").context_policy(
+            config("anthropic", route_through_router=True)
+        )
+        self.assertEqual("anthropic_hint", routed_anthropic.capacity_strategy)
+        self.assertEqual("provider", routed_anthropic.status_capacity_strategy)
 
     def test_provider_owned_compatibility_diagnosis(self):
         vllm = PROVIDER_ADAPTERS.create("vllm")

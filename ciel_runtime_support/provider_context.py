@@ -10,6 +10,7 @@ from .architecture import ProviderContextPolicy
 class ProviderContextServices:
     positive_int: Callable[[Any], int | None]
     model_context_hint: Callable[[str], int | None]
+    anthropic_context_hint: Callable[[str], int | None]
     nvidia_context_default: Callable[[str], int | None]
     upstream_context_limit: Callable[..., int | None]
     ollama_context_limit: Callable[[dict[str, Any]], int | None]
@@ -62,6 +63,8 @@ def resolve_context_capacity(
             or positive_int(config.get("num_ctx_max"))
             or positive_int(config.get("num_ctx"))
         )
+    if strategy == "anthropic_hint":
+        return configured() or maximum() or services.anthropic_context_hint(model)
     return hint() or configured() or maximum()
 
 

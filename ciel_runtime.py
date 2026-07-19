@@ -17560,6 +17560,9 @@ def provider_model_context_capacity(provider: str, pcfg: dict[str, Any]) -> int 
         ProviderContextServices(
             positive_int=positive_int,
             model_context_hint=model_context_hint_from_model_id,
+            anthropic_context_hint=lambda model: positive_int(
+                anthropic_model_limit_hints(model).get("context_window")
+            ),
             nvidia_context_default=nvidia_hosted_context_default,
             upstream_context_limit=upstream_model_context_limit,
             ollama_context_limit=ollama_provider_context_limit,

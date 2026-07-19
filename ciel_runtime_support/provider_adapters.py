@@ -228,12 +228,12 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         return bool(config.api_keys)
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        routed = bool(config.options.get("route_through_router"))
         return ProviderContextPolicy(
+            capacity_strategy="anthropic_hint" if routed else "managed",
             hosted_timeout=True,
             managed_preset_inference=True,
-            status_capacity_strategy=(
-                "provider" if config.options.get("route_through_router") else "configured"
-            ),
+            status_capacity_strategy="provider" if routed else "configured",
         )
 
     def routing_mode_update(self, enabled: bool) -> tuple[str, ...]:

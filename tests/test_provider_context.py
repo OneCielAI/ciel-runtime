@@ -27,6 +27,7 @@ class ProviderContextTests(unittest.TestCase):
         return ProviderContextServices(
             positive_int=positive_int,
             model_context_hint=mock.Mock(return_value=300),
+            anthropic_context_hint=mock.Mock(return_value=700),
             nvidia_context_default=mock.Mock(return_value=400),
             upstream_context_limit=mock.Mock(return_value=500),
             ollama_context_limit=mock.Mock(return_value=None),
@@ -41,6 +42,7 @@ class ProviderContextTests(unittest.TestCase):
             "hint_first": 300,
             "configured_first": 200,
             "hint_configured": 300,
+            "anthropic_hint": 100,
         }
         for strategy, capacity in expected.items():
             with self.subTest(strategy=strategy):

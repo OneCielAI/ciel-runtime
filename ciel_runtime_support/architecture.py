@@ -185,7 +185,7 @@ class ProviderContextPolicy:
     """Provider-owned context capacity and configuration strategy."""
 
     capacity_strategy: Literal[
-        "managed", "nvidia", "remote_first", "hint_first", "configured_first", "ollama", "hint_configured"
+        "managed", "nvidia", "remote_first", "hint_first", "configured_first", "ollama", "hint_configured", "anthropic_hint"
     ] = "managed"
     settings_strategy: Literal["managed", "ollama", "standard"] = "managed"
     hosted_timeout: bool = False
