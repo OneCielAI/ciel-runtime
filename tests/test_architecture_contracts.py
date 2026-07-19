@@ -1123,6 +1123,26 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertIn("json_artifact_repository", source)
                 self.assertNotIn("os.chmod", source)
 
+    def test_mcp_config_readers_delegate_io_and_project_scope(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        target_names = {
+            "_read_mcp_server_names_from_json",
+            "_read_mcp_servers_from_json",
+            "_read_mcp_sse_servers_from_json",
+        }
+        functions = {
+            node.name: ast.unparse(node)
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name in target_names
+        }
+        self.assertEqual(target_names, set(functions))
+        for name, source in functions.items():
+            with self.subTest(function=name):
+                self.assertIn("read_mcp_config_items", source)
+                self.assertNotIn("read_text", source)
+                self.assertNotIn("json.loads", source)
+
     def test_request_trace_ports_stay_below_dependency_limit(self):
         for port in (RequestTracePolicy, RequestTraceProjection, RequestTraceServices):
             with self.subTest(port=port.__name__):

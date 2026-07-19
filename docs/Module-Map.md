@@ -365,6 +365,10 @@ Claude 도구 이름 dialect, MCP 서버 이름 정규화 및 Tool Dialect regis
 
 Anthropic system/tool schema를 Ollama `/api/chat` wire 구조로 투영하는 순수 Protocol codec.
 
+### `ciel_runtime_support/mcp_config_reader.py`
+
+Claude/Codex MCP JSON 설정의 root·project scope를 읽고 projector별 identity로 중복 제거하는 Configuration Reader. 파일 손상·권한 실패를 빈 설정과 구분해 경로가 포함된 경고로 남기며 transport별 server projection은 호출자에 위임한다.
+
 ### `ciel_runtime_support/mcp_transport.py`
 
 채널 상태나 라우터 설정을 소유하지 않는 MCP SSE/Streamable HTTP 전송 codec과 split-proxy URL 규칙.

@@ -310,6 +310,13 @@ from ciel_runtime_support.mcp_transport import (
     streamable_post_json as _mcp_streamable_post_json,
     upstream_url as _codex_mcp_split_proxy_upstream_url,
 )
+from ciel_runtime_support.mcp_config_reader import (
+    dedupe_strings as _dedupe_strings,
+    path_for_compare as _path_for_compare,
+    read_mcp_config_items,
+    server_names_from_mapping as _mcp_server_names_from_mapping,
+    servers_from_mapping as _mcp_servers_from_mapping,
+)
 from ciel_runtime_support.mcp_proxy_codec import (
     McpProxyCodecPolicy,
     _mcp_proxy_error_response,
@@ -15586,104 +15593,24 @@ def channel_specs(cfg: dict[str, Any] | None = None) -> list[str]:
     return channels
 
 
-def _dedupe_strings(values: Iterable[str]) -> list[str]:
-    out: list[str] = []
-    seen: set[str] = set()
-    for value in values:
-        text = str(value or "").strip()
-        if not text or text in seen:
-            continue
-        seen.add(text)
-        out.append(text)
-    return out
-
-
-def _path_for_compare(path: Path | str) -> str:
-    try:
-        return str(Path(path).expanduser().resolve()).replace("\\", "/").rstrip("/").casefold()
-    except Exception:
-        return str(path).replace("\\", "/").rstrip("/").casefold()
-
-
-def _project_key_matches_cwd(project_key: str, cwd: Path) -> bool:
-    key = str(project_key or "").strip()
-    if not key:
-        return False
-    try:
-        project_path = Path(key).expanduser()
-    except Exception:
-        return False
-    if not project_path.is_absolute():
-        return False
-    project = _path_for_compare(project_path)
-    current = _path_for_compare(cwd)
-    return current == project or current.startswith(project + "/")
-
-
-def _mcp_server_names_from_mapping(mapping: Any) -> list[str]:
-    if not isinstance(mapping, dict):
-        return []
-    names: list[str] = []
-    for key in ("mcpServers", "servers"):
-        servers = mapping.get(key)
-        if isinstance(servers, dict):
-            names.extend(str(name).strip() for name in servers if str(name).strip())
-    return _dedupe_strings(names)
-
-
-def _mcp_servers_from_mapping(mapping: Any) -> list[tuple[str, dict[str, Any]]]:
-    if not isinstance(mapping, dict):
-        return []
-    found: list[tuple[str, dict[str, Any]]] = []
-    seen: set[str] = set()
-    for key in ("mcpServers", "servers"):
-        servers = mapping.get(key)
-        if not isinstance(servers, dict):
-            continue
-        for raw_name, raw_server in servers.items():
-            name = str(raw_name or "").strip()
-            if not name or name in seen or not isinstance(raw_server, dict):
-                continue
-            seen.add(name)
-            found.append((name, dict(raw_server)))
-    return found
-
-
 def _read_mcp_server_names_from_json(path: Path, cwd: Path) -> list[str]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return []
-    names = _mcp_server_names_from_mapping(data)
-    if path.name == ".claude.json" and isinstance(data, dict):
-        projects = data.get("projects")
-        if isinstance(projects, dict):
-            for project_key, project_data in projects.items():
-                if _project_key_matches_cwd(str(project_key), cwd):
-                    names.extend(_mcp_server_names_from_mapping(project_data))
-    return _dedupe_strings(names)
+    return read_mcp_config_items(
+        path,
+        cwd,
+        _mcp_server_names_from_mapping,
+        str,
+        router_log,
+    )
 
 
 def _read_mcp_servers_from_json(path: Path, cwd: Path) -> list[tuple[str, dict[str, Any]]]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return []
-    servers = _mcp_servers_from_mapping(data)
-    if path.name == ".claude.json" and isinstance(data, dict):
-        projects = data.get("projects")
-        if isinstance(projects, dict):
-            for project_key, project_data in projects.items():
-                if _project_key_matches_cwd(str(project_key), cwd):
-                    servers.extend(_mcp_servers_from_mapping(project_data))
-    out: list[tuple[str, dict[str, Any]]] = []
-    seen: set[str] = set()
-    for name, server in servers:
-        if name in seen:
-            continue
-        seen.add(name)
-        out.append((name, server))
-    return out
+    return read_mcp_config_items(
+        path,
+        cwd,
+        _mcp_servers_from_mapping,
+        lambda item: item[0],
+        router_log,
+    )
 
 
 def _mcp_server_is_stdio(server: dict[str, Any]) -> bool:
@@ -16626,26 +16553,13 @@ def _mcp_sse_servers_from_mapping(mapping: Any) -> list[dict[str, Any]]:
 
 
 def _read_mcp_sse_servers_from_json(path: Path, cwd: Path) -> list[dict[str, Any]]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return []
-    servers = _mcp_sse_servers_from_mapping(data)
-    if path.name == ".claude.json" and isinstance(data, dict):
-        projects = data.get("projects")
-        if isinstance(projects, dict):
-            for project_key, project_data in projects.items():
-                if _project_key_matches_cwd(str(project_key), cwd):
-                    servers.extend(_mcp_sse_servers_from_mapping(project_data))
-    out: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for server in servers:
-        key = f"{server.get('name')}|{server.get('url')}"
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(server)
-    return out
+    return read_mcp_config_items(
+        path,
+        cwd,
+        _mcp_sse_servers_from_mapping,
+        lambda server: f"{server.get('name')}|{server.get('url')}",
+        router_log,
+    )
 
 
 def external_mcp_channel_server_names_from_configs(
