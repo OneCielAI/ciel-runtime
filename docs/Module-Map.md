@@ -647,6 +647,10 @@ Codex용 HTTP 라우터:
 
 Anthropic SSE lifecycle event의 bounded 요약·선택적 raw payload, atomic last-trace snapshot, 회전 JSONL과 tool-call audit log를 소유하는 Observability Repository. trace enablement, payload truncation과 logging은 typed port로 주입한다.
 
+### `ciel_runtime_support/rate_limit_repository.py`
+
+Provider RPM timestamp, server 학습 limit, penalty와 hash-key 기반 API-key cooldown을 단일 lock 아래 영속화하는 Repository. facade와 rate policy는 JSON 파일 형식·원자적 상태 갱신을 직접 다루지 않는다.
+
 ### `ciel_runtime_support/runtime_logging.py`
 
 log-level 파일·환경 우선순위, mtime cache, 설정 저장·reset과 router.log 회전을 소유하는 Repository/Infrastructure Adapter. 메인 facade는 기존 logging 함수명을 유지하면서 저장소와 file logger만 조립한다.

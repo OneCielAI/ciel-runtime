@@ -653,6 +653,7 @@ from ciel_runtime_support.provider_limits import (
     register_rate_limit_backoff,
 )
 from ciel_runtime_support import rate_limit_policy
+from ciel_runtime_support.rate_limit_repository import RateLimitRepository
 from ciel_runtime_support.plan_artifact_controller import (
     PlanArtifactController,
     PlanArtifactServices,
@@ -3796,6 +3797,16 @@ def post_json(
         return json.loads(r.read().decode("utf-8"))
 
 
+def rate_limit_repository() -> RateLimitRepository:
+    return RateLimitRepository(CONFIG_DIR, RATE_LIMIT_STATE_PATH, _RATE_LIMIT_LOCK, router_log)
+
+
+def router_rate_limit_legacy_key(
+    provider: str, pcfg: dict[str, Any], model: str | None
+) -> str:
+    return f"{provider}:{model or current_upstream_model_id(provider, pcfg)}"
+
+
 def router_rate_limit_configured_rpm(provider: str, pcfg: dict[str, Any]) -> int | None:
     return rate_limit_policy.configured_rpm(pcfg, positive_int)
 
@@ -3811,34 +3822,18 @@ def router_rate_limit_key(provider: str, pcfg: dict[str, Any], model: str | None
 
 
 def router_rate_limit_state_entry(provider: str, pcfg: dict[str, Any], model: str | None = None) -> dict[str, Any]:
-    key = router_rate_limit_key(provider, pcfg, model)
-    try:
-        state = json.loads(RATE_LIMIT_STATE_PATH.read_text(encoding="utf-8")) if RATE_LIMIT_STATE_PATH.exists() else {}
-        if not isinstance(state, dict):
-            return {}
-        entry = state.get(key)
-        if isinstance(entry, dict):
-            return entry
-        legacy_key = f"{provider}:{model or current_upstream_model_id(provider, pcfg)}"
-        entry = state.get(legacy_key)
-        return entry if isinstance(entry, dict) else {}
-    except Exception:
-        return {}
+    return rate_limit_repository().entry(
+        router_rate_limit_key(provider, pcfg, model),
+        router_rate_limit_legacy_key(provider, pcfg, model),
+    )
 
 
 def router_rate_limit_effective_rpm(provider: str, pcfg: dict[str, Any], model: str | None = None) -> int | None:
-    configured = router_rate_limit_configured_rpm(provider, pcfg)
-    if configured == 0:
-        return 0
-    entry = router_rate_limit_state_entry(provider, pcfg, model)
-    try:
-        server_rpm = int(entry.get("server_rpm") or 0)
-        updated_at = float(entry.get("server_rpm_updated_at") or 0.0)
-        if server_rpm > 0 and 0.0 <= time.time() - updated_at < 3600.0:
-            return server_rpm
-    except Exception:
-        pass
-    return configured
+    return rate_limit_repository().effective_rpm(
+        router_rate_limit_key(provider, pcfg, model),
+        router_rate_limit_legacy_key(provider, pcfg, model),
+        router_rate_limit_configured_rpm(provider, pcfg),
+    )
 
 
 def router_rate_limit_capacity(rpm: int) -> int:
@@ -3852,55 +3847,21 @@ def router_rate_limit_recent(timestamps: Any, now: float, window: float, *, incl
 
 
 def router_rate_limit_usage(provider: str, pcfg: dict[str, Any], model: str | None = None) -> tuple[int, int | None]:
-    rpm = router_rate_limit_effective_rpm(provider, pcfg, model)
-    if rpm is None:
-        return 0, None
-    if rpm == 0:
-        return 0, 0
-    key = router_rate_limit_key(provider, pcfg, model)
-    now = time.time()
-    try:
-        state = json.loads(RATE_LIMIT_STATE_PATH.read_text(encoding="utf-8")) if RATE_LIMIT_STATE_PATH.exists() else {}
-        entry = state.get(key) if isinstance(state, dict) else None
-        if not isinstance(entry, dict):
-            legacy_key = f"{provider}:{model or current_upstream_model_id(provider, pcfg)}"
-            entry = state.get(legacy_key) if isinstance(state, dict) else None
-        timestamps = entry.get("timestamps") if isinstance(entry, dict) else ([float(entry)] if isinstance(entry, (int, float)) else [])
-    except Exception:
-        timestamps = []
-    used = len(router_rate_limit_recent(timestamps, now, 60.0, include_future=False))
-    return used, rpm
+    return rate_limit_repository().usage(
+        router_rate_limit_key(provider, pcfg, model),
+        router_rate_limit_legacy_key(provider, pcfg, model),
+        router_rate_limit_effective_rpm(provider, pcfg, model),
+        router_rate_limit_recent,
+    )
 
 
 def record_router_rate_usage(provider: str, pcfg: dict[str, Any], model: str | None, rpm: int | None) -> tuple[int, int | None]:
-    if rpm is None:
-        return 0, None
-    key = router_rate_limit_key(provider, pcfg, model)
-    window = 60.0
-    with _RATE_LIMIT_LOCK:
-        try:
-            state = json.loads(RATE_LIMIT_STATE_PATH.read_text(encoding="utf-8")) if RATE_LIMIT_STATE_PATH.exists() else {}
-            if not isinstance(state, dict):
-                state = {}
-        except Exception:
-            state = {}
-        now = time.time()
-        entry = state.get(key)
-        if not isinstance(entry, dict):
-            legacy_key = f"{provider}:{model or current_upstream_model_id(provider, pcfg)}"
-            entry = state.get(legacy_key)
-        timestamps = entry.get("timestamps") if isinstance(entry, dict) else ([float(entry)] if isinstance(entry, (int, float)) else [])
-        recent = router_rate_limit_recent(timestamps, now, window, include_future=True)
-        recent.append(now)
-        keep = max(int(rpm or 0), 240)
-        existing_penalty = float(entry.get("penalty_until") or 0.0) if isinstance(entry, dict) else 0.0
-        new_entry: dict[str, Any] = {"timestamps": recent[-keep:], "rpm": int(rpm or 0), "updated_at": now, "last_wait": 0.0}
-        if existing_penalty > now:
-            new_entry["penalty_until"] = existing_penalty
-        state[key] = new_entry
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        RATE_LIMIT_STATE_PATH.write_text(json.dumps(state, ensure_ascii=False) + "\n", encoding="utf-8")
-        return len(recent), rpm
+    return rate_limit_repository().record_usage(
+        router_rate_limit_key(provider, pcfg, model),
+        router_rate_limit_legacy_key(provider, pcfg, model),
+        rpm,
+        router_rate_limit_recent,
+    )
 
 
 def parse_retry_after_seconds(value: str | None) -> float | None:
@@ -4015,17 +3976,7 @@ def register_api_key_cooldown(provider: str, pcfg: dict[str, Any], key: str, hea
         return 0.0
     reset = api_key_cooldown_reset_seconds(headers)
     state_key = _api_key_cooldown_state_key(provider, pcfg, key)
-    with _RATE_LIMIT_LOCK:
-        try:
-            state = json.loads(RATE_LIMIT_STATE_PATH.read_text(encoding="utf-8")) if RATE_LIMIT_STATE_PATH.exists() else {}
-            if not isinstance(state, dict):
-                state = {}
-        except Exception:
-            state = {}
-        now = time.time()
-        state[state_key] = {"cooldown_until": now + reset, "last_429_at": now}
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        RATE_LIMIT_STATE_PATH.write_text(json.dumps(state, ensure_ascii=False) + "\n", encoding="utf-8")
+    rate_limit_repository().register_cooldown(state_key, reset)
     router_log("WARN", f"api_key_cooldown provider={provider} key_hash={state_key.rsplit(':', 1)[-1]} rest={reset:.0f}s")
     return reset
 
@@ -4034,20 +3985,9 @@ def api_key_cooldown_until(provider: str, pcfg: dict[str, Any], key: str) -> flo
     """Epoch until which this key is resting (0.0 if not cooling / expired)."""
     if not meaningful_key(key):
         return 0.0
-    state_key = _api_key_cooldown_state_key(provider, pcfg, key)
-    with _RATE_LIMIT_LOCK:
-        try:
-            state = json.loads(RATE_LIMIT_STATE_PATH.read_text(encoding="utf-8")) if RATE_LIMIT_STATE_PATH.exists() else {}
-        except Exception:
-            return 0.0
-        entry = state.get(state_key) if isinstance(state, dict) else None
-    if not isinstance(entry, dict):
-        return 0.0
-    try:
-        until = float(entry.get("cooldown_until") or 0.0)
-    except Exception:
-        return 0.0
-    return until if until > time.time() else 0.0
+    return rate_limit_repository().cooldown_until(
+        _api_key_cooldown_state_key(provider, pcfg, key)
+    )
 
 
 def provider_live_api_key_count(provider: str, pcfg: dict[str, Any]) -> int:
@@ -4069,20 +4009,9 @@ def reset_api_key_cooldowns_for_router_start() -> int:
     router process can make a restarted session use only the one key that did
     not hit a prior 429. Provider/global RPM state is intentionally preserved.
     """
-    with _RATE_LIMIT_LOCK:
-        try:
-            state = json.loads(RATE_LIMIT_STATE_PATH.read_text(encoding="utf-8")) if RATE_LIMIT_STATE_PATH.exists() else {}
-            if not isinstance(state, dict):
-                return 0
-        except Exception:
-            return 0
-        kept = {key: value for key, value in state.items() if ":__key__:" not in str(key)}
-        removed = len(state) - len(kept)
-        if removed <= 0:
-            return 0
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        RATE_LIMIT_STATE_PATH.write_text(json.dumps(kept, ensure_ascii=False) + "\n", encoding="utf-8")
-    router_log("INFO", f"api_key_cooldown_reset_on_router_start removed={removed}")
+    removed = rate_limit_repository().reset_key_cooldowns()
+    if removed:
+        router_log("INFO", f"api_key_cooldown_reset_on_router_start removed={removed}")
     return removed
 
 
