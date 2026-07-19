@@ -57,6 +57,10 @@ SSE/MCP 수집 및 cursor 상태와 분리되어 있으며 Windows Console과 PT
 
 대기 중인 channel 메시지의 필터링, 중복 제거, wake claim, prompt 생성 및 터미널 주입을 조정하는 Channel Application Service. 상태 판정, prompt 전략, wake 저장소, I/O를 각각 10필드 이하 포트로 분리한다.
 
+### `ciel_runtime_support/windows_console_input.py`
+
+Windows Console `INPUT_RECORD` 생성, UTF-16 surrogate 변환, 입력 queue 소비 확인을 담당하는 플랫폼 Adapter. Channel wake 오케스트레이션과 Win32 입력 세부 구현을 분리한다.
+
 ### `ciel_runtime_support/config_repository.py`
 
 원자적 JSON 설정 저장, mtime cache, migration 및 정규화 callback을 소유하는 Repository 구현.

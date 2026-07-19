@@ -381,6 +381,10 @@ from ciel_runtime_support.transcript_filter import (
     is_claude_code_transcript_event,
 )
 from ciel_runtime_support.web_ui import render_router_home_page, render_web_chat_page
+from ciel_runtime_support.windows_console_input import (
+    WindowsConsoleInputWriter,
+    _windows_console_utf16_units as project_windows_console_utf16_units,
+)
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -27138,152 +27142,12 @@ class _WindowsConsoleMouseInputGuard:
 
 
 def _windows_console_utf16_units(chars: Iterable[str]) -> list[str]:
-    """Expand non-BMP code points into WCHAR-sized UTF-16 surrogate units."""
-    units: list[str] = []
-    for ch in chars:
-        codepoint = ord(ch)
-        if codepoint > 0xFFFF:
-            codepoint -= 0x10000
-            units.extend((chr(0xD800 + (codepoint >> 10)), chr(0xDC00 + (codepoint & 0x3FF))))
-        else:
-            units.append(ch)
-    return units
+    return project_windows_console_utf16_units(chars)
 
 
-class _WindowsConsoleInputWriter:
-    """Inject keystrokes into the active Windows console input queue."""
-
+class _WindowsConsoleInputWriter(WindowsConsoleInputWriter):
     def __init__(self) -> None:
-        self.handle = _windows_console_input_handle()
-        if self.handle is None:
-            raise RuntimeError("Windows console input handle is not available")
-        self._mouse_filter = _TerminalMouseInputFilter()
-        self._queue_baseline: int | None = None
-
-    def wait_until_input_consumed(self, timeout_seconds: float = 2.0) -> bool:
-        """Wait until the most recently written console-input batch leaves the queue."""
-        if self._queue_baseline is None:
-            return True
-        import ctypes
-        from ctypes import wintypes
-
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        kernel32.GetNumberOfConsoleInputEvents.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
-        kernel32.GetNumberOfConsoleInputEvents.restype = wintypes.BOOL
-        deadline = time.monotonic() + max(0.0, timeout_seconds)
-        while True:
-            pending = wintypes.DWORD(0)
-            if not kernel32.GetNumberOfConsoleInputEvents(self.handle, ctypes.byref(pending)):
-                return False
-            if int(pending.value) <= self._queue_baseline:
-                return True
-            if time.monotonic() >= deadline:
-                return False
-            time.sleep(0.01)
-
-    def write(self, data: bytes) -> None:
-        if not data:
-            return
-        data = self._mouse_filter.feed(data)
-        if not data:
-            return
-        text = data.decode("utf-8", errors="replace")
-        chars: list[str] = []
-        i = 0
-        while i < len(text):
-            ch = text[i]
-            if ch == "\r" and i + 1 < len(text) and text[i + 1] == "\n":
-                chars.append("\r")
-                i += 2
-                continue
-            if ch == "\n":
-                chars.append("\r")
-            else:
-                chars.append(ch)
-            i += 1
-        self._write_chars(chars)
-
-    def _write_chars(self, chars: list[str]) -> None:
-        import ctypes
-        from ctypes import wintypes
-
-        if not chars:
-            return
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        user32 = ctypes.WinDLL("user32", use_last_error=True)
-
-        class KEY_EVENT_RECORD(ctypes.Structure):
-            _fields_ = [
-                ("bKeyDown", wintypes.BOOL),
-                ("wRepeatCount", wintypes.WORD),
-                ("wVirtualKeyCode", wintypes.WORD),
-                ("wVirtualScanCode", wintypes.WORD),
-                ("uChar", wintypes.WCHAR),
-                ("dwControlKeyState", wintypes.DWORD),
-            ]
-
-        class EVENT_UNION(ctypes.Union):
-            _fields_ = [("KeyEvent", KEY_EVENT_RECORD)]
-
-        class INPUT_RECORD(ctypes.Structure):
-            _fields_ = [("EventType", wintypes.WORD), ("Event", EVENT_UNION)]
-
-        user32.MapVirtualKeyW.argtypes = [wintypes.UINT, wintypes.UINT]
-        user32.MapVirtualKeyW.restype = wintypes.UINT
-        kernel32.WriteConsoleInputW.argtypes = [
-            wintypes.HANDLE,
-            ctypes.POINTER(INPUT_RECORD),
-            wintypes.DWORD,
-            ctypes.POINTER(wintypes.DWORD),
-        ]
-        kernel32.WriteConsoleInputW.restype = wintypes.BOOL
-        kernel32.GetNumberOfConsoleInputEvents.argtypes = [
-            wintypes.HANDLE,
-            ctypes.POINTER(wintypes.DWORD),
-        ]
-        kernel32.GetNumberOfConsoleInputEvents.restype = wintypes.BOOL
-
-        KEY_EVENT = 0x0001
-        LEFT_CTRL_PRESSED = 0x0008
-        MAPVK_VK_TO_VSC = 0
-        vk_map = {
-            "\r": 0x0D,
-            "\x1b": 0x1B,
-            "\x08": 0x08,
-            "\t": 0x09,
-            "\x15": 0x55,
-        }
-        records: list[Any] = []
-        for ch in _windows_console_utf16_units(chars):
-            vk = vk_map.get(ch)
-            if vk is None and len(ch) == 1 and "A" <= ch.upper() <= "Z":
-                vk = ord(ch.upper())
-            elif vk is None:
-                vk = 0
-            control = LEFT_CTRL_PRESSED if ch == "\x15" else 0
-            scan_code = int(user32.MapVirtualKeyW(int(vk), MAPVK_VK_TO_VSC)) if vk else 0
-            for key_down in (True, False):
-                record = INPUT_RECORD()
-                record.EventType = KEY_EVENT
-                record.Event.KeyEvent = KEY_EVENT_RECORD(
-                    bool(key_down),
-                    1,
-                    int(vk),
-                    scan_code,
-                    ch,
-                    control,
-                )
-                records.append(record)
-        array_type = INPUT_RECORD * len(records)
-        written = wintypes.DWORD(0)
-        pending_before = wintypes.DWORD(0)
-        if kernel32.GetNumberOfConsoleInputEvents(self.handle, ctypes.byref(pending_before)):
-            self._queue_baseline = int(pending_before.value)
-        else:
-            self._queue_baseline = None
-        ok = kernel32.WriteConsoleInputW(self.handle, array_type(*records), len(records), ctypes.byref(written))
-        if not ok or int(written.value) != len(records):
-            raise OSError(f"WriteConsoleInputW failed: written={int(written.value)} expected={len(records)}")
+        super().__init__(_windows_console_input_handle, _TerminalMouseInputFilter)
 
 
 def _retry_windows_console_channel_submit(
