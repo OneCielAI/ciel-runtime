@@ -249,6 +249,10 @@ Provider 구현 패키지의 안정적인 공개 진입점. 분리된 공통 기
 
 Bearer/API-key 인증, 무인증 및 OpenAI-compatible protocol 선택을 제공하는 공통 Provider transport 기반 클래스. 구체 Provider 이름이나 Registry를 소유하지 않는다.
 
+### `ciel_runtime_support/providers/anthropic.py`
+
+Anthropic native/routed Adapter. Anthropic protocol, context hint, API-key 상태, built-in Advisor 안내와 native/routed UI 정책을 소유한다.
+
 ### `ciel_runtime_support/providers/constants.py`
 
 Provider 모듈들이 공유하는 기본 endpoint와 Z.AI fallback catalog 상수. 메인 composition root나 Registry 구현에 의존하지 않는다.
