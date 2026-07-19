@@ -155,6 +155,9 @@ class ProviderConfigurationPolicy:
     native_compat_error: str | None = None
     text_option_aliases: Mapping[str, str] = field(default_factory=dict)
     strip_trailing_slash_fields: frozenset[str] = frozenset()
+    status_fields: tuple[str, ...] = ()
+    uses_ollama_status: bool = False
+    runtime_owns_model: bool = False
 
 
 class RuntimeAdapter(ABC):

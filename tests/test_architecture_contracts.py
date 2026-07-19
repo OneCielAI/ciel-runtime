@@ -434,6 +434,26 @@ class ArchitectureContractTests(unittest.TestCase):
 
         self.assertEqual([], provider_comparisons)
 
+    def test_provider_status_projection_does_not_branch_on_provider_names(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        function = next(
+            node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "status_lines"
+        )
+        provider_comparisons = []
+        for node in ast.walk(function):
+            if not isinstance(node, ast.Compare):
+                continue
+            compared_names = {
+                item.id
+                for item in (node.left, *node.comparators)
+                if isinstance(item, ast.Name)
+            }
+            if "provider" in compared_names:
+                provider_comparisons.append(node.lineno)
+
+        self.assertEqual([], provider_comparisons)
+
     def test_channel_panel_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelPanelPolicy)), 10)
 

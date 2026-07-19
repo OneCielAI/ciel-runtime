@@ -55,6 +55,19 @@ ZAI_MODEL_FALLBACK_IDS: tuple[str, ...] = (
     "glm-4-32b-0414-128k",
 )
 
+ROUTER_STATUS_FIELDS: tuple[str, ...] = (
+    "context_window",
+    "context_reserve_tokens",
+    "max_output_tokens",
+    "request_timeout_ms",
+    "stream_idle_timeout_ms",
+)
+
+
+def _configuration_policy(**values: Any) -> ProviderConfigurationPolicy:
+    status_fields = values.pop("status_fields", ROUTER_STATUS_FIELDS)
+    return ProviderConfigurationPolicy(status_fields=status_fields, **values)
+
 
 @dataclass(frozen=True)
 class HttpBearerProviderAdapter(ProviderAdapter):
@@ -119,6 +132,10 @@ class HttpBearerProviderAdapter(ProviderAdapter):
     def model_catalog_policy(self, config: ProviderConfig) -> ProviderModelCatalogPolicy:
         del config
         return self.model_catalog_policy_value
+
+    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+        del config
+        return _configuration_policy()
 
     def api_key_display_name(self) -> str:
         return self.api_key_display_name_value
@@ -253,7 +270,7 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
 
     def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
         del config
-        return ProviderConfigurationPolicy(mutation_strategy="ollama")
+        return ProviderConfigurationPolicy(mutation_strategy="ollama", uses_ollama_status=True)
 
 
 @dataclass(frozen=True)
@@ -330,11 +347,17 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
 
     def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
         del config
-        return ProviderConfigurationPolicy(
+        return _configuration_policy(
             native_compat_error=(
                 "nvidia-hosted does not expose Anthropic /v1/messages; use router mode. "
                 "Use self-hosted-nim or vLLM for native /v1/messages."
-            )
+            ),
+            status_fields=(
+                "context_window",
+                "max_output_tokens",
+                "request_timeout_ms",
+                "stream_idle_timeout_ms",
+            ),
         )
 
 
@@ -475,7 +498,7 @@ class FireworksProviderAdapter(OpenAICompatibleProviderAdapter):
 
     def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
         del config
-        return ProviderConfigurationPolicy(
+        return _configuration_policy(
             text_option_aliases={
                 "account": "account_id",
                 "account_id": "account_id",
@@ -567,7 +590,7 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
 
     def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
         del config
-        return ProviderConfigurationPolicy(supports_model_endpoint_overrides=True)
+        return _configuration_policy(supports_model_endpoint_overrides=True)
 
 
 @dataclass(frozen=True)
@@ -613,6 +636,10 @@ class CodexProviderAdapter(NoAuthProviderAdapter):
             else "API key: not set (uses native Codex login/config)"
         )
 
+    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+        del config
+        return ProviderConfigurationPolicy(runtime_owns_model=True)
+
 
 @dataclass(frozen=True)
 class AgyProviderAdapter(NoAuthProviderAdapter):
@@ -632,6 +659,10 @@ class AgyProviderAdapter(NoAuthProviderAdapter):
             if config.options.get("route_through_router")
             else "API key: not set (uses native AGY Google sign-in/config)"
         )
+
+    def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
+        del config
+        return ProviderConfigurationPolicy(runtime_owns_model=True)
 
 
 PROVIDER_ADAPTERS: AdapterRegistry[ProviderAdapter] = AdapterRegistry()

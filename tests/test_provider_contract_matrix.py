@@ -132,6 +132,17 @@ class ProviderContractMatrixTests(unittest.TestCase):
                 self.assertEqual(provider in required_api_key, adapter.capabilities(configured).requires_api_key)
                 self.assertIsNotNone(adapter.configuration_policy(configured))
 
+    def test_status_projection_capability_matrix(self):
+        ollama = PROVIDER_ADAPTERS.create("ollama").configuration_policy(config("ollama"))
+        codex = PROVIDER_ADAPTERS.create("codex").configuration_policy(config("codex"))
+        vllm = PROVIDER_ADAPTERS.create("vllm").configuration_policy(config("vllm"))
+        nvidia = PROVIDER_ADAPTERS.create("nvidia-hosted").configuration_policy(config("nvidia-hosted"))
+
+        self.assertTrue(ollama.uses_ollama_status)
+        self.assertTrue(codex.runtime_owns_model)
+        self.assertIn("context_reserve_tokens", vllm.status_fields)
+        self.assertNotIn("context_reserve_tokens", nvidia.status_fields)
+
     def test_api_key_status_is_provider_owned(self):
         cases = {
             "anthropic": "Claude login",

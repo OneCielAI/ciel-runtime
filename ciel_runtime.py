@@ -18074,24 +18074,38 @@ def status_lines() -> list[str]:
     provider, pcfg = get_current_provider(cfg)
     mode = provider_mode_label(provider, pcfg)
     direct_native = direct_native_anthropic_enabled(provider, pcfg)
+    adapter = configured_provider_adapter(provider, pcfg)
+    configuration = adapter.configuration_policy(provider_contract_config(provider, pcfg))
+    provider_lines: list[str] = []
+    if configuration.uses_ollama_status:
+        provider_lines.extend(
+            (
+                f"num_ctx: {ollama_num_ctx_status(pcfg)}",
+                f"ollama_options: {ollama_options_status(pcfg)}",
+                f"keep_alive: {pcfg.get('keep_alive', 'default')}",
+                f"think: {ollama_think_status(current_upstream_model_id(provider, pcfg), pcfg)}",
+                f"request_timeout_ms: {pcfg.get('request_timeout_ms', 'default')}",
+                f"stream_idle_timeout_ms: {pcfg.get('stream_idle_timeout_ms', 'auto')}",
+            )
+        )
+    for field_name in configuration.status_fields:
+        default = "auto" if field_name == "stream_idle_timeout_ms" else "default"
+        provider_lines.append(f"{field_name}: {pcfg.get(field_name, default)}")
+    claude_model = (
+        "disabled for native runtime provider"
+        if configuration.runtime_owns_model
+        else current_upstream_model_id(provider, pcfg)
+        if direct_native
+        else current_alias(cfg)
+    )
     return [
         f"provider: {provider}",
         f"language: {cfg.get('language', 'en')}",
         f"mode: {mode}",
         f"base_url: {pcfg.get('base_url')}",
         f"model: {pcfg.get('current_model')}",
-        *([f"num_ctx: {ollama_num_ctx_status(pcfg)}"] if provider in ("ollama", "ollama-cloud") else []),
-        *([f"ollama_options: {ollama_options_status(pcfg)}"] if provider in ("ollama", "ollama-cloud") else []),
-        *([f"keep_alive: {pcfg.get('keep_alive', 'default')}"] if provider in ("ollama", "ollama-cloud") else []),
-        *([f"think: {ollama_think_status(current_upstream_model_id(provider, pcfg), pcfg)}"] if provider in ("ollama", "ollama-cloud") else []),
-        *([f"request_timeout_ms: {pcfg.get('request_timeout_ms', 'default')}"] if provider in ("ollama", "ollama-cloud") else []),
-        *([f"stream_idle_timeout_ms: {pcfg.get('stream_idle_timeout_ms', 'auto')}"] if provider in ("ollama", "ollama-cloud") else []),
-        *([f"context_window: {pcfg.get('context_window', 'default')}"] if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai") else []),
-        *([f"context_reserve_tokens: {pcfg.get('context_reserve_tokens', 'default')}"] if provider in ("vllm", "lm-studio", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai") else []),
-        *([f"max_output_tokens: {pcfg.get('max_output_tokens', 'default')}"] if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai") else []),
-        *([f"request_timeout_ms: {pcfg.get('request_timeout_ms', 'default')}"] if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai") else []),
-        *([f"stream_idle_timeout_ms: {pcfg.get('stream_idle_timeout_ms', 'auto')}"] if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai") else []),
-        f"claude_model: {'disabled for native runtime provider' if provider in ('agy', 'codex') else (current_upstream_model_id(provider, pcfg) if direct_native else current_alias(cfg))}",
+        *provider_lines,
+        f"claude_model: {claude_model}",
         f"log_level: {log_level_status()}",
         f"channels: {channel_status_text(cfg)}",
         f"channel_delivery: {channel_delivery_mode(cfg)}",
