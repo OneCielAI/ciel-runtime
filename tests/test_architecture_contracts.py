@@ -1138,6 +1138,21 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn('provider == "', function_source)
         self.assertNotIn("provider in (", function_source)
 
+    def test_compatibility_diagnosis_dispatches_through_provider_adapter(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        source = source_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        names = {"compatibility_failure_diagnosis", "known_compatibility_tool_use_blocker"}
+        functions = [
+            node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names
+        ]
+        for function in functions:
+            function_source = ast.get_source_segment(source, function) or ""
+            self.assertIn("PROVIDER_ADAPTERS.create(provider)", function_source)
+            self.assertNotIn('provider == "', function_source)
+            self.assertNotIn("provider in (", function_source)
+        self.assertEqual(names, {function.name for function in functions})
+
     def test_channel_panel_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelPanelPolicy)), 10)
 

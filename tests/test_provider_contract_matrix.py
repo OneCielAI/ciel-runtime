@@ -377,6 +377,25 @@ class ProviderContractMatrixTests(unittest.TestCase):
                 policy = PROVIDER_ADAPTERS.create(provider).context_policy(config(provider))
                 self.assertEqual(expected, policy.status_capacity_strategy)
 
+    def test_provider_owned_compatibility_diagnosis(self):
+        vllm = PROVIDER_ADAPTERS.create("vllm")
+        self.assertIn(
+            "--tool-call-parser",
+            vllm.compatibility_failure_diagnosis(400, "tool parser failed") or "",
+        )
+        nvidia = PROVIDER_ADAPTERS.create("nvidia-hosted")
+        self.assertIn("API Catalog", nvidia.compatibility_failure_diagnosis(404, "missing") or "")
+        self.assertIn(
+            "transient",
+            nvidia.compatibility_failure_diagnosis(503, "unavailable") or "",
+        )
+        zai = PROVIDER_ADAPTERS.create("zai")
+        self.assertIn(
+            "tool-use probes time out",
+            zai.known_compatibility_tool_use_blocker("glm-4.7-flash"),
+        )
+        self.assertEqual("", zai.known_compatibility_tool_use_blocker("glm-5.2"))
+
     def test_router_native_anthropic_capability_matrix(self):
         enabled = {
             "deepseek",

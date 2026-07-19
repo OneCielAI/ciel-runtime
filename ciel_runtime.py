@@ -18954,52 +18954,14 @@ def summarize_compat_response(data: Any, label: str) -> list[str]:
 
 def compatibility_failure_diagnosis(provider: str, code: int | None, msg: str) -> str | None:
     lower = msg.lower()
-    if provider == "vllm" and ("tool" in lower or "parse" in lower or "parser" in lower):
-        return (
-            "Diagnosis: vLLM tool calling depends on the server's model-specific --tool-call-parser and chat template. "
-            "For Qwen3-Coder models, current vLLM docs recommend --tool-call-parser qwen3_xml; Hermes is for Hermes-style models "
-            "and some older Qwen tool templates."
-        )
     if "does not support tools" in lower:
         return "Diagnosis: selected model does not support tool calling, so it is not suitable for normal Claude Code use."
-    if provider == "nvidia-hosted" and code == 404:
-        return (
-            "Diagnosis: NVIDIA API Catalog does not expose this request path/model for the current account. "
-            "Use the default router mode for nvidia-hosted, or pick another hosted model."
-        )
-    if provider == "nvidia-hosted" and code in (502, 503, 504):
-        return (
-            "Diagnosis: NVIDIA API Catalog or the hosted model backend returned a transient upstream error. "
-            "Retry the compatibility test, or choose another NVIDIA hosted model if it repeats."
-        )
-    if provider == "nvidia-hosted" and (
-        "remotedisconnected" in lower
-        or "remote end closed connection" in lower
-        or "connection reset" in lower
-        or "gateway timeout" in lower
-    ):
-        return (
-            "Diagnosis: the NVIDIA hosted upstream closed the request without a complete response. "
-            "This is usually a transient API Catalog/backend issue rather than a local ciel-runtime configuration error. "
-            "Retry the test, or choose another hosted model if it repeats."
-        )
-    if provider == "nvidia-hosted" and "function" in lower and "not found" in lower:
-        return (
-            "Diagnosis: NVIDIA returned a missing function for this hosted model. The model is visible in /v1/models "
-            "but is not callable with the current account."
-        )
-    return None
+    return PROVIDER_ADAPTERS.create(provider).compatibility_failure_diagnosis(code, msg)
 
 
 def known_compatibility_tool_use_blocker(provider: str, model: str) -> str:
-    normalized = strip_claude_context_suffix(str(model or "")).strip().lower()
-    if provider == "zai" and normalized == "glm-4.7-flash":
-        return (
-            "Z.AI GLM-4.7-Flash responds to text requests but direct Anthropic tool-use probes time out. "
-            "Claude Code requires tool calling for normal work; use glm-4.5-flash for a Flash/free model, "
-            "or use glm-4.7/glm-5.2 if your Z.AI account can access them."
-        )
-    return ""
+    normalized = strip_claude_context_suffix(str(model or "")).strip()
+    return PROVIDER_ADAPTERS.create(provider).known_compatibility_tool_use_blocker(normalized)
 
 
 class CompatibilityApiKeyProbeError(Exception):

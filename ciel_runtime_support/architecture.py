@@ -509,6 +509,18 @@ class ProviderAdapter(ABC):
         del config
         return ""
 
+    def compatibility_failure_diagnosis(self, code: int | None, message: str) -> str | None:
+        """Return provider-owned guidance for a failed compatibility probe."""
+
+        del code, message
+        return None
+
+    def known_compatibility_tool_use_blocker(self, model: str) -> str:
+        """Return a known model-specific tool-use blocker, if one exists."""
+
+        del model
+        return ""
+
     def context_compaction_available(self, config: ProviderConfig) -> bool:
         """Whether this configured provider can run an auxiliary summary request."""
 
