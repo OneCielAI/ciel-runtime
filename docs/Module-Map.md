@@ -129,6 +129,10 @@ MCP/SSE notification envelope에서 transport와 무관한 event identity를 만
 
 Channel JSONL 메시지의 ID/cutoff 스캔, channel·recipient 가시성 필터, 앞뒤 방향 조회와 dedupe용 최근 행 조회를 소유하는 Repository. 경로와 진단 logger만 주입받으며 손상된 개별 행은 격리하고 파일 I/O 실패는 경고로 노출한다.
 
+### `ciel_runtime_support/channel_launch_guard_repository.py`
+
+Channel 시작 직후 replay dedupe guard의 만료 판정과 원자 저장을 소유하는 Repository. 파일 부재·만료는 정상적인 empty 상태로 처리하고, 손상·권한·I/O 실패는 명시적인 경고로 관측 가능하게 남긴다.
+
 ### `ciel_runtime_support/channel_wake_claim_repository.py`
 
 터미널 wake prompt의 메시지 ID/문자열 참조 판정과 교차 프로세스 claim의 TTL·원자 저장을 소유하는 Repository. 파일 lock, clock, TTL policy, logger를 주입받고 메인의 in-memory fast path와 독립적으로 동작한다.

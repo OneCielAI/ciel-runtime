@@ -167,6 +167,7 @@ from ciel_runtime_support.channel_event_identity import (
     stable_dedupe_key as _chat_message_stable_dedupe_key,
 )
 from ciel_runtime_support.channel_message_repository import ChannelMessageRepository
+from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
 from ciel_runtime_support.channel_wake_claim_repository import (
     ChannelWakeClaimRepository,
     prompt_message_ids as _channel_prompt_message_ids,
@@ -8507,37 +8508,20 @@ def _chat_message_recent_rows_locked(limit: int = CHAT_MESSAGE_DEDUPE_SCAN_LIMIT
     return channel_message_repository().recent_rows(limit)
 
 
+def channel_launch_guard_repository() -> ChannelLaunchGuardRepository:
+    return ChannelLaunchGuardRepository(
+        path=CHANNEL_LLM_LAUNCH_GUARD_PATH,
+        now=time.time,
+        log=router_log,
+    )
+
+
 def _channel_llm_launch_guard() -> dict[str, Any] | None:
-    try:
-        if not CHANNEL_LLM_LAUNCH_GUARD_PATH.exists():
-            return None
-        data = json.loads(CHANNEL_LLM_LAUNCH_GUARD_PATH.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            return None
-        expires_at = float(data.get("expires_at") or 0)
-        if expires_at <= time.time():
-            return None
-        max_existing_id = int(data.get("max_existing_id") or 0)
-        if max_existing_id <= 0:
-            return None
-        return {"max_existing_id": max_existing_id, "expires_at": expires_at}
-    except Exception:
-        return None
+    return channel_launch_guard_repository().read()
 
 
 def _write_channel_llm_launch_guard(max_existing_id: int, ttl_seconds: float = 180.0) -> None:
-    try:
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "created_at": time.time(),
-            "expires_at": time.time() + max(1.0, float(ttl_seconds)),
-            "max_existing_id": max(0, int(max_existing_id)),
-        }
-        tmp_path = CHANNEL_LLM_LAUNCH_GUARD_PATH.with_suffix(".json.tmp")
-        tmp_path.write_text(json.dumps(payload, separators=(",", ":")) + "\n", encoding="utf-8")
-        tmp_path.replace(CHANNEL_LLM_LAUNCH_GUARD_PATH)
-    except Exception as exc:
-        router_log("WARN", f"channel_llm_launch_guard_write_failed error={type(exc).__name__}: {exc}")
+    channel_launch_guard_repository().write(max_existing_id, ttl_seconds)
 
 
 def _chat_message_duplicate_locked(message: dict[str, Any]) -> dict[str, Any] | None:
