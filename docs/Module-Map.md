@@ -121,6 +121,10 @@ MCP/SSE/Web Chat 메시지의 출처와 고유 참조, 이벤트 순서, coalesc
 
 Channel 메시지의 노이즈·scope 필터링, 안전한 metadata 축약, 일반/Web Chat/LLM prompt 표현을 소유하는 순수 projection 정책. MCP/SSE envelope 표시는 원문 JSON을 보존하면서 민감 metadata를 prompt header에서 제외한다.
 
+### `ciel_runtime_support/channel_event_identity.py`
+
+MCP/SSE notification envelope에서 transport와 무관한 event identity를 만들고 stable/fallback chat dedupe key를 계산하는 순수 정책. 저장소의 최근 행 검색과 TTL 판단은 composition 계층에 남기고 identity 의미만 캡슐화한다.
+
 ### `ciel_runtime_support/tool_guard_hooks.py`
 
 Claude 설정의 tool guard hook을 읽고, 레거시 hook 제거와 중복 정규화 후 원자적으로 저장하는 Security/Configuration Service. 이벤트 정책과 파일 시스템 효과를 분리하며 권한 제한 실패도 경고로 관측 가능하게 남긴다.

@@ -1394,6 +1394,18 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(function=function_name):
                 self.assertNotIn(f"def {function_name}(", source)
 
+    def test_channel_event_identity_policy_lives_outside_composition_root(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        for function_name in (
+            "_chat_message_payload_hash",
+            "_channel_event_identity_room_key",
+            "_channel_message_event_identity_key",
+            "_chat_message_stable_dedupe_key",
+            "_chat_message_fallback_dedupe_key",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):

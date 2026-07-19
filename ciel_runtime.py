@@ -160,6 +160,12 @@ from ciel_runtime_support.channel_message_prompt import (
     llm_message_skip_reason as _channel_llm_message_skip_reason,
     wake_message_noise_reason as _channel_wake_message_noise_reason,
 )
+from ciel_runtime_support.channel_event_identity import (
+    fallback_dedupe_key as _chat_message_fallback_dedupe_key,
+    message_event_identity_key as _channel_message_event_identity_key,
+    message_time_seconds as _chat_message_time_seconds,
+    stable_dedupe_key as _chat_message_stable_dedupe_key,
+)
 from ciel_runtime_support.channel_probe_report import (
     ChannelProbeReportServices,
     channel_probe_report_lines,
@@ -8594,21 +8600,6 @@ def read_chat_messages_before(before_id: int = 0, channel: str | None = None, re
     return messages
 
 
-def _chat_message_payload_hash(value: Any) -> str:
-    text = re.sub(r"\s+", " ", str(value or "")).strip()
-    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
-
-
-def _chat_message_time_seconds(value: Any) -> float:
-    text = str(value or "").strip()
-    if not text:
-        return 0.0
-    try:
-        return time.mktime(time.strptime(text[:19], "%Y-%m-%dT%H:%M:%S"))
-    except Exception:
-        return 0.0
-
-
 def _chat_message_recent_rows_locked(limit: int = CHAT_MESSAGE_DEDUPE_SCAN_LIMIT) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     if limit <= 0 or not CHAT_MESSAGES_PATH.exists():
@@ -8627,151 +8618,6 @@ def _chat_message_recent_rows_locked(limit: int = CHAT_MESSAGE_DEDUPE_SCAN_LIMIT
     except Exception as exc:
         router_log("WARN", f"chat duplicate scan failed: {exc}")
     return rows
-
-
-_CHANNEL_EVENT_IDENTITY_META_KEYS = (
-    "stream_id",
-    "message_id",
-    "source_message_id",
-    "event_id",
-    "sse_id",
-    "cursor",
-    "sequence",
-    "seq",
-)
-
-
-def _channel_event_identity_room_key(message: dict[str, Any], sources: list[dict[str, Any]]) -> str:
-    room_ids: list[str] = []
-    for source in sources:
-        rooms = source.get("rooms")
-        if not isinstance(rooms, str) or not rooms.strip():
-            continue
-        try:
-            parsed_rooms = json.loads(rooms)
-        except Exception:
-            continue
-        if not isinstance(parsed_rooms, list):
-            continue
-        for room in parsed_rooms:
-            if not isinstance(room, dict):
-                continue
-            room_id = str(room.get("room_id") or room.get("room") or "").strip()
-            if room_id and room_id not in room_ids:
-                room_ids.append(room_id)
-    if room_ids:
-        return ",".join(sorted(room_ids))
-
-    for source in sources:
-        room = str(source.get("room_id") or source.get("room") or source.get("channel") or "").strip()
-        if room:
-            return room
-    return str(message.get("channel") or "").strip()
-
-
-def _channel_message_event_identity_key(message: dict[str, Any]) -> tuple[str, ...] | None:
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    envelopes: list[dict[str, Any]] = []
-    for key in ("sse_json", "mcp_json"):
-        value = meta.get(key)
-        if isinstance(value, dict):
-            envelopes.append(value)
-    raw_message = message.get("message")
-    if isinstance(raw_message, str):
-        stripped = raw_message.strip()
-        if stripped.startswith("{"):
-            try:
-                parsed = json.loads(stripped)
-            except Exception:
-                parsed = None
-            if isinstance(parsed, dict):
-                envelopes.append(parsed)
-
-    sources: list[dict[str, Any]] = [meta]
-    method = str(meta.get("mcp_method") or meta.get("sse_event") or "").strip()
-    content: Any = message.get("message")
-    for envelope in envelopes:
-        envelope_method = str(envelope.get("method") or "").strip()
-        if envelope_method:
-            method = envelope_method
-        params = envelope.get("params") if isinstance(envelope.get("params"), dict) else {}
-        if params:
-            sources.append(params)
-            params_meta = params.get("meta")
-            if isinstance(params_meta, dict):
-                sources.append(params_meta)
-            if params.get("content") is not None:
-                content = params.get("content")
-    if method and not method.startswith("notifications/"):
-        return None
-
-    kind = ""
-    for source in sources:
-        if not kind:
-            kind = str(source.get("kind") or source.get("type") or source.get("event_type") or source.get("eventType") or "").strip()
-    room = _channel_event_identity_room_key(message, sources)
-
-    for key in _CHANNEL_EVENT_IDENTITY_META_KEYS:
-        for source in sources:
-            value = source.get(key)
-            if value is None:
-                continue
-            stable_value = str(value).strip()
-            if stable_value:
-                return (
-                    "event",
-                    method,
-                    room,
-                    kind,
-                    key,
-                    stable_value,
-                    _chat_message_payload_hash(content),
-                )
-    return None
-
-
-def _chat_message_stable_dedupe_key(message: dict[str, Any]) -> tuple[str, ...] | None:
-    event_identity = _channel_message_event_identity_key(message)
-    if event_identity:
-        return ("stable",) + event_identity
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    source = str(meta.get("mcp_server") or meta.get("sse_source") or meta.get("source") or message.get("sender_id") or "").strip()
-    method = str(meta.get("mcp_method") or "").strip()
-    channel = str(message.get("channel") or meta.get("room_id") or meta.get("room") or meta.get("channel") or "").strip()
-    kind = str(message.get("kind") or meta.get("kind") or meta.get("type") or meta.get("event_type") or meta.get("eventType") or "").strip()
-    body_hash = _chat_message_payload_hash(message.get("message"))
-    for key in ("cursor", "stream_id", "sse_id", "event_id", "message_id", "source_message_id", "sequence", "seq", "rpc_id"):
-        value = meta.get(key)
-        if value is None:
-            continue
-        stable_value = str(value).strip()
-        if stable_value:
-            return ("stable", source, method, channel, kind, key, stable_value, body_hash)
-    mcp_json = meta.get("mcp_json")
-    if method.startswith("notifications/") and isinstance(mcp_json, dict):
-        try:
-            normalized = json.dumps(mcp_json, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
-            if normalized:
-                digest = hashlib.sha256(normalized.encode("utf-8", errors="replace")).hexdigest()
-                return ("stable", source, method, channel, kind, "mcp_json", digest, body_hash)
-        except Exception:
-            pass
-    return None
-
-
-def _chat_message_fallback_dedupe_key(message: dict[str, Any]) -> tuple[str, ...] | None:
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    method = str(meta.get("mcp_method") or "").strip()
-    if not method.startswith("notifications/"):
-        return None
-    body = re.sub(r"\s+", " ", str(message.get("message") or "")).strip()
-    if not body:
-        return None
-    source = str(meta.get("mcp_server") or meta.get("sse_source") or meta.get("source") or message.get("sender_id") or "").strip()
-    channel = str(message.get("channel") or meta.get("room_id") or meta.get("room") or meta.get("channel") or "").strip()
-    sender = str(message.get("sender_id") or meta.get("sender_id") or meta.get("agent_id") or "").strip()
-    kind = str(message.get("kind") or meta.get("kind") or meta.get("type") or meta.get("event_type") or meta.get("eventType") or "").strip()
-    return ("fallback", source, method, channel, sender, kind, _chat_message_payload_hash(body))
 
 
 def _channel_llm_launch_guard() -> dict[str, Any] | None:
