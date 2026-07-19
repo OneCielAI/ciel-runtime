@@ -17,6 +17,191 @@ class LmStudioRuntimeServices:
     log: Callable[[str, str], None]
 
 
+@dataclass(frozen=True, slots=True)
+class LmStudioLifecyclePolicy:
+    recommended_preset: Callable[[str, dict[str, Any]], str]
+    required_context: Callable[[str, str], int]
+    model_context_hint: Callable[[str], int | None]
+    default_context: int
+    minimum_context: int
+
+
+class LmStudioModelLifecycle:
+    def __init__(
+        self,
+        runtime: LmStudioRuntimeServices,
+        policy: LmStudioLifecyclePolicy,
+        post_json: Callable[..., Any],
+    ) -> None:
+        self.runtime = runtime
+        self.policy = policy
+        self.post_json = post_json
+
+    def v1_model_info(
+        self, config: dict[str, Any], timeout: float = 3.0
+    ) -> dict[str, Any] | None:
+        base = self.runtime.api_base(config)
+        current = self.runtime.current_model("lm-studio", config)
+        if not base or not current:
+            return None
+        data = self.runtime.http_json(
+            self.runtime.join_url(base, "/api/v1/models"),
+            headers=self.runtime.model_list_headers("lm-studio", config),
+            timeout=timeout,
+        )
+        items = data.get("models") if isinstance(data, dict) else None
+        if not isinstance(items, list):
+            return None
+        return next(
+            (
+                item
+                for item in items
+                if isinstance(item, dict)
+                and self.runtime.model_id_matches(str(item.get("key") or ""), current)
+            ),
+            None,
+        )
+
+    def loaded_instance_ids(
+        self, config: dict[str, Any], timeout: float = 3.0
+    ) -> list[str]:
+        try:
+            item = self.v1_model_info(config, timeout)
+        except Exception:
+            return []
+        instances = item.get("loaded_instances") if isinstance(item, dict) else None
+        if not isinstance(instances, list):
+            return []
+        return [
+            str(instance["id"])
+            for instance in instances
+            if isinstance(instance, dict) and instance.get("id")
+        ]
+
+    def target_context(
+        self, config: dict[str, Any], info: dict[str, Any] | None = None
+    ) -> int | None:
+        target = self.runtime.positive_int(config.get("context_window"))
+        if not target:
+            preset = self.policy.recommended_preset("lm-studio", config)
+            target = self.policy.required_context(preset, "lm-studio")
+        target = target or self.policy.default_context
+        max_length = self.runtime.positive_int(
+            (info or {}).get("max_model_len")
+        ) or self.policy.model_context_hint(str(config.get("current_model") or ""))
+        return min(target, max_length) if max_length else target
+
+    def load_timeout_seconds(self, config: dict[str, Any]) -> float:
+        configured = self.runtime.positive_int(config.get("request_timeout_ms"))
+        return max(60.0, min(600.0, configured / 1000.0)) if configured else 300.0
+
+    def load_model(
+        self,
+        config: dict[str, Any],
+        context_length: int,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
+        base = self.runtime.api_base(config)
+        model = self.runtime.current_model("lm-studio", config)
+        if not base or not model:
+            raise RuntimeError("LM Studio model or base URL is not configured")
+        return self.post_json(
+            self.runtime.join_url(base, "/api/v1/models/load"),
+            {
+                "model": model,
+                "context_length": context_length,
+                "flash_attention": True,
+                "echo_load_config": True,
+            },
+            headers=self.runtime.model_list_headers("lm-studio", config),
+            timeout=timeout or self.load_timeout_seconds(config),
+        )
+
+    def unload_loaded_instances(
+        self, config: dict[str, Any], timeout: float = 20.0
+    ) -> list[str]:
+        base = self.runtime.api_base(config)
+        if not base:
+            return []
+        unloaded: list[str] = []
+        for instance_id in self.loaded_instance_ids(config):
+            try:
+                self.post_json(
+                    self.runtime.join_url(base, "/api/v1/models/unload"),
+                    {"instance_id": instance_id},
+                    headers=self.runtime.model_list_headers("lm-studio", config),
+                    timeout=timeout,
+                )
+                unloaded.append(instance_id)
+            except Exception:
+                continue
+        return unloaded
+
+    def load_response_context(self, response: dict[str, Any], fallback: int) -> int:
+        load_config = response.get("load_config") if isinstance(response, dict) else None
+        if isinstance(load_config, dict):
+            value = self.runtime.positive_int(load_config.get("context_length"))
+            if value:
+                return value
+        return fallback
+
+    def ensure_loaded_context(
+        self, config: dict[str, Any], timeout: float = 3.0
+    ) -> list[str]:
+        info = discover_lm_studio_runtime(config, self.runtime, timeout=timeout)
+        target = self.target_context(config, info)
+        if not target:
+            return []
+        messages: list[str] = []
+        loaded = self.runtime.positive_int((info or {}).get("loaded_context_len"))
+        state = str((info or {}).get("state") or "")
+        max_length = self.runtime.positive_int((info or {}).get("max_model_len"))
+        if max_length:
+            messages.append(f"LM Studio model max context: {max_length:,} tokens.")
+        if loaded:
+            messages.append(f"LM Studio loaded context: {loaded:,} tokens.")
+        if loaded and state == "loaded" and loaded >= target:
+            config["native_compat"] = True
+            if not self.runtime.positive_int(config.get("context_window")):
+                config["context_window"] = min(loaded, target)
+            return messages
+        if max_length and max_length < self.policy.minimum_context:
+            config["native_compat"] = False
+            config["context_window"] = max_length
+            messages.append(
+                "LM Studio selected model cannot provide enough context for Claude Code "
+                f"({max_length:,} < {self.policy.minimum_context:,})."
+            )
+            return messages
+        action = "reloading" if loaded else "loading"
+        messages.append(
+            f"LM Studio auto-{action} selected model with {target:,} context tokens."
+        )
+        try:
+            response = self.load_model(config, target)
+        except Exception:
+            if not loaded:
+                raise
+            self.unload_loaded_instances(config)
+            response = self.load_model(config, target)
+        actual = self.load_response_context(response, target)
+        config["context_window"] = actual
+        if actual >= self.policy.minimum_context:
+            config["native_compat"] = True
+            messages.append(
+                f"LM Studio loaded selected model with {actual:,} context tokens."
+            )
+        else:
+            config["native_compat"] = False
+            current_output = self.runtime.positive_int(config.get("max_output_tokens")) or 4096
+            config["max_output_tokens"] = min(current_output, max(512, actual // 4))
+            messages.append(
+                "LM Studio loaded the model, but the applied context is still too small "
+                f"for Claude Code ({actual:,} < {self.policy.minimum_context:,})."
+            )
+        return messages
+
+
 def discover_lm_studio_runtime(
     provider_config: dict[str, Any],
     services: LmStudioRuntimeServices,

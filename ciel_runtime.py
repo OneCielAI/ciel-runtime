@@ -242,6 +242,8 @@ from ciel_runtime_support.model_registry_repository import (
     ModelRegistryRepository,
 )
 from ciel_runtime_support.lm_studio_runtime import (
+    LmStudioLifecyclePolicy,
+    LmStudioModelLifecycle,
     LmStudioRuntimeServices,
     discover_lm_studio_runtime,
 )
@@ -4495,171 +4497,72 @@ def lm_studio_model_id_matches(left: str, right: str) -> bool:
     return (left or "").strip().lower() == (right or "").strip().lower()
 
 
+def lm_studio_runtime_services() -> LmStudioRuntimeServices:
+    return LmStudioRuntimeServices(
+        api_base=lm_studio_api_base,
+        current_model=current_upstream_model_id,
+        http_json=http_json,
+        join_url=join_url,
+        model_list_headers=provider_model_list_headers,
+        model_id_matches=lm_studio_model_id_matches,
+        positive_int=positive_int,
+        model_context=model_context_field,
+        log=router_log,
+    )
+
+
+def lm_studio_model_lifecycle() -> LmStudioModelLifecycle:
+    return LmStudioModelLifecycle(
+        lm_studio_runtime_services(),
+        LmStudioLifecyclePolicy(
+            recommended_preset=recommended_preset_id,
+            required_context=required_context_for_preset,
+            model_context_hint=model_context_hint_from_model_id,
+            default_context=LM_STUDIO_DEFAULT_CLAUDE_CODE_CONTEXT,
+            minimum_context=LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT,
+        ),
+        post_json,
+    )
+
+
 def lm_studio_runtime_info(pcfg: dict[str, Any], timeout: float = 3.0) -> dict[str, Any] | None:
     return discover_lm_studio_runtime(
         pcfg,
-        LmStudioRuntimeServices(
-            api_base=lm_studio_api_base,
-            current_model=current_upstream_model_id,
-            http_json=http_json,
-            join_url=join_url,
-            model_list_headers=provider_model_list_headers,
-            model_id_matches=lm_studio_model_id_matches,
-            positive_int=positive_int,
-            model_context=model_context_field,
-            log=router_log,
-        ),
+        lm_studio_runtime_services(),
         timeout=timeout,
     )
 
 
 def lm_studio_v1_model_info(pcfg: dict[str, Any], timeout: float = 3.0) -> dict[str, Any] | None:
-    base = lm_studio_api_base(pcfg)
-    current = current_upstream_model_id("lm-studio", pcfg)
-    if not base or not current:
-        return None
-    data = http_json(join_url(base, "/api/v1/models"), headers=provider_model_list_headers("lm-studio", pcfg), timeout=timeout)
-    items = data.get("models") if isinstance(data, dict) else None
-    if not isinstance(items, list):
-        return None
-    for item in items:
-        if isinstance(item, dict) and lm_studio_model_id_matches(str(item.get("key") or ""), current):
-            return item
-    return None
+    return lm_studio_model_lifecycle().v1_model_info(pcfg, timeout)
 
 
 def lm_studio_loaded_instance_ids(pcfg: dict[str, Any], timeout: float = 3.0) -> list[str]:
-    try:
-        item = lm_studio_v1_model_info(pcfg, timeout=timeout)
-    except Exception:
-        return []
-    instances = item.get("loaded_instances") if isinstance(item, dict) else None
-    if not isinstance(instances, list):
-        return []
-    ids: list[str] = []
-    for instance in instances:
-        if isinstance(instance, dict) and instance.get("id"):
-            ids.append(str(instance["id"]))
-    return ids
+    return lm_studio_model_lifecycle().loaded_instance_ids(pcfg, timeout)
 
 
 def lm_studio_target_context(pcfg: dict[str, Any], info: dict[str, Any] | None = None) -> int | None:
-    target = positive_int(pcfg.get("context_window"))
-    if not target:
-        preset_id = recommended_preset_id("lm-studio", pcfg)
-        target = required_context_for_preset(preset_id, "lm-studio")
-    target = target or LM_STUDIO_DEFAULT_CLAUDE_CODE_CONTEXT
-    max_len = positive_int((info or {}).get("max_model_len")) or model_context_hint_from_model_id(str(pcfg.get("current_model") or ""))
-    if max_len:
-        target = min(target, max_len)
-    return target
+    return lm_studio_model_lifecycle().target_context(pcfg, info)
 
 
 def lm_studio_load_timeout_seconds(pcfg: dict[str, Any]) -> float:
-    configured = positive_int(pcfg.get("request_timeout_ms"))
-    if configured:
-        return max(60.0, min(600.0, configured / 1000.0))
-    return 300.0
+    return lm_studio_model_lifecycle().load_timeout_seconds(pcfg)
 
 
 def lm_studio_load_model(pcfg: dict[str, Any], context_length: int, timeout: float | None = None) -> dict[str, Any]:
-    base = lm_studio_api_base(pcfg)
-    model = current_upstream_model_id("lm-studio", pcfg)
-    if not base or not model:
-        raise RuntimeError("LM Studio model or base URL is not configured")
-    body = {
-        "model": model,
-        "context_length": context_length,
-        "flash_attention": True,
-        "echo_load_config": True,
-    }
-    return post_json(
-        join_url(base, "/api/v1/models/load"),
-        body,
-        headers=provider_model_list_headers("lm-studio", pcfg),
-        timeout=timeout or lm_studio_load_timeout_seconds(pcfg),
-    )
+    return lm_studio_model_lifecycle().load_model(pcfg, context_length, timeout)
 
 
 def lm_studio_unload_loaded_instances(pcfg: dict[str, Any], timeout: float = 20.0) -> list[str]:
-    base = lm_studio_api_base(pcfg)
-    if not base:
-        return []
-    unloaded: list[str] = []
-    for instance_id in lm_studio_loaded_instance_ids(pcfg, timeout=3.0):
-        try:
-            post_json(
-                join_url(base, "/api/v1/models/unload"),
-                {"instance_id": instance_id},
-                headers=provider_model_list_headers("lm-studio", pcfg),
-                timeout=timeout,
-            )
-            unloaded.append(instance_id)
-        except Exception:
-            continue
-    return unloaded
+    return lm_studio_model_lifecycle().unload_loaded_instances(pcfg, timeout)
 
 
 def lm_studio_load_response_context(response: dict[str, Any], fallback: int) -> int:
-    config = response.get("load_config") if isinstance(response, dict) else None
-    if isinstance(config, dict):
-        value = positive_int(config.get("context_length"))
-        if value:
-            return value
-    return fallback
+    return lm_studio_model_lifecycle().load_response_context(response, fallback)
 
 
 def ensure_lm_studio_model_loaded_for_context(pcfg: dict[str, Any], timeout: float = 3.0) -> list[str]:
-    info = lm_studio_runtime_info(pcfg, timeout=timeout)
-    target = lm_studio_target_context(pcfg, info)
-    if not target:
-        return []
-    messages: list[str] = []
-    loaded = positive_int((info or {}).get("loaded_context_len"))
-    state = str((info or {}).get("state") or "")
-    max_len = positive_int((info or {}).get("max_model_len"))
-    if max_len:
-        messages.append(f"LM Studio model max context: {max_len:,} tokens.")
-    if loaded:
-        messages.append(f"LM Studio loaded context: {loaded:,} tokens.")
-    if loaded and state == "loaded" and loaded >= target:
-        pcfg["native_compat"] = True
-        if not positive_int(pcfg.get("context_window")):
-            pcfg["context_window"] = min(loaded, target)
-        return messages
-    if max_len and max_len < LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT:
-        pcfg["native_compat"] = False
-        pcfg["context_window"] = max_len
-        messages.append(
-            "LM Studio selected model cannot provide enough context for Claude Code "
-            f"({max_len:,} < {LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT:,})."
-        )
-        return messages
-
-    action = "reloading" if loaded else "loading"
-    messages.append(f"LM Studio auto-{action} selected model with {target:,} context tokens.")
-    try:
-        response = lm_studio_load_model(pcfg, target)
-    except Exception:
-        if loaded:
-            lm_studio_unload_loaded_instances(pcfg)
-            response = lm_studio_load_model(pcfg, target)
-        else:
-            raise
-    actual = lm_studio_load_response_context(response, target)
-    pcfg["context_window"] = actual
-    if actual >= LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT:
-        pcfg["native_compat"] = True
-        messages.append(f"LM Studio loaded selected model with {actual:,} context tokens.")
-    else:
-        pcfg["native_compat"] = False
-        current_output = positive_int(pcfg.get("max_output_tokens")) or 4096
-        pcfg["max_output_tokens"] = min(current_output, max(512, actual // 4))
-        messages.append(
-            "LM Studio loaded the model, but the applied context is still too small for Claude Code "
-            f"({actual:,} < {LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT:,})."
-        )
-    return messages
+    return lm_studio_model_lifecycle().ensure_loaded_context(pcfg, timeout)
 
 
 def upstream_model_runtime_info(provider: str, pcfg: dict[str, Any], timeout: float = 3.0) -> dict[str, Any] | None:
