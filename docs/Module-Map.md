@@ -153,6 +153,10 @@ native launch 우회, Base URL·API-key 차단, ultracode capability 및 Provide
 
 사전 실행 메뉴의 화면 렌더링과 단일·다중행 TTY 입력을 담당하는 UI 어댑터. 렌더링 데이터, 텍스트 폭/색상, 브랜드 정보를 각각 10필드 이하 포트로 분리하며 터미널 polling·복구 실패는 로그로 관측된다.
 
+### `ciel_runtime_support/prompt_compaction.py`
+
+Provider context budget을 넘는 Anthropic message history를 tool-result 경계가 안전한 tail과 분산 요약으로 축약하는 Prompt Compaction Service. 텍스트 projection과 token/LLM/runtime 관측 포트를 분리한다.
+
 ### `ciel_runtime_support/runtime_adapters.py`
 
 정규화된 `LaunchSpec`을 최종 `RuntimeCommand`로 변환하는 실제 CLI 런타임 어댑터.

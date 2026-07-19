@@ -167,6 +167,11 @@ from ciel_runtime_support.prelaunch_terminal import (
     PrelaunchRenderServices,
     PrelaunchRenderText,
 )
+from ciel_runtime_support.prompt_compaction import (
+    PromptCompactionRuntime,
+    PromptCompactionServices,
+    PromptCompactionText,
+)
 from ciel_runtime_support.runtime_launch import (
     AgyLaunchChannel,
     AgyLaunchCliPolicy,
@@ -650,6 +655,11 @@ class ArchitectureContractTests(unittest.TestCase):
             ProviderReadinessLmStudio,
             ProviderReadinessServices,
         ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_prompt_compaction_ports_stay_below_dependency_limit(self):
+        for port in (PromptCompactionText, PromptCompactionRuntime, PromptCompactionServices):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 

@@ -309,6 +309,14 @@ from ciel_runtime_support.prelaunch_terminal import (
     prompt_menu_value as read_menu_value,
     render_prelaunch_screen as render_prelaunch_terminal_screen,
 )
+from ciel_runtime_support.prompt_compaction import (
+    PromptCompactionRuntime,
+    PromptCompactionServices,
+    PromptCompactionText,
+    anthropic_message_has_tool_result as compacted_anthropic_message_has_tool_result,
+    anthropic_safe_tail_start as compacted_anthropic_safe_tail_start,
+    compact_anthropic_body_for_budget as run_anthropic_prompt_compaction,
+)
 from ciel_runtime_support.runtime_adapters import RUNTIME_ADAPTERS
 from ciel_runtime_support.runtime_launch import (
     AgyLaunchChannel,
@@ -13929,13 +13937,31 @@ def compact_ollama_messages_for_budget(
         )
     return compacted
 
+def prompt_compaction_services() -> PromptCompactionServices:
+    return PromptCompactionServices(
+        text=PromptCompactionText(
+            content_to_text=anthropic_content_to_text,
+            compact_text=compact_message_text_for_prompt,
+            build_summary=build_chunked_context_guard_summary,
+            append_system_texts=append_anthropic_system_texts,
+            truncate=truncate_for_prompt,
+            chunk_count=context_guard_chunk_count,
+        ),
+        runtime=PromptCompactionRuntime(
+            estimate_tokens=estimate_tokens,
+            llm_compact_messages=maybe_build_llm_compacted_messages,
+            write_activity=write_context_compact_activity,
+            log=router_log,
+        ),
+    )
+
+
 def anthropic_message_has_tool_result(message: dict[str, Any]) -> bool:
-    content = message.get("content")
-    return isinstance(content, list) and any(isinstance(block, dict) and block.get("type") == "tool_result" for block in content)
+    return compacted_anthropic_message_has_tool_result(message)
 
 
 def anthropic_safe_tail_start(message: dict[str, Any]) -> bool:
-    return str(message.get("role") or "") == "user" and not anthropic_message_has_tool_result(message)
+    return compacted_anthropic_safe_tail_start(message)
 
 
 def compact_anthropic_body_for_budget(
@@ -13947,116 +13973,15 @@ def compact_anthropic_body_for_budget(
     pcfg: dict[str, Any] | None = None,
     full_compact_request: bool = False,
 ) -> dict[str, Any]:
-    messages = body.get("messages")
-    if not isinstance(messages, list) or not messages:
-        return body
-    typed_messages = [message for message in messages if isinstance(message, dict)]
-    if len(typed_messages) != len(messages):
-        return body
-    budget_tokens = max(8192, budget_tokens)
-    initial_tokens = estimate_tokens(body)
-    if initial_tokens <= budget_tokens:
-        return body
-    if full_compact_request and pcfg is not None and provider and model:
-        compact_messages = maybe_build_llm_compacted_messages(provider, model, pcfg, typed_messages, budget_tokens, wire="anthropic")
-        if compact_messages:
-            out = dict(body)
-            out["messages"] = compact_messages
-            out["tools"] = []
-            out.pop("tool_choice", None)
-            out.pop("parallel_tool_calls", None)
-            final_tokens = estimate_tokens(out)
-            if final_tokens <= budget_tokens:
-                return out
-            router_log(
-                "WARN",
-                f"context_compact_map_reduce_oversize provider={provider} model={model} tokens={final_tokens} budget={budget_tokens}; falling back to deterministic compact",
-            )
-
-    # Reserve part of the budget for distributed summaries of the older history.
-    summary_budget = max(1024, min(24576, budget_tokens // 10))
-    tail_budget = max(8192, budget_tokens - summary_budget)
-    tail_start = len(typed_messages)
-    base = dict(body)
-    for idx in range(len(typed_messages) - 1, -1, -1):
-        candidate = typed_messages[idx:]
-        candidate_body = dict(base)
-        candidate_body["messages"] = candidate
-        if estimate_tokens(candidate_body) <= tail_budget:
-            tail_start = idx
-            continue
-        break
-
-    while tail_start < len(typed_messages) and not anthropic_safe_tail_start(typed_messages[tail_start]):
-        tail_start += 1
-
-    if tail_start >= len(typed_messages):
-        tail_start = max(0, len(typed_messages) - 1)
-        if anthropic_message_has_tool_result(typed_messages[tail_start]):
-            safe_text = anthropic_content_to_text(typed_messages[tail_start].get("content"))
-            tail = [{"role": "user", "content": compact_message_text_for_prompt(safe_text)}]
-        else:
-            tail = [typed_messages[tail_start]]
-    else:
-        tail = typed_messages[tail_start:]
-
-    omitted = typed_messages[:tail_start]
-    summary_text = build_chunked_context_guard_summary(omitted, budget_tokens)
-    out = dict(body)
-    out["messages"] = tail
-    out["system"] = append_anthropic_system_texts(body.get("system"), [summary_text])
-
-    while estimate_tokens(out) > budget_tokens and len(tail) > 1:
-        tail = tail[1:]
-        while tail and not anthropic_safe_tail_start(tail[0]):
-            tail = tail[1:]
-        if not tail:
-            tail = [typed_messages[-1]]
-            break
-        out["messages"] = tail
-        omitted = typed_messages[: len(typed_messages) - len(tail)]
-        out["system"] = append_anthropic_system_texts(body.get("system"), [build_chunked_context_guard_summary(omitted, budget_tokens)])
-
-    final_tokens = estimate_tokens(out)
-    if final_tokens > budget_tokens:
-        compact_summary = build_chunked_context_guard_summary(omitted, max(8192, budget_tokens // 2))
-        out["system"] = append_anthropic_system_texts(body.get("system"), [truncate_for_prompt(compact_summary, max(4096, budget_tokens * 2))])
-        final_tokens = estimate_tokens(out)
-    if final_tokens > budget_tokens and tail:
-        base_without_messages = dict(out)
-        base_without_messages["messages"] = []
-        remaining_chars = max(1024, (budget_tokens - estimate_tokens(base_without_messages)) * 4 - 1024)
-        latest = tail[-1]
-        latest_role = str(latest.get("role") or "unknown")
-        latest_text = anthropic_content_to_text(latest.get("content"))
-        out["messages"] = [
-            {
-                "role": "user",
-                "content": truncate_for_prompt(
-                    f"[Latest retained message compacted from role={latest_role} because it alone exceeded the provider context budget.]\n{latest_text}",
-                    remaining_chars,
-                ),
-            }
-        ]
-        final_tokens = estimate_tokens(out)
-    router_log(
-        "WARN",
-        f"compacted anthropic payload messages {len(typed_messages)}->{len(out.get('messages') or [])} tokens {initial_tokens}->{final_tokens} budget={budget_tokens}",
+    return run_anthropic_prompt_compaction(
+        body,
+        budget_tokens,
+        provider=provider,
+        model=model,
+        pcfg=pcfg,
+        full_compact_request=full_compact_request,
+        services=prompt_compaction_services(),
     )
-    chunk_count = context_guard_chunk_count(omitted, budget_tokens)
-    if chunk_count and (provider or model):
-        write_context_compact_activity(
-            provider or "provider",
-            model or str(body.get("model") or ""),
-            chunks=chunk_count,
-            parallel_sessions=1,
-            tokens=initial_tokens,
-            final_tokens=final_tokens,
-            budget=budget_tokens,
-            omitted_messages=len(omitted),
-            retained_messages=len(out.get("messages") or []),
-        )
-    return out
 
 def provider_request_timeout_seconds(pcfg: dict[str, Any]) -> float:
     return ollama_request_timeout_seconds(pcfg)
