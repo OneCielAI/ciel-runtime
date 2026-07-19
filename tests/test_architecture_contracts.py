@@ -198,6 +198,7 @@ from ciel_runtime_support.protocols.chat_projection import (
     OpenAiHistoryServices,
 )
 from ciel_runtime_support.protocols.tool_result_projection import ToolResultProjectionServices
+from ciel_runtime_support.protocols.pseudo_tool_history import PseudoToolHistoryServices
 from ciel_runtime_support.protocols.ollama_response import (
     OllamaResponseOutput,
     OllamaResponseRecovery,
@@ -716,6 +717,9 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_tool_result_projection_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ToolResultProjectionServices)), 10)
+
+    def test_pseudo_tool_history_stays_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(PseudoToolHistoryServices)), 10)
 
     def test_pending_channel_injection_ports_stay_below_dependency_limit(self):
         for port in (

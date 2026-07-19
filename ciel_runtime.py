@@ -363,6 +363,12 @@ from ciel_runtime_support.protocols.tool_result_projection import (
     ToolResultProjectionServices,
     project_tool_result,
 )
+from ciel_runtime_support.protocols.pseudo_tool_history import (
+    PseudoToolHistoryServices,
+    find_pseudo_xml_tool_start,
+    parse_xml_pseudo_tool_calls,
+    sanitize_assistant_pseudo_tool_history,
+)
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, ZAI_MODEL_FALLBACK_IDS
 from ciel_runtime_support.provider_limits import (
     ProviderKeyServices,
@@ -11399,235 +11405,29 @@ def normalize_anthropic_system_role_messages(body: dict[str, Any]) -> dict[str, 
     return out
 
 
-_PSEUDO_TOOL_INVOKE_RE = re.compile(
-    r"(?is)(?:^|\n)[ \t]*(?:court[ \t]*(?:\r?\n)+)?<invoke\s+name=[\"'][^\"']+[\"'][\s\S]*?</invoke>[ \t]*(?=\n|$)"
-)
-_PSEUDO_TOOL_INVOKE_CALL_RE = re.compile(
-    r"(?is)(?:^|\n)[ \t]*(?:court[ \t]*(?:\r?\n)+)?"
-    r"<invoke\s+name=[\"'](?P<name>[^\"']+)[\"'][^>]*>(?P<body>[\s\S]*?)</invoke>[ \t]*(?=\n|$)"
-)
-_PSEUDO_TOOL_INVOKE_OPEN_RE = re.compile(
-    r"(?is)(?:^|\n)[ \t]*(?:court[ \t]*(?:\r?\n)+)?<invoke\s+name=[\"'](?P<name>[^\"']+)[\"'][^>]*>"
-)
-_PSEUDO_TOOL_XML_RE = re.compile(
-    r"(?is)(?:^|\n)[ \t]*(?:court[ \t]*(?:\r?\n)+)?<(?P<name>[A-Za-z_][\w.-]{0,96})\b[^>]*>[\s\S]*?</(?P=name)>[ \t]*(?=\n|$)"
-)
-_PSEUDO_TOOL_XML_CALL_RE = re.compile(
-    r"(?is)(?:^|\n)[ \t]*(?:court[ \t]*(?:\r?\n)+)?"
-    r"<(?P<name>[A-Za-z_][\w.-]{0,96})\b[^>]*>(?P<body>[\s\S]*?)</(?P=name)>[ \t]*(?=\n|$)"
-)
-_PSEUDO_TOOL_XML_OPEN_RE = re.compile(
-    r"(?is)(?:^|\n)[ \t]*(?:court[ \t]*(?:\r?\n)+)?<(?P<name>[A-Za-z_][\w.-]{0,96})\b[^>]*>"
-)
-_PSEUDO_TOOL_PARAMETER_RE = re.compile(
-    r"(?is)<parameter\s+name=[\"'](?P<name>[^\"']+)[\"'][^>]*>(?P<value>[\s\S]*?)</parameter>"
-)
-_PSEUDO_TOOL_CHILD_ARG_RE = re.compile(
-    r"(?is)<(?P<name>[A-Za-z_][\w.-]{0,96})\b[^>]*>(?P<value>[\s\S]*?)</(?P=name)>"
-)
-
-
-def _request_tool_name_aliases(body: dict[str, Any]) -> set[str]:
-    aliases: set[str] = set()
-    tools = body.get("tools")
-    if not isinstance(tools, list):
-        return aliases
-    for tool in tools:
-        if not isinstance(tool, dict):
-            continue
-        name = str(tool.get("name") or "").strip()
-        if not name:
-            continue
-        lowered = name.lower()
-        aliases.add(lowered)
-        aliases.add(lowered.replace("-", "_"))
-        if "__" in lowered:
-            short = lowered.rsplit("__", 1)[-1]
-            aliases.add(short)
-            aliases.add(short.replace("-", "_"))
-    return aliases
-
-
-def _resolve_pseudo_xml_tool_name(raw_name: str, source_body: dict[str, Any] | None) -> str | None:
-    if not isinstance(source_body, dict):
-        return None
-    raw = str(raw_name or "").strip()
-    if not raw:
-        return None
-    available = tool_names_in_body(source_body)
-    if not available:
-        return None
-    matched = _match_available_tool_name(raw, available)
-    if matched:
-        return matched
-    aliases = _request_tool_name_aliases(source_body)
-    lowered = raw.lower()
-    normalized = lowered.replace("-", "_")
-    if lowered not in aliases and normalized not in aliases:
-        return None
-    return resolve_emitted_tool_name(raw, source_body)
-
-
-def _xml_unescape_text(value: str) -> str:
-    return html_lib.unescape(str(value or "")).strip()
-
-
-def _parse_pseudo_xml_tool_args(tool_name: str, body: str) -> dict[str, Any]:
-    inner = str(body or "").strip()
-    args: dict[str, Any] = {}
-    for match in _PSEUDO_TOOL_PARAMETER_RE.finditer(inner):
-        key = str(match.group("name") or "").strip()
-        if key:
-            args[key] = _xml_unescape_text(match.group("value") or "")
-    if args:
-        return args
-    for match in _PSEUDO_TOOL_CHILD_ARG_RE.finditer(inner):
-        key = str(match.group("name") or "").strip()
-        if key and key.lower() not in {"invoke", tool_name.lower()}:
-            args[key] = _xml_unescape_text(match.group("value") or "")
-    if args:
-        return args
-    try:
-        parsed = json.loads(inner)
-        if isinstance(parsed, dict):
-            return parsed
-    except Exception:
-        pass
-    return normalize_tool_arguments(tool_name, _xml_unescape_text(inner))
+def pseudo_tool_history_services() -> PseudoToolHistoryServices:
+    return PseudoToolHistoryServices(
+        tool_names=tool_names_in_body,
+        match_tool_name=_match_available_tool_name,
+        resolve_emitted_name=resolve_emitted_tool_name,
+        normalize_arguments=normalize_tool_arguments,
+        log=router_log,
+    )
 
 
 def _find_pseudo_xml_tool_start(text: str, source_body: dict[str, Any] | None) -> int:
-    if not isinstance(source_body, dict) or "<" not in text:
-        return -1
-    for match in sorted(
-        list(_PSEUDO_TOOL_INVOKE_CALL_RE.finditer(text))
-        + list(_PSEUDO_TOOL_XML_CALL_RE.finditer(text))
-        + list(_PSEUDO_TOOL_INVOKE_OPEN_RE.finditer(text))
-        + list(_PSEUDO_TOOL_XML_OPEN_RE.finditer(text)),
-        key=lambda item: item.start(),
-    ):
-        raw_name = str(match.group("name") or "")
-        if raw_name.lower() == "invoke":
-            continue
-        if _resolve_pseudo_xml_tool_name(raw_name, source_body):
-            return match.start()
-    return -1
+    return find_pseudo_xml_tool_start(text, source_body, pseudo_tool_history_services())
 
 
-def _parse_xml_pseudo_tool_calls(text: str, source_body: dict[str, Any] | None) -> tuple[str, list[dict[str, Any]]]:
-    if not isinstance(source_body, dict) or "<" not in text:
-        return text, []
-    matches: list[tuple[int, int, str, str]] = []
-    for match in _PSEUDO_TOOL_INVOKE_CALL_RE.finditer(text):
-        matches.append((match.start(), match.end(), str(match.group("name") or ""), str(match.group("body") or "")))
-    for match in _PSEUDO_TOOL_XML_CALL_RE.finditer(text):
-        raw_name = str(match.group("name") or "")
-        if raw_name.lower() == "invoke":
-            continue
-        matches.append((match.start(), match.end(), raw_name, str(match.group("body") or "")))
-    if not matches:
-        return text, []
-    visible_parts: list[str] = []
-    calls: list[dict[str, Any]] = []
-    pos = 0
-    for start, end, raw_name, body in sorted(matches, key=lambda item: item[0]):
-        if start < pos:
-            continue
-        matched_name = _resolve_pseudo_xml_tool_name(raw_name, source_body)
-        if not matched_name:
-            continue
-        visible_parts.append(text[pos:start])
-        args = _parse_pseudo_xml_tool_args(matched_name, body)
-        calls.append({"function": {"name": matched_name, "arguments": args}, "id": f"xml:{raw_name}:{start}"})
-        pos = end
-    if not calls:
-        return text, []
-    visible_parts.append(text[pos:])
-    return "".join(visible_parts), calls
-
-
-def _remove_assistant_pseudo_tool_xml(text: str, tool_aliases: set[str], replacement: str) -> tuple[str, int]:
-    if not text:
-        return text, 0
-    removed = 0
-
-    def repl(match: re.Match[str]) -> str:
-        nonlocal removed
-        name = str(match.group("name") or "").strip().lower()
-        if not name:
-            return match.group(0)
-        if name not in tool_aliases and name.replace("-", "_") not in tool_aliases:
-            return match.group(0)
-        removed += 1
-        return replacement
-
-    return _PSEUDO_TOOL_XML_RE.sub(repl, text), removed
+def _parse_xml_pseudo_tool_calls(
+    text: str,
+    source_body: dict[str, Any] | None,
+) -> tuple[str, list[dict[str, Any]]]:
+    return parse_xml_pseudo_tool_calls(text, source_body, pseudo_tool_history_services())
 
 
 def sanitize_assistant_pseudo_tool_text_history(body: dict[str, Any]) -> dict[str, Any]:
-    """Remove prior assistant text that looks like a fake tool invocation.
-
-    Claude Code only executes structured ``tool_use`` blocks. If an earlier
-    routed turn accidentally emitted XML-like tool-call text, continuing
-    the same transcript can teach the model to repeat that invalid pattern.
-    Keep real tool_use blocks untouched and only rewrite assistant text blocks.
-    """
-    messages = body.get("messages")
-    if not isinstance(messages, list):
-        return body
-    tool_aliases = _request_tool_name_aliases(body)
-    changed = False
-    sanitized_messages: list[Any] = []
-    removed_blocks = 0
-    replacement = "\n"
-    for message in messages:
-        if not isinstance(message, dict) or str(message.get("role") or "") != "assistant":
-            sanitized_messages.append(message)
-            continue
-        content = message.get("content")
-        if isinstance(content, str):
-            next_text, count = _PSEUDO_TOOL_INVOKE_RE.subn(replacement, content)
-            if tool_aliases:
-                next_text, xml_count = _remove_assistant_pseudo_tool_xml(next_text, tool_aliases, replacement)
-                count += xml_count
-            if count:
-                changed = True
-                removed_blocks += count
-                next_message = dict(message)
-                next_message["content"] = next_text.strip()
-                sanitized_messages.append(next_message)
-                continue
-        elif isinstance(content, list):
-            next_content: list[Any] = []
-            content_changed = False
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "text":
-                    text = str(block.get("text") or "")
-                    next_text, count = _PSEUDO_TOOL_INVOKE_RE.subn(replacement, text)
-                    if tool_aliases:
-                        next_text, xml_count = _remove_assistant_pseudo_tool_xml(next_text, tool_aliases, replacement)
-                        count += xml_count
-                    if count:
-                        content_changed = True
-                        removed_blocks += count
-                        next_block = dict(block)
-                        next_block["text"] = next_text.strip()
-                        next_content.append(next_block)
-                        continue
-                next_content.append(block)
-            if content_changed:
-                changed = True
-                next_message = dict(message)
-                next_message["content"] = next_content
-                sanitized_messages.append(next_message)
-                continue
-        sanitized_messages.append(message)
-    if not changed:
-        return body
-    out = dict(body)
-    out["messages"] = sanitized_messages
-    router_log("INFO", f"sanitized assistant pseudo tool-call text blocks={removed_blocks}")
-    return out
+    return sanitize_assistant_pseudo_tool_history(body, pseudo_tool_history_services())
 
 
 def _historical_tool_use_as_text(block: dict[str, Any]) -> dict[str, str]:
