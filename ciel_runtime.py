@@ -277,6 +277,11 @@ from ciel_runtime_support.openai_responses_router import (
     OpenAIResponsesServices,
     handle_openai_responses_request,
 )
+from ciel_runtime_support.openai_responses_stream import (
+    OpenAIResponsesStreamServices,
+    write_openai_responses as project_openai_responses_stream,
+    write_openai_responses_error as project_openai_responses_error,
+)
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
 from ciel_runtime_support.protocols.ollama_chat import (
     anthropic_system_to_ollama_messages,
@@ -15228,6 +15233,13 @@ def anthropic_message_to_openai_response(
     return dict(adapter.normalize_response(message))
 
 
+def openai_responses_stream_services() -> OpenAIResponsesStreamServices:
+    return OpenAIResponsesStreamServices(
+        to_response=anthropic_message_to_openai_response,
+        write_json=write_json,
+    )
+
+
 def write_openai_responses_response(
     handler: BaseHTTPRequestHandler,
     message: dict[str, Any],
@@ -15235,111 +15247,29 @@ def write_openai_responses_response(
     *,
     stream: bool = True,
 ) -> None:
-    response = anthropic_message_to_openai_response(message, source_body=source_body)
-    if not stream:
-        write_json(handler, response)
-        return
-    handler.send_response(200)
-    handler.send_header("content-type", "text/event-stream")
-    handler.send_header("cache-control", "no-cache")
-    handler.send_header("connection", "close")
-    handler.end_headers()
-
-    def emit(event_name: str, payload: dict[str, Any]) -> None:
-        handler.wfile.write(f"event: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
-
-    created = {**response, "status": "in_progress", "output": []}
-    emit("response.created", {"type": "response.created", "response": created})
-    for output_index, item in enumerate(response.get("output") or []):
-        item_added = {**item}
-        if item_added.get("type") == "message":
-            item_added["content"] = []
-        emit(
-            "response.output_item.added",
-            {
-                "type": "response.output_item.added",
-                "response_id": response["id"],
-                "output_index": output_index,
-                "item": item_added,
-            },
-        )
-        if item.get("type") == "message":
-            content = item.get("content") if isinstance(item.get("content"), list) else []
-            for content_index, part in enumerate(content):
-                if not isinstance(part, dict) or part.get("type") != "output_text":
-                    continue
-                empty_part = {**part, "text": ""}
-                emit(
-                    "response.content_part.added",
-                    {
-                        "type": "response.content_part.added",
-                        "response_id": response["id"],
-                        "item_id": item["id"],
-                        "output_index": output_index,
-                        "content_index": content_index,
-                        "part": empty_part,
-                    },
-                )
-                text = str(part.get("text") or "")
-                if text:
-                    emit(
-                        "response.output_text.delta",
-                        {
-                            "type": "response.output_text.delta",
-                            "response_id": response["id"],
-                            "item_id": item["id"],
-                            "output_index": output_index,
-                            "content_index": content_index,
-                            "delta": text,
-                        },
-                    )
-                emit(
-                    "response.output_text.done",
-                    {
-                        "type": "response.output_text.done",
-                        "response_id": response["id"],
-                        "item_id": item["id"],
-                        "output_index": output_index,
-                        "content_index": content_index,
-                        "text": text,
-                    },
-                )
-                emit(
-                    "response.content_part.done",
-                    {
-                        "type": "response.content_part.done",
-                        "response_id": response["id"],
-                        "item_id": item["id"],
-                        "output_index": output_index,
-                        "content_index": content_index,
-                        "part": part,
-                    },
-                )
-        emit(
-            "response.output_item.done",
-            {
-                "type": "response.output_item.done",
-                "response_id": response["id"],
-                "output_index": output_index,
-                "item": item,
-            },
-        )
-    emit("response.completed", {"type": "response.completed", "response": response})
-    handler.wfile.flush()
+    project_openai_responses_stream(
+        handler,
+        message,
+        source_body,
+        stream=stream,
+        services=openai_responses_stream_services(),
+    )
 
 
-def write_openai_responses_error(handler: BaseHTTPRequestHandler, message: str, *, stream: bool = True, status: int = 500) -> None:
-    payload = {"type": "error", "error": {"type": "api_error", "message": message}}
-    if not stream:
-        write_json(handler, payload, status)
-        return
-    handler.send_response(status)
-    handler.send_header("content-type", "text/event-stream")
-    handler.send_header("cache-control", "no-cache")
-    handler.send_header("connection", "close")
-    handler.end_headers()
-    handler.wfile.write(f"event: error\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
-    handler.wfile.flush()
+def write_openai_responses_error(
+    handler: BaseHTTPRequestHandler,
+    message: str,
+    *,
+    stream: bool = True,
+    status: int = 500,
+) -> None:
+    project_openai_responses_error(
+        handler,
+        message,
+        stream=stream,
+        status=status,
+        services=openai_responses_stream_services(),
+    )
 
 
 def stream_openai_chat_to_anthropic_sse(

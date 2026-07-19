@@ -134,6 +134,7 @@ from ciel_runtime_support.openai_responses_router import (
     OpenAIResponsesRouting,
     OpenAIResponsesServices,
 )
+from ciel_runtime_support.openai_responses_stream import OpenAIResponsesStreamServices
 from ciel_runtime_support.mcp_http_proxy import (
     McpHttpProxyCodec,
     McpHttpProxyRuntime,
@@ -585,6 +586,7 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+        self.assertLessEqual(len(fields(OpenAIResponsesStreamServices)), 10)
 
     def test_response_collection_ports_stay_below_dependency_limit(self):
         for port in (
