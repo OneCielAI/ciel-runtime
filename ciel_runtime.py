@@ -219,6 +219,19 @@ from ciel_runtime_support.provider_models import (
     ProviderModelServices,
     fetch_upstream_model_ids,
 )
+from ciel_runtime_support.response_collection import (
+    AnthropicCollectionProjection,
+    AnthropicCollectionRequest,
+    AnthropicCollectionServices,
+    AnthropicCollectionTransport,
+    ChatCollectionStrategy,
+    ResponseCollectionProjection,
+    ResponseCollectionRateLimit,
+    ResponseCollectionRequest,
+    ResponseCollectionServices,
+    collect_anthropic_message_for_responses as collect_anthropic_response,
+    collect_chat_message_for_responses as collect_chat_response,
+)
 from ciel_runtime_support.provider_policy import (
     ProviderRequestServices,
     ProviderWireServices,
@@ -16228,38 +16241,63 @@ def forward_openai_compatible_chat(handler: BaseHTTPRequestHandler, provider: st
     run_openai_forward(handler, provider, pcfg, body, services=openai_forward_services())
 
 
+def response_collection_services() -> ResponseCollectionServices:
+    return ResponseCollectionServices(
+        compatibility_test_header=COMPATIBILITY_TEST_HEADER,
+        request=ResponseCollectionRequest(
+            normalize_thinking=normalize_thinking_for_non_anthropic_provider,
+            resolve_model=resolve_requested_model,
+            body_with_advisor_tool=body_with_advisor_tool,
+            advisor_provider_supported=advisor_provider_supported,
+            provider_endpoint=provider_endpoint,
+            provider_headers=provider_headers,
+        ),
+        rate_limit=ResponseCollectionRateLimit(
+            apply=apply_router_rate_limit,
+            effective_rpm=router_rate_limit_effective_rpm,
+            notice=rate_limit_notice,
+        ),
+        projection=ResponseCollectionProjection(
+            refine_with_advisor=refine_message_with_advisor,
+            remember_tool_uses=remember_channel_injected_tool_uses,
+            prepend_text=prepend_anthropic_text,
+        ),
+        post_json_with_retry=post_json_with_rate_retry,
+    )
+
+
+def _identity_upstream_model(provider: str, pcfg: dict[str, Any], model: str) -> str:
+    del provider, pcfg
+    return model
+
+
+def _build_ollama_collection_request(
+    provider: str,
+    model: str,
+    body: dict[str, Any],
+    pcfg: dict[str, Any],
+    *,
+    stream: bool,
+) -> dict[str, Any]:
+    del provider
+    return ollama_chat_request(model, body, pcfg, stream=stream)
+
+
 def collect_ollama_message_for_responses(
     handler: BaseHTTPRequestHandler,
     provider: str,
     pcfg: dict[str, Any],
     body: dict[str, Any],
 ) -> dict[str, Any]:
-    body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
-    model = resolve_requested_model(provider, pcfg, body.get("model"))
-    original_body = body
-    upstream_body = body_with_advisor_tool(body, pcfg) if advisor_provider_supported(provider) else body
-    req_body = ollama_chat_request(model, upstream_body, pcfg, stream=False)
-    url = provider_endpoint(provider, pcfg, "ollama_chat")
-    compatibility_test = str(handler.headers.get(COMPATIBILITY_TEST_HEADER) or "").strip().lower() in ("1", "true", "yes", "on")
-    if compatibility_test:
-        waited, rpm_used, rpm_limit = 0.0, 0, router_rate_limit_effective_rpm(provider, pcfg, model)
-    else:
-        waited, rpm_used, rpm_limit = apply_router_rate_limit(provider, pcfg, model)
-    data = post_json_with_rate_retry(
-        url,
-        req_body,
-        provider_headers(provider, pcfg, handler.headers),
-        ollama_request_timeout_seconds(pcfg),
-        provider,
-        pcfg,
-        model,
-        None,
-        retry_rate_limits=not compatibility_test,
+    strategy = ChatCollectionStrategy(
+        operation="ollama_chat",
+        build_request=_build_ollama_collection_request,
+        decode_response=ollama_chat_to_anthropic,
+        request_timeout_seconds=ollama_request_timeout_seconds,
+        normalize_upstream_model=_identity_upstream_model,
+        skip_rate_limit_during_compatibility_test=True,
     )
-    message = ollama_chat_to_anthropic(data, model, source_body=original_body)
-    message = refine_message_with_advisor(provider, pcfg, original_body, message, model)
-    remember_channel_injected_tool_uses(original_body, message)
-    return prepend_anthropic_text(message, rate_limit_notice(waited, rpm_used, rpm_limit, bool(pcfg.get("rate_limit_status", False))))
+    return collect_chat_response(handler, provider, pcfg, body, strategy=strategy, services=response_collection_services())
 
 
 def collect_openai_chat_message_for_responses(
@@ -16268,31 +16306,14 @@ def collect_openai_chat_message_for_responses(
     pcfg: dict[str, Any],
     body: dict[str, Any],
 ) -> dict[str, Any]:
-    body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
-    model = resolve_requested_model(provider, pcfg, body.get("model"))
-    if provider == "nvidia-hosted":
-        model = ncp_model_id_for_nvidia_hosted(model)
-    original_body = body
-    upstream_body = body_with_advisor_tool(body, pcfg) if advisor_provider_supported(provider) else body
-    url = provider_endpoint(provider, pcfg, "openai_chat")
-    compatibility_test = str(handler.headers.get(COMPATIBILITY_TEST_HEADER) or "").strip().lower() in ("1", "true", "yes", "on")
-    waited, rpm_used, rpm_limit = apply_router_rate_limit(provider, pcfg, model)
-    req_body = openai_compatible_chat_request(provider, model, upstream_body, pcfg, stream=False)
-    data = post_json_with_rate_retry(
-        url,
-        req_body,
-        provider_headers(provider, pcfg, handler.headers),
-        provider_request_timeout_seconds(pcfg),
-        provider,
-        pcfg,
-        model,
-        None,
-        retry_rate_limits=not compatibility_test,
+    strategy = ChatCollectionStrategy(
+        operation="openai_chat",
+        build_request=openai_compatible_chat_request,
+        decode_response=openai_chat_to_anthropic,
+        request_timeout_seconds=provider_request_timeout_seconds,
+        normalize_upstream_model=provider_upstream_model,
     )
-    message = openai_chat_to_anthropic(data, model, source_body=original_body)
-    message = refine_message_with_advisor(provider, pcfg, original_body, message, model)
-    remember_channel_injected_tool_uses(original_body, message)
-    return prepend_anthropic_text(message, rate_limit_notice(waited, rpm_used, rpm_limit, bool(pcfg.get("rate_limit_status", False))))
+    return collect_chat_response(handler, provider, pcfg, body, strategy=strategy, services=response_collection_services())
 
 
 def collect_anthropic_message_for_responses(
@@ -16301,51 +16322,39 @@ def collect_anthropic_message_for_responses(
     pcfg: dict[str, Any],
     body: dict[str, Any],
 ) -> dict[str, Any]:
-    body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
-    body = normalize_anthropic_system_role_messages(body)
-    body = cap_anthropic_body_for_provider(provider, pcfg, body)
-    body = apply_provider_request_options(provider, pcfg, body)
-    body = rehydrate_suppressed_thinking_passback(provider, pcfg, body)
-    upstream_model = resolve_requested_model(provider, pcfg, body.get("model"))
-    if provider == "nvidia-hosted":
-        upstream_model = ncp_model_id_for_nvidia_hosted(upstream_model)
-    body["model"] = upstream_model
-    body = resolve_tool_model_references(provider, pcfg, body)
-    body = normalize_anthropic_model_request_options(provider, pcfg, body, upstream_model)
-    upstream_body = body_without_ciel_runtime_internal_metadata({**body, "stream": False})
-    base = native_anthropic_base_url(provider, pcfg) if provider_native_compat_enabled(provider, pcfg) else provider_upstream_request_base(provider, pcfg)
-    url = join_url(base, "/v1/messages")
-    upstream_query = upstream_messages_query(pcfg, handler.path, provider)
-    if upstream_query:
-        url = f"{url}?{upstream_query}"
-    headers = provider_headers(provider, pcfg, handler.headers)
-    for h in ("anthropic-beta", "anthropic-dangerous-direct-browser-access"):
-        if handler.headers.get(h):
-            headers[h] = handler.headers[h]
-    waited, rpm_used, rpm_limit = apply_router_rate_limit(provider, pcfg, upstream_model)
-    resp = open_provider_request_with_key_retry(
-        url,
-        upstream_body,
-        headers,
-        provider_request_timeout_seconds(pcfg),
-        provider,
-        pcfg,
-        upstream_model,
-        stream=False,
+    services = AnthropicCollectionServices(
+        request=AnthropicCollectionRequest(
+            normalize_thinking=normalize_thinking_for_non_anthropic_provider,
+            normalize_system_roles=normalize_anthropic_system_role_messages,
+            cap_body=cap_anthropic_body_for_provider,
+            apply_options=apply_provider_request_options,
+            rehydrate_thinking=rehydrate_suppressed_thinking_passback,
+            resolve_model=resolve_requested_model,
+            normalize_upstream_model=provider_upstream_model,
+            resolve_tool_models=resolve_tool_model_references,
+            normalize_model_options=normalize_anthropic_model_request_options,
+            strip_internal_metadata=body_without_ciel_runtime_internal_metadata,
+        ),
+        transport=AnthropicCollectionTransport(
+            native_compat_enabled=provider_native_compat_enabled,
+            native_base_url=native_anthropic_base_url,
+            upstream_request_base=provider_upstream_request_base,
+            join_url=join_url,
+            messages_query=upstream_messages_query,
+            provider_headers=provider_headers,
+            apply_rate_limit=apply_router_rate_limit,
+            open_request_with_retry=open_provider_request_with_key_retry,
+            request_timeout_seconds=provider_request_timeout_seconds,
+        ),
+        projection=AnthropicCollectionProjection(
+            normalize_response_thinking=normalize_response_thinking_for_non_anthropic_provider,
+            append_synthetic_tasklist=append_synthetic_tasklist_to_message,
+            prepend_text=prepend_anthropic_text,
+            rate_limit_notice=rate_limit_notice,
+        ),
+        forwarded_headers=("anthropic-beta", "anthropic-dangerous-direct-browser-access"),
     )
-    try:
-        raw_resp = resp.read()
-        payload = json.loads(raw_resp.decode("utf-8", errors="replace"))
-        if not isinstance(payload, dict):
-            raise RuntimeError("upstream returned non-object JSON")
-        payload = normalize_response_thinking_for_non_anthropic_provider(provider, pcfg, payload, upstream_model)
-        payload = append_synthetic_tasklist_to_message(payload, upstream_model, body, "native_json", provider=provider)
-        return prepend_anthropic_text(payload, rate_limit_notice(waited, rpm_used, rpm_limit, bool(pcfg.get("rate_limit_status", False))))
-    finally:
-        try:
-            resp.close()
-        except Exception:
-            pass
+    return collect_anthropic_response(handler, provider, pcfg, body, services=services)
 
 
 def collect_provider_message_for_responses(

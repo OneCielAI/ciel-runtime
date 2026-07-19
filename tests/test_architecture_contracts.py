@@ -97,6 +97,17 @@ from ciel_runtime_support.provider_limits import (
     RateLimitLearningServices,
     RateLimitStateStore,
 )
+from ciel_runtime_support.response_collection import (
+    AnthropicCollectionProjection,
+    AnthropicCollectionRequest,
+    AnthropicCollectionServices,
+    AnthropicCollectionTransport,
+    ChatCollectionStrategy,
+    ResponseCollectionProjection,
+    ResponseCollectionRateLimit,
+    ResponseCollectionRequest,
+    ResponseCollectionServices,
+)
 from ciel_runtime_support.prelaunch import (
     PrelaunchChannelCommands,
     PrelaunchChannelQuery,
@@ -413,6 +424,21 @@ class ArchitectureContractTests(unittest.TestCase):
             OpenAIForwardStreaming,
             OpenAIForwardResponse,
             OpenAIForwardServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_response_collection_ports_stay_below_dependency_limit(self):
+        for port in (
+            ChatCollectionStrategy,
+            ResponseCollectionRequest,
+            ResponseCollectionRateLimit,
+            ResponseCollectionProjection,
+            ResponseCollectionServices,
+            AnthropicCollectionRequest,
+            AnthropicCollectionTransport,
+            AnthropicCollectionProjection,
+            AnthropicCollectionServices,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)

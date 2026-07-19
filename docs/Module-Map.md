@@ -101,6 +101,10 @@ Ollama upstream 요청, context retry, rate-limit, streaming, Advisor 및 channe
 
 OpenAI-compatible chat 전달, streaming, retry, Advisor gate 및 Anthropic 응답 projection을 조정하는 Provider Application Service. NVIDIA 같은 특수 동작은 Provider 이름 비교 대신 Adapter의 request policy로 입력받는다.
 
+### `ciel_runtime_support/response_collection.py`
+
+Responses API projection을 위한 비스트리밍 chat 수집 Template Method. Ollama/OpenAI 차이는 `ChatCollectionStrategy`로 주입하고, 요청·rate-limit·응답 projection 포트를 분리한다.
+
 ### `ciel_runtime_support/upstream_retry.py`
 
 Provider 공통 JSON 요청, 직접 요청 및 OpenAI stream 요청의 retry transport를 소유한다. 재시도 정책, API-key rotation, rate-limit 관측, HTTP I/O를 별도 포트로 분리하며 각 포트는 7필드 이하로 제한한다.

@@ -123,6 +123,7 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "provider_policy.py",
             "provider_config_mutations.py",
             "openai_forwarding.py",
+            "response_collection.py",
         ):
             source = (support / filename).read_text(encoding="utf-8")
             with self.subTest(filename=filename):
