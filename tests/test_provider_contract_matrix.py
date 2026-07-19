@@ -193,6 +193,19 @@ class ProviderContractMatrixTests(unittest.TestCase):
             with self.subTest(provider=provider):
                 self.assertEqual(expected_kind, adapter.status_policy(config(provider)).kind)
 
+    def test_unreachable_launch_guidance_is_provider_owned(self):
+        cases = {
+            "lm-studio": "LM Studio's Local Server",
+            "ollama": "Start Ollama",
+            "ollama-cloud": "Start Ollama",
+            "self-hosted-nim": "Start NIM",
+            "vllm": "vLLM must be reachable",
+        }
+        for provider, expected_text in cases.items():
+            adapter = PROVIDER_ADAPTERS.create(provider)
+            with self.subTest(provider=provider):
+                self.assertIn(expected_text, adapter.status_policy(config(provider)).unreachable_hint)
+
     def test_api_key_status_is_provider_owned(self):
         cases = {
             "anthropic": "Claude login",

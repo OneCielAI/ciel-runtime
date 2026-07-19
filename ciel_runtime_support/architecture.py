@@ -173,6 +173,7 @@ class ProviderStatusPolicy:
     catalog_count_key: Literal["data", "models"] = "data"
     catalog_scope: Literal["configured", "fireworks_management"] = "configured"
     catalog_count_label: str = "models"
+    unreachable_hint: str = "Set a reachable Base URL before launching Claude Code."
 
 
 class RuntimeAdapter(ABC):

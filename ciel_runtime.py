@@ -23307,20 +23307,12 @@ def launch_readiness_errors(cfg: dict[str, Any] | None = None) -> list[str]:
     status = base_url_status_line(provider, pcfg)
     low = status.lower()
     errors: list[str] = []
+    adapter = configured_provider_adapter(provider, pcfg)
+    contract_config = provider_contract_config(provider, pcfg)
     if any(marker in low for marker in ("unreachable", "placeholder", "missing")):
         errors.append(f"Launch blocked: {status}")
-        if provider == "vllm":
-            errors.append("vLLM must be reachable from this machine and expose Anthropic-compatible /v1/messages.")
-        elif provider in ("ollama", "ollama-cloud"):
-            errors.append("Start Ollama or set a reachable Base URL before launching Claude Code.")
-        elif provider == "self-hosted-nim":
-            errors.append("Start NIM or set a reachable Anthropic-compatible Base URL before launching Claude Code.")
-        elif provider == "lm-studio":
-            errors.append("Start LM Studio's Local Server or set a reachable Anthropic-compatible Base URL before launching Claude Code.")
-        else:
-            errors.append("Set a reachable Base URL before launching Claude Code.")
-    adapter = configured_provider_adapter(provider, pcfg)
-    api_key_error = adapter.launch_api_key_error(provider_contract_config(provider, pcfg))
+        errors.append(adapter.status_policy(contract_config).unreachable_hint)
+    api_key_error = adapter.launch_api_key_error(contract_config)
     if api_key_error:
         errors.append(api_key_error)
     if claude_code_ultracode_enabled(provider, pcfg):

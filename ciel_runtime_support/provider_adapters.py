@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import re
 from typing import Any, Mapping, Sequence
 from urllib.parse import quote
@@ -275,6 +275,13 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
         del config
         return ProviderConfigurationPolicy(mutation_strategy="ollama", uses_ollama_status=True)
 
+    def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
+        policy = super().status_policy(config)
+        return replace(
+            policy,
+            unreachable_hint="Start Ollama or set a reachable Base URL before launching Claude Code.",
+        )
+
 
 @dataclass(frozen=True)
 class OllamaCloudProviderAdapter(OllamaProviderAdapter):
@@ -320,6 +327,13 @@ class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
         del config
         return ("/api/v0/models", "/api/v1/models", "/v1/models", "/models")
 
+    def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
+        policy = super().status_policy(config)
+        return replace(
+            policy,
+            unreachable_hint="Start LM Studio's Local Server or set a reachable Anthropic-compatible Base URL before launching Claude Code.",
+        )
+
 
 @dataclass(frozen=True)
 class VllmProviderAdapter(OpenAICompatibleProviderAdapter):
@@ -333,6 +347,13 @@ class VllmProviderAdapter(OpenAICompatibleProviderAdapter):
             local=True,
         )
     )
+
+    def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
+        policy = super().status_policy(config)
+        return replace(
+            policy,
+            unreachable_hint="vLLM must be reachable from this machine and expose Anthropic-compatible /v1/messages.",
+        )
 
 
 @dataclass(frozen=True)
@@ -384,6 +405,13 @@ class SelfHostedNimProviderAdapter(OpenAICompatibleProviderAdapter):
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", local=True)
     )
+
+    def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
+        policy = super().status_policy(config)
+        return replace(
+            policy,
+            unreachable_hint="Start NIM or set a reachable Anthropic-compatible Base URL before launching Claude Code.",
+        )
 
 
 @dataclass(frozen=True)
