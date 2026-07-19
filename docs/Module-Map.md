@@ -341,6 +341,10 @@ Bearer/API-key 인증, 무인증 및 OpenAI-compatible protocol 선택을 제공
 
 Anthropic native/routed Adapter. Anthropic protocol, context hint, API-key 상태, built-in Advisor 안내와 native/routed UI 정책을 소유한다.
 
+### `ciel_runtime_support/anthropic_model_policy.py`
+
+Anthropic model family, context/output limit metadata, adaptive-thinking runtime hint, Claude Code capability inference와 registry 추천 preset을 소유하는 Provider Domain Policy. model registry와 launch 환경이 동일한 metadata 규칙을 공유한다.
+
 ### `ciel_runtime_support/providers/constants.py`
 
 Provider 모듈들이 공유하는 기본 endpoint와 Z.AI fallback catalog 상수. 메인 composition root나 Registry 구현에 의존하지 않는다.

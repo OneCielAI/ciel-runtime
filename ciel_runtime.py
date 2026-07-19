@@ -62,6 +62,7 @@ from ciel_runtime_support.anthropic_tool_turns import (
     AnthropicToolTurnServices,
     normalize_historical_anthropic_tool_turns,
 )
+from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
 from ciel_runtime_support.claude_router import (
     ClaudeRouter,
@@ -4043,139 +4044,28 @@ def model_cache_key(provider: str, pcfg: dict[str, Any]) -> str:
 
 
 def anthropic_model_family_from_id(model_id: str) -> str:
-    model = (model_id or "").strip().lower()
-    for family in ("fable", "mythos", "opus", "sonnet", "haiku"):
-        if re.search(rf"(?:^|-)claude-(?:\d+(?:-\d+){{0,2}}-)?{family}(?:-|$)", model) or f"-{family}-" in model:
-            return family
-    return "claude"
+    return anthropic_model_policy.model_family(model_id)
 
 
 def anthropic_model_limit_hints(model_id: str) -> dict[str, Any]:
-    model = (model_id or "").strip().lower()
-    family = anthropic_model_family_from_id(model)
-    # Keep provider limits as metadata, not launch defaults. The CLI default
-    # max_output_tokens below is intentionally lower for interactive safety.
-    if family in ("fable", "mythos"):
-        return {
-            "context_window": 1048576,
-            "max_output_tokens": 128000,
-            "source": "anthropic-models-overview-current-table",
-        }
-    if family == "opus" and re.search(r"(?:^|-)opus-4-[678](?:-|$)", model):
-        return {
-            "context_window": 1048576,
-            "max_output_tokens": 128000,
-            "source": "anthropic-models-overview-current-table",
-        }
-    if family == "sonnet" and re.search(r"(?:^|-)sonnet-4-6(?:-|$)", model):
-        return {
-            "context_window": 1048576,
-            "max_output_tokens": 64000,
-            "source": "anthropic-models-overview-current-table",
-        }
-    if family == "haiku" and re.search(r"(?:^|-)haiku-4-5(?:-|$)", model):
-        return {
-            "context_window": 200000,
-            "max_output_tokens": 64000,
-            "source": "anthropic-models-overview-current-table",
-        }
-    return {
-        "context_window": 200000,
-        "source": "anthropic-default-compatibility",
-    }
+    return anthropic_model_policy.limit_hints(model_id)
 
 
 def anthropic_model_runtime_hints(model_id: str) -> dict[str, Any]:
-    model = (model_id or "").strip().lower()
-    family = anthropic_model_family_from_id(model)
-    if family in ("fable", "mythos"):
-        return {
-            "claude_code_default_effort": "high",
-            "claude_code_max_effort": "xhigh",
-            "thinking_mode": "adaptive",
-            "extended_thinking": False,
-            "adaptive_thinking_always_on": True,
-            "unsupported_sampling_parameters": ["temperature", "top_p", "top_k"],
-            "source": "anthropic-models-overview-current-table",
-        }
-    if re.search(r"(?:^|-)opus-4-8(?:-|$)", model):
-        return {
-            "claude_code_default_effort": "high",
-            "claude_code_max_effort": "xhigh",
-            "thinking_mode": "adaptive",
-            "fast_mode": {
-                "available": True,
-                "preview": True,
-            },
-            "unsupported_sampling_parameters": ["temperature", "top_p", "top_k"],
-            "source": "anthropic-opus-4-8-launch-notes",
-        }
-    return {}
+    return anthropic_model_policy.runtime_hints(model_id)
 
 
-CLAUDE_CODE_SUPPORTED_CAPABILITY_VALUES: tuple[str, ...] = (
-    "effort",
-    "xhigh_effort",
-    "max_effort",
-    "thinking",
-    "adaptive_thinking",
-    "interleaved_thinking",
-)
+CLAUDE_CODE_SUPPORTED_CAPABILITY_VALUES = anthropic_model_policy.SUPPORTED_CAPABILITIES
 
 
 def normalize_claude_code_supported_capabilities(value: Any) -> list[str]:
-    if value is None or value is False:
-        return []
-    if isinstance(value, str):
-        raw_items = re.split(r"[,;\s]+", value.strip())
-    elif isinstance(value, (list, tuple, set)):
-        raw_items = [str(item) for item in value]
-    else:
-        raw_items = [str(value)]
-    allowed = set(CLAUDE_CODE_SUPPORTED_CAPABILITY_VALUES)
-    out: list[str] = []
-    seen: set[str] = set()
-    for raw in raw_items:
-        item = str(raw or "").strip().lower().replace("-", "_")
-        if not item:
-            continue
-        if item not in allowed:
-            continue
-        if item in seen:
-            continue
-        seen.add(item)
-        out.append(item)
-    return out
+    return anthropic_model_policy.normalize_capabilities(value)
 
 
 def infer_claude_code_supported_capabilities_from_model(model_id: str) -> list[str]:
-    model = strip_claude_context_suffix(model_id).strip().lower()
-    if re.search(r"(?:^|-)claude-(?:fable|mythos)(?:-|$)", model):
-        return [
-            "effort",
-            "xhigh_effort",
-            "max_effort",
-            "thinking",
-            "adaptive_thinking",
-        ]
-    if re.search(r"(?:^|-)opus-4-[78](?:-|$)", model):
-        return [
-            "effort",
-            "xhigh_effort",
-            "max_effort",
-            "thinking",
-            "adaptive_thinking",
-            "interleaved_thinking",
-        ]
-    if re.search(r"(?:^|-)(?:opus-4-6|sonnet-4-6)(?:-|$)", model):
-        return [
-            "effort",
-            "max_effort",
-            "thinking",
-            "adaptive_thinking",
-            "interleaved_thinking",
-        ]
-    return []
+    return anthropic_model_policy.infer_capabilities(model_id, strip_claude_context_suffix)
+
+
 
 
 def claude_code_supported_capabilities(provider: str, pcfg: dict[str, Any], model_id: str | None = None) -> list[str]:
@@ -4208,35 +4098,17 @@ def claude_code_ultracode_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
 
 
 def anthropic_recommended_preset_for_model(model_id: str) -> str:
-    if anthropic_model_family_from_id(model_id) == "haiku":
-        return "fast"
-    return "balanced"
+    return anthropic_model_policy.recommended_preset(model_id)
 
 
 def model_registry_recommendations(provider: str, models: list[str]) -> dict[str, Any]:
-    recommendations: dict[str, Any] = {}
-    for model_id in unique_model_ids(provider, models):
-        if provider != "anthropic":
-            continue
-        preset_id = anthropic_recommended_preset_for_model(model_id)
-        timeout_ms = llm_preset_timeout_ms(preset_id)
-        recommendations[model_id] = {
-            "schema": 1,
-            "model_family": anthropic_model_family_from_id(model_id),
-            "recommended_preset": preset_id,
-            "parameters": {
-                "max_output_tokens": 2048 if preset_id == "fast" else 4096,
-                "request_timeout_ms": timeout_ms,
-                "stream_idle_timeout_ms": timeout_profile_idle_ms(timeout_ms),
-            },
-            "limits": anthropic_model_limit_hints(model_id),
-            "runtime": anthropic_model_runtime_hints(model_id),
-            "notes": [
-                "Native Claude Code manages the real context window; ciel-runtime stores context limits as model metadata only.",
-                "Recommended max_output_tokens is intentionally lower than the provider hard limit for interactive CLI use.",
-            ],
-        }
-    return recommendations
+    return anthropic_model_policy.AnthropicModelRecommendations(
+        unique_model_ids,
+        llm_preset_timeout_ms,
+        timeout_profile_idle_ms,
+    ).build(provider, models)
+
+
 
 
 def model_registry_repository() -> ModelRegistryRepository:
