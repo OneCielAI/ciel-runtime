@@ -17,6 +17,11 @@ from ciel_runtime_support.architecture import (
     ToolDialect,
 )
 from ciel_runtime_support.anthropic_tool_turns import AnthropicToolTurnServices
+from ciel_runtime_support.advisor_policy import (
+    AdvisorDecisionServices,
+    AdvisorServices,
+    AdvisorTextServices,
+)
 from ciel_runtime_support.cli_dispatch import (
     CliChannelCommands,
     CliConfiguration,
@@ -890,6 +895,31 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_advisor_policy_ports_stay_below_dependency_limit(self):
+        for port in (AdvisorTextServices, AdvisorDecisionServices, AdvisorServices):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_advisor_tool_stripping_has_no_provider_name_branch(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        function = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "strip_autonomous_advisor_server_tools"
+        )
+        comparisons = [
+            node.lineno
+            for node in ast.walk(function)
+            if isinstance(node, ast.Compare)
+            and any(
+                isinstance(item, ast.Name) and item.id == "provider"
+                for item in (node.left, *node.comparators)
+            )
+        ]
+        self.assertEqual([], comparisons)
 
     def test_provider_readiness_ports_stay_below_dependency_limit(self):
         for port in (

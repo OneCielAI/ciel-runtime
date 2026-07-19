@@ -41,6 +41,24 @@ from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, Iterable
 
 from ciel_runtime_support.agent_router import missing_common_capabilities, router_capability_matrix
+from ciel_runtime_support.advisor_policy import (
+    AdvisorDecisionServices,
+    AdvisorServices,
+    AdvisorTextServices,
+    advisor_focus_for_message as project_advisor_focus,
+    advisor_gate_reason_for_body as project_advisor_gate_reason,
+    advisor_messages_and_system as project_advisor_messages_and_system,
+    advisor_tool_focus_from_message as project_advisor_tool_focus,
+    advisor_tool_schema as project_advisor_tool_schema,
+    advisor_trigger_for_message as project_advisor_trigger,
+    anthropic_message_tool_names as project_anthropic_message_tool_names,
+    assistant_tool_call_summary_for_prompt as project_assistant_tool_summary,
+    body_has_advisor_feedback as project_body_has_advisor_feedback,
+    body_with_advisor_tool as project_body_with_advisor_tool,
+    is_claude_code_advisor_server_tool as project_is_advisor_server_tool,
+    strip_autonomous_advisor_server_tools as project_strip_advisor_server_tools,
+    tool_review_context_from_message as project_tool_review_context,
+)
 from ciel_runtime_support.architecture import LaunchSpec, MessageProtocol, ProviderConfig, RuntimeConfig
 from ciel_runtime_support.anthropic_tool_turns import (
     AnthropicToolTurnServices,
@@ -11490,209 +11508,77 @@ def normalize_request_for_provider_wire(provider: str, pcfg: dict[str, Any], bod
     )
 
 
+def advisor_services() -> AdvisorServices:
+    return AdvisorServices(
+        text=AdvisorTextServices(
+            content_to_text=anthropic_content_to_text,
+            tool_input_for_prompt=tool_input_for_prompt,
+        ),
+        decisions=AdvisorDecisionServices(
+            advisor_enabled=advisor_model_enabled,
+            is_advisor_request=is_advisor_request,
+            completed_work=latest_tool_result_indicates_completed_work,
+            non_actionable_response=non_actionable_short_response,
+            plan_mode_active=plan_mode_active,
+            provider_supported=advisor_provider_supported,
+        ),
+        log=router_log,
+        feedback_marker=ADVISOR_FEEDBACK_MARKER,
+    )
+
+
 def anthropic_advisor_messages_and_system(body: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str]]:
-    messages: list[dict[str, Any]] = []
-    system_texts: list[str] = []
-    for message in body.get("messages", []) or []:
-        if not isinstance(message, dict):
-            continue
-        role = str(message.get("role") or "").strip()
-        if role == "system":
-            text = anthropic_content_to_text(message.get("content")).strip()
-            if text:
-                system_texts.append(text)
-            continue
-        if role in ("user", "assistant"):
-            messages.append(message)
-            continue
-        text = anthropic_content_to_text(message.get("content")).strip()
-        if text:
-            messages.append({
-                "role": "user",
-                "content": [{"type": "text", "text": f"[{role or 'unknown'} message]\n{text}"}],
-            })
-    return messages, system_texts
+    return project_advisor_messages_and_system(body, advisor_services())
 
 
 def advisor_tool_schema() -> dict[str, Any]:
-    return {
-        "name": "advisor",
-        "description": (
-            "Consult a second, stronger advisor model for an independent review before you make an important "
-            "plan, architecture, debugging, or final-completion decision. Use this when additional scrutiny could "
-            "catch gaps, risks, or better next steps."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "question": {
-                    "type": "string",
-                    "description": "The specific decision, plan, code path, or risk you want the advisor to review.",
-                }
-            },
-            "required": ["question"],
-        },
-    }
+    return project_advisor_tool_schema()
 
 
 def body_with_advisor_tool(body: dict[str, Any], pcfg: dict[str, Any]) -> dict[str, Any]:
-    if not advisor_model_enabled(pcfg):
-        return body
-    tools = body.get("tools")
-    if not isinstance(tools, list):
-        tools = []
-    if any(isinstance(tool, dict) and str(tool.get("name") or "") == "advisor" for tool in tools):
-        return body
-    out = dict(body)
-    out["tools"] = [*tools, advisor_tool_schema()]
-    return out
+    return project_body_with_advisor_tool(body, pcfg, advisor_services())
 
 
 def is_claude_code_advisor_server_tool(tool: Any) -> bool:
-    if not isinstance(tool, dict):
-        return False
-    name = str(tool.get("name") or "")
-    tool_type = str(tool.get("type") or "")
-    return name == "advisor" and tool_type.startswith("advisor_")
+    return project_is_advisor_server_tool(tool)
 
 
 def strip_autonomous_advisor_server_tools(provider: str, body: dict[str, Any]) -> dict[str, Any]:
-    """Remove Claude Code's advisor server tool for non-Anthropic backends.
-
-    The ``advisor_...`` server tool is executed by the Anthropic API; other
-    backends cannot run it, so leaving it exposed on routed turns produces
-    ``advisor_tool_result`` / ``too_many_requests`` errors. The anthropic
-    provider passes through untouched: Claude Code's built-in /advisor flow
-    (model picker + server tool) is the standard process in Claude native and
-    Anthropic routed modes and must keep working.
-    """
-    if provider == "anthropic":
-        return body
-    if is_advisor_request(body) or body_has_advisor_feedback(body):
-        return body
-    tools = body.get("tools")
-    if not isinstance(tools, list) or not tools:
-        return body
-    kept = [tool for tool in tools if not is_claude_code_advisor_server_tool(tool)]
-    removed = len(tools) - len(kept)
-    if not removed:
-        return body
-    out = dict(body)
-    out["tools"] = kept
-    router_log("INFO", f"stripped autonomous advisor server tool count={removed}")
-    return out
+    adapter = PROVIDER_ADAPTERS.create(provider)
+    provider_config = ProviderConfig(name=provider, base_url='', model='')
+    return project_strip_advisor_server_tools(
+        body,
+        advisor_services(),
+        server_tool_supported=adapter.supports_server_advisor_tool(provider_config),
+    )
 
 
 def advisor_tool_focus_from_message(message: dict[str, Any]) -> str | None:
-    content = message.get("content")
-    if not isinstance(content, list):
-        return None
-    for block in content:
-        if not isinstance(block, dict) or block.get("type") != "tool_use":
-            continue
-        if str(block.get("name") or "") != "advisor":
-            continue
-        tool_input = block.get("input")
-        if isinstance(tool_input, dict):
-            for key in ("question", "prompt", "focus", "task"):
-                value = tool_input.get(key)
-                if isinstance(value, str) and value.strip():
-                    return value.strip()
-        return "advisor tool call"
-    return None
+    return project_advisor_tool_focus(message)
 
 
 def tool_review_context_from_message(message: dict[str, Any], trigger: str) -> str:
-    content = message.get("content")
-    if not isinstance(content, list):
-        return ""
-    sections: list[str] = []
-    for block in content:
-        if not isinstance(block, dict) or block.get("type") != "tool_use":
-            continue
-        name = str(block.get("name") or "").strip()
-        if not name:
-            continue
-        if name == "advisor":
-            continue
-        tool_input = block.get("input")
-        input_text = tool_input_for_prompt(tool_input)
-        if name == "ExitPlanMode":
-            sections.append(
-                "Review target: ExitPlanMode plan before user approval.\n"
-                "The executor is about to submit this plan. Review the actual plan/tool input below.\n"
-                f"Tool input:\n{input_text}"
-            )
-        elif trigger:
-            sections.append(f"Review target tool: {name} ({trigger}).\nTool input:\n{input_text}")
-    return "\n\n".join(sections)
+    return project_tool_review_context(message, trigger, advisor_services())
 
 
 def advisor_focus_for_message(message: dict[str, Any], trigger: str | None) -> tuple[str | None, str | None]:
-    explicit_focus = advisor_tool_focus_from_message(message)
-    if explicit_focus:
-        return "advisor tool call", explicit_focus
-    if not trigger:
-        return None, None
-    review_context = tool_review_context_from_message(message, trigger)
-    if review_context:
-        return trigger, review_context
-    return trigger, trigger
+    return project_advisor_focus(message, trigger, advisor_services())
 
 
 def assistant_tool_call_summary_for_prompt(message: dict[str, Any]) -> str:
-    content = message.get("content")
-    if not isinstance(content, list):
-        return ""
-    sections: list[str] = []
-    for block in content:
-        if not isinstance(block, dict) or block.get("type") != "tool_use":
-            continue
-        name = str(block.get("name") or "tool").strip() or "tool"
-        if name == "advisor":
-            continue
-        sections.append(f"Pending Claude Code tool call: {name}\nTool input:\n{tool_input_for_prompt(block.get('input'))}")
-    return "\n\n".join(sections)
+    return project_assistant_tool_summary(message, advisor_services())
 
 
 def body_has_advisor_feedback(body: dict[str, Any]) -> bool:
-    for message in reversed(body.get("messages") or []):
-        if not isinstance(message, dict):
-            continue
-        text = anthropic_content_to_text(message.get("content"))
-        if ADVISOR_FEEDBACK_MARKER in text:
-            return True
-    return False
+    return project_body_has_advisor_feedback(body, advisor_services())
 
 
 def anthropic_message_tool_names(message: dict[str, Any]) -> list[str]:
-    names: list[str] = []
-    content = message.get("content")
-    if not isinstance(content, list):
-        return names
-    for block in content:
-        if isinstance(block, dict) and block.get("type") == "tool_use":
-            name = block.get("name")
-            if isinstance(name, str) and name:
-                names.append(name)
-    return names
+    return project_anthropic_message_tool_names(message)
 
 
 def advisor_trigger_for_message(body: dict[str, Any], message: dict[str, Any]) -> str | None:
-    names = set(anthropic_message_tool_names(message))
-    if "ExitPlanMode" in names:
-        return "before ExitPlanMode plan approval"
-    if names:
-        return None
-    text = anthropic_content_to_text(message.get("content")).strip()
-    if (
-        text
-        and message.get("stop_reason") == "end_turn"
-        and latest_tool_result_indicates_completed_work(body)
-        and not non_actionable_short_response(text)
-    ):
-        return "before completion/final response"
-    return None
+    return project_advisor_trigger(body, message, advisor_services())
 
 
 def advisor_gate_possible_for_body(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> bool:
@@ -11700,19 +11586,7 @@ def advisor_gate_possible_for_body(provider: str, pcfg: dict[str, Any], body: di
 
 
 def advisor_gate_reason_for_body(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> str:
-    if not advisor_model_enabled(pcfg) or not advisor_provider_supported(provider):
-        return ""
-    if is_advisor_request(body) or body_has_advisor_feedback(body):
-        return ""
-    if plan_mode_active(body):
-        return "plan_mode"
-    if latest_tool_result_indicates_completed_work(body):
-        return "completed_work"
-    return ""
-
-
-
-
+    return project_advisor_gate_reason(provider, pcfg, body, advisor_services())
 
 
 READ_UNCHANGED_RESULT_RE = re.compile(

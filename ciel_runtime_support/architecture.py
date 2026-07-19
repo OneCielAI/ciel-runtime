@@ -361,6 +361,12 @@ class ProviderAdapter(ABC):
         del config, model
         return ""
 
+    def supports_server_advisor_tool(self, config: ProviderConfig) -> bool:
+        """Whether the upstream executes Claude's server-side advisor tool."""
+
+        del config
+        return False
+
     def advisor_panel_notice(self, config: ProviderConfig) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
         """Return a provider-owned advisor panel replacement, when applicable."""
 

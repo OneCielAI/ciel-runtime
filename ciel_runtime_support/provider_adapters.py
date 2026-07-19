@@ -203,6 +203,10 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         del config
         return ProviderConfigurationPolicy(supports_route_through_router=True)
 
+    def supports_server_advisor_tool(self, config: ProviderConfig) -> bool:
+        del config
+        return True
+
     def api_key_status(self, config: ProviderConfig, *, key_count: int, primary_detail: str) -> str:
         routed = bool(config.options.get("route_through_router"))
         scope = "Anthropic routed" if routed else "Anthropic"

@@ -60,6 +60,10 @@ HTTP parsing과 GET/POST/HEAD/DELETE endpoint dispatch를 담당하는 Router Ad
 
 잘린 대화 기록의 짝 없는 Anthropic `tool_use`/`tool_result`를 안전한 text block으로 내리는 Protocol Normalization Service. 적용 여부는 provider 이름 비교가 아니라 adapter의 `ProviderRequestPolicy.normalize_historical_tool_turns`로 결정한다.
 
+### `ciel_runtime_support/advisor_policy.py`
+
+Advisor tool schema, message/system projection, review focus·trigger·gate와 server-side advisor tool 제거를 담당하는 Application Policy. 텍스트와 의사결정 포트를 각각 6필드 이하로 나누며, server tool 지원 여부는 `ProviderAdapter.supports_server_advisor_tool` capability로 받아 provider 이름을 비교하지 않는다.
+
 ### `ciel_runtime_support/channel_injection.py`
 
 대화형 CLI 메시지 주입 계층:
