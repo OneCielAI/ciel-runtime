@@ -207,6 +207,9 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         del config
         return True
 
+    def context_compaction_available(self, config: ProviderConfig) -> bool:
+        return bool(config.api_keys)
+
     def api_key_status(self, config: ProviderConfig, *, key_count: int, primary_detail: str) -> str:
         routed = bool(config.options.get("route_through_router"))
         scope = "Anthropic routed" if routed else "Anthropic"

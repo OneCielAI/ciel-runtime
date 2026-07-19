@@ -277,6 +277,12 @@ from ciel_runtime_support.prompt_compaction import (
     PromptCompactionServices,
     PromptCompactionText,
 )
+from ciel_runtime_support.context_compaction import (
+    ContextCompactionProjection,
+    ContextCompactionServices,
+    ContextCompactionTransport,
+    ContextCompactionWorkflow,
+)
 from ciel_runtime_support.runtime_launch import (
     AgyLaunchChannel,
     AgyLaunchCliPolicy,
@@ -938,6 +944,22 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_prompt_compaction_does_not_dispatch_on_provider_names(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "prompt_compaction.py"
+        source = source_path.read_text(encoding="utf-8")
+        self.assertNotIn('provider == "', source)
+        self.assertNotIn("provider in (", source)
+
+    def test_context_compaction_ports_stay_below_dependency_limit(self):
+        for port in (
+            ContextCompactionTransport,
+            ContextCompactionWorkflow,
+            ContextCompactionProjection,
+            ContextCompactionServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_context_compaction_does_not_dispatch_on_provider_names(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "context_compaction.py"
         source = source_path.read_text(encoding="utf-8")
         self.assertNotIn('provider == "', source)
         self.assertNotIn("provider in (", source)

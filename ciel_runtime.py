@@ -205,6 +205,14 @@ from ciel_runtime_support.config_migrations import (
     ConfigMigrationPolicy,
     apply_config_migrations as run_config_migrations,
 )
+from ciel_runtime_support.context_compaction import (
+    ContextCompactionProjection,
+    ContextCompactionServices,
+    ContextCompactionTransport,
+    ContextCompactionWorkflow,
+    build_llm_compacted_messages,
+    request_context_summary,
+)
 from ciel_runtime_support.tool_guard_hooks import (
     ToolGuardHookPolicy,
     ToolGuardHookServices,
@@ -10837,6 +10845,47 @@ def context_compact_extract_text(data: Any, wire: str) -> str:
     return ""
 
 
+def context_compaction_available(provider: str, pcfg: dict[str, Any]) -> bool:
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.context_compaction_available(provider_contract_config(provider, pcfg))
+
+
+def context_compaction_services() -> ContextCompactionServices:
+    return ContextCompactionServices(
+        transport=ContextCompactionTransport(
+            summary_output_tokens=context_compact_summary_output_tokens,
+            request_timeout=provider_request_timeout_seconds,
+            endpoint=provider_endpoint,
+            post_json=post_json_with_rate_retry,
+            headers=provider_headers,
+            extract_text=context_compact_extract_text,
+            native_compat_enabled=provider_native_compat_enabled,
+            native_anthropic_base=native_anthropic_base_url,
+            upstream_base=provider_upstream_request_base,
+            join_url=join_url,
+        ),
+        workflow=ContextCompactionWorkflow(
+            parse_bool=parse_bool,
+            compaction_available=context_compaction_available,
+            instruction_index=context_compact_instruction_index,
+            content_to_text=anthropic_content_to_text,
+            chunk_target_tokens=context_compact_chunk_target_tokens,
+            split_messages=split_messages_for_context_compact,
+            parallel_sessions=context_compact_parallel_sessions,
+            write_activity=write_context_compact_activity,
+            estimate_tokens=estimate_tokens,
+            request_summary=context_compact_request_summary,
+        ),
+        projection=ContextCompactionProjection(
+            build_chunk_prompt=build_context_compact_chunk_prompt,
+            build_fallback_summary=build_chunked_context_guard_summary,
+            build_reduce_prompt=build_context_compact_reduce_prompt,
+            log=router_log,
+        ),
+        map_system_prompt=CONTEXT_COMPACT_MAP_SYSTEM_PROMPT,
+    )
+
+
 def context_compact_request_summary(
     provider: str,
     model: str,
@@ -10846,75 +10895,15 @@ def context_compact_request_summary(
     wire: str,
     budget_tokens: int,
 ) -> str:
-    max_tokens = context_compact_summary_output_tokens(pcfg, budget_tokens)
-    timeout = provider_request_timeout_seconds(pcfg)
-    if wire == "ollama":
-        req: dict[str, Any] = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": CONTEXT_COMPACT_MAP_SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            "stream": False,
-            "think": False,
-            "options": {"num_predict": max_tokens},
-        }
-        if pcfg.get("keep_alive"):
-            req["keep_alive"] = str(pcfg["keep_alive"])
-        url = provider_endpoint(provider, pcfg, "ollama_chat")
-        data = post_json_with_rate_retry(
-            url,
-            req,
-            provider_headers(provider, pcfg),
-            timeout,
-            provider,
-            pcfg,
-            model,
-            retry_rate_limits=True,
-        )
-        return context_compact_extract_text(data, wire)
-    if wire == "openai":
-        req = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": CONTEXT_COMPACT_MAP_SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            "stream": False,
-            "max_tokens": max_tokens,
-        }
-        url = provider_endpoint(provider, pcfg, "openai_chat")
-        data = post_json_with_rate_retry(
-            url,
-            req,
-            provider_headers(provider, pcfg),
-            timeout,
-            provider,
-            pcfg,
-            model,
-            retry_rate_limits=True,
-        )
-        return context_compact_extract_text(data, wire)
-    req = {
-        "model": model,
-        "system": CONTEXT_COMPACT_MAP_SYSTEM_PROMPT,
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": max_tokens,
-        "stream": False,
-    }
-    base = native_anthropic_base_url(provider, pcfg) if provider_native_compat_enabled(provider, pcfg) else provider_upstream_request_base(provider, pcfg)
-    url = join_url(base, "/v1/messages")
-    data = post_json_with_rate_retry(
-        url,
-        req,
-        provider_headers(provider, pcfg),
-        timeout,
+    return request_context_summary(
         provider,
-        pcfg,
         model,
-        retry_rate_limits=True,
+        pcfg,
+        prompt,
+        context_compaction_services(),
+        wire=wire,
+        budget_tokens=budget_tokens,
     )
-    return context_compact_extract_text(data, "anthropic")
 
 
 def build_context_compact_reduce_prompt(
@@ -10953,83 +10942,15 @@ def maybe_build_llm_compacted_messages(
     *,
     wire: str,
 ) -> list[dict[str, Any]] | None:
-    if not pcfg or not messages:
-        return None
-    if parse_bool(pcfg.get("context_compact_llm"), default=True) is False:
-        return None
-    if provider == "anthropic" and not meaningful_key(str(provider_primary_api_key(provider, pcfg) or "")):
-        return None
-    instruction_idx = context_compact_instruction_index(messages)
-    if instruction_idx is None:
-        return None
-    compact_instruction = anthropic_content_to_text(messages[instruction_idx].get("content"))
-    history = [message for idx, message in enumerate(messages) if idx != instruction_idx and str(message.get("role") or "") != "system"]
-    system_messages = [message for message in messages if str(message.get("role") or "") == "system"]
-    if not history:
-        return None
-    target_tokens = context_compact_chunk_target_tokens(pcfg, budget_tokens)
-    chunks = split_messages_for_context_compact(history, target_tokens)
-    if not chunks:
-        return None
-    parallel_sessions = context_compact_parallel_sessions(pcfg, len(chunks))
-    write_context_compact_activity(
-        provider or "provider",
+    return build_llm_compacted_messages(
+        provider,
         model,
-        chunks=len(chunks),
-        parallel_sessions=parallel_sessions,
-        tokens=estimate_tokens({"messages": messages}),
-        final_tokens=0,
-        budget=budget_tokens,
-        phase="map",
-        completed_chunks=0,
+        pcfg,
+        messages,
+        budget_tokens,
+        context_compaction_services(),
+        wire=wire,
     )
-    summaries: list[str] = []
-    for chunk_no, (start, chunk) in enumerate(chunks, start=1):
-        prompt = build_context_compact_chunk_prompt(chunk, start, chunk_no, len(chunks))
-        try:
-            summary = context_compact_request_summary(provider, model, pcfg, prompt, wire=wire, budget_tokens=budget_tokens)
-        except Exception as exc:
-            router_log("WARN", f"context_compact_chunk_failed provider={provider} model={model} chunk={chunk_no}/{len(chunks)} error={type(exc).__name__}: {exc}")
-            summary = build_chunked_context_guard_summary(chunk, target_tokens, start_index=start)
-        if not summary.strip():
-            summary = build_chunked_context_guard_summary(chunk, target_tokens, start_index=start)
-        summaries.append(summary.strip())
-        write_context_compact_activity(
-            provider or "provider",
-            model,
-            chunks=len(chunks),
-            parallel_sessions=parallel_sessions,
-            tokens=estimate_tokens({"messages": messages}),
-            final_tokens=sum(estimate_tokens(item) for item in summaries),
-            budget=budget_tokens,
-            phase="map",
-            completed_chunks=chunk_no,
-        )
-    reduce_prompt = build_context_compact_reduce_prompt(
-        summaries,
-        compact_instruction,
-        budget_tokens=budget_tokens,
-        source_message_count=len(history),
-    )
-    out = list(system_messages)
-    out.append({"role": "user", "content": reduce_prompt})
-    router_log(
-        "WARN",
-        f"context_compact_map_reduce provider={provider} model={model} chunks={len(chunks)} messages {len(messages)}->{len(out)} tokens {estimate_tokens({'messages': messages})}->{estimate_tokens({'messages': out})} budget={budget_tokens}",
-    )
-    write_context_compact_activity(
-        provider or "provider",
-        model,
-        chunks=len(chunks),
-        parallel_sessions=parallel_sessions,
-        tokens=estimate_tokens({"messages": messages}),
-        final_tokens=estimate_tokens({"messages": out}),
-        budget=budget_tokens,
-        phase="reduce",
-        completed_chunks=len(chunks),
-        retained_messages=len(out),
-    )
-    return out
 
 
 def latest_user_text_has_marker(body: dict[str, Any], markers: tuple[str, ...]) -> bool:

@@ -367,6 +367,12 @@ class ProviderAdapter(ABC):
         del config
         return False
 
+    def context_compaction_available(self, config: ProviderConfig) -> bool:
+        """Whether this configured provider can run an auxiliary summary request."""
+
+        del config
+        return True
+
     def advisor_panel_notice(self, config: ProviderConfig) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
         """Return a provider-owned advisor panel replacement, when applicable."""
 

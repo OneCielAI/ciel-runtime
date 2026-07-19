@@ -277,6 +277,10 @@ native launch 우회, Base URL·API-key 차단, ultracode capability 및 Provide
 
 Provider context budget을 넘는 Anthropic 및 Ollama/OpenAI chat history를 tool-result 경계가 안전한 tail, hard-cap, 분산 요약으로 축약하는 Prompt Compaction Service. 텍스트 projection과 token/LLM/runtime 관측 포트를 분리하고 wire 형식은 호출 Strategy가 명시한다.
 
+### `ciel_runtime_support/context_compaction.py`
+
+보조 요약 요청과 map/reduce 컨텍스트 축약을 조정하는 Context Compaction Application Service. 요약 가능 여부는 Provider Adapter capability로 판단하고, 전송·워크플로·projection을 각각 10필드 이하 포트로 분리하며 Provider 이름에는 의존하지 않는다.
+
 ### `ciel_runtime_support/runtime_adapters.py`
 
 정규화된 `LaunchSpec`을 최종 `RuntimeCommand`로 변환하는 실제 CLI 런타임 어댑터.
