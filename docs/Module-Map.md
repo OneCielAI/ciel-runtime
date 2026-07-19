@@ -165,6 +165,30 @@ Statusline script 설치와 Claude `statusLine` 설정 mutation을 담당하는 
 
 Anthropic message/tool block 요약과 request/response JSONL trace 저장·회전을 담당하는 Observability Adapter. trace 활성화·경로·용량 정책과 content projection을 작은 포트로 분리하고, 저장 실패를 더 이상 숨기지 않고 진단 로그로 노출한다.
 
+### `ciel_runtime_support/prompt_injection.py`
+
+Protocol Strategy Registry. Anthropic/OpenAI Chat/OpenAI Responses/Ollama/Google 요청의 system context 배치 차이를 캡슐화하고 입력 객체와 Anthropic cache-control identity block을 보존한다.
+
+### `ciel_runtime_support/provider_descriptor.py`
+
+Provider 이름, 표시명, alias와 concrete Adapter factory를 정의하는 data-driven discovery Registry. 동작 정책은 descriptor가 아니라 concrete Provider Adapter가 소유한다.
+
+### `ciel_runtime_support/credentials.py`
+
+API-key 파싱·중복 제거·ProviderConfig 투영과 inbound OAuth header pass-through를 담당하는 Credential Application Service. `CredentialChain`은 인증 소스 우선순위를, source 구현은 allowlist와 header 투영을 소유한다.
+
+### `ciel_runtime_support/routing_fallback.py`
+
+실패 원인별 provider/model 후보를 중복 없이 계산하는 순수 Fallback Policy. 네트워크 호출과 retry state를 포함하지 않아 기존 upstream retry 및 key cooldown 계층과 독립적이다.
+
+### `ciel_runtime_support/usage_events.py`
+
+Provider 중립 `UsageEvent`, sink Port, bounded JSONL Adapter와 집계 함수를 제공한다. token 수 외의 prompt·credential 내용은 저장하지 않는다.
+
+### `ciel_runtime_support/ui_text.py`
+
+다국어 prelaunch label과 provider guidance 데이터. composition root와 UI controller에서 정적 번역 데이터를 분리한다.
+
 ### `ciel_runtime_support/process_control.py`
 
 Windows CIM/taskkill과 POSIX ps/signal 기반 프로세스 검색·종료를 캡슐화하는 Runtime Infrastructure Adapter. Query, Inspection, Signal 포트를 분리하며 명령행·환경·cwd 조회와 TERM/KILL, taskkill 실패를 구조화된 경고로 노출한다.

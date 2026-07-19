@@ -15,6 +15,10 @@
 | **Tool Dialect** | 런타임별 툴 이름 및 수정 | — |
 | **Runtime Router** | 런타임별 HTTP 경로와 라우터 기능 소유 | 다른 런타임의 경로 직접 처리 금지 |
 | **Channel Injection** | 런타임 입력 정책과 터미널 전송 조정 | SSE/MCP 수집, cursor 저장, subprocess 생명주기 금지 |
+| **Credential Source** | API key, inbound OAuth, 향후 계정 저장소의 인증 해석 | provider wire 변환 및 retry 금지 |
+| **Prompt Strategy** | protocol별 system context 배치와 원본 불변성 보장 | provider 이름 분기 금지 |
+| **Fallback Policy** | 실패 원인별 provider/model 후보 계획 | HTTP 실행 및 credential 접근 금지 |
+| **Usage Sink** | provider 중립 token usage event 저장·집계 | prompt/credential 저장 금지 |
 
 ---
 
@@ -181,6 +185,11 @@ class RateLimitState:
 아키텍처 계약은 테스트용 모델에 머무르지 않고 운영 경로의 composition root에서 실제로 적용된다.
 
 - `ciel_runtime_support/provider_adapters.py`는 Anthropic, Ollama, OpenRouter, LM Studio, vLLM, NVIDIA NIM, DeepSeek, Kimi, Z.AI, Fireworks, OpenCode 등 Provider별 구체 Adapter를 Registry에 등록한다. `HttpBearerProviderAdapter`는 이들의 공통 인증 기반일 뿐 Provider 선택 단위가 아니다.
+- `provider_descriptor.py`는 provider 이름·표시명·별칭·구체 Adapter 타입의 단일 등록 원천이다. 단순 provider는 descriptor 데이터만 추가하고, 복잡한 protocol/OAuth 동작은 계속 전용 Adapter에 둔다.
+- `prompt_injection.py`는 Anthropic Messages, OpenAI Chat/Responses, Ollama Chat, Google Generative의 system prompt 배치를 Strategy로 분리한다. Anthropic의 첫 identity/cache block 순서는 변경하지 않는다.
+- `credentials.py`는 API key와 inbound OAuth header를 Chain of Responsibility로 해석한다. allowlist 밖의 cookie/secret header는 전달하지 않으며 OAuth token 발급·갱신은 향후 별도 infrastructure adapter가 구현한다.
+- `routing_fallback.py`는 rate limit, unavailable, timeout, model error별 immutable 후보 계획만 담당한다. 기존 `upstream_retry.py`와 API-key cooldown이 transport 실행을 계속 소유하므로 정책과 재시도 효과가 섞이지 않는다.
+- `usage_events.py`는 token usage를 prompt나 key 없이 JSONL로 기록하는 Port/Adapter다. UI 또는 특정 database에 결합하지 않아 analytics backend를 교체할 수 있다.
 - wire profile, thinking passback 및 tool-choice 정책은 Provider 이름 조건문 대신 구체 Adapter의 protocol/capability 메서드를 사용한다. Kimi·Fireworks의 dual protocol과 OpenCode의 모델별 endpoint도 Adapter가 선택한다.
 - 모델 조회 Application Service는 Provider 이름을 분기하지 않고 Adapter의 `ProviderModelCatalogPolicy`와 `model_paths()`를 사용한다. 새 Provider는 기존 catalog 전략을 조합하면 모델 서비스 수정 없이 등록할 수 있다.
 - `provider_policy.py`도 Provider 이름을 분기하지 않는다. 모델별 protocol, request option, tool-choice 및 thinking 보존은 구체 Adapter 메서드로 선택한다.
@@ -195,3 +204,5 @@ class RateLimitState:
 - `ciel_runtime_support/tool_schema.py`는 도구 schema registry와 입력 보정을, `tool_dialects.py`는 런타임별 이름 dialect를 분리해 담당한다.
 
 `ciel_runtime.py`는 기존 공개 함수 호환성을 유지하는 composition root다. 각 래퍼는 호출 시점의 의존성을 typed service object로 조립해 하위 모듈에 위임하므로 테스트 patch 호환성을 유지하면서 숨은 전역 service locator를 만들지 않는다. 지원 모듈은 composition root를 역참조하지 않으며, 이 의존성 방향은 아키텍처 계약 테스트가 검증한다.
+
+외부 gateway 프로젝트에서 검증된 data-driven provider registry, multi-account fallback 개념, protocol별 prompt injection, usage analytics는 위 경계로 흡수한다. 반면 client fingerprint 위장, subscription token 추출, 기본 활성 lossy prompt compression처럼 보안·호환성 위험이 큰 기법은 architecture capability로 취급하지 않는다.

@@ -7,6 +7,7 @@ from typing import Any
 from .architecture import (
     ProviderAdapter,
 )
+from .provider_descriptor import ProviderDescriptor, ProviderDescriptorRegistry
 from .registry import AdapterRegistry
 from .providers.base import (
     HttpBearerProviderAdapter,
@@ -29,41 +30,38 @@ from .providers.opencode import OpenCodeProviderAdapter
 from .providers.opencode_go import OpenCodeGoProviderAdapter
 
 
+PROVIDER_DESCRIPTORS = ProviderDescriptorRegistry(
+    (
+        ProviderDescriptor("anthropic", "Claude Native", AnthropicProviderAdapter),
+        ProviderDescriptor("agy", "AGY", AgyProviderAdapter),
+        ProviderDescriptor("codex", "Codex Native", CodexProviderAdapter),
+        ProviderDescriptor("ollama", "Ollama", OllamaProviderAdapter),
+        ProviderDescriptor("ollama-cloud", "Ollama Cloud", OllamaCloudProviderAdapter),
+        ProviderDescriptor("deepseek", "DeepSeek.com", DeepSeekProviderAdapter),
+        ProviderDescriptor("opencode", "OpenCode Zen", OpenCodeProviderAdapter),
+        ProviderDescriptor("opencode-go", "OpenCode Go", OpenCodeGoProviderAdapter),
+        ProviderDescriptor("kimi", "Kimi.com", KimiProviderAdapter),
+        ProviderDescriptor("zai", "Z.AI GLM", ZaiProviderAdapter),
+        ProviderDescriptor("vllm", "vLLM", VllmProviderAdapter),
+        ProviderDescriptor("lm-studio", "LM Studio", LMStudioProviderAdapter),
+        ProviderDescriptor("nvidia-hosted", "Nvidia Hosted", NvidiaHostedProviderAdapter),
+        ProviderDescriptor("self-hosted-nim", "Self Hosted NIM", SelfHostedNimProviderAdapter),
+        ProviderDescriptor("openrouter", "OpenRouter", OpenRouterProviderAdapter),
+        ProviderDescriptor("fireworks", "Fireworks.ai", FireworksProviderAdapter),
+    )
+)
 PROVIDER_ADAPTERS: AdapterRegistry[ProviderAdapter] = AdapterRegistry()
-
-
-def _configured_factory(adapter_type: type[ProviderAdapter]):
-    def create(**kwargs: Any) -> ProviderAdapter:
-        base_url = str(kwargs.get("base_url") or "").strip()
-        return adapter_type(**({"base_url": base_url} if base_url else {}))
-
-    return create
-
-
-_PROVIDER_DEFINITIONS: dict[str, tuple[type[ProviderAdapter], str]] = {
-    "anthropic": (AnthropicProviderAdapter, "Claude Native"),
-    "agy": (AgyProviderAdapter, "AGY"),
-    "codex": (CodexProviderAdapter, "Codex Native"),
-    "ollama": (OllamaProviderAdapter, "Ollama"),
-    "ollama-cloud": (OllamaCloudProviderAdapter, "Ollama Cloud"),
-    "deepseek": (DeepSeekProviderAdapter, "DeepSeek.com"),
-    "opencode": (OpenCodeProviderAdapter, "OpenCode Zen"),
-    "opencode-go": (OpenCodeGoProviderAdapter, "OpenCode Go"),
-    "kimi": (KimiProviderAdapter, "Kimi.com"),
-    "zai": (ZaiProviderAdapter, "Z.AI GLM"),
-    "vllm": (VllmProviderAdapter, "vLLM"),
-    "lm-studio": (LMStudioProviderAdapter, "LM Studio"),
-    "nvidia-hosted": (NvidiaHostedProviderAdapter, "Nvidia Hosted"),
-    "self-hosted-nim": (SelfHostedNimProviderAdapter, "Self Hosted NIM"),
-    "openrouter": (OpenRouterProviderAdapter, "OpenRouter"),
-    "fireworks": (FireworksProviderAdapter, "Fireworks.ai"),
-}
 PROVIDER_LABELS: dict[str, str] = {
-    name: label for name, (_, label) in _PROVIDER_DEFINITIONS.items()
+    descriptor.normalized_name: descriptor.label
+    for descriptor in PROVIDER_DESCRIPTORS.descriptors()
 }
 
-for _provider_name, (_adapter_type, _provider_label) in _PROVIDER_DEFINITIONS.items():
-    PROVIDER_ADAPTERS.register(_provider_name, _configured_factory(_adapter_type))
+for _descriptor in PROVIDER_DESCRIPTORS.descriptors():
+    PROVIDER_ADAPTERS.register(
+        _descriptor.normalized_name,
+        _descriptor.create,
+        aliases=_descriptor.aliases,
+    )
 
 
 def provider_default_configurations() -> dict[str, dict[str, Any]]:
@@ -78,6 +76,7 @@ def provider_default_configurations() -> dict[str, dict[str, Any]]:
 __all__ = [
     "PROVIDER_ADAPTERS",
     "PROVIDER_DEFAULT_BASE_URLS",
+    "PROVIDER_DESCRIPTORS",
     "PROVIDER_LABELS",
     "provider_default_configurations",
     "HttpBearerProviderAdapter",

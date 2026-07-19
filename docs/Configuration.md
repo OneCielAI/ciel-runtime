@@ -28,6 +28,7 @@
 | `rate-limit-state.json` | 레이트 리밋 상태 |
 | `requests.jsonl` | 요청 덤프 (디버그용, 최대 5MB) |
 | `responses.jsonl` | 응답 덤프 (디버그용, 최대 5MB) |
+| `usage-events.jsonl` | provider/model별 token usage event (10MB에서 1세대 회전) |
 | `router-sse-trace.jsonl` | SSE 트레이스 (최대 2MB) |
 | `model-list-cache.json` | 모델 목록 캐시 (TTL: 300초) |
 | `model-registry.json` | 모델 레지스트리 |
@@ -84,6 +85,7 @@
 | `CIEL_RUNTIME_EVENT_LOG` | 이벤트 로그 활성화 (기본: `true`) |
 | `CIEL_RUNTIME_EVENT_LEVEL` | 이벤트 로그 레벨 (기본: `info`) |
 | `CIEL_RUNTIME_EVENT_BUFFER` | 이벤트 버퍼 크기 (기본: `1000`) |
+| `CIEL_RUNTIME_USAGE_LOG` | token usage JSONL 기록 활성화 (기본: `true`) |
 | `CIEL_RUNTIME_THINKING_PASSBACK_MAX` | Thinking 패스백 최대 토큰 (기본: `4096`) |
 | `CIEL_RUNTIME_PYTHON` | 사용할 Python 실행 파일 경로 |
 | `CIEL_RUNTIME_SKIP_POSTINSTALL_STOP` | npm 설치 후 stop 건너뜀 |
