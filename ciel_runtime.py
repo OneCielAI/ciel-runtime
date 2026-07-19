@@ -177,6 +177,16 @@ from ciel_runtime_support.ollama_forwarding import (
     OllamaForwardStreaming,
     forward_ollama_api_chat as run_ollama_forward,
 )
+from ciel_runtime_support.openai_forwarding import (
+    OpenAIForwardAdvisor,
+    OpenAIForwardPolicy,
+    OpenAIForwardRateLimit,
+    OpenAIForwardRequest,
+    OpenAIForwardResponse,
+    OpenAIForwardServices,
+    OpenAIForwardStreaming,
+    forward_openai_compatible_chat as run_openai_forward,
+)
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
 from ciel_runtime_support.protocols.ollama_chat import (
     anthropic_system_to_ollama_messages,
@@ -2461,6 +2471,11 @@ def provider_endpoint(provider: str, pcfg: dict[str, Any], operation: str) -> st
 def provider_model_paths(provider: str, pcfg: dict[str, Any]) -> tuple[str, ...]:
     adapter = configured_provider_adapter(provider, pcfg)
     return adapter.model_paths(provider_contract_config(provider, pcfg))
+
+
+def provider_request_policy(provider: str, pcfg: dict[str, Any]):
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.request_policy(provider_contract_config(provider, pcfg))
 
 
 def provider_model_catalog_policy(provider: str, pcfg: dict[str, Any]):
@@ -6844,6 +6859,21 @@ def ncp_model_id_for_nvidia_hosted(model_id: str) -> str:
         if nvidia_id and nvidia_id == model_id and ncp_id:
             return ncp_id
     return model_id
+
+
+def provider_upstream_model(provider: str, pcfg: dict[str, Any], model: str) -> str:
+    """Apply the model alias strategy owned by the configured provider adapter."""
+
+    strategy = provider_request_policy(provider, pcfg).model_alias_strategy
+    normalizers = {
+        "identity": lambda value: value,
+        "ncp": ncp_model_id_for_nvidia_hosted,
+    }
+    return normalizers[strategy](model)
+
+
+def provider_requires_streaming(provider: str, pcfg: dict[str, Any]) -> bool:
+    return provider_request_policy(provider, pcfg).stream_required
 
 
 def key_from_request_headers(headers: Any) -> str:
@@ -16142,103 +16172,60 @@ def open_openai_stream_with_rate_retry(
     )
 
 
-def forward_openai_compatible_chat(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> None:
-    _update_tool_schema_registry(body.get("tools"))
-    body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
-    model = resolve_requested_model(provider, pcfg, body.get("model"))
-    if provider == "nvidia-hosted":
-        model = ncp_model_id_for_nvidia_hosted(model)
-    original_body = body
-    upstream_body = body_with_advisor_tool(body, pcfg) if advisor_provider_supported(provider) else body
-    url = join_url(provider_upstream_request_base(provider, pcfg), "/v1/chat/completions")
-    waited, rpm_used, rpm_limit = apply_router_rate_limit(provider, pcfg, model)
-    compatibility_test = str(handler.headers.get(COMPATIBILITY_TEST_HEADER) or "").strip().lower() in ("1", "true", "yes", "on")
-    stream_enabled = bool(pcfg.get("stream_enabled", True))
-    stream = True if provider == "nvidia-hosted" else bool(body.get("stream", stream_enabled)) and stream_enabled
-    if stream and advisor_model_enabled(pcfg) and advisor_provider_supported(provider):
-        stream = False
-        router_log("INFO", f"advisor tool enabled for {provider}; collecting this turn so advisor tool calls can be resolved internally")
-    if stream and advisor_gate_possible_for_body(provider, pcfg, body):
-        gate_reason = advisor_gate_reason_for_body(provider, pcfg, body)
-        stream = False
-        router_log("INFO", f"advisor gate enabled for {provider} reason={gate_reason}; collecting this turn before returning it to Claude Code")
-    notice = rate_limit_notice(waited, rpm_used, rpm_limit, bool(pcfg.get("rate_limit_status", False)))
-    if stream:
-        req_body = openai_compatible_chat_request(provider, model, upstream_body, pcfg, stream=True)
-        req_tokens = estimate_tokens(req_body)
-        req_bytes = len(json.dumps(req_body, ensure_ascii=False).encode("utf-8"))
-        write_anthropic_open_stream_start(handler, model, input_tokens=req_tokens)
-        index = 0
-        if notice:
-            index = write_anthropic_stream_blocks(handler, [{"type": "text", "text": notice}], index)
-        try:
-            def emit_retry_notice(text: str) -> None:
-                nonlocal index
-                index = write_anthropic_stream_blocks(handler, [{"type": "text", "text": text + "\n"}], index)
+def openai_forward_services() -> OpenAIForwardServices:
+    return OpenAIForwardServices(
+        policy=OpenAIForwardPolicy(
+            compatibility_test_header=COMPATIBILITY_TEST_HEADER,
+            provider_requires_streaming=provider_requires_streaming,
+        ),
+        request=OpenAIForwardRequest(
+            update_tool_schema_registry=_update_tool_schema_registry,
+            normalize_thinking=normalize_thinking_for_non_anthropic_provider,
+            resolve_model=resolve_requested_model,
+            provider_upstream_model=provider_upstream_model,
+            body_with_advisor_tool=body_with_advisor_tool,
+            advisor_provider_supported=advisor_provider_supported,
+            join_url=join_url,
+            upstream_request_base=provider_upstream_request_base,
+            build_chat_request=openai_compatible_chat_request,
+            provider_headers=provider_headers,
+        ),
+        rate_limit=OpenAIForwardRateLimit(
+            apply=apply_router_rate_limit,
+            notice=rate_limit_notice,
+            estimate_tokens=estimate_tokens,
+            request_timeout_seconds=provider_request_timeout_seconds,
+        ),
+        advisor=OpenAIForwardAdvisor(
+            model_enabled=advisor_model_enabled,
+            gate_possible_for_body=advisor_gate_possible_for_body,
+            gate_reason_for_body=advisor_gate_reason_for_body,
+            refine_message=refine_message_with_advisor,
+        ),
+        streaming=OpenAIForwardStreaming(
+            write_open_start=write_anthropic_open_stream_start,
+            write_blocks=write_anthropic_stream_blocks,
+            open_with_retry=open_openai_stream_with_rate_retry,
+            post_json_with_retry=post_json_with_rate_retry,
+            stream_to_anthropic_sse=stream_openai_chat_to_anthropic_sse,
+            write_open_stop=write_anthropic_open_stream_stop,
+        ),
+        response=OpenAIForwardResponse(
+            mark_delivery_success=mark_pending_channel_delivery_success,
+            mark_delivery_failed=mark_pending_channel_delivery_failed,
+            write_activity=write_router_activity,
+            chat_to_anthropic=openai_chat_to_anthropic,
+            remember_tool_uses=remember_channel_injected_tool_uses,
+            prepend_text=prepend_anthropic_text,
+            write_message=write_anthropic_message_response,
+            write_json=write_json,
+        ),
+        log=router_log,
+    )
 
-            resp = open_openai_stream_with_rate_retry(
-                url,
-                req_body,
-                provider_headers(provider, pcfg),
-                provider_request_timeout_seconds(pcfg),
-                provider,
-                pcfg,
-                model,
-                emit_retry_notice,
-                retry_rate_limits=not compatibility_test,
-            )
-            stream_ok = stream_openai_chat_to_anthropic_sse(
-                handler,
-                resp,
-                model,
-                provider,
-                source_body=original_body,
-                start_index=index,
-                word_chunking=bool(pcfg.get("stream_word_chunking", False)),
-                input_tokens=req_tokens,
-                input_bytes=req_bytes,
-            )
-            if stream_ok:
-                mark_pending_channel_delivery_success(handler, "openai_stream_message_stop")
-                write_router_activity("success", provider, model, tokens=req_tokens, bytes=req_bytes, stream=True)
-            else:
-                mark_pending_channel_delivery_failed(handler, "openai_stream_error")
-        except RuntimeError as exc:
-            msg = str(exc)
-            mark_pending_channel_delivery_failed(handler, f"openai_stream_runtime_error:{type(exc).__name__}")
-            write_anthropic_stream_blocks(handler, [{"type": "text", "text": f"Upstream error: {msg}"}], index)
-            write_anthropic_open_stream_stop(handler)
-            return
-        except Exception as exc:
-            msg = f"{type(exc).__name__}: {exc}"
-            mark_pending_channel_delivery_failed(handler, f"openai_stream_error:{type(exc).__name__}")
-            write_router_activity("error", provider, model, error=type(exc).__name__, stream=True)
-            write_anthropic_stream_blocks(handler, [{"type": "text", "text": f"Upstream error: {msg}"}], index)
-            write_anthropic_open_stream_stop(handler)
-            return
-        return
-    req_body = openai_compatible_chat_request(provider, model, upstream_body, pcfg, stream=False)
-    try:
-        data = post_json_with_rate_retry(
-            url,
-            req_body,
-            provider_headers(provider, pcfg),
-            provider_request_timeout_seconds(pcfg),
-            provider,
-            pcfg,
-            model,
-            None,
-            retry_rate_limits=not compatibility_test,
-        )
-    except RuntimeError as exc:
-        write_json(handler, {"type": "error", "error": {"type": "upstream_error", "message": str(exc)}}, 500)
-        return
-    message = openai_chat_to_anthropic(data, model, source_body=original_body)
-    message = refine_message_with_advisor(provider, pcfg, original_body, message, model)
-    remember_channel_injected_tool_uses(original_body, message)
-    message = prepend_anthropic_text(message, notice)
-    write_anthropic_message_response(handler, message, stream)
-    mark_pending_channel_delivery_success(handler, "openai_json")
+
+def forward_openai_compatible_chat(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> None:
+    run_openai_forward(handler, provider, pcfg, body, services=openai_forward_services())
 
 
 def collect_ollama_message_for_responses(

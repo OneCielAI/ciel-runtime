@@ -105,9 +105,25 @@ class ProviderContractMatrixTests(unittest.TestCase):
                 adapter = PROVIDER_ADAPTERS.create(provider)
                 self.assertEqual(kind, adapter.model_catalog_policy(config(provider)).kind)
 
+    def test_nvidia_forwarding_policy_is_adapter_owned(self):
+        adapter = PROVIDER_ADAPTERS.create("nvidia-hosted")
+        policy = adapter.request_policy(config("nvidia-hosted"))
+
+        self.assertEqual("ncp", policy.model_alias_strategy)
+        self.assertTrue(policy.stream_required)
+
+        openrouter_policy = PROVIDER_ADAPTERS.create("openrouter").request_policy(config("openrouter"))
+        self.assertEqual("identity", openrouter_policy.model_alias_strategy)
+        self.assertFalse(openrouter_policy.stream_required)
+
     def test_model_catalog_service_has_no_provider_name_dispatch(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
-        for filename in ("provider_models.py", "provider_policy.py", "provider_config_mutations.py"):
+        for filename in (
+            "provider_models.py",
+            "provider_policy.py",
+            "provider_config_mutations.py",
+            "openai_forwarding.py",
+        ):
             source = (support / filename).read_text(encoding="utf-8")
             with self.subTest(filename=filename):
                 self.assertNotIn('provider == "', source)

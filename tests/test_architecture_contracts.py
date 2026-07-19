@@ -9,6 +9,7 @@ from ciel_runtime_support.architecture import (
     ProviderAdapter,
     ProviderConfigurationPolicy,
     ProviderConfig,
+    ProviderRequestPolicy,
     RuntimeAdapter,
     RuntimeCommand,
     RuntimeConfig,
@@ -49,6 +50,15 @@ from ciel_runtime_support.ollama_forwarding import (
     OllamaForwardResponse,
     OllamaForwardServices,
     OllamaForwardStreaming,
+)
+from ciel_runtime_support.openai_forwarding import (
+    OpenAIForwardAdvisor,
+    OpenAIForwardPolicy,
+    OpenAIForwardRateLimit,
+    OpenAIForwardRequest,
+    OpenAIForwardResponse,
+    OpenAIForwardServices,
+    OpenAIForwardStreaming,
 )
 from ciel_runtime_support.mcp_http_proxy import (
     McpHttpProxyCodec,
@@ -394,6 +404,19 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
+    def test_openai_forwarding_ports_stay_below_dependency_limit(self):
+        for port in (
+            OpenAIForwardPolicy,
+            OpenAIForwardRequest,
+            OpenAIForwardRateLimit,
+            OpenAIForwardAdvisor,
+            OpenAIForwardStreaming,
+            OpenAIForwardResponse,
+            OpenAIForwardServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
     def test_cli_ports_stay_below_dependency_limit(self):
         ports = (
             CliServices,
@@ -478,6 +501,7 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_provider_option_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ProviderOptionPolicy)), 10)
         self.assertLessEqual(len(fields(ProviderConfigurationPolicy)), 10)
+        self.assertLessEqual(len(fields(ProviderRequestPolicy)), 10)
 
     def test_provider_option_mutations_do_not_branch_on_provider_names(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "provider_config_mutations.py"

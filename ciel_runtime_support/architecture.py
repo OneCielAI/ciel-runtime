@@ -132,6 +132,8 @@ class ProviderRequestPolicy:
     models_path: str
     model_info_path: str | None = None
     default_timeout_seconds: float = 60.0
+    model_alias_strategy: Literal["identity", "ncp"] = "identity"
+    stream_required: bool = False
 
 
 @dataclass(frozen=True)

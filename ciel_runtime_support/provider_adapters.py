@@ -344,6 +344,14 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(kind="nvidia")
     )
+    request_policy_value: ProviderRequestPolicy = field(
+        default_factory=lambda: ProviderRequestPolicy(
+            chat_path="/v1/chat/completions",
+            models_path="/v1/models",
+            model_alias_strategy="ncp",
+            stream_required=True,
+        )
+    )
 
     def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
         del config
