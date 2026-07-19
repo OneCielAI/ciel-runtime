@@ -7377,8 +7377,6 @@ def model_map_for(provider: str, pcfg: dict[str, Any], fetch: bool = True) -> di
 def current_alias(cfg: dict[str, Any]) -> str:
     provider, pcfg = get_current_provider(cfg)
     cur = normalize_model_id(provider, pcfg.get("current_model") or "model")
-    if provider == "nvidia-hosted" and cur.startswith("claude-"):
-        return cur
     if cur.startswith(f"ciel-runtime-{provider}-"):
         return cur
     return alias_for(provider, cur)
@@ -7450,20 +7448,14 @@ def current_upstream_model_id(provider: str, pcfg: dict[str, Any]) -> str:
     return cur
 
 
-MODEL_LIST_BACKED_SELECTION_PROVIDERS = ("vllm", "lm-studio", "self-hosted-nim")
-
-
 def provider_placeholder_model_ids(provider: str) -> set[str]:
-    base = {"", "model"}
-    if provider == "vllm":
-        base.add("my-model")
-    elif provider == "lm-studio":
-        base.add("local-model")
-    return base
+    return set(PROVIDER_ADAPTERS.create(provider).placeholder_model_ids())
 
 
 def current_model_needs_provider_selection(provider: str, pcfg: dict[str, Any]) -> bool:
-    if provider not in MODEL_LIST_BACKED_SELECTION_PROVIDERS:
+    adapter = configured_provider_adapter(provider, pcfg)
+    config = provider_contract_config(provider, pcfg)
+    if not adapter.requires_catalog_model_selection(config):
         return False
     current = normalize_model_id(provider, str(pcfg.get("current_model") or ""))
     return current in provider_placeholder_model_ids(provider)
@@ -7476,7 +7468,9 @@ def ensure_current_model_from_provider_list(
     force_refresh: bool = False,
 ) -> tuple[bool, list[str]]:
     """Ensure model-list-backed providers do not send placeholder model ids."""
-    if provider not in MODEL_LIST_BACKED_SELECTION_PROVIDERS:
+    adapter = configured_provider_adapter(provider, pcfg)
+    config = provider_contract_config(provider, pcfg)
+    if not adapter.requires_catalog_model_selection(config):
         return True, []
     current = normalize_model_id(provider, str(pcfg.get("current_model") or ""))
     placeholders = provider_placeholder_model_ids(provider)

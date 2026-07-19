@@ -370,6 +370,13 @@ class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
 class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
     name: str = "lm-studio"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["lm-studio"]
+
+    def requires_catalog_model_selection(self, config: ProviderConfig) -> bool:
+        del config
+        return True
+
+    def placeholder_model_ids(self) -> frozenset[str]:
+        return super().placeholder_model_ids() | {"local-model"}
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", local=True)
     )
@@ -394,6 +401,13 @@ class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
 class VllmProviderAdapter(OpenAICompatibleProviderAdapter):
     name: str = "vllm"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["vllm"]
+
+    def requires_catalog_model_selection(self, config: ProviderConfig) -> bool:
+        del config
+        return True
+
+    def placeholder_model_ids(self) -> frozenset[str]:
+        return super().placeholder_model_ids() | {"my-model"}
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
@@ -477,6 +491,10 @@ class SelfHostedNimProviderAdapter(OpenAICompatibleProviderAdapter):
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", local=True)
     )
+
+    def requires_catalog_model_selection(self, config: ProviderConfig) -> bool:
+        del config
+        return True
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config

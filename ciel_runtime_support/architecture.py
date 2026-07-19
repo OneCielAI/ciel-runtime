@@ -344,6 +344,17 @@ class ProviderAdapter(ABC):
         del model_id
         return False
 
+    def requires_catalog_model_selection(self, config: ProviderConfig) -> bool:
+        """Whether placeholder model ids must be replaced from provider discovery."""
+
+        del config
+        return False
+
+    def placeholder_model_ids(self) -> frozenset[str]:
+        """Return non-routable placeholder model ids accepted in configuration."""
+
+        return frozenset({"", "model"})
+
     def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
         """Return provider-owned option mutation behavior."""
 

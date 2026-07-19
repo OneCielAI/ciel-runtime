@@ -136,6 +136,20 @@ class ProviderContractMatrixTests(unittest.TestCase):
         self.assertTrue(nvidia.preserves_claude_model_alias("claude-nvidia-model"))
         self.assertFalse(nvidia.preserves_claude_model_alias("nvidia/model"))
 
+    def test_catalog_model_selection_policy_is_adapter_owned(self):
+        expected = {
+            "vllm": {"", "model", "my-model"},
+            "lm-studio": {"", "model", "local-model"},
+            "self-hosted-nim": {"", "model"},
+        }
+        for provider in PROVIDER_ADAPTERS.names():
+            adapter = PROVIDER_ADAPTERS.create(provider)
+            configured = config(provider)
+            with self.subTest(provider=provider):
+                self.assertEqual(provider in expected, adapter.requires_catalog_model_selection(configured))
+                if provider in expected:
+                    self.assertEqual(expected[provider], set(adapter.placeholder_model_ids()))
+
     def test_main_model_identity_functions_delegate_without_provider_dispatch(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
