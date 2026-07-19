@@ -7,6 +7,9 @@ from .native import AgyProviderAdapter, CodexProviderAdapter
 from .ollama import OllamaCloudProviderAdapter, OllamaProviderAdapter
 from .openrouter import OpenRouterProviderAdapter
 from .lm_studio import LMStudioProviderAdapter
+from .nim import SelfHostedNimProviderAdapter
+from .nvidia import NvidiaHostedProviderAdapter
+from .vllm import VllmProviderAdapter
 
 __all__ = [
     "HttpBearerProviderAdapter",
@@ -21,4 +24,7 @@ __all__ = [
     "OllamaProviderAdapter",
     "OpenRouterProviderAdapter",
     "LMStudioProviderAdapter",
+    "NvidiaHostedProviderAdapter",
+    "SelfHostedNimProviderAdapter",
+    "VllmProviderAdapter",
 ]
