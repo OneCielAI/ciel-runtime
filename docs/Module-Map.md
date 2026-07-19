@@ -385,6 +385,14 @@ Provider transport Adapter와 분리된 Advisor 전송, 호환성 실패 진단,
 
 Ollama Library 모델 ID, context window와 timeout을 계산하는 Functional Core이며, catalog tag 그룹화·기존 context 보존·context map 갱신 workflow도 소유한다. 파일·네트워크 효과는 6필드 `OllamaCatalogRefreshServices`로 주입되어 메인 composition root에는 실제 adapter 조립만 남는다.
 
+### `ciel_runtime_support/ollama_catalog_repository.py`
+
+Ollama catalog의 원자적 JSON 저장과 Ollama API/Library HTTP 조회를 소유하는 Infrastructure Repository. catalog Functional Core에서 파일 권한·임시 파일 교체·응답 크기 제한·tag page fallback 세부를 분리한다.
+
+### `ciel_runtime_support/ollama_context_sync.py`
+
+`/api/show` → cached catalog → Ollama Library → model-name hint 순서로 context capacity를 탐색하고 provider 설정 상한을 전이하는 Application Service. source port와 policy port를 분리해 중앙 facade의 Ollama 조건 분기를 제거한다.
+
 ### `ciel_runtime_support/ollama_forwarding.py`
 
 Ollama upstream 요청, context retry, rate-limit, streaming, Advisor 및 channel delivery를 조정하는 Provider Application Service. Request, RateLimit, Streaming, Advisor, Response 포트를 분리하고 각 포트를 9필드 이하로 제한한다.

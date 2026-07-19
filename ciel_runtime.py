@@ -462,6 +462,12 @@ from ciel_runtime_support.request_shortcuts import (
     split_import_session_arguments as project_split_import_session_arguments,
 )
 from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
+from ciel_runtime_support.ollama_catalog_repository import OllamaCatalogRepository
+from ciel_runtime_support.ollama_context_sync import (
+    OllamaContextPolicy,
+    OllamaContextSources,
+    sync_ollama_context_limit,
+)
 from ciel_runtime_support.ollama_forwarding import (
     OllamaForwardAdvisor,
     OllamaForwardConstants,
@@ -1334,23 +1340,16 @@ def ollama_model_catalog_key(model_id: str) -> tuple[str, str, str] | None:
     return ollama_catalog_policy.model_catalog_key(model_id)
 
 
+def ollama_catalog_repository() -> OllamaCatalogRepository:
+    return OllamaCatalogRepository(OLLAMA_MODEL_CATALOG_PATH, router_log, with_upstream_user_agent)
+
+
 def load_ollama_model_catalog() -> dict[str, Any]:
-    try:
-        data = json.loads(OLLAMA_MODEL_CATALOG_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-    return data if isinstance(data, dict) else {}
+    return ollama_catalog_repository().load()
 
 
 def save_ollama_model_catalog(catalog: dict[str, Any]) -> None:
-    try:
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        tmp = OLLAMA_MODEL_CATALOG_PATH.with_name(f"{OLLAMA_MODEL_CATALOG_PATH.name}.{os.getpid()}.{time.time_ns()}.tmp")
-        tmp.write_text(json.dumps(catalog, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        os.chmod(tmp, 0o600)
-        tmp.replace(OLLAMA_MODEL_CATALOG_PATH)
-    except Exception as exc:
-        router_log("WARN", f"ollama catalog: failed to save cache: {exc}")
+    ollama_catalog_repository().save(catalog)
 
 
 def ollama_catalog_model_ids(provider: str = "ollama-cloud", catalog: dict[str, Any] | None = None) -> list[str]:
@@ -1366,9 +1365,7 @@ def ollama_catalog_is_stale(catalog: dict[str, Any], ttl_seconds: int = OLLAMA_M
 
 
 def fetch_json_url(url: str, timeout: float = 12.0) -> Any:
-    req = urllib.request.Request(url, headers=with_upstream_user_agent())
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read(5_000_000).decode("utf-8", errors="replace"))
+    return ollama_catalog_repository().fetch_json(url, timeout)
 
 
 def context_tokens_from_ollama_snippet(snippet: str, table_fallback: bool = True) -> int | None:
@@ -1380,29 +1377,7 @@ def parse_ollama_library_context_map(page_html: str, base_model: str) -> dict[st
 
 
 def fetch_ollama_library_context_map(base_model: str, timeout: float = 10.0) -> tuple[dict[str, int], str | None]:
-    parts = ollama_library_model_parts(base_model)
-    if not parts:
-        return {}, None
-    base, _ = parts
-    urls = [
-        f"https://ollama.com/library/{urllib.parse.quote(base, safe='')}/tags",
-        f"https://ollama.com/library/{urllib.parse.quote(base, safe='')}",
-    ]
-    merged: dict[str, int] = {}
-    source_url: str | None = None
-    for url in urls:
-        req = urllib.request.Request(url, headers=with_upstream_user_agent())
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                raw = resp.read(3_000_000)
-        except Exception:
-            continue
-        page_map = parse_ollama_library_context_map(raw.decode("utf-8", errors="replace"), base)
-        for tag, tokens in page_map.items():
-            merged[tag] = max(merged.get(tag, 0), tokens)
-        if page_map and not source_url:
-            source_url = url
-    return merged, source_url
+    return ollama_catalog_repository().fetch_library_context_map(base_model, timeout)
 
 
 def refresh_ollama_model_catalog(include_contexts: bool = True, timeout: float = 10.0) -> dict[str, Any]:
@@ -1463,56 +1438,28 @@ def ollama_context_model_matches(current_model: str, cached_model: str | None) -
 
 
 def sync_ollama_library_context_limit(provider: str, pcfg: dict[str, Any], model_id: str) -> list[str]:
-    if provider not in ("ollama", "ollama-cloud"):
-        return []
-    api_specs: dict[str, Any] = {}
-    try:
-        api_specs = fetch_ollama_api_model_specs(provider, pcfg, model_id)
-    except Exception as exc:
-        router_log("DEBUG", f"{provider} /api/show model specs unavailable for {model_id}: {type(exc).__name__}: {exc}")
-    limit = positive_int(api_specs.get("max_model_len"))
-    matched_model = normalize_model_id(provider, model_id) if limit else ""
-    url = "/api/show" if limit else ""
-    if not limit:
-        catalog = load_ollama_model_catalog()
-        if ollama_catalog_is_stale(catalog):
-            try:
-                catalog = refresh_ollama_model_catalog(include_contexts=False)
-            except Exception as exc:
-                router_log("WARN", f"ollama catalog: api refresh failed: {exc}")
-        limit, matched_model, url = ollama_catalog_context_for_model(model_id)
-    if not limit:
-        limit, matched_model, url = fetch_ollama_library_context_limit(model_id)
-        if limit:
-            update_ollama_catalog_context(model_id, limit, matched_model, url)
-    if not limit:
-        hint = model_context_hint_from_model_id(model_id)
-        if hint:
-            limit = hint
-            matched_model = normalize_model_id(provider, model_id)
-        else:
-            if not ollama_context_model_matches(model_id, str(pcfg.get("model_context_model") or "")):
-                pcfg.pop("model_context_max", None)
-                pcfg.pop("model_context_model", None)
-            return []
-    old_max = positive_int(pcfg.get("num_ctx_max"))
-    pcfg["model_context_max"] = limit
-    pcfg["model_context_model"] = matched_model
-    if old_max and old_max <= limit and ollama_preserve_configured_context_cap(pcfg):
-        pass
-    else:
-        pcfg["num_ctx_max"] = min(old_max, limit) if old_max and old_max > limit else limit
-    minimum = positive_int(pcfg.get("num_ctx_min"))
-    if minimum and minimum > limit:
-        pcfg["num_ctx_min"] = limit
-    fixed_ctx = positive_int(pcfg.get("num_ctx"))
-    if fixed_ctx and fixed_ctx > limit:
-        pcfg["num_ctx"] = limit
-    label = f"{limit:,}"
-    if old_max and old_max == limit:
-        return [f"Ollama library context verified: {matched_model} -> {label} tokens."]
-    detail = f" from {url}" if url else ""
-    return [f"Ollama library context detected: {matched_model} -> {label} tokens{detail}."]
+    return sync_ollama_context_limit(
+        provider,
+        pcfg,
+        model_id,
+        OllamaContextSources(
+            fetch_api_specs=fetch_ollama_api_model_specs,
+            load_catalog=load_ollama_model_catalog,
+            catalog_is_stale=ollama_catalog_is_stale,
+            refresh_catalog=refresh_ollama_model_catalog,
+            catalog_context=ollama_catalog_context_for_model,
+            fetch_library_context=fetch_ollama_library_context_limit,
+            update_catalog_context=update_ollama_catalog_context,
+        ),
+        OllamaContextPolicy(
+            positive_int=positive_int,
+            normalize_model_id=normalize_model_id,
+            model_context_hint=model_context_hint_from_model_id,
+            context_model_matches=ollama_context_model_matches,
+            preserve_configured_cap=ollama_preserve_configured_context_cap,
+            log=router_log,
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
