@@ -449,6 +449,10 @@ Provider 공통 JSON 요청, 직접 요청 및 OpenAI stream 요청의 retry tra
 
 API 키 순환과 학습형 rate-limit 상태·backoff·적용 정책을 캡슐화한 공급자 서비스.
 
+### `ciel_runtime_support/rate_limit_policy.py`
+
+RPM 설정 해석, 예약 capacity, sliding-window timestamp 정리, Retry-After/date와 reset epoch 해석, duration/header projection을 소유하는 순수 Domain Policy. rate-limit 상태 저장과 upstream retry 효과에서 HTTP 숫자 해석을 분리한다.
+
 ### `ciel_runtime_support/provider_models.py`
 
 공급자별 모델 카탈로그 조회, fallback, cache 및 registry 갱신을 조정하는 모델 서비스.

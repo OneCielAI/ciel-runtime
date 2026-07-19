@@ -34,7 +34,6 @@ import urllib.parse
 import urllib.request
 import uuid
 from datetime import datetime
-from email.utils import parsedate_to_datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, Iterable
@@ -616,6 +615,7 @@ from ciel_runtime_support.provider_limits import (
     learn_rate_limit_headers,
     register_rate_limit_backoff,
 )
+from ciel_runtime_support import rate_limit_policy
 from ciel_runtime_support.plan_artifact_controller import (
     PlanArtifactController,
     PlanArtifactServices,
@@ -4655,18 +4655,7 @@ def post_json(
 
 
 def router_rate_limit_configured_rpm(provider: str, pcfg: dict[str, Any]) -> int | None:
-    raw = pcfg.get("rate_limit_rpm")
-    if raw is None:
-        return None
-    if isinstance(raw, str) and raw.strip().lower() in ("0", "false", "off", "disable", "disabled", "none", "unset"):
-        return 0
-    try:
-        if int(raw) == 0:
-            return 0
-    except Exception:
-        pass
-    rpm = positive_int(raw)
-    return rpm if rpm and rpm > 0 else None
+    return rate_limit_policy.configured_rpm(pcfg, positive_int)
 
 
 def router_rate_limit_rpm(provider: str, pcfg: dict[str, Any]) -> int | None:
@@ -4711,22 +4700,13 @@ def router_rate_limit_effective_rpm(provider: str, pcfg: dict[str, Any], model: 
 
 
 def router_rate_limit_capacity(rpm: int) -> int:
-    if rpm <= 1:
-        return 1
-    reserve = 1 if rpm <= 20 else max(1, math.ceil(rpm * 0.05))
-    return max(1, rpm - reserve)
+    return rate_limit_policy.capacity(rpm)
 
 
 def router_rate_limit_recent(timestamps: Any, now: float, window: float, *, include_future: bool) -> list[float]:
-    recent: list[float] = []
-    for ts in timestamps or []:
-        if not isinstance(ts, (int, float)):
-            continue
-        value = float(ts)
-        age = now - value
-        if age < window and (include_future or age >= 0.0):
-            recent.append(value)
-    return sorted(recent)
+    return rate_limit_policy.recent_timestamps(
+        timestamps, now, window, include_future=include_future
+    )
 
 
 def router_rate_limit_usage(provider: str, pcfg: dict[str, Any], model: str | None = None) -> tuple[int, int | None]:
@@ -4782,79 +4762,23 @@ def record_router_rate_usage(provider: str, pcfg: dict[str, Any], model: str | N
 
 
 def parse_retry_after_seconds(value: str | None) -> float | None:
-    if not value:
-        return None
-    text = value.strip()
-    try:
-        seconds = float(text)
-        return max(0.0, seconds)
-    except Exception:
-        pass
-    try:
-        dt = parsedate_to_datetime(text)
-        return max(0.0, dt.timestamp() - time.time())
-    except Exception:
-        return None
+    return rate_limit_policy.retry_after_seconds(value)
 
 
 def format_duration_seconds(seconds: float) -> str:
-    total = max(0, int(round(seconds)))
-    days, remainder = divmod(total, 86400)
-    hours, remainder = divmod(remainder, 3600)
-    minutes, secs = divmod(remainder, 60)
-    parts: list[str] = []
-    if days:
-        parts.append(f"{days}d")
-    if hours:
-        parts.append(f"{hours}h")
-    if minutes:
-        parts.append(f"{minutes}m")
-    if secs or not parts:
-        parts.append(f"{secs}s")
-    return " ".join(parts)
+    return rate_limit_policy.format_duration(seconds)
 
 
 def first_header(headers: Any, names: list[str]) -> str | None:
-    for name in names:
-        try:
-            value = headers.get(name)
-        except Exception:
-            value = None
-        if value:
-            return str(value)
-    return None
+    return rate_limit_policy.first_header(headers, names)
 
 
 def first_int_in_header(value: str | None) -> int | None:
-    if not value:
-        return None
-    match = re.search(r"\d+", value)
-    if not match:
-        return None
-    try:
-        return int(match.group(0))
-    except Exception:
-        return None
+    return rate_limit_policy.first_integer(value)
 
 
 def rate_limit_reset_seconds(value: str | None) -> float | None:
-    if not value:
-        return None
-    text = value.strip()
-    try:
-        numeric = float(text)
-        # Some providers (e.g. OpenRouter X-RateLimit-Reset) report the reset as a
-        # millisecond Unix timestamp. A ms epoch is always an absolute timestamp, so
-        # convert it and return the delta directly -- without this a value like
-        # 1.78e12 is read as a seconds epoch and yields a ~55,000-year wait, and a
-        # near-term reset (< 60s away) would otherwise be misread as a relative value.
-        if numeric > 1e12:
-            return max(0.0, numeric / 1000.0 - time.time())
-        if numeric > time.time() + 60.0:
-            return max(0.0, numeric - time.time())
-        return max(0.0, numeric)
-    except Exception:
-        return parse_retry_after_seconds(text)
+    return rate_limit_policy.reset_seconds(value)
 
 
 def learn_router_rate_limit_headers(provider: str, pcfg: dict[str, Any], model: str | None, headers: Any) -> None:
