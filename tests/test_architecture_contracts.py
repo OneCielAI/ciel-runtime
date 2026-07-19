@@ -73,6 +73,13 @@ from ciel_runtime_support.channel_pending_poll import (
     ChannelPendingPollServices,
     ChannelPendingPollState,
 )
+from ciel_runtime_support.channel_terminal_proxy import (
+    ChannelTerminalIO,
+    ChannelTerminalPolicy,
+    ChannelTerminalPolling,
+    ChannelTerminalProcess,
+    ChannelTerminalServices,
+)
 from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
 from ciel_runtime_support.compatibility_test import (
@@ -930,6 +937,17 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_channel_panel_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelPanelPolicy)), 10)
 
+    def test_channel_terminal_proxy_ports_stay_below_dependency_limit(self):
+        for port in (
+            ChannelTerminalProcess,
+            ChannelTerminalIO,
+            ChannelTerminalPolicy,
+            ChannelTerminalPolling,
+            ChannelTerminalServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
     def test_model_panel_ports_stay_below_dependency_limit(self):
         for port in (ModelPanelCatalog, ModelPanelPresentation, ModelPanelServices):
             with self.subTest(port=port.__name__):
@@ -956,9 +974,11 @@ class ArchitectureContractTests(unittest.TestCase):
             source_root / "ciel_runtime_support" / "mcp_proxy_process.py",
             source_root / "ciel_runtime_support" / "claude_router.py",
             source_root / "ciel_runtime_support" / "openai_responses_router.py",
+            source_root / "ciel_runtime_support" / "channel_terminal_proxy.py",
         )
         critical_names = {
             "subprocess_call_with_channel_wake_proxy",
+            "run_posix_channel_terminal_proxy",
             "_mcp_proxy_forward_stdin",
             "_mcp_proxy_forward_stdin_jsonl",
             "_mcp_proxy_emit_jsonl_stdout_line",

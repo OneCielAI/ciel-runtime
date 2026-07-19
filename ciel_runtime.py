@@ -107,6 +107,14 @@ from ciel_runtime_support.channel_pending_poll import (
     ChannelPendingPollState,
     poll_pending_channel_messages,
 )
+from ciel_runtime_support.channel_terminal_proxy import (
+    ChannelTerminalIO,
+    ChannelTerminalPolicy,
+    ChannelTerminalPolling,
+    ChannelTerminalProcess,
+    ChannelTerminalServices,
+    run_posix_channel_terminal_proxy,
+)
 from ciel_runtime_support.channel_probe_report import (
     ChannelProbeReportServices,
     channel_probe_report_lines,
@@ -26481,6 +26489,43 @@ def subprocess_call_with_windows_console_wake_proxy(
         _release_codex_child_process_record(tracked_child_pid_path, proc.pid)
 
 
+def build_channel_terminal_services() -> ChannelTerminalServices:
+    return ChannelTerminalServices(
+        process=ChannelTerminalProcess(
+            popen=subprocess.Popen,
+            write_child_record=_write_codex_child_process_record,
+            terminate_child=_terminate_recorded_child_process,
+            release_child_record=_release_codex_child_process_record,
+        ),
+        io=ChannelTerminalIO(
+            terminal_size=_terminal_winsize_from_fd,
+            apply_terminal_size=_apply_pty_winsize,
+            write_all=_write_fd_all,
+            mouse_filter=_TerminalMouseInputFilter,
+            observed_enter=_channel_synthetic_enter_bytes_from_user_input,
+            reset_input_mode=_write_terminal_input_mode_reset,
+        ),
+        policy=ChannelTerminalPolicy(
+            initial_cursor=ensure_channel_llm_delivery_cursor_initialized,
+            enter_bytes=_channel_wake_enter_bytes,
+            enter_label=_channel_enter_label,
+            enter_is_fixed=_channel_wake_enter_env_is_fixed,
+            unseen_retry_seconds=_channel_stdin_unseen_retry_seconds,
+            inflight_is_stale=_channel_stdin_inflight_is_stale,
+            log=router_log,
+        ),
+        polling=ChannelTerminalPolling(
+            inject_compact=_inject_pending_compact_request,
+            file_marker=_chat_messages_file_marker,
+            should_check=_channel_stdin_should_check_pending,
+            active_tool_call=_channel_stdin_active_tool_call,
+            inject_pending=_inject_pending_channel_messages,
+            wake_state=_channel_stdin_wake_state,
+            inflight_effects=channel_inflight_effects,
+        ),
+    )
+
+
 def subprocess_call_with_channel_wake_proxy(
     cmd: list[str],
     env: dict[str, str],
@@ -26528,184 +26573,21 @@ def subprocess_call_with_channel_wake_proxy(
         finally:
             _terminate_recorded_child_process(proc, "current Codex")
             _release_codex_child_process_record(tracked_child_pid_path, proc.pid)
-    import pty
-    import select
-    import termios
-    import tty
-
-    pending_poll_state = ChannelPendingPollState(last_id=ensure_channel_llm_delivery_cursor_initialized())
-    master_fd, slave_fd = pty.openpty()
-    stdout_fd = sys.stdout.fileno()
-    rows, cols = _terminal_winsize_from_fd(stdout_fd)
-    if _apply_pty_winsize(slave_fd, rows, cols):
-        router_log("INFO", f"channel_stdin_proxy_winsize_init rows={rows} cols={cols}")
-    proc = subprocess.Popen(cmd, stdin=slave_fd, stdout=slave_fd, stderr=slave_fd, env=env, close_fds=True)
-    _write_codex_child_process_record(tracked_child_pid_path, proc.pid, cmd)
-    os.close(slave_fd)
-    stdin_fd = sys.stdin.fileno()
-    old_attrs = termios.tcgetattr(stdin_fd)
-    old_sigwinch = None
-    sigwinch_installed = False
-    mouse_input_filter = _TerminalMouseInputFilter()
-    compact_poll_state = ChannelCompactPollState()
-    channel_enter_bytes = _channel_wake_enter_bytes(synthetic_enter_bytes)
-    submit_retry_count = max(1, min(8, int(channel_wake_submit_retries or 1)))
-    compact_injection_options = ChannelCompactInjectionOptions(
-        submit_retry_count=submit_retry_count,
-        confirm_submit=channel_wake_confirm_submit,
-        bracketed_paste=channel_wake_bracketed_paste,
-        submit_delay_seconds=channel_wake_submit_delay_seconds,
-    )
-    compact_poll_services = ChannelCompactPollServices(inject_pending=_inject_pending_compact_request)
-    pending_injection_options = ChannelPendingInjectionOptions(
-        enabled=inject_channel_messages,
-        web_chat_only=inject_web_chat_only,
+    return run_posix_channel_terminal_proxy(
+        cmd,
+        env,
+        build_channel_terminal_services(),
+        inject_channel_messages=inject_channel_messages,
+        inject_web_chat_only=inject_web_chat_only,
         wake_for_llm_delivery=wake_for_llm_delivery,
-        submit_retry_count=submit_retry_count,
-        confirm_submit=channel_wake_confirm_submit,
-        bracketed_paste=channel_wake_bracketed_paste,
-        submit_delay_seconds=channel_wake_submit_delay_seconds,
+        synthetic_enter_bytes=synthetic_enter_bytes,
+        normalize_bare_cr_for_synthetic_enter=normalize_bare_cr_for_synthetic_enter,
+        channel_wake_submit_retries=channel_wake_submit_retries,
+        channel_wake_confirm_submit=channel_wake_confirm_submit,
+        channel_wake_bracketed_paste=channel_wake_bracketed_paste,
+        channel_wake_submit_delay_seconds=channel_wake_submit_delay_seconds,
+        tracked_child_pid_path=tracked_child_pid_path,
     )
-    pending_poll_services = ChannelPendingPollServices(
-        file_marker=_chat_messages_file_marker,
-        should_check=_channel_stdin_should_check_pending,
-        active=_channel_stdin_active_tool_call,
-        ensure_cursor=ensure_channel_llm_delivery_cursor_initialized,
-        inject_pending=_inject_pending_channel_messages,
-        log=router_log,
-    )
-    pending_poll_policy = ChannelPendingPollPolicy("channel_stdin_proxy", "active_tool_call")
-    router_log(
-        "INFO",
-        "channel_stdin_proxy_enter_default "
-        f"enter={_channel_enter_label(channel_enter_bytes)} os={os.name} platform={sys.platform} "
-        f"submit_retries={submit_retry_count} confirm_submit={bool(channel_wake_confirm_submit)} "
-        f"bracketed_paste={bool(channel_wake_bracketed_paste)}",
-    )
-    _write_terminal_input_mode_reset()
-
-    def _handle_sigwinch(signum: int, frame: Any) -> None:
-        new_rows, new_cols = _terminal_winsize_from_fd(stdout_fd)
-        if _apply_pty_winsize(master_fd, new_rows, new_cols):
-            router_log("INFO", f"channel_stdin_proxy_winsize_resize rows={new_rows} cols={new_cols}")
-        if callable(old_sigwinch):
-            old_sigwinch(signum, frame)
-
-    try:
-        try:
-            old_sigwinch = signal.getsignal(signal.SIGWINCH)
-            signal.signal(signal.SIGWINCH, _handle_sigwinch)
-            sigwinch_installed = True
-        except Exception:
-            sigwinch_installed = False
-        tty.setraw(stdin_fd)
-        while proc.poll() is None:
-            try:
-                readable, _, _ = select.select([stdin_fd, master_fd], [], [], 0.2)
-            except OSError:
-                break
-            if stdin_fd in readable:
-                data = os.read(stdin_fd, 4096)
-                if data:
-                    filtered_data = mouse_input_filter.feed(data)
-                    if filtered_data:
-                        observed_enter = _channel_synthetic_enter_bytes_from_user_input(
-                            filtered_data,
-                            normalize_bare_cr=normalize_bare_cr_for_synthetic_enter,
-                        )
-                        if observed_enter and not _channel_wake_enter_env_is_fixed():
-                            if observed_enter != channel_enter_bytes:
-                                router_log(
-                                    "INFO",
-                                    f"channel_stdin_proxy_enter_observed enter={_channel_enter_label(observed_enter)}",
-                                )
-                            channel_enter_bytes = observed_enter
-                        _write_fd_all(master_fd, filtered_data)
-            if master_fd in readable:
-                try:
-                    data = os.read(master_fd, 4096)
-                except OSError:
-                    break
-                if data:
-                    _write_fd_all(stdout_fd, data)
-            now = time.time()
-            if pending_poll_state.inflight_message_id is not None:
-                channel_inflight_state = _channel_stdin_wake_state(pending_poll_state.inflight_message_id)
-                inflight_update = advance_channel_inflight(
-                    ChannelInflightSnapshot(
-                        message_id=pending_poll_state.inflight_message_id,
-                        cursor=pending_poll_state.inflight_cursor,
-                        wake_state=channel_inflight_state,
-                        started_at=pending_poll_state.inflight_started_at,
-                        logged_at=pending_poll_state.inflight_logged_at,
-                        now=now,
-                        last_id=pending_poll_state.last_id,
-                    ),
-                    ChannelInflightPolicy(
-                        unseen_retry_seconds=_channel_stdin_unseen_retry_seconds(),
-                        waiting_log_interval=30.0,
-                        is_stale=_channel_stdin_inflight_is_stale,
-                        commit_cursor_on_stale=True,
-                        log_namespace="channel_stdin_proxy",
-                        stale_event="stale_inflight_skipped",
-                    ),
-                    channel_inflight_effects(),
-                )
-                pending_poll_state.inflight_message_id = inflight_update.message_id
-                pending_poll_state.inflight_cursor = inflight_update.cursor
-                pending_poll_state.inflight_started_at = inflight_update.started_at
-                pending_poll_state.inflight_logged_at = inflight_update.logged_at
-                pending_poll_state.pending_recheck = (
-                    pending_poll_state.pending_recheck or inflight_update.pending_recheck
-                )
-                pending_poll_state.last_id = inflight_update.last_id
-            compact_poll_state = poll_pending_compaction(
-                now,
-                master_fd,
-                channel_enter_bytes,
-                pending_poll_state.inflight_message_id,
-                compact_poll_state,
-                compact_injection_options,
-                compact_poll_services,
-            )
-            pending_poll_state = poll_pending_channel_messages(
-                now,
-                master_fd,
-                channel_enter_bytes,
-                pending_poll_state,
-                pending_injection_options,
-                pending_poll_policy,
-                pending_poll_services,
-            )
-        while True:
-            try:
-                readable, _, _ = select.select([master_fd], [], [], 0)
-                if master_fd not in readable:
-                    break
-                data = os.read(master_fd, 4096)
-                if not data:
-                    break
-                _write_fd_all(stdout_fd, data)
-            except OSError:
-                break
-        return proc.returncode if proc.returncode is not None else 0
-    finally:
-        if sigwinch_installed:
-            try:
-                signal.signal(signal.SIGWINCH, old_sigwinch)
-            except (OSError, ValueError) as exc:
-                router_log("WARN", f"channel_sigwinch_restore_failed error={type(exc).__name__}: {exc}")
-        try:
-            termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_attrs)
-        except Exception as exc:
-            router_log("WARN", f"channel_terminal_restore_failed error={type(exc).__name__}: {exc}")
-        _write_terminal_input_mode_reset()
-        try:
-            os.close(master_fd)
-        except Exception as exc:
-            router_log("WARN", f"channel_pty_close_failed error={type(exc).__name__}: {exc}")
-        _terminate_recorded_child_process(proc, "current Codex")
-        _release_codex_child_process_record(tracked_child_pid_path, proc.pid)
 
 
 def subprocess_call_with_child_pid_record(cmd: list[str], env: dict[str, str], pid_path: Path | None = None) -> int:
