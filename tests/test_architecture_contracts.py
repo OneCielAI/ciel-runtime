@@ -41,6 +41,15 @@ from ciel_runtime_support.model_panel import (
     ModelPanelPresentation,
     ModelPanelServices,
 )
+from ciel_runtime_support.ollama_forwarding import (
+    OllamaForwardAdvisor,
+    OllamaForwardConstants,
+    OllamaForwardRateLimit,
+    OllamaForwardRequest,
+    OllamaForwardResponse,
+    OllamaForwardServices,
+    OllamaForwardStreaming,
+)
 from ciel_runtime_support.mcp_http_proxy import (
     McpHttpProxyCodec,
     McpHttpProxyRuntime,
@@ -350,6 +359,19 @@ class ArchitectureContractTests(unittest.TestCase):
             CompatibilityTestProtocol,
             CompatibilityTestOutput,
             CompatibilityTestServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_ollama_forwarding_ports_stay_below_dependency_limit(self):
+        for port in (
+            OllamaForwardConstants,
+            OllamaForwardRequest,
+            OllamaForwardRateLimit,
+            OllamaForwardStreaming,
+            OllamaForwardAdvisor,
+            OllamaForwardResponse,
+            OllamaForwardServices,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)

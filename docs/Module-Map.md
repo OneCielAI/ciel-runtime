@@ -93,6 +93,10 @@ Anthropic, Ollama, OpenRouter, LM Studio, vLLM, NVIDIA NIM, DeepSeek, Kimi, Z.AI
 
 Ollama Library 모델 ID, context window, timeout 및 catalog 갱신을 부작용 없이 계산하는 Functional Core. 파일·네트워크 I/O는 composition root의 wrapper가 담당한다.
 
+### `ciel_runtime_support/ollama_forwarding.py`
+
+Ollama upstream 요청, context retry, rate-limit, streaming, Advisor 및 channel delivery를 조정하는 Provider Application Service. Request, RateLimit, Streaming, Advisor, Response 포트를 분리하고 각 포트를 9필드 이하로 제한한다.
+
 ### `ciel_runtime_support/provider_limits.py`
 
 API 키 순환과 학습형 rate-limit 상태·backoff·적용 정책을 캡슐화한 공급자 서비스.
