@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from ciel_runtime_support.architecture import ProviderConfig
-from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS
+from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, PROVIDER_LABELS
 
 
 def config(provider, model="model", **options):
@@ -16,6 +16,10 @@ def config(provider, model="model", **options):
 
 
 class ProviderContractMatrixTests(unittest.TestCase):
+    def test_provider_labels_share_the_adapter_registry_definition(self):
+        self.assertEqual(set(PROVIDER_ADAPTERS.names()), set(PROVIDER_LABELS))
+        self.assertTrue(all(label.strip() for label in PROVIDER_LABELS.values()))
+
     def test_primary_protocol_matrix(self):
         cases = {
             "anthropic": "anthropic_messages",

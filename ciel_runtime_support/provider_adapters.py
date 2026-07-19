@@ -1283,30 +1283,36 @@ def _configured_factory(adapter_type: type[ProviderAdapter]):
     return create
 
 
-for _provider_name, _adapter_type in {
-    "agy": AgyProviderAdapter,
-    "anthropic": AnthropicProviderAdapter,
-    "codex": CodexProviderAdapter,
-    "deepseek": DeepSeekProviderAdapter,
-    "fireworks": FireworksProviderAdapter,
-    "kimi": KimiProviderAdapter,
-    "lm-studio": LMStudioProviderAdapter,
-    "nvidia-hosted": NvidiaHostedProviderAdapter,
-    "ollama": OllamaProviderAdapter,
-    "ollama-cloud": OllamaCloudProviderAdapter,
-    "opencode": OpenCodeProviderAdapter,
-    "opencode-go": OpenCodeGoProviderAdapter,
-    "openrouter": OpenRouterProviderAdapter,
-    "self-hosted-nim": SelfHostedNimProviderAdapter,
-    "vllm": VllmProviderAdapter,
-    "zai": ZaiProviderAdapter,
-}.items():
+_PROVIDER_DEFINITIONS: dict[str, tuple[type[ProviderAdapter], str]] = {
+    "anthropic": (AnthropicProviderAdapter, "Claude Native"),
+    "agy": (AgyProviderAdapter, "AGY"),
+    "codex": (CodexProviderAdapter, "Codex Native"),
+    "ollama": (OllamaProviderAdapter, "Ollama"),
+    "ollama-cloud": (OllamaCloudProviderAdapter, "Ollama Cloud"),
+    "deepseek": (DeepSeekProviderAdapter, "DeepSeek.com"),
+    "opencode": (OpenCodeProviderAdapter, "OpenCode Zen"),
+    "opencode-go": (OpenCodeGoProviderAdapter, "OpenCode Go"),
+    "kimi": (KimiProviderAdapter, "Kimi.com"),
+    "zai": (ZaiProviderAdapter, "Z.AI GLM"),
+    "vllm": (VllmProviderAdapter, "vLLM"),
+    "lm-studio": (LMStudioProviderAdapter, "LM Studio"),
+    "nvidia-hosted": (NvidiaHostedProviderAdapter, "Nvidia Hosted"),
+    "self-hosted-nim": (SelfHostedNimProviderAdapter, "Self Hosted NIM"),
+    "openrouter": (OpenRouterProviderAdapter, "OpenRouter"),
+    "fireworks": (FireworksProviderAdapter, "Fireworks.ai"),
+}
+PROVIDER_LABELS: dict[str, str] = {
+    name: label for name, (_, label) in _PROVIDER_DEFINITIONS.items()
+}
+
+for _provider_name, (_adapter_type, _provider_label) in _PROVIDER_DEFINITIONS.items():
     PROVIDER_ADAPTERS.register(_provider_name, _configured_factory(_adapter_type))
 
 
 __all__ = [
     "PROVIDER_ADAPTERS",
     "PROVIDER_DEFAULT_BASE_URLS",
+    "PROVIDER_LABELS",
     "HttpBearerProviderAdapter",
     "NoAuthProviderAdapter",
     "AgyProviderAdapter",

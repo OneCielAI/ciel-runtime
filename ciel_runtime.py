@@ -459,7 +459,11 @@ from ciel_runtime_support.protocols.pseudo_tool_history import (
     parse_xml_pseudo_tool_calls,
     sanitize_assistant_pseudo_tool_history,
 )
-from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, ZAI_MODEL_FALLBACK_IDS
+from ciel_runtime_support.provider_adapters import (
+    PROVIDER_ADAPTERS,
+    PROVIDER_LABELS,
+    ZAI_MODEL_FALLBACK_IDS,
+)
 from ciel_runtime_support.provider_context import (
     ContextPresetServices,
     ProviderContextServices,
@@ -919,25 +923,6 @@ PROVIDER_ALIASES = {
     "fireworks.ai": "fireworks",
     "fireworks-ai": "fireworks",
     "fw": "fireworks",
-}
-
-PROVIDER_LABELS = {
-    "anthropic": "Claude Native",
-    "agy": "AGY",
-    "codex": "Codex Native",
-    "ollama": "Ollama",
-    "ollama-cloud": "Ollama Cloud",
-    "deepseek": "DeepSeek.com",
-    "opencode": "OpenCode Zen",
-    "opencode-go": "OpenCode Go",
-    "kimi": "Kimi.com",
-    "zai": "Z.AI GLM",
-    "vllm": "vLLM",
-    "lm-studio": "LM Studio",
-    "nvidia-hosted": "Nvidia Hosted",
-    "self-hosted-nim": "Self Hosted NIM",
-    "openrouter": "OpenRouter",
-    "fireworks": "Fireworks.ai",
 }
 
 ANTHROPIC_NATIVE_PROVIDER_CHOICE = "anthropic:native"

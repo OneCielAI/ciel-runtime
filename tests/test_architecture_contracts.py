@@ -1166,6 +1166,21 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn('provider == "', function_source)
         self.assertNotIn("provider in (", function_source)
 
+    def test_main_module_imports_provider_labels_from_registry_module(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        assignments = [
+            node
+            for node in tree.body
+            if isinstance(node, (ast.Assign, ast.AnnAssign))
+            and any(
+                isinstance(target, ast.Name) and target.id == "PROVIDER_LABELS"
+                for target in ([node.target] if isinstance(node, ast.AnnAssign) else node.targets)
+            )
+        ]
+        self.assertEqual([], assignments)
+        self.assertIn("from ciel_runtime_support.provider_adapters import", source)
+
     def test_channel_panel_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelPanelPolicy)), 10)
 
