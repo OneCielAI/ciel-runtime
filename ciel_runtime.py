@@ -79,6 +79,11 @@ from ciel_runtime_support.channel_event_projection import (
     sse_payload_to_chat_payload as _sse_payload_to_chat_payload,
 )
 from ciel_runtime_support.channel_session_repository import ChannelSessionRepository
+from ciel_runtime_support.channel_session_lifecycle import (
+    ChannelSessionLifecycleServices,
+    cleanup_stale_channel_sessions,
+    delete_channel_session,
+)
 from ciel_runtime_support.channel_llm_context import (
     ChannelLlmContextPolicy,
     ChannelLlmContextProjection,
@@ -9301,6 +9306,17 @@ def _streamable_http_session_not_found(exc: urllib.error.HTTPError, body_text: s
     )
 
 
+def build_channel_session_lifecycle_services() -> ChannelSessionLifecycleServices:
+    return ChannelSessionLifecycleServices(
+        streamable_headers=_mcp_streamable_headers,
+        http_error_body=_http_error_body_text,
+        session_not_found=_streamable_http_session_not_found,
+        records=_channel_streamable_session_records,
+        forget=_forget_channel_streamable_session,
+        log=router_log,
+    )
+
+
 def channel_streamable_sessions_path() -> Path:
     return CONFIG_DIR / "channel-streamable-sessions.json"
 
@@ -9340,46 +9356,17 @@ def _channel_streamable_http_delete_session(
     *,
     timeout: float = 5.0,
 ) -> bool:
-    session = str(session_id or "").strip()
-    if not session or not endpoint:
-        return True
-    request_headers = _mcp_streamable_headers(
+    return delete_channel_session(
+        name,
+        endpoint,
         headers,
-        protocol_version or MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
-        session,
-        accept="application/json, text/event-stream",
+        protocol_version,
+        session_id,
+        reason,
+        build_channel_session_lifecycle_services(),
+        default_protocol_version=MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+        timeout=timeout,
     )
-    try:
-        req = urllib.request.Request(endpoint, headers=request_headers, method="DELETE")
-        with urllib.request.urlopen(req, timeout=max(1.0, min(30.0, timeout))) as response:
-            try:
-                response.read()
-            except (OSError, ValueError) as exc:
-                router_log(
-                    "WARN",
-                    f"channel_http_mcp_session_delete_body_read_failed name={name} session={session} "
-                    f"error={type(exc).__name__}: {exc}",
-                )
-        router_log("INFO", f"channel_http_mcp_session_deleted name={name} session={session} reason={reason}")
-        _forget_channel_streamable_session(name, endpoint, session)
-        return True
-    except urllib.error.HTTPError as exc:
-        body_text = _http_error_body_text(exc)
-        if exc.code in {404, 405} or _streamable_http_session_not_found(exc, body_text):
-            router_log(
-                "INFO",
-                f"channel_http_mcp_session_delete_not_needed name={name} session={session} status={exc.code} reason={reason}",
-            )
-            _forget_channel_streamable_session(name, endpoint, session)
-            return True
-        router_log("WARN", f"channel_http_mcp_session_delete_failed name={name} session={session} status={exc.code} reason={reason}")
-        return False
-    except Exception as exc:
-        router_log(
-            "WARN",
-            f"channel_http_mcp_session_delete_failed name={name} session={session} error={type(exc).__name__}: {exc} reason={reason}",
-        )
-        return False
 
 
 def _channel_streamable_http_close_state_session(state: dict[str, Any], reason: str) -> bool:
@@ -9408,23 +9395,15 @@ def _channel_streamable_http_cleanup_stale_sessions(
     *,
     keep_session_id: str | None = None,
 ) -> None:
-    keep = str(keep_session_id or "").strip()
-    records = _channel_streamable_session_records()
-    for record in records:
-        if str(record.get("url") or "") != str(url):
-            continue
-        session = str(record.get("session_id") or "").strip()
-        if not session or session == keep:
-            continue
-        record_protocol = str(record.get("protocol_version") or protocol_version or MCP_STREAMABLE_HTTP_PROTOCOL_VERSION)
-        _channel_streamable_http_delete_session(
-            name,
-            url,
-            headers,
-            record_protocol,
-            session,
-            "stale_session_cleanup",
-        )
+    cleanup_stale_channel_sessions(
+        name,
+        url,
+        headers,
+        protocol_version,
+        build_channel_session_lifecycle_services(),
+        default_protocol_version=MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+        keep_session_id=keep_session_id,
+    )
 
 
 def _mcp_stream_read_timeout_error(exc: BaseException) -> bool:
