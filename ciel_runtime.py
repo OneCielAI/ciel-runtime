@@ -194,6 +194,11 @@ from ciel_runtime_support.channel_message_prompt import (
     llm_message_skip_reason as _channel_llm_message_skip_reason,
     wake_message_noise_reason as _channel_wake_message_noise_reason,
 )
+from ciel_runtime_support.channel_notification_projection import (
+    ChannelNotificationConfig,
+    ChannelNotificationPorts,
+    ChannelNotificationProjection,
+)
 from ciel_runtime_support.channel_event_identity import (
     fallback_dedupe_key as _chat_message_fallback_dedupe_key,
     message_event_identity_key as _channel_message_event_identity_key,
@@ -6092,92 +6097,41 @@ def _channel_mcp_session_id() -> str:
     return f"s{os.getpid()}-{time.time_ns()}"
 
 
+def channel_notification_projection() -> ChannelNotificationProjection:
+    return ChannelNotificationProjection(
+        ChannelNotificationConfig(
+            _NATIVE_CHANNEL_NOTIFICATION_METHOD,
+            _CHANNEL_CONTROL_KINDS,
+        ),
+        ChannelNotificationPorts(
+            json_safe=_json_safe_metadata,
+            string_list=_as_string_list,
+            external_provenance=_channel_message_has_external_provenance,
+            wake_noise_reason=_channel_wake_message_noise_reason,
+            superseded_ids=_channel_superseded_message_ids,
+            log=router_log,
+        ),
+    )
+
+
 def _native_channel_meta_value(value: Any) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, (int, float)):
-        return str(value)
-    return json.dumps(_json_safe_metadata(value), ensure_ascii=False, separators=(",", ":"), default=str)
+    return channel_notification_projection().meta_value(value)
 
 
 def _native_channel_meta(message: dict[str, Any]) -> dict[str, str]:
-    raw_meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    meta: dict[str, str] = {}
-    for key, value in raw_meta.items():
-        name = str(key or "").strip()
-        if not name:
-            continue
-        meta[name] = _native_channel_meta_value(value)
-    message_recipients = _as_string_list(message.get("recipients")) if message.get("recipients") is not None else None
-    base = {
-        "ciel_runtime_message_id": message.get("id"),
-        "channel": message.get("channel") or "default",
-        "sender_id": message.get("sender_id") or "channel",
-        "thread_id": message.get("thread_id"),
-        "parent_id": message.get("parent_id"),
-        "kind": message.get("kind"),
-        "recipients": message_recipients,
-    }
-    for key, value in base.items():
-        if value is not None:
-            meta[key] = _native_channel_meta_value(value)
-    if raw_meta:
-        meta["ciel_runtime_meta_json"] = json.dumps(_json_safe_metadata(raw_meta), ensure_ascii=False, separators=(",", ":"), default=str)
-    return meta
+    return channel_notification_projection().meta(message)
 
 
 def _native_channel_param_value(value: Any) -> Any:
-    if value is None:
-        return None
-    if isinstance(value, (str, bool, int, float)):
-        return value
-    return _json_safe_metadata(value)
+    return channel_notification_projection().param_value(value)
 
 
 def _channel_mcp_notification(message: dict[str, Any]) -> dict[str, Any]:
-    text = re.sub(r"\s+", " ", str(message.get("message") or "")).strip()
-    channel = str(message.get("channel") or "default")
-    sender = str(message.get("sender_id") or "channel")
-    prefix = f"[{channel}] {sender}"
-    content = f"{prefix}: {text}" if text else prefix
-    raw_meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    params: dict[str, Any] = {
-        "content": content,
-        "message": text,
-        "text": text,
-        "channel": channel,
-        "source": channel,
-        "sender_id": sender,
-        "meta": _native_channel_meta(message),
-    }
-    for key in ("id", "thread_id", "parent_id", "kind", "time", "recipients"):
-        if message.get(key) is not None:
-            value = _as_string_list(message.get(key)) if key == "recipients" else message.get(key)
-            params[key] = _native_channel_param_value(value)
-    for key in ("room_id", "room", "recipient_id", "recipient", "conversation_id", "dm_id"):
-        value = raw_meta.get(key)
-        if value is not None and key not in params:
-            params[key] = _native_channel_param_value(value)
-    if "room_id" not in params and channel:
-        params["room_id"] = channel
-    return {
-        "jsonrpc": "2.0",
-        "method": _NATIVE_CHANNEL_NOTIFICATION_METHOD,
-        "params": params,
-    }
+    return channel_notification_projection().notification(message)
 
 
 def _channel_mcp_capabilities() -> dict[str, Any]:
-    return {
-        "tools": {"listChanged": False},
-        "experimental": {
-            "claude/channel": {},
-        },
-    }
+    return channel_notification_projection().capabilities()
 
 
 def _write_sse_event(handler: BaseHTTPRequestHandler, event: str, data: Any, event_id: int | None = None) -> None:
@@ -6428,62 +6382,13 @@ def _channel_mcp_session_start_last_id(handler: BaseHTTPRequestHandler) -> int:
 
 
 def _channel_mcp_message_skip_reason(message: dict[str, Any]) -> str | None:
-    visibility = str(message.get("visibility") or "user").strip().lower()
-    if visibility in {"hidden", "internal", "transport", "control", "system"}:
-        return f"visibility_{visibility}"
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    meta_kind = str(meta.get("kind") or meta.get("type") or meta.get("event_type") or meta.get("eventType") or meta.get("event") or meta.get("status") or "").strip().lower()
-    if meta_kind in _CHANNEL_CONTROL_KINDS:
-        return meta_kind
-    recipients = {item.strip().lower() for item in _as_string_list(message.get("recipients"))}
-    if "internal" in recipients:
-        return "recipient_internal"
-    delivery = _as_string_list(message.get("delivery"))
-    if delivery:
-        normalized_delivery = {item.strip().lower() for item in delivery}
-        if not ({"all", "*", "native", "mcp"} & normalized_delivery):
-            return "delivery_not_native"
-    wake_reason = _channel_wake_message_noise_reason(message)
-    if wake_reason:
-        return wake_reason
-    if not delivery and not _channel_message_has_external_provenance(message):
-        return "unscoped_channel_message"
-    return None
+    return channel_notification_projection().skip_reason(message)
 
 
 def _channel_mcp_notifications_for_messages(
-    messages: list[dict[str, Any]],
-    session: str = "",
-) -> tuple[int, list[tuple[int, dict[str, Any]]]]:
-    last_id = 0
-    events: list[tuple[int, dict[str, Any]]] = []
-    superseded_ids = _channel_superseded_message_ids(messages)
-    for message in messages:
-        message_id = int(message.get("id") or 0)
-        last_id = max(last_id, message_id)
-        skip_reason = _channel_mcp_message_skip_reason(message)
-        if skip_reason:
-            router_log(
-                "INFO",
-                f"channel_mcp_skipped_noise session={session or '-'} message_id={message.get('id')} channel={message.get('channel')} reason={skip_reason}",
-            )
-            continue
-        if message_id in superseded_ids:
-            router_log(
-                "INFO",
-                f"channel_mcp_skipped_noise session={session or '-'} message_id={message.get('id')} channel={message.get('channel')} reason=superseded_channel_notice",
-            )
-            continue
-        notification = _channel_mcp_notification(message)
-        events.append((last_id, notification))
-        params = notification.get("params") if isinstance(notification, dict) else {}
-        room_id = params.get("room_id") if isinstance(params, dict) else None
-        recipients = params.get("recipients") if isinstance(params, dict) else None
-        router_log(
-            "INFO",
-            f"channel_mcp_notification_prepared session={session or '-'} message_id={message.get('id')} channel={message.get('channel')} room_id={room_id or '-'} recipients={_native_channel_meta_value(recipients)[:120] if recipients is not None else '-'}",
-        )
-    return last_id, events
+    messages: list[dict[str, Any]], after_id: int
+) -> list[tuple[int, dict[str, Any]]]:
+    return channel_notification_projection().notifications_for_messages(messages, after_id)
 
 
 def channel_mcp_http_controller() -> ChannelMcpHttpController:

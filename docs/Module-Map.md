@@ -84,6 +84,10 @@ Web Chat/Channel bridge의 health, message history·long-poll·SSE, file downloa
 
 외부 Channel MCP의 legacy SSE·Streamable HTTP initialize, RPC request, response correlation과 notification dispatch를 조정하는 Transport Application Service. connection state/lock, HTTP codec와 side effects를 각각 9필드 이하 typed port로 분리한다.
 
+### `ciel_runtime_support/channel_notification_projection.py`
+
+Native channel metadata 정규화, MCP notification envelope·capability, control/noise/superseded message filtering과 cursor 이후 notification projection을 소유하는 순수 Protocol Projection. provenance와 wake-noise 정책은 6필드 port로 주입한다.
+
 ### `ciel_runtime_support/plan_artifact_controller.py`
 
 공유 plan artifact의 목록·조회·저장·latest projection과 channel announce를 소유하는 HTTP Controller/Repository Adapter. 경로 정규화와 HTTP 표현을 plan 생성 호출부에서 분리한다.
