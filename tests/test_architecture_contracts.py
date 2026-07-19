@@ -133,6 +133,8 @@ from ciel_runtime_support.process_control import (
     ProcessQueryServices,
     ProcessSignalServices,
 )
+from ciel_runtime_support.settings_repository import JsonSettingsRepository, SettingsFileEffects
+from ciel_runtime_support.statusline_settings import StatusLineServices
 from ciel_runtime_support.ollama_forwarding import (
     OllamaForwardAdvisor,
     OllamaForwardConstants,
@@ -976,6 +978,11 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_tool_guard_hook_ports_stay_below_dependency_limit(self):
         for port in (ToolGuardHookPolicy, ToolGuardHookServices):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_settings_repository_ports_stay_below_dependency_limit(self):
+        for port in (SettingsFileEffects, JsonSettingsRepository, StatusLineServices):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 

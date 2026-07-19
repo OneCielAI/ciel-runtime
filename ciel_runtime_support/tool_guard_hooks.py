@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import json
-import os
-import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Callable
+
+from ciel_runtime_support.settings_repository import JsonSettingsRepository
 
 
 @dataclass(frozen=True)
@@ -22,15 +20,12 @@ class ToolGuardHookPolicy:
 
 @dataclass(frozen=True)
 class ToolGuardHookServices:
+    repository: JsonSettingsRepository
     install_legacy_shim: Callable[[], None]
     warn: Callable[[str], None]
-    chmod: Callable[[Path, int], None] = os.chmod
-    process_id: Callable[[], int] = os.getpid
-    time_ns: Callable[[], int] = time.time_ns
 
 
 def install_tool_guard_hook_settings(
-    settings_path: Path,
     command: str | None,
     policy: ToolGuardHookPolicy,
     services: ToolGuardHookServices,
@@ -39,8 +34,10 @@ def install_tool_guard_hook_settings(
         services.warn("tool guard hook was not installed; ciel-runtime-tool-guard was not found.")
         return
     services.install_legacy_shim()
-    settings = _read_settings(settings_path, services)
+    settings_path = services.repository.path
+    settings = services.repository.load("tool_guard")
     if settings is None:
+        services.warn(f"could not read {settings_path}; tool guard hook was not installed.")
         return
     hooks = settings.setdefault("hooks", {})
     if not isinstance(hooks, dict):
@@ -71,20 +68,7 @@ def install_tool_guard_hook_settings(
             changed = True
 
     if changed:
-        _write_settings(settings_path, settings, services)
-
-
-def _read_settings(settings_path: Path, services: ToolGuardHookServices) -> dict[str, Any] | None:
-    if not settings_path.exists():
-        return {}
-    try:
-        settings = json.loads(settings_path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        services.warn(
-            f"could not read {settings_path} ({type(exc).__name__}); tool guard hook was not installed."
-        )
-        return None
-    return settings if isinstance(settings, dict) else {}
+        services.repository.save(settings, "tool_guard")
 
 
 def _normalize_event_groups(
@@ -134,20 +118,3 @@ def _normalize_event_groups(
     if cleaned_groups != groups:
         groups[:] = cleaned_groups
     return changed, existing
-
-
-def _write_settings(
-    settings_path: Path,
-    settings: dict[str, Any],
-    services: ToolGuardHookServices,
-) -> None:
-    settings_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = settings_path.with_name(
-        f"{settings_path.name}.{services.process_id()}.{services.time_ns()}.tmp"
-    )
-    temporary_path.write_text(json.dumps(settings, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    try:
-        services.chmod(temporary_path, 0o600)
-    except Exception as exc:
-        services.warn(f"could not restrict {temporary_path} permissions ({type(exc).__name__}).")
-    temporary_path.replace(settings_path)

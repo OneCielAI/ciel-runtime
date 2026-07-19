@@ -173,6 +173,8 @@ from ciel_runtime_support.headless_config import (
     apply_headless_config,
 )
 from ciel_runtime_support.config_repository import JsonConfigRepository
+from ciel_runtime_support.settings_repository import JsonSettingsRepository, SettingsFileEffects
+from ciel_runtime_support.statusline_settings import StatusLineServices, install_statusline_settings
 from ciel_runtime_support.config_migrations import (
     ConfigMigrationPolicy,
     apply_config_migrations as run_config_migrations,
@@ -2953,13 +2955,16 @@ TOOL_GUARD_EVENTS_WITHOUT_MATCHER: tuple[str, ...] = (
 
 def install_tool_guard_hooks() -> None:
     install_tool_guard_hook_settings(
-        CLAUDE_SETTINGS_PATH,
         ciel_runtime_tool_guard_command(),
         ToolGuardHookPolicy(
             events_with_matcher=TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER,
             events_without_matcher=TOOL_GUARD_EVENTS_WITHOUT_MATCHER,
         ),
         ToolGuardHookServices(
+            repository=JsonSettingsRepository(
+                path=CLAUDE_SETTINGS_PATH,
+                effects=SettingsFileEffects(log=router_log),
+            ),
             install_legacy_shim=install_legacy_tool_guard_compat_shim,
             warn=lambda message: print(f"Ciel Runtime warning: {message}", flush=True),
         ),
@@ -3559,44 +3564,18 @@ if __name__ == "__main__":
 
 
 def install_ciel_runtime_statusline() -> None:
-    try:
-        CIEL_RUNTIME_STATUSLINE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        if not CIEL_RUNTIME_STATUSLINE_PATH.exists() or CIEL_RUNTIME_STATUSLINE_PATH.read_text(encoding="utf-8") != STATUSLINE_SCRIPT:
-            CIEL_RUNTIME_STATUSLINE_PATH.write_text(STATUSLINE_SCRIPT, encoding="utf-8")
-        try:
-            os.chmod(CIEL_RUNTIME_STATUSLINE_PATH, 0o700)
-        except Exception:
-            pass
-        if CLAUDE_SETTINGS_PATH.exists():
-            try:
-                settings = json.loads(CLAUDE_SETTINGS_PATH.read_text(encoding="utf-8"))
-                if not isinstance(settings, dict):
-                    settings = {}
-            except Exception as exc:
-                print(f"Ciel Runtime warning: could not read {CLAUDE_SETTINGS_PATH} ({type(exc).__name__}); status line was not installed.", flush=True)
-                return
-        else:
-            settings = {}
-        command = f"{shlex.quote(sys.executable)} {shlex.quote(str(CIEL_RUNTIME_STATUSLINE_PATH))}"
-        current = settings.get("statusLine")
-        if isinstance(current, dict) and current.get("command") == command:
-            return
-        settings["statusLine"] = {
-            "type": "command",
-            "command": command,
-            "padding": 0,
-            "refreshInterval": 1000,
-        }
-        CLAUDE_SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        tmp = CLAUDE_SETTINGS_PATH.with_name(f"{CLAUDE_SETTINGS_PATH.name}.{os.getpid()}.{time.time_ns()}.tmp")
-        tmp.write_text(json.dumps(settings, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        try:
-            os.chmod(tmp, 0o600)
-        except Exception:
-            pass
-        tmp.replace(CLAUDE_SETTINGS_PATH)
-    except Exception as exc:
-        print(f"Ciel Runtime warning: could not install status line ({type(exc).__name__}: {exc}).", flush=True)
+    install_statusline_settings(
+        CIEL_RUNTIME_STATUSLINE_PATH,
+        STATUSLINE_SCRIPT,
+        sys.executable,
+        StatusLineServices(
+            repository=JsonSettingsRepository(
+                path=CLAUDE_SETTINGS_PATH,
+                effects=SettingsFileEffects(log=router_log),
+            ),
+            warn=lambda message: print(f"Ciel Runtime warning: {message}", flush=True),
+        ),
+    )
 
 
 ADVISOR_SLASH_COMMAND = """---
