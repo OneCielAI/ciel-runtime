@@ -285,6 +285,14 @@ NVIDIA hosted 인증, NCP model alias, streaming requirement, context 및 router
 
 Self-hosted NVIDIA NIM의 local capability, catalog selection, context discovery와 native readiness 정책을 소유하는 독립 Adapter.
 
+### `ciel_runtime_support/providers/deepseek.py`
+
+DeepSeek Anthropic-compatible endpoint, fallback catalog, tool-choice 제약과 context/status 정책을 소유하는 독립 Adapter.
+
+### `ciel_runtime_support/providers/zai.py`
+
+Z.AI Anthropic-compatible endpoint, GLM fallback catalog, model-ID 정규화와 context/status 정책을 소유하는 독립 Adapter.
+
 ### `ciel_runtime_support/provider_compatibility.py`
 
 Provider transport Adapter와 분리된 Advisor 전송, 호환성 실패 진단, runtime metadata projection, 자동 웹 검색 및 Claude compatibility prompt 정책 Registry. 기본 정책과 Provider별 override를 7필드 불변 정책으로 조합한다.

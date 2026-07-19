@@ -10,6 +10,8 @@ from .lm_studio import LMStudioProviderAdapter
 from .nim import SelfHostedNimProviderAdapter
 from .nvidia import NvidiaHostedProviderAdapter
 from .vllm import VllmProviderAdapter
+from .deepseek import DeepSeekProviderAdapter
+from .zai import ZaiProviderAdapter
 
 __all__ = [
     "HttpBearerProviderAdapter",
@@ -27,4 +29,6 @@ __all__ = [
     "NvidiaHostedProviderAdapter",
     "SelfHostedNimProviderAdapter",
     "VllmProviderAdapter",
+    "DeepSeekProviderAdapter",
+    "ZaiProviderAdapter",
 ]
