@@ -498,6 +498,19 @@ from ciel_runtime_support.protocols.chat_projection import (
     orphan_openai_tool_message_to_user as project_orphan_openai_tool_message_to_user,
     repair_openai_tool_call_adjacency as project_repair_openai_tool_call_adjacency,
 )
+from ciel_runtime_support.protocols.conversation_policy import (
+    ConversationPolicyServices,
+    canonical_tool_signature,
+    claude_code_state_messages as project_claude_code_state_messages,
+    collect_tool_result_context as project_collect_tool_result_context,
+    is_attachment_only_message as project_is_attachment_only_message,
+    is_read_unchanged_result,
+    latest_plan_attachment,  # noqa: F401 - compatibility export
+    message_attachment,  # noqa: F401 - compatibility export
+    plan_file_written_in_body as project_plan_file_written_in_body,
+    should_skip_upstream_message as project_should_skip_upstream_message,
+    upstream_relevant_message as project_upstream_relevant_message,
+)
 from ciel_runtime_support.protocols.tool_result_projection import (
     ToolResultProjectionServices,
     project_tool_result,
@@ -9994,166 +10007,58 @@ def advisor_gate_reason_for_body(provider: str, pcfg: dict[str, Any], body: dict
     return project_advisor_gate_reason(provider, pcfg, body, advisor_services())
 
 
-READ_UNCHANGED_RESULT_RE = re.compile(
-    r"(wasted call|unchanged since (?:your )?last read|file unchanged since (?:your )?last read)",
-    re.IGNORECASE,
-)
 
-def message_attachment(message: dict[str, Any]) -> dict[str, Any] | None:
-    attachment = message.get("attachment")
-    return attachment if isinstance(attachment, dict) else None
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def conversation_policy_services() -> ConversationPolicyServices:
+    return ConversationPolicyServices(
+        content_blocks=_message_content_blocks,
+        content_to_text=anthropic_content_to_text,
+        plan_mode_active=plan_mode_active,
+        persisted_output=is_claude_code_persisted_output_text,
+        transcript_event=is_claude_code_transcript_event,
+        guard_feedback=is_guard_feedback_text,
+    )
 
 
 def is_attachment_only_message(message: dict[str, Any]) -> bool:
-    if not message_attachment(message):
-        return False
-    content = message.get("content")
-    if content is None:
-        return True
-    blocks = _message_content_blocks(message)
-    if any(isinstance(block, dict) and block.get("type") in {"tool_use", "tool_result"} for block in blocks):
-        return False
-    return not anthropic_content_to_text(content).strip()
-
-
-def latest_plan_attachment(body: dict[str, Any]) -> dict[str, Any] | None:
-    latest: dict[str, Any] | None = None
-    for message in body.get("messages") or []:
-        if not isinstance(message, dict):
-            continue
-        attachment = message_attachment(message)
-        if not attachment:
-            continue
-        if attachment.get("type") in {"plan_mode", "plan_mode_reentry", "plan_mode_exit"}:
-            latest = attachment
-    return latest
+    return project_is_attachment_only_message(message, conversation_policy_services())
 
 
 def plan_file_written_in_body(body: dict[str, Any], plan_file_path: str) -> bool:
-    if not plan_file_path:
-        return False
-    tool_names_by_id: dict[str, str] = {}
-    tool_inputs_by_id: dict[str, Any] = {}
-    for message in body.get("messages") or []:
-        if not isinstance(message, dict):
-            continue
-        content = _message_content_blocks(message)
-        if message.get("role") == "assistant":
-            for block in content:
-                if not isinstance(block, dict) or block.get("type") != "tool_use":
-                    continue
-                tool_id = str(block.get("id") or "")
-                if not tool_id:
-                    continue
-                tool_names_by_id[tool_id] = str(block.get("name") or "")
-                tool_inputs_by_id[tool_id] = block.get("input") if isinstance(block.get("input"), dict) else {}
-        elif message.get("role") == "user":
-            for block in content:
-                if not isinstance(block, dict) or block.get("type") != "tool_result":
-                    continue
-                tool_use_id = str(block.get("tool_use_id") or "")
-                if tool_names_by_id.get(tool_use_id) not in {"Write", "Edit", "MultiEdit"}:
-                    continue
-                tool_input = tool_inputs_by_id.get(tool_use_id)
-                if not isinstance(tool_input, dict):
-                    continue
-                if str(tool_input.get("file_path") or "") == plan_file_path and not block.get("is_error"):
-                    return True
-    return False
+    return project_plan_file_written_in_body(body, plan_file_path, conversation_policy_services())
 
 
 def claude_code_state_messages(body: dict[str, Any]) -> list[dict[str, str]]:
-    messages: list[dict[str, str]] = []
-    plan_attachment = latest_plan_attachment(body)
-    if plan_mode_active(body):
-        plan_file_path = ""
-        plan_exists = None
-        if plan_attachment:
-            plan_file_path = str(plan_attachment.get("planFilePath") or "")
-            plan_exists = plan_attachment.get("planExists")
-        plan_written = plan_file_written_in_body(body, plan_file_path)
-        parts = [
-            "Claude Code state: Plan Mode is active.",
-            "In Plan Mode, exploration tools are allowed, but implementation/editing of normal project files must wait until ExitPlanMode approval.",
-        ]
-        if plan_file_path:
-            parts.append(f"Plan file path: {plan_file_path}.")
-            parts.append(f"Plan file written or updated in this conversation: {'yes' if plan_written else 'no'}.")
-        if plan_exists is not None:
-            parts.append(f"Claude Code attachment planExists: {bool(plan_exists)}.")
-        parts.append(
-            "When the plan file is complete and no new information is needed, call ExitPlanMode with the plan instead of repeating unchanged Read calls."
-        )
-        messages.append({"role": "system", "content": "\n".join(parts)})
-    return messages
-
-
-def canonical_tool_signature(tool_name: str, tool_input: Any) -> str:
-    normalized = tool_input if isinstance(tool_input, dict) else {}
-    return f"{tool_name}:{json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(',', ':'))}"
-
-
-def is_read_unchanged_result(tool_name: str, result_text: str) -> bool:
-    return tool_name == "Read" and bool(READ_UNCHANGED_RESULT_RE.search(result_text or ""))
+    return project_claude_code_state_messages(body, conversation_policy_services())
 
 
 def upstream_relevant_message(message: dict[str, Any]) -> bool:
-    if is_attachment_only_message(message) or should_skip_upstream_message(message):
-        return False
-    role = message.get("role")
-    if role not in {"assistant", "user", "system", "tool"}:
-        return False
-    blocks = _message_content_blocks(message)
-    if any(isinstance(block, dict) and block.get("type") in {"tool_use", "tool_result"} for block in blocks):
-        return True
-    return bool(anthropic_content_to_text(message.get("content", "")).strip())
+    return project_upstream_relevant_message(message, conversation_policy_services())
 
 
 def collect_tool_result_context(body: dict[str, Any]) -> tuple[dict[str, str], set[str]]:
-    tool_names_by_id: dict[str, str] = {}
-    tool_inputs_by_id: dict[str, Any] = {}
-    successful_results: dict[str, str] = {}
-    tool_result_records: list[tuple[int, str, str, Any, str, bool]] = []
-    latest_relevant_message_index = -1
-    for message_index, message in enumerate(body.get("messages") or []):
-        if not isinstance(message, dict):
-            continue
-        if upstream_relevant_message(message):
-            latest_relevant_message_index = message_index
-        content = _message_content_blocks(message)
-        if message.get("role") == "assistant":
-            for block in content:
-                if not isinstance(block, dict) or block.get("type") != "tool_use":
-                    continue
-                tool_id = str(block.get("id") or "")
-                if not tool_id:
-                    continue
-                tool_names_by_id[tool_id] = str(block.get("name") or "")
-                tool_inputs_by_id[tool_id] = block.get("input") if isinstance(block.get("input"), dict) else {}
-        elif message.get("role") == "user":
-            for block in content:
-                if not isinstance(block, dict) or block.get("type") != "tool_result":
-                    continue
-                tool_use_id = str(block.get("tool_use_id") or "")
-                tool_name = tool_names_by_id.get(tool_use_id, "tool")
-                tool_input = tool_inputs_by_id.get(tool_use_id) or {}
-                result_text = anthropic_content_to_text(block.get("content", ""))
-                signature = canonical_tool_signature(tool_name, tool_input)
-                is_error = bool(block.get("is_error"))
-                tool_result_records.append((message_index, tool_use_id, tool_name, tool_input, result_text, is_error))
-                if (
-                    not is_claude_code_persisted_output_text(result_text)
-                    and not is_read_unchanged_result(tool_name, result_text)
-                    and not is_error
-                    and result_text.strip()
-                ):
-                    successful_results[signature] = result_text
-    current_read_noop_ids = {
-        tool_use_id
-        for message_index, tool_use_id, tool_name, _tool_input, result_text, _is_error in tool_result_records
-        if message_index == latest_relevant_message_index and is_read_unchanged_result(tool_name, result_text)
-    }
-    return successful_results, current_read_noop_ids
+    return project_collect_tool_result_context(body, conversation_policy_services())
+
+
+def should_skip_upstream_message(message: dict[str, Any]) -> bool:
+    return project_should_skip_upstream_message(message, conversation_policy_services())
 
 
 def format_tool_result_for_upstream(
@@ -10181,29 +10086,6 @@ def format_tool_result_for_upstream(
     )
 
 
-def should_skip_upstream_message(message: dict[str, Any]) -> bool:
-    if is_claude_code_transcript_event(message):
-        return True
-    role = message.get("role")
-    content = message.get("content", "")
-    if role == "user" and message.get("isMeta") is True:
-        return True
-    text = anthropic_content_to_text(content).strip()
-    if is_guard_feedback_text(text):
-        return True
-    # Router diagnostics must never be fed back to the upstream model. In Claude
-    # Code they can also appear in the prompt input after a malformed/empty turn.
-    router_diagnostics = (
-        "Upstream returned an empty stream.",
-        "Upstream returned no stream data.",
-    )
-    if role in ("assistant", "user") and (
-        text in router_diagnostics or text.startswith("Upstream stream error:")
-    ):
-        return True
-    if role == "assistant" and text == "No response requested.":
-        return True
-    return False
 
 
 def chat_projection_services() -> ChatProjectionServices:
