@@ -15,7 +15,7 @@ from ..architecture import (
     ProviderRequestPolicy,
     ProviderUiPolicy,
 )
-from .base import NoAuthProviderAdapter
+from .base import NoAuthProviderAdapter, provider_configuration
 from .constants import PROVIDER_DEFAULT_BASE_URLS
 
 
@@ -23,6 +23,11 @@ from .constants import PROVIDER_DEFAULT_BASE_URLS
 class AnthropicProviderAdapter(NoAuthProviderAdapter):
     name: str = "anthropic"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["anthropic"]
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            "claude-sonnet-4-6", route_through_router=False
+        )
+    )
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
             upstream_protocol="anthropic_messages",

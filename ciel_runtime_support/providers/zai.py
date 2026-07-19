@@ -11,7 +11,7 @@ from ..architecture import (
     ProviderRequestPolicy,
     ProviderStatusPolicy,
 )
-from .base import HttpBearerProviderAdapter
+from .base import HttpBearerProviderAdapter, provider_configuration
 from .constants import PROVIDER_DEFAULT_BASE_URLS, ZAI_MODEL_FALLBACK_IDS
 
 
@@ -19,6 +19,28 @@ from .constants import PROVIDER_DEFAULT_BASE_URLS, ZAI_MODEL_FALLBACK_IDS
 class ZaiProviderAdapter(HttpBearerProviderAdapter):
     name: str = "zai"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["zai"]
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            "glm-5.2[1m]",
+            custom_models=ZAI_MODEL_FALLBACK_IDS,
+            native_compat=True,
+            preserve_anthropic_thinking=True,
+            claude_code_supported_capabilities=["effort", "thinking"],
+            context_window=1000000,
+            auto_compact_window=1000000,
+            max_output_tokens=8192,
+            context_reserve_tokens=8192,
+            request_timeout_ms=3000000,
+            stream_enabled=True,
+            stream_word_chunking=False,
+            effort_level="max",
+            opus_model="glm-5.2[1m]",
+            sonnet_model="glm-5.2[1m]",
+            haiku_model="glm-4.7",
+            subagent_model="glm-5.2[1m]",
+            managed_mcp=True,
+        )
+    )
     send_placeholder_key: bool = True
     api_key_display_name_value: str = "Z.AI GLM"
     api_key_launch_error_value: str = (

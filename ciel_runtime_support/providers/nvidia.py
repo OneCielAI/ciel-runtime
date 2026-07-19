@@ -12,14 +12,34 @@ from ..architecture import (
     ProviderRequestPolicy,
     ProviderStatusPolicy,
 )
-from .base import OpenAICompatibleProviderAdapter, configuration_policy
-from .constants import PROVIDER_DEFAULT_BASE_URLS
+from .base import (
+    OpenAICompatibleProviderAdapter,
+    configuration_policy,
+    provider_configuration,
+)
+from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 
 
 @dataclass(frozen=True)
 class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
     name: str = "nvidia-hosted"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["nvidia-hosted"]
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            "qwen/qwen3-coder-480b-a35b-instruct",
+            api_key="not-used",
+            native_compat=False,
+            rate_limit_rpm=0,
+            rate_limit_status=False,
+            context_window=65536,
+            max_output_tokens=4096,
+            temperature=0.7,
+            top_p=0.8,
+            request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+            stream_enabled=True,
+            stream_word_chunking=False,
+        )
+    )
     api_key_display_name_value: str = "NVIDIA"
     api_key_launch_error_value: str = (
         "Launch blocked: NVIDIA hosted requires an NVIDIA API key."

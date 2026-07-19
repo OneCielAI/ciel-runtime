@@ -22,6 +22,7 @@
   "files": [
     "ciel_runtime.py",
     "ciel_runtime_support/*.py",
+    "ciel_runtime_support/providers/*.py",
     "ciel_runtime_support/protocols/*.py",
     "ciel-runtime",
     "ciel-runtime.cmd",

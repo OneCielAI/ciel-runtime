@@ -66,10 +66,20 @@ for _provider_name, (_adapter_type, _provider_label) in _PROVIDER_DEFINITIONS.it
     PROVIDER_ADAPTERS.register(_provider_name, _configured_factory(_adapter_type))
 
 
+def provider_default_configurations() -> dict[str, dict[str, Any]]:
+    """Build fresh provider defaults from the registered concrete adapters."""
+
+    return {
+        name: dict(PROVIDER_ADAPTERS.create(name).default_configuration())
+        for name in PROVIDER_ADAPTERS.names()
+    }
+
+
 __all__ = [
     "PROVIDER_ADAPTERS",
     "PROVIDER_DEFAULT_BASE_URLS",
     "PROVIDER_LABELS",
+    "provider_default_configurations",
     "HttpBearerProviderAdapter",
     "NoAuthProviderAdapter",
     "AgyProviderAdapter",

@@ -4,20 +4,22 @@ PROVIDER_DEFAULT_BASE_URLS: dict[str, str] = {
     "anthropic": "https://api.anthropic.com",
     "agy": "https://antigravity.google",
     "codex": "https://api.openai.com",
-    "ollama": "http://your-ollama:11434",
+    "ollama": "http://127.0.0.1:11434",
     "ollama-cloud": "https://ollama.com",
     "deepseek": "https://api.deepseek.com/anthropic",
     "opencode": "https://opencode.ai/zen",
     "opencode-go": "https://opencode.ai/zen/go",
     "kimi": "https://api.kimi.com/coding",
     "zai": "https://api.z.ai/api/anthropic",
-    "vllm": "http://your-vllm:8000",
+    "vllm": "http://127.0.0.1:8000",
     "lm-studio": "http://127.0.0.1:1234/v1",
-    "nvidia-hosted": "",
-    "self-hosted-nim": "http://your-nim:8000",
+    "nvidia-hosted": "https://integrate.api.nvidia.com/v1",
+    "self-hosted-nim": "http://127.0.0.1:8000",
     "openrouter": "https://openrouter.ai/api/v1",
     "fireworks": "https://api.fireworks.ai/inference",
 }
+
+DEFAULT_REQUEST_TIMEOUT_MS = 300000
 
 ZAI_MODEL_FALLBACK_IDS: tuple[str, ...] = (
     "glm-5.2[1m]",
@@ -37,4 +39,8 @@ ZAI_MODEL_FALLBACK_IDS: tuple[str, ...] = (
     "glm-4-32b-0414-128k",
 )
 
-__all__ = ["PROVIDER_DEFAULT_BASE_URLS", "ZAI_MODEL_FALLBACK_IDS"]
+__all__ = [
+    "DEFAULT_REQUEST_TIMEOUT_MS",
+    "PROVIDER_DEFAULT_BASE_URLS",
+    "ZAI_MODEL_FALLBACK_IDS",
+]

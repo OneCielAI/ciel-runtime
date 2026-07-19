@@ -15,14 +15,20 @@ from ..architecture import (
     ProviderStatusPolicy,
     ProviderUiPolicy,
 )
-from .base import NoAuthProviderAdapter
-from .constants import PROVIDER_DEFAULT_BASE_URLS
+from .base import NoAuthProviderAdapter, provider_configuration
+from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 
 
 @dataclass(frozen=True)
 class CodexProviderAdapter(NoAuthProviderAdapter):
     name: str = "codex"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["codex"]
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            route_through_router=False,
+            request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+        )
+    )
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
             upstream_protocol="openai_responses"
@@ -115,6 +121,12 @@ class CodexProviderAdapter(NoAuthProviderAdapter):
 class AgyProviderAdapter(NoAuthProviderAdapter):
     name: str = "agy"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["agy"]
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            route_through_router=False,
+            request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+        )
+    )
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
             upstream_protocol="openai_responses"

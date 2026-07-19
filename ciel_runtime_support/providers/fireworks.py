@@ -15,14 +15,35 @@ from ..architecture import (
     ProviderOptionPresentationPolicy,
     ProviderStatusPolicy,
 )
-from .base import OpenAICompatibleProviderAdapter, configuration_policy
-from .constants import PROVIDER_DEFAULT_BASE_URLS
+from .base import (
+    OpenAICompatibleProviderAdapter,
+    configuration_policy,
+    provider_configuration,
+)
+from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 
 
 @dataclass(frozen=True)
 class FireworksProviderAdapter(OpenAICompatibleProviderAdapter):
     name: str = "fireworks"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["fireworks"]
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            "accounts/fireworks/models/kimi-k2p5",
+            custom_models=("accounts/fireworks/models/kimi-k2p5",),
+            native_compat=True,
+            account_id="fireworks",
+            model_api_base_url="https://api.fireworks.ai",
+            context_window=262144,
+            max_output_tokens=8192,
+            context_reserve_tokens=8192,
+            request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+            stream_enabled=True,
+            stream_word_chunking=False,
+            haiku_model="accounts/fireworks/models/kimi-k2p5",
+            subagent_model="accounts/fireworks/models/kimi-k2p5",
+        )
+    )
     send_placeholder_key: bool = True
     api_key_display_name_value: str = "Fireworks.ai"
     api_key_launch_error_value: str = (

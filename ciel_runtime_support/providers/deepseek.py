@@ -11,14 +11,30 @@ from ..architecture import (
     ProviderRequestPolicy,
     ProviderStatusPolicy,
 )
-from .base import HttpBearerProviderAdapter
-from .constants import PROVIDER_DEFAULT_BASE_URLS
+from .base import HttpBearerProviderAdapter, provider_configuration
+from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 
 
 @dataclass(frozen=True)
 class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
     name: str = "deepseek"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["deepseek"]
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            "deepseek-v4-pro[1m]",
+            custom_models=("deepseek-v4-pro[1m]", "deepseek-v4-flash"),
+            native_compat=True,
+            context_window=1048576,
+            max_output_tokens=8192,
+            context_reserve_tokens=8192,
+            request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+            stream_enabled=True,
+            stream_word_chunking=False,
+            effort_level="max",
+            haiku_model="deepseek-v4-flash",
+            subagent_model="deepseek-v4-flash",
+        )
+    )
     send_placeholder_key: bool = True
     api_key_display_name_value: str = "DeepSeek"
     api_key_launch_error_value: str = (

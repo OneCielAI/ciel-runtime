@@ -10,14 +10,31 @@ from ..architecture import (
     ProviderOptionPresentationPolicy,
     ProviderStatusPolicy,
 )
-from .base import OpenAICompatibleProviderAdapter
-from .constants import PROVIDER_DEFAULT_BASE_URLS
+from .base import OpenAICompatibleProviderAdapter, provider_configuration
+from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 
 
 @dataclass(frozen=True)
 class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
     name: str = "lm-studio"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["lm-studio"]
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            "local-model",
+            custom_models=("local-model",),
+            native_compat=True,
+            rate_limit_rpm=0,
+            rate_limit_status=False,
+            context_window=32768,
+            max_output_tokens=4096,
+            temperature=0.7,
+            top_p=0.8,
+            context_reserve_tokens=1024,
+            request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+            stream_enabled=True,
+            stream_word_chunking=False,
+        )
+    )
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
             upstream_protocol="openai_chat", local=True

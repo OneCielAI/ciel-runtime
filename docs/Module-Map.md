@@ -239,7 +239,7 @@ Codex App Server 프로세스와 JSON-RPC/WebSocket 상태 조정.
 
 ### `ciel_runtime_support/provider_adapters.py`
 
-Provider Adapter Registry와 기존 import 경로를 위한 호환 re-export 진입점. 구체 Provider 구현은 `providers/` 하위 모듈이 소유하며, 이 모듈은 이름·표시 label·factory 조립만 담당한다.
+Provider Adapter Registry와 기존 import 경로를 위한 호환 re-export 진입점. 구체 Provider 구현은 `providers/` 하위 모듈이 소유하며, 이 모듈은 이름·표시 label·factory 및 전체 Provider 기본 설정 조립만 담당한다.
 
 ### `ciel_runtime_support/providers/__init__.py`
 
@@ -247,7 +247,7 @@ Provider 구현 패키지의 안정적인 공개 진입점. 분리된 공통 기
 
 ### `ciel_runtime_support/providers/base.py`
 
-Bearer/API-key 인증, 무인증 및 OpenAI-compatible protocol 선택을 제공하는 공통 Provider transport 기반 클래스. 구체 Provider 이름이나 Registry를 소유하지 않는다.
+Bearer/API-key 인증, 무인증 및 OpenAI-compatible protocol 선택을 제공하는 공통 Provider transport 기반 클래스. 공통 persisted configuration shape와 안전한 중첩 기본값 복제를 제공하지만 구체 Provider 이름이나 Registry는 소유하지 않는다.
 
 ### `ciel_runtime_support/providers/anthropic.py`
 

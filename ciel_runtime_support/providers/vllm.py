@@ -8,14 +8,31 @@ from ..architecture import (
     ProviderContextPolicy,
     ProviderStatusPolicy,
 )
-from .base import OpenAICompatibleProviderAdapter
-from .constants import PROVIDER_DEFAULT_BASE_URLS
+from .base import OpenAICompatibleProviderAdapter, provider_configuration
+from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 
 
 @dataclass(frozen=True)
 class VllmProviderAdapter(OpenAICompatibleProviderAdapter):
     name: str = "vllm"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["vllm"]
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            "my-model",
+            api_key="dummy",
+            custom_models=("my-model",),
+            native_compat=True,
+            supports_tool_choice=False,
+            context_window=32768,
+            max_output_tokens=4096,
+            temperature=0.7,
+            top_p=0.8,
+            context_reserve_tokens=1024,
+            request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+            stream_enabled=True,
+            stream_word_chunking=False,
+        )
+    )
     send_placeholder_key: bool = True
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(

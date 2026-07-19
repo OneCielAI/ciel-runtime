@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
@@ -33,12 +34,31 @@ def configuration_policy(**values: Any) -> ProviderConfigurationPolicy:
     return ProviderConfigurationPolicy(status_fields=status_fields, **values)
 
 
+def provider_configuration(
+    current_model: str = "",
+    *,
+    api_key: str = "",
+    custom_models: Sequence[str] = (),
+    **values: Any,
+) -> dict[str, Any]:
+    """Build the common persisted configuration shape for one provider."""
+
+    return {
+        "api_key": api_key,
+        "current_model": current_model,
+        "advisor_model": "",
+        "custom_models": list(custom_models),
+        **values,
+    }
+
+
 @dataclass(frozen=True)
 class HttpBearerProviderAdapter(ProviderAdapter):
     """Provider adapter for bearer/x-api-key compatible APIs."""
 
     name: str
     base_url: str = ""
+    configuration_defaults_value: Mapping[str, Any] = field(default_factory=dict)
     authorization_header: str = "authorization"
     include_x_api_key: bool = True
     require_api_key: bool = False
@@ -60,6 +80,12 @@ class HttpBearerProviderAdapter(ProviderAdapter):
 
     def default_base_url(self) -> str:
         return self.base_url
+
+    def default_configuration(self) -> Mapping[str, Any]:
+        defaults = dict(super().default_configuration())
+        defaults.update(deepcopy(dict(self.configuration_defaults_value)))
+        defaults["base_url"] = self.default_base_url()
+        return defaults
 
     def list_models(self, config: ProviderConfig) -> Sequence[ModelInfo]:
         raw_models: Any = (

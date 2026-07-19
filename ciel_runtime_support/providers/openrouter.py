@@ -3,14 +3,30 @@
 from dataclasses import dataclass, field
 
 from ..architecture import ProviderCapabilities, ProviderConfig, ProviderContextPolicy
-from .base import OpenAICompatibleProviderAdapter
-from .constants import PROVIDER_DEFAULT_BASE_URLS
+from .base import OpenAICompatibleProviderAdapter, provider_configuration
+from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 
 
 @dataclass(frozen=True)
 class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
     name: str = "OpenRouter"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["openrouter"]
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            "nvidia/nemotron-3-ultra-550b-a55b:free",
+            native_compat=False,
+            rate_limit_rpm=0,
+            rate_limit_status=False,
+            context_window=262144,
+            max_output_tokens=8192,
+            temperature=0.7,
+            top_p=0.8,
+            context_reserve_tokens=1024,
+            request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+            stream_enabled=True,
+            stream_word_chunking=False,
+        )
+    )
     authorization_header: str = "Authorization"
     require_api_key: bool = True
     api_key_display_name_value: str = "OpenRouter"

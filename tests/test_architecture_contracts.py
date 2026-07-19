@@ -1,4 +1,5 @@
 import ast
+import json
 import unittest
 from dataclasses import fields
 from pathlib import Path
@@ -1200,8 +1201,22 @@ class ArchitectureContractTests(unittest.TestCase):
             set(ciel_runtime.DEFAULT_CONFIG["providers"]),
         )
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
-        self.assertIn("for _registered_provider in PROVIDER_ADAPTERS.names()", source)
-        self.assertIn(".default_configuration()", source)
+        self.assertIn('"providers": provider_default_configurations()', source)
+        self.assertNotIn("for _registered_provider in PROVIDER_ADAPTERS.names()", source)
+
+    def test_concrete_adapters_own_provider_specific_defaults(self):
+        common_keys = {
+            "base_url",
+            "api_key",
+            "current_model",
+            "advisor_model",
+            "custom_models",
+        }
+        for provider in PROVIDER_ADAPTERS.names():
+            with self.subTest(provider=provider):
+                defaults = PROVIDER_ADAPTERS.create(provider).default_configuration()
+                self.assertTrue(common_keys.issubset(defaults))
+                self.assertGreater(len(defaults), len(common_keys))
 
     def test_model_launch_and_runtime_info_dispatch_through_provider_adapter(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
@@ -1564,6 +1579,12 @@ class ArchitectureContractTests(unittest.TestCase):
         ]
 
         self.assertEqual([], concrete_adapters)
+
+    def test_npm_package_includes_concrete_provider_modules(self):
+        package_path = Path(__file__).resolve().parents[1] / "package.json"
+        package_files = json.loads(package_path.read_text(encoding="utf-8"))["files"]
+
+        self.assertIn("ciel_runtime_support/providers/*.py", package_files)
 
     def test_provider_adapters_own_protocol_endpoints_and_model_paths(self):
         ollama = PROVIDER_ADAPTERS.create("ollama")

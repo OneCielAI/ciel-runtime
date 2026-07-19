@@ -14,14 +14,38 @@ from ..architecture import (
     ProviderRequestPolicy,
     ProviderStatusPolicy,
 )
-from .base import HttpBearerProviderAdapter
-from .constants import PROVIDER_DEFAULT_BASE_URLS
+from .base import HttpBearerProviderAdapter, provider_configuration
+from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 
 
 @dataclass(frozen=True)
 class OllamaProviderAdapter(HttpBearerProviderAdapter):
     name: str = "ollama"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["ollama"]
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            "qwen3-coder",
+            api_key="ollama",
+            custom_models=("qwen3-coder",),
+            native_compat=True,
+            rate_limit_rpm=0,
+            rate_limit_status=False,
+            num_ctx="auto",
+            num_ctx_min=32768,
+            num_ctx_max=131072,
+            keep_alive="5m",
+            think=False,
+            request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+            stream_enabled=True,
+            stream_word_chunking=False,
+            ollama_options={
+                "temperature": 0.7,
+                "top_p": 0.8,
+                "top_k": 40,
+                "num_predict": 4096,
+            },
+        )
+    )
     send_placeholder_key: bool = True
     api_key_display_name_value: str = "Ollama"
     capabilities_value: ProviderCapabilities = field(
@@ -93,6 +117,28 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
 class OllamaCloudProviderAdapter(OllamaProviderAdapter):
     name: str = "ollama-cloud"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["ollama-cloud"]
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            "glm-5.1",
+            custom_models=("glm-5.1",),
+            rate_limit_rpm=0,
+            rate_limit_status=False,
+            num_ctx="auto",
+            num_ctx_min=32768,
+            num_ctx_max=131072,
+            keep_alive="5m",
+            think=True,
+            request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+            stream_enabled=True,
+            stream_word_chunking=False,
+            ollama_options={
+                "temperature": 0.7,
+                "top_p": 0.8,
+                "top_k": 40,
+                "num_predict": 4096,
+            },
+        )
+    )
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
             upstream_protocol="ollama_chat",

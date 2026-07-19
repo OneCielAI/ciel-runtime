@@ -13,7 +13,7 @@ from ..architecture import (
     ProviderRequestPolicy,
     ProviderStatusPolicy,
 )
-from .base import HttpBearerProviderAdapter
+from .base import HttpBearerProviderAdapter, provider_configuration
 from .constants import PROVIDER_DEFAULT_BASE_URLS
 
 
@@ -21,6 +21,26 @@ from .constants import PROVIDER_DEFAULT_BASE_URLS
 class KimiProviderAdapter(HttpBearerProviderAdapter):
     name: str = "kimi"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["kimi"]
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            "kimi-for-coding",
+            custom_models=("k3", "kimi-for-coding"),
+            native_compat=True,
+            preserve_anthropic_thinking=True,
+            normalize_anthropic_tool_use=True,
+            supports_tool_choice=True,
+            claude_code_supported_capabilities=["effort", "thinking"],
+            context_window=262144,
+            max_output_tokens=32768,
+            context_reserve_tokens=32768,
+            request_timeout_ms=600000,
+            stream_enabled=True,
+            stream_word_chunking=False,
+            effort_level="medium",
+            haiku_model="kimi-for-coding",
+            subagent_model="kimi-for-coding",
+        )
+    )
     send_placeholder_key: bool = True
     api_key_display_name_value: str = "Kimi.com"
     api_key_launch_error_value: str = (

@@ -14,14 +14,35 @@ from ..architecture import (
     ProviderRequestPolicy,
     ProviderStatusPolicy,
 )
-from .base import HttpBearerProviderAdapter, configuration_policy
-from .constants import PROVIDER_DEFAULT_BASE_URLS
+from .base import (
+    HttpBearerProviderAdapter,
+    configuration_policy,
+    provider_configuration,
+)
+from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 
 
 @dataclass(frozen=True)
 class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
     name: str = "opencode"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["opencode"]
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            "claude-sonnet-4-6",
+            custom_models=("claude-sonnet-4-6", "qwen3.6-plus-free"),
+            native_compat=True,
+            context_window=200000,
+            max_output_tokens=8192,
+            context_reserve_tokens=8192,
+            request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+            stream_enabled=True,
+            stream_word_chunking=False,
+            ip_family="ipv6-preferred",
+            haiku_model="claude-haiku-4-5",
+            subagent_model="claude-sonnet-4-6",
+            model_endpoints={},
+        )
+    )
     send_placeholder_key: bool = True
     api_key_display_name_value: str = "OpenCode Zen"
     api_key_launch_error_value: str = (
