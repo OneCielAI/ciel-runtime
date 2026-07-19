@@ -162,6 +162,19 @@ class ProviderConfigurationPolicy:
     runtime_owns_model: bool = False
 
 
+@dataclass(frozen=True)
+class ProviderStatusPolicy:
+    """Provider-owned base URL status projection strategy."""
+
+    kind: Literal["generic", "native_codex", "native_agy", "nvidia", "configured", "catalog"] = "generic"
+    label: str = ""
+    configured_description: str = ""
+    catalog_path: str = ""
+    catalog_count_key: Literal["data", "models"] = "data"
+    catalog_scope: Literal["configured", "fireworks_management"] = "configured"
+    catalog_count_label: str = "models"
+
+
 class RuntimeAdapter(ABC):
     """Adapter for a local/interactive coding runtime.
 
@@ -293,6 +306,13 @@ class ProviderAdapter(ABC):
 
         del config
         return ProviderConfigurationPolicy()
+
+    def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
+        """Return provider-owned base URL status behavior."""
+
+        request = self.request_policy(config)
+        count_key = "models" if request.models_path == "/api/tags" else "data"
+        return ProviderStatusPolicy(catalog_path=request.models_path, catalog_count_key=count_key)
 
     def api_key_display_name(self) -> str:
         """Return the provider-owned name used in API-key status text."""

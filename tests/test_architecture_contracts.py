@@ -10,6 +10,7 @@ from ciel_runtime_support.architecture import (
     ProviderConfigurationPolicy,
     ProviderConfig,
     ProviderRequestPolicy,
+    ProviderStatusPolicy,
     RuntimeAdapter,
     RuntimeCommand,
     RuntimeConfig,
@@ -122,6 +123,12 @@ from ciel_runtime_support.provider_limits import (
     RateLimitLearningPolicy,
     RateLimitLearningServices,
     RateLimitStateStore,
+)
+from ciel_runtime_support.provider_status import (
+    ProviderStatusCatalog,
+    ProviderStatusGeneric,
+    ProviderStatusRouting,
+    ProviderStatusServices,
 )
 from ciel_runtime_support.response_collection import (
     AnthropicCollectionProjection,
@@ -618,6 +625,30 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(ProviderOptionPolicy)), 10)
         self.assertLessEqual(len(fields(ProviderConfigurationPolicy)), 10)
         self.assertLessEqual(len(fields(ProviderRequestPolicy)), 10)
+        self.assertLessEqual(len(fields(ProviderStatusPolicy)), 10)
+
+    def test_provider_status_ports_stay_below_dependency_limit(self):
+        for port in (
+            ProviderStatusRouting,
+            ProviderStatusCatalog,
+            ProviderStatusGeneric,
+            ProviderStatusServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_base_url_status_dispatches_through_provider_policy(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        function = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "base_url_status_line"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("status_policy", function_source)
+        self.assertNotIn('provider == "', function_source)
+        self.assertNotIn("provider in (", function_source)
 
     def test_provider_option_mutations_do_not_branch_on_provider_names(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "provider_config_mutations.py"

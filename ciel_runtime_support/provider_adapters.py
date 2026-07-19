@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import re
 from typing import Any, Mapping, Sequence
+from urllib.parse import quote
 
 from .architecture import (
     ModelInfo,
@@ -14,6 +16,7 @@ from .architecture import (
     ProviderConfig,
     ProviderModelCatalogPolicy,
     ProviderRequestPolicy,
+    ProviderStatusPolicy,
 )
 from .registry import AdapterRegistry
 
@@ -368,6 +371,10 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
             ),
         )
 
+    def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
+        del config
+        return ProviderStatusPolicy(kind="nvidia", label="NVIDIA hosted")
+
 
 @dataclass(frozen=True)
 class SelfHostedNimProviderAdapter(OpenAICompatibleProviderAdapter):
@@ -405,6 +412,10 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
         del config
         return "recommended for long context" if model == "deepseek-v4-pro" else ""
 
+    def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
+        del config
+        return ProviderStatusPolicy(kind="configured", configured_description="DeepSeek Anthropic API configured")
+
     def supports_tool_choice(self, config: ProviderConfig, model: str | None = None) -> bool:
         configured = config.options.get("supports_tool_choice")
         if configured is not None:
@@ -434,6 +445,10 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
         del config, model
         return frozenset({"anthropic_messages", "openai_chat"})
+
+    def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
+        del config
+        return ProviderStatusPolicy(kind="catalog", label="Kimi.com", catalog_path="/v1/models")
 
     def select_protocol(self, operation: MessageProtocol, config: ProviderConfig, model: str | None = None) -> MessageProtocol:
         del config, model
@@ -481,6 +496,10 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
         default_factory=lambda: ProviderModelCatalogPolicy(kind="openai", fallback_models=ZAI_MODEL_FALLBACK_IDS)
     )
 
+    def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
+        del config
+        return ProviderStatusPolicy(kind="configured", configured_description="Z.AI Anthropic API configured")
+
 
 @dataclass(frozen=True)
 class FireworksProviderAdapter(OpenAICompatibleProviderAdapter):
@@ -499,6 +518,19 @@ class FireworksProviderAdapter(OpenAICompatibleProviderAdapter):
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
         del config, model
         return frozenset({"anthropic_messages", "openai_chat"})
+
+    def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
+        account_id = str(config.options.get("account_id") or "").strip()
+        if not account_id:
+            match = re.match(r"^accounts/([^/]+)/models/[^/]+$", config.model)
+            account_id = match.group(1) if match else "fireworks"
+        return ProviderStatusPolicy(
+            kind="catalog",
+            label="Fireworks.ai",
+            catalog_path=f"/v1/accounts/{quote(account_id, safe='')}/models?pageSize=1",
+            catalog_scope="fireworks_management",
+            catalog_count_label="sampled",
+        )
 
     def select_protocol(self, operation: MessageProtocol, config: ProviderConfig, model: str | None = None) -> MessageProtocol:
         del config, model
@@ -583,6 +615,10 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
         return frozenset({self.select_protocol("anthropic_messages", config, model)})
 
+    def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
+        del config
+        return ProviderStatusPolicy(kind="catalog", label=self.api_key_display_name_value, catalog_path="/v1/models")
+
     def model_panel_badge(self, config: ProviderConfig, model: str) -> str:
         protocol = self.select_protocol("anthropic_messages", config, model)
         label = {
@@ -644,6 +680,10 @@ class CodexProviderAdapter(NoAuthProviderAdapter):
             else "API key: not set (uses native Codex login/config)"
         )
 
+    def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
+        del config
+        return ProviderStatusPolicy(kind="native_codex")
+
     def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
         del config
         return ProviderConfigurationPolicy(runtime_owns_model=True)
@@ -667,6 +707,10 @@ class AgyProviderAdapter(NoAuthProviderAdapter):
             if config.options.get("route_through_router")
             else "API key: not set (uses native AGY Google sign-in/config)"
         )
+
+    def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
+        del config
+        return ProviderStatusPolicy(kind="native_agy")
 
     def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
         del config

@@ -269,6 +269,13 @@ from ciel_runtime_support.provider_policy import (
     normalize_provider_request,
     resolve_provider_wire_profile,
 )
+from ciel_runtime_support.provider_status import (
+    ProviderStatusCatalog,
+    ProviderStatusGeneric,
+    ProviderStatusRouting,
+    ProviderStatusServices,
+    base_url_status_line as project_provider_base_url_status,
+)
 from ciel_runtime_support.prelaunch import (
     PrelaunchChannelCommands,
     PrelaunchChannelQuery,
@@ -23242,103 +23249,42 @@ def api_key_status_line(provider: str, pcfg: dict[str, Any]) -> str:
     )
 
 
+def provider_status_services() -> ProviderStatusServices:
+    return ProviderStatusServices(
+        routing=ProviderStatusRouting(
+            codex_routed=codex_routed_enabled,
+            agy_routed=agy_routed_enabled,
+            nvidia_native=nvidia_hosted_native_compat_enabled,
+            native_anthropic_base=native_anthropic_base_url,
+            router_up=router_up,
+            router_base=ROUTER_BASE,
+        ),
+        catalog=ProviderStatusCatalog(
+            model_headers=provider_model_list_headers,
+            http_json=http_json,
+            join_url=join_url,
+            management_base=fireworks_management_base_url,
+            model_ids=model_ids_from_response,
+        ),
+        generic=ProviderStatusGeneric(
+            primary_api_key=provider_primary_api_key,
+            meaningful_key=meaningful_key,
+            with_user_agent=with_upstream_user_agent,
+            provider_urlopen=provider_urlopen,
+            model_context_limit=upstream_model_context_limit,
+        ),
+    )
+
+
 def base_url_status_line(provider: str, pcfg: dict[str, Any]) -> str:
-    base = (pcfg.get("base_url") or "").rstrip("/")
-    if not base:
-        return "Base URL: missing"
-    if "your-" in base:
-        return f"Base URL: placeholder ({base})"
-    if provider == "codex":
-        if codex_routed_enabled(provider, pcfg):
-            return f"Base URL: Codex routed through local router ({ROUTER_BASE}/backend-api/codex)"
-        return "Base URL: native Codex config (ciel-runtime does not override it)"
-    if provider == "agy":
-        if agy_routed_enabled(provider, pcfg):
-            return "Base URL: AGY routed uses native Antigravity model upstream; Ciel routes channel/PTY wake only"
-        return "Base URL: native AGY config (ciel-runtime does not override it)"
-    if provider == "nvidia-hosted":
-        if nvidia_hosted_native_compat_enabled(provider, pcfg):
-            return f"Base URL: NVIDIA hosted native ({native_anthropic_base_url(provider, pcfg)}/v1/messages)"
-        state = "ready" if router_up() else "starts on launch"
-        return f"Base URL: NVIDIA hosted ({base}); local router {ROUTER_BASE} {state}"
-    if provider == "deepseek":
-        return f"Base URL: DeepSeek Anthropic API configured ({base})"
-    if provider == "zai":
-        return f"Base URL: Z.AI Anthropic API configured ({base})"
-    if provider in OPENCODE_PROVIDER_NAMES:
-        label = PROVIDER_LABELS.get(provider, provider)
-        path = "/v1/models"
-        headers = provider_model_list_headers(provider, pcfg)
-        try:
-            data = http_json(join_url(base, path), headers=headers, timeout=2.5)
-            count = len(model_ids_from_response(data))
-            return f"Base URL: {label} model list reachable ({path}, {count} models)"
-        except urllib.error.HTTPError as exc:
-            if exc.code in (401, 403):
-                return f"Base URL: {label} reachable, auth rejected ({exc.code})"
-            return f"Base URL: {label} HTTP {exc.code}"
-        except Exception as exc:
-            return f"Base URL: {label} unreachable ({type(exc).__name__})"
-    if provider == "kimi":
-        label = PROVIDER_LABELS.get(provider, provider)
-        path = "/v1/models"
-        headers = provider_model_list_headers(provider, pcfg)
-        try:
-            data = http_json(join_url(base, path), headers=headers, timeout=2.5, provider=provider, pcfg=pcfg)
-            count = len(model_ids_from_response(data))
-            return f"Base URL: {label} model list reachable ({path}, {count} models)"
-        except urllib.error.HTTPError as exc:
-            if exc.code in (401, 403):
-                return f"Base URL: {label} reachable, auth rejected ({exc.code})"
-            return f"Base URL: {label} HTTP {exc.code}"
-        except Exception as exc:
-            return f"Base URL: {label} unreachable ({type(exc).__name__})"
-    if provider == "fireworks":
-        label = PROVIDER_LABELS.get(provider, provider)
-        account_id = fireworks_account_id(pcfg)
-        path = f"/v1/accounts/{urllib.parse.quote(account_id, safe='')}/models?pageSize=1"
-        headers = provider_model_list_headers(provider, pcfg)
-        try:
-            data = http_json(join_url(fireworks_management_base_url(pcfg), path), headers=headers, timeout=2.5, provider=provider, pcfg=pcfg)
-            count = len(model_ids_from_response(data))
-            return f"Base URL: {label} model API reachable ({path}, {count} sampled)"
-        except urllib.error.HTTPError as exc:
-            if exc.code in (401, 403):
-                return f"Base URL: {label} reachable, auth rejected ({exc.code})"
-            return f"Base URL: {label} HTTP {exc.code}"
-        except Exception as exc:
-            return f"Base URL: {label} model API unreachable ({type(exc).__name__})"
-    path = "/api/tags" if provider in ("ollama", "ollama-cloud") else "/v1/models"
-    headers: dict[str, str] = {}
-    key = provider_primary_api_key(provider, pcfg)
-    if meaningful_key(key):
-        headers = {"x-api-key": key, "authorization": f"Bearer {key}"}
-    headers = with_upstream_user_agent(headers)
-    try:
-        req = urllib.request.Request(join_url(base, path), headers=headers)
-        with provider_urlopen(req, timeout=2.5, provider=provider, pcfg=pcfg) as resp:
-            body = resp.read(131072).decode("utf-8", errors="ignore")
-        count = ""
-        try:
-            data = json.loads(body)
-            if provider in ("ollama", "ollama-cloud"):
-                count = f", {len(data.get('models', []))} models"
-            elif isinstance(data.get("data"), list):
-                count = f", {len(data['data'])} models"
-                limit = upstream_model_context_limit(provider, pcfg, timeout=1.0)
-                if limit:
-                    count += f", max_model_len {limit}"
-        except Exception:
-            pass
-        return f"Base URL: model list reachable ({path}{count})"
-    except urllib.error.HTTPError as exc:
-        if exc.code in (401, 403):
-            return f"Base URL: model list reachable, auth rejected ({exc.code})"
-        return f"Base URL: HTTP {exc.code}"
-    except Exception as exc:
-        if provider == "nvidia-hosted" and "127.0.0.1" in base:
-            return "Base URL: proxy down; starts on launch"
-        return f"Base URL: unreachable ({type(exc).__name__})"
+    adapter = configured_provider_adapter(provider, pcfg)
+    policy = adapter.status_policy(provider_contract_config(provider, pcfg))
+    return project_provider_base_url_status(
+        provider,
+        pcfg,
+        policy,
+        services=provider_status_services(),
+    )
 
 
 def preflight_lines() -> list[str]:

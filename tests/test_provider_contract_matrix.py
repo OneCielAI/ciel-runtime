@@ -176,6 +176,23 @@ class ProviderContractMatrixTests(unittest.TestCase):
         self.assertIn("context_reserve_tokens", vllm.status_fields)
         self.assertNotIn("context_reserve_tokens", nvidia.status_fields)
 
+    def test_base_url_status_strategy_matrix(self):
+        cases = {
+            "agy": "native_agy",
+            "codex": "native_codex",
+            "deepseek": "configured",
+            "fireworks": "catalog",
+            "kimi": "catalog",
+            "nvidia-hosted": "nvidia",
+            "ollama": "generic",
+            "opencode": "catalog",
+            "zai": "configured",
+        }
+        for provider, expected_kind in cases.items():
+            adapter = PROVIDER_ADAPTERS.create(provider)
+            with self.subTest(provider=provider):
+                self.assertEqual(expected_kind, adapter.status_policy(config(provider)).kind)
+
     def test_api_key_status_is_provider_owned(self):
         cases = {
             "anthropic": "Claude login",
