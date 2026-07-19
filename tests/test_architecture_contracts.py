@@ -1381,6 +1381,19 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(function=function_name):
                 self.assertNotIn(f"def {function_name}(", source)
 
+    def test_channel_message_prompt_policy_lives_outside_composition_root(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        for function_name in (
+            "_channel_prompt_scalar",
+            "_channel_prompt_metadata",
+            "_channel_wake_message_noise_reason",
+            "_channel_llm_message_skip_reason",
+            "_channel_message_llm_display_text",
+            "_channel_message_source_header",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):

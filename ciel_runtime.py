@@ -91,7 +91,6 @@ from ciel_runtime_support.channel_event_projection import (
     event_meta_from_sources as _event_meta_from_sources,
     event_payload_text as _event_payload_text,
     json_safe_metadata as _json_safe_metadata,
-    metadata_key_is_sensitive as _metadata_key_is_sensitive,
     notification_semantic_text_from_envelope as _notification_semantic_text_from_envelope,
     pretty_json_value as _pretty_json_value,
     sse_payload_to_chat_payload as _sse_payload_to_chat_payload,
@@ -149,8 +148,17 @@ from ciel_runtime_support.channel_transcript import (
 from ciel_runtime_support.channel_message_policy import (
     message_has_external_provenance as _channel_message_has_external_provenance,
     message_is_web_chat_request as _channel_message_is_web_chat_request,
-    message_meta_sources as _channel_message_meta_sources,
     superseded_message_ids as _channel_superseded_message_ids,
+)
+from ciel_runtime_support.channel_message_prompt import (
+    NATIVE_ROUTER_CHANNEL_NAMES as _NATIVE_ROUTER_CHANNEL_NAMES,
+    format_llm_batch_prompt as format_channel_llm_batch_prompt,
+    format_llm_batch_prompt as format_channel_llm_delivery_wake_prompt,
+    format_wake_batch_prompt as format_channel_wake_batch_prompt,
+    format_wake_prompt as format_channel_wake_prompt,  # noqa: F401 - compatibility export
+    format_web_chat_wake_batch_prompt as format_channel_web_chat_wake_batch_prompt,
+    llm_message_skip_reason as _channel_llm_message_skip_reason,
+    wake_message_noise_reason as _channel_wake_message_noise_reason,
 )
 from ciel_runtime_support.channel_probe_report import (
     ChannelProbeReportServices,
@@ -1136,7 +1144,6 @@ _CHANNEL_STDIN_WAKE_PROMPTS: dict[int, str] = {}
 _CHANNEL_COMPACT_REQUEST_LOCK = threading.Lock()
 _NATIVE_CHANNEL_NOTIFICATION_METHOD = "notifications/claude/channel"
 BUILTIN_CHANNEL_SPEC = "server:ciel-runtime-router"
-_NATIVE_ROUTER_CHANNEL_NAMES = {"ciel-runtime-router", "mcp-ciel-runtime-router"}
 CHANNEL_LLM_WAKE_PREFIX = "[external input pending]"
 CHANNEL_LLM_WAKE_LEGACY_PREFIXES = ("[ciel-runtime channel wake]", "[channel pending]")
 _MCP_NOTIFICATION_DEDUP_TTL_SECONDS = 3.0
@@ -22535,152 +22542,6 @@ def should_launch_process_start_channel_sse(
     return bool((stdin_channel_proxy or native_channel_bridge) and not llm_channel_delivery)
 
 
-_CHANNEL_PROMPT_META_KEYS = (
-    "kind",
-    "type",
-    "event_type",
-    "eventType",
-    "status",
-    "mcp_server",
-    "mcp_method",
-    "room_name",
-    "room_label",
-    "room_id",
-    "room",
-    "channel",
-    "thread_id",
-    "parent_id",
-    "message_id",
-    "source_message_id",
-    "event_id",
-    "stream_id",
-    "sse_id",
-    "cursor",
-    "sequence",
-    "seq",
-    "assignment_id",
-    "poll_id",
-    "task_id",
-    "round_id",
-    "conversation_id",
-    "session_id",
-    "agent_id",
-    "agent_name",
-    "sender_id",
-    "sender",
-    "sender_name",
-    "author_id",
-    "author_name",
-    "recipient_id",
-    "recipient",
-    "recipient_name",
-    "mentioned_by",
-    "key",
-    "path",
-)
-
-
-def _channel_prompt_scalar(value: Any) -> Any:
-    if value is None or isinstance(value, (bool, int, float)):
-        return value
-    if isinstance(value, str):
-        text = value.strip()
-        if not text or len(text) > 240:
-            return None
-        return text
-    if isinstance(value, list):
-        out: list[Any] = []
-        for item in value[:10]:
-            scalar = _channel_prompt_scalar(item)
-            if scalar is not None:
-                out.append(scalar)
-        if not out:
-            return None
-        try:
-            if len(json.dumps(out, ensure_ascii=False, separators=(",", ":"), default=str)) > 300:
-                return None
-        except Exception:
-            return None
-        return out
-    return None
-
-
-def _channel_prompt_metadata(message: dict[str, Any]) -> str:
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    if not meta:
-        return ""
-    prompt_meta: dict[str, Any] = {}
-    for key in _CHANNEL_PROMPT_META_KEYS:
-        if key not in meta or _metadata_key_is_sensitive(key):
-            continue
-        value = _channel_prompt_scalar(meta.get(key))
-        if value is None:
-            continue
-        prompt_meta[key] = value
-    if not prompt_meta:
-        return ""
-    kept: dict[str, Any] = {}
-    for key, value in prompt_meta.items():
-        candidate = dict(kept)
-        candidate[key] = value
-        text = json.dumps(candidate, ensure_ascii=False, separators=(",", ":"), default=str)
-        if len(text) > 900:
-            continue
-        kept = candidate
-    return json.dumps(kept, ensure_ascii=False, separators=(",", ":"), default=str) if kept else ""
-
-
-def format_channel_wake_prompt(message: dict[str, Any]) -> str:
-    channel = str(message.get("channel") or "default")
-    sender = str(message.get("sender_id") or "channel")
-    mid = str(message.get("id") or "")
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    room = str(meta.get("room_id") or meta.get("room") or channel)
-    thread = str(message.get("thread_id") or meta.get("thread_id") or "")
-    body = re.sub(r"\s+", " ", str(message.get("message") or "")).strip()
-    fields = [f"channel={channel}", f"room={room}", f"from={sender}"]
-    if mid:
-        fields.append(f"id={mid}")
-    if thread:
-        fields.append(f"thread={thread}")
-    prompt_meta = _channel_prompt_metadata(message)
-    if prompt_meta:
-        fields.append(f"metadata={prompt_meta}")
-    return (
-        "[ciel-runtime external channel message] "
-        + " ".join(fields)
-        + f" text={json.dumps(body, ensure_ascii=False)}"
-    )
-
-def _format_channel_web_chat_wake_item(message: dict[str, Any]) -> str:
-    channel = str(message.get("channel") or "default")
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    reply_channel = str(meta.get("reply_channel") or channel)
-    thread = str(message.get("thread_id") or meta.get("thread_id") or reply_channel)
-    mid = str(message.get("id") or "")
-    body = re.sub(r"\s+", " ", str(message.get("message") or "")).strip()
-    fields = [f"id={mid}", f"channel={reply_channel}", f"thread={thread}"]
-    return " ".join(field for field in fields if not field.endswith("=")) + f" user={json.dumps(body, ensure_ascii=False)}"
-
-
-def format_channel_web_chat_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
-    items = " ; ".join(_format_channel_web_chat_wake_item(message) for message in messages)
-    count = len(messages)
-    return f"[ciel-runtime web chat] {count} browser message(s): {items}"
-
-
-def _channel_wake_message_noise_reason(message: dict[str, Any]) -> str | None:
-    body = re.sub(r"\s+", " ", str(message.get("message") or "")).strip().lower()
-    kind = str(message.get("kind") or "").strip().lower()
-    if not body:
-        return "empty"
-    if kind in {"connection", "connected", "heartbeat", "keepalive"}:
-        return kind
-    if re.fullmatch(r"[a-z0-9_.:-]{1,80}\.(ws|sse)\.connected", body):
-        return "transport_connected"
-    return None
-
-
 def _channel_pending_scan_limit() -> int:
     raw = os.environ.get("CIEL_RUNTIME_CHANNEL_PENDING_SCAN_LIMIT", "500")
     try:
@@ -22695,119 +22556,6 @@ def _channel_stdin_wake_batch_limit() -> int:
         return max(1, min(50, int(str(raw).strip())))
     except Exception:
         return 8
-
-
-def _channel_llm_message_skip_reason(message: dict[str, Any]) -> str | None:
-    visibility = str(message.get("visibility") or "user").strip().lower()
-    if visibility in {"hidden", "internal", "transport", "control", "system"}:
-        return f"visibility_{visibility}"
-    recipients = {item.strip().lower() for item in _as_string_list(message.get("recipients"))}
-    if "internal" in recipients:
-        return "recipient_internal"
-    delivery = _as_string_list(message.get("delivery"))
-    if delivery:
-        normalized_delivery = {item.strip().lower() for item in delivery}
-        if not ({"all", "*", "llm"} & normalized_delivery):
-            return "delivery_not_llm"
-    wake_reason = _channel_wake_message_noise_reason(message)
-    if wake_reason:
-        return wake_reason
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    sse_source = str(meta.get("sse_source") or meta.get("source") or "").strip().lower()
-    sender = str(message.get("sender_id") or meta.get("sender_id") or "").strip().lower()
-    if sse_source in _NATIVE_ROUTER_CHANNEL_NAMES or sender in _NATIVE_ROUTER_CHANNEL_NAMES:
-        return "native_router_self_echo"
-    meta_kind = str(meta.get("kind") or meta.get("type") or meta.get("event_type") or meta.get("eventType") or meta.get("event") or meta.get("status") or "").strip().lower()
-    if meta_kind in _CHANNEL_CONTROL_KINDS:
-        return meta_kind
-    if not delivery and not _channel_message_has_external_provenance(message):
-        return "unscoped_channel_message"
-    return None
-
-
-def _channel_wake_message_is_noise(message: dict[str, Any]) -> bool:
-    return _channel_wake_message_noise_reason(message) is not None
-
-
-def format_channel_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
-    if len(messages) == 1:
-        return format_channel_wake_prompt(messages[0])
-    parts: list[str] = []
-    for message in messages:
-        channel = str(message.get("channel") or "default")
-        sender = str(message.get("sender_id") or "channel")
-        mid = str(message.get("id") or "")
-        meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-        room = str(meta.get("room_id") or meta.get("room") or channel)
-        thread = str(message.get("thread_id") or meta.get("thread_id") or "")
-        body = str(message.get("message") or "")
-        fields = [f"id={mid}", f"room={room}", f"from={sender}"]
-        if thread:
-            fields.append(f"thread={thread}")
-        prompt_meta = _channel_prompt_metadata(message)
-        if prompt_meta:
-            fields.append(f"metadata={prompt_meta}")
-        parts.append("(" + " ".join(fields) + ") " + json.dumps(body, ensure_ascii=False))
-    return (
-        f"[ciel-runtime external channel messages] {len(messages)} new messages: "
-        + " ; ".join(parts)
-    )
-
-
-def _channel_message_llm_display_text(message: dict[str, Any]) -> str:
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    for key in ("mcp_json", "sse_json"):
-        value = meta.get(key)
-        if isinstance(value, (dict, list)):
-            text = _pretty_json_value(value)
-            header = _channel_message_source_header(message)
-            return f"{header}\n\n{text}" if header else text
-    return str(message.get("message") if message.get("message") is not None else "")
-
-
-def _channel_source_header_scalar(value: Any) -> str:
-    if value is None or isinstance(value, (dict, list)):
-        return ""
-    text = re.sub(r"\s+", " ", str(value)).strip()
-    if not text or len(text) > 240:
-        return ""
-    return text
-
-
-def _channel_first_source_header_value(message: dict[str, Any], keys: tuple[str, ...]) -> str:
-    for source in _channel_message_meta_sources(message):
-        for key in keys:
-            if _metadata_key_is_sensitive(key):
-                continue
-            text = _channel_source_header_scalar(source.get(key))
-            if text:
-                return text
-    return ""
-
-
-def _channel_message_source_header(message: dict[str, Any]) -> str:
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-    if not any(isinstance(meta.get(key), (dict, list)) for key in ("mcp_json", "sse_json")):
-        return ""
-    room_name = _channel_first_source_header_value(message, ("room_name", "room_label", "title", "name"))
-    room_id = _channel_first_source_header_value(message, ("room_id", "room"))
-    channel = _channel_first_source_header_value(message, ("channel",)) or _channel_source_header_scalar(message.get("channel"))
-    source = room_name or room_id or channel
-    if not source:
-        return ""
-    if room_name and room_id and room_id != room_name:
-        source_text = f"{room_name} (room_id={room_id})"
-    else:
-        source_text = source
-    return f"[Source channel] {source_text}"
-
-
-def format_channel_llm_delivery_wake_prompt(messages: list[dict[str, Any]]) -> str:
-    return "\n\n".join(_channel_message_llm_display_text(message) for message in messages)
-
-
-def format_channel_llm_batch_prompt(messages: list[dict[str, Any]]) -> str:
-    return "\n\n".join(_channel_message_llm_display_text(message) for message in messages)
 
 
 _CHANNEL_LLM_TOOL_CONTEXT_LOCK = threading.Lock()
