@@ -118,6 +118,11 @@ presentation policies through an explicit ten-field port, keeping
 provider-specific display rules outside the compatibility facade without
 reintroducing provider-name dispatch.
 
+Provider option command orchestration lives in `provider_option_cli.py`.
+The controller coordinates provider selection, persistence, model-cache
+invalidation, recommended limits, and presentation through three ports of at
+most five dependencies; mutation rules remain in provider policies.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

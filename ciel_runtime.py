@@ -430,6 +430,12 @@ from ciel_runtime_support.provider_config_mutations import (
     apply_ollama_option as mutate_ollama_option,
     apply_provider_option as mutate_provider_option,
 )
+from ciel_runtime_support.provider_option_cli import (
+    OllamaOptionCommands,
+    ProviderOptionCliConfig,
+    ProviderOptionCliController,
+    ProviderOptionCommands,
+)
 from ciel_runtime_support.llm_presets import (
     PresetContextPolicy,
     PresetDefinition,
@@ -11554,23 +11560,7 @@ def cmd_channel_delivery(args: argparse.Namespace) -> None:
 
 
 def cmd_ollama_native(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    pcfg = cfg["providers"]["ollama"]
-    if args.value:
-        value = args.value.lower()
-        if value in ("on", "enable", "enabled", "true", "1"):
-            pcfg["native_compat"] = True
-            save_config(cfg)
-        elif value in ("off", "disable", "disabled", "false", "0"):
-            pcfg["native_compat"] = False
-            save_config(cfg)
-        else:
-            raise SystemExit("Use: ciel-runtime ollama-native on|off|status")
-    state = "on" if pcfg.get("native_compat", True) else "off"
-    print(f"ollama_native_compat: {state}")
-    print(f"base_url: {pcfg.get('base_url')}")
-    print(f"model: {pcfg.get('current_model')}")
-    print("launch_env: ANTHROPIC_BASE_URL=<ollama>, ANTHROPIC_AUTH_TOKEN=ollama, ANTHROPIC_API_KEY=\"\"")
+    provider_option_cli_controller().native(args)
 
 
 def provider_option_policy() -> ProviderOptionPolicy:
@@ -11592,53 +11582,7 @@ def apply_ollama_option(pcfg: dict[str, Any], token: str) -> None:
 
 
 def cmd_ollama_options(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    values = list(getattr(args, "values", []) or [])
-    provider = cfg.get("current_provider", "ollama")
-    if provider not in ("ollama", "ollama-cloud"):
-        provider = "ollama"
-    if values:
-        try:
-            maybe_provider = normalize_provider(values[0])
-            if maybe_provider in ("ollama", "ollama-cloud"):
-                provider = maybe_provider
-                values = values[1:]
-        except SystemExit:
-            pass
-    pcfg = cfg["providers"][provider]
-    if values:
-        context_changed = any(
-            token.split("=", 1)[0].replace("unset:", "").strip() in ("num_ctx", "ctx", "num_ctx_min", "ctx_min", "min", "num_ctx_max", "ctx_max", "max")
-            for token in values
-        )
-        explicit_timeout = any(
-            token.split("=", 1)[0].replace("unset:", "").strip() in ("timeout", "timeout_ms", "request_timeout", "request_timeout_ms", "stream_idle_timeout", "stream_idle_timeout_ms", "idle_timeout", "idle_timeout_ms")
-            for token in values
-        )
-        for token in values:
-            apply_ollama_option(pcfg, token)
-        timeout_lines = apply_recommended_timeout_for_model_context(provider, pcfg) if context_changed and not explicit_timeout else []
-        save_config(cfg)
-        clear_model_cache()
-        print(f"Ollama options updated for {provider}.")
-        for line in timeout_lines:
-            print(line)
-    print(f"provider: {provider}")
-    print(f"num_ctx: {ollama_num_ctx_status(pcfg)}")
-    print(f"keep_alive: {pcfg.get('keep_alive', 'default')}")
-    print(f"think: {bool(pcfg.get('think', False))}")
-    print(f"request_timeout_ms: {pcfg.get('request_timeout_ms', 'default')}")
-    used, limit = router_rate_limit_usage(provider, pcfg)
-    if limit is not None:
-        print(f"rate_limit_rpm: {limit}")
-        if bool(pcfg.get("rate_limit_status", False)):
-            suffix = f"{used}/{limit}" if limit > 0 else f"{used}/min (unmanaged)"
-            print(f"rpm_used: {suffix}")
-    print(f"ollama_options: {ollama_options_status(pcfg)}")
-    print("Examples:")
-    print("  ciel-runtimectl ollama-options num_ctx=auto min=32768 max=131072")
-    print("  ciel-runtimectl ollama-options num_ctx=65536 temperature=0.7 top_p=0.8 max_tokens=32768 timeout=300000")
-    print("  ciel-runtime --ca-ollama-option temperature=0.7 --ca-ollama-num-ctx 65536")
+    provider_option_cli_controller().ollama_options(args)
 
 
 PROVIDER_OPTION_PROVIDERS = ("anthropic", "agy", "codex", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai")
@@ -12901,61 +12845,54 @@ def apply_provider_option(provider: str, pcfg: dict[str, Any], token: str) -> No
     )
 
 
+def provider_option_cli_controller() -> ProviderOptionCliController:
+    return ProviderOptionCliController(
+        ProviderOptionCliConfig(
+            load=load_config,
+            save=save_config,
+            normalize_provider=normalize_provider,
+            clear_model_cache=clear_model_cache,
+            output=print,
+        ),
+        OllamaOptionCommands(
+            apply=apply_ollama_option,
+            apply_timeout=apply_recommended_timeout_for_model_context,
+            context_status=ollama_num_ctx_status,
+            rate_usage=router_rate_limit_usage,
+            options_status=ollama_options_status,
+        ),
+        ProviderOptionCommands(
+            apply=apply_provider_option,
+            cap_context=cap_context_settings_to_model_capacity,
+            cap_output=cap_output_settings_to_context_ratio,
+            apply_timeout=apply_recommended_timeout_for_model_context,
+            status=provider_options_status,
+        ),
+        supported_providers=PROVIDER_OPTION_PROVIDERS,
+        ollama_providers=("ollama", "ollama-cloud"),
+        provider_notes={
+            "opencode": (
+                "  OpenCode endpoint override: endpoint:<model-id>=messages|chat|responses|gemini",
+                "  OpenCode ip_family options: auto, ipv4, ipv6, ipv4-preferred, ipv6-preferred",
+            ),
+            "opencode-go": (
+                "  OpenCode endpoint override: endpoint:<model-id>=messages|chat|responses|gemini",
+                "  OpenCode ip_family options: auto, ipv4, ipv6, ipv4-preferred, ipv6-preferred",
+            ),
+            "fireworks": (
+                "  Fireworks model list options: account_id=fireworks, model_api_base_url=https://api.fireworks.ai",
+            ),
+        },
+        unsupported_message=(
+            "Provider options are available for anthropic, ollama, ollama-cloud, "
+            "deepseek, opencode, opencode-go, kimi, z.ai, fireworks, vllm, "
+            "lm-studio, nvidia-hosted, self-hosted-nim, and openrouter."
+        ),
+    )
+
+
 def cmd_provider_options(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    values = list(getattr(args, "values", []) or [])
-    provider = cfg.get("current_provider", "vllm")
-    if values:
-        try:
-            maybe_provider = normalize_provider(values[0])
-            if maybe_provider in PROVIDER_OPTION_PROVIDERS:
-                provider = maybe_provider
-                values = values[1:]
-        except SystemExit:
-            pass
-    if provider not in PROVIDER_OPTION_PROVIDERS:
-        raise SystemExit("Provider options are available for anthropic, ollama, ollama-cloud, deepseek, opencode, opencode-go, kimi, z.ai, fireworks, vllm, lm-studio, nvidia-hosted, self-hosted-nim, and openrouter.")
-    pcfg = cfg["providers"][provider]
-    if values:
-        context_changed = any(
-            token.split("=", 1)[0].replace("unset:", "").strip() in ("context_window", "context", "max_model_len")
-            for token in values
-        )
-        explicit_timeout = any(
-            token.split("=", 1)[0].replace("unset:", "").strip() in ("timeout", "timeout_ms", "request_timeout", "request_timeout_ms", "stream_idle_timeout", "stream_idle_timeout_ms", "idle_timeout", "idle_timeout_ms")
-            for token in values
-        )
-        for token in values:
-            apply_provider_option(provider, pcfg, token)
-        cap_lines = cap_context_settings_to_model_capacity(provider, pcfg)
-        cap_lines.extend(cap_output_settings_to_context_ratio(provider, pcfg))
-        timeout_lines = apply_recommended_timeout_for_model_context(provider, pcfg) if context_changed and not explicit_timeout else []
-        save_config(cfg)
-        clear_model_cache()
-        print(f"Provider options updated for {provider}.")
-        for line in cap_lines:
-            print(line)
-        for line in timeout_lines:
-            print(line)
-    print(f"provider: {provider}")
-    print(f"provider_options: {provider_options_status(provider, pcfg)}")
-    print("Notes:")
-    print("  max_output_tokens is passed to Claude Code as CLAUDE_CODE_MAX_OUTPUT_TOKENS.")
-    print("  context_window is a ciel-runtime/router cap; native mode still cannot raise the real server limit.")
-    print("  temperature/top_p/top_k are injected by ciel-runtime router mode when the provider supports them.")
-    if provider in OPENCODE_PROVIDER_NAMES:
-        print("  OpenCode endpoint override: endpoint:<model-id>=messages|chat|responses|gemini")
-        print("  OpenCode ip_family options: auto, ipv4, ipv6, ipv4-preferred, ipv6-preferred")
-    if provider == "fireworks":
-        print("  Fireworks model list options: account_id=fireworks, model_api_base_url=https://api.fireworks.ai")
-    print("Examples:")
-    print("  ciel-runtimectl provider-options deepseek max_output_tokens=8192 context_window=1048576")
-    print("  ciel-runtimectl provider-options opencode-go endpoint:custom-model=chat")
-    print("  ciel-runtimectl provider-options opencode ip_family=ipv6-preferred")
-    print("  ciel-runtimectl provider-options fireworks account_id=fireworks model_api_base_url=https://api.fireworks.ai")
-    print("  ciel-runtimectl provider-options nvidia-hosted max_output_tokens=4096 temperature=0.7 top_p=0.8 timeout=300000 rate_limit_rpm=40")
-    print("  ciel-runtimectl provider-options vllm max_output_tokens=4096 context_window=65536 timeout=300000")
-    print("  ciel-runtimectl provider-options self-hosted-nim native=true max_output_tokens=4096")
+    provider_option_cli_controller().provider_options(args)
 
 
 COMPAT_TOOL_NAME = "compat_echo"
