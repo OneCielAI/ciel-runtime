@@ -419,6 +419,12 @@ class ProviderAdapter(ABC):
         del config
         return {}, None
 
+    def propagates_inbound_beta_query(self, config: ProviderConfig) -> bool:
+        """Whether an inbound Claude beta query should be forwarded upstream."""
+
+        del config
+        return False
+
     def api_key_display_name(self) -> str:
         """Return the provider-owned name used in API-key status text."""
 

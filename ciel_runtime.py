@@ -2531,7 +2531,18 @@ def upstream_messages_query(pcfg: dict[str, Any], request_path: str, provider: s
         return forced
     provider_name = str(provider or pcfg.get("provider") or "").strip()
     provider_key = normalize_provider(provider_name) if provider_name else ""
-    if provider_key == "anthropic" and inbound_query_has_beta_flag(request_path):
+    if provider_key:
+        adapter = configured_provider_adapter(provider_key, pcfg)
+        config = provider_contract_config(provider_key, pcfg)
+    else:
+        adapter = None
+        config = None
+    if (
+        adapter is not None
+        and config is not None
+        and adapter.propagates_inbound_beta_query(config)
+        and inbound_query_has_beta_flag(request_path)
+    ):
         return "beta=true"
     return ""
 
@@ -2540,7 +2551,9 @@ def upstream_query_string_status(provider: str, pcfg: dict[str, Any]) -> str:
     forced = str(pcfg.get("force_query_string") or "").strip()
     if forced:
         return forced
-    if normalize_provider(str(provider)) == "anthropic":
+    provider_key = normalize_provider(str(provider))
+    adapter = configured_provider_adapter(provider_key, pcfg)
+    if adapter.propagates_inbound_beta_query(provider_contract_config(provider_key, pcfg)):
         return "auto (beta=true when routed)"
     return "empty"
 

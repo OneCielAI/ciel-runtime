@@ -170,6 +170,29 @@ class ProviderContractMatrixTests(unittest.TestCase):
             with self.subTest(provider=provider):
                 self.assertEqual(expected, PROVIDER_ADAPTERS.create(provider).routing_mode_update(False))
 
+    def test_inbound_beta_query_capability_is_adapter_owned(self):
+        for provider in PROVIDER_ADAPTERS.names():
+            adapter = PROVIDER_ADAPTERS.create(provider)
+            with self.subTest(provider=provider):
+                self.assertEqual(
+                    provider == "anthropic",
+                    adapter.propagates_inbound_beta_query(config(provider)),
+                )
+
+    def test_main_query_projection_delegates_without_provider_dispatch(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for function_name in ("upstream_messages_query", "upstream_query_string_status"):
+            function = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef) and node.name == function_name
+            )
+            function_source = ast.get_source_segment(source, function) or ""
+            with self.subTest(function=function_name):
+                self.assertIn("propagates_inbound_beta_query", function_source)
+                self.assertNotIn('provider == "', function_source)
+
     def test_option_presentation_matrix_is_adapter_owned(self):
         cases = {
             "anthropic": {"show_route"},

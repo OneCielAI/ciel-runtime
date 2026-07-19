@@ -229,6 +229,10 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
     def option_timeout_default(self) -> str:
         return "Claude Code default"
 
+    def propagates_inbound_beta_query(self, config: ProviderConfig) -> bool:
+        del config
+        return True
+
     def api_key_status(self, config: ProviderConfig, *, key_count: int, primary_detail: str) -> str:
         routed = bool(config.options.get("route_through_router"))
         scope = "Anthropic routed" if routed else "Anthropic"
