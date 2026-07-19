@@ -18,6 +18,43 @@ class ContextSummaryPolicy:
     positive_int: Callable[[Any], int | None]
     content_to_text: Callable[[Any], str]
     compact_json: Callable[..., str]
+    latest_user_text: Callable[[dict[str, Any]], str]
+
+    def is_compact_request(self, body: dict[str, Any]) -> bool:
+        if not isinstance(body, dict):
+            return False
+        text = self.latest_user_text(body).lower()
+        return bool(
+            text
+            and (
+                "<command-name>/compact</command-name>" in text
+                or ("<command-message>compact</command-message>" in text and "<command-name>" in text)
+                or ("create a detailed summary of the conversation" in text and "compact" in text)
+                or ("summarize the conversation so far" in text and "compact" in text)
+            )
+        )
+
+    def text_only_body(
+        self,
+        body: dict[str, Any],
+        system_prompt: str,
+        append_system: Callable[[Any, list[str]], Any],
+        log: Callable[[str, str], None],
+    ) -> dict[str, Any]:
+        if not self.is_compact_request(body):
+            return body
+        result = dict(body)
+        removed_tools = bool(result.pop("tools", None))
+        removed_choice = bool(result.pop("tool_choice", None))
+        result.pop("parallel_tool_calls", None)
+        result["system"] = append_system(result.get("system"), [system_prompt])
+        if removed_tools or removed_choice:
+            log(
+                "INFO",
+                "compact_request_text_only removed_tools=%s removed_tool_choice=%s"
+                % (str(removed_tools).lower(), str(removed_choice).lower()),
+            )
+        return result
 
     @staticmethod
     def truncate(text: str, limit: int) -> str:
@@ -195,3 +232,64 @@ class ContextSummaryPolicy:
         if current:
             chunks.append((current_start, current))
         return chunks
+
+    def chunk_prompt(
+        self,
+        chunk: list[dict[str, Any]],
+        start_index: int,
+        chunk_number: int,
+        chunk_total: int,
+    ) -> str:
+        parts = [
+            f"Segment {chunk_number}/{chunk_total}. Summarize messages {start_index}-{start_index + len(chunk) - 1}.",
+            "Return only the segment summary.",
+        ]
+        parts.extend(
+            self.compact_message(message, start_index + offset)
+            for offset, message in enumerate(chunk)
+        )
+        return "\n\n".join(parts)
+
+    def extract_response_text(self, data: Any, wire: str) -> str:
+        if not isinstance(data, dict):
+            return ""
+        if wire == "ollama":
+            message = data.get("message") if isinstance(data.get("message"), dict) else {}
+            return str(message.get("content") or data.get("response") or "").strip()
+        if wire == "openai":
+            choices = data.get("choices")
+            if isinstance(choices, list) and choices:
+                choice = choices[0] if isinstance(choices[0], dict) else {}
+                message = choice.get("message") if isinstance(choice.get("message"), dict) else {}
+                return str(message.get("content") or "").strip()
+            return ""
+        if wire == "anthropic":
+            return self.content_to_text(data.get("content")).strip()
+        return ""
+
+    def reduce_prompt(
+        self,
+        summaries: list[str],
+        compact_instruction: str,
+        budget_tokens: int,
+        source_message_count: int,
+    ) -> str:
+        parts = [
+            "[ciel-runtime segmented compact]",
+            f"The previous conversation was too large for a single compact request. It was summarized in {len(summaries)} segment(s) from {source_message_count} message(s).",
+            "Segment summaries:",
+        ]
+        parts.extend(
+            f"## Segment {index}\n{summary.strip()}"
+            for index, summary in enumerate(summaries, start=1)
+        )
+        parts.extend(
+            (
+                "Claude Code compact instruction:",
+                self.message_text(compact_instruction),
+                "Using the segment summaries above, return only the final compact summary text requested by Claude Code.",
+            )
+        )
+        text = "\n\n".join(parts)
+        max_chars = max(8192, max(1, budget_tokens) * 3)
+        return self.truncate(text, max_chars) if len(text) > max_chars else text

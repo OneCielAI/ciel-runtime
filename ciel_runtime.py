@@ -8227,37 +8227,16 @@ def is_claude_code_compact_request(body: dict[str, Any]) -> bool:
     tool list and chooses a tool instead, Claude Code reports an empty compact
     summary even though the router returned HTTP 200.
     """
-    if not isinstance(body, dict):
-        return False
-    text = latest_user_text(body).lower()
-    if not text:
-        return False
-    if "<command-name>/compact</command-name>" in text:
-        return True
-    if "<command-message>compact</command-message>" in text and "<command-name>" in text:
-        return True
-    if "create a detailed summary of the conversation" in text and "compact" in text:
-        return True
-    if "summarize the conversation so far" in text and "compact" in text:
-        return True
-    return False
+    return context_summary_policy().is_compact_request(body)
 
 
 def compact_request_text_only_body(body: dict[str, Any]) -> dict[str, Any]:
-    if not is_claude_code_compact_request(body):
-        return body
-    out = dict(body)
-    removed_tools = bool(out.pop("tools", None))
-    removed_tool_choice = bool(out.pop("tool_choice", None))
-    out.pop("parallel_tool_calls", None)
-    out["system"] = append_anthropic_system_texts(out.get("system"), [COMPACT_TEXT_ONLY_SYSTEM_PROMPT])
-    if removed_tools or removed_tool_choice:
-        router_log(
-            "INFO",
-            "compact_request_text_only removed_tools=%s removed_tool_choice=%s"
-            % (str(removed_tools).lower(), str(removed_tool_choice).lower()),
-        )
-    return out
+    return context_summary_policy().text_only_body(
+        body,
+        COMPACT_TEXT_ONLY_SYSTEM_PROMPT,
+        append_anthropic_system_texts,
+        router_log,
+    )
 
 
 PROMPT_TOOL_INPUT_FIELD_LIMIT = 1200
@@ -8267,7 +8246,13 @@ CLAUDE_CODE_PERSISTED_OUTPUT_MARKER = "<persisted-output>"
 
 
 def context_summary_policy() -> ContextSummaryPolicy:
-    return ContextSummaryPolicy(estimate_tokens, positive_int, anthropic_content_to_text, _compact_json_for_prompt)
+    return ContextSummaryPolicy(
+        estimate_tokens,
+        positive_int,
+        anthropic_content_to_text,
+        _compact_json_for_prompt,
+        latest_user_text,
+    )
 
 
 def truncate_for_prompt(text: str, limit: int) -> str:
@@ -8349,31 +8334,11 @@ CONTEXT_COMPACT_MAP_SYSTEM_PROMPT = (
 
 
 def build_context_compact_chunk_prompt(chunk: list[dict[str, Any]], start_index: int, chunk_no: int, chunk_total: int) -> str:
-    parts = [
-        f"Segment {chunk_no}/{chunk_total}. Summarize messages {start_index}-{start_index + len(chunk) - 1}.",
-        "Return only the segment summary.",
-    ]
-    for offset, message in enumerate(chunk):
-        parts.append(context_compact_message_text(message, start_index + offset))
-    return "\n\n".join(parts)
+    return context_summary_policy().chunk_prompt(chunk, start_index, chunk_no, chunk_total)
 
 
 def context_compact_extract_text(data: Any, wire: str) -> str:
-    if not isinstance(data, dict):
-        return ""
-    if wire == "ollama":
-        message = data.get("message") if isinstance(data.get("message"), dict) else {}
-        return str(message.get("content") or data.get("response") or "").strip()
-    if wire == "openai":
-        choices = data.get("choices")
-        if isinstance(choices, list) and choices:
-            choice = choices[0] if isinstance(choices[0], dict) else {}
-            message = choice.get("message") if isinstance(choice.get("message"), dict) else {}
-            return str(message.get("content") or "").strip()
-        return ""
-    if wire == "anthropic":
-        return anthropic_content_to_text(data.get("content")).strip()
-    return ""
+    return context_summary_policy().extract_response_text(data, wire)
 
 
 def context_compaction_available(provider: str, pcfg: dict[str, Any]) -> bool:
@@ -8444,24 +8409,12 @@ def build_context_compact_reduce_prompt(
     budget_tokens: int,
     source_message_count: int,
 ) -> str:
-    parts = [
-        "[ciel-runtime segmented compact]",
-        (
-            f"The previous conversation was too large for a single compact request. "
-            f"It was summarized in {len(summaries)} segment(s) from {source_message_count} message(s)."
-        ),
-        "Segment summaries:",
-    ]
-    for idx, summary in enumerate(summaries, start=1):
-        parts.append(f"## Segment {idx}\n{summary.strip()}")
-    parts.append("Claude Code compact instruction:")
-    parts.append(compact_message_text_for_prompt(compact_instruction))
-    parts.append("Using the segment summaries above, return only the final compact summary text requested by Claude Code.")
-    text = "\n\n".join(parts)
-    max_chars = max(8192, max(1, budget_tokens) * 3)
-    if len(text) > max_chars:
-        text = truncate_for_prompt(text, max_chars)
-    return text
+    return context_summary_policy().reduce_prompt(
+        summaries,
+        compact_instruction,
+        budget_tokens,
+        source_message_count,
+    )
 
 
 def maybe_build_llm_compacted_messages(

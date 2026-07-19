@@ -507,7 +507,7 @@ Provider context budget을 넘는 Anthropic 및 Ollama/OpenAI chat history를 to
 
 ### `ciel_runtime_support/context_summary_policy.py`
 
-compact prompt의 tool 입력 축약, persisted-output 판정, deterministic chunk 범위·summary, compact instruction 탐색과 token 기반 message 분할을 소유하는 순수 Domain Policy. token·content·JSON projection만 명시적 포트로 받는다.
+compact 요청 판정·text-only 변환, tool 입력 축약, persisted-output 판정, deterministic chunk 범위·summary, compact instruction 탐색, map/reduce prompt와 response codec을 소유하는 순수 Protocol/Domain Policy. token·content·JSON projection만 명시적 포트로 받는다.
 
 ### `ciel_runtime_support/runtime_adapters.py`
 
