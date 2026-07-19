@@ -447,6 +447,8 @@ Ollama upstream 요청, context retry, rate-limit, streaming, Advisor 및 channe
 
 ### `ciel_runtime_support/lm_studio_runtime.py`
 
+LM Studio runtime model discovery, load/unload lifecycle, target context 계산과 loaded-context guard를 소유하는 Provider Runtime Service. HTTP I/O와 context 정책을 분리된 포트로 주입받아 공통 composition root에 LM Studio 상태 분기를 남기지 않는다.
+
 LM Studio v0/v1 model API에서 현재 runtime model, 최대·실제 loaded context와 instance 상태를 탐색하고 model load/unload, 목표 context 계산과 부족 context self-heal을 수행하는 Provider Application Service. API URL, HTTP, model ID·context 정책을 9필드 이하 port로 주입하고 각 API 실패를 provider 진단 로그로 남긴다.
 
 ### `ciel_runtime_support/openai_forwarding.py`

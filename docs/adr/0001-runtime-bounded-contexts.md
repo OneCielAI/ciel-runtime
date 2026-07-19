@@ -140,6 +140,10 @@ User-selected timeout profile lookup, localization, projection, mutation, and
 LLM preset token overrides live in `timeout_profile.py`, separate from the
 context-aware automatic timeout calculation policy.
 
+LM Studio target-context discovery, load/unload lifecycle, and loaded-context
+guard behavior live together in `lm_studio_runtime.py`; the facade retains
+only compatibility wrappers and composition.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

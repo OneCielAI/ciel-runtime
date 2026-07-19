@@ -1568,6 +1568,21 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_lm_studio_runtime_port_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(LmStudioRuntimeServices)), 10)
 
+    def test_lm_studio_context_guard_lives_in_provider_runtime(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(
+            encoding="utf-8"
+        )
+        tree = ast.parse(source)
+        function = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "apply_lm_studio_loaded_context_guard"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("context_guard", function_source)
+        self.assertNotIn("LM Studio selected model", function_source)
+
     def test_mcp_proxy_codec_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(McpProxyCodecPolicy)), 10)
 

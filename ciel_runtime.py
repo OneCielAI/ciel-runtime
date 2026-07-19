@@ -11988,44 +11988,7 @@ def refresh_current_model_specs_for_auto_llm(provider: str, pcfg: dict[str, Any]
 
 
 def apply_lm_studio_loaded_context_guard(pcfg: dict[str, Any], load: bool = False) -> list[str]:
-    if load:
-        try:
-            return ensure_lm_studio_model_loaded_for_context(pcfg, timeout=1.5)
-        except Exception as exc:
-            pcfg["native_compat"] = False
-            return [
-                "LM Studio could not automatically load the selected model with the recommended context.",
-                f"LM Studio load error: {type(exc).__name__}: {exc}",
-            ]
-
-    info = None
-    target = lm_studio_target_context(pcfg, info)
-    loaded = positive_int((info or {}).get("loaded_context_len"))
-    state = str((info or {}).get("state") or "")
-    max_len = positive_int((info or {}).get("max_model_len"))
-    messages: list[str] = []
-    if max_len:
-        messages.append(f"LM Studio model max context: {max_len:,} tokens.")
-    if target:
-        messages.append(f"LM Studio target context: {target:,} tokens.")
-    if max_len and max_len < LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT:
-        pcfg["native_compat"] = False
-        pcfg["context_window"] = max_len
-        messages.append(
-            "LM Studio selected model cannot provide enough context for Claude Code "
-            f"({max_len:,} < {LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT:,})."
-        )
-        return messages
-    pcfg["native_compat"] = True
-    if loaded:
-        messages.append(f"LM Studio currently loaded context: {loaded:,} tokens.")
-        if target and loaded < target:
-            messages.append("LM Studio will reload this model with the target context when you launch or test.")
-    elif state and state != "loaded":
-        messages.append("LM Studio will load this model with the target context when you launch or test.")
-    elif target:
-        messages.append("LM Studio will prepare this model with the target context when you launch or test.")
-    return messages
+    return lm_studio_model_lifecycle().context_guard(pcfg, load=load)
 
 
 def required_context_for_preset(preset_id: str, provider: str | None = None) -> int | None:

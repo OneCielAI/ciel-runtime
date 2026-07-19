@@ -201,6 +201,59 @@ class LmStudioModelLifecycle:
             )
         return messages
 
+    def context_guard(
+        self,
+        config: dict[str, Any],
+        *,
+        load: bool = False,
+    ) -> list[str]:
+        if load:
+            try:
+                return self.ensure_loaded_context(config, timeout=1.5)
+            except Exception as exc:
+                config["native_compat"] = False
+                return [
+                    "LM Studio could not automatically load the selected model with the recommended context.",
+                    f"LM Studio load error: {type(exc).__name__}: {exc}",
+                ]
+
+        info: dict[str, Any] | None = None
+        target = self.target_context(config, info)
+        loaded = self.runtime.positive_int((info or {}).get("loaded_context_len"))
+        state = str((info or {}).get("state") or "")
+        max_length = self.runtime.positive_int((info or {}).get("max_model_len"))
+        messages: list[str] = []
+        if max_length:
+            messages.append(f"LM Studio model max context: {max_length:,} tokens.")
+        if target:
+            messages.append(f"LM Studio target context: {target:,} tokens.")
+        if max_length and max_length < self.policy.minimum_context:
+            config["native_compat"] = False
+            config["context_window"] = max_length
+            messages.append(
+                "LM Studio selected model cannot provide enough context for Claude Code "
+                f"({max_length:,} < {self.policy.minimum_context:,})."
+            )
+            return messages
+        config["native_compat"] = True
+        if loaded:
+            messages.append(
+                f"LM Studio currently loaded context: {loaded:,} tokens."
+            )
+            if target and loaded < target:
+                messages.append(
+                    "LM Studio will reload this model with the target context when you launch or test."
+                )
+        elif state and state != "loaded":
+            messages.append(
+                "LM Studio will load this model with the target context when you launch or test."
+            )
+        elif target:
+            messages.append(
+                "LM Studio will prepare this model with the target context when you launch or test."
+            )
+        return messages
+
 
 def discover_lm_studio_runtime(
     provider_config: dict[str, Any],
