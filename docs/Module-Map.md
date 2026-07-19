@@ -89,6 +89,10 @@ LLM 옵션의 입력 검증, Provider 설정 변경, 컨텍스트·출력 보정
 
 명시적 `CliServices` dependency object를 사용하는 CLI Application Service와 command dispatcher.
 
+### `ciel_runtime_support/cli_usage.py`
+
+제어 명령, headless 설정 flag, 지원 provider를 설명하는 CLI usage presentation. entrypoint와 dispatcher에서 정적 사용자 문구를 분리한다.
+
 ### `ciel_runtime_support/compatibility_test.py`
 
 Provider text/tool_use/tool_result 호환성 진단을 실행하는 CLI Application Service. Configuration, mode, request, protocol, output 포트를 분리하며 각 포트는 최대 10개 의존성만 갖는다.
