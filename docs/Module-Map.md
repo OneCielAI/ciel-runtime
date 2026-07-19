@@ -513,6 +513,10 @@ Provider Adapter의 `ProviderContextPolicy`에 따라 모델 컨텍스트 용량
 
 Provider context·output 크기, hosted 가중치, model/catalog/preset 권장값을 합성해 request/idle timeout을 계산·적용하는 Application Policy. 계산 상수와 최대 9개 의존성 포트를 분리하며 Provider Adapter의 `ProviderContextPolicy`만 소비한다.
 
+### `ciel_runtime_support/timeout_profile.py`
+
+사용자가 선택하는 timeout profile의 lookup, 다국어 status/panel projection, request·idle 설정 mutation, LLM preset token override를 담당하는 Application Service. 자동 context 기반 계산 정책과 분리되며 설정과 UI 포트를 명시적으로 주입받는다.
+
 ### `ciel_runtime_support/provider_model_specs.py`
 
 현재 모델의 cached metadata를 identity alias로 조회하고 Adapter context 전략에 맞춰 context 상한을 투영하며 원격 model refresh를 조정하는 Application Service. lookup, mutation, refresh 포트를 분리하고 refresh 실패 후에도 cached 사양 적용을 계속한다.

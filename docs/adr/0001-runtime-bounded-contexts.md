@@ -136,6 +136,10 @@ Current-model metadata lookup, adapter-owned context projection, and refresh
 failure isolation live in `provider_model_specs.py`. Cache identity matching,
 configuration mutation, and remote refresh are separate dependency groups.
 
+User-selected timeout profile lookup, localization, projection, mutation, and
+LLM preset token overrides live in `timeout_profile.py`, separate from the
+context-aware automatic timeout calculation policy.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

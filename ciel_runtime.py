@@ -761,6 +761,11 @@ from ciel_runtime_support.provider_timeout_policy import (
     ProviderTimeoutPorts,
     ProviderTimeoutSettings,
 )
+from ciel_runtime_support.timeout_profile import (
+    TimeoutProfilePorts,
+    TimeoutProfileService,
+    TimeoutProfileSettings,
+)
 from ciel_runtime_support.provider_limits import (
     ProviderKeyServices,
     RateLimitApplyPolicy,
@@ -11766,92 +11771,61 @@ def resolve_llm_preset_id(value: str) -> str | None:
 
 
 
+def timeout_profile_service() -> TimeoutProfileService:
+    return TimeoutProfileService(
+        TimeoutProfileSettings(
+            default_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+            profiles=TIMEOUT_PRESETS,
+            localized_profiles=TIMEOUT_PRESET_I18N,
+            llm_preset_timeouts=LLM_PRESET_TIMEOUT_MS,
+        ),
+        TimeoutProfilePorts(
+            positive_int=positive_int,
+            pad_cells=pad_cells,
+            ui_text=ui_text,
+            format_minutes=format_timeout_minutes,
+        ),
+    )
+
+
 def llm_preset_timeout_ms(preset_id: str) -> int:
-    return LLM_PRESET_TIMEOUT_MS.get(preset_id, DEFAULT_REQUEST_TIMEOUT_MS)
+    return timeout_profile_service().llm_preset_timeout(preset_id)
 
 
 def active_llm_preset_timeout_ms(pcfg: dict[str, Any]) -> int | None:
-    preset_id = str(pcfg.get("llm_preset") or "").strip()
-    if not preset_id:
-        return None
-    return positive_int(LLM_PRESET_TIMEOUT_MS.get(preset_id))
+    return timeout_profile_service().active_llm_preset_timeout(pcfg)
 
 
 def timeout_profile_id_for_ms(ms: int | None) -> str | None:
-    if not ms:
-        return None
-    for preset_id, (preset_ms, _, _) in TIMEOUT_PRESETS.items():
-        if ms == preset_ms:
-            return preset_id
-    return None
+    return timeout_profile_service().profile_id(ms)
 
 
 def timeout_profile_text(profile_id: str, lang: str | None = None) -> tuple[str, str]:
     lang = lang or load_config().get("language", "en")
-    if profile_id == "__custom__":
-        return {
-            "ko": ("사용자 지정", "직접 입력한 timeout 값"),
-            "ja": ("カスタム", "直接入力した timeout 値"),
-            "zh": ("自定义", "手动输入的 timeout 值"),
-        }.get(lang, ("Custom", "manually entered timeout value"))
-    fallback = TIMEOUT_PRESETS[profile_id]
-    return TIMEOUT_PRESET_I18N.get(lang, {}).get(profile_id, (fallback[1], fallback[2]))
+    return timeout_profile_service().text(profile_id, lang)
 
 
 def timeout_profile_status(pcfg: dict[str, Any], lang: str | None = None) -> str:
-    ms = positive_int(pcfg.get("request_timeout_ms")) or DEFAULT_REQUEST_TIMEOUT_MS
-    profile_id = timeout_profile_id_for_ms(ms)
-    if profile_id:
-        label = timeout_profile_text(profile_id, lang)[0]
-    else:
-        label = timeout_profile_text("__custom__", lang)[0]
-    idle = positive_int(pcfg.get("stream_idle_timeout_ms"))
-    idle_text = f"; idle {idle}ms" if idle and idle != ms else ""
-    return f"{label}; {ms}ms{idle_text}"
+    lang = lang or load_config().get("language", "en")
+    return timeout_profile_service().status(pcfg, lang)
 
 
 def timeout_profile_idle_ms(request_timeout_ms: int) -> int:
-    return min(request_timeout_ms, 300000)
+    return TimeoutProfileService.idle_timeout(request_timeout_ms)
 
 
 def timeout_profile_panel_rows(pcfg: dict[str, Any], lang: str | None = None) -> tuple[list[str], list[str]]:
     lang = lang or load_config().get("language", "en")
-    current_ms = positive_int(pcfg.get("request_timeout_ms")) or DEFAULT_REQUEST_TIMEOUT_MS
-    rows = [f"Current timeout: {current_ms} ms = {format_timeout_minutes(current_ms, lang)}"]
-    values = ["__info__"]
-    current_profile = timeout_profile_id_for_ms(current_ms)
-    for profile_id, (ms, _, _) in TIMEOUT_PRESETS.items():
-        label, description = timeout_profile_text(profile_id, lang)
-        mark = "*" if profile_id == current_profile else " "
-        rows.append(f"{mark} {pad_cells(label, 22)} {ms:>7} ms  {description}")
-        values.append(profile_id)
-    rows.append(ui_text("back", lang))
-    values.append("back")
-    return rows, values
+    return timeout_profile_service().panel_rows(pcfg, lang)
 
 
 def apply_timeout_profile_to_provider(pcfg: dict[str, Any], profile_id: str, lang: str | None = None) -> list[str]:
-    if profile_id not in TIMEOUT_PRESETS:
-        raise SystemExit(f"Unknown timeout preset: {profile_id}")
-    ms, _, _ = TIMEOUT_PRESETS[profile_id]
-    idle_ms = timeout_profile_idle_ms(ms)
-    pcfg["request_timeout_ms"] = ms
-    pcfg["stream_idle_timeout_ms"] = idle_ms
-    label = timeout_profile_text(profile_id, lang)[0]
-    return [f"Timeout preset: {label}", f"request_timeout_ms: {ms}", f"stream_idle_timeout_ms: {idle_ms}"]
+    lang = lang or load_config().get("language", "en")
+    return timeout_profile_service().apply(pcfg, profile_id, lang)
 
 
 def with_preset_timeout_tokens(tokens: list[str], preset_id: str) -> list[str]:
-    filtered = [
-        token
-        for token in tokens
-        if not token.startswith(("timeout=", "timeout_ms=", "request_timeout=", "request_timeout_ms=", "stream_idle_timeout=", "stream_idle_timeout_ms="))
-    ]
-    timeout_ms = llm_preset_timeout_ms(preset_id)
-    idle_ms = timeout_profile_idle_ms(timeout_ms)
-    filtered.append(f"timeout={timeout_ms}")
-    filtered.append(f"stream_idle_timeout_ms={idle_ms}")
-    return filtered
+    return timeout_profile_service().with_llm_preset_timeout(tokens, preset_id)
 
 
 
