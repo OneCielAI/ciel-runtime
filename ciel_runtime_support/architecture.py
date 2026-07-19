@@ -411,6 +411,14 @@ class ProviderAdapter(ABC):
     def option_timeout_default(self) -> str:
         return "default"
 
+    def model_configuration_profile(
+        self, config: ProviderConfig
+    ) -> tuple[Mapping[str, Any], str | None]:
+        """Return provider/model-specific configuration updates and an optional notice."""
+
+        del config
+        return {}, None
+
     def api_key_display_name(self) -> str:
         """Return the provider-owned name used in API-key status text."""
 

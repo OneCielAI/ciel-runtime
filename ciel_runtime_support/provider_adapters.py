@@ -660,6 +660,16 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
             return "kimi-for-coding"
         return normalized
 
+    def model_configuration_profile(
+        self, config: ProviderConfig
+    ) -> tuple[Mapping[str, Any], str | None]:
+        if self.normalize_model_id(config.model) != "k3":
+            return {}, None
+        return (
+            {"context_window": 1048576, "max_model_len": 1048576, "effort_level": "max"},
+            "Kimi K3 profile applied: 1M context and max reasoning effort.",
+        )
+
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
         return ProviderContextPolicy(

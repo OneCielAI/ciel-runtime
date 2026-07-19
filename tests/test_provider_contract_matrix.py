@@ -136,6 +136,16 @@ class ProviderContractMatrixTests(unittest.TestCase):
         self.assertTrue(nvidia.preserves_claude_model_alias("claude-nvidia-model"))
         self.assertFalse(nvidia.preserves_claude_model_alias("nvidia/model"))
 
+    def test_model_configuration_profile_is_adapter_owned(self):
+        kimi = PROVIDER_ADAPTERS.create("kimi")
+        updates, notice = kimi.model_configuration_profile(config("kimi", model="k3"))
+        self.assertEqual(1048576, updates["context_window"])
+        self.assertEqual("max", updates["effort_level"])
+        self.assertIn("Kimi K3", notice or "")
+
+        generic = PROVIDER_ADAPTERS.create("openrouter")
+        self.assertEqual(({}, None), generic.model_configuration_profile(config("openrouter")))
+
     def test_catalog_model_selection_policy_is_adapter_owned(self):
         expected = {
             "vllm": {"", "model", "my-model"},

@@ -15228,7 +15228,7 @@ def set_model_config(value: str) -> list[str]:
     mmap = model_map_for(provider, pcfg, fetch=False)
     model_id = normalize_model_id(provider, unslug_provider_alias(provider, value, mmap) or value)
     pcfg["current_model"] = model_id
-    model_profile_msgs = apply_kimi_model_profile(provider, pcfg)
+    model_profile_msgs = apply_provider_model_profile(provider, pcfg)
     if provider == "zai":
         # Claude Code primarily selects through its default Haiku/Sonnet/Opus
         # model environment variables. Keep those aligned when the user
@@ -17796,17 +17796,19 @@ def is_kimi_k3_model_id(model_id: str) -> bool:
 
 
 def apply_kimi_model_profile(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    if provider != "kimi" or not is_kimi_k3_model_id(current_upstream_model_id(provider, pcfg)):
-        return []
-    changed = (
-        positive_int(pcfg.get("context_window")) != 1048576
-        or positive_int(pcfg.get("max_model_len")) != 1048576
-        or str(pcfg.get("effort_level") or "").lower() != "max"
+    return apply_provider_model_profile(provider, pcfg)
+
+
+def apply_provider_model_profile(provider: str, pcfg: dict[str, Any]) -> list[str]:
+    adapter = configured_provider_adapter(provider, pcfg)
+    updates, notice = adapter.model_configuration_profile(
+        provider_contract_config(provider, pcfg)
     )
-    pcfg["context_window"] = 1048576
-    pcfg["max_model_len"] = 1048576
-    pcfg["effort_level"] = "max"
-    return ["Kimi K3 profile applied: 1M context and max reasoning effort."] if changed else []
+    if not updates:
+        return []
+    changed = any(pcfg.get(key) != value for key, value in updates.items())
+    pcfg.update(updates)
+    return [notice] if changed and notice else []
 
 
 def zai_model_context_hint(model_id: str) -> int | None:
@@ -17946,7 +17948,7 @@ def cached_current_model_info(provider: str, pcfg: dict[str, Any]) -> dict[str, 
 
 
 def apply_current_model_specs_to_provider(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    messages = apply_kimi_model_profile(provider, pcfg)
+    messages = apply_provider_model_profile(provider, pcfg)
     info = cached_current_model_info(provider, pcfg)
     max_context = positive_int(info.get("max_model_len")) if info else None
     if not max_context:
