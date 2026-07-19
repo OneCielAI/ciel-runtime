@@ -29,7 +29,6 @@ import tarfile
 import tempfile
 import threading
 import time
-import traceback
 import unicodedata
 import urllib.error
 import urllib.parse
@@ -330,6 +329,15 @@ from ciel_runtime_support.response_collection import (
     ResponseCollectionServices,
     collect_anthropic_message_for_responses as collect_anthropic_response,
     collect_chat_message_for_responses as collect_chat_response,
+)
+from ciel_runtime_support.router_http import (
+    RouterHttpCore,
+    RouterHttpErrors,
+    RouterHttpGetEndpoints,
+    RouterHttpHandler,
+    RouterHttpPostEndpoints,
+    RouterHttpPresentation,
+    RouterHttpServices,
 )
 from ciel_runtime_support.sse_stream import SseRetryState, SseStreamServices, consume_sse_stream
 from ciel_runtime_support.provider_policy import (
@@ -16221,160 +16229,76 @@ def route_runtime_post(
     return False
 
 
-class RouterHandler(BaseHTTPRequestHandler):
-    server_version = "ciel-runtime/0.1"
+def router_health_payload(
+    cfg: dict[str, Any],
+    provider: str,
+    pcfg: dict[str, Any],
+) -> dict[str, Any]:
+    del pcfg
+    return {
+        "ok": True,
+        "version": VERSION,
+        "source_fingerprint": SOURCE_FINGERPRINT,
+        "pid": os.getpid(),
+        "user": getpass.getuser(),
+        "home": str(HOME),
+        "config_dir": str(CONFIG_DIR),
+        "router_port": ROUTER_PORT,
+        "provider": provider,
+        "model": current_alias(cfg),
+        "web_chat": "/ca/web/chat",
+        "chat": "/ca/chat/health",
+        "plan": "/ca/plan/artifacts",
+        "events": "/ca/events",
+    }
 
-    def send_response(self, code: int, message: str | None = None) -> None:
-        try:
-            self._ciel_runtime_response_status = int(code)
-        except Exception:
-            self._ciel_runtime_response_status = None
-        super().send_response(code, message)
 
-    def log_message(self, fmt: str, *args: Any) -> None:
-        try:
-            router_log("INFO", "access " + (fmt % args))
-        except Exception:
-            pass
+def build_router_http_services() -> RouterHttpServices:
+    return RouterHttpServices(
+        core=RouterHttpCore(
+            load_config=load_config,
+            reject_external=reject_external_router_request,
+            get_current_provider=get_current_provider,
+            parse_json_body=parse_json_body,
+            is_client_disconnect=is_client_disconnect_error,
+            log=router_log,
+        ),
+        get=RouterHttpGetEndpoints(
+            codex_mcp_split=handle_codex_mcp_split_proxy_get,
+            events=handle_events_get,
+            llm_config=handle_llm_config_get,
+            channel_mcp=handle_channel_mcp_get,
+            web=handle_web_get,
+            chat=handle_chat_get,
+            plan=handle_plan_get,
+            runtime=route_runtime_get,
+        ),
+        post=RouterHttpPostEndpoints(
+            codex_mcp_split=handle_codex_mcp_split_proxy_request,
+            llm_config=handle_llm_config_post,
+            channel_mcp=handle_channel_mcp_post,
+            chat=handle_chat_post,
+            plan=handle_plan_post,
+            runtime=route_runtime_post,
+        ),
+        presentation=RouterHttpPresentation(
+            home_html=render_router_home_html,
+            health_payload=router_health_payload,
+            write_text=write_text_response,
+            write_json=write_json,
+            list_models=list_model_objects_for_request,
+            resolve_model=resolve_requested_model,
+            model_object=model_object,
+        ),
+        errors=RouterHttpErrors(
+            write_responses_error=write_openai_responses_error,
+            try_write_json=try_write_json,
+        ),
+    )
 
-    def log_error(self, fmt: str, *args: Any) -> None:
-        try:
-            router_log("ERROR", "http " + (fmt % args))
-        except Exception:
-            pass
 
-    def do_HEAD(self) -> None:
-        cfg = load_config()
-        if reject_external_router_request(self, cfg):
-            return
-        parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path
-        if path in ("/", "/health", "/healthz"):
-            self.send_response(200)
-            self.send_header("content-type", "text/plain; charset=utf-8")
-            self.end_headers()
-            return
-        self.send_response(404)
-        self.send_header("content-type", "application/json")
-        self.end_headers()
-
-    def do_GET(self) -> None:
-        parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path
-        query = urllib.parse.parse_qs(parsed.query)
-        cfg = load_config()
-        if reject_external_router_request(self, cfg):
-            return
-        if handle_codex_mcp_split_proxy_get(self, path):
-            return
-        if handle_events_get(self, path, query):
-            return
-        if handle_llm_config_get(self, path):
-            return
-        if handle_channel_mcp_get(self, path):
-            return
-        if handle_web_get(self, path):
-            return
-        if handle_chat_get(self, path) or handle_plan_get(self, path):
-            return
-        provider, pcfg = get_current_provider(cfg)
-        if path == "/":
-            write_text_response(self, render_router_home_html(cfg, provider, pcfg), content_type="text/html; charset=utf-8")
-            return
-        if path in ("/health", "/healthz"):
-            write_json(
-                self,
-                {
-                    "ok": True,
-                    "version": VERSION,
-                    "source_fingerprint": SOURCE_FINGERPRINT,
-                    "pid": os.getpid(),
-                    "user": getpass.getuser(),
-                    "home": str(HOME),
-                    "config_dir": str(CONFIG_DIR),
-                    "router_port": ROUTER_PORT,
-                    "provider": provider,
-                    "model": current_alias(cfg),
-                    "web_chat": "/ca/web/chat",
-                    "chat": "/ca/chat/health",
-                    "plan": "/ca/plan/artifacts",
-                    "events": "/ca/events",
-                },
-            )
-            return
-        if route_runtime_get(self, path, provider, pcfg):
-            return
-        if path == "/v1/models":
-            data = list_model_objects_for_request(provider, pcfg, self.headers)
-            write_json(self, {"object": "list", "data": data, "has_more": False})
-            return
-        if path.startswith("/v1/models/"):
-            mid = urllib.parse.unquote(path[len("/v1/models/"):])
-            resolved = resolve_requested_model(provider, pcfg, mid)
-            write_json(self, model_object(provider, resolved))
-            return
-        write_json(self, {"type": "error", "error": {"type": "not_found_error", "message": path}}, 404)
-
-    def do_POST(self) -> None:
-        path = urllib.parse.urlparse(self.path).path
-        cfg: dict[str, Any] = {}
-        body: dict[str, Any] = {}
-        try:
-            cfg = load_config()
-            if reject_external_router_request(self, cfg):
-                return
-            length = int(self.headers.get("content-length", "0") or 0)
-            raw = self.rfile.read(length) if length else b"{}"
-            if handle_codex_mcp_split_proxy_request(self, path, raw, "POST"):
-                return
-            body = parse_json_body(raw)
-            if handle_llm_config_post(self, path, body):
-                return
-            if handle_channel_mcp_post(self, path, body):
-                return
-            if handle_chat_post(self, path, body) or handle_plan_post(self, path, body):
-                return
-            provider, pcfg = get_current_provider(cfg)
-            if route_runtime_post(self, cfg, provider, pcfg, path, body):
-                return
-            write_json(self, {"type": "error", "error": {"type": "not_found_error", "message": path}}, 404)
-            return
-        except Exception as exc:
-            if is_client_disconnect_error(exc):
-                router_log("WARN", f"router_post_client_disconnected path={path} error={type(exc).__name__}: {exc}")
-                return
-            trace = traceback.format_exc(limit=20).replace("\n", "\\n")
-            router_log("ERROR", f"router_post_uncaught path={path} error={type(exc).__name__}: {exc} trace={trace}")
-            message = f"Ciel Runtime router error: {type(exc).__name__}: {exc}"
-            stream = bool(body.get("stream", True)) if isinstance(body, dict) else True
-            try:
-                if path == "/v1/responses":
-                    write_openai_responses_error(self, message, stream=stream, status=500)
-                elif "text/event-stream" in str(self.headers.get("accept") or "").lower() or stream:
-                    self.send_response(500)
-                    self.send_header("content-type", "text/event-stream")
-                    self.send_header("cache-control", "no-cache")
-                    self.send_header("connection", "close")
-                    self.end_headers()
-                    payload = {"type": "error", "error": {"type": "api_error", "message": message}}
-                    self.wfile.write(f"event: error\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
-                    self.wfile.flush()
-                else:
-                    try_write_json(self, {"type": "error", "error": {"type": "api_error", "message": message}}, 500)
-            except Exception as write_exc:
-                if not is_client_disconnect_error(write_exc):
-                    router_log("ERROR", f"router_post_uncaught_response_failed path={path} error={type(write_exc).__name__}: {write_exc}")
-            return
-
-    def do_DELETE(self) -> None:
-        path = urllib.parse.urlparse(self.path).path
-        cfg = load_config()
-        if reject_external_router_request(self, cfg):
-            return
-        if handle_codex_mcp_split_proxy_request(self, path, b"", "DELETE"):
-            return
-        write_json(self, {"type": "error", "error": {"type": "not_found_error", "message": path}}, 404)
-        return
+class RouterHandler(RouterHttpHandler):
+    services_factory = staticmethod(build_router_http_services)
 
 
 def serve(_: argparse.Namespace) -> None:

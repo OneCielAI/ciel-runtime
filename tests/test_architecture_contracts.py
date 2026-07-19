@@ -265,6 +265,14 @@ from ciel_runtime_support.runtime_launch import (
     CodexAppServerProcess,
     CodexAppServerRouting,
 )
+from ciel_runtime_support.router_http import (
+    RouterHttpCore,
+    RouterHttpErrors,
+    RouterHttpGetEndpoints,
+    RouterHttpPostEndpoints,
+    RouterHttpPresentation,
+    RouterHttpServices,
+)
 from ciel_runtime_support.streaming_anthropic import (
     AnthropicContinuationPolicy,
     AnthropicConversationContext,
@@ -491,6 +499,30 @@ class ArchitectureContractTests(unittest.TestCase):
         for port in ports:
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_router_http_ports_stay_below_dependency_limit(self):
+        for port in (
+            RouterHttpCore,
+            RouterHttpGetEndpoints,
+            RouterHttpPostEndpoints,
+            RouterHttpPresentation,
+            RouterHttpErrors,
+            RouterHttpServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_router_http_adapter_has_no_silent_exception_handlers(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "router_http.py"
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        silent_handlers = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ExceptHandler)
+            and len(node.body) == 1
+            and isinstance(node.body[0], ast.Pass)
+        ]
+        self.assertEqual([], silent_handlers)
 
     def test_compatibility_test_ports_stay_below_dependency_limit(self):
         for port in (
@@ -1085,6 +1117,7 @@ class ArchitectureContractTests(unittest.TestCase):
 
         self.assertNotIn("runtime_deps=globals()", source)
         self.assertNotIn("build_claude_router_dependencies", source)
+        self.assertNotIn("class RouterHandler(BaseHTTPRequestHandler)", source)
         self.assertNotIn("def _legacy_openai_responses_to_anthropic_messages", source)
         self.assertNotIn("def _legacy_anthropic_message_to_openai_response", source)
 
