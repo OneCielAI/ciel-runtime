@@ -66,18 +66,7 @@ from ciel_runtime_support.channel_injection import (
     PromptInjection,
     RuntimeInjectionPolicy,
 )
-from ciel_runtime_support.channel_compact_poll import (
-    ChannelCompactInjectionOptions,
-    ChannelCompactPollServices,
-    ChannelCompactPollState,
-    poll_pending_compaction,
-)
-from ciel_runtime_support.channel_inflight import (
-    ChannelInflightEffects,
-    ChannelInflightPolicy,
-    ChannelInflightSnapshot,
-    advance_channel_inflight,
-)
+from ciel_runtime_support.channel_inflight import ChannelInflightEffects
 from ciel_runtime_support.channel_llm_context import (
     ChannelLlmContextPolicy,
     ChannelLlmContextProjection,
@@ -100,20 +89,16 @@ from ciel_runtime_support.channel_pending_injection import (
     ChannelInjectionWakeStore,
     inject_pending_channel_messages as run_pending_channel_injection,
 )
-from ciel_runtime_support.channel_pending_poll import (
-    ChannelPendingInjectionOptions,
-    ChannelPendingPollPolicy,
-    ChannelPendingPollServices,
-    ChannelPendingPollState,
-    poll_pending_channel_messages,
-)
 from ciel_runtime_support.channel_terminal_proxy import (
     ChannelTerminalIO,
     ChannelTerminalPolicy,
     ChannelTerminalPolling,
     ChannelTerminalProcess,
     ChannelTerminalServices,
+    ChannelWindowsConsole,
+    ChannelWindowsServices,
     run_posix_channel_terminal_proxy,
+    run_windows_channel_terminal_proxy,
 )
 from ciel_runtime_support.channel_probe_report import (
     ChannelProbeReportServices,
@@ -26353,150 +26338,58 @@ def subprocess_call_with_windows_console_wake_proxy(
     channel_wake_submit_delay_seconds: float | None = None,
     tracked_child_pid_path: Path | None = None,
 ) -> int:
-    _write_terminal_input_mode_reset()
-    input_mode_guard = _WindowsConsoleMouseInputGuard()
-    input_mode_guard.apply()
-    proc = subprocess.Popen(cmd, env=env)
-    _write_codex_child_process_record(tracked_child_pid_path, proc.pid, cmd)
-    writer = _WindowsConsoleInputWriter()
-    pending_poll_state = ChannelPendingPollState(last_id=ensure_channel_llm_delivery_cursor_initialized())
-    compact_poll_state = ChannelCompactPollState()
-    channel_submit_attempts = 0
-    channel_last_submit_at = 0.0
-    channel_enter_bytes = _channel_wake_enter_bytes(synthetic_enter_bytes)
-    channel_input_ready_at = time.time() + _windows_channel_startup_grace_seconds()
-    # Crossterm's Windows backend reads INPUT_RECORD key events directly. ANSI
-    # bracketed-paste delimiters would arrive as Esc + literal characters, not
-    # as Event::Paste, so only the POSIX byte-stream proxy may use them.
-    windows_bracketed_paste = False
-    submit_retry_count = max(1, min(8, int(channel_wake_submit_retries or 1)))
-    compact_injection_options = ChannelCompactInjectionOptions(
-        submit_retry_count=submit_retry_count,
-        confirm_submit=channel_wake_confirm_submit,
-        bracketed_paste=windows_bracketed_paste,
-        submit_delay_seconds=channel_wake_submit_delay_seconds,
-    )
-    compact_poll_services = ChannelCompactPollServices(inject_pending=_inject_pending_compact_request)
-    pending_injection_options = ChannelPendingInjectionOptions(
-        enabled=inject_channel_messages,
-        web_chat_only=inject_web_chat_only,
+    del normalize_bare_cr_for_synthetic_enter, channel_wake_bracketed_paste
+    return run_windows_channel_terminal_proxy(
+        cmd,
+        env,
+        build_channel_windows_services(),
+        inject_channel_messages=inject_channel_messages,
+        inject_web_chat_only=inject_web_chat_only,
         wake_for_llm_delivery=wake_for_llm_delivery,
-        submit_retry_count=submit_retry_count,
-        confirm_submit=channel_wake_confirm_submit,
-        bracketed_paste=windows_bracketed_paste,
-        submit_delay_seconds=channel_wake_submit_delay_seconds,
+        synthetic_enter_bytes=synthetic_enter_bytes,
+        channel_wake_submit_retries=channel_wake_submit_retries,
+        channel_wake_confirm_submit=channel_wake_confirm_submit,
+        channel_wake_submit_delay_seconds=channel_wake_submit_delay_seconds,
+        tracked_child_pid_path=tracked_child_pid_path,
     )
-    pending_poll_services = ChannelPendingPollServices(
-        file_marker=_chat_messages_file_marker,
-        should_check=_channel_stdin_should_check_pending,
-        active=lambda: _channel_stdin_active_tool_call() or _channel_stdin_active_turn(),
-        ensure_cursor=ensure_channel_llm_delivery_cursor_initialized,
-        inject_pending=_inject_pending_channel_messages,
+
+
+def build_channel_terminal_process() -> ChannelTerminalProcess:
+    return ChannelTerminalProcess(
+        popen=subprocess.Popen,
+        write_child_record=_write_codex_child_process_record,
+        terminate_child=_terminate_recorded_child_process,
+        release_child_record=_release_codex_child_process_record,
+    )
+
+
+def build_channel_terminal_policy() -> ChannelTerminalPolicy:
+    return ChannelTerminalPolicy(
+        initial_cursor=ensure_channel_llm_delivery_cursor_initialized,
+        enter_bytes=_channel_wake_enter_bytes,
+        enter_label=_channel_enter_label,
+        enter_is_fixed=_channel_wake_enter_env_is_fixed,
+        unseen_retry_seconds=_channel_stdin_unseen_retry_seconds,
+        inflight_is_stale=_channel_stdin_inflight_is_stale,
         log=router_log,
     )
-    pending_poll_policy = ChannelPendingPollPolicy("channel_windows_console", "active_turn")
-    last_terminal_input_mode_reset = 0.0
-    terminal_input_mode_reset_interval = _terminal_input_mode_reset_interval_seconds(0.25)
-    router_log(
-        "INFO",
-        "channel_windows_console_proxy_started "
-        f"pid={proc.pid} enter={_channel_enter_label(channel_enter_bytes)} "
-        f"submit_retries={submit_retry_count} confirm_submit={bool(channel_wake_confirm_submit)} "
-        f"bracketed_paste={windows_bracketed_paste}",
+
+
+def build_channel_terminal_polling() -> ChannelTerminalPolling:
+    return ChannelTerminalPolling(
+        inject_compact=_inject_pending_compact_request,
+        file_marker=_chat_messages_file_marker,
+        should_check=_channel_stdin_should_check_pending,
+        active_tool_call=_channel_stdin_active_tool_call,
+        inject_pending=_inject_pending_channel_messages,
+        wake_state=_channel_stdin_wake_state,
+        inflight_effects=channel_inflight_effects,
     )
-    try:
-        while proc.poll() is None:
-            now = time.time()
-            if now - last_terminal_input_mode_reset >= terminal_input_mode_reset_interval:
-                last_terminal_input_mode_reset = now
-                _write_terminal_input_mode_reset()
-                input_mode_guard.apply()
-            if pending_poll_state.inflight_message_id is not None:
-                channel_inflight_state = _channel_stdin_wake_state(pending_poll_state.inflight_message_id)
-                channel_turn_active = _channel_stdin_active_turn()
-                channel_submit_attempts, channel_last_submit_at = _retry_windows_console_channel_submit(
-                    writer,
-                    channel_enter_bytes,
-                    channel_inflight_state,
-                    channel_submit_attempts,
-                    submit_retry_count,
-                    channel_last_submit_at,
-                    now,
-                    confirm_submit=channel_wake_confirm_submit,
-                    turn_active=channel_turn_active,
-                )
-                inflight_update = advance_channel_inflight(
-                    ChannelInflightSnapshot(
-                        message_id=pending_poll_state.inflight_message_id,
-                        cursor=pending_poll_state.inflight_cursor,
-                        wake_state=channel_inflight_state,
-                        started_at=pending_poll_state.inflight_started_at,
-                        logged_at=pending_poll_state.inflight_logged_at,
-                        now=now,
-                        last_id=pending_poll_state.last_id,
-                    ),
-                    ChannelInflightPolicy(
-                        unseen_retry_seconds=_channel_stdin_unseen_retry_seconds(),
-                        waiting_log_interval=30.0,
-                        is_stale=_channel_stdin_inflight_is_stale,
-                        commit_cursor_on_stale=False,
-                        log_namespace="channel_windows_console",
-                        stale_event="stale_inflight_retry",
-                    ),
-                    channel_inflight_effects(),
-                )
-                pending_poll_state.inflight_message_id = inflight_update.message_id
-                pending_poll_state.inflight_cursor = inflight_update.cursor
-                pending_poll_state.inflight_started_at = inflight_update.started_at
-                pending_poll_state.inflight_logged_at = inflight_update.logged_at
-                pending_poll_state.pending_recheck = (
-                    pending_poll_state.pending_recheck or inflight_update.pending_recheck
-                )
-                pending_poll_state.last_id = inflight_update.last_id
-                if inflight_update.action in {"completed", "unseen_retry", "stale"}:
-                    channel_submit_attempts = 0
-                    channel_last_submit_at = 0.0
-            compact_poll_state = poll_pending_compaction(
-                now,
-                writer,
-                channel_enter_bytes,
-                pending_poll_state.inflight_message_id,
-                compact_poll_state,
-                compact_injection_options,
-                compact_poll_services,
-                input_ready=now >= channel_input_ready_at,
-            )
-            previous_inflight_id = pending_poll_state.inflight_message_id
-            pending_poll_state = poll_pending_channel_messages(
-                now,
-                writer,
-                channel_enter_bytes,
-                pending_poll_state,
-                pending_injection_options,
-                pending_poll_policy,
-                pending_poll_services,
-                input_ready=now >= channel_input_ready_at,
-            )
-            if previous_inflight_id is None and pending_poll_state.inflight_message_id is not None:
-                channel_submit_attempts = 1
-                channel_last_submit_at = now
-            time.sleep(0.05)
-        return proc.wait()
-    finally:
-        _write_terminal_input_mode_reset()
-        input_mode_guard.restore()
-        _terminate_recorded_child_process(proc, "current Codex")
-        _release_codex_child_process_record(tracked_child_pid_path, proc.pid)
 
 
 def build_channel_terminal_services() -> ChannelTerminalServices:
     return ChannelTerminalServices(
-        process=ChannelTerminalProcess(
-            popen=subprocess.Popen,
-            write_child_record=_write_codex_child_process_record,
-            terminate_child=_terminate_recorded_child_process,
-            release_child_record=_release_codex_child_process_record,
-        ),
+        process=build_channel_terminal_process(),
         io=ChannelTerminalIO(
             terminal_size=_terminal_winsize_from_fd,
             apply_terminal_size=_apply_pty_winsize,
@@ -26505,23 +26398,25 @@ def build_channel_terminal_services() -> ChannelTerminalServices:
             observed_enter=_channel_synthetic_enter_bytes_from_user_input,
             reset_input_mode=_write_terminal_input_mode_reset,
         ),
-        policy=ChannelTerminalPolicy(
-            initial_cursor=ensure_channel_llm_delivery_cursor_initialized,
-            enter_bytes=_channel_wake_enter_bytes,
-            enter_label=_channel_enter_label,
-            enter_is_fixed=_channel_wake_enter_env_is_fixed,
-            unseen_retry_seconds=_channel_stdin_unseen_retry_seconds,
-            inflight_is_stale=_channel_stdin_inflight_is_stale,
-            log=router_log,
-        ),
-        polling=ChannelTerminalPolling(
-            inject_compact=_inject_pending_compact_request,
-            file_marker=_chat_messages_file_marker,
-            should_check=_channel_stdin_should_check_pending,
-            active_tool_call=_channel_stdin_active_tool_call,
-            inject_pending=_inject_pending_channel_messages,
-            wake_state=_channel_stdin_wake_state,
-            inflight_effects=channel_inflight_effects,
+        policy=build_channel_terminal_policy(),
+        polling=build_channel_terminal_polling(),
+    )
+
+
+def build_channel_windows_services() -> ChannelWindowsServices:
+    return ChannelWindowsServices(
+        process=build_channel_terminal_process(),
+        policy=build_channel_terminal_policy(),
+        polling=build_channel_terminal_polling(),
+        console=ChannelWindowsConsole(
+            reset_input_mode=_write_terminal_input_mode_reset,
+            mouse_guard=_WindowsConsoleMouseInputGuard,
+            input_writer=_WindowsConsoleInputWriter,
+            startup_grace_seconds=_windows_channel_startup_grace_seconds,
+            reset_interval_seconds=_terminal_input_mode_reset_interval_seconds,
+            active_turn=_channel_stdin_active_turn,
+            retry_submit=_retry_windows_console_channel_submit,
+            sleep=time.sleep,
         ),
     )
 

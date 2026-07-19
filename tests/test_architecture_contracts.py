@@ -79,6 +79,8 @@ from ciel_runtime_support.channel_terminal_proxy import (
     ChannelTerminalPolling,
     ChannelTerminalProcess,
     ChannelTerminalServices,
+    ChannelWindowsConsole,
+    ChannelWindowsServices,
 )
 from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
@@ -944,6 +946,8 @@ class ArchitectureContractTests(unittest.TestCase):
             ChannelTerminalPolicy,
             ChannelTerminalPolling,
             ChannelTerminalServices,
+            ChannelWindowsConsole,
+            ChannelWindowsServices,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
@@ -979,6 +983,7 @@ class ArchitectureContractTests(unittest.TestCase):
         critical_names = {
             "subprocess_call_with_channel_wake_proxy",
             "run_posix_channel_terminal_proxy",
+            "run_windows_channel_terminal_proxy",
             "_mcp_proxy_forward_stdin",
             "_mcp_proxy_forward_stdin_jsonl",
             "_mcp_proxy_emit_jsonl_stdout_line",

@@ -1517,7 +1517,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("ChannelPromptInjector", prompt_source)
 
     def test_windows_console_proxy_does_not_send_ansi_bracketed_paste(self):
-        source = inspect.getsource(ciel_runtime.subprocess_call_with_windows_console_wake_proxy)
+        source = inspect.getsource(ciel_runtime.run_windows_channel_terminal_proxy)
 
         self.assertIn("windows_bracketed_paste = False", source)
         self.assertIn("bracketed_paste=windows_bracketed_paste", source)

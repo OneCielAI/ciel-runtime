@@ -76,6 +76,178 @@ class ChannelTerminalServices:
     polling: ChannelTerminalPolling
 
 
+@dataclass(frozen=True)
+class ChannelWindowsConsole:
+    reset_input_mode: Callable[[], None]
+    mouse_guard: Callable[[], Any]
+    input_writer: Callable[[], Any]
+    startup_grace_seconds: Callable[[], float]
+    reset_interval_seconds: Callable[[float], float]
+    active_turn: Callable[[], bool]
+    retry_submit: Callable[..., tuple[int, float]]
+    sleep: Callable[[float], None]
+
+
+@dataclass(frozen=True)
+class ChannelWindowsServices:
+    process: ChannelTerminalProcess
+    policy: ChannelTerminalPolicy
+    polling: ChannelTerminalPolling
+    console: ChannelWindowsConsole
+
+
+def run_windows_channel_terminal_proxy(
+    cmd: list[str],
+    env: dict[str, str],
+    services: ChannelWindowsServices,
+    *,
+    inject_channel_messages: bool = True,
+    inject_web_chat_only: bool = False,
+    wake_for_llm_delivery: bool = False,
+    synthetic_enter_bytes: str | bytes | None = None,
+    channel_wake_submit_retries: int = 1,
+    channel_wake_confirm_submit: bool = False,
+    channel_wake_submit_delay_seconds: float | None = None,
+    tracked_child_pid_path: Path | None = None,
+) -> int:
+    process = services.process
+    policy = services.policy
+    polling = services.polling
+    console = services.console
+    console.reset_input_mode()
+    input_mode_guard = console.mouse_guard()
+    input_mode_guard.apply()
+    proc = process.popen(cmd, env=env)
+    process.write_child_record(tracked_child_pid_path, proc.pid, cmd)
+    writer = console.input_writer()
+    pending_poll_state = ChannelPendingPollState(last_id=policy.initial_cursor())
+    compact_poll_state = ChannelCompactPollState()
+    channel_submit_attempts = 0
+    channel_last_submit_at = 0.0
+    channel_enter_bytes = policy.enter_bytes(synthetic_enter_bytes)
+    channel_input_ready_at = time.time() + console.startup_grace_seconds()
+    # Windows Console consumes INPUT_RECORD events, so ANSI bracketed-paste
+    # delimiters would be interpreted as literal keys instead of a paste event.
+    windows_bracketed_paste = False
+    submit_retry_count = max(1, min(8, int(channel_wake_submit_retries or 1)))
+    compact_injection_options = ChannelCompactInjectionOptions(
+        submit_retry_count=submit_retry_count,
+        confirm_submit=channel_wake_confirm_submit,
+        bracketed_paste=windows_bracketed_paste,
+        submit_delay_seconds=channel_wake_submit_delay_seconds,
+    )
+    compact_poll_services = ChannelCompactPollServices(inject_pending=polling.inject_compact)
+    pending_injection_options = ChannelPendingInjectionOptions(
+        enabled=inject_channel_messages,
+        web_chat_only=inject_web_chat_only,
+        wake_for_llm_delivery=wake_for_llm_delivery,
+        submit_retry_count=submit_retry_count,
+        confirm_submit=channel_wake_confirm_submit,
+        bracketed_paste=windows_bracketed_paste,
+        submit_delay_seconds=channel_wake_submit_delay_seconds,
+    )
+    pending_poll_services = ChannelPendingPollServices(
+        file_marker=polling.file_marker,
+        should_check=polling.should_check,
+        active=lambda: polling.active_tool_call() or console.active_turn(),
+        ensure_cursor=policy.initial_cursor,
+        inject_pending=polling.inject_pending,
+        log=policy.log,
+    )
+    pending_poll_policy = ChannelPendingPollPolicy("channel_windows_console", "active_turn")
+    last_terminal_input_mode_reset = 0.0
+    terminal_input_mode_reset_interval = console.reset_interval_seconds(0.25)
+    policy.log(
+        "INFO",
+        "channel_windows_console_proxy_started "
+        f"pid={proc.pid} enter={policy.enter_label(channel_enter_bytes)} "
+        f"submit_retries={submit_retry_count} confirm_submit={bool(channel_wake_confirm_submit)} "
+        f"bracketed_paste={windows_bracketed_paste}",
+    )
+    try:
+        while proc.poll() is None:
+            now = time.time()
+            if now - last_terminal_input_mode_reset >= terminal_input_mode_reset_interval:
+                last_terminal_input_mode_reset = now
+                console.reset_input_mode()
+                input_mode_guard.apply()
+            if pending_poll_state.inflight_message_id is not None:
+                channel_inflight_state = polling.wake_state(pending_poll_state.inflight_message_id)
+                channel_submit_attempts, channel_last_submit_at = console.retry_submit(
+                    writer,
+                    channel_enter_bytes,
+                    channel_inflight_state,
+                    channel_submit_attempts,
+                    submit_retry_count,
+                    channel_last_submit_at,
+                    now,
+                    confirm_submit=channel_wake_confirm_submit,
+                    turn_active=console.active_turn(),
+                )
+                inflight_update = advance_channel_inflight(
+                    ChannelInflightSnapshot(
+                        message_id=pending_poll_state.inflight_message_id,
+                        cursor=pending_poll_state.inflight_cursor,
+                        wake_state=channel_inflight_state,
+                        started_at=pending_poll_state.inflight_started_at,
+                        logged_at=pending_poll_state.inflight_logged_at,
+                        now=now,
+                        last_id=pending_poll_state.last_id,
+                    ),
+                    ChannelInflightPolicy(
+                        unseen_retry_seconds=policy.unseen_retry_seconds(),
+                        waiting_log_interval=30.0,
+                        is_stale=policy.inflight_is_stale,
+                        commit_cursor_on_stale=False,
+                        log_namespace="channel_windows_console",
+                        stale_event="stale_inflight_retry",
+                    ),
+                    polling.inflight_effects(),
+                )
+                pending_poll_state.inflight_message_id = inflight_update.message_id
+                pending_poll_state.inflight_cursor = inflight_update.cursor
+                pending_poll_state.inflight_started_at = inflight_update.started_at
+                pending_poll_state.inflight_logged_at = inflight_update.logged_at
+                pending_poll_state.pending_recheck = (
+                    pending_poll_state.pending_recheck or inflight_update.pending_recheck
+                )
+                pending_poll_state.last_id = inflight_update.last_id
+                if inflight_update.action in {"completed", "unseen_retry", "stale"}:
+                    channel_submit_attempts = 0
+                    channel_last_submit_at = 0.0
+            compact_poll_state = poll_pending_compaction(
+                now,
+                writer,
+                channel_enter_bytes,
+                pending_poll_state.inflight_message_id,
+                compact_poll_state,
+                compact_injection_options,
+                compact_poll_services,
+                input_ready=now >= channel_input_ready_at,
+            )
+            previous_inflight_id = pending_poll_state.inflight_message_id
+            pending_poll_state = poll_pending_channel_messages(
+                now,
+                writer,
+                channel_enter_bytes,
+                pending_poll_state,
+                pending_injection_options,
+                pending_poll_policy,
+                pending_poll_services,
+                input_ready=now >= channel_input_ready_at,
+            )
+            if previous_inflight_id is None and pending_poll_state.inflight_message_id is not None:
+                channel_submit_attempts = 1
+                channel_last_submit_at = now
+            console.sleep(0.05)
+        return proc.wait()
+    finally:
+        console.reset_input_mode()
+        input_mode_guard.restore()
+        process.terminate_child(proc, "current Codex")
+        process.release_child_record(tracked_child_pid_path, proc.pid)
+
+
 def run_posix_channel_terminal_proxy(
     cmd: list[str],
     env: dict[str, str],
