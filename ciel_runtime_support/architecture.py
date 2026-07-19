@@ -267,6 +267,17 @@ class ProviderAdapter(ABC):
     def default_base_url(self) -> str:
         """Return the provider default API base URL."""
 
+    def default_configuration(self) -> Mapping[str, Any]:
+        """Return the minimal persisted configuration for a newly registered provider."""
+
+        return {
+            "base_url": self.default_base_url(),
+            "api_key": "",
+            "current_model": "",
+            "advisor_model": "",
+            "custom_models": [],
+        }
+
     @abstractmethod
     def list_models(self, config: ProviderConfig) -> Sequence[ModelInfo]:
         """Return known models for this provider."""

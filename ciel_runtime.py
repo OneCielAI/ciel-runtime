@@ -2317,6 +2317,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
 }
 
+for _registered_provider in PROVIDER_ADAPTERS.names():
+    DEFAULT_CONFIG["providers"].setdefault(
+        _registered_provider,
+        dict(PROVIDER_ADAPTERS.create(_registered_provider).default_configuration()),
+    )
+
 
 def deep_merge(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     out = json.loads(json.dumps(a))

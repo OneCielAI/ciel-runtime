@@ -20,6 +20,14 @@ class ProviderContractMatrixTests(unittest.TestCase):
         self.assertEqual(set(PROVIDER_ADAPTERS.names()), set(PROVIDER_LABELS))
         self.assertTrue(all(label.strip() for label in PROVIDER_LABELS.values()))
 
+    def test_every_adapter_supplies_minimal_default_configuration(self):
+        for provider in PROVIDER_ADAPTERS.names():
+            with self.subTest(provider=provider):
+                defaults = PROVIDER_ADAPTERS.create(provider).default_configuration()
+                self.assertEqual(PROVIDER_ADAPTERS.create(provider).default_base_url(), defaults["base_url"])
+                self.assertIn("current_model", defaults)
+                self.assertIn("custom_models", defaults)
+
     def test_primary_protocol_matrix(self):
         cases = {
             "anthropic": "anthropic_messages",

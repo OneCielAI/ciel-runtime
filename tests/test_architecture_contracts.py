@@ -1181,6 +1181,17 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertEqual([], assignments)
         self.assertIn("from ciel_runtime_support.provider_adapters import", source)
 
+    def test_default_config_hydrates_all_registered_providers(self):
+        import ciel_runtime
+
+        self.assertEqual(
+            set(PROVIDER_ADAPTERS.names()),
+            set(ciel_runtime.DEFAULT_CONFIG["providers"]),
+        )
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        self.assertIn("for _registered_provider in PROVIDER_ADAPTERS.names()", source)
+        self.assertIn(".default_configuration()", source)
+
     def test_channel_panel_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelPanelPolicy)), 10)
 
