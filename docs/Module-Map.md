@@ -599,6 +599,10 @@ Codex용 HTTP 라우터:
 
 → [[Observability]]
 
+### `ciel_runtime_support/runtime_logging.py`
+
+log-level 파일·환경 우선순위, mtime cache, 설정 저장·reset과 router.log 회전을 소유하는 Repository/Infrastructure Adapter. 메인 facade는 기존 logging 함수명을 유지하면서 저장소와 file logger만 조립한다.
+
 ### `ciel_runtime_support/transcript_filter.py`
 
 Claude Code 트랜스크립트 이벤트 필터:

@@ -687,6 +687,13 @@ from ciel_runtime_support.prompt_injection import (
 )
 from ciel_runtime_support.runtime_adapters import RUNTIME_ADAPTERS
 from ciel_runtime_support.runtime_compatibility import DEFAULT_RUNTIME_COMPATIBILITY
+from ciel_runtime_support.runtime_logging import (
+    LOG_LEVEL_NAMES,
+    LOG_LEVELS,
+    LogLevelRepository,
+    RouterFileLogger,
+    normalize_log_level as normalize_runtime_log_level,
+)
 from ciel_runtime_support.runtime_launch import (
     AgyLaunchChannel,
     AgyLaunchCliPolicy,
@@ -1132,8 +1139,6 @@ PRELAUNCH_LAUNCH_CLAUDE = 12
 PRELAUNCH_LAUNCH_AGY = 13
 PRELAUNCH_LAUNCH_CODEX_APP_SERVER = 14
 
-LOG_LEVELS = {"SILENT": 0, "ERROR": 1, "WARN": 2, "INFO": 3, "DEBUG": 4, "TRACE": 5}
-LOG_LEVEL_NAMES = {v: k for k, v in LOG_LEVELS.items()}
 LOG_LEVEL_DEFAULT = LOG_LEVELS["ERROR"]
 ROUTER_LOG_MAX_BYTES = 1_000_000
 REQUEST_DUMP_MAX_BYTES = 5_000_000
@@ -2633,123 +2638,44 @@ def http_json(
         return json.loads(r.read().decode("utf-8"))
 
 
+def log_level_repository() -> LogLevelRepository:
+    return LogLevelRepository(CONFIG_DIR, LOG_LEVEL_PATH, _LOG_LEVEL_CACHE, LOG_LEVEL_DEFAULT, os.environ)
+
+
 def current_log_level() -> int:
-    """Resolve effective log level. Priority: log-level file > env var > default.
-    File mtime + 1s wall cache to keep overhead near zero on hot paths."""
-    now = time.time()
-    cache = _LOG_LEVEL_CACHE
-    if cache["value"] is not None and (now - float(cache["checked_at"])) < 1.0:
-        return int(cache["value"])
-    level: int | None = None
-    try:
-        if LOG_LEVEL_PATH.exists():
-            mtime = LOG_LEVEL_PATH.stat().st_mtime
-            if cache["value"] is not None and mtime == cache["file_mtime"]:
-                cache["checked_at"] = now
-                return int(cache["value"])
-            txt = LOG_LEVEL_PATH.read_text(encoding="utf-8").strip().upper()
-            if txt in LOG_LEVELS:
-                level = LOG_LEVELS[txt]
-            elif txt.isdigit():
-                level = max(0, min(5, int(txt)))
-            cache["file_mtime"] = mtime
-    except Exception:
-        pass
-    if level is None:
-        env = os.environ.get("CIEL_RUNTIME_LOG_LEVEL", "").strip().upper()
-        if env in LOG_LEVELS:
-            level = LOG_LEVELS[env]
-        elif env.isdigit():
-            level = max(0, min(5, int(env)))
-    if level is None:
-        level = LOG_LEVEL_DEFAULT
-    cache["value"] = level
-    cache["checked_at"] = now
-    return level
+    return log_level_repository().current()
 
 
 def reset_log_level_cache() -> None:
-    _LOG_LEVEL_CACHE.update({"value": None, "checked_at": 0.0, "file_mtime": 0.0})
+    log_level_repository().reset_cache()
 
 
 def log_level_name(value: int | None = None) -> str:
-    if value is None:
-        value = current_log_level()
-    return str(LOG_LEVEL_NAMES.get(int(value), value))
+    return log_level_repository().name(value)
 
 
 def log_level_source() -> str:
-    if LOG_LEVEL_PATH.exists():
-        return "file"
-    if os.environ.get("CIEL_RUNTIME_LOG_LEVEL", "").strip():
-        return "env"
-    return "default"
+    return log_level_repository().source()
 
 
 def log_level_status() -> str:
-    return f"{log_level_name()} ({log_level_source()})"
+    return log_level_repository().status()
 
 
 def normalize_log_level(value: str) -> str | None:
-    raw = str(value or "").strip()
-    if not raw:
-        raise ValueError("log level is empty")
-    upper = raw.upper()
-    aliases = {
-        "OFF": "SILENT",
-        "NONE": "SILENT",
-        "QUIET": "SILENT",
-        "WARNING": "WARN",
-        "WARNINGS": "WARN",
-    }
-    upper = aliases.get(upper, upper)
-    if upper in ("DEFAULT", "RESET", "UNSET", "AUTO"):
-        return None
-    if upper in LOG_LEVELS:
-        return upper
-    if upper.isdigit():
-        numeric = max(0, min(5, int(upper)))
-        return LOG_LEVEL_NAMES[numeric]
-    raise ValueError(f"unknown log level: {value}")
+    return normalize_runtime_log_level(value)
 
 
 def set_log_level_config(value: str) -> list[str]:
-    try:
-        level = normalize_log_level(value)
-    except ValueError as exc:
-        known = ", ".join(LOG_LEVELS)
-        return [f"{exc}. Known levels: {known}, DEFAULT."]
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    if level is None:
-        try:
-            LOG_LEVEL_PATH.unlink()
-        except FileNotFoundError:
-            pass
-        reset_log_level_cache()
-        return [f"Log level reset to {log_level_status()}."]
-    LOG_LEVEL_PATH.write_text(level + "\n", encoding="utf-8")
-    try:
-        os.chmod(LOG_LEVEL_PATH, 0o600)
-    except Exception:
-        pass
-    reset_log_level_cache()
-    return [f"Log level set to {level}."]
+    return log_level_repository().set(value)
 
 
 def router_log(level: str, message: str) -> None:
     """Append a line to router.log if the active level allows it.
     Rotates router.log when it exceeds ROUTER_LOG_MAX_BYTES."""
-    threshold = LOG_LEVELS.get(level, 0)
-    if threshold <= 0 or threshold > current_log_level():
-        return
-    try:
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        if LOG_PATH.exists() and LOG_PATH.stat().st_size > ROUTER_LOG_MAX_BYTES:
-            LOG_PATH.replace(LOG_PATH.with_suffix(".log.1"))
-        with LOG_PATH.open("a", encoding="utf-8") as f:
-            f.write("%s [%s] %s\n" % (time.strftime("%Y-%m-%dT%H:%M:%S"), level, message))
-    except Exception:
-        pass
+    RouterFileLogger(CONFIG_DIR, LOG_PATH, ROUTER_LOG_MAX_BYTES, log_level_repository()).write(
+        level, message
+    )
 
 
 def resolve_blocked_tools(provider: str, pcfg: dict[str, Any]) -> set[str]:
