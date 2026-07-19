@@ -155,7 +155,7 @@ native launch 우회, Base URL·API-key 차단, ultracode capability 및 Provide
 
 ### `ciel_runtime_support/prompt_compaction.py`
 
-Provider context budget을 넘는 Anthropic message history를 tool-result 경계가 안전한 tail과 분산 요약으로 축약하는 Prompt Compaction Service. 텍스트 projection과 token/LLM/runtime 관측 포트를 분리한다.
+Provider context budget을 넘는 Anthropic 및 Ollama/OpenAI chat history를 tool-result 경계가 안전한 tail, hard-cap, 분산 요약으로 축약하는 Prompt Compaction Service. 텍스트 projection과 token/LLM/runtime 관측 포트를 분리하고 wire 형식은 호출 Strategy가 명시한다.
 
 ### `ciel_runtime_support/runtime_adapters.py`
 

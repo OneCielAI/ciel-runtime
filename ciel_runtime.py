@@ -315,6 +315,7 @@ from ciel_runtime_support.prompt_compaction import (
     PromptCompactionText,
     anthropic_message_has_tool_result as compacted_anthropic_message_has_tool_result,
     anthropic_safe_tail_start as compacted_anthropic_safe_tail_start,
+    compact_chat_messages_for_budget as run_chat_prompt_compaction,
     compact_anthropic_body_for_budget as run_anthropic_prompt_compaction,
 )
 from ciel_runtime_support.runtime_adapters import RUNTIME_ADAPTERS
@@ -13803,139 +13804,17 @@ def compact_ollama_messages_for_budget(
     full_compact_request: bool = False,
     wire: str | None = None,
 ) -> list[dict[str, Any]]:
-    if not messages:
-        return messages
-    budget_tokens = max(8192, budget_tokens)
-    payload = {"messages": messages, "tools": tools}
-    initial_tokens = estimate_tokens(payload)
-    if initial_tokens <= budget_tokens:
-        return messages
-    if full_compact_request and pcfg is not None and provider and model:
-        compact_wire = wire or ("ollama" if provider in ("ollama", "ollama-cloud") else "openai")
-        llm_compacted = maybe_build_llm_compacted_messages(provider, model, pcfg, messages, budget_tokens, wire=compact_wire)
-        if llm_compacted:
-            final_tokens = estimate_tokens({"messages": llm_compacted, "tools": []})
-            if final_tokens <= budget_tokens:
-                return llm_compacted
-            router_log(
-                "WARN",
-                f"context_compact_map_reduce_oversize provider={provider} model={model} tokens={final_tokens} budget={budget_tokens}; falling back to deterministic compact",
-            )
-
-    def compact_chat_message_for_budget(message: dict[str, Any], max_chars: int, prefix: str) -> dict[str, Any]:
-        role = str(message.get("role") or "user")
-        if role not in ("system", "user", "assistant", "tool"):
-            role = "user"
-        content = message.get("content")
-        text = content if isinstance(content, str) else anthropic_content_to_text(content)
-        out: dict[str, Any] = {"role": role}
-        if message.get("name"):
-            out["name"] = str(message.get("name"))
-        out["content"] = truncate_for_prompt(f"{prefix}\n{text}", max(256, max_chars))
-        return out
-
-    def hard_cap_ollama_messages(
-        system_messages: list[dict[str, Any]],
-        latest_message: dict[str, Any] | None,
-        omitted_messages: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
-        summary_text = build_chunked_context_guard_summary(omitted_messages, max(8192, budget_tokens // 2))
-        summary_prefix = (
-            "[ciel-runtime context guard: older conversation history and oversized retained messages were "
-            "compacted because they exceeded the provider context budget.]"
-        )
-        latest_prefix = "[Latest retained message compacted because the previous payload exceeded the provider context budget.]"
-        system_chars = max(512, min(8192, budget_tokens))
-        summary_chars = max(512, min(4096, budget_tokens))
-        latest_chars = max(1024, budget_tokens * 4)
-        last_candidate: list[dict[str, Any]] = []
-        for _ in range(10):
-            per_system_chars = max(256, system_chars // max(1, len(system_messages)))
-            capped_systems = [
-                compact_chat_message_for_budget(message, per_system_chars, "[System message compacted for context budget.]")
-                for message in system_messages
-            ]
-            summary_message = {"role": "user", "content": truncate_for_prompt(f"{summary_prefix}\n{summary_text}", summary_chars)}
-            candidate = [*capped_systems, summary_message]
-            base_tokens = estimate_tokens({"messages": candidate, "tools": tools})
-            remaining_chars = max(256, (budget_tokens - base_tokens) * 4 - 1024)
-            if latest_message is not None:
-                candidate.append(compact_chat_message_for_budget(latest_message, min(latest_chars, remaining_chars), latest_prefix))
-            last_candidate = candidate
-            if estimate_tokens({"messages": candidate, "tools": tools}) <= budget_tokens:
-                return candidate
-            system_chars = max(256, system_chars // 2)
-            summary_chars = max(256, summary_chars // 2)
-            latest_chars = max(256, latest_chars // 2)
-        return last_candidate
-
-    system_messages = [m for m in messages if m.get("role") == "system"]
-    non_system = [m for m in messages if m.get("role") != "system"]
-    first_user: dict[str, Any] | None = next((m for m in non_system if m.get("role") == "user"), None)
-
-    preserved_tail: list[dict[str, Any]] = []
-    omitted_messages_reversed: list[dict[str, Any]] = []
-    summary: dict[str, Any] = {
-        "role": "user",
-        "content": (
-            "[ciel-runtime context guard: older conversation messages were omitted because the provider context "
-            "budget would be exceeded. Large file contents and prior Write/Edit inputs were truncated. "
-            "Use Read on specific files if exact old content is needed.]"
-        ),
-    }
-
-    fixed_prefix = list(system_messages)
-    if first_user is not None:
-        fixed_prefix.append(first_user)
-    fixed_prefix.append(summary)
-
-    for msg in reversed(non_system):
-        if first_user is not None and msg is first_user:
-            continue
-        candidate = fixed_prefix + list(reversed(preserved_tail + [msg]))
-        if estimate_tokens({"messages": candidate, "tools": tools}) <= budget_tokens:
-            preserved_tail.append(msg)
-        else:
-            omitted_messages_reversed.append(msg)
-
-    if first_user is None:
-        fixed_prefix = list(system_messages)
-        fixed_prefix.append(summary)
-
-    omitted_messages = list(reversed(omitted_messages_reversed))
-    summary["content"] = build_chunked_context_guard_summary(omitted_messages, budget_tokens)
-    compacted = fixed_prefix + list(reversed(preserved_tail))
-    while estimate_tokens({"messages": compacted, "tools": tools}) > budget_tokens and preserved_tail:
-        removed = preserved_tail.pop()
-        omitted_messages.append(removed)
-        summary["content"] = build_chunked_context_guard_summary(omitted_messages, budget_tokens)
-        compacted = fixed_prefix + list(reversed(preserved_tail))
-    if estimate_tokens({"messages": compacted, "tools": tools}) > budget_tokens:
-        latest_message = next((m for m in reversed(non_system) if isinstance(m, dict)), None)
-        omitted_for_hard_cap = [
-            message
-            for message in messages
-            if message not in system_messages and (latest_message is None or message is not latest_message)
-        ]
-        compacted = hard_cap_ollama_messages(system_messages, latest_message, omitted_for_hard_cap)
-    router_log(
-        "WARN",
-        f"compacted ollama payload messages {len(messages)}->{len(compacted)} tokens {initial_tokens}->{estimate_tokens({'messages': compacted, 'tools': tools})} budget={budget_tokens}",
+    return run_chat_prompt_compaction(
+        messages,
+        tools,
+        budget_tokens,
+        provider=provider,
+        model=model,
+        pcfg=pcfg,
+        full_compact_request=full_compact_request,
+        wire=wire,
+        services=prompt_compaction_services(),
     )
-    chunk_count = context_guard_chunk_count(omitted_messages, budget_tokens)
-    if chunk_count and (provider or model):
-        write_context_compact_activity(
-            provider or "provider",
-            model,
-            chunks=chunk_count,
-            parallel_sessions=1,
-            tokens=initial_tokens,
-            final_tokens=estimate_tokens({"messages": compacted, "tools": tools}),
-            budget=budget_tokens,
-            omitted_messages=len(omitted_messages),
-            retained_messages=len(compacted),
-        )
-    return compacted
 
 def prompt_compaction_services() -> PromptCompactionServices:
     return PromptCompactionServices(

@@ -30,6 +30,157 @@ class PromptCompactionServices:
     runtime: PromptCompactionRuntime
 
 
+def compact_chat_messages_for_budget(
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    budget_tokens: int,
+    *,
+    provider: str = "",
+    model: str = "",
+    pcfg: dict[str, Any] | None = None,
+    full_compact_request: bool = False,
+    wire: str | None = None,
+    services: PromptCompactionServices,
+) -> list[dict[str, Any]]:
+    if not messages:
+        return messages
+    text = services.text
+    runtime = services.runtime
+    budget_tokens = max(8192, budget_tokens)
+    initial_tokens = runtime.estimate_tokens({"messages": messages, "tools": tools})
+    if initial_tokens <= budget_tokens:
+        return messages
+    if full_compact_request and pcfg is not None and provider and model:
+        compacted_by_llm = runtime.llm_compact_messages(
+            provider,
+            model,
+            pcfg,
+            messages,
+            budget_tokens,
+            wire=wire or "ollama",
+        )
+        if compacted_by_llm:
+            final_tokens = runtime.estimate_tokens({"messages": compacted_by_llm, "tools": []})
+            if final_tokens <= budget_tokens:
+                return compacted_by_llm
+            runtime.log(
+                "WARN",
+                f"context_compact_map_reduce_oversize provider={provider} model={model} tokens={final_tokens} budget={budget_tokens}; falling back to deterministic compact",
+            )
+
+    def compact_message(message: dict[str, Any], max_chars: int, prefix: str) -> dict[str, Any]:
+        role = str(message.get("role") or "user")
+        if role not in ("system", "user", "assistant", "tool"):
+            role = "user"
+        content = message.get("content")
+        content_text = content if isinstance(content, str) else text.content_to_text(content)
+        out: dict[str, Any] = {"role": role}
+        if message.get("name"):
+            out["name"] = str(message.get("name"))
+        out["content"] = text.truncate(f"{prefix}\n{content_text}", max(256, max_chars))
+        return out
+
+    def hard_cap(
+        system_messages: list[dict[str, Any]],
+        latest_message: dict[str, Any] | None,
+        omitted_messages: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        summary_text = text.build_summary(omitted_messages, max(8192, budget_tokens // 2))
+        summary_prefix = (
+            "[ciel-runtime context guard: older conversation history and oversized retained messages were "
+            "compacted because they exceeded the provider context budget.]"
+        )
+        latest_prefix = "[Latest retained message compacted because the previous payload exceeded the provider context budget.]"
+        system_chars = max(512, min(8192, budget_tokens))
+        summary_chars = max(512, min(4096, budget_tokens))
+        latest_chars = max(1024, budget_tokens * 4)
+        last_candidate: list[dict[str, Any]] = []
+        for _ in range(10):
+            per_system_chars = max(256, system_chars // max(1, len(system_messages)))
+            capped_systems = [
+                compact_message(message, per_system_chars, "[System message compacted for context budget.]")
+                for message in system_messages
+            ]
+            summary_message = {
+                "role": "user",
+                "content": text.truncate(f"{summary_prefix}\n{summary_text}", summary_chars),
+            }
+            candidate = [*capped_systems, summary_message]
+            base_tokens = runtime.estimate_tokens({"messages": candidate, "tools": tools})
+            remaining_chars = max(256, (budget_tokens - base_tokens) * 4 - 1024)
+            if latest_message is not None:
+                candidate.append(compact_message(latest_message, min(latest_chars, remaining_chars), latest_prefix))
+            last_candidate = candidate
+            if runtime.estimate_tokens({"messages": candidate, "tools": tools}) <= budget_tokens:
+                return candidate
+            system_chars = max(256, system_chars // 2)
+            summary_chars = max(256, summary_chars // 2)
+            latest_chars = max(256, latest_chars // 2)
+        return last_candidate
+
+    system_messages = [message for message in messages if message.get("role") == "system"]
+    non_system = [message for message in messages if message.get("role") != "system"]
+    first_user = next((message for message in non_system if message.get("role") == "user"), None)
+    preserved_tail: list[dict[str, Any]] = []
+    omitted_reversed: list[dict[str, Any]] = []
+    summary: dict[str, Any] = {
+        "role": "user",
+        "content": (
+            "[ciel-runtime context guard: older conversation messages were omitted because the provider context "
+            "budget would be exceeded. Large file contents and prior Write/Edit inputs were truncated. "
+            "Use Read on specific files if exact old content is needed.]"
+        ),
+    }
+    fixed_prefix = list(system_messages)
+    if first_user is not None:
+        fixed_prefix.append(first_user)
+    fixed_prefix.append(summary)
+    for message in reversed(non_system):
+        if first_user is not None and message is first_user:
+            continue
+        candidate = fixed_prefix + list(reversed(preserved_tail + [message]))
+        if runtime.estimate_tokens({"messages": candidate, "tools": tools}) <= budget_tokens:
+            preserved_tail.append(message)
+        else:
+            omitted_reversed.append(message)
+    if first_user is None:
+        fixed_prefix = [*system_messages, summary]
+    omitted_messages = list(reversed(omitted_reversed))
+    summary["content"] = text.build_summary(omitted_messages, budget_tokens)
+    compacted = fixed_prefix + list(reversed(preserved_tail))
+    while runtime.estimate_tokens({"messages": compacted, "tools": tools}) > budget_tokens and preserved_tail:
+        omitted_messages.append(preserved_tail.pop())
+        summary["content"] = text.build_summary(omitted_messages, budget_tokens)
+        compacted = fixed_prefix + list(reversed(preserved_tail))
+    if runtime.estimate_tokens({"messages": compacted, "tools": tools}) > budget_tokens:
+        latest_message = next((message for message in reversed(non_system) if isinstance(message, dict)), None)
+        omitted_for_hard_cap = [
+            message
+            for message in messages
+            if message not in system_messages and (latest_message is None or message is not latest_message)
+        ]
+        compacted = hard_cap(system_messages, latest_message, omitted_for_hard_cap)
+    final_tokens = runtime.estimate_tokens({"messages": compacted, "tools": tools})
+    runtime.log(
+        "WARN",
+        f"compacted ollama payload messages {len(messages)}->{len(compacted)} tokens {initial_tokens}->{final_tokens} budget={budget_tokens}",
+    )
+    chunk_count = text.chunk_count(omitted_messages, budget_tokens)
+    if chunk_count and (provider or model):
+        runtime.write_activity(
+            provider or "provider",
+            model,
+            chunks=chunk_count,
+            parallel_sessions=1,
+            tokens=initial_tokens,
+            final_tokens=final_tokens,
+            budget=budget_tokens,
+            omitted_messages=len(omitted_messages),
+            retained_messages=len(compacted),
+        )
+    return compacted
+
+
 def anthropic_message_has_tool_result(message: dict[str, Any]) -> bool:
     content = message.get("content")
     return isinstance(content, list) and any(

@@ -663,6 +663,12 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
+    def test_prompt_compaction_does_not_dispatch_on_provider_names(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "prompt_compaction.py"
+        source = source_path.read_text(encoding="utf-8")
+        self.assertNotIn('provider == "', source)
+        self.assertNotIn("provider in (", source)
+
     def test_launch_readiness_dispatches_through_provider_policy(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
