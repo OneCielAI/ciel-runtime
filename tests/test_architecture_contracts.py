@@ -31,6 +31,11 @@ from ciel_runtime_support.advisor_request_builder import (
     AdvisorEndpointPorts,
     AdvisorProjectionPorts,
 )
+from ciel_runtime_support.advisor_refinement import (
+    AdvisorRefinementIO,
+    AdvisorRefinementPolicy,
+    AdvisorRefinementText,
+)
 from ciel_runtime_support.cli_dispatch import (
     CliChannelCommands,
     CliConfiguration,
@@ -951,6 +956,11 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_advisor_request_builder_ports_stay_below_dependency_limit(self):
         for port in (AdvisorProjectionPorts, AdvisorBudgetPorts, AdvisorEndpointPorts):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_advisor_refinement_ports_stay_below_dependency_limit(self):
+        for port in (AdvisorRefinementText, AdvisorRefinementPolicy, AdvisorRefinementIO):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 

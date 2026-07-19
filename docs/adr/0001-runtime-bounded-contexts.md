@@ -78,6 +78,10 @@ Provider-specific Advisor message projection, input budgeting, request/response
 mapping, and endpoint selection live in `advisor_request_builder.py`. Network
 and rate-limit side effects remain outside this pure Builder boundary.
 
+Advisor feedback injection and the optional second-pass response decoration
+live in `advisor_refinement.py`; typed text, policy, and I/O ports keep the
+refinement workflow independent of provider transport implementations.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

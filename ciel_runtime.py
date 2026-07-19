@@ -59,6 +59,12 @@ from ciel_runtime_support.advisor_request_builder import (
     AdvisorProjectionPorts,
     AdvisorRequestBuilder,
 )
+from ciel_runtime_support.advisor_refinement import (
+    AdvisorRefinementIO,
+    AdvisorRefinementPolicy,
+    AdvisorRefinementService,
+    AdvisorRefinementText,
+)
 from ciel_runtime_support.architecture import LaunchSpec, MessageProtocol, ProviderConfig, RuntimeConfig
 from ciel_runtime_support.anthropic_tool_turns import (
     AnthropicToolTurnServices,
@@ -8101,42 +8107,44 @@ def call_advisor_text(
         return ""
 
 
-def body_with_internal_advisor_feedback(body: dict[str, Any], assistant_message: dict[str, Any], advisor_text: str, trigger: str) -> dict[str, Any]:
-    messages = [m for m in body.get("messages", []) if isinstance(m, dict)]
-    assistant_text = anthropic_content_to_text(assistant_message.get("content")).strip()
-    tool_names = anthropic_message_tool_names(assistant_message)
-    tool_summary = assistant_tool_call_summary_for_prompt(assistant_message)
-    if assistant_text:
-        messages.append({"role": "assistant", "content": [{"type": "text", "text": compact_message_text_for_prompt(assistant_text)}]})
-    elif tool_summary:
-        messages.append({"role": "assistant", "content": [{"type": "text", "text": compact_message_text_for_prompt(tool_summary)}]})
-    elif tool_names:
-        messages.append({
-            "role": "assistant",
-            "content": [{"type": "text", "text": f"I was about to call Claude Code tool(s): {', '.join(tool_names)}."}],
-        })
-    feedback = (
-        f"{ADVISOR_FEEDBACK_MARKER}\n"
-        f"Advisor review trigger: {trigger}.\n\n"
-        f"{advisor_text}\n\n"
-        "Apply this advisor feedback now. If the plan is still ready, call ExitPlanMode with the improved plan. "
-        "If the task is complete, provide the final answer. If the advisor found a gap, continue with concrete "
-        "Claude Code tool calls instead of stopping after an announcement."
+def advisor_refinement_service() -> AdvisorRefinementService:
+    return AdvisorRefinementService(
+        ADVISOR_FEEDBACK_MARKER,
+        AdvisorRefinementText(
+            content_text=anthropic_content_to_text,
+            tool_names=anthropic_message_tool_names,
+            tool_summary=assistant_tool_call_summary_for_prompt,
+            compact_text=compact_message_text_for_prompt,
+            prepend_text=prepend_anthropic_text,
+        ),
+        AdvisorRefinementPolicy(
+            model_enabled=advisor_model_enabled,
+            provider_supported=advisor_provider_supported,
+            is_advisor_request=is_advisor_request,
+            has_feedback=body_has_advisor_feedback,
+            trigger=advisor_trigger_for_message,
+            focus=advisor_focus_for_message,
+        ),
+        AdvisorRefinementIO(
+            call_advisor=call_advisor_text,
+            call_provider=call_provider_chat_once,
+            log=router_log,
+            write_activity=write_router_activity,
+        ),
     )
-    messages.append({"role": "user", "content": [{"type": "text", "text": feedback}]})
-    follow_body = dict(body)
-    follow_body["messages"] = messages
-    follow_body.pop("tool_choice", None)
-    return follow_body
+
+
+def body_with_internal_advisor_feedback(body: dict[str, Any], assistant_message: dict[str, Any], advisor_text: str, trigger: str) -> dict[str, Any]:
+    return advisor_refinement_service().body_with_feedback(
+        body,
+        assistant_message,
+        advisor_text,
+        trigger,
+    )
 
 
 def advisor_visible_summary(advisor_text: str, trigger: str, limit: int = 700) -> str:
-    text = re.sub(r"\s+", " ", str(advisor_text or "")).strip()
-    if not text:
-        return ""
-    if len(text) > limit:
-        text = text[: max(0, limit - 1)].rstrip() + "…"
-    return f"Advisor review ({trigger}): {text}\n\n"
+    return advisor_refinement_service().visible_summary(advisor_text, trigger, limit)
 
 
 def call_provider_chat_once(provider: str, pcfg: dict[str, Any], body: dict[str, Any], model: str) -> dict[str, Any]:
@@ -8182,30 +8190,13 @@ def refine_message_with_advisor(
     message: dict[str, Any],
     main_model: str,
 ) -> dict[str, Any]:
-    if not advisor_model_enabled(pcfg):
-        return message
-    if not advisor_provider_supported(provider):
-        return message
-    if is_advisor_request(original_body) or body_has_advisor_feedback(original_body):
-        return message
-    trigger = advisor_trigger_for_message(original_body, message)
-    trigger, advisor_focus = advisor_focus_for_message(message, trigger)
-    if not trigger:
-        return message
-    advisor_text = call_advisor_text(provider, pcfg, original_body, focus=advisor_focus or trigger)
-    if not advisor_text:
-        return message
-    follow_body = body_with_internal_advisor_feedback(original_body, message, advisor_text, trigger)
-    visible_summary = advisor_visible_summary(advisor_text, trigger)
-    try:
-        router_log("INFO", f"advisor_refinement_call trigger={trigger} main_model={main_model}")
-        refined = call_provider_chat_once(provider, pcfg, follow_body, main_model)
-        router_log("INFO", f"advisor_refinement_done trigger={trigger} stop_reason={refined.get('stop_reason')}")
-        return prepend_anthropic_text(refined, visible_summary)
-    except Exception as exc:
-        router_log("WARN", f"advisor_refinement_failed trigger={trigger} model={main_model} error={type(exc).__name__}: {exc}")
-        write_router_activity("advisor_refinement_error", provider, main_model, error=type(exc).__name__)
-        return prepend_anthropic_text(message, visible_summary)
+    return advisor_refinement_service().refine(
+        provider,
+        pcfg,
+        original_body,
+        message,
+        main_model,
+    )
 
 
 def anthropic_text_response(model: str, text: str, stop_reason: str = "end_turn") -> dict[str, Any]:
