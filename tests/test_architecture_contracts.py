@@ -1115,6 +1115,10 @@ class ArchitectureContractTests(unittest.TestCase):
         )
         critical_names = {
             "subprocess_call_with_channel_wake_proxy",
+            "_subprocess_call_capturing_stderr",
+            "_write_codex_child_process_record",
+            "_release_codex_child_process_record",
+            "_terminate_recorded_child_process",
             "run_posix_channel_terminal_proxy",
             "run_windows_channel_terminal_proxy",
             "terminate_matching_processes",

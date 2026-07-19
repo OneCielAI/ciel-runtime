@@ -20705,8 +20705,11 @@ def _write_codex_child_process_record(path: Path | None, pid: int, cmd: list[str
         path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         try:
             os.chmod(path, 0o600)
-        except Exception:
-            pass
+        except Exception as exc:
+            router_log(
+                "WARN",
+                f"codex_child_process_record_chmod_failed path={path} error={type(exc).__name__}: {exc}",
+            )
         router_log("INFO", f"codex_child_process_registered pid={pid} path={path}")
     except Exception as exc:
         router_log("WARN", f"codex_child_process_register_failed pid={pid} error={type(exc).__name__}: {exc}")
@@ -20723,7 +20726,7 @@ def _release_codex_child_process_record(path: Path | None, pid: int | None = Non
         path.unlink()
         router_log("INFO", f"codex_child_process_released path={path}")
     except FileNotFoundError:
-        pass
+        return
     except Exception as exc:
         router_log("WARN", f"codex_child_process_release_failed path={path} error={type(exc).__name__}: {exc}")
 
@@ -20738,20 +20741,25 @@ def _terminate_recorded_child_process(proc: Any, label: str) -> None:
     try:
         if proc.poll() is not None:
             return
-    except Exception:
-        pass
+    except Exception as exc:
+        router_log("WARN", f"codex_child_process_poll_failed pid={pid} error={type(exc).__name__}: {exc}")
     terminate_pid_tree(pid, label, quiet=True)
     try:
         proc.wait(timeout=2)
-    except Exception:
+    except Exception as wait_exc:
+        router_log("WARN", f"codex_child_process_wait_failed pid={pid} error={type(wait_exc).__name__}: {wait_exc}")
         try:
             proc.kill()
-        except Exception:
-            pass
+        except Exception as kill_exc:
+            router_log("WARN", f"codex_child_process_kill_failed pid={pid} error={type(kill_exc).__name__}: {kill_exc}")
         try:
             proc.wait(timeout=2)
-        except Exception:
-            pass
+        except Exception as final_wait_exc:
+            router_log(
+                "WARN",
+                f"codex_child_process_final_wait_failed pid={pid} "
+                f"error={type(final_wait_exc).__name__}: {final_wait_exc}",
+            )
 
 
 def terminate_tracked_codex_processes(reason: str, quiet: bool = True) -> bool:
@@ -27622,8 +27630,8 @@ def _subprocess_call_capturing_stderr(cmd: list[str], env: dict[str, str]) -> in
     try:
         if CLAUDE_CODE_STDERR_LOG.exists() and CLAUDE_CODE_STDERR_LOG.stat().st_size > 2_000_000:
             CLAUDE_CODE_STDERR_LOG.replace(CLAUDE_CODE_STDERR_LOG.with_suffix(".log.1"))
-    except Exception:
-        pass
+    except Exception as exc:
+        router_log("WARN", f"claude_stderr_capture_rotate_failed error={type(exc).__name__}: {exc}")
     try:
         log_handle = CLAUDE_CODE_STDERR_LOG.open("ab", buffering=0)
     except Exception as exc:
@@ -27632,16 +27640,19 @@ def _subprocess_call_capturing_stderr(cmd: list[str], env: dict[str, str]) -> in
     header = f"\n===== claude launch at {time.strftime('%Y-%m-%dT%H:%M:%S')} =====\n".encode("utf-8")
     try:
         log_handle.write(header)
-    except Exception:
-        pass
+    except Exception as exc:
+        router_log("WARN", f"claude_stderr_capture_header_failed error={type(exc).__name__}: {exc}")
     try:
         proc = subprocess.Popen(cmd, env=env, stderr=subprocess.PIPE)
     except Exception as exc:
         router_log("WARN", f"claude_stderr_capture_spawn_failed error={type(exc).__name__}: {exc}")
         try:
             log_handle.close()
-        except Exception:
-            pass
+        except Exception as close_exc:
+            router_log(
+                "WARN",
+                f"claude_stderr_capture_close_failed error={type(close_exc).__name__}: {close_exc}",
+            )
         return subprocess.call(cmd, env=env)
 
     def _tee_stderr() -> None:
@@ -27655,17 +27666,17 @@ def _subprocess_call_capturing_stderr(cmd: list[str], env: dict[str, str]) -> in
                 try:
                     sys.stderr.buffer.write(chunk)
                     sys.stderr.buffer.flush()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    router_log("WARN", f"claude_stderr_console_tee_failed error={type(exc).__name__}: {exc}")
                 try:
                     log_handle.write(chunk)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    router_log("WARN", f"claude_stderr_log_tee_failed error={type(exc).__name__}: {exc}")
         finally:
             try:
                 log_handle.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                router_log("WARN", f"claude_stderr_capture_close_failed error={type(exc).__name__}: {exc}")
 
     tee_thread = threading.Thread(target=_tee_stderr, daemon=True, name="claude-stderr-tee")
     tee_thread.start()
