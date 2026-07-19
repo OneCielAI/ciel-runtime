@@ -82,6 +82,11 @@ Advisor feedback injection and the optional second-pass response decoration
 live in `advisor_refinement.py`; typed text, policy, and I/O ports keep the
 refinement workflow independent of provider transport implementations.
 
+Advisor network execution and refinement provider calls live in
+`advisor_client.py`. `AdvisorClient` owns review I/O while
+`ProviderChatExecutor` selects the Ollama or OpenAI-compatible transport
+strategy through typed policy and I/O ports.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

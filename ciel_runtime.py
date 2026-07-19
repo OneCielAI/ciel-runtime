@@ -65,6 +65,14 @@ from ciel_runtime_support.advisor_refinement import (
     AdvisorRefinementService,
     AdvisorRefinementText,
 )
+from ciel_runtime_support.advisor_client import (
+    AdvisorClient,
+    AdvisorClientIO,
+    AdvisorClientPolicy,
+    ProviderChatExecutor,
+    ProviderChatIO,
+    ProviderChatPolicy,
+)
 from ciel_runtime_support.architecture import LaunchSpec, MessageProtocol, ProviderConfig, RuntimeConfig
 from ciel_runtime_support.anthropic_tool_turns import (
     AnthropicToolTurnServices,
@@ -8039,6 +8047,30 @@ def advisor_endpoint(provider: str, pcfg: dict[str, Any]) -> str:
     return advisor_request_builder().endpoint_url(provider, pcfg)
 
 
+def advisor_client() -> AdvisorClient:
+    return AdvisorClient(
+        AdvisorClientPolicy(
+            model_enabled=advisor_model_enabled,
+            provider_supported=advisor_provider_supported,
+            upstream_model=advisor_upstream_model,
+            provider_kind=advisor_provider_kind,
+            request=advisor_request,
+            endpoint=advisor_endpoint,
+            response_text=advisor_response_text,
+        ),
+        AdvisorClientIO(
+            apply_rate_limit=apply_router_rate_limit,
+            write_activity=write_router_activity,
+            estimate_tokens=estimate_tokens,
+            post_json=post_json_with_rate_retry,
+            headers=provider_headers,
+            provider_timeout=provider_request_timeout_seconds,
+            ollama_timeout=ollama_request_timeout_seconds,
+            log=router_log,
+        ),
+    )
+
+
 def call_advisor_text(
     provider: str,
     pcfg: dict[str, Any],
@@ -8050,61 +8082,16 @@ def call_advisor_text(
     retry_rate_limits: bool = True,
     raise_errors: bool = False,
 ) -> str:
-    advisor_model = advisor_model_enabled(pcfg)
-    if not advisor_model or not advisor_provider_supported(provider):
-        return ""
-    upstream_model = advisor_upstream_model(provider, advisor_model)
-    req_body = advisor_request(provider, advisor_model, body, pcfg, focus_override=focus)
-    try:
-        if allow_rate_limit_wait:
-            apply_router_rate_limit(provider, pcfg, upstream_model)
-        write_router_activity("advisor", provider, upstream_model, tokens=estimate_tokens(req_body))
-        if advisor_provider_kind(provider) == "openai-compatible":
-            data = post_json_with_rate_retry(
-                advisor_endpoint(provider, pcfg),
-                req_body,
-                provider_headers(provider, pcfg),
-                provider_request_timeout_seconds(pcfg),
-                provider,
-                pcfg,
-                upstream_model,
-                None,
-                retry_rate_limits=retry_rate_limits,
-            )
-        elif advisor_provider_kind(provider) == "anthropic":
-            data = post_json_with_rate_retry(
-                advisor_endpoint(provider, pcfg),
-                req_body,
-                provider_headers(provider, pcfg, inbound_headers),
-                provider_request_timeout_seconds(pcfg),
-                provider,
-                pcfg,
-                upstream_model,
-                None,
-                retry_rate_limits=retry_rate_limits,
-            )
-        else:
-            data = post_json_with_rate_retry(
-                advisor_endpoint(provider, pcfg),
-                req_body,
-                provider_headers(provider, pcfg),
-                ollama_request_timeout_seconds(pcfg),
-                provider,
-                pcfg,
-                upstream_model,
-                None,
-                retry_rate_limits=retry_rate_limits,
-            )
-        text = advisor_response_text(provider, data)
-        if text:
-            router_log("INFO", f"advisor_feedback provider={provider} advisor_model={upstream_model} chars={len(text)}")
-        return text
-    except Exception as exc:
-        router_log("WARN", f"advisor_request_failed provider={provider} advisor_model={upstream_model} error={type(exc).__name__}: {exc}")
-        write_router_activity("advisor_error", provider, upstream_model, error=type(exc).__name__)
-        if raise_errors:
-            raise
-        return ""
+    return advisor_client().review(
+        provider,
+        pcfg,
+        body,
+        focus,
+        inbound_headers,
+        allow_rate_limit_wait=allow_rate_limit_wait,
+        retry_rate_limits=retry_rate_limits,
+        raise_errors=raise_errors,
+    )
 
 
 def advisor_refinement_service() -> AdvisorRefinementService:
@@ -8147,41 +8134,32 @@ def advisor_visible_summary(advisor_text: str, trigger: str, limit: int = 700) -
     return advisor_refinement_service().visible_summary(advisor_text, trigger, limit)
 
 
+def provider_chat_executor() -> ProviderChatExecutor:
+    return ProviderChatExecutor(
+        ProviderChatPolicy(
+            normalize_thinking=normalize_thinking_for_non_anthropic_provider,
+            normalize_tool_choice=normalize_tool_choice_for_provider,
+            provider_kind=advisor_provider_kind,
+            upstream_model=provider_upstream_model,
+            ollama_request=ollama_chat_request,
+            openai_request=openai_compatible_chat_request,
+            ollama_response=ollama_chat_to_anthropic,
+            openai_response=openai_chat_to_anthropic,
+        ),
+        ProviderChatIO(
+            apply_rate_limit=apply_router_rate_limit,
+            post_json=post_json_with_rate_retry,
+            join_url=join_url,
+            request_base=provider_upstream_request_base,
+            headers=provider_headers,
+            provider_timeout=provider_request_timeout_seconds,
+            ollama_timeout=ollama_request_timeout_seconds,
+        ),
+    )
+
+
 def call_provider_chat_once(provider: str, pcfg: dict[str, Any], body: dict[str, Any], model: str) -> dict[str, Any]:
-    body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
-    body = normalize_tool_choice_for_provider(provider, pcfg, body)
-    transport = advisor_provider_kind(provider, pcfg)
-    if transport == "ollama":
-        base = pcfg.get("base_url", "").rstrip("/")
-        req_body = ollama_chat_request(model, body, pcfg, stream=False, provider=provider)
-        apply_router_rate_limit(provider, pcfg, model)
-        data = post_json_with_rate_retry(
-            join_url(base, "/api/chat"),
-            req_body,
-            provider_headers(provider, pcfg),
-            ollama_request_timeout_seconds(pcfg),
-            provider,
-            pcfg,
-            model,
-            None,
-        )
-        return ollama_chat_to_anthropic(data, model, source_body=body)
-    if transport == "openai-compatible":
-        upstream_model = provider_upstream_model(provider, pcfg, model)
-        req_body = openai_compatible_chat_request(provider, upstream_model, body, pcfg, stream=False)
-        apply_router_rate_limit(provider, pcfg, upstream_model)
-        data = post_json_with_rate_retry(
-            join_url(provider_upstream_request_base(provider, pcfg), "/v1/chat/completions"),
-            req_body,
-            provider_headers(provider, pcfg),
-            provider_request_timeout_seconds(pcfg),
-            provider,
-            pcfg,
-            upstream_model,
-            None,
-        )
-        return openai_chat_to_anthropic(data, upstream_model, source_body=body)
-    raise RuntimeError(f"Advisor refinement is not supported for provider {provider}")
+    return provider_chat_executor().execute(provider, pcfg, body, model)
 
 def refine_message_with_advisor(
     provider: str,
