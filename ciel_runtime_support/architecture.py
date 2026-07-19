@@ -134,6 +134,7 @@ class ProviderRequestPolicy:
     default_timeout_seconds: float = 60.0
     model_alias_strategy: Literal["identity", "ncp"] = "identity"
     stream_required: bool = False
+    normalize_historical_tool_turns: bool = True
 
 
 @dataclass(frozen=True)

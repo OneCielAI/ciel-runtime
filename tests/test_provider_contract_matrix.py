@@ -117,6 +117,13 @@ class ProviderContractMatrixTests(unittest.TestCase):
         self.assertEqual("identity", openrouter_policy.model_alias_strategy)
         self.assertFalse(openrouter_policy.stream_required)
 
+    def test_historical_tool_turn_normalization_policy_is_adapter_owned(self):
+        anthropic = PROVIDER_ADAPTERS.create("anthropic").request_policy(config("anthropic"))
+        openrouter = PROVIDER_ADAPTERS.create("openrouter").request_policy(config("openrouter"))
+
+        self.assertFalse(anthropic.normalize_historical_tool_turns)
+        self.assertTrue(openrouter.normalize_historical_tool_turns)
+
     def test_model_catalog_service_has_no_provider_name_dispatch(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for filename in (
@@ -125,6 +132,7 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "provider_config_mutations.py",
             "openai_forwarding.py",
             "response_collection.py",
+            "anthropic_tool_turns.py",
         ):
             source = (support / filename).read_text(encoding="utf-8")
             with self.subTest(filename=filename):

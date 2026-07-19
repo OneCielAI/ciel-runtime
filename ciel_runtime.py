@@ -43,6 +43,10 @@ from typing import Any, Callable, Iterable
 
 from ciel_runtime_support.agent_router import missing_common_capabilities, router_capability_matrix
 from ciel_runtime_support.architecture import LaunchSpec, MessageProtocol, ProviderConfig, RuntimeConfig
+from ciel_runtime_support.anthropic_tool_turns import (
+    AnthropicToolTurnServices,
+    normalize_historical_anthropic_tool_turns,
+)
 from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
 from ciel_runtime_support.claude_router import ClaudeRouter
 from ciel_runtime_support.channel_injection import (
@@ -12233,26 +12237,6 @@ def sanitize_assistant_pseudo_tool_text_history(body: dict[str, Any]) -> dict[st
     return out
 
 
-def _anthropic_tool_use_ids(message: dict[str, Any]) -> list[str]:
-    ids: list[str] = []
-    for block in _message_content_blocks(message):
-        if isinstance(block, dict) and block.get("type") == "tool_use":
-            tool_id = str(block.get("id") or "")
-            if tool_id:
-                ids.append(tool_id)
-    return ids
-
-
-def _anthropic_tool_result_ids(message: dict[str, Any]) -> list[str]:
-    ids: list[str] = []
-    for block in _message_content_blocks(message):
-        if isinstance(block, dict) and block.get("type") == "tool_result":
-            tool_id = str(block.get("tool_use_id") or "")
-            if tool_id:
-                ids.append(tool_id)
-    return ids
-
-
 def _historical_tool_use_as_text(block: dict[str, Any]) -> dict[str, str]:
     tool_id = str(block.get("id") or "missing-id")
     name = str(block.get("name") or "tool")
@@ -12279,106 +12263,23 @@ def _historical_tool_result_as_text(block: dict[str, Any]) -> dict[str, str]:
     }
 
 
-def normalize_anthropic_tool_turns_for_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
-    """Make retained Anthropic tool turns safe for non-Anthropic providers.
-
-    A continued Claude Code transcript can retain an old assistant ``tool_use``
-    while dropping the immediately-following ``tool_result``. Some gateways
-    translate that to OpenAI ``tool_calls`` and reject it. We do not synthesize
-    success; unmatched historical tool blocks are downgraded to plain text.
-    """
-    if provider == "anthropic":
+def normalize_anthropic_tool_turns_for_provider(
+    provider: str,
+    pcfg: dict[str, Any],
+    body: dict[str, Any],
+) -> dict[str, Any]:
+    policy = provider_request_policy(provider, pcfg)
+    if not policy.normalize_historical_tool_turns:
         return body
-    messages = body.get("messages")
-    if not isinstance(messages, list):
-        return body
-
-    changed = False
-    converted_tool_uses = 0
-    converted_tool_results = 0
-    normalized_messages: list[Any] = []
-    retained_tool_ids_for_next_user: set[str] = set()
-
-    for index, message in enumerate(messages):
-        if not isinstance(message, dict):
-            normalized_messages.append(message)
-            retained_tool_ids_for_next_user = set()
-            continue
-
-        role = str(message.get("role") or "")
-        content = message.get("content")
-
-        if role == "assistant" and isinstance(content, list):
-            tool_ids = _anthropic_tool_use_ids(message)
-            if not tool_ids:
-                normalized_messages.append(message)
-                retained_tool_ids_for_next_user = set()
-                continue
-            next_message = messages[index + 1] if index + 1 < len(messages) else None
-            next_result_ids = (
-                set(_anthropic_tool_result_ids(next_message))
-                if isinstance(next_message, dict) and str(next_message.get("role") or "") == "user"
-                else set()
-            )
-            retained = {tool_id for tool_id in tool_ids if tool_id in next_result_ids}
-            next_content: list[Any] = []
-            content_changed = False
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "tool_use":
-                    tool_id = str(block.get("id") or "")
-                    if not tool_id or tool_id not in retained:
-                        next_content.append(_historical_tool_use_as_text(block))
-                        converted_tool_uses += 1
-                        content_changed = True
-                        continue
-                next_content.append(block)
-            if content_changed:
-                next_message_obj = dict(message)
-                next_message_obj["content"] = next_content
-                normalized_messages.append(next_message_obj)
-                changed = True
-            else:
-                normalized_messages.append(message)
-            retained_tool_ids_for_next_user = retained
-            continue
-
-        if role == "user" and isinstance(content, list):
-            next_content = []
-            content_changed = False
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "tool_result":
-                    tool_id = str(block.get("tool_use_id") or "")
-                    if tool_id and tool_id in retained_tool_ids_for_next_user:
-                        next_content.append(block)
-                    else:
-                        next_content.append(_historical_tool_result_as_text(block))
-                        converted_tool_results += 1
-                        content_changed = True
-                    continue
-                next_content.append(block)
-            if content_changed:
-                next_message_obj = dict(message)
-                next_message_obj["content"] = next_content
-                normalized_messages.append(next_message_obj)
-                changed = True
-            else:
-                normalized_messages.append(message)
-            retained_tool_ids_for_next_user = set()
-            continue
-
-        normalized_messages.append(message)
-        retained_tool_ids_for_next_user = set()
-
-    if not changed:
-        return body
-    out = dict(body)
-    out["messages"] = normalized_messages
-    router_log(
-        "WARN",
-        "normalized historical Anthropic tool turns for provider=%s converted_tool_uses=%d converted_tool_results=%d"
-        % (provider, converted_tool_uses, converted_tool_results),
+    return normalize_historical_anthropic_tool_turns(
+        provider,
+        body,
+        AnthropicToolTurnServices(
+            tool_use_as_text=_historical_tool_use_as_text,
+            tool_result_as_text=_historical_tool_result_as_text,
+            log=router_log,
+        ),
     )
-    return out
 
 
 def normalize_request_for_provider_wire(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:

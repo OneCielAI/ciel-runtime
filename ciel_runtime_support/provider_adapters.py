@@ -178,7 +178,11 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         )
     )
     request_policy_value: ProviderRequestPolicy = field(
-        default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/messages", models_path="/v1/models")
+        default_factory=lambda: ProviderRequestPolicy(
+            chat_path="/v1/messages",
+            models_path="/v1/models",
+            normalize_historical_tool_turns=False,
+        )
     )
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(kind="anthropic")

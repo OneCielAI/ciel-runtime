@@ -16,6 +16,7 @@ from ciel_runtime_support.architecture import (
     RuntimeConfig,
     ToolDialect,
 )
+from ciel_runtime_support.anthropic_tool_turns import AnthropicToolTurnServices
 from ciel_runtime_support.cli_dispatch import (
     CliChannelCommands,
     CliConfiguration,
@@ -678,6 +679,7 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(ProviderConfigurationPolicy)), 10)
         self.assertLessEqual(len(fields(ProviderRequestPolicy)), 10)
         self.assertLessEqual(len(fields(ProviderStatusPolicy)), 10)
+        self.assertLessEqual(len(fields(AnthropicToolTurnServices)), 10)
 
     def test_provider_status_ports_stay_below_dependency_limit(self):
         for port in (

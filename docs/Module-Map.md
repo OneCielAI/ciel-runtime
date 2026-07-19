@@ -36,6 +36,10 @@
 
 → [[Architecture]]
 
+### `ciel_runtime_support/anthropic_tool_turns.py`
+
+잘린 대화 기록의 짝 없는 Anthropic `tool_use`/`tool_result`를 안전한 text block으로 내리는 Protocol Normalization Service. 적용 여부는 provider 이름 비교가 아니라 adapter의 `ProviderRequestPolicy.normalize_historical_tool_turns`로 결정한다.
+
 ### `ciel_runtime_support/channel_injection.py`
 
 대화형 CLI 메시지 주입 계층:
