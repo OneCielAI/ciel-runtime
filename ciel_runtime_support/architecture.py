@@ -217,7 +217,7 @@ class ProviderOptionPresentationPolicy:
 
 @dataclass(frozen=True)
 class ProviderUiPolicy:
-    """Provider-owned labels and runtime compatibility used by shared menus."""
+    """Provider-owned labels used by shared menus."""
 
     menu_label: str = ""
     routed_menu_label: str = ""
@@ -225,10 +225,6 @@ class ProviderUiPolicy:
     routed_choice: str = ""
     model_placeholder: str = ""
     advisor_placeholder: str = ""
-    supports_claude_launch: bool = True
-    supports_codex_launch: bool = True
-    supports_agy_launch: bool = False
-    incompatible_runtime_family: str = ""
 
 
 class RuntimeAdapter(ABC):

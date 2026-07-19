@@ -587,6 +587,7 @@ from ciel_runtime_support.prompt_compaction import (
     compact_anthropic_body_for_budget as run_anthropic_prompt_compaction,
 )
 from ciel_runtime_support.runtime_adapters import RUNTIME_ADAPTERS
+from ciel_runtime_support.runtime_compatibility import DEFAULT_RUNTIME_COMPATIBILITY
 from ciel_runtime_support.runtime_launch import (
     AgyLaunchChannel,
     AgyLaunchCliPolicy,
@@ -21040,15 +21041,18 @@ def provider_ui_policy(provider: str, pcfg: dict[str, Any]):
 
 
 def claude_launch_enabled_for_provider(provider: str, pcfg: dict[str, Any] | None = None) -> bool:
-    return provider_ui_policy(provider, pcfg or {}).supports_claude_launch
+    del pcfg
+    return DEFAULT_RUNTIME_COMPATIBILITY.supports("claude", provider)
 
 
 def agy_launch_enabled_for_provider(provider: str, pcfg: dict[str, Any] | None = None) -> bool:
-    return provider_ui_policy(provider, pcfg or {}).supports_agy_launch
+    del pcfg
+    return DEFAULT_RUNTIME_COMPATIBILITY.supports("agy", provider)
 
 
 def codex_launch_enabled_for_provider(provider: str, pcfg: dict[str, Any] | None = None) -> bool:
-    return provider_ui_policy(provider, pcfg or {}).supports_codex_launch
+    del pcfg
+    return DEFAULT_RUNTIME_COMPATIBILITY.supports("codex", provider)
 
 
 def default_prelaunch_action(provider: str) -> str:
@@ -21077,19 +21081,25 @@ def main_menu_rows(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any], lan
         else compact_text(pcfg.get("advisor_model") or "off", 62)
     )
     launch_label = ui_text("launch", lang)
-    if not policy.supports_claude_launch:
-        family = policy.incompatible_runtime_family or provider_menu_label(provider, pcfg)
+    if not DEFAULT_RUNTIME_COMPATIBILITY.supports("claude", provider):
+        family = DEFAULT_RUNTIME_COMPATIBILITY.provider_family(
+            provider, provider_menu_label(provider, pcfg)
+        )
         launch_label += f" [disabled: {family} provider selected]"
     launch_agy_label = ui_text("launch_agy", lang)
-    if not policy.supports_agy_launch:
+    if not DEFAULT_RUNTIME_COMPATIBILITY.supports("agy", provider):
         launch_agy_label += " [disabled: select AGY provider]"
     launch_codex_label = ui_text("launch_codex", lang)
-    if not policy.supports_codex_launch:
-        family = policy.incompatible_runtime_family or provider_menu_label(provider, pcfg)
+    if not DEFAULT_RUNTIME_COMPATIBILITY.supports("codex", provider):
+        family = DEFAULT_RUNTIME_COMPATIBILITY.provider_family(
+            provider, provider_menu_label(provider, pcfg)
+        )
         launch_codex_label += f" [disabled: {family} provider selected]"
     launch_codex_app_server_label = ui_text("launch_codex_app_server", lang)
-    if not policy.supports_codex_launch:
-        family = policy.incompatible_runtime_family or provider_menu_label(provider, pcfg)
+    if not DEFAULT_RUNTIME_COMPATIBILITY.supports("codex", provider):
+        family = DEFAULT_RUNTIME_COMPATIBILITY.provider_family(
+            provider, provider_menu_label(provider, pcfg)
+        )
         launch_codex_app_server_label += f" [disabled: {family} provider selected]"
     return [
         f"0. {ui_text('language', lang)}  [{LANGUAGES.get(lang, lang)}]",

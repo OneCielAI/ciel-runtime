@@ -337,6 +337,10 @@ Provider context budget을 넘는 Anthropic 및 Ollama/OpenAI chat history를 to
 
 정규화된 `LaunchSpec`을 최종 `RuntimeCommand`로 변환하는 실제 CLI 런타임 어댑터.
 
+### `ciel_runtime_support/runtime_compatibility.py`
+
+Provider UI와 분리된 Runtime×Provider 호환성 정책. native Provider의 단일 Runtime affinity와 일반 upstream Provider가 사용할 수 있는 routed Runtime 집합을 선언하고, 실행 메뉴와 기본 launch 선택이 이 정책을 공유한다.
+
 ### `ciel_runtime_support/runtime_launch.py`
 
 Claude, Codex, Codex App Server, AGY 프로세스 실행과 라우터·채널 수명주기를 조정하는 런타임 애플리케이션 서비스.

@@ -260,8 +260,6 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
             native_choice="anthropic:native",
             routed_choice="anthropic:routed",
             advisor_placeholder="Claude Code native /advisor",
-            supports_codex_launch=False,
-            incompatible_runtime_family="Anthropic",
         )
 
     def option_timeout_default(self) -> str:
@@ -1179,8 +1177,6 @@ class CodexProviderAdapter(NoAuthProviderAdapter):
             routed_choice="codex:routed",
             model_placeholder="Codex default",
             advisor_placeholder="Codex native",
-            supports_claude_launch=False,
-            incompatible_runtime_family="Codex",
         )
 
     def shows_claude_workflow_options(self, config: ProviderConfig) -> bool:
@@ -1258,10 +1254,6 @@ class AgyProviderAdapter(NoAuthProviderAdapter):
             routed_choice="agy:routed",
             model_placeholder="AGY default",
             advisor_placeholder="AGY native",
-            supports_claude_launch=False,
-            supports_codex_launch=False,
-            supports_agy_launch=True,
-            incompatible_runtime_family="AGY",
         )
 
     def option_timeout_default(self) -> str:

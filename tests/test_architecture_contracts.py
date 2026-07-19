@@ -1077,25 +1077,33 @@ class ArchitectureContractTests(unittest.TestCase):
         functions = [
             node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names
         ]
-        provider_literals = {
-            "anthropic",
-            "agy",
-            "codex",
-            "ollama",
-            "ollama-cloud",
-            "nvidia-hosted",
-        }
         offenders = [
-            (function.name, node.lineno, node.value)
+            (function.name, node.lineno)
             for function in functions
             for node in ast.walk(function)
-            if isinstance(node, ast.Constant) and node.value in provider_literals
+            if isinstance(node, ast.Compare)
+            and any(
+                isinstance(item, ast.Name) and item.id == "provider"
+                for item in (node.left, *node.comparators)
+            )
         ]
         self.assertEqual([], offenders)
         self.assertEqual(names, {function.name for function in functions})
 
     def test_provider_ui_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ProviderUiPolicy)), 10)
+
+    def test_provider_ui_policy_does_not_own_runtime_launch_flags(self):
+        field_names = {field.name for field in fields(ProviderUiPolicy)}
+        self.assertFalse(
+            field_names
+            & {
+                "supports_claude_launch",
+                "supports_codex_launch",
+                "supports_agy_launch",
+                "incompatible_runtime_family",
+            }
+        )
 
     def test_provider_selection_defaults_dispatch_through_adapter(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
