@@ -342,6 +342,10 @@ from ciel_runtime_support.protocols.chat_projection import (
     orphan_openai_tool_message_to_user as project_orphan_openai_tool_message_to_user,
     repair_openai_tool_call_adjacency as project_repair_openai_tool_call_adjacency,
 )
+from ciel_runtime_support.protocols.tool_result_projection import (
+    ToolResultProjectionServices,
+    project_tool_result,
+)
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, ZAI_MODEL_FALLBACK_IDS
 from ciel_runtime_support.provider_limits import (
     ProviderKeyServices,
@@ -12343,79 +12347,20 @@ def format_tool_result_for_upstream(
     include_prior_success: bool = False,
     in_plan_mode: bool = False,
 ) -> tuple[str, str]:
-    if is_error:
-        tool_text = (
-            f"Tool `{tool_name}` failed.\n"
-            f"Input:\n{tool_input_text}\n\n"
-            f"Error:\n{result_text}"
-        )
-        tool_summary = (
-            f"The `{tool_name}` tool call above failed. Its input was {tool_input_text}. "
-            f"Use the error output to choose a different next step; do not blindly repeat it."
-        )
-        return tool_text, tool_summary
-
-    if is_read_unchanged_result(tool_name, result_text):
-        if not include_prior_success:
-            tool_text = (
-                "Tool `Read` returned an unchanged/no-op cache result for content that was already "
-                "available earlier in this conversation. No new file content was produced by this "
-                "historical duplicate observation."
-            )
-            return tool_text, ""
-        previous = ""
-        if prior_success_text:
-            previous = (
-                "\n\nPrevious successful Read result for this exact input remains authoritative:\n"
-                f"{truncate_for_prompt(prior_success_text, PROMPT_TOOL_RESULT_LIMIT)}"
-            )
-        plan_hint = (
-            " If you are in Plan Mode and the plan file is already complete, call ExitPlanMode."
-            if in_plan_mode
-            else ""
-        )
-        if not prior_success_text:
-            tool_text = (
-                "Tool `Read` returned a no-op unchanged result.\n"
-                f"Input:\n{tool_input_text}\n\n"
-                f"Result:\n{result_text}\n\n"
-                "No previous successful Read result for this exact input is available in the converted context. "
-                "Do not repeat the same Read. If the content is still needed, read a different or broader range once; "
-                "otherwise proceed with the next distinct step."
-            )
-            tool_summary = (
-                "The latest `Read` result says the file/range is unchanged, but no prior exact Read content is available "
-                "in this converted context. Do not loop on the same Read; either read a different range once or continue "
-                f"with the next distinct step.{plan_hint}"
-            )
-            return tool_text, tool_summary
-        tool_text = (
-            "Tool `Read` returned a no-op unchanged result.\n"
-            f"Input:\n{tool_input_text}\n\n"
-            f"Result:\n{result_text}"
-            f"{previous}\n\n"
-            "This is not new file content. It means the previous successful Read result for the same input is still current."
-        )
-        tool_summary = (
-            "The latest `Read` result is a Claude Code no-op/cache result: no file content changed and no new observation was produced. "
-            "Use the previous successful Read result for this exact input as the current observation, then choose the next distinct step."
-            f"{plan_hint}"
-        )
-        return tool_text, tool_summary
-
-    tool_text = (
-        f"Tool `{tool_name}` completed successfully.\n"
-        f"Input:\n{tool_input_text}\n\n"
-        f"Result:\n{result_text}\n\n"
-        f"If this result satisfies the user's request, provide the final answer now. "
-        f"Do not call `{tool_name}` again with the same arguments."
+    return project_tool_result(
+        tool_name,
+        tool_input_text,
+        result_text,
+        is_error,
+        ToolResultProjectionServices(
+            is_read_unchanged=is_read_unchanged_result,
+            truncate=truncate_for_prompt,
+            result_limit=PROMPT_TOOL_RESULT_LIMIT,
+        ),
+        prior_success_text=prior_success_text,
+        include_prior_success=include_prior_success,
+        in_plan_mode=in_plan_mode,
     )
-    tool_summary = (
-        f"The `{tool_name}` tool call above already completed successfully. "
-        f"Treat its tool output as authoritative. Do not repeat the same or equivalent "
-        f"`{tool_name}` call; continue with the next required concrete tool call or final answer."
-    )
-    return tool_text, tool_summary
 
 
 def should_skip_upstream_message(message: dict[str, Any]) -> bool:

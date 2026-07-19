@@ -213,6 +213,10 @@ Responses API projection을 위한 비스트리밍 chat 수집 Template Method. 
 
 Anthropic Messages 이력을 Ollama/OpenAI chat wire message로 변환하는 순수 Protocol projection. 텍스트 필터와 tool-result 문맥 정책을 포트로 분리하고, OpenAI의 assistant tool-call/tool-result 인접성 불변조건과 orphan history 복구도 이 계층에서 보장해 전송·Provider 선택 로직과 격리한다.
 
+### `ciel_runtime_support/protocols/tool_result_projection.py`
+
+성공·실패·unchanged Read 결과를 upstream chat 문맥과 다음 단계 지침으로 투영하는 Protocol Service. unchanged 판정, 길이 제한, truncation을 3필드 포트로 받아 provider wire projection이 메인 전역 정책에 직접 결합되지 않게 한다.
+
 ### `ciel_runtime_support/upstream_retry.py`
 
 Provider 공통 JSON 요청, 직접 요청 및 OpenAI stream 요청의 retry transport를 소유한다. 재시도 정책, API-key rotation, rate-limit 관측, HTTP I/O를 별도 포트로 분리하며 각 포트는 7필드 이하로 제한한다.
