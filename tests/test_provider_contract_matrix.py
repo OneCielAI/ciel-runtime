@@ -117,6 +117,40 @@ class ProviderContractMatrixTests(unittest.TestCase):
         self.assertEqual("identity", openrouter_policy.model_alias_strategy)
         self.assertFalse(openrouter_policy.stream_required)
 
+    def test_model_identity_matrix_is_adapter_owned(self):
+        cases = (
+            ("kimi", "kimi-code/k3", "k3", "kimi-code/k3"),
+            ("kimi", "kimi-k2.7-code", "kimi-for-coding", "kimi-k2.7-code"),
+            ("ollama-cloud", "qwen3:cloud", "qwen3", "qwen3:cloud"),
+            ("zai", "glm-5.2[1m]", "glm-5.2[1m]", "glm-5.2"),
+            ("deepseek", "deepseek-v4-pro[1m]", "deepseek-v4-pro[1m]", "deepseek-v4-pro[1m]"),
+            ("openrouter", "model[1m]", "model", "model[1m]"),
+        )
+        for provider, raw, normalized, upstream in cases:
+            adapter = PROVIDER_ADAPTERS.create(provider)
+            with self.subTest(provider=provider, raw=raw):
+                self.assertEqual(normalized, adapter.normalize_model_id(raw))
+                self.assertEqual(upstream, adapter.upstream_api_model_id(raw))
+
+        nvidia = PROVIDER_ADAPTERS.create("nvidia-hosted")
+        self.assertTrue(nvidia.preserves_claude_model_alias("claude-nvidia-model"))
+        self.assertFalse(nvidia.preserves_claude_model_alias("nvidia/model"))
+
+    def test_main_model_identity_functions_delegate_without_provider_dispatch(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for function_name in ("normalize_model_id", "upstream_api_model_id", "alias_for"):
+            function = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef) and node.name == function_name
+            )
+            function_source = ast.get_source_segment(source, function) or ""
+            with self.subTest(function=function_name):
+                self.assertIn("PROVIDER_ADAPTERS.create(provider)", function_source)
+                self.assertNotIn('provider == "', function_source)
+                self.assertNotIn("provider in (", function_source)
+
     def test_historical_tool_turn_normalization_policy_is_adapter_owned(self):
         anthropic = PROVIDER_ADAPTERS.create("anthropic").request_policy(config("anthropic"))
         openrouter = PROVIDER_ADAPTERS.create("openrouter").request_policy(config("openrouter"))

@@ -199,7 +199,7 @@ Codex App Server 프로세스와 JSON-RPC/WebSocket 상태 조정.
 
 ### `ciel_runtime_support/provider_adapters.py`
 
-Anthropic, Ollama, OpenRouter, LM Studio, vLLM, NVIDIA NIM, DeepSeek, Kimi, Z.AI, Fireworks, OpenCode 등 Provider별 구체 Adapter와 Registry. 각 Adapter가 인증, API-key 상태·launch blocker, configuration capability, protocol, endpoint 및 모델 discovery 경로를 소유한다.
+Anthropic, Ollama, OpenRouter, LM Studio, vLLM, NVIDIA NIM, DeepSeek, Kimi, Z.AI, Fireworks, OpenCode 등 Provider별 구체 Adapter와 Registry. 각 Adapter가 인증, API-key 상태·launch blocker, configuration capability, protocol, endpoint, 모델-ID 정규화 및 모델 discovery 경로를 소유한다.
 
 ### `ciel_runtime_support/ollama_catalog.py`
 

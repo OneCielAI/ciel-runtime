@@ -2411,24 +2411,7 @@ def unique_model_ids(provider: str, ids: list[str]) -> list[str]:
 
 
 def normalize_model_id(provider: str, model_id: str) -> str:
-    model_id = str(model_id or "").strip() if provider in ("deepseek", "zai") else strip_claude_context_suffix(model_id).strip()
-    if provider == "kimi":
-        lowered = model_id.lower().replace("_", "-").strip()
-        if lowered in ("k3", "kimi-k3", "kimi/k3", "kimi-code/k3"):
-            return KIMI_K3_MODEL
-        if lowered in (
-            "kimi-code/kimi-for-coding",
-            "kimi/kimi-for-coding",
-            "moonshot/kimi-for-coding",
-            "kimi-k2.7-code",
-            "kimi-k2.7-coding",
-            "k2.7-code",
-            "k2.7-coding",
-        ):
-            return KIMI_DEFAULT_MODEL
-    if provider == "ollama-cloud" and model_id.endswith(":cloud"):
-        return model_id[:-6]
-    return model_id
+    return PROVIDER_ADAPTERS.create(provider).normalize_model_id(model_id)
 
 
 def strip_claude_context_suffix(model_id: str | None) -> str:
@@ -2438,17 +2421,11 @@ def strip_claude_context_suffix(model_id: str | None) -> str:
 
 def upstream_api_model_id(provider: str, model_id: str | None) -> str:
     """Return the provider's real API model code for a Claude Code-facing id."""
-    text = str(model_id or "").strip()
-    if provider == "zai":
-        # Z.AI documents [1m] for Claude Code model routing, but its Anthropic
-        # API currently accepts the underlying GLM model code without that
-        # suffix. Sending glm-5.2[1m] returns code 1211 Unknown Model.
-        return strip_claude_context_suffix(text)
-    return text
+    return PROVIDER_ADAPTERS.create(provider).upstream_api_model_id(str(model_id or ""))
 
 
 def alias_for(provider: str, model_id: str) -> str:
-    if provider == "nvidia-hosted" and model_id.startswith("claude-"):
+    if PROVIDER_ADAPTERS.create(provider).preserves_claude_model_alias(model_id):
         return model_id
     return f"ciel-runtime-{provider}-{slug(model_id)}"
 

@@ -309,6 +309,10 @@ class OllamaCloudProviderAdapter(OllamaProviderAdapter):
         default_factory=lambda: ProviderModelCatalogPolicy(kind="ollama", use_bundled_catalog_fallback=True)
     )
 
+    def normalize_model_id(self, model_id: str) -> str:
+        normalized = super().normalize_model_id(model_id)
+        return normalized[:-6] if normalized.endswith(":cloud") else normalized
+
 
 @dataclass(frozen=True)
 class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
@@ -408,6 +412,9 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
         del config
         return ProviderStatusPolicy(kind="nvidia", label="NVIDIA hosted")
 
+    def preserves_claude_model_alias(self, model_id: str) -> bool:
+        return str(model_id).startswith("claude-")
+
 
 @dataclass(frozen=True)
 class SelfHostedNimProviderAdapter(OpenAICompatibleProviderAdapter):
@@ -452,6 +459,9 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
         del config
         return "recommended for long context" if model == "deepseek-v4-pro" else ""
 
+    def normalize_model_id(self, model_id: str) -> str:
+        return str(model_id or "").strip()
+
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
         del config
         return ProviderStatusPolicy(kind="configured", configured_description="DeepSeek Anthropic API configured")
@@ -481,6 +491,23 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(kind="openai", allow_configured_fallback=True)
     )
+
+    def normalize_model_id(self, model_id: str) -> str:
+        normalized = super().normalize_model_id(model_id)
+        lowered = normalized.lower().replace("_", "-").strip()
+        if lowered in ("k3", "kimi-k3", "kimi/k3", "kimi-code/k3"):
+            return "k3"
+        if lowered in (
+            "kimi-code/kimi-for-coding",
+            "kimi/kimi-for-coding",
+            "moonshot/kimi-for-coding",
+            "kimi-k2.7-code",
+            "kimi-k2.7-coding",
+            "k2.7-code",
+            "k2.7-coding",
+        ):
+            return "kimi-for-coding"
+        return normalized
 
     def supported_protocols(self, config: ProviderConfig, model: str | None = None) -> frozenset[MessageProtocol]:
         del config, model
@@ -535,6 +562,12 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(kind="openai", fallback_models=ZAI_MODEL_FALLBACK_IDS)
     )
+
+    def normalize_model_id(self, model_id: str) -> str:
+        return str(model_id or "").strip()
+
+    def upstream_api_model_id(self, model_id: str) -> str:
+        return super().normalize_model_id(model_id)
 
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
         del config

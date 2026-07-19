@@ -19,6 +19,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
+import re
 from typing import Any, Literal, Mapping, Sequence
 
 
@@ -312,6 +313,23 @@ class ProviderAdapter(ABC):
             for key in ("owned_by", "root", "object")
             if raw.get(key) is not None
         }
+
+    def normalize_model_id(self, model_id: str) -> str:
+        """Normalize a configured/catalog model id for shared runtime use."""
+
+        text = str(model_id or "").strip()
+        return re.sub(r"\[(?:1m)\]\s*$", "", text, flags=re.IGNORECASE).strip()
+
+    def upstream_api_model_id(self, model_id: str) -> str:
+        """Return the provider's wire-level model id."""
+
+        return str(model_id or "").strip()
+
+    def preserves_claude_model_alias(self, model_id: str) -> bool:
+        """Whether an already Claude-facing model id must remain unchanged."""
+
+        del model_id
+        return False
 
     def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
         """Return provider-owned option mutation behavior."""
