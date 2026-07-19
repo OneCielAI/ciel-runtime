@@ -135,6 +135,14 @@ from ciel_runtime_support.model_panel import (
     advisor_model_panel_rows as project_advisor_model_panel_rows,
     model_panel_rows as project_model_panel_rows,
 )
+from ciel_runtime_support.model_catalog_projection import (
+    ModelCatalogProjectionServices,
+    project_model_info,
+)
+from ciel_runtime_support.lm_studio_runtime import (
+    LmStudioRuntimeServices,
+    discover_lm_studio_runtime,
+)
 from ciel_runtime_support.cli_dispatch import (
     CliChannelCommands,
     CliConfiguration,
@@ -5885,78 +5893,17 @@ def model_ids_from_response(data: Any) -> list[str]:
 
 
 def model_info_from_response(provider: str, data: Any) -> dict[str, dict[str, Any]]:
-    candidates: Any
-    if isinstance(data, dict):
-        candidates = data.get("data")
-        if candidates is None:
-            candidates = data.get("models")
-        if candidates is None:
-            candidates = data.get("model")
-    else:
-        candidates = data
-    if isinstance(candidates, dict):
-        candidates = [candidates]
-    if isinstance(candidates, str):
-        candidates = [candidates]
-    if not isinstance(candidates, list):
-        return {}
-    out: dict[str, dict[str, Any]] = {}
-    for item in candidates:
-        if isinstance(item, str):
-            mid = item
-            raw: dict[str, Any] = {}
-        elif isinstance(item, dict):
-            mid = item.get("id") or item.get("key") or item.get("name") or item.get("model")
-            raw = item
-        else:
-            continue
-        model_id = normalize_model_id(provider, str(mid or "").strip())
-        if not model_id:
-            continue
-        max_context = positive_int(raw.get("max_context_length")) or model_context_field(raw)
-        info: dict[str, Any] = {}
-        if max_context:
-            info["max_model_len"] = max_context
-        if provider == "fireworks" and isinstance(raw, dict):
-            for source_key, target_key in (
-                ("displayName", "display_name"),
-                ("description", "description"),
-                ("kind", "kind"),
-                ("importedFrom", "imported_from"),
-            ):
-                value = raw.get(source_key)
-                if value is not None:
-                    info[target_key] = value
-            for source_key, target_key in (
-                ("supportsTools", "supports_tool_call"),
-                ("supportsImageInput", "supports_vision"),
-                ("public", "public"),
-                ("supportsServerless", "supports_serverless"),
-            ):
-                value = raw.get(source_key)
-                if isinstance(value, bool):
-                    info[target_key] = value
-            details = raw.get("baseModelDetails")
-            if isinstance(details, dict):
-                parameter_count = details.get("parameterCount")
-                if parameter_count is not None:
-                    info["parameter_count"] = str(parameter_count)
-                for source_key, target_key in (
-                    ("worldSize", "world_size"),
-                    ("checkpointFormat", "checkpoint_format"),
-                    ("modelType", "model_type"),
-                    ("defaultPrecision", "default_precision"),
-                ):
-                    value = details.get(source_key)
-                    if value is not None:
-                        info[target_key] = value
-        for key in ("owned_by", "root", "object"):
-            value = raw.get(key)
-            if value is not None:
-                info[key] = value
-        if info:
-            out[model_id] = info
-    return out
+    adapter = PROVIDER_ADAPTERS.create(provider)
+    return project_model_info(
+        provider,
+        data,
+        ModelCatalogProjectionServices(
+            normalize_model_id=normalize_model_id,
+            model_context=model_context_field,
+            positive_int=positive_int,
+            project_metadata=adapter.project_model_metadata,
+        ),
+    )
 
 
 def fireworks_account_id(pcfg: dict[str, Any]) -> str:
@@ -7194,82 +7141,21 @@ def lm_studio_model_id_matches(left: str, right: str) -> bool:
 
 
 def lm_studio_runtime_info(pcfg: dict[str, Any], timeout: float = 3.0) -> dict[str, Any] | None:
-    base = lm_studio_api_base(pcfg)
-    if not base:
-        return None
-    current = current_upstream_model_id("lm-studio", pcfg)
-
-    try:
-        data = http_json(join_url(base, "/api/v0/models"), headers=provider_model_list_headers("lm-studio", pcfg), timeout=timeout)
-        items = data.get("data") if isinstance(data, dict) else None
-        if isinstance(items, list):
-            selected: dict[str, Any] | None = None
-            fallback: dict[str, Any] | None = None
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                if fallback is None:
-                    fallback = item
-                if lm_studio_model_id_matches(str(item.get("id") or ""), current):
-                    selected = item
-                    break
-            selected = selected or (fallback if not current else None)
-            if selected:
-                return {
-                    "models_url": join_url(base, "/api/v0/models"),
-                    "requested_model": current,
-                    "runtime_model": str(selected.get("id") or ""),
-                    "max_model_len": positive_int(selected.get("max_context_length")) or model_context_field(selected),
-                    "loaded_context_len": positive_int(selected.get("loaded_context_length")),
-                    "state": selected.get("state"),
-                    "capabilities": selected.get("capabilities"),
-                    "type": selected.get("type"),
-                    "root": selected.get("arch"),
-                }
-    except Exception:
-        pass
-
-    try:
-        data = http_json(join_url(base, "/api/v1/models"), headers=provider_model_list_headers("lm-studio", pcfg), timeout=timeout)
-        items = data.get("models") if isinstance(data, dict) else None
-        if isinstance(items, list):
-            selected = None
-            fallback = None
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                if fallback is None:
-                    fallback = item
-                if lm_studio_model_id_matches(str(item.get("key") or ""), current):
-                    selected = item
-                    break
-            selected = selected or (fallback if not current else None)
-            if selected:
-                loaded_context = None
-                instance_ids: list[str] = []
-                instances = selected.get("loaded_instances")
-                if isinstance(instances, list) and instances:
-                    for instance in instances:
-                        if isinstance(instance, dict) and instance.get("id"):
-                            instance_ids.append(str(instance["id"]))
-                    config = instances[0].get("config") if isinstance(instances[0], dict) else None
-                    if isinstance(config, dict):
-                        loaded_context = positive_int(config.get("context_length"))
-                return {
-                    "models_url": join_url(base, "/api/v1/models"),
-                    "requested_model": current,
-                    "runtime_model": str(selected.get("key") or ""),
-                    "max_model_len": positive_int(selected.get("max_context_length")) or model_context_field(selected),
-                    "loaded_context_len": loaded_context,
-                    "state": "loaded" if loaded_context else "not-loaded",
-                    "instance_ids": instance_ids,
-                    "capabilities": selected.get("capabilities"),
-                    "type": selected.get("type"),
-                    "root": selected.get("architecture"),
-                }
-    except Exception:
-        pass
-    return None
+    return discover_lm_studio_runtime(
+        pcfg,
+        LmStudioRuntimeServices(
+            api_base=lm_studio_api_base,
+            current_model=current_upstream_model_id,
+            http_json=http_json,
+            join_url=join_url,
+            model_list_headers=provider_model_list_headers,
+            model_id_matches=lm_studio_model_id_matches,
+            positive_int=positive_int,
+            model_context=model_context_field,
+            log=router_log,
+        ),
+        timeout=timeout,
+    )
 
 
 def lm_studio_v1_model_info(pcfg: dict[str, Any], timeout: float = 3.0) -> dict[str, Any] | None:

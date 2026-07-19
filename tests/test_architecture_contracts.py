@@ -127,6 +127,8 @@ from ciel_runtime_support.model_panel import (
     ModelPanelPresentation,
     ModelPanelServices,
 )
+from ciel_runtime_support.model_catalog_projection import ModelCatalogProjectionServices
+from ciel_runtime_support.lm_studio_runtime import LmStudioRuntimeServices
 from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy, ToolGuardHookServices
 from ciel_runtime_support.process_control import (
     ProcessControlServices,
@@ -1027,6 +1029,31 @@ class ArchitectureContractTests(unittest.TestCase):
         for port in (ModelPanelCatalog, ModelPanelPresentation, ModelPanelServices):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_model_catalog_projection_stays_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(ModelCatalogProjectionServices)), 10)
+
+    def test_model_info_projection_has_no_provider_name_branch(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        function = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "model_info_from_response"
+        )
+        provider_comparisons = [
+            node.lineno
+            for node in ast.walk(function)
+            if isinstance(node, ast.Compare)
+            and any(
+                isinstance(item, ast.Name) and item.id == "provider"
+                for item in (node.left, *node.comparators)
+            )
+        ]
+        self.assertEqual([], provider_comparisons)
+
+    def test_lm_studio_runtime_port_stays_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(LmStudioRuntimeServices)), 10)
 
     def test_mcp_proxy_codec_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(McpProxyCodecPolicy)), 10)

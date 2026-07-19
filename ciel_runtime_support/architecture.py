@@ -304,6 +304,15 @@ class ProviderAdapter(ABC):
         del config
         return ProviderModelCatalogPolicy()
 
+    def project_model_metadata(self, raw: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Project provider response fields into the shared model metadata shape."""
+
+        return {
+            key: raw[key]
+            for key in ("owned_by", "root", "object")
+            if raw.get(key) is not None
+        }
+
     def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
         """Return provider-owned option mutation behavior."""
 

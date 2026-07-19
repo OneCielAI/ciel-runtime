@@ -583,6 +583,41 @@ class FireworksProviderAdapter(OpenAICompatibleProviderAdapter):
             strip_trailing_slash_fields=frozenset({"model_api_base_url"}),
         )
 
+    def project_model_metadata(self, raw: Mapping[str, Any]) -> Mapping[str, Any]:
+        metadata = dict(super().project_model_metadata(raw))
+        for source_key, target_key in (
+            ("displayName", "display_name"),
+            ("description", "description"),
+            ("kind", "kind"),
+            ("importedFrom", "imported_from"),
+        ):
+            value = raw.get(source_key)
+            if value is not None:
+                metadata[target_key] = value
+        for source_key, target_key in (
+            ("supportsTools", "supports_tool_call"),
+            ("supportsImageInput", "supports_vision"),
+            ("public", "public"),
+            ("supportsServerless", "supports_serverless"),
+        ):
+            value = raw.get(source_key)
+            if isinstance(value, bool):
+                metadata[target_key] = value
+        details = raw.get("baseModelDetails")
+        if isinstance(details, Mapping):
+            if details.get("parameterCount") is not None:
+                metadata["parameter_count"] = str(details["parameterCount"])
+            for source_key, target_key in (
+                ("worldSize", "world_size"),
+                ("checkpointFormat", "checkpoint_format"),
+                ("modelType", "model_type"),
+                ("defaultPrecision", "default_precision"),
+            ):
+                value = details.get(source_key)
+                if value is not None:
+                    metadata[target_key] = value
+        return metadata
+
 
 @dataclass(frozen=True)
 class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
