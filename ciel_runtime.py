@@ -588,6 +588,7 @@ from ciel_runtime_support.provider_limits import (
     learn_rate_limit_headers,
     register_rate_limit_backoff,
 )
+from ciel_runtime_support import provider_network
 from ciel_runtime_support.provider_models import (
     ModelCatalogHttp,
     ModelCatalogPolicy,
@@ -1028,7 +1029,7 @@ AGY_ROUTED_PROVIDER_CHOICE = "agy:routed"
 CODEX_NATIVE_PROVIDER_CHOICE = "codex:native"
 CODEX_ROUTED_PROVIDER_CHOICE = "codex:routed"
 
-OPENCODE_PROVIDER_NAMES = ("opencode", "opencode-go")
+OPENCODE_PROVIDER_NAMES = provider_network.OPENCODE_PROVIDER_NAMES
 OPENCODE_ENDPOINT_ALIASES = {
     "messages": "anthropic-messages",
     "anthropic": "anthropic-messages",
@@ -1050,7 +1051,7 @@ OFFICIAL_CHANNEL_PLUGINS = {
 }
 APP_NAME = "Ciel Runtime"
 VERSION = "0.1.1"
-DEFAULT_UPSTREAM_USER_AGENT = "claude-cli"
+DEFAULT_UPSTREAM_USER_AGENT = provider_network.DEFAULT_UPSTREAM_USER_AGENT
 
 
 def upstream_user_agent() -> str:
@@ -1060,95 +1061,33 @@ def upstream_user_agent() -> str:
     non-CLI browser signature. ciel-runtime is acting as the Claude CLI transport
     here, so keep that identity explicit and generic across providers.
     """
-    configured = str(os.environ.get("CIEL_RUNTIME_UPSTREAM_USER_AGENT") or "").strip()
-    return configured or DEFAULT_UPSTREAM_USER_AGENT
+    return provider_network.upstream_user_agent()
 
 
 def with_upstream_user_agent(headers: dict[str, str] | None = None) -> dict[str, str]:
-    out = dict(headers or {})
-    if not any(str(k).lower() == "user-agent" for k in out):
-        out["user-agent"] = upstream_user_agent()
-    return out
+    return provider_network.with_upstream_user_agent(headers)
 
 
-IP_FAMILY_ALIASES = {
-    "": "auto",
-    "auto": "auto",
-    "default": "auto",
-    "system": "auto",
-    "any": "auto",
-    "4": "ipv4",
-    "v4": "ipv4",
-    "ipv4": "ipv4",
-    "inet": "ipv4",
-    "6": "ipv6",
-    "v6": "ipv6",
-    "ipv6": "ipv6",
-    "inet6": "ipv6",
-    "prefer4": "ipv4-preferred",
-    "prefer-v4": "ipv4-preferred",
-    "preferred4": "ipv4-preferred",
-    "ipv4-preferred": "ipv4-preferred",
-    "ipv4_preferred": "ipv4-preferred",
-    "prefer-ipv4": "ipv4-preferred",
-    "prefer6": "ipv6-preferred",
-    "prefer-v6": "ipv6-preferred",
-    "preferred6": "ipv6-preferred",
-    "ipv6-preferred": "ipv6-preferred",
-    "ipv6_preferred": "ipv6-preferred",
-    "prefer-ipv6": "ipv6-preferred",
-}
-IP_FAMILY_CHOICES = ("auto", "ipv4", "ipv6", "ipv4-preferred", "ipv6-preferred")
+IP_FAMILY_ALIASES = provider_network.IP_FAMILY_ALIASES
+IP_FAMILY_CHOICES = provider_network.IP_FAMILY_CHOICES
 
 
 def normalize_ip_family(value: Any, default: str = "auto") -> str:
-    text = str(value if value is not None else default).strip().lower().replace("_", "-")
-    family = IP_FAMILY_ALIASES.get(text)
-    if family:
-        return family
-    raise SystemExit(f"ip_family must be one of: {', '.join(IP_FAMILY_CHOICES)}")
+    return provider_network.normalize_ip_family(value, default)
 
 
 def default_provider_ip_family(provider: str) -> str:
-    return "ipv6-preferred" if provider in OPENCODE_PROVIDER_NAMES else "auto"
+    return provider_network.default_provider_ip_family(provider)
 
 
 def provider_ip_family(provider: str | None, pcfg: dict[str, Any] | None) -> str:
-    if not provider or not isinstance(pcfg, dict):
-        return "auto"
-    return normalize_ip_family(pcfg.get("ip_family"), default_provider_ip_family(provider))
-
-
-def _ip_family_sort_key(family: int, preferred: int) -> tuple[int, int]:
-    return (0 if family == preferred else 1, family)
+    return provider_network.provider_ip_family(provider, pcfg)
 
 
 @contextlib.contextmanager
 def socket_getaddrinfo_ip_family_policy(ip_family: str) -> Iterable[None]:
-    policy = normalize_ip_family(ip_family)
-    if policy == "auto":
+    with provider_network.socket_ip_family_policy(ip_family):
         yield
-        return
-    strict = policy in ("ipv4", "ipv6")
-    desired = socket.AF_INET6 if policy in ("ipv6", "ipv6-preferred") else socket.AF_INET
-    with _IP_FAMILY_LOCK:
-        original_getaddrinfo = socket.getaddrinfo
-
-        def filtered_getaddrinfo(host: Any, port: Any, family: int = 0, type: int = 0, proto: int = 0, flags: int = 0) -> Any:
-            infos = original_getaddrinfo(host, port, family, type, proto, flags)
-            matches = [info for info in infos if info and info[0] == desired]
-            if strict:
-                if not matches:
-                    raise socket.gaierror(socket.EAI_NONAME, f"no {policy} address for {host}")
-                return matches
-            others = [info for info in infos if not info or info[0] != desired]
-            return sorted(matches, key=lambda info: _ip_family_sort_key(info[0], desired)) + others
-
-        socket.getaddrinfo = filtered_getaddrinfo
-        try:
-            yield
-        finally:
-            socket.getaddrinfo = original_getaddrinfo
 
 
 def provider_urlopen(
@@ -1157,54 +1096,15 @@ def provider_urlopen(
     provider: str | None = None,
     pcfg: dict[str, Any] | None = None,
 ) -> Any:
-    policy = provider_ip_family(provider, pcfg)
-    if policy != "auto":
-        router_log("DEBUG", f"upstream_ip_family provider={provider or ''} policy={policy}")
-    with socket_getaddrinfo_ip_family_policy(policy):
-        return urllib.request.urlopen(req, timeout=timeout)
+    return provider_network.provider_urlopen(req, timeout, provider, pcfg, router_log)
 
 
 def ip_family_connectivity(host: str, port: int, family: int, timeout: float = 1.5) -> tuple[bool, str]:
-    try:
-        infos = socket.getaddrinfo(host, port, family, socket.SOCK_STREAM, socket.IPPROTO_TCP)
-    except Exception as exc:
-        return False, f"dns:{type(exc).__name__}"
-    if not infos:
-        return False, "dns:no-address"
-    last_error = ""
-    for info in infos:
-        af, socktype, proto, _canonname, sockaddr = info
-        sock = socket.socket(af, socktype, proto)
-        sock.settimeout(timeout)
-        try:
-            sock.connect(sockaddr)
-            return True, "connect:ok"
-        except Exception as exc:
-            last_error = f"connect:{type(exc).__name__}"
-        finally:
-            try:
-                sock.close()
-            except Exception:
-                pass
-    return False, last_error or "connect:failed"
+    return provider_network.ip_family_connectivity(host, port, family, timeout)
 
 
 def provider_ip_family_probe_lines(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    if provider not in OPENCODE_PROVIDER_NAMES:
-        return []
-    base = str(pcfg.get("base_url") or default_base_url(provider) or "").strip()
-    parsed = urllib.parse.urlparse(base)
-    host = parsed.hostname
-    if not host:
-        return [f"IP family: {provider_ip_family(provider, pcfg)}; probe unavailable (base URL host missing)"]
-    port = parsed.port or (443 if parsed.scheme == "https" else 80)
-    ipv4_ok, ipv4_reason = ip_family_connectivity(host, port, socket.AF_INET)
-    ipv6_ok, ipv6_reason = ip_family_connectivity(host, port, socket.AF_INET6)
-    return [
-        f"IP family: {provider_ip_family(provider, pcfg)}",
-        f"IPv4 connectivity: {'OK' if ipv4_ok else 'FAIL'} ({ipv4_reason})",
-        f"IPv6 connectivity: {'OK' if ipv6_ok else 'FAIL'} ({ipv6_reason})",
-    ]
+    return provider_network.provider_ip_family_probe_lines(provider, pcfg, default_base_url)
 
 
 def ciel_runtime_source_fingerprint() -> str:
@@ -1245,7 +1145,6 @@ _LOG_LEVEL_CACHE: dict[str, Any] = {"value": None, "checked_at": 0.0, "file_mtim
 _RATE_LIMIT_LOCK = threading.Lock()
 _API_KEY_ROTATION_LOCK = threading.Lock()
 _API_KEY_ROTATION_CURSOR: dict[str, int] = {}
-_IP_FAMILY_LOCK = threading.RLock()
 _CHAT_CONDITION = threading.Condition()
 _CHAT_NEXT_ID: int | None = None
 _CHANNEL_SSE_LOCK = threading.Lock()
