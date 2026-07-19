@@ -162,6 +162,7 @@ class ProviderConfigurationPolicy:
     status_fields: tuple[str, ...] = ()
     uses_ollama_status: bool = False
     runtime_owns_model: bool = False
+    restricts_runtime_options: bool = False
 
 
 @dataclass(frozen=True)
@@ -355,6 +356,12 @@ class ProviderAdapter(ABC):
         """Return non-routable placeholder model ids accepted in configuration."""
 
         return frozenset({"", "model"})
+
+    def routing_mode_update(self, enabled: bool) -> tuple[str, ...]:
+        """Describe a persisted route-through-router mode change."""
+
+        state = "routed through ciel-runtime router" if enabled else "direct provider mode"
+        return ("Provider routing mode updated.", f"mode: {state}")
 
     def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
         """Return provider-owned option mutation behavior."""

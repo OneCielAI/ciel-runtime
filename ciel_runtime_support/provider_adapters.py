@@ -202,7 +202,9 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
 
     def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
         del config
-        return ProviderConfigurationPolicy(supports_route_through_router=True)
+        return ProviderConfigurationPolicy(
+            supports_route_through_router=True, restricts_runtime_options=True
+        )
 
     def supports_server_advisor_tool(self, config: ProviderConfig) -> bool:
         del config
@@ -214,6 +216,10 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
         return ProviderContextPolicy(hosted_timeout=True, managed_preset_inference=True)
+
+    def routing_mode_update(self, enabled: bool) -> tuple[str, ...]:
+        mode = "routed through ciel-runtime router" if enabled else "direct Claude Native"
+        return ("Anthropic routing mode updated.", f"mode: {mode}")
 
     def api_key_status(self, config: ProviderConfig, *, key_count: int, primary_detail: str) -> str:
         routed = bool(config.options.get("route_through_router"))
@@ -878,6 +884,9 @@ class OpenCodeGoProviderAdapter(OpenCodeProviderAdapter):
 @dataclass(frozen=True)
 class CodexProviderAdapter(NoAuthProviderAdapter):
     name: str = "codex"
+
+    def routing_mode_update(self, enabled: bool) -> tuple[str, ...]:
+        return ("Codex routing mode updated.", f"mode: {'codex-routed' if enabled else 'codex-native'}")
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["codex"]
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_responses")
@@ -916,12 +925,15 @@ class CodexProviderAdapter(NoAuthProviderAdapter):
 
     def configuration_policy(self, config: ProviderConfig) -> ProviderConfigurationPolicy:
         del config
-        return ProviderConfigurationPolicy(runtime_owns_model=True)
+        return ProviderConfigurationPolicy(runtime_owns_model=True, restricts_runtime_options=True)
 
 
 @dataclass(frozen=True)
 class AgyProviderAdapter(NoAuthProviderAdapter):
     name: str = "agy"
+
+    def routing_mode_update(self, enabled: bool) -> tuple[str, ...]:
+        return ("AGY routing mode updated.", f"mode: {'agy-routed' if enabled else 'agy-native'}")
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["agy"]
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_responses")

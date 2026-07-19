@@ -150,6 +150,25 @@ class ProviderContractMatrixTests(unittest.TestCase):
                 if provider in expected:
                     self.assertEqual(expected[provider], set(adapter.placeholder_model_ids()))
 
+    def test_route_mode_projection_is_adapter_owned(self):
+        cases = {
+            "anthropic": ("Anthropic routing mode updated.", "mode: direct Claude Native"),
+            "agy": ("AGY routing mode updated.", "mode: agy-native"),
+            "codex": ("Codex routing mode updated.", "mode: codex-native"),
+        }
+        for provider, expected in cases.items():
+            with self.subTest(provider=provider):
+                self.assertEqual(expected, PROVIDER_ADAPTERS.create(provider).routing_mode_update(False))
+
+    def test_llm_option_service_has_no_provider_name_dispatch(self):
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "llm_option_config.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn('provider == "', source)
+        self.assertNotIn("provider in (", source)
+
     def test_main_model_identity_functions_delegate_without_provider_dispatch(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)

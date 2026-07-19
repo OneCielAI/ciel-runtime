@@ -18,9 +18,11 @@ class LlmOptionRepository:
 class LlmOptionMutation:
     apply_ollama_option: Callable[..., Any]
     apply_provider_option: Callable[..., Any]
+    configuration_policy: Callable[..., Any]
     normalize_capabilities: Callable[..., Any]
     parse_bool: Callable[..., Any]
     positive_int: Callable[..., Any]
+    routing_mode_update: Callable[..., tuple[str, ...]]
     set_router_debug_external_access: Callable[..., Any]
 
 
@@ -53,6 +55,7 @@ def set_llm_option_config(
     PROVIDER_LABELS = policy.provider_labels
     apply_ollama_option = mutation.apply_ollama_option
     apply_provider_option = mutation.apply_provider_option
+    configuration_policy = mutation.configuration_policy
     apply_recommended_timeout_for_model_context = policy.apply_recommended_timeout
     cap_context_settings_to_model_capacity = policy.cap_context_settings
     cap_output_settings_to_context_ratio = policy.cap_output_settings
@@ -61,6 +64,7 @@ def set_llm_option_config(
     normalize_claude_code_supported_capabilities = mutation.normalize_capabilities
     parse_bool = mutation.parse_bool
     positive_int = mutation.positive_int
+    routing_mode_update = mutation.routing_mode_update
     router_rate_limit_configured_rpm = policy.configured_rate_limit_rpm
     save_config = repository.save_config
     set_router_debug_external_access_config = mutation.set_router_debug_external_access
@@ -84,14 +88,7 @@ def set_llm_option_config(
         pcfg["route_through_router"] = parse_bool(value, default=False)
         save_config(cfg)
         clear_model_cache()
-        if provider == "agy":
-            mode = "agy-routed" if pcfg["route_through_router"] else "agy-native"
-            return ["AGY routing mode updated.", f"mode: {mode}"]
-        if provider == "codex":
-            mode = "codex-routed" if pcfg["route_through_router"] else "codex-native"
-            return ["Codex routing mode updated.", f"mode: {mode}"]
-        mode = "routed through ciel-runtime router" if pcfg["route_through_router"] else "direct Claude Native"
-        return ["Anthropic routing mode updated.", f"mode: {mode}"]
+        return list(routing_mode_update(provider, pcfg["route_through_router"]))
     if key == "rate_limit_enabled":
         enabled = parse_bool(value, default=False)
         if enabled:
@@ -160,15 +157,16 @@ def set_llm_option_config(
             return [f"{key}: enter digits only, or use default/unset to clear."]
     clear_words = ("default", "unset", "none", "null")
     token = f"unset:{key}" if value.lower() in clear_words else f"{key}={value}"
+    capabilities = configuration_policy(provider, pcfg)
     context_changed = key in ("context_window", "context", "max_model_len", "num_ctx", "ctx", "num_ctx_min", "ctx_min", "min", "num_ctx_max", "ctx_max", "max")
     explicit_timeout = key in ("timeout", "timeout_ms", "request_timeout", "request_timeout_ms", "stream_idle_timeout", "stream_idle_timeout_ms", "idle_timeout", "idle_timeout_ms")
     if key in ("force_query_string", "force_query", "upstream_query", "test_query_string"):
         apply_provider_option(provider, pcfg, token)
     elif key in ("supports_tool_choice", "tool_choice", "tool-choice", "auto_tool_choice"):
         apply_provider_option(provider, pcfg, token)
-    elif provider in ("ollama", "ollama-cloud"):
+    elif capabilities.mutation_strategy == "ollama":
         apply_ollama_option(pcfg, token)
-    elif provider in ("anthropic", "codex"):
+    elif capabilities.restricts_runtime_options:
         if key in ("route", "routed", "route_through_router", "router"):
             pcfg["route_through_router"] = parse_bool(value, default=False)
         elif key in ("max_output_tokens", "max_tokens", "maxtoken", "max_token"):
@@ -185,4 +183,3 @@ def set_llm_option_config(
     save_config(cfg)
     clear_model_cache()
     return [f"{PROVIDER_LABELS.get(provider, provider)} option updated.", f"{key}: {value}", *cap_lines, *timeout_lines]
-

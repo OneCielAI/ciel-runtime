@@ -19106,9 +19106,11 @@ def llm_option_config_services() -> LlmOptionConfigServices:
         mutation=LlmOptionMutation(
             apply_ollama_option=apply_ollama_option,
             apply_provider_option=apply_provider_option,
+            configuration_policy=provider_configuration_policy,
             normalize_capabilities=normalize_claude_code_supported_capabilities,
             parse_bool=parse_bool,
             positive_int=positive_int,
+            routing_mode_update=provider_routing_mode_update,
             set_router_debug_external_access=set_router_debug_external_access_config,
         ),
         policy=LlmOptionPolicy(
@@ -19119,6 +19121,15 @@ def llm_option_config_services() -> LlmOptionConfigServices:
             provider_labels=PROVIDER_LABELS,
         ),
     )
+
+
+def provider_routing_mode_update(provider: str, enabled: bool) -> tuple[str, ...]:
+    return PROVIDER_ADAPTERS.create(provider).routing_mode_update(enabled)
+
+
+def provider_configuration_policy(provider: str, pcfg: dict[str, Any]):
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.configuration_policy(provider_contract_config(provider, pcfg))
 
 
 def set_llm_option_config(provider: str, key: str, raw_value: str) -> list[str]:
