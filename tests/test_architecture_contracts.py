@@ -52,6 +52,12 @@ from ciel_runtime_support.compatibility_test import (
     CompatibilityTestRequest,
     CompatibilityTestServices,
 )
+from ciel_runtime_support.headless_config import (
+    HeadlessChannelCommands,
+    HeadlessConfigCommands,
+    HeadlessConfigResult,
+    HeadlessConfigServices,
+)
 from ciel_runtime_support.mcp_proxy_codec import McpProxyCodecPolicy
 from ciel_runtime_support.mcp_probe_transport import (
     McpProbeCodec,
@@ -589,6 +595,16 @@ class ArchitectureContractTests(unittest.TestCase):
         )
 
         for port in ports:
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_headless_config_ports_stay_below_dependency_limit(self):
+        for port in (
+            HeadlessConfigCommands,
+            HeadlessChannelCommands,
+            HeadlessConfigServices,
+            HeadlessConfigResult,
+        ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 

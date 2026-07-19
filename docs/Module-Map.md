@@ -93,6 +93,10 @@ LLM 옵션의 입력 검증, Provider 설정 변경, 컨텍스트·출력 보정
 
 제어 명령, headless 설정 flag, 지원 provider를 설명하는 CLI usage presentation. entrypoint와 dispatcher에서 정적 사용자 문구를 분리한다.
 
+### `ciel_runtime_support/headless_config.py`
+
+`CIEL_RUNTIME_*` 환경 설정을 command 호출 계획으로 변환·적용하는 Configuration Application Service. 일반 설정 명령, channel 명령, 환경 조회를 10필드 이하 포트로 분리하며 API key 우선순위와 provider option mapping을 한곳에서 관리한다.
+
 ### `ciel_runtime_support/compatibility_test.py`
 
 Provider text/tool_use/tool_result 호환성 진단을 실행하는 CLI Application Service. Configuration, mode, request, protocol, output 포트를 분리하며 각 포트는 최대 10개 의존성만 갖는다.

@@ -108,6 +108,12 @@ from ciel_runtime_support.compatibility_test import (
     CompatibilityTestServices,
     run_compatibility_test as run_provider_compatibility_test,
 )
+from ciel_runtime_support.headless_config import (
+    HeadlessChannelCommands,
+    HeadlessConfigCommands,
+    HeadlessConfigServices,
+    apply_headless_config,
+)
 from ciel_runtime_support.config_repository import JsonConfigRepository
 from ciel_runtime_support.config_migrations import (
     ConfigMigrationPolicy,
@@ -29534,107 +29540,38 @@ def pop_headless_env_file_args(argv: list[str]) -> list[str]:
 
 
 def apply_headless_env_config() -> tuple[bool, bool | None, bool | None, bool | None, bool]:
-    skip_menu = os.environ.get("CIEL_RUNTIME_SKIP_MENU") == "1"
-    force_menu = bool(env_bool(os.environ.get("CIEL_RUNTIME_FORCE_MENU"), False))
-    web_search_override = env_bool(os.environ.get("CIEL_RUNTIME_WEB_SEARCH"))
-    update_check_override = env_bool(os.environ.get("CIEL_RUNTIME_UPDATE_CHECK"))
-    self_update_check_override = env_bool(os.environ.get("CIEL_RUNTIME_SELF_UPDATE_CHECK"))
-    language = os.environ.get("CIEL_RUNTIME_LANGUAGE", "").strip()
-    if language:
-        cmd_language(argparse.Namespace(value=language))
-        skip_menu = True
-    web_fetch = env_bool(os.environ.get("CIEL_RUNTIME_WEB_FETCH"))
-    if web_fetch is not None:
-        cmd_web_fetch(argparse.Namespace(value="on" if web_fetch else "off"))
-        skip_menu = True
-    provider = os.environ.get("CIEL_RUNTIME_PROVIDER", "").strip()
-    if provider:
-        cmd_provider(argparse.Namespace(name=provider))
-        skip_menu = True
-    api_key_env = os.environ.get("CIEL_RUNTIME_API_KEY_ENV", "").strip()
-    api_key = os.environ.get("CIEL_RUNTIME_API_KEY", "").strip()
-    api_keys_env = os.environ.get("CIEL_RUNTIME_API_KEYS_ENV", "").strip()
-    api_keys = os.environ.get("CIEL_RUNTIME_API_KEYS", "").strip()
-    current_provider, _ = get_current_provider(load_config())
-    if api_keys_env:
-        value = os.environ.get(api_keys_env, "")
-        if not value:
-            raise SystemExit(f"Environment variable {api_keys_env} is empty or not set")
-        cmd_set_api_keys(argparse.Namespace(provider=current_provider, keys=[value]))
-        skip_menu = True
-    elif api_keys:
-        cmd_set_api_keys(argparse.Namespace(provider=current_provider, keys=[api_keys]))
-        skip_menu = True
-    elif api_key_env:
-        value = os.environ.get(api_key_env, "")
-        if not value:
-            raise SystemExit(f"Environment variable {api_key_env} is empty or not set")
-        cmd_set_api_key(argparse.Namespace(provider=current_provider, key=value))
-        skip_menu = True
-    elif api_key:
-        cmd_set_api_key(argparse.Namespace(provider=current_provider, key=api_key))
-        skip_menu = True
-    base_url = os.environ.get("CIEL_RUNTIME_BASE_URL", "").strip()
-    if base_url:
-        current_provider, _ = get_current_provider(load_config())
-        cmd_base_url(argparse.Namespace(provider=current_provider, url=base_url))
-        skip_menu = True
-    model = os.environ.get("CIEL_RUNTIME_MODEL", "").strip()
-    if model:
-        cmd_model(argparse.Namespace(value=[model]))
-        skip_menu = True
-    advisor_model = os.environ.get("CIEL_RUNTIME_ADVISOR_MODEL", "").strip()
-    if advisor_model:
-        set_advisor_model_config(advisor_model)
-        skip_menu = True
-    provider_option_keys = {
-        "CIEL_RUNTIME_MAX_OUTPUT_TOKENS": "max_output_tokens",
-        "CIEL_RUNTIME_CONTEXT_WINDOW": "context_window",
-        "CIEL_RUNTIME_REQUEST_TIMEOUT_MS": "request_timeout_ms",
-        "CIEL_RUNTIME_STREAM_IDLE_TIMEOUT_MS": "stream_idle_timeout_ms",
-        "CIEL_RUNTIME_RATE_LIMIT_RPM": "rate_limit_rpm",
-        "CIEL_RUNTIME_RATE_LIMIT_STATUS": "rate_limit_status",
-        "CIEL_RUNTIME_STREAM": "stream_enabled",
-        "CIEL_RUNTIME_STREAM_WORD_CHUNKING": "stream_word_chunking",
-    }
-    provider_values = [
-        f"{option_key}={os.environ[env_key].strip()}"
-        for env_key, option_key in provider_option_keys.items()
-        if os.environ.get(env_key, "").strip()
-    ]
-    if provider_values:
-        cmd_provider_options(argparse.Namespace(values=provider_values))
-        skip_menu = True
-    ollama_values: list[str] = []
-    if os.environ.get("CIEL_RUNTIME_OLLAMA_NUM_CTX", "").strip():
-        ollama_values.append(f"num_ctx={os.environ['CIEL_RUNTIME_OLLAMA_NUM_CTX'].strip()}")
-    for item in os.environ.get("CIEL_RUNTIME_OLLAMA_OPTIONS", "").replace(",", " ").split():
-        if item.strip():
-            ollama_values.append(item.strip())
-    if ollama_values:
-        cmd_ollama_options(argparse.Namespace(values=ollama_values))
-        skip_menu = True
-    channel_values = [
-        item.strip()
-        for item in re.split(r"[\s,]+", os.environ.get("CIEL_RUNTIME_CHANNELS", "").strip())
-        if item.strip()
-    ]
-    for channel_value in channel_values:
-        add_channel_spec(channel_value)
-        skip_menu = True
-    dev_channel_values = [
-        item.strip()
-        for item in re.split(r"[\s,]+", os.environ.get("CIEL_RUNTIME_DEV_CHANNELS", "").strip())
-        if item.strip()
-    ]
-    for channel_value in dev_channel_values:
-        add_channel_spec(channel_value)
-        skip_menu = True
-    channel_delivery = os.environ.get("CIEL_RUNTIME_CHANNEL_DELIVERY", "").strip()
-    if channel_delivery:
-        set_channel_delivery_config(channel_delivery)
-        skip_menu = True
-    return skip_menu, web_search_override, update_check_override, self_update_check_override, force_menu
+    result = apply_headless_config(
+        HeadlessConfigServices(
+            environ=os.environ,
+            parse_bool=env_bool,
+            current_provider=lambda: get_current_provider(load_config())[0],
+            commands=HeadlessConfigCommands(
+                set_language=lambda value: cmd_language(argparse.Namespace(value=value)),
+                set_web_fetch=lambda enabled: cmd_web_fetch(
+                    argparse.Namespace(value="on" if enabled else "off")
+                ),
+                set_provider=lambda provider: cmd_provider(argparse.Namespace(name=provider)),
+                set_api_keys=lambda provider, keys: cmd_set_api_keys(
+                    argparse.Namespace(provider=provider, keys=keys)
+                ),
+                set_api_key=lambda provider, key: cmd_set_api_key(
+                    argparse.Namespace(provider=provider, key=key)
+                ),
+                set_base_url=lambda provider, url: cmd_base_url(
+                    argparse.Namespace(provider=provider, url=url)
+                ),
+                set_model=lambda model: cmd_model(argparse.Namespace(value=[model])),
+                set_advisor_model=set_advisor_model_config,
+                set_provider_options=lambda values: cmd_provider_options(argparse.Namespace(values=values)),
+                set_ollama_options=lambda values: cmd_ollama_options(argparse.Namespace(values=values)),
+            ),
+            channels=HeadlessChannelCommands(
+                add_channel=add_channel_spec,
+                set_delivery=set_channel_delivery_config,
+            ),
+        )
+    )
+    return result.as_tuple()
 
 
 def run_cli(argv: list[str]) -> int:
