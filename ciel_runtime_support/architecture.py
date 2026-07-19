@@ -194,6 +194,9 @@ class ProviderContextPolicy:
     managed_preset_inference: bool = False
     context_family_before_size_markers: bool = False
     preset_context_profile: Literal["default", "ollama", "nvidia"] = "default"
+    status_capacity_strategy: Literal[
+        "configured", "ollama_budget", "openai_budget", "provider"
+    ] = "configured"
 
 
 @dataclass(frozen=True)

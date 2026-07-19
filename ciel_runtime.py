@@ -8077,17 +8077,12 @@ def write_context_compact_activity(provider: str, model: str | None = None, **fi
 
 
 def context_limit_for_status(provider: str, pcfg: dict[str, Any]) -> int | None:
-    if provider in ("ollama", "ollama-cloud"):
+    strategy = provider_context_policy(provider, pcfg).status_capacity_strategy
+    if strategy == "ollama_budget":
         return ollama_context_limit_for_budget(pcfg)
-    if provider == "anthropic" and anthropic_routed_enabled(provider, pcfg):
-        configured = positive_int(pcfg.get("context_window")) or positive_int(pcfg.get("max_model_len"))
-        if configured:
-            return configured
-        model = str(pcfg.get("current_model") or "")
-        return positive_int(anthropic_model_limit_hints(model).get("context_window"))
-    if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim"):
+    if strategy == "openai_budget":
         return openai_context_limit_for_budget(provider, pcfg)
-    if provider == "zai":
+    if strategy == "provider":
         return provider_model_context_capacity(provider, pcfg)
     return positive_int(pcfg.get("context_window")) or positive_int(pcfg.get("max_model_len"))
 

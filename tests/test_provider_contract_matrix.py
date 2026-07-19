@@ -360,6 +360,23 @@ class ProviderContractMatrixTests(unittest.TestCase):
             with self.subTest(provider=provider):
                 self.assertEqual(expected, (policy.capacity_strategy, policy.settings_strategy))
 
+    def test_context_status_strategy_matrix(self):
+        cases = {
+            "anthropic": "configured",
+            "ollama": "ollama_budget",
+            "ollama-cloud": "ollama_budget",
+            "vllm": "openai_budget",
+            "lm-studio": "openai_budget",
+            "nvidia-hosted": "openai_budget",
+            "self-hosted-nim": "openai_budget",
+            "zai": "provider",
+            "deepseek": "configured",
+        }
+        for provider, expected in cases.items():
+            with self.subTest(provider=provider):
+                policy = PROVIDER_ADAPTERS.create(provider).context_policy(config(provider))
+                self.assertEqual(expected, policy.status_capacity_strategy)
+
     def test_router_native_anthropic_capability_matrix(self):
         enabled = {
             "deepseek",

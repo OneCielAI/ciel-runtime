@@ -1126,6 +1126,18 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertNotIn(f'provider == "{provider}"', function_source)
             self.assertNotIn("provider in (", function_source)
 
+    def test_context_status_limit_dispatches_through_provider_policy(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        source = source_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        function = next(
+            node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "context_limit_for_status"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("status_capacity_strategy", function_source)
+        self.assertNotIn('provider == "', function_source)
+        self.assertNotIn("provider in (", function_source)
+
     def test_channel_panel_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelPanelPolicy)), 10)
 

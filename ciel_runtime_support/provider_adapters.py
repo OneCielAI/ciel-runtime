@@ -220,8 +220,13 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         return bool(config.api_keys)
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
-        del config
-        return ProviderContextPolicy(hosted_timeout=True, managed_preset_inference=True)
+        return ProviderContextPolicy(
+            hosted_timeout=True,
+            managed_preset_inference=True,
+            status_capacity_strategy=(
+                "provider" if config.options.get("route_through_router") else "configured"
+            ),
+        )
 
     def routing_mode_update(self, enabled: bool) -> tuple[str, ...]:
         mode = "routed through ciel-runtime router" if enabled else "direct Claude Native"
@@ -353,6 +358,7 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
             settings_strategy="ollama",
             uses_catalog_timeout=True,
             preset_context_profile="ollama",
+            status_capacity_strategy="ollama_budget",
         )
 
     def advisor_transport_kind(self, config: ProviderConfig) -> str:
@@ -414,6 +420,7 @@ class OllamaCloudProviderAdapter(OllamaProviderAdapter):
             timeout_weight=1.2,
             uses_catalog_timeout=True,
             preset_context_profile="ollama",
+            status_capacity_strategy="ollama_budget",
         )
 
 
@@ -452,6 +459,9 @@ class LMStudioProviderAdapter(OpenAICompatibleProviderAdapter):
     def placeholder_model_ids(self) -> frozenset[str]:
         return super().placeholder_model_ids() | {"local-model"}
 
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        return replace(super().context_policy(config), status_capacity_strategy="openai_budget")
+
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         return replace(super().option_presentation_policy(config), show_rate_limit=True)
     capabilities_value: ProviderCapabilities = field(
@@ -488,7 +498,11 @@ class VllmProviderAdapter(OpenAICompatibleProviderAdapter):
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
-        return ProviderContextPolicy(capacity_strategy="remote_first", settings_strategy="standard")
+        return ProviderContextPolicy(
+            capacity_strategy="remote_first",
+            settings_strategy="standard",
+            status_capacity_strategy="openai_budget",
+        )
 
     def advisor_transport_kind(self, config: ProviderConfig) -> str:
         del config
@@ -560,6 +574,7 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
             settings_strategy="standard",
             hosted_timeout=True,
             preset_context_profile="nvidia",
+            status_capacity_strategy="openai_budget",
         )
 
     def advisor_transport_kind(self, config: ProviderConfig) -> str:
@@ -594,7 +609,11 @@ class SelfHostedNimProviderAdapter(OpenAICompatibleProviderAdapter):
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
-        return ProviderContextPolicy(capacity_strategy="remote_first", settings_strategy="standard")
+        return ProviderContextPolicy(
+            capacity_strategy="remote_first",
+            settings_strategy="standard",
+            status_capacity_strategy="openai_budget",
+        )
 
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
         policy = super().status_policy(config)
@@ -801,6 +820,7 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
             settings_strategy="standard",
             hosted_timeout=True,
             context_family_before_size_markers=True,
+            status_capacity_strategy="provider",
         )
 
     def router_native_anthropic_enabled(self, config: ProviderConfig, model: str | None = None) -> bool:
