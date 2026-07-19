@@ -289,6 +289,35 @@ class ProviderAdapter(ABC):
         del config
         return ProviderConfigurationPolicy()
 
+    def api_key_display_name(self) -> str:
+        """Return the provider-owned name used in API-key status text."""
+
+        return self.name
+
+    def api_key_status(self, config: ProviderConfig, *, key_count: int, primary_detail: str) -> str:
+        """Format API-key readiness without central provider-name branching."""
+
+        scope = self.api_key_display_name()
+        round_robin = f"{key_count} keys, round-robin"
+        if key_count > 1:
+            detail = f"{scope}{primary_detail}" if scope else primary_detail.lstrip("; ")
+            return f"API keys: {round_robin} ({detail})"
+        if key_count:
+            detail = f"{scope}{primary_detail}" if scope else primary_detail.lstrip("; ")
+            return f"API key: set ({detail})"
+        if self.capabilities(config).requires_api_key:
+            return f"API key: missing ({scope} required)"
+        if self.capabilities(config).local:
+            return f"API key: not required for {scope}"
+        return "API key: optional or not configured"
+
+    def launch_api_key_error(self, config: ProviderConfig) -> str | None:
+        """Return a launch blocker when this provider requires an absent key."""
+
+        if self.capabilities(config).requires_api_key and not config.api_keys:
+            return f"Launch blocked: {self.api_key_display_name()} requires an API key."
+        return None
+
     def model_panel_badge(self, config: ProviderConfig, model: str) -> str:
         """Return an optional provider-owned model label for selection UIs."""
 

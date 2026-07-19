@@ -107,11 +107,45 @@ class ProviderContractMatrixTests(unittest.TestCase):
 
     def test_model_catalog_service_has_no_provider_name_dispatch(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
-        for filename in ("provider_models.py", "provider_policy.py"):
+        for filename in ("provider_models.py", "provider_policy.py", "provider_config_mutations.py"):
             source = (support / filename).read_text(encoding="utf-8")
             with self.subTest(filename=filename):
                 self.assertNotIn('provider == "', source)
                 self.assertNotIn("provider in (", source)
+
+    def test_configuration_and_api_key_capability_matrix(self):
+        required_api_key = {
+            "deepseek",
+            "fireworks",
+            "kimi",
+            "nvidia-hosted",
+            "ollama-cloud",
+            "opencode",
+            "opencode-go",
+            "openrouter",
+            "zai",
+        }
+        for provider in PROVIDER_ADAPTERS.names():
+            adapter = PROVIDER_ADAPTERS.create(provider)
+            configured = config(provider)
+            with self.subTest(provider=provider):
+                self.assertEqual(provider in required_api_key, adapter.capabilities(configured).requires_api_key)
+                self.assertIsNotNone(adapter.configuration_policy(configured))
+
+    def test_api_key_status_is_provider_owned(self):
+        cases = {
+            "anthropic": "Claude login",
+            "agy": "native AGY",
+            "codex": "native Codex",
+            "deepseek": "DeepSeek required",
+            "ollama": "not required for Ollama",
+            "opencode": "OpenCode Zen required",
+        }
+        for provider, expected in cases.items():
+            adapter = PROVIDER_ADAPTERS.create(provider)
+            status = adapter.api_key_status(config(provider), key_count=0, primary_detail="")
+            with self.subTest(provider=provider):
+                self.assertIn(expected, status)
 
     def test_kimi_request_options_are_adapter_owned(self):
         adapter = PROVIDER_ADAPTERS.create("kimi")

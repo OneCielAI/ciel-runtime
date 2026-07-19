@@ -24319,69 +24319,18 @@ def meaningful_key(value: str | None) -> bool:
 
 def api_key_status_line(provider: str, pcfg: dict[str, Any]) -> str:
     key_count = provider_api_key_count(provider, pcfg)
-    round_robin = f"{key_count} keys, round-robin" if key_count > 1 else ""
     primary = provider_primary_api_key(provider, pcfg)
-    primary_detail = f"; primary {mask_secret(primary)}; fp {secret_fingerprint(primary)}" if key_count else ""
-    if provider == "nvidia-hosted":
-        if key_count > 1:
-            return f"API keys: {round_robin} (NVIDIA{primary_detail})"
-        return f"API key: set (NVIDIA{primary_detail})" if key_count else "API key: missing (NVIDIA required)"
-    if provider == "anthropic":
-        if anthropic_routed_enabled(provider, pcfg):
-            if key_count > 1:
-                return f"API keys: {round_robin} (Anthropic routed{primary_detail})"
-            return f"API key: set (Anthropic routed{primary_detail})" if key_count else "API key: not set (uses Claude Code OAuth/API auth headers)"
-        if key_count > 1:
-            return f"API keys: {round_robin} (Anthropic{primary_detail})"
-        return f"API key: set (Anthropic{primary_detail})" if key_count else "API key: not set (use API key or Claude login)"
-    if provider == "agy":
-        if agy_routed_enabled(provider, pcfg):
-            return "API key: not set (uses native AGY Google sign-in/keyring)"
-        return "API key: not set (uses native AGY Google sign-in/config)"
-    if provider == "codex":
-        if codex_routed_enabled(provider, pcfg):
-            if key_count > 1:
-                return f"API keys: {round_robin} (stored; Codex routed uses native login/auth headers{primary_detail})"
-            return (
-                f"API key: set (stored; Codex routed uses native login/auth headers{primary_detail})"
-                if key_count
-                else "API key: not set (uses native Codex login/auth headers)"
-            )
-        if key_count > 1:
-            return f"API keys: {round_robin} (Codex fallback{primary_detail})"
-        return f"API key: set (Codex fallback{primary_detail})" if key_count else "API key: not set (uses native Codex login/config)"
-    if provider == "ollama-cloud":
-        if key_count > 1:
-            return f"API keys: {round_robin} (Ollama Cloud{primary_detail})"
-        return f"API key: set (Ollama Cloud{primary_detail})" if key_count else "API key: missing (Ollama Cloud required)"
-    if provider == "deepseek":
-        if key_count > 1:
-            return f"API keys: {round_robin} (DeepSeek{primary_detail})"
-        return f"API key: set (DeepSeek{primary_detail})" if key_count else "API key: missing (DeepSeek required)"
-    if provider in OPENCODE_PROVIDER_NAMES:
-        label = PROVIDER_LABELS.get(provider, provider)
-        if key_count > 1:
-            return f"API keys: {round_robin} ({label}{primary_detail})"
-        return f"API key: set ({label}{primary_detail})" if key_count else f"API key: missing ({label} required)"
-    if provider == "kimi":
-        if key_count > 1:
-            return f"API keys: {round_robin} (Kimi.com{primary_detail})"
-        return f"API key: set (Kimi.com{primary_detail})" if key_count else "API key: missing (Kimi.com required)"
-    if provider == "zai":
-        if key_count > 1:
-            return f"API keys: {round_robin} (Z.AI GLM{primary_detail})"
-        return f"API key: set (Z.AI GLM{primary_detail})" if key_count else "API key: missing (Z.AI GLM required)"
-    if provider == "fireworks":
-        if key_count > 1:
-            return f"API keys: {round_robin} (Fireworks.ai{primary_detail})"
-        return f"API key: set (Fireworks.ai{primary_detail})" if key_count else "API key: missing (Fireworks.ai required)"
-    if key_count:
-        if key_count > 1:
-            return f"API keys: {round_robin} ({primary_detail.lstrip('; ')})"
-        return f"API key: set ({primary_detail.lstrip('; ')})"
-    if provider == "ollama":
-        return "API key: not required for Ollama"
-    return "API key: optional or not configured"
+    primary_detail = (
+        f"; primary {mask_secret(primary)}; fp {secret_fingerprint(primary)}"
+        if key_count
+        else ""
+    )
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.api_key_status(
+        provider_contract_config(provider, pcfg),
+        key_count=key_count,
+        primary_detail=primary_detail,
+    )
 
 
 def base_url_status_line(provider: str, pcfg: dict[str, Any]) -> str:
@@ -24515,23 +24464,10 @@ def launch_readiness_errors(cfg: dict[str, Any] | None = None) -> list[str]:
             errors.append("Start LM Studio's Local Server or set a reachable Anthropic-compatible Base URL before launching Claude Code.")
         else:
             errors.append("Set a reachable Base URL before launching Claude Code.")
-    if provider == "nvidia-hosted" and not provider_has_api_key(provider, pcfg):
-        errors.append("Launch blocked: NVIDIA hosted requires an NVIDIA API key.")
-    if provider == "ollama-cloud" and not provider_has_api_key(provider, pcfg):
-        errors.append("Launch blocked: Ollama Cloud requires an API key.")
-    if provider == "deepseek" and not provider_has_api_key(provider, pcfg):
-        errors.append("Launch blocked: DeepSeek.com requires a DeepSeek API key.")
-    if provider == "zai" and not provider_has_api_key(provider, pcfg):
-        errors.append("Launch blocked: Z.AI GLM requires a Z.AI API key.")
-    if provider == "openrouter" and not provider_has_api_key(provider, pcfg):
-        errors.append("Launch blocked: OpenRouter requires an OpenRouter API key.")
-    if provider == "fireworks" and not provider_has_api_key(provider, pcfg):
-        errors.append("Launch blocked: Fireworks.ai requires a Fireworks API key.")
-    if provider == "kimi" and not provider_has_api_key(provider, pcfg):
-        errors.append("Launch blocked: Kimi.com requires a Kimi API key.")
-    if provider in OPENCODE_PROVIDER_NAMES and not provider_has_api_key(provider, pcfg):
-        label = PROVIDER_LABELS.get(provider, provider)
-        errors.append(f"Launch blocked: {label} requires a {label} API key.")
+    adapter = configured_provider_adapter(provider, pcfg)
+    api_key_error = adapter.launch_api_key_error(provider_contract_config(provider, pcfg))
+    if api_key_error:
+        errors.append(api_key_error)
     if claude_code_ultracode_enabled(provider, pcfg):
         caps = set(claude_code_supported_capabilities(provider, pcfg, current_upstream_model_id(provider, pcfg)))
         if "xhigh_effort" not in caps:

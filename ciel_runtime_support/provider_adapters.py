@@ -66,6 +66,8 @@ class HttpBearerProviderAdapter(ProviderAdapter):
     include_x_api_key: bool = True
     require_api_key: bool = False
     send_placeholder_key: bool = False
+    api_key_display_name_value: str = ""
+    api_key_launch_error_value: str = ""
     capabilities_value: ProviderCapabilities = field(default_factory=ProviderCapabilities)
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(
@@ -118,6 +120,14 @@ class HttpBearerProviderAdapter(ProviderAdapter):
         del config
         return self.model_catalog_policy_value
 
+    def api_key_display_name(self) -> str:
+        return self.api_key_display_name_value
+
+    def launch_api_key_error(self, config: ProviderConfig) -> str | None:
+        if self.capabilities(config).requires_api_key and not config.api_keys:
+            return self.api_key_launch_error_value or super().launch_api_key_error(config)
+        return None
+
     def build_model_headers(self, config: ProviderConfig, api_key: str | None) -> Mapping[str, str]:
         del config
         key = str(api_key or "").strip()
@@ -169,6 +179,19 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         del config
         return ProviderConfigurationPolicy(supports_route_through_router=True)
 
+    def api_key_status(self, config: ProviderConfig, *, key_count: int, primary_detail: str) -> str:
+        routed = bool(config.options.get("route_through_router"))
+        scope = "Anthropic routed" if routed else "Anthropic"
+        if key_count > 1:
+            return f"API keys: {key_count} keys, round-robin ({scope}{primary_detail})"
+        if key_count:
+            return f"API key: set ({scope}{primary_detail})"
+        return (
+            "API key: not set (uses Claude Code OAuth/API auth headers)"
+            if routed
+            else "API key: not set (use API key or Claude login)"
+        )
+
     def build_model_headers(self, config: ProviderConfig, api_key: str | None) -> Mapping[str, str]:
         del config
         key = str(api_key or "").strip()
@@ -204,6 +227,7 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
     name: str = "ollama"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["ollama"]
     send_placeholder_key: bool = True
+    api_key_display_name_value: str = "Ollama"
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
             upstream_protocol="ollama_chat",
@@ -237,8 +261,12 @@ class OllamaCloudProviderAdapter(OllamaProviderAdapter):
     name: str = "ollama-cloud"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["ollama-cloud"]
     capabilities_value: ProviderCapabilities = field(
-        default_factory=lambda: ProviderCapabilities(upstream_protocol="ollama_chat", supports_thinking=True)
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="ollama_chat", supports_thinking=True, requires_api_key=True
+        )
     )
+    api_key_display_name_value: str = "Ollama Cloud"
+    api_key_launch_error_value: str = "Launch blocked: Ollama Cloud requires an API key."
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(kind="ollama", use_bundled_catalog_fallback=True)
     )
@@ -250,6 +278,8 @@ class OpenRouterProviderAdapter(OpenAICompatibleProviderAdapter):
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["openrouter"]
     authorization_header: str = "Authorization"
     require_api_key: bool = True
+    api_key_display_name_value: str = "OpenRouter"
+    api_key_launch_error_value: str = "Launch blocked: OpenRouter requires an OpenRouter API key."
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", requires_api_key=True)
     )
@@ -289,6 +319,11 @@ class VllmProviderAdapter(OpenAICompatibleProviderAdapter):
 class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
     name: str = "nvidia-hosted"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["nvidia-hosted"]
+    api_key_display_name_value: str = "NVIDIA"
+    api_key_launch_error_value: str = "Launch blocked: NVIDIA hosted requires an NVIDIA API key."
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", requires_api_key=True)
+    )
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(kind="nvidia")
     )
@@ -318,8 +353,12 @@ class DeepSeekProviderAdapter(HttpBearerProviderAdapter):
     name: str = "deepseek"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["deepseek"]
     send_placeholder_key: bool = True
+    api_key_display_name_value: str = "DeepSeek"
+    api_key_launch_error_value: str = "Launch blocked: DeepSeek.com requires a DeepSeek API key."
     capabilities_value: ProviderCapabilities = field(
-        default_factory=lambda: ProviderCapabilities(upstream_protocol="anthropic_messages", supports_thinking=True)
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="anthropic_messages", supports_thinking=True, requires_api_key=True
+        )
     )
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/messages", models_path="/v1/models")
@@ -347,8 +386,12 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
     name: str = "kimi"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["kimi"]
     send_placeholder_key: bool = True
+    api_key_display_name_value: str = "Kimi.com"
+    api_key_launch_error_value: str = "Launch blocked: Kimi.com requires a Kimi API key."
     capabilities_value: ProviderCapabilities = field(
-        default_factory=lambda: ProviderCapabilities(upstream_protocol="anthropic_messages", supports_thinking=True)
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="anthropic_messages", supports_thinking=True, requires_api_key=True
+        )
     )
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/messages", models_path="/v1/models")
@@ -393,8 +436,12 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
     name: str = "zai"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["zai"]
     send_placeholder_key: bool = True
+    api_key_display_name_value: str = "Z.AI GLM"
+    api_key_launch_error_value: str = "Launch blocked: Z.AI GLM requires a Z.AI API key."
     capabilities_value: ProviderCapabilities = field(
-        default_factory=lambda: ProviderCapabilities(upstream_protocol="anthropic_messages", supports_thinking=True)
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="anthropic_messages", supports_thinking=True, requires_api_key=True
+        )
     )
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(chat_path="/v1/messages", models_path="/v1/models")
@@ -409,6 +456,11 @@ class FireworksProviderAdapter(OpenAICompatibleProviderAdapter):
     name: str = "fireworks"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["fireworks"]
     send_placeholder_key: bool = True
+    api_key_display_name_value: str = "Fireworks.ai"
+    api_key_launch_error_value: str = "Launch blocked: Fireworks.ai requires a Fireworks API key."
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(upstream_protocol="openai_chat", requires_api_key=True)
+    )
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(kind="fireworks")
     )
@@ -441,8 +493,12 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
     name: str = "opencode"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["opencode"]
     send_placeholder_key: bool = True
+    api_key_display_name_value: str = "OpenCode Zen"
+    api_key_launch_error_value: str = "Launch blocked: OpenCode Zen requires a OpenCode Zen API key."
     capabilities_value: ProviderCapabilities = field(
-        default_factory=lambda: ProviderCapabilities(upstream_protocol="anthropic_messages", supports_thinking=True)
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="anthropic_messages", supports_thinking=True, requires_api_key=True
+        )
     )
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(chat_path="/messages", models_path="/v1/models")
@@ -518,6 +574,8 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
 class OpenCodeGoProviderAdapter(OpenCodeProviderAdapter):
     name: str = "opencode-go"
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["opencode-go"]
+    api_key_display_name_value: str = "OpenCode Go"
+    api_key_launch_error_value: str = "Launch blocked: OpenCode Go requires a OpenCode Go API key."
 
 
 @dataclass(frozen=True)
@@ -534,6 +592,27 @@ class CodexProviderAdapter(NoAuthProviderAdapter):
         default_factory=lambda: ProviderModelCatalogPolicy(kind="configured")
     )
 
+    def api_key_status(self, config: ProviderConfig, *, key_count: int, primary_detail: str) -> str:
+        routed = bool(config.options.get("route_through_router"))
+        if routed:
+            if key_count > 1:
+                return (
+                    f"API keys: {key_count} keys, round-robin "
+                    f"(stored; Codex routed uses native login/auth headers{primary_detail})"
+                )
+            return (
+                f"API key: set (stored; Codex routed uses native login/auth headers{primary_detail})"
+                if key_count
+                else "API key: not set (uses native Codex login/auth headers)"
+            )
+        if key_count > 1:
+            return f"API keys: {key_count} keys, round-robin (Codex fallback{primary_detail})"
+        return (
+            f"API key: set (Codex fallback{primary_detail})"
+            if key_count
+            else "API key: not set (uses native Codex login/config)"
+        )
+
 
 @dataclass(frozen=True)
 class AgyProviderAdapter(NoAuthProviderAdapter):
@@ -545,6 +624,14 @@ class AgyProviderAdapter(NoAuthProviderAdapter):
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(kind="configured")
     )
+
+    def api_key_status(self, config: ProviderConfig, *, key_count: int, primary_detail: str) -> str:
+        del key_count, primary_detail
+        return (
+            "API key: not set (uses native AGY Google sign-in/keyring)"
+            if config.options.get("route_through_router")
+            else "API key: not set (uses native AGY Google sign-in/config)"
+        )
 
 
 PROVIDER_ADAPTERS: AdapterRegistry[ProviderAdapter] = AdapterRegistry()
