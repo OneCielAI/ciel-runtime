@@ -79,6 +79,7 @@ from ciel_runtime_support.channel_compact_poll import (
     ChannelCompactPollServices,
     ChannelCompactPollState,
 )
+from ciel_runtime_support.channel_config_service import ChannelConfigPorts
 from ciel_runtime_support.channel_inflight import (
     ChannelInflightEffects,
     ChannelInflightPolicy,
@@ -854,6 +855,9 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_channel_router_lifecycle_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelRouterLifecyclePorts)), 10)
+
+    def test_channel_config_ports_stay_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(ChannelConfigPorts)), 10)
 
     def test_sse_stream_state_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(SseStreamServices)), 10)

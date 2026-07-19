@@ -123,6 +123,10 @@ from ciel_runtime_support.channel_connection_worker import (
     ChannelWorkerPolicy,
     ChannelWorkerStateStore,
 )
+from ciel_runtime_support.channel_config_service import (
+    ChannelConfigPorts,
+    ChannelConfigService,
+)
 from ciel_runtime_support.channel_compact_request_repository import (
     ChannelCompactRequestRepository,
     compact_request_ttl,
@@ -11325,60 +11329,27 @@ def channel_panel_rows_for_menu(cfg: dict[str, Any], passthrough: list[str]) -> 
     return rows, values, messages
 
 
+def channel_config_service() -> ChannelConfigService:
+    return ChannelConfigService(
+        BUILTIN_CHANNEL_SPEC,
+        ChannelConfigPorts(
+            load=load_config,
+            save=save_config,
+            invalidate=invalidate_config_cache,
+            configured_specs=channel_specs,
+            dedupe=_dedupe_strings,
+            log=router_log,
+            environment=os.environ,
+        ),
+    )
+
+
 def parse_passthrough_channel_specs(passthrough: list[str]) -> list[str]:
-    """Extract channel specs from passthrough args of either
-    --channels or --dangerously-load-development-channels (and the
-    =VALUE inline form)."""
-    specs: list[str] = []
-    i = 0
-    while i < len(passthrough):
-        arg = passthrough[i]
-        if arg in ("--channels", "--dangerously-load-development-channels"):
-            i += 1
-            while i < len(passthrough) and is_channel_spec_tagged(passthrough[i]):
-                specs.append(passthrough[i])
-                i += 1
-            continue
-        if arg.startswith("--channels=") or arg.startswith("--dangerously-load-development-channels="):
-            value = arg.split("=", 1)[1].strip()
-            if value and is_channel_spec_tagged(value):
-                specs.append(value)
-            i += 1
-            continue
-        i += 1
-    return _dedupe_strings(specs)
+    return channel_config_service().parse_passthrough(passthrough)
 
 
 def auto_import_passthrough_channels(passthrough: list[str]) -> list[str]:
-    """Add channel specs that arrived as CLI passthrough to the persisted
-    cfg.channels list, so they show up alongside auto-detected entries in
-    the menu and survive subsequent launches. Returns the newly added specs."""
-    specs = parse_passthrough_channel_specs(passthrough)
-    if not specs:
-        return []
-    cfg = load_config()
-    existing = set(channel_specs(cfg))
-    if all(spec in existing for spec in specs):
-        return []
-    cc = cfg.setdefault("claude_code", {})
-    merged = [spec for spec in channel_specs(cfg) if spec != BUILTIN_CHANNEL_SPEC]
-    added: list[str] = []
-    for spec in specs:
-        if spec in existing or spec == BUILTIN_CHANNEL_SPEC:
-            continue
-        merged.append(spec)
-        existing.add(spec)
-        added.append(spec)
-    if not added:
-        return []
-    cc["channels"] = merged
-    save_config(cfg)
-    invalidate_config_cache()
-    router_log(
-        "INFO",
-        f"channels_auto_imported_from_passthrough count={len(added)} specs={','.join(added)}",
-    )
-    return added
+    return channel_config_service().auto_import(passthrough)
 
 
 def channel_mcp_discovery_service() -> ChannelMcpDiscoveryService:
@@ -11491,15 +11462,11 @@ def start_router_managed_channel_sse(cfg: dict[str, Any]) -> list[dict[str, Any]
 
 
 def channel_specs_for_launch(cfg: dict[str, Any], passthrough: list[str], extra_specs: list[str] | None = None) -> list[str]:
-    configured = [spec for spec in channel_specs(cfg) if is_channel_spec_tagged(spec)]
-    specs = configured
-    if extra_specs:
-        specs = [*specs, *extra_specs]
-    return _dedupe_strings(spec for spec in specs if is_channel_spec_tagged(spec))
+    return channel_config_service().launch_specs(cfg, extra_specs)
 
 
 def is_channel_spec_tagged(spec: str) -> bool:
-    return spec.startswith("plugin:") or spec.startswith("server:")
+    return channel_config_service().is_tagged(spec)
 
 
 def channel_status_text(cfg: dict[str, Any] | None = None) -> str:
@@ -11515,73 +11482,27 @@ def set_channel_development_enabled(enabled: bool) -> list[str]:
 
 
 def normalize_channel_delivery(value: Any) -> str:
-    text = str(value or "").strip().lower().replace("_", "-")
-    if text in {"native", "native-channel", "native-channel-bridge", "claude-channel", "claude/native"}:
-        return "native"
-    if text in {"llm", "model", "context", "router", "advisor", "inband", "in-band"}:
-        return "llm"
-    if text in {"stdin", "pty", "terminal", "wake", "wake-proxy", "legacy"}:
-        return "stdin"
-    if text in {"auto", ""}:
-        return "llm"
-    return "llm"
+    return channel_config_service().normalize_delivery(value)
 
 
 def channel_delivery_mode(cfg: dict[str, Any] | None = None) -> str:
-    env_value = os.environ.get("CIEL_RUNTIME_CHANNEL_DELIVERY")
-    if env_value is not None:
-        return normalize_channel_delivery(env_value)
-    cfg = cfg or load_config()
-    return normalize_channel_delivery(cfg.setdefault("claude_code", {}).get("channel_delivery", "llm"))
+    return channel_config_service().delivery_mode(cfg)
 
 
 def set_channel_delivery_config(value: Any) -> list[str]:
-    mode = normalize_channel_delivery(value)
-    cfg = load_config()
-    cfg.setdefault("claude_code", {})["channel_delivery"] = mode
-    save_config(cfg)
-    if mode == "native":
-        return ["Channel delivery set to native claude/channel bridge."]
-    if mode == "llm":
-        return ["Channel delivery set to LLM context injection."]
-    return ["Channel delivery set to stdin wake proxy."]
+    return channel_config_service().set_delivery(value)
 
 
 def add_channel_spec(spec: str, *, development: bool = False) -> list[str]:
-    spec = spec.strip()
-    if not spec:
-        return ["Channel spec was empty."]
-    if not is_channel_spec_tagged(spec):
-        return ["Channel spec must start with plugin: or server:."]
-    if spec == BUILTIN_CHANNEL_SPEC:
-        return ["Ciel Runtime router channel is always enabled."]
-    cfg = load_config()
-    cc = cfg.setdefault("claude_code", {})
-    channels = [item for item in channel_specs(cfg) if item != BUILTIN_CHANNEL_SPEC]
-    if spec not in channels:
-        channels.append(spec)
-    cc["channels"] = channels
-    save_config(cfg)
-    return [f"Channel added: {spec}."]
+    return channel_config_service().add(spec)
 
 
 def remove_channel_spec(spec: str) -> list[str]:
-    if spec == BUILTIN_CHANNEL_SPEC:
-        return ["Ciel Runtime router channel is always enabled and cannot be removed."]
-    cfg = load_config()
-    cc = cfg.setdefault("claude_code", {})
-    before = [item for item in channel_specs(cfg) if item != BUILTIN_CHANNEL_SPEC]
-    after = [item for item in before if item != spec]
-    cc["channels"] = after
-    save_config(cfg)
-    return [f"Channel removed: {spec}." if len(after) != len(before) else f"Channel was not configured: {spec}."]
+    return channel_config_service().remove(spec)
 
 
 def clear_channel_specs() -> list[str]:
-    cfg = load_config()
-    cfg.setdefault("claude_code", {})["channels"] = []
-    save_config(cfg)
-    return ["External Claude Code channels cleared. Ciel Runtime router remains enabled."]
+    return channel_config_service().clear()
 
 
 def cmd_channels(args: argparse.Namespace) -> None:

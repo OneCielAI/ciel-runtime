@@ -104,6 +104,10 @@ Notification-stream ownership is read by `ChannelProxyOwnershipRepository`,
 while `ChannelRouterLifecycle` filters proxy-owned servers and starts only the
 router-owned workers. Both live in `channel_mcp_ownership.py`.
 
+Persisted channel lists, passthrough imports, delivery-mode normalization, and
+add/remove/clear mutations live in `channel_config_service.py`; CLI handlers
+only translate command arguments and render returned messages.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file
