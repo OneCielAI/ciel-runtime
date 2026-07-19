@@ -98,6 +98,11 @@ from ciel_runtime_support.channel_connection_worker import (
     ChannelWorkerPolicy,
     ChannelWorkerStateStore,
 )
+from ciel_runtime_support.command_asset_installer import (
+    CommandAsset,
+    CommandAssetInstaller,
+    is_owned_command_file,
+)
 from ciel_runtime_support.channel_event_projection import (
     CHANNEL_CONTROL_KINDS as _CHANNEL_CONTROL_KINDS,
     compact_json_for_prompt as _compact_json_for_prompt,
@@ -2476,22 +2481,22 @@ CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS = (*CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS,
 
 
 def command_file_is_ciel_runtime_owned(path: Path, markers: tuple[str, ...]) -> bool:
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except Exception:
-        return False
-    return any(marker in text for marker in markers)
+    return is_owned_command_file(path, markers)
+
+
+def _command_asset_installer(directory: Path) -> CommandAssetInstaller:
+    return CommandAssetInstaller(
+        directory,
+        lambda message: print(f"Ciel Runtime warning: {message}", flush=True),
+    )
 
 
 def remove_ciel_runtime_advisor_command() -> None:
     """Remove the ciel-runtime-owned /advisor command so Claude Code's built-in
     /advisor (the standard flow for the anthropic provider) surfaces."""
-    try:
-        path = CLAUDE_COMMANDS_DIR / "advisor.md"
-        if path.exists() and command_file_is_ciel_runtime_owned(path, CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS):
-            path.unlink()
-    except Exception as exc:
-        print(f"Ciel Runtime warning: could not remove ciel-runtime /advisor command ({type(exc).__name__}: {exc}).", flush=True)
+    _command_asset_installer(CLAUDE_COMMANDS_DIR).remove_one(
+        "advisor.md", CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS
+    )
 
 
 def codex_prompts_dir(env: dict[str, str] | None = None) -> Path:
@@ -2501,129 +2506,51 @@ def codex_prompts_dir(env: dict[str, str] | None = None) -> Path:
 
 
 def install_ciel_runtime_codex_prompts(env: dict[str, str] | None = None) -> None:
-    try:
-        prompts_dir = codex_prompts_dir(env)
-        prompts_dir.mkdir(parents=True, exist_ok=True)
-        path = prompts_dir / "ImportSession.md"
-        if path.exists():
-            existing = path.read_text(encoding="utf-8", errors="replace")
-            if existing == IMPORT_SESSION_SLASH_COMMAND:
-                return
-            if not command_file_is_ciel_runtime_owned(path, CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS):
-                return
-        path.write_text(IMPORT_SESSION_SLASH_COMMAND, encoding="utf-8")
-        try:
-            os.chmod(path, 0o600)
-        except Exception:
-            pass
-    except Exception as exc:
-        print(f"Ciel Runtime warning: could not install Codex ImportSession prompt ({type(exc).__name__}: {exc}).", flush=True)
+    _command_asset_installer(codex_prompts_dir(env)).install_one(
+        "ImportSession.md",
+        CommandAsset(IMPORT_SESSION_SLASH_COMMAND, CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS),
+    )
 
 
 def disable_ciel_runtime_codex_prompts_for_native(env: dict[str, str] | None = None) -> None:
-    try:
-        prompts_dir = codex_prompts_dir(env)
-        path = prompts_dir / "ImportSession.md"
-        if path.exists() and command_file_is_ciel_runtime_owned(path, CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS):
-            path.unlink()
-    except Exception as exc:
-        print(f"Ciel Runtime warning: could not remove Codex ImportSession prompt for native mode ({type(exc).__name__}: {exc}).", flush=True)
+    _command_asset_installer(codex_prompts_dir(env)).remove_one(
+        "ImportSession.md", CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS
+    )
+
+
+def _ciel_runtime_command_assets(include_advisor: bool = True) -> dict[str, CommandAsset]:
+    assets = {
+        "router-debug.md": CommandAsset(ROUTER_DEBUG_SLASH_COMMAND, CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS),
+        "ciel-version.md": CommandAsset(VERSION_SLASH_COMMAND, CIEL_RUNTIME_VERSION_COMMAND_MARKERS),
+        "llm.md": CommandAsset(LLM_SLIDER_SLASH_COMMAND, CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS),
+        "llm-options.md": CommandAsset(LLM_OPTIONS_SLASH_COMMAND, CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS),
+        "llm-restore.md": CommandAsset(LLM_RESTORE_SLASH_COMMAND, CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS),
+        "channel-clear.md": CommandAsset(CHANNEL_CLEAR_SLASH_COMMAND, CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS),
+        "api-key.md": CommandAsset(API_KEYS_SLASH_COMMAND, CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS),
+        "api-keys.md": CommandAsset(API_KEYS_SLASH_COMMAND, CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS),
+        "ImportSession.md": CommandAsset(IMPORT_SESSION_SLASH_COMMAND, CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS),
+    }
+    if include_advisor:
+        assets["advisor.md"] = CommandAsset(ADVISOR_SLASH_COMMAND, CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS)
+    return assets
 
 
 def install_ciel_runtime_slash_commands(include_advisor: bool = True) -> None:
-    try:
-        CLAUDE_COMMANDS_DIR.mkdir(parents=True, exist_ok=True)
-        commands = {
-            "router-debug.md": ROUTER_DEBUG_SLASH_COMMAND,
-            "ciel-version.md": VERSION_SLASH_COMMAND,
-            "llm.md": LLM_SLIDER_SLASH_COMMAND,
-            "llm-options.md": LLM_OPTIONS_SLASH_COMMAND,
-            "llm-restore.md": LLM_RESTORE_SLASH_COMMAND,
-            "channel-clear.md": CHANNEL_CLEAR_SLASH_COMMAND,
-            "api-key.md": API_KEYS_SLASH_COMMAND,
-            "api-keys.md": API_KEYS_SLASH_COMMAND,
-            "ImportSession.md": IMPORT_SESSION_SLASH_COMMAND,
-        }
-        if include_advisor:
-            commands["advisor.md"] = ADVISOR_SLASH_COMMAND
-        else:
-            remove_ciel_runtime_advisor_command()
-        for path in CLAUDE_COMMANDS_DIR.glob("llm-*.md"):
-            if path.name in commands:
-                continue
-            if command_file_is_ciel_runtime_owned(path, CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS):
-                try:
-                    path.unlink()
-                except Exception:
-                    pass
-        stale_channel = CLAUDE_COMMANDS_DIR / "channel.md"
-        if stale_channel.exists():
-            try:
-                stale_text = stale_channel.read_text(encoding="utf-8", errors="replace")
-                if "CIEL_RUNTIME_CHANNEL_BRIDGE" in stale_text or "ciel-runtime channel bridge" in stale_text:
-                    stale_channel.unlink()
-            except Exception:
-                pass
-        for name, content in commands.items():
-            path = CLAUDE_COMMANDS_DIR / name
-            if path.exists():
-                existing = path.read_text(encoding="utf-8", errors="replace")
-                markers = (
-                    CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS
-                    if name == "advisor.md"
-                    else CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS
-                    if name == "router-debug.md"
-                    else CIEL_RUNTIME_VERSION_COMMAND_MARKERS
-                    if name == "ciel-version.md"
-                    else CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS
-                    if name == "llm.md" or name == "llm-options.md" or name == "llm-restore.md" or name.startswith("llm-")
-                    else CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS
-                    if name in {"api-key.md", "api-keys.md"}
-                    else CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS
-                    if name == "ImportSession.md"
-                    else CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS
-                )
-                if existing == content:
-                    continue
-                if not command_file_is_ciel_runtime_owned(path, markers):
-                    continue
-            path.write_text(content, encoding="utf-8")
-            try:
-                os.chmod(path, 0o600)
-            except Exception:
-                pass
-    except Exception as exc:
-        print(f"Ciel Runtime warning: could not install ciel-runtime slash commands ({type(exc).__name__}: {exc}).", flush=True)
+    if not include_advisor:
+        remove_ciel_runtime_advisor_command()
+    _command_asset_installer(CLAUDE_COMMANDS_DIR).install_all(
+        _ciel_runtime_command_assets(include_advisor),
+        stale_glob="llm-*.md",
+        stale_markers=CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
+    )
 
 
 def disable_ciel_runtime_slash_commands_for_native() -> None:
-    try:
-        if not CLAUDE_COMMANDS_DIR.exists():
-            return
-        commands = {
-            "advisor.md": CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS,
-            "router-debug.md": CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS,
-            "ciel-version.md": CIEL_RUNTIME_VERSION_COMMAND_MARKERS,
-            "llm.md": CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
-            "llm-options.md": CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
-            "llm-restore.md": CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
-            "channel-clear.md": CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS,
-            "api-key.md": CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS,
-            "api-keys.md": CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS,
-            "ImportSession.md": CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS,
-        }
-        for name, markers in commands.items():
-            path = CLAUDE_COMMANDS_DIR / name
-            if not path.exists() or not command_file_is_ciel_runtime_owned(path, markers):
-                continue
-            path.unlink()
-        for path in CLAUDE_COMMANDS_DIR.glob("llm-*.md"):
-            if path.name in commands:
-                continue
-            if command_file_is_ciel_runtime_owned(path, CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS):
-                path.unlink()
-    except Exception as exc:
-        print(f"Ciel Runtime warning: could not remove ciel-runtime slash commands for native mode ({type(exc).__name__}: {exc}).", flush=True)
+    _command_asset_installer(CLAUDE_COMMANDS_DIR).remove_all(
+        _ciel_runtime_command_assets(),
+        stale_glob="llm-*.md",
+        stale_markers=CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
+    )
 
 
 def http_json(
