@@ -98,6 +98,7 @@ from ciel_runtime_support.channel_terminal_proxy import (
     ChannelWindowsServices,
 )
 from ciel_runtime_support.channel_transcript import ChannelWakeTranscriptServices
+from ciel_runtime_support.channel_message_repository import ChannelMessageRepository
 from ciel_runtime_support.channel_session_repository import ChannelSessionRepository
 from ciel_runtime_support.channel_session_lifecycle import ChannelSessionLifecycleServices
 from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices
@@ -1405,6 +1406,13 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(function=function_name):
                 self.assertNotIn(f"def {function_name}(", source)
+
+    def test_channel_message_repository_owns_jsonl_scanning(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        self.assertNotIn("def _chat_message_epoch_seconds(", source)
+        self.assertNotIn("def _message_visible_to(", source)
+        self.assertNotIn("def _chat_message_matches(", source)
+        self.assertLessEqual(len(fields(ChannelMessageRepository)), 10)
 
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"

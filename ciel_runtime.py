@@ -34,7 +34,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from email.utils import parsedate_to_datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PureWindowsPath
@@ -166,6 +166,7 @@ from ciel_runtime_support.channel_event_identity import (
     message_time_seconds as _chat_message_time_seconds,
     stable_dedupe_key as _chat_message_stable_dedupe_key,
 )
+from ciel_runtime_support.channel_message_repository import ChannelMessageRepository
 from ciel_runtime_support.channel_probe_report import (
     ChannelProbeReportServices,
     channel_probe_report_lines,
@@ -8426,41 +8427,12 @@ def _chat_init_next_id() -> int:
     return _CHAT_NEXT_ID
 
 
+def channel_message_repository() -> ChannelMessageRepository:
+    return ChannelMessageRepository(path=CHAT_MESSAGES_PATH, log=router_log)
+
+
 def _chat_scan_max_id() -> int:
-    max_id = 0
-    try:
-        if CHAT_MESSAGES_PATH.exists():
-            with CHAT_MESSAGES_PATH.open("r", encoding="utf-8") as f:
-                for line in f:
-                    try:
-                        item = json.loads(line)
-                        max_id = max(max_id, int(item.get("id") or 0))
-                    except Exception:
-                        continue
-    except Exception:
-        pass
-    return max_id
-
-
-def _chat_message_epoch_seconds(item: dict[str, Any]) -> float | None:
-    raw = item.get("time") or item.get("created_at") or item.get("updated_at")
-    if not raw:
-        return None
-    if isinstance(raw, (int, float)):
-        try:
-            return float(raw)
-        except Exception:
-            return None
-    text = str(raw).strip()
-    if not text:
-        return None
-    try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-        if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
-        return parsed.timestamp()
-    except Exception:
-        return None
+    return channel_message_repository().max_id()
 
 
 def _channel_launch_recent_seconds() -> float:
@@ -8474,28 +8446,7 @@ def _channel_launch_recent_seconds() -> float:
 
 
 def _chat_scan_max_id_before_epoch(cutoff_epoch: float) -> int:
-    max_id = 0
-    try:
-        if CHAT_MESSAGES_PATH.exists():
-            with CHAT_MESSAGES_PATH.open("r", encoding="utf-8") as f:
-                for line in f:
-                    try:
-                        item = json.loads(line)
-                        item_id = int(item.get("id") or 0)
-                    except Exception:
-                        continue
-                    if item_id <= 0:
-                        continue
-                    item_epoch = _chat_message_epoch_seconds(item)
-                    if item_epoch is None:
-                        # Unknown timestamps are treated as possibly recent so
-                        # launch-time cleanup cannot silently skip a fresh event.
-                        continue
-                    if item_epoch < cutoff_epoch:
-                        max_id = max(max_id, item_id)
-    except Exception:
-        pass
-    return max_id
+    return channel_message_repository().max_id_before_epoch(cutoff_epoch)
 
 
 @contextlib.contextmanager
@@ -8527,97 +8478,16 @@ def _chat_messages_file_lock() -> Iterable[None]:
                 fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
-def _message_visible_to(message: dict[str, Any], recipient: str | None) -> bool:
-    if not recipient:
-        return True
-    recipients = _as_string_list(message.get("recipients"))
-    if not recipients or "all" in [r.lower() for r in recipients] or "*" in recipients:
-        return True
-    return recipient in recipients or recipient == str(message.get("sender_id") or "")
-
-
-def _chat_message_matches(message: dict[str, Any], channel: str | None = None, recipient: str | None = None) -> bool:
-    if channel:
-        meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-        aliases = {
-            str(message.get("channel") or ""),
-            str(meta.get("room_id") or ""),
-            str(meta.get("room") or ""),
-            str(meta.get("channel") or ""),
-        }
-        if channel not in aliases:
-            return False
-    return _message_visible_to(message, recipient)
-
-
 def read_chat_messages(after_id: int = 0, channel: str | None = None, recipient: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
-    messages: list[dict[str, Any]] = []
-    try:
-        if not CHAT_MESSAGES_PATH.exists():
-            return []
-        with CHAT_MESSAGES_PATH.open("r", encoding="utf-8") as f:
-            for line in f:
-                try:
-                    item = json.loads(line)
-                except Exception:
-                    continue
-                try:
-                    if int(item.get("id") or 0) <= after_id:
-                        continue
-                except Exception:
-                    continue
-                if not _chat_message_matches(item, channel, recipient):
-                    continue
-                messages.append(item)
-                if len(messages) >= limit:
-                    break
-    except Exception as exc:
-        router_log("WARN", f"chat read failed: {exc}")
-    return messages
+    return channel_message_repository().read(after_id, channel, recipient, limit)
 
 
 def read_chat_messages_before(before_id: int = 0, channel: str | None = None, recipient: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
-    messages: list[dict[str, Any]] = []
-    try:
-        if not CHAT_MESSAGES_PATH.exists():
-            return []
-        with CHAT_MESSAGES_PATH.open("r", encoding="utf-8") as f:
-            for line in f:
-                try:
-                    item = json.loads(line)
-                    item_id = int(item.get("id") or 0)
-                except Exception:
-                    continue
-                if before_id > 0 and item_id >= before_id:
-                    continue
-                if not _chat_message_matches(item, channel, recipient):
-                    continue
-                messages.append(item)
-                if len(messages) > limit:
-                    messages = messages[-limit:]
-    except Exception as exc:
-        router_log("WARN", f"chat read before failed: {exc}")
-    return messages
+    return channel_message_repository().read_before(before_id, channel, recipient, limit)
 
 
 def _chat_message_recent_rows_locked(limit: int = CHAT_MESSAGE_DEDUPE_SCAN_LIMIT) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    if limit <= 0 or not CHAT_MESSAGES_PATH.exists():
-        return rows
-    try:
-        with CHAT_MESSAGES_PATH.open("r", encoding="utf-8") as f:
-            for line in f:
-                try:
-                    item = json.loads(line)
-                except Exception:
-                    continue
-                if isinstance(item, dict):
-                    rows.append(item)
-                    if len(rows) > limit:
-                        rows = rows[-limit:]
-    except Exception as exc:
-        router_log("WARN", f"chat duplicate scan failed: {exc}")
-    return rows
+    return channel_message_repository().recent_rows(limit)
 
 
 def _channel_llm_launch_guard() -> dict[str, Any] | None:
