@@ -3,8 +3,10 @@ from unittest import mock
 
 from ciel_runtime_support.architecture import ProviderContextPolicy
 from ciel_runtime_support.provider_context import (
+    ContextPresetServices,
     ProviderContextServices,
     cap_context_settings,
+    infer_context_preset,
     resolve_context_capacity,
 )
 
@@ -73,6 +75,29 @@ class ProviderContextTests(unittest.TestCase):
         )
         self.assertEqual(200, standard["context_window"])
         self.assertEqual(500, standard["num_ctx_max"])
+
+    def test_preset_inference_uses_context_setting_strategy(self):
+        services = ContextPresetServices(
+            positive_int=positive_int,
+            ollama_options=lambda config: config.get("ollama_options", {}),
+            ollama_thinking_enabled=lambda _model, config: bool(config.get("think")),
+        )
+        ollama = infer_context_preset(
+            {"num_ctx_max": 262144, "ollama_options": {"num_predict": 8192}},
+            ProviderContextPolicy(settings_strategy="ollama"),
+            services,
+        )
+        standard = infer_context_preset(
+            {"context_window": 131072, "max_output_tokens": 8192},
+            ProviderContextPolicy(settings_strategy="standard"),
+            services,
+        )
+        managed = infer_context_preset(
+            {"max_output_tokens": 2048}, ProviderContextPolicy(), services
+        )
+        self.assertEqual("long-context-256k", ollama)
+        self.assertEqual("long-context-128k", standard)
+        self.assertIsNone(managed)
 
 
 if __name__ == "__main__":

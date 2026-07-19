@@ -397,8 +397,10 @@ from ciel_runtime_support.protocols.pseudo_tool_history import (
 )
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, ZAI_MODEL_FALLBACK_IDS
 from ciel_runtime_support.provider_context import (
+    ContextPresetServices,
     ProviderContextServices,
     cap_context_settings as apply_context_capacity_cap,
+    infer_context_preset,
     resolve_context_capacity,
 )
 from ciel_runtime_support.provider_limits import (
@@ -18395,53 +18397,17 @@ def applied_preset_id(provider: str, pcfg: dict[str, Any]) -> str:
 
 
 def infer_preset_id_from_options(provider: str, pcfg: dict[str, Any]) -> str | None:
-    if provider in ("ollama", "ollama-cloud"):
-        opts = ollama_extra_options(pcfg)
-        num_predict = positive_int(opts.get("num_predict")) or 0
-        num_ctx = positive_int(pcfg.get("num_ctx")) or 0
-        num_ctx_min = positive_int(pcfg.get("num_ctx_min")) or 0
-        num_ctx_max = positive_int(pcfg.get("num_ctx_max")) or 0
-        if ollama_request_think_enabled(current_upstream_model_id(provider, pcfg), pcfg):
-            return "reasoning"
-        if num_ctx_max >= 1048576:
-            return "million-context-1m"
-        if num_ctx_max >= 524288:
-            return "long-context-512k"
-        if num_ctx_max >= 307200:
-            return "long-context-300k"
-        if num_ctx_max >= 262144:
-            return "long-context-256k"
-        if num_ctx_max >= 131072 and num_predict >= 8192:
-            return "long-context-128k"
-        if num_predict >= 8192:
-            return "large-output"
-        if num_ctx_min >= 65536 or num_ctx_max >= 131072:
-            return "long-context-65k"
-        if num_ctx and num_ctx <= 32768 and num_predict and num_predict <= 2048:
-            return "fast"
-        return None
-    if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai", "anthropic"):
-        max_output = positive_int(pcfg.get("max_output_tokens")) or 0
-        context_window = positive_int(pcfg.get("context_window")) or 0
-        if bool(pcfg.get("think", False)):
-            return "reasoning"
-        if context_window >= 1048576:
-            return "million-context-1m"
-        if context_window >= 524288:
-            return "long-context-512k"
-        if context_window >= 307200:
-            return "long-context-300k"
-        if context_window >= 262144:
-            return "long-context-256k"
-        if context_window >= 131072 and max_output >= 8192:
-            return "long-context-128k"
-        if max_output >= 8192:
-            return "large-output"
-        if context_window >= 65536:
-            return "long-context-65k"
-        if max_output and max_output <= 2048:
-            return "fast"
-    return None
+    return infer_context_preset(
+        pcfg,
+        provider_context_policy(provider, pcfg),
+        ContextPresetServices(
+            positive_int=positive_int,
+            ollama_options=ollama_extra_options,
+            ollama_thinking_enabled=lambda _model, config: ollama_request_think_enabled(
+                current_upstream_model_id(provider, config), config
+            ),
+        ),
+    )
 
 
 def llm_preset_text(preset_id: str, lang: str | None = None) -> tuple[str, str]:

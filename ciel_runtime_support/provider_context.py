@@ -15,6 +15,13 @@ class ProviderContextServices:
     ollama_context_limit: Callable[[dict[str, Any]], int | None]
 
 
+@dataclass(frozen=True)
+class ContextPresetServices:
+    positive_int: Callable[[Any], int | None]
+    ollama_options: Callable[[dict[str, Any]], dict[str, Any]]
+    ollama_thinking_enabled: Callable[[str, dict[str, Any]], bool]
+
+
 def resolve_context_capacity(
     provider: str,
     config: dict[str, Any],
@@ -86,8 +93,54 @@ def cap_context_settings(
     return []
 
 
+def infer_context_preset(
+    config: dict[str, Any],
+    policy: ProviderContextPolicy,
+    services: ContextPresetServices,
+) -> str | None:
+    positive_int = services.positive_int
+    if policy.settings_strategy == "managed" and not policy.managed_preset_inference:
+        return None
+    if policy.settings_strategy == "ollama":
+        options = services.ollama_options(config)
+        output = positive_int(options.get("num_predict")) or 0
+        fixed_context = positive_int(config.get("num_ctx")) or 0
+        minimum = positive_int(config.get("num_ctx_min")) or 0
+        context = positive_int(config.get("num_ctx_max")) or 0
+        if services.ollama_thinking_enabled(str(config.get("current_model") or ""), config):
+            return "reasoning"
+    else:
+        output = positive_int(config.get("max_output_tokens")) or 0
+        fixed_context = 0
+        minimum = 0
+        context = positive_int(config.get("context_window")) or 0
+        if bool(config.get("think", False)):
+            return "reasoning"
+    if context >= 1048576:
+        return "million-context-1m"
+    if context >= 524288:
+        return "long-context-512k"
+    if context >= 307200:
+        return "long-context-300k"
+    if context >= 262144:
+        return "long-context-256k"
+    if context >= 131072 and output >= 8192:
+        return "long-context-128k"
+    if output >= 8192:
+        return "large-output"
+    if minimum >= 65536 or context >= 65536:
+        return "long-context-65k"
+    if fixed_context and fixed_context <= 32768 and output and output <= 2048:
+        return "fast"
+    if policy.settings_strategy != "ollama" and output and output <= 2048:
+        return "fast"
+    return None
+
+
 __all__ = [
+    "ContextPresetServices",
     "ProviderContextServices",
     "cap_context_settings",
+    "infer_context_preset",
     "resolve_context_capacity",
 ]

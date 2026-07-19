@@ -213,7 +213,7 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
 
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
-        return ProviderContextPolicy(hosted_timeout=True)
+        return ProviderContextPolicy(hosted_timeout=True, managed_preset_inference=True)
 
     def api_key_status(self, config: ProviderConfig, *, key_count: int, primary_detail: str) -> str:
         routed = bool(config.options.get("route_through_router"))

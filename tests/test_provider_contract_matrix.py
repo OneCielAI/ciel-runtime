@@ -308,6 +308,7 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "recommended_request_timeout_ms",
             "context_setup_panel_rows",
             "apply_context_setup_to_provider",
+            "infer_preset_id_from_options",
         }
         functions = {
             node.name: ast.get_source_segment(source, node) or ""

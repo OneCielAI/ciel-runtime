@@ -190,6 +190,7 @@ class ProviderContextPolicy:
     hosted_timeout: bool = False
     timeout_weight: float = 1.0
     uses_catalog_timeout: bool = False
+    managed_preset_inference: bool = False
 
 
 class RuntimeAdapter(ABC):
