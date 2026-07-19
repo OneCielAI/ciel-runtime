@@ -151,6 +151,11 @@ from ciel_runtime_support.config_migrations import (
     ConfigMigrationPolicy,
     apply_config_migrations as run_config_migrations,
 )
+from ciel_runtime_support.tool_guard_hooks import (
+    ToolGuardHookPolicy,
+    ToolGuardHookServices,
+    install_tool_guard_hook_settings,
+)
 from ciel_runtime_support.provider_config_mutations import (
     ProviderOptionPolicy,
     apply_ollama_option as mutate_ollama_option,
@@ -2915,105 +2920,18 @@ TOOL_GUARD_EVENTS_WITHOUT_MATCHER: tuple[str, ...] = (
 
 
 def install_tool_guard_hooks() -> None:
-    command = ciel_runtime_tool_guard_command()
-    if not command:
-        print("Ciel Runtime warning: tool guard hook was not installed; ciel-runtime-tool-guard was not found.", flush=True)
-        return
-    install_legacy_tool_guard_compat_shim()
-
-    if CLAUDE_SETTINGS_PATH.exists():
-        try:
-            settings = json.loads(CLAUDE_SETTINGS_PATH.read_text(encoding="utf-8"))
-            if not isinstance(settings, dict):
-                settings = {}
-        except Exception as exc:
-            print(f"Ciel Runtime warning: could not read {CLAUDE_SETTINGS_PATH} ({type(exc).__name__}); tool guard hook was not installed.", flush=True)
-            return
-    else:
-        settings = {}
-
-    hooks = settings.setdefault("hooks", {})
-    if not isinstance(hooks, dict):
-        print(f"Ciel Runtime warning: {CLAUDE_SETTINGS_PATH} has non-object hooks; tool guard hook was not installed.", flush=True)
-        return
-
-    changed = False
-    all_events: tuple[tuple[str, bool], ...] = tuple(
-        (event, True) for event in TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER
-    ) + tuple(
-        (event, False) for event in TOOL_GUARD_EVENTS_WITHOUT_MATCHER
+    install_tool_guard_hook_settings(
+        CLAUDE_SETTINGS_PATH,
+        ciel_runtime_tool_guard_command(),
+        ToolGuardHookPolicy(
+            events_with_matcher=TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER,
+            events_without_matcher=TOOL_GUARD_EVENTS_WITHOUT_MATCHER,
+        ),
+        ToolGuardHookServices(
+            install_legacy_shim=install_legacy_tool_guard_compat_shim,
+            warn=lambda message: print(f"Ciel Runtime warning: {message}", flush=True),
+        ),
     )
-    legacy_markers = (
-        "claude-any-tool-guard",
-        "@oneciel-ai/claude-any",
-        "/claude-any/",
-        "\\claude-any\\",
-    )
-    for event, with_matcher in all_events:
-        groups = hooks.setdefault(event, [])
-        if not isinstance(groups, list):
-            print(f"Ciel Runtime warning: {CLAUDE_SETTINGS_PATH} hooks.{event} is not a list; tool guard hook was not installed.", flush=True)
-            return
-        existing = False
-        cleaned_groups: list[Any] = []
-        for group in groups:
-            if not isinstance(group, dict):
-                cleaned_groups.append(group)
-                continue
-            handlers = group.get("hooks")
-            if not isinstance(handlers, list):
-                cleaned_groups.append(group)
-                continue
-            cleaned_handlers: list[Any] = []
-            group_has_current = False
-            for handler in handlers:
-                if not isinstance(handler, dict):
-                    cleaned_handlers.append(handler)
-                    continue
-                handler_command = str(handler.get("command", ""))
-                if any(marker in handler_command for marker in legacy_markers):
-                    changed = True
-                    continue
-                if "ciel-runtime-tool-guard" in handler_command:
-                    if existing or group_has_current:
-                        changed = True
-                        continue
-                    existing = True
-                    group_has_current = True
-                    if handler.get("command") != command:
-                        handler["command"] = command
-                        changed = True
-                cleaned_handlers.append(handler)
-            if cleaned_handlers != handlers:
-                group["hooks"] = cleaned_handlers
-                changed = True
-            if not cleaned_handlers:
-                changed = True
-                continue
-            if group_has_current and with_matcher and group.get("matcher") != "*":
-                group["matcher"] = "*"
-                changed = True
-            cleaned_groups.append(group)
-        if cleaned_groups != groups:
-            hooks[event] = cleaned_groups
-            groups = cleaned_groups
-        if existing:
-            continue
-        group: dict[str, Any] = {"hooks": [{"type": "command", "command": command}]}
-        if with_matcher:
-            group["matcher"] = "*"
-        groups.append(group)
-        changed = True
-
-    if changed:
-        CLAUDE_SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        tmp = CLAUDE_SETTINGS_PATH.with_name(f"{CLAUDE_SETTINGS_PATH.name}.{os.getpid()}.{time.time_ns()}.tmp")
-        tmp.write_text(json.dumps(settings, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        try:
-            os.chmod(tmp, 0o600)
-        except Exception:
-            pass
-        tmp.replace(CLAUDE_SETTINGS_PATH)
 
 
 STATUSLINE_SCRIPT = r'''#!/usr/bin/env python3

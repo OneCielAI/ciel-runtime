@@ -117,6 +117,7 @@ from ciel_runtime_support.model_panel import (
     ModelPanelPresentation,
     ModelPanelServices,
 )
+from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy, ToolGuardHookServices
 from ciel_runtime_support.ollama_forwarding import (
     OllamaForwardAdvisor,
     OllamaForwardConstants,
@@ -949,6 +950,11 @@ class ArchitectureContractTests(unittest.TestCase):
             ChannelWindowsConsole,
             ChannelWindowsServices,
         ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_tool_guard_hook_ports_stay_below_dependency_limit(self):
+        for port in (ToolGuardHookPolicy, ToolGuardHookServices):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 

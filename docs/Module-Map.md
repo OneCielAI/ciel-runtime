@@ -93,6 +93,10 @@ SSE/MCP 수집 및 cursor 상태와 분리되어 있으며 Windows Console과 PT
 
 POSIX PTY의 생성, 터미널 크기 동기화, 표준 입출력 전달, channel/compact polling과 자식 프로세스 정리를 조정하는 Channel Infrastructure Adapter. Process, Terminal I/O, Policy, Polling 포트를 각각 10필드 이하로 주입하며 메인 composition root는 플랫폼 선택과 실제 콜백 조립만 담당한다.
 
+### `ciel_runtime_support/tool_guard_hooks.py`
+
+Claude 설정의 tool guard hook을 읽고, 레거시 hook 제거와 중복 정규화 후 원자적으로 저장하는 Security/Configuration Service. 이벤트 정책과 파일 시스템 효과를 분리하며 권한 제한 실패도 경고로 관측 가능하게 남긴다.
+
 ### `ciel_runtime_support/channel_probe_report.py`
 
 channel capability probe 결과를 capable/non-capable/inconclusive/skipped 행과 진단 hint로 투영하는 Presentation Service. probe 실행과 CLI 명령 해석에서 결과 formatting을 분리한다.
