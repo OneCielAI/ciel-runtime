@@ -1367,6 +1367,20 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertNotIn(f"def {function_name}(", source)
         self.assertLessEqual(len(fields(ChannelWakeTranscriptServices)), 10)
 
+    def test_channel_message_coalescing_policy_lives_outside_composition_root(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        for function_name in (
+            "_channel_message_meta_sources",
+            "_channel_message_delivery_targets",
+            "_channel_message_has_external_provenance",
+            "_channel_message_has_unique_reference",
+            "_channel_message_order_value",
+            "_channel_message_coalesce_key",
+            "_channel_superseded_message_ids",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):
