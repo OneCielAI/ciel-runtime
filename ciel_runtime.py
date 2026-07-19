@@ -137,6 +137,12 @@ from ciel_runtime_support.channel_mcp_tools import (
     channel_mcp_tool_schemas,
     dispatch_channel_mcp_tool,
 )
+from ciel_runtime_support.channel_mcp_http_controller import (
+    ChannelMcpHttpController,
+    ChannelMcpRpcServices,
+    ChannelMcpSessionStore,
+    ChannelMcpStreamServices,
+)
 from ciel_runtime_support.channel_pending_injection import (
     ChannelInjectionIO,
     ChannelInjectionPolicy,
@@ -603,6 +609,10 @@ from ciel_runtime_support.provider_limits import (
     choose_provider_api_key,
     learn_rate_limit_headers,
     register_rate_limit_backoff,
+)
+from ciel_runtime_support.plan_artifact_controller import (
+    PlanArtifactController,
+    PlanArtifactServices,
 )
 from ciel_runtime_support import provider_network
 from ciel_runtime_support.provider_models import (
@@ -8070,118 +8080,41 @@ def _channel_mcp_notifications_for_messages(
     return last_id, events
 
 
+def channel_mcp_http_controller() -> ChannelMcpHttpController:
+    return ChannelMcpHttpController(
+        store=ChannelMcpSessionStore(_CHANNEL_MCP_SESSIONS, _CHANNEL_MCP_LOCK),
+        stream=ChannelMcpStreamServices(
+            new_session_id=_channel_mcp_session_id,
+            start_last_id=_channel_mcp_session_start_last_id,
+            send_headers=_send_channel_mcp_sse_headers,
+            write_event=_write_sse_event,
+            take_outbox=_channel_mcp_take_outbox,
+            read_messages=read_chat_messages,
+            project_notifications=_channel_mcp_notifications_for_messages,
+            update_cursor=_channel_mcp_update_cursor,
+            condition=_CHAT_CONDITION,
+            log=router_log,
+        ),
+        rpc=ChannelMcpRpcServices(
+            initialize_response=_channel_mcp_initialize_response,
+            tool_schemas=_channel_mcp_tool_schemas,
+            tool_call_response=_channel_mcp_tool_call_response,
+            enqueue=_channel_mcp_enqueue,
+            write_json=write_json,
+            write_accepted=write_accepted_response,
+            log=router_log,
+        ),
+    )
+
+
 def handle_channel_mcp_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
-    if path == "/ca/mcp/health":
-        write_json(handler, {"ok": True, "name": "ciel-runtime-router", "sse": "/ca/mcp/sse"})
-        return True
-    if path != "/ca/mcp/sse":
-        return False
-    session = _channel_mcp_session_id()
-    last_id = _channel_mcp_session_start_last_id(handler)
-    with _CHANNEL_MCP_LOCK:
-        _CHANNEL_MCP_SESSIONS[session] = {"created_at": time.time(), "last_id": last_id, "initialized": False, "outbox": []}
-    router_log("INFO", f"channel_mcp_session_started session={session} last_id={last_id}")
-    started_at = time.time()
-    close_reason = "finished"
-    _send_channel_mcp_sse_headers(handler)
-    _write_sse_event(handler, "endpoint", f"/ca/mcp/messages?sessionId={urllib.parse.quote(session)}")
-    try:
-        while True:
-            with _CHANNEL_MCP_LOCK:
-                state = _CHANNEL_MCP_SESSIONS.get(session)
-                if not state:
-                    close_reason = "session_missing"
-                    return True
-                last_id = int(state.get("last_id") or 0)
-                initialized = bool(state.get("initialized"))
-            outbox = _channel_mcp_take_outbox(session)
-            if outbox:
-                for payload in outbox:
-                    _write_sse_event(handler, "message", payload)
-                router_log("INFO", f"channel_mcp_rpc_flushed session={session} count={len(outbox)}")
-                continue
-            if not initialized:
-                handler.wfile.write(b": waiting-for-initialize\n\n")
-                handler.wfile.flush()
-                with _CHAT_CONDITION:
-                    _CHAT_CONDITION.wait(timeout=1.0)
-                continue
-            messages = read_chat_messages(last_id, None, None, 100)
-            if messages:
-                delivered_last_id, events = _channel_mcp_notifications_for_messages(messages, session)
-                last_id = max(last_id, delivered_last_id)
-                for event_id, notification in events:
-                    _write_sse_event(handler, "message", notification, event_id)
-                    router_log("INFO", f"channel_mcp_notification_written session={session} message_id={event_id}")
-                _channel_mcp_update_cursor(last_id)
-                with _CHANNEL_MCP_LOCK:
-                    state = _CHANNEL_MCP_SESSIONS.get(session)
-                    if state:
-                        state["last_id"] = last_id
-                continue
-            handler.wfile.write(b": keepalive\n\n")
-            handler.wfile.flush()
-            with _CHAT_CONDITION:
-                _CHAT_CONDITION.wait(timeout=5.0)
-    except (BrokenPipeError, ConnectionError, ConnectionResetError) as exc:
-        close_reason = type(exc).__name__
-        return True
-    except Exception as exc:
-        close_reason = type(exc).__name__
-        router_log("ERROR", f"channel_mcp_session_failed session={session} error={type(exc).__name__}: {exc}")
-        return True
-    finally:
-        router_log("INFO", f"channel_mcp_session_closed session={session} reason={close_reason} age={time.time() - started_at:.1f}s")
-        with _CHANNEL_MCP_LOCK:
-            _CHANNEL_MCP_SESSIONS.pop(session, None)
+    return channel_mcp_http_controller().get(handler, path)
 
 
 def handle_channel_mcp_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool:
-    if path != "/ca/mcp/messages":
-        return False
-    params = _query_params(handler)
-    session = _first_param(params, "sessionId") or _first_param(params, "session")
-    with _CHANNEL_MCP_LOCK:
-        if session and session in _CHANNEL_MCP_SESSIONS:
-            _CHANNEL_MCP_SESSIONS[session]["last_seen_at"] = time.time()
-    method = str(body.get("method") or "")
-    request_id = body.get("id")
-    response: dict[str, Any] | None = None
-    if method == "initialize":
-        protocol = "2024-11-05"
-        req_params = body.get("params") if isinstance(body.get("params"), dict) else {}
-        if req_params.get("protocolVersion"):
-            protocol = str(req_params["protocolVersion"])
-        with _CHANNEL_MCP_LOCK:
-            if session and session in _CHANNEL_MCP_SESSIONS:
-                _CHANNEL_MCP_SESSIONS[session]["initialized"] = True
-        response = _channel_mcp_initialize_response(request_id, protocol)
-        router_log("INFO", f"channel_mcp_initialized session={session or '-'} protocol={protocol}")
-    elif method == "tools/list":
-        response = {"jsonrpc": "2.0", "id": request_id, "result": {"tools": _channel_mcp_tool_schemas()}}
-    elif method == "tools/call":
-        params = body.get("params") if isinstance(body.get("params"), dict) else {}
-        response = _channel_mcp_tool_call_response(request_id, params)
-    elif method == "ping":
-        response = {"jsonrpc": "2.0", "id": request_id, "result": {}}
-    elif request_id is not None:
-        response = {"jsonrpc": "2.0", "id": request_id, "result": {}}
-    if response is not None:
-        if not _channel_mcp_enqueue(session, response):
-            router_log("WARN", f"channel_mcp_rpc_enqueue_failed session={session or '-'} method={method}")
-            write_json(
-                handler,
-                {
-                    "jsonrpc": "2.0",
-                    "id": request_id,
-                    "error": {"code": -32000, "message": "MCP SSE session is not connected"},
-                },
-                404,
-            )
-            return True
-        router_log("INFO", f"channel_mcp_rpc_queued session={session or '-'} method={method} request_id={request_id}")
-    write_accepted_response(handler)
-    return True
+    return channel_mcp_http_controller().post(handler, path, body)
+
+
 
 
 def _query_params(handler: BaseHTTPRequestHandler) -> dict[str, list[str]]:
@@ -8224,53 +8157,27 @@ def handle_chat_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str,
 
 
 
+def plan_artifact_controller() -> PlanArtifactController:
+    return PlanArtifactController(
+        PlanArtifactServices(
+            directory=PLAN_ARTIFACTS_DIR,
+            router_base=ROUTER_BASE,
+            safe_segment=_safe_segment,
+            write_json=write_json,
+            write_text=write_text_response,
+            announce=append_chat_message,
+        )
+    )
+
+
 def handle_plan_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
-    if path == "/ca/plan/artifacts":
-        PLAN_ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
-        items = []
-        for item in sorted(PLAN_ARTIFACTS_DIR.glob("*")):
-            if item.is_file():
-                items.append({"name": item.name, "bytes": item.stat().st_size, "url": f"{ROUTER_BASE}/ca/plan/artifacts/{urllib.parse.quote(item.name)}"})
-        write_json(handler, {"ok": True, "artifacts": items})
-        return True
-    if path.startswith("/ca/plan/artifacts/"):
-        name = _safe_segment(urllib.parse.unquote(path[len("/ca/plan/artifacts/"):]), "plan.md")
-        target = PLAN_ARTIFACTS_DIR / name
-        if not target.exists() or not target.is_file():
-            write_json(handler, {"ok": False, "error": "not_found"}, 404)
-            return True
-        content_type = "text/markdown; charset=utf-8" if target.suffix.lower() in (".md", ".markdown") else "text/plain; charset=utf-8"
-        write_text_response(handler, target.read_text(encoding="utf-8", errors="replace"), content_type=content_type)
-        return True
-    return False
+    return plan_artifact_controller().get(handler, path)
 
 
 def handle_plan_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool:
-    if path != "/ca/plan/artifacts":
-        return False
-    PLAN_ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
-    title = str(body.get("title") or "plan")
-    content = str(body.get("content") or body.get("message") or "")
-    name = _safe_segment(str(body.get("name") or f"{int(time.time())}-{title}.md"), "plan.md")
-    if "." not in name:
-        name += ".md"
-    target = PLAN_ARTIFACTS_DIR / name
-    target.write_text(content, encoding="utf-8")
-    latest = PLAN_ARTIFACTS_DIR / "latest.md"
-    if target.name != latest.name:
-        latest.write_text(content, encoding="utf-8")
-    url = f"{ROUTER_BASE}/ca/plan/artifacts/{urllib.parse.quote(name)}"
-    if body.get("announce", True):
-        append_chat_message({
-            "channel": body.get("channel", "plan"),
-            "sender_id": body.get("sender_id", "plan"),
-            "recipients": body.get("recipients", "all"),
-            "kind": "plan",
-            "message": url,
-            "meta": {"title": title, "url": url, "name": name},
-        })
-    write_json(handler, {"ok": True, "name": name, "url": url, "latest_url": f"{ROUTER_BASE}/ca/plan/artifacts/latest.md"})
-    return True
+    return plan_artifact_controller().post(handler, path, body)
+
+
 
 
 def estimate_tokens(body: Any, _cache: dict[int, int] | None = None) -> int:

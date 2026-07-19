@@ -64,6 +64,14 @@ HTTP parsing과 GET/POST/HEAD/DELETE endpoint dispatch를 담당하는 Router Ad
 
 Web Chat/Channel bridge의 health, message history·long-poll·SSE, file download/upload, notify와 transport connect/disconnect endpoint를 소유하는 HTTP Controller. read/write port를 분리해 HTTP 표현과 channel Repository·Lifecycle 구현을 격리한다.
 
+### `ciel_runtime_support/channel_mcp_http_controller.py`
+
+내장 Channel MCP의 session Repository, SSE read-loop와 JSON-RPC POST endpoint를 소유하는 HTTP Controller. session state, stream effects, RPC effects를 분리해 HTTP transport가 전역 dict/lock을 직접 조작하지 않게 한다.
+
+### `ciel_runtime_support/plan_artifact_controller.py`
+
+공유 plan artifact의 목록·조회·저장·latest projection과 channel announce를 소유하는 HTTP Controller/Repository Adapter. 경로 정규화와 HTTP 표현을 plan 생성 호출부에서 분리한다.
+
 ### `ciel_runtime_support/anthropic_tool_turns.py`
 
 잘린 대화 기록의 짝 없는 Anthropic `tool_use`/`tool_result`를 안전한 text block으로 내리는 Protocol Normalization Service. 적용 여부는 provider 이름 비교가 아니라 adapter의 `ProviderRequestPolicy.normalize_historical_tool_turns`로 결정한다.
