@@ -163,6 +163,13 @@ from ciel_runtime_support.streaming_anthropic import (
     OpenAIChatStreamServices,
     OpenAIChatToolProjection,
 )
+from ciel_runtime_support.upstream_retry import (
+    UpstreamRetryHttp,
+    UpstreamRetryKeys,
+    UpstreamRetryPolicy,
+    UpstreamRetryRateLimit,
+    UpstreamRetryServices,
+)
 from ciel_runtime_support.provider_adapters import (
     PROVIDER_ADAPTERS,
     AgyProviderAdapter,
@@ -372,6 +379,17 @@ class ArchitectureContractTests(unittest.TestCase):
             OllamaForwardAdvisor,
             OllamaForwardResponse,
             OllamaForwardServices,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+    def test_upstream_retry_ports_stay_below_dependency_limit(self):
+        for port in (
+            UpstreamRetryPolicy,
+            UpstreamRetryKeys,
+            UpstreamRetryRateLimit,
+            UpstreamRetryHttp,
+            UpstreamRetryServices,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
