@@ -235,6 +235,10 @@ MCP delivery, LLM delivery, backlog clear-floor cursor의 공통 JSON 읽기와 
 
 터미널 wake prompt의 메시지 ID/문자열 참조 판정과 교차 프로세스 claim의 TTL·원자 저장을 소유하는 Repository. 파일 lock, clock, TTL policy, logger를 주입받고 메인의 in-memory fast path와 독립적으로 동작한다.
 
+### `ciel_runtime_support/channel_wake_delivery_repository.py`
+
+터미널 wake delivery의 in-memory delivered set과 prompt map을 하나의 thread-safe Repository로 관리한다. 중복 delivery 방지, prompt 기록, stale release, inflight 완료, rollback, bounded pruning과 cursor commit 효과의 순서를 캡슐화하며 facade의 기존 전역 컬렉션은 호환 관찰용 alias로만 유지한다.
+
 ### `ciel_runtime_support/channel_terminal_input.py`
 
 플랫폼·환경별 Enter sequence 선택, 실제 사용자 입력에서 submit key 관찰, synthetic CR 정규화, wake byte 조립과 bounded delay를 소유하는 Terminal Input 정책. `TmuxPaneSnapshot`은 submit 확인용 pane capture와 오류 진단을 캡슐화한다. SGR/X10/숫자형 terminal mouse report의 TUI prompt 유입 차단과 Windows `CONIN$` fallback도 이 모듈이 소유한다.

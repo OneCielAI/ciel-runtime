@@ -281,6 +281,9 @@ from ciel_runtime_support.channel_wake_claim_repository import (
     prompt_message_ids as _channel_prompt_message_ids,
     prompt_references_message_id as analyze_prompt_message_reference,
 )
+from ciel_runtime_support.channel_wake_delivery_repository import (
+    ChannelWakeDeliveryRepository,
+)
 from ciel_runtime_support.channel_terminal_input import (
     TmuxPaneSnapshot,
     TerminalMouseInputFilter as _TerminalMouseInputFilter,
@@ -1549,6 +1552,13 @@ _CHANNEL_STDIN_WAKE_LOCK = threading.Lock()
 _CHANNEL_STDIN_INJECT_LOCK = threading.Lock()
 _CHANNEL_STDIN_WAKE_DELIVERED: set[int] = set()
 _CHANNEL_STDIN_WAKE_PROMPTS: dict[int, str] = {}
+_CHANNEL_WAKE_DELIVERY_REPOSITORY = ChannelWakeDeliveryRepository(
+    lock=_CHANNEL_STDIN_WAKE_LOCK,
+    delivered=_CHANNEL_STDIN_WAKE_DELIVERED,
+    prompts=_CHANNEL_STDIN_WAKE_PROMPTS,
+    clear_claim=lambda message_id: _channel_stdin_clear_wake_claim(message_id),
+    commit_cursor=lambda message_id: _commit_channel_llm_cursor_if_newer(message_id),
+)
 _CHANNEL_COMPACT_REQUEST_LOCK = threading.Lock()
 _NATIVE_CHANNEL_NOTIFICATION_METHOD = "notifications/claude/channel"
 _MCP_NOTIFICATION_DEDUP_TTL_SECONDS = 3.0
@@ -11305,8 +11315,7 @@ def channel_wake_claim_repository() -> ChannelWakeClaimRepository:
 def _channel_stdin_wake_claim_prompt(message_id: int) -> str:
     if message_id <= 0:
         return ""
-    with _CHANNEL_STDIN_WAKE_LOCK:
-        prompt = _CHANNEL_STDIN_WAKE_PROMPTS.get(message_id)
+    prompt = _CHANNEL_WAKE_DELIVERY_REPOSITORY.prompt(message_id)
     if prompt:
         return prompt
     return channel_wake_claim_repository().prompt(message_id)
@@ -11353,9 +11362,7 @@ def _channel_llm_commit_cursor_locked(last_id: int) -> None:
 
 
 def _channel_llm_stdin_skip_reason(message_id: int) -> str:
-    with _CHANNEL_STDIN_WAKE_LOCK:
-        delivered = message_id in _CHANNEL_STDIN_WAKE_DELIVERED
-    if delivered:
+    if _CHANNEL_WAKE_DELIVERY_REPOSITORY.is_delivered(message_id):
         return "stdin_wake_delivered"
     return "stdin_wake_claimed" if _channel_stdin_wake_claim_prompt(message_id) else ""
 
@@ -11640,18 +11647,11 @@ def _channel_stdin_should_check_pending(
 
 
 def _channel_wake_store_release_stale(message_id: int, commit_cursor: bool) -> None:
-    with _CHANNEL_STDIN_WAKE_LOCK:
-        _CHANNEL_STDIN_WAKE_DELIVERED.discard(message_id)
-        _CHANNEL_STDIN_WAKE_PROMPTS.pop(message_id, None)
-    _channel_stdin_clear_wake_claim(message_id)
-    if commit_cursor:
-        _commit_channel_llm_cursor_if_newer(message_id)
+    _CHANNEL_WAKE_DELIVERY_REPOSITORY.release_stale(message_id, commit_cursor)
 
 
 def _channel_inflight_complete_wake(message_id: int) -> None:
-    with _CHANNEL_STDIN_WAKE_LOCK:
-        _CHANNEL_STDIN_WAKE_PROMPTS.pop(message_id, None)
-    _channel_stdin_clear_wake_claim(message_id)
+    _CHANNEL_WAKE_DELIVERY_REPOSITORY.complete(message_id)
 
 
 def _channel_inflight_release_wake(message_id: int) -> None:
@@ -11669,42 +11669,15 @@ def channel_inflight_effects() -> ChannelInflightEffects:
 
 
 def _channel_wake_store_mark_delivered(message_id: int) -> bool:
-    with _CHANNEL_STDIN_WAKE_LOCK:
-        if message_id in _CHANNEL_STDIN_WAKE_DELIVERED:
-            return False
-        _CHANNEL_STDIN_WAKE_DELIVERED.add(message_id)
-        if len(_CHANNEL_STDIN_WAKE_DELIVERED) > 1000:
-            for old_id in sorted(_CHANNEL_STDIN_WAKE_DELIVERED)[:500]:
-                _CHANNEL_STDIN_WAKE_DELIVERED.discard(old_id)
-    return True
+    return _CHANNEL_WAKE_DELIVERY_REPOSITORY.mark_delivered(message_id)
 
 
 def _channel_wake_store_record_prompts(messages: list[dict[str, Any]], prompt: str) -> None:
-    with _CHANNEL_STDIN_WAKE_LOCK:
-        for message in messages:
-            try:
-                message_id = int(message.get("id") or 0)
-            except (TypeError, ValueError):
-                continue
-            if message_id > 0:
-                _CHANNEL_STDIN_WAKE_PROMPTS[message_id] = prompt
-        if len(_CHANNEL_STDIN_WAKE_PROMPTS) > 1000:
-            for old_id in sorted(_CHANNEL_STDIN_WAKE_PROMPTS)[:500]:
-                _CHANNEL_STDIN_WAKE_PROMPTS.pop(old_id, None)
+    _CHANNEL_WAKE_DELIVERY_REPOSITORY.record_prompts(messages, prompt)
 
 
 def _channel_wake_store_rollback(messages: list[dict[str, Any]], claimed_ids: list[int]) -> None:
-    with _CHANNEL_STDIN_WAKE_LOCK:
-        for message in messages:
-            try:
-                message_id = int(message.get("id") or 0)
-            except (TypeError, ValueError):
-                continue
-            _CHANNEL_STDIN_WAKE_DELIVERED.discard(message_id)
-            _CHANNEL_STDIN_WAKE_PROMPTS.pop(message_id, None)
-            _channel_stdin_clear_wake_claim(message_id)
-    for message_id in claimed_ids:
-        _channel_stdin_clear_wake_claim(message_id)
+    _CHANNEL_WAKE_DELIVERY_REPOSITORY.rollback(messages, claimed_ids)
 
 
 def pending_channel_injection_services() -> ChannelInjectionServices:

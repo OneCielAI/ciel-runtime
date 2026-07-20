@@ -250,6 +250,9 @@ from ciel_runtime_support.channel_message_dedupe import (
     ChannelMessageDedupeService,
 )
 from ciel_runtime_support.channel_wake_claim_repository import ChannelWakeClaimRepository
+from ciel_runtime_support.channel_wake_delivery_repository import (
+    ChannelWakeDeliveryRepository,
+)
 from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
 from ciel_runtime_support.channel_launch_policy import (
     ChannelLaunchPolicy,
@@ -3991,6 +3994,14 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertNotIn(f"def {function_name}(", source)
         self.assertLessEqual(len(fields(ChannelWakeClaimRepository)), 10)
 
+    def test_channel_wake_delivery_repository_owns_in_memory_transitions(self):
+        self.assertLessEqual(len(fields(ChannelWakeDeliveryRepository)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("len(_CHANNEL_STDIN_WAKE_DELIVERED)", source)
+        self.assertNotIn("len(_CHANNEL_STDIN_WAKE_PROMPTS)", source)
+
     def test_channel_terminal_input_policy_lives_outside_composition_root(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
         for function_name in (
@@ -4685,6 +4696,11 @@ class ArchitectureContractTests(unittest.TestCase):
             "schedule_router_process_restart": "schedule_router_restart",
             "read_env_file": "parse_dotenv_file",
             "openai_context_limit_for_budget": "context_limit",
+            "_channel_wake_store_release_stale": "release_stale",
+            "_channel_inflight_complete_wake": "complete",
+            "_channel_wake_store_mark_delivered": "mark_delivered",
+            "_channel_wake_store_record_prompts": "record_prompts",
+            "_channel_wake_store_rollback": "rollback",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",
