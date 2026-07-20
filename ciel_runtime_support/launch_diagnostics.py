@@ -84,6 +84,39 @@ class LaunchCommandDiagnostics:
         if summary:
             self.log("INFO", "codex_launch_env " + " ".join(summary))
 
+    def codex_app_server(
+        self, command: list[str], environment: dict[str, str]
+    ) -> None:
+        provider_args = [
+            argument
+            for argument in command
+            if argument.startswith("model_provider=")
+            or argument.startswith("model_providers.")
+        ]
+        listen = ""
+        for index, argument in enumerate(command):
+            if argument == "--listen" and index + 1 < len(command):
+                listen = str(command[index + 1])
+                break
+            if argument.startswith("--listen="):
+                listen = argument.split("=", 1)[1]
+                break
+        self.log(
+            "INFO",
+            "codex_app_server_launch_cmd argv_len=%d provider_overrides=%d listen=%s"
+            % (len(command), len(provider_args), listen or "stdio/default"),
+        )
+        summary = self._environment_summary(
+            environment,
+            (
+                "CIEL_RUNTIME_PROVIDER",
+                "CIEL_RUNTIME_MODEL_ALIAS",
+                self.codex_api_key_env,
+            ),
+        )
+        if summary:
+            self.log("INFO", "codex_app_server_launch_env " + " ".join(summary))
+
     def _environment_summary(
         self,
         environment: dict[str, str],

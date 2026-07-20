@@ -43,6 +43,27 @@ class LaunchCommandDiagnosticsTests(unittest.TestCase):
         self.assertIn("CODEX_RUNTIME_KEY=masked:et", messages)
         self.assertNotIn("runtime-secret", messages)
 
+    def test_codex_app_server_reports_listen_target_and_masks_runtime_key(self):
+        self.diagnostics.codex_app_server(
+            [
+                "codex",
+                "app-server",
+                "--listen",
+                "ws://127.0.0.1:8800",
+                "model_provider=ciel",
+            ],
+            {
+                "CIEL_RUNTIME_PROVIDER": "ollama",
+                "CODEX_RUNTIME_KEY": "runtime-secret",
+            },
+        )
+
+        messages = "\n".join(message for _, message in self.events)
+        self.assertIn("listen=ws://127.0.0.1:8800", messages)
+        self.assertIn("provider_overrides=1", messages)
+        self.assertIn("CODEX_RUNTIME_KEY=masked:et", messages)
+        self.assertNotIn("runtime-secret", messages)
+
     def test_agy_reports_routed_launch(self):
         self.diagnostics.agy(
             ["agy", "--dangerously-skip-permissions"],

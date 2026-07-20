@@ -13133,27 +13133,7 @@ def codex_app_server_default_listen_url() -> str:
 
 
 def _log_codex_app_server_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> None:
-    provider_args = [arg for arg in cmd if arg.startswith("model_provider=") or arg.startswith("model_providers.")]
-    listen = ""
-    for i, arg in enumerate(cmd):
-        if arg == "--listen" and i + 1 < len(cmd):
-            listen = str(cmd[i + 1])
-            break
-        if arg.startswith("--listen="):
-            listen = arg.split("=", 1)[1]
-            break
-    router_log(
-        "INFO",
-        "codex_app_server_launch_cmd argv_len=%d provider_overrides=%d listen=%s"
-        % (len(cmd), len(provider_args), listen or "stdio/default"),
-    )
-    env_summary = []
-    for key in ("CIEL_RUNTIME_PROVIDER", "CIEL_RUNTIME_MODEL_ALIAS", CODEX_RUNTIME_API_KEY_ENV):
-        if key in env:
-            value = mask_secret(env[key]) if "KEY" in key or "TOKEN" in key else env[key]
-            env_summary.append(f"{key}={value}")
-    if env_summary:
-        router_log("INFO", "codex_app_server_launch_env " + " ".join(env_summary))
+    launch_command_diagnostics().codex_app_server(cmd, env)
 
 
 def launch_codex_app_server(
