@@ -550,12 +550,19 @@ from ciel_runtime_support.npm_runtime import (
     npm_prefix_from_package_root,
     package_root_from_installed_path,
     parse_version_tuple,
+    run_upgrade_command,
     version_newer,
 )
 from ciel_runtime_support.install_diagnostics import (
     InstallDiagnosticsPorts,
     InstallDiagnosticsService,
     InstallDiagnosticsSettings,
+)
+from ciel_runtime_support.runtime_upgrade import (
+    RuntimeUpgradeNpmPorts,
+    RuntimeUpgradeService,
+    RuntimeUpgradeSettings,
+    RuntimeUpgradeToolPorts,
 )
 from ciel_runtime_support.provider_option_cli import (
     OllamaOptionCommands,
@@ -15228,116 +15235,49 @@ def self_update_lifecycle() -> SelfUpdateLifecycle:
 
 
 def run_command_for_upgrade(cmd: list[str], timeout: float = 300.0) -> tuple[int, str]:
-    try:
-        proc = subprocess.run(
-            cmd,
-            text=True,
-            input="y\n",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=forced_yes_upgrade_env(),
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
-        return 124, "timed out"
-    except Exception as exc:
-        return 1, f"{type(exc).__name__}: {exc}"
-    return proc.returncode, (proc.stdout or "").strip()
+    return run_upgrade_command(cmd, forced_yes_upgrade_env(), timeout)
+
+
+def runtime_upgrade_service() -> RuntimeUpgradeService:
+    return RuntimeUpgradeService(
+        settings=RuntimeUpgradeSettings(VERSION, os.environ),
+        npm=RuntimeUpgradeNpmPorts(
+            find_executable=find_executable,
+            latest_version=npm_latest_package_version,
+            version_newer=version_newer,
+            current_package_root=current_npm_package_root,
+            package_prefix=npm_prefix_from_package_root,
+            current_prefix=current_npm_install_prefix,
+            global_install_command=npm_global_install_command,
+            runtime_install_command=npm_install_runtime_command,
+            run_command=run_command_for_upgrade,
+        ),
+        tools=RuntimeUpgradeToolPorts(
+            claude_version=claude_code_current_version,
+            codex_version=codex_current_version,
+            install_claude=install_claude_code_if_missing,
+            install_codex=install_codex_if_missing,
+            install_agy=install_agy_if_missing,
+            update_agy=run_agy_update_check,
+        ),
+        output=lambda message: print(message, flush=True),
+    )
 
 
 def quiet_upgrade_ciel_runtime() -> int:
-    npm = find_executable("npm")
-    if not npm:
-        print("Ciel Runtime update skipped: npm was not found.", flush=True)
-        return 1
-    latest = npm_latest_package_version(npm, "@oneciel-ai/ciel-runtime@latest")
-    if latest and not version_newer(latest, VERSION):
-        print(f"Ciel Runtime is up to date ({VERSION}).", flush=True)
-        return 0
-    target = latest or "latest"
-    print(f"Updating Ciel Runtime to {target}...", flush=True)
-    package_root = current_npm_package_root()
-    install_prefix = npm_prefix_from_package_root(package_root) if package_root else None
-    if install_prefix is not None:
-        print(f"Updating current Ciel Runtime install prefix: {install_prefix}", flush=True)
-    rc, out = run_command_for_upgrade(npm_global_install_command(npm, "@oneciel-ai/ciel-runtime@latest", install_prefix), timeout=300)
-    if out:
-        print(out, flush=True)
-    if rc != 0:
-        print(f"Ciel Runtime update failed ({rc}).", flush=True)
-        if install_prefix is not None:
-            print(
-                f"Update targeted the active install prefix ({install_prefix}). "
-                "If this prefix is not writable, reinstall or update with the permissions used for that prefix.",
-                flush=True,
-            )
-    return rc
+    return runtime_upgrade_service().ciel_runtime()
 
 
 def quiet_upgrade_claude_code() -> int:
-    claude = find_executable("claude")
-    if not claude:
-        claude = install_claude_code_if_missing()
-        return 0 if claude else 1
-    current = claude_code_current_version(claude)
-    npm = find_executable("npm")
-    latest = ""
-    if npm:
-        package_spec = os.environ.get("CIEL_RUNTIME_CLAUDE_CODE_PACKAGE", "@anthropic-ai/claude-code@latest")
-        latest = npm_latest_package_version(npm, package_spec)
-    if current and latest and not version_newer(latest, current):
-        print(f"Claude Code is up to date ({current}).", flush=True)
-        return 0
-    target = latest or "latest"
-    current_label = current or "unknown"
-    print(f"Updating Claude Code ({current_label} -> {target})...", flush=True)
-    install_prefix = current_npm_install_prefix()
-    if install_prefix is not None:
-        print(f"Updating Claude Code in active npm prefix: {install_prefix}", flush=True)
-    rc, out = run_command_for_upgrade(npm_install_runtime_command(npm, package_spec, install_prefix), timeout=300)
-    if out:
-        print(out, flush=True)
-    if rc != 0:
-        print(f"Claude Code update failed ({rc}).", flush=True)
-    return rc
+    return runtime_upgrade_service().claude()
 
 
 def quiet_upgrade_codex() -> int:
-    codex = find_executable("codex")
-    if not codex:
-        codex = install_codex_if_missing()
-        return 0 if codex else 1
-    current = codex_current_version(codex)
-    npm = find_executable("npm")
-    if not npm:
-        print("Codex update skipped: npm was not found.", flush=True)
-        return 1
-    package_spec = os.environ.get("CIEL_RUNTIME_CODEX_PACKAGE", "@openai/codex@latest")
-    latest = npm_latest_package_version(npm, package_spec)
-    if current and latest and not version_newer(latest, current):
-        print(f"Codex is up to date ({current}).", flush=True)
-        return 0
-    target = latest or "latest"
-    current_label = current or "unknown"
-    print(f"Updating Codex ({current_label} -> {target})...", flush=True)
-    install_prefix = current_npm_install_prefix()
-    if install_prefix is not None:
-        print(f"Updating Codex in active npm prefix: {install_prefix}", flush=True)
-    rc, out = run_command_for_upgrade(npm_install_runtime_command(npm, package_spec, install_prefix), timeout=300)
-    if out:
-        print(out, flush=True)
-    if rc != 0:
-        print(f"Codex update failed ({rc}).", flush=True)
-    return rc
+    return runtime_upgrade_service().codex()
 
 
 def quiet_upgrade_agy() -> int:
-    agy = find_executable("agy")
-    if not agy:
-        agy = install_agy_if_missing()
-        return 0 if agy else 1
-    updated = run_agy_update_check(agy, enabled=True)
-    return 0 if updated else 1
+    return runtime_upgrade_service().agy()
 
 
 def install_claude_code_if_missing() -> str | None:

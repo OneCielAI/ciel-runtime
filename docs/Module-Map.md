@@ -607,6 +607,10 @@ npm 조회·global install command, semantic-like 버전 비교, CLI executable 
 
 실행 경로 후보 수집·중복 제거, launcher 버전 진단, 여러 npm 설치 root 비교와 shadowed-install 경고를 소유하는 Application Service. 환경·TTY·출력은 typed port로 주입된다.
 
+### `ciel_runtime_support/runtime_upgrade.py`
+
+Ciel Runtime·Claude Code·Codex·AGY의 quiet upgrade 유스케이스, active npm prefix 유지와 설치 실패 안내를 소유하는 Application Service. executable 탐색·npm 명령·도구 설치는 두 개의 typed port 그룹으로 분리된다.
+
 ### `ciel_runtime_support/router_rate_limit_service.py`
 
 provider-global/legacy rate key, configured·learned RPM, 사용량 기록, server header 학습, 429 backoff와 penalty 대기를 묶는 Application Service. facade의 조립 중복을 제거하고 조회는 `RateLimitRepository`, 계산은 순수 rate-limit policy에 위임한다.

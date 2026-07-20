@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+from collections.abc import Mapping
 from pathlib import Path
 
 
@@ -114,6 +115,28 @@ def executable_version(executable: str, timeout: float = 8.0) -> str:
     return match.group(0) if match else ""
 
 
+def run_upgrade_command(
+    command: list[str],
+    environ: Mapping[str, str],
+    timeout: float = 300.0,
+) -> tuple[int, str]:
+    try:
+        process = subprocess.run(
+            command,
+            text=True,
+            input="y\n",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=dict(environ),
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return 124, "timed out"
+    except Exception as exc:
+        return 1, f"{type(exc).__name__}: {exc}"
+    return process.returncode, (process.stdout or "").strip()
+
+
 def claude_code_current_version(claude: str) -> str:
     return executable_version(claude)
 
@@ -154,5 +177,6 @@ __all__ = [
     "npm_prefix_from_package_root",
     "package_root_from_installed_path",
     "parse_version_tuple",
+    "run_upgrade_command",
     "version_newer",
 ]

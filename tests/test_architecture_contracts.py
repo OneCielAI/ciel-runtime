@@ -1989,6 +1989,36 @@ class ArchitectureContractTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("class InstallDiagnosticsService:", service_source)
 
+    def test_quiet_toolchain_upgrades_are_service_owned(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for function_name, method in (
+            ("quiet_upgrade_ciel_runtime", ".ciel_runtime()"),
+            ("quiet_upgrade_claude_code", ".claude()"),
+            ("quiet_upgrade_codex", ".codex()"),
+            ("quiet_upgrade_agy", ".agy()"),
+        ):
+            function = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef) and node.name == function_name
+            )
+            function_source = ast.get_source_segment(source, function) or ""
+            with self.subTest(function=function_name):
+                self.assertIn("runtime_upgrade_service()", function_source)
+                self.assertIn(method, function_source)
+                self.assertNotIn("find_executable", function_source)
+        command_runner = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "run_command_for_upgrade"
+        )
+        command_source = ast.get_source_segment(source, command_runner) or ""
+        self.assertIn("run_upgrade_command", command_source)
+        self.assertNotIn("subprocess.run", command_source)
+
     def test_concrete_adapters_own_provider_specific_defaults(self):
         common_keys = {
             "base_url",
