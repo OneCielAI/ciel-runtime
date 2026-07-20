@@ -884,6 +884,9 @@ from ciel_runtime_support.response_collection import (
     collect_chat_message_for_responses as collect_chat_response,
 )
 from ciel_runtime_support.router_http import (
+    CodexBackendHttpAdapter,
+    CodexBackendRequestPorts,
+    CodexBackendRetryPorts,
     RouterHttpCore,
     RouterHttpErrors,
     RouterHttpGetEndpoints,
@@ -9400,39 +9403,25 @@ def codex_responses_body_with_channel_context(body: dict[str, Any]) -> tuple[dic
 
 
 def _copy_upstream_response_headers(handler: BaseHTTPRequestHandler, headers: Any) -> None:
-    skipped = {"connection", "content-length", "transfer-encoding", "content-encoding"}
-    try:
-        items = headers.items()
-    except Exception:
-        items = []
-    wrote_content_type = False
-    for key, value in items:
-        low = str(key).lower()
-        if low in skipped:
-            continue
-        if low == "content-type":
-            wrote_content_type = True
-        handler.send_header(str(key), str(value))
-    if not wrote_content_type:
-        handler.send_header("content-type", "application/json")
-    handler.send_header("connection", "close")
+    CodexBackendHttpAdapter.copy_response_headers(handler, headers)
+
+
+def codex_backend_http_adapter() -> CodexBackendHttpAdapter:
+    return CodexBackendHttpAdapter(
+        CODEX_ROUTED_UPSTREAM_BASE,
+        CodexBackendRequestPorts(
+            codex_responses_body_with_channel_context, begin_pending_channel_delivery,
+            codex_routed_upstream_headers, provider_urlopen, provider_request_timeout_seconds,
+        ),
+        CodexBackendRetryPorts(
+            codex_capacity_retry_limit, read_codex_response_preamble, upstream_retry_wait_seconds,
+            router_log, EVENT_BUS.publish, time.sleep,
+        ),
+    )
 
 
 def codex_backend_upstream_url(request_path: str, query: str = "") -> str:
-    parsed_path = urllib.parse.urlparse(request_path).path
-    prefixes = ("/backend-api/codex", "/v1")
-    suffix = parsed_path
-    for prefix in prefixes:
-        if parsed_path == prefix:
-            suffix = ""
-            break
-        if parsed_path.startswith(prefix + "/"):
-            suffix = parsed_path[len(prefix):]
-            break
-    url = join_url(CODEX_ROUTED_UPSTREAM_BASE, suffix)
-    if query:
-        url = f"{url}?{query}"
-    return url
+    return codex_backend_http_adapter().upstream_url(request_path, query)
 
 
 def forward_codex_backend_json(
@@ -9443,59 +9432,9 @@ def forward_codex_backend_json(
     *,
     mutate_responses: bool = False,
 ) -> dict[str, Any] | None:
-    upstream_body = body
-    delivery_body: dict[str, Any] | None = None
-    if mutate_responses:
-        upstream_body, delivery_body = codex_responses_body_with_channel_context(body)
-        begin_pending_channel_delivery(handler, delivery_body)
-    parsed = urllib.parse.urlparse(handler.path)
-    url = codex_backend_upstream_url(parsed.path, parsed.query)
-    headers = codex_routed_upstream_headers(pcfg, handler.headers)
-    data = json.dumps(upstream_body).encode("utf-8")
-    max_capacity_retries = codex_capacity_retry_limit() if mutate_responses else 0
-    for attempt in range(max_capacity_retries + 1):
-        req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-        with provider_urlopen(req, timeout=provider_request_timeout_seconds(pcfg), provider=provider, pcfg=pcfg) as resp:
-            preamble = read_codex_response_preamble(resp) if mutate_responses else None
-            if preamble is not None and preamble.capacity_error_code and attempt < max_capacity_retries:
-                retry_no = attempt + 1
-                wait = upstream_retry_wait_seconds(retry_no)
-                model = str(upstream_body.get("model") or "")
-                router_log(
-                    "WARN",
-                    "codex_capacity_retry model=%s attempt=%d/%d code=%s wait=%.2fs"
-                    % (model, retry_no, max_capacity_retries, preamble.capacity_error_code, wait),
-                )
-                EVENT_BUS.publish(
-                    level="warn",
-                    category="router.retry",
-                    message="Codex model capacity retry",
-                    provider=provider,
-                    model=model,
-                    data={
-                        "attempt": retry_no,
-                        "total": max_capacity_retries,
-                        "code": preamble.capacity_error_code,
-                        "wait_seconds": wait,
-                    },
-                )
-                time.sleep(wait)
-                continue
-
-            handler.send_response(getattr(resp, "status", 200))
-            _copy_upstream_response_headers(handler, resp.headers)
-            handler.end_headers()
-            if preamble is not None and preamble.payload:
-                handler.wfile.write(preamble.payload)
-                handler.wfile.flush()
-            while True:
-                chunk = resp.read(65536)
-                if not chunk:
-                    break
-                handler.wfile.write(chunk)
-                handler.wfile.flush()
-            break
-    return delivery_body
+    return codex_backend_http_adapter().forward_json(
+        handler, provider, pcfg, body, mutate_responses=mutate_responses
+    )
 
 
 def codex_capacity_retry_limit() -> int:
@@ -9507,20 +9446,7 @@ def codex_capacity_retry_limit() -> int:
 
 
 def forward_codex_backend_get(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any]) -> None:
-    parsed = urllib.parse.urlparse(handler.path)
-    url = codex_backend_upstream_url(parsed.path, parsed.query)
-    headers = codex_routed_upstream_headers(pcfg, handler.headers)
-    req = urllib.request.Request(url, headers=headers, method="GET")
-    with provider_urlopen(req, timeout=provider_request_timeout_seconds(pcfg), provider=provider, pcfg=pcfg) as resp:
-        handler.send_response(getattr(resp, "status", 200))
-        _copy_upstream_response_headers(handler, resp.headers)
-        handler.end_headers()
-        while True:
-            chunk = resp.read(65536)
-            if not chunk:
-                break
-            handler.wfile.write(chunk)
-            handler.wfile.flush()
+    codex_backend_http_adapter().forward_get(handler, provider, pcfg)
 
 
 def forward_codex_responses(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> None:

@@ -193,6 +193,11 @@ Explicit model selection is coordinated by `ModelSelectionController` in
 methods, while profile/context/preset/timeout and persistence effects arrive
 through bounded typed ports.
 
+Codex backend URL mapping, GET/POST forwarding, capacity retry, and streamed
+response delivery live in `CodexBackendHttpAdapter` within `router_http.py`.
+Channel mutation/request effects and retry/observability effects are separate
+typed port groups.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

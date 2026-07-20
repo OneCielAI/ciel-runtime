@@ -6,6 +6,7 @@ import json
 import sys
 import traceback
 import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from typing import Any, Callable
@@ -67,6 +68,155 @@ class RouterHttpServices:
     post: RouterHttpPostEndpoints
     presentation: RouterHttpPresentation
     errors: RouterHttpErrors
+
+
+@dataclass(frozen=True, slots=True)
+class CodexBackendRequestPorts:
+    body_with_channel_context: Callable[[dict[str, Any]], tuple[dict[str, Any], dict[str, Any] | None]]
+    begin_channel_delivery: Callable[[Any, dict[str, Any] | None], None]
+    upstream_headers: Callable[[dict[str, Any], Any], dict[str, str]]
+    urlopen: Callable[..., Any]
+    request_timeout: Callable[[dict[str, Any]], float]
+
+
+@dataclass(frozen=True, slots=True)
+class CodexBackendRetryPorts:
+    retry_limit: Callable[[], int]
+    read_preamble: Callable[[Any], Any]
+    retry_wait: Callable[[int], float]
+    log: Callable[[str, str], None]
+    publish: Callable[..., Any]
+    sleep: Callable[[float], None]
+
+
+class CodexBackendHttpAdapter:
+    def __init__(
+        self,
+        upstream_base: str,
+        request: CodexBackendRequestPorts,
+        retry: CodexBackendRetryPorts,
+    ) -> None:
+        self._upstream_base = upstream_base
+        self._request = request
+        self._retry = retry
+
+    def upstream_url(self, request_path: str, query: str = "") -> str:
+        parsed_path = urllib.parse.urlparse(request_path).path
+        suffix = parsed_path
+        for prefix in ("/backend-api/codex", "/v1"):
+            if parsed_path == prefix:
+                suffix = ""
+                break
+            if parsed_path.startswith(prefix + "/"):
+                suffix = parsed_path[len(prefix):]
+                break
+        url = f"{self._upstream_base.rstrip('/')}/{suffix.lstrip('/')}" if suffix else self._upstream_base.rstrip("/")
+        return f"{url}?{query}" if query else url
+
+    @staticmethod
+    def copy_response_headers(handler: BaseHTTPRequestHandler, headers: Any) -> None:
+        skipped = {"connection", "content-length", "transfer-encoding", "content-encoding"}
+        try:
+            items = headers.items()
+        except (AttributeError, TypeError):
+            items = []
+        wrote_content_type = False
+        for key, value in items:
+            lowered = str(key).lower()
+            if lowered in skipped:
+                continue
+            wrote_content_type = wrote_content_type or lowered == "content-type"
+            handler.send_header(str(key), str(value))
+        if not wrote_content_type:
+            handler.send_header("content-type", "application/json")
+        handler.send_header("connection", "close")
+
+    def forward_json(
+        self,
+        handler: BaseHTTPRequestHandler,
+        provider: str,
+        config: dict[str, Any],
+        body: dict[str, Any],
+        *,
+        mutate_responses: bool = False,
+    ) -> dict[str, Any] | None:
+        upstream_body = body
+        delivery_body: dict[str, Any] | None = None
+        if mutate_responses:
+            upstream_body, delivery_body = self._request.body_with_channel_context(body)
+            self._request.begin_channel_delivery(handler, delivery_body)
+        parsed = urllib.parse.urlparse(handler.path)
+        url = self.upstream_url(parsed.path, parsed.query)
+        headers = self._request.upstream_headers(config, handler.headers)
+        data = json.dumps(upstream_body).encode("utf-8")
+        max_retries = self._retry.retry_limit() if mutate_responses else 0
+        for attempt in range(max_retries + 1):
+            request = urllib.request.Request(url, data=data, headers=headers, method="POST")
+            with self._request.urlopen(
+                request,
+                timeout=self._request.request_timeout(config),
+                provider=provider,
+                pcfg=config,
+            ) as response:
+                preamble = self._retry.read_preamble(response) if mutate_responses else None
+                if preamble is not None and preamble.capacity_error_code and attempt < max_retries:
+                    retry_number = attempt + 1
+                    wait = self._retry.retry_wait(retry_number)
+                    model = str(upstream_body.get("model") or "")
+                    self._retry.log(
+                        "WARN",
+                        "codex_capacity_retry model=%s attempt=%d/%d code=%s wait=%.2fs"
+                        % (model, retry_number, max_retries, preamble.capacity_error_code, wait),
+                    )
+                    self._retry.publish(
+                        level="warn",
+                        category="router.retry",
+                        message="Codex model capacity retry",
+                        provider=provider,
+                        model=model,
+                        data={
+                            "attempt": retry_number,
+                            "total": max_retries,
+                            "code": preamble.capacity_error_code,
+                            "wait_seconds": wait,
+                        },
+                    )
+                    self._retry.sleep(wait)
+                    continue
+                self._write_response(handler, response, preamble)
+                break
+        return delivery_body
+
+    def forward_get(
+        self,
+        handler: BaseHTTPRequestHandler,
+        provider: str,
+        config: dict[str, Any],
+    ) -> None:
+        parsed = urllib.parse.urlparse(handler.path)
+        request = urllib.request.Request(
+            self.upstream_url(parsed.path, parsed.query),
+            headers=self._request.upstream_headers(config, handler.headers),
+            method="GET",
+        )
+        with self._request.urlopen(
+            request,
+            timeout=self._request.request_timeout(config),
+            provider=provider,
+            pcfg=config,
+        ) as response:
+            self._write_response(handler, response, None)
+
+    def _write_response(self, handler: BaseHTTPRequestHandler, response: Any, preamble: Any) -> None:
+        handler.send_response(getattr(response, "status", 200))
+        self.copy_response_headers(handler, response.headers)
+        handler.end_headers()
+        if preamble is not None and preamble.payload:
+            handler.wfile.write(preamble.payload)
+            handler.wfile.flush()
+        while chunk := response.read(65536):
+            handler.wfile.write(chunk)
+            handler.wfile.flush()
 
 
 class RouterHttpHandler(BaseHTTPRequestHandler):

@@ -169,6 +169,10 @@ from ciel_runtime_support.provider_model_selection import (
     ModelMutationEffectPorts,
     ModelMutationPolicyPorts,
 )
+from ciel_runtime_support.router_http import (
+    CodexBackendRequestPorts,
+    CodexBackendRetryPorts,
+)
 from ciel_runtime_support.headless_config import (
     HeadlessChannelCommands,
     HeadlessConfigCommands,
@@ -798,6 +802,10 @@ class ArchitectureContractTests(unittest.TestCase):
             ModelMutationEffectPorts,
         ):
             self.assertLessEqual(len(fields(port)), 10)
+
+    def test_codex_backend_http_ports_stay_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(CodexBackendRequestPorts)), 10)
+        self.assertLessEqual(len(fields(CodexBackendRetryPorts)), 10)
 
     def test_ollama_forwarding_ports_stay_below_dependency_limit(self):
         for port in (

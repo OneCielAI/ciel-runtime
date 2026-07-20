@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 FINAL_FILE_LINE_BUDGET = 4_999
-MAIN_FILE_LINE_BUDGET = 18_409
+MAIN_FILE_LINE_BUDGET = 18_335
 
 
 def production_python_files(root: Path) -> tuple[Path, ...]:
