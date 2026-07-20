@@ -141,6 +141,11 @@ from ciel_runtime_support.channel_compact_poll import (
     ChannelCompactPollServices,
     ChannelCompactPollState,
 )
+from ciel_runtime_support.channel_compact_injection import (
+    ChannelCompactInjectionService,
+    ChannelCompactRequestPorts,
+    ChannelCompactRuntimePorts,
+)
 from ciel_runtime_support.channel_config_service import ChannelConfigPorts
 from ciel_runtime_support.channel_cli import ChannelCliCommands, ChannelCliView
 from ciel_runtime_support.channel_inflight import (
@@ -1372,6 +1377,28 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_channel_compact_injection_is_application_service_owned(self):
+        self.assertEqual(3, len(fields(ChannelCompactInjectionService)))
+        self.assertEqual(2, len(fields(ChannelCompactRequestPorts)))
+        self.assertEqual(5, len(fields(ChannelCompactRuntimePorts)))
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "_inject_pending_compact_request"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("ChannelCompactInjectionService", function_source)
+        self.assertNotIn("request.get(", function_source)
+        service_source = (
+            root
+            / "ciel_runtime_support"
+            / "channel_compact_injection.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", service_source)
 
     def test_channel_mcp_tool_services_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelMcpToolServices)), 10)

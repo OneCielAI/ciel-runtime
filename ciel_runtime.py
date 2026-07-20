@@ -116,6 +116,11 @@ from ciel_runtime_support.channel_compact_request_repository import (
     ChannelCompactRequestRepository,
     compact_request_ttl,
 )
+from ciel_runtime_support.channel_compact_injection import (
+    ChannelCompactInjectionService,
+    ChannelCompactRequestPorts,
+    ChannelCompactRuntimePorts,
+)
 from ciel_runtime_support.command_asset_installer import (
     CommandAsset,
     CommandAssetInstaller,
@@ -12916,37 +12921,29 @@ def _inject_pending_compact_request(
     bracketed_paste: bool = False,
     submit_delay_seconds: float | None = None,
 ) -> str:
-    request = _read_channel_compact_request()
-    if not request:
-        return "none"
-    request_id = str(request.get("id") or "")
-    if _channel_stdin_active_tool_call():
-        if log_defer:
-            router_log("INFO", f"channel_compact_request_deferred id={request_id or '-'} reason=active_tool_call")
-        return "deferred"
-    if _channel_stdin_active_turn():
-        if log_defer:
-            router_log("INFO", f"channel_compact_request_deferred id={request_id or '-'} reason=active_turn")
-        return "deferred"
-    command = str(request.get("command") or "/compact").strip() or "/compact"
-    if command != "/compact":
-        command = "/compact"
-    submit_bytes = _channel_wake_enter_bytes(enter_bytes)
-    _write_channel_wake_prompt(
+    service = ChannelCompactInjectionService(
+        request=ChannelCompactRequestPorts(
+            read=_read_channel_compact_request,
+            clear=_clear_channel_compact_request,
+        ),
+        runtime=ChannelCompactRuntimePorts(
+            active_tool_call=_channel_stdin_active_tool_call,
+            active_turn=_channel_stdin_active_turn,
+            enter_bytes=_channel_wake_enter_bytes,
+            write_prompt=_write_channel_wake_prompt,
+            enter_label=_channel_enter_label,
+        ),
+        log=router_log,
+    )
+    return service.inject(
         master_fd,
-        command,
-        submit_bytes,
+        enter_bytes,
+        log_defer=log_defer,
         submit_retry_count=submit_retry_count,
         confirm_submit=confirm_submit,
         bracketed_paste=bracketed_paste,
         submit_delay_seconds=submit_delay_seconds,
     )
-    _clear_channel_compact_request(request_id or None)
-    router_log(
-        "INFO",
-        f"channel_compact_request_injected id={request_id or '-'} enter={_channel_enter_label(submit_bytes)}",
-    )
-    return "injected"
 
 
 def _chat_messages_file_marker() -> tuple[float, int]:
