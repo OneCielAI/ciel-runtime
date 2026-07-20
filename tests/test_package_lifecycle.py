@@ -1,8 +1,11 @@
 import unittest
+from unittest import mock
 
 from ciel_runtime_support.package_lifecycle import (
     NpmPackageLifecycle,
     NpmPackageLifecyclePorts,
+    SelfUpdateLifecycle,
+    SelfUpdatePorts,
 )
 
 
@@ -41,6 +44,32 @@ class PackageLifecycleTests(unittest.TestCase):
         )
         self.assertEqual("/bin/tool", result)
         self.assertTrue(any("up to date" in line for line in outputs))
+
+    def test_self_update_installs_current_prefix_and_restarts(self):
+        outputs = []
+        restarted = []
+        lifecycle = SelfUpdateLifecycle(
+            "1.0.0",
+            SelfUpdatePorts(
+                running_from_package=lambda: True,
+                find_executable=lambda name: "npm" if name == "npm" else None,
+                latest_version=lambda _npm, _package: "2.0.0",
+                version_newer=lambda latest, current: latest != current,
+                package_root=lambda: None,
+                prefix_from_root=lambda _root: None,
+                install_command=lambda npm, package, _prefix: [npm, "install", package],
+                forced_environment=lambda: {},
+                restart=lambda npm, **kwargs: restarted.append((npm, kwargs)),
+                output=lambda message, **_kwargs: outputs.append(message),
+            ),
+        )
+        with mock.patch(
+            "ciel_runtime_support.package_lifecycle.subprocess.run",
+            return_value=mock.Mock(returncode=0, stdout="updated"),
+        ):
+            self.assertTrue(lifecycle.run())
+        self.assertEqual("npm", restarted[0][0])
+        self.assertTrue(any("Restarting" in line for line in outputs))
 
     @staticmethod
     def _lifecycle(executables, run_upgrade, outputs):

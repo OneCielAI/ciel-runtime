@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import subprocess
 from typing import Callable
 
 
@@ -121,4 +122,96 @@ class NpmPackageLifecycle:
         self._ports.output(message, flush=True)
 
 
-__all__ = ["NpmPackageLifecycle", "NpmPackageLifecyclePorts"]
+@dataclass(frozen=True, slots=True)
+class SelfUpdatePorts:
+    running_from_package: Callable[[], bool]
+    find_executable: Callable[[str], str | None]
+    latest_version: Callable[[str, str], str]
+    version_newer: Callable[[str, str], bool]
+    package_root: Callable[[], Path | None]
+    prefix_from_root: Callable[[Path], Path | None]
+    install_command: Callable[[str, str, Path | None], list[str]]
+    forced_environment: Callable[[], dict[str, str]]
+    restart: Callable[..., None]
+    output: Callable[..., None] = print
+
+
+class SelfUpdateLifecycle:
+    PACKAGE_SPEC = "@oneciel-ai/ciel-runtime@latest"
+
+    def __init__(self, current_version: str, ports: SelfUpdatePorts) -> None:
+        self._current_version = current_version
+        self._ports = ports
+
+    def run(self, enabled: bool = True) -> bool:
+        if not enabled or os.environ.get("CIEL_RUNTIME_SKIP_SELF_UPDATE") == "1":
+            return False
+        raw_check = os.environ.get("CIEL_RUNTIME_SELF_UPDATE_CHECK")
+        if raw_check is not None and raw_check.strip().lower() in {"0", "false", "no", "off"}:
+            return False
+        if not self._ports.running_from_package():
+            return False
+        npm = self._ports.find_executable("npm")
+        if not npm:
+            return False
+        latest = self._ports.latest_version(npm, self.PACKAGE_SPEC)
+        if not latest or not self._ports.version_newer(latest, self._current_version):
+            return False
+        self._print(
+            f"Ciel Runtime update available: {self._current_version} -> {latest}; upgrading automatically."
+        )
+        package_root = self._ports.package_root()
+        prefix = self._ports.prefix_from_root(package_root) if package_root else None
+        command = self._ports.install_command(npm, self.PACKAGE_SPEC, prefix)
+        if prefix is not None:
+            self._print(f"Updating current Ciel Runtime install prefix: {prefix}")
+        try:
+            update = subprocess.run(
+                command,
+                text=True,
+                input="y\n",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                env=self._ports.forced_environment(),
+                timeout=300,
+            )
+        except subprocess.TimeoutExpired:
+            self._print("Ciel Runtime update timed out; continuing with current version.")
+            return False
+        except (OSError, subprocess.SubprocessError) as exc:
+            self._print(f"Ciel Runtime update failed ({type(exc).__name__}); continuing.")
+            return False
+        output = (update.stdout or "").strip()
+        if output:
+            self._print(output)
+        if update.returncode != 0:
+            self._print(
+                f"Ciel Runtime update exited with {update.returncode}; continuing with current version."
+            )
+            if prefix is not None:
+                self._print(
+                    f"Update targeted the active install prefix ({prefix}). "
+                    "If this prefix is not writable, reinstall or update with the permissions used for that prefix."
+                )
+            return False
+        self._print("Ciel Runtime updated. Restarting with the new version...")
+        try:
+            self._ports.restart(npm, package_root=package_root)
+        except SystemExit:
+            raise
+        except (OSError, subprocess.SubprocessError) as exc:
+            self._print(
+                f"Restart failed ({type(exc).__name__}); continuing with the current process."
+            )
+        return True
+
+    def _print(self, message: str) -> None:
+        self._ports.output(message, flush=True)
+
+
+__all__ = [
+    "NpmPackageLifecycle",
+    "NpmPackageLifecyclePorts",
+    "SelfUpdateLifecycle",
+    "SelfUpdatePorts",
+]

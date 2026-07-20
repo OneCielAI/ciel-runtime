@@ -482,6 +482,8 @@ from ciel_runtime_support.provider_choice import (
 from ciel_runtime_support.package_lifecycle import (
     NpmPackageLifecycle,
     NpmPackageLifecyclePorts,
+    SelfUpdateLifecycle,
+    SelfUpdatePorts,
 )
 from ciel_runtime_support.provider_option_cli import (
     OllamaOptionCommands,
@@ -16725,62 +16727,19 @@ def restart_ciel_runtime_after_update(npm: str, package_root: Path | None = None
 
 
 def run_ciel_runtime_update_check(enabled: bool = True) -> bool:
-    if not enabled:
-        return False
-    if os.environ.get("CIEL_RUNTIME_SKIP_SELF_UPDATE") == "1":
-        return False
-    if env_bool(os.environ.get("CIEL_RUNTIME_SELF_UPDATE_CHECK")) is False:
-        return False
-    if not running_from_npm_package():
-        return False
-    npm = find_executable("npm")
-    if not npm:
-        return False
-    latest = npm_latest_package_version(npm, "@oneciel-ai/ciel-runtime@latest")
-    if not latest or not version_newer(latest, VERSION):
-        return False
-    print(f"Ciel Runtime update available: {VERSION} -> {latest}; upgrading automatically.", flush=True)
-    package_root = current_npm_package_root()
-    install_prefix = npm_prefix_from_package_root(package_root) if package_root else None
-    update_cmd = npm_global_install_command(npm, "@oneciel-ai/ciel-runtime@latest", install_prefix)
-    if install_prefix is not None:
-        print(f"Updating current Ciel Runtime install prefix: {install_prefix}", flush=True)
-    try:
-        update = subprocess.run(
-            update_cmd,
-            text=True,
-            input="y\n",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=forced_yes_upgrade_env(),
-            timeout=300,
-        )
-    except subprocess.TimeoutExpired:
-        print("Ciel Runtime update timed out; continuing with current version.", flush=True)
-        return False
-    except Exception as exc:
-        print(f"Ciel Runtime update failed ({type(exc).__name__}); continuing.", flush=True)
-        return False
-    out = (update.stdout or "").strip()
-    if out:
-        print(out, flush=True)
-    if update.returncode != 0:
-        print(f"Ciel Runtime update exited with {update.returncode}; continuing with current version.", flush=True)
-        if install_prefix is not None:
-            print(
-                f"Update targeted the active install prefix ({install_prefix}). "
-                "If this prefix is not writable, reinstall or update with the permissions used for that prefix.",
-                flush=True,
-            )
-        return False
-    print("Ciel Runtime updated. Restarting with the new version...", flush=True)
-    try:
-        restart_ciel_runtime_after_update(npm, package_root=package_root)
-    except SystemExit:
-        raise
-    except Exception as exc:
-        print(f"Restart failed ({type(exc).__name__}); continuing with the current process.", flush=True)
-    return True
+    return self_update_lifecycle().run(enabled)
+
+
+def self_update_lifecycle() -> SelfUpdateLifecycle:
+    return SelfUpdateLifecycle(
+        VERSION,
+        SelfUpdatePorts(
+            running_from_npm_package, find_executable, npm_latest_package_version,
+            version_newer, current_npm_package_root, npm_prefix_from_package_root,
+            npm_global_install_command, forced_yes_upgrade_env,
+            restart_ciel_runtime_after_update, print,
+        ),
+    )
 
 
 def run_command_for_upgrade(cmd: list[str], timeout: float = 300.0) -> tuple[int, str]:

@@ -355,7 +355,7 @@ Web/Channel chat attachment의 안전한 filename, text/base64 decoding, 환경 
 
 ### `ciel_runtime_support/package_lifecycle.py`
 
-Claude Code·Codex·AGY 같은 npm 기반 runtime executable의 탐색, active prefix 설치, 최신 버전 비교와 자동 update를 재사용하는 Application Service. npm query/install, version policy, PATH 갱신과 출력은 8필드 typed port로 분리한다.
+Claude Code·Codex·AGY 같은 npm 기반 runtime executable의 탐색, active prefix 설치, 최신 버전 비교와 자동 update를 재사용하는 Application Service. Ciel Runtime 자체 update는 현재 package root/prefix를 유지하고 새 package entrypoint로 재시작하는 별도 `SelfUpdateLifecycle`이 담당한다. 두 서비스 모두 최대 10필드 typed port를 사용한다.
 
 ### `ciel_runtime_support/provider_model_selection.py`
 
