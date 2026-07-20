@@ -523,6 +523,13 @@ from ciel_runtime_support.llm_option_config import (
     LlmOptionRepository,
     set_llm_option_config as apply_llm_option_config,
 )
+from ciel_runtime_support.llm_config_http import (
+    LlmConfigHttpController,
+    LlmConfigHttpIO,
+    LlmConfigIdentity,
+    LlmConfigMutations,
+    LlmConfigPanels,
+)
 from ciel_runtime_support.launch_state import (
     LaunchStateRepository,
     current_launch_cwd_key as project_current_launch_cwd_key,
@@ -5329,47 +5336,38 @@ def read_json_file(path: Path) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+def llm_config_http_controller() -> LlmConfigHttpController:
+    return LlmConfigHttpController(
+        LlmConfigIdentity(
+            load_config,
+            get_current_provider,
+            current_alias,
+            applied_preset_id,
+            context_setting_status,
+            timeout_profile_status,
+            PROVIDER_LABELS,
+        ),
+        LlmConfigPanels(
+            llm_option_panel_rows,
+            llm_option_prompt_default,
+            llm_preset_panel_rows,
+            context_setup_panel_rows,
+            timeout_profile_panel_rows,
+        ),
+        LlmConfigMutations(
+            set_model_config,
+            set_advisor_model_config,
+            apply_llm_preset_config,
+            apply_context_setup_config,
+            apply_timeout_profile_config,
+            set_llm_option_config,
+        ),
+        LlmConfigHttpIO(EVENT_BUS.publish, write_json, router_log),
+    )
+
+
 def llm_config_payload(messages: list[str] | None = None) -> dict[str, Any]:
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    lang = cfg.get("language", "en")
-    rows, values = llm_option_panel_rows(provider, pcfg, lang)
-    option_rows = [
-        {"label": row, "key": key, "value": llm_option_prompt_default(provider, pcfg, key)}
-        for row, key in zip(rows, values)
-        if key not in ("back", "__info__", "preset", "context_setup", "timeout_profile")
-    ]
-    preset_rows, preset_values = llm_preset_panel_rows(provider, pcfg, lang)
-    context_rows, context_values = context_setup_panel_rows(provider, pcfg, lang)
-    timeout_rows, timeout_values = timeout_profile_panel_rows(pcfg, lang)
-    return {
-        "ok": True,
-        "messages": messages or [],
-        "provider": provider,
-        "provider_label": PROVIDER_LABELS.get(provider, provider),
-        "model": str(pcfg.get("current_model") or ""),
-        "alias": current_alias(cfg),
-        "advisor_model": str(pcfg.get("advisor_model") or ""),
-        "preset": applied_preset_id(provider, pcfg),
-        "context": context_setting_status(provider, pcfg),
-        "timeout": timeout_profile_status(pcfg, lang),
-        "options": option_rows,
-        "presets": [
-            {"label": row, "value": value}
-            for row, value in zip(preset_rows, preset_values)
-            if value not in ("back", "__info__")
-        ],
-        "contexts": [
-            {"label": row, "value": value}
-            for row, value in zip(context_rows, context_values)
-            if value not in ("back", "__info__")
-        ],
-        "timeouts": [
-            {"label": row, "value": value}
-            for row, value in zip(timeout_rows, timeout_values)
-            if value not in ("back", "__info__")
-        ],
-    }
+    return llm_config_http_controller().payload(messages)
 
 
 def apply_timeout_profile_config(provider: str, profile_id: str) -> list[str]:
@@ -5382,46 +5380,11 @@ def apply_timeout_profile_config(provider: str, profile_id: str) -> list[str]:
 
 
 def handle_llm_config_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
-    if path != "/ca/config/llm":
-        return False
-    write_json(handler, llm_config_payload())
-    return True
+    return llm_config_http_controller().handle_get(handler, path)
 
 
 def handle_llm_config_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool:
-    if path != "/ca/config/llm":
-        return False
-    cfg = load_config()
-    provider, _pcfg = get_current_provider(cfg)
-    action = str(body.get("action") or "option").strip()
-    value = str(body.get("value") or "").strip()
-    key = str(body.get("key") or "").strip()
-    messages: list[str]
-    try:
-        if action == "model":
-            messages = set_model_config(value)
-        elif action == "advisor_model":
-            messages = set_advisor_model_config(value)
-        elif action == "preset":
-            messages = apply_llm_preset_config(provider, value)
-        elif action == "context_setup":
-            messages = apply_context_setup_config(provider, value)
-        elif action == "timeout_profile":
-            messages = apply_timeout_profile_config(provider, value)
-        elif action == "option":
-            if not key:
-                raise SystemExit("Missing option key")
-            messages = set_llm_option_config(provider, key, value)
-        else:
-            raise SystemExit(f"Unknown LLM config action: {action}")
-        EVENT_BUS.publish(level="info", category="config.llm", message=f"updated {action} {key or value}", provider=provider, data={"action": action, "key": key, "value": value})
-        write_json(handler, llm_config_payload(messages))
-    except SystemExit as exc:
-        write_json(handler, {"ok": False, "error": str(exc), "messages": [str(exc)]}, 400)
-    except Exception as exc:
-        router_log("ERROR", f"llm config update failed: {type(exc).__name__}: {exc}")
-        write_json(handler, {"ok": False, "error": f"{type(exc).__name__}: {exc}", "messages": [f"{type(exc).__name__}: {exc}"]}, 500)
-    return True
+    return llm_config_http_controller().handle_post(handler, path, body)
 
 
 def render_router_home_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any]) -> str:

@@ -207,6 +207,11 @@ Server resolution and router response effects are bounded ports, while the
 adapter owns upstream HTTP, body/SSE streaming, error projection, and duplicate
 native channel-notification suppression as one cohesive transport boundary.
 
+The LLM configuration endpoint uses `LlmConfigHttpController` for presentation
+projection and action dispatch. Identity, panel catalogs, mutation strategies,
+and HTTP effects are separate bounded ports, keeping provider behavior in its
+existing provider/configuration services and HTTP workflow out of the facade.
+
 Chat attachment decoding, size validation, safe naming, storage, URL metadata,
 and Markdown projection live in `ChatFileRepository`; only clocks are injected
 and callers no longer own filesystem mechanics.

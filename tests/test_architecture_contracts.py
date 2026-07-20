@@ -297,6 +297,13 @@ from ciel_runtime_support.llm_option_config import (
     LlmOptionPolicy,
     LlmOptionRepository,
 )
+from ciel_runtime_support.llm_config_http import (
+    LlmConfigHttpController,
+    LlmConfigHttpIO,
+    LlmConfigIdentity,
+    LlmConfigMutations,
+    LlmConfigPanels,
+)
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS, OpenAIResponsesProtocolAdapter
 from ciel_runtime_support.protocols.chat_projection import (
     ChatProjectionPolicy,
@@ -1082,6 +1089,20 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_llm_config_http_controller_owns_projection_and_dispatch(self):
+        for port in (
+            LlmConfigIdentity,
+            LlmConfigPanels,
+            LlmConfigMutations,
+            LlmConfigHttpIO,
+            LlmConfigHttpController,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        self.assertNotIn('if action == "model"', source)
+        self.assertIn("LlmConfigHttpController", source)
 
     def test_rate_limit_ports_stay_below_dependency_limit(self):
         ports = (
