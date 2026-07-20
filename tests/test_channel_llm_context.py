@@ -7,10 +7,29 @@ from ciel_runtime_support.channel_llm_context import (
     ChannelLlmContextRepository,
     ChannelLlmContextServices,
     inject_pending_channel_context,
+    strip_internal_metadata,
 )
 
 
 class ChannelLlmContextTests(unittest.TestCase):
+    def test_internal_metadata_projection_preserves_public_values(self):
+        body = {
+            "metadata": {
+                "public": "keep",
+                "ciel_runtime_channel_injected": True,
+            }
+        }
+
+        projected = strip_internal_metadata(body)
+
+        self.assertEqual({"public": "keep"}, projected["metadata"])
+        self.assertIn("ciel_runtime_channel_injected", body["metadata"])
+
+    def test_metadata_projection_returns_original_when_no_private_values_exist(self):
+        body = {"metadata": {"public": "keep"}}
+
+        self.assertIs(body, strip_internal_metadata(body))
+
     def services(self, messages, *, wake=False, plan=False, stdin_reason=""):
         self.committed = []
         self.logs = []

@@ -7,6 +7,30 @@ from dataclasses import dataclass
 from typing import Any
 
 
+INTERNAL_METADATA_PREFIX = "ciel_runtime_"
+
+
+def strip_internal_metadata(body: dict[str, Any]) -> dict[str, Any]:
+    """Return the original body unless private metadata requires projection."""
+
+    metadata = body.get("metadata")
+    if not isinstance(metadata, dict) or not metadata:
+        return body
+    public_metadata = {
+        key: value
+        for key, value in metadata.items()
+        if not str(key).startswith(INTERNAL_METADATA_PREFIX)
+    }
+    if len(public_metadata) == len(metadata):
+        return body
+    projected = dict(body)
+    if public_metadata:
+        projected["metadata"] = public_metadata
+    else:
+        projected.pop("metadata", None)
+    return projected
+
+
 @dataclass(frozen=True, slots=True)
 class ChannelLlmContextPolicy:
     wake_request: Callable[[dict[str, Any]], bool]

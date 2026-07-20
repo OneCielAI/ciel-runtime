@@ -369,7 +369,7 @@ SSE/Streamable HTTP 연결 설정의 정규화, connection state 생성·교체,
 
 ### `ciel_runtime_support/channel_llm_context.py`
 
-대기 channel 메시지를 LLM request context에 결합하는 Application Service. delivery/skip 정책, cursor·message Repository, wake/prompt Projection을 분리하며 메인 composition root는 global cursor와 파일 저장 adapter만 조립한다.
+대기 channel 메시지를 LLM request context에 결합하는 Application Service. delivery/skip 정책, cursor·message Repository, wake/prompt Projection을 분리하며 upstream 전달 전 `ciel_runtime_` private metadata를 copy-on-write 방식으로 제거한다. 메인 composition root는 global cursor와 파일 저장 adapter만 조립한다.
 
 ### `ciel_runtime_support/channel_mcp_tools.py`
 

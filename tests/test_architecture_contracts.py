@@ -4673,6 +4673,7 @@ class ArchitectureContractTests(unittest.TestCase):
             "_channel_stdin_wake_queued_is_stale_for_message": "queued_is_stale",
             "write_native_mcp_config_from_discovery": "write",
             "_log_codex_app_server_command_for_diagnostics": "codex_app_server",
+            "body_without_ciel_runtime_internal_metadata": "strip_internal_metadata",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

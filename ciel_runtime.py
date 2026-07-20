@@ -11404,32 +11404,8 @@ def _commit_channel_llm_cursor_if_newer(last_id: int | None) -> None:
             router_log("WARN", f"channel_llm_cursor_write_failed error={type(exc).__name__}: {exc}")
 
 
-CIEL_RUNTIME_INTERNAL_METADATA_PREFIX = "ciel_runtime_"
-
-
 def body_without_ciel_runtime_internal_metadata(body: dict[str, Any]) -> dict[str, Any]:
-    """Return an upstream-safe copy with ciel-runtime private metadata removed."""
-    metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else None
-    if not metadata:
-        return body
-    internal_keys = [
-        key
-        for key in metadata
-        if str(key).startswith(CIEL_RUNTIME_INTERNAL_METADATA_PREFIX)
-    ]
-    if not internal_keys:
-        return body
-    public_metadata = {
-        key: value
-        for key, value in metadata.items()
-        if not str(key).startswith(CIEL_RUNTIME_INTERNAL_METADATA_PREFIX)
-    }
-    out = dict(body)
-    if public_metadata:
-        out["metadata"] = public_metadata
-    else:
-        out.pop("metadata", None)
-    return out
+    return channel_llm_context.strip_internal_metadata(body)
 
 
 def commit_pending_channel_delivery_cursors(
