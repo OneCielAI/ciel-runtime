@@ -1002,6 +1002,12 @@ from ciel_runtime_support.runtime_logging import (
     RouterFileLogger,
     normalize_log_level as normalize_runtime_log_level,
 )
+from ciel_runtime_support.runtime_activity_repository import (
+    RuntimeActivityClock,
+    RuntimeActivityEffects,
+    RuntimeActivityPaths,
+    RuntimeActivityRepository,
+)
 from ciel_runtime_support.sse_trace import (
     SseTraceConfig,
     SseTracePorts,
@@ -5213,59 +5219,24 @@ def reject_external_router_request(handler: BaseHTTPRequestHandler, cfg: dict[st
     return True
 
 
+def runtime_activity_repository() -> RuntimeActivityRepository:
+    return RuntimeActivityRepository(
+        RuntimeActivityPaths(ROUTER_ACTIVITY_PATH, CONTEXT_COMPACT_ACTIVITY_PATH, CONTEXT_USAGE_PATH),
+        RuntimeActivityClock(
+            time.time,
+            lambda: time.strftime("%Y-%m-%dT%H:%M:%S"),
+            lambda: f"{os.getpid()}.{time.time_ns()}",
+        ),
+        RuntimeActivityEffects(EVENT_BUS.publish, router_log),
+    )
+
+
 def write_router_activity(event: str, provider: str, model: str | None = None, **fields: Any) -> None:
-    try:
-        level = "error" if event == "error" else ("warn" if event in {"retry", "wait"} else "info")
-        EVENT_BUS.publish(
-            level=level,
-            category=f"router.{event}",
-            message=f"{event} {provider} {model or ''}".strip(),
-            provider=provider,
-            model=model,
-            data=fields,
-        )
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        data = {
-            "updated_at": time.time(),
-            "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "event": event,
-            "provider": provider,
-            "model": model or "",
-        }
-        data.update(fields)
-        tmp = ROUTER_ACTIVITY_PATH.with_name(f"{ROUTER_ACTIVITY_PATH.name}.{os.getpid()}.{time.time_ns()}.tmp")
-        tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-        tmp.replace(ROUTER_ACTIVITY_PATH)
-    except Exception:
-        pass
+    runtime_activity_repository().router_activity(event, provider, model, **fields)
 
 
 def write_context_compact_activity(provider: str, model: str | None = None, **fields: Any) -> None:
-    try:
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        data = {
-            "updated_at": time.time(),
-            "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "event": "compact",
-            "provider": provider,
-            "model": model or "",
-        }
-        data.update(fields)
-        tmp = CONTEXT_COMPACT_ACTIVITY_PATH.with_name(
-            f"{CONTEXT_COMPACT_ACTIVITY_PATH.name}.{os.getpid()}.{time.time_ns()}.tmp"
-        )
-        tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-        tmp.replace(CONTEXT_COMPACT_ACTIVITY_PATH)
-        EVENT_BUS.publish(
-            level="info",
-            category="context.compact",
-            message=f"compact {provider} {model or ''}".strip(),
-            provider=provider,
-            model=model,
-            data=fields,
-        )
-    except Exception:
-        pass
+    runtime_activity_repository().context_compact(provider, model, **fields)
 
 
 def context_limit_for_status(provider: str, pcfg: dict[str, Any]) -> int | None:
@@ -5280,43 +5251,14 @@ def context_limit_for_status(provider: str, pcfg: dict[str, Any]) -> int | None:
 
 
 def write_context_usage(provider: str, pcfg: dict[str, Any], body: dict[str, Any], source: str) -> None:
-    try:
-        tokens = estimate_tokens(body)
-        limit = context_limit_for_status(provider, pcfg)
-        percent = round((tokens / limit) * 100.0, 1) if limit else None
-        EVENT_BUS.publish(
-            level="debug",
-            category="context.usage",
-            message=f"context usage {tokens}/{limit or '?'} tokens",
-            provider=provider,
-            model=str(body.get("model") or pcfg.get("current_model") or ""),
-            data={
-                "source": source,
-                "tokens": tokens,
-                "context_limit": limit,
-                "percent": percent,
-                "messages": len(body.get("messages") or []),
-                "tools": len(body.get("tools") or []),
-            },
-        )
-        data = {
-            "updated_at": time.time(),
-            "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "provider": provider,
-            "model": str(body.get("model") or pcfg.get("current_model") or ""),
-            "source": source,
-            "tokens": tokens,
-            "context_limit": limit,
-            "percent": percent,
-            "messages": len(body.get("messages") or []),
-            "tools": len(body.get("tools") or []),
-        }
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        tmp = CONTEXT_USAGE_PATH.with_name(f"{CONTEXT_USAGE_PATH.name}.{os.getpid()}.{time.time_ns()}.tmp")
-        tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-        tmp.replace(CONTEXT_USAGE_PATH)
-    except Exception:
-        pass
+    runtime_activity_repository().context_usage(
+        provider,
+        pcfg,
+        body,
+        source,
+        estimate_tokens=estimate_tokens,
+        context_limit=context_limit_for_status,
+    )
 
 
 def write_text_response(handler: BaseHTTPRequestHandler, text: str, status: int = 200, content_type: str = "text/plain; charset=utf-8") -> None:

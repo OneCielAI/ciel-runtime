@@ -321,6 +321,10 @@ LLM 옵션의 입력 검증, Provider 설정 변경, 컨텍스트·출력 보정
 
 `/ca/config/llm`의 현재 설정 payload projection, GET/POST workflow, action dispatch와 HTTP 오류 변환을 소유하는 Controller. identity, panel projection, mutation 전략과 HTTP I/O를 각각 7필드 이하 typed port로 분리하며 provider별 세부 mutation은 기존 application service에 위임한다.
 
+### `ciel_runtime_support/runtime_activity_repository.py`
+
+Router activity, context compact, context usage snapshot의 event projection과 임시파일 기반 원자 저장을 통합하는 Repository. 경로·clock·event 효과는 각각 3필드 이하 typed port로 분리하며 저장 실패를 묵살하지 않고 구조화 경고로 노출한다.
+
 ### `ciel_runtime_support/cli_dispatch.py`
 
 명시적 `CliServices` dependency object를 사용하는 CLI Application Service와 command dispatcher.

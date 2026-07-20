@@ -212,6 +212,11 @@ projection and action dispatch. Identity, panel catalogs, mutation strategies,
 and HTTP effects are separate bounded ports, keeping provider behavior in its
 existing provider/configuration services and HTTP workflow out of the facade.
 
+Router and context activity snapshots use `RuntimeActivityRepository` instead
+of three facade-owned atomic-write implementations. Paths, clock generation,
+and event/log effects are explicit ports, and snapshot failures are observable
+rather than silently swallowed.
+
 Chat attachment decoding, size validation, safe naming, storage, URL metadata,
 and Markdown projection live in `ChatFileRepository`; only clocks are injected
 and callers no longer own filesystem mechanics.

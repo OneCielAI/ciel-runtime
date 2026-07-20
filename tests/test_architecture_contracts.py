@@ -233,6 +233,12 @@ from ciel_runtime_support.runtime_llm_options import (
     RuntimeLlmPresentationPorts,
     RuntimeLlmSettings,
 )
+from ciel_runtime_support.runtime_activity_repository import (
+    RuntimeActivityClock,
+    RuntimeActivityEffects,
+    RuntimeActivityPaths,
+    RuntimeActivityRepository,
+)
 from ciel_runtime_support.live_api_key_controller import LiveApiKeyPorts
 from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy, ToolGuardHookServices
 from ciel_runtime_support.process_control import (
@@ -1103,6 +1109,30 @@ class ArchitectureContractTests(unittest.TestCase):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
         self.assertNotIn('if action == "model"', source)
         self.assertIn("LlmConfigHttpController", source)
+
+    def test_runtime_activity_repository_owns_atomic_snapshot_writes(self):
+        for port in (
+            RuntimeActivityPaths,
+            RuntimeActivityClock,
+            RuntimeActivityEffects,
+            RuntimeActivityRepository,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        for function_name in (
+            "write_router_activity",
+            "write_context_compact_activity",
+            "write_context_usage",
+        ):
+            function = next(
+                node
+                for node in ast.parse(source).body
+                if isinstance(node, ast.FunctionDef) and node.name == function_name
+            )
+            with self.subTest(function=function_name):
+                self.assertNotIn("except", ast.unparse(function))
+                self.assertNotIn("write_text", ast.unparse(function))
 
     def test_rate_limit_ports_stay_below_dependency_limit(self):
         ports = (
