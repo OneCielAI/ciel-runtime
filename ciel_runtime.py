@@ -428,7 +428,10 @@ from ciel_runtime_support.context_compaction import (
     build_llm_compacted_messages,
     request_context_summary,
 )
-from ciel_runtime_support.context_summary_policy import ContextSummaryPolicy
+from ciel_runtime_support.context_summary_policy import (
+    ContextSummaryCompatibilityApi,
+    ContextSummaryPolicy,
+)
 from ciel_runtime_support.codex_process_lifecycle import (
     CodexProcessLifecycle,
     CodexProcessPorts,
@@ -5631,25 +5634,6 @@ COMPACT_TEXT_ONLY_SYSTEM_PROMPT = (
 )
 
 
-def is_claude_code_compact_request(body: dict[str, Any]) -> bool:
-    """Detect Claude Code's internal /compact summarization request.
-
-    Compact requests must produce text. If an upstream model sees the normal
-    tool list and chooses a tool instead, Claude Code reports an empty compact
-    summary even though the router returned HTTP 200.
-    """
-    return context_summary_policy().is_compact_request(body)
-
-
-def compact_request_text_only_body(body: dict[str, Any]) -> dict[str, Any]:
-    return context_summary_policy().text_only_body(
-        body,
-        COMPACT_TEXT_ONLY_SYSTEM_PROMPT,
-        append_anthropic_system_texts,
-        router_log,
-    )
-
-
 PROMPT_TOOL_INPUT_FIELD_LIMIT = 1200
 PROMPT_TOOL_RESULT_LIMIT = 12000
 PROMPT_MESSAGE_TEXT_LIMIT = 20000
@@ -5666,6 +5650,30 @@ def context_summary_policy() -> ContextSummaryPolicy:
     )
 
 
+_CONTEXT_SUMMARY_API = ContextSummaryCompatibilityApi(
+    policy_factory=context_summary_policy,
+    compact_system_prompt=COMPACT_TEXT_ONLY_SYSTEM_PROMPT,
+    append_system=project_append_anthropic_system_texts,
+    log=router_log,
+)
+is_claude_code_compact_request = _CONTEXT_SUMMARY_API.is_compact_request
+compact_request_text_only_body = _CONTEXT_SUMMARY_API.text_only_body
+compact_tool_value_for_prompt = _CONTEXT_SUMMARY_API.compact_tool_value
+tool_input_for_prompt = _CONTEXT_SUMMARY_API.tool_input
+compact_message_text_for_prompt = _CONTEXT_SUMMARY_API.message_text
+compact_message_summary_line = _CONTEXT_SUMMARY_API.summary_line
+context_guard_chunk_count = _CONTEXT_SUMMARY_API.guard_chunk_count
+build_chunked_context_guard_summary = _CONTEXT_SUMMARY_API.guard_summary
+context_compact_message_text = _CONTEXT_SUMMARY_API.compact_message
+context_compact_instruction_index = _CONTEXT_SUMMARY_API.instruction_index
+context_compact_chunk_target_tokens = _CONTEXT_SUMMARY_API.chunk_target_tokens
+context_compact_summary_output_tokens = _CONTEXT_SUMMARY_API.summary_output_tokens
+split_messages_for_context_compact = _CONTEXT_SUMMARY_API.split_messages
+build_context_compact_chunk_prompt = _CONTEXT_SUMMARY_API.chunk_prompt
+context_compact_extract_text = _CONTEXT_SUMMARY_API.extract_response_text
+build_context_compact_reduce_prompt = _CONTEXT_SUMMARY_API.reduce_prompt
+
+
 def truncate_for_prompt(text: str, limit: int) -> str:
     return ContextSummaryPolicy.truncate(text, limit)
 
@@ -5674,66 +5682,16 @@ def is_claude_code_persisted_output_text(text: str) -> bool:
     return ContextSummaryPolicy.is_persisted_output(text)
 
 
-def compact_tool_value_for_prompt(value: Any, limit: int = PROMPT_TOOL_INPUT_FIELD_LIMIT) -> Any:
-    return context_summary_policy().compact_tool_value(value, limit)
-
-
-def tool_input_for_prompt(tool_input: Any) -> str:
-    return context_summary_policy().tool_input(tool_input)
-
-
-def compact_message_text_for_prompt(text: str) -> str:
-    return context_summary_policy().message_text(text)
-
-
 def _message_tool_markers_for_summary(message: dict[str, Any]) -> list[str]:
     return ContextSummaryPolicy.tool_markers(message)
-
-
-def compact_message_summary_line(index: int, message: dict[str, Any], *, text_limit: int = 700) -> str:
-    return context_summary_policy().summary_line(index, message, text_limit)
 
 
 def _compact_chunk_ranges(count: int, chunks: int) -> list[tuple[int, int]]:
     return ContextSummaryPolicy.chunk_ranges(count, chunks)
 
 
-def context_guard_chunk_count(omitted_messages: list[dict[str, Any]], budget_tokens: int | None = None) -> int:
-    return context_summary_policy().guard_chunk_count(omitted_messages, budget_tokens)
-
-
-def build_chunked_context_guard_summary(
-    omitted_messages: list[dict[str, Any]], budget_tokens: int, *, start_index: int = 0
-) -> str:
-    return context_summary_policy().guard_summary(omitted_messages, budget_tokens, start_index)
-
-
-def context_compact_message_text(message: dict[str, Any], index: int) -> str:
-    return context_summary_policy().compact_message(message, index)
-
-
-def context_compact_instruction_index(messages: list[dict[str, Any]]) -> int | None:
-    return context_summary_policy().instruction_index(messages)
-
-
-def context_compact_chunk_target_tokens(pcfg: dict[str, Any] | None, budget_tokens: int) -> int:
-    return context_summary_policy().chunk_target_tokens(pcfg, budget_tokens)
-
-
-def context_compact_summary_output_tokens(pcfg: dict[str, Any] | None, budget_tokens: int) -> int:
-    return context_summary_policy().summary_output_tokens(pcfg, budget_tokens)
-
-
 def context_compact_parallel_sessions(pcfg: dict[str, Any] | None, chunks: int) -> int:
     return 1
-
-
-def split_messages_for_context_compact(
-    messages: list[dict[str, Any]], target_tokens: int
-) -> list[tuple[int, list[dict[str, Any]]]]:
-    return context_summary_policy().split_messages(messages, target_tokens)
-
-
 
 
 CONTEXT_COMPACT_MAP_SYSTEM_PROMPT = (
@@ -5742,14 +5700,6 @@ CONTEXT_COMPACT_MAP_SYSTEM_PROMPT = (
     "decisions, file paths, tool results, unresolved tasks, errors, and any facts needed "
     "to continue later. Do not call tools."
 )
-
-
-def build_context_compact_chunk_prompt(chunk: list[dict[str, Any]], start_index: int, chunk_no: int, chunk_total: int) -> str:
-    return context_summary_policy().chunk_prompt(chunk, start_index, chunk_no, chunk_total)
-
-
-def context_compact_extract_text(data: Any, wire: str) -> str:
-    return context_summary_policy().extract_response_text(data, wire)
 
 
 def context_compaction_available(provider: str, pcfg: dict[str, Any]) -> bool:
@@ -5810,21 +5760,6 @@ def context_compact_request_summary(
         context_compaction_services(),
         wire=wire,
         budget_tokens=budget_tokens,
-    )
-
-
-def build_context_compact_reduce_prompt(
-    summaries: list[str],
-    compact_instruction: str,
-    *,
-    budget_tokens: int,
-    source_message_count: int,
-) -> str:
-    return context_summary_policy().reduce_prompt(
-        summaries,
-        compact_instruction,
-        budget_tokens,
-        source_message_count,
     )
 
 

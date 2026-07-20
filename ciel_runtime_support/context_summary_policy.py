@@ -293,3 +293,100 @@ class ContextSummaryPolicy:
         text = "\n\n".join(parts)
         max_chars = max(8192, max(1, budget_tokens) * 3)
         return self.truncate(text, max_chars) if len(text) > max_chars else text
+
+
+@dataclass(frozen=True, slots=True)
+class ContextSummaryCompatibilityApi:
+    """Typed facade adapter for context-summary projections."""
+
+    policy_factory: Callable[[], ContextSummaryPolicy]
+    compact_system_prompt: str
+    append_system: Callable[[Any, list[str]], Any]
+    log: Callable[[str, str], None]
+
+    def is_compact_request(self, body: dict[str, Any]) -> bool:
+        return self.policy_factory().is_compact_request(body)
+
+    def text_only_body(self, body: dict[str, Any]) -> dict[str, Any]:
+        return self.policy_factory().text_only_body(
+            body, self.compact_system_prompt, self.append_system, self.log
+        )
+
+    def compact_tool_value(self, value: Any, limit: int = PROMPT_TOOL_INPUT_FIELD_LIMIT) -> Any:
+        return self.policy_factory().compact_tool_value(value, limit)
+
+    def tool_input(self, tool_input: Any) -> str:
+        return self.policy_factory().tool_input(tool_input)
+
+    def message_text(self, text: str) -> str:
+        return self.policy_factory().message_text(text)
+
+    def summary_line(
+        self, index: int, message: dict[str, Any], *, text_limit: int = 700
+    ) -> str:
+        return self.policy_factory().summary_line(index, message, text_limit)
+
+    def guard_chunk_count(
+        self,
+        omitted_messages: list[dict[str, Any]],
+        budget_tokens: int | None = None,
+    ) -> int:
+        return self.policy_factory().guard_chunk_count(omitted_messages, budget_tokens)
+
+    def guard_summary(
+        self,
+        omitted_messages: list[dict[str, Any]],
+        budget_tokens: int,
+        *,
+        start_index: int = 0,
+    ) -> str:
+        return self.policy_factory().guard_summary(
+            omitted_messages, budget_tokens, start_index
+        )
+
+    def compact_message(self, message: dict[str, Any], index: int) -> str:
+        return self.policy_factory().compact_message(message, index)
+
+    def instruction_index(self, messages: list[dict[str, Any]]) -> int | None:
+        return self.policy_factory().instruction_index(messages)
+
+    def chunk_target_tokens(
+        self, config: dict[str, Any] | None, budget_tokens: int
+    ) -> int:
+        return self.policy_factory().chunk_target_tokens(config, budget_tokens)
+
+    def summary_output_tokens(
+        self, config: dict[str, Any] | None, budget_tokens: int
+    ) -> int:
+        return self.policy_factory().summary_output_tokens(config, budget_tokens)
+
+    def split_messages(
+        self, messages: list[dict[str, Any]], target_tokens: int
+    ) -> list[tuple[int, list[dict[str, Any]]]]:
+        return self.policy_factory().split_messages(messages, target_tokens)
+
+    def chunk_prompt(
+        self,
+        chunk: list[dict[str, Any]],
+        start_index: int,
+        chunk_no: int,
+        chunk_total: int,
+    ) -> str:
+        return self.policy_factory().chunk_prompt(
+            chunk, start_index, chunk_no, chunk_total
+        )
+
+    def extract_response_text(self, data: Any, wire: str) -> str:
+        return self.policy_factory().extract_response_text(data, wire)
+
+    def reduce_prompt(
+        self,
+        summaries: list[str],
+        compact_instruction: str,
+        *,
+        budget_tokens: int,
+        source_message_count: int,
+    ) -> str:
+        return self.policy_factory().reduce_prompt(
+            summaries, compact_instruction, budget_tokens, source_message_count
+        )

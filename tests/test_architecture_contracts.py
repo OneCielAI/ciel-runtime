@@ -3026,6 +3026,38 @@ class ArchitectureContractTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertNotIn("__getattr__", adapter_source)
 
+    def test_context_summary_compatibility_uses_explicit_typed_adapter(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "is_claude_code_compact_request",
+            "compact_request_text_only_body",
+            "compact_tool_value_for_prompt",
+            "tool_input_for_prompt",
+            "compact_message_text_for_prompt",
+            "compact_message_summary_line",
+            "context_guard_chunk_count",
+            "build_chunked_context_guard_summary",
+            "context_compact_message_text",
+            "context_compact_instruction_index",
+            "context_compact_chunk_target_tokens",
+            "context_compact_summary_output_tokens",
+            "split_messages_for_context_compact",
+            "build_context_compact_chunk_prompt",
+            "context_compact_extract_text",
+            "build_context_compact_reduce_prompt",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        self.assertIn("ContextSummaryCompatibilityApi", source)
+        adapter_source = (
+            root / "ciel_runtime_support" / "context_summary_policy.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("__getattr__", adapter_source)
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):

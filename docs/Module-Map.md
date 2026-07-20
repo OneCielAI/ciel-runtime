@@ -729,6 +729,8 @@ Provider context budget을 넘는 Anthropic 및 Ollama/OpenAI chat history를 to
 
 compact 요청 판정·text-only 변환, tool 입력 축약, persisted-output 판정, deterministic chunk 범위·summary, compact instruction 탐색, map/reduce prompt와 response codec을 소유하는 순수 Protocol/Domain Policy. token·content·JSON projection만 명시적 포트로 받는다.
 
+`ContextSummaryCompatibilityApi`는 compact request 탐지·text-only 변환·chunk/reduce projection 공개 표면을 명시적 typed method로 연결하는 Adapter이다. facade에는 policy 조립과 호환 alias만 남긴다.
+
 ### `ciel_runtime_support/runtime_adapters.py`
 
 정규화된 `LaunchSpec`을 최종 `RuntimeCommand`로 변환하는 실제 CLI 런타임 어댑터.
