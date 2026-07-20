@@ -327,6 +327,10 @@ from ciel_runtime_support.provider_request_access import (
     ProviderRequestAccessPorts,
     ProviderRequestAccessService,
 )
+from ciel_runtime_support.provider_runtime_modes import (
+    ProviderNativeCompatibilityPolicy,
+    RuntimeModePolicy,
+)
 from ciel_runtime_support.model_cache_lifecycle import (
     ModelCacheLifecyclePorts,
     ModelCacheLifecycleService,
@@ -3522,40 +3526,23 @@ def runtime_command_factory() -> RuntimeCommandFactory:
     return RuntimeCommandFactory(RuntimeCommandFactoryPorts(parse_api_key_list, RUNTIME_ADAPTERS.create))
 
 
-def native_anthropic_enabled(provider: str) -> bool:
-    return provider == "anthropic"
-
-
-def anthropic_routed_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return provider == "anthropic" and parse_bool(pcfg.get("route_through_router"), default=False)
-
-
-def direct_native_anthropic_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return native_anthropic_enabled(provider) and not anthropic_routed_enabled(provider, pcfg)
-
-
-def native_agy_enabled(provider: str) -> bool:
-    return provider == "agy"
-
-
-def agy_routed_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return provider == "agy" and parse_bool(pcfg.get("route_through_router"), default=False)
-
-
-def direct_native_agy_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return native_agy_enabled(provider) and not agy_routed_enabled(provider, pcfg)
-
-
-def native_codex_enabled(provider: str) -> bool:
-    return provider == "codex"
-
-
-def codex_routed_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return provider == "codex" and parse_bool(pcfg.get("route_through_router"), default=False)
-
-
-def direct_native_codex_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return native_codex_enabled(provider) and not codex_routed_enabled(provider, pcfg)
+_RUNTIME_MODE_POLICY = RuntimeModePolicy(
+    parse_bool=parse_bool,
+    runtime_providers={
+        "anthropic": "anthropic",
+        "agy": "agy",
+        "codex": "codex",
+    },
+)
+native_anthropic_enabled = _RUNTIME_MODE_POLICY.native_anthropic
+anthropic_routed_enabled = _RUNTIME_MODE_POLICY.anthropic_routed
+direct_native_anthropic_enabled = _RUNTIME_MODE_POLICY.direct_anthropic
+native_agy_enabled = _RUNTIME_MODE_POLICY.native_agy
+agy_routed_enabled = _RUNTIME_MODE_POLICY.agy_routed
+direct_native_agy_enabled = _RUNTIME_MODE_POLICY.direct_agy
+native_codex_enabled = _RUNTIME_MODE_POLICY.native_codex
+codex_routed_enabled = _RUNTIME_MODE_POLICY.codex_routed
+direct_native_codex_enabled = _RUNTIME_MODE_POLICY.direct_codex
 
 
 def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool = False) -> list[str]:
@@ -3736,60 +3723,37 @@ def current_alias(cfg: dict[str, Any]) -> str:
     return alias_for(provider, cur)
 
 
-def ollama_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return provider == "ollama" and bool(pcfg.get("native_compat", True))
-
-
-def vllm_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return provider == "vllm" and bool(pcfg.get("native_compat", True))
-
-
-def nim_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return provider == "self-hosted-nim" and bool(pcfg.get("native_compat", True))
-
-
-def lm_studio_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return provider == "lm-studio" and bool(pcfg.get("native_compat", True))
-
-
-def nvidia_hosted_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    # NVIDIA's self-hosted NIM server exposes Anthropic-compatible /v1/messages.
-    # The hosted API Catalog endpoint at integrate.api.nvidia.com currently
-    # exposes OpenAI-compatible /v1/chat/completions instead, so keep it on the
-    # ciel-runtime router conversion path even if an old config has native=true.
-    return False
-
-
-def deepseek_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return provider == "deepseek" and bool(pcfg.get("native_compat", True))
-
-
-def opencode_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return (
-        provider in OPENCODE_PROVIDER_NAMES
-        and bool(pcfg.get("native_compat", True))
-        and opencode_endpoint_kind(provider, str(pcfg.get("current_model") or ""), pcfg) == "anthropic-messages"
-    )
-
-
-def kimi_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return provider == "kimi" and bool(pcfg.get("native_compat", True))
-
-
-def zai_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return provider == "zai" and bool(pcfg.get("native_compat", True))
-
-
-def fireworks_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    return provider == "fireworks" and bool(pcfg.get("native_compat", True))
-
-
-def provider_native_compat_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    adapter = configured_provider_adapter(provider, pcfg)
-    return adapter.router_native_anthropic_enabled(
+_PROVIDER_NATIVE_COMPATIBILITY = ProviderNativeCompatibilityPolicy(
+    native_enabled=lambda provider, pcfg: configured_provider_adapter(
+        provider, pcfg
+    ).router_native_anthropic_enabled(
         provider_contract_config(provider, pcfg),
         str(pcfg.get("current_model") or ""),
-    )
+    ),
+    compatibility_groups={
+        "ollama": frozenset({"ollama"}),
+        "vllm": frozenset({"vllm"}),
+        "nim": frozenset({"self-hosted-nim"}),
+        "lm_studio": frozenset({"lm-studio"}),
+        "nvidia": frozenset({"nvidia-hosted"}),
+        "deepseek": frozenset({"deepseek"}),
+        "opencode": frozenset(OPENCODE_PROVIDER_NAMES),
+        "kimi": frozenset({"kimi"}),
+        "zai": frozenset({"zai"}),
+        "fireworks": frozenset({"fireworks"}),
+    },
+)
+provider_native_compat_enabled = _PROVIDER_NATIVE_COMPATIBILITY.native_enabled
+ollama_native_compat_enabled = _PROVIDER_NATIVE_COMPATIBILITY.ollama
+vllm_native_compat_enabled = _PROVIDER_NATIVE_COMPATIBILITY.vllm
+nim_native_compat_enabled = _PROVIDER_NATIVE_COMPATIBILITY.nim
+lm_studio_native_compat_enabled = _PROVIDER_NATIVE_COMPATIBILITY.lm_studio
+nvidia_hosted_native_compat_enabled = _PROVIDER_NATIVE_COMPATIBILITY.nvidia
+deepseek_native_compat_enabled = _PROVIDER_NATIVE_COMPATIBILITY.deepseek
+opencode_native_compat_enabled = _PROVIDER_NATIVE_COMPATIBILITY.opencode
+kimi_native_compat_enabled = _PROVIDER_NATIVE_COMPATIBILITY.kimi
+zai_native_compat_enabled = _PROVIDER_NATIVE_COMPATIBILITY.zai
+fireworks_native_compat_enabled = _PROVIDER_NATIVE_COMPATIBILITY.fireworks
 
 
 def provider_model_selection() -> ProviderModelSelection:

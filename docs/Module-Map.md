@@ -933,6 +933,10 @@ Codex resume database 위치 결정, 세션 조회, UI 행 projection과 선택 
 
 Provider request model alias, stream 요구사항, API-key 복구와 outbound header 생성을 소유하는 Application Service. Anthropic OAuth/inbound credential 처리는 provider 이름 분기 대신 Adapter의 `credential_strategy` 선언으로 선택하고, adapter header 및 credential 효과는 최대 5필드 typed port로 주입한다.
 
+### `ciel_runtime_support/provider_runtime_modes.py`
+
+Claude/AGY/Codex native·routed·direct mode와 provider native-Anthropic compatibility 그룹을 선언형 mapping으로 판정하는 Domain Policy. 실제 native compatibility는 Provider Adapter의 `router_native_anthropic_enabled` 전략에 위임하고 facade의 provider 이름 비교 함수를 제거한다.
+
 ### `ciel_runtime_support/pseudo_tool_parser.py`
 
 Provider가 텍스트로 출력한 pseudo tool-call envelope를 해석하는 Parser Strategy. JSON·tag 형식 정규화를 protocol layer에 한정한다.

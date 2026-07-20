@@ -526,15 +526,12 @@ class ProviderContractMatrixTests(unittest.TestCase):
     def test_main_native_compatibility_delegates_to_adapter(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
-        function = next(
-            node
-            for node in tree.body
-            if isinstance(node, ast.FunctionDef) and node.name == "provider_native_compat_enabled"
-        )
-        function_source = ast.get_source_segment(source, function) or ""
-        self.assertIn("router_native_anthropic_enabled", function_source)
-        self.assertNotIn("vllm_native_compat_enabled", function_source)
-        self.assertNotIn("opencode_native_compat_enabled", function_source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        self.assertNotIn("provider_native_compat_enabled", root_functions)
+        self.assertIn("ProviderNativeCompatibilityPolicy", source)
+        self.assertIn("router_native_anthropic_enabled", source)
 
     def test_context_workflows_delegate_without_provider_dispatch(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")

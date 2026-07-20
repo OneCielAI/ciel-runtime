@@ -119,6 +119,10 @@ from ciel_runtime_support.provider_request_access import (
     ProviderRequestAccessPorts,
     ProviderRequestAccessService,
 )
+from ciel_runtime_support.provider_runtime_modes import (
+    ProviderNativeCompatibilityPolicy,
+    RuntimeModePolicy,
+)
 from ciel_runtime_support.claude_router import (
     ClaudeRouterCore,
     ClaudeRouterCountTokens,
@@ -2094,6 +2098,45 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(ProviderRequestAccessPorts)), 5)
         self.assertLessEqual(len(fields(ProviderRequestAccessEffects)), 3)
         self.assertEqual(2, len(fields(ProviderRequestAccessService)))
+
+    def test_runtime_modes_are_policy_owned_without_facade_branches(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        root_functions = {
+            node.name
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "native_anthropic_enabled",
+            "anthropic_routed_enabled",
+            "direct_native_anthropic_enabled",
+            "native_agy_enabled",
+            "agy_routed_enabled",
+            "direct_native_agy_enabled",
+            "native_codex_enabled",
+            "codex_routed_enabled",
+            "direct_native_codex_enabled",
+            "provider_native_compat_enabled",
+            "ollama_native_compat_enabled",
+            "vllm_native_compat_enabled",
+            "nim_native_compat_enabled",
+            "lm_studio_native_compat_enabled",
+            "nvidia_hosted_native_compat_enabled",
+            "deepseek_native_compat_enabled",
+            "opencode_native_compat_enabled",
+            "kimi_native_compat_enabled",
+            "zai_native_compat_enabled",
+            "fireworks_native_compat_enabled",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        policy_source = (
+            root / "ciel_runtime_support" / "provider_runtime_modes.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", policy_source)
+        self.assertNotIn("__getattr__", policy_source)
+        self.assertEqual(2, len(fields(RuntimeModePolicy)))
+        self.assertEqual(2, len(fields(ProviderNativeCompatibilityPolicy)))
 
     def test_npm_runtime_utilities_are_infrastructure_reexports(self):
         root = Path(__file__).resolve().parents[1]
