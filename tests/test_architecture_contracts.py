@@ -195,6 +195,10 @@ from ciel_runtime_support.channel_terminal_dispatch import (
 from ciel_runtime_support.terminal_platform_io import (
     TerminalInputModeResetPolicy,
 )
+from ciel_runtime_support.windows_console_mode import (
+    WindowsConsoleModePorts,
+    WindowsConsoleModeService,
+)
 from ciel_runtime_support.channel_tool_context import (
     ChannelToolContextPolicy,
     ChannelToolContextPorts,
@@ -2448,6 +2452,38 @@ class ArchitectureContractTests(unittest.TestCase):
         adapter_source = (
             root / "ciel_runtime_support" / "terminal_platform_io.py"
         ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", adapter_source)
+
+    def test_windows_console_mode_is_adapter_owned(self):
+        self.assertEqual(1, len(fields(WindowsConsoleModeService)))
+        self.assertEqual(3, len(fields(WindowsConsoleModePorts)))
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        wrappers = {
+            node.name: ast.get_source_segment(source, node) or ""
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name
+            in {
+                "_windows_console_input_mode",
+                "_set_windows_console_input_mode",
+            }
+        }
+        self.assertEqual(
+            {
+                "_windows_console_input_mode",
+                "_set_windows_console_input_mode",
+            },
+            set(wrappers),
+        )
+        self.assertTrue(
+            all("ctypes" not in wrapper for wrapper in wrappers.values())
+        )
+        adapter_source = (
+            root / "ciel_runtime_support" / "windows_console_mode.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('ctypes.WinDLL("kernel32"', adapter_source)
         self.assertNotIn("import ciel_runtime", adapter_source)
 
     def test_channel_session_repository_stays_below_dependency_limit(self):

@@ -1128,6 +1128,7 @@ from ciel_runtime_support.sse_trace import (
 from ciel_runtime_support import runtime_launch
 from ciel_runtime_support import streaming_anthropic
 from ciel_runtime_support import terminal_platform_io
+from ciel_runtime_support import windows_console_mode
 from ciel_runtime_support.pseudo_tool_parser import (
     PseudoToolParserServices,
     infer_tool_name_from_args as project_infer_tool_name,
@@ -12994,76 +12995,43 @@ def _windows_console_input_handle() -> Any:
     return _resolve_windows_console_input_handle()
 
 
+def windows_console_mode_service() -> windows_console_mode.WindowsConsoleModeService:
+    return windows_console_mode.WindowsConsoleModeService(
+        windows_console_mode.WindowsConsoleModePorts(
+            input_handle=_windows_console_input_handle,
+            parse_bool=parse_bool,
+            environment=os.environ,
+        )
+    )
+
+
 def _windows_console_input_supported() -> bool:
-    # Python's isatty() can be false through npm.cmd -> py.exe launch chains even
-    # when the process is attached to a real Windows console. GetConsoleMode is
-    # the authoritative check and rejects redirected pipe/file handles.
-    return _windows_console_input_mode() is not None
+    return windows_console_mode_service().input_supported()
 
 
 def _windows_console_mouse_input_filter_enabled() -> bool:
-    return parse_bool(os.environ.get("CIEL_RUNTIME_WINDOWS_CONSOLE_MOUSE_FILTER"), True)
+    return windows_console_mode_service().mouse_filter_enabled()
 
 
 def _windows_console_input_mode() -> int | None:
-    handle = _windows_console_input_handle()
-    if handle is None:
-        return None
-    try:
-        import ctypes
-        from ctypes import wintypes
-
-        mode = wintypes.DWORD(0)
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        kernel32.GetConsoleMode.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
-        kernel32.GetConsoleMode.restype = wintypes.BOOL
-        ok = kernel32.GetConsoleMode(handle, ctypes.byref(mode))
-        if not ok:
-            return None
-        return int(mode.value)
-    except Exception:
-        return None
+    return windows_console_mode_service().current()
 
 
 def _set_windows_console_input_mode(mode: int) -> bool:
-    handle = _windows_console_input_handle()
-    if handle is None:
-        return False
-    try:
-        import ctypes
-        from ctypes import wintypes
-
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        kernel32.SetConsoleMode.argtypes = [wintypes.HANDLE, wintypes.DWORD]
-        kernel32.SetConsoleMode.restype = wintypes.BOOL
-        ok = kernel32.SetConsoleMode(handle, wintypes.DWORD(int(mode)))
-        return bool(ok)
-    except Exception:
-        return False
+    return windows_console_mode_service().set(mode)
 
 
-class _WindowsConsoleMouseInputGuard:
-    ENABLE_MOUSE_INPUT = 0x0010
-
+class _WindowsConsoleMouseInputGuard(
+    windows_console_mode.WindowsConsoleMouseInputGuard
+):
     def __init__(self) -> None:
-        self.original_mode: int | None = None
-
-    def apply(self) -> None:
-        if os.name != "nt" or not _windows_console_mouse_input_filter_enabled():
-            return
-        current = _windows_console_input_mode()
-        if current is None:
-            return
-        if self.original_mode is None:
-            self.original_mode = current
-        filtered = current & ~self.ENABLE_MOUSE_INPUT
-        if filtered != current and _set_windows_console_input_mode(filtered):
-            router_log("INFO", f"windows_console_mouse_input_disabled mode={current:#x}->{filtered:#x}")
-
-    def restore(self) -> None:
-        if os.name != "nt" or self.original_mode is None:
-            return
-        _set_windows_console_input_mode(self.original_mode)
+        super().__init__(
+            platform_name=os.name,
+            filter_enabled=_windows_console_mouse_input_filter_enabled,
+            current_mode=_windows_console_input_mode,
+            set_mode=_set_windows_console_input_mode,
+            log=router_log,
+        )
 
 
 def _windows_console_utf16_units(chars: Iterable[str]) -> list[str]:

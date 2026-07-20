@@ -183,6 +183,10 @@ Windows Console/POSIX PTY/direct subprocess 선택과 tracked child-process reco
 
 터미널 크기 fallback, POSIX PTY winsize ioctl과 mouse/input-mode reset 시퀀스를 소유하는 Infrastructure Adapter. input reset 활성화·주기 clamp는 platform, environment, boolean codec, default stream만 받는 4필드 불변 Policy로 분리한다.
 
+### `ciel_runtime_support/windows_console_mode.py`
+
+Windows `GetConsoleMode`/`SetConsoleMode`, console 지원 판정과 mouse-input bit 비활성화·복원 수명주기를 소유하는 Infrastructure Adapter. handle·boolean codec·environment는 3필드 port로 주입하고 Guard는 현재 mode callback을 명시적으로 받아 파사드나 전역 상태를 역참조하지 않는다.
+
 ### `ciel_runtime_support/channel_transcript.py`
 
 Claude/Codex JSONL transcript의 사용자 텍스트, assistant turn, tool call/result 및 활성 turn 상태를 해석하는 순수 Channel 도메인 서비스. 파일·프로세스·composition root 전역에 의존하지 않는다.
