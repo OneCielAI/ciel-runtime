@@ -683,7 +683,7 @@ class ChannelConfigTests(unittest.TestCase):
                 mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
                 mock.patch.object(ciel_runtime, "WEB_TOOLS_MCP_CONFIG", path),
                 mock.patch.object(ciel_runtime, "find_executable", return_value=None),
-                mock.patch.object(ciel_runtime.importlib.util, "find_spec", return_value=None),
+                mock.patch("ciel_runtime_support.managed_mcp_config.importlib.util.find_spec", return_value=None),
                 mock.patch.object(ciel_runtime, "router_log") as log,
             ):
                 ciel_runtime.write_web_tools_mcp_config({"web_search": {"fetch_enabled": True}})

@@ -302,6 +302,12 @@ from ciel_runtime_support.mcp_http_proxy import (
     McpHttpProxyServices,
     McpHttpProxyTransport,
 )
+from ciel_runtime_support.managed_mcp_config import (
+    ManagedMcpConfigPaths,
+    ManagedMcpConfigPolicy,
+    ManagedMcpConfigPorts,
+    ManagedMcpConfigService,
+)
 from ciel_runtime_support.mcp_split_proxy_http import McpSplitProxyHttpPorts
 from ciel_runtime_support.provider_config_mutations import ProviderOptionPolicy
 from ciel_runtime_support.llm_presets import (
@@ -1682,9 +1688,6 @@ class ArchitectureContractTests(unittest.TestCase):
         tree = ast.parse(source_path.read_text(encoding="utf-8"))
         target_names = {
             "write_native_mcp_config_from_discovery",
-            "write_web_tools_mcp_config",
-            "write_zai_mcp_config",
-            "write_channel_mcp_config",
             "write_mcp_proxy_config",
             "write_codex_mcp_config_for_channel_discovery",
         }
@@ -1698,6 +1701,15 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(function=name):
                 self.assertIn("json_artifact_repository", source)
                 self.assertNotIn("os.chmod", source)
+
+        managed_factory = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "managed_mcp_config_service"
+        )
+        managed_source = ast.unparse(managed_factory)
+        self.assertIn("json_artifact_repository", managed_source)
+        self.assertNotIn("os.chmod", managed_source)
 
         compact_factory = next(
             node
@@ -1737,6 +1749,28 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertIn("read_mcp_config_items", source)
                 self.assertNotIn("read_text", source)
                 self.assertNotIn("json.loads", source)
+
+    def test_managed_mcp_config_service_owns_server_projection(self):
+        for port in (
+            ManagedMcpConfigPaths,
+            ManagedMcpConfigPolicy,
+            ManagedMcpConfigPorts,
+            ManagedMcpConfigService,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        for function_name in ("write_web_tools_mcp_config", "write_zai_mcp_config", "write_channel_mcp_config"):
+            function = next(
+                node
+                for node in ast.parse(source).body
+                if isinstance(node, ast.FunctionDef) and node.name == function_name
+            )
+            function_source = ast.unparse(function)
+            with self.subTest(function=function_name):
+                self.assertIn("managed_mcp_config_service", function_source)
+                self.assertNotIn("mcpServers", function_source)
+                self.assertNotIn("find_executable", function_source)
 
     def test_request_trace_ports_stay_below_dependency_limit(self):
         for port in (RequestTracePolicy, RequestTraceProjection, RequestTraceServices):

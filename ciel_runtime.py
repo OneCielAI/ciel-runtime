@@ -7,7 +7,6 @@ import getpass
 import hashlib
 import hmac
 import html as html_lib
-import importlib.util
 import json
 import math
 import os
@@ -558,6 +557,12 @@ from ciel_runtime_support.mcp_config_reader import (
     read_mcp_config_items,
     server_names_from_mapping as _mcp_server_names_from_mapping,
     servers_from_mapping as _mcp_servers_from_mapping,
+)
+from ciel_runtime_support.managed_mcp_config import (
+    ManagedMcpConfigPaths,
+    ManagedMcpConfigPolicy,
+    ManagedMcpConfigPorts,
+    ManagedMcpConfigService,
 )
 from ciel_runtime_support.mcp_proxy_codec import (
     McpProxyCodecPolicy,
@@ -13969,117 +13974,43 @@ def claude_code_channels_auth_available(claude: str) -> tuple[bool, str]:
 
 
 def write_web_tools_mcp_config(cfg: dict[str, Any]) -> Path:
-    web = cfg.get("web_search", {})
-    package = web.get("package") or "ddg-mcp-search"
-    npx = find_executable("npx") or ("npx.cmd" if os.name == "nt" else "npx")
-    servers: dict[str, Any] = {
-        "duckduckgo": {
-            "command": npx,
-            "args": ["-y", package],
-        }
-    }
-    if web.get("fetch_enabled", True):
-        fetch_args = [web.get("fetch_package") or "mcp-server-fetch"]
-        if web.get("fetch_user_agent"):
-            fetch_args.extend(["--user-agent", str(web["fetch_user_agent"])])
-        if web.get("fetch_ignore_robots_txt", False):
-            fetch_args.append("--ignore-robots-txt")
-        fetch_command = find_executable("uvx")
-        fetch_command_args = fetch_args
-        if not fetch_command:
-            uv = find_executable("uv")
-            if uv:
-                fetch_command = uv
-                fetch_command_args = ["tool", "run", *fetch_args]
-            elif importlib.util.find_spec("uv") is not None:
-                fetch_command = sys.executable
-                fetch_command_args = ["-m", "uv", "tool", "run", *fetch_args]
-            else:
-                pipx = find_executable("pipx")
-                if pipx:
-                    fetch_command = pipx
-                    fetch_command_args = ["run", *fetch_args]
-        if fetch_command:
-            servers["web_fetch"] = {
-                "command": fetch_command,
-                "args": fetch_command_args,
-                "ciel_runtime_stdio": "jsonl",
-            }
-        else:
-            router_log("WARN", "web_fetch_disabled_missing_runner install=uvx_or_uv")
-    data = {"mcpServers": servers}
-    json_artifact_repository(WEB_TOOLS_MCP_CONFIG).save(data, "web_tools_mcp_config")
-    return WEB_TOOLS_MCP_CONFIG
+    return managed_mcp_config_service().write_web_tools(cfg)
 
 
 def write_duckduckgo_mcp_config(cfg: dict[str, Any]) -> Path:
-    path = write_web_tools_mcp_config(cfg)
-    try:
-        DUCKDUCKGO_MCP_CONFIG.write_text(path.read_text())
-    except (OSError, UnicodeError) as exc:
-        router_log(
-            "WARN",
-            f"duckduckgo_mcp_compat_config_write_failed error={type(exc).__name__}: {exc}",
-        )
-    return path
+    return managed_mcp_config_service().write_duckduckgo_compat(cfg)
 
 
 def write_zai_mcp_config(provider: str, pcfg: dict[str, Any]) -> Path | None:
-    if provider != "zai" or not bool(pcfg.get("managed_mcp", True)):
-        return None
-    key = provider_primary_api_key(provider, pcfg)
-    if not meaningful_key(key):
-        router_log("WARN", "zai_mcp_config_skipped_missing_api_key")
-        return None
-    npx = find_executable("npx") or ("npx.cmd" if os.name == "nt" else "npx")
-    servers: dict[str, Any] = {
-        "zai-mcp-server": {
-            "type": "stdio",
-            "command": npx,
-            "args": ["-y", "@z_ai/mcp-server@latest"],
-            "env": {
-                "Z_AI_API_KEY": key,
-                "Z_AI_MODE": "ZAI",
-            },
-        }
-    }
-    auth_header = {"Authorization": f"Bearer {key}"}
-    for name, url in ZAI_MANAGED_MCP_SERVERS:
-        servers[name] = {
-            "type": "http",
-            "url": url,
-            "headers": dict(auth_header),
-        }
-    data = {"mcpServers": servers}
-    json_artifact_repository(ZAI_MCP_CONFIG).save(data, "zai_mcp_config")
-    router_log("INFO", f"zai_mcp_config_written servers={','.join(sorted(servers))}")
-    return ZAI_MCP_CONFIG
+    return managed_mcp_config_service().write_zai(provider, pcfg)
 
 
 def reset_zai_mcp_config_if_inactive(provider: str) -> None:
-    if provider == "zai":
-        return
-    try:
-        ZAI_MCP_CONFIG.unlink()
-        router_log("INFO", "zai_mcp_config_removed inactive_provider")
-    except FileNotFoundError:
-        pass
-    except Exception as exc:
-        router_log("WARN", f"zai_mcp_config_remove_failed error={type(exc).__name__}: {exc}")
+    managed_mcp_config_service().reset_zai_if_inactive(provider)
 
 
 def write_channel_mcp_config() -> Path:
-    data = {
-        "mcpServers": {
-            "ciel-runtime-router": {
-                "type": "sse",
-                "url": f"{ROUTER_BASE}/ca/mcp/sse",
-            }
-        }
-    }
-    json_artifact_repository(CHANNEL_MCP_CONFIG).save(data, "channel_mcp_config")
-    _channel_mcp_ensure_cursor_initialized()
-    return CHANNEL_MCP_CONFIG
+    return managed_mcp_config_service().write_channel()
+
+
+def managed_mcp_config_service() -> ManagedMcpConfigService:
+    return ManagedMcpConfigService(
+        ManagedMcpConfigPaths(
+            WEB_TOOLS_MCP_CONFIG,
+            DUCKDUCKGO_MCP_CONFIG,
+            ZAI_MCP_CONFIG,
+            CHANNEL_MCP_CONFIG,
+        ),
+        ManagedMcpConfigPolicy(ROUTER_BASE, tuple(ZAI_MANAGED_MCP_SERVERS)),
+        ManagedMcpConfigPorts(
+            find_executable,
+            lambda path, data, operation: json_artifact_repository(path).save(data, operation),
+            provider_primary_api_key,
+            meaningful_key,
+            _channel_mcp_ensure_cursor_initialized,
+            router_log,
+        ),
+    )
 
 
 def write_mcp_proxy_config(
