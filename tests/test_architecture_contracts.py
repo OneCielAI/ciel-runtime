@@ -152,6 +152,13 @@ from ciel_runtime_support.claude_environment import (
     ClaudeModelPorts,
     ClaudeRuntimeSettingsPorts,
 )
+from ciel_runtime_support.router_client_lifecycle import (
+    ManagedRouterLifetimePorts,
+    RoutedLaunchDiagnosticPorts,
+    RouterClientRegistryPorts,
+    RouterClientSupervisorPorts,
+    RouterLifetimeRunnerPorts,
+)
 from ciel_runtime_support.headless_config import (
     HeadlessChannelCommands,
     HeadlessConfigCommands,
@@ -754,6 +761,16 @@ class ArchitectureContractTests(unittest.TestCase):
             ClaudeEnvironmentSourcePorts,
             ClaudeEnvironmentFeaturePorts,
             ClaudeRuntimeSettingsPorts,
+        ):
+            self.assertLessEqual(len(fields(port)), 10)
+
+    def test_router_client_lifecycle_ports_stay_below_dependency_limit(self):
+        for port in (
+            RouterClientRegistryPorts,
+            ManagedRouterLifetimePorts,
+            RouterClientSupervisorPorts,
+            RouterLifetimeRunnerPorts,
+            RoutedLaunchDiagnosticPorts,
         ):
             self.assertLessEqual(len(fields(port)), 10)
 

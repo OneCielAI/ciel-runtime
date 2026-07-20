@@ -169,6 +169,11 @@ construction, runtime settings, and shell rendering live in
 small typed port groups; the composition root retains only compatibility
 wrappers and dependency assembly.
 
+Managed-router client leases, idle shutdown, health supervision, runner
+lifetime, and routed-launch diagnostics live in `router_client_lifecycle.py`.
+The composition root supplies health/start/stop callbacks while filesystem,
+environment, and thread mechanics stay behind the lifecycle adapter.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

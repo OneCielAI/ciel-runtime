@@ -447,6 +447,18 @@ from ciel_runtime_support.router_process_lifecycle import (
     terminate_health_pid as terminate_project_router_health_pid,
     terminate_pid_file as terminate_project_pid_file,
 )
+from ciel_runtime_support.router_client_lifecycle import (
+    ManagedRouterLifetime,
+    ManagedRouterLifetimePorts,
+    RoutedLaunchDiagnosticPorts,
+    RoutedLaunchDiagnostics,
+    RouterClientRegistry,
+    RouterClientRegistryPorts,
+    RouterClientSupervisor,
+    RouterClientSupervisorPorts,
+    RouterLifetimeRunner,
+    RouterLifetimeRunnerPorts,
+)
 from ciel_runtime_support.provider_config_mutations import (
     ProviderOptionPolicy,
     apply_ollama_option as mutate_ollama_option,
@@ -13046,209 +13058,100 @@ def pid_is_running(pid: int) -> bool:
 
 
 def register_router_client(pid: int | None = None) -> Path:
-    client_pid = int(pid or os.getpid())
-    ROUTER_CLIENTS_DIR.mkdir(parents=True, exist_ok=True)
-    path = ROUTER_CLIENTS_DIR / f"{client_pid}.json"
-    payload = {
-        "pid": client_pid,
-        "started_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-        "router_port": ROUTER_PORT,
-    }
-    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-    try:
-        os.chmod(path, 0o600)
-    except Exception:
-        pass
-    router_log("INFO", f"router_client_registered pid={client_pid} path={path}")
-    return path
+    return router_client_registry().register(pid)
 
 
 def release_router_client(path: Path | None) -> None:
-    if path is None:
-        return
-    try:
-        path.unlink()
-        router_log("INFO", f"router_client_released path={path}")
-    except FileNotFoundError:
-        pass
-    except Exception as exc:
-        router_log("WARN", f"router_client_release_failed path={path} error={type(exc).__name__}: {exc}")
+    router_client_registry().release(path)
+
+
+def router_client_registry() -> RouterClientRegistry:
+    return RouterClientRegistry(
+        ROUTER_CLIENTS_DIR,
+        ROUTER_PORT,
+        RouterClientRegistryPorts(pid_is_running=pid_is_running, log=router_log),
+    )
 
 
 def router_managed_idle_exit_seconds() -> float:
-    raw = os.environ.get("CIEL_RUNTIME_ROUTER_IDLE_EXIT_SECONDS", "90")
-    try:
-        value = float(raw)
-    except (TypeError, ValueError):
-        value = 90.0
-    return max(0.0, value)
+    return ManagedRouterLifetime.idle_exit_seconds()
+
+
+def managed_router_lifetime() -> ManagedRouterLifetime:
+    return ManagedRouterLifetime(
+        ManagedRouterLifetimePorts(
+            active_client_pids=active_router_client_pids,
+            pid_is_running=pid_is_running,
+            stop_router=stop_router_with_guarantee,
+            log=router_log,
+        )
+    )
 
 
 def managed_router_stop_reason(started_at: float, owner_pid: int, idle_seconds: float) -> str | None:
-    if os.environ.get("CIEL_RUNTIME_MANAGED_ROUTER") != "1":
-        return None
-    active = active_router_client_pids()
-    if active:
-        return None
-    if owner_pid > 0 and not pid_is_running(owner_pid):
-        return "owner_dead_no_clients"
-    if idle_seconds > 0 and time.time() - started_at >= idle_seconds:
-        return "idle_no_clients"
-    return None
+    return managed_router_lifetime().stop_reason(started_at, owner_pid, idle_seconds)
 
 
 def start_managed_router_lifetime_watchdog(server: ThreadingHTTPServer) -> None:
-    if os.environ.get("CIEL_RUNTIME_MANAGED_ROUTER") != "1":
-        return
-    try:
-        owner_pid = int(os.environ.get("CIEL_RUNTIME_ROUTER_OWNER_PID") or "0")
-    except ValueError:
-        owner_pid = 0
-    idle_seconds = router_managed_idle_exit_seconds()
-    started_at = time.time()
-
-    def watch() -> None:
-        interval = min(5.0, max(0.5, idle_seconds / 3.0 if idle_seconds else 5.0))
-        while True:
-            time.sleep(interval)
-            reason = managed_router_stop_reason(started_at, owner_pid, idle_seconds)
-            if not reason:
-                continue
-            router_log("INFO", f"router_managed_lifetime_shutdown reason={reason} owner_pid={owner_pid or '-'}")
-            try:
-                server.shutdown()
-            except Exception as exc:
-                router_log("ERROR", f"router_managed_lifetime_shutdown_failed error={type(exc).__name__}: {exc}")
-            return
-
-    thread = threading.Thread(target=watch, daemon=True, name="ca-router-lifetime-watchdog")
-    thread.start()
+    managed_router_lifetime().start_watchdog(server)
 
 
 def active_router_client_pids() -> list[int]:
-    if not ROUTER_CLIENTS_DIR.exists():
-        return []
-    active: list[int] = []
-    for path in ROUTER_CLIENTS_DIR.glob("*.json"):
-        pid = 0
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            pid = int(data.get("pid") or path.stem)
-        except Exception:
-            try:
-                pid = int(path.stem)
-            except Exception:
-                pid = 0
-        if pid_is_running(pid):
-            active.append(pid)
-            continue
-        try:
-            path.unlink()
-            router_log("INFO", f"router_client_stale_removed pid={pid or '-'} path={path}")
-        except Exception:
-            pass
-    return sorted(set(active))
+    return router_client_registry().active_pids()
 
 
 def stop_router_if_no_active_clients(reason: str, quiet: bool = True) -> bool:
-    active = active_router_client_pids()
-    if active:
-        router_log("INFO", f"router_lifetime_keep_alive reason={reason} active_clients={','.join(map(str, active))}")
-        return False
-    try:
-        stopped = stop_router_with_guarantee(reason, quiet=quiet)
-        router_log("INFO", f"router_lifetime_stopped reason={reason} stopped={stopped}")
-        return stopped
-    except Exception as exc:
-        router_log("ERROR", f"router_lifetime_stop_failed reason={reason} error={type(exc).__name__}: {exc}")
-        return False
+    return managed_router_lifetime().stop_if_idle(reason, quiet)
 
 
 def router_client_supervisor_interval_seconds() -> float:
-    raw = os.environ.get("CIEL_RUNTIME_ROUTER_SUPERVISOR_SECONDS", "0.5")
-    try:
-        value = float(raw)
-    except (TypeError, ValueError):
-        value = 0.5
-    return max(0.5, min(30.0, value))
+    return RouterClientSupervisor.interval_seconds()
+
+
+def router_client_supervisor() -> RouterClientSupervisor:
+    return RouterClientSupervisor(
+        ROUTER_BASE,
+        RouterClientSupervisorPorts(
+            router_health=router_health,
+            health_matches_current=router_health_matches_current,
+            health_summary=router_health_summary,
+            start_router=start_router_if_needed,
+            log=router_log,
+        ),
+    )
 
 
 def ensure_managed_router_running_for_client() -> bool:
-    health = router_health()
-    if router_health_matches_current(health):
-        return True
-    if health is not None:
-        router_log("WARN", f"router_lifetime_health_mismatch_active_client {router_health_summary(health)}")
-        try:
-            return bool(start_router_if_needed(replace_active_clients=False))
-        except Exception as exc:
-            router_log("ERROR", f"router_lifetime_restart_failed error={type(exc).__name__}: {exc}")
-            return False
-    for attempt in range(2):
-        time.sleep(0.5)
-        health = router_health()
-        if router_health_matches_current(health):
-            router_log("INFO", f"router_lifetime_keep_alive reason=transient_health_miss retry={attempt + 1} {router_health_summary(health)}")
-            return True
-    router_log("WARN", f"router_lifetime_restart reason=router_down_active_client base={ROUTER_BASE}")
-    try:
-        return bool(start_router_if_needed(replace_active_clients=False))
-    except Exception as exc:
-        router_log("ERROR", f"router_lifetime_restart_failed error={type(exc).__name__}: {exc}")
-        return False
+    return router_client_supervisor().ensure_running()
 
 
 def start_router_client_supervisor(stop_event: threading.Event) -> threading.Thread:
-    def watch() -> None:
-        interval = router_client_supervisor_interval_seconds()
-        while not stop_event.wait(interval):
-            ensure_managed_router_running_for_client()
-
-    thread = threading.Thread(target=watch, daemon=True, name="ca-router-client-supervisor")
-    thread.start()
-    return thread
+    return router_client_supervisor().start(stop_event)
 
 
 def file_size_or_zero(path: Path) -> int:
-    try:
-        return int(path.stat().st_size)
-    except Exception:
-        return 0
+    return RoutedLaunchDiagnostics.file_size(path)
 
 
 def _read_text_file_from_offset(path: Path, offset: int = 0, max_bytes: int = 262_144) -> str:
-    try:
-        size = path.stat().st_size
-        start = max(0, min(int(offset or 0), int(size)))
-        if size - start > max_bytes:
-            start = max(0, size - max_bytes)
-        with path.open("rb") as f:
-            f.seek(start)
-            return f.read(max_bytes).decode("utf-8", errors="replace")
-    except Exception:
-        return ""
+    return RoutedLaunchDiagnostics.read_from_offset(path, offset, max_bytes)
+
+
+def routed_launch_diagnostics() -> RoutedLaunchDiagnostics:
+    return RoutedLaunchDiagnostics(
+        ROUTER_BASE,
+        LOG_PATH,
+        RoutedLaunchDiagnosticPorts(
+            router_health=router_health,
+            health_summary=router_health_summary,
+            provider_summary=provider_upstream_summary_for_launch,
+            log=router_log,
+        ),
+    )
 
 
 def router_recent_diagnostic_lines(since_offset: int = 0, limit: int = 8) -> list[str]:
-    text = _read_text_file_from_offset(LOG_PATH, since_offset)
-    if not text:
-        return []
-    markers = (
-        "[ERROR]",
-        "[WARN]",
-        "ConnectionRefused",
-        "connection refused",
-        "URLError",
-        "router_lifetime",
-        "router_spawned",
-        "router_check_state",
-        "claude_exit",
-        "upstream_",
-        "ollama_",
-        "anthropic_sse_forward_error",
-    )
-    lines = [line.strip() for line in text.splitlines() if line.strip() and any(marker in line for marker in markers)]
-    return lines[-max(1, int(limit or 8)):]
+    return routed_launch_diagnostics().recent_lines(since_offset, limit)
 
 
 def provider_upstream_summary_for_launch(provider: str, pcfg: dict[str, Any]) -> str:
@@ -13265,20 +13168,7 @@ def provider_upstream_summary_for_launch(provider: str, pcfg: dict[str, Any]) ->
 
 
 def should_print_routed_claude_diagnostics(rc: int, recent_lines: list[str]) -> bool:
-    if rc != 0:
-        return True
-    text = "\n".join(recent_lines).lower()
-    return any(
-        marker in text
-        for marker in (
-            "connectionrefused",
-            "connection refused",
-            "urlerror",
-            "router_lifetime_restart_failed",
-            "router_lifetime_health_mismatch",
-            "anthropic_sse_forward_error",
-        )
-    )
+    return RoutedLaunchDiagnostics.should_print(rc, recent_lines)
 
 
 def print_routed_claude_exit_diagnostics(
@@ -13288,42 +13178,23 @@ def print_routed_claude_exit_diagnostics(
     *,
     log_offset: int = 0,
 ) -> None:
-    recent = router_recent_diagnostic_lines(log_offset)
-    if not should_print_routed_claude_diagnostics(rc, recent):
-        return
-    health = router_health()
-    lines = [
-        f"Ciel Runtime diagnostic: Claude Code exited with code {rc} while routed through {ROUTER_BASE}.",
-        f"Router: {router_health_summary(health)}",
-        f"Provider: {provider} {provider_upstream_summary_for_launch(provider, pcfg)}",
-        f"Router log: {LOG_PATH}",
-    ]
-    if recent:
-        lines.append("Recent router events:")
-        lines.extend(f"  {line}" for line in recent)
-    for line in lines:
-        print(line, flush=True)
-    router_log("WARN", "claude_routed_exit_diagnostic " + " | ".join(lines[:4]))
+    routed_launch_diagnostics().print_exit(rc, provider, pcfg, log_offset=log_offset)
+
+
+def router_lifetime_runner() -> RouterLifetimeRunner:
+    return RouterLifetimeRunner(
+        RouterLifetimeRunnerPorts(
+            register_client=register_router_client,
+            release_client=release_router_client,
+            start_supervisor=start_router_client_supervisor,
+            stop_if_idle=stop_router_if_no_active_clients,
+            log=router_log,
+        )
+    )
 
 
 def run_with_router_lifetime(runner: Callable[[], int], manage_router: bool) -> int:
-    client_path: Path | None = None
-    supervisor_stop: threading.Event | None = None
-    if manage_router:
-        try:
-            client_path = register_router_client()
-            supervisor_stop = threading.Event()
-            start_router_client_supervisor(supervisor_stop)
-        except Exception as exc:
-            router_log("WARN", f"router_client_register_failed error={type(exc).__name__}: {exc}")
-    try:
-        return runner()
-    finally:
-        if supervisor_stop is not None:
-            supervisor_stop.set()
-        if manage_router:
-            release_router_client(client_path)
-            stop_router_if_no_active_clients("claude_exit", quiet=True)
+    return router_lifetime_runner().run(runner, manage_router)
 
 
 def terminate_pid(pid: int, label: str, quiet: bool = False) -> bool:
