@@ -263,6 +263,11 @@ class ProviderAdapter(ABC):
     def default_base_url(self) -> str:
         """Return the provider default API base URL."""
 
+    def normalize_base_url(self, value: str) -> str:
+        """Normalize a user-supplied endpoint before it is persisted."""
+
+        return str(value or "").rstrip("/")
+
     def default_configuration(self) -> Mapping[str, Any]:
         """Return the minimal persisted configuration for a newly registered provider."""
 

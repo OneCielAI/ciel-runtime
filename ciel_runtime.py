@@ -482,6 +482,14 @@ from ciel_runtime_support.provider_config_mutations import (
     apply_ollama_option as mutate_ollama_option,
     apply_provider_option as mutate_provider_option,
 )
+from ciel_runtime_support.provider_configuration_service import (
+    ProviderEndpointPolicy,
+    ProviderEndpointPorts,
+    ProviderEndpointService,
+    ProviderStatusProjectionPorts,
+    ProviderStatusService,
+    RuntimeStatusPorts,
+)
 from ciel_runtime_support.provider_choice import (
     AGY_NATIVE_PROVIDER_CHOICE,
     AGY_ROUTED_PROVIDER_CHOICE,
@@ -9453,38 +9461,25 @@ def provider_choice_controller() -> ProviderChoiceController:
 
 
 def set_base_url_config(provider: str, url: str) -> list[str]:
-    cfg = load_config()
-    pcfg = cfg["providers"][provider]
-    if provider == "nvidia-hosted" and invalid_nvidia_hosted_base_url(url):
-        url = nvidia_upstream_base_url()
-    old_url = str(pcfg.get("base_url") or "").rstrip("/")
-    new_url = url.rstrip("/")
-    pcfg["base_url"] = new_url
-    reset_model = old_url != new_url
-    if reset_model:
-        pcfg["current_model"] = ""
-        pcfg["custom_models"] = []
-    lines = [f"Base URL for {provider} set to {pcfg['base_url']}."]
-    if reset_model:
-        clear_model_cache()
-        lines.append("Model selection was reset because the provider endpoint changed.")
-        detected_native, detect_reason = auto_detect_native_compat_for_base_url(provider, pcfg)
-        if detected_native is None:
-            if provider in AUTO_DETECT_NATIVE_COMPAT_PROVIDERS:
-                pcfg["native_compat"] = True
-                lines.append(f"Endpoint auto-detect inconclusive ({detect_reason}); Native compatibility kept on as the Anthropic default.")
-        else:
-            pcfg["native_compat"] = bool(detected_native)
-            mode = "enabled" if detected_native else "disabled"
-            lines.append(f"Endpoint auto-detected ({detect_reason}); Native compatibility {mode}.")
-        selected, selection_lines = ensure_current_model_from_provider_list(provider, pcfg, force_refresh=True)
-        lines.extend(selection_lines)
-        if not selected:
-            lines.append("Choose a model before running compatibility test or Launch Claude Code.")
-    save_config(cfg)
-    if not reset_model:
-        clear_model_cache()
-    return lines
+    return provider_endpoint_service().set_base_url(provider, url)
+
+
+def normalize_provider_base_url(provider: str, pcfg: dict[str, Any], url: str) -> str:
+    return configured_provider_adapter(provider, pcfg).normalize_base_url(url)
+
+
+def provider_endpoint_service() -> ProviderEndpointService:
+    return ProviderEndpointService(
+        policy=ProviderEndpointPolicy(frozenset(AUTO_DETECT_NATIVE_COMPAT_PROVIDERS).__contains__),
+        ports=ProviderEndpointPorts(
+            load_config=load_config,
+            save_config=save_config,
+            clear_model_cache=clear_model_cache,
+            normalize_base_url=normalize_provider_base_url,
+            detect_native_compat=auto_detect_native_compat_for_base_url,
+            ensure_current_model=ensure_current_model_from_provider_list,
+        ),
+    )
 
 
 def set_model_config(value: str) -> list[str]:
@@ -9886,48 +9881,33 @@ def provider_mode_label(provider: str, pcfg: dict[str, Any]) -> str:
 
 
 def status_lines() -> list[str]:
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    mode = provider_mode_label(provider, pcfg)
-    direct_native = direct_native_anthropic_enabled(provider, pcfg)
-    adapter = configured_provider_adapter(provider, pcfg)
-    configuration = adapter.configuration_policy(provider_contract_config(provider, pcfg))
-    provider_lines: list[str] = []
-    if configuration.uses_ollama_status:
-        provider_lines.extend(
-            (
-                f"num_ctx: {ollama_num_ctx_status(pcfg)}",
-                f"ollama_options: {ollama_options_status(pcfg)}",
-                f"keep_alive: {pcfg.get('keep_alive', 'default')}",
-                f"think: {ollama_think_status(current_upstream_model_id(provider, pcfg), pcfg)}",
-                f"request_timeout_ms: {pcfg.get('request_timeout_ms', 'default')}",
-                f"stream_idle_timeout_ms: {pcfg.get('stream_idle_timeout_ms', 'auto')}",
-            )
-        )
-    for field_name in configuration.status_fields:
-        default = "auto" if field_name == "stream_idle_timeout_ms" else "default"
-        provider_lines.append(f"{field_name}: {pcfg.get(field_name, default)}")
-    claude_model = (
-        "disabled for native runtime provider"
-        if configuration.runtime_owns_model
-        else current_upstream_model_id(provider, pcfg)
-        if direct_native
-        else current_alias(cfg)
+    return provider_status_service().lines()
+
+
+def provider_status_service() -> ProviderStatusService:
+    return ProviderStatusService(
+        projection=ProviderStatusProjectionPorts(
+            get_current_provider=get_current_provider,
+            mode_label=provider_mode_label,
+            direct_native_anthropic=direct_native_anthropic_enabled,
+            configured_adapter=configured_provider_adapter,
+            contract_config=provider_contract_config,
+            ollama_num_ctx_status=ollama_num_ctx_status,
+            ollama_options_status=ollama_options_status,
+            ollama_think_status=ollama_think_status,
+            current_upstream_model=current_upstream_model_id,
+            current_alias=current_alias,
+        ),
+        runtime=RuntimeStatusPorts(
+            load_config=load_config,
+            log_level_status=log_level_status,
+            channel_status_text=channel_status_text,
+            channel_delivery_mode=channel_delivery_mode,
+            router_up=router_up,
+            router_base=ROUTER_BASE,
+            config_path=CONFIG_PATH,
+        ),
     )
-    return [
-        f"provider: {provider}",
-        f"language: {cfg.get('language', 'en')}",
-        f"mode: {mode}",
-        f"base_url: {pcfg.get('base_url')}",
-        f"model: {pcfg.get('current_model')}",
-        *provider_lines,
-        f"claude_model: {claude_model}",
-        f"log_level: {log_level_status()}",
-        f"channels: {channel_status_text(cfg)}",
-        f"channel_delivery: {channel_delivery_mode(cfg)}",
-        f"router: {'bypassed for native provider compatibility' if direct_native else (('up' if router_up() else 'down') + ' ' + ROUTER_BASE)}",
-        f"config: {CONFIG_PATH}",
-    ]
 
 
 def cmd_status(_: argparse.Namespace) -> None:

@@ -321,6 +321,14 @@ from ciel_runtime_support.managed_mcp_config import (
 )
 from ciel_runtime_support.mcp_split_proxy_http import McpSplitProxyHttpPorts
 from ciel_runtime_support.provider_config_mutations import ProviderOptionPolicy
+from ciel_runtime_support.provider_configuration_service import (
+    ProviderEndpointPolicy,
+    ProviderEndpointPorts,
+    ProviderEndpointService,
+    ProviderStatusProjectionPorts,
+    ProviderStatusService,
+    RuntimeStatusPorts,
+)
 from ciel_runtime_support.llm_presets import (
     PresetContextPolicy,
     PresetDefinition,
@@ -1430,13 +1438,14 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertEqual([], provider_comparisons)
 
     def test_provider_status_projection_does_not_branch_on_provider_names(self):
-        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
-        tree = ast.parse(source_path.read_text(encoding="utf-8"))
-        function = next(
-            node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "status_lines"
+        source_path = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "provider_configuration_service.py"
         )
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
         provider_comparisons = []
-        for node in ast.walk(function):
+        for node in ast.walk(tree):
             if not isinstance(node, ast.Compare):
                 continue
             compared_names = {
@@ -1448,6 +1457,30 @@ class ArchitectureContractTests(unittest.TestCase):
                 provider_comparisons.append(node.lineno)
 
         self.assertEqual([], provider_comparisons)
+
+    def test_provider_configuration_services_stay_typed_and_outside_facade(self):
+        for port in (
+            ProviderEndpointPolicy,
+            ProviderEndpointPorts,
+            ProviderEndpointService,
+            ProviderStatusProjectionPorts,
+            ProviderStatusService,
+            RuntimeStatusPorts,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        functions = {
+            node.name: ast.unparse(node)
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name in {"set_base_url_config", "status_lines"}
+        }
+        self.assertIn("provider_endpoint_service", functions["set_base_url_config"])
+        self.assertIn("provider_status_service", functions["status_lines"])
+        for function_source in functions.values():
+            self.assertNotIn("save_config", function_source)
+            self.assertNotIn("configuration_policy", function_source)
 
     def test_provider_menu_projection_does_not_branch_on_provider_names(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
