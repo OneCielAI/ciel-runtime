@@ -227,6 +227,11 @@ AGY's official manifest installation and update lifecycle lives in
 post-install, and native-update fallback form one installation boundary; the
 facade injects executable/version/command effects through a bounded port.
 
+Channel backlog inspection and clearing use `ChannelBacklogService`. Cursor
+stores/caches and live session/notification state are separate typed ports, so
+the facade only supplies controlled global-state setters and no longer owns the
+multi-lock clear transaction.
+
 Chat attachment decoding, size validation, safe naming, storage, URL metadata,
 and Markdown projection live in `ChatFileRepository`; only clocks are injected
 and callers no longer own filesystem mechanics.

@@ -106,6 +106,11 @@ from ciel_runtime_support.chat_http_controller import (
     ChatHttpWriteServices,
 )
 from ciel_runtime_support.channel_inflight import ChannelInflightEffects
+from ciel_runtime_support.channel_backlog import (
+    ChannelBacklogCursors,
+    ChannelBacklogRuntime,
+    ChannelBacklogService,
+)
 from ciel_runtime_support.channel_connection_registry import ChannelConnectionRegistry
 from ciel_runtime_support.channel_connection_lifecycle import (
     ChannelConnectionLifecycle,
@@ -14472,68 +14477,46 @@ def prepare_channel_llm_delivery_for_launch() -> int:
     return last_id
 
 
-def clear_channel_backlog() -> dict[str, Any]:
-    global _CHANNEL_LLM_CURSOR_LAST_ID, _CHANNEL_MCP_CURSOR_LAST_ID
-    chat_tail = max(0, _chat_scan_max_id())
+def _cache_channel_llm_cursor(last_id: int) -> None:
+    global _CHANNEL_LLM_CURSOR_LAST_ID
+    _CHANNEL_LLM_CURSOR_LAST_ID = last_id
 
-    with _CHANNEL_LLM_CURSOR_LOCK:
-        old_llm = _channel_llm_read_cursor_locked()
-        _CHANNEL_LLM_CURSOR_LAST_ID = chat_tail
-        try:
-            _channel_llm_write_cursor_locked(chat_tail)
-        except Exception as exc:
-            router_log("WARN", f"channel_llm_cursor_write_failed error={type(exc).__name__}: {exc}")
-        try:
-            _channel_llm_clear_floor_write(chat_tail)
-        except Exception as exc:
-            router_log("WARN", f"channel_llm_clear_floor_write_failed error={type(exc).__name__}: {exc}")
-    _CHANNEL_STDIN_RECOVERY_CACHE.clear()
 
-    with _CHANNEL_MCP_CURSOR_LOCK:
-        old_mcp = _channel_mcp_read_cursor_locked()
-        _CHANNEL_MCP_CURSOR_LAST_ID = chat_tail
-        try:
-            _channel_mcp_write_cursor_locked(chat_tail)
-        except Exception as exc:
-            router_log("WARN", f"channel_mcp_cursor_write_failed error={type(exc).__name__}: {exc}")
+def _cache_channel_mcp_cursor(last_id: int) -> None:
+    global _CHANNEL_MCP_CURSOR_LAST_ID
+    _CHANNEL_MCP_CURSOR_LAST_ID = last_id
 
-    with _CHANNEL_MCP_LOCK:
-        for state in _CHANNEL_MCP_SESSIONS.values():
-            try:
-                state["last_id"] = max(int(state.get("last_id") or 0), chat_tail)
-            except Exception:
-                state["last_id"] = chat_tail
 
-    with _CHAT_CONDITION:
-        _CHAT_CONDITION.notify_all()
-    stats = {
-        "chat_tail": chat_tail,
-        "discarded_llm": max(0, chat_tail - int(old_llm or 0)),
-        "discarded_mcp": max(0, chat_tail - int(old_mcp or 0)),
-        "mcp_sessions_updated": len(_CHANNEL_MCP_SESSIONS),
-    }
-    router_log(
-        "INFO",
-        "channel_backlog_cleared "
-        f"chat_tail={chat_tail} "
-        f"discarded_llm={stats['discarded_llm']} discarded_mcp={stats['discarded_mcp']} "
-        f"mcp_sessions_updated={stats['mcp_sessions_updated']}",
+def channel_backlog_service() -> ChannelBacklogService:
+    return ChannelBacklogService(
+        ChannelBacklogCursors(
+            _chat_scan_max_id,
+            _CHANNEL_LLM_CURSOR_LOCK,
+            _channel_llm_read_cursor_locked,
+            _channel_llm_write_cursor_locked,
+            _cache_channel_llm_cursor,
+            _channel_llm_clear_floor_write,
+            _CHANNEL_MCP_CURSOR_LOCK,
+            _channel_mcp_read_cursor_locked,
+            _channel_mcp_write_cursor_locked,
+            _cache_channel_mcp_cursor,
+        ),
+        ChannelBacklogRuntime(
+            _CHANNEL_STDIN_RECOVERY_CACHE,
+            _CHANNEL_MCP_LOCK,
+            _CHANNEL_MCP_SESSIONS,
+            _CHAT_CONDITION,
+            router_log,
+        ),
     )
-    return stats
+
+
+def clear_channel_backlog() -> dict[str, Any]:
+    return channel_backlog_service().clear()
 
 
 def channel_backlog_status() -> dict[str, Any]:
-    chat_tail = max(0, _chat_scan_max_id())
-    with _CHANNEL_LLM_CURSOR_LOCK:
-        llm_cursor = _channel_llm_read_cursor_locked()
-    with _CHANNEL_MCP_CURSOR_LOCK:
-        mcp_cursor = _channel_mcp_read_cursor_locked()
-    return {
-        "chat_tail": chat_tail,
-        "pending_llm": max(0, chat_tail - int(llm_cursor or 0)),
-        "pending_mcp": max(0, chat_tail - int(mcp_cursor or 0)),
-        "mcp_sessions": len(_CHANNEL_MCP_SESSIONS),
-    }
+    return channel_backlog_service().status()
 
 
 def _metadata_int(metadata: dict[str, Any], key: str) -> int | None:

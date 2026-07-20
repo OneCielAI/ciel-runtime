@@ -62,6 +62,11 @@ from ciel_runtime_support.cli_parser import (
     CliParserSettings,
 )
 from ciel_runtime_support.channel_panel import ChannelPanelPolicy
+from ciel_runtime_support.channel_backlog import (
+    ChannelBacklogCursors,
+    ChannelBacklogRuntime,
+    ChannelBacklogService,
+)
 from ciel_runtime_support.context_setup import ContextSetupPorts
 from ciel_runtime_support.model_context_hints import ModelContextHintPorts
 from ciel_runtime_support.claude_router import (
@@ -2126,6 +2131,21 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(ChannelMessageRepository)), 10)
         self.assertLessEqual(len(fields(ChannelMessageAppendPorts)), 10)
         self.assertNotIn('with CHAT_MESSAGES_PATH.open("a"', source)
+
+    def test_channel_backlog_service_owns_multi_cursor_transaction(self):
+        for port in (ChannelBacklogCursors, ChannelBacklogRuntime, ChannelBacklogService):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        clear_function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef) and node.name == "clear_channel_backlog"
+        )
+        clear_source = ast.unparse(clear_function)
+        self.assertIn("channel_backlog_service", clear_source)
+        self.assertNotIn("global", clear_source)
+        self.assertNotIn("_CHANNEL_MCP_SESSIONS", clear_source)
 
     def test_channel_wake_claim_repository_owns_cross_process_claims(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")

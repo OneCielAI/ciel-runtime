@@ -129,6 +129,10 @@ MCP Streamable HTTP session의 DELETE 요청, 이미 사라진 session의 멱등
 
 대기 중인 `/compact` 요청의 polling cadence, in-flight 차단, defer 로그 간격과 injection 옵션을 관리하는 Channel Application Service. Windows Console과 POSIX PTY 루프가 동일 상태 전이를 사용한다.
 
+### `ciel_runtime_support/channel_backlog.py`
+
+Transient chat tail을 기준으로 LLM/MCP cursor, clear floor, recovery cache와 활성 MCP session을 일관되게 fast-forward하는 Channel Application Service. cursor와 runtime 상태는 각각 최대 10필드의 typed port로 분리하며 status projection과 clear transaction이 같은 경계를 공유한다.
+
 ### `ciel_runtime_support/channel_panel.py`
 
 채널 probe cache와 현재 설정을 사전 실행 메뉴의 행/값 projection으로 변환하는 Channel UI policy. 공식 플러그인, probe 분류, delivery mode는 6필드 `ChannelPanelPolicy`로 주입한다.
