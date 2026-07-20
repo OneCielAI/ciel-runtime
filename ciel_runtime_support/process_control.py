@@ -176,6 +176,160 @@ class ProcessControlServices:
     output: Callable[[str], None] = print
 
 
+class ProcessTreeController:
+    """Inspect and terminate one process tree through explicit query/signal ports."""
+
+    def __init__(self, services: ProcessControlServices, *, platform_name: str = os.name) -> None:
+        self._services = services
+        self._platform_name = platform_name
+
+    def terminate_pid(self, pid: int, label: str, *, quiet: bool = False) -> bool:
+        if not self._services.signals.pid_is_running(pid):
+            return False
+        try:
+            if self._platform_name == "nt":
+                self._services.query.run(
+                    ["taskkill", "/PID", str(pid), "/T", "/F"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=8,
+                )
+            else:
+                self._services.signals.kill(pid, signal.SIGTERM)
+                deadline = self._services.signals.now() + 4
+                while deadline > self._services.signals.now() and self._services.signals.pid_is_running(pid):
+                    self._services.signals.sleep(0.1)
+                if self._services.signals.pid_is_running(pid):
+                    self._services.signals.kill(pid, signal.SIGKILL)
+            if not quiet:
+                self._services.output(f"Stopped existing {label} session (pid {pid}).")
+            return True
+        except (OSError, subprocess.SubprocessError) as exc:
+            self._services.log(
+                "WARN",
+                f"process_tree_terminate_failed label={label!r} pid={pid} error={type(exc).__name__}: {exc}",
+            )
+            if not quiet:
+                self._services.output(f"Could not stop existing {label} session ({type(exc).__name__}).")
+            return False
+
+    def descendant_pids(self, pid: int) -> list[int]:
+        if pid <= 0 or self._platform_name == "nt":
+            return []
+        try:
+            result = self._services.query.run(
+                ["ps", "-eo", "pid=,ppid="],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=5,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            self._services.log("WARN", f"process_tree_query_failed pid={pid} error={type(exc).__name__}: {exc}")
+            return []
+        children: dict[int, list[int]] = {}
+        for line in result.stdout.splitlines():
+            parts = line.strip().split()
+            if len(parts) < 2:
+                continue
+            try:
+                child, parent = int(parts[0]), int(parts[1])
+            except ValueError:
+                continue
+            children.setdefault(parent, []).append(child)
+        descendants: list[int] = []
+        stack = list(children.get(pid, []))
+        while stack:
+            child = stack.pop()
+            if child in descendants:
+                continue
+            descendants.append(child)
+            stack.extend(children.get(child, []))
+        return descendants
+
+    def parent_pid_and_command(self, pid: int) -> tuple[int, str] | None:
+        if pid <= 0 or self._platform_name == "nt":
+            return None
+        try:
+            result = self._services.query.run(
+                ["ps", "-p", str(pid), "-o", "ppid=,command="],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=5,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            self._services.log("WARN", f"process_parent_query_failed pid={pid} error={type(exc).__name__}: {exc}")
+            return None
+        parts = result.stdout.strip().split(maxsplit=1)
+        if not parts:
+            return None
+        try:
+            parent = int(parts[0])
+        except ValueError:
+            return None
+        return parent, parts[1] if len(parts) > 1 else ""
+
+    def client_wrapper_parent_pids(self, pid: int) -> list[int]:
+        wrappers: list[int] = []
+        current = pid
+        protected = {self._services.query.current_pid(), self._services.query.parent_pid()}
+        for _ in range(4):
+            parent_info = self.parent_pid_and_command(current)
+            if parent_info is None:
+                break
+            parent, command = parent_info
+            if parent <= 0 or parent in protected:
+                break
+            if "ciel-runtime" not in command and "ciel_runtime.py" not in command:
+                break
+            if " serve" in command or " mcp-proxy" in command:
+                break
+            wrappers.append(parent)
+            current = parent
+        return wrappers
+
+    def terminate_tree(self, pid: int, label: str, *, quiet: bool = False) -> bool:
+        if pid <= 0:
+            return False
+        if self._platform_name == "nt":
+            return self.terminate_pid(pid, label, quiet=quiet)
+        protected = {self._services.query.current_pid(), self._services.query.parent_pid()}
+        targets = [item for item in [pid, *self.descendant_pids(pid)] if item > 0 and item not in protected]
+        if not targets:
+            return False
+        stopped = False
+        for target in targets:
+            try:
+                if self._services.signals.pid_is_running(target):
+                    self._services.signals.kill(target, signal.SIGTERM)
+                    stopped = True
+            except OSError as exc:
+                self._services.log(
+                    "WARN",
+                    f"process_tree_signal_failed signal=TERM pid={target} error={type(exc).__name__}: {exc}",
+                )
+        deadline = self._services.signals.now() + 4
+        while self._services.signals.now() < deadline:
+            if not any(self._services.signals.pid_is_running(target) for target in targets):
+                break
+            self._services.signals.sleep(0.1)
+        for target in targets:
+            if not self._services.signals.pid_is_running(target):
+                continue
+            try:
+                self._services.signals.kill(target, signal.SIGKILL)
+                stopped = True
+            except OSError as exc:
+                self._services.log(
+                    "WARN",
+                    f"process_tree_signal_failed signal=KILL pid={target} error={type(exc).__name__}: {exc}",
+                )
+        if stopped and not quiet:
+            self._services.output(f"Stopped existing {label} session(s): {', '.join(map(str, targets))}.")
+        return stopped
+
+
 @dataclass(frozen=True)
 class ProcessInspectionServices:
     run: Callable[..., subprocess.CompletedProcess[str]]

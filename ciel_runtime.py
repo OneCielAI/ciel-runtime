@@ -16,7 +16,6 @@ import os
 import platform
 import re
 import secrets
-import signal
 import shutil
 import socket
 import subprocess
@@ -427,6 +426,7 @@ from ciel_runtime_support.process_control import (
     ProcessInspectionServices,
     ProcessQueryServices,
     ProcessSignalServices,
+    ProcessTreeController,
     posix_process_rows,
     linux_procfs_pids_on_port,
     posix_pids_on_port as project_posix_pids_on_port,
@@ -13198,141 +13198,35 @@ def run_with_router_lifetime(runner: Callable[[], int], manage_router: bool) -> 
 
 
 def terminate_pid(pid: int, label: str, quiet: bool = False) -> bool:
-    if not pid_is_running(pid):
-        return False
-    try:
-        if os.name == "nt":
-            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=8)
-        else:
-            os.kill(pid, signal.SIGTERM)
-            deadline = time.time() + 4
-            while time.time() < deadline and pid_is_running(pid):
-                time.sleep(0.1)
-            if pid_is_running(pid):
-                os.kill(pid, signal.SIGKILL)
-        if not quiet:
-            print(f"Stopped existing {label} session (pid {pid}).")
-        return True
-    except Exception as exc:
-        if not quiet:
-            print(f"Could not stop existing {label} session ({type(exc).__name__}).")
-        return False
+    return process_tree_controller().terminate_pid(pid, label, quiet=quiet)
+
+
+def process_control_services() -> ProcessControlServices:
+    return ProcessControlServices(
+        query=ProcessQueryServices(),
+        signals=ProcessSignalServices(kill=os.kill, pid_is_running=pid_is_running),
+        log=router_log,
+    )
+
+
+def process_tree_controller() -> ProcessTreeController:
+    return ProcessTreeController(process_control_services(), platform_name=os.name)
 
 
 def descendant_pids(pid: int) -> list[int]:
-    if pid <= 0 or os.name == "nt":
-        return []
-    try:
-        proc = subprocess.run(
-            ["ps", "-eo", "pid=,ppid="],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            timeout=5,
-        )
-    except Exception:
-        return []
-    children: dict[int, list[int]] = {}
-    for line in proc.stdout.splitlines():
-        parts = line.strip().split()
-        if len(parts) < 2:
-            continue
-        try:
-            child = int(parts[0])
-            parent = int(parts[1])
-        except ValueError:
-            continue
-        children.setdefault(parent, []).append(child)
-    out: list[int] = []
-    stack = list(children.get(pid, []))
-    while stack:
-        child = stack.pop()
-        if child in out:
-            continue
-        out.append(child)
-        stack.extend(children.get(child, []))
-    return out
+    return process_tree_controller().descendant_pids(pid)
 
 
 def parent_pid_and_command(pid: int) -> tuple[int, str] | None:
-    if pid <= 0 or os.name == "nt":
-        return None
-    try:
-        proc = subprocess.run(
-            ["ps", "-p", str(pid), "-o", "ppid=,command="],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            timeout=5,
-        )
-    except Exception:
-        return None
-    line = proc.stdout.strip()
-    if not line:
-        return None
-    parts = line.split(maxsplit=1)
-    if not parts:
-        return None
-    try:
-        parent = int(parts[0])
-    except ValueError:
-        return None
-    command = parts[1] if len(parts) > 1 else ""
-    return parent, command
+    return process_tree_controller().parent_pid_and_command(pid)
 
 
 def ciel_runtime_client_wrapper_parent_pids(pid: int) -> list[int]:
-    wrappers: list[int] = []
-    current = pid
-    protected = {os.getpid(), os.getppid()}
-    for _ in range(4):
-        parent_info = parent_pid_and_command(current)
-        if parent_info is None:
-            break
-        parent, command = parent_info
-        if parent <= 0 or parent in protected:
-            break
-        if "ciel-runtime" not in command and "ciel_runtime.py" not in command:
-            break
-        if " serve" in command or " mcp-proxy" in command:
-            break
-        wrappers.append(parent)
-        current = parent
-    return wrappers
+    return process_tree_controller().client_wrapper_parent_pids(pid)
 
 
 def terminate_pid_tree(pid: int, label: str, quiet: bool = False) -> bool:
-    if pid <= 0:
-        return False
-    if os.name == "nt":
-        return terminate_pid(pid, label, quiet=quiet)
-    protected = {os.getpid(), os.getppid()}
-    targets = [p for p in [pid, *descendant_pids(pid)] if p > 0 and p not in protected]
-    if not targets:
-        return False
-    stopped = False
-    for target in targets:
-        try:
-            if pid_is_running(target):
-                os.kill(target, signal.SIGTERM)
-                stopped = True
-        except Exception:
-            pass
-    deadline = time.time() + 4
-    while time.time() < deadline:
-        if not any(pid_is_running(target) for target in targets):
-            break
-        time.sleep(0.1)
-    for target in targets:
-        if pid_is_running(target):
-            try:
-                os.kill(target, signal.SIGKILL)
-                stopped = True
-            except Exception:
-                pass
-    if stopped and not quiet:
-        print(f"Stopped existing {label} session(s): {', '.join(map(str, targets))}.")
-    return stopped
+    return process_tree_controller().terminate_tree(pid, label, quiet=quiet)
 
 
 def terminate_active_router_clients(reason: str, active_clients: list[int] | None = None, quiet: bool = True) -> bool:

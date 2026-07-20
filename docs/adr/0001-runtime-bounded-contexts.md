@@ -174,6 +174,11 @@ lifetime, and routed-launch diagnostics live in `router_client_lifecycle.py`.
 The composition root supplies health/start/stop callbacks while filesystem,
 environment, and thread mechanics stay behind the lifecycle adapter.
 
+Single-process termination, descendant traversal, wrapper-parent discovery,
+and process-tree termination share `ProcessTreeController` in
+`process_control.py`; they no longer duplicate ps/taskkill/signal mechanics in
+the composition root.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

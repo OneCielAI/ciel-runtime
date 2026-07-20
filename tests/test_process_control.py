@@ -9,6 +9,7 @@ from ciel_runtime_support.process_control import (
     ProcessInspectionServices,
     ProcessQueryServices,
     ProcessSignalServices,
+    ProcessTreeController,
     posix_process_rows,
     process_command_line,
     process_cwd,
@@ -28,6 +29,48 @@ class ProcessControlTests(unittest.TestCase):
         }
         values.update(updates)
         return ProcessInspectionServices(**values)
+
+    def test_process_tree_discovers_nested_descendants(self):
+        run = mock.Mock(
+            return_value=subprocess.CompletedProcess([], 0, stdout="2 1\n3 2\n4 1\n")
+        )
+        services = ProcessControlServices(
+            query=ProcessQueryServices(run=run),
+            signals=ProcessSignalServices(kill=mock.Mock(), pid_is_running=lambda _pid: False),
+            log=mock.Mock(),
+        )
+        self.assertEqual([4, 2, 3], ProcessTreeController(services, platform_name="posix").descendant_pids(1))
+
+    def test_process_tree_follows_only_ciel_runtime_wrapper_parents(self):
+        run = mock.Mock(
+            side_effect=[
+                subprocess.CompletedProcess([], 0, stdout="20 python ciel_runtime.py claude\n"),
+                subprocess.CompletedProcess([], 0, stdout="30 shell wrapper\n"),
+            ]
+        )
+        services = ProcessControlServices(
+            query=ProcessQueryServices(run=run, current_pid=lambda: 90, parent_pid=lambda: 91),
+            signals=ProcessSignalServices(kill=mock.Mock(), pid_is_running=lambda _pid: False),
+            log=mock.Mock(),
+        )
+        self.assertEqual([20], ProcessTreeController(services, platform_name="posix").client_wrapper_parent_pids(10))
+
+    def test_process_tree_terminates_children_through_signal_port(self):
+        alive = {10, 11}
+        kill = mock.Mock(side_effect=lambda pid, _signal: alive.discard(pid))
+        run = mock.Mock(return_value=subprocess.CompletedProcess([], 0, stdout="11 10\n"))
+        services = ProcessControlServices(
+            query=ProcessQueryServices(run=run, current_pid=lambda: 90, parent_pid=lambda: 91),
+            signals=ProcessSignalServices(
+                kill=kill,
+                pid_is_running=lambda pid: pid in alive,
+                now=lambda: 0,
+                sleep=mock.Mock(),
+            ),
+            log=mock.Mock(),
+        )
+        self.assertTrue(ProcessTreeController(services, platform_name="posix").terminate_tree(10, "test", quiet=True))
+        self.assertEqual({10, 11}, {call.args[0] for call in kill.call_args_list})
 
     def test_windows_process_query_and_termination_are_separate_effects(self):
         run = mock.Mock(

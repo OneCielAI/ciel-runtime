@@ -259,7 +259,7 @@ Claude command와 Codex prompt의 소유권 표식, 사용자 파일 보존, sta
 
 ### `ciel_runtime_support/process_control.py`
 
-Windows CIM/taskkill과 POSIX ps/signal 기반 프로세스 검색·종료를 캡슐화하는 Runtime Infrastructure Adapter. Query, Inspection, Signal 포트를 분리하며 명령행·환경·cwd 조회, Windows netstat와 Linux procfs/lsof/ss 기반 port listener 탐색, TERM/KILL 및 taskkill 실패를 구조화된 경고로 노출한다.
+Windows CIM/taskkill과 POSIX ps/signal 기반 프로세스 검색·종료를 캡슐화하는 Runtime Infrastructure Adapter. Query, Inspection, Signal 포트를 분리하며 명령행·환경·cwd 조회, descendant tree와 ciel-runtime wrapper parent 탐색, Windows netstat와 Linux procfs/lsof/ss 기반 port listener 탐색, TERM/KILL 및 taskkill 실패를 구조화된 경고로 노출한다.
 
 ### `ciel_runtime_support/executable_discovery.py`
 
