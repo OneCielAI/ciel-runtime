@@ -936,6 +936,11 @@ from ciel_runtime_support.providers.ollama_runtime import (
     OllamaRuntimeService,
     OllamaRuntimeServices,
 )
+from ciel_runtime_support.providers.nvidia_runtime import (
+    NvidiaProxyRuntime,
+    NvidiaProxyRuntimeConfig,
+    NvidiaProxyRuntimePorts,
+)
 from ciel_runtime_support.provider_status import (
     ProviderStatusCatalog,
     ProviderStatusGeneric,
@@ -4333,118 +4338,50 @@ def is_url_up(url: str) -> bool:
 
 
 def nvidia_upstream_base_url() -> str:
-    return "https://integrate.api.nvidia.com/v1"
+    return nvidia_proxy_runtime().upstream_base_url()
 
 
 def nvidia_proxy_base_url() -> str:
-    env = read_env_file(NCP_ENV)
-    host = env.get("PROXY_HOST") or "127.0.0.1"
-    port = env.get("PROXY_PORT") or "8788"
-    return f"http://{host}:{port}"
+    return nvidia_proxy_runtime().proxy_base_url()
 
 
 def nvidia_api_key() -> str:
-    return (
-        read_env_file(NCP_ENV).get("NVIDIA_API_KEY")
-        or os.environ.get("NVIDIA_API_KEY")
-        or os.environ.get("NV_API_KEY")
-        or ""
-    ).strip()
+    return nvidia_proxy_runtime().api_key()
+
+
+def nvidia_proxy_runtime() -> NvidiaProxyRuntime:
+    return NvidiaProxyRuntime(
+        NvidiaProxyRuntimeConfig(NCP_ENV, NCP_LOG, NCP_PYPI_PACKAGE),
+        NvidiaProxyRuntimePorts(
+            load_config,
+            read_env_file,
+            is_url_up,
+            find_executable,
+            positive_int,
+            http_json,
+            join_url,
+        ),
+    )
 
 
 def install_ncp_proxy() -> str | None:
-    if os.environ.get("CIEL_RUNTIME_AUTO_INSTALL_NCP", "1").lower() in ("0", "false", "no"):
-        return None
-    NCP_LOG.parent.mkdir(parents=True, exist_ok=True)
-    with open(NCP_LOG, "ab", buffering=0) as log:
-        log.write(b"\n[ciel-runtime] installing nvd-claude-proxy with pip\n")
-        proc = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--user", "--upgrade", NCP_PYPI_PACKAGE],
-            stdout=log,
-            stderr=log,
-            timeout=240,
-        )
-    if proc.returncode != 0:
-        return None
-    importlib.invalidate_caches()
-    return find_executable("ncp")
+    return nvidia_proxy_runtime().install_proxy()
 
 
 def ncp_module_available() -> bool:
-    return importlib.util.find_spec("nvd_claude_proxy") is not None
+    return NvidiaProxyRuntime.module_available()
 
 
 def ncp_proxy_executable() -> str | None:
-    return find_executable("nvd-claude-proxy") or find_executable("ncp")
+    return nvidia_proxy_runtime().proxy_executable()
 
 
 def ensure_ncp() -> None:
-    cfg = load_config()
-    provider = cfg["providers"]["nvidia-hosted"]
-    upstream = provider.get("base_url") or nvidia_upstream_base_url()
-    env = os.environ.copy()
-    env.update(read_env_file(NCP_ENV))
-    env["NVIDIA_BASE_URL"] = upstream.rstrip("/")
-    env.setdefault("PROXY_HOST", "127.0.0.1")
-    env.setdefault("PROXY_PORT", "8788")
-    env.setdefault("STORAGE_ENGINE", "sqlite")
-    timeout_ms = positive_int(provider.get("request_timeout_ms"))
-    if timeout_ms:
-        env["REQUEST_TIMEOUT_SECONDS"] = str(max(1, timeout_ms / 1000))
-    base = f"http://{env['PROXY_HOST']}:{env['PROXY_PORT']}"
-    if is_url_up(f"{base}/v1/models"):
-        return
-    NCP_LOG.parent.mkdir(parents=True, exist_ok=True)
-    ncp_exe = ncp_proxy_executable()
-    if not (ncp_exe or ncp_module_available()):
-        install_ncp_proxy()
-        ncp_exe = ncp_proxy_executable()
-    if not (ncp_exe or ncp_module_available()):
-        raise RuntimeError("nvd-claude-proxy was not found. Install it with: python -m pip install --user nvd-claude-proxy")
-    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
-    with open(NCP_LOG, "ab", buffering=0) as log:
-        if ncp_exe:
-            cmd = [ncp_exe]
-            log.write(f"\n[ciel-runtime] starting nvd-claude-proxy executable: {ncp_exe}\n".encode())
-        else:
-            cmd = [sys.executable, "-m", "nvd_claude_proxy.main"]
-            log.write(b"\n[ciel-runtime] starting nvd-claude-proxy module\n")
-        subprocess.Popen(
-            cmd,
-            stdout=log,
-            stderr=log,
-            env=env,
-            cwd=str(NCP_ENV.parent),
-            creationflags=creationflags,
-        )
-    deadline = time.time() + 45
-    while time.time() < deadline:
-        if is_url_up(f"{base}/v1/models"):
-            return
-        time.sleep(0.5)
-    raise RuntimeError("nvd-claude-proxy did not become ready")
+    nvidia_proxy_runtime().ensure()
 
 
 def ncp_model_id_for_nvidia_hosted(model_id: str) -> str:
-    if model_id.startswith("claude-") and not model_id.startswith("ciel-runtime-"):
-        return model_id
-    try:
-        data = http_json(join_url(nvidia_proxy_base_url(), "/v1/models"), timeout=3.0)
-    except Exception:
-        return model_id
-    items = data.get("data") if isinstance(data, dict) else None
-    if not isinstance(items, list):
-        return model_id
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        ncp_id = str(item.get("id") or "").strip()
-        nvidia_id = str(item.get("nvidia_id") or "").strip()
-        if ncp_id == model_id:
-            return ncp_id
-        if nvidia_id and nvidia_id == model_id and ncp_id:
-            return ncp_id
-    return model_id
+    return nvidia_proxy_runtime().model_id(model_id)
 
 
 def provider_upstream_model(provider: str, pcfg: dict[str, Any], model: str) -> str:

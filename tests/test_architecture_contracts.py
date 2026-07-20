@@ -350,6 +350,11 @@ from ciel_runtime_support.provider_readiness import (
     ProviderReadinessMode,
     ProviderReadinessServices,
 )
+from ciel_runtime_support.providers.nvidia_runtime import (
+    NvidiaProxyRuntime,
+    NvidiaProxyRuntimeConfig,
+    NvidiaProxyRuntimePorts,
+)
 from ciel_runtime_support.provider_status import (
     ProviderStatusCatalog,
     ProviderStatusGeneric,
@@ -1741,6 +1746,21 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_lm_studio_runtime_port_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(LmStudioRuntimeServices)), 10)
+
+    def test_nvidia_proxy_lifecycle_lives_in_provider_runtime(self):
+        for port in (NvidiaProxyRuntimeConfig, NvidiaProxyRuntimePorts, NvidiaProxyRuntime):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        ensure_function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef) and node.name == "ensure_ncp"
+        )
+        ensure_source = ast.unparse(ensure_function)
+        self.assertIn("nvidia_proxy_runtime", ensure_source)
+        self.assertNotIn("subprocess", ensure_source)
+        self.assertNotIn("nvd_claude_proxy", ensure_source)
 
     def test_lm_studio_context_guard_lives_in_provider_runtime(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(

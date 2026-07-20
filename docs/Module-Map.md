@@ -437,6 +437,10 @@ vLLM model-selection requirement, local capability, remote context discovery와 
 
 NVIDIA hosted 인증, NCP model alias, streaming requirement, context 및 router-only 호환성 정책을 소유하는 독립 Adapter.
 
+### `ciel_runtime_support/providers/nvidia_runtime.py`
+
+NVIDIA hosted의 NCP 환경/API key 투영, proxy 설치·기동·readiness 대기와 upstream model ID 변환을 소유하는 Provider Runtime Adapter. 설정·환경 reader·HTTP·executable 탐색은 7필드 typed port로 주입되며 facade에는 기존 함수명의 compatibility delegate만 남는다.
+
 ### `ciel_runtime_support/providers/nim.py`
 
 Self-hosted NVIDIA NIM의 local capability, catalog selection, context discovery와 native readiness 정책을 소유하는 독립 Adapter.
