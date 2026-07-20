@@ -1845,6 +1845,25 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIn("class ProviderAdapterRegistryPort(Protocol):", identity_source)
         self.assertIn("def display_model_name", nvidia_source)
 
+    def test_model_cache_lifecycle_is_not_orchestrated_by_the_facade(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for function_name, delegation in (
+            ("clear_model_cache", ".clear()"),
+            ("cached_or_configured_model_ids", ".cached_or_configured_ids("),
+            ("ensure_model_cache_for_launch", ".ensure_for_launch("),
+        ):
+            function = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef) and node.name == function_name
+            )
+            function_source = ast.get_source_segment(source, function) or ""
+            with self.subTest(function=function_name):
+                self.assertIn("model_cache_lifecycle_service()", function_source)
+                self.assertIn(delegation, function_source)
+
     def test_concrete_adapters_own_provider_specific_defaults(self):
         common_keys = {
             "base_url",

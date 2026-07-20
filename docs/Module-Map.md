@@ -591,6 +591,10 @@ placeholder model 선택 강제, launch alias, 요청·tool model resolution과 
 
 provider model registry와 단기 model-list cache의 key 호환, TTL, metadata 정규화, 권한 설정과 JSON persistence를 소유하는 Repository. 경로와 model 정책 포트를 분리해 provider catalog service가 파일 형식을 직접 다루지 않게 한다.
 
+### `ciel_runtime_support/model_cache_lifecycle.py`
+
+설정 cache 무효화와 model artifact 삭제, cached/custom/current model 합성, launch 직전 registry 우선 hydration을 조정하는 Application Service. facade는 테스트 가능한 typed port를 조립하고 호환 함수를 위임한다.
+
 ### `ciel_runtime_support/provider_policy.py`
 
 공급자별 wire profile과 요청 메시지·thinking·tool-choice 정규화를 담당하는 순수 정책 서비스.

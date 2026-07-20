@@ -314,6 +314,10 @@ from ciel_runtime_support.model_catalog_projection import (
     ModelCatalogProjectionServices,
     project_model_info,
 )
+from ciel_runtime_support.model_cache_lifecycle import (
+    ModelCacheLifecyclePorts,
+    ModelCacheLifecycleService,
+)
 from ciel_runtime_support.model_registry_repository import (
     ModelRegistryPaths,
     ModelRegistryPolicy,
@@ -1834,20 +1838,29 @@ def save_config(cfg: dict[str, Any]) -> None:
     config_repository().save(cfg)
 
 
+def model_cache_lifecycle_service() -> ModelCacheLifecycleService:
+    return ModelCacheLifecycleService(
+        ModelCacheLifecyclePorts(
+            invalidate_config=invalidate_config_cache,
+            artifact_paths=lambda: (
+                CLAUDE_GATEWAY_CACHE,
+                MODEL_LIST_CACHE_PATH,
+                MODEL_REGISTRY_PATH,
+            ),
+            read_list_cache=read_model_list_cache,
+            read_registry_models=read_model_registry_models,
+            upstream_model_ids=upstream_model_ids,
+            catalog_model_ids=ollama_catalog_model_ids,
+            normalize_model_id=normalize_model_id,
+            unique_model_ids=unique_model_ids,
+            sorted_model_ids=sorted_model_ids,
+            log=router_log,
+        )
+    )
+
+
 def clear_model_cache() -> None:
-    invalidate_config_cache()
-    try:
-        CLAUDE_GATEWAY_CACHE.unlink()
-    except FileNotFoundError:
-        pass
-    try:
-        MODEL_LIST_CACHE_PATH.unlink()
-    except FileNotFoundError:
-        pass
-    try:
-        MODEL_REGISTRY_PATH.unlink()
-    except FileNotFoundError:
-        pass
+    model_cache_lifecycle_service().clear()
 
 
 def normalize_provider(name: str) -> str:
@@ -3258,20 +3271,7 @@ def write_model_list_cache(
 
 
 def cached_or_configured_model_ids(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    ids = read_model_list_cache(provider, pcfg) or []
-    if provider == "ollama-cloud":
-        ids.extend(ollama_catalog_model_ids(provider))
-    for mid in pcfg.get("custom_models", []) or []:
-        mid = normalize_model_id(provider, mid)
-        if mid and mid not in ids:
-            ids.append(mid)
-    cur = normalize_model_id(provider, pcfg.get("current_model") or "")
-    if cur and cur not in ids and not cur.startswith(f"ciel-runtime-{provider}-"):
-        ids.insert(0, cur)
-    ids = unique_model_ids(provider, ids)
-    if provider == "anthropic":
-        return ids
-    return sorted_model_ids(ids)
+    return model_cache_lifecycle_service().cached_or_configured_ids(provider, pcfg)
 
 
 def ensure_model_cache_for_launch(provider: str, pcfg: dict[str, Any]) -> None:
@@ -3282,17 +3282,7 @@ def ensure_model_cache_for_launch(provider: str, pcfg: dict[str, Any]) -> None:
     family defaults collapse to the current model and /model cannot switch
     families reliably inside that session.
     """
-    if read_model_list_cache(provider, pcfg):
-        return
-    if read_model_registry_models(provider, pcfg, max_age_seconds=0):
-        return
-    try:
-        ids = upstream_model_ids(provider, pcfg)
-    except Exception as exc:
-        router_log("WARN", f"launch_model_cache_refresh_failed provider={provider} error={type(exc).__name__}: {exc}")
-        return
-    if ids:
-        router_log("INFO", f"launch_model_cache_ready provider={provider} count={len(ids)}")
+    model_cache_lifecycle_service().ensure_for_launch(provider, pcfg)
 
 
 def model_ids_from_response(data: Any) -> list[str]:
