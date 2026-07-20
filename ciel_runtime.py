@@ -43,6 +43,7 @@ from ciel_runtime_support.advisor_policy import (
     tool_review_context_from_message as project_tool_review_context,
 )
 from ciel_runtime_support.advisor_request_builder import (
+    AdvisorAnthropicSystemPolicy,
     AdvisorBudgetPorts,
     AdvisorEndpointPorts,
     AdvisorProjectionPorts,
@@ -1049,6 +1050,7 @@ from ciel_runtime_support.router_http import (
     CodexBackendHttpAdapter,
     CodexBackendRequestPorts,
     CodexBackendRetryPorts,
+    CodexRoutedHeaderPolicy,
     EventHttpAdapter,
     EventHttpPorts,
     RouterHttpCore,
@@ -5198,29 +5200,10 @@ def anthropic_system_with_advisor(system: Any, extra_system_texts: list[str] | N
     with message "Error"), so the inbound session's first system block stays
     first and verbatim; the advisor instruction rides behind it.
     """
-    blocks: list[dict[str, Any]] = []
-    original_text = ""
-    if isinstance(system, str):
-        clean = system.strip()
-        if clean:
-            blocks.append({"type": "text", "text": clean})
-    elif isinstance(system, list) and system:
-        first = system[0]
-        if isinstance(first, dict) and str(first.get("type") or "") == "text" and str(first.get("text") or "").strip():
-            blocks.append(dict(first))
-            original_text = anthropic_content_to_text(system[1:]).strip()
-        else:
-            original_text = anthropic_content_to_text(system).strip()
-    elif system:
-        original_text = anthropic_content_to_text(system).strip()
-    blocks.append({"type": "text", "text": ADVISOR_REVIEW_PROMPT})
-    if original_text:
-        blocks.append({"type": "text", "text": "Original session system context:\n" + original_text})
-    for text in extra_system_texts or []:
-        clean = str(text or "").strip()
-        if clean:
-            blocks.append({"type": "text", "text": "Additional system context from message history:\n" + clean})
-    return blocks
+    return AdvisorAnthropicSystemPolicy(
+        review_prompt=ADVISOR_REVIEW_PROMPT,
+        content_to_text=anthropic_content_to_text,
+    ).project(system, extra_system_texts)
 
 
 def append_anthropic_system_texts(system: Any, extra_system_texts: list[str] | None = None) -> Any:
@@ -7025,37 +7008,9 @@ def collect_provider_message_for_responses(
 
 def codex_routed_upstream_headers(pcfg: dict[str, Any], inbound_headers: Any | None = None) -> dict[str, str]:
     del pcfg
-    headers: dict[str, str] = {}
-    hop_by_hop = {
-        "connection",
-        "content-length",
-        "host",
-        "proxy-authenticate",
-        "proxy-authorization",
-        "te",
-        "trailer",
-        "transfer-encoding",
-        "upgrade",
-    }
-    if inbound_headers is not None:
-        for name, value in inbound_headers.items():
-            low = str(name).lower()
-            if low in hop_by_hop:
-                continue
-            if low == "accept-encoding":
-                headers["accept-encoding"] = "identity"
-                continue
-            if low == "content-type":
-                headers["content-type"] = str(value)
-                continue
-            if value:
-                headers[str(name)] = str(value)
-    if not any(str(k).lower() == "content-type" for k in headers):
-        headers["content-type"] = "application/json"
-    headers = with_upstream_user_agent(headers)
-    if not any(str(k).lower() == "authorization" for k in headers):
-        raise RuntimeError("Codex routed mode did not receive native Codex auth headers from the Codex CLI.")
-    return headers
+    return CodexRoutedHeaderPolicy(
+        decorate=with_upstream_user_agent
+    ).project(inbound_headers)
 
 
 def codex_routed_auth_error_message(message: str) -> str:

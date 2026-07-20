@@ -13,6 +13,55 @@ from typing import Any, Callable
 
 
 @dataclass(frozen=True, slots=True)
+class CodexRoutedHeaderPolicy:
+    decorate: Callable[[dict[str, str]], dict[str, str]]
+    hop_by_hop: frozenset[str] = frozenset(
+        {
+            "connection",
+            "content-length",
+            "host",
+            "proxy-authenticate",
+            "proxy-authorization",
+            "te",
+            "trailer",
+            "transfer-encoding",
+            "upgrade",
+        }
+    )
+
+    def project(self, inbound_headers: Any | None) -> dict[str, str]:
+        headers: dict[str, str] = {}
+        if inbound_headers is not None:
+            for name, value in inbound_headers.items():
+                lowered = str(name).casefold()
+                if lowered in self.hop_by_hop:
+                    continue
+                if lowered == "accept-encoding":
+                    headers["accept-encoding"] = "identity"
+                    continue
+                if lowered == "content-type":
+                    headers["content-type"] = str(value)
+                    continue
+                if value:
+                    headers[str(name)] = str(value)
+        if not any(
+            str(name).casefold() == "content-type"
+            for name in headers
+        ):
+            headers["content-type"] = "application/json"
+        headers = self.decorate(headers)
+        if not any(
+            str(name).casefold() == "authorization"
+            for name in headers
+        ):
+            raise RuntimeError(
+                "Codex routed mode did not receive native Codex auth headers "
+                "from the Codex CLI."
+            )
+        return headers
+
+
+@dataclass(frozen=True, slots=True)
 class RouterHttpCore:
     load_config: Callable[[], dict[str, Any]]
     reject_external: Callable[[Any, dict[str, Any]], bool]

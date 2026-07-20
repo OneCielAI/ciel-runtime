@@ -65,6 +65,7 @@ from ciel_runtime_support.advisor_policy import (
     AdvisorTextServices,
 )
 from ciel_runtime_support.advisor_request_builder import (
+    AdvisorAnthropicSystemPolicy,
     AdvisorBudgetPorts,
     AdvisorEndpointPorts,
     AdvisorProjectionPorts,
@@ -284,6 +285,7 @@ from ciel_runtime_support.provider_model_selection import (
 from ciel_runtime_support.router_http import (
     CodexBackendRequestPorts,
     CodexBackendRetryPorts,
+    CodexRoutedHeaderPolicy,
     EventHttpPorts,
 )
 from ciel_runtime_support.chat_files import ChatFilePorts
@@ -1166,6 +1168,22 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(CodexBackendRequestPorts)), 10)
         self.assertLessEqual(len(fields(CodexBackendRetryPorts)), 10)
         self.assertLessEqual(len(fields(EventHttpPorts)), 10)
+        self.assertEqual(2, len(fields(CodexRoutedHeaderPolicy)))
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "codex_routed_upstream_headers"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("CodexRoutedHeaderPolicy", function_source)
+        self.assertNotIn("hop_by_hop", function_source)
+        policy_source = (
+            root / "ciel_runtime_support" / "router_http.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", policy_source)
 
     def test_chat_file_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChatFilePorts)), 10)
@@ -1642,6 +1660,24 @@ class ArchitectureContractTests(unittest.TestCase):
         for port in (AdvisorProjectionPorts, AdvisorBudgetPorts, AdvisorEndpointPorts):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+        self.assertEqual(2, len(fields(AdvisorAnthropicSystemPolicy)))
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "anthropic_system_with_advisor"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("AdvisorAnthropicSystemPolicy", function_source)
+        self.assertNotIn("blocks.append", function_source)
+        policy_source = (
+            root
+            / "ciel_runtime_support"
+            / "advisor_request_builder.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", policy_source)
 
     def test_advisor_refinement_ports_stay_below_dependency_limit(self):
         for port in (AdvisorRefinementText, AdvisorRefinementPolicy, AdvisorRefinementIO):

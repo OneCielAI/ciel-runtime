@@ -41,6 +41,61 @@ class AdvisorEndpointPorts:
     upstream_model: Callable[[str], str]
 
 
+@dataclass(frozen=True, slots=True)
+class AdvisorAnthropicSystemPolicy:
+    review_prompt: str
+    content_to_text: Callable[[Any], str]
+
+    def project(
+        self,
+        system: Any,
+        extra_system_texts: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        blocks: list[dict[str, Any]] = []
+        original_text = ""
+        if isinstance(system, str):
+            clean = system.strip()
+            if clean:
+                blocks.append({"type": "text", "text": clean})
+        elif isinstance(system, list) and system:
+            first = system[0]
+            if (
+                isinstance(first, dict)
+                and str(first.get("type") or "") == "text"
+                and str(first.get("text") or "").strip()
+            ):
+                blocks.append(dict(first))
+                original_text = self.content_to_text(system[1:]).strip()
+            else:
+                original_text = self.content_to_text(system).strip()
+        elif system:
+            original_text = self.content_to_text(system).strip()
+        blocks.append({"type": "text", "text": self.review_prompt})
+        if original_text:
+            blocks.append(
+                {
+                    "type": "text",
+                    "text": (
+                        "Original session system context:\n"
+                        + original_text
+                    ),
+                }
+            )
+        for text in extra_system_texts or []:
+            clean = str(text or "").strip()
+            if clean:
+                blocks.append(
+                    {
+                        "type": "text",
+                        "text": (
+                            "Additional system context from message "
+                            "history:\n" + clean
+                        ),
+                    }
+                )
+        return blocks
+
+
 class AdvisorRequestBuilder:
     def __init__(
         self,
