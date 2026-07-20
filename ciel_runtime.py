@@ -652,6 +652,7 @@ from ciel_runtime_support.mcp_transport import (
     upstream_url as _codex_mcp_split_proxy_upstream_url,
 )
 from ciel_runtime_support.mcp_config_reader import (
+    ClaudeMcpConfigPathPolicy,
     dedupe_strings as _dedupe_strings,
     path_for_compare as _path_for_compare,
     read_mcp_config_items,
@@ -8282,41 +8283,12 @@ def detect_channel_capable_mcp_servers(
     return [str(record.get("name")) for record in records if record.get("capable") and record.get("name")]
 
 
-def _mcp_config_passthrough_values(passthrough: list[str]) -> list[str]:
-    values: list[str] = []
-    i = 0
-    while i < len(passthrough):
-        arg = passthrough[i]
-        if arg == "--mcp-config":
-            i += 1
-            while i < len(passthrough) and not passthrough[i].startswith("-"):
-                values.append(passthrough[i])
-                i += 1
-            continue
-        if arg.startswith("--mcp-config="):
-            value = arg.split("=", 1)[1].strip()
-            if value:
-                values.append(value)
-        i += 1
-    return values
-
-
-def strip_mcp_config_passthrough(passthrough: list[str]) -> list[str]:
-    stripped: list[str] = []
-    i = 0
-    while i < len(passthrough):
-        arg = passthrough[i]
-        if arg == "--mcp-config":
-            i += 1
-            while i < len(passthrough) and not passthrough[i].startswith("-"):
-                i += 1
-            continue
-        if arg.startswith("--mcp-config="):
-            i += 1
-            continue
-        stripped.append(arg)
-        i += 1
-    return stripped
+_mcp_config_passthrough_values = (
+    ClaudeMcpConfigPathPolicy.passthrough_values
+)
+strip_mcp_config_passthrough = (
+    ClaudeMcpConfigPathPolicy.strip_passthrough
+)
 
 
 def _safe_mcp_proxy_name(name: str) -> str:
@@ -8324,40 +8296,17 @@ def _safe_mcp_proxy_name(name: str) -> str:
     return safe[:80] or "server"
 
 
-def _mcp_config_paths_from_passthrough(passthrough: list[str]) -> list[Path]:
-    return [Path(value).expanduser() for value in _mcp_config_passthrough_values(passthrough)]
+_mcp_config_paths_from_passthrough = (
+    ClaudeMcpConfigPathPolicy.passthrough_paths
+)
 
 
 def claude_mcp_config_paths(passthrough: list[str] | None = None, cwd: Path | None = None, home: Path | None = None) -> list[Path]:
-    cwd = cwd or Path.cwd()
-    home = home or HOME
-    paths: list[Path] = []
-    paths.extend(_mcp_config_paths_from_passthrough(passthrough or []))
-    current = cwd
-    visited: set[str] = set()
-    while True:
-        key = _path_for_compare(current)
-        if key in visited:
-            break
-        visited.add(key)
-        paths.append(current / ".mcp.json")
-        if current == current.parent:
-            break
-        current = current.parent
-    paths.extend([
-        home / ".mcp.json",
-        home / ".claude" / "settings.json",
-        home / ".claude.json",
-    ])
-    out: list[Path] = []
-    seen: set[str] = set()
-    for path in paths:
-        key = _path_for_compare(path)
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(path)
-    return out
+    return ClaudeMcpConfigPathPolicy.paths(
+        passthrough or [],
+        cwd or Path.cwd(),
+        home or HOME,
+    )
 
 
 def existing_claude_mcp_config_paths(
@@ -8371,11 +8320,11 @@ def existing_claude_mcp_config_paths(
     discovered separately by the channel probe cache; this helper is only for
     preserving Claude Code's normal MCP tool surface when ciel-runtime launches it.
     """
-    return [
-        path
-        for path in claude_mcp_config_paths(passthrough, cwd, home)
-        if path.exists() and path.is_file()
-    ]
+    return ClaudeMcpConfigPathPolicy.existing_paths(
+        passthrough or [],
+        cwd or Path.cwd(),
+        home or HOME,
+    )
 
 
 def discovered_claude_mcp_servers(

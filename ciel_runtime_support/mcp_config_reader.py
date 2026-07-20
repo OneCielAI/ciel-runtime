@@ -8,6 +8,110 @@ from typing import Any, Callable, Iterable, TypeVar
 T = TypeVar("T")
 
 
+class ClaudeMcpConfigPathPolicy:
+    @staticmethod
+    def passthrough_values(passthrough: list[str]) -> list[str]:
+        values: list[str] = []
+        index = 0
+        while index < len(passthrough):
+            argument = passthrough[index]
+            if argument == "--mcp-config":
+                index += 1
+                while (
+                    index < len(passthrough)
+                    and not passthrough[index].startswith("-")
+                ):
+                    values.append(passthrough[index])
+                    index += 1
+                continue
+            if argument.startswith("--mcp-config="):
+                value = argument.split("=", 1)[1].strip()
+                if value:
+                    values.append(value)
+            index += 1
+        return values
+
+    @classmethod
+    def strip_passthrough(cls, passthrough: list[str]) -> list[str]:
+        stripped: list[str] = []
+        index = 0
+        while index < len(passthrough):
+            argument = passthrough[index]
+            if argument == "--mcp-config":
+                index += 1
+                while (
+                    index < len(passthrough)
+                    and not passthrough[index].startswith("-")
+                ):
+                    index += 1
+                continue
+            if argument.startswith("--mcp-config="):
+                index += 1
+                continue
+            stripped.append(argument)
+            index += 1
+        return stripped
+
+    @classmethod
+    def passthrough_paths(
+        cls,
+        passthrough: list[str],
+    ) -> list[Path]:
+        return [
+            Path(value).expanduser()
+            for value in cls.passthrough_values(passthrough)
+        ]
+
+    @classmethod
+    def paths(
+        cls,
+        passthrough: list[str],
+        cwd: Path,
+        home: Path,
+    ) -> list[Path]:
+        paths = cls.passthrough_paths(passthrough)
+        current = cwd
+        visited: set[str] = set()
+        while True:
+            key = path_for_compare(current)
+            if key in visited:
+                break
+            visited.add(key)
+            paths.append(current / ".mcp.json")
+            if current == current.parent:
+                break
+            current = current.parent
+        paths.extend(
+            (
+                home / ".mcp.json",
+                home / ".claude" / "settings.json",
+                home / ".claude.json",
+            )
+        )
+        out: list[Path] = []
+        seen: set[str] = set()
+        for path in paths:
+            key = path_for_compare(path)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(path)
+        return out
+
+    @classmethod
+    def existing_paths(
+        cls,
+        passthrough: list[str],
+        cwd: Path,
+        home: Path,
+    ) -> list[Path]:
+        return [
+            path
+            for path in cls.paths(passthrough, cwd, home)
+            if path.exists() and path.is_file()
+        ]
+
+
 def dedupe_strings(values: Iterable[str]) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()

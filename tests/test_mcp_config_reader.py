@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 from ciel_runtime_support.mcp_config_reader import (
+    ClaudeMcpConfigPathPolicy,
     read_mcp_config_items,
     server_names_from_mapping,
     servers_from_mapping,
@@ -11,6 +12,51 @@ from ciel_runtime_support.mcp_config_reader import (
 
 
 class McpConfigReaderTests(unittest.TestCase):
+    def test_claude_path_policy_parses_and_strips_passthrough(self):
+        args = [
+            "--mcp-config",
+            "a.json",
+            "b.json",
+            "--verbose",
+            "--mcp-config=c.json",
+        ]
+        self.assertEqual(
+            ["a.json", "b.json", "c.json"],
+            ClaudeMcpConfigPathPolicy.passthrough_values(args),
+        )
+        self.assertEqual(
+            ["--verbose"],
+            ClaudeMcpConfigPathPolicy.strip_passthrough(args),
+        )
+
+    def test_claude_path_policy_discovers_ancestors_and_existing_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            project = home / "work" / "nested"
+            project.mkdir(parents=True)
+            project_config = project / ".mcp.json"
+            home_config = home / ".mcp.json"
+            project_config.write_text("{}", encoding="utf-8")
+            home_config.write_text("{}", encoding="utf-8")
+
+            paths = ClaudeMcpConfigPathPolicy.paths([], project, home)
+            existing = ClaudeMcpConfigPathPolicy.existing_paths(
+                [],
+                project,
+                home,
+            )
+
+        self.assertIn(project_config, paths)
+        self.assertIn(home_config, paths)
+        self.assertEqual(
+            [project_config, home_config],
+            [
+                path
+                for path in existing
+                if path in {project_config, home_config}
+            ],
+        )
+
     def test_root_and_matching_project_scope_are_projected_and_deduped(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

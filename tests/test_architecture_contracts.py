@@ -297,6 +297,9 @@ from ciel_runtime_support.headless_config import (
     HeadlessConfigServices,
 )
 from ciel_runtime_support.mcp_proxy_codec import McpProxyCodecPolicy
+from ciel_runtime_support.mcp_config_reader import (
+    ClaudeMcpConfigPathPolicy,
+)
 from ciel_runtime_support.managed_mcp_discovery import (
     ManagedMcpDiscoveryPaths,
     ManagedMcpDiscoveryPorts,
@@ -2851,6 +2854,42 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertIn("read_mcp_config_items", source)
                 self.assertNotIn("read_text", source)
                 self.assertNotIn("json.loads", source)
+
+    def test_claude_mcp_path_discovery_is_policy_owned(self):
+        self.assertTrue(hasattr(ClaudeMcpConfigPathPolicy, "paths"))
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        root_functions = {
+            node.name
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+        }
+        self.assertTrue(
+            {
+                "_mcp_config_passthrough_values",
+                "_mcp_config_paths_from_passthrough",
+                "strip_mcp_config_passthrough",
+            }.isdisjoint(root_functions)
+        )
+        for function_name in (
+            "claude_mcp_config_paths",
+            "existing_claude_mcp_config_paths",
+        ):
+            function = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef)
+                and node.name == function_name
+            )
+            function_source = ast.get_source_segment(source, function) or ""
+            self.assertIn("ClaudeMcpConfigPathPolicy", function_source)
+            self.assertNotIn("while True", function_source)
+        policy_source = (
+            root / "ciel_runtime_support" / "mcp_config_reader.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", policy_source)
+        self.assertNotIn("__getattr__", policy_source)
 
     def test_managed_mcp_config_service_owns_server_projection(self):
         for port in (
