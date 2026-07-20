@@ -134,6 +134,11 @@ from ciel_runtime_support.channel_terminal_proxy import (
     ChannelWindowsConsole,
     ChannelWindowsServices,
 )
+from ciel_runtime_support.channel_tool_context import (
+    ChannelToolContextPolicy,
+    ChannelToolContextPorts,
+    ChannelToolContextService,
+)
 from ciel_runtime_support.channel_transcript import ChannelWakeTranscriptServices
 from ciel_runtime_support.channel_message_repository import ChannelMessageAppendPorts, ChannelMessageRepository
 from ciel_runtime_support.channel_wake_claim_repository import ChannelWakeClaimRepository
@@ -1795,6 +1800,29 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIn("mcp_proxy_config_service", function_source)
         self.assertNotIn("mcp-proxy", function_source)
         self.assertNotIn("mcpServers", function_source)
+
+    def test_channel_tool_context_service_owns_stateful_projection(self):
+        for port in (ChannelToolContextPolicy, ChannelToolContextPorts, ChannelToolContextService):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for function_name in (
+            "_channel_injected_prompt_text",
+            "_remember_channel_injected_tool_use",
+            "remember_channel_injected_tool_uses",
+            "body_with_channel_tool_result_context",
+        ):
+            function = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef) and node.name == function_name
+            )
+            function_source = ast.unparse(function)
+            with self.subTest(function=function_name):
+                self.assertIn("channel_tool_context_service", function_source)
+                self.assertNotIn("router_log", function_source)
+                self.assertNotIn("json.dumps", function_source)
 
     def test_request_trace_ports_stay_below_dependency_limit(self):
         for port in (RequestTracePolicy, RequestTraceProjection, RequestTraceServices):

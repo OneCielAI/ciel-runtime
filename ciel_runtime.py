@@ -213,6 +213,12 @@ from ciel_runtime_support.channel_terminal_proxy import (
     run_posix_channel_terminal_proxy,
     run_windows_channel_terminal_proxy,
 )
+from ciel_runtime_support.channel_tool_context import (
+    ChannelToolContextPolicy,
+    ChannelToolContextPorts,
+    ChannelToolContextRepository,
+    ChannelToolContextService,
+)
 from ciel_runtime_support.channel_transcript import (
     ChannelWakeTranscriptServices,
     active_tool_call_from_text as _channel_stdin_active_tool_call_from_text,
@@ -14095,113 +14101,47 @@ _CHANNEL_LLM_TOOL_CONTEXT_MAX_INJECT = 8
 _CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT = 4000
 
 
+def channel_tool_context_service() -> ChannelToolContextService:
+    return ChannelToolContextService(
+        repository=ChannelToolContextRepository(
+            contexts=_CHANNEL_LLM_TOOL_CONTEXT,
+            lock=_CHANNEL_LLM_TOOL_CONTEXT_LOCK,
+            limit=_CHANNEL_LLM_TOOL_CONTEXT_LIMIT,
+        ),
+        policy=ChannelToolContextPolicy(
+            max_inject=_CHANNEL_LLM_TOOL_CONTEXT_MAX_INJECT,
+            prompt_limit=_CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT,
+        ),
+        ports=ChannelToolContextPorts(
+            content_to_text=anthropic_content_to_text,
+            truncate=truncate_for_prompt,
+            now=time.time,
+            log=router_log,
+        ),
+    )
+
+
 def _channel_injected_prompt_text(body: dict[str, Any]) -> str:
-    metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
-    for message in reversed(body.get("messages") or []):
-        if not isinstance(message, dict) or message.get("role") != "user":
-            continue
-        text = anthropic_content_to_text(message.get("content", ""))
-        if metadata.get("ciel_runtime_channel_injected") and text:
-            return truncate_for_prompt(text, _CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT)
-        if "[external channel input]" in text or "[ciel-runtime channel inbox]" in text:
-            return truncate_for_prompt(text, _CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT)
-    return ""
+    return channel_tool_context_service().prompt_text(body)
 
 
 def _remember_channel_injected_tool_use(source_body: dict[str, Any] | None, tool_use_id: str, tool_name: str, tool_input: Any) -> None:
-    if not isinstance(source_body, dict) or not tool_use_id:
-        return
-    metadata = source_body.get("metadata") if isinstance(source_body.get("metadata"), dict) else {}
-    if not metadata.get("ciel_runtime_channel_injected"):
-        return
-    context = {
-        "created_at": time.time(),
-        "channel_message_ids": str(metadata.get("ciel_runtime_channel_message_ids") or ""),
-        "prompt": _channel_injected_prompt_text(source_body),
-        "tool_name": tool_name,
-        "tool_input": tool_input if isinstance(tool_input, (dict, list, str, int, float, bool)) or tool_input is None else str(tool_input),
-    }
-    with _CHANNEL_LLM_TOOL_CONTEXT_LOCK:
-        _CHANNEL_LLM_TOOL_CONTEXT[tool_use_id] = context
-        if len(_CHANNEL_LLM_TOOL_CONTEXT) > _CHANNEL_LLM_TOOL_CONTEXT_LIMIT:
-            for old_id, _old in sorted(_CHANNEL_LLM_TOOL_CONTEXT.items(), key=lambda item: item[1].get("created_at", 0))[
-                : len(_CHANNEL_LLM_TOOL_CONTEXT) - _CHANNEL_LLM_TOOL_CONTEXT_LIMIT
-            ]:
-                _CHANNEL_LLM_TOOL_CONTEXT.pop(old_id, None)
-    router_log(
-        "INFO",
-        f"channel_llm_tool_context_stored tool_use_id={tool_use_id} tool={tool_name} message_ids={context['channel_message_ids']}",
-    )
+    channel_tool_context_service().remember(source_body, tool_use_id, tool_name, tool_input)
 
 
 def remember_channel_injected_tool_uses(source_body: dict[str, Any] | None, message: dict[str, Any]) -> None:
-    if not isinstance(message, dict):
-        return
-    for block in message.get("content") or []:
-        if not isinstance(block, dict) or block.get("type") != "tool_use":
-            continue
-        _remember_channel_injected_tool_use(
-            source_body,
-            str(block.get("id") or ""),
-            str(block.get("name") or "tool"),
-            block.get("input"),
-        )
+    channel_tool_context_service().remember_message(source_body, message)
 
 
 def _take_channel_tool_result_contexts_for_body(body: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
-    found: list[tuple[str, dict[str, Any]]] = []
-    with _CHANNEL_LLM_TOOL_CONTEXT_LOCK:
-        for message in body.get("messages") or []:
-            if not isinstance(message, dict) or message.get("role") != "user":
-                continue
-            for block in message.get("content") or []:
-                if not isinstance(block, dict) or block.get("type") != "tool_result":
-                    continue
-                tool_use_id = str(block.get("tool_use_id") or "")
-                context = _CHANNEL_LLM_TOOL_CONTEXT.pop(tool_use_id, None)
-                if context:
-                    found.append((tool_use_id, dict(context)))
-                    if len(found) >= _CHANNEL_LLM_TOOL_CONTEXT_MAX_INJECT:
-                        return found
-    return found
+    return channel_tool_context_service().repository.take_for_body(
+        body,
+        _CHANNEL_LLM_TOOL_CONTEXT_MAX_INJECT,
+    )
 
 
 def body_with_channel_tool_result_context(body: dict[str, Any]) -> dict[str, Any]:
-    metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
-    if metadata.get("ciel_runtime_channel_tool_result_followup"):
-        return body
-    contexts = _take_channel_tool_result_contexts_for_body(body)
-    if not contexts:
-        return body
-    parts = [
-        "[ciel-runtime channel tool_result follow-up]",
-        "tool_result data from a previous channel-injected tool call.",
-    ]
-    for tool_use_id, context in contexts:
-        parts.append(
-            "\n".join(
-                [
-                    f"tool_use_id={tool_use_id}",
-                    f"tool={context.get('tool_name') or 'tool'}",
-                    f"channel_message_ids={context.get('channel_message_ids') or ''}",
-                    f"tool_input={json.dumps(context.get('tool_input'), ensure_ascii=False)}",
-                    f"original_channel_prompt:\n{context.get('prompt') or '(not captured)'}",
-                ]
-            )
-        )
-    out = dict(body)
-    messages = [m for m in body.get("messages", []) if isinstance(m, dict)]
-    messages.append({"role": "user", "content": [{"type": "text", "text": "\n\n".join(parts)}]})
-    out["messages"] = messages
-    out_metadata = dict(metadata)
-    out_metadata["ciel_runtime_channel_tool_result_followup"] = True
-    out["metadata"] = out_metadata
-    router_log(
-        "INFO",
-        "channel_llm_tool_result_context_injected tool_use_ids="
-        + ",".join(tool_use_id for tool_use_id, _context in contexts),
-    )
-    return out
+    return channel_tool_context_service().inject_followup(body)
 
 
 def _channel_llm_write_cursor_locked(last_id: int) -> None:
