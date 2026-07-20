@@ -22,6 +22,13 @@ from ciel_runtime_support.architecture import (
 )
 from ciel_runtime_support.anthropic_tool_turns import AnthropicToolTurnServices
 from ciel_runtime_support.agy_installer import AgyInstaller, AgyInstallerPorts
+from ciel_runtime_support.codex_mcp_integration import (
+    CodexMcpArtifactPorts,
+    CodexMcpCapabilityPorts,
+    CodexMcpConfigPorts,
+    CodexMcpIntegrationService,
+    CodexMcpProjectionPorts,
+)
 from ciel_runtime_support.tool_exposure_policy import ToolExposurePolicy, ToolExposurePorts
 from ciel_runtime_support.synthetic_tool_policy import (
     ForcedPlanModeController,
@@ -2234,13 +2241,21 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
+    def test_codex_mcp_integration_uses_small_typed_ports(self):
+        for port in (
+            CodexMcpConfigPorts,
+            CodexMcpArtifactPorts,
+            CodexMcpCapabilityPorts,
+            CodexMcpProjectionPorts,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 5)
+        self.assertLessEqual(len(fields(CodexMcpIntegrationService)), 5)
+
     def test_mcp_json_artifacts_use_secure_repository(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
         tree = ast.parse(source_path.read_text(encoding="utf-8"))
-        target_names = {
-            "write_native_mcp_config_from_discovery",
-            "write_codex_mcp_config_for_channel_discovery",
-        }
+        target_names = {"write_native_mcp_config_from_discovery"}
         functions = {
             node.name: ast.unparse(node)
             for node in tree.body
@@ -2251,6 +2266,21 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(function=name):
                 self.assertIn("json_artifact_repository", source)
                 self.assertNotIn("os.chmod", source)
+
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        self.assertNotIn(
+            "write_codex_mcp_config_for_channel_discovery", root_functions
+        )
+        self.assertIn("CodexMcpIntegrationService", source_path.read_text(encoding="utf-8"))
+        integration_source = (
+            source_path.parent
+            / "ciel_runtime_support"
+            / "codex_mcp_integration.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("os.chmod", integration_source)
+        self.assertNotIn("import ciel_runtime", integration_source)
 
         managed_factory = next(
             node

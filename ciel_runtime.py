@@ -749,6 +749,13 @@ from ciel_runtime_support.codex_config import (
     toml_table_parts as _toml_table_parts,  # noqa: F401
     unquote_toml_string as _unquote_toml_string,  # noqa: F401
 )
+from ciel_runtime_support.codex_mcp_integration import (
+    CodexMcpArtifactPorts,
+    CodexMcpCapabilityPorts,
+    CodexMcpConfigPorts,
+    CodexMcpIntegrationService,
+    CodexMcpProjectionPorts,
+)
 from ciel_runtime_support.codex_launch_policy import (
     current_model_args as project_codex_current_model_args,
     help_requested as project_codex_help_requested,
@@ -14353,124 +14360,49 @@ CODEX_ROUTED_UPSTREAM_BASE = "https://chatgpt.com/backend-api/codex"
 CODEX_TUI_ALTERNATE_SCREEN_KEY = "tui.alternate_screen"
 
 
-def discovered_codex_mcp_servers(
-    passthrough: list[str] | None = None,
-    env: dict[str, str] | None = None,
-    cwd: Path | None = None,
-) -> dict[str, dict[str, Any]]:
-    return project_discover_codex_mcp_servers(
-        passthrough,
-        env,
-        cwd,
-        log=router_log,
-    )
-
-
-def write_codex_mcp_config_for_channel_discovery(
-    passthrough: list[str] | None = None,
-    env: dict[str, str] | None = None,
-    cwd: Path | None = None,
-) -> Path | None:
-    servers = discovered_codex_mcp_servers(passthrough or [], env=env, cwd=cwd)
-    if not servers:
-        try:
-            CODEX_MCP_CONFIG.unlink()
-        except FileNotFoundError:
-            pass
-        except Exception as exc:
-            router_log("WARN", f"codex_mcp_config_remove_failed error={type(exc).__name__}: {exc}")
-        return None
-    json_artifact_repository(CODEX_MCP_CONFIG).save(
-        {"mcpServers": servers},
-        "codex_mcp_config",
-    )
-    router_log("INFO", f"codex_mcp_config_written servers={','.join(sorted(servers))}")
-    return CODEX_MCP_CONFIG
-
-
-def _codex_config_bare_key(name: str) -> str | None:
-    text = str(name or "").strip()
-    if re.fullmatch(r"[A-Za-z0-9_-]+", text):
-        return text
-    return None
-
-
-def codex_channel_capable_mcp_server_names(cfg: dict[str, Any], codex_mcp_config: Path | None) -> list[str]:
-    if not codex_mcp_config or not codex_mcp_config.exists() or not codex_mcp_config.is_file():
-        return []
-    extra_paths: list[Path | str] = [codex_mcp_config]
-    ensure_channel_probe_cache_for_launch(cfg, [], extra_config_paths=extra_paths)
-    candidate_names = [
-        str(server.get("channel") or "").strip()
-        for server in _read_mcp_sse_servers_from_json(codex_mcp_config, Path.cwd())
-        if str(server.get("channel") or "").strip()
-    ]
-    source_key = _path_for_compare(codex_mcp_config)
-    capable = {
-        str(record.get("name") or "").strip()
-        for record in cached_channel_probe_servers()
-        if record.get("capable")
-        and str(record.get("name") or "").strip()
-        and _path_for_compare(Path(str(record.get("source_path") or ""))) == source_key
-    }
-    names = [
-        name
-        for name in candidate_names
-        if name in capable and name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES
-    ]
-    return _dedupe_strings(names)
-
-
-def codex_streamable_http_mcp_servers(codex_mcp_config: Path | None) -> dict[str, dict[str, Any]]:
-    if not codex_mcp_config or not codex_mcp_config.exists() or not codex_mcp_config.is_file():
-        return {}
-    try:
-        data = json.loads(codex_mcp_config.read_text(encoding="utf-8"))
-    except Exception as exc:
-        router_log("WARN", f"codex_mcp_compat_source_read_failed error={type(exc).__name__}: {exc}")
-        return {}
-    servers = data.get("mcpServers") if isinstance(data, dict) else None
-    if not isinstance(servers, dict):
-        return {}
-    out: dict[str, dict[str, Any]] = {}
-    for raw_name, raw_server in servers.items():
-        name = str(raw_name).strip()
-        if name and isinstance(raw_server, dict) and _mcp_server_is_streamable_http(raw_server):
-            out[name] = raw_server
-    return out
-
-
-def codex_mcp_native_http_compat_args(
-    codex_mcp_config: Path | None,
-    *,
-    split_http_proxy: bool = False,
-    channel_owned_server_names: Iterable[str] | None = None,
-) -> list[str]:
-    servers = codex_streamable_http_mcp_servers(codex_mcp_config)
-    if not servers:
-        return []
-    args: list[str] = []
-    active: list[str] = []
-    channel_owned = {
-        _channel_sse_public_mcp_name(str(name or "").strip())
-        for name in channel_owned_server_names or []
-        if str(name or "").strip()
-    }
-    for name, server in sorted(servers.items()):
-        key = _codex_config_bare_key(name)
-        if not key:
-            router_log("WARN", f"codex_mcp_compat_skipped_unsafe_name server={name}")
-            continue
-        if split_http_proxy or _channel_sse_public_mcp_name(name) in channel_owned:
-            args.extend(["-c", f"mcp_servers.{key}.url={toml_string(codex_mcp_split_proxy_url(name))}"])
-        active.append(name)
-    if active:
-        router_log(
-            "INFO",
-            "codex_mcp_native_http_compat servers=%s split_http_proxy=%s"
-            % (",".join(active), str(bool(split_http_proxy)).lower()),
-        )
-    return args
+_CODEX_MCP_INTEGRATION = CodexMcpIntegrationService(
+    config=CodexMcpConfigPorts(
+        discover=lambda *args, **kwargs: project_discover_codex_mcp_servers(
+            *args, **kwargs
+        ),
+        log=lambda level, message: router_log(level, message),
+    ),
+    artifact=CodexMcpArtifactPorts(
+        config_path=lambda: CODEX_MCP_CONFIG,
+        save_json=lambda path, payload, label: json_artifact_repository(path).save(
+            payload, label
+        ),
+        unlink=lambda path: path.unlink(),
+        load_json=lambda path: json.loads(path.read_text(encoding="utf-8")),
+    ),
+    capability=CodexMcpCapabilityPorts(
+        ensure_probe_cache=lambda *args, **kwargs: ensure_channel_probe_cache_for_launch(
+            *args, **kwargs
+        ),
+        read_servers=lambda path, cwd: _read_mcp_sse_servers_from_json(path, cwd),
+        cached_probe_servers=lambda: cached_channel_probe_servers(),
+        path_key=lambda path: _path_for_compare(path),
+        cwd=Path.cwd,
+    ),
+    projection=CodexMcpProjectionPorts(
+        dedupe_strings=_dedupe_strings,
+        public_name=lambda name: _channel_sse_public_mcp_name(name),
+        is_streamable_http=lambda server: _mcp_server_is_streamable_http(server),
+        split_proxy_url=lambda name: codex_mcp_split_proxy_url(name),
+        toml_string=toml_string,
+    ),
+    native_channel_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
+)
+discovered_codex_mcp_servers = _CODEX_MCP_INTEGRATION.discovered_servers
+write_codex_mcp_config_for_channel_discovery = (
+    _CODEX_MCP_INTEGRATION.write_discovery_config
+)
+_codex_config_bare_key = _CODEX_MCP_INTEGRATION.config_bare_key
+codex_channel_capable_mcp_server_names = (
+    _CODEX_MCP_INTEGRATION.channel_capable_server_names
+)
+codex_streamable_http_mcp_servers = _CODEX_MCP_INTEGRATION.streamable_http_servers
+codex_mcp_native_http_compat_args = _CODEX_MCP_INTEGRATION.native_http_compat_args
 
 
 def codex_alternate_screen_compat_args(passthrough: list[str], env: dict[str, str] | None = None, cwd: Path | None = None) -> list[str]:
