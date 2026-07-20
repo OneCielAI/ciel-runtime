@@ -385,7 +385,7 @@ Windows Console `INPUT_RECORD` 생성, UTF-16 surrogate 변환, 입력 queue 소
 
 ### `ciel_runtime_support/llm_presets.py`
 
-모델 용량과 공급자 특성을 반영해 LLM 프리셋을 적용하는 애플리케이션 서비스.
+모델 용량과 공급자 특성을 반영해 LLM 프리셋을 적용하는 애플리케이션 서비스. `PresetIdentityPolicy`가 preset ID·label·slash-command·context alias 정규화와 해석을 소유한다.
 
 ### `ciel_runtime_support/llm_option_config.py`
 

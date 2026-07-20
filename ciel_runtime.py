@@ -8898,51 +8898,14 @@ Apply the ciel-runtime live LLM preset `{preset_id}` ({description}) to this rou
 
 
 def normalize_llm_preset_token(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", str(value or "").lower()).strip("-")
+    return llm_presets.normalize_preset_token(value)
 
 
 def resolve_llm_preset_id(value: str) -> str | None:
-    raw = str(value or "").strip()
-    if not raw:
-        return None
-    normalized = normalize_llm_preset_token(raw)
-    aliases = {
-        "65k": "long-context-65k",
-        "long-65k": "long-context-65k",
-        "context-65k": "long-context-65k",
-        "128k": "long-context-128k",
-        "long-128k": "long-context-128k",
-        "context-128k": "long-context-128k",
-        "256k": "long-context-256k",
-        "long-256k": "long-context-256k",
-        "context-256k": "long-context-256k",
-        "300k": "long-context-300k",
-        "long-300k": "long-context-300k",
-        "context-300k": "long-context-300k",
-        "512k": "long-context-512k",
-        "long-512k": "long-context-512k",
-        "context-512k": "long-context-512k",
-        "1m": "million-context-1m",
-        "million": "million-context-1m",
-        "million-context": "million-context-1m",
-        "ultra": "million-context-1m",
-        "ultra-context": "million-context-1m",
-        "output": "large-output",
-        "large": "large-output",
-        "report": "large-output",
-    }
-    if normalized in aliases:
-        return aliases[normalized]
-    for preset_id, (label, _description) in LLM_PRESETS.items():
-        candidates = {
-            normalize_llm_preset_token(preset_id),
-            normalize_llm_preset_token(label),
-            normalize_llm_preset_token(llm_preset_command_name(preset_id)),
-            normalize_llm_preset_token(llm_preset_command_name(preset_id).removeprefix("llm-")),
-        }
-        if normalized in candidates:
-            return preset_id
-    return None
+    return llm_presets.PresetIdentityPolicy(
+        LLM_PRESETS,
+        llm_preset_command_name,
+    ).resolve(value)
 
 
 

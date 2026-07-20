@@ -1,7 +1,64 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable
+import re
+from typing import Any, Callable, Mapping
+
+
+def normalize_preset_token(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", str(value or "").lower()).strip("-")
+
+
+@dataclass(frozen=True, slots=True)
+class PresetIdentityPolicy:
+    presets: Mapping[str, tuple[str, str]]
+    command_name: Callable[[str], str]
+
+    _ALIASES = {
+        "65k": "long-context-65k",
+        "long-65k": "long-context-65k",
+        "context-65k": "long-context-65k",
+        "128k": "long-context-128k",
+        "long-128k": "long-context-128k",
+        "context-128k": "long-context-128k",
+        "256k": "long-context-256k",
+        "long-256k": "long-context-256k",
+        "context-256k": "long-context-256k",
+        "300k": "long-context-300k",
+        "long-300k": "long-context-300k",
+        "context-300k": "long-context-300k",
+        "512k": "long-context-512k",
+        "long-512k": "long-context-512k",
+        "context-512k": "long-context-512k",
+        "1m": "million-context-1m",
+        "million": "million-context-1m",
+        "million-context": "million-context-1m",
+        "ultra": "million-context-1m",
+        "ultra-context": "million-context-1m",
+        "output": "large-output",
+        "large": "large-output",
+        "report": "large-output",
+    }
+
+    def resolve(self, value: str) -> str | None:
+        raw = str(value or "").strip()
+        if not raw:
+            return None
+        normalized = normalize_preset_token(raw)
+        alias = self._ALIASES.get(normalized)
+        if alias is not None:
+            return alias
+        for preset_id, (label, _description) in self.presets.items():
+            command = self.command_name(preset_id)
+            candidates = {
+                normalize_preset_token(preset_id),
+                normalize_preset_token(label),
+                normalize_preset_token(command),
+                normalize_preset_token(command.removeprefix("llm-")),
+            }
+            if normalized in candidates:
+                return preset_id
+        return None
 
 
 @dataclass(frozen=True, slots=True)

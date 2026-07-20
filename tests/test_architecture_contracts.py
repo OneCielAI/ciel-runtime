@@ -475,6 +475,7 @@ from ciel_runtime_support.provider_configuration_service import (
 from ciel_runtime_support.llm_presets import (
     PresetContextPolicy,
     PresetDefinition,
+    PresetIdentityPolicy,
     PresetProviderMutation,
     PresetServices,
 )
@@ -1597,6 +1598,17 @@ class ArchitectureContractTests(unittest.TestCase):
         for port in (PresetServices, PresetDefinition, PresetContextPolicy, PresetProviderMutation):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+        self.assertEqual(2, len(fields(PresetIdentityPolicy)))
+
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        functions = {
+            node.name: node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+        }
+        resolver_source = ast.unparse(functions["resolve_llm_preset_id"])
+        self.assertIn("PresetIdentityPolicy", resolver_source)
+        self.assertNotIn("aliases", resolver_source)
 
     def test_llm_option_config_ports_stay_below_dependency_limit(self):
         for port in (
