@@ -219,6 +219,92 @@ class CodexBackendHttpAdapter:
             handler.wfile.flush()
 
 
+@dataclass(frozen=True, slots=True)
+class EventHttpPorts:
+    recent: Callable[..., list[dict[str, Any]]]
+    wait_after: Callable[..., list[dict[str, Any]]]
+    render_html: Callable[[], str]
+    write_text: Callable[..., Any]
+    write_json: Callable[..., Any]
+    log: Callable[[str, str], None]
+
+
+class EventHttpAdapter:
+    def __init__(self, ports: EventHttpPorts) -> None:
+        self._ports = ports
+
+    @staticmethod
+    def query_int(params: dict[str, list[str]], name: str, default: int) -> int:
+        try:
+            return int((params.get(name) or [default])[0])
+        except (TypeError, ValueError):
+            return default
+
+    def handle_get(
+        self,
+        handler: BaseHTTPRequestHandler,
+        path: str,
+        query: dict[str, list[str]],
+    ) -> bool:
+        if path == "/ca/events":
+            self._ports.write_text(
+                handler,
+                self._ports.render_html(),
+                content_type="text/html; charset=utf-8",
+            )
+            return True
+        if path == "/ca/events/recent":
+            self._ports.write_json(
+                handler,
+                {
+                    "ok": True,
+                    "events": self._ports.recent(
+                        limit=self.query_int(query, "limit", 200),
+                        min_id=self.query_int(query, "after", 0),
+                        level=(query.get("level") or [None])[0],
+                        category=(query.get("category") or [None])[0],
+                    ),
+                },
+            )
+            return True
+        if path != "/ca/events/stream":
+            return False
+        last_id = self.query_int(query, "after", 0)
+        handler.send_response(200)
+        handler.send_header("content-type", "text/event-stream")
+        handler.send_header("cache-control", "no-cache")
+        handler.send_header("connection", "close")
+        handler.end_headers()
+        try:
+            last_id = self._write_events(handler, self._ports.recent(limit=200, min_id=last_id), last_id)
+            while True:
+                events = self._ports.wait_after(last_id, timeout=15.0)
+                if events:
+                    last_id = self._write_events(handler, events, last_id)
+                else:
+                    handler.wfile.write(b": keepalive\n\n")
+                    handler.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            return True
+        except Exception as exc:
+            self._ports.log("DEBUG", f"events stream closed: {type(exc).__name__}: {exc}")
+        return True
+
+    @staticmethod
+    def _write_events(
+        handler: BaseHTTPRequestHandler,
+        events: list[dict[str, Any]],
+        last_id: int,
+    ) -> int:
+        for event in events:
+            last_id = max(last_id, int(event.get("id") or 0))
+            handler.wfile.write(
+                f"event: event\ndata: {json.dumps(event, ensure_ascii=False)}\n\n".encode()
+            )
+        handler.wfile.flush()
+        return last_id
+
+
 class RouterHttpHandler(BaseHTTPRequestHandler):
     server_version = "ciel-runtime/0.1"
     services_factory: Callable[[], RouterHttpServices] | None = None

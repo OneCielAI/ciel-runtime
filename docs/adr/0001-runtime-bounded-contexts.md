@@ -198,6 +198,10 @@ response delivery live in `CodexBackendHttpAdapter` within `router_http.py`.
 Channel mutation/request effects and retry/observability effects are separate
 typed port groups.
 
+The events dashboard, filtered recent-event response, and SSE long-poll stream
+are projected by `EventHttpAdapter`; the facade supplies EventBus and response
+writer ports without owning HTTP streaming loops.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

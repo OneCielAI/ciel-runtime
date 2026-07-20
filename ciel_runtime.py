@@ -887,6 +887,8 @@ from ciel_runtime_support.router_http import (
     CodexBackendHttpAdapter,
     CodexBackendRequestPorts,
     CodexBackendRetryPorts,
+    EventHttpAdapter,
+    EventHttpPorts,
     RouterHttpCore,
     RouterHttpErrors,
     RouterHttpGetEndpoints,
@@ -5478,62 +5480,20 @@ def parse_json_body(raw: bytes) -> dict[str, Any]:
 
 
 def query_int(params: dict[str, list[str]], name: str, default: int) -> int:
-    values = params.get(name) or []
-    try:
-        return int(values[0])
-    except Exception:
-        return default
+    return EventHttpAdapter.query_int(params, name, default)
+
+
+def event_http_adapter() -> EventHttpAdapter:
+    return EventHttpAdapter(
+        EventHttpPorts(
+            EVENT_BUS.recent, EVENT_BUS.wait_after, render_events_html,
+            write_text_response, write_json, router_log,
+        )
+    )
 
 
 def handle_events_get(handler: BaseHTTPRequestHandler, path: str, query: dict[str, list[str]]) -> bool:
-    if path == "/ca/events":
-        write_text_response(handler, render_events_html(), content_type="text/html; charset=utf-8")
-        return True
-    if path == "/ca/events/recent":
-        write_json(
-            handler,
-            {
-                "ok": True,
-                "events": EVENT_BUS.recent(
-                    limit=query_int(query, "limit", 200),
-                    min_id=query_int(query, "after", 0),
-                    level=(query.get("level") or [None])[0],
-                    category=(query.get("category") or [None])[0],
-                ),
-            },
-        )
-        return True
-    if path == "/ca/events/stream":
-        last_id = query_int(query, "after", 0)
-        handler.send_response(200)
-        handler.send_header("content-type", "text/event-stream")
-        handler.send_header("cache-control", "no-cache")
-        handler.send_header("connection", "close")
-        handler.end_headers()
-        try:
-            for event in EVENT_BUS.recent(limit=200, min_id=last_id):
-                last_id = max(last_id, int(event.get("id") or 0))
-                handler.wfile.write(f"event: event\ndata: {json.dumps(event, ensure_ascii=False)}\n\n".encode())
-            handler.wfile.flush()
-            while True:
-                events = EVENT_BUS.wait_after(last_id, timeout=15.0)
-                if not events:
-                    handler.wfile.write(b": keepalive\n\n")
-                    handler.wfile.flush()
-                    continue
-                for event in events:
-                    last_id = max(last_id, int(event.get("id") or 0))
-                    handler.wfile.write(f"event: event\ndata: {json.dumps(event, ensure_ascii=False)}\n\n".encode())
-                handler.wfile.flush()
-        except (BrokenPipeError, ConnectionResetError):
-            return True
-        except Exception as exc:
-            try:
-                router_log("DEBUG", f"events stream closed: {type(exc).__name__}: {exc}")
-            except Exception:
-                pass
-        return True
-    return False
+    return event_http_adapter().handle_get(handler, path, query)
 
 
 def _safe_segment(value: str, fallback: str = "item") -> str:
