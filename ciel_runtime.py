@@ -604,6 +604,7 @@ from ciel_runtime_support.runtime_restart import (
 )
 from ciel_runtime_support.router_access import (
     RouterAccessConfigService,
+    RouterAccessHttpController,
     RouterAccessMutationPorts,
     RouterAccessPolicy,
     RouterExternalTokenRepository,
@@ -3862,27 +3863,10 @@ def write_accepted_response(handler: BaseHTTPRequestHandler) -> None:
 
 
 def reject_external_router_request(handler: BaseHTTPRequestHandler, cfg: dict[str, Any] | None = None) -> bool:
-    if router_request_allowed(handler, cfg):
-        return False
-    external_enabled = router_debug_external_access_enabled(cfg)
-    status = 401 if external_enabled else 403
-    message = (
-        "ciel-runtime router external authentication is required."
-        if external_enabled
-        else "ciel-runtime router external debug access is off."
-    )
-    payload = json.dumps(
-        {"type": "error", "error": {"type": "unauthorized" if status == 401 else "forbidden", "message": message}},
-        ensure_ascii=False,
-    ).encode("utf-8")
-    handler.send_response(status)
-    handler.send_header("content-type", "application/json; charset=utf-8")
-    handler.send_header("content-length", str(len(payload)))
-    if status == 401:
-        handler.send_header("www-authenticate", 'Bearer realm="ciel-runtime"')
-    handler.end_headers()
-    handler.wfile.write(payload)
-    return True
+    return RouterAccessHttpController(
+        request_allowed=router_request_allowed,
+        external_access_enabled=router_debug_external_access_enabled,
+    ).reject_external_request(handler, cfg)
 
 
 def runtime_activity_repository() -> RuntimeActivityRepository:

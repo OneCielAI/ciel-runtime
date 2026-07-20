@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+import json
 import os
 import secrets
 import time
@@ -15,6 +16,16 @@ from typing import Any, Protocol
 class RouterRequest(Protocol):
     client_address: tuple[Any, ...]
     headers: Any
+
+
+class RouterResponse(RouterRequest, Protocol):
+    wfile: Any
+
+    def send_response(self, status: int) -> Any: ...
+
+    def send_header(self, name: str, value: str) -> Any: ...
+
+    def end_headers(self) -> Any: ...
 
 
 def is_loopback_address(host: str | None) -> bool:
@@ -151,8 +162,64 @@ class RouterAccessConfigService:
         ]
 
 
+@dataclass(frozen=True, slots=True)
+class RouterAccessHttpController:
+    request_allowed: Callable[
+        [RouterRequest, dict[str, Any] | None],
+        bool,
+    ]
+    external_access_enabled: Callable[
+        [dict[str, Any] | None],
+        bool,
+    ]
+
+    def reject_external_request(
+        self,
+        handler: RouterResponse,
+        config: dict[str, Any] | None = None,
+    ) -> bool:
+        if self.request_allowed(handler, config):
+            return False
+        external_enabled = self.external_access_enabled(config)
+        status = 401 if external_enabled else 403
+        message = (
+            "ciel-runtime router external authentication is required."
+            if external_enabled
+            else "ciel-runtime router external debug access is off."
+        )
+        payload = json.dumps(
+            {
+                "type": "error",
+                "error": {
+                    "type": (
+                        "unauthorized"
+                        if status == 401
+                        else "forbidden"
+                    ),
+                    "message": message,
+                },
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
+        handler.send_response(status)
+        handler.send_header(
+            "content-type",
+            "application/json; charset=utf-8",
+        )
+        handler.send_header("content-length", str(len(payload)))
+        if status == 401:
+            handler.send_header(
+                "www-authenticate",
+                'Bearer realm="ciel-runtime"',
+            )
+        handler.end_headers()
+        handler.wfile.write(payload)
+        return True
+
+
 __all__ = [
     "RouterAccessConfigService",
+    "RouterAccessHttpController",
     "RouterAccessMutationPorts",
     "RouterAccessPolicy",
     "RouterExternalTokenRepository",

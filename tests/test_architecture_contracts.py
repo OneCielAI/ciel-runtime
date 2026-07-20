@@ -126,6 +126,7 @@ from ciel_runtime_support.provider_request_access import (
     ProviderRequestAccessService,
 )
 from ciel_runtime_support.provider_query_policy import ProviderQueryPolicy
+from ciel_runtime_support.router_access import RouterAccessHttpController
 from ciel_runtime_support.provider_launch_endpoint import (
     ProviderLaunchEndpointGroups,
     ProviderLaunchEndpointPolicy,
@@ -4090,6 +4091,7 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("hmac.compare_digest", source)
         self.assertNotIn("ROUTER_EXTERNAL_TOKEN_PATH.read_text", source)
         self.assertIn("from ciel_runtime_support.router_access import (", source)
+        self.assertEqual(2, len(fields(RouterAccessHttpController)))
 
     def test_ollama_context_and_output_budget_policies_live_outside_root(self):
         root = Path(__file__).resolve().parents[1]
@@ -4583,6 +4585,9 @@ class ArchitectureContractTests(unittest.TestCase):
             "inbound_query_has_beta_flag": "inbound_has_beta",
             "upstream_messages_query": "upstream_query",
             "upstream_query_string_status": "status",
+            "reject_external_router_request": (
+                "reject_external_request"
+            ),
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

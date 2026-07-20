@@ -1101,7 +1101,7 @@ Router PID file 종료, health PID 보호, foreign-config 충돌 거부, 포트 
 
 ### `ciel_runtime_support/router_access.py`
 
-Router bind host, loopback 신뢰, bearer-token 비교와 external-debug 확인 정책을 소유하는 Security Policy. token의 환경 우선순위와 원자적 생성은 `RouterExternalTokenRepository`, 설정 변경은 typed port를 사용하는 `RouterAccessConfigService`로 분리한다.
+Router bind host, loopback 신뢰, bearer-token 비교와 external-debug 확인 정책을 소유하는 Security Policy. token의 환경 우선순위와 원자적 생성은 `RouterExternalTokenRepository`, 설정 변경은 typed port를 사용하는 `RouterAccessConfigService`, 401/403 JSON 거부 응답은 `RouterAccessHttpController`로 분리한다.
 
 ### `ciel_runtime_support/router_shortcuts.py`
 

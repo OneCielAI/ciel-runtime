@@ -1,11 +1,13 @@
 import tempfile
 import unittest
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 
 from ciel_runtime_support.config_value_codec import parse_bool
 from ciel_runtime_support.router_access import (
     RouterAccessConfigService,
+    RouterAccessHttpController,
     RouterAccessMutationPorts,
     RouterAccessPolicy,
     RouterExternalTokenRepository,
@@ -114,6 +116,31 @@ class RouterAccessTests(unittest.TestCase):
         self.assertEqual(1, len(saved))
         self.assertEqual([True], cache_clears)
         self.assertIn("External access token: token", lines)
+
+    def test_http_controller_writes_authenticated_external_rejection(self):
+        handler = SimpleNamespace(
+            client_address=("192.0.2.9", 1),
+            headers={},
+            wfile=BytesIO(),
+            send_response=lambda status: responses.append(status),
+            send_header=lambda name, value: headers.append((name, value)),
+            end_headers=lambda: None,
+        )
+        responses: list[int] = []
+        headers: list[tuple[str, str]] = []
+        controller = RouterAccessHttpController(
+            request_allowed=lambda _handler, _config: False,
+            external_access_enabled=lambda _config: True,
+        )
+
+        self.assertTrue(controller.reject_external_request(handler, {}))
+
+        self.assertEqual([401], responses)
+        self.assertIn(
+            ("www-authenticate", 'Bearer realm="ciel-runtime"'),
+            headers,
+        )
+        self.assertIn(b'"unauthorized"', handler.wfile.getvalue())
 
 
 if __name__ == "__main__":
