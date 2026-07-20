@@ -253,6 +253,9 @@ from ciel_runtime_support.channel_launch_policy import (
     ChannelLaunchPolicy,
     ChannelLaunchPorts,
 )
+from ciel_runtime_support.channel_runtime_environment import (
+    ChannelRuntimeEnvironmentPolicy,
+)
 from ciel_runtime_support.channel_cursor_repository import ChannelCursorRepository
 from ciel_runtime_support.channel_cursor_service import (
     ChannelDeliveryCursorCommitter,
@@ -275,7 +278,6 @@ from ciel_runtime_support.channel_wake_claim_repository import (
 )
 from ciel_runtime_support.channel_terminal_input import (
     TerminalMouseInputFilter as _TerminalMouseInputFilter,
-    bounded_delay_seconds as _bounded_delay_seconds,
     enter_bytes_from_user_input as _channel_enter_bytes_from_user_input,  # noqa: F401 - compatibility export
     enter_label as _channel_enter_label,
     platform_default_enter_bytes as _channel_platform_default_enter_bytes,
@@ -4144,13 +4146,15 @@ def _chat_scan_max_id() -> int:
 
 
 def _channel_launch_recent_seconds() -> float:
-    raw = str(os.environ.get("CIEL_RUNTIME_CHANNEL_LAUNCH_RECENT_SECONDS") or "").strip()
-    if not raw:
-        return CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT
-    try:
-        return float(raw)
-    except (TypeError, ValueError):
-        return CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT
+    return channel_runtime_environment_policy().launch_recent_seconds()
+
+
+def channel_runtime_environment_policy() -> ChannelRuntimeEnvironmentPolicy:
+    return ChannelRuntimeEnvironmentPolicy(
+        environment=os.environ,
+        launch_recent_default=CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT,
+        probe_timeout_default=CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS,
+    )
 
 
 def _chat_scan_max_id_before_epoch(cutoff_epoch: float) -> int:
@@ -8169,16 +8173,7 @@ def channel_probe_default_timeout() -> float:
     """Default per-server probe timeout. Configurable via
     CIEL_RUNTIME_CHANNEL_PROBE_TIMEOUT_SECONDS so users with slow MCP servers
     (npx cold start, remote API init) can extend it without code changes."""
-    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_PROBE_TIMEOUT_SECONDS")
-    if raw is None:
-        return CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS
-    try:
-        value = float(str(raw).strip())
-    except (TypeError, ValueError):
-        return CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS
-    if value <= 0:
-        return CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS
-    return value
+    return channel_runtime_environment_policy().probe_timeout_seconds()
 
 
 CHANNEL_PROBE_STDERR_CAP_BYTES = 4096
@@ -11614,19 +11609,11 @@ def should_launch_process_start_channel_sse(
 
 
 def _channel_pending_scan_limit() -> int:
-    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_PENDING_SCAN_LIMIT", "500")
-    try:
-        return max(100, min(5000, int(str(raw).strip())))
-    except (TypeError, ValueError):
-        return 500
+    return channel_runtime_environment_policy().pending_scan_limit()
 
 
 def _channel_stdin_wake_batch_limit() -> int:
-    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_BATCH_LIMIT", "8")
-    try:
-        return max(1, min(50, int(str(raw).strip())))
-    except (TypeError, ValueError):
-        return 8
+    return channel_runtime_environment_policy().wake_batch_limit()
 
 
 _CHANNEL_LLM_TOOL_CONTEXT_LOCK = threading.Lock()
@@ -11856,13 +11843,7 @@ def commit_pending_channel_delivery_cursors(
 
 
 def _channel_stdin_wake_claim_ttl_seconds() -> float:
-    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_CLAIM_TTL_SECONDS")
-    if raw is None:
-        return 300.0
-    try:
-        return max(5.0, min(1800.0, float(raw)))
-    except (TypeError, ValueError):
-        return 300.0
+    return channel_runtime_environment_policy().wake_claim_ttl_seconds()
 
 
 def channel_wake_claim_repository() -> ChannelWakeClaimRepository:
@@ -12007,28 +11988,16 @@ def _channel_current_tmux_pane_text() -> str | None:
 
 
 def _codex_channel_wake_submit_retries() -> int:
-    raw = os.environ.get("CIEL_RUNTIME_CODEX_CHANNEL_WAKE_SUBMIT_RETRIES")
-    if raw is None:
-        return 4
-    try:
-        return max(1, min(8, int(str(raw).strip())))
-    except (TypeError, ValueError):
-        return 4
+    return channel_runtime_environment_policy().codex_submit_retries()
 
 
 def _codex_channel_wake_submit_delay_seconds() -> float:
-    raw = os.environ.get("CIEL_RUNTIME_CODEX_CHANNEL_WAKE_SUBMIT_DELAY_MS")
-    if raw is None:
-        return 0.25
-    return _bounded_delay_seconds(raw, 0.25, minimum=0.13, maximum=5.0)
+    return channel_runtime_environment_policy().codex_submit_delay_seconds()
 
 
 def _windows_channel_startup_grace_seconds() -> float:
     """Allow an interactive Windows TUI to begin reading console input."""
-    raw = os.environ.get("CIEL_RUNTIME_WINDOWS_CHANNEL_STARTUP_GRACE_MS")
-    if raw is None:
-        return 8.0
-    return _bounded_delay_seconds(raw, 8.0, minimum=0.0, maximum=60.0)
+    return channel_runtime_environment_policy().windows_startup_grace_seconds()
 
 
 def _write_channel_wake_prompt(
@@ -12250,30 +12219,21 @@ def channel_cursor_recovery_service() -> ChannelCursorRecoveryService:
 
 
 def _channel_stdin_unseen_retry_seconds() -> float:
-    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_UNSEEN_RETRY_SECONDS")
-    if raw is None:
-        return 20.0
-    try:
-        return max(2.0, min(300.0, float(raw)))
-    except (TypeError, ValueError):
-        return 20.0
+    return channel_runtime_environment_policy().unseen_retry_seconds()
 
 
 def _channel_stdin_inflight_stale_seconds() -> float:
-    raw = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_INFLIGHT_STALE_SECONDS")
-    if raw is None:
-        return 180.0
-    try:
-        return max(30.0, min(1800.0, float(raw)))
-    except (TypeError, ValueError):
-        return 180.0
+    return channel_runtime_environment_policy().inflight_stale_seconds()
 
 
 def _channel_stdin_inflight_is_stale(state: str, started_at: float, now: float | None = None) -> bool:
-    if state not in {"queued", "unknown"} or started_at <= 0:
-        return False
     current = time.time() if now is None else float(now)
-    return current - started_at >= _channel_stdin_inflight_stale_seconds()
+    return ChannelRuntimeEnvironmentPolicy.inflight_is_stale(
+        state,
+        started_at,
+        current,
+        _channel_stdin_inflight_stale_seconds(),
+    )
 
 
 def _channel_stdin_should_check_pending(

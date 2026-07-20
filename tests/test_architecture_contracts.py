@@ -238,6 +238,9 @@ from ciel_runtime_support.channel_launch_policy import (
     ChannelLaunchPolicy,
     ChannelLaunchPorts,
 )
+from ciel_runtime_support.channel_runtime_environment import (
+    ChannelRuntimeEnvironmentPolicy,
+)
 from ciel_runtime_support.channel_cursor_repository import ChannelCursorRepository
 from ciel_runtime_support.channel_cursor_recovery import (
     ChannelCursorRecoveryPolicy,
@@ -3939,6 +3942,31 @@ class ArchitectureContractTests(unittest.TestCase):
             function_source = ast.unparse(functions[name])
             self.assertIn("channel_launch_policy", function_source)
             self.assertNotIn("subprocess.run", function_source)
+
+    def test_channel_runtime_environment_policy_owns_threshold_parsing(self):
+        self.assertEqual(3, len(fields(ChannelRuntimeEnvironmentPolicy)))
+
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        functions = {
+            node.name: node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+        }
+        for name in (
+            "_channel_launch_recent_seconds",
+            "channel_probe_default_timeout",
+            "_channel_pending_scan_limit",
+            "_channel_stdin_wake_batch_limit",
+            "_channel_stdin_wake_claim_ttl_seconds",
+            "_channel_stdin_unseen_retry_seconds",
+            "_channel_stdin_inflight_stale_seconds",
+            "_codex_channel_wake_submit_retries",
+            "_codex_channel_wake_submit_delay_seconds",
+            "_windows_channel_startup_grace_seconds",
+        ):
+            function_source = ast.unparse(functions[name])
+            self.assertIn("channel_runtime_environment_policy", function_source)
+            self.assertNotIn("os.environ", function_source)
 
     def test_channel_cursor_repository_owns_atomic_cursor_persistence(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
