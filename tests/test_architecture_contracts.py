@@ -252,6 +252,14 @@ from ciel_runtime_support.channel_session_lifecycle import ChannelSessionLifecyc
 from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices
 from ciel_runtime_support.channel_probe_cache import ChannelProbePorts
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
+from ciel_runtime_support.configuration_cli import (
+    ConfigurationCliConfigPorts,
+    ConfigurationCliController,
+    ConfigurationCliDisplayPorts,
+    ConfigurationCliIO,
+    ConfigurationCliModelPorts,
+    ConfigurationCliProviderPorts,
+)
 from ciel_runtime_support.compatibility_test import (
     CompatibilityTestConfig,
     CompatibilityTestConstants,
@@ -1620,6 +1628,40 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
+    def test_configuration_cli_controller_owns_command_flow(self):
+        for port in (
+            ConfigurationCliConfigPorts,
+            ConfigurationCliProviderPorts,
+            ConfigurationCliModelPorts,
+            ConfigurationCliDisplayPorts,
+            ConfigurationCliIO,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        self.assertEqual(5, len(fields(ConfigurationCliController)))
+
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        functions = {
+            node.name: node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+        }
+        for name in (
+            "cmd_provider",
+            "cmd_base_url",
+            "cmd_model",
+            "cmd_advisor_model",
+            "cmd_models",
+            "cmd_log_level",
+            "cmd_language",
+            "cmd_web_search",
+            "cmd_web_fetch",
+        ):
+            function_source = ast.unparse(functions[name])
+            self.assertIn("configuration_cli_controller", function_source)
+            self.assertNotIn("load_config", function_source)
+            self.assertNotIn("for ", function_source)
+
     def test_headless_config_ports_stay_below_dependency_limit(self):
         for port in (
             HeadlessConfigCommands,
@@ -2033,6 +2075,10 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_provider_ui_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ProviderUiPolicy)), 10)
+        self.assertIn(
+            "uses_native_advisor",
+            {field.name for field in fields(ProviderUiPolicy)},
+        )
 
     def test_provider_ui_policy_does_not_own_runtime_launch_flags(self):
         field_names = {field.name for field in fields(ProviderUiPolicy)}

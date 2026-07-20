@@ -883,6 +883,10 @@ Streamable HTTP MCP session의 initialize, notification GET stream 재연결, to
 
 파일 저장이나 런타임 I/O 없이 구성 schema migration을 순서대로 적용하는 Configuration policy.
 
+### `ciel_runtime_support/configuration_cli.py`
+
+Provider/base-URL/model/advisor/language/log-level/web 설정 명령의 조회·변경·출력 흐름을 소유하는 CLI Application Controller. config, provider, model, display, I/O 포트를 각각 10필드 이하로 분리하며 Provider Adapter의 `uses_native_advisor` capability를 사용한다.
+
 ### `ciel_runtime_support/provider_config_mutations.py`
 
 CLI와 저장소에 의존하지 않고 Provider option의 검증·정규화·설정 변경을 수행하는 Configuration policy. 프로바이더 이름 분기 없이 각 Provider Adapter의 `ProviderConfigurationPolicy`가 Ollama mutation 전략, endpoint override, native 제한, route 지원 및 텍스트 option alias를 선언한다.

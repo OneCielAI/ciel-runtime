@@ -360,6 +360,14 @@ from ciel_runtime_support.lm_studio_runtime import (
 from ciel_runtime_support import cli_dispatch
 from ciel_runtime_support.cli_usage import cli_usage_text
 from ciel_runtime_support import cli_parser
+from ciel_runtime_support.configuration_cli import (
+    ConfigurationCliConfigPorts,
+    ConfigurationCliController,
+    ConfigurationCliDisplayPorts,
+    ConfigurationCliIO,
+    ConfigurationCliModelPorts,
+    ConfigurationCliProviderPorts,
+)
 from ciel_runtime_support.compatibility_test import (
     CompatibilityTestConfig,
     CompatibilityTestConstants,
@@ -7788,28 +7796,45 @@ def read_clipboard_text() -> str:
     return ""
 
 
+def configuration_cli_controller() -> ConfigurationCliController:
+    return ConfigurationCliController(
+        config=ConfigurationCliConfigPorts(
+            load=load_config,
+            save=save_config,
+            current_provider=get_current_provider,
+        ),
+        provider=ConfigurationCliProviderPorts(
+            normalize_choice=normalize_provider_choice,
+            normalize_provider=normalize_provider,
+            panel_rows=provider_panel_rows,
+            menu_label=provider_menu_label,
+            set_choice=set_provider_choice_config,
+            set_provider=set_provider_config,
+            set_base_url=set_base_url_config,
+        ),
+        model=ConfigurationCliModelPorts(
+            cached_ids=cached_or_configured_model_ids,
+            alias_for=alias_for,
+            read_cache=read_model_list_cache,
+            set_model=set_model_config,
+            upstream_ids=upstream_model_ids,
+            set_advisor=set_advisor_model_config,
+            advisor_uses_builtin=lambda provider, pcfg: provider_ui_policy(provider, pcfg).uses_native_advisor,
+        ),
+        display=ConfigurationCliDisplayPorts(
+            log_level_names=LOG_LEVEL_NAMES,
+            log_level_status=log_level_status,
+            log_level_name=log_level_name,
+            set_log_level=set_log_level_config,
+            languages=LANGUAGES,
+            web_tools_config_path=WEB_TOOLS_MCP_CONFIG,
+        ),
+        io=ConfigurationCliIO(output=print),
+    )
+
+
 def cmd_provider(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    if not args.name:
-        cur = cfg["current_provider"]
-        pcfg = cfg["providers"].get(cur, {})
-        rows, _values = provider_panel_rows(cfg)
-        print("Available providers (current: %s)" % provider_menu_label(cur, pcfg))
-        for i, row in enumerate(rows, 1):
-            print(f" {i:>2}. {row}")
-        print("\nUse: /provider <name>")
-        print("Examples: /provider codex, /provider codex-routed, /provider ollama")
-        print("Then run /model to choose a model for the selected provider.")
-        return
-    choice = normalize_provider_choice(args.name)
-    if choice:
-        lines = set_provider_choice_config(choice)
-    else:
-        provider = normalize_provider(args.name)
-        lines = set_provider_config(provider)
-    for line in lines:
-        print(line)
-    print("Gateway model cache cleared. Run /model to refresh the model picker.")
+    configuration_cli_controller().provider_command(args.name)
 
 
 def cmd_set_api_key(args: argparse.Namespace) -> None:
@@ -7851,66 +7876,22 @@ def credential_cli_controller() -> CredentialCliController:
 
 
 def cmd_base_url(args: argparse.Namespace) -> None:
-    provider = normalize_provider(args.provider)
-    for line in set_base_url_config(provider, args.url):
-        print(line)
+    configuration_cli_controller().base_url_command(
+        args.provider,
+        args.url,
+    )
 
 
 def cmd_model(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    if not args.value:
-        print(f"Model menu for {provider} (current: {pcfg.get('current_model')})")
-        models = cached_or_configured_model_ids(provider, pcfg)
-        for i, mid in enumerate(models[:100], 1):
-            mark = "*" if mid == pcfg.get("current_model") else " "
-            print(f" {mark} {i:>3}. {alias_for(provider, mid)}    [{mid}]")
-        if len(models) > 100:
-            print(f" ... {len(models) - 100} more")
-        if read_model_list_cache(provider, pcfg) is None:
-            print("\nProvider model list is not cached yet. Use the menu refresh row or run: ciel-runtimectl models")
-        print("\nSet direct/custom model with: /set-model MODEL_ID")
-        print("Or from terminal: ciel-runtimectl model MODEL_ID")
-        return
-    value = " ".join(args.value).strip()
-    if value.startswith("add "):
-        value = value[4:].strip()
-    if not value:
-        raise SystemExit("Missing model id")
-    for line in set_model_config(value):
-        print(line)
-    print("Gateway model cache cleared. Run /model to refresh if needed.")
+    configuration_cli_controller().model_command(args.value)
 
 
 def cmd_advisor_model(args: argparse.Namespace) -> None:
-    if not args.value:
-        cfg = load_config()
-        provider, pcfg = get_current_provider(cfg)
-        if provider == "anthropic":
-            print("Anthropic modes use Claude Code's built-in /advisor; run /advisor in the session to pick its model.")
-            return
-        current = pcfg.get("advisor_model") or "off"
-        print(f"Advisor Model for {provider}: {current}")
-        print("Set with: ciel-runtimectl advisor-model deepseek-v4-pro")
-        print("Disable with: ciel-runtimectl advisor-model off")
-        return
-    value = " ".join(args.value).strip()
-    if value.lower() in ("off", "unset", "disable", "disabled", "none", "null"):
-        value = ""
-    for line in set_advisor_model_config(value):
-        print(line)
+    configuration_cli_controller().advisor_model_command(args.value)
 
 
 def cmd_models(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    if args.provider:
-        provider = normalize_provider(args.provider)
-        pcfg = cfg["providers"][provider]
-    models = upstream_model_ids(provider, pcfg)
-    print(f"{provider}: {len(models)} models")
-    for mid in models:
-        print(f"{alias_for(provider, mid)}\t{mid}")
+    configuration_cli_controller().models_command(args.provider)
 
 
 def cmd_ollama_catalog(args: argparse.Namespace) -> None:
@@ -7978,46 +7959,13 @@ def cmd_status(_: argparse.Namespace) -> None:
 
 
 def cmd_log_level(args: argparse.Namespace) -> None:
-    value = getattr(args, "value", None)
-    if not value:
-        print(f"log_level: {log_level_status()}")
-        for numeric in sorted(LOG_LEVEL_NAMES):
-            name = LOG_LEVEL_NAMES[numeric]
-            mark = "*" if name == log_level_name() else " "
-            print(f" {mark} {name:<6} {numeric}")
-        print("   DEFAULT reset to environment/default")
-        return
-    for line in set_log_level_config(str(value)):
-        print(line)
+    configuration_cli_controller().log_level_command(
+        getattr(args, "value", None)
+    )
 
 
 def cmd_language(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    if not args.value:
-        current = cfg.get("language", "en")
-        print(f"language: {current} ({LANGUAGES.get(current, current)})")
-        for code, label in LANGUAGES.items():
-            mark = "*" if code == current else " "
-            print(f" {mark} {code:<2} {label}")
-        return
-    value = args.value.strip().lower()
-    aliases = {
-        "english": "en",
-        "korean": "ko",
-        "한국어": "ko",
-        "japanese": "ja",
-        "日本語": "ja",
-        "chinese": "zh",
-        "中文": "zh",
-        "zh-cn": "zh",
-        "cn": "zh",
-    }
-    value = aliases.get(value, value)
-    if value not in LANGUAGES:
-        raise SystemExit(f"Unknown language: {args.value}\nKnown: {', '.join(LANGUAGES)}")
-    cfg["language"] = value
-    save_config(cfg)
-    print(f"Language set to {value} ({LANGUAGES[value]}).")
+    configuration_cli_controller().language_command(args.value)
 
 
 def set_web_search_enabled(enabled: bool) -> None:
@@ -8027,52 +7975,11 @@ def set_web_search_enabled(enabled: bool) -> None:
 
 
 def cmd_web_search(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    web = cfg.setdefault("web_search", {})
-    if args.value:
-        value = args.value.lower()
-        if value in ("on", "enable", "enabled", "true", "1"):
-            web["auto_for_non_native"] = True
-            save_config(cfg)
-        elif value in ("off", "disable", "disabled", "false", "0"):
-            web["auto_for_non_native"] = False
-            save_config(cfg)
-        else:
-            raise SystemExit("Use: ciel-runtime web-search on|off|status")
-    state = "on" if web.get("auto_for_non_native", True) else "off"
-    package = web.get("package", "ddg-mcp-search")
-    print(f"web_search: {state}")
-    print(f"search_provider: {web.get('provider', 'duckduckgo')}")
-    print(f"search_package: {package}")
-    print(f"web_fetch: {'on' if web.get('fetch_enabled', True) else 'off'}")
-    print(f"fetch_package: {web.get('fetch_package', 'mcp-server-fetch')}")
-    print(f"mcp_config: {WEB_TOOLS_MCP_CONFIG}")
+    configuration_cli_controller().web_search_command(args.value)
 
 
 def cmd_web_fetch(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    web = cfg.setdefault("web_search", {})
-    if args.value:
-        value = args.value.lower()
-        if value in ("on", "enable", "enabled", "true", "1"):
-            web["fetch_enabled"] = True
-            save_config(cfg)
-        elif value in ("off", "disable", "disabled", "false", "0"):
-            web["fetch_enabled"] = False
-            save_config(cfg)
-        elif value == "ignore-robots-on":
-            web["fetch_ignore_robots_txt"] = True
-            save_config(cfg)
-        elif value == "ignore-robots-off":
-            web["fetch_ignore_robots_txt"] = False
-            save_config(cfg)
-        else:
-            raise SystemExit("Use: ciel-runtime web-fetch on|off|ignore-robots-on|ignore-robots-off")
-    print(f"web_fetch: {'on' if web.get('fetch_enabled', True) else 'off'}")
-    print(f"fetch_package: {web.get('fetch_package', 'mcp-server-fetch')}")
-    print(f"ignore_robots_txt: {bool(web.get('fetch_ignore_robots_txt', False))}")
-    print(f"user_agent: {web.get('fetch_user_agent') or 'default'}")
-    print(f"mcp_config: {WEB_TOOLS_MCP_CONFIG}")
+    configuration_cli_controller().web_fetch_command(args.value)
 
 
 def channel_specs(cfg: dict[str, Any] | None = None) -> list[str]:

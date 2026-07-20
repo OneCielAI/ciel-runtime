@@ -228,6 +228,7 @@ class ProviderUiPolicy:
     routed_choice: str = ""
     model_placeholder: str = ""
     advisor_placeholder: str = ""
+    uses_native_advisor: bool = False
 
 
 class RuntimeAdapter(ABC):

@@ -118,6 +118,7 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
             native_choice="anthropic:native",
             routed_choice="anthropic:routed",
             advisor_placeholder="Claude Code native /advisor",
+            uses_native_advisor=True,
         )
 
     def option_timeout_default(self) -> str:
