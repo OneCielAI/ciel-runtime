@@ -611,6 +611,7 @@ from ciel_runtime_support.router_access import (
     is_loopback_address,  # noqa: F401 - compatibility export
     router_request_bearer_token,  # noqa: F401 - compatibility export
 )
+from ciel_runtime_support.router_health_policy import RouterHealthPolicy
 from ciel_runtime_support.install_diagnostics import (
     InstallDiagnosticsPorts,
     InstallDiagnosticsService,
@@ -1289,6 +1290,13 @@ from ciel_runtime_support.transcript_filter import (
     is_claude_code_transcript_event,
 )
 from ciel_runtime_support.web_ui import render_router_home_page, render_web_chat_page
+from ciel_runtime_support.web_ui_controller import (
+    WebUiConstants,
+    WebUiController,
+    WebUiDisplayPorts,
+    WebUiHttpPorts,
+    WebUiProjectionPorts,
+)
 from ciel_runtime_support.windows_console_input import (
     WindowsConsoleInputWriter,
     _windows_console_utf16_units as project_windows_console_utf16_units,
@@ -3979,59 +3987,44 @@ def handle_llm_config_post(handler: BaseHTTPRequestHandler, path: str, body: dic
     return llm_config_http_controller().handle_post(handler, path, body)
 
 
+def web_ui_controller() -> WebUiController:
+    return WebUiController(
+        constants=WebUiConstants(
+            VERSION,
+            ROUTER_ACTIVITY_PATH,
+            CONTEXT_USAGE_PATH,
+            DEFAULT_REQUEST_TIMEOUT_MS,
+        ),
+        projection=WebUiProjectionPorts(
+            current_alias,
+            read_json_file,
+            router_rate_limit_usage,
+            positive_int,
+            timeout_profile_idle_ms,
+            context_limit_for_status,
+        ),
+        display=WebUiDisplayPorts(
+            render_router_home_page,
+            render_web_chat_page,
+            provider_mode_label,
+            api_key_status_line,
+        ),
+        http=WebUiHttpPorts(
+            load_config,
+            get_current_provider,
+            write_text_response,
+        ),
+    )
+
+
 def render_router_home_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any]) -> str:
-    model = current_alias(cfg)
-    upstream = read_json_file(ROUTER_ACTIVITY_PATH)
-    context = read_json_file(CONTEXT_USAGE_PATH)
-    used, rpm_limit = router_rate_limit_usage(provider, pcfg)
-    rpm_text = "off"
-    if bool(pcfg.get("rate_limit_status", False)):
-        rpm_text = f"{used}/min unmanaged" if rpm_limit == 0 else (f"{used}/{rpm_limit}" if rpm_limit else "unknown")
-    timeout_ms = positive_int(pcfg.get("request_timeout_ms")) or DEFAULT_REQUEST_TIMEOUT_MS
-    idle_ms = positive_int(pcfg.get("stream_idle_timeout_ms")) or timeout_profile_idle_ms(timeout_ms)
-    context_limit = context_limit_for_status(provider, pcfg)
-    context_tokens = positive_int(context.get("tokens"))
-    context_pct = context.get("percent")
-    if isinstance(context_pct, (int, float)):
-        context_text = f"{context_tokens or 0:,}/{context_limit or 0:,} tok ({context_pct}%)"
-    else:
-        context_text = f"{context_tokens or 0:,}/{context_limit or 0:,} tok" if context_limit else "unknown"
-    upstream_text = " · ".join(
-        bit
-        for bit in (
-            str(upstream.get("event") or "idle"),
-            str(upstream.get("provider") or provider),
-            str(upstream.get("model") or pcfg.get("current_model") or ""),
-        )
-        if bit
-    )
-    return render_router_home_page(
-        version=VERSION,
-        provider=provider,
-        model=model,
-        context_text=context_text,
-        timeout_ms=timeout_ms,
-        idle_ms=idle_ms,
-        rpm_text=rpm_text,
-        upstream_text=upstream_text,
-    )
+    return web_ui_controller().render_router_home(cfg, provider, pcfg)
 
 def render_web_chat_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any]) -> str:
-    return render_web_chat_page(
-        model=current_alias(cfg),
-        provider=provider,
-        mode=provider_mode_label(provider, pcfg),
-        api_status=api_key_status_line(provider, pcfg),
-        timeout_ms=positive_int(pcfg.get("request_timeout_ms")) or DEFAULT_REQUEST_TIMEOUT_MS,
-    )
+    return web_ui_controller().render_web_chat(cfg, provider, pcfg)
 
 def handle_web_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
-    if path not in ("/ca/web/chat", "/ca/web/chat/"):
-        return False
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    write_text_response(handler, render_web_chat_html(cfg, provider, pcfg), content_type="text/html; charset=utf-8")
-    return True
+    return web_ui_controller().handle_get(handler, path)
 
 
 def parse_json_body(raw: bytes) -> dict[str, Any]:
@@ -7442,27 +7435,21 @@ def router_port_connectivity_summary(timeout: float = 0.5) -> str:
         return f"tcp={host}:{port}:{type(exc).__name__}: {exc}"
 
 
+def router_health_policy() -> RouterHealthPolicy:
+    return RouterHealthPolicy(
+        VERSION,
+        SOURCE_FINGERPRINT,
+        CONFIG_DIR,
+        ROUTER_BASE,
+        PID_PATH,
+        getpass.getuser,
+        router_health,
+        router_port_connectivity_summary,
+    )
+
+
 def router_health_summary(health: dict[str, Any] | None = None) -> str:
-    if health is None:
-        health = router_health()
-    if isinstance(health, dict):
-        return (
-            "health=ok "
-            f"base={ROUTER_BASE} "
-            f"pid={health.get('pid') or '-'} "
-            f"version={health.get('version') or '-'} "
-            f"source={health.get('source_fingerprint') or '-'} "
-            f"provider={health.get('provider') or '-'} "
-            f"model={health.get('model') or '-'} "
-            f"config_dir={health.get('config_dir') or '-'}"
-        )
-    pid_state = "missing"
-    try:
-        if PID_PATH.exists():
-            pid_state = PID_PATH.read_text(encoding="utf-8").strip() or "empty"
-    except Exception as exc:
-        pid_state = f"read_failed:{type(exc).__name__}"
-    return f"health=down base={ROUTER_BASE} pid_file={pid_state} {router_port_connectivity_summary()}"
+    return router_health_policy().summary(health)
 
 
 def router_up() -> bool:
@@ -7470,40 +7457,19 @@ def router_up() -> bool:
 
 
 def router_health_matches_current(health: dict[str, Any] | None) -> bool:
-    if health is None:
-        return False
-    if str(health.get("version") or "") != VERSION:
-        return False
-    if str(health.get("source_fingerprint") or "") != SOURCE_FINGERPRINT:
-        return False
-    if str(health.get("user") or "") != getpass.getuser():
-        return False
-    if not router_health_config_matches_current(health):
-        return False
-    return True
+    return router_health_policy().matches_current(health)
 
 
 def _path_identity_text(value: Any) -> str:
-    text = str(value or "").strip()
-    if not text:
-        return ""
-    try:
-        return str(Path(text).expanduser().resolve(strict=False))
-    except Exception:
-        return text
+    return RouterHealthPolicy.path_identity(value)
 
 
 def router_health_config_matches_current(health: dict[str, Any] | None) -> bool:
-    if not isinstance(health, dict):
-        return False
-    return _path_identity_text(health.get("config_dir")) == _path_identity_text(CONFIG_DIR)
+    return router_health_policy().config_matches_current(health)
 
 
 def router_health_has_foreign_config(health: dict[str, Any] | None) -> bool:
-    if not isinstance(health, dict):
-        return False
-    config_dir = _path_identity_text(health.get("config_dir"))
-    return bool(config_dir) and config_dir != _path_identity_text(CONFIG_DIR)
+    return router_health_policy().has_foreign_config(health)
 
 
 def invalid_nvidia_hosted_base_url(value: str | None) -> bool:

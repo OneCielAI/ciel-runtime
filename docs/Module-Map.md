@@ -1103,6 +1103,10 @@ Router PID file 종료, health PID 보호, foreign-config 충돌 거부, 포트 
 
 Router bind host, loopback 신뢰, bearer-token 비교와 external-debug 확인 정책을 소유하는 Security Policy. token의 환경 우선순위와 원자적 생성은 `RouterExternalTokenRepository`, 설정 변경은 typed port를 사용하는 `RouterAccessConfigService`, 401/403 JSON 거부 응답은 `RouterAccessHttpController`로 분리한다.
 
+### `ciel_runtime_support/router_health_policy.py`
+
+Router health 요약, version/source/user/config identity 일치 판정, foreign config 탐지와 PID 진단을 소유하는 불변 Health Policy. HTTP health 조회와 TCP 연결 진단은 callback으로 주입한다.
+
 ### `ciel_runtime_support/router_shortcuts.py`
 
 Router debug, version, channel backlog, live LLM/API-key slash command의 local short-circuit workflow를 소유하는 Controller. request 판별, response/event 효과와 기능별 command port를 분리해 HTTP router와 facade에는 조립과 2줄 호환 wrapper만 남긴다.
@@ -1122,6 +1126,10 @@ Claude Code 트랜스크립트 이벤트 필터:
 ### `ciel_runtime_support/web_ui.py`
 
 설정·파일·네트워크에 의존하지 않는 Router Web Chat HTML renderer.
+
+### `ciel_runtime_support/web_ui_controller.py`
+
+Router home metric view-model, web-chat view-model 및 `/ca/web/chat` GET 흐름을 소유하는 Web UI Application Controller. runtime projection, renderer, HTTP 효과와 상수는 각각 10필드 이하 typed port로 분리한다.
 
 ---
 

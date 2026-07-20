@@ -127,6 +127,14 @@ from ciel_runtime_support.provider_request_access import (
 )
 from ciel_runtime_support.provider_query_policy import ProviderQueryPolicy
 from ciel_runtime_support.router_access import RouterAccessHttpController
+from ciel_runtime_support.router_health_policy import RouterHealthPolicy
+from ciel_runtime_support.web_ui_controller import (
+    WebUiConstants,
+    WebUiController,
+    WebUiDisplayPorts,
+    WebUiHttpPorts,
+    WebUiProjectionPorts,
+)
 from ciel_runtime_support.provider_launch_endpoint import (
     ProviderLaunchEndpointGroups,
     ProviderLaunchEndpointPolicy,
@@ -4093,6 +4101,18 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIn("from ciel_runtime_support.router_access import (", source)
         self.assertEqual(2, len(fields(RouterAccessHttpController)))
 
+    def test_web_ui_controller_uses_small_typed_ports(self):
+        for port in (
+            WebUiConstants,
+            WebUiProjectionPorts,
+            WebUiDisplayPorts,
+            WebUiHttpPorts,
+            WebUiController,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        self.assertEqual(8, len(fields(RouterHealthPolicy)))
+
     def test_ollama_context_and_output_budget_policies_live_outside_root(self):
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
@@ -4588,6 +4608,15 @@ class ArchitectureContractTests(unittest.TestCase):
             "reject_external_router_request": (
                 "reject_external_request"
             ),
+            "render_router_home_html": "render_router_home",
+            "render_web_chat_html": "render_web_chat",
+            "handle_web_get": "handle_get",
+            "router_health_summary": "summary",
+            "router_health_matches_current": "matches_current",
+            "router_health_config_matches_current": (
+                "config_matches_current"
+            ),
+            "router_health_has_foreign_config": "has_foreign_config",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",
