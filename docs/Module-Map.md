@@ -333,6 +333,10 @@ LLM 옵션의 입력 검증, Provider 설정 변경, 컨텍스트·출력 보정
 
 Router activity, context compact, context usage snapshot의 event projection과 임시파일 기반 원자 저장을 통합하는 Repository. 경로·clock·event 효과는 각각 3필드 이하 typed port로 분리하며 저장 실패를 묵살하지 않고 구조화 경고로 노출한다.
 
+### `ciel_runtime_support/runtime_command_factory.py`
+
+Provider/Runtime 설정을 정규화된 `ProviderConfig`, `RuntimeConfig`, `LaunchSpec`으로 만들고 등록된 Runtime Adapter를 통해 최종 argv/env를 생성하는 Factory. API-key parser와 Adapter Registry 생성 함수만 2필드 port로 주입한다.
+
 ### `ciel_runtime_support/cli_dispatch.py`
 
 명시적 `CliServices` dependency object를 사용하는 CLI Application Service와 command dispatcher.

@@ -459,6 +459,7 @@ from ciel_runtime_support.runtime_launch import (
     CodexAppServerProcess,
     CodexAppServerRouting,
 )
+from ciel_runtime_support.runtime_command_factory import RuntimeCommandFactory, RuntimeCommandFactoryPorts
 from ciel_runtime_support.router_http import (
     RouterHttpCore,
     RouterHttpErrors,
@@ -1924,6 +1925,21 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIsInstance(runtime, CodexRuntimeAdapter)
         self.assertIsInstance(dialect, ClaudeToolDialect)
         self.assertEqual("WebSearch", dialect.normalize_tool_name("web_search"))
+
+    def test_runtime_command_factory_owns_normalized_launch_spec_creation(self):
+        self.assertLessEqual(len(fields(RuntimeCommandFactoryPorts)), 10)
+        self.assertLessEqual(len(fields(RuntimeCommandFactory)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef) and node.name == "materialize_runtime_command"
+        )
+        function_source = ast.unparse(function)
+        self.assertIn("runtime_command_factory", function_source)
+        self.assertNotIn("LaunchSpec", function_source)
+        self.assertNotIn("ProviderConfig", function_source)
+        self.assertNotIn("RUNTIME_ADAPTERS", function_source)
 
     def test_registry_rejects_duplicate_and_unknown_names(self):
         registry: AdapterRegistry[object] = AdapterRegistry()

@@ -237,6 +237,11 @@ blocked-tool declarations and request workflow state are explicit inputs, and
 the policy removes tools and matching forced choices without mutating the
 original request body.
 
+The runtime/provider ownership boundary is materialized by
+`RuntimeCommandFactory`. It constructs normalized contracts and delegates argv
+generation to the registered runtime adapter; API-key parsing and registry
+creation are its only external ports.
+
 Chat attachment decoding, size validation, safe naming, storage, URL metadata,
 and Markdown projection live in `ChatFileRepository`; only clocks are injected
 and callers no longer own filesystem mechanics.

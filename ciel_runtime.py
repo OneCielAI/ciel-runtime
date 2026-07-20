@@ -67,7 +67,7 @@ from ciel_runtime_support.advisor_client import (
     ProviderChatIO,
     ProviderChatPolicy,
 )
-from ciel_runtime_support.architecture import LaunchSpec, MessageProtocol, ProviderConfig, RuntimeConfig
+from ciel_runtime_support.architecture import MessageProtocol, ProviderConfig
 from ciel_runtime_support.anthropic_tool_turns import (
     AnthropicToolTurnServices,
     normalize_historical_anthropic_tool_turns,
@@ -1002,6 +1002,7 @@ from ciel_runtime_support.prompt_injection import (
     normalize_anthropic_system_role_messages as project_normalize_anthropic_system_role_messages,
 )
 from ciel_runtime_support.runtime_adapters import RUNTIME_ADAPTERS
+from ciel_runtime_support.runtime_command_factory import RuntimeCommandFactory, RuntimeCommandFactoryPorts
 from ciel_runtime_support.runtime_compatibility import DEFAULT_RUNTIME_COMPATIBILITY
 from ciel_runtime_support.runtime_logging import (
     LOG_LEVEL_NAMES,
@@ -4421,38 +4422,23 @@ def materialize_runtime_command(
     passthrough: Iterable[str] = (),
     options: dict[str, Any] | None = None,
 ) -> tuple[list[str], dict[str, str]]:
-    """Cross the runtime/provider ownership boundary using normalized contracts."""
-    if not executable:
-        raise RuntimeError(f"{runtime_name} runtime command is empty")
-    provider_config = ProviderConfig(
-        name=provider,
-        base_url=str(pcfg.get("base_url") or ""),
-        model=str(pcfg.get("current_model") or pcfg.get("model") or ""),
-        api_keys=tuple(parse_api_key_list(pcfg.get("api_keys") or pcfg.get("api_key") or "")),
-        options=pcfg,
-    )
-    runtime_config = RuntimeConfig(
-        name=runtime_name,
-        executable=executable,
-        enable_channels=enable_channels,
-        options=options or {},
-    )
-    spec = LaunchSpec(
-        runtime=runtime_config,
-        provider=provider_config,
-        mode=mode,  # type: ignore[arg-type]
-        protocol=protocol,  # type: ignore[arg-type]
-        passthrough=tuple(str(value) for value in passthrough),
-        cwd=cwd,
-    )
-    adapter = RUNTIME_ADAPTERS.create(
+    return runtime_command_factory().materialize(
         runtime_name,
-        executable=executable,
-        environment=env,
-        channel_injection=enable_channels,
+        executable,
+        env,
+        provider,
+        pcfg,
+        mode=mode,
+        protocol=protocol,
+        cwd=cwd,
+        enable_channels=enable_channels,
+        passthrough=passthrough,
+        options=options,
     )
-    command = adapter.build_command(spec)
-    return list(command.argv), dict(command.env)
+
+
+def runtime_command_factory() -> RuntimeCommandFactory:
+    return RuntimeCommandFactory(RuntimeCommandFactoryPorts(parse_api_key_list, RUNTIME_ADAPTERS.create))
 
 
 def native_anthropic_enabled(provider: str) -> bool:
