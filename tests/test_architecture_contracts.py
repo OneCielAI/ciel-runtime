@@ -186,6 +186,12 @@ from ciel_runtime_support.channel_terminal_proxy import (
     ChannelWindowsConsole,
     ChannelWindowsServices,
 )
+from ciel_runtime_support.channel_terminal_dispatch import (
+    ChannelDirectProcessPorts,
+    ChannelTerminalDispatchService,
+    ChannelTerminalDispatchSettings,
+    ChannelTerminalProxyPorts,
+)
 from ciel_runtime_support.channel_tool_context import (
     ChannelToolContextPolicy,
     ChannelToolContextPorts,
@@ -2386,6 +2392,35 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_channel_terminal_dispatch_uses_bounded_typed_ports(self):
+        self.assertEqual(4, len(fields(ChannelTerminalDispatchService)))
+        for port in (
+            ChannelTerminalDispatchSettings,
+            ChannelTerminalProxyPorts,
+            ChannelDirectProcessPorts,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 5)
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "subprocess_call_with_channel_wake_proxy"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn(
+            "channel_terminal_dispatch_service().dispatch", function_source
+        )
+        self.assertNotIn("os.name", function_source)
+        service_source = (
+            root
+            / "ciel_runtime_support"
+            / "channel_terminal_dispatch.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", service_source)
 
     def test_channel_session_repository_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelSessionRepository)), 10)

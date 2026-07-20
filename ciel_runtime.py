@@ -192,6 +192,12 @@ from ciel_runtime_support.channel_terminal_proxy import (
     run_posix_channel_terminal_proxy,
     run_windows_channel_terminal_proxy,
 )
+from ciel_runtime_support.channel_terminal_dispatch import (
+    ChannelDirectProcessPorts,
+    ChannelTerminalDispatchService,
+    ChannelTerminalDispatchSettings,
+    ChannelTerminalProxyPorts,
+)
 from ciel_runtime_support.channel_tool_context import (
     ChannelToolContextPolicy,
     ChannelToolContextPorts,
@@ -13233,6 +13239,30 @@ def build_channel_windows_services() -> ChannelWindowsServices:
     )
 
 
+def channel_terminal_dispatch_service() -> ChannelTerminalDispatchService:
+    return ChannelTerminalDispatchService(
+        settings=ChannelTerminalDispatchSettings(
+            platform_name=os.name,
+            stdin_isatty=sys.stdin.isatty,
+            stdout_isatty=sys.stdout.isatty,
+        ),
+        proxy=ChannelTerminalProxyPorts(
+            windows_supported=_windows_console_input_supported,
+            run_windows=subprocess_call_with_windows_console_wake_proxy,
+            run_posix=run_posix_channel_terminal_proxy,
+            posix_services=build_channel_terminal_services,
+        ),
+        direct=ChannelDirectProcessPorts(
+            call=subprocess.call,
+            popen=subprocess.Popen,
+            write_record=_write_codex_child_process_record,
+            terminate=_terminate_recorded_child_process,
+            release_record=_release_codex_child_process_record,
+        ),
+        log=router_log,
+    )
+
+
 def subprocess_call_with_channel_wake_proxy(
     cmd: list[str],
     env: dict[str, str],
@@ -13248,42 +13278,9 @@ def subprocess_call_with_channel_wake_proxy(
     channel_wake_submit_delay_seconds: float | None = None,
     tracked_child_pid_path: Path | None = None,
 ) -> int:
-    if os.name == "nt" and _windows_console_input_supported():
-        try:
-            return subprocess_call_with_windows_console_wake_proxy(
-                cmd,
-                env,
-                inject_channel_messages=inject_channel_messages,
-                inject_web_chat_only=inject_web_chat_only,
-                wake_for_llm_delivery=wake_for_llm_delivery,
-                synthetic_enter_bytes=synthetic_enter_bytes,
-                normalize_bare_cr_for_synthetic_enter=normalize_bare_cr_for_synthetic_enter,
-                channel_wake_submit_retries=channel_wake_submit_retries,
-                channel_wake_confirm_submit=channel_wake_confirm_submit,
-                channel_wake_bracketed_paste=channel_wake_bracketed_paste,
-                channel_wake_submit_delay_seconds=channel_wake_submit_delay_seconds,
-                tracked_child_pid_path=tracked_child_pid_path,
-            )
-        except Exception as exc:
-            router_log(
-                "WARN",
-                f"channel_windows_console_proxy_failed error={type(exc).__name__}: {exc}; using direct subprocess call",
-            )
-    if os.name != "posix" or not sys.stdin.isatty() or not sys.stdout.isatty():
-        router_log("INFO", "channel_stdin_proxy_unavailable; using direct subprocess call")
-        if tracked_child_pid_path is None:
-            return subprocess.call(cmd, env=env)
-        proc = subprocess.Popen(cmd, env=env)
-        _write_codex_child_process_record(tracked_child_pid_path, proc.pid, cmd)
-        try:
-            return proc.wait()
-        finally:
-            _terminate_recorded_child_process(proc, "current Codex")
-            _release_codex_child_process_record(tracked_child_pid_path, proc.pid)
-    return run_posix_channel_terminal_proxy(
+    return channel_terminal_dispatch_service().dispatch(
         cmd,
         env,
-        build_channel_terminal_services(),
         inject_channel_messages=inject_channel_messages,
         inject_web_chat_only=inject_web_chat_only,
         wake_for_llm_delivery=wake_for_llm_delivery,
@@ -13298,15 +13295,7 @@ def subprocess_call_with_channel_wake_proxy(
 
 
 def subprocess_call_with_child_pid_record(cmd: list[str], env: dict[str, str], pid_path: Path | None = None) -> int:
-    if pid_path is None:
-        return subprocess.call(cmd, env=env)
-    proc = subprocess.Popen(cmd, env=env)
-    _write_codex_child_process_record(pid_path, proc.pid, cmd)
-    try:
-        return proc.wait()
-    finally:
-        _terminate_recorded_child_process(proc, "current Codex")
-        _release_codex_child_process_record(pid_path, proc.pid)
+    return channel_terminal_dispatch_service().call_direct(cmd, env, pid_path)
 
 
 _MCP_NOTIFICATION_DEDUP_LOCK = threading.Lock()

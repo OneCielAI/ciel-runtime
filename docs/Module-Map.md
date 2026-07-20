@@ -175,6 +175,10 @@ Claude/Codex transcript의 queued-only wake를 찾아 LLM delivery cursor를 안
 
 POSIX PTY의 생성, 터미널 크기 동기화, 표준 입출력 전달, channel/compact polling과 자식 프로세스 정리를 조정하는 Channel Infrastructure Adapter. Process, Terminal I/O, Policy, Polling 포트를 각각 10필드 이하로 주입하며 메인 composition root는 플랫폼 선택과 실제 콜백 조립만 담당한다.
 
+### `ciel_runtime_support/channel_terminal_dispatch.py`
+
+Windows Console/POSIX PTY/direct subprocess 선택과 tracked child-process record 수명주기를 소유하는 Application Service. 플랫폼·TTY 설정, proxy adapter, direct process 효과를 각각 최대 5필드 typed port로 분리하며 Windows Adapter 실패 시 명시적으로 direct 실행으로 복구한다.
+
 ### `ciel_runtime_support/channel_transcript.py`
 
 Claude/Codex JSONL transcript의 사용자 텍스트, assistant turn, tool call/result 및 활성 turn 상태를 해석하는 순수 Channel 도메인 서비스. 파일·프로세스·composition root 전역에 의존하지 않는다.
