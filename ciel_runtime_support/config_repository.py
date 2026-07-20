@@ -11,6 +11,69 @@ from pathlib import Path
 from typing import Any
 
 
+def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "current_provider": "nvidia-hosted",
+        "language": "en",
+        "migrations": {},
+        "router_debug_external_access": False,
+        "router_debug_external_access_confirmed": False,
+        "router_debug_message_preview_chars": 0,
+        "claude_code": {
+            "compat_prompt_for_non_anthropic": True,
+            "channels": [],
+            "development_channels": False,
+            "channel_delivery": "llm",
+        },
+        "cleanup": {"managed_services_on_launch": True},
+        "web_search": {
+            "auto_for_non_native": True,
+            "provider": "duckduckgo",
+            "package": "ddg-mcp-search",
+            "fetch_enabled": True,
+            "fetch_package": "mcp-server-fetch",
+            "fetch_ignore_robots_txt": False,
+            "fetch_user_agent": "",
+        },
+        "providers": provider_defaults,
+    }
+
+
+def deep_merge(defaults: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
+    merged = json.loads(json.dumps(defaults))
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def normalize_loaded_config(
+    config: dict[str, Any],
+    normalize_model_id: Callable[[str, str], str],
+) -> None:
+    providers = config["providers"]
+    cloud = providers.get("ollama-cloud", {})
+    local_key = providers.get("ollama", {}).get("api_key", "")
+    if not cloud.get("api_key") and local_key and local_key not in {"ollama", "dummy", "not-used"}:
+        cloud["api_key"] = local_key
+    for provider_name, provider_config in providers.items():
+        if not isinstance(provider_config, dict):
+            continue
+        if provider_config.get("current_model"):
+            provider_config["current_model"] = normalize_model_id(
+                provider_name, str(provider_config["current_model"])
+            )
+        custom_models = provider_config.get("custom_models")
+        if isinstance(custom_models, list):
+            provider_config["custom_models"] = [
+                normalize_model_id(provider_name, str(model_id))
+                for model_id in custom_models
+                if str(model_id).strip()
+            ]
+
+
 class JsonConfigRepository:
     """Own configuration caching, persistence, migration, and normalization."""
 
@@ -70,4 +133,36 @@ class JsonConfigRepository:
         self._cache_mtime = 0.0
 
 
-__all__ = ["JsonConfigRepository"]
+class ConfigRepositoryProvider:
+    """Path-aware repository factory that owns the mutable cache instance."""
+
+    def __init__(self) -> None:
+        self._repository: JsonConfigRepository | None = None
+
+    def get(
+        self,
+        *,
+        path: Path,
+        defaults: dict[str, Any],
+        merge: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
+        migrate: Callable[[dict[str, Any]], None],
+        normalize: Callable[[dict[str, Any]], None],
+    ) -> JsonConfigRepository:
+        if self._repository is None or self._repository.path != path:
+            self._repository = JsonConfigRepository(
+                path=path,
+                defaults=defaults,
+                merge=merge,
+                migrate=migrate,
+                normalize=normalize,
+            )
+        return self._repository
+
+
+__all__ = [
+    "ConfigRepositoryProvider",
+    "JsonConfigRepository",
+    "build_default_config",
+    "deep_merge",
+    "normalize_loaded_config",
+]

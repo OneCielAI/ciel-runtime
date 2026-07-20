@@ -844,6 +844,25 @@ class ArchitectureContractTests(unittest.TestCase):
             self.assertNotIn("hashlib", function_source)
             self.assertNotIn("_TOOL_SIDE_EFFECT_DEDUP_RECENT", function_source)
 
+    def test_config_repository_provider_owns_path_aware_cache(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        assigned_names = {
+            target.id
+            for node in tree.body
+            if isinstance(node, (ast.Assign, ast.AnnAssign))
+            for target in (node.targets if isinstance(node, ast.Assign) else (node.target,))
+            if isinstance(target, ast.Name)
+        }
+        self.assertNotIn("_CONFIG_REPOSITORY", assigned_names)
+        function = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "config_repository"
+        )
+        function_source = ast.unparse(function)
+        self.assertIn("_CONFIG_REPOSITORY_PROVIDER.get", function_source)
+        self.assertNotIn("JsonConfigRepository(", function_source)
+
     def test_claude_launch_ports_stay_below_dependency_limit(self):
         ports = (
             ClaudeLaunchServices,
@@ -1794,7 +1813,13 @@ class ArchitectureContractTests(unittest.TestCase):
             set(ciel_runtime.DEFAULT_CONFIG["providers"]),
         )
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
-        self.assertIn('"providers": provider_default_configurations()', source)
+        self.assertIn("build_default_config(provider_default_configurations())", source)
+        repository_source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "config_repository.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"providers": provider_defaults', repository_source)
         self.assertNotIn("for _registered_provider in PROVIDER_ADAPTERS.names()", source)
 
     def test_concrete_adapters_own_provider_specific_defaults(self):

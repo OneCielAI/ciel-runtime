@@ -385,7 +385,13 @@ from ciel_runtime_support.headless_config import (
     apply_headless_config,
 )
 from ciel_runtime_support.http_response import ChannelDeliveryGuard, HttpResponseAdapter
-from ciel_runtime_support.config_repository import JsonConfigRepository
+from ciel_runtime_support.config_repository import (
+    ConfigRepositoryProvider,
+    JsonConfigRepository,
+    build_default_config,
+    deep_merge as merge_config_values,
+    normalize_loaded_config,
+)
 from ciel_runtime_support.settings_repository import JsonSettingsRepository, SettingsFileEffects
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
 from ciel_runtime_support.slash_command_assets import (
@@ -1764,42 +1770,10 @@ def ui_text(key: str, lang: str | None = None) -> str:
     return UI_TEXT.get(lang, UI_TEXT["en"]).get(key, UI_TEXT["en"].get(key, key))
 
 
-DEFAULT_CONFIG: dict[str, Any] = {
-    "current_provider": "nvidia-hosted",
-    "language": "en",
-    "migrations": {},
-    "router_debug_external_access": False,
-    "router_debug_external_access_confirmed": False,
-    "router_debug_message_preview_chars": 0,
-    "claude_code": {
-        "compat_prompt_for_non_anthropic": True,
-        "channels": [],
-        "development_channels": False,
-        "channel_delivery": "llm",
-    },
-    "cleanup": {
-        "managed_services_on_launch": True,
-    },
-    "web_search": {
-        "auto_for_non_native": True,
-        "provider": "duckduckgo",
-        "package": "ddg-mcp-search",
-        "fetch_enabled": True,
-        "fetch_package": "mcp-server-fetch",
-        "fetch_ignore_robots_txt": False,
-        "fetch_user_agent": "",
-    },
-    "providers": provider_default_configurations(),
-}
+DEFAULT_CONFIG: dict[str, Any] = build_default_config(provider_default_configurations())
 
 def deep_merge(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
-    out = json.loads(json.dumps(a))
-    for k, v in b.items():
-        if isinstance(v, dict) and isinstance(out.get(k), dict):
-            out[k] = deep_merge(out[k], v)
-        else:
-            out[k] = v
-    return out
+    return merge_config_values(a, b)
 
 
 def apply_config_migrations(cfg: dict[str, Any]) -> None:
@@ -1818,37 +1792,21 @@ def apply_config_migrations(cfg: dict[str, Any]) -> None:
         ),
     )
 
-_CONFIG_REPOSITORY: JsonConfigRepository | None = None
+_CONFIG_REPOSITORY_PROVIDER = ConfigRepositoryProvider()
 
 
 def _normalize_loaded_config(cfg: dict[str, Any]) -> None:
-    cloud = cfg["providers"].get("ollama-cloud", {})
-    local_key = cfg["providers"].get("ollama", {}).get("api_key", "")
-    if not cloud.get("api_key") and local_key and local_key not in ("ollama", "dummy", "not-used"):
-        cloud["api_key"] = local_key
-    for provider_name, pcfg in cfg.get("providers", {}).items():
-        if isinstance(pcfg, dict):
-            if pcfg.get("current_model"):
-                pcfg["current_model"] = normalize_model_id(provider_name, str(pcfg["current_model"]))
-            if isinstance(pcfg.get("custom_models"), list):
-                pcfg["custom_models"] = [
-                    normalize_model_id(provider_name, str(model_id))
-                    for model_id in pcfg["custom_models"]
-                    if str(model_id).strip()
-                ]
+    normalize_loaded_config(cfg, normalize_model_id)
 
 
 def config_repository() -> JsonConfigRepository:
-    global _CONFIG_REPOSITORY
-    if _CONFIG_REPOSITORY is None or _CONFIG_REPOSITORY.path != CONFIG_PATH:
-        _CONFIG_REPOSITORY = JsonConfigRepository(
-            path=CONFIG_PATH,
-            defaults=DEFAULT_CONFIG,
-            merge=deep_merge,
-            migrate=apply_config_migrations,
-            normalize=_normalize_loaded_config,
-        )
-    return _CONFIG_REPOSITORY
+    return _CONFIG_REPOSITORY_PROVIDER.get(
+        path=CONFIG_PATH,
+        defaults=DEFAULT_CONFIG,
+        merge=deep_merge,
+        migrate=apply_config_migrations,
+        normalize=_normalize_loaded_config,
+    )
 
 
 def json_artifact_repository(path: Path) -> SecureJsonRepository:

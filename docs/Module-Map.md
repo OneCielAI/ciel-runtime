@@ -339,7 +339,7 @@ Windows Console `INPUT_RECORD` 생성, UTF-16 surrogate 변환, 입력 queue 소
 
 ### `ciel_runtime_support/config_repository.py`
 
-원자적 JSON 설정 저장, mtime cache, migration 및 정규화 callback을 소유하는 Repository 구현.
+기본 config schema 생성, JSON-compatible deep merge, legacy key/model 정규화, 원자적 저장과 mtime cache를 소유하는 Configuration Repository. `ConfigRepositoryProvider`가 경로 변경을 감지해 repository instance lifecycle을 관리하므로 facade에는 mutable repository cache가 남지 않는다.
 
 ### `ciel_runtime_support/llm_presets.py`
 
