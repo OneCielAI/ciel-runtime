@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable
 
 from ciel_runtime_support.settings_repository import JsonSettingsRepository
@@ -23,6 +25,61 @@ class ToolGuardHookServices:
     repository: JsonSettingsRepository
     install_legacy_shim: Callable[[], None]
     warn: Callable[[str], None]
+
+
+@dataclass(frozen=True, slots=True)
+class LegacyToolGuardShimServices:
+    package_root: Path
+    find_target: Callable[[], Path | None]
+    chmod: Callable[[Path, int], None]
+    log: Callable[[str, str], None]
+
+
+@dataclass(frozen=True, slots=True)
+class LegacyToolGuardShimInstaller:
+    services: LegacyToolGuardShimServices
+
+    def install(self) -> None:
+        try:
+            package_root = self.services.package_root
+            if (
+                package_root.name != "ciel-runtime"
+                or package_root.parent.name != "@oneciel-ai"
+            ):
+                return
+            target = self.services.find_target()
+            if target is None or not target.exists():
+                return
+            legacy_guard = (
+                package_root.parent
+                / "claude-any"
+                / "claude-any-tool-guard.py"
+            )
+            if legacy_guard.exists() and not legacy_guard.is_symlink():
+                return
+            legacy_guard.parent.mkdir(parents=True, exist_ok=True)
+            if legacy_guard.is_symlink() or legacy_guard.exists():
+                legacy_guard.unlink()
+            try:
+                legacy_guard.symlink_to(target.resolve())
+            except Exception:
+                wrapper = (
+                    "#!/usr/bin/env python3\n"
+                    "import runpy\n"
+                    "runpy.run_path(%s, run_name='__main__')\n"
+                    % json.dumps(str(target.resolve()))
+                )
+                legacy_guard.write_text(wrapper, encoding="utf-8")
+                try:
+                    self.services.chmod(legacy_guard, 0o755)
+                except Exception:
+                    pass
+        except Exception as exc:
+            self.services.log(
+                "WARN",
+                "legacy_tool_guard_compat_shim_failed "
+                f"error={type(exc).__name__}: {exc}",
+            )
 
 
 def install_tool_guard_hook_settings(

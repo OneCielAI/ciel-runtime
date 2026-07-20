@@ -221,6 +221,10 @@ from ciel_runtime_support.channel_message_policy import (
     string_list as _as_string_list,
     superseded_message_ids as _channel_superseded_message_ids,
 )
+from ciel_runtime_support.channel_message_dedupe import (
+    ChannelMessageDedupePorts,
+    ChannelMessageDedupeService,
+)
 from ciel_runtime_support.channel_message_prompt import (
     NATIVE_ROUTER_CHANNEL_NAMES as _NATIVE_ROUTER_CHANNEL_NAMES,
     format_llm_batch_prompt as format_channel_llm_batch_prompt,
@@ -465,6 +469,8 @@ from ciel_runtime_support.credential_cli import (
     CredentialCliPorts,
 )
 from ciel_runtime_support.tool_guard_hooks import (
+    LegacyToolGuardShimInstaller,
+    LegacyToolGuardShimServices,
     ToolGuardHookPolicy,
     ToolGuardHookServices,
     install_tool_guard_hook_settings,
@@ -2112,34 +2118,14 @@ def ciel_runtime_tool_guard_command() -> str | None:
 
 def install_legacy_tool_guard_compat_shim() -> None:
     """Keep already-running pre-rename Claude sessions from failing old hooks."""
-    try:
-        package_root = Path(__file__).resolve().parent
-        if package_root.name != "ciel-runtime" or package_root.parent.name != "@oneciel-ai":
-            return
-        target = find_tool_guard_script()
-        if target is None or not target.exists():
-            return
-        legacy_guard = package_root.parent / "claude-any" / "claude-any-tool-guard.py"
-        if legacy_guard.exists() and not legacy_guard.is_symlink():
-            return
-        legacy_guard.parent.mkdir(parents=True, exist_ok=True)
-        if legacy_guard.is_symlink() or legacy_guard.exists():
-            legacy_guard.unlink()
-        try:
-            legacy_guard.symlink_to(target.resolve())
-        except Exception:
-            wrapper = (
-                "#!/usr/bin/env python3\n"
-                "import runpy\n"
-                f"runpy.run_path({json.dumps(str(target.resolve()))}, run_name='__main__')\n"
-            )
-            legacy_guard.write_text(wrapper, encoding="utf-8")
-            try:
-                os.chmod(legacy_guard, 0o755)
-            except Exception:
-                pass
-    except Exception as exc:
-        router_log("WARN", f"legacy_tool_guard_compat_shim_failed error={type(exc).__name__}: {exc}")
+    LegacyToolGuardShimInstaller(
+        LegacyToolGuardShimServices(
+            package_root=Path(__file__).resolve().parent,
+            find_target=find_tool_guard_script,
+            chmod=os.chmod,
+            log=router_log,
+        )
+    ).install()
 
 
 TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER: tuple[str, ...] = (
@@ -4195,28 +4181,17 @@ def _write_channel_llm_launch_guard(max_existing_id: int, ttl_seconds: float = 1
 
 
 def _chat_message_duplicate_locked(message: dict[str, Any]) -> dict[str, Any] | None:
-    stable_key = _chat_message_stable_dedupe_key(message)
-    fallback_key = _chat_message_fallback_dedupe_key(message)
-    if not stable_key and not fallback_key:
-        return None
-    now = time.time()
-    launch_guard = _channel_llm_launch_guard() if fallback_key else None
-    guard_max_existing_id = int(launch_guard.get("max_existing_id") or 0) if launch_guard else 0
-    for row in reversed(_chat_message_recent_rows_locked()):
-        if stable_key and _chat_message_stable_dedupe_key(row) == stable_key:
-            return row
-        if not fallback_key or _chat_message_fallback_dedupe_key(row) != fallback_key:
-            continue
-        row_time = _chat_message_time_seconds(row.get("time"))
-        if row_time > 0 and now - row_time <= CHAT_MESSAGE_FALLBACK_DEDUPE_TTL_SECONDS:
-            return row
-        try:
-            row_id = int(row.get("id") or 0)
-        except Exception:
-            row_id = 0
-        if guard_max_existing_id > 0 and 0 < row_id <= guard_max_existing_id:
-            return row
-    return None
+    return ChannelMessageDedupeService(
+        ports=ChannelMessageDedupePorts(
+            stable_key=_chat_message_stable_dedupe_key,
+            fallback_key=_chat_message_fallback_dedupe_key,
+            recent_rows=_chat_message_recent_rows_locked,
+            launch_guard=_channel_llm_launch_guard,
+            timestamp_seconds=_chat_message_time_seconds,
+            now=time.time,
+        ),
+        fallback_ttl_seconds=CHAT_MESSAGE_FALLBACK_DEDUPE_TTL_SECONDS,
+    ).duplicate(message)
 
 
 def append_chat_message(payload: dict[str, Any]) -> dict[str, Any]:

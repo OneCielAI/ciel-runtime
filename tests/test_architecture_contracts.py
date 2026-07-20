@@ -226,6 +226,10 @@ from ciel_runtime_support.channel_transcript_repository import (
     ChannelTranscriptRepository,
 )
 from ciel_runtime_support.channel_message_repository import ChannelMessageAppendPorts, ChannelMessageRepository
+from ciel_runtime_support.channel_message_dedupe import (
+    ChannelMessageDedupePorts,
+    ChannelMessageDedupeService,
+)
 from ciel_runtime_support.channel_wake_claim_repository import ChannelWakeClaimRepository
 from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
 from ciel_runtime_support.channel_cursor_repository import ChannelCursorRepository
@@ -376,7 +380,12 @@ from ciel_runtime_support.credential_cli import (
     CredentialCliPolicy,
     CredentialCliPorts,
 )
-from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy, ToolGuardHookServices
+from ciel_runtime_support.tool_guard_hooks import (
+    LegacyToolGuardShimInstaller,
+    LegacyToolGuardShimServices,
+    ToolGuardHookPolicy,
+    ToolGuardHookServices,
+)
 from ciel_runtime_support.tool_side_effect_dedupe import (
     ToolSideEffectDedupePolicy,
     ToolSideEffectDedupePorts,
@@ -2594,6 +2603,23 @@ class ArchitectureContractTests(unittest.TestCase):
         for port in (ToolGuardHookPolicy, ToolGuardHookServices):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+        self.assertEqual(1, len(fields(LegacyToolGuardShimInstaller)))
+        self.assertEqual(4, len(fields(LegacyToolGuardShimServices)))
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "install_legacy_tool_guard_compat_shim"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("LegacyToolGuardShimInstaller", function_source)
+        self.assertNotIn(".symlink_to(", function_source)
+        installer_source = (
+            root / "ciel_runtime_support" / "tool_guard_hooks.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", installer_source)
 
     def test_settings_repository_ports_stay_below_dependency_limit(self):
         for port in (
@@ -3503,6 +3529,28 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(function=function_name):
                 self.assertNotIn(f"def {function_name}(", source)
+
+    def test_channel_message_dedupe_is_service_owned(self):
+        self.assertEqual(2, len(fields(ChannelMessageDedupeService)))
+        self.assertEqual(6, len(fields(ChannelMessageDedupePorts)))
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "_chat_message_duplicate_locked"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("ChannelMessageDedupeService", function_source)
+        self.assertNotIn("for row in", function_source)
+        service_source = (
+            root
+            / "ciel_runtime_support"
+            / "channel_message_dedupe.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", service_source)
+        self.assertNotIn("__getattr__", service_source)
 
     def test_anthropic_content_projection_has_one_protocol_owner(self):
         root = Path(__file__).resolve().parents[1]
