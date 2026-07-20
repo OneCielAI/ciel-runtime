@@ -2469,15 +2469,21 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
-        ensure_function = next(
-            node
+        root_functions = {
+            node.name
             for node in ast.parse(source).body
-            if isinstance(node, ast.FunctionDef) and node.name == "ensure_ncp"
-        )
-        ensure_source = ast.unparse(ensure_function)
-        self.assertIn("nvidia_proxy_runtime", ensure_source)
-        self.assertNotIn("subprocess", ensure_source)
-        self.assertNotIn("nvd_claude_proxy", ensure_source)
+            if isinstance(node, ast.FunctionDef)
+        }
+        self.assertNotIn("ensure_ncp", root_functions)
+        self.assertIn("ensure_ncp = _NVIDIA_RUNTIME_API.ensure", source)
+        runtime_source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "providers"
+            / "nvidia_runtime.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("class NvidiaRuntimeApi:", runtime_source)
+        self.assertIn("subprocess.Popen", runtime_source)
 
     def test_provider_runtime_info_service_owns_catalog_projection(self):
         self.assertLessEqual(len(fields(ProviderRuntimeInfoPorts)), 10)
@@ -2554,6 +2560,56 @@ class ArchitectureContractTests(unittest.TestCase):
         for relative_path in (
             Path("ciel_runtime_support/timeout_profile.py"),
             Path("ciel_runtime_support/provider_model_selection.py"),
+        ):
+            service_source = (root / relative_path).read_text(encoding="utf-8")
+            self.assertNotIn("__getattr__", service_source)
+
+    def test_provider_contract_registry_and_nvidia_use_explicit_typed_apis(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "provider_endpoint",
+            "provider_model_paths",
+            "provider_request_policy",
+            "provider_model_catalog_policy",
+            "preserves_anthropic_thinking_contract",
+            "context_compaction_available",
+            "provider_context_policy",
+            "provider_configuration_policy",
+            "provider_model_panel_badge",
+            "provider_advisor_panel_notice",
+            "provider_advisor_model_badge",
+            "read_model_registry",
+            "read_model_registry_models",
+            "read_model_registry_info",
+            "write_model_registry",
+            "read_model_list_cache",
+            "read_model_info_cache",
+            "write_model_list_cache",
+            "nvidia_upstream_base_url",
+            "nvidia_proxy_base_url",
+            "nvidia_api_key",
+            "install_ncp_proxy",
+            "ncp_module_available",
+            "ncp_proxy_executable",
+            "ensure_ncp",
+            "ncp_model_id_for_nvidia_hosted",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        for api_name in (
+            "ProviderContractProjectionApi",
+            "ModelRegistryApi",
+            "NvidiaRuntimeApi",
+        ):
+            self.assertIn(api_name, source)
+        for relative_path in (
+            Path("ciel_runtime_support/provider_contract_projection.py"),
+            Path("ciel_runtime_support/model_registry_repository.py"),
+            Path("ciel_runtime_support/providers/nvidia_runtime.py"),
         ):
             service_source = (root / relative_path).read_text(encoding="utf-8")
             self.assertNotIn("__getattr__", service_source)

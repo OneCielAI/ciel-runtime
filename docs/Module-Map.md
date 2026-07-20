@@ -451,6 +451,10 @@ Provider Adapter Registry와 기존 import 경로를 위한 호환 re-export 진
 
 Provider 이름·alias 정규화, model ID 정규화·정렬·중복 제거, Claude-facing alias 왕복 및 표시명 프로젝션을 소유하는 Domain Service. 공통 알고리즘은 Registry port에만 의존하고 Provider별 표시 규칙은 각 Adapter의 Strategy로 위임한다. `ProviderModelIdentityApi`는 기존 keyword parameter 이름까지 명시적으로 보존하면서 facade의 identity wrapper를 제거한다.
 
+### `ciel_runtime_support/provider_contract_projection.py`
+
+등록된 Provider Adapter와 legacy config contract를 결합해 endpoint, request/catalog/context/configuration 정책과 menu badge를 투영하는 Provider-neutral API. 네 개 typed port만 사용하며 facade와 Provider 이름 분기를 공유하지 않는다.
+
 ### `ciel_runtime_support/providers/__init__.py`
 
 Provider 구현 패키지의 안정적인 공개 진입점. 분리된 공통 기반 클래스를 기존 import 사용자에게 re-export한다.
@@ -509,7 +513,7 @@ NVIDIA hosted 인증, NCP model alias, streaming requirement, context 및 router
 
 ### `ciel_runtime_support/providers/nvidia_runtime.py`
 
-NVIDIA hosted의 NCP 환경/API key 투영, proxy 설치·기동·readiness 대기와 upstream model ID 변환을 소유하는 Provider Runtime Adapter. 설정·환경 reader·HTTP·executable 탐색은 7필드 typed port로 주입되며 facade에는 기존 함수명의 compatibility delegate만 남는다.
+NVIDIA hosted의 NCP 환경/API key 투영, proxy 설치·기동·readiness 대기와 upstream model ID 변환을 소유하는 Provider Runtime Adapter. 설정·환경 reader·HTTP·executable 탐색은 7필드 typed port로 주입되며 `NvidiaRuntimeApi`가 공개 compatibility 계약을 명시적으로 투영한다.
 
 ### `ciel_runtime_support/providers/nim.py`
 
@@ -615,7 +619,7 @@ placeholder model 선택 강제, launch alias, 요청·tool model resolution과 
 
 ### `ciel_runtime_support/model_registry_repository.py`
 
-provider model registry와 단기 model-list cache의 key 호환, TTL, metadata 정규화, 권한 설정과 JSON persistence를 소유하는 Repository. 경로와 model 정책 포트를 분리해 provider catalog service가 파일 형식을 직접 다루지 않게 한다.
+provider model registry와 단기 model-list cache의 key 호환, TTL, metadata 정규화, 권한 설정과 JSON persistence를 소유하는 Repository. 경로와 model 정책 포트를 분리해 provider catalog service가 파일 형식을 직접 다루지 않게 한다. `ModelRegistryApi`는 300초 기본 TTL을 포함한 기존 공개 signature를 보존한다.
 
 ### `ciel_runtime_support/model_cache_lifecycle.py`
 

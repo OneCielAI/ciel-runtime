@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from .runtime_constants import MODEL_CACHE_TTL_SECONDS
+
 
 @dataclass(frozen=True, slots=True)
 class ModelRegistryPaths:
@@ -199,3 +201,31 @@ class ModelRegistryRepository:
                 f"model_list_cache_write_failed provider={provider} error={type(error).__name__}: {error}",
             )
         self.write_registry(provider, config, models, "provider", metadata)
+
+
+@dataclass(frozen=True, slots=True)
+class ModelRegistryApi:
+    """Explicit public adapter for late-bound model registry repositories."""
+
+    repository_factory: Callable[[], ModelRegistryRepository]
+
+    def read_registry(self, provider: str, pcfg: dict[str, Any], max_age_seconds: float = MODEL_CACHE_TTL_SECONDS) -> dict[str, Any] | None:
+        return self.repository_factory().read_registry(provider, pcfg, max_age_seconds)
+
+    def read_registry_models(self, provider: str, pcfg: dict[str, Any], max_age_seconds: float = MODEL_CACHE_TTL_SECONDS) -> list[str] | None:
+        return self.repository_factory().read_registry_models(provider, pcfg, max_age_seconds)
+
+    def read_registry_info(self, provider: str, pcfg: dict[str, Any], max_age_seconds: float = MODEL_CACHE_TTL_SECONDS) -> dict[str, dict[str, Any]]:
+        return self.repository_factory().read_registry_info(provider, pcfg, max_age_seconds)
+
+    def write_registry(self, provider: str, pcfg: dict[str, Any], models: list[str], source: str = "provider", metadata: dict[str, Any] | None = None) -> None:
+        self.repository_factory().write_registry(provider, pcfg, models, source, metadata)
+
+    def read_list_cache(self, provider: str, pcfg: dict[str, Any]) -> list[str] | None:
+        return self.repository_factory().read_list_cache(provider, pcfg)
+
+    def read_info_cache(self, provider: str, pcfg: dict[str, Any]) -> dict[str, dict[str, Any]]:
+        return self.repository_factory().read_info_cache(provider, pcfg)
+
+    def write_list_cache(self, provider: str, pcfg: dict[str, Any], models: list[str], metadata: dict[str, Any] | None = None) -> None:
+        self.repository_factory().write_list_cache(provider, pcfg, models, metadata)

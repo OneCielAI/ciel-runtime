@@ -7,10 +7,21 @@ from ciel_runtime_support.providers.nvidia_runtime import (
     NvidiaProxyRuntime,
     NvidiaProxyRuntimeConfig,
     NvidiaProxyRuntimePorts,
+    NvidiaRuntimeApi,
 )
 
 
 class NvidiaProxyRuntimeTests(unittest.TestCase):
+    def test_explicit_runtime_api_delegates_public_contract(self):
+        runtime = mock.create_autospec(NvidiaProxyRuntime, instance=True)
+        runtime.proxy_base_url.return_value = "http://localhost:8788"
+        runtime.model_id.return_value = "claude-proxy"
+        api = NvidiaRuntimeApi(lambda: runtime)
+
+        self.assertEqual("http://localhost:8788", api.proxy_base_url())
+        self.assertEqual("claude-proxy", api.model_id(model_id="vendor/model"))
+        runtime.model_id.assert_called_once_with("vendor/model")
+
     def runtime(self, root: Path, **overrides):
         values = {
             "load_config": lambda: {"providers": {"nvidia-hosted": {}}},

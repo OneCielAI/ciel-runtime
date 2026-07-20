@@ -151,4 +151,40 @@ class NvidiaProxyRuntime:
         return model_id
 
 
-__all__ = ["NvidiaProxyRuntime", "NvidiaProxyRuntimeConfig", "NvidiaProxyRuntimePorts"]
+@dataclass(frozen=True, slots=True)
+class NvidiaRuntimeApi:
+    """Explicit compatibility API for late-bound NVIDIA proxy runtimes."""
+
+    runtime_factory: Callable[[], NvidiaProxyRuntime]
+
+    def upstream_base_url(self) -> str:
+        return self.runtime_factory().upstream_base_url()
+
+    def proxy_base_url(self) -> str:
+        return self.runtime_factory().proxy_base_url()
+
+    def api_key(self) -> str:
+        return self.runtime_factory().api_key()
+
+    def install_proxy(self) -> str | None:
+        return self.runtime_factory().install_proxy()
+
+    def module_available(self) -> bool:
+        return self.runtime_factory().module_available()
+
+    def proxy_executable(self) -> str | None:
+        return self.runtime_factory().proxy_executable()
+
+    def ensure(self) -> None:
+        self.runtime_factory().ensure()
+
+    def model_id(self, model_id: str) -> str:
+        return self.runtime_factory().model_id(model_id)
+
+
+__all__ = [
+    "NvidiaProxyRuntime",
+    "NvidiaProxyRuntimeConfig",
+    "NvidiaProxyRuntimePorts",
+    "NvidiaRuntimeApi",
+]

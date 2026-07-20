@@ -319,6 +319,7 @@ from ciel_runtime_support.model_cache_lifecycle import (
     ModelCacheLifecycleService,
 )
 from ciel_runtime_support.model_registry_repository import (
+    ModelRegistryApi,
     ModelRegistryPaths,
     ModelRegistryPolicy,
     ModelRegistryRepository,
@@ -920,6 +921,7 @@ from ciel_runtime_support.provider_model_identity import (
     ProviderModelIdentityApi,
     ProviderModelIdentityService,
 )
+from ciel_runtime_support.provider_contract_projection import ProviderContractProjectionApi
 from ciel_runtime_support.provider_compatibility import PROVIDER_COMPATIBILITY
 from ciel_runtime_support.provider_context import (
     ContextPresetServices,
@@ -1083,6 +1085,7 @@ from ciel_runtime_support.providers.ollama_runtime import (
 from ciel_runtime_support.providers.ollama_context import OllamaRequestContextPolicy
 from ciel_runtime_support.output_budget import OutputBudgetPolicy
 from ciel_runtime_support.providers.nvidia_runtime import (
+    NvidiaRuntimeApi,
     NvidiaProxyRuntime,
     NvidiaProxyRuntimeConfig,
     NvidiaProxyRuntimePorts,
@@ -2065,24 +2068,23 @@ def configured_provider_adapter(provider: str, pcfg: dict[str, Any]):
     return PROVIDER_ADAPTERS.create(provider, base_url=str(pcfg.get("base_url") or ""))
 
 
-def provider_endpoint(provider: str, pcfg: dict[str, Any], operation: str) -> str:
-    adapter = configured_provider_adapter(provider, pcfg)
-    return join_url(provider_upstream_request_base(provider, pcfg), adapter.resolve_endpoint(operation, provider_contract_config(provider, pcfg)))
-
-
-def provider_model_paths(provider: str, pcfg: dict[str, Any]) -> tuple[str, ...]:
-    adapter = configured_provider_adapter(provider, pcfg)
-    return adapter.model_paths(provider_contract_config(provider, pcfg))
-
-
-def provider_request_policy(provider: str, pcfg: dict[str, Any]):
-    adapter = configured_provider_adapter(provider, pcfg)
-    return adapter.request_policy(provider_contract_config(provider, pcfg))
-
-
-def provider_model_catalog_policy(provider: str, pcfg: dict[str, Any]):
-    adapter = configured_provider_adapter(provider, pcfg)
-    return adapter.model_catalog_policy(provider_contract_config(provider, pcfg))
+_PROVIDER_CONTRACT_API = ProviderContractProjectionApi(
+    adapter=configured_provider_adapter,
+    contract=provider_contract_config,
+    request_base=lambda provider, pcfg: provider_upstream_request_base(provider, pcfg),
+    join_url=join_url,
+)
+provider_endpoint = _PROVIDER_CONTRACT_API.endpoint
+provider_model_paths = _PROVIDER_CONTRACT_API.model_paths
+provider_request_policy = _PROVIDER_CONTRACT_API.request_policy
+provider_model_catalog_policy = _PROVIDER_CONTRACT_API.model_catalog_policy
+preserves_anthropic_thinking_contract = _PROVIDER_CONTRACT_API.preserves_anthropic_thinking_contract
+context_compaction_available = _PROVIDER_CONTRACT_API.context_compaction_available
+provider_context_policy = _PROVIDER_CONTRACT_API.context_policy
+provider_configuration_policy = _PROVIDER_CONTRACT_API.configuration_policy
+provider_model_panel_badge = _PROVIDER_CONTRACT_API.model_panel_badge
+provider_advisor_panel_notice = _PROVIDER_CONTRACT_API.advisor_panel_notice
+provider_advisor_model_badge = _PROVIDER_CONTRACT_API.advisor_model_badge
 
 
 def select_provider_protocol(
@@ -2653,11 +2655,6 @@ def should_defer_forced_tool_choice_for_thinking(provider: str, pcfg: dict[str, 
     return False
 
 
-def preserves_anthropic_thinking_contract(provider: str, pcfg: dict[str, Any]) -> bool:
-    adapter = configured_provider_adapter(provider, pcfg)
-    return adapter.preserves_anthropic_thinking(provider_contract_config(provider, pcfg))
-
-
 def anthropic_thinking_policy() -> AnthropicThinkingPolicy:
     """Compose protocol policy ports late to preserve facade monkeypatch support."""
     return AnthropicThinkingPolicy(
@@ -3141,49 +3138,14 @@ def model_registry_repository() -> ModelRegistryRepository:
     )
 
 
-def read_model_registry(
-    provider: str, pcfg: dict[str, Any], max_age_seconds: float = MODEL_CACHE_TTL_SECONDS
-) -> dict[str, Any] | None:
-    return model_registry_repository().read_registry(provider, pcfg, max_age_seconds)
-
-
-def read_model_registry_models(
-    provider: str, pcfg: dict[str, Any], max_age_seconds: float = MODEL_CACHE_TTL_SECONDS
-) -> list[str] | None:
-    return model_registry_repository().read_registry_models(provider, pcfg, max_age_seconds)
-
-
-def read_model_registry_info(
-    provider: str, pcfg: dict[str, Any], max_age_seconds: float = MODEL_CACHE_TTL_SECONDS
-) -> dict[str, dict[str, Any]]:
-    return model_registry_repository().read_registry_info(provider, pcfg, max_age_seconds)
-
-
-def write_model_registry(
-    provider: str,
-    pcfg: dict[str, Any],
-    models: list[str],
-    source: str = "provider",
-    metadata: dict[str, Any] | None = None,
-) -> None:
-    model_registry_repository().write_registry(provider, pcfg, models, source, metadata)
-
-
-def read_model_list_cache(provider: str, pcfg: dict[str, Any]) -> list[str] | None:
-    return model_registry_repository().read_list_cache(provider, pcfg)
-
-
-def read_model_info_cache(provider: str, pcfg: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    return model_registry_repository().read_info_cache(provider, pcfg)
-
-
-def write_model_list_cache(
-    provider: str,
-    pcfg: dict[str, Any],
-    models: list[str],
-    metadata: dict[str, Any] | None = None,
-) -> None:
-    model_registry_repository().write_list_cache(provider, pcfg, models, metadata)
+_MODEL_REGISTRY_API = ModelRegistryApi(model_registry_repository)
+read_model_registry = _MODEL_REGISTRY_API.read_registry
+read_model_registry_models = _MODEL_REGISTRY_API.read_registry_models
+read_model_registry_info = _MODEL_REGISTRY_API.read_registry_info
+write_model_registry = _MODEL_REGISTRY_API.write_registry
+read_model_list_cache = _MODEL_REGISTRY_API.read_list_cache
+read_model_info_cache = _MODEL_REGISTRY_API.read_info_cache
+write_model_list_cache = _MODEL_REGISTRY_API.write_list_cache
 
 
 
@@ -3641,18 +3603,6 @@ def is_url_up(url: str) -> bool:
         return False
 
 
-def nvidia_upstream_base_url() -> str:
-    return nvidia_proxy_runtime().upstream_base_url()
-
-
-def nvidia_proxy_base_url() -> str:
-    return nvidia_proxy_runtime().proxy_base_url()
-
-
-def nvidia_api_key() -> str:
-    return nvidia_proxy_runtime().api_key()
-
-
 def nvidia_proxy_runtime() -> NvidiaProxyRuntime:
     return NvidiaProxyRuntime(
         NvidiaProxyRuntimeConfig(NCP_ENV, NCP_LOG, NCP_PYPI_PACKAGE),
@@ -3668,24 +3618,15 @@ def nvidia_proxy_runtime() -> NvidiaProxyRuntime:
     )
 
 
-def install_ncp_proxy() -> str | None:
-    return nvidia_proxy_runtime().install_proxy()
-
-
-def ncp_module_available() -> bool:
-    return NvidiaProxyRuntime.module_available()
-
-
-def ncp_proxy_executable() -> str | None:
-    return nvidia_proxy_runtime().proxy_executable()
-
-
-def ensure_ncp() -> None:
-    nvidia_proxy_runtime().ensure()
-
-
-def ncp_model_id_for_nvidia_hosted(model_id: str) -> str:
-    return nvidia_proxy_runtime().model_id(model_id)
+_NVIDIA_RUNTIME_API = NvidiaRuntimeApi(nvidia_proxy_runtime)
+nvidia_upstream_base_url = _NVIDIA_RUNTIME_API.upstream_base_url
+nvidia_proxy_base_url = _NVIDIA_RUNTIME_API.proxy_base_url
+nvidia_api_key = _NVIDIA_RUNTIME_API.api_key
+install_ncp_proxy = _NVIDIA_RUNTIME_API.install_proxy
+ncp_module_available = _NVIDIA_RUNTIME_API.module_available
+ncp_proxy_executable = _NVIDIA_RUNTIME_API.proxy_executable
+ensure_ncp = _NVIDIA_RUNTIME_API.ensure
+ncp_model_id_for_nvidia_hosted = _NVIDIA_RUNTIME_API.model_id
 
 
 def provider_upstream_model(provider: str, pcfg: dict[str, Any], model: str) -> str:
@@ -5496,11 +5437,6 @@ CONTEXT_COMPACT_MAP_SYSTEM_PROMPT = (
     "decisions, file paths, tool results, unresolved tasks, errors, and any facts needed "
     "to continue later. Do not call tools."
 )
-
-
-def context_compaction_available(provider: str, pcfg: dict[str, Any]) -> bool:
-    adapter = configured_provider_adapter(provider, pcfg)
-    return adapter.context_compaction_available(provider_contract_config(provider, pcfg))
 
 
 def context_compaction_services() -> ContextCompactionServices:
@@ -9703,11 +9639,6 @@ def model_context_hint_from_model_id(model_id: str) -> int | None:
     return model_context_hint_policy().resolve(model_id)
 
 
-def provider_context_policy(provider: str, pcfg: dict[str, Any]):
-    adapter = configured_provider_adapter(provider, pcfg)
-    return adapter.context_policy(provider_contract_config(provider, pcfg))
-
-
 def provider_model_context_capacity(provider: str, pcfg: dict[str, Any]) -> int | None:
     return resolve_context_capacity(
         provider,
@@ -10329,11 +10260,6 @@ def llm_option_config_services() -> LlmOptionConfigServices:
 
 def provider_routing_mode_update(provider: str, enabled: bool) -> tuple[str, ...]:
     return PROVIDER_ADAPTERS.create(provider).routing_mode_update(enabled)
-
-
-def provider_configuration_policy(provider: str, pcfg: dict[str, Any]):
-    adapter = configured_provider_adapter(provider, pcfg)
-    return adapter.configuration_policy(provider_contract_config(provider, pcfg))
 
 
 def set_llm_option_config(provider: str, key: str, raw_value: str) -> list[str]:
@@ -11776,23 +11702,6 @@ def log_level_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
     rows.append(ui_text("back", cfg.get("language", "en")))
     values.append("back")
     return rows, values
-
-
-def provider_model_panel_badge(provider: str, pcfg: dict[str, Any], model: str) -> str:
-    adapter = configured_provider_adapter(provider, pcfg)
-    return adapter.model_panel_badge(provider_contract_config(provider, pcfg), model)
-
-
-def provider_advisor_panel_notice(
-    provider: str, pcfg: dict[str, Any]
-) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
-    adapter = configured_provider_adapter(provider, pcfg)
-    return adapter.advisor_panel_notice(provider_contract_config(provider, pcfg))
-
-
-def provider_advisor_model_badge(provider: str, pcfg: dict[str, Any], model: str) -> str:
-    adapter = configured_provider_adapter(provider, pcfg)
-    return adapter.advisor_model_badge(provider_contract_config(provider, pcfg), model)
 
 
 def model_panel_services() -> ModelPanelServices:
