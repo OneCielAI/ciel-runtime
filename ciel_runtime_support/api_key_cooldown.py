@@ -99,9 +99,60 @@ class ApiKeyCooldownService:
         return removed
 
 
+@dataclass(frozen=True, slots=True)
+class ApiKeyCooldownCompatibilityApi:
+    """Explicit facade surface that resolves the current repository per call."""
+
+    service_factory: Callable[[], ApiKeyCooldownService]
+
+    def state_key(self, provider: str, config: dict[str, Any], key: str) -> str:
+        return self.service_factory().state_key(provider, config, key)
+
+    @staticmethod
+    def reset_seconds(headers: Any) -> float:
+        return ApiKeyCooldownService.reset_seconds(headers)
+
+    def register(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        key: str,
+        headers: Any,
+    ) -> float:
+        return self.service_factory().register(provider, config, key, headers)
+
+    def cooldown_until(
+        self, provider: str, config: dict[str, Any], key: str
+    ) -> float:
+        return self.service_factory().cooldown_until(provider, config, key)
+
+    def live_key_count(self, provider: str, config: dict[str, Any]) -> int:
+        return self.service_factory().live_key_count(provider, config)
+
+    def has_live_key(self, provider: str, config: dict[str, Any]) -> bool:
+        return self.service_factory().has_live_key(provider, config)
+
+    def reset_for_router_start(self) -> int:
+        return self.service_factory().reset_for_router_start()
+
+    @staticmethod
+    def retry_after_exceeds_request_timeout(
+        headers: Any, timeout: float
+    ) -> tuple[bool, float | None]:
+        retry_after = rate_limit_policy.first_header(
+            headers, ["Retry-After", "retry-after"]
+        )
+        seconds = rate_limit_policy.retry_after_seconds(retry_after)
+        if seconds is None:
+            return False, None
+        threshold = max(1.0, float(timeout) - 1.0)
+        return seconds >= threshold, seconds
+
+
 __all__ = [
     "API_KEY_COOLDOWN_DEFAULT_SECONDS",
     "API_KEY_COOLDOWN_MAX_SECONDS",
+    "ApiKeyCooldownCompatibilityApi",
     "ApiKeyCooldownPorts",
     "ApiKeyCooldownService",
     "RATE_LIMIT_RESET_HEADER_NAMES",

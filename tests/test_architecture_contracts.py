@@ -22,6 +22,11 @@ from ciel_runtime_support.architecture import (
 )
 from ciel_runtime_support.anthropic_tool_turns import AnthropicToolTurnServices
 from ciel_runtime_support.agy_installer import AgyInstaller, AgyInstallerPorts
+from ciel_runtime_support.api_key_cooldown import (
+    ApiKeyCooldownCompatibilityApi,
+    ApiKeyCooldownPorts,
+    ApiKeyCooldownService,
+)
 from ciel_runtime_support.codex_mcp_integration import (
     CodexMcpArtifactPorts,
     CodexMcpCapabilityPorts,
@@ -1923,7 +1928,7 @@ class ArchitectureContractTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
-        for function_name in (
+        delegated = {
             "_api_key_cooldown_state_key",
             "api_key_cooldown_reset_seconds",
             "register_api_key_cooldown",
@@ -1931,21 +1936,22 @@ class ArchitectureContractTests(unittest.TestCase):
             "provider_live_api_key_count",
             "provider_has_live_api_key",
             "reset_api_key_cooldowns_for_router_start",
-        ):
-            function = next(
-                node
-                for node in tree.body
-                if isinstance(node, ast.FunctionDef) and node.name == function_name
-            )
-            function_source = ast.get_source_segment(source, function) or ""
-            with self.subTest(function=function_name):
-                self.assertNotIn("hashlib.sha256", function_source)
-                self.assertNotIn("rate_limit_repository().", function_source)
+            "retry_after_exceeds_request_timeout",
+        }
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        self.assertIn("ApiKeyCooldownCompatibilityApi", source)
         service_source = (
             root / "ciel_runtime_support" / "api_key_cooldown.py"
         ).read_text(encoding="utf-8")
         self.assertIn("class ApiKeyCooldownService:", service_source)
         self.assertIn("hashlib.sha256", service_source)
+        self.assertNotIn("__getattr__", service_source)
+        self.assertLessEqual(len(fields(ApiKeyCooldownPorts)), 6)
+        self.assertEqual(1, len(fields(ApiKeyCooldownService)))
+        self.assertEqual(1, len(fields(ApiKeyCooldownCompatibilityApi)))
 
     def test_router_rate_limit_orchestration_is_service_owned(self):
         root = Path(__file__).resolve().parents[1]

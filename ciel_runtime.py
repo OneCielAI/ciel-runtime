@@ -1033,6 +1033,7 @@ from ciel_runtime_support.api_key_cooldown import (
     API_KEY_COOLDOWN_DEFAULT_SECONDS,  # noqa: F401 - compatibility export
     API_KEY_COOLDOWN_MAX_SECONDS,  # noqa: F401 - compatibility export
     RATE_LIMIT_RESET_HEADER_NAMES as _RATE_LIMIT_RESET_HEADER_NAMES,  # noqa: F401 - compatibility export
+    ApiKeyCooldownCompatibilityApi,
     ApiKeyCooldownPorts,
     ApiKeyCooldownService,
 )
@@ -3377,53 +3378,17 @@ def api_key_cooldown_service() -> ApiKeyCooldownService:
     )
 
 
-def _api_key_cooldown_state_key(provider: str, pcfg: dict[str, Any], key: str) -> str:
-    return api_key_cooldown_service().state_key(provider, pcfg, key)
-
-
-def api_key_cooldown_reset_seconds(headers: Any) -> float:
-    """Seconds to rest a key after a 429, from the response headers.
-
-    Priority: X-RateLimit-Reset (exact reset, possibly ms epoch) -> Retry-After
-    (seconds) -> a conservative default. Clamped to a sane ceiling.
-    """
-    return ApiKeyCooldownService.reset_seconds(headers)
-
-
-def register_api_key_cooldown(provider: str, pcfg: dict[str, Any], key: str, headers: Any) -> float:
-    """Rest a specific API key until its rate-limit reset. Returns the cooldown seconds."""
-    return api_key_cooldown_service().register(provider, pcfg, key, headers)
-
-
-def api_key_cooldown_until(provider: str, pcfg: dict[str, Any], key: str) -> float:
-    """Epoch until which this key is resting (0.0 if not cooling / expired)."""
-    return api_key_cooldown_service().cooldown_until(provider, pcfg, key)
-
-
-def provider_live_api_key_count(provider: str, pcfg: dict[str, Any]) -> int:
-    return api_key_cooldown_service().live_key_count(provider, pcfg)
-
-
-def provider_has_live_api_key(provider: str, pcfg: dict[str, Any]) -> bool:
-    return api_key_cooldown_service().has_live_key(provider, pcfg)
-
-
-def reset_api_key_cooldowns_for_router_start() -> int:
-    """Clear per-API-key cooldowns when a fresh router process starts.
-
-    Key cooldowns are runtime retry state. Keeping them across a new Ciel Runtime
-    router process can make a restarted session use only the one key that did
-    not hit a prior 429. Provider/global RPM state is intentionally preserved.
-    """
-    return api_key_cooldown_service().reset_for_router_start()
-
-
-def retry_after_exceeds_request_timeout(headers: Any, timeout: float) -> tuple[bool, float | None]:
-    retry_after = first_header(headers, ["Retry-After", "retry-after"])
-    seconds = parse_retry_after_seconds(retry_after)
-    if seconds is None:
-        return False, None
-    return seconds >= max(1.0, float(timeout) - 1.0), seconds
+_API_KEY_COOLDOWN_API = ApiKeyCooldownCompatibilityApi(api_key_cooldown_service)
+_api_key_cooldown_state_key = _API_KEY_COOLDOWN_API.state_key
+api_key_cooldown_reset_seconds = _API_KEY_COOLDOWN_API.reset_seconds
+register_api_key_cooldown = _API_KEY_COOLDOWN_API.register
+api_key_cooldown_until = _API_KEY_COOLDOWN_API.cooldown_until
+provider_live_api_key_count = _API_KEY_COOLDOWN_API.live_key_count
+provider_has_live_api_key = _API_KEY_COOLDOWN_API.has_live_key
+reset_api_key_cooldowns_for_router_start = _API_KEY_COOLDOWN_API.reset_for_router_start
+retry_after_exceeds_request_timeout = (
+    _API_KEY_COOLDOWN_API.retry_after_exceeds_request_timeout
+)
 
 
 apply_router_rate_limit = _ROUTER_RATE_LIMIT_API.apply

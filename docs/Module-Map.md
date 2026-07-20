@@ -631,7 +631,7 @@ provider model registry와 단기 model-list cache의 key 호환, TTL, metadata 
 
 ### `ciel_runtime_support/api_key_cooldown.py`
 
-429 응답의 reset header 우선순위·상한 정책, secret hash 기반 상태 key, credential별 cooldown 등록·조회와 live-key 계산을 소유하는 Application Service. 영속화는 `RateLimitRepository`에 위임한다.
+429 응답의 reset header 우선순위·상한 정책, secret hash 기반 상태 key, credential별 cooldown 등록·조회와 live-key 계산을 소유하는 Application Service. 영속화는 `RateLimitRepository`에 위임한다. `ApiKeyCooldownCompatibilityApi`는 동적 locator 없이 명시적 method로 facade 표면을 제공하며 매 호출마다 현재 Repository factory를 해석한다.
 
 ### `ciel_runtime_support/npm_runtime.py`
 
