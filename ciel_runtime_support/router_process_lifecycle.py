@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+import subprocess
 from typing import Any
 
 
@@ -37,6 +38,138 @@ class RouterTerminationPorts:
 class ClockPorts:
     now: Callable[[], float]
     sleep: Callable[[float], None]
+
+
+@dataclass(frozen=True, slots=True)
+class RouterStartupIdentity:
+    version: str
+    source_fingerprint: str
+
+
+@dataclass(frozen=True, slots=True)
+class RouterStartupStatePorts:
+    health: Callable[[], dict[str, Any] | None]
+    active_client_pids: Callable[[], list[int]]
+    health_matches_current: Callable[[dict[str, Any] | None], bool]
+    health_config_matches_current: Callable[[dict[str, Any] | None], bool]
+    terminate_active_clients: Callable[..., bool]
+    ensure_port_available: Callable[..., None]
+    reuse_enabled: Callable[[], bool]
+    log: Callable[[str, str], None]
+
+
+@dataclass(frozen=True, slots=True)
+class RouterSpawnPorts:
+    popen: Callable[..., Any]
+    router_up: Callable[[], bool]
+    now: Callable[[], float]
+    sleep: Callable[[float], None]
+    process_id: Callable[[], int]
+    environment: Callable[[], dict[str, str]]
+
+
+def start_router_if_needed(
+    *,
+    replace_active_clients: bool,
+    config: RouterProcessConfig,
+    identity: RouterStartupIdentity,
+    state: RouterStartupStatePorts,
+    spawn: RouterSpawnPorts,
+    executable: str,
+    entrypoint: Path,
+    log_path: Path,
+    platform_name: str,
+) -> bool:
+    health = state.health()
+    if health is not None:
+        active_clients = state.active_client_pids()
+        if state.health_matches_current(health):
+            if active_clients:
+                if replace_active_clients:
+                    state.log(
+                        "WARN",
+                        "router_prelaunch_replace_active_clients "
+                        f"base={config.router_base} active_clients={','.join(map(str, active_clients))}",
+                    )
+                    state.terminate_active_clients("prelaunch_active_clients", active_clients, quiet=True)
+                    state.ensure_port_available("prelaunch_active_clients", health)
+                else:
+                    state.log(
+                        "INFO",
+                        "router_check_state running=True spawn=False "
+                        f"base={config.router_base} active_clients={','.join(map(str, active_clients))}",
+                    )
+                    return True
+            elif state.reuse_enabled():
+                state.log("INFO", f"router_check_state running=True spawn=False base={config.router_base} reuse=env")
+                return True
+            else:
+                state.log(
+                    "INFO",
+                    "router_prelaunch_replace "
+                    f"running_version={health.get('version') or '-'} current_version={identity.version} "
+                    f"running_source={health.get('source_fingerprint') or '-'} current_source={identity.source_fingerprint} "
+                    f"pid={health.get('pid') or '-'}",
+                )
+                state.ensure_port_available("prelaunch_replace", health)
+        elif state.health_config_matches_current(health) and active_clients:
+            if replace_active_clients:
+                state.log(
+                    "WARN",
+                    "router_version_mismatch_replace_active_clients "
+                    f"running_version={health.get('version') or '-'} current_version={identity.version} "
+                    f"active_clients={','.join(map(str, active_clients))}",
+                )
+                state.terminate_active_clients("version_mismatch_active_clients", active_clients, quiet=True)
+                state.ensure_port_available("version_mismatch_active_clients", health)
+            else:
+                raise RuntimeError(
+                    f"ciel-runtime router on {config.router_base} belongs to this config but has active clients "
+                    f"({','.join(map(str, active_clients))}) and differs from this launch "
+                    f"(running_version={health.get('version') or '-'}, current_version={identity.version}). "
+                    "Stop the other Claude Code session or launch this instance with a different "
+                    "CIEL_RUNTIME_ROUTER_PORT."
+                )
+        else:
+            state.log(
+                "WARN",
+                "router_version_mismatch_restart "
+                f"running_version={health.get('version') or '-'} current_version={identity.version} "
+                f"running_source={health.get('source_fingerprint') or '-'} current_source={identity.source_fingerprint}",
+            )
+            state.ensure_port_available("version_mismatch", health)
+    else:
+        state.ensure_port_available("pre_spawn", None)
+    config.config_dir.mkdir(parents=True, exist_ok=True)
+    command = [executable, str(entrypoint), "serve"]
+    kwargs: dict[str, Any] = {}
+    if platform_name == "nt":
+        flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        if flags:
+            kwargs["creationflags"] = flags
+    else:
+        kwargs["start_new_session"] = True
+    state.log("INFO", f"router_check_state running=False spawn=True base={config.router_base}")
+    environment = spawn.environment()
+    environment["CIEL_RUNTIME_MANAGED_ROUTER"] = "1"
+    environment["CIEL_RUNTIME_ROUTER_OWNER_PID"] = str(spawn.process_id())
+    with log_path.open("ab", buffering=0) as log:
+        spawn.popen(
+            command,
+            stdin=subprocess.DEVNULL,
+            stdout=log,
+            stderr=log,
+            env=environment,
+            **kwargs,
+        )
+    started_at = spawn.now()
+    deadline = started_at + 30
+    while spawn.now() < deadline:
+        if spawn.router_up():
+            state.log("INFO", f"router_spawned running=True base={config.router_base} elapsed={spawn.now()-started_at:.1f}s")
+            return True
+        spawn.sleep(0.5)
+    raise RuntimeError(f"ciel-runtime router did not start. See {log_path}")
 
 
 def terminate_pid_file(

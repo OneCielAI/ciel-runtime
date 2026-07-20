@@ -179,6 +179,11 @@ and process-tree termination share `ProcessTreeController` in
 `process_control.py`; they no longer duplicate ps/taskkill/signal mechanics in
 the composition root.
 
+Managed router reuse, active-client replacement, version/config mismatch
+handling, process spawn, and readiness waiting live alongside shutdown policy
+in `router_process_lifecycle.py`. State decisions and spawn effects use
+separate typed ports.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

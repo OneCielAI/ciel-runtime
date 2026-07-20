@@ -439,11 +439,15 @@ from ciel_runtime_support.process_control import (
 from ciel_runtime_support.router_process_lifecycle import (
     ClockPorts as RouterProcessClock,
     RouterProcessConfig,
+    RouterSpawnPorts,
+    RouterStartupIdentity,
+    RouterStartupStatePorts,
     RouterStatePorts,
     RouterTerminationPorts,
     ensure_port_available as ensure_project_router_port_available,
     stop_router_processes as stop_project_router_processes,
     stop_with_guarantee as stop_project_router_with_guarantee,
+    start_router_if_needed as start_project_router_if_needed,
     terminate_health_pid as terminate_project_router_health_pid,
     terminate_pid_file as terminate_project_pid_file,
 )
@@ -14363,91 +14367,33 @@ def run_prelaunch_menu(passthrough: list[str], skip_menu: bool = False, force_me
 
 
 def start_router_if_needed(*, replace_active_clients: bool = True) -> bool:
-    health = router_health()
-    if health is not None:
-        active_clients = active_router_client_pids()
-        if router_health_matches_current(health):
-            if active_clients:
-                if replace_active_clients:
-                    router_log(
-                        "WARN",
-                        "router_prelaunch_replace_active_clients "
-                        f"base={ROUTER_BASE} active_clients={','.join(map(str, active_clients))}",
-                    )
-                    terminate_active_router_clients("prelaunch_active_clients", active_clients, quiet=True)
-                    ensure_router_port_available_for_spawn("prelaunch_active_clients", health)
-                else:
-                    router_log(
-                        "INFO",
-                        "router_check_state running=True spawn=False "
-                        f"base={ROUTER_BASE} active_clients={','.join(map(str, active_clients))}",
-                    )
-                    return True
-            else:
-                if env_bool(os.environ.get("CIEL_RUNTIME_REUSE_ROUTER"), False):
-                    router_log("INFO", f"router_check_state running=True spawn=False base={ROUTER_BASE} reuse=env")
-                    return True
-                router_log(
-                    "INFO",
-                    "router_prelaunch_replace "
-                    f"running_version={health.get('version') or '-'} current_version={VERSION} "
-                    f"running_source={health.get('source_fingerprint') or '-'} current_source={SOURCE_FINGERPRINT} "
-                    f"pid={health.get('pid') or '-'}",
-                )
-                ensure_router_port_available_for_spawn("prelaunch_replace", health)
-        else:
-            if router_health_config_matches_current(health) and active_clients:
-                if replace_active_clients:
-                    router_log(
-                        "WARN",
-                        "router_version_mismatch_replace_active_clients "
-                        f"running_version={health.get('version') or '-'} current_version={VERSION} "
-                        f"active_clients={','.join(map(str, active_clients))}",
-                    )
-                    terminate_active_router_clients("version_mismatch_active_clients", active_clients, quiet=True)
-                    ensure_router_port_available_for_spawn("version_mismatch_active_clients", health)
-                else:
-                    raise RuntimeError(
-                        f"ciel-runtime router on {ROUTER_BASE} belongs to this config but has active clients "
-                        f"({','.join(map(str, active_clients))}) and differs from this launch "
-                        f"(running_version={health.get('version') or '-'}, current_version={VERSION}). "
-                        "Stop the other Claude Code session or launch this instance with a different "
-                        "CIEL_RUNTIME_ROUTER_PORT."
-                    )
-            else:
-                running_version = str(health.get("version") or "")
-                running_fingerprint = str(health.get("source_fingerprint") or "")
-                router_log(
-                    "WARN",
-                    "router_version_mismatch_restart "
-                    f"running_version={running_version or '-'} current_version={VERSION} "
-                    f"running_source={running_fingerprint or '-'} current_source={SOURCE_FINGERPRINT}",
-                )
-                ensure_router_port_available_for_spawn("version_mismatch", health)
-    else:
-        ensure_router_port_available_for_spawn("pre_spawn", None)
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    cmd = [sys.executable, str(Path(__file__).resolve()), "serve"]
-    kwargs: dict[str, Any] = {}
-    if os.name == "nt":
-        flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-        if flags:
-            kwargs["creationflags"] = flags
-    else:
-        kwargs["start_new_session"] = True
-    router_log("INFO", f"router_check_state running=False spawn=True base={ROUTER_BASE}")
-    router_env = os.environ.copy()
-    router_env["CIEL_RUNTIME_MANAGED_ROUTER"] = "1"
-    router_env["CIEL_RUNTIME_ROUTER_OWNER_PID"] = str(os.getpid())
-    with open(LOG_PATH, "ab", buffering=0) as log:
-        subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=log, stderr=log, env=router_env, **kwargs)
-    deadline = time.time() + 30
-    while time.time() < deadline:
-        if router_up():
-            router_log("INFO", f"router_spawned running=True base={ROUTER_BASE} elapsed={time.time()-(deadline-30):.1f}s")
-            return True
-        time.sleep(0.5)
-    raise RuntimeError(f"ciel-runtime router did not start. See {LOG_PATH}")
+    return start_project_router_if_needed(
+        replace_active_clients=replace_active_clients,
+        config=router_process_config(),
+        identity=RouterStartupIdentity(version=VERSION, source_fingerprint=SOURCE_FINGERPRINT),
+        state=RouterStartupStatePorts(
+            health=router_health,
+            active_client_pids=active_router_client_pids,
+            health_matches_current=router_health_matches_current,
+            health_config_matches_current=router_health_config_matches_current,
+            terminate_active_clients=terminate_active_router_clients,
+            ensure_port_available=ensure_router_port_available_for_spawn,
+            reuse_enabled=lambda: env_bool(os.environ.get("CIEL_RUNTIME_REUSE_ROUTER"), False),
+            log=router_log,
+        ),
+        spawn=RouterSpawnPorts(
+            popen=subprocess.Popen,
+            router_up=router_up,
+            now=time.time,
+            sleep=time.sleep,
+            process_id=os.getpid,
+            environment=os.environ.copy,
+        ),
+        executable=sys.executable,
+        entrypoint=Path(__file__).resolve(),
+        log_path=LOG_PATH,
+        platform_name=os.name,
+    )
 
 
 def should_attach_web_search(provider: str, cfg: dict[str, Any], override: bool | None) -> bool:
