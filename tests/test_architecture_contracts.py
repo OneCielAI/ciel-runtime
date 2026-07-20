@@ -206,6 +206,11 @@ from ciel_runtime_support.headless_config import (
     HeadlessConfigServices,
 )
 from ciel_runtime_support.mcp_proxy_codec import McpProxyCodecPolicy
+from ciel_runtime_support.mcp_notification_wait_policy import (
+    McpNotificationWaitPolicy,
+    McpNotificationWaitPorts,
+    McpNotificationWaitService,
+)
 from ciel_runtime_support.mcp_probe_transport import (
     McpProbeCodec,
     McpProbeHttp,
@@ -276,6 +281,11 @@ from ciel_runtime_support.credential_cli import (
     CredentialCliPorts,
 )
 from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy, ToolGuardHookServices
+from ciel_runtime_support.tool_side_effect_dedupe import (
+    ToolSideEffectDedupePolicy,
+    ToolSideEffectDedupePorts,
+    ToolSideEffectDedupeService,
+)
 from ciel_runtime_support.process_control import (
     ProcessControlServices,
     ProcessInspectionServices,
@@ -795,6 +805,44 @@ class ArchitectureContractTests(unittest.TestCase):
         )
         constants_source = (root / "ciel_runtime_support" / "runtime_constants.py").read_text(encoding="utf-8")
         self.assertNotIn("import ciel_runtime", constants_source)
+
+    def test_mcp_notification_wait_policy_owns_timeout_projection(self):
+        for port in (McpNotificationWaitPolicy, McpNotificationWaitPorts, McpNotificationWaitService):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        functions = {
+            node.name: ast.unparse(node)
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name in {
+                "_is_mcp_notification_wait_tool",
+                "_mcp_notification_wait_effective_cap_ms",
+                "cap_mcp_notification_wait_tool_input",
+            }
+        }
+        self.assertEqual(3, len(functions))
+        for function_source in functions.values():
+            self.assertIn("mcp_notification_wait_service", function_source)
+            self.assertNotIn("os.environ", function_source)
+            self.assertNotIn("_MCP_NOTIFICATION_WAIT_RECENT", function_source)
+
+    def test_tool_side_effect_dedupe_owns_hash_and_ttl_state(self):
+        for port in (ToolSideEffectDedupePolicy, ToolSideEffectDedupePorts, ToolSideEffectDedupeService):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        functions = {
+            node.name: ast.unparse(node)
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name in {"side_effect_tool_call_dedupe_key", "should_drop_duplicate_side_effect_tool_call"}
+        }
+        self.assertEqual(2, len(functions))
+        for function_source in functions.values():
+            self.assertIn("tool_side_effect_dedupe_service", function_source)
+            self.assertNotIn("hashlib", function_source)
+            self.assertNotIn("_TOOL_SIDE_EFFECT_DEDUP_RECENT", function_source)
 
     def test_claude_launch_ports_stay_below_dependency_limit(self):
         ports = (

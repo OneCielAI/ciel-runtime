@@ -452,6 +452,12 @@ from ciel_runtime_support.tool_guard_hooks import (
     ToolGuardHookServices,
     install_tool_guard_hook_settings,
 )
+from ciel_runtime_support.tool_side_effect_dedupe import (
+    ToolSideEffectDedupePolicy,
+    ToolSideEffectDedupePorts,
+    ToolSideEffectDedupeRepository,
+    ToolSideEffectDedupeService,
+)
 from ciel_runtime_support.process_control import (
     ProcessControlServices,
     ProcessInspectionServices,
@@ -609,6 +615,12 @@ from ciel_runtime_support.mcp_proxy_codec import (
     _mcp_proxy_tool_is_notification_wait,
     _mcp_proxy_wait_timeout_seconds,
     compact_tool_result_response as compact_mcp_tool_result_response,
+)
+from ciel_runtime_support.mcp_notification_wait_policy import (
+    McpNotificationWaitPolicy,
+    McpNotificationWaitPorts,
+    McpNotificationWaitRepository,
+    McpNotificationWaitService,
 )
 from ciel_runtime_support.mcp_proxy_config import McpProxyConfigPaths, McpProxyConfigPorts, McpProxyConfigService
 from ciel_runtime_support.mcp_proxy_process import (
@@ -1285,7 +1297,6 @@ from ciel_runtime_support.runtime_constants import (
     LANGUAGES,
     LM_STUDIO_DEFAULT_CLAUDE_CODE_CONTEXT,
     LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT,
-    MCP_NOTIFICATION_WAIT_TOOL_NAMES,
     MCP_PROXY_TOOL_RESULT_ITEM_TEXT_CHARS,
     MCP_PROXY_TOOL_RESULT_MAX_CHARS_DEFAULT,
     MODEL_CACHE_TTL_SECONDS,
@@ -1319,7 +1330,6 @@ from ciel_runtime_support.runtime_constants import (
     ZAI_DEFAULT_MODEL,  # noqa: F401 - compatibility export
     ZAI_MANAGED_MCP_SERVERS,
     ZAI_MODEL_CONTEXT_HINTS,
-    _SIDE_EFFECT_TOOL_SUFFIXES,
 )
 
 try:
@@ -1683,24 +1693,7 @@ def should_drop_emitted_tool_call(
 
 
 def side_effect_tool_call_dedupe_key(tool_name: str, tool_input: dict[str, Any]) -> str | None:
-    """Stable key for exact duplicate side-effect tool calls.
-
-    This intentionally avoids read-only tools such as get_messages. Some
-    non-native streaming backends can repeat the same side-effect MCP tool call
-    after receiving its tool result, which posts duplicate external messages.
-    """
-    if not isinstance(tool_name, str) or not tool_name:
-        return None
-    normalized_name = tool_name.strip()
-    tool_leaf = normalized_name.rsplit("__", 1)[-1].strip().lower()
-    if tool_leaf not in _SIDE_EFFECT_TOOL_SUFFIXES:
-        return None
-    try:
-        payload = json.dumps(tool_input or {}, sort_keys=True, ensure_ascii=False, separators=(",", ":"), default=str)
-    except Exception:
-        payload = repr(tool_input)
-    digest = hashlib.sha256(payload.encode("utf-8", errors="replace")).hexdigest()
-    return f"{normalized_name}:{digest}"
+    return tool_side_effect_dedupe_service().key(tool_name, tool_input)
 
 
 def should_drop_duplicate_side_effect_tool_call(
@@ -1708,150 +1701,62 @@ def should_drop_duplicate_side_effect_tool_call(
     tool_input: dict[str, Any],
     raw_name: str = "",
 ) -> bool:
-    key = side_effect_tool_call_dedupe_key(tool_name, tool_input)
-    if not key:
-        return False
-    now = time.monotonic()
-    with _TOOL_SIDE_EFFECT_DEDUP_LOCK:
-        expired = [k for k, ts in _TOOL_SIDE_EFFECT_DEDUP_RECENT.items() if now - ts > _TOOL_SIDE_EFFECT_DEDUP_TTL_SECONDS]
-        for expired_key in expired:
-            _TOOL_SIDE_EFFECT_DEDUP_RECENT.pop(expired_key, None)
-        previous = _TOOL_SIDE_EFFECT_DEDUP_RECENT.get(key)
-        if previous is not None and now - previous <= _TOOL_SIDE_EFFECT_DEDUP_TTL_SECONDS:
-            append_tool_call_log(
-                "dropped_duplicate_side_effect_tool_call",
-                {
-                    "raw_name": raw_name or tool_name,
-                    "matched_name": tool_name,
-                    "emitted_input": tool_input,
-                    "age_seconds": round(now - previous, 3),
-                    "ttl_seconds": _TOOL_SIDE_EFFECT_DEDUP_TTL_SECONDS,
-                },
-            )
-            router_log(
-                "WARN",
-                f"dropped duplicate side-effect tool call raw_name={raw_name or tool_name!r} "
-                f"matched_name={tool_name!r} age={now - previous:.1f}s",
-            )
-            return True
-        _TOOL_SIDE_EFFECT_DEDUP_RECENT[key] = now
-    return False
+    return tool_side_effect_dedupe_service().should_drop(tool_name, tool_input, raw_name)
+
+
+def tool_side_effect_dedupe_service() -> ToolSideEffectDedupeService:
+    return ToolSideEffectDedupeService(
+        policy=ToolSideEffectDedupePolicy(
+            frozenset(
+                {"send_message", "send_dm", "send_file", "create_message", "create_dm", "post_message", "reply"}
+            ),
+            ttl_seconds=_TOOL_SIDE_EFFECT_DEDUP_TTL_SECONDS,
+        ),
+        repository=ToolSideEffectDedupeRepository(
+            _TOOL_SIDE_EFFECT_DEDUP_RECENT,
+            _TOOL_SIDE_EFFECT_DEDUP_LOCK,
+        ),
+        ports=ToolSideEffectDedupePorts(time.monotonic, append_tool_call_log, router_log),
+    )
 
 
 def _mcp_tool_leaf_name(tool_name: str) -> str:
-    text = str(tool_name or "").strip()
-    if "__" in text:
-        return text.rsplit("__", 1)[-1].strip().lower()
-    return text.lower()
+    return McpNotificationWaitService.tool_leaf_name(tool_name)
 
 
 def _is_mcp_notification_wait_tool(tool_name: str) -> bool:
-    text = str(tool_name or "").strip().lower()
-    if not text.startswith("mcp__"):
-        return False
-    return _mcp_tool_leaf_name(text) in MCP_NOTIFICATION_WAIT_TOOL_NAMES
+    return mcp_notification_wait_service().is_wait_tool(tool_name)
 
 
 def _mcp_notification_wait_timeout_cap_ms() -> int:
-    raw = os.environ.get("CIEL_RUNTIME_MCP_NOTIFICATION_WAIT_TIMEOUT_MS")
-    if raw is None:
-        return 1000
-    try:
-        value = int(float(str(raw).strip()))
-    except (TypeError, ValueError):
-        return 1000
-    if value <= 0:
-        return 0
-    return max(100, min(10_000, value))
+    return mcp_notification_wait_service().policy.timeout_cap_ms()
 
 
 def _mcp_notification_wait_duplicate_cap_ms() -> int:
-    raw = os.environ.get("CIEL_RUNTIME_MCP_NOTIFICATION_WAIT_DUPLICATE_TIMEOUT_MS")
-    if raw is None:
-        return 100
-    try:
-        value = int(float(str(raw).strip()))
-    except (TypeError, ValueError):
-        return 100
-    if value <= 0:
-        return 0
-    return max(50, min(5000, value))
+    return mcp_notification_wait_service().policy.duplicate_cap_ms()
 
 
 def _mcp_notification_wait_duplicate_window_seconds() -> float:
-    raw = os.environ.get("CIEL_RUNTIME_MCP_NOTIFICATION_WAIT_DUPLICATE_WINDOW_SECONDS")
-    if raw is None:
-        return 90.0
-    try:
-        value = float(str(raw).strip())
-    except (TypeError, ValueError):
-        return 90.0
-    return max(0.0, min(600.0, value))
+    return mcp_notification_wait_service().policy.duplicate_window_seconds()
 
 
 def _mcp_notification_wait_effective_cap_ms(tool_name: str) -> tuple[int, bool]:
-    cap_ms = _mcp_notification_wait_timeout_cap_ms()
-    if cap_ms <= 0:
-        return 0, False
-    duplicate_cap_ms = _mcp_notification_wait_duplicate_cap_ms()
-    window = _mcp_notification_wait_duplicate_window_seconds()
-    if duplicate_cap_ms <= 0 or window <= 0:
-        return cap_ms, False
-    key = str(tool_name or "").strip().lower()
-    now = time.time()
-    duplicate = False
-    with _MCP_NOTIFICATION_WAIT_RECENT_LOCK:
-        stale = [item_key for item_key, seen_at in _MCP_NOTIFICATION_WAIT_RECENT.items() if now - seen_at > window]
-        for item_key in stale:
-            _MCP_NOTIFICATION_WAIT_RECENT.pop(item_key, None)
-        previous = _MCP_NOTIFICATION_WAIT_RECENT.get(key)
-        duplicate = previous is not None and now - previous <= window
-        _MCP_NOTIFICATION_WAIT_RECENT[key] = now
-    if duplicate:
-        return min(cap_ms, duplicate_cap_ms), True
-    return cap_ms, False
+    return mcp_notification_wait_service().effective_cap_ms(tool_name)
 
 
 def cap_mcp_notification_wait_tool_input(tool_name: str, tool_input: dict[str, Any]) -> dict[str, Any]:
-    if not _is_mcp_notification_wait_tool(tool_name):
-        return tool_input
-    cap_ms, duplicate = _mcp_notification_wait_effective_cap_ms(tool_name)
-    if cap_ms <= 0:
-        return tool_input
-    fixed = dict(tool_input) if isinstance(tool_input, dict) else {}
-    schema = _lookup_tool_schema(tool_name) or {}
-    properties = schema.get("properties") if isinstance(schema.get("properties"), dict) else {}
-    changed: list[str] = []
+    return mcp_notification_wait_service().cap_input(tool_name, tool_input)
 
-    def set_if_lower(key: str, value: int | float) -> None:
-        old = fixed.get(key)
-        try:
-            numeric = float(old)
-        except Exception:
-            fixed[key] = int(value) if float(value).is_integer() else value
-            changed.append(f"{key}=missing->{value:g}")
-            return
-        if numeric > float(value):
-            fixed[key] = int(value) if float(value).is_integer() else value
-            changed.append(f"{key}={numeric:g}->{value:g}")
 
-    for key in list(fixed):
-        key_l = str(key).strip().lower()
-        if key_l in {"timeout_ms", "timeoutms", "wait_ms", "waitms", "max_wait_ms", "maxwaitms"}:
-            set_if_lower(key, cap_ms)
-        elif key_l in {"timeout", "wait_seconds", "wait_s", "max_wait_seconds"}:
-            set_if_lower(key, max(0.1, cap_ms / 1000.0))
-
-    if not changed:
-        if "timeout_ms" in properties or "timeout_ms" in fixed or not properties:
-            set_if_lower("timeout_ms", cap_ms)
-        elif "timeout" in properties:
-            set_if_lower("timeout", max(0.1, cap_ms / 1000.0))
-
-    if changed:
-        duplicate_label = " duplicate=true" if duplicate else ""
-        router_log("INFO", f"mcp_notification_wait_timeout_capped tool={tool_name}{duplicate_label} {' '.join(changed)}")
-    return fixed
+def mcp_notification_wait_service() -> McpNotificationWaitService:
+    return McpNotificationWaitService(
+        policy=McpNotificationWaitPolicy(os.environ.get),
+        repository=McpNotificationWaitRepository(
+            _MCP_NOTIFICATION_WAIT_RECENT,
+            _MCP_NOTIFICATION_WAIT_RECENT_LOCK,
+        ),
+        ports=McpNotificationWaitPorts(_lookup_tool_schema, time.time, router_log),
+    )
 
 
 def ui_text(key: str, lang: str | None = None) -> str:

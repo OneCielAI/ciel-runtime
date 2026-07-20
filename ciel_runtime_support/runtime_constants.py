@@ -150,13 +150,4 @@ MODEL_PRESETS: dict[str, dict[str, Any]] = {
 }
 LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT = 32768
 LM_STUDIO_DEFAULT_CLAUDE_CODE_CONTEXT = 65536
-_SIDE_EFFECT_TOOL_SUFFIXES = {
-    "send_message", "send_dm", "send_file", "create_message", "create_dm", "post_message", "reply",
-}
-MCP_NOTIFICATION_WAIT_TOOL_NAMES = {
-    "wait_for_notification", "wait_for_notifications", "wait_for_message", "wait_for_messages",
-    "wait_for_event", "wait_for_events", "wait_for_response", "wait_for_responses",
-}
-
-
 __all__ = [name for name in globals() if name.isupper()]
