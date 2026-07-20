@@ -1142,7 +1142,7 @@ from ciel_runtime_support.providers.ollama_runtime import (
     OllamaRuntimeServices,
 )
 from ciel_runtime_support.providers.ollama_context import OllamaRequestContextPolicy
-from ciel_runtime_support.output_budget import OutputBudgetPolicy
+from ciel_runtime_support.output_budget import OpenAIContextBudgetPolicy, OutputBudgetPolicy
 from ciel_runtime_support.providers.nvidia_runtime import (
     NvidiaRuntimeApi,
     NvidiaProxyRuntime,
@@ -5458,20 +5458,17 @@ configured_output_tokens = _OUTPUT_BUDGET_POLICY.configured_tokens
 cap_output_tokens_for_context = _OUTPUT_BUDGET_POLICY.cap_tokens_for_context
 context_guard_reserve_tokens = _OUTPUT_BUDGET_POLICY.reserve_tokens
 
+_OPENAI_CONTEXT_BUDGET_POLICY = OpenAIContextBudgetPolicy(
+    positive_int=positive_int,
+    runtime_capacity=lambda provider, config: (
+        provider_model_context_capacity(provider, config) or 0
+    ),
+    nvidia_default=nvidia_hosted_context_default,
+)
+
 
 def openai_context_limit_for_budget(provider: str, pcfg: dict[str, Any]) -> int:
-    configured = positive_int(pcfg.get("context_window")) or positive_int(pcfg.get("max_model_len"))
-    if provider in ("vllm", "self-hosted-nim"):
-        runtime = provider_model_context_capacity(provider, pcfg)
-        if configured and str(pcfg.get("llm_preset") or "").strip():
-            return min(configured, runtime) if runtime else configured
-        if runtime:
-            return runtime
-    if configured:
-        return configured
-    if provider == "nvidia-hosted":
-        return nvidia_hosted_context_default(str(pcfg.get("current_model") or ""))
-    return 65536
+    return _OPENAI_CONTEXT_BUDGET_POLICY.context_limit(provider, pcfg)
 
 def compact_ollama_messages_for_budget(
     messages: list[dict[str, Any]],

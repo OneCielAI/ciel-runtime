@@ -8,6 +8,31 @@ from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
+class OpenAIContextBudgetPolicy:
+    """Resolve context capacity for providers using OpenAI-compatible payloads."""
+
+    positive_int: Callable[[Any], int | None]
+    runtime_capacity: Callable[[str, dict[str, Any]], int]
+    nvidia_default: Callable[[str], int]
+
+    def context_limit(self, provider: str, config: dict[str, Any]) -> int:
+        configured = self.positive_int(config.get("context_window")) or self.positive_int(
+            config.get("max_model_len")
+        )
+        if provider in ("vllm", "self-hosted-nim"):
+            runtime = self.runtime_capacity(provider, config)
+            if configured and str(config.get("llm_preset") or "").strip():
+                return min(configured, runtime) if runtime else configured
+            if runtime:
+                return runtime
+        if configured:
+            return configured
+        if provider == "nvidia-hosted":
+            return self.nvidia_default(str(config.get("current_model") or ""))
+        return 65536
+
+
+@dataclass(frozen=True, slots=True)
 class OutputBudgetPolicy:
     positive_int: Callable[[Any], int | None]
     estimate_tokens: Callable[[Any, dict[int, int] | None], int]
@@ -61,4 +86,4 @@ class OutputBudgetPolicy:
         return max(1, min(configured, available))
 
 
-__all__ = ["OutputBudgetPolicy"]
+__all__ = ["OpenAIContextBudgetPolicy", "OutputBudgetPolicy"]

@@ -529,7 +529,7 @@ Ollama model-context cache 일치, dynamic `num_ctx` bucket, preset cap, option/
 
 ### `ciel_runtime_support/output_budget.py`
 
-요청·provider 출력 token 상한, context reserve와 입력 token 추정에 따른 출력 cap을 결정하는 Provider-neutral Domain Policy.
+요청·provider 출력 token 상한, context reserve와 입력 token 추정에 따른 출력 cap을 결정하는 Provider-neutral Domain Policy. `OpenAIContextBudgetPolicy` Strategy는 OpenAI-compatible provider의 명시적 context 설정, runtime model capacity, preset cap과 NVIDIA 기본값의 우선순위를 소유한다.
 
 ### `ciel_runtime_support/providers/openrouter.py`
 
