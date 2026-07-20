@@ -1126,6 +1126,7 @@ from ciel_runtime_support.upstream_stream_io import (
     stream_idle_timeout as project_stream_idle_timeout,
 )
 from ciel_runtime_support.tool_dialects import TOOL_DIALECTS, mcp_server_normalized_key
+from ciel_runtime_support.tool_exposure_policy import ToolExposurePolicy, ToolExposurePorts
 from ciel_runtime_support.tool_schema import (
     _fuzzy_match_tool_name,
     _lookup_tool_schema,
@@ -3353,49 +3354,18 @@ def maybe_handle_plan_mode_tool_choice(handler: BaseHTTPRequestHandler, provider
 
 
 def filter_blocked_tools(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
-    """Strip Claude-Code self-tools the upstream model shouldn't see (e.g. EnterPlanMode).
-    Returns a (possibly new) body dict."""
-    blocked = resolve_blocked_tools(provider, pcfg)
-    dynamic_blocked: set[str] = set()
-    if provider != "anthropic" and ultracode_workflow_preferred(body) and not plan_mode_active(body):
-        dynamic_blocked.add("EnterPlanMode")
-    blocked = set(blocked) | dynamic_blocked
-    if not blocked:
-        return body
-    tools = body.get("tools")
-    tool_choice = body.get("tool_choice") if isinstance(body.get("tool_choice"), dict) else None
-    tool_choice_name = tool_choice.get("name") if tool_choice else None
-    must_drop_tool_choice = isinstance(tool_choice_name, str) and tool_choice_name in blocked
-    if not isinstance(tools, list) or not tools:
-        if not must_drop_tool_choice:
-            return body
-        new_body = dict(body)
-        new_body.pop("tool_choice", None)
-        router_log("WARN", f"removed blocked tool_choice for {provider}: {tool_choice_name}")
-        return new_body
-    kept: list[Any] = []
-    dropped: list[str] = []
-    for tool in tools:
-        name = tool.get("name") if isinstance(tool, dict) else None
-        if isinstance(name, str) and name in blocked:
-            dropped.append(name)
-            continue
-        kept.append(tool)
-    if not dropped:
-        if not must_drop_tool_choice:
-            return body
-        new_body = dict(body)
-        new_body.pop("tool_choice", None)
-        router_log("WARN", f"removed blocked tool_choice for {provider}: {tool_choice_name}")
-        return new_body
-    reason = " ultracode_workflow_preferred=true" if dynamic_blocked & set(dropped) else ""
-    router_log("INFO", f"filtered upstream tools for {provider}: {', '.join(sorted(set(dropped)))}{reason}")
-    new_body = dict(body)
-    new_body["tools"] = kept
-    if must_drop_tool_choice:
-        new_body.pop("tool_choice", None)
-        router_log("WARN", f"removed blocked tool_choice for {provider}: {tool_choice_name}")
-    return new_body
+    return tool_exposure_policy().filter(provider, pcfg, body)
+
+
+def tool_exposure_policy() -> ToolExposurePolicy:
+    return ToolExposurePolicy(
+        ToolExposurePorts(
+            resolve_blocked_tools,
+            ultracode_workflow_preferred,
+            plan_mode_active,
+            router_log,
+        )
+    )
 
 
 def summarize_messages_for_trace(messages: Any, max_messages: int = 30) -> list[dict[str, Any]]:

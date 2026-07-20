@@ -189,6 +189,10 @@ MCP delivery, LLM delivery, backlog clear-floor cursor의 공통 JSON 읽기와 
 
 Claude 설정의 tool guard hook을 읽고, 레거시 hook 제거와 중복 정규화 후 원자적으로 저장하는 Security/Configuration Service. 이벤트 정책과 파일 시스템 효과를 분리하며 권한 제한 실패도 경고로 관측 가능하게 남긴다.
 
+### `ciel_runtime_support/tool_exposure_policy.py`
+
+Provider adapter의 blocked tool 선언과 workflow/plan 상태를 결합해 upstream `tools` 및 강제 `tool_choice`를 불변 투영하는 Policy. 정책 입력과 로그는 4필드 typed port로 주입하며 facade는 Router 호환 delegate만 제공한다.
+
 ### `ciel_runtime_support/settings_repository.py`
 
 Claude settings 호환 이름을 `SecureJsonRepository`에 연결하는 얇은 Configuration compatibility module. 기존 settings 호출자의 타입 이름을 보존하면서 저장 효과 구현은 일반 secure JSON 경계에 위임한다.

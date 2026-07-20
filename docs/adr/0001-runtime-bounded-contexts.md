@@ -232,6 +232,11 @@ stores/caches and live session/notification state are separate typed ports, so
 the facade only supplies controlled global-state setters and no longer owns the
 multi-lock clear transaction.
 
+Upstream tool visibility is projected by `ToolExposurePolicy`. Provider-owned
+blocked-tool declarations and request workflow state are explicit inputs, and
+the policy removes tools and matching forced choices without mutating the
+original request body.
+
 Chat attachment decoding, size validation, safe naming, storage, URL metadata,
 and Markdown projection live in `ChatFileRepository`; only clocks are injected
 and callers no longer own filesystem mechanics.

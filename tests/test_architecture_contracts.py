@@ -22,6 +22,7 @@ from ciel_runtime_support.architecture import (
 )
 from ciel_runtime_support.anthropic_tool_turns import AnthropicToolTurnServices
 from ciel_runtime_support.agy_installer import AgyInstaller, AgyInstallerPorts
+from ciel_runtime_support.tool_exposure_policy import ToolExposurePolicy, ToolExposurePorts
 from ciel_runtime_support.advisor_policy import (
     AdvisorDecisionServices,
     AdvisorServices,
@@ -858,6 +859,20 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertIn("agy_installer", function_source)
                 self.assertNotIn("subprocess", function_source)
                 self.assertNotIn("tarfile", function_source)
+
+    def test_tool_exposure_policy_owns_blocked_tool_projection(self):
+        self.assertLessEqual(len(fields(ToolExposurePorts)), 10)
+        self.assertLessEqual(len(fields(ToolExposurePolicy)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef) and node.name == "filter_blocked_tools"
+        )
+        function_source = ast.unparse(function)
+        self.assertIn("tool_exposure_policy", function_source)
+        self.assertNotIn("tool_choice", function_source)
+        self.assertNotIn("EnterPlanMode", function_source)
 
     def test_terminal_mouse_filter_lives_outside_composition_root(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
