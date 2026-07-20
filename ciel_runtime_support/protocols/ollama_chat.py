@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from ciel_runtime_support.protocols.anthropic_content import content_to_text
+
 
 @dataclass(frozen=True, slots=True)
 class DecodedOllamaChatResponse:
@@ -61,27 +63,10 @@ def encode_anthropic_message(
     }
 
 
-def _anthropic_content_to_text(content: Any) -> str:
-    if isinstance(content, str):
-        return content
-    if not isinstance(content, list):
-        return str(content) if content is not None else ""
-    parts: list[str] = []
-    for block in content:
-        if isinstance(block, str):
-            parts.append(block)
-        elif isinstance(block, dict) and block.get("type") == "text":
-            parts.append(str(block.get("text", "")))
-        elif isinstance(block, dict) and block.get("type") == "tool_result":
-            tool_text = _anthropic_content_to_text(block.get("content", ""))
-            parts.append(f"Tool result for {block.get('tool_use_id', 'tool')}:\n{tool_text}")
-    return "\n".join(part for part in parts if part)
-
-
 def anthropic_system_to_ollama_messages(system: Any) -> list[dict[str, Any]]:
     if not system:
         return []
-    text = system if isinstance(system, str) else _anthropic_content_to_text(system)
+    text = content_to_text(system)
     return [{"role": "system", "content": text}] if text else []
 
 

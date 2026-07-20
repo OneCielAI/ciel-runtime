@@ -3420,6 +3420,29 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(function=function_name):
                 self.assertNotIn(f"def {function_name}(", source)
 
+    def test_anthropic_content_projection_has_one_protocol_owner(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        self.assertNotIn("def anthropic_content_to_text(", source)
+        self.assertIn(
+            "content_to_text as anthropic_content_to_text",
+            source,
+        )
+        ollama_source = (
+            root
+            / "ciel_runtime_support"
+            / "protocols"
+            / "ollama_chat.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("def _anthropic_content_to_text(", ollama_source)
+        codec_source = (
+            root
+            / "ciel_runtime_support"
+            / "protocols"
+            / "anthropic_content.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", codec_source)
+
     def test_channel_message_prompt_policy_lives_outside_composition_root(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
         for function_name in (

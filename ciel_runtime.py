@@ -828,6 +828,9 @@ from ciel_runtime_support.openai_responses_stream import (
     write_openai_responses_error as project_openai_responses_error,
 )
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
+from ciel_runtime_support.protocols.anthropic_content import (
+    content_to_text as anthropic_content_to_text,
+)
 from ciel_runtime_support.protocols.anthropic_thinking_policy import (
     AnthropicThinkingPolicy,
     SuppressedThinkingRepository,
@@ -4962,27 +4965,6 @@ def estimate_tokens(body: Any, _cache: dict[int, int] | None = None) -> int:
     if _cache is not None:
         _cache[id(body)] = result
     return result
-
-
-def anthropic_content_to_text(content: Any) -> str:
-    if isinstance(content, str):
-        return content
-    if not isinstance(content, list):
-        return str(content) if content is not None else ""
-    parts: list[str] = []
-    for block in content:
-        if isinstance(block, str):
-            parts.append(block)
-            continue
-        if not isinstance(block, dict):
-            continue
-        btype = block.get("type")
-        if btype == "text":
-            parts.append(str(block.get("text", "")))
-        elif btype == "tool_result":
-            tool_text = anthropic_content_to_text(block.get("content", ""))
-            parts.append(f"Tool result for {block.get('tool_use_id', 'tool')}:\n{tool_text}")
-    return "\n".join(part for part in parts if part)
 
 
 COMPACT_TEXT_ONLY_SYSTEM_PROMPT = (
