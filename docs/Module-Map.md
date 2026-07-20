@@ -655,6 +655,10 @@ Claude/Codex MCP JSON 설정의 root·project scope를 읽고 projector별 ident
 
 채널 상태나 라우터 설정을 소유하지 않는 MCP SSE/Streamable HTTP 전송 codec과 split-proxy URL 규칙.
 
+### `ciel_runtime_support/mcp_split_proxy_http.py`
+
+Codex split MCP endpoint의 local GET hold, upstream request/header 투영, response streaming, HTTP 오류 변환과 SSE channel-notification 중복 억제를 소유하는 HTTP Adapter. 서버 설정 조회와 Router 응답·로그 효과는 7필드 typed port로 주입되며 composition root에는 호환 위임 함수만 남는다.
+
 ### `ciel_runtime_support/mcp_probe_codec.py`
 
 MCP 채널 capability probe의 JSONL/LSP 프레임, SSE 이벤트 및 initialize 응답 판정을 담당하는 순수 codec.

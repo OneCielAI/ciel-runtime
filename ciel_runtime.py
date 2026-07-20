@@ -577,6 +577,7 @@ from ciel_runtime_support.mcp_http_proxy import (
     McpHttpProxyTransport,
     run_mcp_streamable_http_proxy as run_streamable_http_mcp_proxy,
 )
+from ciel_runtime_support.mcp_split_proxy_http import McpSplitProxyHttpAdapter, McpSplitProxyHttpPorts
 from ciel_runtime_support.mcp_probe_codec import (
     channel_capability_present as _channel_probe_capability_present,
     decode_sse_events as _decode_sse_events,
@@ -5782,94 +5783,31 @@ def codex_mcp_split_proxy_server(path: str) -> tuple[str, dict[str, Any]] | None
     return name, server
 
 
-def _codex_mcp_split_proxy_headers(handler: BaseHTTPRequestHandler, server: dict[str, Any]) -> dict[str, str]:
-    out = mcp_server_runtime_headers(server)
-    skipped = {"host", "content-length", "connection", "transfer-encoding", "content-encoding"}
-    for key, value in handler.headers.items():
-        if str(key).lower() in skipped:
-            continue
-        out[str(key)] = str(value)
-    return out
-
-
 def codex_mcp_local_sse_hold_seconds() -> float:
-    raw = os.environ.get("CIEL_RUNTIME_CODEX_MCP_LOCAL_SSE_SECONDS", "3600")
-    try:
-        value = float(str(raw).strip())
-    except (TypeError, ValueError):
-        value = 3600.0
-    return max(0.0, min(24 * 3600.0, value))
+    return McpSplitProxyHttpAdapter.local_sse_hold_seconds()
 
 
 def codex_mcp_split_proxy_enabled() -> bool:
     return env_bool(os.environ.get("CIEL_RUNTIME_CODEX_MCP_SPLIT_PROXY"), False)
 
 
-def handle_codex_mcp_split_proxy_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
-    resolved = codex_mcp_split_proxy_server(path)
-    if resolved is None:
-        return False
-    name, _server = resolved
-    handler.send_response(200)
-    handler.send_header("content-type", "text/event-stream")
-    handler.send_header("cache-control", "no-cache")
-    handler.send_header("connection", "close")
-    handler.end_headers()
-    router_log("INFO", f"codex_mcp_split_proxy_local_sse name={name} upstream_get=false")
-    deadline = time.time() + codex_mcp_local_sse_hold_seconds()
-    try:
-        while time.time() < deadline:
-            handler.wfile.write(b": ciel-runtime owns upstream SSE for this MCP server\n\n")
-            handler.wfile.flush()
-            time.sleep(min(15.0, max(0.05, deadline - time.time())))
-    except (BrokenPipeError, ConnectionError, ConnectionResetError):
-        pass
-    return True
-
-
-def _codex_mcp_split_proxy_is_channel_sse_event(event: bytes) -> bool:
-    data_lines: list[str] = []
-    for raw_line in event.splitlines():
-        line = raw_line.decode("utf-8", errors="replace")
-        field, separator, value = line.partition(":")
-        if separator and field == "data":
-            data_lines.append(value[1:] if value.startswith(" ") else value)
-    if not data_lines:
-        return False
-    try:
-        payload = json.loads("\n".join(data_lines))
-    except (json.JSONDecodeError, TypeError):
-        return False
-    return bool(
-        isinstance(payload, dict)
-        and str(payload.get("method") or "").strip() == _NATIVE_CHANNEL_NOTIFICATION_METHOD
+def mcp_split_proxy_http_adapter() -> McpSplitProxyHttpAdapter:
+    return McpSplitProxyHttpAdapter(
+        McpSplitProxyHttpPorts(
+            codex_mcp_split_proxy_server,
+            _codex_mcp_split_proxy_upstream_url,
+            mcp_server_runtime_headers,
+            _copy_upstream_response_headers,
+            is_client_disconnect_error,
+            write_json,
+            router_log,
+        ),
+        _NATIVE_CHANNEL_NOTIFICATION_METHOD,
     )
 
 
-def _forward_codex_mcp_split_proxy_sse(
-    handler: BaseHTTPRequestHandler,
-    response: Any,
-    server_name: str,
-) -> None:
-    event = bytearray()
-    while True:
-        line = response.readline()
-        if line:
-            event.extend(line)
-        if not line or line in {b"\n", b"\r\n"}:
-            if event:
-                raw_event = bytes(event)
-                if _codex_mcp_split_proxy_is_channel_sse_event(raw_event):
-                    router_log(
-                        "INFO",
-                        f"codex_mcp_split_proxy_channel_notification_suppressed name={server_name} source=post_sse",
-                    )
-                else:
-                    handler.wfile.write(raw_event)
-                    handler.wfile.flush()
-                event.clear()
-            if not line:
-                break
+def handle_codex_mcp_split_proxy_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
+    return mcp_split_proxy_http_adapter().handle_get(handler, path)
 
 
 def handle_codex_mcp_split_proxy_request(
@@ -5878,45 +5816,7 @@ def handle_codex_mcp_split_proxy_request(
     raw_body: bytes,
     method: str,
 ) -> bool:
-    resolved = codex_mcp_split_proxy_server(path)
-    if resolved is None:
-        return False
-    name, server = resolved
-    parsed = urllib.parse.urlparse(handler.path)
-    upstream_url = _codex_mcp_split_proxy_upstream_url(server, parsed.query)
-    headers = _codex_mcp_split_proxy_headers(handler, server)
-    data = raw_body if method.upper() in {"POST", "PUT", "PATCH"} else None
-    try:
-        req = urllib.request.Request(upstream_url, data=data, headers=headers, method=method.upper())
-        with urllib.request.urlopen(req, timeout=120.0) as resp:
-            handler.send_response(getattr(resp, "status", 200))
-            _copy_upstream_response_headers(handler, resp.headers)
-            handler.end_headers()
-            content_type = str(resp.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
-            if content_type == "text/event-stream":
-                _forward_codex_mcp_split_proxy_sse(handler, resp, name)
-            else:
-                while True:
-                    chunk = resp.read(65536)
-                    if not chunk:
-                        break
-                    handler.wfile.write(chunk)
-                    handler.wfile.flush()
-        router_log("INFO", f"codex_mcp_split_proxy_forwarded name={name} method={method.upper()} upstream={upstream_url}")
-    except urllib.error.HTTPError as exc:
-        raw = exc.read()
-        handler.send_response(exc.code)
-        _copy_upstream_response_headers(handler, exc.headers)
-        handler.end_headers()
-        if raw:
-            handler.wfile.write(raw)
-        router_log("WARN", f"codex_mcp_split_proxy_http_error name={name} method={method.upper()} status={exc.code}")
-    except Exception as exc:
-        if is_client_disconnect_error(exc):
-            return True
-        write_json(handler, {"error": {"message": f"{type(exc).__name__}: {exc}"}}, status=502)
-        router_log("WARN", f"codex_mcp_split_proxy_failed name={name} method={method.upper()} error={type(exc).__name__}: {exc}")
-    return True
+    return mcp_split_proxy_http_adapter().handle_request(handler, path, raw_body, method)
 
 
 def _http_error_body_text(exc: urllib.error.HTTPError) -> str:

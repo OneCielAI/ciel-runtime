@@ -202,6 +202,11 @@ The events dashboard, filtered recent-event response, and SSE long-poll stream
 are projected by `EventHttpAdapter`; the facade supplies EventBus and response
 writer ports without owning HTTP streaming loops.
 
+Codex split-MCP HTTP forwarding is isolated in `McpSplitProxyHttpAdapter`.
+Server resolution and router response effects are bounded ports, while the
+adapter owns upstream HTTP, body/SSE streaming, error projection, and duplicate
+native channel-notification suppression as one cohesive transport boundary.
+
 Chat attachment decoding, size validation, safe naming, storage, URL metadata,
 and Markdown projection live in `ChatFileRepository`; only clocks are injected
 and callers no longer own filesystem mechanics.

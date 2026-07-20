@@ -283,6 +283,7 @@ from ciel_runtime_support.mcp_http_proxy import (
     McpHttpProxyServices,
     McpHttpProxyTransport,
 )
+from ciel_runtime_support.mcp_split_proxy_http import McpSplitProxyHttpPorts
 from ciel_runtime_support.provider_config_mutations import ProviderOptionPolicy
 from ciel_runtime_support.llm_presets import (
     PresetContextPolicy,
@@ -1717,6 +1718,13 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_mcp_split_proxy_http_adapter_owns_transport_flow(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        self.assertLessEqual(len(fields(McpSplitProxyHttpPorts)), 10)
+        self.assertNotIn("def _forward_codex_mcp_split_proxy_sse(", source)
+        self.assertNotIn("urllib.request.Request(upstream_url", source)
+        self.assertIn("McpSplitProxyHttpAdapter", source)
 
     def test_critical_mcp_and_process_paths_do_not_silence_exceptions(self):
         source_root = Path(__file__).resolve().parents[1]
