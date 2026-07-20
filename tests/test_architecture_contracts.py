@@ -347,6 +347,8 @@ from ciel_runtime_support.managed_mcp_discovery import (
     ManagedMcpDiscoveryPaths,
     ManagedMcpDiscoveryPorts,
     ManagedMcpDiscoveryService,
+    NativeMcpConfigWriter,
+    NativeMcpConfigWriterPorts,
 )
 from ciel_runtime_support.mcp_proxy_process import (
     McpStdioConfigPorts,
@@ -3513,6 +3515,8 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertEqual(3, len(fields(ManagedMcpDiscoveryService)))
         self.assertEqual(2, len(fields(ManagedMcpDiscoveryPaths)))
         self.assertEqual(3, len(fields(ManagedMcpDiscoveryPorts)))
+        self.assertEqual(2, len(fields(NativeMcpConfigWriter)))
+        self.assertLessEqual(len(fields(NativeMcpConfigWriterPorts)), 10)
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
         function = next(
@@ -4667,6 +4671,7 @@ class ArchitectureContractTests(unittest.TestCase):
             "_channel_stdin_wake_state": "state",
             "_channel_stdin_wake_state_for_message": "state_for_message",
             "_channel_stdin_wake_queued_is_stale_for_message": "queued_is_stale",
+            "write_native_mcp_config_from_discovery": "write",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

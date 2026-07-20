@@ -102,3 +102,49 @@ class ManagedMcpDiscoveryService:
         restored = dict(wrapped_server)
         restored.pop("ciel_runtime_disable_notification_stream", None)
         return wrapped_name, restored
+
+
+@dataclass(frozen=True, slots=True)
+class NativeMcpConfigWriterPorts:
+    discover_user: Callable[..., dict[str, dict[str, Any]]]
+    discover_managed: Callable[[Path], dict[str, dict[str, Any]]]
+    save_json: Callable[[Path, dict[str, Any], str], None]
+    log: Callable[[str, str], None]
+
+
+@dataclass(frozen=True, slots=True)
+class NativeMcpConfigWriter:
+    """Merge normalized user/managed MCP discovery into a native CLI artifact."""
+
+    path: Path
+    ports: NativeMcpConfigWriterPorts
+
+    def write(
+        self,
+        passthrough: list[str] | None = None,
+        cwd: Path | None = None,
+        home: Path | None = None,
+    ) -> Path | None:
+        working_directory = cwd or Path.cwd()
+        servers = self.ports.discover_user(
+            passthrough, working_directory, home
+        )
+        for name, server in self.ports.discover_managed(
+            working_directory
+        ).items():
+            if name in servers:
+                self.ports.log(
+                    "INFO", f"native_mcp_managed_duplicate_skipped server={name}"
+                )
+                continue
+            servers[name] = server
+        if not servers:
+            return None
+        self.ports.save_json(
+            self.path, {"mcpServers": servers}, "native_mcp_config"
+        )
+        self.ports.log(
+            "INFO",
+            f"native_mcp_config_written servers={','.join(sorted(servers))}",
+        )
+        return self.path

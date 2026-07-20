@@ -703,6 +703,8 @@ from ciel_runtime_support.managed_mcp_discovery import (
     ManagedMcpDiscoveryPaths,
     ManagedMcpDiscoveryPorts,
     ManagedMcpDiscoveryService,
+    NativeMcpConfigWriter,
+    NativeMcpConfigWriterPorts,
 )
 from ciel_runtime_support.mcp_proxy_codec import (
     McpProxyCodecPolicy,
@@ -8038,28 +8040,18 @@ def write_native_mcp_config_from_discovery(
     cwd: Path | None = None,
     home: Path | None = None,
 ) -> Path | None:
-    """Write a Claude Code --mcp-config compatible file for native launches.
-
-    Discovery may read files that are not directly valid --mcp-config inputs
-    (notably ~/.claude/settings.json and project-scoped ~/.claude.json).  Claude
-    Code expects a top-level mcpServers record, so native launches receive this
-    normalized generated file instead of the source files.
-    """
-    cwd = cwd or Path.cwd()
-    servers = discovered_claude_mcp_servers(passthrough, cwd, home)
-    for name, server in discovered_ciel_runtime_managed_mcp_servers(cwd).items():
-        if name in servers:
-            router_log("INFO", f"native_mcp_managed_duplicate_skipped server={name}")
-            continue
-        servers[name] = server
-    if not servers:
-        return None
-    json_artifact_repository(NATIVE_MCP_CONFIG).save(
-        {"mcpServers": servers},
-        "native_mcp_config",
+    writer = NativeMcpConfigWriter(
+        NATIVE_MCP_CONFIG,
+        NativeMcpConfigWriterPorts(
+            discovered_claude_mcp_servers,
+            discovered_ciel_runtime_managed_mcp_servers,
+            lambda path, data, operation: json_artifact_repository(path).save(
+                data, operation
+            ),
+            router_log,
+        ),
     )
-    router_log("INFO", f"native_mcp_config_written servers={','.join(sorted(servers))}")
-    return NATIVE_MCP_CONFIG
+    return writer.write(passthrough, cwd, home)
 
 
 def auto_discovered_mcp_channel_specs(

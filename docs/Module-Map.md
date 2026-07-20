@@ -833,7 +833,7 @@ Web search/fetch, Z.AI managed servers와 Ciel channel server의 MCP JSON projec
 
 ### `ciel_runtime_support/managed_mcp_discovery.py`
 
-런타임이 생성한 web-tools 및 MCP proxy artifact에서 native launch에 복원할 서버를 찾는 Discovery Service. proxy wrapper의 원본 server config를 복구하고 내부 notification-stream flag와 native router bridge를 제외하며, 경로·JSON 효과·generated reader를 각각 3필드 typed port로 분리한다.
+런타임이 생성한 web-tools 및 MCP proxy artifact에서 native launch에 복원할 서버를 찾는 Discovery Service. proxy wrapper의 원본 server config를 복구하고 내부 notification-stream flag와 native router bridge를 제외한다. `NativeMcpConfigWriter`는 사용자 설정 우선 merge, 중복 진단과 정규화된 `mcpServers` artifact 저장을 담당하며 모든 효과를 typed port로 받는다.
 
 ### `ciel_runtime_support/managed_service_cleanup.py`
 

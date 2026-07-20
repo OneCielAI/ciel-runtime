@@ -7,10 +7,53 @@ from ciel_runtime_support.managed_mcp_discovery import (
     ManagedMcpDiscoveryPaths,
     ManagedMcpDiscoveryPorts,
     ManagedMcpDiscoveryService,
+    NativeMcpConfigWriter,
+    NativeMcpConfigWriterPorts,
 )
 
 
 class ManagedMcpDiscoveryServiceTests(unittest.TestCase):
+    def test_native_writer_prefers_user_server_and_persists_normalized_shape(self):
+        saved = []
+        logs = []
+        path = Path("native-mcp.json")
+        writer = NativeMcpConfigWriter(
+            path,
+            NativeMcpConfigWriterPorts(
+                discover_user=lambda _args, _cwd, _home: {
+                    "shared": {"command": "user"}
+                },
+                discover_managed=lambda _cwd: {
+                    "shared": {"command": "managed"},
+                    "generated": {"command": "generated"},
+                },
+                save_json=lambda target, data, operation: saved.append(
+                    (target, data, operation)
+                ),
+                log=lambda level, message: logs.append((level, message)),
+            ),
+        )
+
+        written = writer.write([], Path("work"), Path("home"))
+
+        self.assertEqual(path, written)
+        self.assertEqual("user", saved[0][1]["mcpServers"]["shared"]["command"])
+        self.assertIn("generated", saved[0][1]["mcpServers"])
+        self.assertTrue(any("duplicate_skipped" in message for _level, message in logs))
+
+    def test_native_writer_skips_empty_artifact(self):
+        writer = NativeMcpConfigWriter(
+            Path("native-mcp.json"),
+            NativeMcpConfigWriterPorts(
+                discover_user=lambda _args, _cwd, _home: {},
+                discover_managed=lambda _cwd: {},
+                save_json=lambda *_args: self.fail("empty discovery must not persist"),
+                log=lambda _level, _message: None,
+            ),
+        )
+
+        self.assertIsNone(writer.write())
+
     def test_restores_direct_and_wrapped_servers_without_native_bridge(self):
         with tempfile.TemporaryDirectory() as raw_dir:
             root = Path(raw_dir)
