@@ -7689,23 +7689,7 @@ def cmd_web_fetch(args: argparse.Namespace) -> None:
 
 
 def channel_specs(cfg: dict[str, Any] | None = None) -> list[str]:
-    cfg = cfg or load_config()
-    raw = cfg.setdefault("claude_code", {}).get("channels", [])
-    if isinstance(raw, str):
-        items = [raw]
-    elif isinstance(raw, list):
-        items = raw
-    else:
-        items = []
-    channels: list[str] = [BUILTIN_CHANNEL_SPEC]
-    seen: set[str] = {BUILTIN_CHANNEL_SPEC}
-    for item in items:
-        spec = str(item).strip()
-        if not spec or spec in seen:
-            continue
-        seen.add(spec)
-        channels.append(spec)
-    return channels
+    return channel_config_service().configured_specs(cfg or load_config())
 
 
 def _read_mcp_server_names_from_json(path: Path, cwd: Path) -> list[str]:
@@ -8143,7 +8127,6 @@ def channel_config_service() -> ChannelConfigService:
             load=load_config,
             save=save_config,
             invalidate=invalidate_config_cache,
-            configured_specs=channel_specs,
             dedupe=_dedupe_strings,
             log=router_log,
             environment=os.environ,
@@ -9703,7 +9686,12 @@ def router_client_registry() -> RouterClientRegistry:
     return RouterClientRegistry(
         ROUTER_CLIENTS_DIR,
         ROUTER_PORT,
-        RouterClientRegistryPorts(pid_is_running=pid_is_running, log=router_log),
+        RouterClientRegistryPorts(
+            pid_is_running=pid_is_running,
+            log=router_log,
+            wrapper_parent_pids=ciel_runtime_client_wrapper_parent_pids,
+            terminate_tree=terminate_pid_tree,
+        ),
     )
 
 
@@ -9864,26 +9852,9 @@ def terminate_pid_tree(pid: int, label: str, quiet: bool = False) -> bool:
 
 
 def terminate_active_router_clients(reason: str, active_clients: list[int] | None = None, quiet: bool = True) -> bool:
-    clients = active_clients if active_clients is not None else active_router_client_pids()
-    stopped = False
-    for pid in sorted(set(int(p) for p in clients if int(p or 0) > 0)):
-        if pid in (os.getpid(), os.getppid()):
-            continue
-        wrapper_roots = ciel_runtime_client_wrapper_parent_pids(pid)
-        root = wrapper_roots[-1] if wrapper_roots else pid
-        if terminate_pid_tree(root, "previous ciel-runtime client", quiet=quiet):
-            stopped = True
-        try:
-            (ROUTER_CLIENTS_DIR / f"{pid}.json").unlink()
-        except FileNotFoundError:
-            pass
-        except Exception:
-            pass
-    router_log(
-        "INFO",
-        f"router_active_clients_terminated reason={reason} clients={','.join(map(str, clients)) or '-'} stopped={str(stopped).lower()}",
+    return router_client_registry().terminate_active(
+        reason, active_clients, quiet=quiet
     )
-    return stopped
 
 
 def terminate_existing_router_clients_for_launch(reason: str, quiet: bool = True) -> bool:

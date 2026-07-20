@@ -18,6 +18,35 @@ from ciel_runtime_support.router_client_lifecycle import (
 
 
 class RouterClientLifecycleTests(unittest.TestCase):
+    def test_registry_terminates_wrapper_root_and_releases_lease(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            lease = root / "22.json"
+            lease.write_text('{"pid": 22}', encoding="utf-8")
+            terminated = []
+            registry = RouterClientRegistry(
+                root,
+                4141,
+                RouterClientRegistryPorts(
+                    pid_is_running=lambda _pid: True,
+                    log=lambda *_args: None,
+                    current_pids=lambda: frozenset({1}),
+                    wrapper_parent_pids=lambda _pid: [11],
+                    terminate_tree=lambda pid, label, quiet: terminated.append(
+                        (pid, label, quiet)
+                    )
+                    or True,
+                ),
+            )
+
+            self.assertTrue(
+                registry.terminate_active("test", [22], quiet=True)
+            )
+            self.assertEqual(
+                [(11, "previous ciel-runtime client", True)], terminated
+            )
+            self.assertFalse(lease.exists())
+
     def test_registry_records_active_client_and_removes_stale_lease(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

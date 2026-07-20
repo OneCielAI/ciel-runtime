@@ -4677,6 +4677,8 @@ class ArchitectureContractTests(unittest.TestCase):
             "pid_is_running": "inspect_pid_is_running",
             "claude_supports_permission_mode_arg": "supports_permission_mode",
             "_chat_messages_file_lock": "exclusive_file_lock",
+            "terminate_active_router_clients": "terminate_active",
+            "channel_specs": "configured_specs",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

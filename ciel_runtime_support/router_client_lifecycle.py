@@ -18,6 +18,11 @@ Log = Callable[[str, str], None]
 class RouterClientRegistryPorts:
     pid_is_running: Callable[[int], bool]
     log: Log
+    current_pids: Callable[[], frozenset[int]] = lambda: frozenset(
+        (os.getpid(), os.getppid())
+    )
+    wrapper_parent_pids: Callable[[int], list[int]] = lambda _pid: []
+    terminate_tree: Callable[..., bool] = lambda *_args, **_kwargs: False
 
 
 class RouterClientRegistry:
@@ -54,6 +59,9 @@ class RouterClientRegistry:
         except OSError as exc:
             self._ports.log("WARN", f"router_client_release_failed path={path} error={type(exc).__name__}: {exc}")
 
+    def release_pid(self, pid: int) -> None:
+        self.release(self._clients_dir / f"{pid}.json")
+
     def active_pids(self) -> list[int]:
         if not self._clients_dir.exists():
             return []
@@ -76,6 +84,37 @@ class RouterClientRegistry:
             except OSError:
                 pass
         return sorted(set(active))
+
+    def terminate_active(
+        self,
+        reason: str,
+        active_clients: list[int] | None = None,
+        *,
+        quiet: bool = True,
+    ) -> bool:
+        clients = (
+            active_clients
+            if active_clients is not None
+            else self.active_pids()
+        )
+        stopped = False
+        for pid in sorted({int(value) for value in clients if int(value or 0) > 0}):
+            if pid in self._ports.current_pids():
+                continue
+            wrapper_roots = self._ports.wrapper_parent_pids(pid)
+            root = wrapper_roots[-1] if wrapper_roots else pid
+            if self._ports.terminate_tree(
+                root, "previous ciel-runtime client", quiet=quiet
+            ):
+                stopped = True
+            self.release_pid(pid)
+        self._ports.log(
+            "INFO",
+            f"router_active_clients_terminated reason={reason} "
+            f"clients={','.join(map(str, clients)) or '-'} "
+            f"stopped={str(stopped).lower()}",
+        )
+        return stopped
 
 
 @dataclass(frozen=True)

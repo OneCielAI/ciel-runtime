@@ -12,7 +12,6 @@ class ChannelConfigPorts:
     load: Callable[[], dict[str, Any]]
     save: Callable[[dict[str, Any]], None]
     invalidate: Callable[[], None]
-    configured_specs: Callable[[dict[str, Any]], list[str]]
     dedupe: Callable[[Iterable[str]], list[str]]
     log: Callable[[str, str], None]
     environment: Mapping[str, str]
@@ -30,6 +29,18 @@ class ChannelConfigService:
     @staticmethod
     def is_tagged(spec: str) -> bool:
         return spec.startswith("plugin:") or spec.startswith("server:")
+
+    def configured_specs(self, config: dict[str, Any]) -> list[str]:
+        raw = config.setdefault("claude_code", {}).get("channels", [])
+        if isinstance(raw, str):
+            items = [raw]
+        elif isinstance(raw, list):
+            items = raw
+        else:
+            items = []
+        return self.ports.dedupe(
+            [self.builtin_spec, *(str(item).strip() for item in items)]
+        )
 
     def parse_passthrough(self, passthrough: list[str]) -> list[str]:
         specs: list[str] = []
@@ -88,12 +99,12 @@ class ChannelConfigService:
         if not specs:
             return []
         config = self.ports.load()
-        existing = set(self.ports.configured_specs(config))
+        existing = set(self.configured_specs(config))
         if all(spec in existing for spec in specs):
             return []
         merged = [
             spec
-            for spec in self.ports.configured_specs(config)
+            for spec in self.configured_specs(config)
             if spec != self.builtin_spec
         ]
         added: list[str] = []
@@ -121,7 +132,7 @@ class ChannelConfigService:
     ) -> list[str]:
         specs = [
             spec
-            for spec in self.ports.configured_specs(config)
+            for spec in self.configured_specs(config)
             if self.is_tagged(spec)
         ]
         if extra_specs:
@@ -181,7 +192,7 @@ class ChannelConfigService:
         config = self.ports.load()
         channels = [
             item
-            for item in self.ports.configured_specs(config)
+            for item in self.configured_specs(config)
             if item != self.builtin_spec
         ]
         if spec not in channels:
@@ -196,7 +207,7 @@ class ChannelConfigService:
         config = self.ports.load()
         before = [
             item
-            for item in self.ports.configured_specs(config)
+            for item in self.configured_specs(config)
             if item != self.builtin_spec
         ]
         after = [item for item in before if item != spec]
