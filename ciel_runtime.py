@@ -540,6 +540,18 @@ from ciel_runtime_support.package_lifecycle import (
     SelfUpdateLifecycle,
     SelfUpdatePorts,
 )
+from ciel_runtime_support.npm_runtime import (
+    claude_code_current_version,
+    codex_current_version,
+    npm_global_bin_dir_from_prefix,
+    npm_global_install_command,
+    npm_global_package_root,
+    npm_latest_package_version,
+    npm_prefix_from_package_root,
+    package_root_from_installed_path,
+    parse_version_tuple,
+    version_newer,
+)
 from ciel_runtime_support.provider_option_cli import (
     OllamaOptionCommands,
     ProviderOptionCliConfig,
@@ -15122,139 +15134,9 @@ def run_claude_update_check(claude: str, enabled: bool = True) -> str:
     )
 
 
-def parse_version_tuple(value: str) -> tuple[int, ...]:
-    parts: list[int] = []
-    for item in re.split(r"[^0-9]+", value.strip()):
-        if item:
-            parts.append(int(item))
-    return tuple(parts)
-
-
-def version_newer(latest: str, current: str) -> bool:
-    left = list(parse_version_tuple(latest))
-    right = list(parse_version_tuple(current))
-    size = max(len(left), len(right), 1)
-    left.extend([0] * (size - len(left)))
-    right.extend([0] * (size - len(right)))
-    return tuple(left) > tuple(right)
-
-
-def npm_latest_package_version(npm: str, package_spec: str, timeout: float = 8.0) -> str:
-    try:
-        p = subprocess.run(
-            [npm, "view", package_spec, "version"],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            timeout=timeout,
-        )
-    except Exception:
-        return ""
-    if p.returncode != 0:
-        return ""
-    out = (p.stdout or "").strip()
-    return out.splitlines()[-1].strip() if out else ""
-
-
-def npm_global_package_root(npm: str, package_name: str = "@oneciel-ai/ciel-runtime", timeout: float = 8.0) -> Path | None:
-    try:
-        p = subprocess.run(
-            [npm, "root", "-g"],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            timeout=timeout,
-        )
-    except Exception:
-        return None
-    if p.returncode != 0:
-        return None
-    root = (p.stdout or "").strip()
-    if not root:
-        return None
-    package_path = Path(root)
-    for part in package_name.split("/"):
-        if part:
-            package_path /= part
-    return package_path
-
-
-def npm_prefix_from_package_root(package_root: Path) -> Path | None:
-    """Infer the npm install prefix from an installed package root.
-
-    npm global installs normally land under either:
-    - <prefix>/lib/node_modules/@scope/name on POSIX
-    - <prefix>/node_modules/@scope/name on Windows
-
-    Updating without this prefix can write to npm's current default global
-    prefix, which may not be the prefix that supplied the running executable.
-    """
-    parts = package_root.parts
-    for idx, part in enumerate(parts):
-        if part != "node_modules":
-            continue
-        try:
-            node_modules = Path(*parts[: idx + 1])
-        except Exception:
-            return None
-        parent = node_modules.parent
-        if parent.name == "lib":
-            return parent.parent
-        return parent
-    return None
-
-
 def current_npm_install_prefix() -> Path | None:
     root = current_npm_package_root()
     return npm_prefix_from_package_root(root) if root else None
-
-
-def npm_global_install_command(npm: str, package_spec: str, prefix: Path | None = None) -> list[str]:
-    cmd = [npm, "install", "-g"]
-    if prefix is not None:
-        cmd.extend(["--prefix", str(prefix)])
-    cmd.append(package_spec)
-    return cmd
-
-
-def npm_global_bin_dir_from_prefix(prefix: Path) -> Path:
-    if os.name == "nt":
-        return prefix
-    return prefix / "bin"
-
-
-def claude_code_current_version(claude: str) -> str:
-    try:
-        p = subprocess.run(
-            [claude, "--version"],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            timeout=8,
-        )
-    except Exception:
-        return ""
-    if p.returncode != 0:
-        return ""
-    match = re.search(r"\d+(?:\.\d+)+", p.stdout or "")
-    return match.group(0) if match else ""
-
-
-def codex_current_version(codex: str) -> str:
-    try:
-        p = subprocess.run(
-            [codex, "--version"],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            timeout=8,
-        )
-    except Exception:
-        return ""
-    if p.returncode != 0:
-        return ""
-    match = re.search(r"\d+(?:\.\d+)+", p.stdout or "")
-    return match.group(0) if match else ""
 
 
 def running_from_npm_package() -> bool:
@@ -15262,22 +15144,6 @@ def running_from_npm_package() -> bool:
         return True
     path = str(Path(__file__).resolve()).replace("\\", "/")
     return "/node_modules/@oneciel-ai/ciel-runtime/" in path
-
-
-def package_root_from_installed_path(path: Path) -> Path | None:
-    """Return the npm package root when a path lives inside this package."""
-    try:
-        resolved = path.resolve(strict=False)
-    except Exception:
-        resolved = path
-    parts = resolved.parts
-    for idx in range(0, max(0, len(parts) - 2)):
-        if parts[idx] == "node_modules" and parts[idx + 1] == "@oneciel-ai" and parts[idx + 2] == "ciel-runtime":
-            try:
-                return Path(*parts[: idx + 3])
-            except Exception:
-                return None
-    return None
 
 
 def current_npm_package_root() -> Path | None:

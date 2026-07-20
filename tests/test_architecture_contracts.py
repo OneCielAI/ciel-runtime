@@ -1942,6 +1942,28 @@ class ArchitectureContractTests(unittest.TestCase):
             ast.get_source_segment(source, model_object) or "",
         )
 
+    def test_npm_runtime_utilities_are_infrastructure_reexports(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        moved = {
+            "parse_version_tuple",
+            "version_newer",
+            "npm_latest_package_version",
+            "npm_global_package_root",
+            "npm_prefix_from_package_root",
+            "npm_global_install_command",
+            "npm_global_bin_dir_from_prefix",
+            "claude_code_current_version",
+            "codex_current_version",
+            "package_root_from_installed_path",
+        }
+        definitions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        self.assertFalse(moved & definitions)
+        self.assertIn("from ciel_runtime_support.npm_runtime import (", source)
+
     def test_concrete_adapters_own_provider_specific_defaults(self):
         common_keys = {
             "base_url",
