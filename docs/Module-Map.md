@@ -909,6 +909,10 @@ Codex bundled model catalog를 투영하고 원자적으로 저장하는 Catalog
 
 Codex 로컬 resume index를 조회하는 read-only Repository. SQLite와 filesystem 세부사항을 호출부에서 격리한다.
 
+### `ciel_runtime_support/codex_session_selection.py`
+
+Codex resume database 위치 결정, 세션 조회, UI 행 projection과 선택 흐름을 조정하는 Application Service. SQLite 조회는 Repository Port, 터미널 출력과 선택은 Presentation Port로 분리한다.
+
 ### `ciel_runtime_support/provider_request_builder.py`
 
 정규화된 Anthropic message를 각 provider wire request로 변환하는 Request Builder. Ollama/OpenAI option projection과 token budget을 포트로 분리한다.

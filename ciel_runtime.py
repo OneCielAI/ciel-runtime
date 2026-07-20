@@ -18,7 +18,6 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable, Iterable
@@ -777,6 +776,11 @@ from ciel_runtime_support.codex_router import CodexRouter, read_codex_response_p
 from ciel_runtime_support.codex_session_repository import (
     CodexSessionRepository,
     codex_sqlite_home,
+)
+from ciel_runtime_support.codex_session_selection import (
+    CodexSessionPresentationPorts,
+    CodexSessionRepositoryPorts,
+    CodexSessionSelectionService,
 )
 from ciel_runtime_support.observability import EventBus, render_events_html
 from ciel_runtime_support.request_trace import (
@@ -14532,63 +14536,23 @@ def codex_yolo_launch_args(passthrough: list[str]) -> list[str]:
     )
 
 
-def codex_sqlite_home_for_launch(
-    passthrough: list[str] | None = None,
-    env: dict[str, str] | None = None,
-    cwd: Path | None = None,
-) -> Path:
-    return codex_sqlite_home(passthrough, env=env, cwd=cwd)
-
-
-def codex_local_resume_sessions(
-    env: dict[str, str] | None = None,
-    limit: int = 200,
-    include_non_interactive: bool = False,
-    passthrough: list[str] | None = None,
-    cwd: Path | None = None,
-) -> list[dict[str, Any]]:
-    database = codex_sqlite_home_for_launch(passthrough, env=env, cwd=cwd) / "state_5.sqlite"
-    return CodexSessionRepository(database, router_log).resumable(
-        limit,
-        include_non_interactive=include_non_interactive,
-    )
-
-
-def codex_resume_session_row(session: dict[str, Any]) -> str:
-    title = str(session.get("title") or session.get("first_user_message") or "Untitled session").strip()
-    title = re.sub(r"\s+", " ", title)
-    cwd = str(session.get("cwd") or "").strip()
-    folder = Path(cwd).name if cwd else "-"
-    provider = str(session.get("model_provider") or "-").strip()
-    try:
-        activity = datetime.fromtimestamp(int(session.get("activity_ms") or 0) / 1000).strftime("%Y-%m-%d %H:%M")
-    except (OSError, OverflowError, TypeError, ValueError):
-        activity = "unknown time"
-    return f"{compact_text(title, 66)}  [{folder} | {provider} | {activity}]"
-
-
-def select_codex_resume_session(
-    env: dict[str, str] | None = None,
-    include_non_interactive: bool = False,
-    passthrough: list[str] | None = None,
-) -> str | None:
-    sessions = codex_local_resume_sessions(
-        env,
-        include_non_interactive=include_non_interactive,
-        passthrough=passthrough,
-    )
-    if not sessions:
-        database = codex_sqlite_home_for_launch(passthrough, env=env) / "state_5.sqlite"
-        print(f"Ciel Runtime could not find resumable Codex sessions in: {database}", flush=True)
-        return None
-    selected = portable_select(
-        "Resume Codex session",
-        [codex_resume_session_row(session) for session in sessions],
-        footer="Up/Down moves. Enter resumes. Esc/q cancels.",
-    )
-    if selected is None:
-        return ""
-    return str(sessions[selected].get("id") or "").strip()
+_CODEX_SESSION_SELECTION = CodexSessionSelectionService(
+    repository=CodexSessionRepositoryPorts(
+        sqlite_home=lambda *args, **kwargs: codex_sqlite_home(*args, **kwargs),
+        resumable=lambda database, limit, include_non_interactive: CodexSessionRepository(
+            database, router_log
+        ).resumable(limit, include_non_interactive=include_non_interactive),
+    ),
+    presentation=CodexSessionPresentationPorts(
+        select=lambda *args, **kwargs: portable_select(*args, **kwargs),
+        compact_text=compact_text,
+        output=lambda message: print(message, flush=True),
+    ),
+)
+codex_sqlite_home_for_launch = _CODEX_SESSION_SELECTION.sqlite_home_for_launch
+codex_local_resume_sessions = _CODEX_SESSION_SELECTION.local_resume_sessions
+codex_resume_session_row = _CODEX_SESSION_SELECTION.resume_session_row
+select_codex_resume_session = _CODEX_SESSION_SELECTION.select_resume_session
 
 
 def launch_codex(

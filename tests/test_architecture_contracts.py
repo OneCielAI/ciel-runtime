@@ -29,6 +29,11 @@ from ciel_runtime_support.codex_mcp_integration import (
     CodexMcpIntegrationService,
     CodexMcpProjectionPorts,
 )
+from ciel_runtime_support.codex_session_selection import (
+    CodexSessionPresentationPorts,
+    CodexSessionRepositoryPorts,
+    CodexSessionSelectionService,
+)
 from ciel_runtime_support.tool_exposure_policy import ToolExposurePolicy, ToolExposurePorts
 from ciel_runtime_support.synthetic_tool_policy import (
     ForcedPlanModeController,
@@ -2251,6 +2256,31 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 5)
         self.assertLessEqual(len(fields(CodexMcpIntegrationService)), 5)
+
+    def test_codex_session_selection_is_owned_by_a_typed_service(self):
+        for port in (CodexSessionRepositoryPorts, CodexSessionPresentationPorts):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 3)
+        self.assertEqual(2, len(fields(CodexSessionSelectionService)))
+
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "codex_sqlite_home_for_launch",
+            "codex_local_resume_sessions",
+            "codex_resume_session_row",
+            "select_codex_resume_session",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        service_source = (
+            root / "ciel_runtime_support" / "codex_session_selection.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", service_source)
+        self.assertNotIn("__getattr__", service_source)
 
     def test_mcp_json_artifacts_use_secure_repository(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
