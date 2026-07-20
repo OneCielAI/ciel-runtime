@@ -615,6 +615,10 @@ Ciel Runtime·Claude Code·Codex·AGY의 quiet upgrade 유스케이스, active n
 
 self-update 이후 active package script·launcher·현재 Python 순서로 재시작하는 정책과 exec 효과를 소유하는 Application Service. 사용자 인수 정규화와 non-interactive upgrade 환경 projection도 함께 제공한다.
 
+### `ciel_runtime_support/visible_stream_filters.py`
+
+chunk 경계에 걸친 `<think>`/`<thinking>` 상태와 노출된 tool-call artifact suffix를 제거하는 streaming Protocol State Machine. Ollama/OpenAI streaming adapter는 이 상태 객체를 주입받고 facade는 호환 이름만 re-export한다.
+
 ### `ciel_runtime_support/router_rate_limit_service.py`
 
 provider-global/legacy rate key, configured·learned RPM, 사용량 기록, server header 학습, 429 backoff와 penalty 대기를 묶는 Application Service. facade의 조립 중복을 제거하고 조회는 `RateLimitRepository`, 계산은 순수 rate-limit policy에 위임한다.

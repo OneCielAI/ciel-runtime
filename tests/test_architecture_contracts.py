@@ -2062,6 +2062,21 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertFalse(reexports & definitions)
         self.assertIn("from ciel_runtime_support.codex_config import (", source)
 
+    def test_visible_stream_state_machines_are_protocol_owned(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        names = {
+            node.name
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.ClassDef))
+        }
+        self.assertNotIn("VisibleThinkingMarkupFilter", names)
+        self.assertNotIn("VisibleToolCallArtifactFilter", names)
+        self.assertNotIn("strip_visible_thinking_markup", names)
+        self.assertNotIn("strip_visible_tool_call_artifact_suffix", names)
+        self.assertIn("from ciel_runtime_support.visible_stream_filters import (", source)
+
     def test_concrete_adapters_own_provider_specific_defaults(self):
         common_keys = {
             "base_url",
