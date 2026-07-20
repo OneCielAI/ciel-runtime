@@ -242,6 +242,11 @@ The runtime/provider ownership boundary is materialized by
 generation to the registered runtime adapter; API-key parsing and registry
 creation are its only external ports.
 
+Runtime model metadata discovery uses `ProviderRuntimeInfoService`. Compatibility
+strategy selects specialized LM Studio discovery or a generic model catalog;
+context-field normalization, current-model selection, fallback, and observable
+HTTP failure handling no longer live in the facade.
+
 Chat attachment decoding, size validation, safe naming, storage, URL metadata,
 and Markdown projection live in `ChatFileRepository`; only clocks are injected
 and callers no longer own filesystem mechanics.

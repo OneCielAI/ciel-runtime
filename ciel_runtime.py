@@ -928,6 +928,7 @@ from ciel_runtime_support.provider_readiness import (
     ProviderReadinessServices,
     launch_readiness_errors as evaluate_provider_readiness,
 )
+from ciel_runtime_support.provider_runtime_info import ProviderRuntimeInfoPorts, ProviderRuntimeInfoService
 from ciel_runtime_support.provider_request_builder import (
     OllamaRequestPorts,
     OpenAIRequestPorts,
@@ -4523,33 +4524,7 @@ def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool 
 
 
 def model_context_field(item: dict[str, Any]) -> int | None:
-    for key in (
-        "max_model_len",
-        "max_context_length",
-        "context_length",
-        "contextLength",
-        "max_context_tokens",
-        "max_position_embeddings",
-        "trainingContextLength",
-    ):
-        value = positive_int(item.get(key))
-        if value:
-            return value
-    for key, value in item.items():
-        if not isinstance(key, str):
-            continue
-        leaf = key.rsplit(".", 1)[-1]
-        if leaf in ("max_model_len", "max_context_length", "context_length", "max_context_tokens", "max_position_embeddings"):
-            fixed = positive_int(value)
-            if fixed:
-                return fixed
-    details = item.get("details")
-    if isinstance(details, dict):
-        for key in ("max_model_len", "max_context_length", "context_length", "contextLength", "max_context_tokens", "max_position_embeddings"):
-            value = positive_int(details.get(key))
-            if value:
-                return value
-    return None
+    return ProviderRuntimeInfoService.model_context(item)
 
 
 def ollama_runtime_service() -> OllamaRuntimeService:
@@ -4682,52 +4657,27 @@ def ensure_lm_studio_model_loaded_for_context(pcfg: dict[str, Any], timeout: flo
 
 
 def upstream_model_runtime_info(provider: str, pcfg: dict[str, Any], timeout: float = 3.0) -> dict[str, Any] | None:
-    strategy = PROVIDER_COMPATIBILITY.resolve(provider).runtime_model_info_strategy
-    if not strategy:
-        return None
-    if strategy == "lm_studio":
-        info = lm_studio_runtime_info(pcfg, timeout=timeout)
-        if info:
-            return info
-    base = provider_upstream_request_base(provider, pcfg)
-    if not base:
-        return None
-    current = current_upstream_model_id(provider, pcfg)
-    try:
-        data = http_json(join_url(base, "/v1/models"), headers=provider_model_list_headers(provider, pcfg), timeout=timeout)
-    except Exception:
-        return None
-    items = data.get("data") if isinstance(data, dict) else None
-    if not isinstance(items, list):
-        return None
-    fallback_item: dict[str, Any] | None = None
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        if fallback_item is None:
-            fallback_item = item
-        if str(item.get("id") or "") == current:
-            selected = item
-            break
-    else:
-        selected = fallback_item
-    if not selected:
-        return None
-    return {
-        "models_url": join_url(base, "/v1/models"),
-        "requested_model": current,
-        "runtime_model": str(selected.get("id") or ""),
-        "max_model_len": model_context_field(selected),
-        "owned_by": selected.get("owned_by"),
-        "root": selected.get("root"),
-    }
+    return provider_runtime_info_service().discover(provider, pcfg, timeout)
 
 
 def upstream_model_context_limit(provider: str, pcfg: dict[str, Any], timeout: float = 3.0) -> int | None:
-    info = upstream_model_runtime_info(provider, pcfg, timeout=timeout)
-    if not info:
-        return None
-    return positive_int(info.get("max_model_len"))
+    return provider_runtime_info_service().context_limit(provider, pcfg, timeout)
+
+
+def provider_runtime_info_service() -> ProviderRuntimeInfoService:
+    return ProviderRuntimeInfoService(
+        ProviderRuntimeInfoPorts(
+            lambda provider: PROVIDER_COMPATIBILITY.resolve(provider).runtime_model_info_strategy,
+            lm_studio_runtime_info,
+            provider_upstream_request_base,
+            current_upstream_model_id,
+            http_json,
+            join_url,
+            provider_model_list_headers,
+            positive_int,
+            router_log,
+        )
+    )
 
 
 def model_map_for(provider: str, pcfg: dict[str, Any], fetch: bool = True) -> dict[str, str]:

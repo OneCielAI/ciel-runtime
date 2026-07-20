@@ -357,6 +357,7 @@ from ciel_runtime_support.provider_readiness import (
     ProviderReadinessMode,
     ProviderReadinessServices,
 )
+from ciel_runtime_support.provider_runtime_info import ProviderRuntimeInfoPorts, ProviderRuntimeInfoService
 from ciel_runtime_support.providers.nvidia_runtime import (
     NvidiaProxyRuntime,
     NvidiaProxyRuntimeConfig,
@@ -1560,7 +1561,7 @@ class ArchitectureContractTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         checks = (
             (root / "ciel_runtime_support" / "provider_model_selection.py", "launch_id", "launch_model_strategy"),
-            (root / "ciel_runtime.py", "upstream_model_runtime_info", "runtime_model_info_strategy"),
+            (root / "ciel_runtime.py", "provider_runtime_info_service", "runtime_model_info_strategy"),
         )
         for source_path, name, hook in checks:
             source = source_path.read_text(encoding="utf-8")
@@ -1799,6 +1800,20 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIn("nvidia_proxy_runtime", ensure_source)
         self.assertNotIn("subprocess", ensure_source)
         self.assertNotIn("nvd_claude_proxy", ensure_source)
+
+    def test_provider_runtime_info_service_owns_catalog_projection(self):
+        self.assertLessEqual(len(fields(ProviderRuntimeInfoPorts)), 10)
+        self.assertLessEqual(len(fields(ProviderRuntimeInfoService)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef) and node.name == "upstream_model_runtime_info"
+        )
+        function_source = ast.unparse(function)
+        self.assertIn("provider_runtime_info_service", function_source)
+        self.assertNotIn("http_json", function_source)
+        self.assertNotIn("/v1/models", function_source)
 
     def test_lm_studio_context_guard_lives_in_provider_runtime(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(

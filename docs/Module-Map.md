@@ -619,6 +619,10 @@ Base URL 및 model catalog reachability 상태를 투영하는 Provider Applicat
 
 native launch 우회, Base URL·API-key 차단, ultracode capability 및 Provider runtime 검증을 조정하는 Readiness Application Service. LM Studio context 검증 같은 특수 동작은 `ProviderStatusPolicy.readiness_validation` 전략으로 선택한다.
 
+### `ciel_runtime_support/provider_runtime_info.py`
+
+Provider compatibility 전략에 따라 LM Studio runtime metadata 또는 일반 `/v1/models` catalog를 조회하고 현재 모델의 context/owner/root 정보를 투영하는 Application Service. catalog HTTP 실패는 구조화 로그로 노출하며 9필드 typed port로 provider/runtime 효과를 주입한다.
+
 ### `ciel_runtime_support/prelaunch.py`
 
 공급자·모델·채널·컨텍스트 설정 패널을 조정하는 사전 실행 메뉴 애플리케이션 서비스.
