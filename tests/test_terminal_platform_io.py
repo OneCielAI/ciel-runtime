@@ -5,12 +5,21 @@ from unittest import mock
 from ciel_runtime_support.terminal_platform_io import (
     TERMINAL_INPUT_MODE_RESET,
     TerminalInputModeResetPolicy,
+    read_clipboard_text,
     apply_pty_winsize,
     terminal_winsize_from_fd,
 )
 
 
 class TerminalPlatformIoTests(unittest.TestCase):
+    def test_clipboard_adapter_returns_trimmed_first_successful_command(self):
+        completed = mock.Mock(returncode=0, stdout=" copied value\n")
+        with mock.patch("ciel_runtime_support.terminal_platform_io.os.name", "nt"), mock.patch(
+            "ciel_runtime_support.terminal_platform_io.subprocess.run", return_value=completed
+        ) as run:
+            self.assertEqual("copied value", read_clipboard_text())
+        self.assertEqual("powershell", run.call_args.args[0][0])
+
     class _Stream:
         def __init__(self) -> None:
             self.value = ""

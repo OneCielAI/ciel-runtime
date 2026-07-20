@@ -181,7 +181,7 @@ Windows Console/POSIX PTY/direct subprocess 선택과 tracked child-process reco
 
 ### `ciel_runtime_support/terminal_platform_io.py`
 
-터미널 크기 fallback, POSIX PTY winsize ioctl과 mouse/input-mode reset 시퀀스를 소유하는 Infrastructure Adapter. input reset 활성화·주기 clamp는 platform, environment, boolean codec, default stream만 받는 4필드 불변 Policy로 분리한다.
+터미널 크기 fallback, POSIX PTY winsize ioctl, mouse/input-mode reset 시퀀스와 OS별 clipboard command 실행을 소유하는 Infrastructure Adapter. input reset 활성화·주기 clamp는 platform, environment, boolean codec, default stream만 받는 4필드 불변 Policy로 분리한다.
 
 ### `ciel_runtime_support/windows_console_mode.py`
 
@@ -457,7 +457,7 @@ Claude Code·Codex·AGY 같은 npm 기반 runtime executable의 탐색, active p
 
 ### `ciel_runtime_support/provider_model_selection.py`
 
-Provider 모델 alias/request 해석과 catalog projection뿐 아니라 명시적 모델 선택 시 profile·context·preset·timeout·custom model 저장을 조정하는 Application Controller를 제공한다. Z.AI의 Haiku/Opus/Sonnet 동기화 같은 provider별 mutation은 해당 adapter가 소유한다. `ProviderModelSelectionApi`는 late-bound service factory로 facade의 model-selection 공개 계약을 투영한다.
+Provider 모델 alias/request 해석과 catalog projection뿐 아니라 명시적 모델·Advisor 모델 선택 시 profile·context·preset·timeout·custom model 저장을 조정하는 Application Controller를 제공한다. native Advisor 사용 여부와 Z.AI의 Haiku/Opus/Sonnet 동기화 같은 provider별 mutation은 해당 adapter 정책이 소유한다. `ProviderModelSelectionApi`는 late-bound service factory로 facade의 model-selection 공개 계약을 투영한다.
 
 ### `ciel_runtime_support/router_client_lifecycle.py`
 

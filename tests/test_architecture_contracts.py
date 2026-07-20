@@ -316,6 +316,7 @@ from ciel_runtime_support.router_process_lifecycle import (
 )
 from ciel_runtime_support.provider_choice import ProviderChoicePorts
 from ciel_runtime_support.provider_model_selection import (
+    AdvisorModelMutationPorts,
     ModelMutationConfigPorts,
     ModelMutationEffectPorts,
     ModelMutationPolicyPorts,
@@ -1279,6 +1280,7 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_provider_choice_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ProviderChoicePorts)), 10)
+        self.assertLessEqual(len(fields(AdvisorModelMutationPorts)), 10)
 
     def test_model_selection_mutation_ports_stay_below_dependency_limit(self):
         for port in (
@@ -4656,6 +4658,8 @@ class ArchitectureContractTests(unittest.TestCase):
             "set_provider_config": "select_standard",
             "store_nvidia_api_key": "store",
             "clear_nvidia_api_key": "clear",
+            "set_advisor_model_config": "select",
+            "read_clipboard_text": "read_clipboard_text",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

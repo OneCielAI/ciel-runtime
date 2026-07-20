@@ -68,6 +68,44 @@ class ModelMutationEffectPorts:
     read_model_list: Callable[[str, dict[str, Any]], list[str] | None]
 
 
+@dataclass(frozen=True, slots=True)
+class AdvisorModelMutationPorts:
+    load_config: Callable[[], dict[str, Any]]
+    current_provider: Callable[[dict[str, Any]], tuple[str, dict[str, Any]]]
+    save_config: Callable[[dict[str, Any]], None]
+    clear_model_cache: Callable[[], None]
+    normalize: Callable[[str, str], str]
+    read_model_list: Callable[[str, dict[str, Any]], list[str] | None]
+    uses_native_advisor: Callable[[str, dict[str, Any]], bool]
+
+
+class AdvisorModelSelectionController:
+    def __init__(self, ports: AdvisorModelMutationPorts) -> None:
+        self._ports = ports
+
+    def select(self, value: str) -> list[str]:
+        config = self._ports.load_config()
+        provider, provider_config = self._ports.current_provider(config)
+        if self._ports.uses_native_advisor(provider, provider_config):
+            return [
+                f"{provider.title()} modes use Claude Code's built-in /advisor; "
+                "run /advisor in the session to pick its model."
+            ]
+        stripped = value.strip()
+        model_id = self._ports.normalize(provider, stripped) if stripped else ""
+        provider_config["advisor_model"] = model_id
+        if model_id:
+            known = self._ports.read_model_list(provider, provider_config) or []
+            custom = provider_config.setdefault("custom_models", [])
+            if model_id not in custom and model_id not in known:
+                custom.append(model_id)
+        self._ports.save_config(config)
+        self._ports.clear_model_cache()
+        if not model_id:
+            return [f"Advisor Model for {provider} disabled."]
+        return [f"Advisor Model for {provider} set to {model_id}."]
+
+
 class ModelSelectionController:
     def __init__(
         self,

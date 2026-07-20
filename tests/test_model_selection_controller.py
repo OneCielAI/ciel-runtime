@@ -1,6 +1,8 @@
 import unittest
 
 from ciel_runtime_support.provider_model_selection import (
+    AdvisorModelMutationPorts,
+    AdvisorModelSelectionController,
     ModelMutationConfigPorts,
     ModelMutationEffectPorts,
     ModelMutationPolicyPorts,
@@ -9,6 +11,50 @@ from ciel_runtime_support.provider_model_selection import (
 
 
 class ModelSelectionControllerTests(unittest.TestCase):
+    def test_advisor_selection_uses_provider_policy_and_tracks_custom_models(self):
+        provider_config = {"advisor_model": ""}
+        config = {"providers": {"test": provider_config}}
+        saved = []
+        cleared = []
+        controller = AdvisorModelSelectionController(
+            AdvisorModelMutationPorts(
+                load_config=lambda: config,
+                current_provider=lambda _config: ("test", provider_config),
+                save_config=saved.append,
+                clear_model_cache=lambda: cleared.append(True),
+                normalize=lambda _provider, value: value.casefold(),
+                read_model_list=lambda _provider, _config: ["known"],
+                uses_native_advisor=lambda _provider, _config: False,
+            )
+        )
+
+        messages = controller.select("CUSTOM")
+
+        self.assertEqual("custom", provider_config["advisor_model"])
+        self.assertEqual(["custom"], provider_config["custom_models"])
+        self.assertEqual([config], saved)
+        self.assertEqual([True], cleared)
+        self.assertIn("set to custom", messages[0])
+
+    def test_advisor_selection_defers_to_native_provider_without_mutation(self):
+        provider_config = {"advisor_model": "keep"}
+        controller = AdvisorModelSelectionController(
+            AdvisorModelMutationPorts(
+                load_config=lambda: {"providers": {"anthropic": provider_config}},
+                current_provider=lambda _config: ("anthropic", provider_config),
+                save_config=lambda _config: self.fail("native advisor must not persist"),
+                clear_model_cache=lambda: self.fail("native advisor must not clear cache"),
+                normalize=lambda _provider, value: value,
+                read_model_list=lambda _provider, _config: [],
+                uses_native_advisor=lambda _provider, _config: True,
+            )
+        )
+
+        messages = controller.select("ignored")
+
+        self.assertEqual("keep", provider_config["advisor_model"])
+        self.assertIn("built-in /advisor", messages[0])
+
     def test_selection_coordinates_provider_owned_updates_and_recommendations(self):
         provider_config = {"custom_models": []}
         config = {"language": "ko", "providers": {"test": provider_config}}

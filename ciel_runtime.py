@@ -1057,6 +1057,8 @@ from ciel_runtime_support.plan_artifact_controller import (
 from ciel_runtime_support import provider_network
 from ciel_runtime_support import provider_models
 from ciel_runtime_support.provider_model_selection import (
+    AdvisorModelMutationPorts,
+    AdvisorModelSelectionController,
     ModelCatalogPorts,
     ModelIdentityPorts,
     ModelMutationConfigPorts,
@@ -7447,25 +7449,17 @@ def model_selection_controller() -> ModelSelectionController:
 
 
 def set_advisor_model_config(value: str) -> list[str]:
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    if provider == "anthropic":
-        return [
-            "Anthropic modes use Claude Code's built-in /advisor; "
-            "run /advisor in the session to pick its model."
-        ]
-    model_id = normalize_model_id(provider, value.strip()) if value.strip() else ""
-    pcfg["advisor_model"] = model_id
-    if model_id:
-        known = read_model_list_cache(provider, pcfg) or []
-        custom = pcfg.setdefault("custom_models", [])
-        if model_id not in custom and model_id not in known:
-            custom.append(model_id)
-    save_config(cfg)
-    clear_model_cache()
-    if not model_id:
-        return [f"Advisor Model for {provider} disabled."]
-    return [f"Advisor Model for {provider} set to {model_id}."]
+    return advisor_model_selection_controller().select(value)
+
+
+def advisor_model_selection_controller() -> AdvisorModelSelectionController:
+    return AdvisorModelSelectionController(
+        AdvisorModelMutationPorts(
+            load_config, get_current_provider, save_config, clear_model_cache,
+            normalize_model_id, read_model_list_cache,
+            lambda provider, config: provider_ui_policy(provider, config).uses_native_advisor,
+        )
+    )
 
 
 def store_api_key_config(provider: str, key: str) -> list[str]:
@@ -7535,21 +7529,7 @@ def credential_management_service() -> CredentialManagementService:
 
 
 def read_clipboard_text() -> str:
-    commands: list[list[str]] = []
-    if os.name == "nt":
-        commands.append(["powershell", "-NoProfile", "-Command", "Get-Clipboard -Raw"])
-    elif sys.platform == "darwin":
-        commands.append(["pbpaste"])
-    else:
-        commands.extend([["xclip", "-selection", "clipboard", "-o"], ["xsel", "--clipboard", "--output"]])
-    for cmd in commands:
-        try:
-            proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=5)
-            if proc.returncode == 0 and proc.stdout.strip():
-                return proc.stdout.strip()
-        except Exception:
-            pass
-    return ""
+    return terminal_platform_io.read_clipboard_text()
 
 
 def configuration_cli_controller() -> ConfigurationCliController:

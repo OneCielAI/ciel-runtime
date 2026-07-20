@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
+import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -13,6 +15,32 @@ TERMINAL_INPUT_MODE_RESET = (
     "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l"
     "\x1b[?1005l\x1b[?1006l\x1b[?1015l"
 )
+
+
+def read_clipboard_text() -> str:
+    if os.name == "nt":
+        commands = [["powershell", "-NoProfile", "-Command", "Get-Clipboard -Raw"]]
+    elif sys.platform == "darwin":
+        commands = [["pbpaste"]]
+    else:
+        commands = [
+            ["xclip", "-selection", "clipboard", "-o"],
+            ["xsel", "--clipboard", "--output"],
+        ]
+    for command in commands:
+        try:
+            process = subprocess.run(
+                command,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=5,
+            )
+            if process.returncode == 0 and process.stdout.strip():
+                return process.stdout.strip()
+        except Exception:
+            continue
+    return ""
 
 
 def terminal_winsize_from_fd(fd: int) -> tuple[int, int]:
