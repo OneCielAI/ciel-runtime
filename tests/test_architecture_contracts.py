@@ -3740,6 +3740,18 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIn("from ciel_runtime_support import prelaunch", source)
         self.assertIn("from ciel_runtime_support import claude_router", source)
         self.assertIn("from ciel_runtime_support import cli_dispatch", source)
+        self.assertIn("from ciel_runtime_support import cli_parser", source)
+        self.assertIn(
+            "from ciel_runtime_support import channel_injection", source
+        )
+        self.assertIn(
+            "from ciel_runtime_support import channel_llm_context", source
+        )
+        self.assertIn("from ciel_runtime_support import llm_presets", source)
+        self.assertIn(
+            "from ciel_runtime_support import mcp_proxy_notifications", source
+        )
+        self.assertIn("from ciel_runtime_support import provider_models", source)
         self.assertIn(
             "from ciel_runtime_support import codex_launch_configuration",
             source,
@@ -3770,6 +3782,25 @@ class ArchitectureContractTests(unittest.TestCase):
         )
         self.assertNotIn(
             "from ciel_runtime_support.cli_dispatch import", source
+        )
+        self.assertNotIn(
+            "from ciel_runtime_support.cli_parser import", source
+        )
+        self.assertNotIn(
+            "from ciel_runtime_support.channel_injection import", source
+        )
+        self.assertNotIn(
+            "from ciel_runtime_support.channel_llm_context import", source
+        )
+        self.assertNotIn(
+            "from ciel_runtime_support.llm_presets import", source
+        )
+        self.assertNotIn(
+            "from ciel_runtime_support.mcp_proxy_notifications import",
+            source,
+        )
+        self.assertNotIn(
+            "from ciel_runtime_support.provider_models import", source
         )
         self.assertNotIn(
             "from ciel_runtime_support.codex_launch_configuration import",

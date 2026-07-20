@@ -76,12 +76,7 @@ from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
 from ciel_runtime_support.agy_installer import AgyInstaller, AgyInstallerPorts
 from ciel_runtime_support import claude_router
-from ciel_runtime_support.channel_injection import (
-    CallableInputTransport,
-    ChannelPromptInjector,
-    PromptInjection,
-    RuntimeInjectionPolicy,
-)
+from ciel_runtime_support import channel_injection
 from ciel_runtime_support.chat_files import ChatFilePorts, ChatFileRepository
 from ciel_runtime_support.chat_http_controller import (
     ChatHttpController,
@@ -143,13 +138,7 @@ from ciel_runtime_support.channel_session_lifecycle import (
     cleanup_stale_channel_sessions,
     delete_channel_session,
 )
-from ciel_runtime_support.channel_llm_context import (
-    ChannelLlmContextPolicy,
-    ChannelLlmContextProjection,
-    ChannelLlmContextRepository,
-    ChannelLlmContextServices,
-    inject_pending_channel_context,
-)
+from ciel_runtime_support import channel_llm_context
 from ciel_runtime_support.channel_mcp_tools import (
     ChannelMcpToolServices,
     channel_mcp_tool_response,
@@ -330,15 +319,7 @@ from ciel_runtime_support.lm_studio_runtime import (
 )
 from ciel_runtime_support import cli_dispatch
 from ciel_runtime_support.cli_usage import cli_usage_text
-from ciel_runtime_support.cli_parser import (
-    CliParserLaunch,
-    CliParserModels,
-    CliParserProvider,
-    CliParserRuntime,
-    CliParserServices,
-    CliParserSettings,
-    build_cli_parser,
-)
+from ciel_runtime_support import cli_parser
 from ciel_runtime_support.compatibility_test import (
     CompatibilityTestConfig,
     CompatibilityTestConstants,
@@ -585,13 +566,7 @@ from ciel_runtime_support.provider_option_cli import (
     ProviderOptionCliController,
     ProviderOptionCommands,
 )
-from ciel_runtime_support.llm_presets import (
-    PresetContextPolicy,
-    PresetDefinition,
-    PresetProviderMutation,
-    PresetServices,
-    apply_preset_to_provider,
-)
+from ciel_runtime_support import llm_presets
 from ciel_runtime_support.llm_presentation_data import (
     AUTO_TIMEOUT_MAX_MS,
     AUTO_TIMEOUT_MIN_MS,
@@ -683,12 +658,7 @@ from ciel_runtime_support.mcp_proxy_process import (
     _mcp_proxy_forward_stderr as proxy_forward_stderr,
     _mcp_proxy_streamable_http_request as proxy_streamable_http_request,
 )
-from ciel_runtime_support.mcp_proxy_notifications import (
-    McpNotificationDedupeState,
-    McpNotificationEffects,
-    McpNotificationProjectionPorts,
-    McpProxyNotificationService,
-)
+from ciel_runtime_support import mcp_proxy_notifications
 from ciel_runtime_support.mcp_http_proxy import (
     McpHttpProxyCodec,
     McpHttpProxyRuntime,
@@ -1000,15 +970,7 @@ from ciel_runtime_support.plan_artifact_controller import (
     PlanArtifactServices,
 )
 from ciel_runtime_support import provider_network
-from ciel_runtime_support.provider_models import (
-    ModelCatalogHttp,
-    ModelCatalogPolicy,
-    ModelCatalogResponseCodec,
-    ModelCatalogStorage,
-    ProviderCatalogSources,
-    ProviderModelServices,
-    fetch_upstream_model_ids,
-)
+from ciel_runtime_support import provider_models
 from ciel_runtime_support.provider_model_selection import (
     ModelCatalogPorts,
     ModelIdentityPorts,
@@ -1356,6 +1318,10 @@ from ciel_runtime_support.runtime_constants import (
 
 execute_prelaunch_menu = prelaunch.run_prelaunch_menu
 dispatch_cli = cli_dispatch.dispatch_cli
+build_cli_parser = cli_parser.build_cli_parser
+apply_preset_to_provider = llm_presets.apply_preset_to_provider
+fetch_upstream_model_ids = provider_models.fetch_upstream_model_ids
+inject_pending_channel_context = channel_llm_context.inject_pending_channel_context
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -3426,14 +3392,14 @@ direct_native_codex_enabled = _RUNTIME_MODE_POLICY.direct_codex
 def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool = False) -> list[str]:
     return fetch_upstream_model_ids(
         provider, pcfg, force_refresh,
-        services=ProviderModelServices(
-            storage=ModelCatalogStorage(
+        services=provider_models.ProviderModelServices(
+            storage=provider_models.ModelCatalogStorage(
                 read_model_list_cache=read_model_list_cache,
                 write_model_list_cache=write_model_list_cache,
                 write_model_registry=write_model_registry,
                 router_log=router_log,
             ),
-            http=ModelCatalogHttp(
+            http=provider_models.ModelCatalogHttp(
                 http_json=http_json,
                 join_url=join_url,
                 with_upstream_user_agent=with_upstream_user_agent,
@@ -3441,7 +3407,7 @@ def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool 
                 nvidia_hosted_list_headers=nvidia_hosted_list_headers,
                 nvidia_upstream_base_url=nvidia_upstream_base_url,
             ),
-            sources=ProviderCatalogSources(
+            sources=provider_models.ProviderCatalogSources(
                 ANTHROPIC_MODEL_DOCS_URLS=ANTHROPIC_MODEL_DOCS_URLS,
                 fetch_anthropic_api_model_ids=fetch_anthropic_api_model_ids,
                 fetch_anthropic_public_model_ids=fetch_anthropic_public_model_ids,
@@ -3449,11 +3415,11 @@ def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool 
                 fireworks_account_id=fireworks_account_id,
                 fireworks_management_base_url=fireworks_management_base_url,
             ),
-            response_codec=ModelCatalogResponseCodec(
+            response_codec=provider_models.ModelCatalogResponseCodec(
                 model_ids_from_response=model_ids_from_response,
                 model_info_from_response=model_info_from_response,
             ),
-            policy=ModelCatalogPolicy(
+            policy=provider_models.ModelCatalogPolicy(
                 normalize_model_id=normalize_model_id,
                 ollama_catalog_model_ids=ollama_catalog_model_ids,
                 provider_has_api_key=provider_has_api_key,
@@ -9626,8 +9592,8 @@ def apply_llm_preset_to_provider(
         provider, pcfg, preset_id, lang,
         sync_ollama_context=sync_ollama_context,
         load_lm_studio=load_lm_studio,
-        services=PresetServices(
-            definition=PresetDefinition(
+        services=llm_presets.PresetServices(
+            definition=llm_presets.PresetDefinition(
                 CONTEXT_HEAVY_PRESETS=CONTEXT_HEAVY_PRESETS,
                 LLM_PRESETS=LLM_PRESETS,
                 llm_preset_text=llm_preset_text,
@@ -9638,7 +9604,7 @@ def apply_llm_preset_to_provider(
                 required_context_for_preset=required_context_for_preset,
                 ui_text=ui_text,
             ),
-            context_policy=PresetContextPolicy(
+            context_policy=llm_presets.PresetContextPolicy(
                 apply_lm_studio_loaded_context_guard=apply_lm_studio_loaded_context_guard,
                 apply_ollama_runtime_output_guard=apply_ollama_runtime_output_guard,
                 apply_recommended_timeout_for_model_context=apply_recommended_timeout_for_model_context,
@@ -9650,7 +9616,7 @@ def apply_llm_preset_to_provider(
                 upstream_model_context_limit=upstream_model_context_limit,
                 with_preset_timeout_tokens=with_preset_timeout_tokens,
             ),
-            provider_mutation=PresetProviderMutation(
+            provider_mutation=llm_presets.PresetProviderMutation(
                 apply_ollama_option=apply_ollama_option,
                 apply_provider_option=apply_provider_option,
                 ollama_extra_options=ollama_extra_options,
@@ -12409,8 +12375,8 @@ def _channel_llm_stdin_skip_reason(message_id: int) -> str:
 def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
     return inject_pending_channel_context(
         body,
-        ChannelLlmContextServices(
-            policy=ChannelLlmContextPolicy(
+        channel_llm_context.ChannelLlmContextServices(
+            policy=channel_llm_context.ChannelLlmContextPolicy(
                 wake_request=channel_llm_wake_request,
                 plan_mode_active=plan_mode_active,
                 delivery_mode=lambda: channel_delivery_mode(load_config()),
@@ -12419,14 +12385,14 @@ def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
                 skip_reason=_channel_llm_message_skip_reason,
                 stdin_skip_reason=_channel_llm_stdin_skip_reason,
             ),
-            repository=ChannelLlmContextRepository(
+            repository=channel_llm_context.ChannelLlmContextRepository(
                 lock=lambda: _CHANNEL_LLM_CURSOR_LOCK,
                 read_cursor=_channel_llm_read_cursor_locked,
                 commit_cursor=_channel_llm_commit_cursor_locked,
                 read_messages=lambda last_id, limit: read_chat_messages(last_id, None, None, limit),
                 superseded_ids=_channel_superseded_message_ids,
             ),
-            projection=ChannelLlmContextProjection(
+            projection=channel_llm_context.ChannelLlmContextProjection(
                 remove_wake_prompt=body_without_channel_llm_wake_prompt,
                 format_prompt=format_channel_llm_batch_prompt,
             ),
@@ -12517,17 +12483,17 @@ def _write_channel_wake_prompt(
     delay = _channel_wake_submit_delay_seconds() if submit_delay_seconds is None else max(0.0, float(submit_delay_seconds))
     submit_bytes = _channel_wake_enter_bytes(enter_bytes)
     retry_count = max(1, min(8, int(submit_retry_count or 1)))
-    injector = ChannelPromptInjector(
+    injector = channel_injection.ChannelPromptInjector(
         sleep=time.sleep,
         retry_delay_seconds=_channel_wake_submit_retry_delay_seconds,
         snapshot=_channel_current_tmux_pane_text,
         log=router_log,
     )
     injector.inject(
-        CallableInputTransport(master_fd, _write_fd_all),
-        PromptInjection(
+        channel_injection.CallableInputTransport(master_fd, _write_fd_all),
+        channel_injection.PromptInjection(
             prompt=prompt,
-            policy=RuntimeInjectionPolicy(
+            policy=channel_injection.RuntimeInjectionPolicy(
                 runtime="interactive-cli",
                 clear_input=b"\x15",
                 submit_input=submit_bytes,
@@ -13344,19 +13310,19 @@ def subprocess_call_with_child_pid_record(cmd: list[str], env: dict[str, str], p
 
 _MCP_NOTIFICATION_DEDUP_LOCK = threading.Lock()
 _MCP_NOTIFICATION_DEDUP_RECENT: dict[str, tuple[str, float]] = {}
-_MCP_PROXY_NOTIFICATION_SERVICE = McpProxyNotificationService(
-    projection=McpNotificationProjectionPorts(
+_MCP_PROXY_NOTIFICATION_SERVICE = mcp_proxy_notifications.McpProxyNotificationService(
+    projection=mcp_proxy_notifications.McpNotificationProjectionPorts(
         json_safe_metadata=_json_safe_metadata,
         event_meta=_event_meta_from_sources,
         event_text=_event_payload_text,
         pretty_json=_pretty_json_value,
         semantic_text=_notification_semantic_text_from_envelope,
     ),
-    effects=McpNotificationEffects(
+    effects=mcp_proxy_notifications.McpNotificationEffects(
         append_chat_message=lambda payload: append_chat_message(payload),
         log=lambda level, message: router_log(level, message),
     ),
-    dedupe=McpNotificationDedupeState(
+    dedupe=mcp_proxy_notifications.McpNotificationDedupeState(
         lock=_MCP_NOTIFICATION_DEDUP_LOCK,
         recent=_MCP_NOTIFICATION_DEDUP_RECENT,
         ttl_seconds=_MCP_NOTIFICATION_DEDUP_TTL_SECONDS,
@@ -14623,8 +14589,8 @@ def cmd_version(args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     return build_cli_parser(
-        CliParserServices(
-            launch=CliParserLaunch(
+        cli_parser.CliParserServices(
+            launch=cli_parser.CliParserLaunch(
                 cli=cmd_cli,
                 launch=cmd_launch,
                 launch_codex=cmd_launch_codex,
@@ -14632,14 +14598,14 @@ def build_parser() -> argparse.ArgumentParser:
                 launch_agy=cmd_launch_agy,
                 serve=serve,
             ),
-            runtime=CliParserRuntime(
+            runtime=cli_parser.CliParserRuntime(
                 version=cmd_version,
                 status=cmd_status,
                 env=cmd_env,
                 stop=cmd_stop,
                 test=cmd_test,
             ),
-            settings=CliParserSettings(
+            settings=cli_parser.CliParserSettings(
                 language=cmd_language,
                 web_search=cmd_web_search,
                 web_fetch=cmd_web_fetch,
@@ -14647,7 +14613,7 @@ def build_parser() -> argparse.ArgumentParser:
                 channels=cmd_channels,
                 channel_delivery=cmd_channel_delivery,
             ),
-            provider=CliParserProvider(
+            provider=cli_parser.CliParserProvider(
                 ollama_native=cmd_ollama_native,
                 ollama_options=cmd_ollama_options,
                 provider_options=cmd_provider_options,
@@ -14658,7 +14624,7 @@ def build_parser() -> argparse.ArgumentParser:
                 set_api_keys=cmd_set_api_keys,
                 base_url=cmd_base_url,
             ),
-            models=CliParserModels(
+            models=cli_parser.CliParserModels(
                 model=cmd_model,
                 advisor_model=cmd_advisor_model,
                 models=cmd_models,
