@@ -75,19 +75,7 @@ from ciel_runtime_support.anthropic_response_writer import (
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
 from ciel_runtime_support.agy_installer import AgyInstaller, AgyInstallerPorts
-from ciel_runtime_support.claude_router import (
-    ClaudeRouter,
-    ClaudeRouterCore,
-    ClaudeRouterCountTokens,
-    ClaudeRouterDelivery,
-    ClaudeRouterNativeNormalization,
-    ClaudeRouterPipeline,
-    ClaudeRouterResponse,
-    ClaudeRouterRouting,
-    ClaudeRouterServices,
-    ClaudeRouterShortcuts,
-    ClaudeRouterTransport,
-)
+from ciel_runtime_support import claude_router
 from ciel_runtime_support.channel_injection import (
     CallableInputTransport,
     ChannelPromptInjector,
@@ -348,17 +336,7 @@ from ciel_runtime_support.lm_studio_runtime import (
     LmStudioRuntimeServices,
     discover_lm_studio_runtime,
 )
-from ciel_runtime_support.cli_dispatch import (
-    CliChannelCommands,
-    CliConfiguration,
-    CliCore,
-    CliOperations,
-    CliProviderCommands,
-    CliRuntime,
-    CliServices,
-    CliSpecialCommands,
-    dispatch_cli,
-)
+from ciel_runtime_support import cli_dispatch
 from ciel_runtime_support.cli_usage import cli_usage_text
 from ciel_runtime_support.cli_parser import (
     CliParserLaunch,
@@ -1406,6 +1384,7 @@ from ciel_runtime_support.runtime_constants import (
 )
 
 execute_prelaunch_menu = prelaunch.run_prelaunch_menu
+dispatch_cli = cli_dispatch.dispatch_cli
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -7405,19 +7384,19 @@ def handle_codex_backend_passthrough_get(handler: BaseHTTPRequestHandler, provid
         write_json(handler, {"error": {"message": f"{type(exc).__name__}: {exc}"}}, status=502)
 
 
-def build_claude_router_services() -> ClaudeRouterServices:
-    return ClaudeRouterServices(
-        core=ClaudeRouterCore(
+def build_claude_router_services() -> claude_router.ClaudeRouterServices:
+    return claude_router.ClaudeRouterServices(
+        core=claude_router.ClaudeRouterCore(
             event_bus=EVENT_BUS,
             log=router_log,
             try_write_json=try_write_json,
         ),
-        count_tokens=ClaudeRouterCountTokens(
+        count_tokens=claude_router.ClaudeRouterCountTokens(
             estimate_tokens=estimate_tokens,
             write_context_usage=write_context_usage,
             write_json=write_json,
         ),
-        pipeline=ClaudeRouterPipeline(
+        pipeline=claude_router.ClaudeRouterPipeline(
             update_tool_schema_registry=_update_tool_schema_registry,
             router_event_message_preview=router_event_message_preview,
             dump_request_for_trace=dump_request_for_trace,
@@ -7428,7 +7407,7 @@ def build_claude_router_services() -> ClaudeRouterServices:
             inject_channel_context=body_with_pending_channel_messages,
             inject_tool_result_context=body_with_channel_tool_result_context,
         ),
-        shortcuts=ClaudeRouterShortcuts(
+        shortcuts=claude_router.ClaudeRouterShortcuts(
             plan_mode=maybe_handle_plan_mode_tool_choice,
             router_debug=maybe_handle_router_debug_request,
             version=maybe_handle_version_request,
@@ -7438,7 +7417,7 @@ def build_claude_router_services() -> ClaudeRouterServices:
             api_keys=maybe_handle_live_api_keys_request,
             advisor=maybe_handle_advisor_request,
         ),
-        delivery=ClaudeRouterDelivery(
+        delivery=claude_router.ClaudeRouterDelivery(
             begin=begin_pending_channel_delivery,
             commit=commit_pending_channel_delivery_cursors,
             mark_failed=mark_pending_channel_delivery_failed,
@@ -7446,7 +7425,7 @@ def build_claude_router_services() -> ClaudeRouterServices:
             is_client_disconnect=is_client_disconnect_error,
             write_activity=write_router_activity,
         ),
-        routing=ClaudeRouterRouting(
+        routing=claude_router.ClaudeRouterRouting(
             forward_ollama=forward_ollama_api_chat,
             forward_openai=forward_openai_compatible_chat,
             select_protocol=select_provider_protocol,
@@ -7455,7 +7434,7 @@ def build_claude_router_services() -> ClaudeRouterServices:
             provider_labels=PROVIDER_LABELS,
             write_json=write_json,
         ),
-        normalization=ClaudeRouterNativeNormalization(
+        normalization=claude_router.ClaudeRouterNativeNormalization(
             normalize_provider_wire=normalize_request_for_provider_wire,
             normalize_thinking=normalize_thinking_for_non_anthropic_provider,
             normalize_system_roles=normalize_anthropic_system_role_messages,
@@ -7467,7 +7446,7 @@ def build_claude_router_services() -> ClaudeRouterServices:
             normalize_model_options=normalize_anthropic_model_request_options,
             strip_internal_metadata=body_without_ciel_runtime_internal_metadata,
         ),
-        transport=ClaudeRouterTransport(
+        transport=claude_router.ClaudeRouterTransport(
             native_base_url=native_anthropic_base_url,
             native_compat_enabled=provider_native_compat_enabled,
             upstream_base=provider_upstream_request_base,
@@ -7479,7 +7458,7 @@ def build_claude_router_services() -> ClaudeRouterServices:
             request_timeout=provider_request_timeout_seconds,
             idle_timeout=provider_stream_idle_timeout_seconds,
         ),
-        response=ClaudeRouterResponse(
+        response=claude_router.ClaudeRouterResponse(
             rebatch_sse=_rebatch_anthropic_sse_text,
             preserves_thinking=preserves_anthropic_thinking_contract,
             normalize_stream_tool_use=should_normalize_anthropic_stream_tool_use,
@@ -7502,7 +7481,7 @@ def build_runtime_routers() -> tuple[Any, ...]:
             handle_backend_passthrough_post=handle_codex_backend_passthrough_post,
             handle_backend_passthrough_get=handle_codex_backend_passthrough_get,
         ),
-        ClaudeRouter(services=build_claude_router_services()),
+        claude_router.ClaudeRouter(services=build_claude_router_services()),
     )
 
 
@@ -14584,8 +14563,8 @@ def apply_headless_env_config() -> tuple[bool, bool | None, bool | None, bool | 
 
 
 def run_cli(argv: list[str]) -> int:
-    services = CliServices(
-        core=CliCore(
+    services = cli_dispatch.CliServices(
+        core=cli_dispatch.CliCore(
             VERSION=VERSION,
             cli_usage=cli_usage,
             find_executable=find_executable,
@@ -14596,7 +14575,7 @@ def run_cli(argv: list[str]) -> int:
             run_external_menu=run_external_menu,
             run_quiet_upgrade_and_exit=run_quiet_upgrade_and_exit,
         ),
-        runtime=CliRuntime(
+        runtime=cli_dispatch.CliRuntime(
             agy_passthrough_has_command=agy_passthrough_has_command,
             codex_passthrough_has_command=codex_passthrough_has_command,
             last_launch_runtime=last_launch_runtime,
@@ -14607,7 +14586,7 @@ def run_cli(argv: list[str]) -> int:
             native_agy_enabled=native_agy_enabled,
             native_codex_enabled=native_codex_enabled,
         ),
-        provider_commands=CliProviderCommands(
+        provider_commands=cli_dispatch.CliProviderCommands(
             cmd_advisor_model=cmd_advisor_model,
             cmd_api_key=cmd_api_key,
             cmd_base_url=cmd_base_url,
@@ -14619,7 +14598,7 @@ def run_cli(argv: list[str]) -> int:
             cmd_provider_options=cmd_provider_options,
             cmd_set_api_key=cmd_set_api_key,
         ),
-        channel_commands=CliChannelCommands(
+        channel_commands=cli_dispatch.CliChannelCommands(
             add_channel_spec=add_channel_spec,
             channel_delivery_mode=channel_delivery_mode,
             clear_channel_specs=clear_channel_specs,
@@ -14628,15 +14607,15 @@ def run_cli(argv: list[str]) -> int:
             set_channel_delivery_config=set_channel_delivery_config,
             set_channel_development_enabled=set_channel_development_enabled,
         ),
-        special_commands=CliSpecialCommands(
+        special_commands=cli_dispatch.CliSpecialCommands(
             cmd_ollama_catalog=cmd_ollama_catalog,
             cmd_ollama_native=cmd_ollama_native,
             cmd_ollama_options=cmd_ollama_options,
             cmd_web_fetch=cmd_web_fetch,
             cmd_web_search=cmd_web_search,
         ),
-        operations=CliOperations(cmd_status=cmd_status, cmd_stop=cmd_stop, cmd_test=cmd_test),
-        configuration=CliConfiguration(
+        operations=cli_dispatch.CliOperations(cmd_status=cmd_status, cmd_stop=cmd_stop, cmd_test=cmd_test),
+        configuration=cli_dispatch.CliConfiguration(
             apply_auto_llm_options_config=apply_auto_llm_options_config,
             apply_headless_env_config=apply_headless_env_config,
             set_advisor_model_config=set_advisor_model_config,

@@ -3738,6 +3738,8 @@ class ArchitectureContractTests(unittest.TestCase):
         tree = ast.parse(source)
         self.assertIn("from ciel_runtime_support import runtime_launch", source)
         self.assertIn("from ciel_runtime_support import prelaunch", source)
+        self.assertIn("from ciel_runtime_support import claude_router", source)
+        self.assertIn("from ciel_runtime_support import cli_dispatch", source)
         self.assertIn(
             "from ciel_runtime_support import streaming_anthropic", source
         )
@@ -3749,6 +3751,12 @@ class ArchitectureContractTests(unittest.TestCase):
         )
         self.assertNotIn(
             "from ciel_runtime_support.streaming_anthropic import", source
+        )
+        self.assertNotIn(
+            "from ciel_runtime_support.claude_router import", source
+        )
+        self.assertNotIn(
+            "from ciel_runtime_support.cli_dispatch import", source
         )
         expected_calls = {
             "_rebatch_anthropic_sse_text": "rebatch_anthropic_sse_text",
