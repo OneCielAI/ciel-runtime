@@ -1822,6 +1822,29 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIn('"providers": provider_defaults', repository_source)
         self.assertNotIn("for _registered_provider in PROVIDER_ADAPTERS.names()", source)
 
+    def test_provider_model_identity_is_a_service_and_adapter_strategy(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        identity_source = (
+            root / "ciel_runtime_support" / "provider_model_identity.py"
+        ).read_text(encoding="utf-8")
+        nvidia_source = (
+            root / "ciel_runtime_support" / "providers" / "nvidia.py"
+        ).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        display_function = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "display_name"
+        )
+        display_source = ast.get_source_segment(source, display_function) or ""
+
+        self.assertIn("_PROVIDER_MODEL_IDENTITY = ProviderModelIdentityService(", source)
+        self.assertIn("return _PROVIDER_MODEL_IDENTITY.display_name(provider, model_id)", display_source)
+        self.assertNotIn('provider == "nvidia-hosted"', display_source)
+        self.assertIn("class ProviderAdapterRegistryPort(Protocol):", identity_source)
+        self.assertIn("def display_model_name", nvidia_source)
+
     def test_concrete_adapters_own_provider_specific_defaults(self):
         common_keys = {
             "base_url",

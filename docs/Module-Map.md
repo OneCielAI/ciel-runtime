@@ -429,6 +429,10 @@ Codex App Server 프로세스와 JSON-RPC/WebSocket 상태 조정.
 
 Provider Adapter Registry와 기존 import 경로를 위한 호환 re-export 진입점. 구체 Provider 구현은 `providers/` 하위 모듈이 소유하며, 이 모듈은 이름·표시 label·factory 및 전체 Provider 기본 설정 조립만 담당한다.
 
+### `ciel_runtime_support/provider_model_identity.py`
+
+Provider 이름·alias 정규화, model ID 정규화·정렬·중복 제거, Claude-facing alias 왕복 및 표시명 프로젝션을 소유하는 Domain Service. 공통 알고리즘은 Registry port에만 의존하고 Provider별 표시 규칙은 각 Adapter의 Strategy로 위임한다.
+
 ### `ciel_runtime_support/providers/__init__.py`
 
 Provider 구현 패키지의 안정적인 공개 진입점. 분리된 공통 기반 클래스를 기존 import 사용자에게 re-export한다.

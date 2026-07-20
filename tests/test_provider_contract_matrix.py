@@ -280,7 +280,8 @@ class ProviderContractMatrixTests(unittest.TestCase):
         self.assertNotIn("provider in (", source)
 
     def test_main_model_identity_functions_delegate_without_provider_dispatch(self):
-        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
         for function_name in ("normalize_model_id", "upstream_api_model_id", "alias_for"):
             function = next(
@@ -290,9 +291,13 @@ class ProviderContractMatrixTests(unittest.TestCase):
             )
             function_source = ast.get_source_segment(source, function) or ""
             with self.subTest(function=function_name):
-                self.assertIn("PROVIDER_ADAPTERS.create(provider)", function_source)
+                self.assertIn("_PROVIDER_MODEL_IDENTITY.", function_source)
                 self.assertNotIn('provider == "', function_source)
                 self.assertNotIn("provider in (", function_source)
+        identity_source = (
+            root / "ciel_runtime_support" / "provider_model_identity.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("self.adapters.create(provider)", identity_source)
 
     def test_historical_tool_turn_normalization_policy_is_adapter_owned(self):
         anthropic = PROVIDER_ADAPTERS.create("anthropic").request_policy(config("anthropic"))

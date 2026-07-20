@@ -395,6 +395,17 @@ class ProviderAdapter(ABC):
         del model_id
         return False
 
+    def display_model_name(self, model_id: str, provider_label: str) -> str:
+        """Project a provider model id into the shared human-readable label."""
+
+        cleaned = str(model_id).replace("/", " ").replace("-", " ").replace("_", " ")
+        return (
+            f"{provider_label.replace('-', ' ')} {cleaned}"
+            .title()
+            .replace("Vllm", "vLLM")
+            .replace("Nvidia", "Nvidia")
+        )
+
     def launch_model_strategy(self, config: ProviderConfig) -> str:
         """Return the provider-owned launch alias strategy."""
 

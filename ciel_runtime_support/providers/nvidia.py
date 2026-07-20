@@ -98,6 +98,12 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
     def preserves_claude_model_alias(self, model_id: str) -> bool:
         return str(model_id).startswith("claude-")
 
+    def display_model_name(self, model_id: str, provider_label: str) -> str:
+        if str(model_id).startswith("claude-nvidia-"):
+            cleaned = str(model_id)[len("claude-") :]
+            return cleaned.replace("/", " ").replace("-", " ").replace("_", " ").title()
+        return super().display_model_name(model_id, provider_label)
+
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
         return ProviderContextPolicy(

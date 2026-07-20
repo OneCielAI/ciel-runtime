@@ -847,6 +847,7 @@ from ciel_runtime_support.provider_adapters import (
     PROVIDER_LABELS,
     provider_default_configurations,
 )
+from ciel_runtime_support.provider_model_identity import ProviderModelIdentityService
 from ciel_runtime_support.provider_compatibility import PROVIDER_COMPATIBILITY
 from ciel_runtime_support.provider_context import (
     ContextPresetServices,
@@ -1346,6 +1347,11 @@ except Exception:
 
 OPENCODE_PROVIDER_NAMES = provider_network.OPENCODE_PROVIDER_NAMES
 DEFAULT_UPSTREAM_USER_AGENT = provider_network.DEFAULT_UPSTREAM_USER_AGENT
+_PROVIDER_MODEL_IDENTITY = ProviderModelIdentityService(
+    adapters=PROVIDER_ADAPTERS,
+    aliases=PROVIDER_ALIASES,
+    labels=PROVIDER_LABELS,
+)
 
 
 def upstream_user_agent() -> str:
@@ -1845,10 +1851,7 @@ def clear_model_cache() -> None:
 
 
 def normalize_provider(name: str) -> str:
-    key = name.strip().lower().replace("_", "-").replace(" ", "-")
-    if key not in PROVIDER_ALIASES:
-        raise SystemExit(f"Unknown provider: {name}\nKnown: {', '.join(PROVIDER_LABELS)}")
-    return PROVIDER_ALIASES[key]
+    return _PROVIDER_MODEL_IDENTITY.normalize_provider(name)
 
 
 def normalize_provider_choice(name: str) -> str | None:
@@ -1856,73 +1859,44 @@ def normalize_provider_choice(name: str) -> str | None:
 
 
 def slug(s: str) -> str:
-    return re.sub(r"-+", "-", re.sub(r"[^a-zA-Z0-9_.-]+", "-", s.lower())).strip("-") or "model"
+    return _PROVIDER_MODEL_IDENTITY.slug(s)
 
 
 def model_sort_key(model_id: str) -> tuple[str, str]:
-    return (model_id.casefold(), model_id)
+    return _PROVIDER_MODEL_IDENTITY.sort_key(model_id)
 
 
 def sorted_model_ids(ids: list[str]) -> list[str]:
-    return sorted(ids, key=model_sort_key)
+    return _PROVIDER_MODEL_IDENTITY.sorted_ids(ids)
 
 
 def unique_model_ids(provider: str, ids: list[str]) -> list[str]:
-    seen: set[str] = set()
-    out: list[str] = []
-    for raw in ids:
-        mid = normalize_model_id(provider, str(raw))
-        if not mid:
-            continue
-        key = mid.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(mid)
-    return out
+    return _PROVIDER_MODEL_IDENTITY.unique_ids(provider, ids)
 
 
 def normalize_model_id(provider: str, model_id: str) -> str:
-    return PROVIDER_ADAPTERS.create(provider).normalize_model_id(model_id)
+    return _PROVIDER_MODEL_IDENTITY.normalize_model_id(provider, model_id)
 
 
 def strip_claude_context_suffix(model_id: str | None) -> str:
-    text = str(model_id or "").strip()
-    return re.sub(r"\[(?:1m)\]\s*$", "", text, flags=re.IGNORECASE)
+    return _PROVIDER_MODEL_IDENTITY.strip_claude_context_suffix(model_id)
 
 
 def upstream_api_model_id(provider: str, model_id: str | None) -> str:
     """Return the provider's real API model code for a Claude Code-facing id."""
-    return PROVIDER_ADAPTERS.create(provider).upstream_api_model_id(str(model_id or ""))
+    return _PROVIDER_MODEL_IDENTITY.upstream_api_model_id(provider, model_id)
 
 
 def alias_for(provider: str, model_id: str) -> str:
-    if PROVIDER_ADAPTERS.create(provider).preserves_claude_model_alias(model_id):
-        return model_id
-    return f"ciel-runtime-{provider}-{slug(model_id)}"
+    return _PROVIDER_MODEL_IDENTITY.alias_for(provider, model_id)
 
 
 def unslug_provider_alias(provider: str, alias: str, model_map: dict[str, str]) -> str | None:
-    alias = strip_claude_context_suffix(alias)
-    if alias in model_map:
-        return model_map[alias]
-    prefix = f"ciel-runtime-{provider}-"
-    if alias.startswith(prefix):
-        target_slug = alias[len(prefix):]
-        for _, model_id in model_map.items():
-            if slug(model_id) == target_slug:
-                return model_id
-    return None
+    return _PROVIDER_MODEL_IDENTITY.unslug_alias(provider, alias, model_map)
 
 
 def display_name(provider: str, model_id: str) -> str:
-    label = PROVIDER_LABELS.get(provider, provider).replace("-", " ")
-    cleaned = model_id
-    if provider == "nvidia-hosted" and cleaned.startswith("claude-nvidia-"):
-        cleaned = cleaned[len("claude-"):]
-        return cleaned.replace("/", " ").replace("-", " ").replace("_", " ").title().replace("Nvidia", "Nvidia")
-    cleaned = cleaned.replace("/", " ").replace("-", " ").replace("_", " ")
-    return f"{label} {cleaned}".title().replace("Vllm", "vLLM").replace("Nvidia", "Nvidia")
+    return _PROVIDER_MODEL_IDENTITY.display_name(provider, model_id)
 
 
 def model_object(provider: str, model_id: str, pcfg: dict[str, Any] | None = None) -> dict[str, Any]:
