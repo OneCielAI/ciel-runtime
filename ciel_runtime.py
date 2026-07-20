@@ -206,6 +206,8 @@ from ciel_runtime_support.channel_tool_context import (
     ChannelToolContextService,
 )
 from ciel_runtime_support.channel_transcript import (
+    ChannelWakeStateReader,
+    ChannelWakeStateReaderPorts,
     ChannelWakeTranscriptServices,
     active_tool_call_from_text as _channel_stdin_active_tool_call_from_text,
     active_turn_from_text as _channel_stdin_active_turn_from_text,
@@ -11691,37 +11693,11 @@ _read_file_tail_text = ChannelTranscriptRepository.read_tail_text
 
 
 def _channel_stdin_wake_state(message_id: int) -> str:
-    if message_id <= 0:
-        return "completed"
-    path = _latest_claude_transcript_path()
-    if path is None:
-        return "unknown"
-    text = _read_file_tail_text(path)
-    if not text:
-        return "unknown"
-    return _channel_stdin_wake_state_from_text(message_id, text)
+    return channel_wake_state_reader().state(message_id)
 
 
 def _channel_stdin_wake_state_for_message(message: dict[str, Any], prompt: str | None = None) -> str:
-    try:
-        message_id = int(message.get("id") or 0)
-    except Exception:
-        message_id = 0
-    if message_id <= 0:
-        return "completed"
-    path = _latest_claude_transcript_path()
-    if path is None:
-        return "unknown"
-    text = _read_file_tail_text(path)
-    if not text:
-        return "unknown"
-    prompt_candidates: list[str] = []
-    if prompt:
-        prompt_candidates.append(prompt)
-    body = str(message.get("message") if message.get("message") is not None else "")
-    if body:
-        prompt_candidates.append(body)
-    return _channel_stdin_wake_state_from_text(message_id, text, prompt_candidates)
+    return channel_wake_state_reader().state_for_message(message, prompt)
 
 
 def _channel_stdin_wake_queued_age_seconds_from_text(
@@ -11741,26 +11717,18 @@ def _channel_stdin_wake_queued_age_seconds_from_text(
 
 
 def _channel_stdin_wake_queued_is_stale_for_message(message: dict[str, Any], prompt: str | None = None) -> bool:
-    try:
-        message_id = int(message.get("id") or 0)
-    except Exception:
-        message_id = 0
-    if message_id <= 0:
-        return False
-    path = _latest_claude_transcript_path()
-    if path is None:
-        return False
-    text = _read_file_tail_text(path)
-    if not text:
-        return False
-    prompt_candidates: list[str] = []
-    if prompt:
-        prompt_candidates.append(prompt)
-    body = str(message.get("message") if message.get("message") is not None else "")
-    if body:
-        prompt_candidates.append(body)
-    age = _channel_stdin_wake_queued_age_seconds_from_text(message_id, text, prompt_candidates)
-    return age is not None and age >= _channel_stdin_inflight_stale_seconds()
+    return channel_wake_state_reader().queued_is_stale(message, prompt)
+
+
+def channel_wake_state_reader() -> ChannelWakeStateReader:
+    return ChannelWakeStateReader(
+        ChannelWakeStateReaderPorts(
+            _latest_claude_transcript_path, _read_file_tail_text,
+            _channel_stdin_wake_state_from_text,
+            _channel_stdin_wake_queued_age_seconds_from_text,
+            _channel_stdin_inflight_stale_seconds,
+        )
+    )
 
 
 def _channel_stdin_wake_state_from_text(

@@ -237,7 +237,10 @@ from ciel_runtime_support.channel_tool_context import (
     ChannelToolContextPorts,
     ChannelToolContextService,
 )
-from ciel_runtime_support.channel_transcript import ChannelWakeTranscriptServices
+from ciel_runtime_support.channel_transcript import (
+    ChannelWakeStateReaderPorts,
+    ChannelWakeTranscriptServices,
+)
 from ciel_runtime_support.channel_transcript_repository import (
     ChannelTranscriptRepository,
 )
@@ -3835,6 +3838,7 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(function=function_name):
                 self.assertNotIn(f"def {function_name}(", source)
         self.assertLessEqual(len(fields(ChannelWakeTranscriptServices)), 10)
+        self.assertLessEqual(len(fields(ChannelWakeStateReaderPorts)), 10)
 
     def test_channel_transcript_filesystem_is_repository_owned(self):
         self.assertEqual(4, len(fields(ChannelTranscriptRepository)))
@@ -4660,6 +4664,9 @@ class ArchitectureContractTests(unittest.TestCase):
             "clear_nvidia_api_key": "clear",
             "set_advisor_model_config": "select",
             "read_clipboard_text": "read_clipboard_text",
+            "_channel_stdin_wake_state": "state",
+            "_channel_stdin_wake_state_for_message": "state_for_message",
+            "_channel_stdin_wake_queued_is_stale_for_message": "queued_is_stale",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

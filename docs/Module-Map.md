@@ -189,7 +189,7 @@ Windows `GetConsoleMode`/`SetConsoleMode`, console 지원 판정과 mouse-input 
 
 ### `ciel_runtime_support/channel_transcript.py`
 
-Claude/Codex JSONL transcript의 사용자 텍스트, assistant turn, tool call/result 및 활성 turn 상태를 해석하는 순수 Channel 도메인 서비스. 파일·프로세스·composition root 전역에 의존하지 않는다.
+Claude/Codex JSONL transcript의 사용자 텍스트, assistant turn, tool call/result 및 활성 turn 상태를 해석하는 순수 Channel 도메인 서비스. `ChannelWakeStateReader`는 최신 transcript repository와 파서를 조합해 message별 wake 상태와 queued staleness를 판정하며 facade 전역에 의존하지 않는다.
 
 ### `ciel_runtime_support/channel_transcript_repository.py`
 

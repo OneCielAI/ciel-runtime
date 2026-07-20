@@ -2,6 +2,8 @@ import json
 import unittest
 
 from ciel_runtime_support.channel_transcript import (
+    ChannelWakeStateReader,
+    ChannelWakeStateReaderPorts,
     ChannelWakeTranscriptServices,
     active_tool_call_from_text,
     active_turn_from_text,
@@ -15,6 +17,42 @@ from ciel_runtime_support.channel_transcript import (
 
 
 class ChannelTranscriptTests(unittest.TestCase):
+    def test_wake_state_reader_projects_message_prompts_and_staleness(self):
+        calls = []
+        reader = ChannelWakeStateReader(
+            ChannelWakeStateReaderPorts(
+                latest_transcript=lambda: "transcript.jsonl",
+                read_tail_text=lambda _path: "tail",
+                wake_state_from_text=lambda message_id, text, prompts=(): (
+                    calls.append((message_id, text, prompts)) or "queued"
+                ),
+                queued_age_from_text=lambda message_id, text, prompts: (
+                    calls.append((message_id, text, prompts)) or 31.0
+                ),
+                stale_seconds=lambda: 30.0,
+            )
+        )
+        message = {"id": "7", "message": "body"}
+
+        self.assertEqual("queued", reader.state_for_message(message, "rendered"))
+        self.assertTrue(reader.queued_is_stale(message, "rendered"))
+        self.assertEqual(("rendered", "body"), calls[0][2])
+
+    def test_wake_state_reader_handles_invalid_ids_and_missing_transcript(self):
+        reader = ChannelWakeStateReader(
+            ChannelWakeStateReaderPorts(
+                latest_transcript=lambda: None,
+                read_tail_text=lambda _path: self.fail("missing transcript must not be read"),
+                wake_state_from_text=lambda *_args: self.fail("missing transcript must not be parsed"),
+                queued_age_from_text=lambda *_args: self.fail("missing transcript must not be parsed"),
+                stale_seconds=lambda: 30.0,
+            )
+        )
+
+        self.assertEqual("completed", reader.state_for_message({"id": "invalid"}))
+        self.assertEqual("unknown", reader.state(7))
+        self.assertFalse(reader.queued_is_stale({"id": 7}))
+
     def wake_services(self):
         return ChannelWakeTranscriptServices(
             claim_prompt=lambda _message_id: "",

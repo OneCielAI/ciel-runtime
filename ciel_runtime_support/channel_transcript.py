@@ -14,6 +14,76 @@ class ChannelWakeTranscriptServices:
     now: Callable[[], float]
 
 
+@dataclass(frozen=True, slots=True)
+class ChannelWakeStateReaderPorts:
+    latest_transcript: Callable[[], Any]
+    read_tail_text: Callable[[Any], str]
+    wake_state_from_text: Callable[..., str]
+    queued_age_from_text: Callable[..., float | None]
+    stale_seconds: Callable[[], float]
+
+
+class ChannelWakeStateReader:
+    def __init__(self, ports: ChannelWakeStateReaderPorts) -> None:
+        self._ports = ports
+
+    @staticmethod
+    def message_id(message: dict[str, Any]) -> int:
+        try:
+            return int(message.get("id") or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    @staticmethod
+    def prompt_candidates(
+        message: dict[str, Any], prompt: str | None
+    ) -> tuple[str, ...]:
+        candidates = [prompt] if prompt else []
+        body = str(
+            message.get("message") if message.get("message") is not None else ""
+        )
+        if body:
+            candidates.append(body)
+        return tuple(candidates)
+
+    def state(self, message_id: int) -> str:
+        if message_id <= 0:
+            return "completed"
+        text = self._latest_text()
+        return self._ports.wake_state_from_text(message_id, text) if text else "unknown"
+
+    def state_for_message(
+        self, message: dict[str, Any], prompt: str | None = None
+    ) -> str:
+        message_id = self.message_id(message)
+        if message_id <= 0:
+            return "completed"
+        text = self._latest_text()
+        if not text:
+            return "unknown"
+        return self._ports.wake_state_from_text(
+            message_id, text, self.prompt_candidates(message, prompt)
+        )
+
+    def queued_is_stale(
+        self, message: dict[str, Any], prompt: str | None = None
+    ) -> bool:
+        message_id = self.message_id(message)
+        if message_id <= 0:
+            return False
+        text = self._latest_text()
+        if not text:
+            return False
+        age = self._ports.queued_age_from_text(
+            message_id, text, self.prompt_candidates(message, prompt)
+        )
+        return age is not None and age >= self._ports.stale_seconds()
+
+    def _latest_text(self) -> str:
+        path = self._ports.latest_transcript()
+        return self._ports.read_tail_text(path) if path is not None else ""
+
+
 def record_timestamp_seconds(record: dict[str, Any]) -> float | None:
     raw = record.get("timestamp")
     if raw is None and isinstance(record.get("attachment"), dict):
