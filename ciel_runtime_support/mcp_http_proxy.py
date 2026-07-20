@@ -109,6 +109,7 @@ def run_mcp_streamable_http_proxy(
     initialized_payload: dict[str, Any] | None = None
     session_lock = threading.Lock()
     stream_stop = threading.Event()
+    stream_message_observed = threading.Event()
     # Single-owner notification-stream lifecycle. ONE manager thread owns the
     # backend session and the notification GET stream. It initializes the
     # session, streams notifications, and on session loss re-initializes IN THE
@@ -126,6 +127,13 @@ def run_mcp_streamable_http_proxy(
     initialized_wait_seconds = max(
         0.0,
         min(5.0, float(server.get("initialized_wait_seconds") or server.get("mcp_initialized_wait_seconds") or 1.0)),
+    )
+    shutdown_drain_seconds = max(
+        0.0,
+        min(
+            2.0,
+            float(server.get("shutdown_notification_drain_seconds") or 0.5),
+        ),
     )
     notification_condition = threading.Condition()
     router_log("INFO", f"mcp_http_proxy_started server={server_name} endpoint={endpoint}")
@@ -174,6 +182,7 @@ def run_mcp_streamable_http_proxy(
         data_text = "\n".join(data_lines).strip()
         if not data_text:
             return
+        stream_message_observed.set()
         try:
             payload = json.loads(data_text)
         except Exception as exc:
@@ -578,6 +587,19 @@ def run_mcp_streamable_http_proxy(
         print(f"ciel-runtime mcp-proxy: Streamable HTTP bridge failed: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
         return 1
     finally:
+        # stdin EOF commonly follows immediately after the initialized
+        # handshake in short-lived clients and tests. Give the single stream
+        # owner a bounded chance to consume an already-arriving SSE frame
+        # before signalling shutdown; otherwise the daemon can exit between
+        # GET connect and its first readline, losing that notification.
+        if (
+            initialized_payload is not None
+            and manager_thread is not None
+            and manager_thread.is_alive()
+            and not stream_message_observed.is_set()
+            and shutdown_drain_seconds > 0
+        ):
+            stream_message_observed.wait(timeout=shutdown_drain_seconds)
         stream_stop.set()
         with session_cond:
             session_cond.notify_all()

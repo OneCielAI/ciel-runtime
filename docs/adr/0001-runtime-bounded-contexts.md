@@ -153,6 +153,10 @@ status projection live in `runtime_llm_options.py`. Configuration persistence,
 presentation, and preset mutation are separate typed port groups; slash action
 aliases dispatch through the same controller.
 
+Live API-key status and mutation action dispatch live in
+`live_api_key_controller.py`; the HTTP layer receives only masked projection
+lines and a changed flag.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

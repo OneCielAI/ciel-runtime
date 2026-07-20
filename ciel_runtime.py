@@ -777,6 +777,10 @@ from ciel_runtime_support.runtime_llm_options import (
     RuntimeLlmPresentationPorts,
     RuntimeLlmSettings,
 )
+from ciel_runtime_support.live_api_key_controller import (
+    LiveApiKeyController,
+    LiveApiKeyPorts,
+)
 from ciel_runtime_support.provider_limits import (
     ProviderKeyServices,
     RateLimitApplyPolicy,
@@ -8511,36 +8515,23 @@ def maybe_handle_live_llm_options_request(handler: BaseHTTPRequestHandler, body:
 
 
 def live_api_key_status_lines(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    return [
-        f"Live API key status for provider: {provider}",
-        api_key_status_line(provider, pcfg),
-        f"Stored: {stored_api_key_mask(provider, pcfg)}",
-    ]
+    return live_api_key_controller().status(provider, pcfg)
+
+
+def live_api_key_controller() -> LiveApiKeyController:
+    return LiveApiKeyController(
+        LiveApiKeyPorts(
+            load_config=load_config,
+            current_provider=get_current_provider,
+            status_line=api_key_status_line,
+            stored_mask=stored_api_key_mask,
+            store_input=store_api_key_input_config,
+        )
+    )
 
 
 def handle_live_api_keys_action(value: str) -> tuple[list[str], bool]:
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    raw = str(value or "").strip()
-    normalized = raw.lower()
-    if normalized in {"", "status", "state", "show", "current", "now"}:
-        return live_api_key_status_lines(provider, pcfg), False
-    if normalized in {"help", "usage", "list"}:
-        return [
-            "Use `/api-key status` to show masked key status.",
-            "Use `/api-key clear` or `/api-key unset` to remove API keys for only the current provider.",
-            "Use `/api-key KEY` to set one key.",
-            "Use `/api-key KEY1,KEY2` or `/api-keys KEY1;KEY2` to set multiple round-robin keys.",
-            "Raw keys are never echoed; responses show only masked keys and fingerprints.",
-        ], False
-    try:
-        lines = store_api_key_input_config(provider, raw)
-    except SystemExit as exc:
-        message = str(exc).strip() or "No API keys provided; unchanged."
-        return [message, "", *live_api_key_status_lines(provider, pcfg)], False
-    cfg_after = load_config()
-    provider_after, pcfg_after = get_current_provider(cfg_after)
-    return lines + ["", "Updated live API key settings. The next model request uses these settings.", *live_api_key_status_lines(provider_after, pcfg_after)], True
+    return live_api_key_controller().handle(value)
 
 
 def maybe_handle_live_api_keys_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool:
