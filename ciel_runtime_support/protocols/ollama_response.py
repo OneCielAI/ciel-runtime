@@ -100,6 +100,64 @@ def project_ollama_response(
     )
 
 
+def project_openai_chat_response(
+    data: dict[str, Any],
+    model: str,
+    source_body: dict[str, Any] | None,
+    *,
+    services: OllamaResponseServices,
+    positive_int: Callable[[Any], int | None],
+    reasoning_to_block: Callable[[Any], dict[str, Any] | None],
+    content_to_text: Callable[[Any], str],
+) -> dict[str, Any]:
+    """Project an OpenAI-compatible chat response through the shared codec."""
+    choices = data.get("choices")
+    choice = (
+        choices[0]
+        if isinstance(choices, list)
+        and choices
+        and isinstance(choices[0], dict)
+        else {}
+    )
+    raw_message = choice.get("message")
+    message = raw_message if isinstance(raw_message, dict) else {}
+    usage_value = data.get("usage")
+    usage = usage_value if isinstance(usage_value, dict) else {}
+    wrapped = {
+        "message": {
+            "content": message.get("content") or "",
+            "tool_calls": message.get("tool_calls") or [],
+        },
+        "done_reason": (
+            "length"
+            if choice.get("finish_reason") == "length"
+            else "stop"
+        ),
+        "prompt_eval_count": positive_int(usage.get("prompt_tokens"))
+        or (
+            services.output.estimate_tokens(source_body)
+            if isinstance(source_body, dict)
+            else 0
+        ),
+        "eval_count": positive_int(usage.get("completion_tokens")) or 0,
+    }
+    output = project_ollama_response(
+        wrapped,
+        model,
+        source_body,
+        services,
+    )
+    thinking_block = reasoning_to_block(message.get("reasoning_content"))
+    if thinking_block is None:
+        return output
+    content = output.get("content")
+    if not isinstance(content, list):
+        content = [{"type": "text", "text": content_to_text(content)}]
+    output = dict(output)
+    output["content"] = [thinking_block, *content]
+    return output
+
+
 def _project_tool_call(
     call: dict[str, Any],
     index: int,

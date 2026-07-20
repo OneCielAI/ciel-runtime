@@ -51,11 +51,16 @@ class ConfigurationCliDisplayPorts:
     set_log_level: Callable[[str], list[str]]
     languages: Mapping[str, str]
     web_tools_config_path: Path
+    language_panel_rows: Callable[
+        [RuntimeConfig],
+        tuple[list[str], list[str]],
+    ]
 
 
 @dataclass(frozen=True, slots=True)
 class ConfigurationCliIO:
     output: Callable[[str], None]
+    select: Callable[[str, list[str], int], int | None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -235,6 +240,42 @@ class ConfigurationCliController:
             f"Language set to {normalized} "
             f"({self.display.languages[normalized]})."
         )
+
+    def portable_provider_menu(self) -> int:
+        config = self.config.load()
+        rows, values = self.provider.panel_rows(config)
+        selected = self.io.select(
+            "Select ciel-runtime provider",
+            rows,
+            values.index(
+                str(config.get("current_provider", "nvidia-hosted"))
+            ),
+        )
+        if selected is None:
+            self.io.output("Cancelled.")
+            return 1
+        self._output_lines(self.provider.set_provider(values[selected]))
+        return 0
+
+    def portable_language_menu(self) -> int:
+        config = self.config.load()
+        rows, values = self.display.language_panel_rows(config)
+        selected = self.io.select(
+            "Select display language",
+            rows,
+            values.index(str(config.get("language", "en"))),
+        )
+        if selected is None:
+            self.io.output("Cancelled.")
+            return 1
+        language = values[selected]
+        config["language"] = language
+        self.config.save(config)
+        self.io.output(
+            f"Language set to {language} "
+            f"({self.display.languages[language]})."
+        )
+        return 0
 
     def web_search_command(self, value: str | None) -> None:
         config = self.config.load()

@@ -1656,6 +1656,8 @@ class ArchitectureContractTests(unittest.TestCase):
             "cmd_language",
             "cmd_web_search",
             "cmd_web_fetch",
+            "portable_provider_menu",
+            "portable_language_menu",
         ):
             function_source = ast.unparse(functions[name])
             self.assertIn("configuration_cli_controller", function_source)
@@ -4568,6 +4570,7 @@ class ArchitectureContractTests(unittest.TestCase):
             "_rebatch_anthropic_sse_text": "rebatch_anthropic_sse_text",
             "_ollama_stream_to_anthropic_sse": "ollama_stream_to_anthropic_sse",
             "stream_openai_chat_to_anthropic_sse": "forward_openai_chat_to_anthropic_sse",
+            "openai_chat_to_anthropic": "project_openai_chat_response",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

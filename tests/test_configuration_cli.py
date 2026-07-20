@@ -42,7 +42,10 @@ class ConfigurationCliControllerTests(unittest.TestCase):
                     value if value == "routed" else None
                 ),
                 normalize_provider=lambda value: value.strip().lower(),
-                panel_rows=lambda _config: (["* Provider"], ["provider"]),
+                panel_rows=lambda _config: (
+                    ["* Provider", "  Other"],
+                    ["provider", "other"],
+                ),
                 menu_label=lambda provider, _config: provider.title(),
                 set_choice=self.set_choice,
                 set_provider=mock.Mock(return_value=["provider updated"]),
@@ -64,8 +67,15 @@ class ConfigurationCliControllerTests(unittest.TestCase):
                 set_log_level=mock.Mock(return_value=["log updated"]),
                 languages={"en": "English", "ko": "한국어"},
                 web_tools_config_path="web-tools.json",  # type: ignore[arg-type]
+                language_panel_rows=lambda _config: (
+                    ["English", "한국어"],
+                    ["en", "ko"],
+                ),
             ),
-            io=ConfigurationCliIO(output=self.output.append),
+            io=ConfigurationCliIO(
+                output=self.output.append,
+                select=lambda _title, _rows, _selected: 1,
+            ),
         )
 
     def test_provider_command_lists_and_updates_provider(self):
@@ -122,6 +132,15 @@ class ConfigurationCliControllerTests(unittest.TestCase):
 
         self.assertTrue(any("log_level: INFO" in line for line in self.output))
         self.assertTrue(any("alias-model-a" in line for line in self.output))
+
+    def test_portable_menus_delegate_selection_and_persist_language(self):
+        controller = self.controller()
+
+        self.assertEqual(0, controller.portable_provider_menu())
+        self.assertEqual(0, controller.portable_language_menu())
+
+        self.assertEqual("ko", self.config["language"])
+        self.save.assert_called_once_with(self.config)
 
 
 if __name__ == "__main__":

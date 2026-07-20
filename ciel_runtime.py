@@ -903,6 +903,7 @@ from ciel_runtime_support.protocols.ollama_response import (
     OllamaResponseServices,
     OllamaResponseText,
     OllamaResponseTools,
+    project_openai_chat_response,
     project_ollama_response,
 )
 from ciel_runtime_support.protocols.chat_projection import (
@@ -6573,31 +6574,15 @@ def forward_ollama_api_chat(
 
 
 def openai_chat_to_anthropic(data: dict[str, Any], model: str, source_body: dict[str, Any] | None = None) -> dict[str, Any]:
-    choice = {}
-    choices = data.get("choices")
-    if isinstance(choices, list) and choices:
-        choice = choices[0] if isinstance(choices[0], dict) else {}
-    message = choice.get("message") if isinstance(choice.get("message"), dict) else {}
-    wrapped = {
-        "message": {
-            "content": message.get("content") or "",
-            "tool_calls": message.get("tool_calls") or [],
-        },
-        "done_reason": "length" if choice.get("finish_reason") == "length" else "stop",
-    }
-    usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
-    wrapped["prompt_eval_count"] = positive_int(usage.get("prompt_tokens")) or (estimate_tokens(source_body) if isinstance(source_body, dict) else 0)
-    wrapped["eval_count"] = positive_int(usage.get("completion_tokens")) or 0
-    out = ollama_chat_to_anthropic(wrapped, model, source_body=source_body)
-    thinking_block = openai_reasoning_to_anthropic_thinking_block(message.get("reasoning_content"))
-    if thinking_block is None:
-        return out
-    content = out.get("content")
-    if not isinstance(content, list):
-        content = [{"type": "text", "text": anthropic_content_to_text(content)}]
-    out = dict(out)
-    out["content"] = [thinking_block] + content
-    return out
+    return project_openai_chat_response(
+        data,
+        model,
+        source_body,
+        services=ollama_response_services(),
+        positive_int=positive_int,
+        reasoning_to_block=openai_reasoning_to_anthropic_thinking_block,
+        content_to_text=anthropic_content_to_text,
+    )
 
 
 def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model: str) -> dict[str, Any]:
@@ -7828,8 +7813,9 @@ def configuration_cli_controller() -> ConfigurationCliController:
             set_log_level=set_log_level_config,
             languages=LANGUAGES,
             web_tools_config_path=WEB_TOOLS_MCP_CONFIG,
+            language_panel_rows=language_panel_rows,
         ),
-        io=ConfigurationCliIO(output=print),
+        io=ConfigurationCliIO(output=print, select=portable_select),
     )
 
 
@@ -11050,28 +11036,11 @@ def prompt_menu_multiline_value(
 
 
 def portable_provider_menu() -> int:
-    cfg = load_config()
-    rows, values = provider_panel_rows(cfg)
-    selected = portable_select("Select ciel-runtime provider", rows, values.index(cfg.get("current_provider", "nvidia-hosted")))
-    if selected is None:
-        print("Cancelled.")
-        return 1
-    for line in set_provider_config(values[selected]):
-        print(line)
-    return 0
+    return configuration_cli_controller().portable_provider_menu()
 
 
 def portable_language_menu() -> int:
-    cfg = load_config()
-    rows, values = language_panel_rows(cfg)
-    selected = portable_select("Select display language", rows, values.index(cfg.get("language", "en")))
-    if selected is None:
-        print("Cancelled.")
-        return 1
-    cfg["language"] = values[selected]
-    save_config(cfg)
-    print(f"Language set to {values[selected]} ({LANGUAGES[values[selected]]}).")
-    return 0
+    return configuration_cli_controller().portable_language_menu()
 
 
 def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:

@@ -50,7 +50,7 @@ OpenAI Responses 성공·오류 payload를 JSON 또는 Codex-compatible SSE life
 
 ### `ciel_runtime_support/protocols/ollama_response.py`
 
-Ollama `/api/chat` 응답을 Anthropic Messages content로 투영하는 Provider-specific Protocol Service. Text decoding, tool normalization, recovery policy, output encoding을 각각 10필드 이하 포트로 분리해 메인과 Provider-neutral codec에서 Ollama 실행 정책을 격리한다.
+Ollama `/api/chat` 및 OpenAI-compatible chat 응답을 Anthropic Messages content로 투영하는 Provider-specific Protocol Service. Text decoding, tool normalization, reasoning projection, recovery policy, output encoding을 각각 명시적 포트로 분리해 메인과 Provider-neutral codec에서 응답 변환 정책을 격리한다.
 
 ### `ciel_runtime_support/protocols/conversation_policy.py`
 
@@ -885,7 +885,7 @@ Streamable HTTP MCP session의 initialize, notification GET stream 재연결, to
 
 ### `ciel_runtime_support/configuration_cli.py`
 
-Provider/base-URL/model/advisor/language/log-level/web 설정 명령의 조회·변경·출력 흐름을 소유하는 CLI Application Controller. config, provider, model, display, I/O 포트를 각각 10필드 이하로 분리하며 Provider Adapter의 `uses_native_advisor` capability를 사용한다.
+Provider/base-URL/model/advisor/language/log-level/web 설정 명령과 휴대형 provider/language 선택 메뉴의 조회·변경·출력 흐름을 소유하는 CLI Application Controller. config, provider, model, display, I/O 포트를 각각 10필드 이하로 분리하며 Provider Adapter의 `uses_native_advisor` capability를 사용한다.
 
 ### `ciel_runtime_support/provider_config_mutations.py`
 
