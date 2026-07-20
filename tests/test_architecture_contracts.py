@@ -1964,6 +1964,31 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertFalse(moved & definitions)
         self.assertIn("from ciel_runtime_support.npm_runtime import (", source)
 
+    def test_install_diagnostics_are_owned_by_an_application_service(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for function_name in (
+            "ciel_runtime_launcher_candidate_dirs",
+            "ciel_runtime_launcher_candidates",
+            "ciel_runtime_launcher_version",
+            "ciel_runtime_install_diagnostics",
+            "warn_if_multiple_ciel_runtime_installs",
+        ):
+            function = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef) and node.name == function_name
+            )
+            function_source = ast.get_source_segment(source, function) or ""
+            with self.subTest(function=function_name):
+                self.assertIn("install_diagnostics_service()", function_source)
+                self.assertNotIn("subprocess.run", function_source)
+        service_source = (
+            root / "ciel_runtime_support" / "install_diagnostics.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("class InstallDiagnosticsService:", service_source)
+
     def test_concrete_adapters_own_provider_specific_defaults(self):
         common_keys = {
             "base_url",

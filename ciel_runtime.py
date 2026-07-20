@@ -552,6 +552,11 @@ from ciel_runtime_support.npm_runtime import (
     parse_version_tuple,
     version_newer,
 )
+from ciel_runtime_support.install_diagnostics import (
+    InstallDiagnosticsPorts,
+    InstallDiagnosticsService,
+    InstallDiagnosticsSettings,
+)
 from ciel_runtime_support.provider_option_cli import (
     OllamaOptionCommands,
     ProviderOptionCliConfig,
@@ -15150,113 +15155,40 @@ def current_npm_package_root() -> Path | None:
     return package_root_from_installed_path(Path(__file__))
 
 
+def install_diagnostics_service() -> InstallDiagnosticsService:
+    return InstallDiagnosticsService(
+        settings=InstallDiagnosticsSettings(HOME, os.environ, os.name == "nt"),
+        ports=InstallDiagnosticsPorts(
+            extra_dirs=executable_extra_dirs,
+            package_root=package_root_from_installed_path,
+            current_root=current_npm_package_root,
+            parse_version=parse_version_tuple,
+            diagnostics=ciel_runtime_install_diagnostics,
+            stdin_isatty=sys.stdin.isatty,
+            stdout_isatty=sys.stdout.isatty,
+            write_error=lambda line: print(line, file=sys.stderr, flush=True),
+        ),
+    )
+
+
 def ciel_runtime_launcher_candidate_dirs() -> list[Path]:
-    raw_dirs: list[Path] = []
-    for entry in os.environ.get("PATH", "").split(os.pathsep):
-        if entry:
-            raw_dirs.append(Path(entry))
-    raw_dirs.extend(executable_extra_dirs())
-    raw_dirs.extend([HOME / ".npm-global" / "bin", HOME / "bin"])
-    if os.name != "nt":
-        raw_dirs.extend([Path("/usr/local/bin"), Path("/usr/bin")])
-    seen: set[str] = set()
-    out: list[Path] = []
-    for directory in raw_dirs:
-        key = str(directory)
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(directory)
-    return out
+    return install_diagnostics_service().candidate_dirs()
 
 
 def ciel_runtime_launcher_candidates() -> list[Path]:
-    names = ["ciel-runtime"]
-    if os.name == "nt":
-        names.extend(["ciel-runtime.cmd", "ciel-runtime.exe"])
-    out: list[Path] = []
-    seen: set[str] = set()
-    for directory in ciel_runtime_launcher_candidate_dirs():
-        for name in names:
-            candidate = directory / name
-            if not candidate.exists():
-                continue
-            try:
-                key = str(candidate.resolve(strict=False))
-            except Exception:
-                key = str(candidate)
-            if key in seen:
-                continue
-            seen.add(key)
-            out.append(candidate)
-    return out
+    return install_diagnostics_service().candidates()
 
 
 def ciel_runtime_launcher_version(path: Path, timeout: float = 5.0) -> str:
-    env = os.environ.copy()
-    env["CIEL_RUNTIME_SKIP_INSTALL_DIAGNOSTIC"] = "1"
-    env["CIEL_RUNTIME_SKIP_SELF_UPDATE"] = "1"
-    env["CIEL_RUNTIME_SELF_UPDATE_CHECK"] = "off"
-    try:
-        proc = subprocess.run(
-            [str(path), "--version"],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=env,
-            timeout=timeout,
-        )
-    except Exception:
-        return ""
-    if proc.returncode != 0:
-        return ""
-    match = re.search(r"ciel-runtime\s+(.+)", proc.stdout or "", re.IGNORECASE)
-    return match.group(1).strip() if match else (proc.stdout or "").strip().splitlines()[-1].strip()
+    return install_diagnostics_service().launcher_version(path, timeout)
 
 
 def ciel_runtime_install_diagnostics() -> list[dict[str, str]]:
-    rows: list[dict[str, str]] = []
-    for launcher in ciel_runtime_launcher_candidates():
-        root = package_root_from_installed_path(launcher)
-        rows.append(
-            {
-                "launcher": str(launcher),
-                "resolved": str(launcher.resolve(strict=False)),
-                "package_root": str(root) if root else "",
-                "version": ciel_runtime_launcher_version(launcher),
-            }
-        )
-    return rows
+    return install_diagnostics_service().diagnostics()
 
 
 def warn_if_multiple_ciel_runtime_installs() -> None:
-    if os.environ.get("CIEL_RUNTIME_SKIP_INSTALL_DIAGNOSTIC") == "1":
-        return
-    if not (sys.stdin.isatty() and sys.stdout.isatty()):
-        return
-    rows = ciel_runtime_install_diagnostics()
-    roots = {row["package_root"] for row in rows if row.get("package_root")}
-    if len(roots) <= 1:
-        return
-    current_root = str(current_npm_package_root() or "")
-    first = rows[0] if rows else {}
-    newest = max((row for row in rows if row.get("version")), key=lambda row: parse_version_tuple(row["version"]), default=None)
-    print("Ciel Runtime warning: multiple ciel-runtime npm installs are visible.", file=sys.stderr, flush=True)
-    if first:
-        print(
-            f"  shell resolves ciel-runtime to: {first.get('launcher')} ({first.get('version') or 'unknown version'})",
-            file=sys.stderr,
-            flush=True,
-        )
-    if current_root:
-        print(f"  current package root: {current_root}", file=sys.stderr, flush=True)
-    if newest and newest is not first:
-        print(
-            f"  newer visible install: {newest.get('launcher')} ({newest.get('version')})",
-            file=sys.stderr,
-            flush=True,
-        )
-    print("  Fix by keeping one install prefix: update or uninstall the stale higher-priority install.", file=sys.stderr, flush=True)
+    install_diagnostics_service().warn_if_multiple()
 
 
 def ciel_runtime_restart_user_args() -> list[str]:

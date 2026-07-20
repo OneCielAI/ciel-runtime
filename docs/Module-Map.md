@@ -603,6 +603,10 @@ provider model registry와 단기 model-list cache의 key 호환, TTL, metadata 
 
 npm 조회·global install command, semantic-like 버전 비교, CLI executable 버전 탐지와 설치 package-root/prefix 계산을 소유하는 Infrastructure Adapter. 메인 facade는 동일 공개 이름을 직접 re-export한다.
 
+### `ciel_runtime_support/install_diagnostics.py`
+
+실행 경로 후보 수집·중복 제거, launcher 버전 진단, 여러 npm 설치 root 비교와 shadowed-install 경고를 소유하는 Application Service. 환경·TTY·출력은 typed port로 주입된다.
+
 ### `ciel_runtime_support/router_rate_limit_service.py`
 
 provider-global/legacy rate key, configured·learned RPM, 사용량 기록, server header 학습, 429 backoff와 penalty 대기를 묶는 Application Service. facade의 조립 중복을 제거하고 조회는 `RateLimitRepository`, 계산은 순수 rate-limit policy에 위임한다.
