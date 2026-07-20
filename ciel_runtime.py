@@ -311,6 +311,11 @@ from ciel_runtime_support.provider_runtime_modes import (
     ProviderNativeCompatibilityPolicy,
     RuntimeModePolicy,
 )
+from ciel_runtime_support.provider_launch_endpoint import (
+    ProviderLaunchEndpointGroups,
+    ProviderLaunchEndpointPolicy,
+    ProviderLaunchEndpointQueries,
+)
 from ciel_runtime_support.model_cache_lifecycle import (
     ModelCacheLifecyclePorts,
     ModelCacheLifecycleService,
@@ -3710,31 +3715,22 @@ def codex_openai_router_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
 
 
 def preferred_native_compat_for_launch_runtime(runtime: str, provider: str, pcfg: dict[str, Any]) -> tuple[bool | None, str]:
-    runtime = str(runtime or "").strip().lower()
-    if provider in ("anthropic", "codex", "agy", "ollama", "ollama-cloud"):
-        return None, ""
-    if runtime == "claude":
-        if provider in AUTO_DETECT_NATIVE_COMPAT_PROVIDERS:
-            return auto_detect_native_compat_for_base_url(provider, pcfg)
-        if provider in CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS:
-            return True, "Claude Code prefers the provider's Anthropic Messages compatible endpoint"
-        if provider in OPENCODE_PROVIDER_NAMES:
-            endpoint_kind = opencode_endpoint_kind(provider, str(pcfg.get("current_model") or ""), pcfg)
-            if endpoint_kind == "anthropic-messages":
-                return True, "Claude Code prefers the model's Anthropic Messages endpoint"
-            if endpoint_kind == "openai-chat":
-                return False, "selected model uses an OpenAI Chat endpoint"
-        return None, ""
-    if runtime in ("codex", "codex-app-server"):
-        if provider in OPENCODE_PROVIDER_NAMES:
-            endpoint_kind = opencode_endpoint_kind(provider, str(pcfg.get("current_model") or ""), pcfg)
-            if endpoint_kind == "openai-chat":
-                return False, "Codex prefers the model's OpenAI Chat compatible endpoint"
-            return None, ""
-        if provider in CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS:
-            return False, "Codex prefers OpenAI Chat compatible upstream routing"
-        return None, ""
-    return None, ""
+    policy = ProviderLaunchEndpointPolicy(
+        groups=ProviderLaunchEndpointGroups(
+            native_runtimes=frozenset(
+                {"anthropic", "codex", "agy", "ollama", "ollama-cloud"}
+            ),
+            auto_detect=frozenset(AUTO_DETECT_NATIVE_COMPAT_PROVIDERS),
+            claude_anthropic=frozenset(CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS),
+            codex_openai=frozenset(CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS),
+            model_specific=frozenset(OPENCODE_PROVIDER_NAMES),
+        ),
+        query=ProviderLaunchEndpointQueries(
+            detect_native_compat=auto_detect_native_compat_for_base_url,
+            endpoint_kind=opencode_endpoint_kind,
+        ),
+    )
+    return policy.preferred_native_compat(runtime, provider, pcfg)
 
 
 def apply_launch_endpoint_policy(cfg: dict[str, Any], runtime: str) -> list[str]:

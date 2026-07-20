@@ -124,6 +124,11 @@ from ciel_runtime_support.provider_request_access import (
     ProviderRequestAccessPorts,
     ProviderRequestAccessService,
 )
+from ciel_runtime_support.provider_launch_endpoint import (
+    ProviderLaunchEndpointGroups,
+    ProviderLaunchEndpointPolicy,
+    ProviderLaunchEndpointQueries,
+)
 from ciel_runtime_support.provider_runtime_modes import (
     ProviderNativeCompatibilityPolicy,
     RuntimeModePolicy,
@@ -2193,6 +2198,31 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("__getattr__", policy_source)
         self.assertEqual(2, len(fields(RuntimeModePolicy)))
         self.assertEqual(2, len(fields(ProviderNativeCompatibilityPolicy)))
+
+    def test_launch_endpoint_preference_is_owned_by_typed_policy(self):
+        self.assertEqual(2, len(fields(ProviderLaunchEndpointPolicy)))
+        self.assertEqual(5, len(fields(ProviderLaunchEndpointGroups)))
+        self.assertEqual(2, len(fields(ProviderLaunchEndpointQueries)))
+
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name
+            == "preferred_native_compat_for_launch_runtime"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("ProviderLaunchEndpointPolicy", function_source)
+        self.assertNotIn('runtime == "claude"', function_source)
+        policy_source = (
+            root
+            / "ciel_runtime_support"
+            / "provider_launch_endpoint.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", policy_source)
+        self.assertNotIn("__getattr__", policy_source)
 
     def test_npm_runtime_utilities_are_infrastructure_reexports(self):
         root = Path(__file__).resolve().parents[1]
