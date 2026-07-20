@@ -1864,6 +1864,34 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertIn("model_cache_lifecycle_service()", function_source)
                 self.assertIn(delegation, function_source)
 
+    def test_api_key_cooldown_policy_and_state_are_service_owned(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for function_name in (
+            "_api_key_cooldown_state_key",
+            "api_key_cooldown_reset_seconds",
+            "register_api_key_cooldown",
+            "api_key_cooldown_until",
+            "provider_live_api_key_count",
+            "provider_has_live_api_key",
+            "reset_api_key_cooldowns_for_router_start",
+        ):
+            function = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef) and node.name == function_name
+            )
+            function_source = ast.get_source_segment(source, function) or ""
+            with self.subTest(function=function_name):
+                self.assertNotIn("hashlib.sha256", function_source)
+                self.assertNotIn("rate_limit_repository().", function_source)
+        service_source = (
+            root / "ciel_runtime_support" / "api_key_cooldown.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("class ApiKeyCooldownService:", service_source)
+        self.assertIn("hashlib.sha256", service_source)
+
     def test_concrete_adapters_own_provider_specific_defaults(self):
         common_keys = {
             "base_url",

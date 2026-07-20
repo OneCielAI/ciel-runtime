@@ -929,6 +929,13 @@ from ciel_runtime_support.provider_limits import (
 )
 from ciel_runtime_support import rate_limit_policy
 from ciel_runtime_support.rate_limit_repository import RateLimitRepository
+from ciel_runtime_support.api_key_cooldown import (
+    API_KEY_COOLDOWN_DEFAULT_SECONDS,  # noqa: F401 - compatibility export
+    API_KEY_COOLDOWN_MAX_SECONDS,  # noqa: F401 - compatibility export
+    RATE_LIMIT_RESET_HEADER_NAMES as _RATE_LIMIT_RESET_HEADER_NAMES,  # noqa: F401 - compatibility export
+    ApiKeyCooldownPorts,
+    ApiKeyCooldownService,
+)
 from ciel_runtime_support.plan_artifact_controller import (
     PlanArtifactController,
     PlanArtifactServices,
@@ -3735,28 +3742,20 @@ def register_router_rate_limit_backoff(provider: str, pcfg: dict[str, Any], mode
     )
 
 
-_RATE_LIMIT_RESET_HEADER_NAMES = (
-    "x-ratelimit-reset-requests",
-    "x-rate-limit-reset-requests",
-    "ratelimit-reset",
-    "rate-limit-reset",
-    "x-ratelimit-reset",
-    "x-rate-limit-reset",
-)
-
-# Ceiling covers a full daily-quota reset (e.g. OpenRouter :free RPD resets at
-# 00:00 UTC, up to ~24h away) plus slack, so a key that hit its per-day limit
-# rests until the quota actually refreshes instead of retrying hourly and burning
-# more of the (failure-counted) daily allowance.
-API_KEY_COOLDOWN_MAX_SECONDS = 90000.0
-API_KEY_COOLDOWN_DEFAULT_SECONDS = 60.0
+def api_key_cooldown_service() -> ApiKeyCooldownService:
+    return ApiKeyCooldownService(
+        ApiKeyCooldownPorts(
+            repository=rate_limit_repository(),
+            rotation_name=provider_api_key_rotation_name,
+            config_keys=provider_config_api_keys,
+            meaningful_key=meaningful_key,
+            log=router_log,
+        )
+    )
 
 
 def _api_key_cooldown_state_key(provider: str, pcfg: dict[str, Any], key: str) -> str:
-    # Namespaced by provider+base_url (so the same key rotates independently per
-    # endpoint) and hashed -- the state file is plaintext, never store raw secrets.
-    digest = hashlib.sha256(str(key).encode("utf-8")).hexdigest()[:12]
-    return f"{provider_api_key_rotation_name(provider, pcfg)}:__key__:{digest}"
+    return api_key_cooldown_service().state_key(provider, pcfg, key)
 
 
 def api_key_cooldown_reset_seconds(headers: Any) -> float:
@@ -3765,44 +3764,25 @@ def api_key_cooldown_reset_seconds(headers: Any) -> float:
     Priority: X-RateLimit-Reset (exact reset, possibly ms epoch) -> Retry-After
     (seconds) -> a conservative default. Clamped to a sane ceiling.
     """
-    reset = rate_limit_reset_seconds(first_header(headers, list(_RATE_LIMIT_RESET_HEADER_NAMES)))
-    if reset is None or reset <= 0:
-        reset = parse_retry_after_seconds(first_header(headers, ["Retry-After", "retry-after"]))
-    if reset is None or reset <= 0:
-        reset = API_KEY_COOLDOWN_DEFAULT_SECONDS
-    return max(1.0, min(float(reset), API_KEY_COOLDOWN_MAX_SECONDS))
+    return ApiKeyCooldownService.reset_seconds(headers)
 
 
 def register_api_key_cooldown(provider: str, pcfg: dict[str, Any], key: str, headers: Any) -> float:
     """Rest a specific API key until its rate-limit reset. Returns the cooldown seconds."""
-    if not meaningful_key(key):
-        return 0.0
-    reset = api_key_cooldown_reset_seconds(headers)
-    state_key = _api_key_cooldown_state_key(provider, pcfg, key)
-    rate_limit_repository().register_cooldown(state_key, reset)
-    router_log("WARN", f"api_key_cooldown provider={provider} key_hash={state_key.rsplit(':', 1)[-1]} rest={reset:.0f}s")
-    return reset
+    return api_key_cooldown_service().register(provider, pcfg, key, headers)
 
 
 def api_key_cooldown_until(provider: str, pcfg: dict[str, Any], key: str) -> float:
     """Epoch until which this key is resting (0.0 if not cooling / expired)."""
-    if not meaningful_key(key):
-        return 0.0
-    return rate_limit_repository().cooldown_until(
-        _api_key_cooldown_state_key(provider, pcfg, key)
-    )
+    return api_key_cooldown_service().cooldown_until(provider, pcfg, key)
 
 
 def provider_live_api_key_count(provider: str, pcfg: dict[str, Any]) -> int:
-    keys = provider_config_api_keys(provider, pcfg)
-    if len(keys) <= 1:
-        return len(keys)
-    now = time.time()
-    return sum(1 for key in keys if api_key_cooldown_until(provider, pcfg, key) <= now)
+    return api_key_cooldown_service().live_key_count(provider, pcfg)
 
 
 def provider_has_live_api_key(provider: str, pcfg: dict[str, Any]) -> bool:
-    return provider_live_api_key_count(provider, pcfg) > 0
+    return api_key_cooldown_service().has_live_key(provider, pcfg)
 
 
 def reset_api_key_cooldowns_for_router_start() -> int:
@@ -3812,10 +3792,7 @@ def reset_api_key_cooldowns_for_router_start() -> int:
     router process can make a restarted session use only the one key that did
     not hit a prior 429. Provider/global RPM state is intentionally preserved.
     """
-    removed = rate_limit_repository().reset_key_cooldowns()
-    if removed:
-        router_log("INFO", f"api_key_cooldown_reset_on_router_start removed={removed}")
-    return removed
+    return api_key_cooldown_service().reset_for_router_start()
 
 
 def retry_after_exceeds_request_timeout(headers: Any, timeout: float) -> tuple[bool, float | None]:

@@ -595,6 +595,10 @@ provider model registry와 단기 model-list cache의 key 호환, TTL, metadata 
 
 설정 cache 무효화와 model artifact 삭제, cached/custom/current model 합성, launch 직전 registry 우선 hydration을 조정하는 Application Service. facade는 테스트 가능한 typed port를 조립하고 호환 함수를 위임한다.
 
+### `ciel_runtime_support/api_key_cooldown.py`
+
+429 응답의 reset header 우선순위·상한 정책, secret hash 기반 상태 key, credential별 cooldown 등록·조회와 live-key 계산을 소유하는 Application Service. 영속화는 `RateLimitRepository`에 위임한다.
+
 ### `ciel_runtime_support/provider_policy.py`
 
 공급자별 wire profile과 요청 메시지·thinking·tool-choice 정규화를 담당하는 순수 정책 서비스.
