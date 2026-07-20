@@ -249,6 +249,10 @@ from ciel_runtime_support.channel_event_identity import (
 )
 from ciel_runtime_support.channel_message_repository import ChannelMessageAppendPorts, ChannelMessageRepository
 from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
+from ciel_runtime_support.channel_launch_policy import (
+    ChannelLaunchPolicy,
+    ChannelLaunchPorts,
+)
 from ciel_runtime_support.channel_cursor_repository import ChannelCursorRepository
 from ciel_runtime_support.channel_cursor_service import (
     ChannelDeliveryCursorCommitter,
@@ -11459,7 +11463,19 @@ def should_fork_native_session_after_mode_switch(
 
 
 def native_channel_passthrough_requested(passthrough: list[str]) -> bool:
-    return has_passthrough_option(passthrough, "--channels", "--dangerously-load-development-channels")
+    return channel_launch_policy().native_passthrough_requested(passthrough)
+
+
+def channel_launch_policy() -> ChannelLaunchPolicy:
+    return ChannelLaunchPolicy(
+        native_router_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
+        ports=ChannelLaunchPorts(
+            has_option=has_passthrough_option,
+            channel_specs=channel_specs_for_launch,
+            delivery_mode=channel_delivery_mode,
+            run_auth_status=subprocess.run,
+        ),
+    )
 
 
 def claude_channel_args(
@@ -11469,18 +11485,12 @@ def claude_channel_args(
     *,
     native_channel_bridge: bool = False,
 ) -> list[str]:
-    if not native_channel_bridge:
-        return []
-    if native_channel_passthrough_requested(passthrough):
-        return []
-    specs = [
-        spec
-        for spec in channel_specs_for_launch(cfg, passthrough, extra_specs)
-        if not (str(spec).startswith("server:") and str(spec).split(":", 1)[1].strip().lower() in _NATIVE_ROUTER_CHANNEL_NAMES)
-    ]
-    if not specs:
-        return []
-    return ["--dangerously-load-development-channels", *specs]
+    return channel_launch_policy().claude_args(
+        cfg,
+        passthrough,
+        extra_specs,
+        native_channel_bridge=native_channel_bridge,
+    )
 
 
 def claude_channels_requested(cfg: dict[str, Any], passthrough: list[str], extra_specs: list[str] | None = None) -> bool:
@@ -11488,50 +11498,24 @@ def claude_channels_requested(cfg: dict[str, Any], passthrough: list[str], extra
 
 
 def should_use_native_channel_bridge(use_router_mode: bool, cfg: dict[str, Any], passthrough: list[str]) -> bool:
-    return bool(
-        not use_router_mode
-        and channel_delivery_mode(cfg) == "native"
-        and not native_channel_passthrough_requested(passthrough)
+    return channel_launch_policy().native_bridge(
+        use_router_mode,
+        cfg,
+        passthrough,
     )
 
 
 def should_use_channel_llm_delivery(use_router_mode: bool, passthrough: list[str], cfg: dict[str, Any] | None = None) -> bool:
-    if not use_router_mode or native_channel_passthrough_requested(passthrough):
-        return False
-    return True
+    del cfg
+    return channel_launch_policy().llm_delivery(use_router_mode, passthrough)
 
 
 def channel_specs_include_external_server(specs: list[str]) -> bool:
-    for spec in specs:
-        text = str(spec or "").strip()
-        if not text:
-            continue
-        name = text.split(":", 1)[1] if ":" in text else text
-        if name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES:
-            return True
-    return False
+    return channel_launch_policy().specs_include_external_server(specs)
 
 
 def claude_code_channels_auth_available(claude: str) -> tuple[bool, str]:
-    try:
-        proc = subprocess.run(
-            [claude, "auth", "status"],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=5,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        return True, f"auth_status_unavailable:{type(exc).__name__}"
-    if proc.returncode != 0:
-        return True, f"auth_status_rc_{proc.returncode}"
-    try:
-        data = json.loads(proc.stdout or "{}")
-    except (json.JSONDecodeError, TypeError):
-        return True, "auth_status_unparseable"
-    if not bool(data.get("loggedIn")):
-        return False, "not_logged_in"
-    return True, str(data.get("authMethod") or "logged_in")
+    return channel_launch_policy().claude_auth_available(claude)
 
 
 def write_web_tools_mcp_config(cfg: dict[str, Any]) -> Path:
@@ -11614,14 +11598,7 @@ def mcp_proxy_config_service() -> McpProxyConfigService:
 
 
 def should_use_channel_stdin_proxy(use_router_mode: bool, passthrough: list[str], cfg: dict[str, Any] | None = None) -> bool:
-    if not use_router_mode or native_channel_passthrough_requested(passthrough):
-        return False
-    if has_passthrough_option(passthrough, "-p", "--print"):
-        return False
-    ccfg = (cfg or {}).get("claude_code") if isinstance(cfg, dict) else {}
-    if isinstance(ccfg, dict) and ccfg.get("web_chat_session_bridge") is False:
-        return False
-    return channel_delivery_mode(cfg) == "llm"
+    return channel_launch_policy().stdin_proxy(use_router_mode, passthrough, cfg)
 
 
 def should_launch_process_start_channel_sse(
@@ -11629,7 +11606,11 @@ def should_launch_process_start_channel_sse(
     native_channel_bridge: bool,
     llm_channel_delivery: bool,
 ) -> bool:
-    return bool((stdin_channel_proxy or native_channel_bridge) and not llm_channel_delivery)
+    return ChannelLaunchPolicy.process_starts_sse(
+        stdin_channel_proxy,
+        native_channel_bridge,
+        llm_channel_delivery,
+    )
 
 
 def _channel_pending_scan_limit() -> int:

@@ -234,6 +234,10 @@ from ciel_runtime_support.channel_message_dedupe import (
 )
 from ciel_runtime_support.channel_wake_claim_repository import ChannelWakeClaimRepository
 from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
+from ciel_runtime_support.channel_launch_policy import (
+    ChannelLaunchPolicy,
+    ChannelLaunchPorts,
+)
 from ciel_runtime_support.channel_cursor_repository import ChannelCursorRepository
 from ciel_runtime_support.channel_cursor_recovery import (
     ChannelCursorRecoveryPolicy,
@@ -3912,6 +3916,29 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("CHANNEL_LLM_LAUNCH_GUARD_PATH.read_text", source)
         self.assertNotIn("CHANNEL_LLM_LAUNCH_GUARD_PATH.with_suffix", source)
         self.assertLessEqual(len(fields(ChannelLaunchGuardRepository)), 10)
+
+    def test_channel_launch_policy_owns_launch_decisions(self):
+        self.assertEqual(2, len(fields(ChannelLaunchPolicy)))
+        self.assertEqual(4, len(fields(ChannelLaunchPorts)))
+
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        functions = {
+            node.name: node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+        }
+        for name in (
+            "native_channel_passthrough_requested",
+            "claude_channel_args",
+            "should_use_native_channel_bridge",
+            "should_use_channel_llm_delivery",
+            "channel_specs_include_external_server",
+            "claude_code_channels_auth_available",
+            "should_use_channel_stdin_proxy",
+        ):
+            function_source = ast.unparse(functions[name])
+            self.assertIn("channel_launch_policy", function_source)
+            self.assertNotIn("subprocess.run", function_source)
 
     def test_channel_cursor_repository_owns_atomic_cursor_persistence(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
