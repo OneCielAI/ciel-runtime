@@ -317,6 +317,11 @@ from ciel_runtime_support.provider_catalog_sources import (
     ProviderCatalogPolicyPorts,
     ProviderCatalogSourceService,
 )
+from ciel_runtime_support.provider_endpoint_policy import (
+    ProviderEndpointPolicy as ModelEndpointPolicy,
+    ProviderEndpointPorts as ModelEndpointPorts,
+    ProviderEndpointPresentation as ModelEndpointPresentation,
+)
 from ciel_runtime_support.model_cache_lifecycle import (
     ModelCacheLifecyclePorts,
     ModelCacheLifecycleService,
@@ -3244,77 +3249,40 @@ fetch_anthropic_public_model_ids = (
 )
 
 
-def opencode_zen_endpoint_kind(model_id: str) -> str:
-    """Return the documented OpenCode Zen endpoint family for a model id."""
-    return opencode_endpoint_kind("opencode", model_id)
-
-
-def opencode_zen_model_supported_by_router(model_id: str) -> bool:
-    return opencode_zen_endpoint_kind(model_id) in ("anthropic-messages", "openai-chat")
-
-
-def normalize_opencode_endpoint_kind(value: Any) -> str | None:
-    key = str(value or "").strip().lower().replace("_", "-")
-    return OPENCODE_ENDPOINT_ALIASES.get(key)
-
-
-def opencode_endpoint_override(provider: str, model_id: str, pcfg: dict[str, Any] | None = None) -> str | None:
-    if not pcfg:
-        return None
-    overrides = pcfg.get("model_endpoints")
-    if not isinstance(overrides, dict):
-        return None
-    normalized = normalize_model_id(provider, model_id)
-    candidates = [
-        model_id,
-        normalized,
-        strip_claude_context_suffix(model_id),
-        alias_for(provider, normalized),
-    ]
-    for candidate in candidates:
-        raw = overrides.get(candidate)
-        endpoint = normalize_opencode_endpoint_kind(raw)
-        if endpoint:
-            return endpoint
-    return None
-
-
-def opencode_go_endpoint_kind(model_id: str) -> str:
-    """Return the documented OpenCode Go endpoint family for a model id."""
-    return opencode_endpoint_kind("opencode-go", model_id)
-
-
-def opencode_endpoint_kind(provider: str, model_id: str, pcfg: dict[str, Any] | None = None) -> str:
-    override = opencode_endpoint_override(provider, model_id, pcfg)
-    if override:
-        return override
-    adapter = configured_provider_adapter(provider, pcfg or {})
-    protocol = adapter.select_protocol(
-        "anthropic_messages",
-        provider_contract_config(provider, pcfg or {}),
-        model_id,
-    )
-    return str(protocol).replace("_", "-")
-
-
-def opencode_model_supported_by_router(provider: str, model_id: str, pcfg: dict[str, Any] | None = None) -> bool:
-    return opencode_endpoint_kind(provider, model_id, pcfg) in ("anthropic-messages", "openai-chat")
-
-
-def opencode_endpoint_display(provider: str, model_id: str, pcfg: dict[str, Any] | None = None) -> str:
-    endpoint = opencode_endpoint_kind(provider, model_id, pcfg)
-    labels = {
-        "anthropic-messages": "messages",
-        "openai-chat": "chat",
-        "openai-responses": "responses",
-        "google-generative": "gemini",
-    }
-    text = labels.get(endpoint, endpoint)
-    if not opencode_model_supported_by_router(provider, model_id, pcfg):
-        text += " unsupported"
-    if opencode_endpoint_override(provider, model_id, pcfg):
-        text += " override"
-    return text
+_PROVIDER_ENDPOINT_POLICY = ModelEndpointPolicy(
+    ports=ModelEndpointPorts(
+        normalize_model_id=normalize_model_id,
+        strip_context_suffix=strip_claude_context_suffix,
+        alias_for=alias_for,
+        select_protocol=lambda provider, pcfg, model_id: configured_provider_adapter(
+            provider, pcfg
+        ).select_protocol(
+            "anthropic_messages",
+            provider_contract_config(provider, pcfg),
+            model_id,
+        ),
+    ),
+    presentation=ModelEndpointPresentation(
+        aliases=OPENCODE_ENDPOINT_ALIASES,
+        labels={
+            "anthropic-messages": "messages",
+            "openai-chat": "chat",
+            "openai-responses": "responses",
+            "google-generative": "gemini",
+        },
+        routed_protocols=frozenset({"anthropic-messages", "openai-chat"}),
+    ),
+)
+opencode_zen_endpoint_kind = _PROVIDER_ENDPOINT_POLICY.zen_endpoint_kind
+opencode_zen_model_supported_by_router = (
+    _PROVIDER_ENDPOINT_POLICY.zen_model_supported
+)
+normalize_opencode_endpoint_kind = _PROVIDER_ENDPOINT_POLICY.normalize_endpoint_kind
+opencode_endpoint_override = _PROVIDER_ENDPOINT_POLICY.endpoint_override
+opencode_go_endpoint_kind = _PROVIDER_ENDPOINT_POLICY.go_endpoint_kind
+opencode_endpoint_kind = _PROVIDER_ENDPOINT_POLICY.endpoint_kind
+opencode_model_supported_by_router = _PROVIDER_ENDPOINT_POLICY.model_supported
+opencode_endpoint_display = _PROVIDER_ENDPOINT_POLICY.endpoint_display
 
 
 def nvidia_hosted_list_headers() -> dict[str, str]:

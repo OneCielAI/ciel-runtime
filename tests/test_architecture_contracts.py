@@ -104,6 +104,11 @@ from ciel_runtime_support.provider_catalog_sources import (
     ProviderCatalogPolicyPorts,
     ProviderCatalogSourceService,
 )
+from ciel_runtime_support.provider_endpoint_policy import (
+    ProviderEndpointPolicy as ModelEndpointPolicy,
+    ProviderEndpointPorts as ModelEndpointPorts,
+    ProviderEndpointPresentation as ModelEndpointPresentation,
+)
 from ciel_runtime_support.claude_router import (
     ClaudeRouterCore,
     ClaudeRouterCountTokens,
@@ -2004,16 +2009,14 @@ class ArchitectureContractTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
-        for function_name in ("model_object", "opencode_endpoint_kind"):
-            function = next(
-                node
-                for node in tree.body
-                if isinstance(node, ast.FunctionDef) and node.name == function_name
-            )
-            function_source = ast.get_source_segment(source, function) or ""
-            with self.subTest(function=function_name):
-                self.assertNotIn('provider == "opencode', function_source)
-                self.assertNotIn("OPENCODE_PROVIDER_NAMES", function_source)
+        function = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "model_object"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertNotIn('provider == "opencode', function_source)
+        self.assertNotIn("OPENCODE_PROVIDER_NAMES", function_source)
         model_object = next(
             node
             for node in tree.body
@@ -2023,6 +2026,31 @@ class ArchitectureContractTests(unittest.TestCase):
             "adapter.project_router_model_metadata",
             ast.get_source_segment(source, model_object) or "",
         )
+
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        endpoint_exports = {
+            "opencode_zen_endpoint_kind",
+            "opencode_zen_model_supported_by_router",
+            "normalize_opencode_endpoint_kind",
+            "opencode_endpoint_override",
+            "opencode_go_endpoint_kind",
+            "opencode_endpoint_kind",
+            "opencode_model_supported_by_router",
+            "opencode_endpoint_display",
+        }
+        self.assertTrue(endpoint_exports.isdisjoint(root_functions))
+        endpoint_source = (
+            root / "ciel_runtime_support" / "provider_endpoint_policy.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn('provider == "opencode', endpoint_source)
+        self.assertNotIn("import ciel_runtime", endpoint_source)
+
+    def test_model_endpoint_policy_uses_small_typed_ports(self):
+        self.assertLessEqual(len(fields(ModelEndpointPorts)), 4)
+        self.assertLessEqual(len(fields(ModelEndpointPresentation)), 3)
+        self.assertEqual(2, len(fields(ModelEndpointPolicy)))
 
     def test_npm_runtime_utilities_are_infrastructure_reexports(self):
         root = Path(__file__).resolve().parents[1]
