@@ -4676,6 +4676,7 @@ class ArchitectureContractTests(unittest.TestCase):
             "body_without_ciel_runtime_internal_metadata": "strip_internal_metadata",
             "pid_is_running": "inspect_pid_is_running",
             "claude_supports_permission_mode_arg": "supports_permission_mode",
+            "_chat_messages_file_lock": "exclusive_file_lock",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

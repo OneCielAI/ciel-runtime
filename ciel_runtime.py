@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
 import getpass
 import hashlib
 import json
@@ -249,7 +248,11 @@ from ciel_runtime_support.channel_event_identity import (
     message_time_seconds as _chat_message_time_seconds,
     stable_dedupe_key as _chat_message_stable_dedupe_key,
 )
-from ciel_runtime_support.channel_message_repository import ChannelMessageAppendPorts, ChannelMessageRepository
+from ciel_runtime_support.channel_message_repository import (
+    ChannelMessageAppendPorts,
+    ChannelMessageRepository,
+    exclusive_file_lock,
+)
 from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
 from ciel_runtime_support.channel_launch_policy import (
     ChannelLaunchPolicy,
@@ -3997,33 +4000,8 @@ def _chat_scan_max_id_before_epoch(cutoff_epoch: float) -> int:
     return channel_message_repository().max_id_before_epoch(cutoff_epoch)
 
 
-@contextlib.contextmanager
-def _chat_messages_file_lock() -> Iterable[None]:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    lock_path = CHAT_MESSAGES_PATH.with_name(CHAT_MESSAGES_PATH.name + ".lock")
-    with lock_path.open("a+b") as lock_file:
-        if os.name == "nt":
-            import msvcrt
-
-            lock_file.seek(0, os.SEEK_END)
-            if lock_file.tell() == 0:
-                lock_file.write(b"\0")
-                lock_file.flush()
-            lock_file.seek(0)
-            msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
-            try:
-                yield
-            finally:
-                lock_file.seek(0)
-                msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
-        else:
-            import fcntl
-
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-            try:
-                yield
-            finally:
-                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+def _chat_messages_file_lock():
+    return exclusive_file_lock(CHAT_MESSAGES_PATH)
 
 
 def read_chat_messages(after_id: int = 0, channel: str | None = None, recipient: str | None = None, limit: int = 100) -> list[dict[str, Any]]:

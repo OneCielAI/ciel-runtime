@@ -5,10 +5,23 @@ import tempfile
 import threading
 import unittest
 
-from ciel_runtime_support.channel_message_repository import ChannelMessageAppendPorts, ChannelMessageRepository
+from ciel_runtime_support.channel_message_repository import (
+    ChannelMessageAppendPorts,
+    ChannelMessageRepository,
+    exclusive_file_lock,
+)
 
 
 class ChannelMessageRepositoryTests(unittest.TestCase):
+    def test_exclusive_file_lock_creates_parent_and_lock_artifact(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "nested" / "messages.jsonl"
+
+            with exclusive_file_lock(path):
+                self.assertTrue(path.with_name("messages.jsonl.lock").exists())
+
+            self.assertTrue(path.parent.exists())
+
     def repository(self, path: Path) -> ChannelMessageRepository:
         return ChannelMessageRepository(path=path, log=lambda _level, _message: None)
 

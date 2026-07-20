@@ -213,7 +213,7 @@ stable/fallback event identity, 최근 저장 행, launch replay guard와 TTL을
 
 ### `ciel_runtime_support/channel_message_repository.py`
 
-Channel JSONL 메시지의 append transaction·크기 기반 회전·ID 재동기화, ID/cutoff 스캔, channel·recipient 가시성 필터, 앞뒤 방향 조회와 dedupe용 최근 행 조회를 소유하는 Repository. condition/file-lock/dedupe/recipient 정책은 4필드 append port로 주입하며 손상된 개별 행은 격리하고 파일 I/O 실패는 경고로 노출한다.
+Channel JSONL 메시지의 append transaction·크기 기반 회전·ID 재동기화, ID/cutoff 스캔, channel·recipient 가시성 필터, 앞뒤 방향 조회와 dedupe용 최근 행 조회를 소유하는 Repository. Windows `msvcrt`와 POSIX `flock` 기반 advisory lock도 이 인프라 경계가 캡슐화한다. condition/file-lock/dedupe/recipient 정책은 4필드 append port로 주입하며 손상된 개별 행은 격리하고 파일 I/O 실패는 경고로 노출한다.
 
 ### `ciel_runtime_support/channel_launch_guard_repository.py`
 
