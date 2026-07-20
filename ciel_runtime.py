@@ -1258,7 +1258,11 @@ from ciel_runtime_support.upstream_stream_io import (
     sleep_until_disconnect as project_sleep_until_disconnect,
     stream_idle_timeout as project_stream_idle_timeout,
 )
-from ciel_runtime_support.tool_dialects import TOOL_DIALECTS, mcp_server_normalized_key
+from ciel_runtime_support.tool_dialects import (
+    TOOL_DIALECTS,
+    match_available_tool_name as _match_available_tool_name,
+    mcp_server_normalized_key,
+)
 from ciel_runtime_support.tool_exposure_policy import ToolExposurePolicy, ToolExposurePorts
 from ciel_runtime_support.visible_stream_filters import (
     VISIBLE_THINKING_MARKUP_PREFIXES,  # noqa: F401 - compatibility export
@@ -1277,12 +1281,20 @@ from ciel_runtime_support.synthetic_tool_policy import (
     SyntheticTasklistPolicy,
     SyntheticTasklistPorts,
 )
+from ciel_runtime_support.tool_request_projection import (
+    UltracodeSessionPolicy,
+    forced_tool_choice_name,
+    has_tool,
+    synthetic_tool_use_response,
+    tool_names_in_body,
+)
 from ciel_runtime_support.tool_schema import (
     _fuzzy_match_tool_name,
     _lookup_tool_schema,
     _missing_required_tool_fields,
     _update_tool_schema_registry,
     _validate_and_fix_tool_input as _tool_schema_validate_and_fix,
+    tool_schema_in_body,
 )
 from ciel_runtime_support.usage_events import JsonlUsageEventSink, UsageEvent
 from ciel_runtime_support.ui_text import PROVIDER_NOTES, UI_TEXT
@@ -2412,56 +2424,7 @@ def resolve_blocked_tools(provider: str, pcfg: dict[str, Any]) -> set[str]:
     return set(DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC)
 
 
-def forced_tool_choice_name(body: dict[str, Any]) -> str | None:
-    tool_choice = body.get("tool_choice") if isinstance(body.get("tool_choice"), dict) else None
-    if not tool_choice:
-        return None
-    if tool_choice.get("type") != "tool":
-        return None
-    name = tool_choice.get("name")
-    return name if isinstance(name, str) and name else None
-
-
-def tool_names_in_body(body: dict[str, Any]) -> set[str]:
-    names: set[str] = set()
-    tools = body.get("tools")
-    if not isinstance(tools, list):
-        return names
-    for tool in tools:
-        if isinstance(tool, dict) and isinstance(tool.get("name"), str):
-            names.add(tool["name"])
-    return names
-
-
-def tool_schema_in_body(body: dict[str, Any], tool_name: str) -> dict[str, Any] | None:
-    tools = body.get("tools")
-    if not isinstance(tools, list):
-        return None
-    for tool in tools:
-        if not isinstance(tool, dict):
-            continue
-        if str(tool.get("name") or "") != tool_name:
-            continue
-        schema = tool.get("input_schema")
-        return schema if isinstance(schema, dict) else None
-    return None
-
-
-def _match_available_tool_name(name: str, available: set[str]) -> str | None:
-    dialect = TOOL_DIALECTS.create("claude", available_tools=available)
-    normalized = dialect.normalize_tool_name(name)
-    return normalized if normalized in available else None
-
-
-def _mcp_tool_name_server_normalized_key(name: str) -> tuple[str, str] | None:
-    """Return a safe comparison key for MCP tool names.
-
-    Some non-native models rewrite the MCP server segment, e.g.
-    ``mcp__ai-net-http__get_messages`` becomes
-    ``mcp__ai-net_http__get_messages``. Only the server segment is normalized;
-    the tool name segment must still match exactly case-insensitively.
-    """
-    return mcp_server_normalized_key(name)
+_mcp_tool_name_server_normalized_key = mcp_server_normalized_key
 
 
 def resolve_emitted_tool_name(raw_name: str, source_body: dict[str, Any] | None) -> str:
@@ -2483,59 +2446,16 @@ def should_repair_anthropic_passthrough_tool_input(
     return matched_name in ANTHROPIC_PASSTHROUGH_TOOL_INPUT_REPAIR_TOOLS
 
 
-def synthetic_tool_use_response(model: str, tool_name: str, tool_input: dict[str, Any] | None = None) -> dict[str, Any]:
-    now = int(time.time() * 1000)
-    return {
-        "id": f"msg_ciel_runtime_tool_{now}",
-        "type": "message",
-        "role": "assistant",
-        "model": model or "ciel-runtime-router",
-        "content": [
-            {
-                "type": "tool_use",
-                "id": f"toolu_ciel_runtime_{tool_name}_{now}",
-                "name": tool_name,
-                "input": tool_input or {},
-            }
-        ],
-        "stop_reason": "tool_use",
-        "stop_sequence": None,
-        "usage": {"input_tokens": 0, "output_tokens": 0},
-    }
-
-
-def has_tool(body: dict[str, Any], name: str) -> bool:
-    return name in tool_names_in_body(body)
-
-
-ULTRACODE_ON_RE = re.compile(r"\bUltracode\s+is\s+(?:still\s+)?on\b", re.IGNORECASE)
-ULTRACODE_OFF_RE = re.compile(r"\bUltracode\s+is\s+off\b", re.IGNORECASE)
-ULTRACODE_STATE_RE = re.compile(r"\bUltracode\s+is\s+(?:still\s+)?(on|off)\b", re.IGNORECASE)
+def ultracode_session_policy() -> UltracodeSessionPolicy:
+    return UltracodeSessionPolicy(anthropic_content_to_text)
 
 
 def body_ultracode_runtime_enabled(body: dict[str, Any]) -> bool:
-    """Infer Claude Code's per-session ultracode runtime state from the prompt.
-
-    `/effort ultracode` is session-scoped in Claude Code and is not persisted in
-    ciel-runtime provider config. Claude Code advertises that runtime state via
-    system reminder text, so the router must infer it from the current request
-    body rather than from config alone.
-    """
-    enabled = False
-    system_text = anthropic_content_to_text(body.get("system"))
-    for match in ULTRACODE_STATE_RE.finditer(system_text):
-        enabled = match.group(1).lower() == "on"
-    for message in body.get("messages") or []:
-        if not isinstance(message, dict):
-            continue
-        text = anthropic_content_to_text(message.get("content"))
-        for match in ULTRACODE_STATE_RE.finditer(text):
-            enabled = match.group(1).lower() == "on"
-    return enabled
+    return ultracode_session_policy().runtime_enabled(body)
 
 
 def ultracode_workflow_preferred(body: dict[str, Any]) -> bool:
-    return body_ultracode_runtime_enabled(body) and has_tool(body, "Workflow")
+    return ultracode_session_policy().workflow_preferred(body)
 
 
 def _message_content_blocks(message: dict[str, Any]) -> list[Any]:
