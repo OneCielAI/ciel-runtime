@@ -333,6 +333,10 @@ LLM 옵션의 입력 검증, Provider 설정 변경, 컨텍스트·출력 보정
 
 Provider text/tool_use/tool_result 호환성 진단을 실행하는 CLI Application Service. Configuration, mode, request, protocol, output 포트를 분리하며 각 포트는 최대 10개 의존성만 갖는다.
 
+### `ciel_runtime_support/compatibility_protocol.py`
+
+Compatibility 검사의 tool schema, text/tool/tool-result 요청 payload, Anthropic content block 검증, usage 요약, HTTP Retry-After 오류 projection을 담당하는 Protocol Codec. 모델별 token limit과 공통 header/time parser만 4필드 포트로 주입받는다.
+
 ### `ciel_runtime_support/agy_cli.py`
 
 AGY passthrough 인수 분석과 Claude 호환 인수 매핑.

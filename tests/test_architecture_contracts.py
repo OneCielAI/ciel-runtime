@@ -140,6 +140,7 @@ from ciel_runtime_support.compatibility_test import (
     CompatibilityTestRequest,
     CompatibilityTestServices,
 )
+from ciel_runtime_support.compatibility_protocol import CompatibilityProtocolPorts
 from ciel_runtime_support.headless_config import (
     HeadlessChannelCommands,
     HeadlessConfigCommands,
@@ -727,6 +728,9 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_compatibility_protocol_ports_stay_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(CompatibilityProtocolPorts)), 10)
 
     def test_ollama_forwarding_ports_stay_below_dependency_limit(self):
         for port in (

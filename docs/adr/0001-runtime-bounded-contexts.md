@@ -157,6 +157,9 @@ Live API-key status and mutation action dispatch live in
 `live_api_key_controller.py`; the HTTP layer receives only masked projection
 lines and a changed flag.
 
+Compatibility probe request/response framing and HTTP error decoding live in
+`compatibility_protocol.py`; orchestration remains in `compatibility_test.py`.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

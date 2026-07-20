@@ -343,6 +343,10 @@ from ciel_runtime_support.compatibility_test import (
     CompatibilityTestServices,
     run_compatibility_test as run_provider_compatibility_test,
 )
+from ciel_runtime_support.compatibility_protocol import (
+    CompatibilityProtocolCodec,
+    CompatibilityProtocolPorts,
+)
 from ciel_runtime_support.headless_config import (
     HeadlessChannelCommands,
     HeadlessConfigCommands,
@@ -12568,151 +12572,52 @@ COMPAT_TOOL_NAME = "compat_echo"
 COMPATIBILITY_TEST_HEADER = "x-ciel-runtime-compatibility-test"
 
 
+def compatibility_protocol_codec() -> CompatibilityProtocolCodec:
+    return CompatibilityProtocolCodec(
+        COMPAT_TOOL_NAME,
+        CompatibilityProtocolPorts(
+            max_tokens_for_model=compat_max_tokens_for_model,
+            first_header=first_header,
+            parse_retry_after=parse_retry_after_seconds,
+            format_duration=format_duration_seconds,
+        ),
+    )
+
+
 def compatibility_tool_schema() -> dict[str, Any]:
-    return {
-        "name": COMPAT_TOOL_NAME,
-        "description": "A minimal compatibility test tool. It echoes one required text argument.",
-        "input_schema": {
-            "type": "object",
-            "properties": {"text": {"type": "string"}},
-            "required": ["text"],
-            "additionalProperties": False,
-        },
-    }
+    return compatibility_protocol_codec().tool_schema()
 
 
 def compatibility_text_request(model: str) -> dict[str, Any]:
-    return {
-        "model": model,
-        "max_tokens": compat_max_tokens_for_model(model),
-        "stream": False,
-        "messages": [
-            {
-                "role": "user",
-                "content": "Compatibility text test. Reply with exactly OK and do not call tools.",
-            }
-        ],
-    }
+    return compatibility_protocol_codec().text_request(model)
 
 
 def compatibility_tool_request(model: str) -> dict[str, Any]:
-    return {
-        "model": model,
-        "max_tokens": 128,
-        "stream": False,
-        "messages": [
-            {
-                "role": "user",
-                "content": "Compatibility tool test. Use the compat_echo tool exactly once with text set to ping.",
-            }
-        ],
-        "tools": [compatibility_tool_schema()],
-        "tool_choice": {"type": "tool", "name": COMPAT_TOOL_NAME},
-    }
+    return compatibility_protocol_codec().tool_request(model)
 
 
 def compatibility_tool_result_request(model: str, tool_use: dict[str, Any]) -> dict[str, Any]:
-    tool_id = str(tool_use.get("id") or "toolu_compat_echo_1")
-    tool_input = tool_use.get("input") if isinstance(tool_use.get("input"), dict) else {"text": "ping"}
-    return {
-        "model": model,
-        "max_tokens": 64,
-        "stream": False,
-        "messages": [
-            {
-                "role": "user",
-                "content": "Compatibility tool test. Use the compat_echo tool exactly once with text set to ping.",
-            },
-            {
-                "role": "assistant",
-                "content": [
-                    {
-                        "type": "tool_use",
-                        "id": tool_id,
-                        "name": COMPAT_TOOL_NAME,
-                        "input": tool_input,
-                    }
-                ],
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": tool_id,
-                        "content": "pong",
-                    },
-                    {
-                        "type": "text",
-                        "text": "Now reply with FINAL_OK and do not call tools.",
-                    },
-                ],
-            },
-        ],
-        "tools": [compatibility_tool_schema()],
-    }
+    return compatibility_protocol_codec().tool_result_request(model, tool_use)
 
 
 def response_content_blocks(data: Any) -> list[dict[str, Any]]:
-    if not isinstance(data, dict):
-        return []
-    content = data.get("content")
-    if not isinstance(content, list):
-        return []
-    return [block for block in content if isinstance(block, dict)]
+    return CompatibilityProtocolCodec.content_blocks(data)
 
 
 def response_content_types(data: Any) -> list[str]:
-    return [str(block.get("type", "?")) for block in response_content_blocks(data)]
+    return compatibility_protocol_codec().content_types(data)
 
 
 def response_text_preview(data: Any) -> str:
-    parts: list[str] = []
-    for block in response_content_blocks(data):
-        if block.get("type") == "text" and isinstance(block.get("text"), str):
-            parts.append(block["text"].strip())
-    return " ".join(parts).strip()[:300]
+    return compatibility_protocol_codec().text_preview(data)
 
 
 def find_compat_tool_use(data: Any) -> tuple[dict[str, Any] | None, str]:
-    for block in response_content_blocks(data):
-        if block.get("type") != "tool_use":
-            continue
-        if block.get("name") != COMPAT_TOOL_NAME:
-            return None, f"unexpected tool name {block.get('name')!r}"
-        tool_input = block.get("input")
-        if not isinstance(tool_input, dict):
-            return None, "tool input was not a JSON object"
-        if tool_input.get("text") != "ping":
-            return None, f"tool input text was {tool_input.get('text')!r}, expected 'ping'"
-        if not block.get("id"):
-            return None, "tool_use block did not include an id"
-        return block, ""
-    types = ", ".join(response_content_types(data)) or "none"
-    preview = response_text_preview(data)
-    suffix = f"; text={preview!r}" if preview else ""
-    return None, f"no compat_echo tool_use block returned; content blocks: {types}{suffix}"
+    return compatibility_protocol_codec().find_tool_use(data)
 
 
 def summarize_compat_response(data: Any, label: str) -> list[str]:
-    lines = [f"{label}: OK"]
-    if isinstance(data, dict):
-        stop = data.get("stop_reason")
-        if stop:
-            lines.append(f"Stop reason: {stop}")
-        types = response_content_types(data)
-        if types:
-            lines.append("Content blocks: " + ", ".join(types[:6]))
-        usage = data.get("usage")
-        if isinstance(usage, dict):
-            tokens = []
-            if "input_tokens" in usage:
-                tokens.append(f"in={usage['input_tokens']}")
-            if "output_tokens" in usage:
-                tokens.append(f"out={usage['output_tokens']}")
-            if tokens:
-                lines.append("Tokens: " + ", ".join(tokens))
-    return lines
+    return compatibility_protocol_codec().summarize_response(data, label)
 
 
 def compatibility_failure_diagnosis(provider: str, code: int | None, msg: str) -> str | None:
@@ -12735,40 +12640,7 @@ class CompatibilityApiKeyProbeError(Exception):
 
 
 def compatibility_http_error_message(exc: urllib.error.HTTPError) -> str:
-    raw = exc.read().decode("utf-8", errors="ignore")
-    msg = raw.strip()
-    error_type = ""
-    try:
-        err = json.loads(raw)
-        if isinstance(err, dict):
-            if isinstance(err.get("error"), dict):
-                error_obj = err["error"]
-                error_type = str(error_obj.get("type") or "").strip()
-                msg = str(error_obj.get("message") or json.dumps(error_obj, ensure_ascii=False))
-            elif err.get("message"):
-                msg = str(err["message"])
-                error_type = str(err.get("type") or "").strip()
-    except Exception:
-        pass
-    if error_type and error_type not in msg:
-        msg = f"{error_type}: {msg}"
-    retry_after = first_header(exc.headers, ["Retry-After", "retry-after"])
-    if retry_after:
-        retry_after_text = retry_after.strip()
-        retry_after_seconds = parse_retry_after_seconds(retry_after_text)
-        if retry_after_seconds is not None:
-            retry_after_display = format_duration_seconds(retry_after_seconds)
-            if retry_after_text:
-                if re.fullmatch(r"\d+(?:\.\d+)?", retry_after_text):
-                    suffix = f"{retry_after_display} ({retry_after_text}s)"
-                else:
-                    suffix = f"{retry_after_display} ({retry_after_text})"
-                msg = f"{msg} Retry-After: {suffix}"
-            else:
-                msg = f"{msg} Retry-After: {retry_after_display}"
-        else:
-            msg = f"{msg} Retry-After: {retry_after_text}"
-    return msg
+    return compatibility_protocol_codec().http_error_message(exc)
 
 
 def provider_config_for_single_api_key(pcfg: dict[str, Any], key: str) -> dict[str, Any]:
