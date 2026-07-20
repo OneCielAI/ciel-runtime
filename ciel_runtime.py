@@ -770,6 +770,13 @@ from ciel_runtime_support.timeout_profile import (
     TimeoutProfileService,
     TimeoutProfileSettings,
 )
+from ciel_runtime_support.runtime_llm_options import (
+    RuntimeLlmConfigPorts,
+    RuntimeLlmMutationPorts,
+    RuntimeLlmOptionsController,
+    RuntimeLlmPresentationPorts,
+    RuntimeLlmSettings,
+)
 from ciel_runtime_support.provider_limits import (
     ProviderKeyServices,
     RateLimitApplyPolicy,
@@ -12299,127 +12306,61 @@ def apply_llm_preset_config(provider: str, preset_id: str) -> list[str]:
 
 
 def runtime_llm_snapshot_from_provider(provider: str, pcfg: dict[str, Any]) -> dict[str, Any]:
-    values = {
-        key: json.loads(json.dumps(pcfg[key]))
-        for key in sorted(RUNTIME_LLM_OPTION_KEYS)
-        if key in pcfg
-    }
-    return {
-        "version": 1,
-        "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "provider": provider,
-        "model": str(pcfg.get("current_model") or ""),
-        "values": values,
-    }
+    return runtime_llm_options_controller().snapshot(provider, pcfg)
+
+
+def runtime_llm_options_controller() -> RuntimeLlmOptionsController:
+    return RuntimeLlmOptionsController(
+        RuntimeLlmSettings(
+            option_keys=frozenset(RUNTIME_LLM_OPTION_KEYS),
+            original_key=RUNTIME_LLM_ORIGINAL_KEY,
+            slider_labels=LLM_SLIDER_LABELS,
+        ),
+        RuntimeLlmConfigPorts(
+            load=load_config,
+            save=save_config,
+            clear_model_cache=clear_model_cache,
+            deep_copy=lambda value: json.loads(json.dumps(value)),
+        ),
+        RuntimeLlmPresentationPorts(
+            applied_preset=applied_preset_id,
+            slider_presets=llm_slider_preset_ids,
+            preset_text=llm_preset_text,
+            provider_label=provider_mode_label,
+            context_status=context_setting_status,
+            timeout_status=timeout_profile_status,
+            ollama_options=ollama_extra_options,
+        ),
+        RuntimeLlmMutationPorts(apply_preset=apply_llm_preset_to_provider),
+    )
 
 
 def ensure_runtime_llm_original_snapshot(provider: str, pcfg: dict[str, Any]) -> bool:
-    existing = pcfg.get(RUNTIME_LLM_ORIGINAL_KEY)
-    if isinstance(existing, dict) and isinstance(existing.get("values"), dict):
-        return False
-    pcfg[RUNTIME_LLM_ORIGINAL_KEY] = runtime_llm_snapshot_from_provider(provider, pcfg)
-    return True
+    return runtime_llm_options_controller().ensure_snapshot(provider, pcfg)
 
 
 def restore_runtime_llm_original_options(provider: str) -> list[str]:
-    cfg = load_config()
-    pcfg = cfg["providers"][provider]
-    snapshot = pcfg.get(RUNTIME_LLM_ORIGINAL_KEY)
-    if not isinstance(snapshot, dict) or not isinstance(snapshot.get("values"), dict):
-        return ["No captured live LLM options to restore."]
-    values = json.loads(json.dumps(snapshot.get("values") or {}))
-    for key in RUNTIME_LLM_OPTION_KEYS:
-        pcfg.pop(key, None)
-    pcfg.update(values)
-    pcfg.pop(RUNTIME_LLM_ORIGINAL_KEY, None)
-    save_config(cfg)
-    clear_model_cache()
-    return [
-        "Restored live LLM options to the values captured before the first runtime preset change.",
-        f"Captured provider/model: {snapshot.get('provider') or provider} / {snapshot.get('model') or 'unknown'}",
-    ]
+    return runtime_llm_options_controller().restore(provider)
 
 
 def apply_runtime_llm_preset_config(provider: str, preset_id: str) -> list[str]:
-    cfg = load_config()
-    pcfg = cfg["providers"][provider]
-    captured = ensure_runtime_llm_original_snapshot(provider, pcfg)
-    lines = apply_llm_preset_to_provider(provider, pcfg, preset_id, cfg.get("language", "en"))
-    if captured:
-        lines.insert(0, "Captured current live LLM options for /llm-restore.")
-    save_config(cfg)
-    clear_model_cache()
-    return lines
+    return runtime_llm_options_controller().apply_preset(provider, preset_id)
 
 
 def runtime_llm_slider_line(provider: str, pcfg: dict[str, Any]) -> str:
-    current = applied_preset_id(provider, pcfg)
-    parts: list[str] = []
-    for preset_id in llm_slider_preset_ids():
-        label = LLM_SLIDER_LABELS.get(preset_id, preset_id)
-        parts.append(f"[{label}]" if preset_id == current else label)
-    return "< " + " | ".join(parts) + " >"
+    return runtime_llm_options_controller().slider_line(provider, pcfg)
 
 
 def apply_runtime_llm_slider_delta_config(provider: str, delta: int) -> list[str]:
-    cfg = load_config()
-    pcfg = cfg["providers"][provider]
-    presets = llm_slider_preset_ids()
-    current = applied_preset_id(provider, pcfg)
-    try:
-        current_idx = presets.index(current)
-    except ValueError:
-        current_idx = 0
-    next_idx = max(0, min(len(presets) - 1, current_idx + delta))
-    next_preset = presets[next_idx]
-    if next_idx == current_idx:
-        label = llm_preset_text(next_preset, cfg.get("language", "en"))[0]
-        return [f"Live LLM preset remains at {label}.", f"Slider: {runtime_llm_slider_line(provider, pcfg)}"]
-    captured = ensure_runtime_llm_original_snapshot(provider, pcfg)
-    lines = apply_llm_preset_to_provider(provider, pcfg, next_preset, cfg.get("language", "en"))
-    if captured:
-        lines.insert(0, "Captured current live LLM options for /llm-restore.")
-    save_config(cfg)
-    clear_model_cache()
-    label = llm_preset_text(next_preset, cfg.get("language", "en"))[0]
-    return [f"Live LLM preset moved to {label}."] + lines + [f"Slider: {runtime_llm_slider_line(provider, pcfg)}"]
+    return runtime_llm_options_controller().apply_slider_delta(provider, delta)
 
 
 def runtime_llm_status_lines(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    cfg = load_config()
-    lang = cfg.get("language", "en")
-    applied = applied_preset_id(provider, pcfg)
-    lines = [
-        f"Provider: {provider_mode_label(provider, pcfg)}",
-        f"Model: {pcfg.get('current_model') or 'unknown'}",
-        f"Preset: {applied} ({llm_preset_text(applied, lang)[0]})",
-        f"Slider: {runtime_llm_slider_line(provider, pcfg)}",
-        f"Context: {context_setting_status(provider, pcfg)}",
-        f"Timeout: {timeout_profile_status(pcfg, lang)}",
-    ]
-    if provider in ("ollama", "ollama-cloud"):
-        opts = ollama_extra_options(pcfg)
-        lines.append(f"Output tokens: {opts.get('num_predict', 'default')}")
-    else:
-        lines.append(f"Output tokens: {pcfg.get('max_output_tokens', 'default')}")
-    lines.append(f"Restore available: {'yes' if isinstance(pcfg.get(RUNTIME_LLM_ORIGINAL_KEY), dict) else 'no'}")
-    return lines
+    return runtime_llm_options_controller().status_lines(provider, pcfg)
 
 
 def runtime_llm_preset_list_lines(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    lang = load_config().get("language", "en")
-    applied = applied_preset_id(provider, pcfg)
-    lines = runtime_llm_status_lines(provider, pcfg)
-    lines.append("")
-    lines.append("Use `/llm left` or `/llm right` to move one step, or `/llm <preset-id>` to jump directly.")
-    lines.append("Preset ids:")
-    for preset_id in llm_slider_preset_ids():
-        label, description = llm_preset_text(preset_id, lang)
-        mark = "*" if preset_id == applied else " "
-        lines.append(f"{mark} {preset_id} — {label}: {description}")
-    lines.append("  /llm-restore  restore captured original options")
-    lines.append("  /llm <left|right|preset-id|status|list|restore>")
-    return lines
+    return runtime_llm_options_controller().preset_list_lines(provider, pcfg)
 
 
 

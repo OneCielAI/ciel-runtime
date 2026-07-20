@@ -191,6 +191,12 @@ from ciel_runtime_support.timeout_profile import (
     TimeoutProfilePorts,
     TimeoutProfileSettings,
 )
+from ciel_runtime_support.runtime_llm_options import (
+    RuntimeLlmConfigPorts,
+    RuntimeLlmMutationPorts,
+    RuntimeLlmPresentationPorts,
+    RuntimeLlmSettings,
+)
 from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy, ToolGuardHookServices
 from ciel_runtime_support.process_control import (
     ProcessControlServices,
@@ -555,6 +561,16 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_model_context_hint_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ModelContextHintPorts)), 10)
+
+    def test_runtime_llm_option_ports_stay_below_dependency_limit(self):
+        for port in (
+            RuntimeLlmSettings,
+            RuntimeLlmConfigPorts,
+            RuntimeLlmPresentationPorts,
+            RuntimeLlmMutationPorts,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
 
     def test_claude_launch_ports_stay_below_dependency_limit(self):
         ports = (

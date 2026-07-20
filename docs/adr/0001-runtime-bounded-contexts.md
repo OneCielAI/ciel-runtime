@@ -148,6 +148,10 @@ Model-identity context heuristics live in `model_context_hints.py`. Qwen, Kimi,
 Z.ai, catalog, and preset hints form one pure ordered policy instead of leaking
 string matching into provider orchestration.
 
+Runtime LLM snapshot/restore, preset application, slider navigation, and
+status projection live in `runtime_llm_options.py`. Configuration persistence,
+presentation, and preset mutation are separate typed port groups.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file
