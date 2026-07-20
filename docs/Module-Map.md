@@ -605,6 +605,10 @@ RPM 설정 해석, 예약 capacity, sliding-window timestamp 정리, Retry-After
 
 공급자별 모델 카탈로그 조회, fallback, cache 및 registry 갱신을 조정하는 모델 서비스.
 
+### `ciel_runtime_support/provider_catalog_sources.py`
+
+공급자 model catalog 응답 projection, Anthropic 공개/API source와 Fireworks pagination을 소유하는 Source Application Service. HTTP·metadata projection·정규화 정책과 provider별 source policy를 각각 최대 5필드 typed port로 분리한다.
+
 ### `ciel_runtime_support/provider_model_selection.py`
 
 placeholder model 선택 강제, launch alias, 요청·tool model resolution과 routed Anthropic model-object projection을 소유하는 Provider Model Application Service. identity, selection, catalog port를 분리하고 NVIDIA alias도 provider 이름 비교가 아닌 Adapter 전략으로 처리한다.

@@ -96,6 +96,14 @@ from ciel_runtime_support.channel_backlog import (
 )
 from ciel_runtime_support.context_setup import ContextSetupPorts
 from ciel_runtime_support.model_context_hints import ModelContextHintPorts
+from ciel_runtime_support.provider_catalog_sources import (
+    AnthropicCatalogPolicy,
+    FireworksCatalogPolicy,
+    ModelCatalogProjectionPorts as CatalogSourceProjectionPorts,
+    ProviderCatalogHttpPorts,
+    ProviderCatalogPolicyPorts,
+    ProviderCatalogSourceService,
+)
 from ciel_runtime_support.claude_router import (
     ClaudeRouterCore,
     ClaudeRouterCountTokens,
@@ -2548,12 +2556,16 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(ModelCatalogProjectionServices)), 10)
 
     def test_model_info_projection_has_no_provider_name_branch(self):
-        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        root = Path(__file__).resolve().parents[1]
+        source_path = root / "ciel_runtime_support" / "provider_catalog_sources.py"
         tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        service = next(
+            node for node in tree.body if isinstance(node, ast.ClassDef)
+            and node.name == "ProviderCatalogSourceService"
+        )
         function = next(
-            node
-            for node in tree.body
-            if isinstance(node, ast.FunctionDef) and node.name == "model_info_from_response"
+            node for node in service.body if isinstance(node, ast.FunctionDef)
+            and node.name == "model_info_from_response"
         )
         provider_comparisons = [
             node.lineno
@@ -2565,6 +2577,37 @@ class ArchitectureContractTests(unittest.TestCase):
             )
         ]
         self.assertEqual([], provider_comparisons)
+
+        main_tree = ast.parse((root / "ciel_runtime.py").read_text(encoding="utf-8"))
+        root_functions = {
+            node.name for node in main_tree.body if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "model_ids_from_response",
+            "model_info_from_response",
+            "fireworks_account_id",
+            "fireworks_management_base_url",
+            "fetch_fireworks_model_ids",
+            "fetch_text_url",
+            "anthropic_model_ids_from_docs_text",
+            "filter_anthropic_default_model_ids",
+            "fetch_anthropic_public_model_ids",
+            "fetch_anthropic_api_model_ids",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+
+    def test_provider_catalog_sources_use_small_typed_ports(self):
+        ports = (
+            CatalogSourceProjectionPorts,
+            ProviderCatalogHttpPorts,
+            ProviderCatalogPolicyPorts,
+            AnthropicCatalogPolicy,
+            FireworksCatalogPolicy,
+        )
+        for port in ports:
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 5)
+        self.assertEqual(5, len(fields(ProviderCatalogSourceService)))
 
     def test_lm_studio_runtime_port_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(LmStudioRuntimeServices)), 10)

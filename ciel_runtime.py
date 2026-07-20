@@ -5,7 +5,6 @@ import argparse
 import contextlib
 import getpass
 import hashlib
-import html as html_lib
 import json
 import os
 import re
@@ -309,9 +308,14 @@ from ciel_runtime_support.model_panel import (
     advisor_model_panel_rows as project_advisor_model_panel_rows,
     model_panel_rows as project_model_panel_rows,
 )
-from ciel_runtime_support.model_catalog_projection import (
-    ModelCatalogProjectionServices,
-    project_model_info,
+from ciel_runtime_support.provider_catalog_sources import (
+    ANTHROPIC_PUBLIC_MODEL_ID_RE,
+    AnthropicCatalogPolicy,
+    FireworksCatalogPolicy,
+    ModelCatalogProjectionPorts as CatalogSourceProjectionPorts,
+    ProviderCatalogHttpPorts,
+    ProviderCatalogPolicyPorts,
+    ProviderCatalogSourceService,
 )
 from ciel_runtime_support.model_cache_lifecycle import (
     ModelCacheLifecyclePorts,
@@ -3186,180 +3190,58 @@ def ensure_model_cache_for_launch(provider: str, pcfg: dict[str, Any]) -> None:
     model_cache_lifecycle_service().ensure_for_launch(provider, pcfg)
 
 
-def model_ids_from_response(data: Any) -> list[str]:
-    ids: list[str] = []
-    candidates: Any
-    if isinstance(data, dict):
-        candidates = data.get("data")
-        if candidates is None:
-            candidates = data.get("models")
-        if candidates is None:
-            candidates = data.get("model")
-    else:
-        candidates = data
-    if isinstance(candidates, str):
-        candidates = [candidates]
-    if not isinstance(candidates, list):
-        return ids
-    for item in candidates:
-        if isinstance(item, str):
-            mid = item
-        elif isinstance(item, dict):
-            mid = item.get("id") or item.get("key") or item.get("name") or item.get("model")
-        else:
-            mid = None
-        if mid and str(mid).strip():
-            ids.append(str(mid).strip())
-    return ids
-
-
-def model_info_from_response(provider: str, data: Any) -> dict[str, dict[str, Any]]:
-    adapter = PROVIDER_ADAPTERS.create(provider)
-    return project_model_info(
-        provider,
-        data,
-        ModelCatalogProjectionServices(
-            normalize_model_id=normalize_model_id,
-            model_context=model_context_field,
-            positive_int=positive_int,
-            project_metadata=adapter.project_model_metadata,
+_PROVIDER_CATALOG_SOURCES = ProviderCatalogSourceService(
+    projection=CatalogSourceProjectionPorts(
+        normalize_model_id=normalize_model_id,
+        model_context=lambda item: model_context_field(item),
+        positive_int=positive_int,
+        provider_metadata=lambda provider: PROVIDER_ADAPTERS.create(
+            provider
+        ).project_model_metadata,
+    ),
+    http=ProviderCatalogHttpPorts(
+        http_json=lambda *args, **kwargs: http_json(*args, **kwargs),
+        join_url=join_url,
+        upstream_base=lambda provider, pcfg: provider_upstream_request_base(
+            provider, pcfg
         ),
-    )
-
-
-def fireworks_account_id(pcfg: dict[str, Any]) -> str:
-    configured = str(pcfg.get("account_id") or "").strip()
-    if configured:
-        return configured
-    for value in (pcfg.get("current_model"), *(pcfg.get("custom_models", []) or [])):
-        text = str(value or "")
-        match = re.match(r"^accounts/([^/]+)/models/[^/]+$", text)
-        if match:
-            return match.group(1)
-    return FIREWORKS_DEFAULT_ACCOUNT_ID
-
-
-def fireworks_management_base_url(pcfg: dict[str, Any]) -> str:
-    configured = str(pcfg.get("model_api_base_url") or "").strip().rstrip("/")
-    base = str(pcfg.get("base_url") or FIREWORKS_INFERENCE_BASE_URL).strip().rstrip("/")
-    parsed = urllib.parse.urlparse(base)
-    if configured and (
-        configured != FIREWORKS_API_BASE_URL
-        or not (parsed.scheme and parsed.netloc)
-        or parsed.netloc.endswith("fireworks.ai")
-    ):
-        return configured
-    if parsed.scheme and parsed.netloc:
-        return f"{parsed.scheme}://{parsed.netloc}"
-    return configured or FIREWORKS_API_BASE_URL
-
-
-def fetch_fireworks_model_ids(
-    pcfg: dict[str, Any],
-    headers: dict[str, str],
-    timeout: float = 8.0,
-) -> tuple[list[str], dict[str, dict[str, Any]], str]:
-    account_id = fireworks_account_id(pcfg)
-    base = fireworks_management_base_url(pcfg)
-    models: list[str] = []
-    model_info: dict[str, dict[str, Any]] = {}
-    page_token = ""
-    source = f"fireworks:{account_id}"
-    for _ in range(20):
-        query = {"pageSize": "200"}
-        if page_token:
-            query["pageToken"] = page_token
-        path = f"/v1/accounts/{urllib.parse.quote(account_id, safe='')}/models?{urllib.parse.urlencode(query)}"
-        data = http_json(join_url(base, path), headers=headers, timeout=timeout, provider="fireworks", pcfg=pcfg)
-        ids = [normalize_model_id("fireworks", mid) for mid in model_ids_from_response(data)]
-        for mid in ids:
-            if mid and mid not in models:
-                models.append(mid)
-        model_info.update(model_info_from_response("fireworks", data))
-        if not isinstance(data, dict):
-            break
-        page_token = str(data.get("nextPageToken") or "").strip()
-        if not page_token:
-            break
-    return models, model_info, source
-
-
-ANTHROPIC_PUBLIC_MODEL_ID_RE = re.compile(
-    r"(?<![A-Za-z0-9_.@:-])"
-    r"(?:"
-    r"claude-(?:fable|mythos)-\d+(?:-\d+)?(?:-\d{8})?|"
-    r"claude-mythos-preview|"
-    r"claude-(?:opus|sonnet|haiku)-\d+-\d+-\d{8}|"
-    r"claude-(?:opus|sonnet|haiku)-\d+-\d{8}|"
-    r"claude-(?:opus|sonnet|haiku)-\d+-\d+|"
-    r"claude-(?:opus|sonnet|haiku)-\d+(?:-\d+)?-latest|"
-    r"claude-\d+(?:-\d+){0,2}-(?:opus|sonnet|haiku)-(?:\d{8}|latest)"
-    r")"
-    r"(?![A-Za-z0-9_.@:-])"
+        request_headers=lambda: with_upstream_user_agent(),
+        urlopen=lambda *args, **kwargs: urllib.request.urlopen(*args, **kwargs),
+    ),
+    policy=ProviderCatalogPolicyPorts(
+        unique_model_ids=unique_model_ids,
+        log=lambda level, message: router_log(level, message),
+    ),
+    anthropic=AnthropicCatalogPolicy(
+        docs_urls=tuple(ANTHROPIC_MODEL_DOCS_URLS),
+        default_ids=tuple(ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS),
+        limited_ids=tuple(ANTHROPIC_LIMITED_ACCESS_MODEL_IDS),
+        fallback_ids=tuple(ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS),
+        public_id_pattern=ANTHROPIC_PUBLIC_MODEL_ID_RE,
+    ),
+    fireworks=FireworksCatalogPolicy(
+        default_account_id=FIREWORKS_DEFAULT_ACCOUNT_ID,
+        api_base_url=FIREWORKS_API_BASE_URL,
+        inference_base_url=FIREWORKS_INFERENCE_BASE_URL,
+    ),
 )
-
-
-def fetch_text_url(url: str, timeout: float = 8.0) -> str:
-    req = urllib.request.Request(url, headers=with_upstream_user_agent())
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read(5_000_000).decode("utf-8", errors="replace")
-
-
-def anthropic_model_ids_from_docs_text(text: str) -> list[str]:
-    """Extract public Claude API model IDs from Anthropic's models overview page.
-
-    Claude Native usually runs on Claude Code OAuth rather than an API key, so
-    `/v1/models` is not available to ciel-runtime. The public docs are the only
-    unauthenticated source for the current model picker seed.
-    """
-    ids: list[str] = []
-    seen: set[str] = set()
-    for match in ANTHROPIC_PUBLIC_MODEL_ID_RE.finditer(html_lib.unescape(text or "")):
-        mid = match.group(0)
-        key = mid.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        ids.append(mid)
-    return ids
-
-
-def filter_anthropic_default_model_ids(ids: list[str]) -> list[str]:
-    """Keep only generally available current Claude models for the default picker.
-
-    Anthropic's model overview page also mentions limited-access research models,
-    cloud-provider IDs, and legacy/upgrade-path IDs. Those are useful reference
-    text but bad defaults for Claude Code Native and routed launches because many
-    users cannot select them. Custom model IDs still remain supported separately.
-    """
-    allowed = set(ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS)
-    limited = set(ANTHROPIC_LIMITED_ACCESS_MODEL_IDS)
-    out: list[str] = []
-    seen: set[str] = set()
-    for raw in ids:
-        mid = normalize_model_id("anthropic", raw)
-        key = mid.casefold()
-        if not mid or key in seen or mid in limited or mid not in allowed:
-            continue
-        out.append(mid)
-        seen.add(key)
-    return out
-
-
-def fetch_anthropic_public_model_ids(timeout: float = 8.0) -> list[str]:
-    ids: list[str] = []
-    errors: list[str] = []
-    for url in ANTHROPIC_MODEL_DOCS_URLS:
-        try:
-            ids.extend(anthropic_model_ids_from_docs_text(fetch_text_url(url, timeout=timeout)))
-        except Exception as exc:
-            errors.append(f"{url}: {type(exc).__name__}: {exc}")
-    out = filter_anthropic_default_model_ids(unique_model_ids("anthropic", ids))
-    if out:
-        return out
-    if errors:
-        router_log("WARN", "anthropic model docs fetch failed: " + " ; ".join(errors))
-    return list(ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS)
+model_ids_from_response = _PROVIDER_CATALOG_SOURCES.model_ids_from_response
+model_info_from_response = _PROVIDER_CATALOG_SOURCES.model_info_from_response
+fireworks_account_id = _PROVIDER_CATALOG_SOURCES.fireworks_account_id
+fireworks_management_base_url = (
+    _PROVIDER_CATALOG_SOURCES.fireworks_management_base_url
+)
+fetch_fireworks_model_ids = _PROVIDER_CATALOG_SOURCES.fetch_fireworks_model_ids
+fetch_text_url = _PROVIDER_CATALOG_SOURCES.fetch_text_url
+anthropic_model_ids_from_docs_text = (
+    _PROVIDER_CATALOG_SOURCES.anthropic_model_ids_from_docs_text
+)
+filter_anthropic_default_model_ids = (
+    _PROVIDER_CATALOG_SOURCES.filter_anthropic_default_model_ids
+)
+fetch_anthropic_public_model_ids = (
+    _PROVIDER_CATALOG_SOURCES.fetch_anthropic_public_model_ids
+)
 
 
 def opencode_zen_endpoint_kind(model_id: str) -> str:
@@ -3453,24 +3335,9 @@ def provider_model_list_headers(provider: str, pcfg: dict[str, Any]) -> dict[str
     return headers
 
 
-def fetch_anthropic_api_model_ids(
-    pcfg: dict[str, Any],
-    headers: dict[str, str],
-    timeout: float = 6.0,
-) -> tuple[list[str], str]:
-    base = provider_upstream_request_base("anthropic", pcfg)
-    errors: list[str] = []
-    for path in ("/v1/models", "/models"):
-        try:
-            data = http_json(join_url(base, path), headers=headers, timeout=timeout)
-            ids = unique_model_ids("anthropic", model_ids_from_response(data))
-            if ids:
-                return ids, f"api:{path}"
-        except Exception as exc:
-            errors.append(f"{path}: {type(exc).__name__}: {exc}")
-    if errors:
-        router_log("DEBUG", "anthropic model API fetch failed: " + " ; ".join(errors))
-    return [], ""
+fetch_anthropic_api_model_ids = (
+    _PROVIDER_CATALOG_SOURCES.fetch_anthropic_api_model_ids
+)
 
 
 def post_json(
