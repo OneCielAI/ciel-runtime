@@ -419,6 +419,14 @@ class ProviderAdapter(ABC):
         del config
         return {}
 
+    def model_selection_config_updates(
+        self, config: ProviderConfig, model_id: str
+    ) -> Mapping[str, Any]:
+        """Return provider-owned config updates for an explicit model choice."""
+
+        del config, model_id
+        return {}
+
     def selection_status_lines(self, config: ProviderConfig) -> tuple[str, ...]:
         """Return provider-owned status details after selection."""
 

@@ -349,6 +349,10 @@ Claude Code 모델 별칭·컨텍스트 한도·환경 변수·런타임 setting
 
 Anthropic·AGY·Codex native/routed 선택 별칭과 설정 mutation/status를 명시적 Strategy 테이블로 관리하는 Application Controller. 표준 provider 선택은 기존 provider adapter 흐름에 위임하고 설정·저장·cache 효과는 5필드 typed port로 주입한다.
 
+### `ciel_runtime_support/provider_model_selection.py`
+
+Provider 모델 alias/request 해석과 catalog projection뿐 아니라 명시적 모델 선택 시 profile·context·preset·timeout·custom model 저장을 조정하는 Application Controller를 제공한다. Z.AI의 Haiku/Opus/Sonnet 동기화 같은 provider별 mutation은 해당 adapter가 소유한다.
+
 ### `ciel_runtime_support/router_client_lifecycle.py`
 
 라우터 client lease 저장소, managed-router idle watchdog, 활성 client supervisor, 실행 수명주기와 종료 진단을 담당한다. 파일·환경·스레드 효과를 캡슐화하고 health/start/stop 동작은 최대 5필드의 typed port로 주입한다.

@@ -188,6 +188,11 @@ Runtime-specific provider choices use immutable strategies in
 `provider_choice.py`. Alias normalization and native/routed configuration no
 longer branch across Anthropic, AGY, and Codex inside the composition root.
 
+Explicit model selection is coordinated by `ModelSelectionController` in
+`provider_model_selection.py`. Provider-specific follow-up updates are adapter
+methods, while profile/context/preset/timeout and persistence effects arrive
+through bounded typed ports.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

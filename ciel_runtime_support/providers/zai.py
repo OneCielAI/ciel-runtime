@@ -70,6 +70,16 @@ class ZaiProviderAdapter(HttpBearerProviderAdapter):
     def upstream_api_model_id(self, model_id: str) -> str:
         return super().normalize_model_id(model_id)
 
+    def model_selection_config_updates(
+        self, config: ProviderConfig, model_id: str
+    ) -> dict[str, str]:
+        del config
+        return {
+            "haiku_model": model_id,
+            "opus_model": model_id,
+            "sonnet_model": model_id,
+        }
+
     def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
         del config
         return ProviderContextPolicy(

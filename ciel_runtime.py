@@ -863,6 +863,10 @@ from ciel_runtime_support.provider_models import (
 from ciel_runtime_support.provider_model_selection import (
     ModelCatalogPorts,
     ModelIdentityPorts,
+    ModelMutationConfigPorts,
+    ModelMutationEffectPorts,
+    ModelMutationPolicyPorts,
+    ModelSelectionController,
     ModelSelectionPorts,
     ProviderModelSelection,
 )
@@ -10037,49 +10041,33 @@ def set_base_url_config(provider: str, url: str) -> list[str]:
 
 
 def set_model_config(value: str) -> list[str]:
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    mmap = model_map_for(provider, pcfg, fetch=False)
-    model_id = normalize_model_id(provider, unslug_provider_alias(provider, value, mmap) or value)
-    pcfg["current_model"] = model_id
-    model_profile_msgs = apply_provider_model_profile(provider, pcfg)
-    if provider == "zai":
-        # Claude Code primarily selects through its default Haiku/Sonnet/Opus
-        # model environment variables. Keep those aligned when the user
-        # explicitly changes the Z.AI model from the menu/CLI; otherwise a
-        # Flash selection can still run through the previous Sonnet/Opus model.
-        pcfg["haiku_model"] = model_id
-        pcfg["opus_model"] = model_id
-        pcfg["sonnet_model"] = model_id
-    selected_info = read_model_info_cache(provider, pcfg).get(model_id) or {}
-    selected_context = positive_int(selected_info.get("max_model_len"))
-    if selected_context:
-        pcfg["max_model_len"] = selected_context
-    preset = model_preset(model_id)
-    if preset.get("num_ctx_min"):
-        pcfg["num_ctx_min"] = preset["num_ctx_min"]
-    if preset.get("num_ctx_max"):
-        pcfg["num_ctx_max"] = preset["num_ctx_max"]
-    context_msgs = sync_ollama_library_context_limit(provider, pcfg, model_id)
-    context_msgs.extend(cap_context_settings_to_model_capacity(provider, pcfg))
-    preset_msgs = auto_apply_recommended_llm_preset_for_model(provider, pcfg, cfg.get("language", "en"))
-    timeout_msgs = apply_recommended_timeout_for_model_context(provider, pcfg, use_context_fallback=False)
-    known = read_model_list_cache(provider, pcfg) or []
-    custom = pcfg.setdefault("custom_models", [])
-    if model_id not in custom and model_id not in known:
-        custom.append(model_id)
-    save_config(cfg)
-    clear_model_cache()
-    msgs = [f"Model for {provider} set to {model_id}.", f"Claude Code alias: {alias_for(provider, model_id)}"]
-    msgs.extend(model_profile_msgs)
-    if selected_context:
-        msgs.append(f"Model context size: {format_context_tokens(selected_context)} ({selected_context:,} tokens).")
-    msgs.extend(context_msgs)
-    msgs.extend(preset_msgs)
-    msgs.extend(timeout_msgs)
-    if preset.get("thinking"):
-        msgs.append("Note: this is a thinking model; compatibility test uses extended token budget.")
-    return msgs
+    return model_selection_controller().select(value)
+
+
+def apply_provider_model_selection_updates(
+    provider: str,
+    pcfg: dict[str, Any],
+    model_id: str,
+) -> None:
+    adapter = configured_provider_adapter(provider, pcfg)
+    contract = provider_contract_config(provider, pcfg)
+    pcfg.update(adapter.model_selection_config_updates(contract, model_id))
+
+
+def model_selection_controller() -> ModelSelectionController:
+    return ModelSelectionController(
+        ModelMutationConfigPorts(load_config, get_current_provider, save_config, clear_model_cache),
+        ModelMutationPolicyPorts(
+            model_map_for, unslug_provider_alias, normalize_model_id, apply_provider_model_profile,
+            read_model_info_cache, positive_int, model_preset, apply_provider_model_selection_updates,
+            alias_for, format_context_tokens,
+        ),
+        ModelMutationEffectPorts(
+            sync_ollama_library_context_limit, cap_context_settings_to_model_capacity,
+            auto_apply_recommended_llm_preset_for_model, apply_recommended_timeout_for_model_context,
+            read_model_list_cache,
+        ),
+    )
 
 
 def set_advisor_model_config(value: str) -> list[str]:

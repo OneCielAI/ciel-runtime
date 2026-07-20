@@ -164,6 +164,11 @@ from ciel_runtime_support.router_process_lifecycle import (
     RouterStartupStatePorts,
 )
 from ciel_runtime_support.provider_choice import ProviderChoicePorts
+from ciel_runtime_support.provider_model_selection import (
+    ModelMutationConfigPorts,
+    ModelMutationEffectPorts,
+    ModelMutationPolicyPorts,
+)
 from ciel_runtime_support.headless_config import (
     HeadlessChannelCommands,
     HeadlessConfigCommands,
@@ -785,6 +790,14 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_provider_choice_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ProviderChoicePorts)), 10)
+
+    def test_model_selection_mutation_ports_stay_below_dependency_limit(self):
+        for port in (
+            ModelMutationConfigPorts,
+            ModelMutationPolicyPorts,
+            ModelMutationEffectPorts,
+        ):
+            self.assertLessEqual(len(fields(port)), 10)
 
     def test_ollama_forwarding_ports_stay_below_dependency_limit(self):
         for port in (

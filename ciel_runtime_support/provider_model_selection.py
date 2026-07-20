@@ -37,6 +37,104 @@ class ModelCatalogPorts:
     log: Callable[[str, str], None]
 
 
+@dataclass(frozen=True, slots=True)
+class ModelMutationConfigPorts:
+    load_config: Callable[[], dict[str, Any]]
+    current_provider: Callable[[dict[str, Any]], tuple[str, dict[str, Any]]]
+    save_config: Callable[[dict[str, Any]], None]
+    clear_model_cache: Callable[[], None]
+
+
+@dataclass(frozen=True, slots=True)
+class ModelMutationPolicyPorts:
+    model_map: Callable[..., dict[str, str]]
+    unslug: Callable[[str, str, dict[str, str]], str | None]
+    normalize: Callable[[str, str], str]
+    apply_profile: Callable[[str, dict[str, Any]], list[str]]
+    read_model_info: Callable[[str, dict[str, Any]], dict[str, Any]]
+    positive_int: Callable[[Any], int | None]
+    model_preset: Callable[[str], dict[str, Any]]
+    apply_selection_updates: Callable[[str, dict[str, Any], str], None]
+    alias: Callable[[str, str], str]
+    format_context: Callable[[int], str]
+
+
+@dataclass(frozen=True, slots=True)
+class ModelMutationEffectPorts:
+    sync_context_limit: Callable[[str, dict[str, Any], str], list[str]]
+    cap_context_settings: Callable[[str, dict[str, Any]], list[str]]
+    apply_recommended_preset: Callable[[str, dict[str, Any], str], list[str]]
+    apply_recommended_timeout: Callable[..., list[str]]
+    read_model_list: Callable[[str, dict[str, Any]], list[str] | None]
+
+
+class ModelSelectionController:
+    def __init__(
+        self,
+        config: ModelMutationConfigPorts,
+        policy: ModelMutationPolicyPorts,
+        effects: ModelMutationEffectPorts,
+    ) -> None:
+        self._config = config
+        self._policy = policy
+        self._effects = effects
+
+    def select(self, value: str) -> list[str]:
+        config = self._config.load_config()
+        provider, provider_config = self._config.current_provider(config)
+        model_map = self._policy.model_map(provider, provider_config, fetch=False)
+        model_id = self._policy.normalize(
+            provider,
+            self._policy.unslug(provider, value, model_map) or value,
+        )
+        provider_config["current_model"] = model_id
+        profile_messages = self._policy.apply_profile(provider, provider_config)
+        self._policy.apply_selection_updates(provider, provider_config, model_id)
+        selected_info = self._policy.read_model_info(provider, provider_config).get(model_id) or {}
+        selected_context = self._policy.positive_int(selected_info.get("max_model_len"))
+        if selected_context:
+            provider_config["max_model_len"] = selected_context
+        preset = self._policy.model_preset(model_id)
+        if preset.get("num_ctx_min"):
+            provider_config["num_ctx_min"] = preset["num_ctx_min"]
+        if preset.get("num_ctx_max"):
+            provider_config["num_ctx_max"] = preset["num_ctx_max"]
+        context_messages = self._effects.sync_context_limit(provider, provider_config, model_id)
+        context_messages.extend(self._effects.cap_context_settings(provider, provider_config))
+        preset_messages = self._effects.apply_recommended_preset(
+            provider,
+            provider_config,
+            config.get("language", "en"),
+        )
+        timeout_messages = self._effects.apply_recommended_timeout(
+            provider,
+            provider_config,
+            use_context_fallback=False,
+        )
+        known = self._effects.read_model_list(provider, provider_config) or []
+        custom = provider_config.setdefault("custom_models", [])
+        if model_id not in custom and model_id not in known:
+            custom.append(model_id)
+        self._config.save_config(config)
+        self._config.clear_model_cache()
+        messages = [
+            f"Model for {provider} set to {model_id}.",
+            f"Claude Code alias: {self._policy.alias(provider, model_id)}",
+            *profile_messages,
+        ]
+        if selected_context:
+            messages.append(
+                f"Model context size: {self._policy.format_context(selected_context)} "
+                f"({selected_context:,} tokens)."
+            )
+        messages.extend(context_messages)
+        messages.extend(preset_messages)
+        messages.extend(timeout_messages)
+        if preset.get("thinking"):
+            messages.append("Note: this is a thinking model; compatibility test uses extended token budget.")
+        return messages
+
+
 class ProviderModelSelection:
     def __init__(
         self,
