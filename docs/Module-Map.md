@@ -973,6 +973,10 @@ Router PID file 종료, health PID 보호, foreign-config 충돌 거부, 포트 
 
 Router bind host, loopback 신뢰, bearer-token 비교와 external-debug 확인 정책을 소유하는 Security Policy. token의 환경 우선순위와 원자적 생성은 `RouterExternalTokenRepository`, 설정 변경은 typed port를 사용하는 `RouterAccessConfigService`로 분리한다.
 
+### `ciel_runtime_support/router_shortcuts.py`
+
+Router debug, version, channel backlog, live LLM/API-key slash command의 local short-circuit workflow를 소유하는 Controller. request 판별, response/event 효과와 기능별 command port를 분리해 HTTP router와 facade에는 조립과 2줄 호환 wrapper만 남긴다.
+
 ### `ciel_runtime_support/codex_process_lifecycle.py`
 
 Codex child PID JSON record의 생성·권한·해제와 tracked/untracked process 탐색·종료를 소유하는 Repository/Lifecycle Service. command/environment 판정, process inspection과 tree signal은 10필드 port로 주입하며 모든 발견 PID를 단락 없이 정리한다.

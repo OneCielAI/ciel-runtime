@@ -2949,6 +2949,27 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIn("OllamaRequestContextPolicy", source)
         self.assertIn("OutputBudgetPolicy", source)
 
+    def test_router_shortcut_workflows_live_outside_composition_root(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        self.assertNotIn("Router restart scheduled so the bind address changes immediately.", source)
+        self.assertNotIn("Ciel Runtime channel backlog discarded.", source)
+        self.assertNotIn("live LLM options updated from slash command", source)
+        self.assertIn("from ciel_runtime_support.router_shortcuts import (", source)
+        tree = ast.parse(source)
+        functions = {
+            node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        for name in (
+            "maybe_handle_router_debug_request",
+            "maybe_handle_version_request",
+            "maybe_handle_channel_clear_request",
+            "maybe_handle_live_llm_options_request",
+            "maybe_handle_live_api_keys_request",
+        ):
+            with self.subTest(function=name):
+                self.assertLessEqual(functions[name].end_lineno - functions[name].lineno + 1, 2)
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):

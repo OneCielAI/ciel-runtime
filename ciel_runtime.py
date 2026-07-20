@@ -778,6 +778,14 @@ from ciel_runtime_support.request_shortcuts import (
     single_value as project_single_shortcut_value,
     split_import_session_arguments as project_split_import_session_arguments,
 )
+from ciel_runtime_support.router_shortcuts import (
+    ChannelShortcutPorts,
+    LiveConfigShortcutPorts,
+    RouterDebugShortcutPorts,
+    RouterShortcutController,
+    ShortcutPredicates,
+    ShortcutResponsePorts,
+)
 from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support.ollama_catalog_repository import OllamaCatalogRepository
 from ciel_runtime_support.ollama_context_sync import (
@@ -7066,86 +7074,60 @@ def maybe_handle_advisor_request(handler: BaseHTTPRequestHandler, provider: str,
     return True
 
 
+def router_shortcut_controller() -> RouterShortcutController:
+    return RouterShortcutController(
+        response=ShortcutResponsePorts(
+            load_config=load_config,
+            current_alias=current_alias,
+            current_provider=get_current_provider,
+            write_anthropic=write_anthropic_text_response,
+            publish_event=EVENT_BUS.publish,
+        ),
+        predicates=ShortcutPredicates(
+            router_debug=is_router_debug_request,
+            version=is_version_request,
+            channel_clear=is_channel_clear_request,
+            live_llm_options=is_live_llm_options_request,
+            live_api_keys=is_live_api_keys_request,
+        ),
+        debug=RouterDebugShortcutPorts(
+            value=router_debug_value_from_body,
+            external_enabled=router_debug_external_access_enabled,
+            bind_host=router_bind_host,
+            set_external=set_router_debug_external_access_config,
+            schedule_restart=schedule_router_process_restart,
+            version=VERSION,
+            source_fingerprint=SOURCE_FINGERPRINT,
+            config_dir=CONFIG_DIR,
+        ),
+        channel=ChannelShortcutPorts(
+            value=channel_clear_value_from_body,
+            clear=clear_channel_backlog,
+            status=channel_backlog_status,
+        ),
+        live=LiveConfigShortcutPorts(
+            llm_value=live_llm_options_value_from_body,
+            handle_llm=handle_live_llm_options_action,
+            api_key_value=live_api_keys_value_from_body,
+            handle_api_keys=handle_live_api_keys_action,
+            api_key_count=provider_api_key_count,
+        ),
+    )
+
+
 def maybe_handle_router_debug_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool:
-    if not is_router_debug_request(body):
-        return False
-    stream = bool(body.get("stream", True))
-    value = router_debug_value_from_body(body).strip()
-    cfg = load_config()
-    current = router_debug_external_access_enabled(cfg)
-    low = value.lower()
-    should_restart = False
-    if low in ("", "status", "state", "show", "?"):
-        lines = [
-            f"Router debug external access: {'on' if current else 'off'}.",
-            f"Current router bind host: {router_bind_host(cfg)}.",
-        ]
-    elif low in ("toggle", "tog", "switch"):
-        lines = set_router_debug_external_access_config(not current)
-        should_restart = True
-    elif low in ("on", "true", "1", "enable", "enabled"):
-        lines = set_router_debug_external_access_config(True)
-        should_restart = True
-    elif low in ("off", "false", "0", "disable", "disabled"):
-        lines = set_router_debug_external_access_config(False)
-        should_restart = True
-    else:
-        lines = ["Usage: `/router-debug`, `/router-debug on`, `/router-debug off`, or `/router-debug status`."]
-    if should_restart:
-        lines.append("Router restart scheduled so the bind address changes immediately.")
-    write_anthropic_text_response(handler, str(body.get("model") or current_alias(load_config())), "\n".join(lines), stream)
-    if should_restart:
-        schedule_router_process_restart()
-    return True
+    return router_shortcut_controller().handle_router_debug(handler, body)
 
 
 def maybe_handle_version_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool:
-    if not is_version_request(body):
-        return False
-    stream = bool(body.get("stream", True))
-    lines = [
-        f"ciel-runtime {VERSION}",
-        f"source: {SOURCE_FINGERPRINT[:12]}",
-        f"config dir: {CONFIG_DIR}",
-    ]
-    write_anthropic_text_response(handler, str(body.get("model") or current_alias(load_config())), "\n".join(lines), stream)
-    return True
+    return router_shortcut_controller().handle_version(handler, body)
 
 
-def _format_channel_backlog_status_lines(stats: dict[str, Any], cleared: bool) -> list[str]:
-    if cleared:
-        return [
-            "Ciel Runtime channel backlog discarded.",
-            f"- chat tail: {stats.get('chat_tail')}",
-            f"- LLM cursor advanced by: {stats.get('discarded_llm')}",
-            f"- MCP cursor advanced by: {stats.get('discarded_mcp')}",
-            f"- active MCP channel sessions updated: {stats.get('mcp_sessions_updated')}",
-            "New channel events arriving after this point will still be delivered.",
-        ]
-    return [
-        "Ciel Runtime channel backlog status.",
-        f"- chat tail: {stats.get('chat_tail')}",
-        f"- pending LLM items by id range: {stats.get('pending_llm')}",
-        f"- pending MCP items by id range: {stats.get('pending_mcp')}",
-        f"- active MCP channel sessions: {stats.get('mcp_sessions')}",
-    ]
+_format_channel_backlog_status_lines = RouterShortcutController.channel_status_lines
 
 
 def maybe_handle_channel_clear_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool:
-    if not is_channel_clear_request(body):
-        return False
-    stream = bool(body.get("stream", True))
-    value = channel_clear_value_from_body(body).strip().lower()
-    if value in {"", "all", "clear", "discard", "drop", "purge", "reset", "now"}:
-        stats = clear_channel_backlog()
-        lines = _format_channel_backlog_status_lines(stats, cleared=True)
-    elif value in {"status", "state", "show", "?", "dry-run", "dryrun"}:
-        stats = channel_backlog_status()
-        lines = _format_channel_backlog_status_lines(stats, cleared=False)
-    else:
-        lines = ["Usage: `/channel-clear`, `/channel-clear all`, or `/channel-clear status`."]
-    write_anthropic_text_response(handler, str(body.get("model") or current_alias(load_config())), "\n".join(lines), stream)
-    return True
+    return router_shortcut_controller().handle_channel_clear(handler, body)
 
 
 def handle_live_llm_options_action(action: str = "status", preset: str = "") -> tuple[list[str], bool]:
@@ -7153,21 +7135,7 @@ def handle_live_llm_options_action(action: str = "status", preset: str = "") -> 
 
 
 def maybe_handle_live_llm_options_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool:
-    if not is_live_llm_options_request(body):
-        return False
-    stream = bool(body.get("stream", True))
-    value = live_llm_options_value_from_body(body)
-    lines, changed = handle_live_llm_options_action(value)
-    if changed:
-        EVENT_BUS.publish(
-            level="info",
-            category="config.llm",
-            message="live LLM options updated from slash command",
-            provider=get_current_provider(load_config())[0],
-            data={"value": value},
-        )
-    write_anthropic_text_response(handler, str(body.get("model") or current_alias(load_config())), "\n".join(lines), stream)
-    return True
+    return router_shortcut_controller().handle_live_llm_options(handler, body)
 
 
 def live_api_key_status_lines(provider: str, pcfg: dict[str, Any]) -> list[str]:
@@ -7191,22 +7159,7 @@ def handle_live_api_keys_action(value: str) -> tuple[list[str], bool]:
 
 
 def maybe_handle_live_api_keys_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool:
-    if not is_live_api_keys_request(body):
-        return False
-    stream = bool(body.get("stream", True))
-    value = live_api_keys_value_from_body(body)
-    lines, changed = handle_live_api_keys_action(value)
-    if changed:
-        provider_after, pcfg_after = get_current_provider(load_config())
-        EVENT_BUS.publish(
-            level="info",
-            category="config.api_key",
-            message="live API key settings updated from slash command",
-            provider=provider_after,
-            data={"key_count": provider_api_key_count(provider_after, pcfg_after)},
-        )
-    write_anthropic_text_response(handler, str(body.get("model") or current_alias(load_config())), "\n".join(lines), stream)
-    return True
+    return router_shortcut_controller().handle_live_api_keys(handler, body)
 
 
 def normalize_tool_arguments(tool_name: str, args: Any) -> dict[str, Any]:
