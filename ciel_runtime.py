@@ -8,7 +8,6 @@ import hashlib
 import hmac
 import html as html_lib
 import json
-import math
 import os
 import re
 import secrets
@@ -395,6 +394,12 @@ from ciel_runtime_support.config_repository import (
     build_default_config,
     deep_merge as merge_config_values,
     normalize_loaded_config,
+)
+from ciel_runtime_support.config_value_codec import (
+    finite_float,
+    parse_bool,
+    parse_config_value,
+    positive_int,
 )
 from ciel_runtime_support.settings_repository import JsonSettingsRepository, SettingsFileEffects
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
@@ -6424,60 +6429,6 @@ def should_omit_openai_chat_tool_choice(provider: str, model: str, body: dict[st
     if body.get("tool_choice") is None:
         return False
     return openai_chat_reasoning_passback_enabled(provider, model, pcfg)
-
-
-def positive_int(value: Any) -> int | None:
-    try:
-        out = int(value)
-    except Exception:
-        return None
-    return out if out > 0 else None
-
-
-def finite_float(value: Any) -> float | None:
-    try:
-        out = float(value)
-    except Exception:
-        return None
-    return out if math.isfinite(out) else None
-
-
-def parse_config_value(value: str) -> Any:
-    text = value.strip()
-    low = text.lower()
-    if low in ("true", "yes", "on"):
-        return True
-    if low in ("false", "no", "off"):
-        return False
-    if low in ("none", "null"):
-        return None
-    try:
-        return json.loads(text)
-    except Exception:
-        pass
-    try:
-        return int(text)
-    except Exception:
-        pass
-    try:
-        return float(text)
-    except Exception:
-        return text
-
-
-def parse_bool(value: Any, default: bool = False) -> bool:
-    if isinstance(value, bool):
-        return value
-    if value is None:
-        return default
-    if isinstance(value, (int, float)):
-        return bool(value)
-    text = str(value).strip().lower()
-    if text in ("true", "yes", "on", "1", "enable", "enabled"):
-        return True
-    if text in ("false", "no", "off", "0", "disable", "disabled"):
-        return False
-    return default
 
 
 def router_debug_external_access_enabled(cfg: dict[str, Any] | None = None) -> bool:

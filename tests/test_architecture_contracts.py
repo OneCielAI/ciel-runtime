@@ -2862,6 +2862,21 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertNotIn(f"{path_name}.with_suffix", source)
         self.assertLessEqual(len(fields(ChannelCursorRepository)), 10)
 
+    def test_config_value_codec_lives_outside_composition_root(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(
+            encoding="utf-8"
+        )
+        tree = ast.parse(source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        self.assertTrue(
+            {"positive_int", "finite_float", "parse_config_value", "parse_bool"}.isdisjoint(
+                root_functions
+            )
+        )
+        self.assertIn("from ciel_runtime_support.config_value_codec import (", source)
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):
