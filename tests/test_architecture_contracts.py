@@ -21,6 +21,7 @@ from ciel_runtime_support.architecture import (
     ToolDialect,
 )
 from ciel_runtime_support.anthropic_tool_turns import AnthropicToolTurnServices
+from ciel_runtime_support.agy_installer import AgyInstaller, AgyInstallerPorts
 from ciel_runtime_support.advisor_policy import (
     AdvisorDecisionServices,
     AdvisorServices,
@@ -836,6 +837,22 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_npm_package_lifecycle_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(NpmPackageLifecyclePorts)), 10)
         self.assertLessEqual(len(fields(SelfUpdatePorts)), 10)
+
+    def test_agy_manifest_lifecycle_lives_in_installer_adapter(self):
+        self.assertLessEqual(len(fields(AgyInstallerPorts)), 10)
+        self.assertLessEqual(len(fields(AgyInstaller)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        for function_name in ("install_agy_from_manifest", "run_agy_update_check"):
+            function = next(
+                node
+                for node in ast.parse(source).body
+                if isinstance(node, ast.FunctionDef) and node.name == function_name
+            )
+            with self.subTest(function=function_name):
+                function_source = ast.unparse(function)
+                self.assertIn("agy_installer", function_source)
+                self.assertNotIn("subprocess", function_source)
+                self.assertNotIn("tarfile", function_source)
 
     def test_terminal_mouse_filter_lives_outside_composition_root(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"

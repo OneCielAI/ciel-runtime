@@ -11,15 +11,12 @@ import importlib.util
 import json
 import math
 import os
-import platform
 import re
 import secrets
 import shutil
 import socket
 import subprocess
 import sys
-import tarfile
-import tempfile
 import threading
 import time
 import urllib.error
@@ -82,6 +79,7 @@ from ciel_runtime_support.anthropic_response_writer import (
 )
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
+from ciel_runtime_support.agy_installer import AgyInstaller, AgyInstallerPorts
 from ciel_runtime_support.claude_router import (
     ClaudeRouter,
     ClaudeRouterCore,
@@ -16540,156 +16538,54 @@ def run_codex_update_check(codex: str, enabled: bool = True) -> str:
 AGY_MANIFEST_BASE_URL = "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app"
 
 
+def agy_installer() -> AgyInstaller:
+    return AgyInstaller(
+        AGY_MANIFEST_BASE_URL,
+        AgyInstallerPorts(
+            agy_user_bin_dir,
+            forced_yes_upgrade_env,
+            find_executable,
+            version_newer,
+            run_command_for_upgrade,
+            print,
+        ),
+    )
+
+
 def agy_manifest_name() -> str:
-    machine = platform.machine().lower()
-    arch = "arm64" if machine in ("arm64", "aarch64") else "amd64"
-    if os.name == "nt":
-        platform_name = "windows"
-    elif sys.platform == "darwin":
-        platform_name = "darwin"
-    else:
-        platform_name = "linux"
-    return f"{platform_name}_{arch}.json"
+    return agy_installer().manifest_name()
 
 
 def agy_manifest_url() -> str:
-    override = str(os.environ.get("CIEL_RUNTIME_AGY_MANIFEST_URL") or "").strip()
-    if override:
-        return override
-    return f"{AGY_MANIFEST_BASE_URL}/manifests/{agy_manifest_name()}"
+    return agy_installer().manifest_url()
 
 
 def agy_download_file(url: str, target: Path, timeout: float = 120.0) -> None:
-    with urllib.request.urlopen(url, timeout=timeout) as resp, target.open("wb") as out:
-        shutil.copyfileobj(resp, out)
+    AgyInstaller.download_file(url, target, timeout)
 
 
 def agy_latest_manifest(timeout: float = 15.0) -> dict[str, Any] | None:
-    try:
-        with urllib.request.urlopen(agy_manifest_url(), timeout=timeout) as resp:
-            data = json.loads(resp.read(65536).decode("utf-8", errors="replace"))
-        if isinstance(data, dict) and data.get("url") and data.get("version"):
-            return data
-    except Exception as exc:
-        print(f"AGY manifest check failed ({type(exc).__name__}); continuing.", flush=True)
-    return None
+    return agy_installer().latest_manifest(timeout)
 
 
 def agy_current_version(agy: str) -> str:
-    try:
-        proc = subprocess.run(
-            [agy, "--version"],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            timeout=8,
-        )
-    except Exception:
-        return ""
-    if proc.returncode != 0:
-        return ""
-    match = re.search(r"\d+(?:\.\d+)+(?:[-+][A-Za-z0-9_.-]+)?", proc.stdout or "")
-    return match.group(0) if match else (proc.stdout or "").strip()
+    return AgyInstaller.current_version(agy)
 
 
 def verify_sha512(path: Path, expected: str) -> bool:
-    expected = str(expected or "").strip().lower()
-    if not expected:
-        return True
-    digest = hashlib.sha512()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest().lower() == expected
+    return AgyInstaller.verify_sha512(path, expected)
 
 
 def install_agy_from_manifest(manifest: dict[str, Any]) -> str | None:
-    url = str(manifest.get("url") or "").strip()
-    version = str(manifest.get("version") or "").strip()
-    sha512 = str(manifest.get("sha512") or "").strip()
-    if not url:
-        print("AGY install failed: manifest did not include a download URL.", flush=True)
-        return None
-    install_dir = agy_user_bin_dir()
-    install_dir.mkdir(parents=True, exist_ok=True)
-    exe_name = "agy.exe" if os.name == "nt" else "agy"
-    target = install_dir / exe_name
-    suffix = ".exe" if os.name == "nt" else ".tar.gz"
-    with tempfile.TemporaryDirectory(prefix="ciel-runtime-agy-") as td:
-        download = Path(td) / f"agy{suffix}"
-        print(f"Downloading AGY {version or 'latest'} from Google official manifest...", flush=True)
-        agy_download_file(url, download)
-        if not verify_sha512(download, sha512):
-            print("AGY install failed: sha512 verification did not match manifest.", flush=True)
-            return None
-        if os.name == "nt":
-            shutil.copy2(download, target)
-        else:
-            with tarfile.open(download, "r:gz") as archive:
-                member = next((item for item in archive.getmembers() if Path(item.name).name == "agy" and item.isfile()), None)
-                if member is None:
-                    member = next((item for item in archive.getmembers() if item.isfile()), None)
-                if member is None:
-                    print("AGY install failed: archive did not contain an executable file.", flush=True)
-                    return None
-                extracted = archive.extractfile(member)
-                if extracted is None:
-                    print("AGY install failed: could not extract executable from archive.", flush=True)
-                    return None
-                with target.open("wb") as out:
-                    shutil.copyfileobj(extracted, out)
-            target.chmod(target.stat().st_mode | 0o755)
-    try:
-        subprocess.run([str(target), "install"], input="y\n", text=True, env=forced_yes_upgrade_env(), timeout=120, check=False)
-    except Exception as exc:
-        print(f"AGY post-install setup skipped ({type(exc).__name__}); continuing.", flush=True)
-    print(f"AGY installed: {target}", flush=True)
-    return str(target)
+    return agy_installer().install_from_manifest(manifest)
 
 
 def install_agy_if_missing() -> str | None:
-    agy = find_executable("agy")
-    if agy:
-        return agy
-    if os.environ.get("CIEL_RUNTIME_SKIP_AGY_INSTALL") == "1":
-        return None
-    manifest = agy_latest_manifest()
-    if not manifest:
-        print("AGY executable was not found, and the official AGY manifest could not be read.", flush=True)
-        return None
-    return install_agy_from_manifest(manifest)
+    return agy_installer().install_if_missing()
 
 
 def run_agy_update_check(agy: str, enabled: bool = True) -> str:
-    if not enabled or os.environ.get("CIEL_RUNTIME_SKIP_AGY_UPDATE") == "1":
-        return agy
-    print("Checking AGY update before launch...", flush=True)
-    current = agy_current_version(agy)
-    if current:
-        print(f"Current AGY version: {current}", flush=True)
-    manifest = agy_latest_manifest()
-    latest = str((manifest or {}).get("version") or "").strip()
-    if current and latest and not version_newer(latest, current):
-        print(f"AGY is up to date ({current}).", flush=True)
-        return agy
-    if latest:
-        print(f"AGY update available: {current or 'unknown'} -> {latest}; upgrading automatically.", flush=True)
-    else:
-        print("AGY update version could not be confirmed; running native updater.", flush=True)
-    rc, out = run_command_for_upgrade([agy, "update"], timeout=300)
-    if out:
-        print(out, flush=True)
-    if rc != 0:
-        if manifest and latest and (not current or version_newer(latest, current)):
-            installed = install_agy_from_manifest(manifest)
-            return installed or agy
-        print(f"AGY update failed ({rc}); continuing with current version.", flush=True)
-        return agy
-    updated = find_executable("agy") or agy
-    new_version = agy_current_version(updated)
-    if new_version:
-        print(f"AGY version after update: {new_version}", flush=True)
-    return updated
+    return agy_installer().update_check(agy, enabled)
 
 
 def run_quiet_upgrade_and_exit() -> int:

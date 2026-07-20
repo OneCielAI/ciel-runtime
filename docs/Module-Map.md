@@ -377,6 +377,10 @@ Provider 모델 alias/request 해석과 catalog projection뿐 아니라 명시�
 
 AGY passthrough 인수 분석과 Claude 호환 인수 매핑.
 
+### `ciel_runtime_support/agy_installer.py`
+
+공식 AGY manifest의 플랫폼/아키텍처 선택, 조회·다운로드, sha512 검증, archive 설치, post-install 및 native update fallback을 소유하는 Runtime Installation Adapter. executable·version·upgrade·출력 효과는 6필드 typed port로 주입되고 facade는 호환 함수만 제공한다.
+
 ### `ciel_runtime_support/codex_cli.py`
 
 Codex passthrough, resume 및 채널 관련 인수 정규화.

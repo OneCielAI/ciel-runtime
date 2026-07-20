@@ -222,6 +222,11 @@ provider adapter in `providers/nvidia_runtime.py`. The provider runtime owns
 pip/process/readiness mechanics; configuration and generic HTTP/executable
 capabilities arrive through a bounded port instead of facade globals.
 
+AGY's official manifest installation and update lifecycle lives in
+`AgyInstaller`. Platform selection, download, checksum, archive extraction,
+post-install, and native-update fallback form one installation boundary; the
+facade injects executable/version/command effects through a bounded port.
+
 Chat attachment decoding, size validation, safe naming, storage, URL metadata,
 and Markdown projection live in `ChatFileRepository`; only clocks are injected
 and callers no longer own filesystem mechanics.
