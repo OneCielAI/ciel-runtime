@@ -138,6 +138,7 @@ from ciel_runtime_support.web_ui_controller import (
 from ciel_runtime_support.tool_request_projection import (
     UltracodeSessionPolicy,
 )
+from ciel_runtime_support.provider_tool_policy import ProviderToolPolicy
 from ciel_runtime_support.provider_launch_endpoint import (
     ProviderLaunchEndpointGroups,
     ProviderLaunchEndpointPolicy,
@@ -4116,6 +4117,7 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertLessEqual(len(fields(port)), 10)
         self.assertEqual(8, len(fields(RouterHealthPolicy)))
         self.assertEqual(1, len(fields(UltracodeSessionPolicy)))
+        self.assertEqual(8, len(fields(ProviderToolPolicy)))
 
     def test_ollama_context_and_output_budget_policies_live_outside_root(self):
         root = Path(__file__).resolve().parents[1]
@@ -4623,6 +4625,13 @@ class ArchitectureContractTests(unittest.TestCase):
             "router_health_has_foreign_config": "has_foreign_config",
             "body_ultracode_runtime_enabled": "runtime_enabled",
             "ultracode_workflow_preferred": "workflow_preferred",
+            "resolve_blocked_tools": "blocked_tools",
+            "should_normalize_anthropic_stream_tool_use": (
+                "normalize_anthropic_stream_tool_use"
+            ),
+            "provider_supports_tool_choice": "supports_tool_choice",
+            "provider_tool_choice_status": "tool_choice_status",
+            "normalize_tool_choice_for_provider": "normalize_tool_choice",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

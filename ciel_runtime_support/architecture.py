@@ -119,6 +119,8 @@ class ProviderCapabilities:
     preserves_anthropic_thinking: bool = False
     requires_api_key: bool = False
     local: bool = False
+    blocks_default_tools: bool = True
+    repairs_anthropic_tool_input: bool = False
 
     @property
     def supported_protocols(self) -> frozenset[MessageProtocol]:
@@ -362,6 +364,19 @@ class ProviderAdapter(ABC):
             return bool(configured)
         del model
         return self.capabilities(config).supports_tool_choice
+
+    def normalizes_anthropic_tool_use(
+        self,
+        config: ProviderConfig,
+    ) -> bool:
+        configured = config.options.get("normalize_anthropic_tool_use")
+        if configured is not None:
+            return bool(configured)
+        capabilities = self.capabilities(config)
+        return (
+            capabilities.upstream_protocol != "anthropic_messages"
+            and not capabilities.preserves_anthropic_thinking
+        )
 
     def preserves_anthropic_thinking(self, config: ProviderConfig) -> bool:
         configured = config.options.get("preserve_anthropic_thinking")

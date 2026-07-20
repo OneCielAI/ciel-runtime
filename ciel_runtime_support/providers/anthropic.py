@@ -33,6 +33,8 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
             upstream_protocol="anthropic_messages",
             supports_thinking=True,
             preserves_anthropic_thinking=True,
+            blocks_default_tools=False,
+            repairs_anthropic_tool_input=True,
         )
     )
     request_policy_value: ProviderRequestPolicy = field(

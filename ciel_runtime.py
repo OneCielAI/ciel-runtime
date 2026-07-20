@@ -325,6 +325,7 @@ from ciel_runtime_support.provider_request_access import (
     ProviderRequestAccessService,
 )
 from ciel_runtime_support.provider_query_policy import ProviderQueryPolicy
+from ciel_runtime_support.provider_tool_policy import ProviderToolPolicy
 from ciel_runtime_support.provider_runtime_modes import (
     ProviderNativeCompatibilityPolicy,
     RuntimeModePolicy,
@@ -883,12 +884,10 @@ from ciel_runtime_support.protocols.anthropic_thinking_policy import (
     AnthropicThinkingPolicy,
     SuppressedThinkingRepository,
     ThinkingPolicyPorts,
-    ToolChoicePorts,
     assistant_history_count as project_anthropic_assistant_history_count,
     copy_thinking_blocks as project_copy_thinking_blocks,
     has_synthetic_tool_use as project_has_synthetic_tool_use,
     message_content_blocks as project_message_content_blocks,
-    normalize_tool_choice as project_normalize_tool_choice,
     strip_thinking_blocks as project_strip_thinking_blocks,
     thinking_block_count as project_anthropic_thinking_block_count,
     thinking_requested as project_anthropic_thinking_requested,
@@ -2411,17 +2410,21 @@ def router_log(level: str, message: str) -> None:
     )
 
 
+def provider_tool_policy() -> ProviderToolPolicy:
+    return ProviderToolPolicy(
+        configured_provider_adapter,
+        provider_contract_config,
+        current_upstream_model_id,
+        strip_claude_context_suffix,
+        resolve_emitted_tool_name,
+        frozenset(DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC),
+        frozenset(ANTHROPIC_PASSTHROUGH_TOOL_INPUT_REPAIR_TOOLS),
+        router_log,
+    )
+
+
 def resolve_blocked_tools(provider: str, pcfg: dict[str, Any]) -> set[str]:
-    """Return the set of tool names to strip from upstream requests.
-    `pcfg['blocked_tools']` overrides: None/missing => default list, False/[] => disable, list => explicit set."""
-    if provider == "anthropic":
-        return set()
-    override = pcfg.get("blocked_tools", None)
-    if override is False:
-        return set()
-    if isinstance(override, list):
-        return {str(name).strip() for name in override if str(name).strip()}
-    return set(DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC)
+    return provider_tool_policy().blocked_tools(provider, pcfg)
 
 
 _mcp_tool_name_server_normalized_key = mcp_server_normalized_key
@@ -2440,10 +2443,9 @@ def should_repair_anthropic_passthrough_tool_input(
     raw_name: str,
     source_body: dict[str, Any] | None,
 ) -> bool:
-    if provider != "anthropic":
-        return False
-    matched_name = resolve_emitted_tool_name(raw_name, source_body)
-    return matched_name in ANTHROPIC_PASSTHROUGH_TOOL_INPUT_REPAIR_TOOLS
+    return provider_tool_policy().should_repair_passthrough_input(
+        provider, {}, raw_name, source_body,
+    )
 
 
 def ultracode_session_policy() -> UltracodeSessionPolicy:
@@ -2506,10 +2508,7 @@ def anthropic_thinking_policy() -> AnthropicThinkingPolicy:
 
 
 def should_normalize_anthropic_stream_tool_use(provider: str, pcfg: dict[str, Any]) -> bool:
-    configured = pcfg.get("normalize_anthropic_tool_use")
-    if configured is not None:
-        return bool(configured)
-    return provider != "anthropic" and not preserves_anthropic_thinking_contract(provider, pcfg)
+    return provider_tool_policy().normalize_anthropic_stream_tool_use(provider, pcfg)
 
 
 def normalize_thinking_for_non_anthropic_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
@@ -2521,37 +2520,15 @@ def normalize_thinking_for_non_anthropic_native_provider(provider: str, pcfg: di
 
 
 def provider_supports_tool_choice(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> bool:
-    model_hint = strip_claude_context_suffix(str(body.get("model") or pcfg.get("current_model") or "")).lower()
-    adapter = configured_provider_adapter(provider, pcfg)
-    return adapter.supports_tool_choice(provider_contract_config(provider, pcfg), model_hint)
+    return provider_tool_policy().supports_tool_choice(provider, pcfg, body)
 
 
 def provider_tool_choice_status(provider: str, pcfg: dict[str, Any]) -> str:
-    configured = pcfg.get("supports_tool_choice")
-    if configured is not None:
-        return "on" if bool(configured) else "off"
-    model = current_upstream_model_id(provider, pcfg) if provider in PROVIDER_LABELS else str(pcfg.get("current_model") or "")
-    default = provider_supports_tool_choice(provider, pcfg, {"model": model})
-    return f"auto ({'on' if default else 'off'})"
+    return provider_tool_policy().tool_choice_status(provider, pcfg)
 
 
 def normalize_tool_choice_for_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
-    return project_normalize_tool_choice(
-        provider,
-        pcfg,
-        body,
-        ToolChoicePorts(
-            normalize=lambda current_provider, config, request, choice: configured_provider_adapter(
-                current_provider, config
-            ).normalize_tool_choice(
-                provider_contract_config(current_provider, config),
-                str(request.get("model") or config.get("current_model") or ""),
-                choice,
-            ),
-            supports=provider_supports_tool_choice,
-            log=router_log,
-        ),
-    )
+    return provider_tool_policy().normalize_tool_choice(provider, pcfg, body)
 
 
 def normalize_response_thinking_for_non_anthropic_provider(provider: str, pcfg: dict[str, Any], message: dict[str, Any], model: str | None = None) -> dict[str, Any]:
