@@ -114,6 +114,11 @@ from ciel_runtime_support.provider_endpoint_policy import (
     ProviderEndpointPorts as ModelEndpointPorts,
     ProviderEndpointPresentation as ModelEndpointPresentation,
 )
+from ciel_runtime_support.provider_request_access import (
+    ProviderRequestAccessEffects,
+    ProviderRequestAccessPorts,
+    ProviderRequestAccessService,
+)
 from ciel_runtime_support.claude_router import (
     ClaudeRouterCore,
     ClaudeRouterCountTokens,
@@ -2057,6 +2062,38 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(ModelEndpointPorts)), 4)
         self.assertLessEqual(len(fields(ModelEndpointPresentation)), 3)
         self.assertEqual(2, len(fields(ModelEndpointPolicy)))
+
+    def test_provider_request_access_has_no_provider_name_branch(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        root_functions = {
+            node.name
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "provider_upstream_model",
+            "provider_requires_streaming",
+            "key_from_request_headers",
+            "provider_headers",
+            "get_current_provider",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        service_source = (
+            root / "ciel_runtime_support" / "provider_request_access.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn('provider == "anthropic"', service_source)
+        self.assertNotIn("import ciel_runtime", service_source)
+        self.assertNotIn("__getattr__", service_source)
+        anthropic_source = (
+            root / "ciel_runtime_support" / "providers" / "anthropic.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('credential_strategy="anthropic_inbound"', anthropic_source)
+
+    def test_provider_request_access_uses_small_typed_ports(self):
+        self.assertLessEqual(len(fields(ProviderRequestAccessPorts)), 5)
+        self.assertLessEqual(len(fields(ProviderRequestAccessEffects)), 3)
+        self.assertEqual(2, len(fields(ProviderRequestAccessService)))
 
     def test_npm_runtime_utilities_are_infrastructure_reexports(self):
         root = Path(__file__).resolve().parents[1]

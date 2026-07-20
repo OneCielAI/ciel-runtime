@@ -322,6 +322,11 @@ from ciel_runtime_support.provider_endpoint_policy import (
     ProviderEndpointPorts as ModelEndpointPorts,
     ProviderEndpointPresentation as ModelEndpointPresentation,
 )
+from ciel_runtime_support.provider_request_access import (
+    ProviderRequestAccessEffects,
+    ProviderRequestAccessPorts,
+    ProviderRequestAccessService,
+)
 from ciel_runtime_support.model_cache_lifecycle import (
     ModelCacheLifecyclePorts,
     ModelCacheLifecycleService,
@@ -3450,54 +3455,38 @@ ensure_ncp = _NVIDIA_RUNTIME_API.ensure
 ncp_model_id_for_nvidia_hosted = _NVIDIA_RUNTIME_API.model_id
 
 
-def provider_upstream_model(provider: str, pcfg: dict[str, Any], model: str) -> str:
-    """Apply the model alias strategy owned by the configured provider adapter."""
-
-    strategy = provider_request_policy(provider, pcfg).model_alias_strategy
-    normalizers = {
-        "identity": lambda value: value,
-        "ncp": ncp_model_id_for_nvidia_hosted,
-    }
-    return normalizers[strategy](model)
-
-
-def provider_requires_streaming(provider: str, pcfg: dict[str, Any]) -> bool:
-    return provider_request_policy(provider, pcfg).stream_required
-
-
-def key_from_request_headers(headers: Any) -> str:
-    """Recover the API key baked into an outgoing request's headers (for cooldown)."""
-    try:
-        key = headers.get("x-api-key")
-        if key:
-            return str(key)
-        auth = str(headers.get("authorization") or headers.get("Authorization") or "")
-    except Exception:
-        return ""
-    if auth.lower().startswith("bearer "):
-        return auth[7:].strip()
-    return auth.strip()
-
-
-def provider_headers(provider: str, pcfg: dict[str, Any], inbound_headers: Any | None = None) -> dict[str, str]:
-    headers = with_upstream_user_agent({"content-type": "application/json", "anthropic-version": "2023-06-01"})
-    key = select_provider_api_key(provider, pcfg) or str(pcfg.get("api_key") or "") or "not-used"
-    if provider == "anthropic":
-        credential = resolve_anthropic_credentials(str(key) if meaningful_key(key) else "", inbound_headers)
-        if credential is None:
-            raise RuntimeError("Anthropic routed mode needs a configured API key or inbound Claude Code auth headers.")
-        headers.update(credential.headers)
-    else:
-        meaningful = str(key) if meaningful_key(key) else None
-        adapter = configured_provider_adapter(provider, pcfg)
-        config = provider_contract_config(provider, pcfg)
-        headers.update(adapter.build_headers(config, meaningful))
-    return headers
-
-
-def get_current_provider(cfg: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    provider = normalize_provider(cfg.get("current_provider", "nvidia-hosted"))
-    return provider, cfg["providers"][provider]
+_PROVIDER_REQUEST_ACCESS = ProviderRequestAccessService(
+    ports=ProviderRequestAccessPorts(
+        request_policy=lambda provider, pcfg: provider_request_policy(
+            provider, pcfg
+        ),
+        select_api_key=lambda provider, pcfg: select_provider_api_key(
+            provider, pcfg
+        ),
+        meaningful_key=project_meaningful_key_value,
+        adapter_headers=lambda provider, pcfg, key: configured_provider_adapter(
+            provider, pcfg
+        ).build_headers(provider_contract_config(provider, pcfg), key),
+        inbound_credentials=lambda key, inbound: (
+            credential.headers
+            if (
+                credential := resolve_anthropic_credentials(key, inbound)
+            )
+            is not None
+            else None
+        ),
+    ),
+    effects=ProviderRequestAccessEffects(
+        user_agent_headers=with_upstream_user_agent,
+        ncp_model_id=lambda model: ncp_model_id_for_nvidia_hosted(model),
+        normalize_provider=normalize_provider,
+    ),
+)
+provider_upstream_model = _PROVIDER_REQUEST_ACCESS.upstream_model
+provider_requires_streaming = _PROVIDER_REQUEST_ACCESS.requires_streaming
+key_from_request_headers = _PROVIDER_REQUEST_ACCESS.key_from_headers
+provider_headers = _PROVIDER_REQUEST_ACCESS.headers
+get_current_provider = _PROVIDER_REQUEST_ACCESS.current_provider
 
 
 def materialize_runtime_command(

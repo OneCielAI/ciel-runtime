@@ -134,6 +134,7 @@ class ProviderRequestPolicy:
     model_info_path: str | None = None
     default_timeout_seconds: float = 60.0
     model_alias_strategy: Literal["identity", "ncp"] = "identity"
+    credential_strategy: Literal["adapter", "anthropic_inbound"] = "adapter"
     stream_required: bool = False
     normalize_historical_tool_turns: bool = True
 

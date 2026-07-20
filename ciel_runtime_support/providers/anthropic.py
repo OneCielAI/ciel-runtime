@@ -39,6 +39,7 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
         default_factory=lambda: ProviderRequestPolicy(
             chat_path="/v1/messages",
             models_path="/v1/models",
+            credential_strategy="anthropic_inbound",
             normalize_historical_tool_turns=False,
         )
     )
