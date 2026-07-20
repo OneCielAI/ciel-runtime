@@ -324,6 +324,7 @@ from ciel_runtime_support.provider_request_access import (
     ProviderRequestAccessPorts,
     ProviderRequestAccessService,
 )
+from ciel_runtime_support.provider_query_policy import ProviderQueryPolicy
 from ciel_runtime_support.provider_runtime_modes import (
     ProviderNativeCompatibilityPolicy,
     RuntimeModePolicy,
@@ -1924,60 +1925,33 @@ def join_url(base: str, path: str) -> str:
 
 
 def inbound_query_has_beta_flag(request_path: str) -> bool:
-    """True when Claude Code's inbound request carried ?beta=true.
+    return provider_query_policy().inbound_has_beta(request_path)
 
-    Claude Code signals beta-feature opt-in (e.g. the context-1m long-context
-    beta) via the ``beta=true`` query parameter on /v1/messages. The router
-    parses only the path and would otherwise drop it, so callers re-attach the
-    flag when forwarding upstream. Only the known ``beta`` flag is inspected;
-    other query parameters are intentionally not forwarded.
-    """
-    query = urllib.parse.urlparse(request_path).query
-    for value in urllib.parse.parse_qs(query).get("beta", []):
-        if value.strip().lower() in ("true", "1"):
-            return True
-    return False
+
+def provider_query_policy() -> ProviderQueryPolicy:
+    return ProviderQueryPolicy(
+        normalize_provider=normalize_provider,
+        propagates_inbound_beta=lambda provider, config: (
+            configured_provider_adapter(
+                provider,
+                config,
+            ).propagates_inbound_beta_query(
+                provider_contract_config(provider, config)
+            )
+        ),
+    )
 
 
 def upstream_messages_query(pcfg: dict[str, Any], request_path: str, provider: str | None = None) -> str:
-    """Query string to append to the upstream /v1/messages URL.
-
-    A configured ``force_query_string`` (operator override) wins, letting an
-    operator inject an arbitrary raw query (e.g. "beta=true") from the options
-    screen. Otherwise the inbound Claude Code ``beta=true`` flag is propagated
-    only for the Anthropic provider. Non-Anthropic providers default to an empty
-    query string unless the operator explicitly configures one.
-    """
-    forced = str(pcfg.get("force_query_string") or "").strip().lstrip("?").strip()
-    if forced:
-        return forced
-    provider_name = str(provider or pcfg.get("provider") or "").strip()
-    provider_key = normalize_provider(provider_name) if provider_name else ""
-    if provider_key:
-        adapter = configured_provider_adapter(provider_key, pcfg)
-        config = provider_contract_config(provider_key, pcfg)
-    else:
-        adapter = None
-        config = None
-    if (
-        adapter is not None
-        and config is not None
-        and adapter.propagates_inbound_beta_query(config)
-        and inbound_query_has_beta_flag(request_path)
-    ):
-        return "beta=true"
-    return ""
+    return provider_query_policy().upstream_query(
+        pcfg,
+        request_path,
+        provider,
+    )
 
 
 def upstream_query_string_status(provider: str, pcfg: dict[str, Any]) -> str:
-    forced = str(pcfg.get("force_query_string") or "").strip()
-    if forced:
-        return forced
-    provider_key = normalize_provider(str(provider))
-    adapter = configured_provider_adapter(provider_key, pcfg)
-    if adapter.propagates_inbound_beta_query(provider_contract_config(provider_key, pcfg)):
-        return "auto (beta=true when routed)"
-    return "empty"
+    return provider_query_policy().status(provider, pcfg)
 
 
 def read_env_file(path: Path) -> dict[str, str]:

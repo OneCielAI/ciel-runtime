@@ -125,6 +125,7 @@ from ciel_runtime_support.provider_request_access import (
     ProviderRequestAccessPorts,
     ProviderRequestAccessService,
 )
+from ciel_runtime_support.provider_query_policy import ProviderQueryPolicy
 from ciel_runtime_support.provider_launch_endpoint import (
     ProviderLaunchEndpointGroups,
     ProviderLaunchEndpointPolicy,
@@ -2430,6 +2431,7 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(ProviderRequestAccessPorts)), 5)
         self.assertLessEqual(len(fields(ProviderRequestAccessEffects)), 3)
         self.assertEqual(2, len(fields(ProviderRequestAccessService)))
+        self.assertEqual(2, len(fields(ProviderQueryPolicy)))
 
     def test_runtime_modes_are_policy_owned_without_facade_branches(self):
         root = Path(__file__).resolve().parents[1]
@@ -4578,6 +4580,9 @@ class ArchitectureContractTests(unittest.TestCase):
             "fetch_ollama_library_context_limit": (
                 "fetch_library_context_limit"
             ),
+            "inbound_query_has_beta_flag": "inbound_has_beta",
+            "upstream_messages_query": "upstream_query",
+            "upstream_query_string_status": "status",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

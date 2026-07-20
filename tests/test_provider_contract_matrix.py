@@ -209,7 +209,11 @@ class ProviderContractMatrixTests(unittest.TestCase):
             )
             function_source = ast.get_source_segment(source, function) or ""
             with self.subTest(function=function_name):
-                self.assertIn("propagates_inbound_beta_query", function_source)
+                self.assertIn("provider_query_policy", function_source)
+                self.assertNotIn(
+                    "configured_provider_adapter",
+                    function_source,
+                )
                 self.assertNotIn('provider == "', function_source)
 
     def test_option_presentation_matrix_is_adapter_owned(self):
