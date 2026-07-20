@@ -448,6 +448,7 @@ from ciel_runtime_support.request_trace import (
     RequestTraceProjection,
     RequestTraceServices,
     ResponseTraceController,
+    RouterMessagePreviewPolicy,
 )
 from ciel_runtime_support.statusline_settings import StatusLineServices
 from ciel_runtime_support.ollama_forwarding import (
@@ -3189,6 +3190,7 @@ class ArchitectureContractTests(unittest.TestCase):
             RequestTraceProjection,
             RequestTraceServices,
             ResponseTraceController,
+            RouterMessagePreviewPolicy,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
@@ -4639,6 +4641,9 @@ class ArchitectureContractTests(unittest.TestCase):
             "provider_tool_choice_status": "tool_choice_status",
             "normalize_tool_choice_for_provider": "normalize_tool_choice",
             "dump_response_for_trace": "write",
+            "router_debug_message_preview_chars": "configured_chars",
+            "router_event_message_preview": "project",
+            "finish_outgoing_sse_trace": "finish_stream",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

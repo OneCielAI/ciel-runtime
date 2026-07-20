@@ -818,6 +818,7 @@ from ciel_runtime_support.request_trace import (
     RequestTraceProjection,
     RequestTraceServices,
     ResponseTraceController,
+    RouterMessagePreviewPolicy,
     dump_request_for_trace as write_request_trace,
     summarize_messages_for_trace as project_messages_for_trace,
     truncate_for_dump as _truncate_for_dump,
@@ -2601,29 +2602,21 @@ latest_user_is_claude_code_suggestion_mode = (
 
 
 def router_debug_message_preview_chars(cfg: dict[str, Any] | None = None) -> int:
-    cfg = cfg or load_config()
-    env = os.environ.get("CIEL_RUNTIME_ROUTER_MESSAGE_PREVIEW_CHARS", "").strip()
-    if env:
-        value = positive_int(env)
-        return min(value or 0, 4000)
-    value = positive_int(cfg.get("router_debug_message_preview_chars"))
-    return min(value or 0, 4000)
+    return router_message_preview_policy().configured_chars(cfg)
 
 
 def router_event_message_preview(body: dict[str, Any], cfg: dict[str, Any] | None = None) -> dict[str, Any]:
-    limit = router_debug_message_preview_chars(cfg)
-    if limit <= 0:
-        return {}
-    text = latest_user_text(body).strip()
-    if not text:
-        return {"message_preview_chars": limit, "message_preview": "", "message_preview_truncated": False}
-    normalized = re.sub(r"\s+", " ", redact_sensitive_text(text))
-    truncated = len(normalized) > limit
-    return {
-        "message_preview_chars": limit,
-        "message_preview": normalized[:limit].rstrip(),
-        "message_preview_truncated": truncated,
-    }
+    return router_message_preview_policy().project(body, cfg)
+
+
+def router_message_preview_policy() -> RouterMessagePreviewPolicy:
+    return RouterMessagePreviewPolicy(
+        os.environ,
+        load_config,
+        positive_int,
+        latest_user_text,
+        redact_sensitive_text,
+    )
 
 
 likely_implementation_planning_request = (
@@ -2827,16 +2820,15 @@ def finish_outgoing_sse_trace(
     stop_reason: str | None = None,
     error: str | None = None,
 ) -> None:
-    result: dict[str, Any] = {
-        "outcome": outcome,
-        "text_len": text_len,
-        "tool_call_count": tool_call_count,
-        "chunks": chunks,
-        "stop_reason": stop_reason,
-    }
-    if error:
-        result["error"] = error
-    sse_trace_repository().finish(trace, **result)
+    sse_trace_repository().finish_stream(
+        trace,
+        outcome=outcome,
+        text_len=text_len,
+        tool_call_count=tool_call_count,
+        chunks=chunks,
+        stop_reason=stop_reason,
+        error=error,
+    )
 
 
 def append_tool_call_log(event: str, payload: dict[str, Any]) -> None:

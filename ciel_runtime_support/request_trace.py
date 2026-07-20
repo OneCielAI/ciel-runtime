@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -89,6 +91,57 @@ class ResponseTraceController:
             self.services(),
             last_chunk=last_chunk,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class RouterMessagePreviewPolicy:
+    environ: Mapping[str, str]
+    load_config: Callable[[], dict[str, Any]]
+    positive_int: Callable[[Any], int | None]
+    latest_user_text: Callable[[dict[str, Any]], str]
+    redact_text: Callable[[str], str]
+
+    def configured_chars(
+        self,
+        config: dict[str, Any] | None = None,
+    ) -> int:
+        current = config or self.load_config()
+        environment = self.environ.get(
+            "CIEL_RUNTIME_ROUTER_MESSAGE_PREVIEW_CHARS",
+            "",
+        ).strip()
+        value = self.positive_int(environment) if environment else None
+        if value is None:
+            value = self.positive_int(
+                current.get("router_debug_message_preview_chars")
+            )
+        return min(value or 0, 4_000)
+
+    def project(
+        self,
+        body: dict[str, Any],
+        config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        limit = self.configured_chars(config)
+        if limit <= 0:
+            return {}
+        text = self.latest_user_text(body).strip()
+        if not text:
+            return {
+                "message_preview_chars": limit,
+                "message_preview": "",
+                "message_preview_truncated": False,
+            }
+        normalized = re.sub(
+            r"\s+",
+            " ",
+            self.redact_text(text),
+        )
+        return {
+            "message_preview_chars": limit,
+            "message_preview": normalized[:limit].rstrip(),
+            "message_preview_truncated": len(normalized) > limit,
+        }
 
 
 def truncate_for_dump(value: Any, max_len: int = 4000) -> Any:

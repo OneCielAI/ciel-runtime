@@ -178,6 +178,28 @@ class SseTraceRepository:
                 f"error={type(exc).__name__}: {exc}",
             )
 
+    def finish_stream(
+        self,
+        trace: dict[str, Any] | None,
+        *,
+        outcome: str,
+        text_len: int = 0,
+        tool_call_count: int = 0,
+        chunks: int = 0,
+        stop_reason: str | None = None,
+        error: str | None = None,
+    ) -> None:
+        result: dict[str, Any] = {
+            "outcome": outcome,
+            "text_len": text_len,
+            "tool_call_count": tool_call_count,
+            "chunks": chunks,
+            "stop_reason": stop_reason,
+        }
+        if error:
+            result["error"] = error
+        self.finish(trace, **result)
+
     def append_tool_call(self, event: str, payload: dict[str, Any]) -> None:
         try:
             self.config.config_dir.mkdir(parents=True, exist_ok=True)
