@@ -18,7 +18,6 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-import uuid
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -26,6 +25,8 @@ from typing import Any, Callable, Iterable
 
 from ciel_runtime_support.agent_router import missing_common_capabilities, router_capability_matrix
 from ciel_runtime_support.advisor_policy import (
+    AdvisorShortcutController,
+    AdvisorShortcutPorts,
     AdvisorDecisionServices,
     AdvisorServices,
     AdvisorTextServices,
@@ -1220,6 +1221,8 @@ from ciel_runtime_support.pseudo_tool_parser import (
 )
 from ciel_runtime_support.stream_chunk_policy import split_word_buffer
 from ciel_runtime_support.session_import import (
+    ImportSessionHttpController,
+    ImportSessionHttpPorts,
     ImportSessionLimits,
     ImportSessionRepository,
     ImportSessionService,
@@ -6043,6 +6046,15 @@ def advisor_provider_supported(provider: str) -> bool:
     return bool(advisor_provider_kind(provider))
 
 
+def advisor_shortcut_intercept_enabled(
+    provider: str, pcfg: dict[str, Any]
+) -> bool:
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.intercepts_advisor_shortcut(
+        provider_contract_config(provider, pcfg)
+    )
+
+
 def anthropic_system_with_advisor(system: Any, extra_system_texts: list[str] | None = None) -> list[dict[str, Any]]:
     """Build the advisor request system blocks, keeping the session identity first.
 
@@ -6992,6 +7004,22 @@ def import_session_response_text(client_runtime: str, body: dict[str, Any]) -> s
     ).response_text(client_runtime, body)
 
 
+def import_session_http_controller() -> ImportSessionHttpController:
+    return ImportSessionHttpController(
+        ImportSessionHttpPorts(
+            is_request=is_import_session_request,
+            response_text=import_session_response_text,
+            load_config=load_config,
+            current_alias=current_alias,
+            current_provider=get_current_provider,
+            estimate_tokens=estimate_tokens,
+            write_openai=write_openai_responses_response,
+            write_anthropic=write_anthropic_text_response,
+            publish_event=EVENT_BUS.publish,
+        )
+    )
+
+
 def maybe_handle_import_session_request(
     handler: BaseHTTPRequestHandler,
     body: dict[str, Any],
@@ -7000,78 +7028,31 @@ def maybe_handle_import_session_request(
     response_format: str = "anthropic",
     source_body: dict[str, Any] | None = None,
 ) -> bool:
-    if not is_import_session_request(body):
-        return False
-    text = import_session_response_text(client_runtime, body)
-    model = str(body.get("model") or current_alias(load_config()))
-    stream = bool((source_body or body).get("stream", True))
-    if response_format == "openai":
-        message = {
-            "id": f"msg_ciel_runtime_import_{uuid.uuid4().hex[:12]}",
-            "type": "message",
-            "role": "assistant",
-            "model": model,
-            "content": [{"type": "text", "text": text}],
-            "stop_reason": "end_turn",
-            "usage": {"input_tokens": 1, "output_tokens": max(1, estimate_tokens({"text": text}))},
-        }
-        write_openai_responses_response(handler, message, source_body=source_body or body, stream=stream)
-    else:
-        write_anthropic_text_response(handler, model, text, stream)
-    EVENT_BUS.publish(
-        level="info",
-        category="import_session.short_circuit",
-        message="ImportSession request handled locally",
-        provider=get_current_provider(load_config())[0],
-        model=model,
-        data={"client_runtime": client_runtime},
+    return import_session_http_controller().handle(
+        handler,
+        body,
+        client_runtime=client_runtime,
+        response_format=response_format,
+        source_body=source_body,
     )
-    return True
+
+
+def advisor_shortcut_controller() -> AdvisorShortcutController:
+    return AdvisorShortcutController(
+        AdvisorShortcutPorts(
+            should_intercept=advisor_shortcut_intercept_enabled,
+            is_request=is_advisor_request,
+            provider_supported=advisor_provider_supported,
+            call_text=call_advisor_text,
+            write_anthropic=write_anthropic_text_response,
+            load_config=load_config,
+            current_alias=current_alias,
+        )
+    )
 
 
 def maybe_handle_advisor_request(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> bool:
-    if provider == "anthropic":
-        # Claude native and Anthropic routed sessions follow Claude Code's
-        # built-in /advisor flow (model picker + advisor server tool);
-        # ciel-runtime neither installs its own /advisor command nor intercepts
-        # advisor traffic for this provider.
-        return False
-    if not is_advisor_request(body):
-        return False
-    advisor_model = str(pcfg.get("advisor_model") or "").strip()
-    stream = bool(body.get("stream", True))
-    if not advisor_model:
-        write_anthropic_text_response(
-            handler,
-            str(body.get("model") or current_alias(load_config())),
-            "Advisor is off. Choose an Advisor Model in the ciel-runtime launch menu (item 5), or run `ciel-runtime advisor-model <model-id>`, then use `/advisor` again.",
-            stream,
-        )
-        return True
-    if not advisor_provider_supported(provider):
-        write_anthropic_text_response(
-            handler,
-            advisor_model,
-            f"Advisor Model is configured as `{advisor_model}`, but ciel-runtime advisor calling is not implemented for provider `{provider}`.",
-            stream,
-        )
-        return True
-    try:
-        text = call_advisor_text(
-            provider,
-            pcfg,
-            body,
-            inbound_headers=handler.headers,
-            allow_rate_limit_wait=False,
-            retry_rate_limits=False,
-            raise_errors=True,
-        )
-        if not text:
-            text = "Advisor returned no text."
-    except Exception as exc:
-        text = f"Advisor request failed: {type(exc).__name__}: {exc}"
-    write_anthropic_text_response(handler, advisor_model, "Advisor guidance:\n\n" + text, stream)
-    return True
+    return advisor_shortcut_controller().handle(handler, provider, pcfg, body)
 
 
 def router_shortcut_controller() -> RouterShortcutController:

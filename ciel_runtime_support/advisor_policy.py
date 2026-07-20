@@ -28,6 +28,74 @@ class AdvisorServices:
     feedback_marker: str
 
 
+@dataclass(frozen=True, slots=True)
+class AdvisorShortcutPorts:
+    should_intercept: Callable[[str, dict[str, Any]], bool]
+    is_request: Callable[[dict[str, Any]], bool]
+    provider_supported: Callable[[str], bool]
+    call_text: Callable[..., str]
+    write_anthropic: Callable[..., Any]
+    load_config: Callable[[], dict[str, Any]]
+    current_alias: Callable[[dict[str, Any]], str]
+
+
+@dataclass(frozen=True, slots=True)
+class AdvisorShortcutController:
+    ports: AdvisorShortcutPorts
+
+    def handle(
+        self,
+        handler: Any,
+        provider: str,
+        provider_config: dict[str, Any],
+        body: dict[str, Any],
+    ) -> bool:
+        if not self.ports.should_intercept(provider, provider_config):
+            return False
+        if not self.ports.is_request(body):
+            return False
+        advisor_model = str(provider_config.get("advisor_model") or "").strip()
+        stream = bool(body.get("stream", True))
+        if not advisor_model:
+            model = str(
+                body.get("model")
+                or self.ports.current_alias(self.ports.load_config())
+            )
+            self.ports.write_anthropic(
+                handler,
+                model,
+                "Advisor is off. Choose an Advisor Model in the ciel-runtime launch menu (item 5), or run `ciel-runtime advisor-model <model-id>`, then use `/advisor` again.",
+                stream,
+            )
+            return True
+        if not self.ports.provider_supported(provider):
+            self.ports.write_anthropic(
+                handler,
+                advisor_model,
+                f"Advisor Model is configured as `{advisor_model}`, but ciel-runtime advisor calling is not implemented for provider `{provider}`.",
+                stream,
+            )
+            return True
+        try:
+            text = self.ports.call_text(
+                provider,
+                provider_config,
+                body,
+                inbound_headers=handler.headers,
+                allow_rate_limit_wait=False,
+                retry_rate_limits=False,
+                raise_errors=True,
+            )
+            if not text:
+                text = "Advisor returned no text."
+        except Exception as exc:
+            text = f"Advisor request failed: {type(exc).__name__}: {exc}"
+        self.ports.write_anthropic(
+            handler, advisor_model, "Advisor guidance:\n\n" + text, stream
+        )
+        return True
+
+
 def advisor_messages_and_system(
     body: dict[str, Any], services: AdvisorServices
 ) -> tuple[list[dict[str, Any]], list[str]]:

@@ -498,6 +498,12 @@ class ProviderAdapter(ABC):
         del config
         return True
 
+    def intercepts_advisor_shortcut(self, config: ProviderConfig) -> bool:
+        """Whether the router should handle /advisor instead of the native runtime."""
+
+        del config
+        return True
+
     def option_timeout_default(self) -> str:
         return "default"
 

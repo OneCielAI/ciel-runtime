@@ -83,6 +83,10 @@ class AnthropicProviderAdapter(NoAuthProviderAdapter):
             status_capacity_strategy="provider" if routed else "configured",
         )
 
+    def intercepts_advisor_shortcut(self, config: ProviderConfig) -> bool:
+        del config
+        return False
+
     def routing_mode_update(self, enabled: bool) -> tuple[str, ...]:
         mode = (
             "routed through ciel-runtime router" if enabled else "direct Claude Native"

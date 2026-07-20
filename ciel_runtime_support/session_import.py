@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -278,3 +279,78 @@ class ImportSessionService:
                 f"- warning: trimmed to last {self.repository.limits.max_chars:,} chars"
             )
         return header
+
+
+@dataclass(frozen=True, slots=True)
+class ImportSessionHttpPorts:
+    is_request: Callable[[dict[str, Any]], bool]
+    response_text: Callable[[str, dict[str, Any]], str]
+    load_config: Callable[[], dict[str, Any]]
+    current_alias: Callable[[dict[str, Any]], str]
+    current_provider: Callable[[dict[str, Any]], tuple[str, dict[str, Any]]]
+    estimate_tokens: Callable[[Any], int]
+    write_openai: Callable[..., Any]
+    write_anthropic: Callable[..., Any]
+    publish_event: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ImportSessionHttpController:
+    ports: ImportSessionHttpPorts
+
+    def handle(
+        self,
+        handler: Any,
+        body: dict[str, Any],
+        *,
+        client_runtime: str,
+        response_format: str = "anthropic",
+        source_body: dict[str, Any] | None = None,
+    ) -> bool:
+        if not self.ports.is_request(body):
+            return False
+        text = self.ports.response_text(client_runtime, body)
+        config = self.ports.load_config()
+        model = str(body.get("model") or self.ports.current_alias(config))
+        source = source_body or body
+        stream = bool(source.get("stream", True))
+        if response_format == "openai":
+            message = {
+                "id": f"msg_ciel_runtime_import_{uuid.uuid4().hex[:12]}",
+                "type": "message",
+                "role": "assistant",
+                "model": model,
+                "content": [{"type": "text", "text": text}],
+                "stop_reason": "end_turn",
+                "usage": {
+                    "input_tokens": 1,
+                    "output_tokens": max(1, self.ports.estimate_tokens({"text": text})),
+                },
+            }
+            self.ports.write_openai(
+                handler, message, source_body=source, stream=stream
+            )
+        else:
+            self.ports.write_anthropic(handler, model, text, stream)
+        provider = self.ports.current_provider(config)[0]
+        self.ports.publish_event(
+            level="info",
+            category="import_session.short_circuit",
+            message="ImportSession request handled locally",
+            provider=provider,
+            model=model,
+            data={"client_runtime": client_runtime},
+        )
+        return True
+
+
+__all__ = [
+    "ImportSessionHttpController",
+    "ImportSessionHttpPorts",
+    "ImportSessionLimits",
+    "ImportSessionRepository",
+    "ImportSessionService",
+    "import_record_line",
+    "import_tool_text",
+    "normalize_import_source",
+]

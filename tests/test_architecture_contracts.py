@@ -2970,6 +2970,32 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(function=name):
                 self.assertLessEqual(functions[name].end_lineno - functions[name].lineno + 1, 2)
 
+    def test_import_and_advisor_http_controllers_live_outside_root(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        self.assertNotIn("msg_ciel_runtime_import_", source)
+        self.assertNotIn("Advisor returned no text.", source)
+        self.assertIn("ImportSessionHttpController", source)
+        self.assertIn("AdvisorShortcutController", source)
+        tree = ast.parse(source)
+        functions = {
+            node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        self.assertNotIn(
+            'provider == "anthropic"',
+            ast.unparse(functions["maybe_handle_advisor_request"]),
+        )
+        self.assertLessEqual(
+            functions["maybe_handle_advisor_request"].end_lineno
+            - functions["maybe_handle_advisor_request"].lineno
+            + 1,
+            2,
+        )
+        self.assertIn(
+            "adapter.intercepts_advisor_shortcut",
+            ast.unparse(functions["advisor_shortcut_intercept_enabled"]),
+        )
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):
