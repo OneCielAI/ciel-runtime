@@ -34,6 +34,11 @@ from ciel_runtime_support.codex_mcp_integration import (
     CodexMcpIntegrationService,
     CodexMcpProjectionPorts,
 )
+from ciel_runtime_support.codex_channel_sse_launch import (
+    CodexChannelSseEffects,
+    CodexChannelSseLaunchService,
+    CodexChannelSseQueryPorts,
+)
 from ciel_runtime_support.codex_launch_configuration import (
     CodexLaunchCatalogPorts,
     CodexLaunchConfigurationConstants,
@@ -2523,6 +2528,30 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 5)
         self.assertLessEqual(len(fields(CodexMcpIntegrationService)), 5)
+
+    def test_codex_channel_sse_launch_is_owned_by_typed_service(self):
+        self.assertEqual(3, len(fields(CodexChannelSseLaunchService)))
+        self.assertEqual(5, len(fields(CodexChannelSseQueryPorts)))
+        self.assertEqual(2, len(fields(CodexChannelSseEffects)))
+
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "start_codex_mcp_channel_sse_for_launch"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("CodexChannelSseLaunchService", function_source)
+        self.assertNotIn("names = [", function_source)
+        self.assertNotIn("reason=no_capable_unowned_codex_mcp", function_source)
+        service_source = (
+            root
+            / "ciel_runtime_support"
+            / "codex_channel_sse_launch.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", service_source)
 
     def test_codex_session_selection_is_owned_by_a_typed_service(self):
         for port in (CodexSessionRepositoryPorts, CodexSessionPresentationPorts):

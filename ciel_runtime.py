@@ -727,6 +727,11 @@ from ciel_runtime_support.codex_config import (
     unquote_toml_string as _unquote_toml_string,  # noqa: F401
 )
 from ciel_runtime_support import codex_mcp_integration
+from ciel_runtime_support.codex_channel_sse_launch import (
+    CodexChannelSseEffects,
+    CodexChannelSseLaunchService,
+    CodexChannelSseQueryPorts,
+)
 from ciel_runtime_support.codex_launch_policy import (
     current_model_args as project_codex_current_model_args,
     help_requested as project_codex_help_requested,
@@ -8653,45 +8658,23 @@ def start_codex_mcp_channel_sse_for_launch(
     codex_mcp_config: Path | None,
     allowed_server_names: Iterable[str] | None = None,
 ) -> list[dict[str, Any]]:
-    if not codex_mcp_config or channel_delivery_mode(cfg) != "llm":
-        return []
-    if not codex_mcp_config.exists() or not codex_mcp_config.is_file():
-        return []
-    extra_paths: list[Path | str] = [codex_mcp_config]
-    explicit = {
-        name
-        for name in _server_names_from_channel_specs(channel_specs_for_launch(cfg, []))
-        if name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES
-    }
-    if allowed_server_names is None:
-        names = codex_channel_capable_mcp_server_names(cfg, codex_mcp_config)
-    else:
-        names = _dedupe_strings(
-            name
-            for name in allowed_server_names
-            if str(name or "").strip()
-            and str(name or "").strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES
-        )
-    names = [name for name in names if name not in explicit]
-    if not names:
-        router_log(
-            "INFO",
-            "codex_channel_sse_skipped reason=no_capable_unowned_codex_mcp allowed=%s explicit=%s"
-            % (",".join(names) or "-", ",".join(sorted(explicit)) or "-"),
-        )
-        return []
-    started = auto_start_sse_channels_from_mcp_configs(
-        [],
-        extra_config_paths=extra_paths,
-        allowed_server_names=names,
-        include_default_paths=False,
+    service = CodexChannelSseLaunchService(
+        query=CodexChannelSseQueryPorts(
+            delivery_mode=channel_delivery_mode,
+            channel_specs=channel_specs_for_launch,
+            server_names=_server_names_from_channel_specs,
+            capable_names=codex_channel_capable_mcp_server_names,
+            dedupe=_dedupe_strings,
+        ),
+        effects=CodexChannelSseEffects(
+            auto_start=auto_start_sse_channels_from_mcp_configs,
+            log=router_log,
+        ),
+        native_channel_names=frozenset(
+            name.casefold() for name in _NATIVE_ROUTER_CHANNEL_NAMES
+        ),
     )
-    router_log(
-        "INFO",
-        "codex_channel_sse_started count=%d servers=%s"
-        % (len(started), ",".join(str(item.get("name") or "") for item in started) or "-"),
-    )
-    return started
+    return service.start(cfg, codex_mcp_config, allowed_server_names)
 
 
 def channel_probe_summary_message(prefix: str, cache: dict[str, Any]) -> str:
