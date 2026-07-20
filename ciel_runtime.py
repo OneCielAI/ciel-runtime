@@ -282,6 +282,7 @@ from ciel_runtime_support.channel_wake_claim_repository import (
     prompt_references_message_id as analyze_prompt_message_reference,
 )
 from ciel_runtime_support.channel_terminal_input import (
+    TmuxPaneSnapshot,
     TerminalMouseInputFilter as _TerminalMouseInputFilter,
     enter_bytes_from_user_input as _channel_enter_bytes_from_user_input,  # noqa: F401 - compatibility export
     enter_label as _channel_enter_label,
@@ -693,6 +694,7 @@ from ciel_runtime_support.mcp_transport import (
 from ciel_runtime_support.mcp_config_reader import (
     ClaudeMcpConfigPathPolicy,
     dedupe_strings as _dedupe_strings,
+    discover_channel_specs,
     path_for_compare as _path_for_compare,
     read_mcp_config_items,
     server_names_from_mapping as _mcp_server_names_from_mapping,
@@ -8023,16 +8025,13 @@ def auto_discovered_mcp_channel_specs(
     cwd: Path | None = None,
     home: Path | None = None,
 ) -> list[str]:
-    cwd = cwd or Path.cwd()
-    specs: list[str] = []
-    for path in claude_mcp_config_paths(passthrough, cwd, home):
-        if not path.exists() or not path.is_file():
-            continue
-        for name in _read_mcp_server_names_from_json(path, cwd):
-            if re.search(r"\s", name):
-                continue
-            specs.append(f"server:{name}" if not is_channel_spec_tagged(name) else name)
-    return _dedupe_strings(specs)
+    working_directory = cwd or Path.cwd()
+    return discover_channel_specs(
+        claude_mcp_config_paths(passthrough, working_directory, home),
+        working_directory,
+        _read_mcp_server_names_from_json,
+        is_channel_spec_tagged,
+    )
 
 
 CHANNEL_PROBE_CACHE_VERSION = 1
@@ -11462,27 +11461,9 @@ def _channel_wake_input_bytes(prompt: str, enter_bytes: bytes | None = None) -> 
 
 
 def _channel_current_tmux_pane_text() -> str | None:
-    pane = str(os.environ.get("TMUX_PANE") or "").strip()
-    if not pane or not find_executable("tmux"):
-        return None
-    try:
-        result = subprocess.run(
-            ["tmux", "capture-pane", "-pt", pane, "-S", "-200"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            timeout=1.0,
-            check=False,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        router_log(
-            "WARN",
-            f"channel_tmux_capture_failed pane={pane} error={type(exc).__name__}: {exc}",
-        )
-        return None
-    if result.returncode != 0:
-        return None
-    return result.stdout or ""
+    return TmuxPaneSnapshot(
+        os.environ, find_executable, subprocess.run, router_log
+    ).capture()
 
 
 def _codex_channel_wake_submit_retries() -> int:

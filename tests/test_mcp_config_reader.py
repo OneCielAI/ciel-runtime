@@ -5,6 +5,7 @@ import unittest
 
 from ciel_runtime_support.mcp_config_reader import (
     ClaudeMcpConfigPathPolicy,
+    discover_channel_specs,
     read_mcp_config_items,
     server_names_from_mapping,
     servers_from_mapping,
@@ -12,6 +13,24 @@ from ciel_runtime_support.mcp_config_reader import (
 
 
 class McpConfigReaderTests(unittest.TestCase):
+    def test_channel_discovery_tags_names_and_filters_invalid_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "mcp.json"
+            path.write_text("{}", encoding="utf-8")
+
+            specs = discover_channel_specs(
+                [path, Path(tmp) / "missing.json"],
+                Path(tmp),
+                lambda _path, _cwd: [
+                    "plain",
+                    "server:tagged",
+                    "has whitespace",
+                    "plain",
+                ],
+                lambda name: name.startswith(("server:", "plugin:")),
+            )
+
+        self.assertEqual(["server:plain", "server:tagged"], specs)
     def test_claude_path_policy_parses_and_strips_passthrough(self):
         args = [
             "--mcp-config",

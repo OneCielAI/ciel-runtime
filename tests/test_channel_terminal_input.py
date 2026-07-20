@@ -2,6 +2,7 @@ import unittest
 from unittest import mock
 
 from ciel_runtime_support.channel_terminal_input import (
+    TmuxPaneSnapshot,
     enter_bytes_from_user_input,
     platform_default_enter_bytes,
     resolve_enter_bytes,
@@ -12,6 +13,32 @@ from ciel_runtime_support.channel_terminal_input import (
 
 
 class ChannelTerminalInputTests(unittest.TestCase):
+    def test_tmux_snapshot_captures_configured_pane(self):
+        run = mock.Mock(
+            return_value=mock.Mock(returncode=0, stdout="pane text")
+        )
+        snapshot = TmuxPaneSnapshot(
+            {"TMUX_PANE": "%7"},
+            find_executable=lambda _name: "/usr/bin/tmux",
+            run=run,
+            log=lambda _level, _message: None,
+        )
+
+        self.assertEqual("pane text", snapshot.capture())
+        self.assertEqual(
+            ["tmux", "capture-pane", "-pt", "%7", "-S", "-200"],
+            run.call_args.args[0],
+        )
+
+    def test_tmux_snapshot_skips_absent_environment(self):
+        snapshot = TmuxPaneSnapshot(
+            {},
+            find_executable=lambda _name: self.fail("must not discover tmux"),
+            run=lambda *_args, **_kwargs: self.fail("must not run tmux"),
+            log=lambda _level, _message: None,
+        )
+
+        self.assertIsNone(snapshot.capture())
     def test_platform_default_is_submit_safe(self):
         self.assertEqual(b"\r\n", platform_default_enter_bytes("linux", "posix"))
         self.assertEqual(b"\r\n", platform_default_enter_bytes("win32", "nt"))

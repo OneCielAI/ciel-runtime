@@ -4679,6 +4679,8 @@ class ArchitectureContractTests(unittest.TestCase):
             "_chat_messages_file_lock": "exclusive_file_lock",
             "terminate_active_router_clients": "terminate_active",
             "channel_specs": "configured_specs",
+            "auto_discovered_mcp_channel_specs": "discover_channel_specs",
+            "_channel_current_tmux_pane_text": "capture",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

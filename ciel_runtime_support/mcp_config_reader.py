@@ -2,10 +2,28 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 from typing import Any, Callable, Iterable, TypeVar
 
 
 T = TypeVar("T")
+
+
+def discover_channel_specs(
+    paths: Iterable[Path],
+    cwd: Path,
+    read_names: Callable[[Path, Path], list[str]],
+    is_tagged: Callable[[str], bool],
+) -> list[str]:
+    specs: list[str] = []
+    for path in paths:
+        if not path.exists() or not path.is_file():
+            continue
+        for name in read_names(path, cwd):
+            if re.search(r"\s", name):
+                continue
+            specs.append(name if is_tagged(name) else f"server:{name}")
+    return dedupe_strings(specs)
 
 
 class ClaudeMcpConfigPathPolicy:

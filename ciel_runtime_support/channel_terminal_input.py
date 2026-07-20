@@ -1,11 +1,46 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from typing import Any
 
 
 _WINDOWS_CONSOLE_INPUT_FALLBACK_HANDLE: Any = None
+
+
+@dataclass(frozen=True, slots=True)
+class TmuxPaneSnapshot:
+    environment: Mapping[str, str]
+    find_executable: Callable[[str], str | None]
+    run: Callable[..., Any]
+    log: Callable[[str, str], None]
+
+    def capture(self) -> str | None:
+        pane = str(self.environment.get("TMUX_PANE") or "").strip()
+        if not pane or not self.find_executable("tmux"):
+            return None
+        try:
+            result = self.run(
+                ["tmux", "capture-pane", "-pt", pane, "-S", "-200"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                timeout=1.0,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            self.log(
+                "WARN",
+                f"channel_tmux_capture_failed pane={pane} "
+                f"error={type(exc).__name__}: {exc}",
+            )
+            return None
+        if result.returncode != 0:
+            return None
+        return result.stdout or ""
 
 
 def windows_console_input_handle() -> Any:
