@@ -269,6 +269,12 @@ from ciel_runtime_support.credential_management import (
     CredentialPresentationPorts,
     ExternalCredentialPorts,
 )
+from ciel_runtime_support.credential_cli import (
+    CredentialCliController,
+    CredentialCliIO,
+    CredentialCliPolicy,
+    CredentialCliPorts,
+)
 from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy, ToolGuardHookServices
 from ciel_runtime_support.process_control import (
     ProcessControlServices,
@@ -723,6 +729,23 @@ class ArchitectureContractTests(unittest.TestCase):
             self.assertIn("credential_management_service", function_source)
             self.assertNotIn("save_config", function_source)
             self.assertNotIn("_API_KEY_ROTATION_CURSOR", function_source)
+
+    def test_credential_cli_owns_terminal_workflow(self):
+        for port in (CredentialCliController, CredentialCliIO, CredentialCliPolicy, CredentialCliPorts):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        functions = {
+            node.name: ast.unparse(node)
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name in {"cmd_set_api_key", "cmd_set_api_keys", "cmd_api_key"}
+        }
+        self.assertEqual(3, len(functions))
+        for function_source in functions.values():
+            self.assertIn("credential_cli_controller", function_source)
+            self.assertNotIn("getpass", function_source)
+            self.assertNotIn("sys.stdin", function_source)
 
     def test_claude_launch_ports_stay_below_dependency_limit(self):
         ports = (

@@ -441,6 +441,12 @@ from ciel_runtime_support.credential_management import (
     CredentialRotationRepository,
     ExternalCredentialPorts,
 )
+from ciel_runtime_support.credential_cli import (
+    CredentialCliController,
+    CredentialCliIO,
+    CredentialCliPolicy,
+    CredentialCliPorts,
+)
 from ciel_runtime_support.tool_guard_hooks import (
     ToolGuardHookPolicy,
     ToolGuardHookServices,
@@ -9654,54 +9660,41 @@ def cmd_provider(args: argparse.Namespace) -> None:
 
 
 def cmd_set_api_key(args: argparse.Namespace) -> None:
-    provider = normalize_provider(args.provider)
-    key = args.key.strip()
-    if not key:
-        raise SystemExit("No key provided; unchanged.")
-    for line in store_api_key_input_config(provider, key):
-        print(line)
+    credential_cli_controller().set_one(args)
 
 
 def cmd_set_api_keys(args: argparse.Namespace) -> None:
-    provider = normalize_provider(args.provider)
-    raw = "\n".join(str(item) for item in getattr(args, "keys", []) if str(item).strip())
-    keys = parse_api_key_list(raw)
-    if not keys:
-        raise SystemExit("No API keys provided; unchanged.")
-    for line in store_api_keys_config(provider, keys):
-        print(line)
+    credential_cli_controller().set_many(args)
 
 
 def cmd_api_key(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    if not args.provider:
-        print("API key status:")
-        for p, pcfg in cfg["providers"].items():
-            needs = p in ("anthropic", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "nvidia-hosted", "openrouter", "fireworks")
-            count = provider_api_key_count(p, pcfg)
-            label = f"{count} keys (round-robin)" if count > 1 else ("set" if count == 1 else ("missing" if needs else "not required"))
-            primary = provider_primary_api_key(p, pcfg)
-            suffix = f" (primary {mask_secret(primary)}; fp {secret_fingerprint(primary)})" if count else ""
-            print(f" {p:<15} {label}{suffix}")
-        print("\nSet securely from terminal: ciel-runtimectl api-key anthropic")
-        print("Set multiple keys: ciel-runtimectl set-api-keys deepseek KEY1,KEY2")
-        print("For NVIDIA hosted, use: ciel-runtimectl api-key nvidia-hosted")
-        return
-    provider = normalize_provider(args.provider)
-    action = str(getattr(args, "action", "") or "").strip()
-    if api_key_clear_requested(action):
-        for line in clear_api_key_config(provider):
-            print(line)
-        return
-    if not sys.stdin.isatty():
-        print("For security, do not paste API keys into Claude Code chat.")
-        print(f"Run this in the SSH terminal instead: ciel-runtimectl api-key {provider}")
-        return
-    key = getpass.getpass(f"API key for {provider}: ").strip()
-    if not key:
-        raise SystemExit("No key entered; unchanged.")
-    for line in store_api_key_input_config(provider, key):
-        print(line)
+    credential_cli_controller().manage(args)
+
+
+def credential_cli_controller() -> CredentialCliController:
+    return CredentialCliController(
+        policy=CredentialCliPolicy(
+            frozenset(
+                {
+                    "anthropic", "ollama-cloud", "deepseek", "opencode", "opencode-go",
+                    "kimi", "nvidia-hosted", "openrouter", "fireworks",
+                }
+            )
+        ),
+        ports=CredentialCliPorts(
+            normalize_provider=normalize_provider,
+            load_config=load_config,
+            key_count=provider_api_key_count,
+            primary_key=provider_primary_api_key,
+            mask=mask_secret,
+            fingerprint=secret_fingerprint,
+            clear_requested=api_key_clear_requested,
+            clear=clear_api_key_config,
+            store_input=store_api_key_input_config,
+            store_many=store_api_keys_config,
+        ),
+        io=CredentialCliIO(sys.stdin.isatty, getpass.getpass, print),
+    )
 
 
 def cmd_base_url(args: argparse.Namespace) -> None:

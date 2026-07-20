@@ -241,6 +241,10 @@ API-key 파싱·중복 제거·ProviderConfig 투영, secret masking/fingerprint
 
 단일·다중 API key 저장과 삭제를 transaction으로 조정하는 Credential Management Service. 외부 credential 저장소, config 저장, model-cache 무효화, 다른 provider key 보존과 rotation cursor reset을 typed ports/repository로 분리한다.
 
+### `ciel_runtime_support/credential_cli.py`
+
+API key 상태·단일/다중 입력·삭제 명령과 non-TTY secret 입력 차단을 담당하는 Credential CLI Controller. credential application service와 terminal I/O를 typed ports로 분리한다.
+
 ### `ciel_runtime_support/routing_fallback.py`
 
 실패 원인별 provider/model 후보를 중복 없이 계산하는 순수 Fallback Policy. 네트워크 호출과 retry state를 포함하지 않아 기존 upstream retry 및 key cooldown 계층과 독립적이다.
