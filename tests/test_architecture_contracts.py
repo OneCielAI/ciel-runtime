@@ -302,6 +302,7 @@ from ciel_runtime_support.mcp_http_proxy import (
     McpHttpProxyServices,
     McpHttpProxyTransport,
 )
+from ciel_runtime_support.mcp_proxy_config import McpProxyConfigPaths, McpProxyConfigPorts, McpProxyConfigService
 from ciel_runtime_support.managed_mcp_config import (
     ManagedMcpConfigPaths,
     ManagedMcpConfigPolicy,
@@ -1688,7 +1689,6 @@ class ArchitectureContractTests(unittest.TestCase):
         tree = ast.parse(source_path.read_text(encoding="utf-8"))
         target_names = {
             "write_native_mcp_config_from_discovery",
-            "write_mcp_proxy_config",
             "write_codex_mcp_config_for_channel_discovery",
         }
         functions = {
@@ -1710,6 +1710,15 @@ class ArchitectureContractTests(unittest.TestCase):
         managed_source = ast.unparse(managed_factory)
         self.assertIn("json_artifact_repository", managed_source)
         self.assertNotIn("os.chmod", managed_source)
+
+        proxy_factory = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "mcp_proxy_config_service"
+        )
+        proxy_source = ast.unparse(proxy_factory)
+        self.assertIn("json_artifact_repository", proxy_source)
+        self.assertNotIn("os.chmod", proxy_source)
 
         compact_factory = next(
             node
@@ -1771,6 +1780,21 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertIn("managed_mcp_config_service", function_source)
                 self.assertNotIn("mcpServers", function_source)
                 self.assertNotIn("find_executable", function_source)
+
+    def test_mcp_proxy_config_service_owns_server_materialization(self):
+        for port in (McpProxyConfigPaths, McpProxyConfigPorts, McpProxyConfigService):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef) and node.name == "write_mcp_proxy_config"
+        )
+        function_source = ast.unparse(function)
+        self.assertIn("mcp_proxy_config_service", function_source)
+        self.assertNotIn("mcp-proxy", function_source)
+        self.assertNotIn("mcpServers", function_source)
 
     def test_request_trace_ports_stay_below_dependency_limit(self):
         for port in (RequestTracePolicy, RequestTraceProjection, RequestTraceServices):

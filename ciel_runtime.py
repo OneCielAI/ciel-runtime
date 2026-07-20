@@ -574,6 +574,7 @@ from ciel_runtime_support.mcp_proxy_codec import (
     _mcp_proxy_wait_timeout_seconds,
     compact_tool_result_response as compact_mcp_tool_result_response,
 )
+from ciel_runtime_support.mcp_proxy_config import McpProxyConfigPaths, McpProxyConfigPorts, McpProxyConfigService
 from ciel_runtime_support.mcp_proxy_process import (
     _McpStdoutObserver as McpStdoutObserver,
     _mcp_proxy_drain_input_messages,
@@ -14022,52 +14023,34 @@ def write_mcp_proxy_config(
     cwd: Path | None = None,
     home: Path | None = None,
 ) -> Path | None:
-    cwd = cwd or Path.cwd()
-    force_proxy_server_names = set(force_proxy_server_names or set())
-    disable_proxy_notification_stream_names = set(disable_proxy_notification_stream_names or set())
-    extra = [Path(item).expanduser() for item in (extra_config_paths or [])]
-    paths = [*extra, *claude_mcp_config_paths(passthrough, cwd, home)]
-    servers: dict[str, Any] = {}
-    server_dir = CONFIG_DIR / "mcp-proxy-servers"
-    for path in paths:
-        if not path.exists() or not path.is_file():
-            continue
-        for name, server in _read_mcp_servers_from_json(path, cwd):
-            if name in servers:
-                router_log("INFO", f"mcp_proxy_config_duplicate_overwritten server={name} source={path}")
-            streamable_http = _mcp_server_is_streamable_http(server)
-            force_streamable_proxy = streamable_http and (name in force_proxy_server_names or _mcp_server_force_proxy(server))
-            if _mcp_server_is_stdio(server) or force_streamable_proxy:
-                server_dir.mkdir(parents=True, exist_ok=True)
-                server_path = server_dir / f"{_safe_mcp_proxy_name(name)}.json"
-                saved_server = dict(server)
-                if streamable_http and name in disable_proxy_notification_stream_names:
-                    saved_server["ciel_runtime_disable_notification_stream"] = True
-                json_artifact_repository(server_path).save(
-                    saved_server,
-                    f"mcp_proxy_server:{name}",
-                )
-                servers[name] = {
-                    "command": sys.executable,
-                    "args": [
-                        str(Path(__file__).resolve()),
-                        "mcp-proxy",
-                        "--server-name",
-                        name,
-                        "--server-config",
-                        str(server_path),
-                    ],
-                }
-            else:
-                servers[name] = server
-    if not servers:
-        return None
-    json_artifact_repository(MCP_PROXY_CONFIG).save(
-        {"mcpServers": servers},
-        "mcp_proxy_config",
+    return mcp_proxy_config_service().write(
+        passthrough,
+        extra_config_paths=extra_config_paths,
+        force_proxy_server_names=force_proxy_server_names,
+        disable_proxy_notification_stream_names=disable_proxy_notification_stream_names,
+        cwd=cwd,
+        home=home,
     )
-    router_log("INFO", f"mcp_proxy_config_written servers={','.join(sorted(servers))}")
-    return MCP_PROXY_CONFIG
+
+
+def mcp_proxy_config_service() -> McpProxyConfigService:
+    return McpProxyConfigService(
+        McpProxyConfigPaths(
+            MCP_PROXY_CONFIG,
+            CONFIG_DIR / "mcp-proxy-servers",
+            Path(__file__).resolve(),
+        ),
+        McpProxyConfigPorts(
+            claude_mcp_config_paths,
+            _read_mcp_servers_from_json,
+            _mcp_server_is_streamable_http,
+            _mcp_server_force_proxy,
+            _mcp_server_is_stdio,
+            _safe_mcp_proxy_name,
+            lambda path, data, operation: json_artifact_repository(path).save(data, operation),
+            router_log,
+        ),
+    )
 
 
 def should_use_channel_stdin_proxy(use_router_mode: bool, passthrough: list[str], cfg: dict[str, Any] | None = None) -> bool:
