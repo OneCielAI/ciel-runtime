@@ -434,6 +434,13 @@ from ciel_runtime_support.credentials import (
     resolve_anthropic_credentials,
     secret_fingerprint as project_secret_fingerprint,
 )
+from ciel_runtime_support.credential_management import (
+    CredentialManagementService,
+    CredentialPersistencePorts,
+    CredentialPresentationPorts,
+    CredentialRotationRepository,
+    ExternalCredentialPorts,
+)
 from ciel_runtime_support.tool_guard_hooks import (
     ToolGuardHookPolicy,
     ToolGuardHookServices,
@@ -9539,93 +9546,15 @@ def set_advisor_model_config(value: str) -> list[str]:
 
 
 def store_api_key_config(provider: str, key: str) -> list[str]:
-    if api_key_clear_requested(key):
-        return clear_api_key_config(provider)
-    if provider == "nvidia-hosted":
-        store_nvidia_api_key(key)
-        cfg = load_config()
-        cfg["providers"][provider].pop("api_keys", None)
-        if ensure_nvidia_hosted_base_url(cfg["providers"][provider]):
-            save_config(cfg)
-        location = str(NCP_ENV)
-    else:
-        cfg = load_config()
-        cfg["providers"][provider]["api_key"] = key
-        cfg["providers"][provider].pop("api_keys", None)
-        save_config(cfg)
-        location = str(CONFIG_PATH)
-    clear_model_cache()
-    return [
-        f"Stored API key for {provider}.",
-        f"Saved: {mask_secret(key)}; fp {secret_fingerprint(key)} in {location}",
-    ]
+    return credential_management_service().store_one(provider, key)
 
 
 def clear_api_key_config(provider: str) -> list[str]:
-    cfg = load_config()
-    providers = cfg["providers"]
-    missing = object()
-    other_key_fields: dict[str, tuple[Any, Any]] = {}
-    for name, other_pcfg in providers.items():
-        if name == provider or not isinstance(other_pcfg, dict):
-            continue
-        api_key_value = other_pcfg.get("api_key", missing)
-        api_keys_value = json.loads(json.dumps(other_pcfg.get("api_keys"))) if "api_keys" in other_pcfg else missing
-        other_key_fields[name] = (api_key_value, api_keys_value)
-    pcfg = cfg["providers"][provider]
-    had_config_key = bool(parse_api_key_list(pcfg.get("api_key")) or parse_api_key_list(pcfg.get("api_keys")))
-    pcfg.pop("api_key", None)
-    pcfg.pop("api_keys", None)
-    if provider == "nvidia-hosted":
-        had_config_key = had_config_key or bool(parse_api_key_list(read_env_file(NCP_ENV).get("NVIDIA_API_KEY")))
-        clear_nvidia_api_key()
-        ensure_nvidia_hosted_base_url(pcfg)
-    for name, (api_key_value, api_keys_value) in other_key_fields.items():
-        other_pcfg = providers.get(name)
-        if not isinstance(other_pcfg, dict):
-            continue
-        if api_key_value is missing:
-            other_pcfg.pop("api_key", None)
-        else:
-            other_pcfg["api_key"] = api_key_value
-        if api_keys_value is missing:
-            other_pcfg.pop("api_keys", None)
-        else:
-            other_pcfg["api_keys"] = api_keys_value
-    save_config(cfg)
-    clear_model_cache()
-    with _API_KEY_ROTATION_LOCK:
-        _API_KEY_ROTATION_CURSOR.pop(provider_api_key_rotation_name(provider, pcfg), None)
-    if had_config_key:
-        return [f"Cleared stored API key(s) for {provider}. Other providers unchanged."]
-    return [f"No stored API key(s) for {provider}; other providers unchanged."]
+    return credential_management_service().clear(provider)
 
 
 def store_api_keys_config(provider: str, keys: list[str]) -> list[str]:
-    parsed = parse_api_key_list(keys)
-    if len(parsed) == 1 and api_key_clear_requested(parsed[0]):
-        return clear_api_key_config(provider)
-    if not parsed:
-        raise SystemExit("No API keys provided; unchanged.")
-    cfg = load_config()
-    pcfg = cfg["providers"][provider]
-    pcfg["api_key"] = parsed[0]
-    if len(parsed) > 1:
-        pcfg["api_keys"] = parsed
-    else:
-        pcfg.pop("api_keys", None)
-    if provider == "nvidia-hosted":
-        store_nvidia_api_key(parsed[0])
-        ensure_nvidia_hosted_base_url(pcfg)
-    save_config(cfg)
-    clear_model_cache()
-    with _API_KEY_ROTATION_LOCK:
-        _API_KEY_ROTATION_CURSOR.pop(provider_api_key_rotation_name(provider, pcfg), None)
-    return [
-        f"Stored {len(parsed)} API key{'s' if len(parsed) != 1 else ''} for {provider}.",
-        f"Round-robin: {'enabled' if len(parsed) > 1 else 'disabled'}",
-        f"Primary: {mask_secret(parsed[0])}; fp {secret_fingerprint(parsed[0])}",
-    ]
+    return credential_management_service().store_many(provider, keys)
 
 
 def mask_secret(value: str | None) -> str:
@@ -9655,14 +9584,31 @@ def stored_api_key_mask(provider: str, pcfg: dict[str, Any]) -> str:
 
 
 def store_api_key_input_config(provider: str, raw_value: str) -> list[str]:
-    if api_key_clear_requested(raw_value):
-        return clear_api_key_config(provider)
-    keys = parse_api_key_list(raw_value)
-    if len(keys) > 1:
-        return store_api_keys_config(provider, keys)
-    if len(keys) == 1:
-        return store_api_key_config(provider, keys[0])
-    raise SystemExit("No API key provided; unchanged.")
+    return credential_management_service().store_input(provider, raw_value)
+
+
+def credential_management_service() -> CredentialManagementService:
+    return CredentialManagementService(
+        persistence=CredentialPersistencePorts(
+            load_config=load_config,
+            save_config=save_config,
+            clear_model_cache=clear_model_cache,
+            parse_keys=parse_api_key_list,
+            clear_requested=api_key_clear_requested,
+            rotation_name=provider_api_key_rotation_name,
+        ),
+        external=ExternalCredentialPorts(
+            enabled=frozenset({"nvidia-hosted"}).__contains__,
+            store=store_nvidia_api_key,
+            clear=clear_nvidia_api_key,
+            has_key=lambda: bool(parse_api_key_list(read_env_file(NCP_ENV).get("NVIDIA_API_KEY"))),
+            normalize_provider_config=ensure_nvidia_hosted_base_url,
+            location=NCP_ENV,
+        ),
+        presentation=CredentialPresentationPorts(mask_secret, secret_fingerprint),
+        rotation=CredentialRotationRepository(_API_KEY_ROTATION_CURSOR, _API_KEY_ROTATION_LOCK),
+        config_location=CONFIG_PATH,
+    )
 
 
 def read_clipboard_text() -> str:

@@ -263,6 +263,12 @@ from ciel_runtime_support.runtime_activity_repository import (
     RuntimeActivityRepository,
 )
 from ciel_runtime_support.live_api_key_controller import LiveApiKeyPorts
+from ciel_runtime_support.credential_management import (
+    CredentialManagementService,
+    CredentialPersistencePorts,
+    CredentialPresentationPorts,
+    ExternalCredentialPorts,
+)
 from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy, ToolGuardHookServices
 from ciel_runtime_support.process_control import (
     ProcessControlServices,
@@ -690,6 +696,33 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertIn(f"project_{name}", function_source)
                 self.assertNotIn("hashlib", function_source)
                 self.assertNotIn("re.compile", function_source)
+
+    def test_credential_management_owns_persistence_transactions(self):
+        for port in (
+            CredentialManagementService,
+            CredentialPersistencePorts,
+            CredentialPresentationPorts,
+            ExternalCredentialPorts,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        functions = {
+            node.name: ast.unparse(node)
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name in {
+                "store_api_key_config",
+                "clear_api_key_config",
+                "store_api_keys_config",
+                "store_api_key_input_config",
+            }
+        }
+        self.assertEqual(4, len(functions))
+        for function_source in functions.values():
+            self.assertIn("credential_management_service", function_source)
+            self.assertNotIn("save_config", function_source)
+            self.assertNotIn("_API_KEY_ROTATION_CURSOR", function_source)
 
     def test_claude_launch_ports_stay_below_dependency_limit(self):
         ports = (
