@@ -296,15 +296,7 @@ from ciel_runtime_support.model_panel import (
     advisor_model_panel_rows as project_advisor_model_panel_rows,
     model_panel_rows as project_model_panel_rows,
 )
-from ciel_runtime_support.provider_catalog_sources import (
-    ANTHROPIC_PUBLIC_MODEL_ID_RE,
-    AnthropicCatalogPolicy,
-    FireworksCatalogPolicy,
-    ModelCatalogProjectionPorts as CatalogSourceProjectionPorts,
-    ProviderCatalogHttpPorts,
-    ProviderCatalogPolicyPorts,
-    ProviderCatalogSourceService,
-)
+from ciel_runtime_support import provider_catalog_sources
 from ciel_runtime_support.provider_endpoint_policy import (
     ProviderEndpointPolicy as ModelEndpointPolicy,
     ProviderEndpointPorts as ModelEndpointPorts,
@@ -744,27 +736,14 @@ from ciel_runtime_support.codex_config import (
     toml_table_parts as _toml_table_parts,  # noqa: F401
     unquote_toml_string as _unquote_toml_string,  # noqa: F401
 )
-from ciel_runtime_support.codex_mcp_integration import (
-    CodexMcpArtifactPorts,
-    CodexMcpCapabilityPorts,
-    CodexMcpConfigPorts,
-    CodexMcpIntegrationService,
-    CodexMcpProjectionPorts,
-)
+from ciel_runtime_support import codex_mcp_integration
 from ciel_runtime_support.codex_launch_policy import (
     current_model_args as project_codex_current_model_args,
     help_requested as project_codex_help_requested,
     native_routed_config_args as project_codex_native_routed_config_args,
     yolo_launch_args as project_codex_yolo_launch_args,
 )
-from ciel_runtime_support.codex_launch_configuration import (
-    CodexLaunchCatalogPorts,
-    CodexLaunchConfigurationConstants,
-    CodexLaunchConfigurationEffects,
-    CodexLaunchConfigurationService,
-    CodexLaunchModelPorts,
-    CodexLaunchPolicyPorts,
-)
+from ciel_runtime_support import codex_launch_configuration
 from ciel_runtime_support.codex_model_catalog import (
     CodexModelCatalogService,
 )
@@ -841,15 +820,7 @@ from ciel_runtime_support.openai_forwarding import (
     OpenAIForwardStreaming,
     forward_openai_compatible_chat as run_openai_forward,
 )
-from ciel_runtime_support.openai_responses_router import (
-    OpenAIResponsesConversion,
-    OpenAIResponsesCore,
-    OpenAIResponsesDelivery,
-    OpenAIResponsesOutput,
-    OpenAIResponsesRouting,
-    OpenAIResponsesServices,
-    handle_openai_responses_request,
-)
+from ciel_runtime_support import openai_responses_router
 from ciel_runtime_support.openai_responses_stream import (
     OpenAIResponsesStreamServices,
     write_openai_responses as project_openai_responses_stream,
@@ -3112,8 +3083,8 @@ def ensure_model_cache_for_launch(provider: str, pcfg: dict[str, Any]) -> None:
     model_cache_lifecycle_service().ensure_for_launch(provider, pcfg)
 
 
-_PROVIDER_CATALOG_SOURCES = ProviderCatalogSourceService(
-    projection=CatalogSourceProjectionPorts(
+_PROVIDER_CATALOG_SOURCES = provider_catalog_sources.ProviderCatalogSourceService(
+    projection=provider_catalog_sources.ModelCatalogProjectionPorts(
         normalize_model_id=normalize_model_id,
         model_context=lambda item: model_context_field(item),
         positive_int=positive_int,
@@ -3121,7 +3092,7 @@ _PROVIDER_CATALOG_SOURCES = ProviderCatalogSourceService(
             provider
         ).project_model_metadata,
     ),
-    http=ProviderCatalogHttpPorts(
+    http=provider_catalog_sources.ProviderCatalogHttpPorts(
         http_json=lambda *args, **kwargs: http_json(*args, **kwargs),
         join_url=join_url,
         upstream_base=lambda provider, pcfg: provider_upstream_request_base(
@@ -3130,18 +3101,18 @@ _PROVIDER_CATALOG_SOURCES = ProviderCatalogSourceService(
         request_headers=lambda: with_upstream_user_agent(),
         urlopen=lambda *args, **kwargs: urllib.request.urlopen(*args, **kwargs),
     ),
-    policy=ProviderCatalogPolicyPorts(
+    policy=provider_catalog_sources.ProviderCatalogPolicyPorts(
         unique_model_ids=unique_model_ids,
         log=lambda level, message: router_log(level, message),
     ),
-    anthropic=AnthropicCatalogPolicy(
+    anthropic=provider_catalog_sources.AnthropicCatalogPolicy(
         docs_urls=tuple(ANTHROPIC_MODEL_DOCS_URLS),
         default_ids=tuple(ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS),
         limited_ids=tuple(ANTHROPIC_LIMITED_ACCESS_MODEL_IDS),
         fallback_ids=tuple(ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS),
-        public_id_pattern=ANTHROPIC_PUBLIC_MODEL_ID_RE,
+        public_id_pattern=provider_catalog_sources.ANTHROPIC_PUBLIC_MODEL_ID_RE,
     ),
-    fireworks=FireworksCatalogPolicy(
+    fireworks=provider_catalog_sources.FireworksCatalogPolicy(
         default_account_id=FIREWORKS_DEFAULT_ACCOUNT_ID,
         api_base_url=FIREWORKS_API_BASE_URL,
         inference_base_url=FIREWORKS_INFERENCE_BASE_URL,
@@ -7304,21 +7275,21 @@ def handle_openai_responses_post(
     pcfg: dict[str, Any],
     body: dict[str, Any],
 ) -> None:
-    handle_openai_responses_request(
+    openai_responses_router.handle_openai_responses_request(
         handler,
         cfg,
         provider,
         pcfg,
         body,
-        OpenAIResponsesServices(
-            core=OpenAIResponsesCore(
+        openai_responses_router.OpenAIResponsesServices(
+            core=openai_responses_router.OpenAIResponsesCore(
                 event_bus=EVENT_BUS,
                 request_id=lambda: f"{os.getpid()}-{time.time_ns()}",
                 input_as_list=_responses_input_as_list,
                 is_client_disconnect=is_client_disconnect_error,
                 log=router_log,
             ),
-            conversion=OpenAIResponsesConversion(
+            conversion=openai_responses_router.OpenAIResponsesConversion(
                 to_anthropic=openai_responses_to_anthropic_messages,
                 current_alias=current_alias,
                 update_tool_schema=_update_tool_schema_registry,
@@ -7330,7 +7301,7 @@ def handle_openai_responses_post(
                 inject_channel_context=body_with_pending_channel_messages,
                 inject_tool_result_context=body_with_channel_tool_result_context,
             ),
-            routing=OpenAIResponsesRouting(
+            routing=openai_responses_router.OpenAIResponsesRouting(
                 maybe_import_session=maybe_handle_import_session_request,
                 codex_routed_enabled=codex_routed_enabled,
                 forward_codex=forward_codex_responses,
@@ -7338,13 +7309,13 @@ def handle_openai_responses_post(
                 normalize_provider_wire=normalize_request_for_provider_wire,
                 collect_message=collect_provider_message_for_responses,
             ),
-            delivery=OpenAIResponsesDelivery(
+            delivery=openai_responses_router.OpenAIResponsesDelivery(
                 begin=begin_pending_channel_delivery,
                 mark_success=mark_pending_channel_delivery_success,
                 mark_failed=mark_pending_channel_delivery_failed,
                 commit=commit_pending_channel_delivery_cursors,
             ),
-            output=OpenAIResponsesOutput(
+            output=openai_responses_router.OpenAIResponsesOutput(
                 write_response=write_openai_responses_response,
                 write_error=write_openai_responses_error,
                 upstream_error_message=upstream_http_error_message,
@@ -14030,14 +14001,14 @@ CODEX_ROUTED_UPSTREAM_BASE = "https://chatgpt.com/backend-api/codex"
 CODEX_TUI_ALTERNATE_SCREEN_KEY = "tui.alternate_screen"
 
 
-_CODEX_MCP_INTEGRATION = CodexMcpIntegrationService(
-    config=CodexMcpConfigPorts(
+_CODEX_MCP_INTEGRATION = codex_mcp_integration.CodexMcpIntegrationService(
+    config=codex_mcp_integration.CodexMcpConfigPorts(
         discover=lambda *args, **kwargs: project_discover_codex_mcp_servers(
             *args, **kwargs
         ),
         log=lambda level, message: router_log(level, message),
     ),
-    artifact=CodexMcpArtifactPorts(
+    artifact=codex_mcp_integration.CodexMcpArtifactPorts(
         config_path=lambda: CODEX_MCP_CONFIG,
         save_json=lambda path, payload, label: json_artifact_repository(path).save(
             payload, label
@@ -14045,7 +14016,7 @@ _CODEX_MCP_INTEGRATION = CodexMcpIntegrationService(
         unlink=lambda path: path.unlink(),
         load_json=lambda path: json.loads(path.read_text(encoding="utf-8")),
     ),
-    capability=CodexMcpCapabilityPorts(
+    capability=codex_mcp_integration.CodexMcpCapabilityPorts(
         ensure_probe_cache=lambda *args, **kwargs: ensure_channel_probe_cache_for_launch(
             *args, **kwargs
         ),
@@ -14054,7 +14025,7 @@ _CODEX_MCP_INTEGRATION = CodexMcpIntegrationService(
         path_key=lambda path: _path_for_compare(path),
         cwd=Path.cwd,
     ),
-    projection=CodexMcpProjectionPorts(
+    projection=codex_mcp_integration.CodexMcpProjectionPorts(
         dedupe_strings=_dedupe_strings,
         public_name=lambda name: _channel_sse_public_mcp_name(name),
         is_streamable_http=lambda server: _mcp_server_is_streamable_http(server),
@@ -14075,22 +14046,22 @@ codex_streamable_http_mcp_servers = _CODEX_MCP_INTEGRATION.streamable_http_serve
 codex_mcp_native_http_compat_args = _CODEX_MCP_INTEGRATION.native_http_compat_args
 
 
-_CODEX_LAUNCH_CONFIGURATION = CodexLaunchConfigurationService(
-    constants=CodexLaunchConfigurationConstants(
+_CODEX_LAUNCH_CONFIGURATION = codex_launch_configuration.CodexLaunchConfigurationService(
+    constants=codex_launch_configuration.CodexLaunchConfigurationConstants(
         runtime_provider_id=CODEX_RUNTIME_PROVIDER_ID,
         runtime_api_key_env=CODEX_RUNTIME_API_KEY_ENV,
         native_provider_id_env=CODEX_NATIVE_PROVIDER_ID_ENV,
         routed_provider_id=CODEX_ROUTED_PROVIDER_ID,
         alternate_screen_key=CODEX_TUI_ALTERNATE_SCREEN_KEY,
     ),
-    policy=CodexLaunchPolicyPorts(
+    policy=codex_launch_configuration.CodexLaunchPolicyPorts(
         has_option=has_passthrough_option,
         config_override_keys=_codex_config_override_keys,
         config_paths=codex_config_paths_for_launch,
         alternate_screen_value=codex_alternate_screen_value_from_config_text,
         toml_string=toml_string,
     ),
-    model=CodexLaunchModelPorts(
+    model=codex_launch_configuration.CodexLaunchModelPorts(
         current_provider=lambda cfg: get_current_provider(cfg),
         native_enabled=lambda provider: native_codex_enabled(provider),
         current_alias=lambda cfg: current_alias(cfg),
@@ -14099,7 +14070,7 @@ _CODEX_LAUNCH_CONFIGURATION = CodexLaunchConfigurationService(
             provider, pcfg
         ),
     ),
-    catalog=CodexLaunchCatalogPorts(
+    catalog=codex_launch_configuration.CodexLaunchCatalogPorts(
         write=lambda codex, spec, env: CodexModelCatalogService(
             CONFIG_DIR, subprocess.run, router_log
         ).write(codex, spec, env),
@@ -14108,7 +14079,7 @@ _CODEX_LAUNCH_CONFIGURATION = CodexLaunchConfigurationService(
         current_model_args=project_codex_current_model_args,
         native_routed_args=project_codex_native_routed_config_args,
     ),
-    effects=CodexLaunchConfigurationEffects(
+    effects=codex_launch_configuration.CodexLaunchConfigurationEffects(
         environ=lambda: os.environ,
         router_base=lambda: ROUTER_BASE,
         read_text=lambda path: path.read_text(encoding="utf-8"),

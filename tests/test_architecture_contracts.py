@@ -3741,6 +3741,19 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIn("from ciel_runtime_support import claude_router", source)
         self.assertIn("from ciel_runtime_support import cli_dispatch", source)
         self.assertIn(
+            "from ciel_runtime_support import codex_launch_configuration",
+            source,
+        )
+        self.assertIn(
+            "from ciel_runtime_support import codex_mcp_integration", source
+        )
+        self.assertIn(
+            "from ciel_runtime_support import openai_responses_router", source
+        )
+        self.assertIn(
+            "from ciel_runtime_support import provider_catalog_sources", source
+        )
+        self.assertIn(
             "from ciel_runtime_support import streaming_anthropic", source
         )
         self.assertNotIn(
@@ -3757,6 +3770,20 @@ class ArchitectureContractTests(unittest.TestCase):
         )
         self.assertNotIn(
             "from ciel_runtime_support.cli_dispatch import", source
+        )
+        self.assertNotIn(
+            "from ciel_runtime_support.codex_launch_configuration import",
+            source,
+        )
+        self.assertNotIn(
+            "from ciel_runtime_support.codex_mcp_integration import", source
+        )
+        self.assertNotIn(
+            "from ciel_runtime_support.openai_responses_router import", source
+        )
+        self.assertNotIn(
+            "from ciel_runtime_support.provider_catalog_sources import",
+            source,
         )
         expected_calls = {
             "_rebatch_anthropic_sse_text": "rebatch_anthropic_sse_text",
