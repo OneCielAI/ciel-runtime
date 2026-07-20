@@ -178,6 +178,26 @@ def model_catalog_key(model_id: str) -> tuple[str, str, str] | None:
     return base.lower(), base, tag.lower()
 
 
+def model_lookup_ids(model_id: str) -> list[str]:
+    raw = str(model_id or "").strip()
+    if not raw:
+        return []
+    candidates = [raw]
+    normalized = raw.casefold().replace("_", "-")
+    compact = re.sub(r"[^a-z0-9]+", "", normalized)
+
+    def add(value: str) -> None:
+        if value and value not in candidates:
+            candidates.append(value)
+
+    if ("qwen3.6" in normalized or "qwen36" in compact) and "27b" in normalized:
+        add("qwen3.6:27b")
+    if ("qwen3.6" in normalized or "qwen36" in compact) and "35b" in normalized:
+        add("qwen3.6:35b-a3b")
+        add("qwen3.6:35b")
+    return candidates
+
+
 def catalog_model_ids(
     catalog: dict[str, Any],
     provider: str,

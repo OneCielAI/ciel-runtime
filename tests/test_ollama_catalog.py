@@ -5,6 +5,20 @@ from ciel_runtime_support import ollama_catalog
 
 
 class OllamaCatalogPolicyTests(unittest.TestCase):
+    def test_model_lookup_ids_projects_qwen_aliases(self):
+        self.assertEqual(
+            ["wyvern-qwen36-27b", "qwen3.6:27b"],
+            ollama_catalog.model_lookup_ids("wyvern-qwen36-27b"),
+        )
+        self.assertEqual(
+            [
+                "qwen3.6-35b-a3b-mtp",
+                "qwen3.6:35b-a3b",
+                "qwen3.6:35b",
+            ],
+            ollama_catalog.model_lookup_ids("qwen3.6-35b-a3b-mtp"),
+        )
+
     def test_context_parser_extracts_tag_specific_windows(self):
         page = "qwen3.6:27b <div>256K context window</div> qwen3.6:35b <div>1M context window</div>"
         self.assertEqual(

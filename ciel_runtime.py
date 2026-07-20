@@ -1084,6 +1084,9 @@ from ciel_runtime_support.providers.nvidia_runtime import (
     NvidiaProxyRuntimeConfig,
     NvidiaProxyRuntimePorts,
 )
+from ciel_runtime_support.providers.nvidia import (
+    hosted_context_default as nvidia_hosted_context_default,
+)
 from ciel_runtime_support.provider_status import (
     ProviderStatusCatalog,
     ProviderStatusGeneric,
@@ -1485,35 +1488,7 @@ SUPPRESSED_THINKING_REPOSITORY = SuppressedThinkingRepository(
     capacity=lambda: SUPPRESSED_THINKING_PASSBACK_MAX,
 )
 
-def nvidia_hosted_context_default(model_id: str) -> int:
-    model = model_id.lower()
-    if "kimi-k2.6" in model or "kimi_k2.6" in model:
-        return 262144
-    if "deepseek" in model:
-        return 131072
-    if "glm" in model or "qwen" in model:
-        return 65536
-    return 65536
-
-
-def model_lookup_ids(model_id: str) -> list[str]:
-    raw = (model_id or "").strip()
-    if not raw:
-        return []
-    out = [raw]
-    low = raw.lower().replace("_", "-")
-    compact = re.sub(r"[^a-z0-9]+", "", low)
-
-    def add(value: str) -> None:
-        if value and value not in out:
-            out.append(value)
-
-    if ("qwen3.6" in low or "qwen36" in compact) and "27b" in low:
-        add("qwen3.6:27b")
-    if ("qwen3.6" in low or "qwen36" in compact) and "35b" in low:
-        add("qwen3.6:35b-a3b")
-        add("qwen3.6:35b")
-    return out
+model_lookup_ids = ollama_catalog_policy.model_lookup_ids
 
 
 def model_preset(model_id: str) -> dict[str, Any]:

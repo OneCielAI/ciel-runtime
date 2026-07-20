@@ -21,6 +21,15 @@ from .base import (
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
 
 
+def hosted_context_default(model_id: str) -> int:
+    model = str(model_id or "").casefold()
+    if "kimi-k2.6" in model or "kimi_k2.6" in model:
+        return 262144
+    if "deepseek" in model:
+        return 131072
+    return 65536
+
+
 @dataclass(frozen=True)
 class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
     name: str = "nvidia-hosted"
@@ -130,4 +139,4 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
         )
 
 
-__all__ = ["NvidiaHostedProviderAdapter"]
+__all__ = ["NvidiaHostedProviderAdapter", "hosted_context_default"]

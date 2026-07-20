@@ -1238,6 +1238,19 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_ollama_catalog_refresh_port_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(OllamaCatalogRefreshServices)), 10)
+        source = (
+            Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("def model_lookup_ids(", source)
+        self.assertIn(
+            "model_lookup_ids = ollama_catalog_policy.model_lookup_ids",
+            source,
+        )
+        self.assertNotIn("def nvidia_hosted_context_default(", source)
+        self.assertIn(
+            "hosted_context_default as nvidia_hosted_context_default",
+            source,
+        )
 
     def test_ollama_response_projection_ports_stay_below_dependency_limit(self):
         for port in (

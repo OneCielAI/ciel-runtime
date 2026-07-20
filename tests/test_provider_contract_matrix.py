@@ -5,6 +5,7 @@ from pathlib import Path
 from ciel_runtime_support.architecture import ProviderConfig
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, PROVIDER_LABELS
 from ciel_runtime_support.provider_compatibility import PROVIDER_COMPATIBILITY
+from ciel_runtime_support.providers.nvidia import hosted_context_default
 
 
 def config(provider, model="model", **options):
@@ -17,6 +18,11 @@ def config(provider, model="model", **options):
 
 
 class ProviderContractMatrixTests(unittest.TestCase):
+    def test_nvidia_hosted_context_defaults_are_provider_owned(self):
+        self.assertEqual(262144, hosted_context_default("kimi-k2.6"))
+        self.assertEqual(131072, hosted_context_default("deepseek-v3"))
+        self.assertEqual(65536, hosted_context_default("qwen3-coder"))
+
     def test_provider_labels_share_the_adapter_registry_definition(self):
         self.assertEqual(set(PROVIDER_ADAPTERS.names()), set(PROVIDER_LABELS))
         self.assertTrue(all(label.strip() for label in PROVIDER_LABELS.values()))
