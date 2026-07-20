@@ -42,6 +42,12 @@ class RuntimeLlmOptionsControllerTests(unittest.TestCase):
                 save=self.save,
                 clear_model_cache=self.clear,
                 deep_copy=copy.deepcopy,
+                current_provider=lambda config: (
+                    "provider",
+                    config["providers"]["provider"],
+                ),
+                normalize_preset=lambda value: value.strip().lower(),
+                resolve_preset=lambda value: value if value in {"balanced", "long"} else None,
             ),
             RuntimeLlmPresentationPorts(
                 applied_preset=lambda _provider, config: str(
@@ -114,6 +120,15 @@ class RuntimeLlmOptionsControllerTests(unittest.TestCase):
         self.assertIn("Output tokens: 4096", lines)
         self.assertIn("Restore available: yes", lines)
         self.assertTrue(any("* balanced" in line for line in lines))
+
+    def test_action_dispatches_aliases_and_unknown_values(self):
+        lines, changed = self.controller.handle_action("right")
+
+        self.assertTrue(changed)
+        self.assertTrue(any("Updated live LLM options" in line for line in lines))
+        unknown, changed = self.controller.handle_action("missing")
+        self.assertFalse(changed)
+        self.assertTrue(unknown[0].startswith("Unknown live LLM"))
 
 
 if __name__ == "__main__":

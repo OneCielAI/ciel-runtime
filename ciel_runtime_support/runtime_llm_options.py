@@ -22,6 +22,9 @@ class RuntimeLlmConfigPorts:
     save: Callable[[dict[str, Any]], None]
     clear_model_cache: Callable[[], None]
     deep_copy: Callable[[Any], Any]
+    current_provider: Callable[[dict[str, Any]], tuple[str, dict[str, Any]]]
+    normalize_preset: Callable[[str], str]
+    resolve_preset: Callable[[str], str | None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,6 +209,69 @@ class RuntimeLlmOptionsController:
             )
         )
         return lines
+
+    def handle_action(
+        self,
+        action: str = "status",
+        preset: str = "",
+    ) -> tuple[list[str], bool]:
+        config = self.config.load()
+        provider, provider_config = self.config.current_provider(config)
+        raw_action = str(action or "").strip()
+        raw_preset = str(preset or "").strip()
+        if not raw_action and raw_preset:
+            raw_action = "apply"
+        value = raw_preset or raw_action
+        normalized = self.config.normalize_preset(value)
+        if normalized in {"", "status", "state", "show", "current", "now"}:
+            return self.status_lines(provider, provider_config), False
+        if normalized in {
+            "list", "presets", "preset", "help", "options", "menu", "select"
+        }:
+            return self.preset_list_lines(provider, provider_config), False
+        if normalized in {
+            "left", "prev", "previous", "backward", "back", "decrease", "minus"
+        }:
+            return self._slider_action(provider, -1)
+        if normalized in {"right", "next", "forward", "increase", "plus"}:
+            return self._slider_action(provider, 1)
+        if normalized in {"restore", "original", "reset", "revert", "undo"}:
+            had_snapshot = isinstance(
+                provider_config.get(self.settings.original_key), dict
+            )
+            lines = self.restore(provider)
+            config_after = self.config.load()
+            _provider_after, provider_config_after = self.config.current_provider(
+                config_after
+            )
+            return lines + [""] + self.status_lines(
+                provider, provider_config_after
+            ), had_snapshot
+        preset_id = self.config.resolve_preset(value)
+        if not preset_id:
+            return [
+                f"Unknown live LLM preset/action: {value or raw_action or raw_preset}",
+                "Use `/llm-options list` to see available presets, or `/llm-restore` to revert.",
+            ], False
+        lines = self.apply_preset(provider, preset_id)
+        return self._updated_lines(provider, lines), True
+
+    def _slider_action(self, provider: str, delta: int) -> tuple[list[str], bool]:
+        return self._updated_lines(
+            provider,
+            self.apply_slider_delta(provider, delta),
+        ), True
+
+    def _updated_lines(self, provider: str, lines: list[str]) -> list[str]:
+        config_after = self.config.load()
+        _provider_after, provider_config_after = self.config.current_provider(
+            config_after
+        )
+        return (
+            lines
+            + ["", "Updated live LLM options. The next model request uses these settings."]
+            + self.status_lines(provider, provider_config_after)
+        )
 
     def _persist(self, config: dict[str, Any]) -> None:
         self.config.save(config)

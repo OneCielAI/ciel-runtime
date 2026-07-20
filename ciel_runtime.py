@@ -8489,44 +8489,7 @@ def maybe_handle_channel_clear_request(handler: BaseHTTPRequestHandler, body: di
 
 
 def handle_live_llm_options_action(action: str = "status", preset: str = "") -> tuple[list[str], bool]:
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    raw_action = str(action or "").strip()
-    raw_preset = str(preset or "").strip()
-    if not raw_action and raw_preset:
-        raw_action = "apply"
-    value = raw_preset or raw_action
-    normalized = normalize_llm_preset_token(value)
-    if normalized in {"", "status", "state", "show", "current", "now"}:
-        return runtime_llm_status_lines(provider, pcfg), False
-    if normalized in {"list", "presets", "preset", "help", "options", "menu", "select"}:
-        return runtime_llm_preset_list_lines(provider, pcfg), False
-    if normalized in {"left", "prev", "previous", "backward", "back", "decrease", "minus"}:
-        lines = apply_runtime_llm_slider_delta_config(provider, -1)
-        cfg_after = load_config()
-        _provider_after, pcfg_after = get_current_provider(cfg_after)
-        return lines + ["", "Updated live LLM options. The next model request uses these settings."] + runtime_llm_status_lines(provider, pcfg_after), True
-    if normalized in {"right", "next", "forward", "increase", "plus"}:
-        lines = apply_runtime_llm_slider_delta_config(provider, 1)
-        cfg_after = load_config()
-        _provider_after, pcfg_after = get_current_provider(cfg_after)
-        return lines + ["", "Updated live LLM options. The next model request uses these settings."] + runtime_llm_status_lines(provider, pcfg_after), True
-    if normalized in {"restore", "original", "reset", "revert", "undo"}:
-        had_snapshot = isinstance(pcfg.get(RUNTIME_LLM_ORIGINAL_KEY), dict)
-        lines = restore_runtime_llm_original_options(provider)
-        cfg_after = load_config()
-        _provider_after, pcfg_after = get_current_provider(cfg_after)
-        return lines + [""] + runtime_llm_status_lines(provider, pcfg_after), had_snapshot
-    preset_id = resolve_llm_preset_id(value)
-    if not preset_id:
-        return [
-            f"Unknown live LLM preset/action: {value or raw_action or raw_preset}",
-            "Use `/llm-options list` to see available presets, or `/llm-restore` to revert.",
-        ], False
-    lines = apply_runtime_llm_preset_config(provider, preset_id)
-    cfg_after = load_config()
-    _provider_after, pcfg_after = get_current_provider(cfg_after)
-    return lines + ["", "Updated live LLM options. The next model request uses these settings."] + runtime_llm_status_lines(provider, pcfg_after), True
+    return runtime_llm_options_controller().handle_action(action, preset)
 
 
 def maybe_handle_live_llm_options_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool:
@@ -12321,6 +12284,9 @@ def runtime_llm_options_controller() -> RuntimeLlmOptionsController:
             save=save_config,
             clear_model_cache=clear_model_cache,
             deep_copy=lambda value: json.loads(json.dumps(value)),
+            current_provider=get_current_provider,
+            normalize_preset=normalize_llm_preset_token,
+            resolve_preset=resolve_llm_preset_id,
         ),
         RuntimeLlmPresentationPorts(
             applied_preset=applied_preset_id,

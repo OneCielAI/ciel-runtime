@@ -150,7 +150,8 @@ string matching into provider orchestration.
 
 Runtime LLM snapshot/restore, preset application, slider navigation, and
 status projection live in `runtime_llm_options.py`. Configuration persistence,
-presentation, and preset mutation are separate typed port groups.
+presentation, and preset mutation are separate typed port groups; slash action
+aliases dispatch through the same controller.
 
 ## Rejected alternatives
 
