@@ -1071,6 +1071,7 @@ Codex용 HTTP 라우터:
 - `/backend-api/codex/responses`
 - `/v1/responses`
 - native Codex auth passthrough, Responses SSE proxy, 채널 주입 경로 소유
+- `CodexChannelContextProjector`가 Responses input 변환, pending/tool-result context 추가와 upstream metadata 제거를 copy-on-write로 수행
 
 → [[Architecture]]
 

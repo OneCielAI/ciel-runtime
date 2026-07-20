@@ -20,6 +20,56 @@ class CodexResponsePreamble:
     capacity_error_code: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class CodexChannelContextPorts:
+    to_anthropic: Callable[[dict[str, Any], str], dict[str, Any]]
+    inject_pending: Callable[[dict[str, Any]], dict[str, Any]]
+    inject_tool_results: Callable[[dict[str, Any]], dict[str, Any]]
+    content_to_text: Callable[[Any], str]
+
+
+class CodexChannelContextProjector:
+    def __init__(self, ports: CodexChannelContextPorts) -> None:
+        self._ports = ports
+
+    @staticmethod
+    def input_items(value: Any) -> list[dict[str, Any]]:
+        if isinstance(value, str):
+            return [{"type": "message", "role": "user", "content": [{"type": "input_text", "text": value}]}]
+        if isinstance(value, dict):
+            return [dict(value)]
+        if isinstance(value, list):
+            return [dict(item) for item in value if isinstance(item, dict)]
+        return []
+
+    @staticmethod
+    def message_item(role: str, text: str) -> dict[str, Any]:
+        role = role if role in {"user", "assistant", "system", "developer"} else "user"
+        text_type = "output_text" if role == "assistant" else "input_text"
+        return {"type": "message", "role": role, "content": [{"type": text_type, "text": text}]}
+
+    def project(self, body: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        delivery = self._ports.to_anthropic(body, str(body.get("model") or ""))
+        original_count = len(delivery.get("messages") or [])
+        delivery = self._ports.inject_pending(delivery)
+        delivery = self._ports.inject_tool_results(delivery)
+        messages = [message for message in delivery.get("messages") or [] if isinstance(message, dict)]
+        additions = messages[original_count:]
+        metadata = delivery.get("metadata") if isinstance(delivery.get("metadata"), dict) else {}
+        projected = dict(body)
+        projected.pop("metadata", None)
+        if not additions and not metadata:
+            return projected, delivery
+        input_items = self.input_items(body.get("input", []))
+        for message in additions:
+            text = self._ports.content_to_text(message.get("content"))
+            if text.strip():
+                input_items.append(self.message_item(str(message.get("role") or "user"), text))
+        if input_items:
+            projected["input"] = input_items
+        return projected, delivery
+
+
 def _codex_sse_event(block: bytes) -> dict[str, Any] | None:
     text = block.decode("utf-8", errors="replace").strip()
     if not text:
@@ -168,6 +218,8 @@ assert all(any(capability.name == required for capability in CodexRouter.capabil
 
 __all__ = [
     "CODEX_CAPACITY_ERROR_CODES",
+    "CodexChannelContextPorts",
+    "CodexChannelContextProjector",
     "CodexResponsePreamble",
     "CodexRouter",
     "read_codex_response_preamble",

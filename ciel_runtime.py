@@ -815,7 +815,12 @@ from ciel_runtime_support.codex_cli import (
     codex_resume_picker_requested,
     codex_resume_with_session_id,
 )
-from ciel_runtime_support.codex_router import CodexRouter, read_codex_response_preamble
+from ciel_runtime_support.codex_router import (
+    CodexChannelContextPorts,
+    CodexChannelContextProjector,
+    CodexRouter,
+    read_codex_response_preamble,
+)
 from ciel_runtime_support.codex_session_repository import (
     CodexSessionRepository,
     codex_sqlite_home,
@@ -6861,44 +6866,18 @@ def codex_routed_auth_error_message(message: str) -> str:
     return f"{message}{guidance}"
 
 
-def _responses_input_as_list(value: Any) -> list[dict[str, Any]]:
-    if isinstance(value, str):
-        return [{"type": "message", "role": "user", "content": [{"type": "input_text", "text": value}]}]
-    if isinstance(value, dict):
-        return [dict(value)]
-    if isinstance(value, list):
-        return [dict(item) for item in value if isinstance(item, dict)]
-    return []
-
-
-def _responses_message_item(role: str, text: str) -> dict[str, Any]:
-    role = role if role in ("user", "assistant", "system", "developer") else "user"
-    text_type = "output_text" if role == "assistant" else "input_text"
-    return {"type": "message", "role": role, "content": [{"type": text_type, "text": text}]}
-
-
 def codex_responses_body_with_channel_context(body: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    delivery_body = openai_responses_to_anthropic_messages(body, str(body.get("model") or ""))
-    original_count = len(delivery_body.get("messages") or [])
-    delivery_body = body_with_pending_channel_messages(delivery_body)
-    delivery_body = body_with_channel_tool_result_context(delivery_body)
-    messages = [m for m in delivery_body.get("messages") or [] if isinstance(m, dict)]
-    additions = messages[original_count:]
-    metadata = delivery_body.get("metadata") if isinstance(delivery_body.get("metadata"), dict) else {}
-    out = dict(body)
-    # ChatGPT Codex backend rejects metadata. Keep Ciel Runtime delivery cursors
-    # in delivery_body only; do not forward them upstream.
-    out.pop("metadata", None)
-    if not additions and not metadata:
-        return out, delivery_body
-    input_items = _responses_input_as_list(body.get("input", []))
-    for message in additions:
-        text = anthropic_content_to_text(message.get("content"))
-        if text.strip():
-            input_items.append(_responses_message_item(str(message.get("role") or "user"), text))
-    if input_items:
-        out["input"] = input_items
-    return out, delivery_body
+    return CodexChannelContextProjector(
+        CodexChannelContextPorts(
+            openai_responses_to_anthropic_messages,
+            body_with_pending_channel_messages,
+            body_with_channel_tool_result_context,
+            anthropic_content_to_text,
+        )
+    ).project(body)
+
+
+_responses_input_as_list = CodexChannelContextProjector.input_items
 
 
 def _copy_upstream_response_headers(handler: BaseHTTPRequestHandler, headers: Any) -> None:
