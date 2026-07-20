@@ -363,3 +363,71 @@ class ChannelProbeService:
                 f"error={type(exc).__name__}: {exc}",
             )
             return False
+
+
+@dataclass(frozen=True, slots=True)
+class ChannelProbeCompatibilityApi:
+    """Typed compatibility and launch-orchestration adapter for channel probes."""
+
+    service_factory: Callable[[], ChannelProbeService]
+
+    def builtin_record(self) -> dict[str, Any]:
+        return self.service_factory().builtin_record()
+
+    def transport_label(self, server: dict[str, Any]) -> str:
+        return self.service_factory().transport_label(server)
+
+    def probe(
+        self,
+        paths: Iterable[str],
+        cwd: Path,
+        *,
+        include_router_self: bool = True,
+        timeout_per_server: float | None = None,
+    ) -> list[dict[str, Any]]:
+        return self.service_factory().probe(
+            paths,
+            cwd,
+            include_router_self=include_router_self,
+            timeout_per_server=timeout_per_server,
+        )
+
+    def read_cache(self) -> dict[str, Any]:
+        return self.service_factory().repository.read()
+
+    def write_cache(self, cache: dict[str, Any]) -> None:
+        self.service_factory().repository.write(cache)
+
+    def refresh(
+        self,
+        passthrough: list[str] | None = None,
+        cwd: Path | None = None,
+        home: Path | None = None,
+        timeout_per_server: float | None = None,
+        extra_config_paths: list[Path | str] | None = None,
+    ) -> dict[str, Any]:
+        return self.service_factory().refresh(
+            passthrough,
+            cwd,
+            home,
+            timeout_per_server,
+            extra_config_paths,
+        )
+
+    def servers(self) -> list[dict[str, Any]]:
+        return self.service_factory().servers()
+
+    def bucket(self, record: dict[str, Any]) -> str:
+        return self.service_factory().bucket(record)
+
+    def capable_names(self) -> list[str]:
+        return self.service_factory().capable_names()
+
+    def external_capable_names(self) -> list[str]:
+        return self.service_factory().external_capable_names()
+
+    def source_paths(self, specs: Iterable[str]) -> list[Path]:
+        return self.service_factory().source_paths(specs)
+
+    def server_names_from_specs(self, specs: Iterable[str]) -> list[str]:
+        return self.service_factory().server_names_from_specs(specs)

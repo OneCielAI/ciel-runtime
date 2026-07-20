@@ -3058,6 +3058,40 @@ class ArchitectureContractTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertNotIn("__getattr__", adapter_source)
 
+    def test_channel_probe_compatibility_keeps_launch_workflow_in_composition(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "_builtin_router_probe_record",
+            "_server_transport_label",
+            "_probe_mcp_servers_to_records",
+            "read_channel_probe_cache",
+            "_write_channel_probe_cache",
+            "refresh_channel_probe_cache",
+            "cached_channel_probe_servers",
+            "channel_probe_record_bucket",
+            "cached_channel_capable_server_names",
+            "cached_external_channel_capable_server_names",
+            "cached_channel_source_paths_for_specs",
+            "_server_names_from_channel_specs",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        self.assertIn("ChannelProbeCompatibilityApi", source)
+        for composition_function in (
+            "channel_candidate_server_names_for_launch",
+            "channel_probe_cache_needs_launch_refresh",
+            "ensure_channel_probe_cache_for_launch",
+        ):
+            self.assertIn(composition_function, root_functions)
+        adapter_source = (
+            root / "ciel_runtime_support" / "channel_probe_cache.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("__getattr__", adapter_source)
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):

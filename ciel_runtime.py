@@ -291,6 +291,7 @@ from ciel_runtime_support.channel_probe_report import (
 )
 from ciel_runtime_support.channel_probe_cache import (
     ChannelProbeCacheRepository,
+    ChannelProbeCompatibilityApi,
     ChannelProbePorts,
     ChannelProbeService,
 )
@@ -9301,131 +9302,12 @@ def channel_probe_service() -> ChannelProbeService:
     )
 
 
-def _builtin_router_probe_record() -> dict[str, Any]:
-    return channel_probe_service().builtin_record()
-
-
-def _server_transport_label(server: dict[str, Any]) -> str:
-    return channel_probe_service().transport_label(server)
-
-
-def _probe_mcp_servers_to_records(
-    paths: Iterable[str],
-    cwd: Path,
-    *,
-    include_router_self: bool = True,
-    timeout_per_server: float | None = None,
-) -> list[dict[str, Any]]:
-    return channel_probe_service().probe(
-        paths,
-        cwd,
-        include_router_self=include_router_self,
-        timeout_per_server=timeout_per_server,
-    )
-
-
-def read_channel_probe_cache() -> dict[str, Any]:
-    return channel_probe_service().repository.read()
-
-
-def _write_channel_probe_cache(cache: dict[str, Any]) -> None:
-    channel_probe_service().repository.write(cache)
-
-
-def refresh_channel_probe_cache(
-    passthrough: list[str] | None = None,
-    cwd: Path | None = None,
-    home: Path | None = None,
-    timeout_per_server: float | None = None,
-    extra_config_paths: list[Path | str] | None = None,
-) -> dict[str, Any]:
-    return channel_probe_service().refresh(
-        passthrough,
-        cwd,
-        home,
-        timeout_per_server,
-        extra_config_paths,
-    )
-
-
-def cached_channel_probe_servers() -> list[dict[str, Any]]:
-    return channel_probe_service().servers()
-
-
-def channel_probe_record_bucket(record: dict[str, Any]) -> str:
-    return channel_probe_service().bucket(record)
-
-
-def cached_channel_capable_server_names() -> list[str]:
-    return channel_probe_service().capable_names()
-
-
-def cached_external_channel_capable_server_names() -> list[str]:
-    return channel_probe_service().external_capable_names()
-
-
 def native_auto_channel_capable_server_names(passthrough: list[str] | None = None) -> list[str]:
     """External channel-capable servers that are also in current MCP discovery."""
     discovered = set(discovered_claude_mcp_servers(passthrough or []).keys())
     if not discovered:
         return []
     return [name for name in cached_external_channel_capable_server_names() if name in discovered]
-
-
-def cached_channel_source_paths_for_specs(specs: Iterable[str]) -> list[Path]:
-    return channel_probe_service().source_paths(specs)
-
-
-def _server_names_from_channel_specs(specs: Iterable[str]) -> list[str]:
-    return channel_probe_service().server_names_from_specs(specs)
-
-
-def channel_candidate_server_names_for_launch(
-    cfg: dict[str, Any],
-    passthrough: list[str],
-    extra_config_paths: list[Path | str] | None = None,
-) -> list[str]:
-    return channel_probe_service().candidate_names(
-        channel_specs_for_launch(cfg, passthrough),
-        lambda: external_mcp_channel_server_names_from_configs(
-            passthrough,
-            extra_config_paths=extra_config_paths,
-        ),
-    )
-
-
-def channel_probe_cache_needs_launch_refresh(
-    cfg: dict[str, Any],
-    passthrough: list[str],
-    extra_config_paths: list[Path | str] | None = None,
-) -> bool:
-    cache = read_channel_probe_cache()
-    records = cached_channel_probe_servers()
-    candidate_names = channel_candidate_server_names_for_launch(cfg, passthrough, extra_config_paths=extra_config_paths)
-    return channel_probe_service().needs_refresh(cache, records, candidate_names)
-
-
-def ensure_channel_probe_cache_for_launch(
-    cfg: dict[str, Any],
-    passthrough: list[str],
-    extra_config_paths: list[Path | str] | None = None,
-) -> bool:
-    needed = channel_probe_cache_needs_launch_refresh(
-        cfg,
-        passthrough,
-        extra_config_paths=extra_config_paths,
-    )
-    return channel_probe_service().ensure_refresh(
-        needed,
-        lambda: refresh_channel_probe_cache(
-            passthrough,
-            **(
-                {"extra_config_paths": extra_config_paths}
-                if extra_config_paths is not None
-                else {}
-            ),
-        ),
-    )
 
 
 def start_codex_mcp_channel_sse_for_launch(
@@ -9633,6 +9515,73 @@ def start_router_managed_channel_sse(cfg: dict[str, Any]) -> list[dict[str, Any]
 
 def channel_specs_for_launch(cfg: dict[str, Any], passthrough: list[str], extra_specs: list[str] | None = None) -> list[str]:
     return channel_config_service().launch_specs(cfg, extra_specs)
+
+
+_CHANNEL_PROBE_API = ChannelProbeCompatibilityApi(
+    service_factory=channel_probe_service,
+)
+_builtin_router_probe_record = _CHANNEL_PROBE_API.builtin_record
+_server_transport_label = _CHANNEL_PROBE_API.transport_label
+_probe_mcp_servers_to_records = _CHANNEL_PROBE_API.probe
+read_channel_probe_cache = _CHANNEL_PROBE_API.read_cache
+_write_channel_probe_cache = _CHANNEL_PROBE_API.write_cache
+refresh_channel_probe_cache = _CHANNEL_PROBE_API.refresh
+cached_channel_probe_servers = _CHANNEL_PROBE_API.servers
+channel_probe_record_bucket = _CHANNEL_PROBE_API.bucket
+cached_channel_capable_server_names = _CHANNEL_PROBE_API.capable_names
+cached_external_channel_capable_server_names = _CHANNEL_PROBE_API.external_capable_names
+cached_channel_source_paths_for_specs = _CHANNEL_PROBE_API.source_paths
+_server_names_from_channel_specs = _CHANNEL_PROBE_API.server_names_from_specs
+
+
+def channel_candidate_server_names_for_launch(
+    cfg: dict[str, Any],
+    passthrough: list[str],
+    extra_config_paths: list[Path | str] | None = None,
+) -> list[str]:
+    return channel_probe_service().candidate_names(
+        channel_specs_for_launch(cfg, passthrough),
+        lambda: external_mcp_channel_server_names_from_configs(
+            passthrough,
+            extra_config_paths=extra_config_paths,
+        ),
+    )
+
+
+def channel_probe_cache_needs_launch_refresh(
+    cfg: dict[str, Any],
+    passthrough: list[str],
+    extra_config_paths: list[Path | str] | None = None,
+) -> bool:
+    cache = read_channel_probe_cache()
+    records = cached_channel_probe_servers()
+    candidate_names = channel_candidate_server_names_for_launch(
+        cfg, passthrough, extra_config_paths=extra_config_paths
+    )
+    return channel_probe_service().needs_refresh(cache, records, candidate_names)
+
+
+def ensure_channel_probe_cache_for_launch(
+    cfg: dict[str, Any],
+    passthrough: list[str],
+    extra_config_paths: list[Path | str] | None = None,
+) -> bool:
+    needed = channel_probe_cache_needs_launch_refresh(
+        cfg,
+        passthrough,
+        extra_config_paths=extra_config_paths,
+    )
+    return channel_probe_service().ensure_refresh(
+        needed,
+        lambda: refresh_channel_probe_cache(
+            passthrough,
+            **(
+                {"extra_config_paths": extra_config_paths}
+                if extra_config_paths is not None
+                else {}
+            ),
+        ),
+    )
 
 
 def is_channel_spec_tagged(spec: str) -> bool:

@@ -879,6 +879,8 @@ MCP notification stream 소유권 Repository와 router lifecycle을 제공한다
 
 MCP channel capability probe 결과의 저장, 분류, refresh 결정을 담당하는 Repository와 Application Service.
 
+`ChannelProbeCompatibilityApi`는 repository·projection·probe 조회 표면을 명시적 typed method로 제공한다. external discovery와 launch refresh의 monkeypatch 가능한 조립 포트는 composition root에 남겨 Adapter가 workflow 의존성을 고정하지 않는다.
+
 ### `ciel_runtime_support/codex_config.py`
 
 Codex 설정 경로 발견과 TOML projection을 담당하는 Configuration Policy. 환경·파일 I/O와 순수 변환 규칙을 분리한다.
