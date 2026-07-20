@@ -488,7 +488,9 @@ from ciel_runtime_support.credential_management import (
     CredentialPersistencePorts,
     CredentialPresentationPorts,
     CredentialRotationRepository,
+    EnvCredentialRepository,
     ExternalCredentialPorts,
+    nvidia_env_credential_repository,
 )
 from ciel_runtime_support.credential_cli import (
     CredentialCliController,
@@ -7344,57 +7346,34 @@ def router_health_has_foreign_config(health: dict[str, Any] | None) -> bool:
 
 
 def invalid_nvidia_hosted_base_url(value: str | None) -> bool:
-    text = (value or "").strip()
-    if not text or text.startswith("nv" + "api-") or not text.startswith(("http://", "https://")):
-        return True
-    parsed = urllib.parse.urlparse(text)
-    return (parsed.hostname or "") in ("127.0.0.1", "localhost")
+    text = str(value or "").strip().rstrip("/")
+    adapter = PROVIDER_ADAPTERS.create("nvidia-hosted")
+    return adapter.normalize_base_url(value or "") != text
 
 
 def ensure_nvidia_hosted_base_url(pcfg: dict[str, Any]) -> bool:
-    if invalid_nvidia_hosted_base_url(pcfg.get("base_url")):
-        pcfg["base_url"] = nvidia_upstream_base_url()
-        return True
-    return False
+    adapter = configured_provider_adapter("nvidia-hosted", pcfg)
+    updates = adapter.selection_config_updates(provider_contract_config("nvidia-hosted", pcfg))
+    pcfg.update(updates)
+    return "base_url" in updates
+
+
+def nvidia_credential_repository() -> EnvCredentialRepository:
+    return nvidia_env_credential_repository(
+        NCP_ENV, read_env_file, parse_api_key_list, nvidia_upstream_base_url()
+    )
 
 
 def store_nvidia_api_key(key: str) -> None:
-    env = read_env_file(NCP_ENV)
-    env["NVIDIA_API_KEY"] = key
-    env.setdefault("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
-    env.setdefault("PROXY_HOST", "127.0.0.1")
-    env.setdefault("PROXY_PORT", "8788")
-    env.setdefault("STORAGE_ENGINE", "sqlite")
-    NCP_ENV.parent.mkdir(parents=True, exist_ok=True)
-    NCP_ENV.write_text("".join(f"{k}={v}\n" for k, v in env.items()))
-    os.chmod(NCP_ENV, 0o600)
+    nvidia_credential_repository().store(key)
 
 
 def clear_nvidia_api_key() -> None:
-    env = read_env_file(NCP_ENV)
-    if "NVIDIA_API_KEY" not in env:
-        return
-    env.pop("NVIDIA_API_KEY", None)
-    NCP_ENV.parent.mkdir(parents=True, exist_ok=True)
-    NCP_ENV.write_text("".join(f"{k}={v}\n" for k, v in env.items()))
-    os.chmod(NCP_ENV, 0o600)
+    nvidia_credential_repository().clear()
 
 
 def set_provider_config(provider: str) -> list[str]:
-    cfg = load_config()
-    cfg["current_provider"] = provider
-    pcfg = cfg["providers"][provider]
-    adapter = configured_provider_adapter(provider, pcfg)
-    contract = provider_contract_config(provider, pcfg)
-    pcfg.update(adapter.selection_config_updates(contract))
-    fixed_base = ensure_nvidia_hosted_base_url(pcfg) if provider == "nvidia-hosted" else False
-    save_config(cfg)
-    clear_model_cache()
-    lines = [f"Provider set to {provider} ({PROVIDER_LABELS[provider]})."]
-    lines.extend(adapter.selection_status_lines(provider_contract_config(provider, pcfg)))
-    if fixed_base:
-        lines.append(f"Base URL set to {pcfg['base_url']} for NVIDIA hosted.")
-    return lines
+    return provider_choice_controller().select_standard(provider)
 
 
 def set_provider_choice_config(choice: str) -> list[str]:
@@ -7408,7 +7387,9 @@ def provider_choice_controller() -> ProviderChoiceController:
             save_config=save_config,
             clear_model_cache=clear_model_cache,
             provider_has_api_key=provider_has_api_key,
-            select_standard_provider=set_provider_config,
+            configured_adapter=configured_provider_adapter,
+            contract_config=provider_contract_config,
+            provider_label=PROVIDER_LABELS.__getitem__,
         )
     )
 
@@ -7543,7 +7524,7 @@ def credential_management_service() -> CredentialManagementService:
             enabled=frozenset({"nvidia-hosted"}).__contains__,
             store=store_nvidia_api_key,
             clear=clear_nvidia_api_key,
-            has_key=lambda: bool(parse_api_key_list(read_env_file(NCP_ENV).get("NVIDIA_API_KEY"))),
+            has_key=nvidia_credential_repository().has_key,
             normalize_provider_config=ensure_nvidia_hosted_base_url,
             location=NCP_ENV,
         ),

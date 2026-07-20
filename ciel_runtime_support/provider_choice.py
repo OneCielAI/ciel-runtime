@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .architecture import ProviderAdapter, ProviderConfig
+
 
 ANTHROPIC_NATIVE_PROVIDER_CHOICE = "anthropic:native"
 ANTHROPIC_ROUTED_PROVIDER_CHOICE = "anthropic:routed"
@@ -120,7 +122,9 @@ class ProviderChoicePorts:
     save_config: Callable[[dict[str, Any]], None]
     clear_model_cache: Callable[[], None]
     provider_has_api_key: Callable[[str, dict[str, Any]], bool]
-    select_standard_provider: Callable[[str], list[str]]
+    configured_adapter: Callable[[str, dict[str, Any]], ProviderAdapter]
+    contract_config: Callable[[str, dict[str, Any]], ProviderConfig]
+    provider_label: Callable[[str], str]
 
 
 class ProviderChoiceController:
@@ -131,7 +135,7 @@ class ProviderChoiceController:
         normalized = normalize_provider_choice(choice) or choice
         strategy = CHOICE_STRATEGIES.get(normalized)
         if strategy is None:
-            return self._ports.select_standard_provider(normalized)
+            return self.select_standard(normalized)
         config = self._ports.load_config()
         config["current_provider"] = strategy.provider
         provider_config = config["providers"][strategy.provider]
@@ -144,6 +148,24 @@ class ProviderChoiceController:
             and not self._ports.provider_has_api_key(strategy.provider, provider_config)
         ):
             lines.append(strategy.missing_api_key_line)
+        return lines
+
+    def select_standard(self, provider: str) -> list[str]:
+        """Select a provider while delegating normalization to its adapter."""
+
+        config = self._ports.load_config()
+        config["current_provider"] = provider
+        provider_config = config["providers"][provider]
+        adapter = self._ports.configured_adapter(provider, provider_config)
+        contract = self._ports.contract_config(provider, provider_config)
+        updates = adapter.selection_config_updates(contract)
+        provider_config.update(updates)
+        self._ports.save_config(config)
+        self._ports.clear_model_cache()
+        selected_contract = self._ports.contract_config(provider, provider_config)
+        lines = [f"Provider set to {provider} ({self._ports.provider_label(provider)})."]
+        lines.extend(adapter.selection_status_lines(selected_contract))
+        lines.extend(adapter.selection_update_status_lines(selected_contract, updates))
         return lines
 
 

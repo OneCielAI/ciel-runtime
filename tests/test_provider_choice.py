@@ -32,19 +32,44 @@ class ProviderChoiceTests(unittest.TestCase):
         self.assertEqual([config], saved)
         self.assertEqual([True], cleared)
 
-    def test_standard_provider_delegates_without_loading_runtime_config(self):
-        selected = []
+    def test_standard_selection_applies_adapter_owned_updates_and_status(self):
+        config = {"current_provider": "ollama", "providers": {"nvidia-hosted": {"base_url": "localhost"}}}
+        saved = []
+        cleared = []
+
+        class Adapter:
+            @staticmethod
+            def selection_config_updates(_contract):
+                return {"base_url": "https://integrate.api.nvidia.com/v1"}
+
+            @staticmethod
+            def selection_status_lines(_contract):
+                return ("adapter status",)
+
+            @staticmethod
+            def selection_update_status_lines(_contract, updates):
+                return (f"normalized: {updates['base_url']}",)
+
         controller = ProviderChoiceController(
             ProviderChoicePorts(
-                load_config=lambda: self.fail("standard provider should not load runtime config"),
-                save_config=lambda _config: None,
-                clear_model_cache=lambda: None,
+                load_config=lambda: config,
+                save_config=saved.append,
+                clear_model_cache=lambda: cleared.append(True),
                 provider_has_api_key=lambda _provider, _config: False,
-                select_standard_provider=lambda provider: selected.append(provider) or [provider],
+                configured_adapter=lambda _provider, _config: Adapter(),
+                contract_config=lambda provider, provider_config: (provider, dict(provider_config)),
+                provider_label=lambda _provider: "NVIDIA hosted",
             )
         )
-        self.assertEqual(["ollama"], controller.select("ollama"))
-        self.assertEqual(["ollama"], selected)
+
+        lines = controller.select("nvidia-hosted")
+
+        self.assertEqual("nvidia-hosted", config["current_provider"])
+        self.assertEqual("https://integrate.api.nvidia.com/v1", config["providers"]["nvidia-hosted"]["base_url"])
+        self.assertEqual(1, len(saved))
+        self.assertEqual([True], cleared)
+        self.assertEqual("adapter status", lines[-2])
+        self.assertIn("normalized:", lines[-1])
 
     @staticmethod
     def _controller(config, saved, cleared, *, has_key):
@@ -54,7 +79,9 @@ class ProviderChoiceTests(unittest.TestCase):
                 save_config=saved.append,
                 clear_model_cache=lambda: cleared.append(True),
                 provider_has_api_key=lambda _provider, _config: has_key,
-                select_standard_provider=lambda provider: [provider],
+                configured_adapter=lambda _provider, _config: None,
+                contract_config=lambda _provider, _config: None,
+                provider_label=lambda provider: provider,
             )
         )
 

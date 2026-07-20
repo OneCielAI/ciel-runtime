@@ -1,11 +1,14 @@
 import threading
+import tempfile
 import unittest
+from pathlib import Path
 
 from ciel_runtime_support.credential_management import (
     CredentialManagementService,
     CredentialPersistencePorts,
     CredentialPresentationPorts,
     CredentialRotationRepository,
+    EnvCredentialRepository,
     ExternalCredentialPorts,
 )
 from ciel_runtime_support.credentials import api_key_clear_requested, parse_api_key_list
@@ -68,6 +71,32 @@ class CredentialManagementServiceTest(unittest.TestCase):
         self.assertEqual(["keep", "keep-2"], config["providers"]["other"]["api_keys"])
         self.assertEqual({}, cursor)
         self.assertIn("Other providers unchanged", lines[0])
+
+    def test_env_repository_preserves_defaults_and_clears_only_its_key(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "provider.env"
+
+            def read_env(target):
+                if not target.exists():
+                    return {}
+                return dict(line.split("=", 1) for line in target.read_text().splitlines())
+
+            repository = EnvCredentialRepository(
+                path=path,
+                key_name="NVIDIA_API_KEY",
+                defaults={"PROXY_HOST": "127.0.0.1"},
+                read_env_file=read_env,
+                parse_values=parse_api_key_list,
+            )
+            repository.store("nvapi-secret")
+
+            self.assertTrue(repository.has_key())
+            self.assertIn("PROXY_HOST=127.0.0.1", path.read_text())
+
+            repository.clear()
+
+            self.assertFalse(repository.has_key())
+            self.assertEqual("PROXY_HOST=127.0.0.1\n", path.read_text())
 
 
 if __name__ == "__main__":

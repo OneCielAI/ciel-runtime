@@ -2113,11 +2113,20 @@ class ArchitectureContractTests(unittest.TestCase):
         )
 
     def test_provider_selection_defaults_dispatch_through_adapter(self):
-        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        source_path = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "provider_choice.py"
+        )
         source = source_path.read_text(encoding="utf-8")
         tree = ast.parse(source)
         function = next(
-            node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "set_provider_config"
+            node
+            for class_node in tree.body
+            if isinstance(class_node, ast.ClassDef)
+            and class_node.name == "ProviderChoiceController"
+            for node in class_node.body
+            if isinstance(node, ast.FunctionDef) and node.name == "select_standard"
         )
         function_source = ast.get_source_segment(source, function) or ""
         self.assertIn("selection_config_updates", function_source)
@@ -4644,6 +4653,9 @@ class ArchitectureContractTests(unittest.TestCase):
             "router_debug_message_preview_chars": "configured_chars",
             "router_event_message_preview": "project",
             "finish_outgoing_sse_trace": "finish_stream",
+            "set_provider_config": "select_standard",
+            "store_nvidia_api_key": "store",
+            "clear_nvidia_api_key": "clear",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

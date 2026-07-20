@@ -289,7 +289,7 @@ API-key 파싱·중복 제거·ProviderConfig 투영, secret masking/fingerprint
 
 ### `ciel_runtime_support/credential_management.py`
 
-단일·다중 API key 저장과 삭제를 transaction으로 조정하는 Credential Management Service. 외부 credential 저장소, config 저장, model-cache 무효화, 다른 provider key 보존과 rotation cursor reset을 typed ports/repository로 분리한다.
+단일·다중 API key 저장과 삭제를 transaction으로 조정하는 Credential Management Service. 외부 credential 저장소, config 저장, model-cache 무효화, 다른 provider key 보존과 rotation cursor reset을 typed ports/repository로 분리한다. `EnvCredentialRepository`는 NVIDIA 같은 외부 dotenv credential의 기본값 보존·보안 권한·단일 key 삭제를 캡슐화한다.
 
 ### `ciel_runtime_support/credential_cli.py`
 

@@ -1,6 +1,7 @@
 """NVIDIA hosted provider adapter."""
 
 from dataclasses import dataclass, field, replace
+from typing import Any, Mapping
 from urllib.parse import urlparse
 
 from ..architecture import (
@@ -81,8 +82,22 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
             or not text.startswith(("http://", "https://"))
             or (parsed.hostname or "") in {"127.0.0.1", "localhost"}
         ):
-            return self.default_base_url().rstrip("/")
+            return PROVIDER_DEFAULT_BASE_URLS["nvidia-hosted"].rstrip("/")
         return text.rstrip("/")
+
+    def selection_config_updates(self, config: ProviderConfig) -> Mapping[str, Any]:
+        normalized = self.normalize_base_url(config.base_url)
+        if normalized == str(config.base_url or "").strip().rstrip("/"):
+            return {}
+        return {"base_url": normalized}
+
+    def selection_update_status_lines(
+        self, config: ProviderConfig, updates: Mapping[str, Any]
+    ) -> tuple[str, ...]:
+        del config
+        if "base_url" not in updates:
+            return ()
+        return (f"Base URL set to {updates['base_url']} for NVIDIA hosted.",)
 
     def configuration_policy(
         self, config: ProviderConfig

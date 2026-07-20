@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
+import os
+from pathlib import Path
 from threading import Lock, RLock
 from typing import Any, Callable
 
@@ -41,6 +43,59 @@ class CredentialRotationRepository:
     def reset(self, name: str) -> None:
         with self._lock:
             self._cursor.pop(name, None)
+
+
+@dataclass(frozen=True, slots=True)
+class EnvCredentialRepository:
+    """Persist one credential in a chmod-protected dotenv file."""
+
+    path: Path
+    key_name: str
+    defaults: dict[str, str]
+    read_env_file: Callable[[Path], dict[str, str]]
+    parse_values: Callable[[Any], list[str]]
+
+    def store(self, value: str) -> None:
+        environment = self.read_env_file(self.path)
+        environment[self.key_name] = value
+        for name, default in self.defaults.items():
+            environment.setdefault(name, default)
+        self._write(environment)
+
+    def clear(self) -> None:
+        environment = self.read_env_file(self.path)
+        if self.key_name not in environment:
+            return
+        environment.pop(self.key_name, None)
+        self._write(environment)
+
+    def has_key(self) -> bool:
+        return bool(self.parse_values(self.read_env_file(self.path).get(self.key_name)))
+
+    def _write(self, environment: dict[str, str]) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text("".join(f"{key}={value}\n" for key, value in environment.items()))
+        os.chmod(self.path, 0o600)
+
+
+def nvidia_env_credential_repository(
+    path: Path,
+    read_env_file: Callable[[Path], dict[str, str]],
+    parse_values: Callable[[Any], list[str]],
+    base_url: str,
+) -> EnvCredentialRepository:
+    return EnvCredentialRepository(
+        path=path,
+        key_name="NVIDIA_API_KEY",
+        defaults={
+            "NVIDIA_BASE_URL": base_url,
+            "PROXY_HOST": "127.0.0.1",
+            "PROXY_PORT": "8788",
+            "STORAGE_ENGINE": "sqlite",
+        },
+        read_env_file=read_env_file,
+        parse_values=parse_values,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,5 +227,7 @@ __all__ = [
     "CredentialPersistencePorts",
     "CredentialPresentationPorts",
     "CredentialRotationRepository",
+    "EnvCredentialRepository",
     "ExternalCredentialPorts",
+    "nvidia_env_credential_repository",
 ]

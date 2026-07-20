@@ -470,6 +470,14 @@ class ProviderAdapter(ABC):
         del config
         return {}
 
+    def selection_update_status_lines(
+        self, config: ProviderConfig, updates: Mapping[str, Any]
+    ) -> tuple[str, ...]:
+        """Describe provider-owned normalization performed during selection."""
+
+        del config, updates
+        return ()
+
     def model_selection_config_updates(
         self, config: ProviderConfig, model_id: str
     ) -> Mapping[str, Any]:
