@@ -445,6 +445,7 @@ from ciel_runtime_support.ollama_forwarding import (
     OllamaForwardStreaming,
 )
 from ciel_runtime_support.ollama_catalog import OllamaCatalogRefreshServices
+from ciel_runtime_support.ollama_catalog_cli import OllamaCatalogCliController
 from ciel_runtime_support.openai_forwarding import (
     OpenAIForwardAdvisor,
     OpenAIForwardPolicy,
@@ -1375,6 +1376,7 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_ollama_catalog_refresh_port_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(OllamaCatalogRefreshServices)), 10)
+        self.assertEqual(3, len(fields(OllamaCatalogCliController)))
         source = (
             Path(__file__).resolve().parents[1] / "ciel_runtime.py"
         ).read_text(encoding="utf-8")
@@ -4571,6 +4573,8 @@ class ArchitectureContractTests(unittest.TestCase):
             "_ollama_stream_to_anthropic_sse": "ollama_stream_to_anthropic_sse",
             "stream_openai_chat_to_anthropic_sse": "forward_openai_chat_to_anthropic_sse",
             "openai_chat_to_anthropic": "project_openai_chat_response",
+            "provider_mode_label": "label",
+            "cmd_ollama_catalog": "refresh_command",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

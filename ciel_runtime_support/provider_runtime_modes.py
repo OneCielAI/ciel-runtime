@@ -13,7 +13,7 @@ class RuntimeModePolicy:
     runtime_providers: Mapping[str, str]
 
     def native_enabled(self, runtime: str, provider: str) -> bool:
-        return provider == self.runtime_providers[runtime]
+        return provider == self.runtime_providers.get(runtime)
 
     def routed_enabled(
         self, runtime: str, provider: str, config: dict[str, Any]
@@ -28,6 +28,14 @@ class RuntimeModePolicy:
         return self.native_enabled(runtime, provider) and not self.routed_enabled(
             runtime, provider, config
         )
+
+    def label(self, provider: str, config: dict[str, Any]) -> str:
+        for runtime in ("anthropic", "agy", "codex"):
+            if self.direct_enabled(runtime, provider, config):
+                return f"{runtime}-native"
+            if self.routed_enabled(runtime, provider, config):
+                return f"{runtime}-routed"
+        return "ciel-runtime-router"
 
     def native_anthropic(self, provider: str) -> bool:
         return self.native_enabled("anthropic", provider)

@@ -839,6 +839,7 @@ from ciel_runtime_support.router_shortcuts import (
     ShortcutResponsePorts,
 )
 from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
+from ciel_runtime_support.ollama_catalog_cli import OllamaCatalogCliController
 from ciel_runtime_support.ollama_catalog_repository import OllamaCatalogRepository
 from ciel_runtime_support.ollama_context_sync import (
     OllamaContextPolicy,
@@ -7881,33 +7882,18 @@ def cmd_models(args: argparse.Namespace) -> None:
 
 
 def cmd_ollama_catalog(args: argparse.Namespace) -> None:
-    include_contexts = not bool(getattr(args, "no_contexts", False))
-    catalog = refresh_ollama_model_catalog(include_contexts=include_contexts, timeout=float(getattr(args, "timeout", 10.0)))
-    models = catalog.get("models") if isinstance(catalog.get("models"), dict) else {}
-    context_count = 0
-    for entry in models.values():
-        if isinstance(entry, dict) and isinstance(entry.get("context_windows"), dict) and entry["context_windows"]:
-            context_count += 1
-    print(f"Ollama catalog saved: {OLLAMA_MODEL_CATALOG_PATH}")
-    print(f"API models: {catalog.get('model_count', 0)}")
-    print(f"Base models: {len(models)}")
-    print(f"Context windows: {context_count}/{len(models)}")
+    OllamaCatalogCliController(
+        refresh_ollama_model_catalog,
+        OLLAMA_MODEL_CATALOG_PATH,
+        print,
+    ).refresh_command(
+        include_contexts=not bool(getattr(args, "no_contexts", False)),
+        timeout=float(getattr(args, "timeout", 10.0)),
+    )
 
 
 def provider_mode_label(provider: str, pcfg: dict[str, Any]) -> str:
-    if direct_native_anthropic_enabled(provider, pcfg):
-        return "anthropic-native"
-    if anthropic_routed_enabled(provider, pcfg):
-        return "anthropic-routed"
-    if direct_native_agy_enabled(provider, pcfg):
-        return "agy-native"
-    if agy_routed_enabled(provider, pcfg):
-        return "agy-routed"
-    if direct_native_codex_enabled(provider, pcfg):
-        return "codex-native"
-    if codex_routed_enabled(provider, pcfg):
-        return "codex-routed"
-    return "ciel-runtime-router"
+    return _RUNTIME_MODE_POLICY.label(provider, pcfg)
 
 
 def status_lines() -> list[str]:

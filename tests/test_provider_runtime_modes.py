@@ -36,6 +36,23 @@ class ProviderRuntimeModePolicyTests(unittest.TestCase):
             )
         )
 
+    def test_mode_label_uses_runtime_mapping_and_routing_state(self):
+        policy = RuntimeModePolicy(
+            parse_bool=lambda value, **_kwargs: bool(value),
+            runtime_providers={
+                "anthropic": "anthropic",
+                "agy": "agy",
+                "codex": "codex",
+            },
+        )
+
+        self.assertEqual("anthropic-native", policy.label("anthropic", {}))
+        self.assertEqual(
+            "agy-routed",
+            policy.label("agy", {"route_through_router": True}),
+        )
+        self.assertEqual("ciel-runtime-router", policy.label("ollama", {}))
+
     def test_native_compatibility_combines_group_and_adapter_policy(self):
         policy = ProviderNativeCompatibilityPolicy(
             native_enabled=lambda _provider, config: bool(config.get("native")),
