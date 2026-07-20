@@ -317,6 +317,13 @@ from ciel_runtime_support.provider_launch_endpoint import (
     ProviderLaunchEndpointPolicy,
     ProviderLaunchEndpointQueries,
 )
+from ciel_runtime_support.provider_endpoint_probe import (
+    ProviderEndpointProbePolicy,
+    ProviderEndpointProbeProjection,
+    ProviderEndpointProbeQueries,
+    ProviderEndpointRouteAdapter,
+    ProviderEndpointRoutePorts,
+)
 from ciel_runtime_support.model_cache_lifecycle import (
     ModelCacheLifecyclePorts,
     ModelCacheLifecycleService,
@@ -3769,72 +3776,59 @@ def provider_wire_profile(provider: str, pcfg: dict[str, Any], body: dict[str, A
     )
 
 
+def provider_endpoint_route_adapter() -> ProviderEndpointRouteAdapter:
+    return ProviderEndpointRouteAdapter(
+        ProviderEndpointRoutePorts(
+            decorate_headers=with_upstream_user_agent,
+            request=urllib.request.Request,
+            urlopen=urllib.request.urlopen,
+            http_error=urllib.error.HTTPError,
+        )
+    )
+
+
 def endpoint_route_exists(url: str, headers: dict[str, str], timeout: float = 1.5) -> bool | None:
-    req = urllib.request.Request(url, data=b"{}", headers=with_upstream_user_agent(headers), method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout):
-            return True
-    except urllib.error.HTTPError as exc:
-        try:
-            exc.read()
-        except Exception:
-            pass
-        if exc.code == 404:
-            return False
-        if exc.code in (400, 401, 403, 405, 422):
-            return True
-        return None
-    except Exception:
-        return None
+    return provider_endpoint_route_adapter().exists(url, headers, timeout)
+
+
+def provider_endpoint_probe_policy() -> ProviderEndpointProbePolicy:
+    return ProviderEndpointProbePolicy(
+        projection=ProviderEndpointProbeProjection(
+            upstream_base=provider_upstream_request_base,
+            native_base=native_anthropic_base_url,
+            join_url=join_url,
+        ),
+        query=ProviderEndpointProbeQueries(
+            primary_headers=provider_headers,
+            fallback_headers=provider_model_list_headers,
+            route_exists=endpoint_route_exists,
+        ),
+    )
 
 
 def auto_detect_native_compat_for_base_url(provider: str, pcfg: dict[str, Any]) -> tuple[bool | None, str]:
-    if provider not in AUTO_DETECT_NATIVE_COMPAT_PROVIDERS:
-        return None, ""
-    base = provider_upstream_request_base(provider, pcfg)
-    if not base:
-        return None, "missing base URL"
-    headers = provider_model_list_headers(provider, pcfg)
-    anthropic_route = endpoint_route_exists(join_url(native_anthropic_base_url(provider, pcfg), "/v1/messages"), headers)
-    openai_route = endpoint_route_exists(join_url(base, "/v1/chat/completions"), headers)
-    if anthropic_route is True:
-        return True, "Anthropic Messages route detected"
-    if openai_route is True and anthropic_route is False:
-        return False, "OpenAI chat completions route detected"
-    if openai_route is True:
-        return None, "OpenAI route detected, Anthropic route inconclusive; keeping Anthropic default"
-    return None, "endpoint family inconclusive; keeping Anthropic default"
+    return provider_endpoint_probe_policy().detect_native_compat(
+        provider,
+        pcfg,
+        frozenset(AUTO_DETECT_NATIVE_COMPAT_PROVIDERS),
+    )
 
 
 def endpoint_probe_status_label(value: bool | None) -> str:
-    if value is True:
-        return "available"
-    if value is False:
-        return "missing"
-    return "inconclusive"
+    return ProviderEndpointProbePolicy.status_label(value)
 
 
 def compatibility_endpoint_probe_headers(provider: str, pcfg: dict[str, Any]) -> dict[str, str]:
-    try:
-        return provider_headers(provider, pcfg)
-    except Exception:
-        return provider_model_list_headers(provider, pcfg)
+    return provider_endpoint_probe_policy().headers_for(provider, pcfg)
 
 
 def compatibility_endpoint_probe_lines(provider: str, pcfg: dict[str, Any], timeout: float = 1.5) -> list[str]:
-    if provider in ("agy", "codex", "ollama", "ollama-cloud"):
-        return []
-    probe_timeout = max(0.25, min(float(timeout or 1.5), 3.0))
-    headers = compatibility_endpoint_probe_headers(provider, pcfg)
-    anthropic_url = join_url(native_anthropic_base_url(provider, pcfg), "/v1/messages")
-    openai_url = join_url(provider_upstream_request_base(provider, pcfg), "/v1/chat/completions")
-    anthropic_status = endpoint_route_exists(anthropic_url, headers, timeout=probe_timeout)
-    openai_status = endpoint_route_exists(openai_url, headers, timeout=probe_timeout)
-    return [
-        "Endpoint probes:",
-        f"- Anthropic Messages (/v1/messages): {endpoint_probe_status_label(anthropic_status)} ({anthropic_url})",
-        f"- OpenAI Chat (/v1/chat/completions): {endpoint_probe_status_label(openai_status)} ({openai_url})",
-    ]
+    return provider_endpoint_probe_policy().report(
+        provider,
+        pcfg,
+        frozenset({"agy", "codex", "ollama", "ollama-cloud"}),
+        timeout,
+    )
 
 
 def http_response_adapter() -> HttpResponseAdapter:

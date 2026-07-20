@@ -129,6 +129,13 @@ from ciel_runtime_support.provider_launch_endpoint import (
     ProviderLaunchEndpointPolicy,
     ProviderLaunchEndpointQueries,
 )
+from ciel_runtime_support.provider_endpoint_probe import (
+    ProviderEndpointProbePolicy,
+    ProviderEndpointProbeProjection,
+    ProviderEndpointProbeQueries,
+    ProviderEndpointRouteAdapter,
+    ProviderEndpointRoutePorts,
+)
 from ciel_runtime_support.provider_runtime_modes import (
     ProviderNativeCompatibilityPolicy,
     RuntimeModePolicy,
@@ -2220,6 +2227,41 @@ class ArchitectureContractTests(unittest.TestCase):
             root
             / "ciel_runtime_support"
             / "provider_launch_endpoint.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", policy_source)
+        self.assertNotIn("__getattr__", policy_source)
+
+    def test_provider_endpoint_probe_uses_typed_policy_and_adapter(self):
+        self.assertEqual(1, len(fields(ProviderEndpointRouteAdapter)))
+        self.assertEqual(4, len(fields(ProviderEndpointRoutePorts)))
+        self.assertEqual(2, len(fields(ProviderEndpointProbePolicy)))
+        self.assertEqual(3, len(fields(ProviderEndpointProbeProjection)))
+        self.assertEqual(3, len(fields(ProviderEndpointProbeQueries)))
+
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        functions = {
+            node.name: ast.get_source_segment(source, node) or ""
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+        }
+        self.assertIn(
+            "ProviderEndpointRouteAdapter",
+            functions["provider_endpoint_route_adapter"],
+        )
+        self.assertIn(
+            "ProviderEndpointProbePolicy",
+            functions["provider_endpoint_probe_policy"],
+        )
+        self.assertNotIn(
+            "urllib.request.Request(",
+            functions["endpoint_route_exists"],
+        )
+        policy_source = (
+            root
+            / "ciel_runtime_support"
+            / "provider_endpoint_probe.py"
         ).read_text(encoding="utf-8")
         self.assertNotIn("import ciel_runtime", policy_source)
         self.assertNotIn("__getattr__", policy_source)

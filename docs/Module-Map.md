@@ -965,6 +965,10 @@ Provider request model alias, stream 요구사항, API-key 복구와 outbound he
 
 runtime과 provider·model 조합에 맞는 Anthropic/OpenAI 호환 endpoint 선호도를 결정하는 Policy Strategy. provider 그룹은 선언형 값 객체로, 자동 탐지와 model별 endpoint 판정은 typed query port로 분리한다.
 
+### `ciel_runtime_support/provider_endpoint_probe.py`
+
+provider의 Anthropic/OpenAI endpoint 존재 여부를 확인하는 HTTP Adapter와 native compatibility 탐지·상태 보고를 수행하는 Policy. network 효과, URL projection, header fallback query를 작은 typed port로 분리한다.
+
 ### `ciel_runtime_support/provider_runtime_modes.py`
 
 Claude/AGY/Codex native·routed·direct mode와 provider native-Anthropic compatibility 그룹을 선언형 mapping으로 판정하는 Domain Policy. 실제 native compatibility는 Provider Adapter의 `router_native_anthropic_enabled` 전략에 위임하고 facade의 provider 이름 비교 함수를 제거한다.
