@@ -148,6 +148,29 @@ def library_model_parts(model_id: str) -> tuple[str, str] | None:
     return base, tag
 
 
+def fetch_library_context_limit(
+    model_id: str,
+    *,
+    timeout: float,
+    fetch_context_map: Callable[
+        [str, float],
+        tuple[dict[str, int], str | None],
+    ],
+    positive_int: Callable[[Any], int | None],
+) -> tuple[int | None, str | None, str | None]:
+    parts = library_model_parts(model_id)
+    if not parts:
+        return None, None, None
+    base, tag = parts
+    context_map, source_url = fetch_context_map(base, timeout)
+    limit = positive_int(context_map.get(tag.lower()))
+    if not limit and tag == "latest":
+        cloud_limit = positive_int(context_map.get("cloud"))
+        if cloud_limit:
+            return cloud_limit, f"{base}:cloud", source_url
+    return limit, f"{base}:{tag}", source_url
+
+
 def context_label_to_tokens(number: str, unit: str | None) -> int | None:
     try:
         value = float(number)

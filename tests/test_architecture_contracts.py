@@ -4575,6 +4575,9 @@ class ArchitectureContractTests(unittest.TestCase):
             "openai_chat_to_anthropic": "project_openai_chat_response",
             "provider_mode_label": "label",
             "cmd_ollama_catalog": "refresh_command",
+            "fetch_ollama_library_context_limit": (
+                "fetch_library_context_limit"
+            ),
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

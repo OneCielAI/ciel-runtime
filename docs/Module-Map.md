@@ -585,7 +585,7 @@ Provider transport Adapter와 분리된 Advisor 전송, 호환성 실패 진단,
 
 ### `ciel_runtime_support/ollama_catalog.py`
 
-Ollama Library 모델 ID, context window와 timeout을 계산하는 Functional Core이며, catalog tag 그룹화·기존 context 보존·context map 갱신 workflow도 소유한다. 파일·네트워크 효과는 6필드 `OllamaCatalogRefreshServices`로 주입되어 메인 composition root에는 실제 adapter 조립만 남는다. 의존성이 없는 parser·identity 함수는 facade가 직접 compatibility export한다.
+Ollama Library 모델 ID, tag별 context window와 timeout을 계산하는 Functional Core이며, `latest` tag의 cloud context fallback, catalog tag 그룹화·기존 context 보존·context map 갱신 workflow도 소유한다. 파일·네트워크 효과는 6필드 `OllamaCatalogRefreshServices` 또는 명시적 조회 callback으로 주입되어 메인 composition root에는 실제 adapter 조립만 남는다. 의존성이 없는 parser·identity 함수는 facade가 직접 compatibility export한다.
 
 ### `ciel_runtime_support/ollama_catalog_repository.py`
 

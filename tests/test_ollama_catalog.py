@@ -26,6 +26,26 @@ class OllamaCatalogPolicyTests(unittest.TestCase):
             ollama_catalog.parse_library_context_map(page, "qwen3.6"),
         )
 
+    def test_library_context_limit_falls_back_to_cloud_for_latest(self):
+        result = ollama_catalog.fetch_library_context_limit(
+            "qwen3.6:latest",
+            timeout=4.0,
+            fetch_context_map=lambda base, timeout: (
+                {"cloud": 262_144},
+                f"https://catalog/{base}?timeout={timeout}",
+            ),
+            positive_int=lambda value: int(value) if value else None,
+        )
+
+        self.assertEqual(
+            (
+                262_144,
+                "qwen3.6:cloud",
+                "https://catalog/qwen3.6?timeout=4.0",
+            ),
+            result,
+        )
+
     def test_catalog_context_prefers_requested_tag(self):
         catalog = {
             "source": "test",

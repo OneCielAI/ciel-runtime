@@ -1647,18 +1647,12 @@ parse_ollama_library_context_limit = ollama_catalog_policy.parse_library_context
 
 
 def fetch_ollama_library_context_limit(model_id: str, timeout: float = 6.0) -> tuple[int | None, str | None, str | None]:
-    parts = ollama_library_model_parts(model_id)
-    if not parts:
-        return None, None, None
-    base, tag = parts
-    full_model = f"{base}:{tag}"
-    context_map, url = fetch_ollama_library_context_map(base, timeout=timeout)
-    limit = positive_int(context_map.get(tag.lower()))
-    if not limit and tag == "latest":
-        cloud_limit = positive_int(context_map.get("cloud"))
-        if cloud_limit:
-            return cloud_limit, f"{base}:cloud", url
-    return limit, full_model, url
+    return ollama_catalog_policy.fetch_library_context_limit(
+        model_id,
+        timeout=timeout,
+        fetch_context_map=fetch_ollama_library_context_map,
+        positive_int=positive_int,
+    )
 
 
 ollama_context_model_matches = ollama_catalog_policy.context_model_matches
