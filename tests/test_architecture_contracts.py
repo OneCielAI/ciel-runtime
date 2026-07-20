@@ -295,6 +295,7 @@ from ciel_runtime_support.headless_config import (
     HeadlessConfigCommands,
     HeadlessConfigResult,
     HeadlessConfigServices,
+    HeadlessEnvFileLoader,
 )
 from ciel_runtime_support.mcp_proxy_codec import McpProxyCodecPolicy
 from ciel_runtime_support.mcp_config_reader import (
@@ -1533,6 +1534,18 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+        self.assertEqual(1, len(fields(HeadlessEnvFileLoader)))
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "pop_headless_env_file_args"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("HeadlessEnvFileLoader", function_source)
+        self.assertNotIn("while ", function_source)
 
     def test_preset_ports_stay_below_dependency_limit(self):
         for port in (PresetServices, PresetDefinition, PresetContextPolicy, PresetProviderMutation):

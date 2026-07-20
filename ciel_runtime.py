@@ -389,6 +389,7 @@ from ciel_runtime_support.headless_config import (
     HeadlessChannelCommands,
     HeadlessConfigCommands,
     HeadlessConfigServices,
+    HeadlessEnvFileLoader,
     apply_headless_config,
 )
 from ciel_runtime_support.http_response import ChannelDeliveryGuard, HttpResponseAdapter
@@ -14018,27 +14019,9 @@ def cli_usage() -> str:
 
 
 def pop_headless_env_file_args(argv: list[str]) -> list[str]:
-    cleaned: list[str] = []
-    i = 0
-    while i < len(argv):
-        arg = argv[i]
-        if arg == "--ca-env-file" or arg.startswith("--ca-env-file="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing path for --ca-env-file")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            path = Path(value).expanduser()
-            if not path.exists():
-                raise SystemExit(f"--ca-env-file not found: {path}")
-            load_dotenv_into_environ(path, override=True)
-        else:
-            cleaned.append(arg)
-            i += 1
-    return cleaned
+    return HeadlessEnvFileLoader(
+        load=load_dotenv_into_environ
+    ).pop_args(argv)
 
 
 def apply_headless_env_config() -> tuple[bool, bool | None, bool | None, bool | None, bool]:

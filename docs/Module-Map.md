@@ -413,7 +413,7 @@ Provider/Runtime 설정을 정규화된 `ProviderConfig`, `RuntimeConfig`, `Laun
 
 ### `ciel_runtime_support/headless_config.py`
 
-`CIEL_RUNTIME_*` 환경 설정을 command 호출 계획으로 변환·적용하는 Configuration Application Service. 일반 설정 명령, channel 명령, 환경 조회를 10필드 이하 포트로 분리하며 API key 우선순위와 provider option mapping을 한곳에서 관리한다.
+`CIEL_RUNTIME_*` 환경 설정을 command 호출 계획으로 변환·적용하는 Configuration Application Service. `--ca-env-file` 인수 제거·경로 검증·dotenv 적용도 단일 effect port의 Loader가 소유한다. 일반 설정 명령, channel 명령, 환경 조회를 10필드 이하 포트로 분리하며 API key 우선순위와 provider option mapping을 한곳에서 관리한다.
 
 ### `ciel_runtime_support/compatibility_test.py`
 

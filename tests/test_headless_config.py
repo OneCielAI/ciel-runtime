@@ -1,14 +1,52 @@
+import tempfile
 import unittest
+from pathlib import Path
 
 from ciel_runtime_support.headless_config import (
     HeadlessChannelCommands,
     HeadlessConfigCommands,
     HeadlessConfigServices,
+    HeadlessEnvFileLoader,
     apply_headless_config,
 )
 
 
 class HeadlessConfigTests(unittest.TestCase):
+    def test_env_file_loader_pops_both_argument_forms(self):
+        with tempfile.TemporaryDirectory() as raw_dir:
+            first = Path(raw_dir) / "first.env"
+            second = Path(raw_dir) / "second.env"
+            first.write_text("ONE=1", encoding="utf-8")
+            second.write_text("TWO=2", encoding="utf-8")
+            loaded = []
+            loader = HeadlessEnvFileLoader(
+                load=lambda path, **options: loaded.append(
+                    (path, options)
+                )
+            )
+
+            cleaned = loader.pop_args(
+                [
+                    "--ca-env-file",
+                    str(first),
+                    "launch",
+                    f"--ca-env-file={second}",
+                ]
+            )
+
+        self.assertEqual(["launch"], cleaned)
+        self.assertEqual(
+            [(first, {"override": True}), (second, {"override": True})],
+            loaded,
+        )
+
+    def test_env_file_loader_reports_missing_value_and_file(self):
+        loader = HeadlessEnvFileLoader(load=lambda *_args, **_kwargs: None)
+        with self.assertRaisesRegex(SystemExit, "Missing path"):
+            loader.pop_args(["--ca-env-file"])
+        with self.assertRaisesRegex(SystemExit, "not found"):
+            loader.pop_args(["--ca-env-file=missing.env"])
+
     def services(self, env, calls):
         def record(name):
             return lambda *args: calls.append((name, *args))

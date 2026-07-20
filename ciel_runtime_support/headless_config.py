@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +53,45 @@ class HeadlessConfigResult:
             self.self_update_check_override,
             self.force_menu,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class HeadlessEnvFileLoader:
+    load: Callable[..., None]
+
+    def pop_args(self, argv: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        index = 0
+        while index < len(argv):
+            argument = argv[index]
+            if (
+                argument == "--ca-env-file"
+                or argument.startswith("--ca-env-file=")
+            ):
+                value = (
+                    argument.split("=", 1)[1]
+                    if "=" in argument
+                    else None
+                )
+                if value is None:
+                    if index + 1 >= len(argv):
+                        raise SystemExit(
+                            "Missing path for --ca-env-file"
+                        )
+                    value = argv[index + 1]
+                    index += 2
+                else:
+                    index += 1
+                path = Path(value).expanduser()
+                if not path.exists():
+                    raise SystemExit(
+                        f"--ca-env-file not found: {path}"
+                    )
+                self.load(path, override=True)
+                continue
+            cleaned.append(argument)
+            index += 1
+        return cleaned
 
 
 PROVIDER_OPTION_ENV = {
