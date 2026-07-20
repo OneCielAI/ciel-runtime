@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import contextlib
 import getpass
 import hashlib
@@ -11,7 +10,6 @@ import html as html_lib
 import importlib.util
 import json
 import math
-import mimetypes
 import os
 import platform
 import re
@@ -103,6 +101,7 @@ from ciel_runtime_support.channel_injection import (
     PromptInjection,
     RuntimeInjectionPolicy,
 )
+from ciel_runtime_support.chat_files import ChatFilePorts, ChatFileRepository
 from ciel_runtime_support.chat_http_controller import (
     ChatHttpController,
     ChatHttpReadServices,
@@ -5497,99 +5496,35 @@ def handle_events_get(handler: BaseHTTPRequestHandler, path: str, query: dict[st
 
 
 def _safe_segment(value: str, fallback: str = "item") -> str:
-    text = re.sub(r"[^A-Za-z0-9._-]+", "-", (value or "").strip()).strip(".-")
-    return text[:120] or fallback
+    return ChatFileRepository.safe_segment(value, fallback)
 
 
 def chat_file_max_bytes() -> int:
-    raw = str(os.environ.get("CIEL_RUNTIME_CHAT_FILE_MAX_BYTES") or "").strip()
-    try:
-        value = int(raw)
-        if value > 0:
-            return value
-    except Exception:
-        pass
-    return 25 * 1024 * 1024
+    return ChatFileRepository.configured_max_bytes()
 
 
-def store_chat_file_upload(body: dict[str, Any]) -> dict[str, Any]:
-    CHAT_FILES_DIR.mkdir(parents=True, exist_ok=True)
-    raw_name = str(body.get("name") or f"file-{int(time.time())}.txt").strip() or "file"
-    content = body.get("content", "")
-    encoding = str(body.get("encoding") or "utf-8").strip().lower()
-    if encoding == "base64":
-        try:
-            data = base64.b64decode(str(content).encode("ascii"), validate=True)
-        except Exception as exc:
-            raise ValueError("invalid base64 file content") from exc
-    elif encoding in {"", "text", "utf-8", "utf8"}:
-        data = str(content).encode("utf-8")
-    else:
-        raise ValueError(f"unsupported file encoding: {encoding}")
-    max_bytes = chat_file_max_bytes()
-    if len(data) > max_bytes:
-        raise OverflowError(f"file too large: {len(data)} bytes exceeds {max_bytes} bytes")
-    name = f"{time.time_ns()}-{_safe_segment(raw_name, 'file')}"
-    target = CHAT_FILES_DIR / name
-    target.write_bytes(data)
-    path = f"/ca/chat/files/{urllib.parse.quote(name)}"
-    content_type = str(body.get("content_type") or body.get("mime_type") or "application/octet-stream").strip()
-    return {
-        "name": name,
-        "original_name": raw_name,
-        "url": f"{ROUTER_BASE}{path}",
-        "path": path,
-        "bytes": len(data),
-        "content_type": content_type[:200] or "application/octet-stream",
-    }
-
-
-def store_chat_file_from_path(path_value: Any, name: str | None = None, content_type: str | None = None) -> dict[str, Any]:
-    raw_path = str(path_value or "").strip()
-    if not raw_path:
-        raise ValueError("file path is required")
-    source = Path(raw_path).expanduser()
-    if not source.exists() or not source.is_file():
-        raise FileNotFoundError(f"file not found: {raw_path}")
-    data = source.read_bytes()
-    max_bytes = chat_file_max_bytes()
-    if len(data) > max_bytes:
-        raise OverflowError(f"file too large: {len(data)} bytes exceeds {max_bytes} bytes")
-    guessed_type = content_type or mimetypes.guess_type(source.name)[0] or "application/octet-stream"
-    return store_chat_file_upload(
-        {
-            "name": name or source.name,
-            "encoding": "base64",
-            "content": base64.b64encode(data).decode("ascii"),
-            "content_type": guessed_type,
-        }
+def chat_file_repository() -> ChatFileRepository:
+    return ChatFileRepository(
+        CHAT_FILES_DIR,
+        ROUTER_BASE,
+        ChatFilePorts(timestamp=time.time, timestamp_ns=time.time_ns),
     )
 
 
+def store_chat_file_upload(body: dict[str, Any]) -> dict[str, Any]:
+    return chat_file_repository().store_upload(body)
+
+
+def store_chat_file_from_path(path_value: Any, name: str | None = None, content_type: str | None = None) -> dict[str, Any]:
+    return chat_file_repository().store_path(path_value, name, content_type)
+
+
 def chat_file_markdown_lines(uploads: list[dict[str, Any]]) -> list[str]:
-    lines: list[str] = []
-    for upload in uploads:
-        label = str(upload.get("original_name") or upload.get("name") or "file")
-        url = str(upload.get("url") or upload.get("path") or "")
-        byte_count = upload.get("bytes")
-        ctype = str(upload.get("content_type") or "application/octet-stream")
-        detail_parts = []
-        if isinstance(byte_count, int):
-            detail_parts.append(f"{byte_count} bytes")
-        if ctype:
-            detail_parts.append(ctype)
-        detail = f" ({', '.join(detail_parts)})" if detail_parts else ""
-        lines.append(f"- [{label}]({url}){detail}")
-    return lines
+    return ChatFileRepository.markdown_lines(uploads)
 
 
 def chat_file_message_text(message: str, uploads: list[dict[str, Any]]) -> str:
-    body = str(message or "").strip()
-    lines = chat_file_markdown_lines(uploads)
-    if not lines:
-        return body
-    attachment_text = "Attached files:\n" + "\n".join(lines)
-    return f"{body}\n\n{attachment_text}" if body else attachment_text
+    return ChatFileRepository.message_text(message, uploads)
 
 
 def _as_string_list(value: Any) -> list[str]:

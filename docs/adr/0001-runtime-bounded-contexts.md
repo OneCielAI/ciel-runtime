@@ -202,6 +202,10 @@ The events dashboard, filtered recent-event response, and SSE long-poll stream
 are projected by `EventHttpAdapter`; the facade supplies EventBus and response
 writer ports without owning HTTP streaming loops.
 
+Chat attachment decoding, size validation, safe naming, storage, URL metadata,
+and Markdown projection live in `ChatFileRepository`; only clocks are injected
+and callers no longer own filesystem mechanics.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

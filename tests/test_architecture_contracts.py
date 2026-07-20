@@ -174,6 +174,7 @@ from ciel_runtime_support.router_http import (
     CodexBackendRetryPorts,
     EventHttpPorts,
 )
+from ciel_runtime_support.chat_files import ChatFilePorts
 from ciel_runtime_support.headless_config import (
     HeadlessChannelCommands,
     HeadlessConfigCommands,
@@ -808,6 +809,9 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(CodexBackendRequestPorts)), 10)
         self.assertLessEqual(len(fields(CodexBackendRetryPorts)), 10)
         self.assertLessEqual(len(fields(EventHttpPorts)), 10)
+
+    def test_chat_file_ports_stay_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(ChatFilePorts)), 10)
 
     def test_ollama_forwarding_ports_stay_below_dependency_limit(self):
         for port in (

@@ -349,6 +349,10 @@ Claude Code 모델 별칭·컨텍스트 한도·환경 변수·런타임 setting
 
 Anthropic·AGY·Codex native/routed 선택 별칭과 설정 mutation/status를 명시적 Strategy 테이블로 관리하는 Application Controller. 표준 provider 선택은 기존 provider adapter 흐름에 위임하고 설정·저장·cache 효과는 5필드 typed port로 주입한다.
 
+### `ciel_runtime_support/chat_files.py`
+
+Web/Channel chat attachment의 안전한 filename, text/base64 decoding, 환경 기반 크기 제한, 파일 저장과 router URL·Markdown projection을 소유하는 Repository. Clock만 2필드 port로 주입하며 facade와 HTTP handler에서 파일 효과를 제거한다.
+
 ### `ciel_runtime_support/provider_model_selection.py`
 
 Provider 모델 alias/request 해석과 catalog projection뿐 아니라 명시적 모델 선택 시 profile·context·preset·timeout·custom model 저장을 조정하는 Application Controller를 제공한다. Z.AI의 Haiku/Opus/Sonnet 동기화 같은 provider별 mutation은 해당 adapter가 소유한다.
