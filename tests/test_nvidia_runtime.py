@@ -7,6 +7,8 @@ from ciel_runtime_support.providers.nvidia_runtime import (
     NvidiaProxyRuntime,
     NvidiaProxyRuntimeConfig,
     NvidiaProxyRuntimePorts,
+    NvidiaProxyStopper,
+    NvidiaProxyStopPorts,
     NvidiaRuntimeApi,
 )
 
@@ -62,6 +64,65 @@ class NvidiaProxyRuntimeTests(unittest.TestCase):
             with mock.patch("ciel_runtime_support.providers.nvidia_runtime.subprocess.Popen") as popen:
                 runtime.ensure()
             popen.assert_not_called()
+
+
+class NvidiaProxyStopperTests(unittest.TestCase):
+    def stopper(self, root: Path, **overrides):
+        values = {
+            "read_env_file": lambda _path: {"PROXY_PORT": "9000"},
+            "positive_int": lambda value: int(value) if value else None,
+            "terminate_windows_port": mock.Mock(return_value=True),
+            "find_executable": lambda _name: "ncp",
+            "terminate_matching_processes": mock.Mock(return_value=False),
+            "run": mock.Mock(),
+            "log": mock.Mock(),
+            "output": mock.Mock(),
+        }
+        values.update(overrides)
+        ports = NvidiaProxyStopPorts(**values)
+        return NvidiaProxyStopper(root / ".env", ports), ports
+
+    def test_windows_stop_uses_configured_proxy_port(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            stopper, ports = self.stopper(Path(tmp))
+
+            self.assertTrue(stopper.stop(platform_name="nt"))
+
+            ports.terminate_windows_port.assert_called_once_with(  # type: ignore[attr-defined]
+                9000,
+                "Nvidia NCP proxy",
+                quiet=True,
+            )
+            ports.output.assert_called_once()  # type: ignore[attr-defined]
+
+    def test_posix_stop_invokes_ncp_and_sweeps_known_process_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            stopper, ports = self.stopper(Path(tmp))
+
+            self.assertTrue(stopper.stop(platform_name="posix"))
+
+            ports.run.assert_called_once()  # type: ignore[attr-defined]
+            self.assertEqual(
+                3,
+                ports.terminate_matching_processes.call_count,  # type: ignore[attr-defined]
+            )
+
+    def test_missing_ncp_uses_legacy_process_fallback(self):
+        terminate = mock.Mock(return_value=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            stopper, _ports = self.stopper(
+                Path(tmp),
+                find_executable=lambda _name: None,
+                terminate_matching_processes=terminate,
+            )
+
+            self.assertTrue(stopper.stop(quiet=True, platform_name="posix"))
+
+        terminate.assert_called_once_with(
+            ["nvd_claude_proxy"],
+            "Nvidia NCP proxy",
+            quiet=True,
+        )
 
 
 if __name__ == "__main__":

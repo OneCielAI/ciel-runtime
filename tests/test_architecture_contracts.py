@@ -524,10 +524,16 @@ from ciel_runtime_support.provider_readiness import (
     ProviderReadinessServices,
 )
 from ciel_runtime_support.provider_runtime_info import ProviderRuntimeInfoPorts, ProviderRuntimeInfoService
+from ciel_runtime_support.managed_service_cleanup import (
+    ManagedServiceCleanupPolicy,
+    ManagedServiceCleanupPorts,
+)
 from ciel_runtime_support.providers.nvidia_runtime import (
     NvidiaProxyRuntime,
     NvidiaProxyRuntimeConfig,
     NvidiaProxyRuntimePorts,
+    NvidiaProxyStopper,
+    NvidiaProxyStopPorts,
 )
 from ciel_runtime_support.provider_status import (
     ProviderStatusCatalog,
@@ -3128,7 +3134,13 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(LmStudioRuntimeServices)), 10)
 
     def test_nvidia_proxy_lifecycle_lives_in_provider_runtime(self):
-        for port in (NvidiaProxyRuntimeConfig, NvidiaProxyRuntimePorts, NvidiaProxyRuntime):
+        for port in (
+            NvidiaProxyRuntimeConfig,
+            NvidiaProxyRuntimePorts,
+            NvidiaProxyRuntime,
+            NvidiaProxyStopPorts,
+            NvidiaProxyStopper,
+        ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
@@ -3146,7 +3158,39 @@ class ArchitectureContractTests(unittest.TestCase):
             / "nvidia_runtime.py"
         ).read_text(encoding="utf-8")
         self.assertIn("class NvidiaRuntimeApi:", runtime_source)
+        self.assertIn("class NvidiaProxyStopper:", runtime_source)
         self.assertIn("subprocess.Popen", runtime_source)
+
+        stop_function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef) and node.name == "stop_ncp_proxy"
+        )
+        stop_source = ast.unparse(stop_function)
+        self.assertIn("NvidiaProxyStopper", stop_source)
+        self.assertNotIn("if os.name", stop_source)
+
+    def test_managed_service_cleanup_is_provider_independent(self):
+        self.assertLessEqual(len(fields(ManagedServiceCleanupPorts)), 8)
+        self.assertEqual(1, len(fields(ManagedServiceCleanupPolicy)))
+
+        root = Path(__file__).resolve().parents[1]
+        policy_source = (
+            root / "ciel_runtime_support" / "managed_service_cleanup.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn('provider == "', policy_source)
+        self.assertNotIn("provider in (", policy_source)
+
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "cleanup_managed_services_for_provider"
+        )
+        function_source = ast.unparse(function)
+        self.assertIn("ManagedServiceCleanupPolicy", function_source)
+        self.assertNotIn("direct_native_anthropic_enabled(provider", function_source)
 
     def test_provider_runtime_info_service_owns_catalog_projection(self):
         self.assertLessEqual(len(fields(ProviderRuntimeInfoPorts)), 10)

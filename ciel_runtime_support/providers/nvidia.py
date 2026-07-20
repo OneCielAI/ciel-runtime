@@ -68,6 +68,7 @@ class NvidiaHostedProviderAdapter(OpenAICompatibleProviderAdapter):
             models_path="/v1/models",
             model_alias_strategy="ncp",
             stream_required=True,
+            managed_service="nvidia_proxy",
         )
     )
 

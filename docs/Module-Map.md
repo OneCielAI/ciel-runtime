@@ -537,7 +537,7 @@ NVIDIA hosted 인증, NCP model alias, streaming requirement, context 및 router
 
 ### `ciel_runtime_support/providers/nvidia_runtime.py`
 
-NVIDIA hosted의 NCP 환경/API key 투영, proxy 설치·기동·readiness 대기와 upstream model ID 변환을 소유하는 Provider Runtime Adapter. 설정·환경 reader·HTTP·executable 탐색은 7필드 typed port로 주입되며 `NvidiaRuntimeApi`가 공개 compatibility 계약을 명시적으로 투영한다.
+NVIDIA hosted의 NCP 환경/API key 투영, proxy 설치·기동·종료·readiness 대기와 upstream model ID 변환을 소유하는 Provider Runtime Adapter. 설정·환경 reader·HTTP·process lifecycle은 분리된 typed port로 주입되며 `NvidiaRuntimeApi`가 공개 compatibility 계약을 명시적으로 투영한다.
 
 ### `ciel_runtime_support/providers/nim.py`
 
@@ -814,6 +814,10 @@ Web search/fetch, Z.AI managed servers와 Ciel channel server의 MCP JSON projec
 ### `ciel_runtime_support/managed_mcp_discovery.py`
 
 런타임이 생성한 web-tools 및 MCP proxy artifact에서 native launch에 복원할 서버를 찾는 Discovery Service. proxy wrapper의 원본 server config를 복구하고 내부 notification-stream flag와 native router bridge를 제외하며, 경로·JSON 효과·generated reader를 각각 3필드 typed port로 분리한다.
+
+### `ciel_runtime_support/managed_service_cleanup.py`
+
+Runtime launch 전 idle router와 provider 관리 서비스를 정리하는 provider-independent Policy. native runtime 판정과 Provider Adapter의 `managed_service` 선언을 typed port로 받아 provider 이름 분기 없이 필요한 서비스만 보존한다.
 
 ### `ciel_runtime_support/mcp_transport.py`
 

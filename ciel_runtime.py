@@ -1098,6 +1098,12 @@ from ciel_runtime_support.providers.nvidia_runtime import (
     NvidiaProxyRuntime,
     NvidiaProxyRuntimeConfig,
     NvidiaProxyRuntimePorts,
+    NvidiaProxyStopper,
+    NvidiaProxyStopPorts,
+)
+from ciel_runtime_support.managed_service_cleanup import (
+    ManagedServiceCleanupPolicy,
+    ManagedServiceCleanupPorts,
 )
 from ciel_runtime_support.providers.nvidia import (
     hosted_context_default as nvidia_hosted_context_default,
@@ -10583,30 +10589,19 @@ def terminate_matching_processes(needles: list[str], label: str, quiet: bool = F
 
 
 def stop_ncp_proxy(quiet: bool = False) -> bool:
-    if os.name == "nt":
-        port = positive_int(read_env_file(NCP_ENV).get("PROXY_PORT")) or 8788
-        stopped = terminate_windows_port(port, "Nvidia NCP proxy", quiet=True)
-        if stopped and not quiet:
-            print("Stopped existing Nvidia NCP proxy session if one was running.")
-        return stopped
-    ncp = find_executable("ncp")
-    stopped = False
-    if not ncp:
-        return terminate_matching_processes(["nvd_claude_proxy"], "Nvidia NCP proxy", quiet=quiet)
-    try:
-        subprocess.run([ncp, "kill"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
-        stopped = True
-    except (OSError, subprocess.SubprocessError) as exc:
-        router_log(
-            "WARN",
-            f"ncp_proxy_kill_failed executable={ncp} error={type(exc).__name__}: {exc}",
-        )
-    stopped = terminate_matching_processes(["nvd-claude-proxy"], "Nvidia NCP proxy", quiet=True) or stopped
-    stopped = terminate_matching_processes(["ncp", "proxy"], "Nvidia NCP proxy", quiet=True) or stopped
-    stopped = terminate_matching_processes(["nvd_claude_proxy"], "Nvidia NCP proxy", quiet=True) or stopped
-    if stopped and not quiet:
-        print("Stopped existing Nvidia NCP proxy session if one was running.")
-    return stopped
+    return NvidiaProxyStopper(
+        NCP_ENV,
+        NvidiaProxyStopPorts(
+            read_env_file=read_env_file,
+            positive_int=positive_int,
+            terminate_windows_port=terminate_windows_port,
+            find_executable=find_executable,
+            terminate_matching_processes=terminate_matching_processes,
+            run=subprocess.run,
+            log=router_log,
+            output=print,
+        ),
+    ).stop(quiet, platform_name=os.name)
 
 
 def stop_router_processes(quiet: bool = False) -> bool:
@@ -10629,27 +10624,23 @@ def stop_router_with_guarantee(reason: str, max_wait_seconds: float = 5.0, quiet
         clock=RouterProcessClock(now=time.time, sleep=time.sleep),
     )
 
-def cleanup_managed_services_for_provider(provider: str, pcfg: dict[str, Any], cfg: dict[str, Any], quiet: bool = False) -> None:
-    if direct_native_anthropic_enabled(provider, pcfg):
-        # Claude Native mode strips ciel-runtime routing env before spawning
-        # `claude`. Clean up only this config's idle router; do not kill a
-        # different folder/config or an active routed session.
-        stop_router_if_no_active_clients("native_anthropic_launch", quiet=quiet)
-        if provider != "nvidia-hosted" or provider_native_compat_enabled(provider, pcfg):
-            stop_ncp_proxy(quiet=quiet)
-        return
-    if direct_native_codex_enabled(provider, pcfg):
-        stop_router_if_no_active_clients("native_codex_launch", quiet=quiet)
-        stop_ncp_proxy(quiet=quiet)
-        return
-    if direct_native_agy_enabled(provider, pcfg):
-        stop_router_if_no_active_clients("native_agy_launch", quiet=quiet)
-        stop_ncp_proxy(quiet=quiet)
-        return
-    if not cfg.get("cleanup", {}).get("managed_services_on_launch", True):
-        return
-    if provider != "nvidia-hosted" or provider_native_compat_enabled(provider, pcfg):
-        stop_ncp_proxy(quiet=quiet)
+def cleanup_managed_services_for_provider(
+    provider: str,
+    pcfg: dict[str, Any],
+    cfg: dict[str, Any],
+    quiet: bool = False,
+) -> None:
+    ManagedServiceCleanupPolicy(
+        ManagedServiceCleanupPorts(
+            direct_native_anthropic=direct_native_anthropic_enabled,
+            direct_native_codex=direct_native_codex_enabled,
+            direct_native_agy=direct_native_agy_enabled,
+            request_policy=provider_request_policy,
+            native_compat_enabled=provider_native_compat_enabled,
+            stop_idle_router=stop_router_if_no_active_clients,
+            stop_nvidia_proxy=stop_ncp_proxy,
+        )
+    ).cleanup(provider, pcfg, cfg, quiet)
 
 
 def default_base_url(provider: str) -> str:

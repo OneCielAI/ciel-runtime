@@ -10,7 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Protocol
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,6 +151,99 @@ class NvidiaProxyRuntime:
         return model_id
 
 
+class NvidiaPortTerminator(Protocol):
+    def __call__(self, port: int, label: str, quiet: bool = False) -> bool: ...
+
+
+class MatchingProcessTerminator(Protocol):
+    def __call__(
+        self,
+        needles: list[str],
+        label: str,
+        quiet: bool = False,
+    ) -> bool: ...
+
+
+class ProcessRunner(Protocol):
+    def __call__(self, command: list[str], **kwargs: Any) -> Any: ...
+
+
+@dataclass(frozen=True, slots=True)
+class NvidiaProxyStopPorts:
+    read_env_file: Callable[[Path], dict[str, str]]
+    positive_int: Callable[[Any], int | None]
+    terminate_windows_port: NvidiaPortTerminator
+    find_executable: Callable[[str], str | None]
+    terminate_matching_processes: MatchingProcessTerminator
+    run: ProcessRunner
+    log: Callable[[str, str], None]
+    output: Callable[[str], None]
+
+
+@dataclass(frozen=True, slots=True)
+class NvidiaProxyStopper:
+    env_path: Path
+    ports: NvidiaProxyStopPorts
+
+    def stop(self, quiet: bool = False, *, platform_name: str = os.name) -> bool:
+        label = "Nvidia NCP proxy"
+        if platform_name == "nt":
+            port = (
+                self.ports.positive_int(
+                    self.ports.read_env_file(self.env_path).get("PROXY_PORT")
+                )
+                or 8788
+            )
+            stopped = self.ports.terminate_windows_port(port, label, quiet=True)
+            if stopped and not quiet:
+                self.ports.output(
+                    "Stopped existing Nvidia NCP proxy session if one was running."
+                )
+            return stopped
+
+        executable = self.ports.find_executable("ncp")
+        if not executable:
+            return self.ports.terminate_matching_processes(
+                ["nvd_claude_proxy"],
+                label,
+                quiet=quiet,
+            )
+
+        stopped = False
+        try:
+            self.ports.run(
+                [executable, "kill"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=10,
+            )
+            stopped = True
+        except (OSError, subprocess.SubprocessError) as exc:
+            self.ports.log(
+                "WARN",
+                f"ncp_proxy_kill_failed executable={executable} "
+                f"error={type(exc).__name__}: {exc}",
+            )
+        for needles in (
+            ["nvd-claude-proxy"],
+            ["ncp", "proxy"],
+            ["nvd_claude_proxy"],
+        ):
+            stopped = (
+                self.ports.terminate_matching_processes(
+                    needles,
+                    label,
+                    quiet=True,
+                )
+                or stopped
+            )
+        if stopped and not quiet:
+            self.ports.output(
+                "Stopped existing Nvidia NCP proxy session if one was running."
+            )
+        return stopped
+
+
 @dataclass(frozen=True, slots=True)
 class NvidiaRuntimeApi:
     """Explicit compatibility API for late-bound NVIDIA proxy runtimes."""
@@ -186,5 +279,7 @@ __all__ = [
     "NvidiaProxyRuntime",
     "NvidiaProxyRuntimeConfig",
     "NvidiaProxyRuntimePorts",
+    "NvidiaProxyStopper",
+    "NvidiaProxyStopPorts",
     "NvidiaRuntimeApi",
 ]

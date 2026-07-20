@@ -137,6 +137,7 @@ class ProviderRequestPolicy:
     credential_strategy: Literal["adapter", "anthropic_inbound"] = "adapter"
     stream_required: bool = False
     normalize_historical_tool_turns: bool = True
+    managed_service: Literal["none", "nvidia_proxy"] = "none"
 
 
 @dataclass(frozen=True)
