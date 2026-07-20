@@ -345,6 +345,10 @@ Compatibility 결과의 runtime metadata·context/output 경고를 투영하고 
 
 Claude Code 모델 별칭·컨텍스트 한도·환경 변수·런타임 settings를 구성하는 Policy/Projection 계층. native와 routed 환경 계약, 모델 family 선택, 셸 출력 형식을 composition root와 분리하며 각 의존성 그룹을 최대 10필드의 typed port로 제한한다.
 
+### `ciel_runtime_support/provider_choice.py`
+
+Anthropic·AGY·Codex native/routed 선택 별칭과 설정 mutation/status를 명시적 Strategy 테이블로 관리하는 Application Controller. 표준 provider 선택은 기존 provider adapter 흐름에 위임하고 설정·저장·cache 효과는 5필드 typed port로 주입한다.
+
 ### `ciel_runtime_support/router_client_lifecycle.py`
 
 라우터 client lease 저장소, managed-router idle watchdog, 활성 client supervisor, 실행 수명주기와 종료 진단을 담당한다. 파일·환경·스레드 효과를 캡슐화하고 health/start/stop 동작은 최대 5필드의 typed port로 주입한다.

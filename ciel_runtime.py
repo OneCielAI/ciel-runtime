@@ -468,6 +468,17 @@ from ciel_runtime_support.provider_config_mutations import (
     apply_ollama_option as mutate_ollama_option,
     apply_provider_option as mutate_provider_option,
 )
+from ciel_runtime_support.provider_choice import (
+    AGY_NATIVE_PROVIDER_CHOICE,
+    AGY_ROUTED_PROVIDER_CHOICE,
+    ANTHROPIC_NATIVE_PROVIDER_CHOICE,
+    ANTHROPIC_ROUTED_PROVIDER_CHOICE,
+    CODEX_NATIVE_PROVIDER_CHOICE,
+    CODEX_ROUTED_PROVIDER_CHOICE,
+    ProviderChoiceController,
+    ProviderChoicePorts,
+    normalize_provider_choice as normalize_runtime_provider_choice,
+)
 from ciel_runtime_support.provider_option_cli import (
     OllamaOptionCommands,
     ProviderOptionCliConfig,
@@ -1344,13 +1355,6 @@ PROVIDER_ALIASES = {
     "fw": "fireworks",
 }
 
-ANTHROPIC_NATIVE_PROVIDER_CHOICE = "anthropic:native"
-ANTHROPIC_ROUTED_PROVIDER_CHOICE = "anthropic:routed"
-AGY_NATIVE_PROVIDER_CHOICE = "agy:native"
-AGY_ROUTED_PROVIDER_CHOICE = "agy:routed"
-CODEX_NATIVE_PROVIDER_CHOICE = "codex:native"
-CODEX_ROUTED_PROVIDER_CHOICE = "codex:routed"
-
 OPENCODE_PROVIDER_NAMES = provider_network.OPENCODE_PROVIDER_NAMES
 OPENCODE_ENDPOINT_ALIASES = {
     "messages": "anthropic-messages",
@@ -2150,43 +2154,7 @@ def normalize_provider(name: str) -> str:
 
 
 def normalize_provider_choice(name: str) -> str | None:
-    raw = str(name or "").strip().lower().replace("_", "-").replace(" ", "-")
-    key = raw.replace(":", "-")
-    choices = {
-        "anthropic-native": ANTHROPIC_NATIVE_PROVIDER_CHOICE,
-        "claude-native": ANTHROPIC_NATIVE_PROVIDER_CHOICE,
-        "native": ANTHROPIC_NATIVE_PROVIDER_CHOICE,
-        "claude-code": ANTHROPIC_NATIVE_PROVIDER_CHOICE,
-        "anthropic-routed": ANTHROPIC_ROUTED_PROVIDER_CHOICE,
-        "anthropic-router": ANTHROPIC_ROUTED_PROVIDER_CHOICE,
-        "claude-routed": ANTHROPIC_ROUTED_PROVIDER_CHOICE,
-        "claude-router": ANTHROPIC_ROUTED_PROVIDER_CHOICE,
-        "agy": AGY_NATIVE_PROVIDER_CHOICE,
-        "agy-native": AGY_NATIVE_PROVIDER_CHOICE,
-        "native-agy": AGY_NATIVE_PROVIDER_CHOICE,
-        "antigravity": AGY_NATIVE_PROVIDER_CHOICE,
-        "google-antigravity": AGY_NATIVE_PROVIDER_CHOICE,
-        "agy-routed": AGY_ROUTED_PROVIDER_CHOICE,
-        "agy-router": AGY_ROUTED_PROVIDER_CHOICE,
-        "routed-agy": AGY_ROUTED_PROVIDER_CHOICE,
-        "antigravity-routed": AGY_ROUTED_PROVIDER_CHOICE,
-        "codex": CODEX_NATIVE_PROVIDER_CHOICE,
-        "codex-native": CODEX_NATIVE_PROVIDER_CHOICE,
-        "native-codex": CODEX_NATIVE_PROVIDER_CHOICE,
-        "codex-routed": CODEX_ROUTED_PROVIDER_CHOICE,
-        "codex-router": CODEX_ROUTED_PROVIDER_CHOICE,
-        "routed-codex": CODEX_ROUTED_PROVIDER_CHOICE,
-    }
-    if raw in (
-        ANTHROPIC_NATIVE_PROVIDER_CHOICE,
-        ANTHROPIC_ROUTED_PROVIDER_CHOICE,
-        AGY_NATIVE_PROVIDER_CHOICE,
-        AGY_ROUTED_PROVIDER_CHOICE,
-        CODEX_NATIVE_PROVIDER_CHOICE,
-        CODEX_ROUTED_PROVIDER_CHOICE,
-    ):
-        return raw
-    return choices.get(key)
+    return normalize_runtime_provider_choice(name)
 
 
 def slug(s: str) -> str:
@@ -10018,65 +9986,19 @@ def set_provider_config(provider: str) -> list[str]:
 
 
 def set_provider_choice_config(choice: str) -> list[str]:
-    cfg = load_config()
-    normalized_choice = normalize_provider_choice(choice) or choice
-    if normalized_choice in (ANTHROPIC_NATIVE_PROVIDER_CHOICE, ANTHROPIC_ROUTED_PROVIDER_CHOICE):
-        cfg["current_provider"] = "anthropic"
-        pcfg = cfg["providers"]["anthropic"]
-        routed = normalized_choice == ANTHROPIC_ROUTED_PROVIDER_CHOICE
-        pcfg["route_through_router"] = routed
-        save_config(cfg)
-        clear_model_cache()
-        if routed:
-            lines = [
-                "Provider set to anthropic (Anthropic routed).",
-                "mode: anthropic-routed",
-            ]
-            if not provider_has_api_key("anthropic", pcfg):
-                lines.append("Anthropic routed mode will use Claude Code OAuth/API auth headers when available.")
-            return lines
-        return [
-            "Provider set to anthropic (Claude Native).",
-            "mode: anthropic-native",
-            "Claude Code OAuth/Max can be used directly, but ciel-runtime router features such as /advisor are unavailable.",
-        ]
-    if normalized_choice in (AGY_NATIVE_PROVIDER_CHOICE, AGY_ROUTED_PROVIDER_CHOICE):
-        cfg["current_provider"] = "agy"
-        pcfg = cfg["providers"]["agy"]
-        routed = normalized_choice == AGY_ROUTED_PROVIDER_CHOICE
-        pcfg["route_through_router"] = routed
-        save_config(cfg)
-        clear_model_cache()
-        if routed:
-            return [
-                "Provider set to agy (AGY routed).",
-                "mode: agy-routed",
-                "AGY uses native Google Antigravity auth/settings; Ciel Runtime adds channel/PTY wake support only.",
-            ]
-        return [
-            "Provider set to agy (AGY).",
-            "mode: agy-native",
-            "AGY runs with its own native settings; Ciel Runtime router features are unavailable.",
-        ]
-    if normalized_choice in (CODEX_NATIVE_PROVIDER_CHOICE, CODEX_ROUTED_PROVIDER_CHOICE):
-        cfg["current_provider"] = "codex"
-        pcfg = cfg["providers"]["codex"]
-        routed = normalized_choice == CODEX_ROUTED_PROVIDER_CHOICE
-        pcfg["route_through_router"] = routed
-        save_config(cfg)
-        clear_model_cache()
-        if routed:
-            return [
-                "Provider set to codex (Codex routed).",
-                "mode: codex-routed",
-                "Codex uses its native OpenAI account/config, with base URL routed through ciel-runtime.",
-            ]
-        return [
-            "Provider set to codex (Codex Native).",
-            "mode: codex-native",
-            "Codex runs with its own native settings; ciel-runtime router features are unavailable.",
-        ]
-    return set_provider_config(normalized_choice)
+    return provider_choice_controller().select(choice)
+
+
+def provider_choice_controller() -> ProviderChoiceController:
+    return ProviderChoiceController(
+        ProviderChoicePorts(
+            load_config=load_config,
+            save_config=save_config,
+            clear_model_cache=clear_model_cache,
+            provider_has_api_key=provider_has_api_key,
+            select_standard_provider=set_provider_config,
+        )
+    )
 
 
 def set_base_url_config(provider: str, url: str) -> list[str]:

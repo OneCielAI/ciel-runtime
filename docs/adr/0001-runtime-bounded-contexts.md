@@ -184,6 +184,10 @@ handling, process spawn, and readiness waiting live alongside shutdown policy
 in `router_process_lifecycle.py`. State decisions and spawn effects use
 separate typed ports.
 
+Runtime-specific provider choices use immutable strategies in
+`provider_choice.py`. Alias normalization and native/routed configuration no
+longer branch across Anthropic, AGY, and Codex inside the composition root.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file
