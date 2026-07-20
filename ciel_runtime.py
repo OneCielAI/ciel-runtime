@@ -1129,6 +1129,12 @@ from ciel_runtime_support.upstream_stream_io import (
 )
 from ciel_runtime_support.tool_dialects import TOOL_DIALECTS, mcp_server_normalized_key
 from ciel_runtime_support.tool_exposure_policy import ToolExposurePolicy, ToolExposurePorts
+from ciel_runtime_support.synthetic_tool_policy import (
+    ForcedPlanModeController,
+    ForcedPlanModePorts,
+    SyntheticTasklistPolicy,
+    SyntheticTasklistPorts,
+)
 from ciel_runtime_support.tool_schema import (
     _fuzzy_match_tool_name,
     _lookup_tool_schema,
@@ -3298,61 +3304,37 @@ def append_synthetic_tasklist_to_message(
     reason: str,
     provider: str = "",
 ) -> dict[str, Any]:
-    if not should_synthesize_tasklist_for_provider(provider):
-        return message
-    content = message.get("content")
-    if not isinstance(content, list):
-        content = [{"type": "text", "text": anthropic_content_to_text(content)}] if content else []
-    tool_calls = [block for block in content if isinstance(block, dict) and block.get("type") == "tool_use"]
-    text = anthropic_content_to_text(content)
-    if not should_auto_continue_choice_question_with_tasklist(source_body, text, tool_calls):
-        return message
-    now = int(time.time() * 1000)
-    out = dict(message)
-    out_content = list(content)
-    out_content.append(
-        {
-            "type": "tool_use",
-            "id": f"toolu_ciel_runtime_TaskList_{reason}_{now}",
-            "name": "TaskList",
-            "input": {},
-        }
+    return synthetic_tasklist_policy().append(message, model, source_body, reason, provider)
+
+
+def synthetic_tasklist_policy() -> SyntheticTasklistPolicy:
+    return SyntheticTasklistPolicy(
+        SyntheticTasklistPorts(
+            should_synthesize_tasklist_for_provider,
+            anthropic_content_to_text,
+            should_auto_continue_choice_question_with_tasklist,
+            lambda: int(time.time() * 1000),
+            router_log,
+        )
     )
-    out["content"] = out_content
-    out["stop_reason"] = "tool_use"
-    out.setdefault("model", model or message.get("model") or "ciel-runtime-router")
-    router_log("WARN", f"auto-synthesized TaskList after clarification question ({reason})")
-    return out
 
 
 def maybe_handle_plan_mode_tool_choice(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> bool:
-    """Support Claude Code's forced Plan-mode entry without relying on upstream model behavior."""
-    if provider == "anthropic":
-        return False
-    name = forced_tool_choice_name(body)
-    if name != "EnterPlanMode":
-        return False
-    if should_defer_forced_tool_choice_for_thinking(provider, pcfg, body, name):
-        router_log(
-            "INFO",
-            f"deferred forced {name} tool_choice to native Anthropic-compatible upstream because thinking is enabled",
+    return forced_plan_mode_controller().handle(handler, provider, pcfg, body)
+
+
+def forced_plan_mode_controller() -> ForcedPlanModeController:
+    return ForcedPlanModeController(
+        ForcedPlanModePorts(
+            forced_tool_choice_name,
+            should_defer_forced_tool_choice_for_thinking,
+            tool_names_in_body,
+            plan_mode_active,
+            synthetic_tool_use_response,
+            write_json,
+            router_log,
         )
-        return False
-    # Claude Code may force this tool when the user uses /plan or toggles Plan mode.
-    # Returning a valid tool_use locally is more reliable than asking arbitrary
-    # OpenAI/Ollama-compatible backends to select an internal Claude Code tool.
-    available = tool_names_in_body(body)
-    if available and name not in available:
-        return False
-    emit_name = name
-    tool_input: dict[str, Any] = {}
-    if plan_mode_active(body):
-        router_log("WARN", f"ignored forced {name} tool_choice because plan mode is already active")
-        return False
-    else:
-        router_log("INFO", f"synthesized {name} tool_use for {provider} forced tool_choice")
-    write_json(handler, synthetic_tool_use_response(str(body.get("model") or ""), emit_name, tool_input))
-    return True
+    )
 
 
 def filter_blocked_tools(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:

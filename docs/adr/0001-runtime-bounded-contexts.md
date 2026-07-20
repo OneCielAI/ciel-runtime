@@ -247,6 +247,11 @@ strategy selects specialized LM Studio discovery or a generic model catalog;
 context-field normalization, current-model selection, fallback, and observable
 HTTP failure handling no longer live in the facade.
 
+Local Claude Code tool synthesis is split into `SyntheticTasklistPolicy` and
+`ForcedPlanModeController`. Conversation continuation decisions and forced-tool
+request handling remain separate, while both preserve the public facade entry
+points used by router pipelines.
+
 Chat attachment decoding, size validation, safe naming, storage, URL metadata,
 and Markdown projection live in `ChatFileRepository`; only clocks are injected
 and callers no longer own filesystem mechanics.
