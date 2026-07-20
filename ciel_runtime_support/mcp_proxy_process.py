@@ -8,6 +8,8 @@ import re
 import subprocess
 import sys
 import threading
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable
 
 from .mcp_proxy_codec import _mcp_proxy_error_response
@@ -413,3 +415,146 @@ def _mcp_proxy_streamable_http_request(
     post_json: Callable[..., Any],
 ) -> tuple[Any, str | None]:
     return post_json(endpoint, headers, payload, timeout, protocol_version, session_id)
+
+
+@dataclass(frozen=True, slots=True)
+class McpStdioConfigPorts:
+    read: Callable[[Path], Any]
+    is_stdio: Callable[[dict[str, Any]], bool]
+    resolve_process: Callable[[str, list[str]], tuple[str, list[str]]]
+    environment: Callable[[], dict[str, str]]
+
+
+@dataclass(frozen=True, slots=True)
+class McpStdioTransportPorts:
+    popen: Callable[..., Any]
+    stdio_mode: Callable[[dict[str, Any]], str]
+    forward_stdin: Callable[[Any], None]
+    forward_stdin_jsonl: Callable[[Any], None]
+    forward_stdout_jsonl: Callable[[str, Any], None]
+    forward_stderr: Callable[[Any], None]
+    observer: Callable[[str], Any]
+
+
+@dataclass(frozen=True, slots=True)
+class McpStdioEffects:
+    log: Callable[[str, str], None]
+    error: Callable[[str], None]
+    start_thread: Callable[[Callable[..., Any], tuple[Any, ...], str], None]
+    write_stdout: Callable[[bytes], None]
+    flush_stdout: Callable[[], None]
+
+
+@dataclass(frozen=True, slots=True)
+class McpStdioProxyService:
+    config: McpStdioConfigPorts
+    transport: McpStdioTransportPorts
+    effects: McpStdioEffects
+
+    def run(self, server_name: str, server_config_path: Path) -> int:
+        try:
+            server = self.config.read(server_config_path)
+        except Exception as exc:
+            self.effects.log(
+                "ERROR",
+                f"mcp_proxy_config_read_failed server={server_name} "
+                f"error={type(exc).__name__}: {exc}",
+            )
+            self.effects.error(
+                "ciel-runtime mcp-proxy: cannot read server config: "
+                f"{type(exc).__name__}: {exc}"
+            )
+            return 2
+        if not isinstance(server, dict) or not self.config.is_stdio(server):
+            self.effects.log(
+                "ERROR", f"mcp_proxy_invalid_config server={server_name}"
+            )
+            self.effects.error(
+                "ciel-runtime mcp-proxy: server config is not a stdio MCP server"
+            )
+            return 2
+
+        command = str(server.get("command") or "").strip()
+        args = (
+            [str(item) for item in server.get("args", [])]
+            if isinstance(server.get("args"), list)
+            else []
+        )
+        command, args = self.config.resolve_process(command, args)
+        env = self.config.environment()
+        raw_env = server.get("env")
+        if isinstance(raw_env, dict):
+            env.update(
+                {str(key): str(value) for key, value in raw_env.items() if str(key)}
+            )
+        cwd_value = server.get("cwd") or server.get("workingDirectory")
+        cwd = str(cwd_value) if cwd_value else None
+        try:
+            proc = self.transport.popen(
+                [command, *args],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=cwd,
+                env=env,
+                bufsize=0,
+            )
+        except Exception as exc:
+            self.effects.log(
+                "ERROR",
+                f"mcp_proxy_start_failed server={server_name} command={command} "
+                f"error={type(exc).__name__}: {exc}",
+            )
+            self.effects.error(
+                f"ciel-runtime mcp-proxy: failed to start {command}: "
+                f"{type(exc).__name__}: {exc}"
+            )
+            return 127
+
+        stdio_mode = self.transport.stdio_mode(server)
+        self.effects.log(
+            "INFO",
+            f"mcp_proxy_started server={server_name} command={command} "
+            f"stdio={stdio_mode}",
+        )
+        stdin_target = (
+            self.transport.forward_stdin_jsonl
+            if stdio_mode == "jsonl"
+            else self.transport.forward_stdin
+        )
+        self.effects.start_thread(
+            stdin_target, (proc,), f"mcp-proxy-stdin-{server_name}"
+        )
+        self.effects.start_thread(
+            self.transport.forward_stderr,
+            (proc,),
+            f"mcp-proxy-stderr-{server_name}",
+        )
+        try:
+            if stdio_mode == "jsonl":
+                self.transport.forward_stdout_jsonl(server_name, proc)
+            elif proc.stdout:
+                observer = self.transport.observer(server_name)
+                while True:
+                    chunk = proc.stdout.read(65536)
+                    if not chunk:
+                        break
+                    observer.feed(chunk)
+                    self.effects.write_stdout(chunk)
+                    self.effects.flush_stdout()
+            rc = proc.wait()
+            self.effects.log(
+                "INFO" if rc == 0 else "WARN",
+                f"mcp_proxy_exited server={server_name} rc={rc}",
+            )
+            return rc
+        finally:
+            if proc.poll() is None:
+                try:
+                    proc.terminate()
+                except Exception as exc:
+                    self.effects.log(
+                        "WARN",
+                        f"mcp_stdio_proxy_terminate_failed server={server_name} "
+                        f"error={type(exc).__name__}: {exc}",
+                    )

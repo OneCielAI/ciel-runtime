@@ -253,6 +253,12 @@ from ciel_runtime_support.headless_config import (
     HeadlessConfigServices,
 )
 from ciel_runtime_support.mcp_proxy_codec import McpProxyCodecPolicy
+from ciel_runtime_support.mcp_proxy_process import (
+    McpStdioConfigPorts,
+    McpStdioEffects,
+    McpStdioProxyService,
+    McpStdioTransportPorts,
+)
 from ciel_runtime_support.mcp_notification_wait_policy import (
     McpNotificationWaitPolicy,
     McpNotificationWaitPorts,
@@ -2878,6 +2884,16 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_mcp_proxy_codec_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(McpProxyCodecPolicy)), 10)
+
+    def test_mcp_stdio_proxy_uses_bounded_typed_ports(self):
+        self.assertEqual(3, len(fields(McpStdioProxyService)))
+        for port in (
+            McpStdioConfigPorts,
+            McpStdioTransportPorts,
+            McpStdioEffects,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 7)
 
     def test_mcp_http_proxy_ports_stay_below_dependency_limit(self):
         for port in (

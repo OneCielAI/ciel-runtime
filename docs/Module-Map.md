@@ -817,7 +817,7 @@ MCP notification envelope의 chat payload projection, stable/semantic identity d
 
 ### `ciel_runtime_support/mcp_proxy_process.py`
 
-MCP stdio의 Content-Length/JSONL framing, stdin/stdout/stderr 전달과 Streamable HTTP 요청 어댑터. notification 관찰·로그·HTTP 전송은 호출 시 명시적으로 주입되어 채널 저장소 및 메인 composition root와의 숨은 결합을 만들지 않는다.
+MCP stdio의 Content-Length/JSONL framing, stdin/stdout/stderr 전달과 Streamable HTTP 요청 어댑터. `McpStdioProxyService`가 설정 검증, process spawn, daemon forwarding thread와 종료 수명주기를 소유하며 Config·Transport·Effects를 각각 7필드 이하 typed port로 주입받는다. notification 관찰·로그·HTTP 전송은 명시적으로 주입되어 채널 저장소 및 메인 composition root와의 숨은 결합을 만들지 않는다.
 
 ### `ciel_runtime_support/mcp_proxy_config.py`
 

@@ -648,6 +648,10 @@ from ciel_runtime_support.mcp_notification_wait_policy import (
 )
 from ciel_runtime_support.mcp_proxy_config import McpProxyConfigPaths, McpProxyConfigPorts, McpProxyConfigService
 from ciel_runtime_support.mcp_proxy_process import (
+    McpStdioConfigPorts,
+    McpStdioEffects,
+    McpStdioProxyService,
+    McpStdioTransportPorts,
     _McpStdoutObserver as McpStdoutObserver,
     _mcp_proxy_drain_input_messages,
     _mcp_proxy_stdio_mode,
@@ -13457,70 +13461,33 @@ def run_mcp_streamable_http_proxy(server_name: str, server_config_path: Path) ->
 
 
 def run_mcp_stdio_proxy(server_name: str, server_config_path: Path) -> int:
-    try:
-        server = json.loads(server_config_path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        router_log("ERROR", f"mcp_proxy_config_read_failed server={server_name} error={type(exc).__name__}: {exc}")
-        print(f"ciel-runtime mcp-proxy: cannot read server config: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
-        return 2
-    if not isinstance(server, dict) or not _mcp_server_is_stdio(server):
-        router_log("ERROR", f"mcp_proxy_invalid_config server={server_name}")
-        print("ciel-runtime mcp-proxy: server config is not a stdio MCP server", file=sys.stderr, flush=True)
-        return 2
-    command = str(server.get("command") or "").strip()
-    args = [str(item) for item in server.get("args", [])] if isinstance(server.get("args"), list) else []
-    command, args = resolve_mcp_server_process(command, args)
-    env = os.environ.copy()
-    raw_env = server.get("env")
-    if isinstance(raw_env, dict):
-        env.update({str(k): str(v) for k, v in raw_env.items() if str(k)})
-    cwd_value = server.get("cwd") or server.get("workingDirectory")
-    cwd = str(cwd_value) if cwd_value else None
-    try:
-        proc = subprocess.Popen(
-            [command, *args],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=cwd,
-            env=env,
-            bufsize=0,
-        )
-    except Exception as exc:
-        router_log("ERROR", f"mcp_proxy_start_failed server={server_name} command={command} error={type(exc).__name__}: {exc}")
-        print(f"ciel-runtime mcp-proxy: failed to start {command}: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
-        return 127
-    stdio_mode = _mcp_proxy_stdio_mode(server)
-    router_log("INFO", f"mcp_proxy_started server={server_name} command={command} stdio={stdio_mode}")
-    stdin_target = _mcp_proxy_forward_stdin_jsonl if stdio_mode == "jsonl" else _mcp_proxy_forward_stdin
-    threading.Thread(target=stdin_target, args=(proc,), daemon=True, name=f"mcp-proxy-stdin-{server_name}").start()
-    threading.Thread(target=_mcp_proxy_forward_stderr, args=(proc,), daemon=True, name=f"mcp-proxy-stderr-{server_name}").start()
-    try:
-        if stdio_mode == "jsonl":
-            _mcp_proxy_forward_stdout_jsonl(server_name, proc)
-        elif proc.stdout:
-            observer = _McpStdoutObserver(server_name)
-            while True:
-                chunk = proc.stdout.read(65536)
-                if not chunk:
-                    break
-                observer.feed(chunk)
-                sys.stdout.buffer.write(chunk)
-                sys.stdout.buffer.flush()
-        rc = proc.wait()
-        level = "INFO" if rc == 0 else "WARN"
-        router_log(level, f"mcp_proxy_exited server={server_name} rc={rc}")
-        return rc
-    finally:
-        if proc.poll() is None:
-            try:
-                proc.terminate()
-            except Exception as exc:
-                router_log(
-                    "WARN",
-                    f"mcp_stdio_proxy_terminate_failed server={server_name} "
-                    f"error={type(exc).__name__}: {exc}",
-                )
+    service = McpStdioProxyService(
+        config=McpStdioConfigPorts(
+            read=lambda path: json.loads(path.read_text(encoding="utf-8")),
+            is_stdio=_mcp_server_is_stdio,
+            resolve_process=resolve_mcp_server_process,
+            environment=os.environ.copy,
+        ),
+        transport=McpStdioTransportPorts(
+            popen=subprocess.Popen,
+            stdio_mode=_mcp_proxy_stdio_mode,
+            forward_stdin=_mcp_proxy_forward_stdin,
+            forward_stdin_jsonl=_mcp_proxy_forward_stdin_jsonl,
+            forward_stdout_jsonl=_mcp_proxy_forward_stdout_jsonl,
+            forward_stderr=_mcp_proxy_forward_stderr,
+            observer=_McpStdoutObserver,
+        ),
+        effects=McpStdioEffects(
+            log=router_log,
+            error=lambda message: print(message, file=sys.stderr, flush=True),
+            start_thread=lambda target, args, name: threading.Thread(
+                target=target, args=args, daemon=True, name=name
+            ).start(),
+            write_stdout=sys.stdout.buffer.write,
+            flush_stdout=sys.stdout.buffer.flush,
+        ),
+    )
+    return service.run(server_name, server_config_path)
 
 
 def cmd_mcp_proxy(argv: list[str]) -> int:
