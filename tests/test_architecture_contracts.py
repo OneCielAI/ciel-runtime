@@ -2921,6 +2921,34 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("ROUTER_EXTERNAL_TOKEN_PATH.read_text", source)
         self.assertIn("from ciel_runtime_support.router_access import (", source)
 
+    def test_ollama_context_and_output_budget_policies_live_outside_root(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        extracted = {
+            "ctx_bucket",
+            "ollama_provider_context_limit",
+            "ollama_preserve_configured_context_cap",
+            "ollama_effective_context_limit",
+            "ollama_num_ctx_for_payload",
+            "ollama_num_ctx_status",
+            "ollama_extra_options",
+            "ollama_options_status",
+            "ollama_request_timeout_seconds",
+            "ollama_context_error_limit",
+            "ollama_context_retry_config",
+            "configured_output_tokens",
+            "cap_output_tokens_for_context",
+            "context_guard_reserve_tokens",
+            "ollama_context_limit_for_budget",
+        }
+        self.assertTrue(extracted.isdisjoint(root_functions))
+        self.assertIn("OllamaRequestContextPolicy", source)
+        self.assertIn("OutputBudgetPolicy", source)
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):

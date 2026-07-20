@@ -1055,6 +1055,8 @@ from ciel_runtime_support.providers.ollama_runtime import (
     OllamaRuntimeService,
     OllamaRuntimeServices,
 )
+from ciel_runtime_support.providers.ollama_context import OllamaRequestContextPolicy
+from ciel_runtime_support.output_budget import OutputBudgetPolicy
 from ciel_runtime_support.providers.nvidia_runtime import (
     NvidiaProxyRuntime,
     NvidiaProxyRuntimeConfig,
@@ -6456,182 +6458,37 @@ def schedule_router_process_restart(delay: float = 0.8) -> None:
     timer.start()
 
 
-def ctx_bucket(target: int, minimum: int, maximum: int) -> int:
-    target = max(minimum, min(maximum, target))
-    buckets = [4096, 8192, 16384, 32768, 65536, 131072, 262144]
-    for bucket in buckets:
-        if bucket >= target:
-            return min(bucket, maximum)
-    return maximum
+_OLLAMA_CONTEXT_POLICY = OllamaRequestContextPolicy(
+    environ=os.environ,
+    positive_int=positive_int,
+    estimate_tokens=estimate_tokens,
+    model_matches=ollama_context_model_matches,
+    preset_names=frozenset(LLM_PRESETS),
+    default_request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+)
+ctx_bucket = _OLLAMA_CONTEXT_POLICY.context_bucket
+ollama_provider_context_limit = _OLLAMA_CONTEXT_POLICY.provider_context_limit
+ollama_preserve_configured_context_cap = (
+    _OLLAMA_CONTEXT_POLICY.preserve_configured_context_cap
+)
+ollama_effective_context_limit = _OLLAMA_CONTEXT_POLICY.effective_context_limit
+ollama_num_ctx_for_payload = _OLLAMA_CONTEXT_POLICY.num_ctx_for_payload
+ollama_num_ctx_status = _OLLAMA_CONTEXT_POLICY.num_ctx_status
+ollama_extra_options = _OLLAMA_CONTEXT_POLICY.extra_options
+ollama_options_status = _OLLAMA_CONTEXT_POLICY.options_status
+ollama_request_timeout_seconds = _OLLAMA_CONTEXT_POLICY.request_timeout_seconds
+ollama_context_error_limit = _OLLAMA_CONTEXT_POLICY.context_error_limit
+ollama_context_retry_config = _OLLAMA_CONTEXT_POLICY.context_retry_config
+ollama_context_limit_for_budget = _OLLAMA_CONTEXT_POLICY.context_limit_for_budget
 
-
-def ollama_provider_context_limit(pcfg: dict[str, Any]) -> int | None:
-    current_model = str(pcfg.get("current_model") or "")
-    cached_model = str(pcfg.get("model_context_model") or "")
-    cached_limit = positive_int(pcfg.get("model_context_max"))
-    if not cached_limit:
-        return None
-    if cached_model and (not current_model or not ollama_context_model_matches(current_model, cached_model)):
-        return None
-    return cached_limit
-
-
-def ollama_preserve_configured_context_cap(pcfg: dict[str, Any]) -> bool:
-    preset = str(pcfg.get("llm_preset") or "").strip()
-    return preset in LLM_PRESETS
-
-
-def ollama_effective_context_limit(pcfg: dict[str, Any]) -> int | None:
-    provider_limit = ollama_provider_context_limit(pcfg)
-    configured_max = positive_int(pcfg.get("num_ctx_max"))
-    if provider_limit and configured_max and ollama_preserve_configured_context_cap(pcfg):
-        return min(provider_limit, configured_max)
-    return provider_limit or configured_max
-
-
-def ollama_num_ctx_for_payload(pcfg: dict[str, Any], payload: Any, _token_cache: dict[int, int] | None = None) -> int | None:
-    override = os.environ.get("CIEL_RUNTIME_OLLAMA_NUM_CTX")
-    if override:
-        return positive_int(override)
-    raw = pcfg.get("num_ctx", "auto")
-    if isinstance(raw, str) and raw.strip().lower() in ("", "auto", "dynamic"):
-        provider_limit = ollama_provider_context_limit(pcfg)
-        if provider_limit:
-            effective_limit = ollama_effective_context_limit(pcfg) or provider_limit
-            return effective_limit
-        minimum = positive_int(pcfg.get("num_ctx_min")) or 8192
-        maximum = positive_int(pcfg.get("num_ctx_max")) or 65536
-        if maximum < minimum:
-            maximum = minimum
-        estimated = estimate_tokens(payload, _token_cache)
-        # Leave headroom for tool results, follow-up commands, and model-side formatting.
-        target = int(estimated * 1.45) + 2048
-        return ctx_bucket(target, minimum, maximum)
-    return positive_int(raw)
-
-
-def ollama_num_ctx_status(pcfg: dict[str, Any]) -> str:
-    raw = pcfg.get("num_ctx", "auto")
-    if isinstance(raw, str) and raw.strip().lower() in ("", "auto", "dynamic"):
-        provider_limit = ollama_provider_context_limit(pcfg)
-        if provider_limit:
-            effective_limit = ollama_effective_context_limit(pcfg) or provider_limit
-            if provider_limit and effective_limit < provider_limit:
-                return f"auto ({effective_limit:,}; model max {provider_limit:,})"
-            return f"auto (provider {effective_limit:,})"
-        minimum = positive_int(pcfg.get("num_ctx_min")) or 8192
-        maximum = positive_int(pcfg.get("num_ctx_max")) or 65536
-        return f"auto ({minimum}-{maximum})"
-    return str(positive_int(raw) or raw)
-
-
-def ollama_extra_options(pcfg: dict[str, Any]) -> dict[str, Any]:
-    raw = pcfg.get("ollama_options") or {}
-    if not isinstance(raw, dict):
-        return {}
-    return {str(k): v for k, v in raw.items() if v is not None}
-
-
-def ollama_options_status(pcfg: dict[str, Any]) -> str:
-    opts = ollama_extra_options(pcfg)
-    if not opts:
-        return "{}"
-    return ", ".join(f"{k}={json.dumps(v, ensure_ascii=False)}" for k, v in sorted(opts.items()))
-
-
-def ollama_request_timeout_seconds(pcfg: dict[str, Any]) -> float:
-    raw = pcfg.get("request_timeout_ms", pcfg.get("request_timeout", pcfg.get("timeout_ms", DEFAULT_REQUEST_TIMEOUT_MS)))
-    try:
-        value = float(raw)
-    except (TypeError, ValueError):
-        return 120.0
-    if value <= 0:
-        return 120.0
-    # Values above 10k are treated as milliseconds, matching common UI/API timeout notation.
-    if value > 10000:
-        return max(1.0, value / 1000.0)
-    return value
-
-
-def ollama_context_error_limit(raw: str | None) -> int | None:
-    text = str(raw or "")
-    low = text.lower()
-    if "context" not in low and "n_ctx" not in low:
-        return None
-    patterns = (
-        r"available context size\s*\(\s*(\d+)\s+tokens?\s*\)",
-        r'"n_ctx"\s*:\s*(\d+)',
-        r"\bn_ctx\s*[=:]\s*(\d+)",
-    )
-    for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            return positive_int(match.group(1))
-    return None
-
-
-def ollama_context_retry_config(pcfg: dict[str, Any], context_limit: int) -> dict[str, Any]:
-    retry_pcfg = dict(pcfg)
-    context_limit = max(8192, int(context_limit))
-    retry_pcfg["num_ctx"] = context_limit
-    retry_pcfg["num_ctx_max"] = context_limit
-    minimum = positive_int(retry_pcfg.get("num_ctx_min"))
-    if minimum and minimum > context_limit:
-        retry_pcfg["num_ctx_min"] = context_limit
-    output_cap = max(256, min(2048, context_limit // 8))
-    configured_output = positive_int(retry_pcfg.get("max_output_tokens"))
-    retry_pcfg["max_output_tokens"] = min(configured_output, output_cap) if configured_output else output_cap
-    opts = dict(ollama_extra_options(retry_pcfg))
-    configured_num_predict = positive_int(opts.get("num_predict"))
-    if configured_num_predict:
-        opts["num_predict"] = min(configured_num_predict, output_cap)
-    retry_pcfg["ollama_options"] = opts
-    return retry_pcfg
-
-
-def configured_output_tokens(pcfg: dict[str, Any], body: dict[str, Any], option_key: str | None = None) -> int | None:
-    configured = positive_int(pcfg.get("max_output_tokens"))
-    if option_key:
-        opts = ollama_extra_options(pcfg)
-        configured = positive_int(opts.get(option_key)) or configured
-    requested = positive_int(body.get("max_tokens"))
-    if configured and requested:
-        return min(configured, requested)
-    return configured or requested
-
-
-def cap_output_tokens_for_context(
-    pcfg: dict[str, Any],
-    body: dict[str, Any],
-    payload: Any,
-    context_limit: int | None,
-    configured: int | None,
-    _token_cache: dict[int, int] | None = None,
-) -> int | None:
-    if not configured:
-        return None
-    if not context_limit:
-        return configured
-    reserve = context_guard_reserve_tokens(pcfg, context_limit)
-    estimated_input = estimate_tokens(payload, _token_cache)
-    available = context_limit - estimated_input - reserve
-    if available <= 0:
-        return min(configured, 256)
-    return max(1, min(configured, available))
-
-def context_guard_reserve_tokens(pcfg: dict[str, Any], context_limit: int | None) -> int:
-    configured = positive_int(pcfg.get("context_reserve_tokens"))
-    if configured:
-        return configured
-    if not context_limit:
-        return 1024
-    return max(1024, min(32768, int(context_limit) // 32))
-
-def ollama_context_limit_for_budget(pcfg: dict[str, Any]) -> int:
-    raw = pcfg.get("num_ctx", "auto")
-    if isinstance(raw, str) and raw.strip().lower() in ("", "auto", "dynamic"):
-        return ollama_effective_context_limit(pcfg) or 65536
-    return positive_int(raw) or positive_int(pcfg.get("num_ctx_max")) or 65536
+_OUTPUT_BUDGET_POLICY = OutputBudgetPolicy(
+    positive_int=positive_int,
+    estimate_tokens=estimate_tokens,
+    provider_options=ollama_extra_options,
+)
+configured_output_tokens = _OUTPUT_BUDGET_POLICY.configured_tokens
+cap_output_tokens_for_context = _OUTPUT_BUDGET_POLICY.cap_tokens_for_context
+context_guard_reserve_tokens = _OUTPUT_BUDGET_POLICY.reserve_tokens
 
 
 def openai_context_limit_for_budget(provider: str, pcfg: dict[str, Any]) -> int:

@@ -473,6 +473,14 @@ Codex 및 AGY native provider-selection Adapter. native/routed 표시, API-key �
 
 Ollama `/api/show` model specification, `/api/ps` loaded runtime inspection, tag matching과 runtime context 기반 output guard를 소유하는 Provider-specific Runtime Service. HTTP·model/context codec은 9필드 typed service port로 주입된다.
 
+### `ciel_runtime_support/providers/ollama_context.py`
+
+Ollama model-context cache 일치, dynamic `num_ctx` bucket, preset cap, option/timeout projection과 context-error retry 축소를 소유하는 Provider Policy. facade는 의존성을 조립하고 기존 공개 이름만 호환 export한다.
+
+### `ciel_runtime_support/output_budget.py`
+
+요청·provider 출력 token 상한, context reserve와 입력 token 추정에 따른 출력 cap을 결정하는 Provider-neutral Domain Policy.
+
 ### `ciel_runtime_support/providers/openrouter.py`
 
 OpenRouter 인증, OpenAI protocol capability와 hosted context 정책을 소유하는 독립 Adapter.
