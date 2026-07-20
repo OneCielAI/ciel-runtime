@@ -3129,6 +3129,43 @@ class ArchitectureContractTests(unittest.TestCase):
             adapter_source = (root / relative_path).read_text(encoding="utf-8")
             self.assertNotIn("__getattr__", adapter_source)
 
+    def test_network_exports_and_logging_api_remove_redundant_wrappers(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "upstream_user_agent",
+            "with_upstream_user_agent",
+            "normalize_ip_family",
+            "default_provider_ip_family",
+            "provider_ip_family",
+            "socket_getaddrinfo_ip_family_policy",
+            "ip_family_connectivity",
+            "current_log_level",
+            "reset_log_level_cache",
+            "log_level_name",
+            "log_level_source",
+            "log_level_status",
+            "normalize_log_level",
+            "set_log_level_config",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        self.assertIn("LogLevelApi", source)
+        logging_source = (
+            root / "ciel_runtime_support" / "runtime_logging.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("__getattr__", logging_source)
+        for composition_function in (
+            "provider_urlopen",
+            "provider_ip_family_probe_lines",
+            "log_level_repository",
+            "router_log",
+        ):
+            self.assertIn(composition_function, root_functions)
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):

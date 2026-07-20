@@ -1141,6 +1141,7 @@ from ciel_runtime_support.runtime_compatibility import DEFAULT_RUNTIME_COMPATIBI
 from ciel_runtime_support.runtime_logging import (
     LOG_LEVEL_NAMES,
     LOG_LEVELS,
+    LogLevelApi,
     LogLevelRepository,
     RouterFileLogger,
     normalize_log_level as normalize_runtime_log_level,
@@ -1439,40 +1440,18 @@ _PROVIDER_MODEL_IDENTITY = ProviderModelIdentityService(
 )
 
 
-def upstream_user_agent() -> str:
-    """Return the User-Agent used for upstream provider HTTP calls.
-
-    Some provider gateways/WAFs treat Python's default urllib identity as a
-    non-CLI browser signature. ciel-runtime is acting as the Claude CLI transport
-    here, so keep that identity explicit and generic across providers.
-    """
-    return provider_network.upstream_user_agent()
-
-
-def with_upstream_user_agent(headers: dict[str, str] | None = None) -> dict[str, str]:
-    return provider_network.with_upstream_user_agent(headers)
+upstream_user_agent = provider_network.upstream_user_agent
+with_upstream_user_agent = provider_network.with_upstream_user_agent
 
 
 IP_FAMILY_ALIASES = provider_network.IP_FAMILY_ALIASES
 IP_FAMILY_CHOICES = provider_network.IP_FAMILY_CHOICES
 
 
-def normalize_ip_family(value: Any, default: str = "auto") -> str:
-    return provider_network.normalize_ip_family(value, default)
-
-
-def default_provider_ip_family(provider: str) -> str:
-    return provider_network.default_provider_ip_family(provider)
-
-
-def provider_ip_family(provider: str | None, pcfg: dict[str, Any] | None) -> str:
-    return provider_network.provider_ip_family(provider, pcfg)
-
-
-@contextlib.contextmanager
-def socket_getaddrinfo_ip_family_policy(ip_family: str) -> Iterable[None]:
-    with provider_network.socket_ip_family_policy(ip_family):
-        yield
+normalize_ip_family = provider_network.normalize_ip_family
+default_provider_ip_family = provider_network.default_provider_ip_family
+provider_ip_family = provider_network.provider_ip_family
+socket_getaddrinfo_ip_family_policy = provider_network.socket_ip_family_policy
 
 
 def provider_urlopen(
@@ -1484,8 +1463,7 @@ def provider_urlopen(
     return provider_network.provider_urlopen(req, timeout, provider, pcfg, router_log)
 
 
-def ip_family_connectivity(host: str, port: int, family: int, timeout: float = 1.5) -> tuple[bool, str]:
-    return provider_network.ip_family_connectivity(host, port, family, timeout)
+ip_family_connectivity = provider_network.ip_family_connectivity
 
 
 def provider_ip_family_probe_lines(provider: str, pcfg: dict[str, Any]) -> list[str]:
@@ -2518,32 +2496,14 @@ def log_level_repository() -> LogLevelRepository:
     return LogLevelRepository(CONFIG_DIR, LOG_LEVEL_PATH, _LOG_LEVEL_CACHE, LOG_LEVEL_DEFAULT, os.environ)
 
 
-def current_log_level() -> int:
-    return log_level_repository().current()
-
-
-def reset_log_level_cache() -> None:
-    log_level_repository().reset_cache()
-
-
-def log_level_name(value: int | None = None) -> str:
-    return log_level_repository().name(value)
-
-
-def log_level_source() -> str:
-    return log_level_repository().source()
-
-
-def log_level_status() -> str:
-    return log_level_repository().status()
-
-
-def normalize_log_level(value: str) -> str | None:
-    return normalize_runtime_log_level(value)
-
-
-def set_log_level_config(value: str) -> list[str]:
-    return log_level_repository().set(value)
+_LOG_LEVEL_API = LogLevelApi(log_level_repository)
+current_log_level = _LOG_LEVEL_API.current
+reset_log_level_cache = _LOG_LEVEL_API.reset_cache
+log_level_name = _LOG_LEVEL_API.name
+log_level_source = _LOG_LEVEL_API.source
+log_level_status = _LOG_LEVEL_API.status
+normalize_log_level = normalize_runtime_log_level
+set_log_level_config = _LOG_LEVEL_API.set
 
 
 def router_log(level: str, message: str) -> None:

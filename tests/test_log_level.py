@@ -6,11 +6,29 @@ from pathlib import Path
 from unittest import mock
 
 import ciel_runtime
+from ciel_runtime_support.runtime_logging import LogLevelApi, LogLevelRepository
 
 
 class LogLevelTests(unittest.TestCase):
     def tearDown(self):
         ciel_runtime.reset_log_level_cache()
+
+    def test_explicit_api_resolves_repository_for_each_operation(self):
+        repository = mock.create_autospec(LogLevelRepository, instance=True)
+        repository.current.return_value = 4
+        repository.name.return_value = "DEBUG"
+        repository.source.return_value = "file"
+        repository.status.return_value = "DEBUG (file)"
+        repository.set.return_value = ["Log level set to DEBUG."]
+        api = LogLevelApi(lambda: repository)
+
+        self.assertEqual(4, api.current())
+        api.reset_cache()
+        self.assertEqual("DEBUG", api.name())
+        self.assertEqual("file", api.source())
+        self.assertEqual("DEBUG (file)", api.status())
+        self.assertEqual(["Log level set to DEBUG."], api.set("debug"))
+        repository.reset_cache.assert_called_once_with()
 
     def test_set_log_level_writes_file_and_updates_effective_level(self):
         with tempfile.TemporaryDirectory() as td:

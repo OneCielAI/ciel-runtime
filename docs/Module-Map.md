@@ -687,7 +687,7 @@ Model capacity에 맞는 context mode를 계산하고 다국어 panel 행을 투
 
 ### `ciel_runtime_support/provider_network.py`
 
-upstream User-Agent, provider별 IP-family 기본값·별칭, strict/preferred DNS 정렬, HTTP 연결과 IPv4/IPv6 probe를 소유하는 Infrastructure Policy. provider application logic에서 process-wide socket override와 연결 진단 세부를 격리한다.
+upstream User-Agent, provider별 IP-family 기본값·별칭, strict/preferred DNS 정렬, HTTP 연결과 IPv4/IPv6 probe를 소유하는 Infrastructure Policy. provider application logic에서 process-wide socket override와 연결 진단 세부를 격리한다. 순수 policy 함수는 facade에서 직접 compatibility re-export하고, logger와 기본 URL이 필요한 HTTP/probe 호출만 composition root가 조립한다.
 
 ### `ciel_runtime_support/provider_option_panel.py`
 
@@ -969,7 +969,7 @@ Provider RPM timestamp, server 학습 limit, penalty와 hash-key 기반 API-key 
 
 ### `ciel_runtime_support/runtime_logging.py`
 
-log-level 파일·환경 우선순위, mtime cache, 설정 저장·reset과 router.log 회전을 소유하는 Repository/Infrastructure Adapter. 메인 facade는 기존 logging 함수명을 유지하면서 저장소와 file logger만 조립한다.
+log-level 파일·환경 우선순위, mtime cache, 설정 저장·reset과 router.log 회전을 소유하는 Repository/Infrastructure Adapter. `LogLevelApi`는 late-bound Repository factory를 쓰는 명시적 Adapter로 기존 공개 logging 계약을 투영하며, 메인 facade는 저장소와 file logger만 조립한다.
 
 ### `ciel_runtime_support/runtime_paths.py`
 

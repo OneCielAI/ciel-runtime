@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -112,6 +113,31 @@ class LogLevelRepository:
             pass
         self.reset_cache()
         return [f"Log level set to {level}."]
+
+
+@dataclass(frozen=True, slots=True)
+class LogLevelApi:
+    """Explicit compatibility adapter for a late-bound log repository."""
+
+    repository_factory: Callable[[], LogLevelRepository]
+
+    def current(self) -> int:
+        return self.repository_factory().current()
+
+    def reset_cache(self) -> None:
+        self.repository_factory().reset_cache()
+
+    def name(self, value: int | None = None) -> str:
+        return self.repository_factory().name(value)
+
+    def source(self) -> str:
+        return self.repository_factory().source()
+
+    def status(self) -> str:
+        return self.repository_factory().status()
+
+    def set(self, value: str) -> list[str]:
+        return self.repository_factory().set(value)
 
 
 @dataclass(frozen=True, slots=True)
