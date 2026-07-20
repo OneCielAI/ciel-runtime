@@ -160,6 +160,9 @@ lines and a changed flag.
 Compatibility probe request/response framing and HTTP error decoding live in
 `compatibility_protocol.py`; orchestration remains in `compatibility_test.py`.
 
+Compatibility runtime diagnostics and durable result-cache mutation live in
+`compatibility_runtime.py`, separate from probe transport and protocol framing.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

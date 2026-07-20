@@ -141,6 +141,10 @@ from ciel_runtime_support.compatibility_test import (
     CompatibilityTestServices,
 )
 from ciel_runtime_support.compatibility_protocol import CompatibilityProtocolPorts
+from ciel_runtime_support.compatibility_runtime import (
+    CompatibilityCachePorts,
+    CompatibilityRuntimePorts,
+)
 from ciel_runtime_support.headless_config import (
     HeadlessChannelCommands,
     HeadlessConfigCommands,
@@ -732,6 +736,10 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_compatibility_protocol_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(CompatibilityProtocolPorts)), 10)
 
+    def test_compatibility_runtime_ports_stay_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(CompatibilityRuntimePorts)), 10)
+        self.assertLessEqual(len(fields(CompatibilityCachePorts)), 10)
+
     def test_ollama_forwarding_ports_stay_below_dependency_limit(self):
         for port in (
             OllamaForwardConstants,
@@ -1317,15 +1325,17 @@ class ArchitectureContractTests(unittest.TestCase):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
         source = source_path.read_text(encoding="utf-8")
         tree = ast.parse(source)
-        function = next(
-            node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "compatibility_runtime_lines"
-        )
-        function_source = ast.get_source_segment(source, function) or ""
-        self.assertIn("PROVIDER_COMPATIBILITY.resolve(provider)", function_source)
-        self.assertIn("exposes_runtime_info", function_source)
-        self.assertIn("runtime_metadata", function_source)
-        self.assertNotIn('provider == "', function_source)
-        self.assertNotIn("provider in (", function_source)
+        functions = {
+            node.name: ast.get_source_segment(source, node) or ""
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name in {"compatibility_runtime_projection", "compatibility_runtime_lines"}
+        }
+        self.assertIn("provider_policy=PROVIDER_COMPATIBILITY.resolve", functions["compatibility_runtime_projection"])
+        self.assertIn("compatibility_runtime_projection().lines", functions["compatibility_runtime_lines"])
+        combined_source = "\n".join(functions.values())
+        self.assertNotIn('provider == "', combined_source)
+        self.assertNotIn("provider in (", combined_source)
 
     def test_main_module_imports_provider_labels_from_registry_module(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
