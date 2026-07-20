@@ -5,6 +5,80 @@ import sys
 from typing import Any
 
 
+class TerminalMouseInputFilter:
+    """Strip terminal mouse reports that can leak into TUI prompt buffers."""
+
+    def __init__(self) -> None:
+        self._pending = b""
+
+    def feed(self, data: bytes) -> bytes:
+        if not data:
+            return b""
+        buffer = self._pending + data
+        self._pending = b""
+        output = bytearray()
+        index = 0
+        while index < len(buffer):
+            if buffer[index] != 0x1B:
+                output.append(buffer[index])
+                index += 1
+                continue
+            if index + 1 >= len(buffer):
+                self._pending = buffer[index:]
+                break
+            if buffer[index + 1] != ord("["):
+                output.append(buffer[index])
+                index += 1
+                continue
+            if index + 2 >= len(buffer):
+                self._pending = buffer[index:]
+                break
+            marker = buffer[index + 2]
+            if marker == ord("<"):
+                end = index + 3
+                while end < len(buffer) and (48 <= buffer[end] <= 57 or buffer[end] == ord(";")):
+                    end += 1
+                if end >= len(buffer):
+                    self._pending = buffer[index:]
+                    break
+                if end > index + 3 and buffer[end] in (ord("M"), ord("m")):
+                    index = end + 1
+                    continue
+                output.append(buffer[index])
+                index += 1
+                continue
+            if marker == ord("M"):
+                if index + 6 <= len(buffer):
+                    index += 6
+                    continue
+                self._pending = buffer[index:]
+                break
+            if 48 <= marker <= 57:
+                end = index + 2
+                semicolons = 0
+                while end < len(buffer) and (48 <= buffer[end] <= 57 or buffer[end] == ord(";")):
+                    if buffer[end] == ord(";"):
+                        semicolons += 1
+                    end += 1
+                if end >= len(buffer):
+                    self._pending = buffer[index:]
+                    break
+                if semicolons >= 2 and buffer[end] in (ord("M"), ord("m")):
+                    index = end + 1
+                    continue
+                output.append(buffer[index])
+                index += 1
+                continue
+            output.append(buffer[index])
+            index += 1
+        return bytes(output)
+
+    def flush(self) -> bytes:
+        pending = self._pending
+        self._pending = b""
+        return pending
+
+
 def platform_default_enter_bytes(
     platform: str | None = None,
     os_name: str | None = None,

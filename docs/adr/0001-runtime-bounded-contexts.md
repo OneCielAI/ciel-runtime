@@ -206,6 +206,10 @@ Chat attachment decoding, size validation, safe naming, storage, URL metadata,
 and Markdown projection live in `ChatFileRepository`; only clocks are injected
 and callers no longer own filesystem mechanics.
 
+Incremental terminal mouse-report filtering lives in
+`channel_terminal_input.py`, next to newline and wake-input policies, rather
+than as a stateful parser class in the composition root.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file

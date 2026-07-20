@@ -813,6 +813,12 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_chat_file_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChatFilePorts)), 10)
 
+    def test_terminal_mouse_filter_lives_outside_composition_root(self):
+        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        source = source_path.read_text(encoding="utf-8")
+        self.assertNotIn("class _TerminalMouseInputFilter", source)
+        self.assertIn("TerminalMouseInputFilter as _TerminalMouseInputFilter", source)
+
     def test_ollama_forwarding_ports_stay_below_dependency_limit(self):
         for port in (
             OllamaForwardConstants,

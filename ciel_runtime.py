@@ -261,6 +261,7 @@ from ciel_runtime_support.channel_wake_claim_repository import (
     prompt_references_message_id as analyze_prompt_message_reference,
 )
 from ciel_runtime_support.channel_terminal_input import (
+    TerminalMouseInputFilter as _TerminalMouseInputFilter,
     bounded_delay_seconds as _bounded_delay_seconds,
     enter_bytes_from_user_input as _channel_enter_bytes_from_user_input,  # noqa: F401 - compatibility export
     enter_label as _channel_enter_label,
@@ -15649,80 +15650,6 @@ def _write_terminal_input_mode_reset(stream: Any | None = None) -> None:
         target.flush()
     except Exception:
         return
-
-
-class _TerminalMouseInputFilter:
-    """Strip terminal mouse reports that can leak into TUI prompt buffers."""
-
-    def __init__(self) -> None:
-        self._pending = b""
-
-    def feed(self, data: bytes) -> bytes:
-        if not data:
-            return b""
-        buf = self._pending + data
-        self._pending = b""
-        out = bytearray()
-        i = 0
-        while i < len(buf):
-            if buf[i] != 0x1B:
-                out.append(buf[i])
-                i += 1
-                continue
-            if i + 1 >= len(buf):
-                self._pending = buf[i:]
-                break
-            if buf[i + 1] != ord("["):
-                out.append(buf[i])
-                i += 1
-                continue
-            if i + 2 >= len(buf):
-                self._pending = buf[i:]
-                break
-            marker = buf[i + 2]
-            if marker == ord("<"):
-                j = i + 3
-                while j < len(buf) and (48 <= buf[j] <= 57 or buf[j] == ord(";")):
-                    j += 1
-                if j >= len(buf):
-                    self._pending = buf[i:]
-                    break
-                if j > i + 3 and buf[j] in (ord("M"), ord("m")):
-                    i = j + 1
-                    continue
-                out.append(buf[i])
-                i += 1
-                continue
-            if marker == ord("M"):
-                if i + 6 <= len(buf):
-                    i += 6
-                    continue
-                self._pending = buf[i:]
-                break
-            if 48 <= marker <= 57:
-                j = i + 2
-                semicolons = 0
-                while j < len(buf) and (48 <= buf[j] <= 57 or buf[j] == ord(";")):
-                    if buf[j] == ord(";"):
-                        semicolons += 1
-                    j += 1
-                if j >= len(buf):
-                    self._pending = buf[i:]
-                    break
-                if semicolons >= 2 and buf[j] in (ord("M"), ord("m")):
-                    i = j + 1
-                    continue
-                out.append(buf[i])
-                i += 1
-                continue
-            out.append(buf[i])
-            i += 1
-        return bytes(out)
-
-    def flush(self) -> bytes:
-        pending = self._pending
-        self._pending = b""
-        return pending
 
 
 def _strip_terminal_mouse_input_reports(data: bytes) -> bytes:

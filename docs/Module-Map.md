@@ -179,7 +179,7 @@ MCP delivery, LLM delivery, backlog clear-floor cursor의 공통 JSON 읽기와 
 
 ### `ciel_runtime_support/channel_terminal_input.py`
 
-플랫폼·환경별 Enter sequence 선택, 실제 사용자 입력에서 submit key 관찰, synthetic CR 정규화, wake byte 조립과 bounded delay를 소유하는 Terminal Input 정책. PTY/Console write 효과와 분리되어 플랫폼 조합을 독립적으로 검증할 수 있다.
+플랫폼·환경별 Enter sequence 선택, 실제 사용자 입력에서 submit key 관찰, synthetic CR 정규화, wake byte 조립과 bounded delay를 소유하는 Terminal Input 정책. SGR/X10/숫자형 terminal mouse report가 TUI prompt buffer로 유입되지 않도록 incremental filter도 이 경계에 두며 PTY/Console write 효과와 분리한다.
 
 ### `ciel_runtime_support/tool_guard_hooks.py`
 
