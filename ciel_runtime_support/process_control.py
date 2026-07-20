@@ -13,6 +13,31 @@ from pathlib import Path
 from typing import Callable
 
 
+def pid_is_running(pid: int) -> bool:
+    """Check process liveness using the host platform's stable primitive."""
+
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        try:
+            process = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=3,
+            )
+        except Exception:
+            return False
+        output = process.stdout or ""
+        return str(pid) in output and "No tasks" not in output and "INFO:" not in output
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, SystemError):
+        return False
+
+
 def windows_pids_on_port(port: int) -> list[int]:
     if os.name != "nt":
         return []

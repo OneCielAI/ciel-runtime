@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import subprocess
 import unittest
@@ -11,6 +12,7 @@ from ciel_runtime_support.process_control import (
     ProcessSignalServices,
     ProcessTreeController,
     posix_process_rows,
+    pid_is_running,
     process_command_line,
     process_cwd,
     process_environ_contains,
@@ -19,6 +21,10 @@ from ciel_runtime_support.process_control import (
 
 
 class ProcessControlTests(unittest.TestCase):
+    def test_pid_liveness_rejects_invalid_and_finds_current_process(self):
+        self.assertFalse(pid_is_running(0))
+        self.assertTrue(pid_is_running(os.getpid()))
+
     def inspection_services(self, **updates):
         values = {
             "run": mock.Mock(),

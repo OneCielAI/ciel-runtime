@@ -399,6 +399,7 @@ from ciel_runtime_support.compatibility_probe import (
 from ciel_runtime_support.compatibility_runtime import (
     CompatibilityCachePorts,
     CompatibilityCacheRepository,
+    ClaudeCliCapabilityProbe,
     CompatibilityRuntimePorts,
     CompatibilityRuntimeProjection,
 )
@@ -521,6 +522,7 @@ from ciel_runtime_support.process_control import (
     ProcessTreeController,
     posix_process_rows,
     linux_procfs_pids_on_port,
+    pid_is_running as inspect_pid_is_running,
     posix_pids_on_port as project_posix_pids_on_port,
     process_command_line as inspect_process_command_line,
     process_cwd as inspect_process_cwd,
@@ -9708,26 +9710,7 @@ def cmd_stop(_: argparse.Namespace) -> None:
 
 
 def pid_is_running(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    if os.name == "nt":
-        try:
-            proc = subprocess.run(
-                ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
-                text=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                timeout=3,
-            )
-            out = proc.stdout or ""
-            return str(pid) in out and "No tasks" not in out and "INFO:" not in out
-        except Exception:
-            return False
-    try:
-        os.kill(pid, 0)
-        return True
-    except (OSError, SystemError):
-        return False
+    return inspect_pid_is_running(pid)
 
 
 def register_router_client(pid: int | None = None) -> Path:
@@ -10952,25 +10935,9 @@ _CLAUDE_PERMISSION_MODE_SUPPORT_CACHE: dict[str, bool] = {}
 
 
 def claude_supports_permission_mode_arg(claude: str) -> bool:
-    cache_key = str(claude or "")
-    if cache_key in _CLAUDE_PERMISSION_MODE_SUPPORT_CACHE:
-        return _CLAUDE_PERMISSION_MODE_SUPPORT_CACHE[cache_key]
-    supported = False
-    try:
-        proc = subprocess.run(
-            [claude, "--help"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-        help_text = proc.stdout or ""
-        supported = "--permission-mode" in help_text and "bypassPermissions" in help_text
-    except Exception:
-        supported = False
-    _CLAUDE_PERMISSION_MODE_SUPPORT_CACHE[cache_key] = supported
-    return supported
+    return ClaudeCliCapabilityProbe(
+        _CLAUDE_PERMISSION_MODE_SUPPORT_CACHE, subprocess.run
+    ).supports_permission_mode(claude)
 
 
 def has_passthrough_option(passthrough: list[str], *names: str) -> bool:

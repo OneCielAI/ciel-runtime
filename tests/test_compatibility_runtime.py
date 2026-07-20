@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from unittest.mock import Mock
 
 from ciel_runtime_support.compatibility_runtime import (
+    ClaudeCliCapabilityProbe,
     CompatibilityCachePorts,
     CompatibilityCacheRepository,
     CompatibilityRuntimePorts,
@@ -28,6 +29,26 @@ class Policy:
 
 
 class CompatibilityRuntimeProjectionTests(unittest.TestCase):
+    def test_claude_capability_probe_caches_help_detection(self):
+        run = Mock(
+            return_value=Mock(
+                stdout="--permission-mode <mode> bypassPermissions"
+            )
+        )
+        probe = ClaudeCliCapabilityProbe({}, run)
+
+        self.assertTrue(probe.supports_permission_mode("claude"))
+        self.assertTrue(probe.supports_permission_mode("claude"))
+        run.assert_called_once()
+
+    def test_claude_capability_probe_caches_failures(self):
+        run = Mock(side_effect=OSError("missing"))
+        probe = ClaudeCliCapabilityProbe({}, run)
+
+        self.assertFalse(probe.supports_permission_mode("claude"))
+        self.assertFalse(probe.supports_permission_mode("claude"))
+        run.assert_called_once()
+
     def projection(self, *, exposed=True, info=None):
         return CompatibilityRuntimeProjection(
             CompatibilityRuntimePorts(

@@ -136,3 +136,31 @@ class CompatibilityCacheRepository:
             "tested_at": self.ports.timestamp(),
         }
         self.ports.save_config(config)
+
+
+@dataclass(frozen=True, slots=True)
+class ClaudeCliCapabilityProbe:
+    cache: dict[str, bool]
+    run: Callable[..., Any]
+
+    def supports_permission_mode(self, executable: str) -> bool:
+        cache_key = str(executable or "")
+        if cache_key in self.cache:
+            return self.cache[cache_key]
+        try:
+            process = self.run(
+                [executable, "--help"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+            help_text = process.stdout or ""
+            supported = (
+                "--permission-mode" in help_text
+                and "bypassPermissions" in help_text
+            )
+        except Exception:
+            supported = False
+        self.cache[cache_key] = supported
+        return supported
