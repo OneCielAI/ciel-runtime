@@ -641,6 +641,11 @@ from ciel_runtime_support.managed_mcp_config import (
     ManagedMcpConfigPorts,
     ManagedMcpConfigService,
 )
+from ciel_runtime_support.managed_mcp_discovery import (
+    ManagedMcpDiscoveryPaths,
+    ManagedMcpDiscoveryPorts,
+    ManagedMcpDiscoveryService,
+)
 from ciel_runtime_support.mcp_proxy_codec import (
     McpProxyCodecPolicy,
     _mcp_proxy_error_response,
@@ -8544,53 +8549,21 @@ def discovered_ciel_runtime_managed_mcp_servers(cwd: Path | None = None) -> dict
     bridge itself is intentionally skipped, but ordinary generated tools and
     original servers wrapped by mcp-proxy are safe to pass back to Claude Code.
     """
-    cwd = cwd or Path.cwd()
-    servers: dict[str, dict[str, Any]] = {}
-    servers.update(_read_mcp_servers_from_generated_file(WEB_TOOLS_MCP_CONFIG, cwd))
-
-    if MCP_PROXY_CONFIG.exists() and MCP_PROXY_CONFIG.is_file():
-        try:
-            proxy_data = json.loads(MCP_PROXY_CONFIG.read_text(encoding="utf-8"))
-        except (OSError, UnicodeError, json.JSONDecodeError, TypeError) as exc:
-            router_log(
-                "WARN",
-                f"managed_mcp_proxy_config_read_failed path={MCP_PROXY_CONFIG} "
-                f"error={type(exc).__name__}: {exc}",
-            )
-            proxy_data = {}
-        proxy_servers = proxy_data.get("mcpServers") if isinstance(proxy_data, dict) else None
-        if isinstance(proxy_servers, dict):
-            for raw_name, raw_entry in proxy_servers.items():
-                name = str(raw_name or "").strip()
-                if not name or name.strip().lower() in _NATIVE_ROUTER_CHANNEL_NAMES or not isinstance(raw_entry, dict):
-                    continue
-                args = raw_entry.get("args")
-                if isinstance(args, list):
-                    args_s = [str(item) for item in args]
-                    if "mcp-proxy" in args_s and "--server-config" in args_s:
-                        try:
-                            cfg_path = Path(args_s[args_s.index("--server-config") + 1]).expanduser()
-                            wrapped_name = (
-                                args_s[args_s.index("--server-name") + 1].strip()
-                                if "--server-name" in args_s and args_s.index("--server-name") + 1 < len(args_s)
-                                else name
-                            )
-                            wrapped_server = json.loads(cfg_path.read_text(encoding="utf-8"))
-                        except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
-                            router_log(
-                                "WARN",
-                                f"managed_mcp_wrapped_config_read_failed server={name} "
-                                f"error={type(exc).__name__}: {exc}",
-                            )
-                            continue
-                        if wrapped_name and isinstance(wrapped_server, dict):
-                            restored = dict(wrapped_server)
-                            restored.pop("ciel_runtime_disable_notification_stream", None)
-                            if wrapped_name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES:
-                                servers.setdefault(wrapped_name, restored)
-                        continue
-                servers.setdefault(name, dict(raw_entry))
-    return servers
+    service = ManagedMcpDiscoveryService(
+        paths=ManagedMcpDiscoveryPaths(
+            web_tools=WEB_TOOLS_MCP_CONFIG,
+            proxy=MCP_PROXY_CONFIG,
+        ),
+        ports=ManagedMcpDiscoveryPorts(
+            read_generated=_read_mcp_servers_from_generated_file,
+            load_json=lambda path: json.loads(path.read_text(encoding="utf-8")),
+            log=router_log,
+        ),
+        native_channel_names=frozenset(
+            name.casefold() for name in _NATIVE_ROUTER_CHANNEL_NAMES
+        ),
+    )
+    return service.discover(cwd or Path.cwd())
 
 
 def write_native_mcp_config_from_discovery(

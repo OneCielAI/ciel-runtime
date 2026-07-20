@@ -271,6 +271,11 @@ from ciel_runtime_support.headless_config import (
     HeadlessConfigServices,
 )
 from ciel_runtime_support.mcp_proxy_codec import McpProxyCodecPolicy
+from ciel_runtime_support.managed_mcp_discovery import (
+    ManagedMcpDiscoveryPaths,
+    ManagedMcpDiscoveryPorts,
+    ManagedMcpDiscoveryService,
+)
 from ciel_runtime_support.mcp_proxy_process import (
     McpStdioConfigPorts,
     McpStdioEffects,
@@ -3010,6 +3015,29 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_mcp_proxy_codec_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(McpProxyCodecPolicy)), 10)
+
+    def test_managed_mcp_discovery_is_service_owned(self):
+        self.assertEqual(3, len(fields(ManagedMcpDiscoveryService)))
+        self.assertEqual(2, len(fields(ManagedMcpDiscoveryPaths)))
+        self.assertEqual(3, len(fields(ManagedMcpDiscoveryPorts)))
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name
+            == "discovered_ciel_runtime_managed_mcp_servers"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("ManagedMcpDiscoveryService", function_source)
+        self.assertNotIn("proxy_data", function_source)
+        service_source = (
+            root
+            / "ciel_runtime_support"
+            / "managed_mcp_discovery.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", service_source)
 
     def test_mcp_stdio_proxy_uses_bounded_typed_ports(self):
         self.assertEqual(3, len(fields(McpStdioProxyService)))

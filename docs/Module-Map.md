@@ -799,6 +799,10 @@ Claude/Codex MCP JSON 설정의 root·project scope를 읽고 projector별 ident
 
 Web search/fetch, Z.AI managed servers와 Ciel channel server의 MCP JSON projection·저장·비활성 정리를 소유하는 Configuration Service. 경로, 정적 endpoint 정책, executable/key/save/cursor 효과를 각각 6필드 이하 typed port로 분리한다.
 
+### `ciel_runtime_support/managed_mcp_discovery.py`
+
+런타임이 생성한 web-tools 및 MCP proxy artifact에서 native launch에 복원할 서버를 찾는 Discovery Service. proxy wrapper의 원본 server config를 복구하고 내부 notification-stream flag와 native router bridge를 제외하며, 경로·JSON 효과·generated reader를 각각 3필드 typed port로 분리한다.
+
 ### `ciel_runtime_support/mcp_transport.py`
 
 채널 상태나 라우터 설정을 소유하지 않는 MCP SSE/Streamable HTTP 전송 codec과 split-proxy URL 규칙.
