@@ -1892,6 +1892,32 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIn("class ApiKeyCooldownService:", service_source)
         self.assertIn("hashlib.sha256", service_source)
 
+    def test_router_rate_limit_orchestration_is_service_owned(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for function_name in (
+            "learn_router_rate_limit_headers",
+            "register_router_rate_limit_backoff",
+            "apply_router_rate_limit",
+            "wait_for_router_rate_limit_penalty",
+        ):
+            function = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef) and node.name == function_name
+            )
+            function_source = ast.get_source_segment(source, function) or ""
+            with self.subTest(function=function_name):
+                self.assertIn("router_rate_limit_service()", function_source)
+                self.assertNotIn("RATE_LIMIT_STATE_PATH.read_text", function_source)
+                self.assertNotIn("RateLimitStateStore(", function_source)
+        service_source = (
+            root / "ciel_runtime_support" / "router_rate_limit_service.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("class RouterRateLimitService:", service_source)
+        self.assertIn("repository: RateLimitRepository", service_source)
+
     def test_concrete_adapters_own_provider_specific_defaults(self):
         common_keys = {
             "base_url",

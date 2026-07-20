@@ -915,20 +915,15 @@ from ciel_runtime_support.live_api_key_controller import (
 )
 from ciel_runtime_support.provider_limits import (
     ProviderKeyServices,
-    RateLimitApplyPolicy,
-    RateLimitApplyServices,
-    RateLimitBackoffPolicy,
-    RateLimitBackoffServices,
-    RateLimitLearningPolicy,
-    RateLimitLearningServices,
-    RateLimitStateStore,
-    apply_rate_limit,
     choose_provider_api_key,
-    learn_rate_limit_headers,
-    register_rate_limit_backoff,
 )
 from ciel_runtime_support import rate_limit_policy
 from ciel_runtime_support.rate_limit_repository import RateLimitRepository
+from ciel_runtime_support.router_rate_limit_service import (
+    RouterRateLimitPaths,
+    RouterRateLimitPorts,
+    RouterRateLimitService,
+)
 from ciel_runtime_support.api_key_cooldown import (
     API_KEY_COOLDOWN_DEFAULT_SECONDS,  # noqa: F401 - compatibility export
     API_KEY_COOLDOWN_MAX_SECONDS,  # noqa: F401 - compatibility export
@@ -3611,67 +3606,63 @@ def rate_limit_repository() -> RateLimitRepository:
     return RateLimitRepository(CONFIG_DIR, RATE_LIMIT_STATE_PATH, _RATE_LIMIT_LOCK, router_log)
 
 
+def router_rate_limit_service() -> RouterRateLimitService:
+    return RouterRateLimitService(
+        paths=RouterRateLimitPaths(CONFIG_DIR, RATE_LIMIT_STATE_PATH, _RATE_LIMIT_LOCK),
+        repository=rate_limit_repository(),
+        ports=RouterRateLimitPorts(
+            current_model_id=current_upstream_model_id,
+            api_key_count=provider_api_key_count,
+            positive_int=positive_int,
+            log=router_log,
+            now=time.time,
+            sleep=time.sleep,
+        ),
+    )
+
+
 def router_rate_limit_legacy_key(
     provider: str, pcfg: dict[str, Any], model: str | None
 ) -> str:
-    return f"{provider}:{model or current_upstream_model_id(provider, pcfg)}"
+    return router_rate_limit_service().legacy_key(provider, pcfg, model)
 
 
 def router_rate_limit_configured_rpm(provider: str, pcfg: dict[str, Any]) -> int | None:
-    return rate_limit_policy.configured_rpm(pcfg, positive_int)
+    return router_rate_limit_service().configured_rpm(provider, pcfg)
 
 
 def router_rate_limit_rpm(provider: str, pcfg: dict[str, Any]) -> int | None:
-    rpm = router_rate_limit_configured_rpm(provider, pcfg)
-    return rpm if rpm and rpm > 0 else None
+    return router_rate_limit_service().rpm(provider, pcfg)
 
 
 def router_rate_limit_key(provider: str, pcfg: dict[str, Any], model: str | None = None) -> str:
-    # Provider/account limits such as NVIDIA NIM RPM apply across models.
-    return f"{provider}:__global__"
+    return router_rate_limit_service().key(provider, pcfg, model)
 
 
 def router_rate_limit_state_entry(provider: str, pcfg: dict[str, Any], model: str | None = None) -> dict[str, Any]:
-    return rate_limit_repository().entry(
-        router_rate_limit_key(provider, pcfg, model),
-        router_rate_limit_legacy_key(provider, pcfg, model),
-    )
+    return router_rate_limit_service().state_entry(provider, pcfg, model)
 
 
 def router_rate_limit_effective_rpm(provider: str, pcfg: dict[str, Any], model: str | None = None) -> int | None:
-    return rate_limit_repository().effective_rpm(
-        router_rate_limit_key(provider, pcfg, model),
-        router_rate_limit_legacy_key(provider, pcfg, model),
-        router_rate_limit_configured_rpm(provider, pcfg),
-    )
+    return router_rate_limit_service().effective_rpm(provider, pcfg, model)
 
 
 def router_rate_limit_capacity(rpm: int) -> int:
-    return rate_limit_policy.capacity(rpm)
+    return RouterRateLimitService.capacity(rpm)
 
 
 def router_rate_limit_recent(timestamps: Any, now: float, window: float, *, include_future: bool) -> list[float]:
-    return rate_limit_policy.recent_timestamps(
+    return RouterRateLimitService.recent(
         timestamps, now, window, include_future=include_future
     )
 
 
 def router_rate_limit_usage(provider: str, pcfg: dict[str, Any], model: str | None = None) -> tuple[int, int | None]:
-    return rate_limit_repository().usage(
-        router_rate_limit_key(provider, pcfg, model),
-        router_rate_limit_legacy_key(provider, pcfg, model),
-        router_rate_limit_effective_rpm(provider, pcfg, model),
-        router_rate_limit_recent,
-    )
+    return router_rate_limit_service().usage(provider, pcfg, model)
 
 
 def record_router_rate_usage(provider: str, pcfg: dict[str, Any], model: str | None, rpm: int | None) -> tuple[int, int | None]:
-    return rate_limit_repository().record_usage(
-        router_rate_limit_key(provider, pcfg, model),
-        router_rate_limit_legacy_key(provider, pcfg, model),
-        rpm,
-        router_rate_limit_recent,
-    )
+    return router_rate_limit_service().record_usage(provider, pcfg, model, rpm)
 
 
 def parse_retry_after_seconds(value: str | None) -> float | None:
@@ -3695,50 +3686,12 @@ def rate_limit_reset_seconds(value: str | None) -> float | None:
 
 
 def learn_router_rate_limit_headers(provider: str, pcfg: dict[str, Any], model: str | None, headers: Any) -> None:
-    return learn_rate_limit_headers(
-        provider, pcfg, model, headers,
-        services=RateLimitLearningServices(
-            state_store=RateLimitStateStore(
-                CONFIG_DIR=CONFIG_DIR,
-                RATE_LIMIT_STATE_PATH=RATE_LIMIT_STATE_PATH,
-                _RATE_LIMIT_LOCK=_RATE_LIMIT_LOCK,
-                router_log=router_log,
-            ),
-            policy=RateLimitLearningPolicy(
-                current_upstream_model_id=current_upstream_model_id,
-                first_header=first_header,
-                first_int_in_header=first_int_in_header,
-                provider_api_key_count=provider_api_key_count,
-                rate_limit_reset_seconds=rate_limit_reset_seconds,
-                router_rate_limit_configured_rpm=router_rate_limit_configured_rpm,
-                router_rate_limit_key=router_rate_limit_key,
-                router_rate_limit_recent=router_rate_limit_recent,
-            ),
-        ),
-    )
+    router_rate_limit_service().learn_headers(provider, pcfg, model, headers)
 
 
 def register_router_rate_limit_backoff(provider: str, pcfg: dict[str, Any], model: str | None, retry_after: str | None = None) -> float:
-    return register_rate_limit_backoff(
-        provider, pcfg, model, retry_after,
-        services=RateLimitBackoffServices(
-            state_store=RateLimitStateStore(
-                CONFIG_DIR=CONFIG_DIR,
-                RATE_LIMIT_STATE_PATH=RATE_LIMIT_STATE_PATH,
-                _RATE_LIMIT_LOCK=_RATE_LIMIT_LOCK,
-                router_log=router_log,
-            ),
-            policy=RateLimitBackoffPolicy(
-                current_upstream_model_id=current_upstream_model_id,
-                parse_retry_after_seconds=parse_retry_after_seconds,
-                provider_api_key_count=provider_api_key_count,
-                router_rate_limit_capacity=router_rate_limit_capacity,
-                router_rate_limit_configured_rpm=router_rate_limit_configured_rpm,
-                router_rate_limit_effective_rpm=router_rate_limit_effective_rpm,
-                router_rate_limit_key=router_rate_limit_key,
-                router_rate_limit_recent=router_rate_limit_recent,
-            ),
-        ),
+    return router_rate_limit_service().register_backoff(
+        provider, pcfg, model, retry_after
     )
 
 
@@ -3804,57 +3757,11 @@ def retry_after_exceeds_request_timeout(headers: Any, timeout: float) -> tuple[b
 
 
 def apply_router_rate_limit(provider: str, pcfg: dict[str, Any], model: str | None = None) -> tuple[float, int, int | None]:
-    return apply_rate_limit(
-        provider, pcfg, model,
-        services=RateLimitApplyServices(
-            state_store=RateLimitStateStore(
-                CONFIG_DIR=CONFIG_DIR,
-                RATE_LIMIT_STATE_PATH=RATE_LIMIT_STATE_PATH,
-                _RATE_LIMIT_LOCK=_RATE_LIMIT_LOCK,
-                router_log=router_log,
-            ),
-            policy=RateLimitApplyPolicy(
-                current_upstream_model_id=current_upstream_model_id,
-                provider_api_key_count=provider_api_key_count,
-                record_router_rate_usage=record_router_rate_usage,
-                router_rate_limit_capacity=router_rate_limit_capacity,
-                router_rate_limit_effective_rpm=router_rate_limit_effective_rpm,
-                router_rate_limit_key=router_rate_limit_key,
-                router_rate_limit_recent=router_rate_limit_recent,
-                wait_for_router_rate_limit_penalty=wait_for_router_rate_limit_penalty,
-            ),
-        ),
-    )
+    return router_rate_limit_service().apply(provider, pcfg, model)
 
 
 def wait_for_router_rate_limit_penalty(provider: str, pcfg: dict[str, Any], model: str | None, rpm: int | None) -> float:
-    key = router_rate_limit_key(provider, pcfg, model)
-    multi_key = provider_api_key_count(provider, pcfg) > 1
-    waited = 0.0
-    while True:
-        with _RATE_LIMIT_LOCK:
-            try:
-                state = json.loads(RATE_LIMIT_STATE_PATH.read_text(encoding="utf-8")) if RATE_LIMIT_STATE_PATH.exists() else {}
-                if not isinstance(state, dict):
-                    state = {}
-            except Exception:
-                state = {}
-            now = time.time()
-            entry = state.get(key)
-            if not isinstance(entry, dict):
-                legacy_key = f"{provider}:{model or current_upstream_model_id(provider, pcfg)}"
-                entry = state.get(legacy_key)
-            try:
-                penalty_until = 0.0 if multi_key else float(entry.get("penalty_until") or 0.0) if isinstance(entry, dict) else 0.0
-            except Exception:
-                penalty_until = 0.0
-            wait = max(0.0, penalty_until - now)
-            if wait <= 0.001:
-                return waited
-        sleep_for = min(wait, 10.0)
-        router_log("INFO", f"rate_limit_penalty_wait provider={provider} model={model or ''} rpm={rpm if rpm is not None else 'auto'} wait={wait:.2f}s waited={waited:.2f}s")
-        time.sleep(sleep_for)
-        waited += sleep_for
+    return router_rate_limit_service().wait_for_penalty(provider, pcfg, model, rpm)
 
 
 RATE_LIMIT_NOTICE_PALETTE = (203, 209, 215, 221, 229, 187, 151, 116, 111, 147, 183, 219)

@@ -599,6 +599,10 @@ provider model registry와 단기 model-list cache의 key 호환, TTL, metadata 
 
 429 응답의 reset header 우선순위·상한 정책, secret hash 기반 상태 key, credential별 cooldown 등록·조회와 live-key 계산을 소유하는 Application Service. 영속화는 `RateLimitRepository`에 위임한다.
 
+### `ciel_runtime_support/router_rate_limit_service.py`
+
+provider-global/legacy rate key, configured·learned RPM, 사용량 기록, server header 학습, 429 backoff와 penalty 대기를 묶는 Application Service. facade의 조립 중복을 제거하고 조회는 `RateLimitRepository`, 계산은 순수 rate-limit policy에 위임한다.
+
 ### `ciel_runtime_support/provider_policy.py`
 
 공급자별 wire profile과 요청 메시지·thinking·tool-choice 정규화를 담당하는 순수 정책 서비스.
