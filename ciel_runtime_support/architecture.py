@@ -365,6 +365,14 @@ class ProviderAdapter(ABC):
             return bool(configured)
         return self.capabilities(config).preserves_anthropic_thinking
 
+    def openai_reasoning_passback_enabled(
+        self, config: ProviderConfig, model: str | None = None
+    ) -> bool:
+        """Whether OpenAI reasoning_content should survive history conversion."""
+
+        del config, model
+        return False
+
     def model_catalog_policy(self, config: ProviderConfig) -> ProviderModelCatalogPolicy:
         del config
         return ProviderModelCatalogPolicy()

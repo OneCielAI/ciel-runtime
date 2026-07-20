@@ -158,6 +158,20 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
     ) -> frozenset[MessageProtocol]:
         return frozenset({self.select_protocol("anthropic_messages", config, model)})
 
+    def openai_reasoning_passback_enabled(
+        self, config: ProviderConfig, model: str | None = None
+    ) -> bool:
+        requested = self.normalize_model_id(str(model or ""))
+        prefix = f"ciel-runtime-{self.name}-"
+        if requested.startswith(prefix):
+            requested = requested[len(prefix) :]
+        elif requested.startswith("ciel-runtime-"):
+            requested = config.model
+        model_id = self.normalize_model_id(requested or config.model).lower()
+        return model_id.startswith("deepseek-") and self.select_protocol(
+            "openai_chat", config, model_id
+        ) == "openai_chat"
+
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
         del config
         return ProviderStatusPolicy(

@@ -64,6 +64,10 @@ Plan Mode 진입·종료, channel wake 제거, tool-result 기반 작업 완료 
 
 Anthropic thinking block과 강제 tool-choice의 provider 호환 변환을 소유하는 Protocol Policy. 요청·응답 정규화는 provider capability port를 통해 결정하고, client에 노출하지 않은 thinking passback은 용량 제한 Repository에 보관·복원한다. 메인 facade의 전역 캐시와 동적 monkeypatch 호환성은 composition wrapper가 유지한다.
 
+### `ciel_runtime_support/protocols/openai_reasoning.py`
+
+Anthropic/OpenAI tool-choice projection, reasoning block 변환과 passback 오케스트레이션을 소유하는 Protocol Policy. reasoning 지원 여부는 provider 이름 분기 대신 등록된 `ProviderAdapter.openai_reasoning_passback_enabled` Strategy에 위임한다.
+
 ### `ciel_runtime_support/router_http.py`
 
 HTTP parsing과 GET/POST/HEAD/DELETE endpoint dispatch를 담당하는 Router Adapter. Core, GET endpoints, POST endpoints, Presentation, Errors 포트를 통해 Runtime/Channel/Protocol 서비스에 위임한다. Codex native backend proxy는 `CodexBackendHttpAdapter`, `/ca/events` 조회·SSE long-poll projection은 `EventHttpAdapter`가 각각 소유한다.

@@ -2877,6 +2877,29 @@ class ArchitectureContractTests(unittest.TestCase):
         )
         self.assertIn("from ciel_runtime_support.config_value_codec import (", source)
 
+    def test_openai_reasoning_policy_uses_provider_adapter_strategy(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        self.assertTrue(
+            {
+                "anthropic_tool_choice_to_openai",
+                "opencode_model_id_hint",
+                "openai_chat_reasoning_passback_enabled",
+                "openai_chat_reasoning_passback_enabled_for_body",
+                "openai_reasoning_to_anthropic_thinking_block",
+                "should_omit_openai_chat_tool_choice",
+            }.isdisjoint(root_functions)
+        )
+        policy_source = (
+            root / "ciel_runtime_support" / "protocols" / "openai_reasoning.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("OPENCODE_PROVIDER_NAMES", policy_source)
+        self.assertIn("adapter.openai_reasoning_passback_enabled", policy_source)
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):

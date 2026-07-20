@@ -883,6 +883,11 @@ from ciel_runtime_support.protocols.pseudo_tool_history import (
     parse_xml_pseudo_tool_calls,
     sanitize_assistant_pseudo_tool_history,
 )
+from ciel_runtime_support.protocols.openai_reasoning import (
+    OpenAiReasoningPolicy,
+    anthropic_tool_choice_to_openai,
+    openai_reasoning_to_anthropic_thinking_block,
+)
 from ciel_runtime_support.provider_adapters import (
     PROVIDER_ADAPTERS,
     PROVIDER_LABELS,
@@ -6375,60 +6380,15 @@ def repair_openai_tool_call_adjacency(messages: list[dict[str, Any]]) -> list[di
     )
 
 
-def anthropic_tool_choice_to_openai(tool_choice: Any) -> Any:
-    if not isinstance(tool_choice, dict):
-        return tool_choice
-    choice_type = tool_choice.get("type")
-    if choice_type == "tool" and tool_choice.get("name"):
-        return {"type": "function", "function": {"name": str(tool_choice["name"])}}
-    if choice_type == "any":
-        return "required"
-    if choice_type == "auto":
-        return "auto"
-    return tool_choice
-
-
-def opencode_model_id_hint(provider: str, pcfg: dict[str, Any], model: str | None) -> str:
-    requested = strip_claude_context_suffix(model).strip()
-    fallback = normalize_model_id(provider, pcfg.get("current_model") or "")
-    prefix = f"ciel-runtime-{provider}-"
-    if requested.startswith(prefix):
-        return requested[len(prefix):]
-    if requested.startswith("ciel-runtime-"):
-        return fallback
-    return normalize_model_id(provider, requested or fallback)
-
-
-def openai_chat_reasoning_passback_enabled(provider: str, model: str | None, pcfg: dict[str, Any]) -> bool:
-    if provider not in OPENCODE_PROVIDER_NAMES:
-        return False
-    model_id = opencode_model_id_hint(provider, pcfg, model).strip().lower()
-    if not model_id.startswith("deepseek-"):
-        return False
-    return opencode_endpoint_kind(provider, model_id, pcfg) == "openai-chat"
-
-
-def openai_chat_reasoning_passback_enabled_for_body(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> bool:
-    return openai_chat_reasoning_passback_enabled(provider, str(body.get("model") or ""), pcfg)
-
-
-def openai_reasoning_to_anthropic_thinking_block(reasoning_content: Any) -> dict[str, Any] | None:
-    reasoning = str(reasoning_content or "")
-    if not reasoning:
-        return None
-    digest = hashlib.sha256(reasoning.encode("utf-8", errors="replace")).hexdigest()[:24]
-    return {
-        "type": "thinking",
-        "thinking": reasoning,
-        "signature": f"ciel-runtime-openai-reasoning-{digest}",
-    }
-
-
-def should_omit_openai_chat_tool_choice(provider: str, model: str, body: dict[str, Any], pcfg: dict[str, Any]) -> bool:
-    """Return true when an OpenAI-chat backend should receive tools without a forced tool_choice."""
-    if body.get("tool_choice") is None:
-        return False
-    return openai_chat_reasoning_passback_enabled(provider, model, pcfg)
+_OPENAI_REASONING_POLICY = OpenAiReasoningPolicy(
+    adapter_for=configured_provider_adapter,
+    config_for=provider_contract_config,
+)
+openai_chat_reasoning_passback_enabled = _OPENAI_REASONING_POLICY.passback_enabled
+openai_chat_reasoning_passback_enabled_for_body = (
+    _OPENAI_REASONING_POLICY.passback_enabled_for_body
+)
+should_omit_openai_chat_tool_choice = _OPENAI_REASONING_POLICY.should_omit_tool_choice
 
 
 def router_debug_external_access_enabled(cfg: dict[str, Any] | None = None) -> bool:
