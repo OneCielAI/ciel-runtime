@@ -901,6 +901,10 @@ Codex MCP server 발견, 보안 JSON artifact 저장, channel capability source 
 
 Codex 명령행 인수를 결정하는 순수 Launch Policy. process 실행이나 전역 설정 mutation을 수행하지 않는다.
 
+### `ciel_runtime_support/codex_launch_configuration.py`
+
+Codex alternate-screen 호환, routed provider 설정, 현재 모델 인수와 version-matched model catalog 생성을 조정하는 Configuration Application Service. policy·model·catalog·effects를 각각 최대 5필드 typed port로 분리하며 filesystem과 환경 접근은 composition adapter로 격리한다.
+
 ### `ciel_runtime_support/codex_model_catalog.py`
 
 Codex bundled model catalog를 투영하고 원자적으로 저장하는 Catalog Repository.

@@ -29,6 +29,14 @@ from ciel_runtime_support.codex_mcp_integration import (
     CodexMcpIntegrationService,
     CodexMcpProjectionPorts,
 )
+from ciel_runtime_support.codex_launch_configuration import (
+    CodexLaunchCatalogPorts,
+    CodexLaunchConfigurationConstants,
+    CodexLaunchConfigurationEffects,
+    CodexLaunchConfigurationService,
+    CodexLaunchModelPorts,
+    CodexLaunchPolicyPorts,
+)
 from ciel_runtime_support.codex_session_selection import (
     CodexSessionPresentationPorts,
     CodexSessionRepositoryPorts,
@@ -2278,6 +2286,43 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertTrue(delegated.isdisjoint(root_functions))
         service_source = (
             root / "ciel_runtime_support" / "codex_session_selection.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", service_source)
+        self.assertNotIn("__getattr__", service_source)
+
+    def test_codex_launch_configuration_is_owned_by_typed_ports(self):
+        ports = (
+            CodexLaunchConfigurationConstants,
+            CodexLaunchPolicyPorts,
+            CodexLaunchModelPorts,
+            CodexLaunchCatalogPorts,
+            CodexLaunchConfigurationEffects,
+        )
+        for port in ports:
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 5)
+        self.assertEqual(5, len(fields(CodexLaunchConfigurationService)))
+
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        root_functions = {
+            node.name
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "codex_alternate_screen_compat_args",
+            "codex_runtime_config_args",
+            "write_codex_runtime_model_catalog",
+            "codex_runtime_model_catalog_args",
+            "codex_native_routed_config_args",
+            "codex_passthrough_has_model_override",
+            "codex_current_model_cli_args",
+            "codex_current_model_config_args",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        service_source = (
+            root / "ciel_runtime_support" / "codex_launch_configuration.py"
         ).read_text(encoding="utf-8")
         self.assertNotIn("import ciel_runtime", service_source)
         self.assertNotIn("__getattr__", service_source)

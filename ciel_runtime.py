@@ -759,12 +759,18 @@ from ciel_runtime_support.codex_launch_policy import (
     current_model_args as project_codex_current_model_args,
     help_requested as project_codex_help_requested,
     native_routed_config_args as project_codex_native_routed_config_args,
-    passthrough_has_model_override as project_codex_model_overridden,
     yolo_launch_args as project_codex_yolo_launch_args,
+)
+from ciel_runtime_support.codex_launch_configuration import (
+    CodexLaunchCatalogPorts,
+    CodexLaunchConfigurationConstants,
+    CodexLaunchConfigurationEffects,
+    CodexLaunchConfigurationService,
+    CodexLaunchModelPorts,
+    CodexLaunchPolicyPorts,
 )
 from ciel_runtime_support.codex_model_catalog import (
     CodexModelCatalogService,
-    CodexModelCatalogSpec,
 )
 from ciel_runtime_support.codex_cli import (
     codex_passthrough_args_for_launch,
@@ -14409,110 +14415,67 @@ codex_streamable_http_mcp_servers = _CODEX_MCP_INTEGRATION.streamable_http_serve
 codex_mcp_native_http_compat_args = _CODEX_MCP_INTEGRATION.native_http_compat_args
 
 
-def codex_alternate_screen_compat_args(passthrough: list[str], env: dict[str, str] | None = None, cwd: Path | None = None) -> list[str]:
-    if has_passthrough_option(passthrough, "--no-alt-screen") or CODEX_TUI_ALTERNATE_SCREEN_KEY in _codex_config_override_keys(passthrough):
-        return []
-    for path in codex_config_paths_for_launch(passthrough, env=env, cwd=cwd):
-        try:
-            text = path.read_text(encoding="utf-8")
-        except Exception:
-            continue
-        value = codex_alternate_screen_value_from_config_text(text)
-        if value:
-            router_log("WARN", f"codex_compat_alternate_screen_override path={path} value={value}")
-            print(f'Ciel Runtime warning: applying Codex config compatibility override {CODEX_TUI_ALTERNATE_SCREEN_KEY}="{value}".', flush=True)
-            return ["-c", f"{CODEX_TUI_ALTERNATE_SCREEN_KEY}={toml_string(value)}"]
-    return []
-
-
-def codex_runtime_config_args(router_base: str = ROUTER_BASE) -> list[str]:
-    provider = CODEX_RUNTIME_PROVIDER_ID
-    base = router_base.rstrip("/") + "/v1"
-    return [
-        "-c",
-        f"model_provider={toml_string(provider)}",
-        "-c",
-        f"model_providers.{provider}.name={toml_string('Ciel Runtime')}",
-        "-c",
-        f"model_providers.{provider}.base_url={toml_string(base)}",
-        "-c",
-        f"model_providers.{provider}.wire_api={toml_string('responses')}",
-        "-c",
-        f"model_providers.{provider}.env_key={toml_string(CODEX_RUNTIME_API_KEY_ENV)}",
-        "-c",
-        f"model_providers.{provider}.request_max_retries=0",
-        "-c",
-        f"model_providers.{provider}.stream_max_retries=0",
-    ]
-
-
-def write_codex_runtime_model_catalog(codex: str, cfg: dict[str, Any]) -> Path | None:
-    """Add the routed model alias to Codex's own version-matched model catalog."""
-    provider, pcfg = get_current_provider(cfg)
-    if native_codex_enabled(provider):
-        return None
-    alias = current_alias(cfg)
-    if not alias:
-        return None
-    context_window = (
-        context_limit_for_status(provider, pcfg)
-        or provider_model_context_capacity(provider, pcfg)
-        or 272000
-    )
-    catalog_env = os.environ.copy()
-    catalog_env["PATH"] = path_with_ciel_runtime_user_dirs(catalog_env)
-    return CodexModelCatalogService(CONFIG_DIR, subprocess.run, router_log).write(
-        codex,
-        CodexModelCatalogSpec(
-            alias=alias,
-            provider_label=PROVIDER_LABELS.get(provider, provider),
-            context_window=context_window,
-            effort=str(pcfg.get("effort_level") or "").strip().lower(),
-        ),
-        catalog_env,
-    )
-
-
-def codex_runtime_model_catalog_args(codex: str, cfg: dict[str, Any]) -> list[str]:
-    path = write_codex_runtime_model_catalog(codex, cfg)
-    if path is None:
-        return []
-    return ["-c", f"model_catalog_json={toml_string(str(path.resolve()))}"]
-
-
-def codex_native_routed_config_args(router_base: str = ROUTER_BASE) -> list[str]:
-    provider = (os.environ.get(CODEX_NATIVE_PROVIDER_ID_ENV) or CODEX_ROUTED_PROVIDER_ID).strip() or CODEX_ROUTED_PROVIDER_ID
-    return project_codex_native_routed_config_args(
-        router_base,
-        provider,
-        toml_string=toml_string,
-    )
-
-
-def codex_passthrough_has_model_override(passthrough: list[str]) -> bool:
-    return project_codex_model_overridden(
-        passthrough,
+_CODEX_LAUNCH_CONFIGURATION = CodexLaunchConfigurationService(
+    constants=CodexLaunchConfigurationConstants(
+        runtime_provider_id=CODEX_RUNTIME_PROVIDER_ID,
+        runtime_api_key_env=CODEX_RUNTIME_API_KEY_ENV,
+        native_provider_id_env=CODEX_NATIVE_PROVIDER_ID_ENV,
+        routed_provider_id=CODEX_ROUTED_PROVIDER_ID,
+        alternate_screen_key=CODEX_TUI_ALTERNATE_SCREEN_KEY,
+    ),
+    policy=CodexLaunchPolicyPorts(
         has_option=has_passthrough_option,
         config_override_keys=_codex_config_override_keys,
-    )
-
-
-def codex_current_model_cli_args(pcfg: dict[str, Any], passthrough: list[str]) -> list[str]:
-    return project_codex_current_model_args(
-        pcfg,
-        passthrough,
-        overridden=codex_passthrough_has_model_override,
-    )
-
-
-def codex_current_model_config_args(pcfg: dict[str, Any], passthrough: list[str]) -> list[str]:
-    return project_codex_current_model_args(
-        pcfg,
-        passthrough,
-        overridden=codex_passthrough_has_model_override,
-        config_style=True,
+        config_paths=codex_config_paths_for_launch,
+        alternate_screen_value=codex_alternate_screen_value_from_config_text,
         toml_string=toml_string,
-    )
+    ),
+    model=CodexLaunchModelPorts(
+        current_provider=lambda cfg: get_current_provider(cfg),
+        native_enabled=lambda provider: native_codex_enabled(provider),
+        current_alias=lambda cfg: current_alias(cfg),
+        context_limit=lambda provider, pcfg: context_limit_for_status(provider, pcfg),
+        context_capacity=lambda provider, pcfg: provider_model_context_capacity(
+            provider, pcfg
+        ),
+    ),
+    catalog=CodexLaunchCatalogPorts(
+        write=lambda codex, spec, env: CodexModelCatalogService(
+            CONFIG_DIR, subprocess.run, router_log
+        ).write(codex, spec, env),
+        provider_label=lambda provider: PROVIDER_LABELS.get(provider, provider),
+        path_value=lambda env: path_with_ciel_runtime_user_dirs(env),
+        current_model_args=project_codex_current_model_args,
+        native_routed_args=project_codex_native_routed_config_args,
+    ),
+    effects=CodexLaunchConfigurationEffects(
+        environ=lambda: os.environ,
+        router_base=lambda: ROUTER_BASE,
+        read_text=lambda path: path.read_text(encoding="utf-8"),
+        log=lambda level, message: router_log(level, message),
+        output=lambda message: print(message, flush=True),
+    ),
+)
+codex_alternate_screen_compat_args = (
+    _CODEX_LAUNCH_CONFIGURATION.alternate_screen_compat_args
+)
+codex_runtime_config_args = _CODEX_LAUNCH_CONFIGURATION.runtime_config_args
+write_codex_runtime_model_catalog = (
+    _CODEX_LAUNCH_CONFIGURATION.write_runtime_model_catalog
+)
+codex_runtime_model_catalog_args = (
+    _CODEX_LAUNCH_CONFIGURATION.runtime_model_catalog_args
+)
+codex_native_routed_config_args = (
+    _CODEX_LAUNCH_CONFIGURATION.native_routed_config_args
+)
+codex_passthrough_has_model_override = (
+    _CODEX_LAUNCH_CONFIGURATION.passthrough_has_model_override
+)
+codex_current_model_cli_args = _CODEX_LAUNCH_CONFIGURATION.current_model_cli_args
+codex_current_model_config_args = (
+    _CODEX_LAUNCH_CONFIGURATION.current_model_config_args
+)
 
 
 def log_codex_passthrough_mapping(notes: list[str]) -> None:
