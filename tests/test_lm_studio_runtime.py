@@ -2,12 +2,33 @@ import unittest
 from unittest import mock
 
 from ciel_runtime_support.lm_studio_runtime import (
+    LmStudioLifecycleApi,
+    LmStudioModelLifecycle,
     LmStudioRuntimeServices,
     discover_lm_studio_runtime,
 )
 
 
 class LmStudioRuntimeTests(unittest.TestCase):
+    def test_explicit_lifecycle_api_preserves_public_contract(self):
+        lifecycle = mock.create_autospec(LmStudioModelLifecycle, instance=True)
+        lifecycle.target_context.return_value = 65536
+        lifecycle.context_guard.return_value = ["ready"]
+        api = LmStudioLifecycleApi(lambda: lifecycle)
+
+        self.assertEqual(
+            65536, api.target_context(pcfg={"current_model": "model"}, info=None)
+        )
+        self.assertEqual(
+            ["ready"],
+            api.apply_loaded_context_guard(
+                pcfg={"current_model": "model"}, load=True
+            ),
+        )
+        lifecycle.context_guard.assert_called_once_with(
+            {"current_model": "model"}, load=True
+        )
+
     def services(self, http_json, log=None, current="model-a"):
         return LmStudioRuntimeServices(
             api_base=lambda _config: "http://lmstudio.test/v1",

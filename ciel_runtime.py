@@ -324,6 +324,7 @@ from ciel_runtime_support.model_registry_repository import (
     ModelRegistryRepository,
 )
 from ciel_runtime_support.lm_studio_runtime import (
+    LmStudioLifecycleApi,
     LmStudioLifecyclePolicy,
     LmStudioModelLifecycle,
     LmStudioRuntimeServices,
@@ -965,6 +966,7 @@ from ciel_runtime_support.provider_timeout_policy import (
     ProviderTimeoutSettings,
 )
 from ciel_runtime_support.timeout_profile import (
+    TimeoutProfileApi,
     TimeoutProfilePorts,
     TimeoutProfileService,
     TimeoutProfileSettings,
@@ -1023,6 +1025,7 @@ from ciel_runtime_support.provider_model_selection import (
     ModelSelectionController,
     ModelSelectionPorts,
     ProviderModelSelection,
+    ProviderModelSelectionApi,
 )
 from ciel_runtime_support.response_collection import (
     AnthropicCollectionProjection,
@@ -3924,6 +3927,9 @@ def lm_studio_model_lifecycle() -> LmStudioModelLifecycle:
     )
 
 
+_LM_STUDIO_LIFECYCLE_API = LmStudioLifecycleApi(lm_studio_model_lifecycle)
+
+
 def lm_studio_runtime_info(pcfg: dict[str, Any], timeout: float = 3.0) -> dict[str, Any] | None:
     return discover_lm_studio_runtime(
         pcfg,
@@ -3932,36 +3938,14 @@ def lm_studio_runtime_info(pcfg: dict[str, Any], timeout: float = 3.0) -> dict[s
     )
 
 
-def lm_studio_v1_model_info(pcfg: dict[str, Any], timeout: float = 3.0) -> dict[str, Any] | None:
-    return lm_studio_model_lifecycle().v1_model_info(pcfg, timeout)
-
-
-def lm_studio_loaded_instance_ids(pcfg: dict[str, Any], timeout: float = 3.0) -> list[str]:
-    return lm_studio_model_lifecycle().loaded_instance_ids(pcfg, timeout)
-
-
-def lm_studio_target_context(pcfg: dict[str, Any], info: dict[str, Any] | None = None) -> int | None:
-    return lm_studio_model_lifecycle().target_context(pcfg, info)
-
-
-def lm_studio_load_timeout_seconds(pcfg: dict[str, Any]) -> float:
-    return lm_studio_model_lifecycle().load_timeout_seconds(pcfg)
-
-
-def lm_studio_load_model(pcfg: dict[str, Any], context_length: int, timeout: float | None = None) -> dict[str, Any]:
-    return lm_studio_model_lifecycle().load_model(pcfg, context_length, timeout)
-
-
-def lm_studio_unload_loaded_instances(pcfg: dict[str, Any], timeout: float = 20.0) -> list[str]:
-    return lm_studio_model_lifecycle().unload_loaded_instances(pcfg, timeout)
-
-
-def lm_studio_load_response_context(response: dict[str, Any], fallback: int) -> int:
-    return lm_studio_model_lifecycle().load_response_context(response, fallback)
-
-
-def ensure_lm_studio_model_loaded_for_context(pcfg: dict[str, Any], timeout: float = 3.0) -> list[str]:
-    return lm_studio_model_lifecycle().ensure_loaded_context(pcfg, timeout)
+lm_studio_v1_model_info = _LM_STUDIO_LIFECYCLE_API.v1_model_info
+lm_studio_loaded_instance_ids = _LM_STUDIO_LIFECYCLE_API.loaded_instance_ids
+lm_studio_target_context = _LM_STUDIO_LIFECYCLE_API.target_context
+lm_studio_load_timeout_seconds = _LM_STUDIO_LIFECYCLE_API.load_timeout_seconds
+lm_studio_load_model = _LM_STUDIO_LIFECYCLE_API.load_model
+lm_studio_unload_loaded_instances = _LM_STUDIO_LIFECYCLE_API.unload_loaded_instances
+lm_studio_load_response_context = _LM_STUDIO_LIFECYCLE_API.load_response_context
+ensure_lm_studio_model_loaded_for_context = _LM_STUDIO_LIFECYCLE_API.ensure_loaded_for_context
 
 
 def upstream_model_runtime_info(provider: str, pcfg: dict[str, Any], timeout: float = 3.0) -> dict[str, Any] | None:
@@ -4089,49 +4073,16 @@ def provider_model_selection() -> ProviderModelSelection:
     )
 
 
-def current_upstream_model_id(provider: str, pcfg: dict[str, Any]) -> str:
-    return provider_model_selection().current_upstream_id(provider, pcfg)
-
-
-def provider_placeholder_model_ids(provider: str) -> set[str]:
-    return provider_model_selection().selection.placeholders(provider)
-
-
-def current_model_needs_provider_selection(provider: str, pcfg: dict[str, Any]) -> bool:
-    return provider_model_selection().needs_selection(provider, pcfg)
-
-
-def ensure_current_model_from_provider_list(
-    provider: str,
-    pcfg: dict[str, Any],
-    *,
-    force_refresh: bool = False,
-) -> tuple[bool, list[str]]:
-    return provider_model_selection().ensure_selected(
-        provider, pcfg, force_refresh=force_refresh
-    )
-
-
-def launch_model_id(provider: str, pcfg: dict[str, Any]) -> str:
-    return provider_model_selection().launch_id(provider, pcfg)
-
-
-def resolve_requested_model(provider: str, pcfg: dict[str, Any], requested: str | None) -> str:
-    return provider_model_selection().resolve_requested(provider, pcfg, requested)
-
-
-def resolve_tool_model_references(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
-    return provider_model_selection().resolve_tool_models(provider, pcfg, body)
-
-
-def list_model_objects(provider: str, pcfg: dict[str, Any]) -> list[dict[str, Any]]:
-    return provider_model_selection().list_objects(provider, pcfg)
-
-
-def list_model_objects_for_request(provider: str, pcfg: dict[str, Any], inbound_headers: Any | None = None) -> list[dict[str, Any]]:
-    return provider_model_selection().list_objects_for_request(
-        provider, pcfg, inbound_headers
-    )
+_PROVIDER_MODEL_SELECTION_API = ProviderModelSelectionApi(provider_model_selection)
+current_upstream_model_id = _PROVIDER_MODEL_SELECTION_API.current_upstream_model_id
+provider_placeholder_model_ids = _PROVIDER_MODEL_SELECTION_API.provider_placeholder_model_ids
+current_model_needs_provider_selection = _PROVIDER_MODEL_SELECTION_API.current_model_needs_provider_selection
+ensure_current_model_from_provider_list = _PROVIDER_MODEL_SELECTION_API.ensure_current_model_from_provider_list
+launch_model_id = _PROVIDER_MODEL_SELECTION_API.launch_model_id
+resolve_requested_model = _PROVIDER_MODEL_SELECTION_API.resolve_requested_model
+resolve_tool_model_references = _PROVIDER_MODEL_SELECTION_API.resolve_tool_model_references
+list_model_objects = _PROVIDER_MODEL_SELECTION_API.list_model_objects
+list_model_objects_for_request = _PROVIDER_MODEL_SELECTION_API.list_model_objects_for_request
 
 
 def provider_upstream_request_base(provider: str, pcfg: dict[str, Any]) -> str:
@@ -9691,44 +9642,19 @@ def timeout_profile_service() -> TimeoutProfileService:
     )
 
 
-def llm_preset_timeout_ms(preset_id: str) -> int:
-    return timeout_profile_service().llm_preset_timeout(preset_id)
-
-
-def active_llm_preset_timeout_ms(pcfg: dict[str, Any]) -> int | None:
-    return timeout_profile_service().active_llm_preset_timeout(pcfg)
-
-
-def timeout_profile_id_for_ms(ms: int | None) -> str | None:
-    return timeout_profile_service().profile_id(ms)
-
-
-def timeout_profile_text(profile_id: str, lang: str | None = None) -> tuple[str, str]:
-    lang = lang or load_config().get("language", "en")
-    return timeout_profile_service().text(profile_id, lang)
-
-
-def timeout_profile_status(pcfg: dict[str, Any], lang: str | None = None) -> str:
-    lang = lang or load_config().get("language", "en")
-    return timeout_profile_service().status(pcfg, lang)
-
-
-def timeout_profile_idle_ms(request_timeout_ms: int) -> int:
-    return TimeoutProfileService.idle_timeout(request_timeout_ms)
-
-
-def timeout_profile_panel_rows(pcfg: dict[str, Any], lang: str | None = None) -> tuple[list[str], list[str]]:
-    lang = lang or load_config().get("language", "en")
-    return timeout_profile_service().panel_rows(pcfg, lang)
-
-
-def apply_timeout_profile_to_provider(pcfg: dict[str, Any], profile_id: str, lang: str | None = None) -> list[str]:
-    lang = lang or load_config().get("language", "en")
-    return timeout_profile_service().apply(pcfg, profile_id, lang)
-
-
-def with_preset_timeout_tokens(tokens: list[str], preset_id: str) -> list[str]:
-    return timeout_profile_service().with_llm_preset_timeout(tokens, preset_id)
+_TIMEOUT_PROFILE_API = TimeoutProfileApi(
+    timeout_profile_service,
+    lambda: str(load_config().get("language", "en")),
+)
+llm_preset_timeout_ms = _TIMEOUT_PROFILE_API.llm_preset_timeout_ms
+active_llm_preset_timeout_ms = _TIMEOUT_PROFILE_API.active_llm_preset_timeout_ms
+timeout_profile_id_for_ms = _TIMEOUT_PROFILE_API.timeout_profile_id_for_ms
+timeout_profile_text = _TIMEOUT_PROFILE_API.timeout_profile_text
+timeout_profile_status = _TIMEOUT_PROFILE_API.timeout_profile_status
+timeout_profile_idle_ms = _TIMEOUT_PROFILE_API.timeout_profile_idle_ms
+timeout_profile_panel_rows = _TIMEOUT_PROFILE_API.timeout_profile_panel_rows
+apply_timeout_profile_to_provider = _TIMEOUT_PROFILE_API.apply_timeout_profile_to_provider
+with_preset_timeout_tokens = _TIMEOUT_PROFILE_API.with_preset_timeout_tokens
 
 
 
@@ -9868,8 +9794,7 @@ def refresh_current_model_specs_for_auto_llm(provider: str, pcfg: dict[str, Any]
     return provider_model_spec_service().refresh(provider, pcfg)
 
 
-def apply_lm_studio_loaded_context_guard(pcfg: dict[str, Any], load: bool = False) -> list[str]:
-    return lm_studio_model_lifecycle().context_guard(pcfg, load=load)
+apply_lm_studio_loaded_context_guard = _LM_STUDIO_LIFECYCLE_API.apply_loaded_context_guard
 
 
 def required_context_for_preset(preset_id: str, provider: str | None = None) -> int | None:

@@ -255,6 +255,40 @@ class LmStudioModelLifecycle:
         return messages
 
 
+@dataclass(frozen=True, slots=True)
+class LmStudioLifecycleApi:
+    """Explicit public adapter for late-bound LM Studio lifecycle services."""
+
+    lifecycle_factory: Callable[[], LmStudioModelLifecycle]
+
+    def v1_model_info(self, pcfg: dict[str, Any], timeout: float = 3.0) -> dict[str, Any] | None:
+        return self.lifecycle_factory().v1_model_info(pcfg, timeout)
+
+    def loaded_instance_ids(self, pcfg: dict[str, Any], timeout: float = 3.0) -> list[str]:
+        return self.lifecycle_factory().loaded_instance_ids(pcfg, timeout)
+
+    def target_context(self, pcfg: dict[str, Any], info: dict[str, Any] | None = None) -> int | None:
+        return self.lifecycle_factory().target_context(pcfg, info)
+
+    def load_timeout_seconds(self, pcfg: dict[str, Any]) -> float:
+        return self.lifecycle_factory().load_timeout_seconds(pcfg)
+
+    def load_model(self, pcfg: dict[str, Any], context_length: int, timeout: float | None = None) -> dict[str, Any]:
+        return self.lifecycle_factory().load_model(pcfg, context_length, timeout)
+
+    def unload_loaded_instances(self, pcfg: dict[str, Any], timeout: float = 20.0) -> list[str]:
+        return self.lifecycle_factory().unload_loaded_instances(pcfg, timeout)
+
+    def load_response_context(self, response: dict[str, Any], fallback: int) -> int:
+        return self.lifecycle_factory().load_response_context(response, fallback)
+
+    def ensure_loaded_for_context(self, pcfg: dict[str, Any], timeout: float = 3.0) -> list[str]:
+        return self.lifecycle_factory().ensure_loaded_context(pcfg, timeout)
+
+    def apply_loaded_context_guard(self, pcfg: dict[str, Any], load: bool = False) -> list[str]:
+        return self.lifecycle_factory().context_guard(pcfg, load=load)
+
+
 def discover_lm_studio_runtime(
     provider_config: dict[str, Any],
     services: LmStudioRuntimeServices,

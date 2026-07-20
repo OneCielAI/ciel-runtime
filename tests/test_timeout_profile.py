@@ -1,6 +1,7 @@
 import unittest
 
 from ciel_runtime_support.timeout_profile import (
+    TimeoutProfileApi,
     TimeoutProfilePorts,
     TimeoutProfileService,
     TimeoutProfileSettings,
@@ -35,6 +36,18 @@ class TimeoutProfileServiceTests(unittest.TestCase):
                 ui_text=lambda key, _language: "Back" if key == "back" else key,
                 format_minutes=lambda value, _language: f"{value // 60000} min",
             ),
+        )
+
+    def test_explicit_api_uses_injected_default_language(self):
+        api = TimeoutProfileApi(self.service, lambda: "ko")
+
+        self.assertEqual(600000, api.llm_preset_timeout_ms("long-context"))
+        self.assertEqual(
+            ("빠름", "짧은 요청"), api.timeout_profile_text("fast")
+        )
+        self.assertEqual(
+            ("Fast", "short requests"),
+            api.timeout_profile_text("fast", lang="en"),
         )
 
     def test_profile_lookup_and_localized_fallback(self):

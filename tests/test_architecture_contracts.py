@@ -2498,15 +2498,65 @@ class ArchitectureContractTests(unittest.TestCase):
             encoding="utf-8"
         )
         tree = ast.parse(source)
-        function = next(
-            node
-            for node in tree.body
-            if isinstance(node, ast.FunctionDef)
-            and node.name == "apply_lm_studio_loaded_context_guard"
-        )
-        function_source = ast.get_source_segment(source, function) or ""
-        self.assertIn("context_guard", function_source)
-        self.assertNotIn("LM Studio selected model", function_source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "lm_studio_v1_model_info",
+            "lm_studio_loaded_instance_ids",
+            "lm_studio_target_context",
+            "lm_studio_load_timeout_seconds",
+            "lm_studio_load_model",
+            "lm_studio_unload_loaded_instances",
+            "lm_studio_load_response_context",
+            "ensure_lm_studio_model_loaded_for_context",
+            "apply_lm_studio_loaded_context_guard",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        self.assertIn("LmStudioLifecycleApi", source)
+        runtime_source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "lm_studio_runtime.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("__getattr__", runtime_source)
+
+    def test_timeout_and_model_selection_use_explicit_typed_apis(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "llm_preset_timeout_ms",
+            "active_llm_preset_timeout_ms",
+            "timeout_profile_id_for_ms",
+            "timeout_profile_text",
+            "timeout_profile_status",
+            "timeout_profile_idle_ms",
+            "timeout_profile_panel_rows",
+            "apply_timeout_profile_to_provider",
+            "with_preset_timeout_tokens",
+            "current_upstream_model_id",
+            "provider_placeholder_model_ids",
+            "current_model_needs_provider_selection",
+            "ensure_current_model_from_provider_list",
+            "launch_model_id",
+            "resolve_requested_model",
+            "resolve_tool_model_references",
+            "list_model_objects",
+            "list_model_objects_for_request",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        self.assertIn("TimeoutProfileApi", source)
+        self.assertIn("ProviderModelSelectionApi", source)
+        for relative_path in (
+            Path("ciel_runtime_support/timeout_profile.py"),
+            Path("ciel_runtime_support/provider_model_selection.py"),
+        ):
+            service_source = (root / relative_path).read_text(encoding="utf-8")
+            self.assertNotIn("__getattr__", service_source)
 
     def test_mcp_proxy_codec_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(McpProxyCodecPolicy)), 10)

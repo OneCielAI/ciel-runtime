@@ -156,3 +156,41 @@ class TimeoutProfileService:
         filtered.append(f"timeout={timeout_ms}")
         filtered.append(f"stream_idle_timeout_ms={idle_ms}")
         return filtered
+
+
+@dataclass(frozen=True, slots=True)
+class TimeoutProfileApi:
+    """Explicit compatibility API with an injected default-language source."""
+
+    service_factory: Callable[[], TimeoutProfileService]
+    default_language: Callable[[], str]
+
+    def _language(self, language: str | None) -> str:
+        return language or self.default_language()
+
+    def llm_preset_timeout_ms(self, preset_id: str) -> int:
+        return self.service_factory().llm_preset_timeout(preset_id)
+
+    def active_llm_preset_timeout_ms(self, pcfg: dict[str, Any]) -> int | None:
+        return self.service_factory().active_llm_preset_timeout(pcfg)
+
+    def timeout_profile_id_for_ms(self, ms: int | None) -> str | None:
+        return self.service_factory().profile_id(ms)
+
+    def timeout_profile_text(self, profile_id: str, lang: str | None = None) -> LocalizedText:
+        return self.service_factory().text(profile_id, self._language(lang))
+
+    def timeout_profile_status(self, pcfg: dict[str, Any], lang: str | None = None) -> str:
+        return self.service_factory().status(pcfg, self._language(lang))
+
+    def timeout_profile_idle_ms(self, request_timeout_ms: int) -> int:
+        return self.service_factory().idle_timeout(request_timeout_ms)
+
+    def timeout_profile_panel_rows(self, pcfg: dict[str, Any], lang: str | None = None) -> tuple[list[str], list[str]]:
+        return self.service_factory().panel_rows(pcfg, self._language(lang))
+
+    def apply_timeout_profile_to_provider(self, pcfg: dict[str, Any], profile_id: str, lang: str | None = None) -> list[str]:
+        return self.service_factory().apply(pcfg, profile_id, self._language(lang))
+
+    def with_preset_timeout_tokens(self, tokens: list[str], preset_id: str) -> list[str]:
+        return self.service_factory().with_llm_preset_timeout(tokens, preset_id)

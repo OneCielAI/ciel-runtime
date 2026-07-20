@@ -347,3 +347,37 @@ class ProviderModelSelection:
                     f"error={type(exc).__name__}: {exc}",
                 )
         return self.list_objects(provider, config)
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderModelSelectionApi:
+    """Explicit public adapter for late-bound model-selection services."""
+
+    selection_factory: Callable[[], ProviderModelSelection]
+
+    def current_upstream_model_id(self, provider: str, pcfg: dict[str, Any]) -> str:
+        return self.selection_factory().current_upstream_id(provider, pcfg)
+
+    def provider_placeholder_model_ids(self, provider: str) -> set[str]:
+        return self.selection_factory().selection.placeholders(provider)
+
+    def current_model_needs_provider_selection(self, provider: str, pcfg: dict[str, Any]) -> bool:
+        return self.selection_factory().needs_selection(provider, pcfg)
+
+    def ensure_current_model_from_provider_list(self, provider: str, pcfg: dict[str, Any], *, force_refresh: bool = False) -> tuple[bool, list[str]]:
+        return self.selection_factory().ensure_selected(provider, pcfg, force_refresh=force_refresh)
+
+    def launch_model_id(self, provider: str, pcfg: dict[str, Any]) -> str:
+        return self.selection_factory().launch_id(provider, pcfg)
+
+    def resolve_requested_model(self, provider: str, pcfg: dict[str, Any], requested: str | None) -> str:
+        return self.selection_factory().resolve_requested(provider, pcfg, requested)
+
+    def resolve_tool_model_references(self, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
+        return self.selection_factory().resolve_tool_models(provider, pcfg, body)
+
+    def list_model_objects(self, provider: str, pcfg: dict[str, Any]) -> list[dict[str, Any]]:
+        return self.selection_factory().list_objects(provider, pcfg)
+
+    def list_model_objects_for_request(self, provider: str, pcfg: dict[str, Any], inbound_headers: Any | None = None) -> list[dict[str, Any]]:
+        return self.selection_factory().list_objects_for_request(provider, pcfg, inbound_headers)
