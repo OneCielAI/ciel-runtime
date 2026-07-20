@@ -90,4 +90,50 @@ class ProviderModelIdentityService:
         return self.adapters.create(provider).display_model_name(model_id, label)
 
 
-__all__ = ["ProviderAdapterRegistryPort", "ProviderModelIdentityService"]
+@dataclass(frozen=True, slots=True)
+class ProviderModelIdentityApi:
+    """Preserve the facade's public model-identity signatures explicitly."""
+
+    service: ProviderModelIdentityService
+
+    def normalize_provider(self, name: str) -> str:
+        return self.service.normalize_provider(name)
+
+    def slug(self, s: str) -> str:
+        return self.service.slug(s)
+
+    def model_sort_key(self, model_id: str) -> tuple[str, str]:
+        return self.service.sort_key(model_id)
+
+    def sorted_model_ids(self, ids: list[str]) -> list[str]:
+        return self.service.sorted_ids(ids)
+
+    def unique_model_ids(self, provider: str, ids: list[str]) -> list[str]:
+        return self.service.unique_ids(provider, ids)
+
+    def normalize_model_id(self, provider: str, model_id: str) -> str:
+        return self.service.normalize_model_id(provider, model_id)
+
+    def strip_claude_context_suffix(self, model_id: str | None) -> str:
+        return self.service.strip_claude_context_suffix(model_id)
+
+    def upstream_api_model_id(self, provider: str, model_id: str | None) -> str:
+        return self.service.upstream_api_model_id(provider, model_id)
+
+    def alias_for(self, provider: str, model_id: str) -> str:
+        return self.service.alias_for(provider, model_id)
+
+    def unslug_provider_alias(
+        self, provider: str, alias: str, model_map: dict[str, str]
+    ) -> str | None:
+        return self.service.unslug_alias(provider, alias, model_map)
+
+    def display_name(self, provider: str, model_id: str) -> str:
+        return self.service.display_name(provider, model_id)
+
+
+__all__ = [
+    "ProviderAdapterRegistryPort",
+    "ProviderModelIdentityApi",
+    "ProviderModelIdentityService",
+]

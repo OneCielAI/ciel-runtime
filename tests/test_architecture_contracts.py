@@ -1832,16 +1832,38 @@ class ArchitectureContractTests(unittest.TestCase):
             root / "ciel_runtime_support" / "providers" / "nvidia.py"
         ).read_text(encoding="utf-8")
         tree = ast.parse(source)
-        display_function = next(
-            node
-            for node in tree.body
-            if isinstance(node, ast.FunctionDef) and node.name == "display_name"
-        )
-        display_source = ast.get_source_segment(source, display_function) or ""
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "normalize_provider",
+            "normalize_provider_choice",
+            "slug",
+            "model_sort_key",
+            "sorted_model_ids",
+            "unique_model_ids",
+            "normalize_model_id",
+            "strip_claude_context_suffix",
+            "upstream_api_model_id",
+            "alias_for",
+            "unslug_provider_alias",
+            "display_name",
+            "anthropic_model_family_from_id",
+            "anthropic_model_limit_hints",
+            "anthropic_model_runtime_hints",
+            "normalize_claude_code_supported_capabilities",
+            "anthropic_recommended_preset_for_model",
+            "parse_retry_after_seconds",
+            "format_duration_seconds",
+            "first_header",
+            "first_int_in_header",
+            "rate_limit_reset_seconds",
+        }
 
         self.assertIn("_PROVIDER_MODEL_IDENTITY = ProviderModelIdentityService(", source)
-        self.assertIn("return _PROVIDER_MODEL_IDENTITY.display_name(provider, model_id)", display_source)
-        self.assertNotIn('provider == "nvidia-hosted"', display_source)
+        self.assertIn("ProviderModelIdentityApi", source)
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        self.assertNotIn("__getattr__", identity_source)
         self.assertIn("class ProviderAdapterRegistryPort(Protocol):", identity_source)
         self.assertIn("def display_model_name", nvidia_source)
 
@@ -3166,6 +3188,48 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             self.assertIn(composition_function, root_functions)
 
+    def test_channel_config_and_ollama_catalog_exports_are_explicit(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "ollama_library_model_parts",
+            "context_label_to_tokens",
+            "ollama_model_catalog_key",
+            "context_tokens_from_ollama_snippet",
+            "parse_ollama_library_context_map",
+            "parse_ollama_library_context_limit",
+            "ollama_context_model_matches",
+            "parse_passthrough_channel_specs",
+            "auto_import_passthrough_channels",
+            "channel_specs_for_launch",
+            "is_channel_spec_tagged",
+            "normalize_channel_delivery",
+            "channel_delivery_mode",
+            "set_channel_delivery_config",
+            "add_channel_spec",
+            "remove_channel_spec",
+            "clear_channel_specs",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        self.assertIn("ChannelConfigApi", source)
+        channel_source = (
+            root / "ciel_runtime_support" / "channel_config_service.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("__getattr__", channel_source)
+        for composition_function in (
+            "recommended_timeout_ms_for_context",
+            "ollama_catalog_is_stale",
+            "ollama_catalog_context_for_model",
+            "ollama_catalog_timeout_for_model",
+            "update_ollama_catalog_context",
+            "channel_config_service",
+        ):
+            self.assertIn(composition_function, root_functions)
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):
@@ -3183,6 +3247,68 @@ class ArchitectureContractTests(unittest.TestCase):
                 if isinstance(node, ast.ImportFrom)
             )
             self.assertNotIn("ciel_runtime", imported, path.name)
+
+    def test_support_module_import_graph_is_acyclic(self):
+        support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
+        module_by_path = {}
+        for path in support.rglob("*.py"):
+            relative = path.relative_to(support.parent).with_suffix("")
+            parts = relative.parts[:-1] if relative.name == "__init__" else relative.parts
+            module_by_path[path] = ".".join(parts)
+        modules = set(module_by_path.values())
+        graph = {module: set() for module in modules}
+
+        for path, module in module_by_path.items():
+            package = module if path.name == "__init__.py" else module.rsplit(".", 1)[0]
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    graph[module].update(
+                        alias.name for alias in node.names if alias.name in modules
+                    )
+                    continue
+                if not isinstance(node, ast.ImportFrom):
+                    continue
+                if node.level:
+                    package_parts = package.split(".")
+                    parent = ".".join(
+                        package_parts[: len(package_parts) - node.level + 1]
+                    )
+                    target = ".".join(
+                        part for part in (parent, node.module or "") if part
+                    )
+                else:
+                    target = node.module or ""
+                if target in modules:
+                    graph[module].add(target)
+                graph[module].update(
+                    child
+                    for alias in node.names
+                    if (child := f"{target}.{alias.name}" if target else alias.name)
+                    in modules
+                )
+
+        visiting: list[str] = []
+        active: set[str] = set()
+        visited: set[str] = set()
+
+        def visit(module: str) -> None:
+            if module in visited:
+                return
+            if module in active:
+                start = visiting.index(module)
+                cycle = visiting[start:] + [module]
+                self.fail("support import cycle: " + " -> ".join(cycle))
+            active.add(module)
+            visiting.append(module)
+            for dependency in graph[module]:
+                visit(dependency)
+            visiting.pop()
+            active.remove(module)
+            visited.add(module)
+
+        for module in graph:
+            visit(module)
 
     def test_composition_root_delegates_major_application_services(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")

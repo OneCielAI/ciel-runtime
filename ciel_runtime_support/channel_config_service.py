@@ -183,3 +183,49 @@ class ChannelConfigService:
         return [
             "External Claude Code channels cleared. Ciel Runtime router remains enabled."
         ]
+
+
+@dataclass(frozen=True, slots=True)
+class ChannelConfigApi:
+    """Explicit public adapter for late-bound Channel configuration services."""
+
+    service_factory: Callable[[], ChannelConfigService]
+
+    def parse_passthrough_channel_specs(self, passthrough: list[str]) -> list[str]:
+        return self.service_factory().parse_passthrough(passthrough)
+
+    def auto_import_passthrough_channels(self, passthrough: list[str]) -> list[str]:
+        return self.service_factory().auto_import(passthrough)
+
+    def channel_specs_for_launch(
+        self,
+        cfg: dict[str, Any],
+        passthrough: list[str],
+        extra_specs: list[str] | None = None,
+    ) -> list[str]:
+        del passthrough
+        return self.service_factory().launch_specs(cfg, extra_specs)
+
+    def is_channel_spec_tagged(self, spec: str) -> bool:
+        return self.service_factory().is_tagged(spec)
+
+    def normalize_channel_delivery(self, value: Any) -> str:
+        return self.service_factory().normalize_delivery(value)
+
+    def channel_delivery_mode(self, cfg: dict[str, Any] | None = None) -> str:
+        return self.service_factory().delivery_mode(cfg)
+
+    def set_channel_delivery_config(self, value: Any) -> list[str]:
+        return self.service_factory().set_delivery(value)
+
+    def add_channel_spec(
+        self, spec: str, *, development: bool = False
+    ) -> list[str]:
+        del development
+        return self.service_factory().add(spec)
+
+    def remove_channel_spec(self, spec: str) -> list[str]:
+        return self.service_factory().remove(spec)
+
+    def clear_channel_specs(self) -> list[str]:
+        return self.service_factory().clear()

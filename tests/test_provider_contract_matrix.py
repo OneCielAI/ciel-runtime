@@ -283,21 +283,23 @@ class ProviderContractMatrixTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
-        for function_name in ("normalize_model_id", "upstream_api_model_id", "alias_for"):
-            function = next(
-                node
-                for node in tree.body
-                if isinstance(node, ast.FunctionDef) and node.name == function_name
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        self.assertTrue(
+            {"normalize_model_id", "upstream_api_model_id", "alias_for"}.isdisjoint(
+                root_functions
             )
-            function_source = ast.get_source_segment(source, function) or ""
-            with self.subTest(function=function_name):
-                self.assertIn("_PROVIDER_MODEL_IDENTITY.", function_source)
-                self.assertNotIn('provider == "', function_source)
-                self.assertNotIn("provider in (", function_source)
+        )
+        self.assertIn("_PROVIDER_MODEL_IDENTITY_API.normalize_model_id", source)
+        self.assertIn("_PROVIDER_MODEL_IDENTITY_API.upstream_api_model_id", source)
+        self.assertIn("_PROVIDER_MODEL_IDENTITY_API.alias_for", source)
         identity_source = (
             root / "ciel_runtime_support" / "provider_model_identity.py"
         ).read_text(encoding="utf-8")
         self.assertIn("self.adapters.create(provider)", identity_source)
+        self.assertNotIn('provider == "', identity_source)
+        self.assertNotIn("provider in (", identity_source)
 
     def test_historical_tool_turn_normalization_policy_is_adapter_owned(self):
         anthropic = PROVIDER_ADAPTERS.create("anthropic").request_policy(config("anthropic"))

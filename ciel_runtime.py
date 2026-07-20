@@ -122,6 +122,7 @@ from ciel_runtime_support.channel_connection_worker import (
     ChannelWorkerStateStore,
 )
 from ciel_runtime_support.channel_config_service import (
+    ChannelConfigApi,
     ChannelConfigPorts,
     ChannelConfigService,
 )
@@ -914,7 +915,10 @@ from ciel_runtime_support.provider_adapters import (
     PROVIDER_LABELS,
     provider_default_configurations,
 )
-from ciel_runtime_support.provider_model_identity import ProviderModelIdentityService
+from ciel_runtime_support.provider_model_identity import (
+    ProviderModelIdentityApi,
+    ProviderModelIdentityService,
+)
 from ciel_runtime_support.provider_compatibility import PROVIDER_COMPATIBILITY
 from ciel_runtime_support.provider_context import (
     ContextPresetServices,
@@ -1438,6 +1442,7 @@ _PROVIDER_MODEL_IDENTITY = ProviderModelIdentityService(
     aliases=PROVIDER_ALIASES,
     labels=PROVIDER_LABELS,
 )
+_PROVIDER_MODEL_IDENTITY_API = ProviderModelIdentityApi(_PROVIDER_MODEL_IDENTITY)
 
 
 upstream_user_agent = provider_network.upstream_user_agent
@@ -1589,20 +1594,15 @@ def compat_max_tokens_for_model(model_id: str) -> int:
     return model_preset(model_id).get("compat_max_tokens", 16)
 
 
-def ollama_library_model_parts(model_id: str) -> tuple[str, str] | None:
-    return ollama_catalog_policy.library_model_parts(model_id)
-
-
-def context_label_to_tokens(number: str, unit: str | None) -> int | None:
-    return ollama_catalog_policy.context_label_to_tokens(number, unit)
+ollama_library_model_parts = ollama_catalog_policy.library_model_parts
+context_label_to_tokens = ollama_catalog_policy.context_label_to_tokens
 
 
 def recommended_timeout_ms_for_context(context_tokens: int | None) -> int:
     return ollama_catalog_policy.recommended_timeout_ms(context_tokens, DEFAULT_REQUEST_TIMEOUT_MS)
 
 
-def ollama_model_catalog_key(model_id: str) -> tuple[str, str, str] | None:
-    return ollama_catalog_policy.model_catalog_key(model_id)
+ollama_model_catalog_key = ollama_catalog_policy.model_catalog_key
 
 
 def ollama_catalog_repository() -> OllamaCatalogRepository:
@@ -1633,12 +1633,8 @@ def fetch_json_url(url: str, timeout: float = 12.0) -> Any:
     return ollama_catalog_repository().fetch_json(url, timeout)
 
 
-def context_tokens_from_ollama_snippet(snippet: str, table_fallback: bool = True) -> int | None:
-    return ollama_catalog_policy.context_tokens_from_snippet(snippet, table_fallback)
-
-
-def parse_ollama_library_context_map(page_html: str, base_model: str) -> dict[str, int]:
-    return ollama_catalog_policy.parse_library_context_map(page_html, base_model)
+context_tokens_from_ollama_snippet = ollama_catalog_policy.context_tokens_from_snippet
+parse_ollama_library_context_map = ollama_catalog_policy.parse_library_context_map
 
 
 def fetch_ollama_library_context_map(base_model: str, timeout: float = 10.0) -> tuple[dict[str, int], str | None]:
@@ -1679,8 +1675,7 @@ def update_ollama_catalog_context(model_id: str, limit: int, matched_model: str 
     save_ollama_model_catalog(catalog)
 
 
-def parse_ollama_library_context_limit(tags_html: str, full_model_id: str) -> int | None:
-    return ollama_catalog_policy.parse_library_context_limit(tags_html, full_model_id)
+parse_ollama_library_context_limit = ollama_catalog_policy.parse_library_context_limit
 
 
 def fetch_ollama_library_context_limit(model_id: str, timeout: float = 6.0) -> tuple[int | None, str | None, str | None]:
@@ -1698,8 +1693,7 @@ def fetch_ollama_library_context_limit(model_id: str, timeout: float = 6.0) -> t
     return limit, full_model, url
 
 
-def ollama_context_model_matches(current_model: str, cached_model: str | None) -> bool:
-    return ollama_catalog_policy.context_model_matches(current_model, cached_model)
+ollama_context_model_matches = ollama_catalog_policy.context_model_matches
 
 
 def sync_ollama_library_context_limit(provider: str, pcfg: dict[str, Any], model_id: str) -> list[str]:
@@ -1922,53 +1916,20 @@ def clear_model_cache() -> None:
     model_cache_lifecycle_service().clear()
 
 
-def normalize_provider(name: str) -> str:
-    return _PROVIDER_MODEL_IDENTITY.normalize_provider(name)
+normalize_provider = _PROVIDER_MODEL_IDENTITY_API.normalize_provider
+normalize_provider_choice = normalize_runtime_provider_choice
 
 
-def normalize_provider_choice(name: str) -> str | None:
-    return normalize_runtime_provider_choice(name)
-
-
-def slug(s: str) -> str:
-    return _PROVIDER_MODEL_IDENTITY.slug(s)
-
-
-def model_sort_key(model_id: str) -> tuple[str, str]:
-    return _PROVIDER_MODEL_IDENTITY.sort_key(model_id)
-
-
-def sorted_model_ids(ids: list[str]) -> list[str]:
-    return _PROVIDER_MODEL_IDENTITY.sorted_ids(ids)
-
-
-def unique_model_ids(provider: str, ids: list[str]) -> list[str]:
-    return _PROVIDER_MODEL_IDENTITY.unique_ids(provider, ids)
-
-
-def normalize_model_id(provider: str, model_id: str) -> str:
-    return _PROVIDER_MODEL_IDENTITY.normalize_model_id(provider, model_id)
-
-
-def strip_claude_context_suffix(model_id: str | None) -> str:
-    return _PROVIDER_MODEL_IDENTITY.strip_claude_context_suffix(model_id)
-
-
-def upstream_api_model_id(provider: str, model_id: str | None) -> str:
-    """Return the provider's real API model code for a Claude Code-facing id."""
-    return _PROVIDER_MODEL_IDENTITY.upstream_api_model_id(provider, model_id)
-
-
-def alias_for(provider: str, model_id: str) -> str:
-    return _PROVIDER_MODEL_IDENTITY.alias_for(provider, model_id)
-
-
-def unslug_provider_alias(provider: str, alias: str, model_map: dict[str, str]) -> str | None:
-    return _PROVIDER_MODEL_IDENTITY.unslug_alias(provider, alias, model_map)
-
-
-def display_name(provider: str, model_id: str) -> str:
-    return _PROVIDER_MODEL_IDENTITY.display_name(provider, model_id)
+slug = _PROVIDER_MODEL_IDENTITY_API.slug
+model_sort_key = _PROVIDER_MODEL_IDENTITY_API.model_sort_key
+sorted_model_ids = _PROVIDER_MODEL_IDENTITY_API.sorted_model_ids
+unique_model_ids = _PROVIDER_MODEL_IDENTITY_API.unique_model_ids
+normalize_model_id = _PROVIDER_MODEL_IDENTITY_API.normalize_model_id
+strip_claude_context_suffix = _PROVIDER_MODEL_IDENTITY_API.strip_claude_context_suffix
+upstream_api_model_id = _PROVIDER_MODEL_IDENTITY_API.upstream_api_model_id
+alias_for = _PROVIDER_MODEL_IDENTITY_API.alias_for
+unslug_provider_alias = _PROVIDER_MODEL_IDENTITY_API.unslug_provider_alias
+display_name = _PROVIDER_MODEL_IDENTITY_API.display_name
 
 
 def model_object(provider: str, model_id: str, pcfg: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -3101,23 +3062,15 @@ def model_cache_key(provider: str, pcfg: dict[str, Any]) -> str:
     )
 
 
-def anthropic_model_family_from_id(model_id: str) -> str:
-    return anthropic_model_policy.model_family(model_id)
-
-
-def anthropic_model_limit_hints(model_id: str) -> dict[str, Any]:
-    return anthropic_model_policy.limit_hints(model_id)
-
-
-def anthropic_model_runtime_hints(model_id: str) -> dict[str, Any]:
-    return anthropic_model_policy.runtime_hints(model_id)
+anthropic_model_family_from_id = anthropic_model_policy.model_family
+anthropic_model_limit_hints = anthropic_model_policy.limit_hints
+anthropic_model_runtime_hints = anthropic_model_policy.runtime_hints
 
 
 CLAUDE_CODE_SUPPORTED_CAPABILITY_VALUES = anthropic_model_policy.SUPPORTED_CAPABILITIES
 
 
-def normalize_claude_code_supported_capabilities(value: Any) -> list[str]:
-    return anthropic_model_policy.normalize_capabilities(value)
+normalize_claude_code_supported_capabilities = anthropic_model_policy.normalize_capabilities
 
 
 def infer_claude_code_supported_capabilities_from_model(model_id: str) -> list[str]:
@@ -3155,8 +3108,7 @@ def claude_code_ultracode_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
     return parse_bool(pcfg.get("ultracode"), False)
 
 
-def anthropic_recommended_preset_for_model(model_id: str) -> str:
-    return anthropic_model_policy.recommended_preset(model_id)
+anthropic_recommended_preset_for_model = anthropic_model_policy.recommended_preset
 
 
 def model_registry_recommendations(provider: str, models: list[str]) -> dict[str, Any]:
@@ -3610,24 +3562,11 @@ def record_router_rate_usage(provider: str, pcfg: dict[str, Any], model: str | N
     return router_rate_limit_service().record_usage(provider, pcfg, model, rpm)
 
 
-def parse_retry_after_seconds(value: str | None) -> float | None:
-    return rate_limit_policy.retry_after_seconds(value)
-
-
-def format_duration_seconds(seconds: float) -> str:
-    return rate_limit_policy.format_duration(seconds)
-
-
-def first_header(headers: Any, names: list[str]) -> str | None:
-    return rate_limit_policy.first_header(headers, names)
-
-
-def first_int_in_header(value: str | None) -> int | None:
-    return rate_limit_policy.first_integer(value)
-
-
-def rate_limit_reset_seconds(value: str | None) -> float | None:
-    return rate_limit_policy.reset_seconds(value)
+parse_retry_after_seconds = rate_limit_policy.retry_after_seconds
+format_duration_seconds = rate_limit_policy.format_duration
+first_header = rate_limit_policy.first_header
+first_int_in_header = rate_limit_policy.first_integer
+rate_limit_reset_seconds = rate_limit_policy.reset_seconds
 
 
 def learn_router_rate_limit_headers(provider: str, pcfg: dict[str, Any], model: str | None, headers: Any) -> None:
@@ -9340,12 +9279,9 @@ def channel_config_service() -> ChannelConfigService:
     )
 
 
-def parse_passthrough_channel_specs(passthrough: list[str]) -> list[str]:
-    return channel_config_service().parse_passthrough(passthrough)
-
-
-def auto_import_passthrough_channels(passthrough: list[str]) -> list[str]:
-    return channel_config_service().auto_import(passthrough)
+_CHANNEL_CONFIG_API = ChannelConfigApi(channel_config_service)
+parse_passthrough_channel_specs = _CHANNEL_CONFIG_API.parse_passthrough_channel_specs
+auto_import_passthrough_channels = _CHANNEL_CONFIG_API.auto_import_passthrough_channels
 
 
 def channel_mcp_discovery_service() -> ChannelMcpDiscoveryService:
@@ -9457,8 +9393,7 @@ def start_router_managed_channel_sse(cfg: dict[str, Any]) -> list[dict[str, Any]
     return channel_router_lifecycle().start(cfg)
 
 
-def channel_specs_for_launch(cfg: dict[str, Any], passthrough: list[str], extra_specs: list[str] | None = None) -> list[str]:
-    return channel_config_service().launch_specs(cfg, extra_specs)
+channel_specs_for_launch = _CHANNEL_CONFIG_API.channel_specs_for_launch
 
 
 _CHANNEL_PROBE_API = ChannelProbeCompatibilityApi(
@@ -9528,8 +9463,7 @@ def ensure_channel_probe_cache_for_launch(
     )
 
 
-def is_channel_spec_tagged(spec: str) -> bool:
-    return channel_config_service().is_tagged(spec)
+is_channel_spec_tagged = _CHANNEL_CONFIG_API.is_channel_spec_tagged
 
 
 def channel_status_text(cfg: dict[str, Any] | None = None) -> str:
@@ -9544,28 +9478,12 @@ def set_channel_development_enabled(enabled: bool) -> list[str]:
     return ["Channel wake delivery is always enabled by Ciel Runtime."]
 
 
-def normalize_channel_delivery(value: Any) -> str:
-    return channel_config_service().normalize_delivery(value)
-
-
-def channel_delivery_mode(cfg: dict[str, Any] | None = None) -> str:
-    return channel_config_service().delivery_mode(cfg)
-
-
-def set_channel_delivery_config(value: Any) -> list[str]:
-    return channel_config_service().set_delivery(value)
-
-
-def add_channel_spec(spec: str, *, development: bool = False) -> list[str]:
-    return channel_config_service().add(spec)
-
-
-def remove_channel_spec(spec: str) -> list[str]:
-    return channel_config_service().remove(spec)
-
-
-def clear_channel_specs() -> list[str]:
-    return channel_config_service().clear()
+normalize_channel_delivery = _CHANNEL_CONFIG_API.normalize_channel_delivery
+channel_delivery_mode = _CHANNEL_CONFIG_API.channel_delivery_mode
+set_channel_delivery_config = _CHANNEL_CONFIG_API.set_channel_delivery_config
+add_channel_spec = _CHANNEL_CONFIG_API.add_channel_spec
+remove_channel_spec = _CHANNEL_CONFIG_API.remove_channel_spec
+clear_channel_specs = _CHANNEL_CONFIG_API.clear_channel_specs
 
 
 def channel_cli_controller() -> ChannelCliController:
