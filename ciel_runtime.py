@@ -479,6 +479,10 @@ from ciel_runtime_support.provider_choice import (
     ProviderChoicePorts,
     normalize_provider_choice as normalize_runtime_provider_choice,
 )
+from ciel_runtime_support.package_lifecycle import (
+    NpmPackageLifecycle,
+    NpmPackageLifecyclePorts,
+)
 from ciel_runtime_support.provider_option_cli import (
     OllamaOptionCommands,
     ProviderOptionCliConfig,
@@ -16377,39 +16381,22 @@ def install_runtime_package_if_missing(
     package_spec: str,
     skip_env: str,
 ) -> str | None:
-    executable = find_executable(executable_name)
-    if executable:
-        return executable
-    if os.environ.get(skip_env) == "1":
-        return None
-    npm = find_executable("npm")
-    if not npm:
-        print(f"{label} executable was not found, and npm is not available to install {package_spec}.", flush=True)
-        return None
-    install_prefix = current_npm_install_prefix()
-    cmd = npm_install_runtime_command(npm, package_spec, install_prefix)
-    print(f"{label} executable was not found; installing {package_spec}...", flush=True)
-    if install_prefix is not None:
-        print(f"Installing {label} into active npm prefix: {install_prefix}", flush=True)
-    rc, out = run_command_for_upgrade(cmd, timeout=300)
-    if out:
-        print(out, flush=True)
-    if rc != 0:
-        print(f"{label} install failed ({rc}).", flush=True)
-        if install_prefix is not None:
-            print(
-                f"Install targeted the active install prefix ({install_prefix}). "
-                "If this prefix is not writable, install with the permissions used for that prefix.",
-                flush=True,
-            )
-        return None
-    add_npm_prefix_bin_to_path(install_prefix)
-    executable = find_executable(executable_name)
-    if executable:
-        print(f"{label} installed: {executable}", flush=True)
-    else:
-        print(f"{label} install completed, but the {executable_name} executable is still not visible in PATH.", flush=True)
-    return executable
+    return npm_package_lifecycle().install_if_missing(
+        executable_name=executable_name,
+        label=label,
+        package_spec=package_spec,
+        skip_env=skip_env,
+    )
+
+
+def npm_package_lifecycle() -> NpmPackageLifecycle:
+    return NpmPackageLifecycle(
+        NpmPackageLifecyclePorts(
+            find_executable, current_npm_install_prefix, npm_install_runtime_command,
+            run_command_for_upgrade, add_npm_prefix_bin_to_path,
+            npm_latest_package_version, version_newer, print,
+        )
+    )
 
 
 def run_runtime_npm_update_check(
@@ -16422,42 +16409,15 @@ def run_runtime_npm_update_check(
     current_version: Callable[[str], str],
     enabled: bool = True,
 ) -> str:
-    if not enabled:
-        return executable
-    if os.environ.get(skip_env) == "1":
-        return executable
-    print(f"Checking {label} update before launch...", flush=True)
-    current = current_version(executable)
-    if current:
-        print(f"Current {label} version: {current}", flush=True)
-    npm = find_executable("npm")
-    if not npm:
-        print(f"{label} update check skipped: npm was not found.", flush=True)
-        return executable
-    latest = npm_latest_package_version(npm, package_spec)
-    if not latest:
-        print(f"{label} update check could not read the latest npm version; continuing.", flush=True)
-        return executable
-    if current and not version_newer(latest, current):
-        print(f"{label} is up to date ({current}).", flush=True)
-        return executable
-    current_label = current or "unknown"
-    print(f"{label} update available: {current_label} -> {latest}; upgrading automatically.", flush=True)
-    install_prefix = current_npm_install_prefix()
-    if install_prefix is not None:
-        print(f"Updating {label} in active npm prefix: {install_prefix}", flush=True)
-    rc, out = run_command_for_upgrade(npm_install_runtime_command(npm, package_spec, install_prefix), timeout=300)
-    if out:
-        print(out, flush=True)
-    if rc != 0:
-        print(f"{label} update failed ({rc}); continuing with current version.", flush=True)
-        return executable
-    add_npm_prefix_bin_to_path(install_prefix)
-    updated = find_executable(executable_name) or executable
-    new_version = current_version(updated)
-    if new_version:
-        print(f"{label} version after update: {new_version}", flush=True)
-    return updated
+    return npm_package_lifecycle().update_check(
+        executable,
+        executable_name=executable_name,
+        label=label,
+        package_spec=package_spec,
+        skip_env=skip_env,
+        current_version=current_version,
+        enabled=enabled,
+    )
 
 
 def run_claude_update_check(claude: str, enabled: bool = True) -> str:

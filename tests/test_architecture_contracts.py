@@ -175,6 +175,7 @@ from ciel_runtime_support.router_http import (
     EventHttpPorts,
 )
 from ciel_runtime_support.chat_files import ChatFilePorts
+from ciel_runtime_support.package_lifecycle import NpmPackageLifecyclePorts
 from ciel_runtime_support.headless_config import (
     HeadlessChannelCommands,
     HeadlessConfigCommands,
@@ -812,6 +813,9 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_chat_file_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChatFilePorts)), 10)
+
+    def test_npm_package_lifecycle_ports_stay_below_dependency_limit(self):
+        self.assertLessEqual(len(fields(NpmPackageLifecyclePorts)), 10)
 
     def test_terminal_mouse_filter_lives_outside_composition_root(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"

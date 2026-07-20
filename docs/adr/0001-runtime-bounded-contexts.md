@@ -210,6 +210,10 @@ Incremental terminal mouse-report filtering lives in
 `channel_terminal_input.py`, next to newline and wake-input policies, rather
 than as a stateful parser class in the composition root.
 
+Generic npm-backed runtime installation and update checks live in
+`NpmPackageLifecycle`. Runtime-specific wrappers supply package names and
+version readers while npm/prefix/version/output effects use one bounded port.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file
