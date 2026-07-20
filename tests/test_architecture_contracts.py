@@ -3448,6 +3448,29 @@ class ArchitectureContractTests(unittest.TestCase):
         for module in graph:
             visit(module)
 
+    def test_mcp_proxy_notification_state_is_service_owned(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "_mcp_proxy_notification_payload",
+            "_mcp_proxy_stable_event_identity",
+            "_mcp_proxy_notification_dedupe_key",
+            "_mcp_proxy_should_skip_duplicate_notification",
+            "_mcp_proxy_observe_json_message",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        self.assertIn("McpProxyNotificationService", source)
+        service_source = (
+            root / "ciel_runtime_support" / "mcp_proxy_notifications.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("class McpNotificationDedupeState:", service_source)
+        self.assertNotIn("__getattr__", service_source)
+        self.assertNotIn("import ciel_runtime", service_source)
+
     def test_composition_root_delegates_major_application_services(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)

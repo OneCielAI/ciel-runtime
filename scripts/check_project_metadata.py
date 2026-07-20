@@ -35,11 +35,15 @@ def main() -> int:
                 errors.append(f"broken local link in {markdown.relative_to(ROOT)}: {target}")
 
     package_version = str(json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"])
-    runtime_text = (ROOT / "ciel_runtime.py").read_text(encoding="utf-8")
+    runtime_version_path = ROOT / "ciel_runtime_support" / "runtime_constants.py"
+    runtime_text = runtime_version_path.read_text(encoding="utf-8")
     match = re.search(r'^VERSION\s*=\s*["\']([^"\']+)["\']', runtime_text, re.MULTILINE)
     runtime_version = match.group(1) if match else ""
     if package_version != runtime_version:
-        errors.append(f"version mismatch: package.json={package_version} ciel_runtime.py={runtime_version or '<missing>'}")
+        errors.append(
+            f"version mismatch: package.json={package_version} "
+            f"{runtime_version_path.relative_to(ROOT)}={runtime_version or '<missing>'}"
+        )
 
     module_map = (ROOT / "docs" / "Module-Map.md").read_text(encoding="utf-8")
     support_modules = sorted(
