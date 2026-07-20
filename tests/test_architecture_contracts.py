@@ -165,6 +165,7 @@ from ciel_runtime_support.channel_compact_injection import (
     ChannelCompactRuntimePorts,
 )
 from ciel_runtime_support.channel_config_service import ChannelConfigPorts
+from ciel_runtime_support.channel_cursor_service import ChannelDeliveryCursorPorts
 from ciel_runtime_support.channel_cli import ChannelCliCommands, ChannelCliView
 from ciel_runtime_support.channel_inflight import (
     ChannelInflightEffects,
@@ -1673,6 +1674,21 @@ class ArchitectureContractTests(unittest.TestCase):
             function_source = ast.get_source_segment(source, functions[name]) or ""
             self.assertIn("ProviderSamplingPolicy", function_source)
             self.assertLessEqual(len(function_source.splitlines()), 2)
+
+    def test_channel_delivery_cursor_committer_has_bounded_ports(self):
+        self.assertLessEqual(len(fields(ChannelDeliveryCursorPorts)), 5)
+
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        function = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "commit_pending_channel_delivery_cursors"
+        )
+        function_source = ast.get_source_segment(source, function) or ""
+        self.assertIn("ChannelDeliveryCursorCommitter", function_source)
+        self.assertNotIn("status < 200", function_source)
 
     def test_provider_status_ports_stay_below_dependency_limit(self):
         for port in (

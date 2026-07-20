@@ -251,6 +251,8 @@ from ciel_runtime_support.channel_message_repository import ChannelMessageAppend
 from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
 from ciel_runtime_support.channel_cursor_repository import ChannelCursorRepository
 from ciel_runtime_support.channel_cursor_service import (
+    ChannelDeliveryCursorCommitter,
+    ChannelDeliveryCursorPorts,
     ChannelCursorService,
     ChannelCursorServices,
     ChannelResumePolicy,
@@ -11948,16 +11950,6 @@ def channel_backlog_status() -> dict[str, Any]:
     return channel_backlog_service().status()
 
 
-def _metadata_int(metadata: dict[str, Any], key: str) -> int | None:
-    try:
-        value = metadata.get(key)
-        if value is None or value == "":
-            return None
-        return max(0, int(value))
-    except Exception:
-        return None
-
-
 def _commit_channel_llm_cursor_if_newer(last_id: int | None) -> None:
     global _CHANNEL_LLM_CURSOR_LAST_ID
     if last_id is None:
@@ -12006,24 +11998,15 @@ def commit_pending_channel_delivery_cursors(
     handler: BaseHTTPRequestHandler | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> None:
-    if not isinstance(metadata, dict):
-        metadata = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
-    if not metadata:
-        return
-    if handler is not None:
-        status = _handler_response_status(handler)
-        if status is None or status < 200 or status >= 400:
-            router_log(
-                "INFO",
-                f"channel_delivery_cursor_deferred status={status if status is not None else '-'}",
-            )
-            return
-        if _channel_delivery_metadata(metadata) and not pending_channel_delivery_confirmed(handler):
-            reason = str(getattr(handler, "_ciel_runtime_channel_delivery_reason", "unconfirmed") or "unconfirmed")
-            router_log("INFO", f"channel_delivery_cursor_deferred reason={reason}")
-            return
-    message_cursor = _metadata_int(metadata, "ciel_runtime_channel_cursor_last_id")
-    _commit_channel_llm_cursor_if_newer(message_cursor)
+    ChannelDeliveryCursorCommitter(
+        ChannelDeliveryCursorPorts(
+            response_status=_handler_response_status,
+            metadata_enabled=_channel_delivery_metadata,
+            delivery_confirmed=pending_channel_delivery_confirmed,
+            commit_if_newer=_commit_channel_llm_cursor_if_newer,
+            log=router_log,
+        )
+    ).commit(body, handler, metadata)
 
 
 def _channel_stdin_wake_claim_ttl_seconds() -> float:

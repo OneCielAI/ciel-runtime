@@ -917,7 +917,7 @@ Channel 설정·capability probe 명령을 조정하는 CLI Controller. parsing/
 
 ### `ciel_runtime_support/channel_cursor_service.py`
 
-MCP cursor와 resume 동작을 조정하는 Channel Application Service. cursor 저장소와 메시지 조회를 분리한다.
+MCP cursor와 resume 동작을 조정하는 Channel Application Service. cursor 저장소와 메시지 조회를 분리하며, HTTP 응답 상태와 delivery guard 확인 뒤에만 pending LLM cursor를 확정한다.
 
 ### `ciel_runtime_support/channel_mcp_discovery.py`
 
