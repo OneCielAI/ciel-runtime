@@ -235,7 +235,7 @@ Provider 이름, 표시명, alias와 concrete Adapter factory를 정의하는 da
 
 ### `ciel_runtime_support/credentials.py`
 
-API-key 파싱·중복 제거·ProviderConfig 투영과 inbound OAuth header pass-through를 담당하는 Credential Application Service. `CredentialChain`은 인증 소스 우선순위를, source 구현은 allowlist와 header 투영을 소유한다.
+API-key 파싱·중복 제거·ProviderConfig 투영, secret masking/fingerprint/redaction과 inbound OAuth header pass-through를 담당하는 Credential Application Service. `CredentialChain`은 인증 소스 우선순위를, source 구현은 allowlist와 header 투영을 소유하며 facade에는 호환 위임 함수만 남는다.
 
 ### `ciel_runtime_support/routing_fallback.py`
 

@@ -425,10 +425,14 @@ from ciel_runtime_support.codex_process_lifecycle import (
 from ciel_runtime_support.credentials import (
     api_key_clear_requested as project_api_key_clear_requested,
     meaningful_key_value as project_meaningful_key_value,
+    mask_secret as project_mask_secret,
     parse_api_key_list as project_parse_api_key_list,
     provider_config_api_keys as project_provider_config_api_keys,
     provider_contract_config as project_provider_contract_config,
+    redact_sensitive_obj as project_redact_sensitive_obj,
+    redact_sensitive_text as project_redact_sensitive_text,
     resolve_anthropic_credentials,
+    secret_fingerprint as project_secret_fingerprint,
 )
 from ciel_runtime_support.tool_guard_hooks import (
     ToolGuardHookPolicy,
@@ -9625,52 +9629,19 @@ def store_api_keys_config(provider: str, keys: list[str]) -> list[str]:
 
 
 def mask_secret(value: str | None) -> str:
-    text = value or ""
-    if not text:
-        return "not set"
-    if len(text) <= 8:
-        return "*" * len(text)
-    return f"{text[:4]}...{text[-4:]}"
+    return project_mask_secret(value)
 
 
 def secret_fingerprint(value: str | None, length: int = 12) -> str:
-    text = value or ""
-    if not text:
-        return "-"
-    digest = hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
-    return digest[: max(4, length)]
-
-
-SECRET_TEXT_PATTERNS = (
-    re.compile(r"ak_key_[A-Za-z0-9_-]+_secret_[A-Za-z0-9_-]+"),
-    re.compile(r"(AINET_API_KEY\s*=\s*)(\S+)", re.IGNORECASE),
-    re.compile(r"(Authorization\s*:\s*Bearer\s+)(\S+)", re.IGNORECASE),
-    re.compile(r"(token=)(ak_key_[A-Za-z0-9_-]+_secret_[A-Za-z0-9_-]+)", re.IGNORECASE),
-)
+    return project_secret_fingerprint(value, length)
 
 
 def redact_sensitive_text(text: str) -> str:
-    redacted = text
-    redacted = SECRET_TEXT_PATTERNS[0].sub(lambda m: mask_secret(m.group(0)), redacted)
-    for pattern in SECRET_TEXT_PATTERNS[1:]:
-        redacted = pattern.sub(lambda m: f"{m.group(1)}{mask_secret(m.group(2))}", redacted)
-    return redacted
+    return project_redact_sensitive_text(text)
 
 
 def redact_sensitive_obj(value: Any) -> Any:
-    if isinstance(value, str):
-        return redact_sensitive_text(value)
-    if isinstance(value, list):
-        return [redact_sensitive_obj(item) for item in value]
-    if isinstance(value, dict):
-        redacted: dict[str, Any] = {}
-        for key, item in value.items():
-            if str(key).lower() in {"api_key", "api_keys", "apikey", "token", "authorization", "bearer_token"}:
-                redacted[key] = mask_secret(str(item))
-            else:
-                redacted[key] = redact_sensitive_obj(item)
-        return redacted
-    return value
+    return project_redact_sensitive_obj(value)
 
 
 def stored_api_key_mask(provider: str, pcfg: dict[str, Any]) -> str:

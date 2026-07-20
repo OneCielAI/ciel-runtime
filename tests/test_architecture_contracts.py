@@ -671,6 +671,26 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_live_api_key_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(LiveApiKeyPorts)), 10)
 
+    def test_secret_projection_is_owned_by_credentials_module(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        functions = {
+            node.name: ast.unparse(node)
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name in {
+                "mask_secret",
+                "secret_fingerprint",
+                "redact_sensitive_text",
+                "redact_sensitive_obj",
+            }
+        }
+        self.assertEqual(4, len(functions))
+        for name, function_source in functions.items():
+            with self.subTest(function=name):
+                self.assertIn(f"project_{name}", function_source)
+                self.assertNotIn("hashlib", function_source)
+                self.assertNotIn("re.compile", function_source)
+
     def test_claude_launch_ports_stay_below_dependency_limit(self):
         ports = (
             ClaudeLaunchServices,

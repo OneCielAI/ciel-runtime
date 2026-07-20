@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import re
 from typing import Any, Mapping, Protocol
 
@@ -10,6 +11,12 @@ from ciel_runtime_support.architecture import ProviderConfig
 
 
 API_KEY_CLEAR_TOKENS = frozenset({"clear", "unset", "none", "null", "off", "delete", "remove"})
+SECRET_TEXT_PATTERNS = (
+    re.compile(r"ak_key_[A-Za-z0-9_-]+_secret_[A-Za-z0-9_-]+"),
+    re.compile(r"(AINET_API_KEY\s*=\s*)(\S+)", re.IGNORECASE),
+    re.compile(r"(Authorization\s*:\s*Bearer\s+)(\S+)", re.IGNORECASE),
+    re.compile(r"(token=)(ak_key_[A-Za-z0-9_-]+_secret_[A-Za-z0-9_-]+)", re.IGNORECASE),
+)
 
 
 def meaningful_key_value(value: Any) -> bool:
@@ -55,6 +62,48 @@ def parse_api_key_list(value: Any) -> list[str]:
             if meaningful_key_value(key := str(item or "").strip())
         )
     )
+
+
+def mask_secret(value: str | None) -> str:
+    text = value or ""
+    if not text:
+        return "not set"
+    if len(text) <= 8:
+        return "*" * len(text)
+    return f"{text[:4]}...{text[-4:]}"
+
+
+def secret_fingerprint(value: str | None, length: int = 12) -> str:
+    text = value or ""
+    if not text:
+        return "-"
+    digest = hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
+    return digest[: max(4, length)]
+
+
+def redact_sensitive_text(text: str) -> str:
+    redacted = SECRET_TEXT_PATTERNS[0].sub(lambda match: mask_secret(match.group(0)), text)
+    for pattern in SECRET_TEXT_PATTERNS[1:]:
+        redacted = pattern.sub(
+            lambda match: f"{match.group(1)}{mask_secret(match.group(2))}",
+            redacted,
+        )
+    return redacted
+
+
+def redact_sensitive_obj(value: Any) -> Any:
+    if isinstance(value, str):
+        return redact_sensitive_text(value)
+    if isinstance(value, list):
+        return [redact_sensitive_obj(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: mask_secret(str(item))
+            if str(key).lower() in {"api_key", "api_keys", "apikey", "token", "authorization", "bearer_token"}
+            else redact_sensitive_obj(item)
+            for key, item in value.items()
+        }
+    return value
 
 
 def provider_config_api_keys(
