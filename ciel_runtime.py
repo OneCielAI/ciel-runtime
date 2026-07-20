@@ -245,7 +245,7 @@ from ciel_runtime_support.channel_event_identity import (
     message_time_seconds as _chat_message_time_seconds,
     stable_dedupe_key as _chat_message_stable_dedupe_key,
 )
-from ciel_runtime_support.channel_message_repository import ChannelMessageRepository
+from ciel_runtime_support.channel_message_repository import ChannelMessageAppendPorts, ChannelMessageRepository
 from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
 from ciel_runtime_support.channel_cursor_repository import ChannelCursorRepository
 from ciel_runtime_support.channel_cursor_service import (
@@ -5570,7 +5570,7 @@ def _chat_init_next_id() -> int:
 
 
 def channel_message_repository() -> ChannelMessageRepository:
-    return ChannelMessageRepository(path=CHAT_MESSAGES_PATH, log=router_log)
+    return ChannelMessageRepository(path=CHAT_MESSAGES_PATH, log=router_log, max_bytes=CHAT_MESSAGES_MAX_BYTES)
 
 
 def _chat_scan_max_id() -> int:
@@ -5675,44 +5675,12 @@ def _chat_message_duplicate_locked(message: dict[str, Any]) -> dict[str, Any] | 
 
 def append_chat_message(payload: dict[str, Any]) -> dict[str, Any]:
     global _CHAT_NEXT_ID
-    with _CHAT_CONDITION:
-        with _chat_messages_file_lock():
-            CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-            if CHAT_MESSAGES_PATH.exists() and CHAT_MESSAGES_PATH.stat().st_size > CHAT_MESSAGES_MAX_BYTES:
-                CHAT_MESSAGES_PATH.replace(CHAT_MESSAGES_PATH.with_suffix(".jsonl.1"))
-                _CHAT_NEXT_ID = 1
-            next_id = _chat_scan_max_id() + 1
-            _CHAT_NEXT_ID = next_id + 1
-            message = {
-                "id": next_id,
-                "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                "channel": str(payload.get("channel") or "default"),
-                "sender_id": str(payload.get("sender_id") or payload.get("sender") or "anonymous"),
-                "recipients": _as_string_list(payload.get("recipients", payload.get("recipient_id"))),
-                "thread_id": str(payload.get("thread_id") or payload.get("parent_id") or next_id),
-                "parent_id": payload.get("parent_id"),
-                "message": str(payload.get("message") or payload.get("text") or ""),
-                "kind": str(payload.get("kind") or "message"),
-                "meta": payload.get("meta") if isinstance(payload.get("meta"), dict) else {},
-            }
-            if payload.get("visibility") is not None:
-                message["visibility"] = str(payload.get("visibility") or "user")
-            if payload.get("delivery") is not None:
-                message["delivery"] = _as_string_list(payload.get("delivery"))
-            duplicate = _chat_message_duplicate_locked(message)
-            if duplicate:
-                existing_id = duplicate.get("id")
-                returned = dict(duplicate)
-                returned["_ciel_runtime_duplicate"] = True
-                router_log(
-                    "INFO",
-                    f"chat_message_skipped_duplicate existing_id={existing_id} channel={message.get('channel')} kind={message.get('kind')}",
-                )
-                return returned
-            with CHAT_MESSAGES_PATH.open("a", encoding="utf-8") as f:
-                f.write(json.dumps(message, ensure_ascii=False, separators=(",", ":")) + "\n")
-        _CHAT_CONDITION.notify_all()
-        return message
+    message = channel_message_repository().append(
+        payload,
+        ChannelMessageAppendPorts(_CHAT_CONDITION, _chat_messages_file_lock, _chat_message_duplicate_locked, _as_string_list),
+    )
+    _CHAT_NEXT_ID = int(message.get("id") or 0) + 1
+    return message
 
 
 

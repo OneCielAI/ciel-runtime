@@ -5,14 +5,64 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
+import time
 
 from ciel_runtime_support.channel_message_policy import string_list
+
+
+@dataclass(frozen=True, slots=True)
+class ChannelMessageAppendPorts:
+    condition: Any
+    file_lock: Callable[..., Any]
+    duplicate: Callable[[dict[str, Any]], dict[str, Any] | None]
+    normalize_recipients: Callable[[Any], list[str]]
 
 
 @dataclass(frozen=True, slots=True)
 class ChannelMessageRepository:
     path: Path
     log: Callable[[str, str], None]
+    max_bytes: int = 10 * 1024 * 1024
+
+    def append(self, payload: dict[str, Any], ports: ChannelMessageAppendPorts) -> dict[str, Any]:
+        with ports.condition:
+            with ports.file_lock():
+                self.path.parent.mkdir(parents=True, exist_ok=True)
+                if self.path.exists() and self.path.stat().st_size > self.max_bytes:
+                    self.path.replace(self.path.with_suffix(".jsonl.1"))
+                next_id = self.max_id() + 1
+                message = {
+                    "id": next_id,
+                    "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "channel": str(payload.get("channel") or "default"),
+                    "sender_id": str(payload.get("sender_id") or payload.get("sender") or "anonymous"),
+                    "recipients": ports.normalize_recipients(
+                        payload.get("recipients", payload.get("recipient_id"))
+                    ),
+                    "thread_id": str(payload.get("thread_id") or payload.get("parent_id") or next_id),
+                    "parent_id": payload.get("parent_id"),
+                    "message": str(payload.get("message") or payload.get("text") or ""),
+                    "kind": str(payload.get("kind") or "message"),
+                    "meta": payload.get("meta") if isinstance(payload.get("meta"), dict) else {},
+                }
+                if payload.get("visibility") is not None:
+                    message["visibility"] = str(payload.get("visibility") or "user")
+                if payload.get("delivery") is not None:
+                    message["delivery"] = ports.normalize_recipients(payload.get("delivery"))
+                duplicate = ports.duplicate(message)
+                if duplicate:
+                    returned = dict(duplicate)
+                    returned["_ciel_runtime_duplicate"] = True
+                    self.log(
+                        "INFO",
+                        f"chat_message_skipped_duplicate existing_id={duplicate.get('id')} "
+                        f"channel={message.get('channel')} kind={message.get('kind')}",
+                    )
+                    return returned
+                with self.path.open("a", encoding="utf-8") as stream:
+                    stream.write(json.dumps(message, ensure_ascii=False, separators=(",", ":")) + "\n")
+            ports.condition.notify_all()
+            return message
 
     @staticmethod
     def timestamp_seconds(item: dict[str, Any]) -> float | None:

@@ -1,9 +1,11 @@
+import contextlib
 import json
 from pathlib import Path
 import tempfile
+import threading
 import unittest
 
-from ciel_runtime_support.channel_message_repository import ChannelMessageRepository
+from ciel_runtime_support.channel_message_repository import ChannelMessageAppendPorts, ChannelMessageRepository
 
 
 class ChannelMessageRepositoryTests(unittest.TestCase):
@@ -56,6 +58,27 @@ class ChannelMessageRepositoryTests(unittest.TestCase):
             )
             rows = self.repository(path).read_before(5, "ops", None, 2)
             self.assertEqual([3, 4], [item["id"] for item in rows])
+
+    def test_append_resyncs_id_and_normalizes_payload_inside_transaction(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "messages.jsonl"
+            path.write_text(json.dumps({"id": 9, "message": "old"}) + "\n", encoding="utf-8")
+            ports = ChannelMessageAppendPorts(
+                threading.Condition(),
+                contextlib.nullcontext,
+                lambda _message: None,
+                lambda value: [str(value)] if value else [],
+            )
+            saved = self.repository(path).append(
+                {"text": "new", "sender": "agent", "recipients": "web"},
+                ports,
+            )
+            rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+        self.assertEqual(10, saved["id"])
+        self.assertEqual("new", saved["message"])
+        self.assertEqual(["web"], saved["recipients"])
+        self.assertEqual([9, 10], [row["id"] for row in rows])
 
 
 if __name__ == "__main__":

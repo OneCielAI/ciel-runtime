@@ -211,6 +211,11 @@ Chat attachment decoding, size validation, safe naming, storage, URL metadata,
 and Markdown projection live in `ChatFileRepository`; only clocks are injected
 and callers no longer own filesystem mechanics.
 
+`ChannelMessageRepository` owns the JSONL append transaction as well as reads:
+rotation, ID resynchronization, payload projection, duplicate return semantics,
+and notification are coordinated under injected lock/condition ports. The
+facade retains only its compatibility function and legacy next-ID mirror.
+
 Incremental terminal mouse-report filtering lives in
 `channel_terminal_input.py`, next to newline and wake-input policies, rather
 than as a stateful parser class in the composition root.

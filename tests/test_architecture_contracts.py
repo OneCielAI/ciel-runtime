@@ -122,7 +122,7 @@ from ciel_runtime_support.channel_terminal_proxy import (
     ChannelWindowsServices,
 )
 from ciel_runtime_support.channel_transcript import ChannelWakeTranscriptServices
-from ciel_runtime_support.channel_message_repository import ChannelMessageRepository
+from ciel_runtime_support.channel_message_repository import ChannelMessageAppendPorts, ChannelMessageRepository
 from ciel_runtime_support.channel_wake_claim_repository import ChannelWakeClaimRepository
 from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
 from ciel_runtime_support.channel_cursor_repository import ChannelCursorRepository
@@ -2036,6 +2036,8 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("def _message_visible_to(", source)
         self.assertNotIn("def _chat_message_matches(", source)
         self.assertLessEqual(len(fields(ChannelMessageRepository)), 10)
+        self.assertLessEqual(len(fields(ChannelMessageAppendPorts)), 10)
+        self.assertNotIn('with CHAT_MESSAGES_PATH.open("a"', source)
 
     def test_channel_wake_claim_repository_owns_cross_process_claims(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
