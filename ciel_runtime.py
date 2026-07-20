@@ -8,7 +8,7 @@ import hashlib
 import json
 import os
 import re
-import shutil
+import shutil  # noqa: F401 - compatibility export
 import socket
 import subprocess
 import sys
@@ -1127,6 +1127,7 @@ from ciel_runtime_support.sse_trace import (
 )
 from ciel_runtime_support import runtime_launch
 from ciel_runtime_support import streaming_anthropic
+from ciel_runtime_support import terminal_platform_io
 from ciel_runtime_support.pseudo_tool_parser import (
     PseudoToolParserServices,
     infer_tool_name_from_args as project_infer_tool_name,
@@ -1337,6 +1338,9 @@ build_cli_parser = cli_parser.build_cli_parser
 apply_preset_to_provider = llm_presets.apply_preset_to_provider
 fetch_upstream_model_ids = provider_models.fetch_upstream_model_ids
 inject_pending_channel_context = channel_llm_context.inject_pending_channel_context
+TERMINAL_INPUT_MODE_RESET = terminal_platform_io.TERMINAL_INPUT_MODE_RESET
+_terminal_winsize_from_fd = terminal_platform_io.terminal_winsize_from_fd
+_apply_pty_winsize = terminal_platform_io.apply_pty_winsize
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -12960,73 +12964,25 @@ def _chat_messages_file_marker() -> tuple[float, int]:
         return (0.0, 0)
 
 
-def _terminal_winsize_from_fd(fd: int) -> tuple[int, int]:
-    """Return terminal size as (rows, columns), never 0x0."""
-    try:
-        size = os.get_terminal_size(fd)
-        rows = int(size.lines)
-        cols = int(size.columns)
-    except Exception:
-        rows = 0
-        cols = 0
-    if rows > 0 and cols > 0:
-        return rows, cols
-    fallback = shutil.get_terminal_size((80, 24))
-    rows = int(getattr(fallback, "lines", 0) or 0)
-    cols = int(getattr(fallback, "columns", 0) or 0)
-    if rows <= 0:
-        rows = 24
-    if cols <= 0:
-        cols = 80
-    return rows, cols
-
-
-def _apply_pty_winsize(pty_fd: int, rows: int, cols: int) -> bool:
-    if os.name != "posix" or rows <= 0 or cols <= 0:
-        return False
-    try:
-        import fcntl
-        import struct
-        import termios
-
-        fcntl.ioctl(pty_fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
-        return True
-    except Exception:
-        return False
-
-
-TERMINAL_INPUT_MODE_RESET = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l"
+def terminal_input_mode_reset_policy() -> terminal_platform_io.TerminalInputModeResetPolicy:
+    return terminal_platform_io.TerminalInputModeResetPolicy(
+        platform_name=os.name,
+        environment=os.environ,
+        parse_bool=parse_bool,
+        default_stream=lambda: sys.stdout,
+    )
 
 
 def _terminal_input_mode_reset_enabled() -> bool:
-    # On Windows cmd/conhost, DECSET mouse reset sequences can be printed
-    # literally. The Windows launch path uses SetConsoleMode instead.
-    if os.name == "nt" and os.environ.get("CIEL_RUNTIME_TERMINAL_INPUT_MODE_RESET") is None:
-        return False
-    return parse_bool(os.environ.get("CIEL_RUNTIME_TERMINAL_INPUT_MODE_RESET"), True)
+    return terminal_input_mode_reset_policy().enabled()
 
 
 def _terminal_input_mode_reset_interval_seconds(default: float = 2.0) -> float:
-    raw = os.environ.get("CIEL_RUNTIME_TERMINAL_INPUT_MODE_RESET_INTERVAL_SECONDS")
-    if raw is None:
-        return default
-    try:
-        return max(0.25, min(60.0, float(raw)))
-    except Exception:
-        return default
+    return terminal_input_mode_reset_policy().interval_seconds(default)
 
 
 def _write_terminal_input_mode_reset(stream: Any | None = None) -> None:
-    if not _terminal_input_mode_reset_enabled():
-        return
-    target = stream if stream is not None else sys.stdout
-    try:
-        if hasattr(target, "isatty") and not target.isatty():
-            return
-        target.write(TERMINAL_INPUT_MODE_RESET)
-        target.flush()
-    except Exception:
-        return
+    terminal_input_mode_reset_policy().write(stream)
 
 
 def _strip_terminal_mouse_input_reports(data: bytes) -> bytes:

@@ -192,6 +192,9 @@ from ciel_runtime_support.channel_terminal_dispatch import (
     ChannelTerminalDispatchSettings,
     ChannelTerminalProxyPorts,
 )
+from ciel_runtime_support.terminal_platform_io import (
+    TerminalInputModeResetPolicy,
+)
 from ciel_runtime_support.channel_tool_context import (
     ChannelToolContextPolicy,
     ChannelToolContextPorts,
@@ -2421,6 +2424,31 @@ class ArchitectureContractTests(unittest.TestCase):
             / "channel_terminal_dispatch.py"
         ).read_text(encoding="utf-8")
         self.assertNotIn("import ciel_runtime", service_source)
+
+    def test_terminal_platform_io_is_adapter_owned(self):
+        self.assertEqual(4, len(fields(TerminalInputModeResetPolicy)))
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        root_functions = {
+            node.name
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+        }
+        self.assertNotIn("_terminal_winsize_from_fd", root_functions)
+        self.assertNotIn("_apply_pty_winsize", root_functions)
+        reset_function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "_terminal_input_mode_reset_enabled"
+        )
+        reset_source = ast.get_source_segment(source, reset_function) or ""
+        self.assertIn("terminal_input_mode_reset_policy().enabled", reset_source)
+        self.assertNotIn("os.environ", reset_source)
+        adapter_source = (
+            root / "ciel_runtime_support" / "terminal_platform_io.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", adapter_source)
 
     def test_channel_session_repository_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelSessionRepository)), 10)
