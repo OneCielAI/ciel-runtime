@@ -867,6 +867,10 @@ Streamable HTTP MCP session의 initialize, notification GET stream 재연결, to
 
 CLI와 저장소에 의존하지 않고 Provider option의 검증·정규화·설정 변경을 수행하는 Configuration policy. 프로바이더 이름 분기 없이 각 Provider Adapter의 `ProviderConfigurationPolicy`가 Ollama mutation 전략, endpoint override, native 제한, route 지원 및 텍스트 option alias를 선언한다.
 
+### `ciel_runtime_support/provider_sampling_policy.py`
+
+Provider 공통 sampling option 별칭을 정규화하고 `temperature`, `top_p`, `top_k` 범위를 검증하는 타입화된 Policy. 설정 변경 서비스가 메인 파사드의 느슨한 callback 대신 이 객체에 의존한다.
+
 ### `ciel_runtime_support/provider_configuration_service.py`
 
 Provider endpoint 변경과 runtime status 출력을 담당하는 Configuration Application Service. endpoint 변경 시 model/cache/native-compat 전이를 한 transaction으로 조정하고, 상태 출력은 Provider Adapter의 configuration policy를 사용해 provider 이름 분기 없이 투영한다. Provider별 URL 정규화는 각 Adapter가 소유한다.

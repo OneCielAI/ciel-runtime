@@ -401,7 +401,6 @@ from ciel_runtime_support.config_repository import (
     normalize_loaded_config,
 )
 from ciel_runtime_support.config_value_codec import (
-    finite_float,
     parse_bool,
     parse_config_value,
     positive_int,
@@ -530,6 +529,7 @@ from ciel_runtime_support.provider_config_mutations import (
     apply_ollama_option as mutate_ollama_option,
     apply_provider_option as mutate_provider_option,
 )
+from ciel_runtime_support.provider_sampling_policy import ProviderSamplingPolicy
 from ciel_runtime_support.provider_configuration_service import (
     ProviderEndpointPolicy,
     ProviderEndpointPorts,
@@ -8783,8 +8783,7 @@ def provider_option_policy() -> ProviderOptionPolicy:
         parse_bool=parse_bool,
         parse_config_value=parse_config_value,
         positive_int=positive_int,
-        sampling_option_key=sampling_option_key,
-        validate_sampling_option=validate_sampling_option,
+        sampling=ProviderSamplingPolicy(),
     )
 
 
@@ -8802,36 +8801,11 @@ PROVIDER_SAMPLING_OPTIONS = ("temperature", "top_p", "top_k")
 
 
 def sampling_option_key(key: str) -> str | None:
-    normalized = key.strip().lower().replace("-", "_")
-    aliases = {
-        "temp": "temperature",
-        "temperature": "temperature",
-        "top": "top_p",
-        "top_p": "top_p",
-        "topp": "top_p",
-        "topk": "top_k",
-        "top_k": "top_k",
-    }
-    return aliases.get(normalized)
+    return ProviderSamplingPolicy().option_key(key)
 
 
 def validate_sampling_option(key: str, value: Any) -> float | int:
-    if key == "temperature":
-        fixed = finite_float(value)
-        if fixed is None or fixed < 0 or fixed > 2:
-            raise SystemExit("temperature must be a number from 0 to 2")
-        return fixed
-    if key == "top_p":
-        fixed = finite_float(value)
-        if fixed is None or fixed <= 0 or fixed > 1:
-            raise SystemExit("top_p must be a number greater than 0 and up to 1")
-        return fixed
-    if key == "top_k":
-        fixed = positive_int(value)
-        if not fixed:
-            raise SystemExit("top_k must be a positive integer")
-        return fixed
-    raise SystemExit(f"Unknown provider option: {key}")
+    return ProviderSamplingPolicy().validate(key, value)
 
 
 def provider_option_status_projection() -> ProviderOptionStatusProjection:

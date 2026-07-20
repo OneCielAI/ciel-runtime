@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .architecture import ProviderConfigurationPolicy
+from .provider_sampling_policy import ProviderSamplingPolicy
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,8 +18,7 @@ class ProviderOptionPolicy:
     parse_bool: Callable[..., Any]
     parse_config_value: Callable[..., Any]
     positive_int: Callable[..., Any]
-    sampling_option_key: Callable[..., Any]
-    validate_sampling_option: Callable[..., Any]
+    sampling: ProviderSamplingPolicy
 
 
 def apply_ollama_option(
@@ -164,8 +164,7 @@ def apply_provider_option(
     parse_bool = policy.parse_bool
     parse_config_value = policy.parse_config_value
     positive_int = policy.positive_int
-    sampling_option_key = policy.sampling_option_key
-    validate_sampling_option = policy.validate_sampling_option
+    sampling = policy.sampling
     if capabilities.supports_model_endpoint_overrides and token.startswith("endpoint:") and "=" in token:
         key, raw_value = token.split("=", 1)
         model_id = key.split(":", 1)[1].strip()
@@ -244,8 +243,8 @@ def apply_provider_option(
             endpoints = pcfg.get("model_endpoints")
             if isinstance(endpoints, dict):
                 endpoints.pop(model_id, None)
-        elif sampling_option_key(key):
-            pcfg.pop(sampling_option_key(key), None)
+        elif sampling.option_key(key):
+            pcfg.pop(sampling.option_key(key), None)
         else:
             raise SystemExit(f"Unknown provider option: {key}")
         return
@@ -352,11 +351,11 @@ def apply_provider_option(
     if key in ("claude_code_supported_capabilities", "supported_capabilities", "capabilities"):
         pcfg["claude_code_supported_capabilities"] = normalize_claude_code_supported_capabilities(value)
         return
-    sample_key = sampling_option_key(key)
+    sample_key = sampling.option_key(key)
     if sample_key:
         if value is None:
             pcfg.pop(sample_key, None)
         else:
-            pcfg[sample_key] = validate_sampling_option(sample_key, value)
+            pcfg[sample_key] = sampling.validate(sample_key, value)
         return
     raise SystemExit(f"Unknown provider option: {key}")

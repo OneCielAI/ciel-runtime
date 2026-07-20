@@ -454,6 +454,7 @@ from ciel_runtime_support.managed_mcp_config import (
 )
 from ciel_runtime_support.mcp_split_proxy_http import McpSplitProxyHttpPorts
 from ciel_runtime_support.provider_config_mutations import ProviderOptionPolicy
+from ciel_runtime_support.provider_sampling_policy import ProviderSamplingPolicy
 from ciel_runtime_support.provider_configuration_service import (
     ProviderEndpointPolicy,
     ProviderEndpointPorts,
@@ -1651,11 +1652,27 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(ConfigMigrationPolicy)), 10)
 
     def test_provider_option_policy_stays_below_dependency_limit(self):
-        self.assertLessEqual(len(fields(ProviderOptionPolicy)), 10)
+        option_fields = fields(ProviderOptionPolicy)
+        self.assertLessEqual(len(option_fields), 10)
+        self.assertIn("sampling", {field.name for field in option_fields})
+        self.assertNotIn("validate_sampling_option", {field.name for field in option_fields})
         self.assertLessEqual(len(fields(ProviderConfigurationPolicy)), 10)
         self.assertLessEqual(len(fields(ProviderRequestPolicy)), 10)
         self.assertLessEqual(len(fields(ProviderStatusPolicy)), 10)
         self.assertLessEqual(len(fields(AnthropicToolTurnServices)), 10)
+
+    def test_provider_sampling_policy_owns_sampling_validation(self):
+        policy = ProviderSamplingPolicy()
+        self.assertEqual("temperature", policy.option_key("temp"))
+        self.assertEqual(0.5, policy.validate("top_p", 0.5))
+
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        functions = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
+        for name in ("sampling_option_key", "validate_sampling_option"):
+            function_source = ast.get_source_segment(source, functions[name]) or ""
+            self.assertIn("ProviderSamplingPolicy", function_source)
+            self.assertLessEqual(len(function_source.splitlines()), 2)
 
     def test_provider_status_ports_stay_below_dependency_limit(self):
         for port in (
