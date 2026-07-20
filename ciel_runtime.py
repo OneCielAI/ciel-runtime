@@ -369,6 +369,15 @@ from ciel_runtime_support.compatibility_protocol import (
     CompatibilityProtocolCodec,
     CompatibilityProtocolPorts,
 )
+from ciel_runtime_support.compatibility_probe import (
+    CompatibilityApiKeyProbeBuilder,
+    CompatibilityApiKeyProbeError,
+    CompatibilityApiKeyProbeRunner,
+    CompatibilityApiKeyProbeRunnerPorts,
+    CompatibilityProbeAnthropicPorts,
+    CompatibilityProbeProjectionPorts,
+    CompatibilityProbeRoutingPorts,
+)
 from ciel_runtime_support.compatibility_runtime import (
     CompatibilityCachePorts,
     CompatibilityCacheRepository,
@@ -9756,21 +9765,11 @@ def known_compatibility_tool_use_blocker(provider: str, model: str) -> str:
     return PROVIDER_COMPATIBILITY.resolve(provider).tool_use_blocker(normalized)
 
 
-class CompatibilityApiKeyProbeError(Exception):
-    def __init__(self, message: str, code: int | None = None, diagnosis: str = "") -> None:
-        super().__init__(message)
-        self.code = code
-        self.diagnosis = diagnosis
-
-
 compatibility_http_error_message = _COMPATIBILITY_PROTOCOL_API.http_error_message
 
 
 def provider_config_for_single_api_key(pcfg: dict[str, Any], key: str) -> dict[str, Any]:
-    keyed = dict(pcfg)
-    keyed["api_key"] = key
-    keyed["api_keys"] = []
-    return keyed
+    return CompatibilityApiKeyProbeRunner.single_key_config(pcfg, key)
 
 
 def compatibility_api_key_probe_request(
@@ -9779,33 +9778,32 @@ def compatibility_api_key_probe_request(
     model: str,
     request_body: dict[str, Any],
 ) -> tuple[str, dict[str, Any], dict[str, str]]:
-    body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, request_body)
-    body = normalize_tool_choice_for_provider(provider, pcfg, body)
-    upstream_model = resolve_requested_model(provider, pcfg, model)
-    headers = provider_headers(provider, pcfg)
-    if provider in ("ollama", "ollama-cloud"):
-        req_body = ollama_chat_request(upstream_model, body, pcfg, stream=False, provider=provider)
-        return provider_endpoint(provider, pcfg, "ollama_chat"), req_body, headers
-    if provider in OPENCODE_PROVIDER_NAMES:
-        endpoint_kind = opencode_endpoint_kind(provider, upstream_model, pcfg)
-        if endpoint_kind == "openai-chat":
-            req_body = openai_compatible_chat_request(provider, upstream_model, body, pcfg, stream=False)
-            return join_url(provider_upstream_request_base(provider, pcfg), "/v1/chat/completions"), req_body, headers
-        if endpoint_kind != "anthropic-messages":
-            raise CompatibilityApiKeyProbeError(
-                f"model {upstream_model!r} uses unsupported endpoint family {endpoint_kind!r} for API-key probing"
-            )
-    if provider_openai_router_enabled(provider, pcfg):
-        upstream_model = ncp_model_id_for_nvidia_hosted(upstream_model) if provider == "nvidia-hosted" else upstream_model
-        req_body = openai_compatible_chat_request(provider, upstream_model, body, pcfg, stream=False)
-        return provider_endpoint(provider, pcfg, "openai_chat"), req_body, headers
-    body = cap_anthropic_body_for_provider(provider, pcfg, body)
-    body = apply_provider_request_options(provider, pcfg, body)
-    body = dict(body)
-    body["model"] = upstream_model
-    body = resolve_tool_model_references(provider, pcfg, body)
-    base = native_anthropic_base_url(provider, pcfg) if provider_native_compat_enabled(provider, pcfg) else provider_upstream_request_base(provider, pcfg)
-    return join_url(base, "/v1/messages"), body, headers
+    return CompatibilityApiKeyProbeBuilder(
+        CompatibilityProbeProjectionPorts(
+            normalize_thinking=normalize_thinking_for_non_anthropic_provider,
+            normalize_tool_choice=normalize_tool_choice_for_provider,
+            resolve_model=resolve_requested_model,
+            headers=provider_headers,
+            request_policy=provider_request_policy,
+        ),
+        CompatibilityProbeRoutingPorts(
+            ollama_request=ollama_chat_request,
+            openai_request=openai_compatible_chat_request,
+            endpoint=provider_endpoint,
+            opencode_endpoint_kind=opencode_endpoint_kind,
+            openai_router_enabled=provider_openai_router_enabled,
+            request_base=provider_upstream_request_base,
+            join_url=join_url,
+            ncp_model_id=ncp_model_id_for_nvidia_hosted,
+        ),
+        CompatibilityProbeAnthropicPorts(
+            cap_body=cap_anthropic_body_for_provider,
+            apply_options=apply_provider_request_options,
+            resolve_tool_models=resolve_tool_model_references,
+            native_compat_enabled=provider_native_compat_enabled,
+            native_base_url=native_anthropic_base_url,
+        ),
+    ).build(provider, pcfg, model, request_body)
 
 def run_compatibility_api_key_probes(
     provider: str,
@@ -9814,28 +9812,16 @@ def run_compatibility_api_key_probes(
     request_body: dict[str, Any],
     timeout: float,
 ) -> list[str]:
-    keys = provider_config_api_keys(provider, pcfg)
-    if len(keys) <= 1:
-        return []
-    lines = [f"API key checks: running {len(keys)} configured keys"]
-    for index, key in enumerate(keys, start=1):
-        label = f"API key {index}/{len(keys)} ({mask_secret(key)})"
-        keyed_pcfg = provider_config_for_single_api_key(pcfg, key)
-        try:
-            url, probe_body, probe_headers = compatibility_api_key_probe_request(provider, keyed_pcfg, model, request_body)
-            post_json(url, probe_body, headers=probe_headers, timeout=timeout, provider=provider, pcfg=keyed_pcfg)
-        except CompatibilityApiKeyProbeError:
-            raise
-        except urllib.error.HTTPError as exc:
-            msg = compatibility_http_error_message(exc)
-            diagnosis = compatibility_failure_diagnosis(provider, exc.code, msg) or ""
-            raise CompatibilityApiKeyProbeError(f"{label}: {msg}", exc.code, diagnosis) from exc
-        except TimeoutError as exc:
-            raise CompatibilityApiKeyProbeError(f"{label}: timed out before the {timeout:g}s API-key probe timeout") from exc
-        except Exception as exc:
-            raise CompatibilityApiKeyProbeError(f"{label}: {type(exc).__name__}: {exc}") from exc
-        lines.append(f"{label}: OK")
-    return lines
+    return CompatibilityApiKeyProbeRunner(
+        CompatibilityApiKeyProbeRunnerPorts(
+            api_keys=provider_config_api_keys,
+            mask_secret=mask_secret,
+            build_request=compatibility_api_key_probe_request,
+            post=post_json,
+            http_error_message=compatibility_http_error_message,
+            failure_diagnosis=compatibility_failure_diagnosis,
+        )
+    ).run(provider, pcfg, model, request_body, timeout)
 
 
 def vllm_tool_parser_hint(model: str) -> str | None:

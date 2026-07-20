@@ -57,7 +57,9 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
     )
     request_policy_value: ProviderRequestPolicy = field(
         default_factory=lambda: ProviderRequestPolicy(
-            chat_path="/messages", models_path="/v1/models"
+            chat_path="/messages",
+            models_path="/v1/models",
+            probe_strategy="opencode",
         )
     )
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(

@@ -423,6 +423,10 @@ Provider text/tool_use/tool_result 호환성 진단을 실행하는 CLI Applicat
 
 Compatibility 검사의 tool schema, text/tool/tool-result 요청 payload, Anthropic content block 검증, usage 요약, HTTP Retry-After 오류 projection을 담당하는 Protocol Codec. 모델별 token limit과 공통 header/time parser만 4필드 포트로 주입받는다. `CompatibilityProtocolApi`는 late-bound codec factory를 사용하는 명시적 Adapter로 기존 공개 함수를 투영하며, 동적 attribute forwarding 없이 facade wrapper를 제거한다.
 
+### `ciel_runtime_support/compatibility_probe.py`
+
+Provider API-key probe 요청 조립과 다중 key 순회·오류 변환을 소유하는 Application Service. Provider Adapter의 `probe_strategy`, `model_alias_strategy` 선언으로 Ollama, OpenCode, NCP 및 Anthropic fallback을 선택하며 projection·routing·fallback 포트를 각각 10필드 이하로 분리한다.
+
 ### `ciel_runtime_support/compatibility_runtime.py`
 
 Compatibility 결과의 runtime metadata·context/output 경고를 투영하고 provider/model별 결과 cache를 기록하는 Projection Service와 Repository. Provider compatibility policy, runtime 조회, 저장·clock을 각각 3필드 이하 포트로 분리한다.

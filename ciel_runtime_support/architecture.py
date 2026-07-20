@@ -138,6 +138,7 @@ class ProviderRequestPolicy:
     stream_required: bool = False
     normalize_historical_tool_turns: bool = True
     managed_service: Literal["none", "nvidia_proxy"] = "none"
+    probe_strategy: Literal["anthropic", "ollama", "opencode"] = "anthropic"
 
 
 @dataclass(frozen=True)

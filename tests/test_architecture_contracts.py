@@ -255,6 +255,14 @@ from ciel_runtime_support.compatibility_test import (
     CompatibilityTestServices,
 )
 from ciel_runtime_support.compatibility_protocol import CompatibilityProtocolPorts
+from ciel_runtime_support.compatibility_probe import (
+    CompatibilityApiKeyProbeBuilder,
+    CompatibilityApiKeyProbeRunner,
+    CompatibilityApiKeyProbeRunnerPorts,
+    CompatibilityProbeAnthropicPorts,
+    CompatibilityProbeProjectionPorts,
+    CompatibilityProbeRoutingPorts,
+)
 from ciel_runtime_support.compatibility_runtime import (
     CompatibilityCachePorts,
     CompatibilityRuntimePorts,
@@ -1136,6 +1144,36 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_compatibility_protocol_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(CompatibilityProtocolPorts)), 10)
+
+    def test_compatibility_probe_ports_stay_below_dependency_limit(self):
+        for port in (
+            CompatibilityProbeProjectionPorts,
+            CompatibilityProbeRoutingPorts,
+            CompatibilityProbeAnthropicPorts,
+            CompatibilityApiKeyProbeRunnerPorts,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        self.assertEqual(3, len(fields(CompatibilityApiKeyProbeBuilder)))
+        self.assertEqual(1, len(fields(CompatibilityApiKeyProbeRunner)))
+
+        root = Path(__file__).resolve().parents[1]
+        probe_source = (
+            root / "ciel_runtime_support" / "compatibility_probe.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn('provider == "', probe_source)
+        self.assertNotIn("provider in (", probe_source)
+
+        facade_source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(facade_source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "compatibility_api_key_probe_request"
+        )
+        function_source = ast.unparse(function)
+        self.assertIn("CompatibilityApiKeyProbeBuilder", function_source)
+        self.assertNotIn("if provider", function_source)
 
     def test_compatibility_runtime_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(CompatibilityRuntimePorts)), 10)

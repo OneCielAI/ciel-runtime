@@ -61,6 +61,7 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
             models_path="/api/tags",
             model_info_path="/api/show",
             default_timeout_seconds=300.0,
+            probe_strategy="ollama",
         )
     )
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
