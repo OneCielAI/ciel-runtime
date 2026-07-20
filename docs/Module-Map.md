@@ -961,6 +961,10 @@ Provider alias, model/catalog 기본값, launch code, logging limit, tool policy
 
 Router PID file 종료, health PID 보호, foreign-config 충돌 거부, 포트 교체 대기·종료 보장과 managed router spawn/reuse/version replacement를 조정하는 Process Lifecycle Application Service. OS별 process 조회·signal, health repository, spawn effect와 clock은 typed port로 주입되어 런처 정책에서 격리된다.
 
+### `ciel_runtime_support/router_access.py`
+
+Router bind host, loopback 신뢰, bearer-token 비교와 external-debug 확인 정책을 소유하는 Security Policy. token의 환경 우선순위와 원자적 생성은 `RouterExternalTokenRepository`, 설정 변경은 typed port를 사용하는 `RouterAccessConfigService`로 분리한다.
+
 ### `ciel_runtime_support/codex_process_lifecycle.py`
 
 Codex child PID JSON record의 생성·권한·해제와 tracked/untracked process 탐색·종료를 소유하는 Repository/Lifecycle Service. command/environment 판정, process inspection과 tree signal은 10필드 port로 주입하며 모든 발견 PID를 단락 없이 정리한다.

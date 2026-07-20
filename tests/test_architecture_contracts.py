@@ -2900,6 +2900,27 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("OPENCODE_PROVIDER_NAMES", policy_source)
         self.assertIn("adapter.openai_reasoning_passback_enabled", policy_source)
 
+    def test_router_access_policy_and_token_repository_live_outside_root(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        self.assertTrue(
+            {
+                "router_debug_external_access_enabled",
+                "router_bind_host",
+                "is_loopback_address",
+                "router_external_access_token",
+                "ensure_router_external_access_token",
+                "router_request_bearer_token",
+            }.isdisjoint(root_functions)
+        )
+        self.assertNotIn("hmac.compare_digest", source)
+        self.assertNotIn("ROUTER_EXTERNAL_TOKEN_PATH.read_text", source)
+        self.assertIn("from ciel_runtime_support.router_access import (", source)
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):

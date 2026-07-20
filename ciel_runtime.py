@@ -5,12 +5,10 @@ import argparse
 import contextlib
 import getpass
 import hashlib
-import hmac
 import html as html_lib
 import json
 import os
 import re
-import secrets
 import shutil
 import socket
 import subprocess
@@ -565,6 +563,14 @@ from ciel_runtime_support.runtime_restart import (
     RuntimeRestartSettings,
     forced_upgrade_environment,
     running_from_npm_package as detect_running_from_npm_package,
+)
+from ciel_runtime_support.router_access import (
+    RouterAccessConfigService,
+    RouterAccessMutationPorts,
+    RouterAccessPolicy,
+    RouterExternalTokenRepository,
+    is_loopback_address,  # noqa: F401 - compatibility export
+    router_request_bearer_token,  # noqa: F401 - compatibility export
 )
 from ciel_runtime_support.install_diagnostics import (
     InstallDiagnosticsPorts,
@@ -6391,98 +6397,39 @@ openai_chat_reasoning_passback_enabled_for_body = (
 should_omit_openai_chat_tool_choice = _OPENAI_REASONING_POLICY.should_omit_tool_choice
 
 
-def router_debug_external_access_enabled(cfg: dict[str, Any] | None = None) -> bool:
-    env = env_bool(os.environ.get("CIEL_RUNTIME_ROUTER_DEBUG_EXTERNAL"), None)
-    if env is not None:
-        return bool(env)
-    if cfg is None:
-        cfg = load_config()
-    return (
-        parse_bool(cfg.get("router_debug_external_access"), False)
-        and parse_bool(cfg.get("router_debug_external_access_confirmed"), False)
-    )
-
-
-def router_bind_host(cfg: dict[str, Any] | None = None) -> str:
-    env_host = (os.environ.get("CIEL_RUNTIME_ROUTER_BIND_HOST") or os.environ.get("CIEL_RUNTIME_ROUTER_HOST") or "").strip()
-    if env_host:
-        return env_host
-    return "0.0.0.0" if router_debug_external_access_enabled(cfg) else "127.0.0.1"
-
-
-def is_loopback_address(host: str | None) -> bool:
-    host = (host or "").strip().lower()
-    return host in ("127.0.0.1", "::1", "localhost") or host.startswith("127.")
-
-
-def router_external_access_token() -> str:
-    configured = str(os.environ.get("CIEL_RUNTIME_ROUTER_EXTERNAL_TOKEN") or "").strip()
-    if configured:
-        return configured
-    try:
-        return ROUTER_EXTERNAL_TOKEN_PATH.read_text(encoding="utf-8").strip()
-    except OSError:
-        return ""
-
-
-def ensure_router_external_access_token() -> str:
-    existing = router_external_access_token()
-    if existing:
-        return existing
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    token = secrets.token_urlsafe(32)
-    tmp = ROUTER_EXTERNAL_TOKEN_PATH.with_name(
-        f"{ROUTER_EXTERNAL_TOKEN_PATH.name}.{os.getpid()}.{time.time_ns()}.tmp"
-    )
-    tmp.write_text(token + "\n", encoding="utf-8")
-    os.chmod(tmp, 0o600)
-    tmp.replace(ROUTER_EXTERNAL_TOKEN_PATH)
-    return token
-
-
-def router_request_bearer_token(handler: BaseHTTPRequestHandler) -> str:
-    try:
-        authorization = str(handler.headers.get("authorization") or handler.headers.get("Authorization") or "")
-        if authorization.lower().startswith("bearer "):
-            return authorization[7:].strip()
-        return str(handler.headers.get("x-ciel-runtime-token") or "").strip()
-    except Exception:
-        return ""
+_ROUTER_ACCESS_POLICY = RouterAccessPolicy(
+    environ=os.environ,
+    parse_bool=parse_bool,
+    parse_env_bool=env_bool,
+    load_config=load_config,
+)
+_ROUTER_EXTERNAL_TOKEN_REPOSITORY = RouterExternalTokenRepository(
+    path=ROUTER_EXTERNAL_TOKEN_PATH,
+    config_dir=CONFIG_DIR,
+    environ=os.environ,
+)
+router_debug_external_access_enabled = _ROUTER_ACCESS_POLICY.external_access_enabled
+router_bind_host = _ROUTER_ACCESS_POLICY.bind_host
+router_external_access_token = _ROUTER_EXTERNAL_TOKEN_REPOSITORY.get
+ensure_router_external_access_token = _ROUTER_EXTERNAL_TOKEN_REPOSITORY.ensure
 
 
 def router_request_allowed(handler: BaseHTTPRequestHandler, cfg: dict[str, Any] | None = None) -> bool:
-    try:
-        if is_loopback_address(str(handler.client_address[0])):
-            return True
-    except Exception:
-        return False
-    if not router_debug_external_access_enabled(cfg):
-        return False
-    expected = router_external_access_token()
-    supplied = router_request_bearer_token(handler)
-    return bool(expected and supplied and hmac.compare_digest(expected, supplied))
+    return _ROUTER_ACCESS_POLICY.request_allowed(
+        handler, cfg, router_external_access_token
+    )
 
 
 def set_router_debug_external_access_config(value: Any) -> list[str]:
-    cfg = load_config()
-    enabled = parse_bool(value, False)
-    cfg["router_debug_external_access"] = enabled
-    cfg["router_debug_external_access_confirmed"] = enabled
-    save_config(cfg)
-    clear_model_cache()
-    bind = router_bind_host(cfg)
-    if enabled:
-        token = ensure_router_external_access_token()
-        return [
-            "Router debug external access: on.",
-            f"Router bind host for next launch: {bind}.",
-            "External clients must authenticate with Authorization: Bearer <token>.",
-            f"External access token: {token}",
-        ]
-    return [
-        "Router debug external access: off.",
-        "External clients are denied immediately; next launch binds to 127.0.0.1 unless overridden by environment.",
-    ]
+    return RouterAccessConfigService(
+        policy=_ROUTER_ACCESS_POLICY,
+        ports=RouterAccessMutationPorts(
+            load_config=load_config,
+            save_config=save_config,
+            clear_model_cache=clear_model_cache,
+            ensure_token=ensure_router_external_access_token,
+        ),
+    ).set_external_access(value)
 
 
 def schedule_router_process_restart(delay: float = 0.8) -> None:
