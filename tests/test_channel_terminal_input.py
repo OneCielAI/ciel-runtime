@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 from ciel_runtime_support.channel_terminal_input import (
     enter_bytes_from_user_input,
@@ -6,6 +7,7 @@ from ciel_runtime_support.channel_terminal_input import (
     resolve_enter_bytes,
     synthetic_enter_bytes_from_user_input,
     wake_input_bytes,
+    windows_console_input_handle,
 )
 
 
@@ -29,6 +31,10 @@ class ChannelTerminalInputTests(unittest.TestCase):
 
     def test_wake_input_clears_line_before_prompt_and_submit(self):
         self.assertEqual(b"\x15wake\r\n", wake_input_bytes("wake", b"\r\n"))
+
+    def test_console_handle_is_absent_off_windows(self):
+        with mock.patch("ciel_runtime_support.channel_terminal_input.os.name", "posix"):
+            self.assertIsNone(windows_console_input_handle())
 
 
 if __name__ == "__main__":

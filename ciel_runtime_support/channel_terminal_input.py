@@ -5,6 +5,73 @@ import sys
 from typing import Any
 
 
+_WINDOWS_CONSOLE_INPUT_FALLBACK_HANDLE: Any = None
+
+
+def windows_console_input_handle() -> Any:
+    """Return a validated Windows console input handle, opening CONIN$ if needed."""
+    global _WINDOWS_CONSOLE_INPUT_FALLBACK_HANDLE
+    if os.name != "nt":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.GetStdHandle.argtypes = [wintypes.DWORD]
+        kernel32.GetStdHandle.restype = wintypes.HANDLE
+        kernel32.GetConsoleMode.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        kernel32.GetConsoleMode.restype = wintypes.BOOL
+        handle = kernel32.GetStdHandle(wintypes.DWORD(-10 & 0xFFFFFFFF))
+        handle_value = int(handle) if isinstance(handle, int) else int(getattr(handle, "value", 0) or 0)
+        invalid_handle = int(ctypes.c_void_p(-1).value or -1)
+        if handle_value and handle_value != invalid_handle:
+            mode = wintypes.DWORD(0)
+            if kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+                return handle
+
+        cached = _WINDOWS_CONSOLE_INPUT_FALLBACK_HANDLE
+        cached_value = int(cached) if isinstance(cached, int) else int(getattr(cached, "value", 0) or 0)
+        if cached_value and cached_value != invalid_handle:
+            mode = wintypes.DWORD(0)
+            if kernel32.GetConsoleMode(cached, ctypes.byref(mode)):
+                return cached
+
+        kernel32.CreateFileW.argtypes = [
+            wintypes.LPCWSTR,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.LPVOID,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.HANDLE,
+        ]
+        kernel32.CreateFileW.restype = wintypes.HANDLE
+        console_handle = kernel32.CreateFileW(
+            "CONIN$",
+            0x80000000 | 0x40000000,
+            0x00000001 | 0x00000002,
+            None,
+            3,
+            0,
+            None,
+        )
+        console_value = (
+            int(console_handle)
+            if isinstance(console_handle, int)
+            else int(getattr(console_handle, "value", 0) or 0)
+        )
+        if not console_value or console_value == invalid_handle:
+            return None
+        mode = wintypes.DWORD(0)
+        if not kernel32.GetConsoleMode(console_handle, ctypes.byref(mode)):
+            return None
+        _WINDOWS_CONSOLE_INPUT_FALLBACK_HANDLE = console_handle
+        return console_handle
+    except Exception:
+        return None
+
+
 class TerminalMouseInputFilter:
     """Strip terminal mouse reports that can leak into TUI prompt buffers."""
 

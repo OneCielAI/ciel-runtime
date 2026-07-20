@@ -1523,7 +1523,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("bracketed_paste=windows_bracketed_paste", source)
 
     def test_windows_console_input_handle_falls_back_to_conin(self):
-        source = inspect.getsource(ciel_runtime._windows_console_input_handle)
+        source = inspect.getsource(ciel_runtime._resolve_windows_console_input_handle)
 
         self.assertIn('"CONIN$"', source)
         self.assertIn("CreateFileW", source)

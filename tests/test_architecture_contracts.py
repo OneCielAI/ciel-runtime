@@ -2053,6 +2053,8 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(function=function_name):
                 self.assertNotIn(f"def {function_name}(", source)
+        self.assertNotIn("kernel32.CreateFileW", source)
+        self.assertIn("windows_console_input_handle as _resolve_windows_console_input_handle", source)
 
     def test_channel_launch_guard_repository_owns_persistence(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")

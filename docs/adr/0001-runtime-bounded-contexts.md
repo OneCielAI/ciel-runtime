@@ -209,6 +209,9 @@ and callers no longer own filesystem mechanics.
 Incremental terminal mouse-report filtering lives in
 `channel_terminal_input.py`, next to newline and wake-input policies, rather
 than as a stateful parser class in the composition root.
+The same platform boundary resolves and validates the Windows console input
+handle, including its `CONIN$` fallback; the facade retains only a compatibility
+delegate so terminal consumers can keep stable patch and call points.
 
 Generic npm-backed runtime installation and update checks live in
 `NpmPackageLifecycle`. Runtime-specific wrappers supply package names and
