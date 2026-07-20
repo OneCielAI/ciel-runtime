@@ -897,6 +897,14 @@ Provider RPM timestamp, server 학습 limit, penalty와 hash-key 기반 API-key 
 
 log-level 파일·환경 우선순위, mtime cache, 설정 저장·reset과 router.log 회전을 소유하는 Repository/Infrastructure Adapter. 메인 facade는 기존 logging 함수명을 유지하면서 저장소와 file logger만 조립한다.
 
+### `ciel_runtime_support/runtime_paths.py`
+
+Windows/POSIX 사용자 경로, config artifact 위치와 사용자별 local router endpoint를 계산하는 Infrastructure Configuration 모듈. 표준 라이브러리에만 의존하며 facade는 기존 경로 상수와 helper를 compatibility export로 제공한다.
+
+### `ciel_runtime_support/runtime_constants.py`
+
+Provider alias, model/catalog 기본값, launch code, logging limit, tool policy와 routed compatibility prompt를 소유하는 immutable Data Configuration 모듈. 런타임 상태나 facade에 의존하지 않으며 entrypoint는 필요한 이름만 compatibility export한다.
+
 ### `ciel_runtime_support/router_process_lifecycle.py`
 
 Router PID file 종료, health PID 보호, foreign-config 충돌 거부, 포트 교체 대기·종료 보장과 managed router spawn/reuse/version replacement를 조정하는 Process Lifecycle Application Service. OS별 process 조회·signal, health repository, spawn effect와 clock은 typed port로 주입되어 런처 정책에서 격리된다.

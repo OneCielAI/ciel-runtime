@@ -747,6 +747,55 @@ class ArchitectureContractTests(unittest.TestCase):
             self.assertNotIn("getpass", function_source)
             self.assertNotIn("sys.stdin", function_source)
 
+    def test_runtime_paths_live_outside_facade(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        function_names = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        self.assertFalse(
+            function_names
+            & {
+                "platform_path",
+                "windows_appdata_root",
+                "windows_local_appdata_root",
+                "platform_config_dir",
+                "ciel_runtime_user_bin_dir",
+                "agy_user_bin_dir",
+                "path_with_ciel_runtime_user_dirs",
+                "default_router_port",
+            }
+        )
+        path_source = (root / "ciel_runtime_support" / "runtime_paths.py").read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", path_source)
+
+    def test_runtime_constants_live_outside_facade(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        assigned_names = {
+            target.id
+            for node in ast.parse(source).body
+            if isinstance(node, (ast.Assign, ast.AnnAssign))
+            for target in (
+                node.targets if isinstance(node, ast.Assign) else (node.target,)
+            )
+            if isinstance(target, ast.Name)
+        }
+        self.assertFalse(
+            assigned_names
+            & {
+                "PROVIDER_ALIASES",
+                "OPENCODE_ENDPOINT_ALIASES",
+                "OFFICIAL_CHANNEL_PLUGINS",
+                "ROUTED_COMPAT_PROMPT",
+                "MODEL_PRESETS",
+                "DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC",
+            }
+        )
+        constants_source = (root / "ciel_runtime_support" / "runtime_constants.py").read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", constants_source)
+
     def test_claude_launch_ports_stay_below_dependency_limit(self):
         ports = (
             ClaudeLaunchServices,

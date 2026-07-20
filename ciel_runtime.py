@@ -24,7 +24,7 @@ import urllib.request
 import uuid
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from ciel_runtime_support.agent_router import missing_common_capabilities, router_capability_matrix
@@ -1194,6 +1194,133 @@ from ciel_runtime_support.windows_console_input import (
     WindowsConsoleInputWriter,
     _windows_console_utf16_units as project_windows_console_utf16_units,
 )
+from ciel_runtime_support.runtime_paths import (
+    CHANNEL_COMPACT_REQUEST_PATH,
+    CHANNEL_LLM_CLEAR_FLOOR_PATH,
+    CHANNEL_LLM_CURSOR_PATH,
+    CHANNEL_LLM_LAUNCH_GUARD_PATH,
+    CHANNEL_MCP_CONFIG,
+    CHANNEL_MCP_CURSOR_PATH,
+    CHANNEL_PROBE_CACHE_PATH,
+    CHANNEL_STDIN_WAKE_CLAIMS_PATH,
+    CHAT_FILES_DIR,
+    CHAT_MESSAGES_PATH,
+    CIEL_RUNTIME_STATUSLINE_PATH,
+    CLAUDE_COMMANDS_DIR,
+    CLAUDE_GATEWAY_CACHE,
+    CLAUDE_SETTINGS_PATH,
+    CODEX_MCP_CONFIG,
+    CODEX_PROCESS_DIR,
+    CODEX_PROMPTS_DIR_NAME,
+    CONFIG_DIR,
+    CONFIG_PATH,
+    CONTEXT_COMPACT_ACTIVITY_PATH,
+    CONTEXT_USAGE_PATH,
+    DUCKDUCKGO_MCP_CONFIG,
+    HOME,
+    LAUNCH_STATE_PATH,
+    LOG_LEVEL_PATH,
+    LOG_PATH,
+    MCP_PROXY_CONFIG,
+    MENU_KEY_DEBUG_PATH,
+    MODEL_LIST_CACHE_PATH,
+    MODEL_REGISTRY_PATH,
+    NATIVE_MCP_CONFIG,
+    NCP_ENV,
+    NCP_LOG,
+    OLLAMA_MODEL_CATALOG_PATH,
+    PID_PATH,
+    PLAN_ARTIFACTS_DIR,
+    RATE_LIMIT_STATE_PATH,
+    REQUEST_DUMP_PATH,
+    RESPONSE_DUMP_PATH,
+    ROUTER_ACTIVITY_PATH,
+    ROUTER_BASE,
+    ROUTER_CLIENTS_DIR,
+    ROUTER_EXTERNAL_TOKEN_PATH,
+    ROUTER_HOST,  # noqa: F401 - compatibility export
+    ROUTER_PORT,
+    SSE_LAST_PATH,
+    SSE_TRACE_PATH,
+    TOOL_CALL_LOG_PATH,
+    USAGE_EVENTS_PATH,
+    WEB_TOOLS_MCP_CONFIG,
+    ZAI_MCP_CONFIG,
+    agy_user_bin_dir,
+    ciel_runtime_user_bin_dir,
+    default_router_port,  # noqa: F401 - compatibility export
+    path_with_ciel_runtime_user_dirs,
+    platform_config_dir,  # noqa: F401 - compatibility export
+    platform_path,
+    windows_appdata_root,  # noqa: F401 - compatibility export
+    windows_local_appdata_root,  # noqa: F401 - compatibility export
+)
+from ciel_runtime_support.runtime_constants import (
+    ADVISOR_FEEDBACK_MARKER,
+    ANTHROPIC_LIMITED_ACCESS_MODEL_IDS,
+    ANTHROPIC_MODEL_DOCS_URL,  # noqa: F401 - compatibility export
+    ANTHROPIC_MODEL_DOCS_URLS,
+    ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS,
+    ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS,
+    ANTHROPIC_THINKING_BLOCK_TYPES,
+    APP_NAME,
+    BUILTIN_CHANNEL_SPEC,
+    CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT,
+    CHANNEL_LLM_WAKE_LEGACY_PREFIXES,  # noqa: F401 - compatibility export
+    CHANNEL_LLM_WAKE_PREFIX,  # noqa: F401 - compatibility export
+    CHAT_MESSAGES_MAX_BYTES,
+    CHAT_MESSAGE_DEDUPE_SCAN_LIMIT,
+    CHAT_MESSAGE_FALLBACK_DEDUPE_TTL_SECONDS,
+    CLAUDE_SERVER_SIDE_WEB_TOOLS,
+    CREDITS,
+    DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC,
+    DEFAULT_REQUEST_TIMEOUT_MS,
+    FIREWORKS_API_BASE_URL,
+    FIREWORKS_DEFAULT_ACCOUNT_ID,
+    FIREWORKS_INFERENCE_BASE_URL,
+    KIMI_CODING_BASE_URL,  # noqa: F401 - compatibility export
+    KIMI_DEFAULT_MODEL,  # noqa: F401 - compatibility export
+    KIMI_K3_MODEL,
+    KIMI_MODEL_FALLBACK_IDS,  # noqa: F401 - compatibility export
+    LANGUAGES,
+    LM_STUDIO_DEFAULT_CLAUDE_CODE_CONTEXT,
+    LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT,
+    MCP_NOTIFICATION_WAIT_TOOL_NAMES,
+    MCP_PROXY_TOOL_RESULT_ITEM_TEXT_CHARS,
+    MCP_PROXY_TOOL_RESULT_MAX_CHARS_DEFAULT,
+    MODEL_CACHE_TTL_SECONDS,
+    MODEL_PRESETS,
+    NCP_PYPI_PACKAGE,
+    NON_ANTHROPIC_COMPAT_PROMPT,  # noqa: F401 - compatibility export
+    OFFICIAL_CHANNEL_PLUGINS,
+    OLLAMA_MODEL_CATALOG_TTL_SECONDS,
+    OLLAMA_MODEL_CATALOG_URL,
+    OPENCODE_ENDPOINT_ALIASES,
+    OPENCODE_GO_BASE_URL,  # noqa: F401 - compatibility export
+    OPENCODE_ZEN_BASE_URL,  # noqa: F401 - compatibility export
+    PLAN_GUARD_MARKER,  # noqa: F401 - compatibility export
+    PLAN_MODE_SELF_TOOLS,
+    PRELAUNCH_CANCEL,
+    PRELAUNCH_LAUNCH_AGY,
+    PRELAUNCH_LAUNCH_CLAUDE,
+    PRELAUNCH_LAUNCH_CODEX,
+    PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+    PROVIDER_ALIASES,
+    REQUEST_DUMP_MAX_BYTES,
+    RESPONSE_DUMP_MAX_BYTES,
+    RESPONSE_DUMP_TEXT_LIMIT,
+    ROUTED_COMPAT_PROMPT,
+    ROUTER_LOG_MAX_BYTES,
+    SSE_TRACE_EVENT_LIMIT,
+    SSE_TRACE_MAX_BYTES,
+    SSE_TRACE_PAYLOAD_LIMIT,
+    VERSION,
+    ZAI_ANTHROPIC_BASE_URL,  # noqa: F401 - compatibility export
+    ZAI_DEFAULT_MODEL,  # noqa: F401 - compatibility export
+    ZAI_MANAGED_MCP_SERVERS,
+    ZAI_MODEL_CONTEXT_HINTS,
+    _SIDE_EFFECT_TOOL_SUFFIXES,
+)
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -1201,271 +1328,7 @@ try:
 except Exception:
     pass
 
-HOME = Path.home()
-
-
-def platform_path(value: str | os.PathLike[str]) -> Any:
-    if os.name == "nt" and sys.platform != "win32":
-        return PureWindowsPath(value)
-    return Path(value)
-
-
-def windows_appdata_root() -> Path:
-    for env_name in ("APPDATA", "LOCALAPPDATA"):
-        raw = os.environ.get(env_name)
-        if raw:
-            return platform_path(raw)
-    return HOME / "AppData" / "Roaming"
-
-
-def windows_local_appdata_root() -> Path:
-    raw = os.environ.get("LOCALAPPDATA")
-    if raw:
-        return platform_path(raw)
-    return HOME / "AppData" / "Local"
-
-
-def platform_config_dir(app_name: str) -> Path:
-    if os.name == "nt":
-        return windows_appdata_root() / app_name
-    return HOME / ".config" / app_name
-
-
-def ciel_runtime_user_bin_dir() -> Path:
-    if os.name == "nt":
-        return windows_local_appdata_root() / "ciel-runtime" / "bin"
-    return HOME / ".local" / "bin"
-
-
-def agy_user_bin_dir() -> Path:
-    if os.name == "nt":
-        return windows_local_appdata_root() / "agy" / "bin"
-    return HOME / ".local" / "bin"
-
-
-def path_with_ciel_runtime_user_dirs(env: dict[str, str]) -> str:
-    dirs = [ciel_runtime_user_bin_dir(), agy_user_bin_dir()]
-    if os.name == "nt":
-        appdata = env.get("APPDATA") or os.environ.get("APPDATA")
-        if appdata:
-            dirs.append(platform_path(appdata) / "npm")
-        local_appdata = env.get("LOCALAPPDATA") or os.environ.get("LOCALAPPDATA")
-        if local_appdata:
-            dirs.append(platform_path(local_appdata) / "Programs" / "nodejs")
-    existing = env.get("PATH", "")
-    prefix = os.pathsep.join(str(path) for path in dirs if str(path))
-    return prefix + (os.pathsep + existing if existing else "")
-
-
-def default_router_port() -> int:
-    configured = str(os.environ.get("CIEL_RUNTIME_ROUTER_PORT") or "").strip()
-    if configured:
-        try:
-            port = int(configured)
-            if 1 <= port <= 65535:
-                return port
-        except ValueError:
-            pass
-    base = 8799
-    try:
-        getuid = getattr(os, "getuid")
-    except AttributeError:
-        getuid = None
-    if callable(getuid):
-        try:
-            return base + (int(getuid()) % 1000)
-        except Exception:
-            pass
-    seed = f"{getpass.getuser()}|{HOME}"
-    digest = hashlib.sha256(seed.encode("utf-8", errors="replace")).hexdigest()
-    return base + (int(digest[:8], 16) % 1000)
-
-
-CONFIG_DIR = Path(os.environ.get("CIEL_RUNTIME_CONFIG_DIR") or platform_config_dir("ciel-runtime"))
-CONFIG_PATH = CONFIG_DIR / "config.json"
-LOG_PATH = CONFIG_DIR / "router.log"
-LOG_LEVEL_PATH = CONFIG_DIR / "log-level"
-REQUEST_DUMP_PATH = CONFIG_DIR / "requests.jsonl"
-RESPONSE_DUMP_PATH = CONFIG_DIR / "responses.jsonl"
-USAGE_EVENTS_PATH = CONFIG_DIR / "usage-events.jsonl"
-SSE_TRACE_PATH = CONFIG_DIR / "router-sse-trace.jsonl"
-SSE_LAST_PATH = CONFIG_DIR / "router-last-sse.json"
-TOOL_CALL_LOG_PATH = CONFIG_DIR / "tool-calls.jsonl"
-RATE_LIMIT_STATE_PATH = CONFIG_DIR / "rate-limit-state.json"
-ROUTER_ACTIVITY_PATH = CONFIG_DIR / "router-activity.json"
-CONTEXT_COMPACT_ACTIVITY_PATH = CONFIG_DIR / "context-compact-activity.json"
-CONTEXT_USAGE_PATH = CONFIG_DIR / "context-usage.json"
-OLLAMA_MODEL_CATALOG_PATH = CONFIG_DIR / "ollama-model-catalog.json"
-CHAT_MESSAGES_PATH = CONFIG_DIR / "chat-messages.jsonl"
-CHAT_FILES_DIR = CONFIG_DIR / "chat-files"
-MENU_KEY_DEBUG_PATH = CONFIG_DIR / "ca-key-debug.log"
-PLAN_ARTIFACTS_DIR = CONFIG_DIR / "plan-artifacts"
-PID_PATH = CONFIG_DIR / "router.pid"
-ROUTER_EXTERNAL_TOKEN_PATH = CONFIG_DIR / "router-external-token"
-ROUTER_CLIENTS_DIR = CONFIG_DIR / "router-clients"
-MODEL_LIST_CACHE_PATH = CONFIG_DIR / "model-list-cache.json"
-MODEL_REGISTRY_PATH = CONFIG_DIR / "model-registry.json"
-LAUNCH_STATE_PATH = CONFIG_DIR / "launch-state.json"
-WEB_TOOLS_MCP_CONFIG = CONFIG_DIR / "web-tools-mcp.json"
-DUCKDUCKGO_MCP_CONFIG = CONFIG_DIR / "duckduckgo-mcp.json"
-ZAI_MCP_CONFIG = CONFIG_DIR / "zai-mcp.json"
-CHANNEL_MCP_CONFIG = CONFIG_DIR / "channel-mcp.json"
-NATIVE_MCP_CONFIG = CONFIG_DIR / "native-mcp.json"
-CODEX_MCP_CONFIG = CONFIG_DIR / "codex-mcp.json"
-CODEX_PROCESS_DIR = CONFIG_DIR / "codex-processes"
-CODEX_PROMPTS_DIR_NAME = "prompts"
-CHANNEL_MCP_CURSOR_PATH = CONFIG_DIR / "channel-mcp-cursor.json"
-CHANNEL_LLM_CURSOR_PATH = CONFIG_DIR / "channel-llm-cursor.json"
-CHANNEL_LLM_CLEAR_FLOOR_PATH = CONFIG_DIR / "channel-llm-clear-floor.json"
-CHANNEL_LLM_LAUNCH_GUARD_PATH = CONFIG_DIR / "channel-llm-launch-guard.json"
-CHANNEL_COMPACT_REQUEST_PATH = CONFIG_DIR / "channel-compact-request.json"
-CHANNEL_STDIN_WAKE_CLAIMS_PATH = CONFIG_DIR / "channel-stdin-wake-claims.json"
-CHANNEL_PROBE_CACHE_PATH = CONFIG_DIR / "channel-probe-cache.json"
-MCP_PROXY_CONFIG = CONFIG_DIR / "mcp-proxy.json"
-ROUTER_HOST = os.environ.get("CIEL_RUNTIME_ROUTER_CLIENT_HOST", "127.0.0.1").strip() or "127.0.0.1"
-ROUTER_PORT = default_router_port()
-ROUTER_BASE = f"http://{ROUTER_HOST}:{ROUTER_PORT}"
-CLAUDE_GATEWAY_CACHE = HOME / ".claude" / "cache" / "gateway-models.json"
-CLAUDE_SETTINGS_PATH = HOME / ".claude" / "settings.json"
-CLAUDE_COMMANDS_DIR = HOME / ".claude" / "commands"
-CIEL_RUNTIME_STATUSLINE_PATH = ciel_runtime_user_bin_dir() / "ciel-runtime-statusline.py"
-NCP_ENV = platform_config_dir("nvd-claude-proxy") / ".env"
-NCP_LOG = platform_config_dir("nvd-claude-proxy") / "proxy.log"
-MODEL_CACHE_TTL_SECONDS = 300
-OLLAMA_MODEL_CATALOG_URL = "https://ollama.com/api/tags"
-OLLAMA_MODEL_CATALOG_TTL_SECONDS = 24 * 60 * 60
-ANTHROPIC_MODEL_DOCS_URL = "https://docs.anthropic.com/en/docs/about-claude/models/overview"
-ANTHROPIC_MODEL_DOCS_URLS = (
-    ANTHROPIC_MODEL_DOCS_URL,
-    "https://platform.claude.com/docs/en/about-claude/models/overview",
-)
-ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS: tuple[str, ...] = (
-    "claude-fable-5",
-    "claude-opus-4-8",
-    "claude-sonnet-4-6",
-    "claude-haiku-4-5-20251001",
-    "claude-haiku-4-5",
-)
-ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS: tuple[str, ...] = ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS
-ANTHROPIC_LIMITED_ACCESS_MODEL_IDS: tuple[str, ...] = (
-    "claude-mythos-5",
-    "claude-mythos-preview",
-)
-OPENCODE_ZEN_BASE_URL = "https://opencode.ai/zen"
-OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go"
-KIMI_CODING_BASE_URL = "https://api.kimi.com/coding"
-KIMI_DEFAULT_MODEL = "kimi-for-coding"
-KIMI_K3_MODEL = "k3"
-KIMI_MODEL_FALLBACK_IDS: tuple[str, ...] = (KIMI_K3_MODEL, KIMI_DEFAULT_MODEL)
-ZAI_ANTHROPIC_BASE_URL = "https://api.z.ai/api/anthropic"
-ZAI_DEFAULT_MODEL = "glm-5.2[1m]"
-ZAI_MODEL_CONTEXT_HINTS: tuple[tuple[str, int], ...] = (
-    ("glm-5.2", 1_000_000),
-    ("glm-5-turbo", 200_000),
-    ("glm-5.1", 200_000),
-    ("glm-5", 200_000),
-    ("glm-4.7", 200_000),
-    ("glm-4.6", 200_000),
-    ("glm-4.5", 128_000),
-    ("glm-4-32b-0414-128k", 128_000),
-)
-ZAI_MANAGED_MCP_SERVERS: tuple[tuple[str, str], ...] = (
-    ("web-search-prime", "https://api.z.ai/api/mcp/web_search_prime/mcp"),
-    ("web-reader", "https://api.z.ai/api/mcp/web_reader/mcp"),
-    ("zread", "https://api.z.ai/api/mcp/zread/mcp"),
-)
-FIREWORKS_INFERENCE_BASE_URL = "https://api.fireworks.ai/inference"
-FIREWORKS_API_BASE_URL = "https://api.fireworks.ai"
-FIREWORKS_DEFAULT_ACCOUNT_ID = "fireworks"
-NCP_PYPI_PACKAGE = "nvd-claude-proxy"
-
-PROVIDER_ALIASES = {
-    "anthropic": "anthropic",
-    "claude": "anthropic",
-    "claude-native": "anthropic",
-    "native": "anthropic",
-    "claude-code": "anthropic",
-    "agy": "agy",
-    "antigravity": "agy",
-    "google-antigravity": "agy",
-    "agy-native": "agy",
-    "native-agy": "agy",
-    "codex": "codex",
-    "codex-native": "codex",
-    "native-codex": "codex",
-    "openai-codex": "codex",
-    "ollama": "ollama",
-    "ollama-cloud": "ollama-cloud",
-    "cloud-ollama": "ollama-cloud",
-    "deepseek": "deepseek",
-    "deepseek.com": "deepseek",
-    "deepseek-com": "deepseek",
-    "deepseek-api": "deepseek",
-    "ds": "deepseek",
-    "opencode": "opencode",
-    "opencode.ai": "opencode",
-    "opencode-ai": "opencode",
-    "opencode-zen": "opencode",
-    "zen": "opencode",
-    "opencode-go": "opencode-go",
-    "opencode.go": "opencode-go",
-    "opencode_go": "opencode-go",
-    "opencodego": "opencode-go",
-    "kimi": "kimi",
-    "kimi.com": "kimi",
-    "kimi-code": "kimi",
-    "kimi-coding": "kimi",
-    "moonshot": "kimi",
-    "moonshot-kimi": "kimi",
-    "zai": "zai",
-    "z.ai": "zai",
-    "z-ai": "zai",
-    "zhipu": "zai",
-    "bigmodel": "zai",
-    "glm": "zai",
-    "vllm": "vllm",
-    "vllm-local": "vllm",
-    "lm-studio": "lm-studio",
-    "lmstudio": "lm-studio",
-    "lm": "lm-studio",
-    "nvidia": "nvidia-hosted",
-    "nvidia-hosted": "nvidia-hosted",
-    "hosted-nvidia": "nvidia-hosted",
-    "nim": "self-hosted-nim",
-    "self-hosted-nim": "self-hosted-nim",
-    "self-nim": "self-hosted-nim",
-    "openrouter": "openrouter",
-    "open-router": "openrouter",
-    "openrouter.ai": "openrouter",
-    "or": "openrouter",
-    "fireworks": "fireworks",
-    "fireworks.ai": "fireworks",
-    "fireworks-ai": "fireworks",
-    "fw": "fireworks",
-}
-
 OPENCODE_PROVIDER_NAMES = provider_network.OPENCODE_PROVIDER_NAMES
-OPENCODE_ENDPOINT_ALIASES = {
-    "messages": "anthropic-messages",
-    "anthropic": "anthropic-messages",
-    "anthropic-messages": "anthropic-messages",
-    "chat": "openai-chat",
-    "openai-chat": "openai-chat",
-    "chat-completions": "openai-chat",
-    "responses": "openai-responses",
-    "openai-responses": "openai-responses",
-    "gemini": "google-generative",
-    "google": "google-generative",
-    "google-generative": "google-generative",
-}
-OFFICIAL_CHANNEL_PLUGINS = {
-    "telegram": "plugin:telegram@claude-plugins-official",
-    "discord": "plugin:discord@claude-plugins-official",
-    "imessage": "plugin:imessage@claude-plugins-official",
-    "fakechat": "plugin:fakechat@claude-plugins-official",
-}
-APP_NAME = "Ciel Runtime"
-VERSION = "0.1.1"
 DEFAULT_UPSTREAM_USER_AGENT = provider_network.DEFAULT_UPSTREAM_USER_AGENT
 
 
@@ -1534,26 +1397,7 @@ def ciel_runtime_source_fingerprint() -> str:
 
 
 SOURCE_FINGERPRINT = ciel_runtime_source_fingerprint()
-CREDITS = "Credits: One Ciel LLC"
-PRELAUNCH_CANCEL = 10
-PRELAUNCH_LAUNCH_CODEX = 11
-PRELAUNCH_LAUNCH_CLAUDE = 12
-PRELAUNCH_LAUNCH_AGY = 13
-PRELAUNCH_LAUNCH_CODEX_APP_SERVER = 14
-
 LOG_LEVEL_DEFAULT = LOG_LEVELS["ERROR"]
-ROUTER_LOG_MAX_BYTES = 1_000_000
-REQUEST_DUMP_MAX_BYTES = 5_000_000
-RESPONSE_DUMP_MAX_BYTES = 5_000_000
-RESPONSE_DUMP_TEXT_LIMIT = 16_000
-SSE_TRACE_MAX_BYTES = 2 * 1024 * 1024
-SSE_TRACE_EVENT_LIMIT = 240
-SSE_TRACE_PAYLOAD_LIMIT = 4_000
-CHAT_MESSAGES_MAX_BYTES = 20_000_000
-CHAT_MESSAGE_DEDUPE_SCAN_LIMIT = 500
-CHAT_MESSAGE_FALLBACK_DEDUPE_TTL_SECONDS = 30.0
-CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT = 600.0
-DEFAULT_REQUEST_TIMEOUT_MS = 300000
 _LOG_LEVEL_CACHE: dict[str, Any] = {"value": None, "checked_at": 0.0, "file_mtime": 0.0}
 _RATE_LIMIT_LOCK = threading.Lock()
 _API_KEY_ROTATION_LOCK = threading.Lock()
@@ -1575,16 +1419,11 @@ _CHANNEL_STDIN_WAKE_DELIVERED: set[int] = set()
 _CHANNEL_STDIN_WAKE_PROMPTS: dict[int, str] = {}
 _CHANNEL_COMPACT_REQUEST_LOCK = threading.Lock()
 _NATIVE_CHANNEL_NOTIFICATION_METHOD = "notifications/claude/channel"
-BUILTIN_CHANNEL_SPEC = "server:ciel-runtime-router"
-CHANNEL_LLM_WAKE_PREFIX = "[external input pending]"
-CHANNEL_LLM_WAKE_LEGACY_PREFIXES = ("[ciel-runtime channel wake]", "[channel pending]")
 _MCP_NOTIFICATION_DEDUP_TTL_SECONDS = 3.0
 _MCP_NOTIFICATION_DEDUP_LOCK = threading.Lock()
 _MCP_NOTIFICATION_DEDUP_RECENT: dict[str, tuple[str, float]] = {}
 _MCP_NOTIFICATION_WAIT_RECENT: dict[str, float] = {}
 _MCP_NOTIFICATION_WAIT_RECENT_LOCK = threading.Lock()
-MCP_PROXY_TOOL_RESULT_MAX_CHARS_DEFAULT = 24000
-MCP_PROXY_TOOL_RESULT_ITEM_TEXT_CHARS = 6000
 _TOOL_SIDE_EFFECT_DEDUP_TTL_SECONDS = 10 * 60.0
 _TOOL_SIDE_EFFECT_DEDUP_LOCK = threading.Lock()
 _TOOL_SIDE_EFFECT_DEDUP_RECENT: dict[str, float] = {}
@@ -1594,13 +1433,9 @@ USAGE_EVENT_SINK = JsonlUsageEventSink(
     enabled=lambda: str(os.environ.get("CIEL_RUNTIME_USAGE_LOG", "1")).strip().lower()
     not in {"0", "false", "off", "no", ""},
 )
-ADVISOR_FEEDBACK_MARKER = "CIEL_RUNTIME_ADVISOR_FEEDBACK"
-PLAN_GUARD_MARKER = "[ciel-runtime-plan-guard]"
 # Tools Claude Code injects into every model's tool list that misfire when called
 # by non-Anthropic models. See docs/notes from anthropics/claude-code issues
 # #25720, #29950 and Piebald-AI/claude-code-system-prompts for tool semantics.
-PLAN_MODE_SELF_TOOLS: tuple[str, ...] = ("EnterPlanMode", "ExitPlanMode")
-ANTHROPIC_THINKING_BLOCK_TYPES: tuple[str, ...] = ("thinking", "redacted_thinking")
 
 
 def positive_env_int(name: str, default: int) -> int:
@@ -1621,72 +1456,6 @@ SUPPRESSED_THINKING_REPOSITORY = SuppressedThinkingRepository(
     SUPPRESSED_THINKING_PASSBACK_CACHE,
     capacity=lambda: SUPPRESSED_THINKING_PASSBACK_MAX,
 )
-DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC: tuple[str, ...] = (
-    "EnterWorktree",
-    "ExitWorktree",
-    "TeamCreate",
-    "TeamDelete",
-    "TeammateTool",
-    "SendMessage",
-    "SendMessageTool",
-    "ScheduleWakeup",
-    "WaitForMcpServers",
-    "WebSearch",
-    "web_search",
-    "WebFetch",
-    "web_fetch",
-    "RemoteTrigger",
-    "PushNotification",
-)
-CLAUDE_SERVER_SIDE_WEB_TOOLS: tuple[str, ...] = ("WebSearch", "WebFetch")
-ROUTED_COMPAT_PROMPT = (
-    "You are running inside Claude Code through the ciel-runtime router. "
-    "Do not stop after announcing what you plan to do. When the user asks you to create, edit, or run code, "
-    "immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, "
-    "except while Claude Code is in Plan Mode. In Plan Mode, first explore/read as needed, write or update the plan file named "
-    "by the plan_mode attachment, and only then call ExitPlanMode to leave Plan Mode; when bypass permissions is active, "
-    "ciel-runtime auto-approves that plan exit, so do not ask the user separately and do not call EnterPlanMode again. "
-    "then report the concrete result. If the task has several reasonable implementation parts, do all in-scope parts; "
-    "do not ask the user which part to start or whether to do all unless the user explicitly requested a choice. "
-    "If you decide not to use tools, provide the complete requested code or answer in the same turn. "
-    "Use skills only when the user's request clearly matches that skill; never invoke keybindings-help unless the user asks about keybindings. "
-    "Keep final answers concise and do not expose hidden chain-of-thought. "
-    "When calling Claude Code tools, use exactly the tool schema and do not invent extra fields. "
-    "Bash: command (string), description (string), timeout (integer), run_in_background (boolean). "
-    "Read: file_path (string), offset (integer), limit (integer). "
-    "Write: file_path (string), content (string). "
-    "Edit: file_path (string), old_string (string), new_string (string), replace_all (boolean). "
-    "TaskList: no input. TaskUpdate: taskId (string), optional status enum exactly one of pending, in_progress, completed, deleted. "
-    "CronCreate: cron (standard 5-field local-time cron string), prompt (string), optional recurring (boolean), optional durable (boolean). "
-    "CronDelete: id (string returned by CronCreate). CronList: no input. "
-    "Do not call WaitForMcpServers; it is a Claude Code lifecycle tool that may exist but is often not enabled in the current routed context. "
-    "If an MCP server appears disconnected, use only tools present in the current tool list, retry ordinary MCP tools when available, or report the concrete connection state. "
-    "Never write pseudo tool calls, partial JSON, or markdown code fences when a real Claude Code tool call is required."
-)
-NON_ANTHROPIC_COMPAT_PROMPT = ROUTED_COMPAT_PROMPT
-LANGUAGES = {
-    "en": "English",
-    "ko": "한국어",
-    "ja": "日本語",
-    "zh": "中文",
-}
-
-MODEL_PRESETS: dict[str, dict[str, Any]] = {
-    "glm-5.2": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 999424},
-    "glm-5.2:cloud": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 999424},
-    "glm-4.7": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 131072},
-    "glm-5.1": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 131072},
-    "glm-4.7:cloud": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 131072},
-    "glm-5.1:cloud": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 131072},
-    "qwen3-coder": {"compat_max_tokens": 16, "thinking": False, "num_ctx_min": 32768, "num_ctx_max": 65536},
-    "qwen3-coder:30b": {"compat_max_tokens": 16, "thinking": False, "num_ctx_min": 32768, "num_ctx_max": 65536},
-    "qwen3.6:27b": {"compat_max_tokens": 16, "thinking": False, "num_ctx_min": 32768, "num_ctx_max": 65536},
-    "deepseek-r1": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 131072},
-    "llama3.3:70b": {"compat_max_tokens": 16, "thinking": False, "num_ctx_min": 32768, "num_ctx_max": 131072},
-}
-LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT = 32768
-LM_STUDIO_DEFAULT_CLAUDE_CODE_CONTEXT = 65536
-
 
 def nvidia_hosted_context_default(model_id: str) -> int:
     model = model_id.lower()
@@ -1913,17 +1682,6 @@ def should_drop_emitted_tool_call(
     return True
 
 
-_SIDE_EFFECT_TOOL_SUFFIXES = {
-    "send_message",
-    "send_dm",
-    "send_file",
-    "create_message",
-    "create_dm",
-    "post_message",
-    "reply",
-}
-
-
 def side_effect_tool_call_dedupe_key(tool_name: str, tool_input: dict[str, Any]) -> str | None:
     """Stable key for exact duplicate side-effect tool calls.
 
@@ -1978,18 +1736,6 @@ def should_drop_duplicate_side_effect_tool_call(
             return True
         _TOOL_SIDE_EFFECT_DEDUP_RECENT[key] = now
     return False
-
-
-MCP_NOTIFICATION_WAIT_TOOL_NAMES = {
-    "wait_for_notification",
-    "wait_for_notifications",
-    "wait_for_message",
-    "wait_for_messages",
-    "wait_for_event",
-    "wait_for_events",
-    "wait_for_response",
-    "wait_for_responses",
-}
 
 
 def _mcp_tool_leaf_name(tool_name: str) -> str:
