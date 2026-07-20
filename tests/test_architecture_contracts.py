@@ -145,6 +145,13 @@ from ciel_runtime_support.compatibility_runtime import (
     CompatibilityCachePorts,
     CompatibilityRuntimePorts,
 )
+from ciel_runtime_support.claude_environment import (
+    ClaudeEnvironmentFeaturePorts,
+    ClaudeEnvironmentSourcePorts,
+    ClaudeLimitPorts,
+    ClaudeModelPorts,
+    ClaudeRuntimeSettingsPorts,
+)
 from ciel_runtime_support.headless_config import (
     HeadlessChannelCommands,
     HeadlessConfigCommands,
@@ -739,6 +746,16 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_compatibility_runtime_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(CompatibilityRuntimePorts)), 10)
         self.assertLessEqual(len(fields(CompatibilityCachePorts)), 10)
+
+    def test_claude_environment_ports_stay_below_dependency_limit(self):
+        for port in (
+            ClaudeLimitPorts,
+            ClaudeModelPorts,
+            ClaudeEnvironmentSourcePorts,
+            ClaudeEnvironmentFeaturePorts,
+            ClaudeRuntimeSettingsPorts,
+        ):
+            self.assertLessEqual(len(fields(port)), 10)
 
     def test_ollama_forwarding_ports_stay_below_dependency_limit(self):
         for port in (

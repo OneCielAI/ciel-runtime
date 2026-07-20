@@ -353,6 +353,18 @@ from ciel_runtime_support.compatibility_runtime import (
     CompatibilityRuntimePorts,
     CompatibilityRuntimeProjection,
 )
+from ciel_runtime_support.claude_environment import (
+    ClaudeEnvironmentFeaturePorts,
+    ClaudeEnvironmentProjection,
+    ClaudeEnvironmentShellRenderer,
+    ClaudeEnvironmentSourcePorts,
+    ClaudeLimitPolicy,
+    ClaudeLimitPorts,
+    ClaudeModelAliasPolicy,
+    ClaudeModelPorts,
+    ClaudeRuntimeSettingsPolicy,
+    ClaudeRuntimeSettingsPorts,
+)
 from ciel_runtime_support.headless_config import (
     HeadlessChannelCommands,
     HeadlessConfigCommands,
@@ -12848,25 +12860,39 @@ def cmd_test(args: argparse.Namespace) -> None:
 
 
 def claude_code_output_token_limit(provider: str, pcfg: dict[str, Any]) -> int | None:
-    configured = positive_int(pcfg.get("max_output_tokens"))
-    if configured:
-        return cap_output_tokens_to_context_ratio(provider, pcfg, configured)
-    if provider in ("ollama", "ollama-cloud"):
-        opts = ollama_extra_options(pcfg)
-        configured = positive_int(opts.get("num_predict"))
-        if configured:
-            return cap_output_tokens_to_context_ratio(provider, pcfg, configured)
-    return None
+    return claude_limit_policy().output_token_limit(provider, pcfg)
 
 
 def claude_code_auto_compact_window(provider: str, pcfg: dict[str, Any]) -> int | None:
-    configured = positive_int(pcfg.get("auto_compact_window"))
-    limit = context_limit_for_status(provider, pcfg)
-    if configured:
-        return min(configured, limit) if limit else configured
-    if limit:
-        return limit
-    return None
+    return claude_limit_policy().auto_compact_window(provider, pcfg)
+
+
+def claude_limit_policy() -> ClaudeLimitPolicy:
+    return ClaudeLimitPolicy(
+        ClaudeLimitPorts(
+            positive_int=positive_int,
+            cap_output_tokens=cap_output_tokens_to_context_ratio,
+            ollama_options=ollama_extra_options,
+            context_limit=context_limit_for_status,
+        )
+    )
+
+
+def claude_model_alias_policy() -> ClaudeModelAliasPolicy:
+    return ClaudeModelAliasPolicy(
+        ClaudeModelPorts(
+            strip_context_suffix=strip_claude_context_suffix,
+            current_upstream_model=current_upstream_model_id,
+            unslug_alias=unslug_provider_alias,
+            model_map=model_map_for,
+            context_hint=model_context_hint_from_model_id,
+            anthropic_limit_hints=anthropic_model_limit_hints,
+            positive_int=positive_int,
+            configured_model_ids=cached_or_configured_model_ids,
+            normalize_model_id=normalize_model_id,
+            alias_for=alias_for,
+        )
+    )
 
 
 def claude_code_model_claims_one_million_context(
@@ -12876,37 +12902,13 @@ def claude_code_model_claims_one_million_context(
     *,
     include_current: bool = True,
 ) -> bool:
-    candidates = [str(model or "")]
-    if include_current:
-        candidates.extend([
-            str(pcfg.get("current_model") or ""),
-            str(current_upstream_model_id(provider, pcfg) or ""),
-        ])
-    explicit_unknown_one_million = False
-    for candidate in candidates:
-        candidate = str(candidate or "").strip()
-        if not candidate:
-            continue
-        if candidate.startswith(f"ciel-runtime-{provider}-"):
-            resolved = unslug_provider_alias(provider, candidate, model_map_for(provider, pcfg, fetch=False))
-            if not resolved:
-                continue
-            candidate = resolved
-        hint = model_context_hint_from_model_id(strip_claude_context_suffix(candidate))
-        if hint is None and provider == "anthropic":
-            hint = positive_int(anthropic_model_limit_hints(candidate).get("context_window"))
-        if hint is not None:
-            if hint >= 1_000_000:
-                return True
-            continue
-        if "[1m]" in candidate.lower():
-            explicit_unknown_one_million = True
-    if explicit_unknown_one_million:
-        return True
-    if include_current:
-        limit = context_limit_for_status(provider, pcfg)
-        return bool(limit and limit >= 1_000_000)
-    return False
+    return claude_model_alias_policy().claims_one_million_context(
+        provider,
+        pcfg,
+        model,
+        include_current=include_current,
+        context_limit=context_limit_for_status(provider, pcfg) if include_current else None,
+    )
 
 
 def claude_code_context_model_alias(
@@ -12915,94 +12917,54 @@ def claude_code_context_model_alias(
     model: str,
     upstream_model: str | None = None,
 ) -> str:
-    model = strip_claude_context_suffix(model)
-    # Claude Code treats [1m] as a real one-million-context model marker. Do
-    # not use it as a generic long-context hint for 256K/512K routed models.
-    probe_model = upstream_model if upstream_model is not None else model
-    include_current = upstream_model is None
-    if (
-        claude_code_model_claims_one_million_context(provider, pcfg, probe_model, include_current=include_current)
-        and "[1m]" not in model.lower()
-    ):
-        return f"{model}[1m]"
-    return model
+    return claude_model_alias_policy().context_model_alias(
+        provider,
+        pcfg,
+        model,
+        upstream_model,
+        context_limit=context_limit_for_status(provider, pcfg) if upstream_model is None else None,
+    )
 
 
 def _model_id_matches_claude_family(model_id: str, family: str) -> bool:
-    normalized = strip_claude_context_suffix(model_id).strip().lower()
-    family = family.strip().lower()
-    if not normalized or family not in ("opus", "sonnet", "haiku"):
-        return False
-    return bool(re.search(rf"(?:^|[-_./]){re.escape(family)}(?:[-_./]|$)", normalized))
+    return claude_model_alias_policy().matches_family(model_id, family)
 
 
 def claude_code_default_model_aliases(provider: str, pcfg: dict[str, Any], current_model_alias: str) -> dict[str, str]:
-    current_upstream = current_upstream_model_id(provider, pcfg)
-    candidates = cached_or_configured_model_ids(provider, pcfg)
-    if current_upstream and current_upstream not in candidates:
-        candidates.insert(0, current_upstream)
-    out: dict[str, str] = {}
-    for family, key in (
-        ("haiku", "ANTHROPIC_DEFAULT_HAIKU_MODEL"),
-        ("opus", "ANTHROPIC_DEFAULT_OPUS_MODEL"),
-        ("sonnet", "ANTHROPIC_DEFAULT_SONNET_MODEL"),
-    ):
-        selected = ""
-        selected_from_config = False
-        configured_family_model = str(pcfg.get(f"{family}_model") or "").strip() if provider == "zai" else ""
-        if configured_family_model:
-            selected = normalize_model_id(provider, configured_family_model)
-            selected_from_config = bool(selected)
-        if not selected and _model_id_matches_claude_family(current_upstream, family):
-            selected = current_upstream
-        if not selected:
-            for model_id in candidates:
-                if _model_id_matches_claude_family(model_id, family):
-                    selected = model_id
-                    break
-        alias = alias_for(provider, selected) if selected else current_model_alias
-        if selected_from_config or provider == "anthropic":
-            out[key] = claude_code_context_model_alias(provider, pcfg, alias, selected)
-        else:
-            out[key] = claude_code_context_model_alias(provider, pcfg, alias)
-    return out
+    return claude_model_alias_policy().default_model_aliases(
+        provider,
+        pcfg,
+        current_model_alias,
+        context_limit=context_limit_for_status(provider, pcfg),
+    )
 
 
 def apply_common_claude_env(provider: str, pcfg: dict[str, Any], env: dict[str, str]) -> dict[str, str]:
-    # Claude Code's AI-generated terminal/session title can be persisted as
-    # ai-title records and, in some resume/queued-command states, visually bleed
-    # into the prompt area. Disable that side path for ciel-runtime launches.
-    env["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"] = "1"
-    output_tokens = claude_code_output_token_limit(provider, pcfg)
-    if output_tokens:
-        env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(output_tokens)
-    compact_window = claude_code_auto_compact_window(provider, pcfg)
-    if compact_window:
-        env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = str(compact_window)
-    advisor_model = str(pcfg.get("advisor_model") or "").strip()
-    if advisor_model:
-        env["CIEL_RUNTIME_ADVISOR_MODEL"] = advisor_model
-    claude_model = str(env.get("ANTHROPIC_MODEL") or env.get("CIEL_RUNTIME_MODEL_ALIAS") or "").strip()
-    capability_string = claude_code_capability_string(provider, pcfg, current_upstream_model_id(provider, pcfg))
-    if claude_model and capability_string:
-        env["ANTHROPIC_CUSTOM_MODEL_OPTION"] = claude_model
-        env["ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES"] = capability_string
-    for key in (
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL",
-    ):
-        model_alias = str(env.get(key) or "").strip()
-        if not model_alias:
-            continue
-        upstream_model = resolve_requested_model(provider, pcfg, model_alias)
-        default_caps = claude_code_capability_string(provider, pcfg, upstream_model)
-        if default_caps:
-            env[f"{key}_SUPPORTS"] = default_caps
-            env[f"{key}_SUPPORTED_CAPABILITIES"] = default_caps
-    if claude_code_workflows_enabled(provider, pcfg):
-        env.pop("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS", None)
-    return env
+    return claude_environment_projection().apply_common(provider, pcfg, env)
+
+
+def claude_environment_projection() -> ClaudeEnvironmentProjection:
+    return ClaudeEnvironmentProjection(
+        ROUTER_BASE,
+        claude_limit_policy(),
+        claude_model_alias_policy(),
+        ClaudeEnvironmentSourcePorts(
+            load_config=load_config,
+            current_provider=get_current_provider,
+            direct_native=direct_native_anthropic_enabled,
+            primary_api_key=provider_primary_api_key,
+            meaningful_key=meaningful_key,
+            current_alias=current_alias,
+        ),
+        ClaudeEnvironmentFeaturePorts(
+            capability_string=claude_code_capability_string,
+            current_upstream_model=current_upstream_model_id,
+            resolve_requested_model=resolve_requested_model,
+            workflows_enabled=claude_code_workflows_enabled,
+            router_auth_token=claude_code_router_auth_token,
+            context_limit=context_limit_for_status,
+        ),
+    )
 
 
 def env_vars(cfg: dict[str, Any] | None = None) -> dict[str, str]:
@@ -13017,35 +12979,7 @@ def env_vars(cfg: dict[str, Any] | None = None) -> dict[str, str]:
     otherwise). ``CIEL_RUNTIME_PROVIDER=anthropic`` is set purely as a marker
     for ciel-runtime's own helpers (statusline, hooks) so they can self-suppress.
     """
-    cfg = cfg or load_config()
-    provider, pcfg = get_current_provider(cfg)
-    if direct_native_anthropic_enabled(provider, pcfg):
-        env = {"CIEL_RUNTIME_PROVIDER": provider}
-        key = provider_primary_api_key(provider, pcfg)
-        if meaningful_key(key):
-            env["ANTHROPIC_API_KEY"] = str(key)
-        return env
-    alias = current_alias(cfg)
-    claude_model = claude_code_context_model_alias(provider, pcfg, alias)
-    auth_token = claude_code_router_auth_token(provider, pcfg)
-    default_models = claude_code_default_model_aliases(provider, pcfg, claude_model)
-    env = {
-        "CIEL_RUNTIME_PROVIDER": provider,
-        "ANTHROPIC_BASE_URL": ROUTER_BASE,
-        "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1",
-        "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1",
-        "CLAUDE_CODE_ATTRIBUTION_HEADER": "0",
-        "ANTHROPIC_MODEL": claude_model,
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL": default_models["ANTHROPIC_DEFAULT_HAIKU_MODEL"],
-        "ANTHROPIC_DEFAULT_OPUS_MODEL": default_models["ANTHROPIC_DEFAULT_OPUS_MODEL"],
-        "ANTHROPIC_DEFAULT_SONNET_MODEL": default_models["ANTHROPIC_DEFAULT_SONNET_MODEL"],
-        "CLAUDE_CODE_SUBAGENT_MODEL": claude_model,
-        "CIEL_RUNTIME_MODEL_ALIAS": claude_model,
-        "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
-    }
-    if auth_token:
-        env["ANTHROPIC_AUTH_TOKEN"] = auth_token
-    return apply_common_claude_env(provider, pcfg, env)
+    return claude_environment_projection().build(cfg)
 
 
 def claude_code_router_auth_token(provider: str, pcfg: dict[str, Any]) -> str:
@@ -13060,60 +12994,26 @@ def claude_code_router_auth_token(provider: str, pcfg: dict[str, Any]) -> str:
 
 
 def claude_code_runtime_settings(provider: str, pcfg: dict[str, Any]) -> dict[str, Any]:
-    settings: dict[str, Any] = {}
-    if claude_code_ultracode_enabled(provider, pcfg):
-        settings["ultracode"] = True
-    return settings
+    return claude_runtime_settings_policy().settings(provider, pcfg)
+
+
+def claude_runtime_settings_policy() -> ClaudeRuntimeSettingsPolicy:
+    return ClaudeRuntimeSettingsPolicy(
+        ClaudeRuntimeSettingsPorts(
+            ultracode_enabled=claude_code_ultracode_enabled,
+            has_passthrough_option=has_passthrough_option,
+            log=router_log,
+        )
+    )
 
 
 def append_claude_code_runtime_settings_args(extra_args: list[str], passthrough: list[str], provider: str, pcfg: dict[str, Any]) -> None:
-    settings = claude_code_runtime_settings(provider, pcfg)
-    if not settings:
-        return
-    if has_passthrough_option(passthrough, "--settings"):
-        router_log("WARN", "claude_code_runtime_settings_skipped reason=passthrough_settings_present")
-        return
-    extra_args.extend(["--settings", json.dumps(settings, separators=(",", ":"))])
+    claude_runtime_settings_policy().append_args(extra_args, passthrough, provider, pcfg)
 
 
 def cmd_env(_: argparse.Namespace) -> None:
-    env = env_vars()
-    for optional in ("ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"):
-        if optional in env:
-            print(f"export {optional}={json.dumps(env[optional])}")
-        else:
-            print(f"unset {optional}")
-    if "ANTHROPIC_AUTH_TOKEN" in env:
-        print(f"export ANTHROPIC_AUTH_TOKEN={json.dumps(env['ANTHROPIC_AUTH_TOKEN'])}")
-    else:
-        print('unset ANTHROPIC_AUTH_TOKEN')
-    for key in (
-        "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
-        "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
-        "CLAUDE_CODE_ATTRIBUTION_HEADER",
-        "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
-        "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
-        "CLAUDE_CODE_EFFORT_LEVEL",
-        "ANTHROPIC_MODEL",
-        "ANTHROPIC_CUSTOM_MODEL_OPTION",
-        "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
-        "CLAUDE_CODE_SUBAGENT_MODEL",
-        "CIEL_RUNTIME_MODEL_ALIAS",
-        "CIEL_RUNTIME_PROVIDER",
-    ):
-        if key in env:
-            print(f"export {key}={json.dumps(env[key])}")
-        else:
-            print(f"unset {key}")
+    for line in ClaudeEnvironmentShellRenderer.lines(env_vars()):
+        print(line)
 
 
 def cmd_stop(_: argparse.Namespace) -> None:

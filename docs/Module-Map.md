@@ -341,6 +341,10 @@ Compatibility 검사의 tool schema, text/tool/tool-result 요청 payload, Anthr
 
 Compatibility 결과의 runtime metadata·context/output 경고를 투영하고 provider/model별 결과 cache를 기록하는 Projection Service와 Repository. Provider compatibility policy, runtime 조회, 저장·clock을 각각 3필드 이하 포트로 분리한다.
 
+### `ciel_runtime_support/claude_environment.py`
+
+Claude Code 모델 별칭·컨텍스트 한도·환경 변수·런타임 settings를 구성하는 Policy/Projection 계층. native와 routed 환경 계약, 모델 family 선택, 셸 출력 형식을 composition root와 분리하며 각 의존성 그룹을 최대 10필드의 typed port로 제한한다.
+
 ### `ciel_runtime_support/agy_cli.py`
 
 AGY passthrough 인수 분석과 Claude 호환 인수 매핑.

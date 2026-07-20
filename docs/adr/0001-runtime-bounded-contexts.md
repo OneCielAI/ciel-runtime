@@ -163,6 +163,12 @@ Compatibility probe request/response framing and HTTP error decoding live in
 Compatibility runtime diagnostics and durable result-cache mutation live in
 `compatibility_runtime.py`, separate from probe transport and protocol framing.
 
+Claude Code model aliasing, context-limit projection, launch environment
+construction, runtime settings, and shell rendering live in
+`claude_environment.py`. These policies receive provider/catalog behavior via
+small typed port groups; the composition root retains only compatibility
+wrappers and dependency assembly.
+
 ## Rejected alternatives
 
 - Moving the monolith unchanged into a differently named file
