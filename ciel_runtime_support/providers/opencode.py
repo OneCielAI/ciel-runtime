@@ -179,6 +179,21 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             label += " override"
         return label
 
+    def project_router_model_metadata(
+        self, config: ProviderConfig, model_id: str
+    ) -> Mapping[str, object]:
+        protocol = self.select_protocol("anthropic_messages", config, model_id)
+        endpoint = {
+            "anthropic_messages": "anthropic-messages",
+            "openai_chat": "openai-chat",
+            "openai_responses": "openai-responses",
+            "google_generative": "google-generative",
+        }.get(protocol, str(protocol).replace("_", "-"))
+        return {
+            "opencode_endpoint": endpoint,
+            "router_supported": protocol in {"anthropic_messages", "openai_chat"},
+        }
+
     def configuration_policy(
         self, config: ProviderConfig
     ) -> ProviderConfigurationPolicy:

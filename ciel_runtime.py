@@ -1917,6 +1917,7 @@ def display_name(provider: str, model_id: str) -> str:
 def model_object(provider: str, model_id: str, pcfg: dict[str, Any] | None = None) -> dict[str, Any]:
     model_id = normalize_model_id(provider, model_id)
     alias = alias_for(provider, model_id)
+    adapter = configured_provider_adapter(provider, pcfg or {})
     obj = {
         "id": alias,
         "type": "model",
@@ -1927,10 +1928,11 @@ def model_object(provider: str, model_id: str, pcfg: dict[str, Any] | None = Non
         "owned_by": f"ciel-runtime/{provider}",
         "ciel_runtime": {"provider": provider, "upstream_model": model_id},
     }
-    if provider in OPENCODE_PROVIDER_NAMES:
-        endpoint = opencode_endpoint_kind(provider, model_id, pcfg)
-        obj["ciel_runtime"]["opencode_endpoint"] = endpoint
-        obj["ciel_runtime"]["router_supported"] = opencode_model_supported_by_router(provider, model_id, pcfg)
+    obj["ciel_runtime"].update(
+        adapter.project_router_model_metadata(
+            provider_contract_config(provider, pcfg or {}), model_id
+        )
+    )
     return obj
 
 
@@ -3465,18 +3467,7 @@ def fetch_anthropic_public_model_ids(timeout: float = 8.0) -> list[str]:
 
 def opencode_zen_endpoint_kind(model_id: str) -> str:
     """Return the documented OpenCode Zen endpoint family for a model id."""
-    model = strip_claude_context_suffix(model_id).strip().lower()
-    if model.startswith("ciel-runtime-opencode-"):
-        model = model[len("ciel-runtime-opencode-"):]
-    if model.startswith("claude-") or model.startswith("qwen3."):
-        return "anthropic-messages"
-    if model.startswith("gpt-"):
-        return "openai-responses"
-    if model.startswith("gemini-"):
-        return "google-generative"
-    if model.startswith(("minimax-", "glm-", "kimi-", "grok-", "big-pickle", "deepseek-", "mimo-", "nemotron-", "north-")):
-        return "openai-chat"
-    return "anthropic-messages"
+    return opencode_endpoint_kind("opencode", model_id)
 
 
 def opencode_zen_model_supported_by_router(model_id: str) -> bool:
@@ -3511,23 +3502,20 @@ def opencode_endpoint_override(provider: str, model_id: str, pcfg: dict[str, Any
 
 def opencode_go_endpoint_kind(model_id: str) -> str:
     """Return the documented OpenCode Go endpoint family for a model id."""
-    model = strip_claude_context_suffix(model_id).strip().lower()
-    if model.startswith("ciel-runtime-opencode-go-"):
-        model = model[len("ciel-runtime-opencode-go-"):]
-    if model.startswith("qwen3.") or model.startswith("minimax-"):
-        return "anthropic-messages"
-    if model.startswith(("glm-", "kimi-", "deepseek-", "mimo-", "hy3-")):
-        return "openai-chat"
-    return "anthropic-messages"
+    return opencode_endpoint_kind("opencode-go", model_id)
 
 
 def opencode_endpoint_kind(provider: str, model_id: str, pcfg: dict[str, Any] | None = None) -> str:
     override = opencode_endpoint_override(provider, model_id, pcfg)
     if override:
         return override
-    if provider == "opencode-go":
-        return opencode_go_endpoint_kind(model_id)
-    return opencode_zen_endpoint_kind(model_id)
+    adapter = configured_provider_adapter(provider, pcfg or {})
+    protocol = adapter.select_protocol(
+        "anthropic_messages",
+        provider_contract_config(provider, pcfg or {}),
+        model_id,
+    )
+    return str(protocol).replace("_", "-")
 
 
 def opencode_model_supported_by_router(provider: str, model_id: str, pcfg: dict[str, Any] | None = None) -> bool:

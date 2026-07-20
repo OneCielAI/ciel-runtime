@@ -1918,6 +1918,30 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIn("class RouterRateLimitService:", service_source)
         self.assertIn("repository: RateLimitRepository", service_source)
 
+    def test_router_model_metadata_is_projected_by_provider_adapters(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for function_name in ("model_object", "opencode_endpoint_kind"):
+            function = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef) and node.name == function_name
+            )
+            function_source = ast.get_source_segment(source, function) or ""
+            with self.subTest(function=function_name):
+                self.assertNotIn('provider == "opencode', function_source)
+                self.assertNotIn("OPENCODE_PROVIDER_NAMES", function_source)
+        model_object = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "model_object"
+        )
+        self.assertIn(
+            "adapter.project_router_model_metadata",
+            ast.get_source_segment(source, model_object) or "",
+        )
+
     def test_concrete_adapters_own_provider_specific_defaults(self):
         common_keys = {
             "base_url",

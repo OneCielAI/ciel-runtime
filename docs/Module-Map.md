@@ -507,7 +507,7 @@ Fireworks.ai 인증, management catalog scope, account 추론, protocol 선택�
 
 ### `ciel_runtime_support/providers/opencode.py`
 
-OpenCode Zen의 모델별 protocol routing, endpoint override, catalog/status와 UI 표시 정책을 소유하는 독립 Adapter.
+OpenCode Zen의 모델별 protocol routing, endpoint override, catalog/status, UI 표시 및 router model metadata projection을 소유하는 독립 Adapter. 중앙 model-object builder에는 OpenCode 이름 분기가 없다.
 
 ### `ciel_runtime_support/providers/opencode_go.py`
 

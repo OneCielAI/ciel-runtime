@@ -378,6 +378,14 @@ class ProviderAdapter(ABC):
             if raw.get(key) is not None
         }
 
+    def project_router_model_metadata(
+        self, config: ProviderConfig, model_id: str
+    ) -> Mapping[str, Any]:
+        """Project provider-specific metadata exposed by the router model catalog."""
+
+        del config, model_id
+        return {}
+
     def normalize_model_id(self, model_id: str) -> str:
         """Normalize a configured/catalog model id for shared runtime use."""
 
