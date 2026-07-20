@@ -94,6 +94,14 @@ def npm_global_install_command(
     return command
 
 
+def npm_install_runtime_command(
+    npm: str, package_spec: str, prefix: Path | None = None
+) -> list[str]:
+    command = npm_global_install_command(npm, package_spec, prefix)
+    command.insert(3, "--prefer-online")
+    return command
+
+
 def npm_global_bin_dir_from_prefix(prefix: Path) -> Path:
     return prefix if os.name == "nt" else prefix / "bin"
 
@@ -173,6 +181,7 @@ __all__ = [
     "npm_global_bin_dir_from_prefix",
     "npm_global_install_command",
     "npm_global_package_root",
+    "npm_install_runtime_command",
     "npm_latest_package_version",
     "npm_prefix_from_package_root",
     "package_root_from_installed_path",

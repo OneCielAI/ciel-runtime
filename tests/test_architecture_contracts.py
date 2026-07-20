@@ -2019,6 +2019,49 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIn("run_upgrade_command", command_source)
         self.assertNotIn("subprocess.run", command_source)
 
+    def test_runtime_restart_effects_are_service_owned(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        restart = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "restart_ciel_runtime_after_update"
+        )
+        restart_source = ast.get_source_segment(source, restart) or ""
+        self.assertIn("runtime_restart_service().restart", restart_source)
+        self.assertNotIn("os.execv", restart_source)
+        self.assertNotIn("subprocess.call", restart_source)
+        definitions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        self.assertNotIn("npm_install_runtime_command", definitions)
+
+    def test_pure_codex_config_compatibility_is_reexported_without_wrappers(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        reexports = {
+            "toml_string",
+            "_codex_config_override_keys",
+            "_toml_scalar_without_comment",
+            "_unquote_toml_string",
+            "codex_alternate_screen_value_from_config_text",
+            "codex_config_paths_for_launch",
+            "_normalize_codex_mcp_server",
+            "_codex_mcp_servers_from_toml_data",
+            "_toml_table_parts",
+            "_parse_simple_toml_value",
+            "_fallback_codex_mcp_servers_from_config_text",
+            "codex_mcp_servers_from_config_text",
+        }
+        definitions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        self.assertFalse(reexports & definitions)
+        self.assertIn("from ciel_runtime_support.codex_config import (", source)
+
     def test_concrete_adapters_own_provider_specific_defaults(self):
         common_keys = {
             "base_url",

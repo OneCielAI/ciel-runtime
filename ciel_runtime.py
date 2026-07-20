@@ -546,12 +546,20 @@ from ciel_runtime_support.npm_runtime import (
     npm_global_bin_dir_from_prefix,
     npm_global_install_command,
     npm_global_package_root,
+    npm_install_runtime_command,
     npm_latest_package_version,
     npm_prefix_from_package_root,
     package_root_from_installed_path,
     parse_version_tuple,
     run_upgrade_command,
     version_newer,
+)
+from ciel_runtime_support.runtime_restart import (
+    RuntimeRestartPorts,
+    RuntimeRestartService,
+    RuntimeRestartSettings,
+    forced_upgrade_environment,
+    running_from_npm_package as detect_running_from_npm_package,
 )
 from ciel_runtime_support.install_diagnostics import (
     InstallDiagnosticsPorts,
@@ -701,19 +709,19 @@ from ciel_runtime_support.mcp_stdio_probe import (
 )
 from ciel_runtime_support.codex_app_server import codex_app_server_launch_args
 from ciel_runtime_support.codex_config import (
-    codex_alternate_screen_value_from_config_text as project_codex_alternate_screen_value,
-    codex_config_override_keys as project_codex_config_override_keys,
-    codex_config_paths_for_launch as project_codex_config_paths,
-    codex_mcp_servers_from_config_text as project_codex_mcp_servers,
-    codex_mcp_servers_from_toml_data as project_codex_mcp_servers_from_toml,
+    codex_alternate_screen_value_from_config_text,
+    codex_config_override_keys as _codex_config_override_keys,
+    codex_config_paths_for_launch,
+    codex_mcp_servers_from_config_text,  # noqa: F401 - compatibility export
+    codex_mcp_servers_from_toml_data as _codex_mcp_servers_from_toml_data,  # noqa: F401
     discover_codex_mcp_servers as project_discover_codex_mcp_servers,
-    fallback_codex_mcp_servers_from_config_text as project_fallback_codex_mcp_servers,
-    normalize_codex_mcp_server as project_normalize_codex_mcp_server,
-    parse_simple_toml_value as project_parse_simple_toml_value,
-    toml_scalar_without_comment as project_toml_scalar_without_comment,
-    toml_string as project_toml_string,
-    toml_table_parts as project_toml_table_parts,
-    unquote_toml_string as project_unquote_toml_string,
+    fallback_codex_mcp_servers_from_config_text as _fallback_codex_mcp_servers_from_config_text,  # noqa: F401
+    normalize_codex_mcp_server as _normalize_codex_mcp_server,  # noqa: F401
+    parse_simple_toml_value as _parse_simple_toml_value,  # noqa: F401
+    toml_scalar_without_comment as _toml_scalar_without_comment,  # noqa: F401
+    toml_string,
+    toml_table_parts as _toml_table_parts,  # noqa: F401
+    unquote_toml_string as _unquote_toml_string,  # noqa: F401
 )
 from ciel_runtime_support.codex_launch_policy import (
     current_model_args as project_codex_current_model_args,
@@ -15062,20 +15070,8 @@ def cmd_mcp_proxy(argv: list[str]) -> int:
     return run_mcp_stdio_proxy(args.server_name, server_config_path)
 
 
-def npm_install_runtime_command(npm: str, package_spec: str, prefix: Path | None = None) -> list[str]:
-    cmd = npm_global_install_command(npm, package_spec, prefix)
-    cmd.insert(3, "--prefer-online")
-    return cmd
-
-
 def forced_yes_upgrade_env() -> dict[str, str]:
-    env = os.environ.copy()
-    env["CI"] = "1"
-    env["NPM_CONFIG_YES"] = "true"
-    env["npm_config_yes"] = "true"
-    env.setdefault("NPM_CONFIG_UPDATE_NOTIFIER", "false")
-    env.setdefault("npm_config_update_notifier", "false")
-    return env
+    return forced_upgrade_environment(os.environ)
 
 
 def add_npm_prefix_bin_to_path(prefix: Path | None) -> None:
@@ -15152,10 +15148,7 @@ def current_npm_install_prefix() -> Path | None:
 
 
 def running_from_npm_package() -> bool:
-    if os.environ.get("CIEL_RUNTIME_NPM_MODE") is not None:
-        return True
-    path = str(Path(__file__).resolve()).replace("\\", "/")
-    return "/node_modules/@oneciel-ai/ciel-runtime/" in path
+    return detect_running_from_npm_package(Path(__file__), os.environ)
 
 
 def current_npm_package_root() -> Path | None:
@@ -15199,23 +15192,24 @@ def warn_if_multiple_ciel_runtime_installs() -> None:
 
 
 def ciel_runtime_restart_user_args() -> list[str]:
-    args = list(sys.argv[1:])
-    if args and args[0] == "cli":
-        return args[1:]
-    return args
+    return runtime_restart_service().user_args()
+
+
+def runtime_restart_service() -> RuntimeRestartService:
+    return RuntimeRestartService(
+        settings=RuntimeRestartSettings(sys.argv, sys.executable, os.environ),
+        ports=RuntimeRestartPorts(
+            current_package_root=current_npm_package_root,
+            global_package_root=npm_global_package_root,
+            find_executable=find_executable,
+            execv=os.execv,
+            call=subprocess.call,
+        ),
+    )
 
 
 def restart_ciel_runtime_after_update(npm: str, package_root: Path | None = None) -> None:
-    os.environ["CIEL_RUNTIME_SKIP_SELF_UPDATE"] = "1"
-    user_args = ciel_runtime_restart_user_args()
-    package_root = package_root or current_npm_package_root() or npm_global_package_root(npm)
-    package_script = package_root / "ciel_runtime.py" if package_root else None
-    if package_script and package_script.exists():
-        os.execv(sys.executable, [sys.executable, str(package_script), "cli", *user_args])
-    launcher = find_executable("ciel-runtime")
-    if launcher:
-        raise SystemExit(subprocess.call([launcher, *user_args], env=os.environ.copy()))
-    os.execv(sys.executable, [sys.executable, *sys.argv])
+    runtime_restart_service().restart(npm, package_root)
 
 
 def run_ciel_runtime_update_check(enabled: bool = True) -> bool:
@@ -15503,54 +15497,6 @@ CODEX_NATIVE_PROVIDER_ID_ENV = "CIEL_RUNTIME_CODEX_NATIVE_PROVIDER_ID"
 CODEX_ROUTED_PROVIDER_ID = "ciel-runtime-codex"
 CODEX_ROUTED_UPSTREAM_BASE = "https://chatgpt.com/backend-api/codex"
 CODEX_TUI_ALTERNATE_SCREEN_KEY = "tui.alternate_screen"
-
-
-def toml_string(value: str) -> str:
-    return project_toml_string(value)
-
-
-def _codex_config_override_keys(passthrough: list[str]) -> set[str]:
-    return project_codex_config_override_keys(passthrough)
-
-
-def _toml_scalar_without_comment(raw: str) -> str:
-    return project_toml_scalar_without_comment(raw)
-
-
-def _unquote_toml_string(raw: str) -> str:
-    return project_unquote_toml_string(raw)
-
-
-def codex_alternate_screen_value_from_config_text(text: str) -> str | None:
-    return project_codex_alternate_screen_value(text)
-
-
-def codex_config_paths_for_launch(passthrough: list[str], env: dict[str, str] | None = None, cwd: Path | None = None) -> list[Path]:
-    return project_codex_config_paths(passthrough, env=env, cwd=cwd)
-
-
-def _normalize_codex_mcp_server(raw_name: Any, raw_server: Any) -> tuple[str, dict[str, Any]] | None:
-    return project_normalize_codex_mcp_server(raw_name, raw_server)
-
-
-def _codex_mcp_servers_from_toml_data(data: Any) -> dict[str, dict[str, Any]]:
-    return project_codex_mcp_servers_from_toml(data)
-
-
-def _toml_table_parts(raw: str) -> list[str]:
-    return project_toml_table_parts(raw)
-
-
-def _parse_simple_toml_value(raw: str) -> Any:
-    return project_parse_simple_toml_value(raw)
-
-
-def _fallback_codex_mcp_servers_from_config_text(text: str) -> dict[str, dict[str, Any]]:
-    return project_fallback_codex_mcp_servers(text)
-
-
-def codex_mcp_servers_from_config_text(text: str) -> dict[str, dict[str, Any]]:
-    return project_codex_mcp_servers(text)
 
 
 def discovered_codex_mcp_servers(
