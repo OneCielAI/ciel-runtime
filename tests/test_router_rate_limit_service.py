@@ -3,9 +3,11 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from ciel_runtime_support.rate_limit_repository import RateLimitRepository
 from ciel_runtime_support.router_rate_limit_service import (
+    RouterRateLimitApi,
     RouterRateLimitPaths,
     RouterRateLimitPorts,
     RouterRateLimitService,
@@ -31,6 +33,23 @@ class RouterRateLimitServiceTests(unittest.TestCase):
             ),
         )
         return service, state_path, logs
+
+    def test_explicit_api_delegates_with_public_keyword_names(self):
+        service = mock.create_autospec(RouterRateLimitService, instance=True)
+        service.key.return_value = "provider:__global__"
+        service.capacity.return_value = 9
+        service.apply.return_value = (0.0, 1, 10)
+        api = RouterRateLimitApi(lambda: service)
+
+        self.assertEqual(
+            "provider:__global__",
+            api.key(provider="provider", pcfg={}, model="model"),
+        )
+        self.assertEqual(9, api.capacity(rpm=10))
+        self.assertEqual(
+            (0.0, 1, 10),
+            api.apply(provider="provider", pcfg={}, model="model"),
+        )
 
     def test_provider_rate_key_is_global_and_legacy_key_remains_readable(self):
         with tempfile.TemporaryDirectory() as tmp:

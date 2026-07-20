@@ -228,4 +228,58 @@ class RouterRateLimitService:
             waited += sleep_for
 
 
-__all__ = ["RouterRateLimitPaths", "RouterRateLimitPorts", "RouterRateLimitService"]
+@dataclass(frozen=True, slots=True)
+class RouterRateLimitApi:
+    """Explicit compatibility API for late-bound router rate-limit services."""
+
+    service_factory: Callable[[], RouterRateLimitService]
+
+    def legacy_key(self, provider: str, pcfg: dict[str, Any], model: str | None) -> str:
+        return self.service_factory().legacy_key(provider, pcfg, model)
+
+    def configured_rpm(self, provider: str, pcfg: dict[str, Any]) -> int | None:
+        return self.service_factory().configured_rpm(provider, pcfg)
+
+    def rpm(self, provider: str, pcfg: dict[str, Any]) -> int | None:
+        return self.service_factory().rpm(provider, pcfg)
+
+    def key(self, provider: str, pcfg: dict[str, Any], model: str | None = None) -> str:
+        return self.service_factory().key(provider, pcfg, model)
+
+    def state_entry(self, provider: str, pcfg: dict[str, Any], model: str | None = None) -> dict[str, Any]:
+        return self.service_factory().state_entry(provider, pcfg, model)
+
+    def effective_rpm(self, provider: str, pcfg: dict[str, Any], model: str | None = None) -> int | None:
+        return self.service_factory().effective_rpm(provider, pcfg, model)
+
+    def capacity(self, rpm: int) -> int:
+        return self.service_factory().capacity(rpm)
+
+    def recent(self, timestamps: Any, now: float, window: float, *, include_future: bool) -> list[float]:
+        return self.service_factory().recent(timestamps, now, window, include_future=include_future)
+
+    def usage(self, provider: str, pcfg: dict[str, Any], model: str | None = None) -> tuple[int, int | None]:
+        return self.service_factory().usage(provider, pcfg, model)
+
+    def record_usage(self, provider: str, pcfg: dict[str, Any], model: str | None, rpm: int | None) -> tuple[int, int | None]:
+        return self.service_factory().record_usage(provider, pcfg, model, rpm)
+
+    def learn_headers(self, provider: str, pcfg: dict[str, Any], model: str | None, headers: Any) -> None:
+        self.service_factory().learn_headers(provider, pcfg, model, headers)
+
+    def register_backoff(self, provider: str, pcfg: dict[str, Any], model: str | None, retry_after: str | None = None) -> float:
+        return self.service_factory().register_backoff(provider, pcfg, model, retry_after)
+
+    def apply(self, provider: str, pcfg: dict[str, Any], model: str | None = None) -> tuple[float, int, int | None]:
+        return self.service_factory().apply(provider, pcfg, model)
+
+    def wait_for_penalty(self, provider: str, pcfg: dict[str, Any], model: str | None, rpm: int | None) -> float:
+        return self.service_factory().wait_for_penalty(provider, pcfg, model, rpm)
+
+
+__all__ = [
+    "RouterRateLimitApi",
+    "RouterRateLimitPaths",
+    "RouterRateLimitPorts",
+    "RouterRateLimitService",
+]

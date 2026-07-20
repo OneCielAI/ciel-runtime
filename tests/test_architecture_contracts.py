@@ -1918,27 +1918,59 @@ class ArchitectureContractTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
-        for function_name in (
+        delegated = {
+            "router_rate_limit_legacy_key",
+            "router_rate_limit_configured_rpm",
+            "router_rate_limit_rpm",
+            "router_rate_limit_key",
+            "router_rate_limit_state_entry",
+            "router_rate_limit_effective_rpm",
+            "router_rate_limit_capacity",
+            "router_rate_limit_recent",
+            "router_rate_limit_usage",
+            "record_router_rate_usage",
             "learn_router_rate_limit_headers",
             "register_router_rate_limit_backoff",
             "apply_router_rate_limit",
             "wait_for_router_rate_limit_penalty",
-        ):
-            function = next(
-                node
-                for node in tree.body
-                if isinstance(node, ast.FunctionDef) and node.name == function_name
-            )
-            function_source = ast.get_source_segment(source, function) or ""
-            with self.subTest(function=function_name):
-                self.assertIn("router_rate_limit_service()", function_source)
-                self.assertNotIn("RATE_LIMIT_STATE_PATH.read_text", function_source)
-                self.assertNotIn("RateLimitStateStore(", function_source)
+        }
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        self.assertIn("RouterRateLimitApi", source)
         service_source = (
             root / "ciel_runtime_support" / "router_rate_limit_service.py"
         ).read_text(encoding="utf-8")
         self.assertIn("class RouterRateLimitService:", service_source)
+        self.assertIn("class RouterRateLimitApi:", service_source)
         self.assertIn("repository: RateLimitRepository", service_source)
+        self.assertNotIn("__getattr__", service_source)
+
+    def test_runtime_llm_options_uses_explicit_typed_api(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "handle_live_llm_options_action",
+            "runtime_llm_snapshot_from_provider",
+            "ensure_runtime_llm_original_snapshot",
+            "restore_runtime_llm_original_options",
+            "apply_runtime_llm_preset_config",
+            "runtime_llm_slider_line",
+            "apply_runtime_llm_slider_delta_config",
+            "runtime_llm_status_lines",
+            "runtime_llm_preset_list_lines",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        self.assertIn("RuntimeLlmOptionsApi", source)
+        service_source = (
+            root / "ciel_runtime_support" / "runtime_llm_options.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("__getattr__", service_source)
 
     def test_router_model_metadata_is_projected_by_provider_adapters(self):
         root = Path(__file__).resolve().parents[1]

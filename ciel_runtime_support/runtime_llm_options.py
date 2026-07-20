@@ -276,3 +276,37 @@ class RuntimeLlmOptionsController:
     def _persist(self, config: dict[str, Any]) -> None:
         self.config.save(config)
         self.config.clear_model_cache()
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeLlmOptionsApi:
+    """Explicit public adapter for a late-bound runtime options controller."""
+
+    controller_factory: Callable[[], RuntimeLlmOptionsController]
+
+    def handle_live_llm_options_action(self, action: str = "status", preset: str = "") -> tuple[list[str], bool]:
+        return self.controller_factory().handle_action(action, preset)
+
+    def snapshot_from_provider(self, provider: str, pcfg: dict[str, Any]) -> dict[str, Any]:
+        return self.controller_factory().snapshot(provider, pcfg)
+
+    def ensure_original_snapshot(self, provider: str, pcfg: dict[str, Any]) -> bool:
+        return self.controller_factory().ensure_snapshot(provider, pcfg)
+
+    def restore_original_options(self, provider: str) -> list[str]:
+        return self.controller_factory().restore(provider)
+
+    def apply_preset_config(self, provider: str, preset_id: str) -> list[str]:
+        return self.controller_factory().apply_preset(provider, preset_id)
+
+    def slider_line(self, provider: str, pcfg: dict[str, Any]) -> str:
+        return self.controller_factory().slider_line(provider, pcfg)
+
+    def apply_slider_delta_config(self, provider: str, delta: int) -> list[str]:
+        return self.controller_factory().apply_slider_delta(provider, delta)
+
+    def status_lines(self, provider: str, pcfg: dict[str, Any]) -> list[str]:
+        return self.controller_factory().status_lines(provider, pcfg)
+
+    def preset_list_lines(self, provider: str, pcfg: dict[str, Any]) -> list[str]:
+        return self.controller_factory().preset_list_lines(provider, pcfg)

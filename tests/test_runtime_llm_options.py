@@ -5,6 +5,7 @@ from unittest.mock import Mock
 from ciel_runtime_support.runtime_llm_options import (
     RuntimeLlmConfigPorts,
     RuntimeLlmMutationPorts,
+    RuntimeLlmOptionsApi,
     RuntimeLlmOptionsController,
     RuntimeLlmPresentationPorts,
     RuntimeLlmSettings,
@@ -63,6 +64,25 @@ class RuntimeLlmOptionsControllerTests(unittest.TestCase):
                 ollama_options=lambda config: config.get("ollama_options", {}),
             ),
             RuntimeLlmMutationPorts(apply_preset=apply_preset),
+        )
+
+    def test_explicit_api_delegates_public_runtime_options_contract(self):
+        controller = Mock(spec=RuntimeLlmOptionsController)
+        controller.handle_action.return_value = (["status"], False)
+        controller.snapshot.return_value = {"version": 1}
+        controller.slider_line.return_value = "< [BAL] | LONG >"
+        api = RuntimeLlmOptionsApi(lambda: controller)
+
+        self.assertEqual(
+            (["status"], False),
+            api.handle_live_llm_options_action(action="status", preset=""),
+        )
+        self.assertEqual(
+            {"version": 1},
+            api.snapshot_from_provider(provider="provider", pcfg={}),
+        )
+        self.assertEqual(
+            "< [BAL] | LONG >", api.slider_line(provider="provider", pcfg={})
         )
 
     def test_snapshot_deep_copies_owned_values(self):

@@ -972,6 +972,7 @@ from ciel_runtime_support.timeout_profile import (
 from ciel_runtime_support.runtime_llm_options import (
     RuntimeLlmConfigPorts,
     RuntimeLlmMutationPorts,
+    RuntimeLlmOptionsApi,
     RuntimeLlmOptionsController,
     RuntimeLlmPresentationPorts,
     RuntimeLlmSettings,
@@ -987,6 +988,7 @@ from ciel_runtime_support.provider_limits import (
 from ciel_runtime_support import rate_limit_policy
 from ciel_runtime_support.rate_limit_repository import RateLimitRepository
 from ciel_runtime_support.router_rate_limit_service import (
+    RouterRateLimitApi,
     RouterRateLimitPaths,
     RouterRateLimitPorts,
     RouterRateLimitService,
@@ -3518,48 +3520,17 @@ def router_rate_limit_service() -> RouterRateLimitService:
     )
 
 
-def router_rate_limit_legacy_key(
-    provider: str, pcfg: dict[str, Any], model: str | None
-) -> str:
-    return router_rate_limit_service().legacy_key(provider, pcfg, model)
-
-
-def router_rate_limit_configured_rpm(provider: str, pcfg: dict[str, Any]) -> int | None:
-    return router_rate_limit_service().configured_rpm(provider, pcfg)
-
-
-def router_rate_limit_rpm(provider: str, pcfg: dict[str, Any]) -> int | None:
-    return router_rate_limit_service().rpm(provider, pcfg)
-
-
-def router_rate_limit_key(provider: str, pcfg: dict[str, Any], model: str | None = None) -> str:
-    return router_rate_limit_service().key(provider, pcfg, model)
-
-
-def router_rate_limit_state_entry(provider: str, pcfg: dict[str, Any], model: str | None = None) -> dict[str, Any]:
-    return router_rate_limit_service().state_entry(provider, pcfg, model)
-
-
-def router_rate_limit_effective_rpm(provider: str, pcfg: dict[str, Any], model: str | None = None) -> int | None:
-    return router_rate_limit_service().effective_rpm(provider, pcfg, model)
-
-
-def router_rate_limit_capacity(rpm: int) -> int:
-    return RouterRateLimitService.capacity(rpm)
-
-
-def router_rate_limit_recent(timestamps: Any, now: float, window: float, *, include_future: bool) -> list[float]:
-    return RouterRateLimitService.recent(
-        timestamps, now, window, include_future=include_future
-    )
-
-
-def router_rate_limit_usage(provider: str, pcfg: dict[str, Any], model: str | None = None) -> tuple[int, int | None]:
-    return router_rate_limit_service().usage(provider, pcfg, model)
-
-
-def record_router_rate_usage(provider: str, pcfg: dict[str, Any], model: str | None, rpm: int | None) -> tuple[int, int | None]:
-    return router_rate_limit_service().record_usage(provider, pcfg, model, rpm)
+_ROUTER_RATE_LIMIT_API = RouterRateLimitApi(router_rate_limit_service)
+router_rate_limit_legacy_key = _ROUTER_RATE_LIMIT_API.legacy_key
+router_rate_limit_configured_rpm = _ROUTER_RATE_LIMIT_API.configured_rpm
+router_rate_limit_rpm = _ROUTER_RATE_LIMIT_API.rpm
+router_rate_limit_key = _ROUTER_RATE_LIMIT_API.key
+router_rate_limit_state_entry = _ROUTER_RATE_LIMIT_API.state_entry
+router_rate_limit_effective_rpm = _ROUTER_RATE_LIMIT_API.effective_rpm
+router_rate_limit_capacity = _ROUTER_RATE_LIMIT_API.capacity
+router_rate_limit_recent = _ROUTER_RATE_LIMIT_API.recent
+router_rate_limit_usage = _ROUTER_RATE_LIMIT_API.usage
+record_router_rate_usage = _ROUTER_RATE_LIMIT_API.record_usage
 
 
 parse_retry_after_seconds = rate_limit_policy.retry_after_seconds
@@ -3569,14 +3540,8 @@ first_int_in_header = rate_limit_policy.first_integer
 rate_limit_reset_seconds = rate_limit_policy.reset_seconds
 
 
-def learn_router_rate_limit_headers(provider: str, pcfg: dict[str, Any], model: str | None, headers: Any) -> None:
-    router_rate_limit_service().learn_headers(provider, pcfg, model, headers)
-
-
-def register_router_rate_limit_backoff(provider: str, pcfg: dict[str, Any], model: str | None, retry_after: str | None = None) -> float:
-    return router_rate_limit_service().register_backoff(
-        provider, pcfg, model, retry_after
-    )
+learn_router_rate_limit_headers = _ROUTER_RATE_LIMIT_API.learn_headers
+register_router_rate_limit_backoff = _ROUTER_RATE_LIMIT_API.register_backoff
 
 
 def api_key_cooldown_service() -> ApiKeyCooldownService:
@@ -3640,12 +3605,8 @@ def retry_after_exceeds_request_timeout(headers: Any, timeout: float) -> tuple[b
     return seconds >= max(1.0, float(timeout) - 1.0), seconds
 
 
-def apply_router_rate_limit(provider: str, pcfg: dict[str, Any], model: str | None = None) -> tuple[float, int, int | None]:
-    return router_rate_limit_service().apply(provider, pcfg, model)
-
-
-def wait_for_router_rate_limit_penalty(provider: str, pcfg: dict[str, Any], model: str | None, rpm: int | None) -> float:
-    return router_rate_limit_service().wait_for_penalty(provider, pcfg, model, rpm)
+apply_router_rate_limit = _ROUTER_RATE_LIMIT_API.apply
+wait_for_router_rate_limit_penalty = _ROUTER_RATE_LIMIT_API.wait_for_penalty
 
 
 RATE_LIMIT_NOTICE_PALETTE = (203, 209, 215, 221, 229, 187, 151, 116, 111, 147, 183, 219)
@@ -6847,10 +6808,6 @@ _format_channel_backlog_status_lines = RouterShortcutController.channel_status_l
 
 def maybe_handle_channel_clear_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool:
     return router_shortcut_controller().handle_channel_clear(handler, body)
-
-
-def handle_live_llm_options_action(action: str = "status", preset: str = "") -> tuple[list[str], bool]:
-    return runtime_llm_options_controller().handle_action(action, preset)
 
 
 def maybe_handle_live_llm_options_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool:
@@ -10240,10 +10197,6 @@ def apply_llm_preset_config(provider: str, preset_id: str) -> list[str]:
 
 
 
-def runtime_llm_snapshot_from_provider(provider: str, pcfg: dict[str, Any]) -> dict[str, Any]:
-    return runtime_llm_options_controller().snapshot(provider, pcfg)
-
-
 def runtime_llm_options_controller() -> RuntimeLlmOptionsController:
     return RuntimeLlmOptionsController(
         RuntimeLlmSettings(
@@ -10273,32 +10226,16 @@ def runtime_llm_options_controller() -> RuntimeLlmOptionsController:
     )
 
 
-def ensure_runtime_llm_original_snapshot(provider: str, pcfg: dict[str, Any]) -> bool:
-    return runtime_llm_options_controller().ensure_snapshot(provider, pcfg)
-
-
-def restore_runtime_llm_original_options(provider: str) -> list[str]:
-    return runtime_llm_options_controller().restore(provider)
-
-
-def apply_runtime_llm_preset_config(provider: str, preset_id: str) -> list[str]:
-    return runtime_llm_options_controller().apply_preset(provider, preset_id)
-
-
-def runtime_llm_slider_line(provider: str, pcfg: dict[str, Any]) -> str:
-    return runtime_llm_options_controller().slider_line(provider, pcfg)
-
-
-def apply_runtime_llm_slider_delta_config(provider: str, delta: int) -> list[str]:
-    return runtime_llm_options_controller().apply_slider_delta(provider, delta)
-
-
-def runtime_llm_status_lines(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    return runtime_llm_options_controller().status_lines(provider, pcfg)
-
-
-def runtime_llm_preset_list_lines(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    return runtime_llm_options_controller().preset_list_lines(provider, pcfg)
+_RUNTIME_LLM_OPTIONS_API = RuntimeLlmOptionsApi(runtime_llm_options_controller)
+handle_live_llm_options_action = _RUNTIME_LLM_OPTIONS_API.handle_live_llm_options_action
+runtime_llm_snapshot_from_provider = _RUNTIME_LLM_OPTIONS_API.snapshot_from_provider
+ensure_runtime_llm_original_snapshot = _RUNTIME_LLM_OPTIONS_API.ensure_original_snapshot
+restore_runtime_llm_original_options = _RUNTIME_LLM_OPTIONS_API.restore_original_options
+apply_runtime_llm_preset_config = _RUNTIME_LLM_OPTIONS_API.apply_preset_config
+runtime_llm_slider_line = _RUNTIME_LLM_OPTIONS_API.slider_line
+apply_runtime_llm_slider_delta_config = _RUNTIME_LLM_OPTIONS_API.apply_slider_delta_config
+runtime_llm_status_lines = _RUNTIME_LLM_OPTIONS_API.status_lines
+runtime_llm_preset_list_lines = _RUNTIME_LLM_OPTIONS_API.preset_list_lines
 
 
 
