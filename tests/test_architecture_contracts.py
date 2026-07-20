@@ -144,6 +144,11 @@ from ciel_runtime_support.channel_message_repository import ChannelMessageAppend
 from ciel_runtime_support.channel_wake_claim_repository import ChannelWakeClaimRepository
 from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
 from ciel_runtime_support.channel_cursor_repository import ChannelCursorRepository
+from ciel_runtime_support.channel_cursor_recovery import (
+    ChannelCursorRecoveryPolicy,
+    ChannelCursorRecoveryPorts,
+    ChannelCursorRecoveryService,
+)
 from ciel_runtime_support.channel_session_repository import ChannelSessionRepository
 from ciel_runtime_support.channel_session_lifecycle import ChannelSessionLifecycleServices
 from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices
@@ -1823,6 +1828,22 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertIn("channel_tool_context_service", function_source)
                 self.assertNotIn("router_log", function_source)
                 self.assertNotIn("json.dumps", function_source)
+
+    def test_channel_cursor_recovery_service_owns_transcript_recovery(self):
+        for port in (ChannelCursorRecoveryPolicy, ChannelCursorRecoveryPorts, ChannelCursorRecoveryService):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "_channel_stdin_recover_cursor_from_queued_only"
+        )
+        function_source = ast.unparse(function)
+        self.assertIn("channel_cursor_recovery_service", function_source)
+        self.assertNotIn("_read_file_tail_text", function_source)
+        self.assertNotIn("_CHANNEL_STDIN_RECOVERY_CACHE", function_source)
 
     def test_request_trace_ports_stay_below_dependency_limit(self):
         for port in (RequestTracePolicy, RequestTraceProjection, RequestTraceServices):

@@ -133,6 +133,10 @@ MCP Streamable HTTP session의 DELETE 요청, 이미 사라진 session의 멱등
 
 Transient chat tail을 기준으로 LLM/MCP cursor, clear floor, recovery cache와 활성 MCP session을 일관되게 fast-forward하는 Channel Application Service. cursor와 runtime 상태는 각각 최대 10필드의 typed port로 분리하며 status projection과 clear transaction이 같은 경계를 공유한다.
 
+### `ciel_runtime_support/channel_cursor_recovery.py`
+
+Claude/Codex transcript의 queued-only wake를 찾아 LLM delivery cursor를 안전하게 되돌리는 Channel Recovery Service. transcript marker 기반 TTL cache, 최대 read 범위, clear-floor clamp 및 관측 로그를 typed policy/ports로 분리한다.
+
 ### `ciel_runtime_support/channel_panel.py`
 
 채널 probe cache와 현재 설정을 사전 실행 메뉴의 행/값 projection으로 변환하는 Channel UI policy. 공식 플러그인, probe 분류, delivery mode는 6필드 `ChannelPanelPolicy`로 주입한다.

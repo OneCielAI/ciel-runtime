@@ -263,6 +263,11 @@ from ciel_runtime_support.channel_cursor_service import (
     ChannelResumeServices,
     parse_channel_event_id,
 )
+from ciel_runtime_support.channel_cursor_recovery import (
+    ChannelCursorRecoveryPolicy,
+    ChannelCursorRecoveryPorts,
+    ChannelCursorRecoveryService,
+)
 from ciel_runtime_support.channel_wake_claim_repository import (
     ChannelWakeClaimRepository,
     prompt_message_ids as _channel_prompt_message_ids,
@@ -14751,48 +14756,23 @@ def channel_wake_transcript_services() -> ChannelWakeTranscriptServices:
 
 
 def _channel_stdin_recover_cursor_from_queued_only(last_id: int) -> int:
-    if last_id <= 0:
-        return last_id
-    path = _latest_claude_transcript_path()
-    if path is None:
-        return last_id
-    try:
-        stat = path.stat()
-        marker = (str(path), int(stat.st_mtime_ns), int(stat.st_size))
-    except OSError:
-        return last_id
-    now = time.time()
-    cached_marker = _CHANNEL_STDIN_RECOVERY_CACHE.get("marker")
-    if (
-        _CHANNEL_STDIN_RECOVERY_CACHE.get("last_id") == last_id
-        and cached_marker == marker
-        and now - float(_CHANNEL_STDIN_RECOVERY_CACHE.get("checked_at") or 0.0) < 5.0
-    ):
-        cached = _CHANNEL_STDIN_RECOVERY_CACHE.get("recovered_last_id")
-        recovered = int(cached) if isinstance(cached, int) else last_id
-        return _channel_llm_clamp_to_clear_floor(recovered)
-    text = _read_file_tail_text(path, max_bytes=8 * 1024 * 1024)
-    recovered = last_id
-    if text:
-        for message_id in sorted(_channel_stdin_queued_command_ids_from_text(text)):
-            if message_id > last_id:
-                continue
-            if _channel_stdin_wake_state_from_text(message_id, text) == "missing":
-                recovered = max(0, message_id - 1)
-                router_log(
-                    "WARN",
-                    f"channel_stdin_proxy_recover_queued_only message_id={message_id} cursor={last_id} recovered_cursor={recovered}",
-                )
-                break
-    _CHANNEL_STDIN_RECOVERY_CACHE.update(
-        {
-            "checked_at": now,
-            "last_id": last_id,
-            "marker": marker,
-            "recovered_last_id": recovered,
-        }
+    return channel_cursor_recovery_service().recover(last_id)
+
+
+def channel_cursor_recovery_service() -> ChannelCursorRecoveryService:
+    return ChannelCursorRecoveryService(
+        cache=_CHANNEL_STDIN_RECOVERY_CACHE,
+        policy=ChannelCursorRecoveryPolicy(),
+        ports=ChannelCursorRecoveryPorts(
+            latest_transcript=_latest_claude_transcript_path,
+            read_tail=_read_file_tail_text,
+            queued_command_ids=_channel_stdin_queued_command_ids_from_text,
+            wake_state=_channel_stdin_wake_state_from_text,
+            clamp_to_clear_floor=_channel_llm_clamp_to_clear_floor,
+            now=time.time,
+            log=router_log,
+        ),
     )
-    return _channel_llm_clamp_to_clear_floor(recovered)
 
 
 def _channel_stdin_unseen_retry_seconds() -> float:
