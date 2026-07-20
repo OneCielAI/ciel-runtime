@@ -222,6 +222,9 @@ from ciel_runtime_support.channel_tool_context import (
     ChannelToolContextService,
 )
 from ciel_runtime_support.channel_transcript import ChannelWakeTranscriptServices
+from ciel_runtime_support.channel_transcript_repository import (
+    ChannelTranscriptRepository,
+)
 from ciel_runtime_support.channel_message_repository import ChannelMessageAppendPorts, ChannelMessageRepository
 from ciel_runtime_support.channel_wake_claim_repository import ChannelWakeClaimRepository
 from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
@@ -3459,6 +3462,32 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(function=function_name):
                 self.assertNotIn(f"def {function_name}(", source)
         self.assertLessEqual(len(fields(ChannelWakeTranscriptServices)), 10)
+
+    def test_channel_transcript_filesystem_is_repository_owned(self):
+        self.assertEqual(4, len(fields(ChannelTranscriptRepository)))
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        functions = {
+            node.name: ast.get_source_segment(source, node) or ""
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+        }
+        self.assertIn(
+            "ChannelTranscriptRepository",
+            functions["channel_transcript_repository"],
+        )
+        self.assertNotIn(
+            ".glob(",
+            functions["_latest_claude_transcript_path"],
+        )
+        self.assertNotIn("def _read_file_tail_text(", source)
+        repository_source = (
+            root
+            / "ciel_runtime_support"
+            / "channel_transcript_repository.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", repository_source)
+        self.assertNotIn("__getattr__", repository_source)
 
     def test_channel_message_coalescing_policy_lives_outside_composition_root(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")

@@ -191,6 +191,10 @@ Windows `GetConsoleMode`/`SetConsoleMode`, console 지원 판정과 mouse-input 
 
 Claude/Codex JSONL transcript의 사용자 텍스트, assistant turn, tool call/result 및 활성 turn 상태를 해석하는 순수 Channel 도메인 서비스. 파일·프로세스·composition root 전역에 의존하지 않는다.
 
+### `ciel_runtime_support/channel_transcript_repository.py`
+
+Claude/Codex transcript scope, TTL cache, runtime별 검색 root, 최신 JSONL 선택과 bounded tail 읽기를 소유하는 Repository. home·clock·호환 cache/scope 상태를 명시적으로 주입받아 composition root의 filesystem 탐색을 제거한다.
+
 ### `ciel_runtime_support/channel_message_policy.py`
 
 MCP/SSE/Web Chat 메시지의 출처와 고유 참조, 이벤트 순서, coalescing identity를 해석하고 같은 스트림에서 superseded된 알림을 판정하는 순수 Channel 정책. 전송·저장 효과와 독립적이며 Provider나 composition root를 참조하지 않는다.

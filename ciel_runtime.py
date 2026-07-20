@@ -212,6 +212,9 @@ from ciel_runtime_support.channel_transcript import (
     queued_command_ids_from_text as analyze_channel_queued_ids,
     wake_state_from_text as analyze_channel_wake_state,
 )
+from ciel_runtime_support.channel_transcript_repository import (
+    ChannelTranscriptRepository,
+)
 from ciel_runtime_support.channel_message_policy import (
     message_has_external_provenance as _channel_message_has_external_provenance,
     message_is_web_chat_request as _channel_message_is_web_chat_request,
@@ -12419,69 +12422,32 @@ _CHANNEL_STDIN_RECOVERY_CACHE: dict[str, Any] = {
 }
 
 
+def channel_transcript_repository() -> ChannelTranscriptRepository:
+    return ChannelTranscriptRepository(
+        HOME,
+        _CHANNEL_TRANSCRIPT_CACHE,
+        _CHANNEL_TRANSCRIPT_SCOPE,
+        time.time,
+    )
+
+
 def _set_channel_transcript_scope(runtime: str, *, started_at: float | None = None, codex_home: Path | None = None) -> None:
-    _CHANNEL_TRANSCRIPT_SCOPE["runtime"] = str(runtime or "").strip().lower()
-    _CHANNEL_TRANSCRIPT_SCOPE["started_at"] = time.time() if started_at is None else float(started_at)
-    _CHANNEL_TRANSCRIPT_SCOPE["codex_home"] = Path(codex_home).expanduser() if codex_home is not None else None
-    _CHANNEL_TRANSCRIPT_CACHE.clear()
-    _CHANNEL_TRANSCRIPT_CACHE.update({"checked_at": 0.0, "path": None})
+    channel_transcript_repository().set_scope(
+        runtime,
+        started_at=started_at,
+        codex_home=codex_home,
+    )
 
 
 def _channel_transcript_roots() -> tuple[tuple[Path, str], ...]:
-    runtime = str(_CHANNEL_TRANSCRIPT_SCOPE.get("runtime") or "").strip().lower()
-    claude_root = (HOME / ".claude" / "projects", "*/*.jsonl")
-    configured_codex_home = _CHANNEL_TRANSCRIPT_SCOPE.get("codex_home")
-    codex_home = Path(configured_codex_home) if isinstance(configured_codex_home, Path) else HOME / ".codex"
-    codex_root = (codex_home / "sessions", "**/*.jsonl")
-    if runtime == "codex":
-        return (codex_root,)
-    if runtime == "claude":
-        return (claude_root,)
-    return (claude_root, codex_root)
+    return channel_transcript_repository().roots()
 
 
 def _latest_claude_transcript_path(ttl_seconds: float = 2.0) -> Path | None:
-    now = time.time()
-    cached_at = float(_CHANNEL_TRANSCRIPT_CACHE.get("checked_at") or 0.0)
-    cached_path = _CHANNEL_TRANSCRIPT_CACHE.get("path")
-    if now - cached_at < ttl_seconds:
-        return cached_path if isinstance(cached_path, Path) else None
-    latest: Path | None = None
-    latest_mtime = -1.0
-    transcript_roots = _channel_transcript_roots()
-    scope_started_at = float(_CHANNEL_TRANSCRIPT_SCOPE.get("started_at") or 0.0)
-    for root, pattern in transcript_roots:
-        try:
-            paths = root.glob(pattern)
-        except Exception:
-            continue
-        for path in paths:
-            try:
-                mtime = path.stat().st_mtime
-            except OSError:
-                continue
-            # A previous interrupted run can end with task_started and no matching
-            # completion event. It must not make a newly launched idle client look
-            # permanently busy and suppress external input injection.
-            if scope_started_at > 0 and mtime < scope_started_at - 1.0:
-                continue
-            if mtime > latest_mtime:
-                latest = path
-                latest_mtime = mtime
-    _CHANNEL_TRANSCRIPT_CACHE["checked_at"] = now
-    _CHANNEL_TRANSCRIPT_CACHE["path"] = latest
-    return latest
+    return channel_transcript_repository().latest(ttl_seconds)
 
 
-def _read_file_tail_text(path: Path, max_bytes: int = 512 * 1024) -> str:
-    try:
-        size = path.stat().st_size
-        with path.open("rb") as f:
-            if size > max_bytes:
-                f.seek(max(0, size - max_bytes))
-            return f.read(max_bytes).decode("utf-8", errors="replace")
-    except Exception:
-        return ""
+_read_file_tail_text = ChannelTranscriptRepository.read_tail_text
 
 
 def _channel_stdin_wake_state(message_id: int) -> str:
