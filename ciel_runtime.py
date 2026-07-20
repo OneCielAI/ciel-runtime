@@ -215,6 +215,7 @@ from ciel_runtime_support.channel_transcript import (
 from ciel_runtime_support.channel_message_policy import (
     message_has_external_provenance as _channel_message_has_external_provenance,
     message_is_web_chat_request as _channel_message_is_web_chat_request,
+    string_list as _as_string_list,
     superseded_message_ids as _channel_superseded_message_ids,
 )
 from ciel_runtime_support.channel_message_prompt import (
@@ -4129,31 +4130,6 @@ def chat_file_markdown_lines(uploads: list[dict[str, Any]]) -> list[str]:
 
 def chat_file_message_text(message: str, uploads: list[dict[str, Any]]) -> str:
     return ChatFileRepository.message_text(message, uploads)
-
-
-def _as_string_list(value: Any) -> list[str]:
-    if value is None:
-        return []
-    if isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return []
-        if text.startswith("[") and text.endswith("]"):
-            try:
-                parsed = json.loads(text)
-                if isinstance(parsed, list):
-                    return _as_string_list(parsed)
-            except Exception:
-                pass
-        if text.lower() in ("all", "*"):
-            return ["all"]
-        return [text]
-    if isinstance(value, (list, tuple, set)):
-        out: list[str] = []
-        for item in value:
-            out.extend(_as_string_list(item))
-        return out
-    return [str(value).strip()] if str(value).strip() else []
 
 
 def _chat_init_next_id() -> int:

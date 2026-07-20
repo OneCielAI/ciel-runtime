@@ -3408,6 +3408,7 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_channel_message_coalescing_policy_lives_outside_composition_root(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
         for function_name in (
+            "_as_string_list",
             "_channel_message_meta_sources",
             "_channel_message_delivery_targets",
             "_channel_message_has_external_provenance",

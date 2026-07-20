@@ -4,11 +4,22 @@ from ciel_runtime_support.channel_message_policy import (
     message_coalesce_key,
     message_has_unique_reference,
     message_order_value,
+    string_list,
     superseded_message_ids,
 )
 
 
 class ChannelMessagePolicyTests(unittest.TestCase):
+    def test_string_list_flattens_json_and_collection_values(self):
+        self.assertEqual(
+            ["Robert", "Sarah", "all"],
+            string_list(['["Robert"]', ("Sarah", "*")]),
+        )
+
+    def test_string_list_ignores_empty_values(self):
+        self.assertEqual([], string_list(None))
+        self.assertEqual([], string_list("  "))
+
     def test_external_event_identity_projects_source_channel_and_topic(self):
         message = {
             "id": 7,
