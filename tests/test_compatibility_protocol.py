@@ -3,6 +3,7 @@ import unittest
 import urllib.error
 
 from ciel_runtime_support.compatibility_protocol import (
+    CompatibilityProtocolApi,
     CompatibilityProtocolCodec,
     CompatibilityProtocolPorts,
 )
@@ -87,6 +88,25 @@ class CompatibilityProtocolCodecTests(unittest.TestCase):
             "rate_limit: slow down Retry-After: 2.5 seconds (2.5s)",
             self.codec.http_error_message(error),
         )
+
+    def test_explicit_api_resolves_codec_for_each_public_call(self):
+        resolved = []
+        api = CompatibilityProtocolApi(
+            lambda: resolved.append(self.codec) or self.codec
+        )
+
+        self.assertEqual("compat_echo", api.tool_schema()["name"])
+        self.assertEqual(64, api.text_request("small-model")["max_tokens"])
+        self.assertEqual("compat_echo", api.tool_request("model")["tools"][0]["name"])
+        self.assertEqual(
+            "tool-1",
+            api.tool_result_request(
+                "model", {"id": "tool-1", "input": {"text": "ping"}}
+            )["messages"][1]["content"][0]["id"],
+        )
+        self.assertEqual(["text"], api.content_types({"content": [{"type": "text"}]}))
+        self.assertEqual("OK", api.text_preview({"content": [{"type": "text", "text": "OK"}]}))
+        self.assertEqual(6, len(resolved))
 
 
 if __name__ == "__main__":

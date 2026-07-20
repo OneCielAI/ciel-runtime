@@ -3,6 +3,10 @@ import unittest
 from unittest import mock
 
 import ciel_runtime
+from ciel_runtime_support.providers.ollama_runtime import (
+    OllamaRuntimeApi,
+    OllamaRuntimeService,
+)
 
 
 class _FakeOllamaStreamResponse:
@@ -48,6 +52,30 @@ class _FakeSSEHandler:
 
 
 class OllamaProviderOptionTests(unittest.TestCase):
+    def test_runtime_api_explicitly_delegates_public_queries(self):
+        service = mock.create_autospec(OllamaRuntimeService, instance=True)
+        service.api_base.side_effect = ["local-base", "cloud-base"]
+        service.show_parameters.return_value = {"num_ctx": "8192"}
+        service.fetch_model_specs.return_value = {"max_model_len": 8192}
+        service.model_id_matches.return_value = True
+        service.runtime_info.return_value = {"loaded_context_len": 65536}
+        service.output_cap.return_value = 4096
+        api = OllamaRuntimeApi(lambda: service)
+        config = {"current_model": "model"}
+
+        self.assertEqual("local-base", api.api_base(config))
+        self.assertEqual("cloud-base", api.provider_api_base("ollama-cloud", config))
+        self.assertEqual({"num_ctx": "8192"}, api.show_parameters({}))
+        self.assertEqual(
+            {"max_model_len": 8192},
+            api.fetch_model_specs("ollama", config, "model"),
+        )
+        self.assertTrue(api.model_id_matches("model", "model:latest"))
+        self.assertEqual(
+            {"loaded_context_len": 65536}, api.runtime_info(config)
+        )
+        self.assertEqual(4096, api.output_cap(65536))
+
     def test_generic_context_window_maps_to_ollama_num_ctx(self):
         pcfg = {"num_ctx": "auto", "num_ctx_min": 32768, "num_ctx_max": 131072}
 

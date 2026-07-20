@@ -3092,6 +3092,43 @@ class ArchitectureContractTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertNotIn("__getattr__", adapter_source)
 
+    def test_protocol_and_ollama_runtime_use_explicit_typed_adapters(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "compatibility_tool_schema",
+            "compatibility_text_request",
+            "compatibility_tool_request",
+            "compatibility_tool_result_request",
+            "response_content_blocks",
+            "response_content_types",
+            "response_text_preview",
+            "find_compat_tool_use",
+            "summarize_compat_response",
+            "compatibility_http_error_message",
+            "ollama_api_base",
+            "ollama_provider_api_base",
+            "ollama_show_parameters",
+            "fetch_ollama_api_model_specs",
+            "ollama_model_id_matches",
+            "ollama_runtime_info",
+            "ollama_output_cap_for_context",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        self.assertIn("CompatibilityProtocolApi", source)
+        self.assertIn("OllamaRuntimeApi", source)
+        self.assertIn("apply_ollama_runtime_output_guard", root_functions)
+        for relative_path in (
+            Path("ciel_runtime_support/compatibility_protocol.py"),
+            Path("ciel_runtime_support/providers/ollama_runtime.py"),
+        ):
+            adapter_source = (root / relative_path).read_text(encoding="utf-8")
+            self.assertNotIn("__getattr__", adapter_source)
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):

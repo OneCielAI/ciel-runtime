@@ -360,6 +360,7 @@ from ciel_runtime_support.compatibility_test import (
     run_compatibility_test as run_provider_compatibility_test,
 )
 from ciel_runtime_support.compatibility_protocol import (
+    CompatibilityProtocolApi,
     CompatibilityProtocolCodec,
     CompatibilityProtocolPorts,
 )
@@ -1066,6 +1067,7 @@ from ciel_runtime_support.provider_request_builder import (
     ProviderRequestBuilder,
 )
 from ciel_runtime_support.providers.ollama_runtime import (
+    OllamaRuntimeApi,
     OllamaRuntimeService,
     OllamaRuntimeServices,
 )
@@ -4007,32 +4009,14 @@ def ollama_runtime_service() -> OllamaRuntimeService:
     )
 
 
-def ollama_api_base(pcfg: dict[str, Any]) -> str:
-    return ollama_runtime_service().api_base("ollama", pcfg)
-
-
-def ollama_provider_api_base(provider: str, pcfg: dict[str, Any]) -> str:
-    return ollama_runtime_service().api_base(provider, pcfg)
-
-
-def ollama_show_parameters(data: dict[str, Any]) -> dict[str, Any]:
-    return ollama_runtime_service().show_parameters(data)
-
-
-def fetch_ollama_api_model_specs(provider: str, pcfg: dict[str, Any], model_id: str, timeout: float = 3.0) -> dict[str, Any]:
-    return ollama_runtime_service().fetch_model_specs(provider, pcfg, model_id, timeout)
-
-
-def ollama_model_id_matches(left: str, right: str) -> bool:
-    return ollama_runtime_service().model_id_matches(left, right)
-
-
-def ollama_runtime_info(pcfg: dict[str, Any], timeout: float = 1.5) -> dict[str, Any] | None:
-    return ollama_runtime_service().runtime_info(pcfg, timeout)
-
-
-def ollama_output_cap_for_context(context_length: int | None) -> int | None:
-    return ollama_runtime_service().output_cap(context_length)
+_OLLAMA_RUNTIME_API = OllamaRuntimeApi(ollama_runtime_service)
+ollama_api_base = _OLLAMA_RUNTIME_API.api_base
+ollama_provider_api_base = _OLLAMA_RUNTIME_API.provider_api_base
+ollama_show_parameters = _OLLAMA_RUNTIME_API.show_parameters
+fetch_ollama_api_model_specs = _OLLAMA_RUNTIME_API.fetch_model_specs
+ollama_model_id_matches = _OLLAMA_RUNTIME_API.model_id_matches
+ollama_runtime_info = _OLLAMA_RUNTIME_API.runtime_info
+ollama_output_cap_for_context = _OLLAMA_RUNTIME_API.output_cap
 
 
 def apply_ollama_runtime_output_guard(provider: str, pcfg: dict[str, Any]) -> list[str]:
@@ -10699,40 +10683,16 @@ def compatibility_protocol_codec() -> CompatibilityProtocolCodec:
     )
 
 
-def compatibility_tool_schema() -> dict[str, Any]:
-    return compatibility_protocol_codec().tool_schema()
-
-
-def compatibility_text_request(model: str) -> dict[str, Any]:
-    return compatibility_protocol_codec().text_request(model)
-
-
-def compatibility_tool_request(model: str) -> dict[str, Any]:
-    return compatibility_protocol_codec().tool_request(model)
-
-
-def compatibility_tool_result_request(model: str, tool_use: dict[str, Any]) -> dict[str, Any]:
-    return compatibility_protocol_codec().tool_result_request(model, tool_use)
-
-
-def response_content_blocks(data: Any) -> list[dict[str, Any]]:
-    return CompatibilityProtocolCodec.content_blocks(data)
-
-
-def response_content_types(data: Any) -> list[str]:
-    return compatibility_protocol_codec().content_types(data)
-
-
-def response_text_preview(data: Any) -> str:
-    return compatibility_protocol_codec().text_preview(data)
-
-
-def find_compat_tool_use(data: Any) -> tuple[dict[str, Any] | None, str]:
-    return compatibility_protocol_codec().find_tool_use(data)
-
-
-def summarize_compat_response(data: Any, label: str) -> list[str]:
-    return compatibility_protocol_codec().summarize_response(data, label)
+_COMPATIBILITY_PROTOCOL_API = CompatibilityProtocolApi(compatibility_protocol_codec)
+compatibility_tool_schema = _COMPATIBILITY_PROTOCOL_API.tool_schema
+compatibility_text_request = _COMPATIBILITY_PROTOCOL_API.text_request
+compatibility_tool_request = _COMPATIBILITY_PROTOCOL_API.tool_request
+compatibility_tool_result_request = _COMPATIBILITY_PROTOCOL_API.tool_result_request
+response_content_blocks = CompatibilityProtocolCodec.content_blocks
+response_content_types = _COMPATIBILITY_PROTOCOL_API.content_types
+response_text_preview = _COMPATIBILITY_PROTOCOL_API.text_preview
+find_compat_tool_use = _COMPATIBILITY_PROTOCOL_API.find_tool_use
+summarize_compat_response = _COMPATIBILITY_PROTOCOL_API.summarize_response
 
 
 def compatibility_failure_diagnosis(provider: str, code: int | None, msg: str) -> str | None:
@@ -10754,8 +10714,7 @@ class CompatibilityApiKeyProbeError(Exception):
         self.diagnosis = diagnosis
 
 
-def compatibility_http_error_message(exc: urllib.error.HTTPError) -> str:
-    return compatibility_protocol_codec().http_error_message(exc)
+compatibility_http_error_message = _COMPATIBILITY_PROTOCOL_API.http_error_message
 
 
 def provider_config_for_single_api_key(pcfg: dict[str, Any], key: str) -> dict[str, Any]:

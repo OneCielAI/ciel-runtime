@@ -173,3 +173,41 @@ class OllamaRuntimeService:
     def output_cap(self, context_length: int | None) -> int | None:
         context = self.services.positive_int(context_length)
         return max(2048, min(8192, context // 16)) if context else None
+
+
+@dataclass(frozen=True, slots=True)
+class OllamaRuntimeApi:
+    """Stable public adapter for late-bound Ollama runtime services."""
+
+    service_factory: Callable[[], OllamaRuntimeService]
+
+    def api_base(self, config: dict[str, Any]) -> str:
+        return self.service_factory().api_base("ollama", config)
+
+    def provider_api_base(self, provider: str, config: dict[str, Any]) -> str:
+        return self.service_factory().api_base(provider, config)
+
+    def show_parameters(self, data: dict[str, Any]) -> dict[str, Any]:
+        return self.service_factory().show_parameters(data)
+
+    def fetch_model_specs(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        model_id: str,
+        timeout: float = 3.0,
+    ) -> dict[str, Any]:
+        return self.service_factory().fetch_model_specs(
+            provider, config, model_id, timeout
+        )
+
+    def model_id_matches(self, left: str, right: str) -> bool:
+        return self.service_factory().model_id_matches(left, right)
+
+    def runtime_info(
+        self, config: dict[str, Any], timeout: float = 1.5
+    ) -> dict[str, Any] | None:
+        return self.service_factory().runtime_info(config, timeout)
+
+    def output_cap(self, context_length: int | None) -> int | None:
+        return self.service_factory().output_cap(context_length)

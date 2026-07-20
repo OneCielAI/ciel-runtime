@@ -213,3 +213,39 @@ class CompatibilityProtocolCodec:
             return f"{message} Retry-After: {display}"
         raw_suffix = f"{retry_text}s" if re.fullmatch(r"\d+(?:\.\d+)?", retry_text) else retry_text
         return f"{message} Retry-After: {display} ({raw_suffix})"
+
+
+@dataclass(frozen=True, slots=True)
+class CompatibilityProtocolApi:
+    """Explicit compatibility facade backed by a late-bound protocol codec."""
+
+    codec_factory: Callable[[], CompatibilityProtocolCodec]
+
+    def tool_schema(self) -> dict[str, Any]:
+        return self.codec_factory().tool_schema()
+
+    def text_request(self, model: str) -> dict[str, Any]:
+        return self.codec_factory().text_request(model)
+
+    def tool_request(self, model: str) -> dict[str, Any]:
+        return self.codec_factory().tool_request(model)
+
+    def tool_result_request(
+        self, model: str, tool_use: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.codec_factory().tool_result_request(model, tool_use)
+
+    def content_types(self, data: Any) -> list[str]:
+        return self.codec_factory().content_types(data)
+
+    def text_preview(self, data: Any) -> str:
+        return self.codec_factory().text_preview(data)
+
+    def find_tool_use(self, data: Any) -> tuple[dict[str, Any] | None, str]:
+        return self.codec_factory().find_tool_use(data)
+
+    def summarize_response(self, data: Any, label: str) -> list[str]:
+        return self.codec_factory().summarize_response(data, label)
+
+    def http_error_message(self, exc: urllib.error.HTTPError) -> str:
+        return self.codec_factory().http_error_message(exc)
