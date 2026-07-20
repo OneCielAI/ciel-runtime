@@ -3736,6 +3736,20 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_composition_root_delegates_major_application_services(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
+        self.assertIn("from ciel_runtime_support import runtime_launch", source)
+        self.assertIn("from ciel_runtime_support import prelaunch", source)
+        self.assertIn(
+            "from ciel_runtime_support import streaming_anthropic", source
+        )
+        self.assertNotIn(
+            "from ciel_runtime_support.runtime_launch import", source
+        )
+        self.assertNotIn(
+            "from ciel_runtime_support.prelaunch import", source
+        )
+        self.assertNotIn(
+            "from ciel_runtime_support.streaming_anthropic import", source
+        )
         expected_calls = {
             "_rebatch_anthropic_sse_text": "rebatch_anthropic_sse_text",
             "_ollama_stream_to_anthropic_sse": "ollama_stream_to_anthropic_sse",
@@ -3753,9 +3767,14 @@ class ArchitectureContractTests(unittest.TestCase):
         functions = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
         for wrapper, target in expected_calls.items():
             calls = {
-                node.func.id
+                (
+                    node.func.id
+                    if isinstance(node.func, ast.Name)
+                    else node.func.attr
+                )
                 for node in ast.walk(functions[wrapper])
-                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, (ast.Name, ast.Attribute))
             }
             self.assertIn(target, calls, wrapper)
 

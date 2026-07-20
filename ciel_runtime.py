@@ -1139,20 +1139,7 @@ from ciel_runtime_support.provider_status import (
     ProviderStatusServices,
     base_url_status_line as project_provider_base_url_status,
 )
-from ciel_runtime_support.prelaunch import (
-    PrelaunchChannelCommands,
-    PrelaunchChannelQuery,
-    PrelaunchConfig,
-    PrelaunchConstants,
-    PrelaunchLaunchPolicy,
-    PrelaunchMutations,
-    PrelaunchOptions,
-    PrelaunchPanelRows,
-    PrelaunchSecrets,
-    PrelaunchServices,
-    PrelaunchTerminal,
-    run_prelaunch_menu as execute_prelaunch_menu,
-)
+from ciel_runtime_support import prelaunch
 from ciel_runtime_support.prelaunch_terminal import (
     PrelaunchInputStyle,
     PrelaunchRenderBrand,
@@ -1212,69 +1199,8 @@ from ciel_runtime_support.sse_trace import (
     SseTraceRepository,
     summarize_payload as summarize_sse_payload,
 )
-from ciel_runtime_support.runtime_launch import (
-    AgyLaunchChannel,
-    AgyLaunchCliPolicy,
-    AgyLaunchConfig,
-    AgyLaunchConstants,
-    AgyLaunchDispatch,
-    AgyLaunchInstallation,
-    AgyLaunchProcess,
-    AgyLaunchRouting,
-    AgyLaunchServices,
-    ClaudeLaunchChannelDelivery,
-    ClaudeLaunchChannelDiscovery,
-    ClaudeLaunchConfig,
-    ClaudeLaunchConstants,
-    ClaudeLaunchDispatch,
-    ClaudeLaunchInstallation,
-    ClaudeLaunchMcpConfig,
-    ClaudeLaunchPolicy,
-    ClaudeLaunchProcess,
-    ClaudeLaunchRouting,
-    ClaudeLaunchServices,
-    CodexLaunchChannel,
-    CodexLaunchCliPolicy,
-    CodexLaunchConfig,
-    CodexLaunchConstants,
-    CodexLaunchDispatch,
-    CodexLaunchInstallation,
-    CodexLaunchProcess,
-    CodexLaunchRouting,
-    CodexAppServerChannel,
-    CodexAppServerCliPolicy,
-    CodexAppServerConfig,
-    CodexAppServerDispatch,
-    CodexAppServerInstallation,
-    CodexAppServerLaunchServices,
-    CodexAppServerProcess,
-    CodexAppServerRouting,
-    CodexLaunchServices,
-    run_agy,
-    run_claude,
-    run_codex,
-    run_codex_app_server,
-)
-from ciel_runtime_support.streaming_anthropic import (
-    AnthropicContinuationPolicy,
-    AnthropicConversationContext,
-    AnthropicStreamIO,
-    AnthropicStreamServices,
-    AnthropicToolPolicy,
-    AnthropicToolProjection,
-    OllamaContinuationPolicy,
-    OllamaStreamIO,
-    OllamaStreamServices,
-    OllamaStreamTrace,
-    OllamaToolProjection,
-    OpenAIChatContinuationPolicy,
-    OpenAIChatStreamIO,
-    OpenAIChatStreamServices,
-    OpenAIChatToolProjection,
-    forward_openai_chat_to_anthropic_sse,
-    ollama_stream_to_anthropic_sse,
-    rebatch_anthropic_sse_text,
-)
+from ciel_runtime_support import runtime_launch
+from ciel_runtime_support import streaming_anthropic
 from ciel_runtime_support.pseudo_tool_parser import (
     PseudoToolParserServices,
     infer_tool_name_from_args as project_infer_tool_name,
@@ -1478,6 +1404,8 @@ from ciel_runtime_support.runtime_constants import (
     ZAI_MANAGED_MCP_SERVERS,
     ZAI_MODEL_CONTEXT_HINTS,
 )
+
+execute_prelaunch_menu = prelaunch.run_prelaunch_menu
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -6585,7 +6513,7 @@ def _rebatch_anthropic_sse_text(
     normalize_tool_use: bool = False,
     provider: str = "",
 ) -> None:
-    return rebatch_anthropic_sse_text(
+    return streaming_anthropic.rebatch_anthropic_sse_text(
         handler,
         resp,
         model=model,
@@ -6594,8 +6522,8 @@ def _rebatch_anthropic_sse_text(
         preserve_thinking=preserve_thinking,
         normalize_tool_use=normalize_tool_use,
         provider=provider,
-        services=AnthropicStreamServices(
-            io=AnthropicStreamIO(
+        services=streaming_anthropic.AnthropicStreamServices(
+            io=streaming_anthropic.AnthropicStreamIO(
                 ANTHROPIC_THINKING_BLOCK_TYPES=ANTHROPIC_THINKING_BLOCK_TYPES,
                 VisibleToolCallArtifactFilter=VisibleToolCallArtifactFilter,
                 _find_pseudo_xml_tool_start=_find_pseudo_xml_tool_start,
@@ -6606,7 +6534,7 @@ def _rebatch_anthropic_sse_text(
                 router_client_connection_closed=router_client_connection_closed,
                 router_log=router_log,
             ),
-            tool_projection=AnthropicToolProjection(
+            tool_projection=streaming_anthropic.AnthropicToolProjection(
                 _is_mcp_notification_wait_tool=_is_mcp_notification_wait_tool,
                 _remember_channel_injected_tool_use=_remember_channel_injected_tool_use,
                 _validate_and_fix_tool_input=_validate_and_fix_tool_input,
@@ -6618,12 +6546,12 @@ def _rebatch_anthropic_sse_text(
                 plan_mode_tool_name_for_emit=plan_mode_tool_name_for_emit,
                 resolve_emitted_tool_name=resolve_emitted_tool_name,
             ),
-            tool_policy=AnthropicToolPolicy(
+            tool_policy=streaming_anthropic.AnthropicToolPolicy(
                 should_drop_duplicate_side_effect_tool_call=should_drop_duplicate_side_effect_tool_call,
                 should_drop_emitted_tool_call=should_drop_emitted_tool_call,
                 should_repair_anthropic_passthrough_tool_input=should_repair_anthropic_passthrough_tool_input,
             ),
-            conversation=AnthropicConversationContext(
+            conversation=streaming_anthropic.AnthropicConversationContext(
                 backfill_exit_plan_mode_allowed_prompts=backfill_exit_plan_mode_allowed_prompts,
                 body_ultracode_runtime_enabled=body_ultracode_runtime_enabled,
                 empty_end_turn_notice_for_body=empty_end_turn_notice_for_body,
@@ -6633,7 +6561,7 @@ def _rebatch_anthropic_sse_text(
                 latest_user_tool_result_names=latest_user_tool_result_names,
                 recent_synthetic_tasklist_count=recent_synthetic_tasklist_count,
             ),
-            continuation=AnthropicContinuationPolicy(
+            continuation=streaming_anthropic.AnthropicContinuationPolicy(
                 should_auto_continue_choice_question_with_tasklist=should_auto_continue_choice_question_with_tasklist,
                 should_auto_exit_plan_mode=should_auto_exit_plan_mode,
                 should_keep_work_alive_with_tasklist=should_keep_work_alive_with_tasklist,
@@ -6653,11 +6581,11 @@ def _ollama_stream_to_anthropic_sse(
     source_body: dict[str, Any] | None = None,
     idle_timeout: float = 30.0,
 ) -> None:
-    return ollama_stream_to_anthropic_sse(
+    return streaming_anthropic.ollama_stream_to_anthropic_sse(
         handler, resp, model, word_chunking=word_chunking, provider=provider,
         source_body=source_body, idle_timeout=idle_timeout,
-        services=OllamaStreamServices(
-            io=OllamaStreamIO(
+        services=streaming_anthropic.OllamaStreamServices(
+            io=streaming_anthropic.OllamaStreamIO(
                 UpstreamClientDisconnected=UpstreamClientDisconnected,
                 VisibleThinkingMarkupFilter=VisibleThinkingMarkupFilter,
                 _split_word_buffer=_split_word_buffer,
@@ -6668,13 +6596,13 @@ def _ollama_stream_to_anthropic_sse(
                 router_log=router_log,
                 write_router_activity=write_router_activity,
             ),
-            trace=OllamaStreamTrace(
+            trace=streaming_anthropic.OllamaStreamTrace(
                 dump_response_for_trace=dump_response_for_trace,
                 finish_outgoing_sse_trace=finish_outgoing_sse_trace,
                 make_outgoing_sse_trace=make_outgoing_sse_trace,
                 record_outgoing_sse_event=record_outgoing_sse_event,
             ),
-            tool_projection=OllamaToolProjection(
+            tool_projection=streaming_anthropic.OllamaToolProjection(
                 _remember_channel_injected_tool_use=_remember_channel_injected_tool_use,
                 _validate_and_fix_tool_input=_validate_and_fix_tool_input,
                 append_tool_call_log=append_tool_call_log,
@@ -6685,7 +6613,7 @@ def _ollama_stream_to_anthropic_sse(
                 should_drop_duplicate_side_effect_tool_call=should_drop_duplicate_side_effect_tool_call,
                 should_drop_emitted_tool_call=should_drop_emitted_tool_call,
             ),
-            continuation=OllamaContinuationPolicy(
+            continuation=streaming_anthropic.OllamaContinuationPolicy(
                 empty_end_turn_notice_for_body=empty_end_turn_notice_for_body,
                 should_auto_continue_choice_question_with_tasklist=should_auto_continue_choice_question_with_tasklist,
                 should_auto_enter_plan_mode=should_auto_enter_plan_mode,
@@ -6860,12 +6788,12 @@ def stream_openai_chat_to_anthropic_sse(
     input_tokens: int | None = None,
     input_bytes: int | None = None,
 ) -> bool:
-    return forward_openai_chat_to_anthropic_sse(
+    return streaming_anthropic.forward_openai_chat_to_anthropic_sse(
         handler, resp, model, provider, source_body=source_body,
         start_index=start_index, word_chunking=word_chunking,
         input_tokens=input_tokens, input_bytes=input_bytes,
-        services=OpenAIChatStreamServices(
-            io=OpenAIChatStreamIO(
+        services=streaming_anthropic.OpenAIChatStreamServices(
+            io=streaming_anthropic.OpenAIChatStreamIO(
                 PSEUDO_TOOL_END=PSEUDO_TOOL_END,
                 PSEUDO_TOOL_START=PSEUDO_TOOL_START,
                 _split_word_buffer=_split_word_buffer,
@@ -6874,7 +6802,7 @@ def stream_openai_chat_to_anthropic_sse(
                 write_anthropic_open_stream_stop=write_anthropic_open_stream_stop,
                 write_router_activity=write_router_activity,
             ),
-            tool_projection=OpenAIChatToolProjection(
+            tool_projection=streaming_anthropic.OpenAIChatToolProjection(
                 _remember_channel_injected_tool_use=_remember_channel_injected_tool_use,
                 _validate_and_fix_tool_input=_validate_and_fix_tool_input,
                 append_tool_call_log=append_tool_call_log,
@@ -6886,7 +6814,7 @@ def stream_openai_chat_to_anthropic_sse(
                 should_drop_duplicate_side_effect_tool_call=should_drop_duplicate_side_effect_tool_call,
                 should_drop_emitted_tool_call=should_drop_emitted_tool_call,
             ),
-            continuation=OpenAIChatContinuationPolicy(
+            continuation=streaming_anthropic.OpenAIChatContinuationPolicy(
                 empty_end_turn_notice_for_body=empty_end_turn_notice_for_body,
                 latest_user_tool_result_names=latest_user_tool_result_names,
                 should_auto_continue_choice_question_with_tasklist=should_auto_continue_choice_question_with_tasklist,
@@ -11703,8 +11631,8 @@ def portable_language_menu() -> int:
 def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
     return execute_prelaunch_menu(
         passthrough,
-        services=PrelaunchServices(
-            constants=PrelaunchConstants(
+        services=prelaunch.PrelaunchServices(
+            constants=prelaunch.PrelaunchConstants(
                 LANGUAGES=LANGUAGES,
                 LLM_OPTION_TOGGLE_KEYS=LLM_OPTION_TOGGLE_KEYS,
                 MAIN_MENU_ACTIONS=MAIN_MENU_ACTIONS,
@@ -11715,7 +11643,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                 PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
                 PROVIDER_LABELS=PROVIDER_LABELS,
             ),
-            terminal=PrelaunchTerminal(
+            terminal=prelaunch.PrelaunchTerminal(
                 default_prelaunch_action=default_prelaunch_action,
                 enable_ansi=enable_ansi,
                 main_menu_rows=main_menu_rows,
@@ -11727,7 +11655,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                 render_prelaunch_screen=render_prelaunch_screen,
                 self_cmd=self_cmd,
             ),
-            config=PrelaunchConfig(
+            config=prelaunch.PrelaunchConfig(
                 clear_model_cache=clear_model_cache,
                 current_provider_panel_choice=current_provider_panel_choice,
                 default_base_url=default_base_url,
@@ -11739,14 +11667,14 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                 settings_ready_except_api_key=settings_ready_except_api_key,
                 read_model_list_cache=read_model_list_cache,
             ),
-            launch_policy=PrelaunchLaunchPolicy(
+            launch_policy=prelaunch.PrelaunchLaunchPolicy(
                 agy_launch_enabled_for_provider=agy_launch_enabled_for_provider,
                 claude_launch_enabled_for_provider=claude_launch_enabled_for_provider,
                 codex_launch_enabled_for_provider=codex_launch_enabled_for_provider,
                 launch_blockers_require_api_key=launch_blockers_require_api_key,
                 launch_readiness_errors=launch_readiness_errors,
             ),
-            panel_rows=PrelaunchPanelRows(
+            panel_rows=prelaunch.PrelaunchPanelRows(
                 advisor_model_panel_rows=advisor_model_panel_rows,
                 api_key_panel_rows=api_key_panel_rows,
                 base_url_panel_rows=base_url_panel_rows,
@@ -11758,7 +11686,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                 model_panel_rows=model_panel_rows,
                 provider_panel_rows=provider_panel_rows,
             ),
-            channel_query=PrelaunchChannelQuery(
+            channel_query=prelaunch.PrelaunchChannelQuery(
                 _channel_panel_first_selectable=_channel_panel_first_selectable,
                 _channel_panel_step=_channel_panel_step,
                 channel_delivery_panel_rows=channel_delivery_panel_rows,
@@ -11768,13 +11696,13 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                 channel_specs=channel_specs,
                 refresh_channel_probe_cache=refresh_channel_probe_cache,
             ),
-            channel_commands=PrelaunchChannelCommands(
+            channel_commands=prelaunch.PrelaunchChannelCommands(
                 add_channel_spec=add_channel_spec,
                 clear_channel_specs=clear_channel_specs,
                 remove_channel_spec=remove_channel_spec,
                 set_channel_delivery_config=set_channel_delivery_config,
             ),
-            mutations=PrelaunchMutations(
+            mutations=prelaunch.PrelaunchMutations(
                 apply_context_setup_config=apply_context_setup_config,
                 apply_llm_preset_config=apply_llm_preset_config,
                 apply_timeout_profile_to_provider=apply_timeout_profile_to_provider,
@@ -11785,7 +11713,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                 set_model_config=set_model_config,
                 set_provider_choice_config=set_provider_choice_config,
             ),
-            secrets=PrelaunchSecrets(
+            secrets=prelaunch.PrelaunchSecrets(
                 clear_api_key_config=clear_api_key_config,
                 mask_secret=mask_secret,
                 parse_api_key_list=parse_api_key_list,
@@ -11793,7 +11721,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                 store_api_key_input_config=store_api_key_input_config,
                 store_api_keys_config=store_api_keys_config,
             ),
-            options=PrelaunchOptions(
+            options=prelaunch.PrelaunchOptions(
                 llm_option_current_bool=llm_option_current_bool,
                 llm_option_prompt_default=llm_option_prompt_default,
                 timeout_profile_panel_rows=timeout_profile_panel_rows,
@@ -14000,12 +13928,12 @@ def launch_claude(
     update_check: bool = True,
     self_update_check: bool = True,
 ) -> int:
-    return run_claude(
+    return runtime_launch.run_claude(
         passthrough, skip_menu=skip_menu, force_menu=force_menu,
         web_search_override=web_search_override, update_check=update_check,
         self_update_check=self_update_check,
-        services=ClaudeLaunchServices(
-            constants=ClaudeLaunchConstants(
+        services=runtime_launch.ClaudeLaunchServices(
+            constants=runtime_launch.ClaudeLaunchConstants(
                 CLAUDE_SERVER_SIDE_WEB_TOOLS=CLAUDE_SERVER_SIDE_WEB_TOOLS,
                 LOG_PATH=LOG_PATH,
                 PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
@@ -14016,7 +13944,7 @@ def launch_claude(
                 ROUTED_COMPAT_PROMPT=ROUTED_COMPAT_PROMPT,
                 _NATIVE_ROUTER_CHANNEL_NAMES=_NATIVE_ROUTER_CHANNEL_NAMES,
             ),
-            process=ClaudeLaunchProcess(
+            process=runtime_launch.ClaudeLaunchProcess(
                 _log_claude_command_for_diagnostics=_log_claude_command_for_diagnostics,
                 _subprocess_call_capturing_stderr=_subprocess_call_capturing_stderr,
                 env_bool=env_bool,
@@ -14026,7 +13954,7 @@ def launch_claude(
                 print_routed_claude_exit_diagnostics=print_routed_claude_exit_diagnostics,
                 subprocess_call_with_channel_wake_proxy=subprocess_call_with_channel_wake_proxy,
             ),
-            installation=ClaudeLaunchInstallation(
+            installation=runtime_launch.ClaudeLaunchInstallation(
                 find_executable=find_executable,
                 install_ciel_runtime_slash_commands=install_ciel_runtime_slash_commands,
                 install_ciel_runtime_statusline=install_ciel_runtime_statusline,
@@ -14036,7 +13964,7 @@ def launch_claude(
                 launch_readiness_errors=launch_readiness_errors,
                 warn_if_multiple_ciel_runtime_installs=warn_if_multiple_ciel_runtime_installs,
             ),
-            dispatch=ClaudeLaunchDispatch(
+            dispatch=runtime_launch.ClaudeLaunchDispatch(
                 launch_agy=launch_agy,
                 launch_codex=launch_codex,
                 launch_codex_app_server=launch_codex_app_server,
@@ -14046,7 +13974,7 @@ def launch_claude(
                 run_prelaunch_menu=run_prelaunch_menu,
                 claude_launch_enabled_for_provider=claude_launch_enabled_for_provider,
             ),
-            config=ClaudeLaunchConfig(
+            config=runtime_launch.ClaudeLaunchConfig(
                 load_config=load_config,
                 save_config=save_config,
                 get_current_provider=get_current_provider,
@@ -14057,7 +13985,7 @@ def launch_claude(
                 launch_mode_name=launch_mode_name,
                 current_launch_cwd_key=current_launch_cwd_key,
             ),
-            routing=ClaudeLaunchRouting(
+            routing=runtime_launch.ClaudeLaunchRouting(
                 anthropic_routed_enabled=anthropic_routed_enabled,
                 direct_native_anthropic_enabled=direct_native_anthropic_enabled,
                 cleanup_managed_services_for_provider=cleanup_managed_services_for_provider,
@@ -14069,7 +13997,7 @@ def launch_claude(
                 run_with_router_lifetime=run_with_router_lifetime,
                 record_launch_state_for_cwd=record_launch_state_for_cwd,
             ),
-            policy=ClaudeLaunchPolicy(
+            policy=runtime_launch.ClaudeLaunchPolicy(
                 append_claude_code_runtime_settings_args=append_claude_code_runtime_settings_args,
                 claude_supports_permission_mode_arg=claude_supports_permission_mode_arg,
                 has_noninteractive_claude_args=has_noninteractive_claude_args,
@@ -14081,7 +14009,7 @@ def launch_claude(
                 should_insert_passthrough_option_boundary=should_insert_passthrough_option_boundary,
                 strip_mcp_config_passthrough=strip_mcp_config_passthrough,
             ),
-            channel_discovery=ClaudeLaunchChannelDiscovery(
+            channel_discovery=runtime_launch.ClaudeLaunchChannelDiscovery(
                 auto_import_passthrough_channels=auto_import_passthrough_channels,
                 cached_channel_capable_server_names=cached_channel_capable_server_names,
                 cached_channel_source_paths_for_specs=cached_channel_source_paths_for_specs,
@@ -14093,7 +14021,7 @@ def launch_claude(
                 external_mcp_channel_server_names_from_configs=external_mcp_channel_server_names_from_configs,
                 read_channel_probe_cache=read_channel_probe_cache,
             ),
-            channel_delivery=ClaudeLaunchChannelDelivery(
+            channel_delivery=runtime_launch.ClaudeLaunchChannelDelivery(
                 auto_start_sse_channels_from_mcp_configs=auto_start_sse_channels_from_mcp_configs,
                 claude_channel_args=claude_channel_args,
                 native_channel_passthrough_requested=native_channel_passthrough_requested,
@@ -14105,7 +14033,7 @@ def launch_claude(
                 should_use_native_channel_bridge=should_use_native_channel_bridge,
                 write_channel_mcp_config=write_channel_mcp_config,
             ),
-            mcp_config=ClaudeLaunchMcpConfig(
+            mcp_config=runtime_launch.ClaudeLaunchMcpConfig(
                 write_duckduckgo_mcp_config=write_duckduckgo_mcp_config,
                 write_mcp_proxy_config=write_mcp_proxy_config,
                 write_native_mcp_config_from_discovery=write_native_mcp_config_from_discovery,
@@ -14278,11 +14206,11 @@ def launch_codex(
     update_check: bool = True,
     self_update_check: bool = True,
 ) -> int:
-    return run_codex(
+    return runtime_launch.run_codex(
         passthrough, skip_menu=skip_menu, force_menu=force_menu,
         update_check=update_check, self_update_check=self_update_check,
-        services=CodexLaunchServices(
-            constants=CodexLaunchConstants(
+        services=runtime_launch.CodexLaunchServices(
+            constants=runtime_launch.CodexLaunchConstants(
                 CODEX_RUNTIME_API_KEY_ENV=CODEX_RUNTIME_API_KEY_ENV,
                 CONFIG_DIR=CONFIG_DIR,
                 PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
@@ -14291,7 +14219,7 @@ def launch_codex(
                 PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
                 PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
             ),
-            process=CodexLaunchProcess(
+            process=runtime_launch.CodexLaunchProcess(
                 _channel_wake_enter_env_is_fixed=_channel_wake_enter_env_is_fixed,
                 _codex_channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds,
                 _codex_channel_wake_submit_retries=_codex_channel_wake_submit_retries,
@@ -14303,7 +14231,7 @@ def launch_codex(
                 terminate_existing_codex_processes_for_launch=terminate_existing_codex_processes_for_launch,
                 terminate_existing_router_clients_for_launch=terminate_existing_router_clients_for_launch,
             ),
-            cli_policy=CodexLaunchCliPolicy(
+            cli_policy=runtime_launch.CodexLaunchCliPolicy(
                 codex_alternate_screen_compat_args=codex_alternate_screen_compat_args,
                 codex_current_model_cli_args=codex_current_model_cli_args,
                 codex_help_requested=codex_help_requested,
@@ -14315,7 +14243,7 @@ def launch_codex(
                 codex_runtime_config_args=codex_runtime_config_args,
                 codex_yolo_launch_args=codex_yolo_launch_args,
             ),
-            config=CodexLaunchConfig(
+            config=runtime_launch.CodexLaunchConfig(
                 apply_launch_endpoint_policy=apply_launch_endpoint_policy,
                 current_alias=current_alias,
                 current_launch_cwd_key=current_launch_cwd_key,
@@ -14326,7 +14254,7 @@ def launch_codex(
                 record_launch_state_for_cwd=record_launch_state_for_cwd,
                 codex_runtime_model_catalog_args=codex_runtime_model_catalog_args,
             ),
-            installation=CodexLaunchInstallation(
+            installation=runtime_launch.CodexLaunchInstallation(
                 disable_ciel_runtime_codex_prompts_for_native=disable_ciel_runtime_codex_prompts_for_native,
                 find_executable=find_executable,
                 has_passthrough_option=has_passthrough_option,
@@ -14334,7 +14262,7 @@ def launch_codex(
                 install_codex_if_missing=install_codex_if_missing,
                 warn_if_multiple_ciel_runtime_installs=warn_if_multiple_ciel_runtime_installs,
             ),
-            dispatch=CodexLaunchDispatch(
+            dispatch=runtime_launch.CodexLaunchDispatch(
                 launch_agy=launch_agy,
                 launch_claude=launch_claude,
                 launch_codex_app_server=launch_codex_app_server,
@@ -14344,7 +14272,7 @@ def launch_codex(
                 run_codex_update_check=run_codex_update_check,
                 run_prelaunch_menu=run_prelaunch_menu,
             ),
-            routing=CodexLaunchRouting(
+            routing=runtime_launch.CodexLaunchRouting(
                 cleanup_managed_services_for_provider=cleanup_managed_services_for_provider,
                 codex_routed_enabled=codex_routed_enabled,
                 direct_native_codex_enabled=direct_native_codex_enabled,
@@ -14353,7 +14281,7 @@ def launch_codex(
                 run_with_router_lifetime=run_with_router_lifetime,
                 start_router_if_needed=start_router_if_needed,
             ),
-            channel=CodexLaunchChannel(
+            channel=runtime_launch.CodexLaunchChannel(
                 auto_import_passthrough_channels=auto_import_passthrough_channels,
                 channel_delivery_mode=channel_delivery_mode,
                 codex_channel_capable_mcp_server_names=codex_channel_capable_mcp_server_names,
@@ -14406,11 +14334,11 @@ def launch_codex_app_server(
     update_check: bool = True,
     self_update_check: bool = True,
 ) -> int:
-    return run_codex_app_server(
+    return runtime_launch.run_codex_app_server(
         passthrough, skip_menu=skip_menu, force_menu=force_menu,
         update_check=update_check, self_update_check=self_update_check,
-        services=CodexAppServerLaunchServices(
-            constants=CodexLaunchConstants(
+        services=runtime_launch.CodexAppServerLaunchServices(
+            constants=runtime_launch.CodexLaunchConstants(
                 CODEX_RUNTIME_API_KEY_ENV=CODEX_RUNTIME_API_KEY_ENV,
                 CONFIG_DIR=CONFIG_DIR,
                 PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
@@ -14419,7 +14347,7 @@ def launch_codex_app_server(
                 PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
                 PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
             ),
-            process=CodexAppServerProcess(
+            process=runtime_launch.CodexAppServerProcess(
                 _log_codex_app_server_command_for_diagnostics=_log_codex_app_server_command_for_diagnostics,
                 codex_process_record_path=codex_process_record_path,
                 path_with_ciel_runtime_user_dirs=path_with_ciel_runtime_user_dirs,
@@ -14427,7 +14355,7 @@ def launch_codex_app_server(
                 terminate_existing_codex_processes_for_launch=terminate_existing_codex_processes_for_launch,
                 terminate_existing_router_clients_for_launch=terminate_existing_router_clients_for_launch,
             ),
-            config=CodexAppServerConfig(
+            config=runtime_launch.CodexAppServerConfig(
                 apply_launch_endpoint_policy=apply_launch_endpoint_policy,
                 current_alias=current_alias,
                 current_launch_cwd_key=current_launch_cwd_key,
@@ -14437,7 +14365,7 @@ def launch_codex_app_server(
                 provider_mode_label=provider_mode_label,
                 record_launch_state_for_cwd=record_launch_state_for_cwd,
             ),
-            cli_policy=CodexAppServerCliPolicy(
+            cli_policy=runtime_launch.CodexAppServerCliPolicy(
                 codex_app_server_default_listen_url=codex_app_server_default_listen_url,
                 codex_app_server_launch_args=codex_app_server_launch_args,
                 codex_current_model_config_args=codex_current_model_config_args,
@@ -14446,12 +14374,12 @@ def launch_codex_app_server(
                 codex_runtime_config_args=codex_runtime_config_args,
                 toml_string=toml_string,
             ),
-            installation=CodexAppServerInstallation(
+            installation=runtime_launch.CodexAppServerInstallation(
                 find_executable=find_executable,
                 install_codex_if_missing=install_codex_if_missing,
                 warn_if_multiple_ciel_runtime_installs=warn_if_multiple_ciel_runtime_installs,
             ),
-            dispatch=CodexAppServerDispatch(
+            dispatch=runtime_launch.CodexAppServerDispatch(
                 launch_agy=launch_agy,
                 launch_claude=launch_claude,
                 launch_codex=launch_codex,
@@ -14459,7 +14387,7 @@ def launch_codex_app_server(
                 run_codex_update_check=run_codex_update_check,
                 run_prelaunch_menu=run_prelaunch_menu,
             ),
-            routing=CodexAppServerRouting(
+            routing=runtime_launch.CodexAppServerRouting(
                 cleanup_managed_services_for_provider=cleanup_managed_services_for_provider,
                 codex_launch_enabled_for_provider=codex_launch_enabled_for_provider,
                 codex_routed_enabled=codex_routed_enabled,
@@ -14469,7 +14397,7 @@ def launch_codex_app_server(
                 run_with_router_lifetime=run_with_router_lifetime,
                 start_router_if_needed=start_router_if_needed,
             ),
-            channel=CodexAppServerChannel(
+            channel=runtime_launch.CodexAppServerChannel(
                 auto_import_passthrough_channels=auto_import_passthrough_channels,
                 channel_delivery_mode=channel_delivery_mode,
                 codex_channel_capable_mcp_server_names=codex_channel_capable_mcp_server_names,
@@ -14505,47 +14433,47 @@ def launch_agy(
     update_check: bool = True,
     self_update_check: bool = True,
 ) -> int:
-    return run_agy(
+    return runtime_launch.run_agy(
         passthrough, skip_menu=skip_menu, force_menu=force_menu,
         update_check=update_check, self_update_check=self_update_check,
-        services=AgyLaunchServices(
-            constants=AgyLaunchConstants(
+        services=runtime_launch.AgyLaunchServices(
+            constants=runtime_launch.AgyLaunchConstants(
                 PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
                 PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
                 PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
                 PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
                 PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
             ),
-            process=AgyLaunchProcess(
+            process=runtime_launch.AgyLaunchProcess(
                 _codex_channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds,
                 _codex_channel_wake_submit_retries=_codex_channel_wake_submit_retries,
                 _log_agy_command_for_diagnostics=_log_agy_command_for_diagnostics,
                 path_with_ciel_runtime_user_dirs=path_with_ciel_runtime_user_dirs,
                 subprocess_call_with_channel_wake_proxy=subprocess_call_with_channel_wake_proxy,
             ),
-            cli_policy=AgyLaunchCliPolicy(
+            cli_policy=runtime_launch.AgyLaunchCliPolicy(
                 agy_dangerous_launch_args=agy_dangerous_launch_args,
                 agy_help_requested=agy_help_requested,
                 agy_passthrough_args_for_launch=agy_passthrough_args_for_launch,
                 agy_passthrough_has_command=agy_passthrough_has_command,
             ),
-            channel=AgyLaunchChannel(
+            channel=runtime_launch.AgyLaunchChannel(
                 auto_import_passthrough_channels=auto_import_passthrough_channels,
                 channel_delivery_mode=channel_delivery_mode,
             ),
-            config=AgyLaunchConfig(
+            config=runtime_launch.AgyLaunchConfig(
                 current_launch_cwd_key=current_launch_cwd_key,
                 get_current_provider=get_current_provider,
                 load_config=load_config,
                 provider_mode_label=provider_mode_label,
                 record_launch_state_for_cwd=record_launch_state_for_cwd,
             ),
-            installation=AgyLaunchInstallation(
+            installation=runtime_launch.AgyLaunchInstallation(
                 find_executable=find_executable,
                 install_agy_if_missing=install_agy_if_missing,
                 warn_if_multiple_ciel_runtime_installs=warn_if_multiple_ciel_runtime_installs,
             ),
-            dispatch=AgyLaunchDispatch(
+            dispatch=runtime_launch.AgyLaunchDispatch(
                 launch_claude=launch_claude,
                 launch_codex=launch_codex,
                 launch_codex_app_server=launch_codex_app_server,
@@ -14555,7 +14483,7 @@ def launch_agy(
                 run_ciel_runtime_update_check=run_ciel_runtime_update_check,
                 run_prelaunch_menu=run_prelaunch_menu,
             ),
-            routing=AgyLaunchRouting(
+            routing=runtime_launch.AgyLaunchRouting(
                 agy_routed_enabled=agy_routed_enabled,
                 cleanup_managed_services_for_provider=cleanup_managed_services_for_provider,
                 launch_readiness_errors=launch_readiness_errors,
