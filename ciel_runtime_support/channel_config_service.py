@@ -50,6 +50,39 @@ class ChannelConfigService:
             index += 1
         return self.ports.dedupe(specs)
 
+    def normalize_passthrough(
+        self,
+        passthrough: list[str],
+    ) -> list[str]:
+        normalized: list[str] = []
+        index = 0
+        while index < len(passthrough):
+            argument = passthrough[index]
+            if argument == "--channels":
+                normalized.append(
+                    "--dangerously-load-development-channels"
+                )
+                index += 1
+                while (
+                    index < len(passthrough)
+                    and self.is_tagged(passthrough[index])
+                ):
+                    normalized.append(passthrough[index])
+                    index += 1
+                continue
+            if argument.startswith("--channels="):
+                value = argument.split("=", 1)[1].strip()
+                normalized.append(
+                    "--dangerously-load-development-channels"
+                )
+                if value:
+                    normalized.append(value)
+                index += 1
+                continue
+            normalized.append(argument)
+            index += 1
+        return normalized
+
     def auto_import(self, passthrough: list[str]) -> list[str]:
         specs = self.parse_passthrough(passthrough)
         if not specs:
@@ -196,6 +229,12 @@ class ChannelConfigApi:
 
     def auto_import_passthrough_channels(self, passthrough: list[str]) -> list[str]:
         return self.service_factory().auto_import(passthrough)
+
+    def normalize_channel_passthrough(
+        self,
+        passthrough: list[str],
+    ) -> list[str]:
+        return self.service_factory().normalize_passthrough(passthrough)
 
     def channel_specs_for_launch(
         self,

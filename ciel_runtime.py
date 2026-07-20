@@ -8758,6 +8758,7 @@ def ensure_channel_probe_cache_for_launch(
 
 
 is_channel_spec_tagged = _CHANNEL_CONFIG_API.is_channel_spec_tagged
+normalize_channel_passthrough = _CHANNEL_CONFIG_API.normalize_channel_passthrough
 
 
 def channel_status_text(cfg: dict[str, Any] | None = None) -> str:
@@ -11664,31 +11665,6 @@ def should_fork_native_session_after_mode_switch(
         use_native_anthropic=use_native_anthropic,
         repository=launch_state_repository(),
     )
-
-
-def normalize_channel_passthrough(passthrough: list[str]) -> list[str]:
-    normalized: list[str] = []
-    i = 0
-    while i < len(passthrough):
-        arg = passthrough[i]
-        if arg == "--channels":
-            normalized.append("--dangerously-load-development-channels")
-            i += 1
-            while i < len(passthrough) and is_channel_spec_tagged(passthrough[i]):
-                normalized.append(passthrough[i])
-                i += 1
-            continue
-        if arg.startswith("--channels="):
-            value = arg.split("=", 1)[1].strip()
-            if value:
-                normalized.extend(["--dangerously-load-development-channels", value])
-            else:
-                normalized.append("--dangerously-load-development-channels")
-            i += 1
-            continue
-        normalized.append(arg)
-        i += 1
-    return normalized
 
 
 def native_channel_passthrough_requested(passthrough: list[str]) -> bool:

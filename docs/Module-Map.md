@@ -909,7 +909,7 @@ Channel 설정·capability probe 명령을 조정하는 CLI Controller. parsing/
 
 ### `ciel_runtime_support/channel_config_service.py`
 
-지속 Channel 설정, passthrough import, delivery mode 정규화를 담당하는 Application Service. 저장 I/O는 명시적 포트 뒤에 둔다. `ChannelConfigApi`가 기존 공개 keyword/signature를 명시적으로 보존하며 late-bound service factory를 통해 facade wrapper를 제거한다.
+지속 Channel 설정, passthrough import, native channel option 정규화와 delivery mode projection을 담당하는 Application Service. 저장 I/O는 명시적 포트 뒤에 둔다. `ChannelConfigApi`가 기존 공개 keyword/signature를 명시적으로 보존하며 late-bound service factory를 통해 facade wrapper를 제거한다.
 
 ### `ciel_runtime_support/channel_cursor_service.py`
 

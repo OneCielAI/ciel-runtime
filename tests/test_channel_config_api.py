@@ -11,6 +11,7 @@ class ChannelConfigApiTests(unittest.TestCase):
     def test_explicit_api_preserves_public_contract(self):
         service = mock.create_autospec(ChannelConfigService, instance=True)
         service.parse_passthrough.return_value = ["server:test"]
+        service.normalize_passthrough.return_value = ["--native"]
         service.auto_import.return_value = ["server:test"]
         service.launch_specs.return_value = ["server:test"]
         service.is_tagged.return_value = True
@@ -26,6 +27,12 @@ class ChannelConfigApiTests(unittest.TestCase):
         self.assertEqual(
             ["server:test"],
             api.parse_passthrough_channel_specs(passthrough=["--channels"]),
+        )
+        self.assertEqual(
+            ["--native"],
+            api.normalize_channel_passthrough(
+                passthrough=["--channels"],
+            ),
         )
         self.assertEqual(
             ["server:test"],

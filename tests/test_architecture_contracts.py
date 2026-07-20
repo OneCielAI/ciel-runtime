@@ -4028,6 +4028,7 @@ class ArchitectureContractTests(unittest.TestCase):
             "auto_import_passthrough_channels",
             "channel_specs_for_launch",
             "is_channel_spec_tagged",
+            "normalize_channel_passthrough",
             "normalize_channel_delivery",
             "channel_delivery_mode",
             "set_channel_delivery_config",
@@ -4037,6 +4038,11 @@ class ArchitectureContractTests(unittest.TestCase):
         }
         self.assertTrue(delegated.isdisjoint(root_functions))
         self.assertIn("ChannelConfigApi", source)
+        self.assertIn(
+            "normalize_channel_passthrough = "
+            "_CHANNEL_CONFIG_API.normalize_channel_passthrough",
+            source,
+        )
         channel_source = (
             root / "ciel_runtime_support" / "channel_config_service.py"
         ).read_text(encoding="utf-8")
