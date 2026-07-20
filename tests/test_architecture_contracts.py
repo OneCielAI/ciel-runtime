@@ -2996,6 +2996,36 @@ class ArchitectureContractTests(unittest.TestCase):
             ast.unparse(functions["advisor_shortcut_intercept_enabled"]),
         )
 
+    def test_conversation_turn_compatibility_uses_explicit_typed_adapter(self):
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        delegated = {
+            "plan_mode_active",
+            "channel_llm_wake_text",
+            "channel_llm_wake_request",
+            "body_without_channel_llm_wake_prompt",
+            "has_plan_mode_exit",
+            "latest_user_text",
+            "should_auto_enter_plan_mode",
+            "latest_user_tool_result_details",
+            "should_keep_work_alive_with_tasklist",
+            "empty_end_turn_notice",
+            "empty_end_turn_notice_for_body",
+        }
+        self.assertTrue(delegated.isdisjoint(root_functions))
+        self.assertIn("ConversationTurnCompatibilityApi", source)
+        adapter_source = (
+            root
+            / "ciel_runtime_support"
+            / "protocols"
+            / "conversation_turn_policy.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("__getattr__", adapter_source)
+
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
         for path in support.rglob("*.py"):

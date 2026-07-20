@@ -60,6 +60,8 @@ Attachment-only message, Plan Mode 상태, plan file write 이력, unchanged Rea
 
 Plan Mode 진입·종료, channel wake 제거, tool-result 기반 작업 완료 판정, TaskList keepalive와 empty-end-turn 복구를 소유하는 Conversation Turn State Machine. content/tool codec과 관측 효과는 7필드 typed port로 주입되어 provider transport와 독립적으로 동작한다.
 
+`ConversationTurnCompatibilityApi`는 기존 공개 함수를 명시적 method로 투영하는 Adapter이다. 동적 `__getattr__`나 service locator 없이 매 호출마다 composition policy를 해석해 facade의 단순 wrapper 정의를 제거한다.
+
 ### `ciel_runtime_support/protocols/anthropic_thinking_policy.py`
 
 Anthropic thinking block과 강제 tool-choice의 provider 호환 변환을 소유하는 Protocol Policy. 요청·응답 정규화는 provider capability port를 통해 결정하고, client에 노출하지 않은 thinking passback은 용량 제한 Repository에 보관·복원한다. 메인 facade의 전역 캐시와 동적 monkeypatch 호환성은 composition wrapper가 유지한다.

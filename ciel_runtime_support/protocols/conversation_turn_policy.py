@@ -810,3 +810,163 @@ class ConversationTurnPolicy:
                 "is available; provide the next instruction or ask for current status."
             )
         return self.empty_end_turn_notice()
+
+
+@dataclass(frozen=True, slots=True)
+class ConversationTurnCompatibilityApi:
+    """Typed compatibility adapter that preserves late-bound policy assembly."""
+
+    policy_factory: Callable[[], ConversationTurnPolicy]
+
+    def plan_mode_active(self, body: dict[str, Any]) -> bool:
+        return self.policy_factory().plan_mode_active(body)
+
+    def channel_llm_wake_text(self, text: str) -> bool:
+        return self.policy_factory().channel_llm_wake_text(text)
+
+    def channel_llm_wake_request(self, body: dict[str, Any]) -> bool:
+        return self.policy_factory().channel_llm_wake_request(body)
+
+    def body_without_channel_llm_wake_prompt(self, body: dict[str, Any]) -> dict[str, Any]:
+        return self.policy_factory().body_without_channel_llm_wake_prompt(body)
+
+    def has_plan_mode_exit(self, body: dict[str, Any]) -> bool:
+        return self.policy_factory().has_plan_mode_exit(body)
+
+    def allowed_prompt_tools_for_exit_plan_mode(self, body: dict[str, Any]) -> list[str]:
+        return self.policy_factory().allowed_prompt_tools_for_exit_plan_mode(body)
+
+    def exit_plan_mode_default_prompt_for_tool(self, tool_name: str) -> str:
+        return self.policy_factory().exit_plan_mode_default_prompt_for_tool(tool_name)
+
+    def backfill_exit_plan_mode_allowed_prompts(
+        self, body: dict[str, Any], tool_input: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.policy_factory().backfill_exit_plan_mode_allowed_prompts(
+            body, tool_input
+        )
+
+    def plan_mode_tool_name_for_emit(
+        self, body: dict[str, Any], name: str, tool_input: dict[str, Any]
+    ) -> tuple[str | None, dict[str, Any]]:
+        return self.policy_factory().plan_mode_tool_name_for_emit(body, name, tool_input)
+
+    def is_guard_feedback_text(self, text: str) -> bool:
+        return self.policy_factory().is_guard_feedback_text(text)
+
+    def strip_claude_code_system_reminders(self, text: str) -> str:
+        return self.policy_factory().strip_claude_code_system_reminders(text)
+
+    def is_claude_code_suggestion_mode_text(self, text: str) -> bool:
+        return self.policy_factory().is_claude_code_suggestion_mode_text(text)
+
+    def user_intent_text_from_message(self, message: dict[str, Any]) -> str:
+        return self.policy_factory().user_intent_text_from_message(message)
+
+    def latest_user_text(self, body: dict[str, Any]) -> str:
+        return self.policy_factory().latest_user_text(body)
+
+    def latest_user_intent_message_index(self, body: dict[str, Any]) -> int | None:
+        return self.policy_factory().latest_user_intent_message_index(body)
+
+    def latest_user_is_claude_code_suggestion_mode(self, body: dict[str, Any]) -> bool:
+        return self.policy_factory().latest_user_is_claude_code_suggestion_mode(body)
+
+    def likely_implementation_planning_request(self, text: str) -> bool:
+        return self.policy_factory().likely_implementation_planning_request(text)
+
+    def non_actionable_short_response(self, text: str) -> bool:
+        return self.policy_factory().non_actionable_short_response(text)
+
+    def body_is_channel_prompt(self, body: dict[str, Any]) -> bool:
+        return self.policy_factory().body_is_channel_prompt(body)
+
+    def should_auto_enter_plan_mode(
+        self, body: dict[str, Any], response_text: str, tool_calls: list[dict[str, Any]]
+    ) -> bool:
+        return self.policy_factory().should_auto_enter_plan_mode(
+            body, response_text, tool_calls
+        )
+
+    def response_text_signals_plan_exit(self, text: str) -> bool:
+        return self.policy_factory().response_text_signals_plan_exit(text)
+
+    def should_auto_exit_plan_mode(
+        self, body: dict[str, Any], response_text: str, tool_calls: list[dict[str, Any]]
+    ) -> bool:
+        return self.policy_factory().should_auto_exit_plan_mode(
+            body, response_text, tool_calls
+        )
+
+    def bash_command_looks_mutating(self, command: str) -> bool:
+        return self.policy_factory().bash_command_looks_mutating(command)
+
+    def latest_user_tool_result_details(self, body: dict[str, Any]) -> list[dict[str, Any]]:
+        return self.policy_factory().latest_user_tool_result_details(body)
+
+    def latest_tool_result_indicates_completed_work(self, body: dict[str, Any]) -> bool:
+        return self.policy_factory().latest_tool_result_indicates_completed_work(body)
+
+    def latest_user_tool_result_names(self, body: dict[str, Any]) -> list[str]:
+        return self.policy_factory().latest_user_tool_result_names(body)
+
+    def latest_user_tool_result_text(self, body: dict[str, Any]) -> str:
+        return self.policy_factory().latest_user_tool_result_text(body)
+
+    def synthetic_tasklist_tool_use_id(self, tool_id: str, name: str) -> bool:
+        return self.policy_factory().synthetic_tasklist_tool_use_id(tool_id, name)
+
+    def recent_synthetic_tasklist_count(
+        self, body: dict[str, Any], after_message_index: int | None = None
+    ) -> int:
+        return self.policy_factory().recent_synthetic_tasklist_count(
+            body, after_message_index
+        )
+
+    def tasklist_result_has_active_work(self, text: str) -> bool:
+        return self.policy_factory().tasklist_result_has_active_work(text)
+
+    def latest_tasklist_result_has_no_active_work(self, body: dict[str, Any]) -> bool:
+        return self.policy_factory().latest_tasklist_result_has_no_active_work(body)
+
+    def latest_assistant_text(self, body: dict[str, Any]) -> str:
+        return self.policy_factory().latest_assistant_text(body)
+
+    def short_resume_prompt(self, text: str) -> bool:
+        return self.policy_factory().short_resume_prompt(text)
+
+    def latest_user_looks_like_work_request(self, body: dict[str, Any]) -> bool:
+        return self.policy_factory().latest_user_looks_like_work_request(body)
+
+    def response_asks_for_user_choice_or_permission(self, text: str) -> bool:
+        return self.policy_factory().response_asks_for_user_choice_or_permission(text)
+
+    def should_auto_continue_choice_question_with_tasklist(
+        self, body: dict[str, Any], response_text: str, tool_calls: list[dict[str, Any]]
+    ) -> bool:
+        return self.policy_factory().should_auto_continue_choice_question_with_tasklist(
+            body, response_text, tool_calls
+        )
+
+    def should_synthesize_tasklist_for_provider(self, provider: str) -> bool:
+        return self.policy_factory().should_synthesize_tasklist_for_provider(provider)
+
+    def should_keep_work_alive_with_tasklist(
+        self, body: dict[str, Any], response_text: str, tool_calls: list[dict[str, Any]]
+    ) -> bool:
+        return self.policy_factory().should_keep_work_alive_with_tasklist(
+            body, response_text, tool_calls
+        )
+
+    def should_recover_empty_end_turn_with_tasklist(
+        self, body: dict[str, Any], response_text: str, tool_calls: list[dict[str, Any]]
+    ) -> bool:
+        return self.policy_factory().should_recover_empty_end_turn_with_tasklist(
+            body, response_text, tool_calls
+        )
+
+    def empty_end_turn_notice(self) -> str:
+        return self.policy_factory().empty_end_turn_notice()
+
+    def empty_end_turn_notice_for_body(self, body: dict[str, Any] | None) -> str:
+        return self.policy_factory().empty_end_turn_notice_for_body(body)

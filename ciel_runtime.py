@@ -885,6 +885,7 @@ from ciel_runtime_support.protocols.conversation_policy import (
     upstream_relevant_message as project_upstream_relevant_message,
 )
 from ciel_runtime_support.protocols.conversation_turn_policy import (
+    ConversationTurnCompatibilityApi,
     ConversationTurnPolicy,
     ConversationTurnPorts,
 )
@@ -2821,68 +2822,39 @@ def conversation_turn_policy() -> ConversationTurnPolicy:
     )
 
 
-def plan_mode_active(body: dict[str, Any]) -> bool:
-    return conversation_turn_policy().plan_mode_active(body)
-
-
-def channel_llm_wake_text(text: str) -> bool:
-    return conversation_turn_policy().channel_llm_wake_text(text)
-
-
-def channel_llm_wake_request(body: dict[str, Any]) -> bool:
-    return conversation_turn_policy().channel_llm_wake_request(body)
-
-
-def body_without_channel_llm_wake_prompt(body: dict[str, Any]) -> dict[str, Any]:
-    return conversation_turn_policy().body_without_channel_llm_wake_prompt(body)
-
-
-def has_plan_mode_exit(body: dict[str, Any]) -> bool:
-    return conversation_turn_policy().has_plan_mode_exit(body)
-
-
-def allowed_prompt_tools_for_exit_plan_mode(body: dict[str, Any]) -> list[str]:
-    return conversation_turn_policy().allowed_prompt_tools_for_exit_plan_mode(body)
-
-
-def exit_plan_mode_default_prompt_for_tool(tool_name: str) -> str:
-    return conversation_turn_policy().exit_plan_mode_default_prompt_for_tool(tool_name)
-
-
-def backfill_exit_plan_mode_allowed_prompts(body: dict[str, Any], tool_input: dict[str, Any]) -> dict[str, Any]:
-    return conversation_turn_policy().backfill_exit_plan_mode_allowed_prompts(body, tool_input)
-
-
-def plan_mode_tool_name_for_emit(body: dict[str, Any], name: str, tool_input: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
-    return conversation_turn_policy().plan_mode_tool_name_for_emit(body, name, tool_input)
-
-
-def is_guard_feedback_text(text: str) -> bool:
-    return conversation_turn_policy().is_guard_feedback_text(text)
-
-
-def strip_claude_code_system_reminders(text: str) -> str:
-    return conversation_turn_policy().strip_claude_code_system_reminders(text)
-
-
-def is_claude_code_suggestion_mode_text(text: str) -> bool:
-    return conversation_turn_policy().is_claude_code_suggestion_mode_text(text)
-
-
-def user_intent_text_from_message(message: dict[str, Any]) -> str:
-    return conversation_turn_policy().user_intent_text_from_message(message)
-
-
-def latest_user_text(body: dict[str, Any]) -> str:
-    return conversation_turn_policy().latest_user_text(body)
-
-
-def latest_user_intent_message_index(body: dict[str, Any]) -> int | None:
-    return conversation_turn_policy().latest_user_intent_message_index(body)
-
-
-def latest_user_is_claude_code_suggestion_mode(body: dict[str, Any]) -> bool:
-    return conversation_turn_policy().latest_user_is_claude_code_suggestion_mode(body)
+_CONVERSATION_TURN_API = ConversationTurnCompatibilityApi(conversation_turn_policy)
+plan_mode_active = _CONVERSATION_TURN_API.plan_mode_active
+channel_llm_wake_text = _CONVERSATION_TURN_API.channel_llm_wake_text
+channel_llm_wake_request = _CONVERSATION_TURN_API.channel_llm_wake_request
+body_without_channel_llm_wake_prompt = (
+    _CONVERSATION_TURN_API.body_without_channel_llm_wake_prompt
+)
+has_plan_mode_exit = _CONVERSATION_TURN_API.has_plan_mode_exit
+allowed_prompt_tools_for_exit_plan_mode = (
+    _CONVERSATION_TURN_API.allowed_prompt_tools_for_exit_plan_mode
+)
+exit_plan_mode_default_prompt_for_tool = (
+    _CONVERSATION_TURN_API.exit_plan_mode_default_prompt_for_tool
+)
+backfill_exit_plan_mode_allowed_prompts = (
+    _CONVERSATION_TURN_API.backfill_exit_plan_mode_allowed_prompts
+)
+plan_mode_tool_name_for_emit = _CONVERSATION_TURN_API.plan_mode_tool_name_for_emit
+is_guard_feedback_text = _CONVERSATION_TURN_API.is_guard_feedback_text
+strip_claude_code_system_reminders = (
+    _CONVERSATION_TURN_API.strip_claude_code_system_reminders
+)
+is_claude_code_suggestion_mode_text = (
+    _CONVERSATION_TURN_API.is_claude_code_suggestion_mode_text
+)
+user_intent_text_from_message = _CONVERSATION_TURN_API.user_intent_text_from_message
+latest_user_text = _CONVERSATION_TURN_API.latest_user_text
+latest_user_intent_message_index = (
+    _CONVERSATION_TURN_API.latest_user_intent_message_index
+)
+latest_user_is_claude_code_suggestion_mode = (
+    _CONVERSATION_TURN_API.latest_user_is_claude_code_suggestion_mode
+)
 
 
 def router_debug_message_preview_chars(cfg: dict[str, Any] | None = None) -> int:
@@ -2911,104 +2883,51 @@ def router_event_message_preview(body: dict[str, Any], cfg: dict[str, Any] | Non
     }
 
 
-def likely_implementation_planning_request(text: str) -> bool:
-    return conversation_turn_policy().likely_implementation_planning_request(text)
-
-
-def non_actionable_short_response(text: str) -> bool:
-    return conversation_turn_policy().non_actionable_short_response(text)
-
-
-def body_is_channel_prompt(body: dict[str, Any]) -> bool:
-    return conversation_turn_policy().body_is_channel_prompt(body)
-
-
-def should_auto_enter_plan_mode(body: dict[str, Any], response_text: str, tool_calls: list[dict[str, Any]]) -> bool:
-    return conversation_turn_policy().should_auto_enter_plan_mode(body, response_text, tool_calls)
-
-
-def response_text_signals_plan_exit(text: str) -> bool:
-    return conversation_turn_policy().response_text_signals_plan_exit(text)
-
-
-def should_auto_exit_plan_mode(body: dict[str, Any], response_text: str, tool_calls: list[dict[str, Any]]) -> bool:
-    return conversation_turn_policy().should_auto_exit_plan_mode(body, response_text, tool_calls)
-
-
-def bash_command_looks_mutating(command: str) -> bool:
-    return conversation_turn_policy().bash_command_looks_mutating(command)
-
-
-def latest_user_tool_result_details(body: dict[str, Any]) -> list[dict[str, Any]]:
-    return conversation_turn_policy().latest_user_tool_result_details(body)
-
-
-def latest_tool_result_indicates_completed_work(body: dict[str, Any]) -> bool:
-    return conversation_turn_policy().latest_tool_result_indicates_completed_work(body)
-
-
-def latest_user_tool_result_names(body: dict[str, Any]) -> list[str]:
-    return conversation_turn_policy().latest_user_tool_result_names(body)
-
-
-def latest_user_tool_result_text(body: dict[str, Any]) -> str:
-    return conversation_turn_policy().latest_user_tool_result_text(body)
-
-
-def synthetic_tasklist_tool_use_id(tool_id: str, name: str) -> bool:
-    return conversation_turn_policy().synthetic_tasklist_tool_use_id(tool_id, name)
-
-
-def recent_synthetic_tasklist_count(body: dict[str, Any], after_message_index: int | None = None) -> int:
-    return conversation_turn_policy().recent_synthetic_tasklist_count(body, after_message_index)
-
-
-def tasklist_result_has_active_work(text: str) -> bool:
-    return conversation_turn_policy().tasklist_result_has_active_work(text)
-
-
-def latest_tasklist_result_has_no_active_work(body: dict[str, Any]) -> bool:
-    return conversation_turn_policy().latest_tasklist_result_has_no_active_work(body)
-
-
-def latest_assistant_text(body: dict[str, Any]) -> str:
-    return conversation_turn_policy().latest_assistant_text(body)
-
-
-def short_resume_prompt(text: str) -> bool:
-    return conversation_turn_policy().short_resume_prompt(text)
-
-
-def latest_user_looks_like_work_request(body: dict[str, Any]) -> bool:
-    return conversation_turn_policy().latest_user_looks_like_work_request(body)
-
-
-def response_asks_for_user_choice_or_permission(text: str) -> bool:
-    return conversation_turn_policy().response_asks_for_user_choice_or_permission(text)
-
-
-def should_auto_continue_choice_question_with_tasklist(body: dict[str, Any], response_text: str, tool_calls: list[dict[str, Any]]) -> bool:
-    return conversation_turn_policy().should_auto_continue_choice_question_with_tasklist(body, response_text, tool_calls)
-
-
-def should_synthesize_tasklist_for_provider(provider: str) -> bool:
-    return conversation_turn_policy().should_synthesize_tasklist_for_provider(provider)
-
-
-def should_keep_work_alive_with_tasklist(body: dict[str, Any], response_text: str, tool_calls: list[dict[str, Any]]) -> bool:
-    return conversation_turn_policy().should_keep_work_alive_with_tasklist(body, response_text, tool_calls)
-
-
-def should_recover_empty_end_turn_with_tasklist(body: dict[str, Any], response_text: str, tool_calls: list[dict[str, Any]]) -> bool:
-    return conversation_turn_policy().should_recover_empty_end_turn_with_tasklist(body, response_text, tool_calls)
-
-
-def empty_end_turn_notice() -> str:
-    return conversation_turn_policy().empty_end_turn_notice()
-
-
-def empty_end_turn_notice_for_body(body: dict[str, Any] | None) -> str:
-    return conversation_turn_policy().empty_end_turn_notice_for_body(body)
+likely_implementation_planning_request = (
+    _CONVERSATION_TURN_API.likely_implementation_planning_request
+)
+non_actionable_short_response = _CONVERSATION_TURN_API.non_actionable_short_response
+body_is_channel_prompt = _CONVERSATION_TURN_API.body_is_channel_prompt
+should_auto_enter_plan_mode = _CONVERSATION_TURN_API.should_auto_enter_plan_mode
+response_text_signals_plan_exit = _CONVERSATION_TURN_API.response_text_signals_plan_exit
+should_auto_exit_plan_mode = _CONVERSATION_TURN_API.should_auto_exit_plan_mode
+bash_command_looks_mutating = _CONVERSATION_TURN_API.bash_command_looks_mutating
+latest_user_tool_result_details = _CONVERSATION_TURN_API.latest_user_tool_result_details
+latest_tool_result_indicates_completed_work = (
+    _CONVERSATION_TURN_API.latest_tool_result_indicates_completed_work
+)
+latest_user_tool_result_names = _CONVERSATION_TURN_API.latest_user_tool_result_names
+latest_user_tool_result_text = _CONVERSATION_TURN_API.latest_user_tool_result_text
+synthetic_tasklist_tool_use_id = _CONVERSATION_TURN_API.synthetic_tasklist_tool_use_id
+recent_synthetic_tasklist_count = (
+    _CONVERSATION_TURN_API.recent_synthetic_tasklist_count
+)
+tasklist_result_has_active_work = _CONVERSATION_TURN_API.tasklist_result_has_active_work
+latest_tasklist_result_has_no_active_work = (
+    _CONVERSATION_TURN_API.latest_tasklist_result_has_no_active_work
+)
+latest_assistant_text = _CONVERSATION_TURN_API.latest_assistant_text
+short_resume_prompt = _CONVERSATION_TURN_API.short_resume_prompt
+latest_user_looks_like_work_request = (
+    _CONVERSATION_TURN_API.latest_user_looks_like_work_request
+)
+response_asks_for_user_choice_or_permission = (
+    _CONVERSATION_TURN_API.response_asks_for_user_choice_or_permission
+)
+should_auto_continue_choice_question_with_tasklist = (
+    _CONVERSATION_TURN_API.should_auto_continue_choice_question_with_tasklist
+)
+should_synthesize_tasklist_for_provider = (
+    _CONVERSATION_TURN_API.should_synthesize_tasklist_for_provider
+)
+should_keep_work_alive_with_tasklist = (
+    _CONVERSATION_TURN_API.should_keep_work_alive_with_tasklist
+)
+should_recover_empty_end_turn_with_tasklist = (
+    _CONVERSATION_TURN_API.should_recover_empty_end_turn_with_tasklist
+)
+empty_end_turn_notice = _CONVERSATION_TURN_API.empty_end_turn_notice
+empty_end_turn_notice_for_body = _CONVERSATION_TURN_API.empty_end_turn_notice_for_body
 
 
 def append_synthetic_tasklist_to_message(
