@@ -817,8 +817,8 @@ from ciel_runtime_support.request_trace import (
     RequestTracePolicy,
     RequestTraceProjection,
     RequestTraceServices,
+    ResponseTraceController,
     dump_request_for_trace as write_request_trace,
-    dump_response_for_trace as write_response_trace,
     summarize_messages_for_trace as project_messages_for_trace,
     truncate_for_dump as _truncate_for_dump,
 )
@@ -1295,7 +1295,7 @@ from ciel_runtime_support.tool_schema import (
     _validate_and_fix_tool_input as _tool_schema_validate_and_fix,
     tool_schema_in_body,
 )
-from ciel_runtime_support.usage_events import JsonlUsageEventSink, UsageEvent
+from ciel_runtime_support.usage_events import JsonlUsageEventSink
 from ciel_runtime_support.ui_text import PROVIDER_NOTES, UI_TEXT
 from ciel_runtime_support.transcript_filter import (
     is_claude_code_transcript_event,
@@ -2767,37 +2767,19 @@ def dump_request_for_trace(provider: str, path: str, body: dict[str, Any]) -> No
 
 
 def dump_response_for_trace(provider: str, model: str, text_so_far: str, tool_calls: list[dict[str, Any]], stop_reason: str | None, input_tokens: int, output_tokens: int, last_chunk: dict[str, Any] | None = None) -> None:
-    """At TRACE level, append a per-response summary to responses.jsonl.
-    Used to confirm what GLM-5.1 (and other upstream models) actually sent
-    when the Claude Code session appears to stall."""
-    try:
-        usage_event = UsageEvent(
-            provider=provider,
-            model=model,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-        )
-        USAGE_EVENT_SINK.record(usage_event)
-        EVENT_BUS.publish(
-            level="info",
-            category="usage.response",
-            message="upstream token usage recorded",
-            provider=provider,
-            model=model,
-            data={"input_tokens": max(0, input_tokens), "output_tokens": max(0, output_tokens)},
-        )
-    except Exception as exc:
-        router_log("WARN", f"usage_event_record_failed error={type(exc).__name__}: {exc}")
-    write_response_trace(
-        provider,
-        model,
-        text_so_far,
-        tool_calls,
-        stop_reason,
-        input_tokens,
-        output_tokens,
-        request_trace_services(),
+    response_trace_controller().write(
+        provider, model, text_so_far, tool_calls, stop_reason,
+        input_tokens, output_tokens,
         last_chunk=last_chunk,
+    )
+
+
+def response_trace_controller() -> ResponseTraceController:
+    return ResponseTraceController(
+        USAGE_EVENT_SINK.record,
+        EVENT_BUS.publish,
+        request_trace_services,
+        router_log,
     )
 
 

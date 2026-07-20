@@ -269,7 +269,7 @@ Statusline script 설치와 Claude `statusLine` 설정 mutation을 담당하는 
 
 ### `ciel_runtime_support/request_trace.py`
 
-Anthropic message/tool block 요약과 request/response JSONL trace 저장·회전을 담당하는 Observability Adapter. trace 활성화·경로·용량 정책과 content projection을 작은 포트로 분리하고, 저장 실패를 더 이상 숨기지 않고 진단 로그로 노출한다.
+Anthropic message/tool block 요약과 request/response JSONL trace 저장·회전을 담당하는 Observability Adapter. `ResponseTraceController`가 token usage sink·event bus·response trace를 하나의 관측 흐름으로 조정한다. trace 활성화·경로·용량 정책과 content projection을 작은 포트로 분리하고 저장 실패를 진단 로그로 노출한다.
 
 ### `ciel_runtime_support/request_shortcuts.py`
 

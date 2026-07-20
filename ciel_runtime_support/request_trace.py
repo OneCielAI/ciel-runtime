@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from .usage_events import UsageEvent
+
 
 @dataclass(frozen=True)
 class RequestTracePolicy:
@@ -30,6 +32,63 @@ class RequestTraceServices:
     projection: RequestTraceProjection
     log: Callable[[str, str], None]
     timestamp: Callable[[], str] = lambda: time.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+@dataclass(frozen=True, slots=True)
+class ResponseTraceController:
+    record_usage: Callable[[UsageEvent], None]
+    publish_event: Callable[..., Any]
+    services: Callable[[], RequestTraceServices]
+    log: Callable[[str, str], None]
+
+    def write(
+        self,
+        provider: str,
+        model: str,
+        text: str,
+        tool_calls: list[dict[str, Any]],
+        stop_reason: str | None,
+        input_tokens: int,
+        output_tokens: int,
+        last_chunk: dict[str, Any] | None = None,
+    ) -> None:
+        try:
+            self.record_usage(
+                UsageEvent(
+                    provider=provider,
+                    model=model,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                )
+            )
+            self.publish_event(
+                level="info",
+                category="usage.response",
+                message="upstream token usage recorded",
+                provider=provider,
+                model=model,
+                data={
+                    "input_tokens": max(0, input_tokens),
+                    "output_tokens": max(0, output_tokens),
+                },
+            )
+        except Exception as exc:
+            self.log(
+                "WARN",
+                "usage_event_record_failed "
+                f"error={type(exc).__name__}: {exc}",
+            )
+        dump_response_for_trace(
+            provider,
+            model,
+            text,
+            tool_calls,
+            stop_reason,
+            input_tokens,
+            output_tokens,
+            self.services(),
+            last_chunk=last_chunk,
+        )
 
 
 def truncate_for_dump(value: Any, max_len: int = 4000) -> Any:

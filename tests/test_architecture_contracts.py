@@ -447,6 +447,7 @@ from ciel_runtime_support.request_trace import (
     RequestTracePolicy,
     RequestTraceProjection,
     RequestTraceServices,
+    ResponseTraceController,
 )
 from ciel_runtime_support.statusline_settings import StatusLineServices
 from ciel_runtime_support.ollama_forwarding import (
@@ -3183,7 +3184,12 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("_CHANNEL_STDIN_RECOVERY_CACHE", function_source)
 
     def test_request_trace_ports_stay_below_dependency_limit(self):
-        for port in (RequestTracePolicy, RequestTraceProjection, RequestTraceServices):
+        for port in (
+            RequestTracePolicy,
+            RequestTraceProjection,
+            RequestTraceServices,
+            ResponseTraceController,
+        ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
@@ -4632,6 +4638,7 @@ class ArchitectureContractTests(unittest.TestCase):
             "provider_supports_tool_choice": "supports_tool_choice",
             "provider_tool_choice_status": "tool_choice_status",
             "normalize_tool_choice_for_provider": "normalize_tool_choice",
+            "dump_response_for_trace": "write",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",
