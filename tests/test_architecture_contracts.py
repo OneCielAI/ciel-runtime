@@ -575,6 +575,15 @@ from ciel_runtime_support.prelaunch import (
     PrelaunchServices,
     PrelaunchTerminal,
 )
+from ciel_runtime_support.prelaunch_panel_projection import (
+    ConfigurationPanelPorts,
+    ConfigurationPanelProjection,
+    MainMenuProjection,
+    MainMenuProjectionPorts,
+    ProviderPanelConstants,
+    ProviderPanelPorts,
+    ProviderPanelProjection,
+)
 from ciel_runtime_support.prelaunch_terminal import (
     PrelaunchInputStyle,
     PrelaunchRenderBrand,
@@ -1044,6 +1053,38 @@ class ArchitectureContractTests(unittest.TestCase):
         for port in ports:
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_prelaunch_panel_projection_owns_panel_row_policy(self):
+        for port in (
+            MainMenuProjectionPorts,
+            ProviderPanelConstants,
+            ProviderPanelPorts,
+            ConfigurationPanelPorts,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        self.assertEqual(1, len(fields(MainMenuProjection)))
+        self.assertEqual(2, len(fields(ProviderPanelProjection)))
+        self.assertEqual(1, len(fields(ConfigurationPanelProjection)))
+
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        functions = {
+            node.name: node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+        }
+        expected = {
+            "main_menu_rows": "main_menu_projection",
+            "provider_panel_rows": "provider_panel_projection",
+            "language_panel_rows": "configuration_panel_projection",
+            "log_level_panel_rows": "configuration_panel_projection",
+            "api_key_panel_rows": "configuration_panel_projection",
+            "base_url_panel_rows": "configuration_panel_projection",
+        }
+        for name, projection in expected.items():
+            function_source = ast.unparse(functions[name])
+            self.assertIn(projection, function_source)
+            self.assertNotIn("for ", function_source)
 
     def test_prelaunch_terminal_ports_stay_below_dependency_limit(self):
         for port in (

@@ -1125,6 +1125,15 @@ from ciel_runtime_support.provider_status import (
     base_url_status_line as project_provider_base_url_status,
 )
 from ciel_runtime_support import prelaunch
+from ciel_runtime_support.prelaunch_panel_projection import (
+    ConfigurationPanelPorts,
+    ConfigurationPanelProjection,
+    MainMenuProjection,
+    MainMenuProjectionPorts,
+    ProviderPanelConstants,
+    ProviderPanelPorts,
+    ProviderPanelProjection,
+)
 from ciel_runtime_support.prelaunch_terminal import (
     PrelaunchInputStyle,
     PrelaunchRenderBrand,
@@ -10890,135 +10899,74 @@ def prelaunch_action_index(action: str) -> int:
         return 0
 
 
+def main_menu_projection() -> MainMenuProjection:
+    return MainMenuProjection(
+        MainMenuProjectionPorts(
+            languages=LANGUAGES,
+            ui_text=ui_text,
+            compact_text=compact_text,
+            provider_label=provider_menu_label,
+            stored_api_key_mask=stored_api_key_mask,
+            llm_options_status=llm_options_status,
+            log_level_status=log_level_status,
+            supports_runtime=DEFAULT_RUNTIME_COMPATIBILITY.supports,
+            provider_family=DEFAULT_RUNTIME_COMPATIBILITY.provider_family,
+            provider_ui_policy=provider_ui_policy,
+        )
+    )
+
+
 def main_menu_rows(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any], lang: str) -> list[str]:
-    policy = provider_ui_policy(provider, pcfg)
-    model_text = (
-        policy.model_placeholder
-        if policy.model_placeholder and not pcfg.get("current_model")
-        else compact_text(pcfg.get("current_model", "unset"), 62)
+    return main_menu_projection().rows(cfg, provider, pcfg, lang)
+
+
+def provider_panel_projection() -> ProviderPanelProjection:
+    return ProviderPanelProjection(
+        ProviderPanelConstants(
+            labels=PROVIDER_LABELS,
+            anthropic_native_choice=ANTHROPIC_NATIVE_PROVIDER_CHOICE,
+            anthropic_routed_choice=ANTHROPIC_ROUTED_PROVIDER_CHOICE,
+            agy_native_choice=AGY_NATIVE_PROVIDER_CHOICE,
+            agy_routed_choice=AGY_ROUTED_PROVIDER_CHOICE,
+            codex_native_choice=CODEX_NATIVE_PROVIDER_CHOICE,
+            codex_routed_choice=CODEX_ROUTED_PROVIDER_CHOICE,
+        ),
+        ProviderPanelPorts(
+            anthropic_routed=anthropic_routed_enabled,
+            agy_routed=agy_routed_enabled,
+            codex_routed=codex_routed_enabled,
+            has_api_key=provider_has_api_key,
+            compact_text=compact_text,
+        ),
     )
-    advisor_text = (
-        policy.advisor_placeholder
-        if policy.advisor_placeholder
-        else compact_text(pcfg.get("advisor_model") or "off", 62)
-    )
-    launch_label = ui_text("launch", lang)
-    if not DEFAULT_RUNTIME_COMPATIBILITY.supports("claude", provider):
-        family = DEFAULT_RUNTIME_COMPATIBILITY.provider_family(
-            provider, provider_menu_label(provider, pcfg)
-        )
-        launch_label += f" [disabled: {family} provider selected]"
-    launch_agy_label = ui_text("launch_agy", lang)
-    if not DEFAULT_RUNTIME_COMPATIBILITY.supports("agy", provider):
-        launch_agy_label += " [disabled: select AGY provider]"
-    launch_codex_label = ui_text("launch_codex", lang)
-    if not DEFAULT_RUNTIME_COMPATIBILITY.supports("codex", provider):
-        family = DEFAULT_RUNTIME_COMPATIBILITY.provider_family(
-            provider, provider_menu_label(provider, pcfg)
-        )
-        launch_codex_label += f" [disabled: {family} provider selected]"
-    launch_codex_app_server_label = ui_text("launch_codex_app_server", lang)
-    if not DEFAULT_RUNTIME_COMPATIBILITY.supports("codex", provider):
-        family = DEFAULT_RUNTIME_COMPATIBILITY.provider_family(
-            provider, provider_menu_label(provider, pcfg)
-        )
-        launch_codex_app_server_label += f" [disabled: {family} provider selected]"
-    return [
-        f"0. {ui_text('language', lang)}  [{LANGUAGES.get(lang, lang)}]",
-        f"1. {ui_text('provider', lang)}  [{provider_menu_label(provider, pcfg)}]",
-        f"2. {ui_text('api_key', lang)}  [{stored_api_key_mask(provider, pcfg)}]",
-        f"3. {ui_text('base_url', lang)}  [{compact_text(pcfg.get('base_url', 'unset'), 62)}]",
-        f"4. {ui_text('model', lang)}  [{model_text}]",
-        f"5. {ui_text('advisor_model', lang)}  [{advisor_text}]",
-        f"6. {ui_text('options', lang)}  [{compact_text(llm_options_status(provider, pcfg), 62)}]",
-        f"7. {ui_text('log_level', lang)}  [{log_level_status()}]",
-        f"8. {ui_text('test', lang)}",
-        f"9. {launch_label}",
-        f"10. {launch_codex_label}",
-        f"11. {launch_codex_app_server_label}",
-        f"12. {launch_agy_label}",
-        ui_text("quit", lang),
-    ]
 
 
 def provider_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    entries: list[tuple[str, str, str]] = []
-    current = cfg.get("current_provider", "nvidia-hosted")
-    for key, label in PROVIDER_LABELS.items():
-        pcfg = cfg.get("providers", {}).get(key, {})
-        if key == "anthropic":
-            routed = anthropic_routed_enabled(key, pcfg)
-            native_mark = "*" if current == key and not routed else " "
-            routed_mark = "*" if current == key and routed else " "
-            entries.append(
-                (
-                    "Claude Native",
-                    f"{native_mark} {'Claude Native':<16} {'anthropic-native':<17} {compact_text(pcfg.get('base_url', ''), 52)}",
-                    ANTHROPIC_NATIVE_PROVIDER_CHOICE,
-                )
-            )
-            suffix = "router via Claude Code auth" if not provider_has_api_key(key, pcfg) else "router features"
-            entries.append(
-                (
-                    "Anthropic routed",
-                    f"{routed_mark} {'Anthropic routed':<16} {'anthropic-routed':<17} {suffix}",
-                    ANTHROPIC_ROUTED_PROVIDER_CHOICE,
-                )
-            )
-            continue
-        if key == "agy":
-            routed = agy_routed_enabled(key, pcfg)
-            native_mark = "*" if current == key and not routed else " "
-            routed_mark = "*" if current == key and routed else " "
-            entries.append(("AGY", f"{native_mark} {'AGY':<16} {'agy-native':<17} native Antigravity settings", AGY_NATIVE_PROVIDER_CHOICE))
-            entries.append(("AGY Routed", f"{routed_mark} {'AGY Routed':<16} {'agy-routed':<17} channel/PTY wake support", AGY_ROUTED_PROVIDER_CHOICE))
-            continue
-        if key == "codex":
-            routed = codex_routed_enabled(key, pcfg)
-            native_mark = "*" if current == key and not routed else " "
-            routed_mark = "*" if current == key and routed else " "
-            entries.append(("Codex Native", f"{native_mark} {'Codex Native':<16} {'codex-native':<17} native Codex settings", CODEX_NATIVE_PROVIDER_CHOICE))
-            entries.append(("Codex routed", f"{routed_mark} {'Codex routed':<16} {'codex-routed':<17} router via native Codex auth", CODEX_ROUTED_PROVIDER_CHOICE))
-            continue
-        mark = "*" if key == current else " "
-        entries.append((label, f"{mark} {label:<16} {key:<15} {compact_text(pcfg.get('base_url', ''), 54)}", key))
-    entries.sort(key=lambda item: (item[0].casefold(), item[2].casefold()))
-    return [row for _label, row, _value in entries], [value for _label, _row, value in entries]
+    return provider_panel_projection().rows(cfg)
+
+
+def configuration_panel_projection() -> ConfigurationPanelProjection:
+    return ConfigurationPanelProjection(
+        ConfigurationPanelPorts(
+            languages=LANGUAGES,
+            log_level_names=LOG_LEVEL_NAMES,
+            log_level_name=log_level_name,
+            log_level_status=log_level_status,
+            ui_text=ui_text,
+            compact_text=compact_text,
+            default_base_url=default_base_url,
+            api_key_count=provider_api_key_count,
+            platform_name=os.name,
+        )
+    )
 
 
 def language_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    rows: list[str] = []
-    values: list[str] = []
-    current = cfg.get("language", "en")
-    for code, label in LANGUAGES.items():
-        mark = "*" if code == current else " "
-        rows.append(f"{mark} {code:<2} {label}")
-        values.append(code)
-    return rows, values
+    return configuration_panel_projection().language_rows(cfg)
 
 
 def log_level_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    rows: list[str] = []
-    values: list[str] = []
-    current = log_level_name()
-    descriptions = {
-        "SILENT": "no router log writes",
-        "ERROR": "errors only",
-        "WARN": "warnings and errors",
-        "INFO": "normal diagnostics",
-        "DEBUG": "verbose diagnostics",
-        "TRACE": "request/response trace detail",
-    }
-    for numeric in sorted(LOG_LEVEL_NAMES):
-        name = LOG_LEVEL_NAMES[numeric]
-        mark = "*" if name == current else " "
-        rows.append(f"{mark} {name:<6} {numeric}  {descriptions.get(name, '')}")
-        values.append(name)
-    rows.append(f"Reset to default/env  [{log_level_status()}]")
-    values.append("DEFAULT")
-    rows.append(ui_text("back", cfg.get("language", "en")))
-    values.append("back")
-    return rows, values
+    return configuration_panel_projection().log_level_rows(cfg)
 
 
 def model_panel_services() -> ModelPanelServices:
@@ -11097,34 +11045,11 @@ def channel_delivery_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[st
 
 
 def api_key_panel_rows(provider: str, pcfg: dict[str, Any] | None = None) -> tuple[list[str], list[str]]:
-    rows = [
-        "Type or paste API key as hidden input",
-        "Type or paste multiple API keys (comma/newline separated)",
-        "Read API key from an environment variable",
-        "Read API keys from an environment variable",
-        "Read API key from clipboard",
-        "Read API keys from clipboard",
-        "Back",
-    ]
-    values = ["input", "multi-input", "env", "multi-env", "clipboard", "multi-clipboard", "back"]
-    if os.name != "nt":
-        rows[4] = "Read API key from desktop clipboard if available"
-        rows[5] = "Read API keys from desktop clipboard if available"
-    if pcfg is not None and provider_api_key_count(provider, pcfg):
-        rows.insert(-1, "Clear stored API key(s)")
-        values.insert(-1, "clear")
-    return rows, values
+    return configuration_panel_projection().api_key_rows(provider, pcfg)
 
 
 def base_url_panel_rows(provider: str, pcfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    return (
-        [
-            f"Edit Base URL  [{compact_text(pcfg.get('base_url') or default_base_url(provider), 72)}]",
-            f"Reset to provider default  [{default_base_url(provider)}]",
-            "Back",
-        ],
-        ["edit", "default", "back"],
-    )
+    return configuration_panel_projection().base_url_rows(provider, pcfg)
 
 
 def prelaunch_render_services() -> PrelaunchRenderServices:

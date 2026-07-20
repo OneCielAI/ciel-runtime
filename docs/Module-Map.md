@@ -749,6 +749,10 @@ Provider compatibility 전략에 따라 LM Studio runtime metadata 또는 일반
 
 공급자·모델·채널·컨텍스트 설정 패널을 조정하는 사전 실행 메뉴 애플리케이션 서비스.
 
+### `ciel_runtime_support/prelaunch_panel_projection.py`
+
+메인 메뉴와 provider/language/log/API-key/base-URL panel 행을 생성하는 UI Projection 계층. runtime compatibility, provider mode 및 표시 데이터는 10필드 이하 typed port로 주입되고 composition root에는 projection 조립과 호환 위임만 남긴다.
+
 ### `ciel_runtime_support/prelaunch_terminal.py`
 
 사전 실행 메뉴의 화면 렌더링, 다국어 cell 폭·ANSI 표현, 키 시퀀스 decoding, 선택 루프와 단일·다중행 TTY 입력을 담당하는 UI 어댑터. 렌더링 데이터, 텍스트·브랜드와 선택 서비스는 각각 10필드 이하 port로 분리하며 터미널 polling·복구 실패는 로그로 관측된다.
