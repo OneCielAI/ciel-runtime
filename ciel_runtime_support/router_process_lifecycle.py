@@ -4,9 +4,50 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import subprocess
+import sys
+import threading
 from typing import Any
+
+
+def schedule_router_restart(
+    delay: float,
+    script_path: Path,
+    log: Callable[[str, str], None],
+    *,
+    timer_factory: Callable[..., Any] = threading.Timer,
+    exec_process: Callable[[str, list[str]], Any] = os.execv,
+    executable: str = sys.executable,
+    stderr: Any = sys.stderr,
+) -> None:
+    def restart() -> None:
+        try:
+            log("INFO", "router_debug_restart execing router process")
+            exec_process(
+                executable, [executable, str(script_path), "serve"]
+            )
+        except Exception as exc:
+            try:
+                log(
+                    "ERROR",
+                    f"router_debug_restart_failed {type(exc).__name__}: {exc}",
+                )
+            except Exception as log_exc:
+                try:
+                    stderr.write(
+                        "router_debug_restart_diagnostic_failed "
+                        f"restart_error={type(exc).__name__}: {exc} "
+                        f"log_error={type(log_exc).__name__}: {log_exc}\n"
+                    )
+                    stderr.flush()
+                except (OSError, ValueError):
+                    return
+
+    timer = timer_factory(delay, restart)
+    timer.daemon = True
+    timer.start()
 
 
 @dataclass(frozen=True, slots=True)

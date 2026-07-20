@@ -498,6 +498,7 @@ from ciel_runtime_support.credential_management import (
     EnvCredentialRepository,
     ExternalCredentialPorts,
     nvidia_env_credential_repository,
+    parse_dotenv_file,
 )
 from ciel_runtime_support.credential_cli import (
     CredentialCliController,
@@ -543,6 +544,7 @@ from ciel_runtime_support.router_process_lifecycle import (
     RouterStatePorts,
     RouterTerminationPorts,
     ensure_port_available as ensure_project_router_port_available,
+    schedule_router_restart,
     stop_router_processes as stop_project_router_processes,
     stop_with_guarantee as stop_project_router_with_guarantee,
     start_router_if_needed as start_project_router_if_needed,
@@ -1996,16 +1998,7 @@ def upstream_query_string_status(provider: str, pcfg: dict[str, Any]) -> str:
 
 
 def read_env_file(path: Path) -> dict[str, str]:
-    env: dict[str, str] = {}
-    if not path.exists():
-        return env
-    for line in path.read_text(errors="ignore").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        env[k.strip()] = v.strip().strip("'\"")
-    return env
+    return parse_dotenv_file(path)
 
 
 def meaningful_key_value(value: Any) -> bool:
@@ -5430,27 +5423,7 @@ def set_router_debug_external_access_config(value: Any) -> list[str]:
 
 
 def schedule_router_process_restart(delay: float = 0.8) -> None:
-    def restart() -> None:
-        try:
-            router_log("INFO", "router_debug_restart execing router process")
-            os.execv(sys.executable, [sys.executable, str(Path(__file__).resolve()), "serve"])
-        except Exception as exc:
-            try:
-                router_log("ERROR", f"router_debug_restart_failed {type(exc).__name__}: {exc}")
-            except Exception as log_exc:
-                try:
-                    sys.stderr.write(
-                        "router_debug_restart_diagnostic_failed "
-                        f"restart_error={type(exc).__name__}: {exc} "
-                        f"log_error={type(log_exc).__name__}: {log_exc}\n"
-                    )
-                    sys.stderr.flush()
-                except (OSError, ValueError):
-                    return
-
-    timer = threading.Timer(delay, restart)
-    timer.daemon = True
-    timer.start()
+    schedule_router_restart(delay, Path(__file__).resolve(), router_log)
 
 
 _OLLAMA_CONTEXT_POLICY = OllamaRequestContextPolicy(

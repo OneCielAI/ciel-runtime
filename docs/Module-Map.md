@@ -289,7 +289,7 @@ API-key 파싱·중복 제거·ProviderConfig 투영, secret masking/fingerprint
 
 ### `ciel_runtime_support/credential_management.py`
 
-단일·다중 API key 저장과 삭제를 transaction으로 조정하는 Credential Management Service. 외부 credential 저장소, config 저장, model-cache 무효화, 다른 provider key 보존과 rotation cursor reset을 typed ports/repository로 분리한다. `EnvCredentialRepository`는 NVIDIA 같은 외부 dotenv credential의 기본값 보존·보안 권한·단일 key 삭제를 캡슐화한다.
+단일·다중 API key 저장과 삭제를 transaction으로 조정하는 Credential Management Service. 외부 credential 저장소, config 저장, model-cache 무효화, 다른 provider key 보존과 rotation cursor reset을 typed ports/repository로 분리한다. `EnvCredentialRepository`는 NVIDIA 같은 외부 dotenv credential의 기본값 보존·보안 권한·단일 key 삭제를 캡슐화하며, runtime-owned dotenv 파싱 규칙도 이 인프라 경계에 둔다.
 
 ### `ciel_runtime_support/credential_cli.py`
 
@@ -1106,7 +1106,7 @@ Provider alias, model/catalog 기본값, launch code, logging limit, tool policy
 
 ### `ciel_runtime_support/router_process_lifecycle.py`
 
-Router PID file 종료, health PID 보호, foreign-config 충돌 거부, 포트 교체 대기·종료 보장과 managed router spawn/reuse/version replacement를 조정하는 Process Lifecycle Application Service. OS별 process 조회·signal, health repository, spawn effect와 clock은 typed port로 주입되어 런처 정책에서 격리된다.
+Router PID file 종료, health PID 보호, foreign-config 충돌 거부, 포트 교체 대기·종료 보장과 managed router spawn/reuse/version replacement를 조정하는 Process Lifecycle Application Service. 지연 self-exec 재시작과 이중 실패 stderr 진단도 이 경계가 소유한다. OS별 process 조회·signal, health repository, spawn effect와 clock은 typed port로 주입된다.
 
 ### `ciel_runtime_support/router_access.py`
 

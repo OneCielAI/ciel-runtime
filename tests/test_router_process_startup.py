@@ -8,11 +8,46 @@ from ciel_runtime_support.router_process_lifecycle import (
     RouterSpawnPorts,
     RouterStartupIdentity,
     RouterStartupStatePorts,
+    schedule_router_restart,
     start_router_if_needed,
 )
 
 
 class RouterProcessStartupTests(unittest.TestCase):
+    def test_scheduled_restart_executes_router_entrypoint_and_logs_failure(self):
+        calls = []
+        logs = []
+
+        class ImmediateTimer:
+            daemon = False
+
+            def __init__(self, delay, callback):
+                calls.append(("delay", delay))
+                self.callback = callback
+
+            def start(self):
+                self.callback()
+
+        def fail_exec(executable, argv):
+            calls.append((executable, argv))
+            raise OSError("blocked")
+
+        schedule_router_restart(
+            0.5,
+            Path("runtime.py"),
+            lambda level, message: logs.append((level, message)),
+            timer_factory=ImmediateTimer,
+            exec_process=fail_exec,
+            executable="python",
+        )
+
+        self.assertEqual(("delay", 0.5), calls[0])
+        self.assertEqual(
+            ("python", ["python", "runtime.py", "serve"]), calls[1]
+        )
+        self.assertEqual("INFO", logs[0][0])
+        self.assertEqual("ERROR", logs[-1][0])
+
     def test_matching_router_is_reused_when_policy_allows(self):
         popen = mock.Mock()
         result = start_router_if_needed(

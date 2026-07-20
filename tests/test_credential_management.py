@@ -10,6 +10,7 @@ from ciel_runtime_support.credential_management import (
     CredentialRotationRepository,
     EnvCredentialRepository,
     ExternalCredentialPorts,
+    parse_dotenv_file,
 )
 from ciel_runtime_support.credentials import api_key_clear_requested, parse_api_key_list
 
@@ -97,6 +98,26 @@ class CredentialManagementServiceTest(unittest.TestCase):
 
             self.assertFalse(repository.has_key())
             self.assertEqual("PROXY_HOST=127.0.0.1\n", path.read_text())
+
+    def test_parse_dotenv_file_ignores_comments_and_normalizes_quotes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "provider.env"
+            path.write_text(
+                "# provider settings\n"
+                "NVIDIA_API_KEY='nvapi-secret'\n"
+                'NVIDIA_BASE_URL="https://integrate.api.nvidia.com/v1"\n'
+                "MALFORMED\n",
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                {
+                    "NVIDIA_API_KEY": "nvapi-secret",
+                    "NVIDIA_BASE_URL": "https://integrate.api.nvidia.com/v1",
+                },
+                parse_dotenv_file(path),
+            )
+            self.assertEqual({}, parse_dotenv_file(path.with_name("missing.env")))
 
 
 if __name__ == "__main__":

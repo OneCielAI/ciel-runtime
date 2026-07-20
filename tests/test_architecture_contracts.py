@@ -4682,6 +4682,8 @@ class ArchitectureContractTests(unittest.TestCase):
             "auto_discovered_mcp_channel_specs": "discover_channel_specs",
             "_channel_current_tmux_pane_text": "capture",
             "codex_responses_body_with_channel_context": "project",
+            "schedule_router_process_restart": "schedule_router_restart",
+            "read_env_file": "parse_dotenv_file",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

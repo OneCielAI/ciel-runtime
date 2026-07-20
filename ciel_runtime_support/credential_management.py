@@ -9,6 +9,21 @@ from threading import Lock, RLock
 from typing import Any, Callable
 
 
+def parse_dotenv_file(path: Path) -> dict[str, str]:
+    """Read the simple KEY=VALUE format used by runtime-owned env files."""
+
+    environment: dict[str, str] = {}
+    if not path.exists():
+        return environment
+    for line in path.read_text(errors="ignore").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        environment[key.strip()] = value.strip().strip("'\"")
+    return environment
+
+
 @dataclass(frozen=True, slots=True)
 class CredentialPersistencePorts:
     load_config: Callable[[], dict[str, Any]]
@@ -230,4 +245,5 @@ __all__ = [
     "EnvCredentialRepository",
     "ExternalCredentialPorts",
     "nvidia_env_credential_repository",
+    "parse_dotenv_file",
 ]
