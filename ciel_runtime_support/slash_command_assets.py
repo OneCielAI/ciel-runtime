@@ -1,5 +1,15 @@
 """Static Claude slash-command documents installed by Ciel Runtime."""
 
+VERSION_SLASH_COMMAND = """---
+description: Show ciel-runtime version
+argument-hint: [ignored]
+---
+
+CIEL_RUNTIME_VERSION_STATUS
+
+Show the running ciel-runtime version for this session. This command is handled locally by the ciel-runtime router and must not be forwarded upstream.
+"""
+
 ADVISOR_SLASH_COMMAND = """---
 description: Run the selected ciel-runtime Advisor Model
 argument-hint: [question or focus]
@@ -134,3 +144,68 @@ Arguments: $ARGUMENTS
 
 Import a session transcript into the current Ciel Runtime-routed session. `Target` names the source transcript format and must be `Codex` or `Claude`.
 """
+
+
+LEGACY_MARKER_PREFIX = "CLAUDE" + "_ANY"
+LEGACY_ADVISOR_CALL_MARKER = LEGACY_MARKER_PREFIX + "_ADVISOR_CALL"
+LEGACY_ROUTER_DEBUG_ACCESS_MARKER = LEGACY_MARKER_PREFIX + "_ROUTER_DEBUG_ACCESS"
+LEGACY_LIVE_LLM_OPTIONS_MARKER = LEGACY_MARKER_PREFIX + "_LIVE_LLM_OPTIONS"
+LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER = LEGACY_MARKER_PREFIX + "_CHANNEL_CLEAR_BACKLOG"
+LEGACY_LIVE_API_KEYS_MARKER = LEGACY_MARKER_PREFIX + "_LIVE_API_KEYS"
+
+ADVISOR_REQUEST_MARKERS = ("CIEL_RUNTIME_ADVISOR_CALL", LEGACY_ADVISOR_CALL_MARKER)
+ROUTER_DEBUG_REQUEST_MARKERS = (
+    "CIEL_RUNTIME_ROUTER_DEBUG_ACCESS",
+    LEGACY_ROUTER_DEBUG_ACCESS_MARKER,
+)
+VERSION_REQUEST_MARKERS = ("CIEL_RUNTIME_VERSION_STATUS",)
+LIVE_LLM_OPTIONS_REQUEST_MARKERS = (
+    "CIEL_RUNTIME_LIVE_LLM_OPTIONS",
+    LEGACY_LIVE_LLM_OPTIONS_MARKER,
+)
+CHANNEL_CLEAR_REQUEST_MARKERS = (
+    "CIEL_RUNTIME_CHANNEL_CLEAR_BACKLOG",
+    LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER,
+)
+LIVE_API_KEYS_REQUEST_MARKERS = (
+    "CIEL_RUNTIME_LIVE_API_KEYS",
+    LEGACY_LIVE_API_KEYS_MARKER,
+)
+IMPORT_SESSION_REQUEST_MARKERS = ("CIEL_RUNTIME_IMPORT_SESSION",)
+
+CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS = (
+    "CIEL_RUNTIME_ADVISOR_CALL",
+    "Run the selected ciel-runtime Advisor Model",
+    "Ciel Runtime Advisor is unavailable in direct Claude Native mode",
+    LEGACY_ADVISOR_CALL_MARKER,
+)
+CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS = (
+    "CIEL_RUNTIME_ROUTER_DEBUG_ACCESS",
+    "Toggle ciel-runtime router external debug access",
+    "ciel-runtime router debug controls are unavailable in direct Claude Native mode",
+    LEGACY_ROUTER_DEBUG_ACCESS_MARKER,
+)
+CIEL_RUNTIME_VERSION_COMMAND_MARKERS = (
+    "CIEL_RUNTIME_VERSION_STATUS",
+    "Show ciel-runtime version",
+)
+CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS = (
+    "CIEL_RUNTIME_LIVE_LLM_OPTIONS",
+    "Show or change ciel-runtime live LLM options",
+    "Restore ciel-runtime live LLM options",
+    LEGACY_LIVE_LLM_OPTIONS_MARKER,
+)
+CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS = (
+    "CIEL_RUNTIME_CHANNEL_CLEAR_BACKLOG",
+    "Discard pending ciel-runtime external channel backlog",
+    LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER,
+)
+CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS = (
+    "CIEL_RUNTIME_LIVE_API_KEYS",
+    "Set/show ciel-runtime live API key(s)",
+    LEGACY_LIVE_API_KEYS_MARKER,
+)
+CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS = (
+    "CIEL_RUNTIME_IMPORT_SESSION",
+    "Import a Claude/Codex session transcript",
+)

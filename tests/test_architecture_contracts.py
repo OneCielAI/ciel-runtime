@@ -4838,6 +4838,15 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(alias=alias):
                 self.assertIs(getattr(ciel_runtime, alias), getattr(ciel_runtime, target))
 
+    def test_static_hook_and_slash_assets_live_outside_facade(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER: tuple", source)
+        self.assertNotIn("TOOL_GUARD_EVENTS_WITHOUT_MATCHER: tuple", source)
+        self.assertNotIn('VERSION_SLASH_COMMAND = """', source)
+        self.assertNotIn('LEGACY_MARKER_PREFIX = "CLAUDE"', source)
+
     def test_cli_runtime_adapter_materializes_launch_spec(self):
         provider = ProviderConfig(name="test", base_url="http://localhost", model="model")
         runtime = RuntimeConfig(name="codex", executable="codex", enable_channels=True)

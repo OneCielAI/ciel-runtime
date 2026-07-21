@@ -8,12 +8,29 @@ from pathlib import Path
 from unittest import mock
 
 import ciel_runtime
+from ciel_runtime_support.tool_guard_hooks import (
+    DEFAULT_TOOL_GUARD_HOOK_POLICY,
+    TOOL_GUARD_EVENTS_WITHOUT_MATCHER,
+    TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 GUARD = ROOT / "ciel-runtime-tool-guard.py"
 
 
 class ToolGuardTests(unittest.TestCase):
+    def test_default_hook_policy_owns_supported_event_sets(self):
+        self.assertEqual(
+            TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER,
+            DEFAULT_TOOL_GUARD_HOOK_POLICY.events_with_matcher,
+        )
+        self.assertEqual(
+            TOOL_GUARD_EVENTS_WITHOUT_MATCHER,
+            DEFAULT_TOOL_GUARD_HOOK_POLICY.events_without_matcher,
+        )
+        self.assertIn("PreToolUse", TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER)
+        self.assertIn("SessionStart", TOOL_GUARD_EVENTS_WITHOUT_MATCHER)
+
     def test_legacy_tool_guard_compat_shim_is_created_for_packaged_install(self):
         with tempfile.TemporaryDirectory() as tmp:
             package_root = Path(tmp) / "lib" / "node_modules" / "@oneciel-ai" / "ciel-runtime"

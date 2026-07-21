@@ -445,16 +445,37 @@ from ciel_runtime_support.config_value_codec import (
 from ciel_runtime_support.settings_repository import JsonSettingsRepository, SettingsFileEffects
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
 from ciel_runtime_support.slash_command_assets import (
+    ADVISOR_REQUEST_MARKERS,
     ADVISOR_NATIVE_DISABLED_SLASH_COMMAND,  # noqa: F401 - compatibility export
     ADVISOR_SLASH_COMMAND,
     API_KEYS_SLASH_COMMAND,
+    CHANNEL_CLEAR_REQUEST_MARKERS,
     CHANNEL_CLEAR_SLASH_COMMAND,
+    CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS,
+    CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS,
+    CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS,
+    CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS,
+    CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
+    CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS,
+    CIEL_RUNTIME_VERSION_COMMAND_MARKERS,
     IMPORT_SESSION_SLASH_COMMAND,
+    IMPORT_SESSION_REQUEST_MARKERS,
+    LEGACY_ADVISOR_CALL_MARKER,  # noqa: F401 - compatibility export
+    LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER,  # noqa: F401 - compatibility export
+    LEGACY_LIVE_API_KEYS_MARKER,  # noqa: F401 - compatibility export
+    LEGACY_LIVE_LLM_OPTIONS_MARKER,  # noqa: F401 - compatibility export
+    LEGACY_MARKER_PREFIX,  # noqa: F401 - compatibility export
+    LEGACY_ROUTER_DEBUG_ACCESS_MARKER,  # noqa: F401 - compatibility export
+    LIVE_API_KEYS_REQUEST_MARKERS,
+    LIVE_LLM_OPTIONS_REQUEST_MARKERS,
     LLM_OPTIONS_SLASH_COMMAND,
     LLM_RESTORE_SLASH_COMMAND,
     LLM_SLIDER_SLASH_COMMAND,
+    ROUTER_DEBUG_REQUEST_MARKERS,
     ROUTER_DEBUG_NATIVE_DISABLED_SLASH_COMMAND,  # noqa: F401 - compatibility export
     ROUTER_DEBUG_SLASH_COMMAND,
+    VERSION_REQUEST_MARKERS,
+    VERSION_SLASH_COMMAND,
 )
 from ciel_runtime_support.statusline_script import STATUSLINE_SCRIPT
 from ciel_runtime_support.statusline_settings import StatusLineServices, install_statusline_settings
@@ -510,9 +531,12 @@ from ciel_runtime_support.credential_cli import (
     CredentialCliPorts,
 )
 from ciel_runtime_support.tool_guard_hooks import (
+    DEFAULT_TOOL_GUARD_HOOK_POLICY,
     LegacyToolGuardShimInstaller,
     LegacyToolGuardShimServices,
-    ToolGuardHookPolicy,
+    TOOL_GUARD_EVENTS_WITHOUT_MATCHER,  # noqa: F401 - compatibility export
+    TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER,  # noqa: F401 - compatibility export
+    ToolGuardHookPolicy,  # noqa: F401 - compatibility export
     ToolGuardHookServices,
     install_tool_guard_hook_settings,
 )
@@ -2183,48 +2207,10 @@ def install_legacy_tool_guard_compat_shim() -> None:
     ).install()
 
 
-TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER: tuple[str, ...] = (
-    "PreToolUse",
-    "PostToolUse",
-    "PostToolUseFailure",
-    "PermissionRequest",
-    "PermissionDenied",
-)
-
-TOOL_GUARD_EVENTS_WITHOUT_MATCHER: tuple[str, ...] = (
-    "PostToolBatch",
-    "SessionStart",
-    "SessionEnd",
-    "Setup",
-    "UserPromptSubmit",
-    "UserPromptExpansion",
-    "Stop",
-    "StopFailure",
-    "InstructionsLoaded",
-    "ConfigChange",
-    "CwdChanged",
-    "Notification",
-    "SubagentStart",
-    "SubagentStop",
-    "TeammateIdle",
-    "TaskCreated",
-    "TaskCompleted",
-    "PreCompact",
-    "PostCompact",
-    "WorktreeCreate",
-    "WorktreeRemove",
-    "Elicitation",
-    "ElicitationResult",
-)
-
-
 def install_tool_guard_hooks() -> None:
     install_tool_guard_hook_settings(
         ciel_runtime_tool_guard_command(),
-        ToolGuardHookPolicy(
-            events_with_matcher=TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER,
-            events_without_matcher=TOOL_GUARD_EVENTS_WITHOUT_MATCHER,
-        ),
+        DEFAULT_TOOL_GUARD_HOOK_POLICY,
         ToolGuardHookServices(
             repository=JsonSettingsRepository(
                 path=CLAUDE_SETTINGS_PATH,
@@ -2254,74 +2240,6 @@ def install_ciel_runtime_statusline() -> None:
 
 
 
-
-
-VERSION_SLASH_COMMAND = """---
-description: Show ciel-runtime version
-argument-hint: [ignored]
----
-
-CIEL_RUNTIME_VERSION_STATUS
-
-Show the running ciel-runtime version for this session. This command is handled locally by the ciel-runtime router and must not be forwarded upstream.
-"""
-
-
-
-
-
-
-
-CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS = (
-    "CIEL_RUNTIME_ADVISOR_CALL",
-    "Run the selected ciel-runtime Advisor Model",
-    "Ciel Runtime Advisor is unavailable in direct Claude Native mode",
-)
-CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS = (
-    "CIEL_RUNTIME_ROUTER_DEBUG_ACCESS",
-    "Toggle ciel-runtime router external debug access",
-    "ciel-runtime router debug controls are unavailable in direct Claude Native mode",
-)
-CIEL_RUNTIME_VERSION_COMMAND_MARKERS = (
-    "CIEL_RUNTIME_VERSION_STATUS",
-    "Show ciel-runtime version",
-)
-CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS = (
-    "CIEL_RUNTIME_LIVE_LLM_OPTIONS",
-    "Show or change ciel-runtime live LLM options",
-    "Restore ciel-runtime live LLM options",
-)
-CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS = (
-    "CIEL_RUNTIME_CHANNEL_CLEAR_BACKLOG",
-    "Discard pending ciel-runtime external channel backlog",
-)
-CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS = (
-    "CIEL_RUNTIME_LIVE_API_KEYS",
-    "Set/show ciel-runtime live API key(s)",
-)
-CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS = (
-    "CIEL_RUNTIME_IMPORT_SESSION",
-    "Import a Claude/Codex session transcript",
-)
-LEGACY_MARKER_PREFIX = "CLAUDE" + "_ANY"
-LEGACY_ADVISOR_CALL_MARKER = LEGACY_MARKER_PREFIX + "_ADVISOR_CALL"
-LEGACY_ROUTER_DEBUG_ACCESS_MARKER = LEGACY_MARKER_PREFIX + "_ROUTER_DEBUG_ACCESS"
-LEGACY_LIVE_LLM_OPTIONS_MARKER = LEGACY_MARKER_PREFIX + "_LIVE_LLM_OPTIONS"
-LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER = LEGACY_MARKER_PREFIX + "_CHANNEL_CLEAR_BACKLOG"
-LEGACY_LIVE_API_KEYS_MARKER = LEGACY_MARKER_PREFIX + "_LIVE_API_KEYS"
-ADVISOR_REQUEST_MARKERS = ("CIEL_RUNTIME_ADVISOR_CALL", LEGACY_ADVISOR_CALL_MARKER)
-ROUTER_DEBUG_REQUEST_MARKERS = ("CIEL_RUNTIME_ROUTER_DEBUG_ACCESS", LEGACY_ROUTER_DEBUG_ACCESS_MARKER)
-VERSION_REQUEST_MARKERS = ("CIEL_RUNTIME_VERSION_STATUS",)
-LIVE_LLM_OPTIONS_REQUEST_MARKERS = ("CIEL_RUNTIME_LIVE_LLM_OPTIONS", LEGACY_LIVE_LLM_OPTIONS_MARKER)
-CHANNEL_CLEAR_REQUEST_MARKERS = ("CIEL_RUNTIME_CHANNEL_CLEAR_BACKLOG", LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER)
-LIVE_API_KEYS_REQUEST_MARKERS = ("CIEL_RUNTIME_LIVE_API_KEYS", LEGACY_LIVE_API_KEYS_MARKER)
-IMPORT_SESSION_REQUEST_MARKERS = ("CIEL_RUNTIME_IMPORT_SESSION",)
-
-CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS = (*CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS, LEGACY_ADVISOR_CALL_MARKER)
-CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS = (*CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS, LEGACY_ROUTER_DEBUG_ACCESS_MARKER)
-CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS = (*CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS, LEGACY_LIVE_LLM_OPTIONS_MARKER)
-CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS = (*CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS, LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER)
-CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS = (*CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS, LEGACY_LIVE_API_KEYS_MARKER)
 
 
 command_file_is_ciel_runtime_owned = is_owned_command_file

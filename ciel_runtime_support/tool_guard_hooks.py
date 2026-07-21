@@ -8,6 +8,41 @@ from typing import Any, Callable
 from ciel_runtime_support.settings_repository import JsonSettingsRepository
 
 
+TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER: tuple[str, ...] = (
+    "PreToolUse",
+    "PostToolUse",
+    "PostToolUseFailure",
+    "PermissionRequest",
+    "PermissionDenied",
+)
+
+TOOL_GUARD_EVENTS_WITHOUT_MATCHER: tuple[str, ...] = (
+    "PostToolBatch",
+    "SessionStart",
+    "SessionEnd",
+    "Setup",
+    "UserPromptSubmit",
+    "UserPromptExpansion",
+    "Stop",
+    "StopFailure",
+    "InstructionsLoaded",
+    "ConfigChange",
+    "CwdChanged",
+    "Notification",
+    "SubagentStart",
+    "SubagentStop",
+    "TeammateIdle",
+    "TaskCreated",
+    "TaskCompleted",
+    "PreCompact",
+    "PostCompact",
+    "WorktreeCreate",
+    "WorktreeRemove",
+    "Elicitation",
+    "ElicitationResult",
+)
+
+
 @dataclass(frozen=True)
 class ToolGuardHookPolicy:
     events_with_matcher: tuple[str, ...]
@@ -18,6 +53,12 @@ class ToolGuardHookPolicy:
         "/claude-any/",
         "\\claude-any\\",
     )
+
+
+DEFAULT_TOOL_GUARD_HOOK_POLICY = ToolGuardHookPolicy(
+    events_with_matcher=TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER,
+    events_without_matcher=TOOL_GUARD_EVENTS_WITHOUT_MATCHER,
+)
 
 
 @dataclass(frozen=True)
