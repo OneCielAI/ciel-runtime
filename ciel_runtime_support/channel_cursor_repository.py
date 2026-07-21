@@ -7,6 +7,36 @@ from typing import Any, Callable
 
 
 @dataclass(frozen=True, slots=True)
+class CursorReadResolution:
+    value: int
+    persist: bool = False
+
+
+class ChannelCursorStatePolicy:
+    """Merge durable and process-local cursor state monotonically."""
+
+    @staticmethod
+    def resolve_read(
+        file_cursor: int | None,
+        cached_cursor: int | None,
+        scan_cursor: Callable[[], int],
+    ) -> CursorReadResolution:
+        if file_cursor is not None:
+            return CursorReadResolution(
+                max(file_cursor, cached_cursor or 0)
+            )
+        if cached_cursor is not None:
+            return CursorReadResolution(cached_cursor)
+        return CursorReadResolution(max(0, scan_cursor()), persist=True)
+
+    @staticmethod
+    def newer(candidate: int | None, current: int) -> int | None:
+        if candidate is None or candidate <= current:
+            return None
+        return candidate
+
+
+@dataclass(frozen=True, slots=True)
 class ChannelCursorRepository:
     path: Path
     log: Callable[[str, str], None]

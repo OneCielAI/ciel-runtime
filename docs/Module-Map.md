@@ -229,7 +229,7 @@ Channel probe, replay, pending scan, wake claim/inflight 및 Codex/Windows submi
 
 ### `ciel_runtime_support/channel_cursor_repository.py`
 
-MCP delivery, LLM delivery, backlog clear-floor cursor의 공통 JSON 읽기와 원자 교체를 소유하는 Repository. 부재는 초기화 신호로 반환하고 손상·권한·write 실패는 경로가 포함된 경고로 노출한다.
+MCP delivery, LLM delivery, backlog clear-floor cursor의 공통 JSON 읽기와 원자 교체를 소유하는 Repository. 부재는 초기화 신호로 반환하고 손상·권한·write 실패는 경로가 포함된 경고로 노출한다. `ChannelCursorStatePolicy`는 durable cursor와 process cache의 monotonic 병합, 최초 scan/persist 여부와 newer-only commit 판정을 소유한다.
 
 ### `ciel_runtime_support/channel_wake_claim_repository.py`
 

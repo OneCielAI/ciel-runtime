@@ -3,10 +3,30 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from ciel_runtime_support.channel_cursor_repository import ChannelCursorRepository
+from ciel_runtime_support.channel_cursor_repository import (
+    ChannelCursorRepository,
+    ChannelCursorStatePolicy,
+)
 
 
 class ChannelCursorRepositoryTests(unittest.TestCase):
+    def test_state_policy_merges_file_cache_and_scan_monotonically(self):
+        policy = ChannelCursorStatePolicy()
+
+        self.assertEqual(8, policy.resolve_read(8, 5, lambda: 99).value)
+        self.assertEqual(8, policy.resolve_read(5, 8, lambda: 99).value)
+        self.assertEqual(7, policy.resolve_read(None, 7, lambda: 99).value)
+        initialized = policy.resolve_read(None, None, lambda: 12)
+        self.assertEqual(12, initialized.value)
+        self.assertTrue(initialized.persist)
+
+    def test_state_policy_rejects_non_monotonic_commits(self):
+        policy = ChannelCursorStatePolicy()
+
+        self.assertIsNone(policy.newer(None, 7))
+        self.assertIsNone(policy.newer(7, 7))
+        self.assertEqual(8, policy.newer(8, 7))
+
     def test_round_trip_clamps_negative_cursor_and_keeps_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "cursor.json"

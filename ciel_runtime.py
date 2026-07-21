@@ -261,7 +261,7 @@ from ciel_runtime_support.channel_launch_policy import (
 from ciel_runtime_support.channel_runtime_environment import (
     ChannelRuntimeEnvironmentPolicy,
 )
-from ciel_runtime_support.channel_cursor_repository import ChannelCursorRepository
+from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage
 from ciel_runtime_support.channel_cursor_service import (
     ChannelDeliveryCursorCommitter,
     ChannelDeliveryCursorPorts,
@@ -4587,8 +4587,8 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
     )
 
 
-def channel_cursor_repository(path: Path) -> ChannelCursorRepository:
-    return ChannelCursorRepository(path=path, log=router_log)
+def channel_cursor_repository(path: Path) -> channel_cursor_storage.ChannelCursorRepository:
+    return channel_cursor_storage.ChannelCursorRepository(path=path, log=router_log)
 
 
 def _channel_mcp_cached_cursor() -> int | None:
@@ -11117,15 +11117,14 @@ def _channel_llm_write_cursor_locked(last_id: int) -> None:
 
 def _channel_llm_read_cursor_locked() -> int:
     global _CHANNEL_LLM_CURSOR_LAST_ID
-    file_cursor = channel_cursor_repository(CHANNEL_LLM_CURSOR_PATH).read()
-    if file_cursor is not None:
-        if _CHANNEL_LLM_CURSOR_LAST_ID is None or file_cursor > _CHANNEL_LLM_CURSOR_LAST_ID:
-            _CHANNEL_LLM_CURSOR_LAST_ID = file_cursor
-        return _CHANNEL_LLM_CURSOR_LAST_ID
-    if _CHANNEL_LLM_CURSOR_LAST_ID is not None:
-        return _CHANNEL_LLM_CURSOR_LAST_ID
-    _CHANNEL_LLM_CURSOR_LAST_ID = max(0, _chat_scan_max_id())
-    _channel_llm_write_cursor_locked(_CHANNEL_LLM_CURSOR_LAST_ID)
+    resolution = channel_cursor_storage.ChannelCursorStatePolicy.resolve_read(
+        channel_cursor_repository(CHANNEL_LLM_CURSOR_PATH).read(),
+        _CHANNEL_LLM_CURSOR_LAST_ID,
+        _chat_scan_max_id,
+    )
+    _CHANNEL_LLM_CURSOR_LAST_ID = resolution.value
+    if resolution.persist:
+        _channel_llm_write_cursor_locked(resolution.value)
     return _CHANNEL_LLM_CURSOR_LAST_ID
 
 
@@ -11230,15 +11229,14 @@ def channel_backlog_status() -> dict[str, Any]:
 
 def _commit_channel_llm_cursor_if_newer(last_id: int | None) -> None:
     global _CHANNEL_LLM_CURSOR_LAST_ID
-    if last_id is None:
-        return
     with _CHANNEL_LLM_CURSOR_LOCK:
         current = _channel_llm_read_cursor_locked()
-        if last_id <= current:
+        target = channel_cursor_storage.ChannelCursorStatePolicy.newer(last_id, current)
+        if target is None:
             return
-        _CHANNEL_LLM_CURSOR_LAST_ID = last_id
+        _CHANNEL_LLM_CURSOR_LAST_ID = target
         try:
-            _channel_llm_write_cursor_locked(last_id)
+            _channel_llm_write_cursor_locked(target)
         except Exception as exc:
             router_log("WARN", f"channel_llm_cursor_write_failed error={type(exc).__name__}: {exc}")
 

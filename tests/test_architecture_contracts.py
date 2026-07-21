@@ -271,7 +271,11 @@ from ciel_runtime_support.channel_launch_policy import (
 from ciel_runtime_support.channel_runtime_environment import (
     ChannelRuntimeEnvironmentPolicy,
 )
-from ciel_runtime_support.channel_cursor_repository import ChannelCursorRepository
+from ciel_runtime_support.channel_cursor_repository import (
+    ChannelCursorRepository,
+    ChannelCursorStatePolicy,
+    CursorReadResolution,
+)
 from ciel_runtime_support.channel_cursor_recovery import (
     ChannelCursorRecoveryPolicy,
     ChannelCursorRecoveryPorts,
@@ -4012,6 +4016,11 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("len(_CHANNEL_STDIN_WAKE_DELIVERED)", source)
         self.assertNotIn("len(_CHANNEL_STDIN_WAKE_PROMPTS)", source)
 
+    def test_channel_cursor_policy_owns_monotonic_state_merge(self):
+        self.assertLessEqual(len(fields(CursorReadResolution)), 10)
+        self.assertTrue(callable(ChannelCursorStatePolicy.resolve_read))
+        self.assertTrue(callable(ChannelCursorStatePolicy.newer))
+
     def test_auto_llm_options_service_owns_configuration_transaction(self):
         for port in (
             AutoLlmOptionsRepository,
@@ -4732,6 +4741,8 @@ class ArchitectureContractTests(unittest.TestCase):
             "format_context_tokens": "project_format_context_tokens",
             "format_parameter_count": "project_format_parameter_count",
             "context_setting_status": "status",
+            "_channel_llm_read_cursor_locked": "resolve_read",
+            "_commit_channel_llm_cursor_if_newer": "newer",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",
