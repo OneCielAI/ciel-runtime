@@ -647,7 +647,7 @@ RPM 설정 해석, 예약 capacity, sliding-window timestamp 정리, Retry-After
 
 ### `ciel_runtime_support/provider_catalog_sources.py`
 
-공급자 model catalog 응답 projection, Anthropic 공개/API source와 Fireworks pagination을 소유하는 Source Application Service. HTTP·metadata projection·정규화 정책과 provider별 source policy를 각각 최대 5필드 typed port로 분리한다.
+공급자 model catalog 응답 projection, Anthropic 공개/API source와 Fireworks pagination을 소유하는 Source Application Service. HTTP·metadata projection·정규화 정책과 provider별 source policy를 각각 최대 5필드 typed port로 분리하며, 기본 Factory가 불변 provider source 정책을 조립한다.
 
 ### `ciel_runtime_support/provider_model_selection.py`
 
@@ -921,7 +921,7 @@ Provider endpoint 변경과 runtime status 출력을 담당하는 Configuration 
 
 ### `ciel_runtime_support/provider_endpoint_policy.py`
 
-Provider Adapter가 선택한 wire protocol과 사용자별 model endpoint override를 정규화하고 지원 여부 및 UI label을 투영하는 Domain Policy. 모델 identity와 protocol 선택을 4필드 port로 주입해 OpenCode 계열 이름 분기를 제거한다.
+Provider Adapter가 선택한 wire protocol과 사용자별 model endpoint override를 정규화하고 지원 여부 및 UI label을 투영하는 Domain Policy. 모델 identity와 protocol 선택을 4필드 port로 주입해 OpenCode 계열 이름 분기를 제거하고, 기본 Factory가 표준 alias·label·지원 protocol 구성을 소유한다.
 
 ### `ciel_runtime_support/provider_option_status.py`
 

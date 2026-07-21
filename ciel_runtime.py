@@ -325,9 +325,10 @@ from ciel_runtime_support.model_panel import (
 )
 from ciel_runtime_support import provider_catalog_sources
 from ciel_runtime_support.provider_endpoint_policy import (
-    ProviderEndpointPolicy as ModelEndpointPolicy,
+    ProviderEndpointPolicy as ModelEndpointPolicy,  # noqa: F401 - compatibility export
     ProviderEndpointPorts as ModelEndpointPorts,
-    ProviderEndpointPresentation as ModelEndpointPresentation,
+    ProviderEndpointPresentation as ModelEndpointPresentation,  # noqa: F401
+    build_default_provider_endpoint_policy,
 )
 from ciel_runtime_support.provider_request_access import (
     ProviderRequestAccessEffects,
@@ -1425,11 +1426,11 @@ from ciel_runtime_support.runtime_paths import (
 )
 from ciel_runtime_support.runtime_constants import (
     ADVISOR_FEEDBACK_MARKER,
-    ANTHROPIC_LIMITED_ACCESS_MODEL_IDS,
+    ANTHROPIC_LIMITED_ACCESS_MODEL_IDS,  # noqa: F401 - compatibility export
     ANTHROPIC_MODEL_DOCS_URL,  # noqa: F401 - compatibility export
     ANTHROPIC_MODEL_DOCS_URLS,
-    ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS,
-    ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS,
+    ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS,  # noqa: F401 - compatibility export
+    ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS,  # noqa: F401 - compatibility export
     ANTHROPIC_THINKING_BLOCK_TYPES,
     AUTO_DETECT_NATIVE_COMPAT_PROVIDERS,
     APP_NAME,
@@ -1446,9 +1447,9 @@ from ciel_runtime_support.runtime_constants import (
     CREDITS,
     DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC,
     DEFAULT_REQUEST_TIMEOUT_MS,
-    FIREWORKS_API_BASE_URL,
-    FIREWORKS_DEFAULT_ACCOUNT_ID,
-    FIREWORKS_INFERENCE_BASE_URL,
+    FIREWORKS_API_BASE_URL,  # noqa: F401 - compatibility export
+    FIREWORKS_DEFAULT_ACCOUNT_ID,  # noqa: F401 - compatibility export
+    FIREWORKS_INFERENCE_BASE_URL,  # noqa: F401 - compatibility export
     KIMI_CODING_BASE_URL,  # noqa: F401 - compatibility export
     KIMI_DEFAULT_MODEL,  # noqa: F401 - compatibility export
     KIMI_K3_MODEL,
@@ -1466,7 +1467,7 @@ from ciel_runtime_support.runtime_constants import (
     OFFICIAL_CHANNEL_PLUGINS,
     OLLAMA_MODEL_CATALOG_TTL_SECONDS,
     OLLAMA_MODEL_CATALOG_URL,
-    OPENCODE_ENDPOINT_ALIASES,
+    OPENCODE_ENDPOINT_ALIASES,  # noqa: F401 - compatibility export
     OPENCODE_GO_BASE_URL,  # noqa: F401 - compatibility export
     OPENCODE_ZEN_BASE_URL,  # noqa: F401 - compatibility export
     PLAN_GUARD_MARKER,  # noqa: F401 - compatibility export
@@ -2888,40 +2889,30 @@ def ensure_model_cache_for_launch(provider: str, pcfg: dict[str, Any]) -> None:
     model_cache_lifecycle_service().ensure_for_launch(provider, pcfg)
 
 
-_PROVIDER_CATALOG_SOURCES = provider_catalog_sources.ProviderCatalogSourceService(
-    projection=provider_catalog_sources.ModelCatalogProjectionPorts(
-        normalize_model_id=normalize_model_id,
-        model_context=lambda item: model_context_field(item),
-        positive_int=positive_int,
-        provider_metadata=lambda provider: PROVIDER_ADAPTERS.create(
-            provider
-        ).project_model_metadata,
-    ),
-    http=provider_catalog_sources.ProviderCatalogHttpPorts(
-        http_json=lambda *args, **kwargs: http_json(*args, **kwargs),
-        join_url=join_url,
-        upstream_base=lambda provider, pcfg: provider_upstream_request_base(
-            provider, pcfg
+_PROVIDER_CATALOG_SOURCES = (
+    provider_catalog_sources.build_default_provider_catalog_source_service(
+        projection=provider_catalog_sources.ModelCatalogProjectionPorts(
+            normalize_model_id=normalize_model_id,
+            model_context=lambda item: model_context_field(item),
+            positive_int=positive_int,
+            provider_metadata=lambda provider: PROVIDER_ADAPTERS.create(
+                provider
+            ).project_model_metadata,
         ),
-        request_headers=lambda: with_upstream_user_agent(),
-        urlopen=lambda *args, **kwargs: urllib.request.urlopen(*args, **kwargs),
-    ),
-    policy=provider_catalog_sources.ProviderCatalogPolicyPorts(
-        unique_model_ids=unique_model_ids,
-        log=lambda level, message: router_log(level, message),
-    ),
-    anthropic=provider_catalog_sources.AnthropicCatalogPolicy(
-        docs_urls=tuple(ANTHROPIC_MODEL_DOCS_URLS),
-        default_ids=tuple(ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS),
-        limited_ids=tuple(ANTHROPIC_LIMITED_ACCESS_MODEL_IDS),
-        fallback_ids=tuple(ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS),
-        public_id_pattern=provider_catalog_sources.ANTHROPIC_PUBLIC_MODEL_ID_RE,
-    ),
-    fireworks=provider_catalog_sources.FireworksCatalogPolicy(
-        default_account_id=FIREWORKS_DEFAULT_ACCOUNT_ID,
-        api_base_url=FIREWORKS_API_BASE_URL,
-        inference_base_url=FIREWORKS_INFERENCE_BASE_URL,
-    ),
+        http=provider_catalog_sources.ProviderCatalogHttpPorts(
+            http_json=lambda *args, **kwargs: http_json(*args, **kwargs),
+            join_url=join_url,
+            upstream_base=lambda provider, pcfg: provider_upstream_request_base(
+                provider, pcfg
+            ),
+            request_headers=lambda: with_upstream_user_agent(),
+            urlopen=lambda *args, **kwargs: urllib.request.urlopen(*args, **kwargs),
+        ),
+        policy=provider_catalog_sources.ProviderCatalogPolicyPorts(
+            unique_model_ids=unique_model_ids,
+            log=lambda level, message: router_log(level, message),
+        ),
+    )
 )
 model_ids_from_response = _PROVIDER_CATALOG_SOURCES.model_ids_from_response
 model_info_from_response = _PROVIDER_CATALOG_SOURCES.model_info_from_response
@@ -2942,7 +2933,7 @@ fetch_anthropic_public_model_ids = (
 )
 
 
-_PROVIDER_ENDPOINT_POLICY = ModelEndpointPolicy(
+_PROVIDER_ENDPOINT_POLICY = build_default_provider_endpoint_policy(
     ports=ModelEndpointPorts(
         normalize_model_id=normalize_model_id,
         strip_context_suffix=strip_claude_context_suffix,
@@ -2954,16 +2945,6 @@ _PROVIDER_ENDPOINT_POLICY = ModelEndpointPolicy(
             provider_contract_config(provider, pcfg),
             model_id,
         ),
-    ),
-    presentation=ModelEndpointPresentation(
-        aliases=OPENCODE_ENDPOINT_ALIASES,
-        labels={
-            "anthropic-messages": "messages",
-            "openai-chat": "chat",
-            "openai-responses": "responses",
-            "google-generative": "gemini",
-        },
-        routed_protocols=frozenset({"anthropic-messages", "openai-chat"}),
     ),
 )
 opencode_zen_endpoint_kind = _PROVIDER_ENDPOINT_POLICY.zen_endpoint_kind

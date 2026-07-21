@@ -6,6 +6,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from ciel_runtime_support.runtime_constants import OPENCODE_ENDPOINT_ALIASES
+
 
 @dataclass(frozen=True, slots=True)
 class ProviderEndpointPorts:
@@ -20,6 +22,25 @@ class ProviderEndpointPresentation:
     aliases: Mapping[str, str]
     labels: Mapping[str, str]
     routed_protocols: frozenset[str]
+
+
+def build_default_provider_endpoint_policy(
+    ports: ProviderEndpointPorts,
+) -> ProviderEndpointPolicy:
+    """Compose endpoint behavior with the runtime's standard presentation."""
+    return ProviderEndpointPolicy(
+        ports=ports,
+        presentation=ProviderEndpointPresentation(
+            aliases=OPENCODE_ENDPOINT_ALIASES,
+            labels={
+                "anthropic-messages": "messages",
+                "openai-chat": "chat",
+                "openai-responses": "responses",
+                "google-generative": "gemini",
+            },
+            routed_protocols=frozenset({"anthropic-messages", "openai-chat"}),
+        ),
+    )
 
 
 @dataclass(frozen=True, slots=True)

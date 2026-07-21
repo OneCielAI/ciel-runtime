@@ -4,6 +4,7 @@ from ciel_runtime_support.provider_endpoint_policy import (
     ProviderEndpointPolicy,
     ProviderEndpointPorts,
     ProviderEndpointPresentation,
+    build_default_provider_endpoint_policy,
 )
 
 
@@ -37,6 +38,11 @@ class ProviderEndpointPolicyTests(unittest.TestCase):
             "anthropic-messages",
             self.policy().endpoint_kind("opencode", "model"),
         )
+
+    def test_default_builder_owns_endpoint_presentation(self):
+        policy = build_default_provider_endpoint_policy(self.policy().ports)
+        self.assertEqual("openai-chat", policy.normalize_endpoint_kind("chat"))
+        self.assertEqual("messages", policy.presentation.labels["anthropic-messages"])
 
     def test_override_matches_normalized_model_identity(self):
         config = {"model_endpoints": {"model": "chat"}}

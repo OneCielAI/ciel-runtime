@@ -114,11 +114,13 @@ from ciel_runtime_support.provider_catalog_sources import (
     ProviderCatalogHttpPorts,
     ProviderCatalogPolicyPorts,
     ProviderCatalogSourceService,
+    build_default_provider_catalog_source_service,
 )
 from ciel_runtime_support.provider_endpoint_policy import (
     ProviderEndpointPolicy as ModelEndpointPolicy,
     ProviderEndpointPorts as ModelEndpointPorts,
     ProviderEndpointPresentation as ModelEndpointPresentation,
+    build_default_provider_endpoint_policy,
 )
 from ciel_runtime_support.provider_request_access import (
     ProviderRequestAccessEffects,
@@ -3340,6 +3342,23 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 5)
         self.assertEqual(5, len(fields(ProviderCatalogSourceService)))
+
+    def test_provider_default_policy_factories_live_outside_the_facade(self):
+        catalog = build_default_provider_catalog_source_service
+        endpoint = build_default_provider_endpoint_policy
+        self.assertEqual(
+            "ciel_runtime_support.provider_catalog_sources",
+            catalog.__module__,
+        )
+        self.assertEqual(
+            "ciel_runtime_support.provider_endpoint_policy",
+            endpoint.__module__,
+        )
+        source = (
+            Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("anthropic=provider_catalog_sources.AnthropicCatalogPolicy", source)
+        self.assertNotIn("presentation=ModelEndpointPresentation", source)
 
     def test_lm_studio_runtime_port_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(LmStudioRuntimeServices)), 10)

@@ -14,6 +14,15 @@ from ciel_runtime_support.model_catalog_projection import (
     ModelCatalogProjectionServices,
     project_model_info,
 )
+from ciel_runtime_support.runtime_constants import (
+    ANTHROPIC_LIMITED_ACCESS_MODEL_IDS,
+    ANTHROPIC_MODEL_DOCS_URLS,
+    ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS,
+    ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS,
+    FIREWORKS_API_BASE_URL,
+    FIREWORKS_DEFAULT_ACCOUNT_ID,
+    FIREWORKS_INFERENCE_BASE_URL,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +63,31 @@ class FireworksCatalogPolicy:
     api_base_url: str
     inference_base_url: str
     max_pages: int = 20
+
+
+def build_default_provider_catalog_source_service(
+    projection: ModelCatalogProjectionPorts,
+    http: ProviderCatalogHttpPorts,
+    policy: ProviderCatalogPolicyPorts,
+) -> ProviderCatalogSourceService:
+    """Compose catalog sources with the runtime's immutable provider defaults."""
+    return ProviderCatalogSourceService(
+        projection=projection,
+        http=http,
+        policy=policy,
+        anthropic=AnthropicCatalogPolicy(
+            docs_urls=ANTHROPIC_MODEL_DOCS_URLS,
+            default_ids=ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS,
+            limited_ids=ANTHROPIC_LIMITED_ACCESS_MODEL_IDS,
+            fallback_ids=ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS,
+            public_id_pattern=ANTHROPIC_PUBLIC_MODEL_ID_RE,
+        ),
+        fireworks=FireworksCatalogPolicy(
+            default_account_id=FIREWORKS_DEFAULT_ACCOUNT_ID,
+            api_base_url=FIREWORKS_API_BASE_URL,
+            inference_base_url=FIREWORKS_INFERENCE_BASE_URL,
+        ),
+    )
 
 
 @dataclass(frozen=True, slots=True)

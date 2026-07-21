@@ -8,6 +8,7 @@ from ciel_runtime_support.provider_catalog_sources import (
     ProviderCatalogHttpPorts,
     ProviderCatalogPolicyPorts,
     ProviderCatalogSourceService,
+    build_default_provider_catalog_source_service,
 )
 
 
@@ -53,6 +54,16 @@ class ProviderCatalogSourceServiceTests(unittest.TestCase):
                 {"data": [{"id": "model-a"}, {"name": "model-b"}]}
             ),
         )
+
+    def test_default_builder_owns_immutable_provider_policies(self):
+        custom = self.service()
+        service = build_default_provider_catalog_source_service(
+            custom.projection,
+            custom.http,
+            custom.policy,
+        )
+        self.assertTrue(service.anthropic.docs_urls)
+        self.assertEqual("fireworks", service.fireworks.default_account_id)
 
     def test_fireworks_account_can_be_inferred_from_model_resource(self):
         service = self.service()
