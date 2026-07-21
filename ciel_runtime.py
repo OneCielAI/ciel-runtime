@@ -2010,12 +2010,10 @@ def read_env_file(path: Path) -> dict[str, str]:
     return parse_dotenv_file(path)
 
 
-def meaningful_key_value(value: Any) -> bool:
-    return project_meaningful_key_value(value)
+meaningful_key_value = project_meaningful_key_value
 
 
-def api_key_clear_requested(value: Any) -> bool:
-    return project_api_key_clear_requested(value)
+api_key_clear_requested = project_api_key_clear_requested
 
 
 def parse_api_key_list(value: Any) -> list[str]:
@@ -2326,8 +2324,7 @@ CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS = (*CIEL_RUNTIME_CHANNEL_CLEAR_COMMAN
 CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS = (*CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS, LEGACY_LIVE_API_KEYS_MARKER)
 
 
-def command_file_is_ciel_runtime_owned(path: Path, markers: tuple[str, ...]) -> bool:
-    return is_owned_command_file(path, markers)
+command_file_is_ciel_runtime_owned = is_owned_command_file
 
 
 def _command_asset_installer(directory: Path) -> CommandAssetInstaller:
@@ -2483,32 +2480,25 @@ def ultracode_workflow_preferred(body: dict[str, Any]) -> bool:
     return ultracode_session_policy().workflow_preferred(body)
 
 
-def _message_content_blocks(message: dict[str, Any]) -> list[Any]:
-    return project_message_content_blocks(message)
+_message_content_blocks = project_message_content_blocks
 
 
-def anthropic_thinking_requested(body: dict[str, Any]) -> bool:
-    return project_anthropic_thinking_requested(body)
+anthropic_thinking_requested = project_anthropic_thinking_requested
 
 
-def anthropic_thinking_block_count(body: dict[str, Any]) -> int:
-    return project_anthropic_thinking_block_count(body)
+anthropic_thinking_block_count = project_anthropic_thinking_block_count
 
 
-def anthropic_tool_continuation_block_count(body: dict[str, Any]) -> int:
-    return project_anthropic_tool_continuation_block_count(body)
+anthropic_tool_continuation_block_count = project_anthropic_tool_continuation_block_count
 
 
-def anthropic_assistant_history_count(body: dict[str, Any]) -> int:
-    return project_anthropic_assistant_history_count(body)
+anthropic_assistant_history_count = project_anthropic_assistant_history_count
 
 
-def strip_anthropic_thinking_blocks_from_messages(body: dict[str, Any]) -> dict[str, Any]:
-    return project_strip_thinking_blocks(body)
+strip_anthropic_thinking_blocks_from_messages = project_strip_thinking_blocks
 
 
-def has_ciel_runtime_synthetic_tool_use(body: dict[str, Any]) -> bool:
-    return project_has_synthetic_tool_use(body)
+has_ciel_runtime_synthetic_tool_use = project_has_synthetic_tool_use
 
 
 def should_defer_forced_tool_choice_for_thinking(provider: str, pcfg: dict[str, Any], body: dict[str, Any], name: str | None) -> bool:
@@ -2538,8 +2528,9 @@ def normalize_thinking_for_non_anthropic_provider(provider: str, pcfg: dict[str,
     return anthropic_thinking_policy().normalize_request(provider, pcfg, body)
 
 
-def normalize_thinking_for_non_anthropic_native_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
-    return normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
+normalize_thinking_for_non_anthropic_native_provider = (
+    normalize_thinking_for_non_anthropic_provider
+)
 
 
 def provider_supports_tool_choice(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> bool:
@@ -2562,8 +2553,7 @@ def clear_suppressed_thinking_passback_cache() -> None:
     SUPPRESSED_THINKING_REPOSITORY.clear()
 
 
-def _copy_thinking_blocks(blocks: Any) -> list[dict[str, Any]]:
-    return project_copy_thinking_blocks(blocks)
+_copy_thinking_blocks = project_copy_thinking_blocks
 
 
 def remember_suppressed_thinking_passback(provider: str, model: str, blocks: list[Any]) -> None:
@@ -4565,12 +4555,10 @@ def _clear_channel_compact_request(request_id: str | None = None) -> bool:
     return channel_compact_request_repository().clear(request_id)
 
 
-def _channel_mcp_tool_schemas() -> list[dict[str, Any]]:
-    return channel_mcp_tool_schemas()
+_channel_mcp_tool_schemas = channel_mcp_tool_schemas
 
 
-def _channel_mcp_tool_response(request_id: Any, text: str, is_error: bool = False) -> dict[str, Any]:
-    return channel_mcp_tool_response(request_id, text, is_error)
+_channel_mcp_tool_response = channel_mcp_tool_response
 
 
 def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
@@ -4629,8 +4617,7 @@ def _channel_mcp_update_cursor(last_id: int) -> None:
     channel_mcp_cursor_service().update(last_id)
 
 
-def _channel_mcp_parse_event_id(value: Any) -> int | None:
-    return parse_channel_event_id(value)
+_channel_mcp_parse_event_id = parse_channel_event_id
 
 
 def channel_mcp_resume_policy() -> ChannelResumePolicy:
@@ -5190,16 +5177,14 @@ def anthropic_advisor_messages_and_system(body: dict[str, Any]) -> tuple[list[di
     return project_advisor_messages_and_system(body, advisor_services())
 
 
-def advisor_tool_schema() -> dict[str, Any]:
-    return project_advisor_tool_schema()
+advisor_tool_schema = project_advisor_tool_schema
 
 
 def body_with_advisor_tool(body: dict[str, Any], pcfg: dict[str, Any]) -> dict[str, Any]:
     return project_body_with_advisor_tool(body, pcfg, advisor_services())
 
 
-def is_claude_code_advisor_server_tool(tool: Any) -> bool:
-    return project_is_advisor_server_tool(tool)
+is_claude_code_advisor_server_tool = project_is_advisor_server_tool
 
 
 def strip_autonomous_advisor_server_tools(provider: str, body: dict[str, Any]) -> dict[str, Any]:
@@ -5212,8 +5197,7 @@ def strip_autonomous_advisor_server_tools(provider: str, body: dict[str, Any]) -
     )
 
 
-def advisor_tool_focus_from_message(message: dict[str, Any]) -> str | None:
-    return project_advisor_tool_focus(message)
+advisor_tool_focus_from_message = project_advisor_tool_focus
 
 
 def tool_review_context_from_message(message: dict[str, Any], trigger: str) -> str:
@@ -5232,8 +5216,7 @@ def body_has_advisor_feedback(body: dict[str, Any]) -> bool:
     return project_body_has_advisor_feedback(body, advisor_services())
 
 
-def anthropic_message_tool_names(message: dict[str, Any]) -> list[str]:
-    return project_anthropic_message_tool_names(message)
+anthropic_message_tool_names = project_anthropic_message_tool_names
 
 
 def advisor_trigger_for_message(body: dict[str, Any], message: dict[str, Any]) -> str | None:
@@ -5370,12 +5353,10 @@ def anthropic_messages_to_openai(body: dict[str, Any], reasoning_passback: bool 
     )
 
 
-def missing_openai_tool_result_message(tool_call: dict[str, Any]) -> dict[str, Any]:
-    return project_missing_openai_tool_result_message(tool_call)
+missing_openai_tool_result_message = project_missing_openai_tool_result_message
 
 
-def orphan_openai_tool_message_to_user(message: dict[str, Any]) -> dict[str, str]:
-    return project_orphan_openai_tool_message_to_user(message)
+orphan_openai_tool_message_to_user = project_orphan_openai_tool_message_to_user
 
 
 def repair_openai_tool_call_adjacency(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -5521,12 +5502,10 @@ def prompt_compaction_services() -> PromptCompactionServices:
     )
 
 
-def anthropic_message_has_tool_result(message: dict[str, Any]) -> bool:
-    return compacted_anthropic_message_has_tool_result(message)
+anthropic_message_has_tool_result = compacted_anthropic_message_has_tool_result
 
 
-def anthropic_safe_tail_start(message: dict[str, Any]) -> bool:
-    return compacted_anthropic_safe_tail_start(message)
+anthropic_safe_tail_start = compacted_anthropic_safe_tail_start
 
 
 def compact_anthropic_body_for_budget(
@@ -5875,8 +5854,7 @@ def refine_message_with_advisor(
     )
 
 
-def anthropic_text_response(model: str, text: str, stop_reason: str = "end_turn") -> dict[str, Any]:
-    return project_anthropic_text_response(model, text, stop_reason)
+anthropic_text_response = project_anthropic_text_response
 
 
 def anthropic_response_writer() -> AnthropicResponseWriter:
@@ -5907,8 +5885,7 @@ def write_anthropic_open_stream_stop(handler: BaseHTTPRequestHandler, message: d
     anthropic_response_writer().stop(handler, message)
 
 
-def prepend_anthropic_text(message: dict[str, Any], text: str) -> dict[str, Any]:
-    return project_prepend_anthropic_text(message, text)
+prepend_anthropic_text = project_prepend_anthropic_text
 
 
 def import_session_max_bytes() -> int:
@@ -5919,8 +5896,7 @@ def import_session_max_chars() -> int:
     return max(4096, positive_env_int("CIEL_RUNTIME_IMPORT_SESSION_MAX_CHARS", 240000))
 
 
-def normalize_import_session_source(value: str) -> str:
-    return normalize_import_source(value)
+normalize_import_session_source = normalize_import_source
 
 
 def import_session_repository() -> ImportSessionRepository:
@@ -5939,12 +5915,10 @@ def resolve_import_session_transcript_path(source: str, path_text: str) -> tuple
     return import_session_repository().resolve(source, path_text)
 
 
-def _import_session_tool_text(record: dict[str, Any]) -> str:
-    return import_tool_text(record)
+_import_session_tool_text = import_tool_text
 
 
-def _import_session_record_to_line(record: dict[str, Any]) -> str:
-    return import_record_line(record)
+_import_session_record_to_line = import_record_line
 
 
 def read_import_session_transcript(source: str, path: Path) -> tuple[str, dict[str, Any]]:
@@ -6506,8 +6480,7 @@ def upstream_rate_limit_retry_message(attempt: int, total: int) -> str:
     )
 
 
-def upstream_retry_wait_seconds(attempt: int) -> float:
-    return project_upstream_retry_wait_seconds(attempt)
+upstream_retry_wait_seconds = project_upstream_retry_wait_seconds
 
 
 def retryable_upstream_exception(exc: BaseException) -> bool:
@@ -7404,20 +7377,16 @@ def store_api_keys_config(provider: str, keys: list[str]) -> list[str]:
     return credential_management_service().store_many(provider, keys)
 
 
-def mask_secret(value: str | None) -> str:
-    return project_mask_secret(value)
+mask_secret = project_mask_secret
 
 
-def secret_fingerprint(value: str | None, length: int = 12) -> str:
-    return project_secret_fingerprint(value, length)
+secret_fingerprint = project_secret_fingerprint
 
 
-def redact_sensitive_text(text: str) -> str:
-    return project_redact_sensitive_text(text)
+redact_sensitive_text = project_redact_sensitive_text
 
 
-def redact_sensitive_obj(value: Any) -> Any:
-    return project_redact_sensitive_obj(value)
+redact_sensitive_obj = project_redact_sensitive_obj
 
 
 def stored_api_key_mask(provider: str, pcfg: dict[str, Any]) -> str:
@@ -8495,10 +8464,6 @@ def is_kimi_k3_model_id(model_id: str) -> bool:
     return model_context_hint_policy().is_kimi_k3(model_id)
 
 
-def apply_kimi_model_profile(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    return apply_provider_model_profile(provider, pcfg)
-
-
 def apply_provider_model_profile(provider: str, pcfg: dict[str, Any]) -> list[str]:
     adapter = configured_provider_adapter(provider, pcfg)
     updates, notice = adapter.model_configuration_profile(
@@ -8509,6 +8474,9 @@ def apply_provider_model_profile(provider: str, pcfg: dict[str, Any]) -> list[st
     changed = any(pcfg.get(key) != value for key, value in updates.items())
     pcfg.update(updates)
     return [notice] if changed and notice else []
+
+
+apply_kimi_model_profile = apply_provider_model_profile
 
 
 def zai_model_context_hint(model_id: str) -> int | None:
@@ -9590,8 +9558,7 @@ def cmd_stop(_: argparse.Namespace) -> None:
     print("ciel-runtime managed services stopped" if stopped else "ciel-runtime managed services were not running")
 
 
-def pid_is_running(pid: int) -> bool:
-    return inspect_pid_is_running(pid)
+pid_is_running = inspect_pid_is_running
 
 
 def register_router_client(pid: int | None = None) -> Path:
@@ -10213,24 +10180,19 @@ def enable_ansi() -> None:
     enable_terminal_ansi()
 
 
-def ansi(text: str, code: str) -> str:
-    return render_ansi(text, code)
+ansi = render_ansi
 
 
-def animated_ansi_text(text: str, *, phase: int | None = None, bold: bool = True) -> str:
-    return render_animated_ansi_text(text, phase=phase, bold=bold)
+animated_ansi_text = render_animated_ansi_text
 
 
-def cell_width(text: str) -> int:
-    return terminal_cell_width(text)
+cell_width = terminal_cell_width
 
 
-def fit_cells(value: Any, width: int) -> str:
-    return fit_terminal_cells(value, width)
+fit_cells = fit_terminal_cells
 
 
-def pad_cells(value: Any, width: int) -> str:
-    return pad_terminal_cells(value, width)
+pad_cells = pad_terminal_cells
 
 
 def color_line(text: str, code: str, width: int) -> str:
@@ -10826,12 +10788,10 @@ def should_insert_passthrough_option_boundary(extra_args: list[str], passthrough
     return any(arg in CLAUDE_CODE_GENERATED_GREEDY_OPTIONS for arg in extra_args)
 
 
-def claude_session_control_requested(passthrough: list[str]) -> bool:
-    return project_session_control_requested(passthrough)
+claude_session_control_requested = project_session_control_requested
 
 
-def current_launch_cwd_key() -> str:
-    return project_current_launch_cwd_key()
+current_launch_cwd_key = project_current_launch_cwd_key
 
 
 def launch_mode_name(provider: str, pcfg: dict[str, Any], use_native_anthropic: bool) -> str:
@@ -11772,8 +11732,7 @@ def _strip_terminal_mouse_input_reports(data: bytes) -> bytes:
     return filt.feed(data) + filt.flush()
 
 
-def _windows_console_input_handle() -> Any:
-    return _resolve_windows_console_input_handle()
+_windows_console_input_handle = _resolve_windows_console_input_handle
 
 
 def windows_console_mode_service() -> windows_console_mode.WindowsConsoleModeService:
@@ -11815,8 +11774,7 @@ class _WindowsConsoleMouseInputGuard(
         )
 
 
-def _windows_console_utf16_units(chars: Iterable[str]) -> list[str]:
-    return project_windows_console_utf16_units(chars)
+_windows_console_utf16_units = project_windows_console_utf16_units
 
 
 class _WindowsConsoleInputWriter(WindowsConsoleInputWriter):
@@ -12743,8 +12701,7 @@ def log_codex_passthrough_mapping(notes: list[str]) -> None:
         print(f"- {note}", flush=True)
 
 
-def codex_help_requested(passthrough: list[str]) -> bool:
-    return project_codex_help_requested(passthrough)
+codex_help_requested = project_codex_help_requested
 
 
 def codex_yolo_launch_args(passthrough: list[str]) -> list[str]:

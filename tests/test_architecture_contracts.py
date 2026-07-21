@@ -893,23 +893,24 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_secret_projection_is_owned_by_credentials_module(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
-        functions = {
-            node.name: ast.unparse(node)
+        aliases = {
+            node.targets[0].id: node.value.id
             for node in ast.parse(source).body
-            if isinstance(node, ast.FunctionDef)
-            and node.name in {
+            if isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and isinstance(node.value, ast.Name)
+            and node.targets[0].id in {
                 "mask_secret",
                 "secret_fingerprint",
                 "redact_sensitive_text",
                 "redact_sensitive_obj",
             }
         }
-        self.assertEqual(4, len(functions))
-        for name, function_source in functions.items():
+        self.assertEqual(4, len(aliases))
+        for name, target in aliases.items():
             with self.subTest(function=name):
-                self.assertIn(f"project_{name}", function_source)
-                self.assertNotIn("hashlib", function_source)
-                self.assertNotIn("re.compile", function_source)
+                self.assertEqual(f"project_{name}", target)
 
     def test_credential_management_owns_persistence_transactions(self):
         for port in (
@@ -4734,7 +4735,6 @@ class ArchitectureContractTests(unittest.TestCase):
             "write_native_mcp_config_from_discovery": "write",
             "_log_codex_app_server_command_for_diagnostics": "codex_app_server",
             "body_without_ciel_runtime_internal_metadata": "strip_internal_metadata",
-            "pid_is_running": "inspect_pid_is_running",
             "claude_supports_permission_mode_arg": "supports_permission_mode",
             "_chat_messages_file_lock": "exclusive_file_lock",
             "terminate_active_router_clients": "terminate_active",
@@ -4783,6 +4783,60 @@ class ArchitectureContractTests(unittest.TestCase):
                 and isinstance(node.func, (ast.Name, ast.Attribute))
             }
             self.assertIn(target, calls, wrapper)
+
+    def test_stateless_compatibility_exports_are_direct_aliases(self):
+        import ciel_runtime
+
+        aliases = (
+            ("meaningful_key_value", "project_meaningful_key_value"),
+            ("api_key_clear_requested", "project_api_key_clear_requested"),
+            ("command_file_is_ciel_runtime_owned", "is_owned_command_file"),
+            ("_message_content_blocks", "project_message_content_blocks"),
+            ("anthropic_thinking_requested", "project_anthropic_thinking_requested"),
+            ("anthropic_thinking_block_count", "project_anthropic_thinking_block_count"),
+            ("anthropic_tool_continuation_block_count", "project_anthropic_tool_continuation_block_count"),
+            ("anthropic_assistant_history_count", "project_anthropic_assistant_history_count"),
+            ("strip_anthropic_thinking_blocks_from_messages", "project_strip_thinking_blocks"),
+            ("has_ciel_runtime_synthetic_tool_use", "project_has_synthetic_tool_use"),
+            ("normalize_thinking_for_non_anthropic_native_provider", "normalize_thinking_for_non_anthropic_provider"),
+            ("_copy_thinking_blocks", "project_copy_thinking_blocks"),
+            ("_channel_mcp_tool_schemas", "channel_mcp_tool_schemas"),
+            ("_channel_mcp_tool_response", "channel_mcp_tool_response"),
+            ("_channel_mcp_parse_event_id", "parse_channel_event_id"),
+            ("advisor_tool_schema", "project_advisor_tool_schema"),
+            ("is_claude_code_advisor_server_tool", "project_is_advisor_server_tool"),
+            ("advisor_tool_focus_from_message", "project_advisor_tool_focus"),
+            ("anthropic_message_tool_names", "project_anthropic_message_tool_names"),
+            ("missing_openai_tool_result_message", "project_missing_openai_tool_result_message"),
+            ("orphan_openai_tool_message_to_user", "project_orphan_openai_tool_message_to_user"),
+            ("anthropic_message_has_tool_result", "compacted_anthropic_message_has_tool_result"),
+            ("anthropic_safe_tail_start", "compacted_anthropic_safe_tail_start"),
+            ("anthropic_text_response", "project_anthropic_text_response"),
+            ("prepend_anthropic_text", "project_prepend_anthropic_text"),
+            ("normalize_import_session_source", "normalize_import_source"),
+            ("_import_session_tool_text", "import_tool_text"),
+            ("_import_session_record_to_line", "import_record_line"),
+            ("upstream_retry_wait_seconds", "project_upstream_retry_wait_seconds"),
+            ("mask_secret", "project_mask_secret"),
+            ("secret_fingerprint", "project_secret_fingerprint"),
+            ("redact_sensitive_text", "project_redact_sensitive_text"),
+            ("redact_sensitive_obj", "project_redact_sensitive_obj"),
+            ("apply_kimi_model_profile", "apply_provider_model_profile"),
+            ("pid_is_running", "inspect_pid_is_running"),
+            ("ansi", "render_ansi"),
+            ("animated_ansi_text", "render_animated_ansi_text"),
+            ("cell_width", "terminal_cell_width"),
+            ("fit_cells", "fit_terminal_cells"),
+            ("pad_cells", "pad_terminal_cells"),
+            ("claude_session_control_requested", "project_session_control_requested"),
+            ("current_launch_cwd_key", "project_current_launch_cwd_key"),
+            ("_windows_console_input_handle", "_resolve_windows_console_input_handle"),
+            ("_windows_console_utf16_units", "project_windows_console_utf16_units"),
+            ("codex_help_requested", "project_codex_help_requested"),
+        )
+        for alias, target in aliases:
+            with self.subTest(alias=alias):
+                self.assertIs(getattr(ciel_runtime, alias), getattr(ciel_runtime, target))
 
     def test_cli_runtime_adapter_materializes_launch_spec(self):
         provider = ProviderConfig(name="test", base_url="http://localhost", model="model")
