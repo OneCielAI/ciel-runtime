@@ -805,9 +805,9 @@ from ciel_runtime_support.mcp_stdio_probe import (
 )
 from ciel_runtime_support.codex_app_server import codex_app_server_launch_args
 from ciel_runtime_support.codex_config import (
-    codex_alternate_screen_value_from_config_text,
-    codex_config_override_keys as _codex_config_override_keys,
-    codex_config_paths_for_launch,
+    codex_alternate_screen_value_from_config_text,  # noqa: F401
+    codex_config_override_keys as _codex_config_override_keys,  # noqa: F401
+    codex_config_paths_for_launch,  # noqa: F401 - compatibility export
     codex_mcp_servers_from_config_text,  # noqa: F401 - compatibility export
     codex_mcp_servers_from_toml_data as _codex_mcp_servers_from_toml_data,  # noqa: F401
     discover_codex_mcp_servers as project_discover_codex_mcp_servers,
@@ -1443,7 +1443,11 @@ from ciel_runtime_support.runtime_constants import (
     CHAT_MESSAGE_FALLBACK_DEDUPE_TTL_SECONDS,
     CLAUDE_SERVER_SIDE_WEB_TOOLS,  # noqa: F401 - compatibility export
     CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS,
+    CODEX_NATIVE_PROVIDER_ID_ENV,  # noqa: F401 - compatibility export
+    CODEX_ROUTED_PROVIDER_ID,  # noqa: F401 - compatibility export
     CODEX_RUNTIME_API_KEY_ENV,
+    CODEX_RUNTIME_PROVIDER_ID,  # noqa: F401 - compatibility export
+    CODEX_TUI_ALTERNATE_SCREEN_KEY,  # noqa: F401 - compatibility export
     CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS,
     CREDITS,
     DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC,
@@ -12418,11 +12422,7 @@ def launch_claude(
     )
 
 
-CODEX_RUNTIME_PROVIDER_ID = "ciel-runtime"
-CODEX_NATIVE_PROVIDER_ID_ENV = "CIEL_RUNTIME_CODEX_NATIVE_PROVIDER_ID"
-CODEX_ROUTED_PROVIDER_ID = "ciel-runtime-codex"
 CODEX_ROUTED_UPSTREAM_BASE = "https://chatgpt.com/backend-api/codex"
-CODEX_TUI_ALTERNATE_SCREEN_KEY = "tui.alternate_screen"
 
 
 _CODEX_MCP_INTEGRATION = codex_mcp_integration.CodexMcpIntegrationService(
@@ -12471,19 +12471,9 @@ codex_mcp_native_http_compat_args = _CODEX_MCP_INTEGRATION.native_http_compat_ar
 
 
 _CODEX_LAUNCH_CONFIGURATION = codex_launch_configuration.CodexLaunchConfigurationService(
-    constants=codex_launch_configuration.CodexLaunchConfigurationConstants(
-        runtime_provider_id=CODEX_RUNTIME_PROVIDER_ID,
-        runtime_api_key_env=CODEX_RUNTIME_API_KEY_ENV,
-        native_provider_id_env=CODEX_NATIVE_PROVIDER_ID_ENV,
-        routed_provider_id=CODEX_ROUTED_PROVIDER_ID,
-        alternate_screen_key=CODEX_TUI_ALTERNATE_SCREEN_KEY,
-    ),
-    policy=codex_launch_configuration.CodexLaunchPolicyPorts(
-        has_option=has_passthrough_option,
-        config_override_keys=_codex_config_override_keys,
-        config_paths=codex_config_paths_for_launch,
-        alternate_screen_value=codex_alternate_screen_value_from_config_text,
-        toml_string=toml_string,
+    constants=codex_launch_configuration.build_default_codex_launch_constants(),
+    policy=codex_launch_configuration.build_default_codex_launch_policy(
+        has_passthrough_option
     ),
     model=codex_launch_configuration.CodexLaunchModelPorts(
         current_provider=lambda cfg: get_current_provider(cfg),

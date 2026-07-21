@@ -7,7 +7,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ciel_runtime_support.codex_config import (
+    codex_alternate_screen_value_from_config_text,
+    codex_config_override_keys,
+    codex_config_paths_for_launch,
+    toml_string,
+)
 from ciel_runtime_support.codex_model_catalog import CodexModelCatalogSpec
+from ciel_runtime_support.runtime_constants import (
+    CODEX_NATIVE_PROVIDER_ID_ENV,
+    CODEX_ROUTED_PROVIDER_ID,
+    CODEX_RUNTIME_API_KEY_ENV,
+    CODEX_RUNTIME_PROVIDER_ID,
+    CODEX_TUI_ALTERNATE_SCREEN_KEY,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +39,30 @@ class CodexLaunchPolicyPorts:
     config_paths: Callable[..., list[Path]]
     alternate_screen_value: Callable[[str], str | None]
     toml_string: Callable[[str], str]
+
+
+def build_default_codex_launch_constants() -> CodexLaunchConfigurationConstants:
+    """Build immutable routed Codex provider configuration constants."""
+    return CodexLaunchConfigurationConstants(
+        runtime_provider_id=CODEX_RUNTIME_PROVIDER_ID,
+        runtime_api_key_env=CODEX_RUNTIME_API_KEY_ENV,
+        native_provider_id_env=CODEX_NATIVE_PROVIDER_ID_ENV,
+        routed_provider_id=CODEX_ROUTED_PROVIDER_ID,
+        alternate_screen_key=CODEX_TUI_ALTERNATE_SCREEN_KEY,
+    )
+
+
+def build_default_codex_launch_policy(
+    has_option: Callable[..., bool],
+) -> CodexLaunchPolicyPorts:
+    """Build the standard Codex config-file and CLI projection policy."""
+    return CodexLaunchPolicyPorts(
+        has_option=has_option,
+        config_override_keys=codex_config_override_keys,
+        config_paths=codex_config_paths_for_launch,
+        alternate_screen_value=codex_alternate_screen_value_from_config_text,
+        toml_string=toml_string,
+    )
 
 
 @dataclass(frozen=True, slots=True)

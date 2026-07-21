@@ -46,6 +46,8 @@ from ciel_runtime_support.codex_launch_configuration import (
     CodexLaunchConfigurationService,
     CodexLaunchModelPorts,
     CodexLaunchPolicyPorts,
+    build_default_codex_launch_constants as build_default_codex_configuration_constants,
+    build_default_codex_launch_policy,
 )
 from ciel_runtime_support.codex_session_selection import (
     CodexSessionPresentationPorts,
@@ -3037,9 +3039,19 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 5)
         self.assertEqual(5, len(fields(CodexLaunchConfigurationService)))
+        self.assertEqual(
+            "ciel_runtime_support.codex_launch_configuration",
+            build_default_codex_configuration_constants.__module__,
+        )
+        self.assertEqual(
+            "ciel_runtime_support.codex_launch_configuration",
+            build_default_codex_launch_policy.__module__,
+        )
 
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        self.assertNotIn("CodexLaunchConfigurationConstants(", source)
+        self.assertNotIn("CodexLaunchPolicyPorts(", source)
         root_functions = {
             node.name
             for node in ast.parse(source).body

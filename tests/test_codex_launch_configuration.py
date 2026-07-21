@@ -9,11 +9,23 @@ from ciel_runtime_support.codex_launch_configuration import (
     CodexLaunchConfigurationService,
     CodexLaunchModelPorts,
     CodexLaunchPolicyPorts,
+    build_default_codex_launch_constants,
+    build_default_codex_launch_policy,
 )
 from ciel_runtime_support.codex_launch_policy import current_model_args, native_routed_config_args
 
 
 class CodexLaunchConfigurationServiceTests(unittest.TestCase):
+    def test_default_factories_own_routed_constants_and_config_policy(self):
+        constants = build_default_codex_launch_constants()
+        policy = build_default_codex_launch_policy(
+            lambda args, *names: any(name in args for name in names)
+        )
+        self.assertEqual("ciel-runtime", constants.runtime_provider_id)
+        self.assertEqual("tui.alternate_screen", constants.alternate_screen_key)
+        self.assertTrue(policy.has_option(["--model"], "--model"))
+        self.assertEqual('"value"', policy.toml_string("value"))
+
     def service(self, *, native=False, files=None, writes=None):
         files = files or {}
         writes = writes if writes is not None else []
