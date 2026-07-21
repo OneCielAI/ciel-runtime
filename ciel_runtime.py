@@ -1013,8 +1013,12 @@ from ciel_runtime_support.provider_option_panel import (
     option_prompt_default,
 )
 from ciel_runtime_support.provider_option_status import (
+    ProviderContextStatusPorts,
+    ProviderContextStatusProjection,
     ProviderOptionStatusPorts,
     ProviderOptionStatusProjection,
+    format_context_tokens as project_format_context_tokens,
+    format_parameter_count as project_format_parameter_count,
 )
 from ciel_runtime_support.provider_model_specs import (
     ModelSpecLookupPorts,
@@ -8647,42 +8651,25 @@ def preset_available_for_model(provider: str, pcfg: dict[str, Any], preset_id: s
 
 
 def format_context_tokens(value: int | None) -> str:
-    if not value:
-        return "unknown"
-    if value >= 1024 * 1024 and value % (1024 * 1024) == 0:
-        return f"{value // (1024 * 1024)}M"
-    if value >= 1024 and value % 1024 == 0:
-        return f"{value // 1024}K"
-    return f"{value:,}"
+    return project_format_context_tokens(value)
 
 
 def format_parameter_count(value: Any) -> str:
-    fixed = positive_int(value)
-    if not fixed:
-        return ""
-    units = (("T", 1_000_000_000_000), ("B", 1_000_000_000), ("M", 1_000_000))
-    for suffix, scale in units:
-        if fixed >= scale:
-            scaled = fixed / scale
-            text = f"{scaled:.1f}".rstrip("0").rstrip(".")
-            return f"{text}{suffix}"
-    return str(fixed)
+    return project_format_parameter_count(value, positive_int)
+
+
+_PROVIDER_CONTEXT_STATUS = ProviderContextStatusProjection(
+    ProviderContextStatusPorts(
+        provider_model_context_capacity,
+        provider_context_policy,
+        ollama_num_ctx_status,
+        positive_int,
+    )
+)
 
 
 def context_setting_status(provider: str, pcfg: dict[str, Any]) -> str:
-    capacity = provider_model_context_capacity(provider, pcfg)
-    cap_text = format_context_tokens(capacity)
-    settings_strategy = provider_context_policy(provider, pcfg).settings_strategy
-    if settings_strategy == "ollama":
-        return f"model max {cap_text}; {ollama_num_ctx_status(pcfg)}"
-    if settings_strategy == "standard":
-        window = positive_int(pcfg.get("context_window"))
-        reserve = positive_int(pcfg.get("context_reserve_tokens"))
-        reserve_text = f"; reserve {format_context_tokens(reserve)}" if reserve else ""
-        return f"model max {cap_text}; window {format_context_tokens(window)}{reserve_text}"
-    if settings_strategy == "managed":
-        return "managed by Claude Code"
-    return f"model max {cap_text}"
+    return _PROVIDER_CONTEXT_STATUS.status(provider, pcfg)
 
 
 def provider_timeout_policy() -> ProviderTimeoutPolicy:

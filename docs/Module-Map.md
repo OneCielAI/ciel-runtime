@@ -925,7 +925,7 @@ Provider Adapter가 선택한 wire protocol과 사용자별 model endpoint overr
 
 ### `ciel_runtime_support/provider_option_status.py`
 
-Provider Adapter가 선언한 context·presentation policy를 CLI/UI 상태 문자열로 투영하는 Presentation Service. 최대 10개 의존성의 명시적 포트를 사용하며 provider 이름 분기나 설정 저장 책임을 갖지 않는다.
+Provider Adapter가 선언한 context·presentation policy를 CLI/UI 상태 문자열로 투영하는 Presentation Service. `ProviderContextStatusProjection`은 model capacity, context window/reserve와 managed/Ollama 전략을 상태 문구로 변환하고 context token·parameter count 단위 formatting도 소유한다. 최대 10개 의존성의 명시적 포트를 사용하며 provider 이름 분기나 설정 저장 책임을 갖지 않는다.
 
 ### `ciel_runtime_support/provider_option_cli.py`
 

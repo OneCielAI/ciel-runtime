@@ -7,6 +7,67 @@ from dataclasses import dataclass
 from typing import Any
 
 
+def format_context_tokens(value: int | None) -> str:
+    if not value:
+        return "unknown"
+    if value >= 1024 * 1024 and value % (1024 * 1024) == 0:
+        return f"{value // (1024 * 1024)}M"
+    if value >= 1024 and value % 1024 == 0:
+        return f"{value // 1024}K"
+    return f"{value:,}"
+
+
+def format_parameter_count(
+    value: Any, positive_int: Callable[[Any], int | None]
+) -> str:
+    fixed = positive_int(value)
+    if not fixed:
+        return ""
+    for suffix, scale in (
+        ("T", 1_000_000_000_000),
+        ("B", 1_000_000_000),
+        ("M", 1_000_000),
+    ):
+        if fixed >= scale:
+            scaled = fixed / scale
+            text = f"{scaled:.1f}".rstrip("0").rstrip(".")
+            return f"{text}{suffix}"
+    return str(fixed)
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderContextStatusPorts:
+    capacity: Callable[[str, dict[str, Any]], int | None]
+    context_policy: Callable[..., Any]
+    ollama_num_ctx_status: Callable[[dict[str, Any]], str]
+    positive_int: Callable[[Any], int | None]
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderContextStatusProjection:
+    ports: ProviderContextStatusPorts
+
+    def status(self, provider: str, config: dict[str, Any]) -> str:
+        capacity = self.ports.capacity(provider, config)
+        cap_text = format_context_tokens(capacity)
+        strategy = self.ports.context_policy(provider, config).settings_strategy
+        if strategy == "ollama":
+            return f"model max {cap_text}; {self.ports.ollama_num_ctx_status(config)}"
+        if strategy == "standard":
+            window = self.ports.positive_int(config.get("context_window"))
+            reserve = self.ports.positive_int(config.get("context_reserve_tokens"))
+            reserve_text = (
+                f"; reserve {format_context_tokens(reserve)}" if reserve else ""
+            )
+            return (
+                f"model max {cap_text}; window {format_context_tokens(window)}"
+                f"{reserve_text}"
+            )
+        if strategy == "managed":
+            return "managed by Claude Code"
+        return f"model max {cap_text}"
+
+
 @dataclass(frozen=True, slots=True)
 class ProviderOptionStatusPorts:
     configured_adapter: Callable[..., Any]

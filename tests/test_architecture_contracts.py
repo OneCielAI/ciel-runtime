@@ -259,6 +259,10 @@ from ciel_runtime_support.llm_option_config import (
     AutoLlmOptionsService,
     AutoLlmPresetPolicy,
 )
+from ciel_runtime_support.provider_option_status import (
+    ProviderContextStatusPorts,
+    ProviderContextStatusProjection,
+)
 from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
 from ciel_runtime_support.channel_launch_policy import (
     ChannelLaunchPolicy,
@@ -4018,6 +4022,10 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
+    def test_provider_context_status_projection_owns_formatting_policy(self):
+        self.assertLessEqual(len(fields(ProviderContextStatusPorts)), 10)
+        self.assertLessEqual(len(fields(ProviderContextStatusProjection)), 10)
+
     def test_channel_terminal_input_policy_lives_outside_composition_root(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
         for function_name in (
@@ -4721,6 +4729,9 @@ class ArchitectureContractTests(unittest.TestCase):
             "apply_auto_llm_options_config": "apply_auto",
             "terminate_posix_port": "terminate_port",
             "terminate_windows_port": "terminate_port",
+            "format_context_tokens": "project_format_context_tokens",
+            "format_parameter_count": "project_format_parameter_count",
+            "context_setting_status": "status",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",
