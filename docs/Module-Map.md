@@ -503,6 +503,22 @@ Provider 구현 패키지의 안정적인 공개 진입점. 분리된 공통 기
 
 Bearer/API-key 인증, 무인증 및 OpenAI-compatible protocol 선택을 제공하는 공통 Provider transport 기반 클래스. 공통 persisted configuration shape와 안전한 중첩 기본값 복제를 제공하지만 구체 Provider 이름이나 Registry는 소유하지 않는다.
 
+### `ciel_runtime_support/providers/catalog.py`
+
+표준 OpenAI Chat/Models API를 제공하는 hosted provider의 immutable specification과
+공통 Adapter factory. 이름·label·기본 URL·모델 fallback·별칭·endpoint만 데이터로
+선언하고, 인증·protocol·context 동작은 `CatalogOpenAIProviderAdapter`가 공유한다.
+
+### `ciel_runtime_support/providers/anthropic_catalog.py`
+
+MiniMax 계열처럼 Anthropic Messages wire 계약을 제공하는 hosted provider의 별도
+카탈로그. OpenAI 호환 카탈로그와 분리해 protocol 선택과 thinking 보존을 명시한다.
+
+### `ciel_runtime_support/providers/cloud.py`
+
+계정·deployment에 따라 endpoint가 달라지는 cloud Adapter. 현재 Azure OpenAI의 raw
+`api-key`, deployment URL 및 version query 조립을 소유한다.
+
 ### `ciel_runtime_support/providers/anthropic.py`
 
 Anthropic native/routed Adapter. Anthropic protocol, context hint, API-key 상태, built-in Advisor 안내와 native/routed UI 정책을 소유한다.

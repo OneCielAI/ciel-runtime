@@ -1004,6 +1004,7 @@ from ciel_runtime_support.protocols.openai_reasoning import (
 )
 from ciel_runtime_support.provider_adapters import (
     PROVIDER_ADAPTERS,
+    PROVIDER_ALIASES,
     PROVIDER_LABELS,
     provider_default_configurations,
 )
@@ -1485,7 +1486,6 @@ from ciel_runtime_support.runtime_constants import (
     PRELAUNCH_LAUNCH_CLAUDE,  # noqa: F401 - compatibility export
     PRELAUNCH_LAUNCH_CODEX,  # noqa: F401 - compatibility export
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER,  # noqa: F401 - compatibility export
-    PROVIDER_ALIASES,
     REQUEST_DUMP_MAX_BYTES,
     RESPONSE_DUMP_MAX_BYTES,
     RESPONSE_DUMP_TEXT_LIMIT,

@@ -20,8 +20,24 @@ from .zai import ZaiProviderAdapter
 from .kimi import KimiProviderAdapter
 from .opencode import OpenCodeProviderAdapter
 from .opencode_go import OpenCodeGoProviderAdapter
+from .catalog import (
+    COMPATIBLE_PROVIDER_SPECS,
+    CatalogOpenAIProviderAdapter,
+    CompatibleProviderSpec,
+)
+from .anthropic_catalog import (
+    ANTHROPIC_COMPATIBLE_PROVIDER_SPECS,
+    AnthropicCompatibleProviderSpec,
+    CatalogAnthropicProviderAdapter,
+)
+from .cloud import AzureOpenAIProviderAdapter, CodeBuddyCnProviderAdapter
 
 __all__ = [
+    "ANTHROPIC_COMPATIBLE_PROVIDER_SPECS",
+    "AnthropicCompatibleProviderSpec",
+    "CatalogAnthropicProviderAdapter",
+    "AzureOpenAIProviderAdapter",
+    "CodeBuddyCnProviderAdapter",
     "HttpBearerProviderAdapter",
     "AnthropicProviderAdapter",
     "NoAuthProviderAdapter",
@@ -43,4 +59,7 @@ __all__ = [
     "KimiProviderAdapter",
     "OpenCodeProviderAdapter",
     "OpenCodeGoProviderAdapter",
+    "COMPATIBLE_PROVIDER_SPECS",
+    "CatalogOpenAIProviderAdapter",
+    "CompatibleProviderSpec",
 ]

@@ -1,6 +1,6 @@
 # Providers — 지원 LLM 제공자
 
-> 소스: `ciel_runtime.py` — `PROVIDER_ALIASES`, `PROVIDER_LABELS`, 각 `forward_*` 함수
+> 단일 등록 원천: `ciel_runtime_support/provider_adapters.py`와 `providers/` 패키지
 
 ---
 
@@ -22,6 +22,44 @@
 | `self-hosted-nim` | Self Hosted NIM | OpenAI Chat | 로컬 NIM |
 | `openrouter` | OpenRouter | OpenAI Chat | `https://openrouter.ai/api` |
 | `fireworks` | Fireworks.ai | OpenAI Chat | `https://api.fireworks.ai/inference` |
+
+### 선언형 OpenAI Chat 호환 제공자
+
+아래 제공자는 동일한 OpenAI Chat/Models 계약을 공유하지만 각각 독립된 내부 ID,
+레이블, 기본 endpoint, 모델 fallback과 별칭을 갖는다. API 키 또는 발급받은 access
+token은 Bearer header로 전송하며, 사용자 지정 `base_url`로 사설 gateway도 사용할 수
+있다.
+
+| 범주 | 내부 ID |
+|------|---------|
+| 글로벌 API | `openai`, `gemini`, `xai`, `groq`, `cerebras`, `cohere`, `huggingface`, `mistral`, `together`, `perplexity`, `openrouter` |
+| 모델 gateway | `blackbox`, `chutes`, `featherless`, `hyperbolic`, `nebius`, `siliconflow`, `venice`, `vercel-ai-gateway` |
+| 중국·아시아 | `alicode`, `alicode-intl`, `alims-intl`, `byteplus`, `glm-cn`, `volcengine-ark`, `xiaomi-mimo`, `xiaomi-tokenplan`, `mimo-free`, `mmf` |
+| 수동 OAuth token | `cline`, `clinepass`, `codebuddy-cn`, `github`, `gitlab`, `iflow`, `kilocode`, `kimchi`, `qwen` |
+| 동적 cloud endpoint | `cloudflare-ai`, `vertex`, `vertex-partner` |
+
+`cloudflare-ai`, `vertex`, `vertex-partner`는 계정·프로젝트·region마다 URL이 달라
+기본 URL을 추측하지 않는다. 각 서비스에서 발급된 OpenAI-compatible endpoint를
+`base_url`로 명시해야 한다. “수동 OAuth token” 범주는 transport가 구현된 상태를
+뜻하며, Ciel이 브라우저 로그인이나 refresh token을 대신 발급한다는 뜻은 아니다.
+
+### Anthropic Messages 호환 제공자
+
+`minimax`와 `minimax-cn`은 OpenAI 변환을 거치지 않고 Anthropic Messages 계약,
+thinking 보존, `/v1/messages` endpoint를 사용한다.
+
+### Azure OpenAI
+
+`azure`는 deployment root를 `base_url`로 받고 `/chat/completions`를 결합한다.
+인증은 Azure 규격의 raw `api-key` header를 사용하며 `api_version` 설정값을 query로
+추가한다. 기본값은 `2024-10-21`이다.
+
+### 범위 경계
+
+9router 레지스트리의 검색, 임베딩, 이미지 생성, TTS/STT 항목은 LLM Provider
+Adapter로 위장해 등록하지 않는다. 이들은 Ciel의 향후 capability별 port/adapter에
+속한다. 또한 Cursor/Kiro의 비공개 wire protocol, 웹 cookie 재사용, client 위장
+방식은 공식적이고 안정적인 API 계약이 아니므로 일반 Provider로 취급하지 않는다.
 
 ---
 

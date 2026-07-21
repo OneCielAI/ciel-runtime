@@ -184,7 +184,7 @@ class RateLimitState:
 
 아키텍처 계약은 테스트용 모델에 머무르지 않고 운영 경로의 composition root에서 실제로 적용된다.
 
-- `ciel_runtime_support/provider_adapters.py`는 Anthropic, Ollama, OpenRouter, LM Studio, vLLM, NVIDIA NIM, DeepSeek, Kimi, Z.AI, Fireworks, OpenCode 등 Provider별 구체 Adapter를 Registry에 등록한다. `HttpBearerProviderAdapter`는 이들의 공통 인증 기반일 뿐 Provider 선택 단위가 아니다.
+- `ciel_runtime_support/provider_adapters.py`는 전용 Adapter와 선언형 hosted-provider factory를 하나의 Descriptor Registry에 등록한다. 표준 OpenAI Chat 제공자는 `providers/catalog.py`, Anthropic Messages 호환 제공자는 `providers/anthropic_catalog.py`, 동적 cloud endpoint는 `providers/cloud.py`가 소유한다. `HttpBearerProviderAdapter`는 공통 인증 기반일 뿐 Provider 선택 단위가 아니다.
 - `provider_descriptor.py`는 provider 이름·표시명·별칭·구체 Adapter 타입의 단일 등록 원천이다. 단순 provider는 descriptor 데이터만 추가하고, 복잡한 protocol/OAuth 동작은 계속 전용 Adapter에 둔다.
 - `prompt_injection.py`는 Anthropic Messages, OpenAI Chat/Responses, Ollama Chat, Google Generative의 system prompt 배치를 Strategy로 분리한다. Anthropic의 첫 identity/cache block 순서는 변경하지 않는다.
 - `credentials.py`는 API key와 inbound OAuth header를 Chain of Responsibility로 해석한다. allowlist 밖의 cookie/secret header는 전달하지 않으며 OAuth token 발급·갱신은 향후 별도 infrastructure adapter가 구현한다.

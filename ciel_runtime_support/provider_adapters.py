@@ -9,6 +9,7 @@ from .architecture import (
 )
 from .provider_descriptor import ProviderDescriptor, ProviderDescriptorRegistry
 from .registry import AdapterRegistry
+from .runtime_constants import PROVIDER_ALIASES as LEGACY_PROVIDER_ALIASES
 from .providers.base import (
     HttpBearerProviderAdapter,
     NoAuthProviderAdapter,
@@ -28,6 +29,12 @@ from .providers.kimi import KimiProviderAdapter
 from .providers.fireworks import FireworksProviderAdapter
 from .providers.opencode import OpenCodeProviderAdapter
 from .providers.opencode_go import OpenCodeGoProviderAdapter
+from .providers.catalog import COMPATIBLE_PROVIDER_SPECS, catalog_provider_factory
+from .providers.anthropic_catalog import (
+    ANTHROPIC_COMPATIBLE_PROVIDER_SPECS,
+    anthropic_catalog_provider_factory,
+)
+from .providers.cloud import AzureOpenAIProviderAdapter, CodeBuddyCnProviderAdapter
 
 
 PROVIDER_DESCRIPTORS = ProviderDescriptorRegistry(
@@ -48,6 +55,36 @@ PROVIDER_DESCRIPTORS = ProviderDescriptorRegistry(
         ProviderDescriptor("self-hosted-nim", "Self Hosted NIM", SelfHostedNimProviderAdapter),
         ProviderDescriptor("openrouter", "OpenRouter", OpenRouterProviderAdapter),
         ProviderDescriptor("fireworks", "Fireworks.ai", FireworksProviderAdapter),
+        ProviderDescriptor(
+            "azure",
+            "Azure OpenAI",
+            AzureOpenAIProviderAdapter,
+            aliases=("azure-openai",),
+        ),
+        ProviderDescriptor(
+            "codebuddy-cn",
+            "CodeBuddy CN",
+            CodeBuddyCnProviderAdapter,
+            aliases=("cbcn", "codebuddy"),
+        ),
+        *(
+            ProviderDescriptor(
+                spec.name,
+                spec.label,
+                catalog_provider_factory(spec),
+                aliases=spec.aliases,
+            )
+            for spec in COMPATIBLE_PROVIDER_SPECS
+        ),
+        *(
+            ProviderDescriptor(
+                spec.name,
+                spec.label,
+                anthropic_catalog_provider_factory(spec),
+                aliases=spec.aliases,
+            )
+            for spec in ANTHROPIC_COMPATIBLE_PROVIDER_SPECS
+        ),
     )
 )
 PROVIDER_ADAPTERS: AdapterRegistry[ProviderAdapter] = AdapterRegistry()
@@ -55,12 +92,15 @@ PROVIDER_LABELS: dict[str, str] = {
     descriptor.normalized_name: descriptor.label
     for descriptor in PROVIDER_DESCRIPTORS.descriptors()
 }
+PROVIDER_ALIASES: dict[str, str] = {
+    **LEGACY_PROVIDER_ALIASES,
+    **PROVIDER_DESCRIPTORS.aliases(),
+}
 
 for _descriptor in PROVIDER_DESCRIPTORS.descriptors():
     PROVIDER_ADAPTERS.register(
         _descriptor.normalized_name,
         _descriptor.create,
-        aliases=_descriptor.aliases,
     )
 
 
@@ -75,6 +115,7 @@ def provider_default_configurations() -> dict[str, dict[str, Any]]:
 
 __all__ = [
     "PROVIDER_ADAPTERS",
+    "PROVIDER_ALIASES",
     "PROVIDER_DEFAULT_BASE_URLS",
     "PROVIDER_DESCRIPTORS",
     "PROVIDER_LABELS",

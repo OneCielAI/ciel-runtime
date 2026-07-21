@@ -22,6 +22,7 @@ class ProviderDescriptorTests(unittest.TestCase):
         descriptor = ProviderDescriptor("example-hosted", "Example", VllmProviderAdapter, aliases=("example_cloud",))
         registry = ProviderDescriptorRegistry((descriptor,))
         self.assertIs(descriptor, registry.get("EXAMPLE-CLOUD"))
+        self.assertEqual("example-hosted", registry.aliases()["example-cloud"])
 
     def test_duplicate_alias_is_rejected(self):
         with self.assertRaises(ValueError):

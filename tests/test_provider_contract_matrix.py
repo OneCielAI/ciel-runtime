@@ -5,6 +5,10 @@ from pathlib import Path
 from ciel_runtime_support.architecture import ProviderConfig
 from ciel_runtime_support.provider_adapters import PROVIDER_ADAPTERS, PROVIDER_LABELS
 from ciel_runtime_support.provider_compatibility import PROVIDER_COMPATIBILITY
+from ciel_runtime_support.providers.catalog import COMPATIBLE_PROVIDER_SPECS
+from ciel_runtime_support.providers.anthropic_catalog import (
+    ANTHROPIC_COMPATIBLE_PROVIDER_SPECS,
+)
 from ciel_runtime_support.providers.nvidia import hosted_context_default
 
 
@@ -360,6 +364,10 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "opencode-go",
             "openrouter",
             "zai",
+            "azure",
+            "codebuddy-cn",
+            *(spec.name for spec in COMPATIBLE_PROVIDER_SPECS if spec.requires_api_key),
+            *(spec.name for spec in ANTHROPIC_COMPATIBLE_PROVIDER_SPECS),
         }
         for provider in PROVIDER_ADAPTERS.names():
             adapter = PROVIDER_ADAPTERS.create(provider)

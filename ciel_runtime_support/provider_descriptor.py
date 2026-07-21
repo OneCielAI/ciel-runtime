@@ -8,6 +8,7 @@ implementations without growing a central conditional router.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Callable
 from typing import Any
 
 from ciel_runtime_support.architecture import ProviderAdapter
@@ -19,7 +20,7 @@ class ProviderDescriptor:
 
     name: str
     label: str
-    adapter_type: type[ProviderAdapter]
+    adapter_type: Callable[..., ProviderAdapter]
     aliases: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -72,3 +73,10 @@ class ProviderDescriptorRegistry:
     def names(self) -> tuple[str, ...]:
         return tuple(sorted(self._canonical))
 
+    def aliases(self) -> dict[str, str]:
+        """Project every registered lookup token to its canonical provider name."""
+
+        return {
+            alias: descriptor.normalized_name
+            for alias, descriptor in self._descriptors.items()
+        }

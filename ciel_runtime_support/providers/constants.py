@@ -1,5 +1,8 @@
 """Provider-owned endpoint and catalog constants."""
 
+from .catalog import CATALOG_PROVIDER_BASE_URLS
+from .anthropic_catalog import ANTHROPIC_CATALOG_PROVIDER_BASE_URLS
+
 PROVIDER_DEFAULT_BASE_URLS: dict[str, str] = {
     "anthropic": "https://api.anthropic.com",
     "agy": "https://antigravity.google",
@@ -18,6 +21,8 @@ PROVIDER_DEFAULT_BASE_URLS: dict[str, str] = {
     "openrouter": "https://openrouter.ai/api/v1",
     "fireworks": "https://api.fireworks.ai/inference",
 }
+PROVIDER_DEFAULT_BASE_URLS.update(CATALOG_PROVIDER_BASE_URLS)
+PROVIDER_DEFAULT_BASE_URLS.update(ANTHROPIC_CATALOG_PROVIDER_BASE_URLS)
 
 DEFAULT_REQUEST_TIMEOUT_MS = 300000
 OPENCODE_PROVIDER_NAMES = ("opencode", "opencode-go")
