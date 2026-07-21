@@ -4,10 +4,21 @@ from ciel_runtime_support.provider_launch_endpoint import (
     ProviderLaunchEndpointGroups,
     ProviderLaunchEndpointPolicy,
     ProviderLaunchEndpointQueries,
+    build_default_provider_launch_endpoint_policy,
 )
 
 
 class ProviderLaunchEndpointPolicyTests(unittest.TestCase):
+    def test_default_factory_owns_provider_groups(self):
+        policy = build_default_provider_launch_endpoint_policy(
+            ProviderLaunchEndpointQueries(
+                detect_native_compat=lambda _provider, _config: (None, ""),
+                endpoint_kind=lambda _provider, _model, _config: "openai-chat",
+            )
+        )
+        self.assertIn("ollama", policy.groups.native_runtimes)
+        self.assertIn("opencode-go", policy.groups.model_specific)
+
     def setUp(self):
         self.detected = []
         self.policy = ProviderLaunchEndpointPolicy(

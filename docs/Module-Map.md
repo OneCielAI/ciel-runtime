@@ -1019,7 +1019,7 @@ Provider request model alias, stream 요구사항, API-key 복구와 outbound he
 
 ### `ciel_runtime_support/provider_launch_endpoint.py`
 
-runtime과 provider·model 조합에 맞는 Anthropic/OpenAI 호환 endpoint 선호도를 결정하는 Policy Strategy. provider 그룹은 선언형 값 객체로, 자동 탐지와 model별 endpoint 판정은 typed query port로 분리한다.
+runtime과 provider·model 조합에 맞는 Anthropic/OpenAI 호환 endpoint 선호도를 결정하는 Policy Strategy. 기본 Factory가 선언형 provider 그룹을 소유하며, 자동 탐지와 model별 endpoint 판정은 typed query port로 분리한다.
 
 ### `ciel_runtime_support/provider_endpoint_probe.py`
 

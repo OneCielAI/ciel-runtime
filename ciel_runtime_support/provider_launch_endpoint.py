@@ -6,6 +6,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from ciel_runtime_support.providers.constants import OPENCODE_PROVIDER_NAMES
+from ciel_runtime_support.runtime_constants import (
+    AUTO_DETECT_NATIVE_COMPAT_PROVIDERS,
+    CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS,
+    CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class ProviderLaunchEndpointGroups:
@@ -22,6 +29,24 @@ class ProviderLaunchEndpointQueries:
         [str, dict[str, Any]], tuple[bool | None, str]
     ]
     endpoint_kind: Callable[[str, str, dict[str, Any]], str]
+
+
+def build_default_provider_launch_endpoint_policy(
+    query: ProviderLaunchEndpointQueries,
+) -> ProviderLaunchEndpointPolicy:
+    """Build immutable provider families for runtime endpoint selection."""
+    return ProviderLaunchEndpointPolicy(
+        groups=ProviderLaunchEndpointGroups(
+            native_runtimes=frozenset(
+                {"anthropic", "codex", "agy", "ollama", "ollama-cloud"}
+            ),
+            auto_detect=frozenset(AUTO_DETECT_NATIVE_COMPAT_PROVIDERS),
+            claude_anthropic=frozenset(CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS),
+            codex_openai=frozenset(CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS),
+            model_specific=frozenset(OPENCODE_PROVIDER_NAMES),
+        ),
+        query=query,
+    )
 
 
 @dataclass(frozen=True, slots=True)

@@ -344,9 +344,10 @@ from ciel_runtime_support.provider_runtime_modes import (
     build_default_runtime_mode_policy,
 )
 from ciel_runtime_support.provider_launch_endpoint import (
-    ProviderLaunchEndpointGroups,
-    ProviderLaunchEndpointPolicy,
+    ProviderLaunchEndpointGroups,  # noqa: F401 - compatibility export
+    ProviderLaunchEndpointPolicy,  # noqa: F401 - compatibility export
     ProviderLaunchEndpointQueries,
+    build_default_provider_launch_endpoint_policy,
 )
 from ciel_runtime_support.provider_endpoint_probe import (
     ProviderEndpointProbePolicy,
@@ -1444,7 +1445,7 @@ from ciel_runtime_support.runtime_constants import (
     CHAT_MESSAGE_DEDUPE_SCAN_LIMIT,
     CHAT_MESSAGE_FALLBACK_DEDUPE_TTL_SECONDS,
     CLAUDE_SERVER_SIDE_WEB_TOOLS,  # noqa: F401 - compatibility export
-    CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS,
+    CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS,  # noqa: F401 - compatibility export
     CODEX_NATIVE_PROVIDER_ID_ENV,  # noqa: F401 - compatibility export
     CODEX_ROUTED_PROVIDER_ID,  # noqa: F401 - compatibility export
     CODEX_RUNTIME_API_KEY_ENV,
@@ -3474,16 +3475,7 @@ def codex_openai_router_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
 
 
 def preferred_native_compat_for_launch_runtime(runtime: str, provider: str, pcfg: dict[str, Any]) -> tuple[bool | None, str]:
-    policy = ProviderLaunchEndpointPolicy(
-        groups=ProviderLaunchEndpointGroups(
-            native_runtimes=frozenset(
-                {"anthropic", "codex", "agy", "ollama", "ollama-cloud"}
-            ),
-            auto_detect=frozenset(AUTO_DETECT_NATIVE_COMPAT_PROVIDERS),
-            claude_anthropic=frozenset(CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS),
-            codex_openai=frozenset(CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS),
-            model_specific=frozenset(OPENCODE_PROVIDER_NAMES),
-        ),
+    policy = build_default_provider_launch_endpoint_policy(
         query=ProviderLaunchEndpointQueries(
             detect_native_compat=auto_detect_native_compat_for_base_url,
             endpoint_kind=opencode_endpoint_kind,

@@ -147,6 +147,7 @@ from ciel_runtime_support.provider_launch_endpoint import (
     ProviderLaunchEndpointGroups,
     ProviderLaunchEndpointPolicy,
     ProviderLaunchEndpointQueries,
+    build_default_provider_launch_endpoint_policy,
 )
 from ciel_runtime_support.provider_endpoint_probe import (
     ProviderEndpointProbePolicy,
@@ -2596,8 +2597,12 @@ class ArchitectureContractTests(unittest.TestCase):
             == "preferred_native_compat_for_launch_runtime"
         )
         function_source = ast.get_source_segment(source, function) or ""
-        self.assertIn("ProviderLaunchEndpointPolicy", function_source)
+        self.assertIn("build_default_provider_launch_endpoint_policy", function_source)
         self.assertNotIn('runtime == "claude"', function_source)
+        self.assertEqual(
+            "ciel_runtime_support.provider_launch_endpoint",
+            build_default_provider_launch_endpoint_policy.__module__,
+        )
         policy_source = (
             root
             / "ciel_runtime_support"
