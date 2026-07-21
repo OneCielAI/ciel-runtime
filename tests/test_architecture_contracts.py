@@ -158,6 +158,8 @@ from ciel_runtime_support.provider_endpoint_probe import (
 from ciel_runtime_support.provider_runtime_modes import (
     ProviderNativeCompatibilityPolicy,
     RuntimeModePolicy,
+    build_default_native_compatibility_policy,
+    build_default_runtime_mode_policy,
 )
 from ciel_runtime_support.claude_router import (
     ClaudeRouterCore,
@@ -2565,6 +2567,19 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("__getattr__", policy_source)
         self.assertEqual(2, len(fields(RuntimeModePolicy)))
         self.assertEqual(2, len(fields(ProviderNativeCompatibilityPolicy)))
+        self.assertEqual(
+            "ciel_runtime_support.provider_runtime_modes",
+            build_default_runtime_mode_policy.__module__,
+        )
+        self.assertEqual(
+            "ciel_runtime_support.provider_runtime_modes",
+            build_default_native_compatibility_policy.__module__,
+        )
+        self.assertNotIn("_RUNTIME_MODE_POLICY = RuntimeModePolicy(", source)
+        self.assertNotIn(
+            "_PROVIDER_NATIVE_COMPATIBILITY = ProviderNativeCompatibilityPolicy(",
+            source,
+        )
 
     def test_launch_endpoint_preference_is_owned_by_typed_policy(self):
         self.assertEqual(2, len(fields(ProviderLaunchEndpointPolicy)))

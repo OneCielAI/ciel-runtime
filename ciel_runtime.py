@@ -338,8 +338,10 @@ from ciel_runtime_support.provider_request_access import (
 from ciel_runtime_support.provider_query_policy import ProviderQueryPolicy
 from ciel_runtime_support.provider_tool_policy import ProviderToolPolicy
 from ciel_runtime_support.provider_runtime_modes import (
-    ProviderNativeCompatibilityPolicy,
-    RuntimeModePolicy,
+    ProviderNativeCompatibilityPolicy,  # noqa: F401 - compatibility export
+    RuntimeModePolicy,  # noqa: F401 - compatibility export
+    build_default_native_compatibility_policy,
+    build_default_runtime_mode_policy,
 )
 from ciel_runtime_support.provider_launch_endpoint import (
     ProviderLaunchEndpointGroups,
@@ -3195,14 +3197,7 @@ def runtime_command_factory() -> RuntimeCommandFactory:
     return RuntimeCommandFactory(RuntimeCommandFactoryPorts(parse_api_key_list, RUNTIME_ADAPTERS.create))
 
 
-_RUNTIME_MODE_POLICY = RuntimeModePolicy(
-    parse_bool=parse_bool,
-    runtime_providers={
-        "anthropic": "anthropic",
-        "agy": "agy",
-        "codex": "codex",
-    },
-)
+_RUNTIME_MODE_POLICY = build_default_runtime_mode_policy(parse_bool)
 native_anthropic_enabled = _RUNTIME_MODE_POLICY.native_anthropic
 anthropic_routed_enabled = _RUNTIME_MODE_POLICY.anthropic_routed
 direct_native_anthropic_enabled = _RUNTIME_MODE_POLICY.direct_anthropic
@@ -3392,25 +3387,13 @@ def current_alias(cfg: dict[str, Any]) -> str:
     return alias_for(provider, cur)
 
 
-_PROVIDER_NATIVE_COMPATIBILITY = ProviderNativeCompatibilityPolicy(
-    native_enabled=lambda provider, pcfg: configured_provider_adapter(
+_PROVIDER_NATIVE_COMPATIBILITY = build_default_native_compatibility_policy(
+    lambda provider, pcfg: configured_provider_adapter(
         provider, pcfg
     ).router_native_anthropic_enabled(
         provider_contract_config(provider, pcfg),
         str(pcfg.get("current_model") or ""),
-    ),
-    compatibility_groups={
-        "ollama": frozenset({"ollama"}),
-        "vllm": frozenset({"vllm"}),
-        "nim": frozenset({"self-hosted-nim"}),
-        "lm_studio": frozenset({"lm-studio"}),
-        "nvidia": frozenset({"nvidia-hosted"}),
-        "deepseek": frozenset({"deepseek"}),
-        "opencode": frozenset(OPENCODE_PROVIDER_NAMES),
-        "kimi": frozenset({"kimi"}),
-        "zai": frozenset({"zai"}),
-        "fireworks": frozenset({"fireworks"}),
-    },
+    )
 )
 provider_native_compat_enabled = _PROVIDER_NATIVE_COMPATIBILITY.native_enabled
 ollama_native_compat_enabled = _PROVIDER_NATIVE_COMPATIBILITY.ollama

@@ -11,6 +11,8 @@ import urllib.request
 from collections.abc import Iterable
 from typing import Any, Callable
 
+from ciel_runtime_support.providers.constants import OPENCODE_PROVIDER_NAMES
+
 
 DEFAULT_UPSTREAM_USER_AGENT = "claude-cli"
 IP_FAMILY_ALIASES = {
@@ -41,7 +43,6 @@ IP_FAMILY_ALIASES = {
     "prefer-ipv6": "ipv6-preferred",
 }
 IP_FAMILY_CHOICES = ("auto", "ipv4", "ipv6", "ipv4-preferred", "ipv6-preferred")
-OPENCODE_PROVIDER_NAMES = ("opencode", "opencode-go")
 
 _IP_FAMILY_LOCK = threading.Lock()
 

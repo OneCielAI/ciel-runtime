@@ -3,10 +3,22 @@ import unittest
 from ciel_runtime_support.provider_runtime_modes import (
     ProviderNativeCompatibilityPolicy,
     RuntimeModePolicy,
+    build_default_native_compatibility_policy,
+    build_default_runtime_mode_policy,
 )
 
 
 class ProviderRuntimeModePolicyTests(unittest.TestCase):
+    def test_default_factories_own_runtime_and_provider_family_mappings(self):
+        runtime = build_default_runtime_mode_policy(
+            lambda value, **_kwargs: bool(value)
+        )
+        native = build_default_native_compatibility_policy(
+            lambda _provider, config: bool(config.get("native"))
+        )
+        self.assertTrue(runtime.native_codex("codex"))
+        self.assertTrue(native.opencode("opencode-go", {"native": True}))
+
     def test_runtime_routing_uses_declarative_provider_mapping(self):
         policy = RuntimeModePolicy(
             parse_bool=lambda value, **_kwargs: bool(value),

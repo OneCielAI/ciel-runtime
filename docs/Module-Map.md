@@ -1027,7 +1027,7 @@ provider의 Anthropic/OpenAI endpoint 존재 여부를 확인하는 HTTP Adapter
 
 ### `ciel_runtime_support/provider_runtime_modes.py`
 
-Claude/AGY/Codex native·routed·direct mode와 provider native-Anthropic compatibility 그룹을 선언형 mapping으로 판정하는 Domain Policy. 실제 native compatibility는 Provider Adapter의 `router_native_anthropic_enabled` 전략에 위임하고 facade의 provider 이름 비교 함수를 제거한다.
+Claude/AGY/Codex native·routed·direct mode와 provider native-Anthropic compatibility 그룹을 선언형 mapping으로 판정하는 Domain Policy. 기본 Factory가 runtime/provider 및 compatibility family mapping을 소유하며, 실제 native compatibility는 Provider Adapter의 `router_native_anthropic_enabled` 전략에 위임한다.
 
 ### `ciel_runtime_support/pseudo_tool_parser.py`
 

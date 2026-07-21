@@ -20,6 +20,7 @@ PROVIDER_DEFAULT_BASE_URLS: dict[str, str] = {
 }
 
 DEFAULT_REQUEST_TIMEOUT_MS = 300000
+OPENCODE_PROVIDER_NAMES = ("opencode", "opencode-go")
 
 ZAI_MODEL_FALLBACK_IDS: tuple[str, ...] = (
     "glm-5.2[1m]",
@@ -41,6 +42,7 @@ ZAI_MODEL_FALLBACK_IDS: tuple[str, ...] = (
 
 __all__ = [
     "DEFAULT_REQUEST_TIMEOUT_MS",
+    "OPENCODE_PROVIDER_NAMES",
     "PROVIDER_DEFAULT_BASE_URLS",
     "ZAI_MODEL_FALLBACK_IDS",
 ]

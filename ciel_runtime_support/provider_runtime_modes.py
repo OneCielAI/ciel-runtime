@@ -6,6 +6,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from ciel_runtime_support.providers.constants import OPENCODE_PROVIDER_NAMES
+
 
 @dataclass(frozen=True, slots=True)
 class RuntimeModePolicy:
@@ -69,6 +71,20 @@ class RuntimeModePolicy:
         return self.direct_enabled("codex", provider, config)
 
 
+def build_default_runtime_mode_policy(
+    parse_bool: Callable[..., bool],
+) -> RuntimeModePolicy:
+    """Build the standard native runtime-to-provider mapping."""
+    return RuntimeModePolicy(
+        parse_bool=parse_bool,
+        runtime_providers={
+            "anthropic": "anthropic",
+            "agy": "agy",
+            "codex": "codex",
+        },
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ProviderNativeCompatibilityPolicy:
     native_enabled: Callable[[str, dict[str, Any]], bool]
@@ -111,3 +127,24 @@ class ProviderNativeCompatibilityPolicy:
 
     def fireworks(self, provider: str, config: dict[str, Any]) -> bool:
         return self.group_enabled("fireworks", provider, config)
+
+
+def build_default_native_compatibility_policy(
+    native_enabled: Callable[[str, dict[str, Any]], bool],
+) -> ProviderNativeCompatibilityPolicy:
+    """Build the provider families supported by native compatibility mode."""
+    return ProviderNativeCompatibilityPolicy(
+        native_enabled=native_enabled,
+        compatibility_groups={
+            "ollama": frozenset({"ollama"}),
+            "vllm": frozenset({"vllm"}),
+            "nim": frozenset({"self-hosted-nim"}),
+            "lm_studio": frozenset({"lm-studio"}),
+            "nvidia": frozenset({"nvidia-hosted"}),
+            "deepseek": frozenset({"deepseek"}),
+            "opencode": frozenset(OPENCODE_PROVIDER_NAMES),
+            "kimi": frozenset({"kimi"}),
+            "zai": frozenset({"zai"}),
+            "fireworks": frozenset({"fireworks"}),
+        },
+    )
