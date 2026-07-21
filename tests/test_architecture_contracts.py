@@ -253,6 +253,12 @@ from ciel_runtime_support.channel_wake_claim_repository import ChannelWakeClaimR
 from ciel_runtime_support.channel_wake_delivery_repository import (
     ChannelWakeDeliveryRepository,
 )
+from ciel_runtime_support.llm_option_config import (
+    AutoLlmModelPolicy,
+    AutoLlmOptionsRepository,
+    AutoLlmOptionsService,
+    AutoLlmPresetPolicy,
+)
 from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
 from ciel_runtime_support.channel_launch_policy import (
     ChannelLaunchPolicy,
@@ -4002,6 +4008,16 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("len(_CHANNEL_STDIN_WAKE_DELIVERED)", source)
         self.assertNotIn("len(_CHANNEL_STDIN_WAKE_PROMPTS)", source)
 
+    def test_auto_llm_options_service_owns_configuration_transaction(self):
+        for port in (
+            AutoLlmOptionsRepository,
+            AutoLlmModelPolicy,
+            AutoLlmPresetPolicy,
+            AutoLlmOptionsService,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
     def test_channel_terminal_input_policy_lives_outside_composition_root(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
         for function_name in (
@@ -4701,6 +4717,8 @@ class ArchitectureContractTests(unittest.TestCase):
             "_channel_wake_store_mark_delivered": "mark_delivered",
             "_channel_wake_store_record_prompts": "record_prompts",
             "_channel_wake_store_rollback": "rollback",
+            "auto_apply_recommended_llm_preset_for_model": "apply_recommended",
+            "apply_auto_llm_options_config": "apply_auto",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

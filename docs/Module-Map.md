@@ -401,7 +401,7 @@ Windows Console `INPUT_RECORD` 생성, UTF-16 surrogate 변환, 입력 queue 소
 
 ### `ciel_runtime_support/llm_option_config.py`
 
-LLM 옵션의 입력 검증, Provider 설정 변경, 컨텍스트·출력 보정 및 설정 저장을 조정하는 Configuration Application Service. Repository, Mutation, Policy 포트를 분리해 각 포트를 6필드 이하로 유지한다.
+LLM 옵션의 입력 검증, Provider 설정 변경, 컨텍스트·출력 보정 및 설정 저장을 조정하는 Configuration Application Service. `AutoLlmOptionsService`는 모델 변경, spec 갱신, context 동기화, preset 선택과 저장/cache 무효화를 하나의 transaction으로 조정한다. Repository, Model Policy, Preset Policy 포트를 분리해 의존성과 provider 규칙을 명시한다.
 
 ### `ciel_runtime_support/llm_config_http.py`
 
@@ -743,7 +743,7 @@ Provider option 화면의 행 구성과 runtime/context/stream control projectio
 
 ### `ciel_runtime_support/llm_option_config.py`
 
-LLM 옵션의 검증·저장·후속 context/timeout 상한 적용을 조정하는 Configuration Application Service. Provider별 mutation 방식과 라우팅 모드 projection은 Adapter 정책을 통해 주입되며 서비스 자체는 Provider 이름을 비교하지 않는다.
+LLM 옵션의 검증·저장·후속 context/timeout 상한 적용을 조정하는 Configuration Application Service. Provider별 mutation 방식과 라우팅 모드 projection은 Adapter 정책을 통해 주입되며 서비스 자체는 Provider 이름을 비교하지 않는다. 자동 옵션 workflow도 동일 경계의 typed service와 호출 시점 Composition Factory를 통해 실행된다.
 
 ### `ciel_runtime_support/provider_status.py`
 

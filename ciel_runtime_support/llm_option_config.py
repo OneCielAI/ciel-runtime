@@ -42,6 +42,88 @@ class LlmOptionConfigServices:
     policy: LlmOptionPolicy
 
 
+@dataclass(frozen=True, slots=True)
+class AutoLlmOptionsRepository:
+    set_model: Callable[[str], list[str]]
+    load: Callable[[], dict[str, Any]]
+    save: Callable[[dict[str, Any]], None]
+    invalidate_cache: Callable[[], None]
+
+
+@dataclass(frozen=True, slots=True)
+class AutoLlmModelPolicy:
+    current_provider: Callable[[dict[str, Any]], tuple[str, dict[str, Any]]]
+    refresh_specs: Callable[[str, dict[str, Any]], list[str]]
+    sync_context: Callable[[str, dict[str, Any], str], list[str]]
+    cap_context: Callable[[str, dict[str, Any]], list[str]]
+
+
+@dataclass(frozen=True, slots=True)
+class AutoLlmPresetPolicy:
+    recommended: Callable[[str, dict[str, Any]], str]
+    available: Callable[[str, dict[str, Any], str], bool]
+    applied: Callable[[str, dict[str, Any]], str]
+    text: Callable[[str, str | None], tuple[str, str]]
+    apply: Callable[..., list[str]]
+
+
+@dataclass(frozen=True, slots=True)
+class AutoLlmOptionsService:
+    repository: AutoLlmOptionsRepository
+    model: AutoLlmModelPolicy
+    preset: AutoLlmPresetPolicy
+
+    def apply_recommended(
+        self, provider: str, config: dict[str, Any], language: str | None = None
+    ) -> list[str]:
+        preset_id = self.preset.recommended(provider, config)
+        if not self.preset.available(provider, config, preset_id):
+            return []
+        label = self.preset.text(preset_id, language)[0]
+        lines = [f"Auto-applied recommended LLM preset for selected model: {label}."]
+        lines.extend(
+            self.preset.apply(
+                provider,
+                config,
+                preset_id,
+                language,
+                sync_ollama_context=False,
+            )
+        )
+        return lines
+
+    def apply_auto(self, model_id: str | None = None) -> list[str]:
+        lines: list[str] = []
+        if model_id and model_id.strip():
+            lines.extend(self.repository.set_model(model_id.strip()))
+        config = self.repository.load()
+        provider, provider_config = self.model.current_provider(config)
+        model_id = str(provider_config.get("current_model") or "").strip()
+        lines.extend(self.model.refresh_specs(provider, provider_config))
+        context_lines: list[str] = []
+        if model_id:
+            context_lines.extend(
+                self.model.sync_context(provider, provider_config, model_id)
+            )
+            context_lines.extend(self.model.cap_context(provider, provider_config))
+        preset_id = self.preset.recommended(provider, provider_config)
+        if not self.preset.available(provider, provider_config, preset_id):
+            preset_id = self.preset.applied(provider, provider_config)
+        language = config.get("language", "en")
+        label = self.preset.text(preset_id, language)[0]
+        model_label = f" model {model_id}" if model_id else ""
+        lines.append(
+            f"Auto LLM options applied for {provider}{model_label}: {label}."
+        )
+        lines.extend(context_lines)
+        lines.extend(
+            self.preset.apply(provider, provider_config, preset_id, language)
+        )
+        self.repository.save(config)
+        self.repository.invalidate_cache()
+        return lines
+
+
 def set_llm_option_config(
     provider: str,
     key: str,

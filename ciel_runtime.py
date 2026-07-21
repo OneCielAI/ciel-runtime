@@ -663,13 +663,7 @@ from ciel_runtime_support.llm_presentation_data import (
     TIMEOUT_PRESET_I18N,
     TIMEOUT_PRESETS,
 )
-from ciel_runtime_support.llm_option_config import (
-    LlmOptionConfigServices,
-    LlmOptionMutation,
-    LlmOptionPolicy,
-    LlmOptionRepository,
-    set_llm_option_config as apply_llm_option_config,
-)
+from ciel_runtime_support import llm_option_config
 from ciel_runtime_support.llm_config_http import (
     LlmConfigHttpController,
     LlmConfigHttpIO,
@@ -8915,38 +8909,32 @@ def apply_llm_preset_to_provider(
 
 
 def auto_apply_recommended_llm_preset_for_model(provider: str, pcfg: dict[str, Any], lang: str | None = None) -> list[str]:
-    preset_id = recommended_preset_id(provider, pcfg)
-    if not preset_available_for_model(provider, pcfg, preset_id):
-        return []
-    label = llm_preset_text(preset_id, lang)[0]
-    lines = [f"Auto-applied recommended LLM preset for selected model: {label}."]
-    lines.extend(apply_llm_preset_to_provider(provider, pcfg, preset_id, lang, sync_ollama_context=False))
-    return lines
+    return auto_llm_options_service().apply_recommended(provider, pcfg, lang)
+
+
+def auto_llm_options_service() -> llm_option_config.AutoLlmOptionsService:
+    return llm_option_config.AutoLlmOptionsService(
+        repository=llm_option_config.AutoLlmOptionsRepository(
+            set_model_config, load_config, save_config, invalidate_config_cache
+        ),
+        model=llm_option_config.AutoLlmModelPolicy(
+            get_current_provider,
+            refresh_current_model_specs_for_auto_llm,
+            sync_ollama_library_context_limit,
+            cap_context_settings_to_model_capacity,
+        ),
+        preset=llm_option_config.AutoLlmPresetPolicy(
+            recommended_preset_id,
+            preset_available_for_model,
+            applied_preset_id,
+            llm_preset_text,
+            apply_llm_preset_to_provider,
+        ),
+    )
 
 
 def apply_auto_llm_options_config(model_id: str | None = None) -> list[str]:
-    lines: list[str] = []
-    if model_id and model_id.strip():
-        lines.extend(set_model_config(model_id.strip()))
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    model = str(pcfg.get("current_model") or "").strip()
-    lines.extend(refresh_current_model_specs_for_auto_llm(provider, pcfg))
-    if model:
-        context_msgs = sync_ollama_library_context_limit(provider, pcfg, model)
-        context_msgs.extend(cap_context_settings_to_model_capacity(provider, pcfg))
-    else:
-        context_msgs = []
-    preset_id = recommended_preset_id(provider, pcfg)
-    if not preset_available_for_model(provider, pcfg, preset_id):
-        preset_id = applied_preset_id(provider, pcfg)
-    label = llm_preset_text(preset_id, cfg.get("language", "en"))[0]
-    lines.append(f"Auto LLM options applied for {provider}{f' model {model}' if model else ''}: {label}.")
-    lines.extend(context_msgs)
-    lines.extend(apply_llm_preset_to_provider(provider, pcfg, preset_id, cfg.get("language", "en")))
-    save_config(cfg)
-    invalidate_config_cache()
-    return lines
+    return auto_llm_options_service().apply_auto(model_id)
 
 
 def apply_llm_preset_config(provider: str, preset_id: str) -> list[str]:
@@ -9138,14 +9126,14 @@ def llm_option_prompt_default(provider: str, pcfg: dict[str, Any], key: str) -> 
     )
 
 
-def llm_option_config_services() -> LlmOptionConfigServices:
-    return LlmOptionConfigServices(
-        repository=LlmOptionRepository(
+def llm_option_config_services() -> llm_option_config.LlmOptionConfigServices:
+    return llm_option_config.LlmOptionConfigServices(
+        repository=llm_option_config.LlmOptionRepository(
             clear_model_cache=clear_model_cache,
             load_config=load_config,
             save_config=save_config,
         ),
-        mutation=LlmOptionMutation(
+        mutation=llm_option_config.LlmOptionMutation(
             apply_ollama_option=apply_ollama_option,
             apply_provider_option=apply_provider_option,
             configuration_policy=provider_configuration_policy,
@@ -9155,7 +9143,7 @@ def llm_option_config_services() -> LlmOptionConfigServices:
             routing_mode_update=provider_routing_mode_update,
             set_router_debug_external_access=set_router_debug_external_access_config,
         ),
-        policy=LlmOptionPolicy(
+        policy=llm_option_config.LlmOptionPolicy(
             apply_recommended_timeout=apply_recommended_timeout_for_model_context,
             cap_context_settings=cap_context_settings_to_model_capacity,
             cap_output_settings=cap_output_settings_to_context_ratio,
@@ -9170,7 +9158,7 @@ def provider_routing_mode_update(provider: str, enabled: bool) -> tuple[str, ...
 
 
 def set_llm_option_config(provider: str, key: str, raw_value: str) -> list[str]:
-    return apply_llm_option_config(
+    return llm_option_config.set_llm_option_config(
         provider,
         key,
         raw_value,
