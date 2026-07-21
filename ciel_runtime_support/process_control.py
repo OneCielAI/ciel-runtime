@@ -211,6 +211,7 @@ class ProcessTreeController:
     def terminate_pid(self, pid: int, label: str, *, quiet: bool = False) -> bool:
         if not self._services.signals.pid_is_running(pid):
             return False
+
         try:
             if self._platform_name == "nt":
                 self._services.query.run(
@@ -237,6 +238,32 @@ class ProcessTreeController:
             if not quiet:
                 self._services.output(f"Could not stop existing {label} session ({type(exc).__name__}).")
             return False
+
+    def terminate_port(
+        self,
+        port: int,
+        label: str,
+        *,
+        quiet: bool = False,
+        pids_on_port: Callable[[int], list[int]],
+        stopped_noun: str = "listener(s)",
+    ) -> bool:
+        pids = pids_on_port(port)
+        protected = {
+            self._services.query.current_pid(),
+            self._services.query.parent_pid(),
+        }
+        stopped = False
+        for pid in pids:
+            if pid in protected:
+                continue
+            stopped = self.terminate_pid(pid, label, quiet=True) or stopped
+        if stopped and not quiet:
+            self._services.output(
+                f"Stopped existing {label} {stopped_noun}: "
+                f"{', '.join(map(str, pids))}."
+            )
+        return stopped
 
     def descendant_pids(self, pid: int) -> list[int]:
         if pid <= 0 or self._platform_name == "nt":

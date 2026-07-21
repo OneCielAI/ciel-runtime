@@ -4719,6 +4719,8 @@ class ArchitectureContractTests(unittest.TestCase):
             "_channel_wake_store_rollback": "rollback",
             "auto_apply_recommended_llm_preset_for_model": "apply_recommended",
             "apply_auto_llm_options_config": "apply_auto",
+            "terminate_posix_port": "terminate_port",
+            "terminate_windows_port": "terminate_port",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "apply_llm_preset_to_provider": "apply_preset_to_provider",

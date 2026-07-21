@@ -78,6 +78,34 @@ class ProcessControlTests(unittest.TestCase):
         self.assertTrue(ProcessTreeController(services, platform_name="posix").terminate_tree(10, "test", quiet=True))
         self.assertEqual({10, 11}, {call.args[0] for call in kill.call_args_list})
 
+    def test_process_tree_terminates_port_listeners_and_skips_protected_pids(self):
+        alive = {10, 12}
+        kill = mock.Mock(side_effect=lambda pid, _signal: alive.discard(pid))
+        output = []
+        services = ProcessControlServices(
+            query=ProcessQueryServices(current_pid=lambda: 10, parent_pid=lambda: 11),
+            signals=ProcessSignalServices(
+                kill=kill,
+                pid_is_running=lambda pid: pid in alive,
+                now=lambda: 0,
+                sleep=mock.Mock(),
+            ),
+            log=mock.Mock(),
+            output=output.append,
+        )
+        controller = ProcessTreeController(services, platform_name="posix")
+
+        self.assertTrue(
+            controller.terminate_port(
+                8788,
+                "proxy",
+                pids_on_port=lambda _port: [10, 12],
+            )
+        )
+
+        kill.assert_called_once_with(12, mock.ANY)
+        self.assertEqual(["Stopped existing proxy listener(s): 10, 12."], output)
+
     def test_windows_process_query_and_termination_are_separate_effects(self):
         run = mock.Mock(
             side_effect=[

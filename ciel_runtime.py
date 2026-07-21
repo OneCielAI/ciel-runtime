@@ -9973,13 +9973,9 @@ def posix_pids_on_port(port: int) -> list[int]:
 
 
 def terminate_posix_port(port: int, label: str, quiet: bool = False) -> bool:
-    stopped = False
-    pids = posix_pids_on_port(port)
-    for pid in pids:
-        stopped = terminate_pid(pid, label, quiet=True) or stopped
-    if stopped and not quiet:
-        print(f"Stopped existing {label} listener(s): {', '.join(map(str, pids))}.")
-    return stopped
+    return process_tree_controller().terminate_port(
+        port, label, quiet=quiet, pids_on_port=posix_pids_on_port
+    )
 
 
 def router_port_listener_pids() -> list[int]:
@@ -10017,19 +10013,13 @@ def ensure_router_port_available_for_spawn(
     )
 
 def terminate_windows_port(port: int, label: str, quiet: bool = False) -> bool:
-    pids = windows_pids_on_port(port)
-    stopped = False
-    for pid in pids:
-        if pid in (os.getpid(), os.getppid()):
-            continue
-        try:
-            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=8)
-            stopped = True
-        except Exception:
-            pass
-    if stopped and not quiet:
-        print(f"Stopped existing {label} session(s): {', '.join(map(str, pids))}.")
-    return stopped
+    return process_tree_controller().terminate_port(
+        port,
+        label,
+        quiet=quiet,
+        pids_on_port=windows_pids_on_port,
+        stopped_noun="session(s)",
+    )
 
 
 def terminate_matching_processes(needles: list[str], label: str, quiet: bool = False) -> bool:
