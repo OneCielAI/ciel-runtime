@@ -4814,13 +4814,11 @@ class ArchitectureContractTests(unittest.TestCase):
             "store_nvidia_api_key": "store",
             "clear_nvidia_api_key": "clear",
             "set_advisor_model_config": "select",
-            "read_clipboard_text": "read_clipboard_text",
             "_channel_stdin_wake_state": "state",
             "_channel_stdin_wake_state_for_message": "state_for_message",
             "_channel_stdin_wake_queued_is_stale_for_message": "queued_is_stale",
             "write_native_mcp_config_from_discovery": "write",
             "_log_codex_app_server_command_for_diagnostics": "codex_app_server",
-            "body_without_ciel_runtime_internal_metadata": "strip_internal_metadata",
             "claude_supports_permission_mode_arg": "supports_permission_mode",
             "_chat_messages_file_lock": "exclusive_file_lock",
             "terminate_active_router_clients": "terminate_active",
@@ -4833,7 +4831,6 @@ class ArchitectureContractTests(unittest.TestCase):
             "openai_context_limit_for_budget": "context_limit",
             "_channel_wake_store_release_stale": "release_stale",
             "_channel_inflight_complete_wake": "complete",
-            "_channel_wake_store_mark_delivered": "mark_delivered",
             "_channel_wake_store_record_prompts": "record_prompts",
             "_channel_wake_store_rollback": "rollback",
             "auto_apply_recommended_llm_preset_for_model": "apply_recommended",
@@ -4923,6 +4920,48 @@ class ArchitectureContractTests(unittest.TestCase):
         for alias, target in aliases:
             with self.subTest(alias=alias):
                 self.assertIs(getattr(ciel_runtime, alias), getattr(ciel_runtime, target))
+
+        static_aliases = (
+            ("_mcp_tool_leaf_name", ciel_runtime.McpNotificationWaitService.tool_leaf_name),
+            ("executable_candidates", ciel_runtime.ExecutableDiscovery.candidates),
+            ("model_context_field", ciel_runtime.ProviderRuntimeInfoService.model_context),
+            ("endpoint_probe_status_label", ciel_runtime.ProviderEndpointProbePolicy.status_label),
+            ("query_int", ciel_runtime.EventHttpAdapter.query_int),
+            ("_safe_segment", ciel_runtime.ChatFileRepository.safe_segment),
+            ("chat_file_markdown_lines", ciel_runtime.ChatFileRepository.markdown_lines),
+            ("_channel_sse_status_public", ciel_runtime.ChannelConnectionRegistry.public_status),
+            ("_channel_sse_public_mcp_name", ciel_runtime.ChannelConnectionRegistry.public_mcp_name),
+            ("codex_mcp_local_sse_hold_seconds", ciel_runtime.McpSplitProxyHttpAdapter.local_sse_hold_seconds),
+            ("truncate_for_prompt", ciel_runtime.ContextSummaryPolicy.truncate),
+            ("is_claude_code_persisted_output_text", ciel_runtime.ContextSummaryPolicy.is_persisted_output),
+            ("_message_tool_markers_for_summary", ciel_runtime.ContextSummaryPolicy.tool_markers),
+            ("_compact_chunk_ranges", ciel_runtime.ContextSummaryPolicy.chunk_ranges),
+            ("_path_identity_text", ciel_runtime.RouterHealthPolicy.path_identity),
+            ("read_clipboard_text", ciel_runtime.terminal_platform_io.read_clipboard_text),
+            ("normalize_llm_preset_token", ciel_runtime.llm_presets.normalize_preset_token),
+            ("is_qwen36_plus_model_id", ciel_runtime.ModelContextHintPolicy.is_qwen36_plus),
+            ("vllm_tool_parser_hint", ciel_runtime.CompatibilityRuntimeProjection.vllm_tool_parser_hint),
+            ("router_managed_idle_exit_seconds", ciel_runtime.ManagedRouterLifetime.idle_exit_seconds),
+            ("router_client_supervisor_interval_seconds", ciel_runtime.RouterClientSupervisor.interval_seconds),
+            ("file_size_or_zero", ciel_runtime.RoutedLaunchDiagnostics.file_size),
+            ("_read_text_file_from_offset", ciel_runtime.RoutedLaunchDiagnostics.read_from_offset),
+            ("body_without_ciel_runtime_internal_metadata", ciel_runtime.channel_llm_context.strip_internal_metadata),
+            ("verify_sha512", ciel_runtime.AgyInstaller.verify_sha512),
+        )
+        for alias, target in static_aliases:
+            with self.subTest(alias=alias):
+                self.assertIs(getattr(ciel_runtime, alias), target)
+        delivered = ciel_runtime._channel_wake_store_mark_delivered
+        self.assertIs(delivered.__self__, ciel_runtime._CHANNEL_WAKE_DELIVERY_REPOSITORY)
+        self.assertIs(delivered.__func__, type(delivered.__self__).mark_delivered)
+        for alias, method_name in (
+            ("chat_file_max_bytes", "configured_max_bytes"),
+            ("chat_file_message_text", "message_text"),
+        ):
+            bound = getattr(ciel_runtime, alias)
+            target = getattr(ciel_runtime.ChatFileRepository, method_name)
+            self.assertIs(bound.__self__, ciel_runtime.ChatFileRepository)
+            self.assertIs(bound.__func__, target.__func__)
 
     def test_static_hook_and_slash_assets_live_outside_facade(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(

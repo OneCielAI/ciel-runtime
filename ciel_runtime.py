@@ -1842,8 +1842,7 @@ def tool_side_effect_dedupe_service() -> ToolSideEffectDedupeService:
     )
 
 
-def _mcp_tool_leaf_name(tool_name: str) -> str:
-    return McpNotificationWaitService.tool_leaf_name(tool_name)
+_mcp_tool_leaf_name = McpNotificationWaitService.tool_leaf_name
 
 
 def _is_mcp_notification_wait_tool(tool_name: str) -> bool:
@@ -2162,8 +2161,7 @@ def load_dotenv_into_environ(path: Path, *, override: bool = True) -> None:
             os.environ[key] = value
 
 
-def executable_candidates(name: str) -> list[str]:
-    return ExecutableDiscovery.candidates(name)
+executable_candidates = ExecutableDiscovery.candidates
 
 
 def executable_discovery() -> ExecutableDiscovery:
@@ -3255,8 +3253,7 @@ def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool 
     )
 
 
-def model_context_field(item: dict[str, Any]) -> int | None:
-    return ProviderRuntimeInfoService.model_context(item)
+model_context_field = ProviderRuntimeInfoService.model_context
 
 
 def ollama_runtime_service() -> OllamaRuntimeService:
@@ -3554,8 +3551,7 @@ def auto_detect_native_compat_for_base_url(provider: str, pcfg: dict[str, Any]) 
     )
 
 
-def endpoint_probe_status_label(value: bool | None) -> str:
-    return ProviderEndpointProbePolicy.status_label(value)
+endpoint_probe_status_label = ProviderEndpointProbePolicy.status_label
 
 
 def compatibility_endpoint_probe_headers(provider: str, pcfg: dict[str, Any]) -> dict[str, str]:
@@ -3788,8 +3784,7 @@ def parse_json_body(raw: bytes) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def query_int(params: dict[str, list[str]], name: str, default: int) -> int:
-    return EventHttpAdapter.query_int(params, name, default)
+query_int = EventHttpAdapter.query_int
 
 
 def event_http_adapter() -> EventHttpAdapter:
@@ -3805,12 +3800,10 @@ def handle_events_get(handler: BaseHTTPRequestHandler, path: str, query: dict[st
     return event_http_adapter().handle_get(handler, path, query)
 
 
-def _safe_segment(value: str, fallback: str = "item") -> str:
-    return ChatFileRepository.safe_segment(value, fallback)
+_safe_segment = ChatFileRepository.safe_segment
 
 
-def chat_file_max_bytes() -> int:
-    return ChatFileRepository.configured_max_bytes()
+chat_file_max_bytes = ChatFileRepository.configured_max_bytes
 
 
 def chat_file_repository() -> ChatFileRepository:
@@ -3829,12 +3822,10 @@ def store_chat_file_from_path(path_value: Any, name: str | None = None, content_
     return chat_file_repository().store_path(path_value, name, content_type)
 
 
-def chat_file_markdown_lines(uploads: list[dict[str, Any]]) -> list[str]:
-    return ChatFileRepository.markdown_lines(uploads)
+chat_file_markdown_lines = ChatFileRepository.markdown_lines
 
 
-def chat_file_message_text(message: str, uploads: list[dict[str, Any]]) -> str:
-    return ChatFileRepository.message_text(message, uploads)
+chat_file_message_text = ChatFileRepository.message_text
 
 
 def _chat_init_next_id() -> int:
@@ -3940,8 +3931,7 @@ def channel_connection_registry() -> ChannelConnectionRegistry:
     )
 
 
-def _channel_sse_status_public(name: str, state: dict[str, Any]) -> dict[str, Any]:
-    return ChannelConnectionRegistry.public_status(name, state)
+_channel_sse_status_public = ChannelConnectionRegistry.public_status
 
 
 def channel_sse_status() -> dict[str, Any]:
@@ -3964,8 +3954,7 @@ def _channel_sse_take_rpc_response(name: str, rpc_id: Any, timeout: float) -> di
     return channel_connection_registry().take_rpc_response(name, rpc_id, timeout)
 
 
-def _channel_sse_public_mcp_name(name: str) -> str:
-    return ChannelConnectionRegistry.public_mcp_name(name)
+_channel_sse_public_mcp_name = ChannelConnectionRegistry.public_mcp_name
 
 
 def _channel_sse_state_name_for_mcp_server(server_name: str) -> str | None:
@@ -3993,8 +3982,7 @@ def codex_mcp_split_proxy_server(path: str) -> tuple[str, dict[str, Any]] | None
     return name, server
 
 
-def codex_mcp_local_sse_hold_seconds() -> float:
-    return McpSplitProxyHttpAdapter.local_sse_hold_seconds()
+codex_mcp_local_sse_hold_seconds = McpSplitProxyHttpAdapter.local_sse_hold_seconds
 
 
 def codex_mcp_split_proxy_enabled() -> bool:
@@ -4678,20 +4666,16 @@ context_compact_extract_text = _CONTEXT_SUMMARY_API.extract_response_text
 build_context_compact_reduce_prompt = _CONTEXT_SUMMARY_API.reduce_prompt
 
 
-def truncate_for_prompt(text: str, limit: int) -> str:
-    return ContextSummaryPolicy.truncate(text, limit)
+truncate_for_prompt = ContextSummaryPolicy.truncate
 
 
-def is_claude_code_persisted_output_text(text: str) -> bool:
-    return ContextSummaryPolicy.is_persisted_output(text)
+is_claude_code_persisted_output_text = ContextSummaryPolicy.is_persisted_output
 
 
-def _message_tool_markers_for_summary(message: dict[str, Any]) -> list[str]:
-    return ContextSummaryPolicy.tool_markers(message)
+_message_tool_markers_for_summary = ContextSummaryPolicy.tool_markers
 
 
-def _compact_chunk_ranges(count: int, chunks: int) -> list[tuple[int, int]]:
-    return ContextSummaryPolicy.chunk_ranges(count, chunks)
+_compact_chunk_ranges = ContextSummaryPolicy.chunk_ranges
 
 
 def context_compact_parallel_sessions(pcfg: dict[str, Any] | None, chunks: int) -> int:
@@ -7098,8 +7082,7 @@ def router_health_matches_current(health: dict[str, Any] | None) -> bool:
     return router_health_policy().matches_current(health)
 
 
-def _path_identity_text(value: Any) -> str:
-    return RouterHealthPolicy.path_identity(value)
+_path_identity_text = RouterHealthPolicy.path_identity
 
 
 def router_health_config_matches_current(health: dict[str, Any] | None) -> bool:
@@ -7287,8 +7270,7 @@ def credential_management_service() -> CredentialManagementService:
     )
 
 
-def read_clipboard_text() -> str:
-    return terminal_platform_io.read_clipboard_text()
+read_clipboard_text = terminal_platform_io.read_clipboard_text
 
 
 def configuration_cli_controller() -> ConfigurationCliController:
@@ -8263,8 +8245,7 @@ Apply the ciel-runtime live LLM preset `{preset_id}` ({description}) to this rou
 """
 
 
-def normalize_llm_preset_token(value: str) -> str:
-    return llm_presets.normalize_preset_token(value)
+normalize_llm_preset_token = llm_presets.normalize_preset_token
 
 
 def resolve_llm_preset_id(value: str) -> str | None:
@@ -8316,8 +8297,7 @@ with_preset_timeout_tokens = _TIMEOUT_PROFILE_API.with_preset_timeout_tokens
 
 
 
-def is_qwen36_plus_model_id(model_id: str) -> bool:
-    return ModelContextHintPolicy.is_qwen36_plus(model_id)
+is_qwen36_plus_model_id = ModelContextHintPolicy.is_qwen36_plus
 
 
 def is_kimi_k3_model_id(model_id: str) -> bool:
@@ -9129,8 +9109,7 @@ def run_compatibility_api_key_probes(
     ).run(provider, pcfg, model, request_body, timeout)
 
 
-def vllm_tool_parser_hint(model: str) -> str | None:
-    return CompatibilityRuntimeProjection.vllm_tool_parser_hint(model)
+vllm_tool_parser_hint = CompatibilityRuntimeProjection.vllm_tool_parser_hint
 
 
 def compatibility_runtime_projection() -> CompatibilityRuntimeProjection:
@@ -9442,8 +9421,7 @@ def router_client_registry() -> RouterClientRegistry:
     )
 
 
-def router_managed_idle_exit_seconds() -> float:
-    return ManagedRouterLifetime.idle_exit_seconds()
+router_managed_idle_exit_seconds = ManagedRouterLifetime.idle_exit_seconds
 
 
 def managed_router_lifetime() -> ManagedRouterLifetime:
@@ -9473,8 +9451,7 @@ def stop_router_if_no_active_clients(reason: str, quiet: bool = True) -> bool:
     return managed_router_lifetime().stop_if_idle(reason, quiet)
 
 
-def router_client_supervisor_interval_seconds() -> float:
-    return RouterClientSupervisor.interval_seconds()
+router_client_supervisor_interval_seconds = RouterClientSupervisor.interval_seconds
 
 
 def router_client_supervisor() -> RouterClientSupervisor:
@@ -9498,12 +9475,10 @@ def start_router_client_supervisor(stop_event: threading.Event) -> threading.Thr
     return router_client_supervisor().start(stop_event)
 
 
-def file_size_or_zero(path: Path) -> int:
-    return RoutedLaunchDiagnostics.file_size(path)
+file_size_or_zero = RoutedLaunchDiagnostics.file_size
 
 
-def _read_text_file_from_offset(path: Path, offset: int = 0, max_bytes: int = 262_144) -> str:
-    return RoutedLaunchDiagnostics.read_from_offset(path, offset, max_bytes)
+_read_text_file_from_offset = RoutedLaunchDiagnostics.read_from_offset
 
 
 def routed_launch_diagnostics() -> RoutedLaunchDiagnostics:
@@ -11020,8 +10995,7 @@ def _commit_channel_llm_cursor_if_newer(last_id: int | None) -> None:
             router_log("WARN", f"channel_llm_cursor_write_failed error={type(exc).__name__}: {exc}")
 
 
-def body_without_ciel_runtime_internal_metadata(body: dict[str, Any]) -> dict[str, Any]:
-    return channel_llm_context.strip_internal_metadata(body)
+body_without_ciel_runtime_internal_metadata = channel_llm_context.strip_internal_metadata
 
 
 def commit_pending_channel_delivery_cursors(
@@ -11410,8 +11384,7 @@ def channel_inflight_effects() -> ChannelInflightEffects:
     )
 
 
-def _channel_wake_store_mark_delivered(message_id: int) -> bool:
-    return _CHANNEL_WAKE_DELIVERY_REPOSITORY.mark_delivered(message_id)
+_channel_wake_store_mark_delivered = _CHANNEL_WAKE_DELIVERY_REPOSITORY.mark_delivered
 
 
 def _channel_wake_store_record_prompts(messages: list[dict[str, Any]], prompt: str) -> None:
@@ -12260,8 +12233,7 @@ def agy_current_version(agy: str) -> str:
     return AgyInstaller.current_version(agy)
 
 
-def verify_sha512(path: Path, expected: str) -> bool:
-    return AgyInstaller.verify_sha512(path, expected)
+verify_sha512 = AgyInstaller.verify_sha512
 
 
 def install_agy_from_manifest(manifest: dict[str, Any]) -> str | None:
