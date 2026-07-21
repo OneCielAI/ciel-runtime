@@ -1443,6 +1443,7 @@ from ciel_runtime_support.runtime_constants import (
     CHAT_MESSAGE_FALLBACK_DEDUPE_TTL_SECONDS,
     CLAUDE_SERVER_SIDE_WEB_TOOLS,  # noqa: F401 - compatibility export
     CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS,
+    CODEX_RUNTIME_API_KEY_ENV,
     CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS,
     CREDITS,
     DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC,
@@ -1472,11 +1473,11 @@ from ciel_runtime_support.runtime_constants import (
     OPENCODE_ZEN_BASE_URL,  # noqa: F401 - compatibility export
     PLAN_GUARD_MARKER,  # noqa: F401 - compatibility export
     PLAN_MODE_SELF_TOOLS,
-    PRELAUNCH_CANCEL,
-    PRELAUNCH_LAUNCH_AGY,
-    PRELAUNCH_LAUNCH_CLAUDE,
-    PRELAUNCH_LAUNCH_CODEX,
-    PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+    PRELAUNCH_CANCEL,  # noqa: F401 - compatibility export
+    PRELAUNCH_LAUNCH_AGY,  # noqa: F401 - compatibility export
+    PRELAUNCH_LAUNCH_CLAUDE,  # noqa: F401 - compatibility export
+    PRELAUNCH_LAUNCH_CODEX,  # noqa: F401 - compatibility export
+    PRELAUNCH_LAUNCH_CODEX_APP_SERVER,  # noqa: F401 - compatibility export
     PROVIDER_ALIASES,
     REQUEST_DUMP_MAX_BYTES,
     RESPONSE_DUMP_MAX_BYTES,
@@ -12418,7 +12419,6 @@ def launch_claude(
 
 
 CODEX_RUNTIME_PROVIDER_ID = "ciel-runtime"
-CODEX_RUNTIME_API_KEY_ENV = "CIEL_RUNTIME_CODEX_API_KEY"
 CODEX_NATIVE_PROVIDER_ID_ENV = "CIEL_RUNTIME_CODEX_NATIVE_PROVIDER_ID"
 CODEX_ROUTED_PROVIDER_ID = "ciel-runtime-codex"
 CODEX_ROUTED_UPSTREAM_BASE = "https://chatgpt.com/backend-api/codex"
@@ -12583,15 +12583,7 @@ def launch_codex(
         passthrough, skip_menu=skip_menu, force_menu=force_menu,
         update_check=update_check, self_update_check=self_update_check,
         services=runtime_launch.CodexLaunchServices(
-            constants=runtime_launch.CodexLaunchConstants(
-                CODEX_RUNTIME_API_KEY_ENV=CODEX_RUNTIME_API_KEY_ENV,
-                CONFIG_DIR=CONFIG_DIR,
-                PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
-                PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
-                PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
-                PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
-                PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
-            ),
+            constants=runtime_launch.build_default_codex_launch_constants(),
             process=runtime_launch.CodexLaunchProcess(
                 _channel_wake_enter_env_is_fixed=_channel_wake_enter_env_is_fixed,
                 _codex_channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds,
@@ -12691,15 +12683,7 @@ def launch_codex_app_server(
         passthrough, skip_menu=skip_menu, force_menu=force_menu,
         update_check=update_check, self_update_check=self_update_check,
         services=runtime_launch.CodexAppServerLaunchServices(
-            constants=runtime_launch.CodexLaunchConstants(
-                CODEX_RUNTIME_API_KEY_ENV=CODEX_RUNTIME_API_KEY_ENV,
-                CONFIG_DIR=CONFIG_DIR,
-                PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
-                PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
-                PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
-                PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
-                PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
-            ),
+            constants=runtime_launch.build_default_codex_launch_constants(),
             process=runtime_launch.CodexAppServerProcess(
                 _log_codex_app_server_command_for_diagnostics=_log_codex_app_server_command_for_diagnostics,
                 codex_process_record_path=codex_process_record_path,
@@ -12790,13 +12774,7 @@ def launch_agy(
         passthrough, skip_menu=skip_menu, force_menu=force_menu,
         update_check=update_check, self_update_check=self_update_check,
         services=runtime_launch.AgyLaunchServices(
-            constants=runtime_launch.AgyLaunchConstants(
-                PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
-                PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
-                PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
-                PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
-                PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
-            ),
+            constants=runtime_launch.build_default_agy_launch_constants(),
             process=runtime_launch.AgyLaunchProcess(
                 _codex_channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds,
                 _codex_channel_wake_submit_retries=_codex_channel_wake_submit_retries,

@@ -793,7 +793,7 @@ Provider UI와 분리된 Runtime×Provider 호환성 정책. native Provider의 
 
 ### `ciel_runtime_support/runtime_launch.py`
 
-Claude, Codex, Codex App Server, AGY 프로세스 실행과 라우터·채널 수명주기를 조정하는 런타임 애플리케이션 서비스. Claude가 생성하는 greedy CLI option 집합과 불변 Claude launch 정책 상수의 기본 Factory도 이 경계에 둔다.
+Claude, Codex, Codex App Server, AGY 프로세스 실행과 라우터·채널 수명주기를 조정하는 런타임 애플리케이션 서비스. Claude가 생성하는 greedy CLI option 집합과 각 런타임의 불변 launch 정책 상수 Factory도 이 경계에 두며, Codex와 App Server는 같은 기본 상수 구성을 공유한다.
 
 ### `ciel_runtime_support/streaming_anthropic.py`
 

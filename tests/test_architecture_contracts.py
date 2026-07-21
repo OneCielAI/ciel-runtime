@@ -685,6 +685,7 @@ from ciel_runtime_support.runtime_launch import (
     AgyLaunchProcess,
     AgyLaunchRouting,
     AgyLaunchServices,
+    build_default_agy_launch_constants,
     ClaudeLaunchChannelDelivery,
     ClaudeLaunchChannelDiscovery,
     ClaudeLaunchConfig,
@@ -706,6 +707,7 @@ from ciel_runtime_support.runtime_launch import (
     CodexLaunchProcess,
     CodexLaunchRouting,
     CodexLaunchServices,
+    build_default_codex_launch_constants,
     CodexAppServerChannel,
     CodexAppServerCliPolicy,
     CodexAppServerConfig,
@@ -1196,6 +1198,11 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
+        self.assertEqual(
+            "ciel_runtime_support.runtime_launch",
+            build_default_codex_launch_constants.__module__,
+        )
+
     def test_codex_app_server_ports_stay_below_dependency_limit(self):
         ports = (
             CodexAppServerLaunchServices,
@@ -1228,6 +1235,16 @@ class ArchitectureContractTests(unittest.TestCase):
         for port in ports:
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+        self.assertEqual(
+            "ciel_runtime_support.runtime_launch",
+            build_default_agy_launch_constants.__module__,
+        )
+        source = (
+            Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("constants=runtime_launch.CodexLaunchConstants(", source)
+        self.assertNotIn("constants=runtime_launch.AgyLaunchConstants(", source)
 
     def test_router_http_ports_stay_below_dependency_limit(self):
         for port in (

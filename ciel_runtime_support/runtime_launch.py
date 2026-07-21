@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from ciel_runtime_support.channel_message_prompt import NATIVE_ROUTER_CHANNEL_NAMES
 from ciel_runtime_support.runtime_constants import (
     CLAUDE_SERVER_SIDE_WEB_TOOLS,
+    CODEX_RUNTIME_API_KEY_ENV,
     PRELAUNCH_CANCEL,
     PRELAUNCH_LAUNCH_AGY,
     PRELAUNCH_LAUNCH_CLAUDE,
@@ -17,7 +18,7 @@ from ciel_runtime_support.runtime_constants import (
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
     ROUTED_COMPAT_PROMPT,
 )
-from ciel_runtime_support.runtime_paths import LOG_PATH
+from ciel_runtime_support.runtime_paths import CONFIG_DIR, LOG_PATH
 
 
 CLAUDE_CODE_GENERATED_GREEDY_OPTIONS = frozenset(
@@ -622,6 +623,19 @@ class CodexLaunchConstants:
     PRELAUNCH_LAUNCH_CLAUDE: Any
     PRELAUNCH_LAUNCH_CODEX: Any
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER: Any
+
+
+def build_default_codex_launch_constants() -> CodexLaunchConstants:
+    """Build immutable Codex and App Server launch constants."""
+    return CodexLaunchConstants(
+        CODEX_RUNTIME_API_KEY_ENV=CODEX_RUNTIME_API_KEY_ENV,
+        CONFIG_DIR=CONFIG_DIR,
+        PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
+        PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
+        PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
+        PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
+        PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1252,6 +1266,17 @@ class AgyLaunchConstants:
     PRELAUNCH_LAUNCH_CLAUDE: Any
     PRELAUNCH_LAUNCH_CODEX: Any
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER: Any
+
+
+def build_default_agy_launch_constants() -> AgyLaunchConstants:
+    """Build immutable AGY launch dispatch constants."""
+    return AgyLaunchConstants(
+        PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
+        PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
+        PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
+        PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
+        PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+    )
 
 
 @dataclass(frozen=True, slots=True)
