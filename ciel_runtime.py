@@ -554,6 +554,7 @@ from ciel_runtime_support.router_process_lifecycle import (
     terminate_health_pid as terminate_project_router_health_pid,
     terminate_pid_file as terminate_project_pid_file,
 )
+from ciel_runtime_support import router_server_runtime
 from ciel_runtime_support.router_client_lifecycle import (
     ManagedRouterLifetime,
     ManagedRouterLifetimePorts,
@@ -7203,35 +7204,21 @@ class RouterHandler(RouterHttpHandler):
 
 
 def serve(_: argparse.Namespace) -> None:
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    cfg = load_config()
-    reset_api_key_cooldowns_for_router_start()
-    bind_host = router_bind_host(cfg)
-    PID_PATH.write_text(str(os.getpid()))
-    os.chmod(PID_PATH, 0o600)
-    lvl = current_log_level()
-    src = "file" if LOG_LEVEL_PATH.exists() else ("env" if os.environ.get("CIEL_RUNTIME_LOG_LEVEL") else "default")
-    sys.stderr.write(
-        f"ciel-runtime router starting on {bind_host}:{ROUTER_PORT} "
-        f"(client base {ROUTER_BASE}, log level {LOG_LEVEL_NAMES.get(lvl, lvl)}, source={src})\n"
-    )
-    sys.stderr.flush()
-    server = ThreadingHTTPServer((bind_host, ROUTER_PORT), RouterHandler)
-    start_managed_router_lifetime_watchdog(server)
-    channel_start_thread = threading.Thread(
-        target=lambda: start_router_managed_channel_sse(cfg),
-        daemon=True,
-        name="ca-router-channel-sse-start",
-    )
-    channel_start_thread.start()
-    try:
-        server.serve_forever()
-    finally:
-        stop_channel_sse_connection(None)
-        try:
-            PID_PATH.unlink()
-        except FileNotFoundError:
-            pass
+    router_server_runtime.RouterServerRuntime(
+        router_server_runtime.RouterServerConfig(
+            CONFIG_DIR, PID_PATH, ROUTER_PORT, ROUTER_BASE, LOG_LEVEL_PATH,
+            LOG_LEVEL_NAMES, RouterHandler,
+        ),
+        router_server_runtime.RouterServerStatePorts(
+            load_config, reset_api_key_cooldowns_for_router_start, router_bind_host,
+            current_log_level, os.getpid, os.environ.get,
+        ),
+        router_server_runtime.RouterServerEffects(
+            os.chmod, sys.stderr, ThreadingHTTPServer,
+            start_managed_router_lifetime_watchdog, start_router_managed_channel_sse,
+            stop_channel_sse_connection, threading.Thread,
+        ),
+    ).run()
 
 
 def router_health() -> dict[str, Any] | None:

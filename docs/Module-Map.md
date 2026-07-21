@@ -1112,6 +1112,10 @@ Provider alias, model/catalog 기본값, launch code, logging limit, tool policy
 
 Router PID file 종료, health PID 보호, foreign-config 충돌 거부, 포트 교체 대기·종료 보장과 managed router spawn/reuse/version replacement를 조정하는 Process Lifecycle Application Service. 지연 self-exec 재시작과 이중 실패 stderr 진단도 이 경계가 소유한다. OS별 process 조회·signal, health repository, spawn effect와 clock은 typed port로 주입된다.
 
+### `ciel_runtime_support/router_server_runtime.py`
+
+Router HTTP server의 config/PID 준비, startup banner, server·watchdog 시작, managed channel thread 실행과 finally cleanup을 조정하는 Application Service. 상태 조회와 OS/HTTP/thread 효과를 각각 10필드 이하 typed port로 분리하며 facade의 `serve`는 composition과 호환 진입점만 담당한다.
+
 ### `ciel_runtime_support/router_access.py`
 
 Router bind host, loopback 신뢰, bearer-token 비교와 external-debug 확인 정책을 소유하는 Security Policy. token의 환경 우선순위와 원자적 생성은 `RouterExternalTokenRepository`, 설정 변경은 typed port를 사용하는 `RouterAccessConfigService`, 401/403 JSON 거부 응답은 `RouterAccessHttpController`로 분리한다.
