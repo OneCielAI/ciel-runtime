@@ -759,7 +759,7 @@ Provider compatibility 전략에 따라 LM Studio runtime metadata 또는 일반
 
 ### `ciel_runtime_support/prelaunch.py`
 
-공급자·모델·채널·컨텍스트 설정 패널을 조정하는 사전 실행 메뉴 애플리케이션 서비스.
+공급자·모델·채널·컨텍스트 설정 패널을 조정하는 사전 실행 메뉴 애플리케이션 서비스. 최상위 menu action 순서도 이 bounded context의 immutable configuration으로 소유한다.
 
 ### `ciel_runtime_support/prelaunch_panel_projection.py`
 
@@ -793,7 +793,7 @@ Provider UI와 분리된 Runtime×Provider 호환성 정책. native Provider의 
 
 ### `ciel_runtime_support/runtime_launch.py`
 
-Claude, Codex, Codex App Server, AGY 프로세스 실행과 라우터·채널 수명주기를 조정하는 런타임 애플리케이션 서비스.
+Claude, Codex, Codex App Server, AGY 프로세스 실행과 라우터·채널 수명주기를 조정하는 런타임 애플리케이션 서비스. Claude가 생성하는 greedy CLI option 집합도 launch parsing 정책과 함께 이 경계에 둔다.
 
 ### `ciel_runtime_support/streaming_anthropic.py`
 
@@ -941,7 +941,7 @@ Advisor 피드백을 원 응답 주위에 적용하는 bounded refinement decora
 
 ### `ciel_runtime_support/advisor_request_builder.py`
 
-I/O 없이 provider별 Advisor 요청을 구성하고 응답을 해석하는 Request Builder. endpoint, budget, projection 책임을 분리된 포트로 표현한다. Anthropic OAuth 요청의 첫 identity block을 보존하면서 review/original/additional context 순서를 투영하는 불변 System Policy도 소유한다.
+I/O 없이 provider별 Advisor 요청을 구성하고 응답을 해석하는 Request Builder. endpoint, budget, projection 책임을 분리된 포트로 표현한다. Advisor review prompt와 Anthropic OAuth 요청의 첫 identity block을 보존하면서 review/original/additional context 순서를 투영하는 불변 System Policy도 소유한다.
 
 ### `ciel_runtime_support/anthropic_response_writer.py`
 
@@ -1106,7 +1106,7 @@ Windows/POSIX 사용자 경로, config artifact 위치와 사용자별 local rou
 
 ### `ciel_runtime_support/runtime_constants.py`
 
-Provider alias, model/catalog 기본값, launch code, logging limit, tool policy와 routed compatibility prompt를 소유하는 immutable Data Configuration 모듈. 런타임 상태나 facade에 의존하지 않으며 entrypoint는 필요한 이름만 compatibility export한다.
+Provider alias, model/catalog 기본값, launch code, logging limit, tool policy, routed compatibility prompt와 launch endpoint provider group을 소유하는 immutable Data Configuration 모듈. 런타임 상태나 facade에 의존하지 않으며 entrypoint는 필요한 이름만 compatibility export한다.
 
 ### `ciel_runtime_support/router_process_lifecycle.py`
 

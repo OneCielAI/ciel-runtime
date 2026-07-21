@@ -7,6 +7,16 @@ from dataclasses import dataclass
 from typing import Any
 
 
+ADVISOR_REVIEW_PROMPT = (
+    "You are ciel-runtime Advisor, a stronger reviewer model. Review the current task state and provide "
+    "concise, actionable guidance for the executor model. Review now; do not say that you will review later. "
+    "Do not write code unless a small exact patch is the clearest advice. Use this exact structure: "
+    "Verdict: approve, revise, or continue. Key findings: concrete gaps or risks. Required next action: "
+    "the next action or Claude Code tool call. Validation: the check that proves the work. "
+    "If the executor is stuck after progress announcements, tell it the exact next Claude Code tool to call."
+)
+
+
 @dataclass(frozen=True, slots=True)
 class AdvisorProjectionPorts:
     provider_kind: Callable[..., str]

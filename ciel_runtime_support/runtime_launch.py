@@ -8,6 +8,11 @@ from typing import Any, Callable
 from dataclasses import dataclass
 
 
+CLAUDE_CODE_GENERATED_GREEDY_OPTIONS = frozenset(
+    {"--mcp-config", "--dangerously-load-development-channels"}
+)
+
+
 @dataclass(frozen=True, slots=True)
 class ClaudeLaunchConstants:
     CLAUDE_SERVER_SIDE_WEB_TOOLS: Any

@@ -118,6 +118,16 @@ DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC = (
     "WebSearch", "web_search", "WebFetch", "web_fetch", "RemoteTrigger", "PushNotification",
 )
 CLAUDE_SERVER_SIDE_WEB_TOOLS = ("WebSearch", "WebFetch")
+OPENAI_COMPATIBLE_ROUTER_PROVIDERS = (
+    "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "openrouter"
+)
+CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS = (
+    *OPENAI_COMPATIBLE_ROUTER_PROVIDERS,
+    "kimi",
+    "fireworks",
+)
+AUTO_DETECT_NATIVE_COMPAT_PROVIDERS = ("vllm", "lm-studio", "self-hosted-nim")
+CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS = ("deepseek", "kimi", "zai", "fireworks")
 ROUTED_COMPAT_PROMPT = (
     "You are running inside Claude Code through the ciel-runtime router. Do not stop after announcing what you plan to do. "
     "When the user asks you to create, edit, or run code, immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, "

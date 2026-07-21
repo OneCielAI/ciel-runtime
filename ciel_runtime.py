@@ -42,6 +42,7 @@ from ciel_runtime_support.advisor_policy import (
     tool_review_context_from_message as project_tool_review_context,
 )
 from ciel_runtime_support.advisor_request_builder import (
+    ADVISOR_REVIEW_PROMPT,
     AdvisorAnthropicSystemPolicy,
     AdvisorBudgetPorts,
     AdvisorEndpointPorts,
@@ -1430,6 +1431,7 @@ from ciel_runtime_support.runtime_constants import (
     ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS,
     ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS,
     ANTHROPIC_THINKING_BLOCK_TYPES,
+    AUTO_DETECT_NATIVE_COMPAT_PROVIDERS,
     APP_NAME,
     BUILTIN_CHANNEL_SPEC,
     CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT,
@@ -1439,6 +1441,8 @@ from ciel_runtime_support.runtime_constants import (
     CHAT_MESSAGE_DEDUPE_SCAN_LIMIT,
     CHAT_MESSAGE_FALLBACK_DEDUPE_TTL_SECONDS,
     CLAUDE_SERVER_SIDE_WEB_TOOLS,
+    CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS,
+    CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS,
     CREDITS,
     DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC,
     DEFAULT_REQUEST_TIMEOUT_MS,
@@ -1453,6 +1457,7 @@ from ciel_runtime_support.runtime_constants import (
     LM_STUDIO_DEFAULT_CLAUDE_CODE_CONTEXT,
     LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT,
     MCP_PROXY_TOOL_RESULT_ITEM_TEXT_CHARS,
+    OPENAI_COMPATIBLE_ROUTER_PROVIDERS,  # noqa: F401 - compatibility export
     MCP_PROXY_TOOL_RESULT_MAX_CHARS_DEFAULT,
     MODEL_CACHE_TTL_SECONDS,
     MODEL_PRESETS,
@@ -3487,20 +3492,6 @@ def native_anthropic_base_url(provider: str, pcfg: dict[str, Any]) -> str:
     if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "openrouter", "kimi", "fireworks") and base.endswith("/v1"):
         return base[:-3].rstrip("/")
     return base
-
-
-OPENAI_COMPATIBLE_ROUTER_PROVIDERS = ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "openrouter")
-CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS = (
-    "vllm",
-    "lm-studio",
-    "nvidia-hosted",
-    "self-hosted-nim",
-    "openrouter",
-    "kimi",
-    "fireworks",
-)
-AUTO_DETECT_NATIVE_COMPAT_PROVIDERS = ("vllm", "lm-studio", "self-hosted-nim")
-CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS = ("deepseek", "kimi", "zai", "fireworks")
 
 
 def provider_openai_router_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
@@ -5568,16 +5559,6 @@ def openai_compatible_chat_request(provider: str, model: str, body: dict[str, An
         pcfg,
         stream=stream,
     )
-
-ADVISOR_REVIEW_PROMPT = (
-    "You are ciel-runtime Advisor, a stronger reviewer model. Review the current task state and provide "
-    "concise, actionable guidance for the executor model. Review now; do not say that you will review later. "
-    "Do not write code unless a small exact patch is the clearest advice. Use this exact structure: "
-    "Verdict: approve, revise, or continue. Key findings: concrete gaps or risks. Required next action: "
-    "the next action or Claude Code tool call. Validation: the check that proves the work. "
-    "If the executor is stuck after progress announcements, tell it the exact next Claude Code tool to call."
-)
-
 
 def advisor_request_builder() -> AdvisorRequestBuilder:
     return AdvisorRequestBuilder(
@@ -10193,22 +10174,7 @@ def current_provider_panel_choice(provider: str, pcfg: dict[str, Any]) -> str:
     return provider
 
 
-MAIN_MENU_ACTIONS: tuple[str, ...] = (
-    "language",
-    "provider",
-    "api-key",
-    "base-url",
-    "model",
-    "advisor-model",
-    "options",
-    "log-level",
-    "test",
-    "launch",
-    "launch-codex",
-    "launch-codex-app-server",
-    "launch-agy",
-    "quit",
-)
+MAIN_MENU_ACTIONS = prelaunch.MAIN_MENU_ACTIONS
 
 
 def provider_ui_policy(provider: str, pcfg: dict[str, Any]):
@@ -10691,10 +10657,7 @@ def should_disallow_claude_server_side_web_tools(
     return not use_native_anthropic and not anthropic_routed_enabled(provider, pcfg)
 
 
-CLAUDE_CODE_GENERATED_GREEDY_OPTIONS = {
-    "--mcp-config",
-    "--dangerously-load-development-channels",
-}
+CLAUDE_CODE_GENERATED_GREEDY_OPTIONS = runtime_launch.CLAUDE_CODE_GENERATED_GREEDY_OPTIONS
 
 
 def should_insert_passthrough_option_boundary(extra_args: list[str], passthrough: list[str]) -> bool:

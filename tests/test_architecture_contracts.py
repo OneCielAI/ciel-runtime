@@ -4847,6 +4847,32 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn('VERSION_SLASH_COMMAND = """', source)
         self.assertNotIn('LEGACY_MARKER_PREFIX = "CLAUDE"', source)
 
+    def test_bounded_context_static_configuration_lives_outside_facade(self):
+        import ciel_runtime
+        from ciel_runtime_support import prelaunch, runtime_launch
+        from ciel_runtime_support.advisor_request_builder import ADVISOR_REVIEW_PROMPT
+        from ciel_runtime_support.runtime_constants import (
+            CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS,
+        )
+
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("ADVISOR_REVIEW_PROMPT = (", source)
+        self.assertNotIn("MAIN_MENU_ACTIONS: tuple", source)
+        self.assertNotIn("CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS = (", source)
+        self.assertNotIn("CLAUDE_CODE_GENERATED_GREEDY_OPTIONS = {", source)
+        self.assertIs(ciel_runtime.ADVISOR_REVIEW_PROMPT, ADVISOR_REVIEW_PROMPT)
+        self.assertIs(ciel_runtime.MAIN_MENU_ACTIONS, prelaunch.MAIN_MENU_ACTIONS)
+        self.assertIs(
+            ciel_runtime.CLAUDE_CODE_GENERATED_GREEDY_OPTIONS,
+            runtime_launch.CLAUDE_CODE_GENERATED_GREEDY_OPTIONS,
+        )
+        self.assertIs(
+            ciel_runtime.CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS,
+            CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS,
+        )
+
     def test_cli_runtime_adapter_materializes_launch_spec(self):
         provider = ProviderConfig(name="test", base_url="http://localhost", model="model")
         runtime = RuntimeConfig(name="codex", executable="codex", enable_channels=True)

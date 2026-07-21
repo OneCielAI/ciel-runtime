@@ -6,6 +6,24 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 
+MAIN_MENU_ACTIONS: tuple[str, ...] = (
+    "language",
+    "provider",
+    "api-key",
+    "base-url",
+    "model",
+    "advisor-model",
+    "options",
+    "log-level",
+    "test",
+    "launch",
+    "launch-codex",
+    "launch-codex-app-server",
+    "launch-agy",
+    "quit",
+)
+
+
 @dataclass(frozen=True, slots=True)
 class PrelaunchConstants:
     LANGUAGES: Any
