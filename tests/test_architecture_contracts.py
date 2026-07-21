@@ -637,6 +637,7 @@ from ciel_runtime_support.prelaunch import (
     PrelaunchSecrets,
     PrelaunchServices,
     PrelaunchTerminal,
+    build_default_prelaunch_constants,
 )
 from ciel_runtime_support.prelaunch_panel_projection import (
     ConfigurationPanelPorts,
@@ -695,6 +696,7 @@ from ciel_runtime_support.runtime_launch import (
     ClaudeLaunchProcess,
     ClaudeLaunchRouting,
     ClaudeLaunchServices,
+    build_default_claude_launch_constants,
     CodexLaunchChannel,
     CodexLaunchCliPolicy,
     CodexLaunchConfig,
@@ -1083,6 +1085,11 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
 
+        self.assertEqual(
+            "ciel_runtime_support.runtime_launch",
+            build_default_claude_launch_constants.__module__,
+        )
+
     def test_claude_router_ports_stay_below_dependency_limit(self):
         for port in (
             ClaudeRouterCore,
@@ -1117,6 +1124,17 @@ class ArchitectureContractTests(unittest.TestCase):
         for port in ports:
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+        self.assertEqual(
+            "ciel_runtime_support.prelaunch",
+            build_default_prelaunch_constants.__module__,
+        )
+
+        source = (
+            Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("constants=prelaunch.PrelaunchConstants(", source)
+        self.assertNotIn("constants=runtime_launch.ClaudeLaunchConstants(", source)
 
     def test_prelaunch_panel_projection_owns_panel_row_policy(self):
         for port in (

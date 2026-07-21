@@ -7,6 +7,18 @@ from pathlib import Path
 from typing import Any, Callable
 from dataclasses import dataclass
 
+from ciel_runtime_support.channel_message_prompt import NATIVE_ROUTER_CHANNEL_NAMES
+from ciel_runtime_support.runtime_constants import (
+    CLAUDE_SERVER_SIDE_WEB_TOOLS,
+    PRELAUNCH_CANCEL,
+    PRELAUNCH_LAUNCH_AGY,
+    PRELAUNCH_LAUNCH_CLAUDE,
+    PRELAUNCH_LAUNCH_CODEX,
+    PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+    ROUTED_COMPAT_PROMPT,
+)
+from ciel_runtime_support.runtime_paths import LOG_PATH
+
 
 CLAUDE_CODE_GENERATED_GREEDY_OPTIONS = frozenset(
     {"--mcp-config", "--dangerously-load-development-channels"}
@@ -24,6 +36,21 @@ class ClaudeLaunchConstants:
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER: Any
     ROUTED_COMPAT_PROMPT: Any
     _NATIVE_ROUTER_CHANNEL_NAMES: Any
+
+
+def build_default_claude_launch_constants() -> ClaudeLaunchConstants:
+    """Build immutable Claude launch policy constants at their owner boundary."""
+    return ClaudeLaunchConstants(
+        CLAUDE_SERVER_SIDE_WEB_TOOLS=CLAUDE_SERVER_SIDE_WEB_TOOLS,
+        LOG_PATH=LOG_PATH,
+        PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
+        PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
+        PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
+        PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
+        PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+        ROUTED_COMPAT_PROMPT=ROUTED_COMPAT_PROMPT,
+        _NATIVE_ROUTER_CHANNEL_NAMES=NATIVE_ROUTER_CHANNEL_NAMES,
+    )
 
 
 @dataclass(frozen=True, slots=True)

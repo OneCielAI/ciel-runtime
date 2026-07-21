@@ -5,6 +5,17 @@ import sys
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from ciel_runtime_support.llm_presentation_data import LLM_OPTION_TOGGLE_KEYS
+from ciel_runtime_support.provider_adapters import PROVIDER_LABELS
+from ciel_runtime_support.runtime_constants import (
+    LANGUAGES,
+    PRELAUNCH_CANCEL,
+    PRELAUNCH_LAUNCH_AGY,
+    PRELAUNCH_LAUNCH_CLAUDE,
+    PRELAUNCH_LAUNCH_CODEX,
+    PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+)
+
 
 MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "language",
@@ -35,6 +46,21 @@ class PrelaunchConstants:
     PRELAUNCH_LAUNCH_CODEX: Any
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER: Any
     PROVIDER_LABELS: Any
+
+
+def build_default_prelaunch_constants() -> PrelaunchConstants:
+    """Build the menu's immutable presentation and dispatch constants."""
+    return PrelaunchConstants(
+        LANGUAGES=LANGUAGES,
+        LLM_OPTION_TOGGLE_KEYS=LLM_OPTION_TOGGLE_KEYS,
+        MAIN_MENU_ACTIONS=MAIN_MENU_ACTIONS,
+        PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
+        PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
+        PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
+        PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
+        PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+        PROVIDER_LABELS=PROVIDER_LABELS,
+    )
 
 
 @dataclass(frozen=True, slots=True)

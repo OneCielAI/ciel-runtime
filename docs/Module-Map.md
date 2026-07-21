@@ -759,7 +759,7 @@ Provider compatibility 전략에 따라 LM Studio runtime metadata 또는 일반
 
 ### `ciel_runtime_support/prelaunch.py`
 
-공급자·모델·채널·컨텍스트 설정 패널을 조정하는 사전 실행 메뉴 애플리케이션 서비스. 최상위 menu action 순서도 이 bounded context의 immutable configuration으로 소유한다.
+공급자·모델·채널·컨텍스트 설정 패널을 조정하는 사전 실행 메뉴 애플리케이션 서비스. 최상위 menu action 순서와 표준 언어·provider·dispatch 상수 조립도 이 bounded context의 immutable configuration Factory가 소유한다.
 
 ### `ciel_runtime_support/prelaunch_panel_projection.py`
 
@@ -793,7 +793,7 @@ Provider UI와 분리된 Runtime×Provider 호환성 정책. native Provider의 
 
 ### `ciel_runtime_support/runtime_launch.py`
 
-Claude, Codex, Codex App Server, AGY 프로세스 실행과 라우터·채널 수명주기를 조정하는 런타임 애플리케이션 서비스. Claude가 생성하는 greedy CLI option 집합도 launch parsing 정책과 함께 이 경계에 둔다.
+Claude, Codex, Codex App Server, AGY 프로세스 실행과 라우터·채널 수명주기를 조정하는 런타임 애플리케이션 서비스. Claude가 생성하는 greedy CLI option 집합과 불변 Claude launch 정책 상수의 기본 Factory도 이 경계에 둔다.
 
 ### `ciel_runtime_support/streaming_anthropic.py`
 

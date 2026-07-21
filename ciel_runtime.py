@@ -679,7 +679,7 @@ from ciel_runtime_support.llm_presentation_data import (
     AUTO_TIMEOUT_ROUND_MS,
     CONTEXT_HEAVY_PRESETS,
     LLM_OPTION_DESCRIPTIONS,
-    LLM_OPTION_TOGGLE_KEYS,
+    LLM_OPTION_TOGGLE_KEYS,  # noqa: F401 - compatibility export
     LLM_PRESET_I18N,
     LLM_PRESET_TIMEOUT_MS,
     LLM_PRESETS,
@@ -1441,7 +1441,7 @@ from ciel_runtime_support.runtime_constants import (
     CHAT_MESSAGES_MAX_BYTES,
     CHAT_MESSAGE_DEDUPE_SCAN_LIMIT,
     CHAT_MESSAGE_FALLBACK_DEDUPE_TTL_SECONDS,
-    CLAUDE_SERVER_SIDE_WEB_TOOLS,
+    CLAUDE_SERVER_SIDE_WEB_TOOLS,  # noqa: F401 - compatibility export
     CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS,
     CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS,
     CREDITS,
@@ -1481,7 +1481,7 @@ from ciel_runtime_support.runtime_constants import (
     REQUEST_DUMP_MAX_BYTES,
     RESPONSE_DUMP_MAX_BYTES,
     RESPONSE_DUMP_TEXT_LIMIT,
-    ROUTED_COMPAT_PROMPT,
+    ROUTED_COMPAT_PROMPT,  # noqa: F401 - compatibility export
     ROUTER_LOG_MAX_BYTES,
     SSE_TRACE_EVENT_LIMIT,
     SSE_TRACE_MAX_BYTES,
@@ -10446,17 +10446,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
     return execute_prelaunch_menu(
         passthrough,
         services=prelaunch.PrelaunchServices(
-            constants=prelaunch.PrelaunchConstants(
-                LANGUAGES=LANGUAGES,
-                LLM_OPTION_TOGGLE_KEYS=LLM_OPTION_TOGGLE_KEYS,
-                MAIN_MENU_ACTIONS=MAIN_MENU_ACTIONS,
-                PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
-                PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
-                PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
-                PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
-                PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
-                PROVIDER_LABELS=PROVIDER_LABELS,
-            ),
+            constants=prelaunch.build_default_prelaunch_constants(),
             terminal=prelaunch.PrelaunchTerminal(
                 default_prelaunch_action=default_prelaunch_action,
                 enable_ansi=enable_ansi,
@@ -12327,17 +12317,7 @@ def launch_claude(
         web_search_override=web_search_override, update_check=update_check,
         self_update_check=self_update_check,
         services=runtime_launch.ClaudeLaunchServices(
-            constants=runtime_launch.ClaudeLaunchConstants(
-                CLAUDE_SERVER_SIDE_WEB_TOOLS=CLAUDE_SERVER_SIDE_WEB_TOOLS,
-                LOG_PATH=LOG_PATH,
-                PRELAUNCH_CANCEL=PRELAUNCH_CANCEL,
-                PRELAUNCH_LAUNCH_AGY=PRELAUNCH_LAUNCH_AGY,
-                PRELAUNCH_LAUNCH_CLAUDE=PRELAUNCH_LAUNCH_CLAUDE,
-                PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
-                PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
-                ROUTED_COMPAT_PROMPT=ROUTED_COMPAT_PROMPT,
-                _NATIVE_ROUTER_CHANNEL_NAMES=_NATIVE_ROUTER_CHANNEL_NAMES,
-            ),
+            constants=runtime_launch.build_default_claude_launch_constants(),
             process=runtime_launch.ClaudeLaunchProcess(
                 _log_claude_command_for_diagnostics=_log_claude_command_for_diagnostics,
                 _subprocess_call_capturing_stderr=_subprocess_call_capturing_stderr,
