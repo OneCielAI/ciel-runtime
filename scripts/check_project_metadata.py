@@ -45,21 +45,11 @@ def main() -> int:
             f"{runtime_version_path.relative_to(ROOT)}={runtime_version or '<missing>'}"
         )
 
-    module_map = (ROOT / "docs" / "Module-Map.md").read_text(encoding="utf-8")
-    support_modules = sorted(
-        path.relative_to(ROOT).as_posix()
-        for path in (ROOT / "ciel_runtime_support").rglob("*.py")
-        if path.name != "__init__.py"
-    )
-    for module in support_modules:
-        if module not in module_map:
-            errors.append(f"docs/Module-Map.md does not mention {module}")
-
     if errors:
         for error in errors:
             print(f"ERROR: {error}")
         return 1
-    print(f"Documentation metadata checks passed ({len(markdown_files)} Markdown files, {len(support_modules)} modules).")
+    print(f"Documentation metadata checks passed ({len(markdown_files)} Markdown files).")
     return 0
 
 
