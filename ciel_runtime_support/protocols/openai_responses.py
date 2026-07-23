@@ -178,6 +178,12 @@ def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model:
     max_tokens = _positive_int(body.get("max_output_tokens")) or _positive_int(body.get("max_tokens"))
     if max_tokens:
         out["max_tokens"] = max_tokens
+    reasoning = body.get("reasoning")
+    if isinstance(reasoning, dict) and reasoning.get("effort") is not None:
+        out["thinking"] = {
+            "type": "enabled",
+            "effort": str(reasoning["effort"]),
+        }
     if system_parts:
         out["system"] = [{"type": "text", "text": part} for part in system_parts if part]
     return out

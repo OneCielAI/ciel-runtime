@@ -217,6 +217,10 @@ class ClaudeEnvironmentProjection:
         compact_window = self._limits.auto_compact_window(provider, config)
         if compact_window:
             env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = str(compact_window)
+            env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"] = str(compact_window)
+        effort_level = str(config.get("effort_level") or "").strip().lower()
+        if effort_level:
+            env["CLAUDE_CODE_EFFORT_LEVEL"] = effort_level
         advisor_model = str(config.get("advisor_model") or "").strip()
         if advisor_model:
             env["CIEL_RUNTIME_ADVISOR_MODEL"] = advisor_model
@@ -326,6 +330,7 @@ class ClaudeEnvironmentShellRenderer:
         "CLAUDE_CODE_ATTRIBUTION_HEADER",
         "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
         "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
         "CLAUDE_CODE_EFFORT_LEVEL",
         "ANTHROPIC_MODEL",
         "ANTHROPIC_CUSTOM_MODEL_OPTION",

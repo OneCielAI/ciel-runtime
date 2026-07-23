@@ -397,6 +397,7 @@ def run_claude(
             "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
             "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
             "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+            "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
             "CLAUDE_CODE_EFFORT_LEVEL",
             "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
             "CLAUDE_CODE_ATTRIBUTION_HEADER",
@@ -719,6 +720,7 @@ class CodexLaunchChannel:
     codex_channel_capable_mcp_server_names: Callable[..., Any]
     codex_mcp_native_http_compat_args: Callable[..., Any]
     codex_mcp_split_proxy_enabled: Callable[..., Any]
+    restore_codex_mcp_config_from_managed: Callable[..., Any]
     select_codex_resume_session: Callable[..., Any]
     start_codex_mcp_channel_sse_for_launch: Callable[..., Any]
     write_codex_mcp_config_for_channel_discovery: Callable[..., Any]
@@ -767,6 +769,7 @@ def run_codex(
     codex_help_requested = services.cli_policy.codex_help_requested
     codex_mcp_native_http_compat_args = services.channel.codex_mcp_native_http_compat_args
     codex_mcp_split_proxy_enabled = services.channel.codex_mcp_split_proxy_enabled
+    restore_codex_mcp_config_from_managed = services.channel.restore_codex_mcp_config_from_managed
     codex_native_routed_config_args = services.cli_policy.codex_native_routed_config_args
     codex_passthrough_args_for_launch = services.cli_policy.codex_passthrough_args_for_launch
     codex_passthrough_has_command = services.cli_policy.codex_passthrough_has_command
@@ -896,6 +899,9 @@ def run_codex(
             codex_passthrough = codex_resume_with_session_id(codex_passthrough, session_id)
             codex_passthrough_notes.append("resume picker -> selected local Codex session")
     launch_cwd = Path.cwd()
+    restore_codex_mcp_config_from_managed(
+        codex_passthrough, env=env, cwd=launch_cwd
+    )
     if use_native_codex:
         disable_ciel_runtime_codex_prompts_for_native(env)
     else:
@@ -1054,6 +1060,7 @@ class CodexAppServerChannel:
     codex_channel_capable_mcp_server_names: Callable[..., Any]
     codex_mcp_native_http_compat_args: Callable[..., Any]
     codex_mcp_split_proxy_enabled: Callable[..., Any]
+    restore_codex_mcp_config_from_managed: Callable[..., Any]
     start_codex_mcp_channel_sse_for_launch: Callable[..., Any]
     write_codex_mcp_config_for_channel_discovery: Callable[..., Any]
 
@@ -1098,6 +1105,7 @@ def run_codex_app_server(
     codex_launch_enabled_for_provider = services.routing.codex_launch_enabled_for_provider
     codex_mcp_native_http_compat_args = services.channel.codex_mcp_native_http_compat_args
     codex_mcp_split_proxy_enabled = services.channel.codex_mcp_split_proxy_enabled
+    restore_codex_mcp_config_from_managed = services.channel.restore_codex_mcp_config_from_managed
     codex_native_routed_config_args = services.cli_policy.codex_native_routed_config_args
     codex_passthrough_has_model_override = services.cli_policy.codex_passthrough_has_model_override
     codex_process_record_path = services.process.codex_process_record_path
@@ -1180,7 +1188,6 @@ def run_codex_app_server(
     for line in apply_launch_endpoint_policy(cfg, "codex-app-server"):
         print(line, flush=True)
     provider, pcfg = get_current_provider(cfg)
-    codex_mcp_config = write_codex_mcp_config_for_channel_discovery(passthrough, env=env)
     if not codex_launch_enabled_for_provider(provider):
         print("Ciel Runtime Codex App Server launch blocked:", flush=True)
         print("- Select Codex or Codex routed as the provider before launching Codex App Server.", flush=True)
@@ -1192,6 +1199,10 @@ def run_codex_app_server(
             print(f"- {line}", flush=True)
         return 2
     cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
+    restore_codex_mcp_config_from_managed(
+        passthrough, env=env, cwd=Path.cwd()
+    )
+    codex_mcp_config = write_codex_mcp_config_for_channel_discovery(passthrough, env=env)
     use_native_codex = direct_native_codex_enabled(provider, pcfg)
     use_codex_routed = codex_routed_enabled(provider, pcfg)
     launch_cwd = Path.cwd()
@@ -1309,6 +1320,7 @@ class AgyLaunchConfig:
     load_config: Callable[..., Any]
     provider_mode_label: Callable[..., Any]
     record_launch_state_for_cwd: Callable[..., Any]
+    restore_agy_mcp_config_from_managed: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1392,6 +1404,7 @@ def run_agy(
     path_with_ciel_runtime_user_dirs = services.process.path_with_ciel_runtime_user_dirs
     provider_mode_label = services.config.provider_mode_label
     record_launch_state_for_cwd = services.config.record_launch_state_for_cwd
+    restore_agy_mcp_config_from_managed = services.config.restore_agy_mcp_config_from_managed
     run_agy_update_check = services.dispatch.run_agy_update_check
     run_ciel_runtime_update_check = services.dispatch.run_ciel_runtime_update_check
     run_prelaunch_menu = services.dispatch.run_prelaunch_menu
@@ -1462,6 +1475,7 @@ def run_agy(
             print(f"- {line}", flush=True)
         return 2
     cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
+    restore_agy_mcp_config_from_managed(env=env, cwd=Path.cwd())
     use_agy_routed = agy_routed_enabled(provider, pcfg)
     manage_router_lifetime = bool(start_router_if_needed()) if use_agy_routed and channel_delivery_mode(cfg) == "llm" else False
     agy_dangerous_args = agy_dangerous_launch_args(agy_passthrough)

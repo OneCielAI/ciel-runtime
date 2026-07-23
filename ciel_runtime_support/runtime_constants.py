@@ -26,7 +26,14 @@ OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go"
 KIMI_CODING_BASE_URL = "https://api.kimi.com/coding"
 KIMI_DEFAULT_MODEL = "kimi-for-coding"
 KIMI_K3_MODEL = "k3"
-KIMI_MODEL_FALLBACK_IDS = (KIMI_K3_MODEL, KIMI_DEFAULT_MODEL)
+KIMI_K3_1M_MODEL = "k3[1m]"
+KIMI_HIGHSPEED_MODEL = "kimi-for-coding-highspeed"
+KIMI_MODEL_FALLBACK_IDS = (
+    KIMI_K3_MODEL,
+    KIMI_K3_1M_MODEL,
+    KIMI_DEFAULT_MODEL,
+    KIMI_HIGHSPEED_MODEL,
+)
 ZAI_ANTHROPIC_BASE_URL = "https://api.z.ai/api/anthropic"
 ZAI_DEFAULT_MODEL = "glm-5.2[1m]"
 ZAI_MODEL_CONTEXT_HINTS = (

@@ -243,4 +243,26 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                 custom.append(KIMI_K3_MODEL)
         migrations[marker] = True
 
+    marker = "kimi_k3_official_profile_20260722"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        pcfg = providers.get("kimi")
+        if isinstance(pcfg, dict):
+            custom = pcfg.get("custom_models")
+            if not isinstance(custom, list):
+                custom = []
+                pcfg["custom_models"] = custom
+            normalized_custom = {normalize_model_id("kimi", str(mid)) for mid in custom if str(mid).strip()}
+            for model_id in (f"{KIMI_K3_MODEL}[1m]", "kimi-for-coding-highspeed"):
+                if normalize_model_id("kimi", model_id) not in normalized_custom:
+                    custom.append(model_id)
+            current = normalize_model_id("kimi", str(pcfg.get("current_model") or ""))
+            if current in {KIMI_K3_MODEL, f"{KIMI_K3_MODEL}[1m]"}:
+                context = 1048576 if current.endswith("[1m]") else 262144
+                pcfg["context_window"] = context
+                pcfg["max_model_len"] = context
+                pcfg["effort_level"] = "high"
+                pcfg["model_profile"] = "kimi-k3-1m" if context == 1048576 else "kimi-k3-256k"
+        migrations[marker] = True
+
 __all__ = ["ConfigMigrationPolicy", "apply_config_migrations"]

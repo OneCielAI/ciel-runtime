@@ -76,6 +76,7 @@ from ciel_runtime_support.anthropic_response_writer import (
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
 from ciel_runtime_support.agy_installer import AgyInstaller, AgyInstallerPorts
+from ciel_runtime_support.agy_mcp_restore import AgyMcpRestorePorts, AgyMcpRestoreService
 from ciel_runtime_support import claude_router
 from ciel_runtime_support import channel_injection
 from ciel_runtime_support.chat_files import ChatFilePorts, ChatFileRepository
@@ -823,6 +824,10 @@ from ciel_runtime_support.codex_config import (
     unquote_toml_string as _unquote_toml_string,  # noqa: F401
 )
 from ciel_runtime_support import codex_mcp_integration
+from ciel_runtime_support.codex_mcp_restore import (
+    CodexMcpRestorePorts,
+    CodexMcpRestoreService,
+)
 from ciel_runtime_support.codex_channel_sse_launch import (
     CodexChannelSseEffects,
     CodexChannelSseLaunchService,
@@ -2234,7 +2239,6 @@ def install_tool_guard_hooks() -> None:
     )
 
 
-
 def install_ciel_runtime_statusline() -> None:
     install_statusline_settings(
         CIEL_RUNTIME_STATUSLINE_PATH,
@@ -2248,12 +2252,6 @@ def install_ciel_runtime_statusline() -> None:
             warn=lambda message: print(f"Ciel Runtime warning: {message}", flush=True),
         ),
     )
-
-
-
-
-
-
 command_file_is_ciel_runtime_owned = is_owned_command_file
 
 
@@ -2807,8 +2805,6 @@ normalize_claude_code_supported_capabilities = anthropic_model_policy.normalize_
 
 def infer_claude_code_supported_capabilities_from_model(model_id: str) -> list[str]:
     return anthropic_model_policy.infer_capabilities(model_id, strip_claude_context_suffix)
-
-
 
 
 def claude_code_supported_capabilities(provider: str, pcfg: dict[str, Any], model_id: str | None = None) -> list[str]:
@@ -3914,12 +3910,6 @@ def append_chat_message(payload: dict[str, Any]) -> dict[str, Any]:
     )
     _CHAT_NEXT_ID = int(message.get("id") or 0) + 1
     return message
-
-
-
-
-
-
 
 
 def channel_connection_registry() -> ChannelConnectionRegistry:
@@ -5451,7 +5441,8 @@ def provider_request_builder() -> ProviderRequestBuilder:
             context_limit=openai_context_limit_for_budget,
             reasoning_passback=openai_chat_reasoning_passback_enabled,
             repair_tools=repair_openai_tool_call_adjacency,
-            is_kimi_k3=is_kimi_k3_model_id,
+            reasoning_effort=lambda provider, model, body, config: configured_provider_adapter(provider, config).openai_reasoning_effort(provider_contract_config(provider, config), model, body),
+            sampling_allowed=lambda provider, config: configured_provider_adapter(provider, config).allows_sampling_overrides(provider_contract_config(provider, config)),
             omit_tool_choice=should_omit_openai_chat_tool_choice,
             tool_choice=anthropic_tool_choice_to_openai,
         ),
@@ -7754,6 +7745,12 @@ def discovered_ciel_runtime_managed_mcp_servers(cwd: Path | None = None) -> dict
         ),
     )
     return service.discover(cwd or Path.cwd())
+
+
+restore_codex_mcp_config_from_managed = CodexMcpRestoreService(CodexMcpRestorePorts(
+    codex_config_paths_for_launch, discovered_ciel_runtime_managed_mcp_servers, router_log,
+)).restore
+restore_agy_mcp_config_from_managed = AgyMcpRestoreService(AgyMcpRestorePorts(discovered_ciel_runtime_managed_mcp_servers, router_log)).restore
 
 
 def write_native_mcp_config_from_discovery(
@@ -12589,6 +12586,7 @@ def launch_codex(
                 codex_channel_capable_mcp_server_names=codex_channel_capable_mcp_server_names,
                 codex_mcp_native_http_compat_args=codex_mcp_native_http_compat_args,
                 codex_mcp_split_proxy_enabled=codex_mcp_split_proxy_enabled,
+                restore_codex_mcp_config_from_managed=restore_codex_mcp_config_from_managed,
                 select_codex_resume_session=select_codex_resume_session,
                 start_codex_mcp_channel_sse_for_launch=start_codex_mcp_channel_sse_for_launch,
                 write_codex_mcp_config_for_channel_discovery=write_codex_mcp_config_for_channel_discovery,
@@ -12677,6 +12675,7 @@ def launch_codex_app_server(
                 codex_channel_capable_mcp_server_names=codex_channel_capable_mcp_server_names,
                 codex_mcp_native_http_compat_args=codex_mcp_native_http_compat_args,
                 codex_mcp_split_proxy_enabled=codex_mcp_split_proxy_enabled,
+                restore_codex_mcp_config_from_managed=restore_codex_mcp_config_from_managed,
                 start_codex_mcp_channel_sse_for_launch=start_codex_mcp_channel_sse_for_launch,
                 write_codex_mcp_config_for_channel_discovery=write_codex_mcp_config_for_channel_discovery,
             ),
@@ -12735,6 +12734,7 @@ def launch_agy(
                 load_config=load_config,
                 provider_mode_label=provider_mode_label,
                 record_launch_state_for_cwd=record_launch_state_for_cwd,
+                restore_agy_mcp_config_from_managed=restore_agy_mcp_config_from_managed,
             ),
             installation=runtime_launch.AgyLaunchInstallation(
                 find_executable=find_executable,

@@ -617,6 +617,20 @@ class ProviderAdapter(ABC):
         del config
         return request
 
+    def openai_reasoning_effort(
+        self, config: ProviderConfig, model: str, request: Mapping[str, Any]
+    ) -> str | None:
+        """Return a provider-normalized Chat Completions reasoning effort."""
+
+        del config, model, request
+        return None
+
+    def allows_sampling_overrides(self, config: ProviderConfig) -> bool:
+        """Whether user-provided sampling controls are valid for this provider."""
+
+        del config
+        return True
+
     def normalize_tool_choice(self, config: ProviderConfig, model: str, tool_choice: Any) -> Any:
         del config, model
         return tool_choice

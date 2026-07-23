@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .mcp_inventory import McpInventoryService
+
 
 @dataclass(frozen=True, slots=True)
 class ManagedMcpDiscoveryPaths:
@@ -129,15 +131,14 @@ class NativeMcpConfigWriter:
         servers = self.ports.discover_user(
             passthrough, working_directory, home
         )
-        for name, server in self.ports.discover_managed(
-            working_directory
-        ).items():
-            if name in servers:
-                self.ports.log(
-                    "INFO", f"native_mcp_managed_duplicate_skipped server={name}"
-                )
-                continue
-            servers[name] = server
+        merged = McpInventoryService.merge(
+            servers, self.ports.discover_managed(working_directory)
+        )
+        for name in merged.duplicates:
+            self.ports.log(
+                "INFO", f"native_mcp_managed_duplicate_skipped server={name}"
+            )
+        servers = merged.servers
         if not servers:
             return None
         self.ports.save_json(

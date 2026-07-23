@@ -99,7 +99,8 @@ class ModelSelectionControllerTests(unittest.TestCase):
         self.assertEqual([config], saved)
         self.assertEqual([True], cleared)
         self.assertIn("Model context size: 64K (65,536 tokens).", messages)
-        self.assertEqual(["profile", "sync", "cap", "preset:ko", "timeout"], [messages[index] for index in (2, 4, 5, 6, 7)])
+        self.assertIn("new session", messages[3])
+        self.assertEqual(["profile", "sync", "cap", "preset:ko", "timeout"], [messages[index] for index in (2, 5, 6, 7, 8)])
         self.assertIn("thinking model", messages[-1])
 
 

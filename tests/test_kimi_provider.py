@@ -29,6 +29,8 @@ class KimiProviderTests(unittest.TestCase):
         self.assertEqual("https://api.kimi.com/coding", pcfg["base_url"])
         self.assertEqual("kimi-for-coding", pcfg["current_model"])
         self.assertIn("k3", pcfg["custom_models"])
+        self.assertIn("k3[1m]", pcfg["custom_models"])
+        self.assertIn("kimi-for-coding-highspeed", pcfg["custom_models"])
         self.assertEqual(262144, pcfg["context_window"])
         self.assertEqual(32768, pcfg["max_output_tokens"])
         self.assertEqual(32768, pcfg["context_reserve_tokens"])
@@ -38,6 +40,7 @@ class KimiProviderTests(unittest.TestCase):
         self.assertTrue(pcfg["normalize_anthropic_tool_use"])
         self.assertTrue(pcfg["supports_tool_choice"])
         self.assertIn("thinking", pcfg["claude_code_supported_capabilities"])
+        self.assertEqual("high", pcfg["effort_level"])
 
     def test_kimi_endpoint_policy_splits_claude_and_codex_protocols(self):
         pcfg = self.kimi_cfg()["providers"]["kimi"]
@@ -93,19 +96,51 @@ class KimiProviderTests(unittest.TestCase):
         for raw in ("k3", "kimi-k3", "kimi/k3", "kimi-code/k3"):
             self.assertEqual("k3", ciel_runtime.normalize_model_id("kimi", raw))
 
-    def test_k3_profile_uses_documented_context_and_max_effort(self):
+        self.assertEqual("k3[1m]", ciel_runtime.normalize_model_id("kimi", "k3[1m]"))
+        self.assertEqual("k3", ciel_runtime.upstream_api_model_id("kimi", "k3[1m]"))
+        self.assertEqual(
+            "kimi-for-coding-highspeed",
+            ciel_runtime.normalize_model_id("kimi", "kimi-code/kimi-for-coding-highspeed"),
+        )
+
+    def test_k3_profile_defaults_to_documented_256k_and_high_effort(self):
         pcfg = self.kimi_cfg(current_model="k3")["providers"]["kimi"]
+
+        messages = ciel_runtime.apply_kimi_model_profile("kimi", pcfg)
+
+        self.assertEqual(262144, pcfg["context_window"])
+        self.assertEqual(262144, pcfg["max_model_len"])
+        self.assertEqual("high", pcfg["effort_level"])
+        self.assertEqual(262144, ciel_runtime.provider_model_context_capacity("kimi", pcfg))
+        self.assertIn("max_effort", ciel_runtime.claude_code_supported_capabilities("kimi", pcfg))
+        self.assertTrue(any("256K context" in message for message in messages))
+        self.assertTrue(any("new session" in message for message in messages))
+
+    def test_k3_1m_profile_requires_explicit_context_variant(self):
+        pcfg = self.kimi_cfg(current_model="k3[1m]")["providers"]["kimi"]
 
         messages = ciel_runtime.apply_kimi_model_profile("kimi", pcfg)
 
         self.assertEqual(1048576, pcfg["context_window"])
         self.assertEqual(1048576, pcfg["max_model_len"])
-        self.assertEqual("max", pcfg["effort_level"])
+        self.assertEqual("high", pcfg["effort_level"])
         self.assertEqual(1048576, ciel_runtime.provider_model_context_capacity("kimi", pcfg))
-        self.assertIn("max_effort", ciel_runtime.claude_code_supported_capabilities("kimi", pcfg))
         self.assertTrue(any("1M context" in message for message in messages))
 
-    def test_k3_anthropic_request_forces_supported_max_effort(self):
+    def test_highspeed_profile_is_visible_with_quota_and_plan_notice(self):
+        pcfg = self.kimi_cfg(current_model="kimi-for-coding-highspeed")["providers"]["kimi"]
+
+        messages = ciel_runtime.apply_kimi_model_profile("kimi", pcfg)
+        ciel_runtime.apply_provider_model_selection_updates(
+            "kimi", pcfg, "kimi-for-coding-highspeed"
+        )
+
+        self.assertEqual(262144, pcfg["context_window"])
+        self.assertEqual(262144, pcfg["max_model_len"])
+        self.assertTrue(any("Allegretto" in message and "3x quota" in message for message in messages))
+        self.assertEqual("kimi-for-coding-highspeed", pcfg["subagent_model"])
+
+    def test_k3_anthropic_request_preserves_official_effort_mapping(self):
         pcfg = self.kimi_cfg(current_model="k3")["providers"]["kimi"]
         body = {
             "model": "ciel-runtime-kimi-k3",
@@ -115,16 +150,45 @@ class KimiProviderTests(unittest.TestCase):
 
         out = ciel_runtime.normalize_request_for_provider_wire("kimi", pcfg, body)
 
-        self.assertEqual("max", out["thinking"]["effort"])
+        self.assertEqual("high", out["thinking"]["effort"])
         self.assertEqual("high", body["thinking"]["effort"])
 
-    def test_k3_openai_request_uses_reasoning_effort_max(self):
+        for source, expected in (("low", "low"), ("medium", "high"), ("xhigh", "max"), ("unknown", "high")):
+            mapped = ciel_runtime.normalize_request_for_provider_wire(
+                "kimi", pcfg, {"model": "ciel-runtime-kimi-k3", "thinking": {"type": "enabled", "effort": source}}
+            )
+            self.assertEqual(expected, mapped["thinking"]["effort"])
+
+    def test_k3_openai_request_uses_selected_reasoning_effort(self):
         pcfg = self.kimi_cfg(current_model="k3")["providers"]["kimi"]
         body = {"messages": [{"role": "user", "content": "hello"}]}
 
         request = ciel_runtime.openai_compatible_chat_request("kimi", "k3", body, pcfg)
 
+        self.assertEqual("high", request["reasoning_effort"])
+        pcfg["effort_level"] = "xhigh"
+        request = ciel_runtime.openai_compatible_chat_request("kimi", "k3", body, pcfg)
         self.assertEqual("max", request["reasoning_effort"])
+
+    def test_kimi_protects_thinking_and_removes_fixed_sampling_overrides(self):
+        pcfg = self.kimi_cfg(current_model="k3", temperature=0.2, top_p=0.8)["providers"]["kimi"]
+        body = {
+            "model": "ciel-runtime-kimi-k3",
+            "messages": [],
+            "thinking": {"type": "disabled"},
+            "temperature": 0.1,
+            "top_p": 0.5,
+            "n": 2,
+        }
+
+        normalized = ciel_runtime.normalize_request_for_provider_wire("kimi", pcfg, body)
+        request = ciel_runtime.openai_compatible_chat_request("kimi", "k3", normalized, pcfg)
+
+        self.assertEqual("enabled", normalized["thinking"]["type"])
+        self.assertEqual("high", normalized["thinking"]["effort"])
+        for key in ("temperature", "top_p", "n"):
+            self.assertNotIn(key, normalized)
+            self.assertNotIn(key, request)
 
     def test_provider_headers_include_kimi_api_key(self):
         pcfg = self.kimi_cfg(api_key="sk-kimi-test")["providers"]["kimi"]
@@ -218,6 +282,24 @@ class KimiProviderTests(unittest.TestCase):
         self.assertTrue(pcfg["supports_tool_choice"])
         self.assertTrue(cfg["migrations"]["kimi_forward_tool_choice_20260628"])
 
+    def test_kimi_migration_uses_safe_k3_defaults_and_adds_model_variants(self):
+        cfg = self.kimi_cfg(
+            current_model="k3",
+            context_window=1048576,
+            max_model_len=1048576,
+            effort_level="max",
+            custom_models=["k3", "kimi-for-coding"],
+        )
+
+        ciel_runtime.apply_config_migrations(cfg)
+
+        pcfg = cfg["providers"]["kimi"]
+        self.assertEqual(262144, pcfg["context_window"])
+        self.assertEqual(262144, pcfg["max_model_len"])
+        self.assertEqual("high", pcfg["effort_level"])
+        self.assertIn("k3[1m]", pcfg["custom_models"])
+        self.assertIn("kimi-for-coding-highspeed", pcfg["custom_models"])
+
     def test_kimi_claude_path_sends_mcp_tools_with_auto_tool_choice(self):
         pcfg = self.kimi_cfg()["providers"]["kimi"]
         body = {
@@ -253,6 +335,7 @@ class KimiProviderTests(unittest.TestCase):
                 }
             ],
             "tool_choice": "required",
+            "reasoning": {"effort": "low"},
         }
 
         anthropic = ciel_runtime.openai_responses_to_anthropic_messages(body, "kimi-for-coding")
@@ -261,6 +344,13 @@ class KimiProviderTests(unittest.TestCase):
 
         self.assertEqual("auto", req["tool_choice"])
         self.assertEqual("mcp__ai-net-http__get_messages", req["tools"][0]["function"]["name"])
+        self.assertNotIn("reasoning_effort", req)
+
+        body["model"] = "k3"
+        anthropic = ciel_runtime.openai_responses_to_anthropic_messages(body, "k3")
+        normalized = ciel_runtime.normalize_request_for_provider_wire("kimi", pcfg, anthropic)
+        req = ciel_runtime.openai_compatible_chat_request("kimi", "k3", normalized, pcfg)
+        self.assertEqual("low", req["reasoning_effort"])
 
     def test_kimi_codex_responses_collection_uses_openai_compatible_endpoint(self):
         class Handler:
@@ -352,6 +442,25 @@ class KimiProviderTests(unittest.TestCase):
         self.assertEqual("8192", env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"])
         self.assertEqual("262144", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
         self.assertIn("thinking", env["ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES"])
+
+    def test_k3_claude_environment_matches_selected_context_and_effort(self):
+        cfg = self.kimi_cfg(api_key="sk-kimi-test", current_model="k3")
+        pcfg = cfg["providers"]["kimi"]
+        ciel_runtime.apply_kimi_model_profile("kimi", pcfg)
+        with mock.patch.object(ciel_runtime, "upstream_model_ids", return_value=["k3"]):
+            env = ciel_runtime.env_vars(cfg)
+
+        self.assertNotIn("[1m]", env["ANTHROPIC_MODEL"])
+        self.assertEqual("high", env["CLAUDE_CODE_EFFORT_LEVEL"])
+        self.assertEqual("262144", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
+        self.assertEqual("262144", env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"])
+
+        pcfg["current_model"] = "k3[1m]"
+        ciel_runtime.apply_kimi_model_profile("kimi", pcfg)
+        with mock.patch.object(ciel_runtime, "upstream_model_ids", return_value=["k3"]):
+            env = ciel_runtime.env_vars(cfg)
+        self.assertIn("[1m]", env["ANTHROPIC_MODEL"])
+        self.assertEqual("1048576", env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"])
 
     def test_launch_requires_kimi_api_key(self):
         with mock.patch.object(ciel_runtime, "base_url_status_line", return_value="Base URL: Kimi.com configured"):

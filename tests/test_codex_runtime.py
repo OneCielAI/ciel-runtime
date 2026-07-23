@@ -92,6 +92,12 @@ class CodexRuntimeTests(unittest.TestCase):
         patcher = mock.patch.object(ciel_runtime, "terminate_existing_codex_processes_for_launch", return_value=False)
         self.addCleanup(patcher.stop)
         self.terminate_existing_codex_processes_for_launch = patcher.start()
+        restore_patcher = mock.patch.object(
+            ciel_runtime, "restore_codex_mcp_config_from_managed", return_value=[]
+        )
+        self.restore_patcher = restore_patcher
+        self.addCleanup(restore_patcher.stop)
+        self.restore_codex_mcp_config_from_managed = restore_patcher.start()
 
     def test_provider_menu_exposes_native_and_routed_codex_choices(self):
         cfg = {
@@ -1261,6 +1267,68 @@ args = ["server.py"]
             self.assertEqual(["ai-net"], sorted(data["mcpServers"]))
             self.assertEqual("http", data["mcpServers"]["ai-net"]["type"])
             self.assertEqual("AINET_API_KEY", data["mcpServers"]["ai-net"]["bearer_token_env_var"])
+
+    def test_codex_mcp_restore_unwraps_managed_proxy_without_restoring_internal_channel(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            codex_home = root / ".codex"
+            config_dir = root / "ciel"
+            wrapped = config_dir / "mcp-proxy-servers" / "alpaca.json"
+            wrapped.parent.mkdir(parents=True)
+            wrapped.write_text(
+                json.dumps(
+                    {
+                        "command": "uvx",
+                        "args": ["alpaca-mcp-server"],
+                        "env": {"ALPACA_API_KEY": "secret"},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            proxy = config_dir / "mcp-proxy.json"
+            proxy.write_text(
+                json.dumps(
+                    {
+                        "mcpServers": {
+                            "alpaca": {
+                                "command": "python3",
+                                "args": [
+                                    "ciel_runtime.py",
+                                    "mcp-proxy",
+                                    "--server-name",
+                                    "alpaca",
+                                    "--server-config",
+                                    str(wrapped),
+                                ],
+                            },
+                            "ciel-runtime-router": {
+                                "type": "sse",
+                                "url": "http://127.0.0.1/internal",
+                            },
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with (
+                mock.patch.object(ciel_runtime, "MCP_PROXY_CONFIG", proxy),
+                mock.patch.object(
+                    ciel_runtime, "WEB_TOOLS_MCP_CONFIG", config_dir / "missing.json"
+                ),
+            ):
+                self.restore_patcher.stop()
+                restored = ciel_runtime.restore_codex_mcp_config_from_managed(
+                    [], env={"CODEX_HOME": str(codex_home)}, cwd=root
+                )
+
+            parsed = __import__("tomllib").loads(
+                (codex_home / "config.toml").read_text(encoding="utf-8")
+            )
+
+            self.assertEqual(["alpaca"], restored)
+            self.assertEqual("uvx", parsed["mcp_servers"]["alpaca"]["command"])
+            self.assertNotIn("ciel-runtime-router", parsed["mcp_servers"])
 
     def test_codex_mcp_native_http_compat_args_can_route_http_through_split_proxy(self):
         with tempfile.TemporaryDirectory() as td:

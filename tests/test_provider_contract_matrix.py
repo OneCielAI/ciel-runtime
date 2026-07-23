@@ -142,8 +142,9 @@ class ProviderContractMatrixTests(unittest.TestCase):
 
     def test_model_identity_matrix_is_adapter_owned(self):
         cases = (
-            ("kimi", "kimi-code/k3", "k3", "kimi-code/k3"),
-            ("kimi", "kimi-k2.7-code", "kimi-for-coding", "kimi-k2.7-code"),
+            ("kimi", "kimi-code/k3", "k3", "k3"),
+            ("kimi", "k3[1m]", "k3[1m]", "k3"),
+            ("kimi", "kimi-k2.7-code", "kimi-for-coding", "kimi-for-coding"),
             ("ollama-cloud", "qwen3:cloud", "qwen3", "qwen3:cloud"),
             ("zai", "glm-5.2[1m]", "glm-5.2[1m]", "glm-5.2"),
             ("deepseek", "deepseek-v4-pro[1m]", "deepseek-v4-pro[1m]", "deepseek-v4-pro[1m]"),
@@ -162,8 +163,8 @@ class ProviderContractMatrixTests(unittest.TestCase):
     def test_model_configuration_profile_is_adapter_owned(self):
         kimi = PROVIDER_ADAPTERS.create("kimi")
         updates, notice = kimi.model_configuration_profile(config("kimi", model="k3"))
-        self.assertEqual(1048576, updates["context_window"])
-        self.assertEqual("max", updates["effort_level"])
+        self.assertEqual(262144, updates["context_window"])
+        self.assertEqual("high", updates["effort_level"])
         self.assertIn("Kimi K3", notice or "")
 
         generic = PROVIDER_ADAPTERS.create("openrouter")
@@ -639,7 +640,7 @@ class ProviderContractMatrixTests(unittest.TestCase):
             configured,
             {"model": "k3", "thinking": {"type": "enabled"}},
         )
-        self.assertEqual("max", normalized["thinking"]["effort"])
+        self.assertEqual("high", normalized["thinking"]["effort"])
         self.assertEqual(
             {"type": "auto"},
             adapter.normalize_tool_choice(configured, "k3", {"type": "any"}),

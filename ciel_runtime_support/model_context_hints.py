@@ -62,8 +62,10 @@ class ModelContextHintPolicy:
         zai_hint = self.zai_hint(model_id)
         if zai_hint:
             return zai_hint
-        if self.is_qwen36_plus(model_id) or self.is_kimi_k3(model_id):
+        if self.is_qwen36_plus(model_id):
             return 1048576
+        if self.is_kimi_k3(model_id):
+            return 1048576 if "[1m]" in model else 262144
         catalog_limit, _family, _source = self.ports.catalog_context(model_id)
         if catalog_limit:
             return catalog_limit

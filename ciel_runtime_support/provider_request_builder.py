@@ -38,7 +38,8 @@ class OpenAIRequestPorts:
     context_limit: Callable[[str, dict[str, Any]], int]
     reasoning_passback: Callable[[str, str, dict[str, Any]], bool]
     repair_tools: Callable[[list[dict[str, Any]]], list[dict[str, Any]]]
-    is_kimi_k3: Callable[[str], bool]
+    reasoning_effort: Callable[..., str | None]
+    sampling_allowed: Callable[..., bool]
     omit_tool_choice: Callable[..., bool]
     tool_choice: Callable[[Any], Any]
 
@@ -225,8 +226,11 @@ class ProviderRequestBuilder:
         )
         messages = self.openai.repair_tools(messages)
         request: dict[str, Any] = {"model": model, "messages": messages, "stream": stream}
-        if provider == "kimi" and self.openai.is_kimi_k3(model):
-            request["reasoning_effort"] = "max"
+        reasoning_effort = self.openai.reasoning_effort(
+            provider, model, body, config
+        )
+        if reasoning_effort:
+            request["reasoning_effort"] = reasoning_effort
         if tools:
             request["tools"] = tools
         if body.get("tool_choice") is not None and not self.openai.omit_tool_choice(
@@ -236,6 +240,6 @@ class ProviderRequestBuilder:
         if configured:
             request["max_tokens"] = configured
         for key in ("temperature", "top_p"):
-            if config.get(key) is not None:
+            if self.openai.sampling_allowed(provider, config) and config.get(key) is not None:
                 request[key] = config[key]
         return request

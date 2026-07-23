@@ -20,7 +20,8 @@ class RuntimeConstantsTest(unittest.TestCase):
             runtime_constants.ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS,
             runtime_constants.ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS,
         )
-        self.assertEqual("kimi-for-coding", runtime_constants.KIMI_MODEL_FALLBACK_IDS[-1])
+        self.assertIn("kimi-for-coding", runtime_constants.KIMI_MODEL_FALLBACK_IDS)
+        self.assertIn("kimi-for-coding-highspeed", runtime_constants.KIMI_MODEL_FALLBACK_IDS)
 
 
 if __name__ == "__main__":

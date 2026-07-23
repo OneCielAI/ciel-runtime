@@ -125,13 +125,14 @@ class ModelSelectionController:
             provider,
             self._policy.unslug(provider, value, model_map) or value,
         )
+        previous_model = str(provider_config.get("current_model") or "")
         provider_config["current_model"] = model_id
-        profile_messages = self._policy.apply_profile(provider, provider_config)
         self._policy.apply_selection_updates(provider, provider_config, model_id)
         selected_info = self._policy.read_model_info(provider, provider_config).get(model_id) or {}
         selected_context = self._policy.positive_int(selected_info.get("max_model_len"))
         if selected_context:
             provider_config["max_model_len"] = selected_context
+        profile_messages = self._policy.apply_profile(provider, provider_config)
         preset = self._policy.model_preset(model_id)
         if preset.get("num_ctx_min"):
             provider_config["num_ctx_min"] = preset["num_ctx_min"]
@@ -160,6 +161,10 @@ class ModelSelectionController:
             f"Claude Code alias: {self._policy.alias(provider, model_id)}",
             *profile_messages,
         ]
+        if model_id != previous_model:
+            messages.append(
+                "Start a new session after changing models to avoid context-cache re-prefill overhead."
+            )
         if selected_context:
             messages.append(
                 f"Model context size: {self._policy.format_context(selected_context)} "
