@@ -258,11 +258,23 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                     custom.append(model_id)
             current = normalize_model_id("kimi", str(pcfg.get("current_model") or ""))
             if current in {KIMI_K3_MODEL, f"{KIMI_K3_MODEL}[1m]"}:
-                context = 1048576 if current.endswith("[1m]") else 262144
-                pcfg["context_window"] = context
-                pcfg["max_model_len"] = context
+                pcfg["context_window"] = 1048576
+                pcfg["max_model_len"] = 1048576
                 pcfg["effort_level"] = "high"
-                pcfg["model_profile"] = "kimi-k3-1m" if context == 1048576 else "kimi-k3-256k"
+                pcfg["model_profile"] = "kimi-k3-1m"
+        migrations[marker] = True
+
+    marker = "kimi_k3_default_1m_20260723"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        pcfg = providers.get("kimi")
+        if isinstance(pcfg, dict):
+            current = normalize_model_id("kimi", str(pcfg.get("current_model") or ""))
+            if current in {KIMI_K3_MODEL, f"{KIMI_K3_MODEL}[1m]"}:
+                pcfg["context_window"] = 1048576
+                pcfg["max_model_len"] = 1048576
+                pcfg["effort_level"] = "high"
+                pcfg["model_profile"] = "kimi-k3-1m"
         migrations[marker] = True
 
 __all__ = ["ConfigMigrationPolicy", "apply_config_migrations"]

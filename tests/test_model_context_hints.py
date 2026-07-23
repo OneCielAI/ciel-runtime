@@ -34,7 +34,7 @@ class ModelContextHintPolicyTests(unittest.TestCase):
         policy = self.policy()
 
         self.assertTrue(policy.is_kimi_k3("ciel-runtime-kimi-k3[1m]"))
-        self.assertEqual(262144, policy.resolve("kimi-code/k3"))
+        self.assertEqual(1048576, policy.resolve("kimi-code/k3"))
         self.assertEqual(1048576, policy.resolve("kimi-code/k3[1m]"))
 
     def test_zai_hint_uses_longest_configured_prefix_order(self):

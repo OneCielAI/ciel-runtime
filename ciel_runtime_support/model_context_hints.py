@@ -65,7 +65,7 @@ class ModelContextHintPolicy:
         if self.is_qwen36_plus(model_id):
             return 1048576
         if self.is_kimi_k3(model_id):
-            return 1048576 if "[1m]" in model else 262144
+            return 1048576
         catalog_limit, _family, _source = self.ports.catalog_context(model_id)
         if catalog_limit:
             return catalog_limit

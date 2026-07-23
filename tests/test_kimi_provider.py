@@ -103,20 +103,20 @@ class KimiProviderTests(unittest.TestCase):
             ciel_runtime.normalize_model_id("kimi", "kimi-code/kimi-for-coding-highspeed"),
         )
 
-    def test_k3_profile_defaults_to_documented_256k_and_high_effort(self):
+    def test_k3_profile_defaults_to_documented_1m_and_high_effort(self):
         pcfg = self.kimi_cfg(current_model="k3")["providers"]["kimi"]
 
         messages = ciel_runtime.apply_kimi_model_profile("kimi", pcfg)
 
-        self.assertEqual(262144, pcfg["context_window"])
-        self.assertEqual(262144, pcfg["max_model_len"])
+        self.assertEqual(1048576, pcfg["context_window"])
+        self.assertEqual(1048576, pcfg["max_model_len"])
         self.assertEqual("high", pcfg["effort_level"])
-        self.assertEqual(262144, ciel_runtime.provider_model_context_capacity("kimi", pcfg))
+        self.assertEqual(1048576, ciel_runtime.provider_model_context_capacity("kimi", pcfg))
         self.assertIn("max_effort", ciel_runtime.claude_code_supported_capabilities("kimi", pcfg))
-        self.assertTrue(any("256K context" in message for message in messages))
+        self.assertTrue(any("1M context" in message for message in messages))
         self.assertTrue(any("new session" in message for message in messages))
 
-    def test_k3_1m_profile_requires_explicit_context_variant(self):
+    def test_k3_1m_alias_remains_compatible(self):
         pcfg = self.kimi_cfg(current_model="k3[1m]")["providers"]["kimi"]
 
         messages = ciel_runtime.apply_kimi_model_profile("kimi", pcfg)
@@ -282,7 +282,7 @@ class KimiProviderTests(unittest.TestCase):
         self.assertTrue(pcfg["supports_tool_choice"])
         self.assertTrue(cfg["migrations"]["kimi_forward_tool_choice_20260628"])
 
-    def test_kimi_migration_uses_safe_k3_defaults_and_adds_model_variants(self):
+    def test_kimi_migration_upgrades_k3_to_1m_and_adds_model_variants(self):
         cfg = self.kimi_cfg(
             current_model="k3",
             context_window=1048576,
@@ -294,9 +294,11 @@ class KimiProviderTests(unittest.TestCase):
         ciel_runtime.apply_config_migrations(cfg)
 
         pcfg = cfg["providers"]["kimi"]
-        self.assertEqual(262144, pcfg["context_window"])
-        self.assertEqual(262144, pcfg["max_model_len"])
+        self.assertEqual(1048576, pcfg["context_window"])
+        self.assertEqual(1048576, pcfg["max_model_len"])
         self.assertEqual("high", pcfg["effort_level"])
+        self.assertEqual("kimi-k3-1m", pcfg["model_profile"])
+        self.assertTrue(cfg["migrations"]["kimi_k3_default_1m_20260723"])
         self.assertIn("k3[1m]", pcfg["custom_models"])
         self.assertIn("kimi-for-coding-highspeed", pcfg["custom_models"])
 
@@ -450,10 +452,10 @@ class KimiProviderTests(unittest.TestCase):
         with mock.patch.object(ciel_runtime, "upstream_model_ids", return_value=["k3"]):
             env = ciel_runtime.env_vars(cfg)
 
-        self.assertNotIn("[1m]", env["ANTHROPIC_MODEL"])
+        self.assertIn("[1m]", env["ANTHROPIC_MODEL"])
         self.assertEqual("high", env["CLAUDE_CODE_EFFORT_LEVEL"])
-        self.assertEqual("262144", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
-        self.assertEqual("262144", env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"])
+        self.assertEqual("1048576", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
+        self.assertEqual("1048576", env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"])
 
         pcfg["current_model"] = "k3[1m]"
         ciel_runtime.apply_kimi_model_profile("kimi", pcfg)

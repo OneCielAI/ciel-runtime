@@ -120,16 +120,15 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
             )
         if model not in {"k3", "k3[1m]"}:
             return {}, None
-        context = 1048576 if model == "k3[1m]" else 262144
+        context = 1048576
         return (
             {
                 "context_window": context,
                 "max_model_len": context,
                 "effort_level": "high",
-                "model_profile": "kimi-k3-1m" if context == 1048576 else "kimi-k3-256k",
+                "model_profile": "kimi-k3-1m",
             },
-            "Kimi K3 profile applied: "
-            f"{('1M' if context == 1048576 else '256K')} context and high reasoning effort. "
+            "Kimi K3 profile applied: 1M context and high reasoning effort. "
             "Start a new session after changing model, context, or reasoning effort.",
         )
 

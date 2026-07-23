@@ -163,9 +163,10 @@ class ProviderContractMatrixTests(unittest.TestCase):
     def test_model_configuration_profile_is_adapter_owned(self):
         kimi = PROVIDER_ADAPTERS.create("kimi")
         updates, notice = kimi.model_configuration_profile(config("kimi", model="k3"))
-        self.assertEqual(262144, updates["context_window"])
+        self.assertEqual(1048576, updates["context_window"])
         self.assertEqual("high", updates["effort_level"])
         self.assertIn("Kimi K3", notice or "")
+        self.assertIn("1M context", notice or "")
 
         generic = PROVIDER_ADAPTERS.create("openrouter")
         self.assertEqual(({}, None), generic.model_configuration_profile(config("openrouter")))
