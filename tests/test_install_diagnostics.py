@@ -15,7 +15,12 @@ class InstallDiagnosticsTests(unittest.TestCase):
             "PATH": r"C:\Windows\System32",
         }
 
-        with mock.patch.object(ciel_runtime.os, "name", "nt"), mock.patch.dict(ciel_runtime.os.environ, env, clear=False):
+        host_path_type = type(Path())
+        with (
+            mock.patch.object(ciel_runtime.os, "name", "nt"),
+            mock.patch.object(ciel_runtime, "Path", host_path_type),
+            mock.patch.dict(ciel_runtime.os.environ, env, clear=False),
+        ):
             appdata = ciel_runtime.platform_path(env["APPDATA"])
             local_appdata = ciel_runtime.platform_path(env["LOCALAPPDATA"])
             self.assertEqual(

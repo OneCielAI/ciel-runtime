@@ -14,6 +14,7 @@ from typing import Any
 def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
     return {
         "current_provider": "nvidia-hosted",
+        "last_launch_action": "",
         "language": "en",
         "migrations": {},
         "router_debug_external_access": False,
