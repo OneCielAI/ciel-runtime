@@ -33,6 +33,29 @@ def preferred_launch_action(
     return fallback(provider)
 
 
+def preferred_provider_launch_action(
+    config: dict[str, Any],
+    provider: str,
+    supports_agy: Callable[[str], bool],
+    supports_claude: Callable[[str], bool],
+    supports_codex: Callable[[str], bool],
+) -> str:
+    """Resolve a remembered action with the provider's natural fallback."""
+
+    def fallback(selected_provider: str) -> str:
+        if supports_agy(selected_provider):
+            return "launch-agy"
+        return "launch-codex" if supports_codex(selected_provider) else "launch"
+
+    return preferred_launch_action(
+        config,
+        provider,
+        fallback=fallback,
+        supports_claude=supports_claude,
+        supports_codex=supports_codex,
+    )
+
+
 def remember_launch_action(config: dict[str, Any], action: str) -> bool:
     """Record a concrete menu launch choice and report whether it changed."""
     if action not in REMEMBERED_LAUNCH_ACTIONS:
@@ -47,5 +70,6 @@ __all__ = [
     "LAST_LAUNCH_ACTION_KEY",
     "REMEMBERED_LAUNCH_ACTIONS",
     "preferred_launch_action",
+    "preferred_provider_launch_action",
     "remember_launch_action",
 ]

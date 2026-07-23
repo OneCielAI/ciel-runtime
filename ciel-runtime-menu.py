@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import select
 import shutil
 import subprocess
@@ -14,6 +15,12 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
+
+from ciel_runtime_support.prelaunch_launch_preference import (
+    preferred_provider_launch_action,
+    remember_launch_action,
+)
+from ciel_runtime_support.runtime_paths import CONFIG_PATH
 
 try:
     import msvcrt
@@ -204,7 +211,7 @@ def _write_safe(row: int, col: int, text: str, style: str = "") -> None:
 
 
 CTL = str(Path.home() / ".local/bin/ciel-runtimectl")
-CONFIG = Path.home() / ".config/ciel-runtime/config.json"
+CONFIG = CONFIG_PATH
 NCP_ENV = Path.home() / ".config/nvd-claude-proxy/.env"
 PROVIDERS = [
     ("agy:native", "AGY"),
@@ -583,6 +590,24 @@ def load_cfg() -> dict:
         except Exception:
             pass
     return {"current_provider": "nvidia-hosted", "providers": {}}
+
+
+def persist_launch_action(action: str) -> None:
+    config = load_cfg()
+    if not remember_launch_action(config, action):
+        return
+    CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    temporary = CONFIG.with_name(f".{CONFIG.name}.{os.getpid()}.tmp")
+    try:
+        temporary.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        if os.name != "nt":
+            temporary.chmod(0o600)
+        temporary.replace(CONFIG)
+    finally:
+        try:
+            temporary.unlink(missing_ok=True)
+        except Exception:
+            pass
 
 
 KNOWN_NVIDIA_MODEL_STATUS = {
@@ -1649,9 +1674,10 @@ def index_for_action(action: str) -> int:
 
 
 def default_launch_action() -> str:
-    if agy_launch_enabled(current_provider()):
-        return "launch-agy"
-    return "launch-codex" if codex_launch_enabled(current_provider()) else "launch"
+    provider = current_provider()
+    return preferred_provider_launch_action(
+        load_cfg(), provider, agy_launch_enabled, claude_launch_enabled, codex_launch_enabled
+    )
 
 
 def add(stdscr, y: int, x: int, text: str, style: str = "") -> None:
@@ -1870,6 +1896,7 @@ def main() -> int:
                         idx = index_for_action("api-key")
                         sub = None
                         continue
+                    persist_launch_action(action)
                     return PRELAUNCH_LAUNCH_CLAUDE
                 if action == "launch-agy":
                     provider, pcfg = current_provider_cfg()
@@ -1902,6 +1929,7 @@ def main() -> int:
                         idx = index_for_action("api-key")
                         sub = None
                         continue
+                    persist_launch_action(action)
                     return PRELAUNCH_LAUNCH_CODEX
                 if action == "test":
                     code, out = run_test_with_animation(idx, checks)
@@ -2121,6 +2149,7 @@ def main() -> int:
                 ]
                 idx = index_for_action("api-key")
                 continue
+            persist_launch_action(action)
             return PRELAUNCH_LAUNCH_CLAUDE
         if action == "launch-agy":
             provider, pcfg = current_provider_cfg()
@@ -2149,6 +2178,7 @@ def main() -> int:
                 ]
                 idx = index_for_action("api-key")
                 continue
+            persist_launch_action(action)
             return PRELAUNCH_LAUNCH_CODEX
         if action == "test":
             code, out = run_test_with_animation(idx, checks)

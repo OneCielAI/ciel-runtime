@@ -1203,6 +1203,7 @@ from ciel_runtime_support.provider_status import (
     base_url_status_line as project_provider_base_url_status,
 )
 from ciel_runtime_support import prelaunch
+from ciel_runtime_support.prelaunch_launch_preference import preferred_provider_launch_action
 from ciel_runtime_support.prelaunch_panel_projection import (
     ConfigurationPanelPorts,
     ConfigurationPanelProjection,
@@ -10130,9 +10131,7 @@ def codex_launch_enabled_for_provider(provider: str, pcfg: dict[str, Any] | None
 
 
 def default_prelaunch_action(provider: str) -> str:
-    if agy_launch_enabled_for_provider(provider):
-        return "launch-agy"
-    return "launch-codex" if codex_launch_enabled_for_provider(provider) else "launch"
+    return preferred_provider_launch_action(load_config(), provider, agy_launch_enabled_for_provider, claude_launch_enabled_for_provider, codex_launch_enabled_for_provider)
 
 
 def prelaunch_action_index(action: str) -> int:

@@ -51,7 +51,7 @@ jobs:
           echo "Nightly version: ${new}"
           echo "version=${new}" >> "$GITHUB_OUTPUT"
           node -e "const fs=require('fs');const p=require('./package.json');p.version='${new}';fs.writeFileSync('./package.json',JSON.stringify(p,null,2)+'\n');"
-          sed -i "s/^VERSION = .*/VERSION = \"${new}\"/" ciel_runtime.py
+          sed -i "s/^VERSION = .*/VERSION = \"${new}\"/" ciel_runtime_support/runtime_constants.py
 
       - id: publish-check
         shell: bash

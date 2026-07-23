@@ -2,6 +2,7 @@ import unittest
 
 from ciel_runtime_support.prelaunch_launch_preference import (
     preferred_launch_action,
+    preferred_provider_launch_action,
     remember_launch_action,
 )
 
@@ -54,6 +55,17 @@ class PrelaunchLaunchPreferenceTests(unittest.TestCase):
         self.assertFalse(remember_launch_action(config, "launch-codex"))
         self.assertFalse(remember_launch_action(config, "launch-agy"))
         self.assertEqual("launch-codex", config["last_launch_action"])
+
+    def test_provider_fallback_prefers_agy_for_agy_provider(self):
+        selected = preferred_provider_launch_action(
+            {},
+            "agy",
+            supports_agy=lambda provider: provider == "agy",
+            supports_claude=lambda _provider: False,
+            supports_codex=lambda _provider: False,
+        )
+
+        self.assertEqual("launch-agy", selected)
 
 
 if __name__ == "__main__":

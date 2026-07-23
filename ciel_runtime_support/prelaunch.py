@@ -6,10 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from ciel_runtime_support.llm_presentation_data import LLM_OPTION_TOGGLE_KEYS
-from ciel_runtime_support.prelaunch_launch_preference import (
-    preferred_launch_action,
-    remember_launch_action,
-)
+from ciel_runtime_support.prelaunch_launch_preference import remember_launch_action
 from ciel_runtime_support.provider_adapters import PROVIDER_LABELS
 from ciel_runtime_support.runtime_constants import (
     LANGUAGES,
@@ -264,13 +261,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     enable_ansi()
     cfg = load_config()
     provider, _pcfg = get_current_provider(cfg)
-    initial_action = preferred_launch_action(
-        cfg,
-        provider,
-        fallback=default_prelaunch_action,
-        supports_claude=claude_launch_enabled_for_provider,
-        supports_codex=codex_launch_enabled_for_provider,
-    )
+    initial_action = default_prelaunch_action(provider)
     main_idx = prelaunch_action_index(initial_action) if settings_ready_except_api_key() else 0
     panel: str | None = None
     panel_idx = 0
