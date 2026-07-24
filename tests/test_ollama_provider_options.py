@@ -293,13 +293,13 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertEqual("True", ciel_runtime.ollama_think_status("glm-5.2", pcfg))
         self.assertEqual("reasoning", ciel_runtime.infer_preset_id_from_options("ollama-cloud", pcfg))
 
-    def test_glm_52_ollama_preset_matches_published_976k_context(self):
+    def test_glm_52_ollama_preset_matches_provider_api_context(self):
         for model in ("glm-5.2", "glm-5.2:cloud"):
             preset = ciel_runtime.MODEL_PRESETS[model]
             self.assertTrue(preset["thinking"])
-            self.assertEqual(976 * 1024, preset["num_ctx_max"])
+            self.assertEqual(1000000, preset["num_ctx_max"])
 
-    def test_glm_52_ollama_cloud_migration_enables_thinking_and_976k(self):
+    def test_glm_52_ollama_cloud_migration_enables_thinking_and_provider_context(self):
         cfg = {
             "providers": {
                 "ollama-cloud": {
@@ -315,7 +315,34 @@ class OllamaProviderOptionTests(unittest.TestCase):
 
         pcfg = cfg["providers"]["ollama-cloud"]
         self.assertTrue(pcfg["think"])
-        self.assertEqual(976 * 1024, pcfg["num_ctx_max"])
+        self.assertEqual(1000000, pcfg["num_ctx_max"])
+        self.assertEqual(1000000, pcfg["model_context_max"])
+
+    def test_glm_52_migration_removes_legacy_auto_512k_cap(self):
+        cfg = {
+            "providers": {
+                "ollama-cloud": {
+                    "current_model": "glm-5.2",
+                    "llm_preset": "long-context-512k",
+                    "num_ctx": "auto",
+                    "num_ctx_min": 262144,
+                    "num_ctx_max": 524288,
+                    "model_context_max": 1000000,
+                    "model_context_model": "glm-5.2",
+                    "think": False,
+                }
+            },
+            "migrations": {"ollama_cloud_glm52_thinking_context_20260711": True},
+        }
+
+        ciel_runtime.apply_config_migrations(cfg)
+
+        pcfg = cfg["providers"]["ollama-cloud"]
+        self.assertNotIn("llm_preset", pcfg)
+        self.assertEqual("auto", pcfg["num_ctx"])
+        self.assertEqual(1000000, pcfg["num_ctx_max"])
+        self.assertEqual(1000000, pcfg["model_context_max"])
+        self.assertTrue(pcfg["think"])
 
     def test_non_glm_52_ollama_think_still_respects_config(self):
         pcfg = {

@@ -75,15 +75,15 @@ class AutoLlmOptionsServiceTests(unittest.TestCase):
             service.apply_recommended("vllm", config["providers"]["vllm"], "en"),
         )
 
-    def test_apply_recommended_disables_duplicate_context_sync(self):
+    def test_apply_recommended_retains_provider_defaults(self):
         service, config, events = self.service()
+        provider_config = config["providers"]["vllm"]
 
-        lines = service.apply_recommended(
-            "vllm", config["providers"]["vllm"], "en"
-        )
+        lines = service.apply_recommended("vllm", provider_config, "en")
 
-        self.assertIn("applied:recommended", lines)
-        self.assertEqual({"sync_ollama_context": False}, events[-1][-1])
+        self.assertNotIn("llm_preset", provider_config)
+        self.assertEqual([], events)
+        self.assertTrue(any("Provider/model defaults retained" in line for line in lines))
 
 
 if __name__ == "__main__":

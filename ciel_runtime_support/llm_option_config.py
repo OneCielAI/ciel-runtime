@@ -80,17 +80,9 @@ class AutoLlmOptionsService:
         if not self.preset.available(provider, config, preset_id):
             return []
         label = self.preset.text(preset_id, language)[0]
-        lines = [f"Auto-applied recommended LLM preset for selected model: {label}."]
-        lines.extend(
-            self.preset.apply(
-                provider,
-                config,
-                preset_id,
-                language,
-                sync_ollama_context=False,
-            )
-        )
-        return lines
+        return [
+            f"Provider/model defaults retained. Optional recommended LLM preset: {label}."
+        ]
 
     def apply_auto(self, model_id: str | None = None) -> list[str]:
         lines: list[str] = []

@@ -158,8 +158,8 @@ ROUTED_COMPAT_PROMPT = (
 NON_ANTHROPIC_COMPAT_PROMPT = ROUTED_COMPAT_PROMPT
 LANGUAGES = {"en": "English", "ko": "한국어", "ja": "日本語", "zh": "中文"}
 MODEL_PRESETS: dict[str, dict[str, Any]] = {
-    "glm-5.2": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 999424},
-    "glm-5.2:cloud": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 999424},
+    "glm-5.2": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1000000},
+    "glm-5.2:cloud": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1000000},
     "glm-4.7": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 131072},
     "glm-5.1": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 131072},
     "glm-4.7:cloud": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 131072},

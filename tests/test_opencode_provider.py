@@ -104,29 +104,25 @@ class OpenCodeProviderTests(unittest.TestCase):
             self.assertEqual("long-context", ciel_runtime.model_option_family("opencode-go", pcfg))
             self.assertEqual("long-context-256k", ciel_runtime.recommended_preset_id("opencode-go", pcfg))
 
-    def test_qwen36_plus_auto_preset_applies_one_million_context(self):
+    def test_qwen36_plus_model_selection_retains_provider_defaults(self):
         pcfg = self.opencode_go_cfg(current_model="qwen3.6-plus-free", context_window=262144)["providers"]["opencode-go"]
 
         with mock.patch.object(ciel_runtime, "upstream_model_context_limit", return_value=None):
             messages = ciel_runtime.auto_apply_recommended_llm_preset_for_model("opencode-go", pcfg, "en")
 
-        self.assertEqual("million-context-1m", pcfg["llm_preset"])
-        self.assertEqual(1048576, pcfg["context_window"])
-        self.assertEqual(16384, pcfg["context_reserve_tokens"])
-        self.assertEqual(8192, pcfg["max_output_tokens"])
-        self.assertTrue(any("Ultra context 1M" in message for message in messages))
+        self.assertNotIn("llm_preset", pcfg)
+        self.assertEqual(262144, pcfg["context_window"])
+        self.assertTrue(any("Provider/model defaults retained" in message for message in messages))
 
-    def test_zen_qwen36_plus_free_auto_preset_applies_one_million_context(self):
+    def test_zen_qwen36_plus_model_selection_retains_provider_defaults(self):
         pcfg = self.opencode_cfg(current_model="qwen3.6-plus-free", context_window=200000)["providers"]["opencode"]
 
         with mock.patch.object(ciel_runtime, "upstream_model_context_limit", return_value=None):
             messages = ciel_runtime.auto_apply_recommended_llm_preset_for_model("opencode", pcfg, "en")
 
-        self.assertEqual("million-context-1m", pcfg["llm_preset"])
-        self.assertEqual(1048576, pcfg["context_window"])
-        self.assertEqual(16384, pcfg["context_reserve_tokens"])
-        self.assertEqual(8192, pcfg["max_output_tokens"])
-        self.assertTrue(any("Ultra context 1M" in message for message in messages))
+        self.assertNotIn("llm_preset", pcfg)
+        self.assertEqual(200000, pcfg["context_window"])
+        self.assertTrue(any("Provider/model defaults retained" in message for message in messages))
 
     def test_provider_capacity_prefers_refreshed_model_specs_over_stale_context_window(self):
         pcfg = self.opencode_cfg(

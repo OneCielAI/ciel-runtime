@@ -45,6 +45,33 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                     pcfg["num_ctx_max"] = 999424
         migrations[marker] = True
 
+    marker = "ollama_cloud_provider_context_default_20260724"
+    if not migrations.get(marker):
+        pcfg = cfg.get("providers", {}).get("ollama-cloud", {})
+        if isinstance(pcfg, dict):
+            model = strip_claude_context_suffix(
+                str(pcfg.get("current_model") or "")
+            ).lower()
+            if model in {"glm-5.2", "glm-5.2:cloud"}:
+                detected_limit = 1_000_000
+                legacy_auto_512k = (
+                    str(pcfg.get("llm_preset") or "") == "long-context-512k"
+                    and str(pcfg.get("num_ctx") or "auto").strip().lower()
+                    in {"", "auto", "dynamic"}
+                    and positive_int(pcfg.get("num_ctx_max")) == 524288
+                )
+                if legacy_auto_512k:
+                    pcfg.pop("llm_preset", None)
+                    pcfg["num_ctx_max"] = detected_limit
+                elif not pcfg.get("llm_preset") and positive_int(
+                    pcfg.get("num_ctx_max")
+                ) in {131072, 999424, 1048576}:
+                    pcfg["num_ctx_max"] = detected_limit
+                pcfg["model_context_max"] = detected_limit
+                pcfg["model_context_model"] = "glm-5.2"
+                pcfg["think"] = True
+        migrations[marker] = True
+
     marker = "nvidia_hosted_router_default_20260509"
     if not migrations.get(marker):
         pcfg = cfg.get("providers", {}).get("nvidia-hosted", {})

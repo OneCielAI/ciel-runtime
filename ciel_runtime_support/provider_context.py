@@ -193,7 +193,7 @@ def infer_context_preset(
         context = positive_int(config.get("context_window")) or 0
         if bool(config.get("think", False)):
             return "reasoning"
-    if context >= 1048576:
+    if context >= 1_000_000:
         return "million-context-1m"
     if context >= 524288:
         return "long-context-512k"
@@ -263,7 +263,7 @@ def recommended_preset(family: str, capacity: int | None) -> str:
 def required_context_for_preset(preset_id: str, policy: ProviderContextPolicy) -> int | None:
     profile = policy.preset_context_profile
     if preset_id == "million-context-1m":
-        return 1048576
+        return 1_000_000
     if preset_id == "humanities-researcher":
         return 524288 if profile == "ollama" else 262144
     if preset_id in {"novelist", "mathematician", "product-architect"}:
@@ -286,7 +286,7 @@ def required_context_for_preset(preset_id: str, policy: ProviderContextPolicy) -
 
 
 def _context_family(capacity: int | None) -> str:
-    if capacity and capacity >= 1048576:
+    if capacity and capacity >= 1_000_000:
         return "million-context"
     if capacity and capacity >= 65536:
         return "long-context"
