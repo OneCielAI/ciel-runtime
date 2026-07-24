@@ -547,6 +547,91 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertNotIn("</think", output)
         self.assertTrue(resp.closed)
 
+    def test_ollama_stream_never_overlaps_text_and_tool_content_blocks(self):
+        chunks = [
+            {"message": {"content": "Read 1 file"}, "done": False},
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "Read",
+                                "arguments": {"file_path": "/tmp/one.txt"},
+                            }
+                        },
+                        {
+                            "function": {
+                                "name": "Read",
+                                "arguments": {"file_path": "/tmp/two.txt"},
+                            }
+                        },
+                    ],
+                },
+                "done": False,
+            },
+            {"message": {"content": "Continuing after tools"}, "done": False},
+            {
+                "message": {"content": ""},
+                "done": True,
+                "done_reason": "stop",
+                "eval_count": 12,
+            },
+        ]
+        resp = _FakeOllamaStreamResponse(
+            [(json.dumps(chunk) + "\n").encode("utf-8") for chunk in chunks]
+        )
+        handler = _FakeSSEHandler()
+
+        with mock.patch.object(ciel_runtime, "write_router_activity"):
+            ciel_runtime._ollama_stream_to_anthropic_sse(
+                handler,
+                resp,
+                "glm-5.2",
+                provider="ollama-cloud",
+                source_body={
+                    "messages": [],
+                    "tools": [
+                        {
+                            "name": "Read",
+                            "input_schema": {"type": "object", "properties": {}},
+                        }
+                    ],
+                },
+                idle_timeout=30.0,
+            )
+
+        frames = []
+        for raw_frame in handler.wfile.data.decode("utf-8").split("\n\n"):
+            lines = raw_frame.splitlines()
+            event_line = next((line for line in lines if line.startswith("event: ")), "")
+            data_line = next((line for line in lines if line.startswith("data: ")), "")
+            if event_line and data_line:
+                frames.append((event_line.removeprefix("event: "), json.loads(data_line.removeprefix("data: "))))
+
+        open_index = None
+        started_blocks = []
+        for event_name, payload in frames:
+            if event_name == "content_block_start":
+                self.assertIsNone(open_index, f"content block {open_index} was still open")
+                open_index = payload["index"]
+                started_blocks.append(
+                    (payload["index"], payload["content_block"]["type"])
+                )
+            elif event_name == "content_block_delta":
+                self.assertEqual(open_index, payload["index"])
+            elif event_name == "content_block_stop":
+                self.assertEqual(open_index, payload["index"])
+                open_index = None
+            elif event_name in {"message_delta", "message_stop"}:
+                self.assertIsNone(open_index)
+
+        self.assertIsNone(open_index)
+        self.assertEqual(
+            [(0, "text"), (1, "tool_use"), (2, "tool_use"), (3, "text")],
+            started_blocks,
+        )
+
     def test_visible_thinking_filter_drops_trailing_partial_tag(self):
         filter_state = ciel_runtime.VisibleThinkingMarkupFilter()
 

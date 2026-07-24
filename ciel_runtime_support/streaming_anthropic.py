@@ -1052,6 +1052,7 @@ def ollama_stream_to_anthropic_sse(
     text_suppressed_for_plan = False
     next_content_index = 0
     text_index: int | None = None
+    text_block_open = False
     text_so_far = ""
     text_buffer = ""
     tool_calls: list[dict[str, Any]] = []
@@ -1061,7 +1062,6 @@ def ollama_stream_to_anthropic_sse(
     output_tokens = 0
     chunk: dict[str, Any] = {}
     chunks_seen = 0
-    text_stopped = False
     last_activity_update = 0.0
     thinking_markup_filter = VisibleThinkingMarkupFilter()
     thinking_markup_suppressed = False
@@ -1103,6 +1103,70 @@ def ollama_stream_to_anthropic_sse(
             emit("content_block_delta", {"type": "content_block_delta", "index": index, "delta": {"type": "text_delta", "text": text}})
         emit("content_block_stop", {"type": "content_block_stop", "index": index})
 
+    def emit_tool_block(index: int, tool_id: str, name: str, tool_input: dict[str, Any]) -> None:
+        emit(
+            "content_block_start",
+            {
+                "type": "content_block_start",
+                "index": index,
+                "content_block": {
+                    "type": "tool_use",
+                    "id": tool_id,
+                    "name": name,
+                    "input": {},
+                },
+            },
+        )
+        emit(
+            "content_block_delta",
+            {
+                "type": "content_block_delta",
+                "index": index,
+                "delta": {
+                    "type": "input_json_delta",
+                    "partial_json": json.dumps(tool_input, ensure_ascii=False),
+                },
+            },
+        )
+        emit("content_block_stop", {"type": "content_block_stop", "index": index})
+        stopped_tool_indices.add(index)
+
+    def open_text_block() -> int:
+        nonlocal next_content_index, text_block_open, text_index, text_started
+        if text_block_open and text_index is not None:
+            return text_index
+        text_index = next_content_index
+        next_content_index += 1
+        text_started = True
+        text_block_open = True
+        emit(
+            "content_block_start",
+            {
+                "type": "content_block_start",
+                "index": text_index,
+                "content_block": {"type": "text", "text": ""},
+            },
+        )
+        return text_index
+
+    def close_text_block() -> None:
+        nonlocal text_block_open, text_buffer
+        if not text_block_open or text_index is None:
+            return
+        if word_chunking and text_buffer:
+            to_flush, text_buffer = _split_word_buffer(text_buffer, force=True)
+            if to_flush:
+                emit(
+                    "content_block_delta",
+                    {
+                        "type": "content_block_delta",
+                        "index": text_index,
+                        "delta": {"type": "text_delta", "text": to_flush},
+                    },
+                )
+        emit("content_block_stop", {"type": "content_block_stop", "index": text_index})
+        text_block_open = False
+
     def update_stream_activity(force: bool = False) -> None:
         nonlocal last_activity_update
         now = time.time()
@@ -1121,7 +1185,7 @@ def ollama_stream_to_anthropic_sse(
         )
 
     def handle_text_chunk(text_chunk: str) -> None:
-        nonlocal next_content_index, text_buffer, text_index, text_so_far, text_started, text_suppressed_for_plan
+        nonlocal text_buffer, text_so_far, text_suppressed_for_plan
         if not text_chunk:
             return
         if source_body is not None and not text_started and not tool_calls and should_auto_enter_plan_mode(source_body, text_so_far + text_chunk, []):
@@ -1132,44 +1196,27 @@ def ollama_stream_to_anthropic_sse(
             pending_text = text_so_far + text_chunk
             text_so_far = pending_text
             text_suppressed_for_plan = False
-            text_started = True
-            text_index = next_content_index
-            next_content_index += 1
-            event = {
-                "type": "content_block_start",
-                "index": text_index,
-                "content_block": {"type": "text", "text": ""},
-            }
-            emit("content_block_start", event)
+            active_text_index = open_text_block()
             if word_chunking:
                 text_buffer += pending_text
                 to_flush, text_buffer = _split_word_buffer(text_buffer, force=False)
                 if to_flush:
                     event = {
                         "type": "content_block_delta",
-                        "index": text_index,
+                        "index": active_text_index,
                         "delta": {"type": "text_delta", "text": to_flush},
                     }
                     emit("content_block_delta", event)
             else:
                 event = {
                     "type": "content_block_delta",
-                    "index": text_index,
+                    "index": active_text_index,
                     "delta": {"type": "text_delta", "text": pending_text},
                 }
                 emit("content_block_delta", event)
             update_stream_activity()
             return
-        if not text_started:
-            text_started = True
-            text_index = next_content_index
-            next_content_index += 1
-            event = {
-                "type": "content_block_start",
-                "index": text_index,
-                "content_block": {"type": "text", "text": ""},
-            }
-            emit("content_block_start", event)
+        active_text_index = open_text_block()
         text_so_far += text_chunk
         if word_chunking:
             text_buffer += text_chunk
@@ -1177,14 +1224,14 @@ def ollama_stream_to_anthropic_sse(
             if to_flush:
                 event = {
                     "type": "content_block_delta",
-                    "index": text_index,
+                    "index": active_text_index,
                     "delta": {"type": "text_delta", "text": to_flush},
                 }
                 emit("content_block_delta", event)
         else:
             event = {
                 "type": "content_block_delta",
-                "index": text_index,
+                "index": active_text_index,
                 "delta": {"type": "text_delta", "text": text_chunk},
             }
             emit("content_block_delta", event)
@@ -1233,6 +1280,7 @@ def ollama_stream_to_anthropic_sse(
                     continue
                 if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name):
                     continue
+                close_text_block()
                 tool_calls.append({"function": {"name": matched_name, "arguments": fixed_input}})
                 tool_id = f"toolu_ollama_{int(time.time() * 1000)}_{len(tool_calls) - 1}"
                 tool_index = next_content_index
@@ -1251,26 +1299,7 @@ def ollama_stream_to_anthropic_sse(
                         "sse_index": tool_index,
                     },
                 )
-                tool_event = {
-                    "type": "content_block_start",
-                    "index": tool_index,
-                    "content_block": {
-                        "type": "tool_use",
-                        "id": tool_id,
-                        "name": matched_name,
-                        "input": {},
-                    },
-                }
-                emit("content_block_start", tool_event)
-                delta_event = {
-                    "type": "content_block_delta",
-                    "index": tool_index,
-                    "delta": {
-                        "type": "input_json_delta",
-                        "partial_json": json.dumps(fixed_input, ensure_ascii=False),
-                    },
-                }
-                emit("content_block_delta", delta_event)
+                emit_tool_block(tool_index, tool_id, matched_name, fixed_input)
                 update_stream_activity()
             update_stream_activity()
         trailing_text = thinking_markup_filter.finish()
@@ -1282,136 +1311,58 @@ def ollama_stream_to_anthropic_sse(
         # Flush any remaining buffered text when word-chunking is active
         if source_body is not None and should_auto_enter_plan_mode(source_body, text_so_far, tool_calls):
             ensure_message_started()
+            close_text_block()
             router_log("WARN", "auto-synthesized EnterPlanMode from short/empty upstream stream")
             tool_calls.append({"function": {"name": "EnterPlanMode", "arguments": {}}})
             tool_id = f"toolu_ollama_plan_{int(time.time() * 1000)}"
             tool_index = next_content_index
             next_content_index += 1
             tool_indices.append(tool_index)
-            tool_event = {
-                "type": "content_block_start",
-                "index": tool_index,
-                "content_block": {
-                    "type": "tool_use",
-                    "id": tool_id,
-                    "name": "EnterPlanMode",
-                    "input": {},
-                },
-            }
-            emit("content_block_start", tool_event)
-            delta_event = {
-                "type": "content_block_delta",
-                "index": tool_index,
-                "delta": {"type": "input_json_delta", "partial_json": "{}"},
-            }
-            emit("content_block_delta", delta_event)
+            emit_tool_block(tool_index, tool_id, "EnterPlanMode", {})
         elif source_body is not None and should_recover_empty_end_turn_with_tasklist(source_body, text_so_far, tool_calls):
             ensure_message_started()
+            close_text_block()
             router_log("WARN", "auto-synthesized TaskList from empty upstream end_turn stream")
             tool_calls.append({"function": {"name": "TaskList", "arguments": {}}})
             tool_id = f"toolu_ollama_empty_{int(time.time() * 1000)}"
             tool_index = next_content_index
             next_content_index += 1
             tool_indices.append(tool_index)
-            tool_event = {
-                "type": "content_block_start",
-                "index": tool_index,
-                "content_block": {
-                    "type": "tool_use",
-                    "id": tool_id,
-                    "name": "TaskList",
-                    "input": {},
-                },
-            }
-            emit("content_block_start", tool_event)
-            delta_event = {
-                "type": "content_block_delta",
-                "index": tool_index,
-                "delta": {"type": "input_json_delta", "partial_json": "{}"},
-            }
-            emit("content_block_delta", delta_event)
+            emit_tool_block(tool_index, tool_id, "TaskList", {})
         elif text_suppressed_for_plan and not text_started and text_so_far:
-            text_started = True
-            text_index = next_content_index
-            next_content_index += 1
-            event = {
-                "type": "content_block_start",
-                "index": text_index,
-                "content_block": {"type": "text", "text": ""},
-            }
-            emit("content_block_start", event)
+            active_text_index = open_text_block()
             event = {
                 "type": "content_block_delta",
-                "index": text_index,
+                "index": active_text_index,
                 "delta": {"type": "text_delta", "text": text_so_far},
             }
             emit("content_block_delta", event)
-        if word_chunking and text_started and text_buffer:
-            to_flush, text_buffer = _split_word_buffer(text_buffer, force=True)
-            if to_flush:
-                event = {
-                    "type": "content_block_delta",
-                    "index": text_index,
-                    "delta": {"type": "text_delta", "text": to_flush},
-                }
-                emit("content_block_delta", event)
         if source_body is not None and should_keep_work_alive_with_tasklist(source_body, text_so_far, tool_calls):
             ensure_message_started()
+            close_text_block()
             router_log("WARN", "auto-synthesized TaskList to keep work moving after tool result stream")
             tool_calls.append({"function": {"name": "TaskList", "arguments": {}}})
             tool_id = f"toolu_ollama_keepalive_{int(time.time() * 1000)}"
             tool_index = next_content_index
             next_content_index += 1
             tool_indices.append(tool_index)
-            tool_event = {
-                "type": "content_block_start",
-                "index": tool_index,
-                "content_block": {
-                    "type": "tool_use",
-                    "id": tool_id,
-                    "name": "TaskList",
-                    "input": {},
-                },
-            }
-            emit("content_block_start", tool_event)
-            delta_event = {
-                "type": "content_block_delta",
-                "index": tool_index,
-                "delta": {"type": "input_json_delta", "partial_json": "{}"},
-            }
-            emit("content_block_delta", delta_event)
+            emit_tool_block(tool_index, tool_id, "TaskList", {})
         if source_body is not None and should_auto_continue_choice_question_with_tasklist(source_body, text_so_far, tool_calls):
             ensure_message_started()
+            close_text_block()
             router_log("WARN", "auto-synthesized TaskList after clarification question stream")
             tool_calls.append({"function": {"name": "TaskList", "arguments": {}}})
             tool_id = f"toolu_ollama_choice_{int(time.time() * 1000)}"
             tool_index = next_content_index
             next_content_index += 1
             tool_indices.append(tool_index)
-            tool_event = {
-                "type": "content_block_start",
-                "index": tool_index,
-                "content_block": {
-                    "type": "tool_use",
-                    "id": tool_id,
-                    "name": "TaskList",
-                    "input": {},
-                },
-            }
-            emit("content_block_start", tool_event)
-            delta_event = {
-                "type": "content_block_delta",
-                "index": tool_index,
-                "delta": {"type": "input_json_delta", "partial_json": "{}"},
-            }
-            emit("content_block_delta", delta_event)
+            emit_tool_block(tool_index, tool_id, "TaskList", {})
         # Send content_block_stop for text if any
-        if text_started:
-            event = {"type": "content_block_stop", "index": text_index}
-            emit("content_block_stop", event)
-            text_stopped = True
+        close_text_block()
         # Send content_block_stop for each tool call
         for tool_index in tool_indices:
+            if tool_index in stopped_tool_indices:
+                continue
             event = {"type": "content_block_stop", "index": tool_index}
             emit("content_block_stop", event)
             stopped_tool_indices.add(tool_index)
@@ -1478,8 +1429,8 @@ def ollama_stream_to_anthropic_sse(
         write_router_activity("error", provider, model, error=type(exc).__name__, stream=True)
         try:
             ensure_message_started()
-            if text_started and not text_stopped:
-                emit("content_block_stop", {"type": "content_block_stop", "index": text_index})
+            if text_block_open:
+                close_text_block()
             if not text_started and not tool_indices:
                 error_index = next_content_index
                 next_content_index += 1
