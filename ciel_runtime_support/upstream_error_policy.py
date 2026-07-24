@@ -93,8 +93,12 @@ def retryable_exception(error: BaseException) -> bool:
 def configured_gateway_retries(config: dict[str, Any]) -> int:
     value = config.get("gateway_retries")
     if value is None:
-        return 2
+        # Generation requests are not idempotent.  If an upstream completed a
+        # request but its response was lost, an automatic retry spends the
+        # entire prompt again.  Providers/clients may still apply their own
+        # retry policy, and users can opt in here explicitly when desired.
+        return 0
     try:
         return max(0, int(value))
     except (TypeError, ValueError, OverflowError):
-        return 2
+        return 0

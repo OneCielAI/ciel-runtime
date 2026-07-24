@@ -97,7 +97,9 @@ def codex_config_paths_for_launch(
     cwd: Path | None = None,
 ) -> list[Path]:
     env = env or os.environ
-    home = Path(env.get("CODEX_HOME") or (Path.home() / ".codex")).expanduser()
+    configured_home = str(env.get("CODEX_HOME") or "").strip()
+    default_home = Path.home() / ".codex"
+    home = Path(configured_home or default_home).expanduser()
     paths = [home / "config.toml"]
     profiles: list[str] = []
     index = 0
@@ -116,6 +118,11 @@ def codex_config_paths_for_launch(
     current = (cwd or Path.cwd()).resolve()
     for parent in (current, *current.parents):
         path = parent / ".codex" / "config.toml"
+        # An explicit CODEX_HOME is an isolation boundary.  When cwd happens
+        # to live below the OS home directory, parent discovery must not pull
+        # the default ~/.codex/config.toml back into that isolated config.
+        if configured_home and path.resolve() == (default_home / "config.toml").resolve():
+            continue
         if path not in paths:
             paths.append(path)
     return paths

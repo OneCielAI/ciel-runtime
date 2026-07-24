@@ -128,7 +128,10 @@ def _post_summary(
         provider,
         provider_config,
         model,
-        retry_rate_limits=True,
+        # Summarization is a non-idempotent generation request.  A retry can
+        # consume quota even when the provider completed the first attempt but
+        # the response was lost, so never multiply it implicitly.
+        retry_rate_limits=False,
     )
     return transport.extract_text(data, wire)
 
@@ -147,7 +150,11 @@ def build_llm_compacted_messages(
         return None
     workflow = services.workflow
     projection = services.projection
-    if workflow.parse_bool(provider_config.get("context_compact_llm"), default=True) is False:
+    # Claude Code already performs the final compact generation.  The former
+    # default ran one extra generation per segment before forwarding that
+    # request (N map calls + one reduce call), which multiplied provider quota.
+    # Keep segmented LLM compaction as an explicit compatibility opt-in only.
+    if workflow.parse_bool(provider_config.get("context_compact_llm"), default=False) is False:
         return None
     if not workflow.compaction_available(provider, provider_config):
         return None

@@ -74,6 +74,40 @@ class ContextCompactionTests(unittest.TestCase):
         self.assertIsNone(result)
         services.workflow.request_summary.assert_not_called()
 
+    def test_segmented_llm_compaction_is_disabled_by_default(self):
+        services = self.services()
+        result = build_llm_compacted_messages(
+            "provider",
+            "model",
+            {},
+            [
+                {"role": "user", "content": "compact"},
+                {"role": "assistant", "content": "history"},
+            ],
+            1000,
+            services,
+            wire="openai",
+        )
+        self.assertIsNone(result)
+        services.workflow.request_summary.assert_not_called()
+
+    def test_segmented_llm_compaction_remains_explicit_opt_in(self):
+        services = self.services()
+        result = build_llm_compacted_messages(
+            "provider",
+            "model",
+            {"context_compact_llm": True},
+            [
+                {"role": "user", "content": "compact"},
+                {"role": "assistant", "content": "history"},
+            ],
+            1000,
+            services,
+            wire="openai",
+        )
+        self.assertEqual([{"role": "user", "content": "compact:summary"}], result)
+        services.workflow.request_summary.assert_called_once()
+
     def test_ollama_summary_preserves_keep_alive_and_native_token_option(self):
         services = self.services()
         request_context_summary(
@@ -98,6 +132,9 @@ class ContextCompactionTests(unittest.TestCase):
         url, request = services.transport.post_json.call_args.args[:2]
         self.assertEqual("https://native/v1/messages", url)
         self.assertEqual("compact", request["system"])
+        self.assertFalse(
+            services.transport.post_json.call_args.kwargs["retry_rate_limits"]
+        )
 
 
 if __name__ == "__main__":

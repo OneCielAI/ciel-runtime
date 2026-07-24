@@ -410,6 +410,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
         try:
             pcfg = {
                 "base_url": "https://ollama.com",
+                "context_compact_llm": True,
                 "context_compact_chunk_tokens": 512,
                 "context_compact_summary_tokens": 512,
             }
