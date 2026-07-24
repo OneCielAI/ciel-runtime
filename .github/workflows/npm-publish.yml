@@ -20,7 +20,7 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
           scope: "@oneciel-ai"
-      - run: python -m pip install --upgrade pip ruff pillow
+      - run: python -m pip install --upgrade pip "ruff==0.15.22" pillow
       - run: python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py
       - run: python -m ruff check .
       - run: npm test

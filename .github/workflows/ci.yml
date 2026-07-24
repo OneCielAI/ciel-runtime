@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: python -m pip install --upgrade pip ruff pillow
+      - run: python -m pip install --upgrade pip "ruff==0.15.22" pillow
       - run: python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
       - run: python -m ruff check .
       - run: npm run check:docs
