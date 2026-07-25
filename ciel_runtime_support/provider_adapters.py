@@ -27,6 +27,10 @@ from .providers.deepseek import DeepSeekProviderAdapter
 from .providers.zai import ZaiProviderAdapter
 from .providers.kimi import KimiProviderAdapter
 from .providers.fireworks import FireworksProviderAdapter
+from .providers.meta import MetaModelProviderAdapter
+from .providers.github_copilot_oauth import (
+    GitHubCopilotOAuthProviderAdapter,
+)
 from .providers.opencode import OpenCodeProviderAdapter
 from .providers.opencode_go import OpenCodeGoProviderAdapter
 from .providers.catalog import COMPATIBLE_PROVIDER_SPECS, catalog_provider_factory
@@ -55,6 +59,18 @@ PROVIDER_DESCRIPTORS = ProviderDescriptorRegistry(
         ProviderDescriptor("self-hosted-nim", "Self Hosted NIM", SelfHostedNimProviderAdapter),
         ProviderDescriptor("openrouter", "OpenRouter", OpenRouterProviderAdapter),
         ProviderDescriptor("fireworks", "Fireworks.ai", FireworksProviderAdapter),
+        ProviderDescriptor(
+            "meta",
+            "Meta Model API",
+            MetaModelProviderAdapter,
+            aliases=("muse", "muse-spark", "meta-model-api"),
+        ),
+        ProviderDescriptor(
+            "github-copilot-oauth",
+            "GitHub Copilot OAuth",
+            GitHubCopilotOAuthProviderAdapter,
+            aliases=("copilot-oauth", "github-oauth"),
+        ),
         ProviderDescriptor(
             "azure",
             "Azure OpenAI",
@@ -128,7 +144,9 @@ __all__ = [
     "DeepSeekProviderAdapter",
     "FireworksProviderAdapter",
     "KimiProviderAdapter",
+    "GitHubCopilotOAuthProviderAdapter",
     "LMStudioProviderAdapter",
+    "MetaModelProviderAdapter",
     "NvidiaHostedProviderAdapter",
     "OllamaCloudProviderAdapter",
     "OllamaProviderAdapter",

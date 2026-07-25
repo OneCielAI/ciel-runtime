@@ -169,6 +169,15 @@ class CodexLaunchConfigurationService:
         )
         catalog_env = dict(self.effects.environ())
         catalog_env["PATH"] = self.catalog.path_value(catalog_env)
+        configured_auto_compact = provider_config.get(
+            "codex_auto_compact_window"
+        )
+        try:
+            auto_compact_token_limit = int(configured_auto_compact)
+        except (TypeError, ValueError):
+            auto_compact_token_limit = None
+        if auto_compact_token_limit is not None and auto_compact_token_limit <= 0:
+            auto_compact_token_limit = None
         return self.catalog.write(
             codex,
             CodexModelCatalogSpec(
@@ -176,6 +185,7 @@ class CodexLaunchConfigurationService:
                 provider_label=self.catalog.provider_label(provider),
                 context_window=context_window,
                 effort=str(provider_config.get("effort_level") or "").strip().lower(),
+                auto_compact_token_limit=auto_compact_token_limit,
             ),
             catalog_env,
         )

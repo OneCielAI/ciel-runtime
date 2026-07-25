@@ -25,6 +25,12 @@ class CliParserTests(unittest.TestCase):
         self.assertEqual(45.0, test.timeout)
         self.assertEqual("smoke", test.mode)
 
+    def test_copilot_oauth_command_defaults_to_status(self):
+        args = ciel_runtime.build_parser().parse_args(["copilot-oauth"])
+
+        self.assertEqual("status", args.action)
+        self.assertIs(ciel_runtime.cmd_copilot_oauth, args.func)
+
 
 if __name__ == "__main__":
     unittest.main()

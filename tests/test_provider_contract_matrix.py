@@ -359,7 +359,9 @@ class ProviderContractMatrixTests(unittest.TestCase):
         required_api_key = {
             "deepseek",
             "fireworks",
+            "github-copilot-oauth",
             "kimi",
+            "meta",
             "nvidia-hosted",
             "ollama-cloud",
             "opencode",
@@ -520,6 +522,7 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "fireworks",
             "kimi",
             "lm-studio",
+            "meta",
             "opencode",
             "opencode-go",
             "self-hosted-nim",

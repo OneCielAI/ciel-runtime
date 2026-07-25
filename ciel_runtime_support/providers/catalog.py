@@ -199,7 +199,7 @@ COMPATIBLE_PROVIDER_SPECS: tuple[CompatibleProviderSpec, ...] = (
         ("llama-3.3-70b-versatile", "qwen/qwen3-32b", "openai/gpt-oss-120b"),
     ),
     CompatibleProviderSpec(
-        "github", "GitHub Copilot", "https://api.githubcopilot.com",
+        "github", "GitHub Copilot API key", "https://api.githubcopilot.com",
         aliases=("github-copilot", "copilot"),
         chat_path="/chat/completions", models_path="/models",
     ),

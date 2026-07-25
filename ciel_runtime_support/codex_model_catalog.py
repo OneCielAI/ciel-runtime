@@ -15,6 +15,7 @@ class CodexModelCatalogSpec:
     provider_label: str
     context_window: int
     effort: str = ""
+    auto_compact_token_limit: int | None = None
 
 
 class CodexModelCatalogService:
@@ -84,6 +85,11 @@ class CodexModelCatalogService:
         template: dict[str, Any], spec: CodexModelCatalogSpec
     ) -> dict[str, Any]:
         routed = json.loads(json.dumps(template))
+        auto_compact_token_limit = (
+            spec.auto_compact_token_limit
+            if spec.auto_compact_token_limit is not None
+            else max(1, (spec.context_window * 9) // 10)
+        )
         routed.update(
             {
                 "slug": spec.alias,
@@ -94,7 +100,10 @@ class CodexModelCatalogService:
                 "priority": 99,
                 "context_window": spec.context_window,
                 "max_context_window": spec.context_window,
-                "auto_compact_token_limit": max(1, (spec.context_window * 9) // 10),
+                "auto_compact_token_limit": min(
+                    spec.context_window,
+                    max(1, auto_compact_token_limit),
+                ),
             }
         )
         if spec.effort:

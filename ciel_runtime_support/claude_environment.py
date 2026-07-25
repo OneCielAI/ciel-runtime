@@ -221,6 +221,10 @@ class ClaudeEnvironmentProjection:
         effort_level = str(config.get("effort_level") or "").strip().lower()
         if effort_level:
             env["CLAUDE_CODE_EFFORT_LEVEL"] = effort_level
+        if config.get("enable_tool_search") is True or str(
+            config.get("enable_tool_search") or ""
+        ).strip().lower() in {"1", "true", "yes", "on"}:
+            env["ENABLE_TOOL_SEARCH"] = "true"
         advisor_model = str(config.get("advisor_model") or "").strip()
         if advisor_model:
             env["CIEL_RUNTIME_ADVISOR_MODEL"] = advisor_model

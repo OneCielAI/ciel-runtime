@@ -38,7 +38,9 @@ def build_default_provider_endpoint_policy(
                 "openai-responses": "responses",
                 "google-generative": "gemini",
             },
-            routed_protocols=frozenset({"anthropic-messages", "openai-chat"}),
+            routed_protocols=frozenset(
+                {"anthropic-messages", "openai-chat", "openai-responses"}
+            ),
         ),
     )
 

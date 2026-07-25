@@ -143,6 +143,7 @@ class PrelaunchSecrets:
     secret_fingerprint: Callable[..., Any]
     store_api_key_input_config: Callable[..., Any]
     store_api_keys_config: Callable[..., Any]
+    copilot_oauth_action: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -256,6 +257,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     settings_ready_except_api_key = services.config.settings_ready_except_api_key
     store_api_key_input_config = services.secrets.store_api_key_input_config
     store_api_keys_config = services.secrets.store_api_keys_config
+    copilot_oauth_action = services.secrets.copilot_oauth_action
     timeout_profile_panel_rows = services.options.timeout_profile_panel_rows
     passthrough = list(passthrough or [])
     enable_ansi()
@@ -482,6 +484,12 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                 elif panel == "api-key":
                     if value == "back":
                         close_panel()
+                    elif value.startswith("oauth-"):
+                        messages = copilot_oauth_action(
+                            value.removeprefix("oauth-")
+                        )
+                        refresh_checks()
+                        close_panel(3)
                     elif value == "input":
                         key_value = prompt_menu_value(f"API key for {provider}", secret=True, restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
                         if key_value:
@@ -509,6 +517,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                             "ollama-cloud": "OLLAMA_API_KEY",
                             "openrouter": "OPENROUTER_API_KEY",
                             "fireworks": "FIREWORKS_API_KEY",
+                            "meta": "MODEL_API_KEY",
                         }.get(provider, "API_KEY")
                         env_name = prompt_menu_value("Environment variable name", default_env, restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
                         key_value = os.environ.get(env_name, "").strip()
@@ -529,6 +538,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                             "ollama-cloud": "OLLAMA_API_KEYS",
                             "openrouter": "OPENROUTER_API_KEYS",
                             "fireworks": "FIREWORKS_API_KEYS",
+                            "meta": "MODEL_API_KEYS",
                         }.get(provider, "API_KEYS")
                         env_name = prompt_menu_value("Environment variable name", default_env, restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
                         key_value = os.environ.get(env_name, "").strip()

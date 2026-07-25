@@ -20,6 +20,7 @@ PROVIDER_DEFAULT_BASE_URLS: dict[str, str] = {
     "self-hosted-nim": "http://127.0.0.1:8000",
     "openrouter": "https://openrouter.ai/api/v1",
     "fireworks": "https://api.fireworks.ai/inference",
+    "meta": "https://api.meta.ai/v1",
 }
 PROVIDER_DEFAULT_BASE_URLS.update(CATALOG_PROVIDER_BASE_URLS)
 PROVIDER_DEFAULT_BASE_URLS.update(ANTHROPIC_CATALOG_PROVIDER_BASE_URLS)

@@ -36,6 +36,8 @@ class OpenAIResponsesRouting:
     maybe_import_session: Callable[..., bool]
     codex_routed_enabled: Callable[[str, dict[str, Any]], bool]
     forward_codex: Callable[..., Any]
+    select_protocol: Callable[[str, dict[str, Any], str, str | None], str]
+    forward_provider_responses: Callable[..., dict[str, Any]]
     dump_request: Callable[..., Any]
     normalize_provider_wire: Callable[..., dict[str, Any]]
     collect_message: Callable[..., dict[str, Any]]
@@ -91,6 +93,23 @@ def handle_openai_responses_request(
         return
     if routing.codex_routed_enabled(provider, pcfg):
         _handle_codex_route(handler, provider, pcfg, body, services)
+        return
+    if (
+        routing.select_protocol(
+            provider,
+            pcfg,
+            "openai_responses",
+            str(body.get("model") or ""),
+        )
+        == "openai_responses"
+    ):
+        _handle_provider_responses_route(
+            handler,
+            provider,
+            pcfg,
+            body,
+            services,
+        )
         return
 
     stream = bool(body.get("stream", True))
@@ -192,3 +211,81 @@ def _handle_codex_route(
             return
         delivery.mark_failed(handler, f"codex_responses_error:{type(exc).__name__}")
         output.write_error(handler, f"{type(exc).__name__}: {exc}", stream=bool(body.get("stream", True)))
+
+
+def _handle_provider_responses_route(
+    handler: Any,
+    provider: str,
+    pcfg: dict[str, Any],
+    body: dict[str, Any],
+    services: OpenAIResponsesServices,
+) -> None:
+    core = services.core
+    routing = services.routing
+    delivery = services.delivery
+    output = services.output
+    request_id = core.request_id()
+    core.event_bus.publish(
+        level="info",
+        category="router.request",
+        message="Native provider Responses request received",
+        request_id=request_id,
+        provider=provider,
+        model=str(body.get("model") or ""),
+        data={
+            "path": urllib.parse.urlparse(handler.path).path,
+            "input_items": len(core.input_as_list(body.get("input", []))),
+            "tools": len(body.get("tools") or []),
+        },
+    )
+    routing.dump_request(
+        provider,
+        urllib.parse.urlparse(handler.path).path,
+        body,
+    )
+    try:
+        delivery_body = routing.forward_provider_responses(
+            handler,
+            provider,
+            pcfg,
+            body,
+        )
+        delivery.mark_success(handler, "provider_responses_proxy")
+        delivery.commit(delivery_body, handler)
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="ignore")
+        delivery.mark_failed(
+            handler,
+            f"provider_responses_http_error:{exc.code}",
+        )
+        output.write_error(
+            handler,
+            output.upstream_error_message(exc, raw),
+            stream=bool(body.get("stream", True)),
+            status=exc.code,
+        )
+    except Exception as exc:
+        if core.is_client_disconnect(exc):
+            delivery.mark_failed(
+                handler,
+                f"provider_responses_client_disconnected:{type(exc).__name__}",
+            )
+            return
+        core.event_bus.publish(
+            level="error",
+            category="router.error",
+            message=str(exc),
+            request_id=request_id,
+            provider=provider,
+            model=str(body.get("model") or ""),
+            data={"error_type": type(exc).__name__},
+        )
+        delivery.mark_failed(
+            handler,
+            f"provider_responses_error:{type(exc).__name__}",
+        )
+        output.write_error(
+            handler,
+            f"{type(exc).__name__}: {exc}",
+            stream=bool(body.get("stream", True)),
+        )

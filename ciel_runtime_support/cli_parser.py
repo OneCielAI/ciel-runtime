@@ -47,6 +47,7 @@ class CliParserProvider:
     set_api_key: CliHandler
     set_api_keys: CliHandler
     base_url: CliHandler
+    copilot_oauth: CliHandler
 
 
 @dataclass(frozen=True)
@@ -120,6 +121,14 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
     base_url.add_argument("provider")
     base_url.add_argument("url")
     base_url.set_defaults(func=services.provider.base_url)
+    copilot_oauth = commands.add_parser("copilot-oauth")
+    copilot_oauth.add_argument(
+        "action",
+        nargs="?",
+        choices=("login", "status", "logout"),
+        default="status",
+    )
+    copilot_oauth.set_defaults(func=services.provider.copilot_oauth)
     _add_values_command(commands, "model", services.models.model, argument_name="value")
     _add_values_command(commands, "advisor-model", services.models.advisor_model, argument_name="value")
     models = commands.add_parser("models")
