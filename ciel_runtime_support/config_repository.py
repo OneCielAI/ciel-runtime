@@ -20,6 +20,11 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
         "router_debug_external_access": False,
         "router_debug_external_access_confirmed": False,
         "router_debug_message_preview_chars": 0,
+        "web_backend": {
+            "host": "127.0.0.1",
+            "port": 0,
+            "tailscale_https": False,
+        },
         "claude_code": {
             "compat_prompt_for_non_anthropic": True,
             "channels": [],

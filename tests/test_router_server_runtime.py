@@ -49,6 +49,8 @@ class RouterServerRuntimeTests(unittest.TestCase):
                     current_log_level=lambda: 20,
                     current_pid=lambda: 123,
                     env_value=lambda name: "debug" if name == "CIEL_RUNTIME_LOG_LEVEL" else None,
+                    external_access_enabled=lambda _config: True,
+                    ensure_external_token=lambda: events.append("token") or "token",
                 ),
                 RouterServerEffects(
                     chmod=lambda path, mode: events.append(("chmod", path, mode)),
@@ -58,6 +60,7 @@ class RouterServerRuntimeTests(unittest.TestCase):
                     start_channels=lambda config: events.append(("channels", config)),
                     stop_channels=lambda name: events.append(("stop", name)),
                     thread_factory=ImmediateThread,
+                    configure_web_endpoints=lambda host: events.append(("web", host)) or ["web: http://local/"],
                 ),
             )
 
@@ -67,6 +70,7 @@ class RouterServerRuntimeTests(unittest.TestCase):
             self.assertFalse(pid_path.exists())
             self.assertIn("source=env", stderr.getvalue())
             self.assertIn(("stop", None), events)
+            self.assertIn("token", events)
             self.assertIn("serve", events)
 
     def test_log_level_file_takes_precedence_over_environment(self):
@@ -77,12 +81,13 @@ class RouterServerRuntimeTests(unittest.TestCase):
                 RouterServerConfig(Path(directory), path, 1, "base", path, {}, None),
                 RouterServerStatePorts(
                     lambda: {}, lambda: None, lambda _config: "host", lambda: 20,
-                    lambda: 1, lambda _name: "debug",
+                    lambda: 1, lambda _name: "debug", lambda _config: False,
+                    lambda: "",
                 ),
                 RouterServerEffects(
                     lambda _path, _mode: None, io.StringIO(), lambda *_args: None,
                     lambda _server: None, lambda _config: None, lambda _name: None,
-                    lambda **_kwargs: None,
+                    lambda **_kwargs: None, lambda _host: [],
                 ),
             )
 

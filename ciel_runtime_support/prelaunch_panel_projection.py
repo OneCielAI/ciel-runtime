@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Protocol
 
+from ciel_runtime_support.web_endpoints import web_backend_summary
+
 
 ProviderConfig = dict[str, Any]
 RuntimeConfig = dict[str, Any]
@@ -43,7 +45,6 @@ class MainMenuProjection:
         provider_config: ProviderConfig,
         language: str,
     ) -> list[str]:
-        del config
         policy = self.ports.provider_ui_policy(provider, provider_config)
         policy_model = policy.model_placeholder
         policy_advisor = policy.advisor_placeholder
@@ -102,6 +103,8 @@ class MainMenuProjection:
             f"10. {launch_codex_label}",
             f"11. {launch_app_label}",
             f"12. {launch_agy_label}",
+            f"13. {self.ports.ui_text('web_backend', language)}  "
+            f"[{web_backend_summary(config, 0)}]",
             self.ports.ui_text("quit", language),
         ]
 

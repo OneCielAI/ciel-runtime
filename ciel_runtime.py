@@ -1377,6 +1377,12 @@ from ciel_runtime_support.web_ui_controller import (
     WebUiHttpPorts,
     WebUiProjectionPorts,
 )
+from ciel_runtime_support.web_endpoints import (
+    build_web_endpoint_report,
+    configure_requested_web_endpoints,
+    update_web_backend_config,
+    web_backend_panel_rows as project_web_backend_panel_rows,
+)
 from ciel_runtime_support.windows_console_input import (
     WindowsConsoleInputWriter,
     _windows_console_utf16_units as project_windows_console_utf16_units,
@@ -6440,11 +6446,15 @@ def serve(_: argparse.Namespace) -> None:
         router_server_runtime.RouterServerStatePorts(
             load_config, reset_api_key_cooldowns_for_router_start, router_bind_host,
             current_log_level, os.getpid, os.environ.get,
+            router_debug_external_access_enabled, ensure_router_external_access_token,
         ),
         router_server_runtime.RouterServerEffects(
             os.chmod, sys.stderr, ThreadingHTTPServer,
             start_managed_router_lifetime_watchdog, start_router_managed_channel_sse,
             stop_channel_sse_connection, threading.Thread,
+            lambda bind_host: configure_requested_web_endpoints(
+                ROUTER_PORT, ROUTER_HOST, bind_host, config=load_config()
+            ),
         ),
     ).run()
 
@@ -6795,6 +6805,9 @@ def provider_status_service() -> ProviderStatusService:
             router_up=router_up,
             router_base=ROUTER_BASE,
             config_path=CONFIG_PATH,
+            web_status_lines=lambda: build_web_endpoint_report(
+                ROUTER_HOST, router_bind_host(load_config()), ROUTER_PORT
+            ).status_lines(),
         ),
     )
 
@@ -9240,7 +9253,22 @@ def main_menu_projection() -> MainMenuProjection:
     )
 
 def main_menu_rows(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any], lang: str) -> list[str]:
-    return main_menu_projection().rows(cfg, provider, pcfg, lang)
+    projected = dict(cfg)
+    projected["_effective_web_port"] = ROUTER_PORT
+    return main_menu_projection().rows(projected, provider, pcfg, lang)
+
+def web_backend_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
+    return project_web_backend_panel_rows(cfg, ROUTER_PORT)
+
+def set_web_backend_config(key: str, value: Any) -> list[str]:
+    cfg = load_config()
+    lines = update_web_backend_config(cfg, key, value, ROUTER_PORT)
+    save_config(cfg)
+    clear_model_cache()
+    return lines
+
+def restart_runtime_after_web_config() -> None:
+    os.execv(sys.executable, [sys.executable, *sys.argv])
 
 def provider_panel_projection() -> ProviderPanelProjection:
     return ProviderPanelProjection(
@@ -9541,6 +9569,9 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                 llm_option_current_bool=llm_option_current_bool,
                 llm_option_prompt_default=llm_option_prompt_default,
                 timeout_profile_panel_rows=timeout_profile_panel_rows,
+                web_backend_panel_rows=web_backend_panel_rows,
+                set_web_backend_config=set_web_backend_config,
+                restart_runtime=restart_runtime_after_web_config,
             ),
         ),
     )

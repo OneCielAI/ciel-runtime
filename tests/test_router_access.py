@@ -63,6 +63,14 @@ class RouterAccessTests(unittest.TestCase):
         self.assertTrue(policy.external_access_enabled())
         self.assertEqual("192.0.2.8", policy.bind_host())
 
+    def test_saved_web_backend_host_is_used_for_server_bind(self):
+        config = {
+            "web_backend": {"host": "100.64.1.2"},
+            "router_debug_external_access": True,
+            "router_debug_external_access_confirmed": True,
+        }
+        self.assertEqual("100.64.1.2", self.policy(config=config).bind_host())
+
     def test_request_auth_allows_loopback_and_compares_external_token(self):
         config = {
             "router_debug_external_access": True,

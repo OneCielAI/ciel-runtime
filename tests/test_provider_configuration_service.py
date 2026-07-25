@@ -63,6 +63,7 @@ class ProviderConfigurationServiceTest(unittest.TestCase):
                 router_up=lambda: False,
                 router_base="http://router",
                 config_path="config.json",
+                web_status_lines=lambda: ["web: http://local/"],
             ),
         )
 
@@ -71,6 +72,7 @@ class ProviderConfigurationServiceTest(unittest.TestCase):
         self.assertIn("mode: codex-native", lines)
         self.assertIn("claude_model: disabled for native runtime provider", lines)
         self.assertIn("router: down http://router", lines)
+        self.assertIn("web: http://local/", lines)
 
 
 if __name__ == "__main__":

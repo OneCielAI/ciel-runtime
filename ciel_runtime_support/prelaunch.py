@@ -32,6 +32,7 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "launch-codex",
     "launch-codex-app-server",
     "launch-agy",
+    "web-backend",
     "quit",
 )
 
@@ -164,6 +165,9 @@ class PrelaunchOptions:
     llm_option_current_bool: Callable[..., Any]
     llm_option_prompt_default: Callable[..., Any]
     timeout_profile_panel_rows: Callable[..., Any]
+    web_backend_panel_rows: Callable[..., Any]
+    set_web_backend_config: Callable[..., Any]
+    restart_runtime: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,6 +263,9 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     store_api_keys_config = services.secrets.store_api_keys_config
     copilot_oauth_action = services.secrets.copilot_oauth_action
     timeout_profile_panel_rows = services.options.timeout_profile_panel_rows
+    web_backend_panel_rows = services.options.web_backend_panel_rows
+    set_web_backend_config = services.options.set_web_backend_config
+    restart_runtime = services.options.restart_runtime
     passthrough = list(passthrough or [])
     enable_ansi()
     cfg = load_config()
@@ -329,6 +336,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             panel_rows, panel_values = llm_preset_panel_rows(provider, pcfg, cfg.get("language", "en"))
         elif name == "timeout":
             panel_rows, panel_values = timeout_profile_panel_rows(pcfg, cfg.get("language", "en"))
+        elif name == "web-backend":
+            panel_rows, panel_values = web_backend_panel_rows(cfg)
         if panel_rows:
             panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
 
@@ -617,6 +626,51 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         cfg = load_config()
                         panel_rows, panel_values = log_level_panel_rows(cfg)
                         panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
+                elif panel == "web-backend":
+                    if value == "back":
+                        close_panel()
+                        continue
+                    web_config = cfg.get("web_backend", {})
+                    if not isinstance(web_config, dict):
+                        web_config = {}
+                    if value == "host":
+                        entered = prompt_menu_value(
+                            "Web bind address",
+                            str(web_config.get("host") or "127.0.0.1"),
+                            restore_tty=restore_line_mode,
+                            raw_tty=restore_raw_mode,
+                        )
+                        if not entered:
+                            continue
+                        messages = set_web_backend_config("host", entered)
+                    elif value == "port":
+                        entered = prompt_menu_value(
+                            "Web port",
+                            str(web_config.get("port") or ""),
+                            restore_tty=restore_line_mode,
+                            raw_tty=restore_raw_mode,
+                        )
+                        if not entered:
+                            continue
+                        messages = set_web_backend_config("port", entered)
+                    elif value == "tailscale":
+                        messages = set_web_backend_config(
+                            "tailscale",
+                            not bool(web_config.get("tailscale_https", False)),
+                        )
+                    else:
+                        continue
+                    restore_line_mode()
+                    sys.stdout.write("\033[?25h")
+                    sys.stdout.flush()
+                    restart_runtime()
+                    # Test doubles may return even though the production
+                    # implementation replaces the process image.
+                    restore_raw_mode()
+                    sys.stdout.write("\033[?25l")
+                    sys.stdout.flush()
+                    refresh_checks()
+                    close_panel()
                 elif panel == "channel-delivery":
                     if value == "back":
                         close_panel()

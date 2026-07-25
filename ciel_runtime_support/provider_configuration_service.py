@@ -89,6 +89,7 @@ class RuntimeStatusPorts:
     router_up: Callable[[], bool]
     router_base: str
     config_path: Any
+    web_status_lines: Callable[[], list[str]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +123,7 @@ class ProviderStatusService:
             f"channels: {self.runtime.channel_status_text(config)}",
             f"channel_delivery: {self.runtime.channel_delivery_mode(config)}",
             f"router: {router}",
+            *self.runtime.web_status_lines(),
             f"config: {self.runtime.config_path}",
         ]
 

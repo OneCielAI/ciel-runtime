@@ -38,6 +38,10 @@ Control plane, runs before Claude Code and does not require LLM connectivity:
   ciel-runtime stop                    Stop router/proxy
 
 Headless setup flags, namespaced to avoid Claude CLI collisions:
+  ciel-runtime --ca-web-address HOST  Bind the web/router server to HOST for this launch
+  ciel-runtime --ca-web-port PORT     Select the web/router port for this launch
+  ciel-runtime --ca-tailscale-https[=PORT]
+                                      Publish localhost through Tailscale Serve HTTPS
   ciel-runtime --ca-provider PROVIDER  Set provider, then launch
   ciel-runtime --ca-env-file PATH      Load CIEL_RUNTIME_* values from a .env file
   ciel-runtime --ca-runtime claude|codex|codex-app-server|agy

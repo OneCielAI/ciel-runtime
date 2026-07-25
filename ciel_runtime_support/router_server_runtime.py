@@ -26,6 +26,8 @@ class RouterServerStatePorts:
     current_log_level: Callable[[], Any]
     current_pid: Callable[[], int]
     env_value: Callable[[str], str | None]
+    external_access_enabled: Callable[[dict[str, Any]], bool]
+    ensure_external_token: Callable[[], str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +39,7 @@ class RouterServerEffects:
     start_channels: Callable[[dict[str, Any]], Any]
     stop_channels: Callable[[None], Any]
     thread_factory: Callable[..., Any]
+    configure_web_endpoints: Callable[[str], list[str]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +53,8 @@ class RouterServerRuntime:
         runtime_config = self.state.load_config()
         self.state.reset_api_key_cooldowns()
         bind_host = self.state.bind_host(runtime_config)
+        if self.state.external_access_enabled(runtime_config):
+            self.state.ensure_external_token()
         self.config.pid_path.write_text(str(self.state.current_pid()))
         self.effects.chmod(self.config.pid_path, 0o600)
         level = self.state.current_log_level()
@@ -63,6 +68,9 @@ class RouterServerRuntime:
         server = self.effects.server_factory(
             (bind_host, self.config.port), self.config.handler
         )
+        for line in self.effects.configure_web_endpoints(bind_host):
+            self.effects.stderr.write(f"{line}\n")
+        self.effects.stderr.flush()
         self.effects.start_watchdog(server)
         channel_thread = self.effects.thread_factory(
             target=lambda: self.effects.start_channels(runtime_config),

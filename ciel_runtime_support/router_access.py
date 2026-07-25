@@ -77,7 +77,17 @@ class RouterAccessPolicy:
         ).strip()
         if override:
             return override
-        return "0.0.0.0" if self.external_access_enabled(config) else "127.0.0.1"
+        current = self.load_config() if config is None else config
+        web_backend = current.get("web_backend") if isinstance(current, dict) else {}
+        saved_host = (
+            str(web_backend.get("host") or "").strip()
+            if isinstance(web_backend, dict)
+            else ""
+        )
+        external = self.external_access_enabled(current)
+        if saved_host and (not external or not is_loopback_address(saved_host)):
+            return saved_host
+        return "0.0.0.0" if external else "127.0.0.1"
 
     def request_allowed(
         self,

@@ -8,6 +8,12 @@ import sys
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
+from .web_endpoints import apply_startup_web_options, load_saved_web_backend
+
+
+# Web startup flags affect the process-wide router endpoint constants below.
+sys.argv[:] = apply_startup_web_options(sys.argv, os.environ)
+
 
 HOME = Path.home()
 
@@ -65,7 +71,7 @@ def path_with_ciel_runtime_user_dirs(env: dict[str, str]) -> str:
     return prefix + (os.pathsep + existing if existing else "")
 
 
-def default_router_port() -> int:
+def default_router_port(saved_port: int = 0) -> int:
     configured = str(os.environ.get("CIEL_RUNTIME_ROUTER_PORT") or "").strip()
     if configured:
         try:
@@ -74,6 +80,8 @@ def default_router_port() -> int:
                 return port
         except ValueError:
             pass
+    if 1 <= saved_port <= 65535:
+        return saved_port
     base = 8799
     getuid = getattr(os, "getuid", None)
     if callable(getuid):
@@ -127,8 +135,12 @@ CHANNEL_COMPACT_REQUEST_PATH = CONFIG_DIR / "channel-compact-request.json"
 CHANNEL_STDIN_WAKE_CLAIMS_PATH = CONFIG_DIR / "channel-stdin-wake-claims.json"
 CHANNEL_PROBE_CACHE_PATH = CONFIG_DIR / "channel-probe-cache.json"
 MCP_PROXY_CONFIG = CONFIG_DIR / "mcp-proxy.json"
-ROUTER_HOST = os.environ.get("CIEL_RUNTIME_ROUTER_CLIENT_HOST", "127.0.0.1").strip() or "127.0.0.1"
-ROUTER_PORT = default_router_port()
+_SAVED_WEB_BACKEND = load_saved_web_backend(CONFIG_PATH)
+ROUTER_HOST = (
+    os.environ.get("CIEL_RUNTIME_ROUTER_CLIENT_HOST", "").strip()
+    or _SAVED_WEB_BACKEND.client_host
+)
+ROUTER_PORT = default_router_port(_SAVED_WEB_BACKEND.port)
 ROUTER_BASE = f"http://{ROUTER_HOST}:{ROUTER_PORT}"
 CLAUDE_GATEWAY_CACHE = HOME / ".claude" / "cache" / "gateway-models.json"
 CLAUDE_SETTINGS_PATH = HOME / ".claude" / "settings.json"
