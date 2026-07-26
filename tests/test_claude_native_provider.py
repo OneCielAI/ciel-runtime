@@ -891,6 +891,17 @@ class StopRouterGuaranteeTests(unittest.TestCase):
 
         stop.assert_called()
 
+    def test_router_listener_lookup_uses_effective_bind_host(self):
+        with (
+            mock.patch.object(ciel_runtime.os, "name", "nt"),
+            mock.patch.object(ciel_runtime, "load_config", return_value={}),
+            mock.patch.object(ciel_runtime, "router_bind_host", return_value="127.0.0.1"),
+            mock.patch.object(ciel_runtime, "windows_pids_on_port", return_value=[]) as lookup,
+        ):
+            self.assertEqual([], ciel_runtime.router_port_listener_pids())
+
+        lookup.assert_called_once_with(ciel_runtime.ROUTER_PORT, "127.0.0.1")
+
     def test_ensure_router_port_available_for_spawn_reports_remaining_pids(self):
         with (
             mock.patch.object(ciel_runtime, "terminate_router_health_pid", return_value=False),

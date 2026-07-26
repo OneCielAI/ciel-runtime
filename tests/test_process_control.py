@@ -17,6 +17,7 @@ from ciel_runtime_support.process_control import (
     process_cwd,
     process_environ_contains,
     terminate_matching_processes,
+    windows_pids_on_port,
 )
 
 
@@ -35,6 +36,23 @@ class ProcessControlTests(unittest.TestCase):
         }
         values.update(updates)
         return ProcessInspectionServices(**values)
+
+    def test_windows_port_lookup_filters_unrelated_interface_listeners(self):
+        output = "\n".join(
+            (
+                "  TCP    127.0.0.1:9464       0.0.0.0:0       LISTENING       11",
+                "  TCP    100.121.174.7:9464   0.0.0.0:0       LISTENING       22",
+                "  TCP    0.0.0.0:9464         0.0.0.0:0       LISTENING       33",
+                "  TCP    [fd7a::1]:9464       [::]:0          LISTENING       44",
+            )
+        )
+        completed = subprocess.CompletedProcess([], 0, stdout=output)
+        with (
+            mock.patch("ciel_runtime_support.process_control.os.name", "nt"),
+            mock.patch("ciel_runtime_support.process_control.subprocess.run", return_value=completed),
+        ):
+            self.assertEqual([11, 33], windows_pids_on_port(9464, "127.0.0.1"))
+            self.assertEqual([11, 22, 33, 44], windows_pids_on_port(9464))
 
     def test_process_tree_discovers_nested_descendants(self):
         run = mock.Mock(

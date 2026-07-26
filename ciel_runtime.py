@@ -8882,8 +8882,8 @@ def terminate_pid_file(path: Path, label: str, quiet: bool = False) -> bool:
         pid_is_running=pid_is_running,
     )
 
-def posix_pids_on_port(port: int) -> list[int]:
-    return project_posix_pids_on_port(port, linux_procfs_pids_on_port)
+def posix_pids_on_port(port: int, host: str | None = None) -> list[int]:
+    return project_posix_pids_on_port(port, linux_procfs_pids_on_port, host)
 
 def terminate_posix_port(port: int, label: str, quiet: bool = False) -> bool:
     return process_tree_controller().terminate_port(
@@ -8891,9 +8891,10 @@ def terminate_posix_port(port: int, label: str, quiet: bool = False) -> bool:
     )
 
 def router_port_listener_pids() -> list[int]:
+    bind_host = router_bind_host(load_config())
     if os.name == "nt":
-        return windows_pids_on_port(ROUTER_PORT)
-    return posix_pids_on_port(ROUTER_PORT)
+        return windows_pids_on_port(ROUTER_PORT, bind_host)
+    return posix_pids_on_port(ROUTER_PORT, bind_host)
 
 def terminate_router_health_pid(health: dict[str, Any] | None, quiet: bool = True) -> bool:
     return terminate_project_router_health_pid(

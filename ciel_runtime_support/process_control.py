@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import getpass
+import ipaddress
 import json
 import os
 import re
@@ -38,7 +39,45 @@ def pid_is_running(pid: int) -> bool:
         return False
 
 
-def windows_pids_on_port(port: int) -> list[int]:
+def _normalized_listener_host(host: str) -> str:
+    value = str(host or "").strip().lower()
+    if value.startswith("[") and value.endswith("]"):
+        value = value[1:-1]
+    if value == "localhost":
+        return "127.0.0.1"
+    try:
+        return str(ipaddress.ip_address(value.split("%", 1)[0]))
+    except ValueError:
+        return value
+
+
+def _listener_host_conflicts(local_host: str, bind_host: str | None) -> bool:
+    if not bind_host:
+        return True
+    local = _normalized_listener_host(local_host)
+    wanted = _normalized_listener_host(bind_host)
+    if local in {"0.0.0.0", "::", "*"} or wanted in {"0.0.0.0", "::", "*"}:
+        return True
+    try:
+        local_ip = ipaddress.ip_address(local)
+        wanted_ip = ipaddress.ip_address(wanted)
+    except ValueError:
+        return local == wanted
+    return local_ip == wanted_ip
+
+
+def _split_listener_endpoint(endpoint: str) -> tuple[str, str]:
+    value = str(endpoint or "").strip()
+    if value.startswith("[") and "]:" in value:
+        closing = value.rfind("]:")
+        return value[1:closing], value[closing + 2:]
+    if ":" not in value:
+        return value, ""
+    host, port = value.rsplit(":", 1)
+    return host, port
+
+
+def windows_pids_on_port(port: int, host: str | None = None) -> list[int]:
     if os.name != "nt":
         return []
     try:
@@ -52,12 +91,14 @@ def windows_pids_on_port(port: int) -> list[int]:
     except Exception:
         return []
     pids: set[int] = set()
-    marker = f":{port}"
     for line in proc.stdout.splitlines():
-        if marker not in line or "LISTENING" not in line:
+        if "LISTENING" not in line:
             continue
         parts = line.split()
         if len(parts) < 5:
+            continue
+        local_host, local_port = _split_listener_endpoint(parts[1])
+        if local_port != str(port) or not _listener_host_conflicts(local_host, host):
             continue
         try:
             pids.add(int(parts[-1]))
@@ -66,7 +107,15 @@ def windows_pids_on_port(port: int) -> list[int]:
     return sorted(pids)
 
 
-def linux_procfs_pids_on_port(port: int) -> list[int]:
+def _linux_procfs_host(encoded: str, *, ipv6: bool) -> str:
+    raw = bytes.fromhex(encoded)
+    if ipv6:
+        raw = b"".join(raw[index:index + 4][::-1] for index in range(0, 16, 4))
+        return str(ipaddress.IPv6Address(raw))
+    return str(ipaddress.IPv4Address(raw[::-1]))
+
+
+def linux_procfs_pids_on_port(port: int, host: str | None = None) -> list[int]:
     if os.name == "nt":
         return []
     wanted_port = f"{int(port):04X}"
@@ -85,7 +134,17 @@ def linux_procfs_pids_on_port(port: int) -> list[int]:
             inode = parts[9]
             if state != "0A" or ":" not in local_addr:
                 continue
-            if local_addr.rsplit(":", 1)[1].upper() == wanted_port and inode and inode != "0":
+            encoded_host, encoded_port = local_addr.rsplit(":", 1)
+            try:
+                local_host = _linux_procfs_host(encoded_host, ipv6=table.name == "tcp6")
+            except (ValueError, ipaddress.AddressValueError):
+                continue
+            if (
+                encoded_port.upper() == wanted_port
+                and inode
+                and inode != "0"
+                and _listener_host_conflicts(local_host, host)
+            ):
                 inodes.add(inode)
     if not inodes:
         return []
@@ -124,11 +183,14 @@ def linux_procfs_pids_on_port(port: int) -> list[int]:
 
 def posix_pids_on_port(
     port: int,
-    procfs_lookup: Callable[[int], list[int]] = linux_procfs_pids_on_port,
+    procfs_lookup: Callable[..., list[int]] = linux_procfs_pids_on_port,
+    host: str | None = None,
 ) -> list[int]:
     if os.name == "nt":
         return []
-    pids: set[int] = set(procfs_lookup(port))
+    pids: set[int] = set(procfs_lookup(port, host) if host else procfs_lookup(port))
+    if host and Path("/proc/net/tcp").exists():
+        return sorted(pid for pid in pids if pid not in (os.getpid(), os.getppid()))
 
     def add_ints(text: str, *, skip_port: bool = False) -> None:
         for value in re.findall(r"\b\d+\b", text or ""):
