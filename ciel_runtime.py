@@ -11297,7 +11297,7 @@ _CODEX_MCP_INTEGRATION = codex_mcp_integration.CodexMcpIntegrationService(
     ),
     policy=codex_mcp_integration.CodexMcpPolicy(
         native_channel_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
-        builtin_channel_url=lambda: f"{ROUTER_BASE}/ca/mcp/sse",
+        builtin_channel_url=lambda: f"{ROUTER_BASE}/ca/mcp",
     ),
 )
 discovered_codex_mcp_servers = _CODEX_MCP_INTEGRATION.discovered_servers

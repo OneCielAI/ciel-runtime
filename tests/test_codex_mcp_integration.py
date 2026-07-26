@@ -53,7 +53,7 @@ class CodexMcpIntegrationServiceTests(unittest.TestCase):
             ),
             policy=CodexMcpPolicy(
                 native_channel_names=frozenset({"ciel-runtime"}),
-                builtin_channel_url=lambda: "http://router/ca/mcp/sse",
+                builtin_channel_url=lambda: "http://router/ca/mcp",
             ),
         )
 
@@ -117,7 +117,7 @@ class CodexMcpIntegrationServiceTests(unittest.TestCase):
             self.assertEqual(
                 [
                     "-c",
-                    'mcp_servers.ciel-runtime-router.url="http://router/ca/mcp/sse"',
+                    'mcp_servers.ciel-runtime-router.url="http://router/ca/mcp"',
                 ],
                 args,
             )

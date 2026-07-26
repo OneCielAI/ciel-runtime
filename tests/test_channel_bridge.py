@@ -9,8 +9,10 @@ import time
 import unittest
 import tempfile
 import urllib.parse
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import ciel_runtime
@@ -4341,6 +4343,88 @@ class ChannelBridgeTests(unittest.TestCase):
             with ciel_runtime._CHANNEL_MCP_LOCK:
                 ciel_runtime._CHANNEL_MCP_SESSIONS.clear()
                 ciel_runtime._CHANNEL_MCP_SESSIONS.update(original)
+
+    def test_channel_mcp_streamable_http_handles_initialize_directly(self):
+        handler = SimpleNamespace(path="/ca/mcp")
+        body = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"protocolVersion": "2025-06-18"},
+        }
+        with mock.patch.object(ciel_runtime, "write_json") as write_json:
+            handled = ciel_runtime.handle_channel_mcp_post(handler, "/ca/mcp", body)
+
+        self.assertTrue(handled)
+        response = write_json.call_args.args[1]
+        self.assertEqual(1, response["id"])
+        self.assertEqual("ciel-runtime-router", response["result"]["serverInfo"]["name"])
+
+    def test_channel_mcp_streamable_http_lists_and_calls_tools_directly(self):
+        handler = SimpleNamespace(path="/ca/mcp")
+        with mock.patch.object(ciel_runtime, "write_json") as write_json:
+            self.assertTrue(
+                ciel_runtime.handle_channel_mcp_post(
+                    handler,
+                    "/ca/mcp",
+                    {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+                )
+            )
+        tools = write_json.call_args.args[1]["result"]["tools"]
+        self.assertIn("send_message", {tool["name"] for tool in tools})
+
+        expected = {"jsonrpc": "2.0", "id": 3, "result": {"content": []}}
+        with (
+            mock.patch.object(ciel_runtime, "_channel_mcp_tool_call_response", return_value=expected),
+            mock.patch.object(ciel_runtime, "write_json") as write_json,
+        ):
+            self.assertTrue(
+                ciel_runtime.handle_channel_mcp_post(
+                    handler,
+                    "/ca/mcp",
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 3,
+                        "method": "tools/call",
+                        "params": {"name": "send_message", "arguments": {}},
+                    },
+                )
+            )
+        self.assertEqual(expected, write_json.call_args.args[1])
+
+    def test_router_serves_streamable_http_mcp_initialize(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), ciel_runtime.RouterHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            port = server.server_address[1]
+            request = urllib.request.Request(
+                f"http://127.0.0.1:{port}/ca/mcp",
+                data=json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 7,
+                        "method": "initialize",
+                        "params": {"protocolVersion": "2025-06-18"},
+                    }
+                ).encode("utf-8"),
+                headers={
+                    "Accept": "application/json, text/event-stream",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(request, timeout=5) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+                self.assertEqual(200, response.status)
+            self.assertEqual(7, payload["id"])
+            self.assertEqual(
+                "ciel-runtime-router", payload["result"]["serverInfo"]["name"]
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
 
     def test_channel_mcp_enqueue_rejects_missing_session(self):
         self.assertFalse(ciel_runtime._channel_mcp_enqueue("missing-session", {"jsonrpc": "2.0"}))

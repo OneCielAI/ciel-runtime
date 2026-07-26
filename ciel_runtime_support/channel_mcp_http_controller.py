@@ -86,7 +86,12 @@ class ChannelMcpHttpController:
         if path == "/ca/mcp/health":
             self.rpc.write_json(
                 handler,
-                {"ok": True, "name": "ciel-runtime-router", "sse": "/ca/mcp/sse"},
+                {
+                    "ok": True,
+                    "name": "ciel-runtime-router",
+                    "streamable_http": "/ca/mcp",
+                    "sse": "/ca/mcp/sse",
+                },
             )
             return True
         if path != "/ca/mcp/sse":
@@ -162,6 +167,18 @@ class ChannelMcpHttpController:
         path: str,
         body: dict[str, Any],
     ) -> bool:
+        if path == "/ca/mcp":
+            response = self._rpc_response(body)
+            if response is None:
+                self.rpc.write_accepted(handler)
+            else:
+                self.rpc.write_json(handler, response)
+            self.rpc.log(
+                "INFO",
+                "channel_mcp_streamable_http method=%s request_id=%s"
+                % (str(body.get("method") or ""), body.get("id")),
+            )
+            return True
         if path != "/ca/mcp/messages":
             return False
         query = urllib.parse.parse_qs(
@@ -172,22 +189,13 @@ class ChannelMcpHttpController:
         self.store.touch(session)
         method = str(body.get("method") or "")
         request_id = body.get("id")
-        response: dict[str, Any] | None = None
+        if method == "initialize":
+            self.store.initialize(session)
+        response = self._rpc_response(body)
         if method == "initialize":
             params = body.get("params") if isinstance(body.get("params"), dict) else {}
             protocol = str(params.get("protocolVersion") or "2024-11-05")
-            self.store.initialize(session)
-            response = self.rpc.initialize_response(request_id, protocol)
             self.rpc.log("INFO", f"channel_mcp_initialized session={session or '-'} protocol={protocol}")
-        elif method == "tools/list":
-            response = {"jsonrpc": "2.0", "id": request_id, "result": {"tools": self.rpc.tool_schemas()}}
-        elif method == "tools/call":
-            params = body.get("params") if isinstance(body.get("params"), dict) else {}
-            response = self.rpc.tool_call_response(request_id, params)
-        elif method == "ping":
-            response = {"jsonrpc": "2.0", "id": request_id, "result": {}}
-        elif request_id is not None:
-            response = {"jsonrpc": "2.0", "id": request_id, "result": {}}
         if response is not None:
             if not self.rpc.enqueue(session, response):
                 self.rpc.log("WARN", f"channel_mcp_rpc_enqueue_failed session={session or '-'} method={method}")
@@ -207,3 +215,25 @@ class ChannelMcpHttpController:
             )
         self.rpc.write_accepted(handler)
         return True
+
+    def _rpc_response(self, body: dict[str, Any]) -> dict[str, Any] | None:
+        method = str(body.get("method") or "")
+        request_id = body.get("id")
+        if method == "initialize":
+            params = body.get("params") if isinstance(body.get("params"), dict) else {}
+            protocol = str(params.get("protocolVersion") or "2024-11-05")
+            return self.rpc.initialize_response(request_id, protocol)
+        if method == "tools/list":
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {"tools": self.rpc.tool_schemas()},
+            }
+        if method == "tools/call":
+            params = body.get("params") if isinstance(body.get("params"), dict) else {}
+            return self.rpc.tool_call_response(request_id, params)
+        if method == "ping":
+            return {"jsonrpc": "2.0", "id": request_id, "result": {}}
+        if request_id is not None:
+            return {"jsonrpc": "2.0", "id": request_id, "result": {}}
+        return None
