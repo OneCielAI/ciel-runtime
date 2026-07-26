@@ -946,8 +946,16 @@ class StopRouterGuaranteeTests(unittest.TestCase):
 
         self.assertTrue(result)
         ensure.assert_called_once_with("prelaunch_replace", health)
-        popen.assert_called_once()
-        popen_env = popen.call_args.kwargs["env"]
+        serve_calls = [
+            call
+            for call in popen.call_args_list
+            if call.args
+            and isinstance(call.args[0], list)
+            and len(call.args[0]) >= 3
+            and call.args[0][-1] == "serve"
+        ]
+        self.assertEqual(1, len(serve_calls))
+        popen_env = serve_calls[0].kwargs["env"]
         self.assertEqual("1", popen_env["CIEL_RUNTIME_MANAGED_ROUTER"])
         self.assertEqual(str(os.getpid()), popen_env["CIEL_RUNTIME_ROUTER_OWNER_PID"])
 

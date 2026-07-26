@@ -753,7 +753,9 @@ def render_router_home_page(
     h1 {{ margin: 0 0 6px; font-size: 24px; letter-spacing: 0; }}
     .sub {{ color: #a8b3c5; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }}
     .topnav {{ position: sticky; top: 0; z-index: 10; display: flex; gap: 6px; padding: 10px 24px; background: #0b111a; border-bottom: 1px solid #253044; overflow-x: auto; }}
-    .tab {{ min-width: 96px; min-height: 34px; border-radius: 6px; border: 1px solid #334155; background: #101722; color: #cbd5e1; cursor: pointer; }}
+    .tab, .chat-tab {{ box-sizing: border-box; min-width: 96px; min-height: 34px; border-radius: 6px; border: 1px solid #334155; background: #101722; color: #cbd5e1; cursor: pointer; }}
+    .chat-tab {{ display: inline-flex; align-items: center; justify-content: center; padding: 6px 12px; border-color: #2563eb; background: #12304f; color: #eff6ff; font-weight: 700; text-decoration: none; white-space: nowrap; }}
+    .chat-tab:hover {{ background: #17406a; border-color: #60a5fa; }}
     .tab:hover {{ border-color: #60a5fa; color: #eff6ff; }}
     .tab.active {{ background: #1d4ed8; border-color: #60a5fa; color: white; }}
     main {{ max-width: 1180px; margin: 0 auto; padding: 18px; }}
@@ -764,6 +766,10 @@ def render_router_home_page(
     .card, .link, .events {{ background: #0d131d; border: 1px solid #253044; border-radius: 8px; padding: 12px; }}
     .label {{ color: #93a4ba; font-size: 12px; text-transform: uppercase; }}
     .value {{ margin-top: 5px; font-size: 15px; word-break: break-word; }}
+    .overview-action {{ display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 14px; padding: 14px; border: 1px solid #1d4ed8; border-radius: 8px; background: #0d1b2d; }}
+    .overview-action strong {{ display: block; color: #eff6ff; }}
+    .overview-action span {{ display: block; margin-top: 4px; color: #a8b3c5; font-size: 13px; }}
+    .overview-action .chat-tab {{ flex: 0 0 auto; }}
     .links {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin-top: 18px; }}
     a.link {{ display: block; color: #dbeafe; text-decoration: none; }}
     a.link:hover {{ border-color: #60a5fa; }}
@@ -794,6 +800,7 @@ def render_router_home_page(
   </header>
   <nav class="topnav" aria-label="Router sections">
     <button class="tab active" data-view="overview">Overview</button>
+    <a class="chat-tab" href="/ca/web/chat">Web Chat</a>
     <button class="tab" data-view="settings">LLM Settings</button>
     <button class="tab" data-view="events">Events</button>
     <button class="tab" data-view="endpoints">Endpoints</button>
@@ -808,6 +815,10 @@ def render_router_home_page(
       <div class="card"><div class="label">Timeout</div><div class="value">{timeout_ms:,} ms · idle {idle_ms:,} ms</div></div>
       <div class="card"><div class="label">RPM</div><div class="value">{html_lib.escape(rpm_text)}</div></div>
       <div class="card"><div class="label">Upstream</div><div class="value">{html_lib.escape(upstream_text)}</div></div>
+      </div>
+      <div class="overview-action">
+        <div><strong>Session Web Chat</strong><span>Send messages and files to the active coding-agent session.</span></div>
+        <a class="chat-tab" href="/ca/web/chat">Open Web Chat</a>
       </div>
     </section>
     <section id="view-settings" class="view">

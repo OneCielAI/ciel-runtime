@@ -25,6 +25,9 @@ class WebChatUiTests(unittest.TestCase):
 
         self.assertIn("/ca/web/chat", html)
         self.assertIn("active Claude Code session", html)
+        self.assertIn('<a class="chat-tab" href="/ca/web/chat">Web Chat</a>', html)
+        self.assertIn('<a class="chat-tab" href="/ca/web/chat">Open Web Chat</a>', html)
+        self.assertLess(html.index(">Web Chat</a>"), html.index(">LLM Settings</button>"))
 
     def test_web_chat_posts_to_channel_bridge_and_streams_replies(self):
         cfg = self._cfg()
