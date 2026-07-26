@@ -13,7 +13,7 @@ from typing import Any
 @dataclass(frozen=True, slots=True)
 class CodexSessionRepositoryPorts:
     sqlite_home: Callable[..., Path]
-    resumable: Callable[[Path, int, bool], list[dict[str, Any]]]
+    resumable: Callable[[Path, int, bool, Path | None], list[dict[str, Any]]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,12 +43,18 @@ class CodexSessionSelectionService:
         include_non_interactive: bool = False,
         passthrough: list[str] | None = None,
         cwd: Path | None = None,
+        session_cwd: Path | None = None,
     ) -> list[dict[str, Any]]:
         database = (
             self.sqlite_home_for_launch(passthrough, env=env, cwd=cwd)
             / "state_5.sqlite"
         )
-        return self.repository.resumable(database, limit, include_non_interactive)
+        return self.repository.resumable(
+            database,
+            limit,
+            include_non_interactive,
+            session_cwd,
+        )
 
     def resume_session_row(self, session: dict[str, Any]) -> str:
         title = str(
@@ -74,18 +80,28 @@ class CodexSessionSelectionService:
         env: dict[str, str] | None = None,
         include_non_interactive: bool = False,
         passthrough: list[str] | None = None,
+        cwd: Path | None = None,
     ) -> str | None:
+        launch_cwd = (cwd or Path.cwd()).resolve()
+        show_all = "--all" in (passthrough or [])
         sessions = self.local_resume_sessions(
             env,
             include_non_interactive=include_non_interactive,
             passthrough=passthrough,
+            cwd=launch_cwd,
+            session_cwd=None if show_all else launch_cwd,
         )
         if not sessions:
             database = (
-                self.sqlite_home_for_launch(passthrough, env=env) / "state_5.sqlite"
+                self.sqlite_home_for_launch(
+                    passthrough, env=env, cwd=launch_cwd
+                ) / "state_5.sqlite"
             )
+            scope = "" if show_all else f" for the current directory ({launch_cwd})"
+            hint = "" if show_all else " Use `codex resume --all` to show every session."
             self.presentation.output(
-                f"Ciel Runtime could not find resumable Codex sessions in: {database}"
+                f"Ciel Runtime could not find resumable Codex sessions{scope} in: "
+                f"{database}.{hint}"
             )
             return None
         selected = self.presentation.select(

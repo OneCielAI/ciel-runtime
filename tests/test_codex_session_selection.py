@@ -14,7 +14,7 @@ class CodexSessionSelectionServiceTests(unittest.TestCase):
         return CodexSessionSelectionService(
             repository=CodexSessionRepositoryPorts(
                 sqlite_home=lambda *_args, **_kwargs: Path("C:/codex"),
-                resumable=lambda _database, _limit, _include: sessions,
+                resumable=lambda _database, _limit, _include, _cwd: sessions,
             ),
             presentation=CodexSessionPresentationPorts(
                 select=lambda *_args, **_kwargs: selected,
@@ -28,8 +28,8 @@ class CodexSessionSelectionServiceTests(unittest.TestCase):
         service = CodexSessionSelectionService(
             repository=CodexSessionRepositoryPorts(
                 sqlite_home=lambda *_args, **_kwargs: Path("C:/codex"),
-                resumable=lambda database, limit, include: calls.append(
-                    (database, limit, include)
+                resumable=lambda database, limit, include, cwd: calls.append(
+                    (database, limit, include, cwd)
                 )
                 or [],
             ),
@@ -42,7 +42,29 @@ class CodexSessionSelectionServiceTests(unittest.TestCase):
 
         service.local_resume_sessions(limit=25, include_non_interactive=True)
 
-        self.assertEqual([(Path("C:/codex/state_5.sqlite"), 25, True)], calls)
+        self.assertEqual(
+            [(Path("C:/codex/state_5.sqlite"), 25, True, None)], calls
+        )
+
+    def test_picker_scopes_sessions_to_current_directory_by_default(self):
+        calls = []
+        service = CodexSessionSelectionService(
+            repository=CodexSessionRepositoryPorts(
+                sqlite_home=lambda *_args, **_kwargs: Path("C:/codex"),
+                resumable=lambda _database, _limit, _include, cwd: calls.append(cwd) or [],
+            ),
+            presentation=CodexSessionPresentationPorts(
+                select=lambda *_args, **_kwargs: None,
+                compact_text=lambda text, _limit: text,
+                output=lambda _message: None,
+            ),
+        )
+        cwd = Path.cwd().resolve()
+
+        service.select_resume_session(cwd=cwd, passthrough=["resume"])
+        service.select_resume_session(cwd=cwd, passthrough=["resume", "--all"])
+
+        self.assertEqual([cwd, None], calls)
 
     def test_selection_returns_the_selected_session_id(self):
         service = self.service(

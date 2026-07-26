@@ -890,6 +890,7 @@ def run_codex(
     cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
     use_native_codex = direct_native_codex_enabled(provider, pcfg)
     use_codex_routed = codex_routed_enabled(provider, pcfg)
+    launch_cwd = Path.cwd()
     mapped_continue = any(note.startswith("--continue -> resume --last") for note in codex_passthrough_notes)
     if not use_native_codex and mapped_continue:
         try:
@@ -905,13 +906,13 @@ def run_codex(
             env,
             include_non_interactive="--include-non-interactive" in codex_passthrough,
             passthrough=codex_passthrough,
+            cwd=launch_cwd,
         )
         if session_id == "":
             return 0
         if session_id:
             codex_passthrough = codex_resume_with_session_id(codex_passthrough, session_id)
             codex_passthrough_notes.append("resume picker -> selected local Codex session")
-    launch_cwd = Path.cwd()
     restore_codex_mcp_config_from_managed(
         codex_passthrough, env=env, cwd=launch_cwd
     )

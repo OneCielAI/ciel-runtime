@@ -58,13 +58,36 @@ class CodexSessionRepository:
         self.database = database
         self.log = log
 
-    def resumable(self, limit: int = 200, *, include_non_interactive: bool = False) -> list[dict[str, Any]]:
+    def resumable(
+        self,
+        limit: int = 200,
+        *,
+        include_non_interactive: bool = False,
+        cwd: Path | None = None,
+    ) -> list[dict[str, Any]]:
         if not self.database.is_file():
             return []
         sources = ["cli", "vscode"]
         if include_non_interactive:
             sources.extend(["exec", "app-server"])
         placeholders = ", ".join("?" for _ in sources)
+        where = f"archived = 0 AND source IN ({placeholders})"
+        parameters: list[Any] = list(sources)
+        if cwd is not None:
+            normalized_cwd = str(cwd.resolve()).replace("\\", "/").rstrip("/")
+            slash_cwd = "REPLACE(cwd, CHAR(92), '/')"
+            portable_cwd = (
+                f"CASE WHEN {slash_cwd} LIKE '//?/UNC/%' "
+                f"THEN '//' || SUBSTR({slash_cwd}, 9) "
+                f"WHEN {slash_cwd} LIKE '//?/%' THEN SUBSTR({slash_cwd}, 5) "
+                f"ELSE {slash_cwd} END"
+            )
+            cwd_expression = f"RTRIM(({portable_cwd}), '/')"
+            if os.name == "nt":
+                cwd_expression = f"LOWER({cwd_expression})"
+                normalized_cwd = normalized_cwd.lower()
+            where += f" AND {cwd_expression} = ?"
+            parameters.append(normalized_cwd)
         uri = self.database.resolve().as_uri() + "?mode=ro"
         try:
             with contextlib.closing(
@@ -76,12 +99,12 @@ class CodexSessionRepository:
                     SELECT id, title, first_user_message, cwd, model_provider,
                            COALESCE(NULLIF(updated_at_ms, 0), updated_at * 1000) AS activity_ms
                     FROM threads
-                    WHERE archived = 0 AND source IN ({placeholders})
+                    WHERE {where}
                     ORDER BY COALESCE(NULLIF(recency_at_ms, 0),
                                       NULLIF(updated_at_ms, 0), updated_at * 1000) DESC
                     LIMIT ?
                     """,
-                    (*sources, max(1, min(1000, int(limit)))),
+                    (*parameters, max(1, min(1000, int(limit)))),
                 ).fetchall()
         except (OSError, sqlite3.Error) as exc:
             self.log(

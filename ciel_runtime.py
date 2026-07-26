@@ -11374,9 +11374,13 @@ def codex_yolo_launch_args(passthrough: list[str]) -> list[str]:
 _CODEX_SESSION_SELECTION = CodexSessionSelectionService(
     repository=CodexSessionRepositoryPorts(
         sqlite_home=lambda *args, **kwargs: codex_sqlite_home(*args, **kwargs),
-        resumable=lambda database, limit, include_non_interactive: CodexSessionRepository(
+        resumable=lambda database, limit, include_non_interactive, cwd: CodexSessionRepository(
             database, router_log
-        ).resumable(limit, include_non_interactive=include_non_interactive),
+        ).resumable(
+            limit,
+            include_non_interactive=include_non_interactive,
+            cwd=cwd,
+        ),
     ),
     presentation=CodexSessionPresentationPorts(
         select=lambda *args, **kwargs: portable_select(*args, **kwargs),

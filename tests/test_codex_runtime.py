@@ -1084,7 +1084,7 @@ class CodexRuntimeTests(unittest.TestCase):
                 connection.executemany(
                     "INSERT INTO threads VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'cli')",
                     [
-                        ("openai-session", "Native session", "", "C:/work/a", "openai", 1, 1000, 1000),
+                        ("openai-session", "Native session", "", "\\\\?\\C:\\work\\a", "openai", 1, 1000, 1000),
                         ("routed-session", "Routed session", "", "C:/work/b", "ciel-runtime-codex", 2, 2000, 2000),
                     ],
                 )
@@ -1093,9 +1093,14 @@ class CodexRuntimeTests(unittest.TestCase):
                 connection.close()
 
             sessions = ciel_runtime.codex_local_resume_sessions({"CODEX_HOME": str(codex_home)})
+            scoped_sessions = ciel_runtime.codex_local_resume_sessions(
+                {"CODEX_HOME": str(codex_home)},
+                session_cwd=Path("C:/work/a"),
+            )
 
         self.assertEqual(["routed-session", "openai-session"], [session["id"] for session in sessions])
         self.assertEqual(["ciel-runtime-codex", "openai"], [session["model_provider"] for session in sessions])
+        self.assertEqual(["openai-session"], [session["id"] for session in scoped_sessions])
 
     def test_codex_sqlite_home_matches_codex_precedence(self):
         with tempfile.TemporaryDirectory() as tmp:
