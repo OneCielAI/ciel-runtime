@@ -27,6 +27,13 @@ class ChannelCursorRepositoryTests(unittest.TestCase):
         self.assertIsNone(policy.newer(7, 7))
         self.assertEqual(8, policy.newer(8, 7))
 
+    def test_state_policy_recovers_when_queue_generation_restarts_below_cursor(self):
+        resolution = ChannelCursorStatePolicy.resolve_read(9, 9, lambda: 1)
+
+        self.assertEqual(0, resolution.value)
+        self.assertTrue(resolution.persist)
+        self.assertTrue(resolution.rolled_back)
+
     def test_round_trip_clamps_negative_cursor_and_keeps_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "cursor.json"

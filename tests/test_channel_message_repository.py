@@ -93,6 +93,27 @@ class ChannelMessageRepositoryTests(unittest.TestCase):
         self.assertEqual(["web"], saved["recipients"])
         self.assertEqual([9, 10], [row["id"] for row in rows])
 
+    def test_rotation_preserves_monotonic_message_ids(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "messages.jsonl"
+            path.write_text(json.dumps({"id": 9, "message": "old"}) + "\n", encoding="utf-8")
+            ports = ChannelMessageAppendPorts(
+                threading.Condition(),
+                contextlib.nullcontext,
+                lambda _message: None,
+                lambda value: [str(value)] if value else [],
+            )
+            repository = ChannelMessageRepository(
+                path=path,
+                log=lambda _level, _message: None,
+                max_bytes=1,
+            )
+
+            saved = repository.append({"text": "new"}, ports)
+
+            self.assertEqual(10, saved["id"])
+            self.assertTrue(path.with_suffix(".jsonl.1").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

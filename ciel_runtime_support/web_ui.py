@@ -162,7 +162,7 @@ def render_web_chat_page(
       <header>
         <div>
           <h1>Session Web Chat</h1>
-          <div class="sub">Send messages into the active Claude Code session through the Ciel Runtime channel bridge and stream replies from the same channel.</div>
+          <div class="sub">Send messages into the active coding-agent session through the Ciel Runtime channel bridge and stream replies from the same channel.</div>
         </div>
         <div class="pill" id="statePill">ready</div>
       </header>
@@ -177,7 +177,7 @@ def render_web_chat_page(
           <input id="fileInput" type="file" multiple>
           <div class="attachment-tray" id="attachmentTray" aria-live="polite"></div>
         </div>
-        <div class="hint">Enter sends. Shift+Enter inserts a new line. The active Claude Code session handles the message, so its configured tools and MCP servers remain available. If replies stay queued, restart Ciel Runtime so the session wake bridge wraps the terminal.</div>
+        <div class="hint">Enter sends. Shift+Enter inserts a new line. The active coding-agent session handles the message, so its configured tools and MCP servers remain available. If replies stay queued, restart Ciel Runtime so the session wake bridge wraps the terminal.</div>
       </form>
     </main>
   </div>
@@ -606,7 +606,6 @@ def render_web_chat_page(
       try {{
         const uploads = await uploadAttachments(files);
         const outboundText = buildOutboundText(text, uploads);
-        addBubble('user', outboundText);
         const response = await fetch('/ca/channel/messages', {{
           method: 'POST',
           headers: {{'content-type': 'application/json', 'accept': 'application/json'}},
@@ -633,8 +632,9 @@ def render_web_chat_page(
           throw new Error(fallback || `HTTP ${{response.status}}`);
         }}
         const json = await response.json();
-        if (json.message) rememberLastId(json.message.id);
-        addBubble('system', 'Message queued for the active Claude Code session. Waiting for a channel reply. If this never changes, restart Ciel Runtime so the session wake bridge is active.');
+        if (json.message) renderIncomingMessage(json.message);
+        else addBubble('user', outboundText);
+        addBubble('system', 'Message queued for the active coding-agent session. Waiting for a channel reply. If this never changes, restart Ciel Runtime so the session wake bridge is active.');
         setState('waiting for session');
       }} catch (err) {{
         const bubble = addBubble('assistant', String(err && err.message ? err.message : err));
@@ -686,7 +686,7 @@ def render_web_chat_page(
       historyExhausted = false;
       selectedFiles = [];
       renderAttachmentTray();
-      addBubble('system', `Chat cleared. This browser sends to active Claude Code session channel ${{channel}}.`);
+      addBubble('system', `Chat cleared. This browser sends to active coding-agent session channel ${{channel}}.`);
       startChannelStream();
     }});
     shareButton.addEventListener('click', async () => {{
@@ -725,7 +725,7 @@ def render_router_home_page(
 ) -> str:
     links = [
         ("Events UI", "/ca/events", "Live router event stream with filters"),
-        ("Session web chat", "/ca/web/chat", "Bridge messages into the active Claude Code session"),
+        ("Session web chat", "/ca/web/chat", "Bridge messages into the active coding-agent session"),
         ("Recent events JSON", "/ca/events/recent", "Latest structured event records"),
         ("Events SSE", "/ca/events/stream", "Server-sent events stream"),
         ("Chat health", "/ca/chat/health", "Agent chat component status"),

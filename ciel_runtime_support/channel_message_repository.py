@@ -61,9 +61,10 @@ class ChannelMessageRepository:
         with ports.condition:
             with ports.file_lock():
                 self.path.parent.mkdir(parents=True, exist_ok=True)
+                previous_max_id = self.max_id()
                 if self.path.exists() and self.path.stat().st_size > self.max_bytes:
                     self.path.replace(self.path.with_suffix(".jsonl.1"))
-                next_id = self.max_id() + 1
+                next_id = previous_max_id + 1
                 message = {
                     "id": next_id,
                     "time": time.strftime("%Y-%m-%dT%H:%M:%S"),

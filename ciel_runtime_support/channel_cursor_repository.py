@@ -10,6 +10,7 @@ from typing import Any, Callable
 class CursorReadResolution:
     value: int
     persist: bool = False
+    rolled_back: bool = False
 
 
 class ChannelCursorStatePolicy:
@@ -21,13 +22,16 @@ class ChannelCursorStatePolicy:
         cached_cursor: int | None,
         scan_cursor: Callable[[], int],
     ) -> CursorReadResolution:
+        tail = max(0, scan_cursor())
         if file_cursor is not None:
-            return CursorReadResolution(
-                max(file_cursor, cached_cursor or 0)
-            )
-        if cached_cursor is not None:
-            return CursorReadResolution(cached_cursor)
-        return CursorReadResolution(max(0, scan_cursor()), persist=True)
+            cursor = max(file_cursor, cached_cursor or 0)
+        elif cached_cursor is not None:
+            cursor = cached_cursor
+        else:
+            return CursorReadResolution(tail, persist=True)
+        if cursor > tail:
+            return CursorReadResolution(0, persist=True, rolled_back=True)
+        return CursorReadResolution(cursor)
 
     @staticmethod
     def newer(candidate: int | None, current: int) -> int | None:

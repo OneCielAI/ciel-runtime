@@ -9916,6 +9916,12 @@ def _channel_llm_read_cursor_locked() -> int:
         _chat_scan_max_id,
     )
     _CHANNEL_LLM_CURSOR_LAST_ID = resolution.value
+    if resolution.rolled_back:
+        router_log(
+            "WARN",
+            "channel_llm_cursor_queue_generation_reset "
+            f"recovered_cursor={resolution.value}",
+        )
     if resolution.persist:
         _channel_llm_write_cursor_locked(resolution.value)
     return _CHANNEL_LLM_CURSOR_LAST_ID

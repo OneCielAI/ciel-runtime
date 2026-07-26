@@ -3323,7 +3323,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = None
                 with (
                     mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", cursor_path),
-                    mock.patch.object(ciel_runtime, "_chat_init_next_id", return_value=10),
+                    mock.patch.object(ciel_runtime, "_chat_scan_max_id", return_value=9),
                 ):
                     self.assertEqual(3, ciel_runtime.ensure_channel_llm_delivery_cursor_initialized())
             finally:
@@ -3336,7 +3336,10 @@ class ChannelBridgeTests(unittest.TestCase):
             original_cursor = ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID
             try:
                 ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = 51
-                with mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", cursor_path):
+                with (
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", cursor_path),
+                    mock.patch.object(ciel_runtime, "_chat_scan_max_id", return_value=80),
+                ):
                     self.assertEqual(66, ciel_runtime._channel_llm_read_cursor_locked())
                 self.assertEqual(66, ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID)
             finally:
@@ -3349,9 +3352,30 @@ class ChannelBridgeTests(unittest.TestCase):
             original_cursor = ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID
             try:
                 ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = 66
-                with mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", cursor_path):
+                with (
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", cursor_path),
+                    mock.patch.object(ciel_runtime, "_chat_scan_max_id", return_value=80),
+                ):
                     self.assertEqual(66, ciel_runtime._channel_llm_read_cursor_locked())
                 self.assertEqual(66, ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID)
+            finally:
+                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = original_cursor
+
+    def test_channel_llm_cursor_resets_when_message_queue_generation_rolls_back(self):
+        with tempfile.TemporaryDirectory() as td:
+            cursor_path = Path(td) / "channel-llm-cursor.json"
+            cursor_path.write_text('{"last_id":9}\n', encoding="utf-8")
+            original_cursor = ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID
+            try:
+                ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = 9
+                with (
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", cursor_path),
+                    mock.patch.object(ciel_runtime, "_chat_scan_max_id", return_value=1),
+                    mock.patch.object(ciel_runtime, "router_log") as log,
+                ):
+                    self.assertEqual(0, ciel_runtime._channel_llm_read_cursor_locked())
+                self.assertEqual({"last_id": 0}, json.loads(cursor_path.read_text(encoding="utf-8")))
+                self.assertTrue(any("queue_generation_reset" in call.args[1] for call in log.call_args_list))
             finally:
                 ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = original_cursor
 
