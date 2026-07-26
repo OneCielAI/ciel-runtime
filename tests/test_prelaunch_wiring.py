@@ -17,6 +17,22 @@ class PrelaunchWiringTests(unittest.TestCase):
         self.assertEqual(10, len(fields(services)))
         self.assertEqual(["--verbose"], execute.call_args.args[0])
 
+    def test_web_config_reload_runs_after_menu_returns_and_cancels_parent(self):
+        with (
+            mock.patch.object(ciel_runtime.sys.stdin, "isatty", return_value=True),
+            mock.patch.object(ciel_runtime.sys.stdout, "isatty", return_value=True),
+            mock.patch.object(
+                ciel_runtime,
+                "portable_prelaunch_menu",
+                return_value=ciel_runtime.PRELAUNCH_RELOAD,
+            ),
+            mock.patch.object(ciel_runtime.subprocess, "call", return_value=0) as call,
+        ):
+            result = ciel_runtime.run_prelaunch_menu([], force_menu=True)
+
+        self.assertEqual(ciel_runtime.PRELAUNCH_CANCEL, result)
+        call.assert_called_once_with([ciel_runtime.sys.executable, *ciel_runtime.sys.argv])
+
 
 if __name__ == "__main__":
     unittest.main()

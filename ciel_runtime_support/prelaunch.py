@@ -15,6 +15,7 @@ from ciel_runtime_support.runtime_constants import (
     PRELAUNCH_LAUNCH_CLAUDE,
     PRELAUNCH_LAUNCH_CODEX,
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+    PRELAUNCH_RELOAD,
 )
 
 
@@ -167,7 +168,6 @@ class PrelaunchOptions:
     timeout_profile_panel_rows: Callable[..., Any]
     web_backend_panel_rows: Callable[..., Any]
     set_web_backend_config: Callable[..., Any]
-    restart_runtime: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -265,7 +265,6 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     timeout_profile_panel_rows = services.options.timeout_profile_panel_rows
     web_backend_panel_rows = services.options.web_backend_panel_rows
     set_web_backend_config = services.options.set_web_backend_config
-    restart_runtime = services.options.restart_runtime
     passthrough = list(passthrough or [])
     enable_ansi()
     cfg = load_config()
@@ -633,7 +632,12 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     web_config = cfg.get("web_backend", {})
                     if not isinstance(web_config, dict):
                         web_config = {}
-                    if value == "host":
+                    if value == "enabled":
+                        messages = set_web_backend_config(
+                            "enabled",
+                            not bool(web_config.get("enabled", False)),
+                        )
+                    elif value == "host":
                         entered = prompt_menu_value(
                             "Web bind address",
                             str(web_config.get("host") or "127.0.0.1"),
@@ -660,17 +664,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         )
                     else:
                         continue
-                    restore_line_mode()
-                    sys.stdout.write("\033[?25h")
-                    sys.stdout.flush()
-                    restart_runtime()
-                    # Test doubles may return even though the production
-                    # implementation replaces the process image.
-                    restore_raw_mode()
-                    sys.stdout.write("\033[?25l")
-                    sys.stdout.flush()
-                    refresh_checks()
-                    close_panel()
+                    return PRELAUNCH_RELOAD
                 elif panel == "channel-delivery":
                     if value == "back":
                         close_panel()

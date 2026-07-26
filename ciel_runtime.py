@@ -1506,6 +1506,7 @@ from ciel_runtime_support.runtime_constants import (
     PRELAUNCH_LAUNCH_CLAUDE,  # noqa: F401 - compatibility export
     PRELAUNCH_LAUNCH_CODEX,  # noqa: F401 - compatibility export
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER,  # noqa: F401 - compatibility export
+    PRELAUNCH_RELOAD,
     REQUEST_DUMP_MAX_BYTES,
     RESPONSE_DUMP_MAX_BYTES,
     RESPONSE_DUMP_TEXT_LIMIT,
@@ -9267,9 +9268,6 @@ def set_web_backend_config(key: str, value: Any) -> list[str]:
     clear_model_cache()
     return lines
 
-def restart_runtime_after_web_config() -> None:
-    os.execv(sys.executable, [sys.executable, *sys.argv])
-
 def provider_panel_projection() -> ProviderPanelProjection:
     return ProviderPanelProjection(
         ProviderPanelConstants(
@@ -9571,7 +9569,6 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                 timeout_profile_panel_rows=timeout_profile_panel_rows,
                 web_backend_panel_rows=web_backend_panel_rows,
                 set_web_backend_config=set_web_backend_config,
-                restart_runtime=restart_runtime_after_web_config,
             ),
         ),
     )
@@ -9598,7 +9595,11 @@ def run_prelaunch_menu(passthrough: list[str], skip_menu: bool = False, force_me
         rc = run_external_menu("ciel-runtime-menu")
         if rc is not None:
             return rc
-    return portable_prelaunch_menu(passthrough)
+    result = portable_prelaunch_menu(passthrough)
+    if result == PRELAUNCH_RELOAD:
+        subprocess.call([sys.executable, *sys.argv])
+        return PRELAUNCH_CANCEL
+    return result
 
 def start_router_if_needed(*, replace_active_clients: bool = True) -> bool:
     return start_project_router_if_needed(

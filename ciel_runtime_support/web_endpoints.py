@@ -45,6 +45,7 @@ class WebEndpointReport:
 
 @dataclass(frozen=True, slots=True)
 class WebBackendSettings:
+    enabled: bool = False
     host: str = "127.0.0.1"
     port: int = 0
     tailscale_https: bool = False
@@ -67,7 +68,13 @@ def web_backend_settings(config: dict[str, Any] | None) -> WebBackendSettings:
     if not 1 <= port <= 65535:
         port = 0
     tailscale_https = bool(values.get("tailscale_https", False))
-    return WebBackendSettings(host, port, tailscale_https)
+    enabled_value = values.get("enabled")
+    enabled = (
+        bool(enabled_value)
+        if enabled_value is not None
+        else bool(tailscale_https or host != "127.0.0.1" or port)
+    )
+    return WebBackendSettings(enabled, host, port, tailscale_https)
 
 
 def load_saved_web_backend(path: os.PathLike[str] | str) -> WebBackendSettings:
@@ -82,7 +89,8 @@ def web_backend_summary(config: dict[str, Any], effective_port: int) -> str:
     settings = web_backend_settings(config)
     port = settings.port or effective_port or int(config.get("_effective_web_port") or 0)
     mode = " + Tailscale HTTPS" if settings.tailscale_https else ""
-    return f"{settings.host}:{port or 'auto'}{mode}"
+    state = "on" if settings.enabled else "off"
+    return f"{state} · {settings.host}:{port or 'auto'}{mode}"
 
 
 def web_backend_panel_rows(
@@ -98,12 +106,13 @@ def web_backend_panel_rows(
         tailscale += " · not detected"
     return (
         [
+            f"Web backend  [{'on' if settings.enabled else 'off'}]",
             f"Web bind address  [{settings.host}]",
             f"Web port  [{port}]",
             f"Tailscale HTTPS  [{tailscale}]",
             "Back",
         ],
-        ["host", "port", "tailscale", "back"],
+        ["enabled", "host", "port", "tailscale", "back"],
     )
 
 
@@ -111,20 +120,27 @@ def update_web_backend_config(
     config: dict[str, Any], key: str, value: Any, effective_port: int
 ) -> list[str]:
     current = web_backend_settings(config)
+    enabled = current.enabled
     host = current.host
     port = current.port
     tailscale_https = current.tailscale_https
-    if key == "host":
+    if key == "enabled":
+        enabled = bool(value)
+    elif key == "host":
         host, embedded_port = _normalize_web_address(str(value))
+        enabled = True
         if embedded_port is not None:
             port = embedded_port
     elif key == "port":
         port = _valid_port(str(value), "web port")
+        enabled = True
     elif key == "tailscale":
         tailscale_https = bool(value)
+        enabled = True
     else:
         raise ValueError(f"unknown web backend setting: {key}")
     config["web_backend"] = {
+        "enabled": enabled,
         "host": host,
         "port": port or effective_port,
         "tailscale_https": tailscale_https,
@@ -134,7 +150,7 @@ def update_web_backend_config(
     config["router_debug_external_access_confirmed"] = external
     scheme = "https" if tailscale_https else "http"
     return [
-        f"Web backend: {host}:{port or effective_port}.",
+        f"Web backend: {'on' if enabled else 'off'} · {host}:{port or effective_port}.",
         f"Tailscale HTTPS: {'on' if tailscale_https else 'off'}.",
         f"Runtime is restarting so {scheme} endpoint settings apply now.",
     ]
@@ -164,15 +180,18 @@ def apply_startup_web_options(
             value, index = _option_value(argv, index, inline_value if separator else "", name)
             host, embedded_port = _normalize_web_address(value)
             _apply_web_host(host, environ)
+            environ["CIEL_RUNTIME_WEB_START_REQUESTED"] = "1"
             if embedded_port is not None:
                 environ["CIEL_RUNTIME_ROUTER_PORT"] = str(embedded_port)
             continue
         if name == "--ca-web-port":
             value, index = _option_value(argv, index, inline_value if separator else "", name)
             environ["CIEL_RUNTIME_ROUTER_PORT"] = str(_valid_port(value, name))
+            environ["CIEL_RUNTIME_WEB_START_REQUESTED"] = "1"
             continue
         if name == "--ca-tailscale-https":
             environ["CIEL_RUNTIME_TAILSCALE_HTTPS"] = "1"
+            environ["CIEL_RUNTIME_WEB_START_REQUESTED"] = "1"
             if separator and inline_value:
                 environ["CIEL_RUNTIME_TAILSCALE_HTTPS_PORT"] = str(
                     _valid_port(inline_value, name)
@@ -396,7 +415,7 @@ def configure_requested_web_endpoints(
     saved = web_backend_settings(config)
     requested = (
         str(environment.get("CIEL_RUNTIME_TAILSCALE_HTTPS") or "").lower() in _TRUE
-        or saved.tailscale_https
+        or (saved.enabled and saved.tailscale_https)
     )
     if requested:
         configured_port = str(environment.get("CIEL_RUNTIME_TAILSCALE_HTTPS_PORT") or "").strip()

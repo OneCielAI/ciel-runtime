@@ -3,11 +3,13 @@ import unittest
 from types import SimpleNamespace
 from unittest import mock
 
+from ciel_runtime_support.runtime_launch import web_backend_start_requested
 from ciel_runtime_support.web_endpoints import (
     TailscaleNode,
     apply_startup_web_options,
     build_web_endpoint_report,
     configure_tailscale_https,
+    configure_requested_web_endpoints,
     discover_tailscale_node,
     tailscale_https_url_for_target,
     update_web_backend_config,
@@ -17,6 +19,59 @@ from ciel_runtime_support.web_endpoints import (
 
 
 class WebEndpointTests(unittest.TestCase):
+    def test_enabled_backend_or_explicit_start_flag_requests_router(self):
+        self.assertTrue(
+            web_backend_start_requested({"web_backend": {"enabled": True}})
+        )
+        self.assertFalse(
+            web_backend_start_requested({"web_backend": {"enabled": False}})
+        )
+        with mock.patch.dict(
+            "ciel_runtime_support.runtime_launch.os.environ",
+            {"CIEL_RUNTIME_WEB_START_REQUESTED": "1"},
+            clear=False,
+        ):
+            self.assertTrue(web_backend_start_requested({}))
+
+    def test_previous_nightly_tailscale_setting_migrates_to_enabled(self):
+        settings = web_backend_settings(
+            {
+                "web_backend": {
+                    "host": "127.0.0.1",
+                    "port": 9234,
+                    "tailscale_https": True,
+                }
+            }
+        )
+
+        self.assertTrue(settings.enabled)
+        self.assertTrue(settings.tailscale_https)
+
+    @mock.patch("ciel_runtime_support.web_endpoints.build_web_endpoint_report")
+    @mock.patch("ciel_runtime_support.web_endpoints.configure_tailscale_https")
+    def test_enabled_menu_tailscale_setting_is_applied_at_server_start(
+        self, configure, report
+    ):
+        configure.return_value = ["configured"]
+        report.return_value.status_lines.return_value = ["web: local"]
+
+        lines = configure_requested_web_endpoints(
+            9234,
+            "127.0.0.1",
+            "127.0.0.1",
+            environ={},
+            config={
+                "web_backend": {
+                    "enabled": True,
+                    "host": "127.0.0.1",
+                    "port": 9234,
+                    "tailscale_https": True,
+                }
+            },
+        )
+
+        configure.assert_called_once_with(9234, None)
+        self.assertEqual(["configured", "web: local"], lines)
     def test_startup_options_set_host_port_and_strip_ciel_flags(self):
         environment = {}
         argv = apply_startup_web_options(
@@ -59,12 +114,13 @@ class WebEndpointTests(unittest.TestCase):
         update_web_backend_config(config, "tailscale", True, 9464)
 
         settings = web_backend_settings(config)
+        self.assertTrue(settings.enabled)
         self.assertEqual("0.0.0.0", settings.host)
         self.assertEqual(9234, settings.port)
         self.assertTrue(settings.tailscale_https)
         self.assertTrue(config["router_debug_external_access"])
         self.assertTrue(config["router_debug_external_access_confirmed"])
-        self.assertIn("Web backend: 0.0.0.0:9234.", lines)
+        self.assertIn("Web backend: on · 0.0.0.0:9234.", lines)
 
     @mock.patch("ciel_runtime_support.web_endpoints.discover_tailscale_node")
     def test_menu_panel_shows_detected_tailscale_https_address(self, discover):
@@ -83,8 +139,10 @@ class WebEndpointTests(unittest.TestCase):
             9464,
         )
 
-        self.assertEqual(["host", "port", "tailscale", "back"], values)
-        self.assertIn("host.example.ts.net:9234", rows[2])
+        self.assertEqual(
+            ["enabled", "host", "port", "tailscale", "back"], values
+        )
+        self.assertIn("host.example.ts.net:9234", rows[3])
 
     @mock.patch("ciel_runtime_support.web_endpoints.shutil.which", return_value="tailscale")
     @mock.patch("ciel_runtime_support.web_endpoints.subprocess.run")

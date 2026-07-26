@@ -19,11 +19,20 @@ from ciel_runtime_support.runtime_constants import (
     ROUTED_COMPAT_PROMPT,
 )
 from ciel_runtime_support.runtime_paths import CONFIG_DIR, LOG_PATH
+from ciel_runtime_support.web_endpoints import web_backend_settings
 
 
 CLAUDE_CODE_GENERATED_GREEDY_OPTIONS = frozenset(
     {"--mcp-config", "--dangerously-load-development-channels"}
 )
+
+
+def web_backend_start_requested(config: dict[str, Any]) -> bool:
+    if str(os.environ.get("CIEL_RUNTIME_WEB_START_REQUESTED") or "").lower() in {
+        "1", "true", "yes", "on"
+    }:
+        return True
+    return web_backend_settings(config).enabled
 
 
 @dataclass(frozen=True, slots=True)
@@ -358,6 +367,10 @@ def run_claude(
     manage_router_lifetime = False
     if use_router_mode or llm_channel_delivery:
         manage_router_lifetime = bool(start_router_if_needed())
+    elif web_backend_start_requested(cfg):
+        manage_router_lifetime = bool(
+            start_router_if_needed(replace_active_clients=False)
+        )
     if not use_native_anthropic:
         ensure_model_cache_for_launch(provider, pcfg)
         selected, selection_lines = ensure_current_model_from_provider_list(provider, pcfg)
@@ -913,7 +926,12 @@ def run_codex(
     terminate_existing_codex_processes_for_launch("codex_prelaunch_processes", cwd=launch_cwd, quiet=True)
     if not use_native_codex:
         terminate_existing_router_clients_for_launch("codex_prelaunch_active_clients", quiet=True)
-    manage_router_lifetime = False if use_native_codex else bool(start_router_if_needed())
+    if use_native_codex:
+        manage_router_lifetime = bool(
+            start_router_if_needed(replace_active_clients=False)
+        ) if web_backend_start_requested(cfg) else False
+    else:
+        manage_router_lifetime = bool(start_router_if_needed())
     if not native_codex_enabled(provider):
         ensure_model_cache_for_launch(provider, pcfg)
     codex_channel_owned_names = (
@@ -1212,7 +1230,12 @@ def run_codex_app_server(
     terminate_existing_codex_processes_for_launch("codex_app_server_prelaunch_processes", cwd=launch_cwd, quiet=True)
     if not use_native_codex:
         terminate_existing_router_clients_for_launch("codex_app_server_prelaunch_active_clients", quiet=True)
-    manage_router_lifetime = False if use_native_codex else bool(start_router_if_needed())
+    if use_native_codex:
+        manage_router_lifetime = bool(
+            start_router_if_needed(replace_active_clients=False)
+        ) if web_backend_start_requested(cfg) else False
+    else:
+        manage_router_lifetime = bool(start_router_if_needed())
     if use_codex_routed:
         config_args = codex_native_routed_config_args()
     elif use_native_codex:
@@ -1477,7 +1500,14 @@ def run_agy(
     cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
     restore_agy_mcp_config_from_managed(env=env, cwd=Path.cwd())
     use_agy_routed = agy_routed_enabled(provider, pcfg)
-    manage_router_lifetime = bool(start_router_if_needed()) if use_agy_routed and channel_delivery_mode(cfg) == "llm" else False
+    if use_agy_routed and channel_delivery_mode(cfg) == "llm":
+        manage_router_lifetime = bool(start_router_if_needed())
+    elif web_backend_start_requested(cfg):
+        manage_router_lifetime = bool(
+            start_router_if_needed(replace_active_clients=False)
+        )
+    else:
+        manage_router_lifetime = False
     agy_dangerous_args = agy_dangerous_launch_args(agy_passthrough)
     cmd, env = materialize_runtime_command(
         "agy",
