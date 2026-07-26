@@ -6007,7 +6007,9 @@ def collect_anthropic_message_for_responses(
             prepend_text=prepend_anthropic_text,
             rate_limit_notice=rate_limit_notice,
         ),
-        forwarded_headers=("anthropic-beta", "anthropic-dangerous-direct-browser-access"),
+        # Anthropic protocol header projection is centralized in
+        # ProviderRequestAccessService for both API-key and OAuth requests.
+        forwarded_headers=(),
     )
     return collect_anthropic_response(handler, provider, pcfg, body, services=services)
 
@@ -6084,8 +6086,15 @@ def provider_responses_headers(
     pcfg: dict[str, Any],
     inbound_headers: Any | None = None,
 ) -> dict[str, str]:
-    headers = provider_headers(provider, pcfg, inbound_headers)
-    headers.pop("anthropic-version", None)
+    headers = provider_headers(
+        provider, pcfg, inbound_headers, "openai_responses"
+    )
+    if inbound_headers is None:
+        headers = {
+            name: value
+            for name, value in headers.items()
+            if str(name).casefold() != "anthropic-version"
+        }
     return headers
 
 def provider_responses_passthrough() -> ProviderResponsesPassthrough:

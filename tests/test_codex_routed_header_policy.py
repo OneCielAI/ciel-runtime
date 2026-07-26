@@ -25,8 +25,14 @@ class CodexRoutedHeaderPolicyTests(unittest.TestCase):
             "account-1",
             headers["ChatGPT-Account-ID"],
         )
-        self.assertEqual("identity", headers["accept-encoding"])
-        self.assertEqual("application/json", headers["content-type"])
+        self.assertNotIn(
+            "accept-encoding",
+            {name.casefold() for name in headers},
+        )
+        self.assertNotIn(
+            "content-type",
+            {name.casefold() for name in headers},
+        )
         self.assertEqual("ciel", headers["user-agent"])
         self.assertNotIn("Host", headers)
         self.assertNotIn("Content-Length", headers)
@@ -41,7 +47,11 @@ class CodexRoutedHeaderPolicyTests(unittest.TestCase):
 
         self.assertEqual(
             "application/json; charset=utf-8",
-            headers["content-type"],
+            next(
+                value
+                for name, value in headers.items()
+                if name.casefold() == "content-type"
+            ),
         )
 
     def test_missing_native_authorization_is_rejected(self):

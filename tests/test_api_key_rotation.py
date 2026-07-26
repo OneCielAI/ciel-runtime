@@ -475,7 +475,10 @@ class ApiKeyRotationTests(unittest.TestCase):
                 data = ciel_runtime.post_json_with_rate_retry(
                     "https://opencode.ai/zen/v1/chat/completions",
                     {"model": "deepseek-v4-flash-free", "messages": []},
-                    ciel_runtime.provider_headers("opencode", pcfg),
+                    {
+                        **ciel_runtime.provider_headers("opencode", pcfg),
+                        "X-Client-Trace": "trace-1",
+                    },
                     30.0,
                     "opencode",
                     pcfg,
@@ -486,6 +489,8 @@ class ApiKeyRotationTests(unittest.TestCase):
         self.assertEqual("OK", data["choices"][0]["message"]["content"])
         self.assertEqual("Bearer sk-one", calls[0].get("Authorization"))
         self.assertEqual("Bearer sk-two", calls[1].get("Authorization"))
+        self.assertEqual("trace-1", calls[0].get("X-client-trace"))
+        self.assertEqual("trace-1", calls[1].get("X-client-trace"))
         self.assertEqual([], notices)
         sleep.assert_not_called()
         backoff.assert_not_called()

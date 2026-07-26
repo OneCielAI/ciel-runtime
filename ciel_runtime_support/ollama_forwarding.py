@@ -160,7 +160,9 @@ def forward_ollama_api_chat(
         router_log("INFO", f"advisor gate enabled reason={gate_reason}; collecting this turn before returning it to Claude Code")
     word_chunking = bool(pcfg.get("stream_word_chunking", False))
     req_body = ollama_chat_request(model, upstream_body, pcfg, stream=stream_requested, provider=provider)
-    headers = provider_headers(provider, pcfg)
+    headers = provider_headers(
+        provider, pcfg, handler.headers, "ollama_chat"
+    )
     url = provider_endpoint(provider, pcfg, "ollama_chat")
     if compatibility_test:
         waited, rpm_used, rpm_limit = 0.0, 0, router_rate_limit_effective_rpm(provider, pcfg, model)
@@ -445,4 +447,3 @@ def forward_ollama_api_chat(
     message = prepend_anthropic_text(message, rate_limit_notice(waited, rpm_used, rpm_limit, rpm_status))
     write_json(handler, message)
     mark_pending_channel_delivery_success(handler, "ollama_json")
-

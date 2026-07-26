@@ -130,7 +130,9 @@ def post_json_with_rate_retry(
                 and attempt + 1 < rate_limit_max_attempts
             ):
                 retry_no = attempt + 1
-                headers = provider_headers(provider, pcfg)
+                headers = provider_headers(
+                    provider, pcfg, headers, None, True
+                )
                 next_hash = hashlib.sha256(key_from_request_headers(headers).encode("utf-8")).hexdigest()[:12]
                 write_router_activity("retry", provider, model, attempt=retry_no, total=rate_limit_max_attempts - 1, code=exc.code, wait=0, tokens=token_estimate, bytes=byte_estimate)
                 router_log("WARN", f"upstream_rate_limit_key_retry provider={provider} model={model} attempt={retry_no}/{rate_limit_max_attempts - 1} next_key_hash={next_hash} tokens={token_estimate} bytes={byte_estimate}")
@@ -152,7 +154,9 @@ def post_json_with_rate_retry(
                     retry_notice(upstream_rate_limit_retry_message(retry_no, gateway_retries))
                 time.sleep(wait)
                 # The just-failed key is now resting; re-pick so the retry uses a live key.
-                headers = provider_headers(provider, pcfg)
+                headers = provider_headers(
+                    provider, pcfg, headers, None, True
+                )
                 continue
             if exc.code in UPSTREAM_RETRY_HTTP_CODES and attempt + 1 < max_attempts:
                 retry_no = attempt + 1
@@ -247,7 +251,9 @@ def open_provider_request_with_key_retry(
                 and attempt + 1 < rate_limit_max_attempts
             ):
                 retry_no = attempt + 1
-                headers = provider_headers(provider, pcfg)
+                headers = provider_headers(
+                    provider, pcfg, headers, None, True
+                )
                 next_hash = hashlib.sha256(key_from_request_headers(headers).encode("utf-8")).hexdigest()[:12]
                 write_router_activity("retry", provider, model, attempt=retry_no, total=rate_limit_max_attempts - 1, code=exc.code, wait=0, tokens=token_estimate, bytes=byte_estimate, stream=stream)
                 router_log("WARN", f"upstream_direct_rate_limit_key_retry provider={provider} model={model} attempt={retry_no}/{rate_limit_max_attempts - 1} next_key_hash={next_hash} tokens={token_estimate} bytes={byte_estimate}")
@@ -361,7 +367,9 @@ def open_openai_stream_with_rate_retry(
                 and attempt + 1 < rate_limit_max_attempts
             ):
                 retry_no = attempt + 1
-                headers = provider_headers(provider, pcfg)
+                headers = provider_headers(
+                    provider, pcfg, headers, None, True
+                )
                 next_hash = hashlib.sha256(key_from_request_headers(headers).encode("utf-8")).hexdigest()[:12]
                 write_router_activity("retry", provider, model, attempt=retry_no, total=rate_limit_max_attempts - 1, code=exc.code, wait=0, tokens=token_estimate, bytes=byte_estimate, stream=True)
                 router_log("WARN", f"upstream_stream_rate_limit_key_retry provider={provider} model={model} attempt={retry_no}/{rate_limit_max_attempts - 1} next_key_hash={next_hash} tokens={token_estimate} bytes={byte_estimate}")
@@ -383,7 +391,9 @@ def open_openai_stream_with_rate_retry(
                     retry_notice(upstream_rate_limit_retry_message(retry_no, gateway_retries))
                 time.sleep(wait)
                 # The just-failed key is now resting; re-pick so the retry uses a live key.
-                headers = provider_headers(provider, pcfg)
+                headers = provider_headers(
+                    provider, pcfg, headers, None, True
+                )
                 continue
             if exc.code in UPSTREAM_RETRY_HTTP_CODES and attempt + 1 < max_attempts:
                 retry_no = attempt + 1

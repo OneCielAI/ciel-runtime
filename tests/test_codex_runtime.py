@@ -1647,7 +1647,7 @@ bearer_token_env_var = "AINET_API_KEY"
         self.assertEqual("Bearer native-token", headers["authorization"])
         self.assertEqual("account_1", headers["ChatGPT-Account-ID"])
         self.assertEqual("true", headers["X-OpenAI-Fedramp"])
-        self.assertEqual("identity", headers["accept-encoding"])
+        self.assertNotIn("accept-encoding", {key.lower(): value for key, value in headers.items()})
         self.assertNotIn("host", {key.lower(): value for key, value in headers.items()})
 
     def test_codex_routed_auth_error_explains_wrong_platform_endpoint(self):

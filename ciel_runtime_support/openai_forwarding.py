@@ -128,7 +128,9 @@ def forward_openai_compatible_chat(
             upstream_response = streaming.open_with_retry(
                 url,
                 req_body,
-                request.provider_headers(provider, pcfg),
+                request.provider_headers(
+                    provider, pcfg, handler.headers, "openai_chat"
+                ),
                 rate_limit.request_timeout_seconds(pcfg),
                 provider,
                 pcfg,
@@ -171,7 +173,9 @@ def forward_openai_compatible_chat(
         data = streaming.post_json_with_retry(
             url,
             req_body,
-            request.provider_headers(provider, pcfg),
+            request.provider_headers(
+                provider, pcfg, handler.headers, "openai_chat"
+            ),
             rate_limit.request_timeout_seconds(pcfg),
             provider,
             pcfg,

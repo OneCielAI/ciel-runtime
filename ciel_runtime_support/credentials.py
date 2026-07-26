@@ -160,7 +160,7 @@ class ApiKeyCredentialSource:
 
 @dataclass(frozen=True, slots=True)
 class InboundHeaderCredentialSource:
-    """Pass through only explicitly allowed auth and protocol headers."""
+    """Resolve credentials from an explicit inbound authentication allowlist."""
 
     allowed_headers: tuple[str, ...]
     required_any: tuple[str, ...] = ("authorization", "x-api-key")
@@ -169,12 +169,21 @@ class InboundHeaderCredentialSource:
         inbound = context.inbound_headers
         if inbound is None:
             return None
+        try:
+            inbound_by_name = {
+                str(raw_name).lower(): raw_value
+                for raw_name, raw_value in inbound.items()
+            }
+        except Exception:
+            inbound_by_name = {}
         headers: dict[str, str] = {}
         for name in self.allowed_headers:
             try:
                 value = inbound.get(name)
             except Exception:
-                return None
+                value = None
+            if value is None:
+                value = inbound_by_name.get(name.lower())
             if value:
                 headers[name] = str(value)
         if not any(headers.get(name) for name in self.required_any):
@@ -199,9 +208,6 @@ ANTHROPIC_INBOUND_CREDENTIAL_SOURCE = InboundHeaderCredentialSource(
     allowed_headers=(
         "authorization",
         "x-api-key",
-        "anthropic-version",
-        "anthropic-beta",
-        "anthropic-dangerous-direct-browser-access",
     )
 )
 

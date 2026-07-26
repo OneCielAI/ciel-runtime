@@ -10,6 +10,9 @@ from ciel_runtime_support.credentials import (
     resolve_anthropic_credentials,
     secret_fingerprint,
 )
+from ciel_runtime_support.header_forwarding import (
+    project_end_to_end_request_headers,
+)
 
 
 class CredentialTests(unittest.TestCase):
@@ -21,11 +24,37 @@ class CredentialTests(unittest.TestCase):
     def test_inbound_oauth_preserves_only_allowlisted_headers(self):
         result = resolve_anthropic_credentials(
             "",
-            {"authorization": "Bearer oauth", "anthropic-beta": "tools", "cookie": "secret"},
+            {"Authorization": "Bearer oauth", "anthropic-beta": "tools", "cookie": "secret"},
         )
         self.assertEqual("inbound", result.source)
         self.assertEqual("Bearer oauth", result.headers["authorization"])
         self.assertNotIn("cookie", result.headers)
+
+    def test_anthropic_upstream_projection_is_case_insensitive_and_open(self):
+        projected = project_end_to_end_request_headers(
+            {
+                "Anthropic-Version": "2023-06-01",
+                "ANTHROPIC-FUTURE": "unchanged",
+                "X-Claude-Code-Agent-Id": "agent-1",
+                "X-New-Claude-Metadata": "future-safe-value",
+                "Authorization": "Bearer secret",
+                "Cookie": "secret",
+                "Host": "127.0.0.1:9464",
+                "Content-Length": "999",
+                "Connection": "keep-alive",
+            },
+            replace_credentials=True,
+        )
+
+        self.assertEqual(
+            {
+                "Anthropic-Version": "2023-06-01",
+                "ANTHROPIC-FUTURE": "unchanged",
+                "X-Claude-Code-Agent-Id": "agent-1",
+                "X-New-Claude-Metadata": "future-safe-value",
+            },
+            projected,
+        )
 
     def test_inbound_source_requires_auth_header(self):
         source = InboundHeaderCredentialSource(("authorization", "anthropic-beta"))

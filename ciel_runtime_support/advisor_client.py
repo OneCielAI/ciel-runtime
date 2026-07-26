@@ -64,7 +64,12 @@ class AdvisorClient:
             )
             kind = self.policy.provider_kind(provider)
             headers = (
-                self.io.headers(provider, config, inbound_headers)
+                self.io.headers(
+                    provider,
+                    config,
+                    inbound_headers,
+                    "anthropic_messages",
+                )
                 if kind == "anthropic"
                 else self.io.headers(provider, config)
             )

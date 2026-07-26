@@ -6,7 +6,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from ciel_runtime_support.architecture import ProviderRequestPolicy
+from ciel_runtime_support.architecture import MessageProtocol, ProviderRequestPolicy
+from ciel_runtime_support.header_forwarding import project_end_to_end_request_headers
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,19 +76,33 @@ class ProviderRequestAccessService:
         provider: str,
         config: dict[str, Any],
         inbound_headers: Any | None = None,
+        protocol: MessageProtocol | None = None,
+        preserve_inbound: bool = False,
     ) -> dict[str, str]:
-        headers = self.effects.user_agent_headers(
-            {
-                "content-type": "application/json",
-                "anthropic-version": "2023-06-01",
-            }
+        policy = self.ports.request_policy(provider, config)
+        passthrough = (
+            (protocol is not None or preserve_inbound)
+            and inbound_headers is not None
         )
+        if passthrough:
+            headers = self.effects.user_agent_headers(
+                project_end_to_end_request_headers(
+                    inbound_headers,
+                    replace_credentials=True,
+                )
+            )
+        else:
+            headers = self.effects.user_agent_headers(
+                {
+                    "content-type": "application/json",
+                    "anthropic-version": "2023-06-01",
+                }
+            )
         key = (
             self.ports.select_api_key(provider, config)
             or str(config.get("api_key") or "")
             or "not-used"
         )
-        policy = self.ports.request_policy(provider, config)
         meaningful = str(key) if self.ports.meaningful_key(str(key)) else None
         if policy.credential_strategy == "anthropic_inbound":
             credential_headers = self.ports.inbound_credentials(

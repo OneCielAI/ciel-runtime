@@ -200,6 +200,76 @@ class KimiProviderTests(unittest.TestCase):
         self.assertEqual("2023-06-01", headers["anthropic-version"])
         self.assertEqual("claude-cli", headers["user-agent"])
 
+    def test_provider_headers_preserve_claude_code_request_metadata(self):
+        pcfg = self.kimi_cfg(api_key="sk-kimi-test")["providers"]["kimi"]
+
+        headers = ciel_runtime.provider_headers(
+            "kimi",
+            pcfg,
+            {
+                "anthropic-beta": "prompt-caching-2024-07-31",
+                "x-claude-code-session-id": "session-1",
+                "x-stainless-runtime": "node",
+                "user-agent": "claude-cli/2.1.181 (external, cli)",
+                "authorization": "Bearer ciel-placeholder",
+                "host": "127.0.0.1:9464",
+            },
+            "anthropic_messages",
+        )
+
+        self.assertEqual("sk-kimi-test", headers["x-api-key"])
+        self.assertEqual("Bearer sk-kimi-test", headers["authorization"])
+        self.assertEqual(
+            "prompt-caching-2024-07-31", headers["anthropic-beta"]
+        )
+        self.assertEqual("session-1", headers["x-claude-code-session-id"])
+        self.assertEqual("node", headers["x-stainless-runtime"])
+        self.assertEqual(
+            "claude-cli/2.1.181 (external, cli)", headers["user-agent"]
+        )
+        self.assertNotIn("host", headers)
+
+    def test_k3_anthropic_wire_path_does_not_duplicate_prompt_content(self):
+        pcfg = self.kimi_cfg(
+            api_key="sk-kimi-test", current_model="k3"
+        )["providers"]["kimi"]
+        system = [
+            {
+                "type": "text",
+                "text": "x-anthropic-billing-header: stable-attribution",
+                "cache_control": {"type": "ephemeral"},
+            },
+            {"type": "text", "text": "Claude Code system prompt"},
+        ]
+        messages = [
+            {"role": "user", "content": "inspect the repository"},
+            {"role": "assistant", "content": "I will inspect it."},
+            {"role": "user", "content": "continue"},
+        ]
+        body = {
+            "model": "ciel-runtime-kimi-k3[1m]",
+            "system": system,
+            "messages": messages,
+            "thinking": {"type": "enabled", "effort": "high"},
+            "max_tokens": 8192,
+            "future_request_field": {"enabled": True},
+        }
+
+        normalized = ciel_runtime.normalize_request_for_provider_wire(
+            "kimi", pcfg, body
+        )
+        capped = ciel_runtime.cap_anthropic_body_for_provider(
+            "kimi", pcfg, normalized
+        )
+        wire_body = ciel_runtime.body_without_ciel_runtime_internal_metadata(
+            ciel_runtime.apply_provider_request_options("kimi", pcfg, capped)
+        )
+
+        self.assertEqual(system, wire_body["system"])
+        self.assertEqual(messages, wire_body["messages"])
+        self.assertEqual(len(messages), len(wire_body["messages"]))
+        self.assertEqual({"enabled": True}, wire_body["future_request_field"])
+
     def test_model_list_fetches_kimi_coding_models_and_caches_specs(self):
         pcfg = self.kimi_cfg(api_key="sk-kimi-test", custom_models=[])["providers"]["kimi"]
         response = {

@@ -122,7 +122,9 @@ def collect_chat_message_for_responses(
     data = services.post_json_with_retry(
         url,
         req_body,
-        request.provider_headers(provider, pcfg, handler.headers),
+        request.provider_headers(
+            provider, pcfg, handler.headers, strategy.operation
+        ),
         strategy.request_timeout_seconds(pcfg),
         provider,
         pcfg,
@@ -169,7 +171,9 @@ def collect_anthropic_message_for_responses(
     upstream_query = transport.messages_query(pcfg, handler.path, provider)
     if upstream_query:
         url = f"{url}?{upstream_query}"
-    headers = transport.provider_headers(provider, pcfg, handler.headers)
+    headers = transport.provider_headers(
+        provider, pcfg, handler.headers, "anthropic_messages"
+    )
     for header in services.forwarded_headers:
         if handler.headers.get(header):
             headers[header] = handler.headers[header]

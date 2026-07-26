@@ -333,10 +333,9 @@ def handle_claude_messages_post(
         upstream_query = upstream_messages_query(pcfg, self.path, provider)
         if upstream_query:
             url = f"{url}?{upstream_query}"
-        headers = provider_headers(provider, pcfg, self.headers)
-        for h in ("anthropic-beta", "anthropic-dangerous-direct-browser-access"):
-            if self.headers.get(h):
-                headers[h] = self.headers[h]
+        headers = provider_headers(
+            provider, pcfg, self.headers, "anthropic_messages"
+        )
         waited, rpm_used, rpm_limit = apply_router_rate_limit(provider, pcfg, upstream_model)
         try:
             event_bus.publish(level="info", category="upstream.request", message="forwarding to Anthropic-compatible provider", request_id=request_id, provider=provider, model=upstream_model, data={"url": url, "stream": bool(body.get("stream", stream_enabled))})

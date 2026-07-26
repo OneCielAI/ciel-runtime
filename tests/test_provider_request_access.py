@@ -9,11 +9,17 @@ from ciel_runtime_support.provider_request_access import (
 
 
 class ProviderRequestAccessServiceTests(unittest.TestCase):
-    def service(self, *, credential_strategy="adapter", inbound=None):
+    def service(
+        self,
+        *,
+        credential_strategy="adapter",
+        chat_path="/chat",
+        inbound=None,
+    ):
         return ProviderRequestAccessService(
             ports=ProviderRequestAccessPorts(
                 request_policy=lambda _provider, _config: ProviderRequestPolicy(
-                    chat_path="/chat",
+                    chat_path=chat_path,
                     models_path="/models",
                     model_alias_strategy="ncp",
                     credential_strategy=credential_strategy,
@@ -27,10 +33,14 @@ class ProviderRequestAccessServiceTests(unittest.TestCase):
                 inbound_credentials=lambda _key, _headers: inbound,
             ),
             effects=ProviderRequestAccessEffects(
-                user_agent_headers=lambda headers: {
-                    **headers,
-                    "user-agent": "ciel",
-                },
+                user_agent_headers=lambda headers: (
+                    dict(headers)
+                    if any(
+                        str(name).lower() == "user-agent"
+                        for name in headers
+                    )
+                    else {**headers, "user-agent": "ciel"}
+                ),
                 ncp_model_id=lambda model: f"ncp:{model}",
                 normalize_provider=lambda value: str(value).lower(),
             ),
@@ -47,6 +57,66 @@ class ProviderRequestAccessServiceTests(unittest.TestCase):
             inbound={"authorization": "Bearer oauth"},
         ).headers("anthropic", {})
         self.assertEqual("Bearer oauth", headers["authorization"])
+
+    def test_anthropic_compatible_policy_preserves_inbound_client_headers(self):
+        headers = self.service().headers(
+            "kimi",
+            {},
+            {
+                "content-type": "application/custom+json",
+                "anthropic-version": "2099-01-01",
+                "anthropic-beta": "prompt-caching-2024-07-31",
+                "x-claude-code-session-id": "session-1",
+                "user-agent": "claude-cli/2.1.181 (external, cli)",
+                "host": "127.0.0.1:9464",
+            },
+            "anthropic_messages",
+        )
+
+        self.assertEqual(
+            "prompt-caching-2024-07-31", headers["anthropic-beta"]
+        )
+        self.assertEqual("application/custom+json", headers["content-type"])
+        self.assertEqual("2099-01-01", headers["anthropic-version"])
+        self.assertEqual("session-1", headers["x-claude-code-session-id"])
+        self.assertEqual(
+            "claude-cli/2.1.181 (external, cli)", headers["user-agent"]
+        )
+        self.assertNotIn("host", headers)
+        self.assertEqual("Bearer secret", headers["authorization"])
+
+    def test_present_anthropic_inbound_headers_only_add_missing_user_agent(self):
+        headers = self.service().headers(
+            "kimi", {}, {}, "anthropic_messages"
+        )
+
+        self.assertEqual(
+            {
+                "authorization": "Bearer secret",
+                "user-agent": "ciel",
+            },
+            headers,
+        )
+        self.assertNotIn("content-type", headers)
+        self.assertNotIn("anthropic-version", headers)
+
+    def test_protocol_not_provider_default_controls_passthrough(self):
+        inbound = {
+            "x-client-request-id": "codex-request-1",
+            "user-agent": "codex-cli/1.2.3",
+        }
+
+        responses = self.service(chat_path="/v1/messages").headers(
+            "kimi", {}, inbound, "openai_responses"
+        )
+        internal = self.service(chat_path="/v1/messages").headers(
+            "kimi", {}, inbound
+        )
+
+        self.assertEqual("codex-request-1", responses["x-client-request-id"])
+        self.assertEqual("codex-cli/1.2.3", responses["user-agent"])
+        self.assertNotIn("x-client-request-id", internal)
+        self.assertEqual("ciel", internal["user-agent"])
 
     def test_model_alias_and_streaming_come_from_request_policy(self):
         service = self.service()

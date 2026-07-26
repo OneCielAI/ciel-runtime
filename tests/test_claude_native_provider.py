@@ -251,6 +251,7 @@ class NativeEnvContractTests(unittest.TestCase):
             "anthropic",
             {"api_key": ""},
             {"authorization": "Bearer oauth-token", "anthropic-beta": "tools-2026"},
+            "anthropic_messages",
         )
 
         self.assertEqual("Bearer oauth-token", headers["authorization"])
@@ -261,11 +262,51 @@ class NativeEnvContractTests(unittest.TestCase):
         headers = ciel_runtime.provider_headers(
             "anthropic",
             {"api_key": "sk-ant-real"},
-            {"authorization": "Bearer oauth-token"},
+            {
+                "authorization": "Bearer oauth-token",
+                "anthropic-workspace-id": "workspace-1",
+                "anthropic-future-capability": "opaque-value",
+                "x-claude-code-session-id": "trace-only",
+            },
+            "anthropic_messages",
         )
 
         self.assertEqual("sk-ant-real", headers["x-api-key"])
+        self.assertEqual("workspace-1", headers["anthropic-workspace-id"])
+        self.assertEqual("opaque-value", headers["anthropic-future-capability"])
+        self.assertEqual("trace-only", headers["x-claude-code-session-id"])
         self.assertNotIn("authorization", headers)
+
+    def test_routed_anthropic_wire_body_preserves_attribution_and_unknown_fields(self):
+        attribution = {
+            "type": "text",
+            "text": "x-anthropic-billing-header: stable-attribution",
+            "cache_control": {"type": "ephemeral"},
+        }
+        body = {
+            "model": "claude-sonnet-4-6",
+            "system": [
+                attribution,
+                {"type": "text", "text": "Claude Code system prompt"},
+            ],
+            "messages": [{"role": "user", "content": "hello"}],
+            "max_tokens": 1024,
+            "future_request_field": {"enabled": True},
+        }
+        pcfg = {"current_model": "claude-sonnet-4-6"}
+
+        normalized = ciel_runtime.normalize_anthropic_system_role_messages(body)
+        capped = ciel_runtime.cap_anthropic_body_for_provider(
+            "anthropic", pcfg, normalized
+        )
+        projected = ciel_runtime.apply_provider_request_options(
+            "anthropic", pcfg, capped
+        )
+        wire_body = ciel_runtime.body_without_ciel_runtime_internal_metadata(projected)
+
+        self.assertEqual(body["system"], wire_body["system"])
+        self.assertEqual(attribution, wire_body["system"][0])
+        self.assertEqual({"enabled": True}, wire_body["future_request_field"])
 
     def test_routed_anthropic_advisor_request_uses_messages_api(self):
         pcfg = {

@@ -357,7 +357,12 @@ class ProviderModelSelection:
             try:
                 ids, source = self.catalog.fetch_anthropic(
                     config,
-                    self.catalog.headers(provider, config, inbound_headers),
+                    self.catalog.headers(
+                        provider,
+                        config,
+                        inbound_headers,
+                        "anthropic_messages",
+                    ),
                     timeout=6.0,
                 )
                 if ids:
