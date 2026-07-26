@@ -8,6 +8,7 @@ from ciel_runtime_support.codex_mcp_integration import (
     CodexMcpCapabilityPorts,
     CodexMcpConfigPorts,
     CodexMcpIntegrationService,
+    CodexMcpPolicy,
     CodexMcpProjectionPorts,
 )
 
@@ -50,7 +51,10 @@ class CodexMcpIntegrationServiceTests(unittest.TestCase):
                 split_proxy_url=lambda name: f"http://router/{name}",
                 toml_string=lambda value: json.dumps(value),
             ),
-            native_channel_names=frozenset({"ciel-runtime"}),
+            policy=CodexMcpPolicy(
+                native_channel_names=frozenset({"ciel-runtime"}),
+                builtin_channel_url=lambda: "http://router/ca/mcp/sse",
+            ),
         )
 
     def test_discovery_config_is_persisted_through_repository_port(self):
@@ -100,6 +104,22 @@ class CodexMcpIntegrationServiceTests(unittest.TestCase):
 
             self.assertEqual(
                 ["-c", 'mcp_servers.ai-net.url="http://router/ai-net"'], args
+            )
+
+    def test_builtin_channel_can_be_injected_without_discovered_servers(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            service = self.service(Path(temporary))
+
+            args = service.native_http_compat_args(
+                None, include_builtin_channel=True
+            )
+
+            self.assertEqual(
+                [
+                    "-c",
+                    'mcp_servers.ciel-runtime-router.url="http://router/ca/mcp/sse"',
+                ],
+                args,
             )
 
 

@@ -11,6 +11,7 @@ from ciel_runtime_support.channel_event_projection import (
 )
 from ciel_runtime_support.channel_message_policy import (
     message_has_external_provenance,
+    message_is_web_chat_request,
     message_meta_sources,
     string_list,
 )
@@ -142,9 +143,43 @@ def _format_web_chat_wake_item(message: dict[str, Any]) -> str:
     )
 
 
+def _web_chat_reply_routes(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
+    routes: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for message in messages:
+        if not message_is_web_chat_request(message):
+            continue
+        meta = _metadata(message)
+        channel = str(meta.get("reply_channel") or message.get("channel") or "default").strip()
+        thread = str(message.get("thread_id") or meta.get("thread_id") or channel).strip()
+        route = (channel, thread)
+        if route in seen:
+            continue
+        seen.add(route)
+        routes.append({"channel": channel, "thread_id": thread})
+    return routes
+
+
+def _web_chat_reply_instruction(messages: list[dict[str, Any]]) -> str:
+    routes = _web_chat_reply_routes(messages)
+    if not routes:
+        return ""
+    encoded_routes = json.dumps(routes, ensure_ascii=False, separators=(",", ":"))
+    return (
+        "[ciel-runtime web reply required] Do not leave the answer only in the terminal. "
+        "After completing the answer, call MCP server `ciel-runtime-router` tool "
+        "`send_message` once for each route in "
+        f"{encoded_routes}, with that channel and thread_id, recipients=[\"web\"], "
+        "delivery=[\"web\"], kind=\"reply\", and message set to the complete answer. "
+        "Use `send_file` on the same route for files."
+    )
+
+
 def format_web_chat_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
     items = " ; ".join(_format_web_chat_wake_item(message) for message in messages)
-    return f"[ciel-runtime web chat] {len(messages)} browser message(s): {items}"
+    prompt = f"[ciel-runtime web chat] {len(messages)} browser message(s): {items}"
+    instruction = _web_chat_reply_instruction(messages)
+    return f"{prompt}\n\n{instruction}" if instruction else prompt
 
 
 def wake_message_noise_reason(message: dict[str, Any]) -> str | None:
@@ -265,4 +300,6 @@ def message_llm_display_text(message: dict[str, Any]) -> str:
 
 
 def format_llm_batch_prompt(messages: list[dict[str, Any]]) -> str:
-    return "\n\n".join(message_llm_display_text(message) for message in messages)
+    prompt = "\n\n".join(message_llm_display_text(message) for message in messages)
+    instruction = _web_chat_reply_instruction(messages)
+    return f"{prompt}\n\n{instruction}" if instruction else prompt

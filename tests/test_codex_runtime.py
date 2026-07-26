@@ -493,7 +493,15 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertEqual(0.25, captured["channel_wake_submit_delay_seconds"])
 
     def test_launch_codex_keeps_native_mcp_and_starts_channel_sse(self):
-        cfg = {"providers": {"ollama": {"current_model": "qwen3", "base_url": "http://localhost:11434"}}}
+        cfg = {
+            "web_backend": {"enabled": True},
+            "providers": {
+                "ollama": {
+                    "current_model": "qwen3",
+                    "base_url": "http://localhost:11434",
+                }
+            },
+        }
         pcfg = cfg["providers"]["ollama"]
         codex_mcp_config = Path("codex-mcp.json")
         compat_args = [
@@ -543,7 +551,12 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertNotIn("mcp_servers.ai-net.type=null", captured["cmd"])
         self.assertFalse(any("ciel-runtime-proxy" in str(arg) for arg in captured["cmd"]))
         channel_owned.assert_called_once_with(cfg, codex_mcp_config)
-        compat.assert_called_once_with(codex_mcp_config, split_http_proxy=False, channel_owned_server_names=["ai-net"])
+        compat.assert_called_once_with(
+            codex_mcp_config,
+            split_http_proxy=False,
+            channel_owned_server_names=["ai-net"],
+            include_builtin_channel=True,
+        )
         self.terminate_existing_codex_processes_for_launch.assert_called_once()
         terminate_clients.assert_called_once_with("codex_prelaunch_active_clients", quiet=True)
         start_sse.assert_called_once_with(cfg, codex_mcp_config, allowed_server_names=["ai-net"])
@@ -841,7 +854,12 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertNotIn("mcp_servers.ai-net.enabled=false", captured["cmd"])
         self.assertNotIn("mcp_servers.ai-net.type=null", captured["cmd"])
         channel_owned.assert_called_once_with(cfg, codex_mcp_config)
-        compat.assert_called_once_with(codex_mcp_config, split_http_proxy=False, channel_owned_server_names=["ai-net"])
+        compat.assert_called_once_with(
+            codex_mcp_config,
+            split_http_proxy=False,
+            channel_owned_server_names=["ai-net"],
+            include_builtin_channel=False,
+        )
         start_sse.assert_called_once_with(cfg, codex_mcp_config, allowed_server_names=["ai-net"])
 
     def test_launch_codex_app_server_routed_passes_configured_current_model(self):

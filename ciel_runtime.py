@@ -11295,7 +11295,10 @@ _CODEX_MCP_INTEGRATION = codex_mcp_integration.CodexMcpIntegrationService(
         split_proxy_url=lambda name: codex_mcp_split_proxy_url(name),
         toml_string=toml_string,
     ),
-    native_channel_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
+    policy=codex_mcp_integration.CodexMcpPolicy(
+        native_channel_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
+        builtin_channel_url=lambda: f"{ROUTER_BASE}/ca/mcp/sse",
+    ),
 )
 discovered_codex_mcp_servers = _CODEX_MCP_INTEGRATION.discovered_servers
 write_codex_mcp_config_for_channel_discovery = (

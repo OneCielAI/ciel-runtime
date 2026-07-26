@@ -42,12 +42,18 @@ class CodexMcpProjectionPorts:
 
 
 @dataclass(frozen=True, slots=True)
+class CodexMcpPolicy:
+    native_channel_names: frozenset[str]
+    builtin_channel_url: Callable[[], str]
+
+
+@dataclass(frozen=True, slots=True)
 class CodexMcpIntegrationService:
     config: CodexMcpConfigPorts
     artifact: CodexMcpArtifactPorts
     capability: CodexMcpCapabilityPorts
     projection: CodexMcpProjectionPorts
-    native_channel_names: frozenset[str]
+    policy: CodexMcpPolicy
 
     def discovered_servers(
         self,
@@ -117,7 +123,7 @@ class CodexMcpIntegrationService:
         return self.projection.dedupe_strings(
             name
             for name in candidate_names
-            if name in capable and name.casefold() not in self.native_channel_names
+            if name in capable and name.casefold() not in self.policy.native_channel_names
         )
 
     def streamable_http_servers(
@@ -151,12 +157,16 @@ class CodexMcpIntegrationService:
         *,
         split_http_proxy: bool = False,
         channel_owned_server_names: Iterable[str] | None = None,
+        include_builtin_channel: bool = False,
     ) -> list[str]:
         servers = self.streamable_http_servers(config_path)
-        if not servers:
-            return []
         args: list[str] = []
         active: list[str] = []
+        if include_builtin_channel:
+            key = "ciel-runtime-router"
+            url = self.projection.toml_string(self.policy.builtin_channel_url())
+            args.extend(["-c", f"mcp_servers.{key}.url={url}"])
+            active.append(key)
         channel_owned = {
             self.projection.public_name(str(name or "").strip())
             for name in channel_owned_server_names or []
@@ -174,7 +184,8 @@ class CodexMcpIntegrationService:
                     self.projection.split_proxy_url(name)
                 )
                 args.extend(["-c", f"mcp_servers.{key}.url={url}"])
-            active.append(name)
+            if name not in active:
+                active.append(name)
         if active:
             self.config.log(
                 "INFO",

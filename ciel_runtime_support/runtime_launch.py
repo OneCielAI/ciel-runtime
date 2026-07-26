@@ -944,6 +944,9 @@ def run_codex(
         codex_mcp_config,
         split_http_proxy=(not use_native_codex and codex_mcp_split_proxy_enabled()),
         channel_owned_server_names=codex_channel_owned_names,
+        include_builtin_channel=(
+            channel_delivery_mode(cfg) == "llm" and web_backend_start_requested(cfg)
+        ),
     )
     codex_yolo_args = codex_yolo_launch_args(codex_passthrough)
     if not use_native_codex and not use_codex_routed:
@@ -1260,6 +1263,9 @@ def run_codex_app_server(
         codex_mcp_config,
         split_http_proxy=(not use_native_codex and codex_mcp_split_proxy_enabled()),
         channel_owned_server_names=codex_channel_owned_names,
+        include_builtin_channel=(
+            channel_delivery_mode(cfg) == "llm" and web_backend_start_requested(cfg)
+        ),
     )
     config_args = [*config_args, *codex_mcp_compat_args]
     listen_url = codex_app_server_default_listen_url()

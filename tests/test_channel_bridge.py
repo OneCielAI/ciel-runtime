@@ -1337,7 +1337,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn("recipients='web'", prompt)
         self.assertNotIn("send_file", prompt)
 
-    def test_web_chat_wake_prompt_is_compact_and_omits_raw_metadata(self):
+    def test_web_chat_wake_prompt_adds_trusted_reply_route_and_omits_raw_metadata(self):
         prompt = ciel_runtime.format_channel_web_chat_wake_batch_prompt(
             [
                 {
@@ -1361,11 +1361,13 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("channel=web-chat-session", prompt)
         self.assertIn("thread=thread-1", prompt)
         self.assertNotIn("Answer in the active Claude Code session", prompt)
-        self.assertNotIn("send_message", prompt)
-        self.assertNotIn("send_file", prompt)
+        self.assertIn("`send_message`", prompt)
+        self.assertIn("`send_file`", prompt)
+        self.assertIn('"channel":"web-chat-session"', prompt)
+        self.assertIn('"thread_id":"thread-1"', prompt)
+        self.assertIn('recipients=["web"]', prompt)
         self.assertNotIn("metadata=", prompt)
         self.assertNotIn("reply_instruction", prompt)
-        self.assertNotIn("\n", prompt)
 
     def test_channel_wake_enter_bytes_can_be_overridden(self):
         with (
@@ -3577,7 +3579,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn("recipients='web'", prompt)
         self.assertNotIn("웹 채팅 요청", prompt)
 
-    def test_channel_llm_prompt_omits_browser_reply_instructions_for_web_chat(self):
+    def test_channel_llm_prompt_requires_browser_reply_for_web_chat(self):
         prompt = ciel_runtime.format_channel_llm_batch_prompt(
             [
                 {
@@ -3595,9 +3597,11 @@ class ChannelBridgeTests(unittest.TestCase):
                 }
             ]
         )
-        self.assertNotIn("ciel-runtime-router send_message", prompt)
-        self.assertNotIn("recipients='web'", prompt)
-        self.assertNotIn("웹 채팅 요청", prompt)
+        self.assertIn("MCP server `ciel-runtime-router`", prompt)
+        self.assertIn("`send_message`", prompt)
+        self.assertIn('recipients=["web"]', prompt)
+        self.assertIn('delivery=["web"]', prompt)
+        self.assertIn('"channel":"web-chat-session"', prompt)
         self.assertIn("현재 작업 상태를 알려줘", prompt)
 
     def test_channel_tool_result_context_is_injected_for_remembered_tool_use(self):

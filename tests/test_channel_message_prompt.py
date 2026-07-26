@@ -36,6 +36,29 @@ class ChannelMessagePromptTests(unittest.TestCase):
         self.assertTrue(prompt.startswith("[Source channel] Operations (room_id=room-1)\n\n"))
         self.assertIn('"event": "deploy"', prompt)
 
+    def test_web_chat_llm_prompt_requires_routed_mcp_reply(self):
+        prompt = format_llm_batch_prompt(
+            [
+                {
+                    "channel": "web-chat-session",
+                    "thread_id": "thread-7",
+                    "kind": "web_chat",
+                    "message": "status?",
+                    "meta": {
+                        "source": "ciel-runtime-web-chat",
+                        "reply_channel": "web-chat-session",
+                    },
+                }
+            ]
+        )
+
+        self.assertIn("status?", prompt)
+        self.assertIn("MCP server `ciel-runtime-router`", prompt)
+        self.assertIn('"channel":"web-chat-session"', prompt)
+        self.assertIn('"thread_id":"thread-7"', prompt)
+        self.assertIn('recipients=["web"]', prompt)
+        self.assertIn('delivery=["web"]', prompt)
+
     def test_skip_policy_rejects_control_and_self_echo_messages(self):
         control = {"message": "ready", "meta": {"sse_source": "remote", "kind": "status"}}
         self_echo = {"message": "update", "meta": {"sse_source": "ciel-runtime-router"}}
