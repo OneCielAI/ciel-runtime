@@ -29,8 +29,14 @@ def limit_hints(model_id: str) -> dict[str, Any]:
     model = (model_id or "").strip().lower()
     family = model_family(model)
     if family in ("fable", "mythos") or (
-        family == "opus" and re.search(r"(?:^|-)opus-4-[678](?:-|$)", model)
+        family == "opus" and re.search(r"(?:^|-)opus-(?:5|4-[678])(?:-|$)", model)
     ):
+        return {
+            "context_window": 1048576,
+            "max_output_tokens": 128000,
+            "source": "anthropic-models-overview-current-table",
+        }
+    if family == "sonnet" and re.search(r"(?:^|-)sonnet-5(?:-|$)", model):
         return {
             "context_window": 1048576,
             "max_output_tokens": 128000,
@@ -39,7 +45,7 @@ def limit_hints(model_id: str) -> dict[str, Any]:
     if family == "sonnet" and re.search(r"(?:^|-)sonnet-4-6(?:-|$)", model):
         return {
             "context_window": 1048576,
-            "max_output_tokens": 64000,
+            "max_output_tokens": 128000,
             "source": "anthropic-models-overview-current-table",
         }
     if family == "haiku" and re.search(r"(?:^|-)haiku-4-5(?:-|$)", model):
@@ -63,6 +69,29 @@ def runtime_hints(model_id: str) -> dict[str, Any]:
             "unsupported_sampling_parameters": ["temperature", "top_p", "top_k"],
             "source": "anthropic-models-overview-current-table",
         }
+    if re.search(r"(?:^|-)opus-5(?:-|$)", model):
+        return {
+            "claude_code_default_effort": "high",
+            "claude_code_max_effort": "xhigh",
+            "thinking_mode": "adaptive",
+            "adaptive_thinking_default_on": True,
+            "thinking_disabled_max_effort": "high",
+            "extended_thinking": False,
+            "fast_mode": {"available": True, "preview": True},
+            "prompt_cache_min_tokens": 512,
+            "unsupported_sampling_parameters": ["temperature", "top_p", "top_k"],
+            "source": "anthropic-opus-5-launch-notes",
+        }
+    if re.search(r"(?:^|-)sonnet-5(?:-|$)", model):
+        return {
+            "claude_code_default_effort": "high",
+            "claude_code_max_effort": "xhigh",
+            "thinking_mode": "adaptive",
+            "adaptive_thinking_default_on": True,
+            "extended_thinking": False,
+            "unsupported_sampling_parameters": ["temperature", "top_p", "top_k"],
+            "source": "anthropic-sonnet-5-launch-notes",
+        }
     if re.search(r"(?:^|-)opus-4-8(?:-|$)", model):
         return {
             "claude_code_default_effort": "high",
@@ -71,6 +100,16 @@ def runtime_hints(model_id: str) -> dict[str, Any]:
             "fast_mode": {"available": True, "preview": True},
             "unsupported_sampling_parameters": ["temperature", "top_p", "top_k"],
             "source": "anthropic-opus-4-8-launch-notes",
+        }
+    if re.search(r"(?:^|-)opus-4-7(?:-|$)", model):
+        return {
+            "claude_code_default_effort": "high",
+            "claude_code_max_effort": "xhigh",
+            "thinking_mode": "adaptive",
+            # Fast mode was removed on 4.7: speed="fast" errors, unlike 4.8.
+            "fast_mode": {"available": False, "preview": False},
+            "unsupported_sampling_parameters": ["temperature", "top_p", "top_k"],
+            "source": "anthropic-opus-4-7-launch-notes",
         }
     return {}
 
@@ -97,13 +136,17 @@ def infer_capabilities(model_id: str, strip_context_suffix: Callable[[str], str]
     model = strip_context_suffix(model_id).strip().lower()
     if re.search(r"(?:^|-)claude-(?:fable|mythos)(?:-|$)", model):
         return ["effort", "xhigh_effort", "max_effort", "thinking", "adaptive_thinking"]
-    if re.search(r"(?:^|-)opus-4-[78](?:-|$)", model):
+    if re.search(r"(?:^|-)(?:opus-5|sonnet-5|opus-4-[78])(?:-|$)", model):
         return [
             "effort", "xhigh_effort", "max_effort", "thinking",
             "adaptive_thinking", "interleaved_thinking",
         ]
     if re.search(r"(?:^|-)(?:opus-4-6|sonnet-4-6)(?:-|$)", model):
         return ["effort", "max_effort", "thinking", "adaptive_thinking", "interleaved_thinking"]
+    if re.search(r"(?:^|-)opus-4-5(?:-|$)", model):
+        # Opus 4.5 takes effort at low/medium/high only, and thinks through the
+        # pre-4.6 budget_tokens contract rather than adaptive thinking.
+        return ["effort", "thinking"]
     return []
 
 

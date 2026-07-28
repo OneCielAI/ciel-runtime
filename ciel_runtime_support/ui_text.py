@@ -257,6 +257,7 @@ PROVIDER_NOTES = {
 DEFAULT_ADVISOR_MODELS: tuple[str, ...] = (
     "",
     "claude-fable-5",
+    "claude-opus-5",
     "claude-opus-4-8",
     "deepseek-v4-pro",
     "claude-opus-4-6",

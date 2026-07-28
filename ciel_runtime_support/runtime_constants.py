@@ -14,7 +14,9 @@ ANTHROPIC_MODEL_DOCS_URLS = (
 )
 ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS: tuple[str, ...] = (
     "claude-fable-5",
+    "claude-opus-5",
     "claude-opus-4-8",
+    "claude-sonnet-5",
     "claude-sonnet-4-6",
     "claude-haiku-4-5-20251001",
     "claude-haiku-4-5",
