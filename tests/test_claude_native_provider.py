@@ -886,6 +886,62 @@ class NativeModelListTests(unittest.TestCase):
         self.assertIn("claude-opus-5", ciel_runtime.ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS)
         self.assertIn("claude-sonnet-5", ciel_runtime.ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS)
 
+    def test_opus_4_7_strips_unsupported_sampling_request_options(self):
+        body = {
+            "model": "claude-opus-4-7",
+            "max_tokens": 4096,
+            "temperature": 1,
+            "top_p": 0.9,
+            "top_k": 40,
+            "messages": [],
+        }
+
+        out = ciel_runtime.normalize_anthropic_model_request_options(
+            "anthropic", {}, body, "claude-opus-4-7"
+        )
+
+        self.assertNotIn("temperature", out)
+        self.assertNotIn("top_p", out)
+        self.assertNotIn("top_k", out)
+        self.assertEqual(4096, out["max_tokens"])
+
+    def test_opus_4_7_does_not_advertise_removed_fast_mode(self):
+        self.assertFalse(
+            ciel_runtime.anthropic_model_runtime_hints("claude-opus-4-7")["fast_mode"]["available"]
+        )
+        self.assertTrue(
+            ciel_runtime.anthropic_model_runtime_hints("claude-opus-4-8")["fast_mode"]["available"]
+        )
+
+    def test_opus_4_6_keeps_sampling_options_that_the_model_still_accepts(self):
+        body = {"model": "claude-opus-4-6", "temperature": 0.3, "messages": []}
+
+        out = ciel_runtime.normalize_anthropic_model_request_options(
+            "anthropic", {}, body, "claude-opus-4-6"
+        )
+
+        self.assertEqual(body, out)
+
+    def test_sonnet_4_6_output_ceiling_matches_the_published_128k_limit(self):
+        self.assertEqual(
+            128000,
+            ciel_runtime.anthropic_model_limit_hints("claude-sonnet-4-6")["max_output_tokens"],
+        )
+
+    def test_opus_4_5_advertises_effort_without_adaptive_thinking(self):
+        self.assertEqual(
+            ["effort", "thinking"],
+            ciel_runtime.infer_claude_code_supported_capabilities_from_model("claude-opus-4-5"),
+        )
+
+    def test_models_without_effort_support_advertise_no_capabilities(self):
+        for model in ("claude-sonnet-4-5", "claude-haiku-4-5"):
+            with self.subTest(model=model):
+                self.assertEqual(
+                    [],
+                    ciel_runtime.infer_claude_code_supported_capabilities_from_model(model),
+                )
+
     def test_anthropic_docs_registry_survives_api_key_state_changes(self):
         pcfg_with_key = {"base_url": "https://api.anthropic.com", "api_key": "sk-ant-real", "current_model": "claude-sonnet-4-6"}
         pcfg_without_key = {"base_url": "https://api.anthropic.com", "api_key": "", "current_model": "claude-sonnet-4-6"}
