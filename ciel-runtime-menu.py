@@ -613,7 +613,7 @@ def persist_launch_action(action: str) -> None:
 KNOWN_NVIDIA_MODEL_STATUS = {
     "claude-nvidia-llama-3.1-nemotron-ultra-253b-v1": ("FAIL 404", "listed but not callable for this NVIDIA account"),
 }
-DEFAULT_ADVISOR_MODELS = ["deepseek-v4-pro", "claude-opus-4-6", "claude-sonnet-4-6", "glm-5.1"]
+DEFAULT_ADVISOR_MODELS = ["claude-opus-5", "deepseek-v4-pro", "claude-opus-4-6", "claude-sonnet-4-6", "glm-5.1"]
 COMPAT_OK_TTL_SECONDS = 24 * 60 * 60
 COMPAT_FAIL_TTL_SECONDS = 5 * 60
 

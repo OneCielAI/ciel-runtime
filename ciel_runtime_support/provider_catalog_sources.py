@@ -309,7 +309,8 @@ ANTHROPIC_PUBLIC_MODEL_ID_RE = re.compile(
     r"claude-(?:opus|sonnet|haiku)-\d+-\d{8}|"
     r"claude-(?:opus|sonnet|haiku)-\d+-\d+|"
     r"claude-(?:opus|sonnet|haiku)-\d+(?:-\d+)?-latest|"
-    r"claude-\d+(?:-\d+){0,2}-(?:opus|sonnet|haiku)-(?:\d{8}|latest)"
+    r"claude-\d+(?:-\d+){0,2}-(?:opus|sonnet|haiku)-(?:\d{8}|latest)|"
+    r"claude-(?:opus|sonnet|haiku)-\d+"
     r")"
     r"(?![A-Za-z0-9_.@:-])"
 )
