@@ -90,6 +90,33 @@ class KimiCodeRuntimeTests(unittest.TestCase):
         self.assertIn("Kimi OAuth (Routed)", rows[0])
         self.assertIn("kimi-oauth-login", values)
         self.assertIn("input", values)
+        self.assertIn("clear", values)
+
+    def test_successful_oauth_login_clears_stored_kimi_api_key(self):
+        with (
+            patch.object(ciel_runtime, "run_kimi_oauth_login", return_value=0),
+            patch.object(ciel_runtime, "kimi_oauth_configured", return_value=True),
+            patch.object(
+                ciel_runtime,
+                "clear_api_key_config",
+                return_value=["Kimi API key cleared."],
+            ) as clear_api_key,
+        ):
+            messages = ciel_runtime.run_kimi_oauth_action("login")
+
+        clear_api_key.assert_called_once_with("kimi")
+        self.assertIn("Kimi API key cleared.", messages)
+
+    def test_oauth_login_does_not_clear_key_without_detected_credential(self):
+        with (
+            patch.object(ciel_runtime, "run_kimi_oauth_login", return_value=0),
+            patch.object(ciel_runtime, "kimi_oauth_configured", return_value=False),
+            patch.object(ciel_runtime, "clear_api_key_config") as clear_api_key,
+        ):
+            messages = ciel_runtime.run_kimi_oauth_action("login")
+
+        clear_api_key.assert_not_called()
+        self.assertIn("was not cleared", messages[0])
 
     def test_every_kimi_protocol_uses_kimi_code_identity_headers(self):
         identity = {

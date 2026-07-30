@@ -9228,7 +9228,14 @@ def run_kimi_oauth_action(action: str) -> list[str]:
         return [f"Kimi OAuth login failed: {type(exc).__name__}: {exc}"]
     if code:
         return [f"Kimi OAuth login exited with status {code}."]
-    return ["Kimi OAuth login completed in the official Kimi Code credential store."]
+    if not kimi_oauth_configured():
+        return [
+            "Kimi OAuth login exited successfully, but no usable credential was detected; "
+            "the existing Kimi API key was not cleared."
+        ]
+    messages = ["Kimi OAuth login completed in the official Kimi Code credential store."]
+    messages.extend(clear_api_key_config("kimi"))
+    return messages
 
 def launch_kimi(passthrough: list[str]) -> int:
     cfg = load_config()
@@ -9524,8 +9531,14 @@ def api_key_panel_rows(provider: str, pcfg: dict[str, Any] | None = None) -> tup
         status = "managed profile detected" if kimi_oauth_configured() else "login required"
         mode = "Routed" if bool((pcfg or {}).get("route_through_router")) else "Native"
         return (
-            [f"Kimi OAuth ({mode}): {status}", "Login with Kimi Code OAuth", "Set routed API key", "Back"],
-            ["__info__", "kimi-oauth-login", "input", "back"],
+            [
+                f"Kimi OAuth ({mode}): {status}",
+                "Login with Kimi Code OAuth (clears API key)",
+                "Set routed API key",
+                "Clear routed API key",
+                "Back",
+            ],
+            ["__info__", "kimi-oauth-login", "input", "clear", "back"],
         )
     oauth_rows = github_copilot_oauth_runtime().panel_rows(provider)
     if oauth_rows is not None:
