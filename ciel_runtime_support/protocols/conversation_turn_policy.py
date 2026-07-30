@@ -550,6 +550,20 @@ class ConversationTurnPolicy:
                     latest = current
         return latest
 
+    def latest_tool_result_message_index(self, body: dict[str, Any]) -> int | None:
+        messages = body.get("messages") or []
+        for index in range(len(messages) - 1, -1, -1):
+            message = messages[index]
+            if not isinstance(message, dict) or message.get("role") != "user":
+                continue
+            content = message.get("content")
+            if isinstance(content, list) and any(
+                isinstance(block, dict) and block.get("type") == "tool_result"
+                for block in content
+            ):
+                return index
+        return None
+
     def latest_user_tool_result_text(self, body: dict[str, Any]) -> str:
         latest = ""
         for message in body.get("messages") or []:
@@ -730,6 +744,18 @@ class ConversationTurnPolicy:
         if "TaskList" in latest_names:
             if not self.tasklist_result_has_active_work(latest_result_text):
                 return False
+            # A synthesized TaskList is a one-shot recovery prompt. If the model
+            # answers that result with visible status prose instead of choosing an
+            # actionable tool, end the turn. Claude Code rewrites tool IDs in its
+            # transcript, so counting synthetic ID prefixes cannot reliably bound
+            # this loop.
+            if latest_names == ["TaskList"] and response_text.strip():
+                intent_index = self.latest_user_intent_message_index(body)
+                result_index = self.latest_tool_result_message_index(body)
+                if result_index is not None and (
+                    intent_index is None or result_index > intent_index
+                ):
+                    return False
             max_keepalive = 6
             intent_index = self.latest_user_intent_message_index(body)
             if (

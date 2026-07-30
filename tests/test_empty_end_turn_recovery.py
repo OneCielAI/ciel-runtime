@@ -1552,6 +1552,42 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         self.assertIn("empty end_turn", output)
         self.assertIn('"stop_reason": "end_turn"', output)
 
+    def test_tasklist_status_prose_does_not_create_another_tasklist(self):
+        body = body_with_tools("continue implementation", ["TaskList", "Read", "Bash"])
+        body["messages"].extend(
+            [
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "tool_rewritten_by_claude",
+                            "name": "TaskList",
+                            "input": {},
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "tool_rewritten_by_claude",
+                            "content": "#469 [in_progress] deployment monitor",
+                        }
+                    ],
+                },
+            ]
+        )
+
+        self.assertFalse(
+            ciel_runtime.should_keep_work_alive_with_tasklist(
+                body,
+                "The task is waiting for an external deployment event.",
+                [],
+            )
+        )
+
     def test_native_stream_empty_max_tokens_after_resume_synthesizes_tasklist(self):
         body = body_with_tools("continue implementation", ["TaskList", "Read", "Bash"])
         body["messages"].append(
