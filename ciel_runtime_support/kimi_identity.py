@@ -9,10 +9,19 @@ import re
 import shutil
 import socket
 import subprocess
+import tempfile
+import threading
 import time
+import urllib.parse
+import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any
+
+
+KIMI_CODE_OAUTH_CLIENT_ID = "17e5f671-d194-4dfb-9706-5516cb48c098"
+KIMI_CODE_OAUTH_HOST = "https://auth.kimi.com"
+_OAUTH_REFRESH_LOCK = threading.Lock()
 
 
 def code_home(home: Path, environ: dict[str, str] | None = None) -> Path:
@@ -41,13 +50,95 @@ def oauth_access_token(home: Path) -> str | None:
         expires_at = float(record.get("expires_at") or 0)
     except (TypeError, ValueError):
         expires_at = 0
-    if not token or (expires_at > 0 and expires_at <= time.time() + 30):
+    if not token:
         return None
+    if expires_at > 0 and expires_at <= time.time() + 30:
+        return refresh_oauth_access_token(home, record)
     return token
 
 
+def refresh_oauth_access_token(
+    home: Path, record: dict[str, Any] | None = None
+) -> str | None:
+    """Refresh an expired official Kimi Code token using its public OAuth contract."""
+
+    with _OAUTH_REFRESH_LOCK:
+        current = oauth_token_record(home)
+        if current is None:
+            return None
+        try:
+            expires_at = float(current.get("expires_at") or 0)
+        except (TypeError, ValueError):
+            expires_at = 0
+        current_token = str(current.get("access_token") or "").strip()
+        if current_token and (expires_at <= 0 or expires_at > time.time() + 30):
+            return current_token
+        refresh_token = str(current.get("refresh_token") or "").strip()
+        if not refresh_token:
+            return None
+        oauth_host = str(
+            os.environ.get("KIMI_CODE_OAUTH_HOST")
+            or os.environ.get("KIMI_OAUTH_HOST")
+            or KIMI_CODE_OAUTH_HOST
+        ).rstrip("/")
+        body = urllib.parse.urlencode(
+            {
+                "client_id": KIMI_CODE_OAUTH_CLIENT_ID,
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+            }
+        ).encode("utf-8")
+        headers = {
+            **identity_headers(home),
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+        }
+        request = urllib.request.Request(
+            f"{oauth_host}/api/oauth/token", data=body, headers=headers, method="POST"
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=15) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except (OSError, TypeError, ValueError):
+            return None
+        if not isinstance(payload, dict):
+            return None
+        access_token = str(payload.get("access_token") or "").strip()
+        try:
+            expires_in = int(payload.get("expires_in") or 0)
+        except (TypeError, ValueError):
+            expires_in = 0
+        if not access_token or expires_in <= 0:
+            return None
+        updated = {
+            **current,
+            **payload,
+            "refresh_token": str(payload.get("refresh_token") or refresh_token),
+            "expires_at": int(time.time()) + expires_in,
+        }
+        path = code_home(home) / "credentials" / "kimi-code.json"
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        descriptor, temp_name = tempfile.mkstemp(prefix=".kimi-code.", dir=path.parent)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                json.dump(updated, stream, separators=(",", ":"))
+                stream.write("\n")
+            os.chmod(temp_name, 0o600)
+            os.replace(temp_name, path)
+        finally:
+            try:
+                os.unlink(temp_name)
+            except FileNotFoundError:
+                pass
+        return access_token
+
+
 def oauth_configured(home: Path) -> bool:
-    if oauth_access_token(home) is None:
+    record = oauth_token_record(home)
+    if record is None or not (
+        str(record.get("access_token") or "").strip()
+        or str(record.get("refresh_token") or "").strip()
+    ):
         return False
     try:
         text = (code_home(home) / "config.toml").read_text(encoding="utf-8")
@@ -120,4 +211,5 @@ __all__ = [
     "oauth_access_token",
     "oauth_configured",
     "oauth_token_record",
+    "refresh_oauth_access_token",
 ]
