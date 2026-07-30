@@ -78,6 +78,7 @@ from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthro
 from ciel_runtime_support.agy_installer import AgyInstaller, AgyInstallerPorts
 from ciel_runtime_support.agy_mcp_restore import AgyMcpRestorePorts, AgyMcpRestoreService
 from ciel_runtime_support import claude_router
+from ciel_runtime_support import kimi_identity
 from ciel_runtime_support import channel_injection
 from ciel_runtime_support.chat_files import ChatFilePorts, ChatFileRepository
 from ciel_runtime_support.chat_http_controller import (
@@ -9187,15 +9188,16 @@ def self_cmd(args: list[str]) -> tuple[int, str]:
     return p.returncode, p.stdout
 
 def kimi_code_home() -> Path:
-    return Path(os.environ.get("KIMI_CODE_HOME") or (HOME / ".kimi-code"))
+    return kimi_identity.code_home(HOME)
+
+def kimi_oauth_token_record() -> dict[str, Any] | None:
+    return kimi_identity.oauth_token_record(HOME)
+
+def kimi_oauth_access_token() -> str | None:
+    return kimi_identity.oauth_access_token(HOME)
 
 def kimi_oauth_configured() -> bool:
-    """Detect official managed login without reading or copying OAuth tokens."""
-    try:
-        text = (kimi_code_home() / "config.toml").read_text(encoding="utf-8")
-    except OSError:
-        return False
-    return "managed:kimi-code" in text and ("oauth" in text or 'api_key = ""' in text)
+    return kimi_identity.oauth_configured(HOME)
 
 def install_kimi_code_if_missing() -> str:
     executable = find_executable("kimi")
@@ -9244,9 +9246,10 @@ def launch_kimi(passthrough: list[str]) -> int:
             if subprocess.call([executable, "login"], env=env):
                 return 1
         return subprocess.call([executable, *passthrough], env=env)
-    if not provider_has_api_key(provider, pcfg):
-        print("Kimi Routed requires a Kimi API key in ciel-runtime.", flush=True)
-        return 2
+    if not provider_has_api_key(provider, pcfg) and not kimi_oauth_configured():
+        print("Kimi Routed requires Kimi OAuth login or a Kimi API key.", flush=True)
+        if subprocess.call([executable, "login"], env=env):
+            return 1
     manage_router = bool(start_router_if_needed())
     env.update({
         "KIMI_MODEL_NAME": current_alias(cfg) or str(pcfg.get("current_model") or "kimi-for-coding"),
@@ -9517,11 +9520,12 @@ def channel_delivery_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[st
     return project_channel_delivery_panel_rows(cfg, policy=channel_panel_policy())
 
 def api_key_panel_rows(provider: str, pcfg: dict[str, Any] | None = None) -> tuple[list[str], list[str]]:
-    if provider == "kimi" and not bool((pcfg or {}).get("route_through_router")):
+    if provider == "kimi":
         status = "managed profile detected" if kimi_oauth_configured() else "login required"
+        mode = "Routed" if bool((pcfg or {}).get("route_through_router")) else "Native"
         return (
-            [f"Kimi OAuth: {status}", "Login with Kimi Code OAuth", "Back"],
-            ["__info__", "kimi-oauth-login", "back"],
+            [f"Kimi OAuth ({mode}): {status}", "Login with Kimi Code OAuth", "Set routed API key", "Back"],
+            ["__info__", "kimi-oauth-login", "input", "back"],
         )
     oauth_rows = github_copilot_oauth_runtime().panel_rows(provider)
     if oauth_rows is not None:

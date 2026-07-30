@@ -120,7 +120,7 @@ CHOICE_STRATEGIES = {
     KIMI_ROUTED_PROVIDER_CHOICE: ProviderChoiceStrategy(
         provider="kimi", routed=True,
         status_lines=("Provider set to kimi (Kimi Routed).", "mode: kimi-routed", "Kimi Code requests are routed through ciel-runtime."),
-        missing_api_key_line="Kimi Routed requires a Kimi API key in ciel-runtime; OAuth remains available for Native mode.",
+        missing_api_key_line="Kimi Routed requires Kimi OAuth login or a Kimi API key; open API key setup to authenticate.",
     ),
 }
 

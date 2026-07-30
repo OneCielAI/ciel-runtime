@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import ciel_runtime
+from ciel_runtime_support.providers import kimi as kimi_provider_module
 
 
 class KimiCodeRuntimeTests(unittest.TestCase):
@@ -80,6 +81,35 @@ class KimiCodeRuntimeTests(unittest.TestCase):
         self.assertIn("login required", rows[0])
         self.assertIn("kimi-oauth-login", values)
 
+    def test_routed_api_key_panel_also_exposes_official_oauth_login(self):
+        with patch.object(ciel_runtime, "kimi_oauth_configured", return_value=True):
+            rows, values = ciel_runtime.api_key_panel_rows(
+                "kimi", {"route_through_router": True}
+            )
+
+        self.assertIn("Kimi OAuth (Routed)", rows[0])
+        self.assertIn("kimi-oauth-login", values)
+        self.assertIn("input", values)
+
+    def test_every_kimi_protocol_uses_kimi_code_identity_headers(self):
+        identity = {
+            "User-Agent": "kimi-code-cli/0.30.0",
+            "X-Msh-Platform": "kimi_code_cli",
+            "X-Msh-Version": "0.30.0",
+            "X-Msh-Device-Id": "device-id",
+        }
+        with (
+            patch.object(kimi_provider_module, "identity_headers", return_value=identity),
+            patch.object(kimi_provider_module, "oauth_access_token", return_value=None),
+        ):
+            for operation in ("anthropic_messages", "openai_chat", "openai_responses"):
+                headers = ciel_runtime.provider_headers("kimi", {"api_key": "key"}, {}, operation)
+                self.assertEqual(identity["User-Agent"], headers["User-Agent"])
+                self.assertEqual(identity["X-Msh-Platform"], headers["X-Msh-Platform"])
+            other = ciel_runtime.provider_headers("deepseek", {"api_key": "key"}, {}, "openai_chat")
+
+        self.assertNotEqual(identity["User-Agent"], other.get("User-Agent"))
+
     def test_routed_launch_exports_official_kimi_environment_contract(self):
         cfg = {
             "providers": {
@@ -138,8 +168,26 @@ class KimiCodeRuntimeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "config.toml"
             config.write_text('[providers.kimi]\ntype = "managed:kimi-code"\napi_key = ""\n', encoding="utf-8")
+            credentials = Path(tmp) / "credentials"
+            credentials.mkdir()
+            (credentials / "kimi-code.json").write_text(
+                '{"access_token":"secret-token","expires_at":4102444800}',
+                encoding="utf-8",
+            )
             with patch.dict(os.environ, {"KIMI_CODE_HOME": tmp}):
                 self.assertTrue(ciel_runtime.kimi_oauth_configured())
+
+    def test_routed_chat_uses_official_oauth_bearer_when_api_key_is_absent(self):
+        with (
+            patch.object(kimi_provider_module, "oauth_access_token", return_value="oauth-token"),
+            patch.object(kimi_provider_module, "identity_headers", return_value={}),
+        ):
+            headers = ciel_runtime.provider_chat_headers("kimi", {}, {})
+
+        authorization = next(
+            value for name, value in headers.items() if name.lower() == "authorization"
+        )
+        self.assertEqual("Bearer oauth-token", authorization)
 
 
 if __name__ == "__main__":

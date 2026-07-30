@@ -421,6 +421,16 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         panel_idx = (panel_idx + 1) % max(1, len(panel_rows))
                     panel_last_idx[panel_name] = panel_idx
                     continue
+                if key in ("pageup", "pagedown", "home", "end"):
+                    if key == "home":
+                        panel_idx = 0
+                    elif key == "end":
+                        panel_idx = max(0, len(panel_rows) - 1)
+                    else:
+                        step = 10 if key == "pagedown" else -10
+                        panel_idx = max(0, min(len(panel_rows) - 1, panel_idx + step))
+                    panel_last_idx[panel_name] = panel_idx
+                    continue
                 if key in ("esc", "left", "q"):
                     close_panel()
                     continue

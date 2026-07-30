@@ -1,6 +1,7 @@
 """Kimi provider adapter."""
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Mapping
 
 from ..architecture import (
@@ -17,6 +18,7 @@ from ..architecture import (
 from .base import HttpBearerProviderAdapter, provider_configuration
 from .constants import PROVIDER_DEFAULT_BASE_URLS
 from ..runtime_constants import KIMI_MODEL_FALLBACK_IDS
+from ..kimi_identity import identity_headers, oauth_access_token
 
 
 @dataclass(frozen=True)
@@ -48,6 +50,19 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
     api_key_launch_error_value: str = (
         "Launch blocked: Kimi.com requires a Kimi API key."
     )
+
+    def build_headers(
+        self, config: ProviderConfig, api_key: str | None
+    ) -> Mapping[str, str]:
+        token = api_key or oauth_access_token(Path.home())
+        headers = dict(super().build_headers(config, token))
+        headers.update(identity_headers(Path.home()))
+        return headers
+
+    def launch_api_key_error(self, config: ProviderConfig) -> str | None:
+        if oauth_access_token(Path.home()) is not None:
+            return None
+        return super().launch_api_key_error(config)
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(
             upstream_protocol="anthropic_messages",

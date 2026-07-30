@@ -449,7 +449,7 @@ def render_prelaunch_screen(
         for line in checks[:2]:
             add("  " + line, "1;38;5;208")
     add("")
-    help_text = "Up/Down moves. Enter selects. Esc/Left closes submenu. q quits. Actions expand in place."
+    help_text = "Up/Down moves. PgUp/PgDn jumps. Home/End bounds. Enter selects. Esc/Left closes. q quits."
     add(help_text, "2")
     rendered = "\n".join(screen) + "\n"
     if sys.stdout.isatty():

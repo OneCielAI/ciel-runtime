@@ -75,7 +75,7 @@ class ProviderChoiceTests(unittest.TestCase):
         self.assertEqual("adapter status", lines[-2])
         self.assertIn("normalized:", lines[-1])
 
-    def test_kimi_routed_selection_requires_static_api_key(self):
+    def test_kimi_routed_selection_offers_oauth_or_static_api_key(self):
         config = {
             "current_provider": "ollama",
             "providers": {"kimi": {"route_through_router": False}},
@@ -84,7 +84,7 @@ class ProviderChoiceTests(unittest.TestCase):
 
         self.assertEqual("kimi", config["current_provider"])
         self.assertTrue(config["providers"]["kimi"]["route_through_router"])
-        self.assertIn("requires a Kimi API key", lines[-1])
+        self.assertIn("requires Kimi OAuth login or a Kimi API key", lines[-1])
 
     @staticmethod
     def _controller(config, saved, cleared, *, has_key):
