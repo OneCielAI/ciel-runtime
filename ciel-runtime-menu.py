@@ -726,6 +726,21 @@ def meaningful_key(value: str | None) -> bool:
     return bool(value and value not in ("dummy", "not-used", "ollama"))
 
 
+def stored_key_looks_like_error(value: str | None) -> bool:
+    text = str(value or "").strip().lower()
+    if not text:
+        return False
+    markers = (
+        "urlerror", "httperror", "http error", "<urlopen error",
+        "eof occurred in violation of protocol", "traceback (most recent call last)",
+        "connection refused", "connection reset", "timed out", "unauthorized",
+        "401 client error", "403 client error", "404 client error",
+        "500 internal server error", "502 bad gateway", "503 service unavailable",
+        "504 gateway",
+    )
+    return any(marker in text for marker in markers)
+
+
 def api_key_status(provider: str, pcfg: dict) -> str:
     if provider == "nvidia-hosted":
         return "API key: set (NVIDIA)" if meaningful_key(read_env_file(NCP_ENV).get("NVIDIA_API_KEY")) else "API key: missing (NVIDIA required)"
@@ -740,6 +755,8 @@ def api_key_status(provider: str, pcfg: dict) -> str:
             return "API key: not set (uses native Codex login/auth headers)"
         return "API key: optional fallback (uses native Codex login/config)"
     if provider == "ollama-cloud":
+        if stored_key_looks_like_error(pcfg.get("api_key")):
+            return "API key: INVALID (stored value is an error message, not a key — re-enter)"
         return "API key: set (Ollama Cloud)" if meaningful_key(pcfg.get("api_key")) else "API key: missing (Ollama Cloud required)"
     if provider == "deepseek":
         return "API key: set (DeepSeek)" if meaningful_key(pcfg.get("api_key")) else "API key: missing (DeepSeek required)"
@@ -752,7 +769,10 @@ def api_key_status(provider: str, pcfg: dict) -> str:
 
 
 def launch_requires_api_key(provider: str, pcfg: dict) -> bool:
-    return provider in ("nvidia-hosted", "ollama-cloud", "deepseek") and "missing" in api_key_status(provider, pcfg).lower()
+    if provider in ("nvidia-hosted", "ollama-cloud", "deepseek"):
+        status = api_key_status(provider, pcfg).lower()
+        return "missing" in status or "invalid" in status
+    return False
 
 
 def join_url(base: str, path: str) -> str:

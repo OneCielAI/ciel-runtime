@@ -32,6 +32,7 @@ class CredentialPersistencePorts:
     parse_keys: Callable[[Any], list[str]]
     clear_requested: Callable[[Any], bool]
     rotation_name: Callable[[str, dict[str, Any]], str]
+    error_text: Callable[[Any], bool] = lambda _value: False
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,6 +198,17 @@ class CredentialManagementService:
         if self.persistence.clear_requested(raw_value):
             return self.clear(provider)
         keys = self.persistence.parse_keys(raw_value)
+        # Refuse to persist a "key" that is actually an upstream error string
+        # (operator 2026-07-29: the ollama-cloud api_key held the literal text
+        # of a 504 URLError; every chat call then failed 401 while the
+        # unauthenticated /api/tags kept working, masking the corruption).
+        rejected = [key for key in keys if self.persistence.error_text(key)]
+        if rejected:
+            raise SystemExit(
+                "Refusing to store an API key that looks like an error message "
+                f"({len(rejected)} item(s) contain error prose). Paste the key "
+                "itself, not the error output. Unchanged."
+            )
         if len(keys) > 1:
             return self.store_many(provider, keys)
         if len(keys) == 1:

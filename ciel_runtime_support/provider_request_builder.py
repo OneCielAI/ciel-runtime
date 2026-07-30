@@ -29,6 +29,10 @@ class OllamaRequestPorts:
     context_limit: Callable[[dict[str, Any]], int]
     num_ctx: Callable[..., int]
     think_enabled: Callable[[str | None, dict[str, Any]], bool]
+    # Model-card provenance gate for num_predict: None = omit the parameter
+    # entirely so the server default applies (operator 2026-07-29). The
+    # default implementation passes the capped value through unchanged.
+    num_predict: Callable[[dict[str, Any], int | None], int | None] = lambda _config, capped: capped
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,6 +194,7 @@ class ProviderRequestBuilder:
             configured,
             _token_cache=token_cache,
         )
+        num_predict = self.ollama.num_predict(config, num_predict)
         if num_predict:
             options["num_predict"] = num_predict
         if num_ctx:

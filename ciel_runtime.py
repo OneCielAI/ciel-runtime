@@ -510,6 +510,7 @@ from ciel_runtime_support.codex_process_lifecycle import (
 )
 from ciel_runtime_support.credentials import (
     api_key_clear_requested as project_api_key_clear_requested,
+    looks_like_error_text as project_looks_like_error_text,
     meaningful_key_value as project_meaningful_key_value,
     mask_secret as project_mask_secret,
     parse_api_key_list as project_parse_api_key_list,
@@ -2020,7 +2021,11 @@ def provider_config_api_keys(provider: str, pcfg: dict[str, Any]) -> list[str]:
         token = github_copilot_oauth_token()
         return [token] if token else []
     supplemental = nvidia_api_key() if provider == "nvidia-hosted" else ""
-    return project_provider_config_api_keys(pcfg, supplemental)
+    return [
+        key
+        for key in project_provider_config_api_keys(pcfg, supplemental)
+        if not project_looks_like_error_text(key)
+    ]
 
 def provider_contract_config(provider: str, pcfg: dict[str, Any]) -> ProviderConfig:
     """Translate legacy configuration into the provider-owned contract."""
@@ -4775,6 +4780,7 @@ ollama_preserve_configured_context_cap = (
 )
 ollama_effective_context_limit = _OLLAMA_CONTEXT_POLICY.effective_context_limit
 ollama_num_ctx_for_payload = _OLLAMA_CONTEXT_POLICY.num_ctx_for_payload
+ollama_num_predict_for_payload = _OLLAMA_CONTEXT_POLICY.num_predict_for_payload
 ollama_num_ctx_status = _OLLAMA_CONTEXT_POLICY.num_ctx_status
 ollama_extra_options = _OLLAMA_CONTEXT_POLICY.extra_options
 ollama_options_status = _OLLAMA_CONTEXT_POLICY.options_status
@@ -4924,6 +4930,7 @@ def provider_request_builder() -> ProviderRequestBuilder:
             context_limit=ollama_context_limit_for_budget,
             num_ctx=ollama_num_ctx_for_payload,
             think_enabled=ollama_request_think_enabled,
+            num_predict=ollama_num_predict_for_payload,
         ),
         OpenAIRequestPorts(
             messages=anthropic_messages_to_openai,
@@ -6672,6 +6679,7 @@ def credential_management_service() -> CredentialManagementService:
             parse_keys=parse_api_key_list,
             clear_requested=api_key_clear_requested,
             rotation_name=provider_api_key_rotation_name,
+            error_text=project_looks_like_error_text,
         ),
         external=ExternalCredentialPorts(
             enabled=frozenset({"nvidia-hosted"}).__contains__,
@@ -9611,7 +9619,14 @@ def run_prelaunch_menu(passthrough: list[str], skip_menu: bool = False, force_me
         return PRELAUNCH_CANCEL
     return result
 
-def start_router_if_needed(*, replace_active_clients: bool = True) -> bool:
+def start_router_if_needed(*, replace_active_clients: bool = False) -> bool:
+    """Start or reuse the shared router without killing another live client.
+
+    Replacing active clients is an explicit maintenance operation.  A normal
+    Claude launch can share a matching router, and must not SIGTERM an existing
+    ciel-runtime wrapper (and its Claude Code child) merely because another
+    launch happens in the same user account.
+    """
     return start_project_router_if_needed(
         replace_active_clients=replace_active_clients,
         config=router_process_config(),

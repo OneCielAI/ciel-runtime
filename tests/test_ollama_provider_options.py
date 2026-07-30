@@ -114,7 +114,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
 
         status = ciel_runtime.provider_options_status("ollama-cloud", pcfg)
 
-        self.assertIn("num_ctx=auto (65536-1048576)", status)
+        self.assertIn("num_ctx=auto (server default — no model-card context)", status)
         self.assertIn("ollama_options=num_predict=8192", status)
 
     def test_ollama_auto_num_ctx_uses_provider_model_context(self):
@@ -159,7 +159,10 @@ class OllamaProviderOptionTests(unittest.TestCase):
 
         payload = {"messages": [{"role": "user", "content": "hello"}], "tools": []}
 
-        self.assertEqual(32768, ciel_runtime.ollama_num_ctx_for_payload(pcfg, payload))
+        # A stale cached context is not a model card for the current model, so
+        # num_ctx is omitted (server default) rather than substituted with a
+        # num_ctx_min/max guess (operator 2026-07-29).
+        self.assertIsNone(ciel_runtime.ollama_num_ctx_for_payload(pcfg, payload))
 
     def test_ollama_provider_context_beats_model_name_hint(self):
         pcfg = {
