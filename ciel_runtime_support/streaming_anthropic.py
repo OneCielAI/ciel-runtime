@@ -722,6 +722,26 @@ def rebatch_anthropic_sse_text(
                     patched_message_delta("end_turn"),
                 )
                 return
+            if (
+                stop_reason == "end_turn"
+                and source_body is not None
+                and should_auto_exit_plan_mode(source_body, text_so_far, tool_calls)
+            ):
+                for index in list(text_buffers.keys()):
+                    flush_buffer(index, force=True)
+                router_log(
+                    "WARN",
+                    "auto-synthesized ExitPlanMode from explicit plan-exit text "
+                    "with Anthropic-compatible end_turn",
+                )
+                emit_exit_plan_mode_tool(next_content_index)
+                next_content_index += 1
+                saw_tool_use = True
+                pending_message_delta = (
+                    event_type,
+                    patched_message_delta("tool_use"),
+                )
+                return
             if emitted_tool_use and stop_reason == "end_turn":
                 patched = dict(event)
                 patched_delta = dict(delta)

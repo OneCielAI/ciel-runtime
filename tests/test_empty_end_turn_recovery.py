@@ -613,7 +613,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
         self.assertNotIn('"name": "ExitPlanMode"', output)
         self.assertIn('"stop_reason": "end_turn"', output)
 
-    def test_native_stream_plan_exit_text_with_tool_use_stop_synthesizes_exit_plan_mode(self):
+    def test_native_stream_plan_exit_text_with_end_turn_synthesizes_exit_plan_mode(self):
         body = body_with_tools("continue implementation", ["ExitPlanMode", "Bash"])
         body["tools"][0]["input_schema"] = {
             "type": "object",
@@ -648,7 +648,7 @@ class EmptyEndTurnRecoveryTests(unittest.TestCase):
             'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n',
             'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Plan Mode를 종료하고 계속하겠습니다."}}\n\n',
             'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n',
-            'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use","stop_sequence":null},"usage":{"output_tokens":1}}\n\n',
+            'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":1}}\n\n',
             'event: message_stop\ndata: {"type":"message_stop"}\n\n',
         ]
 
