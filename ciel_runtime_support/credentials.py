@@ -11,6 +11,53 @@ from ciel_runtime_support.architecture import ProviderConfig
 
 
 API_KEY_CLEAR_TOKENS = frozenset({"clear", "unset", "none", "null", "off", "delete", "remove"})
+
+# Persisted credential hygiene: these substrings mean the stored "key" is not a
+# key at all but an upstream error string that was pasted or written into the
+# credential field (operator 2026-07-29: the ollama-cloud api_key held the
+# literal text "504 URLError: <urlopen error EOF occurred in violation of
+# protocol (_ssl.c:2406" — every chat call then failed 401 while /api/tags,
+# which is unauthenticated, kept working and made the key look valid).
+SECRET_ERROR_MARKERS = (
+    "urlerror",
+    "httperror",
+    "http error",
+    "<urlopen error",
+    "eof occurred in violation of protocol",
+    "traceback (most recent call last)",
+    "connection refused",
+    "connection reset",
+    "timed out",
+    "unauthorized",
+    "401 client error",
+    "403 client error",
+    "404 client error",
+    "500 internal server error",
+    "502 bad gateway",
+    "503 service unavailable",
+    "504 gateway",
+)
+
+# Structural shapes shared by every common API key format (Anthropic sk-ant-*,
+# Ollama, DeepSeek, OpenRouter sk-or-*, etc.): single line, no whitespace, no
+# error prose. A credential is a token, not a sentence.
+_KEY_PLAUSIBLE_RE = re.compile(r"^\S{8,512}$")
+
+
+def looks_like_error_text(value: Any) -> bool:
+    text = str(value or "").strip().lower()
+    if not text:
+        return False
+    return any(marker in text for marker in SECRET_ERROR_MARKERS)
+
+
+def plausible_api_key(value: Any) -> bool:
+    """Minimal structural sanity check: one non-space token, no error prose."""
+
+    text = str(value or "").strip()
+    if not _KEY_PLAUSIBLE_RE.match(text):
+        return False
+    return not looks_like_error_text(text)
 SECRET_TEXT_PATTERNS = (
     re.compile(r"ak_key_[A-Za-z0-9_-]+_secret_[A-Za-z0-9_-]+"),
     re.compile(r"(AINET_API_KEY\s*=\s*)(\S+)", re.IGNORECASE),

@@ -120,5 +120,77 @@ class CredentialManagementServiceTest(unittest.TestCase):
             self.assertEqual({}, parse_dotenv_file(path.with_name("missing.env")))
 
 
+class CredentialErrorTextGuardTest(unittest.TestCase):
+    def service(self, config):
+        saved = []
+        from ciel_runtime_support.credentials import looks_like_error_text
+        service = CredentialManagementService(
+            persistence=CredentialPersistencePorts(
+                load_config=lambda: config,
+                save_config=lambda value: saved.append(value),
+                clear_model_cache=lambda: None,
+                parse_keys=parse_api_key_list,
+                clear_requested=api_key_clear_requested,
+                rotation_name=lambda provider, pcfg: "target",
+                error_text=looks_like_error_text,
+            ),
+            external=ExternalCredentialPorts(
+                enabled=lambda provider: False,
+                store=lambda key: None,
+                clear=lambda: None,
+                has_key=lambda: False,
+                normalize_provider_config=lambda pcfg: False,
+                location="external.env",
+            ),
+            presentation=CredentialPresentationPorts(lambda value: "masked", lambda value: "fingerprint"),
+            rotation=CredentialRotationRepository({}, threading.Lock()),
+            config_location="config.json",
+        )
+        return service, saved
+
+    def test_store_input_rejects_error_text_credential(self):
+        # Operator 2026-07-29: the ollama-cloud api_key held the literal text of
+        # a 504 URLError. Every chat call then failed 401 while the
+        # unauthenticated /api/tags kept working, masking the corruption.
+        config = {"providers": {"ollama-cloud": {}}}
+        service, saved = self.service(config)
+        with self.assertRaises(SystemExit) as ctx:
+            service.store_input(
+                "ollama-cloud",
+                "504 URLError: <urlopen error EOF occurred in violation of protocol (_ssl.c:2406",
+            )
+        self.assertIn("error message", str(ctx.exception))
+        self.assertEqual([], saved)
+        self.assertNotIn("api_key", config["providers"]["ollama-cloud"])
+
+    def test_store_input_accepts_a_plausible_key(self):
+        config = {"providers": {"ollama-cloud": {}}}
+        service, saved = self.service(config)
+        service.store_input("ollama-cloud", "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6")
+        self.assertEqual(
+            "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+            config["providers"]["ollama-cloud"]["api_key"],
+        )
+        self.assertEqual(1, len(saved))
+
+    def test_looks_like_error_text_classification(self):
+        from ciel_runtime_support.credentials import looks_like_error_text, plausible_api_key
+        self.assertTrue(looks_like_error_text("504 URLError: <urlopen error EOF occurred in violation of protocol"))
+        self.assertTrue(looks_like_error_text("401 Client Error: Unauthorized for url"))
+        self.assertFalse(looks_like_error_text("a1b2c3d4e5f6a7b8c9d0e1f2"))
+        self.assertFalse(plausible_api_key("504 URLError: <urlopen error EOF"))
+        self.assertFalse(plausible_api_key("has spaces in it"))
+        self.assertFalse(plausible_api_key("short"))
+        self.assertTrue(plausible_api_key("sk-ant-api03-longenoughtoken123456"))
+
+    def test_runtime_does_not_project_stored_error_text_as_bearer_key(self):
+        import ciel_runtime
+
+        config = {
+            "api_key": "504 URLError: <urlopen error EOF occurred in violation of protocol",
+        }
+        self.assertEqual([], ciel_runtime.provider_config_api_keys("ollama-cloud", config))
+
+
 if __name__ == "__main__":
     unittest.main()

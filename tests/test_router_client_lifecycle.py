@@ -18,6 +18,21 @@ from ciel_runtime_support.router_client_lifecycle import (
 
 
 class RouterClientLifecycleTests(unittest.TestCase):
+    def test_registry_never_terminates_a_client_when_no_clients_are_requested(self):
+        terminated = []
+        registry = RouterClientRegistry(
+            Path("unused"),
+            4141,
+            RouterClientRegistryPorts(
+                pid_is_running=lambda _pid: True,
+                log=lambda *_args: None,
+                terminate_tree=lambda *args, **kwargs: terminated.append((args, kwargs)),
+            ),
+        )
+
+        self.assertFalse(registry.terminate_active("normal_launch", [], quiet=True))
+        self.assertEqual([], terminated)
+
     def test_registry_terminates_wrapper_root_and_releases_lease(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

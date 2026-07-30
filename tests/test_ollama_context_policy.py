@@ -30,17 +30,49 @@ class OllamaRequestContextPolicyTests(unittest.TestCase):
         self.assertEqual(131_072, policy.context_limit_for_budget(config))
         self.assertIn("model max 262,144", policy.num_ctx_status(config))
 
-    def test_dynamic_context_estimate_uses_bucket_and_environment_override(self):
+    def test_dynamic_context_without_model_card_omits_num_ctx(self):
+        # Operator 2026-07-29: when the model card provides no context
+        # information, the num_ctx parameter must be omitted entirely so the
+        # server default applies — never substituted with a payload-size
+        # estimate clamped into num_ctx_min/max.
         config = {"num_ctx": "auto", "num_ctx_min": 8192, "num_ctx_max": 65536}
-        self.assertEqual(
-            16384, self.policy(estimated_tokens=7000).num_ctx_for_payload(config, {})
+        self.assertIsNone(
+            self.policy(estimated_tokens=7000).num_ctx_for_payload(config, {})
         )
+        self.assertEqual(
+            "auto (server default — no model-card context)",
+            self.policy().num_ctx_status(config),
+        )
+        # An explicit environment override still wins (operator escape hatch).
         self.assertEqual(
             32768,
             self.policy({"CIEL_RUNTIME_OLLAMA_NUM_CTX": "32768"}).num_ctx_for_payload(
                 config, {}
             ),
         )
+
+    def test_num_predict_model_card_gate(self):
+        policy = self.policy()
+        # Adapter-default num_predict with no model-card context → omitted.
+        self.assertIsNone(policy.num_predict_for_payload({}, 4096))
+        # Explicit user configuration passes through even without a card.
+        self.assertEqual(
+            4096,
+            policy.num_predict_for_payload(
+                {"ollama_options": {"num_predict": 8192}}, 4096
+            ),
+        )
+        self.assertEqual(
+            4096,
+            policy.num_predict_for_payload({"max_output_tokens": 8192}, 4096),
+        )
+        # A resolved model-card context re-enables the default.
+        card = {
+            "current_model": "qwen:latest",
+            "model_context_model": "qwen",
+            "model_context_max": 262_144,
+        }
+        self.assertEqual(4096, policy.num_predict_for_payload(card, 4096))
 
     def test_context_error_recovery_caps_output_and_options(self):
         policy = self.policy()

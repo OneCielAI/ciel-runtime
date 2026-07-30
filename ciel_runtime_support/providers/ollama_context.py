@@ -66,13 +66,38 @@ class OllamaRequestContextPolicy:
             provider_limit = self.provider_context_limit(config)
             if provider_limit:
                 return self.effective_context_limit(config) or provider_limit
-            minimum = self.positive_int(config.get("num_ctx_min")) or 8192
-            maximum = self.positive_int(config.get("num_ctx_max")) or 65536
-            maximum = max(minimum, maximum)
-            estimated = self.estimate_tokens(payload, _token_cache)
-            target = int(estimated * 1.45) + 2048
-            return self.context_bucket(target, minimum, maximum)
+            # No model-card context is available (no /api/show max_model_len, no
+            # catalog/library match, no model-id hint). Do NOT invent a window:
+            # estimating from the payload and clamping to num_ctx_min/max used
+            # to send a guessed num_ctx the model card never advertised
+            # (operator 2026-07-29: if the model card does not provide
+            # num_ctx/num_predict, the parameter must be omitted so the server
+            # default applies — never substituted with our own guess).
+            return None
         return self.positive_int(raw)
+
+    def num_predict_for_payload(
+        self,
+        config: dict[str, Any],
+        capped: int | None,
+    ) -> int | None:
+        """num_predict with model-card provenance gating.
+
+        An explicit user-configured value always passes through. But the
+        adapter-default ollama_options.num_predict (a heuristic, not a model
+        card value) is only sent when a model-card context exists for the
+        current model — otherwise the parameter is omitted and the server
+        default applies (operator 2026-07-29).
+        """
+        value = self.positive_int(capped)
+        if not value:
+            return None
+        configured = self.positive_int(config.get("ollama_options", {}).get("num_predict") if isinstance(config.get("ollama_options"), dict) else None) or self.positive_int(config.get("max_output_tokens"))
+        if configured:
+            return value
+        if self.provider_context_limit(config):
+            return value
+        return None
 
     def num_ctx_status(self, config: dict[str, Any]) -> str:
         raw = config.get("num_ctx", "auto")
@@ -83,9 +108,7 @@ class OllamaRequestContextPolicy:
                 if effective_limit < provider_limit:
                     return f"auto ({effective_limit:,}; model max {provider_limit:,})"
                 return f"auto (provider {effective_limit:,})"
-            minimum = self.positive_int(config.get("num_ctx_min")) or 8192
-            maximum = self.positive_int(config.get("num_ctx_max")) or 65536
-            return f"auto ({minimum}-{maximum})"
+            return "auto (server default — no model-card context)"
         return str(self.positive_int(raw) or raw)
 
     @staticmethod
