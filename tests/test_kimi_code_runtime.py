@@ -1,13 +1,76 @@
 import os
 import tempfile
 import unittest
+from io import BytesIO
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import ciel_runtime
 
 
 class KimiCodeRuntimeTests(unittest.TestCase):
+    def test_runtime_router_accepts_kimi_cli_chat_completions_path(self):
+        router = next(
+            router
+            for router in ciel_runtime.build_runtime_routers()
+            if router.name == "openai-chat"
+        )
+
+        self.assertTrue(router.can_handle_post("/v1/chat/completions", "kimi", {}))
+        self.assertFalse(router.can_handle_post("/v1/responses", "kimi", {}))
+
+    def test_chat_passthrough_uses_kimi_upstream_and_preserves_openai_response(self):
+        response_bytes = b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n'
+
+        class Response:
+            status = 200
+            headers = {"content-type": "text/event-stream"}
+
+            def __init__(self):
+                self.stream = BytesIO(response_bytes)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, size):
+                return self.stream.read(size)
+
+        handler = Mock()
+        handler.headers = {"authorization": "Bearer ciel-runtime-router-local-key"}
+        handler.wfile = BytesIO()
+        captured = {}
+
+        def urlopen(request, **kwargs):
+            captured["request"] = request
+            captured["kwargs"] = kwargs
+            return Response()
+
+        with (
+            patch.object(ciel_runtime, "provider_upstream_request_base", return_value="https://api.kimi.com/coding"),
+            patch.object(ciel_runtime, "resolve_requested_model", return_value="kimi-for-coding"),
+            patch.object(ciel_runtime, "provider_upstream_model", return_value="kimi-for-coding"),
+            patch.object(ciel_runtime, "apply_provider_adapter_request_policy", side_effect=lambda _p, _c, body: body),
+            patch.object(ciel_runtime, "provider_chat_headers", return_value={"authorization": "Bearer actual-kimi-key"}),
+            patch.object(ciel_runtime, "provider_urlopen", side_effect=urlopen),
+            patch.object(ciel_runtime, "provider_request_timeout_seconds", return_value=60.0),
+            patch.object(ciel_runtime, "_copy_upstream_response_headers"),
+        ):
+            ciel_runtime.forward_provider_chat(
+                handler,
+                "kimi",
+                {},
+                {"model": "ciel-runtime-kimi-k3", "messages": [], "stream": True},
+            )
+
+        request = captured["request"]
+        self.assertEqual("https://api.kimi.com/coding/v1/chat/completions", request.full_url)
+        self.assertEqual("Bearer actual-kimi-key", request.headers["Authorization"])
+        self.assertEqual(response_bytes, handler.wfile.getvalue())
+        self.assertEqual(60.0, captured["kwargs"]["timeout"])
+
     def test_native_api_key_panel_exposes_official_oauth_login(self):
         with patch.object(ciel_runtime, "kimi_oauth_configured", return_value=False):
             rows, values = ciel_runtime.api_key_panel_rows(

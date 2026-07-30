@@ -928,6 +928,11 @@ from ciel_runtime_support.openai_forwarding import (
     OpenAIForwardStreaming,
     forward_openai_compatible_chat as run_openai_forward,
 )
+from ciel_runtime_support.openai_chat_passthrough import (
+    OpenAIChatPassthrough,
+    OpenAIChatPassthroughPorts,
+)
+from ciel_runtime_support.openai_chat_router import OpenAIChatRouter
 from ciel_runtime_support import openai_responses_router
 from ciel_runtime_support.provider_responses_passthrough import (
     ProviderResponsesPassthrough,
@@ -6104,6 +6109,39 @@ def provider_responses_headers(
         }
     return headers
 
+def provider_chat_headers(
+    provider: str,
+    pcfg: dict[str, Any],
+    inbound_headers: Any | None = None,
+) -> dict[str, str]:
+    return provider_headers(provider, pcfg, inbound_headers, "openai_chat")
+
+def provider_chat_passthrough() -> OpenAIChatPassthrough:
+    return OpenAIChatPassthrough(
+        OpenAIChatPassthroughPorts(
+            normalize_model=lambda provider, pcfg, model: provider_upstream_model(
+                provider, pcfg, resolve_requested_model(provider, pcfg, model)
+            ),
+            normalize_request=lambda provider, pcfg, body: apply_provider_adapter_request_policy(
+                provider, pcfg, dict(body)
+            ),
+            upstream_base=provider_upstream_request_base,
+            join_url=join_url,
+            headers=provider_chat_headers,
+            urlopen=provider_urlopen,
+            timeout_seconds=provider_request_timeout_seconds,
+            copy_response_headers=_copy_upstream_response_headers,
+        )
+    )
+
+def forward_provider_chat(
+    handler: BaseHTTPRequestHandler,
+    provider: str,
+    pcfg: dict[str, Any],
+    body: dict[str, Any],
+) -> None:
+    provider_chat_passthrough().forward(handler, provider, pcfg, body)
+
 def provider_responses_passthrough() -> ProviderResponsesPassthrough:
     return ProviderResponsesPassthrough(
         ProviderResponsesPassthroughPorts(
@@ -6357,6 +6395,7 @@ def build_runtime_routers() -> tuple[Any, ...]:
             handle_backend_passthrough_post=handle_codex_backend_passthrough_post,
             handle_backend_passthrough_get=handle_codex_backend_passthrough_get,
         ),
+        OpenAIChatRouter(forward_provider_chat),
         claude_router.ClaudeRouter(services=build_claude_router_services()),
     )
 

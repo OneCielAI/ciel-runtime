@@ -8,12 +8,12 @@ from ciel_runtime_support.codex_router import CodexRouter
 
 
 class RuntimeRouterTests(unittest.TestCase):
-    def test_runtime_router_matrix_has_claude_and_codex_with_common_capabilities(self):
+    def test_runtime_router_matrix_has_supported_protocols_with_common_capabilities(self):
         matrix = ciel_runtime.runtime_router_capability_matrix()
 
-        self.assertEqual({"claude", "codex"}, set(matrix))
+        self.assertEqual({"claude", "codex", "openai-chat"}, set(matrix))
         self.assertEqual({}, ciel_runtime.runtime_router_capability_gaps())
-        for router in ("claude", "codex"):
+        for router in ("claude", "codex", "openai-chat"):
             self.assertTrue(set(COMMON_RUNTIME_ROUTER_CAPABILITIES).issubset(matrix[router]["capabilities"]))
 
     def test_claude_router_owns_anthropic_message_paths(self):
