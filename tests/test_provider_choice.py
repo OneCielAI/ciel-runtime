@@ -4,6 +4,8 @@ from ciel_runtime_support.provider_choice import (
     AGY_ROUTED_PROVIDER_CHOICE,
     ANTHROPIC_ROUTED_PROVIDER_CHOICE,
     CODEX_NATIVE_PROVIDER_CHOICE,
+    KIMI_NATIVE_PROVIDER_CHOICE,
+    KIMI_ROUTED_PROVIDER_CHOICE,
     ProviderChoiceController,
     ProviderChoicePorts,
     normalize_provider_choice,
@@ -15,6 +17,8 @@ class ProviderChoiceTests(unittest.TestCase):
         self.assertEqual(ANTHROPIC_ROUTED_PROVIDER_CHOICE, normalize_provider_choice("claude-router"))
         self.assertEqual(AGY_ROUTED_PROVIDER_CHOICE, normalize_provider_choice("antigravity-routed"))
         self.assertEqual(CODEX_NATIVE_PROVIDER_CHOICE, normalize_provider_choice("native-codex"))
+        self.assertEqual(KIMI_NATIVE_PROVIDER_CHOICE, normalize_provider_choice("kimi-code"))
+        self.assertEqual(KIMI_ROUTED_PROVIDER_CHOICE, normalize_provider_choice("kimi-router"))
         self.assertIsNone(normalize_provider_choice("ollama"))
 
     def test_runtime_strategy_updates_provider_and_route_mode(self):
@@ -70,6 +74,17 @@ class ProviderChoiceTests(unittest.TestCase):
         self.assertEqual([True], cleared)
         self.assertEqual("adapter status", lines[-2])
         self.assertIn("normalized:", lines[-1])
+
+    def test_kimi_routed_selection_requires_static_api_key(self):
+        config = {
+            "current_provider": "ollama",
+            "providers": {"kimi": {"route_through_router": False}},
+        }
+        lines = self._controller(config, [], [], has_key=False).select("kimi:routed")
+
+        self.assertEqual("kimi", config["current_provider"])
+        self.assertTrue(config["providers"]["kimi"]["route_through_router"])
+        self.assertIn("requires a Kimi API key", lines[-1])
 
     @staticmethod
     def _controller(config, saved, cleared, *, has_key):

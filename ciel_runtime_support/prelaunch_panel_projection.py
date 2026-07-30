@@ -82,6 +82,9 @@ class MainMenuProjection:
         if not self.ports.supports_runtime("codex", provider):
             family = self._provider_family(provider, provider_config)
             launch_app_label += f" [disabled: {family} provider selected]"
+        launch_kimi_label = "Launch Kimi Code"
+        if not self.ports.supports_runtime("kimi", provider):
+            launch_kimi_label += " [disabled: select Kimi provider]"
         return [
             f"0. {self.ports.ui_text('language', language)}  "
             f"[{self.ports.languages.get(language, language)}]",
@@ -103,7 +106,8 @@ class MainMenuProjection:
             f"10. {launch_codex_label}",
             f"11. {launch_app_label}",
             f"12. {launch_agy_label}",
-            f"13. {self.ports.ui_text('web_backend', language)}  "
+            f"13. {launch_kimi_label}",
+            f"14. {self.ports.ui_text('web_backend', language)}  "
             f"[{web_backend_summary(config, 0)}]",
             self.ports.ui_text("quit", language),
         ]
@@ -170,6 +174,15 @@ class ProviderPanelProjection:
             if key == "codex":
                 routed = self.ports.codex_routed(key, provider_config)
                 entries.extend(self._codex_rows(current, routed))
+                continue
+            if key == "kimi":
+                routed = bool(provider_config.get("route_through_router"))
+                entries.extend(
+                    (
+                        ("Kimi Native", f"{'*' if current == key and not routed else ' '} {'Kimi Native':<16} {'kimi:native':<15} official OAuth/config", "kimi:native"),
+                        ("Kimi Routed", f"{'*' if current == key and routed else ' '} {'Kimi Routed':<16} {'kimi:routed':<15} via ciel-runtime", "kimi:routed"),
+                    )
+                )
                 continue
             mark = "*" if key == current else " "
             entries.append(

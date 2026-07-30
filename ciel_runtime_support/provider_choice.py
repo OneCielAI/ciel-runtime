@@ -14,6 +14,8 @@ AGY_NATIVE_PROVIDER_CHOICE = "agy:native"
 AGY_ROUTED_PROVIDER_CHOICE = "agy:routed"
 CODEX_NATIVE_PROVIDER_CHOICE = "codex:native"
 CODEX_ROUTED_PROVIDER_CHOICE = "codex:routed"
+KIMI_NATIVE_PROVIDER_CHOICE = "kimi:native"
+KIMI_ROUTED_PROVIDER_CHOICE = "kimi:routed"
 
 
 CHOICE_ALIASES = {
@@ -40,6 +42,11 @@ CHOICE_ALIASES = {
     "codex-routed": CODEX_ROUTED_PROVIDER_CHOICE,
     "codex-router": CODEX_ROUTED_PROVIDER_CHOICE,
     "routed-codex": CODEX_ROUTED_PROVIDER_CHOICE,
+    "kimi-native": KIMI_NATIVE_PROVIDER_CHOICE,
+    "native-kimi": KIMI_NATIVE_PROVIDER_CHOICE,
+    "kimi-code": KIMI_NATIVE_PROVIDER_CHOICE,
+    "kimi-routed": KIMI_ROUTED_PROVIDER_CHOICE,
+    "kimi-router": KIMI_ROUTED_PROVIDER_CHOICE,
 }
 
 
@@ -105,6 +112,15 @@ CHOICE_STRATEGIES = {
             "mode: codex-routed",
             "Codex uses its native OpenAI account/config, with base URL routed through ciel-runtime.",
         ),
+    ),
+    KIMI_NATIVE_PROVIDER_CHOICE: ProviderChoiceStrategy(
+        provider="kimi", routed=False,
+        status_lines=("Provider set to kimi (Kimi Native).", "mode: kimi-native", "Kimi Code uses its official OAuth/config directly."),
+    ),
+    KIMI_ROUTED_PROVIDER_CHOICE: ProviderChoiceStrategy(
+        provider="kimi", routed=True,
+        status_lines=("Provider set to kimi (Kimi Routed).", "mode: kimi-routed", "Kimi Code requests are routed through ciel-runtime."),
+        missing_api_key_line="Kimi Routed requires a Kimi API key in ciel-runtime; OAuth remains available for Native mode.",
     ),
 }
 
@@ -176,6 +192,8 @@ __all__ = [
     "ANTHROPIC_ROUTED_PROVIDER_CHOICE",
     "CODEX_NATIVE_PROVIDER_CHOICE",
     "CODEX_ROUTED_PROVIDER_CHOICE",
+    "KIMI_NATIVE_PROVIDER_CHOICE",
+    "KIMI_ROUTED_PROVIDER_CHOICE",
     "ProviderChoiceController",
     "ProviderChoicePorts",
     "ProviderChoiceStrategy",

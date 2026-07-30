@@ -9147,6 +9147,78 @@ def self_cmd(args: list[str]) -> tuple[int, str]:
     )
     return p.returncode, p.stdout
 
+def kimi_code_home() -> Path:
+    return Path(os.environ.get("KIMI_CODE_HOME") or (HOME / ".kimi-code"))
+
+def kimi_oauth_configured() -> bool:
+    """Detect official managed login without reading or copying OAuth tokens."""
+    try:
+        text = (kimi_code_home() / "config.toml").read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return "managed:kimi-code" in text and ("oauth" in text or 'api_key = ""' in text)
+
+def install_kimi_code_if_missing() -> str:
+    executable = find_executable("kimi")
+    if executable:
+        return executable
+    npm = find_executable("npm")
+    if not npm:
+        raise RuntimeError("Kimi Code CLI is missing; install @moonshot-ai/kimi-code (Node.js 22.19+).")
+    print("Installing official Kimi Code CLI (@moonshot-ai/kimi-code)...", flush=True)
+    result = subprocess.run([npm, "install", "-g", "@moonshot-ai/kimi-code"], check=False)
+    if result.returncode:
+        raise RuntimeError(f"Kimi Code CLI installation failed (exit {result.returncode}).")
+    executable = find_executable("kimi")
+    if not executable:
+        raise RuntimeError("Kimi Code CLI installed but 'kimi' is not available on PATH.")
+    return executable
+
+def run_kimi_oauth_login() -> int:
+    """Use the official RFC 8628 flow and official credential storage."""
+    return subprocess.call([install_kimi_code_if_missing(), "login"])
+
+def run_kimi_oauth_action(action: str) -> list[str]:
+    if action != "login":
+        return [f"Unsupported Kimi OAuth action: {action}"]
+    try:
+        code = run_kimi_oauth_login()
+    except Exception as exc:
+        return [f"Kimi OAuth login failed: {type(exc).__name__}: {exc}"]
+    if code:
+        return [f"Kimi OAuth login exited with status {code}."]
+    return ["Kimi OAuth login completed in the official Kimi Code credential store."]
+
+def launch_kimi(passthrough: list[str]) -> int:
+    cfg = load_config()
+    provider, pcfg = get_current_provider(cfg)
+    if provider != "kimi":
+        print("Launch Kimi Code requires Kimi Native or Kimi Routed provider.", flush=True)
+        return 2
+    executable = install_kimi_code_if_missing()
+    routed = bool(pcfg.get("route_through_router"))
+    env = os.environ.copy()
+    env["PATH"] = path_with_ciel_runtime_user_dirs(env)
+    if not routed:
+        if not kimi_oauth_configured():
+            print("Kimi Code OAuth login is required for first launch.", flush=True)
+            if subprocess.call([executable, "login"], env=env):
+                return 1
+        return subprocess.call([executable, *passthrough], env=env)
+    if not provider_has_api_key(provider, pcfg):
+        print("Kimi Routed requires a Kimi API key in ciel-runtime.", flush=True)
+        return 2
+    manage_router = bool(start_router_if_needed())
+    env.update({
+        "KIMI_MODEL_NAME": current_alias(cfg) or str(pcfg.get("current_model") or "kimi-for-coding"),
+        "KIMI_MODEL_API_KEY": "ciel-runtime-router-local-key",
+        "KIMI_MODEL_PROVIDER_TYPE": "openai",
+        "KIMI_MODEL_BASE_URL": f"{ROUTER_BASE.rstrip('/')}/v1",
+        "KIMI_MODEL_MAX_CONTEXT_SIZE": str(positive_int(pcfg.get("context_window")) or 262144),
+        "KIMI_MODEL_THINKING_EFFORT": str(pcfg.get("effort_level") or "high"),
+    })
+    return run_with_router_lifetime(lambda: subprocess.call([executable, *passthrough], env=env), manage_router)
+
 def enable_ansi() -> None:
     enable_terminal_ansi()
 
@@ -9247,6 +9319,13 @@ def codex_launch_enabled_for_provider(provider: str, pcfg: dict[str, Any] | None
     return DEFAULT_RUNTIME_COMPATIBILITY.supports("codex", provider)
 
 def default_prelaunch_action(provider: str) -> str:
+    if provider == "kimi":
+        remembered = str(load_config().get("last_launch_action") or "").strip()
+        if remembered == "launch":
+            return remembered
+        if remembered in {"launch-codex", "launch-codex-app-server"}:
+            return remembered
+        return "launch-kimi"
     return preferred_provider_launch_action(load_config(), provider, agy_launch_enabled_for_provider, claude_launch_enabled_for_provider, codex_launch_enabled_for_provider)
 
 def prelaunch_action_index(action: str) -> int:
@@ -9399,6 +9478,12 @@ def channel_delivery_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[st
     return project_channel_delivery_panel_rows(cfg, policy=channel_panel_policy())
 
 def api_key_panel_rows(provider: str, pcfg: dict[str, Any] | None = None) -> tuple[list[str], list[str]]:
+    if provider == "kimi" and not bool((pcfg or {}).get("route_through_router")):
+        status = "managed profile detected" if kimi_oauth_configured() else "login required"
+        return (
+            [f"Kimi OAuth: {status}", "Login with Kimi Code OAuth", "Back"],
+            ["__info__", "kimi-oauth-login", "back"],
+        )
     oauth_rows = github_copilot_oauth_runtime().panel_rows(provider)
     if oauth_rows is not None:
         return oauth_rows
@@ -9532,6 +9617,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                 codex_launch_enabled_for_provider=codex_launch_enabled_for_provider,
                 launch_blockers_require_api_key=launch_blockers_require_api_key,
                 launch_readiness_errors=launch_readiness_errors,
+                launch_kimi=launch_kimi,
             ),
             panel_rows=prelaunch.PrelaunchPanelRows(
                 advisor_model_panel_rows=advisor_model_panel_rows,
@@ -9580,6 +9666,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                 store_api_key_input_config=store_api_key_input_config,
                 store_api_keys_config=store_api_keys_config,
                 copilot_oauth_action=run_copilot_oauth_action,
+                kimi_oauth_action=run_kimi_oauth_action,
             ),
             options=prelaunch.PrelaunchOptions(
                 llm_option_current_bool=llm_option_current_bool,
@@ -11877,6 +11964,10 @@ def main() -> None:
         raise SystemExit(launch_codex_app_server(sys.argv[2:]))
     if len(sys.argv) >= 2 and sys.argv[1] in ("agy", "launch-agy", "antigravity"):
         raise SystemExit(launch_agy(sys.argv[2:]))
+    if len(sys.argv) >= 2 and sys.argv[1] in ("kimi", "kimi-code", "launch-kimi"):
+        raise SystemExit(launch_kimi(sys.argv[2:]))
+    if len(sys.argv) >= 2 and sys.argv[1] in ("kimi-login", "kimi-oauth-login"):
+        raise SystemExit(run_kimi_oauth_login())
     parser = build_parser()
     args = parser.parse_args()
     args.func(args)

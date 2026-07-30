@@ -12,6 +12,7 @@ from ..architecture import (
     ProviderOptionPresentationPolicy,
     ProviderRequestPolicy,
     ProviderStatusPolicy,
+    ProviderUiPolicy,
 )
 from .base import HttpBearerProviderAdapter, provider_configuration
 from .constants import PROVIDER_DEFAULT_BASE_URLS
@@ -64,6 +65,20 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
             kind="openai", allow_configured_fallback=True
         )
     )
+
+    def routing_mode_update(self, enabled: bool) -> tuple[str, ...]:
+        return ("Kimi Code routing mode updated.", f"mode: {'kimi-routed' if enabled else 'kimi-native'}")
+
+    def selection_config_updates(self, config: ProviderConfig) -> Mapping[str, Any]:
+        del config
+        return {"route_through_router": False}
+
+    def selection_status_lines(self, config: ProviderConfig) -> tuple[str, ...]:
+        return (f"mode: {'kimi-routed' if config.options.get('route_through_router') else 'kimi-native'}",)
+
+    def ui_policy(self, config: ProviderConfig) -> ProviderUiPolicy:
+        del config
+        return ProviderUiPolicy(menu_label="Kimi Native", routed_menu_label="Kimi Routed", native_choice="kimi:native", routed_choice="kimi:routed")
 
     def normalize_model_id(self, model_id: str) -> str:
         raw = str(model_id or "").strip()
@@ -243,10 +258,12 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
     @staticmethod
     def _reasoning_effort(value: Any) -> str:
         effort = str(value or "high").strip().lower()
-        if effort in {"ultra", "max", "xhigh"}:
+        if effort == "ultra":
             return "max"
-        if effort in {"low", "minimum", "light"}:
+        if effort in {"minimum", "light"}:
             return "low"
+        if effort in {"low", "medium", "high", "xhigh", "max"}:
+            return effort
         return "high"
 
     def normalize_tool_choice(

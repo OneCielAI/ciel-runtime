@@ -18,6 +18,11 @@ class RuntimeCompatibilityPolicyTests(unittest.TestCase):
         self.assertTrue(DEFAULT_RUNTIME_COMPATIBILITY.supports("codex", "vllm"))
         self.assertFalse(DEFAULT_RUNTIME_COMPATIBILITY.supports("agy", "vllm"))
 
+    def test_kimi_supports_native_claude_and_codex_runtimes(self):
+        self.assertTrue(DEFAULT_RUNTIME_COMPATIBILITY.supports("kimi", "kimi"))
+        self.assertTrue(DEFAULT_RUNTIME_COMPATIBILITY.supports("claude", "kimi"))
+        self.assertTrue(DEFAULT_RUNTIME_COMPATIBILITY.supports("codex", "kimi"))
+
     def test_policy_is_configurable_without_provider_adapter_changes(self):
         policy = RuntimeCompatibilityPolicy(
             native_runtime_by_provider={"native-x": "runtime-x"},

@@ -5,6 +5,10 @@ import ciel_runtime
 
 
 class PrelaunchDefaultActionTests(unittest.TestCase):
+    def test_kimi_code_is_default_when_no_shared_runtime_is_remembered(self):
+        with mock.patch.object(ciel_runtime, "load_config", return_value={}):
+            self.assertEqual("launch-kimi", ciel_runtime.default_prelaunch_action("kimi"))
+
     def test_remembered_claude_is_the_shared_default_for_dual_runtime_provider(self):
         with mock.patch.object(
             ciel_runtime,

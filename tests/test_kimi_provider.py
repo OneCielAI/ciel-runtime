@@ -153,7 +153,7 @@ class KimiProviderTests(unittest.TestCase):
         self.assertEqual("high", out["thinking"]["effort"])
         self.assertEqual("high", body["thinking"]["effort"])
 
-        for source, expected in (("low", "low"), ("medium", "high"), ("xhigh", "max"), ("unknown", "high")):
+        for source, expected in (("low", "low"), ("medium", "medium"), ("xhigh", "xhigh"), ("max", "max"), ("unknown", "high")):
             mapped = ciel_runtime.normalize_request_for_provider_wire(
                 "kimi", pcfg, {"model": "ciel-runtime-kimi-k3", "thinking": {"type": "enabled", "effort": source}}
             )
@@ -168,7 +168,7 @@ class KimiProviderTests(unittest.TestCase):
         self.assertEqual("high", request["reasoning_effort"])
         pcfg["effort_level"] = "xhigh"
         request = ciel_runtime.openai_compatible_chat_request("kimi", "k3", body, pcfg)
-        self.assertEqual("max", request["reasoning_effort"])
+        self.assertEqual("xhigh", request["reasoning_effort"])
 
     def test_kimi_protects_thinking_and_removes_fixed_sampling_overrides(self):
         pcfg = self.kimi_cfg(current_model="k3", temperature=0.2, top_p=0.8)["providers"]["kimi"]

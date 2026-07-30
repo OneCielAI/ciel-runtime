@@ -33,6 +33,7 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "launch-codex",
     "launch-codex-app-server",
     "launch-agy",
+    "launch-kimi",
     "web-backend",
     "quit",
 )
@@ -93,6 +94,7 @@ class PrelaunchLaunchPolicy:
     codex_launch_enabled_for_provider: Callable[..., Any]
     launch_blockers_require_api_key: Callable[..., Any]
     launch_readiness_errors: Callable[..., Any]
+    launch_kimi: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,6 +148,7 @@ class PrelaunchSecrets:
     store_api_key_input_config: Callable[..., Any]
     store_api_keys_config: Callable[..., Any]
     copilot_oauth_action: Callable[..., Any]
+    kimi_oauth_action: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -226,6 +229,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     language_panel_rows = services.panel_rows.language_panel_rows
     launch_blockers_require_api_key = services.launch_policy.launch_blockers_require_api_key
     launch_readiness_errors = services.launch_policy.launch_readiness_errors
+    launch_kimi = services.launch_policy.launch_kimi
     llm_option_current_bool = services.options.llm_option_current_bool
     llm_option_panel_rows = services.panel_rows.llm_option_panel_rows
     llm_option_prompt_default = services.options.llm_option_prompt_default
@@ -262,6 +266,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     store_api_key_input_config = services.secrets.store_api_key_input_config
     store_api_keys_config = services.secrets.store_api_keys_config
     copilot_oauth_action = services.secrets.copilot_oauth_action
+    kimi_oauth_action = services.secrets.kimi_oauth_action
     timeout_profile_panel_rows = services.options.timeout_profile_panel_rows
     web_backend_panel_rows = services.options.web_backend_panel_rows
     set_web_backend_config = services.options.set_web_backend_config
@@ -492,6 +497,13 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                 elif panel == "api-key":
                     if value == "back":
                         close_panel()
+                    elif value == "kimi-oauth-login":
+                        messages = kimi_oauth_action("login")
+                        refresh_checks()
+                        cfg = load_config()
+                        provider, pcfg = get_current_provider(cfg)
+                        panel_rows, panel_values = api_key_panel_rows(provider, pcfg)
+                        panel_idx = 0
                     elif value.startswith("oauth-"):
                         messages = copilot_oauth_action(
                             value.removeprefix("oauth-")
@@ -870,6 +882,15 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         refresh_checks()
                         continue
                     return PRELAUNCH_LAUNCH_AGY
+                if action == "launch-kimi":
+                    cfg = load_config()
+                    provider, _ = get_current_provider(cfg)
+                    if provider != "kimi":
+                        messages = ["Launch Kimi Code is disabled until Kimi Native or Kimi Routed is selected."]
+                        refresh_checks()
+                        continue
+                    launch_kimi([])
+                    return PRELAUNCH_CANCEL
                 if action == "launch-codex":
                     cfg = load_config()
                     provider, pcfg = get_current_provider(cfg)

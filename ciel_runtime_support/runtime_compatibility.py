@@ -14,13 +14,16 @@ from typing import Mapping
 @dataclass(frozen=True)
 class RuntimeCompatibilityPolicy:
     native_runtime_by_provider: Mapping[str, str] = field(default_factory=dict)
+    additional_runtimes_by_provider: Mapping[str, frozenset[str]] = field(default_factory=dict)
     provider_family_labels: Mapping[str, str] = field(default_factory=dict)
     routed_runtimes: frozenset[str] = frozenset({"claude", "codex"})
 
     def supports(self, runtime: str, provider: str) -> bool:
         native_runtime = self.native_runtime_by_provider.get(provider)
         if native_runtime:
-            return runtime == native_runtime
+            return runtime == native_runtime or runtime in self.additional_runtimes_by_provider.get(
+                provider, frozenset()
+            )
         return runtime in self.routed_runtimes
 
     def provider_family(self, provider: str, fallback: str) -> str:
@@ -32,11 +35,14 @@ DEFAULT_RUNTIME_COMPATIBILITY = RuntimeCompatibilityPolicy(
         "anthropic": "claude",
         "agy": "agy",
         "codex": "codex",
+        "kimi": "kimi",
     },
+    additional_runtimes_by_provider={"kimi": frozenset({"claude", "codex"})},
     provider_family_labels={
         "anthropic": "Anthropic",
         "agy": "AGY",
         "codex": "Codex",
+        "kimi": "Kimi Code",
     },
 )
 
