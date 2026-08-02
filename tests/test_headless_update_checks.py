@@ -209,14 +209,22 @@ class HeadlessUpdateCheckTests(unittest.TestCase):
                 patch("ciel_runtime.sys.argv", ["ciel_runtime.py", "cli", "--ca-no-update-check"]),
                 patch("ciel_runtime.npm_global_package_root", return_value=package_root),
                 patch("ciel_runtime.os.execv", side_effect=RuntimeError("stop")) as execv,
+                patch("ciel_runtime.subprocess.call", return_value=0) as call,
             ):
-                with self.assertRaises(RuntimeError):
-                    ciel_runtime.restart_ciel_runtime_after_update("npm")
+                if ciel_runtime.os.name == "nt":
+                    with self.assertRaisesRegex(SystemExit, "0"):
+                        ciel_runtime.restart_ciel_runtime_after_update("npm")
+                else:
+                    with self.assertRaises(RuntimeError):
+                        ciel_runtime.restart_ciel_runtime_after_update("npm")
 
-        self.assertEqual(
-            [ciel_runtime.sys.executable, str(script), "cli", "--ca-no-update-check"],
-            execv.call_args.args[1],
-        )
+        expected = [ciel_runtime.sys.executable, str(script), "cli", "--ca-no-update-check"]
+        if ciel_runtime.os.name == "nt":
+            self.assertEqual(expected, call.call_args.args[0])
+            execv.assert_not_called()
+        else:
+            self.assertEqual(expected, execv.call_args.args[1])
+            call.assert_not_called()
 
     def test_configure_only_applies_setup_without_launching(self):
         with (

@@ -26,7 +26,12 @@ class RuntimeRestartServiceTests(unittest.TestCase):
             script.write_text("", encoding="utf-8")
             environ = {}
             service = RuntimeRestartService(
-                RuntimeRestartSettings(["runtime", "cli", "status"], "python", environ),
+                RuntimeRestartSettings(
+                    ["runtime", "cli", "status"],
+                    "python",
+                    environ,
+                    platform_name="posix",
+                ),
                 RuntimeRestartPorts(
                     current_package_root=lambda: root,
                     global_package_root=lambda _npm: None,
@@ -37,6 +42,41 @@ class RuntimeRestartServiceTests(unittest.TestCase):
             )
             service.restart("npm")
             self.assertEqual(("python", ["python", str(script), "cli", "status"]), calls[0])
+            self.assertEqual("1", environ["CIEL_RUNTIME_SKIP_SELF_UPDATE"])
+
+    def test_windows_restart_uses_a_fresh_python_process(self):
+        calls = []
+        exec_calls = []
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            script = root / "ciel_runtime.py"
+            script.write_text("", encoding="utf-8")
+            environ = {"PATH": "bin"}
+            service = RuntimeRestartService(
+                RuntimeRestartSettings(
+                    ["runtime", "cli", "codex"],
+                    "python",
+                    environ,
+                    platform_name="nt",
+                ),
+                RuntimeRestartPorts(
+                    current_package_root=lambda: root,
+                    global_package_root=lambda _npm: None,
+                    find_executable=lambda _name: None,
+                    execv=lambda executable, argv: exec_calls.append((executable, argv)),
+                    call=lambda argv, **kwargs: calls.append((argv, kwargs)) or 17,
+                ),
+            )
+
+            with self.assertRaisesRegex(SystemExit, "17"):
+                service.restart("npm")
+
+            self.assertEqual([], exec_calls)
+            self.assertEqual(
+                ["python", str(script), "cli", "codex"],
+                calls[0][0],
+            )
+            self.assertEqual("1", calls[0][1]["env"]["CIEL_RUNTIME_SKIP_SELF_UPDATE"])
             self.assertEqual("1", environ["CIEL_RUNTIME_SKIP_SELF_UPDATE"])
 
     def test_forced_upgrade_environment_does_not_mutate_source(self):

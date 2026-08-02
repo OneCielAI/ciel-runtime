@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, MutableMapping, Sequence
 from dataclasses import dataclass
+import os
 from pathlib import Path
 
 
@@ -27,6 +28,7 @@ class RuntimeRestartSettings:
     argv: Sequence[str]
     python_executable: str
     environ: MutableMapping[str, str]
+    platform_name: str = os.name
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,9 +59,25 @@ class RuntimeRestartService:
         )
         package_script = root / "ciel_runtime.py" if root else None
         if package_script and package_script.exists():
+            argv = [
+                self.settings.python_executable,
+                str(package_script),
+                "cli",
+                *user_args,
+            ]
+            if self.settings.platform_name == "nt":
+                # npm replaces the package that contains the currently running
+                # Python script.  Re-execing that process on Windows can retain
+                # the pre-update console/process state and leave the relaunched
+                # menu unable to advance to the selected runtime.  A fresh
+                # Python process matches a manual restart and cleanly loads the
+                # newly installed package before the updater exits.
+                raise SystemExit(
+                    self.ports.call(argv, env=dict(self.settings.environ))
+                )
             self.ports.execv(
                 self.settings.python_executable,
-                [self.settings.python_executable, str(package_script), "cli", *user_args],
+                argv,
             )
             return
         launcher = self.ports.find_executable("ciel-runtime")

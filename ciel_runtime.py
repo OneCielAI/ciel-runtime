@@ -11172,7 +11172,12 @@ def ciel_runtime_restart_user_args() -> list[str]:
 
 def runtime_restart_service() -> RuntimeRestartService:
     return RuntimeRestartService(
-        settings=RuntimeRestartSettings(sys.argv, sys.executable, os.environ),
+        settings=RuntimeRestartSettings(
+            sys.argv,
+            sys.executable,
+            os.environ,
+            platform_name=os.name,
+        ),
         ports=RuntimeRestartPorts(
             current_package_root=current_npm_package_root,
             global_package_root=npm_global_package_root,
