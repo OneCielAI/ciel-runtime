@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from typing import Any, Mapping
 
 from ..architecture import (
     ProviderCapabilities,
@@ -16,6 +17,7 @@ from ..architecture import (
 )
 from .base import HttpBearerProviderAdapter, provider_configuration
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
+from ..ollama_thinking import OllamaThinkingPolicy, normalized_model_id
 
 
 @dataclass(frozen=True)
@@ -121,7 +123,7 @@ class OllamaCloudProviderAdapter(OllamaProviderAdapter):
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
             "glm-5.1",
-            custom_models=("glm-5.1",),
+            custom_models=("glm-5.1", "deepseek-v4-flash:0731"),
             rate_limit_rpm=0,
             rate_limit_status=False,
             num_ctx="auto",
@@ -159,7 +161,52 @@ class OllamaCloudProviderAdapter(OllamaProviderAdapter):
 
     def normalize_model_id(self, model_id: str) -> str:
         normalized = super().normalize_model_id(model_id)
+        if normalized.endswith("-cloud") and ":" in normalized:
+            return normalized[:-6]
         return normalized[:-6] if normalized.endswith(":cloud") else normalized
+
+    @staticmethod
+    def _is_deepseek_v4_flash_0731(model_id: str) -> bool:
+        return normalized_model_id(model_id) == "deepseek-v4-flash:0731"
+
+    def ollama_think_value(
+        self, config: ProviderConfig, model: str, request: Mapping[str, Any]
+    ) -> bool | str:
+        return OllamaThinkingPolicy().value(config.options, model, request)
+
+    def model_configuration_profile(
+        self, config: ProviderConfig
+    ) -> tuple[Mapping[str, Any], str | None]:
+        if not self._is_deepseek_v4_flash_0731(config.model):
+            return {}, None
+        return (
+            {
+                "context_window": 1_000_000,
+                "max_model_len": 1_000_000,
+                "model_profile": "deepseek-v4-flash-0731-cloud-1m",
+                "claude_code_supported_capabilities": [
+                    "effort",
+                    "max_effort",
+                    "thinking",
+                ],
+            },
+            "DeepSeek V4 Flash 0731 Cloud profile applied: 1M context and "
+            "three-mode reasoning; Max thinking is the default for a new selection.",
+        )
+
+    def model_selection_config_updates(
+        self, config: ProviderConfig, model_id: str
+    ) -> Mapping[str, Any]:
+        if not self._is_deepseek_v4_flash_0731(model_id):
+            return super().model_selection_config_updates(config, model_id)
+        return {
+            "think": True,
+            "effort_level": "max",
+            "haiku_model": model_id,
+            "opus_model": model_id,
+            "sonnet_model": model_id,
+            "subagent_model": model_id,
+        }
 
     def launch_model_strategy(self, config: ProviderConfig) -> str:
         del config

@@ -625,6 +625,14 @@ class ProviderAdapter(ABC):
         del config, model, request
         return None
 
+    def ollama_think_value(
+        self, config: ProviderConfig, model: str, request: Mapping[str, Any]
+    ) -> bool | str:
+        """Return the provider-native value for Ollama's ``think`` field."""
+
+        del model, request
+        return bool(config.options.get("think", False))
+
     def allows_sampling_overrides(self, config: ProviderConfig) -> bool:
         """Whether user-provided sampling controls are valid for this provider."""
 

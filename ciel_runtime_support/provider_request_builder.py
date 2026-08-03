@@ -28,7 +28,7 @@ class OllamaRequestPorts:
     extra_options: Callable[[dict[str, Any]], dict[str, Any]]
     context_limit: Callable[[dict[str, Any]], int]
     num_ctx: Callable[..., int]
-    think_enabled: Callable[[str | None, dict[str, Any]], bool]
+    think_value: Callable[[str, str | None, dict[str, Any], dict[str, Any]], bool | str]
     # Model-card provenance gate for num_predict: None = omit the parameter
     # entirely so the server default applies (operator 2026-07-29). The
     # default implementation passes the capped value through unchanged.
@@ -177,7 +177,7 @@ class ProviderRequestBuilder:
             "model": model,
             "messages": messages,
             "stream": stream,
-            "think": self.ollama.think_enabled(model, config),
+            "think": self.ollama.think_value(provider, model, config, body),
         }
         if config.get("keep_alive"):
             request["keep_alive"] = str(config["keep_alive"])

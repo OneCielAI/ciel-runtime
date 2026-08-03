@@ -40,7 +40,7 @@ class AdvisorBudgetPorts:
     ollama_options: Callable[[dict[str, Any]], dict[str, Any]]
     positive_int: Callable[[Any], int]
     ollama_num_ctx: Callable[..., int]
-    think_enabled: Callable[[str | None, dict[str, Any]], bool]
+    think_value: Callable[[str, str | None, dict[str, Any], dict[str, Any]], bool | str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,7 +205,7 @@ class AdvisorRequestBuilder:
             "model": upstream_model,
             "messages": messages,
             "stream": False,
-            "think": self.budget.think_enabled(upstream_model, config),
+            "think": self.budget.think_value(provider, upstream_model, config, body),
         }
         options = self.budget.ollama_options(config)
         options.setdefault(

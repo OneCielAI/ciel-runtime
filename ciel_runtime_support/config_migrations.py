@@ -34,6 +34,31 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
         migrations = {}
         cfg["migrations"] = migrations
 
+    marker = "ollama_cloud_deepseek_v4_flash_0731_20260803"
+    if not migrations.get(marker):
+        pcfg = cfg.get("providers", {}).get("ollama-cloud", {})
+        if isinstance(pcfg, dict):
+            model = strip_claude_context_suffix(
+                str(pcfg.get("current_model") or "")
+            ).lower()
+            if model in {
+                "deepseek-v4-flash:0731",
+                "deepseek-v4-flash:0731-cloud",
+            }:
+                pcfg.setdefault("think", True)
+                pcfg.setdefault("effort_level", "max")
+                pcfg["model_context_max"] = 1_000_000
+                pcfg["model_context_model"] = "deepseek-v4-flash:0731"
+                if positive_int(pcfg.get("num_ctx_max")) in {
+                    0,
+                    131072,
+                    524288,
+                    999424,
+                    1048576,
+                }:
+                    pcfg["num_ctx_max"] = 1_000_000
+        migrations[marker] = True
+
     marker = "ollama_cloud_glm52_thinking_context_20260711"
     if not migrations.get(marker):
         pcfg = cfg.get("providers", {}).get("ollama-cloud", {})

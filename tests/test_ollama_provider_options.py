@@ -6,6 +6,7 @@ import ciel_runtime
 from ciel_runtime_support.providers.ollama_runtime import (
     OllamaRuntimeApi,
     OllamaRuntimeService,
+    OllamaRuntimeServices,
 )
 
 
@@ -52,6 +53,41 @@ class _FakeSSEHandler:
 
 
 class OllamaProviderOptionTests(unittest.TestCase):
+    def test_api_show_projects_architecture_and_thinking_capability(self):
+        response = {
+            "capabilities": ["completion", "thinking", "tools"],
+            "model_info": {
+                "general.architecture": "deepseek4",
+                "deepseek4.context_length": 1048576,
+            },
+        }
+        services = OllamaRuntimeServices(
+            request_base=lambda _provider, _config: "https://ollama.com/api",
+            post_json=lambda *_args, **_kwargs: response,
+            http_json=lambda *_args, **_kwargs: {},
+            join_url=lambda base, path: base.rstrip("/") + path,
+            model_headers=lambda _provider, _config: {},
+            current_model=lambda _provider, _config: "deepseek-v4-flash:0731",
+            positive_int=lambda value: int(value) if value else None,
+            model_context=lambda value: next(
+                (
+                    int(item)
+                    for key, item in value.items()
+                    if key.endswith("context_length")
+                ),
+                None,
+            ),
+            format_context=lambda value: str(value),
+        )
+
+        specs = OllamaRuntimeService(services).fetch_model_specs(
+            "ollama-cloud", {}, "deepseek-v4-flash:0731-cloud"
+        )
+
+        self.assertEqual(1048576, specs["max_model_len"])
+        self.assertEqual("deepseek4", specs["architecture"])
+        self.assertIn("thinking", specs["capabilities"])
+
     def test_runtime_api_explicitly_delegates_public_queries(self):
         service = mock.create_autospec(OllamaRuntimeService, instance=True)
         service.api_base.side_effect = ["local-base", "cloud-base"]
@@ -278,7 +314,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertLess(len(compacted), len(messages))
         write_compact.assert_called_once()
 
-    def test_glm_52_uses_ollama_thinking_when_configured_on(self):
+    def test_glm_52_uses_documented_high_thinking_level(self):
         pcfg = {
             "current_model": "glm-5.2",
             "think": True,
@@ -292,9 +328,210 @@ class OllamaProviderOptionTests(unittest.TestCase):
         with mock.patch.object(ciel_runtime, "write_context_usage"):
             request = ciel_runtime.ollama_chat_request("glm-5.2", body, pcfg, stream=False, provider="ollama-cloud")
 
-        self.assertTrue(request["think"])
-        self.assertEqual("True", ciel_runtime.ollama_think_status("glm-5.2", pcfg))
+        self.assertEqual("high", request["think"])
+        self.assertEqual("high", ciel_runtime.ollama_think_status("glm-5.2", pcfg))
         self.assertEqual("reasoning", ciel_runtime.infer_preset_id_from_options("ollama-cloud", pcfg))
+
+    def test_glm_52_maps_claude_and_codex_max_effort(self):
+        pcfg = {
+            "current_model": "glm-5.2",
+            "think": True,
+            "num_ctx": "auto",
+            "num_ctx_max": 1000000,
+            "ollama_options": {},
+        }
+        for effort, expected in (
+            ("low", "high"),
+            ("medium", "high"),
+            ("high", "high"),
+            ("xhigh", "max"),
+            ("max", "max"),
+        ):
+            body = {
+                "thinking": {"type": "enabled", "effort": effort},
+                "messages": [{"role": "user", "content": "hello"}],
+                "tools": [],
+            }
+            with mock.patch.object(ciel_runtime, "write_context_usage"):
+                request = ciel_runtime.ollama_chat_request(
+                    "glm-5.2",
+                    body,
+                    pcfg,
+                    stream=False,
+                    provider="ollama-cloud",
+                )
+            self.assertEqual(expected, request["think"])
+
+    def test_deepseek_v4_flash_0731_defaults_to_max_thinking(self):
+        pcfg = {
+            "current_model": "deepseek-v4-flash:0731",
+            "think": True,
+            "num_ctx": "auto",
+            "num_ctx_min": 32768,
+            "num_ctx_max": 1000000,
+            "ollama_options": {},
+        }
+        body = {"messages": [{"role": "user", "content": "hello"}], "tools": []}
+
+        with mock.patch.object(ciel_runtime, "write_context_usage"):
+            request = ciel_runtime.ollama_chat_request(
+                "deepseek-v4-flash:0731",
+                body,
+                pcfg,
+                stream=False,
+                provider="ollama-cloud",
+            )
+
+        self.assertEqual("max", request["think"])
+        self.assertEqual("max", ciel_runtime.ollama_think_status(request["model"], pcfg))
+
+    def test_deepseek_v4_maps_claude_and_codex_effort_to_three_modes(self):
+        pcfg = {
+            "current_model": "deepseek-v4-flash:0731",
+            "think": True,
+            "effort_level": "max",
+            "num_ctx": "auto",
+            "num_ctx_max": 1000000,
+            "ollama_options": {},
+        }
+        expected = {
+            "minimal": False,
+            "low": False,
+            "medium": "high",
+            "high": "high",
+            "xhigh": "max",
+            "max": "max",
+            "ultra": "max",
+        }
+        for effort, think_value in expected.items():
+            with self.subTest(effort=effort):
+                body = {
+                    "thinking": {"type": "enabled", "effort": effort},
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "tools": [],
+                }
+                normalized = ciel_runtime.normalize_thinking_for_non_anthropic_provider(
+                    "ollama-cloud", pcfg, body
+                )
+                self.assertNotIn("thinking", normalized)
+                self.assertEqual(
+                    effort,
+                    normalized["metadata"]["ciel_runtime_reasoning_effort"],
+                )
+                with mock.patch.object(ciel_runtime, "write_context_usage"):
+                    request = ciel_runtime.ollama_chat_request(
+                        "deepseek-v4-flash:0731",
+                        normalized,
+                        pcfg,
+                        stream=False,
+                        provider="ollama-cloud",
+                    )
+                self.assertEqual(think_value, request["think"])
+
+    def test_discovered_gptoss_architecture_uses_required_three_levels(self):
+        pcfg = {
+            "current_model": "renamed-cloud-model",
+            "think": False,
+            "effort_level": "max",
+            "ollama_model_metadata_model": "renamed-cloud-model",
+            "ollama_model_architecture": "gptoss",
+            "ollama_model_capabilities": ["completion", "thinking", "tools"],
+            "num_ctx": "auto",
+            "num_ctx_max": 131072,
+            "ollama_options": {},
+        }
+        for effort, expected in (
+            ("minimal", "low"),
+            ("low", "low"),
+            ("medium", "medium"),
+            ("high", "high"),
+            ("max", "high"),
+        ):
+            body = {
+                "thinking": {"type": "enabled", "effort": effort},
+                "messages": [{"role": "user", "content": "hello"}],
+                "tools": [],
+            }
+            with mock.patch.object(ciel_runtime, "write_context_usage"):
+                request = ciel_runtime.ollama_chat_request(
+                    "renamed-cloud-model",
+                    body,
+                    pcfg,
+                    stream=False,
+                    provider="ollama-cloud",
+                )
+            self.assertEqual(expected, request["think"])
+
+    def test_sync_ollama_context_persists_discovered_thinking_metadata(self):
+        pcfg = {
+            "current_model": "future-model",
+            "num_ctx": "auto",
+            "num_ctx_max": 131072,
+        }
+        specs = {
+            "max_model_len": 262144,
+            "architecture": "gptoss",
+            "capabilities": ["completion", "thinking", "tools"],
+        }
+
+        with mock.patch.object(
+            ciel_runtime, "fetch_ollama_api_model_specs", return_value=specs
+        ):
+            ciel_runtime.sync_ollama_library_context_limit(
+                "ollama-cloud", pcfg, "future-model"
+            )
+
+        self.assertEqual("future-model", pcfg["ollama_model_metadata_model"])
+        self.assertEqual("gptoss", pcfg["ollama_model_architecture"])
+        self.assertIn("thinking", pcfg["ollama_model_capabilities"])
+
+    def test_deepseek_v4_flash_0731_selection_profile_defaults(self):
+        pcfg = {"current_model": "glm-5.1"}
+        adapter = ciel_runtime.configured_provider_adapter("ollama-cloud", pcfg)
+        contract = ciel_runtime.provider_contract_config("ollama-cloud", pcfg)
+
+        updates = adapter.model_selection_config_updates(
+            contract, "deepseek-v4-flash:0731-cloud"
+        )
+        pcfg["current_model"] = "deepseek-v4-flash:0731-cloud"
+        profile, _ = adapter.model_configuration_profile(
+            ciel_runtime.provider_contract_config("ollama-cloud", pcfg)
+        )
+
+        self.assertEqual("max", updates["effort_level"])
+        self.assertTrue(updates["think"])
+        self.assertEqual(1000000, profile["context_window"])
+        self.assertIn("max_effort", profile["claude_code_supported_capabilities"])
+
+    def test_deepseek_v4_flash_0731_cloud_tag_normalizes_for_wire(self):
+        pcfg = {"current_model": "deepseek-v4-flash:0731-cloud"}
+        adapter = ciel_runtime.configured_provider_adapter("ollama-cloud", pcfg)
+
+        self.assertEqual(
+            "deepseek-v4-flash:0731",
+            adapter.normalize_model_id("deepseek-v4-flash:0731-cloud"),
+        )
+
+    def test_deepseek_v4_flash_0731_migration_sets_max_default_once(self):
+        cfg = {
+            "providers": {
+                "ollama-cloud": {
+                    "current_model": "deepseek-v4-flash:0731-cloud",
+                    "num_ctx_max": 131072,
+                }
+            },
+            "migrations": {},
+        }
+
+        ciel_runtime.apply_config_migrations(cfg)
+
+        pcfg = cfg["providers"]["ollama-cloud"]
+        self.assertTrue(pcfg["think"])
+        self.assertEqual("max", pcfg["effort_level"])
+        self.assertEqual(1000000, pcfg["num_ctx_max"])
+        self.assertEqual(
+            "deepseek-v4-flash:0731", pcfg["model_context_model"]
+        )
 
     def test_glm_52_ollama_preset_matches_provider_api_context(self):
         for model in ("glm-5.2", "glm-5.2:cloud"):

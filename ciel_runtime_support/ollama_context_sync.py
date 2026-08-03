@@ -48,6 +48,16 @@ def sync_ollama_context_limit(
     limit = policy.positive_int(api_specs.get("max_model_len"))
     matched_model = policy.normalize_model_id(provider, model_id) if limit else ""
     source_url = "/api/show" if limit else ""
+    architecture = str(api_specs.get("architecture") or "").strip().lower()
+    capabilities = api_specs.get("capabilities")
+    if architecture or isinstance(capabilities, list):
+        config["ollama_model_metadata_model"] = policy.normalize_model_id(
+            provider, model_id
+        )
+        if architecture:
+            config["ollama_model_architecture"] = architecture
+        if isinstance(capabilities, list):
+            config["ollama_model_capabilities"] = list(capabilities)
     if not limit:
         catalog = sources.load_catalog()
         if sources.catalog_is_stale(catalog):

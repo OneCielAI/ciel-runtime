@@ -4935,7 +4935,7 @@ def provider_request_builder() -> ProviderRequestBuilder:
             extra_options=ollama_extra_options,
             context_limit=ollama_context_limit_for_budget,
             num_ctx=ollama_num_ctx_for_payload,
-            think_enabled=ollama_request_think_enabled,
+            think_value=ollama_request_think_value,
             num_predict=ollama_num_predict_for_payload,
         ),
         OpenAIRequestPorts(
@@ -4970,11 +4970,32 @@ def normalize_anthropic_model_request_options(provider: str, pcfg: dict[str, Any
         model_id,
     )
 
+def ollama_request_think_value(
+    provider: str,
+    model: str | None,
+    pcfg: dict[str, Any],
+    body: dict[str, Any] | None = None,
+) -> bool | str:
+    adapter = configured_provider_adapter(provider, pcfg)
+    return adapter.ollama_think_value(
+        provider_contract_config(provider, pcfg),
+        str(model or pcfg.get("current_model") or ""),
+        body or {},
+    )
+
 def ollama_request_think_enabled(model: str | None, pcfg: dict[str, Any]) -> bool:
-    return bool(pcfg.get("think", False))
+    return bool(ollama_request_think_value("ollama", model, pcfg))
 
 def ollama_think_status(model: str | None, pcfg: dict[str, Any]) -> str:
-    return str(ollama_request_think_enabled(model, pcfg))
+    normalized = str(model or pcfg.get("current_model") or "").lower()
+    provider = (
+        "ollama-cloud"
+        if normalized.startswith(("deepseek-v4-", "gpt-oss", "glm-5.2"))
+        or pcfg.get("ollama_model_architecture")
+        in {"deepseek4", "gptoss", "glm5.2"}
+        else "ollama"
+    )
+    return str(ollama_request_think_value(provider, model, pcfg))
 
 def ollama_chat_request(model: str, body: dict[str, Any], pcfg: dict[str, Any], stream: bool = True, provider: str = "ollama") -> dict[str, Any]:
     return provider_request_builder().ollama_chat(
@@ -5017,7 +5038,7 @@ def advisor_request_builder() -> AdvisorRequestBuilder:
             ollama_options=ollama_extra_options,
             positive_int=positive_int,
             ollama_num_ctx=ollama_num_ctx_for_payload,
-            think_enabled=ollama_request_think_enabled,
+            think_value=ollama_request_think_value,
         ),
         AdvisorEndpointPorts(
             join_url=join_url,

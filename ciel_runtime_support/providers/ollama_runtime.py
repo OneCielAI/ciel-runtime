@@ -86,6 +86,14 @@ class OllamaRuntimeService:
             output["max_model_len"] = max_context
         if num_predict:
             output["num_predict"] = num_predict
+        capabilities = data.get("capabilities")
+        if isinstance(capabilities, list):
+            output["capabilities"] = [
+                str(item).strip().lower() for item in capabilities if str(item).strip()
+            ]
+        architecture = str(model_info.get("general.architecture") or "").strip().lower()
+        if architecture:
+            output["architecture"] = architecture
         return output
 
     @staticmethod

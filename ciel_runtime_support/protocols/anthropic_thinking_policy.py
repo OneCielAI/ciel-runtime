@@ -14,6 +14,19 @@ from typing import Any
 
 
 THINKING_BLOCK_TYPES: tuple[str, ...] = ("thinking", "redacted_thinking")
+INTERNAL_REASONING_EFFORT_KEY = "ciel_runtime_reasoning_effort"
+
+
+def preserve_reasoning_effort(body: dict[str, Any], projected: dict[str, Any]) -> dict[str, Any]:
+    """Carry a removed client effort hint without exposing it on provider wires."""
+
+    thinking = body.get("thinking")
+    if not isinstance(thinking, dict) or thinking.get("effort") is None:
+        return projected
+    metadata = projected.get("metadata")
+    projected_metadata = dict(metadata) if isinstance(metadata, dict) else {}
+    projected_metadata[INTERNAL_REASONING_EFFORT_KEY] = str(thinking["effort"])
+    return {**projected, "metadata": projected_metadata}
 
 
 def message_content_blocks(message: dict[str, Any]) -> list[Any]:
@@ -193,6 +206,7 @@ class AnthropicThinkingPolicy:
                 return body
             projected = dict(body)
             projected.pop("thinking", None)
+            projected = preserve_reasoning_effort(body, projected)
             self._ports.log(
                 "INFO",
                 "removed top-level Anthropic thinking request but preserved thinking blocks "
@@ -202,6 +216,7 @@ class AnthropicThinkingPolicy:
             return projected
         projected = dict(strip_thinking_blocks(body))
         projected.pop("thinking", None)
+        projected = preserve_reasoning_effort(body, projected)
         self._ports.log(
             "WARN",
             "removed Anthropic thinking request and thinking content blocks for "
