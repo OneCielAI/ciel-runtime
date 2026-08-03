@@ -5971,8 +5971,9 @@ def _build_ollama_collection_request(
     *,
     stream: bool,
 ) -> dict[str, Any]:
-    del provider
-    return ollama_chat_request(model, body, pcfg, stream=stream)
+    return ollama_chat_request(
+        model, body, pcfg, stream=stream, provider=provider
+    )
 
 def collect_ollama_message_for_responses(
     handler: BaseHTTPRequestHandler,

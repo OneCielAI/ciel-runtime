@@ -54,6 +54,30 @@ class FakeRequestHeaders(list):
 
 
 class CodexRuntimeTests(unittest.TestCase):
+    def test_codex_ollama_collection_preserves_cloud_provider(self):
+        body = {"messages": [{"role": "user", "content": "hello"}]}
+        pcfg = {"current_model": "deepseek-v4-flash:0731"}
+
+        with mock.patch.object(
+            ciel_runtime, "ollama_chat_request", return_value={"think": "max"}
+        ) as build:
+            request = ciel_runtime._build_ollama_collection_request(
+                "ollama-cloud",
+                "deepseek-v4-flash:0731",
+                body,
+                pcfg,
+                stream=False,
+            )
+
+        self.assertEqual({"think": "max"}, request)
+        build.assert_called_once_with(
+            "deepseek-v4-flash:0731",
+            body,
+            pcfg,
+            stream=False,
+            provider="ollama-cloud",
+        )
+
     def test_runtime_model_catalog_registers_zai_alias_metadata(self):
         cfg = {
             "current_provider": "zai",
