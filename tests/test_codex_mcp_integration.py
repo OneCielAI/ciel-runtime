@@ -9,6 +9,7 @@ from ciel_runtime_support.codex_mcp_integration import (
     CodexMcpConfigPorts,
     CodexMcpIntegrationService,
     CodexMcpPolicy,
+    CodexMcpProbeCachePorts,
     CodexMcpProjectionPorts,
 )
 
@@ -20,6 +21,8 @@ class CodexMcpIntegrationServiceTests(unittest.TestCase):
         *,
         discovered: dict | None = None,
         probes: list[dict] | None = None,
+        read_servers=None,
+        refresh_probe_cache=None,
     ) -> CodexMcpIntegrationService:
         config_path = root / "codex-mcp.json"
 
@@ -38,8 +41,13 @@ class CodexMcpIntegrationServiceTests(unittest.TestCase):
                 load_json=lambda path: json.loads(path.read_text(encoding="utf-8")),
             ),
             capability=CodexMcpCapabilityPorts(
-                ensure_probe_cache=lambda *_args, **_kwargs: None,
-                read_servers=lambda _path, _cwd: [{"channel": "ai-net"}],
+                probe_cache=CodexMcpProbeCachePorts(
+                    ensure=lambda *_args, **_kwargs: None,
+                    refresh=refresh_probe_cache
+                    or (lambda *_args, **_kwargs: None),
+                ),
+                read_servers=read_servers
+                or (lambda _path, _cwd: [{"channel": "ai-net"}]),
                 cached_probe_servers=lambda: probes or [],
                 path_key=lambda path: str(path.resolve()),
                 cwd=lambda: root,
@@ -88,6 +96,46 @@ class CodexMcpIntegrationServiceTests(unittest.TestCase):
 
             self.assertEqual(
                 ["ai-net"], service.channel_capable_server_names({}, path)
+            )
+
+    def test_channel_capability_refreshes_stale_same_name_probe_source(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / "codex-mcp.json"
+            path.write_text("{}", encoding="utf-8")
+            probes = [
+                {"name": "ai-net", "capable": True, "source_path": str(path)},
+                {
+                    "name": "ai-net-http",
+                    "capable": True,
+                    "source_path": str(root / "legacy-mcp.json"),
+                },
+            ]
+            refresh_calls = []
+
+            def refresh(*args, **kwargs):
+                refresh_calls.append((args, kwargs))
+                probes[:] = [
+                    {"name": name, "capable": True, "source_path": str(path)}
+                    for name in ("ai-net", "ai-net-http")
+                ]
+
+            service = self.service(
+                root,
+                probes=probes,
+                read_servers=lambda _path, _cwd: [
+                    {"channel": "ai-net"},
+                    {"channel": "ai-net-http"},
+                ],
+                refresh_probe_cache=refresh,
+            )
+
+            self.assertEqual(
+                ["ai-net", "ai-net-http"],
+                service.channel_capable_server_names({}, path),
+            )
+            self.assertEqual(
+                [path], refresh_calls[0][1]["extra_config_paths"]
             )
 
     def test_http_servers_can_be_projected_to_split_proxy_config(self):

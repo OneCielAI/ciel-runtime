@@ -9,8 +9,8 @@ from ciel_runtime_support.architecture_budget import (
 
 
 class ArchitectureBudgetTests(unittest.TestCase):
-    def test_migration_budget_only_moves_toward_final_limit(self):
-        self.assertGreater(MAIN_FILE_LINE_BUDGET, FINAL_FILE_LINE_BUDGET)
+    def test_main_budget_does_not_exceed_final_limit(self):
+        self.assertLessEqual(MAIN_FILE_LINE_BUDGET, FINAL_FILE_LINE_BUDGET)
         self.assertEqual(4_999, FINAL_FILE_LINE_BUDGET)
 
     def test_no_file_exceeds_its_current_budget(self):

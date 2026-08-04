@@ -25,8 +25,14 @@ class CodexMcpArtifactPorts:
 
 
 @dataclass(frozen=True, slots=True)
+class CodexMcpProbeCachePorts:
+    ensure: Callable[..., Any]
+    refresh: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
 class CodexMcpCapabilityPorts:
-    ensure_probe_cache: Callable[..., Any]
+    probe_cache: CodexMcpProbeCachePorts
     read_servers: Callable[[Path, Path], list[dict[str, Any]]]
     cached_probe_servers: Callable[[], list[dict[str, Any]]]
     path_key: Callable[[Path], str]
@@ -100,7 +106,7 @@ class CodexMcpIntegrationService:
     ) -> list[str]:
         if not config_path or not config_path.exists() or not config_path.is_file():
             return []
-        self.capability.ensure_probe_cache(
+        self.capability.probe_cache.ensure(
             cfg, [], extra_config_paths=[config_path]
         )
         candidate_names = [
@@ -111,9 +117,43 @@ class CodexMcpIntegrationService:
             if str(server.get("channel") or "").strip()
         ]
         source_key = self.capability.path_key(config_path)
+        records = self.capability.cached_probe_servers()
+        source_names = {
+            str(record.get("name") or "").strip()
+            for record in records
+            if str(record.get("name") or "").strip()
+            and self.capability.path_key(
+                Path(str(record.get("source_path") or ""))
+            )
+            == source_key
+        }
+        missing_source_names = sorted(set(candidate_names) - source_names)
+        if missing_source_names:
+            # A name-only probe cache can contain a valid result from a stale
+            # source file while the generated Codex projection has different
+            # authentication headers.  Refresh from the generated artifact so
+            # the notification worker is selected from the exact config it
+            # will use, rather than silently falling back to Codex's native
+            # connection (which Ciel cannot inject from).
+            try:
+                self.capability.probe_cache.refresh(
+                    [], extra_config_paths=[config_path]
+                )
+                records = self.capability.cached_probe_servers()
+                self.config.log(
+                    "INFO",
+                    "codex_mcp_channel_probe_refreshed "
+                    f"source={config_path} missing={','.join(missing_source_names)}",
+                )
+            except Exception as exc:
+                self.config.log(
+                    "WARN",
+                    "codex_mcp_channel_probe_refresh_failed "
+                    f"source={config_path} error={type(exc).__name__}: {exc}",
+                )
         capable = {
             str(record.get("name") or "").strip()
-            for record in self.capability.cached_probe_servers()
+            for record in records
             if record.get("capable")
             and str(record.get("name") or "").strip()
             and self.capability.path_key(
