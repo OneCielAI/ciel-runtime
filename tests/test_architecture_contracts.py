@@ -442,6 +442,11 @@ from ciel_runtime_support.configuration_cli import (
     ConfigurationCliModelPorts,
     ConfigurationCliProviderPorts,
 )
+from ciel_runtime_support.cli_application_context import (
+    CliApplicationContext,
+    CliApplicationDispatchPorts,
+    CliApplicationPresentationPorts,
+)
 from ciel_runtime_support.compatibility_test import (
     CompatibilityTestConfig,
     CompatibilityTestConstants,
@@ -1488,6 +1493,31 @@ class ArchitectureContractTests(unittest.TestCase):
             "launch_codex",
             "launch_codex_app_server",
             "launch_agy",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
+
+    def test_cli_application_context_owns_entrypoint_dispatch(self):
+        for port in (
+            CliApplicationDispatchPorts,
+            CliApplicationPresentationPorts,
+            CliApplicationContext,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (
+            Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        ).read_text(encoding="utf-8")
+        for function_name in (
+            "run_cli",
+            "build_parser",
+            "cmd_cli",
+            "cmd_launch",
+            "cmd_launch_codex",
+            "cmd_launch_codex_app_server",
+            "cmd_launch_agy",
+            "cmd_version",
+            "main",
         ):
             with self.subTest(function=function_name):
                 self.assertNotIn(f"def {function_name}(", source)

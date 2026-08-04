@@ -366,6 +366,12 @@ from ciel_runtime_support.lm_studio_runtime import (
     discover_lm_studio_runtime,
 )
 from ciel_runtime_support import cli_dispatch
+from ciel_runtime_support.cli_application_context import (
+    CliApplicationCompatibilityApi,
+    CliApplicationContext,
+    CliApplicationDispatchPorts,
+    CliApplicationPresentationPorts,
+)
 from ciel_runtime_support.cli_usage import cli_usage_text
 from ciel_runtime_support import cli_parser
 from ciel_runtime_support.configuration_cli import (
@@ -9933,8 +9939,8 @@ def apply_headless_env_config() -> tuple[bool, bool | None, bool | None, bool | 
     )
     return result.as_tuple()
 
-def run_cli(argv: list[str]) -> int:
-    services = cli_dispatch.CliServices(
+def cli_services() -> cli_dispatch.CliServices:
+    return cli_dispatch.CliServices(
         core=cli_dispatch.CliCore(
             VERSION=VERSION,
             cli_usage=cli_usage,
@@ -9994,29 +10000,8 @@ def run_cli(argv: list[str]) -> int:
             cmd_set_api_keys=cmd_set_api_keys,
         ),
     )
-    return dispatch_cli(argv, services)
-
-def cmd_cli(args: argparse.Namespace) -> None:
-    raise SystemExit(run_cli(args.argv))
-
-def cmd_launch(args: argparse.Namespace) -> None:
-    raise SystemExit(launch_claude(args.argv))
-
-def cmd_launch_codex(args: argparse.Namespace) -> None:
-    raise SystemExit(launch_codex(args.argv))
-
-def cmd_launch_codex_app_server(args: argparse.Namespace) -> None:
-    raise SystemExit(launch_codex_app_server(args.argv))
-
-def cmd_launch_agy(args: argparse.Namespace) -> None:
-    raise SystemExit(launch_agy(args.argv))
-
-def cmd_version(args: argparse.Namespace) -> None:
-    print(f"ciel-runtime {VERSION}")
-
-def build_parser() -> argparse.ArgumentParser:
-    return build_cli_parser(
-        cli_parser.CliParserServices(
+def cli_parser_services() -> cli_parser.CliParserServices:
+    return cli_parser.CliParserServices(
             launch=cli_parser.CliParserLaunch(
                 cli=cmd_cli,
                 launch=cmd_launch,
@@ -10057,29 +10042,40 @@ def build_parser() -> argparse.ArgumentParser:
                 advisor_model=cmd_advisor_model,
                 models=cmd_models,
             ),
-        )
     )
 
-def main() -> None:
-    if len(sys.argv) >= 2 and sys.argv[1] == "mcp-proxy":
-        raise SystemExit(cmd_mcp_proxy(sys.argv[2:]))
-    if len(sys.argv) >= 2 and sys.argv[1] == "cli":
-        raise SystemExit(run_cli(sys.argv[2:]))
-    if len(sys.argv) >= 2 and sys.argv[1] == "launch":
-        raise SystemExit(launch_claude(sys.argv[2:]))
-    if len(sys.argv) >= 2 and sys.argv[1] in ("codex", "launch-codex"):
-        raise SystemExit(launch_codex(sys.argv[2:]))
-    if len(sys.argv) >= 2 and sys.argv[1] in ("codex-app", "codex-app-server", "codex-appserver", "launch-codex-app-server"):
-        raise SystemExit(launch_codex_app_server(sys.argv[2:]))
-    if len(sys.argv) >= 2 and sys.argv[1] in ("agy", "launch-agy", "antigravity"):
-        raise SystemExit(launch_agy(sys.argv[2:]))
-    if len(sys.argv) >= 2 and sys.argv[1] in ("kimi", "kimi-code", "launch-kimi"):
-        raise SystemExit(launch_kimi(sys.argv[2:]))
-    if len(sys.argv) >= 2 and sys.argv[1] in ("kimi-login", "kimi-oauth-login"):
-        raise SystemExit(run_kimi_oauth_login())
-    parser = build_parser()
-    args = parser.parse_args()
-    args.func(args)
+def cli_application_context() -> CliApplicationContext:
+    return CliApplicationContext(
+        dispatch=CliApplicationDispatchPorts(
+            dispatch=dispatch_cli,
+            services=cli_services,
+            mcp_proxy=cmd_mcp_proxy,
+            launch_claude=launch_claude,
+            launch_codex=launch_codex,
+            launch_codex_app_server=launch_codex_app_server,
+            launch_agy=launch_agy,
+            launch_kimi=launch_kimi,
+            kimi_login=run_kimi_oauth_login,
+        ),
+        presentation=CliApplicationPresentationPorts(
+            parser_builder=build_cli_parser,
+            parser_services=cli_parser_services,
+            version=VERSION,
+            output=print,
+            arguments=lambda: sys.argv,
+        ),
+    )
+
+_CLI_APPLICATION_API = CliApplicationCompatibilityApi(cli_application_context)
+run_cli = _CLI_APPLICATION_API.run_cli
+build_parser = _CLI_APPLICATION_API.build_parser
+cmd_cli = _CLI_APPLICATION_API.cmd_cli
+cmd_launch = _CLI_APPLICATION_API.cmd_launch
+cmd_launch_codex = _CLI_APPLICATION_API.cmd_launch_codex
+cmd_launch_codex_app_server = _CLI_APPLICATION_API.cmd_launch_codex_app_server
+cmd_launch_agy = _CLI_APPLICATION_API.cmd_launch_agy
+cmd_version = _CLI_APPLICATION_API.cmd_version
+main = _CLI_APPLICATION_API.main
 
 if __name__ == "__main__":
     main()
