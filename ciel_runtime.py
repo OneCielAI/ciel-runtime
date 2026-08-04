@@ -4291,26 +4291,17 @@ def apply_provider_model_selection_updates(provider: str, pcfg: dict[str, Any], 
 def model_selection_controller() -> ModelSelectionController:
     return ModelSelectionController(
         ModelMutationConfigPorts(load_config, get_current_provider, save_config, clear_model_cache),
-        ModelMutationPolicyPorts(
-            model_map_for, unslug_provider_alias, normalize_model_id, apply_provider_model_profile,
-            read_model_info_cache, positive_int, model_preset, apply_provider_model_selection_updates,
-            alias_for, format_context_tokens,
-        ),
-        ModelMutationEffectPorts(
-            sync_ollama_library_context_limit, cap_context_settings_to_model_capacity,
-            auto_apply_recommended_llm_preset_for_model, apply_recommended_timeout_for_model_context,
-            read_model_list_cache,
-        ),
+        ModelMutationPolicyPorts(model_map_for, unslug_provider_alias, normalize_model_id, apply_provider_model_profile, read_model_info_cache,
+                                 positive_int, model_preset, apply_provider_model_selection_updates, alias_for, format_context_tokens),
+        ModelMutationEffectPorts(sync_ollama_library_context_limit, cap_context_settings_to_model_capacity, auto_apply_recommended_llm_preset_for_model,
+                                 apply_recommended_timeout_for_model_context, read_model_list_cache),
     )
 
 def advisor_model_selection_controller() -> AdvisorModelSelectionController:
-    return AdvisorModelSelectionController(
-        AdvisorModelMutationPorts(
-            load_config, get_current_provider, save_config, clear_model_cache,
-            normalize_model_id, read_model_list_cache,
-            lambda provider, config: provider_ui_policy(provider, config).uses_native_advisor,
-        )
-    )
+    return AdvisorModelSelectionController(AdvisorModelMutationPorts(
+        load_config, get_current_provider, save_config, clear_model_cache, normalize_model_id, read_model_list_cache,
+        lambda provider, config: provider_ui_policy(provider, config).uses_native_advisor,
+    ))
 
 mask_secret = project_mask_secret
 
@@ -4322,23 +4313,10 @@ redact_sensitive_obj = project_redact_sensitive_obj
 
 def credential_management_service() -> CredentialManagementService:
     return CredentialManagementService(
-        persistence=CredentialPersistencePorts(
-            load_config=load_config,
-            save_config=save_config,
-            clear_model_cache=clear_model_cache,
-            parse_keys=parse_api_key_list,
-            clear_requested=api_key_clear_requested,
-            rotation_name=provider_api_key_rotation_name,
-            error_text=project_looks_like_error_text,
-        ),
-        external=ExternalCredentialPorts(
-            enabled=frozenset({"nvidia-hosted"}).__contains__,
-            store=store_nvidia_api_key,
-            clear=clear_nvidia_api_key,
-            has_key=nvidia_credential_repository().has_key,
-            normalize_provider_config=ensure_nvidia_hosted_base_url,
-            location=NCP_ENV,
-        ),
+        persistence=CredentialPersistencePorts(load_config, save_config, clear_model_cache, parse_api_key_list, api_key_clear_requested,
+                                               provider_api_key_rotation_name, project_looks_like_error_text),
+        external=ExternalCredentialPorts(frozenset({"nvidia-hosted"}).__contains__, store_nvidia_api_key, clear_nvidia_api_key,
+                                         nvidia_credential_repository().has_key, ensure_nvidia_hosted_base_url, NCP_ENV),
         presentation=CredentialPresentationPorts(mask_secret, secret_fingerprint),
         rotation=CredentialRotationRepository(_API_KEY_ROTATION_CURSOR, _API_KEY_ROTATION_LOCK),
         config_location=CONFIG_PATH,
@@ -4348,38 +4326,13 @@ read_clipboard_text = terminal_platform_io.read_clipboard_text
 
 def configuration_cli_controller() -> ConfigurationCliController:
     return ConfigurationCliController(
-        config=ConfigurationCliConfigPorts(
-            load=load_config,
-            save=save_config,
-            current_provider=get_current_provider,
-        ),
-        provider=ConfigurationCliProviderPorts(
-            normalize_choice=normalize_provider_choice,
-            normalize_provider=normalize_provider,
-            panel_rows=provider_panel_rows,
-            menu_label=provider_menu_label,
-            set_choice=set_provider_choice_config,
-            set_provider=set_provider_config,
-            set_base_url=set_base_url_config,
-        ),
-        model=ConfigurationCliModelPorts(
-            cached_ids=cached_or_configured_model_ids,
-            alias_for=alias_for,
-            read_cache=read_model_list_cache,
-            set_model=set_model_config,
-            upstream_ids=upstream_model_ids,
-            set_advisor=set_advisor_model_config,
-            advisor_uses_builtin=lambda provider, pcfg: provider_ui_policy(provider, pcfg).uses_native_advisor,
-        ),
-        display=ConfigurationCliDisplayPorts(
-            log_level_names=LOG_LEVEL_NAMES,
-            log_level_status=log_level_status,
-            log_level_name=log_level_name,
-            set_log_level=set_log_level_config,
-            languages=LANGUAGES,
-            web_tools_config_path=WEB_TOOLS_MCP_CONFIG,
-            language_panel_rows=language_panel_rows,
-        ),
+        config=ConfigurationCliConfigPorts(load_config, save_config, get_current_provider),
+        provider=ConfigurationCliProviderPorts(normalize_provider_choice, normalize_provider, provider_panel_rows, provider_menu_label,
+                                               set_provider_choice_config, set_provider_config, set_base_url_config),
+        model=ConfigurationCliModelPorts(cached_or_configured_model_ids, alias_for, read_model_list_cache, set_model_config, upstream_model_ids,
+                                         set_advisor_model_config, lambda provider, pcfg: provider_ui_policy(provider, pcfg).uses_native_advisor),
+        display=ConfigurationCliDisplayPorts(LOG_LEVEL_NAMES, log_level_status, log_level_name, set_log_level_config, LANGUAGES,
+                                             WEB_TOOLS_MCP_CONFIG, language_panel_rows),
         io=ConfigurationCliIO(output=print, select=portable_select),
     )
 
@@ -4398,26 +4351,9 @@ portable_language_menu = _CONFIGURATION_CLI_API.portable_language_menu
 
 def credential_cli_controller() -> CredentialCliController:
     return CredentialCliController(
-        policy=CredentialCliPolicy(
-            frozenset(
-                {
-                    "anthropic", "ollama-cloud", "deepseek", "opencode", "opencode-go",
-                    "kimi", "nvidia-hosted", "openrouter", "fireworks",
-                }
-            )
-        ),
-        ports=CredentialCliPorts(
-            normalize_provider=normalize_provider,
-            load_config=load_config,
-            key_count=provider_api_key_count,
-            primary_key=provider_primary_api_key,
-            mask=mask_secret,
-            fingerprint=secret_fingerprint,
-            clear_requested=api_key_clear_requested,
-            clear=clear_api_key_config,
-            store_input=store_api_key_input_config,
-            store_many=store_api_keys_config,
-        ),
+        policy=CredentialCliPolicy(frozenset({"anthropic", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "nvidia-hosted", "openrouter", "fireworks"})),
+        ports=CredentialCliPorts(normalize_provider, load_config, provider_api_key_count, provider_primary_api_key, mask_secret, secret_fingerprint,
+                                 api_key_clear_requested, clear_api_key_config, store_api_key_input_config, store_api_keys_config),
         io=CredentialCliIO(sys.stdin.isatty, getpass.getpass, print),
     )
 
@@ -4435,55 +4371,21 @@ def provider_mode_label(provider: str, pcfg: dict[str, Any]) -> str: return _RUN
 
 def provider_status_service() -> ProviderStatusService:
     return ProviderStatusService(
-        projection=ProviderStatusProjectionPorts(
-            get_current_provider=get_current_provider,
-            mode_label=provider_mode_label,
-            direct_native_anthropic=direct_native_anthropic_enabled,
-            configured_adapter=configured_provider_adapter,
-            contract_config=provider_contract_config,
-            ollama_num_ctx_status=ollama_num_ctx_status,
-            ollama_options_status=ollama_options_status,
-            ollama_think_status=ollama_think_status,
-            current_upstream_model=current_upstream_model_id,
-            current_alias=current_alias,
-        ),
-        runtime=RuntimeStatusPorts(
-            load_config=load_config,
-            log_level_status=log_level_status,
-            channel_status_text=channel_status_text,
-            channel_delivery_mode=channel_delivery_mode,
-            router_up=router_up,
-            router_base=ROUTER_BASE,
-            config_path=CONFIG_PATH,
-            web_status_lines=lambda: build_web_endpoint_report(
-                ROUTER_HOST, router_bind_host(load_config()), ROUTER_PORT
-            ).status_lines(),
-        ),
+        projection=ProviderStatusProjectionPorts(get_current_provider, provider_mode_label, direct_native_anthropic_enabled, configured_provider_adapter,
+                                                 provider_contract_config, ollama_num_ctx_status, ollama_options_status, ollama_think_status,
+                                                 current_upstream_model_id, current_alias),
+        runtime=RuntimeStatusPorts(load_config, log_level_status, channel_status_text, channel_delivery_mode, router_up, ROUTER_BASE, CONFIG_PATH,
+                                   lambda: build_web_endpoint_report(ROUTER_HOST, router_bind_host(load_config()), ROUTER_PORT).status_lines()),
     )
 
 def provider_administration_context() -> ProviderAdministrationContext:
     return ProviderAdministrationContext(
-        infrastructure=ProviderAdministrationInfrastructure(
-            nvidia_credentials=nvidia_credential_repository,
-            copilot_oauth=github_copilot_oauth_runtime,
-            output=print,
-        ),
-        selection=ProviderAdministrationSelection(
-            provider_choice=provider_choice_controller,
-            provider_endpoint=provider_endpoint_service,
-            model_selection=model_selection_controller,
-            advisor_model_selection=advisor_model_selection_controller,
-        ),
-        credentials=ProviderAdministrationCredentials(
-            management=credential_management_service,
-            cli=credential_cli_controller,
-            configured_keys=provider_config_api_keys,
-            mask=mask_secret,
-            fingerprint=secret_fingerprint,
-        ),
-        presentation=ProviderAdministrationPresentation(
-            status=provider_status_service,
-        ),
+        infrastructure=ProviderAdministrationInfrastructure(nvidia_credential_repository, github_copilot_oauth_runtime, print),
+        selection=ProviderAdministrationSelection(provider_choice_controller, provider_endpoint_service, model_selection_controller,
+                                                   advisor_model_selection_controller),
+        credentials=ProviderAdministrationCredentials(credential_management_service, credential_cli_controller, provider_config_api_keys,
+                                                       mask_secret, secret_fingerprint),
+        presentation=ProviderAdministrationPresentation(provider_status_service),
     )
 
 _PROVIDER_ADMINISTRATION_API = ProviderAdministrationCompatibilityApi(provider_administration_context)
@@ -4517,25 +4419,10 @@ def channel_specs(cfg: dict[str, Any] | None = None) -> list[str]: return channe
 
 def mcp_configuration_context() -> McpConfigurationContext:
     return McpConfigurationContext(
-        files=McpConfigurationFilePorts(
-            read_items=read_mcp_config_items,
-            names_from_mapping=_mcp_server_names_from_mapping,
-            servers_from_mapping=_mcp_servers_from_mapping,
-            log=router_log,
-        ),
-        paths=McpConfigurationPaths(
-            home=HOME,
-            web_tools=WEB_TOOLS_MCP_CONFIG,
-            proxy=MCP_PROXY_CONFIG,
-            native_config=NATIVE_MCP_CONFIG,
-        ),
-        runtime=McpConfigurationRuntimePorts(
-            resolve_executable=resolve_executable_for_subprocess,
-            parse_bool=parse_bool,
-            artifact_repository=json_artifact_repository,
-            discover_channel_specs=discover_channel_specs,
-            is_channel_tagged=is_channel_spec_tagged,
-        ),
+        files=McpConfigurationFilePorts(read_mcp_config_items, _mcp_server_names_from_mapping, _mcp_servers_from_mapping, router_log),
+        paths=McpConfigurationPaths(HOME, WEB_TOOLS_MCP_CONFIG, MCP_PROXY_CONFIG, NATIVE_MCP_CONFIG),
+        runtime=McpConfigurationRuntimePorts(resolve_executable_for_subprocess, parse_bool, json_artifact_repository, discover_channel_specs,
+                                             is_channel_spec_tagged),
         native_channel_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
     )
 
@@ -4573,27 +4460,11 @@ CHANNEL_PROBE_SSE_INIT_POST_TIMEOUT_SECONDS = 5.0
 
 def mcp_probe_services() -> McpProbeServices:
     return McpProbeServices(
-        codec=McpProbeCodec(
-            initialize_bytes=_channel_probe_initialize_payload,
-            initialize_dict=_channel_probe_initialize_payload_dict,
-            decode_sse_events=_decode_sse_events,
-            capability_present=_channel_probe_capability_present,
-            decode_preview=_decode_preview,
-        ),
-        http=McpProbeHttp(
-            runtime_headers=mcp_server_runtime_headers,
-            urlopen=urllib.request.urlopen,
-            streamable_post_json=_mcp_streamable_post_json,
-            delete_streamable_session=_channel_streamable_http_delete_session,
-        ),
-        policy=McpProbePolicy(
-            default_timeout=channel_probe_default_timeout,
-            stderr_preview_chars=CHANNEL_PROBE_STDERR_PREVIEW_CHARS,
-            stdout_preview_bytes=CHANNEL_PROBE_STDOUT_PREVIEW_BYTES,
-            sse_open_timeout_seconds=CHANNEL_PROBE_SSE_OPEN_TIMEOUT_SECONDS,
-            sse_init_post_timeout_seconds=CHANNEL_PROBE_SSE_INIT_POST_TIMEOUT_SECONDS,
-            streamable_protocol_version=MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
-        ),
+        codec=McpProbeCodec(_channel_probe_initialize_payload, _channel_probe_initialize_payload_dict, _decode_sse_events,
+                            _channel_probe_capability_present, _decode_preview),
+        http=McpProbeHttp(mcp_server_runtime_headers, urllib.request.urlopen, _mcp_streamable_post_json, _channel_streamable_http_delete_session),
+        policy=McpProbePolicy(channel_probe_default_timeout, CHANNEL_PROBE_STDERR_PREVIEW_CHARS, CHANNEL_PROBE_STDOUT_PREVIEW_BYTES,
+                              CHANNEL_PROBE_SSE_OPEN_TIMEOUT_SECONDS, CHANNEL_PROBE_SSE_INIT_POST_TIMEOUT_SECONDS, MCP_STREAMABLE_HTTP_PROTOCOL_VERSION),
         log=router_log,
     )
 
@@ -4625,24 +4496,11 @@ def _decode_preview(buf: bytes | bytearray, limit_chars: int) -> str:
 
 def stdio_mcp_probe_services() -> StdioProbeServices:
     return StdioProbeServices(
-        codec=StdioProbeCodec(
-            initialize_payload=_channel_probe_initialize_payload,
-            strategy_for=_channel_probe_strategy_for,
-            find_initialize_response=_channel_probe_find_initialize_response,
-            capability_present=_channel_probe_capability_present,
-            decode_preview=_decode_preview,
-        ),
-        process=StdioProbeProcess(
-            is_stdio=_mcp_server_is_stdio,
-            resolve_server_process=resolve_mcp_server_process,
-            popen=subprocess.Popen,
-        ),
-        policy=StdioProbePolicy(
-            default_timeout=channel_probe_default_timeout,
-            stderr_cap_bytes=CHANNEL_PROBE_STDERR_CAP_BYTES,
-            stderr_preview_chars=CHANNEL_PROBE_STDERR_PREVIEW_CHARS,
-            stdout_preview_bytes=CHANNEL_PROBE_STDOUT_PREVIEW_BYTES,
-        ),
+        codec=StdioProbeCodec(_channel_probe_initialize_payload, _channel_probe_strategy_for, _channel_probe_find_initialize_response,
+                              _channel_probe_capability_present, _decode_preview),
+        process=StdioProbeProcess(_mcp_server_is_stdio, resolve_mcp_server_process, subprocess.Popen),
+        policy=StdioProbePolicy(channel_probe_default_timeout, CHANNEL_PROBE_STDERR_CAP_BYTES, CHANNEL_PROBE_STDERR_PREVIEW_CHARS,
+                                CHANNEL_PROBE_STDOUT_PREVIEW_BYTES),
         log=router_log,
     )
 
