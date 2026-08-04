@@ -4756,16 +4756,8 @@ def cmd_channel_delivery(args: argparse.Namespace) -> None: channel_cli_controll
 def cmd_ollama_native(args: argparse.Namespace) -> None: provider_option_cli_controller().native(args)
 
 def provider_option_policy() -> ProviderOptionPolicy:
-    return ProviderOptionPolicy(
-        normalize_claude_code_supported_capabilities=normalize_claude_code_supported_capabilities,
-        normalize_ip_family=normalize_ip_family,
-        normalize_model_id=normalize_model_id,
-        normalize_opencode_endpoint_kind=normalize_opencode_endpoint_kind,
-        parse_bool=parse_bool,
-        parse_config_value=parse_config_value,
-        positive_int=positive_int,
-        sampling=ProviderSamplingPolicy(),
-    )
+    return ProviderOptionPolicy(normalize_claude_code_supported_capabilities, normalize_ip_family, normalize_model_id, normalize_opencode_endpoint_kind,
+                                parse_bool, parse_config_value, positive_int, ProviderSamplingPolicy())
 
 def apply_ollama_option(pcfg: dict[str, Any], token: str) -> None: mutate_ollama_option(pcfg, token, policy=provider_option_policy())
 
@@ -4782,18 +4774,9 @@ def validate_sampling_option(key: str, value: Any) -> float | int: return Provid
 def provider_option_status_projection() -> ProviderOptionStatusProjection:
     return ProviderOptionStatusProjection(
         tuple(PROVIDER_SAMPLING_OPTIONS),
-        ProviderOptionStatusPorts(
-            configured_adapter=configured_provider_adapter,
-            contract_config=provider_contract_config,
-            rate_usage=router_rate_limit_usage,
-            ollama_num_ctx=ollama_num_ctx_status,
-            ollama_options_status=ollama_options_status,
-            ip_family=provider_ip_family,
-            parse_bool=parse_bool,
-            tool_choice_status=provider_tool_choice_status,
-            ollama_extra_options=ollama_extra_options,
-            anthropic_routed=anthropic_routed_enabled,
-        ),
+        ProviderOptionStatusPorts(configured_provider_adapter, provider_contract_config, router_rate_limit_usage, ollama_num_ctx_status,
+                                  ollama_options_status, provider_ip_family, parse_bool, provider_tool_choice_status, ollama_extra_options,
+                                  anthropic_routed_enabled),
     )
 
 def provider_sampling_status(pcfg: dict[str, Any]) -> list[str]: return provider_option_status_projection().sampling(pcfg)
@@ -4805,38 +4788,16 @@ def llm_options_status(provider: str, pcfg: dict[str, Any]) -> str: return provi
 def llm_preset_context() -> LlmPresetContext:
     return LlmPresetContext(
         catalog=LlmPresetCatalog(LLM_PRESETS, LLM_PRESET_I18N, MODEL_FAMILY_I18N),
-        queries=LlmPresetQueries(
-            load_config=load_config,
-            context_policy=provider_context_policy,
-            context_capacity=provider_model_context_capacity,
-            context_services=context_preset_services,
-            ui_text=ui_text,
-            pad_cells=pad_cells,
-            format_context=format_context_tokens,
-        ),
-        algorithms=LlmPresetAlgorithms(
-            classify_family=classify_model_family,
-            recommend=recommended_preset,
-            infer=infer_context_preset,
-            required_context=context_required_for_preset,
-        ),
-        definition=LlmPresetDefinitionPorts(
-            CONTEXT_HEAVY_PRESETS, LLM_PRESETS, llm_preset_text, load_config,
-            model_family_text, model_option_family, positive_int,
-            required_context_for_preset, ui_text,
-        ),
-        policy=LlmPresetContextPolicyPorts(
-            apply_lm_studio_loaded_context_guard,
-            apply_ollama_runtime_output_guard,
-            apply_recommended_timeout_for_model_context,
-            cap_context_settings_to_model_capacity,
-            cap_output_settings_to_context_ratio, ollama_num_ctx_status,
-            provider_model_context_capacity, sync_ollama_library_context_limit,
-            upstream_model_context_limit, with_preset_timeout_tokens,
-        ),
-        mutation=LlmPresetMutationPorts(
-            apply_ollama_option, apply_provider_option, ollama_extra_options,
-        ),
+        queries=LlmPresetQueries(load_config, provider_context_policy, provider_model_context_capacity, context_preset_services, ui_text, pad_cells,
+                                 format_context_tokens),
+        algorithms=LlmPresetAlgorithms(classify_model_family, recommended_preset, infer_context_preset, context_required_for_preset),
+        definition=LlmPresetDefinitionPorts(CONTEXT_HEAVY_PRESETS, LLM_PRESETS, llm_preset_text, load_config, model_family_text, model_option_family,
+                                            positive_int, required_context_for_preset, ui_text),
+        policy=LlmPresetContextPolicyPorts(apply_lm_studio_loaded_context_guard, apply_ollama_runtime_output_guard,
+                                           apply_recommended_timeout_for_model_context, cap_context_settings_to_model_capacity,
+                                           cap_output_settings_to_context_ratio, ollama_num_ctx_status, provider_model_context_capacity,
+                                           sync_ollama_library_context_limit, upstream_model_context_limit, with_preset_timeout_tokens),
+        mutation=LlmPresetMutationPorts(apply_ollama_option, apply_provider_option, ollama_extra_options),
     )
 
 _LLM_PRESET_API = LlmPresetCompatibilityApi(llm_preset_context)
@@ -4852,18 +4813,8 @@ resolve_llm_preset_id = _LLM_PRESET_API.resolve
 
 def timeout_profile_service() -> TimeoutProfileService:
     return TimeoutProfileService(
-        TimeoutProfileSettings(
-            default_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
-            profiles=TIMEOUT_PRESETS,
-            localized_profiles=TIMEOUT_PRESET_I18N,
-            llm_preset_timeouts=LLM_PRESET_TIMEOUT_MS,
-        ),
-        TimeoutProfilePorts(
-            positive_int=positive_int,
-            pad_cells=pad_cells,
-            ui_text=ui_text,
-            format_minutes=format_timeout_minutes,
-        ),
+        TimeoutProfileSettings(DEFAULT_REQUEST_TIMEOUT_MS, TIMEOUT_PRESETS, TIMEOUT_PRESET_I18N, LLM_PRESET_TIMEOUT_MS),
+        TimeoutProfilePorts(positive_int, pad_cells, ui_text, format_timeout_minutes),
     )
 
 _TIMEOUT_PROFILE_API = TimeoutProfileApi(timeout_profile_service, lambda: str(load_config().get('language', 'en')))
@@ -4897,43 +4848,20 @@ apply_kimi_model_profile = apply_provider_model_profile
 def zai_model_context_hint(model_id: str) -> int | None: return model_context_hint_policy().zai_hint(model_id)
 
 def model_context_hint_policy() -> ModelContextHintPolicy:
-    return ModelContextHintPolicy(
-        ZAI_MODEL_CONTEXT_HINTS,
-        ModelContextHintPorts(
-            strip_context_suffix=strip_claude_context_suffix,
-            catalog_context=ollama_catalog_context_for_model,
-            model_preset=model_preset,
-            positive_int=positive_int,
-        ),
-    )
+    return ModelContextHintPolicy(ZAI_MODEL_CONTEXT_HINTS, ModelContextHintPorts(
+        strip_claude_context_suffix, ollama_catalog_context_for_model, model_preset, positive_int,
+    ))
 
 def model_context_hint_from_model_id(model_id: str) -> int | None: return model_context_hint_policy().resolve(model_id)
 
 def provider_model_context() -> ProviderModelContext:
     return ProviderModelContext(
-        services=ProviderContextServices(
-            positive_int=positive_int,
-            model_context_hint=model_context_hint_from_model_id,
-            anthropic_context_hint=lambda model: positive_int(
-                anthropic_model_limit_hints(model).get("context_window")
-            ),
-            nvidia_context_default=nvidia_hosted_context_default,
-            upstream_context_limit=upstream_model_context_limit,
-            ollama_context_limit=ollama_provider_context_limit,
-        ),
-        queries=ProviderModelContextQueries(
-            context_policy=provider_context_policy,
-            context_limit=context_limit_for_status,
-            positive_int=positive_int,
-            format_context=format_context_tokens,
-        ),
-        algorithms=ProviderModelContextAlgorithms(
-            resolve_capacity=resolve_context_capacity,
-            apply_capacity_cap=apply_context_capacity_cap,
-            resolve_small_output_cap=resolve_small_context_output_cap,
-            apply_output_token_cap=apply_output_token_cap,
-            apply_output_context_cap=apply_output_context_cap,
-        ),
+        services=ProviderContextServices(positive_int, model_context_hint_from_model_id,
+                                         lambda model: positive_int(anthropic_model_limit_hints(model).get("context_window")),
+                                         nvidia_hosted_context_default, upstream_model_context_limit, ollama_provider_context_limit),
+        queries=ProviderModelContextQueries(provider_context_policy, context_limit_for_status, positive_int, format_context_tokens),
+        algorithms=ProviderModelContextAlgorithms(resolve_context_capacity, apply_context_capacity_cap, resolve_small_context_output_cap,
+                                                   apply_output_token_cap, apply_output_context_cap),
     )
 
 _PROVIDER_MODEL_CONTEXT_API = ProviderModelContextCompatibilityApi(provider_model_context)
@@ -4947,20 +4875,9 @@ def cached_current_model_info(provider: str, pcfg: dict[str, Any]) -> dict[str, 
 
 def provider_model_spec_service() -> ProviderModelSpecService:
     return ProviderModelSpecService(
-        ModelSpecLookupPorts(
-            read_cache=read_model_info_cache,
-            normalize_model=normalize_model_id,
-            upstream_model=current_upstream_model_id,
-            strip_context_suffix=strip_claude_context_suffix,
-        ),
-        ModelSpecMutationPorts(
-            positive_int=positive_int,
-            apply_model_profile=apply_provider_model_profile,
-            context_policy=provider_context_policy,
-            ollama_model_matches=ollama_context_model_matches,
-            preserve_ollama_cap=ollama_preserve_configured_context_cap,
-            format_context=format_context_tokens,
-        ),
+        ModelSpecLookupPorts(read_model_info_cache, normalize_model_id, current_upstream_model_id, strip_claude_context_suffix),
+        ModelSpecMutationPorts(positive_int, apply_provider_model_profile, provider_context_policy, ollama_context_model_matches,
+                               ollama_preserve_configured_context_cap, format_context_tokens),
         ModelSpecRefreshPorts(refresh_models=upstream_model_ids),
     )
 
@@ -4990,25 +4907,11 @@ def context_setting_status(provider: str, pcfg: dict[str, Any]) -> str: return _
 
 def provider_timeout_policy() -> ProviderTimeoutPolicy:
     return ProviderTimeoutPolicy(
-        ProviderTimeoutSettings(
-            default_ms=DEFAULT_REQUEST_TIMEOUT_MS,
-            minimum_ms=AUTO_TIMEOUT_MIN_MS,
-            maximum_ms=AUTO_TIMEOUT_MAX_MS,
-            round_ms=AUTO_TIMEOUT_ROUND_MS,
-            idle_max_ms=300000,
-            preset_timeouts=LLM_PRESET_TIMEOUT_MS,
-        ),
-        ProviderTimeoutPorts(
-            positive_int=positive_int,
-            context_policy=provider_context_policy,
-            context_capacity=provider_model_context_capacity,
-            output_token_cap=cap_output_tokens_to_context_ratio,
-            ollama_options=ollama_extra_options,
-            catalog_timeout=ollama_catalog_timeout_for_model,
-            model_preset=model_preset,
-            timeout_for_context=recommended_timeout_ms_for_context,
-            format_context=format_context_tokens,
-        ),
+        ProviderTimeoutSettings(DEFAULT_REQUEST_TIMEOUT_MS, AUTO_TIMEOUT_MIN_MS, AUTO_TIMEOUT_MAX_MS, AUTO_TIMEOUT_ROUND_MS, 300000,
+                                LLM_PRESET_TIMEOUT_MS),
+        ProviderTimeoutPorts(positive_int, provider_context_policy, provider_model_context_capacity, cap_output_tokens_to_context_ratio,
+                             ollama_extra_options, ollama_catalog_timeout_for_model, model_preset, recommended_timeout_ms_for_context,
+                             format_context_tokens),
     )
 
 _PROVIDER_TIMEOUT_API = ProviderTimeoutCompatibilityApi(provider_timeout_policy)
@@ -5026,20 +4929,10 @@ def context_setup_text(key: str, lang: str | None = None) -> tuple[str, str]:
     return ContextSetupService.text(key, lang)
 
 def context_setup_service() -> ContextSetupService:
-    return ContextSetupService(
-        ContextSetupPorts(
-            context_capacity=provider_model_context_capacity,
-            context_policy=provider_context_policy,
-            positive_int=positive_int,
-            format_context=format_context_tokens,
-            ui_text=ui_text,
-            pad_cells=pad_cells,
-            cap_context=cap_context_settings_to_model_capacity,
-            cap_output=cap_output_settings_to_context_ratio,
-            apply_timeout=apply_recommended_timeout_for_model_context,
-            context_status=context_setting_status,
-        )
-    )
+    return ContextSetupService(ContextSetupPorts(
+        provider_model_context_capacity, provider_context_policy, positive_int, format_context_tokens, ui_text, pad_cells,
+        cap_context_settings_to_model_capacity, cap_output_settings_to_context_ratio, apply_recommended_timeout_for_model_context, context_setting_status,
+    ))
 
 def context_setup_panel_rows(provider: str, pcfg: dict[str, Any], lang: str | None = None) -> tuple[list[str], list[str]]:
     lang = lang or load_config().get("language", "en")
@@ -5110,29 +5003,11 @@ def apply_llm_preset_config(provider: str, preset_id: str) -> list[str]:
 
 def runtime_llm_options_controller() -> RuntimeLlmOptionsController:
     return RuntimeLlmOptionsController(
-        RuntimeLlmSettings(
-            option_keys=frozenset(RUNTIME_LLM_OPTION_KEYS),
-            original_key=RUNTIME_LLM_ORIGINAL_KEY,
-            slider_labels=LLM_SLIDER_LABELS,
-        ),
-        RuntimeLlmConfigPorts(
-            load=load_config,
-            save=save_config,
-            clear_model_cache=clear_model_cache,
-            deep_copy=lambda value: json.loads(json.dumps(value)),
-            current_provider=get_current_provider,
-            normalize_preset=normalize_llm_preset_token,
-            resolve_preset=resolve_llm_preset_id,
-        ),
-        RuntimeLlmPresentationPorts(
-            applied_preset=applied_preset_id,
-            slider_presets=llm_slider_preset_ids,
-            preset_text=llm_preset_text,
-            provider_label=provider_mode_label,
-            context_status=context_setting_status,
-            timeout_status=timeout_profile_status,
-            ollama_options=ollama_extra_options,
-        ),
+        RuntimeLlmSettings(frozenset(RUNTIME_LLM_OPTION_KEYS), RUNTIME_LLM_ORIGINAL_KEY, LLM_SLIDER_LABELS),
+        RuntimeLlmConfigPorts(load_config, save_config, clear_model_cache, lambda value: json.loads(json.dumps(value)), get_current_provider,
+                              normalize_llm_preset_token, resolve_llm_preset_id),
+        RuntimeLlmPresentationPorts(applied_preset_id, llm_slider_preset_ids, llm_preset_text, provider_mode_label, context_setting_status,
+                                    timeout_profile_status, ollama_extra_options),
         RuntimeLlmMutationPorts(apply_preset=apply_llm_preset_to_provider),
     )
 
@@ -5227,35 +5102,12 @@ def llm_option_panel_rows(provider: str, pcfg: dict[str, Any], lang: str | None 
 
 def option_panel_services() -> OptionPanelServices:
     return OptionPanelServices(
-        text=OptionPanelText(
-            compact_text=compact_text,
-            ui_text=ui_text,
-            context_status=context_setting_status,
-            applied_preset=applied_preset_id,
-            preset_text=llm_preset_text,
-            timeout_status=timeout_profile_status,
-        ),
-        runtime=OptionPanelRuntime(
-            router_debug_external=router_debug_external_access_enabled,
-            message_preview_chars=router_debug_message_preview_chars,
-            direct_native=direct_native_anthropic_enabled,
-            capability_string=claude_code_capability_string,
-            current_model=current_upstream_model_id,
-            workflows_enabled=claude_code_workflows_enabled,
-            ultracode_enabled=claude_code_ultracode_enabled,
-        ),
-        provider=OptionPanelProvider(
-            ollama_options=ollama_extra_options,
-            ollama_context_status=ollama_num_ctx_status,
-            ollama_think_status=ollama_think_status,
-            query_status=upstream_query_string_status,
-            tool_choice_status=provider_tool_choice_status,
-            rate_limit_status=rate_limit_status_label,
-            rate_limit_rpm=rate_limit_rpm_label,
-            ip_family=provider_ip_family,
-            parse_bool=parse_bool,
-            configured_rate_limit=router_rate_limit_configured_rpm,
-        ),
+        text=OptionPanelText(compact_text, ui_text, context_setting_status, applied_preset_id, llm_preset_text, timeout_profile_status),
+        runtime=OptionPanelRuntime(router_debug_external_access_enabled, router_debug_message_preview_chars, direct_native_anthropic_enabled,
+                                   claude_code_capability_string, current_upstream_model_id, claude_code_workflows_enabled, claude_code_ultracode_enabled),
+        provider=OptionPanelProvider(ollama_extra_options, ollama_num_ctx_status, ollama_think_status, upstream_query_string_status,
+                                     provider_tool_choice_status, rate_limit_status_label, rate_limit_rpm_label, provider_ip_family, parse_bool,
+                                     router_rate_limit_configured_rpm),
     )
 
 def llm_option_prompt_default(provider: str, pcfg: dict[str, Any], key: str) -> str:
@@ -5274,28 +5126,12 @@ def llm_option_prompt_default(provider: str, pcfg: dict[str, Any], key: str) -> 
 
 def llm_option_config_services() -> llm_option_config.LlmOptionConfigServices:
     return llm_option_config.LlmOptionConfigServices(
-        repository=llm_option_config.LlmOptionRepository(
-            clear_model_cache=clear_model_cache,
-            load_config=load_config,
-            save_config=save_config,
-        ),
-        mutation=llm_option_config.LlmOptionMutation(
-            apply_ollama_option=apply_ollama_option,
-            apply_provider_option=apply_provider_option,
-            configuration_policy=provider_configuration_policy,
-            normalize_capabilities=normalize_claude_code_supported_capabilities,
-            parse_bool=parse_bool,
-            positive_int=positive_int,
-            routing_mode_update=provider_routing_mode_update,
-            set_router_debug_external_access=set_router_debug_external_access_config,
-        ),
-        policy=llm_option_config.LlmOptionPolicy(
-            apply_recommended_timeout=apply_recommended_timeout_for_model_context,
-            cap_context_settings=cap_context_settings_to_model_capacity,
-            cap_output_settings=cap_output_settings_to_context_ratio,
-            configured_rate_limit_rpm=router_rate_limit_configured_rpm,
-            provider_labels=PROVIDER_LABELS,
-        ),
+        repository=llm_option_config.LlmOptionRepository(clear_model_cache, load_config, save_config),
+        mutation=llm_option_config.LlmOptionMutation(apply_ollama_option, apply_provider_option, provider_configuration_policy,
+                                                     normalize_claude_code_supported_capabilities, parse_bool, positive_int, provider_routing_mode_update,
+                                                     set_router_debug_external_access_config),
+        policy=llm_option_config.LlmOptionPolicy(apply_recommended_timeout_for_model_context, cap_context_settings_to_model_capacity,
+                                                 cap_output_settings_to_context_ratio, router_rate_limit_configured_rpm, PROVIDER_LABELS),
     )
 
 def provider_routing_mode_update(provider: str, enabled: bool) -> tuple[str, ...]: return PROVIDER_ADAPTERS.create(provider).routing_mode_update(enabled)
