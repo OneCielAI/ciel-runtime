@@ -49,8 +49,7 @@ from ciel_runtime_support.anthropic_response_writer import prepend_anthropic_tex
 from ciel_runtime_support.anthropic_tool_turns import AnthropicToolTurnServices, normalize_historical_anthropic_tool_turns
 from ciel_runtime_support.api_key_cooldown import API_KEY_COOLDOWN_DEFAULT_SECONDS  # noqa: F401 - compatibility export
 from ciel_runtime_support.api_key_cooldown import API_KEY_COOLDOWN_MAX_SECONDS  # noqa: F401 - compatibility export
-from ciel_runtime_support.api_key_cooldown import \
-    RATE_LIMIT_RESET_HEADER_NAMES as _RATE_LIMIT_RESET_HEADER_NAMES  # noqa: F401 - compatibility export
+from ciel_runtime_support.api_key_cooldown import RATE_LIMIT_RESET_HEADER_NAMES as _RATE_LIMIT_RESET_HEADER_NAMES  # noqa: F401 - compatibility export
 from ciel_runtime_support.api_key_cooldown import ApiKeyCooldownCompatibilityApi, ApiKeyCooldownPorts, ApiKeyCooldownService
 from ciel_runtime_support.architecture import MessageProtocol, ProviderConfig
 from ciel_runtime_support.channel_backlog import ChannelBacklogCursors, ChannelBacklogRuntime, ChannelBacklogService
@@ -90,8 +89,7 @@ from ciel_runtime_support.channel_message_prompt import NATIVE_ROUTER_CHANNEL_NA
 from ciel_runtime_support.channel_message_prompt import format_llm_batch_prompt as format_channel_llm_batch_prompt
 from ciel_runtime_support.channel_message_prompt import format_llm_batch_prompt as format_channel_llm_delivery_wake_prompt
 from ciel_runtime_support.channel_message_prompt import format_wake_batch_prompt as format_channel_wake_batch_prompt
-from ciel_runtime_support.channel_message_prompt import \
-    format_wake_prompt as format_channel_wake_prompt  # noqa: F401 - compatibility export
+from ciel_runtime_support.channel_message_prompt import format_wake_prompt as format_channel_wake_prompt  # noqa: F401 - compatibility export
 from ciel_runtime_support.channel_message_prompt import format_web_chat_wake_batch_prompt as format_channel_web_chat_wake_batch_prompt
 from ciel_runtime_support.channel_message_prompt import llm_message_skip_reason as _channel_llm_message_skip_reason
 from ciel_runtime_support.channel_message_prompt import wake_message_noise_reason as _channel_wake_message_noise_reason
@@ -107,8 +105,7 @@ from ciel_runtime_support.channel_runtime_environment import ChannelRuntimeEnvir
 from ciel_runtime_support.channel_session_context import ChannelSessionCompatibilityApi, ChannelSessionConfigPorts, ChannelSessionContext, ChannelSessionHttpPorts, ChannelSessionStatePorts
 from ciel_runtime_support.channel_terminal_context import ChannelTerminalCompatibilityApi, ChannelTerminalContext, ChannelTerminalDispatchPorts, ChannelTerminalIoPorts, ChannelTerminalPolicyPorts, ChannelTerminalPollingPorts, ChannelTerminalProcessPorts, ChannelTerminalWindowsPorts
 from ciel_runtime_support.channel_terminal_input import TerminalMouseInputFilter as _TerminalMouseInputFilter
-from ciel_runtime_support.channel_terminal_input import \
-    enter_bytes_from_user_input as _channel_enter_bytes_from_user_input  # noqa: F401 - compatibility export
+from ciel_runtime_support.channel_terminal_input import enter_bytes_from_user_input as _channel_enter_bytes_from_user_input  # noqa: F401 - compatibility export
 from ciel_runtime_support.channel_terminal_input import enter_label as _channel_enter_label
 from ciel_runtime_support.channel_terminal_input import platform_default_enter_bytes as _channel_platform_default_enter_bytes
 from ciel_runtime_support.channel_terminal_input import resolve_enter_bytes as resolve_channel_enter_bytes
@@ -143,11 +140,9 @@ from ciel_runtime_support.codex_config import codex_alternate_screen_value_from_
 from ciel_runtime_support.codex_config import codex_config_paths_for_launch  # noqa: F401 - compatibility export
 from ciel_runtime_support.codex_config import codex_mcp_servers_from_config_text  # noqa: F401 - compatibility export
 from ciel_runtime_support.codex_config import codex_config_override_keys as _codex_config_override_keys  # noqa: F401
-from ciel_runtime_support.codex_config import \
-    codex_mcp_servers_from_toml_data as _codex_mcp_servers_from_toml_data  # noqa: F401
+from ciel_runtime_support.codex_config import codex_mcp_servers_from_toml_data as _codex_mcp_servers_from_toml_data  # noqa: F401
 from ciel_runtime_support.codex_config import discover_codex_mcp_servers as project_discover_codex_mcp_servers
-from ciel_runtime_support.codex_config import \
-    fallback_codex_mcp_servers_from_config_text as _fallback_codex_mcp_servers_from_config_text  # noqa: F401
+from ciel_runtime_support.codex_config import fallback_codex_mcp_servers_from_config_text as _fallback_codex_mcp_servers_from_config_text  # noqa: F401
 from ciel_runtime_support.codex_config import normalize_codex_mcp_server as _normalize_codex_mcp_server  # noqa: F401
 from ciel_runtime_support.codex_config import parse_simple_toml_value as _parse_simple_toml_value  # noqa: F401
 from ciel_runtime_support.codex_config import toml_scalar_without_comment as _toml_scalar_without_comment  # noqa: F401
@@ -326,8 +321,7 @@ from ciel_runtime_support.protocols.chat_projection import anthropic_messages_to
 from ciel_runtime_support.protocols.chat_projection import missing_openai_tool_result_message as project_missing_openai_tool_result_message
 from ciel_runtime_support.protocols.chat_projection import orphan_openai_tool_message_to_user as project_orphan_openai_tool_message_to_user
 from ciel_runtime_support.protocols.chat_projection import repair_openai_tool_call_adjacency as project_repair_openai_tool_call_adjacency
-from ciel_runtime_support.protocols.conversation_policy import \
-    latest_plan_attachment  # noqa: F401 - compatibility export
+from ciel_runtime_support.protocols.conversation_policy import latest_plan_attachment  # noqa: F401 - compatibility export
 from ciel_runtime_support.protocols.conversation_policy import message_attachment  # noqa: F401 - compatibility export
 from ciel_runtime_support.protocols.conversation_policy import ConversationPolicyServices, canonical_tool_signature
 from ciel_runtime_support.protocols.conversation_policy import claude_code_state_messages as project_claude_code_state_messages
@@ -361,17 +355,13 @@ from ciel_runtime_support.provider_context import required_context_for_preset as
 from ciel_runtime_support.provider_context import resolve_context_capacity
 from ciel_runtime_support.provider_context import small_context_output_token_cap as resolve_small_context_output_cap
 from ciel_runtime_support.provider_contract_projection import ProviderContractProjectionApi
-from ciel_runtime_support.provider_endpoint_policy import \
-    ProviderEndpointPolicy as ModelEndpointPolicy  # noqa: F401 - compatibility export
+from ciel_runtime_support.provider_endpoint_policy import ProviderEndpointPolicy as ModelEndpointPolicy  # noqa: F401 - compatibility export
 from ciel_runtime_support.provider_endpoint_policy import ProviderEndpointPorts as ModelEndpointPorts
-from ciel_runtime_support.provider_endpoint_policy import \
-    ProviderEndpointPresentation as ModelEndpointPresentation  # noqa: F401
+from ciel_runtime_support.provider_endpoint_policy import ProviderEndpointPresentation as ModelEndpointPresentation  # noqa: F401
 from ciel_runtime_support.provider_endpoint_policy import build_default_provider_endpoint_policy
 from ciel_runtime_support.provider_endpoint_probe import ProviderEndpointProbePolicy, ProviderEndpointProbeProjection, ProviderEndpointProbeQueries, ProviderEndpointRouteAdapter, ProviderEndpointRoutePorts
-from ciel_runtime_support.provider_launch_endpoint import \
-    ProviderLaunchEndpointGroups  # noqa: F401 - compatibility export
-from ciel_runtime_support.provider_launch_endpoint import \
-    ProviderLaunchEndpointPolicy  # noqa: F401 - compatibility export
+from ciel_runtime_support.provider_launch_endpoint import ProviderLaunchEndpointGroups  # noqa: F401 - compatibility export
+from ciel_runtime_support.provider_launch_endpoint import ProviderLaunchEndpointPolicy  # noqa: F401 - compatibility export
 from ciel_runtime_support.provider_launch_endpoint import ProviderLaunchEndpointQueries, build_default_provider_launch_endpoint_policy
 from ciel_runtime_support.provider_limits import ProviderKeyServices, choose_provider_api_key
 from ciel_runtime_support.provider_model_catalog_context import ProviderModelCachePorts, ProviderModelCatalogCompatibilityApi, ProviderModelCatalogCompatibilityPorts, ProviderModelCatalogContext, ProviderModelRegistryConfig, ProviderModelRegistryPorts
@@ -392,8 +382,7 @@ from ciel_runtime_support.provider_readiness_context import ProviderConfiguratio
 from ciel_runtime_support.provider_request_access import ProviderRequestAccessEffects, ProviderRequestAccessPorts, ProviderRequestAccessService
 from ciel_runtime_support.provider_request_builder import OllamaRequestPorts, OpenAIRequestPorts, ProviderOptionPorts, ProviderRequestBudget, ProviderRequestBuilder, ProviderRequestCompatibilityApi
 from ciel_runtime_support.provider_runtime_info import ProviderRuntimeInfoPorts, ProviderRuntimeInfoService
-from ciel_runtime_support.provider_runtime_modes import \
-    ProviderNativeCompatibilityPolicy  # noqa: F401 - compatibility export
+from ciel_runtime_support.provider_runtime_modes import ProviderNativeCompatibilityPolicy  # noqa: F401 - compatibility export
 from ciel_runtime_support.provider_runtime_modes import RuntimeModePolicy  # noqa: F401 - compatibility export
 from ciel_runtime_support.provider_runtime_modes import build_default_native_compatibility_policy, build_default_runtime_mode_policy
 from ciel_runtime_support.provider_sampling_policy import ProviderSamplingPolicy
@@ -509,19 +498,14 @@ from ciel_runtime_support.runtime_restart import forced_upgrade_environment
 from ciel_runtime_support.runtime_restart import running_from_npm_package as detect_running_from_npm_package
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
 from ciel_runtime_support.session_import import ImportSessionHttpController, ImportSessionHttpPorts, ImportSessionLimits, ImportSessionRepository, ImportSessionService, import_record_line, import_tool_text, normalize_import_source
-from ciel_runtime_support.slash_command_assets import \
-    ADVISOR_NATIVE_DISABLED_SLASH_COMMAND  # noqa: F401 - compatibility export
+from ciel_runtime_support.slash_command_assets import ADVISOR_NATIVE_DISABLED_SLASH_COMMAND  # noqa: F401 - compatibility export
 from ciel_runtime_support.slash_command_assets import LEGACY_ADVISOR_CALL_MARKER  # noqa: F401 - compatibility export
-from ciel_runtime_support.slash_command_assets import \
-    LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER  # noqa: F401 - compatibility export
+from ciel_runtime_support.slash_command_assets import LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER  # noqa: F401 - compatibility export
 from ciel_runtime_support.slash_command_assets import LEGACY_LIVE_API_KEYS_MARKER  # noqa: F401 - compatibility export
-from ciel_runtime_support.slash_command_assets import \
-    LEGACY_LIVE_LLM_OPTIONS_MARKER  # noqa: F401 - compatibility export
+from ciel_runtime_support.slash_command_assets import LEGACY_LIVE_LLM_OPTIONS_MARKER  # noqa: F401 - compatibility export
 from ciel_runtime_support.slash_command_assets import LEGACY_MARKER_PREFIX  # noqa: F401 - compatibility export
-from ciel_runtime_support.slash_command_assets import \
-    LEGACY_ROUTER_DEBUG_ACCESS_MARKER  # noqa: F401 - compatibility export
-from ciel_runtime_support.slash_command_assets import \
-    ROUTER_DEBUG_NATIVE_DISABLED_SLASH_COMMAND  # noqa: F401 - compatibility export
+from ciel_runtime_support.slash_command_assets import LEGACY_ROUTER_DEBUG_ACCESS_MARKER  # noqa: F401 - compatibility export
+from ciel_runtime_support.slash_command_assets import ROUTER_DEBUG_NATIVE_DISABLED_SLASH_COMMAND  # noqa: F401 - compatibility export
 from ciel_runtime_support.slash_command_assets import (ADVISOR_REQUEST_MARKERS, ADVISOR_SLASH_COMMAND,  # noqa: F401
                                                        API_KEYS_SLASH_COMMAND, CHANNEL_CLEAR_REQUEST_MARKERS,  # noqa: F401
                                                        CHANNEL_CLEAR_SLASH_COMMAND,  # noqa: F401
@@ -546,8 +530,7 @@ from ciel_runtime_support.tool_dialects import TOOL_DIALECTS
 from ciel_runtime_support.tool_dialects import match_available_tool_name as _match_available_tool_name
 from ciel_runtime_support.tool_dialects import mcp_server_normalized_key
 from ciel_runtime_support.tool_exposure_policy import ToolExposurePolicy, ToolExposurePorts
-from ciel_runtime_support.tool_guard_hooks import \
-    TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER  # noqa: F401 - compatibility export
+from ciel_runtime_support.tool_guard_hooks import TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER  # noqa: F401 - compatibility export
 from ciel_runtime_support.tool_guard_hooks import TOOL_GUARD_EVENTS_WITHOUT_MATCHER  # noqa: F401 - compatibility export
 from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy  # noqa: F401 - compatibility export
 from ciel_runtime_support.tool_request_projection import UltracodeSessionPolicy, forced_tool_choice_name, has_tool, synthetic_tool_use_response, tool_names_in_body
@@ -570,19 +553,13 @@ from ciel_runtime_support.upstream_stream_io import set_stream_read_timeout as p
 from ciel_runtime_support.upstream_stream_io import sleep_until_disconnect as project_sleep_until_disconnect
 from ciel_runtime_support.upstream_stream_io import stream_idle_timeout as project_stream_idle_timeout
 from ciel_runtime_support.usage_events import JsonlUsageEventSink
-from ciel_runtime_support.visible_stream_filters import \
-    VISIBLE_THINKING_MARKUP_PREFIXES  # noqa: F401 - compatibility export
-from ciel_runtime_support.visible_stream_filters import \
-    VISIBLE_THINKING_MARKUP_TAG_RE  # noqa: F401 - compatibility export
-from ciel_runtime_support.visible_stream_filters import \
-    VISIBLE_TOOL_CALL_ARTIFACT_HOLD_CHARS  # noqa: F401 - compatibility export
-from ciel_runtime_support.visible_stream_filters import \
-    VISIBLE_TOOL_CALL_ARTIFACT_SUFFIX_RE  # noqa: F401 - compatibility export
-from ciel_runtime_support.visible_stream_filters import \
-    strip_visible_tool_call_artifact_suffix  # noqa: F401 - compatibility export
+from ciel_runtime_support.visible_stream_filters import VISIBLE_THINKING_MARKUP_PREFIXES  # noqa: F401 - compatibility export
+from ciel_runtime_support.visible_stream_filters import VISIBLE_THINKING_MARKUP_TAG_RE  # noqa: F401 - compatibility export
+from ciel_runtime_support.visible_stream_filters import VISIBLE_TOOL_CALL_ARTIFACT_HOLD_CHARS  # noqa: F401 - compatibility export
+from ciel_runtime_support.visible_stream_filters import VISIBLE_TOOL_CALL_ARTIFACT_SUFFIX_RE  # noqa: F401 - compatibility export
+from ciel_runtime_support.visible_stream_filters import strip_visible_tool_call_artifact_suffix  # noqa: F401 - compatibility export
 from ciel_runtime_support.visible_stream_filters import VisibleThinkingMarkupFilter, VisibleToolCallArtifactFilter, strip_visible_thinking_markup
-from ciel_runtime_support.visible_stream_filters import \
-    visible_thinking_markup_partial_start as _visible_thinking_markup_partial_start  # noqa: F401
+from ciel_runtime_support.visible_stream_filters import visible_thinking_markup_partial_start as _visible_thinking_markup_partial_start  # noqa: F401
 from ciel_runtime_support.web_endpoints import build_web_endpoint_report, configure_requested_web_endpoints
 from ciel_runtime_support.web_ui import render_router_home_page, render_web_chat_page
 from ciel_runtime_support.web_ui_controller import WebUiConstants, WebUiController, WebUiDisplayPorts, WebUiHttpPorts, WebUiProjectionPorts
@@ -624,11 +601,8 @@ def provider_urlopen(req: urllib.request.Request, timeout: float, provider: str 
     )
 
 ip_family_connectivity = provider_network.ip_family_connectivity
-
 def provider_ip_family_probe_lines(provider: str, pcfg: dict[str, Any]) -> list[str]: return provider_network.provider_ip_family_probe_lines(provider, pcfg, default_base_url)
-
 def ciel_runtime_source_fingerprint() -> str: return runtime_primitives.source_fingerprint(Path(__file__))
-
 SOURCE_FINGERPRINT = ciel_runtime_source_fingerprint()
 LOG_LEVEL_DEFAULT = LOG_LEVELS["ERROR"]
 _LOG_LEVEL_CACHE: dict[str, Any] = {"value": None, "checked_at": 0.0, "file_mtime": 0.0}
@@ -687,12 +661,9 @@ def model_preset(model_id: str) -> dict[str, Any]:
     return runtime_primitives.model_preset(model_id, MODEL_PRESETS, model_lookup_ids)
 
 def compat_max_tokens_for_model(model_id: str) -> int: return model_preset(model_id).get("compat_max_tokens", 16)
-
 ollama_library_model_parts = ollama_catalog_policy.library_model_parts
 context_label_to_tokens = ollama_catalog_policy.context_label_to_tokens
-
 def recommended_timeout_ms_for_context(context_tokens: int | None) -> int: return ollama_catalog_policy.recommended_timeout_ms(context_tokens, DEFAULT_REQUEST_TIMEOUT_MS)
-
 ollama_model_catalog_key = ollama_catalog_policy.model_catalog_key
 
 def ollama_catalog_context() -> OllamaCatalogContext:
@@ -806,17 +777,11 @@ def tool_side_effect_dedupe_service() -> ToolSideEffectDedupeService:
     )
 
 _mcp_tool_leaf_name = McpNotificationWaitService.tool_leaf_name
-
 def _is_mcp_notification_wait_tool(tool_name: str) -> bool: return mcp_notification_wait_service().is_wait_tool(tool_name)
-
 def _mcp_notification_wait_timeout_cap_ms() -> int: return mcp_notification_wait_service().policy.timeout_cap_ms()
-
 def _mcp_notification_wait_duplicate_cap_ms() -> int: return mcp_notification_wait_service().policy.duplicate_cap_ms()
-
 def _mcp_notification_wait_duplicate_window_seconds() -> float: return mcp_notification_wait_service().policy.duplicate_window_seconds()
-
 def _mcp_notification_wait_effective_cap_ms(tool_name: str) -> tuple[int, bool]: return mcp_notification_wait_service().effective_cap_ms(tool_name)
-
 def cap_mcp_notification_wait_tool_input(tool_name: str, tool_input: dict[str, Any]) -> dict[str, Any]: return mcp_notification_wait_service().cap_input(tool_name, tool_input)
 
 def mcp_notification_wait_service() -> McpNotificationWaitService:
@@ -834,7 +799,6 @@ def ui_text(key: str, lang: str | None = None) -> str:
     return UI_TEXT.get(lang, UI_TEXT["en"]).get(key, UI_TEXT["en"].get(key, key))
 
 DEFAULT_CONFIG: dict[str, Any] = build_default_config(provider_default_configurations())
-
 def deep_merge(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]: return merge_config_values(a, b)
 
 def apply_config_migrations(cfg: dict[str, Any]) -> None:
@@ -854,7 +818,6 @@ def apply_config_migrations(cfg: dict[str, Any]) -> None:
     )
 
 _CONFIG_REPOSITORY_PROVIDER = ConfigRepositoryProvider()
-
 def _normalize_loaded_config(cfg: dict[str, Any]) -> None: normalize_loaded_config(cfg, normalize_model_id)
 
 def config_repository() -> JsonConfigRepository:
@@ -867,11 +830,8 @@ def config_repository() -> JsonConfigRepository:
     )
 
 def json_artifact_repository(path: Path) -> SecureJsonRepository: return SecureJsonRepository(path=path, effects=SecureJsonEffects(log=router_log))
-
 def load_config() -> dict[str, Any]: return config_repository().load()
-
 def invalidate_config_cache() -> None: config_repository().invalidate()
-
 def save_config(cfg: dict[str, Any]) -> None: config_repository().save(cfg)
 
 def provider_model_catalog_context() -> ProviderModelCatalogContext:
@@ -935,7 +895,6 @@ def model_object(provider: str, model_id: str, pcfg: dict[str, Any] | None = Non
     return obj
 
 join_url = runtime_primitives.join_url
-
 def inbound_query_has_beta_flag(request_path: str) -> bool: return provider_query_policy().inbound_has_beta(request_path)
 
 def provider_query_policy() -> ProviderQueryPolicy:
@@ -952,9 +911,7 @@ def provider_query_policy() -> ProviderQueryPolicy:
     )
 
 def upstream_messages_query(pcfg: dict[str, Any], request_path: str, provider: str | None=None) -> str: return provider_query_policy().upstream_query(pcfg, request_path, provider)
-
 def upstream_query_string_status(provider: str, pcfg: dict[str, Any]) -> str: return provider_query_policy().status(provider, pcfg)
-
 read_env_file = parse_dotenv_file
 meaningful_key_value = project_meaningful_key_value
 api_key_clear_requested = project_api_key_clear_requested
@@ -1010,7 +967,6 @@ def apply_provider_adapter_request_policy(provider: str, pcfg: dict[str, Any], b
     return dict(normalized)
 
 def provider_has_api_key(provider: str, pcfg: dict[str, Any]) -> bool: return bool(provider_config_api_keys(provider, pcfg))
-
 def provider_api_key_count(provider: str, pcfg: dict[str, Any]) -> int: return len(provider_config_api_keys(provider, pcfg))
 
 def provider_primary_api_key(provider: str, pcfg: dict[str, Any]) -> str:
@@ -1095,7 +1051,6 @@ def http_json(url: str, headers: dict[str, str] | None = None, timeout: float = 
         return json.loads(r.read().decode("utf-8"))
 
 def log_level_repository() -> LogLevelRepository: return LogLevelRepository(CONFIG_DIR, LOG_LEVEL_PATH, _LOG_LEVEL_CACHE, LOG_LEVEL_DEFAULT, os.environ)
-
 _LOG_LEVEL_API = LogLevelApi(log_level_repository)
 current_log_level = _LOG_LEVEL_API.current
 reset_log_level_cache = _LOG_LEVEL_API.reset_cache
@@ -1125,7 +1080,6 @@ def provider_tool_policy() -> ProviderToolPolicy:
     )
 
 def resolve_blocked_tools(provider: str, pcfg: dict[str, Any]) -> set[str]: return provider_tool_policy().blocked_tools(provider, pcfg)
-
 _mcp_tool_name_server_normalized_key = mcp_server_normalized_key
 
 def resolve_emitted_tool_name(raw_name: str, source_body: dict[str, Any] | None) -> str:
@@ -1140,11 +1094,8 @@ def should_repair_anthropic_passthrough_tool_input(provider: str, raw_name: str,
     )
 
 def ultracode_session_policy() -> UltracodeSessionPolicy: return UltracodeSessionPolicy(anthropic_content_to_text)
-
 def body_ultracode_runtime_enabled(body: dict[str, Any]) -> bool: return ultracode_session_policy().runtime_enabled(body)
-
 def ultracode_workflow_preferred(body: dict[str, Any]) -> bool: return ultracode_session_policy().workflow_preferred(body)
-
 _message_content_blocks = project_message_content_blocks
 anthropic_thinking_requested = project_anthropic_thinking_requested
 anthropic_thinking_block_count = project_anthropic_thinking_block_count
@@ -1176,9 +1127,7 @@ def normalize_thinking_for_non_anthropic_provider(provider: str, pcfg: dict[str,
     return anthropic_thinking_policy().normalize_request(provider, pcfg, body)
 
 normalize_thinking_for_non_anthropic_native_provider = normalize_thinking_for_non_anthropic_provider
-
 def provider_supports_tool_choice(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> bool: return provider_tool_policy().supports_tool_choice(provider, pcfg, body)
-
 def provider_tool_choice_status(provider: str, pcfg: dict[str, Any]) -> str: return provider_tool_policy().tool_choice_status(provider, pcfg)
 
 def normalize_tool_choice_for_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
@@ -1189,7 +1138,6 @@ def normalize_response_thinking_for_non_anthropic_provider(provider: str, pcfg: 
 
 clear_suppressed_thinking_passback_cache = SUPPRESSED_THINKING_REPOSITORY.clear
 _copy_thinking_blocks = project_copy_thinking_blocks
-
 def remember_suppressed_thinking_passback(provider: str, model: str, blocks: list[Any]) -> None: anthropic_thinking_policy().remember(provider, model, blocks)
 
 def rehydrate_suppressed_thinking_passback(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
@@ -1312,7 +1260,6 @@ def forced_plan_mode_controller() -> ForcedPlanModeController:
     )
 
 def filter_blocked_tools(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]: return tool_exposure_policy().filter(provider, pcfg, body)
-
 def tool_exposure_policy() -> ToolExposurePolicy: return ToolExposurePolicy(ToolExposurePorts(resolve_blocked_tools, ultracode_workflow_preferred, plan_mode_active, router_log))
 
 def provider_model_metadata_context() -> ProviderModelMetadataContext:
@@ -1468,7 +1415,6 @@ def colorize_status_text(text: str) -> str:
     )
 
 def rate_limit_notice(waited: float, used: int = 0, rpm: int | None = None, show_status: bool = False) -> str: return ""
-
 def is_url_up(url: str) -> bool: return runtime_primitives.url_is_up(url, http_json)
 
 def nvidia_proxy_runtime() -> NvidiaProxyRuntime:
@@ -1544,7 +1490,6 @@ def materialize_runtime_command(
     )
 
 def runtime_command_factory() -> RuntimeCommandFactory: return RuntimeCommandFactory(RuntimeCommandFactoryPorts(parse_api_key_list, RUNTIME_ADAPTERS.create))
-
 _RUNTIME_MODE_POLICY = build_default_runtime_mode_policy(parse_bool)
 native_anthropic_enabled = _RUNTIME_MODE_POLICY.native_anthropic
 anthropic_routed_enabled = _RUNTIME_MODE_POLICY.anthropic_routed
@@ -1726,7 +1671,6 @@ resolve_requested_model = _PROVIDER_MODEL_SELECTION_API.resolve_requested_model
 resolve_tool_model_references = _PROVIDER_MODEL_SELECTION_API.resolve_tool_model_references
 list_model_objects = _PROVIDER_MODEL_SELECTION_API.list_model_objects
 list_model_objects_for_request = _PROVIDER_MODEL_SELECTION_API.list_model_objects_for_request
-
 def provider_upstream_request_base(provider: str, pcfg: dict[str, Any]) -> str: return configured_provider_adapter(provider, pcfg).default_base_url().rstrip('/')
 
 def native_anthropic_base_url(provider: str, pcfg: dict[str, Any]) -> str:
@@ -1816,7 +1760,6 @@ def auto_detect_native_compat_for_base_url(provider: str, pcfg: dict[str, Any]) 
     )
 
 endpoint_probe_status_label = ProviderEndpointProbePolicy.status_label
-
 def compatibility_endpoint_probe_headers(provider: str, pcfg: dict[str, Any]) -> dict[str, str]: return provider_endpoint_probe_policy().headers_for(provider, pcfg)
 
 def compatibility_endpoint_probe_lines(provider: str, pcfg: dict[str, Any], timeout: float = 1.5) -> list[str]:
@@ -1828,29 +1771,17 @@ def compatibility_endpoint_probe_lines(provider: str, pcfg: dict[str, Any], time
     )
 
 def http_response_adapter() -> HttpResponseAdapter: return HttpResponseAdapter(router_log)
-
 def channel_delivery_guard() -> ChannelDeliveryGuard: return ChannelDeliveryGuard(router_log)
-
 def write_json(handler: BaseHTTPRequestHandler, obj: Any, status: int = 200) -> None: http_response_adapter().write_json(handler, obj, status)
-
 def is_client_disconnect_error(exc: BaseException) -> bool: return http_response_adapter().is_client_disconnect(exc)
-
 def try_write_json(handler: BaseHTTPRequestHandler, obj: Any, status: int = 200) -> bool: return http_response_adapter().try_write_json(handler, obj, status)
-
 def _handler_response_status(handler: BaseHTTPRequestHandler) -> int | None: return http_response_adapter().response_status(handler)
-
 def _channel_delivery_metadata(metadata: dict[str, Any] | None) -> bool: return channel_delivery_guard().metadata_enabled(metadata)
-
 def begin_pending_channel_delivery(handler: BaseHTTPRequestHandler | None, body: dict[str, Any]) -> None: channel_delivery_guard().begin(handler, body)
-
 def mark_pending_channel_delivery_success(handler: BaseHTTPRequestHandler | None, reason: str='response_complete') -> None: channel_delivery_guard().success(handler, reason)
-
 def mark_pending_channel_delivery_failed(handler: BaseHTTPRequestHandler | None, reason: str='response_failed') -> None: channel_delivery_guard().failed(handler, reason)
-
 def pending_channel_delivery_confirmed(handler: BaseHTTPRequestHandler | None) -> bool: return channel_delivery_guard().confirmed(handler)
-
 def write_empty_response(handler: BaseHTTPRequestHandler, status: int = 202) -> None: http_response_adapter().write_empty(handler, status)
-
 def write_accepted_response(handler: BaseHTTPRequestHandler) -> None: http_response_adapter().write_accepted(handler)
 
 def reject_external_router_request(handler: BaseHTTPRequestHandler, cfg: dict[str, Any] | None = None) -> bool:
@@ -1871,7 +1802,6 @@ def runtime_activity_repository() -> RuntimeActivityRepository:
     )
 
 def write_router_activity(event: str, provider: str, model: str | None=None, **fields: Any) -> None: runtime_activity_repository().router_activity(event, provider, model, **fields)
-
 def write_context_compact_activity(provider: str, model: str | None=None, **fields: Any) -> None: runtime_activity_repository().context_compact(provider, model, **fields)
 
 def context_limit_for_status(provider: str, pcfg: dict[str, Any]) -> int | None:
@@ -1949,7 +1879,6 @@ def apply_timeout_profile_config(provider: str, profile_id: str) -> list[str]:
     return lines
 
 def handle_llm_config_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return llm_config_http_controller().handle_get(handler, path)
-
 def handle_llm_config_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool: return llm_config_http_controller().handle_post(handler, path, body)
 
 def web_ui_controller() -> WebUiController:
@@ -1982,9 +1911,7 @@ def web_ui_controller() -> WebUiController:
     )
 
 def render_router_home_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any]) -> str: return web_ui_controller().render_router_home(cfg, provider, pcfg)
-
 def render_web_chat_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any]) -> str: return web_ui_controller().render_web_chat(cfg, provider, pcfg)
-
 def handle_web_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return web_ui_controller().handle_get(handler, path)
 
 def parse_json_body(raw: bytes) -> dict[str, Any]:
@@ -2005,12 +1932,9 @@ def event_http_adapter() -> EventHttpAdapter:
     )
 
 def handle_events_get(handler: BaseHTTPRequestHandler, path: str, query: dict[str, list[str]]) -> bool: return event_http_adapter().handle_get(handler, path, query)
-
 _safe_segment = ChatFileRepository.safe_segment
 chat_file_max_bytes = ChatFileRepository.configured_max_bytes
-
 def chat_file_repository() -> ChatFileRepository: return ChatFileRepository(CHAT_FILES_DIR, ROUTER_BASE, ChatFilePorts(timestamp=time.time, timestamp_ns=time.time_ns))
-
 def store_chat_file_upload(body: dict[str, Any]) -> dict[str, Any]: return chat_file_repository().store_upload(body)
 
 def store_chat_file_from_path(path_value: Any, name: str | None = None, content_type: str | None = None) -> dict[str, Any]:
@@ -2018,7 +1942,6 @@ def store_chat_file_from_path(path_value: Any, name: str | None = None, content_
 
 chat_file_markdown_lines = ChatFileRepository.markdown_lines
 chat_file_message_text = ChatFileRepository.message_text
-
 def _chat_next_id_cache() -> int | None: return _CHAT_NEXT_ID
 
 def _set_chat_next_id_cache(next_id: int) -> None:
@@ -2049,7 +1972,6 @@ _CHANNEL_MESSAGE_API = ChannelMessageCompatibilityApi(channel_message_context)
 _chat_init_next_id = _CHANNEL_MESSAGE_API.initialize_next_id
 channel_message_repository = _CHANNEL_MESSAGE_API.repository
 _chat_scan_max_id = _CHANNEL_MESSAGE_API.max_id
-
 def _channel_launch_recent_seconds() -> float: return channel_runtime_environment_policy().launch_recent_seconds()
 
 def channel_runtime_environment_policy() -> ChannelRuntimeEnvironmentPolicy:
@@ -2127,7 +2049,6 @@ def codex_mcp_split_proxy_server(path: str) -> tuple[str, dict[str, Any]] | None
     return name, server
 
 codex_mcp_local_sse_hold_seconds = McpSplitProxyHttpAdapter.local_sse_hold_seconds
-
 def codex_mcp_split_proxy_enabled() -> bool: return env_bool(os.environ.get("CIEL_RUNTIME_CODEX_MCP_SPLIT_PROXY"), False)
 
 def mcp_split_proxy_http_adapter() -> McpSplitProxyHttpAdapter:
@@ -2199,38 +2120,18 @@ def _mcp_stream_read_timeout_error(exc: BaseException) -> bool:
 
 def channel_mcp_transport() -> ChannelMcpTransport:
     return ChannelMcpTransport(
-        ChannelMcpTransportConfig(
-            VERSION,
-            MCP_LEGACY_SSE_PROTOCOL_VERSION,
-            MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
-            _NATIVE_ROUTER_CHANNEL_NAMES,
-        ),
+        ChannelMcpTransportConfig(VERSION, MCP_LEGACY_SSE_PROTOCOL_VERSION, MCP_STREAMABLE_HTTP_PROTOCOL_VERSION, _NATIVE_ROUTER_CHANNEL_NAMES),
         ChannelMcpTransportState(_CHANNEL_SSE_CONNECTIONS, _CHANNEL_SSE_LOCK),
-        ChannelMcpHttpPorts(
-            legacy_post=_mcp_sse_post_json,
-            streamable_post=_mcp_streamable_post_json,
-            error_body=_http_error_body_text,
-            session_not_found=_streamable_http_session_not_found,
-            parse_bool=parse_bool,
-        ),
-        ChannelMcpEffects(
-            set_state=_channel_sse_set_state,
-            take_response=_channel_sse_take_rpc_response,
-            mark_session_lost=_channel_streamable_http_mark_session_lost,
-            absolute_endpoint=_channel_sse_absolute_endpoint,
-            record_session=_record_channel_streamable_session,
-            store_response=_channel_sse_store_rpc_response,
-            project_payload=_sse_payload_to_chat_payload,
-            append_message=append_chat_message,
-            log=router_log,
-        ),
+        ChannelMcpHttpPorts(_mcp_sse_post_json, _mcp_streamable_post_json, _http_error_body_text, _streamable_http_session_not_found, parse_bool),
+        ChannelMcpEffects(_channel_sse_set_state, _channel_sse_take_rpc_response, _channel_streamable_http_mark_session_lost,
+                          _channel_sse_absolute_endpoint, _record_channel_streamable_session, _channel_sse_store_rpc_response,
+                          _sse_payload_to_chat_payload, append_chat_message, router_log),
     )
 
 def _channel_sse_rpc_request(name: str, method: str, params: dict[str, Any] | None = None, timeout: float | None = None) -> dict[str, Any]:
     return channel_mcp_transport().rpc_request(name, method, params, timeout)
 
 def _channel_sse_maybe_initialize_mcp(name: str, endpoint_text: str) -> None: channel_mcp_transport().maybe_initialize(name, endpoint_text)
-
 def _channel_streamable_http_initialize_mcp(name: str) -> None: channel_mcp_transport().initialize_streamable(name)
 
 def _channel_sse_dispatch(name: str, event_name: str, data_lines: list[str], event_id: str | None = None) -> None:
@@ -2247,30 +2148,16 @@ stop_channel_sse_connection = _CHANNEL_CONNECTION_API.stop
 
 def channel_notification_projection() -> ChannelNotificationProjection:
     return ChannelNotificationProjection(
-        ChannelNotificationConfig(
-            _NATIVE_CHANNEL_NOTIFICATION_METHOD,
-            _CHANNEL_CONTROL_KINDS,
-        ),
-        ChannelNotificationPorts(
-            json_safe=_json_safe_metadata,
-            string_list=_as_string_list,
-            external_provenance=_channel_message_has_external_provenance,
-            wake_noise_reason=_channel_wake_message_noise_reason,
-            superseded_ids=_channel_superseded_message_ids,
-            log=router_log,
-        ),
+        ChannelNotificationConfig(_NATIVE_CHANNEL_NOTIFICATION_METHOD, _CHANNEL_CONTROL_KINDS),
+        ChannelNotificationPorts(_json_safe_metadata, _as_string_list, _channel_message_has_external_provenance, _channel_wake_message_noise_reason,
+                                 _channel_superseded_message_ids, router_log),
     )
 
 def _native_channel_meta_value(value: Any) -> str: return channel_notification_projection().meta_value(value)
-
 def _native_channel_meta(message: dict[str, Any]) -> dict[str, str]: return channel_notification_projection().meta(message)
-
 def _native_channel_param_value(value: Any) -> Any: return channel_notification_projection().param_value(value)
-
 def _channel_mcp_notification(message: dict[str, Any]) -> dict[str, Any]: return channel_notification_projection().notification(message)
-
 def _channel_mcp_capabilities() -> dict[str, Any]: return channel_notification_projection().capabilities()
-
 def _channel_compact_request_ttl_seconds() -> float: return compact_request_ttl(os.environ.get('CIEL_RUNTIME_CHANNEL_COMPACT_REQUEST_TTL_SECONDS'))
 
 def channel_compact_request_repository() -> ChannelCompactRequestRepository:
@@ -2285,13 +2172,9 @@ def channel_compact_request_repository() -> ChannelCompactRequestRepository:
     )
 
 def _channel_compact_request_payload(source: str, reason: str) -> dict[str, Any]: return channel_compact_request_repository().payload(source, reason)
-
 def _write_channel_compact_request(source: str = "mcp", reason: str = "") -> dict[str, Any]: return channel_compact_request_repository().queue(source, reason)
-
 def _read_channel_compact_request() -> dict[str, Any] | None: return channel_compact_request_repository().read()
-
 def _clear_channel_compact_request(request_id: str | None = None) -> bool: return channel_compact_request_repository().clear(request_id)
-
 _channel_mcp_tool_schemas = channel_mcp_tool_schemas
 _channel_mcp_tool_response = channel_mcp_tool_response
 
@@ -2311,26 +2194,12 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
 
 def channel_mcp_context() -> ChannelMcpContext:
     return ChannelMcpContext(
-        runtime=ChannelMcpRuntimePorts(
-            VERSION, os.getpid, time.time_ns, _CHAT_CONDITION, router_log,
-        ),
-        state=ChannelMcpStatePorts(
-            _CHANNEL_MCP_SESSIONS, _CHANNEL_MCP_LOCK, _CHANNEL_MCP_CURSOR_LOCK,
-            CHANNEL_MCP_CURSOR_PATH, _channel_mcp_cached_cursor,
-            _channel_mcp_cache_cursor, _chat_scan_max_id,
-        ),
-        projection=ChannelMcpProjectionPorts(
-            _channel_mcp_capabilities, _channel_mcp_notifications_for_messages,
-            read_chat_messages,
-        ),
-        rpc=ChannelMcpRpcPorts(
-            _channel_mcp_tool_schemas, _channel_mcp_tool_call_response,
-            write_json, write_accepted_response,
-        ),
-        resume=ChannelMcpResumePorts(
-            _query_params, _first_param, _channel_mcp_ensure_cursor_initialized,
-            _channel_mcp_update_cursor,
-        ),
+        runtime=ChannelMcpRuntimePorts(VERSION, os.getpid, time.time_ns, _CHAT_CONDITION, router_log),
+        state=ChannelMcpStatePorts(_CHANNEL_MCP_SESSIONS, _CHANNEL_MCP_LOCK, _CHANNEL_MCP_CURSOR_LOCK, CHANNEL_MCP_CURSOR_PATH,
+                                   _channel_mcp_cached_cursor, _channel_mcp_cache_cursor, _chat_scan_max_id),
+        projection=ChannelMcpProjectionPorts(_channel_mcp_capabilities, _channel_mcp_notifications_for_messages, read_chat_messages),
+        rpc=ChannelMcpRpcPorts(_channel_mcp_tool_schemas, _channel_mcp_tool_call_response, write_json, write_accepted_response),
+        resume=ChannelMcpResumePorts(_query_params, _first_param, _channel_mcp_ensure_cursor_initialized, _channel_mcp_update_cursor),
         cursor_repository=channel_cursor_repository,
     )
 
@@ -2341,9 +2210,7 @@ _send_channel_mcp_sse_headers = _CHANNEL_MCP_API.send_sse_headers
 _channel_mcp_enqueue = _CHANNEL_MCP_API.enqueue
 _channel_mcp_take_outbox = _CHANNEL_MCP_API.take_outbox
 _channel_mcp_initialize_response = _CHANNEL_MCP_API.initialize_response
-
 def channel_cursor_repository(path: Path) -> channel_cursor_storage.ChannelCursorRepository: return channel_cursor_storage.ChannelCursorRepository(path=path, log=router_log)
-
 def _channel_mcp_cached_cursor() -> int | None: return _CHANNEL_MCP_CURSOR_LAST_ID
 
 def _channel_mcp_cache_cursor(last_id: int) -> None:
@@ -2359,7 +2226,6 @@ _channel_mcp_update_cursor = _CHANNEL_MCP_API.update_cursor
 channel_mcp_resume_policy = _CHANNEL_MCP_API.resume_policy
 _channel_mcp_client_last_event_id = _CHANNEL_MCP_API.client_last_event_id
 _channel_mcp_session_start_last_id = _CHANNEL_MCP_API.session_start_last_id
-
 def _channel_mcp_message_skip_reason(message: dict[str, Any]) -> str | None: return channel_notification_projection().skip_reason(message)
 
 def _channel_mcp_notifications_for_messages(messages: list[dict[str, Any]], after_id: int) -> list[tuple[int, dict[str, Any]]]:
@@ -2368,7 +2234,6 @@ def _channel_mcp_notifications_for_messages(messages: list[dict[str, Any]], afte
 channel_mcp_http_controller = _CHANNEL_MCP_API.controller
 handle_channel_mcp_get = _CHANNEL_MCP_API.get
 handle_channel_mcp_post = _CHANNEL_MCP_API.post
-
 def _query_params(handler: BaseHTTPRequestHandler) -> dict[str, list[str]]: return urllib.parse.parse_qs(urllib.parse.urlparse(handler.path).query, keep_blank_values=True)
 
 def _first_param(params: dict[str, list[str]], name: str, default: str = "") -> str:
@@ -2383,14 +2248,12 @@ def chat_http_controller() -> ChatHttpController:
     )
 
 def handle_chat_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return chat_http_controller().get(handler, path)
-
 def handle_chat_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool: return chat_http_controller().post(handler, path, body)
 
 def plan_artifact_controller() -> PlanArtifactController:
     return PlanArtifactController(PlanArtifactServices(PLAN_ARTIFACTS_DIR, ROUTER_BASE, _safe_segment, write_json, write_text_response, append_chat_message))
 
 def handle_plan_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return plan_artifact_controller().get(handler, path)
-
 def handle_plan_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool: return plan_artifact_controller().post(handler, path, body)
 
 def estimate_tokens(body: Any, _cache: dict[int, int] | None = None) -> int:
@@ -2448,7 +2311,6 @@ truncate_for_prompt = ContextSummaryPolicy.truncate
 is_claude_code_persisted_output_text = ContextSummaryPolicy.is_persisted_output
 _message_tool_markers_for_summary = ContextSummaryPolicy.tool_markers
 _compact_chunk_ranges = ContextSummaryPolicy.chunk_ranges
-
 def context_compact_parallel_sessions(pcfg: dict[str, Any] | None, chunks: int) -> int: return 1
 
 CONTEXT_COMPACT_MAP_SYSTEM_PROMPT = (
@@ -2502,9 +2364,7 @@ def maybe_build_llm_compacted_messages(
     )
 
 def shortcut_text_services() -> ShortcutTextServices: return ShortcutTextServices(latest_user_text=latest_user_text)
-
 def latest_user_text_has_marker(body: dict[str, Any], markers: tuple[str, ...]) -> bool: return project_has_request_marker(body, markers, shortcut_text_services())
-
 def latest_user_text_marker_tail(body: dict[str, Any], markers: tuple[str, ...]) -> str: return project_request_marker_tail(body, markers, shortcut_text_services())
 
 def router_debug_value_from_body(body: dict[str, Any]) -> str:
@@ -2520,9 +2380,7 @@ def channel_clear_value_from_body(body: dict[str, Any]) -> str:
     )
 
 def live_llm_options_value_from_body(body: dict[str, Any]) -> str: return project_live_option_value(body, LIVE_LLM_OPTIONS_REQUEST_MARKERS, shortcut_text_services())
-
 def live_api_keys_value_from_body(body: dict[str, Any]) -> str: return project_live_api_keys_value(body, LIVE_API_KEYS_REQUEST_MARKERS, shortcut_text_services())
-
 def _split_import_session_arguments(value: str) -> tuple[str, str]: return project_split_import_session_arguments(value, posix=os.name != "nt")
 
 def import_session_args_from_body(body: dict[str, Any]) -> tuple[str, str]:
@@ -2531,17 +2389,11 @@ def import_session_args_from_body(body: dict[str, Any]) -> tuple[str, str]:
     )
 
 def is_advisor_request(body: dict[str, Any]) -> bool: return latest_user_text_has_marker(body, ADVISOR_REQUEST_MARKERS)
-
 def is_router_debug_request(body: dict[str, Any]) -> bool: return latest_user_text_has_marker(body, ROUTER_DEBUG_REQUEST_MARKERS)
-
 def is_version_request(body: dict[str, Any]) -> bool: return latest_user_text_has_marker(body, VERSION_REQUEST_MARKERS)
-
 def is_channel_clear_request(body: dict[str, Any]) -> bool: return latest_user_text_has_marker(body, CHANNEL_CLEAR_REQUEST_MARKERS)
-
 def is_live_llm_options_request(body: dict[str, Any]) -> bool: return latest_user_text_has_marker(body, LIVE_LLM_OPTIONS_REQUEST_MARKERS)
-
 def is_live_api_keys_request(body: dict[str, Any]) -> bool: return latest_user_text_has_marker(body, LIVE_API_KEYS_REQUEST_MARKERS)
-
 def is_import_session_request(body: dict[str, Any]) -> bool: return latest_user_text_has_marker(body, IMPORT_SESSION_REQUEST_MARKERS)
 
 def advisor_focus_from_body(body: dict[str, Any]) -> str:
@@ -2680,11 +2532,8 @@ def advisor_services() -> AdvisorServices:
     )
 
 def anthropic_advisor_messages_and_system(body: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str]]: return project_advisor_messages_and_system(body, advisor_services())
-
 advisor_tool_schema = project_advisor_tool_schema
-
 def body_with_advisor_tool(body: dict[str, Any], pcfg: dict[str, Any]) -> dict[str, Any]: return project_body_with_advisor_tool(body, pcfg, advisor_services())
-
 is_claude_code_advisor_server_tool = project_is_advisor_server_tool
 
 def strip_autonomous_advisor_server_tools(provider: str, body: dict[str, Any]) -> dict[str, Any]:
@@ -2697,21 +2546,13 @@ def strip_autonomous_advisor_server_tools(provider: str, body: dict[str, Any]) -
     )
 
 advisor_tool_focus_from_message = project_advisor_tool_focus
-
 def tool_review_context_from_message(message: dict[str, Any], trigger: str) -> str: return project_tool_review_context(message, trigger, advisor_services())
-
 def advisor_focus_for_message(message: dict[str, Any], trigger: str | None) -> tuple[str | None, str | None]: return project_advisor_focus(message, trigger, advisor_services())
-
 def assistant_tool_call_summary_for_prompt(message: dict[str, Any]) -> str: return project_assistant_tool_summary(message, advisor_services())
-
 def body_has_advisor_feedback(body: dict[str, Any]) -> bool: return project_body_has_advisor_feedback(body, advisor_services())
-
 anthropic_message_tool_names = project_anthropic_message_tool_names
-
 def advisor_trigger_for_message(body: dict[str, Any], message: dict[str, Any]) -> str | None: return project_advisor_trigger(body, message, advisor_services())
-
 def advisor_gate_possible_for_body(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> bool: return bool(advisor_gate_reason_for_body(provider, pcfg, body))
-
 def advisor_gate_reason_for_body(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> str: return project_advisor_gate_reason(provider, pcfg, body, advisor_services())
 
 def conversation_policy_services() -> ConversationPolicyServices:
@@ -2725,15 +2566,10 @@ def conversation_policy_services() -> ConversationPolicyServices:
     )
 
 def is_attachment_only_message(message: dict[str, Any]) -> bool: return project_is_attachment_only_message(message, conversation_policy_services())
-
 def plan_file_written_in_body(body: dict[str, Any], plan_file_path: str) -> bool: return project_plan_file_written_in_body(body, plan_file_path, conversation_policy_services())
-
 def claude_code_state_messages(body: dict[str, Any]) -> list[dict[str, str]]: return project_claude_code_state_messages(body, conversation_policy_services())
-
 def upstream_relevant_message(message: dict[str, Any]) -> bool: return project_upstream_relevant_message(message, conversation_policy_services())
-
 def collect_tool_result_context(body: dict[str, Any]) -> tuple[dict[str, str], set[str]]: return project_collect_tool_result_context(body, conversation_policy_services())
-
 def should_skip_upstream_message(message: dict[str, Any]) -> bool: return project_should_skip_upstream_message(message, conversation_policy_services())
 
 def format_tool_result_for_upstream(
@@ -2942,7 +2778,6 @@ def provider_stream_idle_timeout_seconds(pcfg: dict[str, Any]) -> float:
     )
 
 def set_upstream_stream_read_timeout(resp: Any, timeout: float) -> None: project_set_stream_read_timeout(resp, timeout)
-
 def router_client_connection_closed(handler: BaseHTTPRequestHandler) -> bool: return project_client_connection_closed(handler)
 
 def iter_upstream_lines_until_client_disconnect(handler: BaseHTTPRequestHandler, resp: Any, idle_timeout: float) -> Iterable[bytes]:
@@ -2993,7 +2828,6 @@ def ollama_request_think_value(provider: str, model: str | None, pcfg: dict[str,
 
 _OLLAMA_WIRE_API = OllamaWireCompatibilityApi(ollama_request_think_value, positive_int)
 apply_ollama_wire_options = _OLLAMA_WIRE_API.apply
-
 def ollama_request_think_enabled(model: str | None, pcfg: dict[str, Any]) -> bool: return bool(ollama_request_think_value("ollama", model, pcfg))
 
 def ollama_think_status(model: str | None, pcfg: dict[str, Any]) -> str:
@@ -3025,7 +2859,6 @@ def advisor_messages_for_provider(provider: str, body: dict[str, Any], focus_ove
     return advisor_request_builder().messages(provider, body, focus_override)
 
 def advisor_input_budget(provider: str, pcfg: dict[str, Any]) -> int: return advisor_request_builder().input_budget(provider, pcfg)
-
 def advisor_upstream_model(provider: str, model: str) -> str: return advisor_request_builder().model(provider, model)
 
 def advisor_request(provider: str, model: str, body: dict[str, Any], pcfg: dict[str, Any], focus_override: str = "") -> dict[str, Any]:
@@ -3038,7 +2871,6 @@ def advisor_request(provider: str, model: str, body: dict[str, Any], pcfg: dict[
     )
 
 def advisor_response_text(provider: str, data: Any) -> str: return advisor_request_builder().response_text(provider, data)
-
 def advisor_endpoint(provider: str, pcfg: dict[str, Any]) -> str: return advisor_request_builder().endpoint_url(provider, pcfg)
 
 def advisor_client() -> AdvisorClient:
@@ -3143,28 +2975,19 @@ def refine_message_with_advisor(provider: str, pcfg: dict[str, Any], original_bo
     )
 
 anthropic_text_response = project_anthropic_text_response
-
 def anthropic_response_writer() -> AnthropicResponseWriter: return AnthropicResponseWriter(write_json)
-
 def write_anthropic_text_response(handler: BaseHTTPRequestHandler, model: str, text: str, stream: bool) -> None: anthropic_response_writer().text(handler, model, text, stream)
-
 def write_anthropic_message_response(handler: BaseHTTPRequestHandler, message: dict[str, Any], stream: bool) -> None: anthropic_response_writer().message(handler, message, stream)
-
 def _write_anthropic_stream_block(handler: BaseHTTPRequestHandler, index: int, block: dict[str, Any]) -> None: anthropic_response_writer().block(handler, index, block)
-
 def write_anthropic_open_stream_start(handler: BaseHTTPRequestHandler, model: str, input_tokens: int=0) -> None: anthropic_response_writer().start(handler, model, input_tokens)
 
 def write_anthropic_stream_blocks(handler: BaseHTTPRequestHandler, blocks: list[dict[str, Any]], start_index: int = 0) -> int:
     return anthropic_response_writer().blocks(handler, blocks, start_index)
 
 def write_anthropic_open_stream_stop(handler: BaseHTTPRequestHandler, message: dict[str, Any] | None=None) -> None: anthropic_response_writer().stop(handler, message)
-
 prepend_anthropic_text = project_prepend_anthropic_text
-
 def import_session_max_bytes() -> int: return max(4096, positive_env_int("CIEL_RUNTIME_IMPORT_SESSION_MAX_BYTES", 512 * 1024))
-
 def import_session_max_chars() -> int: return max(4096, positive_env_int("CIEL_RUNTIME_IMPORT_SESSION_MAX_CHARS", 240000))
-
 normalize_import_session_source = normalize_import_source
 
 def import_session_repository() -> ImportSessionRepository:
@@ -3175,12 +2998,9 @@ def import_session_repository() -> ImportSessionRepository:
     )
 
 def latest_import_session_transcript_path(source: str) -> Path | None: return import_session_repository().latest(source)
-
 def resolve_import_session_transcript_path(source: str, path_text: str) -> tuple[Path | None, str]: return import_session_repository().resolve(source, path_text)
-
 _import_session_tool_text = import_tool_text
 _import_session_record_to_line = import_record_line
-
 def read_import_session_transcript(source: str, path: Path) -> tuple[str, dict[str, Any]]: return import_session_repository().read(source, path)
 
 def import_session_response_text(client_runtime: str, body: dict[str, Any]) -> str:
@@ -3233,24 +3053,17 @@ def router_shortcut_controller() -> RouterShortcutController:
     )
 
 def maybe_handle_router_debug_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool: return router_shortcut_controller().handle_router_debug(handler, body)
-
 def maybe_handle_version_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool: return router_shortcut_controller().handle_version(handler, body)
-
 _format_channel_backlog_status_lines = RouterShortcutController.channel_status_lines
-
 def maybe_handle_channel_clear_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool: return router_shortcut_controller().handle_channel_clear(handler, body)
-
 def maybe_handle_live_llm_options_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool: return router_shortcut_controller().handle_live_llm_options(handler, body)
-
 def live_api_key_status_lines(provider: str, pcfg: dict[str, Any]) -> list[str]: return live_api_key_controller().status(provider, pcfg)
 
 def live_api_key_controller() -> LiveApiKeyController:
     return LiveApiKeyController(LiveApiKeyPorts(load_config, get_current_provider, api_key_status_line, stored_api_key_mask, store_api_key_input_config))
 
 def handle_live_api_keys_action(value: str) -> tuple[list[str], bool]: return live_api_key_controller().handle(value)
-
 def maybe_handle_live_api_keys_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool: return router_shortcut_controller().handle_live_api_keys(handler, body)
-
 PSEUDO_TOOL_START = "<|tool_calls_section_begin|>"
 PSEUDO_TOOL_END = "<|tool_calls_section_end|>"
 PSEUDO_CALL_BEGIN = "<|tool_call_begin|>"
@@ -3542,15 +3355,10 @@ def router_health_policy() -> RouterHealthPolicy:
     )
 
 def router_health_summary(health: dict[str, Any] | None = None) -> str: return router_health_policy().summary(health)
-
 def router_up() -> bool: return router_health() is not None
-
 def router_health_matches_current(health: dict[str, Any] | None) -> bool: return router_health_policy().matches_current(health)
-
 _path_identity_text = RouterHealthPolicy.path_identity
-
 def router_health_config_matches_current(health: dict[str, Any] | None) -> bool: return router_health_policy().config_matches_current(health)
-
 def router_health_has_foreign_config(health: dict[str, Any] | None) -> bool: return router_health_policy().has_foreign_config(health)
 
 def invalid_nvidia_hosted_base_url(value: str | None) -> bool:
@@ -3760,9 +3568,7 @@ _read_mcp_servers_from_generated_file = _MCP_CONFIGURATION_API.read_generated_se
 discovered_ciel_runtime_managed_mcp_servers = _MCP_CONFIGURATION_API.discover_managed_servers
 write_native_mcp_config_from_discovery = _MCP_CONFIGURATION_API.write_native_config
 auto_discovered_mcp_channel_specs = _MCP_CONFIGURATION_API.auto_discovered_channel_specs
-
 def _channel_probe_initialize_payload() -> bytes: return _mcp_probe_initialize_payload_bytes(VERSION)
-
 CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS = 15.0
 
 def channel_probe_default_timeout() -> float:
@@ -3913,7 +3719,6 @@ def channel_proxy_ownership_repository() -> ChannelProxyOwnershipRepository:
     )
 
 def proxy_owned_channel_server_names() -> set[str]: return channel_proxy_ownership_repository().owned_names()
-
 def _proxy_server_config_disables_notifications(args_s: list[str]) -> bool: return channel_proxy_ownership_repository().server_config_disables_notifications(args_s)
 
 def channel_router_lifecycle() -> ChannelRouterLifecycle:
@@ -3925,9 +3730,7 @@ def channel_router_lifecycle() -> ChannelRouterLifecycle:
     )
 
 def router_managed_channel_server_names(cfg: dict[str, Any]) -> list[str]: return channel_router_lifecycle().managed_names(cfg)
-
 def start_router_managed_channel_sse(cfg: dict[str, Any]) -> list[dict[str, Any]]: return channel_router_lifecycle().start(cfg)
-
 channel_specs_for_launch = _CHANNEL_CONFIG_API.channel_specs_for_launch
 _CHANNEL_PROBE_API = ChannelProbeCompatibilityApi(service_factory=channel_probe_service)
 _builtin_router_probe_record = _CHANNEL_PROBE_API.builtin_record
@@ -3973,7 +3776,6 @@ def channel_status_text(cfg: dict[str, Any] | None = None) -> str:
     return f"{len(channels)} channel{'s' if len(channels) != 1 else ''}"
 
 def set_channel_development_enabled(enabled: bool) -> list[str]: return ["Channel wake delivery is always enabled by Ciel Runtime."]
-
 normalize_channel_delivery = _CHANNEL_CONFIG_API.normalize_channel_delivery
 channel_delivery_mode = _CHANNEL_CONFIG_API.channel_delivery_mode
 set_channel_delivery_config = _CHANNEL_CONFIG_API.set_channel_delivery_config
@@ -3996,9 +3798,7 @@ def channel_cli_controller() -> ChannelCliController:
     )
 
 def cmd_channels(args: argparse.Namespace) -> None: channel_cli_controller().run(args)
-
 def cmd_channel_delivery(args: argparse.Namespace) -> None: channel_cli_controller().delivery(args)
-
 def cmd_ollama_native(args: argparse.Namespace) -> None: provider_option_cli_controller().native(args)
 
 def provider_option_policy() -> ProviderOptionPolicy:
@@ -4006,15 +3806,11 @@ def provider_option_policy() -> ProviderOptionPolicy:
                                 parse_bool, parse_config_value, positive_int, ProviderSamplingPolicy())
 
 def apply_ollama_option(pcfg: dict[str, Any], token: str) -> None: mutate_ollama_option(pcfg, token, policy=provider_option_policy())
-
 def cmd_ollama_options(args: argparse.Namespace) -> None: provider_option_cli_controller().ollama_options(args)
-
 PROVIDER_OPTION_PROVIDERS = ("anthropic", "agy", "codex", "vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "ollama", "ollama-cloud", "deepseek", "opencode", "opencode-go", "kimi", "openrouter", "fireworks", "zai")
 PROVIDER_SAMPLING_OPTION_PROVIDERS = ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "openrouter")
 PROVIDER_SAMPLING_OPTIONS = ("temperature", "top_p", "top_k")
-
 def sampling_option_key(key: str) -> str | None: return ProviderSamplingPolicy().option_key(key)
-
 def validate_sampling_option(key: str, value: Any) -> float | int: return ProviderSamplingPolicy().validate(key, value)
 
 def provider_option_status_projection() -> ProviderOptionStatusProjection:
@@ -4026,9 +3822,7 @@ def provider_option_status_projection() -> ProviderOptionStatusProjection:
     )
 
 def provider_sampling_status(pcfg: dict[str, Any]) -> list[str]: return provider_option_status_projection().sampling(pcfg)
-
 def provider_options_status(provider: str, pcfg: dict[str, Any]) -> str: return provider_option_status_projection().provider(provider, pcfg)
-
 def llm_options_status(provider: str, pcfg: dict[str, Any]) -> str: return provider_option_status_projection().llm(provider, pcfg)
 
 def llm_preset_context() -> LlmPresetContext:
@@ -4072,7 +3866,6 @@ timeout_profile_panel_rows = _TIMEOUT_PROFILE_API.timeout_profile_panel_rows
 apply_timeout_profile_to_provider = _TIMEOUT_PROFILE_API.apply_timeout_profile_to_provider
 with_preset_timeout_tokens = _TIMEOUT_PROFILE_API.with_preset_timeout_tokens
 is_qwen36_plus_model_id = ModelContextHintPolicy.is_qwen36_plus
-
 def is_kimi_k3_model_id(model_id: str) -> bool: return model_context_hint_policy().is_kimi_k3(model_id)
 
 def apply_provider_model_profile(provider: str, pcfg: dict[str, Any]) -> list[str]:
@@ -4087,7 +3880,6 @@ def apply_provider_model_profile(provider: str, pcfg: dict[str, Any]) -> list[st
     return [notice] if changed and notice else []
 
 apply_kimi_model_profile = apply_provider_model_profile
-
 def zai_model_context_hint(model_id: str) -> int | None: return model_context_hint_policy().zai_hint(model_id)
 
 def model_context_hint_policy() -> ModelContextHintPolicy:
@@ -4113,7 +3905,6 @@ cap_context_settings_to_model_capacity = _PROVIDER_MODEL_CONTEXT_API.cap_context
 small_context_output_token_cap = _PROVIDER_MODEL_CONTEXT_API.small_output_cap
 cap_output_tokens_to_context_ratio = _PROVIDER_MODEL_CONTEXT_API.cap_output_tokens
 cap_output_settings_to_context_ratio = _PROVIDER_MODEL_CONTEXT_API.cap_output_settings
-
 def cached_current_model_info(provider: str, pcfg: dict[str, Any]) -> dict[str, Any]: return provider_model_spec_service().current_info(provider, pcfg)
 
 def provider_model_spec_service() -> ProviderModelSpecService:
@@ -4125,14 +3916,11 @@ def provider_model_spec_service() -> ProviderModelSpecService:
     )
 
 def apply_current_model_specs_to_provider(provider: str, pcfg: dict[str, Any]) -> list[str]: return provider_model_spec_service().apply(provider, pcfg)
-
 def refresh_current_model_specs_for_auto_llm(provider: str, pcfg: dict[str, Any]) -> list[str]: return provider_model_spec_service().refresh(provider, pcfg)
-
 apply_lm_studio_loaded_context_guard = _LM_STUDIO_LIFECYCLE_API.apply_loaded_context_guard
 required_context_for_preset = _LLM_PRESET_API.required_context
 preset_available_for_model = _LLM_PRESET_API.available
 format_context_tokens = project_format_context_tokens
-
 def format_parameter_count(value: Any) -> str: return project_format_parameter_count(value, positive_int)
 
 _PROVIDER_CONTEXT_STATUS = ProviderContextStatusProjection(
@@ -4162,7 +3950,6 @@ clamp_auto_timeout_ms = _PROVIDER_TIMEOUT_API.clamp
 calculated_request_timeout_ms = _PROVIDER_TIMEOUT_API.calculated
 recommended_request_timeout_ms = _PROVIDER_TIMEOUT_API.recommended
 apply_recommended_timeout_for_model_context = _PROVIDER_TIMEOUT_API.apply
-
 def context_mode_values_for_capacity(capacity: int | None) -> dict[str, tuple[int, int, int]]: return ContextSetupService.mode_values(capacity)
 
 def context_setup_text(key: str, lang: str | None = None) -> tuple[str, str]:
@@ -4409,7 +4196,6 @@ def provider_option_cli_controller() -> ProviderOptionCliController:
     )
 
 def cmd_provider_options(args: argparse.Namespace) -> None: provider_option_cli_controller().provider_options(args)
-
 COMPAT_TOOL_NAME = "compat_echo"
 COMPATIBILITY_TEST_HEADER = "x-ciel-runtime-compatibility-test"
 
@@ -4440,7 +4226,6 @@ def known_compatibility_tool_use_blocker(provider: str, model: str) -> str:
     return PROVIDER_COMPATIBILITY.resolve(provider).tool_use_blocker(normalized)
 
 compatibility_http_error_message = _COMPATIBILITY_PROTOCOL_API.http_error_message
-
 def provider_config_for_single_api_key(pcfg: dict[str, Any], key: str) -> dict[str, Any]: return CompatibilityApiKeyProbeRunner.single_key_config(pcfg, key)
 
 def compatibility_api_key_probe_request(
@@ -4542,7 +4327,6 @@ def cmd_test(args: argparse.Namespace) -> None:
         raise SystemExit(1)
 
 def claude_code_output_token_limit(provider: str, pcfg: dict[str, Any]) -> int | None: return claude_limit_policy().output_token_limit(provider, pcfg)
-
 def claude_code_auto_compact_window(provider: str, pcfg: dict[str, Any]) -> int | None: return claude_limit_policy().auto_compact_window(provider, pcfg)
 
 def claude_limit_policy() -> ClaudeLimitPolicy:
@@ -4559,7 +4343,6 @@ claude_code_model_claims_one_million_context = _CLAUDE_MODEL_ALIAS_API.claims_on
 claude_code_context_model_alias = _CLAUDE_MODEL_ALIAS_API.context_model_alias
 _model_id_matches_claude_family = _CLAUDE_MODEL_ALIAS_API.matches_family
 claude_code_default_model_aliases = _CLAUDE_MODEL_ALIAS_API.default_model_aliases
-
 def apply_common_claude_env(provider: str, pcfg: dict[str, Any], env: dict[str, str]) -> dict[str, str]: return claude_environment_projection().apply_common(provider, pcfg, env)
 
 def claude_environment_projection() -> ClaudeEnvironmentProjection:
@@ -4614,9 +4397,7 @@ def cmd_stop(_: argparse.Namespace) -> None:
     print("ciel-runtime managed services stopped" if stopped else "ciel-runtime managed services were not running")
 
 pid_is_running = inspect_pid_is_running
-
 def register_router_client(pid: int | None = None) -> Path: return router_client_registry().register(pid)
-
 def release_router_client(path: Path | None) -> None: router_client_registry().release(path)
 
 def router_client_registry() -> RouterClientRegistry:
@@ -4636,11 +4417,8 @@ def managed_router_stop_reason(started_at: float, owner_pid: int, idle_seconds: 
     return managed_router_lifetime().stop_reason(started_at, owner_pid, idle_seconds)
 
 def start_managed_router_lifetime_watchdog(server: ThreadingHTTPServer) -> None: managed_router_lifetime().start_watchdog(server)
-
 def active_router_client_pids() -> list[int]: return router_client_registry().active_pids()
-
 def stop_router_if_no_active_clients(reason: str, quiet: bool = True) -> bool: return managed_router_lifetime().stop_if_idle(reason, quiet)
-
 router_client_supervisor_interval_seconds = RouterClientSupervisor.interval_seconds
 
 def router_client_supervisor() -> RouterClientSupervisor:
@@ -4656,9 +4434,7 @@ def router_client_supervisor() -> RouterClientSupervisor:
     )
 
 def ensure_managed_router_running_for_client() -> bool: return router_client_supervisor().ensure_running()
-
 def start_router_client_supervisor(stop_event: threading.Event) -> threading.Thread: return router_client_supervisor().start(stop_event)
-
 file_size_or_zero = RoutedLaunchDiagnostics.file_size
 _read_text_file_from_offset = RoutedLaunchDiagnostics.read_from_offset
 
@@ -4705,7 +4481,6 @@ def router_lifetime_runner() -> RouterLifetimeRunner:
     )
 
 def run_with_router_lifetime(runner: Callable[[], int], manage_router: bool) -> int: return router_lifetime_runner().run(runner, manage_router)
-
 def terminate_pid(pid: int, label: str, quiet: bool = False) -> bool: return process_tree_controller().terminate_pid(pid, label, quiet=quiet)
 
 def process_control_services() -> ProcessControlServices:
@@ -4716,13 +4491,9 @@ def process_control_services() -> ProcessControlServices:
     )
 
 def process_tree_controller() -> ProcessTreeController: return ProcessTreeController(process_control_services(), platform_name=os.name)
-
 def descendant_pids(pid: int) -> list[int]: return process_tree_controller().descendant_pids(pid)
-
 def parent_pid_and_command(pid: int) -> tuple[int, str] | None: return process_tree_controller().parent_pid_and_command(pid)
-
 def ciel_runtime_client_wrapper_parent_pids(pid: int) -> list[int]: return process_tree_controller().client_wrapper_parent_pids(pid)
-
 def terminate_pid_tree(pid: int, label: str, quiet: bool = False) -> bool: return process_tree_controller().terminate_tree(pid, label, quiet=quiet)
 
 def terminate_active_router_clients(reason: str, active_clients: list[int] | None = None, quiet: bool = True) -> bool:
@@ -4807,9 +4578,7 @@ def _terminate_recorded_child_process(proc: Any, label: str) -> None:
     )
 
 def terminate_tracked_codex_processes(reason: str, quiet: bool = True) -> bool: return codex_process_lifecycle().terminate_tracked(reason, quiet)
-
 def _current_process_ancestor_pids(limit: int = 12) -> set[int]: return codex_process_lifecycle().ancestor_pids(os.name, limit)
-
 def _posix_process_cwd(pid: int) -> Path | None: return inspect_process_cwd(pid, process_inspection_services(), platform_name=os.name)
 
 def _untracked_codex_process_pids_for_cwd(cwd: Path | None = None) -> list[int]:
@@ -4921,9 +4690,7 @@ def provider_readiness_context() -> ProviderReadinessContext:
 
 _PROVIDER_READINESS_API = ProviderReadinessCompatibilityApi(provider_readiness_context)
 default_base_url = _PROVIDER_READINESS_API.default_base_url
-
 def meaningful_key(value: str | None) -> bool: return meaningful_key_value(value)
-
 api_key_status_line = _PROVIDER_READINESS_API.api_key_status_line
 
 def provider_status_services() -> ProviderStatusServices:
@@ -4984,9 +4751,7 @@ animated_ansi_text = render_animated_ansi_text
 cell_width = terminal_cell_width
 fit_cells = fit_terminal_cells
 pad_cells = pad_terminal_cells
-
 def pause() -> None: input("Press Enter to continue...")
-
 MAIN_MENU_ACTIONS = prelaunch.MAIN_MENU_ACTIONS
 
 def prelaunch_shell_context() -> PrelaunchShellContext:
@@ -5223,13 +4988,9 @@ def launch_state_repository() -> LaunchStateRepository:
     )
 
 def read_launch_state() -> dict[str, Any]: return launch_state_repository().read()
-
 def write_launch_state(state: dict[str, Any]) -> None: launch_state_repository().write(state)
-
 def previous_launch_state_for_cwd(cwd_key: str) -> dict[str, Any]: return launch_state_repository().previous_for_cwd(cwd_key)
-
 def last_launch_runtime() -> str: return project_last_launch_runtime(launch_state_repository(), current_launch_cwd_key())
-
 def record_launch_state_for_cwd(cwd_key: str, provider: str, mode: str, model: str) -> None: launch_state_repository().record(cwd_key, provider, mode, model)
 
 def should_fork_native_session_after_mode_switch(
@@ -5282,17 +5043,11 @@ def should_use_channel_llm_delivery(use_router_mode: bool, passthrough: list[str
     return channel_launch_policy().llm_delivery(use_router_mode, passthrough)
 
 def channel_specs_include_external_server(specs: list[str]) -> bool: return channel_launch_policy().specs_include_external_server(specs)
-
 def claude_code_channels_auth_available(claude: str) -> tuple[bool, str]: return channel_launch_policy().claude_auth_available(claude)
-
 def write_web_tools_mcp_config(cfg: dict[str, Any]) -> Path: return managed_mcp_config_service().write_web_tools(cfg)
-
 def write_duckduckgo_mcp_config(cfg: dict[str, Any]) -> Path: return managed_mcp_config_service().write_duckduckgo_compat(cfg)
-
 def write_zai_mcp_config(provider: str, pcfg: dict[str, Any]) -> Path | None: return managed_mcp_config_service().write_zai(provider, pcfg)
-
 def reset_zai_mcp_config_if_inactive(provider: str) -> None: managed_mcp_config_service().reset_zai_if_inactive(provider)
-
 def write_channel_mcp_config() -> Path: return managed_mcp_config_service().write_channel()
 
 def managed_mcp_config_service() -> ManagedMcpConfigService:
@@ -5362,15 +5117,12 @@ def should_launch_process_start_channel_sse(stdin_channel_proxy: bool, native_ch
     )
 
 def _channel_pending_scan_limit() -> int: return channel_runtime_environment_policy().pending_scan_limit()
-
 def _channel_stdin_wake_batch_limit() -> int: return channel_runtime_environment_policy().wake_batch_limit()
-
 _CHANNEL_LLM_TOOL_CONTEXT_LOCK = threading.Lock()
 _CHANNEL_LLM_TOOL_CONTEXT: dict[str, dict[str, Any]] = {}
 _CHANNEL_LLM_TOOL_CONTEXT_LIMIT = 200
 _CHANNEL_LLM_TOOL_CONTEXT_MAX_INJECT = 8
 _CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT = 4000
-
 def _channel_llm_cursor_cache() -> int | None: return _CHANNEL_LLM_CURSOR_LAST_ID
 
 def _set_channel_llm_cursor_cache(last_id: int | None) -> None:
@@ -5404,7 +5156,6 @@ _channel_llm_clamp_to_clear_floor = _CHANNEL_DELIVERY_API.clamp_to_clear_floor
 reset_channel_llm_delivery_cursor = _CHANNEL_DELIVERY_API.reset_cursor
 ensure_channel_llm_delivery_cursor_initialized = _CHANNEL_DELIVERY_API.ensure_cursor_initialized
 prepare_channel_llm_delivery_for_launch = _CHANNEL_DELIVERY_API.prepare_for_launch
-
 def _cache_channel_llm_cursor(last_id: int) -> None: _set_channel_llm_cursor_cache(last_id)
 
 def _cache_channel_mcp_cursor(last_id: int) -> None:
@@ -5413,35 +5164,17 @@ def _cache_channel_mcp_cursor(last_id: int) -> None:
 
 def channel_backlog_service() -> ChannelBacklogService:
     return ChannelBacklogService(
-        ChannelBacklogCursors(
-            _chat_scan_max_id,
-            _CHANNEL_LLM_CURSOR_LOCK,
-            _channel_llm_read_cursor_locked,
-            _channel_llm_write_cursor_locked,
-            _cache_channel_llm_cursor,
-            _channel_llm_clear_floor_write,
-            _CHANNEL_MCP_CURSOR_LOCK,
-            _channel_mcp_read_cursor_locked,
-            _channel_mcp_write_cursor_locked,
-            _cache_channel_mcp_cursor,
-        ),
-        ChannelBacklogRuntime(
-            _CHANNEL_STDIN_RECOVERY_CACHE,
-            _CHANNEL_MCP_LOCK,
-            _CHANNEL_MCP_SESSIONS,
-            _CHAT_CONDITION,
-            router_log,
-        ),
+        ChannelBacklogCursors(_chat_scan_max_id, _CHANNEL_LLM_CURSOR_LOCK, _channel_llm_read_cursor_locked, _channel_llm_write_cursor_locked,
+                              _cache_channel_llm_cursor, _channel_llm_clear_floor_write, _CHANNEL_MCP_CURSOR_LOCK,
+                              _channel_mcp_read_cursor_locked, _channel_mcp_write_cursor_locked, _cache_channel_mcp_cursor),
+        ChannelBacklogRuntime(_CHANNEL_STDIN_RECOVERY_CACHE, _CHANNEL_MCP_LOCK, _CHANNEL_MCP_SESSIONS, _CHAT_CONDITION, router_log),
     )
 
 def clear_channel_backlog() -> dict[str, Any]: return channel_backlog_service().clear()
-
 def channel_backlog_status() -> dict[str, Any]: return channel_backlog_service().status()
-
 body_without_ciel_runtime_internal_metadata = channel_llm_context.strip_internal_metadata
 _commit_channel_llm_cursor_if_newer = _CHANNEL_DELIVERY_API.commit_if_newer
 commit_pending_channel_delivery_cursors = _CHANNEL_DELIVERY_API.commit_pending
-
 def _channel_stdin_wake_claim_ttl_seconds() -> float: return channel_runtime_environment_policy().wake_claim_ttl_seconds()
 
 def channel_wake_context() -> ChannelWakeContext:
@@ -5478,34 +5211,22 @@ def channel_wake_context() -> ChannelWakeContext:
     )
 
 def channel_wake_claim_repository() -> ChannelWakeClaimRepository: return channel_wake_context().claim_repository()
-
 def _channel_stdin_wake_claim_prompt(message_id: int) -> str: return channel_wake_context().claim_prompt(message_id)
-
 def _channel_stdin_claim_wake_prompt(message_id: int, prompt: str) -> bool: return channel_wake_context().claim_wake_prompt(message_id, prompt)
-
 def _channel_stdin_clear_wake_claim(message_id: int) -> None: channel_wake_context().clear_wake_claim(message_id)
 
 def _channel_prompt_references_message_id(text: str, message_id: int, prompt_texts: list[str] | tuple[str, ...] | None = None) -> bool:
     return channel_wake_context().prompt_references_message_id(text, message_id, prompt_texts)
 
 def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]: return channel_wake_context().message_ids_already_in_request(body)
-
 def _channel_llm_commit_cursor_locked(last_id: int) -> None: channel_wake_context().commit_cursor(last_id)
-
 def _channel_llm_stdin_skip_reason(message_id: int) -> str: return channel_wake_context().stdin_skip_reason(message_id)
-
 def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]: return channel_wake_context().body_with_pending_messages(body)
-
 def _write_fd_all(fd: int, data: bytes) -> None: ChannelWakeContext.write_all(fd, data)
-
 def _channel_wake_enter_bytes(value: str | bytes | None = None) -> bytes: return channel_wake_context().enter_bytes(value)
-
 def _channel_wake_input_bytes(prompt: str, enter_bytes: bytes | None = None) -> bytes: return channel_wake_context().input_bytes(prompt, enter_bytes)
-
 def _channel_current_tmux_pane_text() -> str | None: return channel_wake_context().current_tmux_pane_text()
-
 def _codex_channel_wake_submit_retries() -> int: return channel_runtime_environment_policy().codex_submit_retries()
-
 def _codex_channel_wake_submit_delay_seconds() -> float: return channel_runtime_environment_policy().codex_submit_delay_seconds()
 
 def _windows_channel_startup_grace_seconds() -> float:
@@ -5532,18 +5253,14 @@ def _write_channel_wake_prompt(
 _CHANNEL_TRANSCRIPT_CACHE: dict[str, Any] = {"checked_at": 0.0, "path": None}
 _CHANNEL_TRANSCRIPT_SCOPE: dict[str, Any] = {'runtime': '', 'started_at': 0.0, 'codex_home': None}
 _CHANNEL_STDIN_RECOVERY_CACHE: dict[str, Any] = {'checked_at': 0.0, 'last_id': None, 'marker': None, 'recovered_last_id': None}
-
 def channel_transcript_repository() -> ChannelTranscriptRepository: return channel_wake_context().transcript_repository()
 
 def _set_channel_transcript_scope(runtime: str, *, started_at: float | None = None, codex_home: Path | None = None) -> None:
     channel_wake_context().set_transcript_scope(runtime, started_at=started_at, codex_home=codex_home)
 
 def _channel_transcript_roots() -> tuple[tuple[Path, str], ...]: return channel_wake_context().transcript_roots()
-
 def _latest_claude_transcript_path(ttl_seconds: float = 2.0) -> Path | None: return channel_wake_context().latest_transcript_path(ttl_seconds)
-
 _read_file_tail_text = ChannelTranscriptRepository.read_tail_text
-
 def _channel_stdin_wake_state(message_id: int) -> str: return channel_wake_context().wake_state_reader().state(message_id)
 
 def _channel_stdin_wake_state_for_message(message: dict[str, Any], prompt: str | None = None) -> str:
@@ -5567,21 +5284,13 @@ def _channel_stdin_wake_state_from_text(message_id: int, text: str, prompt_texts
     return channel_wake_context().wake_state_from_text(message_id, text, prompt_texts)
 
 def _channel_stdin_active_tool_call() -> bool: return channel_wake_context().active_tool_call()
-
 def _channel_stdin_active_turn() -> bool: return channel_wake_context().active_turn()
-
 def _channel_stdin_wake_completed(message_id: int) -> bool: return _channel_stdin_wake_state(message_id) == "completed"
-
 def _channel_stdin_queued_command_ids_from_text(text: str) -> set[int]: return channel_wake_context().queued_command_ids_from_text(text)
-
 def channel_wake_transcript_services() -> ChannelWakeTranscriptServices: return channel_wake_context().transcript_services()
-
 def _channel_stdin_recover_cursor_from_queued_only(last_id: int) -> int: return channel_cursor_recovery_service().recover(last_id)
-
 def channel_cursor_recovery_service() -> ChannelCursorRecoveryService: return channel_wake_context().cursor_recovery_service()
-
 def _channel_stdin_unseen_retry_seconds() -> float: return channel_runtime_environment_policy().unseen_retry_seconds()
-
 def _channel_stdin_inflight_stale_seconds() -> float: return channel_runtime_environment_policy().inflight_stale_seconds()
 
 def _channel_stdin_inflight_is_stale(state: str, started_at: float, now: float | None = None) -> bool:
@@ -5602,9 +5311,7 @@ def _channel_stdin_should_check_pending(
     return force_recheck or marker != last_marker
 
 def _channel_wake_store_release_stale(message_id: int, commit_cursor: bool) -> None: _CHANNEL_WAKE_DELIVERY_REPOSITORY.release_stale(message_id, commit_cursor)
-
 def _channel_inflight_complete_wake(message_id: int) -> None: _CHANNEL_WAKE_DELIVERY_REPOSITORY.complete(message_id)
-
 def _channel_inflight_release_wake(message_id: int) -> None: _channel_wake_store_release_stale(message_id, False)
 
 def channel_inflight_effects() -> ChannelInflightEffects:
@@ -5617,11 +5324,8 @@ def channel_inflight_effects() -> ChannelInflightEffects:
     )
 
 _channel_wake_store_mark_delivered = _CHANNEL_WAKE_DELIVERY_REPOSITORY.mark_delivered
-
 def _channel_wake_store_record_prompts(messages: list[dict[str, Any]], prompt: str) -> None: _CHANNEL_WAKE_DELIVERY_REPOSITORY.record_prompts(messages, prompt)
-
 def _channel_wake_store_rollback(messages: list[dict[str, Any]], claimed_ids: list[int]) -> None: _CHANNEL_WAKE_DELIVERY_REPOSITORY.rollback(messages, claimed_ids)
-
 def pending_channel_injection_services() -> ChannelInjectionServices: return channel_wake_context().pending_injection_services()
 
 def _inject_pending_channel_messages(
@@ -5685,9 +5389,7 @@ def terminal_input_mode_reset_policy() -> terminal_platform_io.TerminalInputMode
     )
 
 def _terminal_input_mode_reset_enabled() -> bool: return terminal_input_mode_reset_policy().enabled()
-
 def _terminal_input_mode_reset_interval_seconds(default: float = 2.0) -> float: return terminal_input_mode_reset_policy().interval_seconds(default)
-
 def _write_terminal_input_mode_reset(stream: Any | None = None) -> None: terminal_input_mode_reset_policy().write(stream)
 
 def _strip_terminal_mouse_input_reports(data: bytes) -> bytes:
@@ -5706,11 +5408,8 @@ def windows_console_mode_service() -> windows_console_mode.WindowsConsoleModeSer
     )
 
 def _windows_console_input_supported() -> bool: return windows_console_mode_service().input_supported()
-
 def _windows_console_mouse_input_filter_enabled() -> bool: return windows_console_mode_service().mouse_filter_enabled()
-
 def _windows_console_input_mode() -> int | None: return windows_console_mode_service().current()
-
 def _set_windows_console_input_mode(mode: int) -> bool: return windows_console_mode_service().set(mode)
 
 class _WindowsConsoleMouseInputGuard(
@@ -5800,7 +5499,6 @@ class _McpStdoutObserver(McpStdoutObserver):
         super().__init__(server_name, _mcp_proxy_observe_json_message)
 
 def _mcp_proxy_forward_stdin(proc: subprocess.Popen[bytes]) -> None: proxy_forward_stdin(proc, log=router_log)
-
 def _mcp_proxy_forward_stdin_jsonl(proc: subprocess.Popen[bytes]) -> None: proxy_forward_stdin_jsonl(proc, log=router_log)
 
 def _mcp_proxy_forward_stdout_jsonl(server_name: str, proc: subprocess.Popen[bytes]) -> None:
@@ -5846,35 +5544,15 @@ def _mcp_proxy_compact_tool_result_response(server_name: str, tool_name: str, pa
 
 def mcp_http_proxy_services() -> McpHttpProxyServices:
     return McpHttpProxyServices(
-        codec=McpHttpProxyCodec(
-            compact_tool_result_response=_mcp_proxy_compact_tool_result_response,
-            drain_input_messages=_mcp_proxy_drain_input_messages,
-            error_response=_mcp_proxy_error_response,
-            notification_payload=_mcp_proxy_notification_payload,
-            notification_wait_response=_mcp_proxy_notification_wait_response,
-            observe_json_message=_mcp_proxy_observe_json_message,
-            tool_call_arguments=_mcp_proxy_tool_call_arguments,
-            tool_call_name=_mcp_proxy_tool_call_name,
-            tool_is_notification_wait=_mcp_proxy_tool_is_notification_wait,
-            wait_timeout_seconds=_mcp_proxy_wait_timeout_seconds,
-        ),
-        transport=McpHttpProxyTransport(
-            http_error_body_text=_http_error_body_text,
-            session_not_found=_streamable_http_session_not_found,
-            stream_read_timeout_error=_mcp_stream_read_timeout_error,
-            streamable_headers=_mcp_streamable_headers,
-            streamable_http_request=_mcp_proxy_streamable_http_request,
-        ),
-        runtime=McpHttpProxyRuntime(
-            default_protocol_version=MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
-            disable_notification_stream=_mcp_server_disable_proxy_notification_stream,
-            is_streamable_http=_mcp_server_is_streamable_http,
-            json_safe_metadata=_json_safe_metadata,
-            log=router_log,
-            parse_bool=parse_bool,
-            server_runtime_headers=mcp_server_runtime_headers,
-            write_json_response=_mcp_proxy_write_json_response,
-        ),
+        codec=McpHttpProxyCodec(_mcp_proxy_compact_tool_result_response, _mcp_proxy_drain_input_messages, _mcp_proxy_error_response,
+                                _mcp_proxy_notification_payload, _mcp_proxy_notification_wait_response, _mcp_proxy_observe_json_message,
+                                _mcp_proxy_tool_call_arguments, _mcp_proxy_tool_call_name, _mcp_proxy_tool_is_notification_wait,
+                                _mcp_proxy_wait_timeout_seconds),
+        transport=McpHttpProxyTransport(_http_error_body_text, _streamable_http_session_not_found, _mcp_stream_read_timeout_error,
+                                        _mcp_streamable_headers, _mcp_proxy_streamable_http_request),
+        runtime=McpHttpProxyRuntime(MCP_STREAMABLE_HTTP_PROTOCOL_VERSION, _mcp_server_disable_proxy_notification_stream,
+                                    _mcp_server_is_streamable_http, _json_safe_metadata, router_log, parse_bool, mcp_server_runtime_headers,
+                                    _mcp_proxy_write_json_response),
     )
 
 def run_mcp_streamable_http_proxy(server_name: str, server_config_path: Path) -> int:
@@ -5945,7 +5623,6 @@ def runtime_maintenance_assembly() -> RuntimeMaintenanceAssembly:
     ))
 
 def runtime_maintenance_services() -> RuntimeMaintenanceServices: return runtime_maintenance_assembly().service_graph
-
 _RUNTIME_MAINTENANCE_SERVICES_API = RuntimeMaintenanceServicesCompatibilityApi(runtime_maintenance_services)
 npm_package_lifecycle = _RUNTIME_MAINTENANCE_SERVICES_API.npm_lifecycle
 current_npm_install_prefix = _RUNTIME_MAINTENANCE_SERVICES_API.current_prefix
@@ -5956,9 +5633,7 @@ runtime_restart_service = _RUNTIME_MAINTENANCE_SERVICES_API.restart_service
 self_update_lifecycle = _RUNTIME_MAINTENANCE_SERVICES_API.self_update
 runtime_upgrade_service = _RUNTIME_MAINTENANCE_SERVICES_API.upgrade
 agy_installer = _RUNTIME_MAINTENANCE_SERVICES_API.agy_installer
-
 def runtime_maintenance_context() -> RuntimeMaintenanceContext: return runtime_maintenance_assembly().context()
-
 _RUNTIME_MAINTENANCE_API = RuntimeMaintenanceCompatibilityApi(runtime_maintenance_context)
 install_runtime_package_if_missing = _RUNTIME_MAINTENANCE_API.install_runtime_package_if_missing
 run_runtime_npm_update_check = _RUNTIME_MAINTENANCE_API.run_runtime_npm_update_check
@@ -5984,15 +5659,10 @@ agy_latest_manifest = _RUNTIME_MAINTENANCE_API.agy_latest_manifest
 install_agy_from_manifest = _RUNTIME_MAINTENANCE_API.install_agy_from_manifest
 install_agy_if_missing = _RUNTIME_MAINTENANCE_API.install_agy_if_missing
 run_agy_update_check = _RUNTIME_MAINTENANCE_API.run_agy_update_check
-
 def run_command_for_upgrade(cmd: list[str], timeout: float = 300.0) -> tuple[int, str]: return run_upgrade_command(cmd, forced_yes_upgrade_env(), timeout)
-
 AGY_MANIFEST_BASE_URL = "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app"
-
 def agy_download_file(url: str, target: Path, timeout: float = 120.0) -> None: AgyInstaller.download_file(url, target, timeout)
-
 def agy_current_version(agy: str) -> str: return AgyInstaller.current_version(agy)
-
 verify_sha512 = AgyInstaller.verify_sha512
 run_quiet_upgrade_and_exit = _RUNTIME_MAINTENANCE_API.run_quiet_upgrade_and_exit
 
@@ -6026,34 +5696,19 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
 
 CODEX_ROUTED_UPSTREAM_BASE = "https://chatgpt.com/backend-api/codex"
 _CODEX_MCP_INTEGRATION = codex_mcp_integration.CodexMcpIntegrationService(
-    config=codex_mcp_integration.CodexMcpConfigPorts(
-        discover=lambda *args, **kwargs: project_discover_codex_mcp_servers(*args, **kwargs),
-        log=lambda level, message: router_log(level, message),
-    ),
-    artifact=codex_mcp_integration.CodexMcpArtifactPorts(
-        config_path=lambda: CODEX_MCP_CONFIG,
-        save_json=lambda path, payload, label: json_artifact_repository(path).save(payload, label),
-        unlink=lambda path: path.unlink(),
-        load_json=lambda path: json.loads(path.read_text(encoding="utf-8")),
-    ),
+    config=codex_mcp_integration.CodexMcpConfigPorts(lambda *args, **kwargs: project_discover_codex_mcp_servers(*args, **kwargs),
+                                                     lambda level, message: router_log(level, message)),
+    artifact=codex_mcp_integration.CodexMcpArtifactPorts(lambda: CODEX_MCP_CONFIG,
+                                                         lambda path, payload, label: json_artifact_repository(path).save(payload, label),
+                                                         lambda path: path.unlink(), lambda path: json.loads(path.read_text(encoding="utf-8"))),
     capability=codex_mcp_integration.CodexMcpCapabilityPorts(
-        ensure_probe_cache=lambda *args, **kwargs: ensure_channel_probe_cache_for_launch(*args, **kwargs),
-        read_servers=lambda path, cwd: _read_mcp_sse_servers_from_json(path, cwd),
-        cached_probe_servers=lambda: cached_channel_probe_servers(),
-        path_key=lambda path: _path_for_compare(path),
-        cwd=Path.cwd,
-    ),
-    projection=codex_mcp_integration.CodexMcpProjectionPorts(
-        dedupe_strings=_dedupe_strings,
-        public_name=lambda name: _channel_sse_public_mcp_name(name),
-        is_streamable_http=lambda server: _mcp_server_is_streamable_http(server),
-        split_proxy_url=lambda name: codex_mcp_split_proxy_url(name),
-        toml_string=toml_string,
-    ),
-    policy=codex_mcp_integration.CodexMcpPolicy(
-        native_channel_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
-        builtin_channel_url=lambda: f"{ROUTER_BASE}/ca/mcp",
-    ),
+        lambda *args, **kwargs: ensure_channel_probe_cache_for_launch(*args, **kwargs),
+        lambda path, cwd: _read_mcp_sse_servers_from_json(path, cwd), lambda: cached_channel_probe_servers(),
+        lambda path: _path_for_compare(path), Path.cwd),
+    projection=codex_mcp_integration.CodexMcpProjectionPorts(_dedupe_strings, lambda name: _channel_sse_public_mcp_name(name),
+                                                             lambda server: _mcp_server_is_streamable_http(server),
+                                                             lambda name: codex_mcp_split_proxy_url(name), toml_string),
+    policy=codex_mcp_integration.CodexMcpPolicy(frozenset(_NATIVE_ROUTER_CHANNEL_NAMES), lambda: f"{ROUTER_BASE}/ca/mcp"),
 )
 discovered_codex_mcp_servers = _CODEX_MCP_INTEGRATION.discovered_servers
 write_codex_mcp_config_for_channel_discovery = _CODEX_MCP_INTEGRATION.write_discovery_config
@@ -6064,27 +5719,17 @@ codex_mcp_native_http_compat_args = _CODEX_MCP_INTEGRATION.native_http_compat_ar
 _CODEX_LAUNCH_CONFIGURATION = codex_launch_configuration.CodexLaunchConfigurationService(
     constants=codex_launch_configuration.build_default_codex_launch_constants(),
     policy=codex_launch_configuration.build_default_codex_launch_policy(has_passthrough_option),
-    model=codex_launch_configuration.CodexLaunchModelPorts(
-        current_provider=lambda cfg: get_current_provider(cfg),
-        native_enabled=lambda provider: native_codex_enabled(provider),
-        current_alias=lambda cfg: current_alias(cfg),
-        context_limit=lambda provider, pcfg: context_limit_for_status(provider, pcfg),
-        context_capacity=lambda provider, pcfg: provider_model_context_capacity(provider, pcfg),
-    ),
+    model=codex_launch_configuration.CodexLaunchModelPorts(lambda cfg: get_current_provider(cfg), lambda provider: native_codex_enabled(provider),
+                                                           lambda cfg: current_alias(cfg), lambda provider, pcfg: context_limit_for_status(provider, pcfg),
+                                                           lambda provider, pcfg: provider_model_context_capacity(provider, pcfg)),
     catalog=codex_launch_configuration.CodexLaunchCatalogPorts(
-        write=lambda codex, spec, env: CodexModelCatalogService(CONFIG_DIR, subprocess.run, router_log).write(codex, spec, env),
-        provider_label=lambda provider: PROVIDER_LABELS.get(provider, provider),
-        path_value=lambda env: path_with_ciel_runtime_user_dirs(env),
-        current_model_args=project_codex_current_model_args,
-        native_routed_args=project_codex_native_routed_config_args,
-    ),
-    effects=codex_launch_configuration.CodexLaunchConfigurationEffects(
-        environ=lambda: os.environ,
-        router_base=lambda: ROUTER_BASE,
-        read_text=lambda path: path.read_text(encoding="utf-8"),
-        log=lambda level, message: router_log(level, message),
-        output=lambda message: print(message, flush=True),
-    ),
+        lambda codex, spec, env: CodexModelCatalogService(CONFIG_DIR, subprocess.run, router_log).write(codex, spec, env),
+        lambda provider: PROVIDER_LABELS.get(provider, provider), lambda env: path_with_ciel_runtime_user_dirs(env),
+        project_codex_current_model_args, project_codex_native_routed_config_args),
+    effects=codex_launch_configuration.CodexLaunchConfigurationEffects(lambda: os.environ, lambda: ROUTER_BASE,
+                                                                       lambda path: path.read_text(encoding="utf-8"),
+                                                                       lambda level, message: router_log(level, message),
+                                                                       lambda message: print(message, flush=True)),
 )
 codex_alternate_screen_compat_args = _CODEX_LAUNCH_CONFIGURATION.alternate_screen_compat_args
 codex_runtime_config_args = _CODEX_LAUNCH_CONFIGURATION.runtime_config_args
@@ -6105,25 +5750,14 @@ def log_codex_passthrough_mapping(notes: list[str]) -> None:
         print(f"- {note}", flush=True)
 
 codex_help_requested = project_codex_help_requested
-
 def codex_yolo_launch_args(passthrough: list[str]) -> list[str]: return project_codex_yolo_launch_args(passthrough, has_option=has_passthrough_option)
 
 _CODEX_SESSION_SELECTION = CodexSessionSelectionService(
-    repository=CodexSessionRepositoryPorts(
-        sqlite_home=lambda *args, **kwargs: codex_sqlite_home(*args, **kwargs),
-        resumable=lambda database, limit, include_non_interactive, cwd: CodexSessionRepository(
-            database, router_log
-        ).resumable(
-            limit,
-            include_non_interactive=include_non_interactive,
-            cwd=cwd,
-        ),
-    ),
-    presentation=CodexSessionPresentationPorts(
-        select=lambda *args, **kwargs: portable_select(*args, **kwargs),
-        compact_text=compact_text,
-        output=lambda message: print(message, flush=True),
-    ),
+    repository=CodexSessionRepositoryPorts(lambda *args, **kwargs: codex_sqlite_home(*args, **kwargs),
+                                            lambda database, limit, include_non_interactive, cwd: CodexSessionRepository(database, router_log).resumable(
+                                                limit, include_non_interactive=include_non_interactive, cwd=cwd)),
+    presentation=CodexSessionPresentationPorts(lambda *args, **kwargs: portable_select(*args, **kwargs), compact_text,
+                                                lambda message: print(message, flush=True)),
 )
 codex_sqlite_home_for_launch = _CODEX_SESSION_SELECTION.sqlite_home_for_launch
 codex_local_resume_sessions = _CODEX_SESSION_SELECTION.local_resume_sessions
@@ -6171,9 +5805,7 @@ def codex_app_server_default_listen_url() -> str:
     return f"ws://127.0.0.1:{port}"
 
 def _log_codex_app_server_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> None: launch_command_diagnostics().codex_app_server(cmd, env)
-
 def codex_app_server_launch_services() -> runtime_launch.CodexAppServerLaunchServices: return codex_launch_assembly().app_server_services()
-
 def agy_help_requested(passthrough: list[str]) -> bool: return any(arg in ("--help", "-h", "help") for arg in passthrough)
 
 def log_agy_passthrough_mapping(notes: list[str]) -> None:
@@ -6223,11 +5855,8 @@ launch_codex = _RUNTIME_LAUNCH_API.launch_codex
 launch_codex_app_server = _RUNTIME_LAUNCH_API.launch_codex_app_server
 launch_agy = _RUNTIME_LAUNCH_API.launch_agy
 CLAUDE_CODE_STDERR_LOG = CONFIG_DIR / "claude-code-stderr.log"
-
 def launch_command_diagnostics() -> LaunchCommandDiagnostics: return LaunchCommandDiagnostics(router_log, mask_secret, CODEX_RUNTIME_API_KEY_ENV)
-
 def _log_claude_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> None: launch_command_diagnostics().claude(cmd, env)
-
 def _log_codex_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> None: launch_command_diagnostics().codex(cmd, env)
 
 def _subprocess_call_capturing_stderr(cmd: list[str], env: dict[str, str]) -> int:
@@ -6240,7 +5869,6 @@ def _subprocess_call_capturing_stderr(cmd: list[str], env: dict[str, str]) -> in
     return StderrCaptureAdapter(CONFIG_DIR, CLAUDE_CODE_STDERR_LOG, router_log).call(cmd, env)
 
 def cli_usage() -> str: return cli_usage_text()
-
 def pop_headless_env_file_args(argv: list[str]) -> list[str]: return HeadlessEnvFileLoader(load=load_dotenv_into_environ).pop_args(argv)
 
 def apply_headless_env_config() -> tuple[bool, bool | None, bool | None, bool | None, bool]:
