@@ -27,7 +27,7 @@ from ciel_runtime_support import (channel_llm_context, claude_launch_assembly, c
 from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support import (prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models,
                                   provider_network, rate_limit_policy, router_request_assembly, router_server_runtime,
-                                  runtime_launch, terminal_platform_io, windows_console_mode)
+                                  runtime_asset_assembly, runtime_launch, terminal_platform_io, windows_console_mode)
 from ciel_runtime_support.advisor_client import (AdvisorClient, AdvisorClientIO, AdvisorClientPolicy,
                                                  ProviderChatExecutor, ProviderChatIO, ProviderChatPolicy)
 from ciel_runtime_support.advisor_policy import (AdvisorDecisionServices, AdvisorServices, AdvisorShortcutController,
@@ -239,7 +239,7 @@ from ciel_runtime_support.codex_router import read_codex_response_preamble
 from ciel_runtime_support.codex_session_repository import CodexSessionRepository, codex_sqlite_home
 from ciel_runtime_support.codex_session_selection import (CodexSessionPresentationPorts, CodexSessionRepositoryPorts,
                                                           CodexSessionSelectionService)
-from ciel_runtime_support.command_asset_installer import CommandAsset, is_owned_command_file
+from ciel_runtime_support.command_asset_installer import is_owned_command_file
 from ciel_runtime_support.compatibility_probe import (CompatibilityApiKeyProbeBuilder, CompatibilityApiKeyProbeError,
                                                       CompatibilityApiKeyProbeRunner,
                                                       CompatibilityApiKeyProbeRunnerPorts,
@@ -687,9 +687,7 @@ from ciel_runtime_support.runtime_activity_repository import (RuntimeActivityClo
                                                               RuntimeActivityPaths, RuntimeActivityRepository)
 from ciel_runtime_support.runtime_adapters import RUNTIME_ADAPTERS
 from ciel_runtime_support.runtime_asset_context import (RuntimeAssetCompatibilityApi, RuntimeAssetCompatibilityPorts,
-                                                        RuntimeAssetContext, RuntimeAssetEffects, RuntimeAssetPaths,
-                                                        RuntimeCommandAssetCatalog, RuntimeExecutablePaths,
-                                                        RuntimeToolGuardPolicy)
+                                                        RuntimeAssetContext)
 from ciel_runtime_support.runtime_command_factory import RuntimeCommandFactory, RuntimeCommandFactoryPorts
 from ciel_runtime_support.runtime_compatibility import DEFAULT_RUNTIME_COMPATIBILITY
 from ciel_runtime_support.runtime_constants import (ADVISOR_FEEDBACK_MARKER,  # noqa: F401
@@ -770,7 +768,6 @@ from ciel_runtime_support.secure_json_repository import SecureJsonEffects, Secur
 from ciel_runtime_support.session_import import (ImportSessionHttpController, ImportSessionHttpPorts,
                                                  ImportSessionLimits, ImportSessionRepository, ImportSessionService,
                                                  import_record_line, import_tool_text, normalize_import_source)
-from ciel_runtime_support.settings_repository import JsonSettingsRepository, SettingsFileEffects
 from ciel_runtime_support.slash_command_assets import \
     ADVISOR_NATIVE_DISABLED_SLASH_COMMAND  # noqa: F401 - compatibility export
 from ciel_runtime_support.slash_command_assets import LEGACY_ADVISOR_CALL_MARKER  # noqa: F401 - compatibility export
@@ -784,23 +781,23 @@ from ciel_runtime_support.slash_command_assets import \
     LEGACY_ROUTER_DEBUG_ACCESS_MARKER  # noqa: F401 - compatibility export
 from ciel_runtime_support.slash_command_assets import \
     ROUTER_DEBUG_NATIVE_DISABLED_SLASH_COMMAND  # noqa: F401 - compatibility export
-from ciel_runtime_support.slash_command_assets import (ADVISOR_REQUEST_MARKERS, ADVISOR_SLASH_COMMAND,
-                                                       API_KEYS_SLASH_COMMAND, CHANNEL_CLEAR_REQUEST_MARKERS,
-                                                       CHANNEL_CLEAR_SLASH_COMMAND,
-                                                       CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS,
-                                                       CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS,
-                                                       CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS,
-                                                       CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS,
-                                                       CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
-                                                       CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS,
-                                                       CIEL_RUNTIME_VERSION_COMMAND_MARKERS,
-                                                       IMPORT_SESSION_REQUEST_MARKERS, IMPORT_SESSION_SLASH_COMMAND,
+from ciel_runtime_support.slash_command_assets import (ADVISOR_REQUEST_MARKERS, ADVISOR_SLASH_COMMAND,  # noqa: F401
+                                                       API_KEYS_SLASH_COMMAND, CHANNEL_CLEAR_REQUEST_MARKERS,  # noqa: F401
+                                                       CHANNEL_CLEAR_SLASH_COMMAND,  # noqa: F401
+                                                       CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS,  # noqa: F401
+                                                       CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS,  # noqa: F401
+                                                       CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS,  # noqa: F401
+                                                       CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS,  # noqa: F401
+                                                       CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,  # noqa: F401
+                                                       CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS,  # noqa: F401
+                                                       CIEL_RUNTIME_VERSION_COMMAND_MARKERS,  # noqa: F401
+                                                       IMPORT_SESSION_REQUEST_MARKERS, IMPORT_SESSION_SLASH_COMMAND,  # noqa: F401
                                                        LIVE_API_KEYS_REQUEST_MARKERS, LIVE_LLM_OPTIONS_REQUEST_MARKERS,
-                                                       LLM_OPTIONS_SLASH_COMMAND, LLM_RESTORE_SLASH_COMMAND,
-                                                       LLM_SLIDER_SLASH_COMMAND, ROUTER_DEBUG_REQUEST_MARKERS,
-                                                       ROUTER_DEBUG_SLASH_COMMAND, VERSION_REQUEST_MARKERS,
-                                                       VERSION_SLASH_COMMAND)
-from ciel_runtime_support.statusline_script import STATUSLINE_SCRIPT
+                                                       LLM_OPTIONS_SLASH_COMMAND, LLM_RESTORE_SLASH_COMMAND,  # noqa: F401
+                                                       LLM_SLIDER_SLASH_COMMAND, ROUTER_DEBUG_REQUEST_MARKERS,  # noqa: F401
+                                                       ROUTER_DEBUG_SLASH_COMMAND, VERSION_REQUEST_MARKERS,  # noqa: F401
+                                                       VERSION_SLASH_COMMAND)  # noqa: F401
+from ciel_runtime_support.statusline_script import STATUSLINE_SCRIPT  # noqa: F401 - compatibility export
 from ciel_runtime_support.stream_chunk_policy import split_word_buffer
 from ciel_runtime_support.synthetic_tool_policy import (ForcedPlanModeController, ForcedPlanModePorts,
                                                         SyntheticTasklistPolicy, SyntheticTasklistPorts)
@@ -814,7 +811,6 @@ from ciel_runtime_support.tool_guard_hooks import \
     TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER  # noqa: F401 - compatibility export
 from ciel_runtime_support.tool_guard_hooks import TOOL_GUARD_EVENTS_WITHOUT_MATCHER  # noqa: F401 - compatibility export
 from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy  # noqa: F401 - compatibility export
-from ciel_runtime_support.tool_guard_hooks import DEFAULT_TOOL_GUARD_HOOK_POLICY
 from ciel_runtime_support.tool_request_projection import (UltracodeSessionPolicy, forced_tool_choice_name, has_tool,
                                                           synthetic_tool_use_response, tool_names_in_body)
 from ciel_runtime_support.tool_schema import (_fuzzy_match_tool_name, _lookup_tool_schema,
@@ -1381,46 +1377,17 @@ executable_candidates = ExecutableDiscovery.candidates
 command_file_is_ciel_runtime_owned = is_owned_command_file
 
 def runtime_asset_context() -> RuntimeAssetContext:
-    def settings_repository() -> JsonSettingsRepository:
-        return JsonSettingsRepository(
-            path=CLAUDE_SETTINGS_PATH,
-            effects=SettingsFileEffects(log=router_log),
-        )
-    standard_assets = {
-        "router-debug.md": CommandAsset(ROUTER_DEBUG_SLASH_COMMAND, CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS),
-        "ciel-version.md": CommandAsset(VERSION_SLASH_COMMAND, CIEL_RUNTIME_VERSION_COMMAND_MARKERS),
-        "llm.md": CommandAsset(LLM_SLIDER_SLASH_COMMAND, CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS),
-        "llm-options.md": CommandAsset(LLM_OPTIONS_SLASH_COMMAND, CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS),
-        "llm-restore.md": CommandAsset(LLM_RESTORE_SLASH_COMMAND, CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS),
-        "channel-clear.md": CommandAsset(CHANNEL_CLEAR_SLASH_COMMAND, CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS),
-        "api-key.md": CommandAsset(API_KEYS_SLASH_COMMAND, CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS),
-        "api-keys.md": CommandAsset(API_KEYS_SLASH_COMMAND, CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS),
-        "ImportSession.md": CommandAsset(IMPORT_SESSION_SLASH_COMMAND, CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS),
-    }
-    return RuntimeAssetContext(
-        executable=RuntimeExecutablePaths(
-            HOME, Path(__file__), platform_path, ciel_runtime_user_bin_dir,
-            agy_user_bin_dir, sys.executable,
-        ),
-        paths=RuntimeAssetPaths(
-            Path(__file__).resolve().parent, CIEL_RUNTIME_STATUSLINE_PATH,
-            STATUSLINE_SCRIPT, CLAUDE_COMMANDS_DIR, CODEX_PROMPTS_DIR_NAME,
-        ),
-        effects=RuntimeAssetEffects(
-            settings_repository, os.chmod, router_log,
+    return runtime_asset_assembly.build_runtime_asset_context(
+        runtime_asset_assembly.RuntimeAssetAssemblyPorts(
+            runtime_asset_assembly.RuntimeAssetPathBindings(
+                HOME, Path(__file__), CLAUDE_SETTINGS_PATH,
+                CIEL_RUNTIME_STATUSLINE_PATH, CLAUDE_COMMANDS_DIR,
+                CODEX_PROMPTS_DIR_NAME, platform_path,
+                ciel_runtime_user_bin_dir, agy_user_bin_dir,
+            ),
+            sys.executable, os.chmod, os.environ, router_log,
             lambda message: print(f"Ciel Runtime warning: {message}", flush=True),
-            os.environ,
-        ),
-        catalog=RuntimeCommandAssetCatalog(
-            standard_assets,
-            CommandAsset(ADVISOR_SLASH_COMMAND, CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS),
-            CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS,
-            CommandAsset(IMPORT_SESSION_SLASH_COMMAND, CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS),
-            CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS,
-            CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
-        ),
-        tool_guard=RuntimeToolGuardPolicy(DEFAULT_TOOL_GUARD_HOOK_POLICY),
-        compatibility=RuntimeAssetCompatibilityPorts(
+            RuntimeAssetCompatibilityPorts(
             find_executable=lambda name: find_executable(name),
             find_tool_guard=lambda: find_tool_guard_script(),
             tool_guard_command=lambda: ciel_runtime_tool_guard_command(),
@@ -1432,6 +1399,7 @@ def runtime_asset_context() -> RuntimeAssetContext:
                 include_advisor
             ),
         ),
+        )
     )
 
 _RUNTIME_ASSET_API = RuntimeAssetCompatibilityApi(runtime_asset_context)

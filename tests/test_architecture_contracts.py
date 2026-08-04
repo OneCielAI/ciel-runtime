@@ -9,6 +9,7 @@ from ciel_runtime_support import (
     cli_assembly,
     prelaunch_assembly,
     router_request_assembly,
+    runtime_asset_assembly,
 )
 
 from ciel_runtime_support.architecture import (
@@ -3828,6 +3829,8 @@ class ArchitectureContractTests(unittest.TestCase):
             RuntimeToolGuardPolicy,
             RuntimeAssetCompatibilityPorts,
             RuntimeAssetContext,
+            runtime_asset_assembly.RuntimeAssetAssemblyPorts,
+            runtime_asset_assembly.RuntimeAssetPathBindings,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
@@ -3845,6 +3848,13 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(function=function_name):
                 self.assertNotIn(f"def {function_name}(", source)
+        self.assertNotIn("standard_assets =", source)
+        assembly_source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "runtime_asset_assembly.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("def build_runtime_asset_context(", assembly_source)
 
     def test_settings_repository_ports_stay_below_dependency_limit(self):
         for port in (
