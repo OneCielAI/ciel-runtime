@@ -19,1510 +19,849 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
-from ciel_runtime_support.advisor_policy import (
-    AdvisorShortcutController,
-    AdvisorShortcutPorts,
-    AdvisorDecisionServices,
-    AdvisorServices,
-    AdvisorTextServices,
-    advisor_focus_for_message as project_advisor_focus,
-    advisor_gate_reason_for_body as project_advisor_gate_reason,
-    advisor_messages_and_system as project_advisor_messages_and_system,
-    advisor_tool_focus_from_message as project_advisor_tool_focus,
-    advisor_tool_schema as project_advisor_tool_schema,
-    advisor_trigger_for_message as project_advisor_trigger,
-    anthropic_message_tool_names as project_anthropic_message_tool_names,
-    assistant_tool_call_summary_for_prompt as project_assistant_tool_summary,
-    body_has_advisor_feedback as project_body_has_advisor_feedback,
-    body_with_advisor_tool as project_body_with_advisor_tool,
-    is_claude_code_advisor_server_tool as project_is_advisor_server_tool,
-    strip_autonomous_advisor_server_tools as project_strip_advisor_server_tools,
-    tool_review_context_from_message as project_tool_review_context,
-)
-from ciel_runtime_support.advisor_request_builder import (
-    ADVISOR_REVIEW_PROMPT,
-    AdvisorAnthropicSystemPolicy,
-    AdvisorBudgetPorts,
-    AdvisorEndpointPorts,
-    AdvisorProjectionPorts,
-    AdvisorRequestBuilder,
-)
-from ciel_runtime_support.advisor_refinement import (
-    AdvisorRefinementIO,
-    AdvisorRefinementPolicy,
-    AdvisorRefinementService,
-    AdvisorRefinementText,
-)
-from ciel_runtime_support.advisor_client import (
-    AdvisorClient,
-    AdvisorClientIO,
-    AdvisorClientPolicy,
-    ProviderChatExecutor,
-    ProviderChatIO,
-    ProviderChatPolicy,
-)
-from ciel_runtime_support.architecture import MessageProtocol, ProviderConfig
-from ciel_runtime_support.anthropic_tool_turns import (
-    AnthropicToolTurnServices,
-    normalize_historical_anthropic_tool_turns,
-)
-from ciel_runtime_support.anthropic_response_writer import (
-    AnthropicResponseWriter,
-    anthropic_text_response as project_anthropic_text_response,
-    prepend_anthropic_text as project_prepend_anthropic_text,
-)
 from ciel_runtime_support import anthropic_model_policy
-from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
+from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage
+from ciel_runtime_support import (channel_llm_context, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser,
+                                  codex_launch_configuration, codex_mcp_integration, kimi_identity, llm_option_config,
+                                  llm_presets, mcp_proxy_notifications)
+from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
+from ciel_runtime_support import (prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models,
+                                  provider_network, rate_limit_policy, router_request_assembly, router_server_runtime,
+                                  runtime_launch, terminal_platform_io, windows_console_mode)
+from ciel_runtime_support.advisor_client import (AdvisorClient, AdvisorClientIO, AdvisorClientPolicy,
+                                                 ProviderChatExecutor, ProviderChatIO, ProviderChatPolicy)
+from ciel_runtime_support.advisor_policy import (AdvisorDecisionServices, AdvisorServices, AdvisorShortcutController,
+                                                 AdvisorShortcutPorts, AdvisorTextServices)
+from ciel_runtime_support.advisor_policy import advisor_focus_for_message as project_advisor_focus
+from ciel_runtime_support.advisor_policy import advisor_gate_reason_for_body as project_advisor_gate_reason
+from ciel_runtime_support.advisor_policy import advisor_messages_and_system as project_advisor_messages_and_system
+from ciel_runtime_support.advisor_policy import advisor_tool_focus_from_message as project_advisor_tool_focus
+from ciel_runtime_support.advisor_policy import advisor_tool_schema as project_advisor_tool_schema
+from ciel_runtime_support.advisor_policy import advisor_trigger_for_message as project_advisor_trigger
+from ciel_runtime_support.advisor_policy import anthropic_message_tool_names as project_anthropic_message_tool_names
+from ciel_runtime_support.advisor_policy import assistant_tool_call_summary_for_prompt as project_assistant_tool_summary
+from ciel_runtime_support.advisor_policy import body_has_advisor_feedback as project_body_has_advisor_feedback
+from ciel_runtime_support.advisor_policy import body_with_advisor_tool as project_body_with_advisor_tool
+from ciel_runtime_support.advisor_policy import is_claude_code_advisor_server_tool as project_is_advisor_server_tool
+from ciel_runtime_support.advisor_policy import \
+    strip_autonomous_advisor_server_tools as project_strip_advisor_server_tools
+from ciel_runtime_support.advisor_policy import tool_review_context_from_message as project_tool_review_context
+from ciel_runtime_support.advisor_refinement import (AdvisorRefinementIO, AdvisorRefinementPolicy,
+                                                     AdvisorRefinementService, AdvisorRefinementText)
+from ciel_runtime_support.advisor_request_builder import (ADVISOR_REVIEW_PROMPT, AdvisorAnthropicSystemPolicy,
+                                                          AdvisorBudgetPorts, AdvisorEndpointPorts,
+                                                          AdvisorProjectionPorts, AdvisorRequestBuilder)
+from ciel_runtime_support.agy_cli import (agy_dangerous_launch_args, agy_passthrough_args_for_launch,
+                                          agy_passthrough_has_command)
 from ciel_runtime_support.agy_installer import AgyInstaller
 from ciel_runtime_support.agy_mcp_restore import AgyMcpRestorePorts, AgyMcpRestoreService
-from ciel_runtime_support import router_request_assembly
-from ciel_runtime_support import kimi_identity
-from ciel_runtime_support.kimi_runtime_context import (
-    KimiConfigurationPorts,
-    KimiIdentityPorts,
-    KimiLifecyclePorts,
-    KimiProcessPorts,
-    KimiRuntimeCompatibilityApi,
-    KimiRuntimeContext,
-)
-from ciel_runtime_support.chat_files import ChatFilePorts, ChatFileRepository
-from ciel_runtime_support.chat_http_controller import (
-    ChatHttpController,
-    ChatHttpReadServices,
-    ChatHttpWriteServices,
-)
-from ciel_runtime_support.channel_inflight import ChannelInflightEffects
-from ciel_runtime_support.channel_backlog import (
-    ChannelBacklogCursors,
-    ChannelBacklogRuntime,
-    ChannelBacklogService,
-)
-from ciel_runtime_support.channel_connection_context import (
-    ChannelConnectionCompatibilityApi,
-    ChannelConnectionContext,
-    ChannelConnectionLifecyclePorts,
-    ChannelConnectionProtocol,
-    ChannelConnectionStatePorts,
-    ChannelConnectionWorkerPorts,
-)
+from ciel_runtime_support.anthropic_response_writer import AnthropicResponseWriter
+from ciel_runtime_support.anthropic_response_writer import anthropic_text_response as project_anthropic_text_response
+from ciel_runtime_support.anthropic_response_writer import prepend_anthropic_text as project_prepend_anthropic_text
+from ciel_runtime_support.anthropic_tool_turns import (AnthropicToolTurnServices,
+                                                       normalize_historical_anthropic_tool_turns)
+from ciel_runtime_support.api_key_cooldown import API_KEY_COOLDOWN_DEFAULT_SECONDS  # noqa: F401 - compatibility export
+from ciel_runtime_support.api_key_cooldown import API_KEY_COOLDOWN_MAX_SECONDS  # noqa: F401 - compatibility export
+from ciel_runtime_support.api_key_cooldown import \
+    RATE_LIMIT_RESET_HEADER_NAMES as _RATE_LIMIT_RESET_HEADER_NAMES  # noqa: F401 - compatibility export
+from ciel_runtime_support.api_key_cooldown import (ApiKeyCooldownCompatibilityApi, ApiKeyCooldownPorts,
+                                                   ApiKeyCooldownService)
+from ciel_runtime_support.architecture import MessageProtocol, ProviderConfig
+from ciel_runtime_support.channel_backlog import ChannelBacklogCursors, ChannelBacklogRuntime, ChannelBacklogService
+from ciel_runtime_support.channel_cli import ChannelCliCommands, ChannelCliController, ChannelCliView
+from ciel_runtime_support.channel_compact_request_repository import ChannelCompactRequestRepository, compact_request_ttl
+from ciel_runtime_support.channel_config_service import ChannelConfigApi, ChannelConfigPorts, ChannelConfigService
+from ciel_runtime_support.channel_connection_context import (ChannelConnectionCompatibilityApi,
+                                                             ChannelConnectionContext, ChannelConnectionLifecyclePorts,
+                                                             ChannelConnectionProtocol, ChannelConnectionStatePorts,
+                                                             ChannelConnectionWorkerPorts)
 from ciel_runtime_support.channel_connection_registry import ChannelConnectionRegistry
-from ciel_runtime_support.channel_config_service import (
-    ChannelConfigApi,
-    ChannelConfigPorts,
-    ChannelConfigService,
-)
-from ciel_runtime_support.channel_cli import (
-    ChannelCliCommands,
-    ChannelCliController,
-    ChannelCliView,
-)
-from ciel_runtime_support.channel_compact_request_repository import (
-    ChannelCompactRequestRepository,
-    compact_request_ttl,
-)
-from ciel_runtime_support.command_asset_installer import (
-    CommandAsset,
-    is_owned_command_file,
-)
-from ciel_runtime_support.executable_discovery import ExecutableDiscovery
-from ciel_runtime_support.runtime_asset_context import (
-    RuntimeAssetCompatibilityApi,
-    RuntimeAssetCompatibilityPorts,
-    RuntimeAssetContext,
-    RuntimeAssetEffects,
-    RuntimeAssetPaths,
-    RuntimeCommandAssetCatalog,
-    RuntimeExecutablePaths,
-    RuntimeToolGuardPolicy,
-)
-from ciel_runtime_support.channel_event_projection import (
-    CHANNEL_CONTROL_KINDS as _CHANNEL_CONTROL_KINDS,
-    compact_json_for_prompt as _compact_json_for_prompt,
-    event_meta_from_sources as _event_meta_from_sources,
-    event_payload_text as _event_payload_text,
-    json_safe_metadata as _json_safe_metadata,
-    notification_semantic_text_from_envelope as _notification_semantic_text_from_envelope,
-    pretty_json_value as _pretty_json_value,
-    sse_payload_to_chat_payload as _sse_payload_to_chat_payload,
-)
-from ciel_runtime_support.channel_session_context import (
-    ChannelSessionCompatibilityApi,
-    ChannelSessionConfigPorts,
-    ChannelSessionContext,
-    ChannelSessionHttpPorts,
-    ChannelSessionStatePorts,
-)
-from ciel_runtime_support import channel_llm_context
-from ciel_runtime_support.channel_mcp_tools import (
-    ChannelMcpToolServices,
-    channel_mcp_tool_response,
-    channel_mcp_tool_schemas,
-    dispatch_channel_mcp_tool,
-)
-from ciel_runtime_support.channel_mcp_discovery import (
-    ChannelMcpDiscoveryCompatibilityApi,
-    ChannelMcpDiscoveryPorts,
-    ChannelMcpDiscoveryService,
-)
-from ciel_runtime_support.channel_mcp_ownership import (
-    ChannelProxyOwnershipRepository,
-    ChannelRouterLifecycle,
-    ChannelRouterLifecyclePorts,
-)
-from ciel_runtime_support.channel_mcp_context import (
-    ChannelMcpCompatibilityApi,
-    ChannelMcpContext,
-    ChannelMcpProjectionPorts,
-    ChannelMcpResumePorts,
-    ChannelMcpRpcPorts,
-    ChannelMcpRuntimePorts,
-    ChannelMcpStatePorts,
-)
-from ciel_runtime_support.channel_mcp_transport import (
-    ChannelMcpEffects,
-    ChannelMcpHttpPorts,
-    ChannelMcpTransport,
-    ChannelMcpTransportConfig,
-    ChannelMcpTransportState,
-)
-from ciel_runtime_support.channel_pending_injection import (
-    ChannelInjectionServices,
-)
-from ciel_runtime_support.channel_terminal_proxy import (
-    run_posix_channel_terminal_proxy,
-    run_windows_channel_terminal_proxy,
-)
-from ciel_runtime_support.channel_terminal_context import (
-    ChannelTerminalCompatibilityApi,
-    ChannelTerminalContext,
-    ChannelTerminalDispatchPorts,
-    ChannelTerminalIoPorts,
-    ChannelTerminalPolicyPorts,
-    ChannelTerminalPollingPorts,
-    ChannelTerminalProcessPorts,
-    ChannelTerminalWindowsPorts,
-)
-from ciel_runtime_support.channel_transcript import (
-    ChannelWakeStateReader,
-    ChannelWakeTranscriptServices,
-    active_tool_call_from_text as _channel_stdin_active_tool_call_from_text,
-    active_turn_from_text as _channel_stdin_active_turn_from_text,
-    queued_age_seconds_from_text as analyze_channel_queued_age,
-    queued_command_ids_from_text as analyze_channel_queued_ids,
-    wake_state_from_text as analyze_channel_wake_state,
-)
-from ciel_runtime_support.channel_transcript_repository import (
-    ChannelTranscriptRepository,
-)
-from ciel_runtime_support.channel_message_policy import (
-    message_has_external_provenance as _channel_message_has_external_provenance,
-    message_is_web_chat_request as _channel_message_is_web_chat_request,
-    string_list as _as_string_list,
-    superseded_message_ids as _channel_superseded_message_ids,
-)
-from ciel_runtime_support.channel_message_context import (
-    ChannelMessageCachePorts,
-    ChannelMessageCompatibilityApi,
-    ChannelMessageContext,
-    ChannelMessageIdentityPorts,
-    ChannelMessageLaunchPorts,
-    ChannelMessageStoragePorts,
-)
-from ciel_runtime_support.channel_message_repository import exclusive_file_lock
-from ciel_runtime_support.channel_message_prompt import (
-    NATIVE_ROUTER_CHANNEL_NAMES as _NATIVE_ROUTER_CHANNEL_NAMES,
-    format_llm_batch_prompt as format_channel_llm_batch_prompt,
-    format_llm_batch_prompt as format_channel_llm_delivery_wake_prompt,
-    format_wake_batch_prompt as format_channel_wake_batch_prompt,
-    format_wake_prompt as format_channel_wake_prompt,  # noqa: F401 - compatibility export
-    format_web_chat_wake_batch_prompt as format_channel_web_chat_wake_batch_prompt,
-    llm_message_skip_reason as _channel_llm_message_skip_reason,
-    wake_message_noise_reason as _channel_wake_message_noise_reason,
-)
-from ciel_runtime_support.channel_notification_projection import (
-    ChannelNotificationConfig,
-    ChannelNotificationPorts,
-    ChannelNotificationProjection,
-)
-from ciel_runtime_support.channel_event_identity import (
-    fallback_dedupe_key as _chat_message_fallback_dedupe_key,
-    message_event_identity_key as _channel_message_event_identity_key,
-    message_time_seconds as _chat_message_time_seconds,
-    stable_dedupe_key as _chat_message_stable_dedupe_key,
-)
-from ciel_runtime_support.channel_launch_policy import (
-    ChannelLaunchPolicy,
-    ChannelLaunchPorts,
-)
-from ciel_runtime_support.channel_runtime_environment import (
-    ChannelRuntimeEnvironmentPolicy,
-)
-from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage
+from ciel_runtime_support.channel_cursor_recovery import ChannelCursorRecoveryService
 from ciel_runtime_support.channel_cursor_service import parse_channel_event_id
-from ciel_runtime_support.channel_cursor_recovery import (
-    ChannelCursorRecoveryService,
-)
-from ciel_runtime_support.channel_delivery_context import (
-    ChannelDeliveryCommitPorts,
-    ChannelDeliveryCompatibilityApi,
-    ChannelDeliveryContext,
-    ChannelLaunchCursorPorts,
-    ChannelLlmCursorPorts,
-    ChannelToolContextFactoryPorts,
-)
-from ciel_runtime_support.channel_wake_context import (
-    ChannelPendingDeliveryPorts,
-    ChannelPendingIoPorts,
-    ChannelPendingStatePorts,
-    ChannelTranscriptPolicyPorts,
-    ChannelTranscriptPorts,
-    ChannelWakeClaimPorts,
-    ChannelWakeContext,
-    ChannelWakeCursorPorts,
-    ChannelWakeInputPorts,
-    ChannelWakeMessagePorts,
-)
-from ciel_runtime_support.channel_wake_claim_repository import (
-    ChannelWakeClaimRepository,
-    prompt_message_ids as _channel_prompt_message_ids,
-    prompt_references_message_id as analyze_prompt_message_reference,
-)
-from ciel_runtime_support.channel_wake_delivery_repository import (
-    ChannelWakeDeliveryRepository,
-)
-from ciel_runtime_support.channel_terminal_input import (
-    TerminalMouseInputFilter as _TerminalMouseInputFilter,
-    enter_bytes_from_user_input as _channel_enter_bytes_from_user_input,  # noqa: F401 - compatibility export
-    enter_label as _channel_enter_label,
-    platform_default_enter_bytes as _channel_platform_default_enter_bytes,
-    resolve_enter_bytes as resolve_channel_enter_bytes,
-    synthetic_enter_bytes_from_user_input as _channel_synthetic_enter_bytes_from_user_input,
-    wake_enter_env_is_fixed as _channel_wake_enter_env_is_fixed,
-    wake_input_bytes as build_channel_wake_input_bytes,
-    wake_submit_delay_seconds as _channel_wake_submit_delay_seconds,
-    wake_submit_retry_delay_seconds as _channel_wake_submit_retry_delay_seconds,
-    windows_console_input_handle as _resolve_windows_console_input_handle,
-)
-from ciel_runtime_support.channel_probe_report import (
-    ChannelProbeReportServices,
-    channel_probe_report_lines,
-)
-from ciel_runtime_support.channel_probe_cache import (
-    ChannelProbeCacheRepository,
-    ChannelProbeCompatibilityApi,
-    ChannelProbePorts,
-    ChannelProbeService,
-)
-from ciel_runtime_support.channel_probe_launch_context import (
-    ChannelProbeLaunchCachePorts,
-    ChannelProbeLaunchCompatibilityApi,
-    ChannelProbeLaunchContext,
-    ChannelProbeLaunchDiscoveryPorts,
-    ChannelProbeLaunchEffects,
-)
-from ciel_runtime_support.channel_panel import (
-    _channel_panel_first_selectable as first_selectable_channel_row,
-    _channel_panel_step as step_channel_row,
-)
-from ciel_runtime_support import provider_catalog_sources
-from ciel_runtime_support.provider_endpoint_policy import (
-    ProviderEndpointPolicy as ModelEndpointPolicy,  # noqa: F401 - compatibility export
-    ProviderEndpointPorts as ModelEndpointPorts,
-    ProviderEndpointPresentation as ModelEndpointPresentation,  # noqa: F401
-    build_default_provider_endpoint_policy,
-)
-from ciel_runtime_support.provider_request_access import (
-    ProviderRequestAccessEffects,
-    ProviderRequestAccessPorts,
-    ProviderRequestAccessService,
-)
-from ciel_runtime_support.provider_query_policy import ProviderQueryPolicy
-from ciel_runtime_support.provider_tool_policy import ProviderToolPolicy
-from ciel_runtime_support.provider_runtime_modes import (
-    ProviderNativeCompatibilityPolicy,  # noqa: F401 - compatibility export
-    RuntimeModePolicy,  # noqa: F401 - compatibility export
-    build_default_native_compatibility_policy,
-    build_default_runtime_mode_policy,
-)
-from ciel_runtime_support.provider_launch_endpoint import (
-    ProviderLaunchEndpointGroups,  # noqa: F401 - compatibility export
-    ProviderLaunchEndpointPolicy,  # noqa: F401 - compatibility export
-    ProviderLaunchEndpointQueries,
-    build_default_provider_launch_endpoint_policy,
-)
-from ciel_runtime_support.provider_endpoint_probe import (
-    ProviderEndpointProbePolicy,
-    ProviderEndpointProbeProjection,
-    ProviderEndpointProbeQueries,
-    ProviderEndpointRouteAdapter,
-    ProviderEndpointRoutePorts,
-)
-from ciel_runtime_support.model_registry_repository import (
-    ModelRegistryApi,
-)
-from ciel_runtime_support.provider_model_catalog_context import (
-    ProviderModelCachePorts,
-    ProviderModelCatalogCompatibilityApi,
-    ProviderModelCatalogCompatibilityPorts,
-    ProviderModelCatalogContext,
-    ProviderModelRegistryConfig,
-    ProviderModelRegistryPorts,
-)
-from ciel_runtime_support.lm_studio_runtime import (
-    LmStudioLifecycleApi,
-    LmStudioLifecyclePolicy,
-    LmStudioModelLifecycle,
-    LmStudioRuntimeServices,
-    discover_lm_studio_runtime,
-)
-from ciel_runtime_support import cli_assembly
-from ciel_runtime_support import cli_dispatch
-from ciel_runtime_support.cli_application_context import (
-    CliApplicationCompatibilityApi,
-    CliApplicationContext,
-    CliApplicationDispatchPorts,
-    CliApplicationPresentationPorts,
-)
+from ciel_runtime_support.channel_delivery_context import (ChannelDeliveryCommitPorts, ChannelDeliveryCompatibilityApi,
+                                                           ChannelDeliveryContext, ChannelLaunchCursorPorts,
+                                                           ChannelLlmCursorPorts, ChannelToolContextFactoryPorts)
+from ciel_runtime_support.channel_event_identity import fallback_dedupe_key as _chat_message_fallback_dedupe_key
+from ciel_runtime_support.channel_event_identity import \
+    message_event_identity_key as _channel_message_event_identity_key
+from ciel_runtime_support.channel_event_identity import message_time_seconds as _chat_message_time_seconds
+from ciel_runtime_support.channel_event_identity import stable_dedupe_key as _chat_message_stable_dedupe_key
+from ciel_runtime_support.channel_event_projection import CHANNEL_CONTROL_KINDS as _CHANNEL_CONTROL_KINDS
+from ciel_runtime_support.channel_event_projection import compact_json_for_prompt as _compact_json_for_prompt
+from ciel_runtime_support.channel_event_projection import event_meta_from_sources as _event_meta_from_sources
+from ciel_runtime_support.channel_event_projection import event_payload_text as _event_payload_text
+from ciel_runtime_support.channel_event_projection import json_safe_metadata as _json_safe_metadata
+from ciel_runtime_support.channel_event_projection import \
+    notification_semantic_text_from_envelope as _notification_semantic_text_from_envelope
+from ciel_runtime_support.channel_event_projection import pretty_json_value as _pretty_json_value
+from ciel_runtime_support.channel_event_projection import sse_payload_to_chat_payload as _sse_payload_to_chat_payload
+from ciel_runtime_support.channel_inflight import ChannelInflightEffects
+from ciel_runtime_support.channel_launch_policy import ChannelLaunchPolicy, ChannelLaunchPorts
+from ciel_runtime_support.channel_mcp_context import (ChannelMcpCompatibilityApi, ChannelMcpContext,
+                                                      ChannelMcpProjectionPorts, ChannelMcpResumePorts,
+                                                      ChannelMcpRpcPorts, ChannelMcpRuntimePorts, ChannelMcpStatePorts)
+from ciel_runtime_support.channel_mcp_discovery import (ChannelMcpDiscoveryCompatibilityApi, ChannelMcpDiscoveryPorts,
+                                                        ChannelMcpDiscoveryService)
+from ciel_runtime_support.channel_mcp_ownership import (ChannelProxyOwnershipRepository, ChannelRouterLifecycle,
+                                                        ChannelRouterLifecyclePorts)
+from ciel_runtime_support.channel_mcp_tools import (ChannelMcpToolServices, channel_mcp_tool_response,
+                                                    channel_mcp_tool_schemas, dispatch_channel_mcp_tool)
+from ciel_runtime_support.channel_mcp_transport import (ChannelMcpEffects, ChannelMcpHttpPorts, ChannelMcpTransport,
+                                                        ChannelMcpTransportConfig, ChannelMcpTransportState)
+from ciel_runtime_support.channel_message_context import (ChannelMessageCachePorts, ChannelMessageCompatibilityApi,
+                                                          ChannelMessageContext, ChannelMessageIdentityPorts,
+                                                          ChannelMessageLaunchPorts, ChannelMessageStoragePorts)
+from ciel_runtime_support.channel_message_policy import \
+    message_has_external_provenance as _channel_message_has_external_provenance
+from ciel_runtime_support.channel_message_policy import \
+    message_is_web_chat_request as _channel_message_is_web_chat_request
+from ciel_runtime_support.channel_message_policy import string_list as _as_string_list
+from ciel_runtime_support.channel_message_policy import superseded_message_ids as _channel_superseded_message_ids
+from ciel_runtime_support.channel_message_prompt import NATIVE_ROUTER_CHANNEL_NAMES as _NATIVE_ROUTER_CHANNEL_NAMES
+from ciel_runtime_support.channel_message_prompt import format_llm_batch_prompt as format_channel_llm_batch_prompt
+from ciel_runtime_support.channel_message_prompt import \
+    format_llm_batch_prompt as format_channel_llm_delivery_wake_prompt
+from ciel_runtime_support.channel_message_prompt import format_wake_batch_prompt as format_channel_wake_batch_prompt
+from ciel_runtime_support.channel_message_prompt import \
+    format_wake_prompt as format_channel_wake_prompt  # noqa: F401 - compatibility export
+from ciel_runtime_support.channel_message_prompt import \
+    format_web_chat_wake_batch_prompt as format_channel_web_chat_wake_batch_prompt
+from ciel_runtime_support.channel_message_prompt import llm_message_skip_reason as _channel_llm_message_skip_reason
+from ciel_runtime_support.channel_message_prompt import wake_message_noise_reason as _channel_wake_message_noise_reason
+from ciel_runtime_support.channel_message_repository import exclusive_file_lock
+from ciel_runtime_support.channel_notification_projection import (ChannelNotificationConfig, ChannelNotificationPorts,
+                                                                  ChannelNotificationProjection)
+from ciel_runtime_support.channel_panel import _channel_panel_first_selectable as first_selectable_channel_row
+from ciel_runtime_support.channel_panel import _channel_panel_step as step_channel_row
+from ciel_runtime_support.channel_pending_injection import ChannelInjectionServices
+from ciel_runtime_support.channel_probe_cache import (ChannelProbeCacheRepository, ChannelProbeCompatibilityApi,
+                                                      ChannelProbePorts, ChannelProbeService)
+from ciel_runtime_support.channel_probe_launch_context import (ChannelProbeLaunchCachePorts,
+                                                               ChannelProbeLaunchCompatibilityApi,
+                                                               ChannelProbeLaunchContext,
+                                                               ChannelProbeLaunchDiscoveryPorts,
+                                                               ChannelProbeLaunchEffects)
+from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices, channel_probe_report_lines
+from ciel_runtime_support.channel_runtime_environment import ChannelRuntimeEnvironmentPolicy
+from ciel_runtime_support.channel_session_context import (ChannelSessionCompatibilityApi, ChannelSessionConfigPorts,
+                                                          ChannelSessionContext, ChannelSessionHttpPorts,
+                                                          ChannelSessionStatePorts)
+from ciel_runtime_support.channel_terminal_context import (ChannelTerminalCompatibilityApi, ChannelTerminalContext,
+                                                           ChannelTerminalDispatchPorts, ChannelTerminalIoPorts,
+                                                           ChannelTerminalPolicyPorts, ChannelTerminalPollingPorts,
+                                                           ChannelTerminalProcessPorts, ChannelTerminalWindowsPorts)
+from ciel_runtime_support.channel_terminal_input import TerminalMouseInputFilter as _TerminalMouseInputFilter
+from ciel_runtime_support.channel_terminal_input import \
+    enter_bytes_from_user_input as _channel_enter_bytes_from_user_input  # noqa: F401 - compatibility export
+from ciel_runtime_support.channel_terminal_input import enter_label as _channel_enter_label
+from ciel_runtime_support.channel_terminal_input import \
+    platform_default_enter_bytes as _channel_platform_default_enter_bytes
+from ciel_runtime_support.channel_terminal_input import resolve_enter_bytes as resolve_channel_enter_bytes
+from ciel_runtime_support.channel_terminal_input import \
+    synthetic_enter_bytes_from_user_input as _channel_synthetic_enter_bytes_from_user_input
+from ciel_runtime_support.channel_terminal_input import wake_enter_env_is_fixed as _channel_wake_enter_env_is_fixed
+from ciel_runtime_support.channel_terminal_input import wake_input_bytes as build_channel_wake_input_bytes
+from ciel_runtime_support.channel_terminal_input import wake_submit_delay_seconds as _channel_wake_submit_delay_seconds
+from ciel_runtime_support.channel_terminal_input import \
+    wake_submit_retry_delay_seconds as _channel_wake_submit_retry_delay_seconds
+from ciel_runtime_support.channel_terminal_input import \
+    windows_console_input_handle as _resolve_windows_console_input_handle
+from ciel_runtime_support.channel_terminal_proxy import (run_posix_channel_terminal_proxy,
+                                                         run_windows_channel_terminal_proxy)
+from ciel_runtime_support.channel_transcript import ChannelWakeStateReader, ChannelWakeTranscriptServices
+from ciel_runtime_support.channel_transcript import \
+    active_tool_call_from_text as _channel_stdin_active_tool_call_from_text
+from ciel_runtime_support.channel_transcript import active_turn_from_text as _channel_stdin_active_turn_from_text
+from ciel_runtime_support.channel_transcript import queued_age_seconds_from_text as analyze_channel_queued_age
+from ciel_runtime_support.channel_transcript import queued_command_ids_from_text as analyze_channel_queued_ids
+from ciel_runtime_support.channel_transcript import wake_state_from_text as analyze_channel_wake_state
+from ciel_runtime_support.channel_transcript_repository import ChannelTranscriptRepository
+from ciel_runtime_support.channel_wake_claim_repository import ChannelWakeClaimRepository
+from ciel_runtime_support.channel_wake_claim_repository import prompt_message_ids as _channel_prompt_message_ids
+from ciel_runtime_support.channel_wake_claim_repository import \
+    prompt_references_message_id as analyze_prompt_message_reference
+from ciel_runtime_support.channel_wake_context import (ChannelPendingDeliveryPorts, ChannelPendingIoPorts,
+                                                       ChannelPendingStatePorts, ChannelTranscriptPolicyPorts,
+                                                       ChannelTranscriptPorts, ChannelWakeClaimPorts,
+                                                       ChannelWakeContext, ChannelWakeCursorPorts,
+                                                       ChannelWakeInputPorts, ChannelWakeMessagePorts)
+from ciel_runtime_support.channel_wake_delivery_repository import ChannelWakeDeliveryRepository
+from ciel_runtime_support.chat_files import ChatFilePorts, ChatFileRepository
+from ciel_runtime_support.chat_http_controller import ChatHttpController, ChatHttpReadServices, ChatHttpWriteServices
+from ciel_runtime_support.claude_environment import (ClaudeEnvironmentFeaturePorts, ClaudeEnvironmentProjection,
+                                                     ClaudeEnvironmentShellRenderer, ClaudeEnvironmentSourcePorts,
+                                                     ClaudeLimitPolicy, ClaudeLimitPorts,
+                                                     ClaudeModelAliasCompatibilityApi, ClaudeModelAliasPolicy,
+                                                     ClaudeModelPorts, ClaudeRuntimeSettingsPolicy,
+                                                     ClaudeRuntimeSettingsPorts)
+from ciel_runtime_support.cli_application_context import (CliApplicationCompatibilityApi, CliApplicationContext,
+                                                          CliApplicationDispatchPorts, CliApplicationPresentationPorts)
 from ciel_runtime_support.cli_usage import cli_usage_text
-from ciel_runtime_support import cli_parser
-from ciel_runtime_support.configuration_cli import (
-    ConfigurationCliCompatibilityApi,
-    ConfigurationCliConfigPorts,
-    ConfigurationCliController,
-    ConfigurationCliDisplayPorts,
-    ConfigurationCliIO,
-    ConfigurationCliModelPorts,
-    ConfigurationCliProviderPorts,
-)
-from ciel_runtime_support.compatibility_test import (
-    CompatibilityTestConfig,
-    CompatibilityTestConstants,
-    CompatibilityTestMode,
-    CompatibilityTestOutput,
-    CompatibilityTestProtocol,
-    CompatibilityTestRequest,
-    CompatibilityTestServices,
-    run_compatibility_test as run_provider_compatibility_test,
-)
-from ciel_runtime_support.compatibility_protocol import (
-    CompatibilityProtocolApi,
-    CompatibilityProtocolCodec,
-    CompatibilityProtocolPorts,
-)
-from ciel_runtime_support.compatibility_probe import (
-    CompatibilityApiKeyProbeBuilder,
-    CompatibilityApiKeyProbeError,
-    CompatibilityApiKeyProbeRunner,
-    CompatibilityApiKeyProbeRunnerPorts,
-    CompatibilityProbeAnthropicPorts,
-    CompatibilityProbeProjectionPorts,
-    CompatibilityProbeRoutingPorts,
-)
-from ciel_runtime_support.compatibility_runtime import (
-    CompatibilityCachePorts,
-    CompatibilityCacheRepository,
-    ClaudeCliCapabilityProbe,
-    CompatibilityRuntimePorts,
-    CompatibilityRuntimeProjection,
-)
-from ciel_runtime_support.claude_environment import (
-    ClaudeModelAliasCompatibilityApi,
-    ClaudeEnvironmentFeaturePorts,
-    ClaudeEnvironmentProjection,
-    ClaudeEnvironmentShellRenderer,
-    ClaudeEnvironmentSourcePorts,
-    ClaudeLimitPolicy,
-    ClaudeLimitPorts,
-    ClaudeModelAliasPolicy,
-    ClaudeModelPorts,
-    ClaudeRuntimeSettingsPolicy,
-    ClaudeRuntimeSettingsPorts,
-)
-from ciel_runtime_support.headless_config import (
-    HeadlessChannelCommands,
-    HeadlessConfigCommands,
-    HeadlessConfigServices,
-    HeadlessEnvFileLoader,
-    apply_headless_config,
-)
-from ciel_runtime_support.http_response import ChannelDeliveryGuard, HttpResponseAdapter
-from ciel_runtime_support.config_repository import (
-    ConfigRepositoryProvider,
-    JsonConfigRepository,
-    build_default_config,
-    deep_merge as merge_config_values,
-    normalize_loaded_config,
-)
-from ciel_runtime_support.config_value_codec import (
-    parse_bool,
-    parse_config_value,
-    positive_int,
-)
-from ciel_runtime_support.settings_repository import JsonSettingsRepository, SettingsFileEffects
-from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
-from ciel_runtime_support.slash_command_assets import (
-    ADVISOR_REQUEST_MARKERS,
-    ADVISOR_NATIVE_DISABLED_SLASH_COMMAND,  # noqa: F401 - compatibility export
-    ADVISOR_SLASH_COMMAND,
-    API_KEYS_SLASH_COMMAND,
-    CHANNEL_CLEAR_REQUEST_MARKERS,
-    CHANNEL_CLEAR_SLASH_COMMAND,
-    CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS,
-    CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS,
-    CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS,
-    CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS,
-    CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
-    CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS,
-    CIEL_RUNTIME_VERSION_COMMAND_MARKERS,
-    IMPORT_SESSION_SLASH_COMMAND,
-    IMPORT_SESSION_REQUEST_MARKERS,
-    LEGACY_ADVISOR_CALL_MARKER,  # noqa: F401 - compatibility export
-    LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER,  # noqa: F401 - compatibility export
-    LEGACY_LIVE_API_KEYS_MARKER,  # noqa: F401 - compatibility export
-    LEGACY_LIVE_LLM_OPTIONS_MARKER,  # noqa: F401 - compatibility export
-    LEGACY_MARKER_PREFIX,  # noqa: F401 - compatibility export
-    LEGACY_ROUTER_DEBUG_ACCESS_MARKER,  # noqa: F401 - compatibility export
-    LIVE_API_KEYS_REQUEST_MARKERS,
-    LIVE_LLM_OPTIONS_REQUEST_MARKERS,
-    LLM_OPTIONS_SLASH_COMMAND,
-    LLM_RESTORE_SLASH_COMMAND,
-    LLM_SLIDER_SLASH_COMMAND,
-    ROUTER_DEBUG_REQUEST_MARKERS,
-    ROUTER_DEBUG_NATIVE_DISABLED_SLASH_COMMAND,  # noqa: F401 - compatibility export
-    ROUTER_DEBUG_SLASH_COMMAND,
-    VERSION_REQUEST_MARKERS,
-    VERSION_SLASH_COMMAND,
-)
-from ciel_runtime_support.statusline_script import STATUSLINE_SCRIPT
-from ciel_runtime_support.config_migrations import (
-    ConfigMigrationPolicy,
-    apply_config_migrations as run_config_migrations,
-)
-from ciel_runtime_support.context_compaction import (
-    ContextCompactionProjection,
-    ContextCompactionServices,
-    ContextCompactionTransport,
-    ContextCompactionWorkflow,
-    build_llm_compacted_messages,
-    request_context_summary,
-)
-from ciel_runtime_support.context_summary_policy import (
-    ContextSummaryCompatibilityApi,
-    ContextSummaryPolicy,
-)
-from ciel_runtime_support.codex_process_lifecycle import (
-    CodexProcessLifecycle,
-    CodexProcessPorts,
-    CodexProcessRepository,
-    managed_process as project_managed_codex_process,
-    terminate_recorded_child as terminate_project_recorded_child,
-)
-from ciel_runtime_support.credentials import (
-    api_key_clear_requested as project_api_key_clear_requested,
-    looks_like_error_text as project_looks_like_error_text,
-    meaningful_key_value as project_meaningful_key_value,
-    mask_secret as project_mask_secret,
-    parse_api_key_list as project_parse_api_key_list,
-    provider_config_api_keys as project_provider_config_api_keys,
-    provider_contract_config as project_provider_contract_config,
-    redact_sensitive_obj as project_redact_sensitive_obj,
-    redact_sensitive_text as project_redact_sensitive_text,
-    resolve_anthropic_credentials,
-    secret_fingerprint as project_secret_fingerprint,
-)
-from ciel_runtime_support.credential_management import (
-    CredentialManagementService,
-    CredentialPersistencePorts,
-    CredentialPresentationPorts,
-    CredentialRotationRepository,
-    EnvCredentialRepository,
-    ExternalCredentialPorts,
-    nvidia_env_credential_repository,
-    parse_dotenv_file,
-)
-from ciel_runtime_support.credential_cli import (
-    CredentialCliController,
-    CredentialCliIO,
-    CredentialCliPolicy,
-    CredentialCliPorts,
-)
-from ciel_runtime_support.github_copilot_oauth_runtime import (
-    GitHubCopilotOAuthRuntime,
-    GitHubCopilotOAuthRuntimePorts,
-)
-from ciel_runtime_support.tool_guard_hooks import (
-    DEFAULT_TOOL_GUARD_HOOK_POLICY,
-    TOOL_GUARD_EVENTS_WITHOUT_MATCHER,  # noqa: F401 - compatibility export
-    TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER,  # noqa: F401 - compatibility export
-    ToolGuardHookPolicy,  # noqa: F401 - compatibility export
-)
-from ciel_runtime_support.tool_side_effect_dedupe import (
-    ToolSideEffectDedupePolicy,
-    ToolSideEffectDedupePorts,
-    ToolSideEffectDedupeRepository,
-    ToolSideEffectDedupeService,
-)
-from ciel_runtime_support.process_control import (
-    ProcessControlServices,
-    ProcessInspectionServices,
-    ProcessQueryServices,
-    ProcessSignalServices,
-    ProcessTreeController,
-    posix_process_rows,
-    linux_procfs_pids_on_port,
-    pid_is_running as inspect_pid_is_running,
-    posix_pids_on_port as project_posix_pids_on_port,
-    process_command_line as inspect_process_command_line,
-    process_cwd as inspect_process_cwd,
-    process_environ_contains as inspect_process_environ_contains,
-    terminate_matching_processes as run_terminate_matching_processes,
-    windows_pids_on_port,
-)
-from ciel_runtime_support.router_process_lifecycle import (
-    RouterProcessConfig,
-    RouterSpawnPorts,
-    RouterStartupIdentity,
-    RouterStartupStatePorts,
-    RouterStatePorts,
-    schedule_router_restart,
-    start_router_if_needed as start_project_router_if_needed,
-)
-from ciel_runtime_support.router_process_context import (
-    RouterListenerPorts,
-    RouterProcessCompatibilityApi,
-    RouterProcessCompatibilityPorts,
-    RouterProcessContext,
-    RouterProcessEffects,
-)
-from ciel_runtime_support import router_server_runtime
-from ciel_runtime_support.router_client_lifecycle import (
-    ManagedRouterLifetime,
-    ManagedRouterLifetimePorts,
-    RoutedLaunchDiagnosticPorts,
-    RoutedLaunchDiagnostics,
-    RouterClientRegistry,
-    RouterClientRegistryPorts,
-    RouterClientSupervisor,
-    RouterClientSupervisorPorts,
-    RouterLifetimeRunner,
-    RouterLifetimeRunnerPorts,
-)
-from ciel_runtime_support.provider_config_mutations import (
-    ProviderOptionPolicy,
-    apply_ollama_option as mutate_ollama_option,
-    apply_provider_option as mutate_provider_option,
-)
-from ciel_runtime_support.provider_sampling_policy import ProviderSamplingPolicy
-from ciel_runtime_support.provider_configuration_service import (
-    ProviderEndpointPolicy,
-    ProviderEndpointPorts,
-    ProviderEndpointService,
-    ProviderStatusProjectionPorts,
-    ProviderStatusService,
-    RuntimeStatusPorts,
-)
-from ciel_runtime_support.provider_choice import (
-    AGY_NATIVE_PROVIDER_CHOICE,
-    AGY_ROUTED_PROVIDER_CHOICE,
-    ANTHROPIC_NATIVE_PROVIDER_CHOICE,
-    ANTHROPIC_ROUTED_PROVIDER_CHOICE,
-    CODEX_NATIVE_PROVIDER_CHOICE,
-    CODEX_ROUTED_PROVIDER_CHOICE,
-    ProviderChoiceController,
-    ProviderChoicePorts,
-    normalize_provider_choice as normalize_runtime_provider_choice,
-)
-from ciel_runtime_support.provider_administration_context import (
-    ProviderAdministrationCompatibilityApi,
-    ProviderAdministrationContext,
-    ProviderAdministrationCredentials,
-    ProviderAdministrationInfrastructure,
-    ProviderAdministrationPresentation,
-    ProviderAdministrationSelection,
-)
-from ciel_runtime_support.npm_runtime import (
-    claude_code_current_version,
-    codex_current_version,
-    npm_global_bin_dir_from_prefix,
-    npm_global_install_command,
-    npm_global_package_root,
-    npm_install_runtime_command,
-    npm_latest_package_version,
-    npm_prefix_from_package_root,
-    package_root_from_installed_path,
-    parse_version_tuple,
-    run_upgrade_command,
-    version_newer,
-)
-from ciel_runtime_support.runtime_restart import (
-    forced_upgrade_environment,
-    running_from_npm_package as detect_running_from_npm_package,
-)
-from ciel_runtime_support.router_access import (
-    RouterAccessConfigService,
-    RouterAccessHttpController,
-    RouterAccessMutationPorts,
-    RouterAccessPolicy,
-    RouterExternalTokenRepository,
-    is_loopback_address,  # noqa: F401 - compatibility export
-    router_request_bearer_token,  # noqa: F401 - compatibility export
-)
-from ciel_runtime_support.router_health_policy import RouterHealthPolicy
-from ciel_runtime_support.provider_option_cli import (
-    OllamaOptionCommands,
-    ProviderOptionCliConfig,
-    ProviderOptionCliController,
-    ProviderOptionCommands,
-)
-from ciel_runtime_support import llm_presets
-from ciel_runtime_support.llm_preset_context import (
-    LlmPresetAlgorithms,
-    LlmPresetCatalog,
-    LlmPresetCompatibilityApi,
-    LlmPresetContext,
-    LlmPresetContextPolicyPorts, LlmPresetDefinitionPorts,
-    LlmPresetMutationPorts,
-    LlmPresetQueries,
-)
-from ciel_runtime_support.llm_presentation_data import (
-    AUTO_TIMEOUT_MAX_MS,
-    AUTO_TIMEOUT_MIN_MS,
-    AUTO_TIMEOUT_ROUND_MS,
-    CONTEXT_HEAVY_PRESETS,
-    LLM_OPTION_DESCRIPTIONS,
-    LLM_OPTION_TOGGLE_KEYS,  # noqa: F401 - compatibility export
-    LLM_PRESET_I18N,
-    LLM_PRESET_TIMEOUT_MS,
-    LLM_PRESETS,
-    LLM_SLIDER_LABELS,
-    MODEL_FAMILY_I18N,
-    RUNTIME_LLM_OPTION_KEYS,
-    RUNTIME_LLM_ORIGINAL_KEY,
-    TIMEOUT_PRESET_I18N,
-    TIMEOUT_PRESETS,
-)
-from ciel_runtime_support import llm_option_config
-from ciel_runtime_support.llm_config_http import (
-    LlmConfigHttpController,
-    LlmConfigHttpIO,
-    LlmConfigIdentity,
-    LlmConfigMutations,
-    LlmConfigPanels,
-)
-from ciel_runtime_support.launch_state import (
-    LaunchStateRepository,
-    current_launch_cwd_key as project_current_launch_cwd_key,
-    last_launch_runtime as project_last_launch_runtime,
-    launch_mode_name as project_launch_mode_name,
-    session_control_requested as project_session_control_requested,
-    should_fork_native_session as project_should_fork_native_session,
-)
-from ciel_runtime_support.launch_diagnostics import LaunchCommandDiagnostics, StderrCaptureAdapter
-from ciel_runtime_support.mcp_transport import (
-    CODEX_MCP_SPLIT_PROXY_PREFIX,
-    MCP_LEGACY_SSE_PROTOCOL_VERSION,
-    MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
-    split_proxy_server_name as codex_mcp_split_proxy_server_name,
-    sse_post_json as _mcp_sse_post_json,
-    streamable_headers as _mcp_streamable_headers,
-    streamable_post_json as _mcp_streamable_post_json,
-    upstream_url as _codex_mcp_split_proxy_upstream_url,
-)
-from ciel_runtime_support.mcp_config_reader import (
-    ClaudeMcpConfigPathPolicy,
-    dedupe_strings as _dedupe_strings,
-    discover_channel_specs,
-    path_for_compare as _path_for_compare,
-    read_mcp_config_items,
-    server_names_from_mapping as _mcp_server_names_from_mapping,
-    servers_from_mapping as _mcp_servers_from_mapping,
-)
-from ciel_runtime_support.mcp_configuration_context import (
-    McpConfigurationCompatibilityApi,
-    McpConfigurationContext,
-    McpConfigurationFilePorts,
-    McpConfigurationPaths,
-    McpConfigurationRuntimePorts,
-)
-from ciel_runtime_support.managed_mcp_config import (
-    ManagedMcpConfigPaths,
-    ManagedMcpConfigPolicy,
-    ManagedMcpConfigPorts,
-    ManagedMcpConfigService,
-)
-from ciel_runtime_support.mcp_proxy_codec import (
-    McpProxyCodecPolicy,
-    _mcp_proxy_error_response,
-    _mcp_proxy_notification_wait_response,
-    _mcp_proxy_tool_call_arguments,
-    _mcp_proxy_tool_call_name,
-    _mcp_proxy_tool_is_notification_wait,
-    _mcp_proxy_wait_timeout_seconds,
-    compact_tool_result_response as compact_mcp_tool_result_response,
-)
-from ciel_runtime_support.mcp_notification_wait_policy import (
-    McpNotificationWaitPolicy,
-    McpNotificationWaitPorts,
-    McpNotificationWaitRepository,
-    McpNotificationWaitService,
-)
-from ciel_runtime_support.mcp_proxy_config import McpProxyConfigPaths, McpProxyConfigPorts, McpProxyConfigService
-from ciel_runtime_support.mcp_proxy_process import (
-    McpStdioConfigPorts,
-    McpStdioEffects,
-    McpStdioProxyService,
-    McpStdioTransportPorts,
-    _McpStdoutObserver as McpStdoutObserver,
-    _mcp_proxy_drain_input_messages,
-    _mcp_proxy_stdio_mode,
-    _mcp_proxy_write_json_response,
-    _mcp_proxy_forward_stdin as proxy_forward_stdin,
-    _mcp_proxy_forward_stdin_jsonl as proxy_forward_stdin_jsonl,
-    _mcp_proxy_forward_stdout_jsonl as proxy_forward_stdout_jsonl,
-    _mcp_proxy_forward_stderr as proxy_forward_stderr,
-    _mcp_proxy_streamable_http_request as proxy_streamable_http_request,
-)
-from ciel_runtime_support import mcp_proxy_notifications
-from ciel_runtime_support.mcp_http_proxy import (
-    McpHttpProxyCodec,
-    McpHttpProxyRuntime,
-    McpHttpProxyServices,
-    McpHttpProxyTransport,
-    run_mcp_streamable_http_proxy as run_streamable_http_mcp_proxy,
-)
-from ciel_runtime_support.mcp_split_proxy_http import McpSplitProxyHttpAdapter, McpSplitProxyHttpPorts
-from ciel_runtime_support.mcp_probe_codec import (
-    channel_capability_present as _channel_probe_capability_present,
-    decode_sse_events as _decode_sse_events,
-    find_initialize_response as _channel_probe_find_initialize_response,
-    initialize_payload as _mcp_probe_initialize_payload,
-    initialize_payload_bytes as _mcp_probe_initialize_payload_bytes,
-    probe_strategy as _channel_probe_strategy_for,
-)
-from ciel_runtime_support.mcp_probe_transport import (
-    McpProbeCodec,
-    McpProbeHttp,
-    McpProbePolicy,
-    McpProbeServices,
-    probe_sse_mcp_for_channel_capability_detailed as run_sse_mcp_probe,
-    probe_streamable_http_mcp_for_channel_capability_detailed as run_streamable_http_mcp_probe,
-)
-from ciel_runtime_support.mcp_stdio_probe import (
-    StdioProbeCodec,
-    StdioProbePolicy,
-    StdioProbeProcess,
-    StdioProbeServices,
-    probe_stdio_mcp_for_channel_capability_detailed as run_stdio_mcp_probe,
-)
 from ciel_runtime_support.codex_app_server import codex_app_server_launch_args
-from ciel_runtime_support.codex_backend_context import (
-    CodexBackendChannelPorts,
-    CodexBackendCompatibilityApi,
-    CodexBackendContext,
-    CodexBackendTransportPorts,
-    ProviderPassthroughProjectionPorts,
-    ProviderPassthroughTransportPorts,
-)
-from ciel_runtime_support.codex_config import (
-    codex_alternate_screen_value_from_config_text,  # noqa: F401
-    codex_config_override_keys as _codex_config_override_keys,  # noqa: F401
-    codex_config_paths_for_launch,  # noqa: F401 - compatibility export
-    codex_mcp_servers_from_config_text,  # noqa: F401 - compatibility export
-    codex_mcp_servers_from_toml_data as _codex_mcp_servers_from_toml_data,  # noqa: F401
-    discover_codex_mcp_servers as project_discover_codex_mcp_servers,
-    fallback_codex_mcp_servers_from_config_text as _fallback_codex_mcp_servers_from_config_text,  # noqa: F401
-    normalize_codex_mcp_server as _normalize_codex_mcp_server,  # noqa: F401
-    parse_simple_toml_value as _parse_simple_toml_value,  # noqa: F401
-    toml_scalar_without_comment as _toml_scalar_without_comment,  # noqa: F401
-    toml_string,
-    toml_table_parts as _toml_table_parts,  # noqa: F401
-    unquote_toml_string as _unquote_toml_string,  # noqa: F401
-)
-from ciel_runtime_support import codex_mcp_integration
-from ciel_runtime_support.codex_mcp_restore import (
-    CodexMcpRestorePorts,
-    CodexMcpRestoreService,
-)
-from ciel_runtime_support.codex_launch_policy import (
-    current_model_args as project_codex_current_model_args,
-    help_requested as project_codex_help_requested,
-    native_routed_config_args as project_codex_native_routed_config_args,
-    yolo_launch_args as project_codex_yolo_launch_args,
-)
-from ciel_runtime_support import codex_launch_configuration
-from ciel_runtime_support.codex_model_catalog import (
-    CodexModelCatalogService,
-)
-from ciel_runtime_support.codex_cli import (
-    codex_passthrough_args_for_launch,
-    codex_passthrough_has_command,
-    codex_resume_picker_requested,
-    codex_resume_with_session_id,
-)
-from ciel_runtime_support.codex_router import (
-    read_codex_response_preamble,
-)
-from ciel_runtime_support.codex_session_repository import (
-    CodexSessionRepository,
-    codex_sqlite_home,
-)
-from ciel_runtime_support.codex_session_selection import (
-    CodexSessionPresentationPorts,
-    CodexSessionRepositoryPorts,
-    CodexSessionSelectionService,
-)
-from ciel_runtime_support.observability import EventBus, render_events_html
-from ciel_runtime_support.request_trace import (
-    truncate_for_dump as _truncate_for_dump,
-)
-from ciel_runtime_support.router_observability_context import (
-    RequestTraceConfiguration,
-    RequestTracePorts as RouterRequestTracePorts,
-    RouterObservabilityCompatibilityApi,
-    RouterObservabilityContext,
-    RouterPreviewPorts,
-    SseObservabilityPorts,
-    SseTraceConfiguration,
-)
-from ciel_runtime_support.request_shortcuts import (
-    ShortcutTextServices,
-    format_channel_messages,  # noqa: F401 - compatibility export
-    has_marker as project_has_request_marker,
-    import_session_args as project_import_session_args,
-    live_api_keys_value as project_live_api_keys_value,
-    live_option_value as project_live_option_value,
-    marker_tail as project_request_marker_tail,
-    parse_channel_bridge_args,  # noqa: F401 - compatibility export
-    single_value as project_single_shortcut_value,
-    split_import_session_arguments as project_split_import_session_arguments,
-)
-from ciel_runtime_support.router_shortcuts import (
-    ChannelShortcutPorts,
-    LiveConfigShortcutPorts,
-    RouterDebugShortcutPorts,
-    RouterShortcutController,
-    ShortcutPredicates,
-    ShortcutResponsePorts,
-)
-from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
-from ciel_runtime_support.ollama_catalog_cli import OllamaCatalogCliController
-from ciel_runtime_support.ollama_catalog_context import (
-    OllamaCatalogCompatibilityApi,
-    OllamaCatalogContext,
-    OllamaCatalogProjectionPorts,
-    OllamaCatalogRepositoryPorts,
-    OllamaCatalogWorkflowPorts,
-)
-from ciel_runtime_support.ollama_context_sync import (
-    OllamaContextPolicy,
-    OllamaContextSources,
-    sync_ollama_context_limit,
-)
-from ciel_runtime_support.ollama_forwarding import (
-    OllamaForwardAdvisor,
-    OllamaForwardConstants,
-    OllamaForwardRateLimit,
-    OllamaForwardRequest,
-    OllamaForwardResponse,
-    OllamaForwardServices,
-    OllamaForwardStreaming,
-    forward_ollama_api_chat as run_ollama_forward,
-)
-from ciel_runtime_support.ollama_wire_projection import OllamaWireCompatibilityApi
-from ciel_runtime_support.openai_forwarding import (
-    OpenAIForwardAdvisor,
-    OpenAIForwardPolicy,
-    OpenAIForwardRateLimit,
-    OpenAIForwardRequest,
-    OpenAIForwardResponse,
-    OpenAIForwardServices,
-    OpenAIForwardStreaming,
-    forward_openai_compatible_chat as run_openai_forward,
-)
-from ciel_runtime_support.openai_responses_stream import (
-    write_openai_responses as project_openai_responses_stream,
-    write_openai_responses_error as project_openai_responses_error,
-)
-from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
-from ciel_runtime_support.protocols.anthropic_content import (
-    content_to_text as anthropic_content_to_text,
-)
-from ciel_runtime_support.protocols.anthropic_thinking_policy import (
-    AnthropicThinkingPolicy,
-    SuppressedThinkingRepository,
-    ThinkingPolicyPorts,
-    assistant_history_count as project_anthropic_assistant_history_count,
-    copy_thinking_blocks as project_copy_thinking_blocks,
-    has_synthetic_tool_use as project_has_synthetic_tool_use,
-    message_content_blocks as project_message_content_blocks,
-    strip_thinking_blocks as project_strip_thinking_blocks,
-    thinking_block_count as project_anthropic_thinking_block_count,
-    thinking_requested as project_anthropic_thinking_requested,
-    tool_continuation_block_count as project_anthropic_tool_continuation_block_count,
-)
-from ciel_runtime_support.protocols.ollama_chat import (
-    anthropic_system_to_ollama_messages,
-    anthropic_tools_to_ollama,
-    decode_ollama_chat_response,
-    encode_anthropic_message,
-    ollama_claude_code_reminder,
-)
-from ciel_runtime_support.protocols.ollama_response import (
-    project_openai_chat_response,
-    project_ollama_response,
-)
-from ciel_runtime_support.protocols.chat_projection import (
-    ChatProjectionPolicy,
-    ChatProjectionServices,
-    ChatProjectionText,
-    ChatProjectionTools,
-    OpenAiHistoryServices,
-    anthropic_messages_to_ollama as project_anthropic_messages_to_ollama,
-    anthropic_messages_to_openai as project_anthropic_messages_to_openai,
-    missing_openai_tool_result_message as project_missing_openai_tool_result_message,
-    orphan_openai_tool_message_to_user as project_orphan_openai_tool_message_to_user,
-    repair_openai_tool_call_adjacency as project_repair_openai_tool_call_adjacency,
-)
-from ciel_runtime_support.protocols.conversation_policy import (
-    ConversationPolicyServices,
-    canonical_tool_signature,
-    claude_code_state_messages as project_claude_code_state_messages,
-    collect_tool_result_context as project_collect_tool_result_context,
-    is_attachment_only_message as project_is_attachment_only_message,
-    is_read_unchanged_result,
-    latest_plan_attachment,  # noqa: F401 - compatibility export
-    message_attachment,  # noqa: F401 - compatibility export
-    plan_file_written_in_body as project_plan_file_written_in_body,
-    should_skip_upstream_message as project_should_skip_upstream_message,
-    upstream_relevant_message as project_upstream_relevant_message,
-)
-from ciel_runtime_support.protocols.conversation_turn_policy import (
-    ConversationTurnCompatibilityApi,
-    ConversationTurnPolicy,
-    ConversationTurnPorts,
-)
-from ciel_runtime_support.protocols.tool_result_projection import (
-    ToolResultProjectionServices,
-    project_tool_result,
-)
-from ciel_runtime_support.protocols.pseudo_tool_history import (
-    PseudoToolHistoryServices,
-    find_pseudo_xml_tool_start,
-    parse_xml_pseudo_tool_calls,
-    sanitize_assistant_pseudo_tool_history,
-)
-from ciel_runtime_support.protocols.openai_reasoning import (
-    OpenAiReasoningPolicy,
-    anthropic_tool_choice_to_openai,
-    openai_reasoning_to_anthropic_thinking_block,
-)
-from ciel_runtime_support.provider_adapters import (
-    PROVIDER_ADAPTERS,
-    PROVIDER_ALIASES,
-    PROVIDER_LABELS,
-    provider_default_configurations,
-)
-from ciel_runtime_support.provider_model_identity import (
-    ProviderModelIdentityApi,
-    ProviderModelIdentityService,
-)
-from ciel_runtime_support.provider_contract_projection import ProviderContractProjectionApi
-from ciel_runtime_support.provider_compatibility import PROVIDER_COMPATIBILITY
-from ciel_runtime_support.provider_context import (
-    ContextPresetServices,
-    ProviderContextServices,
-    cap_context_settings as apply_context_capacity_cap,
-    cap_output_settings as apply_output_context_cap,
-    cap_output_tokens as apply_output_token_cap,
-    classify_model_family,
-    infer_context_preset,
-    recommended_preset,
-    required_context_for_preset as context_required_for_preset,
-    resolve_context_capacity,
-    small_context_output_token_cap as resolve_small_context_output_cap,
-)
+from ciel_runtime_support.codex_backend_context import (CodexBackendChannelPorts, CodexBackendCompatibilityApi,
+                                                        CodexBackendContext, CodexBackendTransportPorts,
+                                                        ProviderPassthroughProjectionPorts,
+                                                        ProviderPassthroughTransportPorts)
+from ciel_runtime_support.codex_cli import (codex_passthrough_args_for_launch, codex_passthrough_has_command,
+                                            codex_resume_picker_requested, codex_resume_with_session_id)
+from ciel_runtime_support.codex_config import codex_alternate_screen_value_from_config_text  # noqa: F401
+from ciel_runtime_support.codex_config import codex_config_paths_for_launch  # noqa: F401 - compatibility export
+from ciel_runtime_support.codex_config import codex_mcp_servers_from_config_text  # noqa: F401 - compatibility export
+from ciel_runtime_support.codex_config import codex_config_override_keys as _codex_config_override_keys  # noqa: F401
+from ciel_runtime_support.codex_config import \
+    codex_mcp_servers_from_toml_data as _codex_mcp_servers_from_toml_data  # noqa: F401
+from ciel_runtime_support.codex_config import discover_codex_mcp_servers as project_discover_codex_mcp_servers
+from ciel_runtime_support.codex_config import \
+    fallback_codex_mcp_servers_from_config_text as _fallback_codex_mcp_servers_from_config_text  # noqa: F401
+from ciel_runtime_support.codex_config import normalize_codex_mcp_server as _normalize_codex_mcp_server  # noqa: F401
+from ciel_runtime_support.codex_config import parse_simple_toml_value as _parse_simple_toml_value  # noqa: F401
+from ciel_runtime_support.codex_config import toml_scalar_without_comment as _toml_scalar_without_comment  # noqa: F401
+from ciel_runtime_support.codex_config import toml_string
+from ciel_runtime_support.codex_config import toml_table_parts as _toml_table_parts  # noqa: F401
+from ciel_runtime_support.codex_config import unquote_toml_string as _unquote_toml_string  # noqa: F401
+from ciel_runtime_support.codex_launch_assembly import (CodexAppServerLaunchPorts, CodexCliLaunchPorts,
+                                                        CodexLaunchAssembly, CodexLaunchSharedChannelPorts,
+                                                        CodexLaunchSharedConfigPorts, CodexLaunchSharedDispatchPorts,
+                                                        CodexLaunchSharedInstallationPorts,
+                                                        CodexLaunchSharedRoutingPorts)
+from ciel_runtime_support.codex_launch_policy import current_model_args as project_codex_current_model_args
+from ciel_runtime_support.codex_launch_policy import help_requested as project_codex_help_requested
+from ciel_runtime_support.codex_launch_policy import \
+    native_routed_config_args as project_codex_native_routed_config_args
+from ciel_runtime_support.codex_launch_policy import yolo_launch_args as project_codex_yolo_launch_args
+from ciel_runtime_support.codex_mcp_restore import CodexMcpRestorePorts, CodexMcpRestoreService
+from ciel_runtime_support.codex_model_catalog import CodexModelCatalogService
+from ciel_runtime_support.codex_process_lifecycle import (CodexProcessLifecycle, CodexProcessPorts,
+                                                          CodexProcessRepository)
+from ciel_runtime_support.codex_process_lifecycle import managed_process as project_managed_codex_process
+from ciel_runtime_support.codex_process_lifecycle import terminate_recorded_child as terminate_project_recorded_child
+from ciel_runtime_support.codex_router import read_codex_response_preamble
+from ciel_runtime_support.codex_session_repository import CodexSessionRepository, codex_sqlite_home
+from ciel_runtime_support.codex_session_selection import (CodexSessionPresentationPorts, CodexSessionRepositoryPorts,
+                                                          CodexSessionSelectionService)
+from ciel_runtime_support.command_asset_installer import CommandAsset, is_owned_command_file
+from ciel_runtime_support.compatibility_probe import (CompatibilityApiKeyProbeBuilder, CompatibilityApiKeyProbeError,
+                                                      CompatibilityApiKeyProbeRunner,
+                                                      CompatibilityApiKeyProbeRunnerPorts,
+                                                      CompatibilityProbeAnthropicPorts,
+                                                      CompatibilityProbeProjectionPorts, CompatibilityProbeRoutingPorts)
+from ciel_runtime_support.compatibility_protocol import (CompatibilityProtocolApi, CompatibilityProtocolCodec,
+                                                         CompatibilityProtocolPorts)
+from ciel_runtime_support.compatibility_runtime import (ClaudeCliCapabilityProbe, CompatibilityCachePorts,
+                                                        CompatibilityCacheRepository, CompatibilityRuntimePorts,
+                                                        CompatibilityRuntimeProjection)
+from ciel_runtime_support.compatibility_test import (CompatibilityTestConfig, CompatibilityTestConstants,
+                                                     CompatibilityTestMode, CompatibilityTestOutput,
+                                                     CompatibilityTestProtocol, CompatibilityTestRequest,
+                                                     CompatibilityTestServices)
+from ciel_runtime_support.compatibility_test import run_compatibility_test as run_provider_compatibility_test
+from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
+from ciel_runtime_support.config_migrations import apply_config_migrations as run_config_migrations
+from ciel_runtime_support.config_repository import ConfigRepositoryProvider, JsonConfigRepository, build_default_config
+from ciel_runtime_support.config_repository import deep_merge as merge_config_values
+from ciel_runtime_support.config_repository import normalize_loaded_config
+from ciel_runtime_support.config_value_codec import parse_bool, parse_config_value, positive_int
+from ciel_runtime_support.configuration_cli import (ConfigurationCliCompatibilityApi, ConfigurationCliConfigPorts,
+                                                    ConfigurationCliController, ConfigurationCliDisplayPorts,
+                                                    ConfigurationCliIO, ConfigurationCliModelPorts,
+                                                    ConfigurationCliProviderPorts)
+from ciel_runtime_support.context_compaction import (ContextCompactionProjection, ContextCompactionServices,
+                                                     ContextCompactionTransport, ContextCompactionWorkflow,
+                                                     build_llm_compacted_messages, request_context_summary)
 from ciel_runtime_support.context_setup import ContextSetupPorts, ContextSetupService
-from ciel_runtime_support.model_context_hints import (
-    ModelContextHintPolicy,
-    ModelContextHintPorts,
-)
-from ciel_runtime_support.provider_option_panel import (
-    OptionPanelPolicy,
-    OptionPanelProvider,
-    OptionPanelRuntime,
-    OptionPanelServices,
-    OptionPanelText,
-    OptionValuePolicy,
-    build_option_panel_rows,
-    current_option_bool,
-    option_prompt_default,
-)
-from ciel_runtime_support.provider_option_status import (
-    ProviderContextStatusPorts,
-    ProviderContextStatusProjection,
-    ProviderOptionStatusPorts,
-    ProviderOptionStatusProjection,
-    format_context_tokens as project_format_context_tokens,
-    format_parameter_count as project_format_parameter_count,
-)
-from ciel_runtime_support.provider_model_specs import (
-    ModelSpecLookupPorts,
-    ModelSpecMutationPorts,
-    ModelSpecRefreshPorts,
-    ProviderModelSpecService,
-)
-from ciel_runtime_support.provider_model_context import (
-    ProviderModelContext,
-    ProviderModelContextAlgorithms,
-    ProviderModelContextCompatibilityApi,
-    ProviderModelContextQueries,
-)
-from ciel_runtime_support.provider_model_metadata_context import (
-    ModelCapabilityPorts,
-    ModelCatalogHeaderPorts,
-    ModelRegistryRecommendationPorts,
-    ProviderModelMetadataCompatibilityApi,
-    ProviderModelMetadataContext,
-)
-from ciel_runtime_support.provider_timeout_policy import (
-    ProviderTimeoutCompatibilityApi,
-    ProviderTimeoutPolicy,
-    ProviderTimeoutPorts,
-    ProviderTimeoutSettings,
-)
-from ciel_runtime_support.timeout_profile import (
-    TimeoutProfileApi,
-    TimeoutProfilePorts,
-    TimeoutProfileService,
-    TimeoutProfileSettings,
-)
-from ciel_runtime_support.runtime_llm_options import (
-    RuntimeLlmConfigPorts,
-    RuntimeLlmMutationPorts,
-    RuntimeLlmOptionsApi,
-    RuntimeLlmOptionsController,
-    RuntimeLlmPresentationPorts,
-    RuntimeLlmSettings,
-)
-from ciel_runtime_support.live_api_key_controller import (
-    LiveApiKeyController,
-    LiveApiKeyPorts,
-)
-from ciel_runtime_support.provider_limits import (
-    ProviderKeyServices,
-    choose_provider_api_key,
-)
-from ciel_runtime_support import rate_limit_policy
-from ciel_runtime_support.rate_limit_repository import RateLimitRepository
-from ciel_runtime_support.router_rate_limit_service import (
-    RouterRateLimitApi,
-    RouterRateLimitPaths,
-    RouterRateLimitPorts,
-    RouterRateLimitService,
-)
-from ciel_runtime_support.api_key_cooldown import (
-    API_KEY_COOLDOWN_DEFAULT_SECONDS,  # noqa: F401 - compatibility export
-    API_KEY_COOLDOWN_MAX_SECONDS,  # noqa: F401 - compatibility export
-    RATE_LIMIT_RESET_HEADER_NAMES as _RATE_LIMIT_RESET_HEADER_NAMES,  # noqa: F401 - compatibility export
-    ApiKeyCooldownCompatibilityApi,
-    ApiKeyCooldownPorts,
-    ApiKeyCooldownService,
-)
-from ciel_runtime_support.plan_artifact_controller import (
-    PlanArtifactController,
-    PlanArtifactServices,
-)
-from ciel_runtime_support import provider_network
-from ciel_runtime_support import provider_models
-from ciel_runtime_support.provider_model_selection import (
-    AdvisorModelMutationPorts,
-    AdvisorModelSelectionController,
-    ModelCatalogPorts,
-    ModelIdentityPorts,
-    ModelMutationConfigPorts,
-    ModelMutationEffectPorts,
-    ModelMutationPolicyPorts,
-    ModelSelectionController,
-    ModelSelectionPorts,
-    ProviderModelSelection,
-    ProviderModelSelectionApi,
-)
-from ciel_runtime_support.response_collection import (
-    AnthropicCollectionProjection,
-    AnthropicCollectionRequest,
-    AnthropicCollectionServices,
-    AnthropicCollectionTransport,
-    ResponseCollectionProjection,
-    ResponseCollectionRateLimit,
-    ResponseCollectionRequest,
-    ResponseCollectionServices,
-)
-from ciel_runtime_support.response_collection_context import (
-    ResponseCollectionCompatibilityApi,
-    ResponseCollectionContext,
-    ResponseCollectionRoutingPorts,
-    ResponseCollectionStrategyPorts,
-)
-from ciel_runtime_support.router_http import (
-    EventHttpAdapter,
-    EventHttpPorts,
-    RouterHttpCore,
-    RouterHttpErrors,
-    RouterHttpGetEndpoints,
-    RouterHttpHandler,
-    RouterHttpPostEndpoints,
-    RouterHttpPresentation,
-    RouterHttpServices,
-)
-from ciel_runtime_support.router_request_context import (
-    RouterRequestCompatibilityApi,
-    RouterRequestContext,
-)
-from ciel_runtime_support.router_server_context import (
-    RouterHealthPresentationPorts,
-    RouterServerCompatibilityApi,
-    RouterServerContext,
-)
-from ciel_runtime_support.provider_policy import (
-    ProviderRequestServices,
-    ProviderWireServices,
-    normalize_provider_request,
-    resolve_provider_wire_profile,
-)
-from ciel_runtime_support.provider_readiness import (
-    ProviderReadinessCapabilities,
-    ProviderReadinessLmStudio,
-    ProviderReadinessMode,
-    ProviderReadinessServices,
-)
-from ciel_runtime_support.provider_readiness_context import (
-    ProviderConfigurationPorts,
-    ProviderCredentialPorts,
-    ProviderDefaultsPorts,
-    ProviderProjectionPorts,
-    ProviderReadinessCompatibilityApi,
-    ProviderReadinessContext,
-)
-from ciel_runtime_support.runtime_maintenance_context import (
-    RuntimeAgyPorts,
-    RuntimeLifecyclePorts,
-    RuntimeMaintenanceCompatibilityApi,
-    RuntimeMaintenanceContext,
-    RuntimePackagePorts,
-    RuntimeUpgradeCommandPorts,
-)
-from ciel_runtime_support.runtime_maintenance_services import (
-    MaintenanceAgyPorts,
-    MaintenanceDiagnosticPorts,
-    MaintenanceNpmPorts,
-    MaintenancePackagePorts,
-    MaintenanceRestartPorts,
-    MaintenanceUpdatePorts,
-    RuntimeMaintenanceServices,
-    RuntimeMaintenanceServicesCompatibilityApi,
-)
-from ciel_runtime_support.provider_runtime_info import ProviderRuntimeInfoPorts, ProviderRuntimeInfoService
-from ciel_runtime_support.provider_request_builder import (
-    OllamaRequestPorts,
-    OpenAIRequestPorts,
-    ProviderOptionPorts,
-    ProviderRequestCompatibilityApi,
-    ProviderRequestBudget,
-    ProviderRequestBuilder,
-)
-from ciel_runtime_support.providers.ollama_runtime import (
-    OllamaRuntimeApi,
-    OllamaRuntimeService,
-    OllamaRuntimeServices,
-)
-from ciel_runtime_support.providers.ollama_context import OllamaRequestContextPolicy
+from ciel_runtime_support.context_summary_policy import ContextSummaryCompatibilityApi, ContextSummaryPolicy
+from ciel_runtime_support.credential_cli import (CredentialCliController, CredentialCliIO, CredentialCliPolicy,
+                                                 CredentialCliPorts)
+from ciel_runtime_support.credential_management import (CredentialManagementService, CredentialPersistencePorts,
+                                                        CredentialPresentationPorts, CredentialRotationRepository,
+                                                        EnvCredentialRepository, ExternalCredentialPorts,
+                                                        nvidia_env_credential_repository, parse_dotenv_file)
+from ciel_runtime_support.credentials import api_key_clear_requested as project_api_key_clear_requested
+from ciel_runtime_support.credentials import looks_like_error_text as project_looks_like_error_text
+from ciel_runtime_support.credentials import mask_secret as project_mask_secret
+from ciel_runtime_support.credentials import meaningful_key_value as project_meaningful_key_value
+from ciel_runtime_support.credentials import parse_api_key_list as project_parse_api_key_list
+from ciel_runtime_support.credentials import provider_config_api_keys as project_provider_config_api_keys
+from ciel_runtime_support.credentials import provider_contract_config as project_provider_contract_config
+from ciel_runtime_support.credentials import redact_sensitive_obj as project_redact_sensitive_obj
+from ciel_runtime_support.credentials import redact_sensitive_text as project_redact_sensitive_text
+from ciel_runtime_support.credentials import resolve_anthropic_credentials
+from ciel_runtime_support.credentials import secret_fingerprint as project_secret_fingerprint
+from ciel_runtime_support.executable_discovery import ExecutableDiscovery
+from ciel_runtime_support.github_copilot_oauth_runtime import GitHubCopilotOAuthRuntime, GitHubCopilotOAuthRuntimePorts
+from ciel_runtime_support.headless_config import (HeadlessChannelCommands, HeadlessConfigCommands,
+                                                  HeadlessConfigServices, HeadlessEnvFileLoader, apply_headless_config)
+from ciel_runtime_support.http_response import ChannelDeliveryGuard, HttpResponseAdapter
+from ciel_runtime_support.kimi_runtime_context import (KimiConfigurationPorts, KimiIdentityPorts, KimiLifecyclePorts,
+                                                       KimiProcessPorts, KimiRuntimeCompatibilityApi,
+                                                       KimiRuntimeContext)
+from ciel_runtime_support.launch_diagnostics import LaunchCommandDiagnostics, StderrCaptureAdapter
+from ciel_runtime_support.launch_state import LaunchStateRepository
+from ciel_runtime_support.launch_state import current_launch_cwd_key as project_current_launch_cwd_key
+from ciel_runtime_support.launch_state import last_launch_runtime as project_last_launch_runtime
+from ciel_runtime_support.launch_state import launch_mode_name as project_launch_mode_name
+from ciel_runtime_support.launch_state import session_control_requested as project_session_control_requested
+from ciel_runtime_support.launch_state import should_fork_native_session as project_should_fork_native_session
+from ciel_runtime_support.live_api_key_controller import LiveApiKeyController, LiveApiKeyPorts
+from ciel_runtime_support.llm_config_http import (LlmConfigHttpController, LlmConfigHttpIO, LlmConfigIdentity,
+                                                  LlmConfigMutations, LlmConfigPanels)
+from ciel_runtime_support.llm_presentation_data import LLM_OPTION_TOGGLE_KEYS  # noqa: F401 - compatibility export
+from ciel_runtime_support.llm_presentation_data import (AUTO_TIMEOUT_MAX_MS, AUTO_TIMEOUT_MIN_MS, AUTO_TIMEOUT_ROUND_MS,
+                                                        CONTEXT_HEAVY_PRESETS, LLM_OPTION_DESCRIPTIONS, LLM_PRESET_I18N,
+                                                        LLM_PRESET_TIMEOUT_MS, LLM_PRESETS, LLM_SLIDER_LABELS,
+                                                        MODEL_FAMILY_I18N, RUNTIME_LLM_OPTION_KEYS,
+                                                        RUNTIME_LLM_ORIGINAL_KEY, TIMEOUT_PRESET_I18N, TIMEOUT_PRESETS)
+from ciel_runtime_support.llm_preset_context import (LlmPresetAlgorithms, LlmPresetCatalog, LlmPresetCompatibilityApi,
+                                                     LlmPresetContext, LlmPresetContextPolicyPorts,
+                                                     LlmPresetDefinitionPorts, LlmPresetMutationPorts, LlmPresetQueries)
+from ciel_runtime_support.lm_studio_runtime import (LmStudioLifecycleApi, LmStudioLifecyclePolicy,
+                                                    LmStudioModelLifecycle, LmStudioRuntimeServices,
+                                                    discover_lm_studio_runtime)
+from ciel_runtime_support.managed_mcp_config import (ManagedMcpConfigPaths, ManagedMcpConfigPolicy,
+                                                     ManagedMcpConfigPorts, ManagedMcpConfigService)
+from ciel_runtime_support.managed_service_cleanup import ManagedServiceCleanupPolicy, ManagedServiceCleanupPorts
+from ciel_runtime_support.mcp_config_reader import ClaudeMcpConfigPathPolicy
+from ciel_runtime_support.mcp_config_reader import dedupe_strings as _dedupe_strings
+from ciel_runtime_support.mcp_config_reader import discover_channel_specs
+from ciel_runtime_support.mcp_config_reader import path_for_compare as _path_for_compare
+from ciel_runtime_support.mcp_config_reader import read_mcp_config_items
+from ciel_runtime_support.mcp_config_reader import server_names_from_mapping as _mcp_server_names_from_mapping
+from ciel_runtime_support.mcp_config_reader import servers_from_mapping as _mcp_servers_from_mapping
+from ciel_runtime_support.mcp_configuration_context import (McpConfigurationCompatibilityApi, McpConfigurationContext,
+                                                            McpConfigurationFilePorts, McpConfigurationPaths,
+                                                            McpConfigurationRuntimePorts)
+from ciel_runtime_support.mcp_http_proxy import (McpHttpProxyCodec, McpHttpProxyRuntime, McpHttpProxyServices,
+                                                 McpHttpProxyTransport)
+from ciel_runtime_support.mcp_http_proxy import run_mcp_streamable_http_proxy as run_streamable_http_mcp_proxy
+from ciel_runtime_support.mcp_notification_wait_policy import (McpNotificationWaitPolicy, McpNotificationWaitPorts,
+                                                               McpNotificationWaitRepository,
+                                                               McpNotificationWaitService)
+from ciel_runtime_support.mcp_probe_codec import channel_capability_present as _channel_probe_capability_present
+from ciel_runtime_support.mcp_probe_codec import decode_sse_events as _decode_sse_events
+from ciel_runtime_support.mcp_probe_codec import find_initialize_response as _channel_probe_find_initialize_response
+from ciel_runtime_support.mcp_probe_codec import initialize_payload as _mcp_probe_initialize_payload
+from ciel_runtime_support.mcp_probe_codec import initialize_payload_bytes as _mcp_probe_initialize_payload_bytes
+from ciel_runtime_support.mcp_probe_codec import probe_strategy as _channel_probe_strategy_for
+from ciel_runtime_support.mcp_probe_transport import McpProbeCodec, McpProbeHttp, McpProbePolicy, McpProbeServices
+from ciel_runtime_support.mcp_probe_transport import probe_sse_mcp_for_channel_capability_detailed as run_sse_mcp_probe
+from ciel_runtime_support.mcp_probe_transport import \
+    probe_streamable_http_mcp_for_channel_capability_detailed as run_streamable_http_mcp_probe
+from ciel_runtime_support.mcp_proxy_codec import (McpProxyCodecPolicy, _mcp_proxy_error_response,
+                                                  _mcp_proxy_notification_wait_response, _mcp_proxy_tool_call_arguments,
+                                                  _mcp_proxy_tool_call_name, _mcp_proxy_tool_is_notification_wait,
+                                                  _mcp_proxy_wait_timeout_seconds)
+from ciel_runtime_support.mcp_proxy_codec import compact_tool_result_response as compact_mcp_tool_result_response
+from ciel_runtime_support.mcp_proxy_config import McpProxyConfigPaths, McpProxyConfigPorts, McpProxyConfigService
+from ciel_runtime_support.mcp_proxy_process import (McpStdioConfigPorts, McpStdioEffects, McpStdioProxyService,
+                                                    McpStdioTransportPorts, _mcp_proxy_drain_input_messages)
+from ciel_runtime_support.mcp_proxy_process import _mcp_proxy_forward_stderr as proxy_forward_stderr
+from ciel_runtime_support.mcp_proxy_process import _mcp_proxy_forward_stdin as proxy_forward_stdin
+from ciel_runtime_support.mcp_proxy_process import _mcp_proxy_forward_stdin_jsonl as proxy_forward_stdin_jsonl
+from ciel_runtime_support.mcp_proxy_process import _mcp_proxy_forward_stdout_jsonl as proxy_forward_stdout_jsonl
+from ciel_runtime_support.mcp_proxy_process import _mcp_proxy_stdio_mode
+from ciel_runtime_support.mcp_proxy_process import _mcp_proxy_streamable_http_request as proxy_streamable_http_request
+from ciel_runtime_support.mcp_proxy_process import _mcp_proxy_write_json_response
+from ciel_runtime_support.mcp_proxy_process import _McpStdoutObserver as McpStdoutObserver
+from ciel_runtime_support.mcp_split_proxy_http import McpSplitProxyHttpAdapter, McpSplitProxyHttpPorts
+from ciel_runtime_support.mcp_stdio_probe import (StdioProbeCodec, StdioProbePolicy, StdioProbeProcess,
+                                                  StdioProbeServices)
+from ciel_runtime_support.mcp_stdio_probe import probe_stdio_mcp_for_channel_capability_detailed as run_stdio_mcp_probe
+from ciel_runtime_support.mcp_transport import (CODEX_MCP_SPLIT_PROXY_PREFIX, MCP_LEGACY_SSE_PROTOCOL_VERSION,
+                                                MCP_STREAMABLE_HTTP_PROTOCOL_VERSION)
+from ciel_runtime_support.mcp_transport import split_proxy_server_name as codex_mcp_split_proxy_server_name
+from ciel_runtime_support.mcp_transport import sse_post_json as _mcp_sse_post_json
+from ciel_runtime_support.mcp_transport import streamable_headers as _mcp_streamable_headers
+from ciel_runtime_support.mcp_transport import streamable_post_json as _mcp_streamable_post_json
+from ciel_runtime_support.mcp_transport import upstream_url as _codex_mcp_split_proxy_upstream_url
+from ciel_runtime_support.model_context_hints import ModelContextHintPolicy, ModelContextHintPorts
+from ciel_runtime_support.model_registry_repository import ModelRegistryApi
+from ciel_runtime_support.npm_runtime import (claude_code_current_version, codex_current_version,
+                                              npm_global_bin_dir_from_prefix, npm_global_install_command,
+                                              npm_global_package_root, npm_install_runtime_command,
+                                              npm_latest_package_version, npm_prefix_from_package_root,
+                                              package_root_from_installed_path, parse_version_tuple,
+                                              run_upgrade_command, version_newer)
+from ciel_runtime_support.observability import EventBus, render_events_html
+from ciel_runtime_support.ollama_catalog_cli import OllamaCatalogCliController
+from ciel_runtime_support.ollama_catalog_context import (OllamaCatalogCompatibilityApi, OllamaCatalogContext,
+                                                         OllamaCatalogProjectionPorts, OllamaCatalogRepositoryPorts,
+                                                         OllamaCatalogWorkflowPorts)
+from ciel_runtime_support.ollama_context_sync import (OllamaContextPolicy, OllamaContextSources,
+                                                      sync_ollama_context_limit)
+from ciel_runtime_support.ollama_forwarding import (OllamaForwardAdvisor, OllamaForwardConstants,
+                                                    OllamaForwardRateLimit, OllamaForwardRequest, OllamaForwardResponse,
+                                                    OllamaForwardServices, OllamaForwardStreaming)
+from ciel_runtime_support.ollama_forwarding import forward_ollama_api_chat as run_ollama_forward
+from ciel_runtime_support.ollama_wire_projection import OllamaWireCompatibilityApi
+from ciel_runtime_support.openai_forwarding import (OpenAIForwardAdvisor, OpenAIForwardPolicy, OpenAIForwardRateLimit,
+                                                    OpenAIForwardRequest, OpenAIForwardResponse, OpenAIForwardServices,
+                                                    OpenAIForwardStreaming)
+from ciel_runtime_support.openai_forwarding import forward_openai_compatible_chat as run_openai_forward
+from ciel_runtime_support.openai_responses_stream import write_openai_responses as project_openai_responses_stream
+from ciel_runtime_support.openai_responses_stream import write_openai_responses_error as project_openai_responses_error
 from ciel_runtime_support.output_budget import OpenAIContextBudgetPolicy, OutputBudgetPolicy
-from ciel_runtime_support.providers.nvidia_runtime import (
-    NvidiaRuntimeApi,
-    NvidiaProxyRuntime,
-    NvidiaProxyRuntimeConfig,
-    NvidiaProxyRuntimePorts,
-    NvidiaProxyStopper,
-    NvidiaProxyStopPorts,
-)
-from ciel_runtime_support.managed_service_cleanup import (
-    ManagedServiceCleanupPolicy,
-    ManagedServiceCleanupPorts,
-)
-from ciel_runtime_support.providers.nvidia import (
-    hosted_context_default as nvidia_hosted_context_default,
-)
-from ciel_runtime_support.provider_status import (
-    ProviderStatusCatalog,
-    ProviderStatusGeneric,
-    ProviderStatusRouting,
-    ProviderStatusServices,
-)
-from ciel_runtime_support import prelaunch, prelaunch_assembly
+from ciel_runtime_support.plan_artifact_controller import PlanArtifactController, PlanArtifactServices
 from ciel_runtime_support.prelaunch_launch_preference import preferred_provider_launch_action
-from ciel_runtime_support.prelaunch_panel_projection import (
-    ProviderPanelConstants,
-)
-from ciel_runtime_support.prelaunch_terminal import (
-    PrelaunchInputStyle,
-    PrelaunchRenderBrand,
-    PrelaunchRenderData,
-    PrelaunchRenderServices,
-    PrelaunchRenderText,
-    _prompt_menu_multiline_value_raw as read_menu_multiline_value_raw,
-    _prompt_menu_value_raw as read_menu_value_raw,
-    append_menu_key_debug_log as write_menu_key_debug_log,
-    animated_ansi_text as render_animated_ansi_text,
-    ansi as render_ansi,
-    cell_width as terminal_cell_width,
-    enable_ansi as enable_terminal_ansi,
-    fit_cells as fit_terminal_cells,
-    intro_panel_lines as render_intro_panel_lines,
-    pad_cells as pad_terminal_cells,
-    portable_select as run_portable_select,
-    prompt_menu_multiline_value as read_menu_multiline_value,
-    prompt_menu_value as read_menu_value,
-    read_menu_key as read_terminal_menu_key,
-    render_prelaunch_screen as render_prelaunch_terminal_screen,
-)
-from ciel_runtime_support.prelaunch_shell_context import (
-    PrelaunchInputPorts,
-    PrelaunchProviderPorts,
-    PrelaunchPromptPorts,
-    PrelaunchShellCompatibilityApi,
-    PrelaunchShellContext,
-    PrelaunchVisualPorts,
-)
-from ciel_runtime_support.prelaunch_panel_context import (
-    AuthPanelPorts,
-    ChannelPanelContextPorts,
-    ConfigurationPanelContextPorts,
-    MainMenuPanelPorts,
-    ModelPanelCatalogPorts,
-    ModelPanelPresentationPorts,
-    PrelaunchPanelCompatibilityApi,
-    PrelaunchPanelContext,
-    ProviderChoicePanelPorts,
-    WebBackendPanelPorts,
-)
-from ciel_runtime_support.prompt_compaction import (
-    PromptCompactionRuntime,
-    PromptCompactionServices,
-    PromptCompactionText,
-    anthropic_message_has_tool_result as compacted_anthropic_message_has_tool_result,
-    anthropic_safe_tail_start as compacted_anthropic_safe_tail_start,
-    compact_chat_messages_for_budget as run_chat_prompt_compaction,
-    compact_anthropic_body_for_budget as run_anthropic_prompt_compaction,
-)
-from ciel_runtime_support.prompt_injection import (
-    append_anthropic_system_texts as project_append_anthropic_system_texts,
-    normalize_anthropic_system_role_messages as project_normalize_anthropic_system_role_messages,
-)
+from ciel_runtime_support.prelaunch_panel_context import (AuthPanelPorts, ChannelPanelContextPorts,
+                                                          ConfigurationPanelContextPorts, MainMenuPanelPorts,
+                                                          ModelPanelCatalogPorts, ModelPanelPresentationPorts,
+                                                          PrelaunchPanelCompatibilityApi, PrelaunchPanelContext,
+                                                          ProviderChoicePanelPorts, WebBackendPanelPorts)
+from ciel_runtime_support.prelaunch_panel_projection import ProviderPanelConstants
+from ciel_runtime_support.prelaunch_shell_context import (PrelaunchInputPorts, PrelaunchPromptPorts,
+                                                          PrelaunchProviderPorts, PrelaunchShellCompatibilityApi,
+                                                          PrelaunchShellContext, PrelaunchVisualPorts)
+from ciel_runtime_support.prelaunch_terminal import (PrelaunchInputStyle, PrelaunchRenderBrand, PrelaunchRenderData,
+                                                     PrelaunchRenderServices, PrelaunchRenderText)
+from ciel_runtime_support.prelaunch_terminal import _prompt_menu_multiline_value_raw as read_menu_multiline_value_raw
+from ciel_runtime_support.prelaunch_terminal import _prompt_menu_value_raw as read_menu_value_raw
+from ciel_runtime_support.prelaunch_terminal import animated_ansi_text as render_animated_ansi_text
+from ciel_runtime_support.prelaunch_terminal import ansi as render_ansi
+from ciel_runtime_support.prelaunch_terminal import append_menu_key_debug_log as write_menu_key_debug_log
+from ciel_runtime_support.prelaunch_terminal import cell_width as terminal_cell_width
+from ciel_runtime_support.prelaunch_terminal import enable_ansi as enable_terminal_ansi
+from ciel_runtime_support.prelaunch_terminal import fit_cells as fit_terminal_cells
+from ciel_runtime_support.prelaunch_terminal import intro_panel_lines as render_intro_panel_lines
+from ciel_runtime_support.prelaunch_terminal import pad_cells as pad_terminal_cells
+from ciel_runtime_support.prelaunch_terminal import portable_select as run_portable_select
+from ciel_runtime_support.prelaunch_terminal import prompt_menu_multiline_value as read_menu_multiline_value
+from ciel_runtime_support.prelaunch_terminal import prompt_menu_value as read_menu_value
+from ciel_runtime_support.prelaunch_terminal import read_menu_key as read_terminal_menu_key
+from ciel_runtime_support.prelaunch_terminal import render_prelaunch_screen as render_prelaunch_terminal_screen
+from ciel_runtime_support.process_control import (ProcessControlServices, ProcessInspectionServices,
+                                                  ProcessQueryServices, ProcessSignalServices, ProcessTreeController,
+                                                  linux_procfs_pids_on_port)
+from ciel_runtime_support.process_control import pid_is_running as inspect_pid_is_running
+from ciel_runtime_support.process_control import posix_pids_on_port as project_posix_pids_on_port
+from ciel_runtime_support.process_control import posix_process_rows
+from ciel_runtime_support.process_control import process_command_line as inspect_process_command_line
+from ciel_runtime_support.process_control import process_cwd as inspect_process_cwd
+from ciel_runtime_support.process_control import process_environ_contains as inspect_process_environ_contains
+from ciel_runtime_support.process_control import terminate_matching_processes as run_terminate_matching_processes
+from ciel_runtime_support.process_control import windows_pids_on_port
+from ciel_runtime_support.prompt_compaction import (PromptCompactionRuntime, PromptCompactionServices,
+                                                    PromptCompactionText)
+from ciel_runtime_support.prompt_compaction import \
+    anthropic_message_has_tool_result as compacted_anthropic_message_has_tool_result
+from ciel_runtime_support.prompt_compaction import anthropic_safe_tail_start as compacted_anthropic_safe_tail_start
+from ciel_runtime_support.prompt_compaction import compact_anthropic_body_for_budget as run_anthropic_prompt_compaction
+from ciel_runtime_support.prompt_compaction import compact_chat_messages_for_budget as run_chat_prompt_compaction
+from ciel_runtime_support.prompt_injection import append_anthropic_system_texts as project_append_anthropic_system_texts
+from ciel_runtime_support.prompt_injection import \
+    normalize_anthropic_system_role_messages as project_normalize_anthropic_system_role_messages
+from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
+from ciel_runtime_support.protocols.anthropic_content import content_to_text as anthropic_content_to_text
+from ciel_runtime_support.protocols.anthropic_thinking_policy import (AnthropicThinkingPolicy,
+                                                                      SuppressedThinkingRepository, ThinkingPolicyPorts)
+from ciel_runtime_support.protocols.anthropic_thinking_policy import \
+    assistant_history_count as project_anthropic_assistant_history_count
+from ciel_runtime_support.protocols.anthropic_thinking_policy import \
+    copy_thinking_blocks as project_copy_thinking_blocks
+from ciel_runtime_support.protocols.anthropic_thinking_policy import \
+    has_synthetic_tool_use as project_has_synthetic_tool_use
+from ciel_runtime_support.protocols.anthropic_thinking_policy import \
+    message_content_blocks as project_message_content_blocks
+from ciel_runtime_support.protocols.anthropic_thinking_policy import \
+    strip_thinking_blocks as project_strip_thinking_blocks
+from ciel_runtime_support.protocols.anthropic_thinking_policy import \
+    thinking_block_count as project_anthropic_thinking_block_count
+from ciel_runtime_support.protocols.anthropic_thinking_policy import \
+    thinking_requested as project_anthropic_thinking_requested
+from ciel_runtime_support.protocols.anthropic_thinking_policy import \
+    tool_continuation_block_count as project_anthropic_tool_continuation_block_count
+from ciel_runtime_support.protocols.chat_projection import (ChatProjectionPolicy, ChatProjectionServices,
+                                                            ChatProjectionText, ChatProjectionTools,
+                                                            OpenAiHistoryServices)
+from ciel_runtime_support.protocols.chat_projection import \
+    anthropic_messages_to_ollama as project_anthropic_messages_to_ollama
+from ciel_runtime_support.protocols.chat_projection import \
+    anthropic_messages_to_openai as project_anthropic_messages_to_openai
+from ciel_runtime_support.protocols.chat_projection import \
+    missing_openai_tool_result_message as project_missing_openai_tool_result_message
+from ciel_runtime_support.protocols.chat_projection import \
+    orphan_openai_tool_message_to_user as project_orphan_openai_tool_message_to_user
+from ciel_runtime_support.protocols.chat_projection import \
+    repair_openai_tool_call_adjacency as project_repair_openai_tool_call_adjacency
+from ciel_runtime_support.protocols.conversation_policy import \
+    latest_plan_attachment  # noqa: F401 - compatibility export
+from ciel_runtime_support.protocols.conversation_policy import message_attachment  # noqa: F401 - compatibility export
+from ciel_runtime_support.protocols.conversation_policy import ConversationPolicyServices, canonical_tool_signature
+from ciel_runtime_support.protocols.conversation_policy import \
+    claude_code_state_messages as project_claude_code_state_messages
+from ciel_runtime_support.protocols.conversation_policy import \
+    collect_tool_result_context as project_collect_tool_result_context
+from ciel_runtime_support.protocols.conversation_policy import \
+    is_attachment_only_message as project_is_attachment_only_message
+from ciel_runtime_support.protocols.conversation_policy import is_read_unchanged_result
+from ciel_runtime_support.protocols.conversation_policy import \
+    plan_file_written_in_body as project_plan_file_written_in_body
+from ciel_runtime_support.protocols.conversation_policy import \
+    should_skip_upstream_message as project_should_skip_upstream_message
+from ciel_runtime_support.protocols.conversation_policy import \
+    upstream_relevant_message as project_upstream_relevant_message
+from ciel_runtime_support.protocols.conversation_turn_policy import (ConversationTurnCompatibilityApi,
+                                                                     ConversationTurnPolicy, ConversationTurnPorts)
+from ciel_runtime_support.protocols.ollama_chat import (anthropic_system_to_ollama_messages, anthropic_tools_to_ollama,
+                                                        decode_ollama_chat_response, encode_anthropic_message,
+                                                        ollama_claude_code_reminder)
+from ciel_runtime_support.protocols.ollama_response import project_ollama_response, project_openai_chat_response
+from ciel_runtime_support.protocols.openai_reasoning import (OpenAiReasoningPolicy, anthropic_tool_choice_to_openai,
+                                                             openai_reasoning_to_anthropic_thinking_block)
+from ciel_runtime_support.protocols.pseudo_tool_history import (PseudoToolHistoryServices, find_pseudo_xml_tool_start,
+                                                                parse_xml_pseudo_tool_calls,
+                                                                sanitize_assistant_pseudo_tool_history)
+from ciel_runtime_support.protocols.tool_result_projection import ToolResultProjectionServices, project_tool_result
+from ciel_runtime_support.provider_adapters import (PROVIDER_ADAPTERS, PROVIDER_ALIASES, PROVIDER_LABELS,
+                                                    provider_default_configurations)
+from ciel_runtime_support.provider_administration_context import (ProviderAdministrationCompatibilityApi,
+                                                                  ProviderAdministrationContext,
+                                                                  ProviderAdministrationCredentials,
+                                                                  ProviderAdministrationInfrastructure,
+                                                                  ProviderAdministrationPresentation,
+                                                                  ProviderAdministrationSelection)
+from ciel_runtime_support.provider_choice import (AGY_NATIVE_PROVIDER_CHOICE, AGY_ROUTED_PROVIDER_CHOICE,
+                                                  ANTHROPIC_NATIVE_PROVIDER_CHOICE, ANTHROPIC_ROUTED_PROVIDER_CHOICE,
+                                                  CODEX_NATIVE_PROVIDER_CHOICE, CODEX_ROUTED_PROVIDER_CHOICE,
+                                                  ProviderChoiceController, ProviderChoicePorts)
+from ciel_runtime_support.provider_choice import normalize_provider_choice as normalize_runtime_provider_choice
+from ciel_runtime_support.provider_compatibility import PROVIDER_COMPATIBILITY
+from ciel_runtime_support.provider_config_mutations import ProviderOptionPolicy
+from ciel_runtime_support.provider_config_mutations import apply_ollama_option as mutate_ollama_option
+from ciel_runtime_support.provider_config_mutations import apply_provider_option as mutate_provider_option
+from ciel_runtime_support.provider_configuration_service import (ProviderEndpointPolicy, ProviderEndpointPorts,
+                                                                 ProviderEndpointService, ProviderStatusProjectionPorts,
+                                                                 ProviderStatusService, RuntimeStatusPorts)
+from ciel_runtime_support.provider_context import ContextPresetServices, ProviderContextServices
+from ciel_runtime_support.provider_context import cap_context_settings as apply_context_capacity_cap
+from ciel_runtime_support.provider_context import cap_output_settings as apply_output_context_cap
+from ciel_runtime_support.provider_context import cap_output_tokens as apply_output_token_cap
+from ciel_runtime_support.provider_context import classify_model_family, infer_context_preset, recommended_preset
+from ciel_runtime_support.provider_context import required_context_for_preset as context_required_for_preset
+from ciel_runtime_support.provider_context import resolve_context_capacity
+from ciel_runtime_support.provider_context import small_context_output_token_cap as resolve_small_context_output_cap
+from ciel_runtime_support.provider_contract_projection import ProviderContractProjectionApi
+from ciel_runtime_support.provider_endpoint_policy import \
+    ProviderEndpointPolicy as ModelEndpointPolicy  # noqa: F401 - compatibility export
+from ciel_runtime_support.provider_endpoint_policy import ProviderEndpointPorts as ModelEndpointPorts
+from ciel_runtime_support.provider_endpoint_policy import \
+    ProviderEndpointPresentation as ModelEndpointPresentation  # noqa: F401
+from ciel_runtime_support.provider_endpoint_policy import build_default_provider_endpoint_policy
+from ciel_runtime_support.provider_endpoint_probe import (ProviderEndpointProbePolicy, ProviderEndpointProbeProjection,
+                                                          ProviderEndpointProbeQueries, ProviderEndpointRouteAdapter,
+                                                          ProviderEndpointRoutePorts)
+from ciel_runtime_support.provider_launch_endpoint import \
+    ProviderLaunchEndpointGroups  # noqa: F401 - compatibility export
+from ciel_runtime_support.provider_launch_endpoint import \
+    ProviderLaunchEndpointPolicy  # noqa: F401 - compatibility export
+from ciel_runtime_support.provider_launch_endpoint import (ProviderLaunchEndpointQueries,
+                                                           build_default_provider_launch_endpoint_policy)
+from ciel_runtime_support.provider_limits import ProviderKeyServices, choose_provider_api_key
+from ciel_runtime_support.provider_model_catalog_context import (ProviderModelCachePorts,
+                                                                 ProviderModelCatalogCompatibilityApi,
+                                                                 ProviderModelCatalogCompatibilityPorts,
+                                                                 ProviderModelCatalogContext,
+                                                                 ProviderModelRegistryConfig,
+                                                                 ProviderModelRegistryPorts)
+from ciel_runtime_support.provider_model_context import (ProviderModelContext, ProviderModelContextAlgorithms,
+                                                         ProviderModelContextCompatibilityApi,
+                                                         ProviderModelContextQueries)
+from ciel_runtime_support.provider_model_identity import ProviderModelIdentityApi, ProviderModelIdentityService
+from ciel_runtime_support.provider_model_metadata_context import (ModelCapabilityPorts, ModelCatalogHeaderPorts,
+                                                                  ModelRegistryRecommendationPorts,
+                                                                  ProviderModelMetadataCompatibilityApi,
+                                                                  ProviderModelMetadataContext)
+from ciel_runtime_support.provider_model_selection import (AdvisorModelMutationPorts, AdvisorModelSelectionController,
+                                                           ModelCatalogPorts, ModelIdentityPorts,
+                                                           ModelMutationConfigPorts, ModelMutationEffectPorts,
+                                                           ModelMutationPolicyPorts, ModelSelectionController,
+                                                           ModelSelectionPorts, ProviderModelSelection,
+                                                           ProviderModelSelectionApi)
+from ciel_runtime_support.provider_model_specs import (ModelSpecLookupPorts, ModelSpecMutationPorts,
+                                                       ModelSpecRefreshPorts, ProviderModelSpecService)
+from ciel_runtime_support.provider_option_cli import (OllamaOptionCommands, ProviderOptionCliConfig,
+                                                      ProviderOptionCliController, ProviderOptionCommands)
+from ciel_runtime_support.provider_option_panel import (OptionPanelPolicy, OptionPanelProvider, OptionPanelRuntime,
+                                                        OptionPanelServices, OptionPanelText, OptionValuePolicy,
+                                                        build_option_panel_rows, current_option_bool,
+                                                        option_prompt_default)
+from ciel_runtime_support.provider_option_status import (ProviderContextStatusPorts, ProviderContextStatusProjection,
+                                                         ProviderOptionStatusPorts, ProviderOptionStatusProjection)
+from ciel_runtime_support.provider_option_status import format_context_tokens as project_format_context_tokens
+from ciel_runtime_support.provider_option_status import format_parameter_count as project_format_parameter_count
+from ciel_runtime_support.provider_policy import (ProviderRequestServices, ProviderWireServices,
+                                                  normalize_provider_request, resolve_provider_wire_profile)
+from ciel_runtime_support.provider_query_policy import ProviderQueryPolicy
+from ciel_runtime_support.provider_readiness import (ProviderReadinessCapabilities, ProviderReadinessLmStudio,
+                                                     ProviderReadinessMode, ProviderReadinessServices)
+from ciel_runtime_support.provider_readiness_context import (ProviderConfigurationPorts, ProviderCredentialPorts,
+                                                             ProviderDefaultsPorts, ProviderProjectionPorts,
+                                                             ProviderReadinessCompatibilityApi,
+                                                             ProviderReadinessContext)
+from ciel_runtime_support.provider_request_access import (ProviderRequestAccessEffects, ProviderRequestAccessPorts,
+                                                          ProviderRequestAccessService)
+from ciel_runtime_support.provider_request_builder import (OllamaRequestPorts, OpenAIRequestPorts, ProviderOptionPorts,
+                                                           ProviderRequestBudget, ProviderRequestBuilder,
+                                                           ProviderRequestCompatibilityApi)
+from ciel_runtime_support.provider_runtime_info import ProviderRuntimeInfoPorts, ProviderRuntimeInfoService
+from ciel_runtime_support.provider_runtime_modes import \
+    ProviderNativeCompatibilityPolicy  # noqa: F401 - compatibility export
+from ciel_runtime_support.provider_runtime_modes import RuntimeModePolicy  # noqa: F401 - compatibility export
+from ciel_runtime_support.provider_runtime_modes import (build_default_native_compatibility_policy,
+                                                         build_default_runtime_mode_policy)
+from ciel_runtime_support.provider_sampling_policy import ProviderSamplingPolicy
+from ciel_runtime_support.provider_status import (ProviderStatusCatalog, ProviderStatusGeneric, ProviderStatusRouting,
+                                                  ProviderStatusServices)
+from ciel_runtime_support.provider_timeout_policy import (ProviderTimeoutCompatibilityApi, ProviderTimeoutPolicy,
+                                                          ProviderTimeoutPorts, ProviderTimeoutSettings)
+from ciel_runtime_support.provider_tool_policy import ProviderToolPolicy
+from ciel_runtime_support.providers.nvidia import hosted_context_default as nvidia_hosted_context_default
+from ciel_runtime_support.providers.nvidia_runtime import (NvidiaProxyRuntime, NvidiaProxyRuntimeConfig,
+                                                           NvidiaProxyRuntimePorts, NvidiaProxyStopper,
+                                                           NvidiaProxyStopPorts, NvidiaRuntimeApi)
+from ciel_runtime_support.providers.ollama_context import OllamaRequestContextPolicy
+from ciel_runtime_support.providers.ollama_runtime import OllamaRuntimeApi, OllamaRuntimeService, OllamaRuntimeServices
+from ciel_runtime_support.pseudo_tool_parser import infer_tool_name_from_args as project_infer_tool_name
+from ciel_runtime_support.pseudo_tool_parser import normalize_tool_arguments as project_normalize_tool_arguments
+from ciel_runtime_support.pseudo_tool_parser import parse_pseudo_tool_calls as project_parse_pseudo_tool_calls
+from ciel_runtime_support.rate_limit_repository import RateLimitRepository
+from ciel_runtime_support.request_shortcuts import format_channel_messages  # noqa: F401 - compatibility export
+from ciel_runtime_support.request_shortcuts import parse_channel_bridge_args  # noqa: F401 - compatibility export
+from ciel_runtime_support.request_shortcuts import ShortcutTextServices
+from ciel_runtime_support.request_shortcuts import has_marker as project_has_request_marker
+from ciel_runtime_support.request_shortcuts import import_session_args as project_import_session_args
+from ciel_runtime_support.request_shortcuts import live_api_keys_value as project_live_api_keys_value
+from ciel_runtime_support.request_shortcuts import live_option_value as project_live_option_value
+from ciel_runtime_support.request_shortcuts import marker_tail as project_request_marker_tail
+from ciel_runtime_support.request_shortcuts import single_value as project_single_shortcut_value
+from ciel_runtime_support.request_shortcuts import \
+    split_import_session_arguments as project_split_import_session_arguments
+from ciel_runtime_support.request_trace import truncate_for_dump as _truncate_for_dump
+from ciel_runtime_support.response_collection import (AnthropicCollectionProjection, AnthropicCollectionRequest,
+                                                      AnthropicCollectionServices, AnthropicCollectionTransport,
+                                                      ResponseCollectionProjection, ResponseCollectionRateLimit,
+                                                      ResponseCollectionRequest, ResponseCollectionServices)
+from ciel_runtime_support.response_collection_context import (ResponseCollectionCompatibilityApi,
+                                                              ResponseCollectionContext, ResponseCollectionRoutingPorts,
+                                                              ResponseCollectionStrategyPorts)
+from ciel_runtime_support.response_stream_context import (ResponseStreamAlgorithms, ResponseStreamCompatibilityApi,
+                                                          ResponseStreamContext, ResponseStreamConversationPorts,
+                                                          ResponseStreamIoPorts, ResponseStreamRecoveryPorts,
+                                                          ResponseStreamRuntimePorts, ResponseStreamTextPorts,
+                                                          ResponseStreamToolPorts, ResponseStreamTracePorts,
+                                                          ResponseStreamTypes)
+from ciel_runtime_support.router_access import is_loopback_address  # noqa: F401 - compatibility export
+from ciel_runtime_support.router_access import router_request_bearer_token  # noqa: F401 - compatibility export
+from ciel_runtime_support.router_access import (RouterAccessConfigService, RouterAccessHttpController,
+                                                RouterAccessMutationPorts, RouterAccessPolicy,
+                                                RouterExternalTokenRepository)
+from ciel_runtime_support.router_client_lifecycle import (ManagedRouterLifetime, ManagedRouterLifetimePorts,
+                                                          RoutedLaunchDiagnosticPorts, RoutedLaunchDiagnostics,
+                                                          RouterClientRegistry, RouterClientRegistryPorts,
+                                                          RouterClientSupervisor, RouterClientSupervisorPorts,
+                                                          RouterLifetimeRunner, RouterLifetimeRunnerPorts)
+from ciel_runtime_support.router_health_policy import RouterHealthPolicy
+from ciel_runtime_support.router_http import (EventHttpAdapter, EventHttpPorts, RouterHttpCore, RouterHttpErrors,
+                                              RouterHttpGetEndpoints, RouterHttpHandler, RouterHttpPostEndpoints,
+                                              RouterHttpPresentation, RouterHttpServices)
+from ciel_runtime_support.router_observability_context import RequestTraceConfiguration
+from ciel_runtime_support.router_observability_context import RequestTracePorts as RouterRequestTracePorts
+from ciel_runtime_support.router_observability_context import (RouterObservabilityCompatibilityApi,
+                                                               RouterObservabilityContext, RouterPreviewPorts,
+                                                               SseObservabilityPorts, SseTraceConfiguration)
+from ciel_runtime_support.router_process_context import (RouterListenerPorts, RouterProcessCompatibilityApi,
+                                                         RouterProcessCompatibilityPorts, RouterProcessContext,
+                                                         RouterProcessEffects)
+from ciel_runtime_support.router_process_lifecycle import (RouterProcessConfig, RouterSpawnPorts, RouterStartupIdentity,
+                                                           RouterStartupStatePorts, RouterStatePorts,
+                                                           schedule_router_restart)
+from ciel_runtime_support.router_process_lifecycle import start_router_if_needed as start_project_router_if_needed
+from ciel_runtime_support.router_rate_limit_service import (RouterRateLimitApi, RouterRateLimitPaths,
+                                                            RouterRateLimitPorts, RouterRateLimitService)
+from ciel_runtime_support.router_request_context import RouterRequestCompatibilityApi, RouterRequestContext
+from ciel_runtime_support.router_server_context import (RouterHealthPresentationPorts, RouterServerCompatibilityApi,
+                                                        RouterServerContext)
+from ciel_runtime_support.router_shortcuts import (ChannelShortcutPorts, LiveConfigShortcutPorts,
+                                                   RouterDebugShortcutPorts, RouterShortcutController,
+                                                   ShortcutPredicates, ShortcutResponsePorts)
+from ciel_runtime_support.runtime_activity_repository import (RuntimeActivityClock, RuntimeActivityEffects,
+                                                              RuntimeActivityPaths, RuntimeActivityRepository)
 from ciel_runtime_support.runtime_adapters import RUNTIME_ADAPTERS
+from ciel_runtime_support.runtime_asset_context import (RuntimeAssetCompatibilityApi, RuntimeAssetCompatibilityPorts,
+                                                        RuntimeAssetContext, RuntimeAssetEffects, RuntimeAssetPaths,
+                                                        RuntimeCommandAssetCatalog, RuntimeExecutablePaths,
+                                                        RuntimeToolGuardPolicy)
 from ciel_runtime_support.runtime_command_factory import RuntimeCommandFactory, RuntimeCommandFactoryPorts
 from ciel_runtime_support.runtime_compatibility import DEFAULT_RUNTIME_COMPATIBILITY
-from ciel_runtime_support.runtime_logging import (
-    LOG_LEVEL_NAMES,
-    LOG_LEVELS,
-    LogLevelApi,
-    LogLevelRepository,
-    RouterFileLogger,
-    normalize_log_level as normalize_runtime_log_level,
-)
-from ciel_runtime_support.runtime_activity_repository import (
-    RuntimeActivityClock,
-    RuntimeActivityEffects,
-    RuntimeActivityPaths,
-    RuntimeActivityRepository,
-)
-from ciel_runtime_support import runtime_launch
-from ciel_runtime_support import claude_launch_assembly
-from ciel_runtime_support.codex_launch_assembly import (
-    CodexAppServerLaunchPorts,
-    CodexCliLaunchPorts,
-    CodexLaunchAssembly,
-    CodexLaunchSharedChannelPorts,
-    CodexLaunchSharedConfigPorts,
-    CodexLaunchSharedDispatchPorts,
-    CodexLaunchSharedInstallationPorts,
-    CodexLaunchSharedRoutingPorts,
-)
-from ciel_runtime_support.runtime_launch_context import (
-    RuntimeLaunchCompatibilityApi,
-    RuntimeLaunchContext,
-    RuntimeLaunchRunners,
-    RuntimeLaunchServiceFactories,
-)
-from ciel_runtime_support.response_stream_context import (
-    ResponseStreamAlgorithms,
-    ResponseStreamCompatibilityApi,
-    ResponseStreamContext,
-    ResponseStreamConversationPorts,
-    ResponseStreamIoPorts,
-    ResponseStreamRecoveryPorts,
-    ResponseStreamRuntimePorts,
-    ResponseStreamTextPorts,
-    ResponseStreamToolPorts,
-    ResponseStreamTracePorts,
-    ResponseStreamTypes,
-)
-from ciel_runtime_support import terminal_platform_io
-from ciel_runtime_support import windows_console_mode
-from ciel_runtime_support.pseudo_tool_parser import (
-    infer_tool_name_from_args as project_infer_tool_name,
-    normalize_tool_arguments as project_normalize_tool_arguments,
-    parse_pseudo_tool_calls as project_parse_pseudo_tool_calls,
-)
+from ciel_runtime_support.runtime_constants import (ADVISOR_FEEDBACK_MARKER,  # noqa: F401
+                                                    ANTHROPIC_LIMITED_ACCESS_MODEL_IDS, ANTHROPIC_MODEL_DOCS_URL,
+                                                    ANTHROPIC_MODEL_DOCS_URLS, ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS,
+                                                    ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS, ANTHROPIC_THINKING_BLOCK_TYPES,
+                                                    APP_NAME, AUTO_DETECT_NATIVE_COMPAT_PROVIDERS, BUILTIN_CHANNEL_SPEC,
+                                                    CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT,
+                                                    CHANNEL_LLM_WAKE_LEGACY_PREFIXES, CHANNEL_LLM_WAKE_PREFIX,
+                                                    CHAT_MESSAGE_DEDUPE_SCAN_LIMIT,
+                                                    CHAT_MESSAGE_FALLBACK_DEDUPE_TTL_SECONDS, CHAT_MESSAGES_MAX_BYTES,
+                                                    CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS, CLAUDE_SERVER_SIDE_WEB_TOOLS,
+                                                    CODEX_NATIVE_PROVIDER_ID_ENV,
+                                                    CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS, CODEX_ROUTED_PROVIDER_ID,
+                                                    CODEX_RUNTIME_API_KEY_ENV, CODEX_RUNTIME_PROVIDER_ID,
+                                                    CODEX_TUI_ALTERNATE_SCREEN_KEY, CREDITS,
+                                                    DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC, DEFAULT_REQUEST_TIMEOUT_MS,
+                                                    FIREWORKS_API_BASE_URL, FIREWORKS_DEFAULT_ACCOUNT_ID,
+                                                    FIREWORKS_INFERENCE_BASE_URL, KIMI_CODING_BASE_URL,
+                                                    KIMI_DEFAULT_MODEL, KIMI_K3_MODEL, KIMI_MODEL_FALLBACK_IDS,
+                                                    LANGUAGES, LM_STUDIO_DEFAULT_CLAUDE_CODE_CONTEXT,
+                                                    LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT,
+                                                    MCP_PROXY_TOOL_RESULT_ITEM_TEXT_CHARS,
+                                                    MCP_PROXY_TOOL_RESULT_MAX_CHARS_DEFAULT, MODEL_CACHE_TTL_SECONDS,
+                                                    MODEL_PRESETS, NCP_PYPI_PACKAGE, NON_ANTHROPIC_COMPAT_PROMPT,
+                                                    OFFICIAL_CHANNEL_PLUGINS, OLLAMA_MODEL_CATALOG_TTL_SECONDS,
+                                                    OLLAMA_MODEL_CATALOG_URL, OPENAI_COMPATIBLE_ROUTER_PROVIDERS,
+                                                    OPENCODE_ENDPOINT_ALIASES, OPENCODE_GO_BASE_URL,
+                                                    OPENCODE_ZEN_BASE_URL, PLAN_GUARD_MARKER, PLAN_MODE_SELF_TOOLS,
+                                                    PRELAUNCH_CANCEL, PRELAUNCH_LAUNCH_AGY, PRELAUNCH_LAUNCH_CLAUDE,
+                                                    PRELAUNCH_LAUNCH_CODEX, PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
+                                                    PRELAUNCH_RELOAD, REQUEST_DUMP_MAX_BYTES, RESPONSE_DUMP_MAX_BYTES,
+                                                    RESPONSE_DUMP_TEXT_LIMIT, ROUTED_COMPAT_PROMPT,
+                                                    ROUTER_LOG_MAX_BYTES, SSE_TRACE_EVENT_LIMIT, SSE_TRACE_MAX_BYTES,
+                                                    SSE_TRACE_PAYLOAD_LIMIT, VERSION, ZAI_ANTHROPIC_BASE_URL,
+                                                    ZAI_DEFAULT_MODEL, ZAI_MANAGED_MCP_SERVERS, ZAI_MODEL_CONTEXT_HINTS)
+from ciel_runtime_support.runtime_launch_context import (RuntimeLaunchCompatibilityApi, RuntimeLaunchContext,
+                                                         RuntimeLaunchRunners, RuntimeLaunchServiceFactories)
+from ciel_runtime_support.runtime_llm_options import (RuntimeLlmConfigPorts, RuntimeLlmMutationPorts,
+                                                      RuntimeLlmOptionsApi, RuntimeLlmOptionsController,
+                                                      RuntimeLlmPresentationPorts, RuntimeLlmSettings)
+from ciel_runtime_support.runtime_logging import (LOG_LEVEL_NAMES, LOG_LEVELS, LogLevelApi, LogLevelRepository,
+                                                  RouterFileLogger)
+from ciel_runtime_support.runtime_logging import normalize_log_level as normalize_runtime_log_level
+from ciel_runtime_support.runtime_maintenance_context import (RuntimeAgyPorts, RuntimeLifecyclePorts,
+                                                              RuntimeMaintenanceCompatibilityApi,
+                                                              RuntimeMaintenanceContext, RuntimePackagePorts,
+                                                              RuntimeUpgradeCommandPorts)
+from ciel_runtime_support.runtime_maintenance_services import (MaintenanceAgyPorts, MaintenanceDiagnosticPorts,
+                                                               MaintenanceNpmPorts, MaintenancePackagePorts,
+                                                               MaintenanceRestartPorts, MaintenanceUpdatePorts,
+                                                               RuntimeMaintenanceServices,
+                                                               RuntimeMaintenanceServicesCompatibilityApi)
+from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  # noqa: F401
+                                                CHANNEL_LLM_CLEAR_FLOOR_PATH, CHANNEL_LLM_CURSOR_PATH,
+                                                CHANNEL_LLM_LAUNCH_GUARD_PATH, CHANNEL_MCP_CONFIG,
+                                                CHANNEL_MCP_CURSOR_PATH, CHANNEL_PROBE_CACHE_PATH,
+                                                CHANNEL_STDIN_WAKE_CLAIMS_PATH, CHAT_FILES_DIR, CHAT_MESSAGES_PATH,
+                                                CIEL_RUNTIME_STATUSLINE_PATH, CLAUDE_COMMANDS_DIR, CLAUDE_GATEWAY_CACHE,
+                                                CLAUDE_SETTINGS_PATH, CODEX_MCP_CONFIG, CODEX_PROCESS_DIR,
+                                                CODEX_PROMPTS_DIR_NAME, CONFIG_DIR, CONFIG_PATH,
+                                                CONTEXT_COMPACT_ACTIVITY_PATH, CONTEXT_USAGE_PATH,
+                                                DUCKDUCKGO_MCP_CONFIG, HOME, LAUNCH_STATE_PATH, LOG_LEVEL_PATH,
+                                                LOG_PATH, MCP_PROXY_CONFIG, MENU_KEY_DEBUG_PATH, MODEL_LIST_CACHE_PATH,
+                                                MODEL_REGISTRY_PATH, NATIVE_MCP_CONFIG, NCP_ENV, NCP_LOG,
+                                                OLLAMA_MODEL_CATALOG_PATH, PID_PATH, PLAN_ARTIFACTS_DIR,
+                                                RATE_LIMIT_STATE_PATH, REQUEST_DUMP_PATH, RESPONSE_DUMP_PATH,
+                                                ROUTER_ACTIVITY_PATH, ROUTER_BASE, ROUTER_CLIENTS_DIR,
+                                                ROUTER_EXTERNAL_TOKEN_PATH, ROUTER_HOST, ROUTER_PORT, SSE_LAST_PATH,
+                                                SSE_TRACE_PATH, TOOL_CALL_LOG_PATH, USAGE_EVENTS_PATH,
+                                                WEB_TOOLS_MCP_CONFIG, ZAI_MCP_CONFIG, agy_user_bin_dir,
+                                                ciel_runtime_user_bin_dir, default_router_port,
+                                                path_with_ciel_runtime_user_dirs, platform_config_dir, platform_path,
+                                                windows_appdata_root, windows_local_appdata_root)
+from ciel_runtime_support.runtime_restart import forced_upgrade_environment
+from ciel_runtime_support.runtime_restart import running_from_npm_package as detect_running_from_npm_package
+from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
+from ciel_runtime_support.session_import import (ImportSessionHttpController, ImportSessionHttpPorts,
+                                                 ImportSessionLimits, ImportSessionRepository, ImportSessionService,
+                                                 import_record_line, import_tool_text, normalize_import_source)
+from ciel_runtime_support.settings_repository import JsonSettingsRepository, SettingsFileEffects
+from ciel_runtime_support.slash_command_assets import \
+    ADVISOR_NATIVE_DISABLED_SLASH_COMMAND  # noqa: F401 - compatibility export
+from ciel_runtime_support.slash_command_assets import LEGACY_ADVISOR_CALL_MARKER  # noqa: F401 - compatibility export
+from ciel_runtime_support.slash_command_assets import \
+    LEGACY_CHANNEL_CLEAR_BACKLOG_MARKER  # noqa: F401 - compatibility export
+from ciel_runtime_support.slash_command_assets import LEGACY_LIVE_API_KEYS_MARKER  # noqa: F401 - compatibility export
+from ciel_runtime_support.slash_command_assets import \
+    LEGACY_LIVE_LLM_OPTIONS_MARKER  # noqa: F401 - compatibility export
+from ciel_runtime_support.slash_command_assets import LEGACY_MARKER_PREFIX  # noqa: F401 - compatibility export
+from ciel_runtime_support.slash_command_assets import \
+    LEGACY_ROUTER_DEBUG_ACCESS_MARKER  # noqa: F401 - compatibility export
+from ciel_runtime_support.slash_command_assets import \
+    ROUTER_DEBUG_NATIVE_DISABLED_SLASH_COMMAND  # noqa: F401 - compatibility export
+from ciel_runtime_support.slash_command_assets import (ADVISOR_REQUEST_MARKERS, ADVISOR_SLASH_COMMAND,
+                                                       API_KEYS_SLASH_COMMAND, CHANNEL_CLEAR_REQUEST_MARKERS,
+                                                       CHANNEL_CLEAR_SLASH_COMMAND,
+                                                       CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS,
+                                                       CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS,
+                                                       CIEL_RUNTIME_CHANNEL_CLEAR_COMMAND_MARKERS,
+                                                       CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS,
+                                                       CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
+                                                       CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS,
+                                                       CIEL_RUNTIME_VERSION_COMMAND_MARKERS,
+                                                       IMPORT_SESSION_REQUEST_MARKERS, IMPORT_SESSION_SLASH_COMMAND,
+                                                       LIVE_API_KEYS_REQUEST_MARKERS, LIVE_LLM_OPTIONS_REQUEST_MARKERS,
+                                                       LLM_OPTIONS_SLASH_COMMAND, LLM_RESTORE_SLASH_COMMAND,
+                                                       LLM_SLIDER_SLASH_COMMAND, ROUTER_DEBUG_REQUEST_MARKERS,
+                                                       ROUTER_DEBUG_SLASH_COMMAND, VERSION_REQUEST_MARKERS,
+                                                       VERSION_SLASH_COMMAND)
+from ciel_runtime_support.statusline_script import STATUSLINE_SCRIPT
 from ciel_runtime_support.stream_chunk_policy import split_word_buffer
-from ciel_runtime_support.session_import import (
-    ImportSessionHttpController,
-    ImportSessionHttpPorts,
-    ImportSessionLimits,
-    ImportSessionRepository,
-    ImportSessionService,
-    import_record_line,
-    import_tool_text,
-    normalize_import_source,
-)
-from ciel_runtime_support.upstream_retry_context import (
-    UpstreamRetryCompatibilityApi,
-    UpstreamRetryContext,
-    UpstreamRetryCredentialPorts,
-    UpstreamRetryErrorPorts,
-    UpstreamRetryPolicyPorts,
-    UpstreamRetryRateLimitPorts,
-    UpstreamRetryTransportPorts,
-)
-from ciel_runtime_support.upstream_error_policy import (
-    configured_gateway_retries as project_configured_gateway_retries,
-    http_error_message as project_upstream_http_error_message,
-    retry_message as project_upstream_retry_message,
-    retry_wait_seconds as project_upstream_retry_wait_seconds,
-    retryable_exception as project_retryable_upstream_exception,
-)
-from ciel_runtime_support.upstream_stream_io import (
-    UpstreamClientDisconnected,
-    client_connection_closed as project_client_connection_closed,
-    iter_lines_until_disconnect as project_iter_upstream_lines,
-    set_stream_read_timeout as project_set_stream_read_timeout,
-    sleep_until_disconnect as project_sleep_until_disconnect,
-    stream_idle_timeout as project_stream_idle_timeout,
-)
-from ciel_runtime_support.tool_dialects import (
-    TOOL_DIALECTS,
-    match_available_tool_name as _match_available_tool_name,
-    mcp_server_normalized_key,
-)
+from ciel_runtime_support.synthetic_tool_policy import (ForcedPlanModeController, ForcedPlanModePorts,
+                                                        SyntheticTasklistPolicy, SyntheticTasklistPorts)
+from ciel_runtime_support.timeout_profile import (TimeoutProfileApi, TimeoutProfilePorts, TimeoutProfileService,
+                                                  TimeoutProfileSettings)
+from ciel_runtime_support.tool_dialects import TOOL_DIALECTS
+from ciel_runtime_support.tool_dialects import match_available_tool_name as _match_available_tool_name
+from ciel_runtime_support.tool_dialects import mcp_server_normalized_key
 from ciel_runtime_support.tool_exposure_policy import ToolExposurePolicy, ToolExposurePorts
-from ciel_runtime_support.visible_stream_filters import (
-    VISIBLE_THINKING_MARKUP_PREFIXES,  # noqa: F401 - compatibility export
-    VISIBLE_THINKING_MARKUP_TAG_RE,  # noqa: F401 - compatibility export
-    VISIBLE_TOOL_CALL_ARTIFACT_HOLD_CHARS,  # noqa: F401 - compatibility export
-    VISIBLE_TOOL_CALL_ARTIFACT_SUFFIX_RE,  # noqa: F401 - compatibility export
-    VisibleThinkingMarkupFilter,
-    VisibleToolCallArtifactFilter,
-    strip_visible_thinking_markup,
-    strip_visible_tool_call_artifact_suffix,  # noqa: F401 - compatibility export
-    visible_thinking_markup_partial_start as _visible_thinking_markup_partial_start,  # noqa: F401
-)
-from ciel_runtime_support.synthetic_tool_policy import (
-    ForcedPlanModeController,
-    ForcedPlanModePorts,
-    SyntheticTasklistPolicy,
-    SyntheticTasklistPorts,
-)
-from ciel_runtime_support.tool_request_projection import (
-    UltracodeSessionPolicy,
-    forced_tool_choice_name,
-    has_tool,
-    synthetic_tool_use_response,
-    tool_names_in_body,
-)
-from ciel_runtime_support.tool_schema import (
-    _fuzzy_match_tool_name,
-    _lookup_tool_schema,
-    _missing_required_tool_fields,
-    _update_tool_schema_registry,
-    _validate_and_fix_tool_input as _tool_schema_validate_and_fix,
-    tool_schema_in_body,
-)
-from ciel_runtime_support.usage_events import JsonlUsageEventSink
+from ciel_runtime_support.tool_guard_hooks import \
+    TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER  # noqa: F401 - compatibility export
+from ciel_runtime_support.tool_guard_hooks import TOOL_GUARD_EVENTS_WITHOUT_MATCHER  # noqa: F401 - compatibility export
+from ciel_runtime_support.tool_guard_hooks import ToolGuardHookPolicy  # noqa: F401 - compatibility export
+from ciel_runtime_support.tool_guard_hooks import DEFAULT_TOOL_GUARD_HOOK_POLICY
+from ciel_runtime_support.tool_request_projection import (UltracodeSessionPolicy, forced_tool_choice_name, has_tool,
+                                                          synthetic_tool_use_response, tool_names_in_body)
+from ciel_runtime_support.tool_schema import (_fuzzy_match_tool_name, _lookup_tool_schema,
+                                              _missing_required_tool_fields, _update_tool_schema_registry)
+from ciel_runtime_support.tool_schema import _validate_and_fix_tool_input as _tool_schema_validate_and_fix
+from ciel_runtime_support.tool_schema import tool_schema_in_body
+from ciel_runtime_support.tool_side_effect_dedupe import (ToolSideEffectDedupePolicy, ToolSideEffectDedupePorts,
+                                                          ToolSideEffectDedupeRepository, ToolSideEffectDedupeService)
+from ciel_runtime_support.transcript_filter import is_claude_code_transcript_event
 from ciel_runtime_support.ui_text import PROVIDER_NOTES, UI_TEXT
-from ciel_runtime_support.transcript_filter import (
-    is_claude_code_transcript_event,
-)
+from ciel_runtime_support.upstream_error_policy import configured_gateway_retries as project_configured_gateway_retries
+from ciel_runtime_support.upstream_error_policy import http_error_message as project_upstream_http_error_message
+from ciel_runtime_support.upstream_error_policy import retry_message as project_upstream_retry_message
+from ciel_runtime_support.upstream_error_policy import retry_wait_seconds as project_upstream_retry_wait_seconds
+from ciel_runtime_support.upstream_error_policy import retryable_exception as project_retryable_upstream_exception
+from ciel_runtime_support.upstream_retry_context import (UpstreamRetryCompatibilityApi, UpstreamRetryContext,
+                                                         UpstreamRetryCredentialPorts, UpstreamRetryErrorPorts,
+                                                         UpstreamRetryPolicyPorts, UpstreamRetryRateLimitPorts,
+                                                         UpstreamRetryTransportPorts)
+from ciel_runtime_support.upstream_stream_io import UpstreamClientDisconnected
+from ciel_runtime_support.upstream_stream_io import client_connection_closed as project_client_connection_closed
+from ciel_runtime_support.upstream_stream_io import iter_lines_until_disconnect as project_iter_upstream_lines
+from ciel_runtime_support.upstream_stream_io import set_stream_read_timeout as project_set_stream_read_timeout
+from ciel_runtime_support.upstream_stream_io import sleep_until_disconnect as project_sleep_until_disconnect
+from ciel_runtime_support.upstream_stream_io import stream_idle_timeout as project_stream_idle_timeout
+from ciel_runtime_support.usage_events import JsonlUsageEventSink
+from ciel_runtime_support.visible_stream_filters import \
+    VISIBLE_THINKING_MARKUP_PREFIXES  # noqa: F401 - compatibility export
+from ciel_runtime_support.visible_stream_filters import \
+    VISIBLE_THINKING_MARKUP_TAG_RE  # noqa: F401 - compatibility export
+from ciel_runtime_support.visible_stream_filters import \
+    VISIBLE_TOOL_CALL_ARTIFACT_HOLD_CHARS  # noqa: F401 - compatibility export
+from ciel_runtime_support.visible_stream_filters import \
+    VISIBLE_TOOL_CALL_ARTIFACT_SUFFIX_RE  # noqa: F401 - compatibility export
+from ciel_runtime_support.visible_stream_filters import \
+    strip_visible_tool_call_artifact_suffix  # noqa: F401 - compatibility export
+from ciel_runtime_support.visible_stream_filters import (VisibleThinkingMarkupFilter, VisibleToolCallArtifactFilter,
+                                                         strip_visible_thinking_markup)
+from ciel_runtime_support.visible_stream_filters import \
+    visible_thinking_markup_partial_start as _visible_thinking_markup_partial_start  # noqa: F401
+from ciel_runtime_support.web_endpoints import build_web_endpoint_report, configure_requested_web_endpoints
 from ciel_runtime_support.web_ui import render_router_home_page, render_web_chat_page
-from ciel_runtime_support.web_ui_controller import (
-    WebUiConstants,
-    WebUiController,
-    WebUiDisplayPorts,
-    WebUiHttpPorts,
-    WebUiProjectionPorts,
-)
-from ciel_runtime_support.web_endpoints import (
-    build_web_endpoint_report,
-    configure_requested_web_endpoints,
-)
-from ciel_runtime_support.windows_console_input import (
-    WindowsConsoleInputWriter,
-    _windows_console_utf16_units as project_windows_console_utf16_units,
-)
-from ciel_runtime_support.runtime_paths import (
-    CHANNEL_COMPACT_REQUEST_PATH, CHANNEL_LLM_CLEAR_FLOOR_PATH,  # noqa: F401
-    CHANNEL_LLM_CURSOR_PATH, CHANNEL_LLM_LAUNCH_GUARD_PATH,  # noqa: F401
-    CHANNEL_MCP_CONFIG, CHANNEL_MCP_CURSOR_PATH, CHANNEL_PROBE_CACHE_PATH,  # noqa: F401
-    CHANNEL_STDIN_WAKE_CLAIMS_PATH, CHAT_FILES_DIR, CHAT_MESSAGES_PATH,  # noqa: F401
-    CIEL_RUNTIME_STATUSLINE_PATH, CLAUDE_COMMANDS_DIR, CLAUDE_GATEWAY_CACHE,  # noqa: F401
-    CLAUDE_SETTINGS_PATH, CODEX_MCP_CONFIG, CODEX_PROCESS_DIR,  # noqa: F401
-    CODEX_PROMPTS_DIR_NAME, CONFIG_DIR, CONFIG_PATH,  # noqa: F401
-    CONTEXT_COMPACT_ACTIVITY_PATH, CONTEXT_USAGE_PATH,  # noqa: F401
-    DUCKDUCKGO_MCP_CONFIG, HOME, LAUNCH_STATE_PATH,  # noqa: F401
-    LOG_LEVEL_PATH, LOG_PATH, MCP_PROXY_CONFIG,  # noqa: F401
-    MENU_KEY_DEBUG_PATH, MODEL_LIST_CACHE_PATH, MODEL_REGISTRY_PATH,  # noqa: F401
-    NATIVE_MCP_CONFIG, NCP_ENV, NCP_LOG,  # noqa: F401
-    OLLAMA_MODEL_CATALOG_PATH, PID_PATH, PLAN_ARTIFACTS_DIR,  # noqa: F401
-    RATE_LIMIT_STATE_PATH, REQUEST_DUMP_PATH, RESPONSE_DUMP_PATH,  # noqa: F401
-    ROUTER_ACTIVITY_PATH, ROUTER_BASE, ROUTER_CLIENTS_DIR,  # noqa: F401
-    ROUTER_EXTERNAL_TOKEN_PATH, ROUTER_HOST, ROUTER_PORT,  # noqa: F401
-    SSE_LAST_PATH, SSE_TRACE_PATH, TOOL_CALL_LOG_PATH,  # noqa: F401
-    USAGE_EVENTS_PATH, WEB_TOOLS_MCP_CONFIG, ZAI_MCP_CONFIG,  # noqa: F401
-    agy_user_bin_dir, ciel_runtime_user_bin_dir, default_router_port,  # noqa: F401
-    path_with_ciel_runtime_user_dirs, platform_config_dir, platform_path,  # noqa: F401
-    windows_appdata_root, windows_local_appdata_root,  # noqa: F401
-)
-from ciel_runtime_support.runtime_constants import (
-    ADVISOR_FEEDBACK_MARKER, ANTHROPIC_LIMITED_ACCESS_MODEL_IDS,  # noqa: F401
-    ANTHROPIC_MODEL_DOCS_URL, ANTHROPIC_MODEL_DOCS_URLS,  # noqa: F401
-    ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS, ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS,  # noqa: F401
-    ANTHROPIC_THINKING_BLOCK_TYPES, AUTO_DETECT_NATIVE_COMPAT_PROVIDERS,  # noqa: F401
-    APP_NAME, BUILTIN_CHANNEL_SPEC, CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT,  # noqa: F401
-    CHANNEL_LLM_WAKE_LEGACY_PREFIXES, CHANNEL_LLM_WAKE_PREFIX,  # noqa: F401
-    CHAT_MESSAGES_MAX_BYTES, CHAT_MESSAGE_DEDUPE_SCAN_LIMIT,  # noqa: F401
-    CHAT_MESSAGE_FALLBACK_DEDUPE_TTL_SECONDS, CLAUDE_SERVER_SIDE_WEB_TOOLS,  # noqa: F401
-    CLAUDE_ANTHROPIC_ENDPOINT_PROVIDERS, CODEX_NATIVE_PROVIDER_ID_ENV,  # noqa: F401
-    CODEX_ROUTED_PROVIDER_ID, CODEX_RUNTIME_API_KEY_ENV,  # noqa: F401
-    CODEX_RUNTIME_PROVIDER_ID, CODEX_TUI_ALTERNATE_SCREEN_KEY,  # noqa: F401
-    CODEX_OPENAI_COMPATIBLE_ROUTER_PROVIDERS, CREDITS,  # noqa: F401
-    DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC, DEFAULT_REQUEST_TIMEOUT_MS,  # noqa: F401
-    FIREWORKS_API_BASE_URL, FIREWORKS_DEFAULT_ACCOUNT_ID,  # noqa: F401
-    FIREWORKS_INFERENCE_BASE_URL, KIMI_CODING_BASE_URL,  # noqa: F401
-    KIMI_DEFAULT_MODEL, KIMI_K3_MODEL, KIMI_MODEL_FALLBACK_IDS,  # noqa: F401
-    LANGUAGES, LM_STUDIO_DEFAULT_CLAUDE_CODE_CONTEXT,  # noqa: F401
-    LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT, MCP_PROXY_TOOL_RESULT_ITEM_TEXT_CHARS,  # noqa: F401
-    OPENAI_COMPATIBLE_ROUTER_PROVIDERS, MCP_PROXY_TOOL_RESULT_MAX_CHARS_DEFAULT,  # noqa: F401
-    MODEL_CACHE_TTL_SECONDS, MODEL_PRESETS, NCP_PYPI_PACKAGE,  # noqa: F401
-    NON_ANTHROPIC_COMPAT_PROMPT, OFFICIAL_CHANNEL_PLUGINS,  # noqa: F401
-    OLLAMA_MODEL_CATALOG_TTL_SECONDS, OLLAMA_MODEL_CATALOG_URL,  # noqa: F401
-    OPENCODE_ENDPOINT_ALIASES, OPENCODE_GO_BASE_URL, OPENCODE_ZEN_BASE_URL,  # noqa: F401
-    PLAN_GUARD_MARKER, PLAN_MODE_SELF_TOOLS, PRELAUNCH_CANCEL,  # noqa: F401
-    PRELAUNCH_LAUNCH_AGY, PRELAUNCH_LAUNCH_CLAUDE,  # noqa: F401
-    PRELAUNCH_LAUNCH_CODEX, PRELAUNCH_LAUNCH_CODEX_APP_SERVER,  # noqa: F401
-    PRELAUNCH_RELOAD, REQUEST_DUMP_MAX_BYTES, RESPONSE_DUMP_MAX_BYTES,  # noqa: F401
-    RESPONSE_DUMP_TEXT_LIMIT, ROUTED_COMPAT_PROMPT, ROUTER_LOG_MAX_BYTES,  # noqa: F401
-    SSE_TRACE_EVENT_LIMIT, SSE_TRACE_MAX_BYTES, SSE_TRACE_PAYLOAD_LIMIT,  # noqa: F401
-    VERSION, ZAI_ANTHROPIC_BASE_URL, ZAI_DEFAULT_MODEL,  # noqa: F401
-    ZAI_MANAGED_MCP_SERVERS, ZAI_MODEL_CONTEXT_HINTS,  # noqa: F401
-)
+from ciel_runtime_support.web_ui_controller import (WebUiConstants, WebUiController, WebUiDisplayPorts, WebUiHttpPorts,
+                                                    WebUiProjectionPorts)
+from ciel_runtime_support.windows_console_input import WindowsConsoleInputWriter
+from ciel_runtime_support.windows_console_input import \
+    _windows_console_utf16_units as project_windows_console_utf16_units
 
 execute_prelaunch_menu = prelaunch.run_prelaunch_menu
 dispatch_cli = cli_dispatch.dispatch_cli

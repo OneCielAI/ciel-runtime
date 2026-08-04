@@ -3359,7 +3359,7 @@ class ArchitectureContractTests(unittest.TestCase):
             node.name for node in tree.body if isinstance(node, ast.FunctionDef)
         }
         self.assertFalse(moved & definitions)
-        self.assertIn("from ciel_runtime_support.npm_runtime import (", source)
+        self.assertIn("from ciel_runtime_support.npm_runtime import", source)
 
     def test_install_diagnostics_are_owned_by_an_application_service(self):
         root = Path(__file__).resolve().parents[1]
@@ -3589,7 +3589,7 @@ class ArchitectureContractTests(unittest.TestCase):
             node.name for node in tree.body if isinstance(node, ast.FunctionDef)
         }
         self.assertFalse(reexports & definitions)
-        self.assertIn("from ciel_runtime_support.codex_config import (", source)
+        self.assertIn("from ciel_runtime_support.codex_config import", source)
 
     def test_visible_stream_state_machines_are_protocol_owned(self):
         root = Path(__file__).resolve().parents[1]
@@ -3604,7 +3604,7 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("VisibleToolCallArtifactFilter", names)
         self.assertNotIn("strip_visible_thinking_markup", names)
         self.assertNotIn("strip_visible_tool_call_artifact_suffix", names)
-        self.assertIn("from ciel_runtime_support.visible_stream_filters import (", source)
+        self.assertIn("from ciel_runtime_support.visible_stream_filters import", source)
 
     def test_concrete_adapters_own_provider_specific_defaults(self):
         common_keys = {
@@ -5259,7 +5259,7 @@ class ArchitectureContractTests(unittest.TestCase):
                 root_functions
             )
         )
-        self.assertIn("from ciel_runtime_support.config_value_codec import (", source)
+        self.assertIn("from ciel_runtime_support.config_value_codec import", source)
 
     def test_openai_reasoning_policy_uses_provider_adapter_strategy(self):
         root = Path(__file__).resolve().parents[1]
@@ -5303,7 +5303,7 @@ class ArchitectureContractTests(unittest.TestCase):
         )
         self.assertNotIn("hmac.compare_digest", source)
         self.assertNotIn("ROUTER_EXTERNAL_TOKEN_PATH.read_text", source)
-        self.assertIn("from ciel_runtime_support.router_access import (", source)
+        self.assertIn("from ciel_runtime_support.router_access import", source)
         self.assertEqual(2, len(fields(RouterAccessHttpController)))
 
     def test_web_ui_controller_uses_small_typed_ports(self):
@@ -5354,7 +5354,7 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("Router restart scheduled so the bind address changes immediately.", source)
         self.assertNotIn("Ciel Runtime channel backlog discarded.", source)
         self.assertNotIn("live LLM options updated from slash command", source)
-        self.assertIn("from ciel_runtime_support.router_shortcuts import (", source)
+        self.assertIn("from ciel_runtime_support.router_shortcuts import", source)
         tree = ast.parse(source)
         functions = {
             node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)
@@ -5737,34 +5737,32 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_composition_root_delegates_major_application_services(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
-        self.assertIn("from ciel_runtime_support import runtime_launch", source)
-        self.assertIn("from ciel_runtime_support import prelaunch", source)
-        self.assertIn(
-            "from ciel_runtime_support import router_request_assembly", source
-        )
-        self.assertIn("from ciel_runtime_support import cli_dispatch", source)
-        self.assertIn("from ciel_runtime_support import cli_assembly", source)
-        self.assertIn("from ciel_runtime_support import cli_parser", source)
+        support_root_imports = {
+            alias.name
+            for node in tree.body
+            if isinstance(node, ast.ImportFrom)
+            and node.module == "ciel_runtime_support"
+            for alias in node.names
+        }
+        for module in (
+            "runtime_launch",
+            "prelaunch",
+            "router_request_assembly",
+            "cli_dispatch",
+            "cli_assembly",
+            "cli_parser",
+            "channel_llm_context",
+            "llm_presets",
+            "mcp_proxy_notifications",
+            "provider_models",
+            "codex_launch_configuration",
+            "codex_mcp_integration",
+            "provider_catalog_sources",
+        ):
+            with self.subTest(module=module):
+                self.assertIn(module, support_root_imports)
         self.assertIn(
             "from ciel_runtime_support.channel_wake_context import", source
-        )
-        self.assertIn(
-            "from ciel_runtime_support import channel_llm_context", source
-        )
-        self.assertIn("from ciel_runtime_support import llm_presets", source)
-        self.assertIn(
-            "from ciel_runtime_support import mcp_proxy_notifications", source
-        )
-        self.assertIn("from ciel_runtime_support import provider_models", source)
-        self.assertIn(
-            "from ciel_runtime_support import codex_launch_configuration",
-            source,
-        )
-        self.assertIn(
-            "from ciel_runtime_support import codex_mcp_integration", source
-        )
-        self.assertIn(
-            "from ciel_runtime_support import provider_catalog_sources", source
         )
         self.assertIn(
             "from ciel_runtime_support.response_stream_context import", source
