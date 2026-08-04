@@ -553,6 +553,12 @@ from ciel_runtime_support.managed_mcp_discovery import (
     NativeMcpConfigWriter,
     NativeMcpConfigWriterPorts,
 )
+from ciel_runtime_support.mcp_configuration_context import (
+    McpConfigurationContext,
+    McpConfigurationFilePorts,
+    McpConfigurationPaths,
+    McpConfigurationRuntimePorts,
+)
 from ciel_runtime_support.mcp_proxy_process import (
     McpStdioConfigPorts,
     McpStdioEffects,
@@ -3745,21 +3751,18 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_mcp_json_artifacts_use_secure_repository(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
         tree = ast.parse(source_path.read_text(encoding="utf-8"))
-        target_names = {"write_native_mcp_config_from_discovery"}
-        functions = {
-            node.name: ast.unparse(node)
-            for node in tree.body
-            if isinstance(node, ast.FunctionDef) and node.name in target_names
-        }
-        self.assertEqual(target_names, set(functions))
-        for name, source in functions.items():
-            with self.subTest(function=name):
-                self.assertIn("json_artifact_repository", source)
-                self.assertNotIn("os.chmod", source)
-
         root_functions = {
             node.name for node in tree.body if isinstance(node, ast.FunctionDef)
         }
+        self.assertNotIn("write_native_mcp_config_from_discovery", root_functions)
+        context_source = (
+            source_path.parent
+            / "ciel_runtime_support"
+            / "mcp_configuration_context.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("artifact_repository", context_source)
+        self.assertNotIn("os.chmod", context_source)
+
         self.assertNotIn(
             "write_codex_mcp_config_for_channel_discovery", root_functions
         )
@@ -3812,11 +3815,7 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_mcp_config_readers_delegate_io_and_project_scope(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
         tree = ast.parse(source_path.read_text(encoding="utf-8"))
-        target_names = {
-            "_read_mcp_server_names_from_json",
-            "_read_mcp_servers_from_json",
-            "_read_mcp_sse_servers_from_json",
-        }
+        target_names = {"_read_mcp_sse_servers_from_json"}
         functions = {
             node.name: ast.unparse(node)
             for node in tree.body
@@ -3828,6 +3827,11 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertIn("read_mcp_config_items", source)
                 self.assertNotIn("read_text", source)
                 self.assertNotIn("json.loads", source)
+        root_functions = {
+            node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        }
+        self.assertNotIn("_read_mcp_server_names_from_json", root_functions)
+        self.assertNotIn("_read_mcp_servers_from_json", root_functions)
 
     def test_claude_mcp_path_discovery_is_policy_owned(self):
         self.assertTrue(hasattr(ClaudeMcpConfigPathPolicy, "paths"))
@@ -3846,19 +3850,8 @@ class ArchitectureContractTests(unittest.TestCase):
                 "strip_mcp_config_passthrough",
             }.isdisjoint(root_functions)
         )
-        for function_name in (
-            "claude_mcp_config_paths",
-            "existing_claude_mcp_config_paths",
-        ):
-            function = next(
-                node
-                for node in tree.body
-                if isinstance(node, ast.FunctionDef)
-                and node.name == function_name
-            )
-            function_source = ast.get_source_segment(source, function) or ""
-            self.assertIn("ClaudeMcpConfigPathPolicy", function_source)
-            self.assertNotIn("while True", function_source)
+        self.assertNotIn("claude_mcp_config_paths", root_functions)
+        self.assertNotIn("existing_claude_mcp_config_paths", root_functions)
         policy_source = (
             root / "ciel_runtime_support" / "mcp_config_reader.py"
         ).read_text(encoding="utf-8")
@@ -4285,22 +4278,30 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(NativeMcpConfigWriterPorts)), 10)
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
-        function = next(
-            node
+        root_functions = {
+            node.name
             for node in ast.parse(source).body
             if isinstance(node, ast.FunctionDef)
-            and node.name
-            == "discovered_ciel_runtime_managed_mcp_servers"
+        }
+        self.assertNotIn(
+            "discovered_ciel_runtime_managed_mcp_servers", root_functions
         )
-        function_source = ast.get_source_segment(source, function) or ""
-        self.assertIn("ManagedMcpDiscoveryService", function_source)
-        self.assertNotIn("proxy_data", function_source)
         service_source = (
             root
             / "ciel_runtime_support"
             / "managed_mcp_discovery.py"
         ).read_text(encoding="utf-8")
         self.assertNotIn("import ciel_runtime", service_source)
+
+    def test_mcp_configuration_context_owns_discovery_orchestration(self):
+        for port in (
+            McpConfigurationFilePorts,
+            McpConfigurationPaths,
+            McpConfigurationRuntimePorts,
+            McpConfigurationContext,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
 
     def test_mcp_stdio_proxy_uses_bounded_typed_ports(self):
         self.assertEqual(3, len(fields(McpStdioProxyService)))
@@ -5595,12 +5596,10 @@ class ArchitectureContractTests(unittest.TestCase):
             "_channel_stdin_wake_state": "state",
             "_channel_stdin_wake_state_for_message": "state_for_message",
             "_channel_stdin_wake_queued_is_stale_for_message": "queued_is_stale",
-            "write_native_mcp_config_from_discovery": "write",
             "_log_codex_app_server_command_for_diagnostics": "codex_app_server",
             "claude_supports_permission_mode_arg": "supports_permission_mode",
             "terminate_active_router_clients": "terminate_active",
             "channel_specs": "configured_specs",
-            "auto_discovered_mcp_channel_specs": "discover_channel_specs",
             "_channel_current_tmux_pane_text": "current_tmux_pane_text",
             "schedule_router_process_restart": "schedule_router_restart",
             "openai_context_limit_for_budget": "context_limit",

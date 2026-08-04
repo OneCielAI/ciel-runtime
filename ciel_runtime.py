@@ -6,7 +6,6 @@ import getpass
 import hashlib
 import json
 import os
-import re
 import shutil  # noqa: F401 - compatibility export
 import socket
 import subprocess
@@ -719,18 +718,18 @@ from ciel_runtime_support.mcp_config_reader import (
     server_names_from_mapping as _mcp_server_names_from_mapping,
     servers_from_mapping as _mcp_servers_from_mapping,
 )
+from ciel_runtime_support.mcp_configuration_context import (
+    McpConfigurationCompatibilityApi,
+    McpConfigurationContext,
+    McpConfigurationFilePorts,
+    McpConfigurationPaths,
+    McpConfigurationRuntimePorts,
+)
 from ciel_runtime_support.managed_mcp_config import (
     ManagedMcpConfigPaths,
     ManagedMcpConfigPolicy,
     ManagedMcpConfigPorts,
     ManagedMcpConfigService,
-)
-from ciel_runtime_support.managed_mcp_discovery import (
-    ManagedMcpDiscoveryPaths,
-    ManagedMcpDiscoveryPorts,
-    ManagedMcpDiscoveryService,
-    NativeMcpConfigWriter,
-    NativeMcpConfigWriterPorts,
 )
 from ciel_runtime_support.mcp_proxy_codec import (
     McpProxyCodecPolicy,
@@ -6119,66 +6118,55 @@ def set_web_search_enabled(enabled: bool) -> None:
 def channel_specs(cfg: dict[str, Any] | None = None) -> list[str]:
     return channel_config_service().configured_specs(cfg or load_config())
 
-def _read_mcp_server_names_from_json(path: Path, cwd: Path) -> list[str]:
-    return read_mcp_config_items(
-        path,
-        cwd,
-        _mcp_server_names_from_mapping,
-        str,
-        router_log,
-    )
-
-def _read_mcp_servers_from_json(path: Path, cwd: Path) -> list[tuple[str, dict[str, Any]]]:
-    return read_mcp_config_items(
-        path,
-        cwd,
-        _mcp_servers_from_mapping,
-        lambda item: item[0],
-        router_log,
-    )
-
-def _mcp_server_is_stdio(server: dict[str, Any]) -> bool:
-    if not isinstance(server, dict):
-        return False
-    server_type = str(server.get("type") or "").strip().lower()
-    if server_type and server_type not in ("stdio", "command"):
-        return False
-    command = resolve_executable_for_subprocess(str(server.get("command") or "").strip())
-    if not command:
-        return False
-    args = [str(item) for item in server.get("args", []) if item is not None] if isinstance(server.get("args", []), list) else []
-    return "mcp-proxy" not in args
-
-def _mcp_server_is_streamable_http(server: dict[str, Any]) -> bool:
-    if not isinstance(server, dict):
-        return False
-    server_type = str(server.get("type") or server.get("transport") or "").strip().lower()
-    if server_type not in {"http", "streamable-http"}:
-        return False
-    url = str(server.get("url") or server.get("endpoint") or "").strip()
-    return url.startswith(("http://", "https://"))
-
-def _mcp_server_force_proxy(server: dict[str, Any]) -> bool:
-    if not isinstance(server, dict):
-        return False
-    return parse_bool(
-        server.get(
-            "ciel_runtime_mcp_proxy",
-            server.get("ciel_runtime_force_mcp_proxy", server.get("force_mcp_proxy", False)),
+def mcp_configuration_context() -> McpConfigurationContext:
+    return McpConfigurationContext(
+        files=McpConfigurationFilePorts(
+            read_items=read_mcp_config_items,
+            names_from_mapping=_mcp_server_names_from_mapping,
+            servers_from_mapping=_mcp_servers_from_mapping,
+            log=router_log,
         ),
-        False,
+        paths=McpConfigurationPaths(
+            home=HOME,
+            web_tools=WEB_TOOLS_MCP_CONFIG,
+            proxy=MCP_PROXY_CONFIG,
+            native_config=NATIVE_MCP_CONFIG,
+        ),
+        runtime=McpConfigurationRuntimePorts(
+            resolve_executable=resolve_executable_for_subprocess,
+            parse_bool=parse_bool,
+            artifact_repository=json_artifact_repository,
+            discover_channel_specs=discover_channel_specs,
+            is_channel_tagged=is_channel_spec_tagged,
+        ),
+        native_channel_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
     )
 
-def _mcp_server_disable_proxy_notification_stream(server: dict[str, Any]) -> bool:
-    if not isinstance(server, dict):
-        return False
-    return parse_bool(
-        server.get(
-            "ciel_runtime_disable_notification_stream",
-            server.get("ciel_runtime_disable_mcp_notifications", False),
-        ),
-        False,
-    )
+_MCP_CONFIGURATION_API = McpConfigurationCompatibilityApi(
+    mcp_configuration_context
+)
+_read_mcp_server_names_from_json = _MCP_CONFIGURATION_API.read_server_names
+_read_mcp_servers_from_json = _MCP_CONFIGURATION_API.read_servers
+_mcp_server_is_stdio = _MCP_CONFIGURATION_API.server_is_stdio
+_mcp_server_is_streamable_http = _MCP_CONFIGURATION_API.server_is_streamable_http
+_mcp_server_force_proxy = _MCP_CONFIGURATION_API.server_force_proxy
+_mcp_server_disable_proxy_notification_stream = (
+    _MCP_CONFIGURATION_API.server_disables_proxy_notifications
+)
+_safe_mcp_proxy_name = _MCP_CONFIGURATION_API.safe_proxy_name
+claude_mcp_config_paths = _MCP_CONFIGURATION_API.config_paths
+existing_claude_mcp_config_paths = _MCP_CONFIGURATION_API.existing_config_paths
+discovered_claude_mcp_servers = _MCP_CONFIGURATION_API.discover_user_servers
+_read_mcp_servers_from_generated_file = (
+    _MCP_CONFIGURATION_API.read_generated_servers
+)
+discovered_ciel_runtime_managed_mcp_servers = (
+    _MCP_CONFIGURATION_API.discover_managed_servers
+)
+write_native_mcp_config_from_discovery = _MCP_CONFIGURATION_API.write_native_config
+auto_discovered_mcp_channel_specs = (
+    _MCP_CONFIGURATION_API.auto_discovered_channel_specs
+)
 
 def _channel_probe_initialize_payload() -> bytes:
     return _mcp_probe_initialize_payload_bytes(VERSION)
@@ -6321,119 +6309,14 @@ strip_mcp_config_passthrough = (
     ClaudeMcpConfigPathPolicy.strip_passthrough
 )
 
-def _safe_mcp_proxy_name(name: str) -> str:
-    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", name.strip())
-    return safe[:80] or "server"
-
 _mcp_config_paths_from_passthrough = (
     ClaudeMcpConfigPathPolicy.passthrough_paths
 )
-
-def claude_mcp_config_paths(passthrough: list[str] | None = None, cwd: Path | None = None, home: Path | None = None) -> list[Path]:
-    return ClaudeMcpConfigPathPolicy.paths(
-        passthrough or [],
-        cwd or Path.cwd(),
-        home or HOME,
-    )
-
-def existing_claude_mcp_config_paths(
-    passthrough: list[str] | None = None,
-    cwd: Path | None = None,
-    home: Path | None = None,
-) -> list[Path]:
-    """Return existing Claude MCP config files that should be passed to Claude.
-
-    This is intentionally transport-agnostic. Channel-capable MCP servers are
-    discovered separately by the channel probe cache; this helper is only for
-    preserving Claude Code's normal MCP tool surface when ciel-runtime launches it.
-    """
-    return ClaudeMcpConfigPathPolicy.existing_paths(
-        passthrough or [],
-        cwd or Path.cwd(),
-        home or HOME,
-    )
-
-def discovered_claude_mcp_servers(
-    passthrough: list[str] | None = None,
-    cwd: Path | None = None,
-    home: Path | None = None,
-) -> dict[str, dict[str, Any]]:
-    cwd = cwd or Path.cwd()
-    servers: dict[str, dict[str, Any]] = {}
-    for path in existing_claude_mcp_config_paths(passthrough, cwd, home):
-        for name, server in _read_mcp_servers_from_json(path, cwd):
-            servers.setdefault(name, server)
-    return servers
-
-def _read_mcp_servers_from_generated_file(path: Path, cwd: Path) -> dict[str, dict[str, Any]]:
-    if not path.exists() or not path.is_file():
-        return {}
-    servers: dict[str, dict[str, Any]] = {}
-    for name, server in _read_mcp_servers_from_json(path, cwd):
-        if name.strip().lower() in _NATIVE_ROUTER_CHANNEL_NAMES:
-            continue
-        servers.setdefault(name, server)
-    return servers
-
-def discovered_ciel_runtime_managed_mcp_servers(cwd: Path | None = None) -> dict[str, dict[str, Any]]:
-    """Return MCP servers that only exist in ciel-runtime generated config.
-
-    Direct Claude Native launches should restore the user's MCP tool surface when
-    switching back from a routed/non-native session.  The generated channel MCP
-    bridge itself is intentionally skipped, but ordinary generated tools and
-    original servers wrapped by mcp-proxy are safe to pass back to Claude Code.
-    """
-    service = ManagedMcpDiscoveryService(
-        paths=ManagedMcpDiscoveryPaths(
-            web_tools=WEB_TOOLS_MCP_CONFIG,
-            proxy=MCP_PROXY_CONFIG,
-        ),
-        ports=ManagedMcpDiscoveryPorts(
-            read_generated=_read_mcp_servers_from_generated_file,
-            load_json=lambda path: json.loads(path.read_text(encoding="utf-8")),
-            log=router_log,
-        ),
-        native_channel_names=frozenset(
-            name.casefold() for name in _NATIVE_ROUTER_CHANNEL_NAMES
-        ),
-    )
-    return service.discover(cwd or Path.cwd())
 
 restore_codex_mcp_config_from_managed = CodexMcpRestoreService(CodexMcpRestorePorts(
     codex_config_paths_for_launch, discovered_ciel_runtime_managed_mcp_servers, router_log,
 )).restore
 restore_agy_mcp_config_from_managed = AgyMcpRestoreService(AgyMcpRestorePorts(discovered_ciel_runtime_managed_mcp_servers, router_log)).restore
-
-def write_native_mcp_config_from_discovery(
-    passthrough: list[str] | None = None,
-    cwd: Path | None = None,
-    home: Path | None = None,
-) -> Path | None:
-    writer = NativeMcpConfigWriter(
-        NATIVE_MCP_CONFIG,
-        NativeMcpConfigWriterPorts(
-            discovered_claude_mcp_servers,
-            discovered_ciel_runtime_managed_mcp_servers,
-            lambda path, data, operation: json_artifact_repository(path).save(
-                data, operation
-            ),
-            router_log,
-        ),
-    )
-    return writer.write(passthrough, cwd, home)
-
-def auto_discovered_mcp_channel_specs(
-    passthrough: list[str] | None = None,
-    cwd: Path | None = None,
-    home: Path | None = None,
-) -> list[str]:
-    working_directory = cwd or Path.cwd()
-    return discover_channel_specs(
-        claude_mcp_config_paths(passthrough, working_directory, home),
-        working_directory,
-        _read_mcp_server_names_from_json,
-        is_channel_spec_tagged,
-    )
 
 CHANNEL_PROBE_CACHE_VERSION = 1
 
