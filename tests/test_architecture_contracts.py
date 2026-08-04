@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ciel_runtime_support import (
     claude_launch_assembly,
+    cli_assembly,
     prelaunch_assembly,
     router_request_assembly,
 )
@@ -2284,11 +2285,16 @@ class ArchitectureContractTests(unittest.TestCase):
             CliSpecialCommands,
             CliOperations,
             CliConfiguration,
+            cli_assembly.CliServiceAssembly,
         )
 
         for port in ports:
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+        source = (
+            Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("return cli_dispatch.CliServices(", source)
 
     def test_configuration_cli_controller_owns_command_flow(self):
         for port in (
@@ -4199,9 +4205,14 @@ class ArchitectureContractTests(unittest.TestCase):
             CliParserProvider,
             CliParserModels,
             CliParserServices,
+            cli_assembly.CliParserAssembly,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+        source = (
+            Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("return cli_parser.CliParserServices(", source)
 
     def test_model_panel_ports_stay_below_dependency_limit(self):
         for port in (ModelPanelCatalog, ModelPanelPresentation, ModelPanelServices):
@@ -5732,6 +5743,7 @@ class ArchitectureContractTests(unittest.TestCase):
             "from ciel_runtime_support import router_request_assembly", source
         )
         self.assertIn("from ciel_runtime_support import cli_dispatch", source)
+        self.assertIn("from ciel_runtime_support import cli_assembly", source)
         self.assertIn("from ciel_runtime_support import cli_parser", source)
         self.assertIn(
             "from ciel_runtime_support.channel_wake_context import", source

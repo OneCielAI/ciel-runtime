@@ -375,6 +375,7 @@ from ciel_runtime_support.lm_studio_runtime import (
     LmStudioRuntimeServices,
     discover_lm_studio_runtime,
 )
+from ciel_runtime_support import cli_assembly
 from ciel_runtime_support import cli_dispatch
 from ciel_runtime_support.cli_application_context import (
     CliApplicationCompatibilityApi,
@@ -9554,109 +9555,59 @@ def apply_headless_env_config() -> tuple[bool, bool | None, bool | None, bool | 
     return result.as_tuple()
 
 def cli_services() -> cli_dispatch.CliServices:
-    return cli_dispatch.CliServices(
+    return cli_assembly.CliServiceAssembly(
         core=cli_dispatch.CliCore(
-            VERSION=VERSION,
-            cli_usage=cli_usage,
-            find_executable=find_executable,
-            get_current_provider=get_current_provider,
-            load_config=load_config,
-            pop_headless_env_file_args=pop_headless_env_file_args,
-            portable_provider_menu=portable_provider_menu,
-            run_external_menu=run_external_menu,
-            run_quiet_upgrade_and_exit=run_quiet_upgrade_and_exit,
+            VERSION, cli_usage, find_executable, get_current_provider,
+            load_config, pop_headless_env_file_args, portable_provider_menu,
+            run_external_menu, run_quiet_upgrade_and_exit,
         ),
         runtime=cli_dispatch.CliRuntime(
-            agy_passthrough_has_command=agy_passthrough_has_command,
-            codex_passthrough_has_command=codex_passthrough_has_command,
-            last_launch_runtime=last_launch_runtime,
-            launch_agy=launch_agy,
-            launch_claude=launch_claude,
-            launch_codex=launch_codex,
-            launch_codex_app_server=launch_codex_app_server,
-            native_agy_enabled=native_agy_enabled,
-            native_codex_enabled=native_codex_enabled,
+            agy_passthrough_has_command, codex_passthrough_has_command,
+            last_launch_runtime, launch_agy, launch_claude, launch_codex,
+            launch_codex_app_server, native_agy_enabled, native_codex_enabled,
         ),
         provider_commands=cli_dispatch.CliProviderCommands(
-            cmd_advisor_model=cmd_advisor_model,
-            cmd_api_key=cmd_api_key,
-            cmd_base_url=cmd_base_url,
-            cmd_language=cmd_language,
-            cmd_log_level=cmd_log_level,
-            cmd_model=cmd_model,
-            cmd_models=cmd_models,
-            cmd_provider=cmd_provider,
-            cmd_provider_options=cmd_provider_options,
-            cmd_set_api_key=cmd_set_api_key,
+            cmd_advisor_model, cmd_api_key, cmd_base_url, cmd_language,
+            cmd_log_level, cmd_model, cmd_models, cmd_provider,
+            cmd_provider_options, cmd_set_api_key,
         ),
         channel_commands=cli_dispatch.CliChannelCommands(
-            add_channel_spec=add_channel_spec,
-            channel_delivery_mode=channel_delivery_mode,
-            clear_channel_specs=clear_channel_specs,
-            cmd_channels=cmd_channels,
-            cmd_mcp_proxy=cmd_mcp_proxy,
-            set_channel_delivery_config=set_channel_delivery_config,
-            set_channel_development_enabled=set_channel_development_enabled,
+            add_channel_spec, channel_delivery_mode, clear_channel_specs,
+            cmd_channels, cmd_mcp_proxy, set_channel_delivery_config,
+            set_channel_development_enabled,
         ),
         special_commands=cli_dispatch.CliSpecialCommands(
-            cmd_ollama_catalog=cmd_ollama_catalog,
-            cmd_ollama_native=cmd_ollama_native,
-            cmd_ollama_options=cmd_ollama_options,
-            cmd_web_fetch=cmd_web_fetch,
-            cmd_web_search=cmd_web_search,
+            cmd_ollama_catalog, cmd_ollama_native, cmd_ollama_options,
+            cmd_web_fetch, cmd_web_search,
         ),
-        operations=cli_dispatch.CliOperations(cmd_status=cmd_status, cmd_stop=cmd_stop, cmd_test=cmd_test),
+        operations=cli_dispatch.CliOperations(cmd_status, cmd_stop, cmd_test),
         configuration=cli_dispatch.CliConfiguration(
-            apply_auto_llm_options_config=apply_auto_llm_options_config,
-            apply_headless_env_config=apply_headless_env_config,
-            set_advisor_model_config=set_advisor_model_config,
-            set_log_level_config=set_log_level_config,
-            cmd_set_api_keys=cmd_set_api_keys,
+            apply_auto_llm_options_config, apply_headless_env_config,
+            set_advisor_model_config, set_log_level_config, cmd_set_api_keys,
         ),
-    )
+    ).services()
 def cli_parser_services() -> cli_parser.CliParserServices:
-    return cli_parser.CliParserServices(
+    return cli_assembly.CliParserAssembly(
             launch=cli_parser.CliParserLaunch(
-                cli=cmd_cli,
-                launch=cmd_launch,
-                launch_codex=cmd_launch_codex,
-                launch_codex_app_server=cmd_launch_codex_app_server,
-                launch_agy=cmd_launch_agy,
-                serve=serve,
+                cmd_cli, cmd_launch, cmd_launch_codex,
+                cmd_launch_codex_app_server, cmd_launch_agy, serve,
             ),
             runtime=cli_parser.CliParserRuntime(
-                version=cmd_version,
-                status=cmd_status,
-                env=cmd_env,
-                stop=cmd_stop,
-                test=cmd_test,
+                cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test,
             ),
             settings=cli_parser.CliParserSettings(
-                language=cmd_language,
-                web_search=cmd_web_search,
-                web_fetch=cmd_web_fetch,
-                log_level=cmd_log_level,
-                channels=cmd_channels,
-                channel_delivery=cmd_channel_delivery,
+                cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level,
+                cmd_channels, cmd_channel_delivery,
             ),
             provider=cli_parser.CliParserProvider(
-                ollama_native=cmd_ollama_native,
-                ollama_options=cmd_ollama_options,
-                provider_options=cmd_provider_options,
-                ollama_catalog=cmd_ollama_catalog,
-                provider=cmd_provider,
-                api_key=cmd_api_key,
-                set_api_key=cmd_set_api_key,
-                set_api_keys=cmd_set_api_keys,
-                base_url=cmd_base_url,
-                copilot_oauth=cmd_copilot_oauth,
+                cmd_ollama_native, cmd_ollama_options, cmd_provider_options,
+                cmd_ollama_catalog, cmd_provider, cmd_api_key, cmd_set_api_key,
+                cmd_set_api_keys, cmd_base_url, cmd_copilot_oauth,
             ),
             models=cli_parser.CliParserModels(
-                model=cmd_model,
-                advisor_model=cmd_advisor_model,
-                models=cmd_models,
+                cmd_model, cmd_advisor_model, cmd_models,
             ),
-    )
+    ).services()
 
 def cli_application_context() -> CliApplicationContext:
     return CliApplicationContext(
