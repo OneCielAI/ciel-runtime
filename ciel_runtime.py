@@ -5774,60 +5774,26 @@ def terminate_matching_processes(needles: list[str], label: str, quiet: bool = F
 def stop_ncp_proxy(quiet: bool = False) -> bool:
     return NvidiaProxyStopper(
         NCP_ENV,
-        NvidiaProxyStopPorts(
-            read_env_file=read_env_file,
-            positive_int=positive_int,
-            terminate_windows_port=terminate_windows_port,
-            find_executable=find_executable,
-            terminate_matching_processes=terminate_matching_processes,
-            run=subprocess.run,
-            log=router_log,
-            output=print,
-        ),
+        NvidiaProxyStopPorts(read_env_file, positive_int, terminate_windows_port, find_executable, terminate_matching_processes, subprocess.run,
+                             router_log, print),
     ).stop(quiet, platform_name=os.name)
 
 stop_router_processes = _ROUTER_PROCESS_API.stop_processes
 stop_router_with_guarantee = _ROUTER_PROCESS_API.stop_with_guarantee
 
 def cleanup_managed_services_for_provider(provider: str, pcfg: dict[str, Any], cfg: dict[str, Any], quiet: bool = False) -> None:
-    ManagedServiceCleanupPolicy(
-        ManagedServiceCleanupPorts(
-            direct_native_anthropic=direct_native_anthropic_enabled,
-            direct_native_codex=direct_native_codex_enabled,
-            direct_native_agy=direct_native_agy_enabled,
-            request_policy=provider_request_policy,
-            native_compat_enabled=provider_native_compat_enabled,
-            stop_idle_router=stop_router_if_no_active_clients,
-            stop_nvidia_proxy=stop_ncp_proxy,
-        )
-    ).cleanup(provider, pcfg, cfg, quiet)
+    ManagedServiceCleanupPolicy(ManagedServiceCleanupPorts(
+        direct_native_anthropic_enabled, direct_native_codex_enabled, direct_native_agy_enabled, provider_request_policy,
+        provider_native_compat_enabled, stop_router_if_no_active_clients, stop_ncp_proxy,
+    )).cleanup(provider, pcfg, cfg, quiet)
 
 def provider_readiness_context() -> ProviderReadinessContext:
     return ProviderReadinessContext(
-        defaults=ProviderDefaultsPorts(
-            nvidia_upstream_base_url=nvidia_upstream_base_url,
-            adapter_exists=PROVIDER_ADAPTERS.contains,
-            adapter_default_base_url=lambda provider: PROVIDER_ADAPTERS.create(
-                provider
-            ).default_base_url(),
-        ),
-        credentials=ProviderCredentialPorts(
-            key_count=provider_api_key_count,
-            primary_key=provider_primary_api_key,
-            mask_secret=mask_secret,
-            secret_fingerprint=secret_fingerprint,
-        ),
-        configuration=ProviderConfigurationPorts(
-            load=load_config,
-            current=get_current_provider,
-            adapter=configured_provider_adapter,
-            contract=provider_contract_config,
-        ),
-        projection=ProviderProjectionPorts(
-            status_services=provider_status_services,
-            readiness_services=provider_readiness_services,
-            notes=PROVIDER_NOTES,
-        ),
+        defaults=ProviderDefaultsPorts(nvidia_upstream_base_url, PROVIDER_ADAPTERS.contains,
+                                      lambda provider: PROVIDER_ADAPTERS.create(provider).default_base_url()),
+        credentials=ProviderCredentialPorts(provider_api_key_count, provider_primary_api_key, mask_secret, secret_fingerprint),
+        configuration=ProviderConfigurationPorts(load_config, get_current_provider, configured_provider_adapter, provider_contract_config),
+        projection=ProviderProjectionPorts(provider_status_services, provider_readiness_services, PROVIDER_NOTES),
     )
 
 _PROVIDER_READINESS_API = ProviderReadinessCompatibilityApi(provider_readiness_context)
@@ -5839,28 +5805,11 @@ api_key_status_line = _PROVIDER_READINESS_API.api_key_status_line
 
 def provider_status_services() -> ProviderStatusServices:
     return ProviderStatusServices(
-        routing=ProviderStatusRouting(
-            codex_routed=codex_routed_enabled,
-            agy_routed=agy_routed_enabled,
-            nvidia_native=nvidia_hosted_native_compat_enabled,
-            native_anthropic_base=native_anthropic_base_url,
-            router_up=router_up,
-            router_base=ROUTER_BASE,
-        ),
-        catalog=ProviderStatusCatalog(
-            model_headers=provider_model_list_headers,
-            http_json=http_json,
-            join_url=join_url,
-            management_base=fireworks_management_base_url,
-            model_ids=model_ids_from_response,
-        ),
-        generic=ProviderStatusGeneric(
-            primary_api_key=provider_primary_api_key,
-            meaningful_key=meaningful_key,
-            with_user_agent=with_upstream_user_agent,
-            provider_urlopen=provider_urlopen,
-            model_context_limit=upstream_model_context_limit,
-        ),
+        routing=ProviderStatusRouting(codex_routed_enabled, agy_routed_enabled, nvidia_hosted_native_compat_enabled, native_anthropic_base_url,
+                                      router_up, ROUTER_BASE),
+        catalog=ProviderStatusCatalog(provider_model_list_headers, http_json, join_url, fireworks_management_base_url, model_ids_from_response),
+        generic=ProviderStatusGeneric(provider_primary_api_key, meaningful_key, with_upstream_user_agent, provider_urlopen,
+                                      upstream_model_context_limit),
     )
 
 base_url_status_line = _PROVIDER_READINESS_API.base_url_status_line
@@ -5868,23 +5817,10 @@ preflight_lines = _PROVIDER_READINESS_API.preflight_lines
 
 def provider_readiness_services() -> ProviderReadinessServices:
     return ProviderReadinessServices(
-        mode=ProviderReadinessMode(
-            direct_native_anthropic=direct_native_anthropic_enabled,
-            native_agy=native_agy_enabled,
-            native_codex=native_codex_enabled,
-        ),
-        capabilities=ProviderReadinessCapabilities(
-            ultracode_enabled=claude_code_ultracode_enabled,
-            supported_capabilities=claude_code_supported_capabilities,
-            current_model=current_upstream_model_id,
-        ),
-        lm_studio=ProviderReadinessLmStudio(
-            ensure_model_loaded=ensure_lm_studio_model_loaded_for_context,
-            save_config=save_config,
-            runtime_info=upstream_model_runtime_info,
-            positive_int=positive_int,
-            minimum_context=LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT,
-        ),
+        mode=ProviderReadinessMode(direct_native_anthropic_enabled, native_agy_enabled, native_codex_enabled),
+        capabilities=ProviderReadinessCapabilities(claude_code_ultracode_enabled, claude_code_supported_capabilities, current_upstream_model_id),
+        lm_studio=ProviderReadinessLmStudio(ensure_lm_studio_model_loaded_for_context, save_config, upstream_model_runtime_info, positive_int,
+                                           LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT),
         base_url_status=base_url_status_line,
     )
 
