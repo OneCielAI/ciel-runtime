@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import getpass
-import hashlib
 import json
 import os
 import shutil  # noqa: F401 - compatibility export
@@ -27,7 +26,7 @@ from ciel_runtime_support import (channel_llm_context, claude_launch_assembly, c
 from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support import (prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models,
                                   provider_network, rate_limit_policy, router_request_assembly, router_server_runtime,
-                                  runtime_asset_assembly, runtime_launch, terminal_platform_io, windows_console_mode)
+                                  runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode)
 from ciel_runtime_support.advisor_client import (AdvisorClient, AdvisorClientIO, AdvisorClientPolicy,
                                                  ProviderChatExecutor, ProviderChatIO, ProviderChatPolicy)
 from ciel_runtime_support.advisor_policy import (AdvisorDecisionServices, AdvisorServices, AdvisorShortcutController,
@@ -898,15 +897,7 @@ ip_family_connectivity = provider_network.ip_family_connectivity
 
 def provider_ip_family_probe_lines(provider: str, pcfg: dict[str, Any]) -> list[str]: return provider_network.provider_ip_family_probe_lines(provider, pcfg, default_base_url)
 
-def ciel_runtime_source_fingerprint() -> str:
-    try:
-        return hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:16]
-    except Exception:
-        try:
-            stat = Path(__file__).stat()
-            return f"{int(stat.st_mtime_ns)}-{int(stat.st_size)}"
-        except Exception:
-            return "unknown"
+def ciel_runtime_source_fingerprint() -> str: return runtime_primitives.source_fingerprint(Path(__file__))
 
 SOURCE_FINGERPRINT = ciel_runtime_source_fingerprint()
 LOG_LEVEL_DEFAULT = LOG_LEVELS["ERROR"]
@@ -955,15 +946,7 @@ USAGE_EVENT_SINK = JsonlUsageEventSink(
 # #25720, #29950 and Piebald-AI/claude-code-system-prompts for tool semantics.
 
 def positive_env_int(name: str, default: int) -> int:
-    raw = str(os.environ.get(name) or "").strip()
-    if raw:
-        try:
-            value = int(raw)
-            if value > 0:
-                return value
-        except ValueError:
-            pass
-    return default
+    return runtime_primitives.positive_environment_int(os.environ, name, default)
 
 SUPPRESSED_THINKING_PASSBACK_MAX = positive_env_int("CIEL_RUNTIME_THINKING_PASSBACK_MAX", 4096)
 SUPPRESSED_THINKING_PASSBACK_CACHE: list[dict[str, Any]] = []
@@ -972,15 +955,7 @@ SUPPRESSED_THINKING_REPOSITORY = SuppressedThinkingRepository(SUPPRESSED_THINKIN
 model_lookup_ids = ollama_catalog_policy.model_lookup_ids
 
 def model_preset(model_id: str) -> dict[str, Any]:
-    """Return preset dict for a model ID, checking exact match then prefix match."""
-    for candidate in model_lookup_ids(model_id):
-        if candidate in MODEL_PRESETS:
-            return MODEL_PRESETS[candidate]
-        for key, value in MODEL_PRESETS.items():
-            candidate_base = candidate.split(":", 1)[0]
-            if candidate.startswith(key) or (":" not in candidate and key.startswith(candidate_base)):
-                return value
-    return {}
+    return runtime_primitives.model_preset(model_id, MODEL_PRESETS, model_lookup_ids)
 
 def compat_max_tokens_for_model(model_id: str) -> int: return model_preset(model_id).get("compat_max_tokens", 16)
 
@@ -1237,11 +1212,7 @@ def model_object(provider: str, model_id: str, pcfg: dict[str, Any] | None = Non
     )
     return obj
 
-def join_url(base: str, path: str) -> str:
-    base = base.rstrip("/")
-    if base.endswith("/v1") and path.startswith("/v1/"):
-        return base + path[3:]
-    return base + path
+join_url = runtime_primitives.join_url
 
 def inbound_query_has_beta_flag(request_path: str) -> bool: return provider_query_policy().inbound_has_beta(request_path)
 
@@ -1853,26 +1824,16 @@ wait_for_router_rate_limit_penalty = _ROUTER_RATE_LIMIT_API.wait_for_penalty
 RATE_LIMIT_NOTICE_PALETTE = (203, 209, 215, 221, 229, 187, 151, 116, 111, 147, 183, 219)
 
 def colorize_status_text(text: str) -> str:
-    if os.environ.get("CIEL_RUNTIME_RATE_LIMIT_ANSI", "1").lower() in ("0", "false", "no"):
-        return text
-    parts: list[str] = []
-    phase = int(time.monotonic() * 8)
-    for i, ch in enumerate(text):
-        if ch.isspace():
-            parts.append(ch)
-            continue
-        color = RATE_LIMIT_NOTICE_PALETTE[(phase + i) % len(RATE_LIMIT_NOTICE_PALETTE)]
-        parts.append(f"\033[1;38;5;{color}m{ch}\033[0m")
-    return "".join(parts)
+    return runtime_primitives.colorize_status_text(
+        text,
+        enabled=os.environ.get("CIEL_RUNTIME_RATE_LIMIT_ANSI", "1").lower() not in ("0", "false", "no"),
+        palette=RATE_LIMIT_NOTICE_PALETTE,
+        monotonic=time.monotonic,
+    )
 
 def rate_limit_notice(waited: float, used: int = 0, rpm: int | None = None, show_status: bool = False) -> str: return ""
 
-def is_url_up(url: str) -> bool:
-    try:
-        http_json(url, timeout=1.5)
-        return True
-    except Exception:
-        return False
+def is_url_up(url: str) -> bool: return runtime_primitives.url_is_up(url, http_json)
 
 def nvidia_proxy_runtime() -> NvidiaProxyRuntime:
     return NvidiaProxyRuntime(
