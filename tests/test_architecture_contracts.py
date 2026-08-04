@@ -484,6 +484,28 @@ from ciel_runtime_support.router_process_context import (
     RouterProcessContext,
     RouterProcessEffects,
 )
+from ciel_runtime_support.upstream_retry_context import (
+    UpstreamRetryCompatibilityApi,
+    UpstreamRetryContext,
+    UpstreamRetryCredentialPorts,
+    UpstreamRetryErrorPorts,
+    UpstreamRetryPolicyPorts,
+    UpstreamRetryRateLimitPorts,
+    UpstreamRetryTransportPorts,
+)
+from ciel_runtime_support.response_stream_context import (
+    ResponseStreamAlgorithms,
+    ResponseStreamCompatibilityApi,
+    ResponseStreamContext,
+    ResponseStreamConversationPorts,
+    ResponseStreamIoPorts,
+    ResponseStreamRecoveryPorts,
+    ResponseStreamRuntimePorts,
+    ResponseStreamTextPorts,
+    ResponseStreamToolPorts,
+    ResponseStreamTracePorts,
+    ResponseStreamTypes,
+)
 from ciel_runtime_support.provider_choice import ProviderChoicePorts
 from ciel_runtime_support.provider_model_selection import (
     AdvisorModelMutationPorts,
@@ -3111,6 +3133,92 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("import ciel_runtime", source)
         self.assertNotIn("__getattr__", source)
 
+    def test_upstream_retry_context_uses_bounded_typed_ports(self):
+        self.assertEqual(5, len(fields(UpstreamRetryContext)))
+        self.assertEqual(1, len(fields(UpstreamRetryCompatibilityApi)))
+        for port_type in (
+            UpstreamRetryCredentialPorts,
+            UpstreamRetryErrorPorts,
+            UpstreamRetryPolicyPorts,
+            UpstreamRetryRateLimitPorts,
+            UpstreamRetryTransportPorts,
+        ):
+            with self.subTest(port_type=port_type.__name__):
+                self.assertLessEqual(len(fields(port_type)), 6)
+
+        import ciel_runtime
+
+        aliases = {
+            "upstream_http_error_message": "http_error_message",
+            "upstream_retry_message": "retry_message",
+            "upstream_rate_limit_retry_message": "rate_limit_retry_message",
+            "upstream_retry_wait_seconds": "retry_wait_seconds",
+            "retryable_upstream_exception": "retryable_exception",
+            "configured_gateway_retries": "configured_retries",
+            "upstream_retry_services": "services",
+            "post_json_with_rate_retry": "post_json",
+            "open_provider_request_with_key_retry": "open_provider_request",
+            "open_openai_stream_with_rate_retry": "open_openai_stream",
+        }
+        for alias, method in aliases.items():
+            with self.subTest(alias=alias):
+                self.assertEqual(
+                    getattr(ciel_runtime, alias),
+                    getattr(ciel_runtime._UPSTREAM_RETRY_API, method),
+                )
+
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "upstream_retry_context.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", source)
+        self.assertNotIn("__getattr__", source)
+
+    def test_response_stream_context_owns_protocol_bridge_composition(self):
+        self.assertEqual(9, len(fields(ResponseStreamContext)))
+        self.assertEqual(1, len(fields(ResponseStreamCompatibilityApi)))
+        for port_type in (
+            ResponseStreamAlgorithms,
+            ResponseStreamConversationPorts,
+            ResponseStreamIoPorts,
+            ResponseStreamRecoveryPorts,
+            ResponseStreamRuntimePorts,
+            ResponseStreamTextPorts,
+            ResponseStreamToolPorts,
+            ResponseStreamTracePorts,
+            ResponseStreamTypes,
+        ):
+            with self.subTest(port_type=port_type.__name__):
+                self.assertLessEqual(len(fields(port_type)), 10)
+
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        root_functions = {
+            node.name
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+        }
+        for delegated in (
+            "normalize_tool_arguments",
+            "infer_tool_name_from_args",
+            "parse_pseudo_tool_calls",
+            "ollama_response_services",
+            "ollama_chat_to_anthropic",
+            "_rebatch_anthropic_sse_text",
+            "_ollama_stream_to_anthropic_sse",
+            "openai_chat_to_anthropic",
+            "stream_openai_chat_to_anthropic_sse",
+        ):
+            with self.subTest(delegated=delegated):
+                self.assertNotIn(delegated, root_functions)
+
+        context_source = (
+            root / "ciel_runtime_support" / "response_stream_context.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", context_source)
+        self.assertNotIn("__getattr__", context_source)
+
     def test_pure_codex_config_compatibility_is_reexported_without_wrappers(self):
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
@@ -5253,7 +5361,7 @@ class ArchitectureContractTests(unittest.TestCase):
             "from ciel_runtime_support import provider_catalog_sources", source
         )
         self.assertIn(
-            "from ciel_runtime_support import streaming_anthropic", source
+            "from ciel_runtime_support.response_stream_context import", source
         )
         self.assertNotIn(
             "from ciel_runtime_support.runtime_launch import", source
@@ -5304,10 +5412,6 @@ class ArchitectureContractTests(unittest.TestCase):
             source,
         )
         expected_calls = {
-            "_rebatch_anthropic_sse_text": "rebatch_anthropic_sse_text",
-            "_ollama_stream_to_anthropic_sse": "ollama_stream_to_anthropic_sse",
-            "stream_openai_chat_to_anthropic_sse": "forward_openai_chat_to_anthropic_sse",
-            "openai_chat_to_anthropic": "project_openai_chat_response",
             "provider_mode_label": "label",
             "cmd_ollama_catalog": "refresh_command",
             "inbound_query_has_beta_flag": "inbound_has_beta",
@@ -5464,7 +5568,6 @@ class ArchitectureContractTests(unittest.TestCase):
             ("normalize_import_session_source", "normalize_import_source"),
             ("_import_session_tool_text", "import_tool_text"),
             ("_import_session_record_to_line", "import_record_line"),
-            ("upstream_retry_wait_seconds", "project_upstream_retry_wait_seconds"),
             ("mask_secret", "project_mask_secret"),
             ("secret_fingerprint", "project_secret_fingerprint"),
             ("redact_sensitive_text", "project_redact_sensitive_text"),

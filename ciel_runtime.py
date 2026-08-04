@@ -923,7 +923,6 @@ from ciel_runtime_support.provider_responses_passthrough import (
     ProviderResponsesPassthroughPorts,
 )
 from ciel_runtime_support.openai_responses_stream import (
-    OpenAIResponsesStreamServices,
     write_openai_responses as project_openai_responses_stream,
     write_openai_responses_error as project_openai_responses_error,
 )
@@ -952,11 +951,6 @@ from ciel_runtime_support.protocols.ollama_chat import (
     ollama_claude_code_reminder,
 )
 from ciel_runtime_support.protocols.ollama_response import (
-    OllamaResponseOutput,
-    OllamaResponseRecovery,
-    OllamaResponseServices,
-    OllamaResponseText,
-    OllamaResponseTools,
     project_openai_chat_response,
     project_ollama_response,
 )
@@ -1316,11 +1310,22 @@ from ciel_runtime_support.sse_trace import (
     summarize_payload as summarize_sse_payload,
 )
 from ciel_runtime_support import runtime_launch
-from ciel_runtime_support import streaming_anthropic
+from ciel_runtime_support.response_stream_context import (
+    ResponseStreamAlgorithms,
+    ResponseStreamCompatibilityApi,
+    ResponseStreamContext,
+    ResponseStreamConversationPorts,
+    ResponseStreamIoPorts,
+    ResponseStreamRecoveryPorts,
+    ResponseStreamRuntimePorts,
+    ResponseStreamTextPorts,
+    ResponseStreamToolPorts,
+    ResponseStreamTracePorts,
+    ResponseStreamTypes,
+)
 from ciel_runtime_support import terminal_platform_io
 from ciel_runtime_support import windows_console_mode
 from ciel_runtime_support.pseudo_tool_parser import (
-    PseudoToolParserServices,
     infer_tool_name_from_args as project_infer_tool_name,
     normalize_tool_arguments as project_normalize_tool_arguments,
     parse_pseudo_tool_calls as project_parse_pseudo_tool_calls,
@@ -1336,15 +1341,14 @@ from ciel_runtime_support.session_import import (
     import_tool_text,
     normalize_import_source,
 )
-from ciel_runtime_support.upstream_retry import (
-    UpstreamRetryHttp,
-    UpstreamRetryKeys,
-    UpstreamRetryPolicy,
-    UpstreamRetryRateLimit,
-    UpstreamRetryServices,
-    open_openai_stream_with_rate_retry as retry_openai_stream,
-    open_provider_request_with_key_retry as retry_provider_request,
-    post_json_with_rate_retry as retry_post_json,
+from ciel_runtime_support.upstream_retry_context import (
+    UpstreamRetryCompatibilityApi,
+    UpstreamRetryContext,
+    UpstreamRetryCredentialPorts,
+    UpstreamRetryErrorPorts,
+    UpstreamRetryPolicyPorts,
+    UpstreamRetryRateLimitPorts,
+    UpstreamRetryTransportPorts,
 )
 from ciel_runtime_support.upstream_error_policy import (
     configured_gateway_retries as project_configured_gateway_retries,
@@ -5134,192 +5138,85 @@ def handle_live_api_keys_action(value: str) -> tuple[list[str], bool]:
 def maybe_handle_live_api_keys_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool:
     return router_shortcut_controller().handle_live_api_keys(handler, body)
 
-def normalize_tool_arguments(tool_name: str, args: Any) -> dict[str, Any]:
-    return project_normalize_tool_arguments(tool_name, args)
-
 PSEUDO_TOOL_START = "<|tool_calls_section_begin|>"
 PSEUDO_TOOL_END = "<|tool_calls_section_end|>"
 PSEUDO_CALL_BEGIN = "<|tool_call_begin|>"
 PSEUDO_ARG_BEGIN = "<|tool_call_argument_begin|>"
 PSEUDO_CALL_END = "<|tool_call_end|>"
 
-def infer_tool_name_from_args(args: dict[str, Any]) -> str:
-    return project_infer_tool_name(args)
-
-def parse_pseudo_tool_calls(text: str, source_body: dict[str, Any] | None = None) -> tuple[str, list[dict[str, Any]]]:
-    return project_parse_pseudo_tool_calls(
-        text,
-        source_body,
-        PseudoToolParserServices(
-            parse_xml=_parse_xml_pseudo_tool_calls,
-            fuzzy_tool_name=_fuzzy_match_tool_name,
-        ),
-    )
-
-def ollama_response_services() -> OllamaResponseServices:
-    return OllamaResponseServices(
-        text=OllamaResponseText(
-            decode=decode_ollama_chat_response,
-            strip_thinking=strip_visible_thinking_markup,
-            parse_pseudo_tools=parse_pseudo_tool_calls,
-            log=router_log,
-        ),
-        tools=OllamaResponseTools(
-            resolve_name=resolve_emitted_tool_name,
-            normalize_arguments=normalize_tool_arguments,
-            validate_input=_validate_and_fix_tool_input,
-            plan_mode_name=plan_mode_tool_name_for_emit,
-            cap_notification_wait=cap_mcp_notification_wait_tool_input,
-            should_drop=should_drop_emitted_tool_call,
-            append_log=append_tool_call_log,
-        ),
-        recovery=OllamaResponseRecovery(
-            auto_enter_plan=should_auto_enter_plan_mode,
-            recover_empty_with_tasklist=should_recover_empty_end_turn_with_tasklist,
-            keep_alive_with_tasklist=should_keep_work_alive_with_tasklist,
-            auto_continue_choice=should_auto_continue_choice_question_with_tasklist,
-            empty_notice=empty_end_turn_notice_for_body,
-            latest_tool_result_names=latest_user_tool_result_names,
-            synthetic_tool_response=synthetic_tool_use_response,
-        ),
-        output=OllamaResponseOutput(
-            encode_message=encode_anthropic_message,
-            estimate_tokens=estimate_tokens,
-            timestamp_ms=lambda: int(time.time() * 1000),
-            process_id=os.getpid,
-        ),
-    )
-
-def ollama_chat_to_anthropic(
-    data: dict[str, Any],
-    model: str,
-    source_body: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    return project_ollama_response(data, model, source_body, ollama_response_services())
-
 STREAM_WORD_CHUNK_MAX_BUFFER = 64
 
-def _split_word_buffer(buf: str, force: bool = False, max_buffer: int = STREAM_WORD_CHUNK_MAX_BUFFER) -> tuple[str, str]:
-    return split_word_buffer(buf, force=force, max_buffer=max_buffer)
-
-def _rebatch_anthropic_sse_text(
-    handler: BaseHTTPRequestHandler,
-    resp: Any,
-    model: str = "ciel-runtime-upstream",
-    word_chunking: bool = True,
-    source_body: dict[str, Any] | None = None,
-    preserve_thinking: bool = True,
-    normalize_tool_use: bool = False,
-    provider: str = "",
-) -> None:
-    return streaming_anthropic.rebatch_anthropic_sse_text(
-        handler,
-        resp,
-        model=model,
-        word_chunking=word_chunking,
-        source_body=source_body,
-        preserve_thinking=preserve_thinking,
-        normalize_tool_use=normalize_tool_use,
-        provider=provider,
-        services=streaming_anthropic.AnthropicStreamServices(
-            io=streaming_anthropic.AnthropicStreamIO(
-                ANTHROPIC_THINKING_BLOCK_TYPES=ANTHROPIC_THINKING_BLOCK_TYPES,
-                VisibleToolCallArtifactFilter=VisibleToolCallArtifactFilter,
-                _find_pseudo_xml_tool_start=_find_pseudo_xml_tool_start,
-                _split_word_buffer=_split_word_buffer,
-                mark_pending_channel_delivery_failed=mark_pending_channel_delivery_failed,
-                mark_pending_channel_delivery_success=mark_pending_channel_delivery_success,
-                remember_suppressed_thinking_passback=remember_suppressed_thinking_passback,
-                router_client_connection_closed=router_client_connection_closed,
-                router_log=router_log,
-            ),
-            tool_projection=streaming_anthropic.AnthropicToolProjection(
-                _is_mcp_notification_wait_tool=_is_mcp_notification_wait_tool,
-                _remember_channel_injected_tool_use=_remember_channel_injected_tool_use,
-                _validate_and_fix_tool_input=_validate_and_fix_tool_input,
-                append_tool_call_log=append_tool_call_log,
-                cap_mcp_notification_wait_tool_input=cap_mcp_notification_wait_tool_input,
-                infer_tool_name_from_args=infer_tool_name_from_args,
-                normalize_tool_arguments=normalize_tool_arguments,
-                parse_pseudo_tool_calls=parse_pseudo_tool_calls,
-                plan_mode_tool_name_for_emit=plan_mode_tool_name_for_emit,
-                resolve_emitted_tool_name=resolve_emitted_tool_name,
-            ),
-            tool_policy=streaming_anthropic.AnthropicToolPolicy(
-                should_drop_duplicate_side_effect_tool_call=should_drop_duplicate_side_effect_tool_call,
-                should_drop_emitted_tool_call=should_drop_emitted_tool_call,
-                should_repair_anthropic_passthrough_tool_input=should_repair_anthropic_passthrough_tool_input,
-            ),
-            conversation=streaming_anthropic.AnthropicConversationContext(
-                backfill_exit_plan_mode_allowed_prompts=backfill_exit_plan_mode_allowed_prompts,
-                body_ultracode_runtime_enabled=body_ultracode_runtime_enabled,
-                empty_end_turn_notice_for_body=empty_end_turn_notice_for_body,
-                has_tool=has_tool,
-                latest_user_intent_message_index=latest_user_intent_message_index,
-                latest_user_is_claude_code_suggestion_mode=latest_user_is_claude_code_suggestion_mode,
-                latest_user_tool_result_names=latest_user_tool_result_names,
-                recent_synthetic_tasklist_count=recent_synthetic_tasklist_count,
-            ),
-            continuation=streaming_anthropic.AnthropicContinuationPolicy(
-                should_auto_continue_choice_question_with_tasklist=should_auto_continue_choice_question_with_tasklist,
-                should_auto_exit_plan_mode=should_auto_exit_plan_mode,
-                should_keep_work_alive_with_tasklist=should_keep_work_alive_with_tasklist,
-                should_recover_empty_end_turn_with_tasklist=should_recover_empty_end_turn_with_tasklist,
-                should_synthesize_tasklist_for_provider=should_synthesize_tasklist_for_provider,
-            ),
+def response_stream_context() -> ResponseStreamContext:
+    return ResponseStreamContext(
+        algorithms=ResponseStreamAlgorithms(
+            project_normalize_tool_arguments, project_infer_tool_name,
+            project_parse_pseudo_tool_calls, project_ollama_response,
+            project_openai_chat_response, split_word_buffer,
+            project_openai_responses_stream, project_openai_responses_error,
+            PROTOCOL_ADAPTERS.create,
+        ),
+        text=ResponseStreamTextPorts(
+            decode_ollama_chat_response, strip_visible_thinking_markup,
+            _parse_xml_pseudo_tool_calls, _find_pseudo_xml_tool_start,
+            _fuzzy_match_tool_name, openai_reasoning_to_anthropic_thinking_block,
+            anthropic_content_to_text, positive_int,
+        ),
+        tools=ResponseStreamToolPorts(
+            resolve_emitted_tool_name, _validate_and_fix_tool_input,
+            plan_mode_tool_name_for_emit, cap_mcp_notification_wait_tool_input,
+            should_drop_emitted_tool_call,
+            should_drop_duplicate_side_effect_tool_call, append_tool_call_log,
+            _remember_channel_injected_tool_use,
+            should_repair_anthropic_passthrough_tool_input,
+            _is_mcp_notification_wait_tool,
+        ),
+        recovery=ResponseStreamRecoveryPorts(
+            should_auto_enter_plan_mode, should_auto_exit_plan_mode,
+            should_recover_empty_end_turn_with_tasklist,
+            should_keep_work_alive_with_tasklist,
+            should_auto_continue_choice_question_with_tasklist,
+            empty_end_turn_notice_for_body, latest_user_tool_result_names,
+            synthetic_tool_use_response, should_synthesize_tasklist_for_provider,
+        ),
+        conversation=ResponseStreamConversationPorts(
+            backfill_exit_plan_mode_allowed_prompts,
+            body_ultracode_runtime_enabled, has_tool,
+            latest_user_intent_message_index,
+            latest_user_is_claude_code_suggestion_mode,
+            recent_synthetic_tasklist_count,
+            remember_suppressed_thinking_passback,
+        ),
+        io=ResponseStreamIoPorts(
+            encode_anthropic_message, estimate_tokens, router_log,
+            mark_pending_channel_delivery_failed,
+            mark_pending_channel_delivery_success,
+            router_client_connection_closed,
+            iter_upstream_lines_until_client_disconnect,
+            write_router_activity, write_json, write_anthropic_open_stream_stop,
+        ),
+        trace=ResponseStreamTracePorts(
+            dump_response_for_trace, finish_outgoing_sse_trace,
+            make_outgoing_sse_trace, record_outgoing_sse_event,
+        ),
+        runtime=ResponseStreamRuntimePorts(
+            lambda: int(time.time() * 1000), os.getpid,
+        ),
+        types=ResponseStreamTypes(
+            ANTHROPIC_THINKING_BLOCK_TYPES, VisibleToolCallArtifactFilter,
+            VisibleThinkingMarkupFilter, UpstreamClientDisconnected,
+            PSEUDO_TOOL_START, PSEUDO_TOOL_END, STREAM_WORD_CHUNK_MAX_BUFFER,
         ),
     )
 
-def _ollama_stream_to_anthropic_sse(
-    handler: BaseHTTPRequestHandler,
-    resp: Any,
-    model: str,
-    word_chunking: bool = False,
-    provider: str = "ollama",
-    source_body: dict[str, Any] | None = None,
-    idle_timeout: float = 30.0,
-) -> None:
-    return streaming_anthropic.ollama_stream_to_anthropic_sse(
-        handler, resp, model, word_chunking=word_chunking, provider=provider,
-        source_body=source_body, idle_timeout=idle_timeout,
-        services=streaming_anthropic.OllamaStreamServices(
-            io=streaming_anthropic.OllamaStreamIO(
-                UpstreamClientDisconnected=UpstreamClientDisconnected,
-                VisibleThinkingMarkupFilter=VisibleThinkingMarkupFilter,
-                _split_word_buffer=_split_word_buffer,
-                estimate_tokens=estimate_tokens,
-                iter_upstream_lines_until_client_disconnect=iter_upstream_lines_until_client_disconnect,
-                mark_pending_channel_delivery_failed=mark_pending_channel_delivery_failed,
-                mark_pending_channel_delivery_success=mark_pending_channel_delivery_success,
-                router_log=router_log,
-                write_router_activity=write_router_activity,
-            ),
-            trace=streaming_anthropic.OllamaStreamTrace(
-                dump_response_for_trace=dump_response_for_trace,
-                finish_outgoing_sse_trace=finish_outgoing_sse_trace,
-                make_outgoing_sse_trace=make_outgoing_sse_trace,
-                record_outgoing_sse_event=record_outgoing_sse_event,
-            ),
-            tool_projection=streaming_anthropic.OllamaToolProjection(
-                _remember_channel_injected_tool_use=_remember_channel_injected_tool_use,
-                _validate_and_fix_tool_input=_validate_and_fix_tool_input,
-                append_tool_call_log=append_tool_call_log,
-                cap_mcp_notification_wait_tool_input=cap_mcp_notification_wait_tool_input,
-                normalize_tool_arguments=normalize_tool_arguments,
-                plan_mode_tool_name_for_emit=plan_mode_tool_name_for_emit,
-                resolve_emitted_tool_name=resolve_emitted_tool_name,
-                should_drop_duplicate_side_effect_tool_call=should_drop_duplicate_side_effect_tool_call,
-                should_drop_emitted_tool_call=should_drop_emitted_tool_call,
-            ),
-            continuation=streaming_anthropic.OllamaContinuationPolicy(
-                empty_end_turn_notice_for_body=empty_end_turn_notice_for_body,
-                should_auto_continue_choice_question_with_tasklist=should_auto_continue_choice_question_with_tasklist,
-                should_auto_enter_plan_mode=should_auto_enter_plan_mode,
-                should_keep_work_alive_with_tasklist=should_keep_work_alive_with_tasklist,
-                should_recover_empty_end_turn_with_tasklist=should_recover_empty_end_turn_with_tasklist,
-            ),
-        ),
-    )
+_RESPONSE_STREAM_API = ResponseStreamCompatibilityApi(response_stream_context)
+normalize_tool_arguments = _RESPONSE_STREAM_API.normalize_tool_arguments
+infer_tool_name_from_args = _RESPONSE_STREAM_API.infer_tool_name
+parse_pseudo_tool_calls = _RESPONSE_STREAM_API.parse_pseudo_tool_calls
+ollama_response_services = _RESPONSE_STREAM_API.ollama_response_services
+ollama_chat_to_anthropic = _RESPONSE_STREAM_API.ollama_chat_to_anthropic
+_split_word_buffer = _RESPONSE_STREAM_API.split_word_buffer
+_rebatch_anthropic_sse_text = _RESPONSE_STREAM_API.rebatch_anthropic_sse_text
+_ollama_stream_to_anthropic_sse = _RESPONSE_STREAM_API.ollama_stream_to_anthropic_sse
 
 def ollama_forward_services() -> OllamaForwardServices:
     return OllamaForwardServices(
@@ -5393,252 +5290,71 @@ def forward_ollama_api_chat(
         services=ollama_forward_services(),
     )
 
-def openai_chat_to_anthropic(data: dict[str, Any], model: str, source_body: dict[str, Any] | None = None) -> dict[str, Any]:
-    return project_openai_chat_response(
-        data,
-        model,
-        source_body,
-        services=ollama_response_services(),
-        positive_int=positive_int,
-        reasoning_to_block=openai_reasoning_to_anthropic_thinking_block,
-        content_to_text=anthropic_content_to_text,
-    )
-
-def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model: str) -> dict[str, Any]:
-    adapter = PROTOCOL_ADAPTERS.create("openai_responses", fallback_model=fallback_model)
-    return dict(adapter.normalize_request(body))
-
-def anthropic_message_to_openai_response(
-    message: dict[str, Any], source_body: dict[str, Any] | None = None
-) -> dict[str, Any]:
-    adapter = PROTOCOL_ADAPTERS.create("openai_responses", source_body=source_body)
-    return dict(adapter.normalize_response(message))
-
-def openai_responses_stream_services() -> OpenAIResponsesStreamServices:
-    return OpenAIResponsesStreamServices(
-        to_response=anthropic_message_to_openai_response,
-        write_json=write_json,
-    )
-
-def write_openai_responses_response(
-    handler: BaseHTTPRequestHandler,
-    message: dict[str, Any],
-    source_body: dict[str, Any] | None = None,
-    *,
-    stream: bool = True,
-) -> None:
-    project_openai_responses_stream(
-        handler,
-        message,
-        source_body,
-        stream=stream,
-        services=openai_responses_stream_services(),
-    )
-
-def write_openai_responses_error(
-    handler: BaseHTTPRequestHandler,
-    message: str,
-    *,
-    stream: bool = True,
-    status: int = 500,
-) -> None:
-    project_openai_responses_error(
-        handler,
-        message,
-        stream=stream,
-        status=status,
-        services=openai_responses_stream_services(),
-    )
-
-def stream_openai_chat_to_anthropic_sse(
-    handler: BaseHTTPRequestHandler,
-    resp: Any,
-    model: str,
-    provider: str,
-    source_body: dict[str, Any] | None = None,
-    start_index: int = 0,
-    word_chunking: bool = False,
-    input_tokens: int | None = None,
-    input_bytes: int | None = None,
-) -> bool:
-    return streaming_anthropic.forward_openai_chat_to_anthropic_sse(
-        handler, resp, model, provider, source_body=source_body,
-        start_index=start_index, word_chunking=word_chunking,
-        input_tokens=input_tokens, input_bytes=input_bytes,
-        services=streaming_anthropic.OpenAIChatStreamServices(
-            io=streaming_anthropic.OpenAIChatStreamIO(
-                PSEUDO_TOOL_END=PSEUDO_TOOL_END,
-                PSEUDO_TOOL_START=PSEUDO_TOOL_START,
-                _split_word_buffer=_split_word_buffer,
-                positive_int=positive_int,
-                router_log=router_log,
-                write_anthropic_open_stream_stop=write_anthropic_open_stream_stop,
-                write_router_activity=write_router_activity,
-            ),
-            tool_projection=streaming_anthropic.OpenAIChatToolProjection(
-                _remember_channel_injected_tool_use=_remember_channel_injected_tool_use,
-                _validate_and_fix_tool_input=_validate_and_fix_tool_input,
-                append_tool_call_log=append_tool_call_log,
-                cap_mcp_notification_wait_tool_input=cap_mcp_notification_wait_tool_input,
-                normalize_tool_arguments=normalize_tool_arguments,
-                parse_pseudo_tool_calls=parse_pseudo_tool_calls,
-                plan_mode_tool_name_for_emit=plan_mode_tool_name_for_emit,
-                resolve_emitted_tool_name=resolve_emitted_tool_name,
-                should_drop_duplicate_side_effect_tool_call=should_drop_duplicate_side_effect_tool_call,
-                should_drop_emitted_tool_call=should_drop_emitted_tool_call,
-            ),
-            continuation=streaming_anthropic.OpenAIChatContinuationPolicy(
-                empty_end_turn_notice_for_body=empty_end_turn_notice_for_body,
-                latest_user_tool_result_names=latest_user_tool_result_names,
-                should_auto_continue_choice_question_with_tasklist=should_auto_continue_choice_question_with_tasklist,
-                should_auto_enter_plan_mode=should_auto_enter_plan_mode,
-                should_keep_work_alive_with_tasklist=should_keep_work_alive_with_tasklist,
-                should_recover_empty_end_turn_with_tasklist=should_recover_empty_end_turn_with_tasklist,
-            ),
-        ),
-    )
-
-def upstream_http_error_message(exc: urllib.error.HTTPError, raw: str | None = None) -> str:
-    return project_upstream_http_error_message(
-        exc,
-        raw,
-        first_header=first_header,
-        parse_retry_after=parse_retry_after_seconds,
-        format_duration=format_duration_seconds,
-    )
+openai_chat_to_anthropic = _RESPONSE_STREAM_API.openai_chat_to_anthropic
+openai_responses_to_anthropic_messages = (
+    _RESPONSE_STREAM_API.openai_responses_to_anthropic_messages
+)
+anthropic_message_to_openai_response = (
+    _RESPONSE_STREAM_API.anthropic_message_to_openai_response
+)
+openai_responses_stream_services = _RESPONSE_STREAM_API.openai_responses_stream_services
+write_openai_responses_response = _RESPONSE_STREAM_API.write_openai_responses_response
+write_openai_responses_error = _RESPONSE_STREAM_API.write_openai_responses_error
+stream_openai_chat_to_anthropic_sse = (
+    _RESPONSE_STREAM_API.stream_openai_chat_to_anthropic_sse
+)
 
 UPSTREAM_RETRY_HTTP_CODES: frozenset[int] = frozenset({502, 503, 504})
 
-def upstream_retry_message(attempt: int, total: int) -> str:
-    return project_upstream_retry_message(
-        str(load_config().get("language") or "en"),
-        attempt,
-        total,
-    )
-
-def upstream_rate_limit_retry_message(attempt: int, total: int) -> str:
-    return project_upstream_retry_message(
-        str(load_config().get("language") or "en"),
-        attempt,
-        total,
-        rate_limit=True,
-    )
-
-upstream_retry_wait_seconds = project_upstream_retry_wait_seconds
-
-def retryable_upstream_exception(exc: BaseException) -> bool:
-    return project_retryable_upstream_exception(exc)
-
-def configured_gateway_retries(pcfg: dict[str, Any]) -> int:
-    return project_configured_gateway_retries(pcfg)
-
-def upstream_retry_services() -> UpstreamRetryServices:
-    return UpstreamRetryServices(
-        policy=UpstreamRetryPolicy(
-            configured_gateway_retries=configured_gateway_retries,
-            retry_after_exceeds_request_timeout=retry_after_exceeds_request_timeout,
-            retryable_upstream_exception=retryable_upstream_exception,
-            upstream_rate_limit_retry_message=upstream_rate_limit_retry_message,
-            upstream_retry_http_codes=UPSTREAM_RETRY_HTTP_CODES,
-            upstream_retry_message=upstream_retry_message,
-            upstream_retry_wait_seconds=upstream_retry_wait_seconds,
+def upstream_retry_context() -> UpstreamRetryContext:
+    return UpstreamRetryContext(
+        errors=UpstreamRetryErrorPorts(
+            project_http_error=project_upstream_http_error_message,
+            project_retry_message=project_upstream_retry_message,
+            first_header=first_header,
+            parse_retry_after=parse_retry_after_seconds,
+            format_duration=format_duration_seconds,
         ),
-        keys=UpstreamRetryKeys(
-            key_from_request_headers=key_from_request_headers,
-            provider_api_key_count=provider_api_key_count,
-            provider_has_live_api_key=provider_has_live_api_key,
-            provider_headers=provider_headers,
-            register_api_key_cooldown=register_api_key_cooldown,
+        policy=UpstreamRetryPolicyPorts(
+            configured_retries=project_configured_gateway_retries,
+            retry_after_exceeds_timeout=retry_after_exceeds_request_timeout,
+            retryable_exception=project_retryable_upstream_exception,
+            retry_wait_seconds=project_upstream_retry_wait_seconds,
+            retry_http_codes=UPSTREAM_RETRY_HTTP_CODES,
+            language=lambda: str(load_config().get("language") or "en"),
         ),
-        rate_limit=UpstreamRetryRateLimit(
+        credentials=UpstreamRetryCredentialPorts(
+            key_from_headers=key_from_request_headers,
+            api_key_count=provider_api_key_count,
+            has_live_api_key=provider_has_live_api_key,
+            headers=provider_headers,
+            register_cooldown=register_api_key_cooldown,
+        ),
+        rate_limit=UpstreamRetryRateLimitPorts(
             learn_headers=learn_router_rate_limit_headers,
             log=router_log,
             register_backoff=register_router_rate_limit_backoff,
             write_activity=write_router_activity,
         ),
-        http=UpstreamRetryHttp(
+        transport=UpstreamRetryTransportPorts(
             estimate_tokens=estimate_tokens,
-            provider_urlopen=provider_urlopen,
+            urlopen=provider_urlopen,
             set_stream_read_timeout=set_upstream_stream_read_timeout,
             stream_idle_timeout_seconds=provider_stream_idle_timeout_seconds,
-            upstream_http_error_message=upstream_http_error_message,
         ),
     )
 
-def post_json_with_rate_retry(
-    url: str,
-    req_body: Any,
-    headers: dict[str, str],
-    timeout: float,
-    provider: str,
-    pcfg: dict[str, Any],
-    model: str,
-    retry_notice: Callable[[str], None] | None = None,
-    *,
-    retry_rate_limits: bool = True,
-) -> Any:
-    return retry_post_json(
-        url,
-        req_body,
-        headers,
-        timeout,
-        provider,
-        pcfg,
-        model,
-        retry_notice,
-        retry_rate_limits=retry_rate_limits,
-        services=upstream_retry_services(),
-    )
-
-def open_provider_request_with_key_retry(
-    url: str,
-    req_body: Any,
-    headers: dict[str, str],
-    timeout: float,
-    provider: str,
-    pcfg: dict[str, Any],
-    model: str,
-    *,
-    stream: bool = False,
-    retry_rate_limits: bool = True,
-) -> Any:
-    return retry_provider_request(
-        url,
-        req_body,
-        headers,
-        timeout,
-        provider,
-        pcfg,
-        model,
-        stream=stream,
-        retry_rate_limits=retry_rate_limits,
-        services=upstream_retry_services(),
-    )
-
-def open_openai_stream_with_rate_retry(
-    url: str,
-    req_body: Any,
-    headers: dict[str, str],
-    timeout: float,
-    provider: str,
-    pcfg: dict[str, Any],
-    model: str,
-    retry_notice: Callable[[str], None] | None = None,
-    *,
-    retry_rate_limits: bool = True,
-) -> Any:
-    return retry_openai_stream(
-        url,
-        req_body,
-        headers,
-        timeout,
-        provider,
-        pcfg,
-        model,
-        retry_notice,
-        retry_rate_limits=retry_rate_limits,
-        services=upstream_retry_services(),
-    )
+_UPSTREAM_RETRY_API = UpstreamRetryCompatibilityApi(upstream_retry_context)
+upstream_http_error_message = _UPSTREAM_RETRY_API.http_error_message
+upstream_retry_message = _UPSTREAM_RETRY_API.retry_message
+upstream_rate_limit_retry_message = _UPSTREAM_RETRY_API.rate_limit_retry_message
+upstream_retry_wait_seconds = _UPSTREAM_RETRY_API.retry_wait_seconds
+retryable_upstream_exception = _UPSTREAM_RETRY_API.retryable_exception
+configured_gateway_retries = _UPSTREAM_RETRY_API.configured_retries
+upstream_retry_services = _UPSTREAM_RETRY_API.services
+post_json_with_rate_retry = _UPSTREAM_RETRY_API.post_json
+open_provider_request_with_key_retry = _UPSTREAM_RETRY_API.open_provider_request
+open_openai_stream_with_rate_retry = _UPSTREAM_RETRY_API.open_openai_stream
 
 def openai_forward_services() -> OpenAIForwardServices:
     return OpenAIForwardServices(
