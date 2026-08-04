@@ -5206,15 +5206,9 @@ COMPAT_TOOL_NAME = "compat_echo"
 COMPATIBILITY_TEST_HEADER = "x-ciel-runtime-compatibility-test"
 
 def compatibility_protocol_codec() -> CompatibilityProtocolCodec:
-    return CompatibilityProtocolCodec(
-        COMPAT_TOOL_NAME,
-        CompatibilityProtocolPorts(
-            max_tokens_for_model=compat_max_tokens_for_model,
-            first_header=first_header,
-            parse_retry_after=parse_retry_after_seconds,
-            format_duration=format_duration_seconds,
-        ),
-    )
+    return CompatibilityProtocolCodec(COMPAT_TOOL_NAME, CompatibilityProtocolPorts(
+        compat_max_tokens_for_model, first_header, parse_retry_after_seconds, format_duration_seconds,
+    ))
 
 _COMPATIBILITY_PROTOCOL_API = CompatibilityProtocolApi(compatibility_protocol_codec)
 compatibility_tool_schema = _COMPATIBILITY_PROTOCOL_API.tool_schema
@@ -5248,64 +5242,33 @@ def compatibility_api_key_probe_request(
     request_body: dict[str, Any],
 ) -> tuple[str, dict[str, Any], dict[str, str]]:
     return CompatibilityApiKeyProbeBuilder(
-        CompatibilityProbeProjectionPorts(
-            normalize_thinking=normalize_thinking_for_non_anthropic_provider,
-            normalize_tool_choice=normalize_tool_choice_for_provider,
-            resolve_model=resolve_requested_model,
-            headers=provider_headers,
-            request_policy=provider_request_policy,
-        ),
-        CompatibilityProbeRoutingPorts(
-            ollama_request=ollama_chat_request,
-            openai_request=openai_compatible_chat_request,
-            endpoint=provider_endpoint,
-            opencode_endpoint_kind=opencode_endpoint_kind,
-            openai_router_enabled=provider_openai_router_enabled,
-            request_base=provider_upstream_request_base,
-            join_url=join_url,
-            ncp_model_id=ncp_model_id_for_nvidia_hosted,
-        ),
-        CompatibilityProbeAnthropicPorts(
-            cap_body=cap_anthropic_body_for_provider,
-            apply_options=apply_provider_request_options,
-            resolve_tool_models=resolve_tool_model_references,
-            native_compat_enabled=provider_native_compat_enabled,
-            native_base_url=native_anthropic_base_url,
-        ),
+        CompatibilityProbeProjectionPorts(normalize_thinking_for_non_anthropic_provider, normalize_tool_choice_for_provider, resolve_requested_model,
+                                            provider_headers, provider_request_policy),
+        CompatibilityProbeRoutingPorts(ollama_chat_request, openai_compatible_chat_request, provider_endpoint, opencode_endpoint_kind,
+                                        provider_openai_router_enabled, provider_upstream_request_base, join_url, ncp_model_id_for_nvidia_hosted),
+        CompatibilityProbeAnthropicPorts(cap_anthropic_body_for_provider, apply_provider_request_options, resolve_tool_model_references,
+                                          provider_native_compat_enabled, native_anthropic_base_url),
     ).build(provider, pcfg, model, request_body)
 
 def run_compatibility_api_key_probes(provider: str, pcfg: dict[str, Any], model: str, request_body: dict[str, Any], timeout: float) -> list[str]:
-    return CompatibilityApiKeyProbeRunner(
-        CompatibilityApiKeyProbeRunnerPorts(
-            api_keys=provider_config_api_keys,
-            mask_secret=mask_secret,
-            build_request=compatibility_api_key_probe_request,
-            post=post_json,
-            http_error_message=compatibility_http_error_message,
-            failure_diagnosis=compatibility_failure_diagnosis,
-        )
-    ).run(provider, pcfg, model, request_body, timeout)
+    return CompatibilityApiKeyProbeRunner(CompatibilityApiKeyProbeRunnerPorts(
+        provider_config_api_keys, mask_secret, compatibility_api_key_probe_request, post_json, compatibility_http_error_message,
+        compatibility_failure_diagnosis,
+    )).run(provider, pcfg, model, request_body, timeout)
 
 vllm_tool_parser_hint = CompatibilityRuntimeProjection.vllm_tool_parser_hint
 
 def compatibility_runtime_projection() -> CompatibilityRuntimeProjection:
-    return CompatibilityRuntimeProjection(
-        CompatibilityRuntimePorts(
-            provider_policy=PROVIDER_COMPATIBILITY.resolve,
-            runtime_info=upstream_model_runtime_info,
-            positive_int=positive_int,
-        )
-    )
+    return CompatibilityRuntimeProjection(CompatibilityRuntimePorts(
+        provider_policy=PROVIDER_COMPATIBILITY.resolve,
+        runtime_info=upstream_model_runtime_info,
+        positive_int=positive_int,
+    ))
 
 def compatibility_runtime_lines(provider: str, pcfg: dict[str, Any], native: bool) -> list[str]: return compatibility_runtime_projection().lines(provider, pcfg, native)
 
 def compatibility_cache_repository() -> CompatibilityCacheRepository:
-    return CompatibilityCacheRepository(
-        CompatibilityCachePorts(
-            save_config=save_config,
-            timestamp=lambda: int(time.time()),
-        )
-    )
+    return CompatibilityCacheRepository(CompatibilityCachePorts(save_config, lambda: int(time.time())))
 
 def set_compatibility_cache(cfg: dict[str, Any], provider: str, model: str, ok: bool, code: int | None = None, message: str = "", diagnosis: str = "") -> None:
     compatibility_cache_repository().record(
@@ -5375,30 +5338,13 @@ def claude_code_output_token_limit(provider: str, pcfg: dict[str, Any]) -> int |
 def claude_code_auto_compact_window(provider: str, pcfg: dict[str, Any]) -> int | None: return claude_limit_policy().auto_compact_window(provider, pcfg)
 
 def claude_limit_policy() -> ClaudeLimitPolicy:
-    return ClaudeLimitPolicy(
-        ClaudeLimitPorts(
-            positive_int=positive_int,
-            cap_output_tokens=cap_output_tokens_to_context_ratio,
-            ollama_options=ollama_extra_options,
-            context_limit=context_limit_for_status,
-        )
-    )
+    return ClaudeLimitPolicy(ClaudeLimitPorts(positive_int, cap_output_tokens_to_context_ratio, ollama_extra_options, context_limit_for_status))
 
 def claude_model_alias_policy() -> ClaudeModelAliasPolicy:
-    return ClaudeModelAliasPolicy(
-        ClaudeModelPorts(
-            strip_context_suffix=strip_claude_context_suffix,
-            current_upstream_model=current_upstream_model_id,
-            unslug_alias=unslug_provider_alias,
-            model_map=model_map_for,
-            context_hint=model_context_hint_from_model_id,
-            anthropic_limit_hints=anthropic_model_limit_hints,
-            positive_int=positive_int,
-            configured_model_ids=cached_or_configured_model_ids,
-            normalize_model_id=normalize_model_id,
-            alias_for=alias_for,
-        )
-    )
+    return ClaudeModelAliasPolicy(ClaudeModelPorts(
+        strip_claude_context_suffix, current_upstream_model_id, unslug_provider_alias, model_map_for, model_context_hint_from_model_id,
+        anthropic_model_limit_hints, positive_int, cached_or_configured_model_ids, normalize_model_id, alias_for,
+    ))
 
 _CLAUDE_MODEL_ALIAS_API = ClaudeModelAliasCompatibilityApi(claude_model_alias_policy, context_limit_for_status)
 claude_code_model_claims_one_million_context = _CLAUDE_MODEL_ALIAS_API.claims_one_million_context
@@ -5413,22 +5359,9 @@ def claude_environment_projection() -> ClaudeEnvironmentProjection:
         ROUTER_BASE,
         claude_limit_policy(),
         claude_model_alias_policy(),
-        ClaudeEnvironmentSourcePorts(
-            load_config=load_config,
-            current_provider=get_current_provider,
-            direct_native=direct_native_anthropic_enabled,
-            primary_api_key=provider_primary_api_key,
-            meaningful_key=meaningful_key,
-            current_alias=current_alias,
-        ),
-        ClaudeEnvironmentFeaturePorts(
-            capability_string=claude_code_capability_string,
-            current_upstream_model=current_upstream_model_id,
-            resolve_requested_model=resolve_requested_model,
-            workflows_enabled=claude_code_workflows_enabled,
-            router_auth_token=claude_code_router_auth_token,
-            context_limit=context_limit_for_status,
-        ),
+        ClaudeEnvironmentSourcePorts(load_config, get_current_provider, direct_native_anthropic_enabled, provider_primary_api_key, meaningful_key, current_alias),
+        ClaudeEnvironmentFeaturePorts(claude_code_capability_string, current_upstream_model_id, resolve_requested_model, claude_code_workflows_enabled,
+                                      claude_code_router_auth_token, context_limit_for_status),
     )
 
 def env_vars(cfg: dict[str, Any] | None = None) -> dict[str, str]:
@@ -5458,13 +5391,7 @@ def claude_code_router_auth_token(provider: str, pcfg: dict[str, Any]) -> str:
 def claude_code_runtime_settings(provider: str, pcfg: dict[str, Any]) -> dict[str, Any]: return claude_runtime_settings_policy().settings(provider, pcfg)
 
 def claude_runtime_settings_policy() -> ClaudeRuntimeSettingsPolicy:
-    return ClaudeRuntimeSettingsPolicy(
-        ClaudeRuntimeSettingsPorts(
-            ultracode_enabled=claude_code_ultracode_enabled,
-            has_passthrough_option=has_passthrough_option,
-            log=router_log,
-        )
-    )
+    return ClaudeRuntimeSettingsPolicy(ClaudeRuntimeSettingsPorts(claude_code_ultracode_enabled, has_passthrough_option, router_log))
 
 def append_claude_code_runtime_settings_args(extra_args: list[str], passthrough: list[str], provider: str, pcfg: dict[str, Any]) -> None:
     claude_runtime_settings_policy().append_args(extra_args, passthrough, provider, pcfg)
@@ -5485,28 +5412,14 @@ def register_router_client(pid: int | None = None) -> Path: return router_client
 def release_router_client(path: Path | None) -> None: router_client_registry().release(path)
 
 def router_client_registry() -> RouterClientRegistry:
-    return RouterClientRegistry(
-        ROUTER_CLIENTS_DIR,
-        ROUTER_PORT,
-        RouterClientRegistryPorts(
-            pid_is_running=pid_is_running,
-            log=router_log,
-            wrapper_parent_pids=ciel_runtime_client_wrapper_parent_pids,
-            terminate_tree=terminate_pid_tree,
-        ),
-    )
+    return RouterClientRegistry(ROUTER_CLIENTS_DIR, ROUTER_PORT, RouterClientRegistryPorts(
+        pid_is_running, router_log, ciel_runtime_client_wrapper_parent_pids, terminate_pid_tree,
+    ))
 
 router_managed_idle_exit_seconds = ManagedRouterLifetime.idle_exit_seconds
 
 def managed_router_lifetime() -> ManagedRouterLifetime:
-    return ManagedRouterLifetime(
-        ManagedRouterLifetimePorts(
-            active_client_pids=active_router_client_pids,
-            pid_is_running=pid_is_running,
-            stop_router=stop_router_with_guarantee,
-            log=router_log,
-        )
-    )
+    return ManagedRouterLifetime(ManagedRouterLifetimePorts(active_router_client_pids, pid_is_running, stop_router_with_guarantee, router_log))
 
 def managed_router_stop_reason(started_at: float, owner_pid: int, idle_seconds: float) -> str | None:
     return managed_router_lifetime().stop_reason(started_at, owner_pid, idle_seconds)
