@@ -883,6 +883,12 @@ from ciel_runtime_support.provider_model_context import (
     ProviderModelContextCompatibilityApi,
     ProviderModelContextQueries,
 )
+from ciel_runtime_support.provider_model_metadata_context import (
+    ModelCapabilityPorts,
+    ModelCatalogHeaderPorts,
+    ModelRegistryRecommendationPorts,
+    ProviderModelMetadataContext,
+)
 from ciel_runtime_support.provider_option_panel import (
     OptionPanelPolicy,
     OptionPanelProvider,
@@ -5036,6 +5042,32 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_provider_context_status_projection_owns_formatting_policy(self):
         self.assertLessEqual(len(fields(ProviderContextStatusPorts)), 10)
         self.assertLessEqual(len(fields(ProviderContextStatusProjection)), 10)
+
+    def test_provider_model_metadata_context_owns_catalog_policy(self):
+        for port in (
+            ModelCapabilityPorts,
+            ModelRegistryRecommendationPorts,
+            ModelCatalogHeaderPorts,
+            ProviderModelMetadataContext,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (
+            Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        ).read_text(encoding="utf-8")
+        for function_name in (
+            "model_cache_key",
+            "infer_claude_code_supported_capabilities_from_model",
+            "claude_code_supported_capabilities",
+            "claude_code_capability_string",
+            "claude_code_workflows_enabled",
+            "claude_code_ultracode_enabled",
+            "model_registry_recommendations",
+            "nvidia_hosted_list_headers",
+            "provider_model_list_headers",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
 
     def test_router_server_runtime_owns_serve_lifecycle(self):
         for port in (

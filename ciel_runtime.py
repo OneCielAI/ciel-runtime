@@ -1076,6 +1076,13 @@ from ciel_runtime_support.provider_model_context import (
     ProviderModelContextCompatibilityApi,
     ProviderModelContextQueries,
 )
+from ciel_runtime_support.provider_model_metadata_context import (
+    ModelCapabilityPorts,
+    ModelCatalogHeaderPorts,
+    ModelRegistryRecommendationPorts,
+    ProviderModelMetadataCompatibilityApi,
+    ProviderModelMetadataContext,
+)
 from ciel_runtime_support.provider_timeout_policy import (
     ProviderTimeoutCompatibilityApi,
     ProviderTimeoutPolicy,
@@ -2546,21 +2553,37 @@ def tool_exposure_policy() -> ToolExposurePolicy:
         )
     )
 
-def model_cache_key(provider: str, pcfg: dict[str, Any]) -> str:
-    api_count = provider_api_key_count(provider, pcfg)
-    api_state = "key" if api_count else "nokey"
-    return json.dumps(
-        {
-            "provider": provider,
-            "base_url": pcfg.get("base_url", ""),
-            "model_api_base_url": pcfg.get("model_api_base_url", ""),
-            "account_id": pcfg.get("account_id", ""),
-            "api": api_state,
-            "custom": pcfg.get("custom_models", []),
-            "schema": 7,
-        },
-        sort_keys=True,
+def provider_model_metadata_context() -> ProviderModelMetadataContext:
+    return ProviderModelMetadataContext(
+        capabilities=ModelCapabilityPorts(
+            anthropic_model_policy.normalize_capabilities,
+            current_upstream_model_id,
+            strip_claude_context_suffix,
+            is_kimi_k3_model_id,
+            parse_bool,
+        ),
+        recommendations=ModelRegistryRecommendationPorts(
+            unique_model_ids, llm_preset_timeout_ms, timeout_profile_idle_ms,
+        ),
+        headers=ModelCatalogHeaderPorts(
+            provider_api_key_count,
+            read_env_file,
+            os.environ,
+            with_upstream_user_agent,
+            provider_primary_api_key,
+            lambda key: meaningful_key(
+                str(key) if key is not None else None
+            ),
+            configured_provider_adapter,
+            provider_contract_config,
+        ),
+        nvidia_env=NCP_ENV,
     )
+
+_PROVIDER_MODEL_METADATA_API = ProviderModelMetadataCompatibilityApi(
+    provider_model_metadata_context
+)
+model_cache_key = _PROVIDER_MODEL_METADATA_API.cache_key
 
 anthropic_model_family_from_id = anthropic_model_policy.model_family
 anthropic_model_limit_hints = anthropic_model_policy.limit_hints
@@ -2570,42 +2593,23 @@ CLAUDE_CODE_SUPPORTED_CAPABILITY_VALUES = anthropic_model_policy.SUPPORTED_CAPAB
 
 normalize_claude_code_supported_capabilities = anthropic_model_policy.normalize_capabilities
 
-def infer_claude_code_supported_capabilities_from_model(model_id: str) -> list[str]:
-    return anthropic_model_policy.infer_capabilities(model_id, strip_claude_context_suffix)
-
-def claude_code_supported_capabilities(provider: str, pcfg: dict[str, Any], model_id: str | None = None) -> list[str]:
-    configured = pcfg.get("claude_code_supported_capabilities")
-    caps = normalize_claude_code_supported_capabilities(configured)
-    model = model_id or current_upstream_model_id(provider, pcfg)
-    if not caps:
-        caps = infer_claude_code_supported_capabilities_from_model(model)
-    if provider == "kimi" and is_kimi_k3_model_id(model) and "max_effort" not in caps:
-        caps.append("max_effort")
-    return caps
-
-def claude_code_capability_string(provider: str, pcfg: dict[str, Any], model_id: str | None = None) -> str:
-    return ",".join(claude_code_supported_capabilities(provider, pcfg, model_id))
-
-def claude_code_workflows_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    if parse_bool(pcfg.get("ultracode_enabled") if "ultracode_enabled" in pcfg else pcfg.get("ultracode"), False):
-        return True
-    if "workflows_enabled" in pcfg:
-        return parse_bool(pcfg.get("workflows_enabled"), False)
-    return parse_bool(pcfg.get("workflows"), False)
-
-def claude_code_ultracode_enabled(provider: str, pcfg: dict[str, Any]) -> bool:
-    if "ultracode_enabled" in pcfg:
-        return parse_bool(pcfg.get("ultracode_enabled"), False)
-    return parse_bool(pcfg.get("ultracode"), False)
+infer_claude_code_supported_capabilities_from_model = (
+    _PROVIDER_MODEL_METADATA_API.infer_claude_capabilities
+)
+claude_code_supported_capabilities = (
+    _PROVIDER_MODEL_METADATA_API.claude_capabilities
+)
+claude_code_capability_string = (
+    _PROVIDER_MODEL_METADATA_API.claude_capability_string
+)
+claude_code_workflows_enabled = _PROVIDER_MODEL_METADATA_API.workflows_enabled
+claude_code_ultracode_enabled = _PROVIDER_MODEL_METADATA_API.ultracode_enabled
 
 anthropic_recommended_preset_for_model = anthropic_model_policy.recommended_preset
 
-def model_registry_recommendations(provider: str, models: list[str]) -> dict[str, Any]:
-    return anthropic_model_policy.AnthropicModelRecommendations(
-        unique_model_ids,
-        llm_preset_timeout_ms,
-        timeout_profile_idle_ms,
-    ).build(provider, models)
+model_registry_recommendations = (
+    _PROVIDER_MODEL_METADATA_API.registry_recommendations
+)
 
 def model_registry_repository() -> ModelRegistryRepository:
     return ModelRegistryRepository(
@@ -2711,21 +2715,8 @@ opencode_endpoint_kind = _PROVIDER_ENDPOINT_POLICY.endpoint_kind
 opencode_model_supported_by_router = _PROVIDER_ENDPOINT_POLICY.model_supported
 opencode_endpoint_display = _PROVIDER_ENDPOINT_POLICY.endpoint_display
 
-def nvidia_hosted_list_headers() -> dict[str, str]:
-    headers = {"content-type": "application/json"}
-    key = read_env_file(NCP_ENV).get("NVIDIA_API_KEY") or os.environ.get("NVIDIA_API_KEY")
-    if key:
-        headers["authorization"] = f"Bearer {key}"
-        headers["x-api-key"] = key
-    return headers
-
-def provider_model_list_headers(provider: str, pcfg: dict[str, Any]) -> dict[str, str]:
-    headers = with_upstream_user_agent({"content-type": "application/json"})
-    key = provider_primary_api_key(provider, pcfg)
-    meaningful = str(key) if meaningful_key(str(key) if key is not None else None) else None
-    adapter = configured_provider_adapter(provider, pcfg)
-    headers.update(adapter.build_model_headers(provider_contract_config(provider, pcfg), meaningful))
-    return headers
+nvidia_hosted_list_headers = _PROVIDER_MODEL_METADATA_API.nvidia_list_headers
+provider_model_list_headers = _PROVIDER_MODEL_METADATA_API.provider_list_headers
 
 fetch_anthropic_api_model_ids = (
     _PROVIDER_CATALOG_SOURCES.fetch_anthropic_api_model_ids
