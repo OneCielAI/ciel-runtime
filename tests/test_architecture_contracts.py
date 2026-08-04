@@ -350,6 +350,16 @@ from ciel_runtime_support.channel_terminal_dispatch import (
     ChannelTerminalDispatchSettings,
     ChannelTerminalProxyPorts,
 )
+from ciel_runtime_support.channel_terminal_context import (
+    ChannelTerminalCompatibilityApi,
+    ChannelTerminalContext,
+    ChannelTerminalDispatchPorts,
+    ChannelTerminalIoPorts,
+    ChannelTerminalPolicyPorts,
+    ChannelTerminalPollingPorts,
+    ChannelTerminalProcessPorts,
+    ChannelTerminalWindowsPorts,
+)
 from ciel_runtime_support.terminal_platform_io import (
     TerminalInputModeResetPolicy,
 )
@@ -3192,23 +3202,44 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertLessEqual(len(fields(port)), 5)
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
-        function = next(
-            node
+        root_functions = {
+            node.name
             for node in ast.parse(source).body
             if isinstance(node, ast.FunctionDef)
-            and node.name == "subprocess_call_with_channel_wake_proxy"
-        )
-        function_source = ast.get_source_segment(source, function) or ""
+        }
+        self.assertNotIn("subprocess_call_with_channel_wake_proxy", root_functions)
+        self.assertIn("ChannelTerminalCompatibilityApi", source)
         self.assertIn(
-            "channel_terminal_dispatch_service().dispatch", function_source
+            "subprocess_call_with_channel_wake_proxy = _CHANNEL_TERMINAL_API.dispatch",
+            source,
         )
-        self.assertNotIn("os.name", function_source)
         service_source = (
             root
             / "ciel_runtime_support"
             / "channel_terminal_dispatch.py"
         ).read_text(encoding="utf-8")
         self.assertNotIn("import ciel_runtime", service_source)
+
+    def test_channel_terminal_context_owns_terminal_service_composition(self):
+        self.assertEqual(6, len(fields(ChannelTerminalContext)))
+        self.assertEqual(1, len(fields(ChannelTerminalCompatibilityApi)))
+        for port in (
+            ChannelTerminalDispatchPorts,
+            ChannelTerminalIoPorts,
+            ChannelTerminalPolicyPorts,
+            ChannelTerminalPollingPorts,
+            ChannelTerminalProcessPorts,
+            ChannelTerminalWindowsPorts,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "channel_terminal_context.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", source)
+        self.assertNotIn("__getattr__", source)
 
     def test_terminal_platform_io_is_adapter_owned(self):
         self.assertEqual(4, len(fields(TerminalInputModeResetPolicy)))
@@ -4008,11 +4039,12 @@ class ArchitectureContractTests(unittest.TestCase):
             source_root / "ciel_runtime_support" / "mcp_proxy_process.py",
             source_root / "ciel_runtime_support" / "claude_router.py",
             source_root / "ciel_runtime_support" / "openai_responses_router.py",
+            source_root / "ciel_runtime_support" / "channel_terminal_context.py",
             source_root / "ciel_runtime_support" / "channel_terminal_proxy.py",
             source_root / "ciel_runtime_support" / "process_control.py",
         )
         critical_names = {
-            "subprocess_call_with_channel_wake_proxy",
+            "dispatch",
             "_subprocess_call_capturing_stderr",
             "_write_codex_child_process_record",
             "_release_codex_child_process_record",
@@ -4041,6 +4073,15 @@ class ArchitectureContractTests(unittest.TestCase):
                 node
                 for node in tree.body
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in critical_names
+            )
+            critical_functions.extend(
+                member
+                for node in tree.body
+                if isinstance(node, ast.ClassDef)
+                and node.name == "ChannelTerminalContext"
+                for member in node.body
+                if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and member.name == "dispatch"
             )
 
         self.assertEqual({node.name for node in critical_functions}, critical_names)

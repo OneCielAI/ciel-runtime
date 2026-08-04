@@ -182,21 +182,18 @@ from ciel_runtime_support.channel_pending_injection import (
     ChannelInjectionServices,
 )
 from ciel_runtime_support.channel_terminal_proxy import (
-    ChannelTerminalIO,
-    ChannelTerminalPolicy,
-    ChannelTerminalPolling,
-    ChannelTerminalProcess,
-    ChannelTerminalServices,
-    ChannelWindowsConsole,
-    ChannelWindowsServices,
     run_posix_channel_terminal_proxy,
     run_windows_channel_terminal_proxy,
 )
-from ciel_runtime_support.channel_terminal_dispatch import (
-    ChannelDirectProcessPorts,
-    ChannelTerminalDispatchService,
-    ChannelTerminalDispatchSettings,
-    ChannelTerminalProxyPorts,
+from ciel_runtime_support.channel_terminal_context import (
+    ChannelTerminalCompatibilityApi,
+    ChannelTerminalContext,
+    ChannelTerminalDispatchPorts,
+    ChannelTerminalIoPorts,
+    ChannelTerminalPolicyPorts,
+    ChannelTerminalPollingPorts,
+    ChannelTerminalProcessPorts,
+    ChannelTerminalWindowsPorts,
 )
 from ciel_runtime_support.channel_transcript import (
     ChannelWakeStateReader,
@@ -9800,155 +9797,56 @@ def _retry_windows_console_channel_submit(
     router_log("INFO", f"channel_windows_console_submit_retry attempt={next_attempt}/{retry_count}")
     return next_attempt, now
 
-def subprocess_call_with_windows_console_wake_proxy(
-    cmd: list[str],
-    env: dict[str, str],
-    *,
-    inject_channel_messages: bool = True,
-    inject_web_chat_only: bool = False,
-    wake_for_llm_delivery: bool = False,
-    synthetic_enter_bytes: str | bytes | None = None,
-    normalize_bare_cr_for_synthetic_enter: bool = True,
-    channel_wake_submit_retries: int = 1,
-    channel_wake_confirm_submit: bool = False,
-    channel_wake_bracketed_paste: bool = False,
-    channel_wake_submit_delay_seconds: float | None = None,
-    tracked_child_pid_path: Path | None = None,
-) -> int:
-    del normalize_bare_cr_for_synthetic_enter, channel_wake_bracketed_paste
-    return run_windows_channel_terminal_proxy(
-        cmd,
-        env,
-        build_channel_windows_services(),
-        inject_channel_messages=inject_channel_messages,
-        inject_web_chat_only=inject_web_chat_only,
-        wake_for_llm_delivery=wake_for_llm_delivery,
-        synthetic_enter_bytes=synthetic_enter_bytes,
-        channel_wake_submit_retries=channel_wake_submit_retries,
-        channel_wake_confirm_submit=channel_wake_confirm_submit,
-        channel_wake_submit_delay_seconds=channel_wake_submit_delay_seconds,
-        tracked_child_pid_path=tracked_child_pid_path,
-    )
-
-def build_channel_terminal_process() -> ChannelTerminalProcess:
-    return ChannelTerminalProcess(
-        popen=subprocess.Popen,
-        write_child_record=_write_codex_child_process_record,
-        terminate_child=_terminate_recorded_child_process,
-        release_child_record=_release_codex_child_process_record,
-    )
-
-def build_channel_terminal_policy() -> ChannelTerminalPolicy:
-    return ChannelTerminalPolicy(
-        initial_cursor=ensure_channel_llm_delivery_cursor_initialized,
-        enter_bytes=_channel_wake_enter_bytes,
-        enter_label=_channel_enter_label,
-        enter_is_fixed=_channel_wake_enter_env_is_fixed,
-        unseen_retry_seconds=_channel_stdin_unseen_retry_seconds,
-        inflight_is_stale=_channel_stdin_inflight_is_stale,
-        log=router_log,
-    )
-
-def build_channel_terminal_polling() -> ChannelTerminalPolling:
-    return ChannelTerminalPolling(
-        inject_compact=_inject_pending_compact_request,
-        file_marker=_chat_messages_file_marker,
-        should_check=_channel_stdin_should_check_pending,
-        active_tool_call=_channel_stdin_active_tool_call,
-        inject_pending=_inject_pending_channel_messages,
-        wake_state=_channel_stdin_wake_state,
-        inflight_effects=channel_inflight_effects,
-    )
-
-def build_channel_terminal_services() -> ChannelTerminalServices:
-    return ChannelTerminalServices(
-        process=build_channel_terminal_process(),
-        io=ChannelTerminalIO(
-            terminal_size=_terminal_winsize_from_fd,
-            apply_terminal_size=_apply_pty_winsize,
-            write_all=_write_fd_all,
-            mouse_filter=_TerminalMouseInputFilter,
-            observed_enter=_channel_synthetic_enter_bytes_from_user_input,
-            reset_input_mode=_write_terminal_input_mode_reset,
+def channel_terminal_context() -> ChannelTerminalContext:
+    return ChannelTerminalContext(
+        process=ChannelTerminalProcessPorts(
+            subprocess.Popen, _write_codex_child_process_record,
+            _terminate_recorded_child_process, _release_codex_child_process_record,
         ),
-        policy=build_channel_terminal_policy(),
-        polling=build_channel_terminal_polling(),
-    )
-
-def build_channel_windows_services() -> ChannelWindowsServices:
-    return ChannelWindowsServices(
-        process=build_channel_terminal_process(),
-        policy=build_channel_terminal_policy(),
-        polling=build_channel_terminal_polling(),
-        console=ChannelWindowsConsole(
-            reset_input_mode=_write_terminal_input_mode_reset,
-            mouse_guard=_WindowsConsoleMouseInputGuard,
-            input_writer=_WindowsConsoleInputWriter,
-            startup_grace_seconds=_windows_channel_startup_grace_seconds,
-            reset_interval_seconds=_terminal_input_mode_reset_interval_seconds,
-            active_turn=_channel_stdin_active_turn,
-            retry_submit=_retry_windows_console_channel_submit,
-            sleep=time.sleep,
+        policy=ChannelTerminalPolicyPorts(
+            ensure_channel_llm_delivery_cursor_initialized, _channel_wake_enter_bytes,
+            _channel_enter_label, _channel_wake_enter_env_is_fixed,
+            _channel_stdin_unseen_retry_seconds, _channel_stdin_inflight_is_stale,
+            router_log,
+        ),
+        polling=ChannelTerminalPollingPorts(
+            _inject_pending_compact_request, _chat_messages_file_marker,
+            _channel_stdin_should_check_pending, _channel_stdin_active_tool_call,
+            _inject_pending_channel_messages, _channel_stdin_wake_state,
+            channel_inflight_effects,
+        ),
+        io=ChannelTerminalIoPorts(
+            _terminal_winsize_from_fd, _apply_pty_winsize, _write_fd_all,
+            _TerminalMouseInputFilter, _channel_synthetic_enter_bytes_from_user_input,
+            _write_terminal_input_mode_reset,
+        ),
+        windows=ChannelTerminalWindowsPorts(
+            _windows_console_input_supported, run_windows_channel_terminal_proxy,
+            _write_terminal_input_mode_reset, _WindowsConsoleMouseInputGuard,
+            _WindowsConsoleInputWriter, _windows_channel_startup_grace_seconds,
+            _terminal_input_mode_reset_interval_seconds, _channel_stdin_active_turn,
+            _retry_windows_console_channel_submit, time.sleep,
+        ),
+        dispatch_ports=ChannelTerminalDispatchPorts(
+            os.name, sys.stdin.isatty, sys.stdout.isatty, subprocess.call,
+            lambda *args, **kwargs: subprocess_call_with_windows_console_wake_proxy(
+                *args, **kwargs
+            ),
+            run_posix_channel_terminal_proxy,
+            prepare_channel_llm_delivery_for_launch,
         ),
     )
 
-def channel_terminal_dispatch_service() -> ChannelTerminalDispatchService:
-    return ChannelTerminalDispatchService(
-        settings=ChannelTerminalDispatchSettings(
-            platform_name=os.name,
-            stdin_isatty=sys.stdin.isatty,
-            stdout_isatty=sys.stdout.isatty,
-        ),
-        proxy=ChannelTerminalProxyPorts(
-            windows_supported=_windows_console_input_supported,
-            run_windows=subprocess_call_with_windows_console_wake_proxy,
-            run_posix=run_posix_channel_terminal_proxy,
-            posix_services=build_channel_terminal_services,
-        ),
-        direct=ChannelDirectProcessPorts(
-            call=subprocess.call,
-            popen=subprocess.Popen,
-            write_record=_write_codex_child_process_record,
-            terminate=_terminate_recorded_child_process,
-            release_record=_release_codex_child_process_record,
-        ),
-        log=router_log,
-    )
-
-def subprocess_call_with_channel_wake_proxy(
-    cmd: list[str],
-    env: dict[str, str],
-    *,
-    inject_channel_messages: bool = True,
-    inject_web_chat_only: bool = False,
-    wake_for_llm_delivery: bool = False,
-    synthetic_enter_bytes: str | bytes | None = None,
-    normalize_bare_cr_for_synthetic_enter: bool = True,
-    channel_wake_submit_retries: int = 1,
-    channel_wake_confirm_submit: bool = False,
-    channel_wake_bracketed_paste: bool = False,
-    channel_wake_submit_delay_seconds: float | None = None,
-    tracked_child_pid_path: Path | None = None,
-) -> int:
-    if inject_channel_messages:
-        prepare_channel_llm_delivery_for_launch()
-    return channel_terminal_dispatch_service().dispatch(
-        cmd,
-        env,
-        inject_channel_messages=inject_channel_messages,
-        inject_web_chat_only=inject_web_chat_only,
-        wake_for_llm_delivery=wake_for_llm_delivery,
-        synthetic_enter_bytes=synthetic_enter_bytes,
-        normalize_bare_cr_for_synthetic_enter=normalize_bare_cr_for_synthetic_enter,
-        channel_wake_submit_retries=channel_wake_submit_retries,
-        channel_wake_confirm_submit=channel_wake_confirm_submit,
-        channel_wake_bracketed_paste=channel_wake_bracketed_paste,
-        channel_wake_submit_delay_seconds=channel_wake_submit_delay_seconds,
-        tracked_child_pid_path=tracked_child_pid_path,
-    )
-
-def subprocess_call_with_child_pid_record(cmd: list[str], env: dict[str, str], pid_path: Path | None = None) -> int:
-    return channel_terminal_dispatch_service().call_direct(cmd, env, pid_path)
+_CHANNEL_TERMINAL_API = ChannelTerminalCompatibilityApi(channel_terminal_context)
+build_channel_terminal_process = _CHANNEL_TERMINAL_API.process_services
+build_channel_terminal_policy = _CHANNEL_TERMINAL_API.policy_services
+build_channel_terminal_polling = _CHANNEL_TERMINAL_API.polling_services
+build_channel_terminal_services = _CHANNEL_TERMINAL_API.posix_services
+build_channel_windows_services = _CHANNEL_TERMINAL_API.windows_services
+channel_terminal_dispatch_service = _CHANNEL_TERMINAL_API.dispatch_service
+subprocess_call_with_windows_console_wake_proxy = _CHANNEL_TERMINAL_API.run_windows
+subprocess_call_with_channel_wake_proxy = _CHANNEL_TERMINAL_API.dispatch
+subprocess_call_with_child_pid_record = _CHANNEL_TERMINAL_API.call_direct
 
 _MCP_NOTIFICATION_DEDUP_LOCK = threading.Lock()
 _MCP_NOTIFICATION_DEDUP_RECENT: dict[str, tuple[str, float]] = {}
