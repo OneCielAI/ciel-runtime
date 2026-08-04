@@ -4215,97 +4215,36 @@ forward_codex_responses = _CODEX_BACKEND_API.forward_responses
 def _router_request_context() -> RouterRequestContext:
     assembly = router_request_assembly
     openai = assembly.OpenAIResponseAssembly(
-        assembly.OpenAIResponseCorePorts(
-            EVENT_BUS, lambda: f"{os.getpid()}-{time.time_ns()}",
-            _responses_input_as_list, is_client_disconnect_error, router_log,
-        ),
-        assembly.OpenAIResponseConversionPorts(
-            openai_responses_to_anthropic_messages, current_alias,
-            _update_tool_schema_registry,
-            normalize_thinking_for_non_anthropic_provider, filter_blocked_tools,
-            normalize_tool_choice_for_provider, write_context_usage,
-            strip_autonomous_advisor_server_tools, body_with_pending_channel_messages,
-            body_with_channel_tool_result_context,
-        ),
-        assembly.OpenAIResponseRoutingPorts(
-            maybe_handle_import_session_request, codex_routed_enabled,
-            forward_codex_responses, select_provider_protocol,
-            forward_provider_responses, dump_request_for_trace,
-            normalize_request_for_provider_wire, collect_provider_message_for_responses,
-        ),
-        assembly.OpenAIResponseDeliveryPorts(
-            begin_pending_channel_delivery, mark_pending_channel_delivery_success,
-            mark_pending_channel_delivery_failed, commit_pending_channel_delivery_cursors,
-        ),
-        assembly.OpenAIResponseOutputPorts(
-            write_openai_responses_response, write_openai_responses_error,
-            upstream_http_error_message, codex_routed_auth_error_message,
-            router_event_message_preview,
-        ),
+        assembly.OpenAIResponseCorePorts(EVENT_BUS, lambda: f"{os.getpid()}-{time.time_ns()}", _responses_input_as_list, is_client_disconnect_error, router_log),
+        assembly.OpenAIResponseConversionPorts(openai_responses_to_anthropic_messages, current_alias, _update_tool_schema_registry, normalize_thinking_for_non_anthropic_provider, filter_blocked_tools,
+                                               normalize_tool_choice_for_provider, write_context_usage, strip_autonomous_advisor_server_tools, body_with_pending_channel_messages, body_with_channel_tool_result_context),
+        assembly.OpenAIResponseRoutingPorts(maybe_handle_import_session_request, codex_routed_enabled, forward_codex_responses, select_provider_protocol, forward_provider_responses,
+                                            dump_request_for_trace, normalize_request_for_provider_wire, collect_provider_message_for_responses),
+        assembly.OpenAIResponseDeliveryPorts(begin_pending_channel_delivery, mark_pending_channel_delivery_success, mark_pending_channel_delivery_failed, commit_pending_channel_delivery_cursors),
+        assembly.OpenAIResponseOutputPorts(write_openai_responses_response, write_openai_responses_error, upstream_http_error_message, codex_routed_auth_error_message, router_event_message_preview),
     )
     claude = assembly.ClaudeRouterAssembly(
         assembly.ClaudeRouterCorePorts(EVENT_BUS, router_log, try_write_json),
-        assembly.ClaudeRouterCountPorts(
-            estimate_tokens, write_context_usage, write_json,
-        ),
-        assembly.ClaudeRouterPipelinePorts(
-            _update_tool_schema_registry, router_event_message_preview,
-            dump_request_for_trace, filter_blocked_tools,
-            normalize_tool_choice_for_provider, write_context_usage,
-            strip_autonomous_advisor_server_tools, body_with_pending_channel_messages,
-            body_with_channel_tool_result_context,
-        ),
-        assembly.ClaudeRouterShortcutPorts(
-            maybe_handle_plan_mode_tool_choice, maybe_handle_router_debug_request,
-            maybe_handle_version_request, maybe_handle_channel_clear_request,
-            maybe_handle_import_session_request, maybe_handle_live_llm_options_request,
-            maybe_handle_live_api_keys_request, maybe_handle_advisor_request,
-        ),
-        assembly.ClaudeRouterDeliveryPorts(
-            begin_pending_channel_delivery, commit_pending_channel_delivery_cursors,
-            mark_pending_channel_delivery_failed, mark_pending_channel_delivery_success,
-            is_client_disconnect_error, write_router_activity,
-        ),
-        assembly.ClaudeRouterRoutingPorts(
-            forward_ollama_api_chat, forward_openai_compatible_chat,
-            select_provider_protocol, provider_request_policy,
-            resolve_requested_model, PROVIDER_LABELS, write_json,
-        ),
-        assembly.ClaudeRouterNormalizationPorts(
-            normalize_request_for_provider_wire,
-            normalize_thinking_for_non_anthropic_provider,
-            normalize_anthropic_system_role_messages, cap_anthropic_body_for_provider,
-            apply_provider_request_options, rehydrate_suppressed_thinking_passback,
-            ncp_model_id_for_nvidia_hosted, resolve_tool_model_references,
-            normalize_anthropic_model_request_options,
-            body_without_ciel_runtime_internal_metadata,
-        ),
-        assembly.ClaudeRouterTransportPorts(
-            native_anthropic_base_url, provider_native_compat_enabled,
-            provider_upstream_request_base, join_url, upstream_messages_query,
-            provider_headers, apply_router_rate_limit,
-            open_provider_request_with_key_retry, provider_request_timeout_seconds,
-            provider_stream_idle_timeout_seconds,
-        ),
-        assembly.ClaudeRouterResponsePorts(
-            _rebatch_anthropic_sse_text, preserves_anthropic_thinking_contract,
-            should_normalize_anthropic_stream_tool_use,
-            set_upstream_stream_read_timeout,
-            normalize_response_thinking_for_non_anthropic_provider,
-            append_synthetic_tasklist_to_message, prepend_anthropic_text,
-            rate_limit_notice, register_api_key_cooldown, key_from_request_headers,
-        ),
+        assembly.ClaudeRouterCountPorts(estimate_tokens, write_context_usage, write_json),
+        assembly.ClaudeRouterPipelinePorts(_update_tool_schema_registry, router_event_message_preview, dump_request_for_trace, filter_blocked_tools, normalize_tool_choice_for_provider,
+                                           write_context_usage, strip_autonomous_advisor_server_tools, body_with_pending_channel_messages, body_with_channel_tool_result_context),
+        assembly.ClaudeRouterShortcutPorts(maybe_handle_plan_mode_tool_choice, maybe_handle_router_debug_request, maybe_handle_version_request, maybe_handle_channel_clear_request,
+                                           maybe_handle_import_session_request, maybe_handle_live_llm_options_request, maybe_handle_live_api_keys_request, maybe_handle_advisor_request),
+        assembly.ClaudeRouterDeliveryPorts(begin_pending_channel_delivery, commit_pending_channel_delivery_cursors, mark_pending_channel_delivery_failed,
+                                           mark_pending_channel_delivery_success, is_client_disconnect_error, write_router_activity),
+        assembly.ClaudeRouterRoutingPorts(forward_ollama_api_chat, forward_openai_compatible_chat, select_provider_protocol, provider_request_policy, resolve_requested_model, PROVIDER_LABELS, write_json),
+        assembly.ClaudeRouterNormalizationPorts(normalize_request_for_provider_wire, normalize_thinking_for_non_anthropic_provider, normalize_anthropic_system_role_messages,
+                                                cap_anthropic_body_for_provider, apply_provider_request_options, rehydrate_suppressed_thinking_passback, ncp_model_id_for_nvidia_hosted,
+                                                resolve_tool_model_references, normalize_anthropic_model_request_options, body_without_ciel_runtime_internal_metadata),
+        assembly.ClaudeRouterTransportPorts(native_anthropic_base_url, provider_native_compat_enabled, provider_upstream_request_base, join_url, upstream_messages_query,
+                                            provider_headers, apply_router_rate_limit, open_provider_request_with_key_retry, provider_request_timeout_seconds, provider_stream_idle_timeout_seconds),
+        assembly.ClaudeRouterResponsePorts(_rebatch_anthropic_sse_text, preserves_anthropic_thinking_contract, should_normalize_anthropic_stream_tool_use,
+                                           set_upstream_stream_read_timeout, normalize_response_thinking_for_non_anthropic_provider, append_synthetic_tasklist_to_message,
+                                           prepend_anthropic_text, rate_limit_notice, register_api_key_cooldown, key_from_request_headers),
     )
     return assembly.RouterRequestAssembly(
-        openai,
-        assembly.RouterRequestOuterPorts(
-            forward_codex_backend_json, forward_codex_backend_get,
-            write_openai_responses_error, write_json, upstream_http_error_message,
-            is_client_disconnect_error,
-        ),
-        codex_routed_enabled,
-        forward_provider_chat,
-        claude,
+        openai, assembly.RouterRequestOuterPorts(forward_codex_backend_json, forward_codex_backend_get, write_openai_responses_error, write_json,
+                                                 upstream_http_error_message, is_client_disconnect_error), codex_routed_enabled, forward_provider_chat, claude,
     ).context()
 
 _ROUTER_REQUEST_API = RouterRequestCompatibilityApi(_router_request_context)
