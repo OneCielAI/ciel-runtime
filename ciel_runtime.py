@@ -2740,21 +2740,8 @@ def _first_param(params: dict[str, list[str]], name: str, default: str = "") -> 
 def chat_http_controller() -> ChatHttpController:
     return ChatHttpController(
         router_base=ROUTER_BASE,
-        reads=ChatHttpReadServices(
-            read_after=read_chat_messages,
-            read_before=read_chat_messages_before,
-            condition=_CHAT_CONDITION,
-            connection_statuses=channel_sse_status,
-            safe_segment=_safe_segment,
-            files_dir=CHAT_FILES_DIR,
-        ),
-        writes=ChatHttpWriteServices(
-            write_json=write_json,
-            append_message=append_chat_message,
-            store_upload=store_chat_file_upload,
-            start_connection=start_channel_sse_connection,
-            stop_connection=stop_channel_sse_connection,
-        ),
+        reads=ChatHttpReadServices(read_chat_messages, read_chat_messages_before, _CHAT_CONDITION, channel_sse_status, _safe_segment, CHAT_FILES_DIR),
+        writes=ChatHttpWriteServices(write_json, append_chat_message, store_chat_file_upload, start_channel_sse_connection, stop_channel_sse_connection),
     )
 
 def handle_chat_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return chat_http_controller().get(handler, path)
@@ -2762,16 +2749,7 @@ def handle_chat_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return 
 def handle_chat_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool: return chat_http_controller().post(handler, path, body)
 
 def plan_artifact_controller() -> PlanArtifactController:
-    return PlanArtifactController(
-        PlanArtifactServices(
-            directory=PLAN_ARTIFACTS_DIR,
-            router_base=ROUTER_BASE,
-            safe_segment=_safe_segment,
-            write_json=write_json,
-            write_text=write_text_response,
-            announce=append_chat_message,
-        )
-    )
+    return PlanArtifactController(PlanArtifactServices(PLAN_ARTIFACTS_DIR, ROUTER_BASE, _safe_segment, write_json, write_text_response, append_chat_message))
 
 def handle_plan_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return plan_artifact_controller().get(handler, path)
 
@@ -2844,37 +2822,14 @@ CONTEXT_COMPACT_MAP_SYSTEM_PROMPT = (
 
 def context_compaction_services() -> ContextCompactionServices:
     return ContextCompactionServices(
-        transport=ContextCompactionTransport(
-            summary_output_tokens=context_compact_summary_output_tokens,
-            request_timeout=provider_request_timeout_seconds,
-            endpoint=provider_endpoint,
-            post_json=post_json_with_rate_retry,
-            headers=provider_headers,
-            extract_text=context_compact_extract_text,
-            native_compat_enabled=provider_native_compat_enabled,
-            native_anthropic_base=native_anthropic_base_url,
-            upstream_base=provider_upstream_request_base,
-            join_url=join_url,
-        ),
-        workflow=ContextCompactionWorkflow(
-            parse_bool=parse_bool,
-            compaction_available=context_compaction_available,
-            instruction_index=context_compact_instruction_index,
-            content_to_text=anthropic_content_to_text,
-            chunk_target_tokens=context_compact_chunk_target_tokens,
-            split_messages=split_messages_for_context_compact,
-            parallel_sessions=context_compact_parallel_sessions,
-            write_activity=write_context_compact_activity,
-            estimate_tokens=estimate_tokens,
-            request_summary=context_compact_request_summary,
-        ),
-        projection=ContextCompactionProjection(
-            build_chunk_prompt=build_context_compact_chunk_prompt,
-            build_fallback_summary=build_chunked_context_guard_summary,
-            build_reduce_prompt=build_context_compact_reduce_prompt,
-            log=router_log,
-            apply_ollama_optional=apply_ollama_wire_options,
-        ),
+        transport=ContextCompactionTransport(context_compact_summary_output_tokens, provider_request_timeout_seconds, provider_endpoint,
+                                             post_json_with_rate_retry, provider_headers, context_compact_extract_text, provider_native_compat_enabled,
+                                             native_anthropic_base_url, provider_upstream_request_base, join_url),
+        workflow=ContextCompactionWorkflow(parse_bool, context_compaction_available, context_compact_instruction_index, anthropic_content_to_text,
+                                           context_compact_chunk_target_tokens, split_messages_for_context_compact, context_compact_parallel_sessions,
+                                           write_context_compact_activity, estimate_tokens, context_compact_request_summary),
+        projection=ContextCompactionProjection(build_context_compact_chunk_prompt, build_chunked_context_guard_summary,
+                                               build_context_compact_reduce_prompt, router_log, apply_ollama_wire_options),
         map_system_prompt=CONTEXT_COMPACT_MAP_SYSTEM_PROMPT,
     )
 
@@ -3370,42 +3325,19 @@ def sleep_until_or_client_disconnect(handler: BaseHTTPRequestHandler, seconds: f
 
 def provider_request_builder() -> ProviderRequestBuilder:
     return ProviderRequestBuilder(
-        ProviderRequestBudget(
-            context_limit=context_limit_for_status,
-            positive_int=positive_int,
-            configured_output=configured_output_tokens,
-            cap_output_ratio=cap_output_tokens_to_context_ratio,
-            reserve=context_guard_reserve_tokens,
-            compact_anthropic=compact_anthropic_body_for_budget,
-            compact_messages=compact_ollama_messages_for_budget,
-            compact_requested=is_claude_code_compact_request,
-            cap_output=cap_output_tokens_for_context,
-            write_usage=write_context_usage,
-        ),
-        OllamaRequestPorts(
-            messages=anthropic_messages_to_ollama,
-            tools=anthropic_tools_to_ollama,
-            context_limit=ollama_context_limit_for_budget,
-            num_ctx=ollama_num_ctx_for_payload,
-            apply_optional=apply_ollama_wire_options,
-        ),
+        ProviderRequestBudget(context_limit_for_status, positive_int, configured_output_tokens, cap_output_tokens_to_context_ratio,
+                              context_guard_reserve_tokens, compact_anthropic_body_for_budget, compact_ollama_messages_for_budget,
+                              is_claude_code_compact_request, cap_output_tokens_for_context, write_context_usage),
+        OllamaRequestPorts(anthropic_messages_to_ollama, anthropic_tools_to_ollama, ollama_context_limit_for_budget,
+                           ollama_num_ctx_for_payload, apply_ollama_wire_options),
         OpenAIRequestPorts(
-            messages=anthropic_messages_to_openai,
-            tools=anthropic_tools_to_ollama,
-            context_limit=openai_context_limit_for_budget,
-            reasoning_passback=openai_chat_reasoning_passback_enabled,
-            repair_tools=repair_openai_tool_call_adjacency,
+            anthropic_messages_to_openai, anthropic_tools_to_ollama, openai_context_limit_for_budget, openai_chat_reasoning_passback_enabled,
+            repair_openai_tool_call_adjacency,
             reasoning_effort=lambda provider, model, body, config: configured_provider_adapter(provider, config).openai_reasoning_effort(provider_contract_config(provider, config), model, body),
             sampling_allowed=lambda provider, config: configured_provider_adapter(provider, config).allows_sampling_overrides(provider_contract_config(provider, config)),
-            omit_tool_choice=should_omit_openai_chat_tool_choice,
-            tool_choice=anthropic_tool_choice_to_openai,
+            omit_tool_choice=should_omit_openai_chat_tool_choice, tool_choice=anthropic_tool_choice_to_openai,
         ),
-        ProviderOptionPorts(
-            sampling_providers=frozenset(PROVIDER_SAMPLING_OPTION_PROVIDERS),
-            sampling_options=tuple(PROVIDER_SAMPLING_OPTIONS),
-            anthropic_runtime_hints=anthropic_model_runtime_hints,
-            log=router_log,
-        ),
+        ProviderOptionPorts(frozenset(PROVIDER_SAMPLING_OPTION_PROVIDERS), tuple(PROVIDER_SAMPLING_OPTIONS), anthropic_model_runtime_hints, router_log),
     )
 
 _PROVIDER_REQUEST_API = ProviderRequestCompatibilityApi(provider_request_builder)
@@ -3443,31 +3375,12 @@ openai_compatible_chat_request = _PROVIDER_REQUEST_API.openai_chat
 def advisor_request_builder() -> AdvisorRequestBuilder:
     return AdvisorRequestBuilder(
         ADVISOR_REVIEW_PROMPT,
-        AdvisorProjectionPorts(
-            provider_kind=advisor_provider_kind,
-            anthropic_messages=anthropic_advisor_messages_and_system,
-            openai_messages=anthropic_messages_to_openai,
-            ollama_messages=anthropic_messages_to_ollama,
-            focus_from_body=advisor_focus_from_body,
-            compact_text=compact_message_text_for_prompt,
-            anthropic_system=anthropic_system_with_advisor,
-            anthropic_text=anthropic_content_to_text,
-        ),
-        AdvisorBudgetPorts(
-            ollama_context=ollama_context_limit_for_budget,
-            provider_context=context_limit_for_status,
-            openai_context=openai_context_limit_for_budget,
-            reserve=context_guard_reserve_tokens,
-            compact_messages=compact_ollama_messages_for_budget,
-            configured_output=configured_output_tokens,
-            apply_ollama_optional=apply_ollama_wire_options,
-        ),
-        AdvisorEndpointPorts(
-            join_url=join_url,
-            upstream_query=upstream_messages_query,
-            provider_request_base=provider_upstream_request_base,
-            upstream_model=ncp_model_id_for_nvidia_hosted,
-        ),
+        AdvisorProjectionPorts(advisor_provider_kind, anthropic_advisor_messages_and_system, anthropic_messages_to_openai,
+                               anthropic_messages_to_ollama, advisor_focus_from_body, compact_message_text_for_prompt,
+                               anthropic_system_with_advisor, anthropic_content_to_text),
+        AdvisorBudgetPorts(ollama_context_limit_for_budget, context_limit_for_status, openai_context_limit_for_budget,
+                           context_guard_reserve_tokens, compact_ollama_messages_for_budget, configured_output_tokens, apply_ollama_wire_options),
+        AdvisorEndpointPorts(join_url, upstream_messages_query, provider_upstream_request_base, ncp_model_id_for_nvidia_hosted),
     )
 
 def advisor_messages_for_provider(provider: str, body: dict[str, Any], focus_override: str = "") -> list[dict[str, Any]]:
@@ -3492,25 +3405,10 @@ def advisor_endpoint(provider: str, pcfg: dict[str, Any]) -> str: return advisor
 
 def advisor_client() -> AdvisorClient:
     return AdvisorClient(
-        AdvisorClientPolicy(
-            model_enabled=advisor_model_enabled,
-            provider_supported=advisor_provider_supported,
-            upstream_model=advisor_upstream_model,
-            provider_kind=advisor_provider_kind,
-            request=advisor_request,
-            endpoint=advisor_endpoint,
-            response_text=advisor_response_text,
-        ),
-        AdvisorClientIO(
-            apply_rate_limit=apply_router_rate_limit,
-            write_activity=write_router_activity,
-            estimate_tokens=estimate_tokens,
-            post_json=post_json_with_rate_retry,
-            headers=provider_headers,
-            provider_timeout=provider_request_timeout_seconds,
-            ollama_timeout=ollama_request_timeout_seconds,
-            log=router_log,
-        ),
+        AdvisorClientPolicy(advisor_model_enabled, advisor_provider_supported, advisor_upstream_model, advisor_provider_kind, advisor_request,
+                            advisor_endpoint, advisor_response_text),
+        AdvisorClientIO(apply_router_rate_limit, write_router_activity, estimate_tokens, post_json_with_rate_retry, provider_headers,
+                        provider_request_timeout_seconds, ollama_request_timeout_seconds, router_log),
     )
 
 def call_advisor_text(
