@@ -426,6 +426,12 @@ from ciel_runtime_support.channel_session_repository import ChannelSessionReposi
 from ciel_runtime_support.channel_session_lifecycle import ChannelSessionLifecycleServices
 from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices
 from ciel_runtime_support.channel_probe_cache import ChannelProbePorts
+from ciel_runtime_support.channel_probe_launch_context import (
+    ChannelProbeLaunchCachePorts,
+    ChannelProbeLaunchContext,
+    ChannelProbeLaunchDiscoveryPorts,
+    ChannelProbeLaunchEffects,
+)
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
 from ciel_runtime_support.configuration_cli import (
     ConfigurationCliCompatibilityApi,
@@ -3659,16 +3665,12 @@ class ArchitectureContractTests(unittest.TestCase):
 
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
-        function = next(
-            node
+        root_functions = {
+            node.name
             for node in ast.parse(source).body
             if isinstance(node, ast.FunctionDef)
-            and node.name == "start_codex_mcp_channel_sse_for_launch"
-        )
-        function_source = ast.get_source_segment(source, function) or ""
-        self.assertIn("CodexChannelSseLaunchService", function_source)
-        self.assertNotIn("names = [", function_source)
-        self.assertNotIn("reason=no_capable_unowned_codex_mcp", function_source)
+        }
+        self.assertNotIn("start_codex_mcp_channel_sse_for_launch", root_functions)
         service_source = (
             root
             / "ciel_runtime_support"
@@ -5233,12 +5235,21 @@ class ArchitectureContractTests(unittest.TestCase):
         }
         self.assertTrue(delegated.isdisjoint(root_functions))
         self.assertIn("ChannelProbeCompatibilityApi", source)
-        for composition_function in (
+        for context_function in (
             "channel_candidate_server_names_for_launch",
             "channel_probe_cache_needs_launch_refresh",
             "ensure_channel_probe_cache_for_launch",
         ):
-            self.assertIn(composition_function, root_functions)
+            self.assertNotIn(context_function, root_functions)
+        for port in (
+            ChannelProbeLaunchDiscoveryPorts,
+            ChannelProbeLaunchCachePorts,
+            ChannelProbeLaunchEffects,
+            ChannelProbeLaunchContext,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        self.assertIn("ChannelProbeLaunchCompatibilityApi", source)
         adapter_source = (
             root / "ciel_runtime_support" / "channel_probe_cache.py"
         ).read_text(encoding="utf-8")

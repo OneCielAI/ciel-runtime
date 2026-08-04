@@ -304,6 +304,13 @@ from ciel_runtime_support.channel_probe_cache import (
     ChannelProbePorts,
     ChannelProbeService,
 )
+from ciel_runtime_support.channel_probe_launch_context import (
+    ChannelProbeLaunchCachePorts,
+    ChannelProbeLaunchCompatibilityApi,
+    ChannelProbeLaunchContext,
+    ChannelProbeLaunchDiscoveryPorts,
+    ChannelProbeLaunchEffects,
+)
 from ciel_runtime_support.channel_panel import (
     _channel_panel_first_selectable as first_selectable_channel_row,
     _channel_panel_step as step_channel_row,
@@ -823,11 +830,6 @@ from ciel_runtime_support import codex_mcp_integration
 from ciel_runtime_support.codex_mcp_restore import (
     CodexMcpRestorePorts,
     CodexMcpRestoreService,
-)
-from ciel_runtime_support.codex_channel_sse_launch import (
-    CodexChannelSseEffects,
-    CodexChannelSseLaunchService,
-    CodexChannelSseQueryPorts,
 )
 from ciel_runtime_support.codex_launch_policy import (
     current_model_args as project_codex_current_model_args,
@@ -6344,59 +6346,6 @@ def channel_probe_service() -> ChannelProbeService:
         frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
     )
 
-def native_auto_channel_capable_server_names(passthrough: list[str] | None = None) -> list[str]:
-    """External channel-capable servers that are also in current MCP discovery."""
-    discovered = set(discovered_claude_mcp_servers(passthrough or []).keys())
-    if not discovered:
-        return []
-    return [name for name in cached_external_channel_capable_server_names() if name in discovered]
-
-def start_codex_mcp_channel_sse_for_launch(
-    cfg: dict[str, Any],
-    codex_mcp_config: Path | None,
-    allowed_server_names: Iterable[str] | None = None,
-) -> list[dict[str, Any]]:
-    service = CodexChannelSseLaunchService(
-        query=CodexChannelSseQueryPorts(
-            delivery_mode=channel_delivery_mode,
-            channel_specs=channel_specs_for_launch,
-            server_names=_server_names_from_channel_specs,
-            capable_names=codex_channel_capable_mcp_server_names,
-            dedupe=_dedupe_strings,
-        ),
-        effects=CodexChannelSseEffects(
-            auto_start=auto_start_sse_channels_from_mcp_configs,
-            log=router_log,
-        ),
-        native_channel_names=frozenset(
-            name.casefold() for name in _NATIVE_ROUTER_CHANNEL_NAMES
-        ),
-    )
-    return service.start(cfg, codex_mcp_config, allowed_server_names)
-
-def channel_probe_summary_message(prefix: str, cache: dict[str, Any]) -> str:
-    records = [r for r in cache.get("servers") or [] if isinstance(r, dict)]
-    capable = [r for r in records if channel_probe_record_bucket(r) == "capable"]
-    inconclusive = [r for r in records if channel_probe_record_bucket(r) == "inconclusive"]
-    non_capable = [r for r in records if channel_probe_record_bucket(r) == "non_capable"]
-    return (
-        f"{prefix}: {len(capable)} channel-capable, "
-        f"{len(inconclusive)} inconclusive, {len(non_capable)} non-capable server(s)."
-    )
-
-def channel_panel_rows_for_menu(cfg: dict[str, Any], passthrough: list[str]) -> tuple[list[str], list[str], list[str]]:
-    messages: list[str] = []
-    if channel_probe_cache_needs_launch_refresh(cfg, passthrough):
-        try:
-            router_log("INFO", "channel_probe_menu_refresh reason=missing_cache_or_selected_server")
-            result = refresh_channel_probe_cache(passthrough)
-            messages = [channel_probe_summary_message("Probe complete", result)]
-        except Exception as exc:
-            router_log("WARN", f"channel_probe_menu_refresh_failed error={type(exc).__name__}: {exc}")
-            messages = [f"Channel probe failed: {type(exc).__name__}: {exc}"]
-    rows, values = channel_panel_rows(cfg)
-    return rows, values, messages
-
 def channel_config_service() -> ChannelConfigService:
     return ChannelConfigService(
         BUILTIN_CHANNEL_SPEC,
@@ -6502,52 +6451,45 @@ cached_external_channel_capable_server_names = _CHANNEL_PROBE_API.external_capab
 cached_channel_source_paths_for_specs = _CHANNEL_PROBE_API.source_paths
 _server_names_from_channel_specs = _CHANNEL_PROBE_API.server_names_from_specs
 
-def channel_candidate_server_names_for_launch(
-    cfg: dict[str, Any],
-    passthrough: list[str],
-    extra_config_paths: list[Path | str] | None = None,
-) -> list[str]:
-    return channel_probe_service().candidate_names(
-        channel_specs_for_launch(cfg, passthrough),
-        lambda: external_mcp_channel_server_names_from_configs(
-            passthrough,
-            extra_config_paths=extra_config_paths,
+def channel_probe_launch_context() -> ChannelProbeLaunchContext:
+    return ChannelProbeLaunchContext(
+        discovery=ChannelProbeLaunchDiscoveryPorts(
+            discover_servers=discovered_claude_mcp_servers,
+            cached_external_capable=cached_external_channel_capable_server_names,
+            channel_specs=channel_specs_for_launch,
+            server_names=_server_names_from_channel_specs,
+            codex_capable_names=codex_channel_capable_mcp_server_names,
+            external_names=external_mcp_channel_server_names_from_configs,
+            dedupe=_dedupe_strings,
         ),
+        cache=ChannelProbeLaunchCachePorts(
+            service=channel_probe_service,
+            read=read_channel_probe_cache,
+            records=cached_channel_probe_servers,
+            refresh=refresh_channel_probe_cache,
+            bucket=channel_probe_record_bucket,
+            panel_rows=channel_panel_rows,
+            log=router_log,
+        ),
+        effects=ChannelProbeLaunchEffects(
+            delivery_mode=channel_delivery_mode,
+            auto_start=auto_start_sse_channels_from_mcp_configs,
+        ),
+        native_channel_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
     )
 
-def channel_probe_cache_needs_launch_refresh(
-    cfg: dict[str, Any],
-    passthrough: list[str],
-    extra_config_paths: list[Path | str] | None = None,
-) -> bool:
-    cache = read_channel_probe_cache()
-    records = cached_channel_probe_servers()
-    candidate_names = channel_candidate_server_names_for_launch(
-        cfg, passthrough, extra_config_paths=extra_config_paths
-    )
-    return channel_probe_service().needs_refresh(cache, records, candidate_names)
-
-def ensure_channel_probe_cache_for_launch(
-    cfg: dict[str, Any],
-    passthrough: list[str],
-    extra_config_paths: list[Path | str] | None = None,
-) -> bool:
-    needed = channel_probe_cache_needs_launch_refresh(
-        cfg,
-        passthrough,
-        extra_config_paths=extra_config_paths,
-    )
-    return channel_probe_service().ensure_refresh(
-        needed,
-        lambda: refresh_channel_probe_cache(
-            passthrough,
-            **(
-                {"extra_config_paths": extra_config_paths}
-                if extra_config_paths is not None
-                else {}
-            ),
-        ),
-    )
+_CHANNEL_PROBE_LAUNCH_API = ChannelProbeLaunchCompatibilityApi(
+    channel_probe_launch_context
+)
+native_auto_channel_capable_server_names = (
+    _CHANNEL_PROBE_LAUNCH_API.native_auto_capable_names
+)
+start_codex_mcp_channel_sse_for_launch = _CHANNEL_PROBE_LAUNCH_API.start_codex_sse
+channel_probe_summary_message = _CHANNEL_PROBE_LAUNCH_API.summary
+channel_panel_rows_for_menu = _CHANNEL_PROBE_LAUNCH_API.panel_rows
+channel_candidate_server_names_for_launch = _CHANNEL_PROBE_LAUNCH_API.candidate_names
+channel_probe_cache_needs_launch_refresh = _CHANNEL_PROBE_LAUNCH_API.needs_refresh
+ensure_channel_probe_cache_for_launch = _CHANNEL_PROBE_LAUNCH_API.ensure_cache
 
 is_channel_spec_tagged = _CHANNEL_CONFIG_API.is_channel_spec_tagged
 normalize_channel_passthrough = _CHANNEL_CONFIG_API.normalize_channel_passthrough
