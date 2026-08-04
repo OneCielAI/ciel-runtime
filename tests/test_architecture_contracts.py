@@ -477,6 +477,13 @@ from ciel_runtime_support.router_process_lifecycle import (
     RouterSpawnPorts,
     RouterStartupStatePorts,
 )
+from ciel_runtime_support.router_process_context import (
+    RouterListenerPorts,
+    RouterProcessCompatibilityApi,
+    RouterProcessCompatibilityPorts,
+    RouterProcessContext,
+    RouterProcessEffects,
+)
 from ciel_runtime_support.provider_choice import ProviderChoicePorts
 from ciel_runtime_support.provider_model_selection import (
     AdvisorModelMutationPorts,
@@ -1542,6 +1549,39 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_router_startup_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(RouterStartupStatePorts)), 10)
         self.assertLessEqual(len(fields(RouterSpawnPorts)), 10)
+
+    def test_router_process_context_owns_shutdown_composition(self):
+        self.assertEqual(5, len(fields(RouterProcessContext)))
+        self.assertEqual(1, len(fields(RouterProcessCompatibilityApi)))
+        for port in (
+            RouterListenerPorts,
+            RouterProcessCompatibilityPorts,
+            RouterProcessEffects,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        root_functions = {
+            node.name
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+        }
+        for delegated in (
+            "ensure_router_port_available_for_spawn",
+            "router_port_listener_pids",
+            "stop_router_processes",
+            "stop_router_with_guarantee",
+            "terminate_pid_file",
+            "terminate_router_health_pid",
+        ):
+            with self.subTest(delegated=delegated):
+                self.assertNotIn(delegated, root_functions)
+        context_source = (
+            root / "ciel_runtime_support" / "router_process_context.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", context_source)
+        self.assertNotIn("__getattr__", context_source)
 
     def test_provider_choice_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ProviderChoicePorts)), 10)

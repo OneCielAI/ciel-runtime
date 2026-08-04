@@ -562,20 +562,20 @@ from ciel_runtime_support.process_control import (
     windows_pids_on_port,
 )
 from ciel_runtime_support.router_process_lifecycle import (
-    ClockPorts as RouterProcessClock,
     RouterProcessConfig,
     RouterSpawnPorts,
     RouterStartupIdentity,
     RouterStartupStatePorts,
     RouterStatePorts,
-    RouterTerminationPorts,
-    ensure_port_available as ensure_project_router_port_available,
     schedule_router_restart,
-    stop_router_processes as stop_project_router_processes,
-    stop_with_guarantee as stop_project_router_with_guarantee,
     start_router_if_needed as start_project_router_if_needed,
-    terminate_health_pid as terminate_project_router_health_pid,
-    terminate_pid_file as terminate_project_pid_file,
+)
+from ciel_runtime_support.router_process_context import (
+    RouterListenerPorts,
+    RouterProcessCompatibilityApi,
+    RouterProcessCompatibilityPorts,
+    RouterProcessContext,
+    RouterProcessEffects,
 )
 from ciel_runtime_support import router_server_runtime
 from ciel_runtime_support.router_client_lifecycle import (
@@ -8479,76 +8479,44 @@ def terminate_existing_codex_processes_for_launch(reason: str, cwd: Path | None 
     stopped = terminate_untracked_codex_processes_for_launch(reason, cwd=cwd, quiet=quiet) or stopped
     return stopped
 
-def router_process_config() -> RouterProcessConfig:
-    return RouterProcessConfig(PID_PATH, ROUTER_PORT, ROUTER_BASE, CONFIG_DIR)
-
-def router_process_state_ports() -> RouterStatePorts:
-    return RouterStatePorts(
-        health=router_health,
-        foreign_config=router_health_has_foreign_config,
-        current_config=router_health_config_matches_current,
-        log=router_log,
-    )
-
-def router_termination_ports() -> RouterTerminationPorts:
-    return RouterTerminationPorts(
-        terminate_pid=lambda pid, label, quiet: terminate_pid(pid, label, quiet=quiet),
-        terminate_pid_file=lambda path, label, quiet: terminate_pid_file(path, label, quiet=quiet),
-        terminate_health=lambda health, quiet: terminate_router_health_pid(health, quiet=quiet),
-        stop_processes=lambda quiet: stop_router_processes(quiet=quiet),
-        listener_pids=router_port_listener_pids,
-    )
-
-def terminate_pid_file(path: Path, label: str, quiet: bool = False) -> bool:
-    return terminate_project_pid_file(
-        path,
-        label,
-        quiet,
-        terminate_pid=lambda pid, current_label, current_quiet: terminate_pid(
-            pid, current_label, quiet=current_quiet
-        ),
-        pid_is_running=pid_is_running,
-    )
-
 def posix_pids_on_port(port: int, host: str | None = None) -> list[int]:
     return project_posix_pids_on_port(port, linux_procfs_pids_on_port, host)
+
+def router_process_context() -> RouterProcessContext:
+    return RouterProcessContext(
+        config=RouterProcessConfig(PID_PATH, ROUTER_PORT, ROUTER_BASE, CONFIG_DIR),
+        state=RouterStatePorts(
+            router_health, router_health_has_foreign_config,
+            router_health_config_matches_current, router_log,
+        ),
+        listener=RouterListenerPorts(
+            os.name, lambda: router_bind_host(load_config()),
+            windows_pids_on_port, posix_pids_on_port,
+        ),
+        effects=RouterProcessEffects(
+            lambda pid, label, quiet: terminate_pid(pid, label, quiet=quiet),
+            pid_is_running, lambda: (os.getpid(), os.getppid()), time.time, time.sleep,
+        ),
+        compatibility=RouterProcessCompatibilityPorts(
+            lambda path, label, quiet: terminate_pid_file(path, label, quiet=quiet),
+            lambda health, quiet: terminate_router_health_pid(health, quiet=quiet),
+            lambda quiet: stop_router_processes(quiet=quiet),
+            lambda: router_port_listener_pids(),
+        ),
+    )
+
+_ROUTER_PROCESS_API = RouterProcessCompatibilityApi(router_process_context)
+router_process_config = _ROUTER_PROCESS_API.config
+router_process_state_ports = _ROUTER_PROCESS_API.state_ports
+router_termination_ports = _ROUTER_PROCESS_API.termination_ports
+terminate_pid_file = _ROUTER_PROCESS_API.terminate_pid_file
+router_port_listener_pids = _ROUTER_PROCESS_API.listener_pids
+terminate_router_health_pid = _ROUTER_PROCESS_API.terminate_health_pid
+ensure_router_port_available_for_spawn = _ROUTER_PROCESS_API.ensure_port_available
 
 def terminate_posix_port(port: int, label: str, quiet: bool = False) -> bool:
     return process_tree_controller().terminate_port(
         port, label, quiet=quiet, pids_on_port=posix_pids_on_port
-    )
-
-def router_port_listener_pids() -> list[int]:
-    bind_host = router_bind_host(load_config())
-    if os.name == "nt":
-        return windows_pids_on_port(ROUTER_PORT, bind_host)
-    return posix_pids_on_port(ROUTER_PORT, bind_host)
-
-def terminate_router_health_pid(health: dict[str, Any] | None, quiet: bool = True) -> bool:
-    return terminate_project_router_health_pid(
-        health,
-        quiet,
-        config=router_process_config(),
-        state=router_process_state_ports(),
-        terminate_pid=lambda pid, label, current_quiet: terminate_pid(
-            pid, label, quiet=current_quiet
-        ),
-        protected_pids=(os.getpid(), os.getppid()),
-    )
-
-def ensure_router_port_available_for_spawn(
-    reason: str,
-    health: dict[str, Any] | None = None,
-    max_wait_seconds: float = 5.0,
-) -> None:
-    ensure_project_router_port_available(
-        reason,
-        health,
-        max_wait_seconds,
-        config=router_process_config(),
-        state=router_process_state_ports(),
-        termination=router_termination_ports(),
-        clock=RouterProcessClock(now=time.time, sleep=time.sleep),
     )
 
 def terminate_windows_port(port: int, label: str, quiet: bool = False) -> bool:
@@ -8588,24 +8556,8 @@ def stop_ncp_proxy(quiet: bool = False) -> bool:
         ),
     ).stop(quiet, platform_name=os.name)
 
-def stop_router_processes(quiet: bool = False) -> bool:
-    return stop_project_router_processes(
-        quiet,
-        config=router_process_config(),
-        state=router_process_state_ports(),
-        termination=router_termination_ports(),
-    )
-
-def stop_router_with_guarantee(reason: str, max_wait_seconds: float = 5.0, quiet: bool = True) -> bool:
-    return stop_project_router_with_guarantee(
-        reason,
-        max_wait_seconds,
-        quiet,
-        config=router_process_config(),
-        state=router_process_state_ports(),
-        termination=router_termination_ports(),
-        clock=RouterProcessClock(now=time.time, sleep=time.sleep),
-    )
+stop_router_processes = _ROUTER_PROCESS_API.stop_processes
+stop_router_with_guarantee = _ROUTER_PROCESS_API.stop_with_guarantee
 
 def cleanup_managed_services_for_provider(
     provider: str,
