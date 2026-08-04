@@ -889,6 +889,12 @@ from ciel_runtime_support.provider_model_metadata_context import (
     ModelRegistryRecommendationPorts,
     ProviderModelMetadataContext,
 )
+from ciel_runtime_support.provider_model_catalog_context import (
+    ProviderModelCachePorts,
+    ProviderModelCatalogContext,
+    ProviderModelRegistryConfig,
+    ProviderModelRegistryPorts,
+)
 from ciel_runtime_support.provider_option_panel import (
     OptionPanelPolicy,
     OptionPanelProvider,
@@ -2959,21 +2965,23 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_model_cache_lifecycle_is_not_orchestrated_by_the_facade(self):
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
-        tree = ast.parse(source)
-        for function_name, delegation in (
-            ("clear_model_cache", ".clear()"),
-            ("cached_or_configured_model_ids", ".cached_or_configured_ids("),
-            ("ensure_model_cache_for_launch", ".ensure_for_launch("),
+        for port in (
+            ProviderModelRegistryConfig,
+            ProviderModelRegistryPorts,
+            ProviderModelCachePorts,
+            ProviderModelCatalogContext,
         ):
-            function = next(
-                node
-                for node in tree.body
-                if isinstance(node, ast.FunctionDef) and node.name == function_name
-            )
-            function_source = ast.get_source_segment(source, function) or ""
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        for function_name in (
+            "model_cache_lifecycle_service",
+            "model_registry_repository",
+            "clear_model_cache",
+            "cached_or_configured_model_ids",
+            "ensure_model_cache_for_launch",
+        ):
             with self.subTest(function=function_name):
-                self.assertIn("model_cache_lifecycle_service()", function_source)
-                self.assertIn(delegation, function_source)
+                self.assertNotIn(f"def {function_name}(", source)
 
     def test_api_key_cooldown_policy_and_state_are_service_owned(self):
         root = Path(__file__).resolve().parents[1]

@@ -357,15 +357,15 @@ from ciel_runtime_support.provider_endpoint_probe import (
     ProviderEndpointRouteAdapter,
     ProviderEndpointRoutePorts,
 )
-from ciel_runtime_support.model_cache_lifecycle import (
-    ModelCacheLifecyclePorts,
-    ModelCacheLifecycleService,
-)
 from ciel_runtime_support.model_registry_repository import (
     ModelRegistryApi,
-    ModelRegistryPaths,
-    ModelRegistryPolicy,
-    ModelRegistryRepository,
+)
+from ciel_runtime_support.provider_model_catalog_context import (
+    ProviderModelCachePorts,
+    ProviderModelCatalogCompatibilityApi,
+    ProviderModelCatalogContext,
+    ProviderModelRegistryConfig,
+    ProviderModelRegistryPorts,
 )
 from ciel_runtime_support.lm_studio_runtime import (
     LmStudioLifecycleApi,
@@ -1954,28 +1954,32 @@ def invalidate_config_cache() -> None:
 def save_config(cfg: dict[str, Any]) -> None:
     config_repository().save(cfg)
 
-def model_cache_lifecycle_service() -> ModelCacheLifecycleService:
-    return ModelCacheLifecycleService(
-        ModelCacheLifecyclePorts(
-            invalidate_config=invalidate_config_cache,
-            artifact_paths=lambda: (
-                CLAUDE_GATEWAY_CACHE,
-                MODEL_LIST_CACHE_PATH,
-                MODEL_REGISTRY_PATH,
-            ),
-            read_list_cache=read_model_list_cache,
-            read_registry_models=read_model_registry_models,
-            upstream_model_ids=upstream_model_ids,
-            catalog_model_ids=ollama_catalog_model_ids,
-            normalize_model_id=normalize_model_id,
-            unique_model_ids=unique_model_ids,
-            sorted_model_ids=sorted_model_ids,
-            log=router_log,
-        )
+def provider_model_catalog_context() -> ProviderModelCatalogContext:
+    return ProviderModelCatalogContext(
+        config=ProviderModelRegistryConfig(
+            CONFIG_DIR, MODEL_REGISTRY_PATH, MODEL_LIST_CACHE_PATH,
+            CLAUDE_GATEWAY_CACHE, MODEL_CACHE_TTL_SECONDS,
+        ),
+        registry=ProviderModelRegistryPorts(
+            model_cache_key, unique_model_ids, normalize_model_id,
+            positive_int, model_registry_recommendations, router_log,
+        ),
+        cache=ProviderModelCachePorts(
+            invalidate_config_cache, upstream_model_ids,
+            ollama_catalog_model_ids, sorted_model_ids,
+        ),
     )
 
-def clear_model_cache() -> None:
-    model_cache_lifecycle_service().clear()
+_PROVIDER_MODEL_CATALOG_API = ProviderModelCatalogCompatibilityApi(
+    provider_model_catalog_context
+)
+model_cache_lifecycle_service = _PROVIDER_MODEL_CATALOG_API.lifecycle_service
+clear_model_cache = _PROVIDER_MODEL_CATALOG_API.clear
+model_registry_repository = _PROVIDER_MODEL_CATALOG_API.registry_repository
+cached_or_configured_model_ids = (
+    _PROVIDER_MODEL_CATALOG_API.cached_or_configured_ids
+)
+ensure_model_cache_for_launch = _PROVIDER_MODEL_CATALOG_API.ensure_for_launch
 
 normalize_provider = _PROVIDER_MODEL_IDENTITY_API.normalize_provider
 normalize_provider_choice = normalize_runtime_provider_choice
@@ -2611,20 +2615,6 @@ model_registry_recommendations = (
     _PROVIDER_MODEL_METADATA_API.registry_recommendations
 )
 
-def model_registry_repository() -> ModelRegistryRepository:
-    return ModelRegistryRepository(
-        paths=ModelRegistryPaths(CONFIG_DIR, MODEL_REGISTRY_PATH, MODEL_LIST_CACHE_PATH),
-        policy=ModelRegistryPolicy(
-            cache_key=model_cache_key,
-            unique_ids=unique_model_ids,
-            normalize_id=normalize_model_id,
-            positive_int=positive_int,
-            recommendations=model_registry_recommendations,
-            log=router_log,
-        ),
-        ttl_seconds=MODEL_CACHE_TTL_SECONDS,
-    )
-
 _MODEL_REGISTRY_API = ModelRegistryApi(model_registry_repository)
 read_model_registry = _MODEL_REGISTRY_API.read_registry
 read_model_registry_models = _MODEL_REGISTRY_API.read_registry_models
@@ -2633,19 +2623,6 @@ write_model_registry = _MODEL_REGISTRY_API.write_registry
 read_model_list_cache = _MODEL_REGISTRY_API.read_list_cache
 read_model_info_cache = _MODEL_REGISTRY_API.read_info_cache
 write_model_list_cache = _MODEL_REGISTRY_API.write_list_cache
-
-def cached_or_configured_model_ids(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    return model_cache_lifecycle_service().cached_or_configured_ids(provider, pcfg)
-
-def ensure_model_cache_for_launch(provider: str, pcfg: dict[str, Any]) -> None:
-    """Populate the model list before building Claude Code launch env.
-
-    Claude Code consumes ANTHROPIC_DEFAULT_*_MODEL only at process start. If
-    those values are computed before the provider model list is available,
-    family defaults collapse to the current model and /model cannot switch
-    families reliably inside that session.
-    """
-    model_cache_lifecycle_service().ensure_for_launch(provider, pcfg)
 
 _PROVIDER_CATALOG_SOURCES = (
     provider_catalog_sources.build_default_provider_catalog_source_service(
