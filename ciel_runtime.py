@@ -1053,27 +1053,19 @@ command_file_is_ciel_runtime_owned = is_owned_command_file
 def runtime_asset_context() -> RuntimeAssetContext:
     return runtime_asset_assembly.build_runtime_asset_context(
         runtime_asset_assembly.RuntimeAssetAssemblyPorts(
-            runtime_asset_assembly.RuntimeAssetPathBindings(
-                HOME, Path(__file__), CLAUDE_SETTINGS_PATH,
-                CIEL_RUNTIME_STATUSLINE_PATH, CLAUDE_COMMANDS_DIR,
-                CODEX_PROMPTS_DIR_NAME, platform_path,
-                ciel_runtime_user_bin_dir, agy_user_bin_dir,
-            ),
+            runtime_asset_assembly.RuntimeAssetPathBindings(HOME, Path(__file__), CLAUDE_SETTINGS_PATH, CIEL_RUNTIME_STATUSLINE_PATH,
+                                                            CLAUDE_COMMANDS_DIR, CODEX_PROMPTS_DIR_NAME, platform_path,
+                                                            ciel_runtime_user_bin_dir, agy_user_bin_dir),
             sys.executable, os.chmod, os.environ, router_log,
             lambda message: print(f"Ciel Runtime warning: {message}", flush=True),
             RuntimeAssetCompatibilityPorts(
-            find_executable=lambda name: find_executable(name),
-            find_tool_guard=lambda: find_tool_guard_script(),
-            tool_guard_command=lambda: ciel_runtime_tool_guard_command(),
-            install_legacy_shim=lambda: install_legacy_tool_guard_compat_shim(),
-            command_asset_installer=lambda directory: _command_asset_installer(directory),
-            remove_advisor_command=lambda: remove_ciel_runtime_advisor_command(),
-            codex_prompts_dir=lambda env=None: codex_prompts_dir(env),
-            command_assets=lambda include_advisor=True: _ciel_runtime_command_assets(
-                include_advisor
+                find_executable=lambda name: find_executable(name), find_tool_guard=lambda: find_tool_guard_script(),
+                tool_guard_command=lambda: ciel_runtime_tool_guard_command(), install_legacy_shim=lambda: install_legacy_tool_guard_compat_shim(),
+                command_asset_installer=lambda directory: _command_asset_installer(directory),
+                remove_advisor_command=lambda: remove_ciel_runtime_advisor_command(), codex_prompts_dir=lambda env=None: codex_prompts_dir(env),
+                command_assets=lambda include_advisor=True: _ciel_runtime_command_assets(include_advisor),
             ),
         ),
-        )
     )
 
 _RUNTIME_ASSET_API = RuntimeAssetCompatibilityApi(runtime_asset_context)
@@ -1236,29 +1228,14 @@ latest_user_is_claude_code_suggestion_mode = _CONVERSATION_TURN_API.latest_user_
 
 def router_observability_context() -> RouterObservabilityContext:
     return RouterObservabilityContext(
-        preview=RouterPreviewPorts(
-            os.environ, load_config, positive_int, latest_user_text,
-            redact_sensitive_text,
-        ),
-        request_config=RequestTraceConfiguration(
-            REQUEST_DUMP_PATH, RESPONSE_DUMP_PATH, REQUEST_DUMP_MAX_BYTES,
-            RESPONSE_DUMP_MAX_BYTES, RESPONSE_DUMP_TEXT_LIMIT,
-            LOG_LEVELS["TRACE"],
-        ),
-        request=RouterRequestTracePorts(
-            current_log_level, anthropic_content_to_text,
-            anthropic_thinking_block_count,
-            anthropic_tool_continuation_block_count, router_log,
-            USAGE_EVENT_SINK.record, EVENT_BUS.publish,
-        ),
-        sse_config=SseTraceConfiguration(
-            CONFIG_DIR, SSE_LAST_PATH, SSE_TRACE_PATH, TOOL_CALL_LOG_PATH,
-            SSE_TRACE_EVENT_LIMIT, SSE_TRACE_PAYLOAD_LIMIT,
-            SSE_TRACE_MAX_BYTES, LOG_LEVELS["TRACE"],
-        ),
-        sse=SseObservabilityPorts(
-            os.environ, current_log_level, _truncate_for_dump, router_log,
-        ),
+        preview=RouterPreviewPorts(os.environ, load_config, positive_int, latest_user_text, redact_sensitive_text),
+        request_config=RequestTraceConfiguration(REQUEST_DUMP_PATH, RESPONSE_DUMP_PATH, REQUEST_DUMP_MAX_BYTES, RESPONSE_DUMP_MAX_BYTES,
+                                                 RESPONSE_DUMP_TEXT_LIMIT, LOG_LEVELS["TRACE"]),
+        request=RouterRequestTracePorts(current_log_level, anthropic_content_to_text, anthropic_thinking_block_count,
+                                        anthropic_tool_continuation_block_count, router_log, USAGE_EVENT_SINK.record, EVENT_BUS.publish),
+        sse_config=SseTraceConfiguration(CONFIG_DIR, SSE_LAST_PATH, SSE_TRACE_PATH, TOOL_CALL_LOG_PATH, SSE_TRACE_EVENT_LIMIT,
+                                         SSE_TRACE_PAYLOAD_LIMIT, SSE_TRACE_MAX_BYTES, LOG_LEVELS["TRACE"]),
+        sse=SseObservabilityPorts(os.environ, current_log_level, _truncate_for_dump, router_log),
     )
 
 _ROUTER_OBSERVABILITY_API = RouterObservabilityCompatibilityApi(router_observability_context)
@@ -1340,28 +1317,12 @@ def tool_exposure_policy() -> ToolExposurePolicy: return ToolExposurePolicy(Tool
 
 def provider_model_metadata_context() -> ProviderModelMetadataContext:
     return ProviderModelMetadataContext(
-        capabilities=ModelCapabilityPorts(
-            anthropic_model_policy.normalize_capabilities,
-            current_upstream_model_id,
-            strip_claude_context_suffix,
-            is_kimi_k3_model_id,
-            parse_bool,
-        ),
-        recommendations=ModelRegistryRecommendationPorts(
-            unique_model_ids, llm_preset_timeout_ms, timeout_profile_idle_ms,
-        ),
-        headers=ModelCatalogHeaderPorts(
-            provider_api_key_count,
-            read_env_file,
-            os.environ,
-            with_upstream_user_agent,
-            provider_primary_api_key,
-            lambda key: meaningful_key(
-                str(key) if key is not None else None
-            ),
-            configured_provider_adapter,
-            provider_contract_config,
-        ),
+        capabilities=ModelCapabilityPorts(anthropic_model_policy.normalize_capabilities, current_upstream_model_id, strip_claude_context_suffix,
+                                           is_kimi_k3_model_id, parse_bool),
+        recommendations=ModelRegistryRecommendationPorts(unique_model_ids, llm_preset_timeout_ms, timeout_profile_idle_ms),
+        headers=ModelCatalogHeaderPorts(provider_api_key_count, read_env_file, os.environ, with_upstream_user_agent, provider_primary_api_key,
+                                        lambda key: meaningful_key(str(key) if key is not None else None), configured_provider_adapter,
+                                        provider_contract_config),
         nvidia_env=NCP_ENV,
     )
 
@@ -1748,33 +1709,11 @@ fireworks_native_compat_enabled = _PROVIDER_NATIVE_COMPATIBILITY.fireworks
 
 def provider_model_selection() -> ProviderModelSelection:
     return ProviderModelSelection(
-        ModelIdentityPorts(
-            normalize=normalize_model_id,
-            model_map=model_map_for,
-            unslug=unslug_provider_alias,
-            api_model_id=upstream_api_model_id,
-            strip_context_suffix=strip_claude_context_suffix,
-            alias=alias_for,
-        ),
-        ModelSelectionPorts(
-            adapter=configured_provider_adapter,
-            contract=provider_contract_config,
-            placeholders=lambda provider: set(
-                PROVIDER_ADAPTERS.create(provider).placeholder_model_ids()
-            ),
-            upstream_ids=upstream_model_ids,
-            unique_ids=unique_model_ids,
-            apply_specs=apply_current_model_specs_to_provider,
-            apply_timeout=apply_recommended_timeout_for_model_context,
-        ),
-        ModelCatalogPorts(
-            model_object=model_object,
-            headers=provider_headers,
-            fetch_anthropic=fetch_anthropic_api_model_ids,
-            sorted_ids=sorted_model_ids,
-            routed_anthropic=anthropic_routed_enabled,
-            log=router_log,
-        ),
+        ModelIdentityPorts(normalize_model_id, model_map_for, unslug_provider_alias, upstream_api_model_id, strip_claude_context_suffix, alias_for),
+        ModelSelectionPorts(configured_provider_adapter, provider_contract_config,
+                            lambda provider: set(PROVIDER_ADAPTERS.create(provider).placeholder_model_ids()), upstream_model_ids, unique_model_ids,
+                            apply_current_model_specs_to_provider, apply_recommended_timeout_for_model_context),
+        ModelCatalogPorts(model_object, provider_headers, fetch_anthropic_api_model_ids, sorted_model_ids, anthropic_routed_enabled, router_log),
     )
 
 _PROVIDER_MODEL_SELECTION_API = ProviderModelSelectionApi(provider_model_selection)
