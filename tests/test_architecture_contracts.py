@@ -4,6 +4,8 @@ import unittest
 from dataclasses import fields
 from pathlib import Path
 
+from ciel_runtime_support import claude_launch_assembly
+
 from ciel_runtime_support.architecture import (
     LaunchSpec,
     ModelInfo,
@@ -1371,6 +1373,16 @@ class ArchitectureContractTests(unittest.TestCase):
             ClaudeLaunchChannelDiscovery,
             ClaudeLaunchChannelDelivery,
             ClaudeLaunchMcpConfig,
+            claude_launch_assembly.ClaudeLaunchAssembly,
+            claude_launch_assembly.ClaudeLaunchConfigPorts,
+            claude_launch_assembly.ClaudeLaunchDeliveryPorts,
+            claude_launch_assembly.ClaudeLaunchDiscoveryPorts,
+            claude_launch_assembly.ClaudeLaunchDispatchPorts,
+            claude_launch_assembly.ClaudeLaunchInstallationPorts,
+            claude_launch_assembly.ClaudeLaunchMcpConfigPorts,
+            claude_launch_assembly.ClaudeLaunchPolicyPorts,
+            claude_launch_assembly.ClaudeLaunchProcessPorts,
+            claude_launch_assembly.ClaudeLaunchRoutingPorts,
         )
 
         for port in ports:
@@ -1381,6 +1393,10 @@ class ArchitectureContractTests(unittest.TestCase):
             "ciel_runtime_support.runtime_launch",
             build_default_claude_launch_constants.__module__,
         )
+        source = (
+            Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("return runtime_launch.ClaudeLaunchServices(", source)
 
     def test_claude_router_ports_stay_below_dependency_limit(self):
         for port in (

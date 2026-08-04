@@ -1338,6 +1338,7 @@ from ciel_runtime_support.runtime_activity_repository import (
     RuntimeActivityRepository,
 )
 from ciel_runtime_support import runtime_launch
+from ciel_runtime_support import claude_launch_assembly
 from ciel_runtime_support.codex_launch_assembly import (
     CodexAppServerLaunchPorts,
     CodexCliLaunchPorts,
@@ -9253,103 +9254,66 @@ verify_sha512 = AgyInstaller.verify_sha512
 run_quiet_upgrade_and_exit = _RUNTIME_MAINTENANCE_API.run_quiet_upgrade_and_exit
 
 def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
-    return runtime_launch.ClaudeLaunchServices(
-            constants=runtime_launch.build_default_claude_launch_constants(),
-            process=runtime_launch.ClaudeLaunchProcess(
-                _log_claude_command_for_diagnostics=_log_claude_command_for_diagnostics,
-                _subprocess_call_capturing_stderr=_subprocess_call_capturing_stderr,
-                env_bool=env_bool,
-                env_vars=env_vars,
-                file_size_or_zero=file_size_or_zero,
-                path_with_ciel_runtime_user_dirs=path_with_ciel_runtime_user_dirs,
-                print_routed_claude_exit_diagnostics=print_routed_claude_exit_diagnostics,
-                subprocess_call_with_channel_wake_proxy=subprocess_call_with_channel_wake_proxy,
-            ),
-            installation=runtime_launch.ClaudeLaunchInstallation(
-                find_executable=find_executable,
-                install_ciel_runtime_slash_commands=install_ciel_runtime_slash_commands,
-                install_ciel_runtime_statusline=install_ciel_runtime_statusline,
-                install_claude_code_if_missing=install_claude_code_if_missing,
-                install_tool_guard_hooks=install_tool_guard_hooks,
-                disable_ciel_runtime_slash_commands_for_native=disable_ciel_runtime_slash_commands_for_native,
-                launch_readiness_errors=launch_readiness_errors,
-                warn_if_multiple_ciel_runtime_installs=warn_if_multiple_ciel_runtime_installs,
-            ),
-            dispatch=runtime_launch.ClaudeLaunchDispatch(
-                launch_agy=launch_agy,
-                launch_codex=launch_codex,
-                launch_codex_app_server=launch_codex_app_server,
-                materialize_runtime_command=materialize_runtime_command,
-                run_ciel_runtime_update_check=run_ciel_runtime_update_check,
-                run_claude_update_check=run_claude_update_check,
-                run_prelaunch_menu=run_prelaunch_menu,
-                claude_launch_enabled_for_provider=claude_launch_enabled_for_provider,
-            ),
-            config=runtime_launch.ClaudeLaunchConfig(
-                load_config=load_config,
-                save_config=save_config,
-                get_current_provider=get_current_provider,
-                ensure_current_model_from_provider_list=ensure_current_model_from_provider_list,
-                ensure_model_cache_for_launch=ensure_model_cache_for_launch,
-                apply_launch_endpoint_policy=apply_launch_endpoint_policy,
-                provider_menu_label=provider_menu_label,
-                launch_mode_name=launch_mode_name,
-                current_launch_cwd_key=current_launch_cwd_key,
-            ),
-            routing=runtime_launch.ClaudeLaunchRouting(
-                anthropic_routed_enabled=anthropic_routed_enabled,
-                direct_native_anthropic_enabled=direct_native_anthropic_enabled,
-                cleanup_managed_services_for_provider=cleanup_managed_services_for_provider,
-                ensure_managed_router_running_for_client=ensure_managed_router_running_for_client,
-                reset_zai_mcp_config_if_inactive=reset_zai_mcp_config_if_inactive,
-                router_health_summary=router_health_summary,
-                router_log=router_log,
-                start_router_if_needed=start_router_if_needed,
-                run_with_router_lifetime=run_with_router_lifetime,
-                record_launch_state_for_cwd=record_launch_state_for_cwd,
-            ),
-            policy=runtime_launch.ClaudeLaunchPolicy(
-                append_claude_code_runtime_settings_args=append_claude_code_runtime_settings_args,
-                claude_supports_permission_mode_arg=claude_supports_permission_mode_arg,
-                has_noninteractive_claude_args=has_noninteractive_claude_args,
-                has_passthrough_option=has_passthrough_option,
-                should_append_compat_prompt=should_append_compat_prompt,
-                should_attach_web_search=should_attach_web_search,
-                should_disallow_claude_server_side_web_tools=should_disallow_claude_server_side_web_tools,
-                should_fork_native_session_after_mode_switch=should_fork_native_session_after_mode_switch,
-                should_insert_passthrough_option_boundary=should_insert_passthrough_option_boundary,
-                strip_mcp_config_passthrough=strip_mcp_config_passthrough,
-            ),
-            channel_discovery=runtime_launch.ClaudeLaunchChannelDiscovery(
-                auto_import_passthrough_channels=auto_import_passthrough_channels,
-                cached_channel_capable_server_names=cached_channel_capable_server_names,
-                cached_channel_source_paths_for_specs=cached_channel_source_paths_for_specs,
-                channel_candidate_server_names_for_launch=channel_candidate_server_names_for_launch,
-                channel_specs_for_launch=channel_specs_for_launch,
-                claude_channels_requested=claude_channels_requested,
-                claude_code_channels_auth_available=claude_code_channels_auth_available,
-                ensure_channel_probe_cache_for_launch=ensure_channel_probe_cache_for_launch,
-                external_mcp_channel_server_names_from_configs=external_mcp_channel_server_names_from_configs,
-                read_channel_probe_cache=read_channel_probe_cache,
-            ),
-            channel_delivery=runtime_launch.ClaudeLaunchChannelDelivery(
-                auto_start_sse_channels_from_mcp_configs=auto_start_sse_channels_from_mcp_configs,
-                claude_channel_args=claude_channel_args,
-                native_channel_passthrough_requested=native_channel_passthrough_requested,
-                normalize_channel_passthrough=normalize_channel_passthrough,
-                should_launch_process_start_channel_sse=should_launch_process_start_channel_sse,
-                should_use_channel_llm_delivery=should_use_channel_llm_delivery,
-                should_use_channel_stdin_proxy=should_use_channel_stdin_proxy,
-                should_use_native_channel_bridge=should_use_native_channel_bridge,
-                write_channel_mcp_config=write_channel_mcp_config,
-            ),
-            mcp_config=runtime_launch.ClaudeLaunchMcpConfig(
-                write_duckduckgo_mcp_config=write_duckduckgo_mcp_config,
-                write_mcp_proxy_config=write_mcp_proxy_config,
-                write_native_mcp_config_from_discovery=write_native_mcp_config_from_discovery,
-                write_zai_mcp_config=write_zai_mcp_config,
-            ),
-    )
+    assembly = claude_launch_assembly
+    return assembly.ClaudeLaunchAssembly(
+        process=assembly.ClaudeLaunchProcessPorts(
+            _log_claude_command_for_diagnostics, _subprocess_call_capturing_stderr,
+            env_bool, env_vars, file_size_or_zero, path_with_ciel_runtime_user_dirs,
+            print_routed_claude_exit_diagnostics, subprocess_call_with_channel_wake_proxy,
+        ),
+        installation=assembly.ClaudeLaunchInstallationPorts(
+            find_executable, install_ciel_runtime_slash_commands,
+            install_ciel_runtime_statusline, install_claude_code_if_missing,
+            install_tool_guard_hooks, disable_ciel_runtime_slash_commands_for_native,
+            launch_readiness_errors, warn_if_multiple_ciel_runtime_installs,
+        ),
+        dispatch=assembly.ClaudeLaunchDispatchPorts(
+            launch_agy, launch_codex, launch_codex_app_server,
+            materialize_runtime_command, run_ciel_runtime_update_check,
+            run_claude_update_check, run_prelaunch_menu,
+            claude_launch_enabled_for_provider,
+        ),
+        config=assembly.ClaudeLaunchConfigPorts(
+            load_config, save_config, get_current_provider,
+            ensure_current_model_from_provider_list, ensure_model_cache_for_launch,
+            apply_launch_endpoint_policy, provider_menu_label, launch_mode_name,
+            current_launch_cwd_key,
+        ),
+        routing=assembly.ClaudeLaunchRoutingPorts(
+            anthropic_routed_enabled, direct_native_anthropic_enabled,
+            cleanup_managed_services_for_provider,
+            ensure_managed_router_running_for_client, reset_zai_mcp_config_if_inactive,
+            router_health_summary, router_log, start_router_if_needed,
+            run_with_router_lifetime, record_launch_state_for_cwd,
+        ),
+        policy=assembly.ClaudeLaunchPolicyPorts(
+            append_claude_code_runtime_settings_args,
+            claude_supports_permission_mode_arg, has_noninteractive_claude_args,
+            has_passthrough_option, should_append_compat_prompt,
+            should_attach_web_search, should_disallow_claude_server_side_web_tools,
+            should_fork_native_session_after_mode_switch,
+            should_insert_passthrough_option_boundary, strip_mcp_config_passthrough,
+        ),
+        discovery=assembly.ClaudeLaunchDiscoveryPorts(
+            auto_import_passthrough_channels, cached_channel_capable_server_names,
+            cached_channel_source_paths_for_specs,
+            channel_candidate_server_names_for_launch, channel_specs_for_launch,
+            claude_channels_requested, claude_code_channels_auth_available,
+            ensure_channel_probe_cache_for_launch,
+            external_mcp_channel_server_names_from_configs, read_channel_probe_cache,
+        ),
+        delivery=assembly.ClaudeLaunchDeliveryPorts(
+            auto_start_sse_channels_from_mcp_configs, claude_channel_args,
+            native_channel_passthrough_requested, normalize_channel_passthrough,
+            should_launch_process_start_channel_sse, should_use_channel_llm_delivery,
+            should_use_channel_stdin_proxy, should_use_native_channel_bridge,
+            write_channel_mcp_config,
+        ),
+        mcp_config=assembly.ClaudeLaunchMcpConfigPorts(
+            write_duckduckgo_mcp_config, write_mcp_proxy_config,
+            write_native_mcp_config_from_discovery, write_zai_mcp_config,
+        ),
+    ).services()
 
 CODEX_ROUTED_UPSTREAM_BASE = "https://chatgpt.com/backend-api/codex"
 
