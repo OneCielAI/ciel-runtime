@@ -1324,6 +1324,12 @@ from ciel_runtime_support.sse_trace import (
     summarize_payload as summarize_sse_payload,
 )
 from ciel_runtime_support import runtime_launch
+from ciel_runtime_support.runtime_launch_context import (
+    RuntimeLaunchCompatibilityApi,
+    RuntimeLaunchContext,
+    RuntimeLaunchRunners,
+    RuntimeLaunchServiceFactories,
+)
 from ciel_runtime_support.response_stream_context import (
     ResponseStreamAlgorithms,
     ResponseStreamCompatibilityApi,
@@ -9385,19 +9391,8 @@ verify_sha512 = AgyInstaller.verify_sha512
 
 run_quiet_upgrade_and_exit = _RUNTIME_MAINTENANCE_API.run_quiet_upgrade_and_exit
 
-def launch_claude(
-    passthrough: list[str],
-    skip_menu: bool = False,
-    force_menu: bool = False,
-    web_search_override: bool | None = None,
-    update_check: bool = True,
-    self_update_check: bool = True,
-) -> int:
-    return runtime_launch.run_claude(
-        passthrough, skip_menu=skip_menu, force_menu=force_menu,
-        web_search_override=web_search_override, update_check=update_check,
-        self_update_check=self_update_check,
-        services=runtime_launch.ClaudeLaunchServices(
+def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
+    return runtime_launch.ClaudeLaunchServices(
             constants=runtime_launch.build_default_claude_launch_constants(),
             process=runtime_launch.ClaudeLaunchProcess(
                 _log_claude_command_for_diagnostics=_log_claude_command_for_diagnostics,
@@ -9493,7 +9488,6 @@ def launch_claude(
                 write_native_mcp_config_from_discovery=write_native_mcp_config_from_discovery,
                 write_zai_mcp_config=write_zai_mcp_config,
             ),
-        ),
     )
 
 CODEX_ROUTED_UPSTREAM_BASE = "https://chatgpt.com/backend-api/codex"
@@ -9636,17 +9630,8 @@ codex_local_resume_sessions = _CODEX_SESSION_SELECTION.local_resume_sessions
 codex_resume_session_row = _CODEX_SESSION_SELECTION.resume_session_row
 select_codex_resume_session = _CODEX_SESSION_SELECTION.select_resume_session
 
-def launch_codex(
-    passthrough: list[str],
-    skip_menu: bool = False,
-    force_menu: bool = False,
-    update_check: bool = True,
-    self_update_check: bool = True,
-) -> int:
-    return runtime_launch.run_codex(
-        passthrough, skip_menu=skip_menu, force_menu=force_menu,
-        update_check=update_check, self_update_check=self_update_check,
-        services=runtime_launch.CodexLaunchServices(
+def codex_launch_services() -> runtime_launch.CodexLaunchServices:
+    return runtime_launch.CodexLaunchServices(
             constants=runtime_launch.build_default_codex_launch_constants(),
             process=runtime_launch.CodexLaunchProcess(
                 _channel_wake_enter_env_is_fixed=_channel_wake_enter_env_is_fixed,
@@ -9721,7 +9706,6 @@ def launch_codex(
                 start_codex_mcp_channel_sse_for_launch=start_codex_mcp_channel_sse_for_launch,
                 write_codex_mcp_config_for_channel_discovery=write_codex_mcp_config_for_channel_discovery,
             ),
-        ),
     )
 
 def codex_app_server_default_listen_url() -> str:
@@ -9734,17 +9718,8 @@ def codex_app_server_default_listen_url() -> str:
 def _log_codex_app_server_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> None:
     launch_command_diagnostics().codex_app_server(cmd, env)
 
-def launch_codex_app_server(
-    passthrough: list[str],
-    skip_menu: bool = True,
-    force_menu: bool = False,
-    update_check: bool = True,
-    self_update_check: bool = True,
-) -> int:
-    return runtime_launch.run_codex_app_server(
-        passthrough, skip_menu=skip_menu, force_menu=force_menu,
-        update_check=update_check, self_update_check=self_update_check,
-        services=runtime_launch.CodexAppServerLaunchServices(
+def codex_app_server_launch_services() -> runtime_launch.CodexAppServerLaunchServices:
+    return runtime_launch.CodexAppServerLaunchServices(
             constants=runtime_launch.build_default_codex_launch_constants(),
             process=runtime_launch.CodexAppServerProcess(
                 _log_codex_app_server_command_for_diagnostics=_log_codex_app_server_command_for_diagnostics,
@@ -9806,7 +9781,6 @@ def launch_codex_app_server(
                 start_codex_mcp_channel_sse_for_launch=start_codex_mcp_channel_sse_for_launch,
                 write_codex_mcp_config_for_channel_discovery=write_codex_mcp_config_for_channel_discovery,
             ),
-        ),
     )
 
 def agy_help_requested(passthrough: list[str]) -> bool:
@@ -9822,17 +9796,8 @@ def log_agy_passthrough_mapping(notes: list[str]) -> None:
 def _log_agy_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> None:
     launch_command_diagnostics().agy(cmd, env)
 
-def launch_agy(
-    passthrough: list[str],
-    skip_menu: bool = False,
-    force_menu: bool = False,
-    update_check: bool = True,
-    self_update_check: bool = True,
-) -> int:
-    return runtime_launch.run_agy(
-        passthrough, skip_menu=skip_menu, force_menu=force_menu,
-        update_check=update_check, self_update_check=self_update_check,
-        services=runtime_launch.AgyLaunchServices(
+def agy_launch_services() -> runtime_launch.AgyLaunchServices:
+    return runtime_launch.AgyLaunchServices(
             constants=runtime_launch.build_default_agy_launch_constants(),
             process=runtime_launch.AgyLaunchProcess(
                 _codex_channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds,
@@ -9882,8 +9847,29 @@ def launch_agy(
                 run_with_router_lifetime=run_with_router_lifetime,
                 start_router_if_needed=start_router_if_needed,
             ),
+    )
+
+def runtime_launch_context() -> RuntimeLaunchContext:
+    return RuntimeLaunchContext(
+        runners=RuntimeLaunchRunners(
+            claude=runtime_launch.run_claude,
+            codex=runtime_launch.run_codex,
+            codex_app_server=runtime_launch.run_codex_app_server,
+            agy=runtime_launch.run_agy,
+        ),
+        services=RuntimeLaunchServiceFactories(
+            claude=claude_launch_services,
+            codex=codex_launch_services,
+            codex_app_server=codex_app_server_launch_services,
+            agy=agy_launch_services,
         ),
     )
+
+_RUNTIME_LAUNCH_API = RuntimeLaunchCompatibilityApi(runtime_launch_context)
+launch_claude = _RUNTIME_LAUNCH_API.launch_claude
+launch_codex = _RUNTIME_LAUNCH_API.launch_codex
+launch_codex_app_server = _RUNTIME_LAUNCH_API.launch_codex_app_server
+launch_agy = _RUNTIME_LAUNCH_API.launch_agy
 
 CLAUDE_CODE_STDERR_LOG = CONFIG_DIR / "claude-code-stderr.log"
 

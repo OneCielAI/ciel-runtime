@@ -934,6 +934,11 @@ from ciel_runtime_support.runtime_launch import (
     CodexAppServerProcess,
     CodexAppServerRouting,
 )
+from ciel_runtime_support.runtime_launch_context import (
+    RuntimeLaunchContext,
+    RuntimeLaunchRunners,
+    RuntimeLaunchServiceFactories,
+)
 from ciel_runtime_support.runtime_command_factory import RuntimeCommandFactory, RuntimeCommandFactoryPorts
 from ciel_runtime_support.router_http import (
     RouterHttpCore,
@@ -1466,6 +1471,26 @@ class ArchitectureContractTests(unittest.TestCase):
             "ciel_runtime_support.runtime_launch",
             build_default_codex_launch_constants.__module__,
         )
+
+    def test_runtime_launch_context_owns_public_launch_dispatch(self):
+        for port in (
+            RuntimeLaunchRunners,
+            RuntimeLaunchServiceFactories,
+            RuntimeLaunchContext,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (
+            Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        ).read_text(encoding="utf-8")
+        for function_name in (
+            "launch_claude",
+            "launch_codex",
+            "launch_codex_app_server",
+            "launch_agy",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
 
     def test_codex_app_server_ports_stay_below_dependency_limit(self):
         ports = (
@@ -5627,10 +5652,6 @@ class ArchitectureContractTests(unittest.TestCase):
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "portable_prelaunch_menu": "execute_prelaunch_menu",
-            "launch_claude": "run_claude",
-            "launch_codex": "run_codex",
-            "launch_codex_app_server": "run_codex_app_server",
-            "launch_agy": "run_agy",
             "upstream_model_ids": "fetch_upstream_model_ids",
         }
         functions = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
