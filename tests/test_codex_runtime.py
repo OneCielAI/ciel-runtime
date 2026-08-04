@@ -1325,6 +1325,48 @@ args = ["server.py"]
             self.assertEqual("http", data["mcpServers"]["ai-net"]["type"])
             self.assertEqual("AINET_API_KEY", data["mcpServers"]["ai-net"]["bearer_token_env_var"])
 
+    def test_codex_mcp_config_writer_preserves_codex_http_headers_for_channel_worker(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            codex_home = root / ".codex"
+            codex_home.mkdir()
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.ai-net]
+url = "http://example.test/mcp"
+
+[mcp_servers.ai-net.http_headers]
+Authorization = "Bearer session-token"
+X-Tenant = "samuel"
+""",
+                encoding="utf-8",
+            )
+            generated = root / "codex-mcp.json"
+
+            with (
+                mock.patch.object(ciel_runtime, "CONFIG_DIR", root),
+                mock.patch.object(ciel_runtime, "CODEX_MCP_CONFIG", generated),
+            ):
+                written = ciel_runtime.write_codex_mcp_config_for_channel_discovery(
+                    [],
+                    env={"CODEX_HOME": str(codex_home)},
+                    cwd=root,
+                )
+
+            self.assertEqual(generated, written)
+            server = json.loads(generated.read_text(encoding="utf-8"))["mcpServers"]["ai-net"]
+            self.assertEqual(
+                {"Authorization": "Bearer session-token", "X-Tenant": "samuel"},
+                server["headers"],
+            )
+            self.assertNotIn("http_headers", server)
+            discovered = ciel_runtime._read_mcp_sse_servers_from_json(
+                generated,
+                root,
+            )
+            self.assertEqual(1, len(discovered))
+            self.assertEqual(server["headers"], discovered[0]["headers"])
+
     def test_codex_mcp_restore_unwraps_managed_proxy_without_restoring_internal_channel(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

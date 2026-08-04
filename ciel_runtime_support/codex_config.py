@@ -146,8 +146,20 @@ def normalize_codex_mcp_server(
     out: dict[str, Any] = {"type": server_type, "url": url}
     if explicit_type:
         out["_ciel_runtime_explicit_type"] = True
+    headers: dict[str, Any] = {}
+    raw_headers = raw_server.get("headers")
+    if isinstance(raw_headers, dict):
+        headers.update(raw_headers)
+    codex_http_headers = raw_server.get("http_headers")
+    if isinstance(codex_http_headers, dict):
+        headers.update(codex_http_headers)
+    if headers:
+        # Codex names literal HTTP headers ``http_headers`` while the shared
+        # MCP discovery/transport contract uses ``headers``.  Normalize the
+        # spelling here so the independently owned notification worker keeps
+        # the same authentication as Codex's native MCP client.
+        out["headers"] = headers
     for key in (
-        "headers",
         "env_http_headers",
         "bearer_token_env_var",
         "token_env_var",
