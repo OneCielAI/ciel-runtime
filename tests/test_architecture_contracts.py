@@ -4,7 +4,7 @@ import unittest
 from dataclasses import fields
 from pathlib import Path
 
-from ciel_runtime_support import claude_launch_assembly
+from ciel_runtime_support import claude_launch_assembly, router_request_assembly
 
 from ciel_runtime_support.architecture import (
     LaunchSpec,
@@ -1680,6 +1680,24 @@ class ArchitectureContractTests(unittest.TestCase):
             RouterRequestContext,
             RouterHealthPresentationPorts,
             RouterServerContext,
+            router_request_assembly.ClaudeRouterAssembly,
+            router_request_assembly.ClaudeRouterCorePorts,
+            router_request_assembly.ClaudeRouterCountPorts,
+            router_request_assembly.ClaudeRouterDeliveryPorts,
+            router_request_assembly.ClaudeRouterNormalizationPorts,
+            router_request_assembly.ClaudeRouterPipelinePorts,
+            router_request_assembly.ClaudeRouterResponsePorts,
+            router_request_assembly.ClaudeRouterRoutingPorts,
+            router_request_assembly.ClaudeRouterShortcutPorts,
+            router_request_assembly.ClaudeRouterTransportPorts,
+            router_request_assembly.OpenAIResponseAssembly,
+            router_request_assembly.OpenAIResponseConversionPorts,
+            router_request_assembly.OpenAIResponseCorePorts,
+            router_request_assembly.OpenAIResponseDeliveryPorts,
+            router_request_assembly.OpenAIResponseOutputPorts,
+            router_request_assembly.OpenAIResponseRoutingPorts,
+            router_request_assembly.RouterRequestAssembly,
+            router_request_assembly.RouterRequestOuterPorts,
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
@@ -1701,6 +1719,8 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(function=function_name):
                 self.assertNotIn(f"def {function_name}(", source)
+        self.assertNotIn("openai_responses_router.OpenAIResponsesServices(", source)
+        self.assertNotIn("claude_router.ClaudeRouterServices(", source)
 
     def test_router_http_adapter_has_no_silent_exception_handlers(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "router_http.py"
@@ -5702,7 +5722,9 @@ class ArchitectureContractTests(unittest.TestCase):
         tree = ast.parse(source)
         self.assertIn("from ciel_runtime_support import runtime_launch", source)
         self.assertIn("from ciel_runtime_support import prelaunch", source)
-        self.assertIn("from ciel_runtime_support import claude_router", source)
+        self.assertIn(
+            "from ciel_runtime_support import router_request_assembly", source
+        )
         self.assertIn("from ciel_runtime_support import cli_dispatch", source)
         self.assertIn("from ciel_runtime_support import cli_parser", source)
         self.assertIn(
@@ -5723,10 +5745,6 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIn(
             "from ciel_runtime_support import codex_mcp_integration", source
         )
-        self.assertIn(
-            "from ciel_runtime_support import openai_responses_router", source
-        )
-
         self.assertIn(
             "from ciel_runtime_support import provider_catalog_sources", source
         )
