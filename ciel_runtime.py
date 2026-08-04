@@ -79,7 +79,14 @@ from ciel_runtime_support.agy_installer import AgyInstaller, AgyInstallerPorts
 from ciel_runtime_support.agy_mcp_restore import AgyMcpRestorePorts, AgyMcpRestoreService
 from ciel_runtime_support import claude_router
 from ciel_runtime_support import kimi_identity
-from ciel_runtime_support import channel_injection
+from ciel_runtime_support.kimi_runtime_context import (
+    KimiConfigurationPorts,
+    KimiIdentityPorts,
+    KimiLifecyclePorts,
+    KimiProcessPorts,
+    KimiRuntimeCompatibilityApi,
+    KimiRuntimeContext,
+)
 from ciel_runtime_support.chat_files import ChatFilePorts, ChatFileRepository
 from ciel_runtime_support.chat_http_controller import (
     ChatHttpController,
@@ -118,11 +125,6 @@ from ciel_runtime_support.channel_cli import (
 from ciel_runtime_support.channel_compact_request_repository import (
     ChannelCompactRequestRepository,
     compact_request_ttl,
-)
-from ciel_runtime_support.channel_compact_injection import (
-    ChannelCompactInjectionService,
-    ChannelCompactRequestPorts,
-    ChannelCompactRuntimePorts,
 )
 from ciel_runtime_support.command_asset_installer import (
     CommandAsset,
@@ -177,13 +179,7 @@ from ciel_runtime_support.channel_mcp_transport import (
     ChannelMcpTransportState,
 )
 from ciel_runtime_support.channel_pending_injection import (
-    ChannelInjectionIO,
-    ChannelInjectionPolicy,
-    ChannelInjectionPrompts,
     ChannelInjectionServices,
-    ChannelInjectionState,
-    ChannelInjectionWakeStore,
-    inject_pending_channel_messages as run_pending_channel_injection,
 )
 from ciel_runtime_support.channel_terminal_proxy import (
     ChannelTerminalIO,
@@ -204,7 +200,6 @@ from ciel_runtime_support.channel_terminal_dispatch import (
 )
 from ciel_runtime_support.channel_transcript import (
     ChannelWakeStateReader,
-    ChannelWakeStateReaderPorts,
     ChannelWakeTranscriptServices,
     active_tool_call_from_text as _channel_stdin_active_tool_call_from_text,
     active_turn_from_text as _channel_stdin_active_turn_from_text,
@@ -268,8 +263,6 @@ from ciel_runtime_support.channel_cursor_service import (
     parse_channel_event_id,
 )
 from ciel_runtime_support.channel_cursor_recovery import (
-    ChannelCursorRecoveryPolicy,
-    ChannelCursorRecoveryPorts,
     ChannelCursorRecoveryService,
 )
 from ciel_runtime_support.channel_delivery_context import (
@@ -280,6 +273,18 @@ from ciel_runtime_support.channel_delivery_context import (
     ChannelLlmCursorPorts,
     ChannelToolContextFactoryPorts,
 )
+from ciel_runtime_support.channel_wake_context import (
+    ChannelPendingDeliveryPorts,
+    ChannelPendingIoPorts,
+    ChannelPendingStatePorts,
+    ChannelTranscriptPolicyPorts,
+    ChannelTranscriptPorts,
+    ChannelWakeClaimPorts,
+    ChannelWakeContext,
+    ChannelWakeCursorPorts,
+    ChannelWakeInputPorts,
+    ChannelWakeMessagePorts,
+)
 from ciel_runtime_support.channel_wake_claim_repository import (
     ChannelWakeClaimRepository,
     prompt_message_ids as _channel_prompt_message_ids,
@@ -289,7 +294,6 @@ from ciel_runtime_support.channel_wake_delivery_repository import (
     ChannelWakeDeliveryRepository,
 )
 from ciel_runtime_support.channel_terminal_input import (
-    TmuxPaneSnapshot,
     TerminalMouseInputFilter as _TerminalMouseInputFilter,
     enter_bytes_from_user_input as _channel_enter_bytes_from_user_input,  # noqa: F401 - compatibility export
     enter_label as _channel_enter_label,
@@ -9001,86 +9005,36 @@ def self_cmd(args: list[str]) -> tuple[int, str]:
     )
     return p.returncode, p.stdout
 
-def kimi_code_home() -> Path:
-    return kimi_identity.code_home(HOME)
+def kimi_runtime_context() -> KimiRuntimeContext:
+    return KimiRuntimeContext(
+        identity=KimiIdentityPorts(
+            HOME, kimi_identity.code_home, kimi_identity.oauth_token_record,
+            kimi_identity.oauth_access_token, kimi_identity.oauth_configured,
+        ),
+        process=KimiProcessPorts(
+            find_executable, subprocess.run, subprocess.call, print,
+            os.environ, path_with_ciel_runtime_user_dirs,
+        ),
+        config=KimiConfigurationPorts(
+            load_config, get_current_provider, provider_has_api_key,
+            current_alias, positive_int, clear_api_key_config, ROUTER_BASE,
+        ),
+        lifecycle=KimiLifecyclePorts(
+            lambda: install_kimi_code_if_missing(),
+            lambda: kimi_oauth_configured(), lambda: run_kimi_oauth_login(),
+            start_router_if_needed, run_with_router_lifetime,
+        ),
+    )
 
-def kimi_oauth_token_record() -> dict[str, Any] | None:
-    return kimi_identity.oauth_token_record(HOME)
-
-def kimi_oauth_access_token() -> str | None:
-    return kimi_identity.oauth_access_token(HOME)
-
-def kimi_oauth_configured() -> bool:
-    return kimi_identity.oauth_configured(HOME)
-
-def install_kimi_code_if_missing() -> str:
-    executable = find_executable("kimi")
-    if executable:
-        return executable
-    npm = find_executable("npm")
-    if not npm:
-        raise RuntimeError("Kimi Code CLI is missing; install @moonshot-ai/kimi-code (Node.js 22.19+).")
-    print("Installing official Kimi Code CLI (@moonshot-ai/kimi-code)...", flush=True)
-    result = subprocess.run([npm, "install", "-g", "@moonshot-ai/kimi-code"], check=False)
-    if result.returncode:
-        raise RuntimeError(f"Kimi Code CLI installation failed (exit {result.returncode}).")
-    executable = find_executable("kimi")
-    if not executable:
-        raise RuntimeError("Kimi Code CLI installed but 'kimi' is not available on PATH.")
-    return executable
-
-def run_kimi_oauth_login() -> int:
-    """Use the official RFC 8628 flow and official credential storage."""
-    return subprocess.call([install_kimi_code_if_missing(), "login"])
-
-def run_kimi_oauth_action(action: str) -> list[str]:
-    if action != "login":
-        return [f"Unsupported Kimi OAuth action: {action}"]
-    try:
-        code = run_kimi_oauth_login()
-    except Exception as exc:
-        return [f"Kimi OAuth login failed: {type(exc).__name__}: {exc}"]
-    if code:
-        return [f"Kimi OAuth login exited with status {code}."]
-    if not kimi_oauth_configured():
-        return [
-            "Kimi OAuth login exited successfully, but no usable credential was detected; "
-            "the existing Kimi API key was not cleared."
-        ]
-    messages = ["Kimi OAuth login completed in the official Kimi Code credential store."]
-    messages.extend(clear_api_key_config("kimi"))
-    return messages
-
-def launch_kimi(passthrough: list[str]) -> int:
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    if provider != "kimi":
-        print("Launch Kimi Code requires Kimi Native or Kimi Routed provider.", flush=True)
-        return 2
-    executable = install_kimi_code_if_missing()
-    routed = bool(pcfg.get("route_through_router"))
-    env = os.environ.copy()
-    env["PATH"] = path_with_ciel_runtime_user_dirs(env)
-    if not routed:
-        if not kimi_oauth_configured():
-            print("Kimi Code OAuth login is required for first launch.", flush=True)
-            if subprocess.call([executable, "login"], env=env):
-                return 1
-        return subprocess.call([executable, *passthrough], env=env)
-    if not provider_has_api_key(provider, pcfg) and not kimi_oauth_configured():
-        print("Kimi Routed requires Kimi OAuth login or a Kimi API key.", flush=True)
-        if subprocess.call([executable, "login"], env=env):
-            return 1
-    manage_router = bool(start_router_if_needed())
-    env.update({
-        "KIMI_MODEL_NAME": current_alias(cfg) or str(pcfg.get("current_model") or "kimi-for-coding"),
-        "KIMI_MODEL_API_KEY": "ciel-runtime-router-local-key",
-        "KIMI_MODEL_PROVIDER_TYPE": "openai",
-        "KIMI_MODEL_BASE_URL": f"{ROUTER_BASE.rstrip('/')}/v1",
-        "KIMI_MODEL_MAX_CONTEXT_SIZE": str(positive_int(pcfg.get("context_window")) or 262144),
-        "KIMI_MODEL_THINKING_EFFORT": str(pcfg.get("effort_level") or "high"),
-    })
-    return run_with_router_lifetime(lambda: subprocess.call([executable, *passthrough], env=env), manage_router)
+_KIMI_RUNTIME_API = KimiRuntimeCompatibilityApi(kimi_runtime_context)
+kimi_code_home = _KIMI_RUNTIME_API.code_home
+kimi_oauth_token_record = _KIMI_RUNTIME_API.oauth_token_record
+kimi_oauth_access_token = _KIMI_RUNTIME_API.oauth_access_token
+kimi_oauth_configured = _KIMI_RUNTIME_API.oauth_configured
+install_kimi_code_if_missing = _KIMI_RUNTIME_API.install_if_missing
+run_kimi_oauth_login = _KIMI_RUNTIME_API.oauth_login
+run_kimi_oauth_action = _KIMI_RUNTIME_API.oauth_action
+launch_kimi = _KIMI_RUNTIME_API.launch
 
 enable_ansi = enable_terminal_ansi
 
@@ -9723,112 +9677,114 @@ commit_pending_channel_delivery_cursors = _CHANNEL_DELIVERY_API.commit_pending
 def _channel_stdin_wake_claim_ttl_seconds() -> float:
     return channel_runtime_environment_policy().wake_claim_ttl_seconds()
 
-def channel_wake_claim_repository() -> ChannelWakeClaimRepository:
-    return ChannelWakeClaimRepository(
-        path=CHANNEL_STDIN_WAKE_CLAIMS_PATH,
-        file_lock=_chat_messages_file_lock,
-        now=time.time,
-        ttl_seconds=_channel_stdin_wake_claim_ttl_seconds,
-        log=router_log,
-    )
-
-def _channel_stdin_wake_claim_prompt(message_id: int) -> str:
-    if message_id <= 0:
-        return ""
-    prompt = _CHANNEL_WAKE_DELIVERY_REPOSITORY.prompt(message_id)
-    if prompt:
-        return prompt
-    return channel_wake_claim_repository().prompt(message_id)
-
-def _channel_stdin_claim_wake_prompt(message_id: int, prompt: str) -> bool:
-    return channel_wake_claim_repository().claim(message_id, prompt)
-
-def _channel_stdin_clear_wake_claim(message_id: int) -> None:
-    channel_wake_claim_repository().clear(message_id)
-
-def _channel_prompt_references_message_id(text: str, message_id: int, prompt_texts: list[str] | tuple[str, ...] | None = None) -> bool:
-    prompts: list[str] = []
-    if prompt_texts:
-        prompts.extend(str(item) for item in prompt_texts if str(item or "").strip())
-    if prompt_texts is None:
-        claimed_prompt = _channel_stdin_wake_claim_prompt(message_id)
-        if claimed_prompt:
-            prompts.append(claimed_prompt)
-    return analyze_prompt_message_reference(text, message_id, prompts)
-
-def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]:
-    ids: set[int] = set()
-    for message in body.get("messages") or []:
-        if not isinstance(message, dict):
-            continue
-        text = anthropic_content_to_text(message.get("content"))
-        if "ciel-runtime external channel message" not in text and "[external channel input]" not in text:
-            continue
-        ids.update(_channel_prompt_message_ids(text))
-    return ids
-
-def _channel_llm_commit_cursor_locked(last_id: int) -> None:
-    global _CHANNEL_LLM_CURSOR_LAST_ID
-    _CHANNEL_LLM_CURSOR_LAST_ID = last_id
-    try:
-        _channel_llm_write_cursor_locked(last_id)
-    except Exception as exc:
-        router_log("WARN", f"channel_llm_cursor_write_failed error={type(exc).__name__}: {exc}")
-
-def _channel_llm_stdin_skip_reason(message_id: int) -> str:
-    if _CHANNEL_WAKE_DELIVERY_REPOSITORY.is_delivered(message_id):
-        return "stdin_wake_delivered"
-    return "stdin_wake_claimed" if _channel_stdin_wake_claim_prompt(message_id) else ""
-
-def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
-    return inject_pending_channel_context(
-        body,
-        channel_llm_context.ChannelLlmContextServices(
-            policy=channel_llm_context.ChannelLlmContextPolicy(
-                wake_request=channel_llm_wake_request,
-                plan_mode_active=plan_mode_active,
-                delivery_mode=lambda: channel_delivery_mode(load_config()),
-                ids_in_request=_channel_message_ids_already_in_request,
-                scan_limit=_channel_pending_scan_limit,
-                skip_reason=_channel_llm_message_skip_reason,
-                stdin_skip_reason=_channel_llm_stdin_skip_reason,
+def channel_wake_context() -> ChannelWakeContext:
+    return ChannelWakeContext(
+        claims=ChannelWakeClaimPorts(
+            CHANNEL_STDIN_WAKE_CLAIMS_PATH, _chat_messages_file_lock, time.time,
+            _channel_stdin_wake_claim_ttl_seconds, router_log,
+            _CHANNEL_WAKE_DELIVERY_REPOSITORY, _channel_prompt_message_ids,
+            analyze_prompt_message_reference,
+        ),
+        messages=ChannelWakeMessagePorts(
+            anthropic_content_to_text,
+            lambda last_id, limit: read_chat_messages(last_id, None, None, limit),
+            _channel_superseded_message_ids, channel_llm_wake_request,
+            plan_mode_active, lambda: channel_delivery_mode(load_config()),
+            _channel_pending_scan_limit, _channel_llm_message_skip_reason,
+            body_without_channel_llm_wake_prompt, format_channel_llm_batch_prompt,
+        ),
+        cursor=ChannelWakeCursorPorts(
+            lambda: _CHANNEL_LLM_CURSOR_LOCK, _channel_llm_read_cursor_locked,
+            _channel_llm_write_cursor_locked, _cache_channel_llm_cursor,
+            _channel_llm_clamp_to_clear_floor,
+        ),
+        input=ChannelWakeInputPorts(
+            os.environ, _channel_platform_default_enter_bytes,
+            resolve_channel_enter_bytes, build_channel_wake_input_bytes,
+            find_executable, subprocess.run, time.sleep,
+            _channel_wake_submit_retry_delay_seconds,
+            _channel_wake_submit_delay_seconds, router_log,
+        ),
+        transcript=ChannelTranscriptPorts(
+            HOME, _CHANNEL_TRANSCRIPT_CACHE, _CHANNEL_TRANSCRIPT_SCOPE,
+            _CHANNEL_STDIN_RECOVERY_CACHE, time.time,
+            ChannelTranscriptRepository.read_tail_text,
+            _channel_stdin_active_tool_call_from_text,
+            _channel_stdin_active_turn_from_text, analyze_channel_queued_age,
+            analyze_channel_wake_state,
+        ),
+        transcript_policy=ChannelTranscriptPolicyPorts(
+            analyze_channel_queued_ids, _channel_stdin_inflight_stale_seconds,
+            lambda ttl_seconds=2.0: _latest_claude_transcript_path(ttl_seconds),
+            lambda message_id: _channel_stdin_wake_claim_prompt(message_id),
+            lambda text, message_id, prompt_texts=None: _channel_prompt_references_message_id(
+                text, message_id, prompt_texts
             ),
-            repository=channel_llm_context.ChannelLlmContextRepository(
-                lock=lambda: _CHANNEL_LLM_CURSOR_LOCK,
-                read_cursor=_channel_llm_read_cursor_locked,
-                commit_cursor=_channel_llm_commit_cursor_locked,
-                read_messages=lambda last_id, limit: read_chat_messages(last_id, None, None, limit),
-                superseded_ids=_channel_superseded_message_ids,
-            ),
-            projection=channel_llm_context.ChannelLlmContextProjection(
-                remove_wake_prompt=body_without_channel_llm_wake_prompt,
-                format_prompt=format_channel_llm_batch_prompt,
-            ),
-            log=router_log,
+            _channel_prompt_message_ids, router_log,
+        ),
+        pending_state=ChannelPendingStatePorts(
+            _channel_stdin_active_tool_call, _channel_stdin_active_turn,
+            _channel_stdin_recover_cursor_from_queued_only,
+            _channel_pending_scan_limit, _channel_superseded_message_ids,
+            _channel_message_is_web_chat_request, _channel_llm_message_skip_reason,
+            _channel_message_event_identity_key, _channel_stdin_wake_state_for_message,
+            _channel_stdin_wake_queued_is_stale_for_message,
+        ),
+        pending_delivery=ChannelPendingDeliveryPorts(
+            format_channel_llm_delivery_wake_prompt,
+            format_channel_web_chat_wake_batch_prompt,
+            format_channel_wake_batch_prompt, _channel_enter_label,
+            _channel_wake_store_release_stale,
+            _CHANNEL_WAKE_DELIVERY_REPOSITORY.mark_delivered,
+            _channel_wake_store_record_prompts, _channel_wake_store_rollback,
+            _commit_channel_llm_cursor_if_newer,
+        ),
+        pending_io=ChannelPendingIoPorts(
+            _CHANNEL_STDIN_INJECT_LOCK, read_chat_messages,
+            _write_channel_wake_prompt, _channel_stdin_wake_batch_limit,
+            _read_channel_compact_request, _clear_channel_compact_request,
+            CHAT_MESSAGES_PATH, router_log,
         ),
     )
 
+def channel_wake_claim_repository() -> ChannelWakeClaimRepository:
+    return channel_wake_context().claim_repository()
+
+def _channel_stdin_wake_claim_prompt(message_id: int) -> str:
+    return channel_wake_context().claim_prompt(message_id)
+
+def _channel_stdin_claim_wake_prompt(message_id: int, prompt: str) -> bool:
+    return channel_wake_context().claim_wake_prompt(message_id, prompt)
+
+def _channel_stdin_clear_wake_claim(message_id: int) -> None:
+    channel_wake_context().clear_wake_claim(message_id)
+
+def _channel_prompt_references_message_id(text: str, message_id: int, prompt_texts: list[str] | tuple[str, ...] | None = None) -> bool:
+    return channel_wake_context().prompt_references_message_id(text, message_id, prompt_texts)
+
+def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]:
+    return channel_wake_context().message_ids_already_in_request(body)
+
+def _channel_llm_commit_cursor_locked(last_id: int) -> None:
+    channel_wake_context().commit_cursor(last_id)
+
+def _channel_llm_stdin_skip_reason(message_id: int) -> str:
+    return channel_wake_context().stdin_skip_reason(message_id)
+
+def body_with_pending_channel_messages(body: dict[str, Any]) -> dict[str, Any]:
+    return channel_wake_context().body_with_pending_messages(body)
+
 def _write_fd_all(fd: int, data: bytes) -> None:
-    writer = getattr(fd, "write", None)
-    if callable(writer):
-        writer(data)
-        return
-    view = memoryview(data)
-    while view:
-        written = os.write(fd, view)
-        view = view[written:]
+    ChannelWakeContext.write_all(fd, data)
 
 def _channel_wake_enter_bytes(value: str | bytes | None = None) -> bytes:
-    configured = os.environ.get("CIEL_RUNTIME_CHANNEL_WAKE_ENTER") if value is None else value
-    return resolve_channel_enter_bytes(configured, _channel_platform_default_enter_bytes())
+    return channel_wake_context().enter_bytes(value)
 
 def _channel_wake_input_bytes(prompt: str, enter_bytes: bytes | None = None) -> bytes:
-    return build_channel_wake_input_bytes(prompt, _channel_wake_enter_bytes(enter_bytes))
+    return channel_wake_context().input_bytes(prompt, enter_bytes)
 
 def _channel_current_tmux_pane_text() -> str | None:
-    return TmuxPaneSnapshot(
-        os.environ, find_executable, subprocess.run, router_log
-    ).capture()
+    return channel_wake_context().current_tmux_pane_text()
 
 def _codex_channel_wake_submit_retries() -> int:
     return channel_runtime_environment_policy().codex_submit_retries()
@@ -9850,29 +9806,11 @@ def _write_channel_wake_prompt(
     bracketed_paste: bool = False,
     submit_delay_seconds: float | None = None,
 ) -> None:
-    delay = _channel_wake_submit_delay_seconds() if submit_delay_seconds is None else max(0.0, float(submit_delay_seconds))
-    submit_bytes = _channel_wake_enter_bytes(enter_bytes)
-    retry_count = max(1, min(8, int(submit_retry_count or 1)))
-    injector = channel_injection.ChannelPromptInjector(
-        sleep=time.sleep,
-        retry_delay_seconds=_channel_wake_submit_retry_delay_seconds,
+    channel_wake_context().write_prompt(
+        master_fd, prompt, enter_bytes, submit_retry_count=submit_retry_count,
+        confirm_submit=confirm_submit, bracketed_paste=bracketed_paste,
+        submit_delay_seconds=submit_delay_seconds, write_all=_write_fd_all,
         snapshot=_channel_current_tmux_pane_text,
-        log=router_log,
-    )
-    injector.inject(
-        channel_injection.CallableInputTransport(master_fd, _write_fd_all),
-        channel_injection.PromptInjection(
-            prompt=prompt,
-            policy=channel_injection.RuntimeInjectionPolicy(
-                runtime="interactive-cli",
-                clear_input=b"\x15",
-                submit_input=submit_bytes,
-                submit_delay_seconds=delay,
-                submit_attempts=retry_count,
-                confirm_submission=confirm_submit,
-                bracketed_paste=bracketed_paste,
-            ),
-        ),
     )
 
 _CHANNEL_TRANSCRIPT_CACHE: dict[str, Any] = {"checked_at": 0.0, "path": None}
@@ -9889,33 +9827,24 @@ _CHANNEL_STDIN_RECOVERY_CACHE: dict[str, Any] = {
 }
 
 def channel_transcript_repository() -> ChannelTranscriptRepository:
-    return ChannelTranscriptRepository(
-        HOME,
-        _CHANNEL_TRANSCRIPT_CACHE,
-        _CHANNEL_TRANSCRIPT_SCOPE,
-        time.time,
-    )
+    return channel_wake_context().transcript_repository()
 
 def _set_channel_transcript_scope(runtime: str, *, started_at: float | None = None, codex_home: Path | None = None) -> None:
-    channel_transcript_repository().set_scope(
-        runtime,
-        started_at=started_at,
-        codex_home=codex_home,
-    )
+    channel_wake_context().set_transcript_scope(runtime, started_at=started_at, codex_home=codex_home)
 
 def _channel_transcript_roots() -> tuple[tuple[Path, str], ...]:
-    return channel_transcript_repository().roots()
+    return channel_wake_context().transcript_roots()
 
 def _latest_claude_transcript_path(ttl_seconds: float = 2.0) -> Path | None:
-    return channel_transcript_repository().latest(ttl_seconds)
+    return channel_wake_context().latest_transcript_path(ttl_seconds)
 
 _read_file_tail_text = ChannelTranscriptRepository.read_tail_text
 
 def _channel_stdin_wake_state(message_id: int) -> str:
-    return channel_wake_state_reader().state(message_id)
+    return channel_wake_context().wake_state_reader().state(message_id)
 
 def _channel_stdin_wake_state_for_message(message: dict[str, Any], prompt: str | None = None) -> str:
-    return channel_wake_state_reader().state_for_message(message, prompt)
+    return channel_wake_context().wake_state_reader().state_for_message(message, prompt)
 
 def _channel_stdin_wake_queued_age_seconds_from_text(
     message_id: int,
@@ -9924,85 +9853,41 @@ def _channel_stdin_wake_queued_age_seconds_from_text(
     *,
     now: float | None = None,
 ) -> float | None:
-    return analyze_channel_queued_age(
-        message_id,
-        text,
-        prompt_texts,
-        channel_wake_transcript_services(),
-        now=now,
-    )
+    return channel_wake_context().queued_age_seconds_from_text(message_id, text, prompt_texts, now=now)
 
 def _channel_stdin_wake_queued_is_stale_for_message(message: dict[str, Any], prompt: str | None = None) -> bool:
-    return channel_wake_state_reader().queued_is_stale(message, prompt)
+    return channel_wake_context().wake_state_reader().queued_is_stale(message, prompt)
 
 def channel_wake_state_reader() -> ChannelWakeStateReader:
-    return ChannelWakeStateReader(
-        ChannelWakeStateReaderPorts(
-            _latest_claude_transcript_path, _read_file_tail_text,
-            _channel_stdin_wake_state_from_text,
-            _channel_stdin_wake_queued_age_seconds_from_text,
-            _channel_stdin_inflight_stale_seconds,
-        )
-    )
+    return channel_wake_context().wake_state_reader()
 
 def _channel_stdin_wake_state_from_text(
     message_id: int,
     text: str,
     prompt_texts: list[str] | tuple[str, ...] | None = None,
 ) -> str:
-    return analyze_channel_wake_state(
-        message_id, text, prompt_texts, channel_wake_transcript_services()
-    )
+    return channel_wake_context().wake_state_from_text(message_id, text, prompt_texts)
 
 def _channel_stdin_active_tool_call() -> bool:
-    path = _latest_claude_transcript_path()
-    if path is None:
-        return False
-    text = _read_file_tail_text(path)
-    if not text:
-        return False
-    return _channel_stdin_active_tool_call_from_text(text)
+    return channel_wake_context().active_tool_call()
 
 def _channel_stdin_active_turn() -> bool:
-    path = _latest_claude_transcript_path()
-    if path is None:
-        return False
-    text = _read_file_tail_text(path)
-    if not text:
-        return False
-    return _channel_stdin_active_turn_from_text(text)
+    return channel_wake_context().active_turn()
 
 def _channel_stdin_wake_completed(message_id: int) -> bool:
     return _channel_stdin_wake_state(message_id) == "completed"
 
 def _channel_stdin_queued_command_ids_from_text(text: str) -> set[int]:
-    return analyze_channel_queued_ids(text, channel_wake_transcript_services())
+    return channel_wake_context().queued_command_ids_from_text(text)
 
 def channel_wake_transcript_services() -> ChannelWakeTranscriptServices:
-    return ChannelWakeTranscriptServices(
-        claim_prompt=_channel_stdin_wake_claim_prompt,
-        prompt_references_message_id=_channel_prompt_references_message_id,
-        prompt_message_ids=_channel_prompt_message_ids,
-        now=time.time,
-    )
+    return channel_wake_context().transcript_services()
 
 def _channel_stdin_recover_cursor_from_queued_only(last_id: int) -> int:
     return channel_cursor_recovery_service().recover(last_id)
 
 def channel_cursor_recovery_service() -> ChannelCursorRecoveryService:
-    return ChannelCursorRecoveryService(
-        cache=_CHANNEL_STDIN_RECOVERY_CACHE,
-        policy=ChannelCursorRecoveryPolicy(),
-        ports=ChannelCursorRecoveryPorts(
-            latest_transcript=_latest_claude_transcript_path,
-            read_tail=_read_file_tail_text,
-            queued_command_ids=_channel_stdin_queued_command_ids_from_text,
-            wake_state=_channel_stdin_wake_state_from_text,
-            clamp_to_clear_floor=_channel_llm_clamp_to_clear_floor,
-            now=time.time,
-            log=router_log,
-        ),
-    )
+    return channel_wake_context().cursor_recovery_service()
 
 def _channel_stdin_unseen_retry_seconds() -> float:
     return channel_runtime_environment_policy().unseen_retry_seconds()
@@ -10054,44 +9939,7 @@ def _channel_wake_store_rollback(messages: list[dict[str, Any]], claimed_ids: li
     _CHANNEL_WAKE_DELIVERY_REPOSITORY.rollback(messages, claimed_ids)
 
 def pending_channel_injection_services() -> ChannelInjectionServices:
-    return ChannelInjectionServices(
-        state=ChannelInjectionState(
-            active_tool_call=_channel_stdin_active_tool_call,
-            active_turn=_channel_stdin_active_turn,
-            recover_cursor=_channel_stdin_recover_cursor_from_queued_only,
-            pending_scan_limit=_channel_pending_scan_limit,
-            superseded_ids=_channel_superseded_message_ids,
-            message_is_web_chat=_channel_message_is_web_chat_request,
-            message_skip_reason=_channel_llm_message_skip_reason,
-            event_identity_key=_channel_message_event_identity_key,
-            wake_state_for_message=_channel_stdin_wake_state_for_message,
-            queued_wake_is_stale=_channel_stdin_wake_queued_is_stale_for_message,
-        ),
-        prompts=ChannelInjectionPrompts(
-            llm_delivery=format_channel_llm_delivery_wake_prompt,
-            web_chat=format_channel_web_chat_wake_batch_prompt,
-            standard=format_channel_wake_batch_prompt,
-            enter_bytes=_channel_wake_enter_bytes,
-            enter_label=_channel_enter_label,
-        ),
-        wake_store=ChannelInjectionWakeStore(
-            claim_for_nonblocking_scan=_channel_stdin_wake_claim_prompt,
-            claim_prompt=_channel_stdin_claim_wake_prompt,
-            clear_claim=_channel_stdin_clear_wake_claim,
-            release_stale=_channel_wake_store_release_stale,
-            mark_delivered=_channel_wake_store_mark_delivered,
-            record_prompts=_channel_wake_store_record_prompts,
-            rollback=_channel_wake_store_rollback,
-            commit_cursor=_commit_channel_llm_cursor_if_newer,
-        ),
-        io=ChannelInjectionIO(
-            inject_lock=_CHANNEL_STDIN_INJECT_LOCK,
-            read_messages=read_chat_messages,
-            write_prompt=_write_channel_wake_prompt,
-            log=router_log,
-        ),
-        policy=ChannelInjectionPolicy(wake_batch_limit=_channel_stdin_wake_batch_limit),
-    )
+    return channel_wake_context().pending_injection_services()
 
 def _inject_pending_channel_messages(
     master_fd: int,
@@ -10108,7 +9956,7 @@ def _inject_pending_channel_messages(
     submit_delay_seconds: float | None = None,
     skip_blocking_wake_states: bool = False,
 ) -> int:
-    return run_pending_channel_injection(
+    return channel_wake_context().inject_pending(
         master_fd,
         last_id,
         enter_bytes,
@@ -10121,7 +9969,6 @@ def _inject_pending_channel_messages(
         bracketed_paste=bracketed_paste,
         submit_delay_seconds=submit_delay_seconds,
         skip_blocking_wake_states=skip_blocking_wake_states,
-        services=pending_channel_injection_services(),
     )
 
 def _inject_pending_compact_request(
@@ -10134,21 +9981,7 @@ def _inject_pending_compact_request(
     bracketed_paste: bool = False,
     submit_delay_seconds: float | None = None,
 ) -> str:
-    service = ChannelCompactInjectionService(
-        request=ChannelCompactRequestPorts(
-            read=_read_channel_compact_request,
-            clear=_clear_channel_compact_request,
-        ),
-        runtime=ChannelCompactRuntimePorts(
-            active_tool_call=_channel_stdin_active_tool_call,
-            active_turn=_channel_stdin_active_turn,
-            enter_bytes=_channel_wake_enter_bytes,
-            write_prompt=_write_channel_wake_prompt,
-            enter_label=_channel_enter_label,
-        ),
-        log=router_log,
-    )
-    return service.inject(
+    return channel_wake_context().inject_compact(
         master_fd,
         enter_bytes,
         log_defer=log_defer,
@@ -10159,11 +9992,7 @@ def _inject_pending_compact_request(
     )
 
 def _chat_messages_file_marker() -> tuple[float, int]:
-    try:
-        stat = CHAT_MESSAGES_PATH.stat()
-        return (stat.st_mtime, stat.st_size)
-    except Exception:
-        return (0.0, 0)
+    return channel_wake_context().messages_file_marker()
 
 def terminal_input_mode_reset_policy() -> terminal_platform_io.TerminalInputModeResetPolicy:
     return terminal_platform_io.TerminalInputModeResetPolicy(

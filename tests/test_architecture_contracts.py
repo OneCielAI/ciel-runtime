@@ -237,6 +237,25 @@ from ciel_runtime_support.channel_delivery_context import (
     ChannelLlmCursorPorts,
     ChannelToolContextFactoryPorts,
 )
+from ciel_runtime_support.channel_wake_context import (
+    ChannelPendingDeliveryPorts,
+    ChannelPendingIoPorts,
+    ChannelPendingStatePorts,
+    ChannelTranscriptPolicyPorts,
+    ChannelTranscriptPorts,
+    ChannelWakeClaimPorts,
+    ChannelWakeContext,
+    ChannelWakeCursorPorts,
+    ChannelWakeInputPorts,
+    ChannelWakeMessagePorts,
+)
+from ciel_runtime_support.kimi_runtime_context import (
+    KimiConfigurationPorts,
+    KimiIdentityPorts,
+    KimiLifecyclePorts,
+    KimiProcessPorts,
+    KimiRuntimeContext,
+)
 from ciel_runtime_support.channel_cli import ChannelCliCommands, ChannelCliView
 from ciel_runtime_support.channel_inflight import (
     ChannelInflightEffects,
@@ -1767,13 +1786,28 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertEqual(5, len(fields(ChannelCompactRuntimePorts)))
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
-        function = next(
+        root_function = next(
             node
             for node in ast.parse(source).body
             if isinstance(node, ast.FunctionDef)
             and node.name == "_inject_pending_compact_request"
         )
-        function_source = ast.get_source_segment(source, function) or ""
+        root_function_source = ast.get_source_segment(source, root_function) or ""
+        self.assertIn("channel_wake_context", root_function_source)
+        context_source = (
+            root / "ciel_runtime_support" / "channel_wake_context.py"
+        ).read_text(encoding="utf-8")
+        context_class = next(
+            node
+            for node in ast.parse(context_source).body
+            if isinstance(node, ast.ClassDef) and node.name == "ChannelWakeContext"
+        )
+        function = next(
+            node
+            for node in context_class.body
+            if isinstance(node, ast.FunctionDef) and node.name == "inject_compact"
+        )
+        function_source = ast.get_source_segment(context_source, function) or ""
         self.assertIn("ChannelCompactInjectionService", function_source)
         self.assertNotIn("request.get(", function_source)
         service_source = (
@@ -4898,7 +4932,7 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIn("from ciel_runtime_support import cli_dispatch", source)
         self.assertIn("from ciel_runtime_support import cli_parser", source)
         self.assertIn(
-            "from ciel_runtime_support import channel_injection", source
+            "from ciel_runtime_support.channel_wake_context import", source
         )
         self.assertIn(
             "from ciel_runtime_support import channel_llm_context", source
@@ -4918,6 +4952,7 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIn(
             "from ciel_runtime_support import openai_responses_router", source
         )
+
         self.assertIn(
             "from ciel_runtime_support import provider_catalog_sources", source
         )
@@ -5024,7 +5059,7 @@ class ArchitectureContractTests(unittest.TestCase):
             "terminate_active_router_clients": "terminate_active",
             "channel_specs": "configured_specs",
             "auto_discovered_mcp_channel_specs": "discover_channel_specs",
-            "_channel_current_tmux_pane_text": "capture",
+            "_channel_current_tmux_pane_text": "current_tmux_pane_text",
             "codex_responses_body_with_channel_context": "project",
             "schedule_router_process_restart": "schedule_router_restart",
             "openai_context_limit_for_budget": "context_limit",
@@ -5062,6 +5097,47 @@ class ArchitectureContractTests(unittest.TestCase):
                 and isinstance(node.func, (ast.Name, ast.Attribute))
             }
             self.assertIn(target, calls, wrapper)
+
+    def test_channel_wake_context_has_typed_bounded_ports(self):
+        for port in (
+            ChannelPendingStatePorts,
+            ChannelPendingDeliveryPorts,
+            ChannelPendingIoPorts,
+            ChannelWakeClaimPorts,
+            ChannelWakeMessagePorts,
+            ChannelWakeCursorPorts,
+            ChannelWakeInputPorts,
+            ChannelTranscriptPorts,
+            ChannelTranscriptPolicyPorts,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        self.assertEqual(9, len(fields(ChannelWakeContext)))
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "channel_wake_context.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", source)
+        self.assertNotIn("__getattr__", source)
+
+    def test_kimi_runtime_context_has_typed_bounded_ports(self):
+        for port in (
+            KimiIdentityPorts,
+            KimiProcessPorts,
+            KimiConfigurationPorts,
+            KimiLifecyclePorts,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        self.assertEqual(4, len(fields(KimiRuntimeContext)))
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "kimi_runtime_context.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", source)
+        self.assertNotIn("__getattr__", source)
 
     def test_stateless_compatibility_exports_are_direct_aliases(self):
         import ciel_runtime

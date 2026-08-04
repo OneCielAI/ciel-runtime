@@ -1514,7 +1514,7 @@ class ChannelBridgeTests(unittest.TestCase):
 
     def test_windows_console_writer_waits_for_text_batch_before_submit(self):
         writer_source = inspect.getsource(ciel_runtime._WindowsConsoleInputWriter.wait_until_input_consumed)
-        prompt_source = inspect.getsource(ciel_runtime._write_channel_wake_prompt)
+        prompt_source = inspect.getsource(ciel_runtime.ChannelWakeContext.write_prompt)
 
         self.assertIn("GetNumberOfConsoleInputEvents", writer_source)
         self.assertIn("CallableInputTransport", prompt_source)
