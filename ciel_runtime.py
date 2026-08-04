@@ -881,11 +881,7 @@ except Exception:
 
 OPENCODE_PROVIDER_NAMES = provider_network.OPENCODE_PROVIDER_NAMES
 DEFAULT_UPSTREAM_USER_AGENT = provider_network.DEFAULT_UPSTREAM_USER_AGENT
-_PROVIDER_MODEL_IDENTITY = ProviderModelIdentityService(
-    adapters=PROVIDER_ADAPTERS,
-    aliases=PROVIDER_ALIASES,
-    labels=PROVIDER_LABELS,
-)
+_PROVIDER_MODEL_IDENTITY = ProviderModelIdentityService(adapters=PROVIDER_ADAPTERS, aliases=PROVIDER_ALIASES, labels=PROVIDER_LABELS)
 _PROVIDER_MODEL_IDENTITY_API = ProviderModelIdentityApi(_PROVIDER_MODEL_IDENTITY)
 
 upstream_user_agent = provider_network.upstream_user_agent
@@ -978,10 +974,7 @@ def positive_env_int(name: str, default: int) -> int:
 
 SUPPRESSED_THINKING_PASSBACK_MAX = positive_env_int("CIEL_RUNTIME_THINKING_PASSBACK_MAX", 4096)
 SUPPRESSED_THINKING_PASSBACK_CACHE: list[dict[str, Any]] = []
-SUPPRESSED_THINKING_REPOSITORY = SuppressedThinkingRepository(
-    SUPPRESSED_THINKING_PASSBACK_CACHE,
-    capacity=lambda: SUPPRESSED_THINKING_PASSBACK_MAX,
-)
+SUPPRESSED_THINKING_REPOSITORY = SuppressedThinkingRepository(SUPPRESSED_THINKING_PASSBACK_CACHE, capacity=lambda: SUPPRESSED_THINKING_PASSBACK_MAX)
 
 model_lookup_ids = ollama_catalog_policy.model_lookup_ids
 
@@ -1216,15 +1209,11 @@ def provider_model_catalog_context() -> ProviderModelCatalogContext:
         ),
     )
 
-_PROVIDER_MODEL_CATALOG_API = ProviderModelCatalogCompatibilityApi(
-    provider_model_catalog_context
-)
+_PROVIDER_MODEL_CATALOG_API = ProviderModelCatalogCompatibilityApi(provider_model_catalog_context)
 model_cache_lifecycle_service = _PROVIDER_MODEL_CATALOG_API.lifecycle_service
 clear_model_cache = _PROVIDER_MODEL_CATALOG_API.clear
 model_registry_repository = _PROVIDER_MODEL_CATALOG_API.registry_repository
-cached_or_configured_model_ids = (
-    _PROVIDER_MODEL_CATALOG_API.cached_or_configured_ids
-)
+cached_or_configured_model_ids = _PROVIDER_MODEL_CATALOG_API.cached_or_configured_ids
 ensure_model_cache_for_launch = _PROVIDER_MODEL_CATALOG_API.ensure_for_launch
 
 normalize_provider = _PROVIDER_MODEL_IDENTITY_API.normalize_provider
@@ -1559,9 +1548,7 @@ def should_normalize_anthropic_stream_tool_use(provider: str, pcfg: dict[str, An
 def normalize_thinking_for_non_anthropic_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
     return anthropic_thinking_policy().normalize_request(provider, pcfg, body)
 
-normalize_thinking_for_non_anthropic_native_provider = (
-    normalize_thinking_for_non_anthropic_provider
-)
+normalize_thinking_for_non_anthropic_native_provider = normalize_thinking_for_non_anthropic_provider
 
 def provider_supports_tool_choice(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> bool:
     return provider_tool_policy().supports_tool_choice(provider, pcfg, body)
@@ -1600,35 +1587,19 @@ _CONVERSATION_TURN_API = ConversationTurnCompatibilityApi(conversation_turn_poli
 plan_mode_active = _CONVERSATION_TURN_API.plan_mode_active
 channel_llm_wake_text = _CONVERSATION_TURN_API.channel_llm_wake_text
 channel_llm_wake_request = _CONVERSATION_TURN_API.channel_llm_wake_request
-body_without_channel_llm_wake_prompt = (
-    _CONVERSATION_TURN_API.body_without_channel_llm_wake_prompt
-)
+body_without_channel_llm_wake_prompt = _CONVERSATION_TURN_API.body_without_channel_llm_wake_prompt
 has_plan_mode_exit = _CONVERSATION_TURN_API.has_plan_mode_exit
-allowed_prompt_tools_for_exit_plan_mode = (
-    _CONVERSATION_TURN_API.allowed_prompt_tools_for_exit_plan_mode
-)
-exit_plan_mode_default_prompt_for_tool = (
-    _CONVERSATION_TURN_API.exit_plan_mode_default_prompt_for_tool
-)
-backfill_exit_plan_mode_allowed_prompts = (
-    _CONVERSATION_TURN_API.backfill_exit_plan_mode_allowed_prompts
-)
+allowed_prompt_tools_for_exit_plan_mode = _CONVERSATION_TURN_API.allowed_prompt_tools_for_exit_plan_mode
+exit_plan_mode_default_prompt_for_tool = _CONVERSATION_TURN_API.exit_plan_mode_default_prompt_for_tool
+backfill_exit_plan_mode_allowed_prompts = _CONVERSATION_TURN_API.backfill_exit_plan_mode_allowed_prompts
 plan_mode_tool_name_for_emit = _CONVERSATION_TURN_API.plan_mode_tool_name_for_emit
 is_guard_feedback_text = _CONVERSATION_TURN_API.is_guard_feedback_text
-strip_claude_code_system_reminders = (
-    _CONVERSATION_TURN_API.strip_claude_code_system_reminders
-)
-is_claude_code_suggestion_mode_text = (
-    _CONVERSATION_TURN_API.is_claude_code_suggestion_mode_text
-)
+strip_claude_code_system_reminders = _CONVERSATION_TURN_API.strip_claude_code_system_reminders
+is_claude_code_suggestion_mode_text = _CONVERSATION_TURN_API.is_claude_code_suggestion_mode_text
 user_intent_text_from_message = _CONVERSATION_TURN_API.user_intent_text_from_message
 latest_user_text = _CONVERSATION_TURN_API.latest_user_text
-latest_user_intent_message_index = (
-    _CONVERSATION_TURN_API.latest_user_intent_message_index
-)
-latest_user_is_claude_code_suggestion_mode = (
-    _CONVERSATION_TURN_API.latest_user_is_claude_code_suggestion_mode
-)
+latest_user_intent_message_index = _CONVERSATION_TURN_API.latest_user_intent_message_index
+latest_user_is_claude_code_suggestion_mode = _CONVERSATION_TURN_API.latest_user_is_claude_code_suggestion_mode
 
 def router_observability_context() -> RouterObservabilityContext:
     return RouterObservabilityContext(
@@ -1657,9 +1628,7 @@ def router_observability_context() -> RouterObservabilityContext:
         ),
     )
 
-_ROUTER_OBSERVABILITY_API = RouterObservabilityCompatibilityApi(
-    router_observability_context
-)
+_ROUTER_OBSERVABILITY_API = RouterObservabilityCompatibilityApi(router_observability_context)
 router_debug_message_preview_chars = _ROUTER_OBSERVABILITY_API.preview_chars
 router_event_message_preview = _ROUTER_OBSERVABILITY_API.event_preview
 router_message_preview_policy = _ROUTER_OBSERVABILITY_API.message_preview_policy
@@ -1677,9 +1646,7 @@ record_outgoing_sse_event = _ROUTER_OBSERVABILITY_API.record_sse
 finish_outgoing_sse_trace = _ROUTER_OBSERVABILITY_API.finish_sse
 append_tool_call_log = _ROUTER_OBSERVABILITY_API.append_tool_call
 
-likely_implementation_planning_request = (
-    _CONVERSATION_TURN_API.likely_implementation_planning_request
-)
+likely_implementation_planning_request = _CONVERSATION_TURN_API.likely_implementation_planning_request
 non_actionable_short_response = _CONVERSATION_TURN_API.non_actionable_short_response
 body_is_channel_prompt = _CONVERSATION_TURN_API.body_is_channel_prompt
 should_auto_enter_plan_mode = _CONVERSATION_TURN_API.should_auto_enter_plan_mode
@@ -1687,39 +1654,21 @@ response_text_signals_plan_exit = _CONVERSATION_TURN_API.response_text_signals_p
 should_auto_exit_plan_mode = _CONVERSATION_TURN_API.should_auto_exit_plan_mode
 bash_command_looks_mutating = _CONVERSATION_TURN_API.bash_command_looks_mutating
 latest_user_tool_result_details = _CONVERSATION_TURN_API.latest_user_tool_result_details
-latest_tool_result_indicates_completed_work = (
-    _CONVERSATION_TURN_API.latest_tool_result_indicates_completed_work
-)
+latest_tool_result_indicates_completed_work = _CONVERSATION_TURN_API.latest_tool_result_indicates_completed_work
 latest_user_tool_result_names = _CONVERSATION_TURN_API.latest_user_tool_result_names
 latest_user_tool_result_text = _CONVERSATION_TURN_API.latest_user_tool_result_text
 synthetic_tasklist_tool_use_id = _CONVERSATION_TURN_API.synthetic_tasklist_tool_use_id
-recent_synthetic_tasklist_count = (
-    _CONVERSATION_TURN_API.recent_synthetic_tasklist_count
-)
+recent_synthetic_tasklist_count = _CONVERSATION_TURN_API.recent_synthetic_tasklist_count
 tasklist_result_has_active_work = _CONVERSATION_TURN_API.tasklist_result_has_active_work
-latest_tasklist_result_has_no_active_work = (
-    _CONVERSATION_TURN_API.latest_tasklist_result_has_no_active_work
-)
+latest_tasklist_result_has_no_active_work = _CONVERSATION_TURN_API.latest_tasklist_result_has_no_active_work
 latest_assistant_text = _CONVERSATION_TURN_API.latest_assistant_text
 short_resume_prompt = _CONVERSATION_TURN_API.short_resume_prompt
-latest_user_looks_like_work_request = (
-    _CONVERSATION_TURN_API.latest_user_looks_like_work_request
-)
-response_asks_for_user_choice_or_permission = (
-    _CONVERSATION_TURN_API.response_asks_for_user_choice_or_permission
-)
-should_auto_continue_choice_question_with_tasklist = (
-    _CONVERSATION_TURN_API.should_auto_continue_choice_question_with_tasklist
-)
-should_synthesize_tasklist_for_provider = (
-    _CONVERSATION_TURN_API.should_synthesize_tasklist_for_provider
-)
-should_keep_work_alive_with_tasklist = (
-    _CONVERSATION_TURN_API.should_keep_work_alive_with_tasklist
-)
-should_recover_empty_end_turn_with_tasklist = (
-    _CONVERSATION_TURN_API.should_recover_empty_end_turn_with_tasklist
-)
+latest_user_looks_like_work_request = _CONVERSATION_TURN_API.latest_user_looks_like_work_request
+response_asks_for_user_choice_or_permission = _CONVERSATION_TURN_API.response_asks_for_user_choice_or_permission
+should_auto_continue_choice_question_with_tasklist = _CONVERSATION_TURN_API.should_auto_continue_choice_question_with_tasklist
+should_synthesize_tasklist_for_provider = _CONVERSATION_TURN_API.should_synthesize_tasklist_for_provider
+should_keep_work_alive_with_tasklist = _CONVERSATION_TURN_API.should_keep_work_alive_with_tasklist
+should_recover_empty_end_turn_with_tasklist = _CONVERSATION_TURN_API.should_recover_empty_end_turn_with_tasklist
 empty_end_turn_notice = _CONVERSATION_TURN_API.empty_end_turn_notice
 empty_end_turn_notice_for_body = _CONVERSATION_TURN_API.empty_end_turn_notice_for_body
 
@@ -1793,9 +1742,7 @@ def provider_model_metadata_context() -> ProviderModelMetadataContext:
         nvidia_env=NCP_ENV,
     )
 
-_PROVIDER_MODEL_METADATA_API = ProviderModelMetadataCompatibilityApi(
-    provider_model_metadata_context
-)
+_PROVIDER_MODEL_METADATA_API = ProviderModelMetadataCompatibilityApi(provider_model_metadata_context)
 model_cache_key = _PROVIDER_MODEL_METADATA_API.cache_key
 
 anthropic_model_family_from_id = anthropic_model_policy.model_family
@@ -1806,23 +1753,15 @@ CLAUDE_CODE_SUPPORTED_CAPABILITY_VALUES = anthropic_model_policy.SUPPORTED_CAPAB
 
 normalize_claude_code_supported_capabilities = anthropic_model_policy.normalize_capabilities
 
-infer_claude_code_supported_capabilities_from_model = (
-    _PROVIDER_MODEL_METADATA_API.infer_claude_capabilities
-)
-claude_code_supported_capabilities = (
-    _PROVIDER_MODEL_METADATA_API.claude_capabilities
-)
-claude_code_capability_string = (
-    _PROVIDER_MODEL_METADATA_API.claude_capability_string
-)
+infer_claude_code_supported_capabilities_from_model = _PROVIDER_MODEL_METADATA_API.infer_claude_capabilities
+claude_code_supported_capabilities = _PROVIDER_MODEL_METADATA_API.claude_capabilities
+claude_code_capability_string = _PROVIDER_MODEL_METADATA_API.claude_capability_string
 claude_code_workflows_enabled = _PROVIDER_MODEL_METADATA_API.workflows_enabled
 claude_code_ultracode_enabled = _PROVIDER_MODEL_METADATA_API.ultracode_enabled
 
 anthropic_recommended_preset_for_model = anthropic_model_policy.recommended_preset
 
-model_registry_recommendations = (
-    _PROVIDER_MODEL_METADATA_API.registry_recommendations
-)
+model_registry_recommendations = _PROVIDER_MODEL_METADATA_API.registry_recommendations
 
 _MODEL_REGISTRY_API = ModelRegistryApi(model_registry_repository)
 read_model_registry = _MODEL_REGISTRY_API.read_registry
@@ -1861,20 +1800,12 @@ _PROVIDER_CATALOG_SOURCES = (
 model_ids_from_response = _PROVIDER_CATALOG_SOURCES.model_ids_from_response
 model_info_from_response = _PROVIDER_CATALOG_SOURCES.model_info_from_response
 fireworks_account_id = _PROVIDER_CATALOG_SOURCES.fireworks_account_id
-fireworks_management_base_url = (
-    _PROVIDER_CATALOG_SOURCES.fireworks_management_base_url
-)
+fireworks_management_base_url = _PROVIDER_CATALOG_SOURCES.fireworks_management_base_url
 fetch_fireworks_model_ids = _PROVIDER_CATALOG_SOURCES.fetch_fireworks_model_ids
 fetch_text_url = _PROVIDER_CATALOG_SOURCES.fetch_text_url
-anthropic_model_ids_from_docs_text = (
-    _PROVIDER_CATALOG_SOURCES.anthropic_model_ids_from_docs_text
-)
-filter_anthropic_default_model_ids = (
-    _PROVIDER_CATALOG_SOURCES.filter_anthropic_default_model_ids
-)
-fetch_anthropic_public_model_ids = (
-    _PROVIDER_CATALOG_SOURCES.fetch_anthropic_public_model_ids
-)
+anthropic_model_ids_from_docs_text = _PROVIDER_CATALOG_SOURCES.anthropic_model_ids_from_docs_text
+filter_anthropic_default_model_ids = _PROVIDER_CATALOG_SOURCES.filter_anthropic_default_model_ids
+fetch_anthropic_public_model_ids = _PROVIDER_CATALOG_SOURCES.fetch_anthropic_public_model_ids
 
 _PROVIDER_ENDPOINT_POLICY = build_default_provider_endpoint_policy(
     ports=ModelEndpointPorts(
@@ -1891,9 +1822,7 @@ _PROVIDER_ENDPOINT_POLICY = build_default_provider_endpoint_policy(
     ),
 )
 opencode_zen_endpoint_kind = _PROVIDER_ENDPOINT_POLICY.zen_endpoint_kind
-opencode_zen_model_supported_by_router = (
-    _PROVIDER_ENDPOINT_POLICY.zen_model_supported
-)
+opencode_zen_model_supported_by_router = _PROVIDER_ENDPOINT_POLICY.zen_model_supported
 normalize_opencode_endpoint_kind = _PROVIDER_ENDPOINT_POLICY.normalize_endpoint_kind
 opencode_endpoint_override = _PROVIDER_ENDPOINT_POLICY.endpoint_override
 opencode_go_endpoint_kind = _PROVIDER_ENDPOINT_POLICY.go_endpoint_kind
@@ -1904,9 +1833,7 @@ opencode_endpoint_display = _PROVIDER_ENDPOINT_POLICY.endpoint_display
 nvidia_hosted_list_headers = _PROVIDER_MODEL_METADATA_API.nvidia_list_headers
 provider_model_list_headers = _PROVIDER_MODEL_METADATA_API.provider_list_headers
 
-fetch_anthropic_api_model_ids = (
-    _PROVIDER_CATALOG_SOURCES.fetch_anthropic_api_model_ids
-)
+fetch_anthropic_api_model_ids = _PROVIDER_CATALOG_SOURCES.fetch_anthropic_api_model_ids
 
 def post_json(
     url: str,
@@ -1977,9 +1904,7 @@ api_key_cooldown_until = _API_KEY_COOLDOWN_API.cooldown_until
 provider_live_api_key_count = _API_KEY_COOLDOWN_API.live_key_count
 provider_has_live_api_key = _API_KEY_COOLDOWN_API.has_live_key
 reset_api_key_cooldowns_for_router_start = _API_KEY_COOLDOWN_API.reset_for_router_start
-retry_after_exceeds_request_timeout = (
-    _API_KEY_COOLDOWN_API.retry_after_exceeds_request_timeout
-)
+retry_after_exceeds_request_timeout = _API_KEY_COOLDOWN_API.retry_after_exceeds_request_timeout
 
 apply_router_rate_limit = _ROUTER_RATE_LIMIT_API.apply
 wait_for_router_rate_limit_penalty = _ROUTER_RATE_LIMIT_API.wait_for_penalty
@@ -2714,22 +2639,16 @@ def channel_connection_context() -> ChannelConnectionContext:
         ),
     )
 
-_CHANNEL_CONNECTION_API = ChannelConnectionCompatibilityApi(
-    channel_connection_context
-)
+_CHANNEL_CONNECTION_API = ChannelConnectionCompatibilityApi(channel_connection_context)
 channel_connection_registry = _CHANNEL_CONNECTION_API.registry
 _channel_sse_status_public = ChannelConnectionRegistry.public_status
 _channel_sse_public_mcp_name = ChannelConnectionRegistry.public_mcp_name
 channel_sse_status = _CHANNEL_CONNECTION_API.statuses
 _channel_sse_set_state = _CHANNEL_CONNECTION_API.update
-_channel_streamable_http_mark_session_lost = (
-    _CHANNEL_CONNECTION_API.mark_session_lost
-)
+_channel_streamable_http_mark_session_lost = _CHANNEL_CONNECTION_API.mark_session_lost
 _channel_sse_store_rpc_response = _CHANNEL_CONNECTION_API.store_rpc_response
 _channel_sse_take_rpc_response = _CHANNEL_CONNECTION_API.take_rpc_response
-_channel_sse_state_name_for_mcp_server = (
-    _CHANNEL_CONNECTION_API.state_name_for_mcp_server
-)
+_channel_sse_state_name_for_mcp_server = _CHANNEL_CONNECTION_API.state_name_for_mcp_server
 
 def _channel_sse_absolute_endpoint(stream_url: str, endpoint: str) -> str:
     endpoint = (endpoint or "").strip()
@@ -2862,9 +2781,7 @@ _channel_connection_matches = _CHANNEL_CONNECTION_API.connection_matches
 _channel_worker_running = _CHANNEL_CONNECTION_API.worker_running
 channel_connection_worker = _CHANNEL_CONNECTION_API.worker
 _channel_sse_worker = _CHANNEL_CONNECTION_API.run_sse_worker
-_channel_streamable_http_worker = (
-    _CHANNEL_CONNECTION_API.run_streamable_http_worker
-)
+_channel_streamable_http_worker = _CHANNEL_CONNECTION_API.run_streamable_http_worker
 channel_connection_lifecycle = _CHANNEL_CONNECTION_API.lifecycle
 start_channel_sse_connection = _CHANNEL_CONNECTION_API.start
 stop_channel_sse_connection = _CHANNEL_CONNECTION_API.stop
@@ -3498,27 +3415,13 @@ def repair_openai_tool_call_adjacency(messages: list[dict[str, Any]]) -> list[di
         OpenAiHistoryServices(log=router_log),
     )
 
-_OPENAI_REASONING_POLICY = OpenAiReasoningPolicy(
-    adapter_for=configured_provider_adapter,
-    config_for=provider_contract_config,
-)
+_OPENAI_REASONING_POLICY = OpenAiReasoningPolicy(adapter_for=configured_provider_adapter, config_for=provider_contract_config)
 openai_chat_reasoning_passback_enabled = _OPENAI_REASONING_POLICY.passback_enabled
-openai_chat_reasoning_passback_enabled_for_body = (
-    _OPENAI_REASONING_POLICY.passback_enabled_for_body
-)
+openai_chat_reasoning_passback_enabled_for_body = _OPENAI_REASONING_POLICY.passback_enabled_for_body
 should_omit_openai_chat_tool_choice = _OPENAI_REASONING_POLICY.should_omit_tool_choice
 
-_ROUTER_ACCESS_POLICY = RouterAccessPolicy(
-    environ=os.environ,
-    parse_bool=parse_bool,
-    parse_env_bool=env_bool,
-    load_config=load_config,
-)
-_ROUTER_EXTERNAL_TOKEN_REPOSITORY = RouterExternalTokenRepository(
-    path=ROUTER_EXTERNAL_TOKEN_PATH,
-    config_dir=CONFIG_DIR,
-    environ=os.environ,
-)
+_ROUTER_ACCESS_POLICY = RouterAccessPolicy(environ=os.environ, parse_bool=parse_bool, parse_env_bool=env_bool, load_config=load_config)
+_ROUTER_EXTERNAL_TOKEN_REPOSITORY = RouterExternalTokenRepository(path=ROUTER_EXTERNAL_TOKEN_PATH, config_dir=CONFIG_DIR, environ=os.environ)
 router_debug_external_access_enabled = _ROUTER_ACCESS_POLICY.external_access_enabled
 router_bind_host = _ROUTER_ACCESS_POLICY.bind_host
 router_external_access_token = _ROUTER_EXTERNAL_TOKEN_REPOSITORY.get
@@ -3552,9 +3455,7 @@ _OLLAMA_CONTEXT_POLICY = OllamaRequestContextPolicy(
 )
 ctx_bucket = _OLLAMA_CONTEXT_POLICY.context_bucket
 ollama_provider_context_limit = _OLLAMA_CONTEXT_POLICY.provider_context_limit
-ollama_preserve_configured_context_cap = (
-    _OLLAMA_CONTEXT_POLICY.preserve_configured_context_cap
-)
+ollama_preserve_configured_context_cap = _OLLAMA_CONTEXT_POLICY.preserve_configured_context_cap
 ollama_effective_context_limit = _OLLAMA_CONTEXT_POLICY.effective_context_limit
 ollama_num_ctx_for_payload = _OLLAMA_CONTEXT_POLICY.num_ctx_for_payload
 ollama_num_predict_for_payload = _OLLAMA_CONTEXT_POLICY.num_predict_for_payload
@@ -3567,11 +3468,7 @@ ollama_context_error_limit = _OLLAMA_CONTEXT_POLICY.context_error_limit
 ollama_context_retry_config = _OLLAMA_CONTEXT_POLICY.context_retry_config
 ollama_context_limit_for_budget = _OLLAMA_CONTEXT_POLICY.context_limit_for_budget
 
-_OUTPUT_BUDGET_POLICY = OutputBudgetPolicy(
-    positive_int=positive_int,
-    estimate_tokens=estimate_tokens,
-    provider_options=ollama_extra_options,
-)
+_OUTPUT_BUDGET_POLICY = OutputBudgetPolicy(positive_int=positive_int, estimate_tokens=estimate_tokens, provider_options=ollama_extra_options)
 configured_output_tokens = _OUTPUT_BUDGET_POLICY.configured_tokens
 cap_output_tokens_for_context = _OUTPUT_BUDGET_POLICY.cap_tokens_for_context
 context_guard_reserve_tokens = _OUTPUT_BUDGET_POLICY.reserve_tokens
@@ -3732,9 +3629,7 @@ def ollama_request_think_value(provider: str, model: str | None, pcfg: dict[str,
         body or {},
     )
 
-_OLLAMA_WIRE_API = OllamaWireCompatibilityApi(
-    ollama_request_think_value, positive_int
-)
+_OLLAMA_WIRE_API = OllamaWireCompatibilityApi(ollama_request_think_value, positive_int)
 apply_ollama_wire_options = _OLLAMA_WIRE_API.apply
 
 def ollama_request_think_enabled(model: str | None, pcfg: dict[str, Any]) -> bool: return bool(ollama_request_think_value("ollama", model, pcfg))
@@ -4212,18 +4107,12 @@ def forward_ollama_api_chat(handler: BaseHTTPRequestHandler, provider: str, pcfg
     )
 
 openai_chat_to_anthropic = _RESPONSE_STREAM_API.openai_chat_to_anthropic
-openai_responses_to_anthropic_messages = (
-    _RESPONSE_STREAM_API.openai_responses_to_anthropic_messages
-)
-anthropic_message_to_openai_response = (
-    _RESPONSE_STREAM_API.anthropic_message_to_openai_response
-)
+openai_responses_to_anthropic_messages = _RESPONSE_STREAM_API.openai_responses_to_anthropic_messages
+anthropic_message_to_openai_response = _RESPONSE_STREAM_API.anthropic_message_to_openai_response
 openai_responses_stream_services = _RESPONSE_STREAM_API.openai_responses_stream_services
 write_openai_responses_response = _RESPONSE_STREAM_API.write_openai_responses_response
 write_openai_responses_error = _RESPONSE_STREAM_API.write_openai_responses_error
-stream_openai_chat_to_anthropic_sse = (
-    _RESPONSE_STREAM_API.stream_openai_chat_to_anthropic_sse
-)
+stream_openai_chat_to_anthropic_sse = _RESPONSE_STREAM_API.stream_openai_chat_to_anthropic_sse
 
 UPSTREAM_RETRY_HTTP_CODES: frozenset[int] = frozenset({502, 503, 504})
 
@@ -4366,9 +4255,7 @@ def response_collection_context() -> ResponseCollectionContext:
         ),
     )
 
-_RESPONSE_COLLECTION_API = ResponseCollectionCompatibilityApi(
-    response_collection_context
-)
+_RESPONSE_COLLECTION_API = ResponseCollectionCompatibilityApi(response_collection_context)
 response_collection_services = _RESPONSE_COLLECTION_API.services
 _identity_upstream_model = _RESPONSE_COLLECTION_API.identity_upstream_model
 _build_ollama_collection_request = _RESPONSE_COLLECTION_API.build_ollama_request
@@ -4526,12 +4413,8 @@ def _router_request_context() -> RouterRequestContext:
 
 _ROUTER_REQUEST_API = RouterRequestCompatibilityApi(_router_request_context)
 handle_openai_responses_post = _ROUTER_REQUEST_API.handle_openai_responses_post
-handle_codex_backend_passthrough_post = (
-    _ROUTER_REQUEST_API.handle_codex_backend_passthrough_post
-)
-handle_codex_backend_passthrough_get = (
-    _ROUTER_REQUEST_API.handle_codex_backend_passthrough_get
-)
+handle_codex_backend_passthrough_post = _ROUTER_REQUEST_API.handle_codex_backend_passthrough_post
+handle_codex_backend_passthrough_get = _ROUTER_REQUEST_API.handle_codex_backend_passthrough_get
 build_claude_router_services = _ROUTER_REQUEST_API.build_claude_router_services
 build_runtime_routers = _ROUTER_REQUEST_API.build_runtime_routers
 runtime_router_capability_matrix = _ROUTER_REQUEST_API.capability_matrix
@@ -4899,9 +4782,7 @@ def provider_administration_context() -> ProviderAdministrationContext:
         ),
     )
 
-_PROVIDER_ADMINISTRATION_API = ProviderAdministrationCompatibilityApi(
-    provider_administration_context
-)
+_PROVIDER_ADMINISTRATION_API = ProviderAdministrationCompatibilityApi(provider_administration_context)
 store_nvidia_api_key = _PROVIDER_ADMINISTRATION_API.store_nvidia_api_key
 clear_nvidia_api_key = _PROVIDER_ADMINISTRATION_API.clear_nvidia_api_key
 github_copilot_oauth_token = _PROVIDER_ADMINISTRATION_API.github_copilot_oauth_token
@@ -4954,31 +4835,21 @@ def mcp_configuration_context() -> McpConfigurationContext:
         native_channel_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
     )
 
-_MCP_CONFIGURATION_API = McpConfigurationCompatibilityApi(
-    mcp_configuration_context
-)
+_MCP_CONFIGURATION_API = McpConfigurationCompatibilityApi(mcp_configuration_context)
 _read_mcp_server_names_from_json = _MCP_CONFIGURATION_API.read_server_names
 _read_mcp_servers_from_json = _MCP_CONFIGURATION_API.read_servers
 _mcp_server_is_stdio = _MCP_CONFIGURATION_API.server_is_stdio
 _mcp_server_is_streamable_http = _MCP_CONFIGURATION_API.server_is_streamable_http
 _mcp_server_force_proxy = _MCP_CONFIGURATION_API.server_force_proxy
-_mcp_server_disable_proxy_notification_stream = (
-    _MCP_CONFIGURATION_API.server_disables_proxy_notifications
-)
+_mcp_server_disable_proxy_notification_stream = _MCP_CONFIGURATION_API.server_disables_proxy_notifications
 _safe_mcp_proxy_name = _MCP_CONFIGURATION_API.safe_proxy_name
 claude_mcp_config_paths = _MCP_CONFIGURATION_API.config_paths
 existing_claude_mcp_config_paths = _MCP_CONFIGURATION_API.existing_config_paths
 discovered_claude_mcp_servers = _MCP_CONFIGURATION_API.discover_user_servers
-_read_mcp_servers_from_generated_file = (
-    _MCP_CONFIGURATION_API.read_generated_servers
-)
-discovered_ciel_runtime_managed_mcp_servers = (
-    _MCP_CONFIGURATION_API.discover_managed_servers
-)
+_read_mcp_servers_from_generated_file = _MCP_CONFIGURATION_API.read_generated_servers
+discovered_ciel_runtime_managed_mcp_servers = _MCP_CONFIGURATION_API.discover_managed_servers
 write_native_mcp_config_from_discovery = _MCP_CONFIGURATION_API.write_native_config
-auto_discovered_mcp_channel_specs = (
-    _MCP_CONFIGURATION_API.auto_discovered_channel_specs
-)
+auto_discovered_mcp_channel_specs = _MCP_CONFIGURATION_API.auto_discovered_channel_specs
 
 def _channel_probe_initialize_payload() -> bytes: return _mcp_probe_initialize_payload_bytes(VERSION)
 
@@ -5100,16 +4971,10 @@ def detect_channel_capable_mcp_servers(
     )
     return [str(record.get("name")) for record in records if record.get("capable") and record.get("name")]
 
-_mcp_config_passthrough_values = (
-    ClaudeMcpConfigPathPolicy.passthrough_values
-)
-strip_mcp_config_passthrough = (
-    ClaudeMcpConfigPathPolicy.strip_passthrough
-)
+_mcp_config_passthrough_values = ClaudeMcpConfigPathPolicy.passthrough_values
+strip_mcp_config_passthrough = ClaudeMcpConfigPathPolicy.strip_passthrough
 
-_mcp_config_paths_from_passthrough = (
-    ClaudeMcpConfigPathPolicy.passthrough_paths
-)
+_mcp_config_paths_from_passthrough = ClaudeMcpConfigPathPolicy.passthrough_paths
 
 restore_codex_mcp_config_from_managed = CodexMcpRestoreService(CodexMcpRestorePorts(
     codex_config_paths_for_launch, discovered_ciel_runtime_managed_mcp_servers, router_log,
@@ -5174,9 +5039,7 @@ def channel_mcp_discovery_service() -> ChannelMcpDiscoveryService:
         )
     )
 
-_CHANNEL_MCP_DISCOVERY_API = ChannelMcpDiscoveryCompatibilityApi(
-    channel_mcp_discovery_service
-)
+_CHANNEL_MCP_DISCOVERY_API = ChannelMcpDiscoveryCompatibilityApi(channel_mcp_discovery_service)
 mcp_server_runtime_headers = _CHANNEL_MCP_DISCOVERY_API.runtime_headers
 _mcp_sse_servers_from_mapping = _CHANNEL_MCP_DISCOVERY_API.servers_from_mapping
 
@@ -5228,9 +5091,7 @@ def start_router_managed_channel_sse(cfg: dict[str, Any]) -> list[dict[str, Any]
 
 channel_specs_for_launch = _CHANNEL_CONFIG_API.channel_specs_for_launch
 
-_CHANNEL_PROBE_API = ChannelProbeCompatibilityApi(
-    service_factory=channel_probe_service,
-)
+_CHANNEL_PROBE_API = ChannelProbeCompatibilityApi(service_factory=channel_probe_service)
 _builtin_router_probe_record = _CHANNEL_PROBE_API.builtin_record
 _server_transport_label = _CHANNEL_PROBE_API.transport_label
 _probe_mcp_servers_to_records = _CHANNEL_PROBE_API.probe
@@ -5271,12 +5132,8 @@ def channel_probe_launch_context() -> ChannelProbeLaunchContext:
         native_channel_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
     )
 
-_CHANNEL_PROBE_LAUNCH_API = ChannelProbeLaunchCompatibilityApi(
-    channel_probe_launch_context
-)
-native_auto_channel_capable_server_names = (
-    _CHANNEL_PROBE_LAUNCH_API.native_auto_capable_names
-)
+_CHANNEL_PROBE_LAUNCH_API = ChannelProbeLaunchCompatibilityApi(channel_probe_launch_context)
+native_auto_channel_capable_server_names = _CHANNEL_PROBE_LAUNCH_API.native_auto_capable_names
 start_codex_mcp_channel_sse_for_launch = _CHANNEL_PROBE_LAUNCH_API.start_codex_sse
 channel_probe_summary_message = _CHANNEL_PROBE_LAUNCH_API.summary
 channel_panel_rows_for_menu = _CHANNEL_PROBE_LAUNCH_API.panel_rows
@@ -5450,10 +5307,7 @@ def timeout_profile_service() -> TimeoutProfileService:
         ),
     )
 
-_TIMEOUT_PROFILE_API = TimeoutProfileApi(
-    timeout_profile_service,
-    lambda: str(load_config().get("language", "en")),
-)
+_TIMEOUT_PROFILE_API = TimeoutProfileApi(timeout_profile_service, lambda: str(load_config().get('language', 'en')))
 llm_preset_timeout_ms = _TIMEOUT_PROFILE_API.llm_preset_timeout_ms
 active_llm_preset_timeout_ms = _TIMEOUT_PROFILE_API.active_llm_preset_timeout_ms
 timeout_profile_id_for_ms = _TIMEOUT_PROFILE_API.timeout_profile_id_for_ms
@@ -5523,9 +5377,7 @@ def provider_model_context() -> ProviderModelContext:
         ),
     )
 
-_PROVIDER_MODEL_CONTEXT_API = ProviderModelContextCompatibilityApi(
-    provider_model_context
-)
+_PROVIDER_MODEL_CONTEXT_API = ProviderModelContextCompatibilityApi(provider_model_context)
 provider_model_context_capacity = _PROVIDER_MODEL_CONTEXT_API.capacity
 cap_context_settings_to_model_capacity = _PROVIDER_MODEL_CONTEXT_API.cap_context
 small_context_output_token_cap = _PROVIDER_MODEL_CONTEXT_API.small_output_cap
@@ -6154,9 +6006,7 @@ def claude_model_alias_policy() -> ClaudeModelAliasPolicy:
         )
     )
 
-_CLAUDE_MODEL_ALIAS_API = ClaudeModelAliasCompatibilityApi(
-    claude_model_alias_policy, context_limit_for_status
-)
+_CLAUDE_MODEL_ALIAS_API = ClaudeModelAliasCompatibilityApi(claude_model_alias_policy, context_limit_for_status)
 claude_code_model_claims_one_million_context = _CLAUDE_MODEL_ALIAS_API.claims_one_million_context
 claude_code_context_model_alias = _CLAUDE_MODEL_ALIAS_API.context_model_alias
 _model_id_matches_claude_family = _CLAUDE_MODEL_ALIAS_API.matches_family
@@ -7380,17 +7230,8 @@ def _write_channel_wake_prompt(
     )
 
 _CHANNEL_TRANSCRIPT_CACHE: dict[str, Any] = {"checked_at": 0.0, "path": None}
-_CHANNEL_TRANSCRIPT_SCOPE: dict[str, Any] = {
-    "runtime": "",
-    "started_at": 0.0,
-    "codex_home": None,
-}
-_CHANNEL_STDIN_RECOVERY_CACHE: dict[str, Any] = {
-    "checked_at": 0.0,
-    "last_id": None,
-    "marker": None,
-    "recovered_last_id": None,
-}
+_CHANNEL_TRANSCRIPT_SCOPE: dict[str, Any] = {'runtime': '', 'started_at': 0.0, 'codex_home': None}
+_CHANNEL_STDIN_RECOVERY_CACHE: dict[str, Any] = {'checked_at': 0.0, 'last_id': None, 'marker': None, 'recovered_last_id': None}
 
 def channel_transcript_repository() -> ChannelTranscriptRepository: return channel_wake_context().transcript_repository()
 
@@ -7690,9 +7531,7 @@ _mcp_proxy_stable_event_identity = _MCP_PROXY_NOTIFICATION_SERVICE.stable_event_
 
 _mcp_proxy_notification_dedupe_key = _MCP_PROXY_NOTIFICATION_SERVICE.dedupe_key
 
-_mcp_proxy_should_skip_duplicate_notification = (
-    _MCP_PROXY_NOTIFICATION_SERVICE.should_skip_duplicate
-)
+_mcp_proxy_should_skip_duplicate_notification = _MCP_PROXY_NOTIFICATION_SERVICE.should_skip_duplicate
 
 _mcp_proxy_observe_json_message = _MCP_PROXY_NOTIFICATION_SERVICE.observe_json_message
 
@@ -7878,9 +7717,7 @@ def runtime_maintenance_services() -> RuntimeMaintenanceServices:
         agy=MaintenanceAgyPorts(AGY_MANIFEST_BASE_URL, agy_user_bin_dir),
     )
 
-_RUNTIME_MAINTENANCE_SERVICES_API = RuntimeMaintenanceServicesCompatibilityApi(
-    runtime_maintenance_services
-)
+_RUNTIME_MAINTENANCE_SERVICES_API = RuntimeMaintenanceServicesCompatibilityApi(runtime_maintenance_services)
 npm_package_lifecycle = _RUNTIME_MAINTENANCE_SERVICES_API.npm_lifecycle
 current_npm_install_prefix = _RUNTIME_MAINTENANCE_SERVICES_API.current_prefix
 running_from_npm_package = _RUNTIME_MAINTENANCE_SERVICES_API.running_from_npm_package
@@ -8052,13 +7889,9 @@ _CODEX_MCP_INTEGRATION = codex_mcp_integration.CodexMcpIntegrationService(
     ),
 )
 discovered_codex_mcp_servers = _CODEX_MCP_INTEGRATION.discovered_servers
-write_codex_mcp_config_for_channel_discovery = (
-    _CODEX_MCP_INTEGRATION.write_discovery_config
-)
+write_codex_mcp_config_for_channel_discovery = _CODEX_MCP_INTEGRATION.write_discovery_config
 _codex_config_bare_key = _CODEX_MCP_INTEGRATION.config_bare_key
-codex_channel_capable_mcp_server_names = (
-    _CODEX_MCP_INTEGRATION.channel_capable_server_names
-)
+codex_channel_capable_mcp_server_names = _CODEX_MCP_INTEGRATION.channel_capable_server_names
 codex_streamable_http_mcp_servers = _CODEX_MCP_INTEGRATION.streamable_http_servers
 codex_mcp_native_http_compat_args = _CODEX_MCP_INTEGRATION.native_http_compat_args
 
@@ -8093,26 +7926,14 @@ _CODEX_LAUNCH_CONFIGURATION = codex_launch_configuration.CodexLaunchConfiguratio
         output=lambda message: print(message, flush=True),
     ),
 )
-codex_alternate_screen_compat_args = (
-    _CODEX_LAUNCH_CONFIGURATION.alternate_screen_compat_args
-)
+codex_alternate_screen_compat_args = _CODEX_LAUNCH_CONFIGURATION.alternate_screen_compat_args
 codex_runtime_config_args = _CODEX_LAUNCH_CONFIGURATION.runtime_config_args
-write_codex_runtime_model_catalog = (
-    _CODEX_LAUNCH_CONFIGURATION.write_runtime_model_catalog
-)
-codex_runtime_model_catalog_args = (
-    _CODEX_LAUNCH_CONFIGURATION.runtime_model_catalog_args
-)
-codex_native_routed_config_args = (
-    _CODEX_LAUNCH_CONFIGURATION.native_routed_config_args
-)
-codex_passthrough_has_model_override = (
-    _CODEX_LAUNCH_CONFIGURATION.passthrough_has_model_override
-)
+write_codex_runtime_model_catalog = _CODEX_LAUNCH_CONFIGURATION.write_runtime_model_catalog
+codex_runtime_model_catalog_args = _CODEX_LAUNCH_CONFIGURATION.runtime_model_catalog_args
+codex_native_routed_config_args = _CODEX_LAUNCH_CONFIGURATION.native_routed_config_args
+codex_passthrough_has_model_override = _CODEX_LAUNCH_CONFIGURATION.passthrough_has_model_override
 codex_current_model_cli_args = _CODEX_LAUNCH_CONFIGURATION.current_model_cli_args
-codex_current_model_config_args = (
-    _CODEX_LAUNCH_CONFIGURATION.current_model_config_args
-)
+codex_current_model_config_args = _CODEX_LAUNCH_CONFIGURATION.current_model_config_args
 
 def log_codex_passthrough_mapping(notes: list[str]) -> None:
     if not notes:
