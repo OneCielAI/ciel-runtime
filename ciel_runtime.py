@@ -20,7 +20,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
-from ciel_runtime_support.agent_router import missing_common_capabilities, router_capability_matrix
 from ciel_runtime_support.advisor_policy import (
     AdvisorShortcutController,
     AdvisorShortcutPorts,
@@ -840,7 +839,6 @@ from ciel_runtime_support.codex_cli import (
     codex_resume_with_session_id,
 )
 from ciel_runtime_support.codex_router import (
-    CodexRouter,
     read_codex_response_preamble,
 )
 from ciel_runtime_support.codex_session_repository import (
@@ -918,7 +916,6 @@ from ciel_runtime_support.openai_forwarding import (
     OpenAIForwardStreaming,
     forward_openai_compatible_chat as run_openai_forward,
 )
-from ciel_runtime_support.openai_chat_router import OpenAIChatRouter
 from ciel_runtime_support import openai_responses_router
 from ciel_runtime_support.openai_responses_stream import (
     write_openai_responses as project_openai_responses_stream,
@@ -1147,6 +1144,17 @@ from ciel_runtime_support.router_http import (
     RouterHttpPostEndpoints,
     RouterHttpPresentation,
     RouterHttpServices,
+)
+from ciel_runtime_support.router_request_context import (
+    RouterRequestCompatibilityApi,
+    RouterRequestContext,
+    RouterRequestPorts,
+    RuntimeRouterPorts,
+)
+from ciel_runtime_support.router_server_context import (
+    RouterHealthPresentationPorts,
+    RouterServerCompatibilityApi,
+    RouterServerContext,
 )
 from ciel_runtime_support.provider_policy import (
     ProviderRequestServices,
@@ -5523,20 +5531,10 @@ codex_capacity_retry_limit = _CODEX_BACKEND_API.capacity_retry_limit
 forward_codex_backend_get = _CODEX_BACKEND_API.forward_get
 forward_codex_responses = _CODEX_BACKEND_API.forward_responses
 
-def handle_openai_responses_post(
-    handler: BaseHTTPRequestHandler,
-    cfg: dict[str, Any],
-    provider: str,
-    pcfg: dict[str, Any],
-    body: dict[str, Any],
-) -> None:
-    openai_responses_router.handle_openai_responses_request(
-        handler,
-        cfg,
-        provider,
-        pcfg,
-        body,
-        openai_responses_router.OpenAIResponsesServices(
+def _router_request_context() -> RouterRequestContext:
+    return RouterRequestContext(
+        request=RouterRequestPorts(
+            openai_responses=openai_responses_router.OpenAIResponsesServices(
             core=openai_responses_router.OpenAIResponsesCore(
                 event_bus=EVENT_BUS,
                 request_id=lambda: f"{os.getpid()}-{time.time_ns()}",
@@ -5580,185 +5578,120 @@ def handle_openai_responses_post(
                 event_preview=router_event_message_preview,
             ),
         ),
-    )
-
-def handle_codex_backend_passthrough_post(
-    handler: BaseHTTPRequestHandler,
-    provider: str,
-    pcfg: dict[str, Any],
-    body: dict[str, Any],
-) -> None:
-    try:
-        forward_codex_backend_json(handler, provider, pcfg, body, mutate_responses=False)
-    except urllib.error.HTTPError as exc:
-        raw = exc.read().decode("utf-8", errors="ignore")
-        write_openai_responses_error(handler, upstream_http_error_message(exc, raw), stream=False, status=exc.code)
-    except Exception as exc:
-        if is_client_disconnect_error(exc):
-            return
-        write_openai_responses_error(handler, f"{type(exc).__name__}: {exc}", stream=False)
-
-def handle_codex_backend_passthrough_get(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any]) -> None:
-    try:
-        forward_codex_backend_get(handler, provider, pcfg)
-    except urllib.error.HTTPError as exc:
-        raw = exc.read().decode("utf-8", errors="ignore")
-        write_json(handler, {"error": {"message": upstream_http_error_message(exc, raw)}}, status=exc.code)
-    except Exception as exc:
-        if is_client_disconnect_error(exc):
-            return
-        write_json(handler, {"error": {"message": f"{type(exc).__name__}: {exc}"}}, status=502)
-
-def build_claude_router_services() -> claude_router.ClaudeRouterServices:
-    return claude_router.ClaudeRouterServices(
-        core=claude_router.ClaudeRouterCore(
-            event_bus=EVENT_BUS,
-            log=router_log,
-            try_write_json=try_write_json,
-        ),
-        count_tokens=claude_router.ClaudeRouterCountTokens(
-            estimate_tokens=estimate_tokens,
-            write_context_usage=write_context_usage,
+            forward_backend_json=forward_codex_backend_json,
+            forward_backend_get=forward_codex_backend_get,
+            write_responses_error=write_openai_responses_error,
             write_json=write_json,
-        ),
-        pipeline=claude_router.ClaudeRouterPipeline(
-            update_tool_schema_registry=_update_tool_schema_registry,
-            router_event_message_preview=router_event_message_preview,
-            dump_request_for_trace=dump_request_for_trace,
-            filter_blocked_tools=filter_blocked_tools,
-            normalize_tool_choice=normalize_tool_choice_for_provider,
-            write_context_usage=write_context_usage,
-            strip_advisor_tools=strip_autonomous_advisor_server_tools,
-            inject_channel_context=body_with_pending_channel_messages,
-            inject_tool_result_context=body_with_channel_tool_result_context,
-        ),
-        shortcuts=claude_router.ClaudeRouterShortcuts(
-            plan_mode=maybe_handle_plan_mode_tool_choice,
-            router_debug=maybe_handle_router_debug_request,
-            version=maybe_handle_version_request,
-            channel_clear=maybe_handle_channel_clear_request,
-            import_session=maybe_handle_import_session_request,
-            llm_options=maybe_handle_live_llm_options_request,
-            api_keys=maybe_handle_live_api_keys_request,
-            advisor=maybe_handle_advisor_request,
-        ),
-        delivery=claude_router.ClaudeRouterDelivery(
-            begin=begin_pending_channel_delivery,
-            commit=commit_pending_channel_delivery_cursors,
-            mark_failed=mark_pending_channel_delivery_failed,
-            mark_success=mark_pending_channel_delivery_success,
+            upstream_error_message=upstream_http_error_message,
             is_client_disconnect=is_client_disconnect_error,
-            write_activity=write_router_activity,
         ),
-        routing=claude_router.ClaudeRouterRouting(
-            forward_ollama=forward_ollama_api_chat,
-            forward_openai=forward_openai_compatible_chat,
-            select_protocol=select_provider_protocol,
-            request_policy=provider_request_policy,
-            resolve_model=resolve_requested_model,
-            provider_labels=PROVIDER_LABELS,
-            write_json=write_json,
-        ),
-        normalization=claude_router.ClaudeRouterNativeNormalization(
-            normalize_provider_wire=normalize_request_for_provider_wire,
-            normalize_thinking=normalize_thinking_for_non_anthropic_provider,
-            normalize_system_roles=normalize_anthropic_system_role_messages,
-            cap_body=cap_anthropic_body_for_provider,
-            apply_request_options=apply_provider_request_options,
-            rehydrate_thinking=rehydrate_suppressed_thinking_passback,
-            ncp_model_id=ncp_model_id_for_nvidia_hosted,
-            resolve_tool_models=resolve_tool_model_references,
-            normalize_model_options=normalize_anthropic_model_request_options,
-            strip_internal_metadata=body_without_ciel_runtime_internal_metadata,
-        ),
-        transport=claude_router.ClaudeRouterTransport(
-            native_base_url=native_anthropic_base_url,
-            native_compat_enabled=provider_native_compat_enabled,
-            upstream_base=provider_upstream_request_base,
-            join_url=join_url,
-            upstream_query=upstream_messages_query,
-            provider_headers=provider_headers,
-            apply_rate_limit=apply_router_rate_limit,
-            open_request=open_provider_request_with_key_retry,
-            request_timeout=provider_request_timeout_seconds,
-            idle_timeout=provider_stream_idle_timeout_seconds,
-        ),
-        response=claude_router.ClaudeRouterResponse(
-            rebatch_sse=_rebatch_anthropic_sse_text,
-            preserves_thinking=preserves_anthropic_thinking_contract,
-            normalize_stream_tool_use=should_normalize_anthropic_stream_tool_use,
-            set_stream_timeout=set_upstream_stream_read_timeout,
-            normalize_thinking=normalize_response_thinking_for_non_anthropic_provider,
-            append_tasklist=append_synthetic_tasklist_to_message,
-            prepend_text=prepend_anthropic_text,
-            rate_limit_notice=rate_limit_notice,
-            register_key_cooldown=register_api_key_cooldown,
-            key_from_headers=key_from_request_headers,
+        runtime=RuntimeRouterPorts(
+            codex_routed_enabled=codex_routed_enabled,
+            forward_provider_chat=forward_provider_chat,
+            claude_services=claude_router.ClaudeRouterServices(
+                core=claude_router.ClaudeRouterCore(
+                    event_bus=EVENT_BUS, log=router_log, try_write_json=try_write_json,
+                ),
+                count_tokens=claude_router.ClaudeRouterCountTokens(
+                    estimate_tokens=estimate_tokens,
+                    write_context_usage=write_context_usage,
+                    write_json=write_json,
+                ),
+                pipeline=claude_router.ClaudeRouterPipeline(
+                    update_tool_schema_registry=_update_tool_schema_registry,
+                    router_event_message_preview=router_event_message_preview,
+                    dump_request_for_trace=dump_request_for_trace,
+                    filter_blocked_tools=filter_blocked_tools,
+                    normalize_tool_choice=normalize_tool_choice_for_provider,
+                    write_context_usage=write_context_usage,
+                    strip_advisor_tools=strip_autonomous_advisor_server_tools,
+                    inject_channel_context=body_with_pending_channel_messages,
+                    inject_tool_result_context=body_with_channel_tool_result_context,
+                ),
+                shortcuts=claude_router.ClaudeRouterShortcuts(
+                    plan_mode=maybe_handle_plan_mode_tool_choice,
+                    router_debug=maybe_handle_router_debug_request,
+                    version=maybe_handle_version_request,
+                    channel_clear=maybe_handle_channel_clear_request,
+                    import_session=maybe_handle_import_session_request,
+                    llm_options=maybe_handle_live_llm_options_request,
+                    api_keys=maybe_handle_live_api_keys_request,
+                    advisor=maybe_handle_advisor_request,
+                ),
+                delivery=claude_router.ClaudeRouterDelivery(
+                    begin=begin_pending_channel_delivery,
+                    commit=commit_pending_channel_delivery_cursors,
+                    mark_failed=mark_pending_channel_delivery_failed,
+                    mark_success=mark_pending_channel_delivery_success,
+                    is_client_disconnect=is_client_disconnect_error,
+                    write_activity=write_router_activity,
+                ),
+                routing=claude_router.ClaudeRouterRouting(
+                    forward_ollama=forward_ollama_api_chat,
+                    forward_openai=forward_openai_compatible_chat,
+                    select_protocol=select_provider_protocol,
+                    request_policy=provider_request_policy,
+                    resolve_model=resolve_requested_model,
+                    provider_labels=PROVIDER_LABELS,
+                    write_json=write_json,
+                ),
+                normalization=claude_router.ClaudeRouterNativeNormalization(
+                    normalize_provider_wire=normalize_request_for_provider_wire,
+                    normalize_thinking=normalize_thinking_for_non_anthropic_provider,
+                    normalize_system_roles=normalize_anthropic_system_role_messages,
+                    cap_body=cap_anthropic_body_for_provider,
+                    apply_request_options=apply_provider_request_options,
+                    rehydrate_thinking=rehydrate_suppressed_thinking_passback,
+                    ncp_model_id=ncp_model_id_for_nvidia_hosted,
+                    resolve_tool_models=resolve_tool_model_references,
+                    normalize_model_options=normalize_anthropic_model_request_options,
+                    strip_internal_metadata=body_without_ciel_runtime_internal_metadata,
+                ),
+                transport=claude_router.ClaudeRouterTransport(
+                    native_base_url=native_anthropic_base_url,
+                    native_compat_enabled=provider_native_compat_enabled,
+                    upstream_base=provider_upstream_request_base,
+                    join_url=join_url,
+                    upstream_query=upstream_messages_query,
+                    provider_headers=provider_headers,
+                    apply_rate_limit=apply_router_rate_limit,
+                    open_request=open_provider_request_with_key_retry,
+                    request_timeout=provider_request_timeout_seconds,
+                    idle_timeout=provider_stream_idle_timeout_seconds,
+                ),
+                response=claude_router.ClaudeRouterResponse(
+                    rebatch_sse=_rebatch_anthropic_sse_text,
+                    preserves_thinking=preserves_anthropic_thinking_contract,
+                    normalize_stream_tool_use=should_normalize_anthropic_stream_tool_use,
+                    set_stream_timeout=set_upstream_stream_read_timeout,
+                    normalize_thinking=normalize_response_thinking_for_non_anthropic_provider,
+                    append_tasklist=append_synthetic_tasklist_to_message,
+                    prepend_text=prepend_anthropic_text,
+                    rate_limit_notice=rate_limit_notice,
+                    register_key_cooldown=register_api_key_cooldown,
+                    key_from_headers=key_from_request_headers,
+                ),
+            ),
         ),
     )
 
-def build_runtime_routers() -> tuple[Any, ...]:
-    return (
-        CodexRouter(
-            routed_enabled=codex_routed_enabled,
-            handle_responses_post=handle_openai_responses_post,
-            handle_backend_passthrough_post=handle_codex_backend_passthrough_post,
-            handle_backend_passthrough_get=handle_codex_backend_passthrough_get,
-        ),
-        OpenAIChatRouter(forward_provider_chat),
-        claude_router.ClaudeRouter(services=build_claude_router_services()),
-    )
+_ROUTER_REQUEST_API = RouterRequestCompatibilityApi(_router_request_context)
+handle_openai_responses_post = _ROUTER_REQUEST_API.handle_openai_responses_post
+handle_codex_backend_passthrough_post = (
+    _ROUTER_REQUEST_API.handle_codex_backend_passthrough_post
+)
+handle_codex_backend_passthrough_get = (
+    _ROUTER_REQUEST_API.handle_codex_backend_passthrough_get
+)
+build_claude_router_services = _ROUTER_REQUEST_API.build_claude_router_services
+build_runtime_routers = _ROUTER_REQUEST_API.build_runtime_routers
+runtime_router_capability_matrix = _ROUTER_REQUEST_API.capability_matrix
+runtime_router_capability_gaps = _ROUTER_REQUEST_API.capability_gaps
+route_runtime_get = _ROUTER_REQUEST_API.route_get
+route_runtime_post = _ROUTER_REQUEST_API.route_post
 
-def runtime_router_capability_matrix() -> dict[str, dict[str, Any]]:
-    return router_capability_matrix(build_runtime_routers())
-
-def runtime_router_capability_gaps() -> dict[str, list[str]]:
-    return missing_common_capabilities(build_runtime_routers())
-
-def route_runtime_get(handler: BaseHTTPRequestHandler, path: str, provider: str, pcfg: dict[str, Any]) -> bool:
-    for router in build_runtime_routers():
-        if router.can_handle_get(path, provider, pcfg):
-            return bool(router.handle_get(handler, path, provider, pcfg))
-    return False
-
-def route_runtime_post(
-    handler: BaseHTTPRequestHandler,
-    cfg: dict[str, Any],
-    provider: str,
-    pcfg: dict[str, Any],
-    path: str,
-    body: dict[str, Any],
-) -> bool:
-    for router in build_runtime_routers():
-        if router.can_handle_post(path, provider, pcfg):
-            return bool(router.handle_post(handler, cfg, provider, pcfg, path, body))
-    return False
-
-def router_health_payload(
-    cfg: dict[str, Any],
-    provider: str,
-    pcfg: dict[str, Any],
-) -> dict[str, Any]:
-    del pcfg
-    return {
-        "ok": True,
-        "version": VERSION,
-        "source_fingerprint": SOURCE_FINGERPRINT,
-        "pid": os.getpid(),
-        "user": getpass.getuser(),
-        "home": str(HOME),
-        "config_dir": str(CONFIG_DIR),
-        "router_port": ROUTER_PORT,
-        "provider": provider,
-        "model": current_alias(cfg),
-        "web_chat": "/ca/web/chat",
-        "chat": "/ca/chat/health",
-        "plan": "/ca/plan/artifacts",
-        "events": "/ca/events",
-    }
-
-def build_router_http_services() -> RouterHttpServices:
-    return RouterHttpServices(
+def _router_server_context() -> RouterServerContext:
+    http_services = RouterHttpServices(
         core=RouterHttpCore(
             load_config=load_config,
             reject_external=reject_external_router_request,
@@ -5799,12 +5732,7 @@ def build_router_http_services() -> RouterHttpServices:
             try_write_json=try_write_json,
         ),
     )
-
-class RouterHandler(RouterHttpHandler):
-    services_factory = staticmethod(build_router_http_services)
-
-def serve(_: argparse.Namespace) -> None:
-    router_server_runtime.RouterServerRuntime(
+    server_runtime = router_server_runtime.RouterServerRuntime(
         router_server_runtime.RouterServerConfig(
             CONFIG_DIR, PID_PATH, ROUTER_PORT, ROUTER_BASE, LOG_LEVEL_PATH,
             LOG_LEVEL_NAMES, RouterHandler,
@@ -5822,7 +5750,24 @@ def serve(_: argparse.Namespace) -> None:
                 ROUTER_PORT, ROUTER_HOST, bind_host, config=load_config()
             ),
         ),
-    ).run()
+    )
+    return RouterServerContext(
+        health=RouterHealthPresentationPorts(
+            VERSION, SOURCE_FINGERPRINT, os.getpid, getpass.getuser,
+            HOME, CONFIG_DIR, ROUTER_PORT, current_alias,
+        ),
+        http_services=http_services,
+        server_runtime=server_runtime,
+    )
+
+_ROUTER_SERVER_API = RouterServerCompatibilityApi(_router_server_context)
+router_health_payload = _ROUTER_SERVER_API.health_payload
+build_router_http_services = _ROUTER_SERVER_API.build_http_services
+
+class RouterHandler(RouterHttpHandler):
+    services_factory = staticmethod(build_router_http_services)
+
+serve = _ROUTER_SERVER_API.serve
 
 def router_health() -> dict[str, Any] | None:
     try:

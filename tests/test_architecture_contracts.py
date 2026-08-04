@@ -924,6 +924,15 @@ from ciel_runtime_support.router_http import (
     RouterHttpPresentation,
     RouterHttpServices,
 )
+from ciel_runtime_support.router_request_context import (
+    RouterRequestContext,
+    RouterRequestPorts,
+    RuntimeRouterPorts,
+)
+from ciel_runtime_support.router_server_context import (
+    RouterHealthPresentationPorts,
+    RouterServerContext,
+)
 from ciel_runtime_support.streaming_anthropic import (
     AnthropicContinuationPolicy,
     AnthropicConversationContext,
@@ -1498,6 +1507,35 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_router_application_contexts_own_request_and_server_orchestration(self):
+        for port in (
+            RouterRequestPorts,
+            RuntimeRouterPorts,
+            RouterRequestContext,
+            RouterHealthPresentationPorts,
+            RouterServerContext,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+        source = (
+            Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        ).read_text(encoding="utf-8")
+        for function_name in (
+            "handle_openai_responses_post",
+            "handle_codex_backend_passthrough_post",
+            "handle_codex_backend_passthrough_get",
+            "build_claude_router_services",
+            "build_runtime_routers",
+            "route_runtime_get",
+            "route_runtime_post",
+            "router_health_payload",
+            "build_router_http_services",
+            "serve",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
 
     def test_router_http_adapter_has_no_silent_exception_handlers(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "router_http.py"
@@ -5558,7 +5596,6 @@ class ArchitectureContractTests(unittest.TestCase):
             "terminate_windows_port": "terminate_port",
             "format_parameter_count": "project_format_parameter_count",
             "context_setting_status": "status",
-            "serve": "run",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
             "portable_prelaunch_menu": "execute_prelaunch_menu",
