@@ -1063,7 +1063,11 @@ class StopRouterGuaranteeTests(unittest.TestCase):
             self.assertEqual([5555], ciel_runtime.posix_pids_on_port(8799))
 
     def test_terminate_router_health_pid_uses_health_pid(self):
-        with mock.patch.object(ciel_runtime, "terminate_pid", return_value=True) as terminate:
+        with (
+            mock.patch.object(ciel_runtime.os, "getpid", return_value=100),
+            mock.patch.object(ciel_runtime.os, "getppid", return_value=101),
+            mock.patch.object(ciel_runtime, "terminate_pid", return_value=True) as terminate,
+        ):
             result = ciel_runtime.terminate_router_health_pid({"pid": 2468, "config_dir": str(ciel_runtime.CONFIG_DIR)}, quiet=True)
 
         self.assertTrue(result)
