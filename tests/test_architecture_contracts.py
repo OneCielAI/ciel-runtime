@@ -944,6 +944,15 @@ from ciel_runtime_support.runtime_launch_context import (
     RuntimeLaunchRunners,
     RuntimeLaunchServiceFactories,
 )
+from ciel_runtime_support.runtime_asset_context import (
+    RuntimeAssetCompatibilityPorts,
+    RuntimeAssetContext,
+    RuntimeAssetEffects,
+    RuntimeAssetPaths,
+    RuntimeCommandAssetCatalog,
+    RuntimeExecutablePaths,
+    RuntimeToolGuardPolicy,
+)
 from ciel_runtime_support.runtime_command_factory import RuntimeCommandFactory, RuntimeCommandFactoryPorts
 from ciel_runtime_support.router_http import (
     RouterHttpCore,
@@ -3677,19 +3686,43 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertEqual(4, len(fields(LegacyToolGuardShimServices)))
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
-        function = next(
-            node
+        root_functions = {
+            node.name
             for node in ast.parse(source).body
             if isinstance(node, ast.FunctionDef)
-            and node.name == "install_legacy_tool_guard_compat_shim"
-        )
-        function_source = ast.get_source_segment(source, function) or ""
-        self.assertIn("LegacyToolGuardShimInstaller", function_source)
-        self.assertNotIn(".symlink_to(", function_source)
+        }
+        self.assertNotIn("install_legacy_tool_guard_compat_shim", root_functions)
         installer_source = (
             root / "ciel_runtime_support" / "tool_guard_hooks.py"
         ).read_text(encoding="utf-8")
         self.assertNotIn("import ciel_runtime", installer_source)
+
+    def test_runtime_asset_context_owns_discovery_and_command_installation(self):
+        for port in (
+            RuntimeExecutablePaths,
+            RuntimeAssetPaths,
+            RuntimeAssetEffects,
+            RuntimeCommandAssetCatalog,
+            RuntimeToolGuardPolicy,
+            RuntimeAssetCompatibilityPorts,
+            RuntimeAssetContext,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (
+            Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        ).read_text(encoding="utf-8")
+        for function_name in (
+            "executable_discovery",
+            "find_executable",
+            "resolve_mcp_server_process",
+            "install_tool_guard_hooks",
+            "install_ciel_runtime_statusline",
+            "install_ciel_runtime_codex_prompts",
+            "install_ciel_runtime_slash_commands",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
 
     def test_settings_repository_ports_stay_below_dependency_limit(self):
         for port in (

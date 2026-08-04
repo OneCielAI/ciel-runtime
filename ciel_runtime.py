@@ -122,10 +122,19 @@ from ciel_runtime_support.channel_compact_request_repository import (
 )
 from ciel_runtime_support.command_asset_installer import (
     CommandAsset,
-    CommandAssetInstaller,
     is_owned_command_file,
 )
 from ciel_runtime_support.executable_discovery import ExecutableDiscovery
+from ciel_runtime_support.runtime_asset_context import (
+    RuntimeAssetCompatibilityApi,
+    RuntimeAssetCompatibilityPorts,
+    RuntimeAssetContext,
+    RuntimeAssetEffects,
+    RuntimeAssetPaths,
+    RuntimeCommandAssetCatalog,
+    RuntimeExecutablePaths,
+    RuntimeToolGuardPolicy,
+)
 from ciel_runtime_support.channel_event_projection import (
     CHANNEL_CONTROL_KINDS as _CHANNEL_CONTROL_KINDS,
     compact_json_for_prompt as _compact_json_for_prompt,
@@ -483,7 +492,6 @@ from ciel_runtime_support.slash_command_assets import (
     VERSION_SLASH_COMMAND,
 )
 from ciel_runtime_support.statusline_script import STATUSLINE_SCRIPT
-from ciel_runtime_support.statusline_settings import StatusLineServices, install_statusline_settings
 from ciel_runtime_support.config_migrations import (
     ConfigMigrationPolicy,
     apply_config_migrations as run_config_migrations,
@@ -542,13 +550,9 @@ from ciel_runtime_support.github_copilot_oauth_runtime import (
 )
 from ciel_runtime_support.tool_guard_hooks import (
     DEFAULT_TOOL_GUARD_HOOK_POLICY,
-    LegacyToolGuardShimInstaller,
-    LegacyToolGuardShimServices,
     TOOL_GUARD_EVENTS_WITHOUT_MATCHER,  # noqa: F401 - compatibility export
     TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER,  # noqa: F401 - compatibility export
     ToolGuardHookPolicy,  # noqa: F401 - compatibility export
-    ToolGuardHookServices,
-    install_tool_guard_hook_settings,
 )
 from ciel_runtime_support.tool_side_effect_dedupe import (
     ToolSideEffectDedupePolicy,
@@ -2146,112 +2150,15 @@ def load_dotenv_into_environ(path: Path, *, override: bool = True) -> None:
 
 executable_candidates = ExecutableDiscovery.candidates
 
-def executable_discovery() -> ExecutableDiscovery:
-    return ExecutableDiscovery(
-        HOME,
-        Path(__file__),
-        platform_path,
-        ciel_runtime_user_bin_dir,
-        agy_user_bin_dir,
-    )
-
-def executable_extra_dirs() -> list[Path]:
-    return executable_discovery().extra_dirs()
-
-def find_executable(name: str) -> str | None:
-    return executable_discovery().find(name)
-
-def resolve_executable_for_subprocess(command: str) -> str:
-    return executable_discovery().resolve(command)
-
-def resolve_mcp_server_process(command: str, args: list[str]) -> tuple[str, list[str]]:
-    return executable_discovery().resolve_mcp_process(command, args, find_executable)
-
-def shell_command_string(args: list[str]) -> str:
-    return ExecutableDiscovery.shell_command(args)
-
-def find_tool_guard_script() -> Path | None:
-    return executable_discovery().find_tool_guard(find_executable)
-
-def ciel_runtime_tool_guard_command() -> str | None:
-    script = find_tool_guard_script()
-    if script is None:
-        return None
-    if script.suffix == ".py":
-        return shell_command_string([sys.executable, str(script)])
-    return shell_command_string([str(script)])
-
-def install_legacy_tool_guard_compat_shim() -> None:
-    """Keep already-running pre-rename Claude sessions from failing old hooks."""
-    LegacyToolGuardShimInstaller(
-        LegacyToolGuardShimServices(
-            package_root=Path(__file__).resolve().parent,
-            find_target=find_tool_guard_script,
-            chmod=os.chmod,
-            log=router_log,
-        )
-    ).install()
-
-def install_tool_guard_hooks() -> None:
-    install_tool_guard_hook_settings(
-        ciel_runtime_tool_guard_command(),
-        DEFAULT_TOOL_GUARD_HOOK_POLICY,
-        ToolGuardHookServices(
-            repository=JsonSettingsRepository(
-                path=CLAUDE_SETTINGS_PATH,
-                effects=SettingsFileEffects(log=router_log),
-            ),
-            install_legacy_shim=install_legacy_tool_guard_compat_shim,
-            warn=lambda message: print(f"Ciel Runtime warning: {message}", flush=True),
-        ),
-    )
-
-def install_ciel_runtime_statusline() -> None:
-    install_statusline_settings(
-        CIEL_RUNTIME_STATUSLINE_PATH,
-        STATUSLINE_SCRIPT,
-        sys.executable,
-        StatusLineServices(
-            repository=JsonSettingsRepository(
-                path=CLAUDE_SETTINGS_PATH,
-                effects=SettingsFileEffects(log=router_log),
-            ),
-            warn=lambda message: print(f"Ciel Runtime warning: {message}", flush=True),
-        ),
-    )
 command_file_is_ciel_runtime_owned = is_owned_command_file
 
-def _command_asset_installer(directory: Path) -> CommandAssetInstaller:
-    return CommandAssetInstaller(
-        directory,
-        lambda message: print(f"Ciel Runtime warning: {message}", flush=True),
-    )
-
-def remove_ciel_runtime_advisor_command() -> None:
-    """Remove the ciel-runtime-owned /advisor command so Claude Code's built-in
-    /advisor (the standard flow for the anthropic provider) surfaces."""
-    _command_asset_installer(CLAUDE_COMMANDS_DIR).remove_one(
-        "advisor.md", CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS
-    )
-
-def codex_prompts_dir(env: dict[str, str] | None = None) -> Path:
-    raw_home = (env or os.environ).get("CODEX_HOME")
-    home = Path(raw_home).expanduser() if raw_home else HOME / ".codex"
-    return home / CODEX_PROMPTS_DIR_NAME
-
-def install_ciel_runtime_codex_prompts(env: dict[str, str] | None = None) -> None:
-    _command_asset_installer(codex_prompts_dir(env)).install_one(
-        "ImportSession.md",
-        CommandAsset(IMPORT_SESSION_SLASH_COMMAND, CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS),
-    )
-
-def disable_ciel_runtime_codex_prompts_for_native(env: dict[str, str] | None = None) -> None:
-    _command_asset_installer(codex_prompts_dir(env)).remove_one(
-        "ImportSession.md", CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS
-    )
-
-def _ciel_runtime_command_assets(include_advisor: bool = True) -> dict[str, CommandAsset]:
-    assets = {
+def runtime_asset_context() -> RuntimeAssetContext:
+    def settings_repository() -> JsonSettingsRepository:
+        return JsonSettingsRepository(
+            path=CLAUDE_SETTINGS_PATH,
+            effects=SettingsFileEffects(log=router_log),
+        )
+    standard_assets = {
         "router-debug.md": CommandAsset(ROUTER_DEBUG_SLASH_COMMAND, CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS),
         "ciel-version.md": CommandAsset(VERSION_SLASH_COMMAND, CIEL_RUNTIME_VERSION_COMMAND_MARKERS),
         "llm.md": CommandAsset(LLM_SLIDER_SLASH_COMMAND, CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS),
@@ -2262,25 +2169,63 @@ def _ciel_runtime_command_assets(include_advisor: bool = True) -> dict[str, Comm
         "api-keys.md": CommandAsset(API_KEYS_SLASH_COMMAND, CIEL_RUNTIME_API_KEYS_COMMAND_MARKERS),
         "ImportSession.md": CommandAsset(IMPORT_SESSION_SLASH_COMMAND, CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS),
     }
-    if include_advisor:
-        assets["advisor.md"] = CommandAsset(ADVISOR_SLASH_COMMAND, CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS)
-    return assets
-
-def install_ciel_runtime_slash_commands(include_advisor: bool = True) -> None:
-    if not include_advisor:
-        remove_ciel_runtime_advisor_command()
-    _command_asset_installer(CLAUDE_COMMANDS_DIR).install_all(
-        _ciel_runtime_command_assets(include_advisor),
-        stale_glob="llm-*.md",
-        stale_markers=CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
+    return RuntimeAssetContext(
+        executable=RuntimeExecutablePaths(
+            HOME, Path(__file__), platform_path, ciel_runtime_user_bin_dir,
+            agy_user_bin_dir, sys.executable,
+        ),
+        paths=RuntimeAssetPaths(
+            Path(__file__).resolve().parent, CIEL_RUNTIME_STATUSLINE_PATH,
+            STATUSLINE_SCRIPT, CLAUDE_COMMANDS_DIR, CODEX_PROMPTS_DIR_NAME,
+        ),
+        effects=RuntimeAssetEffects(
+            settings_repository, os.chmod, router_log,
+            lambda message: print(f"Ciel Runtime warning: {message}", flush=True),
+            os.environ,
+        ),
+        catalog=RuntimeCommandAssetCatalog(
+            standard_assets,
+            CommandAsset(ADVISOR_SLASH_COMMAND, CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS),
+            CIEL_RUNTIME_ADVISOR_COMMAND_MARKERS,
+            CommandAsset(IMPORT_SESSION_SLASH_COMMAND, CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS),
+            CIEL_RUNTIME_IMPORT_SESSION_COMMAND_MARKERS,
+            CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
+        ),
+        tool_guard=RuntimeToolGuardPolicy(DEFAULT_TOOL_GUARD_HOOK_POLICY),
+        compatibility=RuntimeAssetCompatibilityPorts(
+            find_executable=lambda name: find_executable(name),
+            find_tool_guard=lambda: find_tool_guard_script(),
+            tool_guard_command=lambda: ciel_runtime_tool_guard_command(),
+            install_legacy_shim=lambda: install_legacy_tool_guard_compat_shim(),
+            command_asset_installer=lambda directory: _command_asset_installer(directory),
+            remove_advisor_command=lambda: remove_ciel_runtime_advisor_command(),
+            codex_prompts_dir=lambda env=None: codex_prompts_dir(env),
+            command_assets=lambda include_advisor=True: _ciel_runtime_command_assets(
+                include_advisor
+            ),
+        ),
     )
 
-def disable_ciel_runtime_slash_commands_for_native() -> None:
-    _command_asset_installer(CLAUDE_COMMANDS_DIR).remove_all(
-        _ciel_runtime_command_assets(),
-        stale_glob="llm-*.md",
-        stale_markers=CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS,
-    )
+_RUNTIME_ASSET_API = RuntimeAssetCompatibilityApi(runtime_asset_context)
+executable_discovery = _RUNTIME_ASSET_API.executable_discovery
+executable_extra_dirs = _RUNTIME_ASSET_API.executable_extra_dirs
+find_executable = _RUNTIME_ASSET_API.find_executable
+resolve_executable_for_subprocess = _RUNTIME_ASSET_API.resolve_executable
+resolve_mcp_server_process = _RUNTIME_ASSET_API.resolve_mcp_process
+shell_command_string = _RUNTIME_ASSET_API.shell_command
+find_tool_guard_script = _RUNTIME_ASSET_API.find_tool_guard
+ciel_runtime_tool_guard_command = _RUNTIME_ASSET_API.tool_guard_command
+install_legacy_tool_guard_compat_shim = _RUNTIME_ASSET_API.install_legacy_tool_guard_shim
+install_tool_guard_hooks = _RUNTIME_ASSET_API.install_tool_guard_hooks
+install_ciel_runtime_statusline = _RUNTIME_ASSET_API.install_statusline
+_command_asset_installer = _RUNTIME_ASSET_API.command_asset_installer
+remove_ciel_runtime_advisor_command = _RUNTIME_ASSET_API.remove_advisor_command
+codex_prompts_dir = _RUNTIME_ASSET_API.codex_prompts_dir
+install_ciel_runtime_codex_prompts = _RUNTIME_ASSET_API.install_codex_prompts
+disable_ciel_runtime_codex_prompts_for_native = _RUNTIME_ASSET_API.disable_codex_prompts
+_ciel_runtime_command_assets = _RUNTIME_ASSET_API.command_assets
+install_ciel_runtime_slash_commands = _RUNTIME_ASSET_API.install_slash_commands
+disable_ciel_runtime_slash_commands_for_native = _RUNTIME_ASSET_API.disable_slash_commands
 
 def http_json(
     url: str,
