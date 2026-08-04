@@ -79,6 +79,25 @@ _OLLAMA_EXAMPLES = (
     "  ciel-runtime --ca-ollama-option temperature=0.7 --ca-ollama-num-ctx 65536",
 )
 
+DEFAULT_PROVIDER_NOTES: Mapping[str, Sequence[str]] = {
+    "opencode": (
+        "  OpenCode endpoint override: endpoint:<model-id>=messages|chat|responses|gemini",
+        "  OpenCode ip_family options: auto, ipv4, ipv6, ipv4-preferred, ipv6-preferred",
+    ),
+    "opencode-go": (
+        "  OpenCode endpoint override: endpoint:<model-id>=messages|chat|responses|gemini",
+        "  OpenCode ip_family options: auto, ipv4, ipv6, ipv4-preferred, ipv6-preferred",
+    ),
+    "fireworks": (
+        "  Fireworks model list options: account_id=fireworks, model_api_base_url=https://api.fireworks.ai",
+    ),
+}
+DEFAULT_UNSUPPORTED_MESSAGE = (
+    "Provider options are available for anthropic, ollama, ollama-cloud, "
+    "deepseek, opencode, opencode-go, kimi, z.ai, fireworks, vllm, "
+    "lm-studio, nvidia-hosted, self-hosted-nim, and openrouter."
+)
+
 
 class ProviderOptionCliController:
     def __init__(
