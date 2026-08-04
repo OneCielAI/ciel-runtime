@@ -216,10 +216,15 @@ from ciel_runtime_support.channel_message_policy import (
     string_list as _as_string_list,
     superseded_message_ids as _channel_superseded_message_ids,
 )
-from ciel_runtime_support.channel_message_dedupe import (
-    ChannelMessageDedupePorts,
-    ChannelMessageDedupeService,
+from ciel_runtime_support.channel_message_context import (
+    ChannelMessageCachePorts,
+    ChannelMessageCompatibilityApi,
+    ChannelMessageContext,
+    ChannelMessageIdentityPorts,
+    ChannelMessageLaunchPorts,
+    ChannelMessageStoragePorts,
 )
+from ciel_runtime_support.channel_message_repository import exclusive_file_lock
 from ciel_runtime_support.channel_message_prompt import (
     NATIVE_ROUTER_CHANNEL_NAMES as _NATIVE_ROUTER_CHANNEL_NAMES,
     format_llm_batch_prompt as format_channel_llm_batch_prompt,
@@ -241,12 +246,6 @@ from ciel_runtime_support.channel_event_identity import (
     message_time_seconds as _chat_message_time_seconds,
     stable_dedupe_key as _chat_message_stable_dedupe_key,
 )
-from ciel_runtime_support.channel_message_repository import (
-    ChannelMessageAppendPorts,
-    ChannelMessageRepository,
-    exclusive_file_lock,
-)
-from ciel_runtime_support.channel_launch_guard_repository import ChannelLaunchGuardRepository
 from ciel_runtime_support.channel_launch_policy import (
     ChannelLaunchPolicy,
     ChannelLaunchPorts,
@@ -3581,18 +3580,37 @@ chat_file_markdown_lines = ChatFileRepository.markdown_lines
 
 chat_file_message_text = ChatFileRepository.message_text
 
-def _chat_init_next_id() -> int:
-    global _CHAT_NEXT_ID
-    if _CHAT_NEXT_ID is not None:
-        return _CHAT_NEXT_ID
-    _CHAT_NEXT_ID = _chat_scan_max_id() + 1
+def _chat_next_id_cache() -> int | None:
     return _CHAT_NEXT_ID
 
-def channel_message_repository() -> ChannelMessageRepository:
-    return ChannelMessageRepository(path=CHAT_MESSAGES_PATH, log=router_log, max_bytes=CHAT_MESSAGES_MAX_BYTES)
+def _set_chat_next_id_cache(next_id: int) -> None:
+    global _CHAT_NEXT_ID
+    _CHAT_NEXT_ID = next_id
 
-def _chat_scan_max_id() -> int:
-    return channel_message_repository().max_id()
+def channel_message_context() -> ChannelMessageContext:
+    return ChannelMessageContext(
+        storage=ChannelMessageStoragePorts(
+            lambda: CHAT_MESSAGES_PATH, CHAT_MESSAGES_MAX_BYTES,
+            _CHAT_CONDITION, exclusive_file_lock, router_log,
+        ),
+        identity=ChannelMessageIdentityPorts(
+            _chat_message_stable_dedupe_key, _chat_message_fallback_dedupe_key,
+            _chat_message_time_seconds, _as_string_list,
+        ),
+        launch=ChannelMessageLaunchPorts(
+            lambda: CHANNEL_LLM_LAUNCH_GUARD_PATH, time.time,
+            CHAT_MESSAGE_DEDUPE_SCAN_LIMIT,
+            CHAT_MESSAGE_FALLBACK_DEDUPE_TTL_SECONDS,
+        ),
+        cache=ChannelMessageCachePorts(
+            _chat_next_id_cache, _set_chat_next_id_cache,
+        ),
+    )
+
+_CHANNEL_MESSAGE_API = ChannelMessageCompatibilityApi(channel_message_context)
+_chat_init_next_id = _CHANNEL_MESSAGE_API.initialize_next_id
+channel_message_repository = _CHANNEL_MESSAGE_API.repository
+_chat_scan_max_id = _CHANNEL_MESSAGE_API.max_id
 
 def _channel_launch_recent_seconds() -> float:
     return channel_runtime_environment_policy().launch_recent_seconds()
@@ -3604,55 +3622,16 @@ def channel_runtime_environment_policy() -> ChannelRuntimeEnvironmentPolicy:
         probe_timeout_default=CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS,
     )
 
-def _chat_scan_max_id_before_epoch(cutoff_epoch: float) -> int:
-    return channel_message_repository().max_id_before_epoch(cutoff_epoch)
-
-def _chat_messages_file_lock():
-    return exclusive_file_lock(CHAT_MESSAGES_PATH)
-
-def read_chat_messages(after_id: int = 0, channel: str | None = None, recipient: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
-    return channel_message_repository().read(after_id, channel, recipient, limit)
-
-def read_chat_messages_before(before_id: int = 0, channel: str | None = None, recipient: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
-    return channel_message_repository().read_before(before_id, channel, recipient, limit)
-
-def _chat_message_recent_rows_locked(limit: int = CHAT_MESSAGE_DEDUPE_SCAN_LIMIT) -> list[dict[str, Any]]:
-    return channel_message_repository().recent_rows(limit)
-
-def channel_launch_guard_repository() -> ChannelLaunchGuardRepository:
-    return ChannelLaunchGuardRepository(
-        path=CHANNEL_LLM_LAUNCH_GUARD_PATH,
-        now=time.time,
-        log=router_log,
-    )
-
-def _channel_llm_launch_guard() -> dict[str, Any] | None:
-    return channel_launch_guard_repository().read()
-
-def _write_channel_llm_launch_guard(max_existing_id: int, ttl_seconds: float = 180.0) -> None:
-    channel_launch_guard_repository().write(max_existing_id, ttl_seconds)
-
-def _chat_message_duplicate_locked(message: dict[str, Any]) -> dict[str, Any] | None:
-    return ChannelMessageDedupeService(
-        ports=ChannelMessageDedupePorts(
-            stable_key=_chat_message_stable_dedupe_key,
-            fallback_key=_chat_message_fallback_dedupe_key,
-            recent_rows=_chat_message_recent_rows_locked,
-            launch_guard=_channel_llm_launch_guard,
-            timestamp_seconds=_chat_message_time_seconds,
-            now=time.time,
-        ),
-        fallback_ttl_seconds=CHAT_MESSAGE_FALLBACK_DEDUPE_TTL_SECONDS,
-    ).duplicate(message)
-
-def append_chat_message(payload: dict[str, Any]) -> dict[str, Any]:
-    global _CHAT_NEXT_ID
-    message = channel_message_repository().append(
-        payload,
-        ChannelMessageAppendPorts(_CHAT_CONDITION, _chat_messages_file_lock, _chat_message_duplicate_locked, _as_string_list),
-    )
-    _CHAT_NEXT_ID = int(message.get("id") or 0) + 1
-    return message
+_chat_scan_max_id_before_epoch = _CHANNEL_MESSAGE_API.max_id_before_epoch
+_chat_messages_file_lock = _CHANNEL_MESSAGE_API.file_lock
+read_chat_messages = _CHANNEL_MESSAGE_API.read
+read_chat_messages_before = _CHANNEL_MESSAGE_API.read_before
+_chat_message_recent_rows_locked = _CHANNEL_MESSAGE_API.recent_rows
+channel_launch_guard_repository = _CHANNEL_MESSAGE_API.launch_guard_repository
+_channel_llm_launch_guard = _CHANNEL_MESSAGE_API.launch_guard
+_write_channel_llm_launch_guard = _CHANNEL_MESSAGE_API.write_launch_guard
+_chat_message_duplicate_locked = _CHANNEL_MESSAGE_API.duplicate
+append_chat_message = _CHANNEL_MESSAGE_API.append
 
 def channel_connection_context() -> ChannelConnectionContext:
     return ChannelConnectionContext(

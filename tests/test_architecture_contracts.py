@@ -131,6 +131,14 @@ from ciel_runtime_support.channel_mcp_context import (
     ChannelMcpRuntimePorts,
     ChannelMcpStatePorts,
 )
+from ciel_runtime_support.channel_message_context import (
+    ChannelMessageCachePorts,
+    ChannelMessageCompatibilityApi,
+    ChannelMessageContext,
+    ChannelMessageIdentityPorts,
+    ChannelMessageLaunchPorts,
+    ChannelMessageStoragePorts,
+)
 from ciel_runtime_support.context_setup import ContextSetupPorts
 from ciel_runtime_support.llm_preset_context import (
     LlmPresetAlgorithms,
@@ -4319,15 +4327,12 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertEqual(6, len(fields(ChannelMessageDedupePorts)))
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
-        function = next(
-            node
-            for node in ast.parse(source).body
-            if isinstance(node, ast.FunctionDef)
-            and node.name == "_chat_message_duplicate_locked"
-        )
-        function_source = ast.get_source_segment(source, function) or ""
-        self.assertIn("ChannelMessageDedupeService", function_source)
-        self.assertNotIn("for row in", function_source)
+        self.assertNotIn("def _chat_message_duplicate_locked(", source)
+        context_source = (
+            root / "ciel_runtime_support" / "channel_message_context.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("ChannelMessageDedupeService", context_source)
+        self.assertNotIn("for row in", context_source)
         service_source = (
             root
             / "ciel_runtime_support"
@@ -4392,6 +4397,34 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(ChannelMessageRepository)), 10)
         self.assertLessEqual(len(fields(ChannelMessageAppendPorts)), 10)
         self.assertNotIn('with CHAT_MESSAGES_PATH.open("a"', source)
+
+    def test_channel_message_context_owns_queue_and_launch_dedupe(self):
+        for port in (
+            ChannelMessageStoragePorts,
+            ChannelMessageIdentityPorts,
+            ChannelMessageLaunchPorts,
+            ChannelMessageCachePorts,
+            ChannelMessageContext,
+            ChannelMessageCompatibilityApi,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(
+            encoding="utf-8"
+        )
+        for function_name in (
+            "channel_message_repository",
+            "_chat_scan_max_id",
+            "_chat_scan_max_id_before_epoch",
+            "_chat_messages_file_lock",
+            "read_chat_messages",
+            "read_chat_messages_before",
+            "channel_launch_guard_repository",
+            "_chat_message_duplicate_locked",
+            "append_chat_message",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
 
     def test_channel_backlog_service_owns_multi_cursor_transaction(self):
         for port in (ChannelBacklogCursors, ChannelBacklogRuntime, ChannelBacklogService):
@@ -5234,7 +5267,6 @@ class ArchitectureContractTests(unittest.TestCase):
             "write_native_mcp_config_from_discovery": "write",
             "_log_codex_app_server_command_for_diagnostics": "codex_app_server",
             "claude_supports_permission_mode_arg": "supports_permission_mode",
-            "_chat_messages_file_lock": "exclusive_file_lock",
             "terminate_active_router_clients": "terminate_active",
             "channel_specs": "configured_specs",
             "auto_discovered_mcp_channel_specs": "discover_channel_specs",
