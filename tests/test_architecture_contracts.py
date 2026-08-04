@@ -853,6 +853,13 @@ from ciel_runtime_support.prompt_compaction import (
     PromptCompactionText,
 )
 from ciel_runtime_support.provider_context import ContextPresetServices, ProviderContextServices
+from ciel_runtime_support.provider_administration_context import (
+    ProviderAdministrationContext,
+    ProviderAdministrationCredentials,
+    ProviderAdministrationInfrastructure,
+    ProviderAdministrationPresentation,
+    ProviderAdministrationSelection,
+)
 from ciel_runtime_support.provider_model_context import (
     ProviderModelContext,
     ProviderModelContextAlgorithms,
@@ -1154,39 +1161,34 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
-        functions = {
-            node.name: ast.unparse(node)
+        function_names = {
+            node.name
             for node in ast.parse(source).body
             if isinstance(node, ast.FunctionDef)
-            and node.name in {
+        }
+        self.assertFalse(
+            function_names
+            & {
                 "store_api_key_config",
                 "clear_api_key_config",
                 "store_api_keys_config",
                 "store_api_key_input_config",
             }
-        }
-        self.assertEqual(4, len(functions))
-        for function_source in functions.values():
-            self.assertIn("credential_management_service", function_source)
-            self.assertNotIn("save_config", function_source)
-            self.assertNotIn("_API_KEY_ROTATION_CURSOR", function_source)
+        )
 
     def test_credential_cli_owns_terminal_workflow(self):
         for port in (CredentialCliController, CredentialCliIO, CredentialCliPolicy, CredentialCliPorts):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
-        functions = {
-            node.name: ast.unparse(node)
+        function_names = {
+            node.name
             for node in ast.parse(source).body
             if isinstance(node, ast.FunctionDef)
-            and node.name in {"cmd_set_api_key", "cmd_set_api_keys", "cmd_api_key"}
         }
-        self.assertEqual(3, len(functions))
-        for function_source in functions.values():
-            self.assertIn("credential_cli_controller", function_source)
-            self.assertNotIn("getpass", function_source)
-            self.assertNotIn("sys.stdin", function_source)
+        self.assertFalse(
+            function_names & {"cmd_set_api_key", "cmd_set_api_keys", "cmd_api_key"}
+        )
 
     def test_runtime_paths_live_outside_facade(self):
         root = Path(__file__).resolve().parents[1]
@@ -2562,17 +2564,37 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
-        functions = {
-            node.name: ast.unparse(node)
+        function_names = {
+            node.name
             for node in ast.parse(source).body
             if isinstance(node, ast.FunctionDef)
-            and node.name in {"set_base_url_config", "status_lines"}
         }
-        self.assertIn("provider_endpoint_service", functions["set_base_url_config"])
-        self.assertIn("provider_status_service", functions["status_lines"])
-        for function_source in functions.values():
-            self.assertNotIn("save_config", function_source)
-            self.assertNotIn("configuration_policy", function_source)
+        self.assertFalse(function_names & {"set_base_url_config", "status_lines"})
+
+    def test_provider_administration_context_owns_configuration_use_cases(self):
+        for port in (
+            ProviderAdministrationInfrastructure,
+            ProviderAdministrationSelection,
+            ProviderAdministrationCredentials,
+            ProviderAdministrationPresentation,
+            ProviderAdministrationContext,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(
+            encoding="utf-8"
+        )
+        for function_name in (
+            "store_nvidia_api_key",
+            "clear_nvidia_api_key",
+            "set_provider_config",
+            "set_advisor_model_config",
+            "stored_api_key_mask",
+            "cmd_status",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
 
     def test_provider_menu_projection_does_not_branch_on_provider_names(self):
         root = Path(__file__).resolve().parents[1]
@@ -5570,10 +5592,6 @@ class ArchitectureContractTests(unittest.TestCase):
             "router_debug_message_preview_chars": "configured_chars",
             "router_event_message_preview": "project",
             "finish_outgoing_sse_trace": "finish_stream",
-            "set_provider_config": "select_standard",
-            "store_nvidia_api_key": "store",
-            "clear_nvidia_api_key": "clear",
-            "set_advisor_model_config": "select",
             "_channel_stdin_wake_state": "state",
             "_channel_stdin_wake_state_for_message": "state_for_message",
             "_channel_stdin_wake_queued_is_stale_for_message": "queued_is_stale",

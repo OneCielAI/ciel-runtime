@@ -614,6 +614,14 @@ from ciel_runtime_support.provider_choice import (
     ProviderChoicePorts,
     normalize_provider_choice as normalize_runtime_provider_choice,
 )
+from ciel_runtime_support.provider_administration_context import (
+    ProviderAdministrationCompatibilityApi,
+    ProviderAdministrationContext,
+    ProviderAdministrationCredentials,
+    ProviderAdministrationInfrastructure,
+    ProviderAdministrationPresentation,
+    ProviderAdministrationSelection,
+)
 from ciel_runtime_support.npm_runtime import (
     claude_code_current_version,
     codex_current_version,
@@ -5831,12 +5839,6 @@ def nvidia_credential_repository() -> EnvCredentialRepository:
         NCP_ENV, read_env_file, parse_api_key_list, nvidia_upstream_base_url()
     )
 
-def store_nvidia_api_key(key: str) -> None:
-    nvidia_credential_repository().store(key)
-
-def clear_nvidia_api_key() -> None:
-    nvidia_credential_repository().clear()
-
 def github_copilot_oauth_runtime() -> GitHubCopilotOAuthRuntime:
     return GitHubCopilotOAuthRuntime(
         CONFIG_DIR,
@@ -5847,22 +5849,6 @@ def github_copilot_oauth_runtime() -> GitHubCopilotOAuthRuntime:
             network_open=provider_network.provider_urlopen,
         ),
     )
-
-def github_copilot_oauth_token() -> str:
-    return github_copilot_oauth_runtime().token()
-
-def cmd_copilot_oauth(args: argparse.Namespace) -> None:
-    for line in github_copilot_oauth_runtime().action(args.action):
-        print(line, flush=True)
-
-def run_copilot_oauth_action(action: str) -> list[str]:
-    return github_copilot_oauth_runtime().action(action)
-
-def set_provider_config(provider: str) -> list[str]:
-    return provider_choice_controller().select_standard(provider)
-
-def set_provider_choice_config(choice: str) -> list[str]:
-    return provider_choice_controller().select(choice)
 
 def provider_choice_controller() -> ProviderChoiceController:
     return ProviderChoiceController(
@@ -5876,9 +5862,6 @@ def provider_choice_controller() -> ProviderChoiceController:
             provider_label=PROVIDER_LABELS.__getitem__,
         )
     )
-
-def set_base_url_config(provider: str, url: str) -> list[str]:
-    return provider_endpoint_service().set_base_url(provider, url)
 
 def normalize_provider_base_url(provider: str, pcfg: dict[str, Any], url: str) -> str:
     return configured_provider_adapter(provider, pcfg).normalize_base_url(url)
@@ -5895,9 +5878,6 @@ def provider_endpoint_service() -> ProviderEndpointService:
             ensure_current_model=ensure_current_model_from_provider_list,
         ),
     )
-
-def set_model_config(value: str) -> list[str]:
-    return model_selection_controller().select(value)
 
 def apply_provider_model_selection_updates(
     provider: str,
@@ -5923,9 +5903,6 @@ def model_selection_controller() -> ModelSelectionController:
         ),
     )
 
-def set_advisor_model_config(value: str) -> list[str]:
-    return advisor_model_selection_controller().select(value)
-
 def advisor_model_selection_controller() -> AdvisorModelSelectionController:
     return AdvisorModelSelectionController(
         AdvisorModelMutationPorts(
@@ -5935,15 +5912,6 @@ def advisor_model_selection_controller() -> AdvisorModelSelectionController:
         )
     )
 
-def store_api_key_config(provider: str, key: str) -> list[str]:
-    return credential_management_service().store_one(provider, key)
-
-def clear_api_key_config(provider: str) -> list[str]:
-    return credential_management_service().clear(provider)
-
-def store_api_keys_config(provider: str, keys: list[str]) -> list[str]:
-    return credential_management_service().store_many(provider, keys)
-
 mask_secret = project_mask_secret
 
 secret_fingerprint = project_secret_fingerprint
@@ -5951,18 +5919,6 @@ secret_fingerprint = project_secret_fingerprint
 redact_sensitive_text = project_redact_sensitive_text
 
 redact_sensitive_obj = project_redact_sensitive_obj
-
-def stored_api_key_mask(provider: str, pcfg: dict[str, Any]) -> str:
-    keys = provider_config_api_keys(provider, pcfg)
-    if not keys:
-        return "not set"
-    primary = f"{mask_secret(keys[0])}; fp {secret_fingerprint(keys[0])}"
-    if len(keys) == 1:
-        return primary
-    return f"{len(keys)} keys (round-robin; primary {primary})"
-
-def store_api_key_input_config(provider: str, raw_value: str) -> list[str]:
-    return credential_management_service().store_input(provider, raw_value)
 
 def credential_management_service() -> CredentialManagementService:
     return CredentialManagementService(
@@ -6040,15 +5996,6 @@ cmd_web_fetch = _CONFIGURATION_CLI_API.web_fetch
 portable_provider_menu = _CONFIGURATION_CLI_API.portable_provider_menu
 portable_language_menu = _CONFIGURATION_CLI_API.portable_language_menu
 
-def cmd_set_api_key(args: argparse.Namespace) -> None:
-    credential_cli_controller().set_one(args)
-
-def cmd_set_api_keys(args: argparse.Namespace) -> None:
-    credential_cli_controller().set_many(args)
-
-def cmd_api_key(args: argparse.Namespace) -> None:
-    credential_cli_controller().manage(args)
-
 def credential_cli_controller() -> CredentialCliController:
     return CredentialCliController(
         policy=CredentialCliPolicy(
@@ -6087,9 +6034,6 @@ def cmd_ollama_catalog(args: argparse.Namespace) -> None:
 def provider_mode_label(provider: str, pcfg: dict[str, Any]) -> str:
     return _RUNTIME_MODE_POLICY.label(provider, pcfg)
 
-def status_lines() -> list[str]:
-    return provider_status_service().lines()
-
 def provider_status_service() -> ProviderStatusService:
     return ProviderStatusService(
         projection=ProviderStatusProjectionPorts(
@@ -6118,8 +6062,54 @@ def provider_status_service() -> ProviderStatusService:
         ),
     )
 
-def cmd_status(_: argparse.Namespace) -> None:
-    print("\n".join(status_lines()))
+def provider_administration_context() -> ProviderAdministrationContext:
+    return ProviderAdministrationContext(
+        infrastructure=ProviderAdministrationInfrastructure(
+            nvidia_credentials=nvidia_credential_repository,
+            copilot_oauth=github_copilot_oauth_runtime,
+            output=print,
+        ),
+        selection=ProviderAdministrationSelection(
+            provider_choice=provider_choice_controller,
+            provider_endpoint=provider_endpoint_service,
+            model_selection=model_selection_controller,
+            advisor_model_selection=advisor_model_selection_controller,
+        ),
+        credentials=ProviderAdministrationCredentials(
+            management=credential_management_service,
+            cli=credential_cli_controller,
+            configured_keys=provider_config_api_keys,
+            mask=mask_secret,
+            fingerprint=secret_fingerprint,
+        ),
+        presentation=ProviderAdministrationPresentation(
+            status=provider_status_service,
+        ),
+    )
+
+_PROVIDER_ADMINISTRATION_API = ProviderAdministrationCompatibilityApi(
+    provider_administration_context
+)
+store_nvidia_api_key = _PROVIDER_ADMINISTRATION_API.store_nvidia_api_key
+clear_nvidia_api_key = _PROVIDER_ADMINISTRATION_API.clear_nvidia_api_key
+github_copilot_oauth_token = _PROVIDER_ADMINISTRATION_API.github_copilot_oauth_token
+cmd_copilot_oauth = _PROVIDER_ADMINISTRATION_API.cmd_copilot_oauth
+run_copilot_oauth_action = _PROVIDER_ADMINISTRATION_API.run_copilot_oauth_action
+set_provider_config = _PROVIDER_ADMINISTRATION_API.set_provider_config
+set_provider_choice_config = _PROVIDER_ADMINISTRATION_API.set_provider_choice_config
+set_base_url_config = _PROVIDER_ADMINISTRATION_API.set_base_url_config
+set_model_config = _PROVIDER_ADMINISTRATION_API.set_model_config
+set_advisor_model_config = _PROVIDER_ADMINISTRATION_API.set_advisor_model_config
+store_api_key_config = _PROVIDER_ADMINISTRATION_API.store_api_key_config
+clear_api_key_config = _PROVIDER_ADMINISTRATION_API.clear_api_key_config
+store_api_keys_config = _PROVIDER_ADMINISTRATION_API.store_api_keys_config
+stored_api_key_mask = _PROVIDER_ADMINISTRATION_API.stored_api_key_mask
+store_api_key_input_config = _PROVIDER_ADMINISTRATION_API.store_api_key_input_config
+cmd_set_api_key = _PROVIDER_ADMINISTRATION_API.cmd_set_api_key
+cmd_set_api_keys = _PROVIDER_ADMINISTRATION_API.cmd_set_api_keys
+cmd_api_key = _PROVIDER_ADMINISTRATION_API.cmd_api_key
+status_lines = _PROVIDER_ADMINISTRATION_API.status_lines
+cmd_status = _PROVIDER_ADMINISTRATION_API.cmd_status
 
 def set_web_search_enabled(enabled: bool) -> None:
     cfg = load_config()
