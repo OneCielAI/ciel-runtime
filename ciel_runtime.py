@@ -6722,28 +6722,14 @@ def _set_channel_llm_cursor_cache(last_id: int | None) -> None:
 
 def channel_delivery_context() -> ChannelDeliveryContext:
     return ChannelDeliveryContext(
-        tools=ChannelToolContextFactoryPorts(
-            _CHANNEL_LLM_TOOL_CONTEXT, _CHANNEL_LLM_TOOL_CONTEXT_LOCK,
-            _CHANNEL_LLM_TOOL_CONTEXT_LIMIT, _CHANNEL_LLM_TOOL_CONTEXT_MAX_INJECT,
-            _CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT, anthropic_content_to_text,
-            truncate_for_prompt, time.time, router_log,
-        ),
-        cursor=ChannelLlmCursorPorts(
-            channel_cursor_repository, CHANNEL_LLM_CURSOR_PATH,
-            CHANNEL_LLM_CLEAR_FLOOR_PATH, _CHANNEL_LLM_CURSOR_LOCK,
-            _channel_llm_cursor_cache, _set_channel_llm_cursor_cache,
-            _chat_scan_max_id, time.time, router_log,
-        ),
-        launch=ChannelLaunchCursorPorts(
-            _channel_launch_recent_seconds, _chat_scan_max_id_before_epoch,
-            _write_channel_llm_launch_guard,
-        ),
-        commit=ChannelDeliveryCommitPorts(
-            _handler_response_status, _channel_delivery_metadata,
-            pending_channel_delivery_confirmed,
-            lambda: _channel_llm_read_cursor_locked(),
-            lambda last_id: _channel_llm_write_cursor_locked(last_id),
-        ),
+        tools=ChannelToolContextFactoryPorts(_CHANNEL_LLM_TOOL_CONTEXT, _CHANNEL_LLM_TOOL_CONTEXT_LOCK, _CHANNEL_LLM_TOOL_CONTEXT_LIMIT,
+                                             _CHANNEL_LLM_TOOL_CONTEXT_MAX_INJECT, _CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT,
+                                             anthropic_content_to_text, truncate_for_prompt, time.time, router_log),
+        cursor=ChannelLlmCursorPorts(channel_cursor_repository, CHANNEL_LLM_CURSOR_PATH, CHANNEL_LLM_CLEAR_FLOOR_PATH, _CHANNEL_LLM_CURSOR_LOCK,
+                                     _channel_llm_cursor_cache, _set_channel_llm_cursor_cache, _chat_scan_max_id, time.time, router_log),
+        launch=ChannelLaunchCursorPorts(_channel_launch_recent_seconds, _chat_scan_max_id_before_epoch, _write_channel_llm_launch_guard),
+        commit=ChannelDeliveryCommitPorts(_handler_response_status, _channel_delivery_metadata, pending_channel_delivery_confirmed,
+                                          lambda: _channel_llm_read_cursor_locked(), lambda last_id: _channel_llm_write_cursor_locked(last_id)),
     )
 
 _CHANNEL_DELIVERY_API = ChannelDeliveryCompatibilityApi(channel_delivery_context)
@@ -6804,72 +6790,35 @@ def _channel_stdin_wake_claim_ttl_seconds() -> float: return channel_runtime_env
 
 def channel_wake_context() -> ChannelWakeContext:
     return ChannelWakeContext(
-        claims=ChannelWakeClaimPorts(
-            CHANNEL_STDIN_WAKE_CLAIMS_PATH, _chat_messages_file_lock, time.time,
-            _channel_stdin_wake_claim_ttl_seconds, router_log,
-            _CHANNEL_WAKE_DELIVERY_REPOSITORY, _channel_prompt_message_ids,
-            analyze_prompt_message_reference,
-        ),
-        messages=ChannelWakeMessagePorts(
-            anthropic_content_to_text,
-            lambda last_id, limit: read_chat_messages(last_id, None, None, limit),
-            _channel_superseded_message_ids, channel_llm_wake_request,
-            plan_mode_active, lambda: channel_delivery_mode(load_config()),
-            _channel_pending_scan_limit, _channel_llm_message_skip_reason,
-            body_without_channel_llm_wake_prompt, format_channel_llm_batch_prompt,
-        ),
-        cursor=ChannelWakeCursorPorts(
-            lambda: _CHANNEL_LLM_CURSOR_LOCK, _channel_llm_read_cursor_locked,
-            _channel_llm_write_cursor_locked, _cache_channel_llm_cursor,
-            _channel_llm_clamp_to_clear_floor,
-        ),
-        input=ChannelWakeInputPorts(
-            os.environ, _channel_platform_default_enter_bytes,
-            resolve_channel_enter_bytes, build_channel_wake_input_bytes,
-            find_executable, subprocess.run, time.sleep,
-            _channel_wake_submit_retry_delay_seconds,
-            _channel_wake_submit_delay_seconds, router_log,
-        ),
-        transcript=ChannelTranscriptPorts(
-            HOME, _CHANNEL_TRANSCRIPT_CACHE, _CHANNEL_TRANSCRIPT_SCOPE,
-            _CHANNEL_STDIN_RECOVERY_CACHE, time.time,
-            ChannelTranscriptRepository.read_tail_text,
-            _channel_stdin_active_tool_call_from_text,
-            _channel_stdin_active_turn_from_text, analyze_channel_queued_age,
-            analyze_channel_wake_state,
-        ),
-        transcript_policy=ChannelTranscriptPolicyPorts(
-            analyze_channel_queued_ids, _channel_stdin_inflight_stale_seconds,
-            lambda ttl_seconds=2.0: _latest_claude_transcript_path(ttl_seconds),
-            lambda message_id: _channel_stdin_wake_claim_prompt(message_id),
-            lambda text, message_id, prompt_texts=None: _channel_prompt_references_message_id(
-                text, message_id, prompt_texts
-            ),
-            _channel_prompt_message_ids, router_log,
-        ),
-        pending_state=ChannelPendingStatePorts(
-            _channel_stdin_active_tool_call, _channel_stdin_active_turn,
-            _channel_stdin_recover_cursor_from_queued_only,
-            _channel_pending_scan_limit, _channel_superseded_message_ids,
-            _channel_message_is_web_chat_request, _channel_llm_message_skip_reason,
-            _channel_message_event_identity_key, _channel_stdin_wake_state_for_message,
-            _channel_stdin_wake_queued_is_stale_for_message,
-        ),
-        pending_delivery=ChannelPendingDeliveryPorts(
-            format_channel_llm_delivery_wake_prompt,
-            format_channel_web_chat_wake_batch_prompt,
-            format_channel_wake_batch_prompt, _channel_enter_label,
-            _channel_wake_store_release_stale,
-            _CHANNEL_WAKE_DELIVERY_REPOSITORY.mark_delivered,
-            _channel_wake_store_record_prompts, _channel_wake_store_rollback,
-            _commit_channel_llm_cursor_if_newer,
-        ),
-        pending_io=ChannelPendingIoPorts(
-            _CHANNEL_STDIN_INJECT_LOCK, read_chat_messages,
-            _write_channel_wake_prompt,
-            _read_channel_compact_request, _clear_channel_compact_request,
-            CHAT_MESSAGES_PATH, router_log,
-        ), pending_policy=ChannelPendingPolicyPorts(_channel_stdin_wake_batch_limit, time.time, lambda: channel_runtime_environment_policy().web_chat_replay_ttl_seconds(), lambda message: channel_message_repository().timestamp_seconds(message), _channel_message_is_web_chat_request),
+        claims=ChannelWakeClaimPorts(CHANNEL_STDIN_WAKE_CLAIMS_PATH, _chat_messages_file_lock, time.time, _channel_stdin_wake_claim_ttl_seconds, router_log,
+                                     _CHANNEL_WAKE_DELIVERY_REPOSITORY, _channel_prompt_message_ids, analyze_prompt_message_reference),
+        messages=ChannelWakeMessagePorts(anthropic_content_to_text, lambda last_id, limit: read_chat_messages(last_id, None, None, limit), _channel_superseded_message_ids,
+                                         channel_llm_wake_request, plan_mode_active, lambda: channel_delivery_mode(load_config()), _channel_pending_scan_limit,
+                                         _channel_llm_message_skip_reason, body_without_channel_llm_wake_prompt, format_channel_llm_batch_prompt),
+        cursor=ChannelWakeCursorPorts(lambda: _CHANNEL_LLM_CURSOR_LOCK, _channel_llm_read_cursor_locked, _channel_llm_write_cursor_locked,
+                                      _cache_channel_llm_cursor, _channel_llm_clamp_to_clear_floor),
+        input=ChannelWakeInputPorts(os.environ, _channel_platform_default_enter_bytes, resolve_channel_enter_bytes, build_channel_wake_input_bytes, find_executable,
+                                    subprocess.run, time.sleep, _channel_wake_submit_retry_delay_seconds, _channel_wake_submit_delay_seconds, router_log),
+        transcript=ChannelTranscriptPorts(HOME, _CHANNEL_TRANSCRIPT_CACHE, _CHANNEL_TRANSCRIPT_SCOPE, _CHANNEL_STDIN_RECOVERY_CACHE, time.time,
+                                          ChannelTranscriptRepository.read_tail_text, _channel_stdin_active_tool_call_from_text,
+                                          _channel_stdin_active_turn_from_text, analyze_channel_queued_age, analyze_channel_wake_state),
+        transcript_policy=ChannelTranscriptPolicyPorts(analyze_channel_queued_ids, _channel_stdin_inflight_stale_seconds,
+                                                       lambda ttl_seconds=2.0: _latest_claude_transcript_path(ttl_seconds),
+                                                       lambda message_id: _channel_stdin_wake_claim_prompt(message_id),
+                                                       lambda text, message_id, prompt_texts=None: _channel_prompt_references_message_id(text, message_id, prompt_texts),
+                                                       _channel_prompt_message_ids, router_log),
+        pending_state=ChannelPendingStatePorts(_channel_stdin_active_tool_call, _channel_stdin_active_turn, _channel_stdin_recover_cursor_from_queued_only,
+                                               _channel_pending_scan_limit, _channel_superseded_message_ids, _channel_message_is_web_chat_request,
+                                               _channel_llm_message_skip_reason, _channel_message_event_identity_key, _channel_stdin_wake_state_for_message,
+                                               _channel_stdin_wake_queued_is_stale_for_message),
+        pending_delivery=ChannelPendingDeliveryPorts(format_channel_llm_delivery_wake_prompt, format_channel_web_chat_wake_batch_prompt,
+                                                     format_channel_wake_batch_prompt, _channel_enter_label, _channel_wake_store_release_stale,
+                                                     _CHANNEL_WAKE_DELIVERY_REPOSITORY.mark_delivered, _channel_wake_store_record_prompts,
+                                                     _channel_wake_store_rollback, _commit_channel_llm_cursor_if_newer),
+        pending_io=ChannelPendingIoPorts(_CHANNEL_STDIN_INJECT_LOCK, read_chat_messages, _write_channel_wake_prompt, _read_channel_compact_request,
+                                         _clear_channel_compact_request, CHAT_MESSAGES_PATH, router_log),
+        pending_policy=ChannelPendingPolicyPorts(_channel_stdin_wake_batch_limit, time.time, lambda: channel_runtime_environment_policy().web_chat_replay_ttl_seconds(),
+                                                 lambda message: channel_message_repository().timestamp_seconds(message), _channel_message_is_web_chat_request),
     )
 
 def channel_wake_claim_repository() -> ChannelWakeClaimRepository: return channel_wake_context().claim_repository()
@@ -7149,42 +7098,19 @@ def _retry_windows_console_channel_submit(
 
 def channel_terminal_context() -> ChannelTerminalContext:
     return ChannelTerminalContext(
-        process=ChannelTerminalProcessPorts(
-            subprocess.Popen, _write_codex_child_process_record,
-            _terminate_recorded_child_process, _release_codex_child_process_record,
-        ),
-        policy=ChannelTerminalPolicyPorts(
-            ensure_channel_llm_delivery_cursor_initialized, _channel_wake_enter_bytes,
-            _channel_enter_label, _channel_wake_enter_env_is_fixed,
-            _channel_stdin_unseen_retry_seconds, _channel_stdin_inflight_is_stale,
-            router_log,
-        ),
-        polling=ChannelTerminalPollingPorts(
-            _inject_pending_compact_request, _chat_messages_file_marker,
-            _channel_stdin_should_check_pending, _channel_stdin_active_tool_call,
-            _inject_pending_channel_messages, _channel_stdin_wake_state,
-            channel_inflight_effects,
-        ),
-        io=ChannelTerminalIoPorts(
-            _terminal_winsize_from_fd, _apply_pty_winsize, _write_fd_all,
-            _TerminalMouseInputFilter, _channel_synthetic_enter_bytes_from_user_input,
-            _write_terminal_input_mode_reset,
-        ),
-        windows=ChannelTerminalWindowsPorts(
-            _windows_console_input_supported, run_windows_channel_terminal_proxy,
-            _write_terminal_input_mode_reset, _WindowsConsoleMouseInputGuard,
-            _WindowsConsoleInputWriter, _windows_channel_startup_grace_seconds,
-            _terminal_input_mode_reset_interval_seconds, _channel_stdin_active_turn,
-            _retry_windows_console_channel_submit, time.sleep,
-        ),
-        dispatch_ports=ChannelTerminalDispatchPorts(
-            os.name, sys.stdin.isatty, sys.stdout.isatty, subprocess.call,
-            lambda *args, **kwargs: subprocess_call_with_windows_console_wake_proxy(
-                *args, **kwargs
-            ),
-            run_posix_channel_terminal_proxy,
-            prepare_channel_llm_delivery_for_launch,
-        ),
+        process=ChannelTerminalProcessPorts(subprocess.Popen, _write_codex_child_process_record, _terminate_recorded_child_process, _release_codex_child_process_record),
+        policy=ChannelTerminalPolicyPorts(ensure_channel_llm_delivery_cursor_initialized, _channel_wake_enter_bytes, _channel_enter_label,
+                                          _channel_wake_enter_env_is_fixed, _channel_stdin_unseen_retry_seconds, _channel_stdin_inflight_is_stale, router_log),
+        polling=ChannelTerminalPollingPorts(_inject_pending_compact_request, _chat_messages_file_marker, _channel_stdin_should_check_pending,
+                                            _channel_stdin_active_tool_call, _inject_pending_channel_messages, _channel_stdin_wake_state, channel_inflight_effects),
+        io=ChannelTerminalIoPorts(_terminal_winsize_from_fd, _apply_pty_winsize, _write_fd_all, _TerminalMouseInputFilter,
+                                  _channel_synthetic_enter_bytes_from_user_input, _write_terminal_input_mode_reset),
+        windows=ChannelTerminalWindowsPorts(_windows_console_input_supported, run_windows_channel_terminal_proxy, _write_terminal_input_mode_reset,
+                                            _WindowsConsoleMouseInputGuard, _WindowsConsoleInputWriter, _windows_channel_startup_grace_seconds,
+                                            _terminal_input_mode_reset_interval_seconds, _channel_stdin_active_turn, _retry_windows_console_channel_submit, time.sleep),
+        dispatch_ports=ChannelTerminalDispatchPorts(os.name, sys.stdin.isatty, sys.stdout.isatty, subprocess.call,
+                                                    lambda *args, **kwargs: subprocess_call_with_windows_console_wake_proxy(*args, **kwargs),
+                                                    run_posix_channel_terminal_proxy, prepare_channel_llm_delivery_for_launch),
     )
 
 _CHANNEL_TERMINAL_API = ChannelTerminalCompatibilityApi(channel_terminal_context)
