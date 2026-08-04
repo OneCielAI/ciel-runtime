@@ -159,6 +159,17 @@ from ciel_runtime_support.runtime_maintenance_context import (
     RuntimeMaintenanceCompatibilityApi,
     RuntimeMaintenanceContext,
     RuntimePackagePorts,
+    RuntimeUpgradeCommandPorts,
+)
+from ciel_runtime_support.runtime_maintenance_services import (
+    MaintenanceAgyPorts,
+    MaintenanceDiagnosticPorts,
+    MaintenanceNpmPorts,
+    MaintenancePackagePorts,
+    MaintenanceRestartPorts,
+    MaintenanceUpdatePorts,
+    RuntimeMaintenanceServices,
+    RuntimeMaintenanceServicesCompatibilityApi,
 )
 from ciel_runtime_support.provider_endpoint_policy import (
     ProviderEndpointPolicy as ModelEndpointPolicy,
@@ -579,6 +590,13 @@ from ciel_runtime_support.ollama_forwarding import (
 )
 from ciel_runtime_support.ollama_catalog import OllamaCatalogRefreshServices
 from ciel_runtime_support.ollama_catalog_cli import OllamaCatalogCliController
+from ciel_runtime_support.ollama_catalog_context import (
+    OllamaCatalogCompatibilityApi,
+    OllamaCatalogContext,
+    OllamaCatalogProjectionPorts,
+    OllamaCatalogRepositoryPorts,
+    OllamaCatalogWorkflowPorts,
+)
 from ciel_runtime_support.openai_forwarding import (
     OpenAIForwardAdvisor,
     OpenAIForwardPolicy,
@@ -1592,6 +1610,15 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_ollama_catalog_refresh_port_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(OllamaCatalogRefreshServices)), 10)
         self.assertEqual(3, len(fields(OllamaCatalogCliController)))
+        self.assertEqual(1, len(fields(OllamaCatalogCompatibilityApi)))
+        self.assertEqual(3, len(fields(OllamaCatalogContext)))
+        for port in (
+            OllamaCatalogRepositoryPorts,
+            OllamaCatalogProjectionPorts,
+            OllamaCatalogWorkflowPorts,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
         source = (
             Path(__file__).resolve().parents[1] / "ciel_runtime.py"
         ).read_text(encoding="utf-8")
@@ -2962,11 +2989,35 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("npm_install_runtime_command", definitions)
 
     def test_runtime_maintenance_context_uses_bounded_typed_ports(self):
-        self.assertEqual(3, len(fields(RuntimeMaintenanceContext)))
+        self.assertEqual(4, len(fields(RuntimeMaintenanceContext)))
         self.assertEqual(1, len(fields(RuntimeMaintenanceCompatibilityApi)))
-        for port in (RuntimeAgyPorts, RuntimeLifecyclePorts, RuntimePackagePorts):
+        for port in (
+            RuntimeAgyPorts,
+            RuntimeLifecyclePorts,
+            RuntimePackagePorts,
+            RuntimeUpgradeCommandPorts,
+        ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 4)
+        for port in (
+            MaintenanceNpmPorts,
+            MaintenancePackagePorts,
+            MaintenanceDiagnosticPorts,
+            MaintenanceRestartPorts,
+            MaintenanceUpdatePorts,
+            MaintenanceAgyPorts,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        self.assertEqual(6, len(fields(RuntimeMaintenanceServices)))
+        self.assertEqual(1, len(fields(RuntimeMaintenanceServicesCompatibilityApi)))
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "runtime_maintenance_services.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", source)
+        self.assertNotIn("__getattr__", source)
 
     def test_pure_codex_config_compatibility_is_reexported_without_wrappers(self):
         root = Path(__file__).resolve().parents[1]
@@ -4812,13 +4863,22 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("__getattr__", channel_source)
         for composition_function in (
             "recommended_timeout_ms_for_context",
+            "channel_config_service",
+        ):
+            self.assertIn(composition_function, root_functions)
+        for compatibility_alias in (
             "ollama_catalog_is_stale",
             "ollama_catalog_context_for_model",
             "ollama_catalog_timeout_for_model",
             "update_ollama_catalog_context",
-            "channel_config_service",
         ):
-            self.assertIn(composition_function, root_functions)
+            self.assertNotIn(compatibility_alias, root_functions)
+        self.assertIn("OllamaCatalogCompatibilityApi", source)
+        catalog_source = (
+            root / "ciel_runtime_support" / "ollama_catalog_context.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", catalog_source)
+        self.assertNotIn("__getattr__", catalog_source)
 
     def test_support_modules_do_not_import_the_composition_root(self):
         support = Path(__file__).resolve().parents[1] / "ciel_runtime_support"
@@ -5014,9 +5074,6 @@ class ArchitectureContractTests(unittest.TestCase):
             "openai_chat_to_anthropic": "project_openai_chat_response",
             "provider_mode_label": "label",
             "cmd_ollama_catalog": "refresh_command",
-            "fetch_ollama_library_context_limit": (
-                "fetch_library_context_limit"
-            ),
             "inbound_query_has_beta_flag": "inbound_has_beta",
             "upstream_messages_query": "upstream_query",
             "upstream_query_string_status": "status",

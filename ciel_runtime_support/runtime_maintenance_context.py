@@ -35,10 +35,19 @@ class RuntimeAgyPorts:
 
 
 @dataclass(frozen=True, slots=True)
+class RuntimeUpgradeCommandPorts:
+    ciel_runtime: Callable[[], int]
+    claude: Callable[[], int]
+    codex: Callable[[], int]
+    agy: Callable[[], int]
+
+
+@dataclass(frozen=True, slots=True)
 class RuntimeMaintenanceContext:
     packages: RuntimePackagePorts
     lifecycle: RuntimeLifecyclePorts
     agy: RuntimeAgyPorts
+    upgrade_commands: RuntimeUpgradeCommandPorts
 
     def install_runtime_package_if_missing(
         self,
@@ -182,10 +191,10 @@ class RuntimeMaintenanceContext:
 
     def run_quiet_upgrade_and_exit(self) -> int:
         results = (
-            self.quiet_upgrade_ciel_runtime(),
-            self.quiet_upgrade_claude_code(),
-            self.quiet_upgrade_codex(),
-            self.quiet_upgrade_agy(),
+            self.upgrade_commands.ciel_runtime(),
+            self.upgrade_commands.claude(),
+            self.upgrade_commands.codex(),
+            self.upgrade_commands.agy(),
         )
         return 0 if all(result == 0 for result in results) else 1
 
@@ -286,6 +295,9 @@ class RuntimeMaintenanceCompatibilityApi:
     def run_agy_update_check(self, executable: str, enabled: bool = True) -> str:
         return self.context().run_agy_update_check(executable, enabled)
 
+    def run_quiet_upgrade_and_exit(self) -> int:
+        return self.context().run_quiet_upgrade_and_exit()
+
 
 __all__ = [
     "RuntimeAgyPorts",
@@ -293,4 +305,5 @@ __all__ = [
     "RuntimeMaintenanceCompatibilityApi",
     "RuntimeMaintenanceContext",
     "RuntimePackagePorts",
+    "RuntimeUpgradeCommandPorts",
 ]

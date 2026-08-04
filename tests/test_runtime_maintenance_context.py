@@ -7,6 +7,7 @@ from ciel_runtime_support.runtime_maintenance_context import (
     RuntimeLifecyclePorts,
     RuntimeMaintenanceContext,
     RuntimePackagePorts,
+    RuntimeUpgradeCommandPorts,
 )
 
 
@@ -32,6 +33,12 @@ class RuntimeMaintenanceContextTests(unittest.TestCase):
                 upgrade=lambda: upgrade,
             ),
             agy=RuntimeAgyPorts(installer=lambda: agy),
+            upgrade_commands=RuntimeUpgradeCommandPorts(
+                ciel_runtime=upgrade.ciel_runtime,
+                claude=upgrade.claude,
+                codex=upgrade.codex,
+                agy=upgrade.agy,
+            ),
         )
         return context, packages, diagnostics, restart, self_update, upgrade, agy
 

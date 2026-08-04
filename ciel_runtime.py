@@ -75,7 +75,7 @@ from ciel_runtime_support.anthropic_response_writer import (
 )
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
-from ciel_runtime_support.agy_installer import AgyInstaller, AgyInstallerPorts
+from ciel_runtime_support.agy_installer import AgyInstaller
 from ciel_runtime_support.agy_mcp_restore import AgyMcpRestorePorts, AgyMcpRestoreService
 from ciel_runtime_support import claude_router
 from ciel_runtime_support import kimi_identity
@@ -625,12 +625,6 @@ from ciel_runtime_support.provider_choice import (
     ProviderChoicePorts,
     normalize_provider_choice as normalize_runtime_provider_choice,
 )
-from ciel_runtime_support.package_lifecycle import (
-    NpmPackageLifecycle,
-    NpmPackageLifecyclePorts,
-    SelfUpdateLifecycle,
-    SelfUpdatePorts,
-)
 from ciel_runtime_support.npm_runtime import (
     claude_code_current_version,
     codex_current_version,
@@ -646,9 +640,6 @@ from ciel_runtime_support.npm_runtime import (
     version_newer,
 )
 from ciel_runtime_support.runtime_restart import (
-    RuntimeRestartPorts,
-    RuntimeRestartService,
-    RuntimeRestartSettings,
     forced_upgrade_environment,
     running_from_npm_package as detect_running_from_npm_package,
 )
@@ -662,17 +653,6 @@ from ciel_runtime_support.router_access import (
     router_request_bearer_token,  # noqa: F401 - compatibility export
 )
 from ciel_runtime_support.router_health_policy import RouterHealthPolicy
-from ciel_runtime_support.install_diagnostics import (
-    InstallDiagnosticsPorts,
-    InstallDiagnosticsService,
-    InstallDiagnosticsSettings,
-)
-from ciel_runtime_support.runtime_upgrade import (
-    RuntimeUpgradeNpmPorts,
-    RuntimeUpgradeService,
-    RuntimeUpgradeSettings,
-    RuntimeUpgradeToolPorts,
-)
 from ciel_runtime_support.provider_option_cli import (
     OllamaOptionCommands,
     ProviderOptionCliConfig,
@@ -907,7 +887,13 @@ from ciel_runtime_support.router_shortcuts import (
 )
 from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support.ollama_catalog_cli import OllamaCatalogCliController
-from ciel_runtime_support.ollama_catalog_repository import OllamaCatalogRepository
+from ciel_runtime_support.ollama_catalog_context import (
+    OllamaCatalogCompatibilityApi,
+    OllamaCatalogContext,
+    OllamaCatalogProjectionPorts,
+    OllamaCatalogRepositoryPorts,
+    OllamaCatalogWorkflowPorts,
+)
 from ciel_runtime_support.ollama_context_sync import (
     OllamaContextPolicy,
     OllamaContextSources,
@@ -1205,6 +1191,17 @@ from ciel_runtime_support.runtime_maintenance_context import (
     RuntimeMaintenanceCompatibilityApi,
     RuntimeMaintenanceContext,
     RuntimePackagePorts,
+    RuntimeUpgradeCommandPorts,
+)
+from ciel_runtime_support.runtime_maintenance_services import (
+    MaintenanceAgyPorts,
+    MaintenanceDiagnosticPorts,
+    MaintenanceNpmPorts,
+    MaintenancePackagePorts,
+    MaintenanceRestartPorts,
+    MaintenanceUpdatePorts,
+    RuntimeMaintenanceServices,
+    RuntimeMaintenanceServicesCompatibilityApi,
 )
 from ciel_runtime_support.provider_runtime_info import ProviderRuntimeInfoPorts, ProviderRuntimeInfoService
 from ciel_runtime_support.provider_request_builder import (
@@ -1715,73 +1712,44 @@ def recommended_timeout_ms_for_context(context_tokens: int | None) -> int:
 
 ollama_model_catalog_key = ollama_catalog_policy.model_catalog_key
 
-def ollama_catalog_repository() -> OllamaCatalogRepository:
-    return OllamaCatalogRepository(OLLAMA_MODEL_CATALOG_PATH, router_log, with_upstream_user_agent)
-
-def load_ollama_model_catalog() -> dict[str, Any]:
-    return ollama_catalog_repository().load()
-
-def save_ollama_model_catalog(catalog: dict[str, Any]) -> None:
-    ollama_catalog_repository().save(catalog)
-
-def ollama_catalog_model_ids(provider: str = "ollama-cloud", catalog: dict[str, Any] | None = None) -> list[str]:
-    source = catalog if isinstance(catalog, dict) else load_ollama_model_catalog()
-    return ollama_catalog_policy.catalog_model_ids(
-        source, provider, normalize_model_id=normalize_model_id,
-        unique_model_ids=unique_model_ids, sorted_model_ids=sorted_model_ids,
+def ollama_catalog_context() -> OllamaCatalogContext:
+    return OllamaCatalogContext(
+        repository_ports=OllamaCatalogRepositoryPorts(
+            OLLAMA_MODEL_CATALOG_PATH, router_log, with_upstream_user_agent,
+        ),
+        projection=OllamaCatalogProjectionPorts(
+            normalize_model_id, unique_model_ids, sorted_model_ids,
+            model_lookup_ids, positive_int, OLLAMA_MODEL_CATALOG_URL,
+            OLLAMA_MODEL_CATALOG_TTL_SECONDS,
+        ),
+        workflow=OllamaCatalogWorkflowPorts(
+            lambda: load_ollama_model_catalog(),
+            lambda catalog: save_ollama_model_catalog(catalog),
+            lambda url, timeout: fetch_json_url(url, timeout),
+            lambda model, timeout: fetch_ollama_library_context_map(model, timeout),
+        ),
     )
 
-def ollama_catalog_is_stale(catalog: dict[str, Any], ttl_seconds: int = OLLAMA_MODEL_CATALOG_TTL_SECONDS) -> bool:
-    return ollama_catalog_policy.catalog_is_stale(catalog, ttl_seconds)
-
-def fetch_json_url(url: str, timeout: float = 12.0) -> Any:
-    return ollama_catalog_repository().fetch_json(url, timeout)
+_OLLAMA_CATALOG_API = OllamaCatalogCompatibilityApi(ollama_catalog_context)
+ollama_catalog_repository = _OLLAMA_CATALOG_API.repository
+load_ollama_model_catalog = _OLLAMA_CATALOG_API.load
+save_ollama_model_catalog = _OLLAMA_CATALOG_API.save
+ollama_catalog_model_ids = _OLLAMA_CATALOG_API.model_ids
+ollama_catalog_is_stale = _OLLAMA_CATALOG_API.is_stale
+fetch_json_url = _OLLAMA_CATALOG_API.fetch_json
 
 context_tokens_from_ollama_snippet = ollama_catalog_policy.context_tokens_from_snippet
 parse_ollama_library_context_map = ollama_catalog_policy.parse_library_context_map
 
-def fetch_ollama_library_context_map(base_model: str, timeout: float = 10.0) -> tuple[dict[str, int], str | None]:
-    return ollama_catalog_repository().fetch_library_context_map(base_model, timeout)
-
-def refresh_ollama_model_catalog(include_contexts: bool = True, timeout: float = 10.0) -> dict[str, Any]:
-    return ollama_catalog_policy.refresh_model_catalog(
-        ollama_catalog_policy.OllamaCatalogRefreshServices(
-            load_catalog=load_ollama_model_catalog,
-            fetch_catalog=fetch_json_url,
-            fetch_context_map=fetch_ollama_library_context_map,
-            save_catalog=save_ollama_model_catalog,
-            positive_int=positive_int,
-        ),
-        include_contexts=include_contexts,
-        timeout=timeout,
-        catalog_url=OLLAMA_MODEL_CATALOG_URL,
-    )
-
-def ollama_catalog_context_for_model(model_id: str) -> tuple[int | None, str | None, str | None]:
-    return ollama_catalog_policy.catalog_context_for_model(
-        load_ollama_model_catalog(), model_id, model_lookup_ids,
-    )
-
-def ollama_catalog_timeout_for_model(model_id: str) -> int | None:
-    return ollama_catalog_policy.catalog_timeout_for_model(
-        load_ollama_model_catalog(), model_id, model_lookup_ids,
-    )
-
-def update_ollama_catalog_context(model_id: str, limit: int, matched_model: str | None, source_url: str | None) -> None:
-    catalog = ollama_catalog_policy.with_updated_context(
-        load_ollama_model_catalog(), model_id, limit, matched_model, source_url,
-    )
-    save_ollama_model_catalog(catalog)
+fetch_ollama_library_context_map = _OLLAMA_CATALOG_API.fetch_context_map
+refresh_ollama_model_catalog = _OLLAMA_CATALOG_API.refresh
+ollama_catalog_context_for_model = _OLLAMA_CATALOG_API.context_for_model
+ollama_catalog_timeout_for_model = _OLLAMA_CATALOG_API.timeout_for_model
+update_ollama_catalog_context = _OLLAMA_CATALOG_API.update_context
 
 parse_ollama_library_context_limit = ollama_catalog_policy.parse_library_context_limit
 
-def fetch_ollama_library_context_limit(model_id: str, timeout: float = 6.0) -> tuple[int | None, str | None, str | None]:
-    return ollama_catalog_policy.fetch_library_context_limit(
-        model_id,
-        timeout=timeout,
-        fetch_context_map=fetch_ollama_library_context_map,
-        positive_int=positive_int,
-    )
+fetch_ollama_library_context_limit = _OLLAMA_CATALOG_API.fetch_context_limit
 
 ollama_context_model_matches = ollama_catalog_policy.context_model_matches
 
@@ -10410,6 +10378,55 @@ def add_npm_prefix_bin_to_path(prefix: Path | None) -> None:
     if bin_dir and bin_dir not in path.split(os.pathsep):
         os.environ["PATH"] = bin_dir + (os.pathsep + path if path else "")
 
+def runtime_maintenance_services() -> RuntimeMaintenanceServices:
+    return RuntimeMaintenanceServices(
+        npm=MaintenanceNpmPorts(
+            find_executable, npm_install_runtime_command, run_command_for_upgrade,
+            add_npm_prefix_bin_to_path, npm_latest_package_version,
+            version_newer, print, lambda: current_npm_install_prefix(),
+        ),
+        package=MaintenancePackagePorts(
+            Path(__file__).resolve(), os.environ, package_root_from_installed_path,
+            npm_prefix_from_package_root, detect_running_from_npm_package,
+            npm_global_package_root, npm_global_install_command,
+            lambda: current_npm_package_root(),
+            lambda: running_from_npm_package(),
+        ),
+        diagnostics=MaintenanceDiagnosticPorts(
+            HOME, os.name, executable_extra_dirs, parse_version_tuple,
+            lambda: ciel_runtime_install_diagnostics(), sys.stdin.isatty,
+            sys.stdout.isatty,
+            lambda line: print(line, file=sys.stderr, flush=True),
+        ),
+        restart=MaintenanceRestartPorts(
+            sys.argv, sys.executable, os.environ, os.execv, subprocess.call,
+        ),
+        update=MaintenanceUpdatePorts(
+            VERSION, forced_yes_upgrade_env,
+            lambda npm, package_root=None: restart_ciel_runtime_after_update(
+                npm, package_root=package_root
+            ),
+            claude_code_current_version, codex_current_version,
+            lambda: install_claude_code_if_missing(),
+            lambda: install_codex_if_missing(), lambda: install_agy_if_missing(),
+            lambda executable, enabled=True: run_agy_update_check(executable, enabled),
+        ),
+        agy=MaintenanceAgyPorts(AGY_MANIFEST_BASE_URL, agy_user_bin_dir),
+    )
+
+_RUNTIME_MAINTENANCE_SERVICES_API = RuntimeMaintenanceServicesCompatibilityApi(
+    runtime_maintenance_services
+)
+npm_package_lifecycle = _RUNTIME_MAINTENANCE_SERVICES_API.npm_lifecycle
+current_npm_install_prefix = _RUNTIME_MAINTENANCE_SERVICES_API.current_prefix
+running_from_npm_package = _RUNTIME_MAINTENANCE_SERVICES_API.running_from_npm_package
+current_npm_package_root = _RUNTIME_MAINTENANCE_SERVICES_API.current_package_root
+install_diagnostics_service = _RUNTIME_MAINTENANCE_SERVICES_API.install_diagnostics
+runtime_restart_service = _RUNTIME_MAINTENANCE_SERVICES_API.restart_service
+self_update_lifecycle = _RUNTIME_MAINTENANCE_SERVICES_API.self_update
+runtime_upgrade_service = _RUNTIME_MAINTENANCE_SERVICES_API.upgrade
+agy_installer = _RUNTIME_MAINTENANCE_SERVICES_API.agy_installer
+
 def runtime_maintenance_context() -> RuntimeMaintenanceContext:
     return RuntimeMaintenanceContext(
         packages=RuntimePackagePorts(
@@ -10425,6 +10442,11 @@ def runtime_maintenance_context() -> RuntimeMaintenanceContext:
             upgrade=runtime_upgrade_service,
         ),
         agy=RuntimeAgyPorts(installer=agy_installer),
+        upgrade_commands=RuntimeUpgradeCommandPorts(
+            lambda: quiet_upgrade_ciel_runtime(),
+            lambda: quiet_upgrade_claude_code(), lambda: quiet_upgrade_codex(),
+            lambda: quiet_upgrade_agy(),
+        ),
     )
 
 _RUNTIME_MAINTENANCE_API = RuntimeMaintenanceCompatibilityApi(runtime_maintenance_context)
@@ -10453,110 +10475,10 @@ install_agy_from_manifest = _RUNTIME_MAINTENANCE_API.install_agy_from_manifest
 install_agy_if_missing = _RUNTIME_MAINTENANCE_API.install_agy_if_missing
 run_agy_update_check = _RUNTIME_MAINTENANCE_API.run_agy_update_check
 
-def npm_package_lifecycle() -> NpmPackageLifecycle:
-    return NpmPackageLifecycle(
-        NpmPackageLifecyclePorts(
-            find_executable, current_npm_install_prefix, npm_install_runtime_command,
-            run_command_for_upgrade, add_npm_prefix_bin_to_path,
-            npm_latest_package_version, version_newer, print,
-        )
-    )
-
-def current_npm_install_prefix() -> Path | None:
-    root = current_npm_package_root()
-    return npm_prefix_from_package_root(root) if root else None
-
-def running_from_npm_package() -> bool:
-    return detect_running_from_npm_package(Path(__file__), os.environ)
-
-def current_npm_package_root() -> Path | None:
-    return package_root_from_installed_path(Path(__file__))
-
-def install_diagnostics_service() -> InstallDiagnosticsService:
-    return InstallDiagnosticsService(
-        settings=InstallDiagnosticsSettings(HOME, os.environ, os.name == "nt"),
-        ports=InstallDiagnosticsPorts(
-            extra_dirs=executable_extra_dirs,
-            package_root=package_root_from_installed_path,
-            current_root=current_npm_package_root,
-            parse_version=parse_version_tuple,
-            diagnostics=ciel_runtime_install_diagnostics,
-            stdin_isatty=sys.stdin.isatty,
-            stdout_isatty=sys.stdout.isatty,
-            write_error=lambda line: print(line, file=sys.stderr, flush=True),
-        ),
-    )
-
-def runtime_restart_service() -> RuntimeRestartService:
-    return RuntimeRestartService(
-        settings=RuntimeRestartSettings(
-            sys.argv,
-            sys.executable,
-            os.environ,
-            platform_name=os.name,
-        ),
-        ports=RuntimeRestartPorts(
-            current_package_root=current_npm_package_root,
-            global_package_root=npm_global_package_root,
-            find_executable=find_executable,
-            execv=os.execv,
-            call=subprocess.call,
-        ),
-    )
-
-def self_update_lifecycle() -> SelfUpdateLifecycle:
-    return SelfUpdateLifecycle(
-        VERSION,
-        SelfUpdatePorts(
-            running_from_npm_package, find_executable, npm_latest_package_version,
-            version_newer, current_npm_package_root, npm_prefix_from_package_root,
-            npm_global_install_command, forced_yes_upgrade_env,
-            restart_ciel_runtime_after_update, print,
-        ),
-    )
-
 def run_command_for_upgrade(cmd: list[str], timeout: float = 300.0) -> tuple[int, str]:
     return run_upgrade_command(cmd, forced_yes_upgrade_env(), timeout)
 
-def runtime_upgrade_service() -> RuntimeUpgradeService:
-    return RuntimeUpgradeService(
-        settings=RuntimeUpgradeSettings(VERSION, os.environ),
-        npm=RuntimeUpgradeNpmPorts(
-            find_executable=find_executable,
-            latest_version=npm_latest_package_version,
-            version_newer=version_newer,
-            current_package_root=current_npm_package_root,
-            package_prefix=npm_prefix_from_package_root,
-            current_prefix=current_npm_install_prefix,
-            global_install_command=npm_global_install_command,
-            runtime_install_command=npm_install_runtime_command,
-            run_command=run_command_for_upgrade,
-        ),
-        tools=RuntimeUpgradeToolPorts(
-            claude_version=claude_code_current_version,
-            codex_version=codex_current_version,
-            install_claude=install_claude_code_if_missing,
-            install_codex=install_codex_if_missing,
-            install_agy=install_agy_if_missing,
-            update_agy=run_agy_update_check,
-        ),
-        output=lambda message: print(message, flush=True),
-    )
-
 AGY_MANIFEST_BASE_URL = "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app"
-
-def agy_installer() -> AgyInstaller:
-    return AgyInstaller(
-        AGY_MANIFEST_BASE_URL,
-        AgyInstallerPorts(
-            agy_user_bin_dir,
-            forced_yes_upgrade_env,
-            find_executable,
-            version_newer,
-            run_command_for_upgrade,
-            print,
-        ),
-    )
 
 def agy_download_file(url: str, target: Path, timeout: float = 120.0) -> None:
     AgyInstaller.download_file(url, target, timeout)
@@ -10566,14 +10488,7 @@ def agy_current_version(agy: str) -> str:
 
 verify_sha512 = AgyInstaller.verify_sha512
 
-def run_quiet_upgrade_and_exit() -> int:
-    results = (
-        quiet_upgrade_ciel_runtime(),
-        quiet_upgrade_claude_code(),
-        quiet_upgrade_codex(),
-        quiet_upgrade_agy(),
-    )
-    return 0 if all(result == 0 for result in results) else 1
+run_quiet_upgrade_and_exit = _RUNTIME_MAINTENANCE_API.run_quiet_upgrade_and_exit
 
 def launch_claude(
     passthrough: list[str],
