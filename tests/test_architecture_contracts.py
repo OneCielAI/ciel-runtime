@@ -108,6 +108,13 @@ from ciel_runtime_support.channel_backlog import (
     ChannelBacklogService,
 )
 from ciel_runtime_support.context_setup import ContextSetupPorts
+from ciel_runtime_support.llm_preset_context import (
+    LlmPresetAlgorithms,
+    LlmPresetCatalog,
+    LlmPresetCompatibilityApi,
+    LlmPresetContext,
+    LlmPresetQueries,
+)
 from ciel_runtime_support.model_context_hints import ModelContextHintPorts
 from ciel_runtime_support.provider_catalog_sources import (
     AnthropicCatalogPolicy,
@@ -117,6 +124,41 @@ from ciel_runtime_support.provider_catalog_sources import (
     ProviderCatalogPolicyPorts,
     ProviderCatalogSourceService,
     build_default_provider_catalog_source_service,
+)
+from ciel_runtime_support.provider_readiness_context import (
+    ProviderConfigurationPorts,
+    ProviderCredentialPorts,
+    ProviderDefaultsPorts,
+    ProviderProjectionPorts,
+    ProviderReadinessCompatibilityApi,
+    ProviderReadinessContext,
+)
+from ciel_runtime_support.prelaunch_shell_context import (
+    PrelaunchInputPorts,
+    PrelaunchProviderPorts,
+    PrelaunchPromptPorts,
+    PrelaunchShellCompatibilityApi,
+    PrelaunchShellContext,
+    PrelaunchVisualPorts,
+)
+from ciel_runtime_support.prelaunch_panel_context import (
+    AuthPanelPorts,
+    ChannelPanelContextPorts,
+    ConfigurationPanelContextPorts,
+    MainMenuPanelPorts,
+    ModelPanelCatalogPorts,
+    ModelPanelPresentationPorts,
+    PrelaunchPanelCompatibilityApi,
+    PrelaunchPanelContext,
+    ProviderChoicePanelPorts,
+    WebBackendPanelPorts,
+)
+from ciel_runtime_support.runtime_maintenance_context import (
+    RuntimeAgyPorts,
+    RuntimeLifecyclePorts,
+    RuntimeMaintenanceCompatibilityApi,
+    RuntimeMaintenanceContext,
+    RuntimePackagePorts,
 )
 from ciel_runtime_support.provider_endpoint_policy import (
     ProviderEndpointPolicy as ModelEndpointPolicy,
@@ -187,6 +229,14 @@ from ciel_runtime_support.channel_compact_injection import (
 )
 from ciel_runtime_support.channel_config_service import ChannelConfigPorts
 from ciel_runtime_support.channel_cursor_service import ChannelDeliveryCursorPorts
+from ciel_runtime_support.channel_delivery_context import (
+    ChannelDeliveryCommitPorts,
+    ChannelDeliveryCompatibilityApi,
+    ChannelDeliveryContext,
+    ChannelLaunchCursorPorts,
+    ChannelLlmCursorPorts,
+    ChannelToolContextFactoryPorts,
+)
 from ciel_runtime_support.channel_cli import ChannelCliCommands, ChannelCliView
 from ciel_runtime_support.channel_inflight import (
     ChannelInflightEffects,
@@ -201,7 +251,10 @@ from ciel_runtime_support.channel_llm_context import (
     ChannelLlmContextServices,
 )
 from ciel_runtime_support.channel_mcp_tools import ChannelMcpToolServices
-from ciel_runtime_support.channel_mcp_discovery import ChannelMcpDiscoveryPorts
+from ciel_runtime_support.channel_mcp_discovery import (
+    ChannelMcpDiscoveryCompatibilityApi,
+    ChannelMcpDiscoveryPorts,
+)
 from ciel_runtime_support.channel_mcp_ownership import ChannelRouterLifecyclePorts
 from ciel_runtime_support.channel_pending_injection import (
     ChannelInjectionIO,
@@ -300,6 +353,7 @@ from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices
 from ciel_runtime_support.channel_probe_cache import ChannelProbePorts
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
 from ciel_runtime_support.configuration_cli import (
+    ConfigurationCliCompatibilityApi,
     ConfigurationCliConfigPorts,
     ConfigurationCliController,
     ConfigurationCliDisplayPorts,
@@ -333,6 +387,7 @@ from ciel_runtime_support.claude_environment import (
     ClaudeEnvironmentFeaturePorts,
     ClaudeEnvironmentSourcePorts,
     ClaudeLimitPorts,
+    ClaudeModelAliasCompatibilityApi,
     ClaudeModelPorts,
     ClaudeRuntimeSettingsPorts,
 )
@@ -414,7 +469,13 @@ from ciel_runtime_support.provider_request_builder import (
     OllamaRequestPorts,
     OpenAIRequestPorts,
     ProviderOptionPorts,
+    ProviderRequestCompatibilityApi,
     ProviderRequestBudget,
+)
+from ciel_runtime_support.ollama_wire_projection import (
+    OllamaWireCompatibilityApi,
+    OllamaWireProjection,
+    OllamaWireProjectionPorts,
 )
 from ciel_runtime_support.provider_option_status import ProviderOptionStatusPorts
 from ciel_runtime_support.provider_option_cli import (
@@ -423,6 +484,7 @@ from ciel_runtime_support.provider_option_cli import (
     ProviderOptionCommands,
 )
 from ciel_runtime_support.provider_timeout_policy import (
+    ProviderTimeoutCompatibilityApi,
     ProviderTimeoutPorts,
     ProviderTimeoutSettings,
 )
@@ -666,6 +728,12 @@ from ciel_runtime_support.prompt_compaction import (
     PromptCompactionText,
 )
 from ciel_runtime_support.provider_context import ContextPresetServices, ProviderContextServices
+from ciel_runtime_support.provider_model_context import (
+    ProviderModelContext,
+    ProviderModelContextAlgorithms,
+    ProviderModelContextCompatibilityApi,
+    ProviderModelContextQueries,
+)
 from ciel_runtime_support.provider_option_panel import (
     OptionPanelPolicy,
     OptionPanelProvider,
@@ -845,6 +913,7 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertLessEqual(len(fields(port)), 10)
 
     def test_provider_request_builder_ports_stay_below_dependency_limit(self):
+        self.assertEqual(1, len(fields(ProviderRequestCompatibilityApi)))
         for port in (
             ProviderRequestBudget,
             OllamaRequestPorts,
@@ -853,6 +922,9 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+        self.assertEqual(2, len(fields(OllamaWireProjection)))
+        self.assertEqual(2, len(fields(OllamaWireProjectionPorts)))
+        self.assertEqual(2, len(fields(OllamaWireCompatibilityApi)))
 
     def test_provider_option_status_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ProviderOptionStatusPorts)), 10)
@@ -869,9 +941,17 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_provider_timeout_policy_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ProviderTimeoutSettings)), 10)
         self.assertLessEqual(len(fields(ProviderTimeoutPorts)), 10)
+        self.assertEqual(1, len(fields(ProviderTimeoutCompatibilityApi)))
 
     def test_context_setup_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ContextSetupPorts)), 10)
+
+    def test_llm_preset_context_uses_bounded_typed_ports(self):
+        self.assertEqual(3, len(fields(LlmPresetContext)))
+        self.assertEqual(1, len(fields(LlmPresetCompatibilityApi)))
+        for port in (LlmPresetAlgorithms, LlmPresetCatalog, LlmPresetQueries):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 7)
 
     def test_provider_model_spec_ports_stay_below_dependency_limit(self):
         for port in (
@@ -1156,10 +1236,19 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertEqual(2, len(fields(ProviderPanelProjection)))
         self.assertEqual(1, len(fields(ConfigurationPanelProjection)))
 
-        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "prelaunch_panel_context.py"
+        ).read_text(encoding="utf-8")
+        context_class = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.ClassDef) and node.name == "PrelaunchPanelContext"
+        )
         functions = {
             node.name: node
-            for node in ast.parse(source).body
+            for node in context_class.body
             if isinstance(node, ast.FunctionDef)
         }
         expected = {
@@ -1174,6 +1263,21 @@ class ArchitectureContractTests(unittest.TestCase):
             function_source = ast.unparse(functions[name])
             self.assertIn(projection, function_source)
             self.assertNotIn("for ", function_source)
+
+        for port in (
+            MainMenuPanelPorts,
+            WebBackendPanelPorts,
+            ProviderChoicePanelPorts,
+            ConfigurationPanelContextPorts,
+            ModelPanelCatalogPorts,
+            ModelPanelPresentationPorts,
+            ChannelPanelContextPorts,
+            AuthPanelPorts,
+            PrelaunchPanelContext,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        self.assertEqual(1, len(fields(PrelaunchPanelCompatibilityApi)))
 
     def test_prelaunch_terminal_ports_stay_below_dependency_limit(self):
         for port in (
@@ -1326,6 +1430,7 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(CompatibilityCachePorts)), 10)
 
     def test_claude_environment_ports_stay_below_dependency_limit(self):
+        self.assertEqual(2, len(fields(ClaudeModelAliasCompatibilityApi)))
         for port in (
             ClaudeLimitPorts,
             ClaudeModelPorts,
@@ -1394,16 +1499,18 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(AgyInstaller)), 10)
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
         for function_name in ("install_agy_from_manifest", "run_agy_update_check"):
-            function = next(
-                node
-                for node in ast.parse(source).body
-                if isinstance(node, ast.FunctionDef) and node.name == function_name
-            )
             with self.subTest(function=function_name):
-                function_source = ast.unparse(function)
-                self.assertIn("agy_installer", function_source)
-                self.assertNotIn("subprocess", function_source)
-                self.assertNotIn("tarfile", function_source)
+                self.assertIn(
+                    f"{function_name} = _RUNTIME_MAINTENANCE_API.{function_name}",
+                    source,
+                )
+        context_source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "runtime_maintenance_context.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("self.agy.installer()", context_source)
+        self.assertNotIn("import ciel_runtime", context_source)
 
     def test_tool_exposure_policy_owns_blocked_tool_projection(self):
         self.assertLessEqual(len(fields(ToolExposurePorts)), 10)
@@ -1687,6 +1794,7 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_channel_mcp_discovery_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelMcpDiscoveryPorts)), 10)
+        self.assertEqual(1, len(fields(ChannelMcpDiscoveryCompatibilityApi)))
 
     def test_channel_router_lifecycle_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChannelRouterLifecyclePorts)), 10)
@@ -1730,30 +1838,24 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
         self.assertEqual(5, len(fields(ConfigurationCliController)))
+        self.assertEqual(1, len(fields(ConfigurationCliCompatibilityApi)))
 
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
-        functions = {
-            node.name: node
-            for node in ast.parse(source).body
-            if isinstance(node, ast.FunctionDef)
+        reexports = {
+            "cmd_provider": "provider",
+            "cmd_base_url": "base_url",
+            "cmd_model": "model",
+            "cmd_advisor_model": "advisor_model",
+            "cmd_models": "models",
+            "cmd_log_level": "log_level",
+            "cmd_language": "language",
+            "cmd_web_search": "web_search",
+            "cmd_web_fetch": "web_fetch",
+            "portable_provider_menu": "portable_provider_menu",
+            "portable_language_menu": "portable_language_menu",
         }
-        for name in (
-            "cmd_provider",
-            "cmd_base_url",
-            "cmd_model",
-            "cmd_advisor_model",
-            "cmd_models",
-            "cmd_log_level",
-            "cmd_language",
-            "cmd_web_search",
-            "cmd_web_fetch",
-            "portable_provider_menu",
-            "portable_language_menu",
-        ):
-            function_source = ast.unparse(functions[name])
-            self.assertIn("configuration_cli_controller", function_source)
-            self.assertNotIn("load_config", function_source)
-            self.assertNotIn("for ", function_source)
+        for name, api_name in reexports.items():
+            self.assertIn(f"{name} = _CONFIGURATION_CLI_API.{api_name}", source)
 
     def test_headless_config_ports_stay_below_dependency_limit(self):
         for port in (
@@ -1783,13 +1885,23 @@ class ArchitectureContractTests(unittest.TestCase):
                 self.assertLessEqual(len(fields(port)), 10)
         self.assertEqual(2, len(fields(PresetIdentityPolicy)))
 
-        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
-        functions = {
-            node.name: node
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "llm_preset_context.py"
+        ).read_text(encoding="utf-8")
+        context = next(
+            node
             for node in ast.parse(source).body
-            if isinstance(node, ast.FunctionDef)
-        }
-        resolver_source = ast.unparse(functions["resolve_llm_preset_id"])
+            if isinstance(node, ast.ClassDef) and node.name == "LlmPresetContext"
+        )
+        resolver_source = ast.unparse(
+            next(
+                node
+                for node in context.body
+                if isinstance(node, ast.FunctionDef) and node.name == "resolve"
+            )
+        )
         self.assertIn("PresetIdentityPolicy", resolver_source)
         self.assertNotIn("aliases", resolver_source)
 
@@ -1916,14 +2028,31 @@ class ArchitectureContractTests(unittest.TestCase):
 
     def test_channel_delivery_cursor_committer_has_bounded_ports(self):
         self.assertLessEqual(len(fields(ChannelDeliveryCursorPorts)), 5)
+        for port in (
+            ChannelToolContextFactoryPorts,
+            ChannelLlmCursorPorts,
+            ChannelLaunchCursorPorts,
+            ChannelDeliveryCommitPorts,
+            ChannelDeliveryContext,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        self.assertEqual(1, len(fields(ChannelDeliveryCompatibilityApi)))
 
-        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
-        tree = ast.parse(source)
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "channel_delivery_context.py"
+        ).read_text(encoding="utf-8")
+        context_class = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.ClassDef) and node.name == "ChannelDeliveryContext"
+        )
         function = next(
             node
-            for node in tree.body
-            if isinstance(node, ast.FunctionDef)
-            and node.name == "commit_pending_channel_delivery_cursors"
+            for node in context_class.body
+            if isinstance(node, ast.FunctionDef) and node.name == "commit_pending"
         )
         function_source = ast.get_source_segment(source, function) or ""
         self.assertIn("ChannelDeliveryCursorCommitter", function_source)
@@ -2033,6 +2162,10 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(ProviderContextServices)), 10)
         self.assertLessEqual(len(fields(ContextPresetServices)), 10)
         self.assertLessEqual(len(fields(ProviderOptionPresentationPolicy)), 10)
+        self.assertEqual(3, len(fields(ProviderModelContext)))
+        self.assertEqual(1, len(fields(ProviderModelContextCompatibilityApi)))
+        self.assertLessEqual(len(fields(ProviderModelContextAlgorithms)), 5)
+        self.assertLessEqual(len(fields(ProviderModelContextQueries)), 4)
         for port in (
             OptionPanelPolicy,
             OptionPanelText,
@@ -2051,12 +2184,22 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("provider in (", source)
 
     def test_launch_readiness_dispatches_through_provider_policy(self):
-        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "provider_readiness_context.py"
+        ).read_text(encoding="utf-8")
         tree = ast.parse(source)
-        function = next(
+        context = next(
             node
             for node in tree.body
-            if isinstance(node, ast.FunctionDef) and node.name == "launch_readiness_errors"
+            if isinstance(node, ast.ClassDef) and node.name == "ProviderReadinessContext"
+        )
+        function = next(
+            node
+            for node in context.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "launch_readiness_errors"
         )
         function_source = ast.get_source_segment(source, function) or ""
         self.assertIn("status_policy", function_source)
@@ -2064,17 +2207,38 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("provider in (", function_source)
 
     def test_base_url_status_dispatches_through_provider_policy(self):
-        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "provider_readiness_context.py"
+        ).read_text(encoding="utf-8")
         tree = ast.parse(source)
-        function = next(
+        context = next(
             node
             for node in tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "ProviderReadinessContext"
+        )
+        function = next(
+            node
+            for node in context.body
             if isinstance(node, ast.FunctionDef) and node.name == "base_url_status_line"
         )
         function_source = ast.get_source_segment(source, function) or ""
         self.assertIn("status_policy", function_source)
         self.assertNotIn('provider == "', function_source)
         self.assertNotIn("provider in (", function_source)
+
+    def test_provider_readiness_context_uses_bounded_typed_ports(self):
+        self.assertEqual(4, len(fields(ProviderReadinessContext)))
+        self.assertEqual(1, len(fields(ProviderReadinessCompatibilityApi)))
+        for port in (
+            ProviderConfigurationPorts,
+            ProviderCredentialPorts,
+            ProviderDefaultsPorts,
+            ProviderProjectionPorts,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 4)
 
     def test_provider_option_mutations_do_not_branch_on_provider_names(self):
         source_path = Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "provider_config_mutations.py"
@@ -2139,20 +2303,42 @@ class ArchitectureContractTests(unittest.TestCase):
             self.assertNotIn("configuration_policy", function_source)
 
     def test_provider_menu_projection_does_not_branch_on_provider_names(self):
-        source_path = Path(__file__).resolve().parents[1] / "ciel_runtime.py"
-        source = source_path.read_text(encoding="utf-8")
-        tree = ast.parse(source)
-        names = {
+        root = Path(__file__).resolve().parents[1]
+        context_tree = ast.parse(
+            (root / "ciel_runtime_support" / "prelaunch_shell_context.py").read_text(
+                encoding="utf-8"
+            )
+        )
+        context_class = next(
+            node
+            for node in context_tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "PrelaunchShellContext"
+        )
+        context_names = {
             "provider_menu_label",
             "current_provider_panel_choice",
-            "main_menu_rows",
-            "claude_launch_enabled_for_provider",
-            "agy_launch_enabled_for_provider",
-            "codex_launch_enabled_for_provider",
+            "launch_enabled",
         }
         functions = [
-            node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names
+            node
+            for node in context_class.body
+            if isinstance(node, ast.FunctionDef) and node.name in context_names
         ]
+        panel_tree = ast.parse(
+            (root / "ciel_runtime_support" / "prelaunch_panel_context.py").read_text(
+                encoding="utf-8"
+            )
+        )
+        panel_class = next(
+            node
+            for node in panel_tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "PrelaunchPanelContext"
+        )
+        functions.extend(
+            node
+            for node in panel_class.body
+            if isinstance(node, ast.FunctionDef) and node.name == "main_menu_rows"
+        )
         offenders = [
             (function.name, node.lineno)
             for function in functions
@@ -2164,7 +2350,22 @@ class ArchitectureContractTests(unittest.TestCase):
             )
         ]
         self.assertEqual([], offenders)
-        self.assertEqual(names, {function.name for function in functions})
+        self.assertEqual(
+            context_names | {"main_menu_rows"},
+            {function.name for function in functions},
+        )
+
+    def test_prelaunch_shell_context_uses_bounded_typed_ports(self):
+        for port in (
+            PrelaunchVisualPorts,
+            PrelaunchInputPorts,
+            PrelaunchProviderPorts,
+            PrelaunchPromptPorts,
+            PrelaunchShellContext,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        self.assertEqual(1, len(fields(PrelaunchShellCompatibilityApi)))
 
     def test_provider_ui_policy_stays_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ProviderUiPolicy)), 10)
@@ -2671,23 +2872,18 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_install_diagnostics_are_owned_by_an_application_service(self):
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
-        tree = ast.parse(source)
-        for function_name in (
-            "ciel_runtime_launcher_candidate_dirs",
-            "ciel_runtime_launcher_candidates",
-            "ciel_runtime_launcher_version",
-            "ciel_runtime_install_diagnostics",
-            "warn_if_multiple_ciel_runtime_installs",
-        ):
-            function = next(
-                node
-                for node in tree.body
-                if isinstance(node, ast.FunctionDef) and node.name == function_name
-            )
-            function_source = ast.get_source_segment(source, function) or ""
-            with self.subTest(function=function_name):
-                self.assertIn("install_diagnostics_service()", function_source)
-                self.assertNotIn("subprocess.run", function_source)
+        reexports = {
+            "ciel_runtime_launcher_candidate_dirs": "launcher_candidate_dirs",
+            "ciel_runtime_launcher_candidates": "launcher_candidates",
+            "ciel_runtime_launcher_version": "launcher_version",
+            "ciel_runtime_install_diagnostics": "install_diagnostics",
+            "warn_if_multiple_ciel_runtime_installs": "warn_if_multiple_installs",
+        }
+        for facade_name, api_name in reexports.items():
+            with self.subTest(function=facade_name):
+                self.assertIn(
+                    f"{facade_name} = _RUNTIME_MAINTENANCE_API.{api_name}", source
+                )
         service_source = (
             root / "ciel_runtime_support" / "install_diagnostics.py"
         ).read_text(encoding="utf-8")
@@ -2697,22 +2893,17 @@ class ArchitectureContractTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
-        for function_name, method in (
-            ("quiet_upgrade_ciel_runtime", ".ciel_runtime()"),
-            ("quiet_upgrade_claude_code", ".claude()"),
-            ("quiet_upgrade_codex", ".codex()"),
-            ("quiet_upgrade_agy", ".agy()"),
+        for function_name in (
+            "quiet_upgrade_ciel_runtime",
+            "quiet_upgrade_claude_code",
+            "quiet_upgrade_codex",
+            "quiet_upgrade_agy",
         ):
-            function = next(
-                node
-                for node in tree.body
-                if isinstance(node, ast.FunctionDef) and node.name == function_name
-            )
-            function_source = ast.get_source_segment(source, function) or ""
             with self.subTest(function=function_name):
-                self.assertIn("runtime_upgrade_service()", function_source)
-                self.assertIn(method, function_source)
-                self.assertNotIn("find_executable", function_source)
+                self.assertIn(
+                    f"{function_name} = _RUNTIME_MAINTENANCE_API.{function_name}",
+                    source,
+                )
         command_runner = next(
             node
             for node in tree.body
@@ -2727,20 +2918,21 @@ class ArchitectureContractTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
-        restart = next(
-            node
-            for node in tree.body
-            if isinstance(node, ast.FunctionDef)
-            and node.name == "restart_ciel_runtime_after_update"
+        self.assertIn(
+            "restart_ciel_runtime_after_update = _RUNTIME_MAINTENANCE_API.restart_after_update",
+            source,
         )
-        restart_source = ast.get_source_segment(source, restart) or ""
-        self.assertIn("runtime_restart_service().restart", restart_source)
-        self.assertNotIn("os.execv", restart_source)
-        self.assertNotIn("subprocess.call", restart_source)
         definitions = {
             node.name for node in tree.body if isinstance(node, ast.FunctionDef)
         }
         self.assertNotIn("npm_install_runtime_command", definitions)
+
+    def test_runtime_maintenance_context_uses_bounded_typed_ports(self):
+        self.assertEqual(3, len(fields(RuntimeMaintenanceContext)))
+        self.assertEqual(1, len(fields(RuntimeMaintenanceCompatibilityApi)))
+        for port in (RuntimeAgyPorts, RuntimeLifecyclePorts, RuntimePackagePorts):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 4)
 
     def test_pure_codex_config_compatibility_is_reexported_without_wrappers(self):
         root = Path(__file__).resolve().parents[1]
@@ -3258,22 +3450,30 @@ class ArchitectureContractTests(unittest.TestCase):
         for port in (ChannelToolContextPolicy, ChannelToolContextPorts, ChannelToolContextService):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
-        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
-        tree = ast.parse(source)
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "channel_delivery_context.py"
+        ).read_text(encoding="utf-8")
+        context_class = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.ClassDef) and node.name == "ChannelDeliveryContext"
+        )
         for function_name in (
-            "_channel_injected_prompt_text",
-            "_remember_channel_injected_tool_use",
-            "remember_channel_injected_tool_uses",
-            "body_with_channel_tool_result_context",
+            "injected_prompt_text",
+            "remember_injected_tool_use",
+            "remember_injected_tool_uses",
+            "body_with_tool_result_context",
         ):
             function = next(
                 node
-                for node in tree.body
+                for node in context_class.body
                 if isinstance(node, ast.FunctionDef) and node.name == function_name
             )
             function_source = ast.unparse(function)
             with self.subTest(function=function_name):
-                self.assertIn("channel_tool_context_service", function_source)
+                self.assertIn("tool_context_service", function_source)
                 self.assertNotIn("router_log", function_source)
                 self.assertNotIn("json.dumps", function_source)
 
@@ -4827,7 +5027,6 @@ class ArchitectureContractTests(unittest.TestCase):
             "_channel_current_tmux_pane_text": "capture",
             "codex_responses_body_with_channel_context": "project",
             "schedule_router_process_restart": "schedule_router_restart",
-            "read_env_file": "parse_dotenv_file",
             "openai_context_limit_for_budget": "context_limit",
             "_channel_wake_store_release_stale": "release_stale",
             "_channel_inflight_complete_wake": "complete",
@@ -4837,11 +5036,8 @@ class ArchitectureContractTests(unittest.TestCase):
             "apply_auto_llm_options_config": "apply_auto",
             "terminate_posix_port": "terminate_port",
             "terminate_windows_port": "terminate_port",
-            "format_context_tokens": "project_format_context_tokens",
             "format_parameter_count": "project_format_parameter_count",
             "context_setting_status": "status",
-            "_channel_llm_read_cursor_locked": "resolve_read",
-            "_commit_channel_llm_cursor_if_newer": "newer",
             "serve": "run",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
@@ -4871,6 +5067,8 @@ class ArchitectureContractTests(unittest.TestCase):
         import ciel_runtime
 
         aliases = (
+            ("format_context_tokens", "project_format_context_tokens"),
+            ("read_env_file", "parse_dotenv_file"),
             ("meaningful_key_value", "project_meaningful_key_value"),
             ("api_key_clear_requested", "project_api_key_clear_requested"),
             ("command_file_is_ciel_runtime_owned", "is_owned_command_file"),

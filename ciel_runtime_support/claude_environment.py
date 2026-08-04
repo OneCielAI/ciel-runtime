@@ -179,6 +179,65 @@ class ClaudeModelAliasPolicy:
 
 
 @dataclass(frozen=True)
+class ClaudeModelAliasCompatibilityApi:
+    policy: Callable[[], ClaudeModelAliasPolicy]
+    context_limit: Callable[[str, dict[str, Any]], int | None]
+
+    def claims_one_million_context(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        model: str,
+        *,
+        include_current: bool = True,
+    ) -> bool:
+        return self.policy().claims_one_million_context(
+            provider,
+            config,
+            model,
+            include_current=include_current,
+            context_limit=(
+                self.context_limit(provider, config) if include_current else None
+            ),
+        )
+
+    def context_model_alias(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        model: str,
+        upstream_model: str | None = None,
+    ) -> str:
+        return self.policy().context_model_alias(
+            provider,
+            config,
+            model,
+            upstream_model,
+            context_limit=(
+                self.context_limit(provider, config)
+                if upstream_model is None
+                else None
+            ),
+        )
+
+    def matches_family(self, model_id: str, family: str) -> bool:
+        return self.policy().matches_family(model_id, family)
+
+    def default_model_aliases(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        current_model_alias: str,
+    ) -> dict[str, str]:
+        return self.policy().default_model_aliases(
+            provider,
+            config,
+            current_model_alias,
+            context_limit=self.context_limit(provider, config),
+        )
+
+
+@dataclass(frozen=True)
 class ClaudeEnvironmentSourcePorts:
     load_config: Callable[[], dict[str, Any]]
     current_provider: Callable[[dict[str, Any]], tuple[str, dict[str, Any]]]
@@ -373,6 +432,7 @@ __all__ = [
     "ClaudeLimitPolicy",
     "ClaudeLimitPorts",
     "ClaudeModelAliasPolicy",
+    "ClaudeModelAliasCompatibilityApi",
     "ClaudeModelPorts",
     "ClaudeRuntimeSettingsPolicy",
     "ClaudeRuntimeSettingsPorts",

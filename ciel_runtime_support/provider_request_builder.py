@@ -25,16 +25,9 @@ class ProviderRequestBudget:
 class OllamaRequestPorts:
     messages: Callable[[dict[str, Any]], list[dict[str, Any]]]
     tools: Callable[[Any], list[dict[str, Any]]]
-    extra_options: Callable[[dict[str, Any]], dict[str, Any]]
     context_limit: Callable[[dict[str, Any]], int]
-    num_ctx: Callable[..., int]
-    think_value: Callable[
-        [str, str | None, dict[str, Any], dict[str, Any]], bool | str | None
-    ]
-    # Model-card provenance gate for num_predict: None = omit the parameter
-    # entirely so the server default applies (operator 2026-07-29). The
-    # default implementation passes the capped value through unchanged.
-    num_predict: Callable[[dict[str, Any], int | None], int | None] = lambda _config, capped: capped
+    num_ctx: Callable[..., int | None]
+    apply_optional: Callable[..., dict[str, Any]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,20 +173,12 @@ class ProviderRequestBuilder:
             "messages": messages,
             "stream": stream,
         }
-        think = self.ollama.think_value(provider, model, config, body)
-        if think is not None:
-            request["think"] = think
-        if config.get("keep_alive"):
-            request["keep_alive"] = str(config["keep_alive"])
         if tools:
             request["tools"] = tools
-        options = self.ollama.extra_options(config)
-        # num_predict is governed by the output-budget policy below. Remove a
-        # persisted/default copy so a deliberate provider-default decision can
-        # actually omit it from the wire request.
-        options.pop("num_predict", None)
         token_cache: dict[int, int] = {}
         num_ctx = self.ollama.num_ctx(config, payload, _token_cache=token_cache)
+        if not num_ctx:
+            num_ctx = self.ollama.context_limit(config)
         num_predict = self.budget.cap_output(
             config,
             body,
@@ -202,14 +187,14 @@ class ProviderRequestBuilder:
             configured,
             _token_cache=token_cache,
         )
-        num_predict = self.ollama.num_predict(config, num_predict)
-        if num_predict:
-            options["num_predict"] = num_predict
-        if num_ctx:
-            options.setdefault("num_ctx", num_ctx)
-        if options:
-            request["options"] = options
-        return request
+        return self.ollama.apply_optional(
+            request,
+            provider,
+            model,
+            config,
+            body,
+            output_limit=num_predict,
+        )
 
     def openai_chat(
         self,
@@ -256,3 +241,51 @@ class ProviderRequestBuilder:
             if self.openai.sampling_allowed(provider, config) and config.get(key) is not None:
                 request[key] = config[key]
         return request
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderRequestCompatibilityApi:
+    builder: Callable[[], ProviderRequestBuilder]
+
+    def cap_anthropic_body(
+        self, provider: str, config: dict[str, Any], body: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.builder().cap_anthropic_body(provider, config, body)
+
+    def apply_options(
+        self, provider: str, config: dict[str, Any], body: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.builder().apply_options(provider, config, body)
+
+    def normalize_anthropic_options(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        body: dict[str, Any],
+        model_id: str,
+    ) -> dict[str, Any]:
+        return self.builder().normalize_anthropic_options(provider, body, model_id)
+
+    def ollama_chat(
+        self,
+        model: str,
+        body: dict[str, Any],
+        config: dict[str, Any],
+        stream: bool = True,
+        provider: str = "ollama",
+    ) -> dict[str, Any]:
+        return self.builder().ollama_chat(
+            model, body, config, stream=stream, provider=provider
+        )
+
+    def openai_chat(
+        self,
+        provider: str,
+        model: str,
+        body: dict[str, Any],
+        config: dict[str, Any],
+        stream: bool = False,
+    ) -> dict[str, Any]:
+        return self.builder().openai_chat(
+            provider, model, body, config, stream=stream
+        )

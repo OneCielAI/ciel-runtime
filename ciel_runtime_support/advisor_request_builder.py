@@ -37,12 +37,7 @@ class AdvisorBudgetPorts:
     reserve: Callable[[dict[str, Any], int], int]
     compact_messages: Callable[..., list[dict[str, Any]]]
     configured_output: Callable[..., int]
-    ollama_options: Callable[[dict[str, Any]], dict[str, Any]]
-    positive_int: Callable[[Any], int]
-    ollama_num_ctx: Callable[..., int]
-    think_value: Callable[
-        [str, str | None, dict[str, Any], dict[str, Any]], bool | str | None
-    ]
+    apply_ollama_optional: Callable[..., dict[str, Any]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,22 +203,14 @@ class AdvisorRequestBuilder:
             "messages": messages,
             "stream": False,
         }
-        think = self.budget.think_value(provider, upstream_model, config, body)
-        if think is not None:
-            request["think"] = think
-        options = self.budget.ollama_options(config)
-        options.setdefault(
-            "num_predict",
-            min(4096, self.budget.positive_int(options.get("num_predict")) or 4096),
+        return self.budget.apply_ollama_optional(
+            request,
+            provider,
+            upstream_model,
+            config,
+            body,
+            output_limit=4096,
         )
-        num_ctx = self.budget.ollama_num_ctx(
-            config, {"messages": messages, "tools": []}
-        )
-        if num_ctx:
-            options.setdefault("num_ctx", num_ctx)
-        if options:
-            request["options"] = options
-        return request
 
     @staticmethod
     def _sampling_options(

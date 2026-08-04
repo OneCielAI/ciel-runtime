@@ -131,8 +131,13 @@ class OllamaThinkingPolicy:
             str(item).strip().lower()
             for item in options.get("ollama_model_capabilities") or []
         }
-        if "thinking" in capabilities or options.get("think_explicit"):
+        if options.get("think_explicit"):
             return bool(options.get("think", False))
+        if "thinking" in capabilities:
+            if thinking_disabled(request):
+                return False
+            if effort:
+                return True
         return None
 
 

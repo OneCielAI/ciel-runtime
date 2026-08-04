@@ -179,10 +179,29 @@ class OllamaRequestContextPolicy:
         )
         options = dict(self.extra_options(retry_config))
         configured_num_predict = self.positive_int(options.get("num_predict"))
-        if configured_num_predict:
+        output_is_explicit = bool(config.get("output_tokens_explicit")) or (
+            "num_predict"
+            in {
+                str(item)
+                for item in config.get("ollama_explicit_options") or []
+            }
+        )
+        if configured_num_predict and output_is_explicit:
             options["num_predict"] = min(configured_num_predict, output_cap)
+        else:
+            options.pop("num_predict", None)
         retry_config["ollama_options"] = options
-        retry_config["ollama_transient_options"] = ["num_predict"]
+        transient = {
+            str(item)
+            for item in retry_config.get("ollama_transient_options") or []
+            if str(item) != "num_predict"
+        }
+        if output_is_explicit:
+            transient.add("num_predict")
+        if transient:
+            retry_config["ollama_transient_options"] = sorted(transient)
+        else:
+            retry_config.pop("ollama_transient_options", None)
         return retry_config
 
     def context_limit_for_budget(self, config: dict[str, Any]) -> int:

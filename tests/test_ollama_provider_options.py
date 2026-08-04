@@ -660,6 +660,35 @@ class OllamaProviderOptionTests(unittest.TestCase):
             )
         self.assertNotIn("options", unset)
 
+    def test_default_keep_alive_is_omitted_but_explicit_value_is_sent(self):
+        pcfg = {
+            "current_model": "plain-model",
+            "num_ctx": "auto",
+            "keep_alive": "5m",
+            "ollama_options": {},
+        }
+        body = {"messages": [{"role": "user", "content": "hello"}], "tools": []}
+
+        with mock.patch.object(ciel_runtime, "write_context_usage"):
+            inherited = ciel_runtime.ollama_chat_request(
+                "plain-model", body, pcfg, stream=False
+            )
+        self.assertNotIn("keep_alive", inherited)
+
+        ciel_runtime.apply_ollama_option(pcfg, "keep_alive=5m")
+        with mock.patch.object(ciel_runtime, "write_context_usage"):
+            explicit = ciel_runtime.ollama_chat_request(
+                "plain-model", body, pcfg, stream=False
+            )
+        self.assertEqual("5m", explicit["keep_alive"])
+
+        ciel_runtime.apply_ollama_option(pcfg, "unset:keep_alive")
+        with mock.patch.object(ciel_runtime, "write_context_usage"):
+            unset = ciel_runtime.ollama_chat_request(
+                "plain-model", body, pcfg, stream=False
+            )
+        self.assertNotIn("keep_alive", unset)
+
     def test_ollama_context_error_retry_config_compacts_to_reported_n_ctx(self):
         raw = '{"error":"request (58940 tokens) exceeds the available context size (32768 tokens), try increasing the context length","n_ctx":32768}'
         pcfg = {
@@ -693,9 +722,32 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertNotIn("options", normal_req)
         self.assertGreater(ciel_runtime.estimate_tokens(normal_req), 32768)
         self.assertEqual(32768, retry_req["options"]["num_ctx"])
-        self.assertLessEqual(retry_req["options"]["num_predict"], 2048)
+        self.assertNotIn("num_predict", retry_req["options"])
         self.assertLessEqual(ciel_runtime.estimate_tokens(retry_req), 32768)
         self.assertIn("current task must survive", retry_req["messages"][-1]["content"])
+
+    def test_context_retry_caps_explicit_num_predict(self):
+        pcfg = {
+            "current_model": "plain-model",
+            "num_ctx": "auto",
+            "max_output_tokens": 8192,
+            "output_tokens_explicit": True,
+            "ollama_options": {"num_predict": 8192},
+            "ollama_explicit_options": ["num_predict"],
+        }
+
+        retry_pcfg = ciel_runtime.ollama_context_retry_config(pcfg, 32768)
+        body = {
+            "messages": [{"role": "user", "content": "continue"}],
+            "tools": [],
+        }
+        with mock.patch.object(ciel_runtime, "write_context_usage"):
+            request = ciel_runtime.ollama_chat_request(
+                "plain-model", body, retry_pcfg, stream=True
+            )
+
+        self.assertEqual(32768, request["options"]["num_ctx"])
+        self.assertEqual(2048, request["options"]["num_predict"])
 
     def test_compact_request_uses_segmented_llm_compaction(self):
         calls = []

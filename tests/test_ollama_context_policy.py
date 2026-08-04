@@ -99,7 +99,7 @@ class OllamaRequestContextPolicyTests(unittest.TestCase):
             8192, policy.num_predict_for_payload(provider_default, 8192)
         )
 
-    def test_context_error_recovery_caps_output_and_options(self):
+    def test_context_error_recovery_omits_unproven_output_option(self):
         policy = self.policy()
         self.assertEqual(
             32768,
@@ -115,7 +115,20 @@ class OllamaRequestContextPolicyTests(unittest.TestCase):
         )
         self.assertEqual(32768, recovered["num_ctx"])
         self.assertEqual(2048, recovered["max_output_tokens"])
-        self.assertEqual(2048, recovered["ollama_options"]["num_predict"])
+        self.assertNotIn("num_predict", recovered["ollama_options"])
+        self.assertEqual(0.5, recovered["ollama_options"]["temperature"])
+
+        explicit = policy.context_retry_config(
+            {
+                "max_output_tokens": 8192,
+                "output_tokens_explicit": True,
+                "ollama_options": {"num_predict": 4096},
+                "ollama_explicit_options": ["num_predict"],
+            },
+            32768,
+        )
+        self.assertEqual(2048, explicit["ollama_options"]["num_predict"])
+        self.assertIn("num_predict", explicit["ollama_transient_options"])
 
     def test_options_and_timeout_projection(self):
         policy = self.policy()

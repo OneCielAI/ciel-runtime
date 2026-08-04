@@ -182,3 +182,57 @@ class ProviderTimeoutPolicy:
             f"Auto timeout: {timeout_ms}ms for context {self.ports.format_context(context)}.",
             f"stream_idle_timeout_ms: {idle_ms}",
         ]
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderTimeoutCompatibilityApi:
+    policy: Callable[[], ProviderTimeoutPolicy]
+
+    def configured_context(
+        self, provider: str, config: dict[str, Any]
+    ) -> int | None:
+        return self.policy().configured_context(provider, config)
+
+    def configured_output(
+        self, provider: str, config: dict[str, Any]
+    ) -> int | None:
+        return self.policy().configured_output(provider, config)
+
+    def clamp(self, milliseconds: int | float | None) -> int:
+        return self.policy().clamp(milliseconds)
+
+    def calculated(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        timeout_candidates: list[int] | None = None,
+    ) -> int:
+        return self.policy().calculated(provider, config, timeout_candidates)
+
+    def recommended(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        use_context_fallback: bool = True,
+    ) -> int:
+        return self.policy().recommended(
+            provider, config, use_context_fallback=use_context_fallback
+        )
+
+    def apply(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        use_context_fallback: bool = True,
+    ) -> list[str]:
+        return self.policy().apply(
+            provider, config, use_context_fallback=use_context_fallback
+        )
+
+
+__all__ = [
+    "ProviderTimeoutCompatibilityApi",
+    "ProviderTimeoutPolicy",
+    "ProviderTimeoutPorts",
+    "ProviderTimeoutSettings",
+]

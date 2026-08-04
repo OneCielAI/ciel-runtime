@@ -38,6 +38,7 @@ class ContextCompactionProjection:
     build_fallback_summary: Callable[..., str]
     build_reduce_prompt: Callable[..., str]
     log: Callable[[str, str], None]
+    apply_ollama_optional: Callable[..., dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -69,11 +70,15 @@ def request_context_summary(
                 {"role": "user", "content": prompt},
             ],
             "stream": False,
-            "think": False,
-            "options": {"num_predict": max_tokens},
         }
-        if provider_config.get("keep_alive"):
-            request["keep_alive"] = str(provider_config["keep_alive"])
+        request = services.projection.apply_ollama_optional(
+            request,
+            provider,
+            model,
+            provider_config,
+            {},
+            output_limit=max_tokens,
+        )
         operation = "ollama_chat"
     elif wire == "openai":
         request = {

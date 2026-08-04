@@ -64,6 +64,7 @@ def apply_ollama_option(
             _set_ollama_option_explicit(pcfg, "num_predict", False)
         elif key in ("keep_alive", "keepalive"):
             pcfg.pop("keep_alive", None)
+            pcfg.pop("keep_alive_explicit", None)
         elif key == "think":
             pcfg["think"] = False
             pcfg.pop("think_explicit", None)
@@ -120,8 +121,10 @@ def apply_ollama_option(
     if key in ("keep_alive", "keepalive"):
         if value is None:
             pcfg.pop("keep_alive", None)
+            pcfg.pop("keep_alive_explicit", None)
         else:
             pcfg["keep_alive"] = str(value)
+            pcfg["keep_alive_explicit"] = True
         return
     if key in ("timeout", "timeout_ms", "request_timeout", "request_timeout_ms"):
         fixed = positive_int(value)

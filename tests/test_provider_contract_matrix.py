@@ -557,7 +557,8 @@ class ProviderContractMatrixTests(unittest.TestCase):
         self.assertIn("router_native_anthropic_enabled", source)
 
     def test_context_workflows_delegate_without_provider_dispatch(self):
-        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
         names = {
             "provider_model_context_capacity",
@@ -574,16 +575,31 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "recommended_preset_id",
             "required_context_for_preset",
         }
-        functions = {
-            node.name: ast.get_source_segment(source, node) or ""
+        exported = {
+            node.name
             for node in tree.body
-            if isinstance(node, ast.FunctionDef) and node.name in names
+            if isinstance(node, ast.FunctionDef)
         }
-        self.assertEqual(names, set(functions))
-        for name, function_source in functions.items():
-            with self.subTest(function=name):
-                self.assertNotIn('provider == "', function_source)
-                self.assertNotIn("provider in (", function_source)
+        exported.update(
+            target.id
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        )
+        self.assertTrue(names <= exported)
+        for relative_path in (
+            "provider_model_context.py",
+            "provider_timeout_policy.py",
+            "llm_preset_context.py",
+            "context_setup.py",
+        ):
+            context_source = (
+                root / "ciel_runtime_support" / relative_path
+            ).read_text(encoding="utf-8")
+            with self.subTest(module=relative_path):
+                self.assertNotIn('provider == "', context_source)
+                self.assertNotIn("provider in (", context_source)
 
     def test_base_url_status_strategy_matrix(self):
         cases = {

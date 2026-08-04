@@ -364,6 +364,44 @@ class ConfigurationCliController:
         return aliases.get(normalized, normalized)
 
 
+@dataclass(frozen=True, slots=True)
+class ConfigurationCliCompatibilityApi:
+    controller: Callable[[], ConfigurationCliController]
+
+    def provider(self, args: Any) -> None:
+        self.controller().provider_command(args.name)
+
+    def base_url(self, args: Any) -> None:
+        self.controller().base_url_command(args.provider, args.url)
+
+    def model(self, args: Any) -> None:
+        self.controller().model_command(args.value)
+
+    def advisor_model(self, args: Any) -> None:
+        self.controller().advisor_model_command(args.value)
+
+    def models(self, args: Any) -> None:
+        self.controller().models_command(args.provider)
+
+    def log_level(self, args: Any) -> None:
+        self.controller().log_level_command(getattr(args, "value", None))
+
+    def language(self, args: Any) -> None:
+        self.controller().language_command(args.value)
+
+    def web_search(self, args: Any) -> None:
+        self.controller().web_search_command(args.value)
+
+    def web_fetch(self, args: Any) -> None:
+        self.controller().web_fetch_command(args.value)
+
+    def portable_provider_menu(self) -> int:
+        return self.controller().portable_provider_menu()
+
+    def portable_language_menu(self) -> int:
+        return self.controller().portable_language_menu()
+
+
 __all__ = [
     "ConfigurationCliConfigPorts",
     "ConfigurationCliController",

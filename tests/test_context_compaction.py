@@ -9,6 +9,10 @@ from ciel_runtime_support.context_compaction import (
     build_llm_compacted_messages,
     request_context_summary,
 )
+from ciel_runtime_support.ollama_wire_projection import (
+    OllamaWireProjection,
+    OllamaWireProjectionPorts,
+)
 
 
 class ContextCompactionTests(unittest.TestCase):
@@ -38,6 +42,12 @@ class ContextCompactionTests(unittest.TestCase):
             estimate_tokens=lambda value: len(str(value)),
             request_summary=mock.Mock(return_value="summary"),
         )
+        ollama_projection = OllamaWireProjection(
+            OllamaWireProjectionPorts(
+                think_value=lambda *_args: None,
+                positive_int=lambda value: int(value) if value else None,
+            )
+        )
         return ContextCompactionServices(
             transport=transport,
             workflow=workflow,
@@ -46,6 +56,7 @@ class ContextCompactionTests(unittest.TestCase):
                 build_fallback_summary=lambda *_args, **_kwargs: "fallback",
                 build_reduce_prompt=lambda summaries, instruction, **_kwargs: f"{instruction}:{summaries[0]}",
                 log=mock.Mock(),
+                apply_ollama_optional=ollama_projection.apply,
             ),
             map_system_prompt="compact",
         )
@@ -108,7 +119,7 @@ class ContextCompactionTests(unittest.TestCase):
         self.assertEqual([{"role": "user", "content": "compact:summary"}], result)
         services.workflow.request_summary.assert_called_once()
 
-    def test_ollama_summary_preserves_keep_alive_and_native_token_option(self):
+    def test_ollama_summary_omits_unproven_output_option(self):
         services = self.services()
         request_context_summary(
             "local",
@@ -121,7 +132,7 @@ class ContextCompactionTests(unittest.TestCase):
         )
         url, request = services.transport.post_json.call_args.args[:2]
         self.assertEqual("https://test/ollama_chat", url)
-        self.assertEqual({"num_predict": 512}, request["options"])
+        self.assertNotIn("options", request)
         self.assertEqual("300", request["keep_alive"])
 
     def test_anthropic_summary_uses_native_messages_endpoint(self):

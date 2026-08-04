@@ -154,6 +154,7 @@ from ciel_runtime_support.channel_mcp_tools import (
     dispatch_channel_mcp_tool,
 )
 from ciel_runtime_support.channel_mcp_discovery import (
+    ChannelMcpDiscoveryCompatibilityApi,
     ChannelMcpDiscoveryPorts,
     ChannelMcpDiscoveryService,
 )
@@ -200,12 +201,6 @@ from ciel_runtime_support.channel_terminal_dispatch import (
     ChannelTerminalDispatchService,
     ChannelTerminalDispatchSettings,
     ChannelTerminalProxyPorts,
-)
-from ciel_runtime_support.channel_tool_context import (
-    ChannelToolContextPolicy,
-    ChannelToolContextPorts,
-    ChannelToolContextRepository,
-    ChannelToolContextService,
 )
 from ciel_runtime_support.channel_transcript import (
     ChannelWakeStateReader,
@@ -266,8 +261,6 @@ from ciel_runtime_support.channel_runtime_environment import (
 )
 from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage
 from ciel_runtime_support.channel_cursor_service import (
-    ChannelDeliveryCursorCommitter,
-    ChannelDeliveryCursorPorts,
     ChannelCursorService,
     ChannelCursorServices,
     ChannelResumePolicy,
@@ -278,6 +271,14 @@ from ciel_runtime_support.channel_cursor_recovery import (
     ChannelCursorRecoveryPolicy,
     ChannelCursorRecoveryPorts,
     ChannelCursorRecoveryService,
+)
+from ciel_runtime_support.channel_delivery_context import (
+    ChannelDeliveryCommitPorts,
+    ChannelDeliveryCompatibilityApi,
+    ChannelDeliveryContext,
+    ChannelLaunchCursorPorts,
+    ChannelLlmCursorPorts,
+    ChannelToolContextFactoryPorts,
 )
 from ciel_runtime_support.channel_wake_claim_repository import (
     ChannelWakeClaimRepository,
@@ -312,18 +313,8 @@ from ciel_runtime_support.channel_probe_cache import (
     ChannelProbeService,
 )
 from ciel_runtime_support.channel_panel import (
-    ChannelPanelPolicy,
     _channel_panel_first_selectable as first_selectable_channel_row,
     _channel_panel_step as step_channel_row,
-    channel_delivery_panel_rows as project_channel_delivery_panel_rows,
-    channel_panel_rows as project_channel_panel_rows,
-)
-from ciel_runtime_support.model_panel import (
-    ModelPanelCatalog,
-    ModelPanelPresentation,
-    ModelPanelServices,
-    advisor_model_panel_rows as project_advisor_model_panel_rows,
-    model_panel_rows as project_model_panel_rows,
 )
 from ciel_runtime_support import provider_catalog_sources
 from ciel_runtime_support.provider_endpoint_policy import (
@@ -379,6 +370,7 @@ from ciel_runtime_support import cli_dispatch
 from ciel_runtime_support.cli_usage import cli_usage_text
 from ciel_runtime_support import cli_parser
 from ciel_runtime_support.configuration_cli import (
+    ConfigurationCliCompatibilityApi,
     ConfigurationCliConfigPorts,
     ConfigurationCliController,
     ConfigurationCliDisplayPorts,
@@ -418,6 +410,7 @@ from ciel_runtime_support.compatibility_runtime import (
     CompatibilityRuntimeProjection,
 )
 from ciel_runtime_support.claude_environment import (
+    ClaudeModelAliasCompatibilityApi,
     ClaudeEnvironmentFeaturePorts,
     ClaudeEnvironmentProjection,
     ClaudeEnvironmentShellRenderer,
@@ -683,6 +676,13 @@ from ciel_runtime_support.provider_option_cli import (
     ProviderOptionCommands,
 )
 from ciel_runtime_support import llm_presets
+from ciel_runtime_support.llm_preset_context import (
+    LlmPresetAlgorithms,
+    LlmPresetCatalog,
+    LlmPresetCompatibilityApi,
+    LlmPresetContext,
+    LlmPresetQueries,
+)
 from ciel_runtime_support.llm_presentation_data import (
     AUTO_TIMEOUT_MAX_MS,
     AUTO_TIMEOUT_MIN_MS,
@@ -919,6 +919,7 @@ from ciel_runtime_support.ollama_forwarding import (
     OllamaForwardStreaming,
     forward_ollama_api_chat as run_ollama_forward,
 )
+from ciel_runtime_support.ollama_wire_projection import OllamaWireCompatibilityApi
 from ciel_runtime_support.openai_forwarding import (
     OpenAIForwardAdvisor,
     OpenAIForwardPolicy,
@@ -1077,7 +1078,14 @@ from ciel_runtime_support.provider_model_specs import (
     ModelSpecRefreshPorts,
     ProviderModelSpecService,
 )
+from ciel_runtime_support.provider_model_context import (
+    ProviderModelContext,
+    ProviderModelContextAlgorithms,
+    ProviderModelContextCompatibilityApi,
+    ProviderModelContextQueries,
+)
 from ciel_runtime_support.provider_timeout_policy import (
+    ProviderTimeoutCompatibilityApi,
     ProviderTimeoutPolicy,
     ProviderTimeoutPorts,
     ProviderTimeoutSettings,
@@ -1178,13 +1186,28 @@ from ciel_runtime_support.provider_readiness import (
     ProviderReadinessLmStudio,
     ProviderReadinessMode,
     ProviderReadinessServices,
-    launch_readiness_errors as evaluate_provider_readiness,
+)
+from ciel_runtime_support.provider_readiness_context import (
+    ProviderConfigurationPorts,
+    ProviderCredentialPorts,
+    ProviderDefaultsPorts,
+    ProviderProjectionPorts,
+    ProviderReadinessCompatibilityApi,
+    ProviderReadinessContext,
+)
+from ciel_runtime_support.runtime_maintenance_context import (
+    RuntimeAgyPorts,
+    RuntimeLifecyclePorts,
+    RuntimeMaintenanceCompatibilityApi,
+    RuntimeMaintenanceContext,
+    RuntimePackagePorts,
 )
 from ciel_runtime_support.provider_runtime_info import ProviderRuntimeInfoPorts, ProviderRuntimeInfoService
 from ciel_runtime_support.provider_request_builder import (
     OllamaRequestPorts,
     OpenAIRequestPorts,
     ProviderOptionPorts,
+    ProviderRequestCompatibilityApi,
     ProviderRequestBudget,
     ProviderRequestBuilder,
 )
@@ -1215,18 +1238,11 @@ from ciel_runtime_support.provider_status import (
     ProviderStatusGeneric,
     ProviderStatusRouting,
     ProviderStatusServices,
-    base_url_status_line as project_provider_base_url_status,
 )
 from ciel_runtime_support import prelaunch
 from ciel_runtime_support.prelaunch_launch_preference import preferred_provider_launch_action
 from ciel_runtime_support.prelaunch_panel_projection import (
-    ConfigurationPanelPorts,
-    ConfigurationPanelProjection,
-    MainMenuProjection,
-    MainMenuProjectionPorts,
     ProviderPanelConstants,
-    ProviderPanelPorts,
-    ProviderPanelProjection,
 )
 from ciel_runtime_support.prelaunch_terminal import (
     PrelaunchInputStyle,
@@ -1234,7 +1250,6 @@ from ciel_runtime_support.prelaunch_terminal import (
     PrelaunchRenderData,
     PrelaunchRenderServices,
     PrelaunchRenderText,
-    TerminalSelectionServices,
     _prompt_menu_multiline_value_raw as read_menu_multiline_value_raw,
     _prompt_menu_value_raw as read_menu_value_raw,
     append_menu_key_debug_log as write_menu_key_debug_log,
@@ -1250,6 +1265,26 @@ from ciel_runtime_support.prelaunch_terminal import (
     prompt_menu_value as read_menu_value,
     read_menu_key as read_terminal_menu_key,
     render_prelaunch_screen as render_prelaunch_terminal_screen,
+)
+from ciel_runtime_support.prelaunch_shell_context import (
+    PrelaunchInputPorts,
+    PrelaunchProviderPorts,
+    PrelaunchPromptPorts,
+    PrelaunchShellCompatibilityApi,
+    PrelaunchShellContext,
+    PrelaunchVisualPorts,
+)
+from ciel_runtime_support.prelaunch_panel_context import (
+    AuthPanelPorts,
+    ChannelPanelContextPorts,
+    ConfigurationPanelContextPorts,
+    MainMenuPanelPorts,
+    ModelPanelCatalogPorts,
+    ModelPanelPresentationPorts,
+    PrelaunchPanelCompatibilityApi,
+    PrelaunchPanelContext,
+    ProviderChoicePanelPorts,
+    WebBackendPanelPorts,
 )
 from ciel_runtime_support.prompt_compaction import (
     PromptCompactionRuntime,
@@ -1387,8 +1422,6 @@ from ciel_runtime_support.web_ui_controller import (
 from ciel_runtime_support.web_endpoints import (
     build_web_endpoint_report,
     configure_requested_web_endpoints,
-    update_web_backend_config,
-    web_backend_panel_rows as project_web_backend_panel_rows,
 )
 from ciel_runtime_support.windows_console_input import (
     WindowsConsoleInputWriter,
@@ -2010,8 +2043,7 @@ def upstream_messages_query(pcfg: dict[str, Any], request_path: str, provider: s
 def upstream_query_string_status(provider: str, pcfg: dict[str, Any]) -> str:
     return provider_query_policy().status(provider, pcfg)
 
-def read_env_file(path: Path) -> dict[str, str]:
-    return parse_dotenv_file(path)
+read_env_file = parse_dotenv_file
 
 meaningful_key_value = project_meaningful_key_value
 
@@ -2380,8 +2412,7 @@ def normalize_tool_choice_for_provider(provider: str, pcfg: dict[str, Any], body
 def normalize_response_thinking_for_non_anthropic_provider(provider: str, pcfg: dict[str, Any], message: dict[str, Any], model: str | None = None) -> dict[str, Any]:
     return anthropic_thinking_policy().normalize_response(provider, pcfg, message, model)
 
-def clear_suppressed_thinking_passback_cache() -> None:
-    SUPPRESSED_THINKING_REPOSITORY.clear()
+clear_suppressed_thinking_passback_cache = SUPPRESSED_THINKING_REPOSITORY.clear
 
 _copy_thinking_blocks = project_copy_thinking_blocks
 
@@ -4338,6 +4369,7 @@ def context_compaction_services() -> ContextCompactionServices:
             build_fallback_summary=build_chunked_context_guard_summary,
             build_reduce_prompt=build_context_compact_reduce_prompt,
             log=router_log,
+            apply_ollama_optional=apply_ollama_wire_options,
         ),
         map_system_prompt=CONTEXT_COMPACT_MAP_SYSTEM_PROMPT,
     )
@@ -4933,11 +4965,9 @@ def provider_request_builder() -> ProviderRequestBuilder:
         OllamaRequestPorts(
             messages=anthropic_messages_to_ollama,
             tools=anthropic_tools_to_ollama,
-            extra_options=ollama_wire_options,
             context_limit=ollama_context_limit_for_budget,
             num_ctx=ollama_num_ctx_for_payload,
-            think_value=ollama_request_think_value,
-            num_predict=ollama_num_predict_for_payload,
+            apply_optional=apply_ollama_wire_options,
         ),
         OpenAIRequestPorts(
             messages=anthropic_messages_to_openai,
@@ -4958,18 +4988,10 @@ def provider_request_builder() -> ProviderRequestBuilder:
         ),
     )
 
-def cap_anthropic_body_for_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
-    return provider_request_builder().cap_anthropic_body(provider, pcfg, body)
-
-def apply_provider_request_options(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
-    return provider_request_builder().apply_options(provider, pcfg, body)
-
-def normalize_anthropic_model_request_options(provider: str, pcfg: dict[str, Any], body: dict[str, Any], model_id: str) -> dict[str, Any]:
-    return provider_request_builder().normalize_anthropic_options(
-        provider,
-        body,
-        model_id,
-    )
+_PROVIDER_REQUEST_API = ProviderRequestCompatibilityApi(provider_request_builder)
+cap_anthropic_body_for_provider = _PROVIDER_REQUEST_API.cap_anthropic_body
+apply_provider_request_options = _PROVIDER_REQUEST_API.apply_options
+normalize_anthropic_model_request_options = _PROVIDER_REQUEST_API.normalize_anthropic_options
 
 def ollama_request_think_value(
     provider: str,
@@ -4983,6 +5005,11 @@ def ollama_request_think_value(
         str(model or pcfg.get("current_model") or ""),
         body or {},
     )
+
+_OLLAMA_WIRE_API = OllamaWireCompatibilityApi(
+    ollama_request_think_value, positive_int
+)
+apply_ollama_wire_options = _OLLAMA_WIRE_API.apply
 
 def ollama_request_think_enabled(model: str | None, pcfg: dict[str, Any]) -> bool:
     return bool(ollama_request_think_value("ollama", model, pcfg))
@@ -4998,23 +5025,8 @@ def ollama_think_status(model: str | None, pcfg: dict[str, Any]) -> str:
     )
     return str(ollama_request_think_value(provider, model, pcfg))
 
-def ollama_chat_request(model: str, body: dict[str, Any], pcfg: dict[str, Any], stream: bool = True, provider: str = "ollama") -> dict[str, Any]:
-    return provider_request_builder().ollama_chat(
-        model,
-        body,
-        pcfg,
-        stream=stream,
-        provider=provider,
-    )
-
-def openai_compatible_chat_request(provider: str, model: str, body: dict[str, Any], pcfg: dict[str, Any], stream: bool = False) -> dict[str, Any]:
-    return provider_request_builder().openai_chat(
-        provider,
-        model,
-        body,
-        pcfg,
-        stream=stream,
-    )
+ollama_chat_request = _PROVIDER_REQUEST_API.ollama_chat
+openai_compatible_chat_request = _PROVIDER_REQUEST_API.openai_chat
 
 def advisor_request_builder() -> AdvisorRequestBuilder:
     return AdvisorRequestBuilder(
@@ -5036,10 +5048,7 @@ def advisor_request_builder() -> AdvisorRequestBuilder:
             reserve=context_guard_reserve_tokens,
             compact_messages=compact_ollama_messages_for_budget,
             configured_output=configured_output_tokens,
-            ollama_options=ollama_wire_options,
-            positive_int=positive_int,
-            ollama_num_ctx=ollama_num_ctx_for_payload,
-            think_value=ollama_request_think_value,
+            apply_ollama_optional=apply_ollama_wire_options,
         ),
         AdvisorEndpointPorts(
             join_url=join_url,
@@ -6796,8 +6805,18 @@ def configuration_cli_controller() -> ConfigurationCliController:
         io=ConfigurationCliIO(output=print, select=portable_select),
     )
 
-def cmd_provider(args: argparse.Namespace) -> None:
-    configuration_cli_controller().provider_command(args.name)
+_CONFIGURATION_CLI_API = ConfigurationCliCompatibilityApi(configuration_cli_controller)
+cmd_provider = _CONFIGURATION_CLI_API.provider
+cmd_base_url = _CONFIGURATION_CLI_API.base_url
+cmd_model = _CONFIGURATION_CLI_API.model
+cmd_advisor_model = _CONFIGURATION_CLI_API.advisor_model
+cmd_models = _CONFIGURATION_CLI_API.models
+cmd_log_level = _CONFIGURATION_CLI_API.log_level
+cmd_language = _CONFIGURATION_CLI_API.language
+cmd_web_search = _CONFIGURATION_CLI_API.web_search
+cmd_web_fetch = _CONFIGURATION_CLI_API.web_fetch
+portable_provider_menu = _CONFIGURATION_CLI_API.portable_provider_menu
+portable_language_menu = _CONFIGURATION_CLI_API.portable_language_menu
 
 def cmd_set_api_key(args: argparse.Namespace) -> None:
     credential_cli_controller().set_one(args)
@@ -6832,21 +6851,6 @@ def credential_cli_controller() -> CredentialCliController:
         ),
         io=CredentialCliIO(sys.stdin.isatty, getpass.getpass, print),
     )
-
-def cmd_base_url(args: argparse.Namespace) -> None:
-    configuration_cli_controller().base_url_command(
-        args.provider,
-        args.url,
-    )
-
-def cmd_model(args: argparse.Namespace) -> None:
-    configuration_cli_controller().model_command(args.value)
-
-def cmd_advisor_model(args: argparse.Namespace) -> None:
-    configuration_cli_controller().advisor_model_command(args.value)
-
-def cmd_models(args: argparse.Namespace) -> None:
-    configuration_cli_controller().models_command(args.provider)
 
 def cmd_ollama_catalog(args: argparse.Namespace) -> None:
     OllamaCatalogCliController(
@@ -6895,24 +6899,10 @@ def provider_status_service() -> ProviderStatusService:
 def cmd_status(_: argparse.Namespace) -> None:
     print("\n".join(status_lines()))
 
-def cmd_log_level(args: argparse.Namespace) -> None:
-    configuration_cli_controller().log_level_command(
-        getattr(args, "value", None)
-    )
-
-def cmd_language(args: argparse.Namespace) -> None:
-    configuration_cli_controller().language_command(args.value)
-
 def set_web_search_enabled(enabled: bool) -> None:
     cfg = load_config()
     cfg.setdefault("web_search", {})["auto_for_non_native"] = enabled
     save_config(cfg)
-
-def cmd_web_search(args: argparse.Namespace) -> None:
-    configuration_cli_controller().web_search_command(args.value)
-
-def cmd_web_fetch(args: argparse.Namespace) -> None:
-    configuration_cli_controller().web_fetch_command(args.value)
 
 def channel_specs(cfg: dict[str, Any] | None = None) -> list[str]:
     return channel_config_service().configured_specs(cfg or load_config())
@@ -7344,11 +7334,11 @@ def channel_mcp_discovery_service() -> ChannelMcpDiscoveryService:
         )
     )
 
-def mcp_server_runtime_headers(server: dict[str, Any]) -> dict[str, str]:
-    return channel_mcp_discovery_service().runtime_headers(server)
-
-def _mcp_sse_servers_from_mapping(mapping: Any) -> list[dict[str, Any]]:
-    return channel_mcp_discovery_service().servers_from_mapping(mapping)
+_CHANNEL_MCP_DISCOVERY_API = ChannelMcpDiscoveryCompatibilityApi(
+    channel_mcp_discovery_service
+)
+mcp_server_runtime_headers = _CHANNEL_MCP_DISCOVERY_API.runtime_headers
+_mcp_sse_servers_from_mapping = _CHANNEL_MCP_DISCOVERY_API.servers_from_mapping
 
 def _read_mcp_sse_servers_from_json(path: Path, cwd: Path) -> list[dict[str, Any]]:
     return read_mcp_config_items(
@@ -7359,35 +7349,8 @@ def _read_mcp_sse_servers_from_json(path: Path, cwd: Path) -> list[dict[str, Any
         router_log,
     )
 
-def external_mcp_channel_server_names_from_configs(
-    passthrough: list[str] | None = None,
-    cwd: Path | None = None,
-    home: Path | None = None,
-    extra_config_paths: list[Path | str] | None = None,
-) -> list[str]:
-    return channel_mcp_discovery_service().external_names(
-        passthrough,
-        cwd,
-        home,
-        extra_config_paths,
-    )
-
-def auto_start_sse_channels_from_mcp_configs(
-    passthrough: list[str] | None = None,
-    cwd: Path | None = None,
-    home: Path | None = None,
-    extra_config_paths: list[Path | str] | None = None,
-    allowed_server_names: Iterable[str] | None = None,
-    include_default_paths: bool = True,
-) -> list[dict[str, Any]]:
-    return channel_mcp_discovery_service().auto_start(
-        passthrough,
-        cwd,
-        home,
-        extra_config_paths,
-        allowed_server_names,
-        include_default_paths,
-    )
+external_mcp_channel_server_names_from_configs = _CHANNEL_MCP_DISCOVERY_API.external_names
+auto_start_sse_channels_from_mcp_configs = _CHANNEL_MCP_DISCOVERY_API.auto_start
 
 def channel_proxy_ownership_repository() -> ChannelProxyOwnershipRepository:
     return ChannelProxyOwnershipRepository(
@@ -7604,46 +7567,36 @@ def provider_options_status(provider: str, pcfg: dict[str, Any]) -> str:
 def llm_options_status(provider: str, pcfg: dict[str, Any]) -> str:
     return provider_option_status_projection().llm(provider, pcfg)
 
-def model_option_family(provider: str, pcfg: dict[str, Any]) -> str:
-    return classify_model_family(
-        pcfg,
-        provider_context_policy(provider, pcfg),
-        provider_model_context_capacity(provider, pcfg),
-        context_preset_services(provider),
+def llm_preset_context() -> LlmPresetContext:
+    return LlmPresetContext(
+        catalog=LlmPresetCatalog(LLM_PRESETS, LLM_PRESET_I18N, MODEL_FAMILY_I18N),
+        queries=LlmPresetQueries(
+            load_config=load_config,
+            context_policy=provider_context_policy,
+            context_capacity=provider_model_context_capacity,
+            context_services=context_preset_services,
+            ui_text=ui_text,
+            pad_cells=pad_cells,
+            format_context=format_context_tokens,
+        ),
+        algorithms=LlmPresetAlgorithms(
+            classify_family=classify_model_family,
+            recommend=recommended_preset,
+            infer=infer_context_preset,
+            required_context=context_required_for_preset,
+        ),
     )
 
-def recommended_preset_id(provider: str, pcfg: dict[str, Any]) -> str:
-    return recommended_preset(
-        model_option_family(provider, pcfg), provider_model_context_capacity(provider, pcfg)
-    )
-
-def llm_slider_preset_ids() -> list[str]:
-    return list(LLM_PRESETS)
-
-def llm_preset_command_name(preset_id: str) -> str:
-    return "llm-" + re.sub(r"[^a-z0-9]+", "-", str(preset_id or "").lower()).strip("-")
-
-def llm_preset_slash_command(preset_id: str) -> str:
-    label, description = llm_preset_text(preset_id, "en")
-    return f"""---
-description: Apply ciel-runtime live preset: {label}
-argument-hint: [ignored]
----
-
-CIEL_RUNTIME_LIVE_LLM_OPTIONS
-
-Value: {preset_id}
-
-Apply the ciel-runtime live LLM preset `{preset_id}` ({description}) to this routed session. The original options are captured before the first live preset change and can be restored with `/llm-restore`.
-"""
+_LLM_PRESET_API = LlmPresetCompatibilityApi(llm_preset_context)
+model_option_family = _LLM_PRESET_API.model_family
+recommended_preset_id = _LLM_PRESET_API.recommended
+llm_slider_preset_ids = _LLM_PRESET_API.slider_ids
+llm_preset_command_name = _LLM_PRESET_API.command_name
+llm_preset_slash_command = _LLM_PRESET_API.slash_command
 
 normalize_llm_preset_token = llm_presets.normalize_preset_token
 
-def resolve_llm_preset_id(value: str) -> str | None:
-    return llm_presets.PresetIdentityPolicy(
-        LLM_PRESETS,
-        llm_preset_command_name,
-    ).resolve(value)
+resolve_llm_preset_id = _LLM_PRESET_API.resolve
 
 def timeout_profile_service() -> TimeoutProfileService:
     return TimeoutProfileService(
@@ -7710,12 +7663,9 @@ def model_context_hint_policy() -> ModelContextHintPolicy:
 def model_context_hint_from_model_id(model_id: str) -> int | None:
     return model_context_hint_policy().resolve(model_id)
 
-def provider_model_context_capacity(provider: str, pcfg: dict[str, Any]) -> int | None:
-    return resolve_context_capacity(
-        provider,
-        pcfg,
-        provider_context_policy(provider, pcfg),
-        ProviderContextServices(
+def provider_model_context() -> ProviderModelContext:
+    return ProviderModelContext(
+        services=ProviderContextServices(
             positive_int=positive_int,
             model_context_hint=model_context_hint_from_model_id,
             anthropic_context_hint=lambda model: positive_int(
@@ -7725,39 +7675,29 @@ def provider_model_context_capacity(provider: str, pcfg: dict[str, Any]) -> int 
             upstream_context_limit=upstream_model_context_limit,
             ollama_context_limit=ollama_provider_context_limit,
         ),
+        queries=ProviderModelContextQueries(
+            context_policy=provider_context_policy,
+            context_limit=context_limit_for_status,
+            positive_int=positive_int,
+            format_context=format_context_tokens,
+        ),
+        algorithms=ProviderModelContextAlgorithms(
+            resolve_capacity=resolve_context_capacity,
+            apply_capacity_cap=apply_context_capacity_cap,
+            resolve_small_output_cap=resolve_small_context_output_cap,
+            apply_output_token_cap=apply_output_token_cap,
+            apply_output_context_cap=apply_output_context_cap,
+        ),
     )
 
-def cap_context_settings_to_model_capacity(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    capacity = provider_model_context_capacity(provider, pcfg)
-    return apply_context_capacity_cap(
-        pcfg,
-        capacity,
-        provider_context_policy(provider, pcfg),
-        positive_int=positive_int,
-    )
-
-def small_context_output_token_cap(context_window: int | None) -> int | None:
-    return resolve_small_context_output_cap(
-        context_window,
-        positive_int=positive_int,
-    )
-
-def cap_output_tokens_to_context_ratio(provider: str, pcfg: dict[str, Any], configured: int | None) -> int | None:
-    return apply_output_token_cap(
-        configured,
-        provider_context_policy(provider, pcfg),
-        context_limit_for_status(provider, pcfg),
-        positive_int=positive_int,
-    )
-
-def cap_output_settings_to_context_ratio(provider: str, pcfg: dict[str, Any]) -> list[str]:
-    return apply_output_context_cap(
-        pcfg,
-        provider_context_policy(provider, pcfg),
-        context_limit_for_status(provider, pcfg),
-        positive_int=positive_int,
-        format_context=format_context_tokens,
-    )
+_PROVIDER_MODEL_CONTEXT_API = ProviderModelContextCompatibilityApi(
+    provider_model_context
+)
+provider_model_context_capacity = _PROVIDER_MODEL_CONTEXT_API.capacity
+cap_context_settings_to_model_capacity = _PROVIDER_MODEL_CONTEXT_API.cap_context
+small_context_output_token_cap = _PROVIDER_MODEL_CONTEXT_API.small_output_cap
+cap_output_tokens_to_context_ratio = _PROVIDER_MODEL_CONTEXT_API.cap_output_tokens
+cap_output_settings_to_context_ratio = _PROVIDER_MODEL_CONTEXT_API.cap_output_settings
 
 def cached_current_model_info(provider: str, pcfg: dict[str, Any]) -> dict[str, Any]:
     return provider_model_spec_service().current_info(provider, pcfg)
@@ -7789,23 +7729,10 @@ def refresh_current_model_specs_for_auto_llm(provider: str, pcfg: dict[str, Any]
 
 apply_lm_studio_loaded_context_guard = _LM_STUDIO_LIFECYCLE_API.apply_loaded_context_guard
 
-def required_context_for_preset(preset_id: str, provider: str | None = None) -> int | None:
-    provider = provider or "anthropic"
-    return context_required_for_preset(
-        preset_id, provider_context_policy(provider, {})
-    )
+required_context_for_preset = _LLM_PRESET_API.required_context
+preset_available_for_model = _LLM_PRESET_API.available
 
-def preset_available_for_model(provider: str, pcfg: dict[str, Any], preset_id: str) -> bool:
-    required = required_context_for_preset(preset_id, provider)
-    if not required:
-        return True
-    capacity = provider_model_context_capacity(provider, pcfg)
-    if not capacity:
-        return True
-    return required <= capacity
-
-def format_context_tokens(value: int | None) -> str:
-    return project_format_context_tokens(value)
+format_context_tokens = project_format_context_tokens
 
 def format_parameter_count(value: Any) -> str:
     return project_format_parameter_count(value, positive_int)
@@ -7845,39 +7772,13 @@ def provider_timeout_policy() -> ProviderTimeoutPolicy:
         ),
     )
 
-def configured_context_window_for_timeout(provider: str, pcfg: dict[str, Any]) -> int | None:
-    return provider_timeout_policy().configured_context(provider, pcfg)
-
-def configured_output_tokens_for_timeout(provider: str, pcfg: dict[str, Any]) -> int | None:
-    return provider_timeout_policy().configured_output(provider, pcfg)
-
-def clamp_auto_timeout_ms(ms: int | float | None) -> int:
-    return provider_timeout_policy().clamp(ms)
-
-def calculated_request_timeout_ms(
-    provider: str,
-    pcfg: dict[str, Any],
-    timeout_candidates: list[int] | None = None,
-) -> int:
-    return provider_timeout_policy().calculated(provider, pcfg, timeout_candidates)
-
-def recommended_request_timeout_ms(provider: str, pcfg: dict[str, Any], use_context_fallback: bool = True) -> int:
-    return provider_timeout_policy().recommended(
-        provider,
-        pcfg,
-        use_context_fallback=use_context_fallback,
-    )
-
-def apply_recommended_timeout_for_model_context(
-    provider: str,
-    pcfg: dict[str, Any],
-    use_context_fallback: bool = True,
-) -> list[str]:
-    return provider_timeout_policy().apply(
-        provider,
-        pcfg,
-        use_context_fallback=use_context_fallback,
-    )
+_PROVIDER_TIMEOUT_API = ProviderTimeoutCompatibilityApi(provider_timeout_policy)
+configured_context_window_for_timeout = _PROVIDER_TIMEOUT_API.configured_context
+configured_output_tokens_for_timeout = _PROVIDER_TIMEOUT_API.configured_output
+clamp_auto_timeout_ms = _PROVIDER_TIMEOUT_API.clamp
+calculated_request_timeout_ms = _PROVIDER_TIMEOUT_API.calculated
+recommended_request_timeout_ms = _PROVIDER_TIMEOUT_API.recommended
+apply_recommended_timeout_for_model_context = _PROVIDER_TIMEOUT_API.apply
 
 def context_mode_values_for_capacity(capacity: int | None) -> dict[str, tuple[int, int, int]]:
     return ContextSetupService.mode_values(capacity)
@@ -7918,24 +7819,8 @@ def apply_context_setup_config(provider: str, mode: str) -> list[str]:
     clear_model_cache()
     return lines
 
-def applied_preset_id(provider: str, pcfg: dict[str, Any]) -> str:
-    preset_id = str(pcfg.get("llm_preset") or "").strip()
-    if preset_id in LLM_PRESETS:
-        return preset_id
-    inferred = infer_preset_id_from_options(provider, pcfg)
-    if inferred and preset_available_for_model(provider, pcfg, inferred):
-        return inferred
-    recommended = recommended_preset_id(provider, pcfg)
-    if preset_available_for_model(provider, pcfg, recommended):
-        return recommended
-    return "balanced"
-
-def infer_preset_id_from_options(provider: str, pcfg: dict[str, Any]) -> str | None:
-    return infer_context_preset(
-        pcfg,
-        provider_context_policy(provider, pcfg),
-        context_preset_services(provider),
-    )
+applied_preset_id = _LLM_PRESET_API.applied
+infer_preset_id_from_options = _LLM_PRESET_API.infer
 
 def context_preset_services(provider: str) -> ContextPresetServices:
     return ContextPresetServices(
@@ -7946,38 +7831,9 @@ def context_preset_services(provider: str) -> ContextPresetServices:
         ),
     )
 
-def llm_preset_text(preset_id: str, lang: str | None = None) -> tuple[str, str]:
-    lang = lang or load_config().get("language", "en")
-    return LLM_PRESET_I18N.get(lang, {}).get(preset_id, LLM_PRESETS[preset_id])
-
-def model_family_text(family: str, lang: str | None = None) -> str:
-    lang = lang or load_config().get("language", "en")
-    return MODEL_FAMILY_I18N.get(lang, {}).get(family, family)
-
-def llm_preset_panel_rows(provider: str, pcfg: dict[str, Any], lang: str | None = None) -> tuple[list[str], list[str]]:
-    lang = lang or load_config().get("language", "en")
-    recommended = recommended_preset_id(provider, pcfg)
-    applied = applied_preset_id(provider, pcfg)
-    family = model_option_family(provider, pcfg)
-    recommended_label, _ = llm_preset_text(recommended, lang)
-    rows = [
-        f"{ui_text('model_family', lang)}: {model_family_text(family, lang)}; "
-        f"{ui_text('recommended_preset_is', lang)} {recommended_label}"
-    ]
-    values = ["__info__"]
-    for preset_id in LLM_PRESETS:
-        label, description = llm_preset_text(preset_id, lang)
-        mark = "*" if preset_id == applied else " "
-        suffix = ""
-        required = required_context_for_preset(preset_id, provider)
-        capacity = provider_model_context_capacity(provider, pcfg) if required else None
-        if required and capacity and required > capacity:
-            suffix = f" (requires {format_context_tokens(required)}; server {format_context_tokens(capacity)})"
-        rows.append(f"{mark} {pad_cells(label, 24)} {description}{suffix}")
-        values.append(preset_id)
-    rows.append(ui_text("back", lang))
-    values.append("back")
-    return rows, values
+llm_preset_text = _LLM_PRESET_API.text
+model_family_text = _LLM_PRESET_API.family_text
+llm_preset_panel_rows = _LLM_PRESET_API.panel_rows
 
 def apply_llm_preset_to_provider(
     provider: str,
@@ -8558,45 +8414,13 @@ def claude_model_alias_policy() -> ClaudeModelAliasPolicy:
         )
     )
 
-def claude_code_model_claims_one_million_context(
-    provider: str,
-    pcfg: dict[str, Any],
-    model: str,
-    *,
-    include_current: bool = True,
-) -> bool:
-    return claude_model_alias_policy().claims_one_million_context(
-        provider,
-        pcfg,
-        model,
-        include_current=include_current,
-        context_limit=context_limit_for_status(provider, pcfg) if include_current else None,
-    )
-
-def claude_code_context_model_alias(
-    provider: str,
-    pcfg: dict[str, Any],
-    model: str,
-    upstream_model: str | None = None,
-) -> str:
-    return claude_model_alias_policy().context_model_alias(
-        provider,
-        pcfg,
-        model,
-        upstream_model,
-        context_limit=context_limit_for_status(provider, pcfg) if upstream_model is None else None,
-    )
-
-def _model_id_matches_claude_family(model_id: str, family: str) -> bool:
-    return claude_model_alias_policy().matches_family(model_id, family)
-
-def claude_code_default_model_aliases(provider: str, pcfg: dict[str, Any], current_model_alias: str) -> dict[str, str]:
-    return claude_model_alias_policy().default_model_aliases(
-        provider,
-        pcfg,
-        current_model_alias,
-        context_limit=context_limit_for_status(provider, pcfg),
-    )
+_CLAUDE_MODEL_ALIAS_API = ClaudeModelAliasCompatibilityApi(
+    claude_model_alias_policy, context_limit_for_status
+)
+claude_code_model_claims_one_million_context = _CLAUDE_MODEL_ALIAS_API.claims_one_million_context
+claude_code_context_model_alias = _CLAUDE_MODEL_ALIAS_API.context_model_alias
+_model_id_matches_claude_family = _CLAUDE_MODEL_ALIAS_API.matches_family
+claude_code_default_model_aliases = _CLAUDE_MODEL_ALIAS_API.default_model_aliases
 
 def apply_common_claude_env(provider: str, pcfg: dict[str, Any], env: dict[str, str]) -> dict[str, str]:
     return claude_environment_projection().apply_common(provider, pcfg, env)
@@ -9077,32 +8901,41 @@ def cleanup_managed_services_for_provider(
         )
     ).cleanup(provider, pcfg, cfg, quiet)
 
-def default_base_url(provider: str) -> str:
-    if provider == "nvidia-hosted":
-        return nvidia_upstream_base_url()
-    if PROVIDER_ADAPTERS.contains(provider):
-        configured = PROVIDER_ADAPTERS.create(provider).default_base_url()
-        if configured:
-            return configured
-    return "http://localhost:8000"
+def provider_readiness_context() -> ProviderReadinessContext:
+    return ProviderReadinessContext(
+        defaults=ProviderDefaultsPorts(
+            nvidia_upstream_base_url=nvidia_upstream_base_url,
+            adapter_exists=PROVIDER_ADAPTERS.contains,
+            adapter_default_base_url=lambda provider: PROVIDER_ADAPTERS.create(
+                provider
+            ).default_base_url(),
+        ),
+        credentials=ProviderCredentialPorts(
+            key_count=provider_api_key_count,
+            primary_key=provider_primary_api_key,
+            mask_secret=mask_secret,
+            secret_fingerprint=secret_fingerprint,
+        ),
+        configuration=ProviderConfigurationPorts(
+            load=load_config,
+            current=get_current_provider,
+            adapter=configured_provider_adapter,
+            contract=provider_contract_config,
+        ),
+        projection=ProviderProjectionPorts(
+            status_services=provider_status_services,
+            readiness_services=provider_readiness_services,
+            notes=PROVIDER_NOTES,
+        ),
+    )
+
+_PROVIDER_READINESS_API = ProviderReadinessCompatibilityApi(provider_readiness_context)
+default_base_url = _PROVIDER_READINESS_API.default_base_url
 
 def meaningful_key(value: str | None) -> bool:
     return meaningful_key_value(value)
 
-def api_key_status_line(provider: str, pcfg: dict[str, Any]) -> str:
-    key_count = provider_api_key_count(provider, pcfg)
-    primary = provider_primary_api_key(provider, pcfg)
-    primary_detail = (
-        f"; primary {mask_secret(primary)}; fp {secret_fingerprint(primary)}"
-        if key_count
-        else ""
-    )
-    adapter = configured_provider_adapter(provider, pcfg)
-    return adapter.api_key_status(
-        provider_contract_config(provider, pcfg),
-        key_count=key_count,
-        primary_detail=primary_detail,
-    )
+api_key_status_line = _PROVIDER_READINESS_API.api_key_status_line
 
 def provider_status_services() -> ProviderStatusServices:
     return ProviderStatusServices(
@@ -9130,26 +8963,8 @@ def provider_status_services() -> ProviderStatusServices:
         ),
     )
 
-def base_url_status_line(provider: str, pcfg: dict[str, Any]) -> str:
-    adapter = configured_provider_adapter(provider, pcfg)
-    policy = adapter.status_policy(provider_contract_config(provider, pcfg))
-    return project_provider_base_url_status(
-        provider,
-        pcfg,
-        policy,
-        services=provider_status_services(),
-    )
-
-def preflight_lines() -> list[str]:
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    lang = cfg.get("language", "en")
-    notes = PROVIDER_NOTES.get(lang, PROVIDER_NOTES["en"]).get(provider, [])
-    return [
-        base_url_status_line(provider, pcfg),
-        api_key_status_line(provider, pcfg),
-        *notes,
-    ]
+base_url_status_line = _PROVIDER_READINESS_API.base_url_status_line
+preflight_lines = _PROVIDER_READINESS_API.preflight_lines
 
 def provider_readiness_services() -> ProviderReadinessServices:
     return ProviderReadinessServices(
@@ -9173,33 +8988,9 @@ def provider_readiness_services() -> ProviderReadinessServices:
         base_url_status=base_url_status_line,
     )
 
-def launch_readiness_errors(cfg: dict[str, Any] | None = None) -> list[str]:
-    cfg = cfg or load_config()
-    provider, pcfg = get_current_provider(cfg)
-    adapter = configured_provider_adapter(provider, pcfg)
-    contract_config = provider_contract_config(provider, pcfg)
-    status_policy = adapter.status_policy(contract_config)
-    return evaluate_provider_readiness(
-        cfg,
-        provider,
-        pcfg,
-        adapter,
-        contract_config,
-        status_policy,
-        services=provider_readiness_services(),
-    )
-
-def launch_blockers_require_api_key(blockers: list[str]) -> bool:
-    return any("requires" in line.lower() and "api key" in line.lower() for line in blockers)
-
-def settings_ready_except_api_key() -> bool:
-    cfg = load_config()
-    provider, pcfg = get_current_provider(cfg)
-    if provider == "codex":
-        return True
-    base = pcfg.get("base_url", "")
-    model = pcfg.get("current_model", "")
-    return bool(provider and base and model and "your-" not in base)
+launch_readiness_errors = _PROVIDER_READINESS_API.launch_readiness_errors
+launch_blockers_require_api_key = _PROVIDER_READINESS_API.launch_blockers_require_api_key
+settings_ready_except_api_key = _PROVIDER_READINESS_API.settings_ready_except_api_key
 
 def self_cmd(args: list[str]) -> tuple[int, str]:
     p = subprocess.run(
@@ -9291,8 +9082,7 @@ def launch_kimi(passthrough: list[str]) -> int:
     })
     return run_with_router_lifetime(lambda: subprocess.call([executable, *passthrough], env=env), manage_router)
 
-def enable_ansi() -> None:
-    enable_terminal_ansi()
+enable_ansi = enable_terminal_ansi
 
 ansi = render_ansi
 
@@ -9304,362 +9094,144 @@ fit_cells = fit_terminal_cells
 
 pad_cells = pad_terminal_cells
 
-def color_line(text: str, code: str, width: int) -> str:
-    fitted = fit_cells(text, width)
-    return ansi(fitted, code)
-
-def clean_render_lines(lines: list[str], width: int) -> list[str]:
-    # All menu rows must stay single-line. Windows cmd corrupts redraws after
-    # implicit line wrapping, even when ANSI clear-to-end is used.
-    return [fit_cells(line, width) for line in lines]
-
-def clear_screen() -> None:
-    if sys.stdout.isatty():
-        print("\033[2J\033[H", end="")
-
-def intro_panel_lines(width: int) -> list[str]:
-    return render_intro_panel_lines(width, APP_NAME, CREDITS)
-
-def print_intro_panel(width: int) -> None:
-    print("\n".join(intro_panel_lines(width)))
-
-def append_menu_key_debug_log(line: str) -> None:
-    write_menu_key_debug_log(MENU_KEY_DEBUG_PATH, line)
-
-def read_menu_key(fd: int | None = None) -> str:
-    return read_terminal_menu_key(fd, debug_log=append_menu_key_debug_log)
-
-def portable_select(
-    title: str,
-    rows: list[str],
-    current: int = 0,
-    footer: str = "",
-    info_lines: list[str] | None = None,
-    show_intro: bool = False,
-) -> int | None:
-    return run_portable_select(
-        title,
-        rows,
-        current,
-        footer,
-        info_lines,
-        show_intro,
-        services=TerminalSelectionServices(
-            enable_ansi=enable_ansi,
-            ansi=ansi,
-            intro_panel_lines=intro_panel_lines,
-            status_lines=status_lines,
-            read_key=read_menu_key,
-        ),
-    )
-
 def pause() -> None:
     input("Press Enter to continue...")
 
-def compact_text(value: Any, width: int = 72) -> str:
-    return fit_cells(value, width)
-
-def provider_menu_label(provider: str, pcfg: dict[str, Any]) -> str:
-    policy = provider_ui_policy(provider, pcfg)
-    if pcfg.get("route_through_router") and policy.routed_menu_label:
-        return policy.routed_menu_label
-    return policy.menu_label or PROVIDER_LABELS.get(provider, provider)
-
-def current_provider_panel_choice(provider: str, pcfg: dict[str, Any]) -> str:
-    policy = provider_ui_policy(provider, pcfg)
-    if pcfg.get("route_through_router") and policy.routed_choice:
-        return policy.routed_choice
-    if policy.native_choice:
-        return policy.native_choice
-    return provider
-
 MAIN_MENU_ACTIONS = prelaunch.MAIN_MENU_ACTIONS
 
-def provider_ui_policy(provider: str, pcfg: dict[str, Any]):
-    return configured_provider_adapter(provider, pcfg).ui_policy(provider_contract_config(provider, pcfg))
-
-def claude_launch_enabled_for_provider(provider: str, pcfg: dict[str, Any] | None = None) -> bool:
-    del pcfg
-    return DEFAULT_RUNTIME_COMPATIBILITY.supports("claude", provider)
-
-def agy_launch_enabled_for_provider(provider: str, pcfg: dict[str, Any] | None = None) -> bool:
-    del pcfg
-    return DEFAULT_RUNTIME_COMPATIBILITY.supports("agy", provider)
-
-def codex_launch_enabled_for_provider(provider: str, pcfg: dict[str, Any] | None = None) -> bool:
-    del pcfg
-    return DEFAULT_RUNTIME_COMPATIBILITY.supports("codex", provider)
-
-def default_prelaunch_action(provider: str) -> str:
-    if provider == "kimi":
-        remembered = str(load_config().get("last_launch_action") or "").strip()
-        if remembered == "launch":
-            return remembered
-        if remembered in {"launch-codex", "launch-codex-app-server"}:
-            return remembered
-        return "launch-kimi"
-    return preferred_provider_launch_action(load_config(), provider, agy_launch_enabled_for_provider, claude_launch_enabled_for_provider, codex_launch_enabled_for_provider)
-
-def prelaunch_action_index(action: str) -> int:
-    try:
-        return list(MAIN_MENU_ACTIONS).index(action)
-    except ValueError:
-        return 0
-
-def main_menu_projection() -> MainMenuProjection:
-    return MainMenuProjection(
-        MainMenuProjectionPorts(
-            languages=LANGUAGES,
-            ui_text=ui_text,
-            compact_text=compact_text,
-            provider_label=provider_menu_label,
-            stored_api_key_mask=stored_api_key_mask,
-            llm_options_status=llm_options_status,
-            log_level_status=log_level_status,
-            supports_runtime=DEFAULT_RUNTIME_COMPATIBILITY.supports,
-            provider_family=DEFAULT_RUNTIME_COMPATIBILITY.provider_family,
-            provider_ui_policy=provider_ui_policy,
-        )
+def prelaunch_shell_context() -> PrelaunchShellContext:
+    return PrelaunchShellContext(
+        visual=PrelaunchVisualPorts(
+            ansi, fit_cells, sys.stdout.isatty, render_intro_panel_lines,
+            APP_NAME, CREDITS,
+        ),
+        input=PrelaunchInputPorts(
+            enable_ansi, status_lines, read_terminal_menu_key,
+            write_menu_key_debug_log, MENU_KEY_DEBUG_PATH, run_portable_select,
+        ),
+        provider=PrelaunchProviderPorts(
+            configured_provider_adapter, provider_contract_config, PROVIDER_LABELS,
+            DEFAULT_RUNTIME_COMPATIBILITY.supports, load_config,
+            preferred_provider_launch_action,
+        ),
+        prompt=PrelaunchPromptPorts(
+            render_services=PrelaunchRenderServices(
+                brand=PrelaunchRenderBrand(
+                    render_animated_ansi_text, CREDITS, VERSION,
+                ),
+                data=PrelaunchRenderData(
+                    api_key_status_line, get_current_provider,
+                    llm_option_description_for_value, llm_option_panel_rows,
+                    load_config, main_menu_rows, provider_mode_label,
+                ),
+                text=PrelaunchRenderText(
+                    ansi, cell_width, fit_cells, pad_cells, ui_text,
+                ),
+            ),
+            input_style=PrelaunchInputStyle(ansi=ansi, log=router_log),
+            render_screen=render_prelaunch_terminal_screen,
+            read_value_raw=read_menu_value_raw,
+            read_value=read_menu_value,
+            read_multiline_raw=read_menu_multiline_value_raw,
+            read_multiline=read_menu_multiline_value,
+        ),
+        main_menu_actions=tuple(MAIN_MENU_ACTIONS),
     )
 
-def main_menu_rows(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any], lang: str) -> list[str]:
-    projected = dict(cfg)
-    projected["_effective_web_port"] = ROUTER_PORT
-    return main_menu_projection().rows(projected, provider, pcfg, lang)
+_PRELAUNCH_SHELL_API = PrelaunchShellCompatibilityApi(prelaunch_shell_context)
+color_line = _PRELAUNCH_SHELL_API.color_line
+clean_render_lines = _PRELAUNCH_SHELL_API.clean_render_lines
+clear_screen = _PRELAUNCH_SHELL_API.clear_screen
+intro_panel_lines = _PRELAUNCH_SHELL_API.intro_panel_lines
+print_intro_panel = _PRELAUNCH_SHELL_API.print_intro_panel
+append_menu_key_debug_log = _PRELAUNCH_SHELL_API.append_menu_key_debug_log
+read_menu_key = _PRELAUNCH_SHELL_API.read_menu_key
+portable_select = _PRELAUNCH_SHELL_API.portable_select
+compact_text = _PRELAUNCH_SHELL_API.compact_text
+provider_ui_policy = _PRELAUNCH_SHELL_API.provider_ui_policy
+provider_menu_label = _PRELAUNCH_SHELL_API.provider_menu_label
+current_provider_panel_choice = _PRELAUNCH_SHELL_API.current_provider_panel_choice
+claude_launch_enabled_for_provider = _PRELAUNCH_SHELL_API.claude_launch_enabled
+agy_launch_enabled_for_provider = _PRELAUNCH_SHELL_API.agy_launch_enabled
+codex_launch_enabled_for_provider = _PRELAUNCH_SHELL_API.codex_launch_enabled
+default_prelaunch_action = _PRELAUNCH_SHELL_API.default_prelaunch_action
+prelaunch_action_index = _PRELAUNCH_SHELL_API.prelaunch_action_index
+prelaunch_render_services = _PRELAUNCH_SHELL_API.prelaunch_render_services
+prelaunch_input_style = _PRELAUNCH_SHELL_API.prelaunch_input_style
+render_prelaunch_screen = _PRELAUNCH_SHELL_API.render_prelaunch_screen
+_prompt_menu_value_raw = _PRELAUNCH_SHELL_API.prompt_menu_value_raw
+prompt_menu_value = _PRELAUNCH_SHELL_API.prompt_menu_value
+_prompt_menu_multiline_value_raw = _PRELAUNCH_SHELL_API.prompt_menu_multiline_value_raw
+prompt_menu_multiline_value = _PRELAUNCH_SHELL_API.prompt_menu_multiline_value
 
-def web_backend_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    return project_web_backend_panel_rows(cfg, ROUTER_PORT)
-
-def set_web_backend_config(key: str, value: Any) -> list[str]:
-    cfg = load_config()
-    lines = update_web_backend_config(cfg, key, value, ROUTER_PORT)
-    save_config(cfg)
-    clear_model_cache()
-    return lines
-
-def provider_panel_projection() -> ProviderPanelProjection:
-    return ProviderPanelProjection(
-        ProviderPanelConstants(
-            labels=PROVIDER_LABELS,
-            anthropic_native_choice=ANTHROPIC_NATIVE_PROVIDER_CHOICE,
-            anthropic_routed_choice=ANTHROPIC_ROUTED_PROVIDER_CHOICE,
-            agy_native_choice=AGY_NATIVE_PROVIDER_CHOICE,
-            agy_routed_choice=AGY_ROUTED_PROVIDER_CHOICE,
-            codex_native_choice=CODEX_NATIVE_PROVIDER_CHOICE,
-            codex_routed_choice=CODEX_ROUTED_PROVIDER_CHOICE,
+def prelaunch_panel_context() -> PrelaunchPanelContext:
+    return PrelaunchPanelContext(
+        main=MainMenuPanelPorts(
+            LANGUAGES, ui_text, compact_text, provider_menu_label,
+            stored_api_key_mask, llm_options_status, log_level_status,
+            DEFAULT_RUNTIME_COMPATIBILITY.supports,
+            DEFAULT_RUNTIME_COMPATIBILITY.provider_family, provider_ui_policy,
         ),
-        ProviderPanelPorts(
-            anthropic_routed=anthropic_routed_enabled,
-            agy_routed=agy_routed_enabled,
-            codex_routed=codex_routed_enabled,
-            has_api_key=provider_has_api_key,
-            compact_text=compact_text,
+        web=WebBackendPanelPorts(
+            ROUTER_PORT, load_config, save_config, clear_model_cache,
         ),
-    )
-
-def provider_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    return provider_panel_projection().rows(cfg)
-
-def configuration_panel_projection() -> ConfigurationPanelProjection:
-    return ConfigurationPanelProjection(
-        ConfigurationPanelPorts(
-            languages=LANGUAGES,
-            log_level_names=LOG_LEVEL_NAMES,
-            log_level_name=log_level_name,
-            log_level_status=log_level_status,
-            ui_text=ui_text,
-            compact_text=compact_text,
-            default_base_url=default_base_url,
-            api_key_count=provider_api_key_count,
-            platform_name=os.name,
-        )
-    )
-
-def language_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    return configuration_panel_projection().language_rows(cfg)
-
-def log_level_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    return configuration_panel_projection().log_level_rows(cfg)
-
-def model_panel_services() -> ModelPanelServices:
-    return ModelPanelServices(
-        catalog=ModelPanelCatalog(
-            alias_for=alias_for,
-            cached_or_configured_model_ids=cached_or_configured_model_ids,
-            read_model_info_cache=read_model_info_cache,
-            read_model_list_cache=read_model_list_cache,
-            unique_model_ids=unique_model_ids,
-            upstream_model_ids=upstream_model_ids,
+        provider=ProviderChoicePanelPorts(
+            ProviderPanelConstants(
+                PROVIDER_LABELS, ANTHROPIC_NATIVE_PROVIDER_CHOICE,
+                ANTHROPIC_ROUTED_PROVIDER_CHOICE, AGY_NATIVE_PROVIDER_CHOICE,
+                AGY_ROUTED_PROVIDER_CHOICE, CODEX_NATIVE_PROVIDER_CHOICE,
+                CODEX_ROUTED_PROVIDER_CHOICE,
+            ),
+            anthropic_routed_enabled, agy_routed_enabled, codex_routed_enabled,
+            provider_has_api_key, compact_text,
         ),
-        presentation=ModelPanelPresentation(
-            advisor_model_badge=provider_advisor_model_badge,
-            advisor_panel_notice=provider_advisor_panel_notice,
-            format_context_tokens=format_context_tokens,
-            format_parameter_count=format_parameter_count,
-            model_panel_badge=provider_model_panel_badge,
-            normalize_model_id=normalize_model_id,
-            positive_int=positive_int,
+        configuration=ConfigurationPanelContextPorts(
+            LANGUAGES, LOG_LEVEL_NAMES, log_level_name, log_level_status,
+            ui_text, compact_text, default_base_url, provider_api_key_count,
+            os.name,
+        ),
+        model_catalog=ModelPanelCatalogPorts(
+            alias_for, cached_or_configured_model_ids, read_model_info_cache,
+            read_model_list_cache, unique_model_ids, upstream_model_ids,
+        ),
+        model_presentation=ModelPanelPresentationPorts(
+            provider_advisor_model_badge, provider_advisor_panel_notice,
+            format_context_tokens, format_parameter_count,
+            provider_model_panel_badge, normalize_model_id, positive_int,
+        ),
+        channel=ChannelPanelContextPorts(
+            _builtin_router_probe_record, channel_specs, channel_delivery_mode,
+            OFFICIAL_CHANNEL_PLUGINS, channel_probe_record_bucket,
+            read_channel_probe_cache,
+        ),
+        auth=AuthPanelPorts(
+            kimi_oauth_configured,
+            lambda provider: github_copilot_oauth_runtime().panel_rows(provider),
         ),
     )
 
-def model_panel_rows(
-    provider: str,
-    pcfg: dict[str, Any],
-    fetch: bool = True,
-    force_refresh: bool = False,
-) -> tuple[list[str], list[str]]:
-    return project_model_panel_rows(
-        provider,
-        pcfg,
-        fetch,
-        force_refresh,
-        services=model_panel_services(),
-    )
-
-def advisor_model_panel_rows(
-    provider: str,
-    pcfg: dict[str, Any],
-    fetch: bool = True,
-    force_refresh: bool = False,
-) -> tuple[list[str], list[str]]:
-    return project_advisor_model_panel_rows(
-        provider,
-        pcfg,
-        fetch,
-        force_refresh,
-        services=model_panel_services(),
-    )
-
-def channel_panel_policy() -> ChannelPanelPolicy:
-    return ChannelPanelPolicy(
-        builtin_router_probe_record=_builtin_router_probe_record,
-        channel_specs=channel_specs,
-        delivery_mode=channel_delivery_mode,
-        official_plugins=OFFICIAL_CHANNEL_PLUGINS,
-        probe_record_bucket=channel_probe_record_bucket,
-        read_probe_cache=read_channel_probe_cache,
-    )
-
-def channel_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    return project_channel_panel_rows(cfg, policy=channel_panel_policy())
+_PRELAUNCH_PANEL_API = PrelaunchPanelCompatibilityApi(prelaunch_panel_context)
+main_menu_projection = _PRELAUNCH_PANEL_API.main_menu_projection
+main_menu_rows = _PRELAUNCH_PANEL_API.main_menu_rows
+web_backend_panel_rows = _PRELAUNCH_PANEL_API.web_backend_panel_rows
+set_web_backend_config = _PRELAUNCH_PANEL_API.set_web_backend_config
+provider_panel_projection = _PRELAUNCH_PANEL_API.provider_panel_projection
+provider_panel_rows = _PRELAUNCH_PANEL_API.provider_panel_rows
+configuration_panel_projection = _PRELAUNCH_PANEL_API.configuration_panel_projection
+language_panel_rows = _PRELAUNCH_PANEL_API.language_panel_rows
+log_level_panel_rows = _PRELAUNCH_PANEL_API.log_level_panel_rows
+model_panel_services = _PRELAUNCH_PANEL_API.model_panel_services
+model_panel_rows = _PRELAUNCH_PANEL_API.model_panel_rows
+advisor_model_panel_rows = _PRELAUNCH_PANEL_API.advisor_model_panel_rows
+channel_panel_policy = _PRELAUNCH_PANEL_API.channel_panel_policy
+channel_panel_rows = _PRELAUNCH_PANEL_API.channel_panel_rows
 
 _channel_panel_first_selectable = first_selectable_channel_row
 _channel_panel_step = step_channel_row
 
-def channel_delivery_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    return project_channel_delivery_panel_rows(cfg, policy=channel_panel_policy())
-
-def api_key_panel_rows(provider: str, pcfg: dict[str, Any] | None = None) -> tuple[list[str], list[str]]:
-    if provider == "kimi":
-        status = "managed profile detected" if kimi_oauth_configured() else "login required"
-        mode = "Routed" if bool((pcfg or {}).get("route_through_router")) else "Native"
-        return (
-            [
-                f"Kimi OAuth ({mode}): {status}",
-                "Login with Kimi Code OAuth (clears API key)",
-                "Set routed API key",
-                "Clear routed API key",
-                "Back",
-            ],
-            ["__info__", "kimi-oauth-login", "input", "clear", "back"],
-        )
-    oauth_rows = github_copilot_oauth_runtime().panel_rows(provider)
-    if oauth_rows is not None:
-        return oauth_rows
-    return configuration_panel_projection().api_key_rows(provider, pcfg)
-
-def base_url_panel_rows(provider: str, pcfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    return configuration_panel_projection().base_url_rows(provider, pcfg)
-
-def prelaunch_render_services() -> PrelaunchRenderServices:
-    return PrelaunchRenderServices(
-        brand=PrelaunchRenderBrand(
-            animated_ansi_text=animated_ansi_text,
-            credits=CREDITS,
-            version=VERSION,
-        ),
-        data=PrelaunchRenderData(
-            api_key_status_line=api_key_status_line,
-            get_current_provider=get_current_provider,
-            llm_option_description_for_value=llm_option_description_for_value,
-            llm_option_panel_rows=llm_option_panel_rows,
-            load_config=load_config,
-            main_menu_rows=main_menu_rows,
-            provider_mode_label=provider_mode_label,
-        ),
-        text=PrelaunchRenderText(
-            ansi=ansi,
-            cell_width=cell_width,
-            fit_cells=fit_cells,
-            pad_cells=pad_cells,
-            ui_text=ui_text,
-        ),
-    )
-
-def prelaunch_input_style() -> PrelaunchInputStyle:
-    return PrelaunchInputStyle(ansi=ansi, log=router_log)
-
-def render_prelaunch_screen(
-    main_idx: int,
-    panel: str | None,
-    panel_idx: int,
-    panel_rows: list[str],
-    checks: list[str],
-    messages: list[str],
-    first_render: bool,
-) -> bool:
-    return render_prelaunch_terminal_screen(
-        main_idx,
-        panel,
-        panel_idx,
-        panel_rows,
-        checks,
-        messages,
-        first_render,
-        services=prelaunch_render_services(),
-    )
-
-def _prompt_menu_value_raw(label: str, default: str = "", secret: bool = False) -> str | None:
-    return read_menu_value_raw(label, default, secret, style=prelaunch_input_style())
-
-def prompt_menu_value(
-    prompt: str,
-    default: str = "",
-    secret: bool = False,
-    restore_tty: Callable[[], None] | None = None,
-    raw_tty: Callable[[], None] | None = None,
-) -> str:
-    return read_menu_value(
-        prompt,
-        default,
-        secret,
-        restore_tty,
-        raw_tty,
-        style=prelaunch_input_style(),
-    )
-
-def _prompt_menu_multiline_value_raw(label: str, secret: bool = False) -> str | None:
-    return read_menu_multiline_value_raw(label, secret, style=prelaunch_input_style())
-
-def prompt_menu_multiline_value(
-    prompt: str,
-    restore_tty: Callable[[], None] | None = None,
-    raw_tty: Callable[[], None] | None = None,
-    secret: bool = True,
-) -> str:
-    return read_menu_multiline_value(
-        prompt,
-        restore_tty,
-        raw_tty,
-        secret,
-        style=prelaunch_input_style(),
-    )
-
-def portable_provider_menu() -> int:
-    return configuration_cli_controller().portable_provider_menu()
-
-def portable_language_menu() -> int:
-    return configuration_cli_controller().portable_language_menu()
+channel_delivery_panel_rows = _PRELAUNCH_PANEL_API.channel_delivery_panel_rows
+api_key_panel_rows = _PRELAUNCH_PANEL_API.api_key_panel_rows
+base_url_panel_rows = _PRELAUNCH_PANEL_API.base_url_panel_rows
 
 def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
     return execute_prelaunch_menu(
@@ -10058,118 +9630,57 @@ _CHANNEL_LLM_TOOL_CONTEXT_LIMIT = 200
 _CHANNEL_LLM_TOOL_CONTEXT_MAX_INJECT = 8
 _CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT = 4000
 
-def channel_tool_context_service() -> ChannelToolContextService:
-    return ChannelToolContextService(
-        repository=ChannelToolContextRepository(
-            contexts=_CHANNEL_LLM_TOOL_CONTEXT,
-            lock=_CHANNEL_LLM_TOOL_CONTEXT_LOCK,
-            limit=_CHANNEL_LLM_TOOL_CONTEXT_LIMIT,
-        ),
-        policy=ChannelToolContextPolicy(
-            max_inject=_CHANNEL_LLM_TOOL_CONTEXT_MAX_INJECT,
-            prompt_limit=_CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT,
-        ),
-        ports=ChannelToolContextPorts(
-            content_to_text=anthropic_content_to_text,
-            truncate=truncate_for_prompt,
-            now=time.time,
-            log=router_log,
-        ),
-    )
-
-def _channel_injected_prompt_text(body: dict[str, Any]) -> str:
-    return channel_tool_context_service().prompt_text(body)
-
-def _remember_channel_injected_tool_use(source_body: dict[str, Any] | None, tool_use_id: str, tool_name: str, tool_input: Any) -> None:
-    channel_tool_context_service().remember(source_body, tool_use_id, tool_name, tool_input)
-
-def remember_channel_injected_tool_uses(source_body: dict[str, Any] | None, message: dict[str, Any]) -> None:
-    channel_tool_context_service().remember_message(source_body, message)
-
-def _take_channel_tool_result_contexts_for_body(body: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
-    return channel_tool_context_service().repository.take_for_body(
-        body,
-        _CHANNEL_LLM_TOOL_CONTEXT_MAX_INJECT,
-    )
-
-def body_with_channel_tool_result_context(body: dict[str, Any]) -> dict[str, Any]:
-    return channel_tool_context_service().inject_followup(body)
-
-def _channel_llm_write_cursor_locked(last_id: int) -> None:
-    channel_cursor_repository(CHANNEL_LLM_CURSOR_PATH).write(last_id)
-
-def _channel_llm_read_cursor_locked() -> int:
-    global _CHANNEL_LLM_CURSOR_LAST_ID
-    resolution = channel_cursor_storage.ChannelCursorStatePolicy.resolve_read(
-        channel_cursor_repository(CHANNEL_LLM_CURSOR_PATH).read(),
-        _CHANNEL_LLM_CURSOR_LAST_ID,
-        _chat_scan_max_id,
-    )
-    _CHANNEL_LLM_CURSOR_LAST_ID = resolution.value
-    if resolution.rolled_back:
-        router_log(
-            "WARN",
-            "channel_llm_cursor_queue_generation_reset "
-            f"recovered_cursor={resolution.value}",
-        )
-    if resolution.persist:
-        _channel_llm_write_cursor_locked(resolution.value)
+def _channel_llm_cursor_cache() -> int | None:
     return _CHANNEL_LLM_CURSOR_LAST_ID
 
-def _channel_llm_clear_floor_read() -> int:
-    return channel_cursor_repository(CHANNEL_LLM_CLEAR_FLOOR_PATH).read() or 0
-
-def _channel_llm_clear_floor_write(last_id: int) -> None:
-    channel_cursor_repository(CHANNEL_LLM_CLEAR_FLOOR_PATH).write(
-        last_id,
-        metadata={"updated_at": time.time()},
-    )
-
-def _channel_llm_clamp_to_clear_floor(recovered: int) -> int:
-    clear_floor = _channel_llm_clear_floor_read()
-    if clear_floor > 0 and recovered < clear_floor:
-        router_log(
-            "INFO",
-            f"channel_stdin_proxy_recovery_clamped recovered_cursor={recovered} clear_floor={clear_floor}",
-        )
-        return clear_floor
-    return recovered
-
-def reset_channel_llm_delivery_cursor(last_id: int | None = None) -> int:
-    global _CHANNEL_LLM_CURSOR_LAST_ID
-    with _CHANNEL_LLM_CURSOR_LOCK:
-        _CHANNEL_LLM_CURSOR_LAST_ID = max(0, int(last_id if last_id is not None else _chat_scan_max_id()))
-        _channel_llm_write_cursor_locked(_CHANNEL_LLM_CURSOR_LAST_ID)
-        return _CHANNEL_LLM_CURSOR_LAST_ID
-
-def ensure_channel_llm_delivery_cursor_initialized() -> int:
-    with _CHANNEL_LLM_CURSOR_LOCK:
-        return _channel_llm_read_cursor_locked()
-
-def prepare_channel_llm_delivery_for_launch() -> int:
-    # chat-messages.jsonl is a transient bridge queue, not the durable MCP inbox.
-    # On a new Claude Code process, replaying old rows left by a previous process
-    # surfaces stale "one more" channel messages at startup. Do not fast-forward
-    # over very recent rows, though: users often restart immediately after an
-    # injected event, and those fresh rows still need to be delivered.
-    current = ensure_channel_llm_delivery_cursor_initialized()
-    recent_seconds = _channel_launch_recent_seconds()
-    if recent_seconds <= 0:
-        target = _chat_scan_max_id()
-    else:
-        target = _chat_scan_max_id_before_epoch(time.time() - recent_seconds)
-    last_id = reset_channel_llm_delivery_cursor(max(current, target))
-    _write_channel_llm_launch_guard(last_id)
-    router_log(
-        "INFO",
-        "channel_llm_cursor_fast_forward_on_launch "
-        f"last_id={last_id} previous_cursor={current} recent_seconds={recent_seconds:g}",
-    )
-    return last_id
-
-def _cache_channel_llm_cursor(last_id: int) -> None:
+def _set_channel_llm_cursor_cache(last_id: int | None) -> None:
     global _CHANNEL_LLM_CURSOR_LAST_ID
     _CHANNEL_LLM_CURSOR_LAST_ID = last_id
+
+def channel_delivery_context() -> ChannelDeliveryContext:
+    return ChannelDeliveryContext(
+        tools=ChannelToolContextFactoryPorts(
+            _CHANNEL_LLM_TOOL_CONTEXT, _CHANNEL_LLM_TOOL_CONTEXT_LOCK,
+            _CHANNEL_LLM_TOOL_CONTEXT_LIMIT, _CHANNEL_LLM_TOOL_CONTEXT_MAX_INJECT,
+            _CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT, anthropic_content_to_text,
+            truncate_for_prompt, time.time, router_log,
+        ),
+        cursor=ChannelLlmCursorPorts(
+            channel_cursor_repository, CHANNEL_LLM_CURSOR_PATH,
+            CHANNEL_LLM_CLEAR_FLOOR_PATH, _CHANNEL_LLM_CURSOR_LOCK,
+            _channel_llm_cursor_cache, _set_channel_llm_cursor_cache,
+            _chat_scan_max_id, time.time, router_log,
+        ),
+        launch=ChannelLaunchCursorPorts(
+            _channel_launch_recent_seconds, _chat_scan_max_id_before_epoch,
+            _write_channel_llm_launch_guard,
+        ),
+        commit=ChannelDeliveryCommitPorts(
+            _handler_response_status, _channel_delivery_metadata,
+            pending_channel_delivery_confirmed,
+            lambda: _channel_llm_read_cursor_locked(),
+            lambda last_id: _channel_llm_write_cursor_locked(last_id),
+        ),
+    )
+
+_CHANNEL_DELIVERY_API = ChannelDeliveryCompatibilityApi(channel_delivery_context)
+channel_tool_context_service = _CHANNEL_DELIVERY_API.tool_context_service
+_channel_injected_prompt_text = _CHANNEL_DELIVERY_API.injected_prompt_text
+_remember_channel_injected_tool_use = _CHANNEL_DELIVERY_API.remember_injected_tool_use
+remember_channel_injected_tool_uses = _CHANNEL_DELIVERY_API.remember_injected_tool_uses
+_take_channel_tool_result_contexts_for_body = _CHANNEL_DELIVERY_API.take_tool_result_contexts
+body_with_channel_tool_result_context = _CHANNEL_DELIVERY_API.body_with_tool_result_context
+_channel_llm_write_cursor_locked = _CHANNEL_DELIVERY_API.write_cursor
+_channel_llm_read_cursor_locked = _CHANNEL_DELIVERY_API.read_cursor
+_channel_llm_clear_floor_read = _CHANNEL_DELIVERY_API.read_clear_floor
+_channel_llm_clear_floor_write = _CHANNEL_DELIVERY_API.write_clear_floor
+_channel_llm_clamp_to_clear_floor = _CHANNEL_DELIVERY_API.clamp_to_clear_floor
+reset_channel_llm_delivery_cursor = _CHANNEL_DELIVERY_API.reset_cursor
+ensure_channel_llm_delivery_cursor_initialized = _CHANNEL_DELIVERY_API.ensure_cursor_initialized
+prepare_channel_llm_delivery_for_launch = _CHANNEL_DELIVERY_API.prepare_for_launch
+
+def _cache_channel_llm_cursor(last_id: int) -> None:
+    _set_channel_llm_cursor_cache(last_id)
 
 def _cache_channel_mcp_cursor(last_id: int) -> None:
     global _CHANNEL_MCP_CURSOR_LAST_ID
@@ -10204,35 +9715,10 @@ def clear_channel_backlog() -> dict[str, Any]:
 def channel_backlog_status() -> dict[str, Any]:
     return channel_backlog_service().status()
 
-def _commit_channel_llm_cursor_if_newer(last_id: int | None) -> None:
-    global _CHANNEL_LLM_CURSOR_LAST_ID
-    with _CHANNEL_LLM_CURSOR_LOCK:
-        current = _channel_llm_read_cursor_locked()
-        target = channel_cursor_storage.ChannelCursorStatePolicy.newer(last_id, current)
-        if target is None:
-            return
-        _CHANNEL_LLM_CURSOR_LAST_ID = target
-        try:
-            _channel_llm_write_cursor_locked(target)
-        except Exception as exc:
-            router_log("WARN", f"channel_llm_cursor_write_failed error={type(exc).__name__}: {exc}")
-
 body_without_ciel_runtime_internal_metadata = channel_llm_context.strip_internal_metadata
 
-def commit_pending_channel_delivery_cursors(
-    body: dict[str, Any],
-    handler: BaseHTTPRequestHandler | None = None,
-    metadata: dict[str, Any] | None = None,
-) -> None:
-    ChannelDeliveryCursorCommitter(
-        ChannelDeliveryCursorPorts(
-            response_status=_handler_response_status,
-            metadata_enabled=_channel_delivery_metadata,
-            delivery_confirmed=pending_channel_delivery_confirmed,
-            commit_if_newer=_commit_channel_llm_cursor_if_newer,
-            log=router_log,
-        )
-    ).commit(body, handler, metadata)
+_commit_channel_llm_cursor_if_newer = _CHANNEL_DELIVERY_API.commit_if_newer
+commit_pending_channel_delivery_cursors = _CHANNEL_DELIVERY_API.commit_pending
 
 def _channel_stdin_wake_claim_ttl_seconds() -> float:
     return channel_runtime_environment_policy().wake_claim_ttl_seconds()
@@ -11095,19 +10581,48 @@ def add_npm_prefix_bin_to_path(prefix: Path | None) -> None:
     if bin_dir and bin_dir not in path.split(os.pathsep):
         os.environ["PATH"] = bin_dir + (os.pathsep + path if path else "")
 
-def install_runtime_package_if_missing(
-    *,
-    executable_name: str,
-    label: str,
-    package_spec: str,
-    skip_env: str,
-) -> str | None:
-    return npm_package_lifecycle().install_if_missing(
-        executable_name=executable_name,
-        label=label,
-        package_spec=package_spec,
-        skip_env=skip_env,
+def runtime_maintenance_context() -> RuntimeMaintenanceContext:
+    return RuntimeMaintenanceContext(
+        packages=RuntimePackagePorts(
+            lifecycle=npm_package_lifecycle,
+            environment=os.environ,
+            claude_version=claude_code_current_version,
+            codex_version=codex_current_version,
+        ),
+        lifecycle=RuntimeLifecyclePorts(
+            diagnostics=install_diagnostics_service,
+            restart=runtime_restart_service,
+            self_update=self_update_lifecycle,
+            upgrade=runtime_upgrade_service,
+        ),
+        agy=RuntimeAgyPorts(installer=agy_installer),
     )
+
+_RUNTIME_MAINTENANCE_API = RuntimeMaintenanceCompatibilityApi(runtime_maintenance_context)
+install_runtime_package_if_missing = _RUNTIME_MAINTENANCE_API.install_runtime_package_if_missing
+run_runtime_npm_update_check = _RUNTIME_MAINTENANCE_API.run_runtime_npm_update_check
+run_claude_update_check = _RUNTIME_MAINTENANCE_API.run_claude_update_check
+ciel_runtime_launcher_candidate_dirs = _RUNTIME_MAINTENANCE_API.launcher_candidate_dirs
+ciel_runtime_launcher_candidates = _RUNTIME_MAINTENANCE_API.launcher_candidates
+ciel_runtime_launcher_version = _RUNTIME_MAINTENANCE_API.launcher_version
+ciel_runtime_install_diagnostics = _RUNTIME_MAINTENANCE_API.install_diagnostics
+warn_if_multiple_ciel_runtime_installs = _RUNTIME_MAINTENANCE_API.warn_if_multiple_installs
+ciel_runtime_restart_user_args = _RUNTIME_MAINTENANCE_API.restart_user_args
+restart_ciel_runtime_after_update = _RUNTIME_MAINTENANCE_API.restart_after_update
+run_ciel_runtime_update_check = _RUNTIME_MAINTENANCE_API.run_self_update_check
+quiet_upgrade_ciel_runtime = _RUNTIME_MAINTENANCE_API.quiet_upgrade_ciel_runtime
+quiet_upgrade_claude_code = _RUNTIME_MAINTENANCE_API.quiet_upgrade_claude_code
+quiet_upgrade_codex = _RUNTIME_MAINTENANCE_API.quiet_upgrade_codex
+quiet_upgrade_agy = _RUNTIME_MAINTENANCE_API.quiet_upgrade_agy
+install_claude_code_if_missing = _RUNTIME_MAINTENANCE_API.install_claude_code_if_missing
+install_codex_if_missing = _RUNTIME_MAINTENANCE_API.install_codex_if_missing
+run_codex_update_check = _RUNTIME_MAINTENANCE_API.run_codex_update_check
+agy_manifest_name = _RUNTIME_MAINTENANCE_API.agy_manifest_name
+agy_manifest_url = _RUNTIME_MAINTENANCE_API.agy_manifest_url
+agy_latest_manifest = _RUNTIME_MAINTENANCE_API.agy_latest_manifest
+install_agy_from_manifest = _RUNTIME_MAINTENANCE_API.install_agy_from_manifest
+install_agy_if_missing = _RUNTIME_MAINTENANCE_API.install_agy_if_missing
+run_agy_update_check = _RUNTIME_MAINTENANCE_API.run_agy_update_check
 
 def npm_package_lifecycle() -> NpmPackageLifecycle:
     return NpmPackageLifecycle(
@@ -11116,38 +10631,6 @@ def npm_package_lifecycle() -> NpmPackageLifecycle:
             run_command_for_upgrade, add_npm_prefix_bin_to_path,
             npm_latest_package_version, version_newer, print,
         )
-    )
-
-def run_runtime_npm_update_check(
-    executable: str,
-    *,
-    executable_name: str,
-    label: str,
-    package_spec: str,
-    skip_env: str,
-    current_version: Callable[[str], str],
-    enabled: bool = True,
-) -> str:
-    return npm_package_lifecycle().update_check(
-        executable,
-        executable_name=executable_name,
-        label=label,
-        package_spec=package_spec,
-        skip_env=skip_env,
-        current_version=current_version,
-        enabled=enabled,
-    )
-
-def run_claude_update_check(claude: str, enabled: bool = True) -> str:
-    package_spec = os.environ.get("CIEL_RUNTIME_CLAUDE_CODE_PACKAGE", "@anthropic-ai/claude-code@latest")
-    return run_runtime_npm_update_check(
-        claude,
-        executable_name="claude",
-        label="Claude Code",
-        package_spec=package_spec,
-        skip_env="CIEL_RUNTIME_SKIP_CLAUDE_UPDATE",
-        current_version=claude_code_current_version,
-        enabled=enabled,
     )
 
 def current_npm_install_prefix() -> Path | None:
@@ -11175,24 +10658,6 @@ def install_diagnostics_service() -> InstallDiagnosticsService:
         ),
     )
 
-def ciel_runtime_launcher_candidate_dirs() -> list[Path]:
-    return install_diagnostics_service().candidate_dirs()
-
-def ciel_runtime_launcher_candidates() -> list[Path]:
-    return install_diagnostics_service().candidates()
-
-def ciel_runtime_launcher_version(path: Path, timeout: float = 5.0) -> str:
-    return install_diagnostics_service().launcher_version(path, timeout)
-
-def ciel_runtime_install_diagnostics() -> list[dict[str, str]]:
-    return install_diagnostics_service().diagnostics()
-
-def warn_if_multiple_ciel_runtime_installs() -> None:
-    install_diagnostics_service().warn_if_multiple()
-
-def ciel_runtime_restart_user_args() -> list[str]:
-    return runtime_restart_service().user_args()
-
 def runtime_restart_service() -> RuntimeRestartService:
     return RuntimeRestartService(
         settings=RuntimeRestartSettings(
@@ -11209,12 +10674,6 @@ def runtime_restart_service() -> RuntimeRestartService:
             call=subprocess.call,
         ),
     )
-
-def restart_ciel_runtime_after_update(npm: str, package_root: Path | None = None) -> None:
-    runtime_restart_service().restart(npm, package_root)
-
-def run_ciel_runtime_update_check(enabled: bool = True) -> bool:
-    return self_update_lifecycle().run(enabled)
 
 def self_update_lifecycle() -> SelfUpdateLifecycle:
     return SelfUpdateLifecycle(
@@ -11255,48 +10714,6 @@ def runtime_upgrade_service() -> RuntimeUpgradeService:
         output=lambda message: print(message, flush=True),
     )
 
-def quiet_upgrade_ciel_runtime() -> int:
-    return runtime_upgrade_service().ciel_runtime()
-
-def quiet_upgrade_claude_code() -> int:
-    return runtime_upgrade_service().claude()
-
-def quiet_upgrade_codex() -> int:
-    return runtime_upgrade_service().codex()
-
-def quiet_upgrade_agy() -> int:
-    return runtime_upgrade_service().agy()
-
-def install_claude_code_if_missing() -> str | None:
-    package_spec = os.environ.get("CIEL_RUNTIME_CLAUDE_CODE_PACKAGE", "@anthropic-ai/claude-code@latest")
-    return install_runtime_package_if_missing(
-        executable_name="claude",
-        label="Claude Code",
-        package_spec=package_spec,
-        skip_env="CIEL_RUNTIME_SKIP_CLAUDE_INSTALL",
-    )
-
-def install_codex_if_missing() -> str | None:
-    package_spec = os.environ.get("CIEL_RUNTIME_CODEX_PACKAGE", "@openai/codex@latest")
-    return install_runtime_package_if_missing(
-        executable_name="codex",
-        label="Codex",
-        package_spec=package_spec,
-        skip_env="CIEL_RUNTIME_SKIP_CODEX_INSTALL",
-    )
-
-def run_codex_update_check(codex: str, enabled: bool = True) -> str:
-    package_spec = os.environ.get("CIEL_RUNTIME_CODEX_PACKAGE", "@openai/codex@latest")
-    return run_runtime_npm_update_check(
-        codex,
-        executable_name="codex",
-        label="Codex",
-        package_spec=package_spec,
-        skip_env="CIEL_RUNTIME_SKIP_CODEX_UPDATE",
-        current_version=codex_current_version,
-        enabled=enabled,
-    )
-
 AGY_MANIFEST_BASE_URL = "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app"
 
 def agy_installer() -> AgyInstaller:
@@ -11312,38 +10729,22 @@ def agy_installer() -> AgyInstaller:
         ),
     )
 
-def agy_manifest_name() -> str:
-    return agy_installer().manifest_name()
-
-def agy_manifest_url() -> str:
-    return agy_installer().manifest_url()
-
 def agy_download_file(url: str, target: Path, timeout: float = 120.0) -> None:
     AgyInstaller.download_file(url, target, timeout)
-
-def agy_latest_manifest(timeout: float = 15.0) -> dict[str, Any] | None:
-    return agy_installer().latest_manifest(timeout)
 
 def agy_current_version(agy: str) -> str:
     return AgyInstaller.current_version(agy)
 
 verify_sha512 = AgyInstaller.verify_sha512
 
-def install_agy_from_manifest(manifest: dict[str, Any]) -> str | None:
-    return agy_installer().install_from_manifest(manifest)
-
-def install_agy_if_missing() -> str | None:
-    return agy_installer().install_if_missing()
-
-def run_agy_update_check(agy: str, enabled: bool = True) -> str:
-    return agy_installer().update_check(agy, enabled)
-
 def run_quiet_upgrade_and_exit() -> int:
-    any_rc = quiet_upgrade_ciel_runtime()
-    claude_rc = quiet_upgrade_claude_code()
-    codex_rc = quiet_upgrade_codex()
-    agy_rc = quiet_upgrade_agy()
-    return 0 if any_rc == 0 and claude_rc == 0 and codex_rc == 0 and agy_rc == 0 else 1
+    results = (
+        quiet_upgrade_ciel_runtime(),
+        quiet_upgrade_claude_code(),
+        quiet_upgrade_codex(),
+        quiet_upgrade_agy(),
+    )
+    return 0 if all(result == 0 for result in results) else 1
 
 def launch_claude(
     passthrough: list[str],

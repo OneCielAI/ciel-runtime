@@ -184,3 +184,50 @@ class ChannelMcpDiscoveryService:
                 seen.add(key)
                 unique.append(path)
         return unique
+
+
+@dataclass(frozen=True, slots=True)
+class ChannelMcpDiscoveryCompatibilityApi:
+    service: Callable[[], ChannelMcpDiscoveryService]
+
+    def runtime_headers(self, server: dict[str, Any]) -> dict[str, str]:
+        return self.service().runtime_headers(server)
+
+    def servers_from_mapping(self, mapping: Any) -> list[dict[str, Any]]:
+        return self.service().servers_from_mapping(mapping)
+
+    def external_names(
+        self,
+        passthrough: list[str] | None = None,
+        cwd: Path | None = None,
+        home: Path | None = None,
+        extra_config_paths: list[Path | str] | None = None,
+    ) -> list[str]:
+        return self.service().external_names(
+            passthrough, cwd, home, extra_config_paths
+        )
+
+    def auto_start(
+        self,
+        passthrough: list[str] | None = None,
+        cwd: Path | None = None,
+        home: Path | None = None,
+        extra_config_paths: list[Path | str] | None = None,
+        allowed_server_names: Iterable[str] | None = None,
+        include_default_paths: bool = True,
+    ) -> list[dict[str, Any]]:
+        return self.service().auto_start(
+            passthrough,
+            cwd,
+            home,
+            extra_config_paths,
+            allowed_server_names,
+            include_default_paths,
+        )
+
+
+__all__ = [
+    "ChannelMcpDiscoveryCompatibilityApi",
+    "ChannelMcpDiscoveryPorts",
+    "ChannelMcpDiscoveryService",
+]
