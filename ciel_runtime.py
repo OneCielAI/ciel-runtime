@@ -6263,29 +6263,14 @@ def run_mcp_streamable_http_proxy(server_name: str, server_config_path: Path) ->
 
 def run_mcp_stdio_proxy(server_name: str, server_config_path: Path) -> int:
     service = McpStdioProxyService(
-        config=McpStdioConfigPorts(
-            read=lambda path: json.loads(path.read_text(encoding="utf-8")),
-            is_stdio=_mcp_server_is_stdio,
-            resolve_process=resolve_mcp_server_process,
-            environment=os.environ.copy,
-        ),
-        transport=McpStdioTransportPorts(
-            popen=subprocess.Popen,
-            stdio_mode=_mcp_proxy_stdio_mode,
-            forward_stdin=_mcp_proxy_forward_stdin,
-            forward_stdin_jsonl=_mcp_proxy_forward_stdin_jsonl,
-            forward_stdout_jsonl=_mcp_proxy_forward_stdout_jsonl,
-            forward_stderr=_mcp_proxy_forward_stderr,
-            observer=_McpStdoutObserver,
-        ),
+        config=McpStdioConfigPorts(lambda path: json.loads(path.read_text(encoding="utf-8")), _mcp_server_is_stdio, resolve_mcp_server_process,
+                                   os.environ.copy),
+        transport=McpStdioTransportPorts(subprocess.Popen, _mcp_proxy_stdio_mode, _mcp_proxy_forward_stdin, _mcp_proxy_forward_stdin_jsonl,
+                                         _mcp_proxy_forward_stdout_jsonl, _mcp_proxy_forward_stderr, _McpStdoutObserver),
         effects=McpStdioEffects(
-            log=router_log,
-            error=lambda message: print(message, file=sys.stderr, flush=True),
-            start_thread=lambda target, args, name: threading.Thread(
-                target=target, args=args, daemon=True, name=name
-            ).start(),
-            write_stdout=sys.stdout.buffer.write,
-            flush_stdout=sys.stdout.buffer.flush,
+            router_log, lambda message: print(message, file=sys.stderr, flush=True),
+            lambda target, args, name: threading.Thread(target=target, args=args, daemon=True, name=name).start(),
+            sys.stdout.buffer.write, sys.stdout.buffer.flush,
         ),
     )
     return service.run(server_name, server_config_path)
@@ -6316,37 +6301,19 @@ def add_npm_prefix_bin_to_path(prefix: Path | None) -> None:
 
 def runtime_maintenance_assembly() -> RuntimeMaintenanceAssembly:
     return RuntimeMaintenanceAssembly(RuntimeMaintenanceServices(
-        npm=MaintenanceNpmPorts(
-            find_executable, npm_install_runtime_command, run_command_for_upgrade,
-            add_npm_prefix_bin_to_path, npm_latest_package_version,
-            version_newer, print, lambda: current_npm_install_prefix(),
-        ),
-        package=MaintenancePackagePorts(
-            Path(__file__).resolve(), os.environ, package_root_from_installed_path,
-            npm_prefix_from_package_root, detect_running_from_npm_package,
-            npm_global_package_root, npm_global_install_command,
-            lambda: current_npm_package_root(),
-            lambda: running_from_npm_package(),
-        ),
-        diagnostics=MaintenanceDiagnosticPorts(
-            HOME, os.name, executable_extra_dirs, parse_version_tuple,
-            lambda: ciel_runtime_install_diagnostics(), sys.stdin.isatty,
-            sys.stdout.isatty,
-            lambda line: print(line, file=sys.stderr, flush=True),
-        ),
-        restart=MaintenanceRestartPorts(
-            sys.argv, sys.executable, os.environ, os.execv, subprocess.call,
-        ),
-        update=MaintenanceUpdatePorts(
-            VERSION, forced_yes_upgrade_env,
-            lambda npm, package_root=None: restart_ciel_runtime_after_update(
-                npm, package_root=package_root
-            ),
-            claude_code_current_version, codex_current_version,
-            lambda: install_claude_code_if_missing(),
-            lambda: install_codex_if_missing(), lambda: install_agy_if_missing(),
-            lambda executable, enabled=True: run_agy_update_check(executable, enabled),
-        ),
+        npm=MaintenanceNpmPorts(find_executable, npm_install_runtime_command, run_command_for_upgrade, add_npm_prefix_bin_to_path,
+                                npm_latest_package_version, version_newer, print, lambda: current_npm_install_prefix()),
+        package=MaintenancePackagePorts(Path(__file__).resolve(), os.environ, package_root_from_installed_path, npm_prefix_from_package_root,
+                                        detect_running_from_npm_package, npm_global_package_root, npm_global_install_command,
+                                        lambda: current_npm_package_root(), lambda: running_from_npm_package()),
+        diagnostics=MaintenanceDiagnosticPorts(HOME, os.name, executable_extra_dirs, parse_version_tuple, lambda: ciel_runtime_install_diagnostics(),
+                                               sys.stdin.isatty, sys.stdout.isatty, lambda line: print(line, file=sys.stderr, flush=True)),
+        restart=MaintenanceRestartPorts(sys.argv, sys.executable, os.environ, os.execv, subprocess.call),
+        update=MaintenanceUpdatePorts(VERSION, forced_yes_upgrade_env,
+                                      lambda npm, package_root=None: restart_ciel_runtime_after_update(npm, package_root=package_root),
+                                      claude_code_current_version, codex_current_version, lambda: install_claude_code_if_missing(),
+                                      lambda: install_codex_if_missing(), lambda: install_agy_if_missing(),
+                                      lambda executable, enabled=True: run_agy_update_check(executable, enabled)),
         agy=MaintenanceAgyPorts(AGY_MANIFEST_BASE_URL, agy_user_bin_dir),
     ), RuntimeMaintenanceCommandPorts(
         os.environ, claude_code_current_version, codex_current_version,
@@ -6437,23 +6404,17 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
 CODEX_ROUTED_UPSTREAM_BASE = "https://chatgpt.com/backend-api/codex"
 _CODEX_MCP_INTEGRATION = codex_mcp_integration.CodexMcpIntegrationService(
     config=codex_mcp_integration.CodexMcpConfigPorts(
-        discover=lambda *args, **kwargs: project_discover_codex_mcp_servers(
-            *args, **kwargs
-        ),
+        discover=lambda *args, **kwargs: project_discover_codex_mcp_servers(*args, **kwargs),
         log=lambda level, message: router_log(level, message),
     ),
     artifact=codex_mcp_integration.CodexMcpArtifactPorts(
         config_path=lambda: CODEX_MCP_CONFIG,
-        save_json=lambda path, payload, label: json_artifact_repository(path).save(
-            payload, label
-        ),
+        save_json=lambda path, payload, label: json_artifact_repository(path).save(payload, label),
         unlink=lambda path: path.unlink(),
         load_json=lambda path: json.loads(path.read_text(encoding="utf-8")),
     ),
     capability=codex_mcp_integration.CodexMcpCapabilityPorts(
-        ensure_probe_cache=lambda *args, **kwargs: ensure_channel_probe_cache_for_launch(
-            *args, **kwargs
-        ),
+        ensure_probe_cache=lambda *args, **kwargs: ensure_channel_probe_cache_for_launch(*args, **kwargs),
         read_servers=lambda path, cwd: _read_mcp_sse_servers_from_json(path, cwd),
         cached_probe_servers=lambda: cached_channel_probe_servers(),
         path_key=lambda path: _path_for_compare(path),
@@ -6479,22 +6440,16 @@ codex_streamable_http_mcp_servers = _CODEX_MCP_INTEGRATION.streamable_http_serve
 codex_mcp_native_http_compat_args = _CODEX_MCP_INTEGRATION.native_http_compat_args
 _CODEX_LAUNCH_CONFIGURATION = codex_launch_configuration.CodexLaunchConfigurationService(
     constants=codex_launch_configuration.build_default_codex_launch_constants(),
-    policy=codex_launch_configuration.build_default_codex_launch_policy(
-        has_passthrough_option
-    ),
+    policy=codex_launch_configuration.build_default_codex_launch_policy(has_passthrough_option),
     model=codex_launch_configuration.CodexLaunchModelPorts(
         current_provider=lambda cfg: get_current_provider(cfg),
         native_enabled=lambda provider: native_codex_enabled(provider),
         current_alias=lambda cfg: current_alias(cfg),
         context_limit=lambda provider, pcfg: context_limit_for_status(provider, pcfg),
-        context_capacity=lambda provider, pcfg: provider_model_context_capacity(
-            provider, pcfg
-        ),
+        context_capacity=lambda provider, pcfg: provider_model_context_capacity(provider, pcfg),
     ),
     catalog=codex_launch_configuration.CodexLaunchCatalogPorts(
-        write=lambda codex, spec, env: CodexModelCatalogService(
-            CONFIG_DIR, subprocess.run, router_log
-        ).write(codex, spec, env),
+        write=lambda codex, spec, env: CodexModelCatalogService(CONFIG_DIR, subprocess.run, router_log).write(codex, spec, env),
         provider_label=lambda provider: PROVIDER_LABELS.get(provider, provider),
         path_value=lambda env: path_with_ciel_runtime_user_dirs(env),
         current_model_args=project_codex_current_model_args,
