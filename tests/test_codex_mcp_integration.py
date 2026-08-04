@@ -106,6 +106,74 @@ class CodexMcpIntegrationServiceTests(unittest.TestCase):
                 ["-c", 'mcp_servers.ai-net.url="http://router/ai-net"'], args
             )
 
+    def test_channel_owned_http_aliases_share_one_notification_owner(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / "codex-mcp.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "mcpServers": {
+                            "ai-net": {"type": "http", "url": "https://mcp.example/mcp"},
+                            "ai-net-http": {
+                                "type": "http",
+                                "url": "https://mcp.example/mcp/",
+                            },
+                            "other": {"type": "http", "url": "https://other.example/mcp"},
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            service = self.service(root)
+
+            args = service.native_http_compat_args(
+                path, channel_owned_server_names=["ai-net"]
+            )
+
+            self.assertEqual(
+                [
+                    "-c",
+                    'mcp_servers.ai-net.url="http://router/ai-net"',
+                    "-c",
+                    'mcp_servers.ai-net-http.url="http://router/ai-net-http"',
+                ],
+                args,
+            )
+
+    def test_channel_owned_aliases_do_not_merge_different_authentication(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / "codex-mcp.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "mcpServers": {
+                            "account-a": {
+                                "type": "http",
+                                "url": "https://mcp.example/mcp",
+                                "headers": {"Authorization": "Bearer a"},
+                            },
+                            "account-b": {
+                                "type": "http",
+                                "url": "https://mcp.example/mcp",
+                                "headers": {"Authorization": "Bearer b"},
+                            },
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            service = self.service(root)
+
+            args = service.native_http_compat_args(
+                path, channel_owned_server_names=["account-a"]
+            )
+
+            self.assertEqual(
+                ["-c", 'mcp_servers.account-a.url="http://router/account-a"'], args
+            )
+
     def test_builtin_channel_can_be_injected_without_discovered_servers(self):
         with tempfile.TemporaryDirectory() as temporary:
             service = self.service(Path(temporary))

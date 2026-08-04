@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -151,6 +152,49 @@ class CodexMcpIntegrationService:
             and self.projection.is_streamable_http(raw_server)
         }
 
+    @staticmethod
+    def _notification_owner_identity(server: dict[str, Any]) -> str:
+        """Identify aliases that would open the same authenticated HTTP stream."""
+        projected = {
+            "url": str(server.get("url") or server.get("endpoint") or "")
+            .strip()
+            .rstrip("/"),
+            "headers": server.get("headers")
+            if isinstance(server.get("headers"), dict)
+            else {},
+            "env_http_headers": server.get("env_http_headers")
+            if isinstance(server.get("env_http_headers"), dict)
+            else {},
+            "bearer_token": str(server.get("bearer_token") or server.get("token") or ""),
+            "bearer_token_env_var": str(
+                server.get("bearer_token_env_var") or server.get("token_env_var") or ""
+            ),
+        }
+        return json.dumps(projected, sort_keys=True, separators=(",", ":"), default=str)
+
+    def channel_owned_aliases(
+        self,
+        servers: dict[str, dict[str, Any]],
+        channel_owned_server_names: Iterable[str] | None,
+    ) -> set[str]:
+        requested = {
+            self.projection.public_name(str(name or "").strip())
+            for name in channel_owned_server_names or []
+            if str(name or "").strip()
+        }
+        owned_identities = {
+            self._notification_owner_identity(server)
+            for name, server in servers.items()
+            if self.projection.public_name(name) in requested
+        }
+        if not owned_identities:
+            return requested
+        return {
+            self.projection.public_name(name)
+            for name, server in servers.items()
+            if self._notification_owner_identity(server) in owned_identities
+        }
+
     def native_http_compat_args(
         self,
         config_path: Path | None,
@@ -167,11 +211,9 @@ class CodexMcpIntegrationService:
             url = self.projection.toml_string(self.policy.builtin_channel_url())
             args.extend(["-c", f"mcp_servers.{key}.url={url}"])
             active.append(key)
-        channel_owned = {
-            self.projection.public_name(str(name or "").strip())
-            for name in channel_owned_server_names or []
-            if str(name or "").strip()
-        }
+        channel_owned = self.channel_owned_aliases(
+            servers, channel_owned_server_names
+        )
         for name in sorted(servers):
             key = self.config_bare_key(name)
             if not key:
