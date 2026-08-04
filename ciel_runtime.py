@@ -3895,56 +3895,24 @@ STREAM_WORD_CHUNK_MAX_BUFFER = 64
 
 def response_stream_context() -> ResponseStreamContext:
     return ResponseStreamContext(
-        algorithms=ResponseStreamAlgorithms(
-            project_normalize_tool_arguments, project_infer_tool_name,
-            project_parse_pseudo_tool_calls, project_ollama_response,
-            project_openai_chat_response, split_word_buffer, project_openai_responses_stream,
-            project_openai_responses_error, PROTOCOL_ADAPTERS.create,
-        ),
-        text=ResponseStreamTextPorts(
-            decode_ollama_chat_response, strip_visible_thinking_markup,
-            _parse_xml_pseudo_tool_calls, _find_pseudo_xml_tool_start,
-            _fuzzy_match_tool_name, openai_reasoning_to_anthropic_thinking_block,
-            anthropic_content_to_text, positive_int,
-        ),
-        tools=ResponseStreamToolPorts(
-            resolve_emitted_tool_name, _validate_and_fix_tool_input,
-            plan_mode_tool_name_for_emit, cap_mcp_notification_wait_tool_input,
-            should_drop_emitted_tool_call,
-            should_drop_duplicate_side_effect_tool_call, append_tool_call_log,
-            _remember_channel_injected_tool_use, should_repair_anthropic_passthrough_tool_input,
-            _is_mcp_notification_wait_tool,
-        ),
-        recovery=ResponseStreamRecoveryPorts(
-            should_auto_enter_plan_mode, should_auto_exit_plan_mode,
-            should_recover_empty_end_turn_with_tasklist, should_keep_work_alive_with_tasklist,
-            should_auto_continue_choice_question_with_tasklist,
-            empty_end_turn_notice_for_body, latest_user_tool_result_names,
-            synthetic_tool_use_response, should_synthesize_tasklist_for_provider,
-        ),
-        conversation=ResponseStreamConversationPorts(
-            backfill_exit_plan_mode_allowed_prompts, body_ultracode_runtime_enabled,
-            has_tool, latest_user_intent_message_index,
-            latest_user_is_claude_code_suggestion_mode,
-            recent_synthetic_tasklist_count,
-            remember_suppressed_thinking_passback,
-        ),
-        io=ResponseStreamIoPorts(
-            encode_anthropic_message, estimate_tokens, router_log,
-            mark_pending_channel_delivery_failed, mark_pending_channel_delivery_success,
-            router_client_connection_closed, iter_upstream_lines_until_client_disconnect,
-            write_router_activity, write_json, write_anthropic_open_stream_stop,
-        ),
-        trace=ResponseStreamTracePorts(
-            dump_response_for_trace, finish_outgoing_sse_trace,
-            make_outgoing_sse_trace, record_outgoing_sse_event,
-        ),
+        algorithms=ResponseStreamAlgorithms(project_normalize_tool_arguments, project_infer_tool_name, project_parse_pseudo_tool_calls, project_ollama_response,
+                                             project_openai_chat_response, split_word_buffer, project_openai_responses_stream, project_openai_responses_error, PROTOCOL_ADAPTERS.create),
+        text=ResponseStreamTextPorts(decode_ollama_chat_response, strip_visible_thinking_markup, _parse_xml_pseudo_tool_calls, _find_pseudo_xml_tool_start,
+                                     _fuzzy_match_tool_name, openai_reasoning_to_anthropic_thinking_block, anthropic_content_to_text, positive_int),
+        tools=ResponseStreamToolPorts(resolve_emitted_tool_name, _validate_and_fix_tool_input, plan_mode_tool_name_for_emit, cap_mcp_notification_wait_tool_input,
+                                      should_drop_emitted_tool_call, should_drop_duplicate_side_effect_tool_call, append_tool_call_log, _remember_channel_injected_tool_use,
+                                      should_repair_anthropic_passthrough_tool_input, _is_mcp_notification_wait_tool),
+        recovery=ResponseStreamRecoveryPorts(should_auto_enter_plan_mode, should_auto_exit_plan_mode, should_recover_empty_end_turn_with_tasklist,
+                                             should_keep_work_alive_with_tasklist, should_auto_continue_choice_question_with_tasklist, empty_end_turn_notice_for_body,
+                                             latest_user_tool_result_names, synthetic_tool_use_response, should_synthesize_tasklist_for_provider),
+        conversation=ResponseStreamConversationPorts(backfill_exit_plan_mode_allowed_prompts, body_ultracode_runtime_enabled, has_tool, latest_user_intent_message_index,
+                                                     latest_user_is_claude_code_suggestion_mode, recent_synthetic_tasklist_count, remember_suppressed_thinking_passback),
+        io=ResponseStreamIoPorts(encode_anthropic_message, estimate_tokens, router_log, mark_pending_channel_delivery_failed, mark_pending_channel_delivery_success,
+                                 router_client_connection_closed, iter_upstream_lines_until_client_disconnect, write_router_activity, write_json, write_anthropic_open_stream_stop),
+        trace=ResponseStreamTracePorts(dump_response_for_trace, finish_outgoing_sse_trace, make_outgoing_sse_trace, record_outgoing_sse_event),
         runtime=ResponseStreamRuntimePorts(lambda: int(time.time() * 1000), os.getpid),
-        types=ResponseStreamTypes(
-            ANTHROPIC_THINKING_BLOCK_TYPES, VisibleToolCallArtifactFilter,
-            VisibleThinkingMarkupFilter, UpstreamClientDisconnected,
-            PSEUDO_TOOL_START, PSEUDO_TOOL_END, STREAM_WORD_CHUNK_MAX_BUFFER,
-        ),
+        types=ResponseStreamTypes(ANTHROPIC_THINKING_BLOCK_TYPES, VisibleToolCallArtifactFilter, VisibleThinkingMarkupFilter, UpstreamClientDisconnected,
+                                  PSEUDO_TOOL_START, PSEUDO_TOOL_END, STREAM_WORD_CHUNK_MAX_BUFFER),
     )
 
 _RESPONSE_STREAM_API = ResponseStreamCompatibilityApi(response_stream_context)
@@ -3959,39 +3927,18 @@ _ollama_stream_to_anthropic_sse = _RESPONSE_STREAM_API.ollama_stream_to_anthropi
 
 def ollama_forward_services() -> OllamaForwardServices:
     return OllamaForwardServices(
-        constants=OllamaForwardConstants(
-            UpstreamClientDisconnected, COMPATIBILITY_TEST_HEADER,
-            UPSTREAM_RETRY_HTTP_CODES,
-        ),
-        request=OllamaForwardRequest(
-            normalize_thinking_for_non_anthropic_provider, ollama_chat_request,
-            provider_endpoint, provider_headers, provider_urlopen,
-            ollama_request_timeout_seconds, resolve_requested_model,
-            set_upstream_stream_read_timeout, provider_stream_idle_timeout_seconds,
-        ),
-        rate_limit=OllamaForwardRateLimit(
-            apply_router_rate_limit, configured_gateway_retries,
-            router_rate_limit_effective_rpm, learn_router_rate_limit_headers,
-            rate_limit_notice, register_router_rate_limit_backoff,
-            upstream_retry_wait_seconds, retryable_upstream_exception,
-            sleep_until_or_client_disconnect,
-        ),
-        streaming=OllamaForwardStreaming(
-            router_client_connection_closed, iter_upstream_lines_until_client_disconnect,
-            router_log, _ollama_stream_to_anthropic_sse, write_router_activity,
-        ),
-        advisor=OllamaForwardAdvisor(
-            body_with_advisor_tool, estimate_tokens, advisor_gate_possible_for_body,
-            advisor_gate_reason_for_body, advisor_model_enabled,
-            prepend_anthropic_text, advisor_provider_supported,
-            refine_message_with_advisor,
-        ),
-        response=OllamaForwardResponse(
-            ollama_context_error_limit, ollama_context_retry_config,
-            mark_pending_channel_delivery_success, ollama_chat_to_anthropic,
-            remember_channel_injected_tool_uses, _update_tool_schema_registry,
-            upstream_http_error_message, write_json,
-        ),
+        constants=OllamaForwardConstants(UpstreamClientDisconnected, COMPATIBILITY_TEST_HEADER, UPSTREAM_RETRY_HTTP_CODES),
+        request=OllamaForwardRequest(normalize_thinking_for_non_anthropic_provider, ollama_chat_request, provider_endpoint, provider_headers, provider_urlopen,
+                                     ollama_request_timeout_seconds, resolve_requested_model, set_upstream_stream_read_timeout, provider_stream_idle_timeout_seconds),
+        rate_limit=OllamaForwardRateLimit(apply_router_rate_limit, configured_gateway_retries, router_rate_limit_effective_rpm, learn_router_rate_limit_headers,
+                                         rate_limit_notice, register_router_rate_limit_backoff, upstream_retry_wait_seconds, retryable_upstream_exception,
+                                         sleep_until_or_client_disconnect),
+        streaming=OllamaForwardStreaming(router_client_connection_closed, iter_upstream_lines_until_client_disconnect, router_log,
+                                         _ollama_stream_to_anthropic_sse, write_router_activity),
+        advisor=OllamaForwardAdvisor(body_with_advisor_tool, estimate_tokens, advisor_gate_possible_for_body, advisor_gate_reason_for_body, advisor_model_enabled,
+                                     prepend_anthropic_text, advisor_provider_supported, refine_message_with_advisor),
+        response=OllamaForwardResponse(ollama_context_error_limit, ollama_context_retry_config, mark_pending_channel_delivery_success, ollama_chat_to_anthropic,
+                                       remember_channel_injected_tool_uses, _update_tool_schema_registry, upstream_http_error_message, write_json),
     )
 
 def forward_ollama_api_chat(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> None:
@@ -4015,40 +3962,12 @@ UPSTREAM_RETRY_HTTP_CODES: frozenset[int] = frozenset({502, 503, 504})
 
 def upstream_retry_context() -> UpstreamRetryContext:
     return UpstreamRetryContext(
-        errors=UpstreamRetryErrorPorts(
-            project_http_error=project_upstream_http_error_message,
-            project_retry_message=project_upstream_retry_message,
-            first_header=first_header,
-            parse_retry_after=parse_retry_after_seconds,
-            format_duration=format_duration_seconds,
-        ),
-        policy=UpstreamRetryPolicyPorts(
-            configured_retries=project_configured_gateway_retries,
-            retry_after_exceeds_timeout=retry_after_exceeds_request_timeout,
-            retryable_exception=project_retryable_upstream_exception,
-            retry_wait_seconds=project_upstream_retry_wait_seconds,
-            retry_http_codes=UPSTREAM_RETRY_HTTP_CODES,
-            language=lambda: str(load_config().get("language") or "en"),
-        ),
-        credentials=UpstreamRetryCredentialPorts(
-            key_from_headers=key_from_request_headers,
-            api_key_count=provider_api_key_count,
-            has_live_api_key=provider_has_live_api_key,
-            headers=provider_headers,
-            register_cooldown=register_api_key_cooldown,
-        ),
-        rate_limit=UpstreamRetryRateLimitPorts(
-            learn_headers=learn_router_rate_limit_headers,
-            log=router_log,
-            register_backoff=register_router_rate_limit_backoff,
-            write_activity=write_router_activity,
-        ),
-        transport=UpstreamRetryTransportPorts(
-            estimate_tokens=estimate_tokens,
-            urlopen=provider_urlopen,
-            set_stream_read_timeout=set_upstream_stream_read_timeout,
-            stream_idle_timeout_seconds=provider_stream_idle_timeout_seconds,
-        ),
+        errors=UpstreamRetryErrorPorts(project_upstream_http_error_message, project_upstream_retry_message, first_header, parse_retry_after_seconds, format_duration_seconds),
+        policy=UpstreamRetryPolicyPorts(project_configured_gateway_retries, retry_after_exceeds_request_timeout, project_retryable_upstream_exception,
+                                        project_upstream_retry_wait_seconds, UPSTREAM_RETRY_HTTP_CODES, lambda: str(load_config().get("language") or "en")),
+        credentials=UpstreamRetryCredentialPorts(key_from_request_headers, provider_api_key_count, provider_has_live_api_key, provider_headers, register_api_key_cooldown),
+        rate_limit=UpstreamRetryRateLimitPorts(learn_router_rate_limit_headers, router_log, register_router_rate_limit_backoff, write_router_activity),
+        transport=UpstreamRetryTransportPorts(estimate_tokens, provider_urlopen, set_upstream_stream_read_timeout, provider_stream_idle_timeout_seconds),
     )
 
 _UPSTREAM_RETRY_API = UpstreamRetryCompatibilityApi(upstream_retry_context)
@@ -4065,35 +3984,15 @@ open_openai_stream_with_rate_retry = _UPSTREAM_RETRY_API.open_openai_stream
 
 def openai_forward_services() -> OpenAIForwardServices:
     return OpenAIForwardServices(
-        policy=OpenAIForwardPolicy(
-            COMPATIBILITY_TEST_HEADER, provider_requires_streaming,
-        ),
-        request=OpenAIForwardRequest(
-            _update_tool_schema_registry, normalize_thinking_for_non_anthropic_provider,
-            resolve_requested_model, provider_upstream_model,
-            body_with_advisor_tool, advisor_provider_supported, join_url,
-            provider_upstream_request_base, openai_compatible_chat_request,
-            provider_headers,
-        ),
-        rate_limit=OpenAIForwardRateLimit(
-            apply_router_rate_limit, rate_limit_notice, estimate_tokens,
-            provider_request_timeout_seconds,
-        ),
-        advisor=OpenAIForwardAdvisor(
-            advisor_model_enabled, advisor_gate_possible_for_body,
-            advisor_gate_reason_for_body, refine_message_with_advisor,
-        ),
-        streaming=OpenAIForwardStreaming(
-            write_anthropic_open_stream_start, write_anthropic_stream_blocks,
-            open_openai_stream_with_rate_retry, post_json_with_rate_retry,
-            stream_openai_chat_to_anthropic_sse, write_anthropic_open_stream_stop,
-        ),
-        response=OpenAIForwardResponse(
-            mark_pending_channel_delivery_success, mark_pending_channel_delivery_failed,
-            write_router_activity, openai_chat_to_anthropic,
-            remember_channel_injected_tool_uses, prepend_anthropic_text,
-            write_anthropic_message_response, write_json,
-        ),
+        policy=OpenAIForwardPolicy(COMPATIBILITY_TEST_HEADER, provider_requires_streaming),
+        request=OpenAIForwardRequest(_update_tool_schema_registry, normalize_thinking_for_non_anthropic_provider, resolve_requested_model, provider_upstream_model,
+                                     body_with_advisor_tool, advisor_provider_supported, join_url, provider_upstream_request_base, openai_compatible_chat_request, provider_headers),
+        rate_limit=OpenAIForwardRateLimit(apply_router_rate_limit, rate_limit_notice, estimate_tokens, provider_request_timeout_seconds),
+        advisor=OpenAIForwardAdvisor(advisor_model_enabled, advisor_gate_possible_for_body, advisor_gate_reason_for_body, refine_message_with_advisor),
+        streaming=OpenAIForwardStreaming(write_anthropic_open_stream_start, write_anthropic_stream_blocks, open_openai_stream_with_rate_retry,
+                                         post_json_with_rate_retry, stream_openai_chat_to_anthropic_sse, write_anthropic_open_stream_stop),
+        response=OpenAIForwardResponse(mark_pending_channel_delivery_success, mark_pending_channel_delivery_failed, write_router_activity, openai_chat_to_anthropic,
+                                       remember_channel_injected_tool_uses, prepend_anthropic_text, write_anthropic_message_response, write_json),
         log=router_log,
     )
 
@@ -4104,52 +4003,25 @@ def response_collection_context() -> ResponseCollectionContext:
     return ResponseCollectionContext(
         shared=ResponseCollectionServices(
             COMPATIBILITY_TEST_HEADER,
-            ResponseCollectionRequest(
-                normalize_thinking_for_non_anthropic_provider, resolve_requested_model,
-                body_with_advisor_tool, advisor_provider_supported,
-                provider_endpoint, provider_headers,
-            ),
-            ResponseCollectionRateLimit(
-                apply_router_rate_limit, router_rate_limit_effective_rpm, rate_limit_notice,
-            ),
-            ResponseCollectionProjection(
-                refine_message_with_advisor, remember_channel_injected_tool_uses,
-                prepend_anthropic_text,
-            ),
+            ResponseCollectionRequest(normalize_thinking_for_non_anthropic_provider, resolve_requested_model, body_with_advisor_tool, advisor_provider_supported,
+                                      provider_endpoint, provider_headers),
+            ResponseCollectionRateLimit(apply_router_rate_limit, router_rate_limit_effective_rpm, rate_limit_notice),
+            ResponseCollectionProjection(refine_message_with_advisor, remember_channel_injected_tool_uses, prepend_anthropic_text),
             post_json_with_rate_retry,
         ),
         anthropic=AnthropicCollectionServices(
-            request=AnthropicCollectionRequest(
-                normalize_thinking_for_non_anthropic_provider,
-                normalize_anthropic_system_role_messages,
-                cap_anthropic_body_for_provider, apply_provider_request_options,
-                rehydrate_suppressed_thinking_passback, resolve_requested_model,
-                provider_upstream_model, resolve_tool_model_references,
-                normalize_anthropic_model_request_options,
-                body_without_ciel_runtime_internal_metadata,
-            ),
-            transport=AnthropicCollectionTransport(
-                provider_native_compat_enabled, native_anthropic_base_url,
-                provider_upstream_request_base, join_url, upstream_messages_query,
-                provider_headers, apply_router_rate_limit, open_provider_request_with_key_retry,
-                provider_request_timeout_seconds,
-            ),
-            projection=AnthropicCollectionProjection(
-                normalize_response_thinking_for_non_anthropic_provider,
-                append_synthetic_tasklist_to_message, prepend_anthropic_text,
-                rate_limit_notice,
-            ),
+            request=AnthropicCollectionRequest(normalize_thinking_for_non_anthropic_provider, normalize_anthropic_system_role_messages, cap_anthropic_body_for_provider,
+                                               apply_provider_request_options, rehydrate_suppressed_thinking_passback, resolve_requested_model, provider_upstream_model,
+                                               resolve_tool_model_references, normalize_anthropic_model_request_options, body_without_ciel_runtime_internal_metadata),
+            transport=AnthropicCollectionTransport(provider_native_compat_enabled, native_anthropic_base_url, provider_upstream_request_base, join_url, upstream_messages_query,
+                                                   provider_headers, apply_router_rate_limit, open_provider_request_with_key_retry, provider_request_timeout_seconds),
+            projection=AnthropicCollectionProjection(normalize_response_thinking_for_non_anthropic_provider, append_synthetic_tasklist_to_message,
+                                                     prepend_anthropic_text, rate_limit_notice),
             forwarded_headers=(),
         ),
-        strategies=ResponseCollectionStrategyPorts(
-            ollama_chat_request, ollama_chat_to_anthropic,
-            ollama_request_timeout_seconds, openai_compatible_chat_request,
-            openai_chat_to_anthropic, provider_request_timeout_seconds,
-            provider_upstream_model,
-        ),
-        routing=ResponseCollectionRoutingPorts(
-            resolve_requested_model, select_provider_protocol, PROVIDER_LABELS,
-        ),
+        strategies=ResponseCollectionStrategyPorts(ollama_chat_request, ollama_chat_to_anthropic, ollama_request_timeout_seconds, openai_compatible_chat_request,
+                                                   openai_chat_to_anthropic, provider_request_timeout_seconds, provider_upstream_model),
+        routing=ResponseCollectionRoutingPorts(resolve_requested_model, select_provider_protocol, PROVIDER_LABELS),
     )
 
 _RESPONSE_COLLECTION_API = ResponseCollectionCompatibilityApi(response_collection_context)
