@@ -1976,43 +1976,15 @@ def upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh: bool 
     return fetch_upstream_model_ids(
         provider, pcfg, force_refresh,
         services=provider_models.ProviderModelServices(
-            storage=provider_models.ModelCatalogStorage(
-                read_model_list_cache=read_model_list_cache,
-                write_model_list_cache=write_model_list_cache,
-                write_model_registry=write_model_registry,
-                router_log=router_log,
-            ),
-            http=provider_models.ModelCatalogHttp(
-                http_json=http_json,
-                join_url=join_url,
-                with_upstream_user_agent=with_upstream_user_agent,
-                lm_studio_api_base=lm_studio_api_base,
-                nvidia_hosted_list_headers=nvidia_hosted_list_headers,
-                nvidia_upstream_base_url=nvidia_upstream_base_url,
-            ),
-            sources=provider_models.ProviderCatalogSources(
-                ANTHROPIC_MODEL_DOCS_URLS=ANTHROPIC_MODEL_DOCS_URLS,
-                fetch_anthropic_api_model_ids=fetch_anthropic_api_model_ids,
-                fetch_anthropic_public_model_ids=fetch_anthropic_public_model_ids,
-                fetch_fireworks_model_ids=fetch_fireworks_model_ids,
-                fireworks_account_id=fireworks_account_id,
-                fireworks_management_base_url=fireworks_management_base_url,
-            ),
-            response_codec=provider_models.ModelCatalogResponseCodec(
-                model_ids_from_response=model_ids_from_response,
-                model_info_from_response=model_info_from_response,
-            ),
-            policy=provider_models.ModelCatalogPolicy(
-                normalize_model_id=normalize_model_id,
-                ollama_catalog_model_ids=ollama_catalog_model_ids,
-                provider_has_api_key=provider_has_api_key,
-                provider_model_catalog_policy=provider_model_catalog_policy,
-                provider_model_paths=provider_model_paths,
-                provider_model_list_headers=provider_model_list_headers,
-                provider_upstream_request_base=provider_upstream_request_base,
-                sorted_model_ids=sorted_model_ids,
-                unique_model_ids=unique_model_ids,
-            ),
+            storage=provider_models.ModelCatalogStorage(read_model_list_cache, write_model_list_cache, write_model_registry, router_log),
+            http=provider_models.ModelCatalogHttp(http_json, join_url, with_upstream_user_agent, lm_studio_api_base, nvidia_hosted_list_headers,
+                                                  nvidia_upstream_base_url),
+            sources=provider_models.ProviderCatalogSources(ANTHROPIC_MODEL_DOCS_URLS, fetch_anthropic_api_model_ids, fetch_anthropic_public_model_ids,
+                                                            fetch_fireworks_model_ids, fireworks_account_id, fireworks_management_base_url),
+            response_codec=provider_models.ModelCatalogResponseCodec(model_ids_from_response, model_info_from_response),
+            policy=provider_models.ModelCatalogPolicy(normalize_model_id, ollama_catalog_model_ids, provider_has_api_key, provider_model_catalog_policy,
+                                                       provider_model_paths, provider_model_list_headers, provider_upstream_request_base, sorted_model_ids,
+                                                       unique_model_ids),
         ),
     )
 
@@ -4480,20 +4452,9 @@ def channel_probe_service() -> ChannelProbeService:
     artifact = json_artifact_repository(CHANNEL_PROBE_CACHE_PATH)
     return ChannelProbeService(
         ROUTER_BASE,
-        ChannelProbeCacheRepository(
-            CHANNEL_PROBE_CACHE_PATH,
-            CHANNEL_PROBE_CACHE_VERSION,
-            artifact.save,
-            router_log,
-        ),
-        ChannelProbePorts(
-            read_servers=_read_mcp_servers_from_json,
-            is_stdio=_mcp_server_is_stdio,
-            probe_stdio=probe_stdio_mcp_for_channel_capability_detailed,
-            probe_sse=probe_sse_mcp_for_channel_capability_detailed,
-            probe_http=probe_streamable_http_mcp_for_channel_capability_detailed,
-            log=router_log,
-        ),
+        ChannelProbeCacheRepository(CHANNEL_PROBE_CACHE_PATH, CHANNEL_PROBE_CACHE_VERSION, artifact.save, router_log),
+        ChannelProbePorts(_read_mcp_servers_from_json, _mcp_server_is_stdio, probe_stdio_mcp_for_channel_capability_detailed,
+                          probe_sse_mcp_for_channel_capability_detailed, probe_streamable_http_mcp_for_channel_capability_detailed, router_log),
         claude_mcp_config_paths,
         _dedupe_strings,
         _path_for_compare,
@@ -4501,36 +4462,19 @@ def channel_probe_service() -> ChannelProbeService:
     )
 
 def channel_config_service() -> ChannelConfigService:
-    return ChannelConfigService(
-        BUILTIN_CHANNEL_SPEC,
-        ChannelConfigPorts(
-            load=load_config,
-            save=save_config,
-            invalidate=invalidate_config_cache,
-            dedupe=_dedupe_strings,
-            log=router_log,
-            environment=os.environ,
-        ),
-    )
+    return ChannelConfigService(BUILTIN_CHANNEL_SPEC, ChannelConfigPorts(
+        load_config, save_config, invalidate_config_cache, _dedupe_strings, router_log, os.environ,
+    ))
 
 _CHANNEL_CONFIG_API = ChannelConfigApi(channel_config_service)
 parse_passthrough_channel_specs = _CHANNEL_CONFIG_API.parse_passthrough_channel_specs
 auto_import_passthrough_channels = _CHANNEL_CONFIG_API.auto_import_passthrough_channels
 
 def channel_mcp_discovery_service() -> ChannelMcpDiscoveryService:
-    return ChannelMcpDiscoveryService(
-        ChannelMcpDiscoveryPorts(
-            environment=os.environ,
-            config_paths=claude_mcp_config_paths,
-            path_key=_path_for_compare,
-            read_config=_read_mcp_sse_servers_from_json,
-            dedupe=_dedupe_strings,
-            native_router_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
-            public_name=_channel_sse_public_mcp_name,
-            start_connection=start_channel_sse_connection,
-            log=router_log,
-        )
-    )
+    return ChannelMcpDiscoveryService(ChannelMcpDiscoveryPorts(
+        os.environ, claude_mcp_config_paths, _path_for_compare, _read_mcp_sse_servers_from_json, _dedupe_strings,
+        frozenset(_NATIVE_ROUTER_CHANNEL_NAMES), _channel_sse_public_mcp_name, start_channel_sse_connection, router_log,
+    ))
 
 _CHANNEL_MCP_DISCOVERY_API = ChannelMcpDiscoveryCompatibilityApi(channel_mcp_discovery_service)
 mcp_server_runtime_headers = _CHANNEL_MCP_DISCOVERY_API.runtime_headers
@@ -4562,17 +4506,9 @@ def _proxy_server_config_disables_notifications(args_s: list[str]) -> bool: retu
 def channel_router_lifecycle() -> ChannelRouterLifecycle:
     return ChannelRouterLifecycle(
         frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
-        ChannelRouterLifecyclePorts(
-            delivery_enabled=should_use_channel_llm_delivery,
-            launch_specs=channel_specs_for_launch,
-            server_names=_server_names_from_channel_specs,
-            owned_names=proxy_owned_channel_server_names,
-            public_name=_channel_sse_public_mcp_name,
-            ensure_probe=ensure_channel_probe_cache_for_launch,
-            source_paths=cached_channel_source_paths_for_specs,
-            auto_start=auto_start_sse_channels_from_mcp_configs,
-            log=router_log,
-        ),
+        ChannelRouterLifecyclePorts(should_use_channel_llm_delivery, channel_specs_for_launch, _server_names_from_channel_specs,
+                                    proxy_owned_channel_server_names, _channel_sse_public_mcp_name, ensure_channel_probe_cache_for_launch,
+                                    cached_channel_source_paths_for_specs, auto_start_sse_channels_from_mcp_configs, router_log),
     )
 
 def router_managed_channel_server_names(cfg: dict[str, Any]) -> list[str]: return channel_router_lifecycle().managed_names(cfg)
@@ -4597,28 +4533,12 @@ _server_names_from_channel_specs = _CHANNEL_PROBE_API.server_names_from_specs
 
 def channel_probe_launch_context() -> ChannelProbeLaunchContext:
     return ChannelProbeLaunchContext(
-        discovery=ChannelProbeLaunchDiscoveryPorts(
-            discover_servers=discovered_claude_mcp_servers,
-            cached_external_capable=cached_external_channel_capable_server_names,
-            channel_specs=channel_specs_for_launch,
-            server_names=_server_names_from_channel_specs,
-            codex_capable_names=codex_channel_capable_mcp_server_names,
-            external_names=external_mcp_channel_server_names_from_configs,
-            dedupe=_dedupe_strings,
-        ),
-        cache=ChannelProbeLaunchCachePorts(
-            service=channel_probe_service,
-            read=read_channel_probe_cache,
-            records=cached_channel_probe_servers,
-            refresh=refresh_channel_probe_cache,
-            bucket=channel_probe_record_bucket,
-            panel_rows=channel_panel_rows,
-            log=router_log,
-        ),
-        effects=ChannelProbeLaunchEffects(
-            delivery_mode=channel_delivery_mode,
-            auto_start=auto_start_sse_channels_from_mcp_configs,
-        ),
+        discovery=ChannelProbeLaunchDiscoveryPorts(discovered_claude_mcp_servers, cached_external_channel_capable_server_names, channel_specs_for_launch,
+                                                   _server_names_from_channel_specs, codex_channel_capable_mcp_server_names,
+                                                   external_mcp_channel_server_names_from_configs, _dedupe_strings),
+        cache=ChannelProbeLaunchCachePorts(channel_probe_service, read_channel_probe_cache, cached_channel_probe_servers, refresh_channel_probe_cache,
+                                           channel_probe_record_bucket, channel_panel_rows, router_log),
+        effects=ChannelProbeLaunchEffects(channel_delivery_mode, auto_start_sse_channels_from_mcp_configs),
         native_channel_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
     )
 
@@ -4652,29 +4572,13 @@ clear_channel_specs = _CHANNEL_CONFIG_API.clear_channel_specs
 
 def channel_cli_controller() -> ChannelCliController:
     return ChannelCliController(
-        ChannelCliView(
-            load_config=load_config,
-            status_text=channel_status_text,
-            delivery_mode=channel_delivery_mode,
-            configured_specs=channel_specs,
-            official_plugins=OFFICIAL_CHANNEL_PLUGINS,
-            output=print,
-        ),
+        ChannelCliView(load_config, channel_status_text, channel_delivery_mode, channel_specs, OFFICIAL_CHANNEL_PLUGINS, print),
         ChannelCliCommands(
-            add=add_channel_spec,
-            development=set_channel_development_enabled,
-            remove=remove_channel_spec,
-            clear=clear_channel_specs,
-            refresh=refresh_channel_probe_cache,
+            add_channel_spec, set_channel_development_enabled, remove_channel_spec, clear_channel_specs, refresh_channel_probe_cache,
             report=lambda result: channel_probe_report_lines(
                 result,
                 channel_probe_default_timeout(),
-                ChannelProbeReportServices(
-                    bucket=channel_probe_record_bucket,
-                    format_timestamp=lambda value: time.strftime(
-                        "%Y-%m-%d %H:%M:%S", time.localtime(value)
-                    ),
-                ),
+                ChannelProbeReportServices(channel_probe_record_bucket, lambda value: time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(value))),
             ),
             set_delivery=set_channel_delivery_config,
         ),
@@ -5344,7 +5248,10 @@ def release_router_client(path: Path | None) -> None: router_client_registry().r
 
 def router_client_registry() -> RouterClientRegistry:
     return RouterClientRegistry(ROUTER_CLIENTS_DIR, ROUTER_PORT, RouterClientRegistryPorts(
-        pid_is_running, router_log, ciel_runtime_client_wrapper_parent_pids, terminate_pid_tree,
+        pid_is_running=pid_is_running,
+        log=router_log,
+        wrapper_parent_pids=ciel_runtime_client_wrapper_parent_pids,
+        terminate_tree=terminate_pid_tree,
     ))
 
 router_managed_idle_exit_seconds = ManagedRouterLifetime.idle_exit_seconds
