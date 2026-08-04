@@ -962,6 +962,14 @@ from ciel_runtime_support.router_http import (
     RouterHttpPresentation,
     RouterHttpServices,
 )
+from ciel_runtime_support.router_observability_context import (
+    RequestTraceConfiguration,
+    RequestTracePorts as RouterRequestTracePorts,
+    RouterObservabilityContext,
+    RouterPreviewPorts,
+    SseObservabilityPorts,
+    SseTraceConfiguration,
+)
 from ciel_runtime_support.router_request_context import (
     RouterRequestContext,
     RouterRequestPorts,
@@ -1585,6 +1593,33 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
+
+    def test_router_observability_context_owns_trace_workflows(self):
+        for port in (
+            RouterPreviewPorts,
+            RequestTraceConfiguration,
+            RouterRequestTracePorts,
+            SseTraceConfiguration,
+            SseObservabilityPorts,
+            RouterObservabilityContext,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (
+            Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        ).read_text(encoding="utf-8")
+        for function_name in (
+            "router_debug_message_preview_chars",
+            "router_event_message_preview",
+            "dump_request_for_trace",
+            "dump_response_for_trace",
+            "sse_trace_repository",
+            "make_outgoing_sse_trace",
+            "record_outgoing_sse_event",
+            "finish_outgoing_sse_trace",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
 
     def test_router_application_contexts_own_request_and_server_orchestration(self):
         for port in (
@@ -4431,6 +4466,7 @@ class ArchitectureContractTests(unittest.TestCase):
             source_root / "ciel_runtime_support" / "channel_terminal_context.py",
             source_root / "ciel_runtime_support" / "channel_terminal_proxy.py",
             source_root / "ciel_runtime_support" / "process_control.py",
+            source_root / "ciel_runtime_support" / "router_observability_context.py",
         )
         critical_names = {
             "dispatch",
@@ -4438,8 +4474,8 @@ class ArchitectureContractTests(unittest.TestCase):
             "_write_codex_child_process_record",
             "_release_codex_child_process_record",
             "_terminate_recorded_child_process",
-            "record_outgoing_sse_event",
-            "finish_outgoing_sse_trace",
+            "record_sse",
+            "finish_sse",
             "begin_pending_channel_delivery",
             "mark_pending_channel_delivery_success",
             "mark_pending_channel_delivery_failed",
@@ -4467,10 +4503,13 @@ class ArchitectureContractTests(unittest.TestCase):
                 member
                 for node in tree.body
                 if isinstance(node, ast.ClassDef)
-                and node.name == "ChannelTerminalContext"
+                and node.name in {
+                    "ChannelTerminalContext",
+                    "RouterObservabilityContext",
+                }
                 for member in node.body
                 if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
-                and member.name == "dispatch"
+                and member.name in critical_names
             )
 
         self.assertEqual({node.name for node in critical_functions}, critical_names)
@@ -5688,10 +5727,6 @@ class ArchitectureContractTests(unittest.TestCase):
             "provider_supports_tool_choice": "supports_tool_choice",
             "provider_tool_choice_status": "tool_choice_status",
             "normalize_tool_choice_for_provider": "normalize_tool_choice",
-            "dump_response_for_trace": "write",
-            "router_debug_message_preview_chars": "configured_chars",
-            "router_event_message_preview": "project",
-            "finish_outgoing_sse_trace": "finish_stream",
             "_channel_stdin_wake_state": "state",
             "_channel_stdin_wake_state_for_message": "state_for_message",
             "_channel_stdin_wake_queued_is_stale_for_message": "queued_is_stale",

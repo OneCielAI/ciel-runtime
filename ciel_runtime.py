@@ -871,14 +871,16 @@ from ciel_runtime_support.codex_session_selection import (
 )
 from ciel_runtime_support.observability import EventBus, render_events_html
 from ciel_runtime_support.request_trace import (
-    RequestTracePolicy,
-    RequestTraceProjection,
-    RequestTraceServices,
-    ResponseTraceController,
-    RouterMessagePreviewPolicy,
-    dump_request_for_trace as write_request_trace,
-    summarize_messages_for_trace as project_messages_for_trace,
     truncate_for_dump as _truncate_for_dump,
+)
+from ciel_runtime_support.router_observability_context import (
+    RequestTraceConfiguration,
+    RequestTracePorts as RouterRequestTracePorts,
+    RouterObservabilityCompatibilityApi,
+    RouterObservabilityContext,
+    RouterPreviewPorts,
+    SseObservabilityPorts,
+    SseTraceConfiguration,
 )
 from ciel_runtime_support.request_shortcuts import (
     ShortcutTextServices,
@@ -1326,12 +1328,6 @@ from ciel_runtime_support.runtime_activity_repository import (
     RuntimeActivityEffects,
     RuntimeActivityPaths,
     RuntimeActivityRepository,
-)
-from ciel_runtime_support.sse_trace import (
-    SseTraceConfig,
-    SseTracePorts,
-    SseTraceRepository,
-    summarize_payload as summarize_sse_payload,
 )
 from ciel_runtime_support import runtime_launch
 from ciel_runtime_support.runtime_launch_context import (
@@ -2408,20 +2404,52 @@ latest_user_is_claude_code_suggestion_mode = (
     _CONVERSATION_TURN_API.latest_user_is_claude_code_suggestion_mode
 )
 
-def router_debug_message_preview_chars(cfg: dict[str, Any] | None = None) -> int:
-    return router_message_preview_policy().configured_chars(cfg)
-
-def router_event_message_preview(body: dict[str, Any], cfg: dict[str, Any] | None = None) -> dict[str, Any]:
-    return router_message_preview_policy().project(body, cfg)
-
-def router_message_preview_policy() -> RouterMessagePreviewPolicy:
-    return RouterMessagePreviewPolicy(
-        os.environ,
-        load_config,
-        positive_int,
-        latest_user_text,
-        redact_sensitive_text,
+def router_observability_context() -> RouterObservabilityContext:
+    return RouterObservabilityContext(
+        preview=RouterPreviewPorts(
+            os.environ, load_config, positive_int, latest_user_text,
+            redact_sensitive_text,
+        ),
+        request_config=RequestTraceConfiguration(
+            REQUEST_DUMP_PATH, RESPONSE_DUMP_PATH, REQUEST_DUMP_MAX_BYTES,
+            RESPONSE_DUMP_MAX_BYTES, RESPONSE_DUMP_TEXT_LIMIT,
+            LOG_LEVELS["TRACE"],
+        ),
+        request=RouterRequestTracePorts(
+            current_log_level, anthropic_content_to_text,
+            anthropic_thinking_block_count,
+            anthropic_tool_continuation_block_count, router_log,
+            USAGE_EVENT_SINK.record, EVENT_BUS.publish,
+        ),
+        sse_config=SseTraceConfiguration(
+            CONFIG_DIR, SSE_LAST_PATH, SSE_TRACE_PATH, TOOL_CALL_LOG_PATH,
+            SSE_TRACE_EVENT_LIMIT, SSE_TRACE_PAYLOAD_LIMIT,
+            SSE_TRACE_MAX_BYTES, LOG_LEVELS["TRACE"],
+        ),
+        sse=SseObservabilityPorts(
+            os.environ, current_log_level, _truncate_for_dump, router_log,
+        ),
     )
+
+_ROUTER_OBSERVABILITY_API = RouterObservabilityCompatibilityApi(
+    router_observability_context
+)
+router_debug_message_preview_chars = _ROUTER_OBSERVABILITY_API.preview_chars
+router_event_message_preview = _ROUTER_OBSERVABILITY_API.event_preview
+router_message_preview_policy = _ROUTER_OBSERVABILITY_API.message_preview_policy
+summarize_messages_for_trace = _ROUTER_OBSERVABILITY_API.summarize_messages
+request_trace_projection = _ROUTER_OBSERVABILITY_API.request_projection
+request_trace_services = _ROUTER_OBSERVABILITY_API.request_services
+dump_request_for_trace = _ROUTER_OBSERVABILITY_API.dump_request
+response_trace_controller = _ROUTER_OBSERVABILITY_API.response_controller
+dump_response_for_trace = _ROUTER_OBSERVABILITY_API.dump_response
+sse_trace_enabled = _ROUTER_OBSERVABILITY_API.sse_enabled
+sse_trace_repository = _ROUTER_OBSERVABILITY_API.sse_repository
+_summarize_sse_payload = _ROUTER_OBSERVABILITY_API.summarize_sse_payload
+make_outgoing_sse_trace = _ROUTER_OBSERVABILITY_API.begin_sse
+record_outgoing_sse_event = _ROUTER_OBSERVABILITY_API.record_sse
+finish_outgoing_sse_trace = _ROUTER_OBSERVABILITY_API.finish_sse
+append_tool_call_log = _ROUTER_OBSERVABILITY_API.append_tool_call
 
 likely_implementation_planning_request = (
     _CONVERSATION_TURN_API.likely_implementation_planning_request
@@ -2517,107 +2545,6 @@ def tool_exposure_policy() -> ToolExposurePolicy:
             router_log,
         )
     )
-
-def summarize_messages_for_trace(messages: Any, max_messages: int = 30) -> list[dict[str, Any]]:
-    return project_messages_for_trace(
-        messages,
-        request_trace_projection(),
-        max_messages=max_messages,
-    )
-
-def request_trace_projection() -> RequestTraceProjection:
-    return RequestTraceProjection(
-        content_to_text=anthropic_content_to_text,
-        thinking_block_count=anthropic_thinking_block_count,
-        tool_continuation_block_count=anthropic_tool_continuation_block_count,
-    )
-
-def request_trace_services() -> RequestTraceServices:
-    return RequestTraceServices(
-        policy=RequestTracePolicy(
-            enabled=lambda: current_log_level() >= LOG_LEVELS["TRACE"],
-            request_path=REQUEST_DUMP_PATH,
-            response_path=RESPONSE_DUMP_PATH,
-            request_max_bytes=REQUEST_DUMP_MAX_BYTES,
-            response_max_bytes=RESPONSE_DUMP_MAX_BYTES,
-            response_text_limit=RESPONSE_DUMP_TEXT_LIMIT,
-        ),
-        projection=request_trace_projection(),
-        log=router_log,
-    )
-
-def dump_request_for_trace(provider: str, path: str, body: dict[str, Any]) -> None:
-    """At TRACE level, append a redacted snapshot of an inbound /v1/messages body
-    (tools list, system prompt summary, message/tool block summary) to requests.jsonl.
-    Used to capture tool definitions Claude Code injects (e.g. EnterPlanMode)."""
-    write_request_trace(provider, path, body, request_trace_services())
-
-def dump_response_for_trace(provider: str, model: str, text_so_far: str, tool_calls: list[dict[str, Any]], stop_reason: str | None, input_tokens: int, output_tokens: int, last_chunk: dict[str, Any] | None = None) -> None:
-    response_trace_controller().write(
-        provider, model, text_so_far, tool_calls, stop_reason,
-        input_tokens, output_tokens,
-        last_chunk=last_chunk,
-    )
-
-def response_trace_controller() -> ResponseTraceController:
-    return ResponseTraceController(
-        USAGE_EVENT_SINK.record,
-        EVENT_BUS.publish,
-        request_trace_services,
-        router_log,
-    )
-
-def sse_trace_enabled() -> bool:
-    value = os.environ.get("CIEL_RUNTIME_SSE_TRACE", "").strip().lower()
-    if value in {"1", "true", "yes", "on", "trace"}:
-        return True
-    return current_log_level() >= LOG_LEVELS["TRACE"]
-
-def sse_trace_repository() -> SseTraceRepository:
-    return SseTraceRepository(
-        SseTraceConfig(
-            CONFIG_DIR,
-            SSE_LAST_PATH,
-            SSE_TRACE_PATH,
-            TOOL_CALL_LOG_PATH,
-            SSE_TRACE_EVENT_LIMIT,
-            SSE_TRACE_PAYLOAD_LIMIT,
-            SSE_TRACE_MAX_BYTES,
-        ),
-        SseTracePorts(sse_trace_enabled, _truncate_for_dump, router_log),
-    )
-
-def _summarize_sse_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    return summarize_sse_payload(payload, _truncate_for_dump)
-
-def make_outgoing_sse_trace(provider: str, model: str, source: str, source_body: dict[str, Any] | None = None) -> dict[str, Any]:
-    return sse_trace_repository().begin(provider, model, source, source_body)
-
-def record_outgoing_sse_event(trace: dict[str, Any] | None, event_name: str, payload: dict[str, Any]) -> None:
-    sse_trace_repository().record(trace, event_name, payload)
-
-def finish_outgoing_sse_trace(
-    trace: dict[str, Any] | None,
-    *,
-    outcome: str,
-    text_len: int = 0,
-    tool_call_count: int = 0,
-    chunks: int = 0,
-    stop_reason: str | None = None,
-    error: str | None = None,
-) -> None:
-    sse_trace_repository().finish_stream(
-        trace,
-        outcome=outcome,
-        text_len=text_len,
-        tool_call_count=tool_call_count,
-        chunks=chunks,
-        stop_reason=stop_reason,
-        error=error,
-    )
-
-def append_tool_call_log(event: str, payload: dict[str, Any]) -> None:
-    sse_trace_repository().append_tool_call(event, payload)
 
 def model_cache_key(provider: str, pcfg: dict[str, Any]) -> str:
     api_count = provider_api_key_count(provider, pcfg)
