@@ -3772,19 +3772,10 @@ def import_session_response_text(client_runtime: str, body: dict[str, Any]) -> s
     ).response_text(client_runtime, body)
 
 def import_session_http_controller() -> ImportSessionHttpController:
-    return ImportSessionHttpController(
-        ImportSessionHttpPorts(
-            is_request=is_import_session_request,
-            response_text=import_session_response_text,
-            load_config=load_config,
-            current_alias=current_alias,
-            current_provider=get_current_provider,
-            estimate_tokens=estimate_tokens,
-            write_openai=write_openai_responses_response,
-            write_anthropic=write_anthropic_text_response,
-            publish_event=EVENT_BUS.publish,
-        )
-    )
+    return ImportSessionHttpController(ImportSessionHttpPorts(
+        is_import_session_request, import_session_response_text, load_config, current_alias, get_current_provider, estimate_tokens,
+        write_openai_responses_response, write_anthropic_text_response, EVENT_BUS.publish,
+    ))
 
 def maybe_handle_import_session_request(
     handler: BaseHTTPRequestHandler,
@@ -3803,59 +3794,24 @@ def maybe_handle_import_session_request(
     )
 
 def advisor_shortcut_controller() -> AdvisorShortcutController:
-    return AdvisorShortcutController(
-        AdvisorShortcutPorts(
-            should_intercept=advisor_shortcut_intercept_enabled,
-            is_request=is_advisor_request,
-            provider_supported=advisor_provider_supported,
-            call_text=call_advisor_text,
-            write_anthropic=write_anthropic_text_response,
-            load_config=load_config,
-            current_alias=current_alias,
-        )
-    )
+    return AdvisorShortcutController(AdvisorShortcutPorts(
+        advisor_shortcut_intercept_enabled, is_advisor_request, advisor_provider_supported, call_advisor_text, write_anthropic_text_response,
+        load_config, current_alias,
+    ))
 
 def maybe_handle_advisor_request(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> bool:
     return advisor_shortcut_controller().handle(handler, provider, pcfg, body)
 
 def router_shortcut_controller() -> RouterShortcutController:
     return RouterShortcutController(
-        response=ShortcutResponsePorts(
-            load_config=load_config,
-            current_alias=current_alias,
-            current_provider=get_current_provider,
-            write_anthropic=write_anthropic_text_response,
-            publish_event=EVENT_BUS.publish,
-        ),
-        predicates=ShortcutPredicates(
-            router_debug=is_router_debug_request,
-            version=is_version_request,
-            channel_clear=is_channel_clear_request,
-            live_llm_options=is_live_llm_options_request,
-            live_api_keys=is_live_api_keys_request,
-        ),
-        debug=RouterDebugShortcutPorts(
-            value=router_debug_value_from_body,
-            external_enabled=router_debug_external_access_enabled,
-            bind_host=router_bind_host,
-            set_external=set_router_debug_external_access_config,
-            schedule_restart=schedule_router_process_restart,
-            version=VERSION,
-            source_fingerprint=SOURCE_FINGERPRINT,
-            config_dir=CONFIG_DIR,
-        ),
-        channel=ChannelShortcutPorts(
-            value=channel_clear_value_from_body,
-            clear=clear_channel_backlog,
-            status=channel_backlog_status,
-        ),
-        live=LiveConfigShortcutPorts(
-            llm_value=live_llm_options_value_from_body,
-            handle_llm=handle_live_llm_options_action,
-            api_key_value=live_api_keys_value_from_body,
-            handle_api_keys=handle_live_api_keys_action,
-            api_key_count=provider_api_key_count,
-        ),
+        response=ShortcutResponsePorts(load_config, current_alias, get_current_provider, write_anthropic_text_response, EVENT_BUS.publish),
+        predicates=ShortcutPredicates(is_router_debug_request, is_version_request, is_channel_clear_request, is_live_llm_options_request,
+                                      is_live_api_keys_request),
+        debug=RouterDebugShortcutPorts(router_debug_value_from_body, router_debug_external_access_enabled, router_bind_host,
+                                       set_router_debug_external_access_config, schedule_router_process_restart, VERSION, SOURCE_FINGERPRINT, CONFIG_DIR),
+        channel=ChannelShortcutPorts(channel_clear_value_from_body, clear_channel_backlog, channel_backlog_status),
+        live=LiveConfigShortcutPorts(live_llm_options_value_from_body, handle_live_llm_options_action, live_api_keys_value_from_body,
+                                    handle_live_api_keys_action, provider_api_key_count),
     )
 
 def maybe_handle_router_debug_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool: return router_shortcut_controller().handle_router_debug(handler, body)
@@ -3871,15 +3827,7 @@ def maybe_handle_live_llm_options_request(handler: BaseHTTPRequestHandler, body:
 def live_api_key_status_lines(provider: str, pcfg: dict[str, Any]) -> list[str]: return live_api_key_controller().status(provider, pcfg)
 
 def live_api_key_controller() -> LiveApiKeyController:
-    return LiveApiKeyController(
-        LiveApiKeyPorts(
-            load_config=load_config,
-            current_provider=get_current_provider,
-            status_line=api_key_status_line,
-            stored_mask=stored_api_key_mask,
-            store_input=store_api_key_input_config,
-        )
-    )
+    return LiveApiKeyController(LiveApiKeyPorts(load_config, get_current_provider, api_key_status_line, stored_api_key_mask, store_api_key_input_config))
 
 def handle_live_api_keys_action(value: str) -> tuple[list[str], bool]: return live_api_key_controller().handle(value)
 
@@ -4035,34 +3983,17 @@ collect_provider_message_for_responses = _RESPONSE_COLLECTION_API.collect
 
 def codex_backend_context() -> CodexBackendContext:
     return CodexBackendContext(
-        channel=CodexBackendChannelPorts(
-            openai_responses_to_anthropic_messages,
-            body_with_pending_channel_messages,
-            body_with_channel_tool_result_context,
-            anthropic_content_to_text, begin_pending_channel_delivery,
-            mark_pending_channel_delivery_success,
-            commit_pending_channel_delivery_cursors,
-        ),
-        transport=CodexBackendTransportPorts(
-            CODEX_ROUTED_UPSTREAM_BASE, with_upstream_user_agent,
-            provider_urlopen, provider_request_timeout_seconds,
-            read_codex_response_preamble, upstream_retry_wait_seconds,
-            router_log, EVENT_BUS.publish, time.sleep, os.environ.get,
-        ),
-        provider_projection=ProviderPassthroughProjectionPorts(
-            provider_headers,
-            lambda *args, **kwargs: provider_chat_headers(*args, **kwargs),
-            lambda *args, **kwargs: provider_responses_headers(*args, **kwargs),
-            provider_upstream_model, resolve_requested_model,
-            apply_provider_adapter_request_policy,
-        ),
-        provider_transport=ProviderPassthroughTransportPorts(
-            provider_upstream_request_base, join_url, provider_urlopen,
-            provider_request_timeout_seconds,
-            lambda *args, **kwargs: _copy_upstream_response_headers(
-                *args, **kwargs
-            ),
-        ),
+        channel=CodexBackendChannelPorts(openai_responses_to_anthropic_messages, body_with_pending_channel_messages,
+                                         body_with_channel_tool_result_context, anthropic_content_to_text, begin_pending_channel_delivery,
+                                         mark_pending_channel_delivery_success, commit_pending_channel_delivery_cursors),
+        transport=CodexBackendTransportPorts(CODEX_ROUTED_UPSTREAM_BASE, with_upstream_user_agent, provider_urlopen, provider_request_timeout_seconds,
+                                             read_codex_response_preamble, upstream_retry_wait_seconds, router_log, EVENT_BUS.publish, time.sleep, os.environ.get),
+        provider_projection=ProviderPassthroughProjectionPorts(provider_headers, lambda *args, **kwargs: provider_chat_headers(*args, **kwargs),
+                                                               lambda *args, **kwargs: provider_responses_headers(*args, **kwargs),
+                                                               provider_upstream_model, resolve_requested_model, apply_provider_adapter_request_policy),
+        provider_transport=ProviderPassthroughTransportPorts(provider_upstream_request_base, join_url, provider_urlopen,
+                                                             provider_request_timeout_seconds,
+                                                             lambda *args, **kwargs: _copy_upstream_response_headers(*args, **kwargs)),
     )
 
 _CODEX_BACKEND_API = CodexBackendCompatibilityApi(codex_backend_context)
