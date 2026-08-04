@@ -1387,30 +1387,14 @@ write_model_registry = _MODEL_REGISTRY_API.write_registry
 read_model_list_cache = _MODEL_REGISTRY_API.read_list_cache
 read_model_info_cache = _MODEL_REGISTRY_API.read_info_cache
 write_model_list_cache = _MODEL_REGISTRY_API.write_list_cache
-_PROVIDER_CATALOG_SOURCES = (
-    provider_catalog_sources.build_default_provider_catalog_source_service(
-        projection=provider_catalog_sources.ModelCatalogProjectionPorts(
-            normalize_model_id=normalize_model_id,
-            model_context=lambda item: model_context_field(item),
-            positive_int=positive_int,
-            provider_metadata=lambda provider: PROVIDER_ADAPTERS.create(
-                provider
-            ).project_model_metadata,
-        ),
-        http=provider_catalog_sources.ProviderCatalogHttpPorts(
-            http_json=lambda *args, **kwargs: http_json(*args, **kwargs),
-            join_url=join_url,
-            upstream_base=lambda provider, pcfg: provider_upstream_request_base(
-                provider, pcfg
-            ),
-            request_headers=lambda: with_upstream_user_agent(),
-            urlopen=lambda *args, **kwargs: urllib.request.urlopen(*args, **kwargs),
-        ),
-        policy=provider_catalog_sources.ProviderCatalogPolicyPorts(
-            unique_model_ids=unique_model_ids,
-            log=lambda level, message: router_log(level, message),
-        ),
-    )
+_PROVIDER_CATALOG_SOURCES = provider_catalog_sources.build_default_provider_catalog_source_service(
+    projection=provider_catalog_sources.ModelCatalogProjectionPorts(normalize_model_id, lambda item: model_context_field(item), positive_int,
+                                                                      lambda provider: PROVIDER_ADAPTERS.create(provider).project_model_metadata),
+    http=provider_catalog_sources.ProviderCatalogHttpPorts(lambda *args, **kwargs: http_json(*args, **kwargs), join_url,
+                                                            lambda provider, pcfg: provider_upstream_request_base(provider, pcfg),
+                                                            lambda: with_upstream_user_agent(),
+                                                            lambda *args, **kwargs: urllib.request.urlopen(*args, **kwargs)),
+    policy=provider_catalog_sources.ProviderCatalogPolicyPorts(unique_model_ids, lambda level, message: router_log(level, message)),
 )
 model_ids_from_response = _PROVIDER_CATALOG_SOURCES.model_ids_from_response
 model_info_from_response = _PROVIDER_CATALOG_SOURCES.model_info_from_response
@@ -1426,13 +1410,8 @@ _PROVIDER_ENDPOINT_POLICY = build_default_provider_endpoint_policy(
         normalize_model_id=normalize_model_id,
         strip_context_suffix=strip_claude_context_suffix,
         alias_for=alias_for,
-        select_protocol=lambda provider, pcfg, model_id: configured_provider_adapter(
-            provider, pcfg
-        ).select_protocol(
-            "anthropic_messages",
-            provider_contract_config(provider, pcfg),
-            model_id,
-        ),
+        select_protocol=lambda provider, pcfg, model_id: configured_provider_adapter(provider, pcfg).select_protocol(
+            "anthropic_messages", provider_contract_config(provider, pcfg), model_id),
     ),
 )
 opencode_zen_endpoint_kind = _PROVIDER_ENDPOINT_POLICY.zen_endpoint_kind
@@ -1556,24 +1535,12 @@ ensure_ncp = _NVIDIA_RUNTIME_API.ensure
 ncp_model_id_for_nvidia_hosted = _NVIDIA_RUNTIME_API.model_id
 _PROVIDER_REQUEST_ACCESS = ProviderRequestAccessService(
     ports=ProviderRequestAccessPorts(
-        request_policy=lambda provider, pcfg: provider_request_policy(
-            provider, pcfg
-        ),
-        select_api_key=lambda provider, pcfg: select_provider_api_key(
-            provider, pcfg
-        ),
+        request_policy=lambda provider, pcfg: provider_request_policy(provider, pcfg),
+        select_api_key=lambda provider, pcfg: select_provider_api_key(provider, pcfg),
         meaningful_key=project_meaningful_key_value,
-        adapter_headers=lambda provider, pcfg, key: configured_provider_adapter(
-            provider, pcfg
-        ).build_headers(provider_contract_config(provider, pcfg), key),
-        inbound_credentials=lambda key, inbound: (
-            credential.headers
-            if (
-                credential := resolve_anthropic_credentials(key, inbound)
-            )
-            is not None
-            else None
-        ),
+        adapter_headers=lambda provider, pcfg, key: configured_provider_adapter(provider, pcfg).build_headers(
+            provider_contract_config(provider, pcfg), key),
+        inbound_credentials=lambda key, inbound: credential.headers if (credential := resolve_anthropic_credentials(key, inbound)) is not None else None,
     ),
     effects=ProviderRequestAccessEffects(
         user_agent_headers=with_upstream_user_agent,
@@ -5876,23 +5843,12 @@ subprocess_call_with_child_pid_record = _CHANNEL_TERMINAL_API.call_direct
 _MCP_NOTIFICATION_DEDUP_LOCK = threading.Lock()
 _MCP_NOTIFICATION_DEDUP_RECENT: dict[str, tuple[str, float]] = {}
 _MCP_PROXY_NOTIFICATION_SERVICE = mcp_proxy_notifications.McpProxyNotificationService(
-    projection=mcp_proxy_notifications.McpNotificationProjectionPorts(
-        json_safe_metadata=_json_safe_metadata,
-        event_meta=_event_meta_from_sources,
-        event_text=_event_payload_text,
-        pretty_json=_pretty_json_value,
-        semantic_text=_notification_semantic_text_from_envelope,
-    ),
-    effects=mcp_proxy_notifications.McpNotificationEffects(
-        append_chat_message=lambda payload: append_chat_message(payload),
-        log=lambda level, message: router_log(level, message),
-    ),
-    dedupe=mcp_proxy_notifications.McpNotificationDedupeState(
-        lock=_MCP_NOTIFICATION_DEDUP_LOCK,
-        recent=_MCP_NOTIFICATION_DEDUP_RECENT,
-        ttl_seconds=_MCP_NOTIFICATION_DEDUP_TTL_SECONDS,
-        native_method=_NATIVE_CHANNEL_NOTIFICATION_METHOD,
-    ),
+    projection=mcp_proxy_notifications.McpNotificationProjectionPorts(_json_safe_metadata, _event_meta_from_sources, _event_payload_text,
+                                                                       _pretty_json_value, _notification_semantic_text_from_envelope),
+    effects=mcp_proxy_notifications.McpNotificationEffects(lambda payload: append_chat_message(payload),
+                                                            lambda level, message: router_log(level, message)),
+    dedupe=mcp_proxy_notifications.McpNotificationDedupeState(_MCP_NOTIFICATION_DEDUP_LOCK, _MCP_NOTIFICATION_DEDUP_RECENT,
+                                                              _MCP_NOTIFICATION_DEDUP_TTL_SECONDS, _NATIVE_CHANNEL_NOTIFICATION_METHOD),
 )
 _mcp_proxy_notification_payload = _MCP_PROXY_NOTIFICATION_SERVICE.notification_payload
 _mcp_proxy_stable_event_identity = _MCP_PROXY_NOTIFICATION_SERVICE.stable_event_identity
@@ -5937,12 +5893,8 @@ def _mcp_proxy_streamable_http_request(
     )
 
 _MCP_PROXY_CODEC_POLICY = McpProxyCodecPolicy(
-    default_tool_result_max_chars=MCP_PROXY_TOOL_RESULT_MAX_CHARS_DEFAULT,
-    item_text_chars=MCP_PROXY_TOOL_RESULT_ITEM_TEXT_CHARS,
-    positive_env_int=positive_env_int,
-    router_log=router_log,
-    tool_leaf_name=_mcp_tool_leaf_name,
-    truncate_for_prompt=truncate_for_prompt,
+    MCP_PROXY_TOOL_RESULT_MAX_CHARS_DEFAULT, MCP_PROXY_TOOL_RESULT_ITEM_TEXT_CHARS, positive_env_int, router_log, _mcp_tool_leaf_name,
+    truncate_for_prompt,
 )
 
 def _mcp_proxy_compact_tool_result_response(server_name: str, tool_name: str, payload: dict[str, Any]) -> dict[str, Any]:
