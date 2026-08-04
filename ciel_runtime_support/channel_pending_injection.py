@@ -52,6 +52,7 @@ class ChannelInjectionIO:
 @dataclass(frozen=True, slots=True)
 class ChannelInjectionPolicy:
     wake_batch_limit: Callable[[], int]
+    replay_skip_reason: Callable[[dict[str, Any]], str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +115,14 @@ def inject_pending_channel_messages(
             channel = message.get("channel")
             if web_chat_only and not state.message_is_web_chat(message):
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=not_web_chat")
+                continue
+            replay_skip_reason = services.policy.replay_skip_reason(message)
+            if replay_skip_reason:
+                io.log(
+                    "WARN",
+                    f"channel_stdin_proxy_skipped_noise message_id={message_id} "
+                    f"channel={channel} reason={replay_skip_reason}",
+                )
                 continue
             skip_reason = state.message_skip_reason(message)
             if skip_reason:

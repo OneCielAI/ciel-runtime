@@ -20,6 +20,7 @@ class ChannelRuntimeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual(15.0, policy.probe_timeout_seconds())
         self.assertEqual(500, policy.pending_scan_limit())
         self.assertEqual(8, policy.wake_batch_limit())
+        self.assertEqual(600.0, policy.web_chat_replay_ttl_seconds())
         self.assertEqual(300.0, policy.wake_claim_ttl_seconds())
         self.assertEqual(20.0, policy.unseen_retry_seconds())
         self.assertEqual(180.0, policy.inflight_stale_seconds())
@@ -32,6 +33,7 @@ class ChannelRuntimeEnvironmentPolicyTests(unittest.TestCase):
             {
                 "CIEL_RUNTIME_CHANNEL_PENDING_SCAN_LIMIT": "99999",
                 "CIEL_RUNTIME_CHANNEL_WAKE_BATCH_LIMIT": "0",
+                "CIEL_RUNTIME_WEB_CHAT_REPLAY_TTL_SECONDS": "99999",
                 "CIEL_RUNTIME_CHANNEL_WAKE_CLAIM_TTL_SECONDS": "1",
                 "CIEL_RUNTIME_CHANNEL_WAKE_UNSEEN_RETRY_SECONDS": "999",
                 "CIEL_RUNTIME_CHANNEL_WAKE_INFLIGHT_STALE_SECONDS": "10",
@@ -41,6 +43,7 @@ class ChannelRuntimeEnvironmentPolicyTests(unittest.TestCase):
 
         self.assertEqual(5000, policy.pending_scan_limit())
         self.assertEqual(1, policy.wake_batch_limit())
+        self.assertEqual(3600.0, policy.web_chat_replay_ttl_seconds())
         self.assertEqual(5.0, policy.wake_claim_ttl_seconds())
         self.assertEqual(300.0, policy.unseen_retry_seconds())
         self.assertEqual(30.0, policy.inflight_stale_seconds())

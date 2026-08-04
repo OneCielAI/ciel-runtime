@@ -26,6 +26,7 @@ from .channel_pending_injection import (
     ChannelInjectionWakeStore,
     inject_pending_channel_messages,
 )
+from .channel_replay_policy import ChannelReplaySafetyPolicy
 from .channel_transcript import (
     ChannelWakeStateReader,
     ChannelWakeStateReaderPorts,
@@ -142,11 +143,19 @@ class ChannelPendingIoPorts:
     inject_lock: Any
     read_messages: Callable[..., list[dict[str, Any]]]
     write_prompt: Callable[..., None]
-    wake_batch_limit: Callable[[], int]
     compact_read: Callable[[], dict[str, Any] | None]
     compact_clear: Callable[[], None]
     messages_path: Path
     log: Callable[[str, str], None]
+
+
+@dataclass(frozen=True, slots=True)
+class ChannelPendingPolicyPorts:
+    wake_batch_limit: Callable[[], int]
+    now: Callable[[], float]
+    replay_ttl_seconds: Callable[[], float]
+    timestamp_seconds: Callable[[dict[str, Any]], float | None]
+    is_web_chat: Callable[[dict[str, Any]], bool]
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +169,7 @@ class ChannelWakeContext:
     pending_state: ChannelPendingStatePorts
     pending_delivery: ChannelPendingDeliveryPorts
     pending_io: ChannelPendingIoPorts
+    pending_policy: ChannelPendingPolicyPorts
 
     def claim_repository(self) -> ChannelWakeClaimRepository:
         return ChannelWakeClaimRepository(
@@ -468,7 +478,13 @@ class ChannelWakeContext:
                 log=self.pending_io.log,
             ),
             policy=ChannelInjectionPolicy(
-                wake_batch_limit=self.pending_io.wake_batch_limit
+                wake_batch_limit=self.pending_policy.wake_batch_limit,
+                replay_skip_reason=ChannelReplaySafetyPolicy(
+                    self.pending_policy.now,
+                    self.pending_policy.replay_ttl_seconds,
+                    self.pending_policy.timestamp_seconds,
+                    self.pending_policy.is_web_chat,
+                ).skip_reason,
             ),
         )
 

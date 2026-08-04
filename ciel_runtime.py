@@ -181,7 +181,7 @@ from ciel_runtime_support.channel_wake_claim_repository import prompt_message_id
 from ciel_runtime_support.channel_wake_claim_repository import \
     prompt_references_message_id as analyze_prompt_message_reference
 from ciel_runtime_support.channel_wake_context import (ChannelPendingDeliveryPorts, ChannelPendingIoPorts,
-                                                       ChannelPendingStatePorts, ChannelTranscriptPolicyPorts,
+                                                       ChannelPendingPolicyPorts, ChannelPendingStatePorts, ChannelTranscriptPolicyPorts,
                                                        ChannelTranscriptPorts, ChannelWakeClaimPorts,
                                                        ChannelWakeContext, ChannelWakeCursorPorts,
                                                        ChannelWakeInputPorts, ChannelWakeMessagePorts)
@@ -7057,10 +7057,10 @@ def channel_wake_context() -> ChannelWakeContext:
         ),
         pending_io=ChannelPendingIoPorts(
             _CHANNEL_STDIN_INJECT_LOCK, read_chat_messages,
-            _write_channel_wake_prompt, _channel_stdin_wake_batch_limit,
+            _write_channel_wake_prompt,
             _read_channel_compact_request, _clear_channel_compact_request,
             CHAT_MESSAGES_PATH, router_log,
-        ),
+        ), pending_policy=ChannelPendingPolicyPorts(_channel_stdin_wake_batch_limit, time.time, lambda: channel_runtime_environment_policy().web_chat_replay_ttl_seconds(), lambda message: channel_message_repository().timestamp_seconds(message), _channel_message_is_web_chat_request),
     )
 
 def channel_wake_claim_repository() -> ChannelWakeClaimRepository: return channel_wake_context().claim_repository()

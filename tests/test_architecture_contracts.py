@@ -304,6 +304,7 @@ from ciel_runtime_support.channel_delivery_context import (
 from ciel_runtime_support.channel_wake_context import (
     ChannelPendingDeliveryPorts,
     ChannelPendingIoPorts,
+    ChannelPendingPolicyPorts,
     ChannelPendingStatePorts,
     ChannelTranscriptPolicyPorts,
     ChannelTranscriptPorts,
@@ -5896,6 +5897,7 @@ class ArchitectureContractTests(unittest.TestCase):
             ChannelPendingStatePorts,
             ChannelPendingDeliveryPorts,
             ChannelPendingIoPorts,
+            ChannelPendingPolicyPorts,
             ChannelWakeClaimPorts,
             ChannelWakeMessagePorts,
             ChannelWakeCursorPorts,
@@ -5905,7 +5907,7 @@ class ArchitectureContractTests(unittest.TestCase):
         ):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
-        self.assertEqual(9, len(fields(ChannelWakeContext)))
+        self.assertEqual(10, len(fields(ChannelWakeContext)))
         source = (
             Path(__file__).resolve().parents[1]
             / "ciel_runtime_support"

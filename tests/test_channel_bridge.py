@@ -507,7 +507,7 @@ class ChannelBridgeTests(unittest.TestCase):
             root = Path(td)
             path = root / "chat-messages.jsonl"
             cursor_path = root / "channel-llm-cursor.json"
-            old_time = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - 3600))
+            old_time = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(time.time() - 3600))
             path.write_text(
                 "\n".join(json.dumps({"id": item_id, "time": old_time, "message": f"old-{item_id}"}) for item_id in (1, 2, 3)) + "\n",
                 encoding="utf-8",
@@ -2092,6 +2092,51 @@ class ChannelBridgeTests(unittest.TestCase):
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("reason=not_web_chat" in item and "message_id=2" in item for item in log_messages))
 
+    def test_inject_pending_channel_messages_never_replays_expired_web_command(self):
+        now = time.time()
+        messages = [
+            {
+                "id": 121,
+                "time": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(now - 7 * 86400)),
+                "channel": "web-chat-session",
+                "sender_id": "web-user",
+                "message": "dangerous old command",
+                "kind": "web_chat",
+                "meta": {"source": "ciel-runtime-web-chat"},
+            },
+            {
+                "id": 166,
+                "created_at_epoch": now,
+                "channel": "web-chat-session",
+                "sender_id": "web-user",
+                "message": "safe recent command",
+                "kind": "web_chat",
+                "meta": {"source": "ciel-runtime-web-chat"},
+            },
+        ]
+        with (
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "_channel_platform_default_enter_bytes", return_value=b"\r\n"),
+            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+            mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
+        ):
+            last_id = ciel_runtime._inject_pending_channel_messages(
+                99, 3, web_chat_only=True
+            )
+
+        self.assertEqual(166, last_id)
+        payload = write_all.call_args_list[0].args[1]
+        self.assertNotIn(b"dangerous old command", payload)
+        self.assertIn(b"safe recent command", payload)
+        log_messages = [str(call.args[1]) for call in router_log.call_args_list]
+        self.assertTrue(
+            any(
+                "message_id=121" in item and "reason=stale_web_chat_replay" in item
+                for item in log_messages
+            )
+        )
+
     def test_inject_pending_channel_messages_claims_before_terminal_write(self):
         messages = [
             {
@@ -3393,8 +3438,8 @@ class ChannelBridgeTests(unittest.TestCase):
             clear_floor_path = root / "channel-llm-clear-floor.json"
             guard_path = root / "channel-llm-launch-guard.json"
             now = time.time()
-            old_time = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now - 3600))
-            recent_time = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now - 30))
+            old_time = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(now - 3600))
+            recent_time = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(now - 30))
             chat_path.write_text(
                 json.dumps({"id": 10, "time": old_time, "channel": "room", "message": "old"}, ensure_ascii=False) + "\n"
                 + json.dumps({"id": 11, "time": recent_time, "channel": "room", "message": "recent"}, ensure_ascii=False) + "\n",
@@ -3425,7 +3470,7 @@ class ChannelBridgeTests(unittest.TestCase):
             cursor_path = root / "channel-llm-cursor.json"
             clear_floor_path = root / "channel-llm-clear-floor.json"
             guard_path = root / "channel-llm-launch-guard.json"
-            recent_time = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time()))
+            recent_time = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(time.time()))
             chat_path.write_text(
                 json.dumps({"id": 12, "time": recent_time, "channel": "room", "message": "recent"}, ensure_ascii=False) + "\n",
                 encoding="utf-8",

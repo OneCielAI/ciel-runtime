@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime
 import json
 from dataclasses import dataclass
 import os
@@ -65,9 +65,11 @@ class ChannelMessageRepository:
                 if self.path.exists() and self.path.stat().st_size > self.max_bytes:
                     self.path.replace(self.path.with_suffix(".jsonl.1"))
                 next_id = previous_max_id + 1
+                created_at = time.time()
                 message = {
                     "id": next_id,
-                    "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "time": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(created_at)),
+                    "created_at_epoch": created_at,
                     "channel": str(payload.get("channel") or "default"),
                     "sender_id": str(payload.get("sender_id") or payload.get("sender") or "anonymous"),
                     "recipients": ports.normalize_recipients(
@@ -100,6 +102,12 @@ class ChannelMessageRepository:
 
     @staticmethod
     def timestamp_seconds(item: dict[str, Any]) -> float | None:
+        raw_epoch = item.get("created_at_epoch")
+        if raw_epoch is not None:
+            try:
+                return float(raw_epoch)
+            except (TypeError, ValueError):
+                pass
         raw = item.get("time") or item.get("created_at") or item.get("updated_at")
         if not raw:
             return None
@@ -113,7 +121,10 @@ class ChannelMessageRepository:
         except (TypeError, ValueError):
             return None
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
+            # Historical messages were written with time.strftime(), i.e. in
+            # the machine's local timezone.  Treating those values as UTC can
+            # move the replay boundary by several hours.
+            return parsed.timestamp()
         return parsed.timestamp()
 
     def _jsonl_items(self, operation: str) -> list[dict[str, Any]]:

@@ -55,6 +55,14 @@ class ChannelRuntimeEnvironmentPolicy:
             maximum=50,
         )
 
+    def web_chat_replay_ttl_seconds(self) -> float:
+        return self._bounded_float(
+            self.environment.get("CIEL_RUNTIME_WEB_CHAT_REPLAY_TTL_SECONDS"),
+            default=600.0,
+            minimum=30.0,
+            maximum=3600.0,
+        )
+
     def wake_claim_ttl_seconds(self) -> float:
         return self._bounded_float(
             self.environment.get(
