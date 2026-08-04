@@ -363,6 +363,7 @@ from ciel_runtime_support.model_registry_repository import (
 from ciel_runtime_support.provider_model_catalog_context import (
     ProviderModelCachePorts,
     ProviderModelCatalogCompatibilityApi,
+    ProviderModelCatalogCompatibilityPorts,
     ProviderModelCatalogContext,
     ProviderModelRegistryConfig,
     ProviderModelRegistryPorts,
@@ -1967,6 +1968,10 @@ def provider_model_catalog_context() -> ProviderModelCatalogContext:
         cache=ProviderModelCachePorts(
             invalidate_config_cache, upstream_model_ids,
             ollama_catalog_model_ids, sorted_model_ids,
+        ),
+        compatibility=ProviderModelCatalogCompatibilityPorts(
+            lambda *args, **kwargs: read_model_list_cache(*args, **kwargs),
+            lambda *args, **kwargs: read_model_registry_models(*args, **kwargs),
         ),
     )
 

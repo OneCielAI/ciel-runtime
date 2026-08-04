@@ -891,6 +891,7 @@ from ciel_runtime_support.provider_model_metadata_context import (
 )
 from ciel_runtime_support.provider_model_catalog_context import (
     ProviderModelCachePorts,
+    ProviderModelCatalogCompatibilityPorts,
     ProviderModelCatalogContext,
     ProviderModelRegistryConfig,
     ProviderModelRegistryPorts,
@@ -2969,6 +2970,7 @@ class ArchitectureContractTests(unittest.TestCase):
             ProviderModelRegistryConfig,
             ProviderModelRegistryPorts,
             ProviderModelCachePorts,
+            ProviderModelCatalogCompatibilityPorts,
             ProviderModelCatalogContext,
         ):
             with self.subTest(port=port.__name__):

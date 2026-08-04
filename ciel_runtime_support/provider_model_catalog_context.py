@@ -45,10 +45,17 @@ class ProviderModelCachePorts:
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderModelCatalogCompatibilityPorts:
+    read_list_cache: Callable[..., list[str] | None]
+    read_registry_models: Callable[..., list[str] | None]
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderModelCatalogContext:
     config: ProviderModelRegistryConfig
     registry: ProviderModelRegistryPorts
     cache: ProviderModelCachePorts
+    compatibility: ProviderModelCatalogCompatibilityPorts
 
     def registry_repository(self) -> ModelRegistryRepository:
         return ModelRegistryRepository(
@@ -69,7 +76,6 @@ class ProviderModelCatalogContext:
         )
 
     def lifecycle_service(self) -> ModelCacheLifecycleService:
-        repository = self.registry_repository()
         return ModelCacheLifecycleService(
             ModelCacheLifecyclePorts(
                 invalidate_config=self.cache.invalidate_config,
@@ -78,8 +84,8 @@ class ProviderModelCatalogContext:
                     self.config.list_cache_path,
                     self.config.registry_path,
                 ),
-                read_list_cache=repository.read_list_cache,
-                read_registry_models=repository.read_registry_models,
+                read_list_cache=self.compatibility.read_list_cache,
+                read_registry_models=self.compatibility.read_registry_models,
                 upstream_model_ids=self.cache.upstream_model_ids,
                 catalog_model_ids=self.cache.catalog_model_ids,
                 normalize_model_id=self.registry.normalize_id,
@@ -123,6 +129,7 @@ class ProviderModelCatalogCompatibilityApi:
 
 __all__ = [
     "ProviderModelCachePorts",
+    "ProviderModelCatalogCompatibilityPorts",
     "ProviderModelCatalogCompatibilityApi",
     "ProviderModelCatalogContext",
     "ProviderModelRegistryConfig",
