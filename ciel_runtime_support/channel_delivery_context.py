@@ -200,6 +200,12 @@ class ChannelDeliveryContext:
             target = self.launch.scan_max_before_epoch(
                 self.cursor.now() - recent_seconds
             )
+        # The stale cutoff is a durable safety boundary, not merely a startup
+        # cursor optimization.  Transcript recovery may legitimately rewind a
+        # cursor for a recently queued command that was not completed before a
+        # crash, but it must never reopen commands older than this launch's
+        # replay window.
+        self.write_clear_floor(max(self.read_clear_floor(), target))
         last_id = self.reset_cursor(max(current, target))
         self.launch.write_launch_guard(last_id)
         self.cursor.log(

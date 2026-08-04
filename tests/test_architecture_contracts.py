@@ -113,6 +113,9 @@ from ciel_runtime_support.llm_preset_context import (
     LlmPresetCatalog,
     LlmPresetCompatibilityApi,
     LlmPresetContext,
+    LlmPresetContextPolicyPorts,
+    LlmPresetDefinitionPorts,
+    LlmPresetMutationPorts,
     LlmPresetQueries,
 )
 from ciel_runtime_support.model_context_hints import ModelContextHintPorts
@@ -984,11 +987,18 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(ContextSetupPorts)), 10)
 
     def test_llm_preset_context_uses_bounded_typed_ports(self):
-        self.assertEqual(3, len(fields(LlmPresetContext)))
+        self.assertEqual(6, len(fields(LlmPresetContext)))
         self.assertEqual(1, len(fields(LlmPresetCompatibilityApi)))
         for port in (LlmPresetAlgorithms, LlmPresetCatalog, LlmPresetQueries):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 7)
+        for port in (
+            LlmPresetDefinitionPorts,
+            LlmPresetContextPolicyPorts,
+            LlmPresetMutationPorts,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
 
     def test_provider_model_spec_ports_stay_below_dependency_limit(self):
         for port in (
@@ -5133,7 +5143,6 @@ class ArchitectureContractTests(unittest.TestCase):
             "serve": "run",
             "provider_wire_profile": "resolve_provider_wire_profile",
             "normalize_request_for_provider_wire": "normalize_provider_request",
-            "apply_llm_preset_to_provider": "apply_preset_to_provider",
             "portable_prelaunch_menu": "execute_prelaunch_menu",
             "launch_claude": "run_claude",
             "launch_codex": "run_codex",

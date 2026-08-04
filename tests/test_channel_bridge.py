@@ -1535,6 +1535,7 @@ class ChannelBridgeTests(unittest.TestCase):
 
     def test_windows_channel_wake_proxy_uses_console_input_writer(self):
         with (
+            mock.patch.object(ciel_runtime, "prepare_channel_llm_delivery_for_launch") as prepare_delivery,
             mock.patch.object(ciel_runtime.os, "name", "nt"),
             mock.patch.object(ciel_runtime.sys.stdin, "isatty", return_value=False),
             mock.patch.object(ciel_runtime.sys.stdout, "isatty", return_value=False),
@@ -1554,6 +1555,7 @@ class ChannelBridgeTests(unittest.TestCase):
             )
 
         self.assertEqual(77, rc)
+        prepare_delivery.assert_called_once_with()
         direct.assert_not_called()
         proxy.assert_called_once()
         kwargs = proxy.call_args.kwargs
@@ -3388,6 +3390,7 @@ class ChannelBridgeTests(unittest.TestCase):
             root = Path(td)
             chat_path = root / "chat-messages.jsonl"
             cursor_path = root / "channel-llm-cursor.json"
+            clear_floor_path = root / "channel-llm-clear-floor.json"
             guard_path = root / "channel-llm-launch-guard.json"
             now = time.time()
             old_time = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now - 3600))
@@ -3404,11 +3407,13 @@ class ChannelBridgeTests(unittest.TestCase):
                 with (
                     mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", chat_path),
                     mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", cursor_path),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_CLEAR_FLOOR_PATH", clear_floor_path),
                     mock.patch.object(ciel_runtime, "CHANNEL_LLM_LAUNCH_GUARD_PATH", guard_path),
                     mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_LAUNCH_RECENT_SECONDS": "600"}, clear=False),
                 ):
                     self.assertEqual(10, ciel_runtime.prepare_channel_llm_delivery_for_launch())
                 self.assertEqual({"last_id": 10}, json.loads(cursor_path.read_text(encoding="utf-8")))
+                self.assertEqual(10, json.loads(clear_floor_path.read_text(encoding="utf-8"))["last_id"])
                 self.assertEqual(10, json.loads(guard_path.read_text(encoding="utf-8"))["max_existing_id"])
             finally:
                 ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = original_cursor
@@ -3418,6 +3423,7 @@ class ChannelBridgeTests(unittest.TestCase):
             root = Path(td)
             chat_path = root / "chat-messages.jsonl"
             cursor_path = root / "channel-llm-cursor.json"
+            clear_floor_path = root / "channel-llm-clear-floor.json"
             guard_path = root / "channel-llm-launch-guard.json"
             recent_time = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time()))
             chat_path.write_text(
@@ -3431,11 +3437,13 @@ class ChannelBridgeTests(unittest.TestCase):
                 with (
                     mock.patch.object(ciel_runtime, "CHAT_MESSAGES_PATH", chat_path),
                     mock.patch.object(ciel_runtime, "CHANNEL_LLM_CURSOR_PATH", cursor_path),
+                    mock.patch.object(ciel_runtime, "CHANNEL_LLM_CLEAR_FLOOR_PATH", clear_floor_path),
                     mock.patch.object(ciel_runtime, "CHANNEL_LLM_LAUNCH_GUARD_PATH", guard_path),
                     mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHANNEL_LAUNCH_RECENT_SECONDS": "0"}, clear=False),
                 ):
                     self.assertEqual(12, ciel_runtime.prepare_channel_llm_delivery_for_launch())
                 self.assertEqual({"last_id": 12}, json.loads(cursor_path.read_text(encoding="utf-8")))
+                self.assertEqual(12, json.loads(clear_floor_path.read_text(encoding="utf-8"))["last_id"])
             finally:
                 ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = original_cursor
 

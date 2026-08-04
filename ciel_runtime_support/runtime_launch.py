@@ -160,7 +160,6 @@ class ClaudeLaunchChannelDelivery:
     claude_channel_args: Callable[..., Any]
     native_channel_passthrough_requested: Callable[..., Any]
     normalize_channel_passthrough: Callable[..., Any]
-    prepare_channel_llm_delivery_for_launch: Callable[..., Any]
     should_launch_process_start_channel_sse: Callable[..., Any]
     should_use_channel_llm_delivery: Callable[..., Any]
     should_use_channel_stdin_proxy: Callable[..., Any]
@@ -255,7 +254,6 @@ def run_claude(
     native_channel_passthrough_requested = services.channel_delivery.native_channel_passthrough_requested
     normalize_channel_passthrough = services.channel_delivery.normalize_channel_passthrough
     path_with_ciel_runtime_user_dirs = services.process.path_with_ciel_runtime_user_dirs
-    prepare_channel_llm_delivery_for_launch = services.channel_delivery.prepare_channel_llm_delivery_for_launch
     print_routed_claude_exit_diagnostics = services.process.print_routed_claude_exit_diagnostics
     provider_menu_label = services.config.provider_menu_label
     read_channel_probe_cache = services.channel_discovery.read_channel_probe_cache
@@ -513,8 +511,6 @@ def run_claude(
             mcp_config_paths.extend(native_direct_mcp_config_paths)
             claude_passthrough = strip_mcp_config_passthrough(launch_passthrough)
     elif stdin_channel_proxy or llm_channel_delivery or native_auto_channel_specs:
-        if llm_channel_delivery:
-            prepare_channel_llm_delivery_for_launch()
         if should_launch_process_start_channel_sse(stdin_channel_proxy, native_channel_bridge, llm_channel_delivery):
             auto_start_sse_channels_from_mcp_configs(
                 launch_passthrough,

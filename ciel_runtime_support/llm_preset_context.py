@@ -7,6 +7,7 @@ import re
 from typing import Any, Callable, Mapping
 
 from .architecture import ProviderContextPolicy
+from . import llm_presets
 from .llm_presets import PresetIdentityPolicy
 
 
@@ -37,10 +38,47 @@ class LlmPresetAlgorithms:
 
 
 @dataclass(frozen=True, slots=True)
+class LlmPresetDefinitionPorts:
+    context_heavy_presets: set[str] | frozenset[str]
+    llm_presets: Mapping[str, tuple[str, str]]
+    preset_text: Callable[..., tuple[str, str]]
+    load_config: Callable[[], dict[str, Any]]
+    family_text: Callable[..., str]
+    model_family: Callable[[str, dict[str, Any]], str]
+    positive_int: Callable[[Any], int | None]
+    required_context: Callable[[str, str | None], int | None]
+    ui_text: Callable[[str, str | None], str]
+
+
+@dataclass(frozen=True, slots=True)
+class LlmPresetContextPolicyPorts:
+    lm_studio_guard: Callable[..., list[str]]
+    ollama_output_guard: Callable[..., list[str]]
+    recommended_timeout: Callable[..., list[str]]
+    cap_context: Callable[..., list[str]]
+    cap_output: Callable[..., list[str]]
+    ollama_context_status: Callable[..., str]
+    model_capacity: Callable[..., int | None]
+    sync_ollama_context: Callable[..., list[str]]
+    upstream_context_limit: Callable[..., int | None]
+    timeout_tokens: Callable[..., list[str]]
+
+
+@dataclass(frozen=True, slots=True)
+class LlmPresetMutationPorts:
+    apply_ollama_option: Callable[..., list[str]]
+    apply_provider_option: Callable[..., list[str]]
+    ollama_options: Callable[[dict[str, Any]], dict[str, Any]]
+
+
+@dataclass(frozen=True, slots=True)
 class LlmPresetContext:
     catalog: LlmPresetCatalog
     queries: LlmPresetQueries
     algorithms: LlmPresetAlgorithms
+    definition: LlmPresetDefinitionPorts
+    policy: LlmPresetContextPolicyPorts
+    mutation: LlmPresetMutationPorts
 
     def model_family(self, provider: str, config: dict[str, Any]) -> str:
         return self.algorithms.classify_family(
@@ -166,6 +204,55 @@ Apply the ciel-runtime live LLM preset `{preset_id}` ({description}) to this rou
         values.append("back")
         return rows, values
 
+    def apply(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        preset_id: str,
+        lang: str | None = None,
+        *,
+        sync_ollama_context: bool = True,
+        load_lm_studio: bool = False,
+    ) -> list[str]:
+        return llm_presets.apply_preset_to_provider(
+            provider,
+            config,
+            preset_id,
+            lang,
+            sync_ollama_context=sync_ollama_context,
+            load_lm_studio=load_lm_studio,
+            services=llm_presets.PresetServices(
+                definition=llm_presets.PresetDefinition(
+                    CONTEXT_HEAVY_PRESETS=self.definition.context_heavy_presets,
+                    LLM_PRESETS=self.definition.llm_presets,
+                    llm_preset_text=self.definition.preset_text,
+                    load_config=self.definition.load_config,
+                    model_family_text=self.definition.family_text,
+                    model_option_family=self.definition.model_family,
+                    positive_int=self.definition.positive_int,
+                    required_context_for_preset=self.definition.required_context,
+                    ui_text=self.definition.ui_text,
+                ),
+                context_policy=llm_presets.PresetContextPolicy(
+                    apply_lm_studio_loaded_context_guard=self.policy.lm_studio_guard,
+                    apply_ollama_runtime_output_guard=self.policy.ollama_output_guard,
+                    apply_recommended_timeout_for_model_context=self.policy.recommended_timeout,
+                    cap_context_settings_to_model_capacity=self.policy.cap_context,
+                    cap_output_settings_to_context_ratio=self.policy.cap_output,
+                    ollama_num_ctx_status=self.policy.ollama_context_status,
+                    provider_model_context_capacity=self.policy.model_capacity,
+                    sync_ollama_library_context_limit=self.policy.sync_ollama_context,
+                    upstream_model_context_limit=self.policy.upstream_context_limit,
+                    with_preset_timeout_tokens=self.policy.timeout_tokens,
+                ),
+                provider_mutation=llm_presets.PresetProviderMutation(
+                    apply_ollama_option=self.mutation.apply_ollama_option,
+                    apply_provider_option=self.mutation.apply_provider_option,
+                    ollama_extra_options=self.mutation.ollama_options,
+                ),
+            ),
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class LlmPresetCompatibilityApi:
@@ -219,11 +306,33 @@ class LlmPresetCompatibilityApi:
     ) -> tuple[list[str], list[str]]:
         return self.context().panel_rows(provider, config, lang)
 
+    def apply(
+        self,
+        provider: str,
+        config: dict[str, Any],
+        preset_id: str,
+        lang: str | None = None,
+        *,
+        sync_ollama_context: bool = True,
+        load_lm_studio: bool = False,
+    ) -> list[str]:
+        return self.context().apply(
+            provider,
+            config,
+            preset_id,
+            lang,
+            sync_ollama_context=sync_ollama_context,
+            load_lm_studio=load_lm_studio,
+        )
+
 
 __all__ = [
     "LlmPresetAlgorithms",
     "LlmPresetCatalog",
     "LlmPresetCompatibilityApi",
     "LlmPresetContext",
+    "LlmPresetContextPolicyPorts",
+    "LlmPresetDefinitionPorts",
+    "LlmPresetMutationPorts",
     "LlmPresetQueries",
 ]

@@ -837,7 +837,7 @@ class ChannelConfigTests(unittest.TestCase):
             stack.enter_context(mock.patch.object(ciel_runtime, "provider_native_compat_enabled", return_value=False))
             stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
             stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed"))
-            ensure_cursor = stack.enter_context(mock.patch.object(ciel_runtime, "prepare_channel_llm_delivery_for_launch"))
+            prepare_cursor = stack.enter_context(mock.patch.object(ciel_runtime, "prepare_channel_llm_delivery_for_launch"))
             auto_start = stack.enter_context(mock.patch.object(ciel_runtime, "auto_start_sse_channels_from_mcp_configs", return_value=[]))
             stack.enter_context(mock.patch.object(ciel_runtime, "env_vars", return_value={"CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-test", "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"}))
             stack.enter_context(mock.patch.object(ciel_runtime, "install_ciel_runtime_slash_commands"))
@@ -860,7 +860,9 @@ class ChannelConfigTests(unittest.TestCase):
 
         self.assertEqual(0, rc)
         ensure_probe.assert_called_once_with(cfg, [])
-        ensure_cursor.assert_called_once()
+        # The terminal bridge owns the one-time stale-message boundary. This
+        # test replaces that bridge, so the launch composer must not duplicate it.
+        prepare_cursor.assert_not_called()
         write_channel.assert_called_once()
         auto_start.assert_not_called()
         proxy_config.assert_called_once()

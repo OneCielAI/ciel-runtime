@@ -665,6 +665,8 @@ from ciel_runtime_support.llm_preset_context import (
     LlmPresetCatalog,
     LlmPresetCompatibilityApi,
     LlmPresetContext,
+    LlmPresetContextPolicyPorts, LlmPresetDefinitionPorts,
+    LlmPresetMutationPorts,
     LlmPresetQueries,
 )
 from ciel_runtime_support.llm_presentation_data import (
@@ -7557,6 +7559,23 @@ def llm_preset_context() -> LlmPresetContext:
             infer=infer_context_preset,
             required_context=context_required_for_preset,
         ),
+        definition=LlmPresetDefinitionPorts(
+            CONTEXT_HEAVY_PRESETS, LLM_PRESETS, llm_preset_text, load_config,
+            model_family_text, model_option_family, positive_int,
+            required_context_for_preset, ui_text,
+        ),
+        policy=LlmPresetContextPolicyPorts(
+            apply_lm_studio_loaded_context_guard,
+            apply_ollama_runtime_output_guard,
+            apply_recommended_timeout_for_model_context,
+            cap_context_settings_to_model_capacity,
+            cap_output_settings_to_context_ratio, ollama_num_ctx_status,
+            provider_model_context_capacity, sync_ollama_library_context_limit,
+            upstream_model_context_limit, with_preset_timeout_tokens,
+        ),
+        mutation=LlmPresetMutationPorts(
+            apply_ollama_option, apply_provider_option, ollama_extra_options,
+        ),
     )
 
 _LLM_PRESET_API = LlmPresetCompatibilityApi(llm_preset_context)
@@ -7807,49 +7826,7 @@ llm_preset_text = _LLM_PRESET_API.text
 model_family_text = _LLM_PRESET_API.family_text
 llm_preset_panel_rows = _LLM_PRESET_API.panel_rows
 
-def apply_llm_preset_to_provider(
-    provider: str,
-    pcfg: dict[str, Any],
-    preset_id: str,
-    lang: str | None = None,
-    sync_ollama_context: bool = True,
-    load_lm_studio: bool = False,
-) -> list[str]:
-    return apply_preset_to_provider(
-        provider, pcfg, preset_id, lang,
-        sync_ollama_context=sync_ollama_context,
-        load_lm_studio=load_lm_studio,
-        services=llm_presets.PresetServices(
-            definition=llm_presets.PresetDefinition(
-                CONTEXT_HEAVY_PRESETS=CONTEXT_HEAVY_PRESETS,
-                LLM_PRESETS=LLM_PRESETS,
-                llm_preset_text=llm_preset_text,
-                load_config=load_config,
-                model_family_text=model_family_text,
-                model_option_family=model_option_family,
-                positive_int=positive_int,
-                required_context_for_preset=required_context_for_preset,
-                ui_text=ui_text,
-            ),
-            context_policy=llm_presets.PresetContextPolicy(
-                apply_lm_studio_loaded_context_guard=apply_lm_studio_loaded_context_guard,
-                apply_ollama_runtime_output_guard=apply_ollama_runtime_output_guard,
-                apply_recommended_timeout_for_model_context=apply_recommended_timeout_for_model_context,
-                cap_context_settings_to_model_capacity=cap_context_settings_to_model_capacity,
-                cap_output_settings_to_context_ratio=cap_output_settings_to_context_ratio,
-                ollama_num_ctx_status=ollama_num_ctx_status,
-                provider_model_context_capacity=provider_model_context_capacity,
-                sync_ollama_library_context_limit=sync_ollama_library_context_limit,
-                upstream_model_context_limit=upstream_model_context_limit,
-                with_preset_timeout_tokens=with_preset_timeout_tokens,
-            ),
-            provider_mutation=llm_presets.PresetProviderMutation(
-                apply_ollama_option=apply_ollama_option,
-                apply_provider_option=apply_provider_option,
-                ollama_extra_options=ollama_extra_options,
-            ),
-        ),
-    )
+apply_llm_preset_to_provider = _LLM_PRESET_API.apply
 
 def auto_apply_recommended_llm_preset_for_model(provider: str, pcfg: dict[str, Any], lang: str | None = None) -> list[str]:
     return auto_llm_options_service().apply_recommended(provider, pcfg, lang)
@@ -10175,6 +10152,8 @@ def subprocess_call_with_channel_wake_proxy(
     channel_wake_submit_delay_seconds: float | None = None,
     tracked_child_pid_path: Path | None = None,
 ) -> int:
+    if inject_channel_messages:
+        prepare_channel_llm_delivery_for_launch()
     return channel_terminal_dispatch_service().dispatch(
         cmd,
         env,
@@ -10586,7 +10565,6 @@ def launch_claude(
                 claude_channel_args=claude_channel_args,
                 native_channel_passthrough_requested=native_channel_passthrough_requested,
                 normalize_channel_passthrough=normalize_channel_passthrough,
-                prepare_channel_llm_delivery_for_launch=prepare_channel_llm_delivery_for_launch,
                 should_launch_process_start_channel_sse=should_launch_process_start_channel_sse,
                 should_use_channel_llm_delivery=should_use_channel_llm_delivery,
                 should_use_channel_stdin_proxy=should_use_channel_stdin_proxy,
