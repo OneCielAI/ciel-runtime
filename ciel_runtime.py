@@ -99,19 +99,15 @@ from ciel_runtime_support.channel_backlog import (
     ChannelBacklogRuntime,
     ChannelBacklogService,
 )
+from ciel_runtime_support.channel_connection_context import (
+    ChannelConnectionCompatibilityApi,
+    ChannelConnectionContext,
+    ChannelConnectionLifecyclePorts,
+    ChannelConnectionProtocol,
+    ChannelConnectionStatePorts,
+    ChannelConnectionWorkerPorts,
+)
 from ciel_runtime_support.channel_connection_registry import ChannelConnectionRegistry
-from ciel_runtime_support.channel_connection_lifecycle import (
-    ChannelConnectionLifecycle,
-    ChannelConnectionLifecycleEffects,
-    ChannelConnectionLifecyclePolicy,
-    ChannelConnectionLifecycleStore,
-)
-from ciel_runtime_support.channel_connection_worker import (
-    ChannelConnectionWorker,
-    ChannelWorkerEffects,
-    ChannelWorkerPolicy,
-    ChannelWorkerStateStore,
-)
 from ciel_runtime_support.channel_config_service import (
     ChannelConfigApi,
     ChannelConfigPorts,
@@ -142,11 +138,12 @@ from ciel_runtime_support.channel_event_projection import (
     pretty_json_value as _pretty_json_value,
     sse_payload_to_chat_payload as _sse_payload_to_chat_payload,
 )
-from ciel_runtime_support.channel_session_repository import ChannelSessionRepository
-from ciel_runtime_support.channel_session_lifecycle import (
-    ChannelSessionLifecycleServices,
-    cleanup_stale_channel_sessions,
-    delete_channel_session,
+from ciel_runtime_support.channel_session_context import (
+    ChannelSessionCompatibilityApi,
+    ChannelSessionConfigPorts,
+    ChannelSessionContext,
+    ChannelSessionHttpPorts,
+    ChannelSessionStatePorts,
 )
 from ciel_runtime_support import channel_llm_context
 from ciel_runtime_support.channel_mcp_tools import (
@@ -165,11 +162,14 @@ from ciel_runtime_support.channel_mcp_ownership import (
     ChannelRouterLifecycle,
     ChannelRouterLifecyclePorts,
 )
-from ciel_runtime_support.channel_mcp_http_controller import (
-    ChannelMcpHttpController,
-    ChannelMcpRpcServices,
-    ChannelMcpSessionStore,
-    ChannelMcpStreamServices,
+from ciel_runtime_support.channel_mcp_context import (
+    ChannelMcpCompatibilityApi,
+    ChannelMcpContext,
+    ChannelMcpProjectionPorts,
+    ChannelMcpResumePorts,
+    ChannelMcpRpcPorts,
+    ChannelMcpRuntimePorts,
+    ChannelMcpStatePorts,
 )
 from ciel_runtime_support.channel_mcp_transport import (
     ChannelMcpEffects,
@@ -255,13 +255,7 @@ from ciel_runtime_support.channel_runtime_environment import (
     ChannelRuntimeEnvironmentPolicy,
 )
 from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage
-from ciel_runtime_support.channel_cursor_service import (
-    ChannelCursorService,
-    ChannelCursorServices,
-    ChannelResumePolicy,
-    ChannelResumeServices,
-    parse_channel_event_id,
-)
+from ciel_runtime_support.channel_cursor_service import parse_channel_event_id
 from ciel_runtime_support.channel_cursor_recovery import (
     ChannelCursorRecoveryService,
 )
@@ -3660,35 +3654,50 @@ def append_chat_message(payload: dict[str, Any]) -> dict[str, Any]:
     _CHAT_NEXT_ID = int(message.get("id") or 0) + 1
     return message
 
-def channel_connection_registry() -> ChannelConnectionRegistry:
-    return ChannelConnectionRegistry(
-        states=_CHANNEL_SSE_CONNECTIONS,
-        lock=_CHANNEL_SSE_LOCK,
-        rpc_condition=_CHANNEL_SSE_RPC_CONDITION,
-        log=router_log,
+def channel_connection_context() -> ChannelConnectionContext:
+    return ChannelConnectionContext(
+        state=ChannelConnectionStatePorts(
+            _CHANNEL_SSE_CONNECTIONS, _CHANNEL_SSE_LOCK,
+            _CHANNEL_SSE_RPC_CONDITION,
+        ),
+        worker_ports=ChannelConnectionWorkerPorts(
+            router_log,
+            lambda name, event, data, event_id: _channel_sse_dispatch(
+                name, event, data, event_id=event_id
+            ),
+            _channel_streamable_http_initialize_mcp,
+            _channel_streamable_http_close_state_session,
+            lambda headers, protocol, session, accept: _mcp_streamable_headers(
+                headers, protocol, session, accept=accept
+            ),
+            _streamable_http_session_not_found, _http_error_body_text,
+        ),
+        lifecycle_ports=ChannelConnectionLifecyclePorts(
+            _safe_segment, _channel_streamable_http_close_state_session,
+            _channel_streamable_http_cleanup_stale_sessions, parse_bool,
+        ),
+        protocol=ChannelConnectionProtocol(
+            MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+            MCP_LEGACY_SSE_PROTOCOL_VERSION,
+        ),
     )
 
+_CHANNEL_CONNECTION_API = ChannelConnectionCompatibilityApi(
+    channel_connection_context
+)
+channel_connection_registry = _CHANNEL_CONNECTION_API.registry
 _channel_sse_status_public = ChannelConnectionRegistry.public_status
-
-def channel_sse_status() -> dict[str, Any]:
-    return channel_connection_registry().statuses()
-
-def _channel_sse_set_state(name: str, **updates: Any) -> None:
-    channel_connection_registry().update(name, **updates)
-
-def _channel_streamable_http_mark_session_lost(name: str, reason: str) -> None:
-    channel_connection_registry().mark_session_lost(name, reason)
-
-def _channel_sse_store_rpc_response(name: str, data_text: str) -> bool:
-    return channel_connection_registry().store_rpc_response(name, data_text)
-
-def _channel_sse_take_rpc_response(name: str, rpc_id: Any, timeout: float) -> dict[str, Any] | None:
-    return channel_connection_registry().take_rpc_response(name, rpc_id, timeout)
-
 _channel_sse_public_mcp_name = ChannelConnectionRegistry.public_mcp_name
-
-def _channel_sse_state_name_for_mcp_server(server_name: str) -> str | None:
-    return channel_connection_registry().state_name_for_mcp_server(server_name)
+channel_sse_status = _CHANNEL_CONNECTION_API.statuses
+_channel_sse_set_state = _CHANNEL_CONNECTION_API.update
+_channel_streamable_http_mark_session_lost = (
+    _CHANNEL_CONNECTION_API.mark_session_lost
+)
+_channel_sse_store_rpc_response = _CHANNEL_CONNECTION_API.store_rpc_response
+_channel_sse_take_rpc_response = _CHANNEL_CONNECTION_API.take_rpc_response
+_channel_sse_state_name_for_mcp_server = (
+    _CHANNEL_CONNECTION_API.state_name_for_mcp_server
+)
 
 def _channel_sse_absolute_endpoint(stream_url: str, endpoint: str) -> str:
     endpoint = (endpoint or "").strip()
@@ -3754,95 +3763,29 @@ def _streamable_http_session_not_found(exc: urllib.error.HTTPError, body_text: s
         or ("session" in text and "not found" in text)
     )
 
-def build_channel_session_lifecycle_services() -> ChannelSessionLifecycleServices:
-    return ChannelSessionLifecycleServices(
-        streamable_headers=_mcp_streamable_headers,
-        http_error_body=_http_error_body_text,
-        session_not_found=_streamable_http_session_not_found,
-        records=_channel_streamable_session_records,
-        forget=_forget_channel_streamable_session,
-        log=router_log,
+def channel_session_context() -> ChannelSessionContext:
+    return ChannelSessionContext(
+        config=ChannelSessionConfigPorts(
+            lambda: CONFIG_DIR, MCP_STREAMABLE_HTTP_PROTOCOL_VERSION, router_log,
+        ),
+        http=ChannelSessionHttpPorts(
+            _mcp_streamable_headers, _http_error_body_text,
+            _streamable_http_session_not_found,
+        ),
+        state=ChannelSessionStatePorts(_CHANNEL_SSE_CONNECTIONS, _CHANNEL_SSE_LOCK),
     )
 
-def channel_streamable_sessions_path() -> Path:
-    return CONFIG_DIR / "channel-streamable-sessions.json"
-
-def build_channel_session_repository() -> ChannelSessionRepository:
-    return ChannelSessionRepository(
-        path=channel_streamable_sessions_path(),
-        default_protocol_version=MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
-        log=router_log,
-    )
-
-def _channel_streamable_session_records() -> list[dict[str, Any]]:
-    return build_channel_session_repository().records()
-
-def _write_channel_streamable_session_records(records: list[dict[str, Any]]) -> None:
-    build_channel_session_repository().write(records)
-
-def _record_channel_streamable_session(name: str, url: str, session_id: str | None, protocol_version: str) -> None:
-    build_channel_session_repository().record(name, url, session_id, protocol_version)
-
-def _forget_channel_streamable_session(name: str, url: str, session_id: str | None) -> None:
-    del name, url
-    build_channel_session_repository().forget(session_id)
-
-def _channel_streamable_http_delete_session(
-    name: str,
-    endpoint: str,
-    headers: dict[str, str],
-    protocol_version: str,
-    session_id: str | None,
-    reason: str,
-    *,
-    timeout: float = 5.0,
-) -> bool:
-    return delete_channel_session(
-        name,
-        endpoint,
-        headers,
-        protocol_version,
-        session_id,
-        reason,
-        build_channel_session_lifecycle_services(),
-        default_protocol_version=MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
-        timeout=timeout,
-    )
-
-def _channel_streamable_http_close_state_session(state: dict[str, Any], reason: str) -> bool:
-    if str(state.get("transport") or "").strip().lower() not in {"http", "streamable-http"}:
-        return True
-    name = str(state.get("name") or "")
-    endpoint = str(state.get("mcp_endpoint") or state.get("url") or "")
-    session_id = str(state.get("mcp_session_id") or "").strip() or None
-    headers = dict(state.get("headers") or {})
-    protocol_version = str(state.get("mcp_protocol_version") or MCP_STREAMABLE_HTTP_PROTOCOL_VERSION)
-    ok = _channel_streamable_http_delete_session(name, endpoint, headers, protocol_version, session_id, reason)
-    if ok:
-        with _CHANNEL_SSE_LOCK:
-            current = _CHANNEL_SSE_CONNECTIONS.get(name)
-            if current is state or (current and str(current.get("mcp_session_id") or "") == str(session_id or "")):
-                current["mcp_session_id"] = None
-                current["mcp_initialized"] = False
-    return ok
-
-def _channel_streamable_http_cleanup_stale_sessions(
-    name: str,
-    url: str,
-    headers: dict[str, str],
-    protocol_version: str,
-    *,
-    keep_session_id: str | None = None,
-) -> None:
-    cleanup_stale_channel_sessions(
-        name,
-        url,
-        headers,
-        protocol_version,
-        build_channel_session_lifecycle_services(),
-        default_protocol_version=MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
-        keep_session_id=keep_session_id,
-    )
+_CHANNEL_SESSION_API = ChannelSessionCompatibilityApi(channel_session_context)
+build_channel_session_lifecycle_services = _CHANNEL_SESSION_API.services
+channel_streamable_sessions_path = _CHANNEL_SESSION_API.path
+build_channel_session_repository = _CHANNEL_SESSION_API.repository
+_channel_streamable_session_records = _CHANNEL_SESSION_API.records
+_write_channel_streamable_session_records = _CHANNEL_SESSION_API.write
+_record_channel_streamable_session = _CHANNEL_SESSION_API.record
+_forget_channel_streamable_session = _CHANNEL_SESSION_API.forget
+_channel_streamable_http_delete_session = _CHANNEL_SESSION_API.delete
+_channel_streamable_http_close_state_session = _CHANNEL_SESSION_API.close_state
+_channel_streamable_http_cleanup_stale_sessions = _CHANNEL_SESSION_API.cleanup_stale
 
 def _mcp_stream_read_timeout_error(exc: BaseException) -> bool:
     if isinstance(exc, (TimeoutError, socket.timeout)):
@@ -3893,73 +3836,16 @@ def _channel_streamable_http_initialize_mcp(name: str) -> None:
 def _channel_sse_dispatch(name: str, event_name: str, data_lines: list[str], event_id: str | None = None) -> None:
     channel_mcp_transport().dispatch(name, event_name, data_lines, event_id)
 
-def _channel_connection_matches(state: dict[str, Any], connection_id: str | None) -> bool:
-    if not connection_id:
-        return True
-    return str(state.get("connection_id") or "") == str(connection_id)
-
-def _channel_worker_running(name: str, connection_id: str | None) -> bool:
-    with _CHANNEL_SSE_LOCK:
-        state = _CHANNEL_SSE_CONNECTIONS.get(name)
-        return bool(state and state.get("running") and _channel_connection_matches(state, connection_id))
-
-def channel_connection_worker() -> ChannelConnectionWorker:
-    return ChannelConnectionWorker(
-        state_store=ChannelWorkerStateStore(_CHANNEL_SSE_CONNECTIONS, _CHANNEL_SSE_LOCK),
-        effects=ChannelWorkerEffects(
-            log=router_log,
-            dispatch=lambda name, event, data, event_id: _channel_sse_dispatch(
-                name, event, data, event_id=event_id
-            ),
-            set_state=_channel_sse_set_state,
-            initialize_streamable=_channel_streamable_http_initialize_mcp,
-            close_state_session=_channel_streamable_http_close_state_session,
-            streamable_headers=lambda headers, protocol, session, accept: _mcp_streamable_headers(
-                headers, protocol, session, accept=accept
-            ),
-            session_not_found=_streamable_http_session_not_found,
-            http_error_body=_http_error_body_text,
-        ),
-        policy=ChannelWorkerPolicy(
-            streamable_protocol_version=MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
-            legacy_sse_protocol_version=MCP_LEGACY_SSE_PROTOCOL_VERSION,
-            parse_bool=parse_bool,
-        ),
-    )
-
-def _channel_sse_worker(name: str, connection_id: str | None = None) -> None:
-    channel_connection_worker().run_sse(name, connection_id)
-
-def _channel_streamable_http_worker(name: str, connection_id: str | None = None) -> None:
-    channel_connection_worker().run_streamable_http(name, connection_id)
-
-def channel_connection_lifecycle() -> ChannelConnectionLifecycle:
-    return ChannelConnectionLifecycle(
-        store=ChannelConnectionLifecycleStore(_CHANNEL_SSE_CONNECTIONS, _CHANNEL_SSE_LOCK),
-        effects=ChannelConnectionLifecycleEffects(
-            safe_segment=_safe_segment,
-            close_session=_channel_streamable_http_close_state_session,
-            cleanup_stale_sessions=_channel_streamable_http_cleanup_stale_sessions,
-            public_status=_channel_sse_status_public,
-            all_statuses=channel_sse_status,
-            sse_worker=_channel_sse_worker,
-            streamable_http_worker=_channel_streamable_http_worker,
-        ),
-        policy=ChannelConnectionLifecyclePolicy(
-            streamable_protocol_version=MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
-            legacy_sse_protocol_version=MCP_LEGACY_SSE_PROTOCOL_VERSION,
-            parse_bool=parse_bool,
-        ),
-    )
-
-def start_channel_sse_connection(config: dict[str, Any]) -> dict[str, Any]:
-    return channel_connection_lifecycle().start(config)
-
-def stop_channel_sse_connection(name: str | None = None) -> dict[str, Any]:
-    return channel_connection_lifecycle().stop(name)
-
-def _channel_mcp_session_id() -> str:
-    return f"s{os.getpid()}-{time.time_ns()}"
+_channel_connection_matches = _CHANNEL_CONNECTION_API.connection_matches
+_channel_worker_running = _CHANNEL_CONNECTION_API.worker_running
+channel_connection_worker = _CHANNEL_CONNECTION_API.worker
+_channel_sse_worker = _CHANNEL_CONNECTION_API.run_sse_worker
+_channel_streamable_http_worker = (
+    _CHANNEL_CONNECTION_API.run_streamable_http_worker
+)
+channel_connection_lifecycle = _CHANNEL_CONNECTION_API.lifecycle
+start_channel_sse_connection = _CHANNEL_CONNECTION_API.start
+stop_channel_sse_connection = _CHANNEL_CONNECTION_API.stop
 
 def channel_notification_projection() -> ChannelNotificationProjection:
     return ChannelNotificationProjection(
@@ -3991,66 +3877,6 @@ def _channel_mcp_notification(message: dict[str, Any]) -> dict[str, Any]:
 
 def _channel_mcp_capabilities() -> dict[str, Any]:
     return channel_notification_projection().capabilities()
-
-def _write_sse_event(handler: BaseHTTPRequestHandler, event: str, data: Any, event_id: int | None = None) -> None:
-    if event_id is not None:
-        handler.wfile.write(f"id: {event_id}\n".encode("utf-8"))
-    handler.wfile.write(f"event: {event}\n".encode("utf-8"))
-    payload = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False, separators=(",", ":"))
-    for line in payload.splitlines() or [""]:
-        handler.wfile.write(f"data: {line}\n".encode("utf-8"))
-    handler.wfile.write(b"\n")
-    handler.wfile.flush()
-
-def _send_channel_mcp_sse_headers(handler: BaseHTTPRequestHandler) -> None:
-    handler.send_response(200)
-    handler.send_header("content-type", "text/event-stream")
-    handler.send_header("cache-control", "no-cache, no-transform")
-    handler.send_header("connection", "keep-alive")
-    handler.send_header("x-accel-buffering", "no")
-    handler.end_headers()
-
-def _channel_mcp_enqueue(session: str, payload: dict[str, Any]) -> bool:
-    if not session:
-        return False
-    with _CHANNEL_MCP_LOCK:
-        state = _CHANNEL_MCP_SESSIONS.get(session)
-        if not state:
-            return False
-        outbox = state.setdefault("outbox", [])
-        if isinstance(outbox, list):
-            outbox.append(payload)
-        else:
-            state["outbox"] = [payload]
-    with _CHAT_CONDITION:
-        _CHAT_CONDITION.notify_all()
-    return True
-
-def _channel_mcp_take_outbox(session: str) -> list[dict[str, Any]]:
-    with _CHANNEL_MCP_LOCK:
-        state = _CHANNEL_MCP_SESSIONS.get(session)
-        if not state:
-            return []
-        outbox = state.get("outbox")
-        if not isinstance(outbox, list) or not outbox:
-            return []
-        state["outbox"] = []
-        return [item for item in outbox if isinstance(item, dict)]
-
-def _channel_mcp_initialize_response(request_id: Any, protocol: str) -> dict[str, Any]:
-    # This endpoint implements the legacy HTTP+SSE transport, whose stable
-    # protocol version is 2024-11-05 even when newer clients initiate the
-    # handshake with a newer preferred protocol.
-    protocol = "2024-11-05"
-    return {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "result": {
-            "protocolVersion": protocol,
-            "capabilities": _channel_mcp_capabilities(),
-            "serverInfo": {"name": "ciel-runtime-router", "version": VERSION},
-        },
-    }
 
 def _channel_compact_request_ttl_seconds() -> float:
     return compact_request_ttl(
@@ -4098,6 +3924,39 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
         ),
     )
 
+def channel_mcp_context() -> ChannelMcpContext:
+    return ChannelMcpContext(
+        runtime=ChannelMcpRuntimePorts(
+            VERSION, os.getpid, time.time_ns, _CHAT_CONDITION, router_log,
+        ),
+        state=ChannelMcpStatePorts(
+            _CHANNEL_MCP_SESSIONS, _CHANNEL_MCP_LOCK, _CHANNEL_MCP_CURSOR_LOCK,
+            CHANNEL_MCP_CURSOR_PATH, _channel_mcp_cached_cursor,
+            _channel_mcp_cache_cursor, _chat_scan_max_id,
+        ),
+        projection=ChannelMcpProjectionPorts(
+            _channel_mcp_capabilities, _channel_mcp_notifications_for_messages,
+            read_chat_messages,
+        ),
+        rpc=ChannelMcpRpcPorts(
+            _channel_mcp_tool_schemas, _channel_mcp_tool_call_response,
+            write_json, write_accepted_response,
+        ),
+        resume=ChannelMcpResumePorts(
+            _query_params, _first_param, _channel_mcp_ensure_cursor_initialized,
+            _channel_mcp_update_cursor,
+        ),
+        cursor_repository=channel_cursor_repository,
+    )
+
+_CHANNEL_MCP_API = ChannelMcpCompatibilityApi(channel_mcp_context)
+_channel_mcp_session_id = _CHANNEL_MCP_API.new_session_id
+_write_sse_event = _CHANNEL_MCP_API.write_sse_event
+_send_channel_mcp_sse_headers = _CHANNEL_MCP_API.send_sse_headers
+_channel_mcp_enqueue = _CHANNEL_MCP_API.enqueue
+_channel_mcp_take_outbox = _CHANNEL_MCP_API.take_outbox
+_channel_mcp_initialize_response = _CHANNEL_MCP_API.initialize_response
+
 def channel_cursor_repository(path: Path) -> channel_cursor_storage.ChannelCursorRepository:
     return channel_cursor_storage.ChannelCursorRepository(path=path, log=router_log)
 
@@ -4108,47 +3967,15 @@ def _channel_mcp_cache_cursor(last_id: int) -> None:
     global _CHANNEL_MCP_CURSOR_LAST_ID
     _CHANNEL_MCP_CURSOR_LAST_ID = last_id
 
-def channel_mcp_cursor_service() -> ChannelCursorService:
-    return ChannelCursorService(
-        ChannelCursorServices(
-            repository=channel_cursor_repository(CHANNEL_MCP_CURSOR_PATH),
-            lock=_CHANNEL_MCP_CURSOR_LOCK,
-            cached=_channel_mcp_cached_cursor,
-            cache=_channel_mcp_cache_cursor,
-            scan_tail=_chat_scan_max_id,
-        )
-    )
-
-def _channel_mcp_write_cursor_locked(last_id: int) -> None:
-    channel_cursor_repository(CHANNEL_MCP_CURSOR_PATH).write(last_id)
-
-def _channel_mcp_read_cursor_locked() -> int:
-    return channel_mcp_cursor_service().read_locked()
-
-def _channel_mcp_ensure_cursor_initialized() -> int:
-    return channel_mcp_cursor_service().ensure_initialized()
-
-def _channel_mcp_update_cursor(last_id: int) -> None:
-    channel_mcp_cursor_service().update(last_id)
-
 _channel_mcp_parse_event_id = parse_channel_event_id
-
-def channel_mcp_resume_policy() -> ChannelResumePolicy:
-    return ChannelResumePolicy(
-        ChannelResumeServices(
-            query_params=_query_params,
-            first_param=_first_param,
-            ensure_cursor=_channel_mcp_ensure_cursor_initialized,
-            update_cursor=_channel_mcp_update_cursor,
-            log=router_log,
-        )
-    )
-
-def _channel_mcp_client_last_event_id(handler: BaseHTTPRequestHandler) -> int | None:
-    return channel_mcp_resume_policy().client_last_event_id(handler)
-
-def _channel_mcp_session_start_last_id(handler: BaseHTTPRequestHandler) -> int:
-    return channel_mcp_resume_policy().session_start_last_id(handler)
+channel_mcp_cursor_service = _CHANNEL_MCP_API.cursor_service
+_channel_mcp_write_cursor_locked = _CHANNEL_MCP_API.write_cursor
+_channel_mcp_read_cursor_locked = _CHANNEL_MCP_API.read_cursor
+_channel_mcp_ensure_cursor_initialized = _CHANNEL_MCP_API.ensure_cursor
+_channel_mcp_update_cursor = _CHANNEL_MCP_API.update_cursor
+channel_mcp_resume_policy = _CHANNEL_MCP_API.resume_policy
+_channel_mcp_client_last_event_id = _CHANNEL_MCP_API.client_last_event_id
+_channel_mcp_session_start_last_id = _CHANNEL_MCP_API.session_start_last_id
 
 def _channel_mcp_message_skip_reason(message: dict[str, Any]) -> str | None:
     return channel_notification_projection().skip_reason(message)
@@ -4158,37 +3985,9 @@ def _channel_mcp_notifications_for_messages(
 ) -> list[tuple[int, dict[str, Any]]]:
     return channel_notification_projection().notifications_for_messages(messages, after_id)
 
-def channel_mcp_http_controller() -> ChannelMcpHttpController:
-    return ChannelMcpHttpController(
-        store=ChannelMcpSessionStore(_CHANNEL_MCP_SESSIONS, _CHANNEL_MCP_LOCK),
-        stream=ChannelMcpStreamServices(
-            new_session_id=_channel_mcp_session_id,
-            start_last_id=_channel_mcp_session_start_last_id,
-            send_headers=_send_channel_mcp_sse_headers,
-            write_event=_write_sse_event,
-            take_outbox=_channel_mcp_take_outbox,
-            read_messages=read_chat_messages,
-            project_notifications=_channel_mcp_notifications_for_messages,
-            update_cursor=_channel_mcp_update_cursor,
-            condition=_CHAT_CONDITION,
-            log=router_log,
-        ),
-        rpc=ChannelMcpRpcServices(
-            initialize_response=_channel_mcp_initialize_response,
-            tool_schemas=_channel_mcp_tool_schemas,
-            tool_call_response=_channel_mcp_tool_call_response,
-            enqueue=_channel_mcp_enqueue,
-            write_json=write_json,
-            write_accepted=write_accepted_response,
-            log=router_log,
-        ),
-    )
-
-def handle_channel_mcp_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
-    return channel_mcp_http_controller().get(handler, path)
-
-def handle_channel_mcp_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool:
-    return channel_mcp_http_controller().post(handler, path, body)
+channel_mcp_http_controller = _CHANNEL_MCP_API.controller
+handle_channel_mcp_get = _CHANNEL_MCP_API.get
+handle_channel_mcp_post = _CHANNEL_MCP_API.post
 
 def _query_params(handler: BaseHTTPRequestHandler) -> dict[str, list[str]]:
     return urllib.parse.parse_qs(urllib.parse.urlparse(handler.path).query, keep_blank_values=True)

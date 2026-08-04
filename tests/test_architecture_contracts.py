@@ -107,6 +107,30 @@ from ciel_runtime_support.channel_backlog import (
     ChannelBacklogRuntime,
     ChannelBacklogService,
 )
+from ciel_runtime_support.channel_connection_context import (
+    ChannelConnectionCompatibilityApi,
+    ChannelConnectionContext,
+    ChannelConnectionLifecyclePorts,
+    ChannelConnectionProtocol,
+    ChannelConnectionStatePorts,
+    ChannelConnectionWorkerPorts,
+)
+from ciel_runtime_support.channel_session_context import (
+    ChannelSessionCompatibilityApi,
+    ChannelSessionConfigPorts,
+    ChannelSessionContext,
+    ChannelSessionHttpPorts,
+    ChannelSessionStatePorts,
+)
+from ciel_runtime_support.channel_mcp_context import (
+    ChannelMcpCompatibilityApi,
+    ChannelMcpContext,
+    ChannelMcpProjectionPorts,
+    ChannelMcpResumePorts,
+    ChannelMcpRpcPorts,
+    ChannelMcpRuntimePorts,
+    ChannelMcpStatePorts,
+)
 from ciel_runtime_support.context_setup import ContextSetupPorts
 from ciel_runtime_support.llm_preset_context import (
     LlmPresetAlgorithms,
@@ -4383,6 +4407,94 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertIn("channel_backlog_service", clear_source)
         self.assertNotIn("global", clear_source)
         self.assertNotIn("_CHANNEL_MCP_SESSIONS", clear_source)
+
+    def test_channel_connection_context_owns_registry_worker_and_lifecycle(self):
+        for port in (
+            ChannelConnectionStatePorts,
+            ChannelConnectionWorkerPorts,
+            ChannelConnectionLifecyclePorts,
+            ChannelConnectionProtocol,
+            ChannelConnectionContext,
+            ChannelConnectionCompatibilityApi,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(
+            encoding="utf-8"
+        )
+        for function_name in (
+            "channel_connection_registry",
+            "channel_sse_status",
+            "_channel_connection_matches",
+            "_channel_worker_running",
+            "channel_connection_worker",
+            "channel_connection_lifecycle",
+            "start_channel_sse_connection",
+            "stop_channel_sse_connection",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
+
+    def test_channel_session_context_owns_durable_session_lifecycle(self):
+        for port in (
+            ChannelSessionConfigPorts,
+            ChannelSessionHttpPorts,
+            ChannelSessionStatePorts,
+            ChannelSessionContext,
+            ChannelSessionCompatibilityApi,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(
+            encoding="utf-8"
+        )
+        for function_name in (
+            "build_channel_session_lifecycle_services",
+            "channel_streamable_sessions_path",
+            "build_channel_session_repository",
+            "_channel_streamable_session_records",
+            "_channel_streamable_http_delete_session",
+            "_channel_streamable_http_close_state_session",
+            "_channel_streamable_http_cleanup_stale_sessions",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
+
+    def test_channel_mcp_context_owns_builtin_server_state_and_cursor(self):
+        for port in (
+            ChannelMcpRuntimePorts,
+            ChannelMcpStatePorts,
+            ChannelMcpProjectionPorts,
+            ChannelMcpRpcPorts,
+            ChannelMcpResumePorts,
+            ChannelMcpContext,
+            ChannelMcpCompatibilityApi,
+        ):
+            with self.subTest(port=port.__name__):
+                self.assertLessEqual(len(fields(port)), 10)
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(
+            encoding="utf-8"
+        )
+        for function_name in (
+            "_write_sse_event",
+            "_send_channel_mcp_sse_headers",
+            "_channel_mcp_enqueue",
+            "_channel_mcp_take_outbox",
+            "_channel_mcp_initialize_response",
+            "channel_mcp_cursor_service",
+            "channel_mcp_resume_policy",
+            "channel_mcp_http_controller",
+            "handle_channel_mcp_get",
+            "handle_channel_mcp_post",
+        ):
+            with self.subTest(function=function_name):
+                self.assertNotIn(f"def {function_name}(", source)
+        context_source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "channel_mcp_context.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("def __getattr__", context_source)
 
     def test_channel_wake_claim_repository_owns_cross_process_claims(self):
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
