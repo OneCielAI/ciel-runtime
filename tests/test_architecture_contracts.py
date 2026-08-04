@@ -4,7 +4,11 @@ import unittest
 from dataclasses import fields
 from pathlib import Path
 
-from ciel_runtime_support import claude_launch_assembly, router_request_assembly
+from ciel_runtime_support import (
+    claude_launch_assembly,
+    prelaunch_assembly,
+    router_request_assembly,
+)
 
 from ciel_runtime_support.architecture import (
     LaunchSpec,
@@ -1427,6 +1431,7 @@ class ArchitectureContractTests(unittest.TestCase):
             PrelaunchMutations,
             PrelaunchSecrets,
             PrelaunchOptions,
+            prelaunch_assembly.PrelaunchAssembly,
         )
 
         for port in ports:
@@ -1443,6 +1448,7 @@ class ArchitectureContractTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertNotIn("constants=prelaunch.PrelaunchConstants(", source)
         self.assertNotIn("constants=runtime_launch.ClaudeLaunchConstants(", source)
+        self.assertNotIn("services=prelaunch.PrelaunchServices(", source)
 
     def test_prelaunch_panel_projection_owns_panel_row_policy(self):
         for port in (
