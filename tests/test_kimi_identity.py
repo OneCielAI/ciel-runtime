@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import time
 import unittest
@@ -70,7 +71,12 @@ class KimiIdentityTests(unittest.TestCase):
             self.assertEqual("fresh-access", saved["access_token"])
             self.assertEqual("fresh-refresh", saved["refresh_token"])
             self.assertGreater(saved["expires_at"], time.time())
-            self.assertEqual(0o600, (home / ".kimi-code/credentials/kimi-code.json").stat().st_mode & 0o777)
+            if os.name != "nt":
+                self.assertEqual(
+                    0o600,
+                    (home / ".kimi-code/credentials/kimi-code.json").stat().st_mode
+                    & 0o777,
+                )
 
 
 if __name__ == "__main__":

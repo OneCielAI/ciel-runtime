@@ -4787,6 +4787,7 @@ ollama_preserve_configured_context_cap = (
 ollama_effective_context_limit = _OLLAMA_CONTEXT_POLICY.effective_context_limit
 ollama_num_ctx_for_payload = _OLLAMA_CONTEXT_POLICY.num_ctx_for_payload
 ollama_num_predict_for_payload = _OLLAMA_CONTEXT_POLICY.num_predict_for_payload
+ollama_wire_options = _OLLAMA_CONTEXT_POLICY.wire_options
 ollama_num_ctx_status = _OLLAMA_CONTEXT_POLICY.num_ctx_status
 ollama_extra_options = _OLLAMA_CONTEXT_POLICY.extra_options
 ollama_options_status = _OLLAMA_CONTEXT_POLICY.options_status
@@ -4932,7 +4933,7 @@ def provider_request_builder() -> ProviderRequestBuilder:
         OllamaRequestPorts(
             messages=anthropic_messages_to_ollama,
             tools=anthropic_tools_to_ollama,
-            extra_options=ollama_extra_options,
+            extra_options=ollama_wire_options,
             context_limit=ollama_context_limit_for_budget,
             num_ctx=ollama_num_ctx_for_payload,
             think_value=ollama_request_think_value,
@@ -4975,7 +4976,7 @@ def ollama_request_think_value(
     model: str | None,
     pcfg: dict[str, Any],
     body: dict[str, Any] | None = None,
-) -> bool | str:
+) -> bool | str | None:
     adapter = configured_provider_adapter(provider, pcfg)
     return adapter.ollama_think_value(
         provider_contract_config(provider, pcfg),
@@ -5035,7 +5036,7 @@ def advisor_request_builder() -> AdvisorRequestBuilder:
             reserve=context_guard_reserve_tokens,
             compact_messages=compact_ollama_messages_for_budget,
             configured_output=configured_output_tokens,
-            ollama_options=ollama_extra_options,
+            ollama_options=ollama_wire_options,
             positive_int=positive_int,
             ollama_num_ctx=ollama_num_ctx_for_payload,
             think_value=ollama_request_think_value,

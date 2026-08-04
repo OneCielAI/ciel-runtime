@@ -40,12 +40,7 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
             request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
             stream_enabled=True,
             stream_word_chunking=False,
-            ollama_options={
-                "temperature": 0.7,
-                "top_p": 0.8,
-                "top_k": 40,
-                "num_predict": 4096,
-            },
+            ollama_options={},
         )
     )
     send_placeholder_key: bool = True
@@ -83,6 +78,11 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
     def launch_model_strategy(self, config: ProviderConfig) -> str:
         del config
         return "ollama_unslug"
+
+    def ollama_think_value(
+        self, config: ProviderConfig, model: str, request: Mapping[str, Any]
+    ) -> bool | str | None:
+        return OllamaThinkingPolicy().value(config.options, model, request)
 
     def option_presentation_policy(
         self, config: ProviderConfig
@@ -134,12 +134,7 @@ class OllamaCloudProviderAdapter(OllamaProviderAdapter):
             request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
             stream_enabled=True,
             stream_word_chunking=False,
-            ollama_options={
-                "temperature": 0.7,
-                "top_p": 0.8,
-                "top_k": 40,
-                "num_predict": 4096,
-            },
+            ollama_options={},
         )
     )
     capabilities_value: ProviderCapabilities = field(
@@ -168,11 +163,6 @@ class OllamaCloudProviderAdapter(OllamaProviderAdapter):
     @staticmethod
     def _is_deepseek_v4_flash_0731(model_id: str) -> bool:
         return normalized_model_id(model_id) == "deepseek-v4-flash:0731"
-
-    def ollama_think_value(
-        self, config: ProviderConfig, model: str, request: Mapping[str, Any]
-    ) -> bool | str:
-        return OllamaThinkingPolicy().value(config.options, model, request)
 
     def model_configuration_profile(
         self, config: ProviderConfig

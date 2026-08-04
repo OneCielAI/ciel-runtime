@@ -81,6 +81,7 @@ class CodexSessionSelectionService:
         include_non_interactive: bool = False,
         passthrough: list[str] | None = None,
         cwd: Path | None = None,
+        select_latest: bool = False,
     ) -> str | None:
         launch_cwd = (cwd or Path.cwd()).resolve()
         show_all = "--all" in (passthrough or [])
@@ -104,6 +105,8 @@ class CodexSessionSelectionService:
                 f"{database}.{hint}"
             )
             return None
+        if select_latest:
+            return str(sessions[0].get("id") or "").strip()
         selected = self.presentation.select(
             "Resume Codex session",
             [self.resume_session_row(session) for session in sessions],

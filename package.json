@@ -1,6 +1,6 @@
 {
   "name": "@oneciel-ai/ciel-runtime",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Universal AI coding-agent runtime and model-routing layer for Claude, Codex, AGY, and compatible runtimes.",
   "license": "MIT",
   "author": "One Ciel LLC",

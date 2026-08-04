@@ -28,7 +28,9 @@ class OllamaRequestPorts:
     extra_options: Callable[[dict[str, Any]], dict[str, Any]]
     context_limit: Callable[[dict[str, Any]], int]
     num_ctx: Callable[..., int]
-    think_value: Callable[[str, str | None, dict[str, Any], dict[str, Any]], bool | str]
+    think_value: Callable[
+        [str, str | None, dict[str, Any], dict[str, Any]], bool | str | None
+    ]
     # Model-card provenance gate for num_predict: None = omit the parameter
     # entirely so the server default applies (operator 2026-07-29). The
     # default implementation passes the capped value through unchanged.
@@ -177,13 +179,19 @@ class ProviderRequestBuilder:
             "model": model,
             "messages": messages,
             "stream": stream,
-            "think": self.ollama.think_value(provider, model, config, body),
         }
+        think = self.ollama.think_value(provider, model, config, body)
+        if think is not None:
+            request["think"] = think
         if config.get("keep_alive"):
             request["keep_alive"] = str(config["keep_alive"])
         if tools:
             request["tools"] = tools
         options = self.ollama.extra_options(config)
+        # num_predict is governed by the output-budget policy below. Remove a
+        # persisted/default copy so a deliberate provider-default decision can
+        # actually omit it from the wire request.
+        options.pop("num_predict", None)
         token_cache: dict[int, int] = {}
         num_ctx = self.ollama.num_ctx(config, payload, _token_cache=token_cache)
         num_predict = self.budget.cap_output(

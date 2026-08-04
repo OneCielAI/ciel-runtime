@@ -192,6 +192,10 @@ class ContextSetupService:
                 32768 if window <= 65536 else 65536,
             )
             config.setdefault("ollama_options", {})["num_predict"] = output
+            config["output_tokens_explicit"] = True
+            explicit = set(config.get("ollama_explicit_options") or [])
+            explicit.add("num_predict")
+            config["ollama_explicit_options"] = sorted(explicit)
         elif strategy == "standard":
             config["context_window"] = window
             config["context_reserve_tokens"] = reserve

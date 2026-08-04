@@ -16,7 +16,7 @@ class OllamaRequestContextPolicyTests(unittest.TestCase):
             default_request_timeout_ms=300_000,
         )
 
-    def test_dynamic_context_uses_model_limit_and_preset_cap(self):
+    def test_dynamic_context_uses_model_limit_for_budget_but_omits_wire_override(self):
         config = {
             "current_model": "qwen:latest",
             "model_context_model": "qwen",
@@ -26,7 +26,7 @@ class OllamaRequestContextPolicyTests(unittest.TestCase):
             "llm_preset": "balanced",
         }
         policy = self.policy()
-        self.assertEqual(131_072, policy.num_ctx_for_payload(config, {}))
+        self.assertIsNone(policy.num_ctx_for_payload(config, {}))
         self.assertEqual(131_072, policy.context_limit_for_budget(config))
         self.assertIn("model max 262,144", policy.num_ctx_status(config))
 
@@ -55,24 +55,49 @@ class OllamaRequestContextPolicyTests(unittest.TestCase):
         policy = self.policy()
         # Adapter-default num_predict with no model-card context → omitted.
         self.assertIsNone(policy.num_predict_for_payload({}, 4096))
+        # Stored legacy/default values are omitted without explicit provenance.
+        self.assertIsNone(
+            policy.num_predict_for_payload(
+                {"ollama_options": {"num_predict": 8192}}, 4096
+            )
+        )
         # Explicit user configuration passes through even without a card.
         self.assertEqual(
             4096,
             policy.num_predict_for_payload(
-                {"ollama_options": {"num_predict": 8192}}, 4096
+                {
+                    "ollama_options": {"num_predict": 8192},
+                    "output_tokens_explicit": True,
+                },
+                4096,
             ),
         )
         self.assertEqual(
             4096,
-            policy.num_predict_for_payload({"max_output_tokens": 8192}, 4096),
+            policy.num_predict_for_payload(
+                {"max_output_tokens": 8192, "output_tokens_explicit": True},
+                4096,
+            ),
         )
-        # A resolved model-card context re-enables the default.
+        # A model-card context is for budgeting and does not become an override.
         card = {
             "current_model": "qwen:latest",
             "model_context_model": "qwen",
             "model_context_max": 262_144,
         }
-        self.assertEqual(4096, policy.num_predict_for_payload(card, 4096))
+        self.assertIsNone(policy.num_predict_for_payload(card, 4096))
+
+        provider_default = {
+            "max_output_tokens": 8192,
+            "ollama_options": {"num_predict": 8192},
+        }
+        self.assertIsNone(
+            policy.num_predict_for_payload(provider_default, 8192)
+        )
+        provider_default["output_tokens_explicit"] = True
+        self.assertEqual(
+            8192, policy.num_predict_for_payload(provider_default, 8192)
+        )
 
     def test_context_error_recovery_caps_output_and_options(self):
         policy = self.policy()

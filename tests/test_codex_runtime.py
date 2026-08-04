@@ -1026,7 +1026,7 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertNotIn("CIEL_RUNTIME_CODEX_API_KEY", captured["env"])
         self.assertIn("app-server", str(captured["pid_path"]))
 
-    def test_launch_codex_maps_routed_continue_to_cross_provider_picker(self):
+    def test_launch_codex_maps_routed_continue_to_latest_cwd_session_id(self):
         cfg = {"current_provider": "codex", "providers": {"codex": {"route_through_router": True, "base_url": "https://api.openai.com", "current_model": ""}}}
         pcfg = cfg["providers"]["codex"]
         captured = {}
@@ -1073,7 +1073,12 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertNotIn("--last", captured["cmd"])
         self.assertIn("native-session-1", captured["cmd"])
         picker.assert_called_once()
-        self.assertLess(captured["cmd"].index("resume"), captured["cmd"].index("native-session-1"))
+        self.assertTrue(picker.call_args.kwargs["select_latest"])
+        self.assertEqual(Path.cwd(), picker.call_args.kwargs["cwd"])
+        self.assertLess(
+            captured["cmd"].index("resume"),
+            captured["cmd"].index("native-session-1"),
+        )
         self.assertTrue(captured["wake_for_llm_delivery"])
 
     def test_codex_resume_picker_preserves_native_codex_behavior(self):

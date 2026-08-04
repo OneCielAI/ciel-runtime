@@ -153,7 +153,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertIn("num_ctx=auto (server default — no model-card context)", status)
         self.assertIn("ollama_options=num_predict=8192", status)
 
-    def test_ollama_auto_num_ctx_uses_provider_model_context(self):
+    def test_ollama_auto_num_ctx_uses_provider_context_for_budget_only(self):
         pcfg = {
             "current_model": "qwen3.6:35b-a3b-mtp-2gpu-ctx256k",
             "num_ctx": "auto",
@@ -165,7 +165,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
 
         payload = {"messages": [{"role": "user", "content": "hello"}], "tools": []}
 
-        self.assertEqual(262144, ciel_runtime.ollama_num_ctx_for_payload(pcfg, payload))
+        self.assertIsNone(ciel_runtime.ollama_num_ctx_for_payload(pcfg, payload))
         self.assertEqual(262144, ciel_runtime.ollama_context_limit_for_budget(pcfg))
         self.assertIn("provider 262,144", ciel_runtime.ollama_num_ctx_status(pcfg))
 
@@ -267,7 +267,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertEqual(1000000, pcfg["model_context_max"])
         self.assertEqual(524288, pcfg["num_ctx_max"])
         self.assertEqual(524288, ciel_runtime.ollama_context_limit_for_budget(pcfg))
-        self.assertEqual(524288, ciel_runtime.ollama_num_ctx_for_payload(pcfg, {"messages": []}))
+        self.assertIsNone(ciel_runtime.ollama_num_ctx_for_payload(pcfg, {"messages": []}))
         self.assertIn("model max 1,000,000", ciel_runtime.ollama_num_ctx_status(pcfg))
 
     def test_large_ollama_context_uses_dynamic_reserve_when_unset(self):
@@ -503,6 +503,30 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertEqual(1000000, profile["context_window"])
         self.assertIn("max_effort", profile["claude_code_supported_capabilities"])
 
+    def test_deepseek_v4_flash_0731_uses_provider_output_default(self):
+        pcfg = {
+            "current_model": "deepseek-v4-flash:0731",
+            "context_window": 1_000_000,
+            "max_output_tokens": 8192,
+            "ollama_options": {"num_predict": 8192, "temperature": 0.3},
+        }
+        body = {
+            "max_tokens": 8192,
+            "messages": [{"role": "user", "content": "continue"}],
+            "tools": [],
+        }
+
+        with mock.patch.object(ciel_runtime, "write_context_usage"):
+            request = ciel_runtime.ollama_chat_request(
+                "deepseek-v4-flash:0731",
+                body,
+                pcfg,
+                stream=True,
+                provider="ollama-cloud",
+            )
+
+        self.assertNotIn("options", request)
+
     def test_deepseek_v4_flash_0731_cloud_tag_normalizes_for_wire(self):
         pcfg = {"current_model": "deepseek-v4-flash:0731-cloud"}
         adapter = ciel_runtime.configured_provider_adapter("ollama-cloud", pcfg)
@@ -588,6 +612,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
         pcfg = {
             "current_model": "qwen3-coder",
             "think": True,
+            "think_explicit": True,
             "num_ctx": "auto",
             "num_ctx_min": 32768,
             "num_ctx_max": 131072,
@@ -600,6 +625,40 @@ class OllamaProviderOptionTests(unittest.TestCase):
 
         self.assertTrue(request["think"])
         self.assertEqual("True", ciel_runtime.ollama_think_status("qwen3-coder", pcfg))
+
+    def test_ollama_wire_sends_only_explicit_non_null_options(self):
+        pcfg = {
+            "current_model": "plain-model",
+            "num_ctx": "auto",
+            "ollama_options": {
+                "temperature": 0.7,
+                "top_p": None,
+                "num_predict": 4096,
+            },
+        }
+        body = {"messages": [{"role": "user", "content": "hello"}], "tools": []}
+
+        with mock.patch.object(ciel_runtime, "write_context_usage"):
+            inherited = ciel_runtime.ollama_chat_request(
+                "plain-model", body, pcfg, stream=False
+            )
+        self.assertNotIn("options", inherited)
+        self.assertNotIn("think", inherited)
+
+        ciel_runtime.apply_ollama_option(pcfg, "temperature=0.2")
+        with mock.patch.object(ciel_runtime, "write_context_usage"):
+            explicit = ciel_runtime.ollama_chat_request(
+                "plain-model", body, pcfg, stream=False
+            )
+        self.assertEqual({"temperature": 0.2}, explicit["options"])
+        self.assertNotIn("think", explicit)
+
+        ciel_runtime.apply_ollama_option(pcfg, "unset:temperature")
+        with mock.patch.object(ciel_runtime, "write_context_usage"):
+            unset = ciel_runtime.ollama_chat_request(
+                "plain-model", body, pcfg, stream=False
+            )
+        self.assertNotIn("options", unset)
 
     def test_ollama_context_error_retry_config_compacts_to_reported_n_ctx(self):
         raw = '{"error":"request (58940 tokens) exceeds the available context size (32768 tokens), try increasing the context length","n_ctx":32768}'
@@ -631,7 +690,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
             normal_req = ciel_runtime.ollama_chat_request(body["model"], body, pcfg, stream=True)
             retry_req = ciel_runtime.ollama_chat_request(body["model"], body, retry_pcfg, stream=True)
 
-        self.assertEqual(262144, normal_req["options"]["num_ctx"])
+        self.assertNotIn("options", normal_req)
         self.assertGreater(ciel_runtime.estimate_tokens(normal_req), 32768)
         self.assertEqual(32768, retry_req["options"]["num_ctx"])
         self.assertLessEqual(retry_req["options"]["num_predict"], 2048)

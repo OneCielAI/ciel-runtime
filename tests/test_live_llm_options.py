@@ -70,7 +70,10 @@ class LiveLlmOptionsTests(unittest.TestCase):
             lines, changed = ciel_runtime.handle_live_llm_options_action("list")
 
         self.assertFalse(changed)
-        self.assertTrue(any("Slider:" in line and "[1M]" in line for line in lines))
+        self.assertTrue(
+            any("Slider:" in line and "[reasoning]" in line for line in lines)
+        )
+        self.assertTrue(any("Context:" in line and "1M" in line for line in lines))
         self.assertTrue(any("Use `/llm left` or `/llm right`" in line for line in lines))
         self.assertFalse(any("/llm-long-context-" in line for line in lines))
         self.assertTrue(any("Restore available: yes" in line for line in lines))

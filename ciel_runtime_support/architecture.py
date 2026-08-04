@@ -627,7 +627,7 @@ class ProviderAdapter(ABC):
 
     def ollama_think_value(
         self, config: ProviderConfig, model: str, request: Mapping[str, Any]
-    ) -> bool | str:
+    ) -> bool | str | None:
         """Return the provider-native value for Ollama's ``think`` field."""
 
         del model, request

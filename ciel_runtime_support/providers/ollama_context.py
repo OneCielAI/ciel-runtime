@@ -63,16 +63,9 @@ class OllamaRequestContextPolicy:
             return self.positive_int(override)
         raw = config.get("num_ctx", "auto")
         if isinstance(raw, str) and raw.strip().lower() in {"", "auto", "dynamic"}:
-            provider_limit = self.provider_context_limit(config)
-            if provider_limit:
-                return self.effective_context_limit(config) or provider_limit
-            # No model-card context is available (no /api/show max_model_len, no
-            # catalog/library match, no model-id hint). Do NOT invent a window:
-            # estimating from the payload and clamping to num_ctx_min/max used
-            # to send a guessed num_ctx the model card never advertised
-            # (operator 2026-07-29: if the model card does not provide
-            # num_ctx/num_predict, the parameter must be omitted so the server
-            # default applies — never substituted with our own guess).
+            # Auto means provider-owned. Model-card limits remain available for
+            # local budgeting/status, but are not echoed back as request
+            # overrides. Missing values are omitted rather than sent as null.
             return None
         return self.positive_int(raw)
 
@@ -81,23 +74,15 @@ class OllamaRequestContextPolicy:
         config: dict[str, Any],
         capped: int | None,
     ) -> int | None:
-        """num_predict with model-card provenance gating.
-
-        An explicit user-configured value always passes through. But the
-        adapter-default ollama_options.num_predict (a heuristic, not a model
-        card value) is only sent when a model-card context exists for the
-        current model — otherwise the parameter is omitted and the server
-        default applies (operator 2026-07-29).
-        """
+        """Return a wire output limit only when the user explicitly set one."""
+        if not config.get("output_tokens_explicit") and "num_predict" not in set(
+            config.get("ollama_transient_options") or []
+        ):
+            return None
         value = self.positive_int(capped)
         if not value:
             return None
-        configured = self.positive_int(config.get("ollama_options", {}).get("num_predict") if isinstance(config.get("ollama_options"), dict) else None) or self.positive_int(config.get("max_output_tokens"))
-        if configured:
-            return value
-        if self.provider_context_limit(config):
-            return value
-        return None
+        return value
 
     def num_ctx_status(self, config: dict[str, Any]) -> str:
         raw = config.get("num_ctx", "auto")
@@ -117,6 +102,24 @@ class OllamaRequestContextPolicy:
         if not isinstance(raw, dict):
             return {}
         return {str(key): value for key, value in raw.items() if value is not None}
+
+    @classmethod
+    def wire_options(cls, config: dict[str, Any]) -> dict[str, Any]:
+        """Project only explicit/transient overrides onto an Ollama request."""
+        allowed = {
+            str(key)
+            for source in (
+                config.get("ollama_explicit_options"),
+                config.get("ollama_transient_options"),
+            )
+            for key in (source if isinstance(source, (list, tuple, set)) else [])
+            if str(key).strip()
+        }
+        return {
+            key: value
+            for key, value in cls.extra_options(config).items()
+            if key in allowed and value is not None
+        }
 
     def options_status(self, config: dict[str, Any]) -> str:
         options = self.extra_options(config)
@@ -179,6 +182,7 @@ class OllamaRequestContextPolicy:
         if configured_num_predict:
             options["num_predict"] = min(configured_num_predict, output_cap)
         retry_config["ollama_options"] = options
+        retry_config["ollama_transient_options"] = ["num_predict"]
         return retry_config
 
     def context_limit_for_budget(self, config: dict[str, Any]) -> int:

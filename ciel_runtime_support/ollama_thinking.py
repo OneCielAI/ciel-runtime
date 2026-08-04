@@ -75,7 +75,7 @@ class OllamaThinkingPolicy:
         options: Mapping[str, Any],
         model_id: str,
         request: Mapping[str, Any],
-    ) -> bool | str:
+    ) -> bool | str | None:
         architecture = self.architecture(options, model_id)
         effort = request_effort(request)
 
@@ -127,7 +127,13 @@ class OllamaThinkingPolicy:
                 return "max"
             return "high"
 
-        return bool(options.get("think", False))
+        capabilities = {
+            str(item).strip().lower()
+            for item in options.get("ollama_model_capabilities") or []
+        }
+        if "thinking" in capabilities or options.get("think_explicit"):
+            return bool(options.get("think", False))
+        return None
 
 
 __all__ = [

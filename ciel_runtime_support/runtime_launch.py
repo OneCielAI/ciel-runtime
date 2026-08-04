@@ -891,16 +891,24 @@ def run_codex(
     use_native_codex = direct_native_codex_enabled(provider, pcfg)
     use_codex_routed = codex_routed_enabled(provider, pcfg)
     launch_cwd = Path.cwd()
-    mapped_continue = any(note.startswith("--continue -> resume --last") for note in codex_passthrough_notes)
-    if not use_native_codex and mapped_continue:
-        try:
-            resume_index = codex_passthrough.index("resume")
-        except ValueError:
-            resume_index = -1
-        if resume_index >= 0 and resume_index + 1 < len(codex_passthrough):
-            if codex_passthrough[resume_index + 1] == "--last":
-                del codex_passthrough[resume_index + 1]
-                codex_passthrough_notes.append("routed --continue -> provider-independent session picker")
+    mapped_continue = "--continue -> resume --last" in codex_passthrough_notes
+    if mapped_continue:
+        codex_passthrough.remove("--last")
+        session_id = select_codex_resume_session(
+            env,
+            include_non_interactive="--include-non-interactive" in codex_passthrough,
+            passthrough=codex_passthrough,
+            cwd=launch_cwd,
+            select_latest=True,
+        )
+        if not session_id:
+            return 0
+        codex_passthrough = codex_resume_with_session_id(
+            codex_passthrough, session_id
+        )
+        codex_passthrough_notes.append(
+            "resume --last -> latest current-directory Codex session ID"
+        )
     if not use_native_codex and codex_resume_picker_requested(codex_passthrough):
         session_id = select_codex_resume_session(
             env,

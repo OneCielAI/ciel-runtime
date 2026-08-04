@@ -81,6 +81,28 @@ class CodexSessionSelectionServiceTests(unittest.TestCase):
 
         self.assertEqual("session-1", service.select_resume_session())
 
+    def test_latest_selection_returns_first_session_without_opening_picker(self):
+        picker_calls = []
+        service = CodexSessionSelectionService(
+            repository=CodexSessionRepositoryPorts(
+                sqlite_home=lambda *_args, **_kwargs: Path("C:/codex"),
+                resumable=lambda _database, _limit, _include, _cwd: [
+                    {"id": "latest-session"},
+                    {"id": "older-session"},
+                ],
+            ),
+            presentation=CodexSessionPresentationPorts(
+                select=lambda *_args, **_kwargs: picker_calls.append(True),
+                compact_text=lambda text, limit: text[:limit],
+                output=lambda _message: None,
+            ),
+        )
+
+        selected = service.select_resume_session(select_latest=True)
+
+        self.assertEqual("latest-session", selected)
+        self.assertEqual([], picker_calls)
+
     def test_empty_repository_reports_the_database(self):
         outputs = []
         service = self.service([], outputs=outputs)

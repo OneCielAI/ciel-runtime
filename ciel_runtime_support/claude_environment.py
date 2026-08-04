@@ -26,6 +26,10 @@ class ClaudeLimitPolicy:
         self._ports = ports
 
     def output_token_limit(self, provider: str, config: dict[str, Any]) -> int | None:
+        if provider in ("ollama", "ollama-cloud") and not config.get(
+            "output_tokens_explicit"
+        ):
+            return None
         configured = self._ports.positive_int(config.get("max_output_tokens"))
         if configured:
             return self._ports.cap_output_tokens(provider, config, configured)

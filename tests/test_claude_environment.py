@@ -25,7 +25,21 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
             )
         )
         self.assertEqual(512, policy.output_token_limit("openai", {"max_output_tokens": 1024}))
-        self.assertEqual(512, policy.output_token_limit("ollama", {"options": {"num_predict": 768}}))
+        self.assertIsNone(
+            policy.output_token_limit(
+                "ollama", {"options": {"num_predict": 768}}
+            )
+        )
+        self.assertEqual(
+            512,
+            policy.output_token_limit(
+                "ollama",
+                {
+                    "options": {"num_predict": 768},
+                    "output_tokens_explicit": True,
+                },
+            ),
+        )
         self.assertEqual(4096, policy.auto_compact_window("openai", {}))
         self.assertEqual(2048, policy.auto_compact_window("openai", {"auto_compact_window": 2048}))
 

@@ -21,6 +21,24 @@ class ProviderOptionPolicy:
     sampling: ProviderSamplingPolicy
 
 
+def _set_ollama_option_explicit(
+    config: dict[str, Any], key: str, explicit: bool
+) -> None:
+    keys = {
+        str(item)
+        for item in config.get("ollama_explicit_options") or []
+        if str(item).strip()
+    }
+    if explicit:
+        keys.add(key)
+    else:
+        keys.discard(key)
+    if keys:
+        config["ollama_explicit_options"] = sorted(keys)
+    else:
+        config.pop("ollama_explicit_options", None)
+
+
 def apply_ollama_option(
     pcfg: dict[str, Any], token: str, *, policy: ProviderOptionPolicy
 ) -> None:
@@ -42,10 +60,13 @@ def apply_ollama_option(
         elif key in ("max_output_tokens", "max_tokens", "maxtoken", "max_token", "num_predict"):
             pcfg.pop("max_output_tokens", None)
             pcfg.setdefault("ollama_options", {}).pop("num_predict", None)
+            pcfg.pop("output_tokens_explicit", None)
+            _set_ollama_option_explicit(pcfg, "num_predict", False)
         elif key in ("keep_alive", "keepalive"):
             pcfg.pop("keep_alive", None)
         elif key == "think":
             pcfg["think"] = False
+            pcfg.pop("think_explicit", None)
         elif key in ("stream", "stream_enabled"):
             pcfg["stream_enabled"] = True
         elif key in ("stream_word_chunking", "word_chunking", "stream_chunk", "stream_words"):
@@ -59,6 +80,7 @@ def apply_ollama_option(
             pcfg["rate_limit_status"] = False
         else:
             pcfg.setdefault("ollama_options", {}).pop(key, None)
+            _set_ollama_option_explicit(pcfg, key, False)
         return
     if "=" not in token:
         raise SystemExit(f"Expected key=value or unset:key, got: {token}")
@@ -119,9 +141,12 @@ def apply_ollama_option(
             raise SystemExit("max_tokens/num_predict must be a positive integer")
         pcfg["max_output_tokens"] = fixed
         pcfg.setdefault("ollama_options", {})["num_predict"] = fixed
+        pcfg["output_tokens_explicit"] = True
+        _set_ollama_option_explicit(pcfg, "num_predict", True)
         return
     if key == "think":
         pcfg["think"] = bool(value)
+        pcfg["think_explicit"] = True
         return
     if key in ("stream", "stream_enabled"):
         pcfg["stream_enabled"] = parse_bool(value, default=True)
@@ -145,8 +170,10 @@ def apply_ollama_option(
     opts = pcfg.setdefault("ollama_options", {})
     if value is None:
         opts.pop(key, None)
+        _set_ollama_option_explicit(pcfg, key, False)
     else:
         opts[key] = value
+        _set_ollama_option_explicit(pcfg, key, True)
 
 
 def apply_provider_option(
@@ -285,6 +312,7 @@ def apply_provider_option(
         if not fixed:
             raise SystemExit("max_output_tokens must be a positive integer")
         pcfg["max_output_tokens"] = fixed
+        pcfg["output_tokens_explicit"] = True
         return
     if key in ("timeout", "timeout_ms", "request_timeout", "request_timeout_ms"):
         fixed = positive_int(value)
