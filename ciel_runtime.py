@@ -3943,51 +3943,26 @@ route_runtime_post = _ROUTER_REQUEST_API.route_post
 
 def _router_server_context() -> RouterServerContext:
     http_services = RouterHttpServices(
-        core=RouterHttpCore(
-            load_config, reject_external_router_request, get_current_provider,
-            parse_json_body, is_client_disconnect_error, router_log,
-        ),
-        get=RouterHttpGetEndpoints(
-            handle_codex_mcp_split_proxy_get, handle_events_get,
-            handle_llm_config_get, handle_channel_mcp_get, handle_web_get,
-            handle_chat_get, handle_plan_get, route_runtime_get,
-        ),
-        post=RouterHttpPostEndpoints(
-            handle_codex_mcp_split_proxy_request, handle_llm_config_post,
-            handle_channel_mcp_post, handle_chat_post, handle_plan_post,
-            route_runtime_post,
-        ),
-        presentation=RouterHttpPresentation(
-            render_router_home_html, router_health_payload, write_text_response,
-            write_json, list_model_objects_for_request, resolve_requested_model,
-            model_object,
-        ),
+        core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log),
+        get=RouterHttpGetEndpoints(handle_codex_mcp_split_proxy_get, handle_events_get, handle_llm_config_get, handle_channel_mcp_get, handle_web_get,
+                                   handle_chat_get, handle_plan_get, route_runtime_get),
+        post=RouterHttpPostEndpoints(handle_codex_mcp_split_proxy_request, handle_llm_config_post, handle_channel_mcp_post, handle_chat_post,
+                                     handle_plan_post, route_runtime_post),
+        presentation=RouterHttpPresentation(render_router_home_html, router_health_payload, write_text_response, write_json, list_model_objects_for_request,
+                                            resolve_requested_model, model_object),
         errors=RouterHttpErrors(write_openai_responses_error, try_write_json),
     )
     server_runtime = router_server_runtime.RouterServerRuntime(
-        router_server_runtime.RouterServerConfig(
-            CONFIG_DIR, PID_PATH, ROUTER_PORT, ROUTER_BASE, LOG_LEVEL_PATH,
-            LOG_LEVEL_NAMES, RouterHandler,
-        ),
-        router_server_runtime.RouterServerStatePorts(
-            load_config, reset_api_key_cooldowns_for_router_start, router_bind_host,
-            current_log_level, os.getpid, os.environ.get,
-            router_debug_external_access_enabled, ensure_router_external_access_token,
-        ),
-        router_server_runtime.RouterServerEffects(
-            os.chmod, sys.stderr, ThreadingHTTPServer,
-            start_managed_router_lifetime_watchdog, start_router_managed_channel_sse,
-            stop_channel_sse_connection, threading.Thread,
-            lambda bind_host: configure_requested_web_endpoints(
-                ROUTER_PORT, ROUTER_HOST, bind_host, config=load_config()
-            ),
-        ),
+        router_server_runtime.RouterServerConfig(CONFIG_DIR, PID_PATH, ROUTER_PORT, ROUTER_BASE, LOG_LEVEL_PATH, LOG_LEVEL_NAMES, RouterHandler),
+        router_server_runtime.RouterServerStatePorts(load_config, reset_api_key_cooldowns_for_router_start, router_bind_host, current_log_level,
+                                                     os.getpid, os.environ.get, router_debug_external_access_enabled, ensure_router_external_access_token),
+        router_server_runtime.RouterServerEffects(os.chmod, sys.stderr, ThreadingHTTPServer, start_managed_router_lifetime_watchdog,
+                                                  start_router_managed_channel_sse, stop_channel_sse_connection, threading.Thread,
+                                                  lambda bind_host: configure_requested_web_endpoints(ROUTER_PORT, ROUTER_HOST, bind_host,
+                                                                                                       config=load_config())),
     )
     return RouterServerContext(
-        health=RouterHealthPresentationPorts(
-            VERSION, SOURCE_FINGERPRINT, os.getpid, getpass.getuser,
-            HOME, CONFIG_DIR, ROUTER_PORT, current_alias,
-        ),
+        health=RouterHealthPresentationPorts(VERSION, SOURCE_FINGERPRINT, os.getpid, getpass.getuser, HOME, CONFIG_DIR, ROUTER_PORT, current_alias),
         http_services=http_services,
         server_runtime=server_runtime,
     )
