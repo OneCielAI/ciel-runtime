@@ -6209,23 +6209,11 @@ def self_cmd(args: list[str]) -> tuple[int, str]:
 
 def kimi_runtime_context() -> KimiRuntimeContext:
     return KimiRuntimeContext(
-        identity=KimiIdentityPorts(
-            HOME, kimi_identity.code_home, kimi_identity.oauth_token_record,
-            kimi_identity.oauth_access_token, kimi_identity.oauth_configured,
-        ),
-        process=KimiProcessPorts(
-            find_executable, subprocess.run, subprocess.call, print,
-            os.environ, path_with_ciel_runtime_user_dirs,
-        ),
-        config=KimiConfigurationPorts(
-            load_config, get_current_provider, provider_has_api_key,
-            current_alias, positive_int, clear_api_key_config, ROUTER_BASE,
-        ),
-        lifecycle=KimiLifecyclePorts(
-            lambda: install_kimi_code_if_missing(),
-            lambda: kimi_oauth_configured(), lambda: run_kimi_oauth_login(),
-            start_router_if_needed, run_with_router_lifetime,
-        ),
+        identity=KimiIdentityPorts(HOME, kimi_identity.code_home, kimi_identity.oauth_token_record, kimi_identity.oauth_access_token, kimi_identity.oauth_configured),
+        process=KimiProcessPorts(find_executable, subprocess.run, subprocess.call, print, os.environ, path_with_ciel_runtime_user_dirs),
+        config=KimiConfigurationPorts(load_config, get_current_provider, provider_has_api_key, current_alias, positive_int, clear_api_key_config, ROUTER_BASE),
+        lifecycle=KimiLifecyclePorts(lambda: install_kimi_code_if_missing(), lambda: kimi_oauth_configured(), lambda: run_kimi_oauth_login(),
+                                     start_router_if_needed, run_with_router_lifetime),
     )
 
 _KIMI_RUNTIME_API = KimiRuntimeCompatibilityApi(kimi_runtime_context)
@@ -6256,32 +6244,16 @@ MAIN_MENU_ACTIONS = prelaunch.MAIN_MENU_ACTIONS
 
 def prelaunch_shell_context() -> PrelaunchShellContext:
     return PrelaunchShellContext(
-        visual=PrelaunchVisualPorts(
-            ansi, fit_cells, sys.stdout.isatty, render_intro_panel_lines,
-            APP_NAME, CREDITS,
-        ),
-        input=PrelaunchInputPorts(
-            enable_ansi, status_lines, read_terminal_menu_key,
-            write_menu_key_debug_log, MENU_KEY_DEBUG_PATH, run_portable_select,
-        ),
-        provider=PrelaunchProviderPorts(
-            configured_provider_adapter, provider_contract_config, PROVIDER_LABELS,
-            DEFAULT_RUNTIME_COMPATIBILITY.supports, load_config,
-            preferred_provider_launch_action,
-        ),
+        visual=PrelaunchVisualPorts(ansi, fit_cells, sys.stdout.isatty, render_intro_panel_lines, APP_NAME, CREDITS),
+        input=PrelaunchInputPorts(enable_ansi, status_lines, read_terminal_menu_key, write_menu_key_debug_log, MENU_KEY_DEBUG_PATH, run_portable_select),
+        provider=PrelaunchProviderPorts(configured_provider_adapter, provider_contract_config, PROVIDER_LABELS, DEFAULT_RUNTIME_COMPATIBILITY.supports,
+                                        load_config, preferred_provider_launch_action),
         prompt=PrelaunchPromptPorts(
             render_services=PrelaunchRenderServices(
-                brand=PrelaunchRenderBrand(
-                    render_animated_ansi_text, CREDITS, VERSION,
-                ),
-                data=PrelaunchRenderData(
-                    api_key_status_line, get_current_provider,
-                    llm_option_description_for_value, llm_option_panel_rows,
-                    load_config, main_menu_rows, provider_mode_label,
-                ),
-                text=PrelaunchRenderText(
-                    ansi, cell_width, fit_cells, pad_cells, ui_text,
-                ),
+                brand=PrelaunchRenderBrand(render_animated_ansi_text, CREDITS, VERSION),
+                data=PrelaunchRenderData(api_key_status_line, get_current_provider, llm_option_description_for_value, llm_option_panel_rows,
+                                         load_config, main_menu_rows, provider_mode_label),
+                text=PrelaunchRenderText(ansi, cell_width, fit_cells, pad_cells, ui_text),
             ),
             input_style=PrelaunchInputStyle(ansi=ansi, log=router_log),
             render_screen=render_prelaunch_terminal_screen,
@@ -6321,48 +6293,21 @@ prompt_menu_multiline_value = _PRELAUNCH_SHELL_API.prompt_menu_multiline_value
 
 def prelaunch_panel_context() -> PrelaunchPanelContext:
     return PrelaunchPanelContext(
-        main=MainMenuPanelPorts(
-            LANGUAGES, ui_text, compact_text, provider_menu_label,
-            stored_api_key_mask, llm_options_status, log_level_status,
-            DEFAULT_RUNTIME_COMPATIBILITY.supports,
-            DEFAULT_RUNTIME_COMPATIBILITY.provider_family, provider_ui_policy,
-        ),
-        web=WebBackendPanelPorts(
-            ROUTER_PORT, load_config, save_config, clear_model_cache,
-        ),
+        main=MainMenuPanelPorts(LANGUAGES, ui_text, compact_text, provider_menu_label, stored_api_key_mask, llm_options_status, log_level_status,
+                                DEFAULT_RUNTIME_COMPATIBILITY.supports, DEFAULT_RUNTIME_COMPATIBILITY.provider_family, provider_ui_policy),
+        web=WebBackendPanelPorts(ROUTER_PORT, load_config, save_config, clear_model_cache),
         provider=ProviderChoicePanelPorts(
-            ProviderPanelConstants(
-                PROVIDER_LABELS, ANTHROPIC_NATIVE_PROVIDER_CHOICE,
-                ANTHROPIC_ROUTED_PROVIDER_CHOICE, AGY_NATIVE_PROVIDER_CHOICE,
-                AGY_ROUTED_PROVIDER_CHOICE, CODEX_NATIVE_PROVIDER_CHOICE,
-                CODEX_ROUTED_PROVIDER_CHOICE,
-            ),
-            anthropic_routed_enabled, agy_routed_enabled, codex_routed_enabled,
-            provider_has_api_key, compact_text,
-        ),
-        configuration=ConfigurationPanelContextPorts(
-            LANGUAGES, LOG_LEVEL_NAMES, log_level_name, log_level_status,
-            ui_text, compact_text, default_base_url, provider_api_key_count,
-            os.name,
-        ),
-        model_catalog=ModelPanelCatalogPorts(
-            alias_for, cached_or_configured_model_ids, read_model_info_cache,
-            read_model_list_cache, unique_model_ids, upstream_model_ids,
-        ),
-        model_presentation=ModelPanelPresentationPorts(
-            provider_advisor_model_badge, provider_advisor_panel_notice,
-            format_context_tokens, format_parameter_count,
-            provider_model_panel_badge, normalize_model_id, positive_int,
-        ),
-        channel=ChannelPanelContextPorts(
-            _builtin_router_probe_record, channel_specs, channel_delivery_mode,
-            OFFICIAL_CHANNEL_PLUGINS, channel_probe_record_bucket,
-            read_channel_probe_cache,
-        ),
-        auth=AuthPanelPorts(
-            kimi_oauth_configured,
-            lambda provider: github_copilot_oauth_runtime().panel_rows(provider),
-        ),
+            ProviderPanelConstants(PROVIDER_LABELS, ANTHROPIC_NATIVE_PROVIDER_CHOICE, ANTHROPIC_ROUTED_PROVIDER_CHOICE, AGY_NATIVE_PROVIDER_CHOICE,
+                                   AGY_ROUTED_PROVIDER_CHOICE, CODEX_NATIVE_PROVIDER_CHOICE, CODEX_ROUTED_PROVIDER_CHOICE),
+            anthropic_routed_enabled, agy_routed_enabled, codex_routed_enabled, provider_has_api_key, compact_text),
+        configuration=ConfigurationPanelContextPorts(LANGUAGES, LOG_LEVEL_NAMES, log_level_name, log_level_status, ui_text, compact_text,
+                                                     default_base_url, provider_api_key_count, os.name),
+        model_catalog=ModelPanelCatalogPorts(alias_for, cached_or_configured_model_ids, read_model_info_cache, read_model_list_cache, unique_model_ids, upstream_model_ids),
+        model_presentation=ModelPanelPresentationPorts(provider_advisor_model_badge, provider_advisor_panel_notice, format_context_tokens,
+                                                       format_parameter_count, provider_model_panel_badge, normalize_model_id, positive_int),
+        channel=ChannelPanelContextPorts(_builtin_router_probe_record, channel_specs, channel_delivery_mode, OFFICIAL_CHANNEL_PLUGINS,
+                                         channel_probe_record_bucket, read_channel_probe_cache),
+        auth=AuthPanelPorts(kimi_oauth_configured, lambda provider: github_copilot_oauth_runtime().panel_rows(provider)),
     )
 
 _PRELAUNCH_PANEL_API = PrelaunchPanelCompatibilityApi(prelaunch_panel_context)
@@ -6392,56 +6337,24 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
     return execute_prelaunch_menu(
         passthrough,
         services=prelaunch_assembly.PrelaunchAssembly(
-            terminal=prelaunch.PrelaunchTerminal(
-                default_prelaunch_action, enable_ansi, main_menu_rows,
-                prelaunch_action_index, prompt_menu_multiline_value,
-                prompt_menu_value, read_clipboard_text, read_menu_key,
-                render_prelaunch_screen, self_cmd,
-            ),
-            config=prelaunch.PrelaunchConfig(
-                clear_model_cache, current_provider_panel_choice, default_base_url,
-                get_current_provider, load_config, preflight_lines,
-                provider_menu_label, save_config, settings_ready_except_api_key,
-                read_model_list_cache,
-            ),
-            launch_policy=prelaunch.PrelaunchLaunchPolicy(
-                agy_launch_enabled_for_provider, claude_launch_enabled_for_provider,
-                codex_launch_enabled_for_provider, launch_blockers_require_api_key,
-                launch_readiness_errors, launch_kimi,
-            ),
-            panel_rows=prelaunch.PrelaunchPanelRows(
-                advisor_model_panel_rows, api_key_panel_rows, base_url_panel_rows,
-                context_setup_panel_rows, language_panel_rows, llm_option_panel_rows,
-                llm_preset_panel_rows, log_level_panel_rows, model_panel_rows,
-                provider_panel_rows,
-            ),
-            channel_query=prelaunch.PrelaunchChannelQuery(
-                _channel_panel_first_selectable, _channel_panel_step,
-                channel_delivery_panel_rows, channel_panel_rows,
-                channel_panel_rows_for_menu, channel_probe_summary_message,
-                channel_specs, refresh_channel_probe_cache,
-            ),
-            channel_commands=prelaunch.PrelaunchChannelCommands(
-                add_channel_spec, clear_channel_specs, remove_channel_spec,
-                set_channel_delivery_config,
-            ),
-            mutations=prelaunch.PrelaunchMutations(
-                apply_context_setup_config, apply_llm_preset_config,
-                apply_timeout_profile_to_provider, set_advisor_model_config,
-                set_base_url_config, set_llm_option_config, set_log_level_config,
-                set_model_config, set_provider_choice_config,
-            ),
-            secrets=prelaunch.PrelaunchSecrets(
-                clear_api_key_config, mask_secret, parse_api_key_list,
-                secret_fingerprint, store_api_key_input_config,
-                store_api_keys_config, run_copilot_oauth_action,
-                run_kimi_oauth_action,
-            ),
-            options=prelaunch.PrelaunchOptions(
-                llm_option_current_bool, llm_option_prompt_default,
-                timeout_profile_panel_rows, web_backend_panel_rows,
-                set_web_backend_config,
-            ),
+            terminal=prelaunch.PrelaunchTerminal(default_prelaunch_action, enable_ansi, main_menu_rows, prelaunch_action_index, prompt_menu_multiline_value,
+                                                  prompt_menu_value, read_clipboard_text, read_menu_key, render_prelaunch_screen, self_cmd),
+            config=prelaunch.PrelaunchConfig(clear_model_cache, current_provider_panel_choice, default_base_url, get_current_provider, load_config, preflight_lines,
+                                              provider_menu_label, save_config, settings_ready_except_api_key, read_model_list_cache),
+            launch_policy=prelaunch.PrelaunchLaunchPolicy(agy_launch_enabled_for_provider, claude_launch_enabled_for_provider, codex_launch_enabled_for_provider,
+                                                          launch_blockers_require_api_key, launch_readiness_errors, launch_kimi),
+            panel_rows=prelaunch.PrelaunchPanelRows(advisor_model_panel_rows, api_key_panel_rows, base_url_panel_rows, context_setup_panel_rows, language_panel_rows,
+                                                    llm_option_panel_rows, llm_preset_panel_rows, log_level_panel_rows, model_panel_rows, provider_panel_rows),
+            channel_query=prelaunch.PrelaunchChannelQuery(_channel_panel_first_selectable, _channel_panel_step, channel_delivery_panel_rows, channel_panel_rows,
+                                                          channel_panel_rows_for_menu, channel_probe_summary_message, channel_specs, refresh_channel_probe_cache),
+            channel_commands=prelaunch.PrelaunchChannelCommands(add_channel_spec, clear_channel_specs, remove_channel_spec, set_channel_delivery_config),
+            mutations=prelaunch.PrelaunchMutations(apply_context_setup_config, apply_llm_preset_config, apply_timeout_profile_to_provider,
+                                                    set_advisor_model_config, set_base_url_config, set_llm_option_config, set_log_level_config,
+                                                    set_model_config, set_provider_choice_config),
+            secrets=prelaunch.PrelaunchSecrets(clear_api_key_config, mask_secret, parse_api_key_list, secret_fingerprint, store_api_key_input_config,
+                                                store_api_keys_config, run_copilot_oauth_action, run_kimi_oauth_action),
+            options=prelaunch.PrelaunchOptions(llm_option_current_bool, llm_option_prompt_default, timeout_profile_panel_rows, web_backend_panel_rows,
+                                               set_web_backend_config),
         ).services(),
     )
 
