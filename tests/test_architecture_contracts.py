@@ -214,6 +214,7 @@ from ciel_runtime_support.runtime_maintenance_context import (
     RuntimePackagePorts,
     RuntimeUpgradeCommandPorts,
 )
+from ciel_runtime_support.runtime_maintenance_assembly import RuntimeMaintenanceAssembly, RuntimeMaintenanceCommandPorts
 from ciel_runtime_support.runtime_maintenance_services import (
     MaintenanceAgyPorts,
     MaintenanceDiagnosticPorts,
@@ -3424,6 +3425,8 @@ class ArchitectureContractTests(unittest.TestCase):
     def test_runtime_maintenance_context_uses_bounded_typed_ports(self):
         self.assertEqual(4, len(fields(RuntimeMaintenanceContext)))
         self.assertEqual(1, len(fields(RuntimeMaintenanceCompatibilityApi)))
+        self.assertEqual(2, len(fields(RuntimeMaintenanceAssembly)))
+        self.assertLessEqual(len(fields(RuntimeMaintenanceCommandPorts)), 10)
         for port in (
             RuntimeAgyPorts,
             RuntimeLifecyclePorts,

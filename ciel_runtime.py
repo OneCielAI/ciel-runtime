@@ -732,10 +732,8 @@ from ciel_runtime_support.runtime_llm_options import (RuntimeLlmConfigPorts, Run
 from ciel_runtime_support.runtime_logging import (LOG_LEVEL_NAMES, LOG_LEVELS, LogLevelApi, LogLevelRepository,
                                                   RouterFileLogger)
 from ciel_runtime_support.runtime_logging import normalize_log_level as normalize_runtime_log_level
-from ciel_runtime_support.runtime_maintenance_context import (RuntimeAgyPorts, RuntimeLifecyclePorts,
-                                                              RuntimeMaintenanceCompatibilityApi,
-                                                              RuntimeMaintenanceContext, RuntimePackagePorts,
-                                                              RuntimeUpgradeCommandPorts)
+from ciel_runtime_support.runtime_maintenance_assembly import RuntimeMaintenanceAssembly, RuntimeMaintenanceCommandPorts
+from ciel_runtime_support.runtime_maintenance_context import RuntimeMaintenanceCompatibilityApi, RuntimeMaintenanceContext
 from ciel_runtime_support.runtime_maintenance_services import (MaintenanceAgyPorts, MaintenanceDiagnosticPorts,
                                                                MaintenanceNpmPorts, MaintenancePackagePorts,
                                                                MaintenanceRestartPorts, MaintenanceUpdatePorts,
@@ -7566,8 +7564,8 @@ def add_npm_prefix_bin_to_path(prefix: Path | None) -> None:
     if bin_dir and bin_dir not in path.split(os.pathsep):
         os.environ["PATH"] = bin_dir + (os.pathsep + path if path else "")
 
-def runtime_maintenance_services() -> RuntimeMaintenanceServices:
-    return RuntimeMaintenanceServices(
+def runtime_maintenance_assembly() -> RuntimeMaintenanceAssembly:
+    return RuntimeMaintenanceAssembly(RuntimeMaintenanceServices(
         npm=MaintenanceNpmPorts(
             find_executable, npm_install_runtime_command, run_command_for_upgrade,
             add_npm_prefix_bin_to_path, npm_latest_package_version,
@@ -7600,7 +7598,13 @@ def runtime_maintenance_services() -> RuntimeMaintenanceServices:
             lambda executable, enabled=True: run_agy_update_check(executable, enabled),
         ),
         agy=MaintenanceAgyPorts(AGY_MANIFEST_BASE_URL, agy_user_bin_dir),
-    )
+    ), RuntimeMaintenanceCommandPorts(
+        os.environ, claude_code_current_version, codex_current_version,
+        lambda: quiet_upgrade_ciel_runtime(), lambda: quiet_upgrade_claude_code(),
+        lambda: quiet_upgrade_codex(), lambda: quiet_upgrade_agy(),
+    ))
+
+def runtime_maintenance_services() -> RuntimeMaintenanceServices: return runtime_maintenance_assembly().service_graph
 
 _RUNTIME_MAINTENANCE_SERVICES_API = RuntimeMaintenanceServicesCompatibilityApi(runtime_maintenance_services)
 npm_package_lifecycle = _RUNTIME_MAINTENANCE_SERVICES_API.npm_lifecycle
@@ -7613,27 +7617,7 @@ self_update_lifecycle = _RUNTIME_MAINTENANCE_SERVICES_API.self_update
 runtime_upgrade_service = _RUNTIME_MAINTENANCE_SERVICES_API.upgrade
 agy_installer = _RUNTIME_MAINTENANCE_SERVICES_API.agy_installer
 
-def runtime_maintenance_context() -> RuntimeMaintenanceContext:
-    return RuntimeMaintenanceContext(
-        packages=RuntimePackagePorts(
-            lifecycle=npm_package_lifecycle,
-            environment=os.environ,
-            claude_version=claude_code_current_version,
-            codex_version=codex_current_version,
-        ),
-        lifecycle=RuntimeLifecyclePorts(
-            diagnostics=install_diagnostics_service,
-            restart=runtime_restart_service,
-            self_update=self_update_lifecycle,
-            upgrade=runtime_upgrade_service,
-        ),
-        agy=RuntimeAgyPorts(installer=agy_installer),
-        upgrade_commands=RuntimeUpgradeCommandPorts(
-            lambda: quiet_upgrade_ciel_runtime(),
-            lambda: quiet_upgrade_claude_code(), lambda: quiet_upgrade_codex(),
-            lambda: quiet_upgrade_agy(),
-        ),
-    )
+def runtime_maintenance_context() -> RuntimeMaintenanceContext: return runtime_maintenance_assembly().context()
 
 _RUNTIME_MAINTENANCE_API = RuntimeMaintenanceCompatibilityApi(runtime_maintenance_context)
 install_runtime_package_if_missing = _RUNTIME_MAINTENANCE_API.install_runtime_package_if_missing
