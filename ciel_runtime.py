@@ -1338,6 +1338,16 @@ from ciel_runtime_support.runtime_activity_repository import (
     RuntimeActivityRepository,
 )
 from ciel_runtime_support import runtime_launch
+from ciel_runtime_support.codex_launch_assembly import (
+    CodexAppServerLaunchPorts,
+    CodexCliLaunchPorts,
+    CodexLaunchAssembly,
+    CodexLaunchSharedChannelPorts,
+    CodexLaunchSharedConfigPorts,
+    CodexLaunchSharedDispatchPorts,
+    CodexLaunchSharedInstallationPorts,
+    CodexLaunchSharedRoutingPorts,
+)
 from ciel_runtime_support.runtime_launch_context import (
     RuntimeLaunchCompatibilityApi,
     RuntimeLaunchContext,
@@ -9481,9 +9491,60 @@ codex_local_resume_sessions = _CODEX_SESSION_SELECTION.local_resume_sessions
 codex_resume_session_row = _CODEX_SESSION_SELECTION.resume_session_row
 select_codex_resume_session = _CODEX_SESSION_SELECTION.select_resume_session
 
-def codex_launch_services() -> runtime_launch.CodexLaunchServices:
-    return runtime_launch.CodexLaunchServices(
-            constants=runtime_launch.build_default_codex_launch_constants(),
+def codex_launch_assembly() -> CodexLaunchAssembly:
+    return CodexLaunchAssembly(
+        config=CodexLaunchSharedConfigPorts(
+            apply_endpoint_policy=apply_launch_endpoint_policy,
+            current_alias=current_alias,
+            current_launch_cwd_key=current_launch_cwd_key,
+            ensure_model_cache=ensure_model_cache_for_launch,
+            get_current_provider=get_current_provider,
+            load_config=load_config,
+            provider_mode_label=provider_mode_label,
+            record_launch_state=record_launch_state_for_cwd,
+            model_catalog_args=codex_runtime_model_catalog_args,
+        ),
+        installation=CodexLaunchSharedInstallationPorts(
+            find_executable=find_executable,
+            install_codex=install_codex_if_missing,
+            warn_multiple_installs=warn_if_multiple_ciel_runtime_installs,
+            disable_prompts=disable_ciel_runtime_codex_prompts_for_native,
+            has_passthrough_option=has_passthrough_option,
+            install_prompts=install_ciel_runtime_codex_prompts,
+        ),
+        dispatch=CodexLaunchSharedDispatchPorts(
+            launch_agy=launch_agy,
+            launch_claude=launch_claude,
+            launch_codex=launch_codex,
+            launch_app_server=launch_codex_app_server,
+            materialize_command=materialize_runtime_command,
+            run_runtime_update=run_ciel_runtime_update_check,
+            run_codex_update=run_codex_update_check,
+            run_prelaunch_menu=run_prelaunch_menu,
+            log_passthrough_mapping=log_codex_passthrough_mapping,
+        ),
+        routing=CodexLaunchSharedRoutingPorts(
+            cleanup_services=cleanup_managed_services_for_provider,
+            routed_enabled=codex_routed_enabled,
+            direct_native_enabled=direct_native_codex_enabled,
+            readiness_errors=launch_readiness_errors,
+            native_enabled=native_codex_enabled,
+            launch_enabled=codex_launch_enabled_for_provider,
+            run_with_router_lifetime=run_with_router_lifetime,
+            start_router=start_router_if_needed,
+        ),
+        channel=CodexLaunchSharedChannelPorts(
+            auto_import_channels=auto_import_passthrough_channels,
+            delivery_mode=channel_delivery_mode,
+            capable_server_names=codex_channel_capable_mcp_server_names,
+            native_http_args=codex_mcp_native_http_compat_args,
+            split_proxy_enabled=codex_mcp_split_proxy_enabled,
+            restore_config=restore_codex_mcp_config_from_managed,
+            start_sse=start_codex_mcp_channel_sse_for_launch,
+            write_discovery_config=write_codex_mcp_config_for_channel_discovery,
+            select_resume_session=select_codex_resume_session,
+        ),
+        cli=CodexCliLaunchPorts(
             process=runtime_launch.CodexLaunchProcess(
                 _channel_wake_enter_env_is_fixed=_channel_wake_enter_env_is_fixed,
                 _codex_channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds,
@@ -9496,7 +9557,7 @@ def codex_launch_services() -> runtime_launch.CodexLaunchServices:
                 terminate_existing_codex_processes_for_launch=terminate_existing_codex_processes_for_launch,
                 terminate_existing_router_clients_for_launch=terminate_existing_router_clients_for_launch,
             ),
-            cli_policy=runtime_launch.CodexLaunchCliPolicy(
+            policy=runtime_launch.CodexLaunchCliPolicy(
                 codex_alternate_screen_compat_args=codex_alternate_screen_compat_args,
                 codex_current_model_cli_args=codex_current_model_cli_args,
                 codex_help_requested=codex_help_requested,
@@ -9508,56 +9569,30 @@ def codex_launch_services() -> runtime_launch.CodexLaunchServices:
                 codex_runtime_config_args=codex_runtime_config_args,
                 codex_yolo_launch_args=codex_yolo_launch_args,
             ),
-            config=runtime_launch.CodexLaunchConfig(
-                apply_launch_endpoint_policy=apply_launch_endpoint_policy,
-                current_alias=current_alias,
-                current_launch_cwd_key=current_launch_cwd_key,
-                ensure_model_cache_for_launch=ensure_model_cache_for_launch,
-                get_current_provider=get_current_provider,
-                load_config=load_config,
-                provider_mode_label=provider_mode_label,
-                record_launch_state_for_cwd=record_launch_state_for_cwd,
-                codex_runtime_model_catalog_args=codex_runtime_model_catalog_args,
+        ),
+        app_server=CodexAppServerLaunchPorts(
+            process=runtime_launch.CodexAppServerProcess(
+                _log_codex_app_server_command_for_diagnostics=_log_codex_app_server_command_for_diagnostics,
+                codex_process_record_path=codex_process_record_path,
+                path_with_ciel_runtime_user_dirs=path_with_ciel_runtime_user_dirs,
+                subprocess_call_with_child_pid_record=subprocess_call_with_child_pid_record,
+                terminate_existing_codex_processes_for_launch=terminate_existing_codex_processes_for_launch,
+                terminate_existing_router_clients_for_launch=terminate_existing_router_clients_for_launch,
             ),
-            installation=runtime_launch.CodexLaunchInstallation(
-                disable_ciel_runtime_codex_prompts_for_native=disable_ciel_runtime_codex_prompts_for_native,
-                find_executable=find_executable,
-                has_passthrough_option=has_passthrough_option,
-                install_ciel_runtime_codex_prompts=install_ciel_runtime_codex_prompts,
-                install_codex_if_missing=install_codex_if_missing,
-                warn_if_multiple_ciel_runtime_installs=warn_if_multiple_ciel_runtime_installs,
+            policy=runtime_launch.CodexAppServerCliPolicy(
+                codex_app_server_default_listen_url=codex_app_server_default_listen_url,
+                codex_app_server_launch_args=codex_app_server_launch_args,
+                codex_current_model_config_args=codex_current_model_config_args,
+                codex_native_routed_config_args=codex_native_routed_config_args,
+                codex_passthrough_has_model_override=codex_passthrough_has_model_override,
+                codex_runtime_config_args=codex_runtime_config_args,
+                toml_string=toml_string,
             ),
-            dispatch=runtime_launch.CodexLaunchDispatch(
-                launch_agy=launch_agy,
-                launch_claude=launch_claude,
-                launch_codex_app_server=launch_codex_app_server,
-                log_codex_passthrough_mapping=log_codex_passthrough_mapping,
-                materialize_runtime_command=materialize_runtime_command,
-                run_ciel_runtime_update_check=run_ciel_runtime_update_check,
-                run_codex_update_check=run_codex_update_check,
-                run_prelaunch_menu=run_prelaunch_menu,
-            ),
-            routing=runtime_launch.CodexLaunchRouting(
-                cleanup_managed_services_for_provider=cleanup_managed_services_for_provider,
-                codex_routed_enabled=codex_routed_enabled,
-                direct_native_codex_enabled=direct_native_codex_enabled,
-                launch_readiness_errors=launch_readiness_errors,
-                native_codex_enabled=native_codex_enabled,
-                run_with_router_lifetime=run_with_router_lifetime,
-                start_router_if_needed=start_router_if_needed,
-            ),
-            channel=runtime_launch.CodexLaunchChannel(
-                auto_import_passthrough_channels=auto_import_passthrough_channels,
-                channel_delivery_mode=channel_delivery_mode,
-                codex_channel_capable_mcp_server_names=codex_channel_capable_mcp_server_names,
-                codex_mcp_native_http_compat_args=codex_mcp_native_http_compat_args,
-                codex_mcp_split_proxy_enabled=codex_mcp_split_proxy_enabled,
-                restore_codex_mcp_config_from_managed=restore_codex_mcp_config_from_managed,
-                select_codex_resume_session=select_codex_resume_session,
-                start_codex_mcp_channel_sse_for_launch=start_codex_mcp_channel_sse_for_launch,
-                write_codex_mcp_config_for_channel_discovery=write_codex_mcp_config_for_channel_discovery,
-            ),
+        ),
     )
+
+def codex_launch_services() -> runtime_launch.CodexLaunchServices:
+    return codex_launch_assembly().cli_services()
 
 def codex_app_server_default_listen_url() -> str:
     configured = str(os.environ.get("CIEL_RUNTIME_CODEX_APP_SERVER_LISTEN") or "").strip()
@@ -9570,69 +9605,7 @@ def _log_codex_app_server_command_for_diagnostics(cmd: list[str], env: dict[str,
     launch_command_diagnostics().codex_app_server(cmd, env)
 
 def codex_app_server_launch_services() -> runtime_launch.CodexAppServerLaunchServices:
-    return runtime_launch.CodexAppServerLaunchServices(
-            constants=runtime_launch.build_default_codex_launch_constants(),
-            process=runtime_launch.CodexAppServerProcess(
-                _log_codex_app_server_command_for_diagnostics=_log_codex_app_server_command_for_diagnostics,
-                codex_process_record_path=codex_process_record_path,
-                path_with_ciel_runtime_user_dirs=path_with_ciel_runtime_user_dirs,
-                subprocess_call_with_child_pid_record=subprocess_call_with_child_pid_record,
-                terminate_existing_codex_processes_for_launch=terminate_existing_codex_processes_for_launch,
-                terminate_existing_router_clients_for_launch=terminate_existing_router_clients_for_launch,
-            ),
-            config=runtime_launch.CodexAppServerConfig(
-                apply_launch_endpoint_policy=apply_launch_endpoint_policy,
-                current_alias=current_alias,
-                current_launch_cwd_key=current_launch_cwd_key,
-                ensure_model_cache_for_launch=ensure_model_cache_for_launch,
-                get_current_provider=get_current_provider,
-                load_config=load_config,
-                provider_mode_label=provider_mode_label,
-                record_launch_state_for_cwd=record_launch_state_for_cwd,
-            ),
-            cli_policy=runtime_launch.CodexAppServerCliPolicy(
-                codex_app_server_default_listen_url=codex_app_server_default_listen_url,
-                codex_app_server_launch_args=codex_app_server_launch_args,
-                codex_current_model_config_args=codex_current_model_config_args,
-                codex_native_routed_config_args=codex_native_routed_config_args,
-                codex_passthrough_has_model_override=codex_passthrough_has_model_override,
-                codex_runtime_config_args=codex_runtime_config_args,
-                toml_string=toml_string,
-            ),
-            installation=runtime_launch.CodexAppServerInstallation(
-                find_executable=find_executable,
-                install_codex_if_missing=install_codex_if_missing,
-                warn_if_multiple_ciel_runtime_installs=warn_if_multiple_ciel_runtime_installs,
-            ),
-            dispatch=runtime_launch.CodexAppServerDispatch(
-                launch_agy=launch_agy,
-                launch_claude=launch_claude,
-                launch_codex=launch_codex,
-                run_ciel_runtime_update_check=run_ciel_runtime_update_check,
-                run_codex_update_check=run_codex_update_check,
-                run_prelaunch_menu=run_prelaunch_menu,
-            ),
-            routing=runtime_launch.CodexAppServerRouting(
-                cleanup_managed_services_for_provider=cleanup_managed_services_for_provider,
-                codex_launch_enabled_for_provider=codex_launch_enabled_for_provider,
-                codex_routed_enabled=codex_routed_enabled,
-                direct_native_codex_enabled=direct_native_codex_enabled,
-                launch_readiness_errors=launch_readiness_errors,
-                native_codex_enabled=native_codex_enabled,
-                run_with_router_lifetime=run_with_router_lifetime,
-                start_router_if_needed=start_router_if_needed,
-            ),
-            channel=runtime_launch.CodexAppServerChannel(
-                auto_import_passthrough_channels=auto_import_passthrough_channels,
-                channel_delivery_mode=channel_delivery_mode,
-                codex_channel_capable_mcp_server_names=codex_channel_capable_mcp_server_names,
-                codex_mcp_native_http_compat_args=codex_mcp_native_http_compat_args,
-                codex_mcp_split_proxy_enabled=codex_mcp_split_proxy_enabled,
-                restore_codex_mcp_config_from_managed=restore_codex_mcp_config_from_managed,
-                start_codex_mcp_channel_sse_for_launch=start_codex_mcp_channel_sse_for_launch,
-                write_codex_mcp_config_for_channel_discovery=write_codex_mcp_config_for_channel_discovery,
-            ),
-    )
+    return codex_launch_assembly().app_server_services()
 
 def agy_help_requested(passthrough: list[str]) -> bool:
     return any(arg in ("--help", "-h", "help") for arg in passthrough)

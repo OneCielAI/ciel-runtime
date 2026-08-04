@@ -49,6 +49,16 @@ from ciel_runtime_support.codex_launch_configuration import (
     build_default_codex_launch_constants as build_default_codex_configuration_constants,
     build_default_codex_launch_policy,
 )
+from ciel_runtime_support.codex_launch_assembly import (
+    CodexAppServerLaunchPorts,
+    CodexCliLaunchPorts,
+    CodexLaunchAssembly,
+    CodexLaunchSharedChannelPorts,
+    CodexLaunchSharedConfigPorts,
+    CodexLaunchSharedDispatchPorts,
+    CodexLaunchSharedInstallationPorts,
+    CodexLaunchSharedRoutingPorts,
+)
 from ciel_runtime_support.codex_session_selection import (
     CodexSessionPresentationPorts,
     CodexSessionRepositoryPorts,
@@ -1496,6 +1506,14 @@ class ArchitectureContractTests(unittest.TestCase):
             CodexLaunchDispatch,
             CodexLaunchRouting,
             CodexLaunchChannel,
+            CodexAppServerLaunchPorts,
+            CodexCliLaunchPorts,
+            CodexLaunchAssembly,
+            CodexLaunchSharedChannelPorts,
+            CodexLaunchSharedConfigPorts,
+            CodexLaunchSharedDispatchPorts,
+            CodexLaunchSharedInstallationPorts,
+            CodexLaunchSharedRoutingPorts,
         )
 
         for port in ports:
@@ -1506,6 +1524,11 @@ class ArchitectureContractTests(unittest.TestCase):
             "ciel_runtime_support.runtime_launch",
             build_default_codex_launch_constants.__module__,
         )
+        source = (
+            Path(__file__).resolve().parents[1] / "ciel_runtime.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("return runtime_launch.CodexLaunchServices(", source)
+        self.assertNotIn("return runtime_launch.CodexAppServerLaunchServices(", source)
 
     def test_runtime_launch_context_owns_public_launch_dispatch(self):
         for port in (
