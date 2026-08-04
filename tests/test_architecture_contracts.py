@@ -506,6 +506,20 @@ from ciel_runtime_support.response_stream_context import (
     ResponseStreamTracePorts,
     ResponseStreamTypes,
 )
+from ciel_runtime_support.response_collection_context import (
+    ResponseCollectionCompatibilityApi,
+    ResponseCollectionContext,
+    ResponseCollectionRoutingPorts,
+    ResponseCollectionStrategyPorts,
+)
+from ciel_runtime_support.codex_backend_context import (
+    CodexBackendChannelPorts,
+    CodexBackendCompatibilityApi,
+    CodexBackendContext,
+    CodexBackendTransportPorts,
+    ProviderPassthroughProjectionPorts,
+    ProviderPassthroughTransportPorts,
+)
 from ciel_runtime_support.provider_choice import ProviderChoicePorts
 from ciel_runtime_support.provider_model_selection import (
     AdvisorModelMutationPorts,
@@ -1623,12 +1637,18 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertLessEqual(len(fields(EventHttpPorts)), 10)
         self.assertEqual(2, len(fields(CodexRoutedHeaderPolicy)))
         root = Path(__file__).resolve().parents[1]
-        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        source = (
+            root / "ciel_runtime_support" / "codex_backend_context.py"
+        ).read_text(encoding="utf-8")
+        context_class = next(
+            node for node in ast.parse(source).body
+            if isinstance(node, ast.ClassDef)
+            and node.name == "CodexBackendContext"
+        )
         function = next(
-            node
-            for node in ast.parse(source).body
+            node for node in context_class.body
             if isinstance(node, ast.FunctionDef)
-            and node.name == "codex_routed_upstream_headers"
+            and node.name == "routed_headers"
         )
         function_source = ast.get_source_segment(source, function) or ""
         self.assertIn("CodexRoutedHeaderPolicy", function_source)
@@ -1637,6 +1657,45 @@ class ArchitectureContractTests(unittest.TestCase):
             root / "ciel_runtime_support" / "router_http.py"
         ).read_text(encoding="utf-8")
         self.assertNotIn("import ciel_runtime", policy_source)
+
+    def test_codex_backend_context_owns_passthrough_composition(self):
+        self.assertEqual(4, len(fields(CodexBackendContext)))
+        self.assertEqual(1, len(fields(CodexBackendCompatibilityApi)))
+        for port_type in (
+            CodexBackendChannelPorts,
+            CodexBackendTransportPorts,
+            ProviderPassthroughProjectionPorts,
+            ProviderPassthroughTransportPorts,
+        ):
+            with self.subTest(port_type=port_type.__name__):
+                self.assertLessEqual(len(fields(port_type)), 10)
+
+        root = Path(__file__).resolve().parents[1]
+        facade = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        root_functions = {
+            node.name
+            for node in ast.parse(facade).body
+            if isinstance(node, ast.FunctionDef)
+        }
+        for delegated in (
+            "codex_routed_upstream_headers",
+            "codex_routed_auth_error_message",
+            "codex_responses_body_with_channel_context",
+            "codex_backend_http_adapter",
+            "provider_chat_passthrough",
+            "provider_responses_passthrough",
+            "forward_codex_backend_json",
+            "forward_codex_backend_get",
+            "forward_codex_responses",
+        ):
+            with self.subTest(delegated=delegated):
+                self.assertNotIn(delegated, root_functions)
+
+        source = (
+            root / "ciel_runtime_support" / "codex_backend_context.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", source)
+        self.assertNotIn("__getattr__", source)
 
     def test_chat_file_ports_stay_below_dependency_limit(self):
         self.assertLessEqual(len(fields(ChatFilePorts)), 10)
@@ -3215,6 +3274,37 @@ class ArchitectureContractTests(unittest.TestCase):
 
         context_source = (
             root / "ciel_runtime_support" / "response_stream_context.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import ciel_runtime", context_source)
+        self.assertNotIn("__getattr__", context_source)
+
+    def test_response_collection_context_owns_protocol_strategy_dispatch(self):
+        self.assertEqual(4, len(fields(ResponseCollectionContext)))
+        self.assertEqual(1, len(fields(ResponseCollectionCompatibilityApi)))
+        self.assertLessEqual(len(fields(ResponseCollectionRoutingPorts)), 3)
+        self.assertLessEqual(len(fields(ResponseCollectionStrategyPorts)), 7)
+
+        root = Path(__file__).resolve().parents[1]
+        source = (root / "ciel_runtime.py").read_text(encoding="utf-8")
+        root_functions = {
+            node.name
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+        }
+        for delegated in (
+            "response_collection_services",
+            "_identity_upstream_model",
+            "_build_ollama_collection_request",
+            "collect_ollama_message_for_responses",
+            "collect_openai_chat_message_for_responses",
+            "collect_anthropic_message_for_responses",
+            "collect_provider_message_for_responses",
+        ):
+            with self.subTest(delegated=delegated):
+                self.assertNotIn(delegated, root_functions)
+
+        context_source = (
+            root / "ciel_runtime_support" / "response_collection_context.py"
         ).read_text(encoding="utf-8")
         self.assertNotIn("import ciel_runtime", context_source)
         self.assertNotIn("__getattr__", context_source)
@@ -5456,7 +5546,6 @@ class ArchitectureContractTests(unittest.TestCase):
             "channel_specs": "configured_specs",
             "auto_discovered_mcp_channel_specs": "discover_channel_specs",
             "_channel_current_tmux_pane_text": "current_tmux_pane_text",
-            "codex_responses_body_with_channel_context": "project",
             "schedule_router_process_restart": "schedule_router_restart",
             "openai_context_limit_for_budget": "context_limit",
             "_channel_wake_store_release_stale": "release_stale",

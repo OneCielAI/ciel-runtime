@@ -790,6 +790,14 @@ from ciel_runtime_support.mcp_stdio_probe import (
     probe_stdio_mcp_for_channel_capability_detailed as run_stdio_mcp_probe,
 )
 from ciel_runtime_support.codex_app_server import codex_app_server_launch_args
+from ciel_runtime_support.codex_backend_context import (
+    CodexBackendChannelPorts,
+    CodexBackendCompatibilityApi,
+    CodexBackendContext,
+    CodexBackendTransportPorts,
+    ProviderPassthroughProjectionPorts,
+    ProviderPassthroughTransportPorts,
+)
 from ciel_runtime_support.codex_config import (
     codex_alternate_screen_value_from_config_text,  # noqa: F401
     codex_config_override_keys as _codex_config_override_keys,  # noqa: F401
@@ -832,8 +840,6 @@ from ciel_runtime_support.codex_cli import (
     codex_resume_with_session_id,
 )
 from ciel_runtime_support.codex_router import (
-    CodexChannelContextPorts,
-    CodexChannelContextProjector,
     CodexRouter,
     read_codex_response_preamble,
 )
@@ -912,16 +918,8 @@ from ciel_runtime_support.openai_forwarding import (
     OpenAIForwardStreaming,
     forward_openai_compatible_chat as run_openai_forward,
 )
-from ciel_runtime_support.openai_chat_passthrough import (
-    OpenAIChatPassthrough,
-    OpenAIChatPassthroughPorts,
-)
 from ciel_runtime_support.openai_chat_router import OpenAIChatRouter
 from ciel_runtime_support import openai_responses_router
-from ciel_runtime_support.provider_responses_passthrough import (
-    ProviderResponsesPassthrough,
-    ProviderResponsesPassthroughPorts,
-)
 from ciel_runtime_support.openai_responses_stream import (
     write_openai_responses as project_openai_responses_stream,
     write_openai_responses_error as project_openai_responses_error,
@@ -1128,19 +1126,18 @@ from ciel_runtime_support.response_collection import (
     AnthropicCollectionRequest,
     AnthropicCollectionServices,
     AnthropicCollectionTransport,
-    ChatCollectionStrategy,
     ResponseCollectionProjection,
     ResponseCollectionRateLimit,
     ResponseCollectionRequest,
     ResponseCollectionServices,
-    collect_anthropic_message_for_responses as collect_anthropic_response,
-    collect_chat_message_for_responses as collect_chat_response,
+)
+from ciel_runtime_support.response_collection_context import (
+    ResponseCollectionCompatibilityApi,
+    ResponseCollectionContext,
+    ResponseCollectionRoutingPorts,
+    ResponseCollectionStrategyPorts,
 )
 from ciel_runtime_support.router_http import (
-    CodexBackendHttpAdapter,
-    CodexBackendRequestPorts,
-    CodexBackendRetryPorts,
-    CodexRoutedHeaderPolicy,
     EventHttpAdapter,
     EventHttpPorts,
     RouterHttpCore,
@@ -5410,306 +5407,121 @@ def openai_forward_services() -> OpenAIForwardServices:
 def forward_openai_compatible_chat(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> None:
     run_openai_forward(handler, provider, pcfg, body, services=openai_forward_services())
 
-def response_collection_services() -> ResponseCollectionServices:
-    return ResponseCollectionServices(
-        compatibility_test_header=COMPATIBILITY_TEST_HEADER,
-        request=ResponseCollectionRequest(
-            normalize_thinking=normalize_thinking_for_non_anthropic_provider,
-            resolve_model=resolve_requested_model,
-            body_with_advisor_tool=body_with_advisor_tool,
-            advisor_provider_supported=advisor_provider_supported,
-            provider_endpoint=provider_endpoint,
-            provider_headers=provider_headers,
+def response_collection_context() -> ResponseCollectionContext:
+    return ResponseCollectionContext(
+        shared=ResponseCollectionServices(
+            COMPATIBILITY_TEST_HEADER,
+            ResponseCollectionRequest(
+                normalize_thinking_for_non_anthropic_provider,
+                resolve_requested_model, body_with_advisor_tool,
+                advisor_provider_supported, provider_endpoint, provider_headers,
+            ),
+            ResponseCollectionRateLimit(
+                apply_router_rate_limit, router_rate_limit_effective_rpm,
+                rate_limit_notice,
+            ),
+            ResponseCollectionProjection(
+                refine_message_with_advisor, remember_channel_injected_tool_uses,
+                prepend_anthropic_text,
+            ),
+            post_json_with_rate_retry,
         ),
-        rate_limit=ResponseCollectionRateLimit(
-            apply=apply_router_rate_limit,
-            effective_rpm=router_rate_limit_effective_rpm,
-            notice=rate_limit_notice,
+        anthropic=AnthropicCollectionServices(
+            request=AnthropicCollectionRequest(
+                normalize_thinking_for_non_anthropic_provider,
+                normalize_anthropic_system_role_messages,
+                cap_anthropic_body_for_provider, apply_provider_request_options,
+                rehydrate_suppressed_thinking_passback, resolve_requested_model,
+                provider_upstream_model, resolve_tool_model_references,
+                normalize_anthropic_model_request_options,
+                body_without_ciel_runtime_internal_metadata,
+            ),
+            transport=AnthropicCollectionTransport(
+                provider_native_compat_enabled, native_anthropic_base_url,
+                provider_upstream_request_base, join_url, upstream_messages_query,
+                provider_headers, apply_router_rate_limit,
+                open_provider_request_with_key_retry,
+                provider_request_timeout_seconds,
+            ),
+            projection=AnthropicCollectionProjection(
+                normalize_response_thinking_for_non_anthropic_provider,
+                append_synthetic_tasklist_to_message, prepend_anthropic_text,
+                rate_limit_notice,
+            ),
+            forwarded_headers=(),
         ),
-        projection=ResponseCollectionProjection(
-            refine_with_advisor=refine_message_with_advisor,
-            remember_tool_uses=remember_channel_injected_tool_uses,
-            prepend_text=prepend_anthropic_text,
+        strategies=ResponseCollectionStrategyPorts(
+            ollama_chat_request, ollama_chat_to_anthropic,
+            ollama_request_timeout_seconds, openai_compatible_chat_request,
+            openai_chat_to_anthropic, provider_request_timeout_seconds,
+            provider_upstream_model,
         ),
-        post_json_with_retry=post_json_with_rate_retry,
+        routing=ResponseCollectionRoutingPorts(
+            resolve_requested_model, select_provider_protocol, PROVIDER_LABELS,
+        ),
     )
 
-def _identity_upstream_model(provider: str, pcfg: dict[str, Any], model: str) -> str:
-    del provider, pcfg
-    return model
+_RESPONSE_COLLECTION_API = ResponseCollectionCompatibilityApi(
+    response_collection_context
+)
+response_collection_services = _RESPONSE_COLLECTION_API.services
+_identity_upstream_model = _RESPONSE_COLLECTION_API.identity_upstream_model
+_build_ollama_collection_request = _RESPONSE_COLLECTION_API.build_ollama_request
+collect_ollama_message_for_responses = _RESPONSE_COLLECTION_API.collect_ollama
+collect_openai_chat_message_for_responses = _RESPONSE_COLLECTION_API.collect_openai_chat
+collect_anthropic_message_for_responses = _RESPONSE_COLLECTION_API.collect_anthropic
+collect_provider_message_for_responses = _RESPONSE_COLLECTION_API.collect
 
-def _build_ollama_collection_request(
-    provider: str,
-    model: str,
-    body: dict[str, Any],
-    pcfg: dict[str, Any],
-    *,
-    stream: bool,
-) -> dict[str, Any]:
-    return ollama_chat_request(
-        model, body, pcfg, stream=stream, provider=provider
-    )
-
-def collect_ollama_message_for_responses(
-    handler: BaseHTTPRequestHandler,
-    provider: str,
-    pcfg: dict[str, Any],
-    body: dict[str, Any],
-) -> dict[str, Any]:
-    strategy = ChatCollectionStrategy(
-        operation="ollama_chat",
-        build_request=_build_ollama_collection_request,
-        decode_response=ollama_chat_to_anthropic,
-        request_timeout_seconds=ollama_request_timeout_seconds,
-        normalize_upstream_model=_identity_upstream_model,
-        skip_rate_limit_during_compatibility_test=True,
-    )
-    return collect_chat_response(handler, provider, pcfg, body, strategy=strategy, services=response_collection_services())
-
-def collect_openai_chat_message_for_responses(
-    handler: BaseHTTPRequestHandler,
-    provider: str,
-    pcfg: dict[str, Any],
-    body: dict[str, Any],
-) -> dict[str, Any]:
-    strategy = ChatCollectionStrategy(
-        operation="openai_chat",
-        build_request=openai_compatible_chat_request,
-        decode_response=openai_chat_to_anthropic,
-        request_timeout_seconds=provider_request_timeout_seconds,
-        normalize_upstream_model=provider_upstream_model,
-    )
-    return collect_chat_response(handler, provider, pcfg, body, strategy=strategy, services=response_collection_services())
-
-def collect_anthropic_message_for_responses(
-    handler: BaseHTTPRequestHandler,
-    provider: str,
-    pcfg: dict[str, Any],
-    body: dict[str, Any],
-) -> dict[str, Any]:
-    services = AnthropicCollectionServices(
-        request=AnthropicCollectionRequest(
-            normalize_thinking=normalize_thinking_for_non_anthropic_provider,
-            normalize_system_roles=normalize_anthropic_system_role_messages,
-            cap_body=cap_anthropic_body_for_provider,
-            apply_options=apply_provider_request_options,
-            rehydrate_thinking=rehydrate_suppressed_thinking_passback,
-            resolve_model=resolve_requested_model,
-            normalize_upstream_model=provider_upstream_model,
-            resolve_tool_models=resolve_tool_model_references,
-            normalize_model_options=normalize_anthropic_model_request_options,
-            strip_internal_metadata=body_without_ciel_runtime_internal_metadata,
-        ),
-        transport=AnthropicCollectionTransport(
-            native_compat_enabled=provider_native_compat_enabled,
-            native_base_url=native_anthropic_base_url,
-            upstream_request_base=provider_upstream_request_base,
-            join_url=join_url,
-            messages_query=upstream_messages_query,
-            provider_headers=provider_headers,
-            apply_rate_limit=apply_router_rate_limit,
-            open_request_with_retry=open_provider_request_with_key_retry,
-            request_timeout_seconds=provider_request_timeout_seconds,
-        ),
-        projection=AnthropicCollectionProjection(
-            normalize_response_thinking=normalize_response_thinking_for_non_anthropic_provider,
-            append_synthetic_tasklist=append_synthetic_tasklist_to_message,
-            prepend_text=prepend_anthropic_text,
-            rate_limit_notice=rate_limit_notice,
-        ),
-        # Anthropic protocol header projection is centralized in
-        # ProviderRequestAccessService for both API-key and OAuth requests.
-        forwarded_headers=(),
-    )
-    return collect_anthropic_response(handler, provider, pcfg, body, services=services)
-
-def collect_provider_message_for_responses(
-    handler: BaseHTTPRequestHandler,
-    provider: str,
-    pcfg: dict[str, Any],
-    body: dict[str, Any],
-) -> dict[str, Any]:
-    upstream_model = resolve_requested_model(provider, pcfg, body.get("model"))
-    protocol = select_provider_protocol(provider, pcfg, "openai_responses", upstream_model)
-    collectors = {
-        "ollama_chat": collect_ollama_message_for_responses,
-        "openai_chat": collect_openai_chat_message_for_responses,
-        "anthropic_messages": collect_anthropic_message_for_responses,
-    }
-    collector = collectors.get(protocol)
-    if collector is None:
-        provider_label = PROVIDER_LABELS.get(provider, provider)
-        endpoint_family = protocol.replace("_", "-")
-        raise RuntimeError(
-            f"{provider_label} model {upstream_model!r} uses the {endpoint_family} endpoint family. "
-            f"ciel-runtime currently routes {provider_label} /v1/messages and /v1/chat/completions models."
-        )
-    return collector(handler, provider, pcfg, body)
-
-def codex_routed_upstream_headers(pcfg: dict[str, Any], inbound_headers: Any | None = None) -> dict[str, str]:
-    del pcfg
-    return CodexRoutedHeaderPolicy(
-        decorate=with_upstream_user_agent
-    ).project(inbound_headers)
-
-def codex_routed_auth_error_message(message: str) -> str:
-    low = str(message or "").lower()
-    if "api.responses.write" not in low and "insufficient permissions" not in low and "unauthorized" not in low:
-        return message
-    guidance = (
-        " Codex routed is expected to forward Codex CLI native auth to the ChatGPT Codex backend. "
-        "If this mentions api.responses.write, the request is still using the OpenAI Platform /v1 endpoint; "
-        "upgrade ciel-runtime and relaunch Codex routed so the local base URL is /backend-api/codex."
-    )
-    return f"{message}{guidance}"
-
-def codex_responses_body_with_channel_context(body: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    return CodexChannelContextProjector(
-        CodexChannelContextPorts(
+def codex_backend_context() -> CodexBackendContext:
+    return CodexBackendContext(
+        channel=CodexBackendChannelPorts(
             openai_responses_to_anthropic_messages,
             body_with_pending_channel_messages,
             body_with_channel_tool_result_context,
-            anthropic_content_to_text,
-        )
-    ).project(body)
-
-_responses_input_as_list = CodexChannelContextProjector.input_items
-
-def _copy_upstream_response_headers(handler: BaseHTTPRequestHandler, headers: Any) -> None:
-    CodexBackendHttpAdapter.copy_response_headers(handler, headers)
-
-def codex_backend_http_adapter() -> CodexBackendHttpAdapter:
-    return CodexBackendHttpAdapter(
-        CODEX_ROUTED_UPSTREAM_BASE,
-        CodexBackendRequestPorts(
-            codex_responses_body_with_channel_context, begin_pending_channel_delivery,
-            codex_routed_upstream_headers, provider_urlopen, provider_request_timeout_seconds,
+            anthropic_content_to_text, begin_pending_channel_delivery,
+            mark_pending_channel_delivery_success,
+            commit_pending_channel_delivery_cursors,
         ),
-        CodexBackendRetryPorts(
-            codex_capacity_retry_limit, read_codex_response_preamble, upstream_retry_wait_seconds,
-            router_log, EVENT_BUS.publish, time.sleep,
+        transport=CodexBackendTransportPorts(
+            CODEX_ROUTED_UPSTREAM_BASE, with_upstream_user_agent,
+            provider_urlopen, provider_request_timeout_seconds,
+            read_codex_response_preamble, upstream_retry_wait_seconds,
+            router_log, EVENT_BUS.publish, time.sleep, os.environ.get,
+        ),
+        provider_projection=ProviderPassthroughProjectionPorts(
+            provider_headers,
+            lambda *args, **kwargs: provider_chat_headers(*args, **kwargs),
+            lambda *args, **kwargs: provider_responses_headers(*args, **kwargs),
+            provider_upstream_model, resolve_requested_model,
+            apply_provider_adapter_request_policy,
+        ),
+        provider_transport=ProviderPassthroughTransportPorts(
+            provider_upstream_request_base, join_url, provider_urlopen,
+            provider_request_timeout_seconds,
+            lambda *args, **kwargs: _copy_upstream_response_headers(
+                *args, **kwargs
+            ),
         ),
     )
 
-def provider_responses_headers(
-    provider: str,
-    pcfg: dict[str, Any],
-    inbound_headers: Any | None = None,
-) -> dict[str, str]:
-    headers = provider_headers(
-        provider, pcfg, inbound_headers, "openai_responses"
-    )
-    if inbound_headers is None:
-        headers = {
-            name: value
-            for name, value in headers.items()
-            if str(name).casefold() != "anthropic-version"
-        }
-    return headers
-
-def provider_chat_headers(
-    provider: str,
-    pcfg: dict[str, Any],
-    inbound_headers: Any | None = None,
-) -> dict[str, str]:
-    return provider_headers(provider, pcfg, inbound_headers, "openai_chat")
-
-def provider_chat_passthrough() -> OpenAIChatPassthrough:
-    return OpenAIChatPassthrough(
-        OpenAIChatPassthroughPorts(
-            normalize_model=lambda provider, pcfg, model: provider_upstream_model(
-                provider, pcfg, resolve_requested_model(provider, pcfg, model)
-            ),
-            normalize_request=lambda provider, pcfg, body: apply_provider_adapter_request_policy(
-                provider, pcfg, dict(body)
-            ),
-            upstream_base=provider_upstream_request_base,
-            join_url=join_url,
-            headers=provider_chat_headers,
-            urlopen=provider_urlopen,
-            timeout_seconds=provider_request_timeout_seconds,
-            copy_response_headers=_copy_upstream_response_headers,
-        )
-    )
-
-def forward_provider_chat(
-    handler: BaseHTTPRequestHandler,
-    provider: str,
-    pcfg: dict[str, Any],
-    body: dict[str, Any],
-) -> None:
-    provider_chat_passthrough().forward(handler, provider, pcfg, body)
-
-def provider_responses_passthrough() -> ProviderResponsesPassthrough:
-    return ProviderResponsesPassthrough(
-        ProviderResponsesPassthroughPorts(
-            project_channel_context=codex_responses_body_with_channel_context,
-            begin_channel_delivery=begin_pending_channel_delivery,
-            normalize_model=lambda provider, pcfg, model: provider_upstream_model(
-                provider,
-                pcfg,
-                resolve_requested_model(provider, pcfg, model),
-            ),
-            normalize_request=lambda provider, pcfg, body: (
-                apply_provider_adapter_request_policy(
-                    provider,
-                    pcfg,
-                    dict(body),
-                )
-            ),
-            upstream_base=provider_upstream_request_base,
-            join_url=join_url,
-            headers=provider_responses_headers,
-            urlopen=provider_urlopen,
-            timeout_seconds=provider_request_timeout_seconds,
-            copy_response_headers=_copy_upstream_response_headers,
-        )
-    )
-
-def forward_provider_responses(
-    handler: BaseHTTPRequestHandler,
-    provider: str,
-    pcfg: dict[str, Any],
-    body: dict[str, Any],
-) -> dict[str, Any]:
-    return provider_responses_passthrough().forward(
-        handler,
-        provider,
-        pcfg,
-        body,
-    )
-
-def codex_backend_upstream_url(request_path: str, query: str = "") -> str:
-    return codex_backend_http_adapter().upstream_url(request_path, query)
-
-def forward_codex_backend_json(
-    handler: BaseHTTPRequestHandler,
-    provider: str,
-    pcfg: dict[str, Any],
-    body: dict[str, Any],
-    *,
-    mutate_responses: bool = False,
-) -> dict[str, Any] | None:
-    return codex_backend_http_adapter().forward_json(
-        handler, provider, pcfg, body, mutate_responses=mutate_responses
-    )
-
-def codex_capacity_retry_limit() -> int:
-    raw = str(os.environ.get("CIEL_RUNTIME_CODEX_CAPACITY_RETRIES") or "3").strip()
-    try:
-        return max(0, min(10, int(raw)))
-    except ValueError:
-        return 3
-
-def forward_codex_backend_get(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any]) -> None:
-    codex_backend_http_adapter().forward_get(handler, provider, pcfg)
-
-def forward_codex_responses(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> None:
-    delivery_body = forward_codex_backend_json(handler, provider, pcfg, body, mutate_responses=True)
-    if delivery_body is None:
-        return
-    mark_pending_channel_delivery_success(handler, "codex_responses_proxy")
-    commit_pending_channel_delivery_cursors(delivery_body, handler)
+_CODEX_BACKEND_API = CodexBackendCompatibilityApi(codex_backend_context)
+codex_routed_upstream_headers = _CODEX_BACKEND_API.routed_headers
+codex_routed_auth_error_message = _CODEX_BACKEND_API.routed_auth_error_message
+codex_responses_body_with_channel_context = _CODEX_BACKEND_API.project_channel_context
+_responses_input_as_list = _CODEX_BACKEND_API.responses_input_as_list
+_copy_upstream_response_headers = _CODEX_BACKEND_API.copy_response_headers
+codex_backend_http_adapter = _CODEX_BACKEND_API.backend_adapter
+provider_responses_headers = _CODEX_BACKEND_API.provider_responses_headers
+provider_chat_headers = _CODEX_BACKEND_API.provider_chat_headers
+provider_chat_passthrough = _CODEX_BACKEND_API.chat_passthrough
+forward_provider_chat = _CODEX_BACKEND_API.forward_provider_chat
+provider_responses_passthrough = _CODEX_BACKEND_API.responses_passthrough
+forward_provider_responses = _CODEX_BACKEND_API.forward_provider_responses
+codex_backend_upstream_url = _CODEX_BACKEND_API.upstream_url
+forward_codex_backend_json = _CODEX_BACKEND_API.forward_json
+codex_capacity_retry_limit = _CODEX_BACKEND_API.capacity_retry_limit
+forward_codex_backend_get = _CODEX_BACKEND_API.forward_get
+forward_codex_responses = _CODEX_BACKEND_API.forward_responses
 
 def handle_openai_responses_post(
     handler: BaseHTTPRequestHandler,

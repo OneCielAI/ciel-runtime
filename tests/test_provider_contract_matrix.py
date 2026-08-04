@@ -332,6 +332,7 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "provider_config_mutations.py",
             "openai_forwarding.py",
             "response_collection.py",
+            "response_collection_context.py",
             "anthropic_tool_turns.py",
             "claude_router.py",
         ):
@@ -341,16 +342,26 @@ class ProviderContractMatrixTests(unittest.TestCase):
                 self.assertNotIn("provider in (", source)
 
     def test_response_collection_dispatch_uses_provider_protocol_contract(self):
-        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "ciel_runtime_support"
+            / "response_collection_context.py"
+        ).read_text(encoding="utf-8")
         tree = ast.parse(source)
         function = next(
             node
             for node in tree.body
-            if isinstance(node, ast.FunctionDef) and node.name == "collect_provider_message_for_responses"
+            if isinstance(node, ast.ClassDef)
+            and node.name == "ResponseCollectionContext"
         )
-        function_source = ast.get_source_segment(source, function) or ""
+        collect_method = next(
+            node
+            for node in function.body
+            if isinstance(node, ast.FunctionDef) and node.name == "collect"
+        )
+        function_source = ast.get_source_segment(source, collect_method) or ""
 
-        self.assertIn("select_provider_protocol", function_source)
+        self.assertIn("self.routing.select_protocol", function_source)
         self.assertNotIn('provider == "', function_source)
         self.assertNotIn("provider in (", function_source)
         self.assertNotIn("OPENCODE_PROVIDER_NAMES", function_source)
