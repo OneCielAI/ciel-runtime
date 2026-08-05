@@ -94,7 +94,7 @@ def normalize_provider_request(provider: str, pcfg: dict[str, Any], body: dict[s
     out = sanitize_assistant_pseudo_tool_text_history(out)
     out = normalize_anthropic_tool_turns_for_provider(provider, pcfg, out)
     if profile.get("upstream_format") == "anthropic-messages":
-        out = normalize_anthropic_system_role_messages(out)
+        out = normalize_anthropic_system_role_messages(provider, pcfg, out)
     return out
 
 

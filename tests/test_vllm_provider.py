@@ -91,6 +91,27 @@ class VllmProviderTests(unittest.TestCase):
         self.assertIn("Original system", system_text)
         self.assertIn("Runtime state", system_text)
 
+    def test_provider_policy_hoists_system_role_for_vllm_compatibility(self):
+        pcfg = dict(ciel_runtime.DEFAULT_CONFIG["providers"]["vllm"])
+        body = {
+            "model": "claude-opus-5",
+            "system": "Original system",
+            "messages": [
+                {"role": "user", "content": "hello"},
+                {"role": "system", "content": "Runtime state"},
+            ],
+        }
+
+        normalized = ciel_runtime.normalize_anthropic_system_role_messages_for_provider(
+            "vllm", pcfg, body
+        )
+
+        self.assertEqual(["user"], [message["role"] for message in normalized["messages"]])
+        self.assertIn(
+            "Runtime state",
+            ciel_runtime.anthropic_content_to_text(normalized["system"]),
+        )
+
     def test_vllm_native_router_normalizes_system_role_before_upstream(self):
         cfg = {
             "current_provider": "vllm",

@@ -308,6 +308,33 @@ class NativeEnvContractTests(unittest.TestCase):
         self.assertEqual(attribution, wire_body["system"][0])
         self.assertEqual({"enabled": True}, wire_body["future_request_field"])
 
+    def test_routed_anthropic_keeps_mid_conversation_system_context_inline_for_every_model(self):
+        for model in ("claude-opus-5", "claude-fable-5", "claude-sonnet-4-6"):
+            with self.subTest(model=model):
+                body = {
+                    "model": model,
+                    "system": [{"type": "text", "text": "stable"}],
+                    "messages": [
+                        {"role": "user", "content": "work"},
+                        {
+                            "role": "system",
+                            "content": [{"type": "text", "text": "task reminder"}],
+                        },
+                        {"role": "user", "content": "continue"},
+                    ],
+                }
+
+                out = ciel_runtime.normalize_anthropic_system_role_messages_for_provider(
+                    "anthropic", {"current_model": model}, body
+                )
+
+                self.assertEqual(
+                    ["user", "user", "user"],
+                    [message["role"] for message in out["messages"]],
+                )
+                self.assertEqual(1, len(out["system"]))
+                self.assertIn("task reminder", out["messages"][1]["content"])
+
     def test_routed_anthropic_advisor_request_uses_messages_api(self):
         pcfg = {
             "base_url": "https://api.anthropic.com",

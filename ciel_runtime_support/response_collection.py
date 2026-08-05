@@ -153,7 +153,7 @@ def collect_anthropic_message_for_responses(
     transport = services.transport
     projection = services.projection
     body = request.normalize_thinking(provider, pcfg, body)
-    body = request.normalize_system_roles(body)
+    body = request.normalize_system_roles(provider, pcfg, body)
     body = request.cap_body(provider, pcfg, body)
     body = request.apply_options(provider, pcfg, body)
     body = request.rehydrate_thinking(provider, pcfg, body)

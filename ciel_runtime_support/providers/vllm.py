@@ -1,6 +1,7 @@
 """vLLM provider adapter."""
 
 from dataclasses import dataclass, field, replace
+from typing import Literal
 
 from ..architecture import (
     ProviderCapabilities,
@@ -39,10 +40,15 @@ class VllmProviderAdapter(OpenAICompatibleProviderAdapter):
             upstream_protocol="openai_chat", supports_tool_choice=False, local=True
         )
     )
-
     def requires_catalog_model_selection(self, config: ProviderConfig) -> bool:
         del config
         return True
+
+    def anthropic_system_role_strategy(
+        self, config: ProviderConfig
+    ) -> Literal["hoist_top_level"]:
+        del config
+        return "hoist_top_level"
 
     def placeholder_model_ids(self) -> frozenset[str]:
         return super().placeholder_model_ids() | {"my-model"}

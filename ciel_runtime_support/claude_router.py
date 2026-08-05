@@ -313,7 +313,7 @@ def handle_claude_messages_post(
             )
             return
         body = normalize_thinking_for_non_anthropic_provider(provider, pcfg, body)
-        body = normalize_anthropic_system_role_messages(body)
+        body = normalize_anthropic_system_role_messages(provider, pcfg, body)
         body = cap_anthropic_body_for_provider(provider, pcfg, body)
         body = apply_provider_request_options(provider, pcfg, body)
         body = rehydrate_suppressed_thinking_passback(provider, pcfg, body)

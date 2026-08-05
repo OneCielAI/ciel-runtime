@@ -304,6 +304,7 @@ from ciel_runtime_support.prompt_compaction import compact_anthropic_body_for_bu
 from ciel_runtime_support.prompt_compaction import compact_chat_messages_for_budget as run_chat_prompt_compaction
 from ciel_runtime_support.prompt_injection import append_anthropic_system_texts as project_append_anthropic_system_texts
 from ciel_runtime_support.prompt_injection import normalize_anthropic_system_role_messages as project_normalize_anthropic_system_role_messages
+from ciel_runtime_support.prompt_injection import normalize_anthropic_system_role_messages_by_strategy as project_normalize_anthropic_system_role_messages_by_strategy
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
 from ciel_runtime_support.protocols.anthropic_content import content_to_text as anthropic_content_to_text
 from ciel_runtime_support.protocols.anthropic_thinking_policy import AnthropicThinkingPolicy, SuppressedThinkingRepository, ThinkingPolicyPorts
@@ -2121,14 +2122,12 @@ def append_anthropic_system_texts(system: Any, extra_system_texts: list[str] | N
     return project_append_anthropic_system_texts(system, extra_system_texts)
 
 def normalize_anthropic_system_role_messages(body: dict[str, Any]) -> dict[str, Any]:
-    """Move non-standard ``messages[].role == "system"`` entries to top-level system.
-
-    Claude Code can include runtime state as a system-role item in message
-    history. Anthropic-compatible /v1/messages servers such as vLLM accept
-    only user/assistant roles in ``messages`` and expect system context at the
-    top level.
-    """
     return project_normalize_anthropic_system_role_messages(body, anthropic_content_to_text)
+
+def normalize_anthropic_system_role_messages_for_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
+    adapter = configured_provider_adapter(provider, pcfg)
+    config = provider_contract_config(provider, pcfg)
+    return project_normalize_anthropic_system_role_messages_by_strategy(body, adapter.anthropic_system_role_strategy(config), anthropic_content_to_text)
 
 def pseudo_tool_history_services() -> PseudoToolHistoryServices: return PseudoToolHistoryServices(tool_names=tool_names_in_body, match_tool_name=_match_available_tool_name, resolve_emitted_name=resolve_emitted_tool_name, normalize_arguments=normalize_tool_arguments, log=router_log)
 def _find_pseudo_xml_tool_start(text: str, source_body: dict[str, Any] | None) -> int: return find_pseudo_xml_tool_start(text, source_body, pseudo_tool_history_services())
@@ -2178,7 +2177,7 @@ def normalize_request_for_provider_wire(provider: str, pcfg: dict[str, Any], bod
         provider, pcfg, body,
         services=ProviderRequestServices(
             apply_provider_adapter_request_policy=apply_provider_adapter_request_policy,
-            normalize_anthropic_system_role_messages=normalize_anthropic_system_role_messages,
+            normalize_anthropic_system_role_messages=normalize_anthropic_system_role_messages_for_provider,
             normalize_anthropic_tool_turns_for_provider=normalize_anthropic_tool_turns_for_provider,
             normalize_thinking_for_non_anthropic_provider=normalize_thinking_for_non_anthropic_provider,
             normalize_tool_choice_for_provider=normalize_tool_choice_for_provider,
@@ -2712,7 +2711,7 @@ def response_collection_context() -> ResponseCollectionContext:
             post_json_with_rate_retry,
         ),
         anthropic=AnthropicCollectionServices(
-            request=AnthropicCollectionRequest(normalize_thinking_for_non_anthropic_provider, normalize_anthropic_system_role_messages, cap_anthropic_body_for_provider,
+            request=AnthropicCollectionRequest(normalize_thinking_for_non_anthropic_provider, normalize_anthropic_system_role_messages_for_provider, cap_anthropic_body_for_provider,
                                                apply_provider_request_options, rehydrate_suppressed_thinking_passback, resolve_requested_model, provider_upstream_model,
                                                resolve_tool_model_references, normalize_anthropic_model_request_options, body_without_ciel_runtime_internal_metadata),
             transport=AnthropicCollectionTransport(provider_native_compat_enabled, native_anthropic_base_url, provider_upstream_request_base, join_url, upstream_messages_query,
@@ -2790,7 +2789,7 @@ def _router_request_context() -> RouterRequestContext:
         assembly.ClaudeRouterDeliveryPorts(begin_pending_channel_delivery, commit_pending_channel_delivery_cursors, mark_pending_channel_delivery_failed,
                                            mark_pending_channel_delivery_success, is_client_disconnect_error, write_router_activity),
         assembly.ClaudeRouterRoutingPorts(forward_ollama_api_chat, forward_openai_compatible_chat, select_provider_protocol, provider_request_policy, resolve_requested_model, PROVIDER_LABELS, write_json),
-        assembly.ClaudeRouterNormalizationPorts(normalize_request_for_provider_wire, normalize_thinking_for_non_anthropic_provider, normalize_anthropic_system_role_messages,
+        assembly.ClaudeRouterNormalizationPorts(normalize_request_for_provider_wire, normalize_thinking_for_non_anthropic_provider, normalize_anthropic_system_role_messages_for_provider,
                                                 cap_anthropic_body_for_provider, apply_provider_request_options, rehydrate_suppressed_thinking_passback, ncp_model_id_for_nvidia_hosted,
                                                 resolve_tool_model_references, normalize_anthropic_model_request_options, body_without_ciel_runtime_internal_metadata),
         assembly.ClaudeRouterTransportPorts(native_anthropic_base_url, provider_native_compat_enabled, provider_upstream_request_base, join_url, upstream_messages_query,

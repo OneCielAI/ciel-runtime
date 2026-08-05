@@ -174,3 +174,48 @@ def normalize_anthropic_system_role_messages(
     out["messages"] = next_messages
     out["system"] = append_anthropic_system_texts(body.get("system"), system_texts)
     return out
+
+
+def inline_anthropic_system_role_messages(
+    body: Mapping[str, Any],
+    content_to_text: Callable[[Any], str],
+) -> JsonObject:
+    """Make non-standard system history wire-valid without moving its position.
+
+    Anthropic Messages only permits user/assistant roles in ``messages``.  A
+    late runtime reminder must therefore be represented as user context, but
+    moving it into the leading ``system`` field would rewrite the entire cache
+    prefix on every turn.
+    """
+
+    messages = body.get("messages")
+    if not isinstance(messages, list):
+        return dict(body)
+    changed = False
+    projected: list[Any] = []
+    for message in messages:
+        if not isinstance(message, dict) or str(message.get("role") or "").strip() != "system":
+            projected.append(message)
+            continue
+        changed = True
+        text = content_to_text(message.get("content")).strip()
+        projected.append(
+            {
+                **message,
+                "role": "user",
+                "content": f"[Runtime system context]\n{text}" if text else "[Runtime system context]",
+            }
+        )
+    if not changed:
+        return dict(body)
+    return {**body, "messages": projected}
+
+
+def normalize_anthropic_system_role_messages_by_strategy(
+    body: Mapping[str, Any],
+    strategy: str,
+    content_to_text: Callable[[Any], str],
+) -> JsonObject:
+    if strategy == "hoist_top_level":
+        return normalize_anthropic_system_role_messages(body, content_to_text)
+    return inline_anthropic_system_role_messages(body, content_to_text)

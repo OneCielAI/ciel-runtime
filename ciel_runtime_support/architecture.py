@@ -617,6 +617,19 @@ class ProviderAdapter(ABC):
         del config
         return request
 
+    def anthropic_system_role_strategy(
+        self, config: ProviderConfig
+    ) -> Literal["inline_user", "hoist_top_level"]:
+        """Choose how non-standard system-role history is made wire-valid.
+
+        Keeping the item at its original position protects the stable prefix
+        used by provider-side context caches.  Compatibility servers that only
+        accept top-level system context may opt into hoisting explicitly.
+        """
+
+        del config
+        return "inline_user"
+
     def openai_reasoning_effort(
         self, config: ProviderConfig, model: str, request: Mapping[str, Any]
     ) -> str | None:

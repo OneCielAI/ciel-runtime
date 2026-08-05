@@ -284,7 +284,74 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertEqual("function_call", response["output"][1]["type"])
         self.assertEqual("call_1", response["output"][1]["call_id"])
         self.assertEqual("{\"command\": \"pwd\"}", response["output"][1]["arguments"])
-        self.assertEqual({"input_tokens": 3, "output_tokens": 5, "total_tokens": 8}, response["usage"])
+        self.assertEqual(
+            {
+                "input_tokens": 3,
+                "input_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 0},
+                "output_tokens": 5,
+                "total_tokens": 8,
+            },
+            response["usage"],
+        )
+
+    def test_responses_roundtrip_preserves_reasoning_before_tool_call(self):
+        message = {
+            "model": "deepseek-v4-pro",
+            "content": [
+                {"type": "thinking", "thinking": "inspect the repository first"},
+                {"type": "tool_use", "id": "call_1", "name": "shell_command", "input": {"command": "rg TODO"}},
+            ],
+            "usage": {"input_tokens": 5, "output_tokens": 2},
+        }
+
+        response = ciel_runtime.anthropic_message_to_openai_response(message)
+        self.assertEqual(["reasoning", "function_call"], [item["type"] for item in response["output"]])
+
+        request = ciel_runtime.openai_responses_to_anthropic_messages(
+            {"model": "deepseek-v4-pro", "input": response["output"]},
+            "deepseek-v4-pro",
+        )
+        blocks = request["messages"][0]["content"]
+        self.assertEqual("thinking", blocks[0]["type"])
+        self.assertEqual("inspect the repository first", blocks[0]["thinking"])
+        self.assertEqual("tool_use", blocks[1]["type"])
+
+    def test_responses_usage_preserves_provider_cache_metrics(self):
+        response = ciel_runtime.anthropic_message_to_openai_response(
+            {
+                "model": "deepseek-v4-pro",
+                "content": [{"type": "text", "text": "done"}],
+                "usage": {
+                    "input_tokens": 20,
+                    "cache_read_input_tokens": 100,
+                    "cache_creation_input_tokens": 10,
+                    "output_tokens": 4,
+                },
+            }
+        )
+
+        self.assertEqual(130, response["usage"]["input_tokens"])
+        self.assertEqual(
+            {"cached_tokens": 100, "cache_write_tokens": 10},
+            response["usage"]["input_tokens_details"],
+        )
+
+    def test_late_developer_item_stays_inline_to_preserve_cache_prefix(self):
+        request = ciel_runtime.openai_responses_to_anthropic_messages(
+            {
+                "instructions": "stable instructions",
+                "input": [
+                    {"type": "message", "role": "user", "content": "work"},
+                    {"type": "message", "role": "developer", "content": "late reminder"},
+                    {"type": "message", "role": "user", "content": "continue"},
+                ],
+            },
+            "deepseek-v4-pro",
+        )
+
+        self.assertEqual(["user", "user", "user"], [item["role"] for item in request["messages"]])
+        self.assertEqual("stable instructions", request["system"][0]["text"])
+        self.assertIn("late reminder", request["messages"][1]["content"][0]["text"])
 
     def test_responses_sse_includes_codex_required_lifecycle_events(self):
         handler = FakeSSEHandler()

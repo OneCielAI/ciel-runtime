@@ -57,6 +57,28 @@ class KimiProviderTests(unittest.TestCase):
             ciel_runtime.join_url(ciel_runtime.provider_upstream_request_base("kimi", pcfg), "/v1/chat/completions"),
         )
 
+    def test_anthropic_endpoint_keeps_mid_conversation_system_context_inline(self):
+        pcfg = self.kimi_cfg()["providers"]["kimi"]
+        body = {
+            "model": "k3",
+            "system": "stable",
+            "messages": [
+                {"role": "user", "content": "work"},
+                {"role": "system", "content": "task reminder"},
+                {"role": "user", "content": "continue"},
+            ],
+        }
+
+        normalized = ciel_runtime.normalize_anthropic_system_role_messages_for_provider(
+            "kimi", pcfg, body
+        )
+
+        self.assertEqual(
+            ["user", "user", "user"],
+            [message["role"] for message in normalized["messages"]],
+        )
+        self.assertIn("task reminder", normalized["messages"][1]["content"])
+
     def test_launch_endpoint_policy_switches_kimi_for_selected_runtime(self):
         cfg = self.kimi_cfg()
         pcfg = cfg["providers"]["kimi"]

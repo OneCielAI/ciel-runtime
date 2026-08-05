@@ -54,6 +54,17 @@ def _content_blocks(content: Any) -> list[dict[str, Any]]:
     return [{"type": "text", "text": text}] if text else []
 
 
+def _reasoning_summary_text(item: dict[str, Any]) -> str:
+    summary = item.get("summary")
+    if not isinstance(summary, list):
+        return ""
+    return "\n".join(
+        str(part.get("text") or "")
+        for part in summary
+        if isinstance(part, dict) and part.get("type") == "summary_text"
+    ).strip()
+
+
 def _tools_to_anthropic(tools: Any) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     if not isinstance(tools, list):
@@ -117,25 +128,36 @@ def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model:
         raw_input = [raw_input]
     if not isinstance(raw_input, list):
         raw_input = []
+    saw_conversation_item = False
+    pending_reasoning = ""
     for item in raw_input:
         if not isinstance(item, dict):
             continue
         item_type = str(item.get("type") or "message")
+        if item_type == "reasoning":
+            pending_reasoning = _reasoning_summary_text(item)
+            continue
         if item_type == "function_call":
             call_id = str(item.get("call_id") or item.get("id") or f"call_{len(messages) + 1}")
+            content: list[dict[str, Any]] = []
+            if pending_reasoning:
+                content.append({"type": "thinking", "thinking": pending_reasoning})
+                pending_reasoning = ""
+            content.append(
+                {
+                    "type": "tool_use",
+                    "id": call_id,
+                    "name": str(item.get("name") or "tool"),
+                    "input": _json_object(item.get("arguments")),
+                }
+            )
             messages.append(
                 {
                     "role": "assistant",
-                    "content": [
-                        {
-                            "type": "tool_use",
-                            "id": call_id,
-                            "name": str(item.get("name") or "tool"),
-                            "input": _json_object(item.get("arguments")),
-                        }
-                    ],
+                    "content": content,
                 }
             )
+            saw_conversation_item = True
             continue
         if item_type == "function_call_output":
             call_id = str(item.get("call_id") or item.get("id") or "call_tool")
@@ -151,17 +173,22 @@ def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model:
                     ],
                 }
             )
+            saw_conversation_item = True
             continue
         role = str(item.get("role") or "user").strip().lower()
         blocks = _content_blocks(item.get("content", item.get("text", "")))
         if not blocks:
             continue
-        if role in ("system", "developer"):
+        if role in ("system", "developer") and not saw_conversation_item:
             system_parts.append(_content_text(blocks))
             continue
+        if role in ("system", "developer"):
+            role = "user"
+            blocks = [{"type": "text", "text": f"[Runtime system context]\n{_content_text(blocks)}"}]
         if role not in ("user", "assistant"):
             role = "user"
         messages.append({"role": role, "content": blocks})
+        saw_conversation_item = True
     if not messages:
         messages.append({"role": "user", "content": [{"type": "text", "text": ""}]})
     out: dict[str, Any] = {
@@ -180,21 +207,29 @@ def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model:
         out["max_tokens"] = max_tokens
     reasoning = body.get("reasoning")
     if isinstance(reasoning, dict) and reasoning.get("effort") is not None:
+        effort = str(reasoning["effort"])
         out["thinking"] = {
-            "type": "enabled",
-            "effort": str(reasoning["effort"]),
+            "type": "disabled" if effort.strip().lower() in {"none", "minimal"} else "enabled",
+            "effort": effort,
         }
     if system_parts:
         out["system"] = [{"type": "text", "text": part} for part in system_parts if part]
     return out
 
 
-def _usage_from_anthropic(message: dict[str, Any]) -> dict[str, int]:
+def _usage_from_anthropic(message: dict[str, Any]) -> dict[str, Any]:
     usage = message.get("usage") if isinstance(message.get("usage"), dict) else {}
-    input_tokens = _positive_int(usage.get("input_tokens")) or 0
+    uncached_input = _positive_int(usage.get("input_tokens")) or 0
+    cached_input = _positive_int(usage.get("cache_read_input_tokens")) or 0
+    cache_write = _positive_int(usage.get("cache_creation_input_tokens")) or 0
+    input_tokens = uncached_input + cached_input + cache_write
     output_tokens = _positive_int(usage.get("output_tokens")) or 0
     return {
         "input_tokens": input_tokens,
+        "input_tokens_details": {
+            "cached_tokens": cached_input,
+            "cache_write_tokens": cache_write,
+        },
         "output_tokens": output_tokens,
         "total_tokens": input_tokens + output_tokens,
     }
@@ -234,6 +269,16 @@ def anthropic_message_to_openai_response(
                     "arguments": json.dumps(block.get("input") or {}, ensure_ascii=False),
                 }
             )
+        elif block_type == "thinking":
+            thinking = str(block.get("thinking") or "")
+            if thinking:
+                output.append(
+                    {
+                        "id": f"rs_{response_id[5:13]}_{index}",
+                        "type": "reasoning",
+                        "summary": [{"type": "summary_text", "text": thinking}],
+                    }
+                )
     return {
         "id": response_id,
         "object": "response",

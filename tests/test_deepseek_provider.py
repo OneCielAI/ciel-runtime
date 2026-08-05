@@ -31,6 +31,10 @@ class DeepSeekProviderTests(unittest.TestCase):
         self.assertEqual("deepseek-v4-flash", pcfg["subagent_model"])
         self.assertEqual("max", pcfg["effort_level"])
         self.assertTrue(pcfg["native_compat"])
+        self.assertEqual(
+            ["effort", "max_effort", "thinking", "interleaved_thinking"],
+            pcfg["claude_code_supported_capabilities"],
+        )
 
     def test_env_vars_route_deepseek_through_ciel_runtime_router(self):
         cfg = self.deepseek_cfg(api_key="sk-deepseek-test")
@@ -47,6 +51,10 @@ class DeepSeekProviderTests(unittest.TestCase):
         self.assertEqual(expected_model, env["ANTHROPIC_DEFAULT_HAIKU_MODEL"])
         self.assertEqual(expected_model, env["CLAUDE_CODE_SUBAGENT_MODEL"])
         self.assertEqual("8192", env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"])
+        self.assertEqual(
+            "effort,max_effort,thinking,interleaved_thinking",
+            env["ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES"],
+        )
 
     def test_long_context_deepseek_alias_marks_claude_code_as_one_million_context(self):
         cfg = self.deepseek_cfg(
@@ -173,6 +181,123 @@ class DeepSeekProviderTests(unittest.TestCase):
 
         self.assertIs(out, body)
         self.assertIn("tool_choice", out)
+
+    def test_thinking_request_omits_unsupported_sampling_and_normalizes_effort(self):
+        pcfg = self.deepseek_cfg()["providers"]["deepseek"]
+        body = {
+            "model": "deepseek-v4-pro",
+            "thinking": {"type": "enabled"},
+            "output_config": {"effort": "xhigh"},
+            "temperature": 0.8,
+            "top_p": 0.9,
+            "top_k": 20,
+            "messages": [{"role": "user", "content": "work"}],
+        }
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "deepseek", pcfg, body
+        )
+
+        self.assertNotIn("temperature", normalized)
+        self.assertNotIn("top_p", normalized)
+        self.assertNotIn("top_k", normalized)
+        self.assertEqual("max", normalized["output_config"]["effort"])
+
+    def test_non_thinking_request_keeps_supported_sampling(self):
+        pcfg = self.deepseek_cfg()["providers"]["deepseek"]
+        body = {
+            "model": "deepseek-v4-flash",
+            "thinking": {"type": "disabled"},
+            "temperature": 0.8,
+            "top_p": 0.9,
+            "messages": [{"role": "user", "content": "work"}],
+        }
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "deepseek", pcfg, body
+        )
+
+        self.assertEqual(0.8, normalized["temperature"])
+        self.assertEqual(0.9, normalized["top_p"])
+
+    def test_codex_reasoning_effort_maps_to_deepseek_anthropic_contract(self):
+        pcfg = self.deepseek_cfg()["providers"]["deepseek"]
+        body = ciel_runtime.openai_responses_to_anthropic_messages(
+            {
+                "model": "deepseek-v4-pro",
+                "input": "work",
+                "reasoning": {"effort": "xhigh"},
+            },
+            "deepseek-v4-pro",
+        )
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "deepseek", pcfg, body
+        )
+
+        self.assertEqual({"type": "enabled"}, normalized["thinking"])
+        self.assertEqual({"effort": "max"}, normalized["output_config"])
+
+    def test_codex_none_effort_disables_deepseek_thinking(self):
+        pcfg = self.deepseek_cfg()["providers"]["deepseek"]
+        body = ciel_runtime.openai_responses_to_anthropic_messages(
+            {"input": "work", "reasoning": {"effort": "none"}},
+            "deepseek-v4-flash",
+        )
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "deepseek", pcfg, body
+        )
+
+        self.assertEqual({"type": "disabled"}, normalized["thinking"])
+        self.assertNotIn("output_config", normalized)
+
+    def test_openai_tool_history_preserves_reasoning_content_for_v4(self):
+        pcfg = self.deepseek_cfg(native_compat=False)["providers"]["deepseek"]
+        body = {
+            "model": "deepseek-v4-pro",
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "thinking", "thinking": "tool rationale"},
+                        {"type": "tool_use", "id": "call_1", "name": "Read", "input": {"path": "a.py"}},
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [{"type": "tool_result", "tool_use_id": "call_1", "content": "ok"}],
+                },
+            ],
+        }
+
+        request = ciel_runtime.openai_compatible_chat_request(
+            "deepseek", "deepseek-v4-pro", body, pcfg
+        )
+
+        assistant = next(item for item in request["messages"] if item["role"] == "assistant")
+        self.assertEqual("tool rationale", assistant["reasoning_content"])
+        self.assertEqual("max", request["reasoning_effort"])
+        self.assertNotIn("temperature", request)
+        self.assertNotIn("top_p", request)
+
+    def test_openai_response_projects_deepseek_kv_cache_usage(self):
+        response = ciel_runtime.openai_chat_to_anthropic(
+            {
+                "choices": [{"message": {"content": "done"}, "finish_reason": "stop"}],
+                "usage": {
+                    "prompt_tokens": 120,
+                    "completion_tokens": 4,
+                    "prompt_cache_hit_tokens": 100,
+                    "prompt_cache_miss_tokens": 20,
+                },
+            },
+            "deepseek-v4-pro",
+        )
+
+        self.assertEqual(20, response["usage"]["input_tokens"])
+        self.assertEqual(100, response["usage"]["cache_read_input_tokens"])
+        self.assertEqual(4, response["usage"]["output_tokens"])
 
 
 if __name__ == "__main__":
