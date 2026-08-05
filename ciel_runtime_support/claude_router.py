@@ -116,6 +116,11 @@ class ClaudeRouterResponse:
 
 
 @dataclass(frozen=True, slots=True)
+class ClaudeRouterContextRecovery:
+    recover_output_budget: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
 class ClaudeRouterServices:
     core: ClaudeRouterCore
     count_tokens: ClaudeRouterCountTokens
@@ -126,6 +131,7 @@ class ClaudeRouterServices:
     normalization: ClaudeRouterNativeNormalization
     transport: ClaudeRouterTransport
     response: ClaudeRouterResponse
+    context_recovery: ClaudeRouterContextRecovery
 
 
 def handle_claude_count_tokens_post(
@@ -158,6 +164,7 @@ def handle_claude_messages_post(
     normalization = services.normalization
     transport = services.transport
     response = services.response
+    context_recovery = services.context_recovery
     _rebatch_anthropic_sse_text = response.rebatch_sse
     _update_tool_schema_registry = pipeline.update_tool_schema_registry
     append_synthetic_tasklist_to_message = response.append_tasklist
@@ -339,16 +346,56 @@ def handle_claude_messages_post(
         waited, rpm_used, rpm_limit = apply_router_rate_limit(provider, pcfg, upstream_model)
         try:
             event_bus.publish(level="info", category="upstream.request", message="forwarding to Anthropic-compatible provider", request_id=request_id, provider=provider, model=upstream_model, data={"url": url, "stream": bool(body.get("stream", stream_enabled))})
-            resp = open_provider_request_with_key_retry(
-                url,
-                upstream_body,
-                headers,
-                provider_request_timeout_seconds(pcfg),
-                provider,
-                pcfg,
-                upstream_model,
-                stream=bool(body.get("stream", stream_enabled)),
-            )
+            try:
+                resp = open_provider_request_with_key_retry(
+                    url,
+                    upstream_body,
+                    headers,
+                    provider_request_timeout_seconds(pcfg),
+                    provider,
+                    pcfg,
+                    upstream_model,
+                    stream=bool(body.get("stream", stream_enabled)),
+                )
+            except urllib.error.HTTPError as initial_error:
+                raw_error = initial_error.read()
+                recovered_body = (
+                    context_recovery.recover_output_budget(
+                        upstream_body, raw_error, pcfg
+                    )
+                    if initial_error.code == 400
+                    else None
+                )
+                if recovered_body is None:
+                    initial_error.ciel_runtime_body = raw_error
+                    raise
+                previous_output = upstream_body.get("max_tokens")
+                upstream_body = recovered_body
+                body["max_tokens"] = recovered_body["max_tokens"]
+                router_log(
+                    "WARN",
+                    "native_context_output_retry "
+                    f"provider={provider} model={upstream_model} "
+                    f"max_tokens={previous_output}->{recovered_body['max_tokens']}",
+                )
+                write_router_activity(
+                    "retry",
+                    provider,
+                    upstream_model,
+                    code=400,
+                    reason="context_output_budget",
+                    max_tokens=recovered_body["max_tokens"],
+                )
+                resp = open_provider_request_with_key_retry(
+                    url,
+                    upstream_body,
+                    headers,
+                    provider_request_timeout_seconds(pcfg),
+                    provider,
+                    pcfg,
+                    upstream_model,
+                    stream=bool(body.get("stream", stream_enabled)),
+                )
             if bool(body.get("stream", stream_enabled)):
                 set_upstream_stream_read_timeout(resp, provider_stream_idle_timeout_seconds(pcfg))
             status = getattr(resp, "status", 200)
@@ -395,7 +442,9 @@ def handle_claude_messages_post(
                 mark_pending_channel_delivery_success(self, "anthropic_json")
             commit_pending_channel_delivery_cursors(body, self)
         except urllib.error.HTTPError as e:
-            err = e.read()
+            err = getattr(e, "ciel_runtime_body", None)
+            if err is None:
+                err = e.read()
             if e.code == 429:
                 register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), e.headers)
             event_bus.publish(level="error", category="upstream.error", message=f"upstream HTTP {e.code}", request_id=request_id, provider=provider, model=upstream_model, data={"status": e.code})
@@ -518,6 +567,7 @@ assert all(any(capability.name == required for capability in ClaudeRouter.capabi
 
 __all__ = [
     "ClaudeRouter",
+    "ClaudeRouterContextRecovery",
     "ClaudeRouterCore",
     "ClaudeRouterCountTokens",
     "ClaudeRouterDelivery",

@@ -226,6 +226,11 @@ class ClaudeRouterResponsePorts:
 
 
 @dataclass(frozen=True, slots=True)
+class ClaudeRouterContextRecoveryPorts:
+    recover_output_budget: Callback
+
+
+@dataclass(frozen=True, slots=True)
 class ClaudeRouterAssembly:
     core: ClaudeRouterCorePorts
     count_tokens: ClaudeRouterCountPorts
@@ -236,6 +241,7 @@ class ClaudeRouterAssembly:
     normalization: ClaudeRouterNormalizationPorts
     transport: ClaudeRouterTransportPorts
     response: ClaudeRouterResponsePorts
+    context_recovery: ClaudeRouterContextRecoveryPorts
 
     def services(self) -> claude_router.ClaudeRouterServices:
         return claude_router.ClaudeRouterServices(
@@ -323,6 +329,9 @@ class ClaudeRouterAssembly:
                 register_key_cooldown=self.response.register_key_cooldown,
                 key_from_headers=self.response.key_from_headers,
             ),
+            context_recovery=claude_router.ClaudeRouterContextRecovery(
+                recover_output_budget=self.context_recovery.recover_output_budget,
+            ),
         )
 
 
@@ -365,6 +374,7 @@ class RouterRequestAssembly:
 
 __all__ = [
     "ClaudeRouterAssembly",
+    "ClaudeRouterContextRecoveryPorts",
     "ClaudeRouterCorePorts",
     "ClaudeRouterCountPorts",
     "ClaudeRouterDeliveryPorts",
