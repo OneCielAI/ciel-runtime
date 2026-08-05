@@ -26,12 +26,32 @@ from .base import HttpBearerProviderAdapter, provider_configuration
 
 GITHUB_COPILOT_BASE_URL = "https://api.githubcopilot.com"
 GITHUB_COPILOT_MODELS = (
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+    "gpt-5.5",
     "gpt-5.4",
+    "gpt-5.4-mini",
+    "gpt-5.4-nano",
     "gpt-5.3-codex",
-    "gpt-5.2-codex",
+    "gpt-5-mini",
+    "claude-fable-5",
+    "claude-sonnet-5",
+    "claude-opus-5",
+    "claude-opus-4.8",
+    "claude-opus-4.7",
     "claude-sonnet-4.6",
     "claude-opus-4.6",
+    "claude-sonnet-4.5",
+    "claude-opus-4.5",
+    "claude-haiku-4.5",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
     "gemini-3.1-pro-preview",
+    "kimi-k2.7-code",
+    "mai-code-1-flash",
+    "raptor-mini",
+    "grok-4.5",
 )
 
 
@@ -78,6 +98,7 @@ class GitHubCopilotOAuthProviderAdapter(HttpBearerProviderAdapter):
             kind="openai",
             fallback_models=GITHUB_COPILOT_MODELS,
             allow_configured_fallback=True,
+            authoritative_upstream_catalog=True,
         )
     )
 

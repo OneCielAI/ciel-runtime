@@ -212,6 +212,11 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
                     router_log("DEBUG", f"{provider} public model catalog fetch failed: {type(exc).__name__}: {exc}")
     except Exception:
         ids = []
+    if fetched and ids and catalog_policy.authoritative_upstream_catalog:
+        sorted_ids = sorted_model_ids(unique_model_ids(provider, ids))
+        metadata = {"model_info": model_info} if model_info else None
+        write_model_list_cache(provider, pcfg, sorted_ids, metadata)
+        return sorted_ids
     if catalog_policy.use_bundled_catalog_fallback and not ids:
         ids = ollama_catalog_model_ids(provider)
         fetched = bool(ids)

@@ -7,6 +7,8 @@ from unittest import mock
 
 import ciel_runtime
 from ciel_runtime_support.github_copilot_oauth import (
+    COPILOT_CHAT_VERSION,
+    COPILOT_VSCODE_VERSION,
     GITHUB_ACCESS_TOKEN_URL,
     GITHUB_COPILOT_TOKEN_URL,
     GitHubCopilotOAuthClient,
@@ -17,6 +19,9 @@ from ciel_runtime_support.github_copilot_oauth import (
 from ciel_runtime_support.github_copilot_oauth_runtime import (
     GitHubCopilotOAuthRuntime,
     GitHubCopilotOAuthRuntimePorts,
+)
+from ciel_runtime_support.providers.github_copilot_oauth import (
+    GITHUB_COPILOT_MODELS,
 )
 
 
@@ -58,6 +63,8 @@ class GitHubCopilotOAuthProviderTests(unittest.TestCase):
         self.assertEqual("vscode-chat", headers["copilot-integration-id"])
         self.assertIn("vscode/", headers["editor-version"])
         self.assertIn("copilot-chat/", headers["editor-plugin-version"])
+        self.assertEqual("1.128.0", COPILOT_VSCODE_VERSION)
+        self.assertEqual("0.43.0", COPILOT_CHAT_VERSION)
         self.assertNotIn("x-api-key", headers)
         self.assertEqual(
             "openai_responses",
@@ -92,6 +99,47 @@ class GitHubCopilotOAuthProviderTests(unittest.TestCase):
             )
 
         self.assertEqual(["oauth-copilot-token"], keys)
+
+    def test_current_fallback_catalog_excludes_retired_models(self):
+        self.assertEqual("gpt-5.6-sol", GITHUB_COPILOT_MODELS[0])
+        self.assertIn("claude-opus-5", GITHUB_COPILOT_MODELS)
+        self.assertIn("claude-opus-4.8", GITHUB_COPILOT_MODELS)
+        self.assertIn("kimi-k2.7-code", GITHUB_COPILOT_MODELS)
+        self.assertNotIn("gpt-5.2-codex", GITHUB_COPILOT_MODELS)
+        self.assertNotIn("gemini-2.5-pro", GITHUB_COPILOT_MODELS)
+
+    def test_account_catalog_does_not_merge_stale_configured_models(self):
+        config = self.provider_config()
+        config["current_model"] = "gpt-5.2-codex"
+        config["custom_models"] = ["gpt-5.2-codex"]
+        response = {
+            "data": [
+                {"id": "gpt-5.6-sol"},
+                {"id": "claude-opus-4.8"},
+            ]
+        }
+
+        with (
+            mock.patch.object(
+                ciel_runtime, "read_model_list_cache", return_value=None
+            ),
+            mock.patch.object(
+                ciel_runtime,
+                "github_copilot_oauth_token",
+                return_value="copilot-token",
+            ),
+            mock.patch.object(
+                ciel_runtime, "http_json", return_value=response
+            ),
+            mock.patch.object(ciel_runtime, "write_model_list_cache"),
+        ):
+            models = ciel_runtime.upstream_model_ids(
+                "github-copilot-oauth", config, force_refresh=True
+            )
+
+        self.assertEqual(
+            {"gpt-5.6-sol", "claude-opus-4.8"}, set(models)
+        )
 
     def test_cli_parser_exposes_login_status_and_logout(self):
         for action in ("login", "status", "logout"):

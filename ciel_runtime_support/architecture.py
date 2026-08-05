@@ -152,6 +152,7 @@ class ProviderModelCatalogPolicy:
     allow_configured_fallback: bool = False
     allow_public_without_auth: bool = False
     use_bundled_catalog_fallback: bool = False
+    authoritative_upstream_catalog: bool = False
 
 
 @dataclass(frozen=True)
