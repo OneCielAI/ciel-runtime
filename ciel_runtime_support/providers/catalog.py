@@ -139,12 +139,6 @@ COMPATIBLE_PROVIDER_SPECS: tuple[CompatibleProviderSpec, ...] = (
         ("alibaba-coding",),
     ),
     CompatibleProviderSpec(
-        "alims-intl", "Alibaba Model Studio International",
-        "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-        ("qwen3.5-plus", "kimi-k2.5", "glm-5", "qwen3-coder-next"),
-        ("dashscope-intl",),
-    ),
-    CompatibleProviderSpec(
         "blackbox", "Blackbox AI", "https://api.blackbox.ai/v1",
         ("claude-sonnet-4.6", "gpt-5.4", "gpt-5.3-codex", "deepseek-v4-flash"),
         ("bb",),

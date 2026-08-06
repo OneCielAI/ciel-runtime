@@ -44,7 +44,12 @@ class ProviderToolPolicy:
             }
         adapter, contract = self._adapter(provider, config)
         if adapter.capabilities(contract).blocks_default_tools:
-            return set(self.default_blocked_tools)
+            blocked = set(self.default_blocked_tools)
+            if adapter.supports_server_web_tools(contract):
+                blocked.difference_update(
+                    {"WebSearch", "web_search", "WebFetch", "web_fetch"}
+                )
+            return blocked
         return set()
 
     def normalize_anthropic_stream_tool_use(

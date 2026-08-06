@@ -590,6 +590,12 @@ class ProviderAdapter(ABC):
         del config
         return False
 
+    def supports_server_web_tools(self, config: ProviderConfig) -> bool:
+        """Whether this provider can execute Claude's server-side web tools."""
+
+        del config
+        return False
+
     def context_compaction_available(self, config: ProviderConfig) -> bool:
         """Whether this configured provider can run an auxiliary summary request."""
 

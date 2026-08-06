@@ -1,0 +1,266 @@
+"""Alibaba Model Studio adapter for Qwen's native API capabilities."""
+
+from __future__ import annotations
+
+from copy import deepcopy
+from dataclasses import dataclass, field
+from typing import Any, Mapping
+
+from ..architecture import (
+    MessageProtocol,
+    ProviderCapabilities,
+    ProviderConfig,
+    ProviderContextPolicy,
+    ProviderModelCatalogPolicy,
+    ProviderRequestPolicy,
+)
+from ..runtime_constants import DEFAULT_REQUEST_TIMEOUT_MS
+from .base import HttpBearerProviderAdapter, provider_configuration
+
+
+QWEN38_MAX_MODEL = "qwen3.8-max"
+QWEN38_CONTEXT_WINDOW = 1_048_576
+QWEN38_MAX_OUTPUT = 131_072
+QWEN38_AUTO_COMPACT = 900_000
+_WEB_SEARCH_NAMES = frozenset({"websearch", "web_search"})
+_WEB_FETCH_NAMES = frozenset({"webfetch", "web_fetch"})
+_RESPONSES_TOOL_ALIASES = {
+    "web_search_preview": "web_search",
+    "t2i_search": "web_search_image",
+    "i2i_search": "image_search",
+}
+_EFFORTS = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
+
+
+@dataclass(frozen=True)
+class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
+    """Preserve Qwen Responses features while supporting Claude via Chat."""
+
+    name: str = "alims-intl"
+    base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            QWEN38_MAX_MODEL,
+            custom_models=(QWEN38_MAX_MODEL, "qwen3.7-max", "qwen3.7-plus", "qwen3.7-flash"),
+            native_compat=False,
+            supports_tool_choice=True,
+            context_window=QWEN38_CONTEXT_WINDOW,
+            max_model_len=QWEN38_CONTEXT_WINDOW,
+            max_output_tokens=QWEN38_MAX_OUTPUT,
+            context_reserve_tokens=8192,
+            auto_compact_window=QWEN38_AUTO_COMPACT,
+            codex_auto_compact_window=QWEN38_AUTO_COMPACT,
+            request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+            stream_enabled=True,
+            stream_word_chunking=False,
+            effort_level="xhigh",
+            explicit_cache=True,
+            haiku_model=QWEN38_MAX_MODEL,
+            opus_model=QWEN38_MAX_MODEL,
+            sonnet_model=QWEN38_MAX_MODEL,
+            subagent_model=QWEN38_MAX_MODEL,
+        )
+    )
+    authorization_header: str = "authorization"
+    include_x_api_key: bool = False
+    require_api_key: bool = True
+    api_key_display_name_value: str = "Alibaba Model Studio International"
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="openai_responses",
+            supports_thinking=True,
+            requires_api_key=True,
+        )
+    )
+    request_policy_value: ProviderRequestPolicy = field(
+        default_factory=lambda: ProviderRequestPolicy(
+            chat_path="/v1/chat/completions",
+            models_path="/v1/models",
+        )
+    )
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
+        default_factory=lambda: ProviderModelCatalogPolicy(
+            kind="openai",
+            fallback_models=(QWEN38_MAX_MODEL, "qwen3.7-max", "qwen3.7-plus", "qwen3.7-flash"),
+            allow_configured_fallback=True,
+        )
+    )
+
+    def context_policy(self, config: ProviderConfig) -> ProviderContextPolicy:
+        del config
+        return ProviderContextPolicy(
+            capacity_strategy="configured_first",
+            settings_strategy="standard",
+            hosted_timeout=True,
+        )
+
+    def supported_protocols(
+        self, config: ProviderConfig, model: str | None = None
+    ) -> frozenset[MessageProtocol]:
+        del config, model
+        return frozenset({"openai_chat", "openai_responses"})
+
+    def select_protocol(
+        self, operation: MessageProtocol, config: ProviderConfig, model: str | None = None
+    ) -> MessageProtocol:
+        del config, model
+        return "openai_responses" if operation == "openai_responses" else "openai_chat"
+
+    def supports_server_web_tools(self, config: ProviderConfig) -> bool:
+        return self._is_qwen38(config.model)
+
+    def model_configuration_profile(
+        self, config: ProviderConfig
+    ) -> tuple[Mapping[str, Any], str | None]:
+        if not self._is_qwen38(config.model):
+            return {}, None
+        return (
+            {
+                "context_window": QWEN38_CONTEXT_WINDOW,
+                "max_model_len": QWEN38_CONTEXT_WINDOW,
+                "max_output_tokens": QWEN38_MAX_OUTPUT,
+                "auto_compact_window": QWEN38_AUTO_COMPACT,
+                "codex_auto_compact_window": QWEN38_AUTO_COMPACT,
+                "effort_level": "xhigh",
+                "model_profile": "qwen3.8-max-1m",
+            },
+            "Qwen3.8-Max profile applied: 1M context, 131K output, xhigh reasoning, and 900K compaction.",
+        )
+
+    def model_selection_config_updates(
+        self, config: ProviderConfig, model_id: str
+    ) -> Mapping[str, Any]:
+        del config
+        return {
+            "haiku_model": model_id,
+            "opus_model": model_id,
+            "sonnet_model": model_id,
+            "subagent_model": model_id,
+        }
+
+    def normalize_request_options(
+        self, config: ProviderConfig, request: Mapping[str, Any]
+    ) -> Mapping[str, Any]:
+        normalized = dict(request)
+        if "messages" in normalized:
+            normalized["messages"] = deepcopy(normalized["messages"])
+        if "tools" in normalized:
+            normalized["tools"] = deepcopy(normalized["tools"])
+        model = str(normalized.get("model") or config.model)
+        if not self._is_qwen38(model):
+            return normalized
+        if "input" in normalized and "messages" not in normalized:
+            self._normalize_responses(normalized)
+        elif "messages" in normalized:
+            self._normalize_chat(config, normalized)
+        return normalized
+
+    def openai_reasoning_effort(
+        self, config: ProviderConfig, model: str, request: Mapping[str, Any]
+    ) -> str | None:
+        if not self._is_qwen38(model):
+            return None
+        value = str(
+            request.get("reasoning_effort")
+            or config.options.get("effort_level")
+            or "xhigh"
+        ).strip().lower()
+        return value if value in _EFFORTS else "xhigh"
+
+    def allows_sampling_overrides(self, config: ProviderConfig) -> bool:
+        del config
+        return False
+
+    @classmethod
+    def _normalize_responses(cls, request: dict[str, Any]) -> None:
+        reasoning = request.get("reasoning")
+        if isinstance(reasoning, Mapping):
+            projected = dict(reasoning)
+            effort = str(projected.get("effort") or "xhigh").strip().lower()
+            projected["effort"] = effort if effort in _EFFORTS else "xhigh"
+            request["reasoning"] = projected
+        elif request.get("enable_thinking") is not False:
+            request["reasoning"] = {"effort": "xhigh"}
+        request.pop("enable_thinking", None)
+
+        tools = request.get("tools")
+        if isinstance(tools, list):
+            normalized_tools: list[Any] = []
+            seen: set[str] = set()
+            for tool in tools:
+                if not isinstance(tool, Mapping):
+                    normalized_tools.append(tool)
+                    continue
+                projected = dict(tool)
+                tool_type = str(projected.get("type") or "").strip()
+                projected["type"] = _RESPONSES_TOOL_ALIASES.get(tool_type, tool_type)
+                identity = str(projected)
+                if identity not in seen:
+                    normalized_tools.append(projected)
+                    seen.add(identity)
+            request["tools"] = normalized_tools
+            if any(isinstance(tool, Mapping) and tool.get("type") == "function" for tool in normalized_tools):
+                request.setdefault("parallel_tool_calls", True)
+
+    @classmethod
+    def _normalize_chat(cls, config: ProviderConfig, request: dict[str, Any]) -> None:
+        tools = request.get("tools")
+        has_search = False
+        has_fetch = False
+        remaining: list[Any] = []
+        if isinstance(tools, list):
+            for tool in tools:
+                function = tool.get("function") if isinstance(tool, Mapping) else None
+                name = str(function.get("name") or "").strip().lower() if isinstance(function, Mapping) else ""
+                if name in _WEB_SEARCH_NAMES:
+                    has_search = True
+                elif name in _WEB_FETCH_NAMES:
+                    has_fetch = True
+                else:
+                    remaining.append(tool)
+            if remaining:
+                request["tools"] = remaining
+                request.setdefault("parallel_tool_calls", True)
+            else:
+                request.pop("tools", None)
+                request.pop("tool_choice", None)
+        if has_search or has_fetch:
+            request["enable_search"] = True
+            request["search_options"] = {
+                "search_strategy": "agent_max" if has_fetch else "agent"
+            }
+            if request.get("tool_choice") not in (None, "none"):
+                request["tool_choice"] = "auto"
+
+        if bool(config.options.get("explicit_cache", True)):
+            messages = request.get("messages")
+            if isinstance(messages, list):
+                for message in messages:
+                    if not isinstance(message, dict) or message.get("role") != "system":
+                        continue
+                    content = message.get("content")
+                    if isinstance(content, str) and content:
+                        message["content"] = [{
+                            "type": "text",
+                            "text": content,
+                            "cache_control": {"type": "ephemeral"},
+                        }]
+                    break
+
+    @classmethod
+    def _is_qwen38(cls, model: str) -> bool:
+        return cls._clean_model(model) == QWEN38_MAX_MODEL
+
+    @staticmethod
+    def _clean_model(model: str) -> str:
+        value = str(model or "").strip().lower()
+        return QWEN38_MAX_MODEL if QWEN38_MAX_MODEL in value else value
+
+
+__all__ = [
+    "AlibabaModelStudioProviderAdapter",
+    "QWEN38_AUTO_COMPACT",
+    "QWEN38_CONTEXT_WINDOW",
+    "QWEN38_MAX_MODEL",
+    "QWEN38_MAX_OUTPUT",
+]

@@ -15,6 +15,7 @@ class ProviderToolPolicyTests(unittest.TestCase):
             normalizes_anthropic_tool_use=lambda _config: normalize,
             supports_tool_choice=lambda _config, model: model != "off",
             normalize_tool_choice=lambda _config, _model, choice: choice,
+            supports_server_web_tools=lambda _config: False,
         )
         return ProviderToolPolicy(
             adapter_for=lambda _provider, _config: adapter,

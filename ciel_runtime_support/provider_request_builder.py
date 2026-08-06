@@ -41,6 +41,7 @@ class OpenAIRequestPorts:
     sampling_allowed: Callable[..., bool]
     omit_tool_choice: Callable[..., bool]
     tool_choice: Callable[[Any], Any]
+    normalize_request: Callable[[str, dict[str, Any], dict[str, Any]], dict[str, Any]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -240,7 +241,7 @@ class ProviderRequestBuilder:
         for key in ("temperature", "top_p"):
             if self.openai.sampling_allowed(provider, config) and config.get(key) is not None:
                 request[key] = config[key]
-        return request
+        return self.openai.normalize_request(provider, config, request)
 
 
 @dataclass(frozen=True, slots=True)

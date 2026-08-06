@@ -2406,7 +2406,7 @@ def provider_request_builder() -> ProviderRequestBuilder:
             repair_openai_tool_call_adjacency,
             reasoning_effort=lambda provider, model, body, config: configured_provider_adapter(provider, config).openai_reasoning_effort(provider_contract_config(provider, config), model, body),
             sampling_allowed=lambda provider, config: configured_provider_adapter(provider, config).allows_sampling_overrides(provider_contract_config(provider, config)),
-            omit_tool_choice=should_omit_openai_chat_tool_choice, tool_choice=anthropic_tool_choice_to_openai,
+            omit_tool_choice=should_omit_openai_chat_tool_choice, tool_choice=anthropic_tool_choice_to_openai, normalize_request=apply_provider_adapter_request_policy,
         ),
         ProviderOptionPorts(frozenset(PROVIDER_SAMPLING_OPTION_PROVIDERS), tuple(PROVIDER_SAMPLING_OPTIONS), anthropic_model_runtime_hints, router_log),
     )
@@ -4170,7 +4170,7 @@ def should_append_compat_prompt(provider: str, pcfg: dict[str, Any], cfg: dict[s
 _CLAUDE_PERMISSION_MODE_SUPPORT_CACHE: dict[str, bool] = {}
 def claude_supports_permission_mode_arg(claude: str) -> bool: return ClaudeCliCapabilityProbe(_CLAUDE_PERMISSION_MODE_SUPPORT_CACHE, subprocess.run).supports_permission_mode(claude)
 def has_passthrough_option(passthrough: list[str], *names: str) -> bool: return any((arg in names or any((arg.startswith(name + '=') for name in names)) for arg in passthrough))
-def should_disallow_claude_server_side_web_tools(provider: str, pcfg: dict[str, Any], use_native_anthropic: bool) -> bool: return not use_native_anthropic and (not anthropic_routed_enabled(provider, pcfg))
+def should_disallow_claude_server_side_web_tools(provider: str, pcfg: dict[str, Any], use_native_anthropic: bool) -> bool: return False if use_native_anthropic or anthropic_routed_enabled(provider, pcfg) else not configured_provider_adapter(provider, pcfg).supports_server_web_tools(provider_contract_config(provider, pcfg))
 CLAUDE_CODE_GENERATED_GREEDY_OPTIONS = runtime_launch.CLAUDE_CODE_GENERATED_GREEDY_OPTIONS
 
 def should_insert_passthrough_option_boundary(extra_args: list[str], passthrough: list[str]) -> bool:
