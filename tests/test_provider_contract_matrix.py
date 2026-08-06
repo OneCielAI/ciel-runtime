@@ -373,6 +373,7 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "github-copilot-oauth",
             "kimi",
             "meta",
+            "alims-intl",
             "nvidia-hosted",
             "ollama-cloud",
             "opencode",
