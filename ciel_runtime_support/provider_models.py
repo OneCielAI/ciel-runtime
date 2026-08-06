@@ -92,8 +92,29 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
     write_model_list_cache = services.storage.write_model_list_cache
     write_model_registry = services.storage.write_model_registry
     catalog_policy = provider_model_catalog_policy(provider, pcfg)
+
+    def supplement_model_aliases(
+        model_ids: list[str], model_info: dict[str, dict[str, Any]] | None = None
+    ) -> list[str]:
+        """Add provider-declared wire aliases without weakening catalog authority."""
+        supplemented = list(model_ids)
+        for source_id, alias_id in catalog_policy.supplemental_model_aliases:
+            source = normalize_model_id(provider, source_id)
+            alias = normalize_model_id(provider, alias_id)
+            if not source or not alias or source not in supplemented:
+                continue
+            if alias not in supplemented:
+                supplemented.append(alias)
+            if model_info is not None and source in model_info and alias not in model_info:
+                model_info[alias] = dict(model_info[source])
+        return supplemented
+
     cached = None if force_refresh else read_model_list_cache(provider, pcfg)
     if cached is not None:
+        supplemented = sorted_model_ids(
+            unique_model_ids(provider, supplement_model_aliases(cached))
+        )
+        cached = supplemented
         if (
             catalog_policy.authoritative_upstream_catalog
             or not catalog_policy.allow_configured_fallback
@@ -227,6 +248,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
     except Exception:
         ids = []
     if fetched and ids and catalog_policy.authoritative_upstream_catalog:
+        ids = supplement_model_aliases(ids, model_info)
         sorted_ids = sorted_model_ids(unique_model_ids(provider, ids))
         metadata = {"model_info": model_info} if model_info else None
         write_model_list_cache(provider, pcfg, sorted_ids, metadata)
@@ -264,6 +286,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
         ids.insert(0, cur)
     if catalog_policy.kind == "nvidia" and cur and cur not in ids:
         ids.insert(0, cur)
+    ids = supplement_model_aliases(ids, model_info)
     sorted_ids = unique_model_ids(provider, ids)
     if catalog_policy.kind != "anthropic":
         sorted_ids = sorted_model_ids(sorted_ids)

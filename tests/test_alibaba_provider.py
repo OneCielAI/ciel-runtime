@@ -531,10 +531,56 @@ class AlibabaProviderTests(unittest.TestCase):
 
         self.assertTrue(policy.authoritative_upstream_catalog)
 
-    def test_alibaba_models_endpoint_preserves_exact_remote_model_ids(self):
+    def test_token_plan_catalog_adds_preview_alias_with_max_model_metadata(self):
         config = self.token_config(
             custom_models=["qwen3.8-max"],
             current_model="qwen3.8-max",
+        )
+        write_cache = mock.Mock()
+        with (
+            mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=None),
+            mock.patch.object(ciel_runtime, "write_model_list_cache", write_cache),
+            mock.patch.object(ciel_runtime, "write_model_registry"),
+            mock.patch.object(
+                ciel_runtime,
+                "http_json",
+                return_value={
+                    "data": [
+                        {
+                            "id": "qwen3.8-max",
+                            "max_context_length": 1_048_576,
+                        }
+                    ]
+                },
+            ),
+        ):
+            models = ciel_runtime.upstream_model_ids(
+                "alitoken", config, force_refresh=True
+            )
+
+        self.assertEqual(["qwen3.8-max", "qwen3.8-max-preview"], models)
+        metadata = write_cache.call_args.args[3]
+        self.assertEqual(
+            metadata["model_info"]["qwen3.8-max"],
+            metadata["model_info"]["qwen3.8-max-preview"],
+        )
+
+    def test_token_plan_cached_catalog_is_backfilled_with_preview_alias(self):
+        config = self.token_config()
+        with (
+            mock.patch.object(
+                ciel_runtime, "read_model_list_cache", return_value=["qwen3.8-max"]
+            ),
+            mock.patch.object(ciel_runtime, "write_model_list_cache") as write_cache,
+        ):
+            models = ciel_runtime.upstream_model_ids("alitoken", config)
+
+        self.assertEqual(["qwen3.8-max", "qwen3.8-max-preview"], models)
+        write_cache.assert_not_called()
+
+    def test_individual_token_plan_does_not_inherit_responses_alias(self):
+        config = copy.deepcopy(
+            ciel_runtime.DEFAULT_CONFIG["providers"]["alitoken-individual"]
         )
         with (
             mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=None),
@@ -543,14 +589,14 @@ class AlibabaProviderTests(unittest.TestCase):
             mock.patch.object(
                 ciel_runtime,
                 "http_json",
-                return_value={"data": [{"id": "qwen3.8-max-preview"}]},
+                return_value={"data": [{"id": "qwen3.8-max"}]},
             ),
         ):
             models = ciel_runtime.upstream_model_ids(
-                "alitoken", config, force_refresh=True
+                "alitoken-individual", config, force_refresh=True
             )
 
-        self.assertEqual(["qwen3.8-max-preview"], models)
+        self.assertEqual(["qwen3.8-max"], models)
 
     def test_explicit_cache_uses_four_rolling_markers_within_recent_history(self):
         config = self.config()

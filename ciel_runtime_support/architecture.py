@@ -153,6 +153,7 @@ class ProviderModelCatalogPolicy:
     allow_public_without_auth: bool = False
     use_bundled_catalog_fallback: bool = False
     authoritative_upstream_catalog: bool = False
+    supplemental_model_aliases: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)

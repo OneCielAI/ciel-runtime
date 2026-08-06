@@ -19,6 +19,7 @@ from .base import HttpBearerProviderAdapter, provider_configuration
 
 
 QWEN38_MAX_MODEL = "qwen3.8-max"
+QWEN38_MAX_PREVIEW_MODEL = "qwen3.8-max-preview"
 QWEN38_CONTEXT_WINDOW = 1_048_576
 QWEN38_MAX_OUTPUT = 131_072
 QWEN38_AUTO_COMPACT = 900_000
@@ -594,6 +595,7 @@ class AlibabaTokenPlanProviderAdapter(AlibabaModelStudioProviderAdapter):
             fallback_models=ALIBABA_TOKEN_PLAN_MODELS,
             allow_configured_fallback=True,
             authoritative_upstream_catalog=True,
+            supplemental_model_aliases=((QWEN38_MAX_MODEL, QWEN38_MAX_PREVIEW_MODEL),),
         )
     )
 
@@ -604,6 +606,14 @@ class AlibabaIndividualTokenPlanProviderAdapter(AlibabaTokenPlanProviderAdapter)
     name: str = "alitoken-individual"
     base_url: str = "https://coding.dashscope.aliyuncs.com/v1"
     api_key_display_name_value: str = "Alibaba Token Plan Individual"
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
+        default_factory=lambda: ProviderModelCatalogPolicy(
+            kind="openai",
+            fallback_models=ALIBABA_TOKEN_PLAN_MODELS,
+            allow_configured_fallback=True,
+            authoritative_upstream_catalog=True,
+        )
+    )
 
     def anthropic_base_url(self, config: ProviderConfig) -> str:
         del config
