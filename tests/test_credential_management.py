@@ -123,7 +123,7 @@ class CredentialManagementServiceTest(unittest.TestCase):
 class CredentialErrorTextGuardTest(unittest.TestCase):
     def service(self, config):
         saved = []
-        from ciel_runtime_support.credentials import looks_like_error_text
+        from ciel_runtime_support.credentials import looks_like_error_text, transportable_api_key
         service = CredentialManagementService(
             persistence=CredentialPersistencePorts(
                 load_config=lambda: config,
@@ -133,6 +133,7 @@ class CredentialErrorTextGuardTest(unittest.TestCase):
                 clear_requested=api_key_clear_requested,
                 rotation_name=lambda provider, pcfg: "target",
                 error_text=looks_like_error_text,
+                plausible=transportable_api_key,
             ),
             external=ExternalCredentialPorts(
                 enabled=lambda provider: False,
@@ -173,6 +174,17 @@ class CredentialErrorTextGuardTest(unittest.TestCase):
         )
         self.assertEqual(1, len(saved))
 
+    def test_store_input_rejects_ctrl_v_control_character(self):
+        config = {"providers": {"alitoken": {}}}
+        service, saved = self.service(config)
+
+        with self.assertRaises(SystemExit) as ctx:
+            service.store_input("alitoken", "\x16")
+
+        self.assertIn("invalid token shape", str(ctx.exception))
+        self.assertEqual([], saved)
+        self.assertNotIn("api_key", config["providers"]["alitoken"])
+
     def test_looks_like_error_text_classification(self):
         from ciel_runtime_support.credentials import looks_like_error_text, plausible_api_key
         self.assertTrue(looks_like_error_text("504 URLError: <urlopen error EOF occurred in violation of protocol"))
@@ -190,6 +202,14 @@ class CredentialErrorTextGuardTest(unittest.TestCase):
             "api_key": "504 URLError: <urlopen error EOF occurred in violation of protocol",
         }
         self.assertEqual([], ciel_runtime.provider_config_api_keys("ollama-cloud", config))
+
+    def test_runtime_does_not_project_control_character_as_bearer_key(self):
+        import ciel_runtime
+
+        self.assertEqual(
+            [],
+            ciel_runtime.provider_config_api_keys("alitoken", {"api_key": "\x16"}),
+        )
 
 
 if __name__ == "__main__":

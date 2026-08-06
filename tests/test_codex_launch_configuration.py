@@ -85,7 +85,14 @@ class CodexLaunchConfigurationServiceTests(unittest.TestCase):
     def test_catalog_projection_uses_model_ports(self):
         writes = []
         service = self.service(writes=writes)
-        cfg = {"provider": "zai", "config": {"effort_level": "MAX"}, "alias": "zai-model"}
+        cfg = {
+            "provider": "zai",
+            "config": {
+                "effort_level": "MAX",
+                "codex_model_catalog": {"supports_parallel_tool_calls": False},
+            },
+            "alias": "zai-model",
+        }
 
         path = service.write_runtime_model_catalog("codex", cfg)
 
@@ -94,6 +101,7 @@ class CodexLaunchConfigurationServiceTests(unittest.TestCase):
         self.assertEqual("zai-model", spec.alias)
         self.assertEqual(1000, spec.context_window)
         self.assertEqual("max", spec.effort)
+        self.assertEqual({"supports_parallel_tool_calls": False}, spec.metadata)
         self.assertEqual("runtime-path", env["PATH"])
 
     def test_native_provider_skips_routed_catalog(self):

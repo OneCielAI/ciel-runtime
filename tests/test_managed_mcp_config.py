@@ -47,6 +47,13 @@ class ManagedMcpConfigServiceTests(unittest.TestCase):
         payload = save.call_args.args[1]
         self.assertEqual(service.paths.web_tools, path)
         self.assertEqual("uv", payload["mcpServers"]["web_fetch"]["command"])
+        self.assertEqual(
+            [
+                "tool", "run", "--with", "mcp<2", "mcp-server-fetch",
+                "--user-agent", "Ciel", "--ignore-robots-txt",
+            ],
+            payload["mcpServers"]["web_fetch"]["args"],
+        )
         self.assertIn("--ignore-robots-txt", payload["mcpServers"]["web_fetch"]["args"])
 
     def test_zai_config_contains_stdio_and_authenticated_http_servers(self):

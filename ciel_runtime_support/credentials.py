@@ -58,6 +58,18 @@ def plausible_api_key(value: Any) -> bool:
     if not _KEY_PLAUSIBLE_RE.match(text):
         return False
     return not looks_like_error_text(text)
+
+
+def transportable_api_key(value: Any) -> bool:
+    """Reject control/whitespace corruption without assuming provider key length."""
+
+    text = str(value or "")
+    return bool(
+        text
+        and text == text.strip()
+        and not looks_like_error_text(text)
+        and not any(character.isspace() or ord(character) < 32 or ord(character) == 127 for character in text)
+    )
 SECRET_TEXT_PATTERNS = (
     re.compile(r"ak_key_[A-Za-z0-9_-]+_secret_[A-Za-z0-9_-]+"),
     re.compile(r"(AINET_API_KEY\s*=\s*)(\S+)", re.IGNORECASE),

@@ -178,6 +178,9 @@ class CodexLaunchConfigurationService:
             auto_compact_token_limit = None
         if auto_compact_token_limit is not None and auto_compact_token_limit <= 0:
             auto_compact_token_limit = None
+        metadata = provider_config.get("codex_model_catalog")
+        if not isinstance(metadata, Mapping):
+            metadata = None
         return self.catalog.write(
             codex,
             CodexModelCatalogSpec(
@@ -186,6 +189,7 @@ class CodexLaunchConfigurationService:
                 context_window=context_window,
                 effort=str(provider_config.get("effort_level") or "").strip().lower(),
                 auto_compact_token_limit=auto_compact_token_limit,
+                metadata=metadata,
             ),
             catalog_env,
         )

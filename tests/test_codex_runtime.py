@@ -112,6 +112,35 @@ class CodexRuntimeTests(unittest.TestCase):
         self.assertIn("max", [item["effort"] for item in model["supported_reasoning_levels"]])
         self.assertEqual("bundled instructions", model["base_instructions"])
 
+    def test_runtime_model_catalog_applies_official_qwen38_codex_metadata(self):
+        provider_config = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["alitoken"])
+        ciel_runtime.apply_provider_model_profile("alitoken", provider_config)
+        cfg = {
+            "current_provider": "alitoken",
+            "providers": {"alitoken": provider_config},
+        }
+        bundled = {"models": [{"slug": "gpt-5.2", "display_name": "GPT-5.2"}]}
+        completed = mock.Mock(returncode=0, stdout=json.dumps(bundled), stderr="")
+
+        with (
+            tempfile.TemporaryDirectory() as td,
+            mock.patch.object(ciel_runtime, "CONFIG_DIR", Path(td)),
+            mock.patch.object(ciel_runtime.subprocess, "run", return_value=completed),
+        ):
+            args = ciel_runtime.codex_runtime_model_catalog_args("codex", cfg)
+            path = Path(json.loads(args[1].split("=", 1)[1]))
+            catalog = json.loads(path.read_text(encoding="utf-8"))
+
+        alias = ciel_runtime.alias_for("alitoken", "qwen3.8-max")
+        model = next(item for item in catalog["models"] if item["slug"] == alias)
+        self.assertEqual(983_616, model["context_window"])
+        self.assertEqual(95, model["effective_context_window_percent"])
+        self.assertFalse(model["supports_parallel_tool_calls"])
+        self.assertEqual(
+            ["low", "medium", "xhigh"],
+            [item["effort"] for item in model["supported_reasoning_levels"]],
+        )
+
     def setUp(self):
         super().setUp()
         patcher = mock.patch.object(ciel_runtime, "terminate_existing_codex_processes_for_launch", return_value=False)

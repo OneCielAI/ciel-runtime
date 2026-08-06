@@ -22,6 +22,24 @@ QWEN38_MAX_MODEL = "qwen3.8-max"
 QWEN38_CONTEXT_WINDOW = 1_048_576
 QWEN38_MAX_OUTPUT = 131_072
 QWEN38_AUTO_COMPACT = 900_000
+QWEN38_CODEX_CATALOG = {
+    "context_window": 983_616,
+    "max_context_window": 983_616,
+    "effective_context_window_percent": 95,
+    "supports_parallel_tool_calls": False,
+    "supports_image_detail_original": True,
+    "input_modalities": ["text", "image"],
+    "shell_type": "default",
+    "support_verbosity": False,
+    "supports_reasoning_summaries": False,
+    "experimental_supported_tools": [],
+    "truncation_policy": {"mode": "bytes", "limit": 10_000},
+    "supported_reasoning_levels": [
+        {"effort": "low", "description": "Fast responses with lighter reasoning"},
+        {"effort": "medium", "description": "Greater reasoning depth for complex problems"},
+        {"effort": "xhigh", "description": "Extra high reasoning depth for complex problems"},
+    ],
+}
 QWEN37_MAX_MODEL = "qwen3.7-max"
 QWEN37_CONTEXT_WINDOW = 1_000_000
 QWEN37_MAX_OUTPUT = 65_536
@@ -237,6 +255,7 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
                 "codex_auto_compact_window": QWEN38_AUTO_COMPACT,
                 "effort_level": "xhigh",
                 "model_profile": "qwen3.8-max-1m",
+                "codex_model_catalog": deepcopy(QWEN38_CODEX_CATALOG),
             },
             "Qwen3.8-Max profile applied: 1M context, 131K output, xhigh reasoning, and 900K compaction.",
         )
@@ -586,7 +605,6 @@ class AlibabaTokenPlanProviderAdapter(AlibabaModelStudioProviderAdapter):
             allow_configured_fallback=True,
         )
     )
-
 
 @dataclass(frozen=True)
 class AlibabaIndividualTokenPlanProviderAdapter(AlibabaTokenPlanProviderAdapter):

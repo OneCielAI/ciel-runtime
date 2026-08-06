@@ -185,7 +185,7 @@ from ciel_runtime_support.credentials import looks_like_error_text as project_lo
 from ciel_runtime_support.credentials import mask_secret as project_mask_secret
 from ciel_runtime_support.credentials import meaningful_key_value as project_meaningful_key_value
 from ciel_runtime_support.credentials import parse_api_key_list as project_parse_api_key_list
-from ciel_runtime_support.credentials import provider_config_api_keys as project_provider_config_api_keys
+from ciel_runtime_support.credentials import provider_config_api_keys as project_provider_config_api_keys, transportable_api_key as project_transportable_api_key
 from ciel_runtime_support.credentials import provider_contract_config as project_provider_contract_config
 from ciel_runtime_support.credentials import redact_sensitive_obj as project_redact_sensitive_obj
 from ciel_runtime_support.credentials import redact_sensitive_text as project_redact_sensitive_text
@@ -887,7 +887,7 @@ def provider_config_api_keys(provider: str, pcfg: dict[str, Any]) -> list[str]:
     return [
         key
         for key in project_provider_config_api_keys(pcfg, supplemental)
-        if not project_looks_like_error_text(key)
+        if project_transportable_api_key(key)
     ]
 
 def provider_contract_config(provider: str, pcfg: dict[str, Any]) -> ProviderConfig:
@@ -2940,7 +2940,7 @@ redact_sensitive_obj = project_redact_sensitive_obj
 def credential_management_service() -> CredentialManagementService:
     return CredentialManagementService(
         persistence=CredentialPersistencePorts(load_config, save_config, clear_model_cache, parse_api_key_list, api_key_clear_requested,
-                                               provider_api_key_rotation_name, project_looks_like_error_text),
+                                               provider_api_key_rotation_name, project_looks_like_error_text, project_transportable_api_key),
         external=ExternalCredentialPorts(frozenset({"nvidia-hosted"}).__contains__, store_nvidia_api_key, clear_nvidia_api_key,
                                          nvidia_credential_repository().has_key, ensure_nvidia_hosted_base_url, NCP_ENV),
         presentation=CredentialPresentationPorts(mask_secret, secret_fingerprint),

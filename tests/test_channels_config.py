@@ -673,7 +673,10 @@ class ChannelConfigTests(unittest.TestCase):
                 ciel_runtime.write_web_tools_mcp_config({"web_search": {"fetch_enabled": True}})
             data = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual("/bin/uv", data["mcpServers"]["web_fetch"]["command"])
-            self.assertEqual(["tool", "run", "mcp-server-fetch"], data["mcpServers"]["web_fetch"]["args"])
+            self.assertEqual(
+                ["tool", "run", "--with", "mcp<2", "mcp-server-fetch"],
+                data["mcpServers"]["web_fetch"]["args"],
+            )
 
     def test_web_fetch_mcp_config_skips_fetch_when_no_python_runner_exists(self):
         with tempfile.TemporaryDirectory() as td:

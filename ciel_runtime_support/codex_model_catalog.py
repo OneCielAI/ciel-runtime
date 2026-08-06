@@ -6,7 +6,7 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,6 +16,7 @@ class CodexModelCatalogSpec:
     context_window: int
     effort: str = ""
     auto_compact_token_limit: int | None = None
+    metadata: Mapping[str, Any] | None = None
 
 
 class CodexModelCatalogService:
@@ -106,6 +107,8 @@ class CodexModelCatalogService:
                 ),
             }
         )
+        if spec.metadata:
+            routed.update(json.loads(json.dumps(dict(spec.metadata))))
         if spec.effort:
             routed["default_reasoning_level"] = spec.effort
             supported = routed.get("supported_reasoning_levels")

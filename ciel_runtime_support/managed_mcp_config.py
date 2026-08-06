@@ -119,19 +119,23 @@ class ManagedMcpConfigService:
         return self.paths.channel
 
     def _fetch_command(self, web: dict[str, Any]) -> tuple[str | None, list[Any]]:
-        arguments: list[Any] = [web.get("fetch_package") or "mcp-server-fetch"]
+        package = str(web.get("fetch_package") or "mcp-server-fetch")
+        arguments: list[Any] = [package]
         if web.get("fetch_user_agent"):
             arguments.extend(["--user-agent", str(web["fetch_user_agent"])])
         if web.get("fetch_ignore_robots_txt", False):
             arguments.append("--ignore-robots-txt")
+        dependency_args = ["--with", "mcp<2"] if package == "mcp-server-fetch" else []
         command = self.ports.find_executable("uvx")
         if command:
-            return command, arguments
+            return command, [*dependency_args, *arguments]
         uv = self.ports.find_executable("uv")
         if uv:
-            return uv, ["tool", "run", *arguments]
+            return uv, ["tool", "run", *dependency_args, *arguments]
         if importlib.util.find_spec("uv") is not None:
-            return sys.executable, ["-m", "uv", "tool", "run", *arguments]
+            return sys.executable, [
+                "-m", "uv", "tool", "run", *dependency_args, *arguments
+            ]
         pipx = self.ports.find_executable("pipx")
         return (pipx, ["run", *arguments]) if pipx else (None, arguments)
 

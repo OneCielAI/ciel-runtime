@@ -2580,6 +2580,11 @@ class ChannelBridgeTests(unittest.TestCase):
             ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED.clear()
             with (
                 mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(
+                    ciel_runtime,
+                    "_channel_stdin_recover_cursor_from_queued_only",
+                    return_value=8,
+                ),
                 mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=transcript),
                 mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
                 mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer") as commit_cursor,

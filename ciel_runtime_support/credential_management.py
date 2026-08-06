@@ -33,6 +33,7 @@ class CredentialPersistencePorts:
     clear_requested: Callable[[Any], bool]
     rotation_name: Callable[[str, dict[str, Any]], str]
     error_text: Callable[[Any], bool] = lambda _value: False
+    plausible: Callable[[Any], bool] = lambda value: bool(str(value or "").strip())
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,6 +126,7 @@ class CredentialManagementService:
     def store_one(self, provider: str, key: str) -> list[str]:
         if self.persistence.clear_requested(key):
             return self.clear(provider)
+        self._reject_invalid_keys([key])
         config = self.persistence.load_config()
         provider_config = config["providers"][provider]
         if self.external.enabled(provider):
@@ -174,6 +176,7 @@ class CredentialManagementService:
             return self.clear(provider)
         if not parsed:
             raise SystemExit("No API keys provided; unchanged.")
+        self._reject_invalid_keys(parsed)
         config = self.persistence.load_config()
         provider_config = config["providers"][provider]
         provider_config["api_key"] = parsed[0]
@@ -214,6 +217,15 @@ class CredentialManagementService:
         if len(keys) == 1:
             return self.store_one(provider, keys[0])
         raise SystemExit("No API key provided; unchanged.")
+
+    def _reject_invalid_keys(self, keys: list[str]) -> None:
+        invalid = [key for key in keys if not self.persistence.plausible(key)]
+        if invalid:
+            raise SystemExit(
+                "Refusing to store an API key with an invalid token shape "
+                f"({len(invalid)} item(s)). Control characters and whitespace "
+                "are not valid inside API keys. Unchanged."
+            )
 
     @staticmethod
     def _snapshot_other_provider_keys(

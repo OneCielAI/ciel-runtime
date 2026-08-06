@@ -315,6 +315,20 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertNotIn("reasoning", normalized)
         self.assertNotIn("parallel_tool_calls", normalized)
 
+    def test_qwen38_profile_exposes_official_codex_catalog_metadata(self):
+        config = self.token_config()
+
+        ciel_runtime.apply_provider_model_profile("alitoken", config)
+        catalog = config["codex_model_catalog"]
+
+        self.assertEqual(983_616, catalog["context_window"])
+        self.assertEqual(95, catalog["effective_context_window_percent"])
+        self.assertFalse(catalog["supports_parallel_tool_calls"])
+        self.assertEqual(
+            ["low", "medium", "xhigh"],
+            [item["effort"] for item in catalog["supported_reasoning_levels"]],
+        )
+
     def test_qwen38_preserves_reasoning_content_for_multi_turn_cache(self):
         config = self.token_config()
 
