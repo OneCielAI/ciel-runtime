@@ -372,6 +372,17 @@ class ProviderAdapter(ABC):
         del model
         return self.capabilities(config).supports_tool_choice
 
+    def supports_tool_choice_for_request(
+        self,
+        config: ProviderConfig,
+        model: str | None,
+        request: Mapping[str, Any],
+    ) -> bool:
+        """Return whether this request may include an explicit tool choice."""
+
+        del request
+        return self.supports_tool_choice(config, model)
+
     def normalizes_anthropic_tool_use(
         self,
         config: ProviderConfig,

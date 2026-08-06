@@ -71,6 +71,9 @@ class ProviderToolPolicy:
         )
         model = self.strip_context_suffix(raw_model).lower()
         adapter, contract = self._adapter(provider, config)
+        request_support = getattr(adapter, "supports_tool_choice_for_request", None)
+        if callable(request_support):
+            return request_support(contract, model, body)
         return adapter.supports_tool_choice(contract, model)
 
     def tool_choice_status(

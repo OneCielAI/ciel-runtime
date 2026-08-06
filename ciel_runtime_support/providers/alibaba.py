@@ -455,6 +455,43 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
         clean = cls._clean_model(str(model or ""))
         return any(prefix in clean for prefix in _CHAT_SEARCH_MODEL_PREFIXES)
 
+    def supports_tool_choice_for_request(
+        self,
+        config: ProviderConfig,
+        model: str | None,
+        request: Mapping[str, Any],
+    ) -> bool:
+        if self._thinking_enabled(config, request):
+            return False
+        return self.supports_tool_choice(config, model)
+
+    @staticmethod
+    def _thinking_enabled(
+        config: ProviderConfig, request: Mapping[str, Any]
+    ) -> bool:
+        thinking = request.get("thinking")
+        if isinstance(thinking, Mapping):
+            state = str(thinking.get("type") or "").strip().lower()
+            if state in {"enabled", "adaptive"}:
+                return True
+            if state == "disabled":
+                return False
+            try:
+                if int(thinking.get("budget_tokens") or 0) > 0:
+                    return True
+            except (TypeError, ValueError):
+                pass
+        if request.get("enable_thinking") is True:
+            return True
+        if request.get("enable_thinking") is False:
+            return False
+        reasoning = request.get("reasoning")
+        if isinstance(reasoning, Mapping):
+            effort = str(reasoning.get("effort") or "").strip().lower()
+            return effort not in {"", "none", "minimal"}
+        effort = str(config.options.get("effort_level") or "").strip().lower()
+        return effort not in {"", "none", "minimal"}
+
     @staticmethod
     def _clean_model(model: str) -> str:
         value = str(model or "").strip().lower()
@@ -463,7 +500,7 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
 
 @dataclass(frozen=True)
 class AlibabaTokenPlanProviderAdapter(AlibabaModelStudioProviderAdapter):
-    """Team Token Plan with native Claude and Responses-based Codex routes."""
+    """Singapore Token Plan with native Claude and Responses-based Codex routes."""
 
     name: str = "alitoken"
     base_url: str = (
@@ -494,7 +531,7 @@ class AlibabaTokenPlanProviderAdapter(AlibabaModelStudioProviderAdapter):
             region="ap-southeast-1",
         )
     )
-    api_key_display_name_value: str = "Alibaba Token Plan Team (Singapore)"
+    api_key_display_name_value: str = "Alibaba Model Studio Token Plan (Singapore)"
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(
             kind="openai",

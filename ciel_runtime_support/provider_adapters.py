@@ -78,7 +78,7 @@ PROVIDER_DESCRIPTORS = ProviderDescriptorRegistry(
         ),
         ProviderDescriptor(
             "alitoken",
-            "Alibaba Token Plan Team (Singapore)",
+            "Alibaba Model Studio Token Plan (Singapore)",
             AlibabaTokenPlanProviderAdapter,
             aliases=("alibaba-token", "alibaba-token-plan", "bailian-token"),
         ),

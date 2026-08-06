@@ -131,6 +131,62 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertEqual({"type": "ephemeral"}, content[0]["cache_control"])
         self.assertEqual("stable instructions", body["messages"][0]["content"])
 
+    def test_thinking_request_removes_forced_tool_choice_but_keeps_tools(self):
+        config = self.token_config()
+        body = {
+            "model": "qwen3.8-max-preview",
+            "thinking": {"type": "enabled", "budget_tokens": 4096},
+            "tools": [{"name": "compat_echo", "input_schema": {"type": "object"}}],
+            "tool_choice": {"type": "tool", "name": "compat_echo"},
+        }
+
+        normalized = ciel_runtime.normalize_tool_choice_for_provider(
+            "alitoken", config, body
+        )
+
+        self.assertNotIn("tool_choice", normalized)
+        self.assertEqual(body["tools"], normalized["tools"])
+
+    def test_non_thinking_request_preserves_forced_tool_choice(self):
+        config = self.token_config()
+        config["effort_level"] = "none"
+        body = {
+            "model": "qwen3.8-max-preview",
+            "tools": [{"name": "compat_echo", "input_schema": {"type": "object"}}],
+            "tool_choice": {"type": "tool", "name": "compat_echo"},
+        }
+
+        normalized = ciel_runtime.normalize_tool_choice_for_provider(
+            "alitoken", config, body
+        )
+
+        self.assertEqual(body, normalized)
+
+    def test_explicitly_disabled_thinking_overrides_provider_effort(self):
+        config = self.token_config()
+        body = {
+            "model": "qwen3.8-max-preview",
+            "thinking": {"type": "disabled"},
+            "tools": [{"name": "compat_echo", "input_schema": {"type": "object"}}],
+            "tool_choice": {"type": "tool", "name": "compat_echo"},
+        }
+
+        normalized = ciel_runtime.normalize_tool_choice_for_provider(
+            "alitoken", config, body
+        )
+
+        self.assertEqual(body, normalized)
+
+    def test_provider_default_thinking_removes_forced_tool_choice(self):
+        config = self.token_config()
+        body = ciel_runtime.compatibility_tool_request("qwen3.8-max-preview")
+        normalized = ciel_runtime.normalize_tool_choice_for_provider(
+            "alitoken", config, body
+        )
+
+        self.assertNotIn("tool_choice", normalized)
+        self.assertTrue(normalized["tools"])
+
     def test_claude_projection_applies_alibaba_policy_after_wire_conversion(self):
         config = self.token_config()
         request = ciel_runtime.openai_compatible_chat_request(
