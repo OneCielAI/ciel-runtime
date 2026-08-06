@@ -105,10 +105,22 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
     marker = "alibaba_native_anthropic_routes_20260806"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
-        for provider_name in ("alicode", "alicode-intl", "alims-intl", "alitoken"):
+        for provider_name in (
+            "alicode", "alicode-intl", "alims-intl", "alitoken",
+            "alitoken-individual",
+        ):
             pcfg = providers.get(provider_name)
             if isinstance(pcfg, dict):
                 pcfg["native_compat"] = True
+        migrations[marker] = True
+
+    marker = "alibaba_token_plan_individual_20260806"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        pcfg = providers.get("alitoken-individual")
+        if isinstance(pcfg, dict):
+            pcfg["region"] = "ap-southeast-1"
+            pcfg["native_compat"] = True
         migrations[marker] = True
 
     marker = "ollama_cloud_deepseek_v4_flash_0731_20260803"

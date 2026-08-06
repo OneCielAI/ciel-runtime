@@ -29,6 +29,7 @@ from .providers.kimi import KimiProviderAdapter
 from .providers.fireworks import FireworksProviderAdapter
 from .providers.meta import MetaModelProviderAdapter
 from .providers.alibaba import (
+    AlibabaIndividualTokenPlanProviderAdapter,
     AlibabaModelStudioProviderAdapter,
     AlibabaTokenPlanProviderAdapter,
 )
@@ -77,9 +78,15 @@ PROVIDER_DESCRIPTORS = ProviderDescriptorRegistry(
         ),
         ProviderDescriptor(
             "alitoken",
-            "Alibaba Token Plan (Singapore)",
+            "Alibaba Token Plan Team (Singapore)",
             AlibabaTokenPlanProviderAdapter,
             aliases=("alibaba-token", "alibaba-token-plan", "bailian-token"),
+        ),
+        ProviderDescriptor(
+            "alitoken-individual",
+            "Alibaba Token Plan Individual",
+            AlibabaIndividualTokenPlanProviderAdapter,
+            aliases=("alibaba-token-individual", "bailian-token-individual"),
         ),
         ProviderDescriptor(
             "github-copilot-oauth",
@@ -164,6 +171,7 @@ __all__ = [
     "LMStudioProviderAdapter",
     "MetaModelProviderAdapter",
     "AlibabaModelStudioProviderAdapter",
+    "AlibabaIndividualTokenPlanProviderAdapter",
     "AlibabaTokenPlanProviderAdapter",
     "NvidiaHostedProviderAdapter",
     "OllamaCloudProviderAdapter",

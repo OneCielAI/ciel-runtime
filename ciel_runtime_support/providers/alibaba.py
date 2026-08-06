@@ -463,7 +463,7 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
 
 @dataclass(frozen=True)
 class AlibabaTokenPlanProviderAdapter(AlibabaModelStudioProviderAdapter):
-    """Singapore Token Plan with native Claude and Responses-based Codex routes."""
+    """Team Token Plan with native Claude and Responses-based Codex routes."""
 
     name: str = "alitoken"
     base_url: str = (
@@ -494,7 +494,7 @@ class AlibabaTokenPlanProviderAdapter(AlibabaModelStudioProviderAdapter):
             region="ap-southeast-1",
         )
     )
-    api_key_display_name_value: str = "Alibaba Token Plan (Singapore)"
+    api_key_display_name_value: str = "Alibaba Token Plan Team (Singapore)"
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(
             kind="openai",
@@ -504,11 +504,25 @@ class AlibabaTokenPlanProviderAdapter(AlibabaModelStudioProviderAdapter):
     )
 
 
+@dataclass(frozen=True)
+class AlibabaIndividualTokenPlanProviderAdapter(AlibabaTokenPlanProviderAdapter):
+    """Individual Token Plan using its separately billed coding endpoint."""
+
+    name: str = "alitoken-individual"
+    base_url: str = "https://coding.dashscope.aliyuncs.com/v1"
+    api_key_display_name_value: str = "Alibaba Token Plan Individual"
+
+    def anthropic_base_url(self, config: ProviderConfig) -> str:
+        del config
+        return "https://coding.dashscope.aliyuncs.com/apps/anthropic"
+
+
 __all__ = [
     "ALIBABA_CODING_PLAN_MODELS",
     "ALIBABA_MODEL_STUDIO_MODELS",
     "ALIBABA_TOKEN_PLAN_MODELS",
     "AlibabaModelStudioProviderAdapter",
+    "AlibabaIndividualTokenPlanProviderAdapter",
     "AlibabaTokenPlanProviderAdapter",
     "QWEN38_AUTO_COMPACT",
     "QWEN38_CONTEXT_WINDOW",

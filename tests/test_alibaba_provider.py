@@ -28,6 +28,10 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertEqual(4, config["explicit_cache_markers"])
         self.assertEqual("alims-intl", ciel_runtime.PROVIDER_ALIASES["dashscope-intl"])
         self.assertEqual("alitoken", ciel_runtime.PROVIDER_ALIASES["alibaba-token-plan"])
+        self.assertEqual(
+            "alitoken-individual",
+            ciel_runtime.PROVIDER_ALIASES["alibaba-token-individual"],
+        )
         self.assertEqual("ap-southeast-1", config["region"])
 
     def test_token_plan_uses_responses_for_codex_and_anthropic_for_claude(self):
@@ -48,6 +52,29 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertEqual(
             "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic",
             ciel_runtime.native_anthropic_base_url("alitoken", config),
+        )
+
+    def test_individual_token_plan_has_separate_endpoint_and_same_harness_catalog(self):
+        config = copy.deepcopy(
+            ciel_runtime.DEFAULT_CONFIG["providers"]["alitoken-individual"]
+        )
+
+        self.assertEqual(
+            "https://coding.dashscope.aliyuncs.com/v1", config["base_url"]
+        )
+        self.assertEqual("qwen3.8-max-preview", config["current_model"])
+        self.assertEqual(
+            "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+            ciel_runtime.native_anthropic_base_url("alitoken-individual", config),
+        )
+        self.assertEqual(
+            "openai_responses",
+            ciel_runtime.select_provider_protocol(
+                "alitoken-individual",
+                config,
+                "openai_responses",
+                "qwen3.8-max-preview",
+            ),
         )
 
     def test_responses_preserves_and_normalizes_qwen_builtin_tools(self):
@@ -248,6 +275,7 @@ class AlibabaProviderTests(unittest.TestCase):
                 "alicode-intl": {"custom_models": ["qwen3.5-plus"]},
                 "alims-intl": {"custom_models": ["legacy-custom"]},
                 "alitoken": {"custom_models": ["private-token-model"]},
+                "alitoken-individual": {"custom_models": ["private-individual-model"]},
             },
         }
 
@@ -264,7 +292,11 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertTrue(cfg["migrations"]["alibaba_provider_catalogs_20260806"])
         self.assertTrue(cfg["migrations"]["alibaba_token_plan_singapore_20260806"])
         self.assertTrue(cfg["migrations"]["alibaba_native_anthropic_routes_20260806"])
-        for provider in ("alicode", "alicode-intl", "alims-intl", "alitoken"):
+        self.assertTrue(cfg["migrations"]["alibaba_token_plan_individual_20260806"])
+        for provider in (
+            "alicode", "alicode-intl", "alims-intl", "alitoken",
+            "alitoken-individual",
+        ):
             self.assertTrue(cfg["providers"][provider]["native_compat"])
 
     def test_explicit_cache_uses_four_rolling_markers_within_recent_history(self):
