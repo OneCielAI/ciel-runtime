@@ -49,7 +49,7 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                 "qwen3-coder-next", "qwen3-coder-plus", "glm-4.7",
             ),
             "alims-intl": (
-                "qwen3.8-max", "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus",
+                "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus",
                 "qwen3.6-flash", "qwen3.5-plus", "qwen3-coder-plus",
                 "qwen3-coder-flash", "deepseek-v4-pro", "deepseek-v4-flash",
                 "glm-5.2", "kimi-k2.7-code", "MiniMax-M2.5",
@@ -71,6 +71,44 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
             for model in models:
                 if normalize_model_id(provider_name, model) not in known:
                     custom.append(model)
+        migrations[marker] = True
+
+    marker = "alibaba_token_plan_singapore_20260806"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        pcfg = providers.get("alitoken")
+        if isinstance(pcfg, dict):
+            custom = pcfg.get("custom_models")
+            if not isinstance(custom, list):
+                custom = []
+                pcfg["custom_models"] = custom
+            models = (
+                "qwen3.8-max-preview", "qwen3.7-max", "qwen3.7-plus",
+                "qwen3.6-plus", "qwen3.6-flash", "deepseek-v4-pro",
+                "deepseek-v4-flash", "deepseek-v3.2", "kimi-k2.7-code",
+                "kimi-k2.6", "kimi-k2.5", "glm-5.2", "glm-5.1", "glm-5",
+                "MiniMax-M2.5",
+            )
+            known = {
+                normalize_model_id("alitoken", str(model))
+                for model in custom
+                if str(model).strip()
+            }
+            custom.extend(
+                model
+                for model in models
+                if normalize_model_id("alitoken", model) not in known
+            )
+            pcfg["region"] = "ap-southeast-1"
+        migrations[marker] = True
+
+    marker = "alibaba_native_anthropic_routes_20260806"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        for provider_name in ("alicode", "alicode-intl", "alims-intl", "alitoken"):
+            pcfg = providers.get(provider_name)
+            if isinstance(pcfg, dict):
+                pcfg["native_compat"] = True
         migrations[marker] = True
 
     marker = "ollama_cloud_deepseek_v4_flash_0731_20260803"

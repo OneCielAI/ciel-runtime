@@ -31,8 +31,8 @@ class CompatibleProviderSpec:
     aliases: tuple[str, ...] = ()
     chat_path: str = "/v1/chat/completions"
     models_path: str = "/v1/models"
+    anthropic_url: str = ""
     authorization_header: str = "Authorization"
-    include_x_api_key: bool = False
     requires_api_key: bool = True
 
 
@@ -53,7 +53,7 @@ class CatalogOpenAIProviderAdapter(OpenAICompatibleProviderAdapter):
             configuration_defaults_value=provider_configuration(
                 default_model,
                 custom_models=spec.models,
-                native_compat=False,
+                native_compat=bool(spec.anthropic_url),
                 context_window=131072,
                 max_output_tokens=8192,
                 context_reserve_tokens=4096,
@@ -62,7 +62,7 @@ class CatalogOpenAIProviderAdapter(OpenAICompatibleProviderAdapter):
                 stream_word_chunking=False,
             ),
             authorization_header=spec.authorization_header,
-            include_x_api_key=spec.include_x_api_key,
+            include_x_api_key=False,
             require_api_key=spec.requires_api_key,
             api_key_display_name_value=spec.label,
             api_key_launch_error_value=(
@@ -98,16 +98,25 @@ class CatalogOpenAIProviderAdapter(OpenAICompatibleProviderAdapter):
         config: ProviderConfig,
         model: str | None = None,
     ) -> bool:
-        del config, model
-        return False
+        del model
+        return bool(self.spec.anthropic_url) and bool(
+            config.options.get("native_compat", True)
+        )
+
+    def anthropic_base_url(self, config: ProviderConfig) -> str:
+        del config
+        return self.spec.anthropic_url or self.default_base_url()
 
     def supported_protocols(
         self,
         config: ProviderConfig,
         model: str | None = None,
     ) -> frozenset[MessageProtocol]:
-        del config, model
-        return frozenset({"openai_chat"})
+        del model
+        protocols: set[MessageProtocol] = {"openai_chat"}
+        if self.router_native_anthropic_enabled(config):
+            protocols.add("anthropic_messages")
+        return frozenset(protocols)
 
     def select_protocol(
         self,
@@ -115,7 +124,9 @@ class CatalogOpenAIProviderAdapter(OpenAICompatibleProviderAdapter):
         config: ProviderConfig,
         model: str | None = None,
     ) -> MessageProtocol:
-        del operation, config, model
+        del model
+        if operation == "anthropic_messages" and self.router_native_anthropic_enabled(config):
+            return "anthropic_messages"
         return "openai_chat"
 
 
@@ -133,11 +144,13 @@ COMPATIBLE_PROVIDER_SPECS: tuple[CompatibleProviderSpec, ...] = (
         "https://coding-intl.dashscope.aliyuncs.com/v1",
         ALIBABA_CODING_PLAN_MODELS,
         ("alibaba-coding-intl",),
+        anthropic_url="https://coding-intl.dashscope.aliyuncs.com/apps/anthropic",
     ),
     CompatibleProviderSpec(
         "alicode", "Alibaba Coding", "https://coding.dashscope.aliyuncs.com/v1",
         ALIBABA_CODING_PLAN_MODELS,
         ("alibaba-coding",),
+        anthropic_url="https://coding.dashscope.aliyuncs.com/apps/anthropic",
     ),
     CompatibleProviderSpec(
         "blackbox", "Blackbox AI", "https://api.blackbox.ai/v1",

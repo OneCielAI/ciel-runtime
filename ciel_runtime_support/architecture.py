@@ -270,6 +270,12 @@ class ProviderAdapter(ABC):
     def default_base_url(self) -> str:
         """Return the provider default API base URL."""
 
+    def anthropic_base_url(self, config: ProviderConfig) -> str:
+        """Return the base URL used for native Anthropic Messages requests."""
+
+        del config
+        return self.default_base_url()
+
     def normalize_base_url(self, value: str) -> str:
         """Normalize a user-supplied endpoint before it is persisted."""
 

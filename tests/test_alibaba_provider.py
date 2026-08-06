@@ -10,10 +10,15 @@ class AlibabaProviderTests(unittest.TestCase):
         config.update(overrides)
         return config
 
-    def test_qwen38_max_defaults_match_documented_model_limits(self):
-        config = self.config()
+    def token_config(self, **overrides):
+        config = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["alitoken"])
+        config.update(overrides)
+        return config
 
-        self.assertEqual("qwen3.8-max", config["current_model"])
+    def test_token_plan_qwen38_preview_defaults_match_documented_model_limits(self):
+        config = self.token_config()
+
+        self.assertEqual("qwen3.8-max-preview", config["current_model"])
         self.assertEqual(1_048_576, config["context_window"])
         self.assertEqual(1_048_576, config["max_model_len"])
         self.assertEqual(131_072, config["max_output_tokens"])
@@ -22,27 +27,33 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertTrue(config["explicit_cache"])
         self.assertEqual(4, config["explicit_cache_markers"])
         self.assertEqual("alims-intl", ciel_runtime.PROVIDER_ALIASES["dashscope-intl"])
+        self.assertEqual("alitoken", ciel_runtime.PROVIDER_ALIASES["alibaba-token-plan"])
+        self.assertEqual("ap-southeast-1", config["region"])
 
-    def test_codex_uses_native_responses_and_claude_uses_chat(self):
-        config = self.config()
+    def test_token_plan_uses_responses_for_codex_and_anthropic_for_claude(self):
+        config = self.token_config()
 
         self.assertEqual(
             "openai_responses",
             ciel_runtime.select_provider_protocol(
-                "alims-intl", config, "openai_responses", "qwen3.8-max"
+                "alitoken", config, "openai_responses", "qwen3.8-max-preview"
             ),
         )
         self.assertEqual(
-            "openai_chat",
+            "anthropic_messages",
             ciel_runtime.select_provider_protocol(
-                "alims-intl", config, "anthropic_messages", "qwen3.8-max"
+                "alitoken", config, "anthropic_messages", "qwen3.8-max-preview"
             ),
+        )
+        self.assertEqual(
+            "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic",
+            ciel_runtime.native_anthropic_base_url("alitoken", config),
         )
 
     def test_responses_preserves_and_normalizes_qwen_builtin_tools(self):
-        config = self.config()
+        config = self.token_config()
         body = {
-            "model": "qwen3.8-max",
+            "model": "qwen3.8-max-preview",
             "input": [{"role": "user", "content": "research this"}],
             "enable_thinking": True,
             "reasoning": {"effort": "ultra"},
@@ -55,7 +66,7 @@ class AlibabaProviderTests(unittest.TestCase):
         }
 
         normalized = ciel_runtime.apply_provider_adapter_request_policy(
-            "alims-intl", config, body
+            "alitoken", config, body
         )
 
         self.assertEqual("xhigh", normalized["reasoning"]["effort"])
@@ -68,9 +79,9 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertEqual("web_search_preview", body["tools"][0]["type"])
 
     def test_claude_web_tools_become_qwen_search_without_losing_local_tools(self):
-        config = self.config()
+        config = self.token_config()
         body = {
-            "model": "qwen3.8-max",
+            "model": "qwen3.8-max-preview",
             "messages": [{"role": "system", "content": "stable instructions"}],
             "tools": [
                 {"type": "function", "function": {"name": "WebSearch"}},
@@ -81,7 +92,7 @@ class AlibabaProviderTests(unittest.TestCase):
         }
 
         normalized = ciel_runtime.apply_provider_adapter_request_policy(
-            "alims-intl", config, body
+            "alitoken", config, body
         )
 
         self.assertTrue(normalized["enable_search"])
@@ -94,10 +105,10 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertEqual("stable instructions", body["messages"][0]["content"])
 
     def test_claude_projection_applies_alibaba_policy_after_wire_conversion(self):
-        config = self.config()
+        config = self.token_config()
         request = ciel_runtime.openai_compatible_chat_request(
-            "alims-intl",
-            "qwen3.8-max",
+            "alitoken",
+            "qwen3.8-max-preview",
             {
                 "model": "qwen3.8-max",
                 "system": "stable instructions",
@@ -129,14 +140,14 @@ class AlibabaProviderTests(unittest.TestCase):
         )
 
     def test_responses_models_expose_claude_server_web_tools(self):
-        config = self.config()
+        config = self.token_config()
 
-        blocked = ciel_runtime.resolve_blocked_tools("alims-intl", config)
+        blocked = ciel_runtime.resolve_blocked_tools("alitoken", config)
         self.assertNotIn("WebSearch", blocked)
         self.assertNotIn("WebFetch", blocked)
         self.assertFalse(
             ciel_runtime.should_disallow_claude_server_side_web_tools(
-                "alims-intl", config, False
+                "alitoken", config, False
             )
         )
 
@@ -207,7 +218,6 @@ class AlibabaProviderTests(unittest.TestCase):
         models = set(ciel_runtime.cached_or_configured_model_ids("alims-intl", config))
         self.assertTrue(
             {
-                "qwen3.8-max",
                 "qwen3.7-max",
                 "qwen3.7-plus",
                 "qwen3.6-flash",
@@ -215,6 +225,19 @@ class AlibabaProviderTests(unittest.TestCase):
                 "kimi-k2.7-code",
                 "legacy-custom",
             }.issubset(models)
+        )
+        token = self.token_config()
+        token_models = set(
+            ciel_runtime.cached_or_configured_model_ids("alitoken", token)
+        )
+        self.assertTrue(
+            {
+                "qwen3.8-max-preview",
+                "qwen3.7-max",
+                "deepseek-v4-pro",
+                "kimi-k2.7-code",
+                "glm-5.2",
+            }.issubset(token_models)
         )
 
     def test_migration_merges_new_models_without_removing_custom_models(self):
@@ -224,6 +247,7 @@ class AlibabaProviderTests(unittest.TestCase):
                 "alicode": {"custom_models": ["private-coding-model"]},
                 "alicode-intl": {"custom_models": ["qwen3.5-plus"]},
                 "alims-intl": {"custom_models": ["legacy-custom"]},
+                "alitoken": {"custom_models": ["private-token-model"]},
             },
         }
 
@@ -233,8 +257,15 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertIn("qwen3.7-plus", cfg["providers"]["alicode"]["custom_models"])
         self.assertIn("qwen3-coder-plus", cfg["providers"]["alicode-intl"]["custom_models"])
         self.assertIn("legacy-custom", cfg["providers"]["alims-intl"]["custom_models"])
-        self.assertIn("qwen3.8-max", cfg["providers"]["alims-intl"]["custom_models"])
+        self.assertIn("qwen3.7-max", cfg["providers"]["alims-intl"]["custom_models"])
+        self.assertIn("private-token-model", cfg["providers"]["alitoken"]["custom_models"])
+        self.assertIn("qwen3.8-max-preview", cfg["providers"]["alitoken"]["custom_models"])
+        self.assertEqual("ap-southeast-1", cfg["providers"]["alitoken"]["region"])
         self.assertTrue(cfg["migrations"]["alibaba_provider_catalogs_20260806"])
+        self.assertTrue(cfg["migrations"]["alibaba_token_plan_singapore_20260806"])
+        self.assertTrue(cfg["migrations"]["alibaba_native_anthropic_routes_20260806"])
+        for provider in ("alicode", "alicode-intl", "alims-intl", "alitoken"):
+            self.assertTrue(cfg["providers"][provider]["native_compat"])
 
     def test_explicit_cache_uses_four_rolling_markers_within_recent_history(self):
         config = self.config()

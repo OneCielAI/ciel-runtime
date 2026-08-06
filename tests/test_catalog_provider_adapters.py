@@ -61,6 +61,25 @@ class CatalogProviderAdapterTests(unittest.TestCase):
         )
         self.assertEqual("https://gateway.example/v1", adapter.default_base_url())
 
+    def test_alibaba_coding_plan_uses_native_anthropic_endpoint_for_claude(self):
+        adapter = PROVIDER_ADAPTERS.create("alicode-intl")
+        config = ProviderConfig(
+            name="alicode-intl",
+            base_url=adapter.default_base_url(),
+            api_keys=("secret",),
+            model="qwen3.7-plus",
+            options={"native_compat": True},
+        )
+
+        self.assertEqual(
+            "anthropic_messages",
+            adapter.select_protocol("anthropic_messages", config),
+        )
+        self.assertEqual(
+            "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic",
+            adapter.anthropic_base_url(config),
+        )
+
     def test_compatible_spec_remains_a_small_value_object(self):
         self.assertLessEqual(len(CompatibleProviderSpec.__dataclass_fields__), 10)
 

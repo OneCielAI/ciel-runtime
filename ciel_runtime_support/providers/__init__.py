@@ -31,6 +31,7 @@ from .anthropic_catalog import (
     CatalogAnthropicProviderAdapter,
 )
 from .cloud import AzureOpenAIProviderAdapter, CodeBuddyCnProviderAdapter
+from .alibaba import AlibabaTokenPlanProviderAdapter
 
 __all__ = [
     "ANTHROPIC_COMPATIBLE_PROVIDER_SPECS",
@@ -40,6 +41,7 @@ __all__ = [
     "CodeBuddyCnProviderAdapter",
     "HttpBearerProviderAdapter",
     "AnthropicProviderAdapter",
+    "AlibabaTokenPlanProviderAdapter",
     "NoAuthProviderAdapter",
     "OpenAICompatibleProviderAdapter",
     "PROVIDER_DEFAULT_BASE_URLS",

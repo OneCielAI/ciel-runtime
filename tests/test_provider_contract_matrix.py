@@ -374,6 +374,7 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "kimi",
             "meta",
             "alims-intl",
+            "alitoken",
             "nvidia-hosted",
             "ollama-cloud",
             "opencode",
@@ -530,6 +531,10 @@ class ProviderContractMatrixTests(unittest.TestCase):
 
     def test_router_native_anthropic_capability_matrix(self):
         enabled = {
+            "alicode",
+            "alicode-intl",
+            "alims-intl",
+            "alitoken",
             "deepseek",
             "fireworks",
             "kimi",

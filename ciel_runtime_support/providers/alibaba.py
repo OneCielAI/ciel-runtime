@@ -22,6 +22,9 @@ QWEN38_MAX_MODEL = "qwen3.8-max"
 QWEN38_CONTEXT_WINDOW = 1_048_576
 QWEN38_MAX_OUTPUT = 131_072
 QWEN38_AUTO_COMPACT = 900_000
+QWEN37_MAX_MODEL = "qwen3.7-max"
+QWEN37_CONTEXT_WINDOW = 1_000_000
+QWEN37_MAX_OUTPUT = 65_536
 ALIBABA_CODING_PLAN_MODELS = (
     "qwen3.7-plus",
     "qwen3.6-plus",
@@ -35,8 +38,7 @@ ALIBABA_CODING_PLAN_MODELS = (
     "glm-4.7",
 )
 ALIBABA_MODEL_STUDIO_MODELS = (
-    QWEN38_MAX_MODEL,
-    "qwen3.7-max",
+    QWEN37_MAX_MODEL,
     "qwen3.7-plus",
     "qwen3.6-plus",
     "qwen3.6-flash",
@@ -47,6 +49,23 @@ ALIBABA_MODEL_STUDIO_MODELS = (
     "deepseek-v4-flash",
     "glm-5.2",
     "kimi-k2.7-code",
+    "MiniMax-M2.5",
+)
+ALIBABA_TOKEN_PLAN_MODELS = (
+    "qwen3.8-max-preview",
+    QWEN37_MAX_MODEL,
+    "qwen3.7-plus",
+    "qwen3.6-plus",
+    "qwen3.6-flash",
+    "deepseek-v4-pro",
+    "deepseek-v4-flash",
+    "deepseek-v3.2",
+    "kimi-k2.7-code",
+    "kimi-k2.6",
+    "kimi-k2.5",
+    "glm-5.2",
+    "glm-5.1",
+    "glm-5",
     "MiniMax-M2.5",
 )
 _RESPONSES_MODEL_PREFIXES = (
@@ -86,26 +105,26 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
     base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
-            QWEN38_MAX_MODEL,
+            QWEN37_MAX_MODEL,
             custom_models=ALIBABA_MODEL_STUDIO_MODELS,
-            native_compat=False,
+            native_compat=True,
             supports_tool_choice=True,
-            context_window=QWEN38_CONTEXT_WINDOW,
-            max_model_len=QWEN38_CONTEXT_WINDOW,
-            max_output_tokens=QWEN38_MAX_OUTPUT,
+            context_window=QWEN37_CONTEXT_WINDOW,
+            max_model_len=QWEN37_CONTEXT_WINDOW,
+            max_output_tokens=QWEN37_MAX_OUTPUT,
             context_reserve_tokens=8192,
             auto_compact_window=QWEN38_AUTO_COMPACT,
             codex_auto_compact_window=QWEN38_AUTO_COMPACT,
             request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
             stream_enabled=True,
             stream_word_chunking=False,
-            effort_level="xhigh",
+            effort_level="high",
             explicit_cache=True,
             explicit_cache_markers=4,
-            haiku_model=QWEN38_MAX_MODEL,
-            opus_model=QWEN38_MAX_MODEL,
-            sonnet_model=QWEN38_MAX_MODEL,
-            subagent_model=QWEN38_MAX_MODEL,
+            haiku_model="qwen3.6-flash",
+            opus_model=QWEN37_MAX_MODEL,
+            sonnet_model="qwen3.7-plus",
+            subagent_model="qwen3.7-plus",
         )
     )
     authorization_header: str = "authorization"
@@ -144,21 +163,38 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
     def supported_protocols(
         self, config: ProviderConfig, model: str | None = None
     ) -> frozenset[MessageProtocol]:
-        del config
         protocols: set[MessageProtocol] = {"openai_chat"}
         if self._supports_responses(model):
             protocols.add("openai_responses")
+        if self.router_native_anthropic_enabled(config, model):
+            protocols.add("anthropic_messages")
         return frozenset(protocols)
 
     def select_protocol(
         self, operation: MessageProtocol, config: ProviderConfig, model: str | None = None
     ) -> MessageProtocol:
-        del config
+        if operation == "anthropic_messages" and self.router_native_anthropic_enabled(
+            config, model
+        ):
+            return "anthropic_messages"
         return (
             "openai_responses"
             if operation == "openai_responses" and self._supports_responses(model)
             else "openai_chat"
         )
+
+    def router_native_anthropic_enabled(
+        self, config: ProviderConfig, model: str | None = None
+    ) -> bool:
+        del model
+        return bool(config.options.get("native_compat", True))
+
+    def anthropic_base_url(self, config: ProviderConfig) -> str:
+        base = str(config.base_url or self.default_base_url()).rstrip("/")
+        suffix = "/compatible-mode/v1"
+        if base.endswith(suffix):
+            return f"{base[:-len(suffix)]}/apps/anthropic"
+        return base
 
     def supports_server_web_tools(self, config: ProviderConfig) -> bool:
         return self._supports_chat_search(config.model)
@@ -167,7 +203,20 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
         self, config: ProviderConfig
     ) -> tuple[Mapping[str, Any], str | None]:
         if not self._is_qwen38(config.model):
-            return {}, None
+            if QWEN37_MAX_MODEL not in self._clean_model(config.model):
+                return {}, None
+            return (
+                {
+                    "context_window": QWEN37_CONTEXT_WINDOW,
+                    "max_model_len": QWEN37_CONTEXT_WINDOW,
+                    "max_output_tokens": QWEN37_MAX_OUTPUT,
+                    "auto_compact_window": QWEN38_AUTO_COMPACT,
+                    "codex_auto_compact_window": QWEN38_AUTO_COMPACT,
+                    "effort_level": "high",
+                    "model_profile": "qwen3.7-max-1m",
+                },
+                "Qwen3.7-Max profile applied: 1M context, 65K output, high reasoning, and 900K compaction.",
+            )
         return (
             {
                 "context_window": QWEN38_CONTEXT_WINDOW,
@@ -412,10 +461,55 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
         return QWEN38_MAX_MODEL if QWEN38_MAX_MODEL in value else value
 
 
+@dataclass(frozen=True)
+class AlibabaTokenPlanProviderAdapter(AlibabaModelStudioProviderAdapter):
+    """Singapore Token Plan with native Claude and Responses-based Codex routes."""
+
+    name: str = "alitoken"
+    base_url: str = (
+        "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+    )
+    configuration_defaults_value: dict = field(
+        default_factory=lambda: provider_configuration(
+            "qwen3.8-max-preview",
+            custom_models=ALIBABA_TOKEN_PLAN_MODELS,
+            native_compat=True,
+            supports_tool_choice=True,
+            context_window=QWEN38_CONTEXT_WINDOW,
+            max_model_len=QWEN38_CONTEXT_WINDOW,
+            max_output_tokens=QWEN38_MAX_OUTPUT,
+            context_reserve_tokens=8192,
+            auto_compact_window=QWEN38_AUTO_COMPACT,
+            codex_auto_compact_window=QWEN38_AUTO_COMPACT,
+            request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+            stream_enabled=True,
+            stream_word_chunking=False,
+            effort_level="xhigh",
+            explicit_cache=True,
+            explicit_cache_markers=4,
+            haiku_model="qwen3.6-flash",
+            opus_model="qwen3.8-max-preview",
+            sonnet_model="qwen3.7-plus",
+            subagent_model="qwen3.7-plus",
+            region="ap-southeast-1",
+        )
+    )
+    api_key_display_name_value: str = "Alibaba Token Plan (Singapore)"
+    model_catalog_policy_value: ProviderModelCatalogPolicy = field(
+        default_factory=lambda: ProviderModelCatalogPolicy(
+            kind="openai",
+            fallback_models=ALIBABA_TOKEN_PLAN_MODELS,
+            allow_configured_fallback=True,
+        )
+    )
+
+
 __all__ = [
     "ALIBABA_CODING_PLAN_MODELS",
     "ALIBABA_MODEL_STUDIO_MODELS",
+    "ALIBABA_TOKEN_PLAN_MODELS",
     "AlibabaModelStudioProviderAdapter",
+    "AlibabaTokenPlanProviderAdapter",
     "QWEN38_AUTO_COMPACT",
     "QWEN38_CONTEXT_WINDOW",
     "QWEN38_MAX_MODEL",

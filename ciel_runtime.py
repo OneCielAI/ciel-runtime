@@ -1524,7 +1524,7 @@ list_model_objects_for_request = _PROVIDER_MODEL_SELECTION_API.list_model_object
 def provider_upstream_request_base(provider: str, pcfg: dict[str, Any]) -> str: return configured_provider_adapter(provider, pcfg).default_base_url().rstrip('/')
 
 def native_anthropic_base_url(provider: str, pcfg: dict[str, Any]) -> str:
-    base = pcfg.get("base_url", "http://127.0.0.1:8000").rstrip("/")
+    base = configured_provider_adapter(provider, pcfg).anthropic_base_url(provider_contract_config(provider, pcfg)).rstrip("/")
     if provider in ("vllm", "lm-studio", "nvidia-hosted", "self-hosted-nim", "openrouter", "kimi", "fireworks") and base.endswith("/v1"):
         return base[:-3].rstrip("/")
     return base
