@@ -13,6 +13,8 @@ from typing import Any, Callable
 import urllib.error
 import urllib.request
 
+from .mcp_transport import negotiated_protocol_version
+
 
 @dataclass(frozen=True, slots=True)
 class McpHttpProxyCodec:
@@ -101,6 +103,7 @@ def run_mcp_streamable_http_proxy(
     endpoint = str(server.get("url") or server.get("endpoint") or "").strip()
     headers = mcp_server_runtime_headers(server)
     protocol_version = str(server.get("mcp_protocol_version") or server.get("protocolVersion") or server.get("protocol_version") or MCP_STREAMABLE_HTTP_PROTOCOL_VERSION)
+    active_protocol_version = protocol_version
     timeout = max(5.0, min(120.0, float(server.get("mcp_timeout_seconds") or server.get("timeout") or 20.0)))
     requires_session = parse_bool(server.get("streamable_requires_session", server.get("require_session", server.get("mcp_session_required", True))), True)
     notification_stream_enabled = not _mcp_server_disable_proxy_notification_stream(server)
@@ -236,19 +239,22 @@ def run_mcp_streamable_http_proxy(
         Publishes the initialize result (for the stdin initialize reply) and the
         new session id under session_cond, waking any waiter.
         """
-        nonlocal session_id, initialize_result
+        nonlocal session_id, initialize_result, active_protocol_version
         init_payload = initialize_payload
         if not init_payload:
             return None
+        params = init_payload.get("params") if isinstance(init_payload.get("params"), dict) else {}
+        requested_protocol = str(params.get("protocolVersion") or protocol_version)
         try:
             result, returned_session = _mcp_proxy_streamable_http_request(
-                endpoint, headers, init_payload, timeout, protocol_version, None,
+                endpoint, headers, init_payload, timeout, requested_protocol, None,
             )
         except Exception as exc:
             router_log("WARN", f"mcp_http_proxy_session_init_failed server={server_name} error={type(exc).__name__}: {exc}")
             return None
         if isinstance(result, dict):
             _mcp_proxy_observe_json_message(server_name, result)
+        active_protocol_version = negotiated_protocol_version(result, requested_protocol)
         with session_cond:
             session_id = returned_session or session_id
             if isinstance(result, dict):
@@ -258,7 +264,7 @@ def run_mcp_streamable_http_proxy(
         if new_session and initialized_payload:
             try:
                 _mcp_proxy_streamable_http_request(
-                    endpoint, headers, initialized_payload, timeout, protocol_version, new_session,
+                    endpoint, headers, initialized_payload, timeout, active_protocol_version, new_session,
                 )
             except Exception as exc:
                 router_log(
@@ -347,7 +353,7 @@ def run_mcp_streamable_http_proxy(
             reopen_after_close = False
             try:
                 request_headers = _mcp_streamable_headers(
-                    headers, protocol_version, worker_session, accept="text/event-stream",
+                    headers, active_protocol_version, worker_session, accept="text/event-stream",
                 )
                 if last_event_id:
                     request_headers["Last-Event-ID"] = last_event_id
@@ -463,7 +469,7 @@ def run_mcp_streamable_http_proxy(
                         active = session_id
                     if active:
                         try:
-                            _mcp_proxy_streamable_http_request(endpoint, headers, payload, timeout, protocol_version, active)
+                            _mcp_proxy_streamable_http_request(endpoint, headers, payload, timeout, active_protocol_version, active)
                             router_log("INFO", f"mcp_http_proxy_initialized_forwarded server={server_name} session={active}")
                         except urllib.error.HTTPError as exc:
                             body_text = _http_error_body_text(exc)
@@ -519,7 +525,7 @@ def run_mcp_streamable_http_proxy(
                         if not active_session:
                             raise RuntimeError("Streamable HTTP MCP session is not initialized")
                     result, _returned = _mcp_proxy_streamable_http_request(
-                        endpoint, headers, payload, timeout, protocol_version, active_session,
+                        endpoint, headers, payload, timeout, active_protocol_version, active_session,
                     )
                     tool_name = _mcp_proxy_tool_call_name(payload)
                     if isinstance(result, dict):
@@ -549,7 +555,7 @@ def run_mcp_streamable_http_proxy(
                         if active_session:
                             try:
                                 result, _r = _mcp_proxy_streamable_http_request(
-                                    endpoint, headers, payload, timeout, protocol_version, active_session,
+                                    endpoint, headers, payload, timeout, active_protocol_version, active_session,
                                 )
                                 tool_name = _mcp_proxy_tool_call_name(payload)
                                 if isinstance(result, dict):
@@ -572,7 +578,7 @@ def run_mcp_streamable_http_proxy(
                 if _mcp_proxy_tool_is_notification_wait(_mcp_proxy_tool_call_name(payload)):
                     _mcp_proxy_write_json_response(wait_for_proxy_notifications(payload))
                     continue
-                result, _r = _mcp_proxy_streamable_http_request(endpoint, headers, payload, timeout, protocol_version, current_session_id())
+                result, _r = _mcp_proxy_streamable_http_request(endpoint, headers, payload, timeout, active_protocol_version, current_session_id())
                 tool_name = _mcp_proxy_tool_call_name(payload)
                 if isinstance(result, dict):
                     result = _mcp_proxy_compact_tool_result_response(server_name, tool_name, result)

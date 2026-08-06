@@ -167,6 +167,7 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
             kind="openai",
             fallback_models=ALIBABA_MODEL_STUDIO_MODELS,
             allow_configured_fallback=True,
+            authoritative_upstream_catalog=True,
         )
     )
 
@@ -177,17 +178,6 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
             settings_strategy="standard",
             hosted_timeout=True,
         )
-
-    def normalize_model_id(self, model_id: str) -> str:
-        normalized = super().normalize_model_id(model_id)
-        return (
-            QWEN38_MAX_MODEL
-            if normalized.lower() == "qwen3.8-max-preview"
-            else normalized
-        )
-
-    def upstream_api_model_id(self, model_id: str) -> str:
-        return self.normalize_model_id(model_id)
 
     def supported_protocols(
         self, config: ProviderConfig, model: str | None = None
@@ -603,6 +593,7 @@ class AlibabaTokenPlanProviderAdapter(AlibabaModelStudioProviderAdapter):
             kind="openai",
             fallback_models=ALIBABA_TOKEN_PLAN_MODELS,
             allow_configured_fallback=True,
+            authoritative_upstream_catalog=True,
         )
     )
 

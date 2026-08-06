@@ -1,5 +1,6 @@
 import copy
 import unittest
+from unittest import mock
 
 import ciel_runtime
 
@@ -494,7 +495,7 @@ class AlibabaProviderTests(unittest.TestCase):
         ):
             self.assertTrue(cfg["providers"][provider]["native_compat"])
 
-    def test_preview_alias_migrates_and_routes_to_live_qwen38_model_id(self):
+    def test_preview_model_id_is_preserved_for_models_endpoint_authority(self):
         cfg = {
             "migrations": {},
             "providers": {
@@ -509,20 +510,47 @@ class AlibabaProviderTests(unittest.TestCase):
         ciel_runtime.apply_config_migrations(cfg)
         provider = cfg["providers"]["alitoken"]
 
-        self.assertEqual("qwen3.8-max", provider["current_model"])
-        self.assertEqual("qwen3.8-max", provider["opus_model"])
-        self.assertEqual("qwen3.8-max", provider["custom_models"][0])
+        self.assertEqual("qwen3.8-max-preview", provider["current_model"])
+        self.assertEqual("qwen3.8-max-preview", provider["opus_model"])
+        self.assertEqual("qwen3.8-max-preview", provider["custom_models"][0])
         self.assertIn("private-model", provider["custom_models"])
-        self.assertNotIn("qwen3.8-max-preview", provider["custom_models"])
         self.assertEqual(
-            "qwen3.8-max",
+            "qwen3.8-max-preview",
             ciel_runtime.upstream_api_model_id(
                 "alitoken", "qwen3.8-max-preview"
             ),
         )
-        self.assertTrue(
-            cfg["migrations"]["alibaba_qwen38_canonical_model_20260806"]
+
+    def test_alibaba_models_endpoint_catalog_is_authoritative(self):
+        config = self.token_config()
+        adapter = ciel_runtime.PROVIDER_ADAPTERS.create("alitoken")
+
+        policy = adapter.model_catalog_policy(
+            ciel_runtime.provider_contract_config("alitoken", config)
         )
+
+        self.assertTrue(policy.authoritative_upstream_catalog)
+
+    def test_alibaba_models_endpoint_preserves_exact_remote_model_ids(self):
+        config = self.token_config(
+            custom_models=["qwen3.8-max"],
+            current_model="qwen3.8-max",
+        )
+        with (
+            mock.patch.object(ciel_runtime, "read_model_list_cache", return_value=None),
+            mock.patch.object(ciel_runtime, "write_model_list_cache"),
+            mock.patch.object(ciel_runtime, "write_model_registry"),
+            mock.patch.object(
+                ciel_runtime,
+                "http_json",
+                return_value={"data": [{"id": "qwen3.8-max-preview"}]},
+            ),
+        ):
+            models = ciel_runtime.upstream_model_ids(
+                "alitoken", config, force_refresh=True
+            )
+
+        self.assertEqual(["qwen3.8-max-preview"], models)
 
     def test_explicit_cache_uses_four_rolling_markers_within_recent_history(self):
         config = self.config()

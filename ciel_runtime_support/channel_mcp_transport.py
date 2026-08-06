@@ -7,6 +7,8 @@ import urllib.error
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .mcp_transport import negotiated_protocol_version
+
 
 @dataclass(frozen=True, slots=True)
 class ChannelMcpTransportConfig:
@@ -262,9 +264,10 @@ class ChannelMcpTransport:
                     },
                 },
             }
-            _result, session_id = self.http.streamable_post(
+            result, session_id = self.http.streamable_post(
                 endpoint, headers, initialize, timeout, protocol_version
             )
+            protocol_version = negotiated_protocol_version(result, protocol_version)
             if requires_session and not session_id:
                 self.effects.set_state(
                     name,
@@ -291,6 +294,7 @@ class ChannelMcpTransport:
                 mcp_endpoint=endpoint,
                 mcp_initialized=True,
                 mcp_session_id=session_id,
+                mcp_protocol_version=protocol_version,
                 mcp_last_error=None,
                 mcp_rpc_results={},
             )

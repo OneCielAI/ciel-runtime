@@ -220,13 +220,20 @@ class ProviderModelSelection:
         force_refresh: bool = False,
     ) -> tuple[bool, list[str]]:
         adapter = self.selection.adapter(provider, config)
-        if not adapter.requires_catalog_model_selection(
-            self.selection.contract(provider, config)
+        contract = self.selection.contract(provider, config)
+        catalog_policy = adapter.model_catalog_policy(contract)
+        if (
+            not adapter.requires_catalog_model_selection(contract)
+            and not catalog_policy.authoritative_upstream_catalog
         ):
             return True, []
         current = self.identity.normalize(provider, str(config.get("current_model") or ""))
         placeholders = self.selection.placeholders(provider)
-        if current and current not in placeholders:
+        if (
+            current
+            and current not in placeholders
+            and not catalog_policy.authoritative_upstream_catalog
+        ):
             return True, []
         try:
             ids = self.selection.unique_ids(

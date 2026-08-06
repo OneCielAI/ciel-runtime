@@ -102,30 +102,6 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
             pcfg["region"] = "ap-southeast-1"
         migrations[marker] = True
 
-    marker = "alibaba_qwen38_canonical_model_20260806"
-    if not migrations.get(marker):
-        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
-        for provider_name in ("alitoken", "alitoken-individual", "alims-intl"):
-            pcfg = providers.get(provider_name)
-            if not isinstance(pcfg, dict):
-                continue
-            for key in (
-                "current_model", "advisor_model", "haiku_model", "opus_model",
-                "sonnet_model", "subagent_model",
-            ):
-                if str(pcfg.get(key) or "").strip().lower() == "qwen3.8-max-preview":
-                    pcfg[key] = "qwen3.8-max"
-            custom = pcfg.get("custom_models")
-            if isinstance(custom, list):
-                canonical = [
-                    "qwen3.8-max"
-                    if str(model).strip().lower() == "qwen3.8-max-preview"
-                    else model
-                    for model in custom
-                ]
-                pcfg["custom_models"] = list(dict.fromkeys(canonical))
-        migrations[marker] = True
-
     marker = "alibaba_native_anthropic_routes_20260806"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}

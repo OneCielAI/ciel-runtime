@@ -8,7 +8,7 @@ import urllib.request
 from typing import Any
 
 
-MCP_STREAMABLE_HTTP_PROTOCOL_VERSION = "2025-03-26"
+MCP_STREAMABLE_HTTP_PROTOCOL_VERSION = "2025-11-25"
 MCP_LEGACY_SSE_PROTOCOL_VERSION = "2024-11-05"
 CODEX_MCP_SPLIT_PROXY_PREFIX = "/ca/codex-mcp/"
 
@@ -114,6 +114,18 @@ def streamable_post_json(
     return result, str(returned_session).strip() if returned_session else None
 
 
+def negotiated_protocol_version(result: Any, requested: str) -> str:
+    """Return the protocol revision selected by a legacy initialize exchange."""
+
+    if isinstance(result, dict):
+        payload = result.get("result")
+        if isinstance(payload, dict):
+            selected = str(payload.get("protocolVersion") or "").strip()
+            if selected:
+                return selected
+    return str(requested or MCP_STREAMABLE_HTTP_PROTOCOL_VERSION).strip()
+
+
 def split_proxy_server_name(path: str, prefix: str = CODEX_MCP_SPLIT_PROXY_PREFIX) -> str | None:
     if not path.startswith(prefix):
         return None
@@ -137,6 +149,7 @@ __all__ = [
     "MCP_LEGACY_SSE_PROTOCOL_VERSION",
     "MCP_STREAMABLE_HTTP_PROTOCOL_VERSION",
     "post_json_with_response_headers",
+    "negotiated_protocol_version",
     "read_sse_json_response",
     "split_proxy_server_name",
     "sse_post_json",
