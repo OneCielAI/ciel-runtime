@@ -299,6 +299,25 @@ class DeepSeekProviderTests(unittest.TestCase):
         self.assertEqual(100, response["usage"]["cache_read_input_tokens"])
         self.assertEqual(4, response["usage"]["output_tokens"])
 
+    def test_openai_response_projects_cache_creation_without_a_cache_hit(self):
+        response = ciel_runtime.openai_chat_to_anthropic(
+            {
+                "choices": [
+                    {"finish_reason": "stop", "message": {"content": "ok"}}
+                ],
+                "usage": {
+                    "prompt_tokens": 120,
+                    "completion_tokens": 4,
+                    "prompt_tokens_details": {"cache_write_tokens": 100},
+                },
+            },
+            "deepseek-chat",
+            source_body={"messages": [{"role": "user", "content": "hello"}]},
+        )
+
+        self.assertEqual(20, response["usage"]["input_tokens"])
+        self.assertEqual(100, response["usage"]["cache_creation_input_tokens"])
+
 
 if __name__ == "__main__":
     unittest.main()

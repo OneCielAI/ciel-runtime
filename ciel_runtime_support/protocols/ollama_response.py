@@ -152,12 +152,20 @@ def project_openai_chat_response(
     details = usage.get("prompt_tokens_details")
     if cache_hit is None and isinstance(details, dict):
         cache_hit = positive_int(details.get("cached_tokens"))
-    if cache_hit is not None:
+    cache_write = positive_int(usage.get("cache_creation_input_tokens"))
+    if cache_write is None and isinstance(details, dict):
+        cache_write = positive_int(details.get("cache_write_tokens"))
+    if cache_hit is not None or cache_write is not None:
         prompt_tokens = positive_int(usage.get("prompt_tokens")) or 0
-        uncached = cache_miss if cache_miss is not None else max(0, prompt_tokens - cache_hit)
+        uncached = cache_miss if cache_miss is not None else max(
+            0, prompt_tokens - (cache_hit or 0) - (cache_write or 0)
+        )
         projected_usage = dict(output.get("usage") or {})
         projected_usage["input_tokens"] = uncached
-        projected_usage["cache_read_input_tokens"] = cache_hit
+        if cache_hit is not None:
+            projected_usage["cache_read_input_tokens"] = cache_hit
+        if cache_write is not None:
+            projected_usage["cache_creation_input_tokens"] = cache_write
         output = {**output, "usage": projected_usage}
     thinking_block = reasoning_to_block(message.get("reasoning_content"))
     if thinking_block is None:

@@ -7,6 +7,8 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
+from .responses_usage_observer import ResponsesUsageObserver
+
 
 @dataclass(frozen=True, slots=True)
 class ProviderResponsesPassthroughPorts:
@@ -24,6 +26,9 @@ class ProviderResponsesPassthroughPorts:
     urlopen: Callable[..., Any]
     timeout_seconds: Callable[[dict[str, Any]], float]
     copy_response_headers: Callable[[Any, Any], None]
+    record_usage: Callable[[str, str, dict[str, int]], None] = (
+        lambda _provider, _model, _usage: None
+    )
 
 
 class ProviderResponsesPassthrough:
@@ -66,12 +71,21 @@ class ProviderResponsesPassthrough:
             provider=provider,
             pcfg=config,
         ) as response:
+            usage = ResponsesUsageObserver()
             handler.send_response(getattr(response, "status", 200))
             self._ports.copy_response_headers(handler, response.headers)
             handler.end_headers()
             while chunk := response.read(65_536):
+                usage.feed(chunk)
                 handler.wfile.write(chunk)
                 handler.wfile.flush()
+            observed = usage.finish()
+            if observed:
+                self._ports.record_usage(
+                    provider,
+                    str(upstream_body.get("model") or ""),
+                    observed,
+                )
         return delivery_body
 
 

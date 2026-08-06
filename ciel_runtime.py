@@ -2746,7 +2746,7 @@ def codex_backend_context() -> CodexBackendContext:
                                                                provider_upstream_model, resolve_requested_model, apply_provider_adapter_request_policy),
         provider_transport=ProviderPassthroughTransportPorts(provider_upstream_request_base, join_url, provider_urlopen,
                                                              provider_request_timeout_seconds,
-                                                             lambda *args, **kwargs: _copy_upstream_response_headers(*args, **kwargs)),
+                                                             lambda *args, **kwargs: _copy_upstream_response_headers(*args, **kwargs), write_router_activity),
     )
 
 _CODEX_BACKEND_API = CodexBackendCompatibilityApi(codex_backend_context)

@@ -62,6 +62,7 @@ class ProviderPassthroughTransportPorts:
     urlopen: Callable[..., Any]
     timeout_seconds: Callable[..., float]
     copy_response_headers: Callable[..., None]
+    write_activity: Callable[..., None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,6 +219,13 @@ class CodexBackendContext:
                 urlopen=self.provider_transport.urlopen,
                 timeout_seconds=self.provider_transport.timeout_seconds,
                 copy_response_headers=self.provider_transport.copy_response_headers,
+                record_usage=lambda provider, model, usage: self.provider_transport.write_activity(
+                    "success",
+                    provider,
+                    model,
+                    protocol="openai_responses",
+                    **usage,
+                ),
             )
         )
 

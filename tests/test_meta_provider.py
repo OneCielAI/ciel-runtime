@@ -156,8 +156,11 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
         payload = (
             b"event: response.reasoning_text.delta\n"
             b'data: {\"type\":\"response.reasoning_text.delta\"}\n\n'
+            b"event: response.completed\n"
+            b'data: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":1000,\"output_tokens\":25,\"input_tokens_details\":{\"cached_tokens\":800}}}}\n\n'
         )
         captured = {}
+        record_usage = mock.Mock()
 
         class Response:
             status = 200
@@ -206,6 +209,7 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
                 urlopen=urlopen,
                 timeout_seconds=lambda _config: 30.0,
                 copy_response_headers=lambda _handler, _headers: None,
+                record_usage=record_usage,
             )
         )
 
@@ -223,6 +227,17 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
         )
         self.assertEqual(payload, handler.wfile.getvalue())
         self.assertEqual({"delivery": True}, delivery)
+        record_usage.assert_called_once_with(
+            "meta",
+            "muse-spark-1.1",
+            {
+                "input_tokens": 1000,
+                "output_tokens": 25,
+                "cache_read_tokens": 800,
+                "cache_creation_tokens": 0,
+                "uncached_input_tokens": 200,
+            },
+        )
 
     def test_router_selects_native_provider_responses_before_conversion_route(self):
         event_bus = SimpleNamespace(publish=mock.Mock())

@@ -20,6 +20,7 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertEqual(900_000, config["auto_compact_window"])
         self.assertEqual("xhigh", config["effort_level"])
         self.assertTrue(config["explicit_cache"])
+        self.assertEqual(4, config["explicit_cache_markers"])
         self.assertEqual("alims-intl", ciel_runtime.PROVIDER_ALIASES["dashscope-intl"])
 
     def test_codex_uses_native_responses_and_claude_uses_chat(self):
@@ -146,6 +147,65 @@ class AlibabaProviderTests(unittest.TestCase):
                 "alims-intl", legacy, False
             )
         )
+
+    def test_explicit_cache_uses_four_rolling_markers_within_recent_history(self):
+        config = self.config()
+        original_messages = [
+            {"role": "system", "content": "stable system"},
+            *[
+                {"role": "user" if index % 2 == 0 else "assistant", "content": f"turn {index}"}
+                for index in range(30)
+            ],
+        ]
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "alims-intl",
+            config,
+            {"model": "qwen3.8-max", "messages": original_messages},
+        )
+
+        marked = [
+            index
+            for index, message in enumerate(normalized["messages"])
+            if isinstance(message.get("content"), list)
+            and any(
+                isinstance(block, dict) and block.get("cache_control") == {"type": "ephemeral"}
+                for block in message["content"]
+            )
+        ]
+        self.assertEqual([0, 14, 22, 30], marked)
+        self.assertEqual("stable system", original_messages[0]["content"])
+
+    def test_explicit_cache_marker_limit_is_configurable_and_bounded(self):
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"turn {index}",
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+            }
+            for index in range(12)
+        ]
+
+        normalized = ciel_runtime.apply_provider_adapter_request_policy(
+            "alims-intl",
+            self.config(explicit_cache_markers=2),
+            {"model": "qwen3.8-max", "messages": messages},
+        )
+
+        marked = [
+            message
+            for message in normalized["messages"]
+            if any(
+                isinstance(block, dict) and "cache_control" in block
+                for block in message["content"]
+            )
+        ]
+        self.assertEqual(2, len(marked))
 
 
 if __name__ == "__main__":

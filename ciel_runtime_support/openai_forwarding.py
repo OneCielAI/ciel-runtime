@@ -151,7 +151,6 @@ def forward_openai_compatible_chat(
             )
             if stream_ok:
                 response.mark_delivery_success(handler, "openai_stream_message_stop")
-                response.write_activity("success", provider, model, tokens=req_tokens, bytes=req_bytes, stream=True)
             else:
                 response.mark_delivery_failed(handler, "openai_stream_error")
         except RuntimeError as exc:

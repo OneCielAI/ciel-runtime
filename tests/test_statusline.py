@@ -48,6 +48,124 @@ class StatuslineTests(unittest.TestCase):
 
         self.assertIn("[claude-sonnet-4-6]", out)
 
+    def test_statusline_shows_anthropic_cache_hit_write_and_uncached_tokens(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / "statusline.py"
+            script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
+            env = os.environ.copy()
+            env.update(
+                {
+                    "CIEL_RUNTIME_CONFIG_DIR": tmp,
+                    "CIEL_RUNTIME_STATUSLINE_ANSI": "0",
+                    "CIEL_RUNTIME_PROVIDER": "alims-intl",
+                    "CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-alims-intl-qwen3.8-max",
+                }
+            )
+            session = {
+                "model": {"display_name": "qwen3.8-max"},
+                "workspace": {"current_dir": tmp},
+                "context_window": {
+                    "current_usage": {
+                        "input_tokens": 200,
+                        "cache_read_input_tokens": 700,
+                        "cache_creation_input_tokens": 100,
+                    },
+                    "context_window_size": 1_048_576,
+                },
+            }
+            proc = subprocess.run(
+                [sys.executable, str(script)],
+                input=json.dumps(session),
+                text=True,
+                capture_output=True,
+                env=env,
+                check=True,
+            )
+
+        self.assertIn("cache 70.0% hit 700 write 100 new 200", proc.stdout)
+        self.assertEqual(1, proc.stdout.count("cache 70.0%"))
+
+    def test_statusline_understands_responses_cached_token_shape(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / "statusline.py"
+            script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
+            env = os.environ.copy()
+            env.update(
+                {
+                    "CIEL_RUNTIME_CONFIG_DIR": tmp,
+                    "CIEL_RUNTIME_STATUSLINE_ANSI": "0",
+                    "CIEL_RUNTIME_PROVIDER": "alims-intl",
+                    "CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-alims-intl-qwen3.8-max",
+                }
+            )
+            session = {
+                "model": {"display_name": "qwen3.8-max"},
+                "workspace": {"current_dir": tmp},
+                "context_window": {
+                    "current_usage": {
+                        "input_tokens": 1_000,
+                        "input_tokens_details": {
+                            "cached_tokens": 800,
+                            "cache_write_tokens": 50,
+                        },
+                    },
+                    "context_window_size": 1_048_576,
+                },
+            }
+            proc = subprocess.run(
+                [sys.executable, str(script)],
+                input=json.dumps(session),
+                text=True,
+                capture_output=True,
+                env=env,
+                check=True,
+            )
+
+        self.assertIn("cache 80.0% hit 800 write 50 new 150", proc.stdout)
+
+    def test_statusline_shows_native_responses_cache_activity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / "statusline.py"
+            script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
+            (Path(tmp) / "router-activity.json").write_text(
+                json.dumps(
+                    {
+                        "updated_at": time.time(),
+                        "event": "success",
+                        "provider": "alims-intl",
+                        "model": "qwen3.8-max",
+                        "cache_read_tokens": 800,
+                        "cache_creation_tokens": 50,
+                        "uncached_input_tokens": 150,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            env = os.environ.copy()
+            env.update(
+                {
+                    "CIEL_RUNTIME_CONFIG_DIR": tmp,
+                    "CIEL_RUNTIME_STATUSLINE_ANSI": "0",
+                    "CIEL_RUNTIME_PROVIDER": "alims-intl",
+                    "CIEL_RUNTIME_MODEL_ALIAS": "ciel-runtime-alims-intl-qwen3.8-max",
+                }
+            )
+            proc = subprocess.run(
+                [sys.executable, str(script)],
+                input=json.dumps(
+                    {
+                        "model": {"display_name": "qwen3.8-max"},
+                        "workspace": {"current_dir": tmp},
+                    }
+                ),
+                text=True,
+                capture_output=True,
+                env=env,
+                check=True,
+            )
+
+        self.assertIn("cache 80.0% hit 800 write 50 new 150", proc.stdout)
+
     def test_statusline_prefers_router_context_for_ciel_runtime_session(self):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "statusline.py"

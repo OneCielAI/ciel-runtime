@@ -1594,6 +1594,9 @@ def forward_openai_chat_to_anthropic_sse(
     reasoning_so_far = ""
     tool_fragments: dict[int, dict[str, Any]] = {}
     output_tokens = 0
+    reported_input_tokens = max(0, int(input_tokens or 0))
+    cache_read_tokens = 0
+    cache_creation_tokens = 0
     finish_reason = "stop"
     chunks_seen = 0
     last_activity_update = 0.0
@@ -1708,6 +1711,27 @@ def forward_openai_chat_to_anthropic_sse(
             usage = event.get("usage")
             if isinstance(usage, dict):
                 output_tokens = max(output_tokens, positive_int(usage.get("completion_tokens")) or 0)
+                prompt_tokens = positive_int(usage.get("prompt_tokens")) or 0
+                details = usage.get("prompt_tokens_details")
+                details = details if isinstance(details, dict) else {}
+                cache_read_tokens = max(
+                    cache_read_tokens,
+                    positive_int(usage.get("prompt_cache_hit_tokens"))
+                    or positive_int(usage.get("cache_read_input_tokens"))
+                    or positive_int(details.get("cached_tokens"))
+                    or 0,
+                )
+                cache_creation_tokens = max(
+                    cache_creation_tokens,
+                    positive_int(usage.get("cache_creation_input_tokens"))
+                    or positive_int(details.get("cache_write_tokens"))
+                    or 0,
+                )
+                if prompt_tokens:
+                    reported_input_tokens = max(
+                        0,
+                        prompt_tokens - cache_read_tokens - cache_creation_tokens,
+                    )
             choices = event.get("choices")
             if not isinstance(choices, list) or not choices:
                 continue
@@ -1925,7 +1949,30 @@ def forward_openai_chat_to_anthropic_sse(
                 emit("content_block_stop", {"type": "content_block_stop", "index": text_index})
                 text_stopped = True
         stop_reason = "tool_use" if tool_calls else ("max_tokens" if finish_reason == "length" else "end_turn")
-        write_anthropic_open_stream_stop(handler, {"stop_reason": stop_reason, "usage": {"output_tokens": output_tokens or max(1, len(text_so_far) // 4)}})
+        final_output_tokens = output_tokens or max(1, len(text_so_far) // 4)
+        final_usage = {
+            "input_tokens": reported_input_tokens,
+            "output_tokens": final_output_tokens,
+        }
+        if cache_read_tokens:
+            final_usage["cache_read_input_tokens"] = cache_read_tokens
+        if cache_creation_tokens:
+            final_usage["cache_creation_input_tokens"] = cache_creation_tokens
+        write_anthropic_open_stream_stop(
+            handler,
+            {"stop_reason": stop_reason, "usage": final_usage},
+        )
+        write_router_activity(
+            "success",
+            provider,
+            model,
+            input_tokens=reported_input_tokens,
+            output_tokens=final_output_tokens,
+            cache_read_tokens=cache_read_tokens,
+            cache_creation_tokens=cache_creation_tokens,
+            chunks=chunks_seen,
+            stream=True,
+        )
         return True
     except Exception as exc:
         router_log("ERROR", f"openai_stream_error provider={provider} model={model} error={type(exc).__name__}: {exc}")

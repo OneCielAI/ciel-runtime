@@ -824,7 +824,19 @@ class OpenCodeProviderTests(unittest.TestCase):
             sse({"choices": [{"delta": {"reasoning_content": "private "}}]}),
             sse({"choices": [{"delta": {"reasoning_content": "chain"}}]}),
             sse({"choices": [{"delta": {"content": "visible"}}]}),
-            sse({"choices": [{"finish_reason": "stop", "delta": {}}], "usage": {"completion_tokens": 4}}),
+            sse(
+                {
+                    "choices": [{"finish_reason": "stop", "delta": {}}],
+                    "usage": {
+                        "prompt_tokens": 1_000,
+                        "completion_tokens": 4,
+                        "prompt_tokens_details": {
+                            "cached_tokens": 800,
+                            "cache_write_tokens": 50,
+                        },
+                    },
+                }
+            ),
             b"data: [DONE]\n\n",
         ]
         handler = FakeHandler()
@@ -846,6 +858,9 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertIn('"type": "signature_delta"', output)
         self.assertIn('"type": "text_delta"', output)
         self.assertIn("visible", output)
+        self.assertIn('"input_tokens": 150', output)
+        self.assertIn('"cache_read_input_tokens": 800', output)
+        self.assertIn('"cache_creation_input_tokens": 50', output)
 
 
 if __name__ == "__main__":

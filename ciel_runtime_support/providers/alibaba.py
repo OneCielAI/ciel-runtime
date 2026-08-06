@@ -55,6 +55,7 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
             stream_word_chunking=False,
             effort_level="xhigh",
             explicit_cache=True,
+            explicit_cache_markers=4,
             haiku_model=QWEN38_MAX_MODEL,
             opus_model=QWEN38_MAX_MODEL,
             sonnet_model=QWEN38_MAX_MODEL,
@@ -235,17 +236,103 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
         if bool(config.options.get("explicit_cache", True)):
             messages = request.get("messages")
             if isinstance(messages, list):
-                for message in messages:
-                    if not isinstance(message, dict) or message.get("role") != "system":
-                        continue
-                    content = message.get("content")
-                    if isinstance(content, str) and content:
-                        message["content"] = [{
-                            "type": "text",
-                            "text": content,
-                            "cache_control": {"type": "ephemeral"},
-                        }]
-                    break
+                cls._apply_explicit_cache_markers(
+                    messages,
+                    config.options.get("explicit_cache_markers", 4),
+                )
+
+    @classmethod
+    def _apply_explicit_cache_markers(
+        cls, messages: list[Any], configured_limit: Any
+    ) -> None:
+        try:
+            limit = max(1, min(4, int(configured_limit)))
+        except (TypeError, ValueError):
+            limit = 4
+        for message in messages:
+            if isinstance(message, dict):
+                cls._clear_message_cache_control(message)
+        cacheable = [
+            index
+            for index, message in enumerate(messages)
+            if isinstance(message, dict) and cls._cacheable_content(message.get("content"))
+        ]
+        if not cacheable:
+            return
+        system = next(
+            (
+                index
+                for index in cacheable
+                if str(messages[index].get("role") or "").lower() == "system"
+            ),
+            None,
+        )
+        conversation = [index for index in cacheable if index != system]
+        selected: list[int] = [system] if system is not None else []
+        thresholds = iter((1, 9, 17))
+        threshold = next(thresholds, None)
+        blocks_from_tail = 0
+        for index in reversed(conversation):
+            blocks_from_tail += cls._content_block_count(messages[index].get("content"))
+            while threshold is not None and blocks_from_tail >= threshold:
+                if index not in selected and len(selected) < limit:
+                    selected.append(index)
+                threshold = next(thresholds, None)
+            if threshold is None or len(selected) >= limit:
+                break
+        for index in selected[:limit]:
+            cls._mark_message_cache_control(messages[index])
+
+    @staticmethod
+    def _cacheable_content(content: Any) -> bool:
+        if isinstance(content, str):
+            return bool(content)
+        return isinstance(content, list) and bool(content)
+
+    @staticmethod
+    def _content_block_count(content: Any) -> int:
+        return max(1, len(content)) if isinstance(content, list) else 1
+
+    @staticmethod
+    def _mark_message_cache_control(message: dict[str, Any]) -> None:
+        content = message.get("content")
+        if isinstance(content, str):
+            message["content"] = [
+                {
+                    "type": "text",
+                    "text": content,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+            return
+        if not isinstance(content, list):
+            return
+        for index in range(len(content) - 1, -1, -1):
+            block = content[index]
+            if isinstance(block, Mapping):
+                projected = dict(block)
+                projected["cache_control"] = {"type": "ephemeral"}
+                content[index] = projected
+                return
+            if isinstance(block, str) and block:
+                content[index] = {
+                    "type": "text",
+                    "text": block,
+                    "cache_control": {"type": "ephemeral"},
+                }
+                return
+
+    @staticmethod
+    def _clear_message_cache_control(message: dict[str, Any]) -> None:
+        content = message.get("content")
+        if not isinstance(content, list):
+            return
+        for index, block in enumerate(content):
+            if not isinstance(block, Mapping) or "cache_control" not in block:
+                continue
+            projected = dict(block)
+            projected.pop("cache_control", None)
+            content[index] = projected
 
     @classmethod
     def _is_qwen38(cls, model: str) -> bool:

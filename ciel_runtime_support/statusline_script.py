@@ -247,6 +247,42 @@ def session_context_status_text(session):
     return f"ctx {tokens:,} tok"
 
 
+def session_cache_status_text(session):
+    if not isinstance(session, dict):
+        return ""
+    context_window = session.get("context_window")
+    if not isinstance(context_window, dict):
+        return ""
+    usage = context_window.get("current_usage")
+    if not isinstance(usage, dict):
+        return ""
+    details = usage.get("input_tokens_details")
+    details = details if isinstance(details, dict) else {}
+    cache_read = _as_int(
+        usage.get("cache_read_input_tokens"),
+        _as_int(details.get("cached_tokens")),
+    )
+    cache_write = _as_int(
+        usage.get("cache_creation_input_tokens"),
+        _as_int(details.get("cache_write_tokens")),
+    )
+    input_tokens = max(0, _as_int(usage.get("input_tokens")))
+    uncached = (
+        max(0, input_tokens - cache_read - cache_write)
+        if details
+        else input_tokens
+    )
+    total = uncached + cache_read + cache_write
+    if total <= 0 or (cache_read <= 0 and cache_write <= 0):
+        return ""
+    hit_pct = (cache_read / total) * 100.0
+    parts = [f"cache {hit_pct:.1f}%", f"hit {cache_read:,}"]
+    if cache_write > 0:
+        parts.append(f"write {cache_write:,}")
+    parts.append(f"new {uncached:,}")
+    return " ".join(parts)
+
+
 def _status_as_string_list(value):
     if value is None:
         return []
@@ -472,6 +508,9 @@ def main():
     ctx_text = router_ctx_text or session_ctx_text
     if ctx_text:
         status_parts.append(gray(ctx_text))
+    cache_text = session_cache_status_text(session)
+    if cache_text:
+        status_parts.append(color(cache_text))
     channel_pending = channel_pending_status_count()
     if channel_pending > 0:
         status_parts.append(color(f"channel queue {channel_pending}"))
@@ -554,6 +593,16 @@ def main():
                         activity_text += " " + color(f"({chunks} chunks)")
             elif event in ("success", "error"):
                 activity_text = color(f"{event} {age:.0f}s")
+                cache_read = max(0, _as_int(activity.get("cache_read_tokens")))
+                cache_write = max(0, _as_int(activity.get("cache_creation_tokens")))
+                uncached = max(0, _as_int(activity.get("uncached_input_tokens")))
+                cache_total = cache_read + cache_write + uncached
+                if not cache_text and cache_total > 0 and (cache_read > 0 or cache_write > 0):
+                    cache_pct = (cache_read / cache_total) * 100.0
+                    activity_text += " " + color(
+                        f"cache {cache_pct:.1f}% hit {cache_read:,} "
+                        f"write {cache_write:,} new {uncached:,}"
+                    )
     if activity_text:
         status_parts.append(activity_text)
     compact_text = ""
@@ -590,4 +639,3 @@ if __name__ == "__main__":
     main()
 
 '''
-
