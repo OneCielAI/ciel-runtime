@@ -83,7 +83,7 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                 custom = []
                 pcfg["custom_models"] = custom
             models = (
-                "qwen3.8-max-preview", "qwen3.7-max", "qwen3.7-plus",
+                "qwen3.8-max", "qwen3.7-max", "qwen3.7-plus",
                 "qwen3.6-plus", "qwen3.6-flash", "deepseek-v4-pro",
                 "deepseek-v4-flash", "deepseek-v3.2", "kimi-k2.7-code",
                 "kimi-k2.6", "kimi-k2.5", "glm-5.2", "glm-5.1", "glm-5",
@@ -100,6 +100,30 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                 if normalize_model_id("alitoken", model) not in known
             )
             pcfg["region"] = "ap-southeast-1"
+        migrations[marker] = True
+
+    marker = "alibaba_qwen38_canonical_model_20260806"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        for provider_name in ("alitoken", "alitoken-individual", "alims-intl"):
+            pcfg = providers.get(provider_name)
+            if not isinstance(pcfg, dict):
+                continue
+            for key in (
+                "current_model", "advisor_model", "haiku_model", "opus_model",
+                "sonnet_model", "subagent_model",
+            ):
+                if str(pcfg.get(key) or "").strip().lower() == "qwen3.8-max-preview":
+                    pcfg[key] = "qwen3.8-max"
+            custom = pcfg.get("custom_models")
+            if isinstance(custom, list):
+                canonical = [
+                    "qwen3.8-max"
+                    if str(model).strip().lower() == "qwen3.8-max-preview"
+                    else model
+                    for model in custom
+                ]
+                pcfg["custom_models"] = list(dict.fromkeys(canonical))
         migrations[marker] = True
 
     marker = "alibaba_native_anthropic_routes_20260806"

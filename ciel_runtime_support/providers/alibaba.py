@@ -52,7 +52,7 @@ ALIBABA_MODEL_STUDIO_MODELS = (
     "MiniMax-M2.5",
 )
 ALIBABA_TOKEN_PLAN_MODELS = (
-    "qwen3.8-max-preview",
+    QWEN38_MAX_MODEL,
     QWEN37_MAX_MODEL,
     "qwen3.7-plus",
     "qwen3.6-plus",
@@ -160,6 +160,17 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
             hosted_timeout=True,
         )
 
+    def normalize_model_id(self, model_id: str) -> str:
+        normalized = super().normalize_model_id(model_id)
+        return (
+            QWEN38_MAX_MODEL
+            if normalized.lower() == "qwen3.8-max-preview"
+            else normalized
+        )
+
+    def upstream_api_model_id(self, model_id: str) -> str:
+        return self.normalize_model_id(model_id)
+
     def supported_protocols(
         self, config: ProviderConfig, model: str | None = None
     ) -> frozenset[MessageProtocol]:
@@ -255,7 +266,7 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
             and "messages" not in normalized
             and self._supports_responses(model)
         ):
-            self._normalize_responses(normalized)
+            self._normalize_responses(normalized, model)
         elif "messages" in normalized:
             self._normalize_chat(config, normalized, model)
         return normalized
@@ -270,22 +281,37 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
             or config.options.get("effort_level")
             or "xhigh"
         ).strip().lower()
+        if self._is_qwen38(model):
+            return self._normalize_qwen38_effort(value)
         return value if value in _EFFORTS else "xhigh"
+
+    def openai_reasoning_passback_enabled(
+        self, config: ProviderConfig, model: str | None = None
+    ) -> bool:
+        del config
+        return self._is_qwen38(model)
 
     def allows_sampling_overrides(self, config: ProviderConfig) -> bool:
         del config
         return False
 
     @classmethod
-    def _normalize_responses(cls, request: dict[str, Any]) -> None:
+    def _normalize_responses(cls, request: dict[str, Any], model: str) -> None:
         reasoning = request.get("reasoning")
         if isinstance(reasoning, Mapping):
             projected = dict(reasoning)
             effort = str(projected.get("effort") or "xhigh").strip().lower()
-            projected["effort"] = effort if effort in _EFFORTS else "xhigh"
+            projected["effort"] = (
+                cls._normalize_qwen38_effort(effort)
+                if cls._is_qwen38(model)
+                else effort if effort in _EFFORTS else "xhigh"
+            )
             request["reasoning"] = projected
-        elif request.get("enable_thinking") is not False:
-            request["reasoning"] = {"effort": "xhigh"}
+            if cls._is_qwen38(model):
+                request.pop("thinking_budget", None)
+        elif request.get("enable_thinking") is False and cls._is_qwen38(model):
+            request["reasoning"] = {"effort": "none"}
+            request.pop("thinking_budget", None)
         request.pop("enable_thinking", None)
 
         tools = request.get("tools")
@@ -304,8 +330,6 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
                     normalized_tools.append(projected)
                     seen.add(identity)
             request["tools"] = normalized_tools
-            if any(isinstance(tool, Mapping) and tool.get("type") == "function" for tool in normalized_tools):
-                request.setdefault("parallel_tool_calls", True)
 
     @classmethod
     def _normalize_chat(
@@ -328,14 +352,16 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
                     remaining.append(tool)
             if remaining:
                 request["tools"] = remaining
-                request.setdefault("parallel_tool_calls", True)
             else:
                 request.pop("tools", None)
                 request.pop("tool_choice", None)
         if has_search or has_fetch:
             request["enable_search"] = True
             request["search_options"] = {
-                "search_strategy": "agent_max" if has_fetch else "agent"
+                "search_strategy": (
+                    "max" if cls._is_qwen38(model)
+                    else "agent_max" if has_fetch else "agent"
+                )
             }
             if request.get("tool_choice") not in (None, "none"):
                 request["tool_choice"] = "auto"
@@ -347,6 +373,27 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
                     messages,
                     config.options.get("explicit_cache_markers", 4),
                 )
+
+        if cls._is_qwen38(model):
+            effort = request.get("reasoning_effort")
+            if effort is not None:
+                request["reasoning_effort"] = cls._normalize_qwen38_effort(effort)
+                request.pop("thinking_budget", None)
+            if "max_tokens" in request and "max_completion_tokens" not in request:
+                request["max_completion_tokens"] = request.pop("max_tokens")
+
+    @staticmethod
+    def _normalize_qwen38_effort(value: Any) -> str:
+        effort = str(value or "xhigh").strip().lower()
+        if effort in {"max", "high", "xhigh"}:
+            return "xhigh"
+        if effort == "medium":
+            return "medium"
+        if effort in {"minimal", "low"}:
+            return "low"
+        if effort == "none":
+            return "none"
+        return "xhigh"
 
     @classmethod
     def _apply_explicit_cache_markers(
@@ -508,7 +555,7 @@ class AlibabaTokenPlanProviderAdapter(AlibabaModelStudioProviderAdapter):
     )
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
-            "qwen3.8-max-preview",
+            QWEN38_MAX_MODEL,
             custom_models=ALIBABA_TOKEN_PLAN_MODELS,
             native_compat=True,
             supports_tool_choice=True,
@@ -525,7 +572,7 @@ class AlibabaTokenPlanProviderAdapter(AlibabaModelStudioProviderAdapter):
             explicit_cache=True,
             explicit_cache_markers=4,
             haiku_model="qwen3.6-flash",
-            opus_model="qwen3.8-max-preview",
+            opus_model=QWEN38_MAX_MODEL,
             sonnet_model="qwen3.7-plus",
             subagent_model="qwen3.7-plus",
             region="ap-southeast-1",
