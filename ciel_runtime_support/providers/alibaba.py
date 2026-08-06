@@ -22,6 +22,52 @@ QWEN38_MAX_MODEL = "qwen3.8-max"
 QWEN38_CONTEXT_WINDOW = 1_048_576
 QWEN38_MAX_OUTPUT = 131_072
 QWEN38_AUTO_COMPACT = 900_000
+ALIBABA_CODING_PLAN_MODELS = (
+    "qwen3.7-plus",
+    "qwen3.6-plus",
+    "kimi-k2.5",
+    "glm-5",
+    "MiniMax-M2.5",
+    "qwen3.5-plus",
+    "qwen3-max-2026-01-23",
+    "qwen3-coder-next",
+    "qwen3-coder-plus",
+    "glm-4.7",
+)
+ALIBABA_MODEL_STUDIO_MODELS = (
+    QWEN38_MAX_MODEL,
+    "qwen3.7-max",
+    "qwen3.7-plus",
+    "qwen3.6-plus",
+    "qwen3.6-flash",
+    "qwen3.5-plus",
+    "qwen3-coder-plus",
+    "qwen3-coder-flash",
+    "deepseek-v4-pro",
+    "deepseek-v4-flash",
+    "glm-5.2",
+    "kimi-k2.7-code",
+    "MiniMax-M2.5",
+)
+_RESPONSES_MODEL_PREFIXES = (
+    "qwen3.8-max",
+    "qwen3.7-max",
+    "qwen3.7-plus",
+    "qwen3.6-plus",
+    "qwen3.6-flash",
+    "qwen3.5-plus",
+    "qwen3.5-flash",
+    "qwen3-coder-plus",
+    "qwen3-coder-flash",
+)
+_CHAT_SEARCH_MODEL_PREFIXES = (
+    "qwen3.8-max",
+    "qwen3.7-plus",
+    "qwen3.6-plus",
+    "qwen3.6-flash",
+    "qwen3.5-plus",
+    "qwen3.5-flash",
+)
 _WEB_SEARCH_NAMES = frozenset({"websearch", "web_search"})
 _WEB_FETCH_NAMES = frozenset({"webfetch", "web_fetch"})
 _RESPONSES_TOOL_ALIASES = {
@@ -41,7 +87,7 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
             QWEN38_MAX_MODEL,
-            custom_models=(QWEN38_MAX_MODEL, "qwen3.7-max", "qwen3.7-plus", "qwen3.7-flash"),
+            custom_models=ALIBABA_MODEL_STUDIO_MODELS,
             native_compat=False,
             supports_tool_choice=True,
             context_window=QWEN38_CONTEXT_WINDOW,
@@ -82,7 +128,7 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
     model_catalog_policy_value: ProviderModelCatalogPolicy = field(
         default_factory=lambda: ProviderModelCatalogPolicy(
             kind="openai",
-            fallback_models=(QWEN38_MAX_MODEL, "qwen3.7-max", "qwen3.7-plus", "qwen3.7-flash"),
+            fallback_models=ALIBABA_MODEL_STUDIO_MODELS,
             allow_configured_fallback=True,
         )
     )
@@ -98,17 +144,24 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
     def supported_protocols(
         self, config: ProviderConfig, model: str | None = None
     ) -> frozenset[MessageProtocol]:
-        del config, model
-        return frozenset({"openai_chat", "openai_responses"})
+        del config
+        protocols: set[MessageProtocol] = {"openai_chat"}
+        if self._supports_responses(model):
+            protocols.add("openai_responses")
+        return frozenset(protocols)
 
     def select_protocol(
         self, operation: MessageProtocol, config: ProviderConfig, model: str | None = None
     ) -> MessageProtocol:
-        del config, model
-        return "openai_responses" if operation == "openai_responses" else "openai_chat"
+        del config
+        return (
+            "openai_responses"
+            if operation == "openai_responses" and self._supports_responses(model)
+            else "openai_chat"
+        )
 
     def supports_server_web_tools(self, config: ProviderConfig) -> bool:
-        return self._is_qwen38(config.model)
+        return self._supports_chat_search(config.model)
 
     def model_configuration_profile(
         self, config: ProviderConfig
@@ -148,18 +201,20 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
         if "tools" in normalized:
             normalized["tools"] = deepcopy(normalized["tools"])
         model = str(normalized.get("model") or config.model)
-        if not self._is_qwen38(model):
-            return normalized
-        if "input" in normalized and "messages" not in normalized:
+        if (
+            "input" in normalized
+            and "messages" not in normalized
+            and self._supports_responses(model)
+        ):
             self._normalize_responses(normalized)
         elif "messages" in normalized:
-            self._normalize_chat(config, normalized)
+            self._normalize_chat(config, normalized, model)
         return normalized
 
     def openai_reasoning_effort(
         self, config: ProviderConfig, model: str, request: Mapping[str, Any]
     ) -> str | None:
-        if not self._is_qwen38(model):
+        if not self._supports_responses(model):
             return None
         value = str(
             request.get("reasoning_effort")
@@ -204,18 +259,21 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
                 request.setdefault("parallel_tool_calls", True)
 
     @classmethod
-    def _normalize_chat(cls, config: ProviderConfig, request: dict[str, Any]) -> None:
+    def _normalize_chat(
+        cls, config: ProviderConfig, request: dict[str, Any], model: str
+    ) -> None:
         tools = request.get("tools")
         has_search = False
         has_fetch = False
         remaining: list[Any] = []
+        supports_search = cls._supports_chat_search(model)
         if isinstance(tools, list):
             for tool in tools:
                 function = tool.get("function") if isinstance(tool, Mapping) else None
                 name = str(function.get("name") or "").strip().lower() if isinstance(function, Mapping) else ""
-                if name in _WEB_SEARCH_NAMES:
+                if supports_search and name in _WEB_SEARCH_NAMES:
                     has_search = True
-                elif name in _WEB_FETCH_NAMES:
+                elif supports_search and name in _WEB_FETCH_NAMES:
                     has_fetch = True
                 else:
                     remaining.append(tool)
@@ -338,6 +396,16 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
     def _is_qwen38(cls, model: str) -> bool:
         return cls._clean_model(model) == QWEN38_MAX_MODEL
 
+    @classmethod
+    def _supports_responses(cls, model: str | None) -> bool:
+        clean = cls._clean_model(str(model or ""))
+        return any(prefix in clean for prefix in _RESPONSES_MODEL_PREFIXES)
+
+    @classmethod
+    def _supports_chat_search(cls, model: str | None) -> bool:
+        clean = cls._clean_model(str(model or ""))
+        return any(prefix in clean for prefix in _CHAT_SEARCH_MODEL_PREFIXES)
+
     @staticmethod
     def _clean_model(model: str) -> str:
         value = str(model or "").strip().lower()
@@ -345,6 +413,8 @@ class AlibabaModelStudioProviderAdapter(HttpBearerProviderAdapter):
 
 
 __all__ = [
+    "ALIBABA_CODING_PLAN_MODELS",
+    "ALIBABA_MODEL_STUDIO_MODELS",
     "AlibabaModelStudioProviderAdapter",
     "QWEN38_AUTO_COMPACT",
     "QWEN38_CONTEXT_WINDOW",

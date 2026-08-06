@@ -16,6 +16,7 @@ from ..architecture import (
     ProviderRequestPolicy,
 )
 from ..runtime_constants import DEFAULT_REQUEST_TIMEOUT_MS
+from .alibaba import ALIBABA_CODING_PLAN_MODELS
 from .base import OpenAICompatibleProviderAdapter, provider_configuration
 
 
@@ -130,12 +131,12 @@ COMPATIBLE_PROVIDER_SPECS: tuple[CompatibleProviderSpec, ...] = (
     CompatibleProviderSpec(
         "alicode-intl", "Alibaba Coding International",
         "https://coding-intl.dashscope.aliyuncs.com/v1",
-        ("qwen3.5-plus", "kimi-k2.5", "glm-5", "qwen3-coder-next"),
+        ALIBABA_CODING_PLAN_MODELS,
         ("alibaba-coding-intl",),
     ),
     CompatibleProviderSpec(
         "alicode", "Alibaba Coding", "https://coding.dashscope.aliyuncs.com/v1",
-        ("qwen3.5-plus", "kimi-k2.5", "glm-5", "qwen3-coder-next"),
+        ALIBABA_CODING_PLAN_MODELS,
         ("alibaba-coding",),
     ),
     CompatibleProviderSpec(

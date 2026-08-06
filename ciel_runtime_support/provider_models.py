@@ -91,10 +91,24 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
     with_upstream_user_agent = services.http.with_upstream_user_agent
     write_model_list_cache = services.storage.write_model_list_cache
     write_model_registry = services.storage.write_model_registry
+    catalog_policy = provider_model_catalog_policy(provider, pcfg)
     cached = None if force_refresh else read_model_list_cache(provider, pcfg)
     if cached is not None:
-        return cached
-    catalog_policy = provider_model_catalog_policy(provider, pcfg)
+        if (
+            catalog_policy.authoritative_upstream_catalog
+            or not catalog_policy.allow_configured_fallback
+        ):
+            return cached
+        ids = unique_model_ids(provider, [
+            *cached,
+            *catalog_policy.fallback_models,
+            *(pcfg.get("custom_models", []) or []),
+            pcfg.get("current_model") or "",
+        ])
+        sorted_ids = sorted_model_ids(ids)
+        if sorted_ids != cached:
+            write_model_list_cache(provider, pcfg, sorted_ids)
+        return sorted_ids
     if catalog_policy.kind == "configured":
         ids = unique_model_ids(provider, [
             *catalog_policy.fallback_models,
@@ -222,6 +236,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
         fetched = bool(ids)
     if not fetched and catalog_policy.allow_configured_fallback:
         ids = unique_model_ids(provider, [
+            *catalog_policy.fallback_models,
             *(pcfg.get("custom_models", []) or []),
             pcfg.get("current_model") or "",
         ])

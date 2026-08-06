@@ -34,6 +34,45 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
         migrations = {}
         cfg["migrations"] = migrations
 
+    marker = "alibaba_provider_catalogs_20260806"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        catalogs = {
+            "alicode": (
+                "qwen3.7-plus", "qwen3.6-plus", "kimi-k2.5", "glm-5",
+                "MiniMax-M2.5", "qwen3.5-plus", "qwen3-max-2026-01-23",
+                "qwen3-coder-next", "qwen3-coder-plus", "glm-4.7",
+            ),
+            "alicode-intl": (
+                "qwen3.7-plus", "qwen3.6-plus", "kimi-k2.5", "glm-5",
+                "MiniMax-M2.5", "qwen3.5-plus", "qwen3-max-2026-01-23",
+                "qwen3-coder-next", "qwen3-coder-plus", "glm-4.7",
+            ),
+            "alims-intl": (
+                "qwen3.8-max", "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus",
+                "qwen3.6-flash", "qwen3.5-plus", "qwen3-coder-plus",
+                "qwen3-coder-flash", "deepseek-v4-pro", "deepseek-v4-flash",
+                "glm-5.2", "kimi-k2.7-code", "MiniMax-M2.5",
+            ),
+        }
+        for provider_name, models in catalogs.items():
+            pcfg = providers.get(provider_name)
+            if not isinstance(pcfg, dict):
+                continue
+            custom = pcfg.get("custom_models")
+            if not isinstance(custom, list):
+                custom = []
+                pcfg["custom_models"] = custom
+            known = {
+                normalize_model_id(provider_name, str(model))
+                for model in custom
+                if str(model).strip()
+            }
+            for model in models:
+                if normalize_model_id(provider_name, model) not in known:
+                    custom.append(model)
+        migrations[marker] = True
+
     marker = "ollama_cloud_deepseek_v4_flash_0731_20260803"
     if not migrations.get(marker):
         pcfg = cfg.get("providers", {}).get("ollama-cloud", {})

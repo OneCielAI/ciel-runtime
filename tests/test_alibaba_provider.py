@@ -128,7 +128,7 @@ class AlibabaProviderTests(unittest.TestCase):
             request["messages"][0]["content"][0]["cache_control"],
         )
 
-    def test_only_qwen38_exposes_claude_server_web_tools(self):
+    def test_responses_models_expose_claude_server_web_tools(self):
         config = self.config()
 
         blocked = ciel_runtime.resolve_blocked_tools("alims-intl", config)
@@ -140,13 +140,101 @@ class AlibabaProviderTests(unittest.TestCase):
             )
         )
 
-        legacy = self.config(current_model="qwen3.7-max")
-        self.assertIn("WebSearch", ciel_runtime.resolve_blocked_tools("alims-intl", legacy))
-        self.assertTrue(
+        qwen37_plus = self.config(current_model="qwen3.7-plus")
+        self.assertNotIn("WebSearch", ciel_runtime.resolve_blocked_tools("alims-intl", qwen37_plus))
+        self.assertFalse(
             ciel_runtime.should_disallow_claude_server_side_web_tools(
-                "alims-intl", legacy, False
+                "alims-intl", qwen37_plus, False
             )
         )
+
+        responses_only = self.config(current_model="qwen3.7-max")
+        self.assertIn(
+            "WebSearch", ciel_runtime.resolve_blocked_tools("alims-intl", responses_only)
+        )
+
+        third_party = self.config(current_model="deepseek-v4-pro")
+        self.assertIn("WebSearch", ciel_runtime.resolve_blocked_tools("alims-intl", third_party))
+        self.assertTrue(
+            ciel_runtime.should_disallow_claude_server_side_web_tools(
+                "alims-intl", third_party, False
+            )
+        )
+
+    def test_model_studio_uses_chat_for_models_without_responses_support(self):
+        config = self.config(current_model="deepseek-v4-pro")
+
+        self.assertEqual(
+            "openai_chat",
+            ciel_runtime.select_provider_protocol(
+                "alims-intl", config, "openai_responses", "deepseek-v4-pro"
+            ),
+        )
+
+    def test_routed_alias_still_selects_responses_for_supported_qwen(self):
+        config = self.config(current_model="qwen3.7-max")
+
+        self.assertEqual(
+            "openai_responses",
+            ciel_runtime.select_provider_protocol(
+                "alims-intl",
+                config,
+                "openai_responses",
+                "ciel-runtime-alims-intl-qwen3.7-max",
+            ),
+        )
+
+    def test_all_alibaba_catalogs_include_current_provider_models(self):
+        expected_coding = {
+            "qwen3.7-plus",
+            "qwen3.6-plus",
+            "MiniMax-M2.5",
+            "qwen3-max-2026-01-23",
+            "qwen3-coder-plus",
+            "glm-4.7",
+        }
+        for provider in ("alicode", "alicode-intl"):
+            config = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"][provider])
+            models = set(ciel_runtime.cached_or_configured_model_ids(provider, config))
+            self.assertTrue(expected_coding.issubset(models), provider)
+
+        cfg = {
+            "migrations": {},
+            "providers": {"alims-intl": self.config(custom_models=["legacy-custom"])},
+        }
+        ciel_runtime.apply_config_migrations(cfg)
+        config = cfg["providers"]["alims-intl"]
+        models = set(ciel_runtime.cached_or_configured_model_ids("alims-intl", config))
+        self.assertTrue(
+            {
+                "qwen3.8-max",
+                "qwen3.7-max",
+                "qwen3.7-plus",
+                "qwen3.6-flash",
+                "deepseek-v4-pro",
+                "kimi-k2.7-code",
+                "legacy-custom",
+            }.issubset(models)
+        )
+
+    def test_migration_merges_new_models_without_removing_custom_models(self):
+        cfg = {
+            "migrations": {},
+            "providers": {
+                "alicode": {"custom_models": ["private-coding-model"]},
+                "alicode-intl": {"custom_models": ["qwen3.5-plus"]},
+                "alims-intl": {"custom_models": ["legacy-custom"]},
+            },
+        }
+
+        ciel_runtime.apply_config_migrations(cfg)
+
+        self.assertIn("private-coding-model", cfg["providers"]["alicode"]["custom_models"])
+        self.assertIn("qwen3.7-plus", cfg["providers"]["alicode"]["custom_models"])
+        self.assertIn("qwen3-coder-plus", cfg["providers"]["alicode-intl"]["custom_models"])
+        self.assertIn("legacy-custom", cfg["providers"]["alims-intl"]["custom_models"])
+        self.assertIn("qwen3.8-max", cfg["providers"]["alims-intl"]["custom_models"])
+        self.assertTrue(cfg["migrations"]["alibaba_provider_catalogs_20260806"])
 
     def test_explicit_cache_uses_four_rolling_markers_within_recent_history(self):
         config = self.config()
