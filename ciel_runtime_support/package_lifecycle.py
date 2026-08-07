@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import ntpath
 import os
 from pathlib import Path
 import subprocess
@@ -19,7 +20,7 @@ def windows_executable_image_running(executable_name: str) -> bool:
 
     if os.name != "nt":
         return False
-    image_name = Path(executable_name).name
+    image_name = ntpath.basename(executable_name)
     if not image_name.casefold().endswith(".exe"):
         image_name += ".exe"
     try:
