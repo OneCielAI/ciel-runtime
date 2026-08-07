@@ -517,6 +517,7 @@ def rebatch_anthropic_sse_text(
         matched_name = resolve_emitted_tool_name(raw_name, source_body)
         if not matched_name:
             matched_name = infer_tool_name_from_args(parsed_args)
+        emitted_name = matched_name
         fixed_input = _validate_and_fix_tool_input(matched_name, parsed_args, source_body)
         if isinstance(source_body, dict):
             mapped_name, mapped_input = plan_mode_tool_name_for_emit(source_body, matched_name, fixed_input)
@@ -528,7 +529,10 @@ def rebatch_anthropic_sse_text(
                 return
             matched_name, fixed_input = mapped_name, mapped_input
         fixed_input = cap_mcp_notification_wait_tool_input(matched_name, fixed_input)
-        if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body):
+        # Plan mode can retarget the call at a different tool, and then the
+        # original arguments no longer describe the schema being checked.
+        supplied_input = parsed_args if matched_name == emitted_name else None
+        if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body, supplied_input):
             return
         if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name, source_body):
             return
@@ -1362,13 +1366,15 @@ def ollama_stream_to_anthropic_sse(
                 matched_name = resolve_emitted_tool_name(raw_name, source_body)
                 raw_args = fn.get("arguments")
                 normalized_args = normalize_tool_arguments(matched_name, raw_args)
+                emitted_name = matched_name
                 fixed_input = _validate_and_fix_tool_input(matched_name, normalized_args)
                 if source_body is not None:
                     matched_name, fixed_input = plan_mode_tool_name_for_emit(source_body, matched_name, fixed_input)
                     if matched_name is None:
                         continue
                 fixed_input = cap_mcp_notification_wait_tool_input(matched_name, fixed_input)
-                if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body):
+                supplied_input = normalized_args if matched_name == emitted_name else None
+                if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body, supplied_input):
                     continue
                 if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name, source_body):
                     repeated_completed_tool_dropped = True
@@ -1940,13 +1946,15 @@ def forward_openai_chat_to_anthropic_sse(
                 continue
             matched_name = resolve_emitted_tool_name(raw_name, source_body)
             normalized_args = normalize_tool_arguments(matched_name, fragment.get("arguments") or {})
+            emitted_name = matched_name
             fixed_input = _validate_and_fix_tool_input(matched_name, normalized_args)
             if source_body is not None:
                 matched_name, fixed_input = plan_mode_tool_name_for_emit(source_body, matched_name, fixed_input)
                 if matched_name is None:
                     continue
             fixed_input = cap_mcp_notification_wait_tool_input(matched_name, fixed_input)
-            if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body):
+            supplied_input = normalized_args if matched_name == emitted_name else None
+            if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body, supplied_input):
                 continue
             if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name, source_body):
                 continue

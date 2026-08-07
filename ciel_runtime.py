@@ -727,8 +727,12 @@ def _validate_and_fix_tool_input(tool_name: str, input_dict: dict[str, Any], sou
         repair=lambda name, value: _tool_schema_validate_and_fix(name, value, source_body, log=router_log),
     )
     return dict(dialect.repair_tool_input(tool_name, input_dict))
-def should_drop_emitted_tool_call(tool_name: str, tool_input: dict[str, Any], raw_name: str = "", source_body: dict[str, Any] | None = None) -> bool:
-    missing = _missing_required_tool_fields(tool_name, tool_input, source_body)
+def should_drop_emitted_tool_call(tool_name: str, tool_input: dict[str, Any], raw_name: str = "", source_body: dict[str, Any] | None = None, supplied_input: dict[str, Any] | None = None) -> bool:
+    # Judge completeness against what the model actually emitted. `tool_input`
+    # has already been through _validate_and_fix_tool_input, which injects a
+    # typed empty value for every absent required field, so checking it here
+    # would only ever re-detect the repair layer's own placeholders.
+    missing = _missing_required_tool_fields(tool_name, tool_input if supplied_input is None else supplied_input, source_body)
     if not missing:
         return False
     router_log(
@@ -2841,7 +2845,7 @@ def router_port_connectivity_summary(timeout: float = 0.5) -> str:
     except Exception as exc:
         return f"tcp={host}:{port}:{type(exc).__name__}: {exc}"
 
-def router_health_policy() -> RouterHealthPolicy: return RouterHealthPolicy(VERSION, SOURCE_FINGERPRINT, CONFIG_DIR, ROUTER_BASE, PID_PATH, getpass.getuser, router_health, router_port_connectivity_summary)
+def router_health_policy() -> RouterHealthPolicy: return RouterHealthPolicy(VERSION, SOURCE_FINGERPRINT, ROUTER_INSTANCE_DIR, ROUTER_BASE, PID_PATH, getpass.getuser, router_health, router_port_connectivity_summary)
 def router_health_summary(health: dict[str, Any] | None = None) -> str: return router_health_policy().summary(health)
 def router_up() -> bool: return router_health() is not None
 def router_health_matches_current(health: dict[str, Any] | None) -> bool: return router_health_policy().matches_current(health)

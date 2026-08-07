@@ -482,6 +482,19 @@ def _validate_and_fix_tool_input(
 
 
 def _missing_required_tool_fields(tool_name: str, input_dict: dict[str, Any], source_body: dict[str, Any] | None = None) -> list[str]:
+    """Report required fields the caller never supplied.
+
+    JSON Schema ``required`` constrains key *presence*, not emptiness, and an
+    empty value is meaningful for several Claude Code tools: ``Edit`` deletes
+    text with ``new_string: ""`` and ``Write`` creates an empty file with
+    ``content: ""``.  Treating those as missing discards a valid edit.
+
+    Pass the model's own arguments here, not a repaired copy.
+    ``_validate_and_fix_tool_input`` injects a typed empty value for every
+    absent required field, so an emptiness test applied after repair cannot
+    tell an invented value from one the model actually chose.
+    """
+
     schema = tool_schema_in_body(source_body, tool_name) if isinstance(source_body, dict) else None
     if schema is None:
         schema = _lookup_tool_schema(tool_name)
@@ -494,7 +507,7 @@ def _missing_required_tool_fields(tool_name: str, input_dict: dict[str, Any], so
     for field in required:
         if not isinstance(field, str):
             continue
-        if field not in input_dict or _is_empty_value(input_dict.get(field)):
+        if field not in input_dict:
             missing.append(field)
     return missing
 

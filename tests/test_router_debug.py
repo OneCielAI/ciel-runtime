@@ -1,3 +1,7 @@
+import json
+import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from types import SimpleNamespace
@@ -5,6 +9,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import ciel_runtime
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class RouterDebugTests(unittest.TestCase):
@@ -28,10 +34,57 @@ class RouterDebugTests(unittest.TestCase):
             "version": ciel_runtime.VERSION,
             "source_fingerprint": ciel_runtime.SOURCE_FINGERPRINT,
             "user": "other-user",
-            "config_dir": str(ciel_runtime.CONFIG_DIR),
+            "config_dir": str(ciel_runtime.ROUTER_INSTANCE_DIR),
         }
 
         self.assertFalse(ciel_runtime.router_health_matches_current(health))
+
+    def test_router_recognises_its_own_health_payload(self):
+        """A router must not look foreign to its own client.
+
+        ``/health`` advertises ``ROUTER_INSTANCE_DIR`` while the identity policy
+        used to compare against ``CONFIG_DIR``.  Those differ in production, so
+        every client judged its own router foreign and the client supervisor ran
+        an endless failing restart loop.
+
+        This has to run in a subprocess: the test harness sets
+        ``CIEL_RUNTIME_TEST_ISOLATED``, which collapses ``ROUTER_INSTANCE_DIR``
+        onto ``CONFIG_DIR`` and hides the mismatch entirely.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            env = dict(os.environ)
+            env.pop("CIEL_RUNTIME_TEST_ISOLATED", None)
+            env.pop("CIEL_RUNTIME_STATE_DIR", None)
+            env["CIEL_RUNTIME_CONFIG_DIR"] = tmp
+            env["CIEL_RUNTIME_ROUTER_PORT"] = "29471"
+            env["PYTHONPATH"] = str(ROOT)
+            probe = (
+                "import json, ciel_runtime as c;"
+                "p = c.router_health_payload("
+                "{'current_provider': 'anthropic', 'providers': {'anthropic': {}}},"
+                " 'anthropic', {});"
+                "print(json.dumps({"
+                "'advertised': p['config_dir'],"
+                "'instance_dir': str(c.ROUTER_INSTANCE_DIR),"
+                "'config_dir': str(c.CONFIG_DIR),"
+                "'matches': c.router_health_matches_current(p),"
+                "'foreign': c.router_health_has_foreign_config(p)}))"
+            )
+            result = subprocess.run(
+                [sys.executable, "-c", probe],
+                capture_output=True,
+                text=True,
+                env=env,
+                cwd=str(ROOT),
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            state = json.loads(result.stdout.strip().splitlines()[-1])
+
+        # Guard the guard: without a real instance subdirectory this proves nothing.
+        self.assertNotEqual(state["config_dir"], state["instance_dir"])
+        self.assertEqual(state["instance_dir"], state["advertised"])
+        self.assertTrue(state["matches"])
+        self.assertFalse(state["foreign"])
 
     def test_router_debug_defaults_to_local_bind(self):
         with patch.dict("os.environ", {}, clear=True):
