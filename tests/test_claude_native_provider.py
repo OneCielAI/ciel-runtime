@@ -1018,7 +1018,7 @@ class StopRouterGuaranteeTests(unittest.TestCase):
         stop.assert_not_called()
 
     def test_returns_true_when_kill_brings_router_down(self):
-        health = {"config_dir": str(ciel_runtime.CONFIG_DIR), "pid": 2468}
+        health = {"config_dir": str(ciel_runtime.ROUTER_INSTANCE_DIR), "pid": 2468}
         states = iter([health, None])  # alive at first, dead after stop
         def fake_health():
             try:
@@ -1037,7 +1037,7 @@ class StopRouterGuaranteeTests(unittest.TestCase):
 
     def test_raises_when_router_stays_up_past_deadline(self):
         # router_health always returns this config's router -> guarantee should give up and raise.
-        health = {"config_dir": str(ciel_runtime.CONFIG_DIR), "pid": 2468}
+        health = {"config_dir": str(ciel_runtime.ROUTER_INSTANCE_DIR), "pid": 2468}
         with (
             mock.patch.object(ciel_runtime, "router_health", return_value=health),
             mock.patch.object(ciel_runtime, "stop_router_processes"),
@@ -1095,7 +1095,7 @@ class StopRouterGuaranteeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime.os, "getppid", return_value=101),
             mock.patch.object(ciel_runtime, "terminate_pid", return_value=True) as terminate,
         ):
-            result = ciel_runtime.terminate_router_health_pid({"pid": 2468, "config_dir": str(ciel_runtime.CONFIG_DIR)}, quiet=True)
+            result = ciel_runtime.terminate_router_health_pid({"pid": 2468, "config_dir": str(ciel_runtime.ROUTER_INSTANCE_DIR)}, quiet=True)
 
         self.assertTrue(result)
         terminate.assert_called_once_with(2468, "ciel-runtime router", quiet=True)
@@ -1150,7 +1150,7 @@ class StopRouterGuaranteeTests(unittest.TestCase):
             "source_fingerprint": ciel_runtime.SOURCE_FINGERPRINT,
             "pid": 2468,
             "user": ciel_runtime.getpass.getuser(),
-            "config_dir": str(ciel_runtime.CONFIG_DIR),
+            "config_dir": str(ciel_runtime.ROUTER_INSTANCE_DIR),
         }
         with tempfile.TemporaryDirectory() as td:
             log_path = Path(td) / "router.log"
@@ -1186,7 +1186,7 @@ class StopRouterGuaranteeTests(unittest.TestCase):
             "source_fingerprint": ciel_runtime.SOURCE_FINGERPRINT,
             "pid": 2468,
             "user": ciel_runtime.getpass.getuser(),
-            "config_dir": str(ciel_runtime.CONFIG_DIR),
+            "config_dir": str(ciel_runtime.ROUTER_INSTANCE_DIR),
         }
         with (
             mock.patch.dict(os.environ, {"CIEL_RUNTIME_REUSE_ROUTER": "1"}, clear=False),
@@ -1207,7 +1207,7 @@ class StopRouterGuaranteeTests(unittest.TestCase):
             "source_fingerprint": ciel_runtime.SOURCE_FINGERPRINT,
             "pid": 2468,
             "user": ciel_runtime.getpass.getuser(),
-            "config_dir": str(ciel_runtime.CONFIG_DIR),
+            "config_dir": str(ciel_runtime.ROUTER_INSTANCE_DIR),
         }
         with tempfile.TemporaryDirectory() as td:
             log_path = Path(td) / "router.log"
@@ -1233,7 +1233,7 @@ class StopRouterGuaranteeTests(unittest.TestCase):
             "source_fingerprint": ciel_runtime.SOURCE_FINGERPRINT,
             "pid": 2468,
             "user": ciel_runtime.getpass.getuser(),
-            "config_dir": str(ciel_runtime.CONFIG_DIR),
+            "config_dir": str(ciel_runtime.ROUTER_INSTANCE_DIR),
         }
         with (
             mock.patch.dict(os.environ, {"CIEL_RUNTIME_REUSE_ROUTER": "0"}, clear=False),
@@ -1255,7 +1255,7 @@ class StopRouterGuaranteeTests(unittest.TestCase):
             "source_fingerprint": "old-source",
             "pid": 2468,
             "user": ciel_runtime.getpass.getuser(),
-            "config_dir": str(ciel_runtime.CONFIG_DIR),
+            "config_dir": str(ciel_runtime.ROUTER_INSTANCE_DIR),
         }
         with tempfile.TemporaryDirectory() as td:
             log_path = Path(td) / "router.log"
@@ -1399,7 +1399,7 @@ class RouterLifetimeTests(unittest.TestCase):
             "version": ciel_runtime.VERSION,
             "source_fingerprint": ciel_runtime.SOURCE_FINGERPRINT,
             "user": ciel_runtime.getpass.getuser(),
-            "config_dir": str(ciel_runtime.CONFIG_DIR),
+            "config_dir": str(ciel_runtime.ROUTER_INSTANCE_DIR),
         }
         with (
             mock.patch.object(ciel_runtime, "router_health", side_effect=[None, health]),
