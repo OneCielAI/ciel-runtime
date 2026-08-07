@@ -316,7 +316,6 @@ from ciel_runtime_support.protocols.anthropic_thinking_policy import strip_think
 from ciel_runtime_support.protocols.anthropic_thinking_policy import thinking_block_count as project_anthropic_thinking_block_count
 from ciel_runtime_support.protocols.anthropic_thinking_policy import thinking_requested as project_anthropic_thinking_requested
 from ciel_runtime_support.protocols.anthropic_thinking_policy import tool_continuation_block_count as project_anthropic_tool_continuation_block_count
-from ciel_runtime_support.protocols.ollama_chat import ollama_reasoning_only_notice, ollama_thinking_to_anthropic_block
 from ciel_runtime_support.protocols.chat_projection import ChatProjectionPolicy, ChatProjectionServices, ChatProjectionText, ChatProjectionTools, OpenAiHistoryServices
 from ciel_runtime_support.protocols.chat_projection import anthropic_messages_to_ollama as project_anthropic_messages_to_ollama
 from ciel_runtime_support.protocols.chat_projection import anthropic_messages_to_openai as project_anthropic_messages_to_openai
@@ -334,7 +333,7 @@ from ciel_runtime_support.protocols.conversation_policy import plan_file_written
 from ciel_runtime_support.protocols.conversation_policy import should_skip_upstream_message as project_should_skip_upstream_message
 from ciel_runtime_support.protocols.conversation_policy import upstream_relevant_message as project_upstream_relevant_message
 from ciel_runtime_support.protocols.conversation_turn_policy import ConversationTurnCompatibilityApi, ConversationTurnPolicy, ConversationTurnPorts
-from ciel_runtime_support.protocols.ollama_chat import anthropic_system_to_ollama_messages, anthropic_tools_to_ollama, decode_ollama_chat_response, encode_anthropic_message, ollama_claude_code_reminder
+from ciel_runtime_support.protocols.ollama_chat import anthropic_system_to_ollama_messages, anthropic_tools_to_ollama, decode_ollama_chat_response, encode_anthropic_message, ollama_claude_code_reminder, ollama_reasoning_only_notice, ollama_thinking_to_anthropic_block
 from ciel_runtime_support.protocols.ollama_response import project_ollama_response, project_openai_chat_response
 from ciel_runtime_support.protocols.openai_reasoning import OpenAiReasoningPolicy, anthropic_tool_choice_to_openai, openai_reasoning_to_anthropic_thinking_block
 from ciel_runtime_support.protocols.pseudo_tool_history import PseudoToolHistoryServices, find_pseudo_xml_tool_start, parse_xml_pseudo_tool_calls, sanitize_assistant_pseudo_tool_history
@@ -754,14 +753,8 @@ def should_drop_duplicate_side_effect_tool_call(tool_name: str, tool_input: dict
 def tool_side_effect_dedupe_service() -> ToolSideEffectDedupeService:
     return ToolSideEffectDedupeService(
         policy=ToolSideEffectDedupePolicy(
-            frozenset(
-                {"send_message", "send_dm", "send_file", "create_message", "create_dm", "post_message", "reply"}
-            ),
+            frozenset({"send_message", "send_dm", "send_file", "create_message", "create_dm", "post_message", "reply"}),
             ttl_seconds=_TOOL_SIDE_EFFECT_DEDUP_TTL_SECONDS,
-            repeated_execution_suffixes=frozenset(
-                {"shell_command", "bash", "exec", "execute", "run_command", "write", "edit", "apply_patch"}
-            ),
-            completed_repeat_limit=1,
         ),
         repository=ToolSideEffectDedupeRepository(
             _TOOL_SIDE_EFFECT_DEDUP_RECENT,

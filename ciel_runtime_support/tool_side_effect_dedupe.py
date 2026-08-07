@@ -12,7 +12,9 @@ from typing import Any, Callable
 class ToolSideEffectDedupePolicy:
     side_effect_suffixes: frozenset[str]
     ttl_seconds: float = 600.0
-    repeated_execution_suffixes: frozenset[str] = frozenset()
+    repeated_execution_suffixes: frozenset[str] = frozenset(
+        {"shell_command", "bash", "exec", "execute", "run_command", "write", "edit", "apply_patch"}
+    )
     completed_repeat_limit: int = 1
 
 
