@@ -91,6 +91,48 @@ class ResponsesInputCompatibilityTests(unittest.TestCase):
         )
         self.assertEqual("msg_f47c5769-b157-4107-ac7b-d0527e028c6f", body["input"][0]["id"])
 
+    def test_omits_foreign_custom_tool_call_id_without_breaking_call_pair(self):
+        body = {
+            "input": [
+                {
+                    "type": "custom_tool_call",
+                    "id": "msg_c76ffd2d-dcfb-45f0-bbe8-cf3d8f531c80",
+                    "name": "apply_patch",
+                    "input": "*** Begin Patch",
+                    "call_id": "call_60aee6f24e0f440381c86e96",
+                },
+                {
+                    "type": "custom_tool_call_output",
+                    "id": "ctco_valid",
+                    "call_id": "call_60aee6f24e0f440381c86e96",
+                    "output": "Done!",
+                },
+            ]
+        }
+
+        repaired = repair_replayed_response_items(body)
+
+        self.assertNotIn("id", repaired["input"][0])
+        self.assertEqual("ctco_valid", repaired["input"][1]["id"])
+        self.assertEqual(
+            repaired["input"][0]["call_id"],
+            repaired["input"][1]["call_id"],
+        )
+
+    def test_preserves_valid_ids_for_each_observed_response_item_type(self):
+        body = {
+            "input": [
+                {"type": "message", "id": "msg_valid"},
+                {"type": "reasoning", "id": "rs_valid"},
+                {"type": "function_call", "id": "fc_valid"},
+                {"type": "function_call_output", "id": "fco_valid"},
+                {"type": "custom_tool_call", "id": "ctc_valid"},
+                {"type": "custom_tool_call_output", "id": "ctco_valid"},
+            ]
+        }
+
+        self.assertIs(body, repair_replayed_response_items(body))
+
 
 if __name__ == "__main__":
     unittest.main()

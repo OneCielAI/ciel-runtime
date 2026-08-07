@@ -5,6 +5,16 @@ from __future__ import annotations
 from typing import Any
 
 
+OPENAI_RESPONSES_ITEM_ID_PREFIXES = {
+    "message": "msg_",
+    "reasoning": "rs_",
+    "function_call": "fc_",
+    "function_call_output": "fco_",
+    "custom_tool_call": "ctc_",
+    "custom_tool_call_output": "ctco_",
+}
+
+
 def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
     """Repair provider response records that cannot be replayed by OpenAI.
 
@@ -17,11 +27,11 @@ def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
     content, so it is dropped. If encrypted reasoning content is present, the
     item is retained but its invalid local/provider ID is omitted.
 
-    Some providers also emit a ``function_call`` with a message ID (``msg_``)
-    while preserving the independent ``call_id`` used to pair the call with its
-    output. The Codex backend requires a function-call item ID to begin with
-    ``fc_``. Remove only that invalid item ID; keep ``call_id``, the tool name,
-    arguments, and its matching output intact so the transcript remains usable.
+    Some providers also emit tool items with message IDs (``msg_``) while
+    preserving the independent ``call_id`` used to pair calls with outputs.
+    Validate IDs by Responses item type and remove only a mismatched item ID;
+    keep ``call_id``, the tool name, arguments, output, and message content so
+    the transcript remains usable.
     """
 
     value = body.get("input")
@@ -37,7 +47,11 @@ def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
         item = value_item
         item_type = item.get("type")
         item_id = str(item.get("id") or "")
-        if item_type == "function_call" and item_id and not item_id.startswith("fc_"):
+        expected_prefix = OPENAI_RESPONSES_ITEM_ID_PREFIXES.get(str(item_type or ""))
+        invalid_item_id = bool(
+            item_id and expected_prefix and not item_id.startswith(expected_prefix)
+        )
+        if item_type != "reasoning" and invalid_item_id:
             retained = dict(item)
             retained.pop("id", None)
             repaired.append(retained)
@@ -46,7 +60,7 @@ def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
         if item_type != "reasoning":
             repaired.append(item)
             continue
-        if not item_id or item_id.startswith("rs_"):
+        if not invalid_item_id:
             repaired.append(item)
             continue
 
@@ -69,4 +83,8 @@ def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
 repair_replayed_reasoning_items = repair_replayed_response_items
 
 
-__all__ = ["repair_replayed_reasoning_items", "repair_replayed_response_items"]
+__all__ = [
+    "OPENAI_RESPONSES_ITEM_ID_PREFIXES",
+    "repair_replayed_reasoning_items",
+    "repair_replayed_response_items",
+]

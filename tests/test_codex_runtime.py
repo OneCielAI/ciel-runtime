@@ -1930,18 +1930,38 @@ bearer_token_env_var = "AINET_API_KEY"
                     "call_id": "call_preserved",
                     "output": "ok",
                 },
+                {
+                    "type": "custom_tool_call",
+                    "id": "msg_foreign_custom_call",
+                    "name": "apply_patch",
+                    "input": "patch",
+                    "call_id": "call_custom_preserved",
+                },
+                {
+                    "type": "custom_tool_call_output",
+                    "id": "ctco_valid",
+                    "call_id": "call_custom_preserved",
+                    "output": "done",
+                },
                 {"type": "message", "role": "user", "content": "continue"},
             ],
         }
 
         def project(repaired):
             self.assertEqual(
-                ["function_call", "function_call_output", "message"],
+                [
+                    "function_call", "function_call_output",
+                    "custom_tool_call", "custom_tool_call_output", "message",
+                ],
                 [item["type"] for item in repaired["input"]],
             )
             self.assertNotIn("id", repaired["input"][0])
             self.assertEqual("call_preserved", repaired["input"][0]["call_id"])
             self.assertEqual("call_preserved", repaired["input"][1]["call_id"])
+            self.assertNotIn("id", repaired["input"][2])
+            self.assertEqual("ctco_valid", repaired["input"][3]["id"])
+            self.assertEqual("call_custom_preserved", repaired["input"][2]["call_id"])
+            self.assertEqual("call_custom_preserved", repaired["input"][3]["call_id"])
             return repaired, None
 
         with (
@@ -1962,7 +1982,10 @@ bearer_token_env_var = "AINET_API_KEY"
 
         forwarded = json.loads(urlopen.call_args.args[0].data)
         self.assertEqual(
-            ["function_call", "function_call_output", "message"],
+            [
+                "function_call", "function_call_output",
+                "custom_tool_call", "custom_tool_call_output", "message",
+            ],
             [item["type"] for item in forwarded["input"]],
         )
         self.assertNotIn("msg_foreign", str(forwarded))
