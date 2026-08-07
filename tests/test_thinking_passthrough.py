@@ -506,6 +506,61 @@ class ThinkingPassthroughTests(unittest.TestCase):
         emitted_input = ciel_runtime.json.loads(tool_deltas[0]["delta"]["partial_json"])
         self.assertEqual("echo hello", emitted_input["command"])
 
+    def test_rebatch_emits_integral_timeout_for_claude_code_tool_execution(self):
+        class FakeHandler:
+            def __init__(self):
+                self.wfile = io.BytesIO()
+
+        def sse(event_name, payload):
+            return f"event: {event_name}\ndata: {ciel_runtime.json.dumps(payload)}\n\n".encode()
+
+        chunks = [
+            sse("message_start", {"type": "message_start", "message": {"id": "msg", "type": "message", "role": "assistant", "content": [], "model": "model"}}),
+            sse("content_block_start", {"type": "content_block_start", "index": 0, "content_block": {"type": "tool_use", "id": "toolu_timeout", "name": "Bash", "input": {}}}),
+            sse("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {"type": "input_json_delta", "partial_json": '{"command":"cargo check","timeout":120000.0}'}}),
+            sse("content_block_stop", {"type": "content_block_stop", "index": 0}),
+            sse("message_delta", {"type": "message_delta", "delta": {"stop_reason": "tool_use", "stop_sequence": None}, "usage": {"output_tokens": 3}}),
+            sse("message_stop", {"type": "message_stop"}),
+        ]
+        handler = FakeHandler()
+        source_body = {
+            "tools": [{
+                "name": "Bash",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "command": {"type": "string"},
+                        "timeout": {"type": "number"},
+                    },
+                },
+            }]
+        }
+
+        ciel_runtime._rebatch_anthropic_sse_text(
+            handler,
+            io.BytesIO(b"".join(chunks)),
+            "model",
+            source_body=source_body,
+            normalize_tool_use=True,
+            provider="ollama-cloud",
+        )
+
+        payloads = []
+        for event_block in handler.wfile.getvalue().decode().split("\n\n"):
+            for line in event_block.splitlines():
+                if line.startswith("data:"):
+                    payloads.append(ciel_runtime.json.loads(line[5:].strip()))
+        deltas = [
+            payload["delta"]
+            for payload in payloads
+            if payload.get("type") == "content_block_delta"
+            and payload.get("delta", {}).get("type") == "input_json_delta"
+        ]
+        emitted_input = ciel_runtime.json.loads(deltas[0]["partial_json"])
+
+        self.assertEqual(120000, emitted_input["timeout"])
+        self.assertIs(type(emitted_input["timeout"]), int)
+
     def test_rebatch_strips_ultracode_workflow_call_ignore_artifact_before_tool_use(self):
         class FakeHandler:
             def __init__(self):
