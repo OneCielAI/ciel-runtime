@@ -28,10 +28,28 @@ class RouterDebugTests(unittest.TestCase):
             "version": ciel_runtime.VERSION,
             "source_fingerprint": ciel_runtime.SOURCE_FINGERPRINT,
             "user": "other-user",
-            "config_dir": str(ciel_runtime.CONFIG_DIR),
+            "config_dir": str(ciel_runtime.ROUTER_INSTANCE_DIR),
         }
 
         self.assertFalse(ciel_runtime.router_health_matches_current(health))
+
+    def test_router_recognises_its_own_health_payload(self):
+        """The health identity policy must read the same directory the router advertises.
+
+        The payload reports ``ROUTER_INSTANCE_DIR``; comparing it against
+        ``CONFIG_DIR`` makes every router look foreign to its own client, which
+        drives the client supervisor into an endless failing restart loop.
+        """
+        payload = ciel_runtime.router_health_payload(
+            {"current_provider": "anthropic", "providers": {"anthropic": {}}},
+            "anthropic",
+            {},
+        )
+
+        self.assertEqual(str(ciel_runtime.ROUTER_INSTANCE_DIR), payload["config_dir"])
+        self.assertTrue(ciel_runtime.router_health_matches_current(payload))
+        self.assertTrue(ciel_runtime.router_health_config_matches_current(payload))
+        self.assertFalse(ciel_runtime.router_health_has_foreign_config(payload))
 
     def test_router_debug_defaults_to_local_bind(self):
         with patch.dict("os.environ", {}, clear=True):

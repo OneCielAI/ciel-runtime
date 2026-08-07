@@ -2841,7 +2841,7 @@ def router_port_connectivity_summary(timeout: float = 0.5) -> str:
     except Exception as exc:
         return f"tcp={host}:{port}:{type(exc).__name__}: {exc}"
 
-def router_health_policy() -> RouterHealthPolicy: return RouterHealthPolicy(VERSION, SOURCE_FINGERPRINT, CONFIG_DIR, ROUTER_BASE, PID_PATH, getpass.getuser, router_health, router_port_connectivity_summary)
+def router_health_policy() -> RouterHealthPolicy: return RouterHealthPolicy(VERSION, SOURCE_FINGERPRINT, ROUTER_INSTANCE_DIR, ROUTER_BASE, PID_PATH, getpass.getuser, router_health, router_port_connectivity_summary)
 def router_health_summary(health: dict[str, Any] | None = None) -> str: return router_health_policy().summary(health)
 def router_up() -> bool: return router_health() is not None
 def router_health_matches_current(health: dict[str, Any] | None) -> bool: return router_health_policy().matches_current(health)
