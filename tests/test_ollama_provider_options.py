@@ -904,6 +904,42 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertEqual("Kevin이 assignment를 생성했습니다.Kevin이 assignment를 생성했습니다. 읽겠습니다.", text)
         self.assertEqual("tool_use", out["stop_reason"])
 
+    def test_ollama_chat_to_anthropic_preserves_native_thinking(self):
+        data = {
+            "message": {"thinking": "inspect the repository", "content": "Done."},
+            "done": True,
+            "done_reason": "stop",
+            "prompt_eval_count": 20,
+            "eval_count": 7,
+        }
+
+        out = ciel_runtime.ollama_chat_to_anthropic(
+            data, "deepseek-v4-flash:0731", source_body={"messages": []}
+        )
+
+        self.assertEqual("thinking", out["content"][0]["type"])
+        self.assertEqual("inspect the repository", out["content"][0]["thinking"])
+        self.assertTrue(out["content"][0]["signature"].startswith("ciel-runtime-ollama-thinking-"))
+        self.assertEqual({"type": "text", "text": "Done."}, out["content"][1])
+        self.assertEqual("end_turn", out["stop_reason"])
+
+    def test_ollama_chat_reports_reasoning_output_budget_exhaustion(self):
+        data = {
+            "message": {"thinking": "reasoning consumed the budget", "content": ""},
+            "done": True,
+            "done_reason": "length",
+            "eval_count": 65536,
+        }
+
+        out = ciel_runtime.ollama_chat_to_anthropic(
+            data, "deepseek-v4-flash:0731", source_body={"messages": []}
+        )
+
+        self.assertEqual("thinking", out["content"][0]["type"])
+        self.assertIn("exhausted its output budget during reasoning", out["content"][1]["text"])
+        self.assertEqual("max_tokens", out["stop_reason"])
+        self.assertEqual(65536, out["usage"]["output_tokens"])
+
     def test_ollama_stream_suppresses_split_visible_thinking_markup(self):
         chunks = [
             {"message": {"content": "<thi"}, "done": False},
@@ -925,6 +961,138 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertNotIn("<think", output)
         self.assertNotIn("</think", output)
         self.assertTrue(resp.closed)
+
+    def test_ollama_stream_projects_native_thinking_before_visible_text(self):
+        chunks = [
+            {"message": {"thinking": "inspect ", "content": ""}, "done": False},
+            {"message": {"thinking": "carefully", "content": ""}, "done": False},
+            {"message": {"content": "Visible answer"}, "done": False},
+            {"message": {"content": ""}, "done": True, "done_reason": "stop", "eval_count": 9},
+        ]
+        resp = _FakeOllamaStreamResponse(
+            [(json.dumps(chunk) + "\n").encode("utf-8") for chunk in chunks]
+        )
+        handler = _FakeSSEHandler()
+
+        with mock.patch.object(ciel_runtime, "write_router_activity"):
+            ciel_runtime._ollama_stream_to_anthropic_sse(
+                handler, resp, "deepseek-v4-flash:0731", provider="ollama-cloud"
+            )
+
+        output = handler.wfile.data.decode("utf-8")
+        self.assertIn('"type": "thinking_delta", "thinking": "inspect "', output)
+        self.assertIn('"type": "thinking_delta", "thinking": "carefully"', output)
+        self.assertIn("ciel-runtime-ollama-thinking-", output)
+        self.assertIn("Visible answer", output)
+        self.assertLess(output.index("thinking_delta"), output.index("Visible answer"))
+        self.assertNotIn("empty end_turn", output)
+
+    def test_ollama_stream_reasoning_only_length_is_not_treated_as_empty(self):
+        chunks = [
+            {"message": {"thinking": "long reasoning", "content": ""}, "done": False},
+            {
+                "message": {"content": ""},
+                "done": True,
+                "done_reason": "length",
+                "eval_count": 65536,
+            },
+        ]
+        resp = _FakeOllamaStreamResponse(
+            [(json.dumps(chunk) + "\n").encode("utf-8") for chunk in chunks]
+        )
+        handler = _FakeSSEHandler()
+
+        with mock.patch.object(ciel_runtime, "write_router_activity"):
+            ciel_runtime._ollama_stream_to_anthropic_sse(
+                handler,
+                resp,
+                "deepseek-v4-flash:0731",
+                provider="ollama-cloud",
+                source_body={"messages": []},
+            )
+
+        output = handler.wfile.data.decode("utf-8")
+        self.assertIn("long reasoning", output)
+        self.assertIn("exhausted its output budget during reasoning", output)
+        self.assertIn('"stop_reason": "max_tokens"', output)
+        self.assertNotIn("Upstream model returned an empty end_turn", output)
+
+    def test_ollama_stream_stops_identical_completed_shell_command_loop(self):
+        chunks = [
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "shell_command",
+                                "arguments": {
+                                    "command": "cargo check",
+                                    "timeout_ms": 120000.0,
+                                },
+                            }
+                        }
+                    ],
+                },
+                "done": False,
+            },
+            {"message": {"content": ""}, "done": True, "done_reason": "stop"},
+        ]
+        source_body = {
+            "tools": [
+                {
+                    "name": "shell_command",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "command": {"type": "string"},
+                            "timeout_ms": {"type": "integer"},
+                        },
+                        "required": ["command"],
+                    },
+                }
+            ],
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "call_1",
+                            "name": "shell_command",
+                            "input": {"command": "cargo check", "timeout_ms": 120000},
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "call_1",
+                            "content": "Process exited with code 0",
+                        }
+                    ],
+                },
+            ],
+        }
+        resp = _FakeOllamaStreamResponse(
+            [(json.dumps(chunk) + "\n").encode("utf-8") for chunk in chunks]
+        )
+        handler = _FakeSSEHandler()
+
+        with mock.patch.object(ciel_runtime, "write_router_activity"):
+            ciel_runtime._ollama_stream_to_anthropic_sse(
+                handler,
+                resp,
+                "glm-5.2",
+                provider="ollama-cloud",
+                source_body=source_body,
+            )
+
+        output = handler.wfile.data.decode("utf-8")
+        self.assertIn("Stopped an identical completed tool call", output)
+        self.assertNotIn('"type": "tool_use"', output)
 
     def test_ollama_stream_never_overlaps_text_and_tool_content_blocks(self):
         chunks = [

@@ -61,6 +61,13 @@ TASK_UPDATE_STATUS_ALIASES = {
 _TOOL_SCHEMA_REGISTRY: dict[str, dict[str, Any]] = {}
 
 _BUILTIN_TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
+    "shell_command": {
+        "required": ["command"],
+        "properties": {
+            "command": {"type": "string"},
+            "timeout_ms": {"type": "integer"},
+        },
+    },
     "Bash": {
         "required": ["command"],
         "properties": {
@@ -277,6 +284,18 @@ def _coerce_value(value: Any, expected_type: str | None) -> Any:
     return value
 
 
+def _normalize_integral_numbers(value: Any) -> Any:
+    """Keep JSON-schema integer values integral even when a model emits `1.0`."""
+
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, list):
+        return [_normalize_integral_numbers(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _normalize_integral_numbers(item) for key, item in value.items()}
+    return value
+
+
 def normalize_task_update_status(value: Any) -> str | None:
     if value is None:
         return None
@@ -337,6 +356,7 @@ def _validate_and_fix_tool_input(
       - add defaults for missing required fields
       - keep unknown fields (Claude Code may accept extra fields)
     """
+    input_dict = _normalize_integral_numbers(input_dict)
     schema = tool_schema_in_body(source_body, tool_name) if isinstance(source_body, dict) else None
     if schema is None:
         schema = _lookup_tool_schema(tool_name)

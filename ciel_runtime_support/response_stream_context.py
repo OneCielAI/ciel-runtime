@@ -34,6 +34,8 @@ class ResponseStreamAlgorithms:
 @dataclass(frozen=True, slots=True)
 class ResponseStreamTextPorts:
     decode_ollama: Callable[..., Any]
+    ollama_thinking_to_block: Callable[..., Any]
+    ollama_reasoning_only_notice: Callable[..., str]
     strip_thinking: Callable[..., str]
     parse_xml_tools: Callable[..., Any]
     find_pseudo_xml_start: Callable[..., Any]
@@ -158,6 +160,8 @@ class ResponseStreamContext:
         return OllamaResponseServices(
             text=OllamaResponseText(
                 decode=self.text.decode_ollama,
+                thinking_to_block=self.text.ollama_thinking_to_block,
+                reasoning_only_notice=self.text.ollama_reasoning_only_notice,
                 strip_thinking=self.text.strip_thinking,
                 parse_pseudo_tools=self.parse_pseudo_tool_calls,
                 log=self.io.log,
@@ -169,6 +173,7 @@ class ResponseStreamContext:
                 plan_mode_name=self.tools.plan_mode_name,
                 cap_notification_wait=self.tools.cap_notification_wait,
                 should_drop=self.tools.should_drop,
+                should_drop_duplicate=self.tools.should_drop_duplicate,
                 append_log=self.tools.append_log,
             ),
             recovery=OllamaResponseRecovery(
@@ -323,6 +328,7 @@ class ResponseStreamContext:
             ),
             continuation=streaming_anthropic.OllamaContinuationPolicy(
                 empty_end_turn_notice_for_body=self.recovery.empty_notice,
+                reasoning_only_notice=self.text.ollama_reasoning_only_notice,
                 should_auto_continue_choice_question_with_tasklist=self.recovery.auto_continue_choice,
                 should_auto_enter_plan_mode=self.recovery.auto_enter_plan,
                 should_keep_work_alive_with_tasklist=self.recovery.keep_alive,

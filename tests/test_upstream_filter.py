@@ -92,6 +92,28 @@ class UpstreamFilterTests(unittest.TestCase):
         self.assertEqual(1, len(tool_call_messages))
         self.assertEqual("Read", tool_call_messages[0]["tool_calls"][0]["function"]["name"])
 
+    def test_ollama_history_preserves_native_thinking_for_tool_continuation(self):
+        messages = [
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "thinking", "thinking": "inspect first", "signature": "sig"},
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_1",
+                        "name": "Read",
+                        "input": {"file_path": "README.md"},
+                    },
+                ],
+            }
+        ]
+
+        out = ciel_runtime.anthropic_messages_to_ollama({"messages": messages})
+        assistant = next(message for message in out if message.get("role") == "assistant")
+
+        self.assertEqual("inspect first", assistant["thinking"])
+        self.assertEqual("Read", assistant["tool_calls"][0]["function"]["name"])
+
     def test_persisted_tool_output_is_not_rewritten_on_ollama_path(self):
         persisted = (
             "<persisted-output>\n"

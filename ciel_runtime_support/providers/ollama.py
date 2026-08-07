@@ -84,6 +84,14 @@ class OllamaProviderAdapter(HttpBearerProviderAdapter):
     ) -> bool | str | None:
         return OllamaThinkingPolicy().value(config.options, model, request)
 
+    def reasoning_passback_enabled(
+        self, config: ProviderConfig, model: str | None = None
+    ) -> bool:
+        """Keep native Ollama thinking blocks so multi-turn tool history remains valid."""
+
+        del config, model
+        return True
+
     def option_presentation_policy(
         self, config: ProviderConfig
     ) -> ProviderOptionPresentationPolicy:

@@ -111,7 +111,13 @@ def anthropic_messages_to_ollama(body: dict[str, Any], *, services: ChatProjecti
         out: dict[str, Any] = {"role": role, "content": text.compact_text(message_text)}
         if role == "assistant" and isinstance(content, list):
             calls = []
+            thinking_parts: list[str] = []
             for block in content:
+                if isinstance(block, dict) and block.get("type") == "thinking":
+                    thinking = str(block.get("thinking") or "")
+                    if thinking:
+                        thinking_parts.append(thinking)
+                    continue
                 if isinstance(block, dict) and block.get("type") == "tool_use":
                     name = str(block.get("name") or "tool")
                     tool_id = str(block.get("id") or "")
@@ -121,6 +127,8 @@ def anthropic_messages_to_ollama(body: dict[str, Any], *, services: ChatProjecti
                     calls.append({"function": {"name": name, "arguments": block.get("input") or {}}})
             if calls:
                 out["tool_calls"] = calls
+            if thinking_parts:
+                out["thinking"] = "\n".join(thinking_parts)
         messages.append(out)
     return messages
 

@@ -210,7 +210,7 @@ class AnthropicThinkingPolicy:
             self._ports.log(
                 "INFO",
                 "removed top-level Anthropic thinking request but preserved thinking blocks "
-                f"for OpenAI-chat reasoning passback provider={provider} "
+                f"for provider reasoning passback provider={provider} "
                 f"thinking_blocks={block_count}",
             )
             return projected

@@ -530,7 +530,7 @@ def rebatch_anthropic_sse_text(
         fixed_input = cap_mcp_notification_wait_tool_input(matched_name, fixed_input)
         if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body):
             return
-        if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name):
+        if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name, source_body):
             return
         tool_id = str(tool_state.get("id") or f"toolu_anthropic_{int(time.time() * 1000)}_{index}")
         _remember_channel_injected_tool_use(source_body, tool_id, matched_name, fixed_input)
@@ -1007,6 +1007,7 @@ class OllamaToolProjection:
 @dataclass(frozen=True, slots=True)
 class OllamaContinuationPolicy:
     empty_end_turn_notice_for_body: Callable[..., Any]
+    reasoning_only_notice: Callable[..., Any]
     should_auto_continue_choice_question_with_tasklist: Callable[..., Any]
     should_auto_enter_plan_mode: Callable[..., Any]
     should_keep_work_alive_with_tasklist: Callable[..., Any]
@@ -1057,6 +1058,7 @@ def ollama_stream_to_anthropic_sse(
     should_drop_duplicate_side_effect_tool_call = services.tool_projection.should_drop_duplicate_side_effect_tool_call
     should_drop_emitted_tool_call = services.tool_projection.should_drop_emitted_tool_call
     empty_end_turn_notice_for_body = services.continuation.empty_end_turn_notice_for_body
+    reasoning_only_notice = services.continuation.reasoning_only_notice
     should_auto_continue_choice_question_with_tasklist = services.continuation.should_auto_continue_choice_question_with_tasklist
     should_auto_enter_plan_mode = services.continuation.should_auto_enter_plan_mode
     should_keep_work_alive_with_tasklist = services.continuation.should_keep_work_alive_with_tasklist
@@ -1068,11 +1070,16 @@ def ollama_stream_to_anthropic_sse(
     handler.end_headers()
     msg_id = f"msg_ollama_{int(time.time() * 1000)}"
     started = False
+    thinking_started = False
     text_started = False
     text_suppressed_for_plan = False
     next_content_index = 0
     text_index: int | None = None
     text_block_open = False
+    thinking_index: int | None = None
+    thinking_block_open = False
+    thinking_block_text = ""
+    thinking_so_far = ""
     text_so_far = ""
     text_buffer = ""
     tool_calls: list[dict[str, Any]] = []
@@ -1085,6 +1092,7 @@ def ollama_stream_to_anthropic_sse(
     last_activity_update = 0.0
     thinking_markup_filter = VisibleThinkingMarkupFilter()
     thinking_markup_suppressed = False
+    repeated_completed_tool_dropped = False
     sse_trace = make_outgoing_sse_trace(provider, model, "ollama_stream", source_body)
     sse_trace_outcome = "started"
     sse_trace_error: str | None = None
@@ -1187,13 +1195,56 @@ def ollama_stream_to_anthropic_sse(
         emit("content_block_stop", {"type": "content_block_stop", "index": text_index})
         text_block_open = False
 
+    def open_thinking_block() -> int:
+        nonlocal next_content_index, thinking_block_open, thinking_block_text
+        nonlocal thinking_index, thinking_started
+        if thinking_block_open and thinking_index is not None:
+            return thinking_index
+        thinking_index = next_content_index
+        next_content_index += 1
+        thinking_started = True
+        thinking_block_open = True
+        thinking_block_text = ""
+        emit(
+            "content_block_start",
+            {
+                "type": "content_block_start",
+                "index": thinking_index,
+                "content_block": {"type": "thinking", "thinking": ""},
+            },
+        )
+        return thinking_index
+
+    def close_thinking_block() -> None:
+        nonlocal thinking_block_open
+        if not thinking_block_open or thinking_index is None:
+            return
+        digest = hashlib.sha256(
+            thinking_block_text.encode("utf-8", errors="replace")
+        ).hexdigest()[:24]
+        emit(
+            "content_block_delta",
+            {
+                "type": "content_block_delta",
+                "index": thinking_index,
+                "delta": {
+                    "type": "signature_delta",
+                    "signature": f"ciel-runtime-ollama-thinking-{digest}",
+                },
+            },
+        )
+        emit("content_block_stop", {"type": "content_block_stop", "index": thinking_index})
+        thinking_block_open = False
+
     def update_stream_activity(force: bool = False) -> None:
         nonlocal last_activity_update
         now = time.time()
         if not force and now - last_activity_update < 0.5:
             return
         last_activity_update = now
-        estimated_output = output_tokens or max(0, len(text_so_far) // 4)
+        estimated_output = output_tokens or max(
+            0, (len(thinking_so_far) + len(text_so_far)) // 4
+        )
         write_router_activity(
             "request",
             provider,
@@ -1208,6 +1259,7 @@ def ollama_stream_to_anthropic_sse(
         nonlocal text_buffer, text_so_far, text_suppressed_for_plan
         if not text_chunk:
             return
+        close_thinking_block()
         if source_body is not None and not text_started and not tool_calls and should_auto_enter_plan_mode(source_body, text_so_far + text_chunk, []):
             text_so_far += text_chunk
             text_suppressed_for_plan = True
@@ -1257,6 +1309,24 @@ def ollama_stream_to_anthropic_sse(
             emit("content_block_delta", event)
         update_stream_activity()
 
+    def handle_thinking_chunk(thinking_chunk: str) -> None:
+        nonlocal thinking_block_text, thinking_so_far
+        if not thinking_chunk:
+            return
+        close_text_block()
+        active_thinking_index = open_thinking_block()
+        thinking_block_text += thinking_chunk
+        thinking_so_far += thinking_chunk
+        emit(
+            "content_block_delta",
+            {
+                "type": "content_block_delta",
+                "index": active_thinking_index,
+                "delta": {"type": "thinking_delta", "thinking": thinking_chunk},
+            },
+        )
+        update_stream_activity()
+
     try:
         for line in iter_upstream_lines_until_client_disconnect(handler, resp, idle_timeout):
             chunks_seen += 1
@@ -1274,6 +1344,8 @@ def ollama_stream_to_anthropic_sse(
             output_tokens = max(output_tokens, int(chunk.get("eval_count") or 0))
             if not started:
                 ensure_message_started()
+            # Native Ollama thinking is a distinct field, not visible answer text.
+            handle_thinking_chunk(str(message.get("thinking") or ""))
             # Handle text content
             raw_text_chunk = str(message.get("content") or "")
             text_chunk = thinking_markup_filter.feed(raw_text_chunk)
@@ -1298,8 +1370,10 @@ def ollama_stream_to_anthropic_sse(
                 fixed_input = cap_mcp_notification_wait_tool_input(matched_name, fixed_input)
                 if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body):
                     continue
-                if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name):
+                if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name, source_body):
+                    repeated_completed_tool_dropped = True
                     continue
+                close_thinking_block()
                 close_text_block()
                 tool_calls.append({"function": {"name": matched_name, "arguments": fixed_input}})
                 tool_id = f"toolu_ollama_{int(time.time() * 1000)}_{len(tool_calls) - 1}"
@@ -1328,8 +1402,15 @@ def ollama_stream_to_anthropic_sse(
         if thinking_markup_suppressed:
             router_log("WARN", f"suppressed visible Ollama thinking markup from stream model={model}")
         update_stream_activity(force=True)
+        close_thinking_block()
+        if repeated_completed_tool_dropped and not text_so_far.strip() and not tool_calls:
+            handle_text_chunk(
+                "[ciel-runtime] Stopped an identical completed tool call from repeating. "
+                "The previous result is already in context; choose a different action or finish the turn."
+            )
+        reasoning_only = thinking_started and not text_so_far.strip() and not tool_calls
         # Flush any remaining buffered text when word-chunking is active
-        if source_body is not None and should_auto_enter_plan_mode(source_body, text_so_far, tool_calls):
+        if not reasoning_only and source_body is not None and should_auto_enter_plan_mode(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized EnterPlanMode from short/empty upstream stream")
@@ -1339,7 +1420,7 @@ def ollama_stream_to_anthropic_sse(
             next_content_index += 1
             tool_indices.append(tool_index)
             emit_tool_block(tool_index, tool_id, "EnterPlanMode", {})
-        elif source_body is not None and should_recover_empty_end_turn_with_tasklist(source_body, text_so_far, tool_calls):
+        elif not reasoning_only and source_body is not None and should_recover_empty_end_turn_with_tasklist(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized TaskList from empty upstream end_turn stream")
@@ -1357,7 +1438,7 @@ def ollama_stream_to_anthropic_sse(
                 "delta": {"type": "text_delta", "text": text_so_far},
             }
             emit("content_block_delta", event)
-        if source_body is not None and should_keep_work_alive_with_tasklist(source_body, text_so_far, tool_calls):
+        if not reasoning_only and source_body is not None and should_keep_work_alive_with_tasklist(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized TaskList to keep work moving after tool result stream")
@@ -1367,7 +1448,7 @@ def ollama_stream_to_anthropic_sse(
             next_content_index += 1
             tool_indices.append(tool_index)
             emit_tool_block(tool_index, tool_id, "TaskList", {})
-        if source_body is not None and should_auto_continue_choice_question_with_tasklist(source_body, text_so_far, tool_calls):
+        if not reasoning_only and source_body is not None and should_auto_continue_choice_question_with_tasklist(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized TaskList after clarification question stream")
@@ -1388,7 +1469,19 @@ def ollama_stream_to_anthropic_sse(
             stopped_tool_indices.add(tool_index)
         if not started:
             ensure_message_started()
-        if not text_started and not tool_indices:
+        if reasoning_only:
+            router_log(
+                "WARN",
+                f"ollama_reasoning_only_stream provider={provider} model={model} "
+                f"chunks={chunks_seen} thinking_chars={len(thinking_so_far)} "
+                f"done_reason={str(chunk.get('done_reason') or '-')}",
+            )
+            notice = reasoning_only_notice(str(chunk.get("done_reason") or ""))
+            text_so_far = notice
+            notice_index = next_content_index
+            next_content_index += 1
+            emit_text_block(notice_index, notice)
+        elif not text_started and not tool_indices:
             router_log("WARN", f"ollama_empty_stream provider={provider} model={model} chunks={chunks_seen}")
             write_router_activity("error", provider, model, error="empty_stream", stream=True)
             empty_index = next_content_index
@@ -1411,13 +1504,14 @@ def ollama_stream_to_anthropic_sse(
         # Send message_stop
         emit("message_stop", {"type": "message_stop"})
         sse_trace_outcome = "success"
-        if text_started or tool_indices:
+        if thinking_started or text_started or tool_indices:
             write_router_activity(
                 "success",
                 provider,
                 model,
                 tokens=input_tokens,
-                output_tokens=output_tokens or max(1, len(text_so_far) // 4),
+                output_tokens=output_tokens
+                or max(1, (len(thinking_so_far) + len(text_so_far)) // 4),
                 chunks=chunks_seen,
                 stream=True,
             )
@@ -1429,7 +1523,8 @@ def ollama_stream_to_anthropic_sse(
         router_log(
             "WARN",
             f"ollama_stream_client_disconnected provider={provider} model={model} "
-            f"chunks={chunks_seen} text_len={len(text_so_far)} error={exc}",
+            f"chunks={chunks_seen} thinking_len={len(thinking_so_far)} "
+            f"text_len={len(text_so_far)} error={exc}",
         )
         write_router_activity(
             "cancel",
@@ -1437,7 +1532,8 @@ def ollama_stream_to_anthropic_sse(
             model,
             error=type(exc).__name__,
             tokens=input_tokens,
-            output_tokens=output_tokens or max(0, len(text_so_far) // 4),
+            output_tokens=output_tokens
+            or max(0, (len(thinking_so_far) + len(text_so_far)) // 4),
             chunks=chunks_seen,
             stream=True,
         )
@@ -1449,6 +1545,8 @@ def ollama_stream_to_anthropic_sse(
         write_router_activity("error", provider, model, error=type(exc).__name__, stream=True)
         try:
             ensure_message_started()
+            if thinking_block_open:
+                close_thinking_block()
             if text_block_open:
                 close_text_block()
             if not text_started and not tool_indices:
@@ -1832,7 +1930,7 @@ def forward_openai_chat_to_anthropic_sse(
             fixed_input = cap_mcp_notification_wait_tool_input(matched_name, fixed_input)
             if should_drop_emitted_tool_call(matched_name, fixed_input, raw_name, source_body):
                 continue
-            if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name):
+            if should_drop_duplicate_side_effect_tool_call(matched_name, fixed_input, raw_name, source_body):
                 continue
             tool_calls.append({"function": {"name": matched_name, "arguments": fixed_input}})
             tool_index = next_content_index

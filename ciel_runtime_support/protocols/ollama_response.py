@@ -9,6 +9,8 @@ from typing import Any, Callable
 @dataclass(frozen=True, slots=True)
 class OllamaResponseText:
     decode: Callable[[dict[str, Any]], Any]
+    thinking_to_block: Callable[[Any], dict[str, Any] | None]
+    reasoning_only_notice: Callable[[str], str]
     strip_thinking: Callable[[str], str]
     parse_pseudo_tools: Callable[..., tuple[str, list[dict[str, Any]]]]
     log: Callable[[str, str], Any]
@@ -22,6 +24,7 @@ class OllamaResponseTools:
     plan_mode_name: Callable[..., tuple[str | None, dict[str, Any]]]
     cap_notification_wait: Callable[..., dict[str, Any]]
     should_drop: Callable[..., bool]
+    should_drop_duplicate: Callable[..., bool]
     append_log: Callable[..., Any]
 
 
@@ -60,6 +63,9 @@ def project_ollama_response(
 ) -> dict[str, Any]:
     decoded = services.text.decode(data)
     content: list[dict[str, Any]] = []
+    thinking_block = services.text.thinking_to_block(decoded.thinking)
+    if thinking_block is not None:
+        content.append(thinking_block)
     raw_text = decoded.text
     text = services.text.strip_thinking(raw_text)
     if text != raw_text:
@@ -71,25 +77,47 @@ def project_ollama_response(
     if text:
         content.append({"type": "text", "text": text})
     tool_id_prefix = f"toolu_ollama_{services.output.timestamp_ms()}_{services.output.process_id()}"
+    repeated_completed_tool_dropped = [False]
     for index, call in enumerate(list(decoded.tool_calls) + pseudo_tool_calls):
-        tool_block = _project_tool_call(call, index, tool_id_prefix, model, source_body, services)
+        tool_block = _project_tool_call(
+            call,
+            index,
+            tool_id_prefix,
+            model,
+            source_body,
+            services,
+            repeated_completed_tool_dropped,
+        )
         if tool_block is not None:
             content.append(tool_block)
 
     emitted = [block for block in content if block.get("type") == "tool_use"]
-    recovered = _recover_response(model, source_body, text, emitted, content, tool_id_prefix, services)
+    if repeated_completed_tool_dropped[0] and not text.strip() and not emitted:
+        text = (
+            "[ciel-runtime] Stopped an identical completed tool call from repeating. "
+            "The previous result is already in context; choose a different action or finish the turn."
+        )
+        content.append({"type": "text", "text": text})
+    recovered = None
+    if thinking_block is None and not repeated_completed_tool_dropped[0]:
+        recovered = _recover_response(model, source_body, text, emitted, content, tool_id_prefix, services)
     if recovered is not None:
         return recovered
     if source_body is not None and not text.strip() and not emitted:
-        text = services.recovery.empty_notice(source_body)
+        text = (
+            services.text.reasoning_only_notice(decoded.done_reason)
+            if thinking_block is not None
+            else services.recovery.empty_notice(source_body)
+        )
         names = ",".join(services.recovery.latest_tool_result_names(source_body)) or "-"
-        services.text.log("WARN", f"ollama_empty_end_turn_notice model={model} latest_tool_results={names}")
+        event = "ollama_reasoning_only_notice" if thinking_block is not None else "ollama_empty_end_turn_notice"
+        services.text.log("WARN", f"{event} model={model} latest_tool_results={names}")
         content.append({"type": "text", "text": text})
 
     input_tokens = decoded.input_tokens
     if input_tokens <= 0 and isinstance(source_body, dict):
         input_tokens = services.output.estimate_tokens(source_body)
-    output_tokens = decoded.output_tokens or max(1, len(text) // 4)
+    output_tokens = decoded.output_tokens or max(1, (len(decoded.thinking) + len(text)) // 4)
     return services.output.encode_message(
         message_id=f"msg_ollama_{services.output.timestamp_ms()}",
         model=model,
@@ -185,6 +213,7 @@ def _project_tool_call(
     model: str,
     source_body: dict[str, Any] | None,
     services: OllamaResponseServices,
+    repeated_completed_tool_dropped: list[bool],
 ) -> dict[str, Any] | None:
     function = call.get("function") if isinstance(call, dict) else {}
     if not isinstance(function, dict) or not function.get("name"):
@@ -200,6 +229,9 @@ def _project_tool_call(
             return None
     tool_input = services.tools.cap_notification_wait(name, tool_input)
     if services.tools.should_drop(name, tool_input, raw_name, source_body):
+        return None
+    if services.tools.should_drop_duplicate(name, tool_input, raw_name, source_body):
+        repeated_completed_tool_dropped[0] = True
         return None
     services.tools.append_log(
         "ollama_nonstream_tool_call",

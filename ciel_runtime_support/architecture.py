@@ -411,6 +411,13 @@ class ProviderAdapter(ABC):
         del config, model
         return False
 
+    def reasoning_passback_enabled(
+        self, config: ProviderConfig, model: str | None = None
+    ) -> bool:
+        """Whether provider-native reasoning should survive history conversion."""
+
+        return self.openai_reasoning_passback_enabled(config, model)
+
     def model_catalog_policy(self, config: ProviderConfig) -> ProviderModelCatalogPolicy:
         del config
         return ProviderModelCatalogPolicy()

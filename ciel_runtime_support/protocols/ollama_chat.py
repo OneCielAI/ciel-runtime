@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from typing import Any
 
@@ -13,6 +14,7 @@ class DecodedOllamaChatResponse:
     """Provider-neutral values decoded from one Ollama `/api/chat` response."""
 
     text: str
+    thinking: str
     tool_calls: tuple[dict[str, Any], ...]
     done_reason: str
     input_tokens: int
@@ -26,10 +28,37 @@ def decode_ollama_chat_response(data: dict[str, Any]) -> DecodedOllamaChatRespon
     calls = message.get("tool_calls") if isinstance(message, dict) else None
     return DecodedOllamaChatResponse(
         text=str(message.get("content") or ""),
+        thinking=str(message.get("thinking") or ""),
         tool_calls=tuple(call for call in (calls or []) if isinstance(call, dict)),
         done_reason=str(data.get("done_reason") or ""),
         input_tokens=max(0, int(data.get("prompt_eval_count") or 0)),
         output_tokens=max(0, int(data.get("eval_count") or 0)),
+    )
+
+
+def ollama_thinking_to_anthropic_block(thinking_content: Any) -> dict[str, Any] | None:
+    """Project Ollama's native reasoning field without exposing it as visible text."""
+
+    thinking = str(thinking_content or "")
+    if not thinking:
+        return None
+    digest = hashlib.sha256(thinking.encode("utf-8", errors="replace")).hexdigest()[:24]
+    return {
+        "type": "thinking",
+        "thinking": thinking,
+        "signature": f"ciel-runtime-ollama-thinking-{digest}",
+    }
+
+
+def ollama_reasoning_only_notice(done_reason: str) -> str:
+    if done_reason == "length":
+        return (
+            "[ciel-runtime] Upstream model exhausted its output budget during reasoning "
+            "before producing text or a tool call. Retry or lower reasoning effort."
+        )
+    return (
+        "[ciel-runtime] Upstream model returned reasoning without a final answer or tool call. "
+        "Please retry or ask me to continue."
     )
 
 
@@ -108,4 +137,6 @@ __all__ = [
     "decode_ollama_chat_response",
     "encode_anthropic_message",
     "ollama_claude_code_reminder",
+    "ollama_reasoning_only_notice",
+    "ollama_thinking_to_anthropic_block",
 ]

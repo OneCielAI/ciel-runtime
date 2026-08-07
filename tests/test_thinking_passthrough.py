@@ -27,6 +27,27 @@ class ThinkingPassthroughTests(unittest.TestCase):
             )
         )
 
+    def test_ollama_preserves_thinking_history_for_native_passback(self):
+        body = {
+            "thinking": {"type": "enabled", "budget_tokens": 1024},
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "thinking", "thinking": "prior reasoning", "signature": "sig"},
+                        {"type": "text", "text": "answer"},
+                    ],
+                }
+            ],
+        }
+
+        out = ciel_runtime.normalize_thinking_for_non_anthropic_native_provider(
+            "ollama-cloud", {}, body
+        )
+
+        self.assertNotIn("thinking", out)
+        self.assertEqual(1, ciel_runtime.anthropic_thinking_block_count(out))
+
     def test_do_not_defer_plan_mode_synthesis_without_thinking(self):
         body = {
             "tool_choice": {"type": "tool", "name": "EnterPlanMode"},

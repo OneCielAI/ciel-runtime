@@ -5296,7 +5296,7 @@ class ArchitectureContractTests(unittest.TestCase):
             root / "ciel_runtime_support" / "protocols" / "openai_reasoning.py"
         ).read_text(encoding="utf-8")
         self.assertNotIn("OPENCODE_PROVIDER_NAMES", policy_source)
-        self.assertIn("adapter.openai_reasoning_passback_enabled", policy_source)
+        self.assertIn("adapter.reasoning_passback_enabled", policy_source)
 
     def test_router_access_policy_and_token_repository_live_outside_root(self):
         root = Path(__file__).resolve().parents[1]

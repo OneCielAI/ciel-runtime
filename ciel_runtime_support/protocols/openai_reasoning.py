@@ -47,7 +47,7 @@ class OpenAiReasoningPolicy:
         self, provider: str, model: str | None, config: dict[str, Any]
     ) -> bool:
         adapter = self.adapter_for(provider, config)
-        return adapter.openai_reasoning_passback_enabled(
+        return adapter.reasoning_passback_enabled(
             self.config_for(provider, config), model
         )
 

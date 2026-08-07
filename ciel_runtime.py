@@ -316,6 +316,7 @@ from ciel_runtime_support.protocols.anthropic_thinking_policy import strip_think
 from ciel_runtime_support.protocols.anthropic_thinking_policy import thinking_block_count as project_anthropic_thinking_block_count
 from ciel_runtime_support.protocols.anthropic_thinking_policy import thinking_requested as project_anthropic_thinking_requested
 from ciel_runtime_support.protocols.anthropic_thinking_policy import tool_continuation_block_count as project_anthropic_tool_continuation_block_count
+from ciel_runtime_support.protocols.ollama_chat import ollama_reasoning_only_notice, ollama_thinking_to_anthropic_block
 from ciel_runtime_support.protocols.chat_projection import ChatProjectionPolicy, ChatProjectionServices, ChatProjectionText, ChatProjectionTools, OpenAiHistoryServices
 from ciel_runtime_support.protocols.chat_projection import anthropic_messages_to_ollama as project_anthropic_messages_to_ollama
 from ciel_runtime_support.protocols.chat_projection import anthropic_messages_to_openai as project_anthropic_messages_to_openai
@@ -748,7 +749,7 @@ def should_drop_emitted_tool_call(tool_name: str, tool_input: dict[str, Any], ra
     return True
 
 def side_effect_tool_call_dedupe_key(tool_name: str, tool_input: dict[str, Any]) -> str | None: return tool_side_effect_dedupe_service().key(tool_name, tool_input)
-def should_drop_duplicate_side_effect_tool_call(tool_name: str, tool_input: dict[str, Any], raw_name: str = "") -> bool: return tool_side_effect_dedupe_service().should_drop(tool_name, tool_input, raw_name)
+def should_drop_duplicate_side_effect_tool_call(tool_name: str, tool_input: dict[str, Any], raw_name: str = "", source_body: dict[str, Any] | None = None) -> bool: return tool_side_effect_dedupe_service().should_drop(tool_name, tool_input, raw_name, source_body)
 
 def tool_side_effect_dedupe_service() -> ToolSideEffectDedupeService:
     return ToolSideEffectDedupeService(
@@ -757,6 +758,10 @@ def tool_side_effect_dedupe_service() -> ToolSideEffectDedupeService:
                 {"send_message", "send_dm", "send_file", "create_message", "create_dm", "post_message", "reply"}
             ),
             ttl_seconds=_TOOL_SIDE_EFFECT_DEDUP_TTL_SECONDS,
+            repeated_execution_suffixes=frozenset(
+                {"shell_command", "bash", "exec", "execute", "run_command", "write", "edit", "apply_patch"}
+            ),
+            completed_repeat_limit=1,
         ),
         repository=ToolSideEffectDedupeRepository(
             _TOOL_SIDE_EFFECT_DEDUP_RECENT,
@@ -2599,7 +2604,8 @@ def response_stream_context() -> ResponseStreamContext:
     return ResponseStreamContext(
         algorithms=ResponseStreamAlgorithms(project_normalize_tool_arguments, project_infer_tool_name, project_parse_pseudo_tool_calls, project_ollama_response,
                                              project_openai_chat_response, split_word_buffer, project_openai_responses_stream, project_openai_responses_error, PROTOCOL_ADAPTERS.create),
-        text=ResponseStreamTextPorts(decode_ollama_chat_response, strip_visible_thinking_markup, _parse_xml_pseudo_tool_calls, _find_pseudo_xml_tool_start,
+        text=ResponseStreamTextPorts(decode_ollama_chat_response, ollama_thinking_to_anthropic_block, ollama_reasoning_only_notice,
+                                     strip_visible_thinking_markup, _parse_xml_pseudo_tool_calls, _find_pseudo_xml_tool_start,
                                      _fuzzy_match_tool_name, openai_reasoning_to_anthropic_thinking_block, anthropic_content_to_text, positive_int),
         tools=ResponseStreamToolPorts(resolve_emitted_tool_name, _validate_and_fix_tool_input, plan_mode_tool_name_for_emit, cap_mcp_notification_wait_tool_input,
                                       should_drop_emitted_tool_call, should_drop_duplicate_side_effect_tool_call, append_tool_call_log, _remember_channel_injected_tool_use,
