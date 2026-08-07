@@ -1918,12 +1918,30 @@ bearer_token_env_var = "AINET_API_KEY"
             "model": "gpt-test",
             "input": [
                 {"type": "reasoning", "id": "msg_foreign", "summary": []},
+                {
+                    "type": "function_call",
+                    "id": "msg_foreign_call",
+                    "name": "shell_command",
+                    "arguments": "{}",
+                    "call_id": "call_preserved",
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_preserved",
+                    "output": "ok",
+                },
                 {"type": "message", "role": "user", "content": "continue"},
             ],
         }
 
         def project(repaired):
-            self.assertEqual(["message"], [item["type"] for item in repaired["input"]])
+            self.assertEqual(
+                ["function_call", "function_call_output", "message"],
+                [item["type"] for item in repaired["input"]],
+            )
+            self.assertNotIn("id", repaired["input"][0])
+            self.assertEqual("call_preserved", repaired["input"][0]["call_id"])
+            self.assertEqual("call_preserved", repaired["input"][1]["call_id"])
             return repaired, None
 
         with (
@@ -1943,7 +1961,10 @@ bearer_token_env_var = "AINET_API_KEY"
             )
 
         forwarded = json.loads(urlopen.call_args.args[0].data)
-        self.assertEqual(["message"], [item["type"] for item in forwarded["input"]])
+        self.assertEqual(
+            ["function_call", "function_call_output", "message"],
+            [item["type"] for item in forwarded["input"]],
+        )
         self.assertNotIn("msg_foreign", str(forwarded))
 
     def test_codex_responses_channel_context_appends_responses_input(self):

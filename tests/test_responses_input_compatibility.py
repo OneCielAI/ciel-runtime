@@ -1,7 +1,7 @@
 import unittest
 
 from ciel_runtime_support.responses_input_compatibility import (
-    repair_replayed_reasoning_items,
+    repair_replayed_response_items,
 )
 
 
@@ -20,7 +20,7 @@ class ResponsesInputCompatibilityTests(unittest.TestCase):
             ]
         }
 
-        repaired = repair_replayed_reasoning_items(body)
+        repaired = repair_replayed_response_items(body)
 
         self.assertEqual(
             ["msg_user", "msg_answer"],
@@ -39,7 +39,7 @@ class ResponsesInputCompatibilityTests(unittest.TestCase):
             ]
         }
 
-        self.assertIs(body, repair_replayed_reasoning_items(body))
+        self.assertIs(body, repair_replayed_response_items(body))
 
     def test_omits_foreign_id_when_encrypted_content_can_be_replayed(self):
         body = {
@@ -52,13 +52,44 @@ class ResponsesInputCompatibilityTests(unittest.TestCase):
             ]
         }
 
-        repaired = repair_replayed_reasoning_items(body)
+        repaired = repair_replayed_response_items(body)
 
         self.assertEqual(
             {"type": "reasoning", "encrypted_content": "ciphertext"},
             repaired["input"][0],
         )
         self.assertEqual("msg_wrong", body["input"][0]["id"])
+
+    def test_omits_foreign_function_call_id_without_breaking_call_pair(self):
+        body = {
+            "input": [
+                {
+                    "type": "function_call",
+                    "id": "msg_f47c5769-b157-4107-ac7b-d0527e028c6f",
+                    "name": "shell_command",
+                    "arguments": '{"command":"Get-ChildItem"}',
+                    "call_id": "call_09149e78911e4e609b960a10",
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_09149e78911e4e609b960a10",
+                    "output": "completed",
+                },
+            ]
+        }
+
+        repaired = repair_replayed_response_items(body)
+
+        self.assertNotIn("id", repaired["input"][0])
+        self.assertEqual(
+            "call_09149e78911e4e609b960a10",
+            repaired["input"][0]["call_id"],
+        )
+        self.assertEqual(
+            "call_09149e78911e4e609b960a10",
+            repaired["input"][1]["call_id"],
+        )
+        self.assertEqual("msg_f47c5769-b157-4107-ac7b-d0527e028c6f", body["input"][0]["id"])
 
 
 if __name__ == "__main__":

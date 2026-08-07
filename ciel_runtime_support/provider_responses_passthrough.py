@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
 from .responses_usage_observer import ResponsesUsageObserver
-from .responses_input_compatibility import repair_replayed_reasoning_items
+from .responses_input_compatibility import repair_replayed_response_items
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,7 +45,7 @@ class ProviderResponsesPassthrough:
         config: dict[str, Any],
         body: dict[str, Any],
     ) -> dict[str, Any]:
-        upstream_body = dict(repair_replayed_reasoning_items(body))
+        upstream_body = dict(repair_replayed_response_items(body))
         upstream_body["model"] = self._ports.normalize_model(
             provider, config, str(body.get("model") or "")
         )
