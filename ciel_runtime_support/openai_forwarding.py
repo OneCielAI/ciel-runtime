@@ -73,6 +73,7 @@ class OpenAIForwardServices:
     advisor: OpenAIForwardAdvisor
     streaming: OpenAIForwardStreaming
     response: OpenAIForwardResponse
+    hosted_tools: Any
     log: Callable[[str, str], Any]
 
 
@@ -100,10 +101,19 @@ def forward_openai_compatible_chat(
     original_body = body
     upstream_body = request.body_with_advisor_tool(body, pcfg) if request.advisor_provider_supported(provider) else body
     url = request.join_url(request.upstream_request_base(provider, pcfg), "/v1/chat/completions")
+    timeout = rate_limit.request_timeout_seconds(pcfg)
+    headers = request.provider_headers(provider, pcfg, handler.headers, "openai_chat")
     waited, rpm_used, rpm_limit = rate_limit.apply(provider, pcfg, model)
     compatibility_test = str(handler.headers.get(policy.compatibility_test_header) or "").strip().lower() in ("1", "true", "yes", "on")
     stream_enabled = bool(pcfg.get("stream_enabled", True))
     stream = policy.provider_requires_streaming(provider, pcfg) or (bool(body.get("stream", stream_enabled)) and stream_enabled)
+    collected_request = request.build_chat_request(provider, model, upstream_body, pcfg, stream=False)
+    collected_request, hosted_state = services.hosted_tools.prepare(
+        provider, pcfg, collected_request, headers, timeout
+    )
+    if hosted_state.enabled and stream:
+        stream = False
+        services.log("INFO", f"provider-hosted tools enabled for {provider}; collecting tool rounds internally")
     if stream and advisor.model_enabled(pcfg) and request.advisor_provider_supported(provider):
         stream = False
         services.log("INFO", f"advisor tool enabled for {provider}; collecting this turn so advisor tool calls can be resolved internally")
@@ -128,10 +138,8 @@ def forward_openai_compatible_chat(
             upstream_response = streaming.open_with_retry(
                 url,
                 req_body,
-                request.provider_headers(
-                    provider, pcfg, handler.headers, "openai_chat"
-                ),
-                rate_limit.request_timeout_seconds(pcfg),
+                headers,
+                timeout,
                 provider,
                 pcfg,
                 model,
@@ -167,20 +175,35 @@ def forward_openai_compatible_chat(
             return
         return
 
-    req_body = request.build_chat_request(provider, model, upstream_body, pcfg, stream=False)
+    req_body = collected_request
     try:
         data = streaming.post_json_with_retry(
             url,
             req_body,
-            request.provider_headers(
-                provider, pcfg, handler.headers, "openai_chat"
-            ),
-            rate_limit.request_timeout_seconds(pcfg),
+            headers,
+            timeout,
             provider,
             pcfg,
             model,
             None,
             retry_rate_limits=not compatibility_test,
+        )
+        data = services.hosted_tools.resolve(
+            hosted_state,
+            req_body,
+            data,
+            lambda next_body: streaming.post_json_with_retry(
+                url,
+                next_body,
+                headers,
+                timeout,
+                provider,
+                pcfg,
+                model,
+                None,
+                retry_rate_limits=not compatibility_test,
+            ),
+            timeout,
         )
     except RuntimeError as exc:
         response.write_json(handler, {"type": "error", "error": {"type": "upstream_error", "message": str(exc)}}, 500)

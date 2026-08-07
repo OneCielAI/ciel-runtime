@@ -5,10 +5,14 @@ from ciel_runtime_support import runtime_paths
 
 
 class RuntimePathsTest(unittest.TestCase):
-    def test_config_artifacts_share_config_root(self):
+    def test_configuration_is_shared_but_router_state_is_workspace_isolated(self):
         self.assertEqual(runtime_paths.CONFIG_DIR, runtime_paths.CONFIG_PATH.parent)
-        self.assertEqual(runtime_paths.CONFIG_DIR, runtime_paths.ROUTER_ACTIVITY_PATH.parent)
-        self.assertEqual(runtime_paths.CONFIG_DIR, runtime_paths.CHANNEL_MCP_CONFIG.parent)
+        self.assertEqual(runtime_paths.ROUTER_INSTANCE_DIR, runtime_paths.ROUTER_ACTIVITY_PATH.parent)
+        self.assertEqual(runtime_paths.ROUTER_INSTANCE_DIR, runtime_paths.CHANNEL_MCP_CONFIG.parent)
+        if runtime_paths.os.environ.get("CIEL_RUNTIME_TEST_ISOLATED"):
+            self.assertEqual(runtime_paths.CONFIG_DIR, runtime_paths.ROUTER_INSTANCE_DIR)
+        else:
+            self.assertIn(runtime_paths.CONFIG_DIR / "router-instances", runtime_paths.ROUTER_INSTANCE_DIR.parents)
 
     def test_default_router_port_honors_valid_environment_override(self):
         with mock.patch.dict(runtime_paths.os.environ, {"CIEL_RUNTIME_ROUTER_PORT": "9876"}):

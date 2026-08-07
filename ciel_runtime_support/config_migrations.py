@@ -418,4 +418,18 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                 pcfg["model_profile"] = "kimi-k3-1m"
         migrations[marker] = True
 
+    marker = "kimi_k3_official_max_effort_20260806"
+    if not migrations.get(marker):
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        pcfg = providers.get("kimi")
+        if isinstance(pcfg, dict):
+            current = normalize_model_id("kimi", str(pcfg.get("current_model") or ""))
+            if (
+                current in {KIMI_K3_MODEL, f"{KIMI_K3_MODEL}[1m]"}
+                and pcfg.get("model_profile") == "kimi-k3-1m"
+                and str(pcfg.get("effort_level") or "").lower() == "high"
+            ):
+                pcfg["effort_level"] = "max"
+        migrations[marker] = True
+
 __all__ = ["ConfigMigrationPolicy", "apply_config_migrations"]

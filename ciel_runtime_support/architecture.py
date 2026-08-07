@@ -223,6 +223,14 @@ class ProviderOptionPresentationPolicy:
 
 
 @dataclass(frozen=True)
+class HostedToolPolicy:
+    """Provider-owned hosted tool catalog and execution endpoint."""
+
+    base_url: str = ""
+    formulas: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class ProviderUiPolicy:
     """Provider-owned labels used by shared menus."""
 
@@ -416,6 +424,21 @@ class ProviderAdapter(ABC):
     ) -> bool:
         """Whether provider-native reasoning should survive history conversion."""
 
+        return self.openai_reasoning_passback_enabled(config, model)
+
+    def hosted_tool_policy(self, config: ProviderConfig) -> HostedToolPolicy:
+        del config
+        return HostedToolPolicy()
+
+    def should_omit_openai_tool_choice(
+        self,
+        config: ProviderConfig,
+        model: str | None,
+        request: Mapping[str, Any],
+    ) -> bool:
+        """Whether this provider/model cannot combine reasoning with tool_choice."""
+
+        del request
         return self.openai_reasoning_passback_enabled(config, model)
 
     def model_catalog_policy(self, config: ProviderConfig) -> ProviderModelCatalogPolicy:

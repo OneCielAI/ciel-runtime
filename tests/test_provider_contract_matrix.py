@@ -164,7 +164,7 @@ class ProviderContractMatrixTests(unittest.TestCase):
         kimi = PROVIDER_ADAPTERS.create("kimi")
         updates, notice = kimi.model_configuration_profile(config("kimi", model="k3"))
         self.assertEqual(1048576, updates["context_window"])
-        self.assertEqual("high", updates["effort_level"])
+        self.assertEqual("max", updates["effort_level"])
         self.assertIn("Kimi K3", notice or "")
         self.assertIn("1M context", notice or "")
 
@@ -679,9 +679,9 @@ class ProviderContractMatrixTests(unittest.TestCase):
             configured,
             {"model": "k3", "thinking": {"type": "enabled"}},
         )
-        self.assertEqual("high", normalized["thinking"]["effort"])
+        self.assertEqual("max", normalized["thinking"]["effort"])
         self.assertEqual(
-            {"type": "auto"},
+            {"type": "any"},
             adapter.normalize_tool_choice(configured, "k3", {"type": "any"}),
         )
 

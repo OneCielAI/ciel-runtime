@@ -1074,6 +1074,27 @@ class OllamaProviderOptionTests(unittest.TestCase):
                         }
                     ],
                 },
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "call_2",
+                            "name": "shell_command",
+                            "input": {"command": "cargo check", "timeout_ms": 120000},
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "call_2",
+                            "content": "Process exited with code 0",
+                        }
+                    ],
+                },
             ],
         }
         resp = _FakeOllamaStreamResponse(

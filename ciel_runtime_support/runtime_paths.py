@@ -9,6 +9,7 @@ from pathlib import Path, PureWindowsPath
 from typing import Any
 
 from .web_endpoints import apply_startup_web_options, load_saved_web_backend
+from .workspace_router_selection import select_workspace_router_port, workspace_identity
 
 
 # Web startup flags affect the process-wide router endpoint constants below.
@@ -96,52 +97,71 @@ def default_router_port(saved_port: int = 0) -> int:
 
 CONFIG_DIR = Path(os.environ.get("CIEL_RUNTIME_CONFIG_DIR") or platform_config_dir("ciel-runtime"))
 CONFIG_PATH = CONFIG_DIR / "config.json"
-LOG_PATH = CONFIG_DIR / "router.log"
-LOG_LEVEL_PATH = CONFIG_DIR / "log-level"
-REQUEST_DUMP_PATH = CONFIG_DIR / "requests.jsonl"
-RESPONSE_DUMP_PATH = CONFIG_DIR / "responses.jsonl"
-USAGE_EVENTS_PATH = CONFIG_DIR / "usage-events.jsonl"
-SSE_TRACE_PATH = CONFIG_DIR / "router-sse-trace.jsonl"
-SSE_LAST_PATH = CONFIG_DIR / "router-last-sse.json"
-TOOL_CALL_LOG_PATH = CONFIG_DIR / "tool-calls.jsonl"
-RATE_LIMIT_STATE_PATH = CONFIG_DIR / "rate-limit-state.json"
-ROUTER_ACTIVITY_PATH = CONFIG_DIR / "router-activity.json"
-CONTEXT_COMPACT_ACTIVITY_PATH = CONFIG_DIR / "context-compact-activity.json"
-CONTEXT_USAGE_PATH = CONFIG_DIR / "context-usage.json"
-OLLAMA_MODEL_CATALOG_PATH = CONFIG_DIR / "ollama-model-catalog.json"
-CHAT_MESSAGES_PATH = CONFIG_DIR / "chat-messages.jsonl"
-CHAT_FILES_DIR = CONFIG_DIR / "chat-files"
-MENU_KEY_DEBUG_PATH = CONFIG_DIR / "ca-key-debug.log"
-PLAN_ARTIFACTS_DIR = CONFIG_DIR / "plan-artifacts"
-PID_PATH = CONFIG_DIR / "router.pid"
-ROUTER_EXTERNAL_TOKEN_PATH = CONFIG_DIR / "router-external-token"
-ROUTER_CLIENTS_DIR = CONFIG_DIR / "router-clients"
-MODEL_LIST_CACHE_PATH = CONFIG_DIR / "model-list-cache.json"
-MODEL_REGISTRY_PATH = CONFIG_DIR / "model-registry.json"
-LAUNCH_STATE_PATH = CONFIG_DIR / "launch-state.json"
-WEB_TOOLS_MCP_CONFIG = CONFIG_DIR / "web-tools-mcp.json"
-DUCKDUCKGO_MCP_CONFIG = CONFIG_DIR / "duckduckgo-mcp.json"
-ZAI_MCP_CONFIG = CONFIG_DIR / "zai-mcp.json"
-CHANNEL_MCP_CONFIG = CONFIG_DIR / "channel-mcp.json"
-NATIVE_MCP_CONFIG = CONFIG_DIR / "native-mcp.json"
-CODEX_MCP_CONFIG = CONFIG_DIR / "codex-mcp.json"
-CODEX_PROCESS_DIR = CONFIG_DIR / "codex-processes"
-CODEX_PROMPTS_DIR_NAME = "prompts"
-CHANNEL_MCP_CURSOR_PATH = CONFIG_DIR / "channel-mcp-cursor.json"
-CHANNEL_LLM_CURSOR_PATH = CONFIG_DIR / "channel-llm-cursor.json"
-CHANNEL_LLM_CLEAR_FLOOR_PATH = CONFIG_DIR / "channel-llm-clear-floor.json"
-CHANNEL_LLM_LAUNCH_GUARD_PATH = CONFIG_DIR / "channel-llm-launch-guard.json"
-CHANNEL_COMPACT_REQUEST_PATH = CONFIG_DIR / "channel-compact-request.json"
-CHANNEL_STDIN_WAKE_CLAIMS_PATH = CONFIG_DIR / "channel-stdin-wake-claims.json"
-CHANNEL_PROBE_CACHE_PATH = CONFIG_DIR / "channel-probe-cache.json"
-MCP_PROXY_CONFIG = CONFIG_DIR / "mcp-proxy.json"
 _SAVED_WEB_BACKEND = load_saved_web_backend(CONFIG_PATH)
 ROUTER_HOST = (
     os.environ.get("CIEL_RUNTIME_ROUTER_CLIENT_HOST", "").strip()
     or _SAVED_WEB_BACKEND.client_host
 )
-ROUTER_PORT = default_router_port(_SAVED_WEB_BACKEND.port)
+_BASE_ROUTER_PORT = default_router_port(_SAVED_WEB_BACKEND.port)
+ROUTER_PORT = select_workspace_router_port(_BASE_ROUTER_PORT, Path.cwd(), os.environ)
 ROUTER_BASE = f"http://{ROUTER_HOST}:{ROUTER_PORT}"
+ROUTER_WORKSPACE = workspace_identity(
+    os.environ.get("CIEL_RUNTIME_LAUNCH_CWD") or Path.cwd()
+)
+_WORKSPACE_DIGEST = hashlib.sha256(ROUTER_WORKSPACE.encode("utf-8", errors="replace")).hexdigest()[:12]
+_STATE_DIR_OVERRIDE = str(os.environ.get("CIEL_RUNTIME_STATE_DIR") or "").strip()
+_TEST_STATE_ISOLATED = str(os.environ.get("CIEL_RUNTIME_TEST_ISOLATED") or "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+ROUTER_INSTANCE_DIR = (
+    Path(_STATE_DIR_OVERRIDE)
+    if _STATE_DIR_OVERRIDE
+    else CONFIG_DIR
+    if _TEST_STATE_ISOLATED
+    else CONFIG_DIR / "router-instances" / f"{ROUTER_PORT}-{_WORKSPACE_DIGEST}"
+)
+LOG_PATH = ROUTER_INSTANCE_DIR / "router.log"
+LOG_LEVEL_PATH = CONFIG_DIR / "log-level"
+REQUEST_DUMP_PATH = ROUTER_INSTANCE_DIR / "requests.jsonl"
+RESPONSE_DUMP_PATH = ROUTER_INSTANCE_DIR / "responses.jsonl"
+USAGE_EVENTS_PATH = ROUTER_INSTANCE_DIR / "usage-events.jsonl"
+SSE_TRACE_PATH = ROUTER_INSTANCE_DIR / "router-sse-trace.jsonl"
+SSE_LAST_PATH = ROUTER_INSTANCE_DIR / "router-last-sse.json"
+TOOL_CALL_LOG_PATH = ROUTER_INSTANCE_DIR / "tool-calls.jsonl"
+RATE_LIMIT_STATE_PATH = ROUTER_INSTANCE_DIR / "rate-limit-state.json"
+ROUTER_ACTIVITY_PATH = ROUTER_INSTANCE_DIR / "router-activity.json"
+CONTEXT_COMPACT_ACTIVITY_PATH = ROUTER_INSTANCE_DIR / "context-compact-activity.json"
+CONTEXT_USAGE_PATH = ROUTER_INSTANCE_DIR / "context-usage.json"
+OLLAMA_MODEL_CATALOG_PATH = CONFIG_DIR / "ollama-model-catalog.json"
+CHAT_MESSAGES_PATH = ROUTER_INSTANCE_DIR / "chat-messages.jsonl"
+CHAT_FILES_DIR = ROUTER_INSTANCE_DIR / "chat-files"
+MENU_KEY_DEBUG_PATH = ROUTER_INSTANCE_DIR / "ca-key-debug.log"
+PLAN_ARTIFACTS_DIR = ROUTER_INSTANCE_DIR / "plan-artifacts"
+PID_PATH = ROUTER_INSTANCE_DIR / "router.pid"
+ROUTER_EXTERNAL_TOKEN_PATH = ROUTER_INSTANCE_DIR / "router-external-token"
+ROUTER_CLIENTS_DIR = ROUTER_INSTANCE_DIR / "router-clients"
+MODEL_LIST_CACHE_PATH = CONFIG_DIR / "model-list-cache.json"
+MODEL_REGISTRY_PATH = CONFIG_DIR / "model-registry.json"
+LAUNCH_STATE_PATH = CONFIG_DIR / "launch-state.json"
+WEB_TOOLS_MCP_CONFIG = ROUTER_INSTANCE_DIR / "web-tools-mcp.json"
+DUCKDUCKGO_MCP_CONFIG = ROUTER_INSTANCE_DIR / "duckduckgo-mcp.json"
+ZAI_MCP_CONFIG = ROUTER_INSTANCE_DIR / "zai-mcp.json"
+CHANNEL_MCP_CONFIG = ROUTER_INSTANCE_DIR / "channel-mcp.json"
+NATIVE_MCP_CONFIG = ROUTER_INSTANCE_DIR / "native-mcp.json"
+CODEX_MCP_CONFIG = ROUTER_INSTANCE_DIR / "codex-mcp.json"
+CODEX_PROCESS_DIR = ROUTER_INSTANCE_DIR / "codex-processes"
+CODEX_PROMPTS_DIR_NAME = "prompts"
+CHANNEL_MCP_CURSOR_PATH = ROUTER_INSTANCE_DIR / "channel-mcp-cursor.json"
+CHANNEL_LLM_CURSOR_PATH = ROUTER_INSTANCE_DIR / "channel-llm-cursor.json"
+CHANNEL_LLM_CLEAR_FLOOR_PATH = ROUTER_INSTANCE_DIR / "channel-llm-clear-floor.json"
+CHANNEL_LLM_LAUNCH_GUARD_PATH = ROUTER_INSTANCE_DIR / "channel-llm-launch-guard.json"
+CHANNEL_COMPACT_REQUEST_PATH = ROUTER_INSTANCE_DIR / "channel-compact-request.json"
+CHANNEL_STDIN_WAKE_CLAIMS_PATH = ROUTER_INSTANCE_DIR / "channel-stdin-wake-claims.json"
+CHANNEL_PROBE_CACHE_PATH = ROUTER_INSTANCE_DIR / "channel-probe-cache.json"
+MCP_PROXY_CONFIG = ROUTER_INSTANCE_DIR / "mcp-proxy.json"
 CLAUDE_GATEWAY_CACHE = HOME / ".claude" / "cache" / "gateway-models.json"
 CLAUDE_SETTINGS_PATH = HOME / ".claude" / "settings.json"
 CLAUDE_COMMANDS_DIR = HOME / ".claude" / "commands"

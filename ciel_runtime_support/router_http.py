@@ -15,6 +15,9 @@ from ciel_runtime_support.header_forwarding import (
     HOP_BY_HOP_REQUEST_HEADERS,
     project_end_to_end_request_headers,
 )
+from ciel_runtime_support.responses_input_compatibility import (
+    repair_replayed_reasoning_items,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,7 +172,7 @@ class CodexBackendHttpAdapter:
         *,
         mutate_responses: bool = False,
     ) -> dict[str, Any] | None:
-        upstream_body = body
+        upstream_body = repair_replayed_reasoning_items(body)
         delivery_body: dict[str, Any] | None = None
         if mutate_responses:
             upstream_body, delivery_body = self._request.body_with_channel_context(body)

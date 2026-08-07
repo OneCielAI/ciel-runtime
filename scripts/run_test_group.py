@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import os
+import socket
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -59,6 +62,22 @@ def files_for(group: str) -> list[Path]:
     return [path for path in sorted(TEST_DIR.glob("test_*.py")) if group_for(path.name) == group]
 
 
+def isolate_runtime_state() -> tempfile.TemporaryDirectory[str]:
+    """Keep test routers and state away from the user's live runtime."""
+
+    state = tempfile.TemporaryDirectory(prefix="ciel-runtime-tests-")
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    finally:
+        probe.close()
+    os.environ["CIEL_RUNTIME_CONFIG_DIR"] = state.name
+    os.environ["CIEL_RUNTIME_ROUTER_PORT"] = str(port)
+    os.environ["CIEL_RUNTIME_TEST_ISOLATED"] = "1"
+    return state
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("group", choices=GROUPS)
@@ -68,12 +87,16 @@ def main() -> int:
     if args.list:
         print("\n".join(path.name for path in files))
         return 0
+    isolated_state = isolate_runtime_state()
     suite = unittest.TestSuite()
     loader = unittest.defaultTestLoader
     for path in files:
         suite.addTests(loader.discover(str(TEST_DIR), pattern=path.name))
     print(f"Running {args.group} test group ({len(files)} files)", flush=True)
-    return 0 if unittest.TextTestRunner(verbosity=1).run(suite).wasSuccessful() else 1
+    try:
+        return 0 if unittest.TextTestRunner(verbosity=1).run(suite).wasSuccessful() else 1
+    finally:
+        isolated_state.cleanup()
 
 
 if __name__ == "__main__":

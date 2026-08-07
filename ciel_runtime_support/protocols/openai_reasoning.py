@@ -65,7 +65,10 @@ class OpenAiReasoningPolicy:
     ) -> bool:
         if body.get("tool_choice") is None:
             return False
-        return self.passback_enabled(provider, model, config)
+        adapter = self.adapter_for(provider, config)
+        return adapter.should_omit_openai_tool_choice(
+            self.config_for(provider, config), model, body
+        )
 
 
 __all__ = [

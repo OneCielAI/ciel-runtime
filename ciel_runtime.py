@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from ciel_runtime_support import anthropic_model_policy
-from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage
+from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage, hosted_formula_tools
 from ciel_runtime_support import channel_llm_context, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_launch_configuration, codex_mcp_integration, kimi_identity, llm_option_config, llm_presets, mcp_proxy_notifications, native_context_recovery
 from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support import prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode
@@ -489,7 +489,7 @@ from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  #
                                                 OLLAMA_MODEL_CATALOG_PATH, PID_PATH, PLAN_ARTIFACTS_DIR,
                                                 RATE_LIMIT_STATE_PATH, REQUEST_DUMP_PATH, RESPONSE_DUMP_PATH,
                                                 ROUTER_ACTIVITY_PATH, ROUTER_BASE, ROUTER_CLIENTS_DIR,
-                                                ROUTER_EXTERNAL_TOKEN_PATH, ROUTER_HOST, ROUTER_PORT, SSE_LAST_PATH,
+                                                ROUTER_EXTERNAL_TOKEN_PATH, ROUTER_HOST, ROUTER_INSTANCE_DIR, ROUTER_PORT, ROUTER_WORKSPACE, SSE_LAST_PATH,
                                                 SSE_TRACE_PATH, TOOL_CALL_LOG_PATH, USAGE_EVENTS_PATH,
                                                 WEB_TOOLS_MCP_CONFIG, ZAI_MCP_CONFIG, agy_user_bin_dir,
                                                 ciel_runtime_user_bin_dir, default_router_port,
@@ -894,6 +894,7 @@ def provider_contract_config(provider: str, pcfg: dict[str, Any]) -> ProviderCon
     return project_provider_contract_config(provider, pcfg, provider_config_api_keys(provider, pcfg))
 
 def configured_provider_adapter(provider: str, pcfg: dict[str, Any]): return PROVIDER_ADAPTERS.create(provider, base_url=str(pcfg.get("base_url") or ""))
+def provider_hosted_tool_policy(provider: str, pcfg: dict[str, Any]): return configured_provider_adapter(provider, pcfg).hosted_tool_policy(provider_contract_config(provider, pcfg))
 
 _PROVIDER_CONTRACT_API = ProviderContractProjectionApi(
     adapter=configured_provider_adapter,
@@ -2693,7 +2694,7 @@ def openai_forward_services() -> OpenAIForwardServices:
                                          post_json_with_rate_retry, stream_openai_chat_to_anthropic_sse, write_anthropic_open_stream_stop),
         response=OpenAIForwardResponse(mark_pending_channel_delivery_success, mark_pending_channel_delivery_failed, write_router_activity, openai_chat_to_anthropic,
                                        remember_channel_injected_tool_uses, prepend_anthropic_text, write_anthropic_message_response, write_json),
-        log=router_log,
+        hosted_tools=hosted_formula_tools.shared_service(provider_hosted_tool_policy, router_log), log=router_log,
     )
 
 def forward_openai_compatible_chat(handler: BaseHTTPRequestHandler, provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> None:
@@ -2707,7 +2708,7 @@ def response_collection_context() -> ResponseCollectionContext:
                                       provider_endpoint, provider_headers),
             ResponseCollectionRateLimit(apply_router_rate_limit, router_rate_limit_effective_rpm, rate_limit_notice),
             ResponseCollectionProjection(refine_message_with_advisor, remember_channel_injected_tool_uses, prepend_anthropic_text),
-            post_json_with_rate_retry,
+            post_json_with_rate_retry, hosted_formula_tools.shared_service(provider_hosted_tool_policy, router_log),
         ),
         anthropic=AnthropicCollectionServices(
             request=AnthropicCollectionRequest(normalize_thinking_for_non_anthropic_provider, normalize_anthropic_system_role_messages_for_provider, cap_anthropic_body_for_provider,
@@ -2826,7 +2827,7 @@ def _router_server_context() -> RouterServerContext:
         errors=RouterHttpErrors(write_openai_responses_error, try_write_json),
     )
     server_runtime = router_server_runtime.RouterServerRuntime(
-        router_server_runtime.RouterServerConfig(CONFIG_DIR, PID_PATH, ROUTER_PORT, ROUTER_BASE, LOG_LEVEL_PATH, LOG_LEVEL_NAMES, RouterHandler),
+        router_server_runtime.RouterServerConfig(ROUTER_INSTANCE_DIR, PID_PATH, ROUTER_PORT, ROUTER_BASE, LOG_LEVEL_PATH, LOG_LEVEL_NAMES, RouterHandler),
         router_server_runtime.RouterServerStatePorts(load_config, reset_api_key_cooldowns_for_router_start, router_bind_host, current_log_level,
                                                      os.getpid, os.environ.get, router_debug_external_access_enabled, ensure_router_external_access_token),
         router_server_runtime.RouterServerEffects(os.chmod, sys.stderr, ThreadingHTTPServer, start_managed_router_lifetime_watchdog,
@@ -2835,7 +2836,7 @@ def _router_server_context() -> RouterServerContext:
                                                                                                        config=load_config())),
     )
     return RouterServerContext(
-        health=RouterHealthPresentationPorts(VERSION, SOURCE_FINGERPRINT, os.getpid, getpass.getuser, HOME, CONFIG_DIR, ROUTER_PORT, current_alias),
+        health=RouterHealthPresentationPorts(VERSION, SOURCE_FINGERPRINT, os.getpid, getpass.getuser, HOME, ROUTER_INSTANCE_DIR, ROUTER_WORKSPACE, ROUTER_PORT, current_alias),
         http_services=http_services,
         server_runtime=server_runtime,
     )
@@ -3874,7 +3875,7 @@ def posix_pids_on_port(port: int, host: str | None = None) -> list[int]: return 
 
 def router_process_context() -> RouterProcessContext:
     return RouterProcessContext(
-        config=RouterProcessConfig(PID_PATH, ROUTER_PORT, ROUTER_BASE, CONFIG_DIR),
+        config=RouterProcessConfig(PID_PATH, ROUTER_PORT, ROUTER_BASE, ROUTER_INSTANCE_DIR),
         state=RouterStatePorts(
             router_health, router_health_has_foreign_config,
             router_health_config_matches_current, router_log,

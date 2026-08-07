@@ -1834,6 +1834,24 @@ def forward_openai_chat_to_anthropic_sse(
             if not isinstance(choices, list) or not choices:
                 continue
             choice = choices[0] if isinstance(choices[0], dict) else {}
+            choice_usage = choice.get("usage")
+            if isinstance(choice_usage, dict):
+                output_tokens = max(
+                    output_tokens,
+                    positive_int(choice_usage.get("completion_tokens")) or 0,
+                )
+                prompt_tokens = positive_int(choice_usage.get("prompt_tokens")) or 0
+                details = choice_usage.get("prompt_tokens_details")
+                details = details if isinstance(details, dict) else {}
+                cache_read_tokens = max(
+                    cache_read_tokens,
+                    positive_int(choice_usage.get("prompt_cache_hit_tokens"))
+                    or positive_int(choice_usage.get("cache_read_input_tokens"))
+                    or positive_int(details.get("cached_tokens"))
+                    or 0,
+                )
+                if prompt_tokens:
+                    reported_input_tokens = max(0, prompt_tokens - cache_read_tokens)
             if choice.get("finish_reason"):
                 finish_reason = str(choice.get("finish_reason"))
             delta = choice.get("delta") if isinstance(choice.get("delta"), dict) else {}

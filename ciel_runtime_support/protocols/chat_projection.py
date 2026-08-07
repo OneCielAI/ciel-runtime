@@ -47,6 +47,40 @@ class OpenAiHistoryServices:
     log: Callable[[str, str], None]
 
 
+def openai_multimodal_content(content: Any, text: ChatProjectionText) -> Any:
+    if not isinstance(content, list):
+        return text.compact_text(text.content_to_text(content))
+    projected: list[dict[str, Any]] = []
+    fallback: list[Any] = []
+    for block in content:
+        if isinstance(block, dict) and block.get("type") == "text":
+            value = text.compact_text(str(block.get("text") or ""))
+            if value:
+                projected.append({"type": "text", "text": value})
+            continue
+        if isinstance(block, dict) and block.get("type") == "image":
+            source = block.get("source") if isinstance(block.get("source"), dict) else {}
+            if source.get("type") == "base64" and source.get("data"):
+                media_type = str(source.get("media_type") or "image/png")
+                projected.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{media_type};base64,{source['data']}"},
+                    }
+                )
+                continue
+            if source.get("type") == "url" and source.get("url"):
+                projected.append(
+                    {"type": "image_url", "image_url": {"url": str(source["url"])}}
+                )
+                continue
+        fallback.append(block)
+    fallback_text = text.compact_text(text.content_to_text(fallback))
+    if fallback_text:
+        projected.append({"type": "text", "text": fallback_text})
+    return projected if any(item.get("type") == "image_url" for item in projected) else text.compact_text(text.content_to_text(content))
+
+
 def anthropic_messages_to_ollama(body: dict[str, Any], *, services: ChatProjectionServices) -> list[dict[str, Any]]:
     text = services.text
     tools = services.tools
@@ -177,11 +211,13 @@ def anthropic_messages_to_openai(
                     })
                 else:
                     text_blocks.append(block)
-            out: dict[str, Any] = {"role": "assistant", "content": text.compact_text(text.content_to_text(text_blocks))}
+            out: dict[str, Any] = {"role": "assistant", "content": openai_multimodal_content(text_blocks, text)}
             if reasoning_seen or reasoning_passback:
                 out["reasoning_content"] = "\n".join(reasoning_parts)
             if tool_calls:
                 out["tool_calls"] = tool_calls
+            if message.get("partial") is True:
+                out["partial"] = True
             messages.append(out)
             continue
         if role == "user" and isinstance(content, list):
@@ -215,9 +251,9 @@ def anthropic_messages_to_openai(
                     messages.append({"role": "tool", "tool_call_id": tool_id, "id": tool_id, "content": tool_text})
                 else:
                     text_blocks.append(block)
-            user_text = text.content_to_text(text_blocks)
-            if user_text:
-                messages.append({"role": "user", "content": text.compact_text(user_text)})
+            user_content = openai_multimodal_content(text_blocks, text)
+            if user_content:
+                messages.append({"role": "user", "content": user_content})
             continue
         out = {"role": role, "content": text.compact_text(text.content_to_text(content))}
         if role == "assistant" and reasoning_passback:

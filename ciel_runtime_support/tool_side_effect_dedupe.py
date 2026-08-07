@@ -15,7 +15,12 @@ class ToolSideEffectDedupePolicy:
     repeated_execution_suffixes: frozenset[str] = frozenset(
         {"shell_command", "bash", "exec", "execute", "run_command", "write", "edit", "apply_patch"}
     )
-    completed_repeat_limit: int = 1
+    # One completed call can legitimately be retried after a client/process
+    # interruption because the resumed request carries no explicit new user
+    # message.  Only stop the call after the same successful result has already
+    # been observed twice consecutively.  This still bounds genuine model loops
+    # without treating a single historical completion as a permanent lock.
+    completed_repeat_limit: int = 2
 
 
 class ToolSideEffectDedupeRepository:

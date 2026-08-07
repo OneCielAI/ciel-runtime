@@ -7,7 +7,7 @@ import ciel_runtime
 
 class MenuKeyDebugTests(unittest.TestCase):
     def test_menu_key_debug_log_uses_config_dir_not_global_tmp(self):
-        self.assertEqual(ciel_runtime.CONFIG_DIR, ciel_runtime.MENU_KEY_DEBUG_PATH.parent)
+        self.assertEqual(ciel_runtime.ROUTER_INSTANCE_DIR, ciel_runtime.MENU_KEY_DEBUG_PATH.parent)
         self.assertNotEqual(Path("/tmp/ca-key-debug.log"), ciel_runtime.MENU_KEY_DEBUG_PATH)
 
     def test_menu_key_debug_log_is_best_effort(self):

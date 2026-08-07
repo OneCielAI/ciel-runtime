@@ -6,6 +6,7 @@ from typing import Any, Mapping
 
 from ..architecture import (
     MessageProtocol,
+    HostedToolPolicy,
     ProviderCapabilities,
     ProviderConfig,
     ProviderContextPolicy,
@@ -40,7 +41,9 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
             request_timeout_ms=600000,
             stream_enabled=True,
             stream_word_chunking=False,
-            effort_level="high",
+            effort_level="max",
+            official_tools_enabled=True,
+            official_tools=["web-search", "fetch"],
             haiku_model="kimi-for-coding",
             subagent_model="kimi-for-coding",
         )
@@ -155,10 +158,10 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
             {
                 "context_window": context,
                 "max_model_len": context,
-                "effort_level": "high",
+                "effort_level": "max",
                 "model_profile": "kimi-k3-1m",
             },
-            "Kimi K3 profile applied: 1M context and high reasoning effort. "
+            "Kimi K3 profile applied: 1M context and max reasoning effort. "
             "Start a new session after changing model, context, or reasoning effort.",
         )
 
@@ -218,7 +221,15 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
         config: ProviderConfig,
         model: str | None = None,
     ) -> MessageProtocol:
-        del config, model
+        normalized_model = self.normalize_model_id(
+            str(model or config.model or "")
+        )
+        if (
+            operation == "anthropic_messages"
+            and normalized_model in {"k3", "k3[1m]"}
+            and self.hosted_tool_policy(config).formulas
+        ):
+            return "openai_chat"
         return (
             "openai_chat"
             if operation in {"openai_chat", "openai_responses"}
@@ -266,20 +277,69 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
             requested = config.options.get("effort_level")
         return self._reasoning_effort(requested)
 
+    def openai_reasoning_passback_enabled(
+        self, config: ProviderConfig, model: str | None = None
+    ) -> bool:
+        del config
+        normalized = self.normalize_model_id(str(model or ""))
+        return normalized in {
+            "k3",
+            "k3[1m]",
+            "kimi-for-coding",
+            "kimi-for-coding-highspeed",
+        }
+
+    def hosted_tool_policy(self, config: ProviderConfig) -> HostedToolPolicy:
+        if config.options.get("official_tools_enabled", True) is False:
+            return HostedToolPolicy()
+        configured = config.options.get("official_tools", ("web-search", "fetch"))
+        if configured is False or configured is None:
+            return HostedToolPolicy()
+        if isinstance(configured, str):
+            names = tuple(part.strip() for part in configured.split(",") if part.strip())
+        elif isinstance(configured, (list, tuple)):
+            names = tuple(str(part).strip() for part in configured if str(part).strip())
+        else:
+            names = ("web-search", "fetch") if configured is True else ()
+        formulas = tuple(
+            name if "/" in name else f"moonshot/{name}:latest" for name in names
+        )
+        base_url = str(
+            config.options.get("official_tools_base_url")
+            or "https://api.moonshot.ai/v1"
+        ).rstrip("/")
+        return HostedToolPolicy(base_url=base_url, formulas=formulas)
+
+    def should_omit_openai_tool_choice(
+        self,
+        config: ProviderConfig,
+        model: str | None,
+        request: Mapping[str, Any],
+    ) -> bool:
+        if not self.openai_reasoning_passback_enabled(config, model):
+            return False
+        choice = request.get("tool_choice")
+        return bool(
+            isinstance(choice, Mapping)
+            and str(choice.get("type") or "").strip().lower() == "tool"
+        )
+
     def allows_sampling_overrides(self, config: ProviderConfig) -> bool:
         del config
         return False
 
     @staticmethod
     def _reasoning_effort(value: Any) -> str:
-        effort = str(value or "high").strip().lower()
-        if effort == "ultra":
+        effort = str(value or "max").strip().lower()
+        if effort in {"xhigh", "ultra", "max"}:
             return "max"
         if effort in {"minimum", "light"}:
             return "low"
-        if effort in {"low", "medium", "high", "xhigh", "max"}:
+        if effort == "medium":
+            return "high"
+        if effort in {"low", "high"}:
             return effort
-        return "high"
+        return "max"
 
     def normalize_tool_choice(
         self, config: ProviderConfig, model: str, tool_choice: Any
@@ -289,7 +349,7 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
             tool_choice, Mapping
         ):
             return tool_choice
-        if str(tool_choice.get("type") or "").strip().lower() in {"any", "tool"}:
+        if str(tool_choice.get("type") or "").strip().lower() == "tool":
             return {"type": "auto"}
         return tool_choice
 

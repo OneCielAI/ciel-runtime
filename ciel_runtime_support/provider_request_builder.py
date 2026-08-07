@@ -238,6 +238,8 @@ class ProviderRequestBuilder:
             request["tool_choice"] = self.openai.tool_choice(body.get("tool_choice"))
         if configured:
             request["max_tokens"] = configured
+        if isinstance(body.get("response_format"), dict):
+            request["response_format"] = dict(body["response_format"])
         for key in ("temperature", "top_p"):
             if self.openai.sampling_allowed(provider, config) and config.get(key) is not None:
                 request[key] = config[key]

@@ -39,8 +39,10 @@ class KimiProviderTests(unittest.TestCase):
         self.assertTrue(pcfg["preserve_anthropic_thinking"])
         self.assertTrue(pcfg["normalize_anthropic_tool_use"])
         self.assertTrue(pcfg["supports_tool_choice"])
+        self.assertTrue(pcfg["official_tools_enabled"])
+        self.assertEqual(["web-search", "fetch"], pcfg["official_tools"])
         self.assertIn("thinking", pcfg["claude_code_supported_capabilities"])
-        self.assertEqual("high", pcfg["effort_level"])
+        self.assertEqual("max", pcfg["effort_level"])
 
     def test_kimi_endpoint_policy_splits_claude_and_codex_protocols(self):
         pcfg = self.kimi_cfg()["providers"]["kimi"]
@@ -55,6 +57,24 @@ class KimiProviderTests(unittest.TestCase):
         self.assertEqual(
             "https://api.kimi.com/coding/v1/chat/completions",
             ciel_runtime.join_url(ciel_runtime.provider_upstream_request_base("kimi", pcfg), "/v1/chat/completions"),
+        )
+
+    def test_k3_claude_route_uses_openai_chat_for_official_formula_tools(self):
+        pcfg = self.kimi_cfg(current_model="k3")["providers"]["kimi"]
+
+        self.assertEqual(
+            "openai_chat",
+            ciel_runtime.select_provider_protocol(
+                "kimi", pcfg, "anthropic_messages", "k3"
+            ),
+        )
+
+        pcfg["official_tools_enabled"] = False
+        self.assertEqual(
+            "anthropic_messages",
+            ciel_runtime.select_provider_protocol(
+                "kimi", pcfg, "anthropic_messages", "k3"
+            ),
         )
 
     def test_anthropic_endpoint_keeps_mid_conversation_system_context_inline(self):
@@ -125,14 +145,14 @@ class KimiProviderTests(unittest.TestCase):
             ciel_runtime.normalize_model_id("kimi", "kimi-code/kimi-for-coding-highspeed"),
         )
 
-    def test_k3_profile_defaults_to_documented_1m_and_high_effort(self):
+    def test_k3_profile_defaults_to_documented_1m_and_max_effort(self):
         pcfg = self.kimi_cfg(current_model="k3")["providers"]["kimi"]
 
         messages = ciel_runtime.apply_kimi_model_profile("kimi", pcfg)
 
         self.assertEqual(1048576, pcfg["context_window"])
         self.assertEqual(1048576, pcfg["max_model_len"])
-        self.assertEqual("high", pcfg["effort_level"])
+        self.assertEqual("max", pcfg["effort_level"])
         self.assertEqual(1048576, ciel_runtime.provider_model_context_capacity("kimi", pcfg))
         self.assertIn("max_effort", ciel_runtime.claude_code_supported_capabilities("kimi", pcfg))
         self.assertTrue(any("1M context" in message for message in messages))
@@ -145,7 +165,7 @@ class KimiProviderTests(unittest.TestCase):
 
         self.assertEqual(1048576, pcfg["context_window"])
         self.assertEqual(1048576, pcfg["max_model_len"])
-        self.assertEqual("high", pcfg["effort_level"])
+        self.assertEqual("max", pcfg["effort_level"])
         self.assertEqual(1048576, ciel_runtime.provider_model_context_capacity("kimi", pcfg))
         self.assertTrue(any("1M context" in message for message in messages))
 
@@ -175,7 +195,7 @@ class KimiProviderTests(unittest.TestCase):
         self.assertEqual("high", out["thinking"]["effort"])
         self.assertEqual("high", body["thinking"]["effort"])
 
-        for source, expected in (("low", "low"), ("medium", "medium"), ("xhigh", "xhigh"), ("max", "max"), ("unknown", "high")):
+        for source, expected in (("low", "low"), ("medium", "high"), ("xhigh", "max"), ("max", "max"), ("unknown", "max")):
             mapped = ciel_runtime.normalize_request_for_provider_wire(
                 "kimi", pcfg, {"model": "ciel-runtime-kimi-k3", "thinking": {"type": "enabled", "effort": source}}
             )
@@ -187,10 +207,75 @@ class KimiProviderTests(unittest.TestCase):
 
         request = ciel_runtime.openai_compatible_chat_request("kimi", "k3", body, pcfg)
 
-        self.assertEqual("high", request["reasoning_effort"])
+        self.assertEqual("max", request["reasoning_effort"])
         pcfg["effort_level"] = "xhigh"
         request = ciel_runtime.openai_compatible_chat_request("kimi", "k3", body, pcfg)
-        self.assertEqual("xhigh", request["reasoning_effort"])
+        self.assertEqual("max", request["reasoning_effort"])
+
+    def test_kimi_openai_history_preserves_reasoning_partial_and_json_mode(self):
+        pcfg = self.kimi_cfg(current_model="k3")["providers"]["kimi"]
+        body = {
+            "messages": [
+                {"role": "user", "content": "start"},
+                {
+                    "role": "assistant",
+                    "partial": True,
+                    "content": [
+                        {"type": "thinking", "thinking": "stable reasoning"},
+                        {"type": "text", "text": '{"status":'},
+                    ],
+                },
+            ],
+            "response_format": {"type": "json_object"},
+        }
+
+        request = ciel_runtime.openai_compatible_chat_request("kimi", "k3", body, pcfg)
+
+        assistant = next(message for message in request["messages"] if message["role"] == "assistant")
+        self.assertEqual("stable reasoning", assistant["reasoning_content"])
+        self.assertTrue(assistant["partial"])
+        self.assertEqual({"type": "json_object"}, request["response_format"])
+
+    def test_kimi_openai_projection_preserves_vision_input(self):
+        pcfg = self.kimi_cfg(current_model="k3")["providers"]["kimi"]
+        body = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "inspect"},
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/png",
+                                "data": "aW1hZ2U=",
+                            },
+                        },
+                    ],
+                }
+            ]
+        }
+
+        request = ciel_runtime.openai_compatible_chat_request("kimi", "k3", body, pcfg)
+
+        user = request["messages"][-1]
+        self.assertEqual("text", user["content"][0]["type"])
+        self.assertEqual("image_url", user["content"][1]["type"])
+        self.assertEqual(
+            "data:image/png;base64,aW1hZ2U=", user["content"][1]["image_url"]["url"]
+        )
+
+    def test_kimi_official_formula_policy_is_provider_owned_and_configurable(self):
+        pcfg = self.kimi_cfg()["providers"]["kimi"]
+        policy = ciel_runtime.provider_hosted_tool_policy("kimi", pcfg)
+        self.assertEqual("https://api.moonshot.ai/v1", policy.base_url)
+        self.assertEqual(
+            ("moonshot/web-search:latest", "moonshot/fetch:latest"), policy.formulas
+        )
+
+        pcfg["official_tools_enabled"] = False
+        self.assertEqual((), ciel_runtime.provider_hosted_tool_policy("kimi", pcfg).formulas)
 
     def test_kimi_protects_thinking_and_removes_fixed_sampling_overrides(self):
         pcfg = self.kimi_cfg(current_model="k3", temperature=0.2, top_p=0.8)["providers"]["kimi"]
@@ -207,7 +292,7 @@ class KimiProviderTests(unittest.TestCase):
         request = ciel_runtime.openai_compatible_chat_request("kimi", "k3", normalized, pcfg)
 
         self.assertEqual("enabled", normalized["thinking"]["type"])
-        self.assertEqual("high", normalized["thinking"]["effort"])
+        self.assertEqual("max", normalized["thinking"]["effort"])
         for key in ("temperature", "top_p", "n"):
             self.assertNotIn(key, normalized)
             self.assertNotIn(key, request)
@@ -345,13 +430,12 @@ class KimiProviderTests(unittest.TestCase):
         self.assertEqual(600000, pcfg["request_timeout_ms"])
         self.assertTrue(pcfg["native_compat"])
 
-    def test_kimi_downgrades_forced_tool_choice_to_auto_by_default(self):
+    def test_kimi_downgrades_specific_tool_choice_while_thinking(self):
         pcfg = self.kimi_cfg()["providers"]["kimi"]
         body = ciel_runtime.compatibility_tool_request("kimi-for-coding")
 
         out = ciel_runtime.normalize_tool_choice_for_provider("kimi", pcfg, body)
 
-        self.assertIsNot(out, body)
         self.assertEqual({"type": "auto"}, out["tool_choice"])
 
     def test_kimi_tool_choice_can_still_be_disabled(self):
@@ -388,7 +472,7 @@ class KimiProviderTests(unittest.TestCase):
         pcfg = cfg["providers"]["kimi"]
         self.assertEqual(1048576, pcfg["context_window"])
         self.assertEqual(1048576, pcfg["max_model_len"])
-        self.assertEqual("high", pcfg["effort_level"])
+        self.assertEqual("max", pcfg["effort_level"])
         self.assertEqual("kimi-k3-1m", pcfg["model_profile"])
         self.assertTrue(cfg["migrations"]["kimi_k3_default_1m_20260723"])
         self.assertIn("k3[1m]", pcfg["custom_models"])
@@ -412,7 +496,7 @@ class KimiProviderTests(unittest.TestCase):
         normalized = ciel_runtime.normalize_request_for_provider_wire("kimi", pcfg, body)
         req = ciel_runtime.openai_compatible_chat_request("kimi", "kimi-for-coding", normalized, pcfg)
 
-        self.assertEqual("auto", req["tool_choice"])
+        self.assertEqual("required", req["tool_choice"])
         self.assertEqual("mcp__ai-net-http__get_messages", req["tools"][0]["function"]["name"])
 
     def test_kimi_codex_responses_path_sends_mcp_tools_with_auto_tool_choice(self):
@@ -436,7 +520,7 @@ class KimiProviderTests(unittest.TestCase):
         normalized = ciel_runtime.normalize_request_for_provider_wire("kimi", pcfg, anthropic)
         req = ciel_runtime.openai_compatible_chat_request("kimi", "kimi-for-coding", normalized, pcfg)
 
-        self.assertEqual("auto", req["tool_choice"])
+        self.assertEqual("required", req["tool_choice"])
         self.assertEqual("mcp__ai-net-http__get_messages", req["tools"][0]["function"]["name"])
         self.assertNotIn("reasoning_effort", req)
 
@@ -451,7 +535,9 @@ class KimiProviderTests(unittest.TestCase):
             headers = {}
             path = "/v1/responses"
 
-        pcfg = self.kimi_cfg(api_key="sk-kimi-test")["providers"]["kimi"]
+        pcfg = self.kimi_cfg(
+            api_key="sk-kimi-test", official_tools_enabled=False
+        )["providers"]["kimi"]
         body = {
             "model": "kimi-for-coding",
             "messages": [{"role": "user", "content": [{"type": "text", "text": "read ai-net"}]}],
@@ -545,7 +631,7 @@ class KimiProviderTests(unittest.TestCase):
             env = ciel_runtime.env_vars(cfg)
 
         self.assertIn("[1m]", env["ANTHROPIC_MODEL"])
-        self.assertEqual("high", env["CLAUDE_CODE_EFFORT_LEVEL"])
+        self.assertEqual("max", env["CLAUDE_CODE_EFFORT_LEVEL"])
         self.assertEqual("1048576", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
         self.assertEqual("1048576", env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"])
 

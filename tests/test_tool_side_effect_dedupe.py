@@ -49,13 +49,12 @@ class ToolSideEffectDedupeServiceTest(unittest.TestCase):
         self.assertFalse(service.should_drop("mcp__chat__get_messages", {}))
         self.assertEqual({}, recent)
 
-    def test_completed_execution_repeat_is_dropped_from_request_history(self):
+    def test_first_completed_execution_can_be_retried_after_interruption(self):
         audits = []
         service = ToolSideEffectDedupeService(
             ToolSideEffectDedupePolicy(
                 frozenset(),
                 repeated_execution_suffixes=frozenset({"shell_command"}),
-                completed_repeat_limit=1,
             ),
             ToolSideEffectDedupeRepository({}, threading.Lock()),
             ToolSideEffectDedupePorts(
@@ -90,12 +89,45 @@ class ToolSideEffectDedupeServiceTest(unittest.TestCase):
             ]
         }
 
-        self.assertTrue(
+        self.assertFalse(
             service.should_drop(
                 "shell_command",
                 {"command": "cargo check", "timeout_ms": 120000.0},
                 source_body=body,
             )
+        )
+        self.assertEqual([], audits)
+
+    def test_third_consecutive_execution_is_dropped_as_a_loop(self):
+        audits = []
+        service = ToolSideEffectDedupeService(
+            ToolSideEffectDedupePolicy(
+                frozenset(), repeated_execution_suffixes=frozenset({"shell_command"})
+            ),
+            ToolSideEffectDedupeRepository({}, threading.Lock()),
+            ToolSideEffectDedupePorts(
+                now=lambda: 10.0,
+                audit=lambda event, payload: audits.append((event, payload)),
+                log=lambda _level, _message: None,
+            ),
+        )
+        body = {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": [{"type": "tool_use", "id": "call_1", "name": "shell_command", "input": {"command": "cargo check"}}],
+                },
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "call_1", "content": "ok"}]},
+                {
+                    "role": "assistant",
+                    "content": [{"type": "tool_use", "id": "call_2", "name": "shell_command", "input": {"command": "cargo check"}}],
+                },
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "call_2", "content": "ok"}]},
+            ]
+        }
+
+        self.assertTrue(
+            service.should_drop("shell_command", {"command": "cargo check"}, source_body=body)
         )
         self.assertEqual("dropped_repeated_completed_tool_call", audits[0][0])
 

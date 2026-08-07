@@ -48,6 +48,7 @@ class ResponseCollectionServices:
     rate_limit: ResponseCollectionRateLimit
     projection: ResponseCollectionProjection
     post_json_with_retry: Callable[..., Any]
+    hosted_tools: Any
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +115,11 @@ def collect_chat_message_for_responses(
     upstream_body = request.body_with_advisor_tool(body, pcfg) if request.advisor_provider_supported(provider) else body
     req_body = strategy.build_request(provider, model, upstream_body, pcfg, stream=False)
     url = request.provider_endpoint(provider, pcfg, strategy.operation)
+    timeout = strategy.request_timeout_seconds(pcfg)
+    headers = request.provider_headers(provider, pcfg, handler.headers, strategy.operation)
+    req_body, hosted_state = services.hosted_tools.prepare(
+        provider, pcfg, req_body, headers, timeout
+    )
     compatibility_test = str(handler.headers.get(services.compatibility_test_header) or "").strip().lower() in ("1", "true", "yes", "on")
     if compatibility_test and strategy.skip_rate_limit_during_compatibility_test:
         waited, rpm_used, rpm_limit = 0.0, 0, rate_limit.effective_rpm(provider, pcfg, model)
@@ -122,15 +128,30 @@ def collect_chat_message_for_responses(
     data = services.post_json_with_retry(
         url,
         req_body,
-        request.provider_headers(
-            provider, pcfg, handler.headers, strategy.operation
-        ),
-        strategy.request_timeout_seconds(pcfg),
+        headers,
+        timeout,
         provider,
         pcfg,
         model,
         None,
         retry_rate_limits=not compatibility_test,
+    )
+    data = services.hosted_tools.resolve(
+        hosted_state,
+        req_body,
+        data,
+        lambda next_body: services.post_json_with_retry(
+            url,
+            next_body,
+            headers,
+            timeout,
+            provider,
+            pcfg,
+            model,
+            None,
+            retry_rate_limits=not compatibility_test,
+        ),
+        timeout,
     )
     message = strategy.decode_response(data, model, source_body=original_body)
     message = projection.refine_with_advisor(provider, pcfg, original_body, message, model)

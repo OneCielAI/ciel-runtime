@@ -194,6 +194,8 @@ def start_router_if_needed(
     environment = spawn.environment()
     environment["CIEL_RUNTIME_MANAGED_ROUTER"] = "1"
     environment["CIEL_RUNTIME_ROUTER_OWNER_PID"] = str(spawn.process_id())
+    environment["CIEL_RUNTIME_LAUNCH_CWD"] = str(Path.cwd())
+    environment["CIEL_RUNTIME_ROUTER_PORT"] = str(config.router_port)
     with log_path.open("ab", buffering=0) as log:
         spawn.popen(
             command,

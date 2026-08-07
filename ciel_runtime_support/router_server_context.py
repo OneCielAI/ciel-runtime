@@ -18,6 +18,7 @@ class RouterHealthPresentationPorts:
     current_user: Callable[[], str]
     home: Path
     config_dir: Path
+    workspace: str
     router_port: int
     current_alias: Callable[[dict[str, Any]], str]
 
@@ -43,6 +44,7 @@ class RouterServerContext:
             "user": self.health.current_user(),
             "home": str(self.health.home),
             "config_dir": str(self.health.config_dir),
+            "workspace": self.health.workspace,
             "router_port": self.health.router_port,
             "provider": provider,
             "model": self.health.current_alias(cfg),

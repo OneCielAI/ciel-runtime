@@ -39,6 +39,7 @@ class RouterClientRegistry:
             "pid": client_pid,
             "started_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "router_port": self._router_port,
+            "workspace": str(Path.cwd().resolve(strict=False)),
         }
         path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         try:
