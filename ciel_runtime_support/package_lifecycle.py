@@ -9,6 +9,34 @@ import subprocess
 from typing import Callable
 
 
+def windows_executable_image_running(executable_name: str) -> bool:
+    """Return whether Windows currently has the executable image loaded.
+
+    npm replaces native package binaries in place. Windows rejects that copy
+    with EBUSY while any process is using the image, so the update must be
+    deferred instead of starting an install that cannot complete.
+    """
+
+    if os.name != "nt":
+        return False
+    image_name = Path(executable_name).name
+    if not image_name.casefold().endswith(".exe"):
+        image_name += ".exe"
+    try:
+        result = subprocess.run(
+            ["tasklist", "/FI", f"IMAGENAME eq {image_name}", "/FO", "CSV", "/NH"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    expected = f'"{image_name}"'.casefold()
+    return any(line.strip().casefold().startswith(expected) for line in result.stdout.splitlines())
+
+
 @dataclass(frozen=True, slots=True)
 class NpmPackageLifecyclePorts:
     find_executable: Callable[[str], str | None]
@@ -97,6 +125,15 @@ class NpmPackageLifecycle:
             return executable
         if current and not self._ports.version_newer(latest, current):
             self._print(f"{label} is up to date ({current}).")
+            return executable
+        if executable_name.casefold() == "codex" and windows_executable_image_running(
+            executable_name
+        ):
+            self._print(
+                f"{label} update deferred: {executable_name}.exe is currently running and "
+                "Windows has locked the executable. Continuing with the current version; "
+                "the update will be retried on a later launch."
+            )
             return executable
         self._print(f"{label} update available: {current or 'unknown'} -> {latest}; upgrading automatically.")
         prefix = self._ports.install_prefix()
@@ -214,4 +251,5 @@ __all__ = [
     "NpmPackageLifecyclePorts",
     "SelfUpdateLifecycle",
     "SelfUpdatePorts",
+    "windows_executable_image_running",
 ]

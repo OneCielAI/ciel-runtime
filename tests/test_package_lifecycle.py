@@ -45,6 +45,45 @@ class PackageLifecycleTests(unittest.TestCase):
         self.assertEqual("/bin/tool", result)
         self.assertTrue(any("up to date" in line for line in outputs))
 
+    def test_windows_update_is_deferred_while_native_executable_is_running(self):
+        outputs = []
+        run_upgrade = mock.Mock(return_value=(0, ""))
+        lifecycle = self._lifecycle({"npm": "npm"}, run_upgrade, outputs)
+
+        with mock.patch(
+            "ciel_runtime_support.package_lifecycle.windows_executable_image_running",
+            return_value=True,
+        ):
+            result = lifecycle.update_check(
+                r"C:\npm\codex.cmd",
+                executable_name="codex",
+                label="Codex",
+                package_spec="@openai/codex@latest",
+                skip_env="TEST_SKIP_CODEX_UPDATE",
+                current_version=lambda _executable: "1.0.0",
+            )
+
+        self.assertEqual(r"C:\npm\codex.cmd", result)
+        run_upgrade.assert_not_called()
+        self.assertTrue(any("update deferred" in line for line in outputs))
+
+    def test_windows_process_probe_matches_filtered_csv_image(self):
+        completed = mock.Mock(stdout='"codex.exe","123","Console","1","10,000 K"\n')
+        with (
+            mock.patch("ciel_runtime_support.package_lifecycle.os.name", "nt"),
+            mock.patch(
+                "ciel_runtime_support.package_lifecycle.subprocess.run",
+                return_value=completed,
+            ) as run,
+        ):
+            from ciel_runtime_support.package_lifecycle import (
+                windows_executable_image_running,
+            )
+
+            self.assertTrue(windows_executable_image_running("codex"))
+
+        self.assertIn("IMAGENAME eq codex.exe", run.call_args.args[0])
+
     def test_self_update_installs_current_prefix_and_restarts(self):
         outputs = []
         restarted = []
