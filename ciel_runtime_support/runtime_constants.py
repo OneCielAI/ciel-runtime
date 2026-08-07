@@ -159,6 +159,21 @@ ROUTED_COMPAT_PROMPT = (
     "or report the concrete connection state. Never write pseudo tool calls, partial JSON, or markdown code fences when a real Claude Code tool call is required."
 )
 NON_ANTHROPIC_COMPAT_PROMPT = ROUTED_COMPAT_PROMPT
+# ROUTED_COMPAT_PROMPT is Claude Code specific -- it names Claude Code tools and
+# is delivered with --append-system-prompt, a flag Codex classifies as Claude-only.
+# Routed Codex sessions therefore had no equivalent instruction and would end a
+# turn right after announcing what they were about to do. This is the Codex
+# wording, appended to the Responses `instructions` field instead of a CLI flag.
+# Keep it constant: it sits at the head of the prompt, so any variation would
+# invalidate the upstream prefix cache on every turn.
+ROUTED_CODEX_COMPAT_PROMPT = (
+    "You are running inside Codex CLI through the ciel-runtime router. Do not stop after announcing what you plan to do. "
+    "When the user asks you to inspect, create, edit, or run code, call the tools available in this turn and report the concrete result. "
+    "Never end a turn with only a statement of intent such as saying you will now start; perform the work in the same turn. "
+    "If the task has several reasonable in-scope parts, do all of them; do not ask which part to start unless the user explicitly asked for a choice. "
+    "If you decide not to use tools, give the complete answer in the same turn. "
+    "Use exactly the tool schema provided and do not invent extra fields, and never write pseudo tool calls or partial JSON where a real tool call is required."
+)
 LANGUAGES = {"en": "English", "ko": "한국어", "ja": "日本語", "zh": "中文"}
 MODEL_PRESETS: dict[str, dict[str, Any]] = {
     "deepseek-v4-flash:0731": {"compat_max_tokens": 64, "thinking": True, "num_ctx_min": 32768, "num_ctx_max": 1000000},

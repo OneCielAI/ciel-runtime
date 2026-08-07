@@ -20,7 +20,7 @@ from typing import Any, Callable, Iterable
 
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage, hosted_formula_tools
-from ciel_runtime_support import channel_llm_context, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_launch_configuration, codex_mcp_integration, kimi_identity, llm_option_config, llm_presets, mcp_proxy_notifications, native_context_recovery
+from ciel_runtime_support import channel_llm_context, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_launch_configuration, codex_mcp_integration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, mcp_proxy_notifications, native_context_recovery
 from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support import prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode
 from ciel_runtime_support.advisor_client import AdvisorClient, AdvisorClientIO, AdvisorClientPolicy, ProviderChatExecutor, ProviderChatIO, ProviderChatPolicy
@@ -463,7 +463,7 @@ from ciel_runtime_support.runtime_constants import (ADVISOR_FEEDBACK_MARKER,  # 
                                                     PRELAUNCH_CANCEL, PRELAUNCH_LAUNCH_AGY, PRELAUNCH_LAUNCH_CLAUDE,
                                                     PRELAUNCH_LAUNCH_CODEX, PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
                                                     PRELAUNCH_RELOAD, REQUEST_DUMP_MAX_BYTES, RESPONSE_DUMP_MAX_BYTES,
-                                                    RESPONSE_DUMP_TEXT_LIMIT, ROUTED_COMPAT_PROMPT,
+                                                    RESPONSE_DUMP_TEXT_LIMIT, ROUTED_CODEX_COMPAT_PROMPT, ROUTED_COMPAT_PROMPT,
                                                     ROUTER_LOG_MAX_BYTES, SSE_TRACE_EVENT_LIMIT, SSE_TRACE_MAX_BYTES,
                                                     SSE_TRACE_PAYLOAD_LIMIT, VERSION, ZAI_ANTHROPIC_BASE_URL,
                                                     ZAI_DEFAULT_MODEL, ZAI_MANAGED_MCP_SERVERS, ZAI_MODEL_CONTEXT_HINTS)
@@ -1160,6 +1160,7 @@ response_asks_for_user_choice_or_permission = _CONVERSATION_TURN_API.response_as
 should_auto_continue_choice_question_with_tasklist = _CONVERSATION_TURN_API.should_auto_continue_choice_question_with_tasklist
 should_synthesize_tasklist_for_provider = _CONVERSATION_TURN_API.should_synthesize_tasklist_for_provider
 should_keep_work_alive_with_tasklist = _CONVERSATION_TURN_API.should_keep_work_alive_with_tasklist
+should_retry_preamble_only_turn = _CONVERSATION_TURN_API.should_retry_preamble_only_turn
 should_recover_empty_end_turn_with_tasklist = _CONVERSATION_TURN_API.should_recover_empty_end_turn_with_tasklist
 empty_end_turn_notice = _CONVERSATION_TURN_API.empty_end_turn_notice
 empty_end_turn_notice_for_body = _CONVERSATION_TURN_API.empty_end_turn_notice_for_body
@@ -2746,6 +2747,15 @@ codex_capacity_retry_limit = _CODEX_BACKEND_API.capacity_retry_limit
 forward_codex_backend_get = _CODEX_BACKEND_API.forward_get
 forward_codex_responses = _CODEX_BACKEND_API.forward_responses
 
+def body_with_codex_compat_instructions(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
+    return codex_turn_recovery.body_with_codex_compat_instructions(body, ROUTED_CODEX_COMPAT_PROMPT, is_native_codex=codex_routed_enabled(provider, pcfg), compat_enabled=should_append_compat_prompt(provider, pcfg, cfg))
+
+def _codex_turn_recovery_services() -> codex_turn_recovery.CodexTurnRecoveryServices:
+    return codex_turn_recovery.CodexTurnRecoveryServices(should_retry=should_retry_preamble_only_turn, collect_message=collect_provider_message_for_responses, log=router_log)
+
+def recover_codex_preamble_only_turn(handler: Any, provider: str, pcfg: dict[str, Any], body: dict[str, Any], message: dict[str, Any]) -> dict[str, Any]:
+    return codex_turn_recovery.recover_preamble_only_turn(handler, provider, pcfg, body, message, _codex_turn_recovery_services())
+
 def _router_request_context() -> RouterRequestContext:
     assembly = router_request_assembly
     openai = assembly.OpenAIResponseAssembly(
@@ -2753,7 +2763,8 @@ def _router_request_context() -> RouterRequestContext:
         assembly.OpenAIResponseConversionPorts(openai_responses_to_anthropic_messages, current_alias, _update_tool_schema_registry, normalize_thinking_for_non_anthropic_provider, filter_blocked_tools,
                                                normalize_tool_choice_for_provider, write_context_usage, strip_autonomous_advisor_server_tools, body_with_pending_channel_messages, body_with_channel_tool_result_context),
         assembly.OpenAIResponseRoutingPorts(maybe_handle_import_session_request, codex_routed_enabled, forward_codex_responses, select_provider_protocol, forward_provider_responses,
-                                            dump_request_for_trace, normalize_request_for_provider_wire, collect_provider_message_for_responses),
+                                            dump_request_for_trace, normalize_request_for_provider_wire, collect_provider_message_for_responses,
+                                            body_with_codex_compat_instructions, recover_codex_preamble_only_turn),
         assembly.OpenAIResponseDeliveryPorts(begin_pending_channel_delivery, mark_pending_channel_delivery_success, mark_pending_channel_delivery_failed, commit_pending_channel_delivery_cursors),
         assembly.OpenAIResponseOutputPorts(write_openai_responses_response, write_openai_responses_error, upstream_http_error_message, codex_routed_auth_error_message, router_event_message_preview),
     )

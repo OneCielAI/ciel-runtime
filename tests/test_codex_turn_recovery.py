@@ -1,0 +1,231 @@
+import unittest
+from unittest import mock
+
+import ciel_runtime
+from ciel_runtime_support import codex_turn_recovery
+from ciel_runtime_support.runtime_constants import (
+    ROUTED_CODEX_COMPAT_PROMPT,
+    ROUTED_COMPAT_PROMPT,
+)
+
+
+def work_request_body(**extra):
+    """The shape captured from a stalled routed Codex session.
+
+    The client already ran tools this turn, so the newest user message carries
+    tool results rather than prose. Note the Codex tool name: the mid-work check
+    must not depend on Claude Code's tool vocabulary.
+    """
+
+    body = {
+        "model": "ciel-runtime-deepseek-deepseek-v4-flash",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Update the ATR noise threshold in the signal registry and run the tests.",
+                    }
+                ],
+            },
+            {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_prev",
+                        "name": "exec_command",
+                        "input": {"cmd": "git status --short"},
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "toolu_prev",
+                        "content": "?? docs/okf/\n?? research/bb-slope-regimes/",
+                    }
+                ],
+            },
+        ],
+    }
+    body.update(extra)
+    return body
+
+
+def text_message(text):
+    return {"role": "assistant", "content": [{"type": "text", "text": text}]}
+
+
+def tool_message(text=""):
+    content = [{"type": "text", "text": text}] if text else []
+    content.append({"type": "tool_use", "id": "toolu_1", "name": "Read", "input": {"file_path": "/a"}})
+    return {"role": "assistant", "content": content}
+
+
+class PreambleOnlyTurnPolicyTests(unittest.TestCase):
+    def test_announcement_after_a_work_request_is_retryable(self):
+        self.assertTrue(
+            ciel_runtime.should_retry_preamble_only_turn(
+                work_request_body(), "이제 실제 조회를 시작합니다.", []
+            )
+        )
+
+    def test_turn_with_a_tool_call_is_never_retried(self):
+        self.assertFalse(
+            ciel_runtime.should_retry_preamble_only_turn(
+                work_request_body(), "바로 진행합니다.", [{"function": {"name": "Read"}}]
+            )
+        )
+
+    def test_empty_turn_is_left_to_the_empty_end_turn_path(self):
+        self.assertFalse(
+            ciel_runtime.should_retry_preamble_only_turn(work_request_body(), "", [])
+        )
+
+    def test_long_substantive_answer_is_not_an_announcement(self):
+        self.assertFalse(
+            ciel_runtime.should_retry_preamble_only_turn(
+                work_request_body(), "x" * 401, []
+            )
+        )
+
+    def test_multiline_report_after_tools_is_treated_as_a_real_answer(self):
+        report = "ATR 임계값을 0.8로 조정했습니다.\n테스트 12개가 통과했습니다."
+
+        self.assertFalse(
+            ciel_runtime.should_retry_preamble_only_turn(work_request_body(), report, [])
+        )
+
+    def test_plan_mode_turn_is_never_retried(self):
+        body = work_request_body()
+        body["messages"][0]["attachment"] = {"type": "plan_mode"}
+
+        self.assertTrue(ciel_runtime._CONVERSATION_TURN_API.plan_mode_active(body))
+        self.assertFalse(
+            ciel_runtime.should_retry_preamble_only_turn(body, "이제 시작합니다.", [])
+        )
+
+
+class RecoverPreambleOnlyTurnTests(unittest.TestCase):
+    def _services(self, retry_result, calls):
+        def collect(handler, provider, pcfg, body):
+            calls.append(body)
+            return retry_result
+
+        return codex_turn_recovery.CodexTurnRecoveryServices(
+            should_retry=ciel_runtime.should_retry_preamble_only_turn,
+            collect_message=collect,
+            log=lambda *_: None,
+        )
+
+    def test_retry_replaces_the_announcement_with_real_work(self):
+        calls = []
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "deepseek",
+            {},
+            work_request_body(),
+            text_message("이제 실제 조회를 시작합니다."),
+            self._services(tool_message(), calls),
+        )
+
+        self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
+        self.assertIn("이제 실제 조회를 시작합니다.", codex_turn_recovery.message_text(recovered))
+        self.assertEqual(1, len(calls), "recovery must be bounded to one extra call")
+        replayed = calls[0]["messages"]
+        self.assertEqual("assistant", replayed[-2]["role"])
+        self.assertEqual("user", replayed[-1]["role"])
+        self.assertIn(
+            codex_turn_recovery.CODEX_CONTINUATION_NUDGE,
+            replayed[-1]["content"][0]["text"],
+        )
+
+    def test_retry_without_tools_keeps_the_original_reply(self):
+        calls = []
+        original = text_message("이제 실제 조회를 시작합니다.")
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None, "deepseek", {}, work_request_body(), original,
+            self._services(text_message("여전히 계획만 말합니다."), calls),
+        )
+
+        self.assertEqual(original, recovered)
+
+    def test_turn_that_already_called_a_tool_is_untouched(self):
+        calls = []
+        original = tool_message("진행합니다.")
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None, "deepseek", {}, work_request_body(), original,
+            self._services(tool_message(), calls),
+        )
+
+        self.assertEqual(original, recovered)
+        self.assertEqual([], calls, "no upstream call when the model already acted")
+
+    def test_upstream_failure_during_recovery_keeps_the_original_reply(self):
+        def boom(*_args, **_kwargs):
+            raise RuntimeError("upstream down")
+
+        original = text_message("이제 시작합니다.")
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None, "deepseek", {}, work_request_body(), original,
+            codex_turn_recovery.CodexTurnRecoveryServices(
+                should_retry=ciel_runtime.should_retry_preamble_only_turn,
+                collect_message=boom,
+                log=lambda *_: None,
+            ),
+        )
+
+        self.assertEqual(original, recovered)
+
+
+class CodexCompatInstructionTests(unittest.TestCase):
+    CFG = {"claude_code": {"compat_prompt_for_non_anthropic": True}}
+
+    def test_routed_provider_receives_the_codex_wording(self):
+        body = ciel_runtime.body_with_codex_compat_instructions(
+            self.CFG, "deepseek", {}, {"instructions": "Base codex instructions."}
+        )
+
+        self.assertIn("Base codex instructions.", body["instructions"])
+        self.assertIn(ROUTED_CODEX_COMPAT_PROMPT, body["instructions"])
+        self.assertNotIn("Claude Code", ROUTED_CODEX_COMPAT_PROMPT)
+
+    def test_applied_when_the_request_carries_no_instructions(self):
+        body = ciel_runtime.body_with_codex_compat_instructions(self.CFG, "deepseek", {}, {})
+
+        self.assertEqual(ROUTED_CODEX_COMPAT_PROMPT, body["instructions"])
+
+    def test_appended_only_once_so_the_cached_prefix_stays_stable(self):
+        once = ciel_runtime.body_with_codex_compat_instructions(self.CFG, "deepseek", {}, {})
+        twice = ciel_runtime.body_with_codex_compat_instructions(self.CFG, "deepseek", {}, once)
+
+        self.assertEqual(once["instructions"], twice["instructions"])
+        self.assertIs(once, twice)
+
+    def test_native_codex_backend_is_left_alone(self):
+        original = {"instructions": "Base codex instructions."}
+        with mock.patch.object(ciel_runtime, "codex_routed_enabled", return_value=True):
+            body = ciel_runtime.body_with_codex_compat_instructions(
+                self.CFG, "openai", {}, original
+            )
+
+        self.assertIs(original, body)
+
+    def test_disabled_by_the_same_switch_as_the_claude_prompt(self):
+        original = {"instructions": "Base."}
+        body = ciel_runtime.body_with_codex_compat_instructions(
+            {"claude_code": {"compat_prompt_for_non_anthropic": False}}, "deepseek", {}, original
+        )
+
+        self.assertIs(original, body)
+
+    def test_claude_prompt_is_still_claude_specific(self):
+        self.assertIn("Claude Code", ROUTED_COMPAT_PROMPT)
+
+
+if __name__ == "__main__":
+    unittest.main()

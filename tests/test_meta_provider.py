@@ -273,6 +273,8 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
                 dump_request=mock.Mock(),
                 normalize_provider_wire=mock.Mock(),
                 collect_message=collect,
+                apply_codex_compat_instructions=lambda _cfg, _provider, _pcfg, body: body,
+                recover_preamble_only_turn=lambda _h, _p, _c, _b, message: message,
             ),
             delivery=openai_responses_router.OpenAIResponsesDelivery(
                 begin=mock.Mock(),

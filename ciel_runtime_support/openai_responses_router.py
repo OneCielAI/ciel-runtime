@@ -41,6 +41,10 @@ class OpenAIResponsesRouting:
     dump_request: Callable[..., Any]
     normalize_provider_wire: Callable[..., dict[str, Any]]
     collect_message: Callable[..., dict[str, Any]]
+    # Both belong here rather than with the conversions: each one's behaviour is
+    # decided by the routed-vs-native split this group already owns.
+    apply_codex_compat_instructions: Callable[..., dict[str, Any]]
+    recover_preamble_only_turn: Callable[..., dict[str, Any]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +86,11 @@ def handle_openai_responses_request(
     routing = services.routing
     delivery = services.delivery
     output = services.output
+    # Codex cannot receive --append-system-prompt, so the routed compatibility
+    # instruction has to ride along in the request itself. Do this before the
+    # conversion so it reaches both the translated path and a native Responses
+    # provider; the native Codex backend is excluded inside the port.
+    body = routing.apply_codex_compat_instructions(cfg, provider, pcfg, body)
     anthropic_body = conversion.to_anthropic(body, conversion.current_alias(cfg))
     if routing.maybe_import_session(
         handler,
@@ -146,6 +155,9 @@ def handle_openai_responses_request(
     )
     try:
         message = routing.collect_message(handler, provider, pcfg, anthropic_body)
+        message = routing.recover_preamble_only_turn(
+            handler, provider, pcfg, anthropic_body, message
+        )
         output.write_response(handler, message, source_body=body, stream=stream)
         delivery.mark_success(handler, "responses_json")
         delivery.commit(anthropic_body, handler)

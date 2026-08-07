@@ -49,6 +49,8 @@ class OpenAIResponseRoutingPorts:
     dump_request: Callback
     normalize_provider_wire: Callback
     collect_message: Callback
+    apply_codex_compat_instructions: Callback
+    recover_preamble_only_turn: Callback
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +108,8 @@ class OpenAIResponseAssembly:
                 dump_request=self.routing.dump_request,
                 normalize_provider_wire=self.routing.normalize_provider_wire,
                 collect_message=self.routing.collect_message,
+                apply_codex_compat_instructions=self.routing.apply_codex_compat_instructions,
+                recover_preamble_only_turn=self.routing.recover_preamble_only_turn,
             ),
             delivery=openai_responses_router.OpenAIResponsesDelivery(
                 begin=self.delivery.begin,

@@ -782,6 +782,42 @@ class ConversationTurnPolicy:
             self.latest_user_looks_like_work_request(body) and len(normalized) <= 1200
         )
 
+    def should_retry_preamble_only_turn(
+        self, body: dict[str, Any], response_text: str, tool_calls: list[dict[str, Any]]
+    ) -> bool:
+        """Detect a turn that only announces work, for clients without TaskList.
+
+        The Anthropic path recovers this by synthesizing a TaskList call, which
+        needs a tool the Codex client does not expose. Here the caller replays the
+        request with an explicit continue turn instead, so this only has to decide
+        whether the reply is an announcement rather than an answer.
+        """
+
+        if tool_calls:
+            return False
+        text = (response_text or "").strip()
+        if not text:
+            # No text and no tool call is an empty turn, handled elsewhere.
+            return False
+        if self.latest_user_is_claude_code_suggestion_mode(body):
+            return False
+        if self.plan_mode_active(body):
+            return False
+        if self.latest_tool_result_indicates_completed_work(body):
+            return False
+        # Mid-work is the signal that matters: the client already ran tools this
+        # turn. Do not test the result tool names -- WORK_CONTINUATION_RESULT_TOOLS
+        # lists Claude Code tools, and a Codex client calls exec_command/apply_patch.
+        if self.latest_user_tool_result_names(body):
+            return self.non_actionable_short_response(text)
+        if not self.latest_user_looks_like_work_request(body):
+            return False
+        if self.non_actionable_short_response(text):
+            return True
+        # Structural only: a brief reply to an explicit work request is an
+        # announcement, never a finished result. Never inspect wording or domain.
+        return len(re.sub(r"\s+", " ", text)) <= 400
+
     def should_recover_empty_end_turn_with_tasklist(
         self, body: dict[str, Any], response_text: str, tool_calls: list[dict[str, Any]]
     ) -> bool:
@@ -976,6 +1012,13 @@ class ConversationTurnCompatibilityApi:
 
     def should_synthesize_tasklist_for_provider(self, provider: str) -> bool:
         return self.policy_factory().should_synthesize_tasklist_for_provider(provider)
+
+    def should_retry_preamble_only_turn(
+        self, body: dict[str, Any], response_text: str, tool_calls: list[dict[str, Any]]
+    ) -> bool:
+        return self.policy_factory().should_retry_preamble_only_turn(
+            body, response_text, tool_calls
+        )
 
     def should_keep_work_alive_with_tasklist(
         self, body: dict[str, Any], response_text: str, tool_calls: list[dict[str, Any]]
