@@ -2133,30 +2133,6 @@ def _find_pseudo_xml_tool_start(text: str, source_body: dict[str, Any] | None) -
 def _parse_xml_pseudo_tool_calls(text: str, source_body: dict[str, Any] | None) -> tuple[str, list[dict[str, Any]]]: return parse_xml_pseudo_tool_calls(text, source_body, pseudo_tool_history_services())
 def sanitize_assistant_pseudo_tool_text_history(body: dict[str, Any]) -> dict[str, Any]: return sanitize_assistant_pseudo_tool_history(body, pseudo_tool_history_services())
 
-def _historical_tool_use_as_text(block: dict[str, Any]) -> dict[str, str]:
-    tool_id = str(block.get("id") or "missing-id")
-    name = str(block.get("name") or "tool")
-    tool_input = block.get("input") if isinstance(block.get("input"), dict) else {}
-    input_text = truncate_for_prompt(json.dumps(tool_input, ensure_ascii=False, sort_keys=True), 2000)
-    return {
-        "type": "text",
-        "text": (
-            "[ciel-runtime preserved a historical tool request as text because its matching "
-            f"tool_result is not present in the retained transcript. tool={name} id={tool_id} input={input_text}]"
-        ),
-    }
-
-def _historical_tool_result_as_text(block: dict[str, Any]) -> dict[str, str]:
-    tool_id = str(block.get("tool_use_id") or "unknown")
-    text = truncate_for_prompt(anthropic_content_to_text(block.get("content")), PROMPT_TOOL_RESULT_LIMIT)
-    return {
-        "type": "text",
-        "text": (
-            "[ciel-runtime preserved a historical tool result as text because its matching "
-            f"assistant tool_use is not present in the retained transcript. tool_use_id={tool_id}]\n{text}"
-        ),
-    }
-
 def normalize_anthropic_tool_turns_for_provider(provider: str, pcfg: dict[str, Any], body: dict[str, Any]) -> dict[str, Any]:
     policy = provider_request_policy(provider, pcfg)
     if not policy.normalize_historical_tool_turns:
@@ -2165,8 +2141,6 @@ def normalize_anthropic_tool_turns_for_provider(provider: str, pcfg: dict[str, A
         provider,
         body,
         AnthropicToolTurnServices(
-            tool_use_as_text=_historical_tool_use_as_text,
-            tool_result_as_text=_historical_tool_result_as_text,
             log=router_log,
         ),
     )

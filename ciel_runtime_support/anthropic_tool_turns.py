@@ -9,8 +9,6 @@ from typing import Any
 
 @dataclass(frozen=True, slots=True)
 class AnthropicToolTurnServices:
-    tool_use_as_text: Callable[[dict[str, Any]], dict[str, str]]
-    tool_result_as_text: Callable[[dict[str, Any]], dict[str, str]]
     log: Callable[[str, str], Any]
 
 
@@ -19,7 +17,14 @@ def normalize_historical_anthropic_tool_turns(
     body: dict[str, Any],
     services: AnthropicToolTurnServices,
 ) -> dict[str, Any]:
-    """Downgrade unmatched historical tool blocks instead of synthesizing success."""
+    """Discard unmatched historical tool blocks instead of replaying them as text.
+
+    An unmatched tool block cannot be sent on provider wires that require strict
+    tool-use/result pairing.  Turning it into conversation text is also unsafe:
+    the model can treat the diagnostic, command, or stale result as a new user
+    instruction.  Keep valid pairs verbatim and report discarded history only
+    through the runtime log.
+    """
     messages = body.get("messages")
     if not isinstance(messages, list):
         return body
@@ -57,12 +62,12 @@ def normalize_historical_anthropic_tool_turns(
                 if isinstance(block, dict) and block.get("type") == "tool_use":
                     tool_id = str(block.get("id") or "")
                     if not tool_id or tool_id not in retained:
-                        next_content.append(services.tool_use_as_text(block))
                         converted_tool_uses += 1
                         content_changed = True
                         continue
                 next_content.append(block)
-            normalized_messages.append(_with_content(message, next_content) if content_changed else message)
+            if next_content:
+                normalized_messages.append(_with_content(message, next_content) if content_changed else message)
             changed = changed or content_changed
             retained_tool_ids_for_next_user = retained
             continue
@@ -76,12 +81,12 @@ def normalize_historical_anthropic_tool_turns(
                     if tool_id and tool_id in retained_tool_ids_for_next_user:
                         next_content.append(block)
                     else:
-                        next_content.append(services.tool_result_as_text(block))
                         converted_tool_results += 1
                         content_changed = True
                     continue
                 next_content.append(block)
-            normalized_messages.append(_with_content(message, next_content) if content_changed else message)
+            if next_content:
+                normalized_messages.append(_with_content(message, next_content) if content_changed else message)
             changed = changed or content_changed
             retained_tool_ids_for_next_user = set()
             continue
@@ -95,7 +100,7 @@ def normalize_historical_anthropic_tool_turns(
     out["messages"] = normalized_messages
     services.log(
         "WARN",
-        "normalized historical Anthropic tool turns for provider=%s converted_tool_uses=%d converted_tool_results=%d"
+        "discarded unmatched historical Anthropic tool blocks for provider=%s tool_uses=%d tool_results=%d"
         % (provider, converted_tool_uses, converted_tool_results),
     )
     return out

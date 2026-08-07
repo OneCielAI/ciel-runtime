@@ -175,7 +175,7 @@ class CodexBackendHttpAdapter:
         upstream_body = repair_replayed_reasoning_items(body)
         delivery_body: dict[str, Any] | None = None
         if mutate_responses:
-            upstream_body, delivery_body = self._request.body_with_channel_context(body)
+            upstream_body, delivery_body = self._request.body_with_channel_context(upstream_body)
             self._request.begin_channel_delivery(handler, delivery_body)
         parsed = urllib.parse.urlparse(handler.path)
         url = self.upstream_url(parsed.path, parsed.query)

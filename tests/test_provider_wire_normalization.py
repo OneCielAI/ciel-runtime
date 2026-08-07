@@ -29,7 +29,7 @@ class ProviderWireNormalizationTests(unittest.TestCase):
             ciel_runtime.provider_wire_profile("deepseek", deepseek_cfg, body)["upstream_format"],
         )
 
-    def test_non_anthropic_missing_tool_result_downgrades_tool_use_to_text(self):
+    def test_non_anthropic_missing_tool_result_discards_only_orphan_tool_use(self):
         pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["opencode"])
         body = {
             "messages": [
@@ -47,9 +47,8 @@ class ProviderWireNormalizationTests(unittest.TestCase):
         out = ciel_runtime.normalize_anthropic_tool_turns_for_provider("opencode", pcfg, body)
 
         content = out["messages"][0]["content"]
-        self.assertEqual("text", content[1]["type"])
-        self.assertIn("matching tool_result is not present", content[1]["text"])
-        self.assertIn("tool=Bash", content[1]["text"])
+        self.assertEqual([{"type": "text", "text": "I will inspect it."}], content)
+        self.assertNotIn("ciel-runtime", str(out))
 
     def test_matching_tool_result_is_preserved_for_non_anthropic_provider(self):
         pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["opencode"])
@@ -72,7 +71,7 @@ class ProviderWireNormalizationTests(unittest.TestCase):
         self.assertEqual("tool_use", out["messages"][0]["content"][0]["type"])
         self.assertEqual("tool_result", out["messages"][1]["content"][0]["type"])
 
-    def test_orphan_tool_result_downgrades_to_text_for_non_anthropic_provider(self):
+    def test_orphan_tool_result_is_discarded_for_non_anthropic_provider(self):
         pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["opencode"])
         body = {
             "messages": [
@@ -85,10 +84,9 @@ class ProviderWireNormalizationTests(unittest.TestCase):
 
         out = ciel_runtime.normalize_anthropic_tool_turns_for_provider("opencode", pcfg, body)
 
-        block = out["messages"][0]["content"][0]
-        self.assertEqual("text", block["type"])
-        self.assertIn("matching assistant tool_use is not present", block["text"])
-        self.assertIn("late result", block["text"])
+        self.assertEqual([], out["messages"])
+        self.assertNotIn("late result", str(out))
+        self.assertNotIn("ciel-runtime", str(out))
 
     def test_anthropic_provider_preserves_historical_tool_blocks(self):
         pcfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["anthropic"])

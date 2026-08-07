@@ -1906,6 +1906,46 @@ bearer_token_env_var = "AINET_API_KEY"
         with mock.patch.dict("os.environ", {"CIEL_RUNTIME_CODEX_CAPACITY_RETRIES": "invalid"}):
             self.assertEqual(3, ciel_runtime.codex_capacity_retry_limit())
 
+    def test_codex_channel_projection_receives_repaired_reasoning_history(self):
+        payload = (
+            b"event: response.created\n"
+            b'data: {"type":"response.created","response":{"id":"ok"}}\n\n'
+        )
+        handler = FakeSSEHandler()
+        handler.path = "/backend-api/codex/responses"
+        handler.headers = FakeRequestHeaders({"authorization": "Bearer native-token"})
+        body = {
+            "model": "gpt-test",
+            "input": [
+                {"type": "reasoning", "id": "msg_foreign", "summary": []},
+                {"type": "message", "role": "user", "content": "continue"},
+            ],
+        }
+
+        def project(repaired):
+            self.assertEqual(["message"], [item["type"] for item in repaired["input"]])
+            return repaired, None
+
+        with (
+            mock.patch.object(ciel_runtime, "provider_urlopen", return_value=FakeUpstreamResponse(payload)) as urlopen,
+            mock.patch.object(
+                ciel_runtime,
+                "codex_responses_body_with_channel_context",
+                side_effect=project,
+            ),
+        ):
+            ciel_runtime.forward_codex_backend_json(
+                handler,
+                "codex",
+                {},
+                body,
+                mutate_responses=True,
+            )
+
+        forwarded = json.loads(urlopen.call_args.args[0].data)
+        self.assertEqual(["message"], [item["type"] for item in forwarded["input"]])
+        self.assertNotIn("msg_foreign", str(forwarded))
+
     def test_codex_responses_channel_context_appends_responses_input(self):
         body = {"model": "gpt-5.5", "input": "hello"}
 
