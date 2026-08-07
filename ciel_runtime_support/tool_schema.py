@@ -473,7 +473,12 @@ def _validate_and_fix_tool_input(
     if injected:
         (log or _noop_log)("WARN", f"tool_guard: {matched_name}: injected missing required fields: {', '.join(injected)}")
 
-    return fixed
+    # A client-provided schema may describe an integer-valued field as the
+    # broader JSON Schema ``number`` type.  Coercion above then creates a
+    # float even when the value is integral, while native clients such as
+    # Codex deserialize timeout fields as u64.  Normalize once more at the
+    # serialization boundary so a repaired 120000 never leaves as 120000.0.
+    return _normalize_integral_numbers(fixed)
 
 
 def _missing_required_tool_fields(tool_name: str, input_dict: dict[str, Any], source_body: dict[str, Any] | None = None) -> list[str]:

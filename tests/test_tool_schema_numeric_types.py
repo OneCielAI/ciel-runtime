@@ -23,6 +23,31 @@ class ToolSchemaNumericTypeTests(unittest.TestCase):
         self.assertIs(type(fixed["nested"]["offset"]), int)
         self.assertIs(type(fixed["ratio"]), float)
 
+    def test_client_number_schema_cannot_reintroduce_integral_timeout_float(self):
+        source_body = {
+            "tools": [
+                {
+                    "name": "shell_command",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "command": {"type": "string"},
+                            "timeout_ms": {"type": "number"},
+                        },
+                    },
+                }
+            ]
+        }
+
+        fixed = _validate_and_fix_tool_input(
+            "shell_command",
+            {"command": "cargo check", "timeout_ms": 120000},
+            source_body,
+        )
+
+        self.assertEqual(120000, fixed["timeout_ms"])
+        self.assertIs(type(fixed["timeout_ms"]), int)
+
 
 if __name__ == "__main__":
     unittest.main()
