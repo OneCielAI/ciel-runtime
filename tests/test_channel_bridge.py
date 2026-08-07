@@ -4858,6 +4858,7 @@ class ChannelBridgeTests(unittest.TestCase):
             input_frame = b"Content-Length: " + str(len(body)).encode("ascii") + b"\r\n\r\n" + body
             env = os.environ.copy()
             env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
+            env["CIEL_RUNTIME_STATE_DIR"] = str(root / "config")
             proc = subprocess.run(
                 [
                     sys.executable,
@@ -4911,6 +4912,7 @@ class ChannelBridgeTests(unittest.TestCase):
             input_frame = b"Content-Length: " + str(len(body)).encode("ascii") + b"\r\n\r\n" + body
             env = os.environ.copy()
             env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
+            env["CIEL_RUNTIME_STATE_DIR"] = str(root / "config")
             proc = subprocess.run(
                 [
                     sys.executable,
@@ -5018,6 +5020,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 )
                 env = os.environ.copy()
                 env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
+                env["CIEL_RUNTIME_STATE_DIR"] = str(root / "config")
                 proc = subprocess.Popen(
                     [
                         sys.executable,
@@ -5291,6 +5294,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 )
                 env = os.environ.copy()
                 env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
+                env["CIEL_RUNTIME_STATE_DIR"] = str(root / "config")
                 proc = subprocess.Popen(
                     [
                         sys.executable,
@@ -5415,6 +5419,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 )
                 env = os.environ.copy()
                 env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
+                env["CIEL_RUNTIME_STATE_DIR"] = str(root / "config")
                 proc = subprocess.Popen(
                     [
                         sys.executable,
@@ -5515,6 +5520,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 )
                 env = os.environ.copy()
                 env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
+                env["CIEL_RUNTIME_STATE_DIR"] = str(root / "config")
                 proc = subprocess.Popen(
                     [
                         sys.executable,
@@ -5621,6 +5627,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 )
                 env = os.environ.copy()
                 env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
+                env["CIEL_RUNTIME_STATE_DIR"] = str(root / "config")
                 proc = subprocess.Popen(
                     [
                         sys.executable,
@@ -5763,6 +5770,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 )
                 env = os.environ.copy()
                 env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
+                env["CIEL_RUNTIME_STATE_DIR"] = str(root / "config")
                 proc = subprocess.Popen(
                     [sys.executable, str(Path(ciel_runtime.__file__).resolve()), "mcp-proxy",
                      "--server-name", "t", "--server-config", str(config)],
@@ -5899,6 +5907,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 )
                 env = os.environ.copy()
                 env["CIEL_RUNTIME_CONFIG_DIR"] = str(root / "config")
+                env["CIEL_RUNTIME_STATE_DIR"] = str(root / "config")
                 proc = subprocess.Popen(
                     [
                         sys.executable,
