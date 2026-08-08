@@ -9,6 +9,7 @@ from typing import Any, Callable, Mapping
 
 from .responses_usage_observer import ResponsesUsageObserver
 from .responses_input_compatibility import repair_replayed_response_items
+from .upstream_dump import dump_upstream_request
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +31,7 @@ class ProviderResponsesPassthroughPorts:
     record_usage: Callable[[str, str, dict[str, int]], None] = (
         lambda _provider, _model, _usage: None
     )
+    log: Callable[[str, str], Any] = lambda _level, _message: None
 
 
 class ProviderResponsesPassthrough:
@@ -60,9 +62,11 @@ class ProviderResponsesPassthrough:
             self._ports.upstream_base(provider, config),
             "/v1/responses",
         )
+        data = json.dumps(upstream_body, ensure_ascii=False).encode("utf-8")
+        dump_upstream_request(url, data, self._ports.log)
         request = urllib.request.Request(
             url,
-            data=json.dumps(upstream_body, ensure_ascii=False).encode("utf-8"),
+            data=data,
             headers=self._ports.headers(provider, config, handler.headers),
             method="POST",
         )
