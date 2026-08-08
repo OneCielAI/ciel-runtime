@@ -89,6 +89,31 @@
 | `CIEL_RUNTIME_THINKING_PASSBACK_MAX` | Thinking 패스백 최대 토큰 (기본: `4096`) |
 | `CIEL_RUNTIME_PYTHON` | 사용할 Python 실행 파일 경로 |
 | `CIEL_RUNTIME_SKIP_POSTINSTALL_STOP` | npm 설치 후 stop 건너뜀 |
+| `CIEL_RUNTIME_RUNAWAY_GUARD` | 반복 폭주 가드 (기본: 켜짐, `off`로 비활성화) |
+| `CIEL_RUNTIME_RUNAWAY_MIN_REPEATS` | 연속 반복 최소 횟수 (기본: `10`) |
+| `CIEL_RUNTIME_RUNAWAY_MIN_CHARS` | 반복 구간 최소 길이 (기본: `2000`) |
+| `CIEL_RUNTIME_RUNAWAY_MAX_PERIOD` | 반복 블록 최대 길이 (기본: `4096`) |
+| `CIEL_RUNTIME_RUNAWAY_MIN_DENSITY` | 비연속 반복 최소 밀도 % (기본: `70`) |
+
+---
+
+## 반복 폭주 가드
+
+모델이 같은 문장을 끝없이 되풀이하는 생성 루프에 빠지면, 라우터가 그 턴을
+끊고 `[ciel-runtime]` 알림과 함께 `stop_reason=max_tokens`로 종료한다.
+업스트림 연결은 즉시 닫으므로 남은 루프는 생성되지도, 과금되지도 않는다.
+
+판정은 두 가지 정확 규칙으로만 이루어진다. 의미 판단이나 유사도 점수는 쓰지 않는다.
+
+1. **연속 반복** — 같은 블록이 바로 뒤에 붙어 `MIN_REPEATS`회 이상,
+   `MIN_CHARS`자 이상 반복될 때.
+2. **비연속 반복** — 같은 블록이 사이사이 다른 문구를 끼고 되풀이될 때.
+   횟수는 2배, 그리고 해당 구간의 `MIN_DENSITY`% 이상이 그 블록 자체여야 한다.
+
+2번은 임계값이지 증명이 아니다. 실제로 대부분이 한 블록의 반복인 정상 출력
+(데이터가 거의 없는 표, 거의 동일한 로그 줄 묶음)은 같은 밀도에 근접할 수 있다.
+그런 워크로드에서는 `CIEL_RUNTIME_RUNAWAY_MIN_DENSITY`를 올리거나
+`CIEL_RUNTIME_RUNAWAY_GUARD=off`로 끄면 된다. 1번 규칙은 그런 판단이 필요 없다.
 
 ---
 

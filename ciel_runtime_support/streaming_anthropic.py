@@ -10,6 +10,12 @@ from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from typing import Any, Callable, Iterable
 
+from .runaway_output_guard import (
+    RunawayOutputDetector,
+    RunawayVerdict,
+    policy_from_env,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class AnthropicStreamIO:
@@ -157,9 +163,18 @@ def rebatch_anthropic_sse_text(
         and (has_tool(source_body, "Workflow") or body_ultracode_runtime_enabled(source_body))
     )
     visible_tool_call_artifact_filters: dict[int, VisibleToolCallArtifactFilter] = {}
+    runaway_policy = policy_from_env(os.environ.get)
+    text_runaway = RunawayOutputDetector(runaway_policy)
+    thinking_runaway = RunawayOutputDetector(runaway_policy)
+    runaway_verdict: RunawayVerdict | None = None
 
     class ClientStreamDisconnected(Exception):
         pass
+
+    def note_runaway(detector: RunawayOutputDetector, text: str) -> None:
+        nonlocal runaway_verdict
+        if runaway_verdict is None:
+            runaway_verdict = detector.feed(text)
 
     def downstream_keepalive_interval() -> float:
         raw = os.environ.get("CIEL_RUNTIME_ANTHROPIC_STREAM_KEEPALIVE_SECONDS")
@@ -429,6 +444,32 @@ def rebatch_anthropic_sse_text(
             pending_message_stop[0] if pending_message_stop is not None else "message_stop",
             pending_message_stop[1] if pending_message_stop is not None else "{\"type\":\"message_stop\"}",
         )
+
+    def emit_runaway_stop() -> None:
+        """Close a looping turn instead of relaying the rest of the loop."""
+
+        nonlocal next_content_index
+        if runaway_verdict is None:
+            return
+        router_log(
+            "WARN",
+            f"anthropic_stream_runaway_repetition provider={provider} model={model} "
+            f"text_len={len(text_so_far)} {runaway_verdict.log_fields()}",
+        )
+        for index in sorted(open_content_blocks):
+            finish_visible_tool_call_artifact_filter(index)
+            emit_raw(
+                "content_block_stop",
+                json.dumps({"type": "content_block_stop", "index": index}, ensure_ascii=False),
+            )
+        open_content_blocks.clear()
+        notice_index = next_content_index
+        next_content_index += 1
+        emit_text_block(notice_index, runaway_verdict.notice())
+        # ciel-runtime, not the model, imposed the limit, so report the
+        # truncation Anthropic already has a stop reason for.
+        emit_raw("message_delta", patched_message_delta("max_tokens"))
+        emit_raw("message_stop", "{\"type\":\"message_stop\"}")
 
     def recover_hidden_only_response_if_needed() -> None:
         nonlocal next_content_index, saw_tool_use, emitted_tool_use, text_so_far, pending_message_delta
@@ -824,11 +865,14 @@ def rebatch_anthropic_sse_text(
                 patched["index"] = mapped_index
                 event = patched
                 data_str = json.dumps(event, ensure_ascii=False)
+            if delta.get("type") == "thinking_delta":
+                note_runaway(thinking_runaway, str(delta.get("thinking") or ""))
             if isinstance(mapped_index, int) and delta.get("type") == "text_delta":
                 text = delta.get("text") or ""
                 if not text:
                     return
                 text_so_far += text
+                note_runaway(text_runaway, text)
                 if provider != "anthropic" and mapped_index in held_pseudo_tool_text:
                     held_pseudo_tool_text[mapped_index] += text
                     return
@@ -886,6 +930,10 @@ def rebatch_anthropic_sse_text(
                     process_event(pending_event_type, data_str)
                 pending_event_type = None
                 pending_event_lines = []
+                if runaway_verdict is not None:
+                    # Stop reading upstream; the finally block closes the
+                    # response so the loop stops being generated and billed.
+                    break
                 continue
             if stripped.startswith("event:"):
                 pending_event_type = stripped[len("event:"):].strip() or None
@@ -900,6 +948,10 @@ def rebatch_anthropic_sse_text(
             flush_buffer(index, force=True)
         for index in list(suppressed_thinking_blocks.keys()):
             finish_suppressed_thinking_block(index)
+        if runaway_verdict is not None:
+            emit_runaway_stop()
+            stream_success = True
+            return
         recover_hidden_only_response_if_needed()
         flush_suppressed_thinking_passback()
         if pending_message_delta is not None or pending_message_stop is not None:
@@ -1097,6 +1149,10 @@ def ollama_stream_to_anthropic_sse(
     thinking_markup_filter = VisibleThinkingMarkupFilter()
     thinking_markup_suppressed = False
     repeated_completed_tool_dropped = False
+    runaway_policy = policy_from_env(os.environ.get)
+    text_runaway = RunawayOutputDetector(runaway_policy)
+    thinking_runaway = RunawayOutputDetector(runaway_policy)
+    runaway_verdict: RunawayVerdict | None = None
     sse_trace = make_outgoing_sse_trace(provider, model, "ollama_stream", source_body)
     sse_trace_outcome = "started"
     sse_trace_error: str | None = None
@@ -1260,9 +1316,11 @@ def ollama_stream_to_anthropic_sse(
         )
 
     def handle_text_chunk(text_chunk: str) -> None:
-        nonlocal text_buffer, text_so_far, text_suppressed_for_plan
+        nonlocal text_buffer, text_so_far, text_suppressed_for_plan, runaway_verdict
         if not text_chunk:
             return
+        if runaway_verdict is None:
+            runaway_verdict = text_runaway.feed(text_chunk)
         close_thinking_block()
         if source_body is not None and not text_started and not tool_calls and should_auto_enter_plan_mode(source_body, text_so_far + text_chunk, []):
             text_so_far += text_chunk
@@ -1314,9 +1372,11 @@ def ollama_stream_to_anthropic_sse(
         update_stream_activity()
 
     def handle_thinking_chunk(thinking_chunk: str) -> None:
-        nonlocal thinking_block_text, thinking_so_far
+        nonlocal thinking_block_text, thinking_so_far, runaway_verdict
         if not thinking_chunk:
             return
+        if runaway_verdict is None:
+            runaway_verdict = thinking_runaway.feed(thinking_chunk)
         close_text_block()
         active_thinking_index = open_thinking_block()
         thinking_block_text += thinking_chunk
@@ -1402,21 +1462,37 @@ def ollama_stream_to_anthropic_sse(
                 emit_tool_block(tool_index, tool_id, matched_name, fixed_input)
                 update_stream_activity()
             update_stream_activity()
+            if runaway_verdict is not None:
+                # Stop reading upstream. The finally block closes the response,
+                # which ends generation instead of paying for the whole loop.
+                router_log(
+                    "WARN",
+                    f"ollama_stream_runaway_repetition provider={provider} model={model} "
+                    f"chunks={chunks_seen} {runaway_verdict.log_fields()}",
+                )
+                write_router_activity(
+                    "error", provider, model, error="runaway_repetition", stream=True
+                )
+                break
+        runaway_stopped = runaway_verdict is not None
         trailing_text = thinking_markup_filter.finish()
-        if trailing_text:
+        if trailing_text and not runaway_stopped:
             handle_text_chunk(trailing_text)
         if thinking_markup_suppressed:
             router_log("WARN", f"suppressed visible Ollama thinking markup from stream model={model}")
         update_stream_activity(force=True)
         close_thinking_block()
-        if repeated_completed_tool_dropped and not text_so_far.strip() and not tool_calls:
+        if not runaway_stopped and repeated_completed_tool_dropped and not text_so_far.strip() and not tool_calls:
             handle_text_chunk(
                 "[ciel-runtime] Stopped an identical completed tool call from repeating. "
                 "The previous result is already in context; choose a different action or finish the turn."
             )
-        reasoning_only = thinking_started and not text_so_far.strip() and not tool_calls
+        reasoning_only = thinking_started and not text_so_far.strip() and not tool_calls and not runaway_stopped
+        # A looping turn must not be continued for the model. Every synthesis
+        # below exists to keep work moving, which is the opposite of what a
+        # runaway needs, so they are all skipped once the guard has fired.
         # Flush any remaining buffered text when word-chunking is active
-        if not reasoning_only and source_body is not None and should_auto_enter_plan_mode(source_body, text_so_far, tool_calls):
+        if not runaway_stopped and not reasoning_only and source_body is not None and should_auto_enter_plan_mode(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized EnterPlanMode from short/empty upstream stream")
@@ -1426,7 +1502,7 @@ def ollama_stream_to_anthropic_sse(
             next_content_index += 1
             tool_indices.append(tool_index)
             emit_tool_block(tool_index, tool_id, "EnterPlanMode", {})
-        elif not reasoning_only and source_body is not None and should_recover_empty_end_turn_with_tasklist(source_body, text_so_far, tool_calls):
+        elif not runaway_stopped and not reasoning_only and source_body is not None and should_recover_empty_end_turn_with_tasklist(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized TaskList from empty upstream end_turn stream")
@@ -1444,7 +1520,7 @@ def ollama_stream_to_anthropic_sse(
                 "delta": {"type": "text_delta", "text": text_so_far},
             }
             emit("content_block_delta", event)
-        if not reasoning_only and source_body is not None and should_keep_work_alive_with_tasklist(source_body, text_so_far, tool_calls):
+        if not runaway_stopped and not reasoning_only and source_body is not None and should_keep_work_alive_with_tasklist(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized TaskList to keep work moving after tool result stream")
@@ -1454,7 +1530,7 @@ def ollama_stream_to_anthropic_sse(
             next_content_index += 1
             tool_indices.append(tool_index)
             emit_tool_block(tool_index, tool_id, "TaskList", {})
-        if not reasoning_only and source_body is not None and should_auto_continue_choice_question_with_tasklist(source_body, text_so_far, tool_calls):
+        if not runaway_stopped and not reasoning_only and source_body is not None and should_auto_continue_choice_question_with_tasklist(source_body, text_so_far, tool_calls):
             ensure_message_started()
             close_text_block()
             router_log("WARN", "auto-synthesized TaskList after clarification question stream")
@@ -1475,7 +1551,12 @@ def ollama_stream_to_anthropic_sse(
             stopped_tool_indices.add(tool_index)
         if not started:
             ensure_message_started()
-        if reasoning_only:
+        if runaway_stopped and runaway_verdict is not None:
+            notice = runaway_verdict.notice()
+            notice_index = next_content_index
+            next_content_index += 1
+            emit_text_block(notice_index, notice)
+        elif reasoning_only:
             router_log(
                 "WARN",
                 f"ollama_reasoning_only_stream provider={provider} model={model} "
@@ -1499,6 +1580,10 @@ def ollama_stream_to_anthropic_sse(
         # Determine stop reason
         stop_reason = "tool_use" if tool_calls else "end_turn"
         if chunk.get("done_reason") == "length":
+            stop_reason = "max_tokens"
+        if runaway_stopped:
+            # The output really was truncated by an output limit -- ciel-runtime's,
+            # not the model's -- so max_tokens is the honest Anthropic stop reason.
             stop_reason = "max_tokens"
         # Send message_delta with final stop_reason
         event = {
@@ -1704,6 +1789,11 @@ def forward_openai_chat_to_anthropic_sse(
     finish_reason = "stop"
     chunks_seen = 0
     last_activity_update = 0.0
+    runaway_policy = policy_from_env(os.environ.get)
+    text_runaway = RunawayOutputDetector(runaway_policy)
+    reasoning_runaway = RunawayOutputDetector(runaway_policy)
+    runaway_verdict: RunawayVerdict | None = None
+    runaway_stopped = False
 
     def emit(event_name: str, payload: dict[str, Any]) -> None:
         handler.wfile.write(f"event: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
@@ -1864,9 +1954,21 @@ def forward_openai_chat_to_anthropic_sse(
             reasoning_chunk = delta.get("reasoning_content") or ""
             if reasoning_chunk:
                 reasoning_so_far += str(reasoning_chunk)
+                runaway_verdict = runaway_verdict or reasoning_runaway.feed(str(reasoning_chunk))
                 emit_reasoning_delta(str(reasoning_chunk))
                 update_stream_activity()
             text_chunk = delta.get("content") or ""
+            if text_chunk:
+                runaway_verdict = runaway_verdict or text_runaway.feed(str(text_chunk))
+            if runaway_verdict is not None:
+                # Stop reading upstream; the finally block closes the response.
+                runaway_stopped = True
+                router_log(
+                    "WARN",
+                    f"openai_stream_runaway_repetition provider={provider} model={model} "
+                    f"chunks={chunks_seen} {runaway_verdict.log_fields()}",
+                )
+                break
             if text_chunk:
                 close_reasoning_block()
                 if pseudo_mode or PSEUDO_TOOL_START in text_chunk:
@@ -1992,7 +2094,7 @@ def forward_openai_chat_to_anthropic_sse(
             )
             emit("content_block_stop", {"type": "content_block_stop", "index": tool_index})
 
-        if source_body is not None and should_auto_enter_plan_mode(source_body, text_so_far, tool_calls):
+        if not runaway_stopped and source_body is not None and should_auto_enter_plan_mode(source_body, text_so_far, tool_calls):
             router_log("WARN", "auto-synthesized EnterPlanMode from short/empty upstream OpenAI stream")
             tool_index = next_content_index
             next_content_index += 1
@@ -2007,7 +2109,7 @@ def forward_openai_chat_to_anthropic_sse(
             )
             emit("content_block_delta", {"type": "content_block_delta", "index": tool_index, "delta": {"type": "input_json_delta", "partial_json": "{}"}})
             emit("content_block_stop", {"type": "content_block_stop", "index": tool_index})
-        elif source_body is not None and should_recover_empty_end_turn_with_tasklist(source_body, text_so_far, tool_calls):
+        elif not runaway_stopped and source_body is not None and should_recover_empty_end_turn_with_tasklist(source_body, text_so_far, tool_calls):
             router_log("WARN", "auto-synthesized TaskList from empty upstream end_turn OpenAI stream")
             tool_index = next_content_index
             next_content_index += 1
@@ -2025,7 +2127,7 @@ def forward_openai_chat_to_anthropic_sse(
         elif text_suppressed_for_plan and not text_started and text_so_far:
             emit_text_delta(text_so_far)
 
-        if source_body is not None and should_keep_work_alive_with_tasklist(source_body, text_so_far, tool_calls):
+        if not runaway_stopped and source_body is not None and should_keep_work_alive_with_tasklist(source_body, text_so_far, tool_calls):
             router_log("WARN", "auto-synthesized TaskList to keep work moving after OpenAI stream")
             tool_index = next_content_index
             next_content_index += 1
@@ -2041,7 +2143,7 @@ def forward_openai_chat_to_anthropic_sse(
             emit("content_block_delta", {"type": "content_block_delta", "index": tool_index, "delta": {"type": "input_json_delta", "partial_json": "{}"}})
             emit("content_block_stop", {"type": "content_block_stop", "index": tool_index})
 
-        if source_body is not None and should_auto_continue_choice_question_with_tasklist(source_body, text_so_far, tool_calls):
+        if not runaway_stopped and source_body is not None and should_auto_continue_choice_question_with_tasklist(source_body, text_so_far, tool_calls):
             router_log("WARN", "auto-synthesized TaskList after clarification question OpenAI stream")
             tool_index = next_content_index
             next_content_index += 1
@@ -2057,10 +2159,14 @@ def forward_openai_chat_to_anthropic_sse(
             emit("content_block_delta", {"type": "content_block_delta", "index": tool_index, "delta": {"type": "input_json_delta", "partial_json": "{}"}})
             emit("content_block_stop", {"type": "content_block_stop", "index": tool_index})
 
+        if runaway_stopped and runaway_verdict is not None:
+            notice = ("\n\n" if text_started else "") + runaway_verdict.notice()
+            text_so_far += notice
+            emit_text_delta(notice)
         if text_started and text_index is not None:
             emit("content_block_stop", {"type": "content_block_stop", "index": text_index})
             text_stopped = True
-        if not text_started and not tool_calls:
+        if not runaway_stopped and not text_started and not tool_calls:
             text_so_far = empty_end_turn_notice_for_body(source_body) if source_body is not None else ""
             if source_body is not None:
                 router_log(
@@ -2073,6 +2179,9 @@ def forward_openai_chat_to_anthropic_sse(
                 emit("content_block_stop", {"type": "content_block_stop", "index": text_index})
                 text_stopped = True
         stop_reason = "tool_use" if tool_calls else ("max_tokens" if finish_reason == "length" else "end_turn")
+        if runaway_stopped:
+            # ciel-runtime truncated the output, so report it as truncated.
+            stop_reason = "max_tokens"
         final_output_tokens = output_tokens or max(1, len(text_so_far) // 4)
         final_usage = {
             "input_tokens": reported_input_tokens,

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from typing import Any, Callable
 
+from .runaway_output_guard import policy_from_env, trim_runaway_message_content
 from .response_collection import (
     AnthropicCollectionServices,
     ChatCollectionStrategy,
@@ -158,7 +160,25 @@ class ResponseCollectionContext:
                 f"{endpoint_family} endpoint family. ciel-runtime currently routes "
                 f"{provider_label} /v1/messages and /v1/chat/completions models."
             )
-        return collector(handler, provider, pcfg, body)
+        return self.guard_runaway(collector(handler, provider, pcfg, body))
+
+    @staticmethod
+    def guard_runaway(message: dict[str, Any]) -> dict[str, Any]:
+        """Cut a repetition loop out of a collected message before it is relayed.
+
+        Collection is the Codex-facing path: there is no stream to abort, but
+        the repeated block must not reach the client or the next request's
+        replayed history.
+        """
+
+        if not isinstance(message, dict):
+            return message
+        content, verdict = trim_runaway_message_content(
+            message.get("content"), policy_from_env(os.environ.get)
+        )
+        if verdict is None:
+            return message
+        return {**message, "content": content, "stop_reason": "max_tokens"}
 
 
 @dataclass(frozen=True, slots=True)
