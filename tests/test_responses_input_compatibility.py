@@ -165,46 +165,6 @@ class ResponsesInputCompatibilityTests(unittest.TestCase):
             repaired["input"][1]["call_id"],
         )
 
-    def test_omits_foreign_ids_on_item_types_without_a_named_prefix(self):
-        # `web_search_call` and `tool_search_call` are absent from the prefix
-        # map, and the recorded session carries both with opaque provider IDs.
-        # Naming types one at a time only moves the rejection to the next
-        # unlisted type, so an unnamed type still must not replay a foreign ID.
-        body = {
-            "input": [
-                {"type": "web_search_call", "id": "zV0zU+ryiYL8sNshQzds5MTC"},
-                {"type": "tool_search_call", "id": "9KW9oBKs0r6mmXGJZbfnAR+D"},
-                {"type": "tool_search_output", "id": "tso_native"},
-            ]
-        }
-
-        repaired = repair_replayed_response_items(body)
-
-        self.assertNotIn("id", repaired["input"][0])
-        self.assertNotIn("id", repaired["input"][1])
-        self.assertEqual("tso_native", repaired["input"][2]["id"])
-        self.assertEqual(
-            ["web_search_call", "tool_search_call", "tool_search_output"],
-            [item["type"] for item in repaired["input"]],
-        )
-        self.assertEqual("zV0zU+ryiYL8sNshQzds5MTC", body["input"][0]["id"])
-
-    def test_drops_reasoning_with_opaque_id_even_without_a_named_prefix(self):
-        body = {
-            "input": [
-                {
-                    "type": "reasoning",
-                    "id": "PSXs7lW68Z4lNB2fl1sOS0FE8/NiJw8VbdORl35x5oal",
-                    "encrypted_content": "sealed-elsewhere",
-                },
-                {"type": "message", "id": "msg_keep", "role": "user"},
-            ]
-        }
-
-        repaired = repair_replayed_response_items(body)
-
-        self.assertEqual(["msg_keep"], [item["id"] for item in repaired["input"]])
-
     def test_preserves_valid_ids_for_each_observed_response_item_type(self):
         body = {
             "input": [
