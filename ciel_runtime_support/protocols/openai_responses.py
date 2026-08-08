@@ -11,6 +11,7 @@ import uuid
 from typing import Any
 
 from ..architecture import MessageProtocolAdapter
+from ..responses_input_compatibility import router_synthesized_item_id
 
 
 def _positive_int(value: Any) -> int | None:
@@ -250,7 +251,7 @@ def anthropic_message_to_openai_response(
             text = str(block.get("text") or "")
             output.append(
                 {
-                    "id": f"msg_{response_id[5:13]}_{index}",
+                    "id": router_synthesized_item_id("msg", response_id, index),
                     "type": "message",
                     "status": "completed",
                     "role": "assistant",
@@ -261,7 +262,7 @@ def anthropic_message_to_openai_response(
             call_id = str(block.get("id") or f"call_{index + 1}")
             output.append(
                 {
-                    "id": f"fc_{response_id[5:13]}_{index}",
+                    "id": router_synthesized_item_id("fc", response_id, index),
                     "type": "function_call",
                     "status": "completed",
                     "call_id": call_id,
@@ -274,7 +275,7 @@ def anthropic_message_to_openai_response(
             if thinking:
                 output.append(
                     {
-                        "id": f"rs_{response_id[5:13]}_{index}",
+                        "id": router_synthesized_item_id("rs", response_id, index),
                         "type": "reasoning",
                         "summary": [{"type": "summary_text", "text": thinking}],
                     }

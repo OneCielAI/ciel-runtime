@@ -8,7 +8,9 @@ from ciel_runtime_support.codex_reasoning_rejects import (
     drop_reasoning_matching_verdict,
     drop_rejected_reasoning,
     encrypted_content_digest,
+    parse_missing_item_id,
     parse_unverifiable_encrypted_content,
+    repair_missing_item,
 )
 
 # Verbatim upstream verdict from the reproduced failure (session 019fd648,
@@ -56,6 +58,89 @@ class DropMatchingVerdictTests(unittest.TestCase):
 
         self.assertIsNone(sealed)
         self.assertIs(body, projected)
+
+
+class MissingItemVerdictTests(unittest.TestCase):
+    # Verbatim upstream verdict from session 019fd648 after the model changed:
+    # the reasoning item had been minted by the router while a foreign provider
+    # answered a Codex client, so no OpenAI backend had ever stored it.
+    MISSING_TEXT = (
+        '{"type": "error", "error": {"type": "invalid_request_error", "message": '
+        "\"Item with id 'rs_e50d87c9_0' not found. Items are not persisted when "
+        "`store` is set to false. Try again with `store` set to true, or remove "
+        'this item from your input."}}'
+    )
+
+    def test_parses_the_named_item_id(self):
+        self.assertEqual("rs_e50d87c9_0", parse_missing_item_id(self.MISSING_TEXT))
+
+    def test_ignores_unrelated_errors(self):
+        self.assertIsNone(parse_missing_item_id('{"detail": "model_capacity"}'))
+        self.assertIsNone(parse_missing_item_id(""))
+
+    def test_drops_the_named_summary_only_reasoning_item(self):
+        body = {
+            "input": [
+                {"type": "message", "id": "msg_keep", "role": "user"},
+                {
+                    "type": "reasoning",
+                    "id": "rs_e50d87c9_0",
+                    "summary": [{"type": "summary_text", "text": "hidden"}],
+                    "encrypted_content": None,
+                },
+            ]
+        }
+
+        repaired, outcome = repair_missing_item(body, "rs_e50d87c9_0")
+
+        self.assertEqual("dropped", outcome)
+        self.assertEqual(["msg_keep"], [item["id"] for item in repaired["input"]])
+        self.assertEqual(2, len(body["input"]))
+
+    def test_keeps_a_tool_call_and_omits_only_its_unknown_id(self):
+        body = {
+            "input": [
+                {
+                    "type": "function_call",
+                    "id": "fc_c55b5972_1",
+                    "name": "shell",
+                    "arguments": "{}",
+                    "call_id": "call_1",
+                },
+                {"type": "function_call_output", "call_id": "call_1", "output": "ok"},
+            ]
+        }
+
+        repaired, outcome = repair_missing_item(body, "fc_c55b5972_1")
+
+        self.assertEqual("id_omitted", outcome)
+        self.assertNotIn("id", repaired["input"][0])
+        self.assertEqual("call_1", repaired["input"][0]["call_id"])
+        self.assertEqual("shell", repaired["input"][0]["name"])
+        self.assertEqual("fc_c55b5972_1", body["input"][0]["id"])
+
+    def test_sealed_reasoning_keeps_its_content_when_the_id_is_unknown(self):
+        body = {
+            "input": [
+                {"type": "reasoning", "id": "rs_unknown", "encrypted_content": "sealed="}
+            ]
+        }
+
+        repaired, outcome = repair_missing_item(body, "rs_unknown")
+
+        self.assertEqual("id_omitted", outcome)
+        self.assertEqual(
+            {"type": "reasoning", "encrypted_content": "sealed="},
+            repaired["input"][0],
+        )
+
+    def test_an_absent_id_cannot_be_repaired(self):
+        body = {"input": [{"type": "message", "id": "msg_other"}]}
+
+        repaired, outcome = repair_missing_item(body, "rs_e50d87c9_0")
+
+        self.assertIsNone(outcome)
+        self.assertIs(body, repaired)
 
 
 class RejectedStoreTests(unittest.TestCase):

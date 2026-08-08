@@ -1,6 +1,10 @@
 import unittest
 
+from ciel_runtime_support.protocols.openai_responses import (
+    anthropic_message_to_openai_response,
+)
 from ciel_runtime_support.responses_input_compatibility import (
+    is_router_synthesized_item_id,
     repair_replayed_response_items,
 )
 
@@ -130,6 +134,89 @@ class ResponsesInputCompatibilityTests(unittest.TestCase):
                 {"type": "custom_tool_call_output", "id": "ctco_valid"},
             ]
         }
+
+        self.assertIs(body, repair_replayed_response_items(body))
+
+
+class RouterSynthesizedItemIdTests(unittest.TestCase):
+    # IDs sampled from the rollout of session 019fd648. The router's own were
+    # the only ones the OpenAI backend rejected as never stored.
+    ROUTER_MINTED = ("rs_e50d87c9_0", "rs_fb40f0bb_0", "fc_c55b5972_1", "msg_c55b5972_0")
+    UPSTREAM_ISSUED = (
+        "rs_0b9eabb999711d12016a755d56dddc81978d609657b795ba6b",
+        "fc_0b9eabb999711d12016a755e3465a88197b1c4c29d90ff0789",
+        "msg_0a1842bd470bc478016a755d3deedc8197a20573726d28fed7",
+        "fco_019fd660-738b-7bc1-a03d-7dc676d58d15",
+        "ctco_019fd67b-18f4-7d43-9bc1-73ed7afc0acc",
+        "msg_019fd64e-1892-7f33-99c0-9e1c5087a5be",
+    )
+
+    def test_recognizes_only_locally_minted_ids(self):
+        for item_id in self.ROUTER_MINTED:
+            self.assertTrue(is_router_synthesized_item_id(item_id), item_id)
+        for item_id in self.UPSTREAM_ISSUED:
+            self.assertFalse(is_router_synthesized_item_id(item_id), item_id)
+
+    def test_projection_mints_ids_the_repair_recognizes(self):
+        projected = anthropic_message_to_openai_response(
+            {
+                "model": "deepseek-v4-flash",
+                "content": [
+                    {"type": "thinking", "thinking": "considering"},
+                    {"type": "text", "text": "answer"},
+                    {"type": "tool_use", "id": "call_1", "name": "Read", "input": {}},
+                ],
+            }
+        )
+
+        ids = [item["id"] for item in projected["output"]]
+        self.assertEqual(3, len(ids))
+        for item_id in ids:
+            self.assertTrue(is_router_synthesized_item_id(item_id), item_id)
+
+    def test_drops_a_replayed_router_minted_reasoning_summary(self):
+        body = {
+            "input": [
+                {"type": "message", "id": "msg_019fd64e-1892-7f33-99c0-9e1c5087a5be"},
+                {
+                    "type": "reasoning",
+                    "id": "rs_e50d87c9_0",
+                    "summary": [{"type": "summary_text", "text": "hidden"}],
+                    "encrypted_content": None,
+                },
+            ]
+        }
+
+        repaired = repair_replayed_response_items(body)
+
+        self.assertEqual(
+            ["msg_019fd64e-1892-7f33-99c0-9e1c5087a5be"],
+            [item["id"] for item in repaired["input"]],
+        )
+
+    def test_keeps_router_minted_tool_calls_without_their_ids(self):
+        body = {
+            "input": [
+                {
+                    "type": "function_call",
+                    "id": "fc_c55b5972_1",
+                    "name": "shell",
+                    "arguments": "{}",
+                    "call_id": "call_1",
+                },
+                {"type": "message", "id": "msg_c55b5972_0", "role": "assistant"},
+            ]
+        }
+
+        repaired = repair_replayed_response_items(body)
+
+        self.assertNotIn("id", repaired["input"][0])
+        self.assertEqual("call_1", repaired["input"][0]["call_id"])
+        self.assertNotIn("id", repaired["input"][1])
+        self.assertEqual("assistant", repaired["input"][1]["role"])
+
+    def test_upstream_issued_ids_survive_untouched(self):
+        body = {"input": [{"type": "reasoning", "id": self.UPSTREAM_ISSUED[0]}]}
 
         self.assertIs(body, repair_replayed_response_items(body))
 

@@ -32,12 +32,62 @@ _UNVERIFIABLE_CONTENT = re.compile(
     r"could not be verified"
 )
 
+_MISSING_ITEM = re.compile(r"[Ii]tem with id '([^']+)' not found")
+
 
 def parse_unverifiable_encrypted_content(error_text: str) -> tuple[str, str] | None:
     """Extract the (head, tail) of the ciphertext an upstream rejected."""
 
     match = _UNVERIFIABLE_CONTENT.search(str(error_text or ""))
     return (match.group(1), match.group(2)) if match else None
+
+
+def parse_missing_item_id(error_text: str) -> str | None:
+    """Extract the item ID an upstream says it never stored.
+
+    Switching providers mid-session leaves items whose IDs were minted by the
+    router or by another backend. Replaying one draws a 404: ``Item with id
+    'rs_e50d87c9_0' not found. Items are not persisted when 'store' is set to
+    false. Try again with 'store' set to true, or remove this item from your
+    input.`` The upstream names the offending item, so the removal needs no
+    guesswork.
+    """
+
+    match = _MISSING_ITEM.search(str(error_text or ""))
+    return match.group(1) if match else None
+
+
+def repair_missing_item(
+    body: dict[str, Any],
+    item_id: str,
+) -> tuple[dict[str, Any], str | None]:
+    """Replay the item the upstream never stored without its unknown ID.
+
+    A reasoning summary carries no signature and no conversation content, so it
+    is dropped outright. Everything else — messages, tool calls, tool outputs —
+    is kept with its ID omitted, which preserves the turn's context and the
+    ``call_id`` pairing while removing the reference the upstream rejected.
+    Returns the outcome for logging, or ``None`` when no such item is present
+    and the request cannot be repaired.
+    """
+
+    items = body.get("input")
+    if not isinstance(items, list) or not item_id:
+        return body, None
+    for index, item in enumerate(items):
+        if not isinstance(item, dict) or str(item.get("id") or "") != item_id:
+            continue
+        projected = dict(body)
+        if item.get("type") == "reasoning" and not str(
+            item.get("encrypted_content") or ""
+        ).strip():
+            projected["input"] = items[:index] + items[index + 1 :]
+            return projected, "dropped"
+        retained = dict(item)
+        retained.pop("id", None)
+        projected["input"] = items[:index] + [retained] + items[index + 1 :]
+        return projected, "id_omitted"
+    return body, None
 
 
 def encrypted_content_digest(encrypted_content: str) -> str:
@@ -151,5 +201,7 @@ __all__ = [
     "drop_rejected_reasoning",
     "drop_reasoning_matching_verdict",
     "encrypted_content_digest",
+    "parse_missing_item_id",
     "parse_unverifiable_encrypted_content",
+    "repair_missing_item",
 ]

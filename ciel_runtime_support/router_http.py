@@ -20,7 +20,9 @@ from ciel_runtime_support.header_forwarding import (
 from ciel_runtime_support.codex_reasoning_rejects import (
     drop_reasoning_matching_verdict,
     drop_rejected_reasoning,
+    parse_missing_item_id,
     parse_unverifiable_encrypted_content,
+    repair_missing_item,
 )
 from ciel_runtime_support.responses_input_compatibility import (
     repair_replayed_response_items,
@@ -200,9 +202,9 @@ class CodexBackendHttpAdapter:
         headers = self._request.upstream_headers(config, handler.headers)
         data = json.dumps(upstream_body).encode("utf-8")
         dump_upstream_request(url, data, self._retry.log)
-        # Each pass through this loop removes exactly one reasoning item the
-        # upstream explicitly refused to verify, so it can run at most once per
-        # sealed reasoning item in the request.
+        # Each pass through this loop repairs exactly one input item the
+        # upstream explicitly refused, so it can run at most once per item in
+        # the request.
         while True:
             try:
                 self._send_codex_request(
@@ -211,37 +213,86 @@ class CodexBackendHttpAdapter:
                 )
                 return delivery_body
             except urllib.error.HTTPError as exc:
-                if exc.code != 400:
+                if exc.code not in (400, 404):
                     raise
                 raw = exc.read()
-                verdict = parse_unverifiable_encrypted_content(
-                    raw.decode("utf-8", errors="replace")
+                repaired = self._repaired_after_rejection(
+                    exc.code, raw.decode("utf-8", errors="replace"), upstream_body, provider
                 )
-                sealed = None
-                if verdict is not None:
-                    upstream_body, sealed = drop_reasoning_matching_verdict(
-                        upstream_body, *verdict
-                    )
-                if sealed is None:
+                if repaired is None:
                     raise urllib.error.HTTPError(
                         exc.url, exc.code, exc.msg, exc.hdrs, io.BytesIO(raw)
                     ) from None
-                self._retry.rejected_reasoning_record(sealed)
-                self._retry.log(
-                    "WARN",
-                    "codex_unverifiable_reasoning_dropped "
-                    f"head={verdict[0]} tail={verdict[1]} retrying",
-                )
-                self._retry.publish(
-                    level="warn",
-                    category="router.retry",
-                    message="Dropped reasoning the upstream could not verify",
-                    provider=provider,
-                    model=str(upstream_body.get("model") or ""),
-                    data={"head": verdict[0], "tail": verdict[1]},
-                )
+                upstream_body = repaired
                 data = json.dumps(upstream_body).encode("utf-8")
                 dump_upstream_request(url, data, self._retry.log)
+
+    def _repaired_after_rejection(
+        self,
+        status: int,
+        error_text: str,
+        upstream_body: dict[str, Any],
+        provider: str,
+    ) -> dict[str, Any] | None:
+        """Rebuild the request around the item the upstream just named."""
+
+        if status == 400:
+            return self._without_unverifiable_reasoning(error_text, upstream_body, provider)
+        return self._without_unknown_item(error_text, upstream_body, provider)
+
+    def _without_unverifiable_reasoning(
+        self,
+        error_text: str,
+        upstream_body: dict[str, Any],
+        provider: str,
+    ) -> dict[str, Any] | None:
+        verdict = parse_unverifiable_encrypted_content(error_text)
+        if verdict is None:
+            return None
+        repaired, sealed = drop_reasoning_matching_verdict(upstream_body, *verdict)
+        if sealed is None:
+            return None
+        self._retry.rejected_reasoning_record(sealed)
+        self._retry.log(
+            "WARN",
+            "codex_unverifiable_reasoning_dropped "
+            f"head={verdict[0]} tail={verdict[1]} retrying",
+        )
+        self._retry.publish(
+            level="warn",
+            category="router.retry",
+            message="Dropped reasoning the upstream could not verify",
+            provider=provider,
+            model=str(repaired.get("model") or ""),
+            data={"head": verdict[0], "tail": verdict[1]},
+        )
+        return repaired
+
+    def _without_unknown_item(
+        self,
+        error_text: str,
+        upstream_body: dict[str, Any],
+        provider: str,
+    ) -> dict[str, Any] | None:
+        item_id = parse_missing_item_id(error_text)
+        if item_id is None:
+            return None
+        repaired, outcome = repair_missing_item(upstream_body, item_id)
+        if outcome is None:
+            return None
+        self._retry.log(
+            "WARN",
+            f"codex_unknown_item_repaired id={item_id} outcome={outcome} retrying",
+        )
+        self._retry.publish(
+            level="warn",
+            category="router.retry",
+            message="Replayed an item the upstream never stored",
+            provider=provider,
+            model=str(repaired.get("model") or ""),
+            data={"item_id": item_id, "outcome": outcome},
+        )
+        return repaired
 
     def _send_codex_request(
         self,

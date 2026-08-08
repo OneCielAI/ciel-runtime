@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 
@@ -13,6 +14,26 @@ OPENAI_RESPONSES_ITEM_ID_PREFIXES = {
     "custom_tool_call": "ctc_",
     "custom_tool_call_output": "ctco_",
 }
+
+# Item IDs the router mints itself when it projects a foreign provider's answer
+# into a Responses payload: a type prefix, eight hex digits taken from the
+# locally generated response ID, and the block's index. No upstream issues IDs
+# in this shape -- OpenAI's own are a prefix plus a long unbroken hex run
+# (``rs_0b9eabb999...``) and Codex's client-side IDs are UUIDs
+# (``fco_019fd660-738b-...``) -- so the shape identifies the router's own.
+_ROUTER_SYNTHESIZED_ITEM_ID = re.compile(r"^[a-z]+_[0-9a-f]{8}_\d+$")
+
+
+def router_synthesized_item_id(prefix: str, response_id: str, index: int) -> str:
+    """Mint the item ID for one projected block of a foreign response."""
+
+    return f"{prefix}_{response_id[5:13]}_{index}"
+
+
+def is_router_synthesized_item_id(item_id: Any) -> bool:
+    """Report whether an ID was minted locally rather than by an upstream."""
+
+    return bool(_ROUTER_SYNTHESIZED_ITEM_ID.match(str(item_id or "")))
 
 
 def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
@@ -32,6 +53,13 @@ def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
     Validate IDs by Responses item type and remove only a mismatched item ID;
     keep ``call_id``, the tool name, arguments, output, and message content so
     the transcript remains usable.
+
+    IDs the router minted itself are treated the same way. They carry the right
+    prefix, so the type check alone accepts them, but no backend ever stored
+    them: OpenAI answers a replayed one with ``Item with id 'rs_..._0' not
+    found. Items are not persisted when 'store' is set to false``, which kills
+    the turn. Dropping the ID keeps the content and lets the item be replayed
+    inline.
     """
 
     value = body.get("input")
@@ -48,8 +76,9 @@ def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
         item_type = item.get("type")
         item_id = str(item.get("id") or "")
         expected_prefix = OPENAI_RESPONSES_ITEM_ID_PREFIXES.get(str(item_type or ""))
-        invalid_item_id = bool(
-            item_id and expected_prefix and not item_id.startswith(expected_prefix)
+        invalid_item_id = bool(item_id) and (
+            bool(expected_prefix and not item_id.startswith(expected_prefix))
+            or is_router_synthesized_item_id(item_id)
         )
         if item_type != "reasoning" and invalid_item_id:
             retained = dict(item)
@@ -85,6 +114,8 @@ repair_replayed_reasoning_items = repair_replayed_response_items
 
 __all__ = [
     "OPENAI_RESPONSES_ITEM_ID_PREFIXES",
+    "is_router_synthesized_item_id",
     "repair_replayed_reasoning_items",
     "repair_replayed_response_items",
+    "router_synthesized_item_id",
 ]
