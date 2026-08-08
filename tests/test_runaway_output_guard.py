@@ -3,11 +3,15 @@ import unittest
 from ciel_runtime_support.runaway_output_guard import (
     CONSECUTIVE,
     INTERLEAVED,
+    NOTICE_MARKER,
+    STOPPED,
+    TRIMMED,
     RunawayOutputDetector,
     RunawayOutputPolicy,
     _find_consecutive_loop,
     find_runaway_tail,
     policy_from_env,
+    recent_runaway_notices,
     trim_runaway_tail,
 )
 
@@ -93,13 +97,13 @@ class InterleavedLoopTests(unittest.TestCase):
     def test_reports_which_rule_fired(self):
         consecutive = find_runaway_tail(REPORTED_UNIT * 60)
         self.assertEqual(CONSECUTIVE, consecutive.kind)
-        self.assertIn("in a row", consecutive.notice())
+        self.assertIn(f"kind={CONSECUTIVE}", consecutive.log_fields())
 
         interleaved = find_runaway_tail(
             "".join(REPORTED_UNIT + f" {index}.\n" for index in range(40))
         )
         self.assertEqual(INTERLEAVED, interleaved.kind)
-        self.assertIn("within the last", interleaved.notice())
+        self.assertIn(f"kind={INTERLEAVED}", interleaved.log_fields())
 
 
 class FalsePositiveTests(unittest.TestCase):
@@ -256,14 +260,65 @@ class PolicyFromEnvTests(unittest.TestCase):
 
 
 class VerdictTextTests(unittest.TestCase):
-    def test_notice_states_the_measured_facts(self):
+    def test_notice_matches_what_actually_happened(self):
         verdict = find_runaway_tail(REPORTED_UNIT * 60)
 
-        notice = verdict.notice()
-        self.assertIn("[ciel-runtime]", notice)
-        self.assertIn(f"{verdict.period_chars}-character block", notice)
-        self.assertIn(f"{verdict.repeats} times", notice)
-        self.assertIn("period=", verdict.log_fields())
+        self.assertIn("cut short", verdict.notice(STOPPED))
+        # Nothing was cut short where the whole response had already arrived.
+        self.assertNotIn("cut short", verdict.notice(TRIMMED))
+        self.assertIn("removed", verdict.notice(TRIMMED))
+
+    def test_measurements_stay_out_of_the_model_facing_text(self):
+        verdict = find_runaway_tail(REPORTED_UNIT * 60)
+
+        for outcome in (STOPPED, TRIMMED):
+            notice = verdict.notice(outcome)
+            self.assertTrue(notice.startswith(NOTICE_MARKER))
+            self.assertNotIn(str(verdict.period_chars), notice)
+            self.assertNotIn(str(verdict.repeats), notice)
+
+    def test_log_fields_carry_the_evidence(self):
+        verdict = find_runaway_tail(REPORTED_UNIT * 60)
+
+        fields = verdict.log_fields()
+        self.assertIn(f"period={verdict.period_chars}", fields)
+        self.assertIn(f"repeats={verdict.repeats}", fields)
+        # The repeated block itself, so a report is reproducible after the fact.
+        self.assertIn("unit=", fields)
+        self.assertIn(REPORTED_UNIT[:20], fields)
+
+
+class RecentNoticeTests(unittest.TestCase):
+    def body(self, *assistant_texts):
+        messages = [{"role": "user", "content": "go"}]
+        for text in assistant_texts:
+            messages.append(
+                {"role": "assistant", "content": [{"type": "text", "text": text}]}
+            )
+        return {"messages": messages}
+
+    def test_counts_a_previous_recovery(self):
+        self.assertEqual(0, recent_runaway_notices(self.body("all good")))
+        self.assertEqual(
+            1, recent_runaway_notices(self.body(f"{NOTICE_MARKER}, so the response was cut short."))
+        )
+
+    def test_ignores_notices_beyond_the_lookback(self):
+        body = self.body(f"{NOTICE_MARKER} once.", "a", "b", "c", "d", "e")
+
+        self.assertEqual(0, recent_runaway_notices(body, lookback=3))
+        self.assertEqual(1, recent_runaway_notices(body, lookback=99))
+
+    def test_tolerates_odd_bodies(self):
+        self.assertEqual(0, recent_runaway_notices(None))
+        self.assertEqual(0, recent_runaway_notices({}))
+        self.assertEqual(0, recent_runaway_notices({"messages": "nope"}))
+        self.assertEqual(
+            1,
+            recent_runaway_notices(
+                {"messages": [{"role": "assistant", "content": f"{NOTICE_MARKER} plain string"}]}
+            ),
+        )
 
 
 if __name__ == "__main__":

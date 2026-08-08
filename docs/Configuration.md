@@ -90,6 +90,8 @@
 | `CIEL_RUNTIME_PYTHON` | 사용할 Python 실행 파일 경로 |
 | `CIEL_RUNTIME_SKIP_POSTINSTALL_STOP` | npm 설치 후 stop 건너뜀 |
 | `CIEL_RUNTIME_RUNAWAY_GUARD` | 반복 폭주 가드 (기본: 켜짐, `off`로 비활성화) |
+| `CIEL_RUNTIME_RUNAWAY_CONTINUE` | 루프 감지 후 턴 이어가기 (기본: 켜짐, `off`면 감지만 하고 종료) |
+| `CIEL_RUNTIME_RUNAWAY_RETRIES` | 수집 경로 재시도 횟수 (기본: `2`, 최대 `4`) |
 | `CIEL_RUNTIME_RUNAWAY_MIN_REPEATS` | 연속 반복 최소 횟수 (기본: `10`) |
 | `CIEL_RUNTIME_RUNAWAY_MIN_CHARS` | 반복 구간 최소 길이 (기본: `2000`) |
 | `CIEL_RUNTIME_RUNAWAY_MAX_PERIOD` | 반복 블록 최대 길이 (기본: `4096`) |
@@ -99,11 +101,12 @@
 
 ## 반복 폭주 가드
 
-모델이 같은 문장을 끝없이 되풀이하는 생성 루프에 빠지면, 라우터가 그 턴을
-끊고 `[ciel-runtime]` 알림과 함께 `stop_reason=max_tokens`로 종료한다.
-업스트림 연결은 즉시 닫으므로 남은 루프는 생성되지도, 과금되지도 않는다.
+모델이 같은 문장을 끝없이 되풀이하는 생성 루프에 빠지면 라우터가 이를 끊는다.
+업스트림 연결을 즉시 닫으므로 남은 루프는 생성되지도, 과금되지도 않는다.
 
-판정은 두 가지 정확 규칙으로만 이루어진다. 의미 판단이나 유사도 점수는 쓰지 않는다.
+### 판정
+
+두 가지 정확 규칙으로만 판단한다. 의미 판단이나 유사도 점수는 쓰지 않는다.
 
 1. **연속 반복** — 같은 블록이 바로 뒤에 붙어 `MIN_REPEATS`회 이상,
    `MIN_CHARS`자 이상 반복될 때.
@@ -114,6 +117,25 @@
 (데이터가 거의 없는 표, 거의 동일한 로그 줄 묶음)은 같은 밀도에 근접할 수 있다.
 그런 워크로드에서는 `CIEL_RUNTIME_RUNAWAY_MIN_DENSITY`를 올리거나
 `CIEL_RUNTIME_RUNAWAY_GUARD=off`로 끄면 된다. 1번 규칙은 그런 판단이 필요 없다.
+
+### 감지 후 동작
+
+턴을 죽이지 않고 이어가는 것이 기본이다. 무엇을 할 수 있는지는 경로마다 다르다.
+
+- **수집 경로** (Codex): 클라이언트로 나간 바이트도, 실행된 툴도 없으므로 응답을
+  버리고 **다시 요청한다.** 사용자에게는 아무 메시지도 보이지 않는다. 재시도는
+  같은 조건 → `effort=high` → `effort=low`(사고 끄기) 순으로 올라간다.
+  DeepSeek이 문서에서 권하는 대응(*"Retry or lower reasoning effort"*)과 같고,
+  샘플링이 확률적(`do_sample: true, temperature: 1.0`)이라 재시도는 실제로 다른 결과다.
+  Ollama 업스트림은 스트림으로 읽어 조립하므로 루프가 다 만들어지기 전에 끊긴다.
+- **스트리밍 경로** (Claude Code): 이미 나간 바이트는 되돌릴 수 없으므로 재시도가
+  불가능하다. 대신 짧은 알림과 함께 `TaskList` 툴 호출을 합성해 CLI가 다음 턴을
+  가져가게 한다. 직전 어시스턴트 턴에 같은 알림이 이미 있으면 합성하지 않고
+  종료한다 — 복구 자체가 루프가 되는 것을 막는다.
+
+알림 문구에는 측정값을 넣지 않는다. 그 텍스트는 어시스턴트 메시지에 남아 다음 턴에
+모델이 다시 읽기 때문이다. 반복 블록 길이·횟수·원문은 라우터 로그
+(`collect_runaway_repetition`, `ollama_stream_runaway_repetition` 등)에만 기록된다.
 
 ---
 

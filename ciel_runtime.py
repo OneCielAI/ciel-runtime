@@ -411,7 +411,9 @@ from ciel_runtime_support.request_shortcuts import single_value as project_singl
 from ciel_runtime_support.request_shortcuts import split_import_session_arguments as project_split_import_session_arguments
 from ciel_runtime_support.request_trace import truncate_for_dump as _truncate_for_dump
 from ciel_runtime_support.response_collection import AnthropicCollectionProjection, AnthropicCollectionRequest, AnthropicCollectionServices, AnthropicCollectionTransport, ResponseCollectionProjection, ResponseCollectionRateLimit, ResponseCollectionRequest, ResponseCollectionServices
-from ciel_runtime_support.response_collection_context import ResponseCollectionCompatibilityApi, ResponseCollectionContext, ResponseCollectionRoutingPorts, ResponseCollectionStrategyPorts
+from ciel_runtime_support.response_collection_context import ResponseCollectionCompatibilityApi, ResponseCollectionContext, ResponseCollectionRoutingPorts, ResponseCollectionStrategyPorts, ResponseCollectionStreamPorts
+from ciel_runtime_support.ollama_stream_collection import OllamaStreamCollectPorts, OllamaStreamCollector
+from ciel_runtime_support.runaway_output_guard import policy_from_env as _runaway_policy_from_env
 from ciel_runtime_support.response_stream_context import ResponseStreamAlgorithms, ResponseStreamCompatibilityApi, ResponseStreamContext, ResponseStreamConversationPorts, ResponseStreamIoPorts, ResponseStreamRecoveryPorts, ResponseStreamRuntimePorts, ResponseStreamTextPorts, ResponseStreamToolPorts, ResponseStreamTracePorts, ResponseStreamTypes
 from ciel_runtime_support.router_access import is_loopback_address  # noqa: F401 - compatibility export
 from ciel_runtime_support.router_access import router_request_bearer_token  # noqa: F401 - compatibility export
@@ -2703,6 +2705,7 @@ def response_collection_context() -> ResponseCollectionContext:
         strategies=ResponseCollectionStrategyPorts(ollama_chat_request, ollama_chat_to_anthropic, ollama_request_timeout_seconds, openai_compatible_chat_request,
                                                    openai_chat_to_anthropic, provider_request_timeout_seconds, provider_upstream_model),
         routing=ResponseCollectionRoutingPorts(resolve_requested_model, select_provider_protocol, PROVIDER_LABELS),
+        stream=ResponseCollectionStreamPorts(OllamaStreamCollector(OllamaStreamCollectPorts(open_openai_stream_with_rate_retry, router_log, lambda: _runaway_policy_from_env(os.environ.get))), router_log),
     )
 
 _RESPONSE_COLLECTION_API = ResponseCollectionCompatibilityApi(response_collection_context)

@@ -11,9 +11,11 @@ from http.server import BaseHTTPRequestHandler
 from typing import Any, Callable, Iterable
 
 from .runaway_output_guard import (
+    STOPPED,
     RunawayOutputDetector,
     RunawayVerdict,
     policy_from_env,
+    recent_runaway_notices,
 )
 
 
@@ -465,10 +467,22 @@ def rebatch_anthropic_sse_text(
         open_content_blocks.clear()
         notice_index = next_content_index
         next_content_index += 1
-        emit_text_block(notice_index, runaway_verdict.notice())
-        # ciel-runtime, not the model, imposed the limit, so report the
-        # truncation Anthropic already has a stop reason for.
-        emit_raw("message_delta", patched_message_delta("max_tokens"))
+        emit_text_block(notice_index, runaway_verdict.notice(STOPPED))
+        stop_reason = "max_tokens"
+        if (
+            not emitted_tool_use
+            and runaway_policy.recover
+            and recent_runaway_notices(source_body) == 0
+        ):
+            # Cutting the loop should not cost the user the turn. A tool call
+            # brings the CLI back for a fresh one; the history check above stops
+            # the recovery from becoming a loop of its own.
+            router_log("WARN", f"anthropic_stream_runaway_recovery provider={provider} model={model}")
+            tool_index = next_content_index
+            next_content_index += 1
+            emit_tasklist_tool(tool_index)
+            stop_reason = "tool_use"
+        emit_raw("message_delta", patched_message_delta(stop_reason))
         emit_raw("message_stop", "{\"type\":\"message_stop\"}")
 
     def recover_hidden_only_response_if_needed() -> None:
@@ -1552,10 +1566,27 @@ def ollama_stream_to_anthropic_sse(
         if not started:
             ensure_message_started()
         if runaway_stopped and runaway_verdict is not None:
-            notice = runaway_verdict.notice()
+            notice = runaway_verdict.notice(STOPPED)
+            text_so_far += notice
             notice_index = next_content_index
             next_content_index += 1
             emit_text_block(notice_index, notice)
+            # Cutting the loop should not cost the user the turn. Hand the agent
+            # a tool call so the CLI comes back for a fresh one -- unless a
+            # recent turn already carries this notice, which would mean the
+            # recovery itself is looping.
+            if (
+                not tool_calls
+                and runaway_policy.recover
+                and recent_runaway_notices(source_body) == 0
+            ):
+                router_log("WARN", f"ollama_stream_runaway_recovery provider={provider} model={model}")
+                tool_calls.append({"function": {"name": "TaskList", "arguments": {}}})
+                tool_id = f"toolu_ollama_runaway_{int(time.time() * 1000)}"
+                tool_index = next_content_index
+                next_content_index += 1
+                tool_indices.append(tool_index)
+                emit_tool_block(tool_index, tool_id, "TaskList", {})
         elif reasoning_only:
             router_log(
                 "WARN",
@@ -1581,9 +1612,9 @@ def ollama_stream_to_anthropic_sse(
         stop_reason = "tool_use" if tool_calls else "end_turn"
         if chunk.get("done_reason") == "length":
             stop_reason = "max_tokens"
-        if runaway_stopped:
-            # The output really was truncated by an output limit -- ciel-runtime's,
-            # not the model's -- so max_tokens is the honest Anthropic stop reason.
+        if runaway_stopped and not tool_calls:
+            # No continuation was synthesized, so the turn really does end here
+            # with output the router truncated.
             stop_reason = "max_tokens"
         # Send message_delta with final stop_reason
         event = {
@@ -2160,12 +2191,38 @@ def forward_openai_chat_to_anthropic_sse(
             emit("content_block_stop", {"type": "content_block_stop", "index": tool_index})
 
         if runaway_stopped and runaway_verdict is not None:
-            notice = ("\n\n" if text_started else "") + runaway_verdict.notice()
+            notice = ("\n\n" if text_started else "") + runaway_verdict.notice(STOPPED)
             text_so_far += notice
             emit_text_delta(notice)
         if text_started and text_index is not None:
             emit("content_block_stop", {"type": "content_block_stop", "index": text_index})
             text_stopped = True
+        if (
+            runaway_stopped
+            and not tool_calls
+            and runaway_policy.recover
+            and recent_runaway_notices(source_body) == 0
+        ):
+            # Give the agent another turn instead of ending on a cut-off answer.
+            router_log("WARN", f"openai_stream_runaway_recovery provider={provider} model={model}")
+            tool_index = next_content_index
+            next_content_index += 1
+            tool_calls.append({"function": {"name": "TaskList", "arguments": {}}})
+            emit(
+                "content_block_start",
+                {
+                    "type": "content_block_start",
+                    "index": tool_index,
+                    "content_block": {
+                        "type": "tool_use",
+                        "id": f"toolu_openai_runaway_{int(time.time() * 1000)}",
+                        "name": "TaskList",
+                        "input": {},
+                    },
+                },
+            )
+            emit("content_block_delta", {"type": "content_block_delta", "index": tool_index, "delta": {"type": "input_json_delta", "partial_json": "{}"}})
+            emit("content_block_stop", {"type": "content_block_stop", "index": tool_index})
         if not runaway_stopped and not text_started and not tool_calls:
             text_so_far = empty_end_turn_notice_for_body(source_body) if source_body is not None else ""
             if source_body is not None:
@@ -2179,8 +2236,8 @@ def forward_openai_chat_to_anthropic_sse(
                 emit("content_block_stop", {"type": "content_block_stop", "index": text_index})
                 text_stopped = True
         stop_reason = "tool_use" if tool_calls else ("max_tokens" if finish_reason == "length" else "end_turn")
-        if runaway_stopped:
-            # ciel-runtime truncated the output, so report it as truncated.
+        if runaway_stopped and not tool_calls:
+            # No continuation was synthesized, so the turn ends on truncated output.
             stop_reason = "max_tokens"
         final_output_tokens = output_tokens or max(1, len(text_so_far) // 4)
         final_usage = {

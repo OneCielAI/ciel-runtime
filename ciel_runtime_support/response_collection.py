@@ -15,6 +15,10 @@ class ChatCollectionStrategy:
     request_timeout_seconds: Callable[..., float]
     normalize_upstream_model: Callable[..., str]
     skip_rate_limit_during_compatibility_test: bool = False
+    # When set, the upstream is read as a stream and assembled here instead of
+    # being fetched with one blocking POST. Same result, except a runaway can be
+    # cut off while it is still being generated rather than after.
+    stream_collect: Callable[..., dict[str, Any]] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,7 +117,8 @@ def collect_chat_message_for_responses(
     model = strategy.normalize_upstream_model(provider, pcfg, model)
     original_body = body
     upstream_body = request.body_with_advisor_tool(body, pcfg) if request.advisor_provider_supported(provider) else body
-    req_body = strategy.build_request(provider, model, upstream_body, pcfg, stream=False)
+    streaming = strategy.stream_collect is not None
+    req_body = strategy.build_request(provider, model, upstream_body, pcfg, stream=streaming)
     url = request.provider_endpoint(provider, pcfg, strategy.operation)
     timeout = strategy.request_timeout_seconds(pcfg)
     headers = request.provider_headers(provider, pcfg, handler.headers, strategy.operation)
@@ -125,20 +130,34 @@ def collect_chat_message_for_responses(
         waited, rpm_used, rpm_limit = 0.0, 0, rate_limit.effective_rpm(provider, pcfg, model)
     else:
         waited, rpm_used, rpm_limit = rate_limit.apply(provider, pcfg, model)
-    data = services.post_json_with_retry(
-        url,
-        req_body,
-        headers,
-        timeout,
-        provider,
-        pcfg,
-        model,
-        None,
-        retry_rate_limits=not compatibility_test,
-    )
+    if streaming:
+        data = strategy.stream_collect(
+            url,
+            req_body,
+            headers,
+            timeout,
+            provider,
+            pcfg,
+            model,
+            retry_rate_limits=not compatibility_test,
+        )
+    else:
+        data = services.post_json_with_retry(
+            url,
+            req_body,
+            headers,
+            timeout,
+            provider,
+            pcfg,
+            model,
+            None,
+            retry_rate_limits=not compatibility_test,
+        )
+    # Hosted-tool follow-ups are plain request/response, so they keep using the
+    # blocking POST regardless of how the first turn was read.
     data = services.hosted_tools.resolve(
         hosted_state,
-        req_body,
+        {**req_body, "stream": False} if streaming else req_body,
         data,
         lambda next_body: services.post_json_with_retry(
             url,

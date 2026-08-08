@@ -542,6 +542,7 @@ from ciel_runtime_support.response_collection_context import (
     ResponseCollectionContext,
     ResponseCollectionRoutingPorts,
     ResponseCollectionStrategyPorts,
+    ResponseCollectionStreamPorts,
 )
 from ciel_runtime_support.codex_backend_context import (
     CodexBackendChannelPorts,
@@ -3544,10 +3545,11 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("__getattr__", context_source)
 
     def test_response_collection_context_owns_protocol_strategy_dispatch(self):
-        self.assertEqual(4, len(fields(ResponseCollectionContext)))
+        self.assertEqual(5, len(fields(ResponseCollectionContext)))
         self.assertEqual(1, len(fields(ResponseCollectionCompatibilityApi)))
         self.assertLessEqual(len(fields(ResponseCollectionRoutingPorts)), 3)
         self.assertLessEqual(len(fields(ResponseCollectionStrategyPorts)), 7)
+        self.assertLessEqual(len(fields(ResponseCollectionStreamPorts)), 2)
 
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")

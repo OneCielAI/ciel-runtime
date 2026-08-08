@@ -39,12 +39,23 @@ _DISABLED_VALUES = {"0", "off", "false", "no", "disable", "disabled"}
 CONSECUTIVE = "consecutive"
 INTERLEAVED = "interleaved"
 
+# What the router was able to do about the loop, which decides the wording.
+STOPPED = "stopped"
+TRIMMED = "trimmed"
+
+# Stable prefix shared by both notices. Recovering from a loop means handing the
+# agent another turn, so the router has to be able to see -- from the
+# conversation alone, with no cross-request state -- that it already did that
+# once and must not keep doing it.
+NOTICE_MARKER = "[ciel-runtime] The model repeated itself in a loop"
+
 
 @dataclass(frozen=True, slots=True)
 class RunawayOutputPolicy:
     """Thresholds a repeated tail must clear before the turn is cut short."""
 
     enabled: bool = True
+    recover: bool = True
     probe_chars: int = DEFAULT_PROBE_CHARS
     min_repeats: int = DEFAULT_MIN_REPEATS
     min_repeated_chars: int = DEFAULT_MIN_REPEATED_CHARS
@@ -75,27 +86,36 @@ class RunawayVerdict:
     def spanned_chars(self) -> int:
         return self.span_chars or self.repeated_chars
 
-    def notice(self) -> str:
-        if self.kind == INTERLEAVED:
-            detail = (
-                f"the same {self.period_chars}-character block {self.repeats} times "
-                f"within the last {self.spanned_chars()} characters"
-            )
-        else:
-            detail = (
-                f"the same {self.period_chars}-character block {self.repeats} times "
-                f"in a row ({self.repeated_chars} characters)"
+    def notice(self, outcome: str = STOPPED) -> str:
+        """One short line for the human reading the transcript.
+
+        The measurements stay out of it on purpose. This text lands in the
+        assistant message, so the model reads it back on the next turn; feeding
+        it block sizes and repeat counts only invites the agent to start
+        theorising about the router instead of doing its work. The numbers go
+        to :meth:`log_fields` where an operator can find them.
+
+        The wording has to match what actually happened. ``STOPPED`` means the
+        upstream read was cut short, which is only true where the router is
+        streaming. ``TRIMMED`` means the whole response had already been
+        generated and the loop was removed afterwards.
+        """
+
+        if outcome == TRIMMED:
+            return (
+                "[ciel-runtime] The model repeated itself in a loop. "
+                "The repeated text was removed from this response."
             )
         return (
-            f"[ciel-runtime] Stopped a runaway repetition loop: the model emitted "
-            f"{detail}. The turn was ended early and no further upstream output "
-            "was read."
+            "[ciel-runtime] The model repeated itself in a loop, so the "
+            "response was cut short."
         )
 
     def log_fields(self) -> str:
         return (
             f"kind={self.kind} period={self.period_chars} repeats={self.repeats} "
-            f"repeated_chars={self.repeated_chars} span={self.spanned_chars()}"
+            f"repeated_chars={self.repeated_chars} span={self.spanned_chars()} "
+            f"unit={self.unit_preview!r}"
         )
 
 
@@ -118,8 +138,13 @@ def policy_from_env(
     enabled = policy.enabled
     if raw_enabled is not None and str(raw_enabled).strip():
         enabled = str(raw_enabled).strip().lower() not in _DISABLED_VALUES
+    raw_recover = env_get("CIEL_RUNTIME_RUNAWAY_CONTINUE")
+    recover = policy.recover
+    if raw_recover is not None and str(raw_recover).strip():
+        recover = str(raw_recover).strip().lower() not in _DISABLED_VALUES
     return RunawayOutputPolicy(
         enabled=enabled,
+        recover=recover,
         probe_chars=policy.probe_chars,
         min_repeats=_positive_int(
             env_get("CIEL_RUNTIME_RUNAWAY_MIN_REPEATS"), policy.min_repeats
@@ -319,6 +344,46 @@ def trim_runaway_tail(
     return text[:keep], verdict
 
 
+def _message_text(message: Any) -> str:
+    content = message.get("content") if isinstance(message, dict) else None
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    return "".join(
+        str(block.get("text") or "")
+        for block in content
+        if isinstance(block, dict) and block.get("type") == "text"
+    )
+
+
+def recent_runaway_notices(body: Any, lookback: int = 4) -> int:
+    """Count loop notices already sitting in the recent assistant history.
+
+    Recovery hands the agent another turn. If that turn loops again, recovering
+    a second time would build an outer loop out of the inner one, so this is the
+    stop condition -- read from the conversation itself rather than from state
+    the router would have to keep between requests.
+    """
+
+    if not isinstance(body, dict):
+        return 0
+    messages = body.get("messages")
+    if not isinstance(messages, list):
+        return 0
+    seen = 0
+    count = 0
+    for message in reversed(messages):
+        if not isinstance(message, dict) or message.get("role") != "assistant":
+            continue
+        seen += 1
+        if seen > max(1, lookback):
+            break
+        if NOTICE_MARKER in _message_text(message):
+            count += 1
+    return count
+
+
 _TRIMMABLE_BLOCK_FIELDS = {"text": "text", "thinking": "thinking"}
 
 
@@ -356,7 +421,7 @@ def trim_runaway_message_content(
         blocks.append({**block, field: trimmed})
     if verdict is None:
         return content, None
-    blocks.append({"type": "text", "text": verdict.notice()})
+    blocks.append({"type": "text", "text": verdict.notice(TRIMMED)})
     return blocks, verdict
 
 
@@ -404,6 +469,10 @@ class RunawayOutputDetector:
 __all__ = [
     "CONSECUTIVE",
     "INTERLEAVED",
+    "NOTICE_MARKER",
+    "STOPPED",
+    "TRIMMED",
+    "recent_runaway_notices",
     "DEFAULT_CHECK_INTERVAL_CHARS",
     "DEFAULT_MAX_PERIOD_CHARS",
     "DEFAULT_MIN_REPEATED_CHARS",

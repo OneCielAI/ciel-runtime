@@ -1,4 +1,4 @@
-"""End-to-end proof that a repetition loop ends the turn instead of running on."""
+"""End-to-end proof that a repetition loop is cut short and the turn continues."""
 
 import json
 import os
@@ -7,6 +7,7 @@ from unittest import mock
 
 import ciel_runtime
 from ciel_runtime_support.response_collection_context import ResponseCollectionContext
+from ciel_runtime_support.runaway_output_guard import NOTICE_MARKER
 
 # The block the reported session repeated until the request timed out.
 LOOP = (
@@ -14,6 +15,16 @@ LOOP = (
     "responseZEC 4h/8h 인디케이터 누락 원인을 확인하겠습니다. "
 )
 OFFERED_CHUNKS = 400
+
+
+def body_with_history(*assistant_texts):
+    """A request body whose assistant history carries the given text."""
+
+    messages = [{"role": "user", "content": "go"}]
+    for text in assistant_texts:
+        messages.append({"role": "assistant", "content": [{"type": "text", "text": text}]})
+        messages.append({"role": "user", "content": "continue"})
+    return {"model": "m", "messages": messages}
 
 
 class ReadlineResponse:
@@ -108,46 +119,82 @@ def emitted_text(events: list[dict]) -> str:
     return "".join(parts)
 
 
+def tool_names(events: list[dict]) -> list[str]:
+    return [
+        str((event.get("content_block") or {}).get("name") or "")
+        for event in events
+        if event.get("type") == "content_block_start"
+        and (event.get("content_block") or {}).get("type") == "tool_use"
+    ]
+
+
 class OllamaStreamRunawayTests(unittest.TestCase):
-    def run_stream(self, chunks):
+    def run_stream(self, chunks, source_body=None):
         resp = ReadlineResponse(chunks)
         handler = FakeHandler()
         with mock.patch.object(
             ciel_runtime, "router_client_connection_closed", return_value=False
         ):
             ciel_runtime._ollama_stream_to_anthropic_sse(
-                handler, resp, "deepseek-v4-flash:0731", provider="ollama-cloud", idle_timeout=30.0
+                handler,
+                resp,
+                "deepseek-v4-flash:0731",
+                provider="ollama-cloud",
+                source_body=source_body,
+                idle_timeout=30.0,
             )
         return resp, sse_events(bytes(handler.wfile.data))
 
-    def test_repetition_loop_ends_the_turn_early(self):
+    def loop_chunks(self, text=LOOP):
         chunks = [
-            json.dumps({"message": {"content": LOOP}, "done": False}).encode() + b"\n"
+            json.dumps({"message": {"content": text}, "done": False}, ensure_ascii=False).encode()
+            + b"\n"
             for _ in range(OFFERED_CHUNKS)
         ]
         chunks.append(json.dumps({"message": {"content": ""}, "done": True}).encode() + b"\n")
+        return chunks
 
-        resp, events = self.run_stream(chunks)
+    def test_loop_is_cut_short_and_the_turn_continues(self):
+        resp, events = self.run_stream(self.loop_chunks(), body_with_history())
 
         self.assertGreater(len(resp.items), 0, "guard kept reading the whole loop")
         self.assertLess(OFFERED_CHUNKS - len(resp.items), 60)
         self.assertTrue(resp.closed)
-        self.assertEqual("max_tokens", stop_reason_of(events))
-        self.assertIn("[ciel-runtime] Stopped a runaway repetition loop", emitted_text(events))
+        self.assertIn(NOTICE_MARKER, emitted_text(events))
+        self.assertEqual(["TaskList"], tool_names(events))
+        self.assertEqual("tool_use", stop_reason_of(events))
 
-    def test_repeated_thinking_ends_the_turn_early(self):
+    def test_notice_carries_no_internal_measurements(self):
+        _resp, events = self.run_stream(self.loop_chunks(), body_with_history())
+
+        notice = emitted_text(events)
+        for leaked in ("-character block", "times in a row", "period="):
+            self.assertNotIn(leaked, notice)
+
+    def test_a_second_loop_in_a_row_ends_the_turn(self):
+        # The first recovery is already in the history, so recovering again
+        # would turn one looping turn into a looping session.
+        source_body = body_with_history(f"{NOTICE_MARKER}, so the response was cut short.")
+
+        _resp, events = self.run_stream(self.loop_chunks(), source_body)
+
+        self.assertEqual([], tool_names(events))
+        self.assertEqual("max_tokens", stop_reason_of(events))
+
+    def test_repeated_thinking_is_cut_short(self):
         chunks = [
-            json.dumps({"message": {"thinking": LOOP}, "done": False}).encode() + b"\n"
+            json.dumps({"message": {"thinking": LOOP}, "done": False}, ensure_ascii=False).encode()
+            + b"\n"
             for _ in range(OFFERED_CHUNKS)
         ]
 
-        resp, events = self.run_stream(chunks)
+        resp, events = self.run_stream(chunks, body_with_history())
 
         self.assertGreater(len(resp.items), 0)
-        self.assertEqual("max_tokens", stop_reason_of(events))
-        self.assertIn("[ciel-runtime] Stopped a runaway repetition loop", emitted_text(events))
+        self.assertIn(NOTICE_MARKER, emitted_text(events))
+        self.assertEqual(["TaskList"], tool_names(events))
 
-    def test_loop_with_variation_between_repeats_ends_the_turn_early(self):
+    def test_loop_with_variation_between_repeats_is_cut_short(self):
         # Not strictly periodic: every pass carries a different attempt number,
         # which is the shape a real loop usually has.
         chunks = [
@@ -162,12 +209,11 @@ class OllamaStreamRunawayTests(unittest.TestCase):
             for index in range(OFFERED_CHUNKS)
         ]
 
-        resp, events = self.run_stream(chunks)
+        resp, events = self.run_stream(chunks, body_with_history())
 
         self.assertGreater(len(resp.items), 0, "guard kept reading the whole loop")
         self.assertTrue(resp.closed)
-        self.assertEqual("max_tokens", stop_reason_of(events))
-        self.assertIn("[ciel-runtime] Stopped a runaway repetition loop", emitted_text(events))
+        self.assertIn(NOTICE_MARKER, emitted_text(events))
 
     def test_healthy_stream_is_untouched(self):
         chunks = [
@@ -186,17 +232,19 @@ class OllamaStreamRunawayTests(unittest.TestCase):
         self.assertNotIn("[ciel-runtime]", emitted_text(events))
 
     def test_kill_switch_restores_the_old_behaviour(self):
-        chunks = [
-            json.dumps({"message": {"content": LOOP}, "done": False}).encode() + b"\n"
-            for _ in range(OFFERED_CHUNKS)
-        ]
-        chunks.append(json.dumps({"message": {"content": ""}, "done": True}).encode() + b"\n")
-
         with mock.patch.dict(os.environ, {"CIEL_RUNTIME_RUNAWAY_GUARD": "off"}):
-            resp, events = self.run_stream(chunks)
+            resp, events = self.run_stream(self.loop_chunks(), body_with_history())
 
         self.assertEqual([], resp.items)
         self.assertEqual("end_turn", stop_reason_of(events))
+
+    def test_continuation_can_be_disabled_on_its_own(self):
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_RUNAWAY_CONTINUE": "off"}):
+            resp, events = self.run_stream(self.loop_chunks(), body_with_history())
+
+        self.assertGreater(len(resp.items), 0, "the guard itself must still fire")
+        self.assertEqual([], tool_names(events))
+        self.assertEqual("max_tokens", stop_reason_of(events))
 
 
 class AnthropicPassthroughRunawayTests(unittest.TestCase):
@@ -204,10 +252,10 @@ class AnthropicPassthroughRunawayTests(unittest.TestCase):
 
     def upstream_lines(self, count):
         lines = [
-            b'event: message_start\n',
+            b"event: message_start\n",
             b'data: {"type":"message_start","message":{"id":"msg_1","content":[]}}\n',
             b"\n",
-            b'event: content_block_start\n',
+            b"event: content_block_start\n",
             b'data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n',
             b"\n",
         ]
@@ -220,9 +268,7 @@ class AnthropicPassthroughRunawayTests(unittest.TestCase):
                 },
                 ensure_ascii=False,
             )
-            lines.extend(
-                [b"event: content_block_delta\n", f"data: {payload}\n".encode(), b"\n"]
-            )
+            lines.extend([b"event: content_block_delta\n", f"data: {payload}\n".encode(), b"\n"])
         lines.extend(
             [
                 b"event: message_delta\n",
@@ -235,8 +281,8 @@ class AnthropicPassthroughRunawayTests(unittest.TestCase):
         )
         return lines
 
-    def run_stream(self, count):
-        resp = IterResponse(self.upstream_lines(count))
+    def run_stream(self, lines, source_body=None):
+        resp = IterResponse(lines)
         handler = FakeHandler()
         # A zero keepalive interval reads the upstream inline, so `consumed`
         # measures what the guard actually pulled off the wire.
@@ -249,78 +295,89 @@ class AnthropicPassthroughRunawayTests(unittest.TestCase):
                 model="deepseek-v4-flash",
                 word_chunking=False,
                 provider="deepseek",
+                source_body=source_body,
             )
         return resp, sse_events(bytes(handler.wfile.data))
 
-    def test_repetition_loop_ends_the_turn_early(self):
-        resp, events = self.run_stream(OFFERED_CHUNKS)
+    def test_loop_is_cut_short_and_the_turn_continues(self):
+        resp, events = self.run_stream(self.upstream_lines(OFFERED_CHUNKS), body_with_history())
 
         self.assertLess(resp.consumed, OFFERED_CHUNKS * 3)
         self.assertTrue(resp.closed)
+        self.assertIn(NOTICE_MARKER, emitted_text(events))
+        self.assertEqual(["TaskList"], tool_names(events))
+        self.assertEqual("tool_use", stop_reason_of(events))
+
+    def test_a_second_loop_in_a_row_ends_the_turn(self):
+        source_body = body_with_history(f"{NOTICE_MARKER}, so the response was cut short.")
+
+        _resp, events = self.run_stream(self.upstream_lines(OFFERED_CHUNKS), source_body)
+
+        self.assertEqual([], tool_names(events))
         self.assertEqual("max_tokens", stop_reason_of(events))
-        self.assertIn("[ciel-runtime] Stopped a runaway repetition loop", emitted_text(events))
 
     def test_healthy_stream_keeps_its_own_stop_reason(self):
-        resp = IterResponse(
-            [
-                b"event: message_start\n",
-                b'data: {"type":"message_start","message":{"id":"msg_1","content":[]}}\n',
-                b"\n",
-                b"event: content_block_start\n",
-                b'data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n',
-                b"\n",
-                b"event: content_block_delta\n",
-                b'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"all good"}}\n',
-                b"\n",
-                b"event: content_block_stop\n",
-                b'data: {"type":"content_block_stop","index":0}\n',
-                b"\n",
-                b"event: message_delta\n",
-                b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"}}\n',
-                b"\n",
-                b"event: message_stop\n",
-                b'data: {"type":"message_stop"}\n',
-                b"\n",
-            ]
-        )
-        handler = FakeHandler()
-        with mock.patch.dict(
-            os.environ, {"CIEL_RUNTIME_ANTHROPIC_STREAM_KEEPALIVE_SECONDS": "0"}
-        ):
-            ciel_runtime._rebatch_anthropic_sse_text(
-                handler, resp, model="deepseek-v4-flash", word_chunking=False, provider="deepseek"
-            )
-        events = sse_events(bytes(handler.wfile.data))
+        lines = [
+            b"event: message_start\n",
+            b'data: {"type":"message_start","message":{"id":"msg_1","content":[]}}\n',
+            b"\n",
+            b"event: content_block_start\n",
+            b'data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n',
+            b"\n",
+            b"event: content_block_delta\n",
+            b'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"all good"}}\n',
+            b"\n",
+            b"event: content_block_stop\n",
+            b'data: {"type":"content_block_stop","index":0}\n',
+            b"\n",
+            b"event: message_delta\n",
+            b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"}}\n',
+            b"\n",
+            b"event: message_stop\n",
+            b'data: {"type":"message_stop"}\n',
+            b"\n",
+        ]
+
+        _resp, events = self.run_stream(lines)
 
         self.assertEqual("end_turn", stop_reason_of(events))
         self.assertNotIn("[ciel-runtime]", emitted_text(events))
 
 
 class OpenAIChatStreamRunawayTests(unittest.TestCase):
-    def run_stream(self, chunks):
+    def run_stream(self, chunks, source_body=None):
         resp = IterResponse(chunks)
         handler = FakeHandler()
         ciel_runtime.stream_openai_chat_to_anthropic_sse(
-            handler, resp, "deepseek-chat", "deepseek", source_body=None
+            handler, resp, "deepseek-chat", "deepseek", source_body=source_body
         )
         return resp, sse_events(bytes(handler.wfile.data))
 
-    def test_repetition_loop_ends_the_turn_early(self):
+    def loop_chunks(self):
         chunks = [
             b"data: "
-            + json.dumps(
-                {"choices": [{"delta": {"content": LOOP}}]}, ensure_ascii=False
-            ).encode()
+            + json.dumps({"choices": [{"delta": {"content": LOOP}}]}, ensure_ascii=False).encode()
             + b"\n"
             for _ in range(OFFERED_CHUNKS)
         ]
         chunks.append(b"data: [DONE]\n")
+        return chunks
 
-        resp, events = self.run_stream(chunks)
+    def test_loop_is_cut_short_and_the_turn_continues(self):
+        resp, events = self.run_stream(self.loop_chunks(), body_with_history())
 
         self.assertLess(resp.consumed, OFFERED_CHUNKS)
+        self.assertIn(NOTICE_MARKER, emitted_text(events))
+        self.assertEqual(["TaskList"], tool_names(events))
+        self.assertEqual("tool_use", stop_reason_of(events))
+
+    def test_a_second_loop_in_a_row_ends_the_turn(self):
+        source_body = body_with_history(f"{NOTICE_MARKER}, so the response was cut short.")
+
+        _resp, events = self.run_stream(self.loop_chunks(), source_body)
+
+        self.assertEqual([], tool_names(events))
         self.assertEqual("max_tokens", stop_reason_of(events))
-        self.assertIn("[ciel-runtime] Stopped a runaway repetition loop", emitted_text(events))
 
     def test_healthy_stream_is_untouched(self):
         chunks = [
@@ -351,7 +408,9 @@ class CollectedMessageRunawayTests(unittest.TestCase):
 
         self.assertEqual("max_tokens", guarded["stop_reason"])
         self.assertEqual("확인하겠습니다.\n\n" + LOOP, guarded["content"][0]["text"])
-        self.assertIn("Stopped a runaway repetition loop", guarded["content"][-1]["text"])
+        self.assertIn(NOTICE_MARKER, guarded["content"][-1]["text"])
+        # The wording must not claim an early stop that never happened here.
+        self.assertNotIn("cut short", guarded["content"][-1]["text"])
         self.assertEqual("end_turn", message["stop_reason"])
 
     def test_healthy_message_is_returned_unchanged(self):

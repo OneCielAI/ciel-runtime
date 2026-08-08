@@ -7,7 +7,12 @@ from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from typing import Any, Callable
 
-from .runaway_output_guard import policy_from_env, trim_runaway_message_content
+from .runaway_output_guard import (
+    RunawayOutputPolicy,
+    policy_from_env,
+    trim_runaway_message_content,
+)
+from .ollama_thinking import INTERNAL_REASONING_EFFORT_KEY
 from .response_collection import (
     AnthropicCollectionServices,
     ChatCollectionStrategy,
@@ -36,11 +41,20 @@ class ResponseCollectionRoutingPorts:
 
 
 @dataclass(frozen=True, slots=True)
+class ResponseCollectionStreamPorts:
+    """Optional streaming reader so a loop is cut while it is generated."""
+
+    ollama_stream: Callable[..., dict[str, Any]] | None = None
+    log: Callable[..., None] = lambda _level, _message: None
+
+
+@dataclass(frozen=True, slots=True)
 class ResponseCollectionContext:
     shared: ResponseCollectionServices
     anthropic: AnthropicCollectionServices
     strategies: ResponseCollectionStrategyPorts
     routing: ResponseCollectionRoutingPorts
+    stream: ResponseCollectionStreamPorts = ResponseCollectionStreamPorts()
 
     @staticmethod
     def identity_upstream_model(
@@ -82,6 +96,7 @@ class ResponseCollectionContext:
             request_timeout_seconds=self.strategies.ollama_timeout,
             normalize_upstream_model=self.identity_upstream_model,
             skip_rate_limit_during_compatibility_test=True,
+            stream_collect=self.stream.ollama_stream,
         )
         return collect_chat_message_for_responses(
             handler,
@@ -160,15 +175,89 @@ class ResponseCollectionContext:
                 f"{endpoint_family} endpoint family. ciel-runtime currently routes "
                 f"{provider_label} /v1/messages and /v1/chat/completions models."
             )
-        return self.guard_runaway(collector(handler, provider, pcfg, body))
+        return self.collect_without_runaway(
+            collector, handler, provider, pcfg, body, upstream_model
+        )
+
+    def collect_without_runaway(
+        self,
+        collector: Callable[..., dict[str, Any]],
+        handler: BaseHTTPRequestHandler,
+        provider: str,
+        pcfg: dict[str, Any],
+        body: dict[str, Any],
+        upstream_model: str,
+    ) -> dict[str, Any]:
+        """Re-issue a looped turn instead of handing the loop to the client.
+
+        Nothing has been written to the client at this point and no tool call
+        has been executed, so a discarded attempt has no side effects -- unlike
+        the streaming paths, this one can simply ask again. Sampling is
+        stochastic (DeepSeek ships ``do_sample: true, temperature: 1.0``), so a
+        plain retry is a genuinely different draw; the ladder then lowers
+        reasoning effort, which is DeepSeek's own advice for this failure.
+        """
+
+        policy = policy_from_env(os.environ.get)
+        ladder = self.effort_ladder(policy)
+        attempt_body = body
+        message: dict[str, Any] = {}
+        trimmed: Any = None
+        for attempt, _effort in enumerate(ladder):
+            message = collector(handler, provider, pcfg, attempt_body)
+            trimmed, verdict = trim_runaway_message_content(
+                message.get("content") if isinstance(message, dict) else None, policy
+            )
+            if verdict is None:
+                return message
+            last_attempt = attempt + 1 >= len(ladder)
+            self.stream.log(
+                "WARN",
+                f"collect_runaway_repetition provider={provider} model={upstream_model} "
+                f"attempt={attempt + 1}/{len(ladder)} retry={not last_attempt} "
+                f"{verdict.log_fields()}",
+            )
+            if last_attempt:
+                break
+            attempt_body = self.with_reasoning_effort(body, ladder[attempt + 1])
+        return {**message, "content": trimmed, "stop_reason": "max_tokens"}
+
+    @staticmethod
+    def effort_ladder(policy: RunawayOutputPolicy) -> list[str | None]:
+        """Attempts to make, and the reasoning effort each one asks for."""
+
+        raw = os.environ.get("CIEL_RUNTIME_RUNAWAY_RETRIES")
+        try:
+            retries = int(str(raw).strip())
+        except (TypeError, ValueError):
+            retries = 2
+        if not policy.enabled or not policy.recover:
+            retries = 0
+        retries = max(0, min(4, retries))
+        # The loop happens inside reasoning, so lowering effort is the lever
+        # that changes the odds; "low" turns thinking off for DeepSeek entirely.
+        return ([None] + ["high", "low", "low", "low"])[: retries + 1]
+
+    @staticmethod
+    def with_reasoning_effort(body: dict[str, Any], effort: str | None) -> dict[str, Any]:
+        """Ask the next attempt for less reasoning via the internal effort hint.
+
+        Both ``OllamaThinkingPolicy`` and the DeepSeek adapter already read this
+        metadata key, so one hint covers every collected protocol.
+        """
+
+        if not effort or not isinstance(body, dict):
+            return body
+        metadata = body.get("metadata")
+        projected = dict(metadata) if isinstance(metadata, dict) else {}
+        projected[INTERNAL_REASONING_EFFORT_KEY] = effort
+        return {**body, "metadata": projected}
 
     @staticmethod
     def guard_runaway(message: dict[str, Any]) -> dict[str, Any]:
-        """Cut a repetition loop out of a collected message before it is relayed.
+        """Trim a repetition loop out of one collected message.
 
-        Collection is the Codex-facing path: there is no stream to abort, but
-        the repeated block must not reach the client or the next request's
-        replayed history.
+        Kept as the single-shot form used by callers that cannot retry.
         """
 
         if not isinstance(message, dict):
@@ -211,5 +300,6 @@ __all__ = [
     "ResponseCollectionCompatibilityApi",
     "ResponseCollectionContext",
     "ResponseCollectionRoutingPorts",
+    "ResponseCollectionStreamPorts",
     "ResponseCollectionStrategyPorts",
 ]
