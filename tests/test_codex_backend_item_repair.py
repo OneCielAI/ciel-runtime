@@ -161,12 +161,48 @@ class MissingItemRetryTests(unittest.TestCase):
 
         self.assertEqual(2, len(upstream.bodies))
         self.assertEqual(2, len(upstream.bodies[0]["input"]))
-        self.assertEqual(
-            ["msg_019fd64e-1892-7f33-99c0-9e1c5087a5be"],
-            [item["id"] for item in upstream.bodies[1]["input"]],
-        )
+        self.assertEqual([], [i["id"] for i in upstream.bodies[1]["input"] if i.get("id")])
         self.assertEqual(200, handler.status)
-        self.assertTrue(any("codex_unknown_item_repaired" in message for _l, message in logs))
+        self.assertTrue(any("codex_unstored_items_repaired" in message for _l, message in logs))
+
+    def test_a_long_replay_recovers_in_one_retry_not_one_per_item(self):
+        # The freeze this guards against: repairing one item per verdict turned
+        # a resumed session into hundreds of silent round trips.
+        body = {
+            "model": "gpt-5.4-codex",
+            "input": [
+                {"type": "message", "id": f"msg_{index:04d}", "role": "assistant"}
+                for index in range(500)
+            ],
+        }
+        upstream = ScriptedUpstream(
+            [(404, MISSING_ITEM_404.replace(b"rs_e50d87c9_0", b"msg_0000"))]
+        )
+
+        adapter_for(upstream, []).forward_json(FakeHandler(), "codex", {}, body)
+
+        self.assertEqual(2, len(upstream.bodies))
+        self.assertEqual(500, len(upstream.bodies[1]["input"]))
+        self.assertEqual([], [i["id"] for i in upstream.bodies[1]["input"] if i.get("id")])
+
+    def test_repeated_rejections_stop_instead_of_retrying_forever(self):
+        # A verdict the repair cannot satisfy must reach the client, not spin.
+        sealed = '{"detail":"invalid_request_error: The encrypted content aa...zz= could not be verified."}'
+        upstream = ScriptedUpstream([(400, sealed.encode())] * 400)
+        body = {
+            "model": "gpt-5.4-codex",
+            "input": [
+                {"type": "reasoning", "encrypted_content": f"aa{index}zz="}
+                for index in range(400)
+            ],
+        }
+        logs = []
+
+        with self.assertRaises(urllib.error.HTTPError):
+            adapter_for(upstream, logs).forward_json(FakeHandler(), "codex", {}, body)
+
+        self.assertLessEqual(len(upstream.bodies), 65)
+        self.assertTrue(any("codex_replay_repair_exhausted" in m for _l, m in logs))
 
     def test_a_tool_call_is_retried_with_its_content_intact(self):
         body = {
@@ -209,16 +245,27 @@ class MissingItemRetryTests(unittest.TestCase):
         self.assertEqual(b'{"error":{"message":"Unknown model"}}', raised.exception.read())
         self.assertEqual(1, len(upstream.bodies))
 
-    def test_a_named_item_that_is_absent_is_not_retried_forever(self):
+    def test_a_request_with_nothing_left_to_repair_reaches_the_client(self):
         payload = MISSING_ITEM_404.replace(b"rs_e50d87c9_0", b"rs_not_in_this_request")
         upstream = ScriptedUpstream([(404, payload)])
+        body = {"model": "gpt-5.4-codex", "input": [{"type": "message", "role": "user"}]}
+
+        with self.assertRaises(urllib.error.HTTPError) as raised:
+            adapter_for(upstream, []).forward_json(FakeHandler(), "codex", {}, body)
+
+        self.assertEqual(404, raised.exception.code)
+        self.assertEqual(1, len(upstream.bodies))
+
+    def test_a_repeated_unknown_item_rejection_stops_after_one_repair(self):
+        payload = MISSING_ITEM_404.replace(b"rs_e50d87c9_0", b"msg_019fd64e-1892-7f33-99c0-9e1c5087a5be")
+        upstream = ScriptedUpstream([(404, payload), (404, payload)])
 
         with self.assertRaises(urllib.error.HTTPError):
             adapter_for(upstream, []).forward_json(
                 FakeHandler(), "codex", {}, sealed_body()
             )
 
-        self.assertEqual(1, len(upstream.bodies))
+        self.assertEqual(2, len(upstream.bodies))
 
 
 if __name__ == "__main__":

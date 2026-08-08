@@ -22,12 +22,17 @@ from ciel_runtime_support.codex_reasoning_rejects import (
     drop_rejected_reasoning,
     parse_missing_item_id,
     parse_unverifiable_encrypted_content,
-    repair_missing_item,
+    repair_unstored_items,
 )
 from ciel_runtime_support.responses_input_compatibility import (
     repair_replayed_response_items,
 )
 from ciel_runtime_support.upstream_dump import dump_upstream_request
+
+# Upper bound on verdict-driven repairs of one replayed turn. The sealed
+# reasoning rule needs one pass per rejected ciphertext and was measured
+# converging in 39; the unknown-item rule needs exactly one.
+MAX_REPLAY_REPAIR_ATTEMPTS = 64
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,10 +207,13 @@ class CodexBackendHttpAdapter:
         headers = self._request.upstream_headers(config, handler.headers)
         data = json.dumps(upstream_body).encode("utf-8")
         dump_upstream_request(url, data, self._retry.log)
-        # Each pass through this loop repairs exactly one input item the
-        # upstream explicitly refused, so it can run at most once per item in
-        # the request.
-        while True:
+        # Every pass costs a full upstream round trip while the client sees
+        # nothing, so the loop is capped: the unknown-item rule repairs the
+        # whole request at once and needs one pass, and the sealed-reasoning
+        # rule removes one ciphertext per pass and was measured converging in
+        # 39. Past the cap the upstream's own error reaches the client instead
+        # of the router retrying in silence.
+        for attempt in range(MAX_REPLAY_REPAIR_ATTEMPTS + 1):
             try:
                 self._send_codex_request(
                     handler, provider, config, url, headers, data, upstream_body,
@@ -216,16 +224,31 @@ class CodexBackendHttpAdapter:
                 if exc.code not in (400, 404):
                     raise
                 raw = exc.read()
-                repaired = self._repaired_after_rejection(
-                    exc.code, raw.decode("utf-8", errors="replace"), upstream_body, provider
+                exhausted = attempt >= MAX_REPLAY_REPAIR_ATTEMPTS
+                repaired = (
+                    None
+                    if exhausted
+                    else self._repaired_after_rejection(
+                        exc.code,
+                        raw.decode("utf-8", errors="replace"),
+                        upstream_body,
+                        provider,
+                    )
                 )
                 if repaired is None:
+                    if exhausted:
+                        self._retry.log(
+                            "WARN",
+                            "codex_replay_repair_exhausted "
+                            f"attempts={attempt} code={exc.code} relaying upstream error",
+                        )
                     raise urllib.error.HTTPError(
                         exc.url, exc.code, exc.msg, exc.hdrs, io.BytesIO(raw)
                     ) from None
                 upstream_body = repaired
                 data = json.dumps(upstream_body).encode("utf-8")
                 dump_upstream_request(url, data, self._retry.log)
+        return delivery_body
 
     def _repaired_after_rejection(
         self,
@@ -277,20 +300,20 @@ class CodexBackendHttpAdapter:
         item_id = parse_missing_item_id(error_text)
         if item_id is None:
             return None
-        repaired, outcome = repair_missing_item(upstream_body, item_id)
-        if outcome is None:
+        repaired, count = repair_unstored_items(upstream_body)
+        if not count:
             return None
         self._retry.log(
             "WARN",
-            f"codex_unknown_item_repaired id={item_id} outcome={outcome} retrying",
+            f"codex_unstored_items_repaired named={item_id} items={count} retrying",
         )
         self._retry.publish(
             level="warn",
             category="router.retry",
-            message="Replayed an item the upstream never stored",
+            message="Replayed items the upstream never stored",
             provider=provider,
             model=str(repaired.get("model") or ""),
-            data={"item_id": item_id, "outcome": outcome},
+            data={"item_id": item_id, "items": count},
         )
         return repaired
 

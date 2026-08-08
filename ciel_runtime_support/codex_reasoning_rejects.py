@@ -57,37 +57,55 @@ def parse_missing_item_id(error_text: str) -> str | None:
     return match.group(1) if match else None
 
 
-def repair_missing_item(
-    body: dict[str, Any],
-    item_id: str,
-) -> tuple[dict[str, Any], str | None]:
-    """Replay the item the upstream never stored without its unknown ID.
+def _replayed_without_id(item: dict[str, Any]) -> dict[str, Any] | None:
+    """Rebuild one item so it replays inline, or drop it when it carries nothing.
 
-    A reasoning summary carries no signature and no conversation content, so it
-    is dropped outright. Everything else — messages, tool calls, tool outputs —
-    is kept with its ID omitted, which preserves the turn's context and the
+    A reasoning summary has no signature and no conversation content, so it is
+    dropped outright. Everything else — messages, tool calls, tool outputs — is
+    kept with its ID omitted, which preserves the turn's context and the
     ``call_id`` pairing while removing the reference the upstream rejected.
-    Returns the outcome for logging, or ``None`` when no such item is present
-    and the request cannot be repaired.
+    """
+
+    if item.get("type") == "reasoning" and not str(
+        item.get("encrypted_content") or ""
+    ).strip():
+        return None
+    retained = dict(item)
+    retained.pop("id", None)
+    return retained
+
+
+def repair_unstored_items(body: dict[str, Any]) -> tuple[dict[str, Any], int]:
+    """Replay every identified item inline after the upstream refuses one.
+
+    The rejection is not about one unlucky item. ``Items are not persisted when
+    'store' is set to false`` states that the backend resolves no item ID at
+    all, so a session carrying IDs minted elsewhere has as many unknown items
+    as it has replayed ones. Repairing them one verdict at a time costs one
+    round trip each — thousands of them on a long cross-provider session, with
+    nothing reaching the client meanwhile, which reads as a silent freeze.
+    Strip them in a single pass instead, so the turn recovers in one retry and
+    a second rejection of the same kind can find nothing left to repair.
     """
 
     items = body.get("input")
-    if not isinstance(items, list) or not item_id:
-        return body, None
-    for index, item in enumerate(items):
-        if not isinstance(item, dict) or str(item.get("id") or "") != item_id:
+    if not isinstance(items, list):
+        return body, 0
+    repaired: list[Any] = []
+    changed = 0
+    for item in items:
+        if not isinstance(item, dict) or not item.get("id"):
+            repaired.append(item)
             continue
-        projected = dict(body)
-        if item.get("type") == "reasoning" and not str(
-            item.get("encrypted_content") or ""
-        ).strip():
-            projected["input"] = items[:index] + items[index + 1 :]
-            return projected, "dropped"
-        retained = dict(item)
-        retained.pop("id", None)
-        projected["input"] = items[:index] + [retained] + items[index + 1 :]
-        return projected, "id_omitted"
-    return body, None
+        changed += 1
+        replacement = _replayed_without_id(item)
+        if replacement is not None:
+            repaired.append(replacement)
+    if not changed:
+        return body, 0
+    projected = dict(body)
+    projected["input"] = repaired
+    return projected, changed
 
 
 def encrypted_content_digest(encrypted_content: str) -> str:
@@ -203,5 +221,5 @@ __all__ = [
     "encrypted_content_digest",
     "parse_missing_item_id",
     "parse_unverifiable_encrypted_content",
-    "repair_missing_item",
+    "repair_unstored_items",
 ]

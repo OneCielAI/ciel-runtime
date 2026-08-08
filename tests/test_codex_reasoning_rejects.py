@@ -10,7 +10,7 @@ from ciel_runtime_support.codex_reasoning_rejects import (
     encrypted_content_digest,
     parse_missing_item_id,
     parse_unverifiable_encrypted_content,
-    repair_missing_item,
+    repair_unstored_items,
 )
 
 # Verbatim upstream verdict from the reproduced failure (session 019fd648,
@@ -78,28 +78,19 @@ class MissingItemVerdictTests(unittest.TestCase):
         self.assertIsNone(parse_missing_item_id('{"detail": "model_capacity"}'))
         self.assertIsNone(parse_missing_item_id(""))
 
-    def test_drops_the_named_summary_only_reasoning_item(self):
+    def test_every_identified_item_is_repaired_in_one_pass(self):
+        # Repairing only the named item costs one round trip per item, which is
+        # what froze long sessions; with `store` off no ID resolves, so all of
+        # them are unknown.
         body = {
             "input": [
-                {"type": "message", "id": "msg_keep", "role": "user"},
+                {"type": "message", "id": "msg_1", "role": "user", "content": "hi"},
                 {
                     "type": "reasoning",
                     "id": "rs_e50d87c9_0",
                     "summary": [{"type": "summary_text", "text": "hidden"}],
                     "encrypted_content": None,
                 },
-            ]
-        }
-
-        repaired, outcome = repair_missing_item(body, "rs_e50d87c9_0")
-
-        self.assertEqual("dropped", outcome)
-        self.assertEqual(["msg_keep"], [item["id"] for item in repaired["input"]])
-        self.assertEqual(2, len(body["input"]))
-
-    def test_keeps_a_tool_call_and_omits_only_its_unknown_id(self):
-        body = {
-            "input": [
                 {
                     "type": "function_call",
                     "id": "fc_c55b5972_1",
@@ -108,39 +99,33 @@ class MissingItemVerdictTests(unittest.TestCase):
                     "call_id": "call_1",
                 },
                 {"type": "function_call_output", "call_id": "call_1", "output": "ok"},
+                {"type": "reasoning", "id": "rs_sealed", "encrypted_content": "sealed="},
             ]
         }
 
-        repaired, outcome = repair_missing_item(body, "fc_c55b5972_1")
+        repaired, count = repair_unstored_items(body)
 
-        self.assertEqual("id_omitted", outcome)
-        self.assertNotIn("id", repaired["input"][0])
-        self.assertEqual("call_1", repaired["input"][0]["call_id"])
-        self.assertEqual("shell", repaired["input"][0]["name"])
-        self.assertEqual("fc_c55b5972_1", body["input"][0]["id"])
-
-    def test_sealed_reasoning_keeps_its_content_when_the_id_is_unknown(self):
-        body = {
-            "input": [
-                {"type": "reasoning", "id": "rs_unknown", "encrypted_content": "sealed="}
-            ]
-        }
-
-        repaired, outcome = repair_missing_item(body, "rs_unknown")
-
-        self.assertEqual("id_omitted", outcome)
+        self.assertEqual(4, count)
+        self.assertEqual([], [i["id"] for i in repaired["input"] if i.get("id")])
         self.assertEqual(
-            {"type": "reasoning", "encrypted_content": "sealed="},
-            repaired["input"][0],
+            ["message", "function_call", "function_call_output", "reasoning"],
+            [item["type"] for item in repaired["input"]],
         )
+        self.assertEqual("call_1", repaired["input"][1]["call_id"])
+        self.assertEqual("shell", repaired["input"][1]["name"])
+        self.assertEqual("sealed=", repaired["input"][3]["encrypted_content"])
+        self.assertEqual(5, len(body["input"]))
+        self.assertEqual("rs_e50d87c9_0", body["input"][1]["id"])
 
-    def test_an_absent_id_cannot_be_repaired(self):
-        body = {"input": [{"type": "message", "id": "msg_other"}]}
+    def test_a_second_rejection_finds_nothing_left_to_repair(self):
+        body = {"input": [{"type": "message", "id": "msg_1", "role": "user"}]}
 
-        repaired, outcome = repair_missing_item(body, "rs_e50d87c9_0")
+        once, first = repair_unstored_items(body)
+        twice, second = repair_unstored_items(once)
 
-        self.assertIsNone(outcome)
-        self.assertIs(body, repaired)
+        self.assertEqual(1, first)
+        self.assertEqual(0, second)
+        self.assertIs(once, twice)
 
 
 class RejectedStoreTests(unittest.TestCase):
