@@ -76,6 +76,10 @@ class RejectedStoreTests(unittest.TestCase):
             )
 
     def test_write_failure_only_logs(self):
+        # A path beneath a regular file cannot be created or written. Reading
+        # it raises FileNotFoundError on Windows but NotADirectoryError on
+        # POSIX, so the load step may or may not add its own warning — assert
+        # the write failure is logged and nothing raises, not an exact count.
         logs = []
         with tempfile.TemporaryDirectory() as state:
             blocker = Path(state) / "occupied"
@@ -85,8 +89,9 @@ class RejectedStoreTests(unittest.TestCase):
                 lambda level, message: logs.append((level, message)),
             )
             store.add("sealed")
-        self.assertEqual(1, len(logs))
-        self.assertEqual("WARN", logs[0][0])
+        self.assertTrue(logs)
+        self.assertTrue(all(level == "WARN" for level, _message in logs))
+        self.assertIn("rejected_reasoning_store_write_failed", logs[-1][1])
 
 
 class PrefilterTests(unittest.TestCase):
