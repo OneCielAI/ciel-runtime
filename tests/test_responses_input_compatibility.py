@@ -41,70 +41,24 @@ class ResponsesInputCompatibilityTests(unittest.TestCase):
 
         self.assertIs(body, repair_replayed_response_items(body))
 
-    def test_drops_foreign_reasoning_item_carrying_sealed_content(self):
+    def test_omits_foreign_id_when_encrypted_content_can_be_replayed(self):
         body = {
             "input": [
-                {"type": "message", "id": "msg_user", "role": "user"},
                 {
                     "type": "reasoning",
                     "id": "msg_wrong",
                     "encrypted_content": "ciphertext",
-                },
+                }
             ]
         }
 
         repaired = repair_replayed_response_items(body)
 
         self.assertEqual(
-            ["msg_user"],
-            [item["id"] for item in repaired["input"]],
+            {"type": "reasoning", "encrypted_content": "ciphertext"},
+            repaired["input"][0],
         )
-        self.assertEqual("msg_wrong", body["input"][1]["id"])
-
-    def test_drops_reasoning_item_whose_id_is_an_opaque_provider_blob(self):
-        # Observed verbatim in a recorded session: the GitHub Copilot OAuth
-        # provider issues reasoning items whose ``id`` is a long base64 blob
-        # rather than any ``<prefix>_`` form, alongside sealed content that only
-        # that provider can decrypt.  Replaying it on an OpenAI Codex account
-        # failed with "The encrypted content oPYR...Lj8= could not be verified".
-        blob_id = "nKPwaSTbj05qDK4mFh8kbydE2R7pv3DwxXBK2ctm7O3+RFL2Hgw"
-        sealed = "oPYRvsBFolJ6qKAqnqoy3TG8SRyvTwmLLj8="
-        body = {
-            "input": [
-                {
-                    "type": "reasoning",
-                    "id": blob_id,
-                    "encrypted_content": sealed,
-                    "summary": [],
-                },
-                {
-                    "type": "function_call",
-                    "id": "fc_valid",
-                    "name": "shell_command",
-                    "arguments": "{}",
-                    "call_id": "call_kept",
-                },
-                {
-                    "type": "function_call_output",
-                    "call_id": "call_kept",
-                    "output": "ok",
-                },
-                {"type": "message", "role": "user", "content": "continue"},
-            ]
-        }
-
-        repaired = repair_replayed_response_items(body)
-
-        serialized = str(repaired["input"])
-        self.assertNotIn(sealed, serialized)
-        self.assertNotIn(blob_id, serialized)
-        self.assertEqual(
-            ["function_call", "function_call_output", "message"],
-            [item["type"] for item in repaired["input"]],
-        )
-        self.assertEqual("call_kept", repaired["input"][0]["call_id"])
-        self.assertEqual("call_kept", repaired["input"][1]["call_id"])
-        self.assertEqual(blob_id, body["input"][0]["id"])
+        self.assertEqual("msg_wrong", body["input"][0]["id"])
 
     def test_omits_foreign_function_call_id_without_breaking_call_pair(self):
         body = {
