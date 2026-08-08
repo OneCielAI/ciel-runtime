@@ -194,12 +194,37 @@ class CodexLaunchConfigurationService:
             catalog_env,
         )
 
+    def auto_compact_config_args(self, cfg: dict[str, Any]) -> list[str]:
+        """Move Codex's own compaction trigger to the operator's threshold.
+
+        A session that crosses providers carries history built under whatever
+        window was in force at the time. Codex compacts on its own, but only
+        once its configured limit is reached — and by then a history grown
+        under a larger window no longer fits the smaller one, so the compaction
+        request itself is refused and the turn cannot recover.
+
+        Passing the threshold keeps that trigger where the operator wants it
+        rather than claiming a window size of our own: it only decides when
+        Codex compacts, never how much context it believes it has.
+        """
+
+        _provider, provider_config = self.model.current_provider(cfg)
+        try:
+            limit = int(provider_config.get("codex_auto_compact_window"))
+        except (TypeError, ValueError):
+            return []
+        if limit <= 0:
+            return []
+        return ["-c", f"model_auto_compact_token_limit={limit}"]
+
     def runtime_model_catalog_args(
         self, codex: str, cfg: dict[str, Any]
     ) -> list[str]:
         path = self.write_runtime_model_catalog(codex, cfg)
         if path is None:
-            return []
+            # A native provider keeps its own bundled catalog; only the
+            # compaction threshold is ours to set.
+            return self.auto_compact_config_args(cfg)
         value = self.policy.toml_string(str(path.resolve()))
         return ["-c", f"model_catalog_json={value}"]
 

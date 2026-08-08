@@ -63,6 +63,10 @@ class FakeResponse:
 
     def __init__(self, payload=b"ok"):
         self._chunks = [payload]
+        self._buffer = io.BytesIO(payload)
+
+    def readline(self, limit=-1):
+        return self._buffer.readline(limit)
 
     def read(self, _size=None):
         return self._chunks.pop(0) if self._chunks else b""
@@ -72,6 +76,13 @@ class FakeResponse:
 
     def __exit__(self, *_exc):
         return False
+
+
+class SseFailure:
+    """A 200 response whose control preamble carries the refusal."""
+
+    def __init__(self, payload):
+        self.payload = payload
 
 
 class ScriptedUpstream:
@@ -84,7 +95,10 @@ class ScriptedUpstream:
     def __call__(self, request, **_kwargs):
         self.bodies.append(json.loads(request.data.decode("utf-8")))
         if self._failures:
-            code, payload = self._failures.pop(0)
+            scripted = self._failures.pop(0)
+            if isinstance(scripted, SseFailure):
+                return FakeResponse(scripted.payload)
+            code, payload = scripted
             raise urllib.error.HTTPError(
                 request.full_url, code, "Not Found", {}, io.BytesIO(payload)
             )
@@ -266,6 +280,113 @@ class MissingItemRetryTests(unittest.TestCase):
             )
 
         self.assertEqual(2, len(upstream.bodies))
+
+
+def _sse(event, payload):
+    return f"event: {event}\ndata: {json.dumps(payload)}\n\n".encode("utf-8")
+
+
+# Verbatim shape captured from chatgpt.com/backend-api/codex: a 200 response
+# whose control preamble ends in response.failed carrying the refusal.
+CONTEXT_FAILED_SSE = _sse(
+    "response.created", {"type": "response.created", "response": {"id": "resp_1"}}
+) + _sse(
+    "response.failed",
+    {
+        "type": "response.failed",
+        "response": {
+            "id": "resp_1",
+            "status": "failed",
+            "error": {
+                "code": "context_length_exceeded",
+                "message": "Your input exceeds the context window of this model.",
+            },
+        },
+    },
+)
+
+
+class ContextExceededCompactionTests(unittest.TestCase):
+    """The upstream refuses an oversized turn inside a 200 stream."""
+
+    def upstream(self, failures):
+        return ScriptedUpstream(failures)
+
+    def adapter(self, upstream, logs, compacted):
+        from ciel_runtime_support.router_http import (
+            CodexBackendHttpAdapter,
+            CodexBackendRequestPorts,
+            CodexBackendRetryPorts,
+        )
+        from ciel_runtime_support.codex_router import read_codex_response_preamble
+
+        def compact(body, budget, **_kwargs):
+            compacted.append(budget)
+            projected = dict(body)
+            projected["input"] = body["input"][len(body["input"]) // 2 :]
+            return projected
+
+        return CodexBackendHttpAdapter(
+            "https://chatgpt.com/backend-api/codex",
+            CodexBackendRequestPorts(
+                body_with_channel_context=lambda body: (body, {}),
+                begin_channel_delivery=lambda _handler, _body: None,
+                upstream_headers=lambda _config, _headers: {"authorization": "Bearer t"},
+                urlopen=upstream,
+                request_timeout=lambda _config: 30.0,
+            ),
+            CodexBackendRetryPorts(
+                retry_limit=lambda: 0,
+                read_preamble=read_codex_response_preamble,
+                retry_wait=lambda _attempt: 0.0,
+                log=lambda level, message: logs.append((level, message)),
+                publish=lambda **_kwargs: None,
+                sleep=lambda _seconds: None,
+                estimate_tokens=lambda body: len(json.dumps(body)) // 4,
+                compact_responses=compact,
+            ),
+        )
+
+    def body(self, items=64):
+        return {"model": "gpt-5.6-sol",
+                "input": [{"type": "message", "role": "user",
+                           "content": [{"type": "input_text", "text": "x" * 400}]}
+                          for _ in range(items)]}
+
+    def test_a_refused_turn_is_compacted_and_retried(self):
+        upstream = self.upstream([SseFailure(CONTEXT_FAILED_SSE)])
+        logs, budgets = [], []
+
+        self.adapter(upstream, logs, budgets).forward_json(
+            FakeHandler(), "codex", {}, self.body(), mutate_responses=True
+        )
+
+        self.assertEqual(2, len(upstream.bodies))
+        self.assertLess(len(upstream.bodies[1]["input"]), len(upstream.bodies[0]["input"]))
+        self.assertEqual(1, len(budgets))
+
+    def test_compaction_is_reported_at_the_default_log_level(self):
+        upstream = self.upstream([SseFailure(CONTEXT_FAILED_SSE)])
+        logs = []
+
+        self.adapter(upstream, logs, []).forward_json(
+            FakeHandler(), "codex", {}, self.body(), mutate_responses=True
+        )
+
+        self.assertTrue(any(level == "ERROR" and "codex_context_compacted" in message
+                            for level, message in logs))
+
+    def test_the_upstream_refusal_reaches_the_client_when_compaction_is_exhausted(self):
+        upstream = self.upstream([SseFailure(CONTEXT_FAILED_SSE)] * 5)
+        handler = FakeHandler()
+
+        self.adapter(upstream, [], []).forward_json(
+            handler, "codex", {}, self.body(), mutate_responses=True
+        )
+
+        self.assertLessEqual(len(upstream.bodies), 4)
+        self.assertIn(b"context_length_exceeded", handler.wfile.written)
+        self.assertEqual(200, handler.status)
 
 
 if __name__ == "__main__":

@@ -47,10 +47,12 @@ class CodexBackendTransportPorts:
 
 @dataclass(frozen=True, slots=True)
 class CodexBackendReplayPorts:
-    """Durable upstream verdicts about replayed reasoning ciphertexts."""
+    """Durable upstream verdicts about replayed turns."""
 
     rejected_reasoning_contains: Callable[[str], bool] = lambda _sealed: False
     rejected_reasoning_record: Callable[[str], Any] = lambda _sealed: None
+    estimate_tokens: Callable[[Any], int] = lambda _body: 0
+    compact_responses: Callable[..., dict[str, Any]] = lambda body, _budget, **_kw: body
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,6 +163,8 @@ class CodexBackendContext:
                 self.transport.sleep,
                 rejected_reasoning_contains=self.replay.rejected_reasoning_contains,
                 rejected_reasoning_record=self.replay.rejected_reasoning_record,
+                estimate_tokens=self.replay.estimate_tokens,
+                compact_responses=self.replay.compact_responses,
             ),
         )
 

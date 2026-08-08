@@ -34,6 +34,20 @@ from ciel_runtime_support.upstream_dump import dump_upstream_request
 # converging in 39; the unknown-item rule needs exactly one.
 MAX_REPLAY_REPAIR_ATTEMPTS = 64
 
+# Each pass hands the compactor a smaller share of the window it was refused
+# at, so a turn converges in a few rounds instead of the client's one-item-per
+# -round-trip retry, which does not converge at all on a large transcript.
+CONTEXT_COMPACTION_BUDGETS = (0.75, 0.5, 0.25)
+
+
+class UpstreamContextExceeded(Exception):
+    """The upstream refused the turn because its input does not fit."""
+
+    def __init__(self, code: str, payload: bytes) -> None:
+        super().__init__(code)
+        self.code = code
+        self.payload = payload
+
 
 @dataclass(frozen=True, slots=True)
 class CodexRoutedHeaderPolicy:
@@ -136,6 +150,8 @@ class CodexBackendRetryPorts:
     sleep: Callable[[float], None]
     rejected_reasoning_contains: Callable[[str], bool] = lambda _sealed: False
     rejected_reasoning_record: Callable[[str], Any] = lambda _sealed: None
+    estimate_tokens: Callable[[Any], int] = lambda _body: 0
+    compact_responses: Callable[..., dict[str, Any]] = lambda body, _budget, **_kw: body
 
 
 class CodexBackendHttpAdapter:
@@ -213,6 +229,7 @@ class CodexBackendHttpAdapter:
         # rule removes one ciphertext per pass and was measured converging in
         # 39. Past the cap the upstream's own error reaches the client instead
         # of the router retrying in silence.
+        compaction_rounds = 0
         for attempt in range(MAX_REPLAY_REPAIR_ATTEMPTS + 1):
             try:
                 self._send_codex_request(
@@ -220,6 +237,17 @@ class CodexBackendHttpAdapter:
                     mutate_responses=mutate_responses,
                 )
                 return delivery_body
+            except UpstreamContextExceeded as exc:
+                compacted = self._compacted_for_context(
+                    upstream_body, compaction_rounds, provider, exc.code
+                )
+                if compacted is None:
+                    self._write_preamble_failure(handler, exc.payload)
+                    return delivery_body
+                compaction_rounds += 1
+                upstream_body = compacted
+                data = json.dumps(upstream_body).encode("utf-8")
+                dump_upstream_request(url, data, self._retry.log)
             except urllib.error.HTTPError as exc:
                 if exc.code not in (400, 404):
                     raise
@@ -249,6 +277,58 @@ class CodexBackendHttpAdapter:
                 data = json.dumps(upstream_body).encode("utf-8")
                 dump_upstream_request(url, data, self._retry.log)
         return delivery_body
+
+    def _compacted_for_context(
+        self,
+        upstream_body: dict[str, Any],
+        round_number: int,
+        provider: str,
+        code: str,
+    ) -> dict[str, Any] | None:
+        """Shrink the refused turn, keeping the newest history verbatim.
+
+        The upstream, not a catalogued window size, decides that compaction is
+        needed, so a wrong context number in our own metadata cannot discard
+        history that would have fit.
+        """
+
+        if round_number >= len(CONTEXT_COMPACTION_BUDGETS):
+            return None
+        estimated = self._retry.estimate_tokens(upstream_body)
+        budget = int(estimated * CONTEXT_COMPACTION_BUDGETS[round_number])
+        compacted = self._retry.compact_responses(
+            upstream_body, budget, provider=provider,
+            model=str(upstream_body.get("model") or ""),
+        )
+        if compacted is upstream_body or compacted.get("input") == upstream_body.get("input"):
+            return None
+        self._retry.log(
+            "ERROR",
+            f"codex_context_compacted provider={provider} code={code} round={round_number + 1} "
+            f"items={len(upstream_body.get('input') or [])}->{len(compacted.get('input') or [])} "
+            f"tokens={estimated}->{self._retry.estimate_tokens(compacted)} budget={budget}",
+        )
+        self._retry.publish(
+            level="warn",
+            category="router.context",
+            message="Compacted an oversized turn the upstream refused",
+            provider=provider,
+            model=str(upstream_body.get("model") or ""),
+            data={"code": code, "round": round_number + 1, "budget": budget},
+        )
+        return compacted
+
+    def _write_preamble_failure(
+        self, handler: BaseHTTPRequestHandler, payload: bytes
+    ) -> None:
+        """Relay the upstream's own refusal once compaction cannot help."""
+
+        handler.send_response(200)
+        handler.send_header("content-type", "text/event-stream")
+        handler.send_header("connection", "close")
+        handler.end_headers()
+        handler.wfile.write(payload)
+        handler.wfile.flush()
 
     def _repaired_after_rejection(
         self,
@@ -339,6 +419,12 @@ class CodexBackendHttpAdapter:
                 pcfg=config,
             ) as response:
                 preamble = self._retry.read_preamble(response) if mutate_responses else None
+                if preamble is not None and getattr(preamble, "context_error_code", None):
+                    # Nothing has been written to the client yet, so the turn can
+                    # still be made to fit instead of failing.
+                    raise UpstreamContextExceeded(
+                        preamble.context_error_code, preamble.payload
+                    )
                 if preamble is not None and preamble.capacity_error_code and attempt < max_retries:
                     retry_number = attempt + 1
                     wait = self._retry.retry_wait(retry_number)

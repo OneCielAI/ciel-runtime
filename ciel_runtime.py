@@ -303,6 +303,7 @@ from ciel_runtime_support.prompt_compaction import anthropic_message_has_tool_re
 from ciel_runtime_support.prompt_compaction import anthropic_safe_tail_start as compacted_anthropic_safe_tail_start
 from ciel_runtime_support.prompt_compaction import compact_anthropic_body_for_budget as run_anthropic_prompt_compaction
 from ciel_runtime_support.prompt_compaction import compact_chat_messages_for_budget as run_chat_prompt_compaction
+from ciel_runtime_support.prompt_compaction import compact_responses_input_for_budget as run_responses_prompt_compaction
 from ciel_runtime_support.prompt_injection import append_anthropic_system_texts as project_append_anthropic_system_texts
 from ciel_runtime_support.prompt_injection import normalize_anthropic_system_role_messages as project_normalize_anthropic_system_role_messages
 from ciel_runtime_support.prompt_injection import normalize_anthropic_system_role_messages_by_strategy as project_normalize_anthropic_system_role_messages_by_strategy
@@ -2725,7 +2726,9 @@ def codex_backend_context() -> CodexBackendContext:
         transport=CodexBackendTransportPorts(CODEX_ROUTED_UPSTREAM_BASE, with_upstream_user_agent, provider_urlopen, provider_request_timeout_seconds,
                                              read_codex_response_preamble, upstream_retry_wait_seconds, router_log, EVENT_BUS.publish, time.sleep, os.environ.get),
         replay=CodexBackendReplayPorts(rejected_reasoning_contains=_REJECTED_REASONING_STORE.contains,
-                                       rejected_reasoning_record=_REJECTED_REASONING_STORE.add),
+                                       rejected_reasoning_record=_REJECTED_REASONING_STORE.add,
+                                       estimate_tokens=estimate_tokens,
+                                       compact_responses=lambda body, budget, **kwargs: run_responses_prompt_compaction(body, budget, services=prompt_compaction_services(), **kwargs)),
         provider_projection=ProviderPassthroughProjectionPorts(provider_headers, lambda *args, **kwargs: provider_chat_headers(*args, **kwargs),
                                                                lambda *args, **kwargs: provider_responses_headers(*args, **kwargs),
                                                                provider_upstream_model, resolve_requested_model, apply_provider_adapter_request_policy),

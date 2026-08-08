@@ -68,6 +68,35 @@ class CodexLaunchConfigurationServiceTests(unittest.TestCase):
             ),
         )
 
+    def test_native_provider_still_receives_the_compaction_threshold(self):
+        # A native provider keeps its own bundled catalog, so no catalog file is
+        # written -- but the trigger for Codex's own compaction is still ours to
+        # place, and a session that crossed providers depends on it firing
+        # before the smaller window is already exceeded.
+        writes = []
+        service = self.service(native=True, writes=writes)
+        cfg = {"provider": "codex", "alias": "gpt-5.6-sol",
+               "config": {"codex_auto_compact_window": 240000}}
+
+        args = service.runtime_model_catalog_args("codex", cfg)
+
+        self.assertEqual(["-c", "model_auto_compact_token_limit=240000"], args)
+        self.assertEqual([], writes)
+
+    def test_native_provider_without_a_configured_threshold_adds_nothing(self):
+        service = self.service(native=True)
+
+        self.assertEqual(
+            [], service.runtime_model_catalog_args("codex", {"provider": "codex", "config": {}})
+        )
+        self.assertEqual(
+            [],
+            service.runtime_model_catalog_args(
+                "codex", {"provider": "codex", "config": {"codex_auto_compact_window": 0}}
+            ),
+        )
+
+
     def test_runtime_config_uses_responses_provider(self):
         args = self.service().runtime_config_args()
 

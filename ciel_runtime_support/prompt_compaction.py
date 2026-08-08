@@ -181,6 +181,150 @@ def compact_chat_messages_for_budget(
     return compacted
 
 
+RESPONSES_CALL_TYPES = ("function_call", "custom_tool_call")
+RESPONSES_OUTPUT_TYPES = ("function_call_output", "custom_tool_call_output")
+
+
+def responses_item_as_message(item: dict[str, Any]) -> dict[str, Any]:
+    """Project one Responses input item into the shape the summary builder reads.
+
+    The chunked context-guard summary is written against ``role``/``content``
+    messages. Responses carries the same conversation as typed items, so the
+    projection exists only so one summariser serves both wires.
+    """
+
+    item_type = str(item.get("type") or "")
+    if item_type == "message":
+        return {"role": str(item.get("role") or "user"), "content": item.get("content")}
+    if item_type in RESPONSES_CALL_TYPES:
+        arguments = item.get("arguments")
+        if arguments is None:
+            arguments = item.get("input")
+        return {
+            "role": "assistant",
+            "content": f"{item.get('name') or item_type}({arguments if isinstance(arguments, str) else ''})",
+        }
+    if item_type in RESPONSES_OUTPUT_TYPES:
+        return {"role": "tool", "content": item.get("output")}
+    return {"role": "assistant", "content": item_type}
+
+
+def responses_tail_is_safe(items: list[dict[str, Any]], start: int) -> bool:
+    """Report whether cutting before ``start`` leaves every kept pair intact.
+
+    A tool output replayed without the call it answers is not valid Responses
+    input, so a tail may not begin inside a call/output pair.
+    """
+
+    retained_calls = {
+        str(item.get("call_id") or "")
+        for item in items[start:]
+        if str(item.get("type") or "") in RESPONSES_CALL_TYPES
+    }
+    return not any(
+        str(item.get("type") or "") in RESPONSES_OUTPUT_TYPES
+        and str(item.get("call_id") or "") not in retained_calls
+        for item in items[start:]
+    )
+
+
+def compact_responses_input_for_budget(
+    body: dict[str, Any],
+    budget_tokens: int,
+    *,
+    provider: str = "",
+    model: str = "",
+    services: PromptCompactionServices,
+) -> dict[str, Any]:
+    """Fit a Responses ``input`` array inside the target model's budget.
+
+    The Anthropic and chat wires have had this since the context guard was
+    written; Responses did not, so a session carried across a model change kept
+    a history the new window cannot hold. The upstream then rejects every turn
+    with ``context_length_exceeded``, and the client's own recovery drops one
+    history item per round trip, which does not converge on a transcript whose
+    bulk is a handful of very large tool outputs.
+
+    Same policy as the other wires: keep the newest items that fit, replace the
+    rest with the deterministic chunked summary, and never split a call from
+    its output.
+    """
+
+    items = body.get("input")
+    if not isinstance(items, list) or not items:
+        return body
+    typed = [item for item in items if isinstance(item, dict)]
+    if len(typed) != len(items):
+        return body
+    text = services.text
+    runtime = services.runtime
+    budget_tokens = max(8192, budget_tokens)
+    initial_tokens = runtime.estimate_tokens(body)
+    if initial_tokens <= budget_tokens:
+        return body
+
+    summary_budget = max(1024, min(24576, budget_tokens // 10))
+    tail_budget = max(8192, budget_tokens - summary_budget)
+    tail_start = len(typed)
+    for index in range(len(typed) - 1, -1, -1):
+        candidate = dict(body)
+        candidate["input"] = typed[index:]
+        if runtime.estimate_tokens(candidate) > tail_budget:
+            break
+        tail_start = index
+    while tail_start < len(typed) and not responses_tail_is_safe(typed, tail_start):
+        tail_start += 1
+    if tail_start >= len(typed):
+        tail_start = len(typed) - 1
+        while tail_start > 0 and not responses_tail_is_safe(typed, tail_start):
+            tail_start -= 1
+
+    def projected(omitted: list[dict[str, Any]]) -> dict[str, Any]:
+        summary = text.build_summary(
+            [responses_item_as_message(item) for item in omitted], budget_tokens
+        )
+        return {
+            "type": "message",
+            "role": "user",
+            "content": [{"type": "input_text", "text": summary}],
+        }
+
+    tail = typed[tail_start:]
+    out = dict(body)
+    out["input"] = [projected(typed[:tail_start]), *tail]
+    while runtime.estimate_tokens(out) > budget_tokens and len(tail) > 1:
+        tail = tail[1:]
+        while tail and not responses_tail_is_safe(tail, 0):
+            tail = tail[1:]
+        if not tail:
+            tail = [typed[-1]]
+            break
+        out["input"] = [projected(typed[: len(typed) - len(tail)]), *tail]
+    final_tokens = runtime.estimate_tokens(out)
+    runtime.log(
+        "WARN",
+        f"compacted responses payload provider={provider} model={model} "
+        f"items {len(typed)}->{len(out['input'])} tokens {initial_tokens}->{final_tokens} budget={budget_tokens}",
+    )
+    omitted = typed[: len(typed) - len(tail)]
+    chunk_count = text.chunk_count(
+        [responses_item_as_message(item) for item in omitted], budget_tokens
+    )
+    if chunk_count and (provider or model):
+        runtime.write_activity(
+            provider or "provider",
+            model,
+            chunks=chunk_count,
+            parallel_sessions=1,
+            tokens=initial_tokens,
+            final_tokens=final_tokens,
+            budget=budget_tokens,
+            omitted_messages=len(omitted),
+            retained_messages=len(out["input"]),
+        )
+    return out
+
+
 def anthropic_message_has_tool_result(message: dict[str, Any]) -> bool:
     content = message.get("content")
     return isinstance(content, list) and any(

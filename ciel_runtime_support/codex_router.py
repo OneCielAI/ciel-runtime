@@ -10,6 +10,10 @@ from .agent_router import COMMON_RUNTIME_ROUTER_CAPABILITIES, RouterCapability
 
 
 CODEX_CAPACITY_ERROR_CODES = frozenset({"server_is_overloaded", "slow_down"})
+# The upstream reports an oversized turn the same way it reports overload: a
+# 200 response whose first events are control-only, ending in response.failed.
+# Retrying it unchanged cannot succeed, so it is classified apart from capacity.
+CODEX_CONTEXT_ERROR_CODES = frozenset({"context_length_exceeded"})
 CODEX_RESPONSE_PREAMBLE_LIMIT = 256 * 1024
 _CODEX_NON_OUTPUT_EVENT_TYPES = frozenset({"response.created", "response.in_progress"})
 
@@ -18,6 +22,7 @@ _CODEX_NON_OUTPUT_EVENT_TYPES = frozenset({"response.created", "response.in_prog
 class CodexResponsePreamble:
     payload: bytes
     capacity_error_code: str | None = None
+    context_error_code: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,7 +91,7 @@ def _codex_sse_event(block: bytes) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
-def _codex_capacity_error_code(event: dict[str, Any]) -> str | None:
+def _codex_failure_code(event: dict[str, Any]) -> str | None:
     if event.get("type") != "response.failed":
         return None
     response = event.get("response")
@@ -95,8 +100,17 @@ def _codex_capacity_error_code(event: dict[str, Any]) -> str | None:
     error = response.get("error")
     if not isinstance(error, dict):
         return None
-    code = str(error.get("code") or "").strip()
+    return str(error.get("code") or "").strip() or None
+
+
+def _codex_capacity_error_code(event: dict[str, Any]) -> str | None:
+    code = _codex_failure_code(event)
     return code if code in CODEX_CAPACITY_ERROR_CODES else None
+
+
+def _codex_context_error_code(event: dict[str, Any]) -> str | None:
+    code = _codex_failure_code(event)
+    return code if code in CODEX_CONTEXT_ERROR_CODES else None
 
 
 def read_codex_response_preamble(
@@ -137,6 +151,9 @@ def read_codex_response_preamble(
         capacity_code = _codex_capacity_error_code(event)
         if capacity_code:
             return CodexResponsePreamble(bytes(buffered), capacity_code)
+        context_code = _codex_context_error_code(event)
+        if context_code:
+            return CodexResponsePreamble(bytes(buffered), None, context_code)
         if event.get("type") not in _CODEX_NON_OUTPUT_EVENT_TYPES:
             return CodexResponsePreamble(bytes(buffered))
         if reached_eof:
