@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
+
+# Every OpenAI Responses item ID observed in recorded sessions uses a short
+# lowercase prefix followed by an underscore (``msg_``, ``rs_``, ``fc_``,
+# ``fco_``, ``ctc_``, ``ctco_``, ``tso_``).  Identifiers minted by other
+# providers are opaque base64 blobs with no such prefix.
+NATIVE_RESPONSES_ITEM_ID = re.compile(r"^[a-z]+_")
 
 OPENAI_RESPONSES_ITEM_ID_PREFIXES = {
     "message": "msg_",
@@ -13,6 +20,22 @@ OPENAI_RESPONSES_ITEM_ID_PREFIXES = {
     "custom_tool_call": "ctc_",
     "custom_tool_call_output": "ctco_",
 }
+
+
+def _has_foreign_item_id(item_type: Any, item_id: str) -> bool:
+    """Report whether ``item_id`` was minted by a provider other than OpenAI."""
+
+    if not item_id:
+        return False
+    expected_prefix = OPENAI_RESPONSES_ITEM_ID_PREFIXES.get(str(item_type or ""))
+    if expected_prefix:
+        return not item_id.startswith(expected_prefix)
+    # Item types this map does not name -- ``web_search_call``,
+    # ``tool_search_call``, and whatever the Responses API adds next -- must
+    # still not replay another provider's identifier.  Enumerating them one at
+    # a time only surfaces the next unlisted type as the next failed turn, so
+    # fall back to the shape shared by every native ID.
+    return not NATIVE_RESPONSES_ITEM_ID.match(item_id)
 
 
 def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
@@ -32,9 +55,10 @@ def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
 
     Some providers also emit tool items with message IDs (``msg_``) while
     preserving the independent ``call_id`` used to pair calls with outputs.
-    Validate IDs by Responses item type and remove only a mismatched item ID;
-    keep ``call_id``, the tool name, arguments, output, and message content so
-    the transcript remains usable.
+    Validate IDs by Responses item type, falling back to the shape shared by
+    every native ID for item types this module does not name, and remove only a
+    foreign item ID; keep ``call_id``, the tool name, arguments, output, and
+    message content so the transcript remains usable.
     """
 
     value = body.get("input")
@@ -50,10 +74,7 @@ def repair_replayed_response_items(body: dict[str, Any]) -> dict[str, Any]:
         item = value_item
         item_type = item.get("type")
         item_id = str(item.get("id") or "")
-        expected_prefix = OPENAI_RESPONSES_ITEM_ID_PREFIXES.get(str(item_type or ""))
-        invalid_item_id = bool(
-            item_id and expected_prefix and not item_id.startswith(expected_prefix)
-        )
+        invalid_item_id = _has_foreign_item_id(item_type, item_id)
         if item_type != "reasoning" and invalid_item_id:
             retained = dict(item)
             retained.pop("id", None)
