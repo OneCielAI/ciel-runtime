@@ -5,11 +5,7 @@ import os
 import unittest
 from unittest import mock
 
-from ciel_runtime_support.ollama_stream_collection import (
-    OllamaStreamCollectPorts,
-    OllamaStreamCollector,
-    collect_ollama_chat_stream,
-)
+from ciel_runtime_support.ollama_stream_collection import collect_ollama_chat_stream
 from ciel_runtime_support.ollama_thinking import INTERNAL_REASONING_EFFORT_KEY
 from ciel_runtime_support.response_collection_context import (
     ResponseCollectionContext,
@@ -100,39 +96,64 @@ class OllamaStreamCollectionTests(unittest.TestCase):
 
         self.assertEqual("ok", collection.response["message"]["content"])
 
-    def test_collector_closes_the_stream_and_logs_the_verdict(self):
-        stream = CountingStream(loop_lines())
-        logs = []
-        collector = OllamaStreamCollector(
-            OllamaStreamCollectPorts(
+class OpenedStreamCollectorTests(unittest.TestCase):
+    """The context composes open + parse + close + log for every protocol."""
+
+    def context(self, stream, logs):
+        return ResponseCollectionContext(
+            shared=None,
+            anthropic=None,
+            strategies=None,
+            routing=None,
+            stream=ResponseCollectionStreamPorts(
                 open_stream=lambda *_a, **_k: stream,
                 log=lambda level, message: logs.append((level, message)),
-            )
+            ),
         )
 
-        response = collector("url", {}, {}, 30.0, "ollama-cloud", {}, "deepseek-v4-flash:0731")
+    def test_stream_is_closed_and_the_verdict_is_logged(self):
+        stream = CountingStream(loop_lines())
+        logs = []
+        collect = self.context(stream, logs).opened_stream_collector(
+            collect_ollama_chat_stream, "ollama"
+        )
+
+        response = collect("url", {}, {}, 30.0, "ollama-cloud", {}, "deepseek-v4-flash:0731")
 
         self.assertTrue(stream.closed)
         self.assertIn(LOOP, response["message"]["content"])
-        self.assertTrue(logs)
         self.assertIn("ollama_collect_runaway_repetition", logs[-1][1])
         # The repeated block itself must be recoverable from the log.
         self.assertIn("unit=", logs[-1][1])
 
-    def test_collector_is_silent_on_a_healthy_stream(self):
+    def test_a_healthy_stream_logs_nothing(self):
         logs = []
-        collector = OllamaStreamCollector(
-            OllamaStreamCollectPorts(
-                open_stream=lambda *_a, **_k: CountingStream(
-                    ndjson({"message": {"content": "fine"}, "done": True})
-                ),
-                log=lambda level, message: logs.append((level, message)),
-            )
+        stream = CountingStream(ndjson({"message": {"content": "fine"}, "done": True}))
+        collect = self.context(stream, logs).opened_stream_collector(
+            collect_ollama_chat_stream, "ollama"
         )
 
-        collector("url", {}, {}, 30.0, "ollama-cloud", {}, "m")
+        collect("url", {}, {}, 30.0, "ollama-cloud", {}, "m")
 
         self.assertEqual([], logs)
+
+    def test_the_transport_escape_hatch_falls_back_to_the_blocking_post(self):
+        context = self.context(CountingStream([]), [])
+
+        self.assertIsNotNone(context.opened_stream_collector(collect_ollama_chat_stream, "ollama"))
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_COLLECT_STREAM": "off"}):
+            self.assertIsNone(
+                context.opened_stream_collector(collect_ollama_chat_stream, "ollama")
+            )
+            self.assertIsNone(context.anthropic_stream_collector())
+
+    def test_no_open_stream_port_means_no_streaming(self):
+        context = ResponseCollectionContext(
+            shared=None, anthropic=None, strategies=None, routing=None
+        )
+
+        self.assertFalse(context.streaming_collection_enabled())
+        self.assertIsNone(context.opened_stream_collector(collect_ollama_chat_stream, "ollama"))
 
 
 def looping_message():

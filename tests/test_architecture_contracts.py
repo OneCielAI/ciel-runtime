@@ -3549,7 +3549,7 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertEqual(1, len(fields(ResponseCollectionCompatibilityApi)))
         self.assertLessEqual(len(fields(ResponseCollectionRoutingPorts)), 3)
         self.assertLessEqual(len(fields(ResponseCollectionStrategyPorts)), 7)
-        self.assertLessEqual(len(fields(ResponseCollectionStreamPorts)), 2)
+        self.assertLessEqual(len(fields(ResponseCollectionStreamPorts)), 3)
 
         root = Path(__file__).resolve().parents[1]
         source = (root / "ciel_runtime.py").read_text(encoding="utf-8")

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable
+from typing import Any, Iterable
 
 from .runaway_output_guard import (
     RunawayOutputDetector,
@@ -97,61 +97,7 @@ def collect_ollama_chat_stream(
     return OllamaStreamCollection(response=response, verdict=verdict, chunks=chunks)
 
 
-@dataclass(frozen=True, slots=True)
-class OllamaStreamCollectPorts:
-    open_stream: Callable[..., Any]
-    log: Callable[..., None] = lambda _level, _message: None
-    policy: Callable[[], RunawayOutputPolicy] = RunawayOutputPolicy
-
-
-@dataclass(frozen=True, slots=True)
-class OllamaStreamCollector:
-    """Streaming replacement for the collection path's single POST."""
-
-    ports: OllamaStreamCollectPorts
-
-    def __call__(
-        self,
-        url: str,
-        req_body: dict[str, Any],
-        headers: dict[str, str],
-        timeout: float,
-        provider: str,
-        pcfg: dict[str, Any],
-        model: str,
-        *,
-        retry_rate_limits: bool = True,
-    ) -> dict[str, Any]:
-        resp = self.ports.open_stream(
-            url,
-            req_body,
-            headers,
-            timeout,
-            provider,
-            pcfg,
-            model,
-            None,
-            retry_rate_limits=retry_rate_limits,
-        )
-        try:
-            collection = collect_ollama_chat_stream(resp, self.ports.policy())
-        finally:
-            try:
-                resp.close()
-            except Exception:
-                pass
-        if collection.verdict is not None:
-            self.ports.log(
-                "WARN",
-                f"ollama_collect_runaway_repetition provider={provider} model={model} "
-                f"chunks={collection.chunks} {collection.verdict.log_fields()}",
-            )
-        return collection.response
-
-
 __all__ = [
-    "OllamaStreamCollectPorts",
     "OllamaStreamCollection",
-    "OllamaStreamCollector",
     "collect_ollama_chat_stream",
 ]

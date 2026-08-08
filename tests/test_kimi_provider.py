@@ -544,20 +544,37 @@ class KimiProviderTests(unittest.TestCase):
             "tools": [],
             "stream": False,
         }
-        response = {
-            "id": "chatcmpl-test",
-            "choices": [{"message": {"role": "assistant", "content": "OK"}, "finish_reason": "stop"}],
-            "usage": {"prompt_tokens": 1, "completion_tokens": 1},
-        }
+        # Collection reads the upstream as a stream so a repetition loop can be
+        # cut off while it is generated; the endpoint choice is unchanged.
+        class Stream:
+            def __init__(self, lines):
+                self._lines = lines
+                self.closed = False
+
+            def __iter__(self):
+                return iter(self._lines)
+
+            def close(self):
+                self.closed = True
+
+        stream = Stream(
+            [
+                b'data: {"id":"chatcmpl-test","choices":[{"delta":{"content":"OK"}}]}\n',
+                b'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1}}\n',
+                b"data: [DONE]\n",
+            ]
+        )
 
         with (
-            mock.patch.object(ciel_runtime, "post_json_with_rate_retry", return_value=response) as post_json,
+            mock.patch.object(ciel_runtime, "open_openai_stream_with_rate_retry", return_value=stream) as open_stream,
             mock.patch.object(ciel_runtime, "open_provider_request_with_key_retry") as anthropic_request,
         ):
             message = ciel_runtime.collect_provider_message_for_responses(Handler(), "kimi", pcfg, body)
 
         self.assertEqual("OK", message["content"][0]["text"])
-        self.assertEqual("https://api.kimi.com/coding/v1/chat/completions", post_json.call_args.args[0])
+        self.assertEqual("https://api.kimi.com/coding/v1/chat/completions", open_stream.call_args.args[0])
+        self.assertTrue(open_stream.call_args.args[1]["stream"])
+        self.assertTrue(stream.closed)
         anthropic_request.assert_not_called()
 
     def test_kimi_preserves_thinking_while_normalizing_tool_use_stream(self):

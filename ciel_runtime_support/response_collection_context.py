@@ -13,6 +13,11 @@ from .runaway_output_guard import (
     trim_runaway_message_content,
 )
 from .ollama_thinking import INTERNAL_REASONING_EFFORT_KEY
+from .ollama_stream_collection import collect_ollama_chat_stream
+from .sse_stream_collection import (
+    collect_anthropic_message_stream,
+    collect_openai_chat_stream,
+)
 from .response_collection import (
     AnthropicCollectionServices,
     ChatCollectionStrategy,
@@ -42,10 +47,11 @@ class ResponseCollectionRoutingPorts:
 
 @dataclass(frozen=True, slots=True)
 class ResponseCollectionStreamPorts:
-    """Optional streaming reader so a loop is cut while it is generated."""
+    """Read collected responses as a stream so a loop is cut while generated."""
 
-    ollama_stream: Callable[..., dict[str, Any]] | None = None
+    open_stream: Callable[..., Any] | None = None
     log: Callable[..., None] = lambda _level, _message: None
+    policy: Callable[[], RunawayOutputPolicy] = lambda: policy_from_env(os.environ.get)
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +61,80 @@ class ResponseCollectionContext:
     strategies: ResponseCollectionStrategyPorts
     routing: ResponseCollectionRoutingPorts
     stream: ResponseCollectionStreamPorts = ResponseCollectionStreamPorts()
+
+    def streaming_collection_enabled(self) -> bool:
+        """Whether collected responses are read as a stream.
+
+        The escape hatch is separate from the guard's own kill switch: an
+        operator may want detection kept while reverting the transport.
+        """
+
+        if self.stream.open_stream is None:
+            return False
+        raw = str(os.environ.get("CIEL_RUNTIME_COLLECT_STREAM") or "").strip().lower()
+        return raw not in {"0", "off", "false", "no", "disable", "disabled"}
+
+    def opened_stream_collector(
+        self, parse: Callable[..., Any], operation: str
+    ) -> Callable[..., dict[str, Any]] | None:
+        """A drop-in replacement for the collection path's blocking POST."""
+
+        if not self.streaming_collection_enabled():
+            return None
+
+        def collect(
+            url: str,
+            req_body: dict[str, Any],
+            headers: dict[str, str],
+            timeout: float,
+            provider: str,
+            pcfg: dict[str, Any],
+            model: str,
+            *,
+            retry_rate_limits: bool = True,
+        ) -> dict[str, Any]:
+            resp = self.stream.open_stream(
+                url, req_body, headers, timeout, provider, pcfg, model, None,
+                retry_rate_limits=retry_rate_limits,
+            )
+            try:
+                collection = parse(resp, self.stream.policy())
+            finally:
+                try:
+                    resp.close()
+                except Exception:
+                    pass
+            return self.report_collected(collection, operation, provider, model)
+
+        return collect
+
+    def report_collected(
+        self, collection: Any, operation: str, provider: str, model: str
+    ) -> dict[str, Any]:
+        if collection.verdict is not None:
+            self.stream.log(
+                "WARN",
+                f"{operation}_collect_runaway_repetition provider={provider} "
+                f"model={model} chunks={collection.chunks} "
+                f"{collection.verdict.log_fields()}",
+            )
+        return collection.response
+
+    def anthropic_stream_collector(self) -> Callable[..., dict[str, Any]] | None:
+        """The Anthropic collector opens its own request, so it hands one back."""
+
+        if not self.streaming_collection_enabled():
+            return None
+
+        def collect(resp: Any, provider: str, model: str) -> dict[str, Any]:
+            return self.report_collected(
+                collect_anthropic_message_stream(resp, self.stream.policy()),
+                "anthropic",
+                provider,
+                model,
+            )
+
+        return collect
 
     @staticmethod
     def identity_upstream_model(
@@ -96,7 +176,9 @@ class ResponseCollectionContext:
             request_timeout_seconds=self.strategies.ollama_timeout,
             normalize_upstream_model=self.identity_upstream_model,
             skip_rate_limit_during_compatibility_test=True,
-            stream_collect=self.stream.ollama_stream,
+            stream_collect=self.opened_stream_collector(
+                collect_ollama_chat_stream, "ollama"
+            ),
         )
         return collect_chat_message_for_responses(
             handler,
@@ -120,6 +202,9 @@ class ResponseCollectionContext:
             decode_response=self.strategies.openai_decode,
             request_timeout_seconds=self.strategies.openai_timeout,
             normalize_upstream_model=self.strategies.upstream_model,
+            stream_collect=self.opened_stream_collector(
+                collect_openai_chat_stream, "openai_chat"
+            ),
         )
         return collect_chat_message_for_responses(
             handler,
@@ -143,6 +228,7 @@ class ResponseCollectionContext:
             pcfg,
             body,
             services=self.anthropic,
+            stream_collect=self.anthropic_stream_collector(),
         )
 
     def collect(

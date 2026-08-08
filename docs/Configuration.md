@@ -92,6 +92,7 @@
 | `CIEL_RUNTIME_RUNAWAY_GUARD` | 반복 폭주 가드 (기본: 켜짐, `off`로 비활성화) |
 | `CIEL_RUNTIME_RUNAWAY_CONTINUE` | 루프 감지 후 턴 이어가기 (기본: 켜짐, `off`면 감지만 하고 종료) |
 | `CIEL_RUNTIME_RUNAWAY_RETRIES` | 수집 경로 재시도 횟수 (기본: `2`, 최대 `4`) |
+| `CIEL_RUNTIME_COLLECT_STREAM` | 수집 경로 스트림 읽기 (기본: 켜짐, `off`면 단일 POST로 회귀) |
 | `CIEL_RUNTIME_RUNAWAY_MIN_REPEATS` | 연속 반복 최소 횟수 (기본: `10`) |
 | `CIEL_RUNTIME_RUNAWAY_MIN_CHARS` | 반복 구간 최소 길이 (기본: `2000`) |
 | `CIEL_RUNTIME_RUNAWAY_MAX_PERIOD` | 반복 블록 최대 길이 (기본: `4096`) |
@@ -127,7 +128,9 @@
   같은 조건 → `effort=high` → `effort=low`(사고 끄기) 순으로 올라간다.
   DeepSeek이 문서에서 권하는 대응(*"Retry or lower reasoning effort"*)과 같고,
   샘플링이 확률적(`do_sample: true, temperature: 1.0`)이라 재시도는 실제로 다른 결과다.
-  Ollama 업스트림은 스트림으로 읽어 조립하므로 루프가 다 만들어지기 전에 끊긴다.
+  세 프로토콜(Ollama NDJSON, OpenAI chat SSE, Anthropic Messages SSE) 모두
+  스트림으로 읽어 조립하므로 루프가 다 만들어지기 전에 끊긴다. 전송 방식만
+  되돌리려면 `CIEL_RUNTIME_COLLECT_STREAM=off`.
 - **스트리밍 경로** (Claude Code): 이미 나간 바이트는 되돌릴 수 없으므로 재시도가
   불가능하다. 대신 짧은 알림과 함께 `TaskList` 툴 호출을 합성해 CLI가 다음 턴을
   가져가게 한다. 직전 어시스턴트 턴에 같은 알림이 이미 있으면 합성하지 않고

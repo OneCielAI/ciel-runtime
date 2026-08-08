@@ -186,8 +186,14 @@ def collect_anthropic_message_for_responses(
     body: dict[str, Any],
     *,
     services: AnthropicCollectionServices,
+    stream_collect: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Collect one native Anthropic message for a Responses API projection."""
+    """Collect one native Anthropic message for a Responses API projection.
+
+    ``stream_collect`` reads the upstream as SSE and assembles the same message
+    object, which lets the repetition guard cut a loop off mid-generation
+    instead of paying for all of it and trimming afterwards.
+    """
 
     request = services.request
     transport = services.transport
@@ -202,7 +208,8 @@ def collect_anthropic_message_for_responses(
     body["model"] = upstream_model
     body = request.resolve_tool_models(provider, pcfg, body)
     body = request.normalize_model_options(provider, pcfg, body, upstream_model)
-    upstream_body = request.strip_internal_metadata({**body, "stream": False})
+    streaming = stream_collect is not None
+    upstream_body = request.strip_internal_metadata({**body, "stream": streaming})
     if transport.native_compat_enabled(provider, pcfg):
         base = transport.native_base_url(provider, pcfg)
     else:
@@ -226,11 +233,14 @@ def collect_anthropic_message_for_responses(
         provider,
         pcfg,
         upstream_model,
-        stream=False,
+        stream=streaming,
     )
     try:
-        raw_response = upstream_response.read()
-        payload = json.loads(raw_response.decode("utf-8", errors="replace"))
+        if streaming:
+            payload = stream_collect(upstream_response, provider, upstream_model)
+        else:
+            raw_response = upstream_response.read()
+            payload = json.loads(raw_response.decode("utf-8", errors="replace"))
         if not isinstance(payload, dict):
             raise RuntimeError("upstream returned non-object JSON")
         payload = projection.normalize_response_thinking(provider, pcfg, payload, upstream_model)
