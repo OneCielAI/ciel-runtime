@@ -291,6 +291,22 @@ def _sse(event, payload):
 CONTEXT_FAILED_SSE = _sse(
     "response.created", {"type": "response.created", "response": {"id": "resp_1"}}
 ) + _sse(
+    "response.in_progress",
+    {"type": "response.in_progress", "response": {"id": "resp_1"}},
+) + _sse(
+    # The upstream announces the refusal here first; scanning must not stop.
+    "error",
+    {
+        "type": "error",
+        "error": {
+            "type": "invalid_request_error",
+            "code": "context_length_exceeded",
+            "message": "Your input exceeds the context window of this model.",
+            "param": "input",
+        },
+        "sequence_number": 2,
+    },
+) + _sse(
     "response.failed",
     {
         "type": "response.failed",

@@ -15,7 +15,12 @@ CODEX_CAPACITY_ERROR_CODES = frozenset({"server_is_overloaded", "slow_down"})
 # Retrying it unchanged cannot succeed, so it is classified apart from capacity.
 CODEX_CONTEXT_ERROR_CODES = frozenset({"context_length_exceeded"})
 CODEX_RESPONSE_PREAMBLE_LIMIT = 256 * 1024
-_CODEX_NON_OUTPUT_EVENT_TYPES = frozenset({"response.created", "response.in_progress"})
+# A bare `error` frame carries no model output and precedes response.failed in
+# every captured refusal, so scanning must continue past it rather than treat it
+# as the start of a reply.
+_CODEX_NON_OUTPUT_EVENT_TYPES = frozenset(
+    {"response.created", "response.in_progress", "error"}
+)
 
 
 @dataclass(frozen=True)
@@ -92,12 +97,20 @@ def _codex_sse_event(block: bytes) -> dict[str, Any] | None:
 
 
 def _codex_failure_code(event: dict[str, Any]) -> str | None:
-    if event.get("type") != "response.failed":
+    """Read the failure code from either shape the upstream uses.
+
+    A refusal arrives as a bare ``error`` frame and again inside the
+    ``response.failed`` frame that follows it; both carry the same code.
+    """
+
+    event_type = event.get("type")
+    if event_type == "error":
+        error = event.get("error")
+    elif event_type == "response.failed":
+        response = event.get("response")
+        error = response.get("error") if isinstance(response, dict) else None
+    else:
         return None
-    response = event.get("response")
-    if not isinstance(response, dict):
-        return None
-    error = response.get("error")
     if not isinstance(error, dict):
         return None
     return str(error.get("code") or "").strip() or None
