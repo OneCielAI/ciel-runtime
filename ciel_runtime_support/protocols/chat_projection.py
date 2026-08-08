@@ -81,6 +81,39 @@ def openai_multimodal_content(content: Any, text: ChatProjectionText) -> Any:
     return projected if any(item.get("type") == "image_url" for item in projected) else text.compact_text(text.content_to_text(content))
 
 
+def closing_system_message_indexes(
+    body: dict[str, Any], text: ChatProjectionText
+) -> set[int]:
+    """Indexes of the system messages a conversation ends on.
+
+    Anthropic lets a client hand over input that arrived while a turn was still
+    running as a system message placed after the last turn; Claude Code delivers
+    what the user typed mid-task that way. A chat wire has no such envelope, and
+    the difference is not cosmetic: replaying a captured Claude Code request
+    against ollama-cloud/deepseek-v4-flash, the same text was acted on 0/10
+    times as the closing system message and 9/10 as a user message, while moving
+    it earlier or removing the surrounding router text changed nothing.
+
+    Only the closing run counts. A system message with further conversation
+    after it is background the model has already had a turn to act on.
+    """
+
+    messages = body.get("messages", []) or []
+    kept = [
+        index
+        for index, message in enumerate(messages)
+        if isinstance(message, dict)
+        and not text.attachment_only(message)
+        and not text.skip_message(message)
+    ]
+    closing: set[int] = set()
+    for index in reversed(kept):
+        if messages[index].get("role") != "system":
+            break
+        closing.add(index)
+    return closing
+
+
 def anthropic_messages_to_ollama(body: dict[str, Any], *, services: ChatProjectionServices) -> list[dict[str, Any]]:
     text = services.text
     tools = services.tools
@@ -91,10 +124,13 @@ def anthropic_messages_to_ollama(body: dict[str, Any], *, services: ChatProjecti
     in_plan_mode = tools.plan_mode_active(body)
     tool_names_by_id: dict[str, str] = {}
     tool_inputs_by_id: dict[str, Any] = {}
-    for message in body.get("messages", []) or []:
+    closing_system = closing_system_message_indexes(body, text)
+    for index, message in enumerate(body.get("messages", []) or []):
         if not isinstance(message, dict) or text.attachment_only(message) or text.skip_message(message):
             continue
         role = message.get("role", "user")
+        if role == "system" and index in closing_system:
+            role = "user"
         content = message.get("content", "")
         if role == "user" and isinstance(content, list):
             text_blocks: list[Any] = []

@@ -43,6 +43,7 @@
 |------|-----------|
 | `test_router_debug.py` | 라우터 디버그 기능 |
 | `test_upstream_filter.py` | 업스트림 필터링 |
+| `test_mid_conversation_system_projection.py` | 대화를 닫는 시스템 메시지의 chat wire 투영 |
 | `test_upstream_cancel.py` | 업스트림 요청 취소 |
 | `test_provider_wire_normalization.py` | 제공자 Wire 형식 정규화 |
 | `test_channel_bridge.py` | 채널 브릿지 |
