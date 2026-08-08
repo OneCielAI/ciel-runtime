@@ -46,6 +46,14 @@ class CodexBackendTransportPorts:
 
 
 @dataclass(frozen=True, slots=True)
+class CodexBackendReplayPorts:
+    """Durable upstream verdicts about replayed reasoning ciphertexts."""
+
+    rejected_reasoning_contains: Callable[[str], bool] = lambda _sealed: False
+    rejected_reasoning_record: Callable[[str], Any] = lambda _sealed: None
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderPassthroughProjectionPorts:
     provider_headers: Callable[..., dict[str, str]]
     chat_headers: Callable[..., dict[str, str]]
@@ -71,6 +79,7 @@ class CodexBackendContext:
     transport: CodexBackendTransportPorts
     provider_projection: ProviderPassthroughProjectionPorts
     provider_transport: ProviderPassthroughTransportPorts
+    replay: CodexBackendReplayPorts = CodexBackendReplayPorts()
 
     def routed_headers(
         self,
@@ -150,6 +159,8 @@ class CodexBackendContext:
                 self.transport.log,
                 self.transport.publish_event,
                 self.transport.sleep,
+                rejected_reasoning_contains=self.replay.rejected_reasoning_contains,
+                rejected_reasoning_record=self.replay.rejected_reasoning_record,
             ),
         )
 
@@ -245,6 +256,7 @@ class CodexBackendContext:
                     protocol="openai_responses",
                     **usage,
                 ),
+                log=self.transport.log,
             )
         )
 
@@ -340,6 +352,7 @@ __all__ = [
     "CodexBackendChannelPorts",
     "CodexBackendCompatibilityApi",
     "CodexBackendContext",
+    "CodexBackendReplayPorts",
     "CodexBackendTransportPorts",
     "ProviderPassthroughProjectionPorts",
     "ProviderPassthroughTransportPorts",

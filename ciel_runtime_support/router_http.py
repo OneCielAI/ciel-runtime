@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import io
 import json
 import sys
 import traceback
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -15,9 +17,15 @@ from ciel_runtime_support.header_forwarding import (
     HOP_BY_HOP_REQUEST_HEADERS,
     project_end_to_end_request_headers,
 )
+from ciel_runtime_support.codex_reasoning_rejects import (
+    drop_reasoning_matching_verdict,
+    drop_rejected_reasoning,
+    parse_unverifiable_encrypted_content,
+)
 from ciel_runtime_support.responses_input_compatibility import (
     repair_replayed_response_items,
 )
+from ciel_runtime_support.upstream_dump import dump_upstream_request
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +127,8 @@ class CodexBackendRetryPorts:
     log: Callable[[str, str], None]
     publish: Callable[..., Any]
     sleep: Callable[[float], None]
+    rejected_reasoning_contains: Callable[[str], bool] = lambda _sealed: False
+    rejected_reasoning_record: Callable[[str], Any] = lambda _sealed: None
 
 
 class CodexBackendHttpAdapter:
@@ -173,6 +183,14 @@ class CodexBackendHttpAdapter:
         mutate_responses: bool = False,
     ) -> dict[str, Any] | None:
         upstream_body = repair_replayed_response_items(body)
+        upstream_body, prefiltered = drop_rejected_reasoning(
+            upstream_body, self._retry.rejected_reasoning_contains
+        )
+        if prefiltered:
+            self._retry.log(
+                "INFO",
+                f"codex_rejected_reasoning_prefiltered count={prefiltered}",
+            )
         delivery_body: dict[str, Any] | None = None
         if mutate_responses:
             upstream_body, delivery_body = self._request.body_with_channel_context(upstream_body)
@@ -181,6 +199,62 @@ class CodexBackendHttpAdapter:
         url = self.upstream_url(parsed.path, parsed.query)
         headers = self._request.upstream_headers(config, handler.headers)
         data = json.dumps(upstream_body).encode("utf-8")
+        dump_upstream_request(url, data, self._retry.log)
+        # Each pass through this loop removes exactly one reasoning item the
+        # upstream explicitly refused to verify, so it can run at most once per
+        # sealed reasoning item in the request.
+        while True:
+            try:
+                self._send_codex_request(
+                    handler, provider, config, url, headers, data, upstream_body,
+                    mutate_responses=mutate_responses,
+                )
+                return delivery_body
+            except urllib.error.HTTPError as exc:
+                if exc.code != 400:
+                    raise
+                raw = exc.read()
+                verdict = parse_unverifiable_encrypted_content(
+                    raw.decode("utf-8", errors="replace")
+                )
+                sealed = None
+                if verdict is not None:
+                    upstream_body, sealed = drop_reasoning_matching_verdict(
+                        upstream_body, *verdict
+                    )
+                if sealed is None:
+                    raise urllib.error.HTTPError(
+                        exc.url, exc.code, exc.msg, exc.hdrs, io.BytesIO(raw)
+                    ) from None
+                self._retry.rejected_reasoning_record(sealed)
+                self._retry.log(
+                    "WARN",
+                    "codex_unverifiable_reasoning_dropped "
+                    f"head={verdict[0]} tail={verdict[1]} retrying",
+                )
+                self._retry.publish(
+                    level="warn",
+                    category="router.retry",
+                    message="Dropped reasoning the upstream could not verify",
+                    provider=provider,
+                    model=str(upstream_body.get("model") or ""),
+                    data={"head": verdict[0], "tail": verdict[1]},
+                )
+                data = json.dumps(upstream_body).encode("utf-8")
+                dump_upstream_request(url, data, self._retry.log)
+
+    def _send_codex_request(
+        self,
+        handler: BaseHTTPRequestHandler,
+        provider: str,
+        config: dict[str, Any],
+        url: str,
+        headers: dict[str, str],
+        data: bytes,
+        upstream_body: dict[str, Any],
+        *,
+        mutate_responses: bool,
+    ) -> None:
         max_retries = self._retry.retry_limit() if mutate_responses else 0
         for attempt in range(max_retries + 1):
             request = urllib.request.Request(url, data=data, headers=headers, method="POST")
@@ -217,7 +291,6 @@ class CodexBackendHttpAdapter:
                     continue
                 self._write_response(handler, response, preamble)
                 break
-        return delivery_body
 
     def forward_get(
         self,

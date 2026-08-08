@@ -134,7 +134,8 @@ from ciel_runtime_support.claude_environment import ClaudeEnvironmentFeaturePort
 from ciel_runtime_support.cli_application_context import CliApplicationCompatibilityApi, CliApplicationContext, CliApplicationDispatchPorts, CliApplicationPresentationPorts
 from ciel_runtime_support.cli_usage import cli_usage_text
 from ciel_runtime_support.codex_app_server import codex_app_server_launch_args
-from ciel_runtime_support.codex_backend_context import CodexBackendChannelPorts, CodexBackendCompatibilityApi, CodexBackendContext, CodexBackendTransportPorts, ProviderPassthroughProjectionPorts, ProviderPassthroughTransportPorts
+from ciel_runtime_support.codex_backend_context import CodexBackendChannelPorts, CodexBackendCompatibilityApi, CodexBackendContext, CodexBackendReplayPorts, CodexBackendTransportPorts, ProviderPassthroughProjectionPorts, ProviderPassthroughTransportPorts
+from ciel_runtime_support.codex_reasoning_rejects import RejectedReasoningStore
 from ciel_runtime_support.codex_cli import codex_passthrough_args_for_launch, codex_passthrough_has_command, codex_resume_picker_requested, codex_resume_with_session_id
 from ciel_runtime_support.codex_config import codex_alternate_screen_value_from_config_text  # noqa: F401
 from ciel_runtime_support.codex_config import codex_config_paths_for_launch  # noqa: F401 - compatibility export
@@ -2713,6 +2714,8 @@ collect_openai_chat_message_for_responses = _RESPONSE_COLLECTION_API.collect_ope
 collect_anthropic_message_for_responses = _RESPONSE_COLLECTION_API.collect_anthropic
 collect_provider_message_for_responses = _RESPONSE_COLLECTION_API.collect
 
+_REJECTED_REASONING_STORE = RejectedReasoningStore(CONFIG_DIR / "codex-rejected-reasoning.json", router_log)
+
 def codex_backend_context() -> CodexBackendContext:
     return CodexBackendContext(
         channel=CodexBackendChannelPorts(openai_responses_to_anthropic_messages, body_with_pending_channel_messages,
@@ -2720,6 +2723,8 @@ def codex_backend_context() -> CodexBackendContext:
                                          mark_pending_channel_delivery_success, commit_pending_channel_delivery_cursors),
         transport=CodexBackendTransportPorts(CODEX_ROUTED_UPSTREAM_BASE, with_upstream_user_agent, provider_urlopen, provider_request_timeout_seconds,
                                              read_codex_response_preamble, upstream_retry_wait_seconds, router_log, EVENT_BUS.publish, time.sleep, os.environ.get),
+        replay=CodexBackendReplayPorts(rejected_reasoning_contains=_REJECTED_REASONING_STORE.contains,
+                                       rejected_reasoning_record=_REJECTED_REASONING_STORE.add),
         provider_projection=ProviderPassthroughProjectionPorts(provider_headers, lambda *args, **kwargs: provider_chat_headers(*args, **kwargs),
                                                                lambda *args, **kwargs: provider_responses_headers(*args, **kwargs),
                                                                provider_upstream_model, resolve_requested_model, apply_provider_adapter_request_policy),

@@ -547,6 +547,7 @@ from ciel_runtime_support.codex_backend_context import (
     CodexBackendChannelPorts,
     CodexBackendCompatibilityApi,
     CodexBackendContext,
+    CodexBackendReplayPorts,
     CodexBackendTransportPorts,
     ProviderPassthroughProjectionPorts,
     ProviderPassthroughTransportPorts,
@@ -1892,10 +1893,11 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertNotIn("import ciel_runtime", policy_source)
 
     def test_codex_backend_context_owns_passthrough_composition(self):
-        self.assertEqual(4, len(fields(CodexBackendContext)))
+        self.assertEqual(5, len(fields(CodexBackendContext)))
         self.assertEqual(1, len(fields(CodexBackendCompatibilityApi)))
         for port_type in (
             CodexBackendChannelPorts,
+            CodexBackendReplayPorts,
             CodexBackendTransportPorts,
             ProviderPassthroughProjectionPorts,
             ProviderPassthroughTransportPorts,
