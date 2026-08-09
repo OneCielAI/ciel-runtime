@@ -1892,6 +1892,79 @@ class ChannelProbeDetailedReasonTests(unittest.TestCase):
         self.assertEqual("probe-session", seen_posts[1]["session"])
         self.assertEqual(["probe-session"], seen_deletes)
 
+    def test_streamable_http_probe_retries_transient_initialized_failure(self):
+        seen_posts: list[dict[str, str | None]] = []
+        seen_deletes: list[str | None] = []
+        initialize_count = 0
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                return
+
+            def do_POST(self):
+                nonlocal initialize_count
+                length = int(self.headers.get("Content-Length") or "0")
+                payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+                method = payload.get("method")
+                session = self.headers.get("Mcp-Session-Id")
+                seen_posts.append({"method": method, "session": session})
+                if method == "initialize":
+                    initialize_count += 1
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": payload.get("id"),
+                        "result": {
+                            "protocolVersion": ciel_runtime.MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
+                            "capabilities": {"experimental": {"claude/channel": True}},
+                            "serverInfo": {"name": "unit-http", "version": "1"},
+                        },
+                    }
+                    data = json.dumps(response).encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Mcp-Session-Id", f"probe-session-{initialize_count}")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
+                if session == "probe-session-1":
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+                self.send_response(202)
+                self.end_headers()
+
+            def do_DELETE(self):
+                seen_deletes.append(self.headers.get("Mcp-Session-Id"))
+                self.send_response(202)
+                self.end_headers()
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            result = ciel_runtime.probe_streamable_http_mcp_for_channel_capability_detailed(
+                "ai-net",
+                {"type": "http", "url": f"http://127.0.0.1:{server.server_address[1]}/mcp"},
+                timeout=3.0,
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+
+        self.assertTrue(result["capable"])
+        self.assertEqual("capable", result["reason"])
+        self.assertEqual(
+            [
+                {"method": "initialize", "session": None},
+                {"method": "notifications/initialized", "session": "probe-session-1"},
+                {"method": "initialize", "session": None},
+                {"method": "notifications/initialized", "session": "probe-session-2"},
+            ],
+            seen_posts,
+        )
+        self.assertEqual(["probe-session-1", "probe-session-2"], seen_deletes)
+
 
 class ChannelProbeStdioStrategyTests(unittest.TestCase):
     def test_default_strategy_is_jsonl(self):

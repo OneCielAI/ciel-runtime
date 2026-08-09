@@ -248,23 +248,34 @@ def probe_streamable_http_mcp_for_channel_capability_detailed(
     initialized_failed = False
     session_id: str | None = None
     try:
-        response, session_id = http.streamable_post_json(
-            url,
-            headers,
-            codec.initialize_dict(protocol_version),
-            max(1.0, min(120.0, effective_timeout)),
-            protocol_version,
-        )
-        preview_source = json.dumps(response, ensure_ascii=False) if isinstance(response, (dict, list)) else str(response or "")
-        bytes_seen = len(preview_source.encode("utf-8", errors="replace"))
-        if isinstance(response, dict) and response.get("id") == 1 and "result" in response:
-            response_received = True
-            capable = codec.capability_present(response)
+        # A channel-capable server can occasionally lose a freshly-created
+        # session between ``initialize`` and ``notifications/initialized``
+        # (for example when a load balancer routes the two requests to
+        # different workers).  Treating that one handshake failure as a
+        # durable negative capability result leaves the cached record false
+        # on every later launch, so Ciel never owns the notification stream.
+        # Retry the complete handshake once, but only after the server has
+        # already advertised the channel capability.
+        for handshake_attempt in range(2):
+            response, session_id = http.streamable_post_json(
+                url,
+                headers,
+                codec.initialize_dict(protocol_version),
+                max(1.0, min(120.0, effective_timeout)),
+                protocol_version,
+            )
+            preview_source = json.dumps(response, ensure_ascii=False) if isinstance(response, (dict, list)) else str(response or "")
+            bytes_seen = len(preview_source.encode("utf-8", errors="replace"))
+            response_received = bool(
+                isinstance(response, dict)
+                and response.get("id") == 1
+                and "result" in response
+            )
+            capable = response_received and codec.capability_present(response)
             if not capable:
                 stdout_preview = codec.decode_preview(preview_source.encode("utf-8"), policy.stdout_preview_bytes)
-        else:
-            stdout_preview = codec.decode_preview(preview_source.encode("utf-8"), policy.stdout_preview_bytes)
-        if response_received:
+            if not response_received:
+                break
             try:
                 http.streamable_post_json(
                     url,
@@ -274,10 +285,31 @@ def probe_streamable_http_mcp_for_channel_capability_detailed(
                     protocol_version,
                     session_id,
                 )
+                initialized_failed = False
+                stderr_preview = ""
+                break
             except Exception as exc:
                 initialized_failed = True
                 capable = False
                 stderr_preview = f"{type(exc).__name__}: {exc}"[:policy.stderr_preview_chars]
+                if handshake_attempt != 0 or not codec.capability_present(response):
+                    break
+                services.log(
+                    "INFO",
+                    "channel_probe_streamable_http_handshake_retry "
+                    f"server={server_name} error={type(exc).__name__}: {exc}",
+                )
+                if session_id:
+                    http.delete_streamable_session(
+                        f"probe-{server_name}",
+                        url,
+                        headers,
+                        protocol_version,
+                        session_id,
+                        "channel_probe_retry_cleanup",
+                        timeout=min(10.0, max(1.0, effective_timeout)),
+                    )
+                session_id = None
         reason = "streamable_http_initialized_post_failed" if initialized_failed else (
             "capable" if capable else ("no_experimental_claude_channel" if response_received else "no_initialize_response")
         )
