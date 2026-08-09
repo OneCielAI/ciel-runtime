@@ -231,6 +231,19 @@ def render_web_chat_page(
           </div>
         </section>
         <section class="settings-section">
+          <h3>Colab CLI connection</h3>
+          <div class="settings-grid">
+            <label class="check"><input id="colabEnabled" type="checkbox"> Manage workers with Colab CLI</label>
+            <label>WSL distribution<input id="colabDistribution" placeholder="Ubuntu-26.04"></label>
+            <label>Authentication<select id="colabAuth"><option value="adc">ADC</option><option value="oauth2">OAuth2</option></select></label>
+            <label>ASR session<input id="colabAsrSession" placeholder="ciel-asr"></label>
+            <label>TTS session<input id="colabTtsSession" placeholder="ciel-tts"></label>
+            <label>ASR GPU<select id="colabAsrAccelerator"><option>T4</option><option>L4</option><option>G4</option><option>A100</option><option>H100</option></select></label>
+            <label>TTS GPU<select id="colabTtsAccelerator"><option>T4</option><option>L4</option><option>G4</option><option>A100</option><option>H100</option></select></label>
+          </div>
+          <div class="hint">Saved here for scripts/deploy_colab_speech.ps1. Credentials remain in the Colab CLI profile and are never stored by Ciel.</div>
+        </section>
+        <section class="settings-section">
           <h3>Tailscale tunnel</h3>
           <div class="settings-grid">
             <label class="check"><input id="tailscaleEnabled" type="checkbox"> Use tailnet-only addresses</label>
@@ -568,6 +581,7 @@ def render_web_chat_page(
     function setSpeechForm(config) {{
       const asr = config.asr || {{}};
       const tts = config.tts || {{}};
+      const colab = config.colab || {{}};
       const tailscale = config.tailscale || {{}};
       document.getElementById('asrEnabled').checked = Boolean(asr.enabled);
       document.getElementById('asrBaseUrl').value = asr.base_url || '';
@@ -588,6 +602,13 @@ def render_web_chat_page(
       pendingTtsReferenceAudio = '';
       document.getElementById('ttsApiKey').value = '';
       document.getElementById('ttsApiKey').placeholder = tts.api_key_set ? 'Token is set; leave blank to keep it' : 'Optional remote bearer token';
+      document.getElementById('colabEnabled').checked = colab.enabled !== false;
+      document.getElementById('colabDistribution').value = colab.distribution || 'Ubuntu-26.04';
+      document.getElementById('colabAuth').value = colab.auth || 'adc';
+      document.getElementById('colabAsrSession').value = colab.asr_session || 'ciel-asr';
+      document.getElementById('colabTtsSession').value = colab.tts_session || 'ciel-tts';
+      document.getElementById('colabAsrAccelerator').value = colab.asr_accelerator || 'T4';
+      document.getElementById('colabTtsAccelerator').value = colab.tts_accelerator || 'T4';
       document.getElementById('tailscaleEnabled').checked = tailscale.enabled !== false;
       document.getElementById('tailscaleAsrHostname').value = tailscale.asr_hostname || 'ciel-asr';
       document.getElementById('tailscaleTtsHostname').value = tailscale.tts_hostname || 'ciel-tts';
@@ -622,6 +643,15 @@ def render_web_chat_page(
           ref_text: document.getElementById('ttsReferenceText').value,
           clear_ref_audio: document.getElementById('ttsClearReferenceAudio').checked,
           api_key: document.getElementById('ttsApiKey').value,
+        }},
+        colab: {{
+          enabled: document.getElementById('colabEnabled').checked,
+          distribution: document.getElementById('colabDistribution').value,
+          auth: document.getElementById('colabAuth').value,
+          asr_session: document.getElementById('colabAsrSession').value,
+          tts_session: document.getElementById('colabTtsSession').value,
+          asr_accelerator: document.getElementById('colabAsrAccelerator').value,
+          tts_accelerator: document.getElementById('colabTtsAccelerator').value,
         }},
         tailscale: {{
           enabled: document.getElementById('tailscaleEnabled').checked,

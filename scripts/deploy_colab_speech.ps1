@@ -1,11 +1,32 @@
 param(
-    [string]$Distribution = "Ubuntu-26.04",
-    [string]$AsrSession = "ciel-asr",
-    [string]$TtsSession = "ciel-tts"
+    [string]$Distribution,
+    [string]$ColabAuth,
+    [string]$AsrSession,
+    [string]$TtsSession,
+    [string]$AsrAccelerator,
+    [string]$TtsAccelerator
 )
 
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$settingsJson = (& python (Join-Path $PSScriptRoot "configure_speech_workers.py") --print-colab-settings) -join "`n"
+if ($LASTEXITCODE -ne 0) { throw "Could not read Ciel Colab settings." }
+$settings = $settingsJson | ConvertFrom-Json
+if ($settings.enabled -eq $false) { throw "Colab worker management is disabled in Web Chat > Speech Settings." }
+if ([string]::IsNullOrWhiteSpace($Distribution)) { $Distribution = [string]$settings.distribution }
+if ([string]::IsNullOrWhiteSpace($ColabAuth)) { $ColabAuth = [string]$settings.auth }
+if ([string]::IsNullOrWhiteSpace($AsrSession)) { $AsrSession = [string]$settings.asr_session }
+if ([string]::IsNullOrWhiteSpace($TtsSession)) { $TtsSession = [string]$settings.tts_session }
+if ([string]::IsNullOrWhiteSpace($AsrAccelerator)) { $AsrAccelerator = [string]$settings.asr_accelerator }
+if ([string]::IsNullOrWhiteSpace($TtsAccelerator)) { $TtsAccelerator = [string]$settings.tts_accelerator }
+if ($Distribution -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$') { throw "Invalid WSL distribution name." }
+if ($ColabAuth -notin @('adc', 'oauth2')) { throw "ColabAuth must be adc or oauth2." }
+foreach ($session in @($AsrSession, $TtsSession)) {
+    if ($session -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$') { throw "Invalid Colab session name: $session" }
+}
+foreach ($accelerator in @($AsrAccelerator, $TtsAccelerator)) {
+    if ($accelerator -notin @('T4', 'L4', 'G4', 'A100', 'H100')) { throw "Unsupported Colab accelerator: $accelerator" }
+}
 $wslRepo = (& wsl -d $Distribution -- wslpath -a ($repo -replace '\\', '/')).Trim()
 if (-not $wslRepo) { throw "Could not resolve the repository path in WSL." }
 $bootstrapEnv = ""
@@ -19,25 +40,31 @@ if ($env:CIEL_SPEECH_API_KEY) {
 }
 
 Write-Host "Checking Colab CLI authentication..."
-& wsl -d $Distribution -- bash -lc "colab --auth adc status >/dev/null"
+& wsl -d $Distribution -- bash -lc "colab --auth $ColabAuth status >/dev/null"
 if ($LASTEXITCODE -ne 0) {
-    throw "Colab CLI is not authenticated. Configure ADC in WSL (gcloud auth application-default login), then rerun."
+    throw "Colab CLI is not authenticated with '$ColabAuth' in WSL '$Distribution'."
 }
 
-Write-Host "Creating ASR T4 session: $AsrSession"
-& wsl -d $Distribution -- bash -lc "colab --auth adc new --gpu T4 --session '$AsrSession'"
-if ($LASTEXITCODE -ne 0) { throw "Could not create ASR Colab session." }
+function Ensure-ColabSession([string]$Session, [string]$Accelerator, [string]$Role) {
+    & wsl -d $Distribution -- bash -lc "colab --auth $ColabAuth status --session '$Session' >/dev/null 2>&1"
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Reusing $Role $Accelerator session: $Session"
+        return
+    }
+    Write-Host "Creating $Role $Accelerator session: $Session"
+    & wsl -d $Distribution -- bash -lc "colab --auth $ColabAuth new --gpu $Accelerator --session '$Session'"
+    if ($LASTEXITCODE -ne 0) { throw "Could not create $Role Colab session." }
+}
 
-Write-Host "Creating TTS T4 session: $TtsSession"
-& wsl -d $Distribution -- bash -lc "colab --auth adc new --gpu T4 --session '$TtsSession'"
-if ($LASTEXITCODE -ne 0) { throw "Could not create TTS Colab session." }
+Ensure-ColabSession $AsrSession $AsrAccelerator "ASR"
+Ensure-ColabSession $TtsSession $TtsAccelerator "TTS"
 
 Write-Host "Installing Qwen3-ASR and its Tailscale service..."
-$asrOutput = (& wsl -d $Distribution -- bash -lc "colab --auth adc exec --session '$AsrSession'$bootstrapEnv --file '$wslRepo/scripts/colab/bootstrap_qwen_asr.py'" 2>&1 | Tee-Object -Variable asrDisplay) -join "`n"
+$asrOutput = (& wsl -d $Distribution -- bash -lc "colab --auth $ColabAuth exec --session '$AsrSession'$bootstrapEnv --file '$wslRepo/scripts/colab/bootstrap_qwen_asr.py'" 2>&1 | Tee-Object -Variable asrDisplay) -join "`n"
 if ($LASTEXITCODE -ne 0) { throw "ASR bootstrap failed." }
 
 Write-Host "Installing MOSS-TTS-Nano and its Tailscale service..."
-$ttsOutput = (& wsl -d $Distribution -- bash -lc "colab --auth adc exec --session '$TtsSession'$bootstrapEnv --file '$wslRepo/scripts/colab/bootstrap_moss_tts.py'" 2>&1 | Tee-Object -Variable ttsDisplay) -join "`n"
+$ttsOutput = (& wsl -d $Distribution -- bash -lc "colab --auth $ColabAuth exec --session '$TtsSession'$bootstrapEnv --file '$wslRepo/scripts/colab/bootstrap_moss_tts.py'" 2>&1 | Tee-Object -Variable ttsDisplay) -join "`n"
 if ($LASTEXITCODE -ne 0) { throw "TTS bootstrap failed." }
 
 function Read-BootstrapResult([string]$Text, [string]$Role) {
@@ -50,7 +77,7 @@ function Read-BootstrapResult([string]$Text, [string]$Role) {
 
 $asr = Read-BootstrapResult $asrOutput "asr"
 $tts = Read-BootstrapResult $ttsOutput "tts"
-& python (Join-Path $PSScriptRoot "configure_speech_workers.py") --asr-base-url $asr.base_url --tts-base-url $tts.base_url
+& python (Join-Path $PSScriptRoot "configure_speech_workers.py") --asr-base-url $asr.base_url --tts-base-url $tts.base_url --distribution $Distribution --auth $ColabAuth --asr-session $AsrSession --tts-session $TtsSession --asr-accelerator $AsrAccelerator --tts-accelerator $TtsAccelerator
 if ($LASTEXITCODE -ne 0) { throw "Workers started, but Ciel speech configuration failed." }
 
 Write-Host "Both services are running and connected to Web Chat > Speech Settings."

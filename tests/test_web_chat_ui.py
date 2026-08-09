@@ -78,6 +78,11 @@ class WebChatUiTests(unittest.TestCase):
         self.assertIn("function startVoiceInput()", html)
         self.assertIn("function speakText(text)", html)
         self.assertIn("Tailscale base URL", html)
+        self.assertIn("Colab CLI connection", html)
+        self.assertIn('id="colabDistribution"', html)
+        self.assertIn('id="colabAsrSession"', html)
+        self.assertIn('id="colabTtsSession"', html)
+        self.assertIn("asr_accelerator: document.getElementById('colabAsrAccelerator').value", html)
         self.assertIn('id="ttsReferenceAudio" type="file" accept="audio/*"', html)
         self.assertIn("pendingTtsReferenceAudio", html)
 

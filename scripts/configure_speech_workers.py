@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import sys
 from typing import Any
@@ -11,30 +12,93 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
 DEFAULT_TTS_REFERENCE_AUDIO = "https://raw.githubusercontent.com/OpenMOSS/MOSS-TTS-Nano/main/assets/audio/zh_1.wav"
+DEFAULT_COLAB_SETTINGS: dict[str, Any] = {
+    "enabled": True,
+    "distribution": "Ubuntu-26.04",
+    "auth": "adc",
+    "asr_session": "ciel-asr",
+    "tts_session": "ciel-tts",
+    "asr_accelerator": "T4",
+    "tts_accelerator": "T4",
+}
 
 
-def configure(asr_base_url: str, tts_base_url: str, tts_reference_audio: str = DEFAULT_TTS_REFERENCE_AUDIO) -> dict[str, Any]:
+def colab_settings(config: dict[str, Any] | None = None) -> dict[str, Any]:
+    import ciel_runtime
+
+    active = config if config is not None else ciel_runtime.load_config()
+    speech = active.get("speech") if isinstance(active.get("speech"), dict) else {}
+    saved = speech.get("colab") if isinstance(speech.get("colab"), dict) else {}
+    return {**DEFAULT_COLAB_SETTINGS, **saved}
+
+
+def configure(
+    asr_base_url: str,
+    tts_base_url: str,
+    tts_reference_audio: str = DEFAULT_TTS_REFERENCE_AUDIO,
+    *,
+    distribution: str | None = None,
+    auth: str | None = None,
+    asr_session: str | None = None,
+    tts_session: str | None = None,
+    asr_accelerator: str | None = None,
+    tts_accelerator: str | None = None,
+) -> dict[str, Any]:
     import ciel_runtime
 
     config = ciel_runtime.load_config()
     speech = config.setdefault("speech", {})
     asr = speech.setdefault("asr", {})
     tts = speech.setdefault("tts", {})
+    colab = colab_settings(config)
+    overrides = {
+        "distribution": distribution,
+        "auth": auth,
+        "asr_session": asr_session,
+        "tts_session": tts_session,
+        "asr_accelerator": asr_accelerator,
+        "tts_accelerator": tts_accelerator,
+    }
+    colab.update({key: value for key, value in overrides.items() if value is not None})
+    colab["enabled"] = True
+    speech["colab"] = colab
     asr.update({"enabled": True, "base_url": asr_base_url.rstrip("/"), "model": "Qwen/Qwen3-ASR-0.6B"})
     tts.update({"enabled": True, "base_url": tts_base_url.rstrip("/"), "model": "OpenMOSS-Team/MOSS-TTS-Nano"})
     if tts_reference_audio and not str(tts.get("ref_audio") or "").strip():
         tts["ref_audio"] = tts_reference_audio
     ciel_runtime.save_config(config)
-    return {"asr": asr["base_url"], "tts": tts["base_url"]}
+    return {"asr": asr["base_url"], "tts": tts["base_url"], "colab": colab}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--asr-base-url", required=True)
-    parser.add_argument("--tts-base-url", required=True)
+    parser.add_argument("--asr-base-url")
+    parser.add_argument("--tts-base-url")
     parser.add_argument("--tts-reference-audio", default=DEFAULT_TTS_REFERENCE_AUDIO)
+    parser.add_argument("--distribution")
+    parser.add_argument("--auth", choices=("adc", "oauth2"))
+    parser.add_argument("--asr-session")
+    parser.add_argument("--tts-session")
+    parser.add_argument("--asr-accelerator")
+    parser.add_argument("--tts-accelerator")
+    parser.add_argument("--print-colab-settings", action="store_true")
     args = parser.parse_args()
-    result = configure(args.asr_base_url, args.tts_base_url, args.tts_reference_audio)
+    if args.print_colab_settings:
+        print(json.dumps(colab_settings(), separators=(",", ":")))
+        return 0
+    if not args.asr_base_url or not args.tts_base_url:
+        parser.error("--asr-base-url and --tts-base-url are required unless --print-colab-settings is used")
+    result = configure(
+        args.asr_base_url,
+        args.tts_base_url,
+        args.tts_reference_audio,
+        distribution=args.distribution,
+        auth=args.auth,
+        asr_session=args.asr_session,
+        tts_session=args.tts_session,
+        asr_accelerator=args.asr_accelerator,
+        tts_accelerator=args.tts_accelerator,
+    )
     print(f"Configured Ciel speech workers: ASR={result['asr']} TTS={result['tts']}")
     return 0
 

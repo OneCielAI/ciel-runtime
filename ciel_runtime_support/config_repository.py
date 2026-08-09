@@ -27,6 +27,15 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
             "tailscale_https": False,
         },
         "speech": {
+            "colab": {
+                "enabled": True,
+                "distribution": "Ubuntu-26.04",
+                "auth": "adc",
+                "asr_session": "ciel-asr",
+                "tts_session": "ciel-tts",
+                "asr_accelerator": "T4",
+                "tts_accelerator": "T4",
+            },
             "asr": {
                 "enabled": False,
                 "base_url": "http://ciel-asr:8000",

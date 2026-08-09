@@ -48,6 +48,7 @@ class SpeechHttpControllerTests(unittest.TestCase):
             "speech": {
                 "asr": {"enabled": True, "base_url": "http://ciel-asr", "endpoint": "/v1/audio/transcriptions", "model": "Qwen/Qwen3-ASR-0.6B", "language": "auto", "api_key": "asr-secret", "timeout_seconds": 30},
                 "tts": {"enabled": True, "base_url": "http://ciel-tts", "endpoint": "/v1/audio/speech", "voices_endpoint": "/v1/audio/voices", "model": "OpenMOSS-Team/MOSS-TTS-Nano", "voice": "default", "language": "ko", "ref_audio": "https://example.test/reference.wav", "response_format": "wav", "speed": 1.0, "auto_speak": True, "api_key": "tts-secret", "timeout_seconds": 30},
+                "colab": {"enabled": True, "distribution": "Ubuntu-26.04", "auth": "adc", "asr_session": "ciel-asr", "tts_session": "ciel-tts", "asr_accelerator": "T4", "tts_accelerator": "T4"},
                 "tailscale": {"enabled": True, "asr_hostname": "ciel-asr", "tts_hostname": "ciel-tts"},
             }
         }
@@ -77,6 +78,8 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.assertNotIn("ref_audio", public["tts"])
         self.assertTrue(public["tts"]["ref_audio_set"])
         self.assertTrue(public["asr"]["api_key_set"])
+        self.assertEqual("Ubuntu-26.04", public["colab"]["distribution"])
+        self.assertEqual("ciel-asr", public["colab"]["asr_session"])
         self.assertEqual("POST /v1/audio/transcriptions", public["endpoints"]["asr"])
         self.assertEqual("POST /v1/audio/speech", public["endpoints"]["tts"])
 
@@ -122,6 +125,36 @@ class SpeechHttpControllerTests(unittest.TestCase):
 
         self.assertEqual("asr-secret", self.saved[0]["speech"]["asr"]["api_key"])
         self.assertEqual("https://new-asr.tailnet.ts.net", self.saved[0]["speech"]["asr"]["base_url"])
+
+    def test_colab_connection_settings_are_validated_and_saved(self):
+        handler = _Handler()
+        body = json.dumps({"colab": {
+            "enabled": True,
+            "distribution": "Ubuntu-24.04",
+            "auth": "oauth2",
+            "asr_session": "speech-asr",
+            "tts_session": "speech-tts",
+            "asr_accelerator": "l4",
+            "tts_accelerator": "a100",
+        }}).encode()
+
+        self.controller().post(handler, "/ca/speech/config", body, "application/json")
+
+        saved = self.saved[0]["speech"]["colab"]
+        self.assertEqual("Ubuntu-24.04", saved["distribution"])
+        self.assertEqual("oauth2", saved["auth"])
+        self.assertEqual("L4", saved["asr_accelerator"])
+        self.assertEqual("A100", saved["tts_accelerator"])
+        self.assertEqual(200, handler.status)
+
+    def test_colab_connection_settings_reject_shell_metacharacters(self):
+        handler = _Handler()
+        body = json.dumps({"colab": {"asr_session": "ciel-asr; reboot"}}).encode()
+
+        self.controller().post(handler, "/ca/speech/config", body, "application/json")
+
+        self.assertEqual([], self.saved)
+        self.assertEqual(400, handler.status)
 
 
 if __name__ == "__main__":

@@ -16,7 +16,9 @@ From PowerShell at the repository root:
 .\scripts\deploy_colab_speech.ps1
 ```
 
-The script creates `ciel-asr` and `ciel-tts` T4 sessions, installs Qwen3-ASR-0.6B and MOSS-TTS-Nano, starts Tailscale in userspace networking mode, publishes each localhost model server with Tailscale Serve, and saves both returned `base_url` values into Web Chat > Speech Settings automatically.
+Set the WSL distribution, authentication mode, ASR/TTS session names, and accelerators in **Web Chat > Speech Settings > Colab CLI connection**. These values are available through `GET|POST /ca/speech/config`; Ciel does not store Colab credentials. The deployment script reads the saved values automatically. Command-line parameters such as `-Distribution`, `-ColabAuth`, `-AsrSession`, and `-AsrAccelerator` override them for one run.
+
+The script reuses matching active sessions when possible, otherwise creates them, installs Qwen3-ASR-0.6B and MOSS-TTS-Nano, starts Tailscale in userspace networking mode, publishes each localhost model server with Tailscale Serve, and saves both returned `base_url` values into Web Chat > Speech Settings automatically.
 
 MOSS-TTS-Nano is a voice-cloning model without built-in speakers. Deployment configures the project's official `zh_1.wav` sample so the first request works immediately. In Web Chat > Speech Settings, upload a reference voice clip (10 MB maximum) to replace it. Ciel stores uploaded audio only in the local protected runtime configuration, omits it from configuration responses, and adds it to TTS requests automatically. API clients can instead pass `ref_audio` as an HTTP(S) URL or base64 audio data URL to `POST /v1/audio/speech`.
 

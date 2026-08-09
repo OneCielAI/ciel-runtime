@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 import secrets
 import urllib.error
 import urllib.parse
@@ -72,6 +73,8 @@ class SpeechHttpController:
             public[name] = item
         tailscale = speech.get("tailscale")
         public["tailscale"] = dict(tailscale) if isinstance(tailscale, dict) else {}
+        colab = speech.get("colab")
+        public["colab"] = dict(colab) if isinstance(colab, dict) else {}
         public["endpoints"] = self.discovery_payload()["endpoints"]
         return public
 
@@ -147,6 +150,14 @@ class SpeechHttpController:
                 for key in ("enabled", "asr_hostname", "tts_hostname"):
                     if key in tailscale:
                         current_tailscale[key] = tailscale[key]
+            colab = update.get("colab")
+            if isinstance(colab, dict):
+                current_colab = speech.setdefault("colab", {})
+                if not isinstance(current_colab, dict):
+                    current_colab = {}
+                    speech["colab"] = current_colab
+                for key, value in colab.items():
+                    current_colab[key] = self._validated_colab_value(key, value)
             self.ports.save_config(config)
             self.ports.write_json(handler, self.public_config())
         except (UnicodeError, ValueError, TypeError) as exc:
@@ -190,6 +201,36 @@ class SpeechHttpController:
             return text.rstrip("/")
         if key in {"endpoint", "voices_endpoint"} and not text.startswith("/"):
             raise ValueError(f"{service} {key} must begin with /")
+        return text
+
+    @staticmethod
+    def _validated_colab_value(key: str, value: Any) -> Any:
+        allowed = {
+            "enabled",
+            "distribution",
+            "auth",
+            "asr_session",
+            "tts_session",
+            "asr_accelerator",
+            "tts_accelerator",
+        }
+        if key not in allowed:
+            raise ValueError(f"unsupported colab setting: {key}")
+        if key == "enabled":
+            return bool(value)
+        text = str(value or "").strip()
+        if key == "auth":
+            auth = text.lower()
+            if auth not in {"adc", "oauth2"}:
+                raise ValueError("Colab auth must be adc or oauth2")
+            return auth
+        if key.endswith("_accelerator"):
+            accelerator = text.upper()
+            if accelerator not in {"T4", "L4", "G4", "A100", "H100"}:
+                raise ValueError("unsupported Colab accelerator")
+            return accelerator
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", text):
+            raise ValueError(f"invalid Colab {key}")
         return text
 
     def _probe(self, name: str) -> dict[str, Any]:
