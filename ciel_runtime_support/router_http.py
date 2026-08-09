@@ -90,6 +90,7 @@ class RouterHttpGetEndpoints:
     llm_config: Callable[[Any, str], bool]
     channel_mcp: Callable[[Any, str], bool]
     web: Callable[[Any, str], bool]
+    speech: Callable[[Any, str], bool]
     chat: Callable[[Any, str], bool]
     plan: Callable[[Any, str], bool]
     runtime: Callable[..., bool]
@@ -98,6 +99,7 @@ class RouterHttpGetEndpoints:
 @dataclass(frozen=True, slots=True)
 class RouterHttpPostEndpoints:
     codex_mcp_split: Callable[[Any, str, bytes, str], bool]
+    speech: Callable[[Any, str, bytes, str], bool]
     llm_config: Callable[[Any, str, dict[str, Any]], bool]
     channel_mcp: Callable[[Any, str, dict[str, Any]], bool]
     chat: Callable[[Any, str, dict[str, Any]], bool]
@@ -636,6 +638,8 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             return
         if endpoints.web(self, path):
             return
+        if endpoints.speech(self, path):
+            return
         if endpoints.chat(self, path) or endpoints.plan(self, path):
             return
         provider, pcfg = services.core.get_current_provider(cfg)
@@ -675,6 +679,8 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             raw = self.rfile.read(length) if length else b"{}"
             endpoints = services.post
             if endpoints.codex_mcp_split(self, path, raw, "POST"):
+                return
+            if endpoints.speech(self, path, raw, str(self.headers.get("content-type") or "application/json")):
                 return
             body = services.core.parse_json_body(raw)
             if endpoints.llm_config(self, path, body):

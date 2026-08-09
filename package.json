@@ -1,6 +1,6 @@
 {
   "name": "@oneciel-ai/ciel-runtime",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Universal AI coding-agent runtime and model-routing layer for Claude, Codex, AGY, and compatible runtimes.",
   "license": "MIT",
   "author": "One Ciel LLC",
@@ -36,6 +36,9 @@
     "ciel-runtime-stop.cmd",
     "ciel-runtime-stop.ps1",
     "npm-bin/",
+    "scripts/colab/",
+    "scripts/configure_speech_workers.py",
+    "scripts/deploy_colab_speech.ps1",
     "install.sh",
     "install.ps1",
     "README.md",

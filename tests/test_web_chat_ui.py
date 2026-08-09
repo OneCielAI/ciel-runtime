@@ -70,6 +70,14 @@ class WebChatUiTests(unittest.TestCase):
         self.assertIn("attachments: uploads", html)
         self.assertIn("Use send_file when returning a file attachment", html)
         self.assertIn("Attached files:", html)
+        self.assertIn("Speech Settings", html)
+        self.assertIn("Start voice input", html)
+        self.assertIn("/ca/speech/config", html)
+        self.assertIn("/v1/audio/transcriptions", html)
+        self.assertIn("/v1/audio/speech", html)
+        self.assertIn("function startVoiceInput()", html)
+        self.assertIn("function speakText(text)", html)
+        self.assertIn("Tailscale base URL", html)
 
     def test_web_chat_markdown_renderer_sanitizes_and_supports_tables(self):
         cfg = self._cfg()

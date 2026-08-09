@@ -112,6 +112,22 @@ def render_web_chat_page(
     }}
     .attach-button:hover {{ border-color: var(--accent); }}
     .attach-button:disabled {{ opacity: .55; cursor: not-allowed; }}
+    .recording {{ border-color: #ef4444 !important; color: #fecaca !important; }}
+    .message-actions {{ display: flex; align-items: flex-start; padding: 4px; }}
+    .message-actions button {{ border: 1px solid var(--line); border-radius: 999px; background: #0b111b; color: var(--muted); cursor: pointer; padding: 4px 8px; }}
+    dialog {{ width: min(720px, calc(100vw - 28px)); max-height: calc(100vh - 28px); overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); padding: 0; }}
+    dialog::backdrop {{ background: rgba(0,0,0,.72); }}
+    .settings-head {{ position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }}
+    .settings-body {{ padding: 16px; display: grid; gap: 16px; }}
+    .settings-section {{ border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 10px; }}
+    .settings-section h3 {{ margin: 0; font-size: 14px; }}
+    .settings-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }}
+    .settings-grid label {{ display: grid; gap: 5px; color: var(--muted); font-size: 12px; }}
+    .settings-grid label.wide {{ grid-column: 1 / -1; }}
+    .settings-grid input, .settings-grid select {{ width: 100%; border: 1px solid var(--line); border-radius: 6px; background: #080d14; color: var(--text); padding: 8px; }}
+    .check {{ display: flex !important; grid-auto-flow: column; justify-content: start; align-items: center; gap: 7px !important; }}
+    .check input {{ width: auto; }}
+    .settings-actions {{ display: flex; justify-content: flex-end; gap: 8px; }}
     #fileInput {{ display: none; }}
     .attachment-tray {{ display: flex; gap: 7px; flex-wrap: wrap; min-height: 0; }}
     .attachment-chip {{
@@ -135,6 +151,7 @@ def render_web_chat_page(
       .bubble {{ max-width: 94%; }}
       header {{ align-items: flex-start; flex-direction: column; }}
       .pill {{ white-space: normal; }}
+      .settings-grid {{ grid-template-columns: 1fr; }}
     }}
   </style>
 </head>
@@ -154,6 +171,8 @@ def render_web_chat_page(
         <a href="/">Router Home</a>
         <a href="/ca/events">Events</a>
         <a href="/health">Health JSON</a>
+        <a href="/ca/web/chat/api">Chat API JSON</a>
+        <button class="ghost" id="speechSettingsButton" type="button">Speech Settings</button>
         <button class="ghost" id="shareButton" type="button">Copy Chat Link</button>
         <button class="ghost" id="clearButton" type="button">Clear Chat</button>
       </div>
@@ -173,6 +192,7 @@ def render_web_chat_page(
           <button class="primary" id="sendButton" type="submit">Send</button>
         </div>
         <div class="composer-actions">
+          <button class="attach-button" id="micButton" type="button">Start voice input</button>
           <button class="attach-button" id="attachButton" type="button">Attach files</button>
           <input id="fileInput" type="file" multiple>
           <div class="attachment-tray" id="attachmentTray" aria-live="polite"></div>
@@ -181,6 +201,45 @@ def render_web_chat_page(
       </form>
     </main>
   </div>
+  <dialog id="speechSettingsDialog">
+    <form id="speechSettingsForm">
+      <div class="settings-head"><strong>Speech Settings</strong><button class="ghost" id="speechSettingsClose" type="button">Close</button></div>
+      <div class="settings-body">
+        <section class="settings-section">
+          <h3>STT / Qwen ASR</h3>
+          <div class="settings-grid">
+            <label class="check"><input id="asrEnabled" type="checkbox"> Enable STT</label>
+            <label>Language<input id="asrLanguage" placeholder="auto"></label>
+            <label class="wide">Tailscale base URL<input id="asrBaseUrl" placeholder="http://ciel-asr:8000"></label>
+            <label class="wide">Model<input id="asrModel" placeholder="Qwen/Qwen3-ASR-0.6B"></label>
+            <label class="wide">Remote bearer token<input id="asrApiKey" type="password" autocomplete="new-password" placeholder="Leave blank to keep current token"></label>
+          </div>
+        </section>
+        <section class="settings-section">
+          <h3>TTS / MOSS-TTS-Nano</h3>
+          <div class="settings-grid">
+            <label class="check"><input id="ttsEnabled" type="checkbox"> Enable TTS</label>
+            <label class="check"><input id="ttsAutoSpeak" type="checkbox"> Speak replies automatically</label>
+            <label class="wide">Tailscale base URL<input id="ttsBaseUrl" placeholder="http://ciel-tts:8091"></label>
+            <label>Voice<input id="ttsVoice" placeholder="default"></label>
+            <label>Language<input id="ttsLanguage" placeholder="ko"></label>
+            <label class="wide">Model<input id="ttsModel" placeholder="OpenMOSS-Team/MOSS-TTS-Nano"></label>
+            <label class="wide">Remote bearer token<input id="ttsApiKey" type="password" autocomplete="new-password" placeholder="Leave blank to keep current token"></label>
+          </div>
+        </section>
+        <section class="settings-section">
+          <h3>Tailscale tunnel</h3>
+          <div class="settings-grid">
+            <label class="check"><input id="tailscaleEnabled" type="checkbox"> Use tailnet-only addresses</label>
+            <label>ASR hostname<input id="tailscaleAsrHostname" placeholder="ciel-asr"></label>
+            <label>TTS hostname<input id="tailscaleTtsHostname" placeholder="ciel-tts"></label>
+          </div>
+          <div class="hint">The browser calls Ciel locally. Only the Ciel router connects to these Tailscale services.</div>
+        </section>
+        <div class="settings-actions"><button class="ghost" id="speechHealthButton" type="button">Test connections</button><button class="primary" type="submit">Save</button></div>
+      </div>
+    </form>
+  </dialog>
   <script>
     const MODEL = {json.dumps(model)};
     const transcript = document.getElementById('transcript');
@@ -188,10 +247,16 @@ def render_web_chat_page(
     const prompt = document.getElementById('prompt');
     const sendButton = document.getElementById('sendButton');
     const attachButton = document.getElementById('attachButton');
+    const micButton = document.getElementById('micButton');
     const fileInput = document.getElementById('fileInput');
     const attachmentTray = document.getElementById('attachmentTray');
     const shareButton = document.getElementById('shareButton');
     const clearButton = document.getElementById('clearButton');
+    const speechSettingsButton = document.getElementById('speechSettingsButton');
+    const speechSettingsDialog = document.getElementById('speechSettingsDialog');
+    const speechSettingsForm = document.getElementById('speechSettingsForm');
+    const speechSettingsClose = document.getElementById('speechSettingsClose');
+    const speechHealthButton = document.getElementById('speechHealthButton');
     const statePill = document.getElementById('statePill');
     const SESSION_KEY = 'ciel-runtime-web-chat-session';
     const LAST_ID_KEY = 'ciel-runtime-web-chat-last-id';
@@ -218,6 +283,10 @@ def render_web_chat_page(
     let lastId = Number(localStorage.getItem(scopedLastIdKey) || '0') || 0;
     let eventSource = null;
     let selectedFiles = [];
+    let speechConfig = {{asr: {{enabled: false}}, tts: {{enabled: false, auto_speak: false}}}};
+    let mediaRecorder = null;
+    let mediaStream = null;
+    let recordingChunks = [];
     function setState(text, cls = '') {{
       statePill.textContent = text;
       statePill.className = 'pill ' + cls;
@@ -401,6 +470,16 @@ def render_web_chat_page(
         bubble.innerHTML = renderMarkdown(text);
       }}
       row.appendChild(bubble);
+      if (role === 'assistant') {{
+        const actions = document.createElement('div');
+        actions.className = 'message-actions';
+        const speak = document.createElement('button');
+        speak.type = 'button';
+        speak.textContent = 'Speak';
+        speak.addEventListener('click', () => speakText(text));
+        actions.appendChild(speak);
+        row.appendChild(actions);
+      }}
       if (mode === 'prepend') {{
         transcript.insertBefore(row, transcript.firstChild);
       }} else {{
@@ -424,7 +503,10 @@ def render_web_chat_page(
       const text = message.message || '';
       if (!text.trim()) return;
       addBubble(roleForMessage(message), text, mode, message.id);
-      if (mode !== 'prepend' && message.sender_id !== 'web-user') setState('reply received', 'ok');
+      if (mode !== 'prepend' && message.sender_id !== 'web-user') {{
+        setState('reply received', 'ok');
+        if (speechConfig.tts && speechConfig.tts.enabled && speechConfig.tts.auto_speak) speakText(text);
+      }}
     }}
     function formatBytes(bytes) {{
       const value = Number(bytes || 0);
@@ -470,6 +552,134 @@ def render_web_chat_page(
         reader.onerror = () => reject(reader.error || new Error('Could not read file'));
         reader.readAsDataURL(file);
       }});
+    }}
+    function setSpeechForm(config) {{
+      const asr = config.asr || {{}};
+      const tts = config.tts || {{}};
+      const tailscale = config.tailscale || {{}};
+      document.getElementById('asrEnabled').checked = Boolean(asr.enabled);
+      document.getElementById('asrBaseUrl').value = asr.base_url || '';
+      document.getElementById('asrModel').value = asr.model || '';
+      document.getElementById('asrLanguage').value = asr.language || 'auto';
+      document.getElementById('asrApiKey').value = '';
+      document.getElementById('asrApiKey').placeholder = asr.api_key_set ? 'Token is set; leave blank to keep it' : 'Optional remote bearer token';
+      document.getElementById('ttsEnabled').checked = Boolean(tts.enabled);
+      document.getElementById('ttsAutoSpeak').checked = Boolean(tts.auto_speak);
+      document.getElementById('ttsBaseUrl').value = tts.base_url || '';
+      document.getElementById('ttsModel').value = tts.model || '';
+      document.getElementById('ttsVoice').value = tts.voice || 'default';
+      document.getElementById('ttsLanguage').value = tts.language || 'ko';
+      document.getElementById('ttsApiKey').value = '';
+      document.getElementById('ttsApiKey').placeholder = tts.api_key_set ? 'Token is set; leave blank to keep it' : 'Optional remote bearer token';
+      document.getElementById('tailscaleEnabled').checked = tailscale.enabled !== false;
+      document.getElementById('tailscaleAsrHostname').value = tailscale.asr_hostname || 'ciel-asr';
+      document.getElementById('tailscaleTtsHostname').value = tailscale.tts_hostname || 'ciel-tts';
+      micButton.disabled = !asr.enabled;
+      micButton.title = asr.enabled ? 'Record speech and transcribe it' : 'Enable STT in Speech Settings first';
+    }}
+    async function loadSpeechConfig() {{
+      const response = await fetch('/ca/speech/config', {{headers: {{'accept': 'application/json'}}}});
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${{response.status}}`);
+      speechConfig = data;
+      setSpeechForm(data);
+      return data;
+    }}
+    async function saveSpeechConfig() {{
+      const payload = {{
+        asr: {{
+          enabled: document.getElementById('asrEnabled').checked,
+          base_url: document.getElementById('asrBaseUrl').value,
+          model: document.getElementById('asrModel').value,
+          language: document.getElementById('asrLanguage').value,
+          api_key: document.getElementById('asrApiKey').value,
+        }},
+        tts: {{
+          enabled: document.getElementById('ttsEnabled').checked,
+          auto_speak: document.getElementById('ttsAutoSpeak').checked,
+          base_url: document.getElementById('ttsBaseUrl').value,
+          model: document.getElementById('ttsModel').value,
+          voice: document.getElementById('ttsVoice').value,
+          language: document.getElementById('ttsLanguage').value,
+          api_key: document.getElementById('ttsApiKey').value,
+        }},
+        tailscale: {{
+          enabled: document.getElementById('tailscaleEnabled').checked,
+          asr_hostname: document.getElementById('tailscaleAsrHostname').value,
+          tts_hostname: document.getElementById('tailscaleTtsHostname').value,
+        }},
+      }};
+      const response = await fetch('/ca/speech/config', {{method: 'POST', headers: {{'content-type': 'application/json', 'accept': 'application/json'}}, body: JSON.stringify(payload)}});
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${{response.status}}`);
+      speechConfig = data;
+      setSpeechForm(data);
+      return data;
+    }}
+    async function speakText(text) {{
+      if (!speechConfig.tts || !speechConfig.tts.enabled) {{
+        setState('TTS disabled', 'error');
+        return;
+      }}
+      try {{
+        setState('generating speech');
+        const response = await fetch('/v1/audio/speech', {{
+          method: 'POST',
+          headers: {{'content-type': 'application/json'}},
+          body: JSON.stringify({{input: String(text || ''), model: speechConfig.tts.model, voice: speechConfig.tts.voice, language: speechConfig.tts.language, response_format: speechConfig.tts.response_format || 'wav'}})
+        }});
+        if (!response.ok) throw new Error(await response.text() || `HTTP ${{response.status}}`);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.addEventListener('ended', () => URL.revokeObjectURL(url), {{once: true}});
+        audio.addEventListener('error', () => URL.revokeObjectURL(url), {{once: true}});
+        await audio.play();
+        setState('speaking', 'ok');
+      }} catch (err) {{
+        setState('TTS error', 'error');
+        addBubble('system', 'TTS failed: ' + String(err && err.message ? err.message : err));
+      }}
+    }}
+    async function transcribeRecording(blob) {{
+      setState('transcribing');
+      const audio_base64 = await fileToBase64(blob);
+      const response = await fetch('/v1/audio/transcriptions', {{
+        method: 'POST',
+        headers: {{'content-type': 'application/json', 'accept': 'application/json'}},
+        body: JSON.stringify({{audio_base64, filename: 'web-chat-recording.webm', content_type: blob.type || 'audio/webm', model: speechConfig.asr.model, language: speechConfig.asr.language}})
+      }});
+      const text = await response.text();
+      let data = {{}};
+      try {{ data = text ? JSON.parse(text) : {{}}; }} catch {{}}
+      if (!response.ok) throw new Error((data.error && (data.error.message || data.error)) || text || `HTTP ${{response.status}}`);
+      const transcriptText = String(data.text || data.transcript || '').trim();
+      if (!transcriptText) throw new Error('ASR returned no transcript');
+      prompt.value = prompt.value ? prompt.value + ' ' + transcriptText : transcriptText;
+      prompt.focus();
+      setState('transcribed', 'ok');
+    }}
+    async function startVoiceInput() {{
+      if (!navigator.mediaDevices || !window.MediaRecorder) throw new Error('This browser does not support microphone recording');
+      mediaStream = await navigator.mediaDevices.getUserMedia({{audio: true}});
+      recordingChunks = [];
+      mediaRecorder = new MediaRecorder(mediaStream);
+      mediaRecorder.addEventListener('dataavailable', event => {{ if (event.data && event.data.size) recordingChunks.push(event.data); }});
+      mediaRecorder.addEventListener('stop', async () => {{
+        const blob = new Blob(recordingChunks, {{type: mediaRecorder.mimeType || 'audio/webm'}});
+        if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+        micButton.textContent = 'Start voice input';
+        micButton.classList.remove('recording');
+        try {{ await transcribeRecording(blob); }} catch (err) {{ setState('STT error', 'error'); addBubble('system', 'STT failed: ' + String(err && err.message ? err.message : err)); }}
+      }}, {{once: true}});
+      mediaRecorder.start();
+      micButton.textContent = 'Stop and transcribe';
+      micButton.classList.add('recording');
+      setState('recording', 'error');
+    }}
+    function stopVoiceInput() {{
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
     }}
     async function uploadAttachment(file) {{
       const content = await fileToBase64(file);
@@ -663,6 +873,42 @@ def render_web_chat_page(
       }}
     }});
     attachButton.addEventListener('click', () => fileInput.click());
+    micButton.addEventListener('click', async () => {{
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {{
+        stopVoiceInput();
+        return;
+      }}
+      try {{ await startVoiceInput(); }} catch (err) {{
+        setState('microphone error', 'error');
+        addBubble('system', 'Microphone failed: ' + String(err && err.message ? err.message : err));
+      }}
+    }});
+    speechSettingsButton.addEventListener('click', async () => {{
+      try {{ await loadSpeechConfig(); }} catch (err) {{ addBubble('system', 'Could not load speech settings: ' + String(err && err.message ? err.message : err)); }}
+      speechSettingsDialog.showModal();
+    }});
+    speechSettingsClose.addEventListener('click', () => speechSettingsDialog.close());
+    speechSettingsForm.addEventListener('submit', async event => {{
+      event.preventDefault();
+      try {{
+        await saveSpeechConfig();
+        speechSettingsDialog.close();
+        setState('speech settings saved', 'ok');
+      }} catch (err) {{
+        setState('settings error', 'error');
+        addBubble('system', 'Speech settings failed: ' + String(err && err.message ? err.message : err));
+      }}
+    }});
+    speechHealthButton.addEventListener('click', async () => {{
+      try {{
+        await saveSpeechConfig();
+        const response = await fetch('/ca/speech/health', {{headers: {{'accept': 'application/json'}}}});
+        const data = await response.json();
+        const asr = data.services && data.services.asr;
+        const tts = data.services && data.services.tts;
+        addBubble('system', `Speech health — ASR: ${{asr && asr.reachable ? 'reachable' : asr && asr.enabled ? 'unreachable' : 'disabled'}}, TTS: ${{tts && tts.reachable ? 'reachable' : tts && tts.enabled ? 'unreachable' : 'disabled'}}.`);
+      }} catch (err) {{ addBubble('system', 'Speech health check failed: ' + String(err && err.message ? err.message : err)); }}
+    }});
     fileInput.addEventListener('change', () => {{
       addSelectedFiles(fileInput.files);
       fileInput.value = '';
@@ -706,6 +952,7 @@ def render_web_chat_page(
       if (transcript.scrollTop < 48) loadOlderHistory();
     }});
     addBubble('system', `Connected to active session bridge for ${{MODEL}}. Messages are queued on channel ${{channel}} and replies stream back from /ca/channel/stream.`);
+    loadSpeechConfig().catch(() => {{ micButton.disabled = true; }});
     loadInitialHistory().finally(startChannelStream);
     prompt.focus();
   </script>

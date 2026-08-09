@@ -49,6 +49,8 @@ class RouterServerContext:
             "provider": provider,
             "model": self.health.current_alias(cfg),
             "web_chat": "/ca/web/chat",
+            "web_chat_api": "/ca/web/chat/api",
+            "speech": "/ca/speech/health",
             "chat": "/ca/chat/health",
             "plan": "/ca/plan/artifacts",
             "events": "/ca/events",

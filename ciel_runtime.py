@@ -500,6 +500,7 @@ from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  #
 from ciel_runtime_support.runtime_restart import forced_upgrade_environment
 from ciel_runtime_support.runtime_restart import running_from_npm_package as detect_running_from_npm_package
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
+from ciel_runtime_support.speech_http_controller import SpeechHttpController, SpeechHttpPorts
 from ciel_runtime_support.session_import import ImportSessionHttpController, ImportSessionHttpPorts, ImportSessionLimits, ImportSessionRepository, ImportSessionService, import_record_line, import_tool_text, normalize_import_source
 from ciel_runtime_support.slash_command_assets import ADVISOR_NATIVE_DISABLED_SLASH_COMMAND  # noqa: F401 - compatibility export
 from ciel_runtime_support.slash_command_assets import LEGACY_ADVISOR_CALL_MARKER  # noqa: F401 - compatibility export
@@ -1700,6 +1701,7 @@ def render_router_home_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, 
 def render_web_chat_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any]) -> str: return web_ui_controller().render_web_chat(cfg, provider, pcfg)
 def handle_web_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return web_ui_controller().handle_get(handler, path)
 
+def speech_http_controller() -> SpeechHttpController: return SpeechHttpController(SpeechHttpPorts(load_config, save_config, write_json, router_log))
 def parse_json_body(raw: bytes) -> dict[str, Any]:
     try:
         value = json.loads(raw.decode("utf-8") if raw else "{}")
@@ -2817,8 +2819,8 @@ def _router_server_context() -> RouterServerContext:
     http_services = RouterHttpServices(
         core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log),
         get=RouterHttpGetEndpoints(handle_codex_mcp_split_proxy_get, handle_events_get, handle_llm_config_get, handle_channel_mcp_get, handle_web_get,
-                                   handle_chat_get, handle_plan_get, route_runtime_get),
-        post=RouterHttpPostEndpoints(handle_codex_mcp_split_proxy_request, handle_llm_config_post, handle_channel_mcp_post, handle_chat_post,
+                                   lambda handler, path: speech_http_controller().get(handler, path), handle_chat_get, handle_plan_get, route_runtime_get),
+        post=RouterHttpPostEndpoints(handle_codex_mcp_split_proxy_request, lambda handler, path, raw, content_type: speech_http_controller().post(handler, path, raw, content_type), handle_llm_config_post, handle_channel_mcp_post, handle_chat_post,
                                      handle_plan_post, route_runtime_post),
         presentation=RouterHttpPresentation(render_router_home_html, router_health_payload, write_text_response, write_json, list_model_objects_for_request,
                                             resolve_requested_model, model_object),
