@@ -47,7 +47,7 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.config = {
             "speech": {
                 "asr": {"enabled": True, "base_url": "http://ciel-asr", "endpoint": "/v1/audio/transcriptions", "model": "Qwen/Qwen3-ASR-0.6B", "language": "auto", "api_key": "asr-secret", "timeout_seconds": 30},
-                "tts": {"enabled": True, "base_url": "http://ciel-tts", "endpoint": "/v1/audio/speech", "voices_endpoint": "/v1/audio/voices", "model": "OpenMOSS-Team/MOSS-TTS-Nano", "voice": "default", "language": "ko", "response_format": "wav", "speed": 1.0, "auto_speak": True, "api_key": "tts-secret", "timeout_seconds": 30},
+                "tts": {"enabled": True, "base_url": "http://ciel-tts", "endpoint": "/v1/audio/speech", "voices_endpoint": "/v1/audio/voices", "model": "OpenMOSS-Team/MOSS-TTS-Nano", "voice": "default", "language": "ko", "ref_audio": "https://example.test/reference.wav", "response_format": "wav", "speed": 1.0, "auto_speak": True, "api_key": "tts-secret", "timeout_seconds": 30},
                 "tailscale": {"enabled": True, "asr_hostname": "ciel-asr", "tts_hostname": "ciel-tts"},
             }
         }
@@ -74,6 +74,8 @@ class SpeechHttpControllerTests(unittest.TestCase):
 
         self.assertNotIn("api_key", public["asr"])
         self.assertNotIn("api_key", public["tts"])
+        self.assertNotIn("ref_audio", public["tts"])
+        self.assertTrue(public["tts"]["ref_audio_set"])
         self.assertTrue(public["asr"]["api_key_set"])
         self.assertEqual("POST /v1/audio/transcriptions", public["endpoints"]["asr"])
         self.assertEqual("POST /v1/audio/speech", public["endpoints"]["tts"])
@@ -107,6 +109,7 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.assertEqual("OpenMOSS-Team/MOSS-TTS-Nano", payload["model"])
         self.assertEqual("default", payload["voice"])
         self.assertEqual("ko", payload["language"])
+        self.assertEqual("https://example.test/reference.wav", payload["ref_audio"])
         self.assertEqual("Bearer tts-secret", request.headers["Authorization"])
         self.assertEqual("audio/wav", handler.response_headers["content-type"])
         self.assertEqual(b"RIFFaudio", handler.wfile.getvalue())

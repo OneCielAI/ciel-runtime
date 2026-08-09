@@ -5,8 +5,8 @@ Ciel Runtime can proxy its web chat and OpenAI-compatible audio API to two Colab
 ## One-time prerequisites
 
 1. Authenticate the Colab CLI inside WSL. The installed CLI currently uses Google Application Default Credentials, so run `~/google-cloud-sdk/bin/gcloud auth application-default login` in `Ubuntu-26.04`.
-2. Create a reusable or ephemeral Tailscale auth key. In each Colab account/notebook Secret store, add `TAILSCALE_AUTHKEY` and grant notebook access.
-3. Optionally add the same `CIEL_SPEECH_API_KEY` secret to both workers. Enter that value once in Web Chat > Speech Settings; Ciel stores it server-side and never returns it to the browser.
+2. Create a reusable Tailscale auth key (two workers must register) and set it only for the current PowerShell process with `$env:TAILSCALE_AUTHKEY = Read-Host`. Alternatively, use a separate fresh key for each worker. The CLI passes the key without writing it to the repository. A Colab `TAILSCALE_AUTHKEY` Secret is also supported as a fallback.
+3. Optionally set `$env:CIEL_SPEECH_API_KEY = Read-Host` before deployment. Enter that value once in Web Chat > Speech Settings; Ciel stores it server-side and never returns it to the browser.
 
 ## Deploy
 
@@ -17,6 +17,8 @@ From PowerShell at the repository root:
 ```
 
 The script creates `ciel-asr` and `ciel-tts` T4 sessions, installs Qwen3-ASR-0.6B and MOSS-TTS-Nano, starts Tailscale in userspace networking mode, publishes each localhost model server with Tailscale Serve, and saves both returned `base_url` values into Web Chat > Speech Settings automatically.
+
+MOSS-TTS-Nano is a voice-cloning model without built-in speakers. Deployment configures the project's official `zh_1.wav` sample so the first request works immediately. In Web Chat > Speech Settings, upload a reference voice clip (10 MB maximum) to replace it. Ciel stores uploaded audio only in the local protected runtime configuration, omits it from configuration responses, and adds it to TTS requests automatically. API clients can instead pass `ref_audio` as an HTTP(S) URL or base64 audio data URL to `POST /v1/audio/speech`.
 
 Colab sessions are ephemeral. Re-run the bootstrap after a runtime reset. The workers are reachable only by devices in the same tailnet unless an administrator separately enables Tailscale Funnel.
 

@@ -224,6 +224,9 @@ def render_web_chat_page(
             <label>Voice<input id="ttsVoice" placeholder="default"></label>
             <label>Language<input id="ttsLanguage" placeholder="ko"></label>
             <label class="wide">Model<input id="ttsModel" placeholder="OpenMOSS-Team/MOSS-TTS-Nano"></label>
+            <label class="wide">Reference voice (required by MOSS-TTS-Nano)<input id="ttsReferenceAudio" type="file" accept="audio/*"><span class="hint" id="ttsReferenceAudioStatus">No reference voice configured</span></label>
+            <label class="wide">Reference transcript (optional)<input id="ttsReferenceText" placeholder="Transcript of the reference clip"></label>
+            <label class="check wide"><input id="ttsClearReferenceAudio" type="checkbox"> Remove the saved reference voice</label>
             <label class="wide">Remote bearer token<input id="ttsApiKey" type="password" autocomplete="new-password" placeholder="Leave blank to keep current token"></label>
           </div>
         </section>
@@ -287,6 +290,7 @@ def render_web_chat_page(
     let mediaRecorder = null;
     let mediaStream = null;
     let recordingChunks = [];
+    let pendingTtsReferenceAudio = '';
     function setState(text, cls = '') {{
       statePill.textContent = text;
       statePill.className = 'pill ' + cls;
@@ -553,6 +557,14 @@ def render_web_chat_page(
         reader.readAsDataURL(file);
       }});
     }}
+    function fileToDataUrl(file) {{
+      return new Promise((resolve, reject) => {{
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error || new Error('Could not read file'));
+        reader.readAsDataURL(file);
+      }});
+    }}
     function setSpeechForm(config) {{
       const asr = config.asr || {{}};
       const tts = config.tts || {{}};
@@ -569,6 +581,11 @@ def render_web_chat_page(
       document.getElementById('ttsModel').value = tts.model || '';
       document.getElementById('ttsVoice').value = tts.voice || 'default';
       document.getElementById('ttsLanguage').value = tts.language || 'ko';
+      document.getElementById('ttsReferenceText').value = tts.ref_text || '';
+      document.getElementById('ttsReferenceAudioStatus').textContent = tts.ref_audio_set ? 'Reference voice saved securely on this Ciel router' : 'No reference voice configured';
+      document.getElementById('ttsClearReferenceAudio').checked = false;
+      document.getElementById('ttsReferenceAudio').value = '';
+      pendingTtsReferenceAudio = '';
       document.getElementById('ttsApiKey').value = '';
       document.getElementById('ttsApiKey').placeholder = tts.api_key_set ? 'Token is set; leave blank to keep it' : 'Optional remote bearer token';
       document.getElementById('tailscaleEnabled').checked = tailscale.enabled !== false;
@@ -601,6 +618,9 @@ def render_web_chat_page(
           model: document.getElementById('ttsModel').value,
           voice: document.getElementById('ttsVoice').value,
           language: document.getElementById('ttsLanguage').value,
+          ref_audio: pendingTtsReferenceAudio,
+          ref_text: document.getElementById('ttsReferenceText').value,
+          clear_ref_audio: document.getElementById('ttsClearReferenceAudio').checked,
           api_key: document.getElementById('ttsApiKey').value,
         }},
         tailscale: {{
@@ -888,6 +908,18 @@ def render_web_chat_page(
       speechSettingsDialog.showModal();
     }});
     speechSettingsClose.addEventListener('click', () => speechSettingsDialog.close());
+    document.getElementById('ttsReferenceAudio').addEventListener('change', async event => {{
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      if (file.size > 10 * 1024 * 1024) {{
+        event.target.value = '';
+        addBubble('system', 'Reference voice must be 10 MB or smaller.');
+        return;
+      }}
+      pendingTtsReferenceAudio = await fileToDataUrl(file);
+      document.getElementById('ttsClearReferenceAudio').checked = false;
+      document.getElementById('ttsReferenceAudioStatus').textContent = file.name + ' (' + formatBytes(file.size) + ') ready to save';
+    }});
     speechSettingsForm.addEventListener('submit', async event => {{
       event.preventDefault();
       try {{

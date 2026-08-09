@@ -78,6 +78,8 @@ class WebChatUiTests(unittest.TestCase):
         self.assertIn("function startVoiceInput()", html)
         self.assertIn("function speakText(text)", html)
         self.assertIn("Tailscale base URL", html)
+        self.assertIn('id="ttsReferenceAudio" type="file" accept="audio/*"', html)
+        self.assertIn("pendingTtsReferenceAudio", html)
 
     def test_web_chat_markdown_renderer_sanitizes_and_supports_tables(self):
         cfg = self._cfg()

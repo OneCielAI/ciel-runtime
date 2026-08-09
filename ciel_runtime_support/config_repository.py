@@ -44,6 +44,8 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
                 "model": "OpenMOSS-Team/MOSS-TTS-Nano",
                 "voice": "default",
                 "language": "ko",
+                "ref_audio": "",
+                "ref_text": "",
                 "response_format": "wav",
                 "speed": 1.0,
                 "auto_speak": False,

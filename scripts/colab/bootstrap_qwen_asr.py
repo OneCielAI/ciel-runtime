@@ -38,7 +38,18 @@ def secret(name: str, *, required: bool = False) -> str:
 
 
 def run(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
-    print("+", " ".join(args))
+    visible: list[str] = []
+    redact_next = False
+    for arg in args:
+        if redact_next:
+            visible.append("<redacted>")
+            redact_next = False
+        elif arg.startswith("--auth-key="):
+            visible.append("--auth-key=<redacted>")
+        else:
+            visible.append(arg)
+            redact_next = arg == "--api-key"
+    print("+", " ".join(visible))
     return subprocess.run(args, check=check, text=True, capture_output=False)
 
 
@@ -62,12 +73,11 @@ def start_tailscale(auth_key: str) -> tuple[str, str]:
         if Path(SOCKET).exists():
             break
         time.sleep(1)
-    run("tailscale", f"--socket={SOCKET}", "up", f"--auth-key={auth_key}", f"--hostname={HOSTNAME}", "--accept-dns=true", "--reset")
+    login = run("tailscale", f"--socket={SOCKET}", "up", f"--auth-key={auth_key}", f"--hostname={HOSTNAME}", "--accept-dns=true", "--reset", check=False)
+    if login.returncode:
+        raise RuntimeError("Tailscale authentication failed; use a valid reusable key or a fresh key for this worker")
     status = subprocess.check_output(["tailscale", f"--socket={SOCKET}", "status", "--json"], text=True)
     dns_name = str(json.loads(status).get("Self", {}).get("DNSName") or HOSTNAME).rstrip(".")
-    serve = run("tailscale", f"--socket={SOCKET}", "serve", "--bg", "--https=443", f"http://127.0.0.1:{PORT}", check=False)
-    if serve.returncode == 0:
-        return dns_name, f"https://{dns_name}"
     run("tailscale", f"--socket={SOCKET}", "serve", "--bg", "--http=80", f"http://127.0.0.1:{PORT}")
     return dns_name, f"http://{dns_name}"
 

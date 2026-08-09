@@ -65,8 +65,10 @@ class SpeechHttpController:
         public: dict[str, Any] = {"ok": True}
         for name in ("asr", "tts"):
             source = speech.get(name) if isinstance(speech.get(name), dict) else {}
-            item = {key: value for key, value in source.items() if key != "api_key"}
+            item = {key: value for key, value in source.items() if key not in {"api_key", "ref_audio"}}
             item["api_key_set"] = bool(str(source.get("api_key") or "").strip())
+            if name == "tts":
+                item["ref_audio_set"] = bool(str(source.get("ref_audio") or "").strip())
             public[name] = item
         tailscale = speech.get("tailscale")
         public["tailscale"] = dict(tailscale) if isinstance(tailscale, dict) else {}
@@ -127,13 +129,15 @@ class SpeechHttpController:
                     current = {}
                     speech[name] = current
                 for key, value in incoming.items():
-                    if key in {"api_key_set", "clear_api_key"}:
+                    if key in {"api_key_set", "clear_api_key", "ref_audio_set", "clear_ref_audio"}:
                         continue
-                    if key == "api_key" and not str(value or "").strip():
+                    if key in {"api_key", "ref_audio"} and not str(value or "").strip():
                         continue
                     current[key] = self._validated_value(name, key, value)
                 if incoming.get("clear_api_key") is True:
                     current["api_key"] = ""
+                if name == "tts" and incoming.get("clear_ref_audio") is True:
+                    current["ref_audio"] = ""
             tailscale = update.get("tailscale")
             if isinstance(tailscale, dict):
                 current_tailscale = speech.setdefault("tailscale", {})
@@ -153,7 +157,7 @@ class SpeechHttpController:
     def _validated_value(service: str, key: str, value: Any) -> Any:
         allowed = {
             "asr": {"enabled", "base_url", "endpoint", "model", "language", "api_key", "timeout_seconds"},
-            "tts": {"enabled", "base_url", "endpoint", "voices_endpoint", "model", "voice", "language", "response_format", "speed", "auto_speak", "api_key", "timeout_seconds"},
+            "tts": {"enabled", "base_url", "endpoint", "voices_endpoint", "model", "voice", "language", "ref_audio", "ref_text", "response_format", "speed", "auto_speak", "api_key", "timeout_seconds"},
         }
         if key not in allowed[service]:
             raise ValueError(f"unsupported {service} setting: {key}")
@@ -164,6 +168,21 @@ class SpeechHttpController:
         if key == "speed":
             return max(0.25, min(4.0, float(value)))
         text = str(value or "").strip()
+        if key == "ref_audio":
+            if len(text) > 14_000_000:
+                raise ValueError("TTS reference audio must be 10 MB or smaller")
+            if text.startswith("data:audio/") and ";base64," in text:
+                try:
+                    audio = base64.b64decode(text.split(",", 1)[1], validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ValueError("invalid base64 TTS reference audio") from exc
+                if not audio or len(audio) > 10 * 1024 * 1024:
+                    raise ValueError("TTS reference audio must be between 1 byte and 10 MB")
+                return text
+            parsed_ref = urllib.parse.urlparse(text)
+            if parsed_ref.scheme not in {"http", "https"} or not parsed_ref.netloc:
+                raise ValueError("TTS ref_audio must be an audio data URL or HTTP(S) URL")
+            return text
         if key == "base_url":
             parsed = urllib.parse.urlparse(text)
             if parsed.scheme not in {"http", "https"} or not parsed.netloc:
@@ -237,6 +256,10 @@ class SpeechHttpController:
                     body.setdefault("model", str(config.get("model") or ""))
                     body.setdefault("voice", str(config.get("voice") or "default"))
                     body.setdefault("language", str(config.get("language") or "Auto"))
+                    if str(config.get("ref_audio") or "").strip():
+                        body.setdefault("ref_audio", str(config["ref_audio"]))
+                    if str(config.get("ref_text") or "").strip():
+                        body.setdefault("ref_text", str(config["ref_text"]))
                     body.setdefault("response_format", str(config.get("response_format") or "wav"))
                     body.setdefault("speed", float(config.get("speed") or 1.0))
                 raw = json.dumps(body, ensure_ascii=False).encode("utf-8")

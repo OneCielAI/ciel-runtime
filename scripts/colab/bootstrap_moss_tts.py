@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import site
 import shutil
 import subprocess
 import sys
@@ -38,7 +39,18 @@ def secret(name: str, *, required: bool = False) -> str:
 
 
 def run(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
-    print("+", " ".join(args))
+    visible: list[str] = []
+    redact_next = False
+    for arg in args:
+        if redact_next:
+            visible.append("<redacted>")
+            redact_next = False
+        elif arg.startswith("--auth-key="):
+            visible.append("--auth-key=<redacted>")
+        else:
+            visible.append(arg)
+            redact_next = arg == "--api-key"
+    print("+", " ".join(visible))
     return subprocess.run(args, check=check, text=True, capture_output=False)
 
 
@@ -52,29 +64,33 @@ def start_tailscale(auth_key: str) -> tuple[str, str]:
     install_tailscale()
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     tail_log = (LOG_DIR / "tailscale-tts.log").open("ab")
-    subprocess.Popen(
-        ["tailscaled", f"--socket={SOCKET}", f"--state={STATE}", "--tun=userspace-networking"],
-        stdout=tail_log,
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
-    )
+    if not Path(SOCKET).exists():
+        subprocess.Popen(
+            ["tailscaled", f"--socket={SOCKET}", f"--state={STATE}", "--tun=userspace-networking"],
+            stdout=tail_log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
     for _ in range(60):
         if Path(SOCKET).exists():
             break
         time.sleep(1)
-    run("tailscale", f"--socket={SOCKET}", "up", f"--auth-key={auth_key}", f"--hostname={HOSTNAME}", "--accept-dns=true", "--reset")
+    login = run("tailscale", f"--socket={SOCKET}", "up", f"--auth-key={auth_key}", f"--hostname={HOSTNAME}", "--accept-dns=true", "--reset", check=False)
+    if login.returncode:
+        raise RuntimeError("Tailscale authentication failed; use a valid reusable key or a fresh key for this second worker")
     status = subprocess.check_output(["tailscale", f"--socket={SOCKET}", "status", "--json"], text=True)
     dns_name = str(json.loads(status).get("Self", {}).get("DNSName") or HOSTNAME).rstrip(".")
-    serve = run("tailscale", f"--socket={SOCKET}", "serve", "--bg", "--https=443", f"http://127.0.0.1:{PORT}", check=False)
-    if serve.returncode == 0:
-        return dns_name, f"https://{dns_name}"
     run("tailscale", f"--socket={SOCKET}", "serve", "--bg", "--http=80", f"http://127.0.0.1:{PORT}")
     return dns_name, f"http://{dns_name}"
 
 
-def wait_for_server(api_key: str) -> None:
+def wait_for_server(api_key: str, process: subprocess.Popen[bytes]) -> None:
     headers = {"authorization": f"Bearer {api_key}"} if api_key else {}
     for _ in range(240):
+        if process.poll() is not None:
+            log_path = LOG_DIR / "moss-tts.log"
+            log_tail = log_path.read_text(encoding="utf-8", errors="replace")[-12000:] if log_path.exists() else "log unavailable"
+            raise RuntimeError(f"MOSS TTS exited with status {process.returncode}:\n{log_tail}")
         try:
             with urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{PORT}/health", headers=headers), timeout=3) as response:
                 if response.status < 500:
@@ -84,20 +100,48 @@ def wait_for_server(api_key: str) -> None:
     raise RuntimeError("MOSS TTS did not become healthy; inspect /content/ciel-speech-logs/moss-tts.log")
 
 
+def server_is_healthy(api_key: str) -> bool:
+    headers = {"authorization": f"Bearer {api_key}"} if api_key else {}
+    try:
+        with urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{PORT}/health", headers=headers), timeout=3) as response:
+            return response.status < 500
+    except Exception:
+        return False
+
+
 def main() -> None:
     auth_key = secret("TAILSCALE_AUTHKEY", required=True)
     api_key = secret("CIEL_SPEECH_API_KEY")
-    run(sys.executable, "-m", "pip", "install", "-U", "vllm-omni==0.24.0")
+    run(
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "-U",
+        "nvidia-cuda-runtime==13.0.96",
+        "vllm==0.24.0",
+        "vllm-omni==0.24.0",
+    )
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-    command = [
-        "vllm", "serve", "OpenMOSS-Team/MOSS-TTS-Nano", "--omni", "--host", "127.0.0.1", "--port", str(PORT),
-        "--gpu-memory-utilization", "0.72", "--trust-remote-code", "--enforce-eager",
-    ]
-    if api_key:
-        command.extend(["--api-key", api_key])
-    server_log = (LOG_DIR / "moss-tts.log").open("ab")
-    subprocess.Popen(command, stdout=server_log, stderr=subprocess.STDOUT, start_new_session=True)
-    wait_for_server(api_key)
+    if not server_is_healthy(api_key):
+        command = [
+            "vllm-omni", "serve", "OpenMOSS-Team/MOSS-TTS-Nano", "--omni", "--host", "127.0.0.1", "--port", str(PORT),
+            "--gpu-memory-utilization", "0.72",
+        ]
+        if api_key:
+            command.extend(["--api-key", api_key])
+        server_env = os.environ.copy()
+        cuda_runtime_libraries = [
+            library
+            for package_dir in site.getsitepackages()
+            for library in Path(package_dir).glob("**/libcudart.so.13")
+        ]
+        if cuda_runtime_libraries:
+            existing_library_path = server_env.get("LD_LIBRARY_PATH", "")
+            server_env["LD_LIBRARY_PATH"] = str(cuda_runtime_libraries[0].parent) + (f":{existing_library_path}" if existing_library_path else "")
+        server_log = (LOG_DIR / "moss-tts.log").open("ab")
+        process = subprocess.Popen(command, stdout=server_log, stderr=subprocess.STDOUT, start_new_session=True, env=server_env)
+        wait_for_server(api_key, process)
     dns_name, base_url = start_tailscale(auth_key)
     print(json.dumps({"ok": True, "role": "tts", "hostname": dns_name, "base_url": base_url, "model": "OpenMOSS-Team/MOSS-TTS-Nano", "api_key_set": bool(api_key)}, indent=2))
 
