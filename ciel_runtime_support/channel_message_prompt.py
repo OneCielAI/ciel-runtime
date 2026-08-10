@@ -187,9 +187,12 @@ def _web_chat_reply_instruction(messages: list[dict[str, Any]]) -> str:
 
 def format_web_chat_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
     items = " ; ".join(_format_web_chat_wake_item(message) for message in messages)
-    prompt = f"[ciel-runtime web chat] {len(messages)} browser message(s): {items}"
+    request = f"[ciel-runtime web chat] {len(messages)} browser message(s): {items}"
     instruction = _web_chat_reply_instruction(messages)
-    return f"{prompt}\n\n{instruction}" if instruction else prompt
+    # Windows Console turns embedded newlines into Enter key events. Keep the
+    # routing contract and browser request in one physical line so Codex sees
+    # one atomic turn instead of answering locally before the reply contract.
+    return f"{instruction} Browser request: {request}" if instruction else request
 
 
 def wake_message_noise_reason(message: dict[str, Any]) -> str | None:

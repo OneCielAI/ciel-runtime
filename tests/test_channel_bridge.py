@@ -1369,6 +1369,8 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn('"thread_id":"thread-1"', prompt)
         self.assertIn('recipients=["web"]', prompt)
         self.assertNotIn("metadata=", prompt)
+        self.assertNotIn("\n", prompt)
+        self.assertLess(prompt.index("web reply required"), prompt.index("현재상태는"))
         self.assertNotIn("reply_instruction", prompt)
 
     def test_channel_wake_enter_bytes_can_be_overridden(self):

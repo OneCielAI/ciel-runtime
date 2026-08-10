@@ -2,6 +2,7 @@ import unittest
 
 from ciel_runtime_support.channel_message_prompt import (
     format_llm_batch_prompt,
+    format_web_chat_wake_batch_prompt,
     format_wake_prompt,
     llm_message_skip_reason,
     prompt_metadata,
@@ -65,6 +66,28 @@ class ChannelMessagePromptTests(unittest.TestCase):
         self.assertIn('"overview"', prompt)
         self.assertIn('"details"', prompt)
         self.assertIn("browser speaks only this field", prompt)
+
+    def test_web_chat_console_wake_is_one_atomic_line_with_contract_first(self):
+        prompt = format_web_chat_wake_batch_prompt(
+            [
+                {
+                    "id": 130,
+                    "channel": "web-chat-session",
+                    "thread_id": "thread-7",
+                    "kind": "web_chat",
+                    "message": "안녕.",
+                    "meta": {
+                        "source": "ciel-runtime-web-chat",
+                        "reply_channel": "web-chat-session",
+                        "input_mode": "voice",
+                    },
+                }
+            ]
+        )
+
+        self.assertNotIn("\n", prompt)
+        self.assertLess(prompt.index("web reply required"), prompt.index("안녕."))
+        self.assertIn('"channel":"web-chat-session"', prompt)
 
     def test_skip_policy_rejects_control_and_self_echo_messages(self):
         control = {"message": "ready", "meta": {"sse_source": "remote", "kind": "status"}}
