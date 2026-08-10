@@ -24,6 +24,26 @@ Copy-Item -Force "ciel-runtime-stop" (Join-Path $binDir "ciel-runtime-stop")
 Copy-Item -Force "ciel-runtime-stop.cmd" (Join-Path $binDir "ciel-runtime-stop.cmd")
 Copy-Item -Force "ciel-runtime-stop.ps1" (Join-Path $binDir "ciel-runtime-stop.ps1")
 
+$expandedBinDir = [Environment]::ExpandEnvironmentVariables($binDir).TrimEnd('\')
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$seenPathEntries = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+$cleanPathEntries = [System.Collections.Generic.List[string]]::new()
+[void]$seenPathEntries.Add($expandedBinDir)
+$cleanPathEntries.Add($binDir.TrimEnd('\'))
+foreach ($entry in ([string]$userPath -split ';')) {
+    $value = $entry.Trim()
+    if (-not $value) { continue }
+    $identity = [Environment]::ExpandEnvironmentVariables($value).TrimEnd('\')
+    if ($seenPathEntries.Add($identity)) {
+        $cleanPathEntries.Add($value)
+    }
+}
+$nextUserPath = $cleanPathEntries -join ';'
+if ($nextUserPath -ne $userPath) {
+    [Environment]::SetEnvironmentVariable("Path", $nextUserPath, "User")
+}
+
 Write-Host "Installed Ciel Runtime to $shareDir"
-Write-Host "Add $binDir to PATH if ciel-runtime is not found."
+Write-Host "Registered $binDir at the front of the user PATH."
+Write-Host "Open a new terminal window if the current terminal has an older PATH snapshot."
 
