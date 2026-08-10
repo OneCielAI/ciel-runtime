@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .workspace_router_selection import workspace_identity
+
 
 _TRUE = {"1", "true", "yes", "on"}
 _WILDCARD_HOSTS = {"0.0.0.0", "::", "[::]"}
@@ -49,6 +51,7 @@ class WebBackendSettings:
     host: str = "127.0.0.1"
     port: int = 0
     tailscale_https: bool = False
+    workspace: str = ""
 
     @property
     def client_host(self) -> str:
@@ -74,7 +77,34 @@ def web_backend_settings(config: dict[str, Any] | None) -> WebBackendSettings:
         if enabled_value is not None
         else bool(tailscale_https or host != "127.0.0.1" or port)
     )
-    return WebBackendSettings(enabled, host, port, tailscale_https)
+    workspace = workspace_identity(values.get("workspace"))
+    return WebBackendSettings(enabled, host, port, tailscale_https, workspace)
+
+
+def current_web_workspace(
+    environ: MutableMapping[str, str] | None = None,
+) -> str:
+    environment = os.environ if environ is None else environ
+    return workspace_identity(environment.get("CIEL_RUNTIME_LAUNCH_CWD") or Path.cwd())
+
+
+def web_backend_owned_by_workspace(
+    settings: WebBackendSettings,
+    workspace: str | os.PathLike[str] | None = None,
+) -> bool:
+    if not settings.workspace:
+        return True
+    return settings.workspace == workspace_identity(workspace or current_web_workspace())
+
+
+def web_backend_owned_by_instance(
+    settings: WebBackendSettings,
+    router_port: int,
+    workspace: str | os.PathLike[str] | None = None,
+) -> bool:
+    if not web_backend_owned_by_workspace(settings, workspace):
+        return False
+    return not settings.port or settings.port == router_port
 
 
 def load_saved_web_backend(path: os.PathLike[str] | str) -> WebBackendSettings:
@@ -117,7 +147,11 @@ def web_backend_panel_rows(
 
 
 def update_web_backend_config(
-    config: dict[str, Any], key: str, value: Any, effective_port: int
+    config: dict[str, Any],
+    key: str,
+    value: Any,
+    effective_port: int,
+    workspace: str | os.PathLike[str] | None = None,
 ) -> list[str]:
     current = web_backend_settings(config)
     enabled = current.enabled
@@ -144,6 +178,7 @@ def update_web_backend_config(
         "host": host,
         "port": port or effective_port,
         "tailscale_https": tailscale_https,
+        "workspace": workspace_identity(workspace or current_web_workspace()),
     }
     external = host in _WILDCARD_HOSTS or not _is_loopback(host)
     config["router_debug_external_access"] = external
@@ -152,6 +187,7 @@ def update_web_backend_config(
     return [
         f"Web backend: {'on' if enabled else 'off'} · {host}:{port or effective_port}.",
         f"Tailscale HTTPS: {'on' if tailscale_https else 'off'}.",
+        f"Web instance: {config['web_backend']['workspace']}:{port or effective_port}.",
         f"Runtime is restarting so {scheme} endpoint settings apply now.",
     ]
 
@@ -341,6 +377,44 @@ def tailscale_https_url_for_target(
     return ""
 
 
+def tailscale_proxy_target_for_port(
+    public_port: int,
+    *,
+    executable: str | None = None,
+    timeout: float = 2.0,
+) -> str:
+    command = executable or shutil.which("tailscale")
+    if not command:
+        return ""
+    try:
+        completed = subprocess.run(
+            [command, "serve", "status", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+        if completed.returncode != 0:
+            return ""
+        payload = json.loads(completed.stdout)
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+        return ""
+    web = payload.get("Web") if isinstance(payload.get("Web"), dict) else {}
+    suffix = f":{public_port}"
+    for authority, config in web.items():
+        if public_port == 443:
+            matches = str(authority).rsplit(":", 1)[-1] in {"443", str(authority)}
+        else:
+            matches = str(authority).endswith(suffix)
+        if not matches or not isinstance(config, dict):
+            continue
+        handlers = config.get("Handlers")
+        root = handlers.get("/") if isinstance(handlers, dict) else None
+        if isinstance(root, dict):
+            return str(root.get("Proxy") or "").rstrip("/")
+    return ""
+
+
 def build_web_endpoint_report(
     client_host: str,
     bind_host: str,
@@ -375,13 +449,28 @@ def configure_tailscale_https(router_port: int, https_port: int | None = None) -
     if not executable:
         return ["Tailscale HTTPS was requested, but the tailscale CLI was not found."]
     public_port = https_port or router_port
+    target = f"http://127.0.0.1:{router_port}"
+    existing_target = tailscale_proxy_target_for_port(
+        public_port,
+        executable=executable,
+    )
+    if (
+        existing_target
+        and existing_target != target
+        and public_port != router_port
+    ):
+        return [
+            "Tailscale HTTPS setup refused: "
+            f"public port {public_port} already belongs to {existing_target}; "
+            f"this runtime is {target}. Use a unique public port."
+        ]
     command = [
         executable,
         "serve",
         f"--https={public_port}",
         "--bg",
         "--yes",
-        f"http://127.0.0.1:{router_port}",
+        target,
     ]
     try:
         completed = subprocess.run(
@@ -413,14 +502,24 @@ def configure_requested_web_endpoints(
     environment = os.environ if environ is None else environ
     lines: list[str] = []
     saved = web_backend_settings(config)
-    requested = (
-        str(environment.get("CIEL_RUNTIME_TAILSCALE_HTTPS") or "").lower() in _TRUE
-        or (saved.enabled and saved.tailscale_https)
+    explicit = str(environment.get("CIEL_RUNTIME_TAILSCALE_HTTPS") or "").lower() in _TRUE
+    owned = web_backend_owned_by_instance(
+        saved,
+        router_port,
+        current_web_workspace(environment),
     )
+    requested = explicit or (saved.enabled and saved.tailscale_https and owned)
     if requested:
         configured_port = str(environment.get("CIEL_RUNTIME_TAILSCALE_HTTPS_PORT") or "").strip()
         https_port = _valid_port(configured_port, "CIEL_RUNTIME_TAILSCALE_HTTPS_PORT") if configured_port else None
         lines.extend(configure_tailscale_https(router_port, https_port))
+    elif saved.enabled and saved.tailscale_https and not owned:
+        owner = saved.workspace or "legacy port"
+        lines.append(
+            "web_tailscale_skipped: settings belong to "
+            f"{owner}:{saved.port or 'auto'}, current instance is "
+            f"{current_web_workspace(environment)}:{router_port}"
+        )
     lines.extend(build_web_endpoint_report(client_host, bind_host, router_port).status_lines())
     return lines
 
@@ -437,11 +536,15 @@ __all__ = [
     "build_web_endpoint_report",
     "configure_requested_web_endpoints",
     "configure_tailscale_https",
+    "current_web_workspace",
     "discover_tailscale_node",
     "load_saved_web_backend",
     "tailscale_https_url_for_target",
+    "tailscale_proxy_target_for_port",
     "update_web_backend_config",
     "web_backend_panel_rows",
+    "web_backend_owned_by_instance",
+    "web_backend_owned_by_workspace",
     "web_backend_settings",
     "web_backend_summary",
 ]

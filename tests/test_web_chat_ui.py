@@ -100,6 +100,11 @@ class WebChatUiTests(unittest.TestCase):
         self.assertIn("response_contract:", html)
         self.assertIn("structuredWebResponse(message)", html)
         self.assertIn("structured.spoken || structured.overview", html)
+        self.assertIn("EXPECTED_INSTANCE_ID", html)
+        self.assertIn("ORIGIN_INSTANCE_KEY", html)
+        self.assertIn("verifyRuntimeIdentity", html)
+        self.assertIn("Web Chat stopped to prevent cross-instance delivery", html)
+        self.assertIn("instance_id", html)
 
     def test_web_chat_markdown_renderer_sanitizes_and_supports_tables(self):
         cfg = self._cfg()

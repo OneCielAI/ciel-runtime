@@ -109,6 +109,7 @@ ROUTER_WORKSPACE = workspace_identity(
     os.environ.get("CIEL_RUNTIME_LAUNCH_CWD") or Path.cwd()
 )
 _WORKSPACE_DIGEST = hashlib.sha256(ROUTER_WORKSPACE.encode("utf-8", errors="replace")).hexdigest()[:12]
+ROUTER_INSTANCE_ID = f"{ROUTER_PORT}-{_WORKSPACE_DIGEST}"
 _STATE_DIR_OVERRIDE = str(os.environ.get("CIEL_RUNTIME_STATE_DIR") or "").strip()
 _TEST_STATE_ISOLATED = str(os.environ.get("CIEL_RUNTIME_TEST_ISOLATED") or "").strip().lower() in {
     "1",
@@ -121,7 +122,7 @@ ROUTER_INSTANCE_DIR = (
     if _STATE_DIR_OVERRIDE
     else CONFIG_DIR
     if _TEST_STATE_ISOLATED
-    else CONFIG_DIR / "router-instances" / f"{ROUTER_PORT}-{_WORKSPACE_DIGEST}"
+    else CONFIG_DIR / "router-instances" / ROUTER_INSTANCE_ID
 )
 LOG_PATH = ROUTER_INSTANCE_DIR / "router.log"
 LOG_LEVEL_PATH = CONFIG_DIR / "log-level"

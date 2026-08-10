@@ -19,7 +19,11 @@ from ciel_runtime_support.runtime_constants import (
     ROUTED_COMPAT_PROMPT,
 )
 from ciel_runtime_support.runtime_paths import CONFIG_DIR, LOG_PATH, ROUTER_INSTANCE_DIR
-from ciel_runtime_support.web_endpoints import web_backend_settings
+from ciel_runtime_support.web_endpoints import (
+    current_web_workspace,
+    web_backend_owned_by_workspace,
+    web_backend_settings,
+)
 
 
 CLAUDE_CODE_GENERATED_GREEDY_OPTIONS = frozenset(
@@ -32,7 +36,11 @@ def web_backend_start_requested(config: dict[str, Any]) -> bool:
         "1", "true", "yes", "on"
     }:
         return True
-    return web_backend_settings(config).enabled
+    settings = web_backend_settings(config)
+    return settings.enabled and web_backend_owned_by_workspace(
+        settings,
+        current_web_workspace(),
+    )
 
 
 @dataclass(frozen=True, slots=True)

@@ -14,6 +14,7 @@ from ciel_runtime_support.web_endpoints import (
     tailscale_https_url_for_target,
     update_web_backend_config,
     web_backend_panel_rows,
+    web_backend_owned_by_instance,
     web_backend_settings,
 )
 
@@ -33,6 +34,20 @@ class WebEndpointTests(unittest.TestCase):
         ):
             self.assertTrue(web_backend_start_requested({}))
 
+    def test_web_backend_start_is_not_inherited_by_another_workspace(self):
+        config = {
+            "web_backend": {
+                "enabled": True,
+                "workspace": "C:/work/javis-mind",
+            }
+        }
+        with mock.patch.dict(
+            "ciel_runtime_support.runtime_launch.os.environ",
+            {"CIEL_RUNTIME_LAUNCH_CWD": "C:/work/other"},
+            clear=False,
+        ):
+            self.assertFalse(web_backend_start_requested(config))
+
     def test_previous_nightly_tailscale_setting_migrates_to_enabled(self):
         settings = web_backend_settings(
             {
@@ -46,6 +61,21 @@ class WebEndpointTests(unittest.TestCase):
 
         self.assertTrue(settings.enabled)
         self.assertTrue(settings.tailscale_https)
+
+    def test_web_backend_owner_is_scoped_by_workspace_and_port(self):
+        settings = web_backend_settings(
+            {
+                "web_backend": {
+                    "enabled": True,
+                    "port": 6969,
+                    "workspace": "C:/work/javis-mind",
+                }
+            }
+        )
+
+        self.assertTrue(web_backend_owned_by_instance(settings, 6969, "C:/work/javis-mind"))
+        self.assertFalse(web_backend_owned_by_instance(settings, 9464, "C:/work/javis-mind"))
+        self.assertFalse(web_backend_owned_by_instance(settings, 6969, "C:/work/other"))
 
     @mock.patch("ciel_runtime_support.web_endpoints.build_web_endpoint_report")
     @mock.patch("ciel_runtime_support.web_endpoints.configure_tailscale_https")
@@ -72,6 +102,31 @@ class WebEndpointTests(unittest.TestCase):
 
         configure.assert_called_once_with(9234, None)
         self.assertEqual(["configured", "web: local"], lines)
+
+    @mock.patch("ciel_runtime_support.web_endpoints.build_web_endpoint_report")
+    @mock.patch("ciel_runtime_support.web_endpoints.configure_tailscale_https")
+    def test_other_workspace_does_not_apply_saved_tailscale_mapping(
+        self, configure, report
+    ):
+        report.return_value.status_lines.return_value = ["web: local"]
+
+        lines = configure_requested_web_endpoints(
+            9464,
+            "127.0.0.1",
+            "127.0.0.1",
+            environ={"CIEL_RUNTIME_LAUNCH_CWD": "C:/work/other"},
+            config={
+                "web_backend": {
+                    "enabled": True,
+                    "port": 6969,
+                    "tailscale_https": True,
+                    "workspace": "C:/work/javis-mind",
+                }
+            },
+        )
+
+        configure.assert_not_called()
+        self.assertIn("web_tailscale_skipped", lines[0])
     def test_startup_options_set_host_port_and_strip_ciel_flags(self):
         environment = {}
         argv = apply_startup_web_options(
@@ -231,6 +286,31 @@ class WebEndpointTests(unittest.TestCase):
             ],
             run.call_args.args[0],
         )
+
+    @mock.patch("ciel_runtime_support.web_endpoints.shutil.which", return_value="tailscale")
+    @mock.patch("ciel_runtime_support.web_endpoints.discover_tailscale_node")
+    @mock.patch("ciel_runtime_support.web_endpoints.subprocess.run")
+    def test_refuses_to_take_public_port_from_another_router(self, run, discover, _which):
+        discover.return_value = TailscaleNode("100.64.1.2", "host.example.ts.net")
+        run.return_value = SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "Web": {
+                        "host.example.ts.net:9443": {
+                            "Handlers": {"/": {"Proxy": "http://127.0.0.1:9000"}}
+                        }
+                    }
+                }
+            ),
+            stderr="",
+        )
+
+        lines = configure_tailscale_https(9234, 9443)
+
+        self.assertIn("setup refused", lines[0])
+        self.assertIn("already belongs", lines[0])
+        self.assertEqual(1, run.call_count)
 
 
 if __name__ == "__main__":

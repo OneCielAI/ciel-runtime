@@ -20,6 +20,9 @@ class WebUiControllerTests(unittest.TestCase):
                 Path("activity.json"),
                 Path("context.json"),
                 120_000,
+                "C:/work/project",
+                9234,
+                "9234-project",
             ),
             projection=WebUiProjectionPorts(
                 current_alias=lambda _config: "alias-model",
@@ -78,6 +81,13 @@ class WebUiControllerTests(unittest.TestCase):
             "text/html; charset=utf-8",
             self.output.call_args.kwargs["content_type"],
         )
+
+    def test_chat_projection_includes_runtime_identity(self):
+        result = self.controller().render_web_chat({}, "provider", {})
+
+        self.assertEqual("C:/work/project", result["workspace"])
+        self.assertEqual(9234, result["router_port"])
+        self.assertEqual("9234-project", result["instance_id"])
 
 
 if __name__ == "__main__":

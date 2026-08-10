@@ -20,6 +20,7 @@ class RouterHealthPresentationPorts:
     config_dir: Path
     workspace: str
     router_port: int
+    instance_id: str
     current_alias: Callable[[dict[str, Any]], str]
 
 
@@ -46,6 +47,7 @@ class RouterServerContext:
             "config_dir": str(self.health.config_dir),
             "workspace": self.health.workspace,
             "router_port": self.health.router_port,
+            "instance_id": self.health.instance_id,
             "provider": provider,
             "model": self.health.current_alias(cfg),
             "web_chat": "/ca/web/chat",

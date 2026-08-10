@@ -32,6 +32,10 @@ The Colab Qwen endpoint remains a batch HTTP API, so the live caption is progres
 
 Web Chat requests carry an input mode and a structured response contract. The active agent first sends a short acknowledgement and then a final response containing `spoken`, `overview`, and optional `details` fields. The browser renders the fields separately and sends only `spoken` to TTS, avoiding long Markdown, URLs, code, and tables in synthesized speech. Legacy plain `message` replies remain supported.
 
+### Multiple local runtime instances
+
+Web backend ownership is scoped to the normalized workspace and router port. A saved Web/Tailscale configuration is not inherited by another workspace, and Ciel refuses to take an explicitly selected Tailscale HTTPS port that already proxies a different local router. `/health` advertises a stable `instance_id` derived from the workspace and port. Web Chat binds each browser origin to that ID, verifies it before sends, voice capture, and SSE reconnects, and stops delivery if a proxy begins returning another runtime. Use `?rebind=1` only when intentionally assigning that browser origin to a different instance.
+
 ## API surface
 
 - `GET|POST /ca/speech/config`

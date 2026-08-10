@@ -25,6 +25,7 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
             "host": "127.0.0.1",
             "port": 0,
             "tailscale_https": False,
+            "workspace": "",
         },
         "speech": {
             "colab": {

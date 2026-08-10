@@ -491,7 +491,7 @@ from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  #
                                                 OLLAMA_MODEL_CATALOG_PATH, PID_PATH, PLAN_ARTIFACTS_DIR,
                                                 RATE_LIMIT_STATE_PATH, REQUEST_DUMP_PATH, RESPONSE_DUMP_PATH,
                                                 ROUTER_ACTIVITY_PATH, ROUTER_BASE, ROUTER_CLIENTS_DIR,
-                                                ROUTER_EXTERNAL_TOKEN_PATH, ROUTER_HOST, ROUTER_INSTANCE_DIR, ROUTER_PORT, ROUTER_WORKSPACE, SSE_LAST_PATH,
+                                                ROUTER_EXTERNAL_TOKEN_PATH, ROUTER_HOST, ROUTER_INSTANCE_DIR, ROUTER_INSTANCE_ID, ROUTER_PORT, ROUTER_WORKSPACE, SSE_LAST_PATH,
                                                 SSE_TRACE_PATH, TOOL_CALL_LOG_PATH, USAGE_EVENTS_PATH,
                                                 WEB_TOOLS_MCP_CONFIG, ZAI_MCP_CONFIG, agy_user_bin_dir,
                                                 ciel_runtime_user_bin_dir, default_router_port,
@@ -1691,7 +1691,7 @@ def handle_llm_config_post(handler: BaseHTTPRequestHandler, path: str, body: dic
 
 def web_ui_controller() -> WebUiController:
     return WebUiController(
-        constants=WebUiConstants(VERSION, ROUTER_ACTIVITY_PATH, CONTEXT_USAGE_PATH, DEFAULT_REQUEST_TIMEOUT_MS),
+        constants=WebUiConstants(VERSION, ROUTER_ACTIVITY_PATH, CONTEXT_USAGE_PATH, DEFAULT_REQUEST_TIMEOUT_MS, ROUTER_WORKSPACE, ROUTER_PORT, ROUTER_INSTANCE_ID),
         projection=WebUiProjectionPorts(current_alias, read_json_file, router_rate_limit_usage, positive_int, timeout_profile_idle_ms, context_limit_for_status),
         display=WebUiDisplayPorts(render_router_home_page, render_web_chat_page, provider_mode_label, api_key_status_line),
         http=WebUiHttpPorts(load_config, get_current_provider, write_text_response),
@@ -2836,7 +2836,7 @@ def _router_server_context() -> RouterServerContext:
                                                                                                        config=load_config())),
     )
     return RouterServerContext(
-        health=RouterHealthPresentationPorts(VERSION, SOURCE_FINGERPRINT, os.getpid, getpass.getuser, HOME, ROUTER_INSTANCE_DIR, ROUTER_WORKSPACE, ROUTER_PORT, current_alias),
+        health=RouterHealthPresentationPorts(VERSION, SOURCE_FINGERPRINT, os.getpid, getpass.getuser, HOME, ROUTER_INSTANCE_DIR, ROUTER_WORKSPACE, ROUTER_PORT, ROUTER_INSTANCE_ID, current_alias),
         http_services=http_services,
         server_runtime=server_runtime,
     )

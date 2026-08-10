@@ -12,11 +12,16 @@ def render_web_chat_page(
     mode: str,
     api_status: str,
     timeout_ms: int,
+    workspace: str,
+    router_port: int,
+    instance_id: str,
 ) -> str:
     escaped_model = html_lib.escape(model)
     escaped_provider = html_lib.escape(provider)
     escaped_mode = html_lib.escape(mode)
     escaped_api_status = html_lib.escape(api_status)
+    escaped_workspace = html_lib.escape(workspace)
+    escaped_instance_id = html_lib.escape(instance_id)
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -173,6 +178,8 @@ def render_web_chat_page(
         <div><div class="meta-label">API</div><div class="meta-value">{escaped_api_status}</div></div>
         <div><div class="meta-label">Timeout</div><div class="meta-value">{timeout_ms:,} ms</div></div>
         <div><div class="meta-label">Bridge</div><div class="meta-value">active session channel</div></div>
+        <div><div class="meta-label">Instance</div><div class="meta-value">{escaped_instance_id}</div></div>
+        <div><div class="meta-label">Workspace</div><div class="meta-value">{escaped_workspace}</div></div>
       </div>
       <div class="nav">
         <a href="/">Router Home</a>
@@ -269,6 +276,20 @@ def render_web_chat_page(
   </dialog>
   <script>
     const MODEL = {json.dumps(model)};
+    const EXPECTED_INSTANCE_ID = {json.dumps(instance_id)};
+    const EXPECTED_WORKSPACE = {json.dumps(workspace)};
+    const EXPECTED_ROUTER_PORT = {int(router_port)};
+    const ORIGIN_INSTANCE_KEY = 'ciel-runtime-web-chat-origin-instance:' + location.origin;
+    const bootstrapParams = new URLSearchParams(location.search);
+    const previousOriginInstance = localStorage.getItem(ORIGIN_INSTANCE_KEY) || '';
+    const rebindOriginInstance = bootstrapParams.get('rebind') === '1';
+    if (!previousOriginInstance || rebindOriginInstance) {{
+      localStorage.setItem(ORIGIN_INSTANCE_KEY, EXPECTED_INSTANCE_ID);
+    }}
+    const boundOriginInstance = rebindOriginInstance ? EXPECTED_INSTANCE_ID : previousOriginInstance;
+    let instanceIdentityBlocked = boundOriginInstance && boundOriginInstance !== EXPECTED_INSTANCE_ID
+      ? `This browser origin is bound to ${{previousOriginInstance}}, but the page came from ${{EXPECTED_INSTANCE_ID}}.`
+      : '';
     const transcript = document.getElementById('transcript');
     const composer = document.getElementById('composer');
     const prompt = document.getElementById('prompt');
@@ -532,6 +553,41 @@ def render_web_chat_page(
         transcript.scrollTop = transcript.scrollHeight;
       }}
       return bubble;
+    }}
+    function blockRuntimeIdentity(reason) {{
+      const detail = String(reason || 'Runtime identity changed.');
+      if (instanceIdentityBlocked === detail && sendButton.disabled) return;
+      instanceIdentityBlocked = detail;
+      if (eventSource) eventSource.close();
+      eventSource = null;
+      sendButton.disabled = true;
+      attachButton.disabled = true;
+      micButton.disabled = true;
+      stopActiveSpeech();
+      setState('instance mismatch', 'error');
+      addBubble('system', 'Web Chat stopped to prevent cross-instance delivery. ' + detail + ' Restore the original proxy target, or intentionally open this URL once with ?rebind=1.');
+    }}
+    async function verifyRuntimeIdentity(options = {{}}) {{
+      if (instanceIdentityBlocked) {{
+        if (options.announce !== false) blockRuntimeIdentity(instanceIdentityBlocked);
+        return false;
+      }}
+      try {{
+        const response = await fetch('/health', {{headers: {{'accept': 'application/json'}}, cache: 'no-store'}});
+        if (!response.ok) throw new Error(`HTTP ${{response.status}}`);
+        const health = await response.json();
+        const actualInstance = String(health.instance_id || '');
+        const actualWorkspace = String(health.workspace || '');
+        const actualPort = Number(health.router_port || 0);
+        if (actualInstance !== EXPECTED_INSTANCE_ID || actualWorkspace !== EXPECTED_WORKSPACE || actualPort !== EXPECTED_ROUTER_PORT) {{
+          blockRuntimeIdentity(`Expected ${{EXPECTED_INSTANCE_ID}} (${{EXPECTED_WORKSPACE}}:${{EXPECTED_ROUTER_PORT}}), received ${{actualInstance || 'unknown'}} (${{actualWorkspace || 'unknown'}}:${{actualPort || 'unknown'}}).`);
+          return false;
+        }}
+        return true;
+      }} catch (err) {{
+        if (options.announce !== false) setState('identity check failed', 'error');
+        return false;
+      }}
     }}
     function structuredWebResponse(message) {{
       const value = message && message.meta && message.meta.web_response;
@@ -965,6 +1021,7 @@ def render_web_chat_page(
       }}
     }}
     async function startVoiceInput() {{
+      if (!await verifyRuntimeIdentity()) throw new Error('Runtime identity verification failed');
       if (!navigator.mediaDevices) throw new Error('This browser does not support microphone recording');
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) throw new Error('Live voice requires Web Audio support');
@@ -1119,7 +1176,8 @@ def render_web_chat_page(
         historyLoading = false;
       }}
     }}
-    function startChannelStream() {{
+    async function startChannelStream() {{
+      if (!await verifyRuntimeIdentity()) return;
       if (eventSource) eventSource.close();
       const url = `/ca/channel/stream?channel=${{encodeURIComponent(channel)}}&recipient=web&after=${{lastId}}&timeout=3600`;
       eventSource = new EventSource(url);
@@ -1137,6 +1195,7 @@ def render_web_chat_page(
       }};
     }}
     async function sendMessage(text, files = [], options = {{}}) {{
+      if (!await verifyRuntimeIdentity()) return;
       setState('queued');
       sendButton.disabled = true;
       attachButton.disabled = true;
@@ -1292,10 +1351,14 @@ def render_web_chat_page(
     transcript.addEventListener('scroll', () => {{
       if (transcript.scrollTop < 48) loadOlderHistory();
     }});
-    addBubble('system', `Connected to active session bridge for ${{MODEL}}. Messages are queued on channel ${{channel}} and replies stream back from /ca/channel/stream.`);
-    loadSpeechConfig().catch(() => {{ micButton.disabled = true; }});
-    loadInitialHistory().finally(startChannelStream);
-    prompt.focus();
+    addBubble('system', `Connecting to runtime ${{EXPECTED_INSTANCE_ID}} for ${{MODEL}} on ${{EXPECTED_WORKSPACE}}.`);
+    verifyRuntimeIdentity().then(ok => {{
+      if (!ok) return;
+      loadSpeechConfig().catch(() => {{ micButton.disabled = true; }});
+      loadInitialHistory().finally(startChannelStream);
+      prompt.focus();
+      setInterval(() => verifyRuntimeIdentity({{announce: false}}), 5000);
+    }});
   </script>
 </body>
 </html>"""

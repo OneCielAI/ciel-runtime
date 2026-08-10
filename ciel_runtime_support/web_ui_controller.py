@@ -17,6 +17,9 @@ class WebUiConstants:
     activity_path: Path
     context_usage_path: Path
     default_timeout_ms: int
+    workspace: str = ""
+    router_port: int = 0
+    instance_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,6 +139,9 @@ class WebUiController:
                 provider_config,
             ),
             timeout_ms=timeout_ms,
+            workspace=self.constants.workspace,
+            router_port=self.constants.router_port,
+            instance_id=self.constants.instance_id,
         )
 
     def handle_get(self, handler: Any, path: str) -> bool:
