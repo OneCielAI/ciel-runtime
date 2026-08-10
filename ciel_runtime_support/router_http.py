@@ -140,6 +140,8 @@ class CodexBackendRequestPorts:
     upstream_headers: Callable[[dict[str, Any], Any], dict[str, str]]
     urlopen: Callable[..., Any]
     request_timeout: Callable[[dict[str, Any]], float]
+    transport_retry_limit: Callable[[], int] = lambda: 2
+    retryable_exception: Callable[[BaseException], bool] = lambda _error: False
 
 
 @dataclass(frozen=True, slots=True)
@@ -414,11 +416,8 @@ class CodexBackendHttpAdapter:
         max_retries = self._retry.retry_limit() if mutate_responses else 0
         for attempt in range(max_retries + 1):
             request = urllib.request.Request(url, data=data, headers=headers, method="POST")
-            with self._request.urlopen(
-                request,
-                timeout=self._request.request_timeout(config),
-                provider=provider,
-                pcfg=config,
+            with self._open_with_transport_retry(
+                request, provider, config, str(upstream_body.get("model") or ""), "responses"
             ) as response:
                 preamble = self._retry.read_preamble(response) if mutate_responses else None
                 if preamble is not None and getattr(preamble, "context_error_code", None):
@@ -454,6 +453,52 @@ class CodexBackendHttpAdapter:
                 self._write_response(handler, response, preamble)
                 break
 
+    def _open_with_transport_retry(
+        self,
+        request: urllib.request.Request,
+        provider: str,
+        config: dict[str, Any],
+        model: str,
+        operation: str,
+    ) -> Any:
+        retries = self._request.transport_retry_limit()
+        for attempt in range(retries + 1):
+            try:
+                return self._request.urlopen(
+                    request,
+                    timeout=self._request.request_timeout(config),
+                    provider=provider,
+                    pcfg=config,
+                )
+            except (TimeoutError, urllib.error.URLError, OSError) as error:
+                if attempt >= retries or not self._request.retryable_exception(error):
+                    raise
+                retry_number = attempt + 1
+                wait = self._retry.retry_wait(retry_number)
+                self._retry.log(
+                    "WARN",
+                    "codex_transport_retry "
+                    f"operation={operation} model={model} "
+                    f"attempt={retry_number}/{retries} wait={wait:.2f}s "
+                    f"error={type(error).__name__}: {error}",
+                )
+                self._retry.publish(
+                    level="warn",
+                    category="router.retry",
+                    message="Codex transport retry",
+                    provider=provider,
+                    model=model,
+                    data={
+                        "operation": operation,
+                        "attempt": retry_number,
+                        "total": retries,
+                        "wait_seconds": wait,
+                        "error": type(error).__name__,
+                    },
+                )
+                self._retry.sleep(wait)
+        raise RuntimeError("Codex transport retry exhausted")
+
     def forward_get(
         self,
         handler: BaseHTTPRequestHandler,
@@ -466,11 +511,8 @@ class CodexBackendHttpAdapter:
             headers=self._request.upstream_headers(config, handler.headers),
             method="GET",
         )
-        with self._request.urlopen(
-            request,
-            timeout=self._request.request_timeout(config),
-            provider=provider,
-            pcfg=config,
+        with self._open_with_transport_retry(
+            request, provider, config, "", "get"
         ) as response:
             self._write_response(handler, response, None)
 

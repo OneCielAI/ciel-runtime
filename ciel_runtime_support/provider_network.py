@@ -68,6 +68,8 @@ def normalize_ip_family(value: Any, default: str = "auto") -> str:
 
 
 def default_provider_ip_family(provider: str) -> str:
+    if provider in {"codex", "kimi", "openai"}:
+        return "ipv4-preferred"
     return "ipv6-preferred" if provider in OPENCODE_PROVIDER_NAMES else "auto"
 
 

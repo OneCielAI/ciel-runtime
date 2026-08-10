@@ -10,6 +10,7 @@ from ciel_runtime_support.router_http import (
     CodexBackendRequestPorts,
     CodexBackendRetryPorts,
 )
+from ciel_runtime_support.upstream_error_policy import retryable_exception
 
 # Verbatim 404 from api.openai.com after the session's model changed. The
 # reasoning item had been minted by the router while a foreign provider served
@@ -105,7 +106,7 @@ class ScriptedUpstream:
         return FakeResponse()
 
 
-def adapter_for(upstream, logs):
+def adapter_for(upstream, logs, *, transport_retries=0, classify_transport=lambda _error: False):
     return CodexBackendHttpAdapter(
         "https://api.openai.com/backend-api/codex",
         CodexBackendRequestPorts(
@@ -114,6 +115,8 @@ def adapter_for(upstream, logs):
             upstream_headers=lambda _config, _headers: {"authorization": "Bearer t"},
             urlopen=upstream,
             request_timeout=lambda _config: 30.0,
+            transport_retry_limit=lambda: transport_retries,
+            retryable_exception=classify_transport,
         ),
         CodexBackendRetryPorts(
             retry_limit=lambda: 0,
@@ -144,6 +147,30 @@ def sealed_body():
 
 
 class MissingItemRetryTests(unittest.TestCase):
+    def test_transport_failure_before_response_is_retried_without_freezing(self):
+        class TransientUpstream:
+            def __init__(self):
+                self.calls = 0
+
+            def __call__(self, _request, **_kwargs):
+                self.calls += 1
+                if self.calls == 1:
+                    raise urllib.error.URLError(OSError(113, "No route to host"))
+                return FakeResponse()
+
+        upstream = TransientUpstream()
+        logs = []
+
+        adapter_for(
+            upstream,
+            logs,
+            transport_retries=2,
+            classify_transport=retryable_exception,
+        ).forward_json(FakeHandler(), "codex", {}, sealed_body())
+
+        self.assertEqual(2, upstream.calls)
+        self.assertTrue(any("codex_transport_retry" in message for _level, message in logs))
+
     def test_router_minted_item_never_reaches_the_upstream(self):
         upstream = ScriptedUpstream([])
         handler = FakeHandler()

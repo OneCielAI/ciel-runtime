@@ -2800,7 +2800,7 @@ def _router_request_context() -> RouterRequestContext:
         assembly.ClaudeRouterContextRecoveryPorts(lambda body, raw, pcfg: native_context_recovery.recover_output_budget(body, raw, reserve_tokens=positive_int(pcfg.get("context_reserve_tokens")) or 0)),
     )
     return assembly.RouterRequestAssembly(
-        openai, assembly.RouterRequestOuterPorts(forward_codex_backend_json, forward_codex_backend_get, write_openai_responses_error, write_json,
+        openai, assembly.RouterRequestOuterPorts(forward_codex_backend_json, forward_codex_backend_get, write_openai_responses_error, try_write_json,
                                                  upstream_http_error_message, is_client_disconnect_error), codex_routed_enabled, forward_provider_chat, claude,
     ).context()
 

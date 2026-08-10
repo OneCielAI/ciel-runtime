@@ -13,6 +13,8 @@ class ProviderNetworkTests(unittest.TestCase):
     def test_ip_family_aliases_and_provider_default(self):
         self.assertEqual("ipv4-preferred", provider_network.normalize_ip_family("prefer-v4"))
         self.assertEqual("ipv6-preferred", provider_network.default_provider_ip_family("opencode"))
+        self.assertEqual("ipv4-preferred", provider_network.default_provider_ip_family("codex"))
+        self.assertEqual("ipv4-preferred", provider_network.default_provider_ip_family("kimi"))
         self.assertEqual("auto", provider_network.default_provider_ip_family("anthropic"))
 
     def test_strict_ip_family_filters_dns_results(self):

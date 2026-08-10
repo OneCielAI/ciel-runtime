@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import time
 from typing import Any, Callable
+
+from .initial_stream_retry import InitialStreamRetry
+from .upstream_error_policy import (
+    initial_stream_retries,
+    retry_wait_seconds,
+    retryable_exception,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,6 +154,49 @@ def forward_openai_compatible_chat(
                 emit_retry_notice,
                 retry_rate_limits=not compatibility_test,
             )
+            reconnects = initial_stream_retries(pcfg)
+            if reconnects:
+                def reopen_initial_stream(_attempt: int) -> Any:
+                    return streaming.open_with_retry(
+                        url,
+                        req_body,
+                        headers,
+                        timeout,
+                        provider,
+                        pcfg,
+                        model,
+                        None,
+                        retry_rate_limits=not compatibility_test,
+                    )
+
+                def record_initial_retry(attempt: int, error: BaseException) -> None:
+                    services.log(
+                        "WARN",
+                        "upstream_stream_initial_retry "
+                        f"provider={provider} model={model} "
+                        f"attempt={attempt}/{reconnects} "
+                        f"error={type(error).__name__}: {error}",
+                    )
+                    response.write_activity(
+                        "retry",
+                        provider,
+                        model,
+                        attempt=attempt,
+                        total=reconnects,
+                        error=type(error).__name__,
+                        stream=True,
+                        stage="initial_stream",
+                    )
+
+                upstream_response = InitialStreamRetry(
+                    upstream_response,
+                    reopen_initial_stream,
+                    reconnects,
+                    retryable_exception,
+                    retry_wait_seconds,
+                    time.sleep,
+                    record_initial_retry,
+                )
             stream_ok = streaming.stream_to_anthropic_sse(
                 handler,
                 upstream_response,

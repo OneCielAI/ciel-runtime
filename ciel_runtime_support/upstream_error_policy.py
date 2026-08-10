@@ -81,13 +81,30 @@ def retryable_exception(error: BaseException) -> bool:
         "connection was aborted",
         "connection reset",
         "connection refused",
+        "network is unreachable",
+        "network unreachable",
+        "no route to host",
+        "temporary failure in name resolution",
+        "name or service not known",
+        "nodename nor servname provided",
         "remote end closed connection",
         "remote disconnected",
         "eof occurred in violation of protocol",
         "temporarily unavailable",
         "broken pipe",
+        "upstream stream ended before its first byte",
     )
     return any(marker in text for marker in markers)
+
+
+def initial_stream_retries(config: dict[str, Any]) -> int:
+    """Bound reconnects before an upstream stream yields its first byte."""
+
+    value = config.get("stream_initial_retries", 2)
+    try:
+        return max(0, min(5, int(value)))
+    except (TypeError, ValueError, OverflowError):
+        return 2
 
 
 def configured_gateway_retries(config: dict[str, Any]) -> int:

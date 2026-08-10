@@ -18,6 +18,7 @@ from .router_http import (
     CodexBackendRetryPorts,
     CodexRoutedHeaderPolicy,
 )
+from .upstream_error_policy import retryable_exception
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +145,15 @@ class CodexBackendContext:
         except ValueError:
             return 3
 
+    def transport_retry_limit(self) -> int:
+        raw = str(
+            self.transport.env_get("CIEL_RUNTIME_CODEX_TRANSPORT_RETRIES") or "2"
+        ).strip()
+        try:
+            return max(0, min(5, int(raw)))
+        except ValueError:
+            return 2
+
     def backend_adapter(self) -> CodexBackendHttpAdapter:
         return CodexBackendHttpAdapter(
             self.transport.upstream_base,
@@ -153,6 +163,8 @@ class CodexBackendContext:
                 self.routed_headers,
                 self.transport.urlopen,
                 self.transport.timeout_seconds,
+                self.transport_retry_limit,
+                retryable_exception,
             ),
             CodexBackendRetryPorts(
                 self.capacity_retry_limit,
@@ -344,6 +356,9 @@ class CodexBackendCompatibilityApi:
 
     def capacity_retry_limit(self) -> int:
         return self.context().capacity_retry_limit()
+
+    def transport_retry_limit(self) -> int:
+        return self.context().transport_retry_limit()
 
     def forward_get(self, *args: Any, **kwargs: Any) -> None:
         self.context().forward_get(*args, **kwargs)
