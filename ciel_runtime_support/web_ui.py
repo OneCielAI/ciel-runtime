@@ -303,6 +303,11 @@ def render_web_chat_page(
     let mediaRecorder = null;
     let mediaStream = null;
     let recordingChunks = [];
+    let audioContext = null;
+    let audioInput = null;
+    let audioProcessor = null;
+    let pcmChunks = [];
+    let voiceRecording = false;
     let pendingTtsReferenceAudio = '';
     function setState(text, cls = '') {{
       statePill.textContent = text;
@@ -709,27 +714,91 @@ def render_web_chat_page(
       prompt.focus();
       setState('transcribed', 'ok');
     }}
+    function encodePcmWav(chunks, sampleRate) {{
+      const sampleCount = chunks.reduce((total, chunk) => total + chunk.length, 0);
+      const buffer = new ArrayBuffer(44 + sampleCount * 2);
+      const view = new DataView(buffer);
+      const writeAscii = (offset, value) => {{
+        for (let index = 0; index < value.length; index += 1) view.setUint8(offset + index, value.charCodeAt(index));
+      }};
+      writeAscii(0, 'RIFF');
+      view.setUint32(4, 36 + sampleCount * 2, true);
+      writeAscii(8, 'WAVE');
+      writeAscii(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeAscii(36, 'data');
+      view.setUint32(40, sampleCount * 2, true);
+      let offset = 44;
+      chunks.forEach(chunk => chunk.forEach(rawSample => {{
+        const sample = Math.max(-1, Math.min(1, rawSample));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+        offset += 2;
+      }}));
+      return new Blob([buffer], {{type: 'audio/wav'}});
+    }}
+    async function finishVoiceInput(blob) {{
+      if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+      mediaStream = null;
+      micButton.textContent = 'Start voice input';
+      micButton.classList.remove('recording');
+      try {{ await transcribeRecording(blob); }} catch (err) {{ setState('STT error', 'error'); addBubble('system', 'STT failed: ' + String(err && err.message ? err.message : err)); }}
+    }}
     async function startVoiceInput() {{
-      if (!navigator.mediaDevices || !window.MediaRecorder) throw new Error('This browser does not support microphone recording');
+      if (!navigator.mediaDevices) throw new Error('This browser does not support microphone recording');
       mediaStream = await navigator.mediaDevices.getUserMedia({{audio: true}});
-      recordingChunks = [];
-      mediaRecorder = new MediaRecorder(mediaStream);
-      mediaRecorder.addEventListener('dataavailable', event => {{ if (event.data && event.data.size) recordingChunks.push(event.data); }});
-      mediaRecorder.addEventListener('stop', async () => {{
-        const blob = new Blob(recordingChunks, {{type: mediaRecorder.mimeType || 'audio/webm'}});
-        if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) {{
+        audioContext = new AudioContextClass();
+        if (audioContext.state === 'suspended') await audioContext.resume();
+        audioInput = audioContext.createMediaStreamSource(mediaStream);
+        audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+        pcmChunks = [];
+        audioProcessor.onaudioprocess = event => pcmChunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+        audioInput.connect(audioProcessor);
+        audioProcessor.connect(audioContext.destination);
+      }} else if (window.MediaRecorder) {{
+        recordingChunks = [];
+        mediaRecorder = new MediaRecorder(mediaStream);
+        mediaRecorder.addEventListener('dataavailable', event => {{ if (event.data && event.data.size) recordingChunks.push(event.data); }});
+        mediaRecorder.addEventListener('stop', async () => {{
+          const blob = new Blob(recordingChunks, {{type: mediaRecorder.mimeType || 'audio/webm'}});
+          await finishVoiceInput(blob);
+        }}, {{once: true}});
+        mediaRecorder.start();
+      }} else {{
+        mediaStream.getTracks().forEach(track => track.stop());
         mediaStream = null;
-        micButton.textContent = 'Start voice input';
-        micButton.classList.remove('recording');
-        try {{ await transcribeRecording(blob); }} catch (err) {{ setState('STT error', 'error'); addBubble('system', 'STT failed: ' + String(err && err.message ? err.message : err)); }}
-      }}, {{once: true}});
-      mediaRecorder.start();
+        throw new Error('This browser does not support microphone recording');
+      }}
+      voiceRecording = true;
       micButton.textContent = 'Stop and transcribe';
       micButton.classList.add('recording');
       setState('recording', 'error');
     }}
-    function stopVoiceInput() {{
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    async function stopVoiceInput() {{
+      if (!voiceRecording) return;
+      voiceRecording = false;
+      if (audioProcessor && audioContext) {{
+        const sampleRate = audioContext.sampleRate;
+        audioProcessor.onaudioprocess = null;
+        audioInput.disconnect();
+        audioProcessor.disconnect();
+        await audioContext.close();
+        const blob = encodePcmWav(pcmChunks, sampleRate);
+        audioContext = null;
+        audioInput = null;
+        audioProcessor = null;
+        pcmChunks = [];
+        await finishVoiceInput(blob);
+      }} else if (mediaRecorder && mediaRecorder.state !== 'inactive') {{
+        mediaRecorder.stop();
+      }}
     }}
     async function uploadAttachment(file) {{
       const content = await fileToBase64(file);
@@ -924,8 +993,8 @@ def render_web_chat_page(
     }});
     attachButton.addEventListener('click', () => fileInput.click());
     micButton.addEventListener('click', async () => {{
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {{
-        stopVoiceInput();
+      if (voiceRecording) {{
+        await stopVoiceInput();
         return;
       }}
       try {{ await startVoiceInput(); }} catch (err) {{

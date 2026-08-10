@@ -1000,6 +1000,7 @@ def run_codex(
         _set_channel_transcript_scope(
             "codex",
             codex_home=Path(env.get("CODEX_HOME") or (Path.home() / ".codex")),
+            cwd=launch_cwd,
         )
         if not use_native_codex:
             start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config, allowed_server_names=codex_channel_owned_names)

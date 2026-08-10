@@ -4388,8 +4388,8 @@ _CHANNEL_TRANSCRIPT_SCOPE: dict[str, Any] = {'runtime': '', 'started_at': 0.0, '
 _CHANNEL_STDIN_RECOVERY_CACHE: dict[str, Any] = {'checked_at': 0.0, 'last_id': None, 'marker': None, 'recovered_last_id': None}
 def channel_transcript_repository() -> ChannelTranscriptRepository: return channel_wake_context().transcript_repository()
 
-def _set_channel_transcript_scope(runtime: str, *, started_at: float | None = None, codex_home: Path | None = None) -> None:
-    channel_wake_context().set_transcript_scope(runtime, started_at=started_at, codex_home=codex_home)
+def _set_channel_transcript_scope(runtime: str, *, started_at: float | None = None, codex_home: Path | None = None, cwd: Path | None = None) -> None:
+    channel_wake_context().set_transcript_scope(runtime, started_at=started_at, codex_home=codex_home, cwd=cwd)
 
 def _channel_transcript_roots() -> tuple[tuple[Path, str], ...]: return channel_wake_context().transcript_roots()
 def _latest_claude_transcript_path(ttl_seconds: float = 2.0) -> Path | None: return channel_wake_context().latest_transcript_path(ttl_seconds)

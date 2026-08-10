@@ -358,9 +358,10 @@ class ChannelWakeContext:
         *,
         started_at: float | None = None,
         codex_home: Path | None = None,
+        cwd: Path | None = None,
     ) -> None:
         self.transcript_repository().set_scope(
-            runtime, started_at=started_at, codex_home=codex_home
+            runtime, started_at=started_at, codex_home=codex_home, cwd=cwd
         )
 
     def transcript_roots(self) -> tuple[tuple[Path, str], ...]:

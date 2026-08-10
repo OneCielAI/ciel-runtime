@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -54,6 +55,40 @@ class ChannelTranscriptRepositoryTests(unittest.TestCase):
             repository = self.repository(
                 home,
                 scope={"runtime": "codex", "started_at": 200},
+            )
+
+            self.assertEqual(current, repository.latest(ttl_seconds=0))
+
+    def test_latest_uses_codex_session_start_and_cwd_not_recent_write_time(self):
+        with tempfile.TemporaryDirectory() as raw_dir:
+            home = Path(raw_dir)
+            sessions = home / ".codex" / "sessions" / "2026"
+            sessions.mkdir(parents=True)
+            unrelated = sessions / "unrelated.jsonl"
+            current = sessions / "current.jsonl"
+            unrelated.write_text(json.dumps({
+                "type": "session_meta",
+                "payload": {
+                    "timestamp": "1970-01-01T00:01:40Z",
+                    "cwd": "/repo/other",
+                },
+            }) + "\n", encoding="utf-8")
+            current.write_text(json.dumps({
+                "type": "session_meta",
+                "payload": {
+                    "timestamp": "1970-01-01T00:03:21Z",
+                    "cwd": "/repo/target",
+                },
+            }) + "\n", encoding="utf-8")
+            os.utime(unrelated, (250, 250))
+            os.utime(current, (201, 201))
+            repository = self.repository(
+                home,
+                scope={
+                    "runtime": "codex",
+                    "started_at": 200,
+                    "cwd": Path("/repo/target"),
+                },
             )
 
             self.assertEqual(current, repository.latest(ttl_seconds=0))

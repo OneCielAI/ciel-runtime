@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
+import json
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +23,7 @@ class ChannelTranscriptRepository:
         *,
         started_at: float | None = None,
         codex_home: Path | None = None,
+        cwd: Path | None = None,
     ) -> None:
         self.scope["runtime"] = str(runtime or "").strip().casefold()
         self.scope["started_at"] = (
@@ -31,6 +34,7 @@ class ChannelTranscriptRepository:
             if codex_home is not None
             else None
         )
+        self.scope["cwd"] = Path(cwd).expanduser() if cwd is not None else None
         self.cache.clear()
         self.cache.update({"checked_at": 0.0, "path": None})
 
@@ -59,6 +63,8 @@ class ChannelTranscriptRepository:
         latest: Path | None = None
         latest_mtime = -1.0
         scope_started_at = float(self.scope.get("started_at") or 0.0)
+        runtime = str(self.scope.get("runtime") or "").strip().casefold()
+        scope_cwd = self._normalized_cwd(self.scope.get("cwd"))
         for root, pattern in self.roots():
             try:
                 paths = root.glob(pattern)
@@ -71,12 +77,53 @@ class ChannelTranscriptRepository:
                     continue
                 if scope_started_at > 0 and mtime < scope_started_at - 1.0:
                     continue
+                if runtime == "codex" and (scope_started_at > 0 or scope_cwd):
+                    session_started_at, session_cwd = self._codex_session_identity(path)
+                    if (
+                        session_started_at is not None
+                        and scope_started_at > 0
+                        and session_started_at < scope_started_at - 1.0
+                    ):
+                        continue
+                    normalized_session_cwd = self._normalized_cwd(session_cwd)
+                    if scope_cwd and normalized_session_cwd and normalized_session_cwd != scope_cwd:
+                        continue
                 if mtime > latest_mtime:
                     latest = path
                     latest_mtime = mtime
         self.cache["checked_at"] = now
         self.cache["path"] = latest
         return latest
+
+    @staticmethod
+    def _normalized_cwd(value: Any) -> str:
+        if value is None:
+            return ""
+        return str(value).strip().replace("\\", "/").rstrip("/").casefold()
+
+    @staticmethod
+    def _codex_session_identity(path: Path) -> tuple[float | None, str]:
+        try:
+            with path.open("r", encoding="utf-8", errors="replace") as stream:
+                record = json.loads(stream.readline(64 * 1024))
+        except (OSError, UnicodeError, ValueError, TypeError):
+            return None, ""
+        if not isinstance(record, dict):
+            return None, ""
+        payload = record.get("payload")
+        metadata = payload if isinstance(payload, dict) else {}
+        raw_timestamp = metadata.get("timestamp") or record.get("timestamp")
+        started_at: float | None = None
+        if isinstance(raw_timestamp, (int, float)):
+            started_at = float(raw_timestamp)
+        elif isinstance(raw_timestamp, str) and raw_timestamp.strip():
+            try:
+                started_at = datetime.fromisoformat(
+                    raw_timestamp.strip().replace("Z", "+00:00")
+                ).timestamp()
+            except ValueError:
+                started_at = None
+        return started_at, str(metadata.get("cwd") or "")
 
     @staticmethod
     def read_tail_text(
