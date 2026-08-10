@@ -115,6 +115,13 @@ def render_web_chat_page(
     .recording {{ border-color: #ef4444 !important; color: #fecaca !important; }}
     .message-actions {{ display: flex; align-items: flex-start; padding: 4px; }}
     .message-actions button {{ border: 1px solid var(--line); border-radius: 999px; background: #0b111b; color: var(--muted); cursor: pointer; padding: 4px 8px; }}
+    .structured-response {{ display: grid; gap: 10px; }}
+    .response-section {{ display: grid; gap: 4px; }}
+    .response-section + .response-section {{ border-top: 1px solid rgba(255,255,255,.1); padding-top: 9px; }}
+    .response-label {{ color: #9fb1c8; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }}
+    .response-spoken {{ color: #f0fdfa; }}
+    .live-transcript {{ display: none; width: 100%; border: 1px solid #315b66; border-radius: 6px; background: #0d1d25; color: #bcecf3; padding: 7px 9px; font-size: 13px; }}
+    .live-transcript.active {{ display: block; }}
     dialog {{ width: min(720px, calc(100vw - 28px)); max-height: calc(100vh - 28px); overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); padding: 0; }}
     dialog::backdrop {{ background: rgba(0,0,0,.72); }}
     .settings-head {{ position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }}
@@ -197,6 +204,7 @@ def render_web_chat_page(
           <input id="fileInput" type="file" multiple>
           <div class="attachment-tray" id="attachmentTray" aria-live="polite"></div>
         </div>
+        <div class="live-transcript" id="liveTranscript" aria-live="polite"></div>
         <div class="hint">Enter sends. Shift+Enter inserts a new line. Live voice detects the end of each utterance, transcribes and sends it automatically, and supports interruption while TTS is speaking. The active coding-agent session handles the message, so its configured tools and MCP servers remain available.</div>
       </form>
     </main>
@@ -269,6 +277,7 @@ def render_web_chat_page(
     const micButton = document.getElementById('micButton');
     const fileInput = document.getElementById('fileInput');
     const attachmentTray = document.getElementById('attachmentTray');
+    const liveTranscript = document.getElementById('liveTranscript');
     const shareButton = document.getElementById('shareButton');
     const clearButton = document.getElementById('clearButton');
     const speechSettingsButton = document.getElementById('speechSettingsButton');
@@ -316,6 +325,9 @@ def render_web_chat_page(
     let vadVoicedSamples = 0;
     let vadNoiseFloor = 0.006;
     let liveTranscriptionQueue = Promise.resolve();
+    let livePartialInFlight = false;
+    let livePartialLastAt = 0;
+    let liveUtteranceSerial = 0;
     let activeSpeechAudio = null;
     let activeSpeechUrl = '';
     let speechGenerationController = null;
@@ -521,6 +533,58 @@ def render_web_chat_page(
       }}
       return bubble;
     }}
+    function structuredWebResponse(message) {{
+      const value = message && message.meta && message.meta.web_response;
+      if (!value || typeof value !== 'object') return null;
+      const response = {{
+        spoken: String(value.spoken || '').trim(),
+        overview: String(value.overview || '').trim(),
+        details: String(value.details || '').trim(),
+      }};
+      return response.spoken || response.overview || response.details ? response : null;
+    }}
+    function addStructuredBubble(response, mode = 'append', id = null) {{
+      if (id !== null && id !== undefined) {{
+        const key = String(id);
+        if (renderedIds.has(key)) return null;
+        renderedIds.add(key);
+      }}
+      const row = document.createElement('div');
+      row.className = 'row assistant';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble structured-response';
+      const sections = [
+        ['Voice', response.spoken, 'response-spoken'],
+        ['Overview', response.overview, 'markdown'],
+        ['Details', response.details, 'markdown'],
+      ];
+      sections.forEach(([labelText, value, className]) => {{
+        if (!value) return;
+        const section = document.createElement('section');
+        section.className = 'response-section ' + className;
+        const label = document.createElement('div');
+        label.className = 'response-label';
+        label.textContent = labelText;
+        const content = document.createElement('div');
+        if (className === 'markdown') content.innerHTML = renderMarkdown(value);
+        else content.textContent = value;
+        section.appendChild(label);
+        section.appendChild(content);
+        bubble.appendChild(section);
+      }});
+      row.appendChild(bubble);
+      const actions = document.createElement('div');
+      actions.className = 'message-actions';
+      const speak = document.createElement('button');
+      speak.type = 'button';
+      speak.textContent = 'Speak';
+      speak.addEventListener('click', () => speakText(response.spoken || response.overview));
+      actions.appendChild(speak);
+      row.appendChild(actions);
+      if (mode === 'prepend') transcript.insertBefore(row, transcript.firstChild);
+      else {{ transcript.appendChild(row); transcript.scrollTop = transcript.scrollHeight; }}
+      return bubble;
+    }}
     function rememberLastId(id) {{
       const numeric = Number(id || 0) || 0;
       if (numeric > lastId) {{
@@ -534,11 +598,14 @@ def render_web_chat_page(
     function renderIncomingMessage(message, mode = 'append') {{
       if (mode !== 'prepend') rememberLastId(message.id);
       const text = message.message || '';
-      if (!text.trim()) return;
-      addBubble(roleForMessage(message), text, mode, message.id);
+      const structured = structuredWebResponse(message);
+      if (!text.trim() && !structured) return;
+      if (structured && roleForMessage(message) === 'assistant') addStructuredBubble(structured, mode, message.id);
+      else addBubble(roleForMessage(message), text, mode, message.id);
       if (mode !== 'prepend' && message.sender_id !== 'web-user') {{
         setState('reply received', 'ok');
-        if (speechConfig.tts && speechConfig.tts.enabled && (speechConfig.tts.auto_speak || liveVoiceEnabled)) speakText(text);
+        const speechText = structured ? (structured.spoken || structured.overview) : text;
+        if (speechConfig.tts && speechConfig.tts.enabled && speechText && (speechConfig.tts.auto_speak || liveVoiceEnabled)) speakText(speechText);
       }}
     }}
     function formatBytes(bytes) {{
@@ -712,17 +779,21 @@ def render_web_chat_page(
         setState('generating speech');
         const response = await fetch('/v1/audio/speech', {{
           method: 'POST',
-          headers: {{'content-type': 'application/json'}},
+          headers: {{'content-type': 'application/json', 'accept': 'audio/*'}},
           body: JSON.stringify({{input: String(text || ''), model: speechConfig.tts.model, voice: speechConfig.tts.voice, language: speechConfig.tts.language, response_format: speechConfig.tts.response_format || 'wav'}}),
           signal: controller.signal,
         }});
         if (!response.ok) throw new Error(await response.text() || `HTTP ${{response.status}}`);
         const blob = await response.blob();
+        if (!blob.size) throw new Error('TTS returned empty audio');
+        if (blob.type && !blob.type.startsWith('audio/')) throw new Error(`TTS returned ${{blob.type}} instead of audio`);
         if (controller.signal.aborted) return;
         speechGenerationController = null;
         activeSpeechUrl = URL.createObjectURL(blob);
         activeSpeechAudio = new Audio(activeSpeechUrl);
         const audio = activeSpeechAudio;
+        audio.preload = 'auto';
+        audio.playsInline = true;
         const cleanup = () => {{
           if (activeSpeechAudio === audio) {{
             activeSpeechAudio = null;
@@ -742,13 +813,14 @@ def render_web_chat_page(
         addBubble('system', 'TTS failed: ' + String(err && err.message ? err.message : err));
       }}
     }}
-    async function transcribeRecording(blob, populatePrompt = true) {{
-      setState('transcribing');
+    async function transcribeRecording(blob, populatePrompt = true, options = {{}}) {{
+      if (!options.quiet) setState('transcribing');
       const audio_base64 = await fileToBase64(blob);
       const response = await fetch('/v1/audio/transcriptions', {{
         method: 'POST',
         headers: {{'content-type': 'application/json', 'accept': 'application/json'}},
-        body: JSON.stringify({{audio_base64, filename: 'web-chat-recording.wav', content_type: blob.type || 'audio/wav', model: speechConfig.asr.model, language: speechConfig.asr.language}})
+        body: JSON.stringify({{audio_base64, filename: 'web-chat-recording.wav', content_type: blob.type || 'audio/wav', model: speechConfig.asr.model, language: speechConfig.asr.language}}),
+        signal: options.signal,
       }});
       const text = await response.text();
       let data = {{}};
@@ -760,7 +832,7 @@ def render_web_chat_page(
         prompt.value = prompt.value ? prompt.value + ' ' + transcriptText : transcriptText;
         prompt.focus();
       }}
-      setState('transcribed', 'ok');
+      if (!options.quiet) setState('transcribed', 'ok');
       return transcriptText;
     }}
     function encodePcmWav(chunks, sampleRate) {{
@@ -798,13 +870,35 @@ def render_web_chat_page(
       vadLastVoiceAt = 0;
       vadVoicedSamples = 0;
     }}
-    function queueLiveUtterance(chunks, sampleRate) {{
+    function setLiveTranscript(text, active = true) {{
+      liveTranscript.textContent = text;
+      liveTranscript.classList.toggle('active', Boolean(active && text));
+    }}
+    function requestLivePartial(now) {{
+      if (!vadSpeechActive || livePartialInFlight || !audioContext) return;
+      if (now - livePartialLastAt < 1200 || now - vadSpeechStartedAt < 900) return;
+      const serial = liveUtteranceSerial;
+      const blob = encodePcmWav(vadSpeechChunks.slice(), audioContext.sampleRate);
+      livePartialInFlight = true;
+      livePartialLastAt = now;
+      transcribeRecording(blob, false, {{quiet: true}}).then(text => {{
+        if (liveVoiceEnabled && vadSpeechActive && serial === liveUtteranceSerial) {{
+          setLiveTranscript('Live: ' + text);
+        }}
+      }}).catch(() => {{
+        // Partial transcription is best-effort; final transcription reports actionable errors.
+      }}).finally(() => {{
+        livePartialInFlight = false;
+      }});
+    }}
+    function queueLiveUtterance(chunks, sampleRate, serial) {{
       if (!chunks.length) return;
       const blob = encodePcmWav(chunks, sampleRate);
       liveTranscriptionQueue = liveTranscriptionQueue.then(async () => {{
         const transcriptText = await transcribeRecording(blob, false);
+        if (serial === liveUtteranceSerial) setLiveTranscript('Heard: ' + transcriptText);
         setState('sending voice');
-        await sendMessage(transcriptText, []);
+        await sendMessage(transcriptText, [], {{inputMode: 'voice'}});
         if (liveVoiceEnabled) setState('listening', 'ok');
       }}).catch(err => {{
         setState('STT error', 'error');
@@ -814,9 +908,12 @@ def render_web_chat_page(
     function finishVadUtterance() {{
       const chunks = vadSpeechChunks.slice();
       const sampleRate = audioContext ? audioContext.sampleRate : 48000;
+      const serial = liveUtteranceSerial;
+      const partialText = liveTranscript.textContent.replace(/^Live:\\s*/, '');
+      setLiveTranscript(partialText ? 'Finalizing: ' + partialText : 'Finalizing speech...');
       resetVadUtterance();
       vadPreRollChunks = [];
-      queueLiveUtterance(chunks, sampleRate);
+      queueLiveUtterance(chunks, sampleRate, serial);
     }}
     function processVadFrame(event) {{
       if (!liveVoiceEnabled || !audioContext) return;
@@ -838,12 +935,15 @@ def render_web_chat_page(
           return;
         }}
         vadSpeechActive = true;
+        liveUtteranceSerial += 1;
+        livePartialLastAt = now;
         vadSpeechStartedAt = now;
         vadLastVoiceAt = now;
         vadVoicedSamples = chunk.length;
         vadSpeechChunks = vadPreRollChunks.concat([chunk]);
         vadPreRollChunks = [];
         stopActiveSpeech();
+        setLiveTranscript('Listening to speech...');
         setState('hearing speech', 'ok');
         return;
       }}
@@ -856,9 +956,10 @@ def render_web_chat_page(
       const minSpeechMs = Number((speechConfig.asr && speechConfig.asr.min_speech_ms) || 300);
       const voicedMs = vadVoicedSamples * 1000 / audioContext.sampleRate;
       const utteranceMs = now - vadSpeechStartedAt;
+      requestLivePartial(now);
       if (now - vadLastVoiceAt >= silenceMs) {{
         if (voicedMs >= minSpeechMs) finishVadUtterance();
-        else resetVadUtterance();
+        else {{ resetVadUtterance(); setLiveTranscript('Listening...', liveVoiceEnabled); }}
       }} else if (utteranceMs >= 30000) {{
         finishVadUtterance();
       }}
@@ -881,6 +982,7 @@ def render_web_chat_page(
       audioProcessor.connect(audioContext.destination);
       micButton.textContent = 'Stop live voice';
       micButton.classList.add('recording');
+      setLiveTranscript('Listening...');
       setState('listening', 'ok');
     }}
     async function stopVoiceInput() {{
@@ -901,6 +1003,7 @@ def render_web_chat_page(
       audioContext = null;
       mediaStream = null;
       stopActiveSpeech();
+      setLiveTranscript('', false);
       micButton.textContent = 'Start live voice';
       micButton.classList.remove('recording');
       setState('ready');
@@ -1033,7 +1136,7 @@ def render_web_chat_page(
         setTimeout(startChannelStream, 1200);
       }};
     }}
-    async function sendMessage(text, files = []) {{
+    async function sendMessage(text, files = [], options = {{}}) {{
       setState('queued');
       sendButton.disabled = true;
       attachButton.disabled = true;
@@ -1054,9 +1157,11 @@ def render_web_chat_page(
             meta: {{
               source: 'ciel-runtime-web-chat',
               web_chat_session: sessionId,
+              input_mode: options.inputMode || 'text',
               reply_channel: channel,
               reply_recipient: 'web',
-              reply_instruction: 'Use the ciel-runtime-router send_message tool to answer this browser chat on the same channel/thread_id with recipients web and delivery web. Use send_file when returning a file attachment to this browser chat.',
+              response_contract: {{version: 1, fields: ['spoken', 'overview', 'details'], tts_field: 'spoken'}},
+              reply_instruction: 'Acknowledge briefly first, then use the ciel-runtime-router send_message tool with response.spoken, response.overview, and optional response.details. The browser speaks only response.spoken. Use send_file when returning a file attachment.',
               attachments: uploads
             }}
           }})

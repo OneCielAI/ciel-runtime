@@ -47,6 +47,48 @@ class ChannelMcpToolsTests(unittest.TestCase):
         self.assertEqual("web", self.messages[0]["recipients"])
         self.assertEqual(["web"], self.messages[0]["delivery"])
 
+    def test_send_message_preserves_structured_web_response(self):
+        response = dispatch_channel_mcp_tool(
+            11,
+            {
+                "name": "send_message",
+                "arguments": {
+                    "channel": "chat",
+                    "kind": "reply",
+                    "response": {
+                        "spoken": "짧게 말할 답변입니다.",
+                        "overview": "요약입니다.",
+                        "details": "- 근거 하나\n- 근거 둘",
+                    },
+                },
+            },
+            self.services,
+        )
+
+        self.assertFalse(response["result"]["isError"])
+        self.assertEqual("요약입니다.\n\n- 근거 하나\n- 근거 둘", self.messages[0]["message"])
+        self.assertEqual(
+            {
+                "spoken": "짧게 말할 답변입니다.",
+                "overview": "요약입니다.",
+                "details": "- 근거 하나\n- 근거 둘",
+            },
+            self.messages[0]["meta"]["web_response"],
+        )
+
+    def test_send_message_schema_allows_structured_response_without_legacy_message(self):
+        schema = next(tool for tool in channel_mcp_tool_schemas() if tool["name"] == "send_message")["inputSchema"]
+
+        self.assertEqual(["channel"], schema["required"])
+        self.assertEqual(
+            [{"required": ["message"]}, {"required": ["response"]}],
+            schema["anyOf"],
+        )
+        self.assertEqual(
+            {"spoken", "overview", "details"},
+            set(schema["properties"]["response"]["properties"]),
+        )
+
     def test_send_file_converts_expected_storage_errors_to_tool_error(self):
         services = replace(
             self.services,

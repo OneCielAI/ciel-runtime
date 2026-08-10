@@ -1825,7 +1825,11 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("reason", compact_schema["inputSchema"]["properties"])
         send_schema = next(tool for tool in tools if tool.get("name") == "send_message")
         self.assertIn("channel", send_schema["inputSchema"]["required"])
-        self.assertIn("message", send_schema["inputSchema"]["required"])
+        self.assertEqual(["channel"], send_schema["inputSchema"]["required"])
+        self.assertEqual(
+            [{"required": ["message"]}, {"required": ["response"]}],
+            send_schema["inputSchema"]["anyOf"],
+        )
         file_schema = next(tool for tool in tools if tool.get("name") == "send_file")
         self.assertIn("channel", file_schema["inputSchema"]["required"])
         self.assertIn("path", file_schema["inputSchema"]["properties"])

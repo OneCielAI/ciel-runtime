@@ -26,7 +26,11 @@ Colab sessions are ephemeral. Re-run the bootstrap after a runtime reset. The wo
 
 ## Live voice
 
-Web Chat's **Start live voice** button keeps the microphone open and uses browser-side voice activity detection (VAD). A completed utterance is encoded as PCM WAV, transcribed, and sent to the active coding-agent session automatically. While MOSS TTS is generating or playing a reply, new speech stops it immediately and starts a new utterance (barge-in). Tune end-of-speech silence, minimum speech duration, and the VAD threshold in Speech Settings. This is turn-based low-latency voice for the Colab HTTP workers; token-level streaming ASR/TTS requires workers with streaming protocols.
+Web Chat's **Start live voice** button keeps the microphone open and uses browser-side voice activity detection (VAD). While the user is speaking, the browser sends rate-limited snapshots of the growing utterance to the Qwen worker and displays the latest best-effort partial transcript. A completed utterance is encoded as PCM WAV, transcribed once more for the final text, and sent to the active coding-agent session automatically. While MOSS TTS is generating or playing a reply, new speech stops it immediately and starts a new utterance (barge-in). Tune end-of-speech silence, minimum speech duration, and the VAD threshold in Speech Settings.
+
+The Colab Qwen endpoint remains a batch HTTP API, so the live caption is progressive re-transcription rather than token-level server streaming. A future WebSocket or streaming HTTP worker can replace this transport without changing the final-turn behavior.
+
+Web Chat requests carry an input mode and a structured response contract. The active agent first sends a short acknowledgement and then a final response containing `spoken`, `overview`, and optional `details` fields. The browser renders the fields separately and sends only `spoken` to TTS, avoiding long Markdown, URLs, code, and tables in synthesized speech. Legacy plain `message` replies remain supported.
 
 ## API surface
 

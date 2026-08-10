@@ -47,6 +47,7 @@ class ChannelMessagePromptTests(unittest.TestCase):
                     "meta": {
                         "source": "ciel-runtime-web-chat",
                         "reply_channel": "web-chat-session",
+                        "input_mode": "voice",
                     },
                 }
             ]
@@ -58,6 +59,12 @@ class ChannelMessagePromptTests(unittest.TestCase):
         self.assertIn('"thread_id":"thread-7"', prompt)
         self.assertIn('recipients=["web"]', prompt)
         self.assertIn('delivery=["web"]', prompt)
+        self.assertIn('"input_mode":"voice"', prompt)
+        self.assertIn('kind="ack"', prompt)
+        self.assertIn('"spoken"', prompt)
+        self.assertIn('"overview"', prompt)
+        self.assertIn('"details"', prompt)
+        self.assertIn("browser speaks only this field", prompt)
 
     def test_skip_policy_rejects_control_and_self_echo_messages(self):
         control = {"message": "ready", "meta": {"sse_source": "remote", "kind": "status"}}

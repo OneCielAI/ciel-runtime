@@ -156,7 +156,8 @@ def _web_chat_reply_routes(messages: list[dict[str, Any]]) -> list[dict[str, str
         if route in seen:
             continue
         seen.add(route)
-        routes.append({"channel": channel, "thread_id": thread})
+        input_mode = str(meta.get("input_mode") or "text").strip().lower()
+        routes.append({"channel": channel, "thread_id": thread, "input_mode": input_mode})
     return routes
 
 
@@ -166,12 +167,21 @@ def _web_chat_reply_instruction(messages: list[dict[str, Any]]) -> str:
         return ""
     encoded_routes = json.dumps(routes, ensure_ascii=False, separators=(",", ":"))
     return (
-        "[ciel-runtime web reply required] Do not leave the answer only in the terminal. "
-        "After completing the answer, call MCP server `ciel-runtime-router` tool "
-        "`send_message` once for each route in "
-        f"{encoded_routes}, with that channel and thread_id, recipients=[\"web\"], "
-        "delivery=[\"web\"], kind=\"reply\", and message set to the complete answer. "
-        "Use `send_file` on the same route for files."
+        "[ciel-runtime web reply required] Do not leave responses only in the terminal. "
+        "For each route in "
+        f"{encoded_routes}: (1) immediately acknowledge the request with one short, honest sentence by calling "
+        "MCP server `ciel-runtime-router` tool `send_message` using that channel and thread_id, "
+        "recipients=[\"web\"], delivery=[\"web\"], kind=\"ack\", and "
+        "response={\"spoken\":\"brief conversational acknowledgement\","
+        "\"overview\":\"brief acknowledgement\",\"details\":\"\"}. "
+        "Do not claim completion in the acknowledgement. (2) Perform the requested work and then call "
+        "`send_message` again with kind=\"reply\" and a structured response object: "
+        "response={\"spoken\":\"one to three short conversational sentences suitable for TTS\","
+        "\"overview\":\"concise screen summary\","
+        "\"details\":\"supporting Markdown only when useful, otherwise empty\"}. "
+        "For input_mode=voice, spoken is required and must avoid Markdown, URLs, code, tables, and long lists; "
+        "the browser speaks only this field. Keep overview compact and put evidence, commands, links, and "
+        "technical detail in details. Use `send_file` on the same route for files."
     )
 
 

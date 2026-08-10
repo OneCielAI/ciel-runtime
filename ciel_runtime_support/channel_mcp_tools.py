@@ -46,7 +46,25 @@ def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "channel": {"type": "string", "description": "Destination channel id from the incoming message."},
-                    "message": {"type": "string", "description": "Message body to send."},
+                    "message": {"type": "string", "description": "Legacy unstructured message body."},
+                    "response": {
+                        "type": "object",
+                        "description": "Structured Web Chat response. Prefer this for browser acknowledgements and replies.",
+                        "properties": {
+                            "spoken": {
+                                "type": "string",
+                                "description": "Short conversational text intended for speech synthesis.",
+                            },
+                            "overview": {
+                                "type": "string",
+                                "description": "Concise on-screen summary.",
+                            },
+                            "details": {
+                                "type": "string",
+                                "description": "Optional detailed supporting Markdown.",
+                            },
+                        },
+                    },
                     "recipients": {
                         "description": "Recipient id, 'all', or an array of recipients. Use 'web' for /ca/web/chat replies."
                     },
@@ -59,7 +77,11 @@ def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
                     },
                     "kind": {"type": "string", "description": "Optional message kind, for example 'reply' or 'status'."},
                 },
-                "required": ["channel", "message"],
+                "required": ["channel"],
+                "anyOf": [
+                    {"required": ["message"]},
+                    {"required": ["response"]},
+                ],
             },
         },
         {
@@ -169,11 +191,39 @@ def _send_message(
     services: ChannelMcpToolServices,
 ) -> dict[str, Any]:
     channel = str(args.get("channel") or "").strip()
+    structured = _structured_response(args.get("response"))
     message = str(args.get("message") or args.get("text") or "").strip()
+    if structured and not message:
+        message = _structured_message_text(structured)
     if not channel or not message:
-        return channel_mcp_tool_response(request_id, "send_message requires channel and message.", True)
-    saved = services.append_message(_message_payload(args, channel, message, "reply"))
+        return channel_mcp_tool_response(
+            request_id,
+            "send_message requires channel and either message or a non-empty response object.",
+            True,
+        )
+    payload = _message_payload(args, channel, message, "reply")
+    if structured:
+        payload["meta"]["web_response"] = structured
+    saved = services.append_message(payload)
     return _json_response(request_id, {"ok": True, "message": saved})
+
+
+def _structured_response(value: Any) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    response = {
+        key: str(value.get(key) or "").strip()
+        for key in ("spoken", "overview", "details")
+    }
+    return response if any(response.values()) else {}
+
+
+def _structured_message_text(response: dict[str, str]) -> str:
+    overview = response.get("overview", "")
+    details = response.get("details", "")
+    if overview and details:
+        return f"{overview}\n\n{details}"
+    return overview or details or response.get("spoken", "")
 
 
 def _send_file(

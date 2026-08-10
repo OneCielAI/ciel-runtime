@@ -81,7 +81,7 @@ class WebChatUiTests(unittest.TestCase):
         self.assertIn("audioContext.createScriptProcessor", html)
         self.assertIn("function processVadFrame(event)", html)
         self.assertIn("finishVadUtterance()", html)
-        self.assertIn("await sendMessage(transcriptText, [])", html)
+        self.assertIn("await sendMessage(transcriptText, [], {inputMode: 'voice'})", html)
         self.assertIn("stopActiveSpeech()", html)
         self.assertIn("echoCancellation: true", html)
         self.assertIn("function speakText(text)", html)
@@ -93,6 +93,13 @@ class WebChatUiTests(unittest.TestCase):
         self.assertIn("asr_accelerator: document.getElementById('colabAsrAccelerator').value", html)
         self.assertIn('id="ttsReferenceAudio" type="file" accept="audio/*"', html)
         self.assertIn("pendingTtsReferenceAudio", html)
+        self.assertIn('id="liveTranscript"', html)
+        self.assertIn("requestLivePartial(now)", html)
+        self.assertIn("Live: ' + text", html)
+        self.assertIn("inputMode: 'voice'", html)
+        self.assertIn("response_contract:", html)
+        self.assertIn("structuredWebResponse(message)", html)
+        self.assertIn("structured.spoken || structured.overview", html)
 
     def test_web_chat_markdown_renderer_sanitizes_and_supports_tables(self):
         cfg = self._cfg()
