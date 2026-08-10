@@ -24,6 +24,10 @@ MOSS-TTS-Nano is a voice-cloning model without built-in speakers. Deployment con
 
 Colab sessions are ephemeral. Re-run the bootstrap after a runtime reset. The workers are reachable only by devices in the same tailnet unless an administrator separately enables Tailscale Funnel.
 
+## Live voice
+
+Web Chat's **Start live voice** button keeps the microphone open and uses browser-side voice activity detection (VAD). A completed utterance is encoded as PCM WAV, transcribed, and sent to the active coding-agent session automatically. While MOSS TTS is generating or playing a reply, new speech stops it immediately and starts a new utterance (barge-in). Tune end-of-speech silence, minimum speech duration, and the VAD threshold in Speech Settings. This is turn-based low-latency voice for the Colab HTTP workers; token-level streaming ASR/TTS requires workers with streaming protocols.
+
 ## API surface
 
 - `GET|POST /ca/speech/config`

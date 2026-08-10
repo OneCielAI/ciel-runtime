@@ -167,7 +167,7 @@ class SpeechHttpController:
     @staticmethod
     def _validated_value(service: str, key: str, value: Any) -> Any:
         allowed = {
-            "asr": {"enabled", "base_url", "endpoint", "model", "language", "api_key", "timeout_seconds"},
+            "asr": {"enabled", "base_url", "endpoint", "model", "language", "silence_ms", "min_speech_ms", "vad_threshold", "api_key", "timeout_seconds"},
             "tts": {"enabled", "base_url", "endpoint", "voices_endpoint", "model", "voice", "language", "ref_audio", "ref_text", "response_format", "speed", "auto_speak", "api_key", "timeout_seconds"},
         }
         if key not in allowed[service]:
@@ -178,6 +178,12 @@ class SpeechHttpController:
             return max(1, min(3600, int(value)))
         if key == "speed":
             return max(0.25, min(4.0, float(value)))
+        if key == "silence_ms":
+            return max(250, min(3000, int(value)))
+        if key == "min_speech_ms":
+            return max(100, min(2000, int(value)))
+        if key == "vad_threshold":
+            return max(0.005, min(0.2, float(value)))
         text = str(value or "").strip()
         if key == "ref_audio":
             if len(text) > 14_000_000:

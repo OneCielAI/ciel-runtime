@@ -192,12 +192,12 @@ def render_web_chat_page(
           <button class="primary" id="sendButton" type="submit">Send</button>
         </div>
         <div class="composer-actions">
-          <button class="attach-button" id="micButton" type="button">Start voice input</button>
+          <button class="attach-button" id="micButton" type="button">Start live voice</button>
           <button class="attach-button" id="attachButton" type="button">Attach files</button>
           <input id="fileInput" type="file" multiple>
           <div class="attachment-tray" id="attachmentTray" aria-live="polite"></div>
         </div>
-        <div class="hint">Enter sends. Shift+Enter inserts a new line. The active coding-agent session handles the message, so its configured tools and MCP servers remain available. If replies stay queued, restart Ciel Runtime so the session wake bridge wraps the terminal.</div>
+        <div class="hint">Enter sends. Shift+Enter inserts a new line. Live voice detects the end of each utterance, transcribes and sends it automatically, and supports interruption while TTS is speaking. The active coding-agent session handles the message, so its configured tools and MCP servers remain available.</div>
       </form>
     </main>
   </div>
@@ -210,6 +210,9 @@ def render_web_chat_page(
           <div class="settings-grid">
             <label class="check"><input id="asrEnabled" type="checkbox"> Enable STT</label>
             <label>Language<input id="asrLanguage" placeholder="auto"></label>
+            <label>End silence (ms)<input id="asrSilenceMs" type="number" min="250" max="3000" step="50"></label>
+            <label>Minimum speech (ms)<input id="asrMinSpeechMs" type="number" min="100" max="2000" step="50"></label>
+            <label>VAD threshold<input id="asrVadThreshold" type="number" min="0.005" max="0.2" step="0.001"></label>
             <label class="wide">Tailscale base URL<input id="asrBaseUrl" placeholder="http://ciel-asr:8000"></label>
             <label class="wide">Model<input id="asrModel" placeholder="Qwen/Qwen3-ASR-0.6B"></label>
             <label class="wide">Remote bearer token<input id="asrApiKey" type="password" autocomplete="new-password" placeholder="Leave blank to keep current token"></label>
@@ -300,14 +303,22 @@ def render_web_chat_page(
     let eventSource = null;
     let selectedFiles = [];
     let speechConfig = {{asr: {{enabled: false}}, tts: {{enabled: false, auto_speak: false}}}};
-    let mediaRecorder = null;
     let mediaStream = null;
-    let recordingChunks = [];
     let audioContext = null;
     let audioInput = null;
     let audioProcessor = null;
-    let pcmChunks = [];
-    let voiceRecording = false;
+    let liveVoiceEnabled = false;
+    let vadSpeechActive = false;
+    let vadSpeechChunks = [];
+    let vadPreRollChunks = [];
+    let vadSpeechStartedAt = 0;
+    let vadLastVoiceAt = 0;
+    let vadVoicedSamples = 0;
+    let vadNoiseFloor = 0.006;
+    let liveTranscriptionQueue = Promise.resolve();
+    let activeSpeechAudio = null;
+    let activeSpeechUrl = '';
+    let speechGenerationController = null;
     let pendingTtsReferenceAudio = '';
     function setState(text, cls = '') {{
       statePill.textContent = text;
@@ -527,7 +538,7 @@ def render_web_chat_page(
       addBubble(roleForMessage(message), text, mode, message.id);
       if (mode !== 'prepend' && message.sender_id !== 'web-user') {{
         setState('reply received', 'ok');
-        if (speechConfig.tts && speechConfig.tts.enabled && speechConfig.tts.auto_speak) speakText(text);
+        if (speechConfig.tts && speechConfig.tts.enabled && (speechConfig.tts.auto_speak || liveVoiceEnabled)) speakText(text);
       }}
     }}
     function formatBytes(bytes) {{
@@ -592,6 +603,9 @@ def render_web_chat_page(
       document.getElementById('asrBaseUrl').value = asr.base_url || '';
       document.getElementById('asrModel').value = asr.model || '';
       document.getElementById('asrLanguage').value = asr.language || 'auto';
+      document.getElementById('asrSilenceMs').value = asr.silence_ms || 900;
+      document.getElementById('asrMinSpeechMs').value = asr.min_speech_ms || 300;
+      document.getElementById('asrVadThreshold').value = asr.vad_threshold || 0.018;
       document.getElementById('asrApiKey').value = '';
       document.getElementById('asrApiKey').placeholder = asr.api_key_set ? 'Token is set; leave blank to keep it' : 'Optional remote bearer token';
       document.getElementById('ttsEnabled').checked = Boolean(tts.enabled);
@@ -618,7 +632,7 @@ def render_web_chat_page(
       document.getElementById('tailscaleAsrHostname').value = tailscale.asr_hostname || 'ciel-asr';
       document.getElementById('tailscaleTtsHostname').value = tailscale.tts_hostname || 'ciel-tts';
       micButton.disabled = !asr.enabled;
-      micButton.title = asr.enabled ? 'Record speech and transcribe it' : 'Enable STT in Speech Settings first';
+      micButton.title = asr.enabled ? 'Continuously detect, transcribe, and send speech' : 'Enable STT in Speech Settings first';
     }}
     async function loadSpeechConfig() {{
       const response = await fetch('/ca/speech/config', {{headers: {{'accept': 'application/json'}}}});
@@ -635,6 +649,9 @@ def render_web_chat_page(
           base_url: document.getElementById('asrBaseUrl').value,
           model: document.getElementById('asrModel').value,
           language: document.getElementById('asrLanguage').value,
+          silence_ms: Number(document.getElementById('asrSilenceMs').value || 900),
+          min_speech_ms: Number(document.getElementById('asrMinSpeechMs').value || 300),
+          vad_threshold: Number(document.getElementById('asrVadThreshold').value || 0.018),
           api_key: document.getElementById('asrApiKey').value,
         }},
         tts: {{
@@ -671,38 +688,67 @@ def render_web_chat_page(
       setSpeechForm(data);
       return data;
     }}
+    function stopActiveSpeech() {{
+      if (speechGenerationController) speechGenerationController.abort();
+      speechGenerationController = null;
+      if (activeSpeechAudio) {{
+        activeSpeechAudio.pause();
+        activeSpeechAudio.currentTime = 0;
+      }}
+      activeSpeechAudio = null;
+      if (activeSpeechUrl) URL.revokeObjectURL(activeSpeechUrl);
+      activeSpeechUrl = '';
+    }}
     async function speakText(text) {{
       if (!speechConfig.tts || !speechConfig.tts.enabled) {{
         setState('TTS disabled', 'error');
         return;
       }}
+      if (liveVoiceEnabled && vadSpeechActive) return;
+      stopActiveSpeech();
+      const controller = new AbortController();
+      speechGenerationController = controller;
       try {{
         setState('generating speech');
         const response = await fetch('/v1/audio/speech', {{
           method: 'POST',
           headers: {{'content-type': 'application/json'}},
-          body: JSON.stringify({{input: String(text || ''), model: speechConfig.tts.model, voice: speechConfig.tts.voice, language: speechConfig.tts.language, response_format: speechConfig.tts.response_format || 'wav'}})
+          body: JSON.stringify({{input: String(text || ''), model: speechConfig.tts.model, voice: speechConfig.tts.voice, language: speechConfig.tts.language, response_format: speechConfig.tts.response_format || 'wav'}}),
+          signal: controller.signal,
         }});
         if (!response.ok) throw new Error(await response.text() || `HTTP ${{response.status}}`);
         const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audio.addEventListener('ended', () => URL.revokeObjectURL(url), {{once: true}});
-        audio.addEventListener('error', () => URL.revokeObjectURL(url), {{once: true}});
+        if (controller.signal.aborted) return;
+        speechGenerationController = null;
+        activeSpeechUrl = URL.createObjectURL(blob);
+        activeSpeechAudio = new Audio(activeSpeechUrl);
+        const audio = activeSpeechAudio;
+        const cleanup = () => {{
+          if (activeSpeechAudio === audio) {{
+            activeSpeechAudio = null;
+            if (activeSpeechUrl) URL.revokeObjectURL(activeSpeechUrl);
+            activeSpeechUrl = '';
+            if (liveVoiceEnabled) setState('listening', 'ok');
+          }}
+        }};
+        audio.addEventListener('ended', cleanup, {{once: true}});
+        audio.addEventListener('error', cleanup, {{once: true}});
         await audio.play();
         setState('speaking', 'ok');
       }} catch (err) {{
+        if (err && err.name === 'AbortError') return;
+        speechGenerationController = null;
         setState('TTS error', 'error');
         addBubble('system', 'TTS failed: ' + String(err && err.message ? err.message : err));
       }}
     }}
-    async function transcribeRecording(blob) {{
+    async function transcribeRecording(blob, populatePrompt = true) {{
       setState('transcribing');
       const audio_base64 = await fileToBase64(blob);
       const response = await fetch('/v1/audio/transcriptions', {{
         method: 'POST',
         headers: {{'content-type': 'application/json', 'accept': 'application/json'}},
-        body: JSON.stringify({{audio_base64, filename: 'web-chat-recording.webm', content_type: blob.type || 'audio/webm', model: speechConfig.asr.model, language: speechConfig.asr.language}})
+        body: JSON.stringify({{audio_base64, filename: 'web-chat-recording.wav', content_type: blob.type || 'audio/wav', model: speechConfig.asr.model, language: speechConfig.asr.language}})
       }});
       const text = await response.text();
       let data = {{}};
@@ -710,9 +756,12 @@ def render_web_chat_page(
       if (!response.ok) throw new Error((data.error && (data.error.message || data.error)) || text || `HTTP ${{response.status}}`);
       const transcriptText = String(data.text || data.transcript || '').trim();
       if (!transcriptText) throw new Error('ASR returned no transcript');
-      prompt.value = prompt.value ? prompt.value + ' ' + transcriptText : transcriptText;
-      prompt.focus();
+      if (populatePrompt) {{
+        prompt.value = prompt.value ? prompt.value + ' ' + transcriptText : transcriptText;
+        prompt.focus();
+      }}
       setState('transcribed', 'ok');
+      return transcriptText;
     }}
     function encodePcmWav(chunks, sampleRate) {{
       const sampleCount = chunks.reduce((total, chunk) => total + chunk.length, 0);
@@ -742,63 +791,119 @@ def render_web_chat_page(
       }}));
       return new Blob([buffer], {{type: 'audio/wav'}});
     }}
-    async function finishVoiceInput(blob) {{
-      if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
-      mediaStream = null;
-      micButton.textContent = 'Start voice input';
-      micButton.classList.remove('recording');
-      try {{ await transcribeRecording(blob); }} catch (err) {{ setState('STT error', 'error'); addBubble('system', 'STT failed: ' + String(err && err.message ? err.message : err)); }}
+    function resetVadUtterance() {{
+      vadSpeechActive = false;
+      vadSpeechChunks = [];
+      vadSpeechStartedAt = 0;
+      vadLastVoiceAt = 0;
+      vadVoicedSamples = 0;
+    }}
+    function queueLiveUtterance(chunks, sampleRate) {{
+      if (!chunks.length) return;
+      const blob = encodePcmWav(chunks, sampleRate);
+      liveTranscriptionQueue = liveTranscriptionQueue.then(async () => {{
+        const transcriptText = await transcribeRecording(blob, false);
+        setState('sending voice');
+        await sendMessage(transcriptText, []);
+        if (liveVoiceEnabled) setState('listening', 'ok');
+      }}).catch(err => {{
+        setState('STT error', 'error');
+        addBubble('system', 'STT failed: ' + String(err && err.message ? err.message : err));
+      }});
+    }}
+    function finishVadUtterance() {{
+      const chunks = vadSpeechChunks.slice();
+      const sampleRate = audioContext ? audioContext.sampleRate : 48000;
+      resetVadUtterance();
+      vadPreRollChunks = [];
+      queueLiveUtterance(chunks, sampleRate);
+    }}
+    function processVadFrame(event) {{
+      if (!liveVoiceEnabled || !audioContext) return;
+      const chunk = new Float32Array(event.inputBuffer.getChannelData(0));
+      let sumSquares = 0;
+      for (let index = 0; index < chunk.length; index += 1) sumSquares += chunk[index] * chunk[index];
+      const rms = Math.sqrt(sumSquares / Math.max(1, chunk.length));
+      const configuredThreshold = Number((speechConfig.asr && speechConfig.asr.vad_threshold) || 0.018);
+      const threshold = Math.max(configuredThreshold, Math.min(0.08, vadNoiseFloor * 2.8));
+      const voiceDetected = rms >= threshold;
+      const now = performance.now();
+      if (!vadSpeechActive) {{
+        if (!voiceDetected) {{
+          vadNoiseFloor = Math.max(0.002, Math.min(0.03, vadNoiseFloor * 0.98 + rms * 0.02));
+          vadPreRollChunks.push(chunk);
+          const maxPreRollSamples = audioContext.sampleRate * 0.25;
+          let preRollSamples = vadPreRollChunks.reduce((total, item) => total + item.length, 0);
+          while (preRollSamples > maxPreRollSamples && vadPreRollChunks.length > 1) preRollSamples -= vadPreRollChunks.shift().length;
+          return;
+        }}
+        vadSpeechActive = true;
+        vadSpeechStartedAt = now;
+        vadLastVoiceAt = now;
+        vadVoicedSamples = chunk.length;
+        vadSpeechChunks = vadPreRollChunks.concat([chunk]);
+        vadPreRollChunks = [];
+        stopActiveSpeech();
+        setState('hearing speech', 'ok');
+        return;
+      }}
+      vadSpeechChunks.push(chunk);
+      if (voiceDetected) {{
+        vadLastVoiceAt = now;
+        vadVoicedSamples += chunk.length;
+      }}
+      const silenceMs = Number((speechConfig.asr && speechConfig.asr.silence_ms) || 900);
+      const minSpeechMs = Number((speechConfig.asr && speechConfig.asr.min_speech_ms) || 300);
+      const voicedMs = vadVoicedSamples * 1000 / audioContext.sampleRate;
+      const utteranceMs = now - vadSpeechStartedAt;
+      if (now - vadLastVoiceAt >= silenceMs) {{
+        if (voicedMs >= minSpeechMs) finishVadUtterance();
+        else resetVadUtterance();
+      }} else if (utteranceMs >= 30000) {{
+        finishVadUtterance();
+      }}
     }}
     async function startVoiceInput() {{
       if (!navigator.mediaDevices) throw new Error('This browser does not support microphone recording');
-      mediaStream = await navigator.mediaDevices.getUserMedia({{audio: true}});
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (AudioContextClass) {{
-        audioContext = new AudioContextClass();
-        if (audioContext.state === 'suspended') await audioContext.resume();
-        audioInput = audioContext.createMediaStreamSource(mediaStream);
-        audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
-        pcmChunks = [];
-        audioProcessor.onaudioprocess = event => pcmChunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
-        audioInput.connect(audioProcessor);
-        audioProcessor.connect(audioContext.destination);
-      }} else if (window.MediaRecorder) {{
-        recordingChunks = [];
-        mediaRecorder = new MediaRecorder(mediaStream);
-        mediaRecorder.addEventListener('dataavailable', event => {{ if (event.data && event.data.size) recordingChunks.push(event.data); }});
-        mediaRecorder.addEventListener('stop', async () => {{
-          const blob = new Blob(recordingChunks, {{type: mediaRecorder.mimeType || 'audio/webm'}});
-          await finishVoiceInput(blob);
-        }}, {{once: true}});
-        mediaRecorder.start();
-      }} else {{
-        mediaStream.getTracks().forEach(track => track.stop());
-        mediaStream = null;
-        throw new Error('This browser does not support microphone recording');
-      }}
-      voiceRecording = true;
-      micButton.textContent = 'Stop and transcribe';
+      if (!AudioContextClass) throw new Error('Live voice requires Web Audio support');
+      mediaStream = await navigator.mediaDevices.getUserMedia({{audio: {{echoCancellation: true, noiseSuppression: true, autoGainControl: true}}}});
+      audioContext = new AudioContextClass();
+      if (audioContext.state === 'suspended') await audioContext.resume();
+      audioInput = audioContext.createMediaStreamSource(mediaStream);
+      audioProcessor = audioContext.createScriptProcessor(2048, 1, 1);
+      resetVadUtterance();
+      vadPreRollChunks = [];
+      vadNoiseFloor = 0.006;
+      liveVoiceEnabled = true;
+      audioProcessor.onaudioprocess = processVadFrame;
+      audioInput.connect(audioProcessor);
+      audioProcessor.connect(audioContext.destination);
+      micButton.textContent = 'Stop live voice';
       micButton.classList.add('recording');
-      setState('recording', 'error');
+      setState('listening', 'ok');
     }}
     async function stopVoiceInput() {{
-      if (!voiceRecording) return;
-      voiceRecording = false;
-      if (audioProcessor && audioContext) {{
-        const sampleRate = audioContext.sampleRate;
-        audioProcessor.onaudioprocess = null;
-        audioInput.disconnect();
-        audioProcessor.disconnect();
-        await audioContext.close();
-        const blob = encodePcmWav(pcmChunks, sampleRate);
-        audioContext = null;
-        audioInput = null;
-        audioProcessor = null;
-        pcmChunks = [];
-        await finishVoiceInput(blob);
-      }} else if (mediaRecorder && mediaRecorder.state !== 'inactive') {{
-        mediaRecorder.stop();
+      if (!liveVoiceEnabled) return;
+      liveVoiceEnabled = false;
+      if (vadSpeechActive && audioContext) {{
+        const minSpeechMs = Number((speechConfig.asr && speechConfig.asr.min_speech_ms) || 300);
+        if (vadVoicedSamples * 1000 / audioContext.sampleRate >= minSpeechMs) finishVadUtterance();
       }}
+      resetVadUtterance();
+      vadPreRollChunks = [];
+      if (audioProcessor) {{ audioProcessor.onaudioprocess = null; audioProcessor.disconnect(); }}
+      if (audioInput) audioInput.disconnect();
+      if (audioContext) await audioContext.close();
+      if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+      audioProcessor = null;
+      audioInput = null;
+      audioContext = null;
+      mediaStream = null;
+      stopActiveSpeech();
+      micButton.textContent = 'Start live voice';
+      micButton.classList.remove('recording');
+      setState('ready');
     }}
     async function uploadAttachment(file) {{
       const content = await fileToBase64(file);
@@ -993,7 +1098,7 @@ def render_web_chat_page(
     }});
     attachButton.addEventListener('click', () => fileInput.click());
     micButton.addEventListener('click', async () => {{
-      if (voiceRecording) {{
+      if (liveVoiceEnabled) {{
         await stopVoiceInput();
         return;
       }}
