@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from ciel_runtime_support.channel_message_policy import web_chat_input_mode
+
 
 @dataclass(frozen=True, slots=True)
 class ChannelInjectionState:
@@ -105,6 +107,7 @@ def inject_pending_channel_messages(
         candidates = io.read_messages(last_id, None, None, state.pending_scan_limit())
         superseded_ids = state.superseded_ids(candidates)
         batch_limit = services.policy.wake_batch_limit() if wake_for_llm_delivery else 1
+        pending_batch_key: tuple[str, str] | None = None
         seen_event_keys: set[tuple[str, ...]] = set()
         for message in candidates:
             previous_last_id = last_id
@@ -160,10 +163,18 @@ def inject_pending_channel_messages(
                 if pending:
                     break
                 return previous_last_id
+            batch_key = (
+                ("web_chat", web_chat_input_mode(message))
+                if state.message_is_web_chat(message)
+                else ("channel", "")
+            )
+            if pending and pending_batch_key != batch_key:
+                break
             if not wake_for_llm_delivery and not wake_store.mark_delivered(message_id):
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stdin_wake_delivered")
                 continue
             pending.append(message)
+            pending_batch_key = batch_key
             if event_key:
                 seen_event_keys.add(event_key)
             if wake_for_llm_delivery and len(pending) == 1:

@@ -6,11 +6,14 @@ import json
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from ciel_runtime_support.channel_message_policy import message_is_web_chat_request
+
 
 @dataclass(frozen=True, slots=True)
 class ChannelMcpToolServices:
     queue_compact: Callable[[str, str], dict[str, Any]]
     append_message: Callable[[dict[str, Any]], dict[str, Any]]
+    read_messages: Callable[..., list[dict[str, Any]]]
     store_file_path: Callable[[Any, str | None, str | None], dict[str, Any]]
     store_file_upload: Callable[[dict[str, Any]], dict[str, Any]]
     file_message_text: Callable[[str, list[dict[str, Any]]], str]
@@ -201,6 +204,9 @@ def _send_message(
             "send_message requires channel and either message or a non-empty response object.",
             True,
         )
+    correlation_error = _web_reply_correlation_error(args, services)
+    if correlation_error:
+        return channel_mcp_tool_response(request_id, correlation_error, True)
     payload = _message_payload(args, channel, message, "reply")
     if structured:
         payload["meta"]["web_response"] = structured
@@ -234,6 +240,9 @@ def _send_file(
     channel = str(args.get("channel") or "").strip()
     if not channel:
         return channel_mcp_tool_response(request_id, "send_file requires channel.", True)
+    correlation_error = _web_reply_correlation_error(args, services, response_kind="file")
+    if correlation_error:
+        return channel_mcp_tool_response(request_id, correlation_error, True)
     try:
         upload = _store_file(args, services)
     except (FileNotFoundError, OverflowError, ValueError) as exc:
@@ -244,6 +253,49 @@ def _send_file(
     payload["meta"] = {"attachments": uploads, **payload["meta"]}
     saved = services.append_message(payload)
     return _json_response(request_id, {"ok": True, "file": upload, "message": saved})
+
+
+def _web_reply_correlation_error(
+    args: dict[str, Any],
+    services: ChannelMcpToolServices,
+    *,
+    response_kind: str | None = None,
+) -> str | None:
+    channel = str(args.get("channel") or "").strip()
+    if not channel.startswith("web-chat-"):
+        return None
+    parent_text = str(args.get("parent_id") or "").strip()
+    thread = str(args.get("thread_id") or "").strip()
+    if not parent_text or not thread:
+        return "web chat delivery requires thread_id and parent_id from the current browser request"
+    try:
+        parent_id = int(parent_text)
+    except ValueError:
+        return "web chat parent_id is invalid"
+    if parent_id <= 0:
+        return "web chat parent_id is invalid"
+    candidates = services.read_messages(max(0, parent_id - 1), channel, None, 1)
+    request = candidates[0] if candidates else None
+    if (
+        not request
+        or str(request.get("id") or "") != parent_text
+        or not message_is_web_chat_request(request)
+        or str(request.get("thread_id") or "") != thread
+    ):
+        return "web chat reply does not match a pending browser request"
+    kind = str(response_kind or args.get("kind") or "reply").strip().lower()
+    if kind not in {"ack", "reply"}:
+        return None
+    later = services.read_messages(parent_id, channel, None, 1000)
+    for message in later:
+        meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
+        if (
+            str(message.get("parent_id") or "") == parent_text
+            and str(message.get("kind") or "").strip().lower() == kind
+            and str(meta.get("source") or "").strip().lower() == "ciel-runtime-router-tool"
+        ):
+            return f"web chat {kind} was already delivered for parent_id={parent_text}"
+    return None
 
 
 def _store_file(args: dict[str, Any], services: ChannelMcpToolServices) -> dict[str, Any]:

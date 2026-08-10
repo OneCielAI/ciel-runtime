@@ -16,6 +16,7 @@ class ChannelMcpToolsTests(unittest.TestCase):
         self.services = ChannelMcpToolServices(
             queue_compact=self._queue_compact,
             append_message=self._append_message,
+            read_messages=self._read_messages,
             store_file_path=lambda path, name, content_type: {"name": name or str(path)},
             store_file_upload=lambda body: {"name": body["name"]},
             file_message_text=lambda message, uploads: f"{message} [{uploads[0]['name']}]",
@@ -27,8 +28,17 @@ class ChannelMcpToolsTests(unittest.TestCase):
         return {"id": "compact-1", "command": "/compact", "expires_at": 123}
 
     def _append_message(self, message):
-        self.messages.append(message)
-        return {"id": 1, **message}
+        saved = {"id": len(self.messages) + 1, **message}
+        self.messages.append(saved)
+        return saved
+
+    def _read_messages(self, after_id=0, channel=None, recipient=None, limit=100):
+        return [
+            message
+            for message in self.messages
+            if int(message.get("id") or 0) > after_id
+            and (channel is None or message.get("channel") == channel)
+        ][:limit]
 
     def test_catalog_exposes_only_supported_tools(self):
         names = {tool["name"] for tool in channel_mcp_tool_schemas()}
@@ -88,6 +98,56 @@ class ChannelMcpToolsTests(unittest.TestCase):
             {"spoken", "overview", "details"},
             set(schema["properties"]["response"]["properties"]),
         )
+
+    def test_web_chat_reply_requires_current_parent_request(self):
+        response = dispatch_channel_mcp_tool(
+            12,
+            {
+                "name": "send_message",
+                "arguments": {
+                    "channel": "web-chat-thread-7",
+                    "thread_id": "thread-7",
+                    "kind": "reply",
+                    "message": "must not leak",
+                },
+            },
+            self.services,
+        )
+
+        self.assertTrue(response["result"]["isError"])
+        self.assertIn("parent_id", response["result"]["content"][0]["text"])
+        self.assertEqual([], self.messages)
+
+    def test_web_chat_reply_is_correlated_and_final_reply_is_one_shot(self):
+        self.messages.append(
+            {
+                "id": 1,
+                "channel": "web-chat-thread-7",
+                "thread_id": "thread-7",
+                "kind": "web_chat",
+                "message": "typed question",
+                "meta": {"source": "ciel-runtime-web-chat", "input_mode": "text"},
+            }
+        )
+        arguments = {
+            "channel": "web-chat-thread-7",
+            "thread_id": "thread-7",
+            "parent_id": "1",
+            "kind": "reply",
+            "message": "correlated answer",
+        }
+
+        first = dispatch_channel_mcp_tool(
+            13, {"name": "send_message", "arguments": arguments}, self.services
+        )
+        duplicate = dispatch_channel_mcp_tool(
+            14, {"name": "send_message", "arguments": arguments}, self.services
+        )
+
+        self.assertFalse(first["result"]["isError"])
+        self.assertTrue(duplicate["result"]["isError"])
+        self.assertIn("already delivered", duplicate["result"]["content"][0]["text"])
+        self.assertEqual(2, len(self.messages))
 
     def test_send_file_converts_expected_storage_errors_to_tool_error(self):
         services = replace(

@@ -1936,7 +1936,7 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
         params,
         ChannelMcpToolServices(
             queue_compact=_write_channel_compact_request,
-            append_message=append_chat_message,
+            append_message=append_chat_message, read_messages=read_chat_messages,
             store_file_path=store_chat_file_from_path,
             store_file_upload=store_chat_file_upload,
             file_message_text=chat_file_message_text,

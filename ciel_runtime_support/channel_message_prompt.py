@@ -14,6 +14,7 @@ from ciel_runtime_support.channel_message_policy import (
     message_is_web_chat_request,
     message_meta_sources,
     string_list,
+    web_chat_input_mode,
 )
 
 
@@ -138,56 +139,86 @@ def _format_web_chat_wake_item(message: dict[str, Any]) -> str:
     message_id = str(message.get("id") or "")
     body = re.sub(r"\s+", " ", str(message.get("message") or "")).strip()
     fields = [f"id={message_id}", f"channel={reply_channel}", f"thread={thread}"]
+    content_label = "asr_transcript" if web_chat_input_mode(message) == "voice" else "text"
     return " ".join(field for field in fields if not field.endswith("=")) + (
-        f" user={json.dumps(body, ensure_ascii=False)}"
+        f" {content_label}={json.dumps(body, ensure_ascii=False)}"
     )
 
 
-def _web_chat_reply_routes(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
+def _web_chat_reply_routes(
+    messages: list[dict[str, Any]], input_mode: str
+) -> list[dict[str, str]]:
     routes: list[dict[str, str]] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple[str, str, str]] = set()
     for message in messages:
         if not message_is_web_chat_request(message):
+            continue
+        if web_chat_input_mode(message) != input_mode:
             continue
         meta = _metadata(message)
         channel = str(meta.get("reply_channel") or message.get("channel") or "default").strip()
         thread = str(message.get("thread_id") or meta.get("thread_id") or channel).strip()
-        route = (channel, thread)
+        message_id = str(message.get("id") or "").strip()
+        if not message_id:
+            continue
+        route = (channel, thread, message_id)
         if route in seen:
             continue
         seen.add(route)
-        input_mode = str(meta.get("input_mode") or "text").strip().lower()
-        routes.append({"channel": channel, "thread_id": thread, "input_mode": input_mode})
+        routes.append(
+            {
+                "channel": channel,
+                "thread_id": thread,
+                "parent_id": message_id,
+                "input_mode": input_mode,
+            }
+        )
     return routes
 
 
 def _web_chat_reply_instruction(messages: list[dict[str, Any]]) -> str:
-    routes = _web_chat_reply_routes(messages)
-    if not routes:
-        return ""
-    encoded_routes = json.dumps(routes, ensure_ascii=False, separators=(",", ":"))
-    return (
-        "[ciel-runtime web reply required] Do not leave responses only in the terminal. "
-        "For each route in "
-        f"{encoded_routes}: (1) immediately acknowledge the request with one short, honest sentence by calling "
-        "MCP server `ciel-runtime-router` tool `send_message` using that channel and thread_id, "
-        "recipients=[\"web\"], delivery=[\"web\"], kind=\"ack\", and "
-        "response={\"spoken\":\"brief conversational acknowledgement\","
-        "\"overview\":\"brief acknowledgement\",\"details\":\"\"}. "
-        "Do not claim completion in the acknowledgement. (2) Perform the requested work and then call "
-        "`send_message` again with kind=\"reply\" and a structured response object: "
-        "response={\"spoken\":\"one to three short conversational sentences suitable for TTS\","
-        "\"overview\":\"concise screen summary\","
-        "\"details\":\"supporting Markdown only when useful, otherwise empty\"}. "
-        "For input_mode=voice, spoken is required and must avoid Markdown, URLs, code, tables, and long lists; "
-        "the browser speaks only this field. Keep overview compact and put evidence, commands, links, and "
-        "technical detail in details. Use `send_file` on the same route for files."
-    )
+    instructions: list[str] = []
+    for input_mode in ("voice", "text"):
+        routes = _web_chat_reply_routes(messages, input_mode)
+        if not routes:
+            continue
+        encoded_routes = json.dumps(routes, ensure_ascii=False, separators=(",", ":"))
+        common = (
+            "[ciel-runtime web reply required one-shot] This routing contract applies only to the "
+            f"{input_mode} browser request IDs in this injected turn. Never reuse it for later terminal input. "
+            f"For each route in {encoded_routes}, call MCP server `ciel-runtime-router` tool `send_message` "
+            "with that channel, thread_id, and parent_id, recipients=[\"web\"], delivery=[\"web\"]. "
+        )
+        if input_mode == "voice":
+            response_policy = (
+                "This is a VOICE conversation turn. Immediately send kind=\"ack\" with a natural spoken "
+                "acknowledgement, then perform the work and send exactly one kind=\"reply\". Use "
+                "response={\"spoken\":\"one to three short conversational sentences without Markdown, URLs, "
+                "code, tables, or long lists\",\"overview\":\"compact on-screen summary\","
+                "\"details\":\"supporting Markdown only when useful\"}. The browser speaks only spoken. "
+            )
+        else:
+            response_policy = (
+                "This is a TYPED WEB CHAT turn. Immediately send kind=\"ack\" with a short honest screen "
+                "acknowledgement, then perform the work and send exactly one kind=\"reply\". Use "
+                "response={\"spoken\":\"optional short conversational summary\","
+                "\"overview\":\"clear concise answer for the chat screen\","
+                "\"details\":\"supporting Markdown, evidence, commands, and links when useful\"}. "
+            )
+        instructions.append(
+            common
+            + response_policy
+            + "Do not claim completion in the acknowledgement. "
+            "Use `send_file` on the same route for files."
+        )
+    return " ".join(instructions)
 
 
 def format_web_chat_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
     items = " ; ".join(_format_web_chat_wake_item(message) for message in messages)
-    request = f"[ciel-runtime web chat] {len(messages)} browser message(s): {items}"
+    modes = {web_chat_input_mode(message) for message in messages}
+    input_mode = modes.pop() if len(modes) == 1 else "mixed"
+    request = f"[ciel-runtime web {input_mode}] {len(messages)} browser message(s): {items}"
     instruction = _web_chat_reply_instruction(messages)
     # Windows Console turns embedded newlines into Enter key events. Keep the
     # routing contract and browser request in one physical line so Codex sees

@@ -109,6 +109,13 @@ def message_is_web_chat_request(message: dict[str, Any]) -> bool:
     )
 
 
+def web_chat_input_mode(message: dict[str, Any]) -> str:
+    """Return the admitted browser input class used for prompt and batch isolation."""
+
+    value = str(_metadata(message).get("input_mode") or "text").strip().lower()
+    return "voice" if value == "voice" else "text"
+
+
 def message_has_external_provenance(message: dict[str, Any]) -> bool:
     meta = _metadata(message)
     if message_is_web_chat_request(message):

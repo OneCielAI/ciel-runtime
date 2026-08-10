@@ -1358,7 +1358,7 @@ class ChannelBridgeTests(unittest.TestCase):
                 }
             ]
         )
-        self.assertIn("ciel-runtime web chat", prompt)
+        self.assertIn("ciel-runtime web text", prompt)
         self.assertIn("현재상태는", prompt)
         self.assertIn("channel=web-chat-session", prompt)
         self.assertIn("thread=thread-1", prompt)
@@ -1847,7 +1847,17 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("Unknown ciel-runtime-router tool: get_messages", response["result"]["content"][0]["text"])
 
     def test_builtin_channel_mcp_send_message_appends_web_delivery_reply(self):
-        with mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 44, "message": "done"}) as append:
+        request = {
+            "id": 43,
+            "channel": "web-chat-session",
+            "thread_id": "session",
+            "kind": "web_chat",
+            "meta": {"source": "ciel-runtime-web-chat"},
+        }
+        with (
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=[request]),
+            mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 44, "message": "done"}) as append,
+        ):
             response = ciel_runtime._channel_mcp_tool_call_response(
                 7,
                 {
@@ -1856,6 +1866,7 @@ class ChannelBridgeTests(unittest.TestCase):
                         "channel": "web-chat-session",
                         "message": "작업 결과입니다.",
                         "thread_id": "session",
+                        "parent_id": "43",
                     },
                 },
             )
@@ -1879,6 +1890,17 @@ class ChannelBridgeTests(unittest.TestCase):
             "content_type": "text/markdown",
         }
         with (
+            mock.patch.object(
+                ciel_runtime,
+                "read_chat_messages",
+                return_value=[{
+                    "id": 44,
+                    "channel": "web-chat-session",
+                    "thread_id": "session",
+                    "kind": "web_chat",
+                    "meta": {"source": "ciel-runtime-web-chat"},
+                }],
+            ),
             mock.patch.object(ciel_runtime, "store_chat_file_from_path", return_value=upload) as store,
             mock.patch.object(ciel_runtime, "append_chat_message", return_value={"id": 45, "message": "file"}) as append,
         ):
@@ -1891,6 +1913,7 @@ class ChannelBridgeTests(unittest.TestCase):
                         "path": "report.md",
                         "message": "검토 결과 파일입니다.",
                         "thread_id": "session",
+                        "parent_id": "44",
                     },
                 },
             )
@@ -1909,6 +1932,17 @@ class ChannelBridgeTests(unittest.TestCase):
 
     def test_builtin_channel_mcp_send_file_accepts_inline_content(self):
         with (
+            mock.patch.object(
+                ciel_runtime,
+                "read_chat_messages",
+                return_value=[{
+                    "id": 45,
+                    "channel": "web-chat-session",
+                    "thread_id": "session",
+                    "kind": "web_chat",
+                    "meta": {"source": "ciel-runtime-web-chat"},
+                }],
+            ),
             mock.patch.object(ciel_runtime, "store_chat_file_upload", return_value={
                 "name": "stored.txt",
                 "original_name": "answer.txt",
@@ -1927,6 +1961,8 @@ class ChannelBridgeTests(unittest.TestCase):
                         "channel": "web-chat-session",
                         "name": "answer.txt",
                         "content": "hello",
+                        "thread_id": "session",
+                        "parent_id": "45",
                     },
                 },
             )
@@ -2092,7 +2128,7 @@ class ChannelBridgeTests(unittest.TestCase):
         commit_cursor.assert_not_called()
         payload = write_all.call_args_list[0].args[1]
         self.assertIn("마지막 작업 요약".encode("utf-8"), payload)
-        self.assertIn(b"ciel-runtime web chat", payload)
+        self.assertIn(b"ciel-runtime web text", payload)
         self.assertNotIn(b"metadata=", payload)
         self.assertNotIn(b"hello Sarah", payload)
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
@@ -2436,6 +2472,56 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn(b"first wake", wake_bytes)
         self.assertIn(b"second wake", wake_bytes)
         self.assertNotIn(b"third wake", wake_bytes)
+
+    def test_inject_pending_channel_messages_separates_voice_and_text_web_turns(self):
+        messages = [
+            {
+                "id": 8,
+                "channel": "web-chat-session",
+                "thread_id": "thread-1",
+                "sender_id": "web-user",
+                "kind": "web_chat",
+                "message": "voice request",
+                "meta": {"source": "ciel-runtime-web-chat", "input_mode": "voice"},
+                "delivery": ["llm"],
+            },
+            {
+                "id": 9,
+                "channel": "web-chat-session",
+                "thread_id": "thread-1",
+                "sender_id": "web-user",
+                "kind": "web_chat",
+                "message": "typed request",
+                "meta": {"source": "ciel-runtime-web-chat", "input_mode": "text"},
+                "delivery": ["llm"],
+            },
+        ]
+        injected: list[int] = []
+        with tempfile.TemporaryDirectory() as td:
+            claims_path = Path(td) / "claims.json"
+            with (
+                mock.patch.object(ciel_runtime, "CHANNEL_STDIN_WAKE_CLAIMS_PATH", claims_path),
+                mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=None),
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0),
+                mock.patch.object(ciel_runtime, "_commit_channel_llm_cursor_if_newer"),
+                mock.patch.object(ciel_runtime, "router_log"),
+            ):
+                last_id = ciel_runtime._inject_pending_channel_messages(
+                    99,
+                    7,
+                    wake_for_llm_delivery=True,
+                    commit_cursor=False,
+                    injected_message_ids=injected,
+                )
+
+        self.assertEqual(7, last_id)
+        self.assertEqual([8], injected)
+        wake_bytes = write_all.call_args_list[0].args[1]
+        self.assertIn(b"voice request", wake_bytes)
+        self.assertNotIn(b"typed request", wake_bytes)
+        self.assertIn(b"VOICE conversation turn", wake_bytes)
 
     def test_inject_pending_channel_messages_dedupes_llm_delivery_batch_by_event_identity(self):
         same_event = {
