@@ -254,12 +254,18 @@ def render_web_chat_page(
             <label class="check"><input id="colabEnabled" type="checkbox"> Manage workers with Colab CLI</label>
             <label>WSL distribution<input id="colabDistribution" placeholder="Ubuntu-26.04"></label>
             <label>Authentication<select id="colabAuth"><option value="adc">ADC</option><option value="oauth2">OAuth2</option></select></label>
+            <label>Account profile<input id="colabProfile" placeholder="default"></label>
             <label>ASR session<input id="colabAsrSession" placeholder="ciel-asr"></label>
             <label>TTS session<input id="colabTtsSession" placeholder="ciel-tts"></label>
             <label>ASR GPU<select id="colabAsrAccelerator"><option>T4</option><option>L4</option><option>G4</option><option>A100</option><option>H100</option></select></label>
             <label>TTS GPU<select id="colabTtsAccelerator"><option>T4</option><option>L4</option><option>G4</option><option>A100</option><option>H100</option></select></label>
+            <label class="wide">Tailscale auth key for this run<input id="colabTailscaleAuthKey" type="password" autocomplete="new-password" placeholder="Not saved; Colab Secret may be used instead"></label>
+            <label class="wide">Speech API key for this run<input id="colabSpeechApiKey" type="password" autocomplete="new-password" placeholder="Not saved; optional"></label>
+            <label class="check wide"><input id="colabResetAuthentication" type="checkbox"> Forget this profile's current login before generating a login command</label>
           </div>
-          <div class="hint">Saved here for scripts/deploy_colab_speech.ps1. Credentials remain in the Colab CLI profile and are never stored by Ciel.</div>
+          <div class="settings-actions"><button class="ghost" id="colabLoginButton" type="button">Copy login command</button><button class="ghost" id="colabStatusButton" type="button">Check sessions</button><button class="ghost" id="colabStartButton" type="button">Start missing</button><button class="primary" id="colabDeployButton" type="button">Recover &amp; deploy</button><button class="ghost" id="colabRecreateButton" type="button">Recreate all</button></div>
+          <pre class="hint" id="colabJobStatus">No Colab deployment job has been started.</pre>
+          <div class="hint">Named account profiles get an isolated WSL HOME, OAuth token, session state, and history; <code>default</code> keeps the existing Colab CLI login for compatibility. Login remains an interactive CLI step; deployment jobs run in the background. Ephemeral keys above are passed only to that job and are never saved by Ciel.</div>
         </section>
         <section class="settings-section">
           <h3>Tailscale tunnel</h3>
@@ -747,10 +753,14 @@ def render_web_chat_page(
       document.getElementById('colabEnabled').checked = colab.enabled !== false;
       document.getElementById('colabDistribution').value = colab.distribution || 'Ubuntu-26.04';
       document.getElementById('colabAuth').value = colab.auth || 'adc';
+      document.getElementById('colabProfile').value = colab.profile || 'default';
       document.getElementById('colabAsrSession').value = colab.asr_session || 'ciel-asr';
       document.getElementById('colabTtsSession').value = colab.tts_session || 'ciel-tts';
       document.getElementById('colabAsrAccelerator').value = colab.asr_accelerator || 'T4';
       document.getElementById('colabTtsAccelerator').value = colab.tts_accelerator || 'T4';
+      document.getElementById('colabTailscaleAuthKey').value = '';
+      document.getElementById('colabSpeechApiKey').value = '';
+      document.getElementById('colabResetAuthentication').checked = false;
       document.getElementById('tailscaleEnabled').checked = tailscale.enabled !== false;
       document.getElementById('tailscaleAsrHostname').value = tailscale.asr_hostname || 'ciel-asr';
       document.getElementById('tailscaleTtsHostname').value = tailscale.tts_hostname || 'ciel-tts';
@@ -793,6 +803,7 @@ def render_web_chat_page(
           enabled: document.getElementById('colabEnabled').checked,
           distribution: document.getElementById('colabDistribution').value,
           auth: document.getElementById('colabAuth').value,
+          profile: document.getElementById('colabProfile').value,
           asr_session: document.getElementById('colabAsrSession').value,
           tts_session: document.getElementById('colabTtsSession').value,
           asr_accelerator: document.getElementById('colabAsrAccelerator').value,
@@ -809,6 +820,48 @@ def render_web_chat_page(
       if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${{response.status}}`);
       speechConfig = data;
       setSpeechForm(data);
+      return data;
+    }}
+    function renderColabJob(payload) {{
+      const output = document.getElementById('colabJobStatus');
+      const job = payload && payload.job;
+      if (!job) {{ output.textContent = 'No Colab deployment job has been started.'; return; }}
+      const state = job.running ? 'running' : job.return_code === 0 ? 'completed' : `failed (${{job.return_code}})`;
+      output.textContent = `${{job.action}} · profile ${{job.profile}} · ${{state}}\n${{job.output || ''}}`.trim();
+      output.scrollTop = output.scrollHeight;
+    }}
+    async function pollColabJob() {{
+      const response = await fetch('/ca/speech/colab/job', {{headers: {{'accept': 'application/json'}}, cache: 'no-store'}});
+      const data = await response.json();
+      renderColabJob(data);
+      if (data.job && data.job.running) setTimeout(() => pollColabJob().catch(() => {{}}), 2000);
+      else if (data.job) setState(data.job.return_code === 0 ? 'Colab job complete' : 'Colab job failed', data.job.return_code === 0 ? 'ok' : 'error');
+      return data;
+    }}
+    async function runColabAction(action) {{
+      await saveSpeechConfig();
+      const payload = {{
+        action,
+        reset_authentication: document.getElementById('colabResetAuthentication').checked,
+        secrets: {{
+          tailscale_auth_key: document.getElementById('colabTailscaleAuthKey').value,
+          speech_api_key: document.getElementById('colabSpeechApiKey').value,
+        }},
+      }};
+      const response = await fetch('/ca/speech/colab/action', {{method: 'POST', headers: {{'content-type': 'application/json', 'accept': 'application/json'}}, body: JSON.stringify(payload)}});
+      const data = await response.json();
+      document.getElementById('colabTailscaleAuthKey').value = '';
+      document.getElementById('colabSpeechApiKey').value = '';
+      if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${{response.status}}`);
+      if (data.requires_terminal) {{
+        await navigator.clipboard.writeText(data.command);
+        document.getElementById('colabJobStatus').textContent = 'Login command copied. Run it in a local terminal and complete authentication for the selected Google account.\\n\\n' + data.command;
+        setState('login command copied', 'ok');
+        return data;
+      }}
+      renderColabJob(data);
+      setState(`Colab ${{action}} started`, 'ok');
+      setTimeout(() => pollColabJob().catch(() => {{}}), 1000);
       return data;
     }}
     function stopActiveSpeech() {{
@@ -1276,6 +1329,14 @@ def render_web_chat_page(
       speechSettingsDialog.showModal();
     }});
     speechSettingsClose.addEventListener('click', () => speechSettingsDialog.close());
+    document.getElementById('colabLoginButton').addEventListener('click', () => runColabAction('login').catch(err => addBubble('system', 'Colab login command failed: ' + String(err && err.message ? err.message : err))));
+    document.getElementById('colabStatusButton').addEventListener('click', () => runColabAction('status').catch(err => addBubble('system', 'Colab status failed: ' + String(err && err.message ? err.message : err))));
+    document.getElementById('colabStartButton').addEventListener('click', () => runColabAction('start').catch(err => addBubble('system', 'Colab start failed: ' + String(err && err.message ? err.message : err))));
+    document.getElementById('colabDeployButton').addEventListener('click', () => runColabAction('deploy').catch(err => addBubble('system', 'Colab deployment failed: ' + String(err && err.message ? err.message : err))));
+    document.getElementById('colabRecreateButton').addEventListener('click', () => {{
+      if (!confirm('Release both sessions in this account profile, create new instances, and redeploy ASR/TTS?')) return;
+      runColabAction('recreate').catch(err => addBubble('system', 'Colab recreation failed: ' + String(err && err.message ? err.message : err)));
+    }});
     document.getElementById('ttsReferenceAudio').addEventListener('change', async event => {{
       const file = event.target.files && event.target.files[0];
       if (!file) return;

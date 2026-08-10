@@ -24,6 +24,8 @@ class SpeechHttpPorts:
     write_json: Callable[..., None]
     log: Callable[[str, str], None]
     urlopen: Callable[..., Any] = urllib.request.urlopen
+    colab_action: Callable[[str, dict[str, Any], dict[str, str]], dict[str, Any]] | None = None
+    colab_status: Callable[[str], dict[str, Any]] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +38,10 @@ class SpeechHttpController:
             return True
         if path == "/ca/speech/health":
             self.ports.write_json(handler, self.health_payload())
+            return True
+        if path == "/ca/speech/colab/job":
+            payload = self.ports.colab_status("") if self.ports.colab_status else {"ok": True, "job": None}
+            self.ports.write_json(handler, payload)
             return True
         if path == "/ca/web/chat/api":
             self.ports.write_json(handler, self.discovery_payload())
@@ -53,6 +59,8 @@ class SpeechHttpController:
     ) -> bool:
         if path == "/ca/speech/config":
             return self._save_public_config(handler, raw)
+        if path == "/ca/speech/colab/action":
+            return self._start_colab_action(handler, raw)
         if path in {"/v1/audio/transcriptions", "/v1/audio/translations"}:
             return self._proxy_asr(handler, raw, content_type)
         if path in {"/v1/audio/speech", "/v1/audio/speech/batch"}:
@@ -90,6 +98,8 @@ class SpeechHttpController:
                 "chat_files": "POST /ca/channel/files",
                 "speech_config": "GET|POST /ca/speech/config",
                 "speech_health": "GET /ca/speech/health",
+                "colab_action": "POST /ca/speech/colab/action",
+                "colab_job": "GET /ca/speech/colab/job",
                 "asr": "POST /v1/audio/transcriptions",
                 "asr_translate": "POST /v1/audio/translations",
                 "tts": "POST /v1/audio/speech",
@@ -164,6 +174,32 @@ class SpeechHttpController:
             self.ports.write_json(handler, {"ok": False, "error": str(exc)}, 400)
         return True
 
+    def _start_colab_action(self, handler: BaseHTTPRequestHandler, raw: bytes) -> bool:
+        try:
+            if self.ports.colab_action is None:
+                raise RuntimeError("Colab deployment jobs are unavailable")
+            body = json.loads(raw.decode("utf-8") if raw else "{}")
+            if not isinstance(body, dict):
+                raise ValueError("request must be a JSON object")
+            action = str(body.get("action") or "").strip().lower()
+            config = self._speech_config()
+            colab = config.get("colab") if isinstance(config.get("colab"), dict) else {}
+            if colab.get("enabled") is False:
+                raise ValueError("Colab worker management is disabled")
+            secrets_payload = body.get("secrets") if isinstance(body.get("secrets"), dict) else {}
+            secrets = {
+                "tailscale_auth_key": str(secrets_payload.get("tailscale_auth_key") or ""),
+                "speech_api_key": str(secrets_payload.get("speech_api_key") or ""),
+                "reset_authentication": "1" if body.get("reset_authentication") is True else "",
+            }
+            result = self.ports.colab_action(action, dict(colab), secrets)
+            self.ports.write_json(handler, result)
+        except (UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
+            self.ports.write_json(handler, {"ok": False, "error": str(exc)}, 400)
+        except RuntimeError as exc:
+            self.ports.write_json(handler, {"ok": False, "error": str(exc)}, 409)
+        return True
+
     @staticmethod
     def _validated_value(service: str, key: str, value: Any) -> Any:
         allowed = {
@@ -215,6 +251,7 @@ class SpeechHttpController:
             "enabled",
             "distribution",
             "auth",
+            "profile",
             "asr_session",
             "tts_session",
             "asr_accelerator",

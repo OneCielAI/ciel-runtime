@@ -32,6 +32,7 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
                 "enabled": True,
                 "distribution": "Ubuntu-26.04",
                 "auth": "adc",
+                "profile": "default",
                 "asr_session": "ciel-asr",
                 "tts_session": "ciel-tts",
                 "asr_accelerator": "T4",

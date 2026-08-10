@@ -16,6 +16,7 @@ DEFAULT_COLAB_SETTINGS: dict[str, Any] = {
     "enabled": True,
     "distribution": "Ubuntu-26.04",
     "auth": "adc",
+    "profile": "default",
     "asr_session": "ciel-asr",
     "tts_session": "ciel-tts",
     "asr_accelerator": "T4",
@@ -39,6 +40,7 @@ def configure(
     *,
     distribution: str | None = None,
     auth: str | None = None,
+    profile: str | None = None,
     asr_session: str | None = None,
     tts_session: str | None = None,
     asr_accelerator: str | None = None,
@@ -54,6 +56,7 @@ def configure(
     overrides = {
         "distribution": distribution,
         "auth": auth,
+        "profile": profile,
         "asr_session": asr_session,
         "tts_session": tts_session,
         "asr_accelerator": asr_accelerator,
@@ -77,6 +80,7 @@ def main() -> int:
     parser.add_argument("--tts-reference-audio", default=DEFAULT_TTS_REFERENCE_AUDIO)
     parser.add_argument("--distribution")
     parser.add_argument("--auth", choices=("adc", "oauth2"))
+    parser.add_argument("--profile")
     parser.add_argument("--asr-session")
     parser.add_argument("--tts-session")
     parser.add_argument("--asr-accelerator")
@@ -94,6 +98,7 @@ def main() -> int:
         args.tts_reference_audio,
         distribution=args.distribution,
         auth=args.auth,
+        profile=args.profile,
         asr_session=args.asr_session,
         tts_session=args.tts_session,
         asr_accelerator=args.asr_accelerator,

@@ -20,6 +20,24 @@ Set the WSL distribution, authentication mode, ASR/TTS session names, and accele
 
 The script reuses matching active sessions when possible, otherwise creates them, installs Qwen3-ASR-0.6B and MOSS-TTS-Nano, starts Tailscale in userspace networking mode, publishes each localhost model server with Tailscale Serve, and saves both returned `base_url` values into Web Chat > Speech Settings automatically.
 
+### Session recovery and account profiles
+
+Web Chat > Speech Settings exposes **Check sessions**, **Start missing**, **Recover & deploy**, and **Recreate all**. Start creates only missing or expired ASR/TTS sessions. Recover creates missing sessions and then runs both bootstrap scripts. Recreate explicitly releases both sessions before creating and deploying replacements. These actions are also available through `POST /ca/speech/colab/action`, while `GET /ca/speech/colab/job` returns the latest background-job state and redacted output.
+
+The `default` account profile reuses the existing WSL Colab CLI login. Every other profile name receives an isolated WSL `HOME`, so its OAuth token, ADC credentials, session state, and history cannot mix with another Google account. Choose OAuth2 for the simplest multi-account flow, click **Copy login command**, run that command in a local terminal, and complete the copy/paste authorization prompt with the intended Google account. The optional reset checkbox removes credentials only inside the selected profile before login.
+
+Equivalent CLI actions are:
+
+```powershell
+.\scripts\deploy_colab_speech.ps1 -Action Login -Profile second-account -ColabAuth oauth2
+.\scripts\deploy_colab_speech.ps1 -Action Status -Profile second-account
+.\scripts\deploy_colab_speech.ps1 -Action Start -Profile second-account
+.\scripts\deploy_colab_speech.ps1 -Action Deploy -Profile second-account
+.\scripts\deploy_colab_speech.ps1 -Action Recreate -Profile second-account
+```
+
+Tailscale and speech API keys entered in Web Chat are passed only to the selected background deployment process and are not persisted. They can instead be stored as authorized Colab Secrets for the selected Google account.
+
 MOSS-TTS-Nano is a voice-cloning model without built-in speakers. Deployment configures the project's official `zh_1.wav` sample so the first request works immediately. In Web Chat > Speech Settings, upload a reference voice clip (10 MB maximum) to replace it. Ciel stores uploaded audio only in the local protected runtime configuration, omits it from configuration responses, and adds it to TTS requests automatically. API clients can instead pass `ref_audio` as an HTTP(S) URL or base64 audio data URL to `POST /v1/audio/speech`.
 
 Colab sessions are ephemeral. Re-run the bootstrap after a runtime reset. The workers are reachable only by devices in the same tailnet unless an administrator separately enables Tailscale Funnel.
@@ -40,6 +58,8 @@ Web backend ownership is scoped to the normalized workspace and router port. A s
 
 - `GET|POST /ca/speech/config`
 - `GET /ca/speech/health`
+- `POST /ca/speech/colab/action`
+- `GET /ca/speech/colab/job`
 - `POST /v1/audio/transcriptions`
 - `POST /v1/audio/translations`
 - `POST /v1/audio/speech`

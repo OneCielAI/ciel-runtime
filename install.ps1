@@ -12,6 +12,11 @@ if (Test-Path $supportDir) {
     Remove-Item -Recurse -Force $supportDir
 }
 Copy-Item -Recurse -Force "ciel_runtime_support" $supportDir
+$scriptsDir = Join-Path $shareDir "scripts"
+if (Test-Path $scriptsDir) {
+    Remove-Item -Recurse -Force $scriptsDir
+}
+Copy-Item -Recurse -Force "scripts" $scriptsDir
 Copy-Item -Force "ciel-runtime-menu.py" (Join-Path $binDir "ciel-runtime-menu.py")
 Copy-Item -Force "ciel-runtime-tool-guard.py" (Join-Path $binDir "ciel-runtime-tool-guard.py")
 Copy-Item -Force "ciel-runtime" (Join-Path $binDir "ciel-runtime")

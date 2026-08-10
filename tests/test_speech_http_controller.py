@@ -55,7 +55,7 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.requests = []
         self.saved = []
 
-    def controller(self, response=None):
+    def controller(self, response=None, *, colab_action=None, colab_status=None):
         def write_json(handler, value, status=200):
             data = json.dumps(value).encode()
             handler.send_response(status)
@@ -68,7 +68,7 @@ class SpeechHttpControllerTests(unittest.TestCase):
             self.requests.append((request, timeout))
             return response or _Response(b'{"text":"hello"}')
 
-        return SpeechHttpController(SpeechHttpPorts(lambda: self.config, lambda value: self.saved.append(value), write_json, lambda *_args: None, urlopen))
+        return SpeechHttpController(SpeechHttpPorts(lambda: self.config, lambda value: self.saved.append(value), write_json, lambda *_args: None, urlopen, colab_action, colab_status))
 
     def test_public_config_masks_remote_tokens_and_lists_all_audio_endpoints(self):
         public = self.controller().public_config()
@@ -99,6 +99,39 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.assertNotIn(b'name="language"', request.data)
         self.assertEqual(30, timeout)
         self.assertEqual(200, handler.status)
+
+    def test_colab_profile_is_validated_and_saved(self):
+        handler = _Handler()
+        body = json.dumps({"colab": {"profile": "second-account"}}).encode()
+
+        self.controller().post(handler, "/ca/speech/config", body, "application/json")
+
+        self.assertEqual("second-account", self.saved[0]["speech"]["colab"]["profile"])
+
+    def test_colab_action_uses_saved_profile_and_ephemeral_secrets(self):
+        handler = _Handler()
+        calls = []
+        body = json.dumps({
+            "action": "deploy",
+            "secrets": {"tailscale_auth_key": "tail-secret", "speech_api_key": "voice-secret"},
+        }).encode()
+        controller = self.controller(colab_action=lambda action, settings, secrets: calls.append((action, settings, secrets)) or {"ok": True, "job": {"id": "abc"}})
+
+        controller.post(handler, "/ca/speech/colab/action", body, "application/json")
+
+        self.assertEqual("deploy", calls[0][0])
+        self.assertEqual("adc", calls[0][1]["auth"])
+        self.assertEqual("tail-secret", calls[0][2]["tailscale_auth_key"])
+        self.assertEqual(200, handler.status)
+
+    def test_colab_job_status_endpoint_reports_latest_job(self):
+        handler = _Handler()
+        controller = self.controller(colab_status=lambda _job_id: {"ok": True, "job": {"id": "abc", "running": True}})
+
+        handled = controller.get(handler, "/ca/speech/colab/job")
+
+        self.assertTrue(handled)
+        self.assertEqual("abc", json.loads(handler.wfile.getvalue())["job"]["id"])
 
     def test_tts_request_receives_defaults_and_returns_binary_audio(self):
         handler = _Handler()
