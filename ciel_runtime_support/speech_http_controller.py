@@ -204,12 +204,14 @@ class SpeechHttpController:
     def _validated_value(service: str, key: str, value: Any) -> Any:
         allowed = {
             "asr": {"enabled", "base_url", "endpoint", "model", "language", "silence_ms", "min_speech_ms", "vad_threshold", "api_key", "timeout_seconds"},
-            "tts": {"enabled", "base_url", "endpoint", "voices_endpoint", "model", "voice", "language", "ref_audio", "ref_text", "response_format", "speed", "auto_speak", "api_key", "timeout_seconds"},
+            "tts": {"enabled", "base_url", "endpoint", "voices_endpoint", "model", "voice", "language", "ref_audio", "ref_text", "response_format", "speed", "auto_speak", "streaming", "sample_rate", "api_key", "timeout_seconds"},
         }
         if key not in allowed[service]:
             raise ValueError(f"unsupported {service} setting: {key}")
-        if key in {"enabled", "auto_speak"}:
+        if key in {"enabled", "auto_speak", "streaming"}:
             return bool(value)
+        if key == "sample_rate":
+            return max(8000, min(192000, int(value)))
         if key == "timeout_seconds":
             return max(1, min(3600, int(value)))
         if key == "speed":
@@ -256,6 +258,7 @@ class SpeechHttpController:
             "tts_session",
             "asr_accelerator",
             "tts_accelerator",
+            "tts_backend",
         }
         if key not in allowed:
             raise ValueError(f"unsupported colab setting: {key}")
@@ -272,6 +275,11 @@ class SpeechHttpController:
             if accelerator not in {"T4", "L4", "G4", "A100", "H100"}:
                 raise ValueError("unsupported Colab accelerator")
             return accelerator
+        if key == "tts_backend":
+            backend = text.lower()
+            if backend not in {"moss", "cosyvoice3"}:
+                raise ValueError("unsupported Colab TTS backend")
+            return backend
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", text):
             raise ValueError(f"invalid Colab {key}")
         return text
@@ -329,6 +337,7 @@ class SpeechHttpController:
 
     def _proxy_tts(self, handler: BaseHTTPRequestHandler, raw: bytes, content_type: str, *, batch: bool) -> bool:
         config = self._service_config("tts")
+        streaming = False
         if not self._require_enabled(handler, "tts", config):
             return True
         if "application/json" in content_type.lower():
@@ -344,14 +353,17 @@ class SpeechHttpController:
                         body.setdefault("ref_audio", str(config["ref_audio"]))
                     if str(config.get("ref_text") or "").strip():
                         body.setdefault("ref_text", str(config["ref_text"]))
+                    if "CosyVoice3" in str(body.get("model") or "") and (not str(body.get("ref_audio") or "").strip() or not str(body.get("ref_text") or "").strip()):
+                        raise ValueError("CosyVoice 3 requires both ref_audio and its exact ref_text transcript")
                     body.setdefault("response_format", str(config.get("response_format") or "wav"))
                     body.setdefault("speed", float(config.get("speed") or 1.0))
+                    streaming = bool(body.get("stream") and body.get("stream_format") == "audio")
                 raw = json.dumps(body, ensure_ascii=False).encode("utf-8")
             except (ValueError, TypeError, UnicodeError) as exc:
                 self.ports.write_json(handler, {"error": {"type": "invalid_request_error", "message": str(exc)}}, 400)
                 return True
         endpoint = str(config.get("endpoint") or "/v1/audio/speech") + ("/batch" if batch else "")
-        return self._proxy_bytes(handler, "tts", config, endpoint, raw, content_type)
+        return self._proxy_bytes(handler, "tts", config, endpoint, raw, content_type, streaming=streaming)
 
     def _proxy_raw(self, handler: BaseHTTPRequestHandler, service: str, endpoint_key: str, raw: bytes, content_type: str) -> bool:
         config = self._service_config(service)
@@ -359,14 +371,38 @@ class SpeechHttpController:
             return True
         return self._proxy_bytes(handler, service, config, str(config.get(endpoint_key) or ""), raw, content_type)
 
-    def _proxy_bytes(self, handler: BaseHTTPRequestHandler, service: str, config: SpeechConfig, endpoint: str, raw: bytes, content_type: str) -> bool:
+    def _proxy_bytes(self, handler: BaseHTTPRequestHandler, service: str, config: SpeechConfig, endpoint: str, raw: bytes, content_type: str, *, streaming: bool = False) -> bool:
         request = urllib.request.Request(
             self._url(config, endpoint),
             data=raw,
             headers=self._headers(config, content_type or "application/octet-stream"),
             method="POST",
         )
-        return self._open_and_write(handler, service, config, request)
+        return self._open_and_stream(handler, service, config, request) if streaming else self._open_and_write(handler, service, config, request)
+
+    def _open_and_stream(self, handler: BaseHTTPRequestHandler, service: str, config: SpeechConfig, request: urllib.request.Request) -> bool:
+        started = False
+        try:
+            with self.ports.urlopen(request, timeout=self._timeout(config)) as response:
+                handler.send_response(int(getattr(response, "status", 200)))
+                handler.send_header("content-type", str(response.headers.get("content-type") or "audio/pcm"))
+                handler.send_header("cache-control", "no-store")
+                handler.send_header("connection", "close")
+                handler.end_headers()
+                started = True
+                handler.close_connection = True
+                read_chunk = getattr(response, "read1", response.read)
+                while chunk := read_chunk(16 * 1024):
+                    handler.wfile.write(chunk)
+                    handler.wfile.flush()
+        except urllib.error.HTTPError as exc:
+            if not started:
+                self._write_bytes(handler, exc.read(), int(exc.code), str(exc.headers.get("content-type") or "application/json"))
+        except Exception as exc:
+            self.ports.log("ERROR", f"speech_stream_failed service={service} error={type(exc).__name__}: {exc}")
+            if not started:
+                self.ports.write_json(handler, {"error": {"type": "upstream_error", "message": f"{service.upper()} upstream unavailable: {exc}"}}, 502)
+        return True
 
     def _open_and_write(self, handler: BaseHTTPRequestHandler, service: str, config: SpeechConfig, request: urllib.request.Request) -> bool:
         try:

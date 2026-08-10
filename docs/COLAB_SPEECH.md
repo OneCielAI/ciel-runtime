@@ -18,7 +18,7 @@ From PowerShell at the repository root:
 
 Set the WSL distribution, authentication mode, ASR/TTS session names, and accelerators in **Web Chat > Speech Settings > Colab CLI connection**. These values are available through `GET|POST /ca/speech/config`; Ciel does not store Colab credentials. The deployment script reads the saved values automatically. Command-line parameters such as `-Distribution`, `-ColabAuth`, `-AsrSession`, and `-AsrAccelerator` override them for one run.
 
-The script reuses matching active sessions when possible, otherwise creates them, installs Qwen3-ASR-0.6B and MOSS-TTS-Nano, starts Tailscale in userspace networking mode, publishes each localhost model server with Tailscale Serve, and saves both returned `base_url` values into Web Chat > Speech Settings automatically.
+The script reuses matching active sessions when possible, otherwise creates them, installs Qwen3-ASR-0.6B plus the selected TTS engine (MOSS-TTS-Nano or Fun-CosyVoice3-0.5B-2512), starts Tailscale in userspace networking mode, publishes each localhost model server with Tailscale Serve, and saves both returned `base_url` values into Web Chat > Speech Settings automatically. Choose the TTS engine in the Colab section before **Recover & deploy**, or pass `-TtsBackend moss|cosyvoice3` to the script.
 
 ### Session recovery and account profiles
 
@@ -39,6 +39,10 @@ Equivalent CLI actions are:
 Tailscale and speech API keys entered in Web Chat are passed only to the selected background deployment process and are not persisted. They can instead be stored as authorized Colab Secrets for the selected Google account.
 
 MOSS-TTS-Nano is a voice-cloning model without built-in speakers. Deployment configures the project's official `zh_1.wav` sample so the first request works immediately. In Web Chat > Speech Settings, upload a reference voice clip (10 MB maximum) to replace it. Ciel stores uploaded audio only in the local protected runtime configuration, omits it from configuration responses, and adds it to TTS requests automatically. API clients can instead pass `ref_audio` as an HTTP(S) URL or base64 audio data URL to `POST /v1/audio/speech`.
+
+CosyVoice 3 deployment configures its official zero-shot reference clip and exact transcript, enables 24 kHz PCM output streaming, and starts browser playback as chunks arrive. For a custom cloned voice, upload the clip and provide its exact transcript; CosyVoice 3 requires both. **Test voice** unlocks browser audio playback and verifies the complete Ciel-to-worker path.
+
+CosyVoice's bi-streaming means incremental text input and incremental audio output. Ciel currently benefits from the audio-output half: lower time to first sound, bounded buffering, and immediate cancellation when the user interrupts. The agent channel still delivers complete `spoken` fields, so using the text-input half later requires forwarding agent tokens or sentence fragments to a persistent streaming TTS connection. It is not by itself a full-duplex conversation protocol.
 
 Colab sessions are ephemeral. Re-run the bootstrap after a runtime reset. The workers are reachable only by devices in the same tailnet unless an administrator separately enables Tailscale Funnel.
 

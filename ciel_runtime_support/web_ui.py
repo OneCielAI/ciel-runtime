@@ -238,12 +238,14 @@ def render_web_chat_page(
           <div class="settings-grid">
             <label class="check"><input id="ttsEnabled" type="checkbox"> Enable TTS</label>
             <label class="check"><input id="ttsAutoSpeak" type="checkbox"> Speak replies automatically</label>
+            <label class="check"><input id="ttsStreaming" type="checkbox"> Stream audio while it is generated</label>
             <label class="wide">Tailscale base URL<input id="ttsBaseUrl" placeholder="http://ciel-tts:8091"></label>
             <label>Voice<input id="ttsVoice" placeholder="default"></label>
             <label>Language<input id="ttsLanguage" placeholder="ko"></label>
+            <label>PCM sample rate<input id="ttsSampleRate" type="number" min="8000" max="192000" step="1000"></label>
             <label class="wide">Model<input id="ttsModel" placeholder="OpenMOSS-Team/MOSS-TTS-Nano"></label>
             <label class="wide">Reference voice (required by MOSS-TTS-Nano)<input id="ttsReferenceAudio" type="file" accept="audio/*"><span class="hint" id="ttsReferenceAudioStatus">No reference voice configured</span></label>
-            <label class="wide">Reference transcript (optional)<input id="ttsReferenceText" placeholder="Transcript of the reference clip"></label>
+            <label class="wide">Reference transcript (required by CosyVoice 3)<input id="ttsReferenceText" placeholder="Exact transcript of the reference clip"></label>
             <label class="check wide"><input id="ttsClearReferenceAudio" type="checkbox"> Remove the saved reference voice</label>
             <label class="wide">Remote bearer token<input id="ttsApiKey" type="password" autocomplete="new-password" placeholder="Leave blank to keep current token"></label>
           </div>
@@ -255,6 +257,7 @@ def render_web_chat_page(
             <label>WSL distribution<input id="colabDistribution" placeholder="Ubuntu-26.04"></label>
             <label>Authentication<select id="colabAuth"><option value="adc">ADC</option><option value="oauth2">OAuth2</option></select></label>
             <label>Account profile<input id="colabProfile" placeholder="default"></label>
+            <label>TTS engine<select id="colabTtsBackend"><option value="moss">MOSS-TTS-Nano</option><option value="cosyvoice3">Fun-CosyVoice 3</option></select></label>
             <label>ASR session<input id="colabAsrSession" placeholder="ciel-asr"></label>
             <label>TTS session<input id="colabTtsSession" placeholder="ciel-tts"></label>
             <label>ASR GPU<select id="colabAsrAccelerator"><option>T4</option><option>L4</option><option>G4</option><option>A100</option><option>H100</option></select></label>
@@ -276,7 +279,7 @@ def render_web_chat_page(
           </div>
           <div class="hint">The browser calls Ciel locally. Only the Ciel router connects to these Tailscale services.</div>
         </section>
-        <div class="settings-actions"><button class="ghost" id="speechHealthButton" type="button">Test connections</button><button class="primary" type="submit">Save</button></div>
+        <div class="settings-actions"><button class="ghost" id="speechHealthButton" type="button">Test connections</button><button class="ghost" id="speechPlaybackTestButton" type="button">Test voice</button><button class="primary" type="submit">Save</button></div>
       </div>
     </form>
   </dialog>
@@ -312,6 +315,7 @@ def render_web_chat_page(
     const speechSettingsForm = document.getElementById('speechSettingsForm');
     const speechSettingsClose = document.getElementById('speechSettingsClose');
     const speechHealthButton = document.getElementById('speechHealthButton');
+    const speechPlaybackTestButton = document.getElementById('speechPlaybackTestButton');
     const statePill = document.getElementById('statePill');
     const SESSION_KEY = 'ciel-runtime-web-chat-session';
     const LAST_ID_KEY = 'ciel-runtime-web-chat-last-id';
@@ -357,6 +361,9 @@ def render_web_chat_page(
     let liveUtteranceSerial = 0;
     let activeSpeechAudio = null;
     let activeSpeechUrl = '';
+    let speechPlaybackContext = null;
+    let activeSpeechSource = null;
+    const activeSpeechSources = new Set();
     let speechGenerationController = null;
     let pendingTtsReferenceAudio = '';
     function setState(text, cls = '') {{
@@ -739,10 +746,12 @@ def render_web_chat_page(
       document.getElementById('asrApiKey').placeholder = asr.api_key_set ? 'Token is set; leave blank to keep it' : 'Optional remote bearer token';
       document.getElementById('ttsEnabled').checked = Boolean(tts.enabled);
       document.getElementById('ttsAutoSpeak').checked = Boolean(tts.auto_speak);
+      document.getElementById('ttsStreaming').checked = Boolean(tts.streaming);
       document.getElementById('ttsBaseUrl').value = tts.base_url || '';
       document.getElementById('ttsModel').value = tts.model || '';
       document.getElementById('ttsVoice').value = tts.voice || 'default';
       document.getElementById('ttsLanguage').value = tts.language || 'ko';
+      document.getElementById('ttsSampleRate').value = tts.sample_rate || 48000;
       document.getElementById('ttsReferenceText').value = tts.ref_text || '';
       document.getElementById('ttsReferenceAudioStatus').textContent = tts.ref_audio_set ? 'Reference voice saved securely on this Ciel router' : 'No reference voice configured';
       document.getElementById('ttsClearReferenceAudio').checked = false;
@@ -754,6 +763,7 @@ def render_web_chat_page(
       document.getElementById('colabDistribution').value = colab.distribution || 'Ubuntu-26.04';
       document.getElementById('colabAuth').value = colab.auth || 'adc';
       document.getElementById('colabProfile').value = colab.profile || 'default';
+      document.getElementById('colabTtsBackend').value = colab.tts_backend || (String(tts.model || '').includes('CosyVoice3') ? 'cosyvoice3' : 'moss');
       document.getElementById('colabAsrSession').value = colab.asr_session || 'ciel-asr';
       document.getElementById('colabTtsSession').value = colab.tts_session || 'ciel-tts';
       document.getElementById('colabAsrAccelerator').value = colab.asr_accelerator || 'T4';
@@ -790,10 +800,12 @@ def render_web_chat_page(
         tts: {{
           enabled: document.getElementById('ttsEnabled').checked,
           auto_speak: document.getElementById('ttsAutoSpeak').checked,
+          streaming: document.getElementById('ttsStreaming').checked,
           base_url: document.getElementById('ttsBaseUrl').value,
           model: document.getElementById('ttsModel').value,
           voice: document.getElementById('ttsVoice').value,
           language: document.getElementById('ttsLanguage').value,
+          sample_rate: Number(document.getElementById('ttsSampleRate').value || 48000),
           ref_audio: pendingTtsReferenceAudio,
           ref_text: document.getElementById('ttsReferenceText').value,
           clear_ref_audio: document.getElementById('ttsClearReferenceAudio').checked,
@@ -804,6 +816,7 @@ def render_web_chat_page(
           distribution: document.getElementById('colabDistribution').value,
           auth: document.getElementById('colabAuth').value,
           profile: document.getElementById('colabProfile').value,
+          tts_backend: document.getElementById('colabTtsBackend').value,
           asr_session: document.getElementById('colabAsrSession').value,
           tts_session: document.getElementById('colabTtsSession').value,
           asr_accelerator: document.getElementById('colabAsrAccelerator').value,
@@ -864,9 +877,22 @@ def render_web_chat_page(
       setTimeout(() => pollColabJob().catch(() => {{}}), 1000);
       return data;
     }}
+    function unlockSpeechPlayback() {{
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return null;
+      if (!speechPlaybackContext || speechPlaybackContext.state === 'closed') speechPlaybackContext = new AudioContextClass();
+      if (speechPlaybackContext.state === 'suspended') speechPlaybackContext.resume().catch(() => {{}});
+      return speechPlaybackContext;
+    }}
     function stopActiveSpeech() {{
       if (speechGenerationController) speechGenerationController.abort();
       speechGenerationController = null;
+      if (activeSpeechSource) {{
+        try {{ activeSpeechSource.stop(); }} catch {{}}
+        activeSpeechSource = null;
+      }}
+      activeSpeechSources.forEach(source => {{ try {{ source.stop(); }} catch {{}} }});
+      activeSpeechSources.clear();
       if (activeSpeechAudio) {{
         activeSpeechAudio.pause();
         activeSpeechAudio.currentTime = 0;
@@ -874,6 +900,87 @@ def render_web_chat_page(
       activeSpeechAudio = null;
       if (activeSpeechUrl) URL.revokeObjectURL(activeSpeechUrl);
       activeSpeechUrl = '';
+    }}
+    async function playSpeechBlob(blob) {{
+      const context = speechPlaybackContext;
+      if (context && context.state === 'running') {{
+        try {{
+          const audioBuffer = await context.decodeAudioData(await blob.arrayBuffer());
+          const source = context.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(context.destination);
+          activeSpeechSource = source;
+          activeSpeechSources.add(source);
+          source.addEventListener('ended', () => {{
+            activeSpeechSources.delete(source);
+            if (activeSpeechSource === source) {{
+              activeSpeechSource = null;
+              setState(liveVoiceEnabled ? 'listening' : 'ready', 'ok');
+            }}
+          }}, {{once: true}});
+          source.start();
+          return;
+        }} catch {{}}
+      }}
+      activeSpeechUrl = URL.createObjectURL(blob);
+      activeSpeechAudio = new Audio(activeSpeechUrl);
+      const audio = activeSpeechAudio;
+      audio.preload = 'auto';
+      audio.playsInline = true;
+      const cleanup = () => {{
+        if (activeSpeechAudio === audio) {{
+          activeSpeechAudio = null;
+          if (activeSpeechUrl) URL.revokeObjectURL(activeSpeechUrl);
+          activeSpeechUrl = '';
+          setState(liveVoiceEnabled ? 'listening' : 'ready', 'ok');
+        }}
+      }};
+      audio.addEventListener('ended', cleanup, {{once: true}});
+      audio.addEventListener('error', cleanup, {{once: true}});
+      await audio.play();
+    }}
+    async function playPcmSpeechStream(response, controller, sampleRate) {{
+      const context = unlockSpeechPlayback();
+      if (context && context.state === 'suspended') await context.resume();
+      if (!context || context.state !== 'running' || !response.body) throw new Error('Browser audio is locked; click Test voice once to enable playback');
+      const reader = response.body.getReader();
+      let remainder = new Uint8Array(0);
+      let nextStart = context.currentTime + 0.06;
+      let received = false;
+      while (true) {{
+        const part = await reader.read();
+        if (part.done) break;
+        if (controller.signal.aborted) {{ await reader.cancel(); return; }}
+        let bytes = part.value;
+        if (remainder.length) {{
+          const joined = new Uint8Array(remainder.length + bytes.length);
+          joined.set(remainder);
+          joined.set(bytes, remainder.length);
+          bytes = joined;
+        }}
+        const usable = bytes.length - (bytes.length % 2);
+        remainder = usable < bytes.length ? bytes.slice(usable) : new Uint8Array(0);
+        if (!usable) continue;
+        const samples = usable / 2;
+        const audioBuffer = context.createBuffer(1, samples, sampleRate);
+        const channelData = audioBuffer.getChannelData(0);
+        const view = new DataView(bytes.buffer, bytes.byteOffset, usable);
+        for (let index = 0; index < samples; index += 1) channelData[index] = view.getInt16(index * 2, true) / 32768;
+        const source = context.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(context.destination);
+        activeSpeechSources.add(source);
+        source.addEventListener('ended', () => {{
+          activeSpeechSources.delete(source);
+          if (!activeSpeechSources.size && !speechGenerationController) setState(liveVoiceEnabled ? 'listening' : 'ready', 'ok');
+        }}, {{once: true}});
+        const startsAt = Math.max(nextStart, context.currentTime + 0.03);
+        source.start(startsAt);
+        nextStart = startsAt + audioBuffer.duration;
+        if (!received) setState('speaking', 'ok');
+        received = true;
+      }}
+      if (!received) throw new Error('TTS returned an empty PCM stream');
     }}
     async function speakText(text) {{
       if (!speechConfig.tts || !speechConfig.tts.enabled) {{
@@ -886,34 +993,28 @@ def render_web_chat_page(
       speechGenerationController = controller;
       try {{
         setState('generating speech');
+        const streamAudio = Boolean(speechConfig.tts.streaming);
+        const requestBody = {{input: String(text || ''), model: speechConfig.tts.model, voice: speechConfig.tts.voice, language: speechConfig.tts.language, response_format: streamAudio ? 'pcm' : (speechConfig.tts.response_format || 'wav')}};
+        if (streamAudio) Object.assign(requestBody, {{stream: true, stream_format: 'audio'}});
         const response = await fetch('/v1/audio/speech', {{
           method: 'POST',
           headers: {{'content-type': 'application/json', 'accept': 'audio/*'}},
-          body: JSON.stringify({{input: String(text || ''), model: speechConfig.tts.model, voice: speechConfig.tts.voice, language: speechConfig.tts.language, response_format: speechConfig.tts.response_format || 'wav'}}),
+          body: JSON.stringify(requestBody),
           signal: controller.signal,
         }});
         if (!response.ok) throw new Error(await response.text() || `HTTP ${{response.status}}`);
+        if (streamAudio) {{
+          await playPcmSpeechStream(response, controller, Number(speechConfig.tts.sample_rate || 24000));
+          speechGenerationController = null;
+          if (!activeSpeechSources.size) setState(liveVoiceEnabled ? 'listening' : 'ready', 'ok');
+          return;
+        }}
         const blob = await response.blob();
         if (!blob.size) throw new Error('TTS returned empty audio');
         if (blob.type && !blob.type.startsWith('audio/')) throw new Error(`TTS returned ${{blob.type}} instead of audio`);
         if (controller.signal.aborted) return;
         speechGenerationController = null;
-        activeSpeechUrl = URL.createObjectURL(blob);
-        activeSpeechAudio = new Audio(activeSpeechUrl);
-        const audio = activeSpeechAudio;
-        audio.preload = 'auto';
-        audio.playsInline = true;
-        const cleanup = () => {{
-          if (activeSpeechAudio === audio) {{
-            activeSpeechAudio = null;
-            if (activeSpeechUrl) URL.revokeObjectURL(activeSpeechUrl);
-            activeSpeechUrl = '';
-            if (liveVoiceEnabled) setState('listening', 'ok');
-          }}
-        }};
-        audio.addEventListener('ended', cleanup, {{once: true}});
-        audio.addEventListener('error', cleanup, {{once: true}});
-        await audio.play();
+        await playSpeechBlob(blob);
         setState('speaking', 'ok');
       }} catch (err) {{
         if (err && err.name === 'AbortError') return;
@@ -1313,6 +1414,8 @@ def render_web_chat_page(
         composer.requestSubmit();
       }}
     }});
+    document.addEventListener('pointerdown', unlockSpeechPlayback, {{capture: true}});
+    document.addEventListener('keydown', unlockSpeechPlayback, {{capture: true}});
     attachButton.addEventListener('click', () => fileInput.click());
     micButton.addEventListener('click', async () => {{
       if (liveVoiceEnabled) {{
@@ -1369,6 +1472,13 @@ def render_web_chat_page(
         const tts = data.services && data.services.tts;
         addBubble('system', `Speech health — ASR: ${{asr && asr.reachable ? 'reachable' : asr && asr.enabled ? 'unreachable' : 'disabled'}}, TTS: ${{tts && tts.reachable ? 'reachable' : tts && tts.enabled ? 'unreachable' : 'disabled'}}.`);
       }} catch (err) {{ addBubble('system', 'Speech health check failed: ' + String(err && err.message ? err.message : err)); }}
+    }});
+    speechPlaybackTestButton.addEventListener('click', async () => {{
+      try {{
+        await saveSpeechConfig();
+        unlockSpeechPlayback();
+        await speakText('음성 재생 테스트입니다.');
+      }} catch (err) {{ addBubble('system', 'Voice playback test failed: ' + String(err && err.message ? err.message : err)); }}
     }});
     fileInput.addEventListener('change', () => {{
       addSelectedFiles(fileInput.files);

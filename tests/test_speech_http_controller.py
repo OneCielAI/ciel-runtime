@@ -15,6 +15,7 @@ class _Handler:
         self.status = None
         self.response_headers = {}
         self.wfile = io.BytesIO()
+        self.close_connection = False
 
     def send_response(self, status):
         self.status = status
@@ -31,9 +32,19 @@ class _Response:
         self.data = data
         self.headers = _Headers({"content-type": content_type})
         self.status = status
+        self.offset = 0
 
-    def read(self):
-        return self.data
+    def read(self, size=-1):
+        if size is None or size < 0:
+            chunk = self.data[self.offset:]
+            self.offset = len(self.data)
+            return chunk
+        chunk = self.data[self.offset:self.offset + size]
+        self.offset += len(chunk)
+        return chunk
+
+    def read1(self, size=-1):
+        return self.read(size)
 
     def __enter__(self):
         return self
@@ -47,8 +58,8 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.config = {
             "speech": {
                 "asr": {"enabled": True, "base_url": "http://ciel-asr", "endpoint": "/v1/audio/transcriptions", "model": "Qwen/Qwen3-ASR-0.6B", "language": "auto", "silence_ms": 900, "min_speech_ms": 300, "vad_threshold": 0.018, "api_key": "asr-secret", "timeout_seconds": 30},
-                "tts": {"enabled": True, "base_url": "http://ciel-tts", "endpoint": "/v1/audio/speech", "voices_endpoint": "/v1/audio/voices", "model": "OpenMOSS-Team/MOSS-TTS-Nano", "voice": "default", "language": "ko", "ref_audio": "https://example.test/reference.wav", "response_format": "wav", "speed": 1.0, "auto_speak": True, "api_key": "tts-secret", "timeout_seconds": 30},
-                "colab": {"enabled": True, "distribution": "Ubuntu-26.04", "auth": "adc", "asr_session": "ciel-asr", "tts_session": "ciel-tts", "asr_accelerator": "T4", "tts_accelerator": "T4"},
+                "tts": {"enabled": True, "base_url": "http://ciel-tts", "endpoint": "/v1/audio/speech", "voices_endpoint": "/v1/audio/voices", "model": "OpenMOSS-Team/MOSS-TTS-Nano", "voice": "default", "language": "ko", "ref_audio": "https://example.test/reference.wav", "ref_text": "reference words", "response_format": "wav", "speed": 1.0, "auto_speak": True, "streaming": False, "sample_rate": 48000, "api_key": "tts-secret", "timeout_seconds": 30},
+                "colab": {"enabled": True, "distribution": "Ubuntu-26.04", "auth": "adc", "asr_session": "ciel-asr", "tts_session": "ciel-tts", "asr_accelerator": "T4", "tts_accelerator": "T4", "tts_backend": "moss"},
                 "tailscale": {"enabled": True, "asr_hostname": "ciel-asr", "tts_hostname": "ciel-tts"},
             }
         }
@@ -150,6 +161,45 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.assertEqual("audio/wav", handler.response_headers["content-type"])
         self.assertEqual(b"RIFFaudio", handler.wfile.getvalue())
 
+    def test_cosyvoice_tts_stream_is_flushed_and_forwarded_as_pcm(self):
+        handler = _Handler()
+        self.config["speech"]["tts"].update({
+            "model": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512",
+            "sample_rate": 24000,
+            "streaming": True,
+        })
+        controller = self.controller(_Response(b"\x00\x00\x01\x00", "audio/pcm"))
+
+        handled = controller.post(
+            handler,
+            "/v1/audio/speech",
+            b'{"input":"hello","stream":true,"stream_format":"audio","response_format":"pcm"}',
+            "application/json",
+        )
+
+        self.assertTrue(handled)
+        payload = json.loads(self.requests[0][0].data)
+        self.assertTrue(payload["stream"])
+        self.assertEqual("audio", payload["stream_format"])
+        self.assertEqual("pcm", payload["response_format"])
+        self.assertEqual("audio/pcm", handler.response_headers["content-type"])
+        self.assertEqual("close", handler.response_headers["connection"])
+        self.assertTrue(handler.close_connection)
+        self.assertEqual(b"\x00\x00\x01\x00", handler.wfile.getvalue())
+
+    def test_cosyvoice_requires_reference_audio_and_exact_transcript(self):
+        handler = _Handler()
+        self.config["speech"]["tts"].update({
+            "model": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512",
+            "ref_text": "",
+        })
+
+        self.controller().post(handler, "/v1/audio/speech", b'{"input":"hello"}', "application/json")
+
+        self.assertEqual(400, handler.status)
+        self.assertEqual([], self.requests)
+        self.assertIn("exact ref_text transcript", handler.wfile.getvalue().decode())
+
     def test_blank_token_update_preserves_existing_secret(self):
         handler = _Handler()
         body = json.dumps({"asr": {"base_url": "https://new-asr.tailnet.ts.net", "api_key": ""}}).encode()
@@ -169,6 +219,7 @@ class SpeechHttpControllerTests(unittest.TestCase):
             "tts_session": "speech-tts",
             "asr_accelerator": "l4",
             "tts_accelerator": "a100",
+            "tts_backend": "cosyvoice3",
         }}).encode()
 
         self.controller().post(handler, "/ca/speech/config", body, "application/json")
@@ -178,6 +229,7 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.assertEqual("oauth2", saved["auth"])
         self.assertEqual("L4", saved["asr_accelerator"])
         self.assertEqual("A100", saved["tts_accelerator"])
+        self.assertEqual("cosyvoice3", saved["tts_backend"])
         self.assertEqual(200, handler.status)
 
     def test_colab_connection_settings_reject_shell_metacharacters(self):

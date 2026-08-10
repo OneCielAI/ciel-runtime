@@ -37,6 +37,7 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
                 "tts_session": "ciel-tts",
                 "asr_accelerator": "T4",
                 "tts_accelerator": "T4",
+                "tts_backend": "moss",
             },
             "asr": {
                 "enabled": False,
@@ -63,6 +64,8 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
                 "response_format": "wav",
                 "speed": 1.0,
                 "auto_speak": False,
+                "streaming": False,
+                "sample_rate": 48000,
                 "api_key": "",
                 "timeout_seconds": 300,
             },
