@@ -59,7 +59,7 @@ class SpeechHttpControllerTests(unittest.TestCase):
             "speech": {
                 "asr": {"enabled": True, "base_url": "http://ciel-asr", "endpoint": "/v1/audio/transcriptions", "model": "Qwen/Qwen3-ASR-0.6B", "language": "auto", "silence_ms": 900, "min_speech_ms": 300, "vad_threshold": 0.018, "api_key": "asr-secret", "timeout_seconds": 30},
                 "tts": {"enabled": True, "base_url": "http://ciel-tts", "endpoint": "/v1/audio/speech", "voices_endpoint": "/v1/audio/voices", "model": "OpenMOSS-Team/MOSS-TTS-Nano", "voice": "default", "language": "ko", "ref_audio": "https://example.test/reference.wav", "ref_text": "reference words", "response_format": "wav", "speed": 1.0, "auto_speak": True, "streaming": False, "sample_rate": 48000, "api_key": "tts-secret", "timeout_seconds": 30},
-                "colab": {"enabled": True, "distribution": "Ubuntu-26.04", "auth": "adc", "asr_session": "ciel-asr", "tts_session": "ciel-tts", "asr_accelerator": "T4", "tts_accelerator": "T4", "tts_backend": "moss"},
+                "colab": {"enabled": True, "distribution": "Ubuntu-26.04", "auth": "adc", "asr_session": "ciel-asr", "tts_session": "ciel-tts", "asr_model": "Qwen/Qwen3-ASR-0.6B", "asr_accelerator": "T4", "tts_accelerator": "T4", "tts_backend": "moss"},
                 "tailscale": {"enabled": True, "asr_hostname": "ciel-asr", "tts_hostname": "ciel-tts"},
             }
         }
@@ -217,6 +217,7 @@ class SpeechHttpControllerTests(unittest.TestCase):
             "auth": "oauth2",
             "asr_session": "speech-asr",
             "tts_session": "speech-tts",
+            "asr_model": "Qwen/Qwen3-ASR-1.7B",
             "asr_accelerator": "l4",
             "tts_accelerator": "a100",
             "tts_backend": "cosyvoice3",
@@ -228,6 +229,7 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.assertEqual("Ubuntu-24.04", saved["distribution"])
         self.assertEqual("oauth2", saved["auth"])
         self.assertEqual("L4", saved["asr_accelerator"])
+        self.assertEqual("Qwen/Qwen3-ASR-1.7B", saved["asr_model"])
         self.assertEqual("A100", saved["tts_accelerator"])
         self.assertEqual("cosyvoice3", saved["tts_backend"])
         self.assertEqual(200, handler.status)

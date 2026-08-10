@@ -18,7 +18,7 @@ From PowerShell at the repository root:
 
 Set the WSL distribution, authentication mode, ASR/TTS session names, and accelerators in **Web Chat > Speech Settings > Colab CLI connection**. These values are available through `GET|POST /ca/speech/config`; Ciel does not store Colab credentials. The deployment script reads the saved values automatically. Command-line parameters such as `-Distribution`, `-ColabAuth`, `-AsrSession`, and `-AsrAccelerator` override them for one run.
 
-The script reuses matching active sessions when possible, otherwise creates them, installs Qwen3-ASR-0.6B plus the selected TTS engine (MOSS-TTS-Nano or Fun-CosyVoice3-0.5B-2512), starts Tailscale in userspace networking mode, publishes each localhost model server with Tailscale Serve, and saves both returned `base_url` values into Web Chat > Speech Settings automatically. Choose the TTS engine in the Colab section before **Recover & deploy**, or pass `-TtsBackend moss|cosyvoice3` to the script.
+The script reuses matching active sessions when possible, otherwise creates them, installs the selected Qwen3-ASR model (0.6B or 1.7B) plus the selected TTS engine (MOSS-TTS-Nano or Fun-CosyVoice3-0.5B-2512), starts Tailscale in userspace networking mode, publishes each localhost model server with Tailscale Serve, and saves both returned `base_url` values into Web Chat > Speech Settings automatically. Choose both models in their STT/TTS sections before **Recover & deploy**, or pass `-AsrModel Qwen/Qwen3-ASR-1.7B` and `-TtsBackend moss|cosyvoice3` to the script.
 
 ### Session recovery and account profiles
 
@@ -49,6 +49,8 @@ Colab sessions are ephemeral. Re-run the bootstrap after a runtime reset. The wo
 ## Live voice
 
 Web Chat's **Start live voice** button keeps the microphone open and uses browser-side voice activity detection (VAD). While the user is speaking, the browser sends rate-limited snapshots of the growing utterance to the Qwen worker and displays the latest best-effort partial transcript. A completed utterance is encoded as PCM WAV, transcribed once more for the final text, and sent to the active coding-agent session automatically. While MOSS TTS is generating or playing a reply, new speech stops it immediately and starts a new utterance (barge-in). Tune end-of-speech silence, minimum speech duration, and the VAD threshold in Speech Settings.
+
+The composer also exposes a local microphone-sensitivity preset and a minimum transcript character count. Low sensitivity requires sustained audio before opening an utterance, which filters keyboard clicks and protects TTS from false barge-in. Empty Qwen wrapper output and transcripts shorter than the selected character count are never sent to the coding agent. Live partial text is shown above the input as an outgoing-message preview.
 
 The Colab Qwen endpoint remains a batch HTTP API, so the live caption is progressive re-transcription rather than token-level server streaming. A future WebSocket or streaming HTTP worker can replace this transport without changing the final-turn behavior.
 

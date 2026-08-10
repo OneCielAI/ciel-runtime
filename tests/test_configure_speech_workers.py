@@ -14,7 +14,7 @@ SPEC.loader.exec_module(MODULE)
 
 
 class ConfigureSpeechWorkersTests(unittest.TestCase):
-    def configure(self, config, backend):
+    def configure(self, config, backend, asr_model=None):
         saved = []
         runtime = types.SimpleNamespace(load_config=lambda: config, save_config=lambda value: saved.append(value))
         with mock.patch.dict(sys.modules, {"ciel_runtime": runtime}):
@@ -22,6 +22,7 @@ class ConfigureSpeechWorkersTests(unittest.TestCase):
                 "http://ciel-asr/",
                 "http://ciel-tts/",
                 tts_backend=backend,
+                asr_model=asr_model,
             )
         return result, saved[0]
 
@@ -51,6 +52,12 @@ class ConfigureSpeechWorkersTests(unittest.TestCase):
         self.assertEqual("OpenMOSS-Team/MOSS-TTS-Nano", tts["model"])
         self.assertEqual(48000, tts["sample_rate"])
         self.assertFalse(tts["streaming"])
+
+    def test_qwen_asr_model_selection_is_persisted_for_deployment(self):
+        result, config = self.configure({"speech": {"tts": {}}}, "moss", "Qwen/Qwen3-ASR-1.7B")
+
+        self.assertEqual("Qwen/Qwen3-ASR-1.7B", config["speech"]["asr"]["model"])
+        self.assertEqual("Qwen/Qwen3-ASR-1.7B", result["colab"]["asr_model"])
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ param(
     [string]$ColabAuth,
     [string]$AsrSession,
     [string]$TtsSession,
+    [string]$AsrModel,
     [string]$AsrAccelerator,
     [string]$TtsAccelerator,
     [string]$TtsBackend
@@ -24,6 +25,8 @@ if ([string]::IsNullOrWhiteSpace($Profile)) { $Profile = [string]$settings.profi
 if ([string]::IsNullOrWhiteSpace($Profile)) { $Profile = "default" }
 if ([string]::IsNullOrWhiteSpace($AsrSession)) { $AsrSession = [string]$settings.asr_session }
 if ([string]::IsNullOrWhiteSpace($TtsSession)) { $TtsSession = [string]$settings.tts_session }
+if ([string]::IsNullOrWhiteSpace($AsrModel)) { $AsrModel = [string]$settings.asr_model }
+if ([string]::IsNullOrWhiteSpace($AsrModel)) { $AsrModel = "Qwen/Qwen3-ASR-0.6B" }
 if ([string]::IsNullOrWhiteSpace($AsrAccelerator)) { $AsrAccelerator = [string]$settings.asr_accelerator }
 if ([string]::IsNullOrWhiteSpace($TtsAccelerator)) { $TtsAccelerator = [string]$settings.tts_accelerator }
 if ([string]::IsNullOrWhiteSpace($TtsBackend)) { $TtsBackend = [string]$settings.tts_backend }
@@ -38,6 +41,7 @@ foreach ($accelerator in @($AsrAccelerator, $TtsAccelerator)) {
     if ($accelerator -notin @('T4', 'L4', 'G4', 'A100', 'H100')) { throw "Unsupported Colab accelerator: $accelerator" }
 }
 if ($TtsBackend -notin @('moss', 'cosyvoice3')) { throw "TtsBackend must be moss or cosyvoice3." }
+if ($AsrModel -notin @('Qwen/Qwen3-ASR-0.6B', 'Qwen/Qwen3-ASR-1.7B')) { throw "Unsupported Qwen3-ASR model: $AsrModel" }
 $wslRepo = (& wsl -d $Distribution -- wslpath -a ($repo -replace '\\', '/')).Trim()
 if (-not $wslRepo) { throw "Could not resolve the repository path in WSL." }
 $wslHome = (& wsl -d $Distribution -- bash -lc 'printf %s "$HOME"').Trim()
@@ -120,6 +124,7 @@ if ($Action -eq 'Start') {
 
 Write-Host "Installing Qwen3-ASR and its Tailscale service..."
 $asrArguments = @('exec', '--session', $AsrSession)
+$asrArguments += @('--env', "CIEL_ASR_MODEL=$AsrModel")
 if ($env:TAILSCALE_AUTHKEY) { $asrArguments += @('--env', "TAILSCALE_AUTHKEY=$($env:TAILSCALE_AUTHKEY)") }
 if ($env:CIEL_SPEECH_API_KEY) { $asrArguments += @('--env', "CIEL_SPEECH_API_KEY=$($env:CIEL_SPEECH_API_KEY)") }
 $asrArguments += @('--file', "$wslRepo/scripts/colab/bootstrap_qwen_asr.py")
@@ -145,7 +150,7 @@ function Read-BootstrapResult([string]$Text, [string]$Role) {
 
 $asr = Read-BootstrapResult $asrOutput "asr"
 $tts = Read-BootstrapResult $ttsOutput "tts"
-& python (Join-Path $PSScriptRoot "configure_speech_workers.py") --asr-base-url $asr.base_url --tts-base-url $tts.base_url --distribution $Distribution --auth $ColabAuth --profile $Profile --asr-session $AsrSession --tts-session $TtsSession --asr-accelerator $AsrAccelerator --tts-accelerator $TtsAccelerator --tts-backend $TtsBackend
+& python (Join-Path $PSScriptRoot "configure_speech_workers.py") --asr-base-url $asr.base_url --tts-base-url $tts.base_url --distribution $Distribution --auth $ColabAuth --profile $Profile --asr-session $AsrSession --tts-session $TtsSession --asr-model $AsrModel --asr-accelerator $AsrAccelerator --tts-accelerator $TtsAccelerator --tts-backend $TtsBackend
 if ($LASTEXITCODE -ne 0) { throw "Workers started, but Ciel speech configuration failed." }
 
 Write-Host "Both services are running and connected to Web Chat > Speech Settings."

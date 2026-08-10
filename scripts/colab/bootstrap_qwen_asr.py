@@ -17,10 +17,13 @@ import urllib.request
 
 
 HOSTNAME = os.environ.get("CIEL_ASR_HOSTNAME", "ciel-asr")
+SUPPORTED_MODELS = {"Qwen/Qwen3-ASR-0.6B", "Qwen/Qwen3-ASR-1.7B"}
+MODEL = os.environ.get("CIEL_ASR_MODEL", "Qwen/Qwen3-ASR-0.6B").strip()
 PORT = 8000
 SOCKET = "/tmp/ciel-asr-tailscaled.sock"
 STATE = "/tmp/ciel-asr-tailscaled.state"
 LOG_DIR = Path("/content/ciel-speech-logs")
+MODEL_MARKER = Path("/content/ciel-speech-asr-model")
 
 
 def secret(name: str, *, required: bool = False) -> str:
@@ -63,12 +66,13 @@ def start_tailscale(auth_key: str) -> tuple[str, str]:
     install_tailscale()
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     tail_log = (LOG_DIR / "tailscale-asr.log").open("ab")
-    subprocess.Popen(
-        ["tailscaled", f"--socket={SOCKET}", f"--state={STATE}", "--tun=userspace-networking"],
-        stdout=tail_log,
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
-    )
+    if not Path(SOCKET).exists():
+        subprocess.Popen(
+            ["tailscaled", f"--socket={SOCKET}", f"--state={STATE}", "--tun=userspace-networking"],
+            stdout=tail_log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
     for _ in range(60):
         if Path(SOCKET).exists():
             break
@@ -82,34 +86,55 @@ def start_tailscale(auth_key: str) -> tuple[str, str]:
     return dns_name, f"http://{dns_name}"
 
 
-def wait_for_server(api_key: str) -> None:
+def server_is_healthy(api_key: str) -> bool:
     headers = {"authorization": f"Bearer {api_key}"} if api_key else {}
+    try:
+        with urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{PORT}/health", headers=headers), timeout=3) as response:
+            return response.status < 500
+    except Exception:
+        return False
+
+
+def wait_for_server(api_key: str, process: subprocess.Popen[bytes]) -> None:
     for _ in range(180):
-        try:
-            with urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{PORT}/health", headers=headers), timeout=3) as response:
-                if response.status < 500:
-                    return
-        except Exception:
-            time.sleep(2)
+        if process.poll() is not None:
+            log_path = LOG_DIR / "qwen-asr.log"
+            log_tail = log_path.read_text(encoding="utf-8", errors="replace")[-12000:] if log_path.exists() else "log unavailable"
+            raise RuntimeError(f"Qwen ASR exited with status {process.returncode}:\n{log_tail}")
+        if server_is_healthy(api_key):
+            return
+        time.sleep(2)
     raise RuntimeError("Qwen ASR did not become healthy; inspect /content/ciel-speech-logs/qwen-asr.log")
 
 
+def prepare_model() -> None:
+    current = MODEL_MARKER.read_text(encoding="utf-8", errors="replace").strip() if MODEL_MARKER.exists() else ""
+    if current != MODEL:
+        run("bash", "-lc", f"fuser -k {PORT}/tcp >/dev/null 2>&1 || true", check=False)
+        time.sleep(2)
+
+
 def main() -> None:
+    if MODEL not in SUPPORTED_MODELS:
+        raise RuntimeError(f"Unsupported CIEL_ASR_MODEL: {MODEL}")
     auth_key = secret("TAILSCALE_AUTHKEY", required=True)
     api_key = secret("CIEL_SPEECH_API_KEY")
     run(sys.executable, "-m", "pip", "install", "-U", "qwen-asr[vllm]", "vllm[audio]")
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-    command = [
-        "qwen-asr-serve", "Qwen/Qwen3-ASR-0.6B", "--host", "127.0.0.1", "--port", str(PORT),
-        "--gpu-memory-utilization", "0.78", "--max-model-len", "8192",
-    ]
-    if api_key:
-        command.extend(["--api-key", api_key])
-    server_log = (LOG_DIR / "qwen-asr.log").open("ab")
-    subprocess.Popen(command, stdout=server_log, stderr=subprocess.STDOUT, start_new_session=True)
-    wait_for_server(api_key)
+    prepare_model()
+    if not server_is_healthy(api_key):
+        command = [
+            "qwen-asr-serve", MODEL, "--host", "127.0.0.1", "--port", str(PORT),
+            "--gpu-memory-utilization", "0.78", "--max-model-len", "8192",
+        ]
+        if api_key:
+            command.extend(["--api-key", api_key])
+        server_log = (LOG_DIR / "qwen-asr.log").open("ab")
+        process = subprocess.Popen(command, stdout=server_log, stderr=subprocess.STDOUT, start_new_session=True)
+        wait_for_server(api_key, process)
+    MODEL_MARKER.write_text(MODEL, encoding="utf-8")
     dns_name, base_url = start_tailscale(auth_key)
-    print(json.dumps({"ok": True, "role": "asr", "hostname": dns_name, "base_url": base_url, "model": "Qwen/Qwen3-ASR-0.6B", "api_key_set": bool(api_key)}, indent=2))
+    print(json.dumps({"ok": True, "role": "asr", "hostname": dns_name, "base_url": base_url, "model": MODEL, "api_key_set": bool(api_key)}, indent=2))
 
 
 if __name__ == "__main__":

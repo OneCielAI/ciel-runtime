@@ -35,6 +35,7 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
                 "profile": "default",
                 "asr_session": "ciel-asr",
                 "tts_session": "ciel-tts",
+                "asr_model": "Qwen/Qwen3-ASR-0.6B",
                 "asr_accelerator": "T4",
                 "tts_accelerator": "T4",
                 "tts_backend": "moss",

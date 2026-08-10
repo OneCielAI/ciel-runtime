@@ -256,6 +256,7 @@ class SpeechHttpController:
             "profile",
             "asr_session",
             "tts_session",
+            "asr_model",
             "asr_accelerator",
             "tts_accelerator",
             "tts_backend",
@@ -280,6 +281,10 @@ class SpeechHttpController:
             if backend not in {"moss", "cosyvoice3"}:
                 raise ValueError("unsupported Colab TTS backend")
             return backend
+        if key == "asr_model":
+            if text not in {"Qwen/Qwen3-ASR-0.6B", "Qwen/Qwen3-ASR-1.7B"}:
+                raise ValueError("unsupported Colab ASR model")
+            return text
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", text):
             raise ValueError(f"invalid Colab {key}")
         return text

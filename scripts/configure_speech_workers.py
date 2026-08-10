@@ -18,6 +18,7 @@ TTS_BACKENDS = {
     "moss": {"model": "OpenMOSS-Team/MOSS-TTS-Nano", "sample_rate": 48000, "streaming": False},
     "cosyvoice3": {"model": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512", "sample_rate": 24000, "streaming": True},
 }
+ASR_MODELS = {"Qwen/Qwen3-ASR-0.6B", "Qwen/Qwen3-ASR-1.7B"}
 DEFAULT_COLAB_SETTINGS: dict[str, Any] = {
     "enabled": True,
     "distribution": "Ubuntu-26.04",
@@ -25,6 +26,7 @@ DEFAULT_COLAB_SETTINGS: dict[str, Any] = {
     "profile": "default",
     "asr_session": "ciel-asr",
     "tts_session": "ciel-tts",
+    "asr_model": "Qwen/Qwen3-ASR-0.6B",
     "asr_accelerator": "T4",
     "tts_accelerator": "T4",
     "tts_backend": "moss",
@@ -50,6 +52,7 @@ def configure(
     profile: str | None = None,
     asr_session: str | None = None,
     tts_session: str | None = None,
+    asr_model: str | None = None,
     asr_accelerator: str | None = None,
     tts_accelerator: str | None = None,
     tts_backend: str | None = None,
@@ -67,6 +70,7 @@ def configure(
         "profile": profile,
         "asr_session": asr_session,
         "tts_session": tts_session,
+        "asr_model": asr_model,
         "asr_accelerator": asr_accelerator,
         "tts_accelerator": tts_accelerator,
         "tts_backend": tts_backend,
@@ -77,8 +81,11 @@ def configure(
     if backend not in TTS_BACKENDS:
         raise ValueError(f"unsupported TTS backend: {backend}")
     backend_settings = TTS_BACKENDS[backend]
+    selected_asr_model = str(colab.get("asr_model") or "Qwen/Qwen3-ASR-0.6B").strip()
+    if selected_asr_model not in ASR_MODELS:
+        raise ValueError(f"unsupported ASR model: {selected_asr_model}")
     speech["colab"] = colab
-    asr.update({"enabled": True, "base_url": asr_base_url.rstrip("/"), "model": "Qwen/Qwen3-ASR-0.6B"})
+    asr.update({"enabled": True, "base_url": asr_base_url.rstrip("/"), "model": selected_asr_model})
     tts.update({"enabled": True, "base_url": tts_base_url.rstrip("/"), **backend_settings})
     known_defaults = {DEFAULT_TTS_REFERENCE_AUDIO, DEFAULT_COSYVOICE_REFERENCE_AUDIO, ""}
     current_reference = str(tts.get("ref_audio") or "").strip()
@@ -101,6 +108,7 @@ def main() -> int:
     parser.add_argument("--profile")
     parser.add_argument("--asr-session")
     parser.add_argument("--tts-session")
+    parser.add_argument("--asr-model", choices=tuple(sorted(ASR_MODELS)))
     parser.add_argument("--asr-accelerator")
     parser.add_argument("--tts-accelerator")
     parser.add_argument("--tts-backend", choices=tuple(TTS_BACKENDS))
@@ -120,6 +128,7 @@ def main() -> int:
         profile=args.profile,
         asr_session=args.asr_session,
         tts_session=args.tts_session,
+        asr_model=args.asr_model,
         asr_accelerator=args.asr_accelerator,
         tts_accelerator=args.tts_accelerator,
         tts_backend=args.tts_backend,
