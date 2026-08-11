@@ -92,6 +92,36 @@ if ($env:TAILSCALE_AUTHKEY) {
 if ($env:CIEL_SPEECH_API_KEY) {
     if ($env:CIEL_SPEECH_API_KEY -match '[\s''"]') { throw "CIEL_SPEECH_API_KEY cannot contain whitespace or quotes for CLI deployment." }
 }
+$ephemeralSecrets = @{}
+foreach ($secretName in @('TAILSCALE_AUTHKEY', 'CIEL_SPEECH_API_KEY')) {
+    $secretValue = [string][Environment]::GetEnvironmentVariable($secretName, 'Process')
+    if (-not [string]::IsNullOrWhiteSpace($secretValue)) { $ephemeralSecrets[$secretName] = $secretValue }
+    Remove-Item "Env:$secretName" -ErrorAction SilentlyContinue
+}
+
+function New-EphemeralBootstrap([string]$SourcePath) {
+    if ($ephemeralSecrets.Count -eq 0) {
+        return [pscustomobject]@{ WslPath = $SourcePath; LocalPath = $null }
+    }
+    $sourceWindows = (& wsl -d $Distribution -- wslpath -w $SourcePath).Trim()
+    if (-not (Test-Path -LiteralPath $sourceWindows)) { throw "Could not resolve Colab bootstrap source: $SourcePath" }
+    $source = Get-Content -LiteralPath $sourceWindows -Raw
+    $future = 'from __future__ import annotations'
+    if (-not $source.Contains($future)) { throw "Colab bootstrap is missing its future-import marker: $SourcePath" }
+    $injected = [System.Collections.Generic.List[string]]::new()
+    $injected.Add($future)
+    $injected.Add('')
+    $injected.Add('import base64 as _ciel_base64')
+    $injected.Add('import os as _ciel_os')
+    foreach ($secretName in $ephemeralSecrets.Keys) {
+        $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$ephemeralSecrets[$secretName]))
+        $injected.Add("_ciel_os.environ[`"$secretName`"] = _ciel_base64.b64decode(`"$encoded`").decode(`"utf-8`")")
+    }
+    $temporary = New-TemporaryFile
+    Set-Content -LiteralPath $temporary.FullName -Value $source.Replace($future, ($injected -join "`n")) -Encoding UTF8 -NoNewline
+    $temporaryWsl = (& wsl -d $Distribution -- wslpath -a $temporary.FullName.Replace('\', '/')).Trim()
+    return [pscustomobject]@{ WslPath = $temporaryWsl; LocalPath = $temporary.FullName }
+}
 
 Write-Host "Checking Colab CLI authentication..."
 Invoke-Colab @('sessions') | Out-Null
@@ -133,10 +163,13 @@ if ($Action -eq 'Start') {
 Write-Host "Installing Qwen3-ASR and its Tailscale service..."
 $asrArguments = @('exec', '--session', $AsrSession, '--timeout', '1800')
 $asrArguments += @('--env', "CIEL_ASR_MODEL=$AsrModel")
-if ($env:TAILSCALE_AUTHKEY) { $asrArguments += @('--env', "TAILSCALE_AUTHKEY=$($env:TAILSCALE_AUTHKEY)") }
-if ($env:CIEL_SPEECH_API_KEY) { $asrArguments += @('--env', "CIEL_SPEECH_API_KEY=$($env:CIEL_SPEECH_API_KEY)") }
-$asrArguments += @('--file', "$wslRepo/scripts/colab/bootstrap_qwen_asr.py")
-$asrOutput = (Invoke-Colab $asrArguments 2>&1 | Tee-Object -Variable asrDisplay) -join "`n"
+$asrBootstrap = New-EphemeralBootstrap "$wslRepo/scripts/colab/bootstrap_qwen_asr.py"
+$asrArguments += @('--file', $asrBootstrap.WslPath)
+try {
+    $asrOutput = (Invoke-Colab $asrArguments 2>&1 | Tee-Object -Variable asrDisplay) -join "`n"
+} finally {
+    if ($asrBootstrap.LocalPath) { Remove-Item -LiteralPath $asrBootstrap.LocalPath -Force -ErrorAction SilentlyContinue }
+}
 $asrFailed = $LASTEXITCODE -ne 0 -or $asrOutput -match '(?i)(Traceback \(most recent call last\)|RuntimeError\s*:|Error\s*:)'
 if ($asrFailed) {
     Write-Host $asrOutput
@@ -145,11 +178,15 @@ if ($asrFailed) {
 
 Write-Host "Installing $TtsBackend and its Tailscale service..."
 $ttsArguments = @('exec', '--session', $TtsSession, '--timeout', '1800')
-if ($env:TAILSCALE_AUTHKEY) { $ttsArguments += @('--env', "TAILSCALE_AUTHKEY=$($env:TAILSCALE_AUTHKEY)") }
-if ($env:CIEL_SPEECH_API_KEY) { $ttsArguments += @('--env', "CIEL_SPEECH_API_KEY=$($env:CIEL_SPEECH_API_KEY)") }
 $ttsBootstrap = if ($TtsBackend -eq 'cosyvoice3') { 'bootstrap_cosyvoice3.py' } else { 'bootstrap_moss_tts.py' }
-$ttsArguments += @('--file', "$wslRepo/scripts/colab/$ttsBootstrap")
-$ttsOutput = (Invoke-Colab $ttsArguments 2>&1 | Tee-Object -Variable ttsDisplay) -join "`n"
+$ttsBootstrapFile = New-EphemeralBootstrap "$wslRepo/scripts/colab/$ttsBootstrap"
+$ephemeralSecrets.Clear()
+$ttsArguments += @('--file', $ttsBootstrapFile.WslPath)
+try {
+    $ttsOutput = (Invoke-Colab $ttsArguments 2>&1 | Tee-Object -Variable ttsDisplay) -join "`n"
+} finally {
+    if ($ttsBootstrapFile.LocalPath) { Remove-Item -LiteralPath $ttsBootstrapFile.LocalPath -Force -ErrorAction SilentlyContinue }
+}
 $ttsFailed = $LASTEXITCODE -ne 0 -or $ttsOutput -match '(?i)(Traceback \(most recent call last\)|RuntimeError\s*:|Error\s*:)'
 if ($ttsFailed) {
     Write-Host $ttsOutput
