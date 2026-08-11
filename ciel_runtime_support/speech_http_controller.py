@@ -13,7 +13,11 @@ from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from typing import Any, Callable
 
-from ciel_runtime_support.speech_models import is_cosyvoice3_model, normalize_cosyvoice_reference
+from ciel_runtime_support.speech_models import (
+    is_cosyvoice3_model,
+    normalize_cosyvoice_reference,
+    reference_audio_source,
+)
 
 
 SpeechConfig = dict[str, Any]
@@ -80,6 +84,7 @@ class SpeechHttpController:
             item["api_key_set"] = bool(str(source.get("api_key") or "").strip())
             if name == "tts":
                 item["ref_audio_set"] = bool(str(source.get("ref_audio") or "").strip())
+                item["ref_audio_source"] = reference_audio_source(source)
             public[name] = item
         tailscale = speech.get("tailscale")
         public["tailscale"] = dict(tailscale) if isinstance(tailscale, dict) else {}

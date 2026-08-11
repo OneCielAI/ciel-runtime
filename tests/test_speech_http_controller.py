@@ -93,6 +93,7 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.assertNotIn("api_key", public["tts"])
         self.assertNotIn("ref_audio", public["tts"])
         self.assertTrue(public["tts"]["ref_audio_set"])
+        self.assertEqual("custom", public["tts"]["ref_audio_source"])
         self.assertTrue(public["asr"]["api_key_set"])
         self.assertEqual("Ubuntu-26.04", public["colab"]["distribution"])
         self.assertEqual("ciel-asr", public["colab"]["asr_session"])
@@ -206,6 +207,17 @@ class SpeechHttpControllerTests(unittest.TestCase):
         payload = json.loads(self.requests[0][0].data)
         self.assertEqual(DEFAULT_COSYVOICE_REFERENCE_AUDIO, payload["ref_audio"])
         self.assertEqual(DEFAULT_COSYVOICE_REFERENCE_TEXT, payload["ref_text"])
+
+    def test_public_config_identifies_builtin_cosyvoice_reference(self):
+        self.config["speech"]["tts"].update({
+            "model": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512",
+            "ref_audio": DEFAULT_COSYVOICE_REFERENCE_AUDIO,
+            "ref_text": DEFAULT_COSYVOICE_REFERENCE_TEXT,
+        })
+
+        public = self.controller().public_config()
+
+        self.assertEqual("default", public["tts"]["ref_audio_source"])
 
     def test_cosyvoice_rejects_incomplete_custom_reference_pair(self):
         handler = _Handler()

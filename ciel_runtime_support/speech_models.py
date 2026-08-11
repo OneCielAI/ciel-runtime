@@ -16,6 +16,19 @@ def is_cosyvoice3_model(model: Any) -> bool:
     return "cosyvoice3" in str(model or "").lower()
 
 
+def reference_audio_source(config: dict[str, Any]) -> str:
+    audio = str(config.get("ref_audio") or "").strip()
+    text = str(config.get("ref_text") or "").strip()
+    if not audio:
+        return "none"
+    if (
+        audio == DEFAULT_COSYVOICE_REFERENCE_AUDIO
+        and text == DEFAULT_COSYVOICE_REFERENCE_TEXT
+    ) or audio == DEFAULT_TTS_REFERENCE_AUDIO:
+        return "default"
+    return "custom"
+
+
 def normalize_cosyvoice_reference(config: dict[str, Any]) -> bool:
     """Repair legacy/default reference state and reject incomplete custom pairs."""
     if not is_cosyvoice3_model(config.get("model")):
