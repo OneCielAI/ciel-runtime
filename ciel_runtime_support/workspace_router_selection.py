@@ -67,12 +67,13 @@ def select_workspace_router_port(
     between launches and closes the race where two workspaces start together.
     """
 
-    if str(environ.get("CIEL_RUNTIME_ROUTER_PORT") or "").strip():
-        return base_port
+    explicit_port = bool(str(environ.get("CIEL_RUNTIME_ROUTER_PORT") or "").strip())
     target = workspace_identity(
         environ.get("CIEL_RUNTIME_LAUNCH_CWD") or workspace
     )
     if registry_path is None:
+        if explicit_port:
+            return base_port
         return _select_port(base_port, target, health, available, scan_size, {})
 
     registry_path = Path(registry_path)
@@ -102,6 +103,18 @@ def select_workspace_router_port(
         registry = _load_registry(registry_path)
         records = registry.setdefault("workspaces", {})
         key = workspace_digest(target)
+        if explicit_port:
+            _claim_explicit_port(
+                base_port,
+                target,
+                key,
+                records,
+                registry_path,
+                registry,
+                health,
+                available,
+            )
+            return base_port
         own_record = records.get(key) if isinstance(records, dict) else None
         if isinstance(own_record, dict):
             try:
@@ -165,6 +178,47 @@ def _select_port(
     raise RuntimeError(
         f"no free ciel-runtime router port found in {base_port}-{maximum}"
     )
+
+
+def _claim_explicit_port(
+    port: int,
+    target: str,
+    key: str,
+    records: dict[str, Any],
+    registry_path: Path,
+    registry: dict[str, Any],
+    health: Callable[[int], dict[str, Any] | None],
+    available: Callable[[int], bool],
+) -> None:
+    for record_key, record in records.items():
+        if record_key == key or not isinstance(record, dict):
+            continue
+        try:
+            reserved_port = int(record.get("port") or 0)
+        except (TypeError, ValueError):
+            continue
+        if reserved_port == port:
+            owner = workspace_identity(record.get("workspace")) or record_key
+            raise RuntimeError(
+                f"ciel-runtime port {port} is reserved by workspace {owner}; "
+                f"choose a different CIEL_RUNTIME_ROUTER_PORT for {target}"
+            )
+    observed = health(port)
+    if observed is not None:
+        running_workspace = workspace_identity(observed.get("workspace"))
+        if running_workspace != target:
+            owner = running_workspace or "an unidentified local service"
+            raise RuntimeError(
+                f"ciel-runtime port {port} is already used by {owner}; "
+                f"choose a different CIEL_RUNTIME_ROUTER_PORT for {target}"
+            )
+    elif not available(port):
+        raise RuntimeError(
+            f"ciel-runtime port {port} is already used by another local service; "
+            f"choose a different CIEL_RUNTIME_ROUTER_PORT for {target}"
+        )
+    records[key] = {"workspace": target, "port": port}
+    _save_registry(registry_path, registry)
 
 
 def _load_registry(path: Path) -> dict[str, Any]:

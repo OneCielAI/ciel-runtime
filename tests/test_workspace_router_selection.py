@@ -102,6 +102,30 @@ class WorkspaceRouterSelectionTests(unittest.TestCase):
 
         self.assertEqual(19464, selected)
 
+    def test_explicit_port_cannot_overlap_an_offline_workspace_reservation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            registry = Path(directory) / "workspace-router-ports.json"
+            first = select_workspace_router_port(
+                19464,
+                Path("C:/work/one"),
+                {"CIEL_RUNTIME_ROUTER_PORT": "19464"},
+                health=lambda _port: None,
+                available=lambda _port: True,
+                registry_path=registry,
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "reserved by workspace"):
+                select_workspace_router_port(
+                    19464,
+                    Path("C:/work/two"),
+                    {"CIEL_RUNTIME_ROUTER_PORT": "19464"},
+                    health=lambda _port: None,
+                    available=lambda _port: True,
+                    registry_path=registry,
+                )
+
+        self.assertEqual(19464, first)
+
 
 if __name__ == "__main__":
     unittest.main()
