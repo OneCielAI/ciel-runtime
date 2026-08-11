@@ -121,11 +121,11 @@ function New-EphemeralBootstrap([string]$SourcePath) {
         $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$ephemeralSecrets[$secretName]))
         $injected.Add("_ciel_os.environ[`"$secretName`"] = _ciel_base64.b64decode(`"$encoded`").decode(`"utf-8`")")
     }
-    $temporary = New-TemporaryFile
+    $temporaryPath = [IO.Path]::GetTempFileName()
     $utf8NoBom = [Text.UTF8Encoding]::new($false)
-    [IO.File]::WriteAllText($temporary.FullName, $source.Replace($future, ($injected -join "`n")), $utf8NoBom)
-    $temporaryWsl = (& wsl -d $Distribution -- wslpath -a $temporary.FullName.Replace('\', '/')).Trim()
-    return [pscustomobject]@{ WslPath = $temporaryWsl; LocalPath = $temporary.FullName }
+    [IO.File]::WriteAllText($temporaryPath, $source.Replace($future, ($injected -join "`n")), $utf8NoBom)
+    $temporaryWsl = (& wsl -d $Distribution -- wslpath -a $temporaryPath.Replace('\', '/')).Trim()
+    return [pscustomobject]@{ WslPath = $temporaryWsl; LocalPath = $temporaryPath }
 }
 
 Write-Host "Checking Colab CLI authentication..."
@@ -249,17 +249,17 @@ function Read-BootstrapResult([string]$Text, [string]$Role) {
 }
 
 function Save-ColabTailscaleState([string]$Session, [string]$Role, [string]$RemotePath) {
-    $temporary = New-TemporaryFile
+    $temporaryPath = [IO.Path]::GetTempFileName()
     try {
-        $temporaryWsl = (& wsl -d $Distribution -- wslpath -a $temporary.FullName.Replace('\', '/')).Trim()
+        $temporaryWsl = (& wsl -d $Distribution -- wslpath -a $temporaryPath.Replace('\', '/')).Trim()
         Invoke-Colab @('download', '--session', $Session, $RemotePath, $temporaryWsl) | Out-Null
-        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $temporary.FullName) -or (Get-Item -LiteralPath $temporary.FullName).Length -eq 0) {
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $temporaryPath) -or (Get-Item -LiteralPath $temporaryPath).Length -eq 0) {
             throw "Could not download the $Role Tailscale device state."
         }
-        & python (Join-Path $PSScriptRoot 'store_colab_tailscale_state.py') --profile $Profile --role ($Role.ToLowerInvariant()) --input $temporary.FullName
+        & python (Join-Path $PSScriptRoot 'store_colab_tailscale_state.py') --profile $Profile --role ($Role.ToLowerInvariant()) --input $temporaryPath
         if ($LASTEXITCODE -ne 0) { throw "Could not encrypt the $Role Tailscale device state." }
     } finally {
-        Remove-Item -LiteralPath $temporary.FullName -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
     }
 }
 
