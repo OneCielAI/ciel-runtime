@@ -33,6 +33,7 @@ class ColabSpeechJobManagerTests(unittest.TestCase):
         self.assertIn("function New-EphemeralBootstrap", source)
         self.assertIn("Remove-Item \"Env:$secretName\"", source)
         self.assertNotIn("@('--env', \"TAILSCALE_AUTHKEY=", source)
+        self.assertIn("[Text.UTF8Encoding]::new($false)", source)
 
     def test_login_command_uses_isolated_profile_and_can_reset_authentication(self):
         manager = ColabSpeechJobManager(Path("C:/runtime/scripts/deploy_colab_speech.ps1"), Path("C:/state"))
@@ -77,6 +78,21 @@ class ColabSpeechJobManagerTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             manager.login_command({"profile": "personal; reboot"})
+
+    def test_asr_bootstrap_cleans_orphaned_gpu_workers_before_restart(self):
+        bootstrap = Path(__file__).resolve().parents[1] / "scripts" / "colab" / "bootstrap_qwen_asr.py"
+        source = bootstrap.read_text(encoding="utf-8")
+
+        self.assertIn("def stop_existing_server()", source)
+        self.assertIn("nvidia-smi --query-compute-apps=pid", source)
+        self.assertIn("stop_existing_server()", source)
+
+    def test_bootstraps_can_reuse_existing_tailscale_state_without_a_new_key(self):
+        root = Path(__file__).resolve().parents[1] / "scripts" / "colab"
+        for name in ("bootstrap_qwen_asr.py", "bootstrap_cosyvoice3.py"):
+            source = (root / name).read_text(encoding="utf-8")
+            self.assertIn('auth_key = secret("TAILSCALE_AUTHKEY")', source)
+            self.assertIn('status_data.get("BackendState") != "Running"', source)
 
 
 if __name__ == "__main__":

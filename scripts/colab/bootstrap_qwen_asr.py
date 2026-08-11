@@ -77,11 +77,16 @@ def start_tailscale(auth_key: str) -> tuple[str, str]:
         if Path(SOCKET).exists():
             break
         time.sleep(1)
-    login = run("tailscale", f"--socket={SOCKET}", "up", f"--auth-key={auth_key}", f"--hostname={HOSTNAME}", "--accept-dns=true", "--reset", check=False)
-    if login.returncode:
-        raise RuntimeError("Tailscale authentication failed; use a valid reusable key or a fresh key for this worker")
     status = subprocess.check_output(["tailscale", f"--socket={SOCKET}", "status", "--json"], text=True)
-    dns_name = str(json.loads(status).get("Self", {}).get("DNSName") or HOSTNAME).rstrip(".")
+    status_data = json.loads(status)
+    if auth_key:
+        login = run("tailscale", f"--socket={SOCKET}", "up", f"--auth-key={auth_key}", f"--hostname={HOSTNAME}", "--accept-dns=true", "--reset", check=False)
+        if login.returncode:
+            raise RuntimeError("Tailscale authentication failed; use a valid reusable key or a fresh key for this worker")
+        status_data = json.loads(subprocess.check_output(["tailscale", f"--socket={SOCKET}", "status", "--json"], text=True))
+    elif status_data.get("BackendState") != "Running":
+        raise RuntimeError("TAILSCALE_AUTHKEY is required because this Colab worker has no reusable Tailscale login state")
+    dns_name = str(status_data.get("Self", {}).get("DNSName") or HOSTNAME).rstrip(".")
     run("tailscale", f"--socket={SOCKET}", "serve", "--bg", "--http=80", f"http://127.0.0.1:{PORT}")
     return dns_name, f"http://{dns_name}"
 
@@ -96,7 +101,7 @@ def server_is_healthy(api_key: str) -> bool:
 
 
 def wait_for_server(api_key: str, process: subprocess.Popen[bytes]) -> None:
-    for _ in range(180):
+    for _ in range(600):
         if process.poll() is not None:
             log_path = LOG_DIR / "qwen-asr.log"
             log_tail = log_path.read_text(encoding="utf-8", errors="replace")[-12000:] if log_path.exists() else "log unavailable"
@@ -107,22 +112,40 @@ def wait_for_server(api_key: str, process: subprocess.Popen[bytes]) -> None:
     raise RuntimeError("Qwen ASR did not become healthy; inspect /content/ciel-speech-logs/qwen-asr.log")
 
 
-def prepare_model() -> None:
-    current = MODEL_MARKER.read_text(encoding="utf-8", errors="replace").strip() if MODEL_MARKER.exists() else ""
-    if current != MODEL:
-        run("bash", "-lc", f"fuser -k {PORT}/tcp >/dev/null 2>&1 || true", check=False)
-        time.sleep(2)
+def stop_existing_server() -> None:
+    """Release a previous vLLM worker, including orphaned GPU children.
+
+    A Colab session is dedicated to ASR. Killing every compute process is safe here
+    and is necessary because an EngineCore child can survive after its API process
+    exits, leaving almost all VRAM allocated while the health endpoint is down.
+    """
+    cleanup = f"""
+fuser -k {PORT}/tcp >/dev/null 2>&1 || true
+pkill -TERM -f '[q]wen-asr-serve|[v]llm|VLLM::' >/dev/null 2>&1 || true
+sleep 3
+for pid in $(nvidia-smi --query-compute-apps=pid --format=csv,noheader,nounits 2>/dev/null | tr -d ' '); do
+  case "$pid" in (*[!0-9]*|'') continue;; esac
+  kill -TERM "$pid" >/dev/null 2>&1 || true
+done
+sleep 3
+for pid in $(nvidia-smi --query-compute-apps=pid --format=csv,noheader,nounits 2>/dev/null | tr -d ' '); do
+  case "$pid" in (*[!0-9]*|'') continue;; esac
+  kill -KILL "$pid" >/dev/null 2>&1 || true
+done
+"""
+    run("bash", "-lc", cleanup, check=False)
+    time.sleep(2)
 
 
 def main() -> None:
     if MODEL not in SUPPORTED_MODELS:
         raise RuntimeError(f"Unsupported CIEL_ASR_MODEL: {MODEL}")
-    auth_key = secret("TAILSCALE_AUTHKEY", required=True)
+    auth_key = secret("TAILSCALE_AUTHKEY")
     api_key = secret("CIEL_SPEECH_API_KEY")
     run(sys.executable, "-m", "pip", "install", "-U", "qwen-asr[vllm]", "vllm[audio]")
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-    prepare_model()
     if not server_is_healthy(api_key):
+        stop_existing_server()
         command = [
             "qwen-asr-serve", MODEL, "--host", "127.0.0.1", "--port", str(PORT),
             "--gpu-memory-utilization", "0.78", "--max-model-len", "8192",

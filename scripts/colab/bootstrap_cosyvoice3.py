@@ -63,11 +63,16 @@ def start_tailscale(auth_key: str) -> tuple[str, str]:
         if Path(SOCKET).exists():
             break
         time.sleep(1)
-    login = run("tailscale", f"--socket={SOCKET}", "up", f"--auth-key={auth_key}", f"--hostname={HOSTNAME}", "--accept-dns=true", "--reset", check=False)
-    if login.returncode:
-        raise RuntimeError("Tailscale authentication failed; use a valid reusable key or a fresh key for this worker")
     status = subprocess.check_output(["tailscale", f"--socket={SOCKET}", "status", "--json"], text=True)
-    dns_name = str(json.loads(status).get("Self", {}).get("DNSName") or HOSTNAME).rstrip(".")
+    status_data = json.loads(status)
+    if auth_key:
+        login = run("tailscale", f"--socket={SOCKET}", "up", f"--auth-key={auth_key}", f"--hostname={HOSTNAME}", "--accept-dns=true", "--reset", check=False)
+        if login.returncode:
+            raise RuntimeError("Tailscale authentication failed; use a valid reusable key or a fresh key for this worker")
+        status_data = json.loads(subprocess.check_output(["tailscale", f"--socket={SOCKET}", "status", "--json"], text=True))
+    elif status_data.get("BackendState") != "Running":
+        raise RuntimeError("TAILSCALE_AUTHKEY is required because this Colab worker has no reusable Tailscale login state")
+    dns_name = str(status_data.get("Self", {}).get("DNSName") or HOSTNAME).rstrip(".")
     run("tailscale", f"--socket={SOCKET}", "serve", "--bg", "--http=80", f"http://127.0.0.1:{PORT}")
     return dns_name, f"http://{dns_name}"
 
@@ -82,7 +87,7 @@ def server_is_healthy(api_key: str) -> bool:
 
 
 def wait_for_server(api_key: str, process: subprocess.Popen[bytes]) -> None:
-    for _ in range(240):
+    for _ in range(600):
         if process.poll() is not None:
             log_path = LOG_DIR / "cosyvoice3.log"
             log_tail = log_path.read_text(encoding="utf-8", errors="replace")[-12000:] if log_path.exists() else "log unavailable"
@@ -101,7 +106,7 @@ def prepare_backend() -> None:
 
 
 def main() -> None:
-    auth_key = secret("TAILSCALE_AUTHKEY", required=True)
+    auth_key = secret("TAILSCALE_AUTHKEY")
     api_key = secret("CIEL_SPEECH_API_KEY")
     run(sys.executable, "-m", "pip", "install", "-U", "nvidia-cuda-runtime==13.0.96", "vllm==0.24.0", "vllm-omni==0.24.0")
     LOG_DIR.mkdir(parents=True, exist_ok=True)

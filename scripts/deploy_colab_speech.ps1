@@ -118,7 +118,8 @@ function New-EphemeralBootstrap([string]$SourcePath) {
         $injected.Add("_ciel_os.environ[`"$secretName`"] = _ciel_base64.b64decode(`"$encoded`").decode(`"utf-8`")")
     }
     $temporary = New-TemporaryFile
-    Set-Content -LiteralPath $temporary.FullName -Value $source.Replace($future, ($injected -join "`n")) -Encoding UTF8 -NoNewline
+    $utf8NoBom = [Text.UTF8Encoding]::new($false)
+    [IO.File]::WriteAllText($temporary.FullName, $source.Replace($future, ($injected -join "`n")), $utf8NoBom)
     $temporaryWsl = (& wsl -d $Distribution -- wslpath -a $temporary.FullName.Replace('\', '/')).Trim()
     return [pscustomobject]@{ WslPath = $temporaryWsl; LocalPath = $temporary.FullName }
 }
@@ -170,7 +171,8 @@ try {
 } finally {
     if ($asrBootstrap.LocalPath) { Remove-Item -LiteralPath $asrBootstrap.LocalPath -Force -ErrorAction SilentlyContinue }
 }
-$asrFailed = $LASTEXITCODE -ne 0 -or $asrOutput -match '(?i)(Traceback \(most recent call last\)|RuntimeError\s*:|Error\s*:)'
+Write-Host $asrOutput
+$asrFailed = $LASTEXITCODE -ne 0 -or $asrOutput -match '(?i)(Traceback \(most recent call last\)|RuntimeError|SyntaxError)'
 if ($asrFailed) {
     Write-Host $asrOutput
     throw "ASR bootstrap failed."
@@ -187,7 +189,8 @@ try {
 } finally {
     if ($ttsBootstrapFile.LocalPath) { Remove-Item -LiteralPath $ttsBootstrapFile.LocalPath -Force -ErrorAction SilentlyContinue }
 }
-$ttsFailed = $LASTEXITCODE -ne 0 -or $ttsOutput -match '(?i)(Traceback \(most recent call last\)|RuntimeError\s*:|Error\s*:)'
+Write-Host $ttsOutput
+$ttsFailed = $LASTEXITCODE -ne 0 -or $ttsOutput -match '(?i)(Traceback \(most recent call last\)|RuntimeError|SyntaxError)'
 if ($ttsFailed) {
     Write-Host $ttsOutput
     throw "TTS bootstrap failed."
