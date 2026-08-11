@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from typing import Any, Callable
 
+from ciel_runtime_support.speech_models import is_cosyvoice3_model, normalize_cosyvoice_reference
+
 
 SpeechConfig = dict[str, Any]
 
@@ -151,6 +153,8 @@ class SpeechHttpController:
                     current["api_key"] = ""
                 if name == "tts" and incoming.get("clear_ref_audio") is True:
                     current["ref_audio"] = ""
+                if name == "tts":
+                    normalize_cosyvoice_reference(current)
             tailscale = update.get("tailscale")
             if isinstance(tailscale, dict):
                 current_tailscale = speech.setdefault("tailscale", {})
@@ -354,12 +358,17 @@ class SpeechHttpController:
                     body.setdefault("model", str(config.get("model") or ""))
                     body.setdefault("voice", str(config.get("voice") or "default"))
                     body.setdefault("language", str(config.get("language") or "Auto"))
-                    if str(config.get("ref_audio") or "").strip():
-                        body.setdefault("ref_audio", str(config["ref_audio"]))
-                    if str(config.get("ref_text") or "").strip():
-                        body.setdefault("ref_text", str(config["ref_text"]))
-                    if "CosyVoice3" in str(body.get("model") or "") and (not str(body.get("ref_audio") or "").strip() or not str(body.get("ref_text") or "").strip()):
-                        raise ValueError("CosyVoice 3 requires both ref_audio and its exact ref_text transcript")
+                    request_has_ref_audio = bool(str(body.get("ref_audio") or "").strip())
+                    request_has_ref_text = bool(str(body.get("ref_text") or "").strip())
+                    if is_cosyvoice3_model(body.get("model")) and request_has_ref_audio != request_has_ref_text:
+                        raise ValueError("CosyVoice 3 request must provide both ref_audio and its exact ref_text transcript")
+                    if not request_has_ref_audio and not request_has_ref_text:
+                        effective_config = dict(config)
+                        normalize_cosyvoice_reference(effective_config)
+                        if str(effective_config.get("ref_audio") or "").strip():
+                            body["ref_audio"] = str(effective_config["ref_audio"])
+                        if str(effective_config.get("ref_text") or "").strip():
+                            body["ref_text"] = str(effective_config["ref_text"])
                     body.setdefault("response_format", str(config.get("response_format") or "wav"))
                     body.setdefault("speed", float(config.get("speed") or 1.0))
                     streaming = bool(body.get("stream") and body.get("stream_format") == "audio")

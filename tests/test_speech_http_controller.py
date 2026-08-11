@@ -3,6 +3,11 @@ import json
 import unittest
 
 from ciel_runtime_support.speech_http_controller import SpeechHttpController, SpeechHttpPorts
+from ciel_runtime_support.speech_models import (
+    DEFAULT_COSYVOICE_REFERENCE_AUDIO,
+    DEFAULT_COSYVOICE_REFERENCE_TEXT,
+    DEFAULT_TTS_REFERENCE_AUDIO,
+)
 
 
 class _Headers(dict):
@@ -187,10 +192,26 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.assertTrue(handler.close_connection)
         self.assertEqual(b"\x00\x00\x01\x00", handler.wfile.getvalue())
 
-    def test_cosyvoice_requires_reference_audio_and_exact_transcript(self):
+    def test_cosyvoice_repairs_legacy_moss_reference_pair(self):
         handler = _Handler()
         self.config["speech"]["tts"].update({
             "model": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512",
+            "ref_audio": DEFAULT_TTS_REFERENCE_AUDIO,
+            "ref_text": "",
+        })
+
+        self.controller().post(handler, "/v1/audio/speech", b'{"input":"hello"}', "application/json")
+
+        self.assertEqual(200, handler.status)
+        payload = json.loads(self.requests[0][0].data)
+        self.assertEqual(DEFAULT_COSYVOICE_REFERENCE_AUDIO, payload["ref_audio"])
+        self.assertEqual(DEFAULT_COSYVOICE_REFERENCE_TEXT, payload["ref_text"])
+
+    def test_cosyvoice_rejects_incomplete_custom_reference_pair(self):
+        handler = _Handler()
+        self.config["speech"]["tts"].update({
+            "model": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512",
+            "ref_audio": "https://example.test/custom.wav",
             "ref_text": "",
         })
 
@@ -198,7 +219,36 @@ class SpeechHttpControllerTests(unittest.TestCase):
 
         self.assertEqual(400, handler.status)
         self.assertEqual([], self.requests)
-        self.assertIn("exact ref_text transcript", handler.wfile.getvalue().decode())
+        self.assertIn("custom ref_audio", handler.wfile.getvalue().decode())
+
+    def test_cosyvoice_rejects_half_of_per_request_reference_pair(self):
+        handler = _Handler()
+        self.config["speech"]["tts"].update({"model": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512"})
+
+        self.controller().post(
+            handler,
+            "/v1/audio/speech",
+            b'{"input":"hello","ref_audio":"https://example.test/custom.wav"}',
+            "application/json",
+        )
+
+        self.assertEqual(400, handler.status)
+        self.assertEqual([], self.requests)
+        self.assertIn("request must provide both", handler.wfile.getvalue().decode())
+
+    def test_saving_cosyvoice_model_repairs_legacy_reference_pair(self):
+        handler = _Handler()
+        self.config["speech"]["tts"].update({
+            "ref_audio": DEFAULT_TTS_REFERENCE_AUDIO,
+            "ref_text": "",
+        })
+        body = json.dumps({"tts": {"model": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512"}}).encode()
+
+        self.controller().post(handler, "/ca/speech/config", body, "application/json")
+
+        tts = self.saved[0]["speech"]["tts"]
+        self.assertEqual(DEFAULT_COSYVOICE_REFERENCE_AUDIO, tts["ref_audio"])
+        self.assertEqual(DEFAULT_COSYVOICE_REFERENCE_TEXT, tts["ref_text"])
 
     def test_blank_token_update_preserves_existing_secret(self):
         handler = _Handler()

@@ -252,7 +252,7 @@ def render_web_chat_page(
             <label>PCM sample rate<input id="ttsSampleRate" type="number" min="8000" max="192000" step="1000"></label>
             <label class="wide">TTS model<select id="ttsModel"><option value="OpenMOSS-Team/MOSS-TTS-Nano">MOSS-TTS-Nano</option><option value="FunAudioLLM/Fun-CosyVoice3-0.5B-2512">Fun-CosyVoice 3</option></select></label>
             <label class="wide">Reference voice (required for voice cloning)<input id="ttsReferenceAudio" type="file" accept="audio/*"><span class="hint" id="ttsReferenceAudioStatus">No reference voice configured</span></label>
-            <label class="wide">Reference transcript (required by CosyVoice 3)<input id="ttsReferenceText" placeholder="Exact transcript of the reference clip"></label>
+            <label class="wide">Reference transcript (required by CosyVoice 3)<input id="ttsReferenceText" placeholder="Exact transcript of the reference clip"><span class="hint">This must be the exact words spoken in the reference audio—not the text to synthesize. The built-in CosyVoice sample is Chinese. For a Korean reference voice, upload a clean Korean clip and enter its matching Korean transcript here.</span></label>
             <label class="check wide"><input id="ttsClearReferenceAudio" type="checkbox"> Remove the saved reference voice</label>
             <label class="wide">Remote bearer token<input id="ttsApiKey" type="password" autocomplete="new-password" placeholder="Leave blank to keep current token"></label>
           </div>

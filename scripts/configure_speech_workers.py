@@ -10,13 +10,26 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from ciel_runtime_support.speech_models import (
+    COSYVOICE3_MODEL,
+    DEFAULT_COSYVOICE_REFERENCE_AUDIO,
+    DEFAULT_COSYVOICE_REFERENCE_TEXT,
+    DEFAULT_TTS_REFERENCE_AUDIO,
+    MOSS_TTS_MODEL,
+    normalize_cosyvoice_reference,
+)
 
-DEFAULT_TTS_REFERENCE_AUDIO = "https://raw.githubusercontent.com/OpenMOSS/MOSS-TTS-Nano/main/assets/audio/zh_1.wav"
-DEFAULT_COSYVOICE_REFERENCE_AUDIO = "https://raw.githubusercontent.com/QwenAudio/CosyVoice/main/asset/zero_shot_prompt.wav"
-DEFAULT_COSYVOICE_REFERENCE_TEXT = "希望你以后能够做的比我还好呦。"
+__all__ = (
+    "DEFAULT_COSYVOICE_REFERENCE_AUDIO",
+    "DEFAULT_COSYVOICE_REFERENCE_TEXT",
+    "DEFAULT_TTS_REFERENCE_AUDIO",
+    "configure",
+    "colab_settings",
+)
+
 TTS_BACKENDS = {
-    "moss": {"model": "OpenMOSS-Team/MOSS-TTS-Nano", "sample_rate": 48000, "streaming": False},
-    "cosyvoice3": {"model": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512", "sample_rate": 24000, "streaming": True},
+    "moss": {"model": MOSS_TTS_MODEL, "sample_rate": 48000, "streaming": False},
+    "cosyvoice3": {"model": COSYVOICE3_MODEL, "sample_rate": 24000, "streaming": True},
 }
 ASR_MODELS = {"Qwen/Qwen3-ASR-0.6B", "Qwen/Qwen3-ASR-1.7B"}
 DEFAULT_COLAB_SETTINGS: dict[str, Any] = {
@@ -92,8 +105,8 @@ def configure(
     desired_reference = DEFAULT_COSYVOICE_REFERENCE_AUDIO if backend == "cosyvoice3" else tts_reference_audio
     if desired_reference and current_reference in known_defaults:
         tts["ref_audio"] = desired_reference
-    if backend == "cosyvoice3" and current_reference in known_defaults and not str(tts.get("ref_text") or "").strip():
-        tts["ref_text"] = DEFAULT_COSYVOICE_REFERENCE_TEXT
+    if backend == "cosyvoice3":
+        normalize_cosyvoice_reference(tts)
     ciel_runtime.save_config(config)
     return {"asr": asr["base_url"], "tts": tts["base_url"], "colab": colab}
 
