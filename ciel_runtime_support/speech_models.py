@@ -35,8 +35,11 @@ def normalize_cosyvoice_reference(config: dict[str, Any]) -> bool:
         return False
     audio = str(config.get("ref_audio") or "").strip()
     text = str(config.get("ref_text") or "").strip()
-    known_default_audio = {"", DEFAULT_TTS_REFERENCE_AUDIO, DEFAULT_COSYVOICE_REFERENCE_AUDIO}
-    if audio in known_default_audio:
+    if not audio:
+        changed = bool(text)
+        config["ref_text"] = ""
+        return changed
+    if audio in {DEFAULT_TTS_REFERENCE_AUDIO, DEFAULT_COSYVOICE_REFERENCE_AUDIO}:
         changed = audio != DEFAULT_COSYVOICE_REFERENCE_AUDIO or text != DEFAULT_COSYVOICE_REFERENCE_TEXT
         config["ref_audio"] = DEFAULT_COSYVOICE_REFERENCE_AUDIO
         config["ref_text"] = DEFAULT_COSYVOICE_REFERENCE_TEXT

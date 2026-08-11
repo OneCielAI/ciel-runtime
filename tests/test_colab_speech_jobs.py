@@ -19,6 +19,17 @@ class _Process:
 
 
 class ColabSpeechJobManagerTests(unittest.TestCase):
+    def test_deploy_script_treats_not_found_output_as_a_missing_session(self):
+        script = Path(__file__).resolve().parents[1] / "scripts" / "deploy_colab_speech.ps1"
+        source = script.read_text(encoding="utf-8")
+
+        self.assertIn("$sessionMissing = $statusOutput -match", source)
+        self.assertIn("session\\s+.+\\s+not found", source)
+        self.assertIn("$statusExit -eq 0 -and -not $sessionMissing", source)
+        self.assertIn("Write-Host $asrOutput", source)
+        self.assertIn("$ErrorActionPreference = 'Continue'", source)
+        self.assertIn("$asrFailed = $LASTEXITCODE -ne 0 -or $asrOutput -match", source)
+
     def test_login_command_uses_isolated_profile_and_can_reset_authentication(self):
         manager = ColabSpeechJobManager(Path("C:/runtime/scripts/deploy_colab_speech.ps1"), Path("C:/state"))
 

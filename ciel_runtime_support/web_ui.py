@@ -253,8 +253,8 @@ def render_web_chat_page(
             <label class="wide">TTS model<select id="ttsModel"><option value="OpenMOSS-Team/MOSS-TTS-Nano">MOSS-TTS-Nano</option><option value="FunAudioLLM/Fun-CosyVoice3-0.5B-2512">Fun-CosyVoice 3</option></select></label>
             <label class="wide">Reference voice (required for voice cloning)<input id="ttsReferenceAudio" type="file" accept="audio/*"><span class="hint" id="ttsReferenceAudioStatus">No reference voice configured</span></label>
             <label class="wide">Reference transcript (required by CosyVoice 3)<input id="ttsReferenceText" placeholder="Exact transcript of the reference clip"><span class="hint">This must be the exact words spoken in the reference audio—not the text to synthesize. The built-in CosyVoice sample is Chinese. For a Korean reference voice, upload a clean Korean clip and enter its matching Korean transcript here.</span></label>
-            <label class="check wide"><input id="ttsAutoReference" type="checkbox"> Learn my voice from my first clear live-voice turns</label>
-            <div class="hint wide" id="ttsAutoReferenceStatus">Off. When enabled, the browser collects at least two clear turns, then saves their audio and exact ASR transcript on this Ciel router and sends that reference to the configured TTS worker. Existing custom reference voices are never overwritten.</div>
+            <label class="check wide"><input id="ttsAutoReference" type="checkbox"> Replace the built-in sample with my first clear live-voice turn</label>
+            <div class="hint wide" id="ttsAutoReferenceStatus">Deleting the saved reference automatically enrolls the first clear live-voice turn. This option also replaces the built-in sample. Existing custom reference voices are never overwritten.</div>
             <label class="check wide"><input id="ttsClearReferenceAudio" type="checkbox"> Remove the saved reference voice</label>
             <label class="wide">Remote bearer token<input id="ttsApiKey" type="password" autocomplete="new-password" placeholder="Leave blank to keep current token"></label>
           </div>
@@ -389,7 +389,6 @@ def render_web_chat_page(
     let speechQueueEpoch = 0;
     let autoSpeechReplySeen = false;
     let pendingTtsReferenceAudio = '';
-    let autoReferenceTurns = [];
     let autoReferenceSaving = false;
     voiceSensitivity.value = localStorage.getItem(VOICE_SENSITIVITY_KEY) || 'low';
     minimumTranscriptChars.value = localStorage.getItem(MIN_TRANSCRIPT_CHARS_KEY) || '3';
@@ -1064,6 +1063,11 @@ def render_web_chat_page(
         setState('TTS disabled', 'error');
         return;
       }}
+      if (String(speechConfig.tts.model || '').includes('CosyVoice3') && speechConfig.tts.ref_audio_source === 'none') {{
+        setState('waiting for voice reference');
+        updateAutoReferenceStatus();
+        return;
+      }}
       if (liveVoiceEnabled && vadSpeechActive) return;
       if (options.interrupt !== false) cancelSpeechQueue();
       const controller = new AbortController();
@@ -1119,12 +1123,28 @@ def render_web_chat_page(
     async function transcribeRecording(blob, populatePrompt = true, options = {{}}) {{
       if (!options.quiet) setState('transcribing');
       const audio_base64 = await fileToBase64(blob);
-      const response = await fetch('/v1/audio/transcriptions', {{
-        method: 'POST',
-        headers: {{'content-type': 'application/json', 'accept': 'application/json'}},
-        body: JSON.stringify({{audio_base64, filename: 'web-chat-recording.wav', content_type: blob.type || 'audio/wav', model: speechConfig.asr.model, language: speechConfig.asr.language}}),
-        signal: options.signal,
-      }});
+      const controller = new AbortController();
+      let timedOut = false;
+      const timeoutMs = Number(options.timeoutMs || (options.quiet ? 8000 : 20000));
+      const timer = setTimeout(() => {{ timedOut = true; controller.abort(); }}, timeoutMs);
+      if (options.signal) {{
+        if (options.signal.aborted) controller.abort();
+        else options.signal.addEventListener('abort', () => controller.abort(), {{once: true}});
+      }}
+      let response;
+      try {{
+        response = await fetch('/v1/audio/transcriptions', {{
+          method: 'POST',
+          headers: {{'content-type': 'application/json', 'accept': 'application/json'}},
+          body: JSON.stringify({{audio_base64, filename: 'web-chat-recording.wav', content_type: blob.type || 'audio/wav', model: speechConfig.asr.model, language: speechConfig.asr.language}}),
+          signal: controller.signal,
+        }});
+      }} catch (err) {{
+        if (timedOut) throw new Error('ASR timed out after 20 seconds; check or recover the speech worker');
+        throw err;
+      }} finally {{
+        clearTimeout(timer);
+      }}
       const text = await response.text();
       let data = {{}};
       try {{ data = text ? JSON.parse(text) : {{}}; }} catch {{}}
@@ -1171,10 +1191,10 @@ def render_web_chat_page(
       return new Blob([buffer], {{type: 'audio/wav'}});
     }}
     function autoReferenceEnabled() {{
-      return document.getElementById('ttsAutoReference').checked;
+      const source = speechConfig.tts && speechConfig.tts.ref_audio_source;
+      return source === 'none' || document.getElementById('ttsAutoReference').checked;
     }}
     function resetAutoReferenceCapture() {{
-      autoReferenceTurns = [];
       autoReferenceSaving = false;
     }}
     function updateAutoReferenceStatus(message = '') {{
@@ -1183,10 +1203,12 @@ def render_web_chat_page(
       const source = speechConfig.tts && speechConfig.tts.ref_audio_source;
       if (source === 'custom') {{
         status.textContent = 'A custom reference voice is already saved. Automatic capture will not overwrite it.';
+      }} else if (source === 'none') {{
+        status.textContent = 'No reference is saved. Your first clear live-voice turn will be enrolled automatically.';
       }} else if (autoReferenceEnabled()) {{
-        status.textContent = 'Ready to learn your voice from the first two or three clear live-voice turns.';
+        status.textContent = 'Ready to replace the built-in sample with your first clear live-voice turn.';
       }} else {{
-        status.textContent = 'Off. Enable this to replace an empty or built-in default reference after at least two clear turns. Existing custom reference voices are never overwritten.';
+        status.textContent = 'The built-in sample remains active. Enable this option or delete the reference to learn your voice.';
       }}
     }}
     async function captureAutoVoiceReference(chunks, sampleRate, transcriptText) {{
@@ -1196,32 +1218,27 @@ def render_web_chat_page(
       const sampleCount = chunks.reduce((total, chunk) => total + chunk.length, 0);
       const durationSeconds = sampleCount / Math.max(1, sampleRate);
       const transcriptChars = Array.from(String(transcriptText || '').replace(/\\s+/g, '')).length;
-      if (durationSeconds < 1.2 || durationSeconds > 12 || transcriptChars < 6) {{
-        updateAutoReferenceStatus('That turn was not used for voice learning; speak a clear sentence lasting 1–12 seconds.');
-        return;
-      }}
-      if (autoReferenceTurns.length && autoReferenceTurns[0].sampleRate !== sampleRate) resetAutoReferenceCapture();
-      autoReferenceTurns.push({{chunks: chunks.slice(), sampleRate, transcript: String(transcriptText).trim(), durationSeconds}});
-      const totalSeconds = autoReferenceTurns.reduce((total, turn) => total + turn.durationSeconds, 0);
-      const combinedText = autoReferenceTurns.map(turn => turn.transcript).join(' ').trim();
-      const combinedChars = Array.from(combinedText.replace(/\\s+/g, '')).length;
-      if (autoReferenceTurns.length < 2 || totalSeconds < 6 || combinedChars < 12) {{
-        updateAutoReferenceStatus(`Learning voice: ${{autoReferenceTurns.length}} clear turn(s), ${{totalSeconds.toFixed(1)}} seconds. Please say another sentence.`);
+      if (durationSeconds < 1.5 || durationSeconds > 12 || transcriptChars < 6) {{
+        updateAutoReferenceStatus('That turn was not used for voice learning; speak one clear sentence lasting 1.5–12 seconds.');
         return;
       }}
       autoReferenceSaving = true;
       updateAutoReferenceStatus('Saving your voice reference securely on this Ciel router...');
-      const combinedChunks = [];
-      autoReferenceTurns.forEach((turn, index) => {{
-        if (index) combinedChunks.push(new Float32Array(Math.round(sampleRate * 0.18)));
-        combinedChunks.push(...turn.chunks);
-      }});
       try {{
-        const refAudio = await fileToDataUrl(encodePcmWav(combinedChunks, sampleRate));
+        const latestResponse = await fetch('/ca/speech/config', {{headers: {{'accept': 'application/json'}}}});
+        const latest = await latestResponse.json();
+        if (latest.tts && latest.tts.ref_audio_source === 'custom') {{
+          speechConfig = latest;
+          resetAutoReferenceCapture();
+          updateAutoReferenceStatus();
+          return;
+        }}
+        const refAudio = await fileToDataUrl(encodePcmWav(chunks, sampleRate));
+        const referenceText = String(transcriptText).trim();
         const response = await fetch('/ca/speech/config', {{
           method: 'POST',
           headers: {{'content-type': 'application/json', 'accept': 'application/json'}},
-          body: JSON.stringify({{tts: {{ref_audio: refAudio, ref_text: combinedText}}}}),
+          body: JSON.stringify({{tts: {{ref_audio: refAudio, ref_text: referenceText}}}}),
         }});
         const data = await response.json();
         if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${{response.status}}`);
@@ -1229,7 +1246,7 @@ def render_web_chat_page(
         resetAutoReferenceCapture();
         updateAutoReferenceStatus('Your custom voice reference is saved and will be used for future TTS replies.');
         document.getElementById('ttsReferenceAudioStatus').textContent = 'Custom voice learned from live conversation';
-        document.getElementById('ttsReferenceText').value = data.tts.ref_text || combinedText;
+        document.getElementById('ttsReferenceText').value = data.tts.ref_text || referenceText;
         addBubble('system', 'Voice learning complete. Future spoken replies will use your saved reference voice.');
       }} catch (err) {{
         resetAutoReferenceCapture();

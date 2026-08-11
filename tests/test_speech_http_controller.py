@@ -117,6 +117,15 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.assertEqual(30, timeout)
         self.assertEqual(200, handler.status)
 
+    def test_asr_proxy_caps_stale_worker_timeout_at_thirty_seconds(self):
+        self.config["speech"]["asr"]["timeout_seconds"] = 300
+        handler = _Handler()
+        body = json.dumps({"audio_base64": "UklGRg=="}).encode()
+
+        self.controller().post(handler, "/v1/audio/transcriptions", body, "application/json")
+
+        self.assertEqual(30, self.requests[0][1])
+
     def test_colab_profile_is_validated_and_saved(self):
         handler = _Handler()
         body = json.dumps({"colab": {"profile": "second-account"}}).encode()
@@ -218,6 +227,35 @@ class SpeechHttpControllerTests(unittest.TestCase):
         public = self.controller().public_config()
 
         self.assertEqual("default", public["tts"]["ref_audio_source"])
+
+    def test_clearing_cosyvoice_reference_keeps_it_empty_for_auto_enrollment(self):
+        handler = _Handler()
+        self.config["speech"]["tts"].update({
+            "model": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512",
+            "ref_audio": DEFAULT_COSYVOICE_REFERENCE_AUDIO,
+            "ref_text": DEFAULT_COSYVOICE_REFERENCE_TEXT,
+        })
+        body = json.dumps({"tts": {"clear_ref_audio": True}}).encode()
+
+        self.controller().post(handler, "/ca/speech/config", body, "application/json")
+
+        tts = self.saved[0]["speech"]["tts"]
+        self.assertEqual("", tts["ref_audio"])
+        self.assertEqual("", tts["ref_text"])
+        self.assertEqual("none", json.loads(handler.wfile.getvalue())["tts"]["ref_audio_source"])
+
+    def test_empty_cosyvoice_reference_reports_auto_enrollment_instruction(self):
+        handler = _Handler()
+        self.config["speech"]["tts"].update({
+            "model": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512",
+            "ref_audio": "",
+            "ref_text": "",
+        })
+
+        self.controller().post(handler, "/v1/audio/speech", b'{"input":"hello"}', "application/json")
+
+        self.assertEqual(400, handler.status)
+        self.assertIn("start live voice once", handler.wfile.getvalue().decode())
 
     def test_cosyvoice_rejects_incomplete_custom_reference_pair(self):
         handler = _Handler()

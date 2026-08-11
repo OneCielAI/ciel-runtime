@@ -158,6 +158,7 @@ class SpeechHttpController:
                     current["api_key"] = ""
                 if name == "tts" and incoming.get("clear_ref_audio") is True:
                     current["ref_audio"] = ""
+                    current["ref_text"] = ""
                 if name == "tts":
                     normalize_cosyvoice_reference(current)
             tailscale = update.get("tailscale")
@@ -374,6 +375,11 @@ class SpeechHttpController:
                             body["ref_audio"] = str(effective_config["ref_audio"])
                         if str(effective_config.get("ref_text") or "").strip():
                             body["ref_text"] = str(effective_config["ref_text"])
+                    if is_cosyvoice3_model(body.get("model")) and (
+                        not str(body.get("ref_audio") or "").strip()
+                        or not str(body.get("ref_text") or "").strip()
+                    ):
+                        raise ValueError("CosyVoice 3 reference is empty; start live voice once to enroll it automatically")
                     body.setdefault("response_format", str(config.get("response_format") or "wav"))
                     body.setdefault("speed", float(config.get("speed") or 1.0))
                     streaming = bool(body.get("stream") and body.get("stream_format") == "audio")
@@ -402,7 +408,7 @@ class SpeechHttpController:
     def _open_and_stream(self, handler: BaseHTTPRequestHandler, service: str, config: SpeechConfig, request: urllib.request.Request) -> bool:
         started = False
         try:
-            with self.ports.urlopen(request, timeout=self._timeout(config)) as response:
+            with self.ports.urlopen(request, timeout=self._request_timeout(service, config)) as response:
                 handler.send_response(int(getattr(response, "status", 200)))
                 handler.send_header("content-type", str(response.headers.get("content-type") or "audio/pcm"))
                 handler.send_header("cache-control", "no-store")
@@ -425,7 +431,7 @@ class SpeechHttpController:
 
     def _open_and_write(self, handler: BaseHTTPRequestHandler, service: str, config: SpeechConfig, request: urllib.request.Request) -> bool:
         try:
-            with self.ports.urlopen(request, timeout=self._timeout(config)) as response:
+            with self.ports.urlopen(request, timeout=self._request_timeout(service, config)) as response:
                 self._write_bytes(handler, response.read(), int(getattr(response, "status", 200)), str(response.headers.get("content-type") or "application/octet-stream"))
         except urllib.error.HTTPError as exc:
             self._write_bytes(handler, exc.read(), int(exc.code), str(exc.headers.get("content-type") or "application/json"))
@@ -473,6 +479,11 @@ class SpeechHttpController:
             return max(1.0, min(3600.0, float(config.get("timeout_seconds") or 300)))
         except (TypeError, ValueError):
             return 300.0
+
+    @classmethod
+    def _request_timeout(cls, service: str, config: SpeechConfig) -> float:
+        timeout = cls._timeout(config)
+        return min(30.0, timeout) if service == "asr" else timeout
 
     @staticmethod
     def _multipart(fields: dict[str, str], file_field: str, filename: str, mime: str, data: bytes) -> tuple[bytes, str]:

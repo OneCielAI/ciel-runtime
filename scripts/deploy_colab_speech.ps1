@@ -52,7 +52,13 @@ $profileHome = if ($Profile -eq 'default') { $wslHome } else { "$wslHome/.config
 if ($LASTEXITCODE -ne 0) { throw "Could not create the Colab account profile directory." }
 
 function Invoke-Colab([string[]]$Arguments) {
-    & wsl -d $Distribution -- env "HOME=$profileHome" $colabExecutable --auth $ColabAuth @Arguments
+    $previousErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & wsl -d $Distribution -- env "HOME=$profileHome" $colabExecutable --auth $ColabAuth @Arguments
+    } finally {
+        $ErrorActionPreference = $previousErrorAction
+    }
 }
 
 if ($Action -eq 'Login') {
@@ -94,8 +100,10 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 function Ensure-ColabSession([string]$Session, [string]$Accelerator, [string]$Role) {
-    Invoke-Colab @('status', '--session', $Session) *> $null
-    if ($LASTEXITCODE -eq 0) {
+    $statusOutput = (Invoke-Colab @('status', '--session', $Session) 2>&1) -join "`n"
+    $statusExit = $LASTEXITCODE
+    $sessionMissing = $statusOutput -match '(?i)(session\s+.+\s+not found|no active sessions found)'
+    if ($statusExit -eq 0 -and -not $sessionMissing) {
         Write-Host "Reusing $Role $Accelerator session: $Session"
         return
     }
@@ -129,7 +137,11 @@ if ($env:TAILSCALE_AUTHKEY) { $asrArguments += @('--env', "TAILSCALE_AUTHKEY=$($
 if ($env:CIEL_SPEECH_API_KEY) { $asrArguments += @('--env', "CIEL_SPEECH_API_KEY=$($env:CIEL_SPEECH_API_KEY)") }
 $asrArguments += @('--file', "$wslRepo/scripts/colab/bootstrap_qwen_asr.py")
 $asrOutput = (Invoke-Colab $asrArguments 2>&1 | Tee-Object -Variable asrDisplay) -join "`n"
-if ($LASTEXITCODE -ne 0) { throw "ASR bootstrap failed." }
+$asrFailed = $LASTEXITCODE -ne 0 -or $asrOutput -match '(?i)(Traceback \(most recent call last\)|RuntimeError\s*:|Error\s*:)'
+if ($asrFailed) {
+    Write-Host $asrOutput
+    throw "ASR bootstrap failed."
+}
 
 Write-Host "Installing $TtsBackend and its Tailscale service..."
 $ttsArguments = @('exec', '--session', $TtsSession)
@@ -138,7 +150,11 @@ if ($env:CIEL_SPEECH_API_KEY) { $ttsArguments += @('--env', "CIEL_SPEECH_API_KEY
 $ttsBootstrap = if ($TtsBackend -eq 'cosyvoice3') { 'bootstrap_cosyvoice3.py' } else { 'bootstrap_moss_tts.py' }
 $ttsArguments += @('--file', "$wslRepo/scripts/colab/$ttsBootstrap")
 $ttsOutput = (Invoke-Colab $ttsArguments 2>&1 | Tee-Object -Variable ttsDisplay) -join "`n"
-if ($LASTEXITCODE -ne 0) { throw "TTS bootstrap failed." }
+$ttsFailed = $LASTEXITCODE -ne 0 -or $ttsOutput -match '(?i)(Traceback \(most recent call last\)|RuntimeError\s*:|Error\s*:)'
+if ($ttsFailed) {
+    Write-Host $ttsOutput
+    throw "TTS bootstrap failed."
+}
 
 function Read-BootstrapResult([string]$Text, [string]$Role) {
     $matches = [regex]::Matches($Text, '(?s)\{\s*"ok"\s*:\s*true.*?\}')
