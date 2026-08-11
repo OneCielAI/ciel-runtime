@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import getpass
+import hashlib
 import os
 import sys
 from pathlib import Path, PureWindowsPath
