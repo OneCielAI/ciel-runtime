@@ -6,6 +6,7 @@ Optional Colab Secret: CIEL_SPEECH_API_KEY
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 from pathlib import Path
@@ -23,6 +24,17 @@ SOCKET = "/tmp/ciel-tts-tailscaled.sock"
 STATE = "/tmp/ciel-tts-tailscaled.state"
 LOG_DIR = Path("/content/ciel-speech-logs")
 BACKEND_MARKER = Path("/content/ciel-speech-tts-backend")
+
+
+def restore_tailscale_state() -> None:
+    encoded = str(os.environ.get("CIEL_TTS_TAILSCALE_STATE") or "").strip()
+    if not encoded:
+        return
+    try:
+        STATE.write_bytes(base64.b64decode(encoded, validate=True))
+        STATE.chmod(0o600)
+    except (ValueError, OSError) as exc:
+        raise RuntimeError("Saved TTS Tailscale device state could not be restored") from exc
 
 
 def secret(name: str, *, required: bool = False) -> str:
@@ -64,6 +76,7 @@ def install_tailscale() -> None:
 def start_tailscale(auth_key: str) -> tuple[str, str]:
     install_tailscale()
     LOG_DIR.mkdir(parents=True, exist_ok=True)
+    restore_tailscale_state()
     tail_log = (LOG_DIR / "tailscale-tts.log").open("ab")
     if not Path(SOCKET).exists():
         subprocess.Popen(
@@ -76,11 +89,18 @@ def start_tailscale(auth_key: str) -> tuple[str, str]:
         if Path(SOCKET).exists():
             break
         time.sleep(1)
-    login = run("tailscale", f"--socket={SOCKET}", "up", f"--auth-key={auth_key}", f"--hostname={HOSTNAME}", "--accept-dns=true", "--reset", check=False)
-    if login.returncode:
-        raise RuntimeError("Tailscale authentication failed; use a valid reusable key or a fresh key for this second worker")
     status = subprocess.check_output(["tailscale", f"--socket={SOCKET}", "status", "--json"], text=True)
-    dns_name = str(json.loads(status).get("Self", {}).get("DNSName") or HOSTNAME).rstrip(".")
+    status_data = json.loads(status)
+    if status_data.get("BackendState") == "Running":
+        pass
+    elif auth_key:
+        login = run("tailscale", f"--socket={SOCKET}", "up", f"--auth-key={auth_key}", f"--hostname={HOSTNAME}", "--accept-dns=true", "--reset", check=False)
+        if login.returncode:
+            raise RuntimeError("Tailscale authentication failed; replace the saved recovery key")
+        status_data = json.loads(subprocess.check_output(["tailscale", f"--socket={SOCKET}", "status", "--json"], text=True))
+    else:
+        raise RuntimeError("TAILSCALE_AUTHKEY is required because this Colab worker has no reusable Tailscale login state")
+    dns_name = str(status_data.get("Self", {}).get("DNSName") or HOSTNAME).rstrip(".")
     run("tailscale", f"--socket={SOCKET}", "serve", "--bg", "--http=80", f"http://127.0.0.1:{PORT}")
     return dns_name, f"http://{dns_name}"
 
@@ -118,7 +138,7 @@ def prepare_backend() -> None:
 
 
 def main() -> None:
-    auth_key = secret("TAILSCALE_AUTHKEY", required=True)
+    auth_key = secret("TAILSCALE_AUTHKEY")
     api_key = secret("CIEL_SPEECH_API_KEY")
     run(
         sys.executable,

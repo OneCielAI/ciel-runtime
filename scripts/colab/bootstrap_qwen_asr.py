@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import base64
 from pathlib import Path
 import shutil
 import subprocess
@@ -24,6 +25,17 @@ SOCKET = "/tmp/ciel-asr-tailscaled.sock"
 STATE = "/tmp/ciel-asr-tailscaled.state"
 LOG_DIR = Path("/content/ciel-speech-logs")
 MODEL_MARKER = Path("/content/ciel-speech-asr-model")
+
+
+def restore_tailscale_state() -> None:
+    encoded = str(os.environ.get("CIEL_ASR_TAILSCALE_STATE") or "").strip()
+    if not encoded:
+        return
+    try:
+        STATE.write_bytes(base64.b64decode(encoded, validate=True))
+        STATE.chmod(0o600)
+    except (ValueError, OSError) as exc:
+        raise RuntimeError("Saved ASR Tailscale device state could not be restored") from exc
 
 
 def secret(name: str, *, required: bool = False) -> str:
@@ -65,6 +77,7 @@ def install_tailscale() -> None:
 def start_tailscale(auth_key: str) -> tuple[str, str]:
     install_tailscale()
     LOG_DIR.mkdir(parents=True, exist_ok=True)
+    restore_tailscale_state()
     tail_log = (LOG_DIR / "tailscale-asr.log").open("ab")
     if not Path(SOCKET).exists():
         subprocess.Popen(

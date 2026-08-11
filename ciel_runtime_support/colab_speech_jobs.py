@@ -22,7 +22,9 @@ from .runtime_paths import CONFIG_DIR
 _ACTIONS = {"start", "deploy", "recreate", "status"}
 _SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 _SECRET_PATTERN = re.compile(r"(?:tskey-[A-Za-z0-9_-]+|Bearer\s+\S+)", re.IGNORECASE)
-_SAVED_SECRET_NAMES = ("tailscale_auth_key", "speech_api_key")
+_USER_SECRET_NAMES = ("tailscale_auth_key", "speech_api_key")
+_STATE_SECRET_NAMES = ("tailscale_asr_state", "tailscale_tts_state")
+_SAVED_SECRET_NAMES = _USER_SECRET_NAMES + _STATE_SECRET_NAMES
 
 
 class PortableEncryptedSecretStore:
@@ -178,7 +180,7 @@ class PortableEncryptedSecretStore:
             encrypted = data.get("profiles", {}).get(profile, {})
             if not isinstance(encrypted, dict):
                 encrypted = {}
-            return {f"stored_{name}": bool(str(encrypted.get(name) or "").strip()) for name in _SAVED_SECRET_NAMES}
+            return {f"stored_{name}": bool(str(encrypted.get(name) or "").strip()) for name in _USER_SECRET_NAMES}
 
 
 @dataclass(slots=True)
@@ -260,7 +262,7 @@ class ColabSpeechJobManager:
         supplied = secrets or {}
         if str(supplied.get("forget_saved_credentials") or "").strip() in {"1", "true", "yes"}:
             self.secret_store.clear(profile)
-        entered = {name: str(supplied.get(name) or "").strip() for name in _SAVED_SECRET_NAMES}
+        entered = {name: str(supplied.get(name) or "").strip() for name in _USER_SECRET_NAMES}
         entered = {name: value for name, value in entered.items() if value}
         if entered:
             self.secret_store.save(profile, entered)
@@ -289,6 +291,10 @@ class ColabSpeechJobManager:
             environment.pop("CIEL_RUNTIME_SECRET_MASTER_KEY", None)
             if normalized in {"deploy", "recreate"}:
                 for source, target in (("tailscale_auth_key", "TAILSCALE_AUTHKEY"), ("speech_api_key", "CIEL_SPEECH_API_KEY")):
+                    value = str(effective.get(source) or "").strip()
+                    if value:
+                        environment[target] = value
+                for source, target in (("tailscale_asr_state", "CIEL_ASR_TAILSCALE_STATE"), ("tailscale_tts_state", "CIEL_TTS_TAILSCALE_STATE")):
                     value = str(effective.get(source) or "").strip()
                     if value:
                         environment[target] = value

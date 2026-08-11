@@ -61,6 +61,9 @@ class ColabSpeechJobManagerTests(unittest.TestCase):
         self.assertIn("function Release-ColabEndpoint", source)
         self.assertIn("state.client.unassign", source)
         self.assertIn('Release-ColabEndpoint $asrKnownEndpoint "ASR"', source)
+        self.assertIn("function Save-ColabTailscaleState", source)
+        self.assertIn("store_colab_tailscale_state.py", source)
+        self.assertIn("CIEL_ASR_TAILSCALE_STATE", source)
 
     def test_login_command_uses_isolated_profile_and_can_reset_authentication(self):
         manager = ColabSpeechJobManager(Path("C:/runtime/scripts/deploy_colab_speech.ps1"), Path("C:/state"))
@@ -145,11 +148,14 @@ class ColabSpeechJobManagerTests(unittest.TestCase):
 
             store.save("default", {"tailscale_auth_key": "first-secret"})
             store.save("default", {"tailscale_auth_key": "second-secret"})
+            store.save("default", {"tailscale_asr_state": "encoded-device-state"})
 
             raw = path.read_text(encoding="utf-8")
             self.assertNotIn("first-secret", raw)
             self.assertNotIn("second-secret", raw)
             self.assertEqual("second-secret", store.load("default")["tailscale_auth_key"])
+            self.assertEqual("encoded-device-state", store.load("default")["tailscale_asr_state"])
+            self.assertNotIn("stored_tailscale_asr_state", store.status("default"))
             self.assertEqual(1, len(__import__("json").loads(raw)["profiles"]))
 
     def test_rejects_shell_metacharacters_in_profile(self):
@@ -173,6 +179,18 @@ class ColabSpeechJobManagerTests(unittest.TestCase):
             self.assertIn('auth_key = secret("TAILSCALE_AUTHKEY")', source)
             self.assertIn('status_data.get("BackendState") == "Running"', source)
             self.assertIn("elif auth_key:", source)
+
+    def test_all_bootstraps_restore_saved_tailscale_device_identity(self):
+        root = Path(__file__).resolve().parents[1] / "scripts" / "colab"
+        for name, variable in (
+            ("bootstrap_qwen_asr.py", "CIEL_ASR_TAILSCALE_STATE"),
+            ("bootstrap_cosyvoice3.py", "CIEL_TTS_TAILSCALE_STATE"),
+            ("bootstrap_moss_tts.py", "CIEL_TTS_TAILSCALE_STATE"),
+        ):
+            source = (root / name).read_text(encoding="utf-8")
+            self.assertIn("def restore_tailscale_state()", source)
+            self.assertIn(variable, source)
+            self.assertIn("restore_tailscale_state()", source)
 
 
 if __name__ == "__main__":

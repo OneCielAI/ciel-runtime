@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import base64
 from pathlib import Path
 import shutil
 import subprocess
@@ -18,6 +19,17 @@ PORT = 8091
 SOCKET = "/tmp/ciel-tts-tailscaled.sock"
 STATE = "/tmp/ciel-tts-tailscaled.state"
 LOG_DIR = Path("/content/ciel-speech-logs")
+
+
+def restore_tailscale_state() -> None:
+    encoded = str(os.environ.get("CIEL_TTS_TAILSCALE_STATE") or "").strip()
+    if not encoded:
+        return
+    try:
+        STATE.write_bytes(base64.b64decode(encoded, validate=True))
+        STATE.chmod(0o600)
+    except (ValueError, OSError) as exc:
+        raise RuntimeError("Saved TTS Tailscale device state could not be restored") from exc
 BACKEND_MARKER = Path("/content/ciel-speech-tts-backend")
 
 
@@ -51,6 +63,7 @@ def install_tailscale() -> None:
 def start_tailscale(auth_key: str) -> tuple[str, str]:
     install_tailscale()
     LOG_DIR.mkdir(parents=True, exist_ok=True)
+    restore_tailscale_state()
     tail_log = (LOG_DIR / "tailscale-tts.log").open("ab")
     if not Path(SOCKET).exists():
         subprocess.Popen(

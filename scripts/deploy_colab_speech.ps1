@@ -97,7 +97,7 @@ if ($env:CIEL_SPEECH_API_KEY) {
     if ($env:CIEL_SPEECH_API_KEY -match '[\s''"]') { throw "CIEL_SPEECH_API_KEY cannot contain whitespace or quotes for CLI deployment." }
 }
 $ephemeralSecrets = @{}
-foreach ($secretName in @('TAILSCALE_AUTHKEY', 'CIEL_SPEECH_API_KEY')) {
+foreach ($secretName in @('TAILSCALE_AUTHKEY', 'CIEL_SPEECH_API_KEY', 'CIEL_ASR_TAILSCALE_STATE', 'CIEL_TTS_TAILSCALE_STATE')) {
     $secretValue = [string][Environment]::GetEnvironmentVariable($secretName, 'Process')
     if (-not [string]::IsNullOrWhiteSpace($secretValue)) { $ephemeralSecrets[$secretName] = $secretValue }
     Remove-Item "Env:$secretName" -ErrorAction SilentlyContinue
@@ -248,8 +248,25 @@ function Read-BootstrapResult([string]$Text, [string]$Role) {
     return $result
 }
 
+function Save-ColabTailscaleState([string]$Session, [string]$Role, [string]$RemotePath) {
+    $temporary = New-TemporaryFile
+    try {
+        $temporaryWsl = (& wsl -d $Distribution -- wslpath -a $temporary.FullName.Replace('\', '/')).Trim()
+        Invoke-Colab @('download', '--session', $Session, $RemotePath, $temporaryWsl) | Out-Null
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $temporary.FullName) -or (Get-Item -LiteralPath $temporary.FullName).Length -eq 0) {
+            throw "Could not download the $Role Tailscale device state."
+        }
+        & python (Join-Path $PSScriptRoot 'store_colab_tailscale_state.py') --profile $Profile --role ($Role.ToLowerInvariant()) --input $temporary.FullName
+        if ($LASTEXITCODE -ne 0) { throw "Could not encrypt the $Role Tailscale device state." }
+    } finally {
+        Remove-Item -LiteralPath $temporary.FullName -Force -ErrorAction SilentlyContinue
+    }
+}
+
 $asr = Read-BootstrapResult $asrOutput "asr"
 $tts = Read-BootstrapResult $ttsOutput "tts"
+Save-ColabTailscaleState $AsrSession "ASR" "/tmp/ciel-asr-tailscaled.state"
+Save-ColabTailscaleState $TtsSession "TTS" "/tmp/ciel-tts-tailscaled.state"
 & python (Join-Path $PSScriptRoot "configure_speech_workers.py") --asr-base-url $asr.base_url --tts-base-url $tts.base_url --distribution $Distribution --auth $ColabAuth --profile $Profile --asr-session $AsrSession --tts-session $TtsSession --asr-model $AsrModel --asr-accelerator $AsrAccelerator --tts-accelerator $TtsAccelerator --tts-backend $TtsBackend
 if ($LASTEXITCODE -ne 0) { throw "Workers started, but Ciel speech configuration failed." }
 
