@@ -131,7 +131,7 @@ if ($Action -eq 'Start') {
 }
 
 Write-Host "Installing Qwen3-ASR and its Tailscale service..."
-$asrArguments = @('exec', '--session', $AsrSession)
+$asrArguments = @('exec', '--session', $AsrSession, '--timeout', '1800')
 $asrArguments += @('--env', "CIEL_ASR_MODEL=$AsrModel")
 if ($env:TAILSCALE_AUTHKEY) { $asrArguments += @('--env', "TAILSCALE_AUTHKEY=$($env:TAILSCALE_AUTHKEY)") }
 if ($env:CIEL_SPEECH_API_KEY) { $asrArguments += @('--env', "CIEL_SPEECH_API_KEY=$($env:CIEL_SPEECH_API_KEY)") }
@@ -144,7 +144,7 @@ if ($asrFailed) {
 }
 
 Write-Host "Installing $TtsBackend and its Tailscale service..."
-$ttsArguments = @('exec', '--session', $TtsSession)
+$ttsArguments = @('exec', '--session', $TtsSession, '--timeout', '1800')
 if ($env:TAILSCALE_AUTHKEY) { $ttsArguments += @('--env', "TAILSCALE_AUTHKEY=$($env:TAILSCALE_AUTHKEY)") }
 if ($env:CIEL_SPEECH_API_KEY) { $ttsArguments += @('--env', "CIEL_SPEECH_API_KEY=$($env:CIEL_SPEECH_API_KEY)") }
 $ttsBootstrap = if ($TtsBackend -eq 'cosyvoice3') { 'bootstrap_cosyvoice3.py' } else { 'bootstrap_moss_tts.py' }

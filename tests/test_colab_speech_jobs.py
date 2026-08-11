@@ -29,6 +29,7 @@ class ColabSpeechJobManagerTests(unittest.TestCase):
         self.assertIn("Write-Host $asrOutput", source)
         self.assertIn("$ErrorActionPreference = 'Continue'", source)
         self.assertIn("$asrFailed = $LASTEXITCODE -ne 0 -or $asrOutput -match", source)
+        self.assertIn("@('exec', '--session', $AsrSession, '--timeout', '1800')", source)
 
     def test_login_command_uses_isolated_profile_and_can_reset_authentication(self):
         manager = ColabSpeechJobManager(Path("C:/runtime/scripts/deploy_colab_speech.ps1"), Path("C:/state"))
