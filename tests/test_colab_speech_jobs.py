@@ -92,7 +92,8 @@ class ColabSpeechJobManagerTests(unittest.TestCase):
         for name in ("bootstrap_qwen_asr.py", "bootstrap_cosyvoice3.py"):
             source = (root / name).read_text(encoding="utf-8")
             self.assertIn('auth_key = secret("TAILSCALE_AUTHKEY")', source)
-            self.assertIn('status_data.get("BackendState") != "Running"', source)
+            self.assertIn('status_data.get("BackendState") == "Running"', source)
+            self.assertIn("elif auth_key:", source)
 
 
 if __name__ == "__main__":

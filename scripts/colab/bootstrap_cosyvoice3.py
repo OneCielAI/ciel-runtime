@@ -65,12 +65,14 @@ def start_tailscale(auth_key: str) -> tuple[str, str]:
         time.sleep(1)
     status = subprocess.check_output(["tailscale", f"--socket={SOCKET}", "status", "--json"], text=True)
     status_data = json.loads(status)
-    if auth_key:
+    if status_data.get("BackendState") == "Running":
+        pass
+    elif auth_key:
         login = run("tailscale", f"--socket={SOCKET}", "up", f"--auth-key={auth_key}", f"--hostname={HOSTNAME}", "--accept-dns=true", "--reset", check=False)
         if login.returncode:
             raise RuntimeError("Tailscale authentication failed; use a valid reusable key or a fresh key for this worker")
         status_data = json.loads(subprocess.check_output(["tailscale", f"--socket={SOCKET}", "status", "--json"], text=True))
-    elif status_data.get("BackendState") != "Running":
+    else:
         raise RuntimeError("TAILSCALE_AUTHKEY is required because this Colab worker has no reusable Tailscale login state")
     dns_name = str(status_data.get("Self", {}).get("DNSName") or HOSTNAME).rstrip(".")
     run("tailscale", f"--socket={SOCKET}", "serve", "--bg", "--http=80", f"http://127.0.0.1:{PORT}")
