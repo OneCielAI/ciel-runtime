@@ -100,7 +100,7 @@ def configure(
     speech["colab"] = colab
     asr.update({"enabled": True, "base_url": asr_base_url.rstrip("/"), "model": selected_asr_model})
     tts.update({"enabled": True, "base_url": tts_base_url.rstrip("/"), **backend_settings})
-    known_defaults = {DEFAULT_TTS_REFERENCE_AUDIO, DEFAULT_COSYVOICE_REFERENCE_AUDIO, ""}
+    known_defaults = {DEFAULT_TTS_REFERENCE_AUDIO, DEFAULT_COSYVOICE_REFERENCE_AUDIO}
     current_reference = str(tts.get("ref_audio") or "").strip()
     desired_reference = DEFAULT_COSYVOICE_REFERENCE_AUDIO if backend == "cosyvoice3" else tts_reference_audio
     if desired_reference and current_reference in known_defaults:

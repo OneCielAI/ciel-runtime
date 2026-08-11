@@ -26,15 +26,15 @@ class ConfigureSpeechWorkersTests(unittest.TestCase):
             )
         return result, saved[0]
 
-    def test_cosyvoice_selection_sets_streaming_model_and_official_reference(self):
+    def test_cosyvoice_selection_preserves_empty_reference_for_auto_enrollment(self):
         result, config = self.configure({"speech": {"tts": {}}}, "cosyvoice3")
 
         tts = config["speech"]["tts"]
         self.assertEqual("FunAudioLLM/Fun-CosyVoice3-0.5B-2512", tts["model"])
         self.assertEqual(24000, tts["sample_rate"])
         self.assertTrue(tts["streaming"])
-        self.assertEqual(MODULE.DEFAULT_COSYVOICE_REFERENCE_AUDIO, tts["ref_audio"])
-        self.assertEqual(MODULE.DEFAULT_COSYVOICE_REFERENCE_TEXT, tts["ref_text"])
+        self.assertFalse(tts.get("ref_audio"))
+        self.assertEqual("", tts["ref_text"])
         self.assertEqual("cosyvoice3", result["colab"]["tts_backend"])
 
     def test_switching_backend_preserves_custom_reference_voice(self):
