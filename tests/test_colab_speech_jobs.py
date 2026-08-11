@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from ciel_runtime_support.colab_speech_jobs import ColabSpeechJobManager
+from ciel_runtime_support.colab_speech_jobs import ColabSpeechJobManager, PortableEncryptedSecretStore
 
 
 class _Process:
@@ -18,6 +18,27 @@ class _Process:
         return self.return_code
 
 
+class _MemorySecretStore:
+    def __init__(self):
+        self.values = {}
+
+    def save(self, profile, secrets):
+        self.values.setdefault(profile, {}).update(secrets)
+
+    def load(self, profile):
+        return dict(self.values.get(profile, {}))
+
+    def clear(self, profile):
+        self.values.pop(profile, None)
+
+    def status(self, profile):
+        values = self.values.get(profile, {})
+        return {
+            "stored_tailscale_auth_key": bool(values.get("tailscale_auth_key")),
+            "stored_speech_api_key": bool(values.get("speech_api_key")),
+        }
+
+
 class ColabSpeechJobManagerTests(unittest.TestCase):
     def test_deploy_script_treats_not_found_output_as_a_missing_session(self):
         script = Path(__file__).resolve().parents[1] / "scripts" / "deploy_colab_speech.ps1"
@@ -28,12 +49,18 @@ class ColabSpeechJobManagerTests(unittest.TestCase):
         self.assertIn("$statusExit -eq 0 -and -not $sessionMissing", source)
         self.assertIn("Write-Host $asrOutput", source)
         self.assertIn("$ErrorActionPreference = 'Continue'", source)
-        self.assertIn("$asrFailed = $LASTEXITCODE -ne 0 -or $asrOutput -match", source)
+        self.assertIn("$asrFailed = $asrExitCode -ne 0 -or $asrOutput -match", source)
         self.assertIn("@('exec', '--session', $AsrSession, '--timeout', '1800')", source)
         self.assertIn("function New-EphemeralBootstrap", source)
         self.assertIn("Remove-Item \"Env:$secretName\"", source)
         self.assertNotIn("@('--env', \"TAILSCALE_AUTHKEY=", source)
         self.assertIn("[Text.UTF8Encoding]::new($false)", source)
+        self.assertIn("ASR session became stale; creating a replacement and retrying once", source)
+        self.assertIn("TTS session became stale; creating a replacement and retrying once", source)
+        self.assertIn("$asrExitCode = $LASTEXITCODE", source)
+        self.assertIn("function Release-ColabEndpoint", source)
+        self.assertIn("state.client.unassign", source)
+        self.assertIn('Release-ColabEndpoint $asrKnownEndpoint "ASR"', source)
 
     def test_login_command_uses_isolated_profile_and_can_reset_authentication(self):
         manager = ColabSpeechJobManager(Path("C:/runtime/scripts/deploy_colab_speech.ps1"), Path("C:/state"))
@@ -54,7 +81,8 @@ class ColabSpeechJobManagerTests(unittest.TestCase):
             script = root / "scripts" / "deploy_colab_speech.ps1"
             script.parent.mkdir()
             script.write_text("Write-Host ready", encoding="utf-8")
-            manager = ColabSpeechJobManager(script, root / "jobs")
+            store = _MemorySecretStore()
+            manager = ColabSpeechJobManager(script, root / "jobs", store)
             process = _Process()
             with mock.patch("ciel_runtime_support.colab_speech_jobs.subprocess.Popen", return_value=process) as popen:
                 launched = manager.launch(
@@ -72,6 +100,57 @@ class ColabSpeechJobManagerTests(unittest.TestCase):
             job_id = launched["job"]["id"]
             (root / "jobs" / f"{job_id}.log").write_text("key tskey-auth-secret\n", encoding="utf-8")
             self.assertNotIn("tskey-auth-secret", manager.status(job_id)["job"]["output"])
+            self.assertTrue(manager.credential_status("personal")["stored_tailscale_auth_key"])
+
+    def test_job_status_classifies_colab_capacity_errors(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            script = root / "deploy.ps1"
+            script.write_text("ready", encoding="utf-8")
+            manager = ColabSpeechJobManager(script, root / "jobs", _MemorySecretStore())
+            process = _Process(return_code=1)
+            with mock.patch("ciel_runtime_support.colab_speech_jobs.os.name", "nt"), mock.patch(
+                "ciel_runtime_support.colab_speech_jobs.subprocess.Popen", return_value=process
+            ):
+                launched = manager.launch("deploy", {"profile": "personal"}, {})
+            job_id = launched["job"]["id"]
+            (root / "jobs" / f"{job_id}.log").write_text("TooManyAssignmentsError: Precondition Failed", encoding="utf-8")
+
+            self.assertEqual("colab_capacity", manager.status(job_id)["job"]["failure_kind"])
+
+    def test_saved_credentials_are_reused_and_can_be_forgotten(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            script = root / "deploy.ps1"
+            script.write_text("ready", encoding="utf-8")
+            store = _MemorySecretStore()
+            manager = ColabSpeechJobManager(script, root / "jobs", store)
+            process = _Process()
+            with mock.patch("ciel_runtime_support.colab_speech_jobs.os.name", "nt"), mock.patch(
+                "ciel_runtime_support.colab_speech_jobs.subprocess.Popen", return_value=process
+            ) as popen:
+                manager.launch("deploy", {"profile": "personal"}, {"tailscale_auth_key": "saved-key"})
+                manager._jobs.clear()
+                manager.launch("deploy", {"profile": "personal"}, {})
+                self.assertEqual("saved-key", popen.call_args.kwargs["env"]["TAILSCALE_AUTHKEY"])
+                manager._jobs.clear()
+                manager.launch("start", {"profile": "personal"}, {"forget_saved_credentials": "1"})
+
+            self.assertFalse(manager.credential_status("personal")["stored_tailscale_auth_key"])
+
+    def test_portable_store_keeps_only_ciphertext_and_overwrites_one_profile_slot(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "credentials.json"
+            store = PortableEncryptedSecretStore(path, master_key=b"x" * 32)
+
+            store.save("default", {"tailscale_auth_key": "first-secret"})
+            store.save("default", {"tailscale_auth_key": "second-secret"})
+
+            raw = path.read_text(encoding="utf-8")
+            self.assertNotIn("first-secret", raw)
+            self.assertNotIn("second-secret", raw)
+            self.assertEqual("second-secret", store.load("default")["tailscale_auth_key"])
+            self.assertEqual(1, len(__import__("json").loads(raw)["profiles"]))
 
     def test_rejects_shell_metacharacters_in_profile(self):
         manager = ColabSpeechJobManager(Path("deploy.ps1"), Path("jobs"))

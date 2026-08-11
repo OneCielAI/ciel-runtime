@@ -47,6 +47,10 @@ if (-not $wslRepo) { throw "Could not resolve the repository path in WSL." }
 $wslHome = (& wsl -d $Distribution -- bash -lc 'printf %s "$HOME"').Trim()
 $colabExecutable = (& wsl -d $Distribution -- bash -lc 'command -v colab').Trim()
 if (-not $wslHome -or -not $colabExecutable) { throw "Could not locate the WSL home directory or Colab CLI." }
+$colabResolved = (& wsl -d $Distribution -- readlink -f $colabExecutable).Trim()
+$colabShebang = (& wsl -d $Distribution -- head -n 1 $colabResolved).Trim()
+$colabPython = $colabShebang -replace '^#!', ''
+if (-not $colabPython.StartsWith('/')) { throw "Could not locate the Colab CLI Python interpreter." }
 $profileHome = if ($Profile -eq 'default') { $wslHome } else { "$wslHome/.config/ciel-runtime/colab-profiles/$Profile" }
 & wsl -d $Distribution -- mkdir -p $profileHome
 if ($LASTEXITCODE -ne 0) { throw "Could not create the Colab account profile directory." }
@@ -143,6 +147,28 @@ function Ensure-ColabSession([string]$Session, [string]$Accelerator, [string]$Ro
     if ($LASTEXITCODE -ne 0) { throw "Could not create $Role Colab session." }
 }
 
+function Get-ColabSessionEndpoint([string]$Session) {
+    $statusOutput = (Invoke-Colab @('status', '--session', $Session) 2>&1) -join "`n"
+    $endpointMatch = [regex]::Match($statusOutput, '(?m)^\[[^\]]+\]\s+([A-Za-z0-9._-]+)\s+\|')
+    if ($endpointMatch.Success) { return $endpointMatch.Groups[1].Value }
+    return ''
+}
+
+function Release-ColabEndpoint([string]$Endpoint, [string]$Role) {
+    if ([string]::IsNullOrWhiteSpace($Endpoint) -or $Endpoint -notmatch '^[A-Za-z0-9._-]+$') { return }
+    Write-Host "Releasing stale server-side $Role assignment: $Endpoint"
+    $releaseCode = 'import sys; from colab_cli.auth import AuthProvider; from colab_cli.common import state; state.auth_provider=AuthProvider(sys.argv[2]); state.client.unassign(sys.argv[1])'
+    $previousErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & wsl -d $Distribution -- env "HOME=$profileHome" $colabPython -c $releaseCode $Endpoint $ColabAuth
+    } finally {
+        $releaseExit = $LASTEXITCODE
+        $ErrorActionPreference = $previousErrorAction
+    }
+    if ($releaseExit -ne 0) { throw "Could not release stale server-side $Role assignment '$Endpoint'." }
+}
+
 function Stop-ColabSession([string]$Session, [string]$Role) {
     Write-Host "Releasing existing $Role session if present: $Session"
     Invoke-Colab @('stop', '--session', $Session) *> $null
@@ -155,6 +181,8 @@ if ($Action -eq 'Recreate') {
 
 Ensure-ColabSession $AsrSession $AsrAccelerator "ASR"
 Ensure-ColabSession $TtsSession $TtsAccelerator "TTS"
+$asrKnownEndpoint = Get-ColabSessionEndpoint $AsrSession
+$ttsKnownEndpoint = Get-ColabSessionEndpoint $TtsSession
 
 if ($Action -eq 'Start') {
     Write-Host "Colab sessions are allocated for profile '$Profile'. Run -Action Deploy to install and connect the workers."
@@ -168,11 +196,19 @@ $asrBootstrap = New-EphemeralBootstrap "$wslRepo/scripts/colab/bootstrap_qwen_as
 $asrArguments += @('--file', $asrBootstrap.WslPath)
 try {
     $asrOutput = (Invoke-Colab $asrArguments 2>&1 | Tee-Object -Variable asrDisplay) -join "`n"
+    $asrExitCode = $LASTEXITCODE
+    if ($asrOutput -match '(?i)(appears to be lost|session\s+.+\s+not found|404/401)') {
+        Write-Host "ASR session became stale; creating a replacement and retrying once."
+        Release-ColabEndpoint $asrKnownEndpoint "ASR"
+        Ensure-ColabSession $AsrSession $AsrAccelerator "ASR"
+        $asrOutput = (Invoke-Colab $asrArguments 2>&1 | Tee-Object -Variable asrDisplay) -join "`n"
+        $asrExitCode = $LASTEXITCODE
+    }
 } finally {
     if ($asrBootstrap.LocalPath) { Remove-Item -LiteralPath $asrBootstrap.LocalPath -Force -ErrorAction SilentlyContinue }
 }
 Write-Host $asrOutput
-$asrFailed = $LASTEXITCODE -ne 0 -or $asrOutput -match '(?i)(Traceback \(most recent call last\)|RuntimeError|SyntaxError)'
+$asrFailed = $asrExitCode -ne 0 -or $asrOutput -match '(?i)(Traceback \(most recent call last\)|RuntimeError|SyntaxError)'
 if ($asrFailed) {
     Write-Host $asrOutput
     throw "ASR bootstrap failed."
@@ -186,11 +222,19 @@ $ephemeralSecrets.Clear()
 $ttsArguments += @('--file', $ttsBootstrapFile.WslPath)
 try {
     $ttsOutput = (Invoke-Colab $ttsArguments 2>&1 | Tee-Object -Variable ttsDisplay) -join "`n"
+    $ttsExitCode = $LASTEXITCODE
+    if ($ttsOutput -match '(?i)(appears to be lost|session\s+.+\s+not found|404/401)') {
+        Write-Host "TTS session became stale; creating a replacement and retrying once."
+        Release-ColabEndpoint $ttsKnownEndpoint "TTS"
+        Ensure-ColabSession $TtsSession $TtsAccelerator "TTS"
+        $ttsOutput = (Invoke-Colab $ttsArguments 2>&1 | Tee-Object -Variable ttsDisplay) -join "`n"
+        $ttsExitCode = $LASTEXITCODE
+    }
 } finally {
     if ($ttsBootstrapFile.LocalPath) { Remove-Item -LiteralPath $ttsBootstrapFile.LocalPath -Force -ErrorAction SilentlyContinue }
 }
 Write-Host $ttsOutput
-$ttsFailed = $LASTEXITCODE -ne 0 -or $ttsOutput -match '(?i)(Traceback \(most recent call last\)|RuntimeError|SyntaxError)'
+$ttsFailed = $ttsExitCode -ne 0 -or $ttsOutput -match '(?i)(Traceback \(most recent call last\)|RuntimeError|SyntaxError)'
 if ($ttsFailed) {
     Write-Host $ttsOutput
     throw "TTS bootstrap failed."

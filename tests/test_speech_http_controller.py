@@ -71,7 +71,7 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.requests = []
         self.saved = []
 
-    def controller(self, response=None, *, colab_action=None, colab_status=None):
+    def controller(self, response=None, *, colab_action=None, colab_status=None, colab_credentials=None):
         def write_json(handler, value, status=200):
             data = json.dumps(value).encode()
             handler.send_response(status)
@@ -84,7 +84,7 @@ class SpeechHttpControllerTests(unittest.TestCase):
             self.requests.append((request, timeout))
             return response or _Response(b'{"text":"hello"}')
 
-        return SpeechHttpController(SpeechHttpPorts(lambda: self.config, lambda value: self.saved.append(value), write_json, lambda *_args: None, urlopen, colab_action, colab_status))
+        return SpeechHttpController(SpeechHttpPorts(lambda: self.config, lambda value: self.saved.append(value), write_json, lambda *_args: None, urlopen, colab_action, colab_status, colab_credentials))
 
     def test_public_config_masks_remote_tokens_and_lists_all_audio_endpoints(self):
         public = self.controller().public_config()
@@ -149,6 +149,22 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.assertEqual("adc", calls[0][1]["auth"])
         self.assertEqual("tail-secret", calls[0][2]["tailscale_auth_key"])
         self.assertEqual(200, handler.status)
+
+    def test_public_config_reports_only_saved_credential_presence(self):
+        public = self.controller(colab_credentials=lambda _profile: {"stored_tailscale_auth_key": True, "stored_speech_api_key": False}).public_config()
+
+        self.assertTrue(public["colab"]["stored_tailscale_auth_key"])
+        self.assertFalse(public["colab"]["stored_speech_api_key"])
+
+    def test_colab_action_forwards_forget_saved_credentials(self):
+        handler = _Handler()
+        calls = []
+        body = json.dumps({"action": "start", "forget_saved_credentials": True}).encode()
+        controller = self.controller(colab_action=lambda action, settings, secrets: calls.append(secrets) or {"ok": True})
+
+        controller.post(handler, "/ca/speech/colab/action", body, "application/json")
+
+        self.assertEqual("1", calls[0]["forget_saved_credentials"])
 
     def test_colab_job_status_endpoint_reports_latest_job(self):
         handler = _Handler()

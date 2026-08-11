@@ -271,13 +271,14 @@ def render_web_chat_page(
             <label>TTS session<input id="colabTtsSession" placeholder="ciel-tts"></label>
             <label>ASR GPU<select id="colabAsrAccelerator"><option>T4</option><option>L4</option><option>G4</option><option>A100</option><option>H100</option></select></label>
             <label>TTS GPU<select id="colabTtsAccelerator"><option>T4</option><option>L4</option><option>G4</option><option>A100</option><option>H100</option></select></label>
-            <label class="wide">Tailscale auth key for this run<input id="colabTailscaleAuthKey" type="password" autocomplete="new-password" placeholder="Not saved; Colab Secret may be used instead"></label>
-            <label class="wide">Speech API key for this run<input id="colabSpeechApiKey" type="password" autocomplete="new-password" placeholder="Not saved; optional"></label>
+            <label class="wide">Saved Tailscale recovery key<input id="colabTailscaleAuthKey" type="password" autocomplete="new-password" placeholder="Enter once; encrypted in the local Ciel vault"><span class="hint" id="colabTailscaleCredentialStatus">No recovery key saved on this computer</span></label>
+            <label class="wide">Saved speech API key<input id="colabSpeechApiKey" type="password" autocomplete="new-password" placeholder="Optional; encrypted in the local Ciel vault"></label>
+            <label class="check wide"><input id="colabForgetWorkerCredentials" type="checkbox"> Delete this profile's encrypted worker credentials</label>
             <label class="check wide"><input id="colabResetAuthentication" type="checkbox"> Forget this profile's current login before generating a login command</label>
           </div>
           <div class="settings-actions"><button class="ghost" id="colabLoginButton" type="button">Copy login command</button><button class="ghost" id="colabStatusButton" type="button">Check sessions</button><button class="ghost" id="colabStartButton" type="button">Start missing</button><button class="primary" id="colabDeployButton" type="button">Recover &amp; deploy</button><button class="ghost" id="colabRecreateButton" type="button">Recreate all</button></div>
           <pre class="hint" id="colabJobStatus">No Colab deployment job has been started.</pre>
-          <div class="hint">Named account profiles get an isolated WSL HOME, OAuth token, session state, and history; <code>default</code> keeps the existing Colab CLI login for compatibility. Login remains an interactive CLI step; deployment jobs run in the background. Ephemeral keys above are passed only to that job and are never saved by Ciel.</div>
+          <div class="hint">Named account profiles get an isolated WSL HOME, OAuth token, session state, history, and one encrypted worker-credential slot. A newly entered key replaces the saved key; Ciel does not accumulate key history. Secrets are decrypted only for worker deployment and are removed before child CLI commands are launched.</div>
         </section>
         <section class="settings-section">
           <h3>Tailscale tunnel</h3>
@@ -390,11 +391,26 @@ def render_web_chat_page(
     let autoSpeechReplySeen = false;
     let pendingTtsReferenceAudio = '';
     let autoReferenceSaving = false;
+    let reportedColabJobId = '';
     voiceSensitivity.value = localStorage.getItem(VOICE_SENSITIVITY_KEY) || 'low';
     minimumTranscriptChars.value = localStorage.getItem(MIN_TRANSCRIPT_CHARS_KEY) || '3';
     function setState(text, cls = '') {{
       statePill.textContent = text;
       statePill.className = 'pill ' + cls;
+    }}
+    function speechWorkerRecoveryMessage(service, detail = '') {{
+      const colab = speechConfig.colab || {{}};
+      const credentials = colab.stored_tailscale_auth_key
+        ? 'An encrypted Tailscale recovery key is saved on this computer, so Recover & deploy can reuse it.'
+        : 'No encrypted Tailscale recovery key is saved. Enter one in Speech Settings before recovery.';
+      const suffix = detail ? ` Detail: ${{detail}}` : '';
+      return `${{service}} worker is unreachable. Its Colab session may have stopped or its Tailscale tunnel may be disconnected. Open Speech Settings and run Recover & deploy. ${{credentials}}${{suffix}}`;
+    }}
+    function colabJobFailureMessage(job) {{
+      if (job.failure_kind === 'colab_capacity') return 'Speech recovery failed because the Colab GPU allocation limit is full. A lost server-side assignment may still be shutting down; inspect sessions and retry after it is released.';
+      if (job.failure_kind === 'tailscale_auth') return 'Speech recovery reached Colab, but Tailscale rejected the saved recovery key. Replace the encrypted key in Speech Settings and run Recover & deploy again.';
+      if (job.failure_kind === 'colab_session_lost') return 'Speech recovery found a lost Colab session and could not replace it automatically. Check the Colab sessions in Speech Settings, then retry Recover & deploy.';
+      return speechWorkerRecoveryMessage('Speech recovery', 'The Colab deployment job failed; open Speech Settings to inspect its log.');
     }}
     function escapeHtml(value) {{
       return String(value ?? '').replace(/[&<>"']/g, ch => ({{
@@ -807,7 +823,11 @@ def render_web_chat_page(
       document.getElementById('colabAsrAccelerator').value = colab.asr_accelerator || 'T4';
       document.getElementById('colabTtsAccelerator').value = colab.tts_accelerator || 'T4';
       document.getElementById('colabTailscaleAuthKey').value = '';
+      document.getElementById('colabTailscaleAuthKey').placeholder = colab.stored_tailscale_auth_key ? 'Recovery key saved; leave blank to reuse it' : 'Enter once; encrypted in the local Ciel vault';
+      document.getElementById('colabTailscaleCredentialStatus').textContent = colab.stored_tailscale_auth_key ? 'Encrypted recovery key saved for this profile' : 'No recovery key saved on this PC';
       document.getElementById('colabSpeechApiKey').value = '';
+      document.getElementById('colabSpeechApiKey').placeholder = colab.stored_speech_api_key ? 'Speech API key saved; leave blank to reuse it' : 'Optional; encrypted with Windows DPAPI';
+      document.getElementById('colabForgetWorkerCredentials').checked = false;
       document.getElementById('colabResetAuthentication').checked = false;
       document.getElementById('tailscaleEnabled').checked = tailscale.enabled !== false;
       document.getElementById('tailscaleAsrHostname').value = tailscale.asr_hostname || 'ciel-asr';
@@ -887,7 +907,18 @@ def render_web_chat_page(
       const data = await response.json();
       renderColabJob(data);
       if (data.job && data.job.running) setTimeout(() => pollColabJob().catch(() => {{}}), 2000);
-      else if (data.job) setState(data.job.return_code === 0 ? 'Colab job complete' : 'Colab job failed', data.job.return_code === 0 ? 'ok' : 'error');
+      else if (data.job) {{
+        setState(data.job.return_code === 0 ? 'Colab job complete' : 'Colab job failed', data.job.return_code === 0 ? 'ok' : 'error');
+        if (reportedColabJobId !== data.job.id) {{
+          reportedColabJobId = data.job.id;
+          if (data.job.return_code === 0) {{
+            await loadSpeechConfig();
+            addBubble('system', 'Speech workers recovered. ASR and TTS routing has been updated.');
+          }} else {{
+            addBubble('system', colabJobFailureMessage(data.job));
+          }}
+        }}
+      }}
       return data;
     }}
     async function runColabAction(action) {{
@@ -895,6 +926,7 @@ def render_web_chat_page(
       const payload = {{
         action,
         reset_authentication: document.getElementById('colabResetAuthentication').checked,
+        forget_saved_credentials: document.getElementById('colabForgetWorkerCredentials').checked,
         secrets: {{
           tailscale_auth_key: document.getElementById('colabTailscaleAuthKey').value,
           speech_api_key: document.getElementById('colabSpeechApiKey').value,
@@ -904,6 +936,7 @@ def render_web_chat_page(
       const data = await response.json();
       document.getElementById('colabTailscaleAuthKey').value = '';
       document.getElementById('colabSpeechApiKey').value = '';
+      document.getElementById('colabForgetWorkerCredentials').checked = false;
       if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${{response.status}}`);
       if (data.requires_terminal) {{
         await navigator.clipboard.writeText(data.command);
@@ -1097,7 +1130,8 @@ def render_web_chat_page(
       }} catch (err) {{
         if (err && err.name === 'AbortError') return;
         setState('TTS error', 'error');
-        addBubble('system', 'TTS failed: ' + String(err && err.message ? err.message : err));
+        const detail = String(err && err.message ? err.message : err);
+        addBubble('system', /timed out|network|fetch|connection|HTTP 50[234]/i.test(detail) ? speechWorkerRecoveryMessage('TTS', detail) : 'TTS failed: ' + detail);
       }} finally {{
         if (speechGenerationController === controller) speechGenerationController = null;
       }}
@@ -1311,7 +1345,9 @@ def render_web_chat_page(
           return;
         }}
         setState('STT error', 'error');
-        addBubble('system', 'STT failed: ' + String(err && err.message ? err.message : err));
+        const detail = String(err && err.message ? err.message : err);
+        if (autoReferenceEnabled()) updateAutoReferenceStatus('Your first voice was not enrolled because ASR is unavailable. Recover the worker, then speak again.');
+        addBubble('system', /timed out|network|fetch|connection|HTTP 50[234]/i.test(detail) ? speechWorkerRecoveryMessage('ASR', detail) : 'STT failed: ' + detail);
       }});
     }}
     function finishVadUtterance() {{
@@ -1702,7 +1738,8 @@ def render_web_chat_page(
         const data = await response.json();
         const asr = data.services && data.services.asr;
         const tts = data.services && data.services.tts;
-        addBubble('system', `Speech health — ASR: ${{asr && asr.reachable ? 'reachable' : asr && asr.enabled ? 'unreachable' : 'disabled'}}, TTS: ${{tts && tts.reachable ? 'reachable' : tts && tts.enabled ? 'unreachable' : 'disabled'}}.`);
+        const summary = `Speech health — ASR: ${{asr && asr.reachable ? 'reachable' : asr && asr.enabled ? 'unreachable' : 'disabled'}}, TTS: ${{tts && tts.reachable ? 'reachable' : tts && tts.enabled ? 'unreachable' : 'disabled'}}.`;
+        addBubble('system', data.ok ? summary : summary + ' ' + speechWorkerRecoveryMessage('Speech'));
       }} catch (err) {{ addBubble('system', 'Speech health check failed: ' + String(err && err.message ? err.message : err)); }}
     }});
     speechPlaybackTestButton.addEventListener('click', async () => {{

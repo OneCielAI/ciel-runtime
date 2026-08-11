@@ -32,6 +32,7 @@ class SpeechHttpPorts:
     urlopen: Callable[..., Any] = urllib.request.urlopen
     colab_action: Callable[[str, dict[str, Any], dict[str, str]], dict[str, Any]] | None = None
     colab_status: Callable[[str], dict[str, Any]] | None = None
+    colab_credentials: Callable[[str], dict[str, bool]] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +91,9 @@ class SpeechHttpController:
         public["tailscale"] = dict(tailscale) if isinstance(tailscale, dict) else {}
         colab = speech.get("colab")
         public["colab"] = dict(colab) if isinstance(colab, dict) else {}
+        if self.ports.colab_credentials:
+            profile = str(public["colab"].get("profile") or "default")
+            public["colab"].update(self.ports.colab_credentials(profile))
         public["endpoints"] = self.discovery_payload()["endpoints"]
         return public
 
@@ -201,6 +205,7 @@ class SpeechHttpController:
                 "tailscale_auth_key": str(secrets_payload.get("tailscale_auth_key") or ""),
                 "speech_api_key": str(secrets_payload.get("speech_api_key") or ""),
                 "reset_authentication": "1" if body.get("reset_authentication") is True else "",
+                "forget_saved_credentials": "1" if body.get("forget_saved_credentials") is True else "",
             }
             result = self.ports.colab_action(action, dict(colab), secrets)
             self.ports.write_json(handler, result)

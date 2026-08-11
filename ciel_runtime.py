@@ -500,7 +500,7 @@ from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  #
 from ciel_runtime_support.runtime_restart import forced_upgrade_environment
 from ciel_runtime_support.runtime_restart import running_from_npm_package as detect_running_from_npm_package
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
-from ciel_runtime_support.colab_speech_jobs import colab_speech_job_status, launch_colab_speech_job
+from ciel_runtime_support.colab_speech_jobs import colab_speech_credential_status, colab_speech_job_status, launch_colab_speech_job
 from ciel_runtime_support.speech_http_controller import SpeechHttpController, SpeechHttpPorts
 from ciel_runtime_support.session_import import ImportSessionHttpController, ImportSessionHttpPorts, ImportSessionLimits, ImportSessionRepository, ImportSessionService, import_record_line, import_tool_text, normalize_import_source
 from ciel_runtime_support.slash_command_assets import ADVISOR_NATIVE_DISABLED_SLASH_COMMAND  # noqa: F401 - compatibility export
@@ -1701,7 +1701,7 @@ def web_ui_controller() -> WebUiController:
 def render_router_home_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any]) -> str: return web_ui_controller().render_router_home(cfg, provider, pcfg)
 def render_web_chat_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any]) -> str: return web_ui_controller().render_web_chat(cfg, provider, pcfg)
 def handle_web_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return web_ui_controller().handle_get(handler, path)
-def speech_http_controller() -> SpeechHttpController: return SpeechHttpController(SpeechHttpPorts(load_config, save_config, write_json, router_log, colab_action=launch_colab_speech_job, colab_status=colab_speech_job_status))
+def speech_http_controller() -> SpeechHttpController: return SpeechHttpController(SpeechHttpPorts(load_config, save_config, write_json, router_log, colab_action=launch_colab_speech_job, colab_status=colab_speech_job_status, colab_credentials=colab_speech_credential_status))
 def parse_json_body(raw: bytes) -> dict[str, Any]:
     try:
         value = json.loads(raw.decode("utf-8") if raw else "{}")
