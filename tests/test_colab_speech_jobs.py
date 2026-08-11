@@ -200,6 +200,7 @@ class ColabSpeechJobManagerTests(unittest.TestCase):
         self.assertIn('glob("**/libcudart.so.13")', source)
         self.assertIn('server_env["LD_LIBRARY_PATH"]', source)
         self.assertIn("env=server_env", source)
+        self.assertIn('"s3tokenizer==0.3.0"', source)
 
     def test_deploy_uses_cross_version_temporary_file_api(self):
         source = (Path(__file__).resolve().parents[1] / "scripts" / "deploy_colab_speech.ps1").read_text(encoding="utf-8")

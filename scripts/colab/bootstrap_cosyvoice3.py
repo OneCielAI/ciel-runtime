@@ -126,7 +126,17 @@ def prepare_backend() -> None:
 def main() -> None:
     auth_key = secret("TAILSCALE_AUTHKEY")
     api_key = secret("CIEL_SPEECH_API_KEY")
-    run(sys.executable, "-m", "pip", "install", "-U", "nvidia-cuda-runtime==13.0.96", "vllm==0.24.0", "vllm-omni==0.24.0")
+    run(
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "-U",
+        "nvidia-cuda-runtime==13.0.96",
+        "s3tokenizer==0.3.0",
+        "vllm==0.24.0",
+        "vllm-omni==0.24.0",
+    )
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     prepare_backend()
     if not server_is_healthy(api_key):
@@ -146,7 +156,7 @@ def main() -> None:
             existing_library_path = server_env.get("LD_LIBRARY_PATH", "")
             cuda_library_path = str(cuda_runtime_libraries[0].parent)
             server_env["LD_LIBRARY_PATH"] = cuda_library_path + (f":{existing_library_path}" if existing_library_path else "")
-        server_log = (LOG_DIR / "cosyvoice3.log").open("ab")
+        server_log = (LOG_DIR / "cosyvoice3.log").open("wb")
         process = subprocess.Popen(command, stdout=server_log, stderr=subprocess.STDOUT, env=server_env, start_new_session=True)
         wait_for_server(api_key, process)
     BACKEND_MARKER.write_text("cosyvoice3", encoding="utf-8")
