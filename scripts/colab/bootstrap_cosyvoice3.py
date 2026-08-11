@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
-import base64
 from pathlib import Path
 import shutil
+import site
 import subprocess
 import sys
 import time
@@ -30,6 +31,8 @@ def restore_tailscale_state() -> None:
         STATE.chmod(0o600)
     except (ValueError, OSError) as exc:
         raise RuntimeError("Saved TTS Tailscale device state could not be restored") from exc
+
+
 BACKEND_MARKER = Path("/content/ciel-speech-tts-backend")
 
 
@@ -133,8 +136,18 @@ def main() -> None:
         ]
         if api_key:
             command.extend(["--api-key", api_key])
+        server_env = os.environ.copy()
+        cuda_runtime_libraries = [
+            library
+            for package_dir in site.getsitepackages()
+            for library in Path(package_dir).glob("**/libcudart.so.13")
+        ]
+        if cuda_runtime_libraries:
+            existing_library_path = server_env.get("LD_LIBRARY_PATH", "")
+            cuda_library_path = str(cuda_runtime_libraries[0].parent)
+            server_env["LD_LIBRARY_PATH"] = cuda_library_path + (f":{existing_library_path}" if existing_library_path else "")
         server_log = (LOG_DIR / "cosyvoice3.log").open("ab")
-        process = subprocess.Popen(command, stdout=server_log, stderr=subprocess.STDOUT, start_new_session=True)
+        process = subprocess.Popen(command, stdout=server_log, stderr=subprocess.STDOUT, env=server_env, start_new_session=True)
         wait_for_server(api_key, process)
     BACKEND_MARKER.write_text("cosyvoice3", encoding="utf-8")
     dns_name, base_url = start_tailscale(auth_key)

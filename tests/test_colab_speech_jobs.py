@@ -192,6 +192,13 @@ class ColabSpeechJobManagerTests(unittest.TestCase):
             self.assertIn(variable, source)
             self.assertIn("restore_tailscale_state()", source)
 
+    def test_cosyvoice_bootstrap_exports_cuda_13_runtime_library_path(self):
+        source = (Path(__file__).resolve().parents[1] / "scripts" / "colab" / "bootstrap_cosyvoice3.py").read_text(encoding="utf-8")
+
+        self.assertIn('glob("**/libcudart.so.13")', source)
+        self.assertIn('server_env["LD_LIBRARY_PATH"]', source)
+        self.assertIn("env=server_env", source)
+
 
 if __name__ == "__main__":
     unittest.main()
