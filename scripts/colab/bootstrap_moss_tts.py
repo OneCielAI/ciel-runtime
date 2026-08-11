@@ -20,8 +20,8 @@ import urllib.request
 
 HOSTNAME = os.environ.get("CIEL_TTS_HOSTNAME", "ciel-tts")
 PORT = 8091
-SOCKET = "/tmp/ciel-tts-tailscaled.sock"
-STATE = "/tmp/ciel-tts-tailscaled.state"
+SOCKET = Path("/tmp/ciel-tts-tailscaled.sock")
+STATE = Path("/tmp/ciel-tts-tailscaled.state")
 LOG_DIR = Path("/content/ciel-speech-logs")
 BACKEND_MARKER = Path("/content/ciel-speech-tts-backend")
 
@@ -76,9 +76,9 @@ def install_tailscale() -> None:
 def start_tailscale(auth_key: str) -> tuple[str, str]:
     install_tailscale()
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-    restore_tailscale_state()
     tail_log = (LOG_DIR / "tailscale-tts.log").open("ab")
-    if not Path(SOCKET).exists():
+    if not SOCKET.exists():
+        restore_tailscale_state()
         subprocess.Popen(
             ["tailscaled", f"--socket={SOCKET}", f"--state={STATE}", "--tun=userspace-networking"],
             stdout=tail_log,
@@ -86,7 +86,7 @@ def start_tailscale(auth_key: str) -> tuple[str, str]:
             start_new_session=True,
         )
     for _ in range(60):
-        if Path(SOCKET).exists():
+        if SOCKET.exists():
             break
         time.sleep(1)
     status = subprocess.check_output(["tailscale", f"--socket={SOCKET}", "status", "--json"], text=True)

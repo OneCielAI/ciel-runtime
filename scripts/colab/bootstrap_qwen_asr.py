@@ -21,8 +21,8 @@ HOSTNAME = os.environ.get("CIEL_ASR_HOSTNAME", "ciel-asr")
 SUPPORTED_MODELS = {"Qwen/Qwen3-ASR-0.6B", "Qwen/Qwen3-ASR-1.7B"}
 MODEL = os.environ.get("CIEL_ASR_MODEL", "Qwen/Qwen3-ASR-0.6B").strip()
 PORT = 8000
-SOCKET = "/tmp/ciel-asr-tailscaled.sock"
-STATE = "/tmp/ciel-asr-tailscaled.state"
+SOCKET = Path("/tmp/ciel-asr-tailscaled.sock")
+STATE = Path("/tmp/ciel-asr-tailscaled.state")
 LOG_DIR = Path("/content/ciel-speech-logs")
 MODEL_MARKER = Path("/content/ciel-speech-asr-model")
 
@@ -77,9 +77,9 @@ def install_tailscale() -> None:
 def start_tailscale(auth_key: str) -> tuple[str, str]:
     install_tailscale()
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-    restore_tailscale_state()
     tail_log = (LOG_DIR / "tailscale-asr.log").open("ab")
-    if not Path(SOCKET).exists():
+    if not SOCKET.exists():
+        restore_tailscale_state()
         subprocess.Popen(
             ["tailscaled", f"--socket={SOCKET}", f"--state={STATE}", "--tun=userspace-networking"],
             stdout=tail_log,
@@ -87,7 +87,7 @@ def start_tailscale(auth_key: str) -> tuple[str, str]:
             start_new_session=True,
         )
     for _ in range(60):
-        if Path(SOCKET).exists():
+        if SOCKET.exists():
             break
         time.sleep(1)
     status = subprocess.check_output(["tailscale", f"--socket={SOCKET}", "status", "--json"], text=True)

@@ -191,6 +191,8 @@ class ColabSpeechJobManagerTests(unittest.TestCase):
             self.assertIn("def restore_tailscale_state()", source)
             self.assertIn(variable, source)
             self.assertIn("restore_tailscale_state()", source)
+            self.assertIn('STATE = Path("/tmp/', source)
+            self.assertIn("if not SOCKET.exists():\n        restore_tailscale_state()", source)
 
     def test_cosyvoice_bootstrap_exports_cuda_13_runtime_library_path(self):
         source = (Path(__file__).resolve().parents[1] / "scripts" / "colab" / "bootstrap_cosyvoice3.py").read_text(encoding="utf-8")
