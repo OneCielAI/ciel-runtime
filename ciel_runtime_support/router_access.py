@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
+from .web_endpoints import current_web_workspace, web_backend_settings
+
 
 class RouterRequest(Protocol):
     client_address: tuple[Any, ...]
@@ -63,6 +65,12 @@ class RouterAccessPolicy:
         if configured is not None:
             return configured
         current = self.load_config() if config is None else config
+        settings = web_backend_settings(
+            current,
+            current_web_workspace(dict(self.environ)),
+        )
+        if settings.enabled:
+            return not is_loopback_address(settings.host)
         return self.parse_bool(
             current.get("router_debug_external_access"), False
         ) and self.parse_bool(
@@ -78,12 +86,10 @@ class RouterAccessPolicy:
         if override:
             return override
         current = self.load_config() if config is None else config
-        web_backend = current.get("web_backend") if isinstance(current, dict) else {}
-        saved_host = (
-            str(web_backend.get("host") or "").strip()
-            if isinstance(web_backend, dict)
-            else ""
-        )
+        saved_host = web_backend_settings(
+            current,
+            current_web_workspace(dict(self.environ)),
+        ).host
         external = self.external_access_enabled(current)
         if saved_host and (not external or not is_loopback_address(saved_host)):
             return saved_host

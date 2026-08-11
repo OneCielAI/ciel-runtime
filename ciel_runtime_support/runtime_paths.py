@@ -2,14 +2,17 @@
 from __future__ import annotations
 
 import getpass
-import hashlib
 import os
 import sys
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
 from .web_endpoints import apply_startup_web_options, load_saved_web_backend
-from .workspace_router_selection import select_workspace_router_port, workspace_identity
+from .workspace_router_selection import (
+    select_workspace_router_port,
+    workspace_digest,
+    workspace_identity,
+)
 
 
 # Web startup flags affect the process-wide router endpoint constants below.
@@ -103,12 +106,18 @@ ROUTER_HOST = (
     or _SAVED_WEB_BACKEND.client_host
 )
 _BASE_ROUTER_PORT = default_router_port(_SAVED_WEB_BACKEND.port)
-ROUTER_PORT = select_workspace_router_port(_BASE_ROUTER_PORT, Path.cwd(), os.environ)
+WORKSPACE_ROUTER_REGISTRY_PATH = CONFIG_DIR / "workspace-router-ports.json"
+ROUTER_PORT = select_workspace_router_port(
+    _BASE_ROUTER_PORT,
+    Path.cwd(),
+    os.environ,
+    registry_path=WORKSPACE_ROUTER_REGISTRY_PATH,
+)
 ROUTER_BASE = f"http://{ROUTER_HOST}:{ROUTER_PORT}"
 ROUTER_WORKSPACE = workspace_identity(
     os.environ.get("CIEL_RUNTIME_LAUNCH_CWD") or Path.cwd()
 )
-_WORKSPACE_DIGEST = hashlib.sha256(ROUTER_WORKSPACE.encode("utf-8", errors="replace")).hexdigest()[:12]
+_WORKSPACE_DIGEST = workspace_digest(ROUTER_WORKSPACE)
 ROUTER_INSTANCE_ID = f"{ROUTER_PORT}-{_WORKSPACE_DIGEST}"
 _STATE_DIR_OVERRIDE = str(os.environ.get("CIEL_RUNTIME_STATE_DIR") or "").strip()
 _TEST_STATE_ISOLATED = str(os.environ.get("CIEL_RUNTIME_TEST_ISOLATED") or "").strip().lower() in {

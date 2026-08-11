@@ -36,7 +36,7 @@ def web_backend_start_requested(config: dict[str, Any]) -> bool:
         "1", "true", "yes", "on"
     }:
         return True
-    settings = web_backend_settings(config)
+    settings = web_backend_settings(config, current_web_workspace())
     return settings.enabled and web_backend_owned_by_workspace(
         settings,
         current_web_workspace(),
@@ -378,7 +378,7 @@ def run_claude(
         manage_router_lifetime = bool(start_router_if_needed())
     elif web_backend_start_requested(cfg):
         manage_router_lifetime = bool(
-            start_router_if_needed(replace_active_clients=False)
+            start_router_if_needed(replace_active_clients=True)
         )
     if not use_native_anthropic:
         ensure_model_cache_for_launch(provider, pcfg)
@@ -945,7 +945,7 @@ def run_codex(
         terminate_existing_router_clients_for_launch("codex_prelaunch_active_clients", quiet=True)
     if use_native_codex:
         manage_router_lifetime = bool(
-            start_router_if_needed(replace_active_clients=False)
+            start_router_if_needed(replace_active_clients=True)
         ) if web_backend_start_requested(cfg) else False
     else:
         manage_router_lifetime = bool(start_router_if_needed())
@@ -1254,7 +1254,7 @@ def run_codex_app_server(
         terminate_existing_router_clients_for_launch("codex_app_server_prelaunch_active_clients", quiet=True)
     if use_native_codex:
         manage_router_lifetime = bool(
-            start_router_if_needed(replace_active_clients=False)
+            start_router_if_needed(replace_active_clients=True)
         ) if web_backend_start_requested(cfg) else False
     else:
         manage_router_lifetime = bool(start_router_if_needed())
@@ -1532,7 +1532,7 @@ def run_agy(
         manage_router_lifetime = bool(start_router_if_needed())
     elif web_backend_start_requested(cfg):
         manage_router_lifetime = bool(
-            start_router_if_needed(replace_active_clients=False)
+            start_router_if_needed(replace_active_clients=True)
         )
     else:
         manage_router_lifetime = False

@@ -62,7 +62,7 @@ class RouterProcessStartupTests(unittest.TestCase):
     def test_matching_router_is_reused_when_policy_allows(self):
         popen = mock.Mock()
         result = start_router_if_needed(
-            replace_active_clients=True,
+            replace_active_clients=False,
             config=self._config(Path(".")),
             identity=self._identity(),
             state=self._state(health={"version": "1"}, matches=True, reuse=True),
@@ -74,6 +74,34 @@ class RouterProcessStartupTests(unittest.TestCase):
         )
         self.assertTrue(result)
         popen.assert_not_called()
+
+    def test_matching_router_is_replaced_for_single_workspace_policy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            popen = mock.Mock()
+            ensure = mock.Mock()
+            times = iter((0.0, 0.0, 0.1))
+            start_router_if_needed(
+                replace_active_clients=True,
+                config=self._config(root),
+                identity=self._identity(),
+                state=self._state(
+                    health={"version": "1"},
+                    matches=True,
+                    reuse=True,
+                    ensure=ensure,
+                ),
+                spawn=self._spawn(
+                    popen, now=lambda: next(times), router_up=lambda: True
+                ),
+                executable="python",
+                entrypoint=Path("runtime.py"),
+                log_path=root / "router.log",
+                platform_name="posix",
+            )
+
+        ensure.assert_called_once_with("prelaunch_replace", {"version": "1"})
+        popen.assert_called_once()
 
     def test_version_mismatch_with_active_clients_requires_replacement(self):
         with self.assertRaisesRegex(RuntimeError, "active clients"):

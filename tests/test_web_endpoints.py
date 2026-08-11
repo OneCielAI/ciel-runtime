@@ -1,5 +1,6 @@
 import json
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
@@ -34,7 +35,7 @@ class WebEndpointTests(unittest.TestCase):
         ):
             self.assertTrue(web_backend_start_requested({}))
 
-    def test_web_backend_start_is_not_inherited_by_another_workspace(self):
+    def test_enabled_web_backend_is_instantiated_for_another_workspace(self):
         config = {
             "web_backend": {
                 "enabled": True,
@@ -46,7 +47,7 @@ class WebEndpointTests(unittest.TestCase):
             {"CIEL_RUNTIME_LAUNCH_CWD": "C:/work/other"},
             clear=False,
         ):
-            self.assertFalse(web_backend_start_requested(config))
+            self.assertTrue(web_backend_start_requested(config))
 
     def test_previous_nightly_tailscale_setting_migrates_to_enabled(self):
         settings = web_backend_settings(
@@ -77,6 +78,47 @@ class WebEndpointTests(unittest.TestCase):
         self.assertFalse(web_backend_owned_by_instance(settings, 9464, "C:/work/javis-mind"))
         self.assertFalse(web_backend_owned_by_instance(settings, 6969, "C:/work/other"))
 
+    def test_legacy_web_backend_becomes_an_isolated_workspace_template(self):
+        config = {
+            "web_backend": {
+                "enabled": True,
+                "host": "127.0.0.1",
+                "port": 6969,
+                "tailscale_https": True,
+                "workspace": "C:/work/one",
+            }
+        }
+
+        settings = web_backend_settings(config, "C:/work/two", 6970)
+
+        self.assertTrue(settings.enabled)
+        self.assertEqual(6970, settings.port)
+        self.assertEqual(
+            str(Path("C:/work/two").resolve(strict=False)).lower(),
+            settings.workspace.lower(),
+        )
+
+    def test_each_workspace_persists_its_own_web_backend(self):
+        config = {
+            "web_backend": {
+                "enabled": True,
+                "host": "127.0.0.1",
+                "port": 6969,
+                "tailscale_https": True,
+                "workspace": "C:/work/one",
+            }
+        }
+
+        update_web_backend_config(
+            config, "port", 6970, 6970, workspace="C:/work/two"
+        )
+
+        first = web_backend_settings(config, "C:/work/one", 6969)
+        second = web_backend_settings(config, "C:/work/two", 6970)
+        self.assertEqual(6969, first.port)
+        self.assertEqual(6970, second.port)
+        self.assertNotEqual(first.workspace, second.workspace)
+
     @mock.patch("ciel_runtime_support.web_endpoints.build_web_endpoint_report")
     @mock.patch("ciel_runtime_support.web_endpoints.configure_tailscale_https")
     def test_enabled_menu_tailscale_setting_is_applied_at_server_start(
@@ -105,7 +147,7 @@ class WebEndpointTests(unittest.TestCase):
 
     @mock.patch("ciel_runtime_support.web_endpoints.build_web_endpoint_report")
     @mock.patch("ciel_runtime_support.web_endpoints.configure_tailscale_https")
-    def test_other_workspace_does_not_apply_saved_tailscale_mapping(
+    def test_other_workspace_applies_tailscale_to_its_own_router_port(
         self, configure, report
     ):
         report.return_value.status_lines.return_value = ["web: local"]
@@ -125,8 +167,8 @@ class WebEndpointTests(unittest.TestCase):
             },
         )
 
-        configure.assert_not_called()
-        self.assertIn("web_tailscale_skipped", lines[0])
+        configure.assert_called_once_with(9464, None)
+        self.assertEqual([*configure.return_value, "web: local"], lines)
     def test_startup_options_set_host_port_and_strip_ciel_flags(self):
         environment = {}
         argv = apply_startup_web_options(

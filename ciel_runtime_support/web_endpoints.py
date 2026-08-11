@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .workspace_router_selection import workspace_identity
+from .workspace_router_selection import workspace_digest, workspace_identity
 
 
 _TRUE = {"1", "true", "yes", "on"}
@@ -58,8 +58,22 @@ class WebBackendSettings:
         return "127.0.0.1" if self.host in _WILDCARD_HOSTS else self.host
 
 
-def web_backend_settings(config: dict[str, Any] | None) -> WebBackendSettings:
+def web_backend_settings(
+    config: dict[str, Any] | None,
+    workspace: str | os.PathLike[str] | None = None,
+    effective_port: int = 0,
+) -> WebBackendSettings:
     raw = config.get("web_backend") if isinstance(config, dict) else {}
+    target = workspace_identity(workspace) if workspace is not None else ""
+    if target and isinstance(config, dict):
+        instances = config.get("web_backends")
+        instance = (
+            instances.get(workspace_digest(target))
+            if isinstance(instances, dict)
+            else None
+        )
+        if isinstance(instance, dict) and workspace_identity(instance.get("workspace")) == target:
+            raw = instance
     values = raw if isinstance(raw, dict) else {}
     host = str(values.get("host") or "127.0.0.1").strip()
     if not host or any(character.isspace() for character in host):
@@ -77,8 +91,13 @@ def web_backend_settings(config: dict[str, Any] | None) -> WebBackendSettings:
         if enabled_value is not None
         else bool(tailscale_https or host != "127.0.0.1" or port)
     )
-    workspace = workspace_identity(values.get("workspace"))
-    return WebBackendSettings(enabled, host, port, tailscale_https, workspace)
+    saved_workspace = workspace_identity(values.get("workspace"))
+    if target and saved_workspace and saved_workspace != target:
+        port = effective_port if 1 <= effective_port <= 65535 else 0
+        saved_workspace = target
+    elif target and not saved_workspace:
+        saved_workspace = target
+    return WebBackendSettings(enabled, host, port, tailscale_https, saved_workspace)
 
 
 def current_web_workspace(
@@ -116,7 +135,7 @@ def load_saved_web_backend(path: os.PathLike[str] | str) -> WebBackendSettings:
 
 
 def web_backend_summary(config: dict[str, Any], effective_port: int) -> str:
-    settings = web_backend_settings(config)
+    settings = web_backend_settings(config, current_web_workspace(), effective_port)
     port = settings.port or effective_port or int(config.get("_effective_web_port") or 0)
     mode = " + Tailscale HTTPS" if settings.tailscale_https else ""
     state = "on" if settings.enabled else "off"
@@ -126,7 +145,7 @@ def web_backend_summary(config: dict[str, Any], effective_port: int) -> str:
 def web_backend_panel_rows(
     config: dict[str, Any], effective_port: int
 ) -> tuple[list[str], list[str]]:
-    settings = web_backend_settings(config)
+    settings = web_backend_settings(config, current_web_workspace(), effective_port)
     port = settings.port or effective_port
     node = discover_tailscale_node()
     tailscale = "on" if settings.tailscale_https else "off"
@@ -153,7 +172,8 @@ def update_web_backend_config(
     effective_port: int,
     workspace: str | os.PathLike[str] | None = None,
 ) -> list[str]:
-    current = web_backend_settings(config)
+    target_workspace = workspace_identity(workspace or current_web_workspace())
+    current = web_backend_settings(config, target_workspace, effective_port)
     enabled = current.enabled
     host = current.host
     port = current.port
@@ -173,13 +193,21 @@ def update_web_backend_config(
         enabled = True
     else:
         raise ValueError(f"unknown web backend setting: {key}")
-    config["web_backend"] = {
+    updated = {
         "enabled": enabled,
         "host": host,
         "port": port or effective_port,
         "tailscale_https": tailscale_https,
-        "workspace": workspace_identity(workspace or current_web_workspace()),
+        "workspace": target_workspace,
     }
+    instances = config.setdefault("web_backends", {})
+    if not isinstance(instances, dict):
+        instances = {}
+        config["web_backends"] = instances
+    instances[workspace_digest(target_workspace)] = dict(updated)
+    legacy = web_backend_settings(config)
+    if not legacy.workspace or legacy.workspace == target_workspace:
+        config["web_backend"] = dict(updated)
     external = host in _WILDCARD_HOSTS or not _is_loopback(host)
     config["router_debug_external_access"] = external
     config["router_debug_external_access_confirmed"] = external
@@ -187,7 +215,7 @@ def update_web_backend_config(
     return [
         f"Web backend: {'on' if enabled else 'off'} · {host}:{port or effective_port}.",
         f"Tailscale HTTPS: {'on' if tailscale_https else 'off'}.",
-        f"Web instance: {config['web_backend']['workspace']}:{port or effective_port}.",
+        f"Web instance: {target_workspace}:{port or effective_port}.",
         f"Runtime is restarting so {scheme} endpoint settings apply now.",
     ]
 
@@ -501,12 +529,13 @@ def configure_requested_web_endpoints(
 ) -> list[str]:
     environment = os.environ if environ is None else environ
     lines: list[str] = []
-    saved = web_backend_settings(config)
+    current_workspace = current_web_workspace(environment)
+    saved = web_backend_settings(config, current_workspace, router_port)
     explicit = str(environment.get("CIEL_RUNTIME_TAILSCALE_HTTPS") or "").lower() in _TRUE
     owned = web_backend_owned_by_instance(
         saved,
         router_port,
-        current_web_workspace(environment),
+        current_workspace,
     )
     requested = explicit or (saved.enabled and saved.tailscale_https and owned)
     if requested:
@@ -518,7 +547,7 @@ def configure_requested_web_endpoints(
         lines.append(
             "web_tailscale_skipped: settings belong to "
             f"{owner}:{saved.port or 'auto'}, current instance is "
-            f"{current_web_workspace(environment)}:{router_port}"
+            f"{current_workspace}:{router_port}"
         )
     lines.extend(build_web_endpoint_report(client_host, bind_host, router_port).status_lines())
     return lines

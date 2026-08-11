@@ -1,10 +1,58 @@
 import unittest
 from pathlib import Path
+import tempfile
 
 from ciel_runtime_support.workspace_router_selection import select_workspace_router_port
 
 
 class WorkspaceRouterSelectionTests(unittest.TestCase):
+    def test_existing_workspace_router_wins_over_an_earlier_free_port(self):
+        selected = select_workspace_router_port(
+            9464,
+            Path("C:/work/two"),
+            {},
+            health=lambda port: (
+                {"ok": True, "workspace": "C:/work/two"}
+                if port == 9465
+                else None
+            ),
+            available=lambda port: port == 9464,
+        )
+
+        self.assertEqual(9465, selected)
+
+    def test_registry_reserves_distinct_stable_ports_per_workspace(self):
+        with tempfile.TemporaryDirectory() as directory:
+            registry = Path(directory) / "workspace-router-ports.json"
+            first = select_workspace_router_port(
+                9464,
+                Path("C:/work/one"),
+                {},
+                health=lambda _port: None,
+                available=lambda _port: True,
+                registry_path=registry,
+            )
+            second = select_workspace_router_port(
+                9464,
+                Path("C:/work/two"),
+                {},
+                health=lambda _port: None,
+                available=lambda _port: True,
+                registry_path=registry,
+            )
+            first_again = select_workspace_router_port(
+                9464,
+                Path("C:/work/one"),
+                {},
+                health=lambda _port: None,
+                available=lambda _port: True,
+                registry_path=registry,
+            )
+
+        self.assertEqual(9464, first)
+        self.assertEqual(9465, second)
+        self.assertEqual(first, first_again)
+
     def test_same_workspace_reuses_its_port_for_replacement(self):
         health = {
             9464: {"ok": True, "workspace": str(Path("C:/work/one"))},

@@ -27,6 +27,7 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
             "tailscale_https": False,
             "workspace": "",
         },
+        "web_backends": {},
         "speech": {
             "colab": {
                 "enabled": True,

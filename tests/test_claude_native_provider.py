@@ -1180,7 +1180,7 @@ class StopRouterGuaranteeTests(unittest.TestCase):
         self.assertEqual("1", popen_env["CIEL_RUNTIME_MANAGED_ROUTER"])
         self.assertEqual(str(os.getpid()), popen_env["CIEL_RUNTIME_ROUTER_OWNER_PID"])
 
-    def test_start_router_reuses_matching_router_only_when_env_allows(self):
+    def test_start_router_reuses_matching_router_when_replacement_is_disabled(self):
         health = {
             "version": ciel_runtime.VERSION,
             "source_fingerprint": ciel_runtime.SOURCE_FINGERPRINT,
@@ -1195,13 +1195,13 @@ class StopRouterGuaranteeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime.subprocess, "Popen") as popen,
             mock.patch.object(ciel_runtime, "router_log"),
         ):
-            result = ciel_runtime.start_router_if_needed()
+            result = ciel_runtime.start_router_if_needed(replace_active_clients=False)
 
         self.assertTrue(result)
         ensure.assert_not_called()
         popen.assert_not_called()
 
-    def test_start_router_reuses_matching_router_with_active_clients_by_default(self):
+    def test_start_router_replaces_matching_router_with_active_clients_by_default(self):
         health = {
             "version": ciel_runtime.VERSION,
             "source_fingerprint": ciel_runtime.SOURCE_FINGERPRINT,
@@ -1216,6 +1216,7 @@ class StopRouterGuaranteeTests(unittest.TestCase):
                 mock.patch.object(ciel_runtime, "LOG_PATH", log_path),
                 mock.patch.object(ciel_runtime, "router_health", return_value=health),
                 mock.patch.object(ciel_runtime, "active_router_client_pids", return_value=[999999]),
+                mock.patch.object(ciel_runtime, "terminate_active_router_clients") as terminate_clients,
                 mock.patch.object(ciel_runtime, "ensure_router_port_available_for_spawn") as ensure,
                 mock.patch.object(ciel_runtime, "router_up", return_value=True),
                 mock.patch.object(ciel_runtime.subprocess, "Popen") as popen,
@@ -1224,8 +1225,11 @@ class StopRouterGuaranteeTests(unittest.TestCase):
                 result = ciel_runtime.start_router_if_needed()
 
         self.assertTrue(result)
-        ensure.assert_not_called()
-        popen.assert_not_called()
+        terminate_clients.assert_called_once_with(
+            "prelaunch_active_clients", [999999], quiet=True
+        )
+        ensure.assert_called_once_with("prelaunch_active_clients", health)
+        popen.assert_called_once()
 
     def test_start_router_keeps_matching_router_with_active_clients_when_replacement_disabled(self):
         health = {

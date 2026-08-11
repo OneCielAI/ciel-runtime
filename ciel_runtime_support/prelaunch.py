@@ -17,6 +17,7 @@ from ciel_runtime_support.runtime_constants import (
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
     PRELAUNCH_RELOAD,
 )
+from ciel_runtime_support.web_endpoints import current_web_workspace, web_backend_settings
 
 
 MAIN_MENU_ACTIONS: tuple[str, ...] = (
@@ -651,18 +652,16 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     if value == "back":
                         close_panel()
                         continue
-                    web_config = cfg.get("web_backend", {})
-                    if not isinstance(web_config, dict):
-                        web_config = {}
+                    web_config = web_backend_settings(cfg, current_web_workspace())
                     if value == "enabled":
                         messages = set_web_backend_config(
                             "enabled",
-                            not bool(web_config.get("enabled", False)),
+                            not web_config.enabled,
                         )
                     elif value == "host":
                         entered = prompt_menu_value(
                             "Web bind address",
-                            str(web_config.get("host") or "127.0.0.1"),
+                            web_config.host,
                             restore_tty=restore_line_mode,
                             raw_tty=restore_raw_mode,
                         )
@@ -672,7 +671,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     elif value == "port":
                         entered = prompt_menu_value(
                             "Web port",
-                            str(web_config.get("port") or ""),
+                            str(web_config.port or ""),
                             restore_tty=restore_line_mode,
                             raw_tty=restore_raw_mode,
                         )
@@ -682,7 +681,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     elif value == "tailscale":
                         messages = set_web_backend_config(
                             "tailscale",
-                            not bool(web_config.get("tailscale_https", False)),
+                            not web_config.tailscale_https,
                         )
                     else:
                         continue

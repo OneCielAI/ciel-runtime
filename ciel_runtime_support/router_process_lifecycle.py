@@ -167,7 +167,7 @@ def start_router_if_needed(
                         f"base={config.router_base} active_clients={','.join(map(str, active_clients))}",
                     )
                     return True
-            elif state.reuse_enabled():
+            elif not replace_active_clients and state.reuse_enabled():
                 state.log("INFO", f"router_check_state running=True spawn=False base={config.router_base} reuse=env")
                 return True
             else:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import socket
+import time
 import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -18,6 +19,14 @@ def workspace_identity(value: Any) -> str:
         return os.path.normcase(str(Path(text).resolve(strict=False)))
     except Exception:
         return os.path.normcase(text)
+
+
+def workspace_digest(value: Any) -> str:
+    import hashlib
+
+    return hashlib.sha256(
+        workspace_identity(value).encode("utf-8", errors="replace")
+    ).hexdigest()[:12]
 
 
 def probe_router_health(port: int, timeout: float = 0.15) -> dict[str, Any] | None:
@@ -48,39 +57,138 @@ def select_workspace_router_port(
     health: Callable[[int], dict[str, Any] | None] = probe_router_health,
     available: Callable[[int], bool] = port_is_free,
     scan_size: int = 32,
+    registry_path: Path | None = None,
 ) -> int:
-    """Reuse the same workspace port, otherwise select the first free port."""
+    """Select one stable, isolated port for a workspace.
+
+    A complete health scan happens before any free port is accepted.  This is
+    important when a lower port becomes free while this workspace's router is
+    still alive on a later port.  An optional registry also reserves the port
+    between launches and closes the race where two workspaces start together.
+    """
 
     if str(environ.get("CIEL_RUNTIME_ROUTER_PORT") or "").strip():
         return base_port
     target = workspace_identity(
         environ.get("CIEL_RUNTIME_LAUNCH_CWD") or workspace
     )
-    unknown_base_health: dict[str, Any] | None = None
-    for offset in range(max(1, scan_size)):
-        port = base_port + offset
-        if port > 65535:
-            break
+    if registry_path is None:
+        return _select_port(base_port, target, health, available, scan_size, {})
+
+    registry_path = Path(registry_path)
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = registry_path.with_suffix(registry_path.suffix + ".lock")
+    deadline = time.monotonic() + 8.0
+    lock_fd: int | None = None
+    while lock_fd is None:
+        try:
+            lock_fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(lock_fd, f"{os.getpid()}\n".encode("ascii", errors="replace"))
+        except FileExistsError:
+            try:
+                stale = time.time() - lock_path.stat().st_mtime > 30.0
+            except OSError:
+                stale = False
+            if stale:
+                try:
+                    lock_path.unlink()
+                except OSError:
+                    pass
+                continue
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f"timed out locking workspace router registry: {registry_path}")
+            time.sleep(0.05)
+    try:
+        registry = _load_registry(registry_path)
+        records = registry.setdefault("workspaces", {})
+        key = workspace_digest(target)
+        own_record = records.get(key) if isinstance(records, dict) else None
+        if isinstance(own_record, dict):
+            try:
+                mapped_port = int(own_record.get("port") or 0)
+            except (TypeError, ValueError):
+                mapped_port = 0
+            if 1 <= mapped_port <= 65535:
+                observed = health(mapped_port)
+                running_workspace = workspace_identity(
+                    observed.get("workspace") if isinstance(observed, dict) else ""
+                )
+                if running_workspace == target or (observed is None and available(mapped_port)):
+                    return mapped_port
+
+        reserved = {
+            int(record.get("port") or 0)
+            for record_key, record in records.items()
+            if record_key != key and isinstance(record, dict)
+            and str(record.get("port") or "").isdigit()
+        }
+        selected = _select_port(base_port, target, health, available, scan_size, reserved)
+        records[key] = {"workspace": target, "port": selected}
+        _save_registry(registry_path, registry)
+        return selected
+    finally:
+        try:
+            if lock_fd is not None:
+                os.close(lock_fd)
+        finally:
+            try:
+                lock_path.unlink()
+            except OSError:
+                pass
+
+
+def _select_port(
+    base_port: int,
+    target: str,
+    health: Callable[[int], dict[str, Any] | None],
+    available: Callable[[int], bool],
+    scan_size: int,
+    reserved: set[int],
+) -> int:
+    free_ports: list[int] = []
+    unknown_base_health = False
+    maximum = min(65535, base_port + max(1, scan_size) - 1)
+    for port in range(base_port, maximum + 1):
         observed = health(port)
         if observed is not None:
             running_workspace = workspace_identity(observed.get("workspace"))
             if running_workspace and running_workspace == target:
                 return port
-            if offset == 0 and not running_workspace:
-                unknown_base_health = observed
+            if port == base_port and not running_workspace:
+                unknown_base_health = True
             continue
-        if available(port):
-            if offset == 0 and unknown_base_health is not None:
-                continue
+        if port not in reserved and available(port):
+            free_ports.append(port)
+    for port in free_ports:
+        if port != base_port or not unknown_base_health:
             return port
     raise RuntimeError(
-        f"no free ciel-runtime router port found in {base_port}-{min(65535, base_port + scan_size - 1)}"
+        f"no free ciel-runtime router port found in {base_port}-{maximum}"
     )
+
+
+def _load_registry(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return {"version": 1, "workspaces": {}}
+    if not isinstance(payload, dict) or not isinstance(payload.get("workspaces"), dict):
+        return {"version": 1, "workspaces": {}}
+    return payload
+
+
+def _save_registry(path: Path, payload: dict[str, Any]) -> None:
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    os.replace(temporary, path)
 
 
 __all__ = [
     "port_is_free",
     "probe_router_health",
     "select_workspace_router_port",
+    "workspace_digest",
     "workspace_identity",
 ]

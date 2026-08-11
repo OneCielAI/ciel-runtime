@@ -4133,14 +4133,8 @@ def run_prelaunch_menu(passthrough: list[str], skip_menu: bool = False, force_me
         return PRELAUNCH_CANCEL
     return result
 
-def start_router_if_needed(*, replace_active_clients: bool = False) -> bool:
-    """Start or reuse the shared router without killing another live client.
-
-    Replacing active clients is an explicit maintenance operation.  A normal
-    Claude launch can share a matching router, and must not SIGTERM an existing
-    ciel-runtime wrapper (and its Claude Code child) merely because another
-    launch happens in the same user account.
-    """
+def start_router_if_needed(*, replace_active_clients: bool = True) -> bool:
+    """Enforce one router and one active runtime per workspace folder."""
     return start_project_router_if_needed(
         replace_active_clients=replace_active_clients,
         config=router_process_config(),
