@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import threading
@@ -87,6 +88,31 @@ class RouterStartupIdentity:
     source_fingerprint: str
 
 
+_RUNTIME_VERSION_PATTERN = re.compile(
+    r"^(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(?:-(?P<prerelease>[0-9A-Za-z.-]+))?$"
+)
+
+
+def runtime_version_is_newer(candidate: Any, reference: Any) -> bool:
+    """Return true only when both versions are comparable and candidate is newer."""
+    candidate_match = _RUNTIME_VERSION_PATTERN.fullmatch(str(candidate or "").strip())
+    reference_match = _RUNTIME_VERSION_PATTERN.fullmatch(str(reference or "").strip())
+    if candidate_match is None or reference_match is None:
+        return False
+
+    def order(match: re.Match[str]) -> tuple[int, int, int, int, str]:
+        prerelease = match.group("prerelease")
+        return (
+            int(match.group("major")),
+            int(match.group("minor")),
+            int(match.group("patch")),
+            1 if prerelease is None else 0,
+            prerelease or "",
+        )
+
+    return order(candidate_match) > order(reference_match)
+
+
 @dataclass(frozen=True, slots=True)
 class RouterStartupStatePorts:
     health: Callable[[], dict[str, Any] | None]
@@ -153,6 +179,16 @@ def start_router_if_needed(
                     f"pid={health.get('pid') or '-'}",
                 )
                 state.ensure_port_available("prelaunch_replace", health)
+        elif state.health_config_matches_current(health) and runtime_version_is_newer(
+            health.get("version"), identity.version
+        ):
+            state.log(
+                "WARN",
+                "router_newer_version_reused "
+                f"running_version={health.get('version') or '-'} current_version={identity.version} "
+                f"running_source={health.get('source_fingerprint') or '-'} current_source={identity.source_fingerprint}",
+            )
+            return True
         elif state.health_config_matches_current(health) and active_clients:
             if replace_active_clients:
                 state.log(

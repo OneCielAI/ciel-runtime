@@ -8,12 +8,23 @@ from ciel_runtime_support.router_process_lifecycle import (
     RouterSpawnPorts,
     RouterStartupIdentity,
     RouterStartupStatePorts,
+    runtime_version_is_newer,
     schedule_router_restart,
     start_router_if_needed,
 )
 
 
 class RouterProcessStartupTests(unittest.TestCase):
+    def test_runtime_version_comparison_handles_nightly_and_stable_versions(self):
+        self.assertTrue(
+            runtime_version_is_newer(
+                "0.2.21-nightly.20260811-105440.381a3de",
+                "0.2.20-nightly.20260811-013950.69657a2",
+            )
+        )
+        self.assertTrue(runtime_version_is_newer("0.2.21", "0.2.21-nightly.20260811-105440.381a3de"))
+        self.assertFalse(runtime_version_is_newer("development", "0.2.21"))
+
     def test_scheduled_restart_executes_router_entrypoint_and_logs_failure(self):
         calls = []
         logs = []
@@ -77,6 +88,38 @@ class RouterProcessStartupTests(unittest.TestCase):
                 log_path=Path("router.log"),
                 platform_name="posix",
             )
+
+    def test_stale_client_reuses_newer_router_from_same_config(self):
+        popen = mock.Mock()
+        ensure = mock.Mock()
+        state = self._state(
+            health={
+                "version": "0.2.21-nightly.20260811-105440.381a3de",
+                "source_fingerprint": "new-source",
+            },
+            config_matches=True,
+            ensure=ensure,
+        )
+
+        result = start_router_if_needed(
+            replace_active_clients=True,
+            config=self._config(Path(".")),
+            identity=RouterStartupIdentity(
+                version="0.2.20-nightly.20260811-013950.69657a2",
+                source_fingerprint="old-source",
+            ),
+            state=state,
+            spawn=self._spawn(popen),
+            executable="python",
+            entrypoint=Path("runtime.py"),
+            log_path=Path("router.log"),
+            platform_name="posix",
+        )
+
+        self.assertTrue(result)
+        ensure.assert_not_called()
+        popen.assert_not_called()
+        self.assertIn("router_newer_version_reused", state.log.call_args.args[1])
 
     def test_missing_router_spawns_managed_process(self):
         with tempfile.TemporaryDirectory() as directory:
