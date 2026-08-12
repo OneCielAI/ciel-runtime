@@ -1,33 +1,34 @@
 $ErrorActionPreference = "Stop"
 
+$sourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $prefix = if ($env:PREFIX) { $env:PREFIX } else { Join-Path $HOME ".local" }
 $shareDir = if ($env:CIEL_RUNTIME_HOME) { $env:CIEL_RUNTIME_HOME } else { Join-Path $prefix "share\ciel-runtime" }
 $binDir = Join-Path $prefix "bin"
 
 New-Item -ItemType Directory -Force -Path $shareDir, $binDir | Out-Null
 
-Copy-Item -Force "ciel_runtime.py" (Join-Path $shareDir "ciel_runtime.py")
+Copy-Item -Force (Join-Path $sourceDir "ciel_runtime.py") (Join-Path $shareDir "ciel_runtime.py")
 $supportDir = Join-Path $shareDir "ciel_runtime_support"
 if (Test-Path $supportDir) {
     Remove-Item -Recurse -Force $supportDir
 }
-Copy-Item -Recurse -Force "ciel_runtime_support" $supportDir
+Copy-Item -Recurse -Force (Join-Path $sourceDir "ciel_runtime_support") $supportDir
 $scriptsDir = Join-Path $shareDir "scripts"
 if (Test-Path $scriptsDir) {
     Remove-Item -Recurse -Force $scriptsDir
 }
-Copy-Item -Recurse -Force "scripts" $scriptsDir
-Copy-Item -Force "ciel-runtime-menu.py" (Join-Path $binDir "ciel-runtime-menu.py")
-Copy-Item -Force "ciel-runtime-tool-guard.py" (Join-Path $binDir "ciel-runtime-tool-guard.py")
-Copy-Item -Force "ciel-runtime" (Join-Path $binDir "ciel-runtime")
-Copy-Item -Force "ciel-runtime.cmd" (Join-Path $binDir "ciel-runtime.cmd")
-Copy-Item -Force "ciel-runtime.ps1" (Join-Path $binDir "ciel-runtime.ps1")
-Copy-Item -Force "ciel-runtimectl" (Join-Path $binDir "ciel-runtimectl")
-Copy-Item -Force "ciel-runtimectl.cmd" (Join-Path $binDir "ciel-runtimectl.cmd")
-Copy-Item -Force "ciel-runtimectl.ps1" (Join-Path $binDir "ciel-runtimectl.ps1")
-Copy-Item -Force "ciel-runtime-stop" (Join-Path $binDir "ciel-runtime-stop")
-Copy-Item -Force "ciel-runtime-stop.cmd" (Join-Path $binDir "ciel-runtime-stop.cmd")
-Copy-Item -Force "ciel-runtime-stop.ps1" (Join-Path $binDir "ciel-runtime-stop.ps1")
+Copy-Item -Recurse -Force (Join-Path $sourceDir "scripts") $scriptsDir
+Copy-Item -Force (Join-Path $sourceDir "ciel-runtime-menu.py") (Join-Path $binDir "ciel-runtime-menu.py")
+Copy-Item -Force (Join-Path $sourceDir "ciel-runtime-tool-guard.py") (Join-Path $binDir "ciel-runtime-tool-guard.py")
+Copy-Item -Force (Join-Path $sourceDir "ciel-runtime") (Join-Path $binDir "ciel-runtime")
+Copy-Item -Force (Join-Path $sourceDir "ciel-runtime.cmd") (Join-Path $binDir "ciel-runtime.cmd")
+Copy-Item -Force (Join-Path $sourceDir "ciel-runtime.ps1") (Join-Path $binDir "ciel-runtime.ps1")
+Copy-Item -Force (Join-Path $sourceDir "ciel-runtimectl") (Join-Path $binDir "ciel-runtimectl")
+Copy-Item -Force (Join-Path $sourceDir "ciel-runtimectl.cmd") (Join-Path $binDir "ciel-runtimectl.cmd")
+Copy-Item -Force (Join-Path $sourceDir "ciel-runtimectl.ps1") (Join-Path $binDir "ciel-runtimectl.ps1")
+Copy-Item -Force (Join-Path $sourceDir "ciel-runtime-stop") (Join-Path $binDir "ciel-runtime-stop")
+Copy-Item -Force (Join-Path $sourceDir "ciel-runtime-stop.cmd") (Join-Path $binDir "ciel-runtime-stop.cmd")
+Copy-Item -Force (Join-Path $sourceDir "ciel-runtime-stop.ps1") (Join-Path $binDir "ciel-runtime-stop.ps1")
 
 $expandedBinDir = [Environment]::ExpandEnvironmentVariables($binDir).TrimEnd('\')
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
