@@ -60,16 +60,16 @@ from ciel_runtime_support.channel_event_identity import message_event_identity_k
 from ciel_runtime_support.channel_event_identity import message_time_seconds as _chat_message_time_seconds
 from ciel_runtime_support.channel_event_identity import stable_dedupe_key as _chat_message_stable_dedupe_key
 from ciel_runtime_support.channel_event_projection import compact_json_for_prompt as _compact_json_for_prompt
-from ciel_runtime_support.channel_event_projection import event_meta_from_sources as _event_meta_from_sources
-from ciel_runtime_support.channel_event_projection import event_payload_text as _event_payload_text
-from ciel_runtime_support.channel_event_projection import json_safe_metadata as _json_safe_metadata
-from ciel_runtime_support.channel_event_projection import notification_semantic_text_from_envelope as _notification_semantic_text_from_envelope
-from ciel_runtime_support.channel_event_projection import pretty_json_value as _pretty_json_value
+from ciel_runtime_support.channel_event_projection import event_meta_from_sources as _event_meta_from_sources  # noqa: F401 - compatibility export
+from ciel_runtime_support.channel_event_projection import event_payload_text as _event_payload_text  # noqa: F401 - compatibility export
+from ciel_runtime_support.channel_event_projection import json_safe_metadata as _json_safe_metadata  # noqa: F401 - compatibility export
+from ciel_runtime_support.channel_event_projection import notification_semantic_text_from_envelope as _notification_semantic_text_from_envelope  # noqa: F401 - compatibility export
+from ciel_runtime_support.channel_event_projection import pretty_json_value as _pretty_json_value  # noqa: F401 - compatibility export
 from ciel_runtime_support.channel_inflight import ChannelInflightEffects
 from ciel_runtime_support.channel_mcp_context import ChannelMcpCompatibilityApi, ChannelMcpContext, ChannelMcpRpcPorts, ChannelMcpRuntimePorts
 from ciel_runtime_support.channel_mcp_tools import ChannelMcpToolServices, channel_mcp_tool_response, channel_mcp_tool_schemas, dispatch_channel_mcp_tool
 from ciel_runtime_support.channel_message_context import ChannelMessageCachePorts, ChannelMessageCompatibilityApi, ChannelMessageContext, ChannelMessageIdentityPorts, ChannelMessageLaunchPorts, ChannelMessageStoragePorts
-from ciel_runtime_support.channel_message_policy import message_has_external_provenance as _channel_message_has_external_provenance
+from ciel_runtime_support.channel_message_policy import message_has_external_provenance as _channel_message_has_external_provenance  # noqa: F401 - compatibility export
 from ciel_runtime_support.channel_message_policy import message_is_web_chat_request as _channel_message_is_web_chat_request
 from ciel_runtime_support.channel_message_policy import string_list as _as_string_list
 from ciel_runtime_support.channel_message_policy import superseded_message_ids as _channel_superseded_message_ids
@@ -79,7 +79,7 @@ from ciel_runtime_support.channel_message_prompt import format_wake_batch_prompt
 from ciel_runtime_support.channel_message_prompt import format_wake_prompt as format_channel_wake_prompt  # noqa: F401 - compatibility export
 from ciel_runtime_support.channel_message_prompt import format_web_chat_wake_batch_prompt as format_channel_web_chat_wake_batch_prompt
 from ciel_runtime_support.channel_message_prompt import llm_message_skip_reason as _channel_llm_message_skip_reason
-from ciel_runtime_support.channel_message_prompt import wake_message_noise_reason as _channel_wake_message_noise_reason
+from ciel_runtime_support.channel_message_prompt import wake_message_noise_reason as _channel_wake_message_noise_reason  # noqa: F401 - compatibility export
 from ciel_runtime_support.channel_message_repository import exclusive_file_lock
 from ciel_runtime_support.channel_pending_injection import ChannelInjectionServices
 from ciel_runtime_support.channel_runtime_environment import ChannelRuntimeEnvironmentPolicy
@@ -110,6 +110,8 @@ from ciel_runtime_support.channel_wake_context import ChannelPendingDeliveryPort
 from ciel_runtime_support.channel_wake_delivery_repository import ChannelWakeDeliveryRepository
 from ciel_runtime_support.chat_files import ChatFilePorts, ChatFileRepository
 from ciel_runtime_support.chat_http_controller import ChatHttpController, ChatHttpReadServices, ChatHttpWriteServices
+from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
+from ciel_runtime_support.external_event_receiver import EventReceiverSecretVault, ExternalEventReceiverService
 from ciel_runtime_support.claude_environment import ClaudeEnvironmentFeaturePorts, ClaudeEnvironmentProjection, ClaudeEnvironmentShellRenderer, ClaudeEnvironmentSourcePorts, ClaudeLimitPolicy, ClaudeLimitPorts, ClaudeModelAliasCompatibilityApi, ClaudeModelAliasPolicy, ClaudeModelPorts, ClaudeRuntimeSettingsPolicy, ClaudeRuntimeSettingsPorts
 from ciel_runtime_support.cli_application_context import CliApplicationCompatibilityApi, CliApplicationContext, CliApplicationDispatchPorts, CliApplicationPresentationPorts
 from ciel_runtime_support.cli_usage import cli_usage_text
@@ -411,7 +413,7 @@ from ciel_runtime_support.runtime_maintenance_services import MaintenanceAgyPort
 from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  # noqa: F401
                                                 CHANNEL_LLM_CLEAR_FLOOR_PATH, CHANNEL_LLM_CURSOR_PATH,
                                                 CHANNEL_LLM_LAUNCH_GUARD_PATH, CHANNEL_MCP_CONFIG,
-                                                CHANNEL_STDIN_WAKE_CLAIMS_PATH, CHAT_FILES_DIR, CHAT_MESSAGES_PATH,
+                                                CHANNEL_STDIN_WAKE_CLAIMS_PATH, CHAT_FILES_DIR, CHAT_MESSAGES_PATH, RUNTIME_INPUTS_PATH,
                                                 CIEL_RUNTIME_STATUSLINE_PATH, CLAUDE_COMMANDS_DIR, CLAUDE_GATEWAY_CACHE,
                                                 CLAUDE_SETTINGS_PATH, CODEX_PROCESS_DIR,
                                                 CODEX_PROMPTS_DIR_NAME, CONFIG_DIR, CONFIG_PATH,
@@ -542,6 +544,9 @@ _API_KEY_ROTATION_LOCK = threading.Lock()
 _API_KEY_ROTATION_CURSOR: dict[str, int] = {}
 _CHAT_CONDITION = threading.Condition()
 _CHAT_NEXT_ID: int | None = None
+_RUNTIME_INPUT_CONDITION = threading.Condition()
+_RUNTIME_INPUT_NEXT_ID: int | None = None
+_EXTERNAL_EVENT_RECEIVER_SERVICE: ExternalEventReceiverService | None = None
 _CHANNEL_LLM_CURSOR_LOCK = threading.Lock()
 _CHANNEL_LLM_CURSOR_LAST_ID: int | None = None
 _CHANNEL_STDIN_WAKE_LOCK = threading.Lock()
@@ -1685,6 +1690,143 @@ _write_channel_llm_launch_guard = _CHANNEL_MESSAGE_API.write_launch_guard
 _chat_message_duplicate_locked = _CHANNEL_MESSAGE_API.duplicate
 append_chat_message = _CHANNEL_MESSAGE_API.append
 
+_CANONICAL_CHAT_MESSAGES_PATH = CHAT_MESSAGES_PATH
+_ORIGINAL_READ_CHAT_MESSAGES = read_chat_messages
+_ORIGINAL_CHAT_SCAN_MAX_ID = _chat_scan_max_id
+_ORIGINAL_CHAT_SCAN_MAX_ID_BEFORE_EPOCH = _chat_scan_max_id_before_epoch
+
+def _runtime_input_storage_path() -> Path:
+    # Compatibility for callers/tests that explicitly replace the historical
+    # queue port. Normal runtime execution always selects RUNTIME_INPUTS_PATH.
+    return CHAT_MESSAGES_PATH if CHAT_MESSAGES_PATH != _CANONICAL_CHAT_MESSAGES_PATH else RUNTIME_INPUTS_PATH
+
+def _runtime_input_next_id_cache() -> int | None: return _RUNTIME_INPUT_NEXT_ID
+
+def _set_runtime_input_next_id_cache(next_id: int) -> None:
+    global _RUNTIME_INPUT_NEXT_ID
+    _RUNTIME_INPUT_NEXT_ID = next_id
+
+def runtime_input_message_context() -> ChannelMessageContext:
+    return ChannelMessageContext(
+        storage=ChannelMessageStoragePorts(
+            _runtime_input_storage_path, CHAT_MESSAGES_MAX_BYTES,
+            _RUNTIME_INPUT_CONDITION, exclusive_file_lock, router_log,
+        ),
+        identity=ChannelMessageIdentityPorts(
+            _chat_message_stable_dedupe_key, _chat_message_fallback_dedupe_key,
+            _chat_message_time_seconds, _as_string_list,
+        ),
+        launch=ChannelMessageLaunchPorts(
+            lambda: CHANNEL_LLM_LAUNCH_GUARD_PATH, time.time,
+            CHAT_MESSAGE_DEDUPE_SCAN_LIMIT,
+            CHAT_MESSAGE_FALLBACK_DEDUPE_TTL_SECONDS,
+        ),
+        cache=ChannelMessageCachePorts(
+            _runtime_input_next_id_cache, _set_runtime_input_next_id_cache,
+        ),
+    )
+
+_RUNTIME_INPUT_API = ChannelMessageCompatibilityApi(runtime_input_message_context)
+runtime_input_repository = _RUNTIME_INPUT_API.repository
+
+def _runtime_input_scan_max_id() -> int:
+    if _chat_scan_max_id is not _ORIGINAL_CHAT_SCAN_MAX_ID:
+        return _chat_scan_max_id()
+    return _RUNTIME_INPUT_API.max_id()
+
+def _runtime_input_scan_max_id_before_epoch(cutoff_epoch: float) -> int:
+    if _chat_scan_max_id_before_epoch is not _ORIGINAL_CHAT_SCAN_MAX_ID_BEFORE_EPOCH:
+        return _chat_scan_max_id_before_epoch(cutoff_epoch)
+    return _RUNTIME_INPUT_API.max_id_before_epoch(cutoff_epoch)
+
+def _runtime_input_file_lock() -> Any:
+    return _RUNTIME_INPUT_API.file_lock()
+
+def read_runtime_inputs(
+    after_id: int = 0,
+    channel: str | None = None,
+    recipient: str | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    if read_chat_messages is not _ORIGINAL_READ_CHAT_MESSAGES:
+        return read_chat_messages(after_id, channel, recipient, limit)
+    return _RUNTIME_INPUT_API.read(after_id, channel, recipient, limit)
+
+read_runtime_inputs_before = _RUNTIME_INPUT_API.read_before
+append_runtime_input = _RUNTIME_INPUT_API.append
+
+def runtime_input_gateway() -> RuntimeInputGateway:
+    return RuntimeInputGateway(append_runtime_input)
+
+def external_event_receiver_service() -> ExternalEventReceiverService:
+    global _EXTERNAL_EVENT_RECEIVER_SERVICE
+    if _EXTERNAL_EVENT_RECEIVER_SERVICE is None:
+        _EXTERNAL_EVENT_RECEIVER_SERVICE = ExternalEventReceiverService(
+            load_config=load_config,
+            save_config=save_config,
+            write_json=write_json,
+            submit_event=runtime_input_gateway().submit_external_event,
+            vault=EventReceiverSecretVault(ROUTER_INSTANCE_DIR / "external-event-secrets.vault.json"),
+            workspace_key=ROUTER_INSTANCE_ID,
+            log=router_log,
+            cursor_path=ROUTER_INSTANCE_DIR / "external-event-sse-cursors.json",
+        )
+    return _EXTERNAL_EVENT_RECEIVER_SERVICE
+
+def handle_external_event_get(handler: BaseHTTPRequestHandler, path: str) -> bool:
+    return external_event_receiver_service().handle_get(handler, path)
+
+def handle_external_event_config_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool:
+    return external_event_receiver_service().handle_config_post(handler, path, body)
+
+def handle_external_event_raw_post(handler: BaseHTTPRequestHandler, path: str, raw: bytes) -> bool:
+    return external_event_receiver_service().handle_raw_post(handler, path, raw)
+
+def external_event_panel_rows(_cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
+    service = external_event_receiver_service()
+    receiver = service.receiver_configs().get("default", {})
+    enabled = bool(receiver.get("enabled", False))
+    transport = str(receiver.get("transport") or "webhook")
+    event_types = receiver.get("event_types") if isinstance(receiver.get("event_types"), list) else []
+    secret_status = service.vault.status("default")
+    rows = [
+        f"Enabled  [{'on' if enabled else 'off'}]",
+        f"Transport  [{transport}]",
+        f"SSE URL  [{str(receiver.get('url') or 'unset')}]",
+        f"Allowed CloudEvent types  [{', '.join(str(value) for value in event_types) if event_types else 'all'}]",
+        f"Webhook signing secret  [{'stored' if secret_status['stored_webhook_secret'] else 'unset'}]",
+        f"SSE authorization  [{'stored' if secret_status['stored_authorization'] else 'unset'}]",
+        f"Webhook endpoint  [{ROUTER_BASE}/ca/events/webhooks/default]",
+        "Back",
+    ]
+    return rows, ["enabled", "transport", "url", "event_types", "webhook_secret", "authorization", "__info__", "back"]
+
+def set_external_event_config(key: str, value: Any) -> list[str]:
+    service = external_event_receiver_service()
+    current = service.receiver_configs().get("default", {})
+    body: dict[str, Any] = {
+        "enabled": bool(current.get("enabled", False)),
+        "transport": str(current.get("transport") or "webhook"),
+        "url": str(current.get("url") or ""),
+        "event_types": current.get("event_types") if isinstance(current.get("event_types"), list) else [],
+    }
+    if key == "enabled":
+        body["enabled"] = not body["enabled"]
+    elif key == "transport":
+        body["transport"] = "sse" if body["transport"] == "webhook" else "webhook"
+    elif key == "event_types":
+        body["event_types"] = [part.strip() for part in str(value or "").split(",") if part.strip()]
+    elif key in {"url", "webhook_secret", "authorization"}:
+        body[key] = str(value or "")
+    else:
+        raise ValueError(f"unsupported external event option: {key}")
+    updated = service.save_receiver("default", body)
+    service.start()
+    return [
+        f"External event receiver updated: enabled={updated.get('enabled')} transport={updated.get('transport')}.",
+        "External events use the private Runtime Input Gateway and are never published to Web Chat.",
+    ]
+
 def _channel_compact_request_ttl_seconds() -> float: return compact_request_ttl(os.environ.get('CIEL_RUNTIME_CHANNEL_COMPACT_REQUEST_TTL_SECONDS'))
 
 def channel_compact_request_repository() -> ChannelCompactRequestRepository:
@@ -1716,6 +1858,7 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
             store_file_upload=store_chat_file_upload,
             file_message_text=chat_file_message_text,
             handle_llm_options=handle_live_llm_options_action,
+            read_runtime_inputs=read_runtime_inputs,
         ),
     )
 
@@ -1740,7 +1883,13 @@ def chat_http_controller() -> ChatHttpController:
     return ChatHttpController(
         router_base=ROUTER_BASE,
         reads=ChatHttpReadServices(read_chat_messages, read_chat_messages_before, _CHAT_CONDITION, _safe_segment, CHAT_FILES_DIR),
-        writes=ChatHttpWriteServices(write_json, append_chat_message, store_chat_file_upload),
+        writes=ChatHttpWriteServices(
+            write_json,
+            append_chat_message,
+            store_chat_file_upload,
+            runtime_input_gateway().submit_web_chat,
+            runtime_input_gateway().submit_notification,
+        ),
     )
 
 def handle_chat_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return chat_http_controller().get(handler, path)
@@ -2566,9 +2715,10 @@ def _router_server_context() -> RouterServerContext:
     http_services = RouterHttpServices(
         core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log, observe_tui_runtime_response),
         get=RouterHttpGetEndpoints(handle_tui_observation_get, handle_events_get, handle_llm_config_get, handle_channel_mcp_get, handle_web_get,
-                                   lambda handler, path: speech_http_controller().get(handler, path), handle_chat_get, handle_plan_get, route_runtime_get),
+                                   lambda handler, path: speech_http_controller().get(handler, path), handle_chat_get, handle_plan_get, route_runtime_get,
+                                   handle_external_event_get),
         post=RouterHttpPostEndpoints(lambda handler, path, raw, content_type: speech_http_controller().post(handler, path, raw, content_type), handle_llm_config_post, handle_channel_mcp_post, handle_chat_post,
-                                     handle_plan_post, route_runtime_post),
+                                     handle_plan_post, route_runtime_post, handle_external_event_raw_post, handle_external_event_config_post),
         presentation=RouterHttpPresentation(render_router_home_html, router_health_payload, write_text_response, write_json, list_model_objects_for_request,
                                             resolve_requested_model, model_object),
         errors=RouterHttpErrors(write_openai_responses_error, try_write_json),
@@ -2579,7 +2729,9 @@ def _router_server_context() -> RouterServerContext:
                                                      os.getpid, os.environ.get, router_debug_external_access_enabled, ensure_router_external_access_token),
         router_server_runtime.RouterServerEffects(os.chmod, sys.stderr, ThreadingHTTPServer, start_managed_router_lifetime_watchdog,
                                                   lambda bind_host: configure_requested_web_endpoints(ROUTER_PORT, ROUTER_HOST, bind_host,
-                                                                                                       config=load_config())),
+                                                                                                       config=load_config()),
+                                                  external_event_receiver_service().start,
+                                                  external_event_receiver_service().stop),
     )
     return RouterServerContext(
         health=RouterHealthPresentationPorts(VERSION, SOURCE_FINGERPRINT, os.getpid, getpass.getuser, HOME, ROUTER_INSTANCE_DIR, ROUTER_WORKSPACE, ROUTER_PORT, ROUTER_INSTANCE_ID, current_alias),
@@ -3644,7 +3796,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
             secrets=prelaunch.PrelaunchSecrets(clear_api_key_config, mask_secret, parse_api_key_list, secret_fingerprint, store_api_key_input_config,
                                                 store_api_keys_config, run_copilot_oauth_action, run_kimi_oauth_action),
             options=prelaunch.PrelaunchOptions(llm_option_current_bool, llm_option_prompt_default, timeout_profile_panel_rows, web_backend_panel_rows,
-                                               set_web_backend_config),
+                                               set_web_backend_config, external_event_panel_rows, set_external_event_config),
         ).services(),
     )
 
@@ -3787,8 +3939,8 @@ def channel_delivery_context() -> ChannelDeliveryContext:
                                              _CHANNEL_LLM_TOOL_CONTEXT_MAX_INJECT, _CHANNEL_LLM_TOOL_CONTEXT_PROMPT_LIMIT,
                                              anthropic_content_to_text, truncate_for_prompt, time.time, router_log),
         cursor=ChannelLlmCursorPorts(channel_cursor_repository, CHANNEL_LLM_CURSOR_PATH, CHANNEL_LLM_CLEAR_FLOOR_PATH, _CHANNEL_LLM_CURSOR_LOCK,
-                                     _channel_llm_cursor_cache, _set_channel_llm_cursor_cache, _chat_scan_max_id, time.time, router_log),
-        launch=ChannelLaunchCursorPorts(_channel_launch_recent_seconds, _chat_scan_max_id_before_epoch, _write_channel_llm_launch_guard),
+                                     _channel_llm_cursor_cache, _set_channel_llm_cursor_cache, _runtime_input_scan_max_id, time.time, router_log),
+        launch=ChannelLaunchCursorPorts(_channel_launch_recent_seconds, _runtime_input_scan_max_id_before_epoch, _write_channel_llm_launch_guard),
         commit=ChannelDeliveryCommitPorts(_handler_response_status, _channel_delivery_metadata, pending_channel_delivery_confirmed,
                                           lambda: _channel_llm_read_cursor_locked(), lambda last_id: _channel_llm_write_cursor_locked(last_id)),
     )
@@ -3812,9 +3964,9 @@ def _cache_channel_llm_cursor(last_id: int) -> None: _set_channel_llm_cursor_cac
 
 def channel_backlog_service() -> ChannelBacklogService:
     return ChannelBacklogService(
-        ChannelBacklogCursors(_chat_scan_max_id, _CHANNEL_LLM_CURSOR_LOCK, _channel_llm_read_cursor_locked, _channel_llm_write_cursor_locked,
+        ChannelBacklogCursors(_runtime_input_scan_max_id, _CHANNEL_LLM_CURSOR_LOCK, _channel_llm_read_cursor_locked, _channel_llm_write_cursor_locked,
                               _cache_channel_llm_cursor, _channel_llm_clear_floor_write),
-        ChannelBacklogRuntime(_CHANNEL_STDIN_RECOVERY_CACHE, _CHAT_CONDITION, router_log),
+        ChannelBacklogRuntime(_CHANNEL_STDIN_RECOVERY_CACHE, _RUNTIME_INPUT_CONDITION, router_log),
     )
 
 def clear_channel_backlog() -> dict[str, Any]: return channel_backlog_service().clear()
@@ -3826,9 +3978,9 @@ def _channel_stdin_wake_claim_ttl_seconds() -> float: return channel_runtime_env
 
 def channel_wake_context() -> ChannelWakeContext:
     return ChannelWakeContext(
-        claims=ChannelWakeClaimPorts(CHANNEL_STDIN_WAKE_CLAIMS_PATH, _chat_messages_file_lock, time.time, _channel_stdin_wake_claim_ttl_seconds, router_log,
+        claims=ChannelWakeClaimPorts(CHANNEL_STDIN_WAKE_CLAIMS_PATH, _runtime_input_file_lock, time.time, _channel_stdin_wake_claim_ttl_seconds, router_log,
                                      _CHANNEL_WAKE_DELIVERY_REPOSITORY, _channel_prompt_message_ids, analyze_prompt_message_reference),
-        messages=ChannelWakeMessagePorts(anthropic_content_to_text, lambda last_id, limit: read_chat_messages(last_id, None, None, limit), _channel_superseded_message_ids, channel_llm_wake_request,
+        messages=ChannelWakeMessagePorts(anthropic_content_to_text, lambda last_id, limit: read_runtime_inputs(last_id, None, None, limit), _channel_superseded_message_ids, channel_llm_wake_request,
                                          plan_mode_active, lambda: channel_delivery_mode(load_config()), _channel_pending_scan_limit, _channel_llm_message_skip_reason,
                                          body_without_channel_llm_wake_prompt, format_channel_llm_batch_prompt),
         cursor=ChannelWakeCursorPorts(lambda: _CHANNEL_LLM_CURSOR_LOCK, _channel_llm_read_cursor_locked, _channel_llm_write_cursor_locked, _cache_channel_llm_cursor, _channel_llm_clamp_to_clear_floor),
@@ -3845,9 +3997,9 @@ def channel_wake_context() -> ChannelWakeContext:
         pending_delivery=ChannelPendingDeliveryPorts(format_channel_llm_delivery_wake_prompt, format_channel_web_chat_wake_batch_prompt, format_channel_wake_batch_prompt, _channel_enter_label,
                                                      _channel_wake_store_release_stale, _CHANNEL_WAKE_DELIVERY_REPOSITORY.mark_delivered, _channel_wake_store_record_prompts,
                                                      _channel_wake_store_rollback, _commit_channel_llm_cursor_if_newer),
-        pending_io=ChannelPendingIoPorts(_CHANNEL_STDIN_INJECT_LOCK, read_chat_messages, _write_channel_wake_prompt, _read_channel_compact_request, _clear_channel_compact_request, CHAT_MESSAGES_PATH, router_log),
+        pending_io=ChannelPendingIoPorts(_CHANNEL_STDIN_INJECT_LOCK, read_runtime_inputs, _write_channel_wake_prompt, _read_channel_compact_request, _clear_channel_compact_request, _runtime_input_storage_path(), router_log),
         pending_policy=ChannelPendingPolicyPorts(_channel_stdin_wake_batch_limit, time.time, lambda: channel_runtime_environment_policy().web_chat_replay_ttl_seconds(),
-                                                 lambda message: channel_message_repository().timestamp_seconds(message), _channel_message_is_web_chat_request),
+                                                 lambda message: runtime_input_repository().timestamp_seconds(message), _channel_message_is_web_chat_request),
     )
 
 def channel_wake_claim_repository() -> ChannelWakeClaimRepository: return channel_wake_context().claim_repository()

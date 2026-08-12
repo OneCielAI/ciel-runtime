@@ -109,6 +109,15 @@ def message_is_web_chat_request(message: dict[str, Any]) -> bool:
     )
 
 
+def message_is_external_event(message: dict[str, Any]) -> bool:
+    """Return whether a private runtime input came from a generic event receiver."""
+
+    meta = _metadata(message)
+    source = str(meta.get("source") or "").strip().lower()
+    kind = str(message.get("kind") or meta.get("kind") or "").strip().lower()
+    return source == "ciel-runtime-external-event" or kind == "external_event"
+
+
 def web_chat_input_mode(message: dict[str, Any]) -> str:
     """Return the admitted browser input class used for prompt and batch isolation."""
 

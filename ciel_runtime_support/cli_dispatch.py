@@ -696,7 +696,6 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
 
 
 __all__ = [
-    "CliChannelCommands",
     "CliConfiguration",
     "CliCore",
     "CliOperations",

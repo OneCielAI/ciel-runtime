@@ -12,6 +12,7 @@ from ciel_runtime_support.channel_event_projection import (
 from ciel_runtime_support.channel_message_policy import (
     message_has_external_provenance,
     message_is_web_chat_request,
+    message_is_external_event,
     message_meta_sources,
     string_list,
     web_chat_input_mode,
@@ -158,7 +159,7 @@ def _web_chat_reply_routes(
         meta = _metadata(message)
         channel = str(meta.get("reply_channel") or message.get("channel") or "default").strip()
         thread = str(message.get("thread_id") or meta.get("thread_id") or channel).strip()
-        message_id = str(message.get("id") or "").strip()
+        message_id = str(meta.get("reply_parent_id") or message.get("id") or "").strip()
         if not message_id:
             continue
         route = (channel, thread, message_id)
@@ -171,6 +172,7 @@ def _web_chat_reply_routes(
                 "thread_id": thread,
                 "parent_id": message_id,
                 "input_mode": input_mode,
+                "reply_token": str(meta.get("web_reply_token") or ""),
             }
         )
     return routes
@@ -333,6 +335,19 @@ def _message_source_header(message: dict[str, Any]) -> str:
 
 
 def message_llm_display_text(message: dict[str, Any]) -> str:
+    if message_is_external_event(message):
+        # The event body is deliberately not parsed, normalized, summarized, or
+        # re-serialized. Protocol framing is outside the exact admitted text.
+        raw = str(message.get("message") if message.get("message") is not None else "")
+        meta = _metadata(message)
+        receiver = str(meta.get("receiver_id") or "external")
+        transport = str(meta.get("transport") or "unknown")
+        return (
+            f"[ciel-runtime untrusted external event receiver={receiver} transport={transport}; "
+            "the exact event follows]\n"
+            + raw
+            + "\n[ciel-runtime end external event]"
+        )
     meta = _metadata(message)
     for key in ("mcp_json", "sse_json"):
         value = meta.get(key)

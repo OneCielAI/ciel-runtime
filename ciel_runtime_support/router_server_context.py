@@ -56,6 +56,7 @@ class RouterServerContext:
             "chat": "/ca/chat/health",
             "plan": "/ca/plan/artifacts",
             "events": "/ca/events",
+            "external_event_receivers": "/ca/events/receivers",
             "tui": "/ca/tui",
             "tui_status": "/ca/tui/status",
             "tui_stream": "/ca/tui/stream",

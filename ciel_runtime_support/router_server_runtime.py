@@ -37,6 +37,8 @@ class RouterServerEffects:
     server_factory: Callable[..., Any]
     start_watchdog: Callable[[Any], None]
     configure_web_endpoints: Callable[[str], list[str]]
+    start_services: Callable[[], None] = lambda: None
+    stop_services: Callable[[], None] = lambda: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,9 +71,11 @@ class RouterServerRuntime:
             self.effects.stderr.write(f"{line}\n")
         self.effects.stderr.flush()
         self.effects.start_watchdog(server)
+        self.effects.start_services()
         try:
             server.serve_forever()
         finally:
+            self.effects.stop_services()
             try:
                 self.config.pid_path.unlink()
             except FileNotFoundError:

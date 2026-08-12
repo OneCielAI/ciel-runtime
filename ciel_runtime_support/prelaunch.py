@@ -35,6 +35,7 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "launch-codex-app-server",
     "launch-agy",
     "launch-kimi",
+    "external-events",
     "web-backend",
     "quit",
 )
@@ -152,6 +153,8 @@ class PrelaunchOptions:
     timeout_profile_panel_rows: Callable[..., Any]
     web_backend_panel_rows: Callable[..., Any]
     set_web_backend_config: Callable[..., Any]
+    external_event_panel_rows: Callable[..., Any] = lambda _cfg: (["Back"], ["back"])
+    set_external_event_config: Callable[..., Any] = lambda _key, _value: []
 
 
 @dataclass(frozen=True, slots=True)
@@ -237,6 +240,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     timeout_profile_panel_rows = services.options.timeout_profile_panel_rows
     web_backend_panel_rows = services.options.web_backend_panel_rows
     set_web_backend_config = services.options.set_web_backend_config
+    external_event_panel_rows = services.options.external_event_panel_rows
+    set_external_event_config = services.options.set_external_event_config
     passthrough = list(passthrough or [])
     enable_ansi()
     cfg = load_config()
@@ -301,6 +306,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             panel_rows, panel_values = timeout_profile_panel_rows(pcfg, cfg.get("language", "en"))
         elif name == "web-backend":
             panel_rows, panel_values = web_backend_panel_rows(cfg)
+        elif name == "external-events":
+            panel_rows, panel_values = external_event_panel_rows(cfg)
         if panel_rows:
             panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
 
@@ -638,6 +645,42 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     else:
                         continue
                     return PRELAUNCH_RELOAD
+                elif panel == "external-events":
+                    if value == "back":
+                        close_panel()
+                        continue
+                    if value in {"enabled", "transport"}:
+                        messages = set_external_event_config(value, "toggle")
+                    elif value == "url":
+                        entered = prompt_menu_value(
+                            "SSE URL (blank for webhook mode)",
+                            restore_tty=restore_line_mode,
+                            raw_tty=restore_raw_mode,
+                        )
+                        messages = set_external_event_config(value, entered)
+                    elif value == "event_types":
+                        entered = prompt_menu_value(
+                            "Allowed CloudEvent types (comma separated; blank allows all)",
+                            restore_tty=restore_line_mode,
+                            raw_tty=restore_raw_mode,
+                        )
+                        messages = set_external_event_config(value, entered)
+                    elif value in {"webhook_secret", "authorization"}:
+                        label = "Standard Webhooks whsec_ secret" if value == "webhook_secret" else "SSE bearer token"
+                        entered = prompt_menu_value(
+                            label,
+                            secret=True,
+                            restore_tty=restore_line_mode,
+                            raw_tty=restore_raw_mode,
+                        )
+                        if not entered:
+                            continue
+                        messages = set_external_event_config(value, entered)
+                    else:
+                        continue
+                    cfg = load_config()
+                    panel_rows, panel_values = external_event_panel_rows(cfg)
+                    panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "options":
                     if value == "back":
                         close_panel()
@@ -839,8 +882,6 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
 
 
 __all__ = [
-    "PrelaunchChannelCommands",
-    "PrelaunchChannelQuery",
     "PrelaunchConfig",
     "PrelaunchConstants",
     "PrelaunchLaunchPolicy",

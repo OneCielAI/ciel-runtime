@@ -107,7 +107,8 @@ class MainMenuProjection:
             f"11. {launch_app_label}",
             f"12. {launch_agy_label}",
             f"13. {launch_kimi_label}",
-            f"14. {self.ports.ui_text('web_backend', language)}  "
+            "14. External event inputs  [CloudEvents + Webhook/SSE]",
+            f"15. {self.ports.ui_text('web_backend', language)}  "
             f"[{web_backend_summary(config, 0)}]",
             self.ports.ui_text("quit", language),
         ]

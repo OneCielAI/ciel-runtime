@@ -20,10 +20,29 @@ Configure external MCP servers with the native CLI. Their protocol compliance an
 Ciel retains only its own message paths:
 
 - Web Chat messages submitted through `/ca/chat/messages` or `/ca/channel/messages`;
+- provider-neutral application events admitted as CloudEvents 1.0 over a Standard Webhooks endpoint or an SSE subscription;
 - explicit Ciel wake/compact operations required by the runtime;
 - Web Chat observation through `/ca/chat/wait` and `/ca/chat/stream`.
 
 These are Ciel bridge APIs. `/ca/chat/stream` is a Web Chat event stream, not an external MCP transport.
+
+## Standard application event inputs
+
+External application events and Web Chat requests enter the same private Runtime Input Gateway. The browser transcript remains a separate repository, so an external event is never published by `/ca/chat/messages`, `/ca/chat/wait`, or `/ca/chat/stream`.
+
+Receiver management is workspace-scoped:
+
+```text
+GET  /ca/events/receivers
+POST /ca/events/receivers/<receiver-id>
+POST /ca/events/webhooks/<receiver-id>
+```
+
+The configuration POST accepts `enabled`, `transport` (`webhook` or `sse`), `url` for SSE, an optional `event_types` allow-list, and either `webhook_secret` or `authorization`. Secrets are stored in the local encrypted workspace vault and are never returned by the GET response.
+
+Webhook bodies use CloudEvents 1.0 structured JSON and Standard Webhooks `webhook-id`, `webhook-timestamp`, and `webhook-signature` headers. SSE `data` frames also contain CloudEvents 1.0 structured JSON; reconnects send the persisted `Last-Event-ID` cursor. Ciel validates framing, signatures, replay windows, type filters, and duplicate identities, but preserves the admitted event text exactly for the LLM.
+
+This feature is an application input bridge, not MCP transport support. Ciel does not inspect MCP configuration or assume ownership of an MCP server's lifecycle.
 
 ## Internal Ciel MCP tools
 

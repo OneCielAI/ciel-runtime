@@ -28,6 +28,7 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
             "workspace": "",
         },
         "web_backends": {},
+        "external_event_receivers": {},
         "speech": {
             "colab": {
                 "enabled": True,

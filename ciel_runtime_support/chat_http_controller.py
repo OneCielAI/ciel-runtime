@@ -26,6 +26,8 @@ class ChatHttpWriteServices:
     write_json: Callable[..., None]
     append_message: Callable[[dict[str, Any]], dict[str, Any]]
     store_upload: Callable[[dict[str, Any]], dict[str, Any]]
+    submit_message: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None
+    submit_notify: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,6 +164,8 @@ class ChatHttpController:
             return self._notify(handler, body)
         if path == "/ca/chat/messages":
             message = self.writes.append_message(body)
+            if self.writes.submit_message is not None:
+                self.writes.submit_message(message, body)
             self.writes.write_json(handler, {"ok": True, "message": message})
             return True
         if path == "/ca/chat/files":
@@ -169,6 +173,10 @@ class ChatHttpController:
         return False
 
     def _notify(self, handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool:
+        if self.writes.submit_notify is not None:
+            message = self.writes.submit_notify(body)
+            self.writes.write_json(handler, {"ok": True, "message": message})
+            return True
         params = body.get("params") if isinstance(body.get("params"), dict) else {}
         meta = params.get("meta") if isinstance(params.get("meta"), dict) else body.get("meta")
         meta = meta if isinstance(meta, dict) else {}

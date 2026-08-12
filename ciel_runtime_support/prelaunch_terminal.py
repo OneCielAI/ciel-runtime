@@ -403,6 +403,7 @@ def render_prelaunch_screen(
             "options": ui_text("options", lang),
             "channel-delivery": ui_text("channel_delivery", lang),
             "log-level": ui_text("log_level", lang),
+            "external-events": "External event inputs",
             "channels": "Channels",
             "context": ui_text("context_setup", lang),
             "preset": ui_text("presets", lang),

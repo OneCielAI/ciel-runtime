@@ -95,6 +95,7 @@ class RouterHttpGetEndpoints:
     chat: Callable[[Any, str], bool]
     plan: Callable[[Any, str], bool]
     runtime: Callable[..., bool]
+    external_events: Callable[[Any, str], bool] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +106,8 @@ class RouterHttpPostEndpoints:
     chat: Callable[[Any, str, dict[str, Any]], bool]
     plan: Callable[[Any, str, dict[str, Any]], bool]
     runtime: Callable[..., bool]
+    external_events_raw: Callable[[Any, str, bytes], bool] | None = None
+    external_events_config: Callable[[Any, str, dict[str, Any]], bool] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -674,6 +677,8 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             return
         if endpoints.events(self, path, query):
             return
+        if endpoints.external_events is not None and endpoints.external_events(self, path):
+            return
         if endpoints.llm_config(self, path):
             return
         if endpoints.channel_mcp(self, path):
@@ -715,14 +720,24 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         body: dict[str, Any] = {}
         try:
             cfg = services.core.load_config()
-            if services.core.reject_external(self, cfg):
-                return
             length = int(self.headers.get("content-length", "0") or 0)
-            raw = self.rfile.read(length) if length else b"{}"
+            if length < 0 or length > 4 * 1024 * 1024:
+                services.presentation.write_json(self, {"ok": False, "error": "request_too_large"}, 413)
+                return
             endpoints = services.post
+            if path.startswith("/ca/events/webhooks/"):
+                raw = self.rfile.read(length) if length else b"{}"
+                if endpoints.external_events_raw is not None and endpoints.external_events_raw(self, path, raw):
+                    return
+            else:
+                if services.core.reject_external(self, cfg):
+                    return
+                raw = self.rfile.read(length) if length else b"{}"
             if endpoints.speech(self, path, raw, str(self.headers.get("content-type") or "application/json")):
                 return
             body = services.core.parse_json_body(raw)
+            if endpoints.external_events_config is not None and endpoints.external_events_config(self, path, body):
+                return
             if endpoints.llm_config(self, path, body):
                 return
             if endpoints.channel_mcp(self, path, body):

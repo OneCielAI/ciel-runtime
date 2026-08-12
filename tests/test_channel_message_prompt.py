@@ -10,6 +10,21 @@ from ciel_runtime_support.channel_message_prompt import (
 
 
 class ChannelMessagePromptTests(unittest.TestCase):
+    def test_external_event_keeps_exact_raw_body_inside_transport_boundaries(self):
+        raw = '{\n  "specversion": "1.0",\n  "id": "evt-1",\n  "source": "/test",\n  "type": "demo",\n  "data": {"text": "그대로"}\n}'
+        prompt = format_llm_batch_prompt(
+            [{
+                "id": 7,
+                "kind": "external_event",
+                "message": raw,
+                "meta": {"source": "ciel-runtime-external-event", "receiver_id": "default", "transport": "sse"},
+                "delivery": ["llm"],
+            }]
+        )
+        self.assertIn(raw, prompt)
+        self.assertEqual(1, prompt.count(raw))
+        self.assertIn("untrusted external event", prompt)
+
     def test_prompt_metadata_keeps_identity_and_excludes_sensitive_keys(self):
         message = {"meta": {"room_id": "ops", "message_id": "42", "authorization": "secret"}}
         self.assertEqual('{"room_id":"ops","message_id":"42"}', prompt_metadata(message))

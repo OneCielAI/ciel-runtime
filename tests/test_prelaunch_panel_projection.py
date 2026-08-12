@@ -39,7 +39,8 @@ class PrelaunchPanelProjectionTests(unittest.TestCase):
         self.assertIn("disabled: OpenAI provider selected", rows[9])
         self.assertNotIn("disabled:", rows[10])
         self.assertIn("13. Launch Kimi Code", rows[13])
-        self.assertIn("14. Web Backend", rows[14])
+        self.assertIn("14. External event inputs", rows[14])
+        self.assertIn("15. Web Backend", rows[15])
 
     def test_provider_panel_projects_native_and_routed_choices(self):
         projection = ProviderPanelProjection(

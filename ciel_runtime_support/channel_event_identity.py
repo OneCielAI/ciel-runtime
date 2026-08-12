@@ -125,10 +125,16 @@ def message_event_identity_key(message: dict[str, Any]) -> tuple[str, ...] | Non
 
 
 def stable_dedupe_key(message: dict[str, Any]) -> tuple[str, ...] | None:
+    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
+    if str(message.get("kind") or "").strip().lower() == "external_event":
+        event_id = str(meta.get("event_id") or "").strip()
+        event_source = str(meta.get("event_source") or "").strip()
+        receiver_id = str(meta.get("receiver_id") or message.get("channel") or "").strip()
+        if event_id and event_source:
+            return ("stable", "external_event", receiver_id, event_source, event_id)
     event_identity = message_event_identity_key(message)
     if event_identity:
         return ("stable",) + event_identity
-    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
     source = str(
         meta.get("mcp_server")
         or meta.get("sse_source")

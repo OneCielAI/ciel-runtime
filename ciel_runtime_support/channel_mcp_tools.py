@@ -18,6 +18,7 @@ class ChannelMcpToolServices:
     store_file_upload: Callable[[dict[str, Any]], dict[str, Any]]
     file_message_text: Callable[[str, list[dict[str, Any]]], str]
     handle_llm_options: Callable[[str, str], tuple[list[str], bool]]
+    read_runtime_inputs: Callable[..., list[dict[str, Any]]] | None = None
 
 
 def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
@@ -73,6 +74,7 @@ def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
                     },
                     "thread_id": {"type": "string", "description": "Thread/conversation id to continue."},
                     "parent_id": {"description": "Optional parent message id."},
+                    "reply_token": {"type": "string", "description": "Opaque Web Chat reply token from the current routing contract."},
                     "delivery": {
                         "type": "array",
                         "items": {"type": "string"},
@@ -115,6 +117,7 @@ def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
                     },
                     "thread_id": {"type": "string", "description": "Thread/conversation id to continue."},
                     "parent_id": {"description": "Optional parent message id."},
+                    "reply_token": {"type": "string", "description": "Opaque Web Chat reply token from the current routing contract."},
                     "delivery": {
                         "type": "array",
                         "items": {"type": "string"},
@@ -274,6 +277,24 @@ def _web_reply_correlation_error(
         return "web chat parent_id is invalid"
     if parent_id <= 0:
         return "web chat parent_id is invalid"
+    if services.read_runtime_inputs is not None:
+        supplied_token = str(args.get("reply_token") or "").strip()
+        if not supplied_token:
+            return "web chat delivery requires reply_token from the current browser request"
+        private_matches = services.read_runtime_inputs(0, None, None, 10000)
+        token_match = False
+        for private_message in private_matches:
+            private_meta = private_message.get("meta") if isinstance(private_message.get("meta"), dict) else {}
+            if (
+                str(private_meta.get("reply_parent_id") or "") == parent_text
+                and str(private_meta.get("web_reply_token") or "") == supplied_token
+                and str(private_meta.get("reply_channel") or private_message.get("channel") or "") == channel
+                and str(private_message.get("thread_id") or private_meta.get("thread_id") or "") == thread
+            ):
+                token_match = True
+                break
+        if not token_match:
+            return "web chat reply token does not match a private browser request"
     candidates = services.read_messages(max(0, parent_id - 1), channel, None, 1)
     request = candidates[0] if candidates else None
     if (

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from ciel_runtime_support.channel_message_policy import web_chat_input_mode
+from ciel_runtime_support.channel_message_policy import message_is_external_event, web_chat_input_mode
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,6 +166,8 @@ def inject_pending_channel_messages(
             batch_key = (
                 ("web_chat", web_chat_input_mode(message))
                 if state.message_is_web_chat(message)
+                else ("external_event", str((message.get("meta") or {}).get("receiver_id") or ""))
+                if message_is_external_event(message)
                 else ("channel", "")
             )
             if pending and pending_batch_key != batch_key:

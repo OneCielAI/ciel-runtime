@@ -1,3 +1,7 @@
+# Retired Ciel-owned MCP contract tests remain as skipped historical
+# documentation and intentionally reference types that no longer exist.
+# ruff: noqa: F821
+
 import ast
 import json
 import unittest
