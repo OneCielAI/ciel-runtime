@@ -281,10 +281,10 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "zh": "Ollama 最大输出 token（num_predict）。输入加预留输出必须放进 num_ctx。",
     },
     "max_output_tokens": {
-        "en": "Max output tokens passed to Claude Code (CLAUDE_CODE_MAX_OUTPUT_TOKENS) and used as the router cap.",
-        "ko": "Claude Code에 전달되는 최대 출력 토큰(CLAUDE_CODE_MAX_OUTPUT_TOKENS)이자 라우터 출력 상한.",
-        "ja": "Claude Codeへ渡す最大出力トークン(CLAUDE_CODE_MAX_OUTPUT_TOKENS)であり、ルーター出力上限としても使われます。",
-        "zh": "传给 Claude Code 的最大输出 token（CLAUDE_CODE_MAX_OUTPUT_TOKENS），同时作为路由器输出上限。",
+        "en": "Router request output cap. Claude Code normally receives the same limit; providers may use a higher response-safety ceiling.",
+        "ko": "라우터 요청 출력 상한. Claude Code에도 보통 같은 값이 전달되지만, 일부 프로바이더는 응답 수신 안전 상한을 더 높게 사용합니다.",
+        "ja": "ルーター要求の出力上限。通常はClaude Codeにも同じ値を渡しますが、一部のプロバイダーでは応答受信の安全上限を高く設定します。",
+        "zh": "路由器请求输出上限。通常同样传给 Claude Code；部分提供商会使用更高的响应接收安全上限。",
     },
     "context_window": {
         "en": "vLLM/NIM context window used by ciel-runtime caps. Native mode cannot raise the real server limit.",

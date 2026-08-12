@@ -37,6 +37,7 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
             claude_code_supported_capabilities=["effort", "thinking"],
             context_window=262144,
             max_output_tokens=32768,
+            claude_code_max_output_tokens=32768,
             context_reserve_tokens=32768,
             request_timeout_ms=600000,
             stream_enabled=True,
