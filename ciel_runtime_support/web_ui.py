@@ -189,6 +189,7 @@ def render_web_chat_page(
       <div class="nav">
         <a href="/">Router Home</a>
         <a href="/ca/events">Events</a>
+        <a href="/ca/tui">TUI Live</a>
         <a href="/health">Health JSON</a>
         <a href="/ca/web/chat/api">Chat API JSON</a>
         <button class="ghost" id="speechSettingsButton" type="button">Speech Settings</button>
@@ -1906,6 +1907,7 @@ def render_router_home_page(
   <nav class="topnav" aria-label="Router sections">
     <button class="tab active" data-view="overview">Overview</button>
     <a class="chat-tab" href="/ca/web/chat">Web Chat</a>
+    <a class="chat-tab" href="/ca/tui">TUI Live</a>
     <button class="tab" data-view="settings">LLM Settings</button>
     <button class="tab" data-view="events">Events</button>
     <button class="tab" data-view="endpoints">Endpoints</button>

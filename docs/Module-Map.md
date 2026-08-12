@@ -86,6 +86,10 @@ HTTP parsing과 GET/POST/HEAD/DELETE endpoint dispatch를 담당하는 Router Ad
 
 JSON·empty·accepted HTTP response 작성, client disconnect 분류와 pending channel delivery 성공/실패 guard를 소유하는 Transport Adapter. Router application service는 handler의 임시 attribute와 socket errno를 직접 다루지 않는다.
 
+### `ciel_runtime_support/tui_observation.py`
+
+Router를 통과하는 Claude Messages/OpenAI Responses 응답을 소비하지 않고 관찰해 사용자 입력, visible assistant text, tool lifecycle, turn 상태로 정규화한다. bounded in-memory cursor store와 `/ca/tui/status`, `/ca/tui/recent`, `/ca/tui/stream`, `/ca/tui` HTTP/SSE projection을 소유하며 hidden thinking과 tool 인자·결과 원문은 의도적으로 제외한다.
+
 ### `ciel_runtime_support/chat_http_controller.py`
 
 Web Chat/Channel bridge의 health, message history·long-poll·SSE, file download/upload, notify와 transport connect/disconnect endpoint를 소유하는 HTTP Controller. read/write port를 분리해 HTTP 표현과 channel Repository·Lifecycle 구현을 격리한다.

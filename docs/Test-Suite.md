@@ -113,6 +113,7 @@
 | `test_statusline.py` | Statusline 출력 |
 | `test_version_sync.py` | 버전 동기화 (package.json ↔ ciel_runtime.py) |
 | `test_web_chat_ui.py` | 웹 채팅 UI |
+| `test_tui_observation.py` | routed TUI text normalization, secret-safe tool metadata, cursor API와 SSE |
 
 ---
 

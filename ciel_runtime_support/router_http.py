@@ -81,11 +81,13 @@ class RouterHttpCore:
     parse_json_body: Callable[[bytes], dict[str, Any]]
     is_client_disconnect: Callable[[BaseException], bool]
     log: Callable[[str, str], Any]
+    observe_runtime: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
 class RouterHttpGetEndpoints:
     codex_mcp_split: Callable[[Any, str], bool]
+    tui: Callable[[Any, str, dict[str, list[str]]], bool]
     events: Callable[[Any, str, dict[str, list[str]]], bool]
     llm_config: Callable[[Any, str], bool]
     channel_mcp: Callable[[Any, str], bool]
@@ -672,6 +674,8 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         endpoints = services.get
         if endpoints.codex_mcp_split(self, path):
             return
+        if endpoints.tui(self, path, query):
+            return
         if endpoints.events(self, path, query):
             return
         if endpoints.llm_config(self, path):
@@ -732,8 +736,10 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             if endpoints.chat(self, path, body) or endpoints.plan(self, path, body):
                 return
             provider, pcfg = services.core.get_current_provider(cfg)
-            if endpoints.runtime(self, cfg, provider, pcfg, path, body):
-                return
+            model = str(body.get("model") or pcfg.get("current_model") or "")
+            with services.core.observe_runtime(self, path, provider, model, body):
+                if endpoints.runtime(self, cfg, provider, pcfg, path, body):
+                    return
             services.presentation.write_json(
                 self,
                 {"type": "error", "error": {"type": "not_found_error", "message": path}},

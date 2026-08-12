@@ -72,3 +72,4 @@ Web backend ownership is scoped to the normalized workspace and router port. A s
 - `POST /v1/audio/speech/batch`
 - `GET|POST /v1/audio/voices`
 - `GET /ca/web/chat/api` lists chat, model, message, response, file, and speech endpoints.
+- `GET /ca/tui/status`, `GET /ca/tui/recent`, and `GET /ca/tui/stream` expose the routed coding-agent turn as status, cursor-based history, and authenticated SSE. `GET /ca/tui` is the live monitor UI.

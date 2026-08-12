@@ -56,6 +56,9 @@ class RouterServerContext:
             "chat": "/ca/chat/health",
             "plan": "/ca/plan/artifacts",
             "events": "/ca/events",
+            "tui": "/ca/tui",
+            "tui_status": "/ca/tui/status",
+            "tui_stream": "/ca/tui/stream",
         }
 
     def build_http_services(self) -> RouterHttpServices:

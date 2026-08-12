@@ -119,6 +119,10 @@ class SpeechHttpController:
                 "models": "GET /v1/models",
                 "responses": "POST /v1/responses",
                 "messages": "POST /v1/messages",
+                "tui_status": "GET /ca/tui/status",
+                "tui_recent": "GET /ca/tui/recent",
+                "tui_stream": "GET /ca/tui/stream",
+                "tui_monitor": "GET /ca/tui",
             },
         }
 

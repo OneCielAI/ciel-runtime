@@ -257,6 +257,7 @@ from ciel_runtime_support.model_context_hints import ModelContextHintPolicy, Mod
 from ciel_runtime_support.model_registry_repository import ModelRegistryApi
 from ciel_runtime_support.npm_runtime import claude_code_current_version, codex_current_version, npm_global_bin_dir_from_prefix, npm_global_install_command, npm_global_package_root, npm_install_runtime_command, npm_latest_package_version, npm_prefix_from_package_root, package_root_from_installed_path, parse_version_tuple, run_upgrade_command, version_newer
 from ciel_runtime_support.observability import EventBus, render_events_html
+from ciel_runtime_support.tui_observation import TuiObservationBus, TuiObservationHttpAdapter, TuiObservationHttpPorts, observe_runtime_response
 from ciel_runtime_support.ollama_catalog_cli import OllamaCatalogCliController
 from ciel_runtime_support.ollama_catalog_context import OllamaCatalogCompatibilityApi, OllamaCatalogContext, OllamaCatalogProjectionPorts, OllamaCatalogRepositoryPorts, OllamaCatalogWorkflowPorts
 from ciel_runtime_support.ollama_context_sync import OllamaContextPolicy, OllamaContextSources, sync_ollama_context_limit
@@ -640,6 +641,7 @@ _TOOL_SIDE_EFFECT_DEDUP_TTL_SECONDS = 10 * 60.0
 _TOOL_SIDE_EFFECT_DEDUP_LOCK = threading.Lock()
 _TOOL_SIDE_EFFECT_DEDUP_RECENT: dict[str, float] = {}
 EVENT_BUS = EventBus()
+TUI_OBSERVATION_BUS = TuiObservationBus()
 USAGE_EVENT_SINK = JsonlUsageEventSink(
     USAGE_EVENTS_PATH,
     enabled=lambda: str(os.environ.get("CIEL_RUNTIME_USAGE_LOG", "1")).strip().lower()
@@ -1712,6 +1714,9 @@ def parse_json_body(raw: bytes) -> dict[str, Any]:
 query_int = EventHttpAdapter.query_int
 def event_http_adapter() -> EventHttpAdapter: return EventHttpAdapter(EventHttpPorts(EVENT_BUS.recent, EVENT_BUS.wait_after, render_events_html, write_text_response, write_json, router_log))
 def handle_events_get(handler: BaseHTTPRequestHandler, path: str, query: dict[str, list[str]]) -> bool: return event_http_adapter().handle_get(handler, path, query)
+def tui_observation_http_adapter() -> TuiObservationHttpAdapter: return TuiObservationHttpAdapter(TuiObservationHttpPorts(TUI_OBSERVATION_BUS, write_json, write_text_response, router_log))
+def handle_tui_observation_get(handler: BaseHTTPRequestHandler, path: str, query: dict[str, list[str]]) -> bool: return tui_observation_http_adapter().handle_get(handler, path, query)
+def observe_tui_runtime_response(handler: BaseHTTPRequestHandler, path: str, provider: str, model: str, body: dict[str, Any]) -> Any: return observe_runtime_response(handler, path, provider, model, body, TUI_OBSERVATION_BUS)
 _safe_segment = ChatFileRepository.safe_segment
 chat_file_max_bytes = ChatFileRepository.configured_max_bytes
 def chat_file_repository() -> ChatFileRepository: return ChatFileRepository(CHAT_FILES_DIR, ROUTER_BASE, ChatFilePorts(timestamp=time.time, timestamp_ns=time.time_ns))
@@ -2817,8 +2822,8 @@ route_runtime_post = _ROUTER_REQUEST_API.route_post
 
 def _router_server_context() -> RouterServerContext:
     http_services = RouterHttpServices(
-        core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log),
-        get=RouterHttpGetEndpoints(handle_codex_mcp_split_proxy_get, handle_events_get, handle_llm_config_get, handle_channel_mcp_get, handle_web_get,
+        core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log, observe_tui_runtime_response),
+        get=RouterHttpGetEndpoints(handle_codex_mcp_split_proxy_get, handle_tui_observation_get, handle_events_get, handle_llm_config_get, handle_channel_mcp_get, handle_web_get,
                                    lambda handler, path: speech_http_controller().get(handler, path), handle_chat_get, handle_plan_get, route_runtime_get),
         post=RouterHttpPostEndpoints(handle_codex_mcp_split_proxy_request, lambda handler, path, raw, content_type: speech_http_controller().post(handler, path, raw, content_type), handle_llm_config_post, handle_channel_mcp_post, handle_chat_post,
                                      handle_plan_post, route_runtime_post),
