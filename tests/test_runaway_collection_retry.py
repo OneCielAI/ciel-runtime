@@ -235,7 +235,7 @@ class CollectionRetryTests(unittest.TestCase):
         message, seen, logs = self.collect([looping_message()])
 
         self.assertEqual(3, len(seen))
-        self.assertEqual("max_tokens", message["stop_reason"])
+        self.assertEqual("end_turn", message["stop_reason"])
         self.assertEqual("확인하겠습니다.\n\n" + LOOP, message["content"][0]["text"])
         self.assertIn(NOTICE_MARKER, message["content"][-1]["text"])
         self.assertIn("retry=False", logs[-1][1])

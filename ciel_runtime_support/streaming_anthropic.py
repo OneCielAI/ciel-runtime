@@ -468,7 +468,10 @@ def rebatch_anthropic_sse_text(
         notice_index = next_content_index
         next_content_index += 1
         emit_text_block(notice_index, runaway_verdict.notice(STOPPED))
-        stop_reason = "max_tokens"
+        # Claude Code automatically continues responses marked max_tokens.
+        # This path is the terminal circuit-breaker after one recovery already
+        # looped, so end the turn instead of creating an outer continuation loop.
+        stop_reason = "end_turn"
         if (
             not emitted_tool_use
             and runaway_policy.recover
@@ -1613,9 +1616,9 @@ def ollama_stream_to_anthropic_sse(
         if chunk.get("done_reason") == "length":
             stop_reason = "max_tokens"
         if runaway_stopped and not tool_calls:
-            # No continuation was synthesized, so the turn really does end here
-            # with output the router truncated.
-            stop_reason = "max_tokens"
+            # Claude Code treats max_tokens as a continuation request. Once a
+            # recovery has already looped, this is a deliberate terminal stop.
+            stop_reason = "end_turn"
         # Send message_delta with final stop_reason
         event = {
             "type": "message_delta",
@@ -2237,8 +2240,9 @@ def forward_openai_chat_to_anthropic_sse(
                 text_stopped = True
         stop_reason = "tool_use" if tool_calls else ("max_tokens" if finish_reason == "length" else "end_turn")
         if runaway_stopped and not tool_calls:
-            # No continuation was synthesized, so the turn ends on truncated output.
-            stop_reason = "max_tokens"
+            # Claude Code treats max_tokens as a continuation request. Once a
+            # recovery has already looped, this is a deliberate terminal stop.
+            stop_reason = "end_turn"
         final_output_tokens = output_tokens or max(1, len(text_so_far) // 4)
         final_usage = {
             "input_tokens": reported_input_tokens,

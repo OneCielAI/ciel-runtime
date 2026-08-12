@@ -179,7 +179,7 @@ class OllamaStreamRunawayTests(unittest.TestCase):
         _resp, events = self.run_stream(self.loop_chunks(), source_body)
 
         self.assertEqual([], tool_names(events))
-        self.assertEqual("max_tokens", stop_reason_of(events))
+        self.assertEqual("end_turn", stop_reason_of(events))
 
     def test_repeated_thinking_is_cut_short(self):
         chunks = [
@@ -244,7 +244,7 @@ class OllamaStreamRunawayTests(unittest.TestCase):
 
         self.assertGreater(len(resp.items), 0, "the guard itself must still fire")
         self.assertEqual([], tool_names(events))
-        self.assertEqual("max_tokens", stop_reason_of(events))
+        self.assertEqual("end_turn", stop_reason_of(events))
 
 
 class AnthropicPassthroughRunawayTests(unittest.TestCase):
@@ -314,7 +314,7 @@ class AnthropicPassthroughRunawayTests(unittest.TestCase):
         _resp, events = self.run_stream(self.upstream_lines(OFFERED_CHUNKS), source_body)
 
         self.assertEqual([], tool_names(events))
-        self.assertEqual("max_tokens", stop_reason_of(events))
+        self.assertEqual("end_turn", stop_reason_of(events))
 
     def test_healthy_stream_keeps_its_own_stop_reason(self):
         lines = [
@@ -377,7 +377,7 @@ class OpenAIChatStreamRunawayTests(unittest.TestCase):
         _resp, events = self.run_stream(self.loop_chunks(), source_body)
 
         self.assertEqual([], tool_names(events))
-        self.assertEqual("max_tokens", stop_reason_of(events))
+        self.assertEqual("end_turn", stop_reason_of(events))
 
     def test_healthy_stream_is_untouched(self):
         chunks = [
@@ -406,7 +406,7 @@ class CollectedMessageRunawayTests(unittest.TestCase):
 
         guarded = ResponseCollectionContext.guard_runaway(message)
 
-        self.assertEqual("max_tokens", guarded["stop_reason"])
+        self.assertEqual("end_turn", guarded["stop_reason"])
         self.assertEqual("확인하겠습니다.\n\n" + LOOP, guarded["content"][0]["text"])
         self.assertIn(NOTICE_MARKER, guarded["content"][-1]["text"])
         # The wording must not claim an early stop that never happened here.

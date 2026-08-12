@@ -306,7 +306,10 @@ class ResponseCollectionContext:
             if last_attempt:
                 break
             attempt_body = self.with_reasoning_effort(body, ladder[attempt + 1])
-        return {**message, "content": trimmed, "stop_reason": "max_tokens"}
+        # The guard, not the provider token budget, terminated this response.
+        # Claude Code automatically continues max_tokens responses, which would
+        # restart the same loop after the retry ladder is exhausted.
+        return {**message, "content": trimmed, "stop_reason": "end_turn"}
 
     @staticmethod
     def effort_ladder(policy: RunawayOutputPolicy) -> list[str | None]:
@@ -353,7 +356,7 @@ class ResponseCollectionContext:
         )
         if verdict is None:
             return message
-        return {**message, "content": content, "stop_reason": "max_tokens"}
+        return {**message, "content": content, "stop_reason": "end_turn"}
 
 
 @dataclass(frozen=True, slots=True)
