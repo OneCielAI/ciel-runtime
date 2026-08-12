@@ -11,6 +11,7 @@ import secrets
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,6 +20,7 @@ from typing import Any, Callable
 
 MAX_EVENT_BYTES = 1024 * 1024
 WEBHOOK_TOLERANCE_SECONDS = 300
+CLOUDEVENTS_SSE_ACCEPT = "text/event-stream, application/cloudevents+json"
 
 
 class EventReceiverSecretVault:
@@ -234,6 +236,62 @@ def parse_sse_frames(lines: Any) -> Any:
         yield event_id, "\n".join(data_lines)
 
 
+def json_pointer_value(value: Any, pointer: str) -> Any:
+    """Resolve an RFC 6901 JSON Pointer without interpreting the event body."""
+
+    if pointer == "":
+        return value
+    if not pointer.startswith("/"):
+        raise ValueError("cursor_json_pointer must be empty or start with /")
+    current = value
+    for encoded in pointer[1:].split("/"):
+        token = encoded.replace("~1", "/").replace("~0", "~")
+        if isinstance(current, dict):
+            if token not in current:
+                return None
+            current = current[token]
+        elif isinstance(current, list):
+            try:
+                index = int(token)
+            except ValueError:
+                return None
+            if index < 0 or index >= len(current):
+                return None
+            current = current[index]
+        else:
+            return None
+    return current
+
+
+def cloud_event_cursor(raw_text: str, pointer: str) -> str:
+    """Project an explicitly configured reconnect cursor from a CloudEvent."""
+
+    if not pointer:
+        return ""
+    try:
+        value = json.loads(raw_text)
+    except json.JSONDecodeError:
+        return ""
+    cursor = json_pointer_value(value, pointer)
+    if cursor is None or isinstance(cursor, (dict, list, bool)):
+        return ""
+    return str(cursor).strip()
+
+
+def sse_reconnect_url(url: str, query_parameter: str, cursor: str) -> str:
+    """Add a provider-neutral cursor query parameter while preserving the URL."""
+
+    if not query_parameter or not cursor:
+        return url
+    parsed = urllib.parse.urlsplit(url)
+    query = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+    query = [(name, value) for name, value in query if name != query_parameter]
+    query.append((query_parameter, cursor))
+    return urllib.parse.urlunsplit(
+        (parsed.scheme, parsed.netloc, parsed.path, urllib.parse.urlencode(query), parsed.fragment)
+    )
+
+
 @dataclass(slots=True)
 class ExternalEventReceiverService:
     load_config: Callable[[], dict[str, Any]]
@@ -277,6 +335,14 @@ class ExternalEventReceiverService:
             event_types = [part.strip() for part in event_types.split(",") if part.strip()]
         if not isinstance(event_types, list):
             event_types = []
+        cursor_json_pointer = str(body.get("cursor_json_pointer") or "").strip()
+        if cursor_json_pointer and not cursor_json_pointer.startswith("/"):
+            raise ValueError("cursor_json_pointer must be empty or start with /")
+        if len(cursor_json_pointer) > 256:
+            raise ValueError("cursor_json_pointer is too long")
+        cursor_query_parameter = str(body.get("cursor_query_parameter") or "").strip()
+        if len(cursor_query_parameter) > 80 or any(char in cursor_query_parameter for char in "&=?#/"):
+            raise ValueError("cursor_query_parameter must be a single URL query parameter name")
         cfg = self.load_config()
         root = cfg.setdefault("external_event_receivers", {})
         workspace = root.setdefault(self.workspace_key, {})
@@ -287,6 +353,8 @@ class ExternalEventReceiverService:
                 "transport": transport,
                 "url": url,
                 "event_types": [str(value) for value in event_types if str(value)],
+                "cursor_json_pointer": cursor_json_pointer,
+                "cursor_query_parameter": cursor_query_parameter,
             }
         )
         workspace[receiver_id] = current
@@ -435,14 +503,20 @@ class ExternalEventReceiverService:
             config = self.receiver_configs().get(receiver_id, {})
             if not config.get("enabled") or config.get("transport") != "sse":
                 break
-            headers = {"Accept": "text/event-stream", "Cache-Control": "no-cache"}
+            headers = {"Accept": CLOUDEVENTS_SSE_ACCEPT, "Cache-Control": "no-cache"}
             secret = self.vault.load(receiver_id).get("authorization", "")
             if secret:
                 headers["Authorization"] = secret if secret.lower().startswith("bearer ") else f"Bearer {secret}"
-            if last_event_id:
+            cursor_query_parameter = str(config.get("cursor_query_parameter") or "").strip()
+            if last_event_id and not cursor_query_parameter:
                 headers["Last-Event-ID"] = last_event_id
             try:
-                request = urllib.request.Request(str(config.get("url") or ""), headers=headers)
+                request_url = sse_reconnect_url(
+                    str(config.get("url") or ""),
+                    cursor_query_parameter,
+                    last_event_id,
+                )
+                request = urllib.request.Request(request_url, headers=headers)
                 self._set_status(receiver_id, state="connecting", error="")
                 with self.urlopen(request, timeout=90) as response:
                     content_type = str(response.headers.get("content-type") or "").lower()
@@ -455,8 +529,13 @@ class ExternalEventReceiverService:
                             break
                         event = validate_cloud_event(raw_text)
                         self._admit(receiver_id, "sse", raw_text, event, transport_event_id)
-                        if transport_event_id:
-                            last_event_id = transport_event_id
+                        projected_cursor = cloud_event_cursor(
+                            raw_text,
+                            str(config.get("cursor_json_pointer") or "").strip(),
+                        )
+                        next_cursor = projected_cursor or transport_event_id
+                        if next_cursor:
+                            last_event_id = next_cursor
                             self._write_sse_cursor(receiver_id, last_event_id)
             except Exception as exc:
                 self._set_status(receiver_id, state="disconnected", error=f"{type(exc).__name__}: {exc}", retry_seconds=retry)
@@ -468,9 +547,13 @@ class ExternalEventReceiverService:
 
 
 __all__ = [
+    "CLOUDEVENTS_SSE_ACCEPT",
     "EventReceiverSecretVault",
     "ExternalEventReceiverService",
+    "cloud_event_cursor",
+    "json_pointer_value",
     "parse_sse_frames",
+    "sse_reconnect_url",
     "validate_cloud_event",
     "verify_standard_webhook",
 ]

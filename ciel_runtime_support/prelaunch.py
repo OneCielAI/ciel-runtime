@@ -665,6 +665,20 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                             raw_tty=restore_raw_mode,
                         )
                         messages = set_external_event_config(value, entered)
+                    elif value == "cursor_json_pointer":
+                        entered = prompt_menu_value(
+                            "Cursor JSON pointer (blank uses the SSE id field; example: /data/stream_id)",
+                            restore_tty=restore_line_mode,
+                            raw_tty=restore_raw_mode,
+                        )
+                        messages = set_external_event_config(value, entered)
+                    elif value == "cursor_query_parameter":
+                        entered = prompt_menu_value(
+                            "Reconnect cursor query parameter (blank uses Last-Event-ID)",
+                            restore_tty=restore_line_mode,
+                            raw_tty=restore_raw_mode,
+                        )
+                        messages = set_external_event_config(value, entered)
                     elif value in {"webhook_secret", "authorization"}:
                         label = "Standard Webhooks whsec_ secret" if value == "webhook_secret" else "SSE bearer token"
                         entered = prompt_menu_value(

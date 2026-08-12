@@ -8,9 +8,13 @@ import unittest
 from pathlib import Path
 
 from ciel_runtime_support.external_event_receiver import (
+    CLOUDEVENTS_SSE_ACCEPT,
     EventReceiverSecretVault,
     ExternalEventReceiverService,
+    cloud_event_cursor,
+    json_pointer_value,
     parse_sse_frames,
+    sse_reconnect_url,
     validate_cloud_event,
     verify_standard_webhook,
 )
@@ -30,6 +34,21 @@ class _Handler:
     def __init__(self, headers=None):
         self.headers = _Headers(headers or {})
         self.response = None
+
+
+class _SseResponse:
+    def __init__(self, lines):
+        self.lines = [part for line in lines for part in line.splitlines(keepends=True)]
+        self.headers = {"content-type": "text/event-stream; charset=utf-8"}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def __iter__(self):
+        return iter(self.lines)
 
 
 class ExternalEventReceiverTests(unittest.TestCase):
@@ -77,6 +96,132 @@ class ExternalEventReceiverTests(unittest.TestCase):
             b"\n",
         ]))
         self.assertEqual([("first", '{"a":1,\n"b":2}'), ("first", "second")], frames)
+
+    def test_json_pointer_cursor_and_query_projection_are_provider_neutral(self):
+        value = {"data": {"stream/id": "42-7", "items": [{"cursor": 9}]}}
+        self.assertEqual("42-7", json_pointer_value(value, "/data/stream~1id"))
+        self.assertEqual(9, json_pointer_value(value, "/data/items/0/cursor"))
+        self.assertIsNone(json_pointer_value(value, "/data/missing"))
+        raw = json.dumps({
+            "specversion": "1.0",
+            "id": "event-id",
+            "source": "/source",
+            "type": "example.event",
+            "data": {"cursor": "17-2"},
+        })
+        self.assertEqual("17-2", cloud_event_cursor(raw, "/data/cursor"))
+        self.assertEqual(
+            "https://events.example/stream?format=cloudevents&after=17-2",
+            sse_reconnect_url("https://events.example/stream?format=cloudevents", "after", "17-2"),
+        )
+
+    def test_sse_structured_mode_negotiation_and_configurable_cursor_reconnect(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = {"external_event_receivers": {"workspace": {}}}
+            requests = []
+            admitted = []
+            cursor_path = root / "cursors.json"
+            cursor_path.write_text(json.dumps({"default": "10-4"}), encoding="utf-8")
+            service = None
+
+            def save_config(value):
+                copied = json.loads(json.dumps(value))
+                config.clear()
+                config.update(copied)
+
+            def submit_event(raw, **meta):
+                admitted.append((raw, meta))
+                service._stop.set()
+                return {"id": 1}
+
+            event_text = json.dumps({
+                "specversion": "1.0",
+                "id": "11-1",
+                "source": "/agents/example",
+                "type": "example.message",
+                "data": {"stream_id": "11-1", "payload": {"text": "hello"}},
+            }, separators=(",", ":"))
+
+            def urlopen(request, timeout):
+                requests.append((request, timeout))
+                return _SseResponse([f"event: example.message\ndata: {event_text}\n\n".encode()])
+
+            service = ExternalEventReceiverService(
+                load_config=lambda: config,
+                save_config=save_config,
+                write_json=lambda *_args: None,
+                submit_event=submit_event,
+                vault=EventReceiverSecretVault(root / "events.vault.json"),
+                workspace_key="workspace",
+                log=lambda *_args: None,
+                cursor_path=cursor_path,
+                urlopen=urlopen,
+            )
+            service.save_receiver("default", {
+                "enabled": True,
+                "transport": "sse",
+                "url": "https://events.example/stream?format=cloudevents",
+                "authorization": "secret-token",
+                "cursor_json_pointer": "/data/stream_id",
+                "cursor_query_parameter": "after",
+            })
+            service._run_sse("default")
+
+            request, timeout = requests[0]
+            self.assertEqual(90, timeout)
+            self.assertEqual(
+                "https://events.example/stream?format=cloudevents&after=10-4",
+                request.full_url,
+            )
+            self.assertEqual(CLOUDEVENTS_SSE_ACCEPT, request.get_header("Accept"))
+            self.assertEqual("Bearer secret-token", request.get_header("Authorization"))
+            self.assertIsNone(request.get_header("Last-event-id"))
+            self.assertEqual(event_text, admitted[0][0])
+            self.assertEqual("11-1", json.loads(cursor_path.read_text(encoding="utf-8"))["default"])
+
+    def test_standard_sse_cursor_uses_last_event_id_header(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = {"external_event_receivers": {"workspace": {}}}
+            requests = []
+            cursor_path = root / "cursors.json"
+            cursor_path.write_text(json.dumps({"default": "event-9"}), encoding="utf-8")
+            service = None
+
+            def save_config(value):
+                copied = json.loads(json.dumps(value))
+                config.clear()
+                config.update(copied)
+
+            def submit_event(raw, **meta):
+                service._stop.set()
+                return {"id": 1}
+
+            raw = '{"specversion":"1.0","id":"event-10","source":"/x","type":"demo"}'
+
+            def urlopen(request, timeout):
+                requests.append(request)
+                return _SseResponse([f"id: event-10\ndata: {raw}\n\n".encode()])
+
+            service = ExternalEventReceiverService(
+                load_config=lambda: config,
+                save_config=save_config,
+                write_json=lambda *_args: None,
+                submit_event=submit_event,
+                vault=EventReceiverSecretVault(root / "events.vault.json"),
+                workspace_key="workspace",
+                log=lambda *_args: None,
+                cursor_path=cursor_path,
+                urlopen=urlopen,
+            )
+            service.save_receiver("default", {
+                "enabled": True,
+                "transport": "sse",
+                "url": "https://events.example/stream",
+            })
+            service._run_sse("default")
+            self.assertEqual("event-9", requests[0].get_header("Last-event-id"))
 
     def test_webhook_admission_never_writes_a_public_chat_transcript(self):
         with tempfile.TemporaryDirectory() as directory:
