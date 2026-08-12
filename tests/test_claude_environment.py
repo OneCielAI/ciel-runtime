@@ -43,27 +43,6 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual(4096, policy.auto_compact_window("openai", {}))
         self.assertEqual(2048, policy.auto_compact_window("openai", {"auto_compact_window": 2048}))
 
-    def test_client_response_limit_can_exceed_router_request_limit(self):
-        policy = ClaudeLimitPolicy(
-            ClaudeLimitPorts(
-                positive_int=lambda value: int(value) if value else None,
-                cap_output_tokens=lambda _provider, _config, value: value,
-                ollama_options=lambda _config: {},
-                context_limit=lambda _provider, _config: 262144,
-            )
-        )
-
-        self.assertEqual(
-            32768,
-            policy.output_token_limit(
-                "kimi",
-                {
-                    "max_output_tokens": 8192,
-                    "claude_code_max_output_tokens": 32768,
-                },
-            ),
-        )
-
     def test_model_alias_policy_marks_only_million_context_models(self):
         policy = self._model_policy()
         self.assertEqual(

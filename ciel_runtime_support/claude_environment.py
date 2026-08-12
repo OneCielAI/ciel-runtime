@@ -26,27 +26,18 @@ class ClaudeLimitPolicy:
         self._ports = ports
 
     def output_token_limit(self, provider: str, config: dict[str, Any]) -> int | None:
-        client_limit = self._ports.positive_int(
-            config.get("claude_code_max_output_tokens")
-        )
         if provider in ("ollama", "ollama-cloud") and not config.get(
             "output_tokens_explicit"
         ):
-            return client_limit
+            return None
         configured = self._ports.positive_int(config.get("max_output_tokens"))
         if configured:
-            request_limit = self._ports.cap_output_tokens(
-                provider, config, configured
-            )
-            return max(request_limit, client_limit or 0)
+            return self._ports.cap_output_tokens(provider, config, configured)
         if provider in ("ollama", "ollama-cloud"):
             configured = self._ports.positive_int(self._ports.ollama_options(config).get("num_predict"))
             if configured:
-                request_limit = self._ports.cap_output_tokens(
-                    provider, config, configured
-                )
-                return max(request_limit, client_limit or 0)
-        return client_limit
+                return self._ports.cap_output_tokens(provider, config, configured)
+        return None
 
     def auto_compact_window(self, provider: str, config: dict[str, Any]) -> int | None:
         configured = self._ports.positive_int(config.get("auto_compact_window"))

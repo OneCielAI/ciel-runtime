@@ -33,7 +33,6 @@ class KimiProviderTests(unittest.TestCase):
         self.assertIn("kimi-for-coding-highspeed", pcfg["custom_models"])
         self.assertEqual(262144, pcfg["context_window"])
         self.assertEqual(32768, pcfg["max_output_tokens"])
-        self.assertEqual(32768, pcfg["claude_code_max_output_tokens"])
         self.assertEqual(32768, pcfg["context_reserve_tokens"])
         self.assertEqual(600000, pcfg["request_timeout_ms"])
         self.assertTrue(pcfg["native_compat"])
@@ -637,7 +636,7 @@ class KimiProviderTests(unittest.TestCase):
         self.assertEqual("sk-kimi-test", env["ANTHROPIC_AUTH_TOKEN"])
         self.assertNotIn("ANTHROPIC_API_KEY", env)
         self.assertEqual("ciel-runtime-kimi-kimi-for-coding", env["ANTHROPIC_MODEL"])
-        self.assertEqual("32768", env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"])
+        self.assertEqual("8192", env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"])
         self.assertEqual("262144", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
         self.assertIn("thinking", env["ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES"])
 
