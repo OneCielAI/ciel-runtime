@@ -424,7 +424,10 @@ from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  #
                                                 OLLAMA_MODEL_CATALOG_PATH, PID_PATH, PLAN_ARTIFACTS_DIR,
                                                 RATE_LIMIT_STATE_PATH, REQUEST_DUMP_PATH, RESPONSE_DUMP_PATH,
                                                 ROUTER_ACTIVITY_PATH, ROUTER_BASE, ROUTER_CLIENTS_DIR,
-                                                ROUTER_EXTERNAL_TOKEN_PATH, ROUTER_HOST, ROUTER_INSTANCE_DIR, ROUTER_INSTANCE_ID, ROUTER_PORT, ROUTER_WORKSPACE, SSE_LAST_PATH,
+                                                MIGRATED_LEGACY_INSTANCE_ID, ROUTER_EXTERNAL_TOKEN_PATH, ROUTER_HOST,
+                                                ROUTER_INSTANCE_DIR, ROUTER_INSTANCE_ID, ROUTER_PORT,
+                                                ROUTER_WORKSPACE, ROUTER_WORKSPACE_ID, SSE_LAST_PATH,
+                                                WORKSPACE_STATE_DIR,
                                                 SSE_TRACE_PATH, TOOL_CALL_LOG_PATH, USAGE_EVENTS_PATH,
                                                 WEB_TOOLS_MCP_CONFIG, ZAI_MCP_CONFIG, agy_user_bin_dir,
                                                 ciel_runtime_user_bin_dir, default_router_port,
@@ -1768,11 +1771,19 @@ def external_event_receiver_service() -> ExternalEventReceiverService:
             save_config=save_config,
             write_json=write_json,
             submit_event=runtime_input_gateway().submit_external_event,
-            vault=EventReceiverSecretVault(ROUTER_INSTANCE_DIR / "external-event-secrets.vault.json"),
-            workspace_key=ROUTER_INSTANCE_ID,
+            vault=EventReceiverSecretVault(WORKSPACE_STATE_DIR / "external-event-secrets.vault.json"),
+            workspace_key=ROUTER_WORKSPACE_ID,
+            legacy_workspace_keys=tuple(
+                dict.fromkeys(
+                    key
+                    for key in (MIGRATED_LEGACY_INSTANCE_ID, ROUTER_INSTANCE_ID)
+                    if key
+                )
+            ),
             log=router_log,
-            cursor_path=ROUTER_INSTANCE_DIR / "external-event-sse-cursors.json",
+            cursor_path=WORKSPACE_STATE_DIR / "external-event-sse-cursors.json",
         )
+        _EXTERNAL_EVENT_RECEIVER_SERVICE.migrate_legacy_config()
     return _EXTERNAL_EVENT_RECEIVER_SERVICE
 
 def handle_external_event_get(handler: BaseHTTPRequestHandler, path: str) -> bool:

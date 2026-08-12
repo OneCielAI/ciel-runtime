@@ -266,6 +266,44 @@ class ExternalEventReceiverTests(unittest.TestCase):
             self.assertEqual(raw.decode(), private_inputs[0][0])
             self.assertEqual([], public_transcript)
 
+    def test_legacy_port_scoped_config_is_copied_to_stable_workspace_key(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = {
+                "external_event_receivers": {
+                    "8804-workspace": {
+                        "default": {
+                            "enabled": True,
+                            "transport": "sse",
+                            "url": "https://events.example/stream",
+                        }
+                    }
+                }
+            }
+
+            def save_config(value):
+                copied = json.loads(json.dumps(value))
+                config.clear()
+                config.update(copied)
+
+            service = ExternalEventReceiverService(
+                load_config=lambda: config,
+                save_config=save_config,
+                write_json=lambda *_args: None,
+                submit_event=lambda *_args, **_kwargs: {"id": 1},
+                vault=EventReceiverSecretVault(Path(directory) / "events.vault.json"),
+                workspace_key="workspace",
+                legacy_workspace_keys=("8804-workspace",),
+                log=lambda *_args: None,
+            )
+
+            self.assertTrue(service.receiver_configs()["default"]["enabled"])
+            self.assertTrue(service.migrate_legacy_config())
+            self.assertFalse(service.migrate_legacy_config())
+            service.save_receiver("default", {"enabled": False, "transport": "webhook"})
+
+            self.assertIn("workspace", config["external_event_receivers"])
+            self.assertFalse(config["external_event_receivers"]["workspace"]["default"]["enabled"])
+
 
 if __name__ == "__main__":
     unittest.main()

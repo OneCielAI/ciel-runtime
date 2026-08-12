@@ -13,6 +13,9 @@ class RuntimePathsTest(unittest.TestCase):
             self.assertEqual(runtime_paths.CONFIG_DIR, runtime_paths.ROUTER_INSTANCE_DIR)
         else:
             self.assertIn(runtime_paths.CONFIG_DIR / "router-instances", runtime_paths.ROUTER_INSTANCE_DIR.parents)
+            self.assertIn(runtime_paths.CONFIG_DIR / "workspaces", runtime_paths.WORKSPACE_STATE_DIR.parents)
+            self.assertEqual(runtime_paths.WORKSPACE_STATE_DIR, runtime_paths.RUNTIME_INPUTS_PATH.parent)
+            self.assertEqual(runtime_paths.WORKSPACE_STATE_DIR, runtime_paths.CHANNEL_LLM_CURSOR_PATH.parent)
 
     def test_default_router_port_honors_valid_environment_override(self):
         with mock.patch.dict(runtime_paths.os.environ, {"CIEL_RUNTIME_ROUTER_PORT": "9876"}):

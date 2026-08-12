@@ -25,15 +25,18 @@ def default_config_dir():
 
 
 CONFIG_DIR = default_config_dir()
-STATE_DIR = Path(os.environ.get("CIEL_RUNTIME_STATE_DIR") or CONFIG_DIR)
+ROUTER_STATE_DIR = Path(os.environ.get("CIEL_RUNTIME_STATE_DIR") or CONFIG_DIR)
+WORKSPACE_STATE_DIR = Path(
+    os.environ.get("CIEL_RUNTIME_WORKSPACE_STATE_DIR") or ROUTER_STATE_DIR
+)
 CONFIG_PATH = CONFIG_DIR / "config.json"
-STATE_PATH = STATE_DIR / "rate-limit-state.json"
-ACTIVITY_PATH = STATE_DIR / "router-activity.json"
-COMPACT_ACTIVITY_PATH = STATE_DIR / "context-compact-activity.json"
-CONTEXT_PATH = STATE_DIR / "context-usage.json"
-CHAT_MESSAGES_PATH = STATE_DIR / "chat-messages.jsonl"
-CHANNEL_LLM_CURSOR_PATH = STATE_DIR / "channel-llm-cursor.json"
-CHANNEL_LLM_CLEAR_FLOOR_PATH = STATE_DIR / "channel-llm-clear-floor.json"
+STATE_PATH = ROUTER_STATE_DIR / "rate-limit-state.json"
+ACTIVITY_PATH = ROUTER_STATE_DIR / "router-activity.json"
+COMPACT_ACTIVITY_PATH = ROUTER_STATE_DIR / "context-compact-activity.json"
+CONTEXT_PATH = ROUTER_STATE_DIR / "context-usage.json"
+CHAT_MESSAGES_PATH = WORKSPACE_STATE_DIR / "chat-messages.jsonl"
+CHANNEL_LLM_CURSOR_PATH = WORKSPACE_STATE_DIR / "channel-llm-cursor.json"
+CHANNEL_LLM_CLEAR_FLOOR_PATH = WORKSPACE_STATE_DIR / "channel-llm-clear-floor.json"
 PALETTE = (203, 209, 215, 221, 229, 187, 151, 116, 111, 147, 183, 219)
 
 

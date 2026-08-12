@@ -46,6 +46,8 @@ Reconnects use the SSE `id` field and `Last-Event-ID` by default. Streams that c
 
 The workspace router is the sole owner of each outbound SSE subscription. The prelaunch settings process only persists receiver configuration, preventing duplicate connections and duplicate deliveries. The terminal bridge also performs a bounded periodic safety rescan of its durable private input queue so a missed filesystem notification cannot strand an admitted event.
 
+Receiver configuration, encrypted credentials, SSE reconnect cursors, private runtime inputs, and terminal delivery cursors are owned by the workspace rather than by a router port. Changing or reallocating the router port therefore changes only process-local router artifacts; durable input state is retained. On the first launch after upgrading, Ciel copies the newest matching legacy `router-instances/<port>-<workspace>` state into the stable workspace state directory without deleting the legacy files.
+
 This feature is an application input bridge, not MCP transport support. Ciel does not inspect MCP configuration or assume ownership of an MCP server's lifecycle.
 
 ## Internal Ciel MCP tools

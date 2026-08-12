@@ -301,6 +301,7 @@ class ExternalEventReceiverService:
     vault: EventReceiverSecretVault
     workspace_key: str
     log: Callable[[str, str], None]
+    legacy_workspace_keys: tuple[str, ...] = ()
     cursor_path: Path | None = None
     urlopen: Callable[..., Any] = urllib.request.urlopen
     sleep: Callable[[float], None] = time.sleep
@@ -320,7 +321,46 @@ class ExternalEventReceiverService:
     def receiver_configs(self) -> dict[str, dict[str, Any]]:
         root = self.load_config().get("external_event_receivers", {})
         workspace = root.get(self.workspace_key, {}) if isinstance(root, dict) else {}
+        if not workspace and isinstance(root, dict):
+            for legacy_key in self.legacy_workspace_keys:
+                legacy = root.get(legacy_key, {})
+                if isinstance(legacy, dict) and legacy:
+                    workspace = legacy
+                    break
         return {str(key): dict(value) for key, value in workspace.items() if isinstance(value, dict)} if isinstance(workspace, dict) else {}
+
+    def migrate_legacy_config(self) -> bool:
+        """Project one legacy port-scoped receiver config onto the workspace."""
+
+        cfg = self.load_config()
+        root = cfg.get("external_event_receivers", {})
+        if not isinstance(root, dict) or isinstance(root.get(self.workspace_key), dict):
+            return False
+        keys = list(self.legacy_workspace_keys)
+        keys.extend(
+            key
+            for key in sorted(root)
+            if key not in keys and str(key).endswith(f"-{self.workspace_key}")
+        )
+        candidates = [
+            (key, root.get(key))
+            for key in keys
+            if isinstance(root.get(key), dict) and root.get(key)
+        ]
+        if not candidates:
+            return False
+        _key, selected = max(
+            candidates,
+            key=lambda item: int(
+                any(
+                    isinstance(receiver, dict) and receiver.get("enabled")
+                    for receiver in item[1].values()
+                )
+            ),
+        )
+        root[self.workspace_key] = json.loads(json.dumps(selected))
+        self.save_config(cfg)
+        return True
 
     def save_receiver(self, receiver_id: str, body: dict[str, Any]) -> dict[str, Any]:
         receiver_id = self._safe_id(receiver_id)
@@ -345,7 +385,10 @@ class ExternalEventReceiverService:
             raise ValueError("cursor_query_parameter must be a single URL query parameter name")
         cfg = self.load_config()
         root = cfg.setdefault("external_event_receivers", {})
-        workspace = root.setdefault(self.workspace_key, {})
+        workspace = root.get(self.workspace_key)
+        if not isinstance(workspace, dict):
+            workspace = self.receiver_configs()
+            root[self.workspace_key] = workspace
         current = workspace.get(receiver_id) if isinstance(workspace.get(receiver_id), dict) else {}
         current.update(
             {

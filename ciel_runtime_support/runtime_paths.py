@@ -14,6 +14,7 @@ from .workspace_router_selection import (
     workspace_digest,
     workspace_identity,
 )
+from .workspace_state import migrate_workspace_state
 
 
 # Web startup flags affect the process-wide router endpoint constants below.
@@ -119,6 +120,7 @@ ROUTER_WORKSPACE = workspace_identity(
     os.environ.get("CIEL_RUNTIME_LAUNCH_CWD") or Path.cwd()
 )
 _WORKSPACE_DIGEST = workspace_digest(ROUTER_WORKSPACE)
+ROUTER_WORKSPACE_ID = _WORKSPACE_DIGEST
 ROUTER_INSTANCE_ID = f"{ROUTER_PORT}-{_WORKSPACE_DIGEST}"
 _STATE_DIR_OVERRIDE = str(os.environ.get("CIEL_RUNTIME_STATE_DIR") or "").strip()
 _TEST_STATE_ISOLATED = str(os.environ.get("CIEL_RUNTIME_TEST_ISOLATED") or "").strip().lower() in {
@@ -134,6 +136,16 @@ ROUTER_INSTANCE_DIR = (
     if _TEST_STATE_ISOLATED
     else CONFIG_DIR / "router-instances" / ROUTER_INSTANCE_ID
 )
+WORKSPACE_STATE_DIR = (
+    CONFIG_DIR
+    if _TEST_STATE_ISOLATED
+    else CONFIG_DIR / "workspaces" / _WORKSPACE_DIGEST
+)
+MIGRATED_LEGACY_INSTANCE_ID = (
+    ""
+    if _TEST_STATE_ISOLATED
+    else migrate_workspace_state(CONFIG_DIR, _WORKSPACE_DIGEST, WORKSPACE_STATE_DIR)
+)
 LOG_PATH = ROUTER_INSTANCE_DIR / "router.log"
 LOG_LEVEL_PATH = CONFIG_DIR / "log-level"
 REQUEST_DUMP_PATH = ROUTER_INSTANCE_DIR / "requests.jsonl"
@@ -147,11 +159,11 @@ ROUTER_ACTIVITY_PATH = ROUTER_INSTANCE_DIR / "router-activity.json"
 CONTEXT_COMPACT_ACTIVITY_PATH = ROUTER_INSTANCE_DIR / "context-compact-activity.json"
 CONTEXT_USAGE_PATH = ROUTER_INSTANCE_DIR / "context-usage.json"
 OLLAMA_MODEL_CATALOG_PATH = CONFIG_DIR / "ollama-model-catalog.json"
-CHAT_MESSAGES_PATH = ROUTER_INSTANCE_DIR / "chat-messages.jsonl"
-RUNTIME_INPUTS_PATH = ROUTER_INSTANCE_DIR / "runtime-inputs.jsonl"
-CHAT_FILES_DIR = ROUTER_INSTANCE_DIR / "chat-files"
+CHAT_MESSAGES_PATH = WORKSPACE_STATE_DIR / "chat-messages.jsonl"
+RUNTIME_INPUTS_PATH = WORKSPACE_STATE_DIR / "runtime-inputs.jsonl"
+CHAT_FILES_DIR = WORKSPACE_STATE_DIR / "chat-files"
 MENU_KEY_DEBUG_PATH = ROUTER_INSTANCE_DIR / "ca-key-debug.log"
-PLAN_ARTIFACTS_DIR = ROUTER_INSTANCE_DIR / "plan-artifacts"
+PLAN_ARTIFACTS_DIR = WORKSPACE_STATE_DIR / "plan-artifacts"
 PID_PATH = ROUTER_INSTANCE_DIR / "router.pid"
 ROUTER_EXTERNAL_TOKEN_PATH = ROUTER_INSTANCE_DIR / "router-external-token"
 ROUTER_CLIENTS_DIR = ROUTER_INSTANCE_DIR / "router-clients"
@@ -164,11 +176,11 @@ ZAI_MCP_CONFIG = ROUTER_INSTANCE_DIR / "zai-mcp.json"
 CHANNEL_MCP_CONFIG = ROUTER_INSTANCE_DIR / "channel-mcp.json"
 CODEX_PROCESS_DIR = ROUTER_INSTANCE_DIR / "codex-processes"
 CODEX_PROMPTS_DIR_NAME = "prompts"
-CHANNEL_LLM_CURSOR_PATH = ROUTER_INSTANCE_DIR / "channel-llm-cursor.json"
-CHANNEL_LLM_CLEAR_FLOOR_PATH = ROUTER_INSTANCE_DIR / "channel-llm-clear-floor.json"
-CHANNEL_LLM_LAUNCH_GUARD_PATH = ROUTER_INSTANCE_DIR / "channel-llm-launch-guard.json"
+CHANNEL_LLM_CURSOR_PATH = WORKSPACE_STATE_DIR / "channel-llm-cursor.json"
+CHANNEL_LLM_CLEAR_FLOOR_PATH = WORKSPACE_STATE_DIR / "channel-llm-clear-floor.json"
+CHANNEL_LLM_LAUNCH_GUARD_PATH = WORKSPACE_STATE_DIR / "channel-llm-launch-guard.json"
 CHANNEL_COMPACT_REQUEST_PATH = ROUTER_INSTANCE_DIR / "channel-compact-request.json"
-CHANNEL_STDIN_WAKE_CLAIMS_PATH = ROUTER_INSTANCE_DIR / "channel-stdin-wake-claims.json"
+CHANNEL_STDIN_WAKE_CLAIMS_PATH = WORKSPACE_STATE_DIR / "channel-stdin-wake-claims.json"
 CLAUDE_GATEWAY_CACHE = HOME / ".claude" / "cache" / "gateway-models.json"
 CLAUDE_SETTINGS_PATH = HOME / ".claude" / "settings.json"
 CLAUDE_COMMANDS_DIR = HOME / ".claude" / "commands"

@@ -17,7 +17,7 @@ from ciel_runtime_support.runtime_constants import (
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
     ROUTED_COMPAT_PROMPT,
 )
-from ciel_runtime_support.runtime_paths import CONFIG_DIR, LOG_PATH, ROUTER_INSTANCE_DIR
+from ciel_runtime_support.runtime_paths import CONFIG_DIR, LOG_PATH, ROUTER_INSTANCE_DIR, WORKSPACE_STATE_DIR
 from ciel_runtime_support.web_endpoints import (
     current_web_workspace,
     web_backend_owned_by_workspace,
@@ -305,6 +305,7 @@ def run_claude(
     env = os.environ.copy()
     env["CIEL_RUNTIME_CONFIG_DIR"] = str(CONFIG_DIR)
     env["CIEL_RUNTIME_STATE_DIR"] = str(ROUTER_INSTANCE_DIR)
+    env["CIEL_RUNTIME_WORKSPACE_STATE_DIR"] = str(WORKSPACE_STATE_DIR)
     env["CIEL_RUNTIME_LAUNCH_CWD"] = str(Path.cwd())
     env["PATH"] = path_with_ciel_runtime_user_dirs(env)
     launch_passthrough = list(passthrough)
@@ -675,6 +676,7 @@ def run_codex(
     run_ciel_runtime_update_check(enabled=self_update_check)
     env = os.environ.copy()
     env["CIEL_RUNTIME_STATE_DIR"] = str(ROUTER_INSTANCE_DIR)
+    env["CIEL_RUNTIME_WORKSPACE_STATE_DIR"] = str(WORKSPACE_STATE_DIR)
     env["PATH"] = path_with_ciel_runtime_user_dirs(env)
     codex = install_codex_if_missing()
     if not codex:
@@ -994,6 +996,7 @@ def run_codex_app_server(
     run_ciel_runtime_update_check(enabled=self_update_check)
     env = os.environ.copy()
     env["CIEL_RUNTIME_STATE_DIR"] = str(ROUTER_INSTANCE_DIR)
+    env["CIEL_RUNTIME_WORKSPACE_STATE_DIR"] = str(WORKSPACE_STATE_DIR)
     env["PATH"] = path_with_ciel_runtime_user_dirs(env)
     codex = install_codex_if_missing()
     if not codex:
@@ -1257,6 +1260,7 @@ def run_agy(
     env = os.environ.copy()
     env["CIEL_RUNTIME_CONFIG_DIR"] = str(CONFIG_DIR)
     env["CIEL_RUNTIME_STATE_DIR"] = str(ROUTER_INSTANCE_DIR)
+    env["CIEL_RUNTIME_WORKSPACE_STATE_DIR"] = str(WORKSPACE_STATE_DIR)
     env["CIEL_RUNTIME_LAUNCH_CWD"] = str(Path.cwd())
     env["PATH"] = path_with_ciel_runtime_user_dirs(env)
     agy = install_agy_if_missing()
