@@ -247,13 +247,11 @@ ciel-runtime \
   --ca-no-self-update-check
 ```
 
-## 8. 채널/SSE 관련 설정
+## 8. MCP 및 Web Chat 설정
 
-외부 채널을 켤 때는 channel spec을 설정에 저장한다.
+외부 MCP 서버는 Claude Code, Codex, AGY 등 실제 CLI의 네이티브 설정 명령으로 구성한다. Ciel Runtime은 외부 SSE/Streamable HTTP 서버를 탐색·프록시·재연결하거나 알림을 TUI에 주입하지 않는다.
 
-```bash
-ciel-runtime --ca-channel server:ciel-runtime-router --ca-channel-delivery native --ca-no-launch
-```
+Web Chat 메시지와 Ciel이 명시적으로 생성한 wake 요청은 기존 Ciel 브리지를 사용하며, 필요한 경우 내부 도구 서버 `POST /ca/mcp`만 CLI에 연결된다. 자세한 내용은 `docs/MCP-Channels.md`를 참고한다.
 
 환경변수 방식:
 

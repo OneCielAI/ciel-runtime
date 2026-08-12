@@ -14,7 +14,7 @@ class CliWiringTests(unittest.TestCase):
         self.assertEqual(23, result)
         services = dispatch.call_args.args[1]
         self.assertIsInstance(services, CliServices)
-        self.assertEqual(7, len(fields(services)))
+        self.assertEqual(6, len(fields(services)))
 
 
 if __name__ == "__main__":

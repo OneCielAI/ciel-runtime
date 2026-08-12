@@ -85,12 +85,6 @@ OPENCODE_ENDPOINT_ALIASES = {
     "gemini": "google-generative", "google": "google-generative",
     "google-generative": "google-generative",
 }
-OFFICIAL_CHANNEL_PLUGINS = {
-    "telegram": "plugin:telegram@claude-plugins-official",
-    "discord": "plugin:discord@claude-plugins-official",
-    "imessage": "plugin:imessage@claude-plugins-official",
-    "fakechat": "plugin:fakechat@claude-plugins-official",
-}
 
 APP_NAME = "Ciel Runtime"
 VERSION = "0.2.21"
@@ -118,11 +112,8 @@ CODEX_RUNTIME_PROVIDER_ID = "ciel-runtime"
 CODEX_NATIVE_PROVIDER_ID_ENV = "CIEL_RUNTIME_CODEX_NATIVE_PROVIDER_ID"
 CODEX_ROUTED_PROVIDER_ID = "ciel-runtime-codex"
 CODEX_TUI_ALTERNATE_SCREEN_KEY = "tui.alternate_screen"
-BUILTIN_CHANNEL_SPEC = "server:ciel-runtime-router"
 CHANNEL_LLM_WAKE_PREFIX = "[external input pending]"
 CHANNEL_LLM_WAKE_LEGACY_PREFIXES = ("[ciel-runtime channel wake]", "[channel pending]")
-MCP_PROXY_TOOL_RESULT_MAX_CHARS_DEFAULT = 24000
-MCP_PROXY_TOOL_RESULT_ITEM_TEXT_CHARS = 6000
 ADVISOR_FEEDBACK_MARKER = "CIEL_RUNTIME_ADVISOR_FEEDBACK"
 PLAN_GUARD_MARKER = "[ciel-runtime-plan-guard]"
 PLAN_MODE_SELF_TOOLS = ("EnterPlanMode", "ExitPlanMode")

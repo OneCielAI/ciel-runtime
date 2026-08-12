@@ -16,7 +16,7 @@ class ConfigRepositoryTest(unittest.TestCase):
         config = build_default_config(providers)
         self.assertIs(providers, config["providers"])
         self.assertEqual("nvidia-hosted", config["current_provider"])
-        self.assertEqual("llm", config["claude_code"]["channel_delivery"])
+        self.assertNotIn("channel_delivery", config["claude_code"])
 
     def test_deep_merge_preserves_nested_defaults(self):
         merged = deep_merge(

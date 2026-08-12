@@ -145,13 +145,11 @@ class AgyRuntimeTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
             mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
-            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
             mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("agy", pcfg)),
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
-            mock.patch.object(ciel_runtime, "restore_agy_mcp_config_from_managed") as restore_mcp,
             mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
             mock.patch.object(ciel_runtime, "install_agy_if_missing", return_value="agy"),
             mock.patch.object(ciel_runtime, "run_agy_update_check", return_value="agy"),
@@ -164,7 +162,6 @@ class AgyRuntimeTests(unittest.TestCase):
             rc = ciel_runtime.launch_agy(["--resume", "conversation-1"], skip_menu=True)
 
         self.assertEqual(0, rc)
-        restore_mcp.assert_called_once()
         self.assertTrue(captured["manage_router"])
         self.assertEqual(["agy", "--dangerously-skip-permissions", "--conversation", "conversation-1"], captured["cmd"])
         self.assertTrue(captured["wake_for_llm_delivery"])

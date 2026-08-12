@@ -85,41 +85,18 @@ class ClaudeLaunchPolicyPorts:
     should_disallow_server_web_tools: Callback
     should_fork_native_session: Callback
     should_insert_option_boundary: Callback
-    strip_mcp_config: Callback
-
-
-@dataclass(frozen=True, slots=True)
-class ClaudeLaunchDiscoveryPorts:
-    auto_import_channels: Callback
-    cached_capable_names: Callback
-    cached_source_paths: Callback
-    candidate_names: Callback
-    channel_specs: Callback
-    channels_requested: Callback
-    auth_available: Callback
-    ensure_probe_cache: Callback
-    external_server_names: Callback
-    read_probe_cache: Callback
 
 
 @dataclass(frozen=True, slots=True)
 class ClaudeLaunchDeliveryPorts:
-    auto_start_sse: Callback
-    channel_args: Callback
-    native_passthrough_requested: Callback
-    normalize_passthrough: Callback
-    should_start_sse: Callback
     should_use_llm_delivery: Callback
     should_use_stdin_proxy: Callback
-    should_use_native_bridge: Callback
     write_channel_config: Callback
 
 
 @dataclass(frozen=True, slots=True)
 class ClaudeLaunchMcpConfigPorts:
     write_duckduckgo: Callback
-    write_proxy: Callback
-    write_native_discovery: Callback
     write_zai: Callback
 
 
@@ -131,7 +108,6 @@ class ClaudeLaunchAssembly:
     config: ClaudeLaunchConfigPorts
     routing: ClaudeLaunchRoutingPorts
     policy: ClaudeLaunchPolicyPorts
-    discovery: ClaudeLaunchDiscoveryPorts
     delivery: ClaudeLaunchDeliveryPorts
     mcp_config: ClaudeLaunchMcpConfigPorts
 
@@ -201,35 +177,14 @@ class ClaudeLaunchAssembly:
                 should_disallow_claude_server_side_web_tools=self.policy.should_disallow_server_web_tools,
                 should_fork_native_session_after_mode_switch=self.policy.should_fork_native_session,
                 should_insert_passthrough_option_boundary=self.policy.should_insert_option_boundary,
-                strip_mcp_config_passthrough=self.policy.strip_mcp_config,
-            ),
-            channel_discovery=runtime_launch.ClaudeLaunchChannelDiscovery(
-                auto_import_passthrough_channels=self.discovery.auto_import_channels,
-                cached_channel_capable_server_names=self.discovery.cached_capable_names,
-                cached_channel_source_paths_for_specs=self.discovery.cached_source_paths,
-                channel_candidate_server_names_for_launch=self.discovery.candidate_names,
-                channel_specs_for_launch=self.discovery.channel_specs,
-                claude_channels_requested=self.discovery.channels_requested,
-                claude_code_channels_auth_available=self.discovery.auth_available,
-                ensure_channel_probe_cache_for_launch=self.discovery.ensure_probe_cache,
-                external_mcp_channel_server_names_from_configs=self.discovery.external_server_names,
-                read_channel_probe_cache=self.discovery.read_probe_cache,
             ),
             channel_delivery=runtime_launch.ClaudeLaunchChannelDelivery(
-                auto_start_sse_channels_from_mcp_configs=self.delivery.auto_start_sse,
-                claude_channel_args=self.delivery.channel_args,
-                native_channel_passthrough_requested=self.delivery.native_passthrough_requested,
-                normalize_channel_passthrough=self.delivery.normalize_passthrough,
-                should_launch_process_start_channel_sse=self.delivery.should_start_sse,
                 should_use_channel_llm_delivery=self.delivery.should_use_llm_delivery,
                 should_use_channel_stdin_proxy=self.delivery.should_use_stdin_proxy,
-                should_use_native_channel_bridge=self.delivery.should_use_native_bridge,
                 write_channel_mcp_config=self.delivery.write_channel_config,
             ),
             mcp_config=runtime_launch.ClaudeLaunchMcpConfig(
                 write_duckduckgo_mcp_config=self.mcp_config.write_duckduckgo,
-                write_mcp_proxy_config=self.mcp_config.write_proxy,
-                write_native_mcp_config_from_discovery=self.mcp_config.write_native_discovery,
                 write_zai_mcp_config=self.mcp_config.write_zai,
             ),
         )
@@ -239,7 +194,6 @@ __all__ = [
     "ClaudeLaunchAssembly",
     "ClaudeLaunchConfigPorts",
     "ClaudeLaunchDeliveryPorts",
-    "ClaudeLaunchDiscoveryPorts",
     "ClaudeLaunchDispatchPorts",
     "ClaudeLaunchInstallationPorts",
     "ClaudeLaunchMcpConfigPorts",

@@ -32,8 +32,6 @@ class CliParserSettings:
     web_search: CliHandler
     web_fetch: CliHandler
     log_level: CliHandler
-    channels: CliHandler
-    channel_delivery: CliHandler
 
 
 @dataclass(frozen=True)
@@ -87,10 +85,6 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
     _add_optional_value_command(commands, "web-search", services.settings.web_search)
     _add_optional_value_command(commands, "web-fetch", services.settings.web_fetch)
     _add_optional_value_command(commands, "log-level", services.settings.log_level)
-    channels = commands.add_parser("channels")
-    channels.add_argument("values", nargs="*")
-    channels.set_defaults(func=services.settings.channels)
-    _add_optional_value_command(commands, "channel-delivery", services.settings.channel_delivery)
     _add_optional_value_command(commands, "ollama-native", services.provider.ollama_native)
     _add_values_command(commands, "ollama-options", services.provider.ollama_options)
     _add_values_command(commands, "provider-options", services.provider.provider_options)

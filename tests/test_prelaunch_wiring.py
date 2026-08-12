@@ -14,7 +14,7 @@ class PrelaunchWiringTests(unittest.TestCase):
         self.assertEqual(17, result)
         services = execute.call_args.kwargs["services"]
         self.assertIsInstance(services, PrelaunchServices)
-        self.assertEqual(10, len(fields(services)))
+        self.assertEqual(8, len(fields(services)))
         self.assertEqual(["--verbose"], execute.call_args.args[0])
 
     def test_web_config_reload_runs_after_menu_returns_and_cancels_parent(self):

@@ -265,6 +265,16 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
             ccfg["channel_delivery"] = "llm"
         migrations[marker] = True
 
+    marker = "remove_ciel_owned_external_mcp_20260812"
+    if not migrations.get(marker):
+        ccfg = cfg.setdefault("claude_code", {})
+        if not isinstance(ccfg, dict):
+            ccfg = {}
+            cfg["claude_code"] = ccfg
+        for key in ("channels", "development_channels", "channel_delivery"):
+            ccfg.pop(key, None)
+        migrations[marker] = True
+
     marker = "rate_limit_defaults_off_20260526"
     if not migrations.get(marker):
         providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}

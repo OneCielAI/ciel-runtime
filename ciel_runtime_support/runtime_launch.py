@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Callable
 from dataclasses import dataclass
 
-from ciel_runtime_support.channel_message_prompt import NATIVE_ROUTER_CHANNEL_NAMES
 from ciel_runtime_support.runtime_constants import (
     CLAUDE_SERVER_SIDE_WEB_TOOLS,
     CODEX_RUNTIME_API_KEY_ENV,
@@ -26,9 +25,7 @@ from ciel_runtime_support.web_endpoints import (
 )
 
 
-CLAUDE_CODE_GENERATED_GREEDY_OPTIONS = frozenset(
-    {"--mcp-config", "--dangerously-load-development-channels"}
-)
+CLAUDE_CODE_GENERATED_GREEDY_OPTIONS = frozenset({"--mcp-config"})
 
 
 def web_backend_start_requested(config: dict[str, Any]) -> bool:
@@ -53,7 +50,6 @@ class ClaudeLaunchConstants:
     PRELAUNCH_LAUNCH_CODEX: Any
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER: Any
     ROUTED_COMPAT_PROMPT: Any
-    _NATIVE_ROUTER_CHANNEL_NAMES: Any
 
 
 def build_default_claude_launch_constants() -> ClaudeLaunchConstants:
@@ -67,7 +63,6 @@ def build_default_claude_launch_constants() -> ClaudeLaunchConstants:
         PRELAUNCH_LAUNCH_CODEX=PRELAUNCH_LAUNCH_CODEX,
         PRELAUNCH_LAUNCH_CODEX_APP_SERVER=PRELAUNCH_LAUNCH_CODEX_APP_SERVER,
         ROUTED_COMPAT_PROMPT=ROUTED_COMPAT_PROMPT,
-        _NATIVE_ROUTER_CHANNEL_NAMES=NATIVE_ROUTER_CHANNEL_NAMES,
     )
 
 
@@ -145,41 +140,18 @@ class ClaudeLaunchPolicy:
     should_disallow_claude_server_side_web_tools: Callable[..., Any]
     should_fork_native_session_after_mode_switch: Callable[..., Any]
     should_insert_passthrough_option_boundary: Callable[..., Any]
-    strip_mcp_config_passthrough: Callable[..., Any]
-
-
-@dataclass(frozen=True, slots=True)
-class ClaudeLaunchChannelDiscovery:
-    auto_import_passthrough_channels: Callable[..., Any]
-    cached_channel_capable_server_names: Callable[..., Any]
-    cached_channel_source_paths_for_specs: Callable[..., Any]
-    channel_candidate_server_names_for_launch: Callable[..., Any]
-    channel_specs_for_launch: Callable[..., Any]
-    claude_channels_requested: Callable[..., Any]
-    claude_code_channels_auth_available: Callable[..., Any]
-    ensure_channel_probe_cache_for_launch: Callable[..., Any]
-    external_mcp_channel_server_names_from_configs: Callable[..., Any]
-    read_channel_probe_cache: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
 class ClaudeLaunchChannelDelivery:
-    auto_start_sse_channels_from_mcp_configs: Callable[..., Any]
-    claude_channel_args: Callable[..., Any]
-    native_channel_passthrough_requested: Callable[..., Any]
-    normalize_channel_passthrough: Callable[..., Any]
-    should_launch_process_start_channel_sse: Callable[..., Any]
     should_use_channel_llm_delivery: Callable[..., Any]
     should_use_channel_stdin_proxy: Callable[..., Any]
-    should_use_native_channel_bridge: Callable[..., Any]
     write_channel_mcp_config: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
 class ClaudeLaunchMcpConfig:
     write_duckduckgo_mcp_config: Callable[..., Any]
-    write_mcp_proxy_config: Callable[..., Any]
-    write_native_mcp_config_from_discovery: Callable[..., Any]
     write_zai_mcp_config: Callable[..., Any]
 
 
@@ -192,7 +164,6 @@ class ClaudeLaunchServices:
     config: ClaudeLaunchConfig
     routing: ClaudeLaunchRouting
     policy: ClaudeLaunchPolicy
-    channel_discovery: ClaudeLaunchChannelDiscovery
     channel_delivery: ClaudeLaunchChannelDelivery
     mcp_config: ClaudeLaunchMcpConfig
 
@@ -215,34 +186,22 @@ def run_claude(
     PRELAUNCH_LAUNCH_CODEX = services.constants.PRELAUNCH_LAUNCH_CODEX
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.constants.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
     ROUTED_COMPAT_PROMPT = services.constants.ROUTED_COMPAT_PROMPT
-    _NATIVE_ROUTER_CHANNEL_NAMES = services.constants._NATIVE_ROUTER_CHANNEL_NAMES
     _log_claude_command_for_diagnostics = services.process._log_claude_command_for_diagnostics
     _subprocess_call_capturing_stderr = services.process._subprocess_call_capturing_stderr
     anthropic_routed_enabled = services.routing.anthropic_routed_enabled
     append_claude_code_runtime_settings_args = services.policy.append_claude_code_runtime_settings_args
     apply_launch_endpoint_policy = services.config.apply_launch_endpoint_policy
-    auto_import_passthrough_channels = services.channel_discovery.auto_import_passthrough_channels
-    auto_start_sse_channels_from_mcp_configs = services.channel_delivery.auto_start_sse_channels_from_mcp_configs
-    cached_channel_capable_server_names = services.channel_discovery.cached_channel_capable_server_names
-    cached_channel_source_paths_for_specs = services.channel_discovery.cached_channel_source_paths_for_specs
-    channel_candidate_server_names_for_launch = services.channel_discovery.channel_candidate_server_names_for_launch
-    channel_specs_for_launch = services.channel_discovery.channel_specs_for_launch
-    claude_channel_args = services.channel_delivery.claude_channel_args
-    claude_channels_requested = services.channel_discovery.claude_channels_requested
-    claude_code_channels_auth_available = services.channel_discovery.claude_code_channels_auth_available
     claude_launch_enabled_for_provider = services.dispatch.claude_launch_enabled_for_provider
     claude_supports_permission_mode_arg = services.policy.claude_supports_permission_mode_arg
     cleanup_managed_services_for_provider = services.routing.cleanup_managed_services_for_provider
     current_launch_cwd_key = services.config.current_launch_cwd_key
     direct_native_anthropic_enabled = services.routing.direct_native_anthropic_enabled
     disable_ciel_runtime_slash_commands_for_native = services.installation.disable_ciel_runtime_slash_commands_for_native
-    ensure_channel_probe_cache_for_launch = services.channel_discovery.ensure_channel_probe_cache_for_launch
     ensure_current_model_from_provider_list = services.config.ensure_current_model_from_provider_list
     ensure_managed_router_running_for_client = services.routing.ensure_managed_router_running_for_client
     ensure_model_cache_for_launch = services.config.ensure_model_cache_for_launch
     env_bool = services.process.env_bool
     env_vars = services.process.env_vars
-    external_mcp_channel_server_names_from_configs = services.channel_discovery.external_mcp_channel_server_names_from_configs
     file_size_or_zero = services.process.file_size_or_zero
     find_executable = services.installation.find_executable
     get_current_provider = services.config.get_current_provider
@@ -259,12 +218,9 @@ def run_claude(
     launch_readiness_errors = services.installation.launch_readiness_errors
     load_config = services.config.load_config
     materialize_runtime_command = services.dispatch.materialize_runtime_command
-    native_channel_passthrough_requested = services.channel_delivery.native_channel_passthrough_requested
-    normalize_channel_passthrough = services.channel_delivery.normalize_channel_passthrough
     path_with_ciel_runtime_user_dirs = services.process.path_with_ciel_runtime_user_dirs
     print_routed_claude_exit_diagnostics = services.process.print_routed_claude_exit_diagnostics
     provider_menu_label = services.config.provider_menu_label
-    read_channel_probe_cache = services.channel_discovery.read_channel_probe_cache
     record_launch_state_for_cwd = services.routing.record_launch_state_for_cwd
     reset_zai_mcp_config_if_inactive = services.routing.reset_zai_mcp_config_if_inactive
     router_health_summary = services.routing.router_health_summary
@@ -279,24 +235,18 @@ def run_claude(
     should_disallow_claude_server_side_web_tools = services.policy.should_disallow_claude_server_side_web_tools
     should_fork_native_session_after_mode_switch = services.policy.should_fork_native_session_after_mode_switch
     should_insert_passthrough_option_boundary = services.policy.should_insert_passthrough_option_boundary
-    should_launch_process_start_channel_sse = services.channel_delivery.should_launch_process_start_channel_sse
     should_use_channel_llm_delivery = services.channel_delivery.should_use_channel_llm_delivery
     should_use_channel_stdin_proxy = services.channel_delivery.should_use_channel_stdin_proxy
-    should_use_native_channel_bridge = services.channel_delivery.should_use_native_channel_bridge
     start_router_if_needed = services.routing.start_router_if_needed
-    strip_mcp_config_passthrough = services.policy.strip_mcp_config_passthrough
     subprocess_call_with_channel_wake_proxy = services.process.subprocess_call_with_channel_wake_proxy
     warn_if_multiple_ciel_runtime_installs = services.installation.warn_if_multiple_ciel_runtime_installs
     write_channel_mcp_config = services.channel_delivery.write_channel_mcp_config
     write_duckduckgo_mcp_config = services.mcp_config.write_duckduckgo_mcp_config
-    write_mcp_proxy_config = services.mcp_config.write_mcp_proxy_config
-    write_native_mcp_config_from_discovery = services.mcp_config.write_native_mcp_config_from_discovery
     write_zai_mcp_config = services.mcp_config.write_zai_mcp_config
     if has_noninteractive_claude_args(passthrough):
         self_update_check = False
     warn_if_multiple_ciel_runtime_installs()
     run_ciel_runtime_update_check(enabled=self_update_check)
-    auto_import_passthrough_channels(passthrough)
     rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
     if rc == PRELAUNCH_LAUNCH_CODEX:
         return launch_codex(
@@ -357,22 +307,13 @@ def run_claude(
     env["CIEL_RUNTIME_STATE_DIR"] = str(ROUTER_INSTANCE_DIR)
     env["CIEL_RUNTIME_LAUNCH_CWD"] = str(Path.cwd())
     env["PATH"] = path_with_ciel_runtime_user_dirs(env)
-    launch_passthrough = normalize_channel_passthrough(passthrough)
-    native_channel_bridge = should_use_native_channel_bridge(use_router_mode, cfg, launch_passthrough)
+    launch_passthrough = list(passthrough)
+    native_channel_bridge = False
     stdin_channel_proxy = should_use_channel_stdin_proxy(use_router_mode, launch_passthrough, cfg)
     llm_channel_delivery = should_use_channel_llm_delivery(use_router_mode, launch_passthrough, cfg)
-    native_auto_channel_specs: list[str] = []
-    if use_native_anthropic and not native_channel_bridge and not native_channel_passthrough_requested(launch_passthrough):
-        try:
-            auto_channel_names = external_mcp_channel_server_names_from_configs(launch_passthrough)
-            native_auto_channel_specs = [f"server:{name}" for name in auto_channel_names]
-            if native_auto_channel_specs:
-                router_log(
-                    "INFO",
-                    "channel_native_auto_specs servers=%s" % ",".join(auto_channel_names),
-                )
-        except Exception as exc:
-            router_log("WARN", f"channel_native_auto_probe_failed error={type(exc).__name__}: {exc}")
+    if use_native_anthropic and web_backend_start_requested(cfg):
+        llm_channel_delivery = True
+        stdin_channel_proxy = not has_noninteractive_claude_args(launch_passthrough)
     manage_router_lifetime = False
     if use_router_mode or llm_channel_delivery:
         manage_router_lifetime = bool(start_router_if_needed())
@@ -392,9 +333,6 @@ def run_claude(
                 f"No concrete model is selected for provider {provider}; choose a model from the provider model list before launching Claude Code."
             )
     launch_env = env_vars(cfg)
-    if claude_channels_requested(cfg, launch_passthrough) or native_channel_bridge or llm_channel_delivery or native_auto_channel_specs:
-        env.pop("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS", None)
-        launch_env.pop("CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS", None)
     if use_native_anthropic:
         # Claude Native guarantee — strip every env var ciel-runtime (or a
         # prior ciel-runtime session) might have left behind that would change
@@ -460,16 +398,6 @@ def run_claude(
     if isinstance(updated_claude, str) and updated_claude:
         claude = updated_claude
     claude = find_executable("claude") or claude
-    if native_channel_bridge or native_auto_channel_specs:
-        auth_ok, auth_reason = claude_code_channels_auth_available(claude)
-        if not auth_ok:
-            if native_channel_bridge:
-                router_log("WARN", f"channel_native_unavailable_fallback reason={auth_reason} delivery=llm")
-                native_channel_bridge = False
-                llm_channel_delivery = True
-            else:
-                router_log("WARN", f"channel_native_auto_disabled reason={auth_reason}")
-                native_auto_channel_specs = []
     extra_args: list[str] = []
     mcp_config_paths: list[str] = []
     reset_zai_mcp_config_if_inactive(provider)
@@ -480,89 +408,11 @@ def run_claude(
         mcp_config_paths.append(str(write_duckduckgo_mcp_config(cfg)))
     if llm_channel_delivery:
         mcp_config_paths.append(str(write_channel_mcp_config()))
-    native_direct_mcp_config_paths: list[str] = []
-    if use_native_anthropic:
-        native_mcp_config = write_native_mcp_config_from_discovery(launch_passthrough)
-        if native_mcp_config:
-            native_direct_mcp_config_paths = [str(native_mcp_config)]
-    detected_channel_specs: list[str] = []
-    detected_channel_capable_names: list[str] = []
-    channel_probe_source_paths: list[Path] = []
-    if stdin_channel_proxy or llm_channel_delivery:
-        try:
-            candidate_channel_names = channel_candidate_server_names_for_launch(cfg, launch_passthrough)
-            ensure_channel_probe_cache_for_launch(cfg, launch_passthrough)
-            capable_names = cached_channel_capable_server_names()
-            capable_name_set = set(capable_names)
-            detected_channel_capable_names = [
-                name for name in candidate_channel_names
-                if name in capable_name_set and name.strip().lower() not in _NATIVE_ROUTER_CHANNEL_NAMES
-            ]
-            detected_channel_specs = [f"server:{name}" for name in detected_channel_capable_names]
-            channel_launch_specs = channel_specs_for_launch(cfg, launch_passthrough, detected_channel_specs)
-            channel_probe_source_paths = cached_channel_source_paths_for_specs(channel_launch_specs)
-            if channel_probe_source_paths:
-                mcp_config_paths.extend(str(path) for path in channel_probe_source_paths)
-            cache_age = read_channel_probe_cache().get("probed_at") or 0
-            router_log(
-                "INFO",
-                "channel_probe_loaded source=cache cache_age_ts=%d count=%d servers=%s sources=%s"
-                % (
-                    int(cache_age),
-                    len(detected_channel_capable_names),
-                    ",".join(detected_channel_capable_names) or "-",
-                    ",".join(str(path) for path in channel_probe_source_paths) or "-",
-                ),
-            )
-        except Exception as exc:
-            router_log("WARN", f"channel_probe_cache_load_failed error={type(exc).__name__}: {exc}")
     claude_passthrough = list(launch_passthrough)
-    if use_native_anthropic:
-        if native_direct_mcp_config_paths:
-            mcp_config_paths.extend(native_direct_mcp_config_paths)
-            claude_passthrough = strip_mcp_config_passthrough(launch_passthrough)
-    elif stdin_channel_proxy or llm_channel_delivery or native_auto_channel_specs:
-        if should_launch_process_start_channel_sse(stdin_channel_proxy, native_channel_bridge, llm_channel_delivery):
-            auto_start_sse_channels_from_mcp_configs(
-                launch_passthrough,
-                extra_config_paths=[Path(path) for path in mcp_config_paths],
-            )
-        else:
-            router_log("INFO", "channel_sse_auto_start_skipped reason=router_managed_llm_delivery")
-        # Channel-capable streamable-HTTP backends (e.g. ai-net-http) are forced
-        # through ciel-runtime's own mcp-proxy so there is exactly ONE backend
-        # connection: the proxy serves Claude Code's tool calls AND owns the
-        # notification stream + idle-death wake handling. Because the proxy now
-        # OWNS the stream, it must NOT also be in the disable set -- forcing a
-        # server while disabling its stream would leave zero notification owners
-        # and the agent would never wake. force and disable are mutually
-        # exclusive per server, so the disable set excludes anything we force.
-        forced_channel_names = (
-            set(detected_channel_capable_names)
-            if (stdin_channel_proxy or llm_channel_delivery)
-            else set()
-        )
-        proxy_config = write_mcp_proxy_config(
-            launch_passthrough,
-            extra_config_paths=[Path(path) for path in mcp_config_paths],
-            force_proxy_server_names=forced_channel_names or None,
-            disable_proxy_notification_stream_names=None,
-        )
-        if proxy_config:
-            mcp_config_paths = [str(proxy_config)]
-            claude_passthrough = strip_mcp_config_passthrough(launch_passthrough)
     if mcp_config_paths:
         extra_args.extend(["--mcp-config", *mcp_config_paths])
     if should_append_compat_prompt(provider, pcfg, cfg) and not has_passthrough_option(launch_passthrough, "--system-prompt"):
         extra_args.extend(["--append-system-prompt", ROUTED_COMPAT_PROMPT])
-    extra_args.extend(
-        claude_channel_args(
-            cfg,
-            launch_passthrough,
-            extra_specs=native_auto_channel_specs if native_auto_channel_specs else detected_channel_specs,
-            native_channel_bridge=bool(native_channel_bridge or native_auto_channel_specs),
-        )
-    )
     append_claude_code_runtime_settings_args(extra_args, launch_passthrough, provider, pcfg)
     if fork_native_session:
         session_id = str(uuid.uuid4())
@@ -735,15 +585,9 @@ class CodexLaunchRouting:
 
 @dataclass(frozen=True, slots=True)
 class CodexLaunchChannel:
-    auto_import_passthrough_channels: Callable[..., Any]
     channel_delivery_mode: Callable[..., Any]
-    codex_channel_capable_mcp_server_names: Callable[..., Any]
     codex_mcp_native_http_compat_args: Callable[..., Any]
-    codex_mcp_split_proxy_enabled: Callable[..., Any]
-    restore_codex_mcp_config_from_managed: Callable[..., Any]
     select_codex_resume_session: Callable[..., Any]
-    start_codex_mcp_channel_sse_for_launch: Callable[..., Any]
-    write_codex_mcp_config_for_channel_discovery: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -780,16 +624,12 @@ def run_codex(
     _log_codex_command_for_diagnostics = services.process._log_codex_command_for_diagnostics
     _set_channel_transcript_scope = services.process._set_channel_transcript_scope
     apply_launch_endpoint_policy = services.config.apply_launch_endpoint_policy
-    auto_import_passthrough_channels = services.channel.auto_import_passthrough_channels
     channel_delivery_mode = services.channel.channel_delivery_mode
     cleanup_managed_services_for_provider = services.routing.cleanup_managed_services_for_provider
     codex_alternate_screen_compat_args = services.cli_policy.codex_alternate_screen_compat_args
-    codex_channel_capable_mcp_server_names = services.channel.codex_channel_capable_mcp_server_names
     codex_current_model_cli_args = services.cli_policy.codex_current_model_cli_args
     codex_help_requested = services.cli_policy.codex_help_requested
     codex_mcp_native_http_compat_args = services.channel.codex_mcp_native_http_compat_args
-    codex_mcp_split_proxy_enabled = services.channel.codex_mcp_split_proxy_enabled
-    restore_codex_mcp_config_from_managed = services.channel.restore_codex_mcp_config_from_managed
     codex_native_routed_config_args = services.cli_policy.codex_native_routed_config_args
     codex_passthrough_args_for_launch = services.cli_policy.codex_passthrough_args_for_launch
     codex_passthrough_has_command = services.cli_policy.codex_passthrough_has_command
@@ -826,13 +666,11 @@ def run_codex(
     run_prelaunch_menu = services.dispatch.run_prelaunch_menu
     run_with_router_lifetime = services.routing.run_with_router_lifetime
     select_codex_resume_session = services.channel.select_codex_resume_session
-    start_codex_mcp_channel_sse_for_launch = services.channel.start_codex_mcp_channel_sse_for_launch
     start_router_if_needed = services.routing.start_router_if_needed
     subprocess_call_with_channel_wake_proxy = services.process.subprocess_call_with_channel_wake_proxy
     terminate_existing_codex_processes_for_launch = services.process.terminate_existing_codex_processes_for_launch
     terminate_existing_router_clients_for_launch = services.process.terminate_existing_router_clients_for_launch
     warn_if_multiple_ciel_runtime_installs = services.installation.warn_if_multiple_ciel_runtime_installs
-    write_codex_mcp_config_for_channel_discovery = services.channel.write_codex_mcp_config_for_channel_discovery
     warn_if_multiple_ciel_runtime_installs()
     run_ciel_runtime_update_check(enabled=self_update_check)
     env = os.environ.copy()
@@ -854,7 +692,6 @@ def run_codex(
         return subprocess.call([codex, *codex_passthrough], env=env)
     if codex_passthrough_has_command(codex_passthrough):
         skip_menu = True
-    auto_import_passthrough_channels(passthrough)
     rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
     if rc == PRELAUNCH_LAUNCH_CLAUDE:
         return launch_claude(
@@ -929,14 +766,10 @@ def run_codex(
         if session_id:
             codex_passthrough = codex_resume_with_session_id(codex_passthrough, session_id)
             codex_passthrough_notes.append("resume picker -> selected local Codex session")
-    restore_codex_mcp_config_from_managed(
-        codex_passthrough, env=env, cwd=launch_cwd
-    )
     if use_native_codex:
         disable_ciel_runtime_codex_prompts_for_native(env)
     else:
         install_ciel_runtime_codex_prompts(env)
-    codex_mcp_config = write_codex_mcp_config_for_channel_discovery(codex_passthrough, env=env)
     env["CIEL_RUNTIME_CODEX_MANAGED"] = "1"
     env["CIEL_RUNTIME_CONFIG_DIR"] = str(CONFIG_DIR)
     env["CIEL_RUNTIME_LAUNCH_CWD"] = str(launch_cwd)
@@ -951,15 +784,8 @@ def run_codex(
         manage_router_lifetime = bool(start_router_if_needed())
     if not native_codex_enabled(provider):
         ensure_model_cache_for_launch(provider, pcfg)
-    codex_channel_owned_names = (
-        codex_channel_capable_mcp_server_names(cfg, codex_mcp_config)
-        if not use_native_codex and channel_delivery_mode(cfg) == "llm"
-        else []
-    )
     codex_mcp_compat_args = codex_mcp_native_http_compat_args(
-        codex_mcp_config,
-        split_http_proxy=(not use_native_codex and codex_mcp_split_proxy_enabled()),
-        channel_owned_server_names=codex_channel_owned_names,
+        None,
         include_builtin_channel=(
             channel_delivery_mode(cfg) == "llm" and web_backend_start_requested(cfg)
         ),
@@ -983,7 +809,7 @@ def run_codex(
         mode=codex_mode,
         protocol="openai_responses",
         cwd=launch_cwd,
-        enable_channels=bool(codex_channel_owned_names),
+        enable_channels=bool(codex_mcp_compat_args),
         passthrough=codex_passthrough,
         options={
             "yolo_args": tuple(codex_yolo_args),
@@ -1010,8 +836,6 @@ def run_codex(
             codex_home=Path(env.get("CODEX_HOME") or (Path.home() / ".codex")),
             cwd=launch_cwd,
         )
-        if not use_native_codex:
-            start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config, allowed_server_names=codex_channel_owned_names)
         codex_synthetic_enter = None if _channel_wake_enter_env_is_fixed() else b"\r"
         return subprocess_call_with_channel_wake_proxy(
             cmd,
@@ -1094,14 +918,8 @@ class CodexAppServerRouting:
 
 @dataclass(frozen=True, slots=True)
 class CodexAppServerChannel:
-    auto_import_passthrough_channels: Callable[..., Any]
     channel_delivery_mode: Callable[..., Any]
-    codex_channel_capable_mcp_server_names: Callable[..., Any]
     codex_mcp_native_http_compat_args: Callable[..., Any]
-    codex_mcp_split_proxy_enabled: Callable[..., Any]
-    restore_codex_mcp_config_from_managed: Callable[..., Any]
-    start_codex_mcp_channel_sse_for_launch: Callable[..., Any]
-    write_codex_mcp_config_for_channel_discovery: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1134,17 +952,13 @@ def run_codex_app_server(
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.constants.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
     _log_codex_app_server_command_for_diagnostics = services.process._log_codex_app_server_command_for_diagnostics
     apply_launch_endpoint_policy = services.config.apply_launch_endpoint_policy
-    auto_import_passthrough_channels = services.channel.auto_import_passthrough_channels
     channel_delivery_mode = services.channel.channel_delivery_mode
     cleanup_managed_services_for_provider = services.routing.cleanup_managed_services_for_provider
     codex_app_server_default_listen_url = services.cli_policy.codex_app_server_default_listen_url
     codex_app_server_launch_args = services.cli_policy.codex_app_server_launch_args
-    codex_channel_capable_mcp_server_names = services.channel.codex_channel_capable_mcp_server_names
     codex_current_model_config_args = services.cli_policy.codex_current_model_config_args
     codex_launch_enabled_for_provider = services.routing.codex_launch_enabled_for_provider
     codex_mcp_native_http_compat_args = services.channel.codex_mcp_native_http_compat_args
-    codex_mcp_split_proxy_enabled = services.channel.codex_mcp_split_proxy_enabled
-    restore_codex_mcp_config_from_managed = services.channel.restore_codex_mcp_config_from_managed
     codex_native_routed_config_args = services.cli_policy.codex_native_routed_config_args
     codex_passthrough_has_model_override = services.cli_policy.codex_passthrough_has_model_override
     codex_process_record_path = services.process.codex_process_record_path
@@ -1170,14 +984,12 @@ def run_codex_app_server(
     run_codex_update_check = services.dispatch.run_codex_update_check
     run_prelaunch_menu = services.dispatch.run_prelaunch_menu
     run_with_router_lifetime = services.routing.run_with_router_lifetime
-    start_codex_mcp_channel_sse_for_launch = services.channel.start_codex_mcp_channel_sse_for_launch
     start_router_if_needed = services.routing.start_router_if_needed
     subprocess_call_with_child_pid_record = services.process.subprocess_call_with_child_pid_record
     terminate_existing_codex_processes_for_launch = services.process.terminate_existing_codex_processes_for_launch
     terminate_existing_router_clients_for_launch = services.process.terminate_existing_router_clients_for_launch
     toml_string = services.cli_policy.toml_string
     warn_if_multiple_ciel_runtime_installs = services.installation.warn_if_multiple_ciel_runtime_installs
-    write_codex_mcp_config_for_channel_discovery = services.channel.write_codex_mcp_config_for_channel_discovery
     warn_if_multiple_ciel_runtime_installs()
     run_ciel_runtime_update_check(enabled=self_update_check)
     env = os.environ.copy()
@@ -1193,7 +1005,6 @@ def run_codex_app_server(
     if isinstance(updated_codex, str) and updated_codex:
         codex = updated_codex
     codex = find_executable("codex") or codex
-    auto_import_passthrough_channels(passthrough)
     rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
     if rc == PRELAUNCH_LAUNCH_CLAUDE:
         return launch_claude(
@@ -1239,10 +1050,6 @@ def run_codex_app_server(
             print(f"- {line}", flush=True)
         return 2
     cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
-    restore_codex_mcp_config_from_managed(
-        passthrough, env=env, cwd=Path.cwd()
-    )
-    codex_mcp_config = write_codex_mcp_config_for_channel_discovery(passthrough, env=env)
     use_native_codex = direct_native_codex_enabled(provider, pcfg)
     use_codex_routed = codex_routed_enabled(provider, pcfg)
     launch_cwd = Path.cwd()
@@ -1272,15 +1079,8 @@ def run_codex_app_server(
         model = current_alias(cfg)
         if model and not codex_passthrough_has_model_override(passthrough):
             config_args = [*config_args, "-c", f"model={toml_string(model)}"]
-    codex_channel_owned_names = (
-        codex_channel_capable_mcp_server_names(cfg, codex_mcp_config)
-        if not use_native_codex and channel_delivery_mode(cfg) == "llm"
-        else []
-    )
     codex_mcp_compat_args = codex_mcp_native_http_compat_args(
-        codex_mcp_config,
-        split_http_proxy=(not use_native_codex and codex_mcp_split_proxy_enabled()),
-        channel_owned_server_names=codex_channel_owned_names,
+        None,
         include_builtin_channel=(
             channel_delivery_mode(cfg) == "llm" and web_backend_start_requested(cfg)
         ),
@@ -1307,11 +1107,7 @@ def run_codex_app_server(
         str(pcfg.get("current_model") or ("" if native_codex_enabled(provider) else current_alias(cfg)) or ""),
     )
 
-    split_proxy_enabled = bool(not use_native_codex and (codex_mcp_split_proxy_enabled() or codex_channel_owned_names))
-
     def run_codex_app_server_process() -> int:
-        if split_proxy_enabled:
-            start_codex_mcp_channel_sse_for_launch(cfg, codex_mcp_config, allowed_server_names=codex_channel_owned_names)
         return subprocess_call_with_child_pid_record(cmd, env, codex_process_record_path("app-server"))
 
     return run_with_router_lifetime(run_codex_app_server_process, manage_router_lifetime)
@@ -1357,7 +1153,6 @@ class AgyLaunchCliPolicy:
 
 @dataclass(frozen=True, slots=True)
 class AgyLaunchChannel:
-    auto_import_passthrough_channels: Callable[..., Any]
     channel_delivery_mode: Callable[..., Any]
 
 
@@ -1368,7 +1163,6 @@ class AgyLaunchConfig:
     load_config: Callable[..., Any]
     provider_mode_label: Callable[..., Any]
     record_launch_state_for_cwd: Callable[..., Any]
-    restore_agy_mcp_config_from_managed: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1434,7 +1228,6 @@ def run_agy(
     agy_passthrough_args_for_launch = services.cli_policy.agy_passthrough_args_for_launch
     agy_passthrough_has_command = services.cli_policy.agy_passthrough_has_command
     agy_routed_enabled = services.routing.agy_routed_enabled
-    auto_import_passthrough_channels = services.channel.auto_import_passthrough_channels
     channel_delivery_mode = services.channel.channel_delivery_mode
     cleanup_managed_services_for_provider = services.routing.cleanup_managed_services_for_provider
     current_launch_cwd_key = services.config.current_launch_cwd_key
@@ -1452,7 +1245,6 @@ def run_agy(
     path_with_ciel_runtime_user_dirs = services.process.path_with_ciel_runtime_user_dirs
     provider_mode_label = services.config.provider_mode_label
     record_launch_state_for_cwd = services.config.record_launch_state_for_cwd
-    restore_agy_mcp_config_from_managed = services.config.restore_agy_mcp_config_from_managed
     run_agy_update_check = services.dispatch.run_agy_update_check
     run_ciel_runtime_update_check = services.dispatch.run_ciel_runtime_update_check
     run_prelaunch_menu = services.dispatch.run_prelaunch_menu
@@ -1483,7 +1275,6 @@ def run_agy(
         return subprocess.call([agy, *agy_passthrough], env=env)
     if agy_passthrough_has_command(agy_passthrough):
         skip_menu = True
-    auto_import_passthrough_channels(passthrough)
     rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
     if rc == PRELAUNCH_LAUNCH_CLAUDE:
         return launch_claude(
@@ -1526,7 +1317,6 @@ def run_agy(
             print(f"- {line}", flush=True)
         return 2
     cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
-    restore_agy_mcp_config_from_managed(env=env, cwd=Path.cwd())
     use_agy_routed = agy_routed_enabled(provider, pcfg)
     if use_agy_routed and channel_delivery_mode(cfg) == "llm":
         manage_router_lifetime = bool(start_router_if_needed())
@@ -1589,7 +1379,6 @@ __all__ = [
     "AgyLaunchProcess",
     "AgyLaunchRouting",
     "ClaudeLaunchChannelDelivery",
-    "ClaudeLaunchChannelDiscovery",
     "ClaudeLaunchConfig",
     "ClaudeLaunchConstants",
     "ClaudeLaunchDispatch",

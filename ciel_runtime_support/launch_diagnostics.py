@@ -37,17 +37,10 @@ class LaunchCommandDiagnostics:
             mcp_value = command[mcp_index + 1] if 0 <= mcp_index < len(command) - 1 else "-"
         except Exception:
             mcp_value = "-"
-        channel_specs: list[str] = []
-        if "--dangerously-load-development-channels" in command:
-            start = command.index("--dangerously-load-development-channels") + 1
-            for argument in command[start:]:
-                if argument.startswith("--"):
-                    break
-                channel_specs.append(argument)
         self.log(
             "INFO",
-            "claude_launch_cmd mcp_config=%s channels=%s argv_len=%d"
-            % (mcp_value, ",".join(channel_specs) or "-", len(command)),
+            "claude_launch_cmd ciel_mcp_config=%s argv_len=%d"
+            % (mcp_value, len(command)),
         )
         keys = (
             "ANTHROPIC_BASE_URL",

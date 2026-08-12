@@ -10,14 +10,12 @@ class ChannelRuntimeEnvironmentPolicyTests(unittest.TestCase):
         return ChannelRuntimeEnvironmentPolicy(
             environment=environment or {},
             launch_recent_default=600.0,
-            probe_timeout_default=15.0,
         )
 
     def test_defaults_match_runtime_contract(self):
         policy = self.policy()
 
         self.assertEqual(600.0, policy.launch_recent_seconds())
-        self.assertEqual(15.0, policy.probe_timeout_seconds())
         self.assertEqual(500, policy.pending_scan_limit())
         self.assertEqual(8, policy.wake_batch_limit())
         self.assertEqual(600.0, policy.web_chat_replay_ttl_seconds())
@@ -60,22 +58,16 @@ class ChannelRuntimeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual(0.13, policy.codex_submit_delay_seconds())
         self.assertEqual(1.5, policy.windows_startup_grace_seconds())
 
-    def test_invalid_and_nonpositive_probe_values_use_defaults(self):
+    def test_invalid_launch_and_scan_values_use_defaults(self):
         invalid = self.policy(
             {
                 "CIEL_RUNTIME_CHANNEL_LAUNCH_RECENT_SECONDS": "invalid",
-                "CIEL_RUNTIME_CHANNEL_PROBE_TIMEOUT_SECONDS": "invalid",
                 "CIEL_RUNTIME_CHANNEL_PENDING_SCAN_LIMIT": "invalid",
             }
         )
-        nonpositive = self.policy(
-            {"CIEL_RUNTIME_CHANNEL_PROBE_TIMEOUT_SECONDS": "0"}
-        )
 
         self.assertEqual(600.0, invalid.launch_recent_seconds())
-        self.assertEqual(15.0, invalid.probe_timeout_seconds())
         self.assertEqual(500, invalid.pending_scan_limit())
-        self.assertEqual(15.0, nonpositive.probe_timeout_seconds())
 
     def test_inflight_staleness_only_applies_to_unresolved_states(self):
         self.assertTrue(

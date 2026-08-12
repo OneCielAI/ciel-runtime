@@ -1,5 +1,11 @@
 # Module Map — 파일별 역할 요약
 
+> 2026-08-12 MCP 소유권 변경: 이 문서 아래의 외부 MCP channel probe,
+> proxy, SSE/Streamable HTTP worker, session/restore 관련 항목은 과거 구조를
+> 설명하는 보존 기록이며 현재 소스에서는 삭제되었다. 현재 경계는
+> `docs/MCP-Channels.md`를 기준으로 한다. Web Chat/명시적 Ciel wake와
+> stateless `/ca/mcp` 내부 도구만 Ciel이 소유한다.
+
 ---
 
 ## Python 소스
@@ -17,7 +23,7 @@
 | 설정 | 설정 마이그레이션, 캐시, 제공자·모델·API 키 선택 |
 | 프로토콜 | Anthropic, OpenAI, Ollama 요청·응답과 스트리밍 호환 계층 |
 | 라우터 | `RouterHandler`, 런타임 라우터 위임, 업스트림 전달 |
-| 채널 | MCP 탐색, cursor, delivery acknowledgement, 터미널 주입 |
+| 메시지 | Web Chat/명시적 Ciel wake, LLM cursor, delivery acknowledgement, 터미널 주입 |
 | 런처 | Claude, Codex, Codex App Server, AGY 프로세스 실행 |
 | CLI/UI | 메뉴, 상태, 설정 명령, 설치 및 업데이트 진단 |
 

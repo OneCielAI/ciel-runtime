@@ -20,7 +20,7 @@ from typing import Any, Callable, Iterable
 
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage, hosted_formula_tools
-from ciel_runtime_support import channel_llm_context, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_launch_configuration, codex_mcp_integration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, mcp_proxy_notifications, native_context_recovery
+from ciel_runtime_support import channel_llm_context, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_launch_configuration, codex_turn_recovery, kimi_identity, llm_option_config, llm_presets, native_context_recovery
 from ciel_runtime_support import ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support import prelaunch, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, windows_console_mode
 from ciel_runtime_support.advisor_client import AdvisorClient, AdvisorClientIO, AdvisorClientPolicy, ProviderChatExecutor, ProviderChatIO, ProviderChatPolicy
@@ -42,7 +42,6 @@ from ciel_runtime_support.advisor_refinement import AdvisorRefinementIO, Advisor
 from ciel_runtime_support.advisor_request_builder import ADVISOR_REVIEW_PROMPT, AdvisorAnthropicSystemPolicy, AdvisorBudgetPorts, AdvisorEndpointPorts, AdvisorProjectionPorts, AdvisorRequestBuilder
 from ciel_runtime_support.agy_cli import agy_dangerous_launch_args, agy_passthrough_args_for_launch, agy_passthrough_has_command
 from ciel_runtime_support.agy_installer import AgyInstaller
-from ciel_runtime_support.agy_mcp_restore import AgyMcpRestorePorts, AgyMcpRestoreService
 from ciel_runtime_support.anthropic_response_writer import AnthropicResponseWriter
 from ciel_runtime_support.anthropic_response_writer import anthropic_text_response as project_anthropic_text_response
 from ciel_runtime_support.anthropic_response_writer import prepend_anthropic_text as project_prepend_anthropic_text
@@ -53,39 +52,27 @@ from ciel_runtime_support.api_key_cooldown import RATE_LIMIT_RESET_HEADER_NAMES 
 from ciel_runtime_support.api_key_cooldown import ApiKeyCooldownCompatibilityApi, ApiKeyCooldownPorts, ApiKeyCooldownService
 from ciel_runtime_support.architecture import MessageProtocol, ProviderConfig
 from ciel_runtime_support.channel_backlog import ChannelBacklogCursors, ChannelBacklogRuntime, ChannelBacklogService
-from ciel_runtime_support.channel_cli import ChannelCliCommands, ChannelCliController, ChannelCliView
 from ciel_runtime_support.channel_compact_request_repository import ChannelCompactRequestRepository, compact_request_ttl
-from ciel_runtime_support.channel_config_service import ChannelConfigApi, ChannelConfigPorts, ChannelConfigService
-from ciel_runtime_support.channel_connection_context import ChannelConnectionCompatibilityApi, ChannelConnectionContext, ChannelConnectionLifecyclePorts, ChannelConnectionProtocol, ChannelConnectionStatePorts, ChannelConnectionWorkerPorts
-from ciel_runtime_support.channel_connection_registry import ChannelConnectionRegistry
 from ciel_runtime_support.channel_cursor_recovery import ChannelCursorRecoveryService
-from ciel_runtime_support.channel_cursor_service import parse_channel_event_id
 from ciel_runtime_support.channel_delivery_context import ChannelDeliveryCommitPorts, ChannelDeliveryCompatibilityApi, ChannelDeliveryContext, ChannelLaunchCursorPorts, ChannelLlmCursorPorts, ChannelToolContextFactoryPorts
 from ciel_runtime_support.channel_event_identity import fallback_dedupe_key as _chat_message_fallback_dedupe_key
 from ciel_runtime_support.channel_event_identity import message_event_identity_key as _channel_message_event_identity_key
 from ciel_runtime_support.channel_event_identity import message_time_seconds as _chat_message_time_seconds
 from ciel_runtime_support.channel_event_identity import stable_dedupe_key as _chat_message_stable_dedupe_key
-from ciel_runtime_support.channel_event_projection import CHANNEL_CONTROL_KINDS as _CHANNEL_CONTROL_KINDS
 from ciel_runtime_support.channel_event_projection import compact_json_for_prompt as _compact_json_for_prompt
 from ciel_runtime_support.channel_event_projection import event_meta_from_sources as _event_meta_from_sources
 from ciel_runtime_support.channel_event_projection import event_payload_text as _event_payload_text
 from ciel_runtime_support.channel_event_projection import json_safe_metadata as _json_safe_metadata
 from ciel_runtime_support.channel_event_projection import notification_semantic_text_from_envelope as _notification_semantic_text_from_envelope
 from ciel_runtime_support.channel_event_projection import pretty_json_value as _pretty_json_value
-from ciel_runtime_support.channel_event_projection import sse_payload_to_chat_payload as _sse_payload_to_chat_payload
 from ciel_runtime_support.channel_inflight import ChannelInflightEffects
-from ciel_runtime_support.channel_launch_policy import ChannelLaunchPolicy, ChannelLaunchPorts
-from ciel_runtime_support.channel_mcp_context import ChannelMcpCompatibilityApi, ChannelMcpContext, ChannelMcpProjectionPorts, ChannelMcpResumePorts, ChannelMcpRpcPorts, ChannelMcpRuntimePorts, ChannelMcpStatePorts
-from ciel_runtime_support.channel_mcp_discovery import ChannelMcpDiscoveryCompatibilityApi, ChannelMcpDiscoveryPorts, ChannelMcpDiscoveryService
-from ciel_runtime_support.channel_mcp_ownership import ChannelProxyOwnershipRepository, ChannelRouterLifecycle, ChannelRouterLifecyclePorts
+from ciel_runtime_support.channel_mcp_context import ChannelMcpCompatibilityApi, ChannelMcpContext, ChannelMcpRpcPorts, ChannelMcpRuntimePorts
 from ciel_runtime_support.channel_mcp_tools import ChannelMcpToolServices, channel_mcp_tool_response, channel_mcp_tool_schemas, dispatch_channel_mcp_tool
-from ciel_runtime_support.channel_mcp_transport import ChannelMcpEffects, ChannelMcpHttpPorts, ChannelMcpTransport, ChannelMcpTransportConfig, ChannelMcpTransportState
 from ciel_runtime_support.channel_message_context import ChannelMessageCachePorts, ChannelMessageCompatibilityApi, ChannelMessageContext, ChannelMessageIdentityPorts, ChannelMessageLaunchPorts, ChannelMessageStoragePorts
 from ciel_runtime_support.channel_message_policy import message_has_external_provenance as _channel_message_has_external_provenance
 from ciel_runtime_support.channel_message_policy import message_is_web_chat_request as _channel_message_is_web_chat_request
 from ciel_runtime_support.channel_message_policy import string_list as _as_string_list
 from ciel_runtime_support.channel_message_policy import superseded_message_ids as _channel_superseded_message_ids
-from ciel_runtime_support.channel_message_prompt import NATIVE_ROUTER_CHANNEL_NAMES as _NATIVE_ROUTER_CHANNEL_NAMES
 from ciel_runtime_support.channel_message_prompt import format_llm_batch_prompt as format_channel_llm_batch_prompt
 from ciel_runtime_support.channel_message_prompt import format_llm_batch_prompt as format_channel_llm_delivery_wake_prompt
 from ciel_runtime_support.channel_message_prompt import format_wake_batch_prompt as format_channel_wake_batch_prompt
@@ -94,15 +81,8 @@ from ciel_runtime_support.channel_message_prompt import format_web_chat_wake_bat
 from ciel_runtime_support.channel_message_prompt import llm_message_skip_reason as _channel_llm_message_skip_reason
 from ciel_runtime_support.channel_message_prompt import wake_message_noise_reason as _channel_wake_message_noise_reason
 from ciel_runtime_support.channel_message_repository import exclusive_file_lock
-from ciel_runtime_support.channel_notification_projection import ChannelNotificationConfig, ChannelNotificationPorts, ChannelNotificationProjection
-from ciel_runtime_support.channel_panel import _channel_panel_first_selectable as first_selectable_channel_row
-from ciel_runtime_support.channel_panel import _channel_panel_step as step_channel_row
 from ciel_runtime_support.channel_pending_injection import ChannelInjectionServices
-from ciel_runtime_support.channel_probe_cache import ChannelProbeCacheRepository, ChannelProbeCompatibilityApi, ChannelProbePorts, ChannelProbeService
-from ciel_runtime_support.channel_probe_launch_context import ChannelProbeLaunchCachePorts, ChannelProbeLaunchCompatibilityApi, ChannelProbeLaunchContext, ChannelProbeLaunchDiscoveryPorts, ChannelProbeLaunchEffects
-from ciel_runtime_support.channel_probe_report import ChannelProbeReportServices, channel_probe_report_lines
 from ciel_runtime_support.channel_runtime_environment import ChannelRuntimeEnvironmentPolicy
-from ciel_runtime_support.channel_session_context import ChannelSessionCompatibilityApi, ChannelSessionConfigPorts, ChannelSessionContext, ChannelSessionHttpPorts, ChannelSessionStatePorts
 from ciel_runtime_support.channel_terminal_context import ChannelTerminalCompatibilityApi, ChannelTerminalContext, ChannelTerminalDispatchPorts, ChannelTerminalIoPorts, ChannelTerminalPolicyPorts, ChannelTerminalPollingPorts, ChannelTerminalProcessPorts, ChannelTerminalWindowsPorts
 from ciel_runtime_support.channel_terminal_input import TerminalMouseInputFilter as _TerminalMouseInputFilter
 from ciel_runtime_support.channel_terminal_input import enter_bytes_from_user_input as _channel_enter_bytes_from_user_input  # noqa: F401 - compatibility export
@@ -139,23 +119,15 @@ from ciel_runtime_support.codex_reasoning_rejects import RejectedReasoningStore
 from ciel_runtime_support.codex_cli import codex_passthrough_args_for_launch, codex_passthrough_has_command, codex_resume_picker_requested, codex_resume_with_session_id
 from ciel_runtime_support.codex_config import codex_alternate_screen_value_from_config_text  # noqa: F401
 from ciel_runtime_support.codex_config import codex_config_paths_for_launch  # noqa: F401 - compatibility export
-from ciel_runtime_support.codex_config import codex_mcp_servers_from_config_text  # noqa: F401 - compatibility export
 from ciel_runtime_support.codex_config import codex_config_override_keys as _codex_config_override_keys  # noqa: F401
-from ciel_runtime_support.codex_config import codex_mcp_servers_from_toml_data as _codex_mcp_servers_from_toml_data  # noqa: F401
-from ciel_runtime_support.codex_config import discover_codex_mcp_servers as project_discover_codex_mcp_servers
-from ciel_runtime_support.codex_config import fallback_codex_mcp_servers_from_config_text as _fallback_codex_mcp_servers_from_config_text  # noqa: F401
-from ciel_runtime_support.codex_config import normalize_codex_mcp_server as _normalize_codex_mcp_server  # noqa: F401
-from ciel_runtime_support.codex_config import parse_simple_toml_value as _parse_simple_toml_value  # noqa: F401
 from ciel_runtime_support.codex_config import toml_scalar_without_comment as _toml_scalar_without_comment  # noqa: F401
 from ciel_runtime_support.codex_config import toml_string
-from ciel_runtime_support.codex_config import toml_table_parts as _toml_table_parts  # noqa: F401
 from ciel_runtime_support.codex_config import unquote_toml_string as _unquote_toml_string  # noqa: F401
 from ciel_runtime_support.codex_launch_assembly import CodexAppServerLaunchPorts, CodexCliLaunchPorts, CodexLaunchAssembly, CodexLaunchSharedChannelPorts, CodexLaunchSharedConfigPorts, CodexLaunchSharedDispatchPorts, CodexLaunchSharedInstallationPorts, CodexLaunchSharedRoutingPorts
 from ciel_runtime_support.codex_launch_policy import current_model_args as project_codex_current_model_args
 from ciel_runtime_support.codex_launch_policy import help_requested as project_codex_help_requested
 from ciel_runtime_support.codex_launch_policy import native_routed_config_args as project_codex_native_routed_config_args
 from ciel_runtime_support.codex_launch_policy import yolo_launch_args as project_codex_yolo_launch_args
-from ciel_runtime_support.codex_mcp_restore import CodexMcpRestorePorts, CodexMcpRestoreService
 from ciel_runtime_support.codex_model_catalog import CodexModelCatalogService
 from ciel_runtime_support.codex_process_lifecycle import CodexProcessLifecycle, CodexProcessPorts, CodexProcessRepository
 from ciel_runtime_support.codex_process_lifecycle import managed_process as project_managed_codex_process
@@ -194,7 +166,7 @@ from ciel_runtime_support.credentials import resolve_anthropic_credentials
 from ciel_runtime_support.credentials import secret_fingerprint as project_secret_fingerprint
 from ciel_runtime_support.executable_discovery import ExecutableDiscovery
 from ciel_runtime_support.github_copilot_oauth_runtime import GitHubCopilotOAuthRuntime, GitHubCopilotOAuthRuntimePorts
-from ciel_runtime_support.headless_config import HeadlessChannelCommands, HeadlessConfigCommands, HeadlessConfigServices, HeadlessEnvFileLoader, apply_headless_config
+from ciel_runtime_support.headless_config import HeadlessConfigCommands, HeadlessConfigServices, HeadlessEnvFileLoader, apply_headless_config
 from ciel_runtime_support.http_response import ChannelDeliveryGuard, HttpResponseAdapter
 from ciel_runtime_support.kimi_runtime_context import KimiConfigurationPorts, KimiIdentityPorts, KimiLifecyclePorts, KimiProcessPorts, KimiRuntimeCompatibilityApi, KimiRuntimeContext
 from ciel_runtime_support.launch_diagnostics import LaunchCommandDiagnostics, StderrCaptureAdapter
@@ -212,47 +184,7 @@ from ciel_runtime_support.llm_preset_context import LlmPresetAlgorithms, LlmPres
 from ciel_runtime_support.lm_studio_runtime import LmStudioLifecycleApi, LmStudioLifecyclePolicy, LmStudioModelLifecycle, LmStudioRuntimeServices, discover_lm_studio_runtime
 from ciel_runtime_support.managed_mcp_config import ManagedMcpConfigPaths, ManagedMcpConfigPolicy, ManagedMcpConfigPorts, ManagedMcpConfigService
 from ciel_runtime_support.managed_service_cleanup import ManagedServiceCleanupPolicy, ManagedServiceCleanupPorts
-from ciel_runtime_support.mcp_config_reader import ClaudeMcpConfigPathPolicy
 from ciel_runtime_support.mcp_config_reader import dedupe_strings as _dedupe_strings
-from ciel_runtime_support.mcp_config_reader import discover_channel_specs
-from ciel_runtime_support.mcp_config_reader import path_for_compare as _path_for_compare
-from ciel_runtime_support.mcp_config_reader import read_mcp_config_items
-from ciel_runtime_support.mcp_config_reader import server_names_from_mapping as _mcp_server_names_from_mapping
-from ciel_runtime_support.mcp_config_reader import servers_from_mapping as _mcp_servers_from_mapping
-from ciel_runtime_support.mcp_configuration_context import McpConfigurationCompatibilityApi, McpConfigurationContext, McpConfigurationFilePorts, McpConfigurationPaths, McpConfigurationRuntimePorts
-from ciel_runtime_support.mcp_http_proxy import McpHttpProxyCodec, McpHttpProxyRuntime, McpHttpProxyServices, McpHttpProxyTransport
-from ciel_runtime_support.mcp_http_proxy import run_mcp_streamable_http_proxy as run_streamable_http_mcp_proxy
-from ciel_runtime_support.mcp_notification_wait_policy import McpNotificationWaitPolicy, McpNotificationWaitPorts, McpNotificationWaitRepository, McpNotificationWaitService
-from ciel_runtime_support.mcp_probe_codec import channel_capability_present as _channel_probe_capability_present
-from ciel_runtime_support.mcp_probe_codec import decode_sse_events as _decode_sse_events
-from ciel_runtime_support.mcp_probe_codec import find_initialize_response as _channel_probe_find_initialize_response
-from ciel_runtime_support.mcp_probe_codec import initialize_payload as _mcp_probe_initialize_payload
-from ciel_runtime_support.mcp_probe_codec import initialize_payload_bytes as _mcp_probe_initialize_payload_bytes
-from ciel_runtime_support.mcp_probe_codec import probe_strategy as _channel_probe_strategy_for
-from ciel_runtime_support.mcp_probe_transport import McpProbeCodec, McpProbeHttp, McpProbePolicy, McpProbeServices
-from ciel_runtime_support.mcp_probe_transport import probe_sse_mcp_for_channel_capability_detailed as run_sse_mcp_probe
-from ciel_runtime_support.mcp_probe_transport import probe_streamable_http_mcp_for_channel_capability_detailed as run_streamable_http_mcp_probe
-from ciel_runtime_support.mcp_proxy_codec import McpProxyCodecPolicy, _mcp_proxy_error_response, _mcp_proxy_notification_wait_response, _mcp_proxy_tool_call_arguments, _mcp_proxy_tool_call_name, _mcp_proxy_tool_is_notification_wait, _mcp_proxy_wait_timeout_seconds
-from ciel_runtime_support.mcp_proxy_codec import compact_tool_result_response as compact_mcp_tool_result_response
-from ciel_runtime_support.mcp_proxy_config import McpProxyConfigPaths, McpProxyConfigPorts, McpProxyConfigService
-from ciel_runtime_support.mcp_proxy_process import McpStdioConfigPorts, McpStdioEffects, McpStdioProxyService, McpStdioTransportPorts, _mcp_proxy_drain_input_messages
-from ciel_runtime_support.mcp_proxy_process import _mcp_proxy_forward_stderr as proxy_forward_stderr
-from ciel_runtime_support.mcp_proxy_process import _mcp_proxy_forward_stdin as proxy_forward_stdin
-from ciel_runtime_support.mcp_proxy_process import _mcp_proxy_forward_stdin_jsonl as proxy_forward_stdin_jsonl
-from ciel_runtime_support.mcp_proxy_process import _mcp_proxy_forward_stdout_jsonl as proxy_forward_stdout_jsonl
-from ciel_runtime_support.mcp_proxy_process import _mcp_proxy_stdio_mode
-from ciel_runtime_support.mcp_proxy_process import _mcp_proxy_streamable_http_request as proxy_streamable_http_request
-from ciel_runtime_support.mcp_proxy_process import _mcp_proxy_write_json_response
-from ciel_runtime_support.mcp_proxy_process import _McpStdoutObserver as McpStdoutObserver
-from ciel_runtime_support.mcp_split_proxy_http import McpSplitProxyHttpAdapter, McpSplitProxyHttpPorts
-from ciel_runtime_support.mcp_stdio_probe import StdioProbeCodec, StdioProbePolicy, StdioProbeProcess, StdioProbeServices
-from ciel_runtime_support.mcp_stdio_probe import probe_stdio_mcp_for_channel_capability_detailed as run_stdio_mcp_probe
-from ciel_runtime_support.mcp_transport import CODEX_MCP_SPLIT_PROXY_PREFIX, MCP_LEGACY_SSE_PROTOCOL_VERSION, MCP_STREAMABLE_HTTP_PROTOCOL_VERSION
-from ciel_runtime_support.mcp_transport import split_proxy_server_name as codex_mcp_split_proxy_server_name
-from ciel_runtime_support.mcp_transport import sse_post_json as _mcp_sse_post_json
-from ciel_runtime_support.mcp_transport import streamable_headers as _mcp_streamable_headers
-from ciel_runtime_support.mcp_transport import streamable_post_json as _mcp_streamable_post_json
-from ciel_runtime_support.mcp_transport import upstream_url as _codex_mcp_split_proxy_upstream_url
 from ciel_runtime_support.model_context_hints import ModelContextHintPolicy, ModelContextHintPorts
 from ciel_runtime_support.model_registry_repository import ModelRegistryApi
 from ciel_runtime_support.npm_runtime import claude_code_current_version, codex_current_version, npm_global_bin_dir_from_prefix, npm_global_install_command, npm_global_package_root, npm_install_runtime_command, npm_latest_package_version, npm_prefix_from_package_root, package_root_from_installed_path, parse_version_tuple, run_upgrade_command, version_newer
@@ -271,7 +203,7 @@ from ciel_runtime_support.openai_responses_stream import write_openai_responses_
 from ciel_runtime_support.output_budget import OpenAIContextBudgetPolicy, OutputBudgetPolicy
 from ciel_runtime_support.plan_artifact_controller import PlanArtifactController, PlanArtifactServices
 from ciel_runtime_support.prelaunch_launch_preference import preferred_provider_launch_action
-from ciel_runtime_support.prelaunch_panel_context import AuthPanelPorts, ChannelPanelContextPorts, ConfigurationPanelContextPorts, MainMenuPanelPorts, ModelPanelCatalogPorts, ModelPanelPresentationPorts, PrelaunchPanelCompatibilityApi, PrelaunchPanelContext, ProviderChoicePanelPorts, WebBackendPanelPorts
+from ciel_runtime_support.prelaunch_panel_context import AuthPanelPorts, ConfigurationPanelContextPorts, MainMenuPanelPorts, ModelPanelCatalogPorts, ModelPanelPresentationPorts, PrelaunchPanelCompatibilityApi, PrelaunchPanelContext, ProviderChoicePanelPorts, WebBackendPanelPorts
 from ciel_runtime_support.prelaunch_panel_projection import ProviderPanelConstants
 from ciel_runtime_support.prelaunch_shell_context import PrelaunchInputPorts, PrelaunchPromptPorts, PrelaunchProviderPorts, PrelaunchShellCompatibilityApi, PrelaunchShellContext, PrelaunchVisualPorts
 from ciel_runtime_support.prelaunch_terminal import PrelaunchInputStyle, PrelaunchRenderBrand, PrelaunchRenderData, PrelaunchRenderServices, PrelaunchRenderText
@@ -440,7 +372,7 @@ from ciel_runtime_support.runtime_constants import (ADVISOR_FEEDBACK_MARKER,  # 
                                                     ANTHROPIC_LIMITED_ACCESS_MODEL_IDS, ANTHROPIC_MODEL_DOCS_URL,
                                                     ANTHROPIC_MODEL_DOCS_URLS, ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS,
                                                     ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS, ANTHROPIC_THINKING_BLOCK_TYPES,
-                                                    APP_NAME, AUTO_DETECT_NATIVE_COMPAT_PROVIDERS, BUILTIN_CHANNEL_SPEC,
+                                                    APP_NAME, AUTO_DETECT_NATIVE_COMPAT_PROVIDERS,
                                                     CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT,
                                                     CHANNEL_LLM_WAKE_LEGACY_PREFIXES, CHANNEL_LLM_WAKE_PREFIX,
                                                     CHAT_MESSAGE_DEDUPE_SCAN_LIMIT,
@@ -456,10 +388,9 @@ from ciel_runtime_support.runtime_constants import (ADVISOR_FEEDBACK_MARKER,  # 
                                                     KIMI_DEFAULT_MODEL, KIMI_K3_MODEL, KIMI_MODEL_FALLBACK_IDS,
                                                     LANGUAGES, LM_STUDIO_DEFAULT_CLAUDE_CODE_CONTEXT,
                                                     LM_STUDIO_MIN_CLAUDE_CODE_CONTEXT,
-                                                    MCP_PROXY_TOOL_RESULT_ITEM_TEXT_CHARS,
-                                                    MCP_PROXY_TOOL_RESULT_MAX_CHARS_DEFAULT, MODEL_CACHE_TTL_SECONDS,
+                                                    MODEL_CACHE_TTL_SECONDS,
                                                     MODEL_PRESETS, NCP_PYPI_PACKAGE, NON_ANTHROPIC_COMPAT_PROMPT,
-                                                    OFFICIAL_CHANNEL_PLUGINS, OLLAMA_MODEL_CATALOG_TTL_SECONDS,
+                                                    OLLAMA_MODEL_CATALOG_TTL_SECONDS,
                                                     OLLAMA_MODEL_CATALOG_URL, OPENAI_COMPATIBLE_ROUTER_PROVIDERS,
                                                     OPENCODE_ENDPOINT_ALIASES, OPENCODE_GO_BASE_URL,
                                                     OPENCODE_ZEN_BASE_URL, PLAN_GUARD_MARKER, PLAN_MODE_SELF_TOOLS,
@@ -480,15 +411,14 @@ from ciel_runtime_support.runtime_maintenance_services import MaintenanceAgyPort
 from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  # noqa: F401
                                                 CHANNEL_LLM_CLEAR_FLOOR_PATH, CHANNEL_LLM_CURSOR_PATH,
                                                 CHANNEL_LLM_LAUNCH_GUARD_PATH, CHANNEL_MCP_CONFIG,
-                                                CHANNEL_MCP_CURSOR_PATH, CHANNEL_PROBE_CACHE_PATH,
                                                 CHANNEL_STDIN_WAKE_CLAIMS_PATH, CHAT_FILES_DIR, CHAT_MESSAGES_PATH,
                                                 CIEL_RUNTIME_STATUSLINE_PATH, CLAUDE_COMMANDS_DIR, CLAUDE_GATEWAY_CACHE,
-                                                CLAUDE_SETTINGS_PATH, CODEX_MCP_CONFIG, CODEX_PROCESS_DIR,
+                                                CLAUDE_SETTINGS_PATH, CODEX_PROCESS_DIR,
                                                 CODEX_PROMPTS_DIR_NAME, CONFIG_DIR, CONFIG_PATH,
                                                 CONTEXT_COMPACT_ACTIVITY_PATH, CONTEXT_USAGE_PATH,
                                                 DUCKDUCKGO_MCP_CONFIG, HOME, LAUNCH_STATE_PATH, LOG_LEVEL_PATH,
-                                                LOG_PATH, MCP_PROXY_CONFIG, MENU_KEY_DEBUG_PATH, MODEL_LIST_CACHE_PATH,
-                                                MODEL_REGISTRY_PATH, NATIVE_MCP_CONFIG, NCP_ENV, NCP_LOG,
+                                                LOG_PATH, MENU_KEY_DEBUG_PATH, MODEL_LIST_CACHE_PATH,
+                                                MODEL_REGISTRY_PATH, NCP_ENV, NCP_LOG,
                                                 OLLAMA_MODEL_CATALOG_PATH, PID_PATH, PLAN_ARTIFACTS_DIR,
                                                 RATE_LIMIT_STATE_PATH, REQUEST_DUMP_PATH, RESPONSE_DUMP_PATH,
                                                 ROUTER_ACTIVITY_PATH, ROUTER_BASE, ROUTER_CLIENTS_DIR,
@@ -612,13 +542,6 @@ _API_KEY_ROTATION_LOCK = threading.Lock()
 _API_KEY_ROTATION_CURSOR: dict[str, int] = {}
 _CHAT_CONDITION = threading.Condition()
 _CHAT_NEXT_ID: int | None = None
-_CHANNEL_SSE_LOCK = threading.Lock()
-_CHANNEL_SSE_CONNECTIONS: dict[str, dict[str, Any]] = {}
-_CHANNEL_SSE_RPC_CONDITION = threading.Condition()
-_CHANNEL_MCP_LOCK = threading.Lock()
-_CHANNEL_MCP_SESSIONS: dict[str, dict[str, Any]] = {}
-_CHANNEL_MCP_CURSOR_LOCK = threading.Lock()
-_CHANNEL_MCP_CURSOR_LAST_ID: int | None = None
 _CHANNEL_LLM_CURSOR_LOCK = threading.Lock()
 _CHANNEL_LLM_CURSOR_LAST_ID: int | None = None
 _CHANNEL_STDIN_WAKE_LOCK = threading.Lock()
@@ -633,10 +556,6 @@ _CHANNEL_WAKE_DELIVERY_REPOSITORY = ChannelWakeDeliveryRepository(
     commit_cursor=lambda message_id: _commit_channel_llm_cursor_if_newer(message_id),
 )
 _CHANNEL_COMPACT_REQUEST_LOCK = threading.Lock()
-_NATIVE_CHANNEL_NOTIFICATION_METHOD = "notifications/claude/channel"
-_MCP_NOTIFICATION_DEDUP_TTL_SECONDS = 3.0
-_MCP_NOTIFICATION_WAIT_RECENT: dict[str, float] = {}
-_MCP_NOTIFICATION_WAIT_RECENT_LOCK = threading.Lock()
 _TOOL_SIDE_EFFECT_DEDUP_TTL_SECONDS = 10 * 60.0
 _TOOL_SIDE_EFFECT_DEDUP_LOCK = threading.Lock()
 _TOOL_SIDE_EFFECT_DEDUP_RECENT: dict[str, float] = {}
@@ -773,14 +692,13 @@ def tool_side_effect_dedupe_service() -> ToolSideEffectDedupeService:
         ports=ToolSideEffectDedupePorts(time.monotonic, append_tool_call_log, router_log),
     )
 
-_mcp_tool_leaf_name = McpNotificationWaitService.tool_leaf_name
-def _is_mcp_notification_wait_tool(tool_name: str) -> bool: return mcp_notification_wait_service().is_wait_tool(tool_name)
-def _mcp_notification_wait_timeout_cap_ms() -> int: return mcp_notification_wait_service().policy.timeout_cap_ms()
-def _mcp_notification_wait_duplicate_cap_ms() -> int: return mcp_notification_wait_service().policy.duplicate_cap_ms()
-def _mcp_notification_wait_duplicate_window_seconds() -> float: return mcp_notification_wait_service().policy.duplicate_window_seconds()
-def _mcp_notification_wait_effective_cap_ms(tool_name: str) -> tuple[int, bool]: return mcp_notification_wait_service().effective_cap_ms(tool_name)
-def cap_mcp_notification_wait_tool_input(tool_name: str, tool_input: dict[str, Any]) -> dict[str, Any]: return mcp_notification_wait_service().cap_input(tool_name, tool_input)
-def mcp_notification_wait_service() -> McpNotificationWaitService: return McpNotificationWaitService(policy=McpNotificationWaitPolicy(os.environ.get), repository=McpNotificationWaitRepository(_MCP_NOTIFICATION_WAIT_RECENT, _MCP_NOTIFICATION_WAIT_RECENT_LOCK), ports=McpNotificationWaitPorts(_lookup_tool_schema, time.time, router_log))
+def _is_mcp_notification_wait_tool(tool_name: str) -> bool:
+    del tool_name
+    return False
+
+def cap_mcp_notification_wait_tool_input(tool_name: str, tool_input: dict[str, Any]) -> dict[str, Any]:
+    del tool_name
+    return tool_input
 
 def ui_text(key: str, lang: str | None = None) -> str:
     lang = lang or load_config().get("language", "en")
@@ -1755,7 +1673,7 @@ _chat_init_next_id = _CHANNEL_MESSAGE_API.initialize_next_id
 channel_message_repository = _CHANNEL_MESSAGE_API.repository
 _chat_scan_max_id = _CHANNEL_MESSAGE_API.max_id
 def _channel_launch_recent_seconds() -> float: return channel_runtime_environment_policy().launch_recent_seconds()
-def channel_runtime_environment_policy() -> ChannelRuntimeEnvironmentPolicy: return ChannelRuntimeEnvironmentPolicy(environment=os.environ, launch_recent_default=CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT, probe_timeout_default=CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS)
+def channel_runtime_environment_policy() -> ChannelRuntimeEnvironmentPolicy: return ChannelRuntimeEnvironmentPolicy(environment=os.environ, launch_recent_default=CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT)
 _chat_scan_max_id_before_epoch = _CHANNEL_MESSAGE_API.max_id_before_epoch
 _chat_messages_file_lock = _CHANNEL_MESSAGE_API.file_lock
 read_chat_messages = _CHANNEL_MESSAGE_API.read
@@ -1767,154 +1685,6 @@ _write_channel_llm_launch_guard = _CHANNEL_MESSAGE_API.write_launch_guard
 _chat_message_duplicate_locked = _CHANNEL_MESSAGE_API.duplicate
 append_chat_message = _CHANNEL_MESSAGE_API.append
 
-def channel_connection_context() -> ChannelConnectionContext:
-    return ChannelConnectionContext(
-        state=ChannelConnectionStatePorts(
-            _CHANNEL_SSE_CONNECTIONS, _CHANNEL_SSE_LOCK,
-            _CHANNEL_SSE_RPC_CONDITION,
-        ),
-        worker_ports=ChannelConnectionWorkerPorts(
-            router_log,
-            lambda name, event, data, event_id: _channel_sse_dispatch(
-                name, event, data, event_id=event_id
-            ),
-            _channel_streamable_http_initialize_mcp,
-            _channel_streamable_http_close_state_session,
-            lambda headers, protocol, session, accept: _mcp_streamable_headers(
-                headers, protocol, session, accept=accept
-            ),
-            _streamable_http_session_not_found, _http_error_body_text,
-        ),
-        lifecycle_ports=ChannelConnectionLifecyclePorts(
-            _safe_segment, _channel_streamable_http_close_state_session,
-            _channel_streamable_http_cleanup_stale_sessions, parse_bool,
-        ),
-        protocol=ChannelConnectionProtocol(
-            MCP_STREAMABLE_HTTP_PROTOCOL_VERSION,
-            MCP_LEGACY_SSE_PROTOCOL_VERSION,
-        ),
-    )
-
-_CHANNEL_CONNECTION_API = ChannelConnectionCompatibilityApi(channel_connection_context)
-channel_connection_registry = _CHANNEL_CONNECTION_API.registry
-_channel_sse_status_public = ChannelConnectionRegistry.public_status
-_channel_sse_public_mcp_name = ChannelConnectionRegistry.public_mcp_name
-channel_sse_status = _CHANNEL_CONNECTION_API.statuses
-_channel_sse_set_state = _CHANNEL_CONNECTION_API.update
-_channel_streamable_http_mark_session_lost = _CHANNEL_CONNECTION_API.mark_session_lost
-_channel_sse_store_rpc_response = _CHANNEL_CONNECTION_API.store_rpc_response
-_channel_sse_take_rpc_response = _CHANNEL_CONNECTION_API.take_rpc_response
-_channel_sse_state_name_for_mcp_server = _CHANNEL_CONNECTION_API.state_name_for_mcp_server
-
-def _channel_sse_absolute_endpoint(stream_url: str, endpoint: str) -> str:
-    endpoint = (endpoint or "").strip()
-    if endpoint.startswith(("http://", "https://")):
-        return endpoint
-    return urllib.parse.urljoin(stream_url, endpoint)
-
-def codex_mcp_split_proxy_url(server_name: str) -> str: return f"{ROUTER_BASE}{CODEX_MCP_SPLIT_PROXY_PREFIX}{urllib.parse.quote(str(server_name), safe='')}"
-
-def codex_mcp_split_proxy_server(path: str) -> tuple[str, dict[str, Any]] | None:
-    name = codex_mcp_split_proxy_server_name(path)
-    if not name:
-        return None
-    server = codex_streamable_http_mcp_servers(CODEX_MCP_CONFIG).get(name)
-    if not isinstance(server, dict):
-        return None
-    return name, server
-
-codex_mcp_local_sse_hold_seconds = McpSplitProxyHttpAdapter.local_sse_hold_seconds
-def codex_mcp_split_proxy_enabled() -> bool: return env_bool(os.environ.get("CIEL_RUNTIME_CODEX_MCP_SPLIT_PROXY"), False)
-def mcp_split_proxy_http_adapter() -> McpSplitProxyHttpAdapter: return McpSplitProxyHttpAdapter(McpSplitProxyHttpPorts(codex_mcp_split_proxy_server, _codex_mcp_split_proxy_upstream_url, mcp_server_runtime_headers, _copy_upstream_response_headers, is_client_disconnect_error, write_json, router_log), _NATIVE_CHANNEL_NOTIFICATION_METHOD)
-def handle_codex_mcp_split_proxy_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return mcp_split_proxy_http_adapter().handle_get(handler, path)
-def handle_codex_mcp_split_proxy_request(handler: BaseHTTPRequestHandler, path: str, raw_body: bytes, method: str) -> bool: return mcp_split_proxy_http_adapter().handle_request(handler, path, raw_body, method)
-
-def _http_error_body_text(exc: urllib.error.HTTPError) -> str:
-    try:
-        data = exc.read()
-    except Exception:
-        data = b""
-    return data.decode("utf-8", errors="replace") if data else ""
-
-def _streamable_http_session_not_found(exc: urllib.error.HTTPError, body_text: str = "") -> bool:
-    text = f"{getattr(exc, 'reason', '')} {body_text}".strip().lower()
-    return bool(
-        exc.code == 404
-        or "session-not-found" in text
-        or "session not found" in text
-        or ("session" in text and "not found" in text)
-    )
-
-def channel_session_context() -> ChannelSessionContext:
-    return ChannelSessionContext(
-        config=ChannelSessionConfigPorts(
-            lambda: CONFIG_DIR, MCP_STREAMABLE_HTTP_PROTOCOL_VERSION, router_log,
-        ),
-        http=ChannelSessionHttpPorts(
-            _mcp_streamable_headers, _http_error_body_text,
-            _streamable_http_session_not_found,
-        ),
-        state=ChannelSessionStatePorts(_CHANNEL_SSE_CONNECTIONS, _CHANNEL_SSE_LOCK),
-    )
-
-_CHANNEL_SESSION_API = ChannelSessionCompatibilityApi(channel_session_context)
-build_channel_session_lifecycle_services = _CHANNEL_SESSION_API.services
-channel_streamable_sessions_path = _CHANNEL_SESSION_API.path
-build_channel_session_repository = _CHANNEL_SESSION_API.repository
-_channel_streamable_session_records = _CHANNEL_SESSION_API.records
-_write_channel_streamable_session_records = _CHANNEL_SESSION_API.write
-_record_channel_streamable_session = _CHANNEL_SESSION_API.record
-_forget_channel_streamable_session = _CHANNEL_SESSION_API.forget
-_channel_streamable_http_delete_session = _CHANNEL_SESSION_API.delete
-_channel_streamable_http_close_state_session = _CHANNEL_SESSION_API.close_state
-_channel_streamable_http_cleanup_stale_sessions = _CHANNEL_SESSION_API.cleanup_stale
-
-def _mcp_stream_read_timeout_error(exc: BaseException) -> bool:
-    if isinstance(exc, (TimeoutError, socket.timeout)):
-        return True
-    reason = getattr(exc, "reason", None)
-    if isinstance(reason, BaseException) and reason is not exc:
-        return _mcp_stream_read_timeout_error(reason)
-    return "timed out" in str(exc).lower()
-
-def channel_mcp_transport() -> ChannelMcpTransport:
-    return ChannelMcpTransport(
-        ChannelMcpTransportConfig(VERSION, MCP_LEGACY_SSE_PROTOCOL_VERSION, MCP_STREAMABLE_HTTP_PROTOCOL_VERSION, _NATIVE_ROUTER_CHANNEL_NAMES),
-        ChannelMcpTransportState(_CHANNEL_SSE_CONNECTIONS, _CHANNEL_SSE_LOCK),
-        ChannelMcpHttpPorts(_mcp_sse_post_json, _mcp_streamable_post_json, _http_error_body_text, _streamable_http_session_not_found, parse_bool),
-        ChannelMcpEffects(_channel_sse_set_state, _channel_sse_take_rpc_response, _channel_streamable_http_mark_session_lost,
-                          _channel_sse_absolute_endpoint, _record_channel_streamable_session, _channel_sse_store_rpc_response,
-                          _sse_payload_to_chat_payload, append_chat_message, router_log),
-    )
-
-def _channel_sse_rpc_request(name: str, method: str, params: dict[str, Any] | None = None, timeout: float | None = None) -> dict[str, Any]: return channel_mcp_transport().rpc_request(name, method, params, timeout)
-def _channel_sse_maybe_initialize_mcp(name: str, endpoint_text: str) -> None: channel_mcp_transport().maybe_initialize(name, endpoint_text)
-def _channel_streamable_http_initialize_mcp(name: str) -> None: channel_mcp_transport().initialize_streamable(name)
-
-def _channel_sse_dispatch(name: str, event_name: str, data_lines: list[str], event_id: str | None = None) -> None:
-    channel_mcp_transport().dispatch(name, event_name, data_lines, event_id)
-
-_channel_connection_matches = _CHANNEL_CONNECTION_API.connection_matches
-_channel_worker_running = _CHANNEL_CONNECTION_API.worker_running
-channel_connection_worker = _CHANNEL_CONNECTION_API.worker
-_channel_sse_worker = _CHANNEL_CONNECTION_API.run_sse_worker
-_channel_streamable_http_worker = _CHANNEL_CONNECTION_API.run_streamable_http_worker
-channel_connection_lifecycle = _CHANNEL_CONNECTION_API.lifecycle
-start_channel_sse_connection = _CHANNEL_CONNECTION_API.start
-stop_channel_sse_connection = _CHANNEL_CONNECTION_API.stop
-
-def channel_notification_projection() -> ChannelNotificationProjection:
-    return ChannelNotificationProjection(
-        ChannelNotificationConfig(_NATIVE_CHANNEL_NOTIFICATION_METHOD, _CHANNEL_CONTROL_KINDS),
-        ChannelNotificationPorts(_json_safe_metadata, _as_string_list, _channel_message_has_external_provenance, _channel_wake_message_noise_reason,
-                                 _channel_superseded_message_ids, router_log),
-    )
-
-def _native_channel_meta_value(value: Any) -> str: return channel_notification_projection().meta_value(value)
-def _native_channel_meta(message: dict[str, Any]) -> dict[str, str]: return channel_notification_projection().meta(message)
-def _native_channel_param_value(value: Any) -> Any: return channel_notification_projection().param_value(value)
-def _channel_mcp_notification(message: dict[str, Any]) -> dict[str, Any]: return channel_notification_projection().notification(message)
-def _channel_mcp_capabilities() -> dict[str, Any]: return channel_notification_projection().capabilities()
 def _channel_compact_request_ttl_seconds() -> float: return compact_request_ttl(os.environ.get('CIEL_RUNTIME_CHANNEL_COMPACT_REQUEST_TTL_SECONDS'))
 
 def channel_compact_request_repository() -> ChannelCompactRequestRepository:
@@ -1951,40 +1721,12 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
 
 def channel_mcp_context() -> ChannelMcpContext:
     return ChannelMcpContext(
-        runtime=ChannelMcpRuntimePorts(VERSION, os.getpid, time.time_ns, _CHAT_CONDITION, router_log),
-        state=ChannelMcpStatePorts(_CHANNEL_MCP_SESSIONS, _CHANNEL_MCP_LOCK, _CHANNEL_MCP_CURSOR_LOCK, CHANNEL_MCP_CURSOR_PATH,
-                                   _channel_mcp_cached_cursor, _channel_mcp_cache_cursor, _chat_scan_max_id),
-        projection=ChannelMcpProjectionPorts(_channel_mcp_capabilities, _channel_mcp_notifications_for_messages, read_chat_messages),
+        runtime=ChannelMcpRuntimePorts(VERSION, router_log),
         rpc=ChannelMcpRpcPorts(_channel_mcp_tool_schemas, _channel_mcp_tool_call_response, write_json, write_accepted_response),
-        resume=ChannelMcpResumePorts(_query_params, _first_param, _channel_mcp_ensure_cursor_initialized, _channel_mcp_update_cursor),
-        cursor_repository=channel_cursor_repository,
     )
 
 _CHANNEL_MCP_API = ChannelMcpCompatibilityApi(channel_mcp_context)
-_channel_mcp_session_id = _CHANNEL_MCP_API.new_session_id
-_write_sse_event = _CHANNEL_MCP_API.write_sse_event
-_send_channel_mcp_sse_headers = _CHANNEL_MCP_API.send_sse_headers
-_channel_mcp_enqueue = _CHANNEL_MCP_API.enqueue
-_channel_mcp_take_outbox = _CHANNEL_MCP_API.take_outbox
-_channel_mcp_initialize_response = _CHANNEL_MCP_API.initialize_response
 def channel_cursor_repository(path: Path) -> channel_cursor_storage.ChannelCursorRepository: return channel_cursor_storage.ChannelCursorRepository(path=path, log=router_log)
-def _channel_mcp_cached_cursor() -> int | None: return _CHANNEL_MCP_CURSOR_LAST_ID
-
-def _channel_mcp_cache_cursor(last_id: int) -> None:
-    global _CHANNEL_MCP_CURSOR_LAST_ID
-    _CHANNEL_MCP_CURSOR_LAST_ID = last_id
-
-_channel_mcp_parse_event_id = parse_channel_event_id
-channel_mcp_cursor_service = _CHANNEL_MCP_API.cursor_service
-_channel_mcp_write_cursor_locked = _CHANNEL_MCP_API.write_cursor
-_channel_mcp_read_cursor_locked = _CHANNEL_MCP_API.read_cursor
-_channel_mcp_ensure_cursor_initialized = _CHANNEL_MCP_API.ensure_cursor
-_channel_mcp_update_cursor = _CHANNEL_MCP_API.update_cursor
-channel_mcp_resume_policy = _CHANNEL_MCP_API.resume_policy
-_channel_mcp_client_last_event_id = _CHANNEL_MCP_API.client_last_event_id
-_channel_mcp_session_start_last_id = _CHANNEL_MCP_API.session_start_last_id
-def _channel_mcp_message_skip_reason(message: dict[str, Any]) -> str | None: return channel_notification_projection().skip_reason(message)
-def _channel_mcp_notifications_for_messages(messages: list[dict[str, Any]], after_id: int) -> list[tuple[int, dict[str, Any]]]: return channel_notification_projection().notifications_for_messages(messages, after_id)
 channel_mcp_http_controller = _CHANNEL_MCP_API.controller
 handle_channel_mcp_get = _CHANNEL_MCP_API.get
 handle_channel_mcp_post = _CHANNEL_MCP_API.post
@@ -1997,8 +1739,8 @@ def _first_param(params: dict[str, list[str]], name: str, default: str = "") -> 
 def chat_http_controller() -> ChatHttpController:
     return ChatHttpController(
         router_base=ROUTER_BASE,
-        reads=ChatHttpReadServices(read_chat_messages, read_chat_messages_before, _CHAT_CONDITION, channel_sse_status, _safe_segment, CHAT_FILES_DIR),
-        writes=ChatHttpWriteServices(write_json, append_chat_message, store_chat_file_upload, start_channel_sse_connection, stop_channel_sse_connection),
+        reads=ChatHttpReadServices(read_chat_messages, read_chat_messages_before, _CHAT_CONDITION, _safe_segment, CHAT_FILES_DIR),
+        writes=ChatHttpWriteServices(write_json, append_chat_message, store_chat_file_upload),
     )
 
 def handle_chat_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return chat_http_controller().get(handler, path)
@@ -2823,9 +2565,9 @@ route_runtime_post = _ROUTER_REQUEST_API.route_post
 def _router_server_context() -> RouterServerContext:
     http_services = RouterHttpServices(
         core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log, observe_tui_runtime_response),
-        get=RouterHttpGetEndpoints(handle_codex_mcp_split_proxy_get, handle_tui_observation_get, handle_events_get, handle_llm_config_get, handle_channel_mcp_get, handle_web_get,
+        get=RouterHttpGetEndpoints(handle_tui_observation_get, handle_events_get, handle_llm_config_get, handle_channel_mcp_get, handle_web_get,
                                    lambda handler, path: speech_http_controller().get(handler, path), handle_chat_get, handle_plan_get, route_runtime_get),
-        post=RouterHttpPostEndpoints(handle_codex_mcp_split_proxy_request, lambda handler, path, raw, content_type: speech_http_controller().post(handler, path, raw, content_type), handle_llm_config_post, handle_channel_mcp_post, handle_chat_post,
+        post=RouterHttpPostEndpoints(lambda handler, path, raw, content_type: speech_http_controller().post(handler, path, raw, content_type), handle_llm_config_post, handle_channel_mcp_post, handle_chat_post,
                                      handle_plan_post, route_runtime_post),
         presentation=RouterHttpPresentation(render_router_home_html, router_health_payload, write_text_response, write_json, list_model_objects_for_request,
                                             resolve_requested_model, model_object),
@@ -2836,7 +2578,6 @@ def _router_server_context() -> RouterServerContext:
         router_server_runtime.RouterServerStatePorts(load_config, reset_api_key_cooldowns_for_router_start, router_bind_host, current_log_level,
                                                      os.getpid, os.environ.get, router_debug_external_access_enabled, ensure_router_external_access_token),
         router_server_runtime.RouterServerEffects(os.chmod, sys.stderr, ThreadingHTTPServer, start_managed_router_lifetime_watchdog,
-                                                  start_router_managed_channel_sse, stop_channel_sse_connection, threading.Thread,
                                                   lambda bind_host: configure_requested_web_endpoints(ROUTER_PORT, ROUTER_HOST, bind_host,
                                                                                                        config=load_config())),
     )
@@ -3046,211 +2787,17 @@ def set_web_search_enabled(enabled: bool) -> None:
     cfg.setdefault("web_search", {})["auto_for_non_native"] = enabled
     save_config(cfg)
 
-def channel_specs(cfg: dict[str, Any] | None = None) -> list[str]: return channel_config_service().configured_specs(cfg or load_config())
+def normalize_channel_delivery(value: Any) -> str:
+    del value
+    return "llm"
 
-def mcp_configuration_context() -> McpConfigurationContext:
-    return McpConfigurationContext(
-        files=McpConfigurationFilePorts(read_mcp_config_items, _mcp_server_names_from_mapping, _mcp_servers_from_mapping, router_log),
-        paths=McpConfigurationPaths(HOME, WEB_TOOLS_MCP_CONFIG, MCP_PROXY_CONFIG, NATIVE_MCP_CONFIG),
-        runtime=McpConfigurationRuntimePorts(resolve_executable_for_subprocess, parse_bool, json_artifact_repository, discover_channel_specs,
-                                             is_channel_spec_tagged),
-        native_channel_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
-    )
-
-_MCP_CONFIGURATION_API = McpConfigurationCompatibilityApi(mcp_configuration_context)
-_read_mcp_server_names_from_json = _MCP_CONFIGURATION_API.read_server_names
-_read_mcp_servers_from_json = _MCP_CONFIGURATION_API.read_servers
-_mcp_server_is_stdio = _MCP_CONFIGURATION_API.server_is_stdio
-_mcp_server_is_streamable_http = _MCP_CONFIGURATION_API.server_is_streamable_http
-_mcp_server_force_proxy = _MCP_CONFIGURATION_API.server_force_proxy
-_mcp_server_disable_proxy_notification_stream = _MCP_CONFIGURATION_API.server_disables_proxy_notifications
-_safe_mcp_proxy_name = _MCP_CONFIGURATION_API.safe_proxy_name
-claude_mcp_config_paths = _MCP_CONFIGURATION_API.config_paths
-existing_claude_mcp_config_paths = _MCP_CONFIGURATION_API.existing_config_paths
-discovered_claude_mcp_servers = _MCP_CONFIGURATION_API.discover_user_servers
-_read_mcp_servers_from_generated_file = _MCP_CONFIGURATION_API.read_generated_servers
-discovered_ciel_runtime_managed_mcp_servers = _MCP_CONFIGURATION_API.discover_managed_servers
-write_native_mcp_config_from_discovery = _MCP_CONFIGURATION_API.write_native_config
-auto_discovered_mcp_channel_specs = _MCP_CONFIGURATION_API.auto_discovered_channel_specs
-def _channel_probe_initialize_payload() -> bytes: return _mcp_probe_initialize_payload_bytes(VERSION)
-CHANNEL_PROBE_DEFAULT_TIMEOUT_SECONDS = 15.0
-
-def channel_probe_default_timeout() -> float:
-    """Default per-server probe timeout. Configurable via
-    CIEL_RUNTIME_CHANNEL_PROBE_TIMEOUT_SECONDS so users with slow MCP servers
-    (npx cold start, remote API init) can extend it without code changes."""
-    return channel_runtime_environment_policy().probe_timeout_seconds()
-
-CHANNEL_PROBE_STDERR_CAP_BYTES = 4096
-CHANNEL_PROBE_STDOUT_PREVIEW_BYTES = 200
-CHANNEL_PROBE_STDERR_PREVIEW_CHARS = 500
-CHANNEL_PROBE_SSE_OPEN_TIMEOUT_SECONDS = 5.0
-CHANNEL_PROBE_SSE_INIT_POST_TIMEOUT_SECONDS = 5.0
-
-def mcp_probe_services() -> McpProbeServices:
-    return McpProbeServices(
-        codec=McpProbeCodec(_channel_probe_initialize_payload, _channel_probe_initialize_payload_dict, _decode_sse_events,
-                            _channel_probe_capability_present, _decode_preview),
-        http=McpProbeHttp(mcp_server_runtime_headers, urllib.request.urlopen, _mcp_streamable_post_json, _channel_streamable_http_delete_session),
-        policy=McpProbePolicy(channel_probe_default_timeout, CHANNEL_PROBE_STDERR_PREVIEW_CHARS, CHANNEL_PROBE_STDOUT_PREVIEW_BYTES,
-                              CHANNEL_PROBE_SSE_OPEN_TIMEOUT_SECONDS, CHANNEL_PROBE_SSE_INIT_POST_TIMEOUT_SECONDS, MCP_STREAMABLE_HTTP_PROTOCOL_VERSION),
-        log=router_log,
-    )
-
-def probe_sse_mcp_for_channel_capability_detailed(server_name: str, server: dict[str, Any], timeout: float | None = None) -> dict[str, Any]: return run_sse_mcp_probe(server_name, server, timeout, services=mcp_probe_services())
-def _channel_probe_initialize_payload_dict(protocol_version: str) -> dict[str, Any]: return _mcp_probe_initialize_payload(VERSION, protocol_version)
-def probe_streamable_http_mcp_for_channel_capability_detailed(server_name: str, server: dict[str, Any], timeout: float | None = None) -> dict[str, Any]: return run_streamable_http_mcp_probe(server_name, server, timeout, services=mcp_probe_services())
-
-def _decode_preview(buf: bytes | bytearray, limit_chars: int) -> str:
-    text = bytes(buf).decode("utf-8", errors="replace")
-    text = text.replace("\x00", " ")
-    text = " ".join(text.split())
-    if len(text) > limit_chars:
-        text = text[:limit_chars] + "..."
-    return text
-
-def stdio_mcp_probe_services() -> StdioProbeServices:
-    return StdioProbeServices(
-        codec=StdioProbeCodec(_channel_probe_initialize_payload, _channel_probe_strategy_for, _channel_probe_find_initialize_response,
-                              _channel_probe_capability_present, _decode_preview),
-        process=StdioProbeProcess(_mcp_server_is_stdio, resolve_mcp_server_process, subprocess.Popen),
-        policy=StdioProbePolicy(channel_probe_default_timeout, CHANNEL_PROBE_STDERR_CAP_BYTES, CHANNEL_PROBE_STDERR_PREVIEW_CHARS,
-                                CHANNEL_PROBE_STDOUT_PREVIEW_BYTES),
-        log=router_log,
-    )
-
-def probe_stdio_mcp_for_channel_capability_detailed(server_name: str, server: dict[str, Any], timeout: float | None = None) -> dict[str, Any]: return run_stdio_mcp_probe(server_name, server, timeout, services=stdio_mcp_probe_services())
-
-def probe_stdio_mcp_for_channel_capability(server_name: str, server: dict[str, Any], timeout: float | None = None) -> bool:
-    """Thin bool wrapper around the detailed probe. Preserves the older API
-    for `detect_channel_capable_mcp_servers` and any external callers."""
-    return probe_stdio_mcp_for_channel_capability_detailed(server_name, server, timeout=timeout)["capable"]
-
-def detect_channel_capable_mcp_servers( mcp_config_paths: Iterable[str], cwd: Path, *, include_router_self: bool = True, timeout_per_server: float = 3.0, ) -> list[str]:
-    """Probe MCP servers declared in given config files; return names that declare experimental['claude/channel']."""
-    records = _probe_mcp_servers_to_records(
-        mcp_config_paths,
-        cwd,
-        include_router_self=include_router_self,
-        timeout_per_server=timeout_per_server,
-    )
-    return [str(record.get("name")) for record in records if record.get("capable") and record.get("name")]
-
-_mcp_config_passthrough_values = ClaudeMcpConfigPathPolicy.passthrough_values
-strip_mcp_config_passthrough = ClaudeMcpConfigPathPolicy.strip_passthrough
-_mcp_config_paths_from_passthrough = ClaudeMcpConfigPathPolicy.passthrough_paths
-restore_codex_mcp_config_from_managed = CodexMcpRestoreService(CodexMcpRestorePorts(
-    codex_config_paths_for_launch, discovered_ciel_runtime_managed_mcp_servers, router_log,
-)).restore
-restore_agy_mcp_config_from_managed = AgyMcpRestoreService(AgyMcpRestorePorts(discovered_ciel_runtime_managed_mcp_servers, router_log)).restore
-CHANNEL_PROBE_CACHE_VERSION = 1
-
-def channel_probe_service() -> ChannelProbeService:
-    artifact = json_artifact_repository(CHANNEL_PROBE_CACHE_PATH)
-    return ChannelProbeService(
-        ROUTER_BASE,
-        ChannelProbeCacheRepository(CHANNEL_PROBE_CACHE_PATH, CHANNEL_PROBE_CACHE_VERSION, artifact.save, router_log),
-        ChannelProbePorts(_read_mcp_servers_from_json, _mcp_server_is_stdio, probe_stdio_mcp_for_channel_capability_detailed,
-                          probe_sse_mcp_for_channel_capability_detailed, probe_streamable_http_mcp_for_channel_capability_detailed, router_log),
-        claude_mcp_config_paths,
-        _dedupe_strings,
-        _path_for_compare,
-        frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
-    )
-
-def channel_config_service() -> ChannelConfigService: return ChannelConfigService(BUILTIN_CHANNEL_SPEC, ChannelConfigPorts(load_config, save_config, invalidate_config_cache, _dedupe_strings, router_log, os.environ))
-_CHANNEL_CONFIG_API = ChannelConfigApi(channel_config_service)
-parse_passthrough_channel_specs = _CHANNEL_CONFIG_API.parse_passthrough_channel_specs
-auto_import_passthrough_channels = _CHANNEL_CONFIG_API.auto_import_passthrough_channels
-def channel_mcp_discovery_service() -> ChannelMcpDiscoveryService: return ChannelMcpDiscoveryService(ChannelMcpDiscoveryPorts(os.environ, claude_mcp_config_paths, _path_for_compare, _read_mcp_sse_servers_from_json, _dedupe_strings, frozenset(_NATIVE_ROUTER_CHANNEL_NAMES), _channel_sse_public_mcp_name, start_channel_sse_connection, router_log))
-_CHANNEL_MCP_DISCOVERY_API = ChannelMcpDiscoveryCompatibilityApi(channel_mcp_discovery_service)
-mcp_server_runtime_headers = _CHANNEL_MCP_DISCOVERY_API.runtime_headers
-_mcp_sse_servers_from_mapping = _CHANNEL_MCP_DISCOVERY_API.servers_from_mapping
-def _read_mcp_sse_servers_from_json(path: Path, cwd: Path) -> list[dict[str, Any]]: return read_mcp_config_items(path, cwd, _mcp_sse_servers_from_mapping, lambda server: f"{server.get('name')}|{server.get('url')}", router_log)
-external_mcp_channel_server_names_from_configs = _CHANNEL_MCP_DISCOVERY_API.external_names
-auto_start_sse_channels_from_mcp_configs = _CHANNEL_MCP_DISCOVERY_API.auto_start
-def channel_proxy_ownership_repository() -> ChannelProxyOwnershipRepository: return ChannelProxyOwnershipRepository(MCP_PROXY_CONFIG, _mcp_server_disable_proxy_notification_stream, router_log)
-def proxy_owned_channel_server_names() -> set[str]: return channel_proxy_ownership_repository().owned_names()
-def _proxy_server_config_disables_notifications(args_s: list[str]) -> bool: return channel_proxy_ownership_repository().server_config_disables_notifications(args_s)
-
-def channel_router_lifecycle() -> ChannelRouterLifecycle:
-    return ChannelRouterLifecycle(
-        frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
-        ChannelRouterLifecyclePorts(should_use_channel_llm_delivery, channel_specs_for_launch, _server_names_from_channel_specs,
-                                    proxy_owned_channel_server_names, _channel_sse_public_mcp_name, ensure_channel_probe_cache_for_launch,
-                                    cached_channel_source_paths_for_specs, auto_start_sse_channels_from_mcp_configs, router_log),
-    )
-
-def router_managed_channel_server_names(cfg: dict[str, Any]) -> list[str]: return channel_router_lifecycle().managed_names(cfg)
-def start_router_managed_channel_sse(cfg: dict[str, Any]) -> list[dict[str, Any]]: return channel_router_lifecycle().start(cfg)
-channel_specs_for_launch = _CHANNEL_CONFIG_API.channel_specs_for_launch
-_CHANNEL_PROBE_API = ChannelProbeCompatibilityApi(service_factory=channel_probe_service)
-_builtin_router_probe_record = _CHANNEL_PROBE_API.builtin_record
-_server_transport_label = _CHANNEL_PROBE_API.transport_label
-_probe_mcp_servers_to_records = _CHANNEL_PROBE_API.probe
-read_channel_probe_cache = _CHANNEL_PROBE_API.read_cache
-_write_channel_probe_cache = _CHANNEL_PROBE_API.write_cache
-refresh_channel_probe_cache = _CHANNEL_PROBE_API.refresh
-cached_channel_probe_servers = _CHANNEL_PROBE_API.servers
-channel_probe_record_bucket = _CHANNEL_PROBE_API.bucket
-cached_channel_capable_server_names = _CHANNEL_PROBE_API.capable_names
-cached_external_channel_capable_server_names = _CHANNEL_PROBE_API.external_capable_names
-cached_channel_source_paths_for_specs = _CHANNEL_PROBE_API.source_paths
-_server_names_from_channel_specs = _CHANNEL_PROBE_API.server_names_from_specs
-
-def channel_probe_launch_context() -> ChannelProbeLaunchContext:
-    return ChannelProbeLaunchContext(
-        discovery=ChannelProbeLaunchDiscoveryPorts(discovered_claude_mcp_servers, cached_external_channel_capable_server_names, channel_specs_for_launch,
-                                                   _server_names_from_channel_specs, codex_channel_capable_mcp_server_names,
-                                                   external_mcp_channel_server_names_from_configs, _dedupe_strings),
-        cache=ChannelProbeLaunchCachePorts(channel_probe_service, read_channel_probe_cache, cached_channel_probe_servers, refresh_channel_probe_cache,
-                                           channel_probe_record_bucket, channel_panel_rows, router_log),
-        effects=ChannelProbeLaunchEffects(channel_delivery_mode, auto_start_sse_channels_from_mcp_configs),
-        native_channel_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES),
-    )
-
-_CHANNEL_PROBE_LAUNCH_API = ChannelProbeLaunchCompatibilityApi(channel_probe_launch_context)
-native_auto_channel_capable_server_names = _CHANNEL_PROBE_LAUNCH_API.native_auto_capable_names
-start_codex_mcp_channel_sse_for_launch = _CHANNEL_PROBE_LAUNCH_API.start_codex_sse
-channel_probe_summary_message = _CHANNEL_PROBE_LAUNCH_API.summary
-channel_panel_rows_for_menu = _CHANNEL_PROBE_LAUNCH_API.panel_rows
-channel_candidate_server_names_for_launch = _CHANNEL_PROBE_LAUNCH_API.candidate_names
-channel_probe_cache_needs_launch_refresh = _CHANNEL_PROBE_LAUNCH_API.needs_refresh
-ensure_channel_probe_cache_for_launch = _CHANNEL_PROBE_LAUNCH_API.ensure_cache
-is_channel_spec_tagged = _CHANNEL_CONFIG_API.is_channel_spec_tagged
-normalize_channel_passthrough = _CHANNEL_CONFIG_API.normalize_channel_passthrough
+def channel_delivery_mode(cfg: dict[str, Any] | None = None) -> str:
+    del cfg
+    return "llm"
 
 def channel_status_text(cfg: dict[str, Any] | None = None) -> str:
-    cfg = cfg or load_config()
-    channels = channel_specs(cfg)
-    if not channels:
-        return "off"
-    return f"{len(channels)} channel{'s' if len(channels) != 1 else ''}"
-
-def set_channel_development_enabled(enabled: bool) -> list[str]: return ["Channel wake delivery is always enabled by Ciel Runtime."]
-normalize_channel_delivery = _CHANNEL_CONFIG_API.normalize_channel_delivery
-channel_delivery_mode = _CHANNEL_CONFIG_API.channel_delivery_mode
-set_channel_delivery_config = _CHANNEL_CONFIG_API.set_channel_delivery_config
-add_channel_spec = _CHANNEL_CONFIG_API.add_channel_spec
-remove_channel_spec = _CHANNEL_CONFIG_API.remove_channel_spec
-clear_channel_specs = _CHANNEL_CONFIG_API.clear_channel_specs
-
-def channel_cli_controller() -> ChannelCliController:
-    return ChannelCliController(
-        ChannelCliView(load_config, channel_status_text, channel_delivery_mode, channel_specs, OFFICIAL_CHANNEL_PLUGINS, print),
-        ChannelCliCommands(
-            add_channel_spec, set_channel_development_enabled, remove_channel_spec, clear_channel_specs, refresh_channel_probe_cache,
-            report=lambda result: channel_probe_report_lines(
-                result,
-                channel_probe_default_timeout(),
-                ChannelProbeReportServices(channel_probe_record_bucket, lambda value: time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(value))),
-            ),
-            set_delivery=set_channel_delivery_config,
-        ),
-    )
-
-def cmd_channels(args: argparse.Namespace) -> None: channel_cli_controller().run(args)
-def cmd_channel_delivery(args: argparse.Namespace) -> None: channel_cli_controller().delivery(args)
+    del cfg
+    return "Web Chat and explicit Ciel wake messages only"
 def cmd_ollama_native(args: argparse.Namespace) -> None: provider_option_cli_controller().native(args)
 def provider_option_policy() -> ProviderOptionPolicy: return ProviderOptionPolicy(normalize_claude_code_supported_capabilities, normalize_ip_family, normalize_model_id, normalize_opencode_endpoint_kind, parse_bool, parse_config_value, positive_int, ProviderSamplingPolicy())
 def apply_ollama_option(pcfg: dict[str, Any], token: str) -> None: mutate_ollama_option(pcfg, token, policy=provider_option_policy())
@@ -4060,8 +3607,6 @@ def prelaunch_panel_context() -> PrelaunchPanelContext:
         model_catalog=ModelPanelCatalogPorts(alias_for, cached_or_configured_model_ids, read_model_info_cache, read_model_list_cache, unique_model_ids, upstream_model_ids),
         model_presentation=ModelPanelPresentationPorts(provider_advisor_model_badge, provider_advisor_panel_notice, format_context_tokens,
                                                        format_parameter_count, provider_model_panel_badge, normalize_model_id, positive_int),
-        channel=ChannelPanelContextPorts(_builtin_router_probe_record, channel_specs, channel_delivery_mode, OFFICIAL_CHANNEL_PLUGINS,
-                                         channel_probe_record_bucket, read_channel_probe_cache),
         auth=AuthPanelPorts(kimi_oauth_configured, lambda provider: github_copilot_oauth_runtime().panel_rows(provider)),
     )
 
@@ -4078,11 +3623,6 @@ log_level_panel_rows = _PRELAUNCH_PANEL_API.log_level_panel_rows
 model_panel_services = _PRELAUNCH_PANEL_API.model_panel_services
 model_panel_rows = _PRELAUNCH_PANEL_API.model_panel_rows
 advisor_model_panel_rows = _PRELAUNCH_PANEL_API.advisor_model_panel_rows
-channel_panel_policy = _PRELAUNCH_PANEL_API.channel_panel_policy
-channel_panel_rows = _PRELAUNCH_PANEL_API.channel_panel_rows
-_channel_panel_first_selectable = first_selectable_channel_row
-_channel_panel_step = step_channel_row
-channel_delivery_panel_rows = _PRELAUNCH_PANEL_API.channel_delivery_panel_rows
 api_key_panel_rows = _PRELAUNCH_PANEL_API.api_key_panel_rows
 base_url_panel_rows = _PRELAUNCH_PANEL_API.base_url_panel_rows
 
@@ -4098,9 +3638,6 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                                                           launch_blockers_require_api_key, launch_readiness_errors, launch_kimi),
             panel_rows=prelaunch.PrelaunchPanelRows(advisor_model_panel_rows, api_key_panel_rows, base_url_panel_rows, context_setup_panel_rows, language_panel_rows,
                                                     llm_option_panel_rows, llm_preset_panel_rows, log_level_panel_rows, model_panel_rows, provider_panel_rows),
-            channel_query=prelaunch.PrelaunchChannelQuery(_channel_panel_first_selectable, _channel_panel_step, channel_delivery_panel_rows, channel_panel_rows,
-                                                          channel_panel_rows_for_menu, channel_probe_summary_message, channel_specs, refresh_channel_probe_cache),
-            channel_commands=prelaunch.PrelaunchChannelCommands(add_channel_spec, clear_channel_specs, remove_channel_spec, set_channel_delivery_config),
             mutations=prelaunch.PrelaunchMutations(apply_context_setup_config, apply_llm_preset_config, apply_timeout_profile_to_provider,
                                                     set_advisor_model_config, set_base_url_config, set_llm_option_config, set_log_level_config,
                                                     set_model_config, set_provider_choice_config),
@@ -4199,18 +3736,9 @@ def should_fork_native_session_after_mode_switch( provider: str, pcfg: dict[str,
         repository=launch_state_repository(),
     )
 
-def native_channel_passthrough_requested(passthrough: list[str]) -> bool: return channel_launch_policy().native_passthrough_requested(passthrough)
-def channel_launch_policy() -> ChannelLaunchPolicy: return ChannelLaunchPolicy(native_router_names=frozenset(_NATIVE_ROUTER_CHANNEL_NAMES), ports=ChannelLaunchPorts(has_option=has_passthrough_option, channel_specs=channel_specs_for_launch, delivery_mode=channel_delivery_mode, run_auth_status=subprocess.run))
-def claude_channel_args(cfg: dict[str, Any], passthrough: list[str], extra_specs: list[str] | None = None, *, native_channel_bridge: bool = False) -> list[str]: return channel_launch_policy().claude_args(cfg, passthrough, extra_specs, native_channel_bridge=native_channel_bridge)
-def claude_channels_requested(cfg: dict[str, Any], passthrough: list[str], extra_specs: list[str] | None=None) -> bool: return native_channel_passthrough_requested(passthrough)
-def should_use_native_channel_bridge(use_router_mode: bool, cfg: dict[str, Any], passthrough: list[str]) -> bool: return channel_launch_policy().native_bridge(use_router_mode, cfg, passthrough)
-
 def should_use_channel_llm_delivery(use_router_mode: bool, passthrough: list[str], cfg: dict[str, Any] | None = None) -> bool:
-    del cfg
-    return channel_launch_policy().llm_delivery(use_router_mode, passthrough)
-
-def channel_specs_include_external_server(specs: list[str]) -> bool: return channel_launch_policy().specs_include_external_server(specs)
-def claude_code_channels_auth_available(claude: str) -> tuple[bool, str]: return channel_launch_policy().claude_auth_available(claude)
+    del passthrough, cfg
+    return bool(use_router_mode)
 def write_web_tools_mcp_config(cfg: dict[str, Any]) -> Path: return managed_mcp_config_service().write_web_tools(cfg)
 def write_duckduckgo_mcp_config(cfg: dict[str, Any]) -> Path: return managed_mcp_config_service().write_duckduckgo_compat(cfg)
 def write_zai_mcp_config(provider: str, pcfg: dict[str, Any]) -> Path | None: return managed_mcp_config_service().write_zai(provider, pcfg)
@@ -4231,42 +3759,15 @@ def managed_mcp_config_service() -> ManagedMcpConfigService:
             lambda path, data, operation: json_artifact_repository(path).save(data, operation),
             provider_primary_api_key,
             meaningful_key,
-            _channel_mcp_ensure_cursor_initialized,
             router_log,
         ),
     )
 
-def write_mcp_proxy_config( passthrough: list[str], *, extra_config_paths: list[Path | str] | None = None, force_proxy_server_names: set[str] | None = None, disable_proxy_notification_stream_names: set[str] | None = None, cwd: Path | None = None, home: Path | None = None, ) -> Path | None:
-    return mcp_proxy_config_service().write(
-        passthrough,
-        extra_config_paths=extra_config_paths,
-        force_proxy_server_names=force_proxy_server_names,
-        disable_proxy_notification_stream_names=disable_proxy_notification_stream_names,
-        cwd=cwd,
-        home=home,
-    )
-
-def mcp_proxy_config_service() -> McpProxyConfigService:
-    return McpProxyConfigService(
-        McpProxyConfigPaths(
-            MCP_PROXY_CONFIG,
-            CONFIG_DIR / "mcp-proxy-servers",
-            Path(__file__).resolve(),
-        ),
-        McpProxyConfigPorts(
-            claude_mcp_config_paths,
-            _read_mcp_servers_from_json,
-            _mcp_server_is_streamable_http,
-            _mcp_server_force_proxy,
-            _mcp_server_is_stdio,
-            _safe_mcp_proxy_name,
-            lambda path, data, operation: json_artifact_repository(path).save(data, operation),
-            router_log,
-        ),
-    )
-
-def should_use_channel_stdin_proxy(use_router_mode: bool, passthrough: list[str], cfg: dict[str, Any] | None = None) -> bool: return channel_launch_policy().stdin_proxy(use_router_mode, passthrough, cfg)
-def should_launch_process_start_channel_sse(stdin_channel_proxy: bool, native_channel_bridge: bool, llm_channel_delivery: bool) -> bool: return ChannelLaunchPolicy.process_starts_sse(stdin_channel_proxy, native_channel_bridge, llm_channel_delivery)
+def should_use_channel_stdin_proxy(use_router_mode: bool, passthrough: list[str], cfg: dict[str, Any] | None = None) -> bool:
+    if not use_router_mode or has_noninteractive_claude_args(passthrough):
+        return False
+    claude_config = cfg.get("claude_code") if isinstance(cfg, dict) else {}
+    return not (isinstance(claude_config, dict) and claude_config.get("web_chat_session_bridge") is False)
 def _channel_pending_scan_limit() -> int: return channel_runtime_environment_policy().pending_scan_limit()
 def _channel_stdin_wake_batch_limit() -> int: return channel_runtime_environment_policy().wake_batch_limit()
 _CHANNEL_LLM_TOOL_CONTEXT_LOCK = threading.Lock()
@@ -4309,16 +3810,11 @@ ensure_channel_llm_delivery_cursor_initialized = _CHANNEL_DELIVERY_API.ensure_cu
 prepare_channel_llm_delivery_for_launch = _CHANNEL_DELIVERY_API.prepare_for_launch
 def _cache_channel_llm_cursor(last_id: int) -> None: _set_channel_llm_cursor_cache(last_id)
 
-def _cache_channel_mcp_cursor(last_id: int) -> None:
-    global _CHANNEL_MCP_CURSOR_LAST_ID
-    _CHANNEL_MCP_CURSOR_LAST_ID = last_id
-
 def channel_backlog_service() -> ChannelBacklogService:
     return ChannelBacklogService(
         ChannelBacklogCursors(_chat_scan_max_id, _CHANNEL_LLM_CURSOR_LOCK, _channel_llm_read_cursor_locked, _channel_llm_write_cursor_locked,
-                              _cache_channel_llm_cursor, _channel_llm_clear_floor_write, _CHANNEL_MCP_CURSOR_LOCK,
-                              _channel_mcp_read_cursor_locked, _channel_mcp_write_cursor_locked, _cache_channel_mcp_cursor),
-        ChannelBacklogRuntime(_CHANNEL_STDIN_RECOVERY_CACHE, _CHANNEL_MCP_LOCK, _CHANNEL_MCP_SESSIONS, _CHAT_CONDITION, router_log),
+                              _cache_channel_llm_cursor, _channel_llm_clear_floor_write),
+        ChannelBacklogRuntime(_CHANNEL_STDIN_RECOVERY_CACHE, _CHAT_CONDITION, router_log),
     )
 
 def clear_channel_backlog() -> dict[str, Any]: return channel_backlog_service().clear()
@@ -4541,90 +4037,6 @@ channel_terminal_dispatch_service = _CHANNEL_TERMINAL_API.dispatch_service
 subprocess_call_with_windows_console_wake_proxy = _CHANNEL_TERMINAL_API.run_windows
 subprocess_call_with_channel_wake_proxy = _CHANNEL_TERMINAL_API.dispatch
 subprocess_call_with_child_pid_record = _CHANNEL_TERMINAL_API.call_direct
-_MCP_NOTIFICATION_DEDUP_LOCK = threading.Lock()
-_MCP_NOTIFICATION_DEDUP_RECENT: dict[str, tuple[str, float]] = {}
-_MCP_PROXY_NOTIFICATION_SERVICE = mcp_proxy_notifications.McpProxyNotificationService(
-    projection=mcp_proxy_notifications.McpNotificationProjectionPorts(_json_safe_metadata, _event_meta_from_sources, _event_payload_text,
-                                                                       _pretty_json_value, _notification_semantic_text_from_envelope),
-    effects=mcp_proxy_notifications.McpNotificationEffects(lambda payload: append_chat_message(payload),
-                                                            lambda level, message: router_log(level, message)),
-    dedupe=mcp_proxy_notifications.McpNotificationDedupeState(_MCP_NOTIFICATION_DEDUP_LOCK, _MCP_NOTIFICATION_DEDUP_RECENT,
-                                                              _MCP_NOTIFICATION_DEDUP_TTL_SECONDS, _NATIVE_CHANNEL_NOTIFICATION_METHOD),
-)
-_mcp_proxy_notification_payload = _MCP_PROXY_NOTIFICATION_SERVICE.notification_payload
-_mcp_proxy_stable_event_identity = _MCP_PROXY_NOTIFICATION_SERVICE.stable_event_identity
-_mcp_proxy_notification_dedupe_key = _MCP_PROXY_NOTIFICATION_SERVICE.dedupe_key
-_mcp_proxy_should_skip_duplicate_notification = _MCP_PROXY_NOTIFICATION_SERVICE.should_skip_duplicate
-_mcp_proxy_observe_json_message = _MCP_PROXY_NOTIFICATION_SERVICE.observe_json_message
-
-class _McpStdoutObserver(McpStdoutObserver):
-    def __init__(self, server_name: str) -> None:
-        super().__init__(server_name, _mcp_proxy_observe_json_message)
-
-def _mcp_proxy_forward_stdin(proc: subprocess.Popen[bytes]) -> None: proxy_forward_stdin(proc, log=router_log)
-def _mcp_proxy_forward_stdin_jsonl(proc: subprocess.Popen[bytes]) -> None: proxy_forward_stdin_jsonl(proc, log=router_log)
-
-def _mcp_proxy_forward_stdout_jsonl(server_name: str, proc: subprocess.Popen[bytes]) -> None:
-    proxy_forward_stdout_jsonl(
-        server_name,
-        proc,
-        observe_json_message=_mcp_proxy_observe_json_message,
-        log=router_log,
-    )
-
-def _mcp_proxy_forward_stderr(proc: subprocess.Popen[bytes]) -> None: proxy_forward_stderr(proc, log=router_log)
-def _mcp_proxy_streamable_http_request( endpoint: str, headers: dict[str, str], payload: dict[str, Any], timeout: float, protocol_version: str, session_id: str | None, ) -> tuple[Any, str | None]: return proxy_streamable_http_request(endpoint, headers, payload, timeout, protocol_version, session_id, post_json=_mcp_streamable_post_json)
-
-_MCP_PROXY_CODEC_POLICY = McpProxyCodecPolicy(
-    MCP_PROXY_TOOL_RESULT_MAX_CHARS_DEFAULT, MCP_PROXY_TOOL_RESULT_ITEM_TEXT_CHARS, positive_env_int, router_log, _mcp_tool_leaf_name,
-    truncate_for_prompt,
-)
-
-def _mcp_proxy_compact_tool_result_response(server_name: str, tool_name: str, payload: dict[str, Any]) -> dict[str, Any]: return compact_mcp_tool_result_response(server_name, tool_name, payload, policy=_MCP_PROXY_CODEC_POLICY)
-
-def mcp_http_proxy_services() -> McpHttpProxyServices:
-    return McpHttpProxyServices(
-        codec=McpHttpProxyCodec(_mcp_proxy_compact_tool_result_response, _mcp_proxy_drain_input_messages, _mcp_proxy_error_response,
-                                _mcp_proxy_notification_payload, _mcp_proxy_notification_wait_response, _mcp_proxy_observe_json_message,
-                                _mcp_proxy_tool_call_arguments, _mcp_proxy_tool_call_name, _mcp_proxy_tool_is_notification_wait,
-                                _mcp_proxy_wait_timeout_seconds),
-        transport=McpHttpProxyTransport(_http_error_body_text, _streamable_http_session_not_found, _mcp_stream_read_timeout_error,
-                                        _mcp_streamable_headers, _mcp_proxy_streamable_http_request),
-        runtime=McpHttpProxyRuntime(MCP_STREAMABLE_HTTP_PROTOCOL_VERSION, _mcp_server_disable_proxy_notification_stream,
-                                    _mcp_server_is_streamable_http, _json_safe_metadata, router_log, parse_bool, mcp_server_runtime_headers,
-                                    _mcp_proxy_write_json_response),
-    )
-
-def run_mcp_streamable_http_proxy(server_name: str, server_config_path: Path) -> int: return run_streamable_http_mcp_proxy(server_name, server_config_path, services=mcp_http_proxy_services())
-
-def run_mcp_stdio_proxy(server_name: str, server_config_path: Path) -> int:
-    service = McpStdioProxyService(
-        config=McpStdioConfigPorts(lambda path: json.loads(path.read_text(encoding="utf-8")), _mcp_server_is_stdio, resolve_mcp_server_process,
-                                   os.environ.copy),
-        transport=McpStdioTransportPorts(subprocess.Popen, _mcp_proxy_stdio_mode, _mcp_proxy_forward_stdin, _mcp_proxy_forward_stdin_jsonl,
-                                         _mcp_proxy_forward_stdout_jsonl, _mcp_proxy_forward_stderr, _McpStdoutObserver),
-        effects=McpStdioEffects(
-            router_log, lambda message: print(message, file=sys.stderr, flush=True),
-            lambda target, args, name: threading.Thread(target=target, args=args, daemon=True, name=name).start(),
-            sys.stdout.buffer.write, sys.stdout.buffer.flush,
-        ),
-    )
-    return service.run(server_name, server_config_path)
-
-def cmd_mcp_proxy(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(prog="ciel-runtime mcp-proxy")
-    parser.add_argument("--server-name", required=True)
-    parser.add_argument("--server-config", required=True)
-    args = parser.parse_args(argv)
-    server_config_path = Path(args.server_config).expanduser()
-    try:
-        server = json.loads(server_config_path.read_text(encoding="utf-8"))
-    except Exception:
-        server = None
-    if isinstance(server, dict) and _mcp_server_is_streamable_http(server):
-        return run_mcp_streamable_http_proxy(args.server_name, server_config_path)
-    return run_mcp_stdio_proxy(args.server_name, server_config_path)
-
 def forced_yes_upgrade_env() -> dict[str, str]: return forced_upgrade_environment(os.environ)
 
 def add_npm_prefix_bin_to_path(prefix: Path | None) -> None:
@@ -4718,41 +4130,22 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
         policy=assembly.ClaudeLaunchPolicyPorts(append_claude_code_runtime_settings_args, claude_supports_permission_mode_arg, has_noninteractive_claude_args,
                                                 has_passthrough_option, should_append_compat_prompt, should_attach_web_search,
                                                 should_disallow_claude_server_side_web_tools, should_fork_native_session_after_mode_switch,
-                                                should_insert_passthrough_option_boundary, strip_mcp_config_passthrough),
-        discovery=assembly.ClaudeLaunchDiscoveryPorts(auto_import_passthrough_channels, cached_channel_capable_server_names, cached_channel_source_paths_for_specs,
-                                                      channel_candidate_server_names_for_launch, channel_specs_for_launch, claude_channels_requested,
-                                                      claude_code_channels_auth_available, ensure_channel_probe_cache_for_launch,
-                                                      external_mcp_channel_server_names_from_configs, read_channel_probe_cache),
-        delivery=assembly.ClaudeLaunchDeliveryPorts(auto_start_sse_channels_from_mcp_configs, claude_channel_args, native_channel_passthrough_requested,
-                                                    normalize_channel_passthrough, should_launch_process_start_channel_sse, should_use_channel_llm_delivery,
-                                                    should_use_channel_stdin_proxy, should_use_native_channel_bridge, write_channel_mcp_config),
-        mcp_config=assembly.ClaudeLaunchMcpConfigPorts(write_duckduckgo_mcp_config, write_mcp_proxy_config, write_native_mcp_config_from_discovery, write_zai_mcp_config),
+                                                should_insert_passthrough_option_boundary),
+        delivery=assembly.ClaudeLaunchDeliveryPorts(should_use_channel_llm_delivery, should_use_channel_stdin_proxy, write_channel_mcp_config),
+        mcp_config=assembly.ClaudeLaunchMcpConfigPorts(write_duckduckgo_mcp_config, write_zai_mcp_config),
     ).services()
 
 CODEX_ROUTED_UPSTREAM_BASE = "https://chatgpt.com/backend-api/codex"
-_CODEX_MCP_INTEGRATION = codex_mcp_integration.CodexMcpIntegrationService(
-    config=codex_mcp_integration.CodexMcpConfigPorts(lambda *args, **kwargs: project_discover_codex_mcp_servers(*args, **kwargs),
-                                                     lambda level, message: router_log(level, message)),
-    artifact=codex_mcp_integration.CodexMcpArtifactPorts(lambda: CODEX_MCP_CONFIG,
-                                                         lambda path, payload, label: json_artifact_repository(path).save(payload, label),
-                                                         lambda path: path.unlink(), lambda path: json.loads(path.read_text(encoding="utf-8"))),
-    capability=codex_mcp_integration.CodexMcpCapabilityPorts(
-        codex_mcp_integration.CodexMcpProbeCachePorts(
-            lambda *args, **kwargs: ensure_channel_probe_cache_for_launch(*args, **kwargs),
-            lambda *args, **kwargs: refresh_channel_probe_cache(*args, **kwargs)),
-        lambda path, cwd: _read_mcp_sse_servers_from_json(path, cwd), lambda: cached_channel_probe_servers(),
-        lambda path: _path_for_compare(path), Path.cwd),
-    projection=codex_mcp_integration.CodexMcpProjectionPorts(_dedupe_strings, lambda name: _channel_sse_public_mcp_name(name),
-                                                             lambda server: _mcp_server_is_streamable_http(server),
-                                                             lambda name: codex_mcp_split_proxy_url(name), toml_string),
-    policy=codex_mcp_integration.CodexMcpPolicy(frozenset(_NATIVE_ROUTER_CHANNEL_NAMES), lambda: f"{ROUTER_BASE}/ca/mcp"),
-)
-discovered_codex_mcp_servers = _CODEX_MCP_INTEGRATION.discovered_servers
-write_codex_mcp_config_for_channel_discovery = _CODEX_MCP_INTEGRATION.write_discovery_config
-_codex_config_bare_key = _CODEX_MCP_INTEGRATION.config_bare_key
-codex_channel_capable_mcp_server_names = _CODEX_MCP_INTEGRATION.channel_capable_server_names
-codex_streamable_http_mcp_servers = _CODEX_MCP_INTEGRATION.streamable_http_servers
-codex_mcp_native_http_compat_args = _CODEX_MCP_INTEGRATION.native_http_compat_args
+def codex_builtin_mcp_args(
+    config_path: Path | None = None,
+    *,
+    include_builtin_channel: bool = False,
+    **_: Any,
+) -> list[str]:
+    del config_path
+    if not include_builtin_channel:
+        return []
+    return ["-c", f"mcp_servers.ciel-runtime-router.url={toml_string(f'{ROUTER_BASE}/ca/mcp')}"]
 _CODEX_LAUNCH_CONFIGURATION = codex_launch_configuration.CodexLaunchConfigurationService(
     constants=codex_launch_configuration.build_default_codex_launch_constants(),
     policy=codex_launch_configuration.build_default_codex_launch_policy(has_passthrough_option),
@@ -4811,9 +4204,7 @@ def codex_launch_assembly() -> CodexLaunchAssembly:
                                                 run_ciel_runtime_update_check, run_codex_update_check, run_prelaunch_menu, log_codex_passthrough_mapping),
         routing=CodexLaunchSharedRoutingPorts(cleanup_managed_services_for_provider, codex_routed_enabled, direct_native_codex_enabled, launch_readiness_errors,
                                               native_codex_enabled, codex_launch_enabled_for_provider, run_with_router_lifetime, start_router_if_needed),
-        channel=CodexLaunchSharedChannelPorts(auto_import_passthrough_channels, channel_delivery_mode, codex_channel_capable_mcp_server_names,
-                                              codex_mcp_native_http_compat_args, codex_mcp_split_proxy_enabled, restore_codex_mcp_config_from_managed,
-                                              start_codex_mcp_channel_sse_for_launch, write_codex_mcp_config_for_channel_discovery, select_codex_resume_session),
+        channel=CodexLaunchSharedChannelPorts(channel_delivery_mode, codex_builtin_mcp_args, select_codex_resume_session),
         cli=CodexCliLaunchPorts(
             process=runtime_launch.CodexLaunchProcess(_channel_wake_enter_env_is_fixed, _codex_channel_wake_submit_delay_seconds, _codex_channel_wake_submit_retries,
                                                       _log_codex_command_for_diagnostics, _set_channel_transcript_scope, codex_process_record_path,
@@ -4860,9 +4251,8 @@ def agy_launch_services() -> runtime_launch.AgyLaunchServices:
         runtime_launch.AgyLaunchProcess(_codex_channel_wake_submit_delay_seconds, _codex_channel_wake_submit_retries, _log_agy_command_for_diagnostics,
                                         path_with_ciel_runtime_user_dirs, subprocess_call_with_channel_wake_proxy),
         runtime_launch.AgyLaunchCliPolicy(agy_dangerous_launch_args, agy_help_requested, agy_passthrough_args_for_launch, agy_passthrough_has_command),
-        runtime_launch.AgyLaunchChannel(auto_import_passthrough_channels, channel_delivery_mode),
-        runtime_launch.AgyLaunchConfig(current_launch_cwd_key, get_current_provider, load_config, provider_mode_label, record_launch_state_for_cwd,
-                                       restore_agy_mcp_config_from_managed),
+        runtime_launch.AgyLaunchChannel(channel_delivery_mode),
+        runtime_launch.AgyLaunchConfig(current_launch_cwd_key, get_current_provider, load_config, provider_mode_label, record_launch_state_for_cwd),
         runtime_launch.AgyLaunchInstallation(find_executable, install_agy_if_missing, warn_if_multiple_ciel_runtime_installs),
         runtime_launch.AgyLaunchDispatch(launch_claude, launch_codex, launch_codex_app_server, log_agy_passthrough_mapping, materialize_runtime_command,
                                         run_agy_update_check, run_ciel_runtime_update_check, run_prelaunch_menu),
@@ -4926,7 +4316,6 @@ def apply_headless_env_config() -> tuple[bool, bool | None, bool | None, bool | 
                 set_provider_options=lambda values: cmd_provider_options(argparse.Namespace(values=values)),
                 set_ollama_options=lambda values: cmd_ollama_options(argparse.Namespace(values=values)),
             ),
-            channels=HeadlessChannelCommands(add_channel=add_channel_spec, set_delivery=set_channel_delivery_config),
         )
     )
     return result.as_tuple()
@@ -4939,8 +4328,6 @@ def cli_services() -> cli_dispatch.CliServices:
                                         launch_codex, launch_codex_app_server, native_agy_enabled, native_codex_enabled),
         provider_commands=cli_dispatch.CliProviderCommands(cmd_advisor_model, cmd_api_key, cmd_base_url, cmd_language, cmd_log_level, cmd_model,
                                                            cmd_models, cmd_provider, cmd_provider_options, cmd_set_api_key),
-        channel_commands=cli_dispatch.CliChannelCommands(add_channel_spec, channel_delivery_mode, clear_channel_specs, cmd_channels, cmd_mcp_proxy,
-                                                         set_channel_delivery_config, set_channel_development_enabled),
         special_commands=cli_dispatch.CliSpecialCommands(cmd_ollama_catalog, cmd_ollama_native, cmd_ollama_options, cmd_web_fetch, cmd_web_search),
         operations=cli_dispatch.CliOperations(cmd_status, cmd_stop, cmd_test),
         configuration=cli_dispatch.CliConfiguration(apply_auto_llm_options_config, apply_headless_env_config, set_advisor_model_config,
@@ -4951,7 +4338,7 @@ def cli_parser_services() -> cli_parser.CliParserServices:
     return cli_assembly.CliParserAssembly(
             launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve),
             runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test),
-            settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, cmd_channels, cmd_channel_delivery),
+            settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level),
             provider=cli_parser.CliParserProvider(cmd_ollama_native, cmd_ollama_options, cmd_provider_options, cmd_ollama_catalog, cmd_provider,
                                                   cmd_api_key, cmd_set_api_key, cmd_set_api_keys, cmd_base_url, cmd_copilot_oauth),
             models=cli_parser.CliParserModels(cmd_model, cmd_advisor_model, cmd_models),
@@ -4959,7 +4346,7 @@ def cli_parser_services() -> cli_parser.CliParserServices:
 
 def cli_application_context() -> CliApplicationContext:
     return CliApplicationContext(
-        dispatch=CliApplicationDispatchPorts(dispatch_cli, cli_services, cmd_mcp_proxy, launch_claude, launch_codex, launch_codex_app_server,
+        dispatch=CliApplicationDispatchPorts(dispatch_cli, cli_services, launch_claude, launch_codex, launch_codex_app_server,
                                              launch_agy, launch_kimi, run_kimi_oauth_login),
         presentation=CliApplicationPresentationPorts(build_cli_parser, cli_parser_services, VERSION, print, lambda: sys.argv),
     )

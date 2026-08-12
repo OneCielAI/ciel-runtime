@@ -751,6 +751,7 @@ class ThinkingPassthroughTests(unittest.TestCase):
         self.assertIsInstance(emitted_input["questions"], list)
         self.assertEqual("작업 범위/순서", emitted_input["questions"][0]["header"])
 
+    @unittest.skip("retired external MCP notification-wait rewriting")
     def test_rebatch_caps_wait_tool_timeout_in_anthropic_passthrough_stream(self):
         self.addCleanup(ciel_runtime._MCP_NOTIFICATION_WAIT_RECENT.clear)
 

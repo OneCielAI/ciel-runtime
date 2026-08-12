@@ -69,26 +69,6 @@ def build_default_prelaunch_constants() -> PrelaunchConstants:
 
 
 @dataclass(frozen=True, slots=True)
-class PrelaunchChannelQuery:
-    _channel_panel_first_selectable: Callable[..., Any]
-    _channel_panel_step: Callable[..., Any]
-    channel_delivery_panel_rows: Callable[..., Any]
-    channel_panel_rows: Callable[..., Any]
-    channel_panel_rows_for_menu: Callable[..., Any]
-    channel_probe_summary_message: Callable[..., Any]
-    channel_specs: Callable[..., Any]
-    refresh_channel_probe_cache: Callable[..., Any]
-
-
-@dataclass(frozen=True, slots=True)
-class PrelaunchChannelCommands:
-    add_channel_spec: Callable[..., Any]
-    clear_channel_specs: Callable[..., Any]
-    remove_channel_spec: Callable[..., Any]
-    set_channel_delivery_config: Callable[..., Any]
-
-
-@dataclass(frozen=True, slots=True)
 class PrelaunchLaunchPolicy:
     agy_launch_enabled_for_provider: Callable[..., Any]
     claude_launch_enabled_for_provider: Callable[..., Any]
@@ -181,8 +161,6 @@ class PrelaunchServices:
     config: PrelaunchConfig
     launch_policy: PrelaunchLaunchPolicy
     panel_rows: PrelaunchPanelRows
-    channel_query: PrelaunchChannelQuery
-    channel_commands: PrelaunchChannelCommands
     mutations: PrelaunchMutations
     secrets: PrelaunchSecrets
     options: PrelaunchOptions
@@ -201,9 +179,6 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     PRELAUNCH_LAUNCH_CODEX = services.constants.PRELAUNCH_LAUNCH_CODEX
     PRELAUNCH_LAUNCH_CODEX_APP_SERVER = services.constants.PRELAUNCH_LAUNCH_CODEX_APP_SERVER
     PROVIDER_LABELS = services.constants.PROVIDER_LABELS
-    _channel_panel_first_selectable = services.channel_query._channel_panel_first_selectable
-    _channel_panel_step = services.channel_query._channel_panel_step
-    add_channel_spec = services.channel_commands.add_channel_spec
     advisor_model_panel_rows = services.panel_rows.advisor_model_panel_rows
     agy_launch_enabled_for_provider = services.launch_policy.agy_launch_enabled_for_provider
     api_key_panel_rows = services.panel_rows.api_key_panel_rows
@@ -211,14 +186,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     apply_llm_preset_config = services.mutations.apply_llm_preset_config
     apply_timeout_profile_to_provider = services.mutations.apply_timeout_profile_to_provider
     base_url_panel_rows = services.panel_rows.base_url_panel_rows
-    channel_delivery_panel_rows = services.channel_query.channel_delivery_panel_rows
-    channel_panel_rows = services.channel_query.channel_panel_rows
-    channel_panel_rows_for_menu = services.channel_query.channel_panel_rows_for_menu
-    channel_probe_summary_message = services.channel_query.channel_probe_summary_message
-    channel_specs = services.channel_query.channel_specs
     claude_launch_enabled_for_provider = services.launch_policy.claude_launch_enabled_for_provider
     clear_api_key_config = services.secrets.clear_api_key_config
-    clear_channel_specs = services.channel_commands.clear_channel_specs
     clear_model_cache = services.config.clear_model_cache
     codex_launch_enabled_for_provider = services.launch_policy.codex_launch_enabled_for_provider
     context_setup_panel_rows = services.panel_rows.context_setup_panel_rows
@@ -250,15 +219,12 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     read_clipboard_text = services.terminal.read_clipboard_text
     read_menu_key = services.terminal.read_menu_key
     read_model_list_cache = services.config.read_model_list_cache
-    refresh_channel_probe_cache = services.channel_query.refresh_channel_probe_cache
-    remove_channel_spec = services.channel_commands.remove_channel_spec
     render_prelaunch_screen = services.terminal.render_prelaunch_screen
     save_config = services.config.save_config
     secret_fingerprint = services.secrets.secret_fingerprint
     self_cmd = services.terminal.self_cmd
     set_advisor_model_config = services.mutations.set_advisor_model_config
     set_base_url_config = services.mutations.set_base_url_config
-    set_channel_delivery_config = services.channel_commands.set_channel_delivery_config
     set_llm_option_config = services.mutations.set_llm_option_config
     set_log_level_config = services.mutations.set_log_level_config
     set_model_config = services.mutations.set_model_config
@@ -325,16 +291,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             panel_rows, panel_values = ["Run compatibility test", "Back"], ["run", "back"]
         elif name == "options":
             panel_rows, panel_values = llm_option_panel_rows(provider, pcfg, cfg.get("language", "en"))
-        elif name == "channel-delivery":
-            panel_rows, panel_values = channel_delivery_panel_rows(cfg)
         elif name == "log-level":
             panel_rows, panel_values = log_level_panel_rows(cfg)
-        elif name == "channels":
-            panel_rows, panel_values, probe_messages = channel_panel_rows_for_menu(cfg, passthrough)
-            if probe_messages:
-                messages = probe_messages
-            if panel_values:
-                panel_idx = _channel_panel_first_selectable(panel_values)
         elif name == "context":
             panel_rows, panel_values = context_setup_panel_rows(provider, pcfg, cfg.get("language", "en"))
         elif name == "preset":
@@ -409,17 +367,11 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             if panel:
                 panel_name = panel
                 if key in ("up", "k"):
-                    if panel == "channels":
-                        panel_idx = _channel_panel_step(panel_values, panel_idx, -1)
-                    else:
-                        panel_idx = (panel_idx - 1) % max(1, len(panel_rows))
+                    panel_idx = (panel_idx - 1) % max(1, len(panel_rows))
                     panel_last_idx[panel_name] = panel_idx
                     continue
                 if key in ("down", "j"):
-                    if panel == "channels":
-                        panel_idx = _channel_panel_step(panel_values, panel_idx, 1)
-                    else:
-                        panel_idx = (panel_idx + 1) % max(1, len(panel_rows))
+                    panel_idx = (panel_idx + 1) % max(1, len(panel_rows))
                     panel_last_idx[panel_name] = panel_idx
                     continue
                 if key in ("pageup", "pagedown", "home", "end"):
@@ -686,62 +638,6 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     else:
                         continue
                     return PRELAUNCH_RELOAD
-                elif panel == "channel-delivery":
-                    if value == "back":
-                        close_panel()
-                    elif value:
-                        messages = set_channel_delivery_config(value)
-                        refresh_checks()
-                        cfg = load_config()
-                        panel_rows, panel_values = channel_delivery_panel_rows(cfg)
-                        panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
-                elif panel == "channels":
-                    if value == "back":
-                        close_panel()
-                    elif value in ("__heading__", "__noop__"):
-                        continue
-                    elif value == "__reprobe__":
-                        panel_rows, panel_values = ["Re-probing MCP channel capability..."], []
-                        first_render = render_prelaunch_screen(main_idx, panel, 0, panel_rows, checks, messages, first_render)
-                        try:
-                            result = refresh_channel_probe_cache(passthrough)
-                            messages = [channel_probe_summary_message("Probe complete", result)]
-                        except Exception as exc:
-                            messages = [f"Re-probe failed: {type(exc).__name__}: {exc}"]
-                        cfg = load_config()
-                        panel_rows, panel_values = channel_panel_rows(cfg)
-                        if panel_values:
-                            panel_idx = _channel_panel_first_selectable(panel_values)
-                    elif value == "__add_custom__":
-                        spec = prompt_menu_value("Channel spec (for example plugin:ainet@local or server:ainet)", restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        if spec:
-                            messages = add_channel_spec(spec)
-                            cfg = load_config()
-                            panel_rows, panel_values = channel_panel_rows(cfg)
-                            if panel_values:
-                                panel_idx = _channel_panel_first_selectable(panel_values)
-                    elif value == "__remove__":
-                        spec = prompt_menu_value("Channel spec to remove", "", restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                        if spec:
-                            messages = remove_channel_spec(spec)
-                            cfg = load_config()
-                            panel_rows, panel_values = channel_panel_rows(cfg)
-                            if panel_values:
-                                panel_idx = _channel_panel_first_selectable(panel_values)
-                    elif value == "__clear__":
-                        messages = clear_channel_specs()
-                        cfg = load_config()
-                        panel_rows, panel_values = channel_panel_rows(cfg)
-                        if panel_values:
-                            panel_idx = _channel_panel_first_selectable(panel_values)
-                    elif value:
-                        if value in channel_specs(cfg):
-                            messages = remove_channel_spec(value)
-                        else:
-                            messages = add_channel_spec(value)
-                        cfg = load_config()
-                        panel_rows, panel_values = channel_panel_rows(cfg)
-                    refresh_checks()
                 elif panel == "options":
                     if value == "back":
                         close_panel()

@@ -31,21 +31,18 @@ Every production Python file must remain below 5,000 physical lines. The final
 facade budget is 4,999 lines. During migration, `MAIN_FILE_LINE_BUDGET` is a
 monotonically decreasing ratchet and may never be raised.
 
-## Current channel boundaries
+## Current message and MCP boundaries
 
-- `channel_mcp_transport.py` owns MCP transport configuration and state.
-- `channel_notification_projection.py` maps chat records to MCP notifications.
+External MCP transport and lifecycle ownership belongs to the active CLI. Ciel
+owns only Web Chat/explicit wake delivery and its stateless internal `/ca/mcp`
+tool endpoint. See `docs/MCP-Channels.md`.
+
 - `channel_compact_request_repository.py` owns the durable compact-request slot,
   expiration, and atomic persistence boundary.
-- `channel_cursor_repository.py` owns cursor file I/O, while
-  `channel_cursor_service.py` owns cursor advancement and client-resume policy.
+- `channel_cursor_repository.py` owns the internal LLM delivery cursor.
 
 The facade only composes these objects and retains narrow compatibility
 functions for callers that still import historical private names.
-
-Codex configuration parsing and MCP server discovery live in
-`codex_config.py`; runtime launch orchestration consumes their projections and
-does not parse TOML itself.
 
 Codex launch argument decisions live in `codex_launch_policy.py`, the local
 resume index is isolated behind `codex_session_repository.py`, and bundled
@@ -86,31 +83,6 @@ Advisor network execution and refinement provider calls live in
 `advisor_client.py`. `AdvisorClient` owns review I/O while
 `ProviderChatExecutor` selects the Ollama or OpenAI-compatible transport
 strategy through typed policy and I/O ports.
-
-MCP channel capability probing, durable cache persistence, record
-classification, capable-server projection, and source-path lookup live behind
-`ChannelProbeCacheRepository` and `ChannelProbeService` in
-`channel_probe_cache.py`.
-
-The same service owns launch candidate projection, cache-refresh decisions,
-and refresh failure isolation so launch orchestration does not depend on the
-probe cache schema.
-
-HTTP MCP configuration projection, environment-backed authentication headers,
-external server discovery, allow-list filtering, and automatic connection
-startup live in `channel_mcp_discovery.py`.
-
-Notification-stream ownership is read by `ChannelProxyOwnershipRepository`,
-while `ChannelRouterLifecycle` filters proxy-owned servers and starts only the
-router-owned workers. Both live in `channel_mcp_ownership.py`.
-
-Persisted channel lists, passthrough imports, delivery-mode normalization, and
-add/remove/clear mutations live in `channel_config_service.py`; CLI handlers
-only translate command arguments and render returned messages.
-
-Channel CLI parsing and presentation live in `channel_cli.py`. Its controller
-uses separate view and command ports and never reads or writes configuration
-files directly.
 
 Provider and LLM option status projection lives in
 `provider_option_status.py`. It consumes adapter-declared context and
@@ -202,11 +174,6 @@ The events dashboard, filtered recent-event response, and SSE long-poll stream
 are projected by `EventHttpAdapter`; the facade supplies EventBus and response
 writer ports without owning HTTP streaming loops.
 
-Codex split-MCP HTTP forwarding is isolated in `McpSplitProxyHttpAdapter`.
-Server resolution and router response effects are bounded ports, while the
-adapter owns upstream HTTP, body/SSE streaming, error projection, and duplicate
-native channel-notification suppression as one cohesive transport boundary.
-
 The LLM configuration endpoint uses `LlmConfigHttpController` for presentation
 projection and action dispatch. Identity, panel catalogs, mutation strategies,
 and HTTP effects are separate bounded ports, keeping provider behavior in its
@@ -227,10 +194,9 @@ AGY's official manifest installation and update lifecycle lives in
 post-install, and native-update fallback form one installation boundary; the
 facade injects executable/version/command effects through a bounded port.
 
-Channel backlog inspection and clearing use `ChannelBacklogService`. Cursor
-stores/caches and live session/notification state are separate typed ports, so
-the facade only supplies controlled global-state setters and no longer owns the
-multi-lock clear transaction.
+Channel backlog inspection and clearing use `ChannelBacklogService`. The
+internal LLM cursor and recovery cache are explicit ports; external MCP session
+or notification state is not part of this service.
 
 Upstream tool visibility is projected by `ToolExposurePolicy`. Provider-owned
 blocked-tool declarations and request workflow state are explicit inputs, and
@@ -252,15 +218,9 @@ Local Claude Code tool synthesis is split into `SyntheticTasklistPolicy` and
 request handling remain separate, while both preserve the public facade entry
 points used by router pipelines.
 
-Managed Web, Z.AI, and channel MCP configuration is generated by
-`ManagedMcpConfigService`. Executable selection, credential projection, JSON
-persistence, and channel cursor initialization are explicit ports rather than
-facade-owned filesystem and environment logic.
-
-MCP proxy configuration is materialized by `McpProxyConfigService`. It owns
-server precedence, stdio/forced-HTTP proxy selection, per-server artifacts,
-notification-stream overrides, and proxy command projection behind bounded
-reader/classification/persistence ports.
+Generated Web, Z.AI, and the internal Ciel tool MCP configuration is projected
+by `ManagedMcpConfigService`. External server discovery, transport proxying,
+session ownership, and notification injection are intentionally absent.
 
 Chat attachment decoding, size validation, safe naming, storage, URL metadata,
 and Markdown projection live in `ChatFileRepository`; only clocks are injected

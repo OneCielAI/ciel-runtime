@@ -50,17 +50,6 @@ class CliProviderCommands:
 
 
 @dataclass(frozen=True)
-class CliChannelCommands:
-    add_channel_spec: Any
-    channel_delivery_mode: Any
-    clear_channel_specs: Any
-    cmd_channels: Any
-    cmd_mcp_proxy: Any
-    set_channel_delivery_config: Any
-    set_channel_development_enabled: Any
-
-
-@dataclass(frozen=True)
 class CliSpecialCommands:
     cmd_ollama_catalog: Any
     cmd_ollama_native: Any
@@ -90,7 +79,6 @@ class CliServices:
     core: CliCore
     runtime: CliRuntime
     provider_commands: CliProviderCommands
-    channel_commands: CliChannelCommands
     special_commands: CliSpecialCommands
     operations: CliOperations
     configuration: CliConfiguration
@@ -98,20 +86,15 @@ class CliServices:
 
 def dispatch_cli(argv: list[str], services: CliServices) -> int:
     VERSION = services.core.VERSION
-    add_channel_spec = services.channel_commands.add_channel_spec
     agy_passthrough_has_command = services.runtime.agy_passthrough_has_command
     apply_auto_llm_options_config = services.configuration.apply_auto_llm_options_config
     apply_headless_env_config = services.configuration.apply_headless_env_config
-    channel_delivery_mode = services.channel_commands.channel_delivery_mode
-    clear_channel_specs = services.channel_commands.clear_channel_specs
     cli_usage = services.core.cli_usage
     cmd_advisor_model = services.provider_commands.cmd_advisor_model
     cmd_api_key = services.provider_commands.cmd_api_key
     cmd_base_url = services.provider_commands.cmd_base_url
-    cmd_channels = services.channel_commands.cmd_channels
     cmd_language = services.provider_commands.cmd_language
     cmd_log_level = services.provider_commands.cmd_log_level
-    cmd_mcp_proxy = services.channel_commands.cmd_mcp_proxy
     cmd_model = services.provider_commands.cmd_model
     cmd_models = services.provider_commands.cmd_models
     cmd_ollama_catalog = services.special_commands.cmd_ollama_catalog
@@ -142,11 +125,7 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
     run_external_menu = services.core.run_external_menu
     run_quiet_upgrade_and_exit = services.core.run_quiet_upgrade_and_exit
     set_advisor_model_config = services.configuration.set_advisor_model_config
-    set_channel_delivery_config = services.channel_commands.set_channel_delivery_config
-    set_channel_development_enabled = services.channel_commands.set_channel_development_enabled
     set_log_level_config = services.configuration.set_log_level_config
-    if argv and argv[0] == "mcp-proxy":
-        return cmd_mcp_proxy(argv[1:])
     if argv and argv[0] in ("help", "--help", "-h"):
         print(cli_usage())
         return 0
@@ -213,16 +192,6 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
             return 0
         if head in ("log-level", "loglevel", "logging"):
             cmd_log_level(argparse.Namespace(value=rest[0] if rest else None))
-            return 0
-        if head in ("channels", "channel"):
-            cmd_channels(argparse.Namespace(values=rest))
-            return 0
-        if head in ("channel-delivery", "channel_delivery"):
-            if rest:
-                for line in set_channel_delivery_config(rest[0]):
-                    print(line)
-            else:
-                print(f"channel_delivery: {channel_delivery_mode()}")
             return 0
         if head in ("ollama-native", "ollama-compat"):
             cmd_ollama_native(argparse.Namespace(value=rest[0] if rest else None))
@@ -665,59 +634,6 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
             i += 1
         elif arg == "--ca-no-web-fetch":
             cmd_web_fetch(argparse.Namespace(value="off"))
-            skip_menu = True
-            i += 1
-        elif arg == "--ca-channel" or arg.startswith("--ca-channel="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing channel spec for --ca-channel")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            for line in add_channel_spec(value):
-                print(line)
-            skip_menu = True
-        elif arg == "--ca-channel-delivery" or arg.startswith("--ca-channel-delivery="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing mode for --ca-channel-delivery")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            for line in set_channel_delivery_config(value):
-                print(line)
-            skip_menu = True
-        elif arg == "--ca-dev-channel" or arg.startswith("--ca-dev-channel="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing channel spec for --ca-dev-channel")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            for line in add_channel_spec(value):
-                print(line)
-            skip_menu = True
-        elif arg == "--ca-development-channels" or arg.startswith("--ca-development-channels="):
-            value = arg.split("=", 1)[1] if "=" in arg else None
-            if value is None:
-                if i + 1 >= len(argv):
-                    raise SystemExit("Missing on/off for --ca-development-channels")
-                value = argv[i + 1]
-                i += 2
-            else:
-                i += 1
-            for line in set_channel_development_enabled(True):
-                print(line)
-            skip_menu = True
-        elif arg == "--ca-clear-channels":
-            for line in clear_channel_specs():
-                print(line)
             skip_menu = True
             i += 1
         elif arg == "--ca-no-update-check":

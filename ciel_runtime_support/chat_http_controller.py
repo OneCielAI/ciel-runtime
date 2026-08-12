@@ -17,7 +17,6 @@ class ChatHttpReadServices:
     read_after: Callable[[int, str | None, str | None, int], list[dict[str, Any]]]
     read_before: Callable[[int, str | None, str | None, int], list[dict[str, Any]]]
     condition: Condition
-    connection_statuses: Callable[[], dict[str, Any]]
     safe_segment: Callable[[str, str], str]
     files_dir: Path
 
@@ -27,8 +26,6 @@ class ChatHttpWriteServices:
     write_json: Callable[..., None]
     append_message: Callable[[dict[str, Any]], dict[str, Any]]
     store_upload: Callable[[dict[str, Any]], dict[str, Any]]
-    start_connection: Callable[[dict[str, Any]], dict[str, Any]]
-    stop_connection: Callable[[str | None], dict[str, Any]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,15 +62,9 @@ class ChatHttpController:
                     "wait": "/ca/channel/wait" if channel_alias else "/ca/chat/wait",
                     "stream": "/ca/channel/stream" if channel_alias else "/ca/chat/stream",
                     "notify": "/ca/channel/notify",
-                    "sse_status": "/ca/channel/sse/status",
-                    "sse_connect": "POST /ca/channel/sse/connect",
-                    "sse_disconnect": "POST /ca/channel/sse/disconnect",
-                    "native_note": "This is the Ciel Runtime bridge API, not Claude Code's gated native --channels path.",
+                    "ownership_note": "External MCP servers are configured and owned by the active CLI.",
                 },
             )
-            return True
-        if path == "/ca/chat/sse/status":
-            self.writes.write_json(handler, {"ok": True, "connections": self.reads.connection_statuses()})
             return True
         if path in ("/ca/chat/messages", "/ca/chat/wait"):
             return self._messages(handler, path)
@@ -167,18 +158,6 @@ class ChatHttpController:
 
     def post(self, handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool:
         path, _channel_alias = self._chat_path(path)
-        if path == "/ca/chat/sse/connect":
-            try:
-                status = self.writes.start_connection(body)
-                self.writes.write_json(handler, {"ok": True, "connection": status})
-            except Exception as error:
-                self.writes.write_json(handler, {"ok": False, "error": str(error)}, 400)
-            return True
-        if path == "/ca/chat/sse/disconnect":
-            name = body.get("name")
-            result = self.writes.stop_connection(str(name) if name else None)
-            self.writes.write_json(handler, {"ok": True, **result})
-            return True
         if path == "/ca/chat/notify":
             return self._notify(handler, body)
         if path == "/ca/chat/messages":

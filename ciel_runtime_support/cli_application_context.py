@@ -11,7 +11,6 @@ from typing import Any, Callable, Sequence
 class CliApplicationDispatchPorts:
     dispatch: Callable[..., int]
     services: Callable[[], Any]
-    mcp_proxy: Callable[[list[str]], int]
     launch_claude: Callable[[list[str]], int]
     launch_codex: Callable[[list[str]], int]
     launch_codex_app_server: Callable[[list[str]], int]
@@ -62,8 +61,6 @@ class CliApplicationContext:
 
     def main(self) -> None:
         arguments = list(self.presentation.arguments())
-        if len(arguments) >= 2 and arguments[1] == "mcp-proxy":
-            raise SystemExit(self.dispatch.mcp_proxy(arguments[2:]))
         if len(arguments) >= 2 and arguments[1] == "cli":
             raise SystemExit(self.run_cli(arguments[2:]))
         routes = {

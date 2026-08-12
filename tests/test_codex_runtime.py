@@ -143,15 +143,18 @@ class CodexRuntimeTests(unittest.TestCase):
 
     def setUp(self):
         super().setUp()
+        retired_external_mcp_markers = (
+            "_mcp_",
+            "channel_capable",
+            "channel_sse",
+            "channel_owned_mcp",
+            "keeps_native_mcp",
+        )
+        if any(marker in self._testMethodName for marker in retired_external_mcp_markers):
+            self.skipTest("retired Ciel-owned external MCP integration")
         patcher = mock.patch.object(ciel_runtime, "terminate_existing_codex_processes_for_launch", return_value=False)
         self.addCleanup(patcher.stop)
         self.terminate_existing_codex_processes_for_launch = patcher.start()
-        restore_patcher = mock.patch.object(
-            ciel_runtime, "restore_codex_mcp_config_from_managed", return_value=[]
-        )
-        self.restore_patcher = restore_patcher
-        self.addCleanup(restore_patcher.stop)
-        self.restore_codex_mcp_config_from_managed = restore_patcher.start()
 
     def test_provider_menu_exposes_native_and_routed_codex_choices(self):
         cfg = {
@@ -530,14 +533,11 @@ class CodexRuntimeTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
             mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
-            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
             mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0) as prelaunch,
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
-            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
-            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
             mock.patch.object(ciel_runtime, "find_executable", return_value="codex"),
@@ -576,14 +576,11 @@ class CodexRuntimeTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
             mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
-            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
             mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("ollama", pcfg)),
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
-            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
-            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
             mock.patch.object(ciel_runtime, "ensure_model_cache_for_launch"),
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex") as install_codex,
@@ -642,7 +639,6 @@ class CodexRuntimeTests(unittest.TestCase):
         with contextlib.ExitStack() as stack:
             stack.enter_context(mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"))
             stack.enter_context(mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"))
-            stack.enter_context(mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"))
             stack.enter_context(mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0))
             stack.enter_context(mock.patch.object(ciel_runtime, "load_config", return_value=cfg))
             stack.enter_context(mock.patch.object(ciel_runtime, "get_current_provider", return_value=("ollama", pcfg)))
@@ -705,15 +701,12 @@ class CodexRuntimeTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
             mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
-            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
             mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
-            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
             mock.patch.object(ciel_runtime, "terminate_existing_router_clients_for_launch") as terminate_clients,
-            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "start_router_if_needed") as start_router,
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
@@ -761,15 +754,12 @@ class CodexRuntimeTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
             mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
-            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
             mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
-            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
             mock.patch.object(ciel_runtime, "terminate_existing_router_clients_for_launch") as terminate_clients,
-            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
@@ -816,14 +806,11 @@ class CodexRuntimeTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
             mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
-            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
             mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
-            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
-            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
@@ -856,14 +843,11 @@ class CodexRuntimeTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
             mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
-            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
             mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
-            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
-            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
@@ -897,7 +881,6 @@ class CodexRuntimeTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
             mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
-            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
             mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
@@ -948,7 +931,6 @@ class CodexRuntimeTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
             mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
-            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
             mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
@@ -1000,7 +982,6 @@ class CodexRuntimeTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
             mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
-            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
             mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
@@ -1050,7 +1031,6 @@ class CodexRuntimeTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
             mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
-            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
             mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("zai", pcfg)),
@@ -1098,7 +1078,6 @@ class CodexRuntimeTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
             mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
-            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
             mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
@@ -1140,14 +1119,11 @@ class CodexRuntimeTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
             mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
-            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
             mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
-            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
-            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True),
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),
@@ -1300,14 +1276,11 @@ class CodexRuntimeTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "warn_if_multiple_ciel_runtime_installs"),
             mock.patch.object(ciel_runtime, "run_ciel_runtime_update_check"),
-            mock.patch.object(ciel_runtime, "auto_import_passthrough_channels"),
             mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0),
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "get_current_provider", return_value=("codex", pcfg)),
             mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]),
             mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"),
-            mock.patch.object(ciel_runtime, "write_codex_mcp_config_for_channel_discovery", return_value=None),
-            mock.patch.object(ciel_runtime, "start_codex_mcp_channel_sse_for_launch", return_value=[]),
             mock.patch.object(ciel_runtime, "start_router_if_needed") as start_router,
             mock.patch.object(ciel_runtime, "install_codex_if_missing", return_value="codex"),
             mock.patch.object(ciel_runtime, "run_codex_update_check", return_value="codex"),

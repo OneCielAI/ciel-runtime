@@ -20,6 +20,16 @@ import ciel_runtime
 
 class ChannelBridgeTests(unittest.TestCase):
     def setUp(self):
+        retired_external_mcp_markers = (
+            "_sse_",
+            "mcp_",
+            "streamable_http",
+            "auto_start_sse",
+            "channel_llm_skip_reason",
+            "channel_skip_reason",
+        )
+        if any(marker in self._testMethodName for marker in retired_external_mcp_markers):
+            self.skipTest("retired Ciel-owned external MCP transport")
         ciel_runtime._CHANNEL_STDIN_WAKE_DELIVERED.clear()
         ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS.clear()
         ciel_runtime._CHANNEL_TRANSCRIPT_CACHE.clear()

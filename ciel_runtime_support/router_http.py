@@ -86,7 +86,6 @@ class RouterHttpCore:
 
 @dataclass(frozen=True, slots=True)
 class RouterHttpGetEndpoints:
-    codex_mcp_split: Callable[[Any, str], bool]
     tui: Callable[[Any, str, dict[str, list[str]]], bool]
     events: Callable[[Any, str, dict[str, list[str]]], bool]
     llm_config: Callable[[Any, str], bool]
@@ -100,7 +99,6 @@ class RouterHttpGetEndpoints:
 
 @dataclass(frozen=True, slots=True)
 class RouterHttpPostEndpoints:
-    codex_mcp_split: Callable[[Any, str, bytes, str], bool]
     speech: Callable[[Any, str, bytes, str], bool]
     llm_config: Callable[[Any, str, dict[str, Any]], bool]
     channel_mcp: Callable[[Any, str, dict[str, Any]], bool]
@@ -672,8 +670,6 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         if services.core.reject_external(self, cfg):
             return
         endpoints = services.get
-        if endpoints.codex_mcp_split(self, path):
-            return
         if endpoints.tui(self, path, query):
             return
         if endpoints.events(self, path, query):
@@ -724,8 +720,6 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("content-length", "0") or 0)
             raw = self.rfile.read(length) if length else b"{}"
             endpoints = services.post
-            if endpoints.codex_mcp_split(self, path, raw, "POST"):
-                return
             if endpoints.speech(self, path, raw, str(self.headers.get("content-type") or "application/json")):
                 return
             body = services.core.parse_json_body(raw)
@@ -793,8 +787,6 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         path = urllib.parse.urlparse(self.path).path
         cfg = services.core.load_config()
         if services.core.reject_external(self, cfg):
-            return
-        if services.post.codex_mcp_split(self, path, b"", "DELETE"):
             return
         services.presentation.write_json(
             self,

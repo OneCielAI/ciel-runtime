@@ -36,9 +36,6 @@ class RouterServerEffects:
     stderr: Any
     server_factory: Callable[..., Any]
     start_watchdog: Callable[[Any], None]
-    start_channels: Callable[[dict[str, Any]], Any]
-    stop_channels: Callable[[None], Any]
-    thread_factory: Callable[..., Any]
     configure_web_endpoints: Callable[[str], list[str]]
 
 
@@ -72,16 +69,9 @@ class RouterServerRuntime:
             self.effects.stderr.write(f"{line}\n")
         self.effects.stderr.flush()
         self.effects.start_watchdog(server)
-        channel_thread = self.effects.thread_factory(
-            target=lambda: self.effects.start_channels(runtime_config),
-            daemon=True,
-            name="ca-router-channel-sse-start",
-        )
-        channel_thread.start()
         try:
             server.serve_forever()
         finally:
-            self.effects.stop_channels(None)
             try:
                 self.config.pid_path.unlink()
             except FileNotFoundError:

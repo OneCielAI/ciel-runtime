@@ -9,7 +9,7 @@ Ciel Runtime is a cross-platform launcher and local model-routing layer for AI c
 - Select models and providers without rewriting each agent's configuration.
 - Rotate API keys and observe provider rate limits.
 - Normalize tool calls, thinking blocks, streaming events, and context limits.
-- Receive external MCP channel messages and inject them into active agent sessions.
+- Deliver Web Chat and explicit Ciel messages to active agent sessions.
 - Run on Windows, macOS, and Linux.
 
 ## Requirements
@@ -77,11 +77,11 @@ The router binds to `127.0.0.1` by default. External router access is a debuggin
 
 Configuration is stored under `~/.config/ciel-runtime/` on macOS and Linux or `%APPDATA%\ciel-runtime\` on Windows. Override the location with `CIEL_RUNTIME_CONFIG_DIR`. Files containing credentials are written with restricted permissions where the platform supports them.
 
-## Channels and MCP
+## Web Chat and MCP ownership
 
-Ciel Runtime can discover channel-capable MCP servers and deliver channel messages to active Claude, Codex, or AGY sessions. Channel collection, delivery acknowledgement, and terminal injection are separate layers so a failed terminal submission does not incorrectly acknowledge a message.
+Ciel Runtime delivers its own Web Chat and explicit wake messages. External MCP configuration, transports, subscriptions, reconnects, and lifecycle are owned by Claude Code, Codex, AGY, or the active CLI; Ciel does not discover or proxy external MCP servers.
 
-See [docs/MCP-Channels.md](docs/MCP-Channels.md) for configuration and transport details.
+See [docs/MCP-Channels.md](docs/MCP-Channels.md) for the ownership boundary and the stateless internal tool endpoint.
 
 ## Stable and nightly releases
 

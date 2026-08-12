@@ -290,7 +290,6 @@ class TuiObservationRouterIntegrationTests(unittest.TestCase):
                 ),
             ),
             get=RouterHttpGetEndpoints(
-                codex_mcp_split=false_get,
                 tui=adapter.handle_get,
                 events=false_get,
                 llm_config=false_get,
@@ -302,7 +301,6 @@ class TuiObservationRouterIntegrationTests(unittest.TestCase):
                 runtime=false_get,
             ),
             post=RouterHttpPostEndpoints(
-                codex_mcp_split=false_post,
                 speech=false_post,
                 llm_config=false_post,
                 channel_mcp=false_post,

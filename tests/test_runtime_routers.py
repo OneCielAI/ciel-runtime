@@ -95,7 +95,6 @@ class RuntimeRouterTests(unittest.TestCase):
         with (
             mock.patch.object(ciel_runtime, "load_config", return_value=cfg),
             mock.patch.object(ciel_runtime, "reject_external_router_request", return_value=False),
-            mock.patch.object(ciel_runtime, "handle_codex_mcp_split_proxy_request", return_value=False),
             mock.patch.object(ciel_runtime, "handle_llm_config_post", return_value=False),
             mock.patch.object(ciel_runtime, "handle_channel_mcp_post", return_value=False),
             mock.patch.object(ciel_runtime, "handle_chat_post", return_value=False),

@@ -24,14 +24,6 @@ class RouterServerRuntimeTests(unittest.TestCase):
                     events.append("serve")
                     raise RuntimeError("stop")
 
-            class ImmediateThread:
-                def __init__(self, *, target, daemon, name):
-                    events.append(("thread", daemon, name))
-                    self.target = target
-
-                def start(self):
-                    self.target()
-
             runtime = RouterServerRuntime(
                 RouterServerConfig(
                     config_dir=pid_path.parent,
@@ -57,9 +49,6 @@ class RouterServerRuntimeTests(unittest.TestCase):
                     stderr=stderr,
                     server_factory=lambda address, handler: Server(),
                     start_watchdog=lambda server: events.append(("watchdog", server)),
-                    start_channels=lambda config: events.append(("channels", config)),
-                    stop_channels=lambda name: events.append(("stop", name)),
-                    thread_factory=ImmediateThread,
                     configure_web_endpoints=lambda host: events.append(("web", host)) or ["web: http://local/"],
                 ),
             )
@@ -69,7 +58,6 @@ class RouterServerRuntimeTests(unittest.TestCase):
 
             self.assertFalse(pid_path.exists())
             self.assertIn("source=env", stderr.getvalue())
-            self.assertIn(("stop", None), events)
             self.assertIn("token", events)
             self.assertIn("serve", events)
 
@@ -86,8 +74,7 @@ class RouterServerRuntimeTests(unittest.TestCase):
                 ),
                 RouterServerEffects(
                     lambda _path, _mode: None, io.StringIO(), lambda *_args: None,
-                    lambda _server: None, lambda _config: None, lambda _name: None,
-                    lambda **_kwargs: None, lambda _host: [],
+                    lambda _server: None, lambda _host: [],
                 ),
             )
 

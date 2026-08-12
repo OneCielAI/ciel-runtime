@@ -1,76 +1,35 @@
-"""HTTP/SSE controller for the built-in Channel MCP server."""
+"""Stateless HTTP controller for Ciel's built-in MCP tool server.
+
+The router does not implement an MCP notification channel.  It exposes only
+the tools needed by Web Chat and explicit Ciel runtime actions.  External MCP
+servers are owned and transported by the CLI client that configured them.
+"""
 
 from __future__ import annotations
 
-import time
+import base64
+import binascii
 import urllib.parse
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
-from threading import Condition, Lock
 from typing import Any, Callable
 
 
-@dataclass(frozen=True, slots=True)
-class ChannelMcpSessionStore:
-    states: dict[str, dict[str, Any]]
-    lock: Lock
-
-    def create(self, session: str, last_id: int) -> None:
-        with self.lock:
-            self.states[session] = {
-                "created_at": time.time(),
-                "last_id": last_id,
-                "initialized": False,
-                "outbox": [],
-            }
-
-    def stream_state(self, session: str) -> tuple[int, bool] | None:
-        with self.lock:
-            state = self.states.get(session)
-            if not state:
-                return None
-            return int(state.get("last_id") or 0), bool(state.get("initialized"))
-
-    def set_last_id(self, session: str, last_id: int) -> None:
-        with self.lock:
-            if state := self.states.get(session):
-                state["last_id"] = last_id
-
-    def touch(self, session: str) -> None:
-        with self.lock:
-            if session and session in self.states:
-                self.states[session]["last_seen_at"] = time.time()
-
-    def initialize(self, session: str) -> None:
-        with self.lock:
-            if session and session in self.states:
-                self.states[session]["initialized"] = True
-
-    def remove(self, session: str) -> None:
-        with self.lock:
-            self.states.pop(session, None)
+MCP_2026_PROTOCOL_VERSION = "2026-07-28"
+LEGACY_STREAMABLE_HTTP_VERSIONS = (
+    "2025-11-25",
+    "2025-06-18",
+    "2025-03-26",
+)
+SUPPORTED_PROTOCOL_VERSIONS = (MCP_2026_PROTOCOL_VERSION, *LEGACY_STREAMABLE_HTTP_VERSIONS)
+SERVER_NAME = "ciel-runtime-router"
 
 
 @dataclass(frozen=True, slots=True)
-class ChannelMcpStreamServices:
-    new_session_id: Callable[[], str]
-    start_last_id: Callable[[BaseHTTPRequestHandler], int]
-    send_headers: Callable[[BaseHTTPRequestHandler], None]
-    write_event: Callable[..., None]
-    take_outbox: Callable[[str], list[dict[str, Any]]]
-    read_messages: Callable[[int, str | None, str | None, int], list[dict[str, Any]]]
-    project_notifications: Callable[[list[dict[str, Any]], str], tuple[int, list[tuple[int, dict[str, Any]]]]]
-    update_cursor: Callable[[int], None]
-    condition: Condition
-    log: Callable[[str, str], None]
-
-
-@dataclass(frozen=True, slots=True)
-class ChannelMcpRpcServices:
-    initialize_response: Callable[[Any, str], dict[str, Any]]
+class ChannelMcpHttpServices:
+    version: str
     tool_schemas: Callable[[], list[dict[str, Any]]]
     tool_call_response: Callable[[Any, dict[str, Any]], dict[str, Any]]
-    enqueue: Callable[[str, dict[str, Any]], bool]
     write_json: Callable[..., None]
     write_accepted: Callable[[BaseHTTPRequestHandler], None]
     log: Callable[[str, str], None]
@@ -78,88 +37,34 @@ class ChannelMcpRpcServices:
 
 @dataclass(frozen=True, slots=True)
 class ChannelMcpHttpController:
-    store: ChannelMcpSessionStore
-    stream: ChannelMcpStreamServices
-    rpc: ChannelMcpRpcServices
+    services: ChannelMcpHttpServices
 
     def get(self, handler: BaseHTTPRequestHandler, path: str) -> bool:
         if path == "/ca/mcp/health":
-            self.rpc.write_json(
+            self.services.write_json(
                 handler,
                 {
                     "ok": True,
-                    "name": "ciel-runtime-router",
-                    "streamable_http": "/ca/mcp",
-                    "sse": "/ca/mcp/sse",
+                    "name": SERVER_NAME,
+                    "endpoint": "/ca/mcp",
+                    "transport": "streamable-http",
+                    "stateless": True,
+                    "supported_protocol_versions": list(SUPPORTED_PROTOCOL_VERSIONS),
                 },
             )
             return True
-        if path != "/ca/mcp/sse":
-            return False
-        session = self.stream.new_session_id()
-        last_id = self.stream.start_last_id(handler)
-        self.store.create(session, last_id)
-        self.stream.log("INFO", f"channel_mcp_session_started session={session} last_id={last_id}")
-        started_at = time.time()
-        close_reason = "finished"
-        self.stream.send_headers(handler)
-        self.stream.write_event(
-            handler,
-            "endpoint",
-            f"/ca/mcp/messages?sessionId={urllib.parse.quote(session)}",
-        )
-        try:
-            while True:
-                current = self.store.stream_state(session)
-                if current is None:
-                    close_reason = "session_missing"
-                    return True
-                last_id, initialized = current
-                if outbox := self.stream.take_outbox(session):
-                    for payload in outbox:
-                        self.stream.write_event(handler, "message", payload)
-                    self.stream.log("INFO", f"channel_mcp_rpc_flushed session={session} count={len(outbox)}")
-                    continue
-                if not initialized:
-                    handler.wfile.write(b": waiting-for-initialize\n\n")
-                    handler.wfile.flush()
-                    with self.stream.condition:
-                        self.stream.condition.wait(timeout=1.0)
-                    continue
-                messages = self.stream.read_messages(last_id, None, None, 100)
-                if messages:
-                    delivered_id, events = self.stream.project_notifications(messages, session)
-                    last_id = max(last_id, delivered_id)
-                    for event_id, notification in events:
-                        self.stream.write_event(handler, "message", notification, event_id)
-                        self.stream.log(
-                            "INFO",
-                            f"channel_mcp_notification_written session={session} message_id={event_id}",
-                        )
-                    self.stream.update_cursor(last_id)
-                    self.store.set_last_id(session, last_id)
-                    continue
-                handler.wfile.write(b": keepalive\n\n")
-                handler.wfile.flush()
-                with self.stream.condition:
-                    self.stream.condition.wait(timeout=5.0)
-        except (BrokenPipeError, ConnectionError, ConnectionResetError) as error:
-            close_reason = type(error).__name__
-            return True
-        except Exception as error:
-            close_reason = type(error).__name__
-            self.stream.log(
-                "ERROR",
-                f"channel_mcp_session_failed session={session} error={type(error).__name__}: {error}",
+        if path == "/ca/mcp":
+            self.services.write_json(
+                handler,
+                {
+                    "jsonrpc": "2.0",
+                    "error": {"code": -32600, "message": "MCP endpoint accepts POST only"},
+                },
+                405,
             )
             return True
-        finally:
-            age = time.time() - started_at
-            self.stream.log(
-                "INFO",
-                f"channel_mcp_session_closed session={session} reason={close_reason} age={age:.1f}s",
-            )
-            self.store.remove(session)
+        # The deprecated 2024 HTTP+SSE endpoint intentionally does not exist.
+        return False
 
     def post(
         self,
@@ -167,73 +72,188 @@ class ChannelMcpHttpController:
         path: str,
         body: dict[str, Any],
     ) -> bool:
-        if path == "/ca/mcp":
-            response = self._rpc_response(body)
-            if response is None:
-                self.rpc.write_accepted(handler)
-            else:
-                self.rpc.write_json(handler, response)
-            self.rpc.log(
-                "INFO",
-                "channel_mcp_streamable_http method=%s request_id=%s"
-                % (str(body.get("method") or ""), body.get("id")),
-            )
-            return True
-        if path != "/ca/mcp/messages":
+        if path != "/ca/mcp":
             return False
-        query = urllib.parse.parse_qs(
-            urllib.parse.urlparse(handler.path).query,
-            keep_blank_values=True,
-        )
-        session = (query.get("sessionId") or query.get("session") or [""])[0]
-        self.store.touch(session)
-        method = str(body.get("method") or "")
         request_id = body.get("id")
-        if method == "initialize":
-            self.store.initialize(session)
-        response = self._rpc_response(body)
-        if method == "initialize":
-            params = body.get("params") if isinstance(body.get("params"), dict) else {}
-            protocol = str(params.get("protocolVersion") or "2024-11-05")
-            self.rpc.log("INFO", f"channel_mcp_initialized session={session or '-'} protocol={protocol}")
-        if response is not None:
-            if not self.rpc.enqueue(session, response):
-                self.rpc.log("WARN", f"channel_mcp_rpc_enqueue_failed session={session or '-'} method={method}")
-                self.rpc.write_json(
-                    handler,
-                    {
-                        "jsonrpc": "2.0",
-                        "id": request_id,
-                        "error": {"code": -32000, "message": "MCP SSE session is not connected"},
-                    },
-                    404,
-                )
+        method = str(body.get("method") or "")
+        modern = self._is_modern_request(handler, body)
+        if modern:
+            validation_error = self._validate_modern_request(handler, body)
+            if validation_error:
+                payload, status = validation_error
+                self.services.write_json(handler, payload, status)
                 return True
-            self.rpc.log(
-                "INFO",
-                f"channel_mcp_rpc_queued session={session or '-'} method={method} request_id={request_id}",
-            )
-        self.rpc.write_accepted(handler)
+        response, status = self._rpc_response(body, modern=modern)
+        if response is None:
+            self.services.write_accepted(handler)
+        else:
+            self.services.write_json(handler, response, status)
+        self.services.log(
+            "INFO",
+            "channel_mcp_http method=%s request_id=%s protocol=%s"
+            % (method, request_id, MCP_2026_PROTOCOL_VERSION if modern else "legacy-streamable-http"),
+        )
         return True
 
-    def _rpc_response(self, body: dict[str, Any]) -> dict[str, Any] | None:
-        method = str(body.get("method") or "")
+    @staticmethod
+    def _is_modern_request(handler: BaseHTTPRequestHandler, body: dict[str, Any]) -> bool:
+        header_version = str(handler.headers.get("MCP-Protocol-Version") or "")
+        params = body.get("params") if isinstance(body.get("params"), dict) else {}
+        meta = params.get("_meta") if isinstance(params.get("_meta"), dict) else {}
+        return (
+            header_version == MCP_2026_PROTOCOL_VERSION
+            or bool(header_version and header_version not in LEGACY_STREAMABLE_HTTP_VERSIONS)
+            or "io.modelcontextprotocol/protocolVersion" in meta
+            or str(body.get("method") or "") == "server/discover"
+        )
+
+    def _validate_modern_request(
+        self,
+        handler: BaseHTTPRequestHandler,
+        body: dict[str, Any],
+    ) -> tuple[dict[str, Any], int] | None:
         request_id = body.get("id")
-        if method == "initialize":
-            params = body.get("params") if isinstance(body.get("params"), dict) else {}
-            protocol = str(params.get("protocolVersion") or "2024-11-05")
-            return self.rpc.initialize_response(request_id, protocol)
-        if method == "tools/list":
-            return {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "result": {"tools": self.rpc.tool_schemas()},
-            }
+        method = str(body.get("method") or "")
+        params = body.get("params") if isinstance(body.get("params"), dict) else {}
+        meta = params.get("_meta") if isinstance(params.get("_meta"), dict) else {}
+        header_version = str(handler.headers.get("MCP-Protocol-Version") or "")
+        body_version = str(meta.get("io.modelcontextprotocol/protocolVersion") or "")
+        requested = header_version or body_version
+        if requested not in SUPPORTED_PROTOCOL_VERSIONS:
+            return self._error(
+                request_id,
+                -32022,
+                "Unsupported protocol version",
+                data={"supported": list(SUPPORTED_PROTOCOL_VERSIONS), "requested": requested},
+            ), 400
+        if header_version != body_version:
+            return self._header_error(request_id, "MCP-Protocol-Version does not match request _meta"), 400
+        if not isinstance(meta.get("io.modelcontextprotocol/clientCapabilities"), dict):
+            return self._error(
+                request_id,
+                -32602,
+                "Missing required client capabilities",
+            ), 400
+        if str(handler.headers.get("Mcp-Method") or "") != method:
+            return self._header_error(request_id, "Mcp-Method does not match request method"), 400
         if method == "tools/call":
-            params = body.get("params") if isinstance(body.get("params"), dict) else {}
-            return self.rpc.tool_call_response(request_id, params)
-        if method == "ping":
-            return {"jsonrpc": "2.0", "id": request_id, "result": {}}
-        if request_id is not None:
-            return {"jsonrpc": "2.0", "id": request_id, "result": {}}
+            expected_name = str(params.get("name") or "")
+            actual_name = self._decoded_header(handler.headers.get("Mcp-Name"))
+            if actual_name != expected_name:
+                return self._header_error(request_id, "Mcp-Name does not match params.name"), 400
+        origin = str(handler.headers.get("Origin") or "").strip()
+        if origin and not self._same_origin(origin, str(handler.headers.get("Host") or "")):
+            return self._error(request_id, -32600, "Invalid Origin header"), 403
         return None
+
+    def _rpc_response(
+        self,
+        body: dict[str, Any],
+        *,
+        modern: bool,
+    ) -> tuple[dict[str, Any] | None, int]:
+        request_id = body.get("id")
+        method = str(body.get("method") or "")
+        params = body.get("params") if isinstance(body.get("params"), dict) else {}
+        if not method:
+            return self._error(request_id, -32600, "Invalid Request"), 400
+        if request_id is None:
+            # 2026 core defines no client-to-server HTTP notifications.  Older
+            # official clients may still send initialized/cancel notifications.
+            return None, 202
+        if modern and method == "server/discover":
+            return self._response(
+                request_id,
+                self._modern_result(
+                    {
+                        "supportedVersions": list(SUPPORTED_PROTOCOL_VERSIONS),
+                        "capabilities": {"tools": {"listChanged": False}},
+                        "instructions": "Tools for Web Chat replies and explicit Ciel runtime actions.",
+                        "ttlMs": 300_000,
+                        "cacheScope": "private",
+                    }
+                ),
+            ), 200
+        if not modern and method == "initialize":
+            requested = str(params.get("protocolVersion") or LEGACY_STREAMABLE_HTTP_VERSIONS[-1])
+            protocol = requested if requested in LEGACY_STREAMABLE_HTTP_VERSIONS else LEGACY_STREAMABLE_HTTP_VERSIONS[0]
+            return self._response(
+                request_id,
+                {
+                    "protocolVersion": protocol,
+                    "capabilities": {"tools": {"listChanged": False}},
+                    "serverInfo": {"name": SERVER_NAME, "version": self.services.version},
+                    "instructions": "Tools for Web Chat replies and explicit Ciel runtime actions.",
+                },
+            ), 200
+        if method == "tools/list":
+            result: dict[str, Any] = {"tools": self.services.tool_schemas()}
+            if modern:
+                result.update({"ttlMs": 300_000, "cacheScope": "private"})
+                result = self._modern_result(result)
+            return self._response(request_id, result), 200
+        if method == "tools/call":
+            response = self.services.tool_call_response(request_id, params)
+            if modern and isinstance(response.get("result"), dict):
+                response["result"] = self._modern_result(dict(response["result"]))
+            return response, 200
+        if method == "ping":
+            if modern:
+                return self._error(request_id, -32601, "Method not found"), 404
+            return self._response(request_id, {}), 200
+        return self._error(request_id, -32601, "Method not found"), 404 if modern else 200
+
+    def _modern_result(self, result: dict[str, Any]) -> dict[str, Any]:
+        result["resultType"] = "complete"
+        result.setdefault(
+            "_meta",
+            {"io.modelcontextprotocol/serverInfo": {"name": SERVER_NAME, "version": self.services.version}},
+        )
+        return result
+
+    @staticmethod
+    def _response(request_id: Any, result: dict[str, Any]) -> dict[str, Any]:
+        return {"jsonrpc": "2.0", "id": request_id, "result": result}
+
+    @staticmethod
+    def _error(
+        request_id: Any,
+        code: int,
+        message: str,
+        *,
+        data: Any | None = None,
+    ) -> dict[str, Any]:
+        error: dict[str, Any] = {"code": code, "message": message}
+        if data is not None:
+            error["data"] = data
+        return {"jsonrpc": "2.0", "id": request_id, "error": error}
+
+    def _header_error(self, request_id: Any, message: str) -> dict[str, Any]:
+        return self._error(request_id, -32020, f"Header mismatch: {message}")
+
+    @staticmethod
+    def _decoded_header(value: str | None) -> str:
+        text = str(value or "")
+        if text.startswith("=?base64?") and text.endswith("?="):
+            try:
+                return base64.b64decode(text[9:-2], validate=True).decode("utf-8")
+            except (binascii.Error, UnicodeDecodeError):
+                return ""
+        return text
+
+    @staticmethod
+    def _same_origin(origin: str, host: str) -> bool:
+        try:
+            parsed = urllib.parse.urlparse(origin)
+        except ValueError:
+            return False
+        return parsed.scheme in {"http", "https"} and parsed.netloc.lower() == host.lower()
+
+
+__all__ = [
+    "ChannelMcpHttpController",
+    "ChannelMcpHttpServices",
+    "LEGACY_STREAMABLE_HTTP_VERSIONS",
+    "MCP_2026_PROTOCOL_VERSION",
+    "SUPPORTED_PROTOCOL_VERSIONS",
+]

@@ -10,7 +10,6 @@ from typing import Mapping
 class ChannelRuntimeEnvironmentPolicy:
     environment: Mapping[str, str]
     launch_recent_default: float
-    probe_timeout_default: float
 
     def launch_recent_seconds(self) -> float:
         raw = str(
@@ -23,15 +22,6 @@ class ChannelRuntimeEnvironmentPolicy:
         if not raw:
             return self.launch_recent_default
         return self._float(raw, self.launch_recent_default)
-
-    def probe_timeout_seconds(self) -> float:
-        raw = self.environment.get(
-            "CIEL_RUNTIME_CHANNEL_PROBE_TIMEOUT_SECONDS"
-        )
-        if raw is None:
-            return self.probe_timeout_default
-        value = self._float(str(raw).strip(), self.probe_timeout_default)
-        return value if value > 0 else self.probe_timeout_default
 
     def pending_scan_limit(self) -> int:
         return self._bounded_int(

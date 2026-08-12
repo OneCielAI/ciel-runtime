@@ -23,18 +23,11 @@ class HeadlessConfigCommands:
 
 
 @dataclass(frozen=True, slots=True)
-class HeadlessChannelCommands:
-    add_channel: Callable[[str], None]
-    set_delivery: Callable[[str], None]
-
-
-@dataclass(frozen=True, slots=True)
 class HeadlessConfigServices:
     environ: Mapping[str, str]
     parse_bool: Callable[[str | None, bool | None], bool | None]
     current_provider: Callable[[], str]
     commands: HeadlessConfigCommands
-    channels: HeadlessChannelCommands
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,17 +149,6 @@ def apply_headless_config(services: HeadlessConfigServices) -> HeadlessConfigRes
     ollama_values = _ollama_option_values(env)
     if ollama_values:
         commands.set_ollama_options(ollama_values)
-        skip_menu = True
-
-    for channel in _split_values(env.get("CIEL_RUNTIME_CHANNELS", "")):
-        services.channels.add_channel(channel)
-        skip_menu = True
-    for channel in _split_values(env.get("CIEL_RUNTIME_DEV_CHANNELS", "")):
-        services.channels.add_channel(channel)
-        skip_menu = True
-    channel_delivery = env.get("CIEL_RUNTIME_CHANNEL_DELIVERY", "").strip()
-    if channel_delivery:
-        services.channels.set_delivery(channel_delivery)
         skip_menu = True
 
     return HeadlessConfigResult(

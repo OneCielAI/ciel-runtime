@@ -61,14 +61,8 @@ class CodexLaunchSharedRoutingPorts:
 
 @dataclass(frozen=True, slots=True)
 class CodexLaunchSharedChannelPorts:
-    auto_import_channels: Callback
     delivery_mode: Callback
-    capable_server_names: Callback
     native_http_args: Callback
-    split_proxy_enabled: Callback
-    restore_config: Callback
-    start_sse: Callback
-    write_discovery_config: Callback
     select_resume_session: Callback
 
 
@@ -138,15 +132,9 @@ class CodexLaunchAssembly:
                 start_router_if_needed=self.routing.start_router,
             ),
             channel=runtime_launch.CodexLaunchChannel(
-                auto_import_passthrough_channels=self.channel.auto_import_channels,
                 channel_delivery_mode=self.channel.delivery_mode,
-                codex_channel_capable_mcp_server_names=self.channel.capable_server_names,
                 codex_mcp_native_http_compat_args=self.channel.native_http_args,
-                codex_mcp_split_proxy_enabled=self.channel.split_proxy_enabled,
-                restore_codex_mcp_config_from_managed=self.channel.restore_config,
                 select_codex_resume_session=self.channel.select_resume_session,
-                start_codex_mcp_channel_sse_for_launch=self.channel.start_sse,
-                write_codex_mcp_config_for_channel_discovery=self.channel.write_discovery_config,
             ),
         )
 
@@ -189,14 +177,8 @@ class CodexLaunchAssembly:
                 start_router_if_needed=self.routing.start_router,
             ),
             channel=runtime_launch.CodexAppServerChannel(
-                auto_import_passthrough_channels=self.channel.auto_import_channels,
                 channel_delivery_mode=self.channel.delivery_mode,
-                codex_channel_capable_mcp_server_names=self.channel.capable_server_names,
                 codex_mcp_native_http_compat_args=self.channel.native_http_args,
-                codex_mcp_split_proxy_enabled=self.channel.split_proxy_enabled,
-                restore_codex_mcp_config_from_managed=self.channel.restore_config,
-                start_codex_mcp_channel_sse_for_launch=self.channel.start_sse,
-                write_codex_mcp_config_for_channel_discovery=self.channel.write_discovery_config,
             ),
         )
 

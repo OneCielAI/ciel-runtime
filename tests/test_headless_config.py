@@ -3,7 +3,6 @@ import unittest
 from pathlib import Path
 
 from ciel_runtime_support.headless_config import (
-    HeadlessChannelCommands,
     HeadlessConfigCommands,
     HeadlessConfigServices,
     HeadlessEnvFileLoader,
@@ -67,10 +66,6 @@ class HeadlessConfigTests(unittest.TestCase):
                 set_provider_options=record("provider_options"),
                 set_ollama_options=record("ollama_options"),
             ),
-            channels=HeadlessChannelCommands(
-                add_channel=record("channel"),
-                set_delivery=record("delivery"),
-            ),
         )
 
     def test_applies_commands_in_environment_contract(self):
@@ -82,8 +77,6 @@ class HeadlessConfigTests(unittest.TestCase):
             "CIEL_RUNTIME_BASE_URL": "https://example.test",
             "CIEL_RUNTIME_MODEL": "model-1",
             "CIEL_RUNTIME_MAX_OUTPUT_TOKENS": "8192",
-            "CIEL_RUNTIME_CHANNELS": "web, slack",
-            "CIEL_RUNTIME_CHANNEL_DELIVERY": "stdin",
         }
         result = apply_headless_config(self.services(env, calls))
 
@@ -96,9 +89,6 @@ class HeadlessConfigTests(unittest.TestCase):
                 ("base_url", "deepseek", "https://example.test"),
                 ("model", "model-1"),
                 ("provider_options", ["max_output_tokens=8192"]),
-                ("channel", "web"),
-                ("channel", "slack"),
-                ("delivery", "stdin"),
             ],
             calls,
         )

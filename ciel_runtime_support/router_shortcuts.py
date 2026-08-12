@@ -124,16 +124,12 @@ class RouterShortcutController:
                 "Ciel Runtime channel backlog discarded.",
                 f"- chat tail: {stats.get('chat_tail')}",
                 f"- LLM cursor advanced by: {stats.get('discarded_llm')}",
-                f"- MCP cursor advanced by: {stats.get('discarded_mcp')}",
-                f"- active MCP channel sessions updated: {stats.get('mcp_sessions_updated')}",
                 "New channel events arriving after this point will still be delivered.",
             ]
         return [
             "Ciel Runtime channel backlog status.",
             f"- chat tail: {stats.get('chat_tail')}",
             f"- pending LLM items by id range: {stats.get('pending_llm')}",
-            f"- pending MCP items by id range: {stats.get('pending_mcp')}",
-            f"- active MCP channel sessions: {stats.get('mcp_sessions')}",
         ]
 
     def handle_channel_clear(self, handler: ShortcutHandler, body: dict[str, Any]) -> bool:

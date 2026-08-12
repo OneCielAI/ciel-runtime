@@ -12,7 +12,7 @@ class LaunchCommandDiagnosticsTests(unittest.TestCase):
             codex_api_key_env="CODEX_RUNTIME_KEY",
         )
 
-    def test_claude_projects_mcp_channels_and_masks_credentials(self):
+    def test_claude_projects_only_ciel_mcp_config_and_masks_credentials(self):
         self.diagnostics.claude(
             [
                 "claude",
@@ -27,8 +27,8 @@ class LaunchCommandDiagnosticsTests(unittest.TestCase):
         )
 
         messages = "\n".join(message for _, message in self.events)
-        self.assertIn("mcp_config=mcp.json", messages)
-        self.assertIn("channels=server:alpha,server:beta", messages)
+        self.assertIn("ciel_mcp_config=mcp.json", messages)
+        self.assertNotIn("channels=", messages)
         self.assertIn("ANTHROPIC_API_KEY=masked:ey", messages)
         self.assertNotIn("secret-key", messages)
 

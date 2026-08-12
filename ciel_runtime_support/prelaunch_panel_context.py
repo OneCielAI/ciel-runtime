@@ -6,11 +6,6 @@ from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 
 from .architecture import ProviderUiPolicy
-from .channel_panel import (
-    ChannelPanelPolicy,
-    channel_delivery_panel_rows as project_channel_delivery_panel_rows,
-    channel_panel_rows as project_channel_panel_rows,
-)
 from .model_panel import (
     ModelPanelCatalog,
     ModelPanelPresentation,
@@ -102,16 +97,6 @@ class ModelPanelPresentationPorts:
 
 
 @dataclass(frozen=True, slots=True)
-class ChannelPanelContextPorts:
-    builtin_router_probe_record: Callable[..., Any]
-    channel_specs: Callable[..., Any]
-    delivery_mode: Callable[..., str]
-    official_plugins: Mapping[str, Any]
-    probe_record_bucket: Callable[..., Any]
-    read_probe_cache: Callable[..., Any]
-
-
-@dataclass(frozen=True, slots=True)
 class AuthPanelPorts:
     kimi_oauth_configured: Callable[[], bool]
     copilot_panel_rows: Callable[[str], PanelRows | None]
@@ -125,7 +110,6 @@ class PrelaunchPanelContext:
     configuration: ConfigurationPanelContextPorts
     model_catalog: ModelPanelCatalogPorts
     model_presentation: ModelPanelPresentationPorts
-    channel: ChannelPanelContextPorts
     auth: AuthPanelPorts
 
     def main_menu_projection(self) -> MainMenuProjection:
@@ -260,27 +244,6 @@ class PrelaunchPanelContext:
             services=self.model_panel_services(),
         )
 
-    def channel_panel_policy(self) -> ChannelPanelPolicy:
-        ports = self.channel
-        return ChannelPanelPolicy(
-            builtin_router_probe_record=ports.builtin_router_probe_record,
-            channel_specs=ports.channel_specs,
-            delivery_mode=ports.delivery_mode,
-            official_plugins=ports.official_plugins,
-            probe_record_bucket=ports.probe_record_bucket,
-            read_probe_cache=ports.read_probe_cache,
-        )
-
-    def channel_panel_rows(self, config: dict[str, Any]) -> PanelRows:
-        return project_channel_panel_rows(
-            config, policy=self.channel_panel_policy()
-        )
-
-    def channel_delivery_panel_rows(self, config: dict[str, Any]) -> PanelRows:
-        return project_channel_delivery_panel_rows(
-            config, policy=self.channel_panel_policy()
-        )
-
     def api_key_panel_rows(
         self, provider: str, provider_config: dict[str, Any] | None = None
     ) -> PanelRows:
@@ -384,15 +347,6 @@ class PrelaunchPanelCompatibilityApi:
             provider, provider_config, fetch, force_refresh
         )
 
-    def channel_panel_policy(self) -> ChannelPanelPolicy:
-        return self.context().channel_panel_policy()
-
-    def channel_panel_rows(self, config: dict[str, Any]) -> PanelRows:
-        return self.context().channel_panel_rows(config)
-
-    def channel_delivery_panel_rows(self, config: dict[str, Any]) -> PanelRows:
-        return self.context().channel_delivery_panel_rows(config)
-
     def api_key_panel_rows(
         self, provider: str, provider_config: dict[str, Any] | None = None
     ) -> PanelRows:
@@ -406,7 +360,6 @@ class PrelaunchPanelCompatibilityApi:
 
 __all__ = [
     "AuthPanelPorts",
-    "ChannelPanelContextPorts",
     "ConfigurationPanelContextPorts",
     "MainMenuPanelPorts",
     "ModelPanelCatalogPorts",

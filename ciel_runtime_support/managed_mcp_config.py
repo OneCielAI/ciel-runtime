@@ -29,7 +29,6 @@ class ManagedMcpConfigPorts:
     save_json: Callable[[Path, dict[str, Any], str], None]
     primary_api_key: Callable[[str, dict[str, Any]], str]
     meaningful_key: Callable[[str], bool]
-    initialize_channel_cursor: Callable[[], Any]
     log: Callable[[str, str], None]
 
 
@@ -109,13 +108,12 @@ class ManagedMcpConfigService:
         data = {
             "mcpServers": {
                 "ciel-runtime-router": {
-                    "type": "sse",
-                    "url": f"{self.policy.router_base}/ca/mcp/sse",
+                    "type": "http",
+                    "url": f"{self.policy.router_base}/ca/mcp",
                 }
             }
         }
         self.ports.save_json(self.paths.channel, data, "channel_mcp_config")
-        self.ports.initialize_channel_cursor()
         return self.paths.channel
 
     def _fetch_command(self, web: dict[str, Any]) -> tuple[str | None, list[Any]]:

@@ -15,7 +15,6 @@ class ManagedMcpConfigServiceTests(unittest.TestCase):
     def service(self, root: Path, *, executables=None, key="secret"):
         executables = executables or {}
         save = mock.Mock()
-        initialize = mock.Mock()
         log = mock.Mock()
         service = ManagedMcpConfigService(
             ManagedMcpConfigPaths(
@@ -30,15 +29,14 @@ class ManagedMcpConfigServiceTests(unittest.TestCase):
                 save,
                 lambda _provider, _config: key,
                 lambda value: bool(value),
-                initialize,
                 log,
             ),
         )
-        return service, save, initialize, log
+        return service, save, log
 
     def test_web_tools_prefers_uv_runner_and_projects_fetch_options(self):
         with tempfile.TemporaryDirectory() as tmp:
-            service, save, _initialize, _log = self.service(
+            service, save, _log = self.service(
                 Path(tmp), executables={"npx": "npx", "uv": "uv"}
             )
             path = service.write_web_tools(
@@ -58,18 +56,19 @@ class ManagedMcpConfigServiceTests(unittest.TestCase):
 
     def test_zai_config_contains_stdio_and_authenticated_http_servers(self):
         with tempfile.TemporaryDirectory() as tmp:
-            service, save, _initialize, _log = self.service(Path(tmp), executables={"npx": "npx"})
+            service, save, _log = self.service(Path(tmp), executables={"npx": "npx"})
             self.assertEqual(service.paths.zai, service.write_zai("zai", {"managed_mcp": True}))
         servers = save.call_args.args[1]["mcpServers"]
         self.assertEqual("secret", servers["zai-mcp-server"]["env"]["Z_AI_API_KEY"])
         self.assertEqual("Bearer secret", servers["search"]["headers"]["Authorization"])
 
-    def test_channel_config_initializes_cursor_after_save(self):
+    def test_channel_config_uses_stateless_http_endpoint(self):
         with tempfile.TemporaryDirectory() as tmp:
-            service, save, initialize, _log = self.service(Path(tmp))
+            service, save, _log = self.service(Path(tmp))
             self.assertEqual(service.paths.channel, service.write_channel())
-        self.assertIn("/ca/mcp/sse", save.call_args.args[1]["mcpServers"]["ciel-runtime-router"]["url"])
-        initialize.assert_called_once_with()
+        server = save.call_args.args[1]["mcpServers"]["ciel-runtime-router"]
+        self.assertEqual("http", server["type"])
+        self.assertTrue(server["url"].endswith("/ca/mcp"))
 
 
 if __name__ == "__main__":

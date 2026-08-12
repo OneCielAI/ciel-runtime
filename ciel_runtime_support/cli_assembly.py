@@ -12,7 +12,6 @@ class CliServiceAssembly:
     core: cli_dispatch.CliCore
     runtime: cli_dispatch.CliRuntime
     provider_commands: cli_dispatch.CliProviderCommands
-    channel_commands: cli_dispatch.CliChannelCommands
     special_commands: cli_dispatch.CliSpecialCommands
     operations: cli_dispatch.CliOperations
     configuration: cli_dispatch.CliConfiguration
@@ -22,7 +21,6 @@ class CliServiceAssembly:
             core=self.core,
             runtime=self.runtime,
             provider_commands=self.provider_commands,
-            channel_commands=self.channel_commands,
             special_commands=self.special_commands,
             operations=self.operations,
             configuration=self.configuration,

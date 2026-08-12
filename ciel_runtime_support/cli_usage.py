@@ -25,9 +25,6 @@ Control plane, runs before Claude Code and does not require LLM connectivity:
   ciel-runtime web-search [on|off]     Auto-attach DuckDuckGo MCP for non-native providers
   ciel-runtime web-fetch [on|off]      Auto-attach fetch MCP for web page content
   ciel-runtime log-level [LEVEL]       Show or set router log level
-  ciel-runtime channels [cmd]          Configure external channel specs
-  ciel-runtime channel-delivery [stdin|native]
-                                      Select PTY wake proxy or native claude/channel bridge
   ciel-runtime ollama-native [on|off]  Use Ollama's official Claude Code env path
   ciel-runtime ollama-options [provider] [key=value ...]
                                       Set Ollama num_ctx/options/keep_alive/think
@@ -35,7 +32,7 @@ Control plane, runs before Claude Code and does not require LLM connectivity:
                                       Set vLLM/NIM/NVIDIA output/context/timeouts
   ciel-runtime ollama-catalog          Download Ollama model/context catalog
   ciel-runtime test [seconds] [mode]   Test compatibility; mode is auto, quick, smoke, or full
-  ciel-runtime stop                    Stop router/proxy
+  ciel-runtime stop                    Stop router
 
 Headless setup flags, namespaced to avoid Claude CLI collisions:
   ciel-runtime --ca-web-address HOST  Bind the web/router server to HOST for this launch
@@ -83,16 +80,12 @@ Headless setup flags, namespaced to avoid Claude CLI collisions:
   ciel-runtime --ca-no-web-search      Disable DuckDuckGo MCP for this launch
   ciel-runtime --ca-web-fetch          Enable fetch MCP
   ciel-runtime --ca-no-web-fetch       Disable fetch MCP
-  ciel-runtime --ca-channel SPEC       Add an official/approved Claude Code channel
-  ciel-runtime --ca-channel-delivery MODE
-                                      Set channel delivery: stdin or native
-  ciel-runtime --ca-clear-channels     Clear saved channel specs
   ciel-runtime --ca-no-self-update-check
                                       Skip Ciel Runtime npm self-update check
   ciel-runtime --ca-no-update-check    Skip runtime update check for this launch
   ciel-runtime --ca-upgrade-and-exit   Update Ciel Runtime, Claude Code, Codex, and AGY without prompts, then exit
   ciel-runtime --ca-no-launch          Apply setup flags/env values, then exit without launching a runtime
-  ciel-runtime --ca-stop               Stop router/proxy
+  ciel-runtime --ca-stop               Stop router
   ciel-runtime --                      Pass all following args directly to the selected runtime
 
 Provider names: agy, agy-routed, anthropic, ollama, ollama-cloud, deepseek, opencode, opencode-go, kimi, z.ai, vllm, lm-studio, nvidia-hosted, self-hosted-nim, openrouter, fireworks
