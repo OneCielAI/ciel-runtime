@@ -6079,6 +6079,26 @@ class ArchitectureContractTests(unittest.TestCase):
         self.assertEqual(dialect.repair_tool_input("Read", {"limit": 10}), {"limit": 10})
         self.assertEqual(dialect.blocked_tools(), frozenset())
 
+    def test_prelaunch_external_event_configuration_does_not_start_receiver(self):
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(
+            encoding="utf-8"
+        )
+        function = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "set_external_event_config"
+        )
+        calls = [
+            node
+            for node in ast.walk(function)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "start"
+        ]
+
+        self.assertEqual([], calls)
+
 
 if __name__ == "__main__":
     unittest.main()

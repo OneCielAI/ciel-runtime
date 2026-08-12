@@ -66,6 +66,44 @@ class ChannelPendingPollTests(unittest.TestCase):
         self.assertFalse(observed[0]["commit_cursor"])
         self.assertFalse(observed[0]["skip_blocking_wake_states"])
 
+    def test_batch_commit_cursor_uses_highest_injected_id_not_deferred_return_cursor(self):
+        def inject(*args, **kwargs):
+            kwargs["injected_message_ids"].extend([20, 21])
+            return 10
+
+        state = ChannelPendingPollState(last_id=10)
+        poll_pending_channel_messages(
+            1.0, 1, b"\r", state, self.options(), self.policy(), self.services(inject=inject)
+        )
+
+        self.assertEqual(10, state.last_id)
+        self.assertEqual(21, state.inflight_message_id)
+        self.assertEqual(21, state.inflight_cursor)
+
+    def test_periodic_safety_rescan_recovers_when_file_marker_was_missed(self):
+        calls = []
+        services = self.services(inject=lambda *args, **kwargs: calls.append(args[1]) or args[1])
+        services = ChannelPendingPollServices(
+            file_marker=services.file_marker,
+            should_check=lambda *_args: False,
+            active=services.active,
+            ensure_cursor=services.ensure_cursor,
+            inject_pending=services.inject_pending,
+            log=services.log,
+        )
+        state = ChannelPendingPollState(last_id=10, last_scan_at=1.0)
+
+        poll_pending_channel_messages(
+            4.0, 1, b"\r", state, self.options(), self.policy(), services
+        )
+        self.assertEqual([], calls)
+        poll_pending_channel_messages(
+            6.1, 1, b"\r", state, self.options(), self.policy(), services
+        )
+
+        self.assertEqual([12], calls)
+        self.assertEqual(6.1, state.last_scan_at)
+
 
 if __name__ == "__main__":
     unittest.main()

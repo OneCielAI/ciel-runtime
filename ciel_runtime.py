@@ -553,10 +553,12 @@ _CHANNEL_STDIN_WAKE_LOCK = threading.Lock()
 _CHANNEL_STDIN_INJECT_LOCK = threading.Lock()
 _CHANNEL_STDIN_WAKE_DELIVERED: set[int] = set()
 _CHANNEL_STDIN_WAKE_PROMPTS: dict[int, str] = {}
+_CHANNEL_STDIN_WAKE_BATCHES: dict[int, frozenset[int]] = {}
 _CHANNEL_WAKE_DELIVERY_REPOSITORY = ChannelWakeDeliveryRepository(
     lock=_CHANNEL_STDIN_WAKE_LOCK,
     delivered=_CHANNEL_STDIN_WAKE_DELIVERED,
     prompts=_CHANNEL_STDIN_WAKE_PROMPTS,
+    batches=_CHANNEL_STDIN_WAKE_BATCHES,
     clear_claim=lambda message_id: _channel_stdin_clear_wake_claim(message_id),
     commit_cursor=lambda message_id: _commit_channel_llm_cursor_if_newer(message_id),
 )
@@ -1827,9 +1829,9 @@ def set_external_event_config(key: str, value: Any) -> list[str]:
     else:
         raise ValueError(f"unsupported external event option: {key}")
     updated = service.save_receiver("default", body)
-    service.start()
     return [
         f"External event receiver updated: enabled={updated.get('enabled')} transport={updated.get('transport')}.",
+        "The router owns receiver connections; the prelaunch configuration process does not open a duplicate stream.",
         "External events use the private Runtime Input Gateway and are never published to Web Chat.",
     ]
 

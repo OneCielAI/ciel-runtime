@@ -14,6 +14,7 @@ class ChannelWakeDeliveryRepositoryTests(unittest.TestCase):
             lock=threading.Lock(),
             delivered=set(),
             prompts={},
+            batches={},
             clear_claim=cleared.append,
             commit_cursor=committed.append,
             retained_limit=retained_limit,
@@ -55,6 +56,41 @@ class ChannelWakeDeliveryRepositoryTests(unittest.TestCase):
 
         self.assertEqual({3, 4}, repository.delivered)
         self.assertEqual({3: "3", 4: "4"}, repository.prompts)
+
+    def test_completing_last_message_clears_every_claim_in_the_same_batch(self):
+        repository, cleared, _committed = self.repository()
+        messages = [{"id": 20}, {"id": 21}]
+        for message in messages:
+            repository.mark_delivered(message["id"])
+        repository.record_prompts(messages, "one atomic batch")
+
+        repository.complete(21)
+
+        self.assertEqual({}, repository.prompts)
+        self.assertEqual([20, 21], cleared)
+
+    def test_releasing_stale_batch_commits_its_highest_message(self):
+        repository, cleared, committed = self.repository()
+        messages = [{"id": 20}, {"id": 21}]
+        for message in messages:
+            repository.mark_delivered(message["id"])
+        repository.record_prompts(messages, "one atomic batch")
+
+        repository.release_stale(20, True)
+
+        self.assertEqual(set(), repository.delivered)
+        self.assertEqual([20, 21], cleared)
+        self.assertEqual([21], committed)
+
+    def test_equal_prompts_in_separate_batches_do_not_share_cleanup(self):
+        repository, cleared, _committed = self.repository()
+        repository.record_prompts([{"id": 20}, {"id": 21}], "same prompt")
+        repository.record_prompts([{"id": 30}], "same prompt")
+
+        repository.complete(21)
+
+        self.assertEqual([20, 21], cleared)
+        self.assertEqual("same prompt", repository.prompt(30))
 
 
 if __name__ == "__main__":

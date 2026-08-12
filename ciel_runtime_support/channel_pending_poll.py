@@ -12,6 +12,7 @@ class ChannelPendingPollState:
     last_id: int
     last_marker: tuple[float, int] = (0.0, -1)
     last_poll_at: float = 0.0
+    last_scan_at: float = 0.0
     pending_recheck: bool = False
     defer_logged_at: float = 0.0
     inflight_message_id: int | None = None
@@ -37,6 +38,7 @@ class ChannelPendingPollPolicy:
     active_reason: str
     poll_interval_seconds: float = 0.5
     defer_log_interval_seconds: float = 30.0
+    safety_rescan_interval_seconds: float = 5.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,12 +66,14 @@ def poll_pending_channel_messages(
         return state
     state.last_poll_at = now
     marker = services.file_marker()
-    if not options.enabled or not services.should_check(
-        marker,
-        state.last_marker,
-        state.pending_recheck,
-        state.inflight_message_id,
-    ):
+    marker_requires_scan = services.should_check(
+        marker, state.last_marker, state.pending_recheck, state.inflight_message_id
+    )
+    safety_rescan_due = (
+        state.last_scan_at <= 0.0
+        or now - state.last_scan_at >= policy.safety_rescan_interval_seconds
+    )
+    if not options.enabled or not (marker_requires_scan or safety_rescan_due):
         return state
 
     if services.active():
@@ -85,6 +89,7 @@ def poll_pending_channel_messages(
     if marker != state.last_marker:
         state.last_marker = marker
     state.pending_recheck = False
+    state.last_scan_at = now
     state.last_id = max(state.last_id, services.ensure_cursor())
     injected_ids: list[int] = []
     state.last_id = services.inject_pending(
@@ -103,7 +108,10 @@ def poll_pending_channel_messages(
     )
     if injected_ids:
         state.inflight_message_id = injected_ids[-1]
-        state.inflight_cursor = state.last_id
+        # The injector deliberately returns the cursor preceding an LLM-delivery
+        # batch until the resulting turn is confirmed.  The durable commit point
+        # is nevertheless the highest message in that atomic batch.
+        state.inflight_cursor = max(injected_ids)
         state.inflight_logged_at = now
         state.inflight_started_at = now
     return state
