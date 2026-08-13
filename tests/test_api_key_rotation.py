@@ -553,6 +553,40 @@ class ApiKeyRotationTests(unittest.TestCase):
         sleep.assert_not_called()
         backoff.assert_not_called()
 
+    def test_stream_connection_reset_retries_then_surfaces_upstream_error(self):
+        pcfg = self.provider_pcfg(
+            "kimi",
+            api_key="sk-one",
+            current_model="k3[1m]",
+            gateway_retries=2,
+        )
+        reset = ConnectionResetError(10054, "connection forcibly closed by remote host")
+
+        with (
+            mock.patch.object(
+                ciel_runtime.urllib.request,
+                "urlopen",
+                side_effect=reset,
+            ) as urlopen,
+            mock.patch.object(ciel_runtime, "write_router_activity"),
+            mock.patch.object(ciel_runtime.time, "sleep") as sleep,
+        ):
+            with self.assertRaises(RuntimeError) as caught:
+                ciel_runtime.open_openai_stream_with_rate_retry(
+                    "https://api.kimi.com/coding/v1/chat/completions",
+                    {"model": "k3[1m]", "messages": [], "stream": True},
+                    ciel_runtime.provider_headers("kimi", pcfg),
+                    120.0,
+                    "kimi",
+                    pcfg,
+                    "k3[1m]",
+                )
+
+        self.assertEqual(3, urlopen.call_count)
+        self.assertEqual([mock.call(2.0), mock.call(4.0)], sleep.call_args_list)
+        self.assertIn("ConnectionResetError", str(caught.exception))
+        self.assertIsInstance(caught.exception.__cause__, ConnectionResetError)
+
     def test_direct_anthropic_compatible_429_rotates_to_live_key(self):
         pcfg = self.provider_pcfg(
             "deepseek",

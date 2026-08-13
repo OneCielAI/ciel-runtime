@@ -73,6 +73,11 @@ def retry_wait_seconds(attempt: int) -> float:
 
 
 def retryable_exception(error: BaseException) -> bool:
+    if isinstance(
+        error,
+        (TimeoutError, ConnectionResetError, ConnectionAbortedError, BrokenPipeError),
+    ):
+        return True
     text = f"{type(error).__name__}: {error}".lower()
     markers = (
         "timed out",

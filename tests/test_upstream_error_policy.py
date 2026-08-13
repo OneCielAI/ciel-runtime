@@ -25,6 +25,13 @@ class UpstreamErrorPolicyTests(unittest.TestCase):
 
         self.assertTrue(retryable_exception(error))
 
+    def test_raw_connection_reset_is_retryable_independent_of_message_text(self):
+        self.assertTrue(
+            retryable_exception(
+                ConnectionResetError(10054, "connection forcibly closed by remote host")
+            )
+        )
+
     def test_tls_bad_record_mac_is_retryable(self):
         self.assertTrue(
             retryable_exception(

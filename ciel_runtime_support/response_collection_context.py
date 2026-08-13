@@ -126,12 +126,24 @@ class ResponseCollectionContext:
                     continue
                 except Exception as exc:
                     transport_retries = self.kimi_transport_retry_limit(provider, pcfg)
-                    if (
-                        provider != "kimi"
-                        or not retryable_exception(exc)
-                        or attempt >= transport_retries
-                    ):
+                    if not retryable_exception(exc):
                         raise
+                    if provider != "kimi":
+                        raise RuntimeError(
+                            f"upstream stream read failed provider={provider} model={model}: "
+                            f"{type(exc).__name__}: {exc}"
+                        ) from exc
+                    if attempt >= transport_retries:
+                        self.stream.log(
+                            "ERROR",
+                            f"{operation}_kimi_stream_read_exhausted provider={provider} "
+                            f"model={model} retries={transport_retries} "
+                            f"error={type(exc).__name__}",
+                        )
+                        raise RuntimeError(
+                            f"upstream stream read failed provider={provider} model={model} "
+                            f"after {attempt + 1} attempts: {type(exc).__name__}: {exc}"
+                        ) from exc
                     retry_no = attempt + 1
                     wait = min(20.0, 2.0 * retry_no)
                     self.stream.log(

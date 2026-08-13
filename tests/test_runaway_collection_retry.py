@@ -281,6 +281,7 @@ class OpenedStreamCollectorTests(unittest.TestCase):
     def test_kimi_stream_transport_retries_are_capped_below_capacity_retries(self):
         streams = [CountingStream([]) for _ in range(4)]
         calls = []
+        logs = []
 
         def open_stream(*_args, **_kwargs):
             calls.append(True)
@@ -291,21 +292,62 @@ class OpenedStreamCollectorTests(unittest.TestCase):
             anthropic=None,
             strategies=None,
             routing=None,
-            stream=ResponseCollectionStreamPorts(open_stream=open_stream),
+            stream=ResponseCollectionStreamPorts(
+                open_stream=open_stream,
+                log=lambda level, message: logs.append((level, message)),
+            ),
         )
         collect = context.opened_stream_collector(
             lambda _response, _policy: (_ for _ in ()).throw(
-                ssl.SSLError("[SSL: SSLV3_ALERT_BAD_RECORD_MAC] bad record mac")
+                ConnectionResetError(10054, "connection forcibly closed by remote host")
             ),
             "openai_chat",
         )
 
         with mock.patch("ciel_runtime_support.response_collection_context.time.sleep"):
-            with self.assertRaises(ssl.SSLError):
+            with self.assertRaises(RuntimeError) as caught:
                 collect("url", {}, {}, 30.0, "kimi", {"gateway_retries": 10}, "k3")
 
         self.assertEqual(4, len(calls), "one request plus at most three transport retries")
         self.assertTrue(all(stream.closed for stream in streams))
+        self.assertIn("upstream stream read failed provider=kimi model=k3", str(caught.exception))
+        self.assertIn("ConnectionResetError", str(caught.exception))
+        self.assertIsInstance(caught.exception.__cause__, ConnectionResetError)
+        self.assertIn("openai_chat_kimi_stream_read_exhausted", logs[-1][1])
+
+    def test_non_kimi_stream_reset_is_not_retried_and_preserves_provenance(self):
+        stream = CountingStream([])
+        calls = []
+        context = ResponseCollectionContext(
+            shared=None,
+            anthropic=None,
+            strategies=None,
+            routing=None,
+            stream=ResponseCollectionStreamPorts(
+                open_stream=lambda *_args, **_kwargs: calls.append(True) or stream,
+            ),
+        )
+        collect = context.opened_stream_collector(
+            lambda _response, _policy: (_ for _ in ()).throw(
+                ConnectionResetError(10054, "connection forcibly closed by remote host")
+            ),
+            "openai_chat",
+        )
+
+        with mock.patch(
+            "ciel_runtime_support.response_collection_context.time.sleep"
+        ) as sleep:
+            with self.assertRaises(RuntimeError) as caught:
+                collect("url", {}, {}, 30.0, "openai", {}, "gpt-test")
+
+        self.assertEqual(1, len(calls))
+        sleep.assert_not_called()
+        self.assertTrue(stream.closed)
+        self.assertIn(
+            "upstream stream read failed provider=openai model=gpt-test",
+            str(caught.exception),
+        )
+        self.assertIsInstance(caught.exception.__cause__, ConnectionResetError)
 
 
 def looping_message():
