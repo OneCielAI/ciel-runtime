@@ -55,9 +55,9 @@ class AgyRuntimeTests(unittest.TestCase):
         anthropic = {"route_through_router": True, "base_url": "https://api.anthropic.com", "current_model": "claude"}
 
         agy_rows = ciel_runtime.main_menu_rows(cfg, "agy", agy, "en")
-        self.assertIn("9. Launch Claude Code [disabled: AGY provider selected]", agy_rows)
-        self.assertTrue(any(row.startswith("10. Launch") for row in agy_rows))
+        self.assertTrue(any(row.startswith("9. Launch") for row in agy_rows))
         agy_launch_rows, _ = ciel_runtime.launch_panel_rows({"current_provider": "agy", "providers": {"agy": agy}})
+        self.assertTrue(any(row.startswith("Claude [disabled: AGY") for row in agy_launch_rows))
         self.assertTrue(any(row.startswith("Codex [disabled: AGY") for row in agy_launch_rows))
         self.assertIn("AGY", agy_launch_rows)
 
@@ -67,7 +67,7 @@ class AgyRuntimeTests(unittest.TestCase):
         self.assertIn("AGY [disabled: select AGY provider]", codex_launch_rows)
 
         claude_rows = ciel_runtime.main_menu_rows(cfg, "anthropic", anthropic, "en")
-        self.assertIn("9. Launch Claude Code", claude_rows)
+        self.assertTrue(any(row.startswith("9. Launch") for row in claude_rows))
         claude_launch_rows, _ = ciel_runtime.launch_panel_rows({"current_provider": "anthropic", "providers": {"anthropic": anthropic}})
         self.assertTrue(any(row.startswith("Codex app server [disabled: Anthropic") for row in claude_launch_rows))
         self.assertIn("AGY [disabled: select AGY provider]", claude_launch_rows)

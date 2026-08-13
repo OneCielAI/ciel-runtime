@@ -5,6 +5,13 @@ import ciel_runtime
 
 
 class PrelaunchDefaultActionTests(unittest.TestCase):
+    def test_all_runtime_defaults_focus_the_combined_launch_menu(self):
+        for action in ("launch", "launch-codex", "launch-codex-app-server", "launch-agy", "launch-kimi"):
+            self.assertEqual(
+                ciel_runtime.MAIN_MENU_ACTIONS.index("launch-menu"),
+                ciel_runtime.prelaunch_action_index(action),
+            )
+
     def test_kimi_code_is_default_when_no_shared_runtime_is_remembered(self):
         with mock.patch.object(ciel_runtime, "load_config", return_value={}):
             self.assertEqual("launch-kimi", ciel_runtime.default_prelaunch_action("kimi"))

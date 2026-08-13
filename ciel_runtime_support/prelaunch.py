@@ -30,7 +30,6 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "options",
     "log-level",
     "test",
-    "launch",
     "launch-menu",
     "external-events",
     "remote-instructions",
@@ -414,6 +413,25 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     action = value
                     cfg = load_config()
                     provider, pcfg = get_current_provider(cfg)
+                    if action == "launch":
+                        if not claude_launch_enabled_for_provider(provider):
+                            messages = [f"Launch Claude Code is disabled while {provider_menu_label(provider, pcfg)} provider is selected."]
+                            continue
+                        blockers = launch_readiness_errors()
+                        if blockers:
+                            messages = blockers
+                            if launch_blockers_require_api_key(blockers):
+                                main_idx = list(MAIN_MENU_ACTIONS).index("api-key")
+                                open_panel("api-key")
+                                if "input" in panel_values:
+                                    panel_idx = panel_values.index("input")
+                                messages = [
+                                    *blockers,
+                                    f"Opening API key setup for {PROVIDER_LABELS.get(provider, provider)}.",
+                                ]
+                            continue
+                        persist_launch_action(action)
+                        return PRELAUNCH_LAUNCH_CLAUDE
                     if action in {"launch-codex", "launch-codex-app-server"}:
                         if not codex_launch_enabled_for_provider(provider):
                             messages = [f"Launch Codex is disabled while {provider_menu_label(provider, pcfg)} provider is selected."]
@@ -872,32 +890,6 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             elif key == "enter":
                 actions = list(MAIN_MENU_ACTIONS)
                 action = actions[main_idx]
-                if action == "launch":
-                    cfg = load_config()
-                    provider, _ = get_current_provider(cfg)
-                    if not claude_launch_enabled_for_provider(provider):
-                        provider_label = provider_menu_label(provider, cfg.get("providers", {}).get(provider, {}))
-                        messages = [f"Launch Claude Code is disabled while {provider_label} provider is selected."]
-                        refresh_checks()
-                        continue
-                    blockers = launch_readiness_errors()
-                    if blockers:
-                        messages = blockers
-                        if launch_blockers_require_api_key(blockers):
-                            cfg = load_config()
-                            provider, _ = get_current_provider(cfg)
-                            main_idx = actions.index("api-key")
-                            open_panel("api-key")
-                            if "input" in panel_values:
-                                panel_idx = panel_values.index("input")
-                            messages = [
-                                *blockers,
-                                f"Opening API key setup for {PROVIDER_LABELS.get(provider, provider)}.",
-                            ]
-                        refresh_checks()
-                        continue
-                    persist_launch_action(action)
-                    return PRELAUNCH_LAUNCH_CLAUDE
                 if action == "quit":
                     return PRELAUNCH_CANCEL
                 open_panel(action)

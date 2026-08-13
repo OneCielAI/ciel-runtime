@@ -200,21 +200,22 @@ class CodexRuntimeTests(unittest.TestCase):
         zai = {"route_through_router": True, "base_url": "https://api.z.ai/api/anthropic", "current_model": "glm-5.2"}
 
         codex_rows = ciel_runtime.main_menu_rows(cfg, "codex", codex, "en")
-        self.assertIn("9. Launch Claude Code [disabled: Codex provider selected]", codex_rows)
+        self.assertTrue(any(row.startswith("9. Launch") for row in codex_rows))
         codex_launch_rows, _ = ciel_runtime.launch_panel_rows({"current_provider": "codex", "providers": {"codex": codex}})
+        self.assertTrue(any(row.startswith("Claude [disabled: Codex") for row in codex_launch_rows))
         self.assertIn("Codex", codex_launch_rows)
         self.assertIn("Codex app server", codex_launch_rows)
 
         claude_rows = ciel_runtime.main_menu_rows(cfg, "anthropic", anthropic, "en")
-        self.assertIn("9. Launch Claude Code", claude_rows)
+        self.assertTrue(any(row.startswith("9. Launch") for row in claude_rows))
         claude_launch_rows, _ = ciel_runtime.launch_panel_rows({"current_provider": "anthropic", "providers": {"anthropic": anthropic}})
         self.assertTrue(any(row.startswith("Codex [disabled: Anthropic") for row in claude_launch_rows))
         self.assertTrue(any(row.startswith("Codex app server [disabled: Anthropic") for row in claude_launch_rows))
 
         zai_rows = ciel_runtime.main_menu_rows(cfg, "zai", zai, "en")
-        self.assertIn("9. Launch Claude Code", zai_rows)
-        self.assertNotIn("9. Launch Claude Code [disabled", zai_rows)
+        self.assertTrue(any(row.startswith("9. Launch") for row in zai_rows))
         zai_launch_rows, _ = ciel_runtime.launch_panel_rows({"current_provider": "zai", "providers": {"zai": zai}})
+        self.assertIn("Claude", zai_launch_rows)
         self.assertIn("Codex", zai_launch_rows)
         self.assertIn("Codex app server", zai_launch_rows)
 

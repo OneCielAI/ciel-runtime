@@ -36,11 +36,10 @@ class PrelaunchPanelProjectionTests(unittest.TestCase):
 
         self.assertIn("[runtime-owned]", rows[4])
         self.assertIn("[not available]", rows[5])
-        self.assertIn("disabled: OpenAI provider selected", rows[9])
-        self.assertIn("10. Launch", rows[10])
-        self.assertIn("11. External event inputs", rows[11])
-        self.assertIn("12. Remote instructions", rows[12])
-        self.assertIn("13. Web Backend", rows[13])
+        self.assertIn("9. Launch", rows[9])
+        self.assertIn("10. External event inputs", rows[10])
+        self.assertIn("11. Remote instructions", rows[11])
+        self.assertIn("12. Web Backend", rows[12])
 
     def test_provider_panel_projects_native_and_routed_choices(self):
         projection = ProviderPanelProjection(

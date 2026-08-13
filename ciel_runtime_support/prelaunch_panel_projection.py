@@ -64,10 +64,6 @@ class MainMenuProjection:
                 62,
             )
         )
-        launch_label = self.ports.ui_text("launch", language)
-        if not self.ports.supports_runtime("claude", provider):
-            family = self._provider_family(provider, provider_config)
-            launch_label += f" [disabled: {family} provider selected]"
         remote = config.get("remote_instructions")
         remote_enabled = bool(isinstance(remote, dict) and remote.get("enabled"))
         return [
@@ -87,11 +83,10 @@ class MainMenuProjection:
             f"7. {self.ports.ui_text('log_level', language)}  "
             f"[{self.ports.log_level_status()}]",
             f"8. {self.ports.ui_text('test', language)}",
-            f"9. {launch_label}",
-            "10. Launch  [Codex · AGY · Kimi · Codex app-server]",
-            "11. External event inputs  [CloudEvents + Webhook/SSE]",
-            f"12. Remote instructions  [HTTP GET · {'on' if remote_enabled else 'off'}]",
-            f"13. {self.ports.ui_text('web_backend', language)}  "
+            "9. Launch  [Claude · Codex · AGY · Kimi · Codex app-server]",
+            "10. External event inputs  [CloudEvents + Webhook/SSE]",
+            f"11. Remote instructions  [HTTP GET · {'on' if remote_enabled else 'off'}]",
+            f"12. {self.ports.ui_text('web_backend', language)}  "
             f"[{web_backend_summary(config, 0)}]",
             self.ports.ui_text("quit", language),
         ]

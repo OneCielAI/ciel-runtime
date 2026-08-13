@@ -3909,18 +3909,20 @@ prompt_menu_multiline_value = _PRELAUNCH_SHELL_API.prompt_menu_multiline_value
 def launch_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
     provider, pcfg = get_current_provider(cfg)
     family = provider_menu_label(provider, pcfg)
+    claude_suffix = "" if claude_launch_enabled_for_provider(provider) else f" [disabled: {family} provider selected]"
     codex_suffix = "" if codex_launch_enabled_for_provider(provider) else f" [disabled: {family} provider selected]"
     agy_suffix = "" if agy_launch_enabled_for_provider(provider) else " [disabled: select AGY provider]"
     kimi_suffix = "" if provider == "kimi" else " [disabled: select Kimi provider]"
     return (
         [
+            f"Claude{claude_suffix}",
             f"Codex{codex_suffix}",
             f"AGY{agy_suffix}",
             f"Kimi{kimi_suffix}",
             f"Codex app server{codex_suffix}",
             "Back",
         ],
-        ["launch-codex", "launch-agy", "launch-kimi", "launch-codex-app-server", "back"],
+        ["launch", "launch-codex", "launch-agy", "launch-kimi", "launch-codex-app-server", "back"],
     )
 
 def prelaunch_panel_context() -> PrelaunchPanelContext:
