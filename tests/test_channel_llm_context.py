@@ -60,19 +60,41 @@ class ChannelLlmContextTests(unittest.TestCase):
     def test_injects_first_eligible_message_and_metadata(self):
         out = inject_pending_channel_context(
             {"messages": [{"role": "user", "content": "hello"}]},
-            self.services([{"id": 11, "channel": "web", "message": "answer"}]),
+            self.services(
+                [{"id": 11, "channel": "web", "message": "answer"}], wake=True
+            ),
         )
 
         self.assertEqual("channel:answer", out["messages"][-1]["content"][0]["text"])
         self.assertEqual("11", out["metadata"]["ciel_runtime_channel_message_ids"])
         self.assertEqual([], self.committed)
 
+    def test_unrelated_request_cannot_consume_pending_terminal_event(self):
+        body = {"messages": [{"role": "user", "content": "tool continuation"}]}
+
+        out = inject_pending_channel_context(
+            body,
+            self.services([{"id": 11, "channel": "external", "message": "wake"}]),
+        )
+
+        self.assertIs(body, out)
+        self.assertEqual([], self.committed)
+        self.assertIn("reason=terminal_wake_required", self.logs[0][1])
+
     def test_skipped_messages_advance_cursor_but_stdin_claim_does_not(self):
         body = {"messages": []}
-        inject_pending_channel_context(body, self.services([{"id": 11, "skip": "connection_noise"}]))
+        inject_pending_channel_context(
+            body,
+            self.services([{"id": 11, "skip": "connection_noise"}], wake=True),
+        )
         self.assertEqual([11], self.committed)
 
-        inject_pending_channel_context(body, self.services([{"id": 12}], stdin_reason="stdin_wake_claimed"))
+        inject_pending_channel_context(
+            body,
+            self.services(
+                [{"id": 12}], wake=True, stdin_reason="stdin_wake_claimed"
+            ),
+        )
         self.assertEqual([], self.committed)
 
     def test_plan_mode_requires_explicit_wake(self):

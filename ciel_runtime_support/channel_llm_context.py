@@ -108,6 +108,19 @@ def inject_pending_channel_context(
                     f"channel={message.get('channel')} reason={reason}",
                 )
                 continue
+            # Interactive runtimes submit admitted input through their terminal
+            # proxy.  An unrelated tool-continuation request may still inspect
+            # already-in-request and durable claim state above, but it must not
+            # race the proxy by admitting a fresh event of its own.  Otherwise
+            # a successful background response can advance the shared cursor
+            # without ever creating a visible TUI turn.
+            if not wake_request:
+                services.log(
+                    "INFO",
+                    f"channel_llm_inject_deferred message_id={message_id} "
+                    f"channel={message.get('channel')} reason=terminal_wake_required",
+                )
+                return body
             pending.append(message)
             max_seen = message_id
             break

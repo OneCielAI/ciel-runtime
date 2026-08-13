@@ -3315,7 +3315,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual("mcp__ai-net-http__get_messages", calls[0]["function"]["name"])
         self.assertEqual({"room_id": "room1", "limit": "5"}, calls[0]["function"]["arguments"])
 
-    def test_body_with_pending_channel_messages_injects_llm_context(self):
+    def test_body_with_pending_channel_messages_does_not_drain_into_unrelated_turn(self):
         body = {"messages": [{"role": "user", "content": "continue"}], "stream": True}
         messages = [
             {"id": 2, "channel": "ai-net", "sender_id": "ai-net", "message": "ai-net.sse.connected", "meta": {}},
@@ -3337,31 +3337,10 @@ class ChannelBridgeTests(unittest.TestCase):
         ):
             out = ciel_runtime.body_with_pending_channel_messages(body)
 
-        self.assertIsNot(out, body)
-        self.assertEqual(2, len(out["messages"]))
-        injected = out["messages"][-1]["content"][0]["text"]
-        self.assertEqual("Please check this.", injected)
-        self.assertNotIn("[external channel input]", injected)
-        self.assertNotIn("로컬 사용자 승인 없이 같은 채널/DM에 답장", injected)
-        self.assertNotIn("답장 여부를 묻고 멈추지 마세요", injected)
-        self.assertNotIn("미래 행동을 약속하는 말만 남기고 턴을 끝내지 마세요", injected)
-        self.assertNotIn("같은 턴에서 필요한 조사/도구 호출/채널 보고까지 수행", injected)
-        self.assertNotIn("실제 결제/투자 실행", injected)
-        self.assertIn("Please check this.", injected)
-        self.assertNotIn("ai-net.sse.connected", injected)
-        self.assertNotIn("SSE MCP initialized", injected)
+        self.assertIs(out, body)
         write_cursor.assert_not_called()
-        self.assertEqual("3", out["metadata"]["ciel_runtime_channel_cursor_last_id"])
-        handler = type("Handler", (), {"_ciel_runtime_response_status": 200})()
-        with (
-            mock.patch.object(ciel_runtime, "_channel_llm_read_cursor_locked", return_value=1),
-            mock.patch.object(ciel_runtime, "_channel_llm_write_cursor_locked") as commit_cursor,
-        ):
-            ciel_runtime.commit_pending_channel_delivery_cursors(out, handler)  # type: ignore[arg-type]
-        commit_cursor.assert_called_with(3)
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
-        self.assertTrue(any("channel_llm_injected" in item and "message_ids=3" in item for item in log_messages))
-        self.assertTrue(any("channel_llm_inject_skipped" in item and "transport_connected" in item for item in log_messages))
+        self.assertTrue(any("terminal_wake_required" in item for item in log_messages))
 
     def test_body_with_pending_channel_messages_allows_wake_during_stale_plan_mode(self):
         body = {
@@ -3672,7 +3651,12 @@ class ChannelBridgeTests(unittest.TestCase):
 
     def test_body_with_pending_channel_messages_keeps_ai_net_write_tools(self):
         body = {
-            "messages": [{"role": "user", "content": "continue"}],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "[external input pending] ids=3 channels=room",
+                }
+            ],
             "stream": True,
             "tools": [
                 {"name": "mcp__ai-net-sse__send_dm"},
