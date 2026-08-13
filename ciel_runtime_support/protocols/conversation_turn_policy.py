@@ -803,7 +803,18 @@ class ConversationTurnPolicy:
             return False
         if self.plan_mode_active(body):
             return False
-        if self.latest_tool_result_indicates_completed_work(body):
+        latest_intent_index = self.latest_user_intent_message_index(body)
+        latest_tool_result_index = self.latest_tool_result_message_index(body)
+        resumed_after_completed_tool = bool(
+            latest_intent_index is not None
+            and latest_tool_result_index is not None
+            and latest_intent_index > latest_tool_result_index
+            and self.short_resume_prompt(self.latest_user_text(body))
+        )
+        if (
+            self.latest_tool_result_indicates_completed_work(body)
+            and not resumed_after_completed_tool
+        ):
             return False
         # Mid-work is the signal that matters: the client already ran tools this
         # turn. Do not test the result tool names -- WORK_CONTINUATION_RESULT_TOOLS

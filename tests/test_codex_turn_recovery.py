@@ -94,6 +94,26 @@ class PreambleOnlyTurnPolicyTests(unittest.TestCase):
             )
         )
 
+    def test_old_completed_tool_result_does_not_suppress_a_resumed_turn(self):
+        body = work_request_body()
+        body["messages"][1]["content"][0]["name"] = "Edit"
+        body["messages"].extend(
+            [
+                {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "일부 작업만 진행했습니다."}],
+                },
+                {"role": "user", "content": [{"type": "text", "text": "계속"}]},
+            ]
+        )
+
+        self.assertTrue(ciel_runtime.latest_tool_result_indicates_completed_work(body))
+        self.assertTrue(
+            ciel_runtime.should_retry_preamble_only_turn(
+                body, "이제 fallback을 적용합니다.", []
+            )
+        )
+
     def test_turn_with_a_tool_call_is_never_retried(self):
         self.assertFalse(
             ciel_runtime.should_retry_preamble_only_turn(
