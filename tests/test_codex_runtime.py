@@ -326,6 +326,63 @@ class CodexRuntimeTests(unittest.TestCase):
             response["usage"],
         )
 
+    def test_custom_tool_roundtrip_uses_required_string_envelope_upstream(self):
+        body = {
+            "model": "ciel-runtime-kimi-k3-1m",
+            "input": [
+                {
+                    "type": "custom_tool_call",
+                    "call_id": "call_patch_1",
+                    "name": "apply_patch",
+                    "input": "*** Begin Patch\n*** End Patch",
+                },
+                {
+                    "type": "custom_tool_call_output",
+                    "call_id": "call_patch_1",
+                    "output": "Done!",
+                },
+            ],
+            "tools": [
+                {
+                    "type": "custom",
+                    "name": "apply_patch",
+                    "description": "Apply a patch",
+                    "format": {"type": "grammar", "syntax": "lark", "definition": "start: /.+/"},
+                }
+            ],
+        }
+
+        anthropic = ciel_runtime.openai_responses_to_anthropic_messages(body, "fallback")
+
+        schema = anthropic["tools"][0]["input_schema"]
+        self.assertEqual(["input"], schema["required"])
+        self.assertFalse(schema["additionalProperties"])
+        self.assertEqual(
+            {"input": "*** Begin Patch\n*** End Patch"},
+            anthropic["messages"][0]["content"][0]["input"],
+        )
+        self.assertEqual("tool_result", anthropic["messages"][1]["content"][0]["type"])
+
+        response = ciel_runtime.anthropic_message_to_openai_response(
+            {
+                "model": "k3",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "call_patch_2",
+                        "name": "apply_patch",
+                        "input": {"input": "*** Begin Patch\n*** End Patch"},
+                    }
+                ],
+            },
+            body,
+        )
+
+        item = response["output"][0]
+        self.assertEqual("custom_tool_call", item["type"])
+        self.assertEqual("apply_patch", item["name"])
+        self.assertEqual("*** Begin Patch\n*** End Patch", item["input"])
+
     def test_responses_roundtrip_preserves_reasoning_before_tool_call(self):
         message = {
             "model": "deepseek-v4-pro",

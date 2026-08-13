@@ -100,6 +100,15 @@ class PreambleOnlyTurnPolicyTests(unittest.TestCase):
             ciel_runtime.should_retry_preamble_only_turn(work_request_body(), report, [])
         )
 
+    def test_code_quoted_one_line_announcement_after_tools_is_retryable(self):
+        self.assertTrue(
+            ciel_runtime.should_retry_preamble_only_turn(
+                work_request_body(),
+                "`into_tool_calls()` 필터에 `EMAIL_DRAFT_TOOL`을 추가합니다. apply_patch는 프리폼 형식이므로 패치 본문을 직접 전달합니다.",
+                [],
+            )
+        )
+
     def test_plan_mode_turn_is_never_retried(self):
         body = work_request_body()
         body["messages"][0]["attachment"] = {"type": "plan_mode"}

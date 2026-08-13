@@ -85,6 +85,28 @@ def _tools_to_anthropic(tools: Any) -> list[dict[str, Any]]:
             continue
         if not name:
             continue
+        is_custom = str(tool.get("type") or "").strip().lower() == "custom"
+        if is_custom:
+            compatibility = (
+                "This is a free-form custom tool. Put the complete raw tool input "
+                "in the required `input` string field; never call it with an empty object."
+            )
+            description = (
+                f"{str(description).rstrip()}\n\n{compatibility}"
+                if str(description).strip()
+                else compatibility
+            )
+            parameters = {
+                "type": "object",
+                "properties": {
+                    "input": {
+                        "type": "string",
+                        "description": "Complete raw input for the custom tool.",
+                    }
+                },
+                "required": ["input"],
+                "additionalProperties": False,
+            }
         out.append(
             {
                 "name": str(name),
@@ -93,6 +115,37 @@ def _tools_to_anthropic(tools: Any) -> list[dict[str, Any]]:
             }
         )
     return out
+
+
+def _custom_tool_names(tools: Any) -> set[str]:
+    if not isinstance(tools, list):
+        return set()
+    return {
+        str(tool.get("name") or "")
+        for tool in tools
+        if isinstance(tool, dict)
+        and str(tool.get("type") or "").strip().lower() == "custom"
+        and str(tool.get("name") or "")
+    }
+
+
+def _custom_tool_input(value: Any) -> dict[str, Any]:
+    if isinstance(value, str):
+        return {"input": value}
+    if value is None:
+        return {"input": ""}
+    return {"input": str(value)}
+
+
+def _raw_custom_tool_input(value: Any) -> str:
+    if isinstance(value, dict):
+        raw = value.get("input")
+        if isinstance(raw, str):
+            return raw
+        if len(value) == 1:
+            return str(next(iter(value.values())))
+        return json.dumps(value, ensure_ascii=False)
+    return str(value or "")
 
 
 def _tool_choice_to_anthropic(tool_choice: Any) -> Any:
@@ -138,7 +191,7 @@ def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model:
         if item_type == "reasoning":
             pending_reasoning = _reasoning_summary_text(item)
             continue
-        if item_type == "function_call":
+        if item_type in {"function_call", "custom_tool_call"}:
             call_id = str(item.get("call_id") or item.get("id") or f"call_{len(messages) + 1}")
             content: list[dict[str, Any]] = []
             if pending_reasoning:
@@ -149,7 +202,11 @@ def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model:
                     "type": "tool_use",
                     "id": call_id,
                     "name": str(item.get("name") or "tool"),
-                    "input": _json_object(item.get("arguments")),
+                    "input": (
+                        _custom_tool_input(item.get("input"))
+                        if item_type == "custom_tool_call"
+                        else _json_object(item.get("arguments"))
+                    ),
                 }
             )
             messages.append(
@@ -160,7 +217,7 @@ def openai_responses_to_anthropic_messages(body: dict[str, Any], fallback_model:
             )
             saw_conversation_item = True
             continue
-        if item_type == "function_call_output":
+        if item_type in {"function_call_output", "custom_tool_call_output"}:
             call_id = str(item.get("call_id") or item.get("id") or "call_tool")
             messages.append(
                 {
@@ -242,6 +299,7 @@ def anthropic_message_to_openai_response(
     response_id = f"resp_{uuid.uuid4().hex}"
     created_at = int(time.time())
     model = str(message.get("model") or (source_body or {}).get("model") or "")
+    custom_names = _custom_tool_names((source_body or {}).get("tools"))
     output: list[dict[str, Any]] = []
     for index, block in enumerate(message.get("content") or []):
         if not isinstance(block, dict):
@@ -260,16 +318,29 @@ def anthropic_message_to_openai_response(
             )
         elif block_type == "tool_use":
             call_id = str(block.get("id") or f"call_{index + 1}")
-            output.append(
-                {
-                    "id": router_synthesized_item_id("fc", response_id, index),
-                    "type": "function_call",
-                    "status": "completed",
-                    "call_id": call_id,
-                    "name": str(block.get("name") or "tool"),
-                    "arguments": json.dumps(block.get("input") or {}, ensure_ascii=False),
-                }
-            )
+            name = str(block.get("name") or "tool")
+            if name in custom_names:
+                output.append(
+                    {
+                        "id": router_synthesized_item_id("ctc", response_id, index),
+                        "type": "custom_tool_call",
+                        "status": "completed",
+                        "call_id": call_id,
+                        "name": name,
+                        "input": _raw_custom_tool_input(block.get("input")),
+                    }
+                )
+            else:
+                output.append(
+                    {
+                        "id": router_synthesized_item_id("fc", response_id, index),
+                        "type": "function_call",
+                        "status": "completed",
+                        "call_id": call_id,
+                        "name": name,
+                        "arguments": json.dumps(block.get("input") or {}, ensure_ascii=False),
+                    }
+                )
         elif block_type == "thinking":
             thinking = str(block.get("thinking") or "")
             if thinking:

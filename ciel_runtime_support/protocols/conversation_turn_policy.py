@@ -809,7 +809,13 @@ class ConversationTurnPolicy:
         # turn. Do not test the result tool names -- WORK_CONTINUATION_RESULT_TOOLS
         # lists Claude Code tools, and a Codex client calls exec_command/apply_patch.
         if self.latest_user_tool_result_names(body):
-            return self.non_actionable_short_response(text)
+            if self.non_actionable_short_response(text):
+                return True
+            # Code identifiers/backticks made an otherwise short announcement
+            # look substantive. The retry is bounded and only replaces the
+            # original when it produces a real tool call, so a one-line report
+            # remains unchanged if the second response is also prose.
+            return "\n" not in text and len(re.sub(r"\s+", " ", text)) <= 400
         if not self.latest_user_looks_like_work_request(body):
             return False
         if self.non_actionable_short_response(text):
