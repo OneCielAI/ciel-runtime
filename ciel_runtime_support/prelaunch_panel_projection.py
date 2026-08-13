@@ -68,23 +68,8 @@ class MainMenuProjection:
         if not self.ports.supports_runtime("claude", provider):
             family = self._provider_family(provider, provider_config)
             launch_label += f" [disabled: {family} provider selected]"
-        launch_agy_label = self.ports.ui_text("launch_agy", language)
-        if not self.ports.supports_runtime("agy", provider):
-            launch_agy_label += " [disabled: select AGY provider]"
-        launch_codex_label = self.ports.ui_text("launch_codex", language)
-        if not self.ports.supports_runtime("codex", provider):
-            family = self._provider_family(provider, provider_config)
-            launch_codex_label += f" [disabled: {family} provider selected]"
-        launch_app_label = self.ports.ui_text(
-            "launch_codex_app_server",
-            language,
-        )
-        if not self.ports.supports_runtime("codex", provider):
-            family = self._provider_family(provider, provider_config)
-            launch_app_label += f" [disabled: {family} provider selected]"
-        launch_kimi_label = "Launch Kimi Code"
-        if not self.ports.supports_runtime("kimi", provider):
-            launch_kimi_label += " [disabled: select Kimi provider]"
+        remote = config.get("remote_instructions")
+        remote_enabled = bool(isinstance(remote, dict) and remote.get("enabled"))
         return [
             f"0. {self.ports.ui_text('language', language)}  "
             f"[{self.ports.languages.get(language, language)}]",
@@ -103,12 +88,10 @@ class MainMenuProjection:
             f"[{self.ports.log_level_status()}]",
             f"8. {self.ports.ui_text('test', language)}",
             f"9. {launch_label}",
-            f"10. {launch_codex_label}",
-            f"11. {launch_app_label}",
-            f"12. {launch_agy_label}",
-            f"13. {launch_kimi_label}",
-            "14. External event inputs  [CloudEvents + Webhook/SSE]",
-            f"15. {self.ports.ui_text('web_backend', language)}  "
+            "10. Launch  [Codex · AGY · Kimi · Codex app-server]",
+            "11. External event inputs  [CloudEvents + Webhook/SSE]",
+            f"12. Remote instructions  [HTTP GET · {'on' if remote_enabled else 'off'}]",
+            f"13. {self.ports.ui_text('web_backend', language)}  "
             f"[{web_backend_summary(config, 0)}]",
             self.ports.ui_text("quit", language),
         ]

@@ -100,6 +100,29 @@
 
 ---
 
+## 원격 시스템 지침
+
+시작 메뉴의 **Remote instructions**에서 런타임별 HTTP(S) GET URL을 설정할 수 있다.
+기능을 켜면 런타임 시작 직전과 context compact 직전에 조건부 GET을 실행하며,
+응답을 현재 작업 폴더의 표준 지침 파일에 원자적으로 반영한다.
+
+| 런타임 | 작업 폴더 파일 |
+|--------|----------------|
+| Claude | `CLAUDE.md` |
+| Codex / Codex App Server | `AGENTS.md` |
+| AGY | `GEMINI.md` |
+| Kimi | `AGENTS.md` |
+
+인증이 필요한 엔드포인트는 같은 메뉴의 **Authorization header**에 전체 헤더 값을
+설정한다. 키를 `config.json`에 직접 저장하지 않으려면
+`Bearer %SYSTEM_PROMPT_AUTH%`, `Bearer ${SYSTEM_PROMPT_AUTH}` 또는
+`Bearer {SYSTEM_PROMPT_AUTH}`처럼 환경변수를 참조한다. 세 표기법은 Windows,
+macOS, Linux에서 동일하게 해석된다. 환경변수가 없으면 다운로드는 실패하며 기존
+작업 폴더 파일은 그대로 유지된다. URL, ETag, Last-Modified와 해시만 상태 파일에
+기록하고 해석된 Authorization 값은 로그나 상태 파일에 기록하지 않는다.
+
+---
+
 ## 반복 폭주 가드
 
 모델이 같은 문장을 끝없이 되풀이하는 생성 루프에 빠지면 라우터가 이를 끊는다.

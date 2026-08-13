@@ -31,11 +31,9 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "log-level",
     "test",
     "launch",
-    "launch-codex",
-    "launch-codex-app-server",
-    "launch-agy",
-    "launch-kimi",
+    "launch-menu",
     "external-events",
+    "remote-instructions",
     "web-backend",
     "quit",
 )
@@ -155,6 +153,9 @@ class PrelaunchOptions:
     set_web_backend_config: Callable[..., Any]
     external_event_panel_rows: Callable[..., Any] = lambda _cfg: (["Back"], ["back"])
     set_external_event_config: Callable[..., Any] = lambda _key, _value: []
+    launch_panel_rows: Callable[..., Any] = lambda _cfg: (["Back"], ["back"])
+    remote_instruction_panel_rows: Callable[..., Any] = lambda _cfg: (["Back"], ["back"])
+    set_remote_instruction_config: Callable[..., Any] = lambda _key, _value: []
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +243,9 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     set_web_backend_config = services.options.set_web_backend_config
     external_event_panel_rows = services.options.external_event_panel_rows
     set_external_event_config = services.options.set_external_event_config
+    launch_panel_rows = services.options.launch_panel_rows
+    remote_instruction_panel_rows = services.options.remote_instruction_panel_rows
+    set_remote_instruction_config = services.options.set_remote_instruction_config
     passthrough = list(passthrough or [])
     enable_ansi()
     cfg = load_config()
@@ -308,6 +312,10 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             panel_rows, panel_values = web_backend_panel_rows(cfg)
         elif name == "external-events":
             panel_rows, panel_values = external_event_panel_rows(cfg)
+        elif name == "launch-menu":
+            panel_rows, panel_values = launch_panel_rows(cfg)
+        elif name == "remote-instructions":
+            panel_rows, panel_values = remote_instruction_panel_rows(cfg)
         if panel_rows:
             panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
 
@@ -399,6 +407,41 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                 cfg = load_config()
                 provider, pcfg = get_current_provider(cfg)
                 value = panel_values[panel_idx] if panel_idx < len(panel_values) else ""
+                if panel == "launch-menu":
+                    if value == "back":
+                        close_panel()
+                        continue
+                    action = value
+                    cfg = load_config()
+                    provider, pcfg = get_current_provider(cfg)
+                    if action in {"launch-codex", "launch-codex-app-server"}:
+                        if not codex_launch_enabled_for_provider(provider):
+                            messages = [f"Launch Codex is disabled while {provider_menu_label(provider, pcfg)} provider is selected."]
+                            continue
+                        blockers = launch_readiness_errors()
+                        if blockers:
+                            messages = blockers
+                            continue
+                        persist_launch_action(action)
+                        return PRELAUNCH_LAUNCH_CODEX_APP_SERVER if action == "launch-codex-app-server" else PRELAUNCH_LAUNCH_CODEX
+                    if action == "launch-agy":
+                        if not agy_launch_enabled_for_provider(provider):
+                            messages = ["Launch AGY is disabled until you select AGY or AGY Routed as the provider."]
+                            continue
+                        blockers = launch_readiness_errors()
+                        if blockers:
+                            messages = blockers
+                            continue
+                        persist_launch_action(action)
+                        return PRELAUNCH_LAUNCH_AGY
+                    if action == "launch-kimi":
+                        if provider != "kimi":
+                            messages = ["Launch Kimi Code is disabled until Kimi Native or Kimi Routed is selected."]
+                            continue
+                        persist_launch_action(action)
+                        launch_kimi([])
+                        return PRELAUNCH_CANCEL
+                    continue
                 if panel == "language" and value:
                     cfg["language"] = value
                     save_config(cfg)
@@ -695,6 +738,30 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     cfg = load_config()
                     panel_rows, panel_values = external_event_panel_rows(cfg)
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
+                elif panel == "remote-instructions":
+                    if value == "back":
+                        close_panel()
+                        continue
+                    if value == "enabled":
+                        messages = set_remote_instruction_config("enabled", "toggle")
+                    elif value == "sync":
+                        messages = set_remote_instruction_config("sync", "")
+                    elif value in {"claude_url", "codex_url", "agy_url", "kimi_url", "authorization", "timeout_seconds"}:
+                        entered = prompt_menu_value(
+                            "HTTP GET URL (blank clears)" if value.endswith("_url") else (
+                                "Authorization header (for example: Bearer %SYSTEM_PROMPT_AUTH%)"
+                                if value == "authorization" else "HTTP timeout seconds"
+                            ),
+                            "" if value == "authorization" else str((cfg.get("remote_instructions") or {}).get(value) or ""),
+                            restore_tty=restore_line_mode,
+                            raw_tty=restore_raw_mode,
+                        )
+                        messages = set_remote_instruction_config(value, entered)
+                    else:
+                        continue
+                    cfg = load_config()
+                    panel_rows, panel_values = remote_instruction_panel_rows(cfg)
+                    panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "options":
                     if value == "back":
                         close_panel()
@@ -831,56 +898,6 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         continue
                     persist_launch_action(action)
                     return PRELAUNCH_LAUNCH_CLAUDE
-                if action == "launch-agy":
-                    cfg = load_config()
-                    provider, _ = get_current_provider(cfg)
-                    if not agy_launch_enabled_for_provider(provider):
-                        messages = ["Launch AGY is disabled until you select AGY or AGY Routed as the provider."]
-                        refresh_checks()
-                        continue
-                    blockers = launch_readiness_errors()
-                    if blockers:
-                        messages = blockers
-                        refresh_checks()
-                        continue
-                    return PRELAUNCH_LAUNCH_AGY
-                if action == "launch-kimi":
-                    cfg = load_config()
-                    provider, _ = get_current_provider(cfg)
-                    if provider != "kimi":
-                        messages = ["Launch Kimi Code is disabled until Kimi Native or Kimi Routed is selected."]
-                        refresh_checks()
-                        continue
-                    launch_kimi([])
-                    return PRELAUNCH_CANCEL
-                if action == "launch-codex":
-                    cfg = load_config()
-                    provider, pcfg = get_current_provider(cfg)
-                    if not codex_launch_enabled_for_provider(provider):
-                        messages = [f"Launch Codex is disabled while {provider_menu_label(provider, pcfg)} provider is selected."]
-                        refresh_checks()
-                        continue
-                    blockers = launch_readiness_errors()
-                    if blockers:
-                        messages = blockers
-                        refresh_checks()
-                        continue
-                    persist_launch_action(action)
-                    return PRELAUNCH_LAUNCH_CODEX
-                if action == "launch-codex-app-server":
-                    cfg = load_config()
-                    provider, pcfg = get_current_provider(cfg)
-                    if not codex_launch_enabled_for_provider(provider):
-                        messages = [f"Launch Codex App Server is disabled while {provider_menu_label(provider, pcfg)} provider is selected."]
-                        refresh_checks()
-                        continue
-                    blockers = launch_readiness_errors()
-                    if blockers:
-                        messages = blockers
-                        refresh_checks()
-                        continue
-                    persist_launch_action(action)
-                    return PRELAUNCH_LAUNCH_CODEX_APP_SERVER
                 if action == "quit":
                     return PRELAUNCH_CANCEL
                 open_panel(action)

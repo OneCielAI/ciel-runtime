@@ -242,6 +242,8 @@ from ciel_runtime_support.prompt_compaction import compact_responses_input_for_b
 from ciel_runtime_support.prompt_injection import append_anthropic_system_texts as project_append_anthropic_system_texts
 from ciel_runtime_support.prompt_injection import normalize_anthropic_system_role_messages as project_normalize_anthropic_system_role_messages
 from ciel_runtime_support.prompt_injection import normalize_anthropic_system_role_messages_by_strategy as project_normalize_anthropic_system_role_messages_by_strategy
+from ciel_runtime_support.remote_instructions import RemoteInstructionResult, RemoteInstructionSynchronizer, SynchronizedLaunch
+from ciel_runtime_support.remote_instructions import panel_rows as project_remote_instruction_panel_rows
 from ciel_runtime_support.protocols import PROTOCOL_ADAPTERS
 from ciel_runtime_support.protocols.anthropic_content import content_to_text as anthropic_content_to_text
 from ciel_runtime_support.protocols.anthropic_thinking_policy import AnthropicThinkingPolicy, SuppressedThinkingRepository, ThinkingPolicyPorts
@@ -1854,6 +1856,130 @@ def set_external_event_config(key: str, value: Any) -> list[str]:
         "External events use the private Runtime Input Gateway and are never published to Web Chat.",
     ]
 
+def remote_instruction_synchronizer() -> RemoteInstructionSynchronizer:
+    return RemoteInstructionSynchronizer(
+        load_config=load_config,
+        workspace=Path.cwd,
+        state_dir=WORKSPACE_STATE_DIR,
+        log=router_log,
+    )
+
+def sync_remote_instruction(runtime: str, *, reason: str) -> RemoteInstructionResult:
+    return remote_instruction_synchronizer().sync(runtime, reason=reason)
+
+def remote_instruction_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
+    return project_remote_instruction_panel_rows(cfg)
+
+def set_remote_instruction_config(key: str, value: Any) -> list[str]:
+    cfg = load_config()
+    remote = cfg.setdefault("remote_instructions", {})
+    if not isinstance(remote, dict):
+        remote = {}
+        cfg["remote_instructions"] = remote
+    if key == "enabled":
+        remote["enabled"] = not bool(remote.get("enabled", False))
+    elif key == "timeout_seconds":
+        try:
+            remote[key] = max(1, min(30, int(str(value).strip())))
+        except ValueError:
+            return ["HTTP timeout must be a whole number from 1 to 30 seconds."]
+    elif key in {"claude_url", "codex_url", "agy_url", "kimi_url"}:
+        url = str(value or "").strip()
+        if url:
+            parsed = urllib.parse.urlparse(url)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                return ["Instruction URL must be an http:// or https:// URL."]
+        remote[key] = url
+    elif key == "authorization":
+        remote[key] = str(value or "").strip()
+    elif key == "sync":
+        results = [
+            sync_remote_instruction(runtime, reason="manual")
+            for runtime in ("claude", "codex", "agy", "kimi")
+        ]
+        visible = [result for result in results if result.status != "not-configured"]
+        return [
+            f"{result.runtime}: {result.status}"
+            + (f" ({result.detail})" if result.detail else "")
+            for result in visible
+        ] or ["No remote instruction URLs are configured."]
+    else:
+        raise ValueError(f"unsupported remote instruction option: {key}")
+    save_config(cfg)
+    return [f"Remote instructions updated: enabled={bool(remote.get('enabled', False))}."]
+
+_REMOTE_INSTRUCTION_BEGIN = "<!-- ciel-runtime:remote-instructions:begin -->"
+_REMOTE_INSTRUCTION_END = "<!-- ciel-runtime:remote-instructions:end -->"
+
+def _latest_remote_instruction(runtime: str, *, reason: str) -> str:
+    result = sync_remote_instruction(runtime, reason=reason)
+    if result.status == "failed":
+        return ""
+    path = result.path
+    if path is None or not path.is_file():
+        return ""
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        router_log("WARN", f"remote_instructions_read_failed runtime={runtime} error={type(exc).__name__}: {exc}")
+        return ""
+
+def _with_latest_instruction_text(original: Any, instruction: str) -> str:
+    current = str(original or "")
+    start = current.find(_REMOTE_INSTRUCTION_BEGIN)
+    end = current.find(_REMOTE_INSTRUCTION_END, start + len(_REMOTE_INSTRUCTION_BEGIN)) if start >= 0 else -1
+    if start >= 0 and end >= 0:
+        current = (current[:start] + current[end + len(_REMOTE_INSTRUCTION_END):]).strip()
+    if not instruction:
+        return current
+    managed = f"{_REMOTE_INSTRUCTION_BEGIN}\n{instruction}\n{_REMOTE_INSTRUCTION_END}"
+    return f"{current}\n\n{managed}".strip()
+
+def _without_remote_instruction_blocks(system: Any) -> Any:
+    if isinstance(system, str):
+        return _with_latest_instruction_text(system, "")
+    if not isinstance(system, list):
+        return system
+    cleaned: list[Any] = []
+    for block in system:
+        if not isinstance(block, dict) or not isinstance(block.get("text"), str):
+            cleaned.append(block)
+            continue
+        copied = dict(block)
+        copied["text"] = _with_latest_instruction_text(block["text"], "")
+        if copied["text"].strip():
+            cleaned.append(copied)
+    return cleaned
+
+def _refresh_anthropic_compact_body(body: dict[str, Any], runtime: str = "claude") -> dict[str, Any]:
+    instruction = _latest_remote_instruction(runtime, reason="pre-compact")
+    if not instruction:
+        return body
+    updated = dict(body)
+    updated["system"] = append_anthropic_system_texts(
+        _without_remote_instruction_blocks(body.get("system")),
+        [_with_latest_instruction_text("", instruction)],
+    )
+    return updated
+
+def _refresh_chat_compact_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    instruction = _latest_remote_instruction("claude", reason="pre-compact")
+    if not instruction:
+        return messages
+    updated = [dict(message) for message in messages]
+    for message in updated:
+        if str(message.get("role") or "") == "system" and isinstance(message.get("content"), str):
+            message["content"] = _with_latest_instruction_text(message.get("content"), instruction)
+            return updated
+    return [{"role": "system", "content": _with_latest_instruction_text("", instruction)}, *updated]
+
+def compact_responses_with_remote_instruction(body: dict[str, Any], budget: int, **kwargs: Any) -> dict[str, Any]:
+    instruction = _latest_remote_instruction("codex", reason="pre-compact")
+    updated = dict(body)
+    if instruction:
+        updated["instructions"] = _with_latest_instruction_text(body.get("instructions"), instruction)
+    return run_responses_prompt_compaction(updated, budget, services=prompt_compaction_services(), **kwargs)
+
 def _channel_compact_request_ttl_seconds() -> float: return compact_request_ttl(os.environ.get('CIEL_RUNTIME_CHANNEL_COMPACT_REQUEST_TTL_SECONDS'))
 
 def channel_compact_request_repository() -> ChannelCompactRequestRepository:
@@ -2248,6 +2374,8 @@ _OPENAI_CONTEXT_BUDGET_POLICY = OpenAIContextBudgetPolicy(
 def openai_context_limit_for_budget(provider: str, pcfg: dict[str, Any]) -> int: return _OPENAI_CONTEXT_BUDGET_POLICY.context_limit(provider, pcfg)
 
 def compact_ollama_messages_for_budget( messages: list[dict[str, Any]], tools: list[dict[str, Any]], budget_tokens: int, *, provider: str = "", model: str = "", pcfg: dict[str, Any] | None = None, full_compact_request: bool = False, wire: str | None = None, ) -> list[dict[str, Any]]:
+    if full_compact_request:
+        messages = _refresh_chat_compact_messages(messages)
     return run_chat_prompt_compaction(
         messages,
         tools,
@@ -2282,6 +2410,8 @@ anthropic_message_has_tool_result = compacted_anthropic_message_has_tool_result
 anthropic_safe_tail_start = compacted_anthropic_safe_tail_start
 
 def compact_anthropic_body_for_budget( body: dict[str, Any], budget_tokens: int, *, provider: str = "", model: str = "", pcfg: dict[str, Any] | None = None, full_compact_request: bool = False, ) -> dict[str, Any]:
+    if full_compact_request:
+        body = _refresh_anthropic_compact_body(body)
     return run_anthropic_prompt_compaction(
         body,
         budget_tokens,
@@ -2656,7 +2786,7 @@ def codex_backend_context() -> CodexBackendContext:
         replay=CodexBackendReplayPorts(rejected_reasoning_contains=_REJECTED_REASONING_STORE.contains,
                                        rejected_reasoning_record=_REJECTED_REASONING_STORE.add,
                                        estimate_tokens=estimate_tokens,
-                                       compact_responses=lambda body, budget, **kwargs: run_responses_prompt_compaction(body, budget, services=prompt_compaction_services(), **kwargs)),
+                                       compact_responses=compact_responses_with_remote_instruction),
         provider_projection=ProviderPassthroughProjectionPorts(provider_headers, lambda *args, **kwargs: provider_chat_headers(*args, **kwargs),
                                                                lambda *args, **kwargs: provider_responses_headers(*args, **kwargs),
                                                                provider_upstream_model, resolve_requested_model, apply_provider_adapter_request_policy),
@@ -3717,6 +3847,7 @@ install_kimi_code_if_missing = _KIMI_RUNTIME_API.install_if_missing
 run_kimi_oauth_login = _KIMI_RUNTIME_API.oauth_login
 run_kimi_oauth_action = _KIMI_RUNTIME_API.oauth_action
 launch_kimi = _KIMI_RUNTIME_API.launch
+launch_kimi = SynchronizedLaunch(launch_kimi, sync_remote_instruction, "kimi")
 enable_ansi = enable_terminal_ansi
 ansi = render_ansi
 animated_ansi_text = render_animated_ansi_text
@@ -3775,6 +3906,23 @@ prompt_menu_value = _PRELAUNCH_SHELL_API.prompt_menu_value
 _prompt_menu_multiline_value_raw = _PRELAUNCH_SHELL_API.prompt_menu_multiline_value_raw
 prompt_menu_multiline_value = _PRELAUNCH_SHELL_API.prompt_menu_multiline_value
 
+def launch_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
+    provider, pcfg = get_current_provider(cfg)
+    family = provider_menu_label(provider, pcfg)
+    codex_suffix = "" if codex_launch_enabled_for_provider(provider) else f" [disabled: {family} provider selected]"
+    agy_suffix = "" if agy_launch_enabled_for_provider(provider) else " [disabled: select AGY provider]"
+    kimi_suffix = "" if provider == "kimi" else " [disabled: select Kimi provider]"
+    return (
+        [
+            f"Codex{codex_suffix}",
+            f"AGY{agy_suffix}",
+            f"Kimi{kimi_suffix}",
+            f"Codex app server{codex_suffix}",
+            "Back",
+        ],
+        ["launch-codex", "launch-agy", "launch-kimi", "launch-codex-app-server", "back"],
+    )
+
 def prelaunch_panel_context() -> PrelaunchPanelContext:
     return PrelaunchPanelContext(
         main=MainMenuPanelPorts(LANGUAGES, ui_text, compact_text, provider_menu_label, stored_api_key_mask, llm_options_status, log_level_status,
@@ -3826,7 +3974,8 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
             secrets=prelaunch.PrelaunchSecrets(clear_api_key_config, mask_secret, parse_api_key_list, secret_fingerprint, store_api_key_input_config,
                                                 store_api_keys_config, run_copilot_oauth_action, run_kimi_oauth_action),
             options=prelaunch.PrelaunchOptions(llm_option_current_bool, llm_option_prompt_default, timeout_profile_panel_rows, web_backend_panel_rows,
-                                               set_web_backend_config, external_event_panel_rows, set_external_event_config),
+                                               set_web_backend_config, external_event_panel_rows, set_external_event_config,
+                                               launch_panel_rows, remote_instruction_panel_rows, set_remote_instruction_config),
         ).services(),
     )
 
@@ -4137,6 +4286,8 @@ def _inject_pending_channel_messages(
     )
 
 def _inject_pending_compact_request( master_fd: int, enter_bytes: bytes | None = None, *, log_defer: bool = True, submit_retry_count: int = 1, confirm_submit: bool = False, bracketed_paste: bool = False, submit_delay_seconds: float | None = None, ) -> str:
+    if _read_channel_compact_request() is not None:
+        sync_remote_instruction(last_launch_runtime() or "claude", reason="pre-compact")
     return channel_wake_context().inject_compact(
         master_fd,
         enter_bytes,
@@ -4459,10 +4610,10 @@ def runtime_launch_context() -> RuntimeLaunchContext:
     )
 
 _RUNTIME_LAUNCH_API = RuntimeLaunchCompatibilityApi(runtime_launch_context)
-launch_claude = _RUNTIME_LAUNCH_API.launch_claude
-launch_codex = _RUNTIME_LAUNCH_API.launch_codex
-launch_codex_app_server = _RUNTIME_LAUNCH_API.launch_codex_app_server
-launch_agy = _RUNTIME_LAUNCH_API.launch_agy
+launch_claude = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_claude, sync_remote_instruction, "claude")
+launch_codex = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex, sync_remote_instruction, "codex")
+launch_codex_app_server = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex_app_server, sync_remote_instruction, "codex-app-server")
+launch_agy = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_agy, sync_remote_instruction, "agy")
 CLAUDE_CODE_STDERR_LOG = CONFIG_DIR / "claude-code-stderr.log"
 def launch_command_diagnostics() -> LaunchCommandDiagnostics: return LaunchCommandDiagnostics(router_log, mask_secret, CODEX_RUNTIME_API_KEY_ENV)
 def _log_claude_command_for_diagnostics(cmd: list[str], env: dict[str, str]) -> None: launch_command_diagnostics().claude(cmd, env)

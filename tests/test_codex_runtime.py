@@ -201,23 +201,22 @@ class CodexRuntimeTests(unittest.TestCase):
 
         codex_rows = ciel_runtime.main_menu_rows(cfg, "codex", codex, "en")
         self.assertIn("9. Launch Claude Code [disabled: Codex provider selected]", codex_rows)
-        self.assertIn("10. Launch Codex", codex_rows)
-        self.assertNotIn("10. Launch Codex [disabled", codex_rows)
-        self.assertIn("11. Launch Codex App Server", codex_rows)
-        self.assertNotIn("11. Launch Codex App Server [disabled", codex_rows)
+        codex_launch_rows, _ = ciel_runtime.launch_panel_rows({"current_provider": "codex", "providers": {"codex": codex}})
+        self.assertIn("Codex", codex_launch_rows)
+        self.assertIn("Codex app server", codex_launch_rows)
 
         claude_rows = ciel_runtime.main_menu_rows(cfg, "anthropic", anthropic, "en")
         self.assertIn("9. Launch Claude Code", claude_rows)
-        self.assertIn("10. Launch Codex [disabled: Anthropic provider selected]", claude_rows)
-        self.assertIn("11. Launch Codex App Server [disabled: Anthropic provider selected]", claude_rows)
+        claude_launch_rows, _ = ciel_runtime.launch_panel_rows({"current_provider": "anthropic", "providers": {"anthropic": anthropic}})
+        self.assertTrue(any(row.startswith("Codex [disabled: Anthropic") for row in claude_launch_rows))
+        self.assertTrue(any(row.startswith("Codex app server [disabled: Anthropic") for row in claude_launch_rows))
 
         zai_rows = ciel_runtime.main_menu_rows(cfg, "zai", zai, "en")
         self.assertIn("9. Launch Claude Code", zai_rows)
         self.assertNotIn("9. Launch Claude Code [disabled", zai_rows)
-        self.assertIn("10. Launch Codex", zai_rows)
-        self.assertNotIn("10. Launch Codex [disabled", zai_rows)
-        self.assertIn("11. Launch Codex App Server", zai_rows)
-        self.assertNotIn("11. Launch Codex App Server [disabled", zai_rows)
+        zai_launch_rows, _ = ciel_runtime.launch_panel_rows({"current_provider": "zai", "providers": {"zai": zai}})
+        self.assertIn("Codex", zai_launch_rows)
+        self.assertIn("Codex app server", zai_launch_rows)
 
     def test_provider_choice_toggles_codex_routing(self):
         cfg = {

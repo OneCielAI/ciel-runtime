@@ -29,6 +29,16 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
         },
         "web_backends": {},
         "external_event_receivers": {},
+        "remote_instructions": {
+            "enabled": False,
+            "claude_url": "",
+            "codex_url": "",
+            "agy_url": "",
+            "kimi_url": "",
+            "authorization": "",
+            "timeout_seconds": 5,
+            "max_bytes": 1048576,
+        },
         "speech": {
             "colab": {
                 "enabled": True,
