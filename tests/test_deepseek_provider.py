@@ -311,6 +311,24 @@ class DeepSeekProviderTests(unittest.TestCase):
         self.assertEqual(20, response["usage"]["input_tokens"])
         self.assertEqual(100, response["usage"]["cache_creation_input_tokens"])
 
+    def test_openai_reasoning_only_response_is_not_mislabeled_as_empty(self):
+        response = ciel_runtime.openai_chat_to_anthropic(
+            {
+                "choices": [{
+                    "message": {"reasoning_content": "inspect before the next tool", "content": ""},
+                    "finish_reason": "stop",
+                }],
+                "usage": {"prompt_tokens": 100, "completion_tokens": 12},
+            },
+            "k3",
+            source_body={"messages": [{"role": "user", "content": "continue"}]},
+        )
+
+        self.assertEqual("thinking", response["content"][0]["type"])
+        text = ciel_runtime.anthropic_content_to_text(response["content"])
+        self.assertIn("returned reasoning without a final answer", text)
+        self.assertNotIn("empty end_turn", text)
+
 
 if __name__ == "__main__":
     unittest.main()

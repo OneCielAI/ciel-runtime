@@ -27,6 +27,11 @@ CODEX_EMPTY_REASONING_CONTINUATION_NUDGE = (
     "or provide the concrete final answer if no tool is needed."
 )
 
+RUNTIME_REASONING_ONLY_NOTICE_PREFIXES = (
+    "[ciel-runtime] Upstream model returned reasoning without a final answer or tool call.",
+    "[ciel-runtime] Upstream model exhausted its output budget during reasoning",
+)
+
 
 def message_text(message: dict[str, Any]) -> str:
     parts: list[str] = []
@@ -52,6 +57,30 @@ def message_has_reasoning(message: dict[str, Any]) -> bool:
         and bool(str(block.get("thinking") or block.get("reasoning") or "").strip())
         for block in message.get("content") or []
     )
+
+
+def message_has_only_reasoning_notice(message: dict[str, Any]) -> bool:
+    texts = [
+        str(block.get("text") or "").strip()
+        for block in message.get("content") or []
+        if isinstance(block, dict) and block.get("type") == "text" and str(block.get("text") or "").strip()
+    ]
+    return bool(texts) and all(
+        any(text.startswith(prefix) for prefix in RUNTIME_REASONING_ONLY_NOTICE_PREFIXES)
+        for text in texts
+    )
+
+
+def message_without_reasoning_notice(message: dict[str, Any]) -> dict[str, Any]:
+    if not message_has_only_reasoning_notice(message):
+        return message
+    projected = dict(message)
+    projected["content"] = [
+        dict(block) if isinstance(block, dict) else block
+        for block in message.get("content") or []
+        if not (isinstance(block, dict) and block.get("type") == "text")
+    ]
+    return projected
 
 
 def body_with_continuation_nudge(
@@ -123,8 +152,8 @@ def recover_preamble_only_turn(
     text = message_text(message)
     kimi_reasoning_only = (
         (provider or "").strip().lower() == "kimi"
-        and not text.strip()
         and message_has_reasoning(message)
+        and (not text.strip() or message_has_only_reasoning_notice(message))
     )
     if not kimi_reasoning_only and not services.should_retry(body, text, []):
         return message
@@ -142,7 +171,14 @@ def recover_preamble_only_turn(
             else CODEX_CONTINUATION_NUDGE
         )
         retried = services.collect_message(
-            handler, provider, pcfg, body_with_continuation_nudge(body, message, nudge)
+            handler,
+            provider,
+            pcfg,
+            body_with_continuation_nudge(
+                body,
+                message_without_reasoning_notice(message) if kimi_reasoning_only else message,
+                nudge,
+            ),
         )
     except Exception as exc:  # noqa: BLE001 - recovery must never fail the turn
         services.log(
@@ -183,6 +219,8 @@ __all__ = [
     "body_with_continuation_nudge",
     "message_has_tool_use",
     "message_has_reasoning",
+    "message_has_only_reasoning_notice",
+    "message_without_reasoning_notice",
     "message_text",
     "recover_preamble_only_turn",
 ]

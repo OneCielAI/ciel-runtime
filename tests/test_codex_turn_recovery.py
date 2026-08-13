@@ -70,6 +70,22 @@ def reasoning_message(text="private reasoning"):
     return {"role": "assistant", "content": [{"type": "thinking", "thinking": text}]}
 
 
+def reasoning_notice_message(text="private reasoning"):
+    return {
+        "role": "assistant",
+        "content": [
+            {"type": "thinking", "thinking": text},
+            {
+                "type": "text",
+                "text": (
+                    "[ciel-runtime] Upstream model returned reasoning without a final answer or "
+                    "tool call. Please retry or ask me to continue."
+                ),
+            },
+        ],
+    }
+
+
 class PreambleOnlyTurnPolicyTests(unittest.TestCase):
     def test_announcement_after_a_work_request_is_retryable(self):
         self.assertTrue(
@@ -216,6 +232,34 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
 
         self.assertEqual("수정과 검증을 완료했습니다.", codex_turn_recovery.message_text(recovered))
         self.assertEqual(1, len(calls))
+
+    def test_kimi_projected_reasoning_notice_retries_without_replaying_notice(self):
+        calls = []
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "kimi",
+            {},
+            work_request_body(),
+            reasoning_notice_message(),
+            self._services(tool_message(), calls),
+        )
+
+        self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
+        self.assertEqual(1, len(calls))
+        replayed = calls[0]["messages"]
+        self.assertEqual("user", replayed[-1]["role"])
+        self.assertIn(
+            codex_turn_recovery.CODEX_EMPTY_REASONING_CONTINUATION_NUDGE,
+            replayed[-1]["content"][0]["text"],
+        )
+        self.assertFalse(
+            any(
+                "Upstream model returned reasoning" in str(block.get("text") or "")
+                for message in replayed
+                for block in message.get("content") or []
+                if isinstance(message, dict) and isinstance(block, dict)
+            )
+        )
 
     def test_reasoning_only_turn_is_not_retried_for_other_providers(self):
         calls = []

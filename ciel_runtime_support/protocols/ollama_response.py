@@ -149,11 +149,17 @@ def project_openai_chat_response(
     )
     raw_message = choice.get("message")
     message = raw_message if isinstance(raw_message, dict) else {}
+    reasoning_content = message.get("reasoning_content")
     usage_value = data.get("usage")
     usage = usage_value if isinstance(usage_value, dict) else {}
     wrapped = {
         "message": {
             "content": message.get("content") or "",
+            # Let the shared projection classify reasoning-only output before it
+            # decides whether this is a truly empty turn.  The OpenAI reasoning
+            # block with its protocol-specific signature replaces this block
+            # below.
+            "thinking": reasoning_content or "",
             "tool_calls": message.get("tool_calls") or [],
         },
         "done_reason": (
@@ -195,14 +201,21 @@ def project_openai_chat_response(
         if cache_write is not None:
             projected_usage["cache_creation_input_tokens"] = cache_write
         output = {**output, "usage": projected_usage}
-    thinking_block = reasoning_to_block(message.get("reasoning_content"))
+    thinking_block = reasoning_to_block(reasoning_content)
     if thinking_block is None:
         return output
     content = output.get("content")
     if not isinstance(content, list):
         content = [{"type": "text", "text": content_to_text(content)}]
     output = dict(output)
-    output["content"] = [thinking_block, *content]
+    output["content"] = [
+        thinking_block,
+        *[
+            block
+            for block in content
+            if not (isinstance(block, dict) and block.get("type") in {"thinking", "reasoning"})
+        ],
+    ]
     return output
 
 
