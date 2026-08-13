@@ -87,15 +87,6 @@ def _tools_to_anthropic(tools: Any) -> list[dict[str, Any]]:
             continue
         is_custom = str(tool.get("type") or "").strip().lower() == "custom"
         if is_custom:
-            compatibility = (
-                "This is a free-form custom tool. Put the complete raw tool input "
-                "in the required `input` string field; never call it with an empty object."
-            )
-            description = (
-                f"{str(description).rstrip()}\n\n{compatibility}"
-                if str(description).strip()
-                else compatibility
-            )
             parameters = {
                 "type": "object",
                 "properties": {
@@ -134,7 +125,7 @@ def _custom_tool_input(value: Any) -> dict[str, Any]:
         return {"input": value}
     if value is None:
         return {"input": ""}
-    return {"input": str(value)}
+    return {"input": json.dumps(value, ensure_ascii=False, sort_keys=True)}
 
 
 def _raw_custom_tool_input(value: Any) -> str:
@@ -144,7 +135,7 @@ def _raw_custom_tool_input(value: Any) -> str:
             return raw
         if len(value) == 1:
             return str(next(iter(value.values())))
-        return json.dumps(value, ensure_ascii=False)
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
     return str(value or "")
 
 

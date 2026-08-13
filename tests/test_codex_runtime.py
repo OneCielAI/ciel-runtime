@@ -353,7 +353,9 @@ class CodexRuntimeTests(unittest.TestCase):
         }
 
         anthropic = ciel_runtime.openai_responses_to_anthropic_messages(body, "fallback")
+        repeated = ciel_runtime.openai_responses_to_anthropic_messages(body, "fallback")
 
+        self.assertEqual(anthropic, repeated, "custom-tool projection must be cache-stable")
         schema = anthropic["tools"][0]["input_schema"]
         self.assertEqual(["input"], schema["required"])
         self.assertFalse(schema["additionalProperties"])

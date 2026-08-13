@@ -3496,7 +3496,7 @@ def start_managed_router_lifetime_watchdog(server: ThreadingHTTPServer) -> None:
 def active_router_client_pids() -> list[int]: return router_client_registry().active_pids()
 def stop_router_if_no_active_clients(reason: str, quiet: bool = True) -> bool: return managed_router_lifetime().stop_if_idle(reason, quiet)
 router_client_supervisor_interval_seconds = RouterClientSupervisor.interval_seconds
-def router_client_supervisor() -> RouterClientSupervisor: return RouterClientSupervisor(ROUTER_BASE, RouterClientSupervisorPorts(router_health=router_health, health_matches_current=router_health_matches_current, health_summary=router_health_summary, start_router=start_router_if_needed, log=router_log))
+def router_client_supervisor() -> RouterClientSupervisor: return RouterClientSupervisor(ROUTER_BASE, RouterClientSupervisorPorts(router_health=router_health, health_matches_current=router_health_matches_current, health_config_matches_current=router_health_config_matches_current, health_summary=router_health_summary, start_router=start_router_if_needed, log=router_log))
 def ensure_managed_router_running_for_client() -> bool: return router_client_supervisor().ensure_running()
 def start_router_client_supervisor(stop_event: threading.Event) -> threading.Thread: return router_client_supervisor().start(stop_event)
 file_size_or_zero = RoutedLaunchDiagnostics.file_size

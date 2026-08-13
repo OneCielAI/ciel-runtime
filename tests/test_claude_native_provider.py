@@ -1432,6 +1432,7 @@ class RouterLifetimeTests(unittest.TestCase):
         health = {"version": "newer-nightly", "config_dir": "same-instance"}
         with (
             mock.patch.object(ciel_runtime, "router_health", return_value=health),
+            mock.patch.object(ciel_runtime, "router_health_config_matches_current", return_value=True),
             mock.patch.object(ciel_runtime, "start_router_if_needed") as start,
             mock.patch.object(ciel_runtime, "router_log") as log,
         ):
@@ -1439,6 +1440,19 @@ class RouterLifetimeTests(unittest.TestCase):
 
         start.assert_not_called()
         self.assertTrue(any("reachable_health_mismatch_active_client" in call.args[1] for call in log.call_args_list))
+
+    def test_router_client_supervisor_never_replaces_a_foreign_workspace_router(self):
+        health = {"version": "same", "config_dir": "foreign-instance"}
+        with (
+            mock.patch.object(ciel_runtime, "router_health", return_value=health),
+            mock.patch.object(ciel_runtime, "router_health_config_matches_current", return_value=False),
+            mock.patch.object(ciel_runtime, "start_router_if_needed") as start,
+            mock.patch.object(ciel_runtime, "router_log") as log,
+        ):
+            self.assertFalse(ciel_runtime.ensure_managed_router_running_for_client())
+
+        start.assert_not_called()
+        self.assertTrue(any("foreign_router_detected" in call.args[1] for call in log.call_args_list))
 
     def test_runner_starts_and_stops_router_supervisor(self):
         supervisor_events = []

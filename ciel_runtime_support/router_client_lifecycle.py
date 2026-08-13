@@ -194,6 +194,7 @@ class ManagedRouterLifetime:
 class RouterClientSupervisorPorts:
     router_health: Callable[[], Any]
     health_matches_current: Callable[[Any], bool]
+    health_config_matches_current: Callable[[Any], bool]
     health_summary: Callable[[Any], str]
     start_router: Callable[..., bool]
     log: Log
@@ -225,6 +226,13 @@ class RouterClientSupervisor:
         if self._ports.health_matches_current(health):
             return True
         if health is not None:
+            if not self._ports.health_config_matches_current(health):
+                self._ports.log(
+                    "ERROR",
+                    f"router_lifetime_foreign_router_detected action=leave_untouched "
+                    f"{self._ports.health_summary(health)}",
+                )
+                return False
             # A reachable router already owns the active client's connection.
             # Replacing it because an older client loaded a different package
             # fingerprint disconnects in-flight /v1/responses streams.  Startup

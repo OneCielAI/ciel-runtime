@@ -125,10 +125,11 @@ class ResponseCollectionContext:
                     time.sleep(wait)
                     continue
                 except Exception as exc:
+                    transport_retries = self.kimi_transport_retry_limit(provider, pcfg)
                     if (
                         provider != "kimi"
                         or not retryable_exception(exc)
-                        or attempt >= retries
+                        or attempt >= transport_retries
                     ):
                         raise
                     retry_no = attempt + 1
@@ -136,7 +137,7 @@ class ResponseCollectionContext:
                     self.stream.log(
                         "WARN",
                         f"{operation}_kimi_stream_read_retry provider={provider} "
-                        f"model={model} attempt={retry_no}/{retries} "
+                        f"model={model} attempt={retry_no}/{transport_retries} "
                         f"error={type(exc).__name__} wait={wait:.2f}s",
                     )
                     time.sleep(wait)
@@ -179,6 +180,14 @@ class ResponseCollectionContext:
                 "capacity",
             )
         )
+
+    @classmethod
+    def kimi_transport_retry_limit(cls, provider: str, pcfg: dict[str, Any]) -> int:
+        # Capacity rejection happens before generation and was explicitly given
+        # a larger retry budget. A socket/TLS read failure may occur after the
+        # provider has consumed the full prompt even when no output reached us,
+        # so cap that more expensive and duplication-prone path separately.
+        return min(3, cls.kimi_capacity_retry_limit(provider, pcfg))
 
     def report_collected(
         self, collection: Any, operation: str, provider: str, model: str

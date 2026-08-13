@@ -278,6 +278,35 @@ class OpenedStreamCollectorTests(unittest.TestCase):
         self.assertEqual([2.0], waits)
         self.assertTrue(all(stream.closed for stream in streams))
 
+    def test_kimi_stream_transport_retries_are_capped_below_capacity_retries(self):
+        streams = [CountingStream([]) for _ in range(4)]
+        calls = []
+
+        def open_stream(*_args, **_kwargs):
+            calls.append(True)
+            return streams[len(calls) - 1]
+
+        context = ResponseCollectionContext(
+            shared=None,
+            anthropic=None,
+            strategies=None,
+            routing=None,
+            stream=ResponseCollectionStreamPorts(open_stream=open_stream),
+        )
+        collect = context.opened_stream_collector(
+            lambda _response, _policy: (_ for _ in ()).throw(
+                ssl.SSLError("[SSL: SSLV3_ALERT_BAD_RECORD_MAC] bad record mac")
+            ),
+            "openai_chat",
+        )
+
+        with mock.patch("ciel_runtime_support.response_collection_context.time.sleep"):
+            with self.assertRaises(ssl.SSLError):
+                collect("url", {}, {}, 30.0, "kimi", {"gateway_retries": 10}, "k3")
+
+        self.assertEqual(4, len(calls), "one request plus at most three transport retries")
+        self.assertTrue(all(stream.closed for stream in streams))
+
 
 def looping_message():
     return {
