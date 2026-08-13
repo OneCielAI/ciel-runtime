@@ -1798,10 +1798,18 @@ def handle_external_event_raw_post(handler: BaseHTTPRequestHandler, path: str, r
 def external_event_panel_rows(_cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
     service = external_event_receiver_service()
     receiver = service.receiver_configs().get("default", {})
+    public_receiver = service.public_receiver("default", receiver)
+    environment_references = public_receiver.get("environment_references", {})
     enabled = bool(receiver.get("enabled", False))
     transport = str(receiver.get("transport") or "webhook")
     event_types = receiver.get("event_types") if isinstance(receiver.get("event_types"), list) else []
     secret_status = service.vault.status("default")
+    def secret_source(field_name: str, stored_key: str) -> str:
+        reference = environment_references.get(field_name, {})
+        if isinstance(reference, dict) and reference.get("name"):
+            availability = "available" if reference.get("available") else "missing"
+            return f"env:{reference['name']} {availability}"
+        return "stored" if secret_status[stored_key] else "unset"
     rows = [
         f"Enabled  [{'on' if enabled else 'off'}]",
         f"Transport  [{transport}]",
@@ -1810,8 +1818,8 @@ def external_event_panel_rows(_cfg: dict[str, Any]) -> tuple[list[str], list[str
         f"Allowed CloudEvent types  [{', '.join(str(value) for value in event_types) if event_types else 'all'}]",
         f"Cursor JSON pointer  [{str(receiver.get('cursor_json_pointer') or 'SSE id field')}]",
         f"Reconnect query parameter  [{str(receiver.get('cursor_query_parameter') or 'Last-Event-ID header')}]",
-        f"Webhook signing secret  [{'stored' if secret_status['stored_webhook_secret'] else 'unset'}]",
-        f"SSE authorization  [{'stored' if secret_status['stored_authorization'] else 'unset'}]",
+        f"Webhook signing secret  [{secret_source('webhook_secret', 'stored_webhook_secret')}]",
+        f"SSE authorization  [{secret_source('authorization', 'stored_authorization')}]",
         f"Webhook endpoint  [{ROUTER_BASE}/ca/events/webhooks/default]",
         "Back",
     ]

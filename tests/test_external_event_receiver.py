@@ -2,9 +2,11 @@ import base64
 import hashlib
 import hmac
 import json
+import os
 import tempfile
 import time
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from ciel_runtime_support.external_event_receiver import (
@@ -14,6 +16,8 @@ from ciel_runtime_support.external_event_receiver import (
     cloud_event_cursor,
     json_pointer_value,
     parse_sse_frames,
+    environment_reference_name,
+    resolve_environment_reference,
     sse_reconnect_url,
     validate_cloud_event,
     verify_standard_webhook,
@@ -52,6 +56,30 @@ class _SseResponse:
 
 
 class ExternalEventReceiverTests(unittest.TestCase):
+    def test_exact_environment_reference_syntaxes_are_cross_platform(self):
+        environment = {"AI_NET_AUTHORIZATION": "secret-token"}
+        for reference in (
+            "%AI_NET_AUTHORIZATION%",
+            "${AI_NET_AUTHORIZATION}",
+            "{AI_NET_AUTHORIZATION}",
+        ):
+            with self.subTest(reference=reference):
+                self.assertEqual(
+                    "AI_NET_AUTHORIZATION", environment_reference_name(reference)
+                )
+                self.assertEqual(
+                    "secret-token",
+                    resolve_environment_reference(reference, environment),
+                )
+        self.assertEqual(
+            "Bearer literal-token",
+            resolve_environment_reference("Bearer literal-token", environment),
+        )
+
+    def test_missing_environment_reference_is_explicit(self):
+        with self.assertRaisesRegex(RuntimeError, "AI_NET_AUTHORIZATION is not set"):
+            resolve_environment_reference("%AI_NET_AUTHORIZATION%", {})
+
     def test_cloud_event_validation_preserves_original_text(self):
         raw = '{\n  "specversion": "1.0", "id": "evt-1", "source": "/tests", "type": "demo", "data": {"한글": true}\n}'
         projected = validate_cloud_event(raw)
@@ -158,15 +186,32 @@ class ExternalEventReceiverTests(unittest.TestCase):
                 cursor_path=cursor_path,
                 urlopen=urlopen,
             )
-            service.save_receiver("default", {
-                "enabled": True,
-                "transport": "sse",
-                "url": "https://events.example/stream?format=cloudevents",
-                "authorization": "secret-token",
-                "cursor_json_pointer": "/data/stream_id",
-                "cursor_query_parameter": "after",
-            })
-            service._run_sse("default")
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "TEST_EVENT_SSE_URL": "https://events.example/stream?format=cloudevents",
+                    "TEST_EVENT_SSE_AUTH": "secret-token",
+                },
+            ):
+                service.save_receiver("default", {
+                    "enabled": True,
+                    "transport": "sse",
+                    "url": "%TEST_EVENT_SSE_URL%",
+                    "authorization": "${TEST_EVENT_SSE_AUTH}",
+                    "cursor_json_pointer": "/data/stream_id",
+                    "cursor_query_parameter": "after",
+                })
+                public = service.list_public()[0]
+                self.assertEqual(
+                    {"name": "TEST_EVENT_SSE_URL", "available": True},
+                    public["environment_references"]["url"],
+                )
+                self.assertEqual(
+                    {"name": "TEST_EVENT_SSE_AUTH", "available": True},
+                    public["environment_references"]["authorization"],
+                )
+                self.assertNotIn("secret-token", json.dumps(public))
+                service._run_sse("default")
 
             request, timeout = requests[0]
             self.assertEqual(90, timeout)

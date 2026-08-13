@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import secrets
 import threading
 import time
@@ -15,12 +16,46 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any, Callable
 
 
 MAX_EVENT_BYTES = 1024 * 1024
 WEBHOOK_TOLERANCE_SECONDS = 300
 CLOUDEVENTS_SSE_ACCEPT = "text/event-stream, application/cloudevents+json"
+ENVIRONMENT_REFERENCE_RE = re.compile(
+    r"^(?:%([A-Za-z_][A-Za-z0-9_]*)%|\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\{([A-Za-z_][A-Za-z0-9_]*)\})$"
+)
+
+
+class MissingEnvironmentReference(RuntimeError):
+    """A configured environment reference is absent from the router process."""
+
+
+def environment_reference_name(value: Any) -> str:
+    """Return an exact environment reference name without expanding templates."""
+
+    match = ENVIRONMENT_REFERENCE_RE.fullmatch(str(value or "").strip())
+    if match is None:
+        return ""
+    return next((name for name in match.groups() if name), "")
+
+
+def resolve_environment_reference(
+    value: Any,
+    environment: Mapping[str, str] | None = None,
+) -> str:
+    """Resolve %NAME%, ${NAME}, or {NAME}; preserve every other value literally."""
+
+    text = str(value or "").strip()
+    name = environment_reference_name(text)
+    if not name:
+        return text
+    source = os.environ if environment is None else environment
+    resolved = str(source.get(name) or "")
+    if not resolved:
+        raise MissingEnvironmentReference(f"environment variable {name} is not set")
+    return resolved
 
 
 class EventReceiverSecretVault:
@@ -414,7 +449,23 @@ class ExternalEventReceiverService:
     def public_receiver(self, receiver_id: str, config: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
             status = dict(self._status.get(receiver_id, {}))
-        return {"id": receiver_id, **config, **self.vault.status(receiver_id), "status": status}
+        secrets_config = self.vault.load(receiver_id)
+        references: dict[str, dict[str, Any]] = {}
+        for field_name, raw_value in (
+            ("url", config.get("url")),
+            ("webhook_secret", secrets_config.get("webhook_secret")),
+            ("authorization", secrets_config.get("authorization")),
+        ):
+            name = environment_reference_name(raw_value)
+            if name:
+                references[field_name] = {"name": name, "available": bool(os.environ.get(name))}
+        return {
+            "id": receiver_id,
+            **config,
+            **self.vault.status(receiver_id),
+            "environment_references": references,
+            "status": status,
+        }
 
     def list_public(self) -> list[dict[str, Any]]:
         return [self.public_receiver(receiver_id, config) for receiver_id, config in sorted(self.receiver_configs().items())]
@@ -451,7 +502,9 @@ class ExternalEventReceiverService:
             if len(raw) > MAX_EVENT_BYTES:
                 self.write_json(handler, {"ok": False, "error": "event_too_large"}, 413)
                 return True
-            secret = self.vault.load(receiver_id).get("webhook_secret", "")
+            secret = resolve_environment_reference(
+                self.vault.load(receiver_id).get("webhook_secret", "")
+            )
             if not secret:
                 self.write_json(handler, {"ok": False, "error": "webhook_secret_not_configured"}, 503)
                 return True
@@ -461,6 +514,9 @@ class ExternalEventReceiverService:
             admitted = self._admit(receiver_id, "webhook", text, event, transport_event_id)
         except UnicodeDecodeError:
             self.write_json(handler, {"ok": False, "error": "CloudEvent must be UTF-8"}, 400)
+            return True
+        except MissingEnvironmentReference as exc:
+            self.write_json(handler, {"ok": False, "error": str(exc)}, 503)
             return True
         except ValueError as exc:
             self.write_json(handler, {"ok": False, "error": str(exc)}, 400)
@@ -546,16 +602,20 @@ class ExternalEventReceiverService:
             config = self.receiver_configs().get(receiver_id, {})
             if not config.get("enabled") or config.get("transport") != "sse":
                 break
-            headers = {"Accept": CLOUDEVENTS_SSE_ACCEPT, "Cache-Control": "no-cache"}
-            secret = self.vault.load(receiver_id).get("authorization", "")
-            if secret:
-                headers["Authorization"] = secret if secret.lower().startswith("bearer ") else f"Bearer {secret}"
             cursor_query_parameter = str(config.get("cursor_query_parameter") or "").strip()
-            if last_event_id and not cursor_query_parameter:
-                headers["Last-Event-ID"] = last_event_id
             try:
+                headers = {"Accept": CLOUDEVENTS_SSE_ACCEPT, "Cache-Control": "no-cache"}
+                secret = resolve_environment_reference(
+                    self.vault.load(receiver_id).get("authorization", "")
+                )
+                if secret:
+                    headers["Authorization"] = (
+                        secret if secret.lower().startswith("bearer ") else f"Bearer {secret}"
+                    )
+                if last_event_id and not cursor_query_parameter:
+                    headers["Last-Event-ID"] = last_event_id
                 request_url = sse_reconnect_url(
-                    str(config.get("url") or ""),
+                    resolve_environment_reference(config.get("url")),
                     cursor_query_parameter,
                     last_event_id,
                 )
@@ -592,10 +652,13 @@ class ExternalEventReceiverService:
 __all__ = [
     "CLOUDEVENTS_SSE_ACCEPT",
     "EventReceiverSecretVault",
+    "MissingEnvironmentReference",
     "ExternalEventReceiverService",
     "cloud_event_cursor",
     "json_pointer_value",
     "parse_sse_frames",
+    "environment_reference_name",
+    "resolve_environment_reference",
     "sse_reconnect_url",
     "validate_cloud_event",
     "verify_standard_webhook",
