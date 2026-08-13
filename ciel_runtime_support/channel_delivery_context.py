@@ -155,7 +155,17 @@ class ChannelDeliveryContext:
         return resolution.value
 
     def read_clear_floor(self) -> int:
-        return self.cursor.repository(self.cursor.clear_floor_path).read() or 0
+        floor = self.cursor.repository(self.cursor.clear_floor_path).read() or 0
+        tail = max(0, self.cursor.scan_max_id())
+        if floor > tail:
+            self.cursor.log(
+                "WARN",
+                "channel_llm_clear_floor_queue_generation_reset "
+                f"clear_floor={floor} queue_tail={tail}",
+            )
+            self.write_clear_floor(0)
+            return 0
+        return floor
 
     def write_clear_floor(self, last_id: int) -> None:
         self.cursor.repository(self.cursor.clear_floor_path).write(

@@ -3537,6 +3537,29 @@ class ChannelBridgeTests(unittest.TestCase):
             finally:
                 ciel_runtime._CHANNEL_LLM_CURSOR_LAST_ID = original_cursor
 
+    def test_channel_llm_clear_floor_resets_when_private_queue_generation_rolls_back(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            runtime_inputs_path = root / "runtime-inputs.jsonl"
+            clear_floor_path = root / "channel-llm-clear-floor.json"
+            runtime_inputs_path.write_text(
+                json.dumps({"id": 4, "time": "2026-08-13T04:00:00", "message": "new"}) + "\n",
+                encoding="utf-8",
+            )
+            clear_floor_path.write_text('{"last_id":247}\n', encoding="utf-8")
+
+            with (
+                mock.patch.object(ciel_runtime, "RUNTIME_INPUTS_PATH", runtime_inputs_path),
+                mock.patch.object(ciel_runtime, "CHANNEL_LLM_CLEAR_FLOOR_PATH", clear_floor_path),
+                mock.patch.object(ciel_runtime, "router_log") as log,
+            ):
+                self.assertEqual(0, ciel_runtime._channel_llm_clear_floor_read())
+
+            self.assertEqual(0, json.loads(clear_floor_path.read_text(encoding="utf-8"))["last_id"])
+            self.assertTrue(
+                any("clear_floor_queue_generation_reset" in call.args[1] for call in log.call_args_list)
+            )
+
     def test_prepare_channel_llm_delivery_for_launch_preserves_recent_messages(self):
         with tempfile.TemporaryDirectory(prefix="ca-channel-launch-") as td:
             root = Path(td)
