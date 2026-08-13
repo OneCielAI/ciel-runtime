@@ -40,7 +40,7 @@ port = base + (sha256(user|home) % 1000)  # Windows: 해시 사용
 
 ```
 1. RouterHandler.do_POST() 수신
-2. 요청 본문 JSON 파싱
+2. 경로별 body 상한과 공유 in-flight byte 예산 확인 후 JSON 파싱
 3. 설정에서 활성 제공자/모델 조회 (load_config())
 4. `/v1/responses`는 먼저 Responses 입력을 내부 Anthropic Messages 형식으로 변환:
    - `openai_responses_to_anthropic_messages()`
@@ -61,6 +61,25 @@ port = base + (sha256(user|home) % 1000)  # Windows: 해시 사용
    - anthropic_message_to_openai_response()
 8. Claude Code에는 Anthropic SSE, Codex에는 Responses SSE 형식으로 응답
 ```
+
+모델 경로의 기본 wire 상한은 설정 가능한 최대값과 같은 512 MiB이며 시작 메뉴 또는
+환경변수로 더 작게 조정할 수 있다. 기존 workspace의 명시적 값은 유지된다. 이는 모델의
+의미적 제한이 아닌 전송·메모리 안전 차단선이다. 요청이 이
+범위 안에 있으면 Ciel이 임의로 축약하지 않고 업스트림에 전달하므로, 제공자의
+실제 413 또는 context-window 오류와 HTTP 상태가 클라이언트에 반환된다. 웹훅은
+인증 전에 본문을 읽어야 하므로 1 MiB에서 선차단하고 다른 POST 경로로
+fall-through하지 않는다. 일반 제어 API의 4 MiB 한도도 provider/file 의미 제한이
+아닌 기술적 namespace 경계다. In-flight admission은 endpoint 상한을 바꾸지 않고 각
+요청의 `Content-Length` 5배를 예약하며, 기본·최대 baseline은 4 GiB다. Effective capacity는
+configured baseline과 가장 큰 허용 wire 요청 5배 중 큰 값이다. 따라서 최대 요청 하나는 항상 수용하고 동시 대형
+요청은 메모리 예산에 따라 차단한다.
+
+모든 `/backend-api/codex/*` POST와 `/v1/audio/voices` POST는 provider transport인 모델
+wire 상한을 사용한다. `/ca/mcp`는 JSON-RPC를 판독한 뒤 `tools/call`의 `send_file`이
+`path` 없이 inline `content`를 전달할 때만 채팅 파일 wire 상한을 적용하고, 나머지 MCP
+제어 호출은 4 MiB를 넘으면 거절한다. TTS batch aggregate wire 상한은 provider item
+의미와 무관한 `4 GiB / 5`(약 819.2 MiB)로, 최대 500 MiB reference의 Base64 JSON을
+하나 이상 수용하면서 uniform 5배 예약을 기술 최대 안에 유지한다.
 
 ---
 

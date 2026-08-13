@@ -8,19 +8,24 @@ import mimetypes
 import os
 from pathlib import Path
 import re
+import tempfile
 import time
 from typing import Any, Callable
 import urllib.parse
+
+from .request_limits_config import MIB, resolve_workspace_request_limits
 
 
 @dataclass(frozen=True, slots=True)
 class ChatFilePorts:
     timestamp: Callable[[], float] = time.time
     timestamp_ns: Callable[[], int] = time.time_ns
+    max_bytes: Callable[[], int] | None = None
 
 
 class ChatFileRepository:
-    DEFAULT_MAX_BYTES = 25 * 1024 * 1024
+    DEFAULT_MAX_BYTES = 500 * MIB
+    COPY_CHUNK_BYTES = MIB
 
     def __init__(
         self,
@@ -34,11 +39,16 @@ class ChatFileRepository:
 
     @classmethod
     def configured_max_bytes(cls) -> int:
-        try:
-            value = int(str(os.environ.get("CIEL_RUNTIME_CHAT_FILE_MAX_BYTES") or "").strip())
-            return value if value > 0 else cls.DEFAULT_MAX_BYTES
-        except ValueError:
-            return cls.DEFAULT_MAX_BYTES
+        return resolve_workspace_request_limits(
+            {},
+            "",
+            os.environ,
+        ).chat_attachment_max_bytes
+
+    def _max_bytes(self) -> int:
+        if self._ports.max_bytes is None:
+            return self.configured_max_bytes()
+        return max(1, int(self._ports.max_bytes()))
 
     @staticmethod
     def safe_segment(value: str, fallback: str = "item") -> str:
@@ -53,8 +63,14 @@ class ChatFileRepository:
         content = body.get("content", "")
         encoding = str(body.get("encoding") or "utf-8").strip().lower()
         if encoding == "base64":
+            encoded = str(content)
+            maximum_encoded = 4 * ((self._max_bytes() + 2) // 3)
+            if len(encoded) > maximum_encoded:
+                raise OverflowError(
+                    f"file too large: base64 content exceeds {maximum_encoded} characters"
+                )
             try:
-                data = base64.b64decode(str(content).encode("ascii"), validate=True)
+                data = base64.b64decode(encoded.encode("ascii"), validate=True)
             except (ValueError, UnicodeEncodeError) as exc:
                 raise ValueError("invalid base64 file content") from exc
         elif encoding in {"", "text", "utf-8", "utf8"}:
@@ -62,13 +78,28 @@ class ChatFileRepository:
         else:
             raise ValueError(f"unsupported file encoding: {encoding}")
         self._validate_size(data)
+        return self._store_bytes(
+            data,
+            raw_name,
+            str(
+                body.get("content_type")
+                or body.get("mime_type")
+                or "application/octet-stream"
+            ),
+        )
+
+    def _store_bytes(
+        self,
+        data: bytes,
+        raw_name: str,
+        content_type: str,
+    ) -> dict[str, Any]:
+        self._root.mkdir(parents=True, exist_ok=True)
         name = f"{self._ports.timestamp_ns()}-{self.safe_segment(raw_name, 'file')}"
         target = self._root / name
         target.write_bytes(data)
         path = f"/ca/chat/files/{urllib.parse.quote(name)}"
-        content_type = str(
-            body.get("content_type") or body.get("mime_type") or "application/octet-stream"
-        ).strip()
+        content_type = str(content_type or "application/octet-stream").strip()
         return {
             "name": name,
             "original_name": raw_name,
@@ -90,17 +121,51 @@ class ChatFileRepository:
         source = Path(raw_path).expanduser()
         if not source.exists() or not source.is_file():
             raise FileNotFoundError(f"file not found: {raw_path}")
-        data = source.read_bytes()
-        self._validate_size(data)
+        source_size = source.stat().st_size
+        maximum = self._max_bytes()
+        if source_size > maximum:
+            raise OverflowError(
+                f"file too large: {source_size} bytes exceeds {maximum} bytes"
+            )
         guessed_type = content_type or mimetypes.guess_type(source.name)[0] or "application/octet-stream"
-        return self.store_upload(
-            {
-                "name": name or source.name,
-                "encoding": "base64",
-                "content": base64.b64encode(data).decode("ascii"),
-                "content_type": guessed_type,
-            }
-        )
+        raw_name = name or source.name
+        self._root.mkdir(parents=True, exist_ok=True)
+        stored_name = f"{self._ports.timestamp_ns()}-{self.safe_segment(raw_name, 'file')}"
+        target = self._root / stored_name
+        temporary: Path | None = None
+        copied = 0
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="wb",
+                dir=self._root,
+                prefix=f".{stored_name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as destination:
+                temporary = Path(destination.name)
+                with source.open("rb") as source_stream:
+                    while chunk := source_stream.read(self.COPY_CHUNK_BYTES):
+                        copied += len(chunk)
+                        if copied > maximum:
+                            raise OverflowError(
+                                f"file too large: {copied} bytes exceeds {maximum} bytes"
+                            )
+                        destination.write(chunk)
+            temporary.replace(target)
+            temporary = None
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+        path = f"/ca/chat/files/{urllib.parse.quote(stored_name)}"
+        return {
+            "name": stored_name,
+            "original_name": raw_name,
+            "url": f"{self._router_base}{path}",
+            "path": path,
+            "bytes": copied,
+            "content_type": str(guessed_type).strip()[:200]
+            or "application/octet-stream",
+        }
 
     @staticmethod
     def markdown_lines(uploads: list[dict[str, Any]]) -> list[str]:
@@ -128,9 +193,8 @@ class ChatFileRepository:
         attachment_text = "Attached files:\n" + "\n".join(lines)
         return f"{body}\n\n{attachment_text}" if body else attachment_text
 
-    @classmethod
-    def _validate_size(cls, data: bytes) -> None:
-        max_bytes = cls.configured_max_bytes()
+    def _validate_size(self, data: bytes) -> None:
+        max_bytes = self._max_bytes()
         if len(data) > max_bytes:
             raise OverflowError(f"file too large: {len(data)} bytes exceeds {max_bytes} bytes")
 

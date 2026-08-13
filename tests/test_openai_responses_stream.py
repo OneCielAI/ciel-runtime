@@ -80,6 +80,23 @@ class OpenAIResponsesStreamTests(unittest.TestCase):
         self.assertEqual(429, handler.status)
         self.assertIn("event: error", handler.wfile.getvalue().decode())
 
+    def test_non_stream_error_preserves_specific_error_type(self):
+        writes = []
+        handler = _Handler()
+        write_openai_responses_error(
+            handler,
+            "too large",
+            stream=False,
+            status=413,
+            error_type="request_too_large",
+            services=self.services(writes),
+        )
+
+        written_handler, payload, status = writes[0]
+        self.assertIs(handler, written_handler)
+        self.assertEqual(413, status)
+        self.assertEqual("request_too_large", payload["error"]["type"])
+
 
 if __name__ == "__main__":
     unittest.main()

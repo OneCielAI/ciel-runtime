@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import io
 import json
 import time
 from typing import Any, Callable
@@ -118,7 +119,8 @@ def post_json_with_rate_retry(
                 write_router_activity("success", provider, model, attempt=attempt + 1, tokens=token_estimate, bytes=byte_estimate)
                 return data
         except urllib.error.HTTPError as exc:
-            raw = exc.read().decode("utf-8", errors="ignore")
+            raw_bytes = exc.read()
+            raw = raw_bytes.decode("utf-8", errors="ignore")
             learn_router_rate_limit_headers(provider, pcfg, model, exc.headers)
             if exc.code == 429:
                 register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), exc.headers)
@@ -167,6 +169,17 @@ def post_json_with_rate_retry(
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
             write_router_activity("error", provider, model, code=exc.code, tokens=token_estimate, bytes=byte_estimate)
+            if exc.code == 413:
+                # Preserve the provider's HTTP status and response body for the
+                # protocol adapter.  The original stream was consumed above
+                # for retry/error classification, so recreate it faithfully.
+                raise urllib.error.HTTPError(
+                    exc.url,
+                    exc.code,
+                    exc.reason,
+                    exc.headers,
+                    io.BytesIO(raw_bytes),
+                ) from exc
             raise RuntimeError(upstream_http_error_message(exc, raw)) from exc
         except (urllib.error.URLError, OSError) as exc:
             if retryable_upstream_exception(exc) and attempt + 1 < max_attempts:
@@ -361,7 +374,8 @@ def open_openai_stream_with_rate_retry(
             learn_router_rate_limit_headers(provider, pcfg, model, resp.headers)
             return resp
         except urllib.error.HTTPError as exc:
-            raw = exc.read().decode("utf-8", errors="ignore")
+            raw_bytes = exc.read()
+            raw = raw_bytes.decode("utf-8", errors="ignore")
             learn_router_rate_limit_headers(provider, pcfg, model, exc.headers)
             if exc.code == 429:
                 register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), exc.headers)
@@ -410,6 +424,14 @@ def open_openai_stream_with_rate_retry(
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
             write_router_activity("error", provider, model, code=exc.code, tokens=token_estimate, bytes=byte_estimate, stream=True)
+            if exc.code == 413:
+                raise urllib.error.HTTPError(
+                    exc.url,
+                    exc.code,
+                    exc.reason,
+                    exc.headers,
+                    io.BytesIO(raw_bytes),
+                ) from exc
             raise RuntimeError(upstream_http_error_message(exc, raw)) from exc
         except (urllib.error.URLError, OSError) as exc:
             if retryable_upstream_exception(exc) and attempt + 1 < max_attempts:

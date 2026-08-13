@@ -2,6 +2,7 @@ import copy
 import io
 import json
 import unittest
+import urllib.error
 from types import SimpleNamespace
 from unittest import mock
 
@@ -305,6 +306,70 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
         forward.assert_called_once_with(handler, "meta", {}, body)
         collect.assert_not_called()
         commit.assert_called_once_with({"delivery": True}, handler)
+
+    def test_router_preserves_upstream_413_as_request_too_large(self):
+        error_body = b'{"error":{"type":"request_too_large","message":"provider limit"}}'
+        upstream_error = urllib.error.HTTPError(
+            "https://api.meta.ai/v1/responses",
+            413,
+            "Payload Too Large",
+            {},
+            io.BytesIO(error_body),
+        )
+        write_error = mock.Mock()
+        services = openai_responses_router.OpenAIResponsesServices(
+            core=openai_responses_router.OpenAIResponsesCore(
+                event_bus=SimpleNamespace(publish=mock.Mock()),
+                request_id=lambda: "request-id",
+                input_as_list=lambda value: list(value),
+                is_client_disconnect=lambda _exc: False,
+                log=mock.Mock(),
+            ),
+            conversion=mock.Mock(),
+            routing=openai_responses_router.OpenAIResponsesRouting(
+                maybe_import_session=lambda *_args, **_kwargs: False,
+                codex_routed_enabled=lambda *_args: False,
+                forward_codex=mock.Mock(),
+                select_protocol=lambda *_args: "openai_responses",
+                forward_provider_responses=mock.Mock(side_effect=upstream_error),
+                dump_request=mock.Mock(),
+                normalize_provider_wire=mock.Mock(),
+                collect_message=mock.Mock(),
+                apply_codex_compat_instructions=lambda _cfg, _provider, _pcfg, body: body,
+                recover_preamble_only_turn=mock.Mock(),
+            ),
+            delivery=openai_responses_router.OpenAIResponsesDelivery(
+                begin=mock.Mock(),
+                mark_success=mock.Mock(),
+                mark_failed=mock.Mock(),
+                commit=mock.Mock(),
+            ),
+            output=openai_responses_router.OpenAIResponsesOutput(
+                write_response=mock.Mock(),
+                write_error=write_error,
+                upstream_error_message=lambda _error, _raw: "request_too_large: provider limit",
+                codex_auth_error_message=mock.Mock(),
+                event_preview=mock.Mock(),
+            ),
+        )
+        handler = SimpleNamespace(path="/v1/responses")
+
+        openai_responses_router.handle_openai_responses_request(
+            handler,
+            {},
+            "meta",
+            {},
+            {"model": "muse-spark-1.1", "input": [], "stream": False},
+            services,
+        )
+
+        write_error.assert_called_once_with(
+            handler,
+            "request_too_large: provider limit",
+            stream=False,
+            status=413,
+            error_type="request_too_large",
+        )
 
 
 if __name__ == "__main__":

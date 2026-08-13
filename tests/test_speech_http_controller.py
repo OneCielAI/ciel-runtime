@@ -1,7 +1,9 @@
 import io
 import json
 import unittest
+from unittest import mock
 
+from ciel_runtime_support.request_limits_config import MIB, resolve_workspace_request_limits
 from ciel_runtime_support.speech_http_controller import SpeechHttpController, SpeechHttpPorts
 from ciel_runtime_support.speech_models import (
     DEFAULT_COSYVOICE_REFERENCE_AUDIO,
@@ -71,7 +73,7 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.requests = []
         self.saved = []
 
-    def controller(self, response=None, *, colab_action=None, colab_status=None, colab_credentials=None):
+    def controller(self, response=None, *, colab_action=None, colab_status=None, colab_credentials=None, request_limits=None):
         def write_json(handler, value, status=200):
             data = json.dumps(value).encode()
             handler.send_response(status)
@@ -84,7 +86,18 @@ class SpeechHttpControllerTests(unittest.TestCase):
             self.requests.append((request, timeout))
             return response or _Response(b'{"text":"hello"}')
 
-        return SpeechHttpController(SpeechHttpPorts(lambda: self.config, lambda value: self.saved.append(value), write_json, lambda *_args: None, urlopen, colab_action, colab_status, colab_credentials))
+        return SpeechHttpController(SpeechHttpPorts(lambda: self.config, lambda value: self.saved.append(value), write_json, lambda *_args: None, urlopen, colab_action, colab_status, colab_credentials, (lambda: request_limits) if request_limits is not None else None))
+
+    @staticmethod
+    def small_limits():
+        return resolve_workspace_request_limits(
+            {},
+            "C:/work/test",
+            {
+                "CIEL_RUNTIME_SPEECH_AUDIO_MAX_BYTES": str(MIB),
+                "CIEL_RUNTIME_TTS_REFERENCE_AUDIO_MAX_BYTES": str(MIB),
+            },
+        )
 
     def test_public_config_masks_remote_tokens_and_lists_all_audio_endpoints(self):
         public = self.controller().public_config()
@@ -116,6 +129,52 @@ class SpeechHttpControllerTests(unittest.TestCase):
         self.assertNotIn(b'name="language"', request.data)
         self.assertEqual(30, timeout)
         self.assertEqual(200, handler.status)
+
+    def test_oversized_json_asr_is_rejected_before_base64_decode(self):
+        handler = _Handler()
+        encoded_limit = 4 * ((MIB + 2) // 3)
+        body = json.dumps({"audio_base64": "A" * (encoded_limit + 1)}).encode()
+
+        with mock.patch(
+            "ciel_runtime_support.speech_http_controller.base64.b64decode",
+            side_effect=AssertionError("oversized audio must not be decoded"),
+        ):
+            self.controller(request_limits=self.small_limits()).post(
+                handler,
+                "/v1/audio/transcriptions",
+                body,
+                "application/json",
+            )
+
+        self.assertEqual(413, handler.status)
+        self.assertEqual([], self.requests)
+        self.assertIn("request_too_large", handler.wfile.getvalue().decode())
+
+    def test_oversized_per_request_tts_reference_is_rejected_before_decode(self):
+        handler = _Handler()
+        encoded_limit = 4 * ((MIB + 2) // 3)
+        body = json.dumps(
+            {
+                "input": "hello",
+                "ref_audio": "data:audio/wav;base64," + "A" * (encoded_limit + 1),
+                "ref_text": "hello",
+            }
+        ).encode()
+
+        with mock.patch(
+            "ciel_runtime_support.speech_http_controller.base64.b64decode",
+            side_effect=AssertionError("oversized reference must not be decoded"),
+        ):
+            self.controller(request_limits=self.small_limits()).post(
+                handler,
+                "/v1/audio/speech",
+                body,
+                "application/json",
+            )
+
+        self.assertEqual(413, handler.status)
+        self.assertEqual([], self.requests)
+        self.assertIn("request_too_large", handler.wfile.getvalue().decode())
 
     def test_asr_proxy_caps_stale_worker_timeout_at_thirty_seconds(self):
         self.config["speech"]["asr"]["timeout_seconds"] = 300

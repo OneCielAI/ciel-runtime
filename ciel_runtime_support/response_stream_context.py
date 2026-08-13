@@ -420,12 +420,14 @@ class ResponseStreamContext:
         *,
         stream: bool = True,
         status: int = 500,
+        error_type: str = "api_error",
     ) -> None:
         self.algorithms.write_openai_error(
             handler,
             message,
             stream=stream,
             status=status,
+            error_type=error_type,
             services=self.openai_responses_stream_services(),
         )
 

@@ -13,6 +13,7 @@ from ciel_runtime_support.external_event_receiver import (
     CLOUDEVENTS_SSE_ACCEPT,
     EventReceiverSecretVault,
     ExternalEventReceiverService,
+    MAX_EVENT_BYTES,
     cloud_event_cursor,
     json_pointer_value,
     parse_sse_frames,
@@ -56,6 +57,47 @@ class _SseResponse:
 
 
 class ExternalEventReceiverTests(unittest.TestCase):
+    def test_webhook_receiver_rejects_max_event_bytes_plus_one(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = {
+                "external_event_receivers": {
+                    "workspace": {
+                        "default": {
+                            "enabled": True,
+                            "transport": "webhook",
+                        }
+                    }
+                }
+            }
+
+            def write_json(handler, value, status=200):
+                handler.response = (status, value)
+
+            service = ExternalEventReceiverService(
+                load_config=lambda: config,
+                save_config=lambda _value: None,
+                write_json=write_json,
+                submit_event=lambda *_args, **_kwargs: self.fail(
+                    "an oversized event must not be admitted"
+                ),
+                vault=EventReceiverSecretVault(Path(directory) / "events.vault.json"),
+                workspace_key="workspace",
+                log=lambda *_args: None,
+            )
+            handler = _Handler()
+
+            self.assertTrue(
+                service.handle_raw_post(
+                    handler,
+                    "/ca/events/webhooks/default",
+                    b"x" * (MAX_EVENT_BYTES + 1),
+                )
+            )
+            self.assertEqual(
+                (413, {"ok": False, "error": "event_too_large"}),
+                handler.response,
+            )
+
     def test_exact_environment_reference_syntaxes_are_cross_platform(self):
         environment = {"AI_NET_AUTHORIZATION": "secret-token"}
         for reference in (

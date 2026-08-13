@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import base64
+from contextlib import contextmanager
 import json
+import os
 import re
 import secrets
 import urllib.error
@@ -11,6 +13,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
+from collections.abc import Iterator
 from typing import Any, Callable
 
 from ciel_runtime_support.speech_models import (
@@ -18,9 +21,41 @@ from ciel_runtime_support.speech_models import (
     normalize_cosyvoice_reference,
     reference_audio_source,
 )
+from ciel_runtime_support.request_limits_config import (
+    MIB,
+    WorkspaceRequestLimits,
+    format_mib,
+    resolve_workspace_request_limits,
+)
+from ciel_runtime_support.request_body_policy import (
+    RequestBodyCapacityExceeded,
+    RequestBodyTooLarge,
+)
+from ciel_runtime_support.tts_reference_audio_repository import (
+    TtsReferenceAudioRepository,
+)
 
 
 SpeechConfig = dict[str, Any]
+MAX_SPEECH_AUDIO_BYTES = 500 * MIB
+MAX_TTS_REFERENCE_AUDIO_BYTES = 500 * MIB
+
+
+def _maximum_base64_characters(decoded_bytes: int) -> int:
+    return 4 * ((decoded_bytes + 2) // 3)
+
+
+def _decode_bounded_base64(value: Any, maximum: int, label: str) -> bytes:
+    text = str(value or "")
+    if len(text) > _maximum_base64_characters(maximum):
+        raise OverflowError(f"{label} exceeds {maximum} decoded bytes")
+    try:
+        decoded = base64.b64decode(text, validate=True)
+    except (ValueError, TypeError, UnicodeEncodeError) as exc:
+        raise ValueError(f"invalid base64 {label}") from exc
+    if len(decoded) > maximum:
+        raise OverflowError(f"{label} exceeds {maximum} decoded bytes")
+    return decoded
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +68,8 @@ class SpeechHttpPorts:
     colab_action: Callable[[str, dict[str, Any], dict[str, str]], dict[str, Any]] | None = None
     colab_status: Callable[[str], dict[str, Any]] | None = None
     colab_credentials: Callable[[str], dict[str, bool]] | None = None
+    request_limits: Callable[[], WorkspaceRequestLimits] | None = None
+    reference_audio_repository: TtsReferenceAudioRepository | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,7 +115,14 @@ class SpeechHttpController:
 
     def public_config(self) -> dict[str, Any]:
         speech = self._speech_config()
-        public: dict[str, Any] = {"ok": True}
+        limits = self._request_limits()
+        public: dict[str, Any] = {
+            "ok": True,
+            "limits": {
+                "speech_audio_max_bytes": limits.speech_audio_max_bytes,
+                "tts_reference_audio_max_bytes": limits.tts_reference_audio_max_bytes,
+            },
+        }
         for name in ("asr", "tts"):
             source = speech.get(name) if isinstance(speech.get(name), dict) else {}
             item = {key: value for key, value in source.items() if key not in {"api_key", "ref_audio"}}
@@ -134,11 +178,22 @@ class SpeechHttpController:
         speech = self.ports.load_config().get("speech")
         return speech if isinstance(speech, dict) else {}
 
+    def _request_limits(self) -> WorkspaceRequestLimits:
+        if self.ports.request_limits is not None:
+            return self.ports.request_limits()
+        return resolve_workspace_request_limits(
+            self.ports.load_config(),
+            "",
+            os.environ,
+        )
+
     def _service_config(self, name: str) -> SpeechConfig:
         service = self._speech_config().get(name)
         return service if isinstance(service, dict) else {}
 
     def _save_public_config(self, handler: BaseHTTPRequestHandler, raw: bytes) -> bool:
+        pending_reference_markers: list[str] = []
+        config_saved = False
         try:
             update = json.loads(raw.decode("utf-8") if raw else "{}")
             if not isinstance(update, dict):
@@ -148,6 +203,12 @@ class SpeechHttpController:
             if not isinstance(speech, dict):
                 speech = {}
                 config["speech"] = speech
+            previous_tts = speech.get("tts")
+            previous_reference = (
+                str(previous_tts.get("ref_audio") or "").strip()
+                if isinstance(previous_tts, dict)
+                else ""
+            )
             for name in ("asr", "tts"):
                 incoming = update.get(name)
                 if not isinstance(incoming, dict):
@@ -169,6 +230,21 @@ class SpeechHttpController:
                     current["ref_text"] = ""
                 if name == "tts":
                     normalize_cosyvoice_reference(current)
+            current_tts = speech.get("tts")
+            if isinstance(current_tts, dict):
+                reference = str(current_tts.get("ref_audio") or "").strip()
+                repository = self.ports.reference_audio_repository
+                if (
+                    repository is not None
+                    and reference.startswith("data:audio/")
+                    and ";base64," in reference
+                ):
+                    marker = repository.store_data_url(
+                        reference,
+                        self._request_limits().tts_reference_audio_max_bytes,
+                    )
+                    current_tts["ref_audio"] = marker
+                    pending_reference_markers.append(marker)
             tailscale = update.get("tailscale")
             if isinstance(tailscale, dict):
                 current_tailscale = speech.setdefault("tailscale", {})
@@ -187,10 +263,55 @@ class SpeechHttpController:
                 for key, value in colab.items():
                     current_colab[key] = self._validated_colab_value(key, value)
             self.ports.save_config(config)
+            config_saved = True
+            repository = self.ports.reference_audio_repository
+            current_reference = (
+                str(current_tts.get("ref_audio") or "").strip()
+                if isinstance(current_tts, dict)
+                else ""
+            )
+            if repository is not None and previous_reference != current_reference:
+                self._discard_reference_best_effort(previous_reference)
             self.ports.write_json(handler, self.public_config())
+        except OverflowError as exc:
+            self.ports.write_json(
+                handler,
+                {"ok": False, "type": "request_too_large", "error": str(exc)},
+                413,
+            )
         except (UnicodeError, ValueError, TypeError) as exc:
             self.ports.write_json(handler, {"ok": False, "error": str(exc)}, 400)
+        except (OSError, RuntimeError) as exc:
+            self.ports.log(
+                "ERROR",
+                f"tts_reference_audio_persistence_failed error={type(exc).__name__}: {exc}",
+            )
+            self.ports.write_json(
+                handler,
+                {"ok": False, "error": "TTS reference audio could not be stored securely"},
+                500,
+            )
+        finally:
+            if not config_saved and self.ports.reference_audio_repository is not None:
+                for marker in pending_reference_markers:
+                    self._discard_reference_best_effort(marker)
         return True
+
+    def _discard_reference_best_effort(self, reference: str) -> None:
+        repository = self.ports.reference_audio_repository
+        if repository is None:
+            return
+        try:
+            repository.discard(reference)
+        except OSError as exc:
+            # A concurrent Windows forward may still have the immutable file
+            # open.  The saved config is authoritative; leaving an orphan is
+            # safer than turning a successful save into a false failure.
+            self.ports.log(
+                "WARN",
+                "tts_reference_audio_cleanup_deferred "
+                f"error={type(exc).__name__}: {exc}",
+            )
 
     def _start_colab_action(self, handler: BaseHTTPRequestHandler, raw: bytes) -> bool:
         try:
@@ -219,8 +340,7 @@ class SpeechHttpController:
             self.ports.write_json(handler, {"ok": False, "error": str(exc)}, 409)
         return True
 
-    @staticmethod
-    def _validated_value(service: str, key: str, value: Any) -> Any:
+    def _validated_value(self, service: str, key: str, value: Any) -> Any:
         allowed = {
             "asr": {"enabled", "base_url", "endpoint", "model", "language", "silence_ms", "min_speech_ms", "vad_threshold", "api_key", "timeout_seconds"},
             "tts": {"enabled", "base_url", "endpoint", "voices_endpoint", "model", "voice", "language", "ref_audio", "ref_text", "response_format", "speed", "auto_speak", "streaming", "sample_rate", "api_key", "timeout_seconds"},
@@ -243,15 +363,32 @@ class SpeechHttpController:
             return max(0.005, min(0.2, float(value)))
         text = str(value or "").strip()
         if key == "ref_audio":
-            if len(text) > 14_000_000:
-                raise ValueError("TTS reference audio must be 10 MB or smaller")
+            maximum = self._request_limits().tts_reference_audio_max_bytes
+            if len(text) > _maximum_base64_characters(maximum) + 256:
+                raise ValueError(
+                    f"TTS reference audio must be {format_mib(maximum)} or smaller"
+                )
             if text.startswith("data:audio/") and ";base64," in text:
+                if self.ports.reference_audio_repository is not None:
+                    # The repository validates and decodes exactly once while
+                    # atomically writing the binary sidecar.
+                    return text
                 try:
-                    audio = base64.b64decode(text.split(",", 1)[1], validate=True)
-                except (ValueError, TypeError) as exc:
-                    raise ValueError("invalid base64 TTS reference audio") from exc
-                if not audio or len(audio) > 10 * 1024 * 1024:
-                    raise ValueError("TTS reference audio must be between 1 byte and 10 MB")
+                    audio = _decode_bounded_base64(
+                        text.split(",", 1)[1],
+                        maximum,
+                        "TTS reference audio",
+                    )
+                except (ValueError, OverflowError) as exc:
+                    raise ValueError(
+                        f"invalid base64 TTS reference audio; maximum is "
+                        f"{format_mib(maximum)}"
+                    ) from exc
+                if not audio:
+                    raise ValueError(
+                        "TTS reference audio must be between 1 byte and "
+                        f"{format_mib(maximum)}"
+                    )
                 return text
             parsed_ref = urllib.parse.urlparse(text)
             if parsed_ref.scheme not in {"http", "https"} or not parsed_ref.netloc:
@@ -338,12 +475,17 @@ class SpeechHttpController:
         config = self._service_config("asr")
         if not self._require_enabled(handler, "asr", config):
             return True
+        maximum = self._request_limits().speech_audio_max_bytes
         if "application/json" in content_type.lower():
             try:
                 body = json.loads(raw.decode("utf-8"))
                 if not isinstance(body, dict):
                     raise ValueError("request must be a JSON object")
-                audio = base64.b64decode(str(body.get("audio_base64") or ""), validate=True)
+                audio = _decode_bounded_base64(
+                    body.get("audio_base64"),
+                    maximum,
+                    "audio_base64",
+                )
                 if not audio:
                     raise ValueError("audio_base64 is required")
                 fields = {
@@ -354,18 +496,38 @@ class SpeechHttpController:
                 if fields["language"].lower() == "auto":
                     fields.pop("language")
                 raw, content_type = self._multipart(fields, "file", str(body.get("filename") or "recording.wav"), str(body.get("content_type") or "audio/wav"), audio)
+            except OverflowError as exc:
+                self.ports.write_json(handler, {"error": {"type": "request_too_large", "message": str(exc)}}, 413)
+                return True
             except (ValueError, TypeError, UnicodeError) as exc:
                 self.ports.write_json(handler, {"error": {"type": "invalid_request_error", "message": str(exc)}}, 400)
                 return True
+        elif len(raw) > maximum:
+            self.ports.write_json(
+                handler,
+                {
+                    "error": {
+                        "type": "request_too_large",
+                        "message": (
+                            f"speech input exceeds {format_mib(maximum)} decoded bytes"
+                        ),
+                    }
+                },
+                413,
+            )
+            return True
         return self._proxy_raw(handler, "asr", "endpoint", raw, content_type)
 
     def _proxy_tts(self, handler: BaseHTTPRequestHandler, raw: bytes, content_type: str, *, batch: bool) -> bool:
         config = self._service_config("tts")
         streaming = False
+        body: dict[str, Any] | None = None
+        configured_reference_injected = False
         if not self._require_enabled(handler, "tts", config):
             return True
         if "application/json" in content_type.lower():
             try:
+                reference_maximum = self._request_limits().tts_reference_audio_max_bytes
                 body = json.loads(raw.decode("utf-8") if raw else "{}")
                 if not isinstance(body, dict):
                     raise ValueError("request must be a JSON object")
@@ -382,6 +544,7 @@ class SpeechHttpController:
                         normalize_cosyvoice_reference(effective_config)
                         if str(effective_config.get("ref_audio") or "").strip():
                             body["ref_audio"] = str(effective_config["ref_audio"])
+                            configured_reference_injected = True
                         if str(effective_config.get("ref_text") or "").strip():
                             body["ref_text"] = str(effective_config["ref_text"])
                     if is_cosyvoice3_model(body.get("model")) and (
@@ -392,12 +555,187 @@ class SpeechHttpController:
                     body.setdefault("response_format", str(config.get("response_format") or "wav"))
                     body.setdefault("speed", float(config.get("speed") or 1.0))
                     streaming = bool(body.get("stream") and body.get("stream_format") == "audio")
-                raw = json.dumps(body, ensure_ascii=False).encode("utf-8")
+                self._validate_tts_reference_audio(
+                    body,
+                    reference_maximum,
+                    batch=batch,
+                    skip_top_reference=(
+                        configured_reference_injected
+                        and self.ports.reference_audio_repository is not None
+                    ),
+                )
+            except OverflowError as exc:
+                self.ports.write_json(handler, {"error": {"type": "request_too_large", "message": str(exc)}}, 413)
+                return True
             except (ValueError, TypeError, UnicodeError) as exc:
                 self.ports.write_json(handler, {"error": {"type": "invalid_request_error", "message": str(exc)}}, 400)
                 return True
         endpoint = str(config.get("endpoint") or "/v1/audio/speech") + ("/batch" if batch else "")
-        return self._proxy_bytes(handler, "tts", config, endpoint, raw, content_type, streaming=streaming)
+        try:
+            with self._materialized_tts_body(
+                body,
+                raw,
+                reference_maximum=self._request_limits().tts_reference_audio_max_bytes,
+                batch=batch,
+                configured_reference_injected=configured_reference_injected,
+            ) as forwarding_raw:
+                return self._proxy_bytes(
+                    handler,
+                    "tts",
+                    config,
+                    endpoint,
+                    forwarding_raw,
+                    content_type,
+                    streaming=streaming,
+                )
+        except (RequestBodyTooLarge, RequestBodyCapacityExceeded):
+            raise
+        except OverflowError as exc:
+            self.ports.write_json(handler, {"error": {"type": "request_too_large", "message": str(exc)}}, 413)
+            return True
+        except (ValueError, TypeError, UnicodeError) as exc:
+            self.ports.write_json(handler, {"error": {"type": "invalid_request_error", "message": str(exc)}}, 400)
+            return True
+
+    @contextmanager
+    def _materialized_tts_body(
+        self,
+        body: dict[str, Any] | None,
+        raw: bytes,
+        *,
+        reference_maximum: int,
+        batch: bool,
+        configured_reference_injected: bool,
+    ) -> Iterator[bytes]:
+        if body is None:
+            yield raw
+            return
+        repository = self.ports.reference_audio_repository
+        containers: list[tuple[dict[str, Any], bool]] = [
+            (body, configured_reference_injected)
+        ]
+        if batch and isinstance(body.get("items"), list):
+            containers.extend(
+                (item, False)
+                for item in body["items"]
+                if isinstance(item, dict)
+            )
+        marker_container: dict[str, Any] | None = None
+        marker = ""
+        for container, marker_allowed in containers:
+            reference = str(container.get("ref_audio") or "").strip()
+            if repository is None or not repository.is_marker(reference):
+                continue
+            if not marker_allowed:
+                raise ValueError(
+                    "opaque TTS reference markers are not accepted from API clients"
+                )
+            if marker_container is not None:
+                raise ValueError("only one configured TTS reference marker is supported")
+            marker_container = container
+            marker = reference
+
+        path = "/v1/audio/speech/batch" if batch else "/v1/audio/speech"
+        if repository is None:
+            yield json.dumps(body, ensure_ascii=False).encode("utf-8")
+            return
+        configured_reference = str(body.get("ref_audio") or "").strip()
+        if (
+            marker_container is None
+            and configured_reference_injected
+            and configured_reference.startswith("data:audio/")
+            and ";base64," in configured_reference
+        ):
+            data_url_length = repository.data_url_wire_length(
+                configured_reference,
+                reference_maximum,
+            )
+            body["ref_audio"] = ""
+            try:
+                skeleton_length = len(
+                    json.dumps(body, ensure_ascii=False).encode("utf-8")
+                )
+            finally:
+                body["ref_audio"] = configured_reference
+            transformed_length = skeleton_length + data_url_length
+            with repository.admit_transformed(
+                path,
+                len(raw),
+                transformed_length,
+                "application/json",
+            ):
+                self._validate_tts_reference_audio(
+                    body,
+                    reference_maximum,
+                    batch=batch,
+                )
+                forwarding_raw = json.dumps(body, ensure_ascii=False).encode("utf-8")
+                if len(forwarding_raw) != transformed_length:
+                    raise RuntimeError("TTS reference transformed length mismatch")
+                yield forwarding_raw
+            return
+        if marker_container is None:
+            forwarding_raw = json.dumps(body, ensure_ascii=False).encode("utf-8")
+            with repository.admit_transformed(
+                path,
+                len(raw),
+                len(forwarding_raw),
+                "application/json",
+            ):
+                yield forwarding_raw
+            return
+
+        marker_container["ref_audio"] = ""
+        try:
+            skeleton_length = len(
+                json.dumps(body, ensure_ascii=False).encode("utf-8")
+            )
+        finally:
+            marker_container["ref_audio"] = marker
+
+        def transformed_length(data_url_length: int) -> int:
+            return skeleton_length + data_url_length
+
+        with repository.materialize_data_url(
+            marker,
+            reference_maximum,
+            path=path,
+            original_length=len(raw),
+            transformed_length=transformed_length,
+            content_type="application/json",
+        ) as data_url:
+            marker_container["ref_audio"] = data_url
+            try:
+                forwarding_raw = json.dumps(body, ensure_ascii=False).encode("utf-8")
+                if len(forwarding_raw) != transformed_length(len(data_url)):
+                    raise RuntimeError("TTS reference transformed length mismatch")
+                yield forwarding_raw
+            finally:
+                marker_container["ref_audio"] = marker
+
+    @staticmethod
+    def _validate_tts_reference_audio(
+        body: dict[str, Any],
+        maximum: int,
+        *,
+        batch: bool,
+        skip_top_reference: bool = False,
+    ) -> None:
+        references: list[Any] = [] if skip_top_reference else [body.get("ref_audio")]
+        if batch and isinstance(body.get("items"), list):
+            references.extend(
+                item.get("ref_audio")
+                for item in body["items"]
+                if isinstance(item, dict)
+            )
+        for reference in references:
+            value = str(reference or "").strip()
+            if value.startswith("data:audio/") and ";base64," in value:
+                _decode_bounded_base64(
+                    value.split(",", 1)[1],
+                    maximum,
+                    "TTS reference audio",
+                )
 
     def _proxy_raw(self, handler: BaseHTTPRequestHandler, service: str, endpoint_key: str, raw: bytes, content_type: str) -> bool:
         config = self._service_config(service)
@@ -514,4 +852,9 @@ class SpeechHttpController:
         return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
 
 
-__all__ = ["SpeechHttpController", "SpeechHttpPorts"]
+__all__ = [
+    "MAX_SPEECH_AUDIO_BYTES",
+    "MAX_TTS_REFERENCE_AUDIO_BYTES",
+    "SpeechHttpController",
+    "SpeechHttpPorts",
+]

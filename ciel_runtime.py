@@ -347,6 +347,11 @@ from ciel_runtime_support.request_shortcuts import live_option_value as project_
 from ciel_runtime_support.request_shortcuts import marker_tail as project_request_marker_tail
 from ciel_runtime_support.request_shortcuts import single_value as project_single_shortcut_value
 from ciel_runtime_support.request_shortcuts import split_import_session_arguments as project_split_import_session_arguments
+from ciel_runtime_support.request_body_policy import RouterRequestBodyPolicy
+from ciel_runtime_support.request_limits_config import (
+    RequestLimitsMenuService,
+    resolve_workspace_request_limits,
+)
 from ciel_runtime_support.request_trace import truncate_for_dump as _truncate_for_dump
 from ciel_runtime_support.response_collection import AnthropicCollectionProjection, AnthropicCollectionRequest, AnthropicCollectionServices, AnthropicCollectionTransport, ResponseCollectionProjection, ResponseCollectionRateLimit, ResponseCollectionRequest, ResponseCollectionServices
 from ciel_runtime_support.response_collection_context import ResponseCollectionCompatibilityApi, ResponseCollectionContext, ResponseCollectionRoutingPorts, ResponseCollectionStrategyPorts, ResponseCollectionStreamPorts
@@ -440,6 +445,7 @@ from ciel_runtime_support.runtime_restart import running_from_npm_package as det
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
 from ciel_runtime_support.colab_speech_jobs import colab_speech_credential_status, colab_speech_job_status, launch_colab_speech_job
 from ciel_runtime_support.speech_http_controller import SpeechHttpController, SpeechHttpPorts
+from ciel_runtime_support.tts_reference_audio_repository import TtsReferenceAudioRepository
 from ciel_runtime_support.session_import import ImportSessionHttpController, ImportSessionHttpPorts, ImportSessionLimits, ImportSessionRepository, ImportSessionService, import_record_line, import_tool_text, normalize_import_source
 from ciel_runtime_support.slash_command_assets import ADVISOR_NATIVE_DISABLED_SLASH_COMMAND  # noqa: F401 - compatibility export
 from ciel_runtime_support.slash_command_assets import LEGACY_ADVISOR_CALL_MARKER  # noqa: F401 - compatibility export
@@ -1633,7 +1639,18 @@ def web_ui_controller() -> WebUiController:
 def render_router_home_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any]) -> str: return web_ui_controller().render_router_home(cfg, provider, pcfg)
 def render_web_chat_html(cfg: dict[str, Any], provider: str, pcfg: dict[str, Any]) -> str: return web_ui_controller().render_web_chat(cfg, provider, pcfg)
 def handle_web_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return web_ui_controller().handle_get(handler, path)
-def speech_http_controller() -> SpeechHttpController: return SpeechHttpController(SpeechHttpPorts(load_config, save_config, write_json, router_log, colab_action=launch_colab_speech_job, colab_status=colab_speech_job_status, colab_credentials=colab_speech_credential_status))
+def tts_reference_audio_repository() -> TtsReferenceAudioRepository:
+    return TtsReferenceAudioRepository(
+        CONFIG_DIR / "tts-reference-audio",
+        transformed_admission=lambda path, original, transformed, content_type: router_request_body_policy().admit_transformed(
+            path,
+            original,
+            transformed,
+            content_type,
+        ),
+    )
+
+def speech_http_controller() -> SpeechHttpController: return SpeechHttpController(SpeechHttpPorts(load_config, save_config, write_json, router_log, colab_action=launch_colab_speech_job, colab_status=colab_speech_job_status, colab_credentials=colab_speech_credential_status, request_limits=configured_workspace_request_limits, reference_audio_repository=tts_reference_audio_repository()))
 def parse_json_body(raw: bytes) -> dict[str, Any]:
     try:
         value = json.loads(raw.decode("utf-8") if raw else "{}")
@@ -1649,7 +1666,7 @@ def handle_tui_observation_get(handler: BaseHTTPRequestHandler, path: str, query
 def observe_tui_runtime_response(handler: BaseHTTPRequestHandler, path: str, provider: str, model: str, body: dict[str, Any]) -> Any: return observe_runtime_response(handler, path, provider, model, body, TUI_OBSERVATION_BUS)
 _safe_segment = ChatFileRepository.safe_segment
 chat_file_max_bytes = ChatFileRepository.configured_max_bytes
-def chat_file_repository() -> ChatFileRepository: return ChatFileRepository(CHAT_FILES_DIR, ROUTER_BASE, ChatFilePorts(timestamp=time.time, timestamp_ns=time.time_ns))
+def chat_file_repository() -> ChatFileRepository: return ChatFileRepository(CHAT_FILES_DIR, ROUTER_BASE, ChatFilePorts(timestamp=time.time, timestamp_ns=time.time_ns, max_bytes=lambda: configured_workspace_request_limits().chat_attachment_max_bytes))
 def store_chat_file_upload(body: dict[str, Any]) -> dict[str, Any]: return chat_file_repository().store_upload(body)
 def store_chat_file_from_path(path_value: Any, name: str | None = None, content_type: str | None = None) -> dict[str, Any]: return chat_file_repository().store_path(path_value, name, content_type)
 chat_file_markdown_lines = ChatFileRepository.markdown_lines
@@ -2871,9 +2888,22 @@ runtime_router_capability_gaps = _ROUTER_REQUEST_API.capability_gaps
 route_runtime_get = _ROUTER_REQUEST_API.route_get
 route_runtime_post = _ROUTER_REQUEST_API.route_post
 
+_ROUTER_REQUEST_BODY_POLICY: RouterRequestBodyPolicy | None = None
+
+def router_request_body_policy() -> RouterRequestBodyPolicy:
+    global _ROUTER_REQUEST_BODY_POLICY
+    if _ROUTER_REQUEST_BODY_POLICY is None:
+        _ROUTER_REQUEST_BODY_POLICY = RouterRequestBodyPolicy(
+            os.environ,
+            limits=configured_workspace_request_limits(),
+        )
+        for warning in _ROUTER_REQUEST_BODY_POLICY.configuration_warnings:
+            router_log("WARN", f"router_request_limit_configuration {warning}")
+    return _ROUTER_REQUEST_BODY_POLICY
+
 def _router_server_context() -> RouterServerContext:
     http_services = RouterHttpServices(
-        core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log, observe_tui_runtime_response),
+        core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log, observe_tui_runtime_response, router_request_body_policy()),
         get=RouterHttpGetEndpoints(handle_tui_observation_get, handle_events_get, handle_llm_config_get, handle_channel_mcp_get, handle_web_get,
                                    lambda handler, path: speech_http_controller().get(handler, path), handle_chat_get, handle_plan_get, route_runtime_get,
                                    handle_external_event_get),
@@ -3925,6 +3955,16 @@ def launch_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
         ["launch", "launch-codex", "launch-agy", "launch-kimi", "launch-codex-app-server", "back"],
     )
 
+def request_limits_menu_service() -> RequestLimitsMenuService:
+    return RequestLimitsMenuService(load_config, save_config, ROUTER_WORKSPACE, os.environ)
+
+def configured_workspace_request_limits(cfg: dict[str, Any] | None = None):
+    return resolve_workspace_request_limits(
+        load_config() if cfg is None else cfg,
+        ROUTER_WORKSPACE,
+        os.environ,
+    )
+
 def prelaunch_panel_context() -> PrelaunchPanelContext:
     return PrelaunchPanelContext(
         main=MainMenuPanelPorts(LANGUAGES, ui_text, compact_text, provider_menu_label, stored_api_key_mask, llm_options_status, log_level_status,
@@ -3972,7 +4012,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                                                     llm_option_panel_rows, llm_preset_panel_rows, log_level_panel_rows, model_panel_rows, provider_panel_rows),
             mutations=prelaunch.PrelaunchMutations(apply_context_setup_config, apply_llm_preset_config, apply_timeout_profile_to_provider,
                                                     set_advisor_model_config, set_base_url_config, set_llm_option_config, set_log_level_config,
-                                                    set_model_config, set_provider_choice_config),
+                                                    set_model_config, set_provider_choice_config, request_limits_menu_service()),
             secrets=prelaunch.PrelaunchSecrets(clear_api_key_config, mask_secret, parse_api_key_list, secret_fingerprint, store_api_key_input_config,
                                                 store_api_keys_config, run_copilot_oauth_action, run_kimi_oauth_action),
             options=prelaunch.PrelaunchOptions(llm_option_current_bool, llm_option_prompt_default, timeout_profile_panel_rows, web_backend_panel_rows,

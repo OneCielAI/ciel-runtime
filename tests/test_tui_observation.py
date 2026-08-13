@@ -5,6 +5,7 @@ import unittest
 import urllib.request
 from http.server import ThreadingHTTPServer
 
+from ciel_runtime_support.request_body_policy import RouterRequestBodyPolicy
 from ciel_runtime_support.router_http import (
     RouterHttpCore,
     RouterHttpErrors,
@@ -288,6 +289,7 @@ class TuiObservationRouterIntegrationTests(unittest.TestCase):
                 observe_runtime=lambda handler, path, provider, model, body: observe_runtime_response(
                     handler, path, provider, model, body, bus
                 ),
+                request_body_policy=RouterRequestBodyPolicy({}),
             ),
             get=RouterHttpGetEndpoints(
                 tui=adapter.handle_get,

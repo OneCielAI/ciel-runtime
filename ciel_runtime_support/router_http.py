@@ -27,6 +27,11 @@ from ciel_runtime_support.codex_reasoning_rejects import (
 from ciel_runtime_support.responses_input_compatibility import (
     repair_replayed_response_items,
 )
+from ciel_runtime_support.request_body_policy import (
+    RequestBodyCapacityExceeded,
+    RequestBodyTooLarge,
+    RouterRequestBodyPolicy,
+)
 from ciel_runtime_support.upstream_dump import dump_upstream_request
 
 # Upper bound on verdict-driven repairs of one replayed turn. The sealed
@@ -82,6 +87,7 @@ class RouterHttpCore:
     is_client_disconnect: Callable[[BaseException], bool]
     log: Callable[[str, str], Any]
     observe_runtime: Callable[..., Any]
+    request_body_policy: RouterRequestBodyPolicy
 
 
 @dataclass(frozen=True, slots=True)
@@ -714,46 +720,247 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             return
         presentation.write_json(self, {"type": "error", "error": {"type": "not_found_error", "message": path}}, 404)
 
+    @staticmethod
+    def _header_values(headers: Any, name: str) -> list[str]:
+        get_all = getattr(headers, "get_all", None)
+        if callable(get_all):
+            values = get_all(name)
+            if values:
+                return [str(value).strip() for value in values]
+        raw = headers.get(name)
+        if raw is None:
+            try:
+                raw = next(
+                    value
+                    for key, value in headers.items()
+                    if str(key).casefold() == name.casefold()
+                )
+            except (AttributeError, StopIteration):
+                return []
+        return [str(raw).strip()]
+
+    def _write_request_error(
+        self,
+        path: str,
+        services: RouterHttpServices,
+        *,
+        status: int,
+        error_type: str,
+        message: str,
+    ) -> None:
+        # The body has not necessarily been consumed.  Closing the connection
+        # prevents unread bytes from being parsed as the next HTTP request.
+        self.close_connection = True
+        services.core.log(
+            "WARN",
+            f"router_request_rejected path={path} status={status} "
+            f"error_type={error_type} message={message}",
+        )
+        if path == "/v1/responses" or path == "/backend-api/codex/responses":
+            services.errors.write_responses_error(
+                self,
+                message,
+                stream=False,
+                status=status,
+                error_type=error_type,
+            )
+            return
+        if path in {"/v1/messages", "/v1/messages/count_tokens"}:
+            services.errors.try_write_json(
+                self,
+                {
+                    "type": "error",
+                    "error": {"type": error_type, "message": message},
+                },
+                status,
+            )
+            return
+        if path == "/v1/chat/completions":
+            services.errors.try_write_json(
+                self,
+                {
+                    "error": {
+                        "message": message,
+                        "type": error_type,
+                        "param": None,
+                        "code": error_type,
+                    }
+                },
+                status,
+            )
+            return
+        services.presentation.write_json(
+            self,
+            {"ok": False, "error": error_type, "message": message},
+            status,
+        )
+
+    def _validated_content_length(
+        self,
+        path: str,
+        services: RouterHttpServices,
+    ) -> int | None:
+        transfer_encodings = self._header_values(self.headers, "transfer-encoding")
+        if transfer_encodings and any(
+            value.casefold() not in {"", "identity"} for value in transfer_encodings
+        ):
+            self._write_request_error(
+                path,
+                services,
+                status=501,
+                error_type="invalid_request_error",
+                message="Chunked or transformed request bodies are not supported by this router",
+            )
+            return None
+        content_encodings = self._header_values(self.headers, "content-encoding")
+        if content_encodings and any(
+            value.casefold() not in {"", "identity"} for value in content_encodings
+        ):
+            self._write_request_error(
+                path,
+                services,
+                status=415,
+                error_type="invalid_request_error",
+                message="Compressed request bodies are not supported by this router",
+            )
+            return None
+        values = self._header_values(self.headers, "content-length")
+        if not values:
+            # Preserve the historical empty-POST behavior.  A transfer-coded
+            # body was already rejected above, so no unread payload remains.
+            return 0
+        value = values[0]
+        if (
+            len(values) != 1
+            or not value
+            or len(value) > 20
+            or any(character < "0" or character > "9" for character in value)
+        ):
+            self._write_request_error(
+                path,
+                services,
+                status=400,
+                error_type="invalid_request_error",
+                message="Content-Length must be one non-negative decimal integer",
+            )
+            return None
+        try:
+            return int(value)
+        except ValueError:
+            self._write_request_error(
+                path,
+                services,
+                status=400,
+                error_type="invalid_request_error",
+                message="Content-Length is outside the supported integer range",
+            )
+            return None
+
+    def _read_request_body(
+        self,
+        path: str,
+        services: RouterHttpServices,
+        length: int,
+    ) -> bytes | None:
+        if not length:
+            return b"{}"
+        raw = self.rfile.read(length)
+        if len(raw) == length:
+            return raw
+        self._write_request_error(
+            path,
+            services,
+            status=400,
+            error_type="invalid_request_error",
+            message=f"Request body ended early: expected {length} bytes, received {len(raw)} bytes",
+        )
+        return None
+
     def do_POST(self) -> None:
         services = self._services()
         path = urllib.parse.urlparse(self.path).path
         body: dict[str, Any] = {}
         try:
             cfg = services.core.load_config()
-            length = int(self.headers.get("content-length", "0") or 0)
-            if length < 0 or length > 4 * 1024 * 1024:
-                services.presentation.write_json(self, {"ok": False, "error": "request_too_large"}, 413)
-                return
             endpoints = services.post
-            if path.startswith("/ca/events/webhooks/"):
-                raw = self.rfile.read(length) if length else b"{}"
-                if endpoints.external_events_raw is not None and endpoints.external_events_raw(self, path, raw):
-                    return
-            else:
-                if services.core.reject_external(self, cfg):
-                    return
-                raw = self.rfile.read(length) if length else b"{}"
-            if endpoints.speech(self, path, raw, str(self.headers.get("content-type") or "application/json")):
+            is_webhook = path.startswith("/ca/events/webhooks/")
+            if not is_webhook and services.core.reject_external(self, cfg):
+                self.close_connection = True
                 return
-            body = services.core.parse_json_body(raw)
-            if endpoints.external_events_config is not None and endpoints.external_events_config(self, path, body):
+            length = self._validated_content_length(path, services)
+            if length is None:
                 return
-            if endpoints.llm_config(self, path, body):
+            try:
+                admission = services.core.request_body_policy.admit(
+                    path,
+                    length,
+                    str(self.headers.get("content-type") or "application/json"),
+                )
+                with admission:
+                    raw = self._read_request_body(path, services, length)
+                    if raw is None:
+                        return
+                    if is_webhook:
+                        if (
+                            endpoints.external_events_raw is not None
+                            and endpoints.external_events_raw(self, path, raw)
+                        ):
+                            return
+                        services.presentation.write_json(
+                            self,
+                            {"ok": False, "error": "receiver_not_available"},
+                            404,
+                        )
+                        return
+                    if endpoints.speech(
+                        self,
+                        path,
+                        raw,
+                        str(self.headers.get("content-type") or "application/json"),
+                    ):
+                        return
+                    body = services.core.parse_json_body(raw)
+                    services.core.request_body_policy.validate_parsed_body(
+                        path,
+                        length,
+                        body,
+                    )
+                    if endpoints.external_events_config is not None and endpoints.external_events_config(self, path, body):
+                        return
+                    if endpoints.llm_config(self, path, body):
+                        return
+                    if endpoints.channel_mcp(self, path, body):
+                        return
+                    if endpoints.chat(self, path, body) or endpoints.plan(self, path, body):
+                        return
+                    provider, pcfg = services.core.get_current_provider(cfg)
+                    model = str(body.get("model") or pcfg.get("current_model") or "")
+                    with services.core.observe_runtime(self, path, provider, model, body):
+                        if endpoints.runtime(self, cfg, provider, pcfg, path, body):
+                            return
+                    services.presentation.write_json(
+                        self,
+                        {"type": "error", "error": {"type": "not_found_error", "message": path}},
+                        404,
+                    )
+            except RequestBodyTooLarge as exc:
+                self._write_request_error(
+                    path,
+                    services,
+                    status=413,
+                    error_type="request_too_large",
+                    message=str(exc),
+                )
                 return
-            if endpoints.channel_mcp(self, path, body):
+            except RequestBodyCapacityExceeded as exc:
+                self._write_request_error(
+                    path,
+                    services,
+                    status=503,
+                    error_type="router_busy",
+                    message=str(exc),
+                )
                 return
-            if endpoints.chat(self, path, body) or endpoints.plan(self, path, body):
-                return
-            provider, pcfg = services.core.get_current_provider(cfg)
-            model = str(body.get("model") or pcfg.get("current_model") or "")
-            with services.core.observe_runtime(self, path, provider, model, body):
-                if endpoints.runtime(self, cfg, provider, pcfg, path, body):
-                    return
-            services.presentation.write_json(
-                self,
-                {"type": "error", "error": {"type": "not_found_error", "message": path}},
-                404,
-            )
         except Exception as exc:
             self._write_uncaught_post_error(path, body, exc, services)
 

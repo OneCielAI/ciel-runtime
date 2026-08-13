@@ -39,9 +39,10 @@ def write_openai_responses_error(
     *,
     stream: bool,
     status: int,
+    error_type: str = "api_error",
     services: OpenAIResponsesStreamServices,
 ) -> None:
-    payload = {"type": "error", "error": {"type": "api_error", "message": message}}
+    payload = {"type": "error", "error": {"type": error_type, "message": message}}
     if not stream:
         services.write_json(handler, payload, status)
         return

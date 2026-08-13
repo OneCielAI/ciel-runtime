@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 import urllib.parse
 from dataclasses import dataclass
@@ -10,6 +11,9 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from threading import Condition
 from typing import Any, Callable
+
+
+CHAT_FILE_STREAM_CHUNK_BYTES = 1024 * 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,13 +153,15 @@ class ChatHttpController:
         if not target.exists() or not target.is_file():
             self.writes.write_json(handler, {"ok": False, "error": "not_found"}, 404)
             return True
-        data = target.read_bytes()
-        handler.send_response(200)
-        handler.send_header("content-type", "application/octet-stream")
-        handler.send_header("content-disposition", f"attachment; filename={json.dumps(name)}")
-        handler.send_header("content-length", str(len(data)))
-        handler.end_headers()
-        handler.wfile.write(data)
+        with target.open("rb") as stream:
+            size = os.fstat(stream.fileno()).st_size
+            handler.send_response(200)
+            handler.send_header("content-type", "application/octet-stream")
+            handler.send_header("content-disposition", f"attachment; filename={json.dumps(name)}")
+            handler.send_header("content-length", str(size))
+            handler.end_headers()
+            while chunk := stream.read(CHAT_FILE_STREAM_CHUNK_BYTES):
+                handler.wfile.write(chunk)
         return True
 
     def post(self, handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool:

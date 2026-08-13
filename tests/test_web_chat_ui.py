@@ -1,8 +1,8 @@
 import copy
-import os
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import ciel_runtime
@@ -135,6 +135,10 @@ class WebChatUiTests(unittest.TestCase):
         self.assertIn("Recreate all", html)
         self.assertIn('id="ttsReferenceAudio" type="file" accept="audio/*"', html)
         self.assertIn("pendingTtsReferenceAudio", html)
+        self.assertIn("speechConfig.limits.tts_reference_audio_max_bytes", html)
+        self.assertIn("500 * 1024 * 1024", html)
+        self.assertIn("formatBytes(maximum) + ' or smaller.'", html)
+        self.assertNotIn("file.size > 10 * 1024 * 1024", html)
         self.assertIn('id="liveTranscript"', html)
         self.assertIn("requestLivePartial(now)", html)
         self.assertIn("Live: ' + text", html)
@@ -201,7 +205,11 @@ class WebChatUiTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             with (
                 mock.patch.object(ciel_runtime, "CHAT_FILES_DIR", Path(td)),
-                mock.patch.dict(os.environ, {"CIEL_RUNTIME_CHAT_FILE_MAX_BYTES": "3"}),
+                mock.patch.object(
+                    ciel_runtime,
+                    "configured_workspace_request_limits",
+                    return_value=SimpleNamespace(chat_attachment_max_bytes=3),
+                ),
             ):
                 with self.assertRaises(OverflowError):
                     ciel_runtime.store_chat_file_upload({"name": "big.txt", "content": "four"})

@@ -1706,9 +1706,10 @@ def render_web_chat_page(
     document.getElementById('ttsReferenceAudio').addEventListener('change', async event => {{
       const file = event.target.files && event.target.files[0];
       if (!file) return;
-      if (file.size > 10 * 1024 * 1024) {{
+      const maximum = Number((speechConfig.limits && speechConfig.limits.tts_reference_audio_max_bytes) || 500 * 1024 * 1024);
+      if (file.size > maximum) {{
         event.target.value = '';
-        addBubble('system', 'Reference voice must be 10 MB or smaller.');
+        addBubble('system', 'Reference voice must be ' + formatBytes(maximum) + ' or smaller.');
         return;
       }}
       pendingTtsReferenceAudio = await fileToDataUrl(file);

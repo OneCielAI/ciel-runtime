@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 import time
+import urllib.error
 from typing import Any, Callable
 
 from .initial_stream_retry import InitialStreamRetry
@@ -85,6 +86,40 @@ class OpenAIForwardServices:
     log: Callable[[str, str], Any]
 
 
+def _http_error_payload(error: urllib.error.HTTPError) -> dict[str, Any]:
+    """Project one upstream HTTP error into an Anthropic-compatible envelope."""
+    raw = error.read().decode("utf-8", errors="replace")
+    error_type = "request_too_large" if error.code == 413 else "upstream_error"
+    message = raw.strip() or str(error)
+    try:
+        payload = json.loads(raw)
+    except (TypeError, ValueError):
+        payload = None
+    if isinstance(payload, dict):
+        detail = payload.get("error")
+        if isinstance(detail, dict):
+            if error.code != 413:
+                error_type = str(detail.get("type") or error_type).strip() or error_type
+            message = str(detail.get("message") or detail)
+        elif detail:
+            message = str(detail)
+        elif payload.get("message"):
+            if error.code != 413:
+                error_type = str(payload.get("type") or error_type).strip() or error_type
+            message = str(payload["message"])
+    return {
+        "type": "error",
+        "error": {"type": error_type, "message": message},
+    }
+
+
+def _write_stream_error(handler: Any, payload: dict[str, Any]) -> None:
+    """Terminate an already-started Anthropic SSE response without a second status."""
+    data = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    handler.wfile.write(f"event: error\ndata: {data}\n\n".encode("utf-8"))
+    handler.wfile.flush()
+
+
 def forward_openai_compatible_chat(
     handler: Any,
     provider: str,
@@ -134,14 +169,35 @@ def forward_openai_compatible_chat(
         req_body = request.build_chat_request(provider, model, upstream_body, pcfg, stream=True)
         req_tokens = rate_limit.estimate_tokens(req_body)
         req_bytes = len(json.dumps(req_body, ensure_ascii=False).encode("utf-8"))
-        streaming.write_open_start(handler, model, input_tokens=req_tokens)
         index = 0
-        if notice:
-            index = streaming.write_blocks(handler, [{"type": "text", "text": notice}], index)
+        stream_started = False
+        pending_notices = [notice] if notice else []
+
+        def start_stream() -> None:
+            nonlocal index, stream_started
+            if stream_started:
+                return
+            streaming.write_open_start(handler, model, input_tokens=req_tokens)
+            stream_started = True
+            for pending_notice in pending_notices:
+                index = streaming.write_blocks(
+                    handler,
+                    [{"type": "text", "text": pending_notice}],
+                    index,
+                )
+
         try:
             def emit_retry_notice(text: str) -> None:
                 nonlocal index
-                index = streaming.write_blocks(handler, [{"type": "text", "text": text + "\n"}], index)
+                # Retrying may take long enough that Claude needs the same
+                # early SSE heartbeat it received before this 413 fix.  Once
+                # headers are committed, a later 413 is emitted as SSE.
+                start_stream()
+                index = streaming.write_blocks(
+                    handler,
+                    [{"type": "text", "text": text + "\n"}],
+                    index,
+                )
 
             upstream_response = streaming.open_with_retry(
                 url,
@@ -197,6 +253,10 @@ def forward_openai_compatible_chat(
                     time.sleep,
                     record_initial_retry,
                 )
+            # urllib raises an HTTP status such as 413 while opening the
+            # upstream response.  Delay our 200/SSE headers until that status
+            # is known so it can still be returned faithfully to Claude.
+            start_stream()
             stream_ok = streaming.stream_to_anthropic_sse(
                 handler,
                 upstream_response,
@@ -212,8 +272,36 @@ def forward_openai_compatible_chat(
                 response.mark_delivery_success(handler, "openai_stream_message_stop")
             else:
                 response.mark_delivery_failed(handler, "openai_stream_error")
+        except urllib.error.HTTPError as exc:
+            if exc.code != 413:
+                message = f"{type(exc).__name__}: {exc}"
+                response.mark_delivery_failed(
+                    handler, f"openai_stream_error:{type(exc).__name__}"
+                )
+                response.write_activity(
+                    "error", provider, model, error=type(exc).__name__, stream=True
+                )
+                start_stream()
+                streaming.write_blocks(
+                    handler,
+                    [{"type": "text", "text": f"Upstream error: {message}"}],
+                    index,
+                )
+                streaming.write_open_stop(handler)
+                return
+            payload = _http_error_payload(exc)
+            response.mark_delivery_failed(handler, "openai_stream_http_error:413")
+            response.write_activity(
+                "error", provider, model, code=413, stream=True
+            )
+            if stream_started:
+                _write_stream_error(handler, payload)
+            else:
+                response.write_json(handler, payload, 413)
+            return
         except RuntimeError as exc:
             response.mark_delivery_failed(handler, f"openai_stream_runtime_error:{type(exc).__name__}")
+            start_stream()
             streaming.write_blocks(handler, [{"type": "text", "text": f"Upstream error: {exc}"}], index)
             streaming.write_open_stop(handler)
             return
@@ -221,6 +309,7 @@ def forward_openai_compatible_chat(
             message = f"{type(exc).__name__}: {exc}"
             response.mark_delivery_failed(handler, f"openai_stream_error:{type(exc).__name__}")
             response.write_activity("error", provider, model, error=type(exc).__name__, stream=True)
+            start_stream()
             streaming.write_blocks(handler, [{"type": "text", "text": f"Upstream error: {message}"}], index)
             streaming.write_open_stop(handler)
             return
@@ -256,6 +345,13 @@ def forward_openai_compatible_chat(
             ),
             timeout,
         )
+    except urllib.error.HTTPError as exc:
+        if exc.code != 413:
+            raise
+        response.mark_delivery_failed(handler, "openai_http_error:413")
+        response.write_activity("error", provider, model, code=413, stream=False)
+        response.write_json(handler, _http_error_payload(exc), 413)
+        return
     except RuntimeError as exc:
         response.write_json(handler, {"type": "error", "error": {"type": "upstream_error", "message": str(exc)}}, 500)
         return

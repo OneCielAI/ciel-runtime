@@ -88,6 +88,18 @@ Advisor tool/gate 판정과 local `/advisor` short-circuit Controller를 소유�
 
 HTTP parsing과 GET/POST/HEAD/DELETE endpoint dispatch를 담당하는 Router Adapter. Core, GET endpoints, POST endpoints, Presentation, Errors 포트를 통해 Runtime/Channel/Protocol 서비스에 위임한다. Codex native backend proxy는 `CodexBackendHttpAdapter`, hop-by-hop 제거·content negotiation·native authorization 강제는 `CodexRoutedHeaderPolicy`, `/ca/events` 조회·SSE long-poll projection은 `EventHttpAdapter`가 각각 소유한다.
 
+### `ciel_runtime_support/request_body_policy.py`
+
+모델·웹훅·채팅 파일·음성·일반 제어 경로별 wire body 안전 상한과 환경변수 clamp를 소유하는 순수 Policy. 모델 context 의미나 임의 축약은 다루지 않으며, 요청별 `Content-Length` 5배를 예약하는 thread-safe byte-weighted in-flight admission으로 `ThreadingHTTPServer`의 동시 대형 요청 메모리를 제한한다. MCP inline `send_file`은 parsed JSON-RPC shape를 확인한 뒤에만 파일 상한을 쓴다.
+
+### `ciel_runtime_support/request_limits_config.py`
+
+작업 폴더별 모델 요청·채팅 첨부·ASR/TTS·in-flight 전송/저장 안전 상한, 환경변수 우선순위, hard cap, Base64 wire 팽창 계산과 시작 메뉴 저장을 소유한다. 기본값은 provider 의미를 추정하지 않도록 각 설정 가능 hard cap과 같으며, 명시적으로 저장한 workspace 값은 유지한다.
+
+### `ciel_runtime_support/tts_reference_audio_repository.py`
+
+TTS reference data URL을 한 번 디코딩해 private binary sidecar로 원자 저장하고 opaque marker로 조회·삭제하는 Repository. marker 경로 검증, POSIX private mode, 크기 선검증과 forwarding 시 data URL materialization을 소유하며, 변환 후 JSON 증가분은 Router request-body Policy의 shared admission 안에서만 할당한다.
+
 ### `ciel_runtime_support/http_response.py`
 
 JSON·empty·accepted HTTP response 작성, client disconnect 분류와 pending channel delivery 성공/실패 guard를 소유하는 Transport Adapter. Router application service는 handler의 임시 attribute와 socket errno를 직접 다루지 않는다.

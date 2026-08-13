@@ -33,6 +33,7 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "launch-menu",
     "external-events",
     "remote-instructions",
+    "request-limits",
     "web-backend",
     "quit",
 )
@@ -141,6 +142,7 @@ class PrelaunchMutations:
     set_log_level_config: Callable[..., Any]
     set_model_config: Callable[..., Any]
     set_provider_choice_config: Callable[..., Any]
+    request_limits: Any
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,6 +247,9 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     launch_panel_rows = services.options.launch_panel_rows
     remote_instruction_panel_rows = services.options.remote_instruction_panel_rows
     set_remote_instruction_config = services.options.set_remote_instruction_config
+    request_limit_panel_rows = services.mutations.request_limits.panel_rows
+    request_limit_prompt_default = services.mutations.request_limits.prompt_default
+    set_request_limit_config = services.mutations.request_limits.update
     passthrough = list(passthrough or [])
     enable_ansi()
     cfg = load_config()
@@ -315,6 +320,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             panel_rows, panel_values = launch_panel_rows(cfg)
         elif name == "remote-instructions":
             panel_rows, panel_values = remote_instruction_panel_rows(cfg)
+        elif name == "request-limits":
+            panel_rows, panel_values = request_limit_panel_rows(cfg)
         if panel_rows:
             panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
 
@@ -779,6 +786,30 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         continue
                     cfg = load_config()
                     panel_rows, panel_values = remote_instruction_panel_rows(cfg)
+                    panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
+                elif panel == "request-limits":
+                    if value == "back":
+                        close_panel()
+                        continue
+                    try:
+                        if value == "reset":
+                            messages = set_request_limit_config("reset", "")
+                        elif value:
+                            entered = prompt_menu_value(
+                                "Limit size (bare numbers are MiB)",
+                                request_limit_prompt_default(cfg, value),
+                                restore_tty=restore_line_mode,
+                                raw_tty=restore_raw_mode,
+                            )
+                            if not entered:
+                                continue
+                            messages = set_request_limit_config(value, entered)
+                        else:
+                            continue
+                    except Exception as exc:
+                        messages = [f"Request limit update failed: {type(exc).__name__}: {exc}"]
+                    cfg = load_config()
+                    panel_rows, panel_values = request_limit_panel_rows(cfg)
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "options":
                     if value == "back":

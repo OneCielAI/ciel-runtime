@@ -164,7 +164,13 @@ def handle_openai_responses_request(
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="ignore")
         delivery.mark_failed(handler, f"responses_http_error:{exc.code}")
-        output.write_error(handler, output.upstream_error_message(exc, raw), stream=stream, status=exc.code)
+        output.write_error(
+            handler,
+            output.upstream_error_message(exc, raw),
+            stream=stream,
+            status=exc.code,
+            error_type="request_too_large" if exc.code == 413 else "api_error",
+        )
     except Exception as exc:
         if core.is_client_disconnect(exc):
             delivery.mark_failed(handler, f"responses_client_disconnected:{type(exc).__name__}")
@@ -216,7 +222,13 @@ def _handle_codex_route(
         message = output.upstream_error_message(exc, raw)
         if exc.code in (401, 403):
             message = output.codex_auth_error_message(message)
-        output.write_error(handler, message, stream=bool(body.get("stream", True)), status=exc.code)
+        output.write_error(
+            handler,
+            message,
+            stream=bool(body.get("stream", True)),
+            status=exc.code,
+            error_type="request_too_large" if exc.code == 413 else "api_error",
+        )
     except Exception as exc:
         if core.is_client_disconnect(exc):
             delivery.mark_failed(handler, f"codex_responses_client_disconnected:{type(exc).__name__}")
@@ -275,6 +287,7 @@ def _handle_provider_responses_route(
             output.upstream_error_message(exc, raw),
             stream=bool(body.get("stream", True)),
             status=exc.code,
+            error_type="request_too_large" if exc.code == 413 else "api_error",
         )
     except Exception as exc:
         if core.is_client_disconnect(exc):

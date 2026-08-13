@@ -587,6 +587,76 @@ class ApiKeyRotationTests(unittest.TestCase):
         self.assertIn("ConnectionResetError", str(caught.exception))
         self.assertIsInstance(caught.exception.__cause__, ConnectionResetError)
 
+    def test_stream_413_preserves_upstream_status_and_consumed_body(self):
+        pcfg = self.provider_pcfg(
+            "kimi",
+            api_key="sk-one",
+            current_model="k3[1m]",
+            gateway_retries=10,
+        )
+        raw = b'{"error":{"type":"request_too_large","message":"provider limit"}}'
+        error = urllib.error.HTTPError(
+            "https://api.kimi.com/coding/v1/chat/completions",
+            413,
+            "Payload Too Large",
+            {"content-type": "application/json"},
+            io.BytesIO(raw),
+        )
+
+        with (
+            mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=error) as urlopen,
+            mock.patch.object(ciel_runtime, "write_router_activity"),
+            self.assertRaises(urllib.error.HTTPError) as caught,
+        ):
+            ciel_runtime.open_openai_stream_with_rate_retry(
+                "https://api.kimi.com/coding/v1/chat/completions",
+                {"model": "k3[1m]", "messages": [], "stream": True},
+                ciel_runtime.provider_headers("kimi", pcfg),
+                120.0,
+                "kimi",
+                pcfg,
+                "k3[1m]",
+            )
+
+        self.assertEqual(413, caught.exception.code)
+        self.assertEqual(raw, caught.exception.read())
+        self.assertEqual(1, urlopen.call_count)
+
+    def test_non_stream_413_preserves_upstream_status_and_consumed_body(self):
+        pcfg = self.provider_pcfg(
+            "kimi",
+            api_key="sk-one",
+            current_model="k3[1m]",
+            gateway_retries=10,
+        )
+        raw = b'{"error":{"type":"request_too_large","message":"provider limit"}}'
+        error = urllib.error.HTTPError(
+            "https://api.kimi.com/coding/v1/chat/completions",
+            413,
+            "Payload Too Large",
+            {"content-type": "application/json"},
+            io.BytesIO(raw),
+        )
+
+        with (
+            mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=error) as urlopen,
+            mock.patch.object(ciel_runtime, "write_router_activity"),
+            self.assertRaises(urllib.error.HTTPError) as caught,
+        ):
+            ciel_runtime.post_json_with_rate_retry(
+                "https://api.kimi.com/coding/v1/chat/completions",
+                {"model": "k3[1m]", "messages": []},
+                ciel_runtime.provider_headers("kimi", pcfg),
+                120.0,
+                "kimi",
+                pcfg,
+                "k3[1m]",
+            )
+
+        self.assertEqual(413, caught.exception.code)
+        self.assertEqual(raw, caught.exception.read())
+        self.assertEqual(1, urlopen.call_count)
+
     def test_direct_anthropic_compatible_429_rotates_to_live_key(self):
         pcfg = self.provider_pcfg(
             "deepseek",
