@@ -27,6 +27,7 @@ from .response_collection import (
     collect_anthropic_message_for_responses,
     collect_chat_message_for_responses,
 )
+from .upstream_error_policy import retryable_exception
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +121,23 @@ class ResponseCollectionContext:
                         f"{operation}_kimi_capacity_retry provider={provider} "
                         f"model={model} attempt={retry_no}/{retries} "
                         f"code={exc.code} wait={wait:.2f}s",
+                    )
+                    time.sleep(wait)
+                    continue
+                except Exception as exc:
+                    if (
+                        provider != "kimi"
+                        or not retryable_exception(exc)
+                        or attempt >= retries
+                    ):
+                        raise
+                    retry_no = attempt + 1
+                    wait = min(20.0, 2.0 * retry_no)
+                    self.stream.log(
+                        "WARN",
+                        f"{operation}_kimi_stream_read_retry provider={provider} "
+                        f"model={model} attempt={retry_no}/{retries} "
+                        f"error={type(exc).__name__} wait={wait:.2f}s",
                     )
                     time.sleep(wait)
                     continue

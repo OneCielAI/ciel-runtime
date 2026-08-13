@@ -2,6 +2,7 @@
 
 import json
 import os
+import ssl
 import unittest
 from unittest import mock
 
@@ -230,6 +231,52 @@ class OpenedStreamCollectorTests(unittest.TestCase):
 
         self.assertEqual(1, len(calls))
         self.assertTrue(stream.closed)
+
+    def test_kimi_tls_failure_while_reading_stream_is_retried(self):
+        streams = [CountingStream([]), CountingStream([])]
+        calls = []
+        waits = []
+
+        def open_stream(*_args, **_kwargs):
+            calls.append(True)
+            return streams[len(calls) - 1]
+
+        attempts = 0
+
+        def parse(_response, _policy):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise ssl.SSLError(
+                    "[SSL: SSLV3_ALERT_BAD_RECORD_MAC] sslv3 alert bad record mac"
+                )
+            return type(
+                "Collection",
+                (),
+                {"response": {"ok": True}, "verdict": None, "chunks": 1},
+            )()
+
+        context = ResponseCollectionContext(
+            shared=None,
+            anthropic=None,
+            strategies=None,
+            routing=None,
+            stream=ResponseCollectionStreamPorts(open_stream=open_stream),
+        )
+        collect = context.opened_stream_collector(parse, "openai_chat")
+
+        with mock.patch(
+            "ciel_runtime_support.response_collection_context.time.sleep",
+            side_effect=waits.append,
+        ):
+            response = collect(
+                "url", {}, {}, 30.0, "kimi", {"gateway_retries": 10}, "k3"
+            )
+
+        self.assertEqual({"ok": True}, response)
+        self.assertEqual(2, len(calls))
+        self.assertEqual([2.0], waits)
+        self.assertTrue(all(stream.closed for stream in streams))
 
 
 def looping_message():
