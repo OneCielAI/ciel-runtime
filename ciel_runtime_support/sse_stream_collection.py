@@ -33,6 +33,16 @@ class SseStreamCollection:
     chunks: int = 0
 
 
+class UpstreamSseError(RuntimeError):
+    """An error event delivered inside an otherwise successful SSE response."""
+
+    def __init__(self, code: str, message: str, *, output_started: bool = False):
+        self.code = str(code or "upstream_error")
+        self.message = str(message or self.code)
+        self.output_started = bool(output_started)
+        super().__init__(self.message)
+
+
 def iter_sse_payloads(lines: Iterable[Any]) -> Iterable[dict[str, Any]]:
     """Yield decoded ``data:`` payloads, ignoring framing and keepalives."""
 
@@ -79,6 +89,20 @@ def collect_openai_chat_stream(
     chunks = 0
     for payload in iter_sse_payloads(lines):
         chunks += 1
+        error = payload.get("error")
+        if error is not None or str(payload.get("type") or "").lower() == "error":
+            error = error if error is not None else payload
+            if isinstance(error, dict):
+                code = str(error.get("code") or error.get("type") or "upstream_error")
+                message = str(error.get("message") or error.get("detail") or code)
+            else:
+                code = str(payload.get("code") or payload.get("type") or "upstream_error")
+                message = str(error or payload.get("message") or code)
+            raise UpstreamSseError(
+                code,
+                message,
+                output_started=bool(content or reasoning or fragments),
+            )
         for key in ("id", "model", "created", "system_fingerprint"):
             if payload.get(key) is not None:
                 envelope[key] = payload[key]
@@ -230,6 +254,7 @@ def collect_anthropic_message_stream(
 
 __all__ = [
     "SseStreamCollection",
+    "UpstreamSseError",
     "collect_anthropic_message_stream",
     "collect_openai_chat_stream",
     "iter_sse_payloads",

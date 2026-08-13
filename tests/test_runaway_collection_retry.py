@@ -12,6 +12,7 @@ from ciel_runtime_support.response_collection_context import (
     ResponseCollectionStreamPorts,
 )
 from ciel_runtime_support.runaway_output_guard import NOTICE_MARKER
+from ciel_runtime_support.sse_stream_collection import UpstreamSseError
 
 LOOP = (
     "먼저 관련 레포와 지표 계산/차트 데이터 경로를 찾겠습니다. "
@@ -154,6 +155,81 @@ class OpenedStreamCollectorTests(unittest.TestCase):
 
         self.assertFalse(context.streaming_collection_enabled())
         self.assertIsNone(context.opened_stream_collector(collect_ollama_chat_stream, "ollama"))
+
+    def test_kimi_capacity_sse_error_retries_up_to_a_healthy_response(self):
+        streams = [CountingStream([]), CountingStream([]), CountingStream([])]
+        logs = []
+        waits = []
+        calls = []
+
+        def open_stream(*_args, **_kwargs):
+            calls.append(True)
+            return streams[len(calls) - 1]
+
+        attempts = 0
+
+        def parse(_response, _policy):
+            nonlocal attempts
+            attempts += 1
+            if attempts < 3:
+                raise UpstreamSseError(
+                    "internal_server_error",
+                    "We're currently experiencing high demand, which may cause temporary errors.",
+                )
+            return type("Collection", (), {"response": {"ok": True}, "verdict": None, "chunks": 1})()
+
+        context = ResponseCollectionContext(
+            shared=None,
+            anthropic=None,
+            strategies=None,
+            routing=None,
+            stream=ResponseCollectionStreamPorts(
+                open_stream=open_stream,
+                log=lambda level, message: logs.append((level, message)),
+            ),
+        )
+        collect = context.opened_stream_collector(parse, "openai_chat")
+
+        with mock.patch(
+            "ciel_runtime_support.response_collection_context.time.sleep",
+            side_effect=waits.append,
+        ):
+            response = collect("url", {}, {}, 30.0, "kimi", {"gateway_retries": 10}, "k3")
+
+        self.assertEqual({"ok": True}, response)
+        self.assertEqual(3, len(calls))
+        self.assertEqual([2.0, 4.0], waits)
+        self.assertTrue(all(stream.closed for stream in streams))
+        self.assertIn("attempt=2/10", logs[-1][1])
+
+    def test_kimi_capacity_error_after_output_is_not_retried(self):
+        stream = CountingStream([])
+        calls = []
+        context = ResponseCollectionContext(
+            shared=None,
+            anthropic=None,
+            strategies=None,
+            routing=None,
+            stream=ResponseCollectionStreamPorts(
+                open_stream=lambda *_a, **_k: calls.append(True) or stream,
+            ),
+        )
+        collect = context.opened_stream_collector(
+            lambda _response, _policy: (_ for _ in ()).throw(
+                UpstreamSseError("internal_server_error", "high demand", output_started=True)
+            ),
+            "openai_chat",
+        )
+
+        with mock.patch(
+            "ciel_runtime_support.response_collection_context.time.sleep",
+            side_effect=lambda _seconds: self.fail("must not sleep"),
+        ):
+            with self.assertRaises(UpstreamSseError):
+                collect("url", {}, {}, 30.0, "kimi", {"gateway_retries": 10}, "k3")
+
+        self.assertEqual(1, len(calls))
+        self.assertTrue(stream.closed)
 
 
 def looping_message():

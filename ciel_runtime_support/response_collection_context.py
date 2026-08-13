@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from typing import Any, Callable
@@ -15,6 +16,7 @@ from .runaway_output_guard import (
 from .ollama_thinking import INTERNAL_REASONING_EFFORT_KEY
 from .ollama_stream_collection import collect_ollama_chat_stream
 from .sse_stream_collection import (
+    UpstreamSseError,
     collect_anthropic_message_stream,
     collect_openai_chat_stream,
 )
@@ -93,20 +95,72 @@ class ResponseCollectionContext:
             *,
             retry_rate_limits: bool = True,
         ) -> dict[str, Any]:
-            resp = self.stream.open_stream(
-                url, req_body, headers, timeout, provider, pcfg, model, None,
-                retry_rate_limits=retry_rate_limits,
-            )
-            try:
-                collection = parse(resp, self.stream.policy())
-            finally:
+            retries = self.kimi_capacity_retry_limit(provider, pcfg)
+            for attempt in range(retries + 1):
+                resp = self.stream.open_stream(
+                    url, req_body, headers, timeout, provider, pcfg, model, None,
+                    retry_rate_limits=retry_rate_limits,
+                )
                 try:
-                    resp.close()
-                except Exception:
-                    pass
-            return self.report_collected(collection, operation, provider, model)
+                    collection = parse(resp, self.stream.policy())
+                except UpstreamSseError as exc:
+                    if not self.retryable_kimi_capacity_error(provider, exc):
+                        raise
+                    if attempt >= retries:
+                        self.stream.log(
+                            "ERROR",
+                            f"{operation}_kimi_capacity_exhausted provider={provider} "
+                            f"model={model} retries={retries} code={exc.code}",
+                        )
+                        raise
+                    retry_no = attempt + 1
+                    wait = min(20.0, 2.0 * retry_no)
+                    self.stream.log(
+                        "WARN",
+                        f"{operation}_kimi_capacity_retry provider={provider} "
+                        f"model={model} attempt={retry_no}/{retries} "
+                        f"code={exc.code} wait={wait:.2f}s",
+                    )
+                    time.sleep(wait)
+                    continue
+                finally:
+                    try:
+                        resp.close()
+                    except Exception:
+                        pass
+                return self.report_collected(collection, operation, provider, model)
+            raise RuntimeError("unreachable Kimi capacity retry state")
 
         return collect
+
+    @staticmethod
+    def kimi_capacity_retry_limit(provider: str, pcfg: dict[str, Any]) -> int:
+        if provider != "kimi":
+            return 0
+        try:
+            return max(0, min(10, int(pcfg.get("gateway_retries", 10))))
+        except (TypeError, ValueError, OverflowError):
+            return 10
+
+    @staticmethod
+    def retryable_kimi_capacity_error(
+        provider: str, error: UpstreamSseError
+    ) -> bool:
+        if provider != "kimi" or error.output_started:
+            return False
+        text = f"{error.code} {error.message}".lower()
+        return any(
+            marker in text
+            for marker in (
+                "internal_server_error",
+                "server_is_overloaded",
+                "slow_down",
+                "high demand",
+                "temporary errors",
+                "overload",
+                "capacity",
+            )
+        )
 
     def report_collected(
         self, collection: Any, operation: str, provider: str, model: str

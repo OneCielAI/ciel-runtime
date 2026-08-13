@@ -4,6 +4,7 @@ import json
 import unittest
 
 from ciel_runtime_support.sse_stream_collection import (
+    UpstreamSseError,
     collect_anthropic_message_stream,
     collect_openai_chat_stream,
     iter_sse_payloads,
@@ -46,6 +47,15 @@ class SsePayloadTests(unittest.TestCase):
 
 
 class OpenAIChatStreamCollectionTests(unittest.TestCase):
+    def test_surfaces_an_error_event_instead_of_returning_an_empty_answer(self):
+        lines = sse({"error": {"type": "internal_server_error", "message": "We're currently experiencing high demand, which may cause temporary errors."}})
+
+        with self.assertRaises(UpstreamSseError) as caught:
+            collect_openai_chat_stream(lines)
+
+        self.assertEqual("internal_server_error", caught.exception.code)
+        self.assertFalse(caught.exception.output_started)
+
     def test_assembles_text_reasoning_and_tool_calls(self):
         lines = sse(
             {"id": "chatcmpl-1", "model": "deepseek-chat", "choices": [{"delta": {"reasoning_content": "thinking "}}]},
