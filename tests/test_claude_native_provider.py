@@ -1428,6 +1428,18 @@ class RouterLifetimeTests(unittest.TestCase):
         start.assert_called_once()
         self.assertTrue(any("router_down_active_client" in call.args[1] for call in log.call_args_list))
 
+    def test_router_client_supervisor_does_not_replace_reachable_mismatched_router(self):
+        health = {"version": "newer-nightly", "config_dir": "same-instance"}
+        with (
+            mock.patch.object(ciel_runtime, "router_health", return_value=health),
+            mock.patch.object(ciel_runtime, "start_router_if_needed") as start,
+            mock.patch.object(ciel_runtime, "router_log") as log,
+        ):
+            self.assertTrue(ciel_runtime.ensure_managed_router_running_for_client())
+
+        start.assert_not_called()
+        self.assertTrue(any("reachable_health_mismatch_active_client" in call.args[1] for call in log.call_args_list))
+
     def test_runner_starts_and_stops_router_supervisor(self):
         supervisor_events = []
 

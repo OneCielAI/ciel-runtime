@@ -131,6 +131,77 @@ class ToolSideEffectDedupeServiceTest(unittest.TestCase):
         )
         self.assertEqual("dropped_repeated_completed_tool_call", audits[0][0])
 
+    def test_empty_apply_patch_is_never_counted_as_completed(self):
+        service = ToolSideEffectDedupeService(
+            ToolSideEffectDedupePolicy(
+                frozenset(), repeated_execution_suffixes=frozenset({"apply_patch"})
+            ),
+            ToolSideEffectDedupeRepository({}, threading.Lock()),
+            ToolSideEffectDedupePorts(
+                now=lambda: 10.0,
+                audit=lambda _event, _payload: None,
+                log=lambda _level, _message: None,
+            ),
+        )
+        body = {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": [{"type": "tool_use", "id": "call_1", "name": "apply_patch", "input": {}}],
+                },
+                {
+                    "role": "user",
+                    "content": [{"type": "tool_result", "tool_use_id": "call_1", "content": "ok"}],
+                },
+                {
+                    "role": "assistant",
+                    "content": [{"type": "tool_use", "id": "call_2", "name": "apply_patch", "input": {}}],
+                },
+                {
+                    "role": "user",
+                    "content": [{"type": "tool_result", "tool_use_id": "call_2", "content": "ok"}],
+                },
+            ]
+        }
+
+        self.assertFalse(service.should_drop("apply_patch", {}, source_body=body))
+
+    def test_failed_result_without_is_error_is_not_counted_as_completed(self):
+        service = ToolSideEffectDedupeService(
+            ToolSideEffectDedupePolicy(
+                frozenset(), repeated_execution_suffixes=frozenset({"apply_patch"})
+            ),
+            ToolSideEffectDedupeRepository({}, threading.Lock()),
+            ToolSideEffectDedupePorts(
+                now=lambda: 10.0,
+                audit=lambda _event, _payload: None,
+                log=lambda _level, _message: None,
+            ),
+        )
+        patch_input = {"patch": "*** Begin Patch\n*** End Patch"}
+        body = {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": [{"type": "tool_use", "id": "call_1", "name": "apply_patch", "input": patch_input}],
+                },
+                {
+                    "role": "user",
+                    "content": [{"type": "tool_result", "tool_use_id": "call_1", "content": "apply_patch failed: invalid patch"}],
+                },
+                {
+                    "role": "assistant",
+                    "content": [{"type": "tool_use", "id": "call_2", "name": "apply_patch", "input": patch_input}],
+                },
+                {
+                    "role": "user",
+                    "content": [{"type": "tool_result", "tool_use_id": "call_2", "content": "tool call aborted"}],
+                },
+            ]
+        }
+
+        self.assertFalse(service.should_drop("apply_patch", patch_input, source_body=body))
+
     def test_new_user_intent_allows_same_execution_again(self):
         service = ToolSideEffectDedupeService(
             ToolSideEffectDedupePolicy(

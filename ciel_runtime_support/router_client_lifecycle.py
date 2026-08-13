@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import math
 import os
 from pathlib import Path
 import threading
@@ -211,20 +212,45 @@ class RouterClientSupervisor:
             value = 0.5
         return max(0.5, min(30.0, value))
 
+    @staticmethod
+    def down_confirmation_seconds() -> float:
+        try:
+            value = float(os.environ.get("CIEL_RUNTIME_ROUTER_DOWN_CONFIRM_SECONDS", "15"))
+        except (TypeError, ValueError):
+            value = 15.0
+        return max(2.0, min(120.0, value))
+
     def ensure_running(self) -> bool:
         health = self._ports.router_health()
         if self._ports.health_matches_current(health):
             return True
         if health is not None:
-            self._ports.log("WARN", f"router_lifetime_health_mismatch_active_client {self._ports.health_summary(health)}")
-            return self._restart()
-        for attempt in range(2):
+            # A reachable router already owns the active client's connection.
+            # Replacing it because an older client loaded a different package
+            # fingerprint disconnects in-flight /v1/responses streams.  Startup
+            # performs the strict instance/config validation; supervision only
+            # keeps that live endpoint available.
+            self._ports.log(
+                "WARN",
+                f"router_lifetime_keep_alive reason=reachable_health_mismatch_active_client "
+                f"{self._ports.health_summary(health)}",
+            )
+            return True
+        probe_interval = 0.5
+        probe_count = max(2, int(math.ceil(self.down_confirmation_seconds() / probe_interval)))
+        for attempt in range(probe_count):
             time.sleep(0.5)
             health = self._ports.router_health()
-            if self._ports.health_matches_current(health):
+            if health is not None:
+                reason = (
+                    "transient_health_miss"
+                    if self._ports.health_matches_current(health)
+                    else "transient_health_miss_reachable_mismatch"
+                )
                 self._ports.log(
                     "INFO",
-                    f"router_lifetime_keep_alive reason=transient_health_miss retry={attempt + 1} {self._ports.health_summary(health)}",
+                    f"router_lifetime_keep_alive reason={reason} retry={attempt + 1} "
+                    f"{self._ports.health_summary(health)}",
                 )
                 return True
         self._ports.log("WARN", f"router_lifetime_restart reason=router_down_active_client base={self._router_base}")

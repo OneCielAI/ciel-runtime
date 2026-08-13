@@ -101,6 +101,13 @@ class ToolSideEffectDedupeService:
         tool_leaf = tool_name.rsplit("__", 1)[-1].strip().lower()
         if tool_leaf not in self.policy.repeated_execution_suffixes:
             return 0
+        # Missing arguments are not an execution, much less a completed one.
+        # Some OpenAI-compatible providers emit `{}` for free-form tools such as
+        # apply_patch.  The client then rejects the call, but older transcripts
+        # did not always mark that tool_result with is_error=true.  Counting it
+        # here made Ciel stop the model's later recovery attempt as a loop.
+        if not isinstance(tool_input, dict) or not tool_input:
+            return 0
         target = self._signature(tool_name, tool_input)
         tool_uses: dict[str, str] = {}
         completed: list[str | None] = []
@@ -135,13 +142,45 @@ class ToolSideEffectDedupeService:
                 completed.clear()
             for block in results:
                 signature = tool_uses.get(str(block.get("tool_use_id") or ""))
-                completed.append(None if block.get("is_error") else signature)
+                completed.append(
+                    signature if self._tool_result_completed_successfully(block) else None
+                )
         count = 0
         for signature in reversed(completed):
             if signature != target:
                 break
             count += 1
         return count
+
+    @staticmethod
+    def _tool_result_completed_successfully(block: dict[str, Any]) -> bool:
+        if block.get("is_error") or block.get("isError"):
+            return False
+        content = block.get("content")
+        if isinstance(content, list):
+            text = " ".join(
+                str(item.get("text") or item.get("content") or "")
+                if isinstance(item, dict)
+                else str(item)
+                for item in content
+            )
+        elif isinstance(content, dict):
+            text = str(content.get("text") or content.get("content") or content)
+        else:
+            text = str(content or "")
+        normalized = " ".join(text.lower().split())
+        failure_markers = (
+            "called with no content",
+            "missing required",
+            "invalid tool input",
+            "tool call aborted",
+            "tool call failed",
+            "apply_patch failed",
+            "patch failed",
+            "process exited with code 1",
+            "exit code: 1",
+        )
+        return not any(marker in normalized for marker in failure_markers)
 
     def should_drop(
         self,
