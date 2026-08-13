@@ -21,6 +21,12 @@ CODEX_CONTINUATION_NUDGE = (
     "answer without tools when the task genuinely requires no tool use."
 )
 
+CODEX_EMPTY_REASONING_CONTINUATION_NUDGE = (
+    "Continue the requested work now. Your previous response ended after private "
+    "reasoning without visible text or a tool call. Call the next required tool, "
+    "or provide the concrete final answer if no tool is needed."
+)
+
 
 def message_text(message: dict[str, Any]) -> str:
     parts: list[str] = []
@@ -35,6 +41,15 @@ def message_text(message: dict[str, Any]) -> str:
 def message_has_tool_use(message: dict[str, Any]) -> bool:
     return any(
         isinstance(block, dict) and block.get("type") == "tool_use"
+        for block in message.get("content") or []
+    )
+
+
+def message_has_reasoning(message: dict[str, Any]) -> bool:
+    return any(
+        isinstance(block, dict)
+        and block.get("type") in {"thinking", "reasoning"}
+        and bool(str(block.get("thinking") or block.get("reasoning") or "").strip())
         for block in message.get("content") or []
     )
 
@@ -106,17 +121,28 @@ def recover_preamble_only_turn(
     if not isinstance(message, dict) or message_has_tool_use(message):
         return message
     text = message_text(message)
-    if not services.should_retry(body, text, []):
+    kimi_reasoning_only = (
+        (provider or "").strip().lower() == "kimi"
+        and not text.strip()
+        and message_has_reasoning(message)
+    )
+    if not kimi_reasoning_only and not services.should_retry(body, text, []):
         return message
 
+    reason = "reasoning_only" if kimi_reasoning_only else "preamble_only"
     services.log(
         "WARN",
-        f"codex_preamble_only_turn_retry provider={provider} "
+        f"codex_turn_retry provider={provider} reason={reason} "
         f"model={str(body.get('model') or '-')} chars={len(text.strip())}",
     )
     try:
+        nudge = (
+            CODEX_EMPTY_REASONING_CONTINUATION_NUDGE
+            if kimi_reasoning_only
+            else CODEX_CONTINUATION_NUDGE
+        )
         retried = services.collect_message(
-            handler, provider, pcfg, body_with_continuation_nudge(body, message)
+            handler, provider, pcfg, body_with_continuation_nudge(body, message, nudge)
         )
     except Exception as exc:  # noqa: BLE001 - recovery must never fail the turn
         services.log(
@@ -124,7 +150,13 @@ def recover_preamble_only_turn(
             f"codex_preamble_only_turn_retry_failed error={type(exc).__name__}: {exc}",
         )
         return message
-    if not isinstance(retried, dict) or not message_has_tool_use(retried):
+    if not isinstance(retried, dict):
+        return message
+    if kimi_reasoning_only:
+        if not message_has_tool_use(retried) and not message_text(retried).strip():
+            return message
+        return retried
+    if not message_has_tool_use(retried):
         return message
     return _merged(message, retried)
 
@@ -145,10 +177,12 @@ def _merged(original: dict[str, Any], retried: dict[str, Any]) -> dict[str, Any]
 
 __all__ = [
     "CODEX_CONTINUATION_NUDGE",
+    "CODEX_EMPTY_REASONING_CONTINUATION_NUDGE",
     "CodexTurnRecoveryServices",
     "body_with_codex_compat_instructions",
     "body_with_continuation_nudge",
     "message_has_tool_use",
+    "message_has_reasoning",
     "message_text",
     "recover_preamble_only_turn",
 ]

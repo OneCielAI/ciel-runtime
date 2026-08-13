@@ -66,6 +66,10 @@ def tool_message(text=""):
     return {"role": "assistant", "content": content}
 
 
+def reasoning_message(text="private reasoning"):
+    return {"role": "assistant", "content": [{"type": "thinking", "thinking": text}]}
+
+
 class PreambleOnlyTurnPolicyTests(unittest.TestCase):
     def test_announcement_after_a_work_request_is_retryable(self):
         self.assertTrue(
@@ -180,6 +184,68 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
         )
 
         self.assertEqual(original, recovered)
+
+    def test_kimi_reasoning_only_turn_retries_once_and_accepts_tool_work(self):
+        calls = []
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "kimi",
+            {},
+            work_request_body(),
+            reasoning_message(),
+            self._services(tool_message(), calls),
+        )
+
+        self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
+        self.assertEqual(1, len(calls))
+        self.assertIn(
+            codex_turn_recovery.CODEX_EMPTY_REASONING_CONTINUATION_NUDGE,
+            calls[0]["messages"][-1]["content"][0]["text"],
+        )
+
+    def test_kimi_reasoning_only_turn_accepts_a_visible_final_answer(self):
+        calls = []
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "kimi",
+            {},
+            work_request_body(),
+            reasoning_message(),
+            self._services(text_message("수정과 검증을 완료했습니다."), calls),
+        )
+
+        self.assertEqual("수정과 검증을 완료했습니다.", codex_turn_recovery.message_text(recovered))
+        self.assertEqual(1, len(calls))
+
+    def test_reasoning_only_turn_is_not_retried_for_other_providers(self):
+        calls = []
+        original = reasoning_message()
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "deepseek",
+            {},
+            work_request_body(),
+            original,
+            self._services(tool_message(), calls),
+        )
+
+        self.assertEqual(original, recovered)
+        self.assertEqual([], calls)
+
+    def test_kimi_truly_empty_turn_is_not_retried(self):
+        calls = []
+        original = {"role": "assistant", "content": []}
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "kimi",
+            {},
+            work_request_body(),
+            original,
+            self._services(tool_message(), calls),
+        )
+
+        self.assertEqual(original, recovered)
+        self.assertEqual([], calls)
 
 
 class CodexCompatInstructionTests(unittest.TestCase):
