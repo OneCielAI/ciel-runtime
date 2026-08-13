@@ -39,6 +39,11 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
             max_output_tokens=32768,
             context_reserve_tokens=32768,
             request_timeout_ms=600000,
+            # Kimi periodically rejects otherwise valid generation requests
+            # while its shared capacity is saturated. The router has not sent
+            # output to the client yet, so retrying here cannot duplicate a
+            # delivered answer or an executed tool call.
+            gateway_retries=10,
             stream_enabled=True,
             stream_word_chunking=False,
             effort_level="max",

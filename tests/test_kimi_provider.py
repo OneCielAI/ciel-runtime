@@ -35,6 +35,7 @@ class KimiProviderTests(unittest.TestCase):
         self.assertEqual(32768, pcfg["max_output_tokens"])
         self.assertEqual(32768, pcfg["context_reserve_tokens"])
         self.assertEqual(600000, pcfg["request_timeout_ms"])
+        self.assertEqual(10, pcfg["gateway_retries"])
         self.assertTrue(pcfg["native_compat"])
         self.assertTrue(pcfg["preserve_anthropic_thinking"])
         self.assertTrue(pcfg["normalize_anthropic_tool_use"])

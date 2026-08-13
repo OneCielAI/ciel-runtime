@@ -2557,7 +2557,10 @@ openai_responses_stream_services = _RESPONSE_STREAM_API.openai_responses_stream_
 write_openai_responses_response = _RESPONSE_STREAM_API.write_openai_responses_response
 write_openai_responses_error = _RESPONSE_STREAM_API.write_openai_responses_error
 stream_openai_chat_to_anthropic_sse = _RESPONSE_STREAM_API.stream_openai_chat_to_anthropic_sse
-UPSTREAM_RETRY_HTTP_CODES: frozenset[int] = frozenset({502, 503, 504})
+# 500 and 529 are also used by model providers for transient capacity
+# exhaustion. They are only retried when gateway retries are enabled, so
+# providers retaining the default of zero retries are unchanged.
+UPSTREAM_RETRY_HTTP_CODES: frozenset[int] = frozenset({500, 502, 503, 504, 529})
 
 def upstream_retry_context() -> UpstreamRetryContext:
     return UpstreamRetryContext(
