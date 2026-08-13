@@ -197,7 +197,9 @@ class SynchronizedLaunch:
 def panel_rows(config: dict[str, Any]) -> tuple[list[str], list[str]]:
     current = settings(config)
     enabled = bool(current.get("enabled", False))
-    compact = lambda value: (str(value)[:73] + "…") if len(str(value)) > 74 else str(value)
+    def compact(value: Any) -> str:
+        text = str(value)
+        return text[:73] + "…" if len(text) > 74 else text
     return (
         [
             f"Enabled  [{'on' if enabled else 'off'}]",
