@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 
@@ -10,8 +10,10 @@ LAST_LAUNCH_ACTION_KEY = "last_launch_action"
 REMEMBERED_LAUNCH_ACTIONS = frozenset(
     {
         "launch",
+        "launch-agy",
         "launch-codex",
         "launch-codex-app-server",
+        "launch-kimi",
     }
 )
 
@@ -66,10 +68,23 @@ def remember_launch_action(config: dict[str, Any], action: str) -> bool:
     return True
 
 
+def preferred_launch_panel_index(
+    actions: Sequence[str], preferred_action: str, *, default: int = 0
+) -> int:
+    """Map the durable runtime choice back to its combined-menu cursor."""
+    try:
+        return actions.index(preferred_action)
+    except ValueError:
+        if not actions:
+            return 0
+        return max(0, min(default, len(actions) - 1))
+
+
 __all__ = [
     "LAST_LAUNCH_ACTION_KEY",
     "REMEMBERED_LAUNCH_ACTIONS",
     "preferred_launch_action",
+    "preferred_launch_panel_index",
     "preferred_provider_launch_action",
     "remember_launch_action",
 ]

@@ -10,6 +10,34 @@ from typing import Any, Callable
 PROMPT_TOOL_INPUT_FIELD_LIMIT = 1200
 PROMPT_MESSAGE_TEXT_LIMIT = 20000
 CLAUDE_CODE_PERSISTED_OUTPUT_MARKER = "<persisted-output>"
+CODEX_CONTEXT_CHECKPOINT_PROMPT = """You are performing a CONTEXT CHECKPOINT COMPACTION. Create a handoff summary for another LLM that will resume the task.
+
+Include:
+- Current progress and key decisions made
+- Important context, constraints, or user preferences
+- What remains to be done (clear next steps)
+- Any critical data, examples, or references needed to continue
+
+Be concise, structured, and focused on helping the next LLM seamlessly continue the work."""
+CODEX_CONTEXT_CHECKPOINT_PROMPT_PREFIX = (
+    "You are performing a CONTEXT CHECKPOINT COMPACTION. Create a handoff summary "
+    "for another LLM that will resume the task."
+)
+
+
+def is_codex_context_checkpoint_prompt(text: Any) -> bool:
+    """Match the local-compaction prompt emitted by Codex CLI 0.147.
+
+    Codex sends this as an ordinary Responses input item when its configured
+    provider does not implement remote ``/responses/compact``.  The captured
+    0.147 contract is its distinctive leading sentence; match that sentence
+    case-insensitively while allowing the client's detail list to evolve.
+    """
+
+    normalized = str(text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    return normalized.casefold().startswith(
+        CODEX_CONTEXT_CHECKPOINT_PROMPT_PREFIX.casefold()
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,11 +48,14 @@ class ContextSummaryPolicy:
     compact_json: Callable[..., str]
     latest_user_text: Callable[[dict[str, Any]], str]
 
-    def is_compact_request(self, body: dict[str, Any]) -> bool:
+    def compact_request_kind(self, body: dict[str, Any]) -> str | None:
         if not isinstance(body, dict):
-            return False
-        text = self.latest_user_text(body).lower()
-        return bool(
+            return None
+        latest = self.latest_user_text(body)
+        if is_codex_context_checkpoint_prompt(latest):
+            return "codex"
+        text = latest.lower()
+        if (
             text
             and (
                 "<command-name>/compact</command-name>" in text
@@ -32,7 +63,12 @@ class ContextSummaryPolicy:
                 or ("create a detailed summary of the conversation" in text and "compact" in text)
                 or ("summarize the conversation so far" in text and "compact" in text)
             )
-        )
+        ):
+            return "claude"
+        return None
+
+    def is_compact_request(self, body: dict[str, Any]) -> bool:
+        return self.compact_request_kind(body) is not None
 
     def text_only_body(
         self,
@@ -188,13 +224,15 @@ class ContextSummaryPolicy:
 
     def instruction_index(self, messages: list[dict[str, Any]]) -> int | None:
         fallback: int | None = None
-        for index, message in enumerate(messages):
+        for index in range(len(messages) - 1, -1, -1):
+            message = messages[index]
             if str(message.get("role") or "") != "user":
                 continue
-            text = self.content_to_text(message.get("content")).lower()
-            if text:
+            raw_text = self.content_to_text(message.get("content"))
+            text = raw_text.lower()
+            if text and fallback is None:
                 fallback = index
-            if (
+            if is_codex_context_checkpoint_prompt(raw_text) or (
                 "<command-name>/compact</command-name>" in text
                 or ("<command-message>compact</command-message>" in text and "<command-name>" in text)
                 or ("create a detailed summary of the conversation" in text and "compact" in text)
@@ -202,6 +240,21 @@ class ContextSummaryPolicy:
             ):
                 return index
         return fallback
+
+    @staticmethod
+    def segmented_compaction_mode(
+        config: dict[str, Any],
+        compact_instruction: str,
+        parse_bool: Callable[..., bool],
+    ) -> str | None:
+        configured = config.get("context_compact_llm")
+        if configured is None:
+            return (
+                "auto_codex"
+                if is_codex_context_checkpoint_prompt(compact_instruction)
+                else None
+            )
+        return "explicit" if parse_bool(configured, default=False) else None
 
     def chunk_target_tokens(self, config: dict[str, Any] | None, budget_tokens: int) -> int:
         configured = self.positive_int((config or {}).get("context_compact_chunk_tokens"))
@@ -285,9 +338,9 @@ class ContextSummaryPolicy:
         )
         parts.extend(
             (
-                "Claude Code compact instruction:",
+                "Client compact instruction:",
                 self.message_text(compact_instruction),
-                "Using the segment summaries above, return only the final compact summary text requested by Claude Code.",
+                "Using the segment summaries above, return only the final compact summary text requested by the client.",
             )
         )
         text = "\n\n".join(parts)
@@ -303,9 +356,13 @@ class ContextSummaryCompatibilityApi:
     compact_system_prompt: str
     append_system: Callable[[Any, list[str]], Any]
     log: Callable[[str, str], None]
+    parse_bool: Callable[..., bool]
 
     def is_compact_request(self, body: dict[str, Any]) -> bool:
         return self.policy_factory().is_compact_request(body)
+
+    def compact_request_kind(self, body: dict[str, Any]) -> str | None:
+        return self.policy_factory().compact_request_kind(body)
 
     def text_only_body(self, body: dict[str, Any]) -> dict[str, Any]:
         return self.policy_factory().text_only_body(
@@ -349,6 +406,15 @@ class ContextSummaryCompatibilityApi:
 
     def instruction_index(self, messages: list[dict[str, Any]]) -> int | None:
         return self.policy_factory().instruction_index(messages)
+
+    def segmented_compaction_mode(
+        self,
+        config: dict[str, Any],
+        compact_instruction: str,
+    ) -> str | None:
+        return self.policy_factory().segmented_compaction_mode(
+            config, compact_instruction, self.parse_bool
+        )
 
     def chunk_target_tokens(
         self, config: dict[str, Any] | None, budget_tokens: int

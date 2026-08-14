@@ -791,7 +791,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
             self.assertEqual(1, len(compacted))
             self.assertIn("[ciel-runtime segmented compact]", compacted[0]["content"])
             self.assertIn("summary 1", compacted[0]["content"])
-            self.assertIn("Claude Code compact instruction", compacted[0]["content"])
+            self.assertIn("Client compact instruction", compacted[0]["content"])
         finally:
             ciel_runtime.context_compact_request_summary = original
 

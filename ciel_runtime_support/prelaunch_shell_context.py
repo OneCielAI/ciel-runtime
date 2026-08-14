@@ -153,7 +153,7 @@ class PrelaunchShellContext:
         config = self.provider.load_config()
         if provider == "kimi":
             remembered = str(config.get("last_launch_action") or "").strip()
-            if remembered == "launch":
+            if remembered in {"launch", "launch-kimi"}:
                 return remembered
             if remembered in {"launch-codex", "launch-codex-app-server"}:
                 return remembered

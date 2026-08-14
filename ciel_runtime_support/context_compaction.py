@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 
+AUTO_CODEX_MAX_MAP_CHUNKS = 8
+
+
 @dataclass(frozen=True)
 class ContextCompactionTransport:
     summary_output_tokens: Callable[[dict[str, Any], int], int]
@@ -20,7 +23,7 @@ class ContextCompactionTransport:
 
 @dataclass(frozen=True)
 class ContextCompactionWorkflow:
-    parse_bool: Callable[..., bool]
+    segmented_mode: Callable[[dict[str, Any], str], str | None]
     compaction_available: Callable[[str, dict[str, Any]], bool]
     instruction_index: Callable[[list[dict[str, Any]]], int | None]
     content_to_text: Callable[[Any], str]
@@ -151,22 +154,26 @@ def build_llm_compacted_messages(
     *,
     wire: str,
 ) -> list[dict[str, Any]] | None:
-    if not provider_config or not messages:
+    if provider_config is None or not messages:
         return None
     workflow = services.workflow
     projection = services.projection
-    # Claude Code already performs the final compact generation.  The former
-    # default ran one extra generation per segment before forwarding that
-    # request (N map calls + one reduce call), which multiplied provider quota.
-    # Keep segmented LLM compaction as an explicit compatibility opt-in only.
-    if workflow.parse_bool(provider_config.get("context_compact_llm"), default=False) is False:
-        return None
-    if not workflow.compaction_available(provider, provider_config):
-        return None
     instruction_index = workflow.instruction_index(messages)
     if instruction_index is None:
         return None
     compact_instruction = workflow.content_to_text(messages[instruction_index].get("content"))
+    # Codex custom providers receive its local checkpoint as an ordinary
+    # translated /v1/responses turn.  Unlike Claude's compact request, Codex
+    # can otherwise keep forwarding a checkpoint that the upstream cannot fit.
+    # Use the existing segmented reducer by default only for that captured
+    # checkpoint prompt.  Operators can explicitly turn it
+    # off, while all other clients retain the opt-in policy that avoids
+    # multiplying provider usage.
+    segmented_mode = workflow.segmented_mode(provider_config, compact_instruction)
+    if segmented_mode is None:
+        return None
+    if not workflow.compaction_available(provider, provider_config):
+        return None
     history = [
         message
         for index, message in enumerate(messages)
@@ -176,8 +183,27 @@ def build_llm_compacted_messages(
     if not history:
         return None
     target_tokens = workflow.chunk_target_tokens(provider_config, budget_tokens)
+    if (
+        segmented_mode == "auto_codex"
+        and provider_config.get("context_compact_chunk_tokens") is None
+    ):
+        target_tokens = max(
+            target_tokens,
+            min(262_144, max(8_192, (max(1, budget_tokens) * 3) // 4)),
+        )
     chunks = workflow.split_messages(history, target_tokens)
     if not chunks:
+        return None
+    if (
+        segmented_mode == "auto_codex"
+        and len(chunks) > AUTO_CODEX_MAX_MAP_CHUNKS
+    ):
+        projection.log(
+            "WARN",
+            f"context_compact_auto_chunk_limit provider={provider} model={model} "
+            f"chunks={len(chunks)} limit={AUTO_CODEX_MAX_MAP_CHUNKS}; "
+            "falling back to deterministic compact",
+        )
         return None
     parallel_sessions = workflow.parallel_sessions(provider_config, len(chunks))
     initial_tokens = workflow.estimate_tokens({"messages": messages})

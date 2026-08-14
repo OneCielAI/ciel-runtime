@@ -43,6 +43,71 @@ class RemoteInstructionCompactionTests(unittest.TestCase):
             self.assertIn("base", captured["instructions"])
             self.assertIn("latest codex policy", captured["instructions"])
 
+    def test_codex_chat_compaction_refreshes_agents_not_claude_instructions(self):
+        captured = {}
+
+        def compact(messages, _tools, _budget, **_kwargs):
+            captured["messages"] = messages
+            return messages
+
+        with (
+            mock.patch.object(
+                ciel_runtime,
+                "_latest_remote_instruction",
+                side_effect=lambda runtime, **_kwargs: f"{runtime} policy",
+            ) as latest,
+            mock.patch.object(
+                ciel_runtime, "run_chat_prompt_compaction", side_effect=compact
+            ),
+        ):
+            ciel_runtime.compact_ollama_messages_for_budget(
+                [
+                    {"role": "system", "content": "identity"},
+                    {"role": "user", "content": "checkpoint"},
+                ],
+                [],
+                8192,
+                full_compact_request=True,
+                compact_runtime="codex",
+            )
+
+        latest.assert_called_once_with("codex", reason="pre-compact")
+        system = captured["messages"][0]["content"]
+        self.assertIn("codex policy", system)
+        self.assertNotIn("claude policy", system)
+
+    def test_codex_anthropic_compaction_refreshes_agents_not_claude_instructions(self):
+        captured = {}
+
+        def compact(body, _budget, **_kwargs):
+            captured.update(body)
+            return body
+
+        with (
+            mock.patch.object(
+                ciel_runtime,
+                "_latest_remote_instruction",
+                side_effect=lambda runtime, **_kwargs: f"{runtime} policy",
+            ) as latest,
+            mock.patch.object(
+                ciel_runtime, "run_anthropic_prompt_compaction", side_effect=compact
+            ),
+        ):
+            ciel_runtime.compact_anthropic_body_for_budget(
+                {
+                    "system": "identity",
+                    "messages": [{"role": "user", "content": "checkpoint"}],
+                },
+                8192,
+                full_compact_request=True,
+                compact_runtime="codex",
+            )
+
+        latest.assert_called_once_with("codex", reason="pre-compact")
+        system = ciel_runtime.anthropic_content_to_text(captured["system"])
+        self.assertIn("codex policy", system)
+        self.assertNotIn("claude policy", system)
+
 
 if __name__ == "__main__":
     unittest.main()

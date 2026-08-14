@@ -193,6 +193,26 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
             send_header=mock.Mock(),
             end_headers=mock.Mock(),
         )
+        typed_input = [
+            {
+                "type": "compaction",
+                "encrypted_content": "native-checkpoint-ciphertext",
+            },
+            {
+                "type": "message",
+                "role": "user",
+                "content": [{"type": "input_text", "text": "continue"}],
+            },
+        ]
+        source_body = {
+            "model": "alias",
+            "input": typed_input,
+            "stream": True,
+            "context_management": [
+                {"type": "compaction", "compact_threshold": 900_000}
+            ],
+            "prompt_cache_key": "codex-native-window",
+        }
         service = ProviderResponsesPassthrough(
             ProviderResponsesPassthroughPorts(
                 project_channel_context=lambda body: (body, {"delivery": True}),
@@ -218,11 +238,18 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
             handler,
             "meta",
             {},
-            {"model": "alias", "input": [], "stream": True},
+            source_body,
         )
 
         self.assertEqual("https://api.meta.ai/v1/responses", captured["url"])
         self.assertEqual("muse-spark-1.1", captured["body"]["model"])
+        self.assertEqual(typed_input, captured["body"]["input"])
+        self.assertEqual(
+            source_body["context_management"], captured["body"]["context_management"]
+        )
+        self.assertEqual(
+            source_body["prompt_cache_key"], captured["body"]["prompt_cache_key"]
+        )
         self.assertEqual(
             ["reasoning.encrypted_content"], captured["body"]["include"]
         )

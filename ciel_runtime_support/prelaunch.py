@@ -6,7 +6,10 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from ciel_runtime_support.llm_presentation_data import LLM_OPTION_TOGGLE_KEYS
-from ciel_runtime_support.prelaunch_launch_preference import remember_launch_action
+from ciel_runtime_support.prelaunch_launch_preference import (
+    preferred_launch_panel_index,
+    remember_launch_action,
+)
 from ciel_runtime_support.provider_adapters import PROVIDER_LABELS
 from ciel_runtime_support.runtime_constants import (
     LANGUAGES,
@@ -318,6 +321,10 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             panel_rows, panel_values = external_event_panel_rows(cfg)
         elif name == "launch-menu":
             panel_rows, panel_values = launch_panel_rows(cfg)
+            if name not in panel_last_idx:
+                panel_idx = preferred_launch_panel_index(
+                    panel_values, default_prelaunch_action(provider)
+                )
         elif name == "remote-instructions":
             panel_rows, panel_values = remote_instruction_panel_rows(cfg)
         elif name == "request-limits":

@@ -1979,8 +1979,8 @@ def _refresh_anthropic_compact_body(body: dict[str, Any], runtime: str = "claude
     )
     return updated
 
-def _refresh_chat_compact_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    instruction = _latest_remote_instruction("claude", reason="pre-compact")
+def _refresh_chat_compact_messages(messages: list[dict[str, Any]], runtime: str = "claude") -> list[dict[str, Any]]:
+    instruction = _latest_remote_instruction(runtime, reason="pre-compact")
     if not instruction:
         return messages
     updated = [dict(message) for message in messages]
@@ -2080,7 +2080,7 @@ def estimate_tokens(body: Any, _cache: dict[int, int] | None = None) -> int:
     return result
 
 COMPACT_TEXT_ONLY_SYSTEM_PROMPT = (
-    "Claude Code is compacting the conversation. Return only the requested summary text. "
+    "The coding client is compacting the conversation. Return only the requested summary text. "
     "Do not call tools, browse, inspect files, or request external data during compaction."
 )
 PROMPT_TOOL_INPUT_FIELD_LIMIT = 1200
@@ -2094,8 +2094,10 @@ _CONTEXT_SUMMARY_API = ContextSummaryCompatibilityApi(
     compact_system_prompt=COMPACT_TEXT_ONLY_SYSTEM_PROMPT,
     append_system=project_append_anthropic_system_texts,
     log=router_log,
+    parse_bool=parse_bool,
 )
 is_claude_code_compact_request = _CONTEXT_SUMMARY_API.is_compact_request
+compact_request_kind = _CONTEXT_SUMMARY_API.compact_request_kind
 compact_request_text_only_body = _CONTEXT_SUMMARY_API.text_only_body
 compact_tool_value_for_prompt = _CONTEXT_SUMMARY_API.compact_tool_value
 tool_input_for_prompt = _CONTEXT_SUMMARY_API.tool_input
@@ -2105,6 +2107,7 @@ context_guard_chunk_count = _CONTEXT_SUMMARY_API.guard_chunk_count
 build_chunked_context_guard_summary = _CONTEXT_SUMMARY_API.guard_summary
 context_compact_message_text = _CONTEXT_SUMMARY_API.compact_message
 context_compact_instruction_index = _CONTEXT_SUMMARY_API.instruction_index
+context_compact_segmented_mode = _CONTEXT_SUMMARY_API.segmented_compaction_mode
 context_compact_chunk_target_tokens = _CONTEXT_SUMMARY_API.chunk_target_tokens
 context_compact_summary_output_tokens = _CONTEXT_SUMMARY_API.summary_output_tokens
 split_messages_for_context_compact = _CONTEXT_SUMMARY_API.split_messages
@@ -2118,7 +2121,7 @@ _compact_chunk_ranges = ContextSummaryPolicy.chunk_ranges
 def context_compact_parallel_sessions(pcfg: dict[str, Any] | None, chunks: int) -> int: return 1
 
 CONTEXT_COMPACT_MAP_SYSTEM_PROMPT = (
-    "You are compacting one segment of a larger Claude Code conversation. "
+    "You are compacting one segment of a larger coding-agent conversation. "
     "Return only a concise but durable summary of this segment. Preserve user goals, "
     "decisions, file paths, tool results, unresolved tasks, errors, and any facts needed "
     "to continue later. Do not call tools."
@@ -2129,7 +2132,7 @@ def context_compaction_services() -> ContextCompactionServices:
         transport=ContextCompactionTransport(context_compact_summary_output_tokens, provider_request_timeout_seconds, provider_endpoint,
                                              post_json_with_rate_retry, provider_headers, context_compact_extract_text, provider_native_compat_enabled,
                                              native_anthropic_base_url, provider_upstream_request_base, join_url),
-        workflow=ContextCompactionWorkflow(parse_bool, context_compaction_available, context_compact_instruction_index, anthropic_content_to_text,
+        workflow=ContextCompactionWorkflow(context_compact_segmented_mode, context_compaction_available, context_compact_instruction_index, anthropic_content_to_text,
                                            context_compact_chunk_target_tokens, split_messages_for_context_compact, context_compact_parallel_sessions,
                                            write_context_compact_activity, estimate_tokens, context_compact_request_summary),
         projection=ContextCompactionProjection(build_context_compact_chunk_prompt, build_chunked_context_guard_summary,
@@ -2390,9 +2393,9 @@ _OPENAI_CONTEXT_BUDGET_POLICY = OpenAIContextBudgetPolicy(
 
 def openai_context_limit_for_budget(provider: str, pcfg: dict[str, Any]) -> int: return _OPENAI_CONTEXT_BUDGET_POLICY.context_limit(provider, pcfg)
 
-def compact_ollama_messages_for_budget( messages: list[dict[str, Any]], tools: list[dict[str, Any]], budget_tokens: int, *, provider: str = "", model: str = "", pcfg: dict[str, Any] | None = None, full_compact_request: bool = False, wire: str | None = None, ) -> list[dict[str, Any]]:
+def compact_ollama_messages_for_budget( messages: list[dict[str, Any]], tools: list[dict[str, Any]], budget_tokens: int, *, provider: str = "", model: str = "", pcfg: dict[str, Any] | None = None, full_compact_request: bool = False, compact_runtime: str | None = None, wire: str | None = None, ) -> list[dict[str, Any]]:
     if full_compact_request:
-        messages = _refresh_chat_compact_messages(messages)
+        messages = _refresh_chat_compact_messages(messages, compact_runtime or "claude")
     return run_chat_prompt_compaction(
         messages,
         tools,
@@ -2426,9 +2429,9 @@ def prompt_compaction_services() -> PromptCompactionServices:
 anthropic_message_has_tool_result = compacted_anthropic_message_has_tool_result
 anthropic_safe_tail_start = compacted_anthropic_safe_tail_start
 
-def compact_anthropic_body_for_budget( body: dict[str, Any], budget_tokens: int, *, provider: str = "", model: str = "", pcfg: dict[str, Any] | None = None, full_compact_request: bool = False, ) -> dict[str, Any]:
+def compact_anthropic_body_for_budget( body: dict[str, Any], budget_tokens: int, *, provider: str = "", model: str = "", pcfg: dict[str, Any] | None = None, full_compact_request: bool = False, compact_runtime: str | None = None, ) -> dict[str, Any]:
     if full_compact_request:
-        body = _refresh_anthropic_compact_body(body)
+        body = _refresh_anthropic_compact_body(body, compact_runtime or "claude")
     return run_anthropic_prompt_compaction(
         body,
         budget_tokens,
@@ -2450,7 +2453,7 @@ def provider_request_builder() -> ProviderRequestBuilder:
     return ProviderRequestBuilder(
         ProviderRequestBudget(context_limit_for_status, positive_int, configured_output_tokens, cap_output_tokens_to_context_ratio,
                               context_guard_reserve_tokens, compact_anthropic_body_for_budget, compact_ollama_messages_for_budget,
-                              is_claude_code_compact_request, cap_output_tokens_for_context, write_context_usage),
+                              compact_request_kind, cap_output_tokens_for_context, write_context_usage),
         OllamaRequestPorts(anthropic_messages_to_ollama, anthropic_tools_to_ollama, ollama_context_limit_for_budget,
                            ollama_num_ctx_for_payload, apply_ollama_wire_options),
         OpenAIRequestPorts(

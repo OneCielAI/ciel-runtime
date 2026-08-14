@@ -16,7 +16,7 @@ class ProviderRequestBudget:
     reserve: Callable[..., int]
     compact_anthropic: Callable[..., dict[str, Any]]
     compact_messages: Callable[..., list[dict[str, Any]]]
-    compact_requested: Callable[[dict[str, Any]], bool]
+    compact_kind: Callable[[dict[str, Any]], str | None]
     cap_output: Callable[..., int]
     write_usage: Callable[..., None]
 
@@ -69,7 +69,8 @@ class ProviderRequestBuilder:
         self, provider: str, config: dict[str, Any], body: dict[str, Any]
     ) -> dict[str, Any]:
         capped = dict(body)
-        if provider == "anthropic":
+        compact_kind = self.budget.compact_kind(capped)
+        if provider == "anthropic" and compact_kind != "codex":
             return capped
         context_limit = (
             self.budget.context_limit(provider, config)
@@ -92,7 +93,8 @@ class ProviderRequestBuilder:
             provider=provider,
             pcfg=config,
             model=str(capped.get("model") or config.get("current_model") or ""),
-            full_compact_request=self.budget.compact_requested(capped),
+            full_compact_request=compact_kind is not None,
+            compact_runtime=compact_kind,
         )
         output_tokens = self.budget.cap_output(
             config,
@@ -156,6 +158,7 @@ class ProviderRequestBuilder:
         configured = self.budget.configured_output(config, body, "num_predict")
         reserve = self.budget.reserve(config, context_limit)
         output_reserve = configured or self.budget.positive_int(body.get("max_tokens")) or 4096
+        compact_kind = self.budget.compact_kind(body)
         payload = {"messages": messages, "tools": tools}
         messages = self.budget.compact_messages(
             messages,
@@ -164,7 +167,8 @@ class ProviderRequestBuilder:
             provider=provider,
             model=model,
             pcfg=config,
-            full_compact_request=self.budget.compact_requested(body),
+            full_compact_request=compact_kind is not None,
+            compact_runtime=compact_kind,
             wire="ollama",
         )
         payload["messages"] = messages
@@ -213,6 +217,7 @@ class ProviderRequestBuilder:
         configured = self.budget.configured_output(config, body)
         reserve = self.budget.reserve(config, context_limit)
         output_reserve = configured or self.budget.positive_int(body.get("max_tokens")) or 4096
+        compact_kind = self.budget.compact_kind(body)
         messages = self.budget.compact_messages(
             messages,
             tools,
@@ -220,7 +225,8 @@ class ProviderRequestBuilder:
             provider=provider,
             model=model,
             pcfg=config,
-            full_compact_request=self.budget.compact_requested(body),
+            full_compact_request=compact_kind is not None,
+            compact_runtime=compact_kind,
             wire="openai",
         )
         messages = self.openai.repair_tools(messages)

@@ -185,6 +185,31 @@ class MissingItemRetryTests(unittest.TestCase):
         )
         self.assertEqual(200, handler.status)
 
+    def test_native_compaction_window_fields_reach_codex_unchanged(self):
+        body = {
+            "model": "gpt-5.4-codex",
+            "input": [
+                {
+                    "type": "compaction",
+                    "encrypted_content": "opaque-native-checkpoint",
+                },
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "continue"}],
+                },
+            ],
+            "context_management": [
+                {"type": "compaction", "compact_threshold": 900_000}
+            ],
+            "prompt_cache_key": "native-codex-window",
+        }
+        upstream = ScriptedUpstream([])
+
+        adapter_for(upstream, []).forward_json(FakeHandler(), "codex", {}, body)
+
+        self.assertEqual([body], upstream.bodies)
+
     def test_an_unknown_item_the_prefilter_kept_is_dropped_and_retried(self):
         # An upstream-shaped ID the prefilter has no reason to touch, so only
         # the 404 verdict can identify it.

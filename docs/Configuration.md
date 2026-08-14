@@ -197,6 +197,14 @@ Ciel의 `prompt_compaction` soft guard는 이 native auto-compaction과 별개�
 compact가 먼저 일어나지 못한 예외 상황의 마지막 방어선으로만 남긴다. 일반 `413`, `429`,
 high-demand 또는 network 오류를 context overflow로 재분류하지 않는다.
 
+Codex가 local checkpoint compact를 일반 `/v1/responses` 요청으로 보내고, 그 요청이 선택한
+provider/model의 입력 예산을 초과하면 translated Chat/Anthropic 경로에서만 기존 segmented
+compact를 자동 사용한다. 보조 map 호출은 최대 8개이며, 더 많은 chunk가 필요하면 추가 모델
+호출 없이 deterministic soft guard로 전환한다. 정상 turn, 예산 안의 checkpoint, native
+Responses의 opaque compaction item에는 이 경로를 적용하지 않는다. provider 설정에
+`context_compact_llm=false`를 명시하면 자동 segmented compact도 끌 수 있고, `true`는 기존의
+명시적 opt-in 동작을 유지한다.
+
 ---
 
 ## 원격 시스템 지침

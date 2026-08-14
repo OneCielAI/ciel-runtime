@@ -9,6 +9,10 @@ from ciel_runtime_support.context_compaction import (
     build_llm_compacted_messages,
     request_context_summary,
 )
+from ciel_runtime_support.context_summary_policy import (
+    CODEX_CONTEXT_CHECKPOINT_PROMPT,
+    is_codex_context_checkpoint_prompt,
+)
 from ciel_runtime_support.ollama_wire_projection import (
     OllamaWireProjection,
     OllamaWireProjectionPorts,
@@ -16,7 +20,7 @@ from ciel_runtime_support.ollama_wire_projection import (
 
 
 class ContextCompactionTests(unittest.TestCase):
-    def services(self, *, available=True, native_compat=False):
+    def services(self, *, available=True, native_compat=False, split_messages=None):
         post_json = mock.Mock(return_value={})
         transport = ContextCompactionTransport(
             summary_output_tokens=lambda _config, _budget: 512,
@@ -31,12 +35,33 @@ class ContextCompactionTests(unittest.TestCase):
             join_url=lambda base, path: base + path,
         )
         workflow = ContextCompactionWorkflow(
-            parse_bool=lambda value, default=True: default if value is None else bool(value),
+            segmented_mode=lambda config, instruction: (
+                ("explicit" if bool(config["context_compact_llm"]) else None)
+                if "context_compact_llm" in config
+                else (
+                    "auto_codex"
+                    if is_codex_context_checkpoint_prompt(instruction)
+                    else None
+                )
+            ),
             compaction_available=lambda _provider, _config: available,
-            instruction_index=lambda _messages: 0,
+            instruction_index=lambda messages: next(
+                (
+                    index
+                    for index in range(len(messages) - 1, -1, -1)
+                    if is_codex_context_checkpoint_prompt(
+                        str(messages[index].get("content") or "")
+                    )
+                ),
+                0,
+            ),
             content_to_text=lambda value: str(value),
             chunk_target_tokens=lambda _config, _budget: 100,
-            split_messages=lambda messages, _target: [(0, messages)],
+            split_messages=(
+                split_messages
+                if split_messages is not None
+                else (lambda messages, _target: [(0, messages)])
+            ),
             parallel_sessions=lambda _config, _chunks: 1,
             write_activity=mock.Mock(),
             estimate_tokens=lambda value: len(str(value)),
@@ -118,6 +143,70 @@ class ContextCompactionTests(unittest.TestCase):
         )
         self.assertEqual([{"role": "user", "content": "compact:summary"}], result)
         services.workflow.request_summary.assert_called_once()
+
+    def test_codex_checkpoint_uses_segmented_compaction_by_default(self):
+        services = self.services()
+        result = build_llm_compacted_messages(
+            "provider",
+            "model",
+            {},
+            [
+                {"role": "user", "content": "history"},
+                {"role": "user", "content": CODEX_CONTEXT_CHECKPOINT_PROMPT},
+            ],
+            1000,
+            services,
+            wire="openai",
+        )
+
+        self.assertEqual(
+            [{"role": "user", "content": f"{CODEX_CONTEXT_CHECKPOINT_PROMPT}:summary"}],
+            result,
+        )
+        services.workflow.request_summary.assert_called_once()
+
+    def test_explicit_false_disables_codex_segmented_compaction(self):
+        services = self.services()
+        result = build_llm_compacted_messages(
+            "provider",
+            "model",
+            {"context_compact_llm": False},
+            [
+                {"role": "user", "content": "history"},
+                {"role": "user", "content": CODEX_CONTEXT_CHECKPOINT_PROMPT},
+            ],
+            1000,
+            services,
+            wire="openai",
+        )
+
+        self.assertIsNone(result)
+        services.workflow.request_summary.assert_not_called()
+
+    def test_automatic_codex_compaction_refuses_more_than_eight_map_calls(self):
+        services = self.services(
+            split_messages=lambda messages, _target: [
+                (index, [message]) for index, message in enumerate(messages)
+            ]
+        )
+        messages = [
+            {"role": "assistant", "content": f"history {index}"}
+            for index in range(9)
+        ]
+        messages.append({"role": "user", "content": CODEX_CONTEXT_CHECKPOINT_PROMPT})
+
+        result = build_llm_compacted_messages(
+            "provider", "model", {}, messages, 1000, services, wire="openai"
+        )
+
+        self.assertIsNone(result)
+        services.workflow.request_summary.assert_not_called()
+        self.assertTrue(
+            any(
+                "context_compact_auto_chunk_limit" in call.args[1]
+                for call in services.projection.log.call_args_list
+            )
+        )
 
     def test_ollama_summary_omits_unproven_output_option(self):
         services = self.services()

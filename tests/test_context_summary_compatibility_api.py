@@ -1,8 +1,10 @@
 import unittest
 
 from ciel_runtime_support.context_summary_policy import (
+    CODEX_CONTEXT_CHECKPOINT_PROMPT,
     ContextSummaryCompatibilityApi,
     ContextSummaryPolicy,
+    is_codex_context_checkpoint_prompt,
 )
 
 
@@ -24,6 +26,7 @@ class ContextSummaryCompatibilityApiTests(unittest.TestCase):
             log=lambda level, message: (
                 logs.append((level, message)) if logs is not None else None
             ),
+            parse_bool=lambda value, default=False: default if value is None else bool(value),
         )
 
     def test_text_only_projection_removes_tools_and_appends_prompt(self):
@@ -55,6 +58,54 @@ class ContextSummaryCompatibilityApiTests(unittest.TestCase):
         )
         self.assertIn("summary", reduced)
 
+    def test_codex_0147_checkpoint_prompt_is_detected_from_latest_user(self):
+        api = self.api(marker=CODEX_CONTEXT_CHECKPOINT_PROMPT)
+
+        self.assertTrue(api.is_compact_request({"messages": []}))
+        self.assertTrue(
+            is_codex_context_checkpoint_prompt(
+                CODEX_CONTEXT_CHECKPOINT_PROMPT.lower() + "\nfuture detail"
+            )
+        )
+        self.assertFalse(
+            is_codex_context_checkpoint_prompt(
+                "Create a handoff summary for another LLM that will resume the task."
+            )
+        )
+
+    def test_older_checkpoint_does_not_make_a_normal_latest_turn_compact(self):
+        policy = self.policy(marker="continue the implementation")
+        body = {
+            "messages": [
+                {"role": "user", "content": CODEX_CONTEXT_CHECKPOINT_PROMPT},
+                {"role": "user", "content": "continue the implementation"},
+            ]
+        }
+
+        self.assertFalse(policy.is_compact_request(body))
+
+    def test_instruction_index_prefers_the_newest_compact_marker(self):
+        policy = self.policy()
+        messages = [
+            {"role": "user", "content": "<command-name>/compact</command-name>"},
+            {"role": "assistant", "content": "old summary"},
+            {"role": "user", "content": CODEX_CONTEXT_CHECKPOINT_PROMPT},
+        ]
+
+        self.assertEqual(2, policy.instruction_index(messages))
+
+    def test_reduce_prompt_is_runtime_neutral_and_preserves_codex_instruction(self):
+        reduced = self.api().reduce_prompt(
+            ["segment summary"],
+            CODEX_CONTEXT_CHECKPOINT_PROMPT,
+            budget_tokens=8192,
+            source_message_count=10,
+        )
+
+        self.assertIn(CODEX_CONTEXT_CHECKPOINT_PROMPT, reduced)
+        self.assertIn("Client compact instruction", reduced)
+        self.assertNotIn("Claude Code", reduced)
+
     def test_policy_factory_is_resolved_per_call(self):
         marker = ["first"]
         api = ContextSummaryCompatibilityApi(
@@ -62,6 +113,7 @@ class ContextSummaryCompatibilityApiTests(unittest.TestCase):
             compact_system_prompt="compact",
             append_system=lambda system, extra: [system, *extra],
             log=lambda _level, _message: None,
+            parse_bool=lambda value, default=False: default if value is None else bool(value),
         )
         self.assertEqual("first", api.message_text("first"))
         marker[0] = "second"
