@@ -339,6 +339,12 @@ class ProviderAdapter(ABC):
         del config
         return ProviderRequestPolicy(chat_path="/v1/chat/completions", models_path="/v1/models")
 
+    def responses_request_max_bytes(self, config: ProviderConfig) -> int | None:
+        """Return an upstream Responses wire limit when the service publishes one."""
+
+        del config
+        return None
+
     def resolve_endpoint(self, operation: str, config: ProviderConfig) -> str:
         """Resolve a provider operation to a path without exposing provider conditionals."""
 

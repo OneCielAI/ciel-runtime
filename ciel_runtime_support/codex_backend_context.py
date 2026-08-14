@@ -64,6 +64,9 @@ class ProviderPassthroughProjectionPorts:
     upstream_model: Callable[..., str]
     resolve_model: Callable[..., str]
     apply_request_policy: Callable[..., dict[str, Any]]
+    responses_request_max_bytes: Callable[[str, dict[str, Any]], int | None] = (
+        lambda _provider, _config: None
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -273,6 +276,9 @@ class CodexBackendContext:
                     **usage,
                 ),
                 log=self.transport.log,
+                request_max_bytes=self.provider_projection.responses_request_max_bytes,
+                estimate_tokens=self.replay.estimate_tokens,
+                compact_responses=self.replay.compact_responses,
             )
         )
 

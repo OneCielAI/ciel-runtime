@@ -54,6 +54,14 @@ class AlibabaProviderTests(unittest.TestCase):
             "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic",
             ciel_runtime.native_anthropic_base_url("alitoken", config),
         )
+        self.assertEqual(
+            10 * 1024 * 1024,
+            ciel_runtime.configured_provider_adapter(
+                "alitoken", config
+            ).responses_request_max_bytes(
+                ciel_runtime.provider_contract_config("alitoken", config)
+            ),
+        )
 
     def test_individual_token_plan_has_separate_endpoint_and_same_harness_catalog(self):
         config = copy.deepcopy(
@@ -76,6 +84,13 @@ class AlibabaProviderTests(unittest.TestCase):
                 "openai_responses",
                 "qwen3.8-max",
             ),
+        )
+        self.assertIsNone(
+            ciel_runtime.configured_provider_adapter(
+                "alitoken-individual", config
+            ).responses_request_max_bytes(
+                ciel_runtime.provider_contract_config("alitoken-individual", config)
+            )
         )
 
     def test_responses_preserves_and_normalizes_qwen_builtin_tools(self):

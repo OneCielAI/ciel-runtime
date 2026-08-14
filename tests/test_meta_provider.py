@@ -302,6 +302,180 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
             },
         )
 
+    def test_provider_wire_limit_compacts_before_upstream_request(self):
+        captured = {}
+        compact_calls = []
+
+        class Response:
+            status = 200
+            headers = {"content-type": "application/json"}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                return b""
+
+        def compact(body, budget, **kwargs):
+            compact_calls.append((budget, kwargs))
+            return {**body, "input": body["input"][-1:]}
+
+        def urlopen(request, **_kwargs):
+            captured["data"] = request.data
+            captured["body"] = json.loads(request.data)
+            return Response()
+
+        service = ProviderResponsesPassthrough(
+            ProviderResponsesPassthroughPorts(
+                project_channel_context=lambda body: (body, {}),
+                begin_channel_delivery=mock.Mock(),
+                normalize_model=lambda _provider, _config, _model: "qwen3.8-max",
+                normalize_request=lambda _provider, _config, body: body,
+                upstream_base=lambda _provider, _config: "https://example.test/v1",
+                join_url=ciel_runtime.join_url,
+                headers=lambda _provider, _config, _inbound: {},
+                urlopen=urlopen,
+                timeout_seconds=lambda _config: 30.0,
+                copy_response_headers=lambda _handler, _headers: None,
+                request_max_bytes=lambda _provider, _config: 1200,
+                estimate_tokens=lambda body: max(1, len(json.dumps(body)) // 4),
+                compact_responses=compact,
+            )
+        )
+        source = {
+            "model": "alias",
+            "stream": False,
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "x" * 900}],
+                },
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "continue"}],
+                },
+            ],
+        }
+
+        service.forward(self._passthrough_handler(), "alitoken", {}, source)
+
+        self.assertTrue(compact_calls)
+        self.assertEqual(source["input"][-1:], captured["body"]["input"])
+        self.assertLessEqual(len(captured["data"]), 1080)
+        self.assertNotIn(b'": "', captured["data"])
+
+    def test_unshrinkable_provider_body_fails_before_upstream(self):
+        urlopen = mock.Mock()
+        service = ProviderResponsesPassthrough(
+            ProviderResponsesPassthroughPorts(
+                project_channel_context=lambda body: (body, {}),
+                begin_channel_delivery=mock.Mock(),
+                normalize_model=lambda _provider, _config, _model: "qwen3.8-max",
+                normalize_request=lambda _provider, _config, body: body,
+                upstream_base=lambda _provider, _config: "https://example.test/v1",
+                join_url=ciel_runtime.join_url,
+                headers=lambda _provider, _config, _inbound: {},
+                urlopen=urlopen,
+                timeout_seconds=lambda _config: 30.0,
+                copy_response_headers=lambda _handler, _headers: None,
+                request_max_bytes=lambda _provider, _config: 512,
+                estimate_tokens=lambda _body: 1000,
+                compact_responses=lambda body, _budget, **_kwargs: body,
+            )
+        )
+
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            service.forward(
+                self._passthrough_handler(),
+                "alitoken",
+                {},
+                {"model": "alias", "stream": False, "input": ["x" * 1000]},
+            )
+
+        self.assertEqual(413, caught.exception.code)
+        self.assertIn(b"bounded context compaction", caught.exception.read())
+        urlopen.assert_not_called()
+
+    def test_real_responses_compactor_preserves_native_fields_and_latest_tail(self):
+        captured = {}
+
+        class Response:
+            status = 200
+            headers = {"content-type": "application/json"}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                return b""
+
+        def urlopen(request, **_kwargs):
+            captured["data"] = request.data
+            captured["body"] = json.loads(request.data)
+            return Response()
+
+        service = ProviderResponsesPassthrough(
+            ProviderResponsesPassthroughPorts(
+                project_channel_context=lambda body: (body, {}),
+                begin_channel_delivery=mock.Mock(),
+                normalize_model=lambda _provider, _config, _model: "qwen3.8-max",
+                normalize_request=lambda _provider, _config, body: body,
+                upstream_base=lambda _provider, _config: "https://example.test/v1",
+                join_url=ciel_runtime.join_url,
+                headers=lambda _provider, _config, _inbound: {},
+                urlopen=urlopen,
+                timeout_seconds=lambda _config: 30.0,
+                copy_response_headers=lambda _handler, _headers: None,
+                request_max_bytes=lambda _provider, _config: 120_000,
+                estimate_tokens=ciel_runtime.estimate_tokens,
+                compact_responses=ciel_runtime.compact_responses_with_remote_instruction,
+            )
+        )
+        source = {
+            "model": "alias",
+            "stream": False,
+            "prompt_cache_key": "native-cache-key",
+            "context_management": [
+                {"type": "compaction", "compact_threshold": 900_000}
+            ],
+            "input": [
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": f"history-{index:03d} " + ("x" * 3000),
+                        }
+                    ],
+                }
+                for index in range(70)
+            ],
+        }
+
+        with mock.patch.object(
+            ciel_runtime, "_latest_remote_instruction", return_value=""
+        ):
+            service.forward(
+                self._passthrough_handler(), "alitoken", {}, source
+            )
+
+        projected = captured["body"]
+        self.assertLessEqual(len(captured["data"]), 108_000)
+        self.assertLess(len(projected["input"]), len(source["input"]))
+        self.assertEqual(source["input"][-1], projected["input"][-1])
+        self.assertIn("deterministic chunk summaries", json.dumps(projected["input"]))
+        self.assertEqual("native-cache-key", projected["prompt_cache_key"])
+        self.assertEqual(source["context_management"], projected["context_management"])
+
     def test_incomplete_read_partial_that_completes_terminal_event_is_preserved(self):
         payload = (
             b"event: response.completed\n"

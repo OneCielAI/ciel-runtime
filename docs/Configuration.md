@@ -214,6 +214,13 @@ Responses의 opaque compaction item에는 이 경로를 적용하지 않는다. 
 `context_compact_llm=false`를 명시하면 자동 segmented compact도 끌 수 있고, `true`는 기존의
 명시적 opt-in 동작을 유지한다.
 
+Alibaba Model Studio Token Plan(`alitoken`)의 native Responses endpoint는 실제 서비스가
+10 MiB wire body를 거절하므로, Ciel은 이 provider에만 9 MiB 선제 경계를 적용한다. 본문이
+경계를 넘으면 기존 Responses soft guard로 오래된 history를 deterministic chunk summary로
+바꾸되 최신 safe tail과 opaque Responses 필드는 보존한다. 최대 4회의 bounded compaction 뒤에도
+10 MiB를 넘는 단일 비축약 항목은 upstream으로 보내거나 재시도하지 않고 로컬 413으로 종료한다.
+`alitoken-individual`과 다른 provider에는 이 wire 정책을 적용하지 않는다.
+
 ---
 
 ## 원격 시스템 지침

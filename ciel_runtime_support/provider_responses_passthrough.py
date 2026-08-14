@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import io
 import json
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from http.client import IncompleteRead
@@ -34,6 +36,13 @@ class ProviderResponsesPassthroughPorts:
         lambda _provider, _model, _usage: None
     )
     log: Callable[[str, str], Any] = lambda _level, _message: None
+    request_max_bytes: Callable[[str, dict[str, Any]], int | None] = (
+        lambda _provider, _config: None
+    )
+    estimate_tokens: Callable[[Any], int] = lambda _body: 0
+    compact_responses: Callable[..., dict[str, Any]] = (
+        lambda body, _budget, **_kwargs: body
+    )
 
 
 class ProviderResponsesPassthrough:
@@ -41,6 +50,77 @@ class ProviderResponsesPassthrough:
 
     def __init__(self, ports: ProviderResponsesPassthroughPorts) -> None:
         self._ports = ports
+
+    @staticmethod
+    def _encode(body: dict[str, Any]) -> bytes:
+        return json.dumps(
+            body,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+
+    def _fit_provider_request(
+        self,
+        url: str,
+        provider: str,
+        config: dict[str, Any],
+        body: dict[str, Any],
+    ) -> tuple[dict[str, Any], bytes]:
+        data = self._encode(body)
+        configured_limit = self._ports.request_max_bytes(provider, config)
+        if configured_limit is None:
+            return body, data
+        hard_limit = max(1, int(configured_limit))
+        target = max(1, (hard_limit * 9) // 10)
+        if len(data) <= target:
+            return body, data
+
+        original_bytes = len(data)
+        current = body
+        current_tokens = max(1, int(self._ports.estimate_tokens(current)))
+        best_body, best_data = current, data
+        for attempt in range(1, 5):
+            ratio = min(0.9, target / max(1, len(best_data)))
+            budget = max(8192, int(current_tokens * ratio * 0.95))
+            compacted = self._ports.compact_responses(
+                current,
+                budget,
+                provider=provider,
+                model=str(current.get("model") or ""),
+            )
+            compacted_data = self._encode(compacted)
+            self._ports.log(
+                "WARN",
+                "provider_responses_wire_compact "
+                f"provider={provider} model={current.get('model')} "
+                f"attempt={attempt}/4 bytes={len(data)}->{len(compacted_data)} "
+                f"target={target} hard_limit={hard_limit} budget={budget}",
+            )
+            if len(compacted_data) >= len(best_data):
+                break
+            best_body, best_data = compacted, compacted_data
+            if len(best_data) <= target:
+                return best_body, best_data
+            current = compacted
+            current_tokens = max(1, int(self._ports.estimate_tokens(current)))
+
+        if len(best_data) <= hard_limit:
+            return best_body, best_data
+        message = (
+            "Provider request body remains too large after bounded context compaction: "
+            f"{original_bytes} -> {len(best_data)} bytes; maximum is {hard_limit} bytes"
+        )
+        payload = json.dumps(
+            {"error": {"type": "request_too_large", "message": message}},
+            separators=(",", ":"),
+        ).encode("utf-8")
+        raise urllib.error.HTTPError(
+            url,
+            413,
+            "Payload Too Large",
+            {"content-type": "application/json"},
+            io.BytesIO(payload),
+        )
 
     def forward(
         self,
@@ -64,7 +144,12 @@ class ProviderResponsesPassthrough:
             self._ports.upstream_base(provider, config),
             "/v1/responses",
         )
-        data = json.dumps(upstream_body, ensure_ascii=False).encode("utf-8")
+        upstream_body, data = self._fit_provider_request(
+            url,
+            provider,
+            config,
+            upstream_body,
+        )
         dump_upstream_request(url, data, self._ports.log)
         request = urllib.request.Request(
             url,

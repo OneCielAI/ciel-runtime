@@ -23,6 +23,7 @@ QWEN38_MAX_PREVIEW_MODEL = "qwen3.8-max-preview"
 QWEN38_CONTEXT_WINDOW = 1_048_576
 QWEN38_MAX_OUTPUT = 131_072
 QWEN38_AUTO_COMPACT = 900_000
+ALIBABA_TOKEN_PLAN_RESPONSES_MAX_BYTES = 10 * 1024 * 1024
 QWEN38_CODEX_CATALOG = {
     "context_window": 983_616,
     "max_context_window": 983_616,
@@ -599,6 +600,10 @@ class AlibabaTokenPlanProviderAdapter(AlibabaModelStudioProviderAdapter):
         )
     )
 
+    def responses_request_max_bytes(self, config: ProviderConfig) -> int | None:
+        del config
+        return ALIBABA_TOKEN_PLAN_RESPONSES_MAX_BYTES
+
 @dataclass(frozen=True)
 class AlibabaIndividualTokenPlanProviderAdapter(AlibabaTokenPlanProviderAdapter):
     """Individual Token Plan using its separately billed coding endpoint."""
@@ -615,12 +620,17 @@ class AlibabaIndividualTokenPlanProviderAdapter(AlibabaTokenPlanProviderAdapter)
         )
     )
 
+    def responses_request_max_bytes(self, config: ProviderConfig) -> int | None:
+        del config
+        return None
+
     def anthropic_base_url(self, config: ProviderConfig) -> str:
         del config
         return "https://coding.dashscope.aliyuncs.com/apps/anthropic"
 
 
 __all__ = [
+    "ALIBABA_TOKEN_PLAN_RESPONSES_MAX_BYTES",
     "ALIBABA_CODING_PLAN_MODELS",
     "ALIBABA_MODEL_STUDIO_MODELS",
     "ALIBABA_TOKEN_PLAN_MODELS",
