@@ -83,7 +83,15 @@ class RouterRequestContext:
                 self.request.upstream_error_message(exc, raw),
                 stream=False,
                 status=exc.code,
-                error_type="request_too_large" if exc.code == 413 else "api_error",
+                error_type=(
+                    "authentication_error"
+                    if exc.code == 401
+                    else "permission_error"
+                    if exc.code == 403
+                    else "request_too_large"
+                    if exc.code == 413
+                    else "api_error"
+                ),
             )
         except Exception as exc:
             if self.request.is_client_disconnect(exc):

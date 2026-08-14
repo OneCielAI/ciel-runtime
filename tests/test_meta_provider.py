@@ -401,6 +401,76 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
             error_type="request_too_large",
         )
 
+    def test_router_preserves_upstream_401_as_authentication_error(self):
+        error_body = (
+            b'{"error":{"type":"invalid_authentication_error",'
+            b'"message":"The API Key appears to be invalid or may have expired"}}'
+        )
+        upstream_error = urllib.error.HTTPError(
+            "https://api.kimi.com/coding/v1/chat/completions",
+            401,
+            "Unauthorized",
+            {},
+            io.BytesIO(error_body),
+        )
+        write_error = mock.Mock()
+        services = openai_responses_router.OpenAIResponsesServices(
+            core=openai_responses_router.OpenAIResponsesCore(
+                event_bus=SimpleNamespace(publish=mock.Mock()),
+                request_id=lambda: "request-id",
+                input_as_list=lambda value: list(value),
+                is_client_disconnect=lambda _exc: False,
+                log=mock.Mock(),
+            ),
+            conversion=mock.Mock(),
+            routing=openai_responses_router.OpenAIResponsesRouting(
+                maybe_import_session=lambda *_args, **_kwargs: False,
+                codex_routed_enabled=lambda *_args: False,
+                forward_codex=mock.Mock(),
+                select_protocol=lambda *_args: "openai_responses",
+                forward_provider_responses=mock.Mock(side_effect=upstream_error),
+                dump_request=mock.Mock(),
+                normalize_provider_wire=mock.Mock(),
+                collect_message=mock.Mock(),
+                apply_codex_compat_instructions=lambda _cfg, _provider, _pcfg, body: body,
+                recover_preamble_only_turn=mock.Mock(),
+            ),
+            delivery=openai_responses_router.OpenAIResponsesDelivery(
+                begin=mock.Mock(),
+                mark_success=mock.Mock(),
+                mark_failed=mock.Mock(),
+                commit=mock.Mock(),
+            ),
+            output=openai_responses_router.OpenAIResponsesOutput(
+                write_response=mock.Mock(),
+                write_error=write_error,
+                upstream_error_message=lambda _error, _raw: (
+                    "invalid_authentication_error: The API Key appears to be "
+                    "invalid or may have expired"
+                ),
+                codex_auth_error_message=lambda message: message,
+                event_preview=mock.Mock(),
+            ),
+        )
+        handler = SimpleNamespace(path="/v1/responses")
+
+        openai_responses_router.handle_openai_responses_request(
+            handler,
+            {},
+            "kimi",
+            {},
+            {"model": "k3", "input": [], "stream": False},
+            services,
+        )
+
+        write_error.assert_called_once_with(
+            handler,
+            "invalid_authentication_error: The API Key appears to be invalid or may have expired",
+            stream=False,
+            status=401,
+            error_type="authentication_error",
+        )
+
     def test_router_returns_local_compaction_as_success_without_upstream_retry(self):
         anthropic_body = {"model": "k3", "messages": []}
         summary = "[ciel-runtime local context checkpoint]\nsummary"
@@ -471,6 +541,76 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
         self.assertEqual(
             {"source_body": source, "stream": True}, write_response.call_args.kwargs
         )
+        mark_success.assert_called_once_with(handler, "responses_local_compaction")
+        commit.assert_called_once_with(anthropic_body, handler)
+
+    def test_router_catches_local_compaction_from_collection_boundary(self):
+        anthropic_body = {"model": "k3", "messages": []}
+        summary = "[ciel-runtime local context checkpoint]\nsummary"
+        write_response = mock.Mock()
+        write_error = mock.Mock()
+        mark_success = mock.Mock()
+        mark_failed = mock.Mock()
+        commit = mock.Mock()
+        services = openai_responses_router.OpenAIResponsesServices(
+            core=openai_responses_router.OpenAIResponsesCore(
+                event_bus=SimpleNamespace(publish=mock.Mock()),
+                request_id=lambda: "request-id",
+                input_as_list=lambda value: list(value),
+                is_client_disconnect=lambda _exc: False,
+                log=mock.Mock(),
+            ),
+            conversion=openai_responses_router.OpenAIResponsesConversion(
+                to_anthropic=lambda _body, _alias: anthropic_body,
+                current_alias=lambda _cfg: "alias",
+                update_tool_schema=mock.Mock(),
+                normalize_thinking=lambda _provider, _pcfg, body: body,
+                filter_blocked_tools=lambda _provider, _pcfg, body: body,
+                normalize_tool_choice=lambda _provider, _pcfg, body: body,
+                write_context_usage=mock.Mock(),
+                strip_advisor_tools=lambda _provider, body: body,
+                inject_channel_context=lambda body: body,
+                inject_tool_result_context=lambda body: body,
+            ),
+            routing=openai_responses_router.OpenAIResponsesRouting(
+                maybe_import_session=lambda *_args, **_kwargs: False,
+                codex_routed_enabled=lambda *_args: False,
+                forward_codex=mock.Mock(),
+                select_protocol=lambda *_args: "openai_chat",
+                forward_provider_responses=mock.Mock(),
+                dump_request=mock.Mock(),
+                normalize_provider_wire=lambda _provider, _pcfg, body: body,
+                collect_message=mock.Mock(
+                    side_effect=AutomaticContextCompactionCompleted(summary)
+                ),
+                apply_codex_compat_instructions=lambda _cfg, _provider, _pcfg, body: body,
+                recover_preamble_only_turn=mock.Mock(),
+            ),
+            delivery=openai_responses_router.OpenAIResponsesDelivery(
+                begin=mock.Mock(),
+                mark_success=mark_success,
+                mark_failed=mark_failed,
+                commit=commit,
+            ),
+            output=openai_responses_router.OpenAIResponsesOutput(
+                write_response=write_response,
+                write_error=write_error,
+                upstream_error_message=mock.Mock(),
+                codex_auth_error_message=mock.Mock(),
+                event_preview=lambda _body, _cfg: {},
+            ),
+        )
+        handler = SimpleNamespace(path="/v1/responses")
+        source = {"model": "k3", "input": [], "stream": True}
+
+        openai_responses_router.handle_openai_responses_request(
+            handler, {}, "kimi", {}, source, services
+        )
+
+        write_response.assert_called_once()
+        self.assertEqual(summary, write_response.call_args.args[1]["content"][0]["text"])
+        write_error.assert_not_called()
+        mark_failed.assert_not_called()
         mark_success.assert_called_once_with(handler, "responses_local_compaction")
         commit.assert_called_once_with(anthropic_body, handler)
 

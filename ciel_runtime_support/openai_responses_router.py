@@ -75,6 +75,16 @@ class OpenAIResponsesServices:
     output: OpenAIResponsesOutput
 
 
+def _responses_error_type(status: int) -> str:
+    if status == 401:
+        return "authentication_error"
+    if status == 403:
+        return "permission_error"
+    if status == 413:
+        return "request_too_large"
+    return "api_error"
+
+
 def handle_openai_responses_request(
     handler: Any,
     cfg: dict[str, Any],
@@ -152,29 +162,9 @@ def handle_openai_responses_request(
     try:
         anthropic_body = routing.normalize_provider_wire(provider, pcfg, anthropic_body)
     except AutomaticContextCompactionCompleted as completed:
-        core.log(
-            "WARN",
-            f"context_compact_local_complete provider={provider} "
-            f"model={anthropic_body.get('model')}",
+        _complete_local_compaction(
+            handler, provider, body, anthropic_body, completed, services
         )
-        output.write_response(
-            handler,
-            {
-                "type": "message",
-                "role": "assistant",
-                "model": str(anthropic_body.get("model") or body.get("model") or ""),
-                "content": [{"type": "text", "text": completed.summary}],
-                "stop_reason": "end_turn",
-                "usage": {
-                    "input_tokens": 0,
-                    "output_tokens": max(1, len(completed.summary) // 4),
-                },
-            },
-            source_body=body,
-            stream=stream,
-        )
-        delivery.mark_success(handler, "responses_local_compaction")
-        delivery.commit(anthropic_body, handler)
         return
     core.log(
         "DEBUG",
@@ -189,6 +179,10 @@ def handle_openai_responses_request(
         output.write_response(handler, message, source_body=body, stream=stream)
         delivery.mark_success(handler, "responses_json")
         delivery.commit(anthropic_body, handler)
+    except AutomaticContextCompactionCompleted as completed:
+        _complete_local_compaction(
+            handler, provider, body, anthropic_body, completed, services
+        )
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="ignore")
         delivery.mark_failed(handler, f"responses_http_error:{exc.code}")
@@ -197,7 +191,7 @@ def handle_openai_responses_request(
             output.upstream_error_message(exc, raw),
             stream=stream,
             status=exc.code,
-            error_type="request_too_large" if exc.code == 413 else "api_error",
+            error_type=_responses_error_type(exc.code),
         )
     except Exception as exc:
         if core.is_client_disconnect(exc):
@@ -214,6 +208,39 @@ def handle_openai_responses_request(
         )
         delivery.mark_failed(handler, f"responses_error:{type(exc).__name__}")
         output.write_error(handler, f"{type(exc).__name__}: {exc}", stream=stream)
+
+
+def _complete_local_compaction(
+    handler: Any,
+    provider: str,
+    body: dict[str, Any],
+    anthropic_body: dict[str, Any],
+    completed: AutomaticContextCompactionCompleted,
+    services: OpenAIResponsesServices,
+) -> None:
+    services.core.log(
+        "WARN",
+        f"context_compact_local_complete provider={provider} "
+        f"model={anthropic_body.get('model')}",
+    )
+    services.output.write_response(
+        handler,
+        {
+            "type": "message",
+            "role": "assistant",
+            "model": str(anthropic_body.get("model") or body.get("model") or ""),
+            "content": [{"type": "text", "text": completed.summary}],
+            "stop_reason": "end_turn",
+            "usage": {
+                "input_tokens": 0,
+                "output_tokens": max(1, len(completed.summary) // 4),
+            },
+        },
+        source_body=body,
+        stream=bool(body.get("stream", True)),
+    )
+    services.delivery.mark_success(handler, "responses_local_compaction")
+    services.delivery.commit(anthropic_body, handler)
 
 
 def _handle_codex_route(
@@ -255,7 +282,7 @@ def _handle_codex_route(
             message,
             stream=bool(body.get("stream", True)),
             status=exc.code,
-            error_type="request_too_large" if exc.code == 413 else "api_error",
+            error_type=_responses_error_type(exc.code),
         )
     except Exception as exc:
         if core.is_client_disconnect(exc):
@@ -315,7 +342,7 @@ def _handle_provider_responses_route(
             output.upstream_error_message(exc, raw),
             stream=bool(body.get("stream", True)),
             status=exc.code,
-            error_type="request_too_large" if exc.code == 413 else "api_error",
+            error_type=_responses_error_type(exc.code),
         )
     except Exception as exc:
         if core.is_client_disconnect(exc):

@@ -89,7 +89,11 @@ class OpenAIForwardServices:
 def _http_error_payload(error: urllib.error.HTTPError) -> dict[str, Any]:
     """Project one upstream HTTP error into an Anthropic-compatible envelope."""
     raw = error.read().decode("utf-8", errors="replace")
-    error_type = "request_too_large" if error.code == 413 else "upstream_error"
+    error_type = {
+        401: "authentication_error",
+        403: "permission_error",
+        413: "request_too_large",
+    }.get(error.code, "upstream_error")
     message = raw.strip() or str(error)
     try:
         payload = json.loads(raw)
@@ -98,13 +102,13 @@ def _http_error_payload(error: urllib.error.HTTPError) -> dict[str, Any]:
     if isinstance(payload, dict):
         detail = payload.get("error")
         if isinstance(detail, dict):
-            if error.code != 413:
+            if error.code not in (401, 403, 413):
                 error_type = str(detail.get("type") or error_type).strip() or error_type
             message = str(detail.get("message") or detail)
         elif detail:
             message = str(detail)
         elif payload.get("message"):
-            if error.code != 413:
+            if error.code not in (401, 403, 413):
                 error_type = str(payload.get("type") or error_type).strip() or error_type
             message = str(payload["message"])
     return {
@@ -273,7 +277,7 @@ def forward_openai_compatible_chat(
             else:
                 response.mark_delivery_failed(handler, "openai_stream_error")
         except urllib.error.HTTPError as exc:
-            if exc.code != 413:
+            if exc.code not in (401, 403, 413):
                 message = f"{type(exc).__name__}: {exc}"
                 response.mark_delivery_failed(
                     handler, f"openai_stream_error:{type(exc).__name__}"
@@ -290,14 +294,16 @@ def forward_openai_compatible_chat(
                 streaming.write_open_stop(handler)
                 return
             payload = _http_error_payload(exc)
-            response.mark_delivery_failed(handler, "openai_stream_http_error:413")
+            response.mark_delivery_failed(
+                handler, f"openai_stream_http_error:{exc.code}"
+            )
             response.write_activity(
-                "error", provider, model, code=413, stream=True
+                "error", provider, model, code=exc.code, stream=True
             )
             if stream_started:
                 _write_stream_error(handler, payload)
             else:
-                response.write_json(handler, payload, 413)
+                response.write_json(handler, payload, exc.code)
             return
         except RuntimeError as exc:
             response.mark_delivery_failed(handler, f"openai_stream_runtime_error:{type(exc).__name__}")
@@ -346,11 +352,13 @@ def forward_openai_compatible_chat(
             timeout,
         )
     except urllib.error.HTTPError as exc:
-        if exc.code != 413:
+        if exc.code not in (401, 403, 413):
             raise
-        response.mark_delivery_failed(handler, "openai_http_error:413")
-        response.write_activity("error", provider, model, code=413, stream=False)
-        response.write_json(handler, _http_error_payload(exc), 413)
+        response.mark_delivery_failed(handler, f"openai_http_error:{exc.code}")
+        response.write_activity(
+            "error", provider, model, code=exc.code, stream=False
+        )
+        response.write_json(handler, _http_error_payload(exc), exc.code)
         return
     except RuntimeError as exc:
         response.write_json(handler, {"type": "error", "error": {"type": "upstream_error", "message": str(exc)}}, 500)

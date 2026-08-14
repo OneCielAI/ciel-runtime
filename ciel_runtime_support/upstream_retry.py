@@ -12,6 +12,23 @@ import urllib.error
 import urllib.request
 
 
+_PRESERVED_HTTP_ERROR_STATUSES = frozenset({401, 403, 413})
+
+
+def _preserved_http_error(
+    error: urllib.error.HTTPError, raw_bytes: bytes
+) -> urllib.error.HTTPError:
+    """Rebuild a consumed terminal error for the protocol-facing caller."""
+
+    return urllib.error.HTTPError(
+        error.url,
+        error.code,
+        error.reason,
+        error.headers,
+        io.BytesIO(raw_bytes),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class UpstreamRetryPolicy:
     configured_gateway_retries: Callable[..., Any]
@@ -169,17 +186,12 @@ def post_json_with_rate_retry(
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
             write_router_activity("error", provider, model, code=exc.code, tokens=token_estimate, bytes=byte_estimate)
-            if exc.code == 413:
-                # Preserve the provider's HTTP status and response body for the
-                # protocol adapter.  The original stream was consumed above
-                # for retry/error classification, so recreate it faithfully.
-                raise urllib.error.HTTPError(
-                    exc.url,
-                    exc.code,
-                    exc.reason,
-                    exc.headers,
-                    io.BytesIO(raw_bytes),
-                ) from exc
+            if exc.code in _PRESERVED_HTTP_ERROR_STATUSES:
+                # Authentication/permission failures are terminal, not
+                # capacity errors. Preserve their status and body so callers
+                # never turn them into a retryable generic 500. The original
+                # stream was consumed above, so recreate it faithfully.
+                raise _preserved_http_error(exc, raw_bytes) from exc
             raise RuntimeError(upstream_http_error_message(exc, raw)) from exc
         except (urllib.error.URLError, OSError) as exc:
             if retryable_upstream_exception(exc) and attempt + 1 < max_attempts:
@@ -424,14 +436,8 @@ def open_openai_stream_with_rate_retry(
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
             write_router_activity("error", provider, model, code=exc.code, tokens=token_estimate, bytes=byte_estimate, stream=True)
-            if exc.code == 413:
-                raise urllib.error.HTTPError(
-                    exc.url,
-                    exc.code,
-                    exc.reason,
-                    exc.headers,
-                    io.BytesIO(raw_bytes),
-                ) from exc
+            if exc.code in _PRESERVED_HTTP_ERROR_STATUSES:
+                raise _preserved_http_error(exc, raw_bytes) from exc
             raise RuntimeError(upstream_http_error_message(exc, raw)) from exc
         except (urllib.error.URLError, OSError) as exc:
             if retryable_upstream_exception(exc) and attempt + 1 < max_attempts:

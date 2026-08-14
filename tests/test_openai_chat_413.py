@@ -174,6 +174,84 @@ class OpenAIChatProvider413Tests(unittest.TestCase):
         self.assertEqual("provider payload limit", payload["error"]["message"])
         delivery_failed.assert_called_once()
 
+    def test_v1_messages_stream_preserves_provider_401_without_retry(self):
+        config = {
+            "current_provider": "kimi",
+            "providers": {
+                "kimi": copy.deepcopy(ciel_runtime.DEFAULT_CONFIG["providers"]["kimi"])
+            },
+        }
+        provider_config = config["providers"]["kimi"]
+        provider_config.update(
+            {
+                "api_key": "sk-test",
+                "current_model": "k3",
+                "gateway_retries": 10,
+                "official_tools_enabled": True,
+                "stream_enabled": True,
+            }
+        )
+        handler = _Handler()
+        body = {
+            "model": "ciel-runtime-kimi-k3",
+            "messages": [{"role": "user", "content": "hello"}],
+            "max_tokens": 16,
+            "stream": True,
+        }
+        raw = (
+            b'{"error":{"type":"invalid_authentication_error",'
+            b'"message":"The API Key appears to be invalid or may have expired"}}'
+        )
+
+        def reject_request(*_args, **_kwargs):
+            raise urllib.error.HTTPError(
+                "https://api.kimi.com/coding/v1/chat/completions",
+                401,
+                "Unauthorized",
+                {"content-type": "application/json"},
+                io.BytesIO(raw),
+            )
+
+        patch_values = {
+            "upstream_model_ids": lambda *_args, **_kwargs: ["k3"],
+            "body_with_pending_channel_messages": lambda value: value,
+            "body_with_channel_tool_result_context": lambda value: value,
+            "filter_blocked_tools": lambda _provider, _config, value: value,
+            "maybe_handle_plan_mode_tool_choice": lambda *_args, **_kwargs: False,
+            "maybe_handle_router_debug_request": lambda *_args, **_kwargs: False,
+            "maybe_handle_version_request": lambda *_args, **_kwargs: False,
+            "maybe_handle_channel_clear_request": lambda *_args, **_kwargs: False,
+            "maybe_handle_import_session_request": lambda *_args, **_kwargs: False,
+            "maybe_handle_live_llm_options_request": lambda *_args, **_kwargs: False,
+            "maybe_handle_live_api_keys_request": lambda *_args, **_kwargs: False,
+            "maybe_handle_advisor_request": lambda *_args, **_kwargs: False,
+        }
+        with ExitStack() as stack:
+            urlopen = stack.enter_context(
+                mock.patch.object(ciel_runtime, "provider_urlopen", side_effect=reject_request)
+            )
+            for name, replacement in patch_values.items():
+                stack.enter_context(
+                    mock.patch.object(ciel_runtime, name, side_effect=replacement)
+                )
+            stack.enter_context(mock.patch.object(ciel_runtime, "begin_pending_channel_delivery"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "commit_pending_channel_delivery_cursors"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "mark_pending_channel_delivery_failed"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "mark_pending_channel_delivery_success"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "write_context_usage"))
+            stack.enter_context(mock.patch.object(ciel_runtime, "dump_request_for_trace"))
+            handled = ciel_runtime.route_runtime_post(
+                handler, config, "kimi", provider_config, "/v1/messages", body
+            )
+
+        self.assertTrue(handled)
+        self.assertEqual([401], handler.statuses)
+        self.assertEqual(1, urlopen.call_count)
+        payload = json.loads(handler.wfile.getvalue())
+        self.assertEqual("authentication_error", payload["error"]["type"])
+        self.assertIn("invalid or may have expired", payload["error"]["message"])
+        self.assertNotIn(b"event: message_start", handler.wfile.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
