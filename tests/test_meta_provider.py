@@ -8,6 +8,9 @@ from unittest import mock
 
 import ciel_runtime
 from ciel_runtime_support import openai_responses_router
+from ciel_runtime_support.context_compaction import (
+    AutomaticContextCompactionCompleted,
+)
 from ciel_runtime_support.provider_responses_passthrough import (
     ProviderResponsesPassthrough,
     ProviderResponsesPassthroughPorts,
@@ -397,6 +400,79 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
             status=413,
             error_type="request_too_large",
         )
+
+    def test_router_returns_local_compaction_as_success_without_upstream_retry(self):
+        anthropic_body = {"model": "k3", "messages": []}
+        summary = "[ciel-runtime local context checkpoint]\nsummary"
+        write_response = mock.Mock()
+        collect = mock.Mock()
+        mark_success = mock.Mock()
+        commit = mock.Mock()
+        services = openai_responses_router.OpenAIResponsesServices(
+            core=openai_responses_router.OpenAIResponsesCore(
+                event_bus=SimpleNamespace(publish=mock.Mock()),
+                request_id=lambda: "request-id",
+                input_as_list=lambda value: list(value),
+                is_client_disconnect=lambda _exc: False,
+                log=mock.Mock(),
+            ),
+            conversion=openai_responses_router.OpenAIResponsesConversion(
+                to_anthropic=lambda _body, _alias: anthropic_body,
+                current_alias=lambda _cfg: "alias",
+                update_tool_schema=mock.Mock(),
+                normalize_thinking=lambda _provider, _pcfg, body: body,
+                filter_blocked_tools=lambda _provider, _pcfg, body: body,
+                normalize_tool_choice=lambda _provider, _pcfg, body: body,
+                write_context_usage=mock.Mock(),
+                strip_advisor_tools=lambda _provider, body: body,
+                inject_channel_context=lambda body: body,
+                inject_tool_result_context=lambda body: body,
+            ),
+            routing=openai_responses_router.OpenAIResponsesRouting(
+                maybe_import_session=lambda *_args, **_kwargs: False,
+                codex_routed_enabled=lambda *_args: False,
+                forward_codex=mock.Mock(),
+                select_protocol=lambda *_args: "openai_chat",
+                forward_provider_responses=mock.Mock(),
+                dump_request=mock.Mock(),
+                normalize_provider_wire=mock.Mock(
+                    side_effect=AutomaticContextCompactionCompleted(summary)
+                ),
+                collect_message=collect,
+                apply_codex_compat_instructions=lambda _cfg, _provider, _pcfg, body: body,
+                recover_preamble_only_turn=mock.Mock(),
+            ),
+            delivery=openai_responses_router.OpenAIResponsesDelivery(
+                begin=mock.Mock(),
+                mark_success=mark_success,
+                mark_failed=mock.Mock(),
+                commit=commit,
+            ),
+            output=openai_responses_router.OpenAIResponsesOutput(
+                write_response=write_response,
+                write_error=mock.Mock(),
+                upstream_error_message=mock.Mock(),
+                codex_auth_error_message=mock.Mock(),
+                event_preview=lambda _body, _cfg: {},
+            ),
+        )
+        handler = SimpleNamespace(path="/v1/responses")
+        source = {"model": "k3", "input": [], "stream": True}
+
+        openai_responses_router.handle_openai_responses_request(
+            handler, {}, "kimi", {}, source, services
+        )
+
+        collect.assert_not_called()
+        write_response.assert_called_once()
+        message = write_response.call_args.args[1]
+        self.assertEqual(summary, message["content"][0]["text"])
+        self.assertEqual("end_turn", message["stop_reason"])
+        self.assertEqual(
+            {"source_body": source, "stream": True}, write_response.call_args.kwargs
+        )
+        mark_success.assert_called_once_with(handler, "responses_local_compaction")
+        commit.assert_called_once_with(anthropic_body, handler)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ import unittest
 from unittest import mock
 
 from ciel_runtime_support.context_compaction import (
+    AutomaticContextCompactionCompleted,
     ContextCompactionProjection,
     ContextCompactionServices,
     ContextCompactionTransport,
@@ -110,6 +111,26 @@ class ContextCompactionTests(unittest.TestCase):
         self.assertIsNone(result)
         services.workflow.request_summary.assert_not_called()
 
+    def test_unavailable_provider_completes_automatic_codex_checkpoint_locally(self):
+        services = self.services(available=False)
+
+        with self.assertRaises(AutomaticContextCompactionCompleted) as raised:
+            build_llm_compacted_messages(
+                "provider",
+                "model",
+                {},
+                [
+                    {"role": "assistant", "content": "history"},
+                    {"role": "user", "content": CODEX_CONTEXT_CHECKPOINT_PROMPT},
+                ],
+                1000,
+                services,
+                wire="openai",
+            )
+
+        self.assertIn("local context checkpoint", raised.exception.summary)
+        services.workflow.request_summary.assert_not_called()
+
     def test_segmented_llm_compaction_is_disabled_by_default(self):
         services = self.services()
         result = build_llm_compacted_messages(
@@ -146,24 +167,78 @@ class ContextCompactionTests(unittest.TestCase):
 
     def test_codex_checkpoint_uses_segmented_compaction_by_default(self):
         services = self.services()
-        result = build_llm_compacted_messages(
-            "provider",
-            "model",
-            {},
-            [
-                {"role": "user", "content": "history"},
-                {"role": "user", "content": CODEX_CONTEXT_CHECKPOINT_PROMPT},
-            ],
-            1000,
-            services,
-            wire="openai",
-        )
+        with self.assertRaises(AutomaticContextCompactionCompleted) as raised:
+            build_llm_compacted_messages(
+                "provider",
+                "model",
+                {},
+                [
+                    {"role": "user", "content": "history"},
+                    {"role": "user", "content": CODEX_CONTEXT_CHECKPOINT_PROMPT},
+                ],
+                1000,
+                services,
+                wire="openai",
+            )
 
-        self.assertEqual(
-            [{"role": "user", "content": f"{CODEX_CONTEXT_CHECKPOINT_PROMPT}:summary"}],
-            result,
-        )
+        self.assertIn("local context checkpoint", raised.exception.summary)
+        self.assertIn("summary", raised.exception.summary)
         services.workflow.request_summary.assert_called_once()
+
+    def test_automatic_codex_compaction_disables_gateway_retries(self):
+        services = self.services()
+        config = {"gateway_retries": 10}
+
+        with self.assertRaises(AutomaticContextCompactionCompleted):
+            build_llm_compacted_messages(
+                "provider",
+                "model",
+                config,
+                [
+                    {"role": "user", "content": "history"},
+                    {"role": "user", "content": CODEX_CONTEXT_CHECKPOINT_PROMPT},
+                ],
+                1000,
+                services,
+                wire="openai",
+            )
+
+        summary_config = services.workflow.request_summary.call_args.args[2]
+        self.assertEqual(0, summary_config["gateway_retries"])
+        self.assertEqual(10, config["gateway_retries"])
+
+    def test_automatic_codex_compaction_stops_after_first_summary_failure(self):
+        services = self.services(
+            split_messages=lambda messages, _target: [
+                (index, [message]) for index, message in enumerate(messages)
+            ]
+        )
+        services.workflow.request_summary.side_effect = RuntimeError("high demand")
+
+        with self.assertRaises(AutomaticContextCompactionCompleted) as raised:
+            build_llm_compacted_messages(
+                "provider",
+                "model",
+                {"gateway_retries": 10},
+                [
+                    {"role": "assistant", "content": "history one"},
+                    {"role": "assistant", "content": "history two"},
+                    {"role": "user", "content": CODEX_CONTEXT_CHECKPOINT_PROMPT},
+                ],
+                1000,
+                services,
+                wire="openai",
+            )
+
+        services.workflow.request_summary.assert_called_once()
+        self.assertIn("local context checkpoint", raised.exception.summary)
+        self.assertEqual(2, raised.exception.summary.count("## Segment"))
+        self.assertTrue(
+            any(
+                "context_compact_auto_fallback" in call.args[1]
+                for call in services.projection.log.call_args_list
+            )
+        )
 
     def test_explicit_false_disables_codex_segmented_compaction(self):
         services = self.services()
@@ -195,11 +270,12 @@ class ContextCompactionTests(unittest.TestCase):
         ]
         messages.append({"role": "user", "content": CODEX_CONTEXT_CHECKPOINT_PROMPT})
 
-        result = build_llm_compacted_messages(
-            "provider", "model", {}, messages, 1000, services, wire="openai"
-        )
+        with self.assertRaises(AutomaticContextCompactionCompleted) as raised:
+            build_llm_compacted_messages(
+                "provider", "model", {}, messages, 1000, services, wire="openai"
+            )
 
-        self.assertIsNone(result)
+        self.assertIn("local context checkpoint", raised.exception.summary)
         services.workflow.request_summary.assert_not_called()
         self.assertTrue(
             any(

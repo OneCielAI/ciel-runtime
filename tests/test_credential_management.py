@@ -185,6 +185,17 @@ class CredentialErrorTextGuardTest(unittest.TestCase):
         self.assertEqual([], saved)
         self.assertNotIn("api_key", config["providers"]["alitoken"])
 
+    def test_store_input_rejects_masked_display_value(self):
+        config = {"providers": {"kimi": {}}}
+        service, saved = self.service(config)
+
+        with self.assertRaises(SystemExit) as ctx:
+            service.store_input("kimi", "sk-k...NhY7")
+
+        self.assertIn("invalid token shape", str(ctx.exception))
+        self.assertEqual([], saved)
+        self.assertNotIn("api_key", config["providers"]["kimi"])
+
     def test_looks_like_error_text_classification(self):
         from ciel_runtime_support.credentials import looks_like_error_text, plausible_api_key
         self.assertTrue(looks_like_error_text("504 URLError: <urlopen error EOF occurred in violation of protocol"))
@@ -209,6 +220,16 @@ class CredentialErrorTextGuardTest(unittest.TestCase):
         self.assertEqual(
             [],
             ciel_runtime.provider_config_api_keys("alitoken", {"api_key": "\x16"}),
+        )
+
+    def test_runtime_does_not_project_masked_display_value_as_bearer_key(self):
+        import ciel_runtime
+
+        self.assertEqual(
+            [],
+            ciel_runtime.provider_config_api_keys(
+                "kimi", {"api_key": "sk-k...NhY7"}
+            ),
         )
 
 

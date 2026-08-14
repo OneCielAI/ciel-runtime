@@ -7,6 +7,8 @@ import urllib.parse
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .context_compaction import AutomaticContextCompactionCompleted
+
 
 @dataclass(frozen=True, slots=True)
 class OpenAIResponsesCore:
@@ -147,7 +149,33 @@ def handle_openai_responses_request(
     anthropic_body = conversion.inject_channel_context(anthropic_body)
     anthropic_body = conversion.inject_tool_result_context(anthropic_body)
     delivery.begin(handler, anthropic_body)
-    anthropic_body = routing.normalize_provider_wire(provider, pcfg, anthropic_body)
+    try:
+        anthropic_body = routing.normalize_provider_wire(provider, pcfg, anthropic_body)
+    except AutomaticContextCompactionCompleted as completed:
+        core.log(
+            "WARN",
+            f"context_compact_local_complete provider={provider} "
+            f"model={anthropic_body.get('model')}",
+        )
+        output.write_response(
+            handler,
+            {
+                "type": "message",
+                "role": "assistant",
+                "model": str(anthropic_body.get("model") or body.get("model") or ""),
+                "content": [{"type": "text", "text": completed.summary}],
+                "stop_reason": "end_turn",
+                "usage": {
+                    "input_tokens": 0,
+                    "output_tokens": max(1, len(completed.summary) // 4),
+                },
+            },
+            source_body=body,
+            stream=stream,
+        )
+        delivery.mark_success(handler, "responses_local_compaction")
+        delivery.commit(anthropic_body, handler)
+        return
     core.log(
         "DEBUG",
         f"POST /v1/responses provider={provider} model={anthropic_body.get('model')} "

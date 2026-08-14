@@ -7,6 +7,14 @@ from typing import Any, Callable
 AUTO_CODEX_MAX_MAP_CHUNKS = 8
 
 
+class AutomaticContextCompactionCompleted(Exception):
+    """Carry a locally completed Codex checkpoint back to the Responses router."""
+
+    def __init__(self, summary: str) -> None:
+        super().__init__("automatic context compaction completed locally")
+        self.summary = summary
+
+
 @dataclass(frozen=True)
 class ContextCompactionTransport:
     summary_output_tokens: Callable[[dict[str, Any], int], int]
@@ -172,8 +180,6 @@ def build_llm_compacted_messages(
     segmented_mode = workflow.segmented_mode(provider_config, compact_instruction)
     if segmented_mode is None:
         return None
-    if not workflow.compaction_available(provider, provider_config):
-        return None
     history = [
         message
         for index, message in enumerate(messages)
@@ -181,6 +187,15 @@ def build_llm_compacted_messages(
     ]
     system_messages = [message for message in messages if str(message.get("role") or "") == "system"]
     if not history:
+        return None
+    if not workflow.compaction_available(provider, provider_config):
+        if segmented_mode == "auto_codex":
+            raise AutomaticContextCompactionCompleted(
+                _local_checkpoint_summary(
+                    [projection.build_fallback_summary(history, budget_tokens)],
+                    len(history),
+                )
+            )
         return None
     target_tokens = workflow.chunk_target_tokens(provider_config, budget_tokens)
     if (
@@ -202,9 +217,14 @@ def build_llm_compacted_messages(
             "WARN",
             f"context_compact_auto_chunk_limit provider={provider} model={model} "
             f"chunks={len(chunks)} limit={AUTO_CODEX_MAX_MAP_CHUNKS}; "
-            "falling back to deterministic compact",
+            "completing checkpoint locally",
         )
-        return None
+        raise AutomaticContextCompactionCompleted(
+            _local_checkpoint_summary(
+                [projection.build_fallback_summary(history, budget_tokens)],
+                len(history),
+            )
+        )
     parallel_sessions = workflow.parallel_sessions(provider_config, len(chunks))
     initial_tokens = workflow.estimate_tokens({"messages": messages})
     _write_activity(
@@ -220,13 +240,21 @@ def build_llm_compacted_messages(
         workflow,
     )
     summaries: list[str] = []
+    summary_provider_config = provider_config
+    if segmented_mode == "auto_codex":
+        # The checkpoint request is already a recovery operation for an input
+        # that cannot fit upstream.  Retrying the same auxiliary generation on
+        # transport/capacity failures only multiplies load and delays the
+        # deterministic guard that can compact the request locally.
+        summary_provider_config = dict(provider_config)
+        summary_provider_config["gateway_retries"] = 0
     for chunk_number, (start, chunk) in enumerate(chunks, start=1):
         prompt = projection.build_chunk_prompt(chunk, start, chunk_number, len(chunks))
         try:
             summary = workflow.request_summary(
                 provider,
                 model,
-                provider_config,
+                summary_provider_config,
                 prompt,
                 wire=wire,
                 budget_tokens=budget_tokens,
@@ -237,10 +265,44 @@ def build_llm_compacted_messages(
                 f"context_compact_chunk_failed provider={provider} model={model} "
                 f"chunk={chunk_number}/{len(chunks)} error={type(exc).__name__}: {exc}",
             )
+            if segmented_mode == "auto_codex":
+                summaries.extend(
+                    projection.build_fallback_summary(
+                        remaining_chunk,
+                        target_tokens,
+                        start_index=remaining_start,
+                    ).strip()
+                    for remaining_start, remaining_chunk in chunks[chunk_number - 1 :]
+                )
+                projection.log(
+                    "WARN",
+                    f"context_compact_auto_fallback provider={provider} model={model} "
+                    "reason=summary_request_failed; completing checkpoint locally",
+                )
+                raise AutomaticContextCompactionCompleted(
+                    _local_checkpoint_summary(summaries, len(history))
+                ) from exc
             summary = projection.build_fallback_summary(
                 chunk, target_tokens, start_index=start
             )
         if not summary.strip():
+            if segmented_mode == "auto_codex":
+                summaries.extend(
+                    projection.build_fallback_summary(
+                        remaining_chunk,
+                        target_tokens,
+                        start_index=remaining_start,
+                    ).strip()
+                    for remaining_start, remaining_chunk in chunks[chunk_number - 1 :]
+                )
+                projection.log(
+                    "WARN",
+                    f"context_compact_auto_fallback provider={provider} model={model} "
+                    "reason=empty_summary; completing checkpoint locally",
+                )
+                raise AutomaticContextCompactionCompleted(
+                    _local_checkpoint_summary(summaries, len(history))
+                )
             summary = projection.build_fallback_summary(
                 chunk, target_tokens, start_index=start
             )
@@ -257,6 +319,27 @@ def build_llm_compacted_messages(
             chunk_number,
             workflow,
         )
+    if segmented_mode == "auto_codex":
+        local_summary = _local_checkpoint_summary(summaries, len(history))
+        final_tokens = workflow.estimate_tokens(local_summary)
+        projection.log(
+            "WARN",
+            f"context_compact_local_complete provider={provider} model={model} "
+            f"chunks={len(chunks)} messages={len(history)} tokens={initial_tokens}->{final_tokens}",
+        )
+        workflow.write_activity(
+            provider or "provider",
+            model,
+            chunks=len(chunks),
+            parallel_sessions=parallel_sessions,
+            tokens=initial_tokens,
+            final_tokens=final_tokens,
+            budget=budget_tokens,
+            phase="local-complete",
+            completed_chunks=len(chunks),
+            retained_messages=1,
+        )
+        raise AutomaticContextCompactionCompleted(local_summary)
     reduce_prompt = projection.build_reduce_prompt(
         summaries,
         compact_instruction,
@@ -284,6 +367,21 @@ def build_llm_compacted_messages(
         retained_messages=len(output),
     )
     return output
+
+
+def _local_checkpoint_summary(summaries: list[str], source_message_count: int) -> str:
+    parts = [
+        "[ciel-runtime local context checkpoint]",
+        f"Compacted {source_message_count} conversation messages into "
+        f"{len(summaries)} deterministic segment summaries because provider "
+        "summarization was unavailable.",
+    ]
+    parts.extend(
+        f"## Segment {index}\n{summary.strip()}"
+        for index, summary in enumerate(summaries, start=1)
+        if summary.strip()
+    )
+    return "\n\n".join(parts)
 
 
 def _write_activity(

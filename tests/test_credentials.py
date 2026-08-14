@@ -5,10 +5,12 @@ from ciel_runtime_support.credentials import (
     CredentialContext,
     InboundHeaderCredentialSource,
     mask_secret,
+    looks_like_masked_secret,
     redact_sensitive_obj,
     redact_sensitive_text,
     resolve_anthropic_credentials,
     secret_fingerprint,
+    transportable_api_key,
 )
 from ciel_runtime_support.header_forwarding import (
     project_end_to_end_request_headers,
@@ -66,6 +68,9 @@ class CredentialTests(unittest.TestCase):
     def test_secret_projection_masks_and_fingerprints_without_disclosure(self):
         secret = "sk-super-secret-value"
         self.assertEqual("sk-s...alue", mask_secret(secret))
+        self.assertTrue(looks_like_masked_secret(mask_secret(secret)))
+        self.assertFalse(transportable_api_key(mask_secret(secret)))
+        self.assertTrue(transportable_api_key(secret))
         fingerprint = secret_fingerprint(secret)
         self.assertEqual(12, len(fingerprint))
         self.assertNotIn(secret, fingerprint)

@@ -42,6 +42,13 @@ SECRET_ERROR_MARKERS = (
 # Ollama, DeepSeek, OpenRouter sk-or-*, etc.): single line, no whitespace, no
 # error prose. A credential is a token, not a sentence.
 _KEY_PLAUSIBLE_RE = re.compile(r"^\S{8,512}$")
+_MASKED_SECRET_RE = re.compile(r"^.{4}\.\.\..{4}$")
+
+
+def looks_like_masked_secret(value: Any) -> bool:
+    """Return whether *value* is the exact shape emitted by ``mask_secret``."""
+
+    return bool(_MASKED_SECRET_RE.fullmatch(str(value or "").strip()))
 
 
 def looks_like_error_text(value: Any) -> bool:
@@ -57,7 +64,7 @@ def plausible_api_key(value: Any) -> bool:
     text = str(value or "").strip()
     if not _KEY_PLAUSIBLE_RE.match(text):
         return False
-    return not looks_like_error_text(text)
+    return not looks_like_error_text(text) and not looks_like_masked_secret(text)
 
 
 def transportable_api_key(value: Any) -> bool:
@@ -68,6 +75,7 @@ def transportable_api_key(value: Any) -> bool:
         text
         and text == text.strip()
         and not looks_like_error_text(text)
+        and not looks_like_masked_secret(text)
         and not any(character.isspace() or ord(character) < 32 or ord(character) == 127 for character in text)
     )
 SECRET_TEXT_PATTERNS = (
