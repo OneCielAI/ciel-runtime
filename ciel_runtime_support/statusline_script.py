@@ -29,7 +29,9 @@ ROUTER_STATE_DIR = Path(os.environ.get("CIEL_RUNTIME_STATE_DIR") or CONFIG_DIR)
 WORKSPACE_STATE_DIR = Path(
     os.environ.get("CIEL_RUNTIME_WORKSPACE_STATE_DIR") or ROUTER_STATE_DIR
 )
-CONFIG_PATH = CONFIG_DIR / "config.json"
+CONFIG_PATH = WORKSPACE_STATE_DIR / "config.json"
+if not CONFIG_PATH.exists():
+    CONFIG_PATH = CONFIG_DIR / "config.json"
 STATE_PATH = ROUTER_STATE_DIR / "rate-limit-state.json"
 ACTIVITY_PATH = ROUTER_STATE_DIR / "router-activity.json"
 COMPACT_ACTIVITY_PATH = ROUTER_STATE_DIR / "context-compact-activity.json"

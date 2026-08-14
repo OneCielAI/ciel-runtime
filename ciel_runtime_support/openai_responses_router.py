@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .context_compaction import AutomaticContextCompactionCompleted
+from .upstream_error_policy import UpstreamStreamReadError
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,6 +194,32 @@ def handle_openai_responses_request(
             status=exc.code,
             error_type=_responses_error_type(exc.code),
         )
+    except UpstreamStreamReadError as exc:
+        core.event_bus.publish(
+            level="error",
+            category="router.error",
+            message=str(exc),
+            request_id=request_id,
+            provider=provider,
+            model=str(anthropic_body.get("model") or ""),
+            data={
+                "error_type": type(exc.error).__name__,
+                "upstream_stream_truncated": True,
+                "attempts": exc.attempts,
+            },
+        )
+        delivery.mark_failed(handler, "responses_upstream_stream_truncated")
+        # No downstream response bytes have been emitted: collection happens
+        # first.  Return an ordinary HTTP error body so Codex reports the real
+        # 502 instead of consuming an SSE `error` event and later complaining
+        # that `response.completed` was missing.
+        output.write_error(
+            handler,
+            str(exc),
+            stream=False,
+            status=exc.status_code,
+            error_type="api_error",
+        )
     except Exception as exc:
         if core.is_client_disconnect(exc):
             delivery.mark_failed(handler, f"responses_client_disconnected:{type(exc).__name__}")
@@ -343,6 +370,31 @@ def _handle_provider_responses_route(
             stream=bool(body.get("stream", True)),
             status=exc.code,
             error_type=_responses_error_type(exc.code),
+        )
+    except UpstreamStreamReadError as exc:
+        core.event_bus.publish(
+            level="error",
+            category="router.error",
+            message=str(exc),
+            request_id=request_id,
+            provider=provider,
+            model=str(body.get("model") or ""),
+            data={
+                "error_type": type(exc.error).__name__,
+                "upstream_stream_truncated": True,
+                "attempts": exc.attempts,
+                "downstream_started": exc.downstream_started,
+            },
+        )
+        delivery.mark_failed(handler, "provider_responses_upstream_stream_truncated")
+        output.write_error(
+            handler,
+            str(exc),
+            stream=bool(body.get("stream", True)),
+            status=exc.status_code,
+            error_type="upstream_stream_truncated",
+            response_started=exc.downstream_started,
+            response_id=exc.response_id,
         )
     except Exception as exc:
         if core.is_client_disconnect(exc):

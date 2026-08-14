@@ -5,11 +5,13 @@ from __future__ import annotations
 import json
 import urllib.request
 from dataclasses import dataclass
+from http.client import IncompleteRead
 from typing import Any, Callable, Mapping
 
 from .responses_usage_observer import ResponsesUsageObserver
 from .responses_input_compatibility import repair_replayed_response_items
 from .upstream_dump import dump_upstream_request
+from .upstream_error_policy import UpstreamStreamReadError
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,14 +79,64 @@ class ProviderResponsesPassthrough:
             pcfg=config,
         ) as response:
             usage = ResponsesUsageObserver()
+            received_bytes = 0
             handler.send_response(getattr(response, "status", 200))
             self._ports.copy_response_headers(handler, response.headers)
             handler.end_headers()
-            while chunk := response.read(65_536):
-                usage.feed(chunk)
-                handler.wfile.write(chunk)
-                handler.wfile.flush()
+            try:
+                while chunk := response.read(65_536):
+                    received_bytes += len(chunk)
+                    usage.feed(chunk)
+                    handler.wfile.write(chunk)
+                    handler.wfile.flush()
+            except IncompleteRead as exc:
+                partial = bytes(exc.partial or b"")
+                if partial:
+                    received_bytes += len(partial)
+                    usage.feed(partial)
+                    handler.wfile.write(partial)
+                    handler.wfile.flush()
+                usage.finish()
+                if usage.terminal_event is None:
+                    self._ports.log(
+                        "ERROR",
+                        "provider_responses_stream_truncated "
+                        f"provider={provider} model={upstream_body.get('model')} "
+                        f"bytes={received_bytes}",
+                    )
+                    raise UpstreamStreamReadError(
+                        provider,
+                        str(upstream_body.get("model") or ""),
+                        exc,
+                        attempts=1,
+                        downstream_started=True,
+                        response_id=usage.response_id,
+                        received_bytes=received_bytes,
+                    ) from exc
+                self._ports.log(
+                    "WARN",
+                    "provider_responses_length_mismatch_after_terminal "
+                    f"provider={provider} model={upstream_body.get('model')} "
+                    f"terminal={usage.terminal_event} bytes={received_bytes}",
+                )
             observed = usage.finish()
+            if bool(upstream_body.get("stream", True)) and usage.terminal_event is None:
+                error = EOFError("upstream Responses stream ended without a terminal event")
+                self._ports.log(
+                    "ERROR",
+                    "provider_responses_stream_missing_terminal "
+                    f"provider={provider} model={upstream_body.get('model')} "
+                    f"bytes={received_bytes}",
+                )
+                raise UpstreamStreamReadError(
+                    provider,
+                    str(upstream_body.get("model") or ""),
+                    error,
+                    attempts=1,
+                    downstream_started=True,
+                    response_id=usage.response_id,
+                    received_bytes=received_bytes,
+                ) from error
             if observed:
                 self._ports.record_usage(
                     provider,

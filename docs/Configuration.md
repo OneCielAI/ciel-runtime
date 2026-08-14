@@ -19,7 +19,8 @@
 
 | 파일 | 용도 |
 |------|------|
-| `config.json` | 메인 설정 (제공자, 모델, API 키 등) |
+| `config.json` | 모든 workspace가 공유하는 API key, OAuth token, authorization 등 인증 정보의 원본. 기존 설치에서는 새 workspace 설정의 최초 migration seed로도 사용 |
+| `workspaces/<workspace-id>/config.json` | workspace별 provider/model 선택, 모델 옵션, Web/Event/Speech 설정 등 비인증 설정. 인증 값은 기록하지 않음 |
 | `router.log` | 라우터 로그 |
 | `log-level` | 로그 레벨 파일 |
 | `router.pid` | 라우터 프로세스 PID |
@@ -37,6 +38,14 @@
 | `channel-probe-cache.json` | 채널 프로브 캐시 |
 | `launch-state.json` | 실행 상태 |
 | `tts-reference-audio/*.bin` | 업로드한 TTS reference의 private binary sidecar (`0600` 시도) |
+
+---
+
+각 workspace 설정은 최초 접근 시 기존 전역 `config.json`을 seed로 생성된다. 이때
+`launch-state.json`에 해당 폴더의 마지막 provider/model 기록이 있으면 그 선택을 우선
+복원한다. 이후 provider/model 변경은 해당 workspace 파일에만 저장되며 다른 폴더에서
+실행 중인 라우터에 영향을 주지 않는다. 반대로 API key, token, authorization, secret은
+전역 `config.json`에만 저장되고 모든 workspace가 최신 값을 함께 사용한다.
 
 ---
 

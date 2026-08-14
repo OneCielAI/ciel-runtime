@@ -14,6 +14,8 @@ class ResponsesUsageObserver:
     _line_buffer: str = ""
     _raw: str = ""
     _usage: dict[str, int] | None = None
+    _terminal_event: str | None = None
+    _response_id: str | None = None
 
     def feed(self, chunk: bytes) -> None:
         text = chunk.decode("utf-8", errors="ignore")
@@ -33,6 +35,14 @@ class ResponsesUsageObserver:
         self._observe_json(self._raw.strip())
         return dict(self._usage or {})
 
+    @property
+    def terminal_event(self) -> str | None:
+        return self._terminal_event
+
+    @property
+    def response_id(self) -> str | None:
+        return self._response_id
+
     def _observe_json(self, text: str) -> None:
         if not text or text == "[DONE]":
             return
@@ -42,8 +52,15 @@ class ResponsesUsageObserver:
             return
         if not isinstance(payload, Mapping):
             return
-        usage = payload.get("usage")
+        event_type = str(payload.get("type") or "")
         response = payload.get("response")
+        if isinstance(response, Mapping):
+            response_id = str(response.get("id") or "").strip()
+            if response_id:
+                self._response_id = response_id
+        if event_type in {"response.completed", "response.failed", "response.incomplete"}:
+            self._terminal_event = event_type
+        usage = payload.get("usage")
         if not isinstance(usage, Mapping) and isinstance(response, Mapping):
             usage = response.get("usage")
         if not isinstance(usage, Mapping):

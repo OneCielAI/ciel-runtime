@@ -11,6 +11,88 @@ from pathlib import Path
 from typing import Any
 
 
+_SHARED_CREDENTIAL_NAMES = frozenset(
+    {
+        "access_token",
+        "api_key",
+        "api_keys",
+        "authorization",
+        "bearer_token",
+        "client_secret",
+        "cookie",
+        "copilot_token",
+        "copilot_token_expires_at",
+        "github_access_token",
+        "oauth_token_record",
+        "password",
+        "refresh_token",
+        "speech_api_key",
+        "tailscale_auth_key",
+        "token",
+        "webhook_secret",
+        "x-api-key",
+    }
+)
+_SHARED_CREDENTIAL_SUFFIXES = (
+    "_access_token",
+    "_api_key",
+    "_api_keys",
+    "_auth_key",
+    "_bearer_token",
+    "_client_secret",
+    "_password",
+    "_refresh_token",
+    "_secret",
+)
+
+
+def is_shared_credential_field(name: Any) -> bool:
+    normalized = str(name or "").strip().lower()
+    return normalized in _SHARED_CREDENTIAL_NAMES or normalized.endswith(
+        _SHARED_CREDENTIAL_SUFFIXES
+    )
+
+
+def without_shared_credentials(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: without_shared_credentials(item)
+            for key, item in value.items()
+            if not is_shared_credential_field(key)
+        }
+    if isinstance(value, list):
+        return [without_shared_credentials(item) for item in value]
+    return copy.deepcopy(value)
+
+
+def shared_credentials(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return {}
+    extracted: dict[str, Any] = {}
+    for key, item in value.items():
+        if is_shared_credential_field(key):
+            extracted[key] = copy.deepcopy(item)
+        elif isinstance(item, dict):
+            nested = shared_credentials(item)
+            if nested:
+                extracted[key] = nested
+        elif isinstance(item, list):
+            nested_items = [shared_credentials(entry) for entry in item]
+            if any(nested_items):
+                extracted[key] = nested_items
+    return extracted
+
+
+def overlay_config(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
+    result = copy.deepcopy(base)
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = overlay_config(result[key], value)
+        else:
+            result[key] = copy.deepcopy(value)
+    return result
+
+
 def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
     return {
         "current_provider": "nvidia-hosted",
@@ -151,12 +233,16 @@ class JsonConfigRepository:
         merge: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
         migrate: Callable[[dict[str, Any]], None],
         normalize: Callable[[dict[str, Any]], None],
+        fallback_path: Path | None = None,
+        bootstrap: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         self._path = path
         self._defaults = defaults
         self._merge = merge
         self._migrate = migrate
         self._normalize = normalize
+        self._fallback_path = fallback_path
+        self._bootstrap = bootstrap
         self._cache: dict[str, Any] | None = None
         self._cache_mtime = 0.0
 
@@ -171,13 +257,25 @@ class JsonConfigRepository:
             mtime = 0.0
         if self._cache is not None and mtime == self._cache_mtime:
             return copy.deepcopy(self._cache)
+        primary_exists = self._path.exists()
+        source_path = self._path
+        if not primary_exists and self._fallback_path is not None and self._fallback_path.exists():
+            source_path = self._fallback_path
         try:
-            data = json.loads(self._path.read_text(encoding="utf-8")) if self._path.exists() else {}
+            data = json.loads(source_path.read_text(encoding="utf-8")) if source_path.exists() else {}
         except (OSError, ValueError, TypeError):
             data = {}
         config = self._merge(self._defaults, data if isinstance(data, dict) else {})
         self._migrate(config)
         self._normalize(config)
+        if not primary_exists:
+            if self._bootstrap is not None:
+                self._bootstrap(config)
+            try:
+                self.save(config)
+                return copy.deepcopy(config)
+            except OSError:
+                pass
         self._cache = config
         self._cache_mtime = mtime
         return copy.deepcopy(config)
@@ -213,6 +311,8 @@ class ConfigRepositoryProvider:
         merge: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
         migrate: Callable[[dict[str, Any]], None],
         normalize: Callable[[dict[str, Any]], None],
+        fallback_path: Path | None = None,
+        bootstrap: Callable[[dict[str, Any]], None] | None = None,
     ) -> JsonConfigRepository:
         if self._repository is None or self._repository.path != path:
             self._repository = JsonConfigRepository(
@@ -221,14 +321,58 @@ class ConfigRepositoryProvider:
                 merge=merge,
                 migrate=migrate,
                 normalize=normalize,
+                fallback_path=fallback_path,
+                bootstrap=bootstrap,
             )
         return self._repository
+
+
+class WorkspaceConfigRepository:
+    """Workspace selections layered with credentials from one shared repository."""
+
+    def __init__(
+        self,
+        *,
+        workspace: JsonConfigRepository,
+        shared: JsonConfigRepository,
+    ) -> None:
+        self._workspace = workspace
+        self._shared = shared
+
+    @property
+    def path(self) -> Path:
+        return self._workspace.path
+
+    def load(self) -> dict[str, Any]:
+        workspace_config = self._workspace.load()
+        sanitized = without_shared_credentials(workspace_config)
+        if workspace_config != sanitized:
+            self._workspace.save(sanitized)
+        return overlay_config(sanitized, shared_credentials(self._shared.load()))
+
+    def save(self, config: dict[str, Any]) -> None:
+        shared_config = self._shared.load()
+        updated_shared = overlay_config(
+            without_shared_credentials(shared_config),
+            shared_credentials(config),
+        )
+        self._shared.save(updated_shared)
+        self._workspace.save(without_shared_credentials(config))
+
+    def invalidate(self) -> None:
+        self._workspace.invalidate()
+        self._shared.invalidate()
 
 
 __all__ = [
     "ConfigRepositoryProvider",
     "JsonConfigRepository",
+    "WorkspaceConfigRepository",
     "build_default_config",
     "deep_merge",
+    "is_shared_credential_field",
     "normalize_loaded_config",
+    "overlay_config",
+    "shared_credentials",
+    "without_shared_credentials",
 ]

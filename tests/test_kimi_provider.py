@@ -678,7 +678,17 @@ class KimiProviderTests(unittest.TestCase):
         self.assertNotIn("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", env)
 
     def test_launch_requires_kimi_api_key(self):
-        with mock.patch.object(ciel_runtime, "base_url_status_line", return_value="Base URL: Kimi.com configured"):
+        with (
+            mock.patch.object(
+                ciel_runtime,
+                "base_url_status_line",
+                return_value="Base URL: Kimi.com configured",
+            ),
+            mock.patch(
+                "ciel_runtime_support.providers.kimi.oauth_access_token",
+                return_value=None,
+            ),
+        ):
             errors = ciel_runtime.launch_readiness_errors(self.kimi_cfg(api_key=""))
         self.assertTrue(any("Kimi.com requires" in err for err in errors))
         self.assertTrue(ciel_runtime.launch_blockers_require_api_key(errors))

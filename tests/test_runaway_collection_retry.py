@@ -4,6 +4,7 @@ import json
 import os
 import ssl
 import unittest
+from http.client import IncompleteRead
 from unittest import mock
 
 from ciel_runtime_support.ollama_stream_collection import collect_ollama_chat_stream
@@ -14,6 +15,7 @@ from ciel_runtime_support.response_collection_context import (
 )
 from ciel_runtime_support.runaway_output_guard import NOTICE_MARKER
 from ciel_runtime_support.sse_stream_collection import UpstreamSseError
+from ciel_runtime_support.upstream_error_policy import UpstreamStreamReadError
 
 LOOP = (
     "먼저 관련 레포와 지표 계산/차트 데이터 경로를 찾겠습니다. "
@@ -310,7 +312,8 @@ class OpenedStreamCollectorTests(unittest.TestCase):
 
         self.assertEqual(4, len(calls), "one request plus at most three transport retries")
         self.assertTrue(all(stream.closed for stream in streams))
-        self.assertIn("upstream stream read failed provider=kimi model=k3", str(caught.exception))
+        self.assertIn("provider 'kimi'", str(caught.exception))
+        self.assertIn("model=k3", str(caught.exception))
         self.assertIn("ConnectionResetError", str(caught.exception))
         self.assertIsInstance(caught.exception.__cause__, ConnectionResetError)
         self.assertIn("openai_chat_kimi_stream_read_exhausted", logs[-1][1])
@@ -337,17 +340,93 @@ class OpenedStreamCollectorTests(unittest.TestCase):
         with mock.patch(
             "ciel_runtime_support.response_collection_context.time.sleep"
         ) as sleep:
-            with self.assertRaises(RuntimeError) as caught:
+            with self.assertRaises(UpstreamStreamReadError) as caught:
                 collect("url", {}, {}, 30.0, "openai", {}, "gpt-test")
 
         self.assertEqual(1, len(calls))
         sleep.assert_not_called()
         self.assertTrue(stream.closed)
-        self.assertIn(
-            "upstream stream read failed provider=openai model=gpt-test",
-            str(caught.exception),
-        )
+        self.assertIn("provider 'openai'", str(caught.exception))
+        self.assertIn("model=gpt-test", str(caught.exception))
         self.assertIsInstance(caught.exception.__cause__, ConnectionResetError)
+
+    def test_non_kimi_truncated_stream_retries_once_then_succeeds(self):
+        streams = [CountingStream([]), CountingStream([])]
+        calls = []
+        logs = []
+
+        def open_stream(*_args, **_kwargs):
+            calls.append(True)
+            return streams[len(calls) - 1]
+
+        attempts = 0
+
+        def parse(_response, _policy):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise IncompleteRead(b"partial-response")
+            return type(
+                "Collection",
+                (),
+                {"response": {"ok": True}, "verdict": None, "chunks": 1},
+            )()
+
+        context = ResponseCollectionContext(
+            shared=None,
+            anthropic=None,
+            strategies=None,
+            routing=None,
+            stream=ResponseCollectionStreamPorts(
+                open_stream=open_stream,
+                log=lambda level, message: logs.append((level, message)),
+            ),
+        )
+        collect = context.opened_stream_collector(parse, "openai_chat")
+
+        response = collect("url", {}, {}, 30.0, "alitoken", {}, "qwen3.8-max")
+
+        self.assertEqual({"ok": True}, response)
+        self.assertEqual(2, len(calls))
+        self.assertTrue(all(stream.closed for stream in streams))
+        self.assertIn("openai_chat_stream_truncated_retry", logs[0][1])
+        self.assertIn("bytes=16", logs[0][1])
+
+    def test_non_kimi_truncated_stream_stops_after_one_retry(self):
+        streams = [CountingStream([]), CountingStream([])]
+        calls = []
+        logs = []
+
+        def open_stream(*_args, **_kwargs):
+            calls.append(True)
+            return streams[len(calls) - 1]
+
+        context = ResponseCollectionContext(
+            shared=None,
+            anthropic=None,
+            strategies=None,
+            routing=None,
+            stream=ResponseCollectionStreamPorts(
+                open_stream=open_stream,
+                log=lambda level, message: logs.append((level, message)),
+            ),
+        )
+        collect = context.opened_stream_collector(
+            lambda _response, _policy: (_ for _ in ()).throw(
+                IncompleteRead(b"x" * 12970)
+            ),
+            "openai_chat",
+        )
+
+        with self.assertRaises(UpstreamStreamReadError) as caught:
+            collect("url", {}, {}, 30.0, "alitoken", {}, "qwen3.8-max")
+
+        self.assertEqual(2, len(calls))
+        self.assertTrue(all(stream.closed for stream in streams))
+        self.assertEqual(2, caught.exception.attempts)
+        self.assertIn("after 12970 bytes", str(caught.exception))
+        self.assertIn("provider 'alitoken'", str(caught.exception))
+        self.assertIn("openai_chat_stream_read_exhausted", logs[-1][1])
 
 
 def looping_message():

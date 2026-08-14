@@ -97,6 +97,28 @@ class OpenAIResponsesStreamTests(unittest.TestCase):
         self.assertEqual(413, status)
         self.assertEqual("request_too_large", payload["error"]["type"])
 
+    def test_started_stream_error_emits_response_failed_without_second_headers(self):
+        handler = _Handler()
+        handler.status = 200
+
+        write_openai_responses_error(
+            handler,
+            "upstream response ended early",
+            stream=True,
+            status=502,
+            error_type="upstream_stream_truncated",
+            response_started=True,
+            response_id="resp_upstream",
+            services=self.services(),
+        )
+
+        text = handler.wfile.getvalue().decode()
+        self.assertEqual(200, handler.status)
+        self.assertEqual([], handler.headers)
+        self.assertIn("event: response.failed", text)
+        self.assertIn('"id": "resp_upstream"', text)
+        self.assertIn('"code": "upstream_stream_truncated"', text)
+
 
 if __name__ == "__main__":
     unittest.main()

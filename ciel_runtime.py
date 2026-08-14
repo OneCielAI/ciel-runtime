@@ -145,7 +145,7 @@ from ciel_runtime_support.compatibility_test import CompatibilityTestConfig, Com
 from ciel_runtime_support.compatibility_test import run_compatibility_test as run_provider_compatibility_test
 from ciel_runtime_support.config_migrations import ConfigMigrationPolicy
 from ciel_runtime_support.config_migrations import apply_config_migrations as run_config_migrations
-from ciel_runtime_support.config_repository import ConfigRepositoryProvider, JsonConfigRepository, build_default_config
+from ciel_runtime_support.config_repository import ConfigRepositoryProvider, JsonConfigRepository, WorkspaceConfigRepository, build_default_config, without_shared_credentials
 from ciel_runtime_support.config_repository import deep_merge as merge_config_values
 from ciel_runtime_support.config_repository import normalize_loaded_config
 from ciel_runtime_support.config_value_codec import parse_bool, parse_config_value, positive_int
@@ -368,6 +368,7 @@ from ciel_runtime_support.router_observability_context import RouterObservabilit
 from ciel_runtime_support.router_process_context import RouterListenerPorts, RouterProcessCompatibilityApi, RouterProcessCompatibilityPorts, RouterProcessContext, RouterProcessEffects
 from ciel_runtime_support.router_process_lifecycle import RouterProcessConfig, RouterSpawnPorts, RouterStartupIdentity, RouterStartupStatePorts, RouterStatePorts, schedule_router_restart
 from ciel_runtime_support.router_process_lifecycle import start_router_if_needed as start_project_router_if_needed
+from ciel_runtime_support.workspace_router_selection import workspace_identity
 from ciel_runtime_support.router_rate_limit_service import RouterRateLimitApi, RouterRateLimitPaths, RouterRateLimitPorts, RouterRateLimitService
 from ciel_runtime_support.router_request_context import RouterRequestCompatibilityApi, RouterRequestContext
 from ciel_runtime_support.router_server_context import RouterHealthPresentationPorts, RouterServerCompatibilityApi, RouterServerContext
@@ -423,7 +424,7 @@ from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  #
                                                 CHANNEL_STDIN_WAKE_CLAIMS_PATH, CHAT_FILES_DIR, CHAT_MESSAGES_PATH, RUNTIME_INPUTS_PATH,
                                                 CIEL_RUNTIME_STATUSLINE_PATH, CLAUDE_COMMANDS_DIR, CLAUDE_GATEWAY_CACHE,
                                                 CLAUDE_SETTINGS_PATH, CODEX_PROCESS_DIR,
-                                                CODEX_PROMPTS_DIR_NAME, CONFIG_DIR, CONFIG_PATH,
+                                                CODEX_PROMPTS_DIR_NAME, CONFIG_DIR, CONFIG_PATH, LEGACY_CONFIG_PATH,
                                                 CONTEXT_COMPACT_ACTIVITY_PATH, CONTEXT_USAGE_PATH,
                                                 DUCKDUCKGO_MCP_CONFIG, HOME, LAUNCH_STATE_PATH, LOG_LEVEL_PATH,
                                                 LOG_PATH, MENU_KEY_DEBUG_PATH, MODEL_LIST_CACHE_PATH,
@@ -434,7 +435,7 @@ from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  #
                                                 MIGRATED_LEGACY_INSTANCE_ID, ROUTER_EXTERNAL_TOKEN_PATH, ROUTER_HOST,
                                                 ROUTER_INSTANCE_DIR, ROUTER_INSTANCE_ID, ROUTER_PORT,
                                                 ROUTER_WORKSPACE, ROUTER_WORKSPACE_ID, SSE_LAST_PATH,
-                                                WORKSPACE_STATE_DIR,
+                                                WORKSPACE_CONFIG_PATH, WORKSPACE_STATE_DIR,
                                                 SSE_TRACE_PATH, TOOL_CALL_LOG_PATH, USAGE_EVENTS_PATH,
                                                 WEB_TOOLS_MCP_CONFIG, ZAI_MCP_CONFIG, agy_user_bin_dir,
                                                 ciel_runtime_user_bin_dir, default_router_port,
@@ -742,8 +743,69 @@ def apply_config_migrations(cfg: dict[str, Any]) -> None:
     )
 
 _CONFIG_REPOSITORY_PROVIDER = ConfigRepositoryProvider()
+_SHARED_CONFIG_REPOSITORY_PROVIDER = ConfigRepositoryProvider()
 def _normalize_loaded_config(cfg: dict[str, Any]) -> None: normalize_loaded_config(cfg, normalize_model_id)
-def config_repository() -> JsonConfigRepository: return _CONFIG_REPOSITORY_PROVIDER.get(path=CONFIG_PATH, defaults=DEFAULT_CONFIG, merge=deep_merge, migrate=apply_config_migrations, normalize=_normalize_loaded_config)
+def _bootstrap_workspace_config(cfg: dict[str, Any]) -> None:
+    """Seed a new workspace from its last launch without mutating global config."""
+    try:
+        state = json.loads(LAUNCH_STATE_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return
+    by_cwd = state.get("by_cwd") if isinstance(state, dict) else None
+    if not isinstance(by_cwd, dict):
+        return
+    launch = next(
+        (
+            value
+            for key, value in by_cwd.items()
+            if workspace_identity(key) == ROUTER_WORKSPACE and isinstance(value, dict)
+        ),
+        None,
+    )
+    if not isinstance(launch, dict):
+        return
+    provider = normalize_provider(str(launch.get("provider") or ""))
+    providers = cfg.get("providers")
+    if not provider or not isinstance(providers, dict) or not isinstance(providers.get(provider), dict):
+        return
+    cfg["current_provider"] = provider
+    model = str(launch.get("model") or "").strip()
+    if model:
+        providers[provider]["current_model"] = normalize_model_id(provider, model)
+
+def _bootstrap_workspace_config_without_credentials(cfg: dict[str, Any]) -> None:
+    _bootstrap_workspace_config(cfg)
+    sanitized = without_shared_credentials(cfg)
+    cfg.clear()
+    cfg.update(sanitized)
+
+def config_repository() -> JsonConfigRepository | WorkspaceConfigRepository:
+    workspace_repository = _CONFIG_REPOSITORY_PROVIDER.get(
+        path=CONFIG_PATH,
+        defaults=(
+            without_shared_credentials(DEFAULT_CONFIG)
+            if CONFIG_PATH == WORKSPACE_CONFIG_PATH and CONFIG_PATH != LEGACY_CONFIG_PATH
+            else DEFAULT_CONFIG
+        ),
+        merge=deep_merge,
+        migrate=apply_config_migrations,
+        normalize=_normalize_loaded_config,
+        fallback_path=LEGACY_CONFIG_PATH if CONFIG_PATH != LEGACY_CONFIG_PATH else None,
+        bootstrap=_bootstrap_workspace_config_without_credentials,
+    )
+    if CONFIG_PATH != WORKSPACE_CONFIG_PATH or CONFIG_PATH == LEGACY_CONFIG_PATH:
+        return workspace_repository
+    shared_repository = _SHARED_CONFIG_REPOSITORY_PROVIDER.get(
+        path=LEGACY_CONFIG_PATH,
+        defaults=DEFAULT_CONFIG,
+        merge=deep_merge,
+        migrate=apply_config_migrations,
+        normalize=_normalize_loaded_config,
+    )
+    return WorkspaceConfigRepository(
+        workspace=workspace_repository,
+        shared=shared_repository,
+    )
 def json_artifact_repository(path: Path) -> SecureJsonRepository: return SecureJsonRepository(path=path, effects=SecureJsonEffects(log=router_log))
 def load_config() -> dict[str, Any]: return config_repository().load()
 def invalidate_config_cache() -> None: config_repository().invalidate()

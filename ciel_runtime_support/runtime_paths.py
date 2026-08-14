@@ -101,8 +101,28 @@ def default_router_port(saved_port: int = 0) -> int:
 
 
 CONFIG_DIR = Path(os.environ.get("CIEL_RUNTIME_CONFIG_DIR") or platform_config_dir("ciel-runtime"))
-CONFIG_PATH = CONFIG_DIR / "config.json"
-_SAVED_WEB_BACKEND = load_saved_web_backend(CONFIG_PATH)
+LEGACY_CONFIG_PATH = CONFIG_DIR / "config.json"
+ROUTER_WORKSPACE = workspace_identity(
+    os.environ.get("CIEL_RUNTIME_LAUNCH_CWD") or Path.cwd()
+)
+_WORKSPACE_DIGEST = workspace_digest(ROUTER_WORKSPACE)
+ROUTER_WORKSPACE_ID = _WORKSPACE_DIGEST
+_TEST_STATE_ISOLATED = str(os.environ.get("CIEL_RUNTIME_TEST_ISOLATED") or "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+WORKSPACE_STATE_DIR = (
+    CONFIG_DIR
+    if _TEST_STATE_ISOLATED
+    else CONFIG_DIR / "workspaces" / _WORKSPACE_DIGEST
+)
+WORKSPACE_CONFIG_PATH = WORKSPACE_STATE_DIR / "config.json"
+CONFIG_PATH = WORKSPACE_CONFIG_PATH
+_SAVED_WEB_BACKEND = load_saved_web_backend(
+    CONFIG_PATH if CONFIG_PATH.exists() else LEGACY_CONFIG_PATH
+)
 ROUTER_HOST = (
     os.environ.get("CIEL_RUNTIME_ROUTER_CLIENT_HOST", "").strip()
     or _SAVED_WEB_BACKEND.client_host
@@ -116,30 +136,14 @@ ROUTER_PORT = select_workspace_router_port(
     registry_path=WORKSPACE_ROUTER_REGISTRY_PATH,
 )
 ROUTER_BASE = f"http://{ROUTER_HOST}:{ROUTER_PORT}"
-ROUTER_WORKSPACE = workspace_identity(
-    os.environ.get("CIEL_RUNTIME_LAUNCH_CWD") or Path.cwd()
-)
-_WORKSPACE_DIGEST = workspace_digest(ROUTER_WORKSPACE)
-ROUTER_WORKSPACE_ID = _WORKSPACE_DIGEST
 ROUTER_INSTANCE_ID = f"{ROUTER_PORT}-{_WORKSPACE_DIGEST}"
 _STATE_DIR_OVERRIDE = str(os.environ.get("CIEL_RUNTIME_STATE_DIR") or "").strip()
-_TEST_STATE_ISOLATED = str(os.environ.get("CIEL_RUNTIME_TEST_ISOLATED") or "").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
 ROUTER_INSTANCE_DIR = (
     Path(_STATE_DIR_OVERRIDE)
     if _STATE_DIR_OVERRIDE
     else CONFIG_DIR
     if _TEST_STATE_ISOLATED
     else CONFIG_DIR / "router-instances" / ROUTER_INSTANCE_ID
-)
-WORKSPACE_STATE_DIR = (
-    CONFIG_DIR
-    if _TEST_STATE_ISOLATED
-    else CONFIG_DIR / "workspaces" / _WORKSPACE_DIGEST
 )
 MIGRATED_LEGACY_INSTANCE_ID = (
     ""

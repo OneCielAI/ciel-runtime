@@ -40,8 +40,27 @@ def write_openai_responses_error(
     stream: bool,
     status: int,
     error_type: str = "api_error",
+    response_started: bool = False,
+    response_id: str | None = None,
     services: OpenAIResponsesStreamServices,
 ) -> None:
+    if response_started:
+        failed = {
+            "type": "response.failed",
+            "response": {
+                "id": str(response_id or "resp_ciel_upstream_failure"),
+                "status": "failed",
+                "error": {
+                    "type": error_type,
+                    "code": error_type,
+                    "message": message,
+                },
+            },
+        }
+        handler.wfile.write(b"\n\n")
+        _emit(handler, "response.failed", failed)
+        handler.wfile.flush()
+        return
     payload = {"type": "error", "error": {"type": error_type, "message": message}}
     if not stream:
         services.write_json(handler, payload, status)

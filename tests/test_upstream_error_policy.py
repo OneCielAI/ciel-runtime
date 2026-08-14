@@ -1,6 +1,7 @@
 import unittest
 import urllib.error
 import ssl
+from http.client import IncompleteRead
 
 from ciel_runtime_support.upstream_error_policy import (
     configured_gateway_retries,
@@ -40,6 +41,9 @@ class UpstreamErrorPolicyTests(unittest.TestCase):
                 )
             )
         )
+
+    def test_incomplete_http_body_is_retryable(self):
+        self.assertTrue(retryable_exception(IncompleteRead(b"partial")))
 
     def test_generation_retries_are_disabled_by_default(self):
         self.assertEqual(0, configured_gateway_retries({}))

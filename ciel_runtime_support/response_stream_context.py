@@ -421,6 +421,8 @@ class ResponseStreamContext:
         stream: bool = True,
         status: int = 500,
         error_type: str = "api_error",
+        response_started: bool = False,
+        response_id: str | None = None,
     ) -> None:
         self.algorithms.write_openai_error(
             handler,
@@ -428,6 +430,8 @@ class ResponseStreamContext:
             stream=stream,
             status=status,
             error_type=error_type,
+            response_started=response_started,
+            response_id=response_id,
             services=self.openai_responses_stream_services(),
         )
 

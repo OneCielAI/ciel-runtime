@@ -4,8 +4,47 @@ from __future__ import annotations
 
 import json
 import re
+from http.client import IncompleteRead
 from collections.abc import Callable, Mapping
 from typing import Any
+
+
+class UpstreamStreamReadError(RuntimeError):
+    """A provider response stream ended before Ciel could collect it.
+
+    This is deliberately distinct from a downstream client disconnect.  The
+    router can therefore return a Bad Gateway response instead of silently
+    treating an upstream socket failure as Codex closing its connection.
+    """
+
+    status_code = 502
+
+    def __init__(
+        self,
+        provider: str,
+        model: str,
+        error: BaseException,
+        *,
+        attempts: int,
+        downstream_started: bool = False,
+        response_id: str | None = None,
+        received_bytes: int | None = None,
+    ) -> None:
+        self.provider = str(provider or "upstream")
+        self.model = str(model or "unknown")
+        self.error = error
+        self.attempts = max(1, int(attempts))
+        self.downstream_started = bool(downstream_started)
+        self.response_id = str(response_id or "").strip() or None
+        if isinstance(error, IncompleteRead):
+            received = max(0, int(received_bytes)) if received_bytes is not None else len(error.partial or b"")
+            detail = f"response ended early after {received} bytes"
+        else:
+            detail = f"{type(error).__name__}: {error}"
+        super().__init__(
+            f"Upstream provider '{self.provider}' response stream was truncated "
+            f"({detail}; model={self.model}; attempts={self.attempts})"
+        )
 
 
 def http_error_message(
@@ -75,7 +114,13 @@ def retry_wait_seconds(attempt: int) -> float:
 def retryable_exception(error: BaseException) -> bool:
     if isinstance(
         error,
-        (TimeoutError, ConnectionResetError, ConnectionAbortedError, BrokenPipeError),
+        (
+            TimeoutError,
+            ConnectionResetError,
+            ConnectionAbortedError,
+            BrokenPipeError,
+            IncompleteRead,
+        ),
     ):
         return True
     text = f"{type(error).__name__}: {error}".lower()
@@ -104,6 +149,7 @@ def retryable_exception(error: BaseException) -> bool:
         "temporarily unavailable",
         "broken pipe",
         "upstream stream ended before its first byte",
+        "incomplete read",
     )
     return any(marker in text for marker in markers)
 

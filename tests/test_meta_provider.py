@@ -3,6 +3,7 @@ import io
 import json
 import unittest
 import urllib.error
+from http.client import IncompleteRead
 from types import SimpleNamespace
 from unittest import mock
 
@@ -15,6 +16,7 @@ from ciel_runtime_support.provider_responses_passthrough import (
     ProviderResponsesPassthrough,
     ProviderResponsesPassthroughPorts,
 )
+from ciel_runtime_support.upstream_error_policy import UpstreamStreamReadError
 
 
 class MetaProviderTests(unittest.TestCase):
@@ -156,6 +158,36 @@ class MetaProviderTests(unittest.TestCase):
 
 
 class ProviderResponsesPassthroughTests(unittest.TestCase):
+    @staticmethod
+    def _passthrough_for_response(response, *, logs=None):
+        return ProviderResponsesPassthrough(
+            ProviderResponsesPassthroughPorts(
+                project_channel_context=lambda body: (body, {"delivery": True}),
+                begin_channel_delivery=mock.Mock(),
+                normalize_model=lambda _provider, _config, _model: "qwen3.8-max",
+                normalize_request=lambda _provider, _config, body: body,
+                upstream_base=lambda _provider, _config: "https://example.test/v1",
+                join_url=ciel_runtime.join_url,
+                headers=lambda _provider, _config, _inbound: {},
+                urlopen=lambda *_args, **_kwargs: response,
+                timeout_seconds=lambda _config: 30.0,
+                copy_response_headers=lambda _handler, _headers: None,
+                log=lambda level, message: (logs if logs is not None else []).append(
+                    (level, message)
+                ),
+            )
+        )
+
+    @staticmethod
+    def _passthrough_handler():
+        return SimpleNamespace(
+            headers={},
+            wfile=io.BytesIO(),
+            send_response=mock.Mock(),
+            send_header=mock.Mock(),
+            end_headers=mock.Mock(),
+        )
+
     def test_passthrough_keeps_typed_sse_bytes_and_uses_provider_endpoint(self):
         payload = (
             b"event: response.reasoning_text.delta\n"
@@ -269,6 +301,111 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
                 "uncached_input_tokens": 200,
             },
         )
+
+    def test_incomplete_read_partial_that_completes_terminal_event_is_preserved(self):
+        payload = (
+            b"event: response.completed\n"
+            b'data: {"type":"response.completed","response":{"id":"resp_done"}}\n\n'
+        )
+
+        class Response:
+            status = 200
+            headers = {"content-type": "text/event-stream"}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                raise IncompleteRead(payload)
+
+        handler = self._passthrough_handler()
+        logs = []
+        delivery = self._passthrough_for_response(Response(), logs=logs).forward(
+            handler,
+            "alitoken",
+            {},
+            {"model": "alias", "input": [], "stream": True},
+        )
+
+        self.assertEqual(payload, handler.wfile.getvalue())
+        self.assertEqual({"delivery": True}, delivery)
+        self.assertTrue(any("length_mismatch_after_terminal" in item[1] for item in logs))
+
+    def test_incomplete_native_stream_raises_typed_error_after_forwarding_partial(self):
+        prefix = b'event: response.created\ndata: {"type":"response.created","response":{"id":"resp_cut"}}\n\n'
+        broken = b'event: response.completed\ndata: {"type":"response.completed","response":{'
+
+        class Response:
+            status = 200
+            headers = {"content-type": "text/event-stream"}
+
+            def __init__(self):
+                self.calls = 0
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                self.calls += 1
+                if self.calls == 1:
+                    return prefix
+                raise IncompleteRead(broken)
+
+        handler = self._passthrough_handler()
+        with self.assertRaises(UpstreamStreamReadError) as caught:
+            self._passthrough_for_response(Response()).forward(
+                handler,
+                "alitoken",
+                {},
+                {"model": "alias", "input": [], "stream": True},
+            )
+
+        error = caught.exception
+        self.assertTrue(error.downstream_started)
+        self.assertEqual("resp_cut", error.response_id)
+        self.assertEqual(len(prefix) + len(broken), int(str(error).split("after ")[1].split(" bytes")[0]))
+        self.assertEqual(prefix + broken, handler.wfile.getvalue())
+
+    def test_clean_eof_without_terminal_event_is_reported_as_truncated(self):
+        payload = b'event: response.created\ndata: {"type":"response.created","response":{"id":"resp_eof"}}\n\n'
+
+        class Response:
+            status = 200
+            headers = {"content-type": "text/event-stream"}
+
+            def __init__(self):
+                self.sent = False
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                if self.sent:
+                    return b""
+                self.sent = True
+                return payload
+
+        handler = self._passthrough_handler()
+        with self.assertRaises(UpstreamStreamReadError) as caught:
+            self._passthrough_for_response(Response()).forward(
+                handler,
+                "alitoken",
+                {},
+                {"model": "alias", "input": [], "stream": True},
+            )
+
+        self.assertTrue(caught.exception.downstream_started)
+        self.assertEqual("resp_eof", caught.exception.response_id)
+        self.assertIn("without a terminal event", str(caught.exception))
 
     def test_router_selects_native_provider_responses_before_conversion_route(self):
         event_bus = SimpleNamespace(publish=mock.Mock())

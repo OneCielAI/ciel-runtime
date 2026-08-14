@@ -6,6 +6,7 @@ import os
 import time
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
+from http.client import IncompleteRead
 from typing import Any, Callable
 
 from .runaway_output_guard import (
@@ -27,7 +28,7 @@ from .response_collection import (
     collect_anthropic_message_for_responses,
     collect_chat_message_for_responses,
 )
-from .upstream_error_policy import retryable_exception
+from .upstream_error_policy import UpstreamStreamReadError, retryable_exception
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,7 +97,14 @@ class ResponseCollectionContext:
             *,
             retry_rate_limits: bool = True,
         ) -> dict[str, Any]:
-            retries = self.kimi_capacity_retry_limit(provider, pcfg)
+            capacity_retries = self.kimi_capacity_retry_limit(provider, pcfg)
+            # Collection completes before any bytes are sent back to Codex.  A
+            # truncated upstream HTTP body can therefore be reopened once
+            # safely.  Keep this independent from provider capacity retries:
+            # repeating a full generation ten times would multiply cost and
+            # cannot repair a persistently broken stream.
+            truncation_retries = 1 if provider != "kimi" else 0
+            retries = max(capacity_retries, truncation_retries)
             for attempt in range(retries + 1):
                 resp = self.stream.open_stream(
                     url, req_body, headers, timeout, provider, pcfg, model, None,
@@ -129,9 +137,23 @@ class ResponseCollectionContext:
                     if not retryable_exception(exc):
                         raise
                     if provider != "kimi":
-                        raise RuntimeError(
-                            f"upstream stream read failed provider={provider} model={model}: "
-                            f"{type(exc).__name__}: {exc}"
+                        if isinstance(exc, IncompleteRead) and attempt < truncation_retries:
+                            retry_no = attempt + 1
+                            self.stream.log(
+                                "WARN",
+                                f"{operation}_stream_truncated_retry provider={provider} "
+                                f"model={model} attempt={retry_no}/{truncation_retries} "
+                                f"bytes={len(exc.partial or b'')}",
+                            )
+                            continue
+                        self.stream.log(
+                            "ERROR",
+                            f"{operation}_stream_read_exhausted provider={provider} "
+                            f"model={model} attempts={attempt + 1} "
+                            f"error={type(exc).__name__}",
+                        )
+                        raise UpstreamStreamReadError(
+                            provider, model, exc, attempts=attempt + 1
                         ) from exc
                     if attempt >= transport_retries:
                         self.stream.log(
@@ -140,9 +162,8 @@ class ResponseCollectionContext:
                             f"model={model} retries={transport_retries} "
                             f"error={type(exc).__name__}",
                         )
-                        raise RuntimeError(
-                            f"upstream stream read failed provider={provider} model={model} "
-                            f"after {attempt + 1} attempts: {type(exc).__name__}: {exc}"
+                        raise UpstreamStreamReadError(
+                            provider, model, exc, attempts=attempt + 1
                         ) from exc
                     retry_no = attempt + 1
                     wait = min(20.0, 2.0 * retry_no)
