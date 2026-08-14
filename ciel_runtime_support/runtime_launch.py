@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable
 from dataclasses import dataclass
 
+from ciel_runtime_support.claude_environment import CLAUDE_PROJECTED_ENV_KEYS
 from ciel_runtime_support.runtime_constants import (
     CLAUDE_SERVER_SIDE_WEB_TOOLS,
     CODEX_RUNTIME_API_KEY_ENV,
@@ -308,6 +309,12 @@ def run_claude(
     env["CIEL_RUNTIME_WORKSPACE_STATE_DIR"] = str(WORKSPACE_STATE_DIR)
     env["CIEL_RUNTIME_LAUNCH_CWD"] = str(Path.cwd())
     env["PATH"] = path_with_ciel_runtime_user_dirs(env)
+    # Build a clean child-process snapshot.  A wrapper or an earlier Ciel
+    # launch may have exported provider/model-specific Claude settings into the
+    # parent shell; omitted values must mean "use this launch's defaults", not
+    # "inherit the previous model".
+    for key in CLAUDE_PROJECTED_ENV_KEYS:
+        env.pop(key, None)
     launch_passthrough = list(passthrough)
     native_channel_bridge = False
     stdin_channel_proxy = should_use_channel_stdin_proxy(use_router_mode, launch_passthrough, cfg)
@@ -334,6 +341,39 @@ def run_claude(
                 f"No concrete model is selected for provider {provider}; choose a model from the provider model list before launching Claude Code."
             )
     launch_env = env_vars(cfg)
+    explicit_claude_model = has_passthrough_option(
+        launch_passthrough, "--model"
+    )
+    if explicit_claude_model:
+        # A command-line model is the effective model for this child.  Do not
+        # leak the persisted menu model's context/compaction snapshot into it;
+        # without a resolved profile, Claude's own model defaults are the only
+        # sound source of truth.
+        for key in (
+            "ANTHROPIC_MODEL",
+            "ANTHROPIC_CUSTOM_MODEL_OPTION",
+            "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+            "CIEL_RUNTIME_MODEL_ALIAS",
+            "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+            "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+            "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+            "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE",
+            "CLAUDE_CODE_EFFORT_LEVEL",
+        ):
+            launch_env.pop(key, None)
+        router_log(
+            "INFO",
+            "claude_compaction_launch_snapshot skipped=explicit_model_override",
+        )
+    if not explicit_claude_model:
+        router_log(
+            "INFO",
+            "claude_compaction_launch_snapshot "
+            f"provider={provider} model={pcfg.get('current_model') or '-'} "
+            f"context={launch_env.get('CLAUDE_CODE_MAX_CONTEXT_TOKENS') or '-'} "
+            f"window={launch_env.get('CLAUDE_CODE_AUTO_COMPACT_WINDOW') or '-'} "
+            f"percent={launch_env.get('CLAUDE_AUTOCOMPACT_PCT_OVERRIDE') or '-'}",
+        )
     if use_native_anthropic:
         # Claude Native guarantee — strip every env var ciel-runtime (or a
         # prior ciel-runtime session) might have left behind that would change
@@ -359,6 +399,7 @@ def run_claude(
             "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
             "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
             "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+            "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE",
             "CLAUDE_CODE_EFFORT_LEVEL",
             "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
             "CLAUDE_CODE_ATTRIBUTION_HEADER",
@@ -555,7 +596,6 @@ class CodexLaunchConfig:
 class CodexLaunchInstallation:
     disable_ciel_runtime_codex_prompts_for_native: Callable[..., Any]
     find_executable: Callable[..., Any]
-    has_passthrough_option: Callable[..., Any]
     install_ciel_runtime_codex_prompts: Callable[..., Any]
     install_codex_if_missing: Callable[..., Any]
     warn_if_multiple_ciel_runtime_installs: Callable[..., Any]
@@ -648,7 +688,6 @@ def run_codex(
     ensure_model_cache_for_launch = services.config.ensure_model_cache_for_launch
     find_executable = services.installation.find_executable
     get_current_provider = services.config.get_current_provider
-    has_passthrough_option = services.installation.has_passthrough_option
     install_ciel_runtime_codex_prompts = services.installation.install_ciel_runtime_codex_prompts
     install_codex_if_missing = services.installation.install_codex_if_missing
     launch_agy = services.dispatch.launch_agy
@@ -797,10 +836,12 @@ def run_codex(
         env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
     log_codex_passthrough_mapping(codex_passthrough_notes)
     model_alias_args: list[str] = []
-    if not native_codex_enabled(provider) and not has_passthrough_option(codex_passthrough, "-m", "--model"):
-        model = current_alias(cfg)
-        if model:
-            model_alias_args.extend(["-m", model])
+    if not native_codex_enabled(provider):
+        alias_config = dict(pcfg)
+        alias_config["current_model"] = current_alias(cfg)
+        model_alias_args = codex_current_model_cli_args(
+            alias_config, codex_passthrough
+        )
     codex_mode = "native" if use_native_codex else ("routed" if use_codex_routed else "router")
     cmd, env = materialize_runtime_command(
         "codex",
@@ -818,7 +859,9 @@ def run_codex(
             "model_args": tuple(codex_current_model_cli_args(pcfg, codex_passthrough)),
             "routed_config_args": tuple(codex_native_routed_config_args()),
             "router_config_args": tuple(codex_runtime_config_args()),
-            "model_catalog_args": tuple(codex_runtime_model_catalog_args(codex, cfg)),
+            "model_catalog_args": tuple(
+                codex_runtime_model_catalog_args(codex, cfg, codex_passthrough)
+            ),
             "alternate_screen_args": tuple(codex_alternate_screen_compat_args(codex_passthrough, env=env)),
             "mcp_args": tuple(codex_mcp_compat_args),
             "model_alias_args": tuple(model_alias_args),
@@ -876,6 +919,7 @@ class CodexAppServerConfig:
     load_config: Callable[..., Any]
     provider_mode_label: Callable[..., Any]
     record_launch_state_for_cwd: Callable[..., Any]
+    codex_runtime_model_catalog_args: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -966,6 +1010,9 @@ def run_codex_app_server(
     codex_process_record_path = services.process.codex_process_record_path
     codex_routed_enabled = services.routing.codex_routed_enabled
     codex_runtime_config_args = services.cli_policy.codex_runtime_config_args
+    codex_runtime_model_catalog_args = (
+        services.config.codex_runtime_model_catalog_args
+    )
     current_alias = services.config.current_alias
     current_launch_cwd_key = services.config.current_launch_cwd_key
     direct_native_codex_enabled = services.routing.direct_native_codex_enabled
@@ -1082,6 +1129,10 @@ def run_codex_app_server(
         model = current_alias(cfg)
         if model and not codex_passthrough_has_model_override(passthrough):
             config_args = [*config_args, "-c", f"model={toml_string(model)}"]
+    config_args = [
+        *config_args,
+        *codex_runtime_model_catalog_args(codex, cfg, passthrough),
+    ]
     codex_mcp_compat_args = codex_mcp_native_http_compat_args(
         None,
         include_builtin_channel=(

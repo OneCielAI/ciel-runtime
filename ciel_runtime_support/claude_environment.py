@@ -12,6 +12,36 @@ import json
 import re
 from typing import Any, Callable
 
+from .architecture import ProviderRuntimeCompactionPolicy
+
+
+CLAUDE_PROJECTED_ENV_KEYS = (
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE",
+    "CLAUDE_CODE_EFFORT_LEVEL",
+    "ANTHROPIC_MODEL",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    "CIEL_RUNTIME_MODEL_ALIAS",
+    "CIEL_RUNTIME_PROVIDER",
+)
+CLAUDE_AUTO_COMPACT_WINDOW_MAX = 1_000_000
+
 
 @dataclass(frozen=True)
 class ClaudeLimitPorts:
@@ -19,6 +49,18 @@ class ClaudeLimitPorts:
     cap_output_tokens: Callable[..., int]
     ollama_options: Callable[[dict[str, Any]], dict[str, Any]]
     context_limit: Callable[[str, dict[str, Any]], int | None]
+    compaction_policy: Callable[
+        [str, dict[str, Any]], ProviderRuntimeCompactionPolicy
+    ]
+
+
+@dataclass(frozen=True)
+class ClaudeCompactionSnapshot:
+    """Immutable compact/context settings for one Claude child process."""
+
+    context_window: int | None
+    auto_compact_window: int | None
+    auto_compact_percent: int | None
 
 
 class ClaudeLimitPolicy:
@@ -40,11 +82,32 @@ class ClaudeLimitPolicy:
         return None
 
     def auto_compact_window(self, provider: str, config: dict[str, Any]) -> int | None:
+        return self.compaction_snapshot(provider, config).auto_compact_window
+
+    def compaction_snapshot(
+        self, provider: str, config: dict[str, Any]
+    ) -> ClaudeCompactionSnapshot:
         configured = self._ports.positive_int(config.get("auto_compact_window"))
         limit = self._ports.context_limit(provider, config)
         if configured:
-            return min(configured, limit) if limit else configured
-        return limit or None
+            window = min(
+                configured,
+                limit or configured,
+                CLAUDE_AUTO_COMPACT_WINDOW_MAX,
+            )
+            return ClaudeCompactionSnapshot(limit or None, window, None)
+        policy = self._ports.compaction_policy(provider, config)
+        try:
+            percent = int(policy.trigger_percent) if policy.trigger_percent else None
+        except (TypeError, ValueError):
+            percent = None
+        if percent is not None and not 1 <= percent <= 100:
+            percent = None
+        window = min(limit, CLAUDE_AUTO_COMPACT_WINDOW_MAX) if limit else None
+        if percent is not None and limit and window:
+            desired_tokens = (limit * percent) // 100
+            percent = max(1, min(100, (desired_tokens * 100) // window))
+        return ClaudeCompactionSnapshot(limit or None, window, percent)
 
 
 @dataclass(frozen=True)
@@ -277,10 +340,17 @@ class ClaudeEnvironmentProjection:
         output_tokens = self._limits.output_token_limit(provider, config)
         if output_tokens:
             env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(output_tokens)
-        compact_window = self._limits.auto_compact_window(provider, config)
-        if compact_window:
-            env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = str(compact_window)
-            env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"] = str(compact_window)
+        compaction = self._limits.compaction_snapshot(provider, config)
+        if compaction.auto_compact_window:
+            env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = str(
+                compaction.auto_compact_window
+            )
+        if compaction.context_window:
+            env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"] = str(compaction.context_window)
+        if compaction.auto_compact_percent:
+            env["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"] = str(
+                compaction.auto_compact_percent
+            )
         effort_level = str(config.get("effort_level") or "").strip().lower()
         if effort_level:
             env["CLAUDE_CODE_EFFORT_LEVEL"] = effort_level
@@ -391,30 +461,7 @@ class ClaudeRuntimeSettingsPolicy:
 
 class ClaudeEnvironmentShellRenderer:
     OPTIONAL_KEYS = ("ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
-    PROJECTED_KEYS = (
-        "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
-        "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
-        "CLAUDE_CODE_ATTRIBUTION_HEADER",
-        "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
-        "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
-        "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
-        "CLAUDE_CODE_EFFORT_LEVEL",
-        "ANTHROPIC_MODEL",
-        "ANTHROPIC_CUSTOM_MODEL_OPTION",
-        "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
-        "CLAUDE_CODE_SUBAGENT_MODEL",
-        "CIEL_RUNTIME_MODEL_ALIAS",
-        "CIEL_RUNTIME_PROVIDER",
-    )
+    PROJECTED_KEYS = CLAUDE_PROJECTED_ENV_KEYS
 
     @classmethod
     def lines(cls, env: dict[str, str]) -> list[str]:
@@ -425,6 +472,9 @@ class ClaudeEnvironmentShellRenderer:
 
 
 __all__ = [
+    "CLAUDE_AUTO_COMPACT_WINDOW_MAX",
+    "CLAUDE_PROJECTED_ENV_KEYS",
+    "ClaudeCompactionSnapshot",
     "ClaudeEnvironmentFeaturePorts",
     "ClaudeEnvironmentProjection",
     "ClaudeEnvironmentShellRenderer",

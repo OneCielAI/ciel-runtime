@@ -45,7 +45,7 @@ class AnthropicPresetOutputTokensTests(unittest.TestCase):
 
         env = ciel_runtime.env_vars(cfg)
 
-        self.assertEqual("1048576", env.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW"))
+        self.assertEqual("1000000", env.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW"))
         self.assertEqual("ciel-runtime-anthropic-claude-opus-4-8[1m]", env.get("ANTHROPIC_MODEL"))
 
     def test_routed_haiku_uses_its_smaller_context_without_one_million_marker(self):

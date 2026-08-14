@@ -160,6 +160,45 @@ API에 노출되지 않으며, TTS 업스트림으로 전달하는 순간에만 
 
 ---
 
+## Runtime compact 설정
+
+Claude Code와 Codex의 native auto-compaction 설정은 런타임을 시작할 때 현재
+provider와 현재 model을 기준으로 **한 번만** 계산한다. 계산 결과는 해당 child process의
+환경변수 또는 시작 인자에만 적용하며 `config.json`의 다른 model 설정으로 복사하지 않는다.
+따라서 Kimi K3를 시작한 뒤 K2.7이나 다른 provider/model을 시작하면 K3 값이 남지 않고,
+새 launch가 그 model의 명시적 설정 또는 기본값을 다시 사용한다. 우선순위는 다음과 같다.
+
+1. provider 설정의 명시적 `auto_compact_window` 또는 `codex_auto_compact_window`
+2. 현재 provider adapter가 현재 model에 선언한 launch-only 정책
+3. 해당 CLI/runtime의 model 기본값
+
+Kimi K3의 launch-only 정책은 Kimi CLI의 85% trigger 기준을 사용한다. Codex에는
+`model_auto_compact_token_limit=891289`를 정확히 전달한다. Claude Code는 실제 context를
+`CLAUDE_CODE_MAX_CONTEXT_TOKENS=1048576`으로 유지하고, 공식 auto-compact window 최대값
+1,000,000과 `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=89`를 사용해 약 890,000 tokens에서
+compact하도록 설정한다. 실제 model context와 compact trigger를 같은 값으로 취급하지 않는다.
+
+Claude child process를 만들기 전에는 Ciel이 관리하는 Claude 환경변수를 복사된 child
+환경에서 먼저 제거한 뒤 이번 launch의 snapshot만 넣는다. 부모 shell 환경은 변경하지 않는다.
+Codex model catalog도 공용 mutable 파일을 덮어쓰지 않고 내용 해시별 immutable 파일을
+생성한다. 같은 컴퓨터에서 서로 다른 provider/model의 Codex를 동시에 시작해도 이미 실행 중인
+process가 참조하는 catalog가 다른 launch에 의해 바뀌지 않는다.
+Codex App Server도 Codex TUI와 동일한 launch snapshot/catalog를 받는다.
+
+Claude 또는 Codex 시작 명령에 `--model`/`-m`(또는 Codex `-c model=...`)을
+명시하면 그 값이 저장된 메뉴 model보다 우선한다. Ciel이 해당 임시 model의 정확한 profile을
+해석할 수 없는 경우에는 저장된 model의 context/compact 값을 재사용하지 않고 관련 override를
+생략해 CLI 자체 catalog와 기본값에 맡긴다. 이는 K3용 임계값이 명시적으로 선택한 다른 model에
+누출되는 것을 막기 위한 보수적 동작이다.
+
+Ciel의 `prompt_compaction` soft guard는 이 native auto-compaction과 별개다. provider에 보낼
+단일 요청 복사본이 실제 입력 예산을 넘을 때만 임시로 축약하며 Claude/Codex transcript를
+영구 변경하지 않는다. 정상적인 지속 compact는 CLI 자체가 담당하고, soft guard는 native
+compact가 먼저 일어나지 못한 예외 상황의 마지막 방어선으로만 남긴다. 일반 `413`, `429`,
+high-demand 또는 network 오류를 context overflow로 재분류하지 않는다.
+
+---
+
 ## 원격 시스템 지침
 
 시작 메뉴의 **Remote instructions**에서 런타임별 HTTP(S) GET URL을 설정할 수 있다.

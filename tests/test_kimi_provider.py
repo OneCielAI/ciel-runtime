@@ -650,8 +650,15 @@ class KimiProviderTests(unittest.TestCase):
 
         self.assertIn("[1m]", env["ANTHROPIC_MODEL"])
         self.assertEqual("max", env["CLAUDE_CODE_EFFORT_LEVEL"])
-        self.assertEqual("1048576", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
+        self.assertEqual("1000000", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
         self.assertEqual("1048576", env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"])
+        self.assertEqual("89", env["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"])
+        self.assertEqual(
+            890000,
+            int(env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
+            * int(env["CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"])
+            // 100,
+        )
 
         pcfg["current_model"] = "k3[1m]"
         ciel_runtime.apply_kimi_model_profile("kimi", pcfg)
@@ -659,6 +666,16 @@ class KimiProviderTests(unittest.TestCase):
             env = ciel_runtime.env_vars(cfg)
         self.assertIn("[1m]", env["ANTHROPIC_MODEL"])
         self.assertEqual("1048576", env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"])
+
+        pcfg["current_model"] = "kimi-for-coding"
+        ciel_runtime.apply_kimi_model_profile("kimi", pcfg)
+        with mock.patch.object(
+            ciel_runtime, "upstream_model_ids", return_value=["kimi-for-coding"]
+        ):
+            env = ciel_runtime.env_vars(cfg)
+        self.assertEqual("262144", env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"])
+        self.assertEqual("262144", env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"])
+        self.assertNotIn("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", env)
 
     def test_launch_requires_kimi_api_key(self):
         with mock.patch.object(ciel_runtime, "base_url_status_line", return_value="Base URL: Kimi.com configured"):

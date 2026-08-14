@@ -72,8 +72,10 @@ class CodexRuntimeAdapter(CliRuntimeAdapter):
             argv.extend(str(value) for value in options.get("model_args", ()))
         else:
             argv.extend(str(value) for value in options.get("router_config_args", ()))
-        if spec.mode != "native":
-            argv.extend(str(value) for value in options.get("model_catalog_args", ()))
+        # Routed launches receive an immutable catalog path; a native launch
+        # may receive only a launch-specific auto-compaction override.  Both
+        # are model settings and must survive command materialization.
+        argv.extend(str(value) for value in options.get("model_catalog_args", ()))
         for key in ("alternate_screen_args", "mcp_args", "model_alias_args"):
             argv.extend(str(value) for value in options.get(key, ()))
         argv.extend(spec.passthrough)

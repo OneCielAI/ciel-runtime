@@ -30,7 +30,6 @@ class CodexLaunchSharedInstallationPorts:
     install_codex: Callback
     warn_multiple_installs: Callback
     disable_prompts: Callback
-    has_passthrough_option: Callback
     install_prompts: Callback
 
 
@@ -107,7 +106,6 @@ class CodexLaunchAssembly:
             installation=runtime_launch.CodexLaunchInstallation(
                 disable_ciel_runtime_codex_prompts_for_native=self.installation.disable_prompts,
                 find_executable=self.installation.find_executable,
-                has_passthrough_option=self.installation.has_passthrough_option,
                 install_ciel_runtime_codex_prompts=self.installation.install_prompts,
                 install_codex_if_missing=self.installation.install_codex,
                 warn_if_multiple_ciel_runtime_installs=self.installation.warn_multiple_installs,
@@ -151,6 +149,7 @@ class CodexLaunchAssembly:
                 load_config=self.config.load_config,
                 provider_mode_label=self.config.provider_mode_label,
                 record_launch_state_for_cwd=self.config.record_launch_state,
+                codex_runtime_model_catalog_args=self.config.model_catalog_args,
             ),
             cli_policy=self.app_server.policy,
             installation=runtime_launch.CodexAppServerInstallation(

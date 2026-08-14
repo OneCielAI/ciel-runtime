@@ -13,6 +13,7 @@ from ..architecture import (
     ProviderModelCatalogPolicy,
     ProviderOptionPresentationPolicy,
     ProviderRequestPolicy,
+    ProviderRuntimeCompactionPolicy,
     ProviderStatusPolicy,
     ProviderUiPolicy,
 )
@@ -188,6 +189,19 @@ class KimiProviderAdapter(HttpBearerProviderAdapter):
             settings_strategy="standard",
             hosted_timeout=True,
         )
+
+    def runtime_compaction_policy(
+        self, config: ProviderConfig
+    ) -> ProviderRuntimeCompactionPolicy:
+        model = self.normalize_model_id(config.model)
+        if model in {"k3", "k3[1m]"}:
+            # Kimi CLI uses an 85% compaction trigger for its long-context
+            # model.  Ciel applies the same provider-owned safety margin to
+            # Claude and Codex at process launch, without persisting it into a
+            # config that could leak into a later K2.7 or different-provider
+            # session.
+            return ProviderRuntimeCompactionPolicy(trigger_percent=85)
+        return ProviderRuntimeCompactionPolicy()
 
     def router_native_anthropic_enabled(
         self, config: ProviderConfig, model: str | None = None

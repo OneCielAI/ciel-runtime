@@ -2,6 +2,7 @@ import json
 import unittest
 from pathlib import Path
 
+from ciel_runtime_support.architecture import ProviderRuntimeCompactionPolicy
 from ciel_runtime_support.codex_launch_configuration import (
     CodexLaunchCatalogPorts,
     CodexLaunchConfigurationConstants,
@@ -26,9 +27,19 @@ class CodexLaunchConfigurationServiceTests(unittest.TestCase):
         self.assertTrue(policy.has_option(["--model"], "--model"))
         self.assertEqual('"value"', policy.toml_string("value"))
 
-    def service(self, *, native=False, files=None, writes=None):
+    def service(
+        self,
+        *,
+        native=False,
+        files=None,
+        writes=None,
+        compaction_policy=None,
+    ):
         files = files or {}
         writes = writes if writes is not None else []
+        compaction_policy = compaction_policy or (
+            lambda _provider, _config: ProviderRuntimeCompactionPolicy()
+        )
         return CodexLaunchConfigurationService(
             constants=CodexLaunchConfigurationConstants(
                 runtime_provider_id="ciel-runtime",
@@ -48,8 +59,10 @@ class CodexLaunchConfigurationServiceTests(unittest.TestCase):
                 current_provider=lambda cfg: (cfg["provider"], cfg["config"]),
                 native_enabled=lambda _provider: native,
                 current_alias=lambda cfg: cfg.get("alias", ""),
-                context_limit=lambda _provider, _config: 1000,
-                context_capacity=lambda _provider, _config: None,
+                context_window=lambda _provider, config: int(
+                    config.get("context_window") or 1000
+                ),
+                compaction_policy=compaction_policy,
             ),
             catalog=CodexLaunchCatalogPorts(
                 write=lambda codex, spec, env: writes.append((codex, spec, env))
@@ -76,7 +89,7 @@ class CodexLaunchConfigurationServiceTests(unittest.TestCase):
         writes = []
         service = self.service(native=True, writes=writes)
         cfg = {"provider": "codex", "alias": "gpt-5.6-sol",
-               "config": {"codex_auto_compact_window": 240000}}
+               "config": {"codex_auto_compact_window": 240000, "context_window": 300000}}
 
         args = service.runtime_model_catalog_args("codex", cfg)
 
@@ -95,6 +108,33 @@ class CodexLaunchConfigurationServiceTests(unittest.TestCase):
                 "codex", {"provider": "codex", "config": {"codex_auto_compact_window": 0}}
             ),
         )
+
+    def test_launch_snapshot_recomputes_threshold_after_provider_model_change(self):
+        writes = []
+        service = self.service(
+            writes=writes,
+            compaction_policy=lambda provider, config: ProviderRuntimeCompactionPolicy(
+                trigger_percent=85
+                if provider == "kimi" and config.get("current_model") == "k3"
+                else None
+            ),
+        )
+        kimi = {
+            "provider": "kimi",
+            "alias": "ciel-runtime-kimi-k3[1m]",
+            "config": {"current_model": "k3", "context_window": 1_048_576},
+        }
+        other = {
+            "provider": "other",
+            "alias": "ciel-runtime-other-model",
+            "config": {"current_model": "model", "context_window": 262_144},
+        }
+
+        service.runtime_model_catalog_args("codex", kimi)
+        service.runtime_model_catalog_args("codex", other)
+
+        self.assertEqual(891_289, writes[0][1].auto_compact_token_limit)
+        self.assertEqual(235_929, writes[1][1].auto_compact_token_limit)
 
 
     def test_runtime_config_uses_responses_provider(self):

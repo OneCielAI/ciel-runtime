@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ciel_runtime_support.architecture import ProviderRuntimeCompactionPolicy
 from ciel_runtime_support.codex_config import (
     codex_alternate_screen_value_from_config_text,
     codex_config_override_keys,
@@ -70,8 +71,10 @@ class CodexLaunchModelPorts:
     current_provider: Callable[[dict[str, Any]], tuple[str, dict[str, Any]]]
     native_enabled: Callable[[str], bool]
     current_alias: Callable[[dict[str, Any]], str]
-    context_limit: Callable[[str, dict[str, Any]], int | None]
-    context_capacity: Callable[[str, dict[str, Any]], int | None]
+    context_window: Callable[[str, dict[str, Any]], int | None]
+    compaction_policy: Callable[
+        [str, dict[str, Any]], ProviderRuntimeCompactionPolicy
+    ]
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +93,16 @@ class CodexLaunchConfigurationEffects:
     read_text: Callable[[Path], str]
     log: Callable[[str, str], None]
     output: Callable[[str], None]
+
+
+@dataclass(frozen=True, slots=True)
+class CodexLaunchModelSnapshot:
+    """Provider/model settings resolved exactly once for one Codex launch."""
+
+    provider: str
+    native: bool
+    spec: CodexModelCatalogSpec | None
+    auto_compact_token_limit: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,48 +166,87 @@ class CodexLaunchConfigurationService:
             f"model_providers.{provider}.stream_max_retries=0",
         ]
 
-    def write_runtime_model_catalog(
-        self, codex: str, cfg: dict[str, Any]
-    ) -> Path | None:
-        provider, provider_config = self.model.current_provider(cfg)
-        if self.model.native_enabled(provider):
-            return None
-        alias = self.model.current_alias(cfg)
-        if not alias:
-            return None
-        context_window = (
-            self.model.context_limit(provider, provider_config)
-            or self.model.context_capacity(provider, provider_config)
-            or 272000
-        )
-        catalog_env = dict(self.effects.environ())
-        catalog_env["PATH"] = self.catalog.path_value(catalog_env)
-        configured_auto_compact = provider_config.get(
-            "codex_auto_compact_window"
-        )
+    @staticmethod
+    def _positive_int(value: Any) -> int | None:
         try:
-            auto_compact_token_limit = int(configured_auto_compact)
+            parsed = int(value)
         except (TypeError, ValueError):
-            auto_compact_token_limit = None
-        if auto_compact_token_limit is not None and auto_compact_token_limit <= 0:
-            auto_compact_token_limit = None
+            return None
+        return parsed if parsed > 0 else None
+
+    def _launch_model_snapshot(
+        self, cfg: dict[str, Any]
+    ) -> CodexLaunchModelSnapshot:
+        provider, provider_config = self.model.current_provider(cfg)
+        native = self.model.native_enabled(provider)
+        alias = self.model.current_alias(cfg)
+        known_context_window = self.model.context_window(provider, provider_config)
+        # Ciel does not own the model catalog of a direct native Codex launch.
+        # An unknown native context must stay unknown: inventing 272K here
+        # would incorrectly clamp an operator's explicit compact threshold.
+        context_window = known_context_window or (None if native else 272000)
+        auto_compact_token_limit = self._positive_int(
+            provider_config.get("codex_auto_compact_window")
+        )
+        if auto_compact_token_limit is None:
+            policy = self.model.compaction_policy(provider, provider_config)
+            percent = self._positive_int(policy.trigger_percent)
+            if percent is not None and percent <= 100 and context_window:
+                auto_compact_token_limit = max(
+                    1, (context_window * percent) // 100
+                )
+        if auto_compact_token_limit is None and not native and context_window:
+            auto_compact_token_limit = max(1, (context_window * 9) // 10)
+        if auto_compact_token_limit is not None and context_window:
+            auto_compact_token_limit = min(
+                context_window, auto_compact_token_limit
+            )
         metadata = provider_config.get("codex_model_catalog")
         if not isinstance(metadata, Mapping):
             metadata = None
-        return self.catalog.write(
-            codex,
-            CodexModelCatalogSpec(
+        spec = None
+        if alias and context_window:
+            spec = CodexModelCatalogSpec(
                 alias=alias,
                 provider_label=self.catalog.provider_label(provider),
                 context_window=context_window,
-                effort=str(provider_config.get("effort_level") or "").strip().lower(),
+                effort=str(provider_config.get("effort_level") or "")
+                .strip()
+                .lower(),
                 auto_compact_token_limit=auto_compact_token_limit,
-                metadata=metadata,
-            ),
+                metadata=dict(metadata) if metadata is not None else None,
+            )
+        return CodexLaunchModelSnapshot(
+            provider=provider,
+            native=native,
+            spec=spec,
+            auto_compact_token_limit=auto_compact_token_limit,
+        )
+
+    def _write_runtime_model_catalog(
+        self, codex: str, snapshot: CodexLaunchModelSnapshot
+    ) -> Path | None:
+        if snapshot.native or snapshot.spec is None:
+            return None
+        catalog_env = dict(self.effects.environ())
+        catalog_env["PATH"] = self.catalog.path_value(catalog_env)
+        return self.catalog.write(
+            codex,
+            snapshot.spec,
             catalog_env,
         )
 
-    def auto_compact_config_args(self, cfg: dict[str, Any]) -> list[str]:
+    def write_runtime_model_catalog(
+        self, codex: str, cfg: dict[str, Any]
+    ) -> Path | None:
+        return self._write_runtime_model_catalog(
+            codex, self._launch_model_snapshot(cfg)
+        )
+
+    @staticmethod
+    def _auto_compact_config_args(
+        snapshot: CodexLaunchModelSnapshot,
+    ) -> list[str]:
         """Move Codex's own compaction trigger to the operator's threshold.
 
         A session that crosses providers carries history built under whatever
@@ -208,23 +260,45 @@ class CodexLaunchConfigurationService:
         Codex compacts, never how much context it believes it has.
         """
 
-        _provider, provider_config = self.model.current_provider(cfg)
-        try:
-            limit = int(provider_config.get("codex_auto_compact_window"))
-        except (TypeError, ValueError):
-            return []
-        if limit <= 0:
+        limit = snapshot.auto_compact_token_limit
+        if limit is None:
             return []
         return ["-c", f"model_auto_compact_token_limit={limit}"]
 
+    def auto_compact_config_args(self, cfg: dict[str, Any]) -> list[str]:
+        return self._auto_compact_config_args(self._launch_model_snapshot(cfg))
+
     def runtime_model_catalog_args(
-        self, codex: str, cfg: dict[str, Any]
+        self,
+        codex: str,
+        cfg: dict[str, Any],
+        passthrough: list[str] | None = None,
     ) -> list[str]:
-        path = self.write_runtime_model_catalog(codex, cfg)
+        if self.passthrough_has_model_override(passthrough or []):
+            # The explicit CLI model is the effective launch model.  Its
+            # provider profile may not be known to Ciel, so applying the
+            # persisted menu model's catalog/threshold would be worse than
+            # deferring to Codex's own model catalog and compact defaults.
+            self.effects.log(
+                "INFO",
+                "codex_compaction_launch_snapshot skipped=explicit_model_override",
+            )
+            return []
+        snapshot = self._launch_model_snapshot(cfg)
+        spec = snapshot.spec
+        self.effects.log(
+            "INFO",
+            "codex_compaction_launch_snapshot "
+            f"provider={snapshot.provider} "
+            f"model={(spec.alias if spec is not None else '-')} "
+            f"context={(spec.context_window if spec is not None else '-')} "
+            f"limit={snapshot.auto_compact_token_limit or '-'}",
+        )
+        path = self._write_runtime_model_catalog(codex, snapshot)
         if path is None:
             # A native provider keeps its own bundled catalog; only the
             # compaction threshold is ours to set.
-            return self.auto_compact_config_args(cfg)
+            return self._auto_compact_config_args(snapshot)
         value = self.policy.toml_string(str(path.resolve()))
         return ["-c", f"model_catalog_json={value}"]
 

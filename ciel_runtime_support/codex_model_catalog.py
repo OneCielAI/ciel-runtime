@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -128,9 +131,35 @@ class CodexModelCatalogService:
         return routed
 
     def _save(self, catalog: dict[str, Any]) -> Path:
-        self.config_dir.mkdir(parents=True, exist_ok=True)
-        path = self.config_dir / "codex-model-catalog.json"
-        temporary = path.with_suffix(".json.tmp")
-        temporary.write_text(json.dumps(catalog, ensure_ascii=False), encoding="utf-8")
-        temporary.replace(path)
+        payload = json.dumps(
+            catalog,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        catalog_dir = self.config_dir / "codex-model-catalogs"
+        catalog_dir.mkdir(parents=True, exist_ok=True)
+        path = catalog_dir / f"{digest}.json"
+        if path.exists():
+            return path
+        temporary = catalog_dir / (
+            f".{digest}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+        )
+        try:
+            temporary.write_text(payload, encoding="utf-8")
+            # Another simultaneous launch may publish the same content first.
+            # Replacing it is harmless because the target name is the content
+            # digest; different provider/model snapshots always use different
+            # immutable paths.
+            try:
+                temporary.replace(path)
+            except OSError:
+                if not path.exists():
+                    raise
+        finally:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
         return path

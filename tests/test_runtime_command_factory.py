@@ -2,11 +2,39 @@ from pathlib import Path
 import unittest
 from unittest import mock
 
-from ciel_runtime_support.architecture import RuntimeCommand
+from ciel_runtime_support.architecture import (
+    LaunchSpec,
+    ProviderConfig,
+    RuntimeCommand,
+    RuntimeConfig,
+)
+from ciel_runtime_support.runtime_adapters import CodexRuntimeAdapter
 from ciel_runtime_support.runtime_command_factory import RuntimeCommandFactory, RuntimeCommandFactoryPorts
 
 
 class RuntimeCommandFactoryTests(unittest.TestCase):
+    def test_native_codex_keeps_launch_specific_compaction_args(self):
+        adapter = CodexRuntimeAdapter(name="codex", executable="codex")
+        spec = LaunchSpec(
+            runtime=RuntimeConfig(
+                name="codex",
+                executable="codex",
+                options={
+                    "model_catalog_args": (
+                        "-c",
+                        "model_auto_compact_token_limit=891289",
+                    )
+                },
+            ),
+            provider=ProviderConfig(name="codex", base_url="", model="gpt"),
+            mode="native",
+            protocol="openai_responses",
+        )
+
+        command = adapter.build_command(spec)
+
+        self.assertIn("model_auto_compact_token_limit=891289", command.argv)
+
     def test_materializes_normalized_spec_through_registered_adapter(self):
         adapter = mock.Mock()
         adapter.build_command.return_value = RuntimeCommand(

@@ -207,6 +207,19 @@ class ProviderContextPolicy:
 
 
 @dataclass(frozen=True)
+class ProviderRuntimeCompactionPolicy:
+    """Provider-owned default for client-runtime history compaction.
+
+    The percentage is resolved against the selected model's context window at
+    launch time.  It is deliberately not persisted into the provider config:
+    changing provider or model must produce a fresh runtime snapshot instead
+    of carrying the previous model's threshold forward.
+    """
+
+    trigger_percent: int | None = None
+
+
+@dataclass(frozen=True)
 class ProviderOptionPresentationPolicy:
     """Provider-owned option status capabilities."""
 
@@ -559,6 +572,14 @@ class ProviderAdapter(ABC):
 
         del config
         return ProviderContextPolicy()
+
+    def runtime_compaction_policy(
+        self, config: ProviderConfig
+    ) -> ProviderRuntimeCompactionPolicy:
+        """Return launch-only compaction defaults for the selected model."""
+
+        del config
+        return ProviderRuntimeCompactionPolicy()
 
     def option_presentation_policy(self, config: ProviderConfig) -> ProviderOptionPresentationPolicy:
         del config

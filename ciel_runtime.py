@@ -3595,7 +3595,18 @@ def cmd_test(args: argparse.Namespace) -> None:
 
 def claude_code_output_token_limit(provider: str, pcfg: dict[str, Any]) -> int | None: return claude_limit_policy().output_token_limit(provider, pcfg)
 def claude_code_auto_compact_window(provider: str, pcfg: dict[str, Any]) -> int | None: return claude_limit_policy().auto_compact_window(provider, pcfg)
-def claude_limit_policy() -> ClaudeLimitPolicy: return ClaudeLimitPolicy(ClaudeLimitPorts(positive_int, cap_output_tokens_to_context_ratio, ollama_extra_options, context_limit_for_status))
+def claude_limit_policy() -> ClaudeLimitPolicy:
+    return ClaudeLimitPolicy(
+        ClaudeLimitPorts(
+            positive_int,
+            cap_output_tokens_to_context_ratio,
+            ollama_extra_options,
+            context_limit_for_status,
+            lambda provider, pcfg: configured_provider_adapter(
+                provider, pcfg
+            ).runtime_compaction_policy(provider_contract_config(provider, pcfg)),
+        )
+    )
 def claude_model_alias_policy() -> ClaudeModelAliasPolicy: return ClaudeModelAliasPolicy(ClaudeModelPorts(strip_claude_context_suffix, current_upstream_model_id, unslug_provider_alias, model_map_for, model_context_hint_from_model_id, anthropic_model_limit_hints, positive_int, cached_or_configured_model_ids, normalize_model_id, alias_for))
 _CLAUDE_MODEL_ALIAS_API = ClaudeModelAliasCompatibilityApi(claude_model_alias_policy, context_limit_for_status)
 claude_code_model_claims_one_million_context = _CLAUDE_MODEL_ALIAS_API.claims_one_million_context
@@ -4525,8 +4536,8 @@ _CODEX_LAUNCH_CONFIGURATION = codex_launch_configuration.CodexLaunchConfiguratio
     constants=codex_launch_configuration.build_default_codex_launch_constants(),
     policy=codex_launch_configuration.build_default_codex_launch_policy(has_passthrough_option),
     model=codex_launch_configuration.CodexLaunchModelPorts(lambda cfg: get_current_provider(cfg), lambda provider: native_codex_enabled(provider),
-                                                           lambda cfg: current_alias(cfg), lambda provider, pcfg: context_limit_for_status(provider, pcfg),
-                                                           lambda provider, pcfg: provider_model_context_capacity(provider, pcfg)),
+                                                           lambda cfg: current_alias(cfg), lambda provider, pcfg: context_limit_for_status(provider, pcfg) or provider_model_context_capacity(provider, pcfg),
+                                                           lambda provider, pcfg: configured_provider_adapter(provider, pcfg).runtime_compaction_policy(provider_contract_config(provider, pcfg))),
     catalog=codex_launch_configuration.CodexLaunchCatalogPorts(
         lambda codex, spec, env: CodexModelCatalogService(CONFIG_DIR, subprocess.run, router_log).write(codex, spec, env),
         lambda provider: PROVIDER_LABELS.get(provider, provider), lambda env: path_with_ciel_runtime_user_dirs(env),
@@ -4574,7 +4585,7 @@ def codex_launch_assembly() -> CodexLaunchAssembly:
         config=CodexLaunchSharedConfigPorts(apply_launch_endpoint_policy, current_alias, current_launch_cwd_key, ensure_model_cache_for_launch, get_current_provider,
                                             load_config, provider_mode_label, record_launch_state_for_cwd, codex_runtime_model_catalog_args),
         installation=CodexLaunchSharedInstallationPorts(find_executable, install_codex_if_missing, warn_if_multiple_ciel_runtime_installs,
-                                                        disable_ciel_runtime_codex_prompts_for_native, has_passthrough_option, install_ciel_runtime_codex_prompts),
+                                                        disable_ciel_runtime_codex_prompts_for_native, install_ciel_runtime_codex_prompts),
         dispatch=CodexLaunchSharedDispatchPorts(launch_agy, launch_claude, launch_codex, launch_codex_app_server, materialize_runtime_command,
                                                 run_ciel_runtime_update_check, run_codex_update_check, run_prelaunch_menu, log_codex_passthrough_mapping),
         routing=CodexLaunchSharedRoutingPorts(cleanup_managed_services_for_provider, codex_routed_enabled, direct_native_codex_enabled, launch_readiness_errors,

@@ -1,5 +1,6 @@
 import unittest
 
+from ciel_runtime_support.architecture import ProviderRuntimeCompactionPolicy
 from ciel_runtime_support.claude_environment import (
     ClaudeEnvironmentFeaturePorts,
     ClaudeEnvironmentProjection,
@@ -22,6 +23,7 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
                 cap_output_tokens=lambda _provider, _config, value: min(value, 512),
                 ollama_options=lambda config: config.get("options", {}),
                 context_limit=lambda _provider, _config: 4096,
+                compaction_policy=lambda _provider, _config: ProviderRuntimeCompactionPolicy(),
             )
         )
         self.assertEqual(512, policy.output_token_limit("openai", {"max_output_tokens": 1024}))
@@ -52,6 +54,25 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual("regular", policy.context_model_alias("test", {}, "regular"))
         self.assertTrue(policy.matches_family("claude-opus-4-1", "opus"))
         self.assertFalse(policy.matches_family("claude-sonnet-4-1", "opus"))
+
+    def test_provider_compaction_percent_does_not_reduce_model_context(self):
+        policy = ClaudeLimitPolicy(
+            ClaudeLimitPorts(
+                positive_int=lambda value: int(value) if value else None,
+                cap_output_tokens=lambda _provider, _config, value: value,
+                ollama_options=lambda _config: {},
+                context_limit=lambda _provider, _config: 1_048_576,
+                compaction_policy=lambda _provider, _config: ProviderRuntimeCompactionPolicy(
+                    trigger_percent=85
+                ),
+            )
+        )
+
+        snapshot = policy.compaction_snapshot("test", {})
+
+        self.assertEqual(1_048_576, snapshot.context_window)
+        self.assertEqual(1_000_000, snapshot.auto_compact_window)
+        self.assertEqual(89, snapshot.auto_compact_percent)
 
     def test_native_projection_only_sets_marker_and_meaningful_key(self):
         projection = self._projection(native=True, key="secret")
@@ -114,6 +135,7 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
                 cap_output_tokens=lambda _provider, _config, value: value,
                 ollama_options=lambda _config: {},
                 context_limit=lambda _provider, _config: 4096,
+                compaction_policy=lambda _provider, _config: ProviderRuntimeCompactionPolicy(),
             )
         )
         return ClaudeEnvironmentProjection(

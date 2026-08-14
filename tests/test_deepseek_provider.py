@@ -73,7 +73,11 @@ class DeepSeekProviderTests(unittest.TestCase):
         with ExitStack() as stack:
             stack.enter_context(mock.patch.dict(
                 "os.environ",
-                {"PATH": "/usr/local/bin", "ANTHROPIC_API_KEY": "sk-ant-old"},
+                {
+                    "PATH": "/usr/local/bin",
+                    "ANTHROPIC_API_KEY": "sk-ant-old",
+                    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "85",
+                },
                 clear=True,
             ))
             stack.enter_context(mock.patch.object(ciel_runtime, "run_prelaunch_menu", return_value=0))
@@ -109,6 +113,7 @@ class DeepSeekProviderTests(unittest.TestCase):
         self.assertEqual(ciel_runtime.ROUTER_BASE, launch_env["ANTHROPIC_BASE_URL"])
         self.assertEqual("sk-deepseek-test", launch_env["ANTHROPIC_AUTH_TOKEN"])
         self.assertNotIn("ANTHROPIC_API_KEY", launch_env)
+        self.assertNotIn("CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", launch_env)
 
     def test_deepseek_base_status_does_not_probe_model_list(self):
         cfg = self.deepseek_cfg(api_key="sk-deepseek-test")
