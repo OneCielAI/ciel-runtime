@@ -27,6 +27,7 @@ class AlibabaProviderTests(unittest.TestCase):
         self.assertEqual("xhigh", config["effort_level"])
         self.assertTrue(config["explicit_cache"])
         self.assertEqual(4, config["explicit_cache_markers"])
+        self.assertEqual(1, config["responses_stream_truncation_retries"])
         self.assertEqual("alims-intl", ciel_runtime.PROVIDER_ALIASES["dashscope-intl"])
         self.assertEqual("alitoken", ciel_runtime.PROVIDER_ALIASES["alibaba-token-plan"])
         self.assertEqual(

@@ -159,7 +159,7 @@ class MetaProviderTests(unittest.TestCase):
 
 class ProviderResponsesPassthroughTests(unittest.TestCase):
     @staticmethod
-    def _passthrough_for_response(response, *, logs=None):
+    def _passthrough_for_response(response, *, logs=None, urlopen=None):
         return ProviderResponsesPassthrough(
             ProviderResponsesPassthroughPorts(
                 project_channel_context=lambda body: (body, {"delivery": True}),
@@ -169,7 +169,7 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
                 upstream_base=lambda _provider, _config: "https://example.test/v1",
                 join_url=ciel_runtime.join_url,
                 headers=lambda _provider, _config, _inbound: {},
-                urlopen=lambda *_args, **_kwargs: response,
+                urlopen=urlopen or (lambda *_args, **_kwargs: response),
                 timeout_seconds=lambda _config: 30.0,
                 copy_response_headers=lambda _handler, _headers: None,
                 log=lambda level, message: (logs if logs is not None else []).append(
@@ -580,6 +580,89 @@ class ProviderResponsesPassthroughTests(unittest.TestCase):
         self.assertTrue(caught.exception.downstream_started)
         self.assertEqual("resp_eof", caught.exception.response_id)
         self.assertIn("without a terminal event", str(caught.exception))
+
+    def test_alitoken_buffers_and_retries_one_truncated_native_stream(self):
+        prefix = b'event: response.created\ndata: {"type":"response.created","response":{"id":"resp_cut"}}\n\n'
+        complete = (
+            b'event: response.created\ndata: {"type":"response.created","response":{"id":"resp_ok"}}\n\n'
+            b'event: response.completed\ndata: {"type":"response.completed","response":{"id":"resp_ok"}}\n\n'
+        )
+
+        class Response:
+            status = 200
+            headers = {"content-type": "text/event-stream"}
+
+            def __init__(self, payload):
+                self.payload = payload
+                self.sent = False
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                if self.sent:
+                    return b""
+                self.sent = True
+                return self.payload
+
+        responses = [Response(prefix), Response(complete)]
+        logs = []
+        handler = self._passthrough_handler()
+        urlopen = mock.Mock(side_effect=responses)
+        service = self._passthrough_for_response(None, logs=logs, urlopen=urlopen)
+
+        service.forward(
+            handler,
+            "alitoken",
+            {"responses_stream_truncation_retries": 1},
+            {"model": "alias", "input": [], "stream": True},
+        )
+
+        self.assertEqual(complete, handler.wfile.getvalue())
+        self.assertEqual(2, urlopen.call_count)
+        self.assertTrue(any("provider_responses_stream_retry" in item[1] for item in logs))
+
+    def test_alitoken_truncation_retry_is_bounded_and_commits_no_partial_bytes(self):
+        payload = b'event: response.created\ndata: {"type":"response.created","response":{"id":"resp_cut"}}\n\n'
+
+        class Response:
+            status = 200
+            headers = {"content-type": "text/event-stream"}
+
+            def __init__(self):
+                self.sent = False
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, _size):
+                if self.sent:
+                    return b""
+                self.sent = True
+                return payload
+
+        handler = self._passthrough_handler()
+        urlopen = mock.Mock(side_effect=[Response(), Response()])
+        service = self._passthrough_for_response(None, urlopen=urlopen)
+
+        with self.assertRaises(UpstreamStreamReadError) as caught:
+            service.forward(
+                handler,
+                "alitoken",
+                {"responses_stream_truncation_retries": 1, "gateway_retries": 10},
+                {"model": "alias", "input": [], "stream": True},
+            )
+
+        self.assertEqual(2, caught.exception.attempts)
+        self.assertFalse(caught.exception.downstream_started)
+        self.assertEqual(b"", handler.wfile.getvalue())
+        self.assertEqual(2, urlopen.call_count)
 
     def test_router_selects_native_provider_responses_before_conversion_route(self):
         event_bus = SimpleNamespace(publish=mock.Mock())

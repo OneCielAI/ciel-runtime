@@ -577,6 +577,7 @@ class AlibabaTokenPlanProviderAdapter(AlibabaModelStudioProviderAdapter):
             auto_compact_window=QWEN38_AUTO_COMPACT,
             codex_auto_compact_window=QWEN38_AUTO_COMPACT,
             request_timeout_ms=DEFAULT_REQUEST_TIMEOUT_MS,
+            responses_stream_truncation_retries=1,
             stream_enabled=True,
             stream_word_chunking=False,
             effort_level="xhigh",

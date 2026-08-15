@@ -32,6 +32,12 @@ RUNTIME_REASONING_ONLY_NOTICE_PREFIXES = (
     "[ciel-runtime] Upstream model exhausted its output budget during reasoning",
 )
 
+KIMI_FOLLOWUP_PROMISE_RE = re.compile(
+    r"(?:겠습니다|할게요|해볼게요|하겠습니다|"
+    r"i(?:'|’)ll\b[^\n]*|i\s+will\b[^\n]*|let\s+me\b[^\n]*)[.!?。！？]?\s*$",
+    re.IGNORECASE,
+)
+
 
 def message_text(message: dict[str, Any]) -> str:
     parts: list[str] = []
@@ -69,6 +75,14 @@ def message_has_only_reasoning_notice(message: dict[str, Any]) -> bool:
         any(text.startswith(prefix) for prefix in RUNTIME_REASONING_ONLY_NOTICE_PREFIXES)
         for text in texts
     )
+
+
+def kimi_message_promises_followup(message: dict[str, Any]) -> bool:
+    """Recognize Kimi ending a reasoning turn with an unperformed next action."""
+
+    if not message_has_reasoning(message) or message_has_tool_use(message):
+        return False
+    return bool(KIMI_FOLLOWUP_PROMISE_RE.search(message_text(message).strip()))
 
 
 def message_without_reasoning_notice(message: dict[str, Any]) -> dict[str, Any]:
@@ -155,10 +169,25 @@ def recover_preamble_only_turn(
         and message_has_reasoning(message)
         and (not text.strip() or message_has_only_reasoning_notice(message))
     )
-    if not kimi_reasoning_only and not services.should_retry(body, text, []):
+    kimi_promised_followup = (
+        (provider or "").strip().lower() == "kimi"
+        and kimi_message_promises_followup(message)
+        and services.should_retry(body, text.replace("`", ""), [])
+    )
+    if (
+        not kimi_reasoning_only
+        and not kimi_promised_followup
+        and not services.should_retry(body, text, [])
+    ):
         return message
 
-    reason = "reasoning_only" if kimi_reasoning_only else "preamble_only"
+    reason = (
+        "reasoning_only"
+        if kimi_reasoning_only
+        else "promised_followup"
+        if kimi_promised_followup
+        else "preamble_only"
+    )
     services.log(
         "WARN",
         f"codex_turn_retry provider={provider} reason={reason} "
@@ -170,10 +199,13 @@ def recover_preamble_only_turn(
             if kimi_reasoning_only
             else CODEX_CONTINUATION_NUDGE
         )
+        recovery_config = dict(pcfg)
+        if (provider or "").strip().lower() == "kimi":
+            recovery_config["gateway_retries"] = 0
         retried = services.collect_message(
             handler,
             provider,
-            pcfg,
+            recovery_config,
             body_with_continuation_nudge(
                 body,
                 message_without_reasoning_notice(message) if kimi_reasoning_only else message,
@@ -220,6 +252,7 @@ __all__ = [
     "message_has_tool_use",
     "message_has_reasoning",
     "message_has_only_reasoning_notice",
+    "kimi_message_promises_followup",
     "message_without_reasoning_notice",
     "message_text",
     "recover_preamble_only_turn",

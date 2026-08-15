@@ -86,6 +86,16 @@ def reasoning_notice_message(text="private reasoning"):
     }
 
 
+def reasoning_promise_message(text):
+    return {
+        "role": "assistant",
+        "content": [
+            {"type": "thinking", "thinking": "I should run another measurement."},
+            {"type": "text", "text": text},
+        ],
+    }
+
+
 class PreambleOnlyTurnPolicyTests(unittest.TestCase):
     def test_announcement_after_a_work_request_is_retryable(self):
         self.assertTrue(
@@ -252,6 +262,67 @@ class RecoverPreambleOnlyTurnTests(unittest.TestCase):
 
         self.assertEqual("수정과 검증을 완료했습니다.", codex_turn_recovery.message_text(recovered))
         self.assertEqual(1, len(calls))
+
+    def test_kimi_reasoning_promise_with_inline_code_retries_once(self):
+        calls = []
+        original = reasoning_promise_message(
+            "17초는 `to_tsvector` 계산 때문입니다. `ILIKE` 인덱스로 바꿔 "
+            "실제로 빨라지는지 측정하겠습니다."
+        )
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "kimi",
+            {"gateway_retries": 10},
+            work_request_body(),
+            original,
+            self._services(tool_message(), calls),
+        )
+
+        self.assertTrue(codex_turn_recovery.message_has_tool_use(recovered))
+        self.assertEqual(1, len(calls))
+
+    def test_kimi_promise_recovery_disables_nested_gateway_retries(self):
+        captured = []
+
+        def collect(_handler, _provider, pcfg, _body):
+            captured.append(pcfg)
+            return tool_message()
+
+        codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "kimi",
+            {"gateway_retries": 10},
+            work_request_body(),
+            reasoning_promise_message("인덱스를 적용하고 다시 측정하겠습니다."),
+            codex_turn_recovery.CodexTurnRecoveryServices(
+                should_retry=ciel_runtime.should_retry_preamble_only_turn,
+                collect_message=collect,
+                log=lambda *_: None,
+            ),
+        )
+
+        self.assertEqual(0, captured[0]["gateway_retries"])
+
+    def test_promised_followup_match_is_kimi_only(self):
+        calls = []
+        original = reasoning_promise_message(
+            "17초는 순수 `to_tsvector` 계산에서도 발생했습니다. 조인 컬럼마다 "
+            "계산하기 때문입니다. trigram 인덱스를 만들고 `ILIKE`로 바꿔 "
+            "실제로 빨라지는지 측정하겠습니다."
+        )
+
+        recovered = codex_turn_recovery.recover_preamble_only_turn(
+            None,
+            "deepseek",
+            {},
+            work_request_body(),
+            original,
+            self._services(tool_message(), calls),
+        )
+
+        self.assertEqual(original, recovered)
+        self.assertEqual([], calls)
 
     def test_kimi_projected_reasoning_notice_retries_without_replaying_notice(self):
         calls = []

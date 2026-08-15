@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import tempfile
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -122,6 +123,108 @@ class ProviderResponsesPassthrough:
             io.BytesIO(payload),
         )
 
+    @staticmethod
+    def _stream_truncation_retries(config: dict[str, Any]) -> int:
+        """Return the bounded native Responses replay count.
+
+        This is deliberately separate from ``gateway_retries``.  A native
+        Responses stream can only be replayed safely while no bytes have been
+        committed to the Codex client, and a deterministic provider rejection
+        must never enter this loop.
+        """
+
+        try:
+            configured = int(config.get("responses_stream_truncation_retries", 0))
+        except (TypeError, ValueError):
+            configured = 0
+        return max(0, min(2, configured))
+
+    def _forward_buffered_stream(
+        self,
+        handler: Any,
+        request: urllib.request.Request,
+        provider: str,
+        config: dict[str, Any],
+        upstream_body: dict[str, Any],
+    ) -> None:
+        """Validate a native Responses stream before exposing it downstream."""
+
+        retries = self._stream_truncation_retries(config)
+        max_attempts = retries + 1
+        model = str(upstream_body.get("model") or "")
+        for attempt in range(1, max_attempts + 1):
+            with self._ports.urlopen(
+                request,
+                timeout=self._ports.timeout_seconds(config),
+                provider=provider,
+                pcfg=config,
+            ) as response, tempfile.SpooledTemporaryFile(max_size=4 * 1024 * 1024) as spool:
+                usage = ResponsesUsageObserver()
+                received_bytes = 0
+                read_error: BaseException | None = None
+                try:
+                    while chunk := response.read(65_536):
+                        received_bytes += len(chunk)
+                        usage.feed(chunk)
+                        spool.write(chunk)
+                except (IncompleteRead, OSError) as exc:
+                    partial = bytes(getattr(exc, "partial", b"") or b"")
+                    if partial:
+                        received_bytes += len(partial)
+                        usage.feed(partial)
+                        spool.write(partial)
+                    read_error = exc
+
+                observed = usage.finish()
+                stream_expected = bool(upstream_body.get("stream", True))
+                terminal_missing = stream_expected and usage.terminal_event is None
+                if read_error is not None and not terminal_missing:
+                    self._ports.log(
+                        "WARN",
+                        "provider_responses_length_mismatch_after_terminal "
+                        f"provider={provider} model={model} "
+                        f"terminal={usage.terminal_event} bytes={received_bytes}",
+                    )
+                if read_error is not None or terminal_missing:
+                    failure = read_error or EOFError(
+                        "upstream Responses stream ended without a terminal event"
+                    )
+                    if attempt < max_attempts:
+                        self._ports.log(
+                            "WARN",
+                            "provider_responses_stream_retry "
+                            f"provider={provider} model={model} "
+                            f"attempt={attempt}/{retries} bytes={received_bytes} "
+                            f"error={type(failure).__name__}",
+                        )
+                        continue
+                    self._ports.log(
+                        "ERROR",
+                        "provider_responses_stream_truncated "
+                        f"provider={provider} model={model} bytes={received_bytes} "
+                        f"attempts={attempt}",
+                    )
+                    raise UpstreamStreamReadError(
+                        provider,
+                        model,
+                        failure,
+                        attempts=attempt,
+                        downstream_started=False,
+                        response_id=usage.response_id,
+                        received_bytes=received_bytes,
+                    ) from failure
+
+                handler.send_response(getattr(response, "status", 200))
+                self._ports.copy_response_headers(handler, response.headers)
+                handler.end_headers()
+                spool.seek(0)
+                while chunk := spool.read(65_536):
+                    handler.wfile.write(chunk)
+                    handler.wfile.flush()
+                if observed:
+                    self._ports.record_usage(provider, model, observed)
+                return
+
     def forward(
         self,
         handler: Any,
@@ -157,6 +260,15 @@ class ProviderResponsesPassthrough:
             headers=self._ports.headers(provider, config, handler.headers),
             method="POST",
         )
+        if self._stream_truncation_retries(config):
+            self._forward_buffered_stream(
+                handler,
+                request,
+                provider,
+                config,
+                upstream_body,
+            )
+            return delivery_body
         with self._ports.urlopen(
             request,
             timeout=self._ports.timeout_seconds(config),
