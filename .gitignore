@@ -51,6 +51,15 @@ claude-free/evidence/
 # Local scratch checkouts / SDK inspections
 .tmp-*/
 
+# Cielavis desktop build outputs
+apps/cielavis/node_modules/
+apps/cielavis/dist/
+apps/cielavis/src-tauri/target/
+apps/cielavis/src-tauri/gen/
+apps/cielavis/*.tsbuildinfo
+apps/cielavis/vite.config.js
+apps/cielavis/vite.config.d.ts
+
 # Internal-only docs (SSH inventory, credentials maps) — never commit or publish
 internal-docs/
 
