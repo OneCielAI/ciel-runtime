@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { CielAppManifest, CielWindowDefinition } from "../core/desktopSdk";
 import type { DesktopViewport, ManagedWindow, WindowBounds } from "../core/desktopKernel";
 
@@ -23,6 +23,10 @@ export function DesktopWindow({ app, definition, instance, active, viewport, chi
   const drag = useRef<PointerOrigin | null>(null);
   const resize = useRef<PointerOrigin | null>(null);
   const pendingPaint = useRef<WindowBounds | null>(null);
+  const pendingResize = useRef<WindowBounds | null>(null);
+  const resizeFrame = useRef<number | null>(null);
+  const resizeCleanup = useRef<(() => void) | null>(null);
+  const [gestureBounds, setGestureBounds] = useState<WindowBounds | null>(null);
 
   useLayoutEffect(() => {
     const pending = pendingPaint.current;
@@ -34,6 +38,21 @@ export function DesktopWindow({ app, definition, instance, active, viewport, chi
     }
   }, [instance.bounds.x, instance.bounds.y, instance.bounds.width, instance.bounds.height]);
 
+  useLayoutEffect(() => {
+    const pending = pendingResize.current;
+    if (!pending) return;
+    const committed = instance.bounds;
+    if (committed.x === pending.x && committed.y === pending.y && committed.width === pending.width && committed.height === pending.height) {
+      pendingResize.current = null;
+      setGestureBounds(null);
+    }
+  }, [instance.bounds.x, instance.bounds.y, instance.bounds.width, instance.bounds.height]);
+
+  useEffect(() => () => {
+    resizeCleanup.current?.();
+    if (resizeFrame.current !== null) cancelAnimationFrame(resizeFrame.current);
+  }, []);
+
   function paintDrag(bounds: WindowBounds, origin: PointerOrigin) {
     const node = windowRef.current;
     if (!node) return;
@@ -41,21 +60,11 @@ export function DesktopWindow({ app, definition, instance, active, viewport, chi
     node.style.willChange = "transform";
   }
 
-  function paintResize(bounds: WindowBounds) {
-    const node = windowRef.current;
-    if (!node) return;
-    node.style.width = `${bounds.width}px`;
-    node.style.height = `${bounds.height}px`;
-    node.style.willChange = "width, height";
-  }
-
   function clearPointerPaint() {
     const node = windowRef.current;
     if (!node) return;
     if (drag.current || resize.current) return;
     node.style.transform = "";
-    node.style.width = "";
-    node.style.height = "";
     node.style.willChange = "";
   }
 
@@ -95,43 +104,69 @@ export function DesktopWindow({ app, definition, instance, active, viewport, chi
 
   function beginResize(event: ReactPointerEvent<HTMLDivElement>) {
     event.stopPropagation();
+    event.preventDefault();
+    resizeCleanup.current?.();
     event.currentTarget.setPointerCapture(event.pointerId);
     const bounds = { ...instance.bounds };
     resize.current = { pointerX: event.clientX, pointerY: event.clientY, bounds, latest: bounds };
+    pendingResize.current = null;
+    setGestureBounds(bounds);
     onFocus();
+
+    const move = (nativeEvent: PointerEvent) => {
+      if (!resize.current || nativeEvent.pointerId !== event.pointerId) return;
+      const current = resize.current;
+      const next = {
+        ...current.bounds,
+        width: current.bounds.width + nativeEvent.clientX - current.pointerX,
+        height: current.bounds.height + nativeEvent.clientY - current.pointerY,
+      };
+      current.latest = next;
+      if (resizeFrame.current !== null) return;
+      resizeFrame.current = requestAnimationFrame(() => {
+        resizeFrame.current = null;
+        if (resize.current) setGestureBounds({ ...resize.current.latest });
+      });
+    };
+    const finish = (nativeEvent: PointerEvent) => {
+      if (nativeEvent.pointerId !== event.pointerId) return;
+      finishResize();
+    };
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", finish, { once: true });
+    window.addEventListener("pointercancel", finish, { once: true });
+    resizeCleanup.current = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+      resizeCleanup.current = null;
+    };
   }
 
   function moveResize(event: ReactPointerEvent<HTMLDivElement>) {
-    const current = resize.current;
-    if (!current) return;
-    const next = {
-      ...current.bounds,
-      width: current.bounds.width + event.clientX - current.pointerX,
-      height: current.bounds.height + event.clientY - current.pointerY,
-    };
-    current.latest = next;
-    paintResize(next);
+    event.preventDefault();
   }
 
   function finishResize() {
     const current = resize.current;
     if (!current) return;
+    resizeCleanup.current?.();
+    if (resizeFrame.current !== null) {
+      cancelAnimationFrame(resizeFrame.current);
+      resizeFrame.current = null;
+    }
     const committed = onBounds(current.latest) ?? current.latest;
-    pendingPaint.current = committed;
+    pendingResize.current = committed;
+    setGestureBounds(committed);
     resize.current = null;
-    requestAnimationFrame(() => {
-      if (pendingPaint.current) {
-        clearPointerPaint();
-        pendingPaint.current = null;
-      }
-    });
   }
 
   if (instance.mode === "minimized") return null;
   const maximized = instance.mode === "maximized";
+  const renderBounds = gestureBounds ?? instance.bounds;
   const style = maximized
     ? { left: 8, top: 8, width: Math.max(320, viewport.width - 16), height: Math.max(220, viewport.height - 84), zIndex: instance.zIndex }
-    : { left: instance.bounds.x, top: instance.bounds.y, width: instance.bounds.width, height: instance.bounds.height, zIndex: instance.zIndex };
+    : { left: renderBounds.x, top: renderBounds.y, width: renderBounds.width, height: renderBounds.height, zIndex: instance.zIndex };
 
   return (
     <section ref={windowRef} className={`desktop-window${active ? " active" : ""}${maximized ? " maximized" : ""}`} style={style} onPointerDown={onFocus} data-app-id={app.id}>
