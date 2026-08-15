@@ -409,7 +409,7 @@ class ApiKeyRotationTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
             mock.patch.object(ciel_runtime.time, "sleep") as sleep,
         ):
-            with self.assertRaises(RuntimeError) as caught:
+            with self.assertRaises(urllib.error.HTTPError) as caught:
                 ciel_runtime.post_json_with_rate_retry(
                     "https://opencode.ai/zen/v1/chat/completions",
                     {"model": "deepseek-v4-flash-free", "messages": []},
@@ -420,8 +420,58 @@ class ApiKeyRotationTests(unittest.TestCase):
                     "deepseek-v4-flash-free",
                 )
 
-        self.assertIn("FreeUsageLimitError", str(caught.exception))
-        self.assertIn("Retry-After", str(caught.exception))
+        self.assertEqual(429, caught.exception.code)
+        self.assertIn("FreeUsageLimitError", caught.exception.read().decode("utf-8"))
+        sleep.assert_not_called()
+
+    def test_ollama_session_usage_limit_preserves_429_and_never_retries(self):
+        pcfg = self.provider_pcfg(
+            "ollama-cloud",
+            api_key="ollama-secret",
+            current_model="deepseek-v4-flash:0731",
+            gateway_retries=10,
+        )
+        raw = (
+            b'{"error":{"type":"rate_limit_error","message":'
+            b'"you (djloved) have reached your session usage limit, '
+            b'add extra usage: https://ollama.com/settings"}}'
+        )
+        calls = 0
+
+        def rejected(*_args, **_kwargs):
+            nonlocal calls
+            calls += 1
+            raise urllib.error.HTTPError(
+                "https://ollama.com/api/chat",
+                429,
+                "Too Many Requests",
+                {},
+                io.BytesIO(raw),
+            )
+
+        with (
+            mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=rejected),
+            mock.patch.object(ciel_runtime, "write_router_activity"),
+            mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
+            mock.patch.object(ciel_runtime.time, "sleep") as sleep,
+        ):
+            with self.assertRaises(urllib.error.HTTPError) as caught:
+                ciel_runtime.open_openai_stream_with_rate_retry(
+                    "https://ollama.com/api/chat",
+                    {"model": "deepseek-v4-flash:0731", "messages": []},
+                    {},
+                    30.0,
+                    "ollama-cloud",
+                    pcfg,
+                    "deepseek-v4-flash:0731",
+                )
+
+        self.assertEqual(1, calls)
+        self.assertEqual(429, caught.exception.code)
+        body = caught.exception.read().decode("utf-8")
+        self.assertIn("djloved", body)
+        self.assertIn("session usage limit", body)
+        self.assertIn("https://ollama.com/settings", body)
         sleep.assert_not_called()
 
     def test_upstream_429_rotates_to_live_key_without_waiting(self):
@@ -873,7 +923,7 @@ class ApiKeyRotationTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
             mock.patch.object(ciel_runtime.time, "sleep") as sleep,
         ):
-            with self.assertRaises(RuntimeError) as caught:
+            with self.assertRaises(urllib.error.HTTPError) as caught:
                 ciel_runtime.open_openai_stream_with_rate_retry(
                     "https://opencode.ai/zen/v1/chat/completions",
                     {"model": "deepseek-v4-flash-free", "messages": [], "stream": True},
@@ -886,7 +936,8 @@ class ApiKeyRotationTests(unittest.TestCase):
                 )
 
         self.assertEqual(1, urlopen.call_count)
-        self.assertIn("FreeUsageLimitError", str(caught.exception))
+        self.assertEqual(429, caught.exception.code)
+        self.assertIn("FreeUsageLimitError", caught.exception.read().decode("utf-8"))
         sleep.assert_not_called()
 
     def test_compatibility_api_key_probe_uses_provider_specific_routes(self):

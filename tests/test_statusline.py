@@ -166,7 +166,7 @@ class StatuslineTests(unittest.TestCase):
 
         self.assertIn("cache 80.0% hit 800 write 50 new 150", proc.stdout)
 
-    def test_statusline_prefers_router_context_for_ciel_runtime_session(self):
+    def test_statusline_prefers_provider_reported_session_usage_over_router_estimate(self):
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "statusline.py"
             script.write_text(ciel_runtime.STATUSLINE_SCRIPT, encoding="utf-8")
@@ -191,8 +191,9 @@ class StatuslineTests(unittest.TestCase):
                         "updated_at": time.time(),
                         "provider": "vllm",
                         "model": "qwen36-35b-a3b-nvfp4",
-                        "tokens": 100724,
+                        "tokens": 1517053,
                         "context_limit": 262144,
+                        "token_source": "estimated_json",
                     }
                 ),
                 encoding="utf-8",
@@ -210,7 +211,11 @@ class StatuslineTests(unittest.TestCase):
                 "model": {"display_name": "ciel-runtime-test"},
                 "workspace": {"current_dir": tmp},
                 "context_window": {
-                    "current_usage": {"input_tokens": 100724},
+                    "current_usage": {
+                        "input_tokens": 35,
+                        "cache_creation_input_tokens": 662,
+                        "cache_read_input_tokens": 541322,
+                    },
                     "context_window_size": 200000,
                     "used_percentage": 50.362,
                 },
@@ -224,8 +229,9 @@ class StatuslineTests(unittest.TestCase):
                 check=True,
             )
 
-        self.assertIn("ctx 100,724/262,144 tok", proc.stdout)
-        self.assertNotIn("ctx 100,724/200,000 tok", proc.stdout)
+        self.assertIn("ctx 542,019/200,000 tok", proc.stdout)
+        self.assertNotIn("1,517,053", proc.stdout)
+        self.assertNotIn("ctx est", proc.stdout)
 
     def test_statusline_uses_current_configured_context_limit_over_stale_router_limit(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -97,6 +97,7 @@ class RuntimeActivityRepository:
             model = str(body.get("model") or provider_config.get("current_model") or "")
             details = {
                 "source": source,
+                "token_source": "estimated_json",
                 "tokens": tokens,
                 "context_limit": limit,
                 "percent": percent,

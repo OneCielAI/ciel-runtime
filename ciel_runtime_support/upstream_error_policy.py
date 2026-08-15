@@ -9,6 +9,31 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 
+_TERMINAL_USAGE_LIMIT_MARKERS = (
+    "session usage limit",
+    "reached your usage limit",
+    "reached your session limit",
+    "add extra usage",
+    "purchase extra usage",
+)
+
+
+def terminal_usage_limit_error(raw: str | bytes | None) -> bool:
+    """Return whether a rate-limit response requires account action.
+
+    These limits do not recover by replaying the same generation request.  The
+    upstream status and body must instead reach the CLI so it can show the
+    account name, limit reason, and recovery URL.
+    """
+
+    if isinstance(raw, bytes):
+        text = raw.decode("utf-8", errors="ignore")
+    else:
+        text = str(raw or "")
+    folded = text.casefold()
+    return any(marker in folded for marker in _TERMINAL_USAGE_LIMIT_MARKERS)
+
+
 class UpstreamStreamReadError(RuntimeError):
     """A provider response stream ended before Ciel could collect it.
 

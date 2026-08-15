@@ -193,6 +193,7 @@ class ManagedRouterLifetime:
 @dataclass(frozen=True)
 class RouterClientSupervisorPorts:
     router_health: Callable[[], Any]
+    listener_reachable: Callable[[], bool]
     health_matches_current: Callable[[Any], bool]
     health_config_matches_current: Callable[[Any], bool]
     health_summary: Callable[[Any], str]
@@ -208,9 +209,9 @@ class RouterClientSupervisor:
     @staticmethod
     def interval_seconds() -> float:
         try:
-            value = float(os.environ.get("CIEL_RUNTIME_ROUTER_SUPERVISOR_SECONDS", "0.5"))
+            value = float(os.environ.get("CIEL_RUNTIME_ROUTER_SUPERVISOR_SECONDS", "5"))
         except (TypeError, ValueError):
-            value = 0.5
+            value = 5.0
         return max(0.5, min(30.0, value))
 
     @staticmethod
@@ -244,6 +245,17 @@ class RouterClientSupervisor:
                 f"{self._ports.health_summary(health)}",
             )
             return True
+        # A busy router can accept TCP while its Python worker holds the GIL
+        # projecting a very large prompt.  Health probes can time out in that
+        # interval; replacing the live listener disconnects the active Claude
+        # request and presents as a misleading local ConnectionRefused error.
+        if self._ports.listener_reachable():
+            self._ports.log(
+                "INFO",
+                "router_lifetime_keep_alive reason=listener_reachable_health_busy "
+                f"base={self._router_base}",
+            )
+            return True
         probe_interval = 0.5
         probe_count = max(2, int(math.ceil(self.down_confirmation_seconds() / probe_interval)))
         for attempt in range(probe_count):
@@ -259,6 +271,13 @@ class RouterClientSupervisor:
                     "INFO",
                     f"router_lifetime_keep_alive reason={reason} retry={attempt + 1} "
                     f"{self._ports.health_summary(health)}",
+                )
+                return True
+            if self._ports.listener_reachable():
+                self._ports.log(
+                    "INFO",
+                    "router_lifetime_keep_alive reason=listener_reachable_health_busy "
+                    f"retry={attempt + 1} base={self._router_base}",
                 )
                 return True
         self._ports.log("WARN", f"router_lifetime_restart reason=router_down_active_client base={self._router_base}")

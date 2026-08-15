@@ -211,10 +211,11 @@ def context_status_text(context, provider, model, expected_limit=0):
     if tokens <= 0:
         return ""
     limit = _status_positive_int(expected_limit) or _status_positive_int(context.get("context_limit"))
+    prefix = "ctx est" if str(context.get("token_source") or "") == "estimated_json" else "ctx"
     if limit > 0:
         pct = (tokens / limit) * 100.0
-        return f"ctx {tokens:,}/{limit:,} tok ({pct:.1f}%)"
-    return f"ctx {tokens:,} tok"
+        return f"{prefix} {tokens:,}/{limit:,} tok ({pct:.1f}%)"
+    return f"{prefix} {tokens:,} tok"
 
 
 def _as_int(value, default=0):
@@ -224,7 +225,7 @@ def _as_int(value, default=0):
         return default
 
 
-def session_context_status_text(session):
+def session_context_status_text(session, expected_limit=0):
     if not isinstance(session, dict):
         return ""
     context_window = session.get("context_window")
@@ -242,13 +243,9 @@ def session_context_status_text(session):
         tokens = _as_int(context_window.get("total_input_tokens"))
     if tokens <= 0:
         return ""
-    limit = _as_int(context_window.get("context_window_size"))
-    pct = context_window.get("used_percentage")
+    limit = _status_positive_int(expected_limit) or _as_int(context_window.get("context_window_size"))
     if limit > 0:
-        try:
-            pct_value = float(pct) if pct is not None else (tokens / limit) * 100.0
-        except Exception:
-            pct_value = (tokens / limit) * 100.0
+        pct_value = (tokens / limit) * 100.0
         return f"ctx {tokens:,}/{limit:,} tok ({pct_value:.1f}%)"
     return f"ctx {tokens:,} tok"
 
@@ -510,8 +507,11 @@ def main():
     status_parts = []
     expected_ctx_limit = status_config_context_limit(provider, pcfg)
     router_ctx_text = context_status_text(context, provider, model, expected_ctx_limit)
-    session_ctx_text = session_context_status_text(session)
-    ctx_text = router_ctx_text or session_ctx_text
+    session_ctx_text = session_context_status_text(session, expected_ctx_limit)
+    # Claude/Codex status input contains provider-reported token usage. Prefer
+    # it over Ciel's pre-request JSON-size estimate, which can over-count
+    # tool-heavy or CJK sessions by several times and falsely show >100%.
+    ctx_text = session_ctx_text or router_ctx_text
     if ctx_text:
         status_parts.append(gray(ctx_text))
     cache_text = session_cache_status_text(session)

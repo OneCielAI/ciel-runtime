@@ -51,6 +51,7 @@ class RuntimeActivityRepositoryTests(unittest.TestCase):
             usage = json.loads(repository.paths.context_usage.read_text(encoding="utf-8"))
 
         self.assertEqual(25.0, usage["percent"])
+        self.assertEqual("estimated_json", usage["token_source"])
         self.assertEqual(1, usage["messages"])
         self.assertEqual("context.usage", publish.call_args.kwargs["category"])
 

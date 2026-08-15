@@ -11,8 +11,10 @@ from typing import Any, Callable
 import urllib.error
 import urllib.request
 
+from .upstream_error_policy import terminal_usage_limit_error
 
-_PRESERVED_HTTP_ERROR_STATUSES = frozenset({401, 403, 413})
+
+_PRESERVED_HTTP_ERROR_STATUSES = frozenset({401, 403, 413, 429})
 
 
 def _preserved_http_error(
@@ -139,10 +141,12 @@ def post_json_with_rate_retry(
             raw_bytes = exc.read()
             raw = raw_bytes.decode("utf-8", errors="ignore")
             learn_router_rate_limit_headers(provider, pcfg, model, exc.headers)
+            terminal_usage_limit = exc.code == 429 and terminal_usage_limit_error(raw)
             if exc.code == 429:
                 register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), exc.headers)
             if (
                 exc.code == 429
+                and not terminal_usage_limit
                 and retry_rate_limits
                 and provider_api_key_count(provider, pcfg) > 1
                 and provider_has_live_api_key(provider, pcfg)
@@ -156,7 +160,7 @@ def post_json_with_rate_retry(
                 write_router_activity("retry", provider, model, attempt=retry_no, total=rate_limit_max_attempts - 1, code=exc.code, wait=0, tokens=token_estimate, bytes=byte_estimate)
                 router_log("WARN", f"upstream_rate_limit_key_retry provider={provider} model={model} attempt={retry_no}/{rate_limit_max_attempts - 1} next_key_hash={next_hash} tokens={token_estimate} bytes={byte_estimate}")
                 continue
-            if exc.code == 429 and retry_rate_limits and attempt + 1 < max_attempts:
+            if exc.code == 429 and not terminal_usage_limit and retry_rate_limits and attempt + 1 < max_attempts:
                 skip_retry, retry_after_seconds = retry_after_exceeds_request_timeout(exc.headers, timeout)
                 if skip_retry:
                     write_router_activity("error", provider, model, code=exc.code, retry_after=retry_after_seconds, tokens=token_estimate, bytes=byte_estimate)
@@ -164,7 +168,7 @@ def post_json_with_rate_retry(
                         "WARN",
                         f"upstream_rate_limit_no_retry provider={provider} model={model} retry_after={retry_after_seconds:.2f}s timeout={timeout:.2f}s tokens={token_estimate} bytes={byte_estimate}",
                     )
-                    raise RuntimeError(upstream_http_error_message(exc, raw)) from exc
+                    raise _preserved_http_error(exc, raw_bytes) from exc
                 retry_no = attempt + 1
                 wait = register_router_rate_limit_backoff(provider, pcfg, model, exc.headers.get("Retry-After"))
                 write_router_activity("retry", provider, model, attempt=retry_no, total=gateway_retries, code=exc.code, wait=wait, tokens=token_estimate, bytes=byte_estimate)
@@ -268,11 +272,16 @@ def open_provider_request_with_key_retry(
             learn_router_rate_limit_headers(provider, pcfg, model, resp.headers)
             return resp
         except urllib.error.HTTPError as exc:
+            raw_bytes = exc.read() if exc.code == 429 else b""
+            if raw_bytes:
+                exc = _preserved_http_error(exc, raw_bytes)
+            terminal_usage_limit = exc.code == 429 and terminal_usage_limit_error(raw_bytes)
             learn_router_rate_limit_headers(provider, pcfg, model, exc.headers)
             if exc.code == 429:
                 register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), exc.headers)
             if (
                 exc.code == 429
+                and not terminal_usage_limit
                 and retry_rate_limits
                 and provider_api_key_count(provider, pcfg) > 1
                 and provider_has_live_api_key(provider, pcfg)
@@ -286,7 +295,7 @@ def open_provider_request_with_key_retry(
                 write_router_activity("retry", provider, model, attempt=retry_no, total=rate_limit_max_attempts - 1, code=exc.code, wait=0, tokens=token_estimate, bytes=byte_estimate, stream=stream)
                 router_log("WARN", f"upstream_direct_rate_limit_key_retry provider={provider} model={model} attempt={retry_no}/{rate_limit_max_attempts - 1} next_key_hash={next_hash} tokens={token_estimate} bytes={byte_estimate}")
                 continue
-            if exc.code == 429 and retry_rate_limits and attempt + 1 < max_attempts:
+            if exc.code == 429 and not terminal_usage_limit and retry_rate_limits and attempt + 1 < max_attempts:
                 skip_retry, retry_after_seconds = retry_after_exceeds_request_timeout(exc.headers, timeout)
                 if skip_retry:
                     write_router_activity("error", provider, model, code=exc.code, retry_after=retry_after_seconds, tokens=token_estimate, bytes=byte_estimate, stream=stream)
@@ -389,10 +398,12 @@ def open_openai_stream_with_rate_retry(
             raw_bytes = exc.read()
             raw = raw_bytes.decode("utf-8", errors="ignore")
             learn_router_rate_limit_headers(provider, pcfg, model, exc.headers)
+            terminal_usage_limit = exc.code == 429 and terminal_usage_limit_error(raw)
             if exc.code == 429:
                 register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), exc.headers)
             if (
                 exc.code == 429
+                and not terminal_usage_limit
                 and retry_rate_limits
                 and provider_api_key_count(provider, pcfg) > 1
                 and provider_has_live_api_key(provider, pcfg)
@@ -406,7 +417,7 @@ def open_openai_stream_with_rate_retry(
                 write_router_activity("retry", provider, model, attempt=retry_no, total=rate_limit_max_attempts - 1, code=exc.code, wait=0, tokens=token_estimate, bytes=byte_estimate, stream=True)
                 router_log("WARN", f"upstream_stream_rate_limit_key_retry provider={provider} model={model} attempt={retry_no}/{rate_limit_max_attempts - 1} next_key_hash={next_hash} tokens={token_estimate} bytes={byte_estimate}")
                 continue
-            if exc.code == 429 and retry_rate_limits and attempt + 1 < max_attempts:
+            if exc.code == 429 and not terminal_usage_limit and retry_rate_limits and attempt + 1 < max_attempts:
                 skip_retry, retry_after_seconds = retry_after_exceeds_request_timeout(exc.headers, timeout)
                 if skip_retry:
                     write_router_activity("error", provider, model, code=exc.code, retry_after=retry_after_seconds, tokens=token_estimate, bytes=byte_estimate, stream=True)
@@ -414,7 +425,7 @@ def open_openai_stream_with_rate_retry(
                         "WARN",
                         f"upstream_stream_rate_limit_no_retry provider={provider} model={model} retry_after={retry_after_seconds:.2f}s timeout={timeout:.2f}s tokens={token_estimate} bytes={byte_estimate}",
                     )
-                    raise RuntimeError(upstream_http_error_message(exc, raw)) from exc
+                    raise _preserved_http_error(exc, raw_bytes) from exc
                 retry_no = attempt + 1
                 wait = register_router_rate_limit_backoff(provider, pcfg, model, exc.headers.get("Retry-After"))
                 write_router_activity("retry", provider, model, attempt=retry_no, total=gateway_retries, code=exc.code, wait=wait, tokens=token_estimate, bytes=byte_estimate, stream=True)

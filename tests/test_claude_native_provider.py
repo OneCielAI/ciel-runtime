@@ -450,7 +450,7 @@ class NativeEnvContractTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "router_log"),
             mock.patch("time.sleep") as sleep,
         ):
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(urllib.error.HTTPError) as raised:
                 ciel_runtime.post_json_with_rate_retry(
                     "https://api.anthropic.com/v1/messages",
                     {"model": "claude-opus-4-8", "messages": []},
@@ -464,6 +464,8 @@ class NativeEnvContractTests(unittest.TestCase):
 
         self.assertEqual(1, urlopen.call_count)
         sleep.assert_not_called()
+        self.assertEqual(429, raised.exception.code)
+        self.assertIn("rate limit", raised.exception.read().decode("utf-8"))
 
     def test_direct_native_anthropic_does_not_require_api_key_or_base_url(self):
         errors = ciel_runtime.launch_readiness_errors(self._cfg(base_url="", api_key="", route_through_router=False))
@@ -1319,6 +1321,18 @@ class StopRouterGuaranteeTests(unittest.TestCase):
 
 
 class RouterLifetimeTests(unittest.TestCase):
+    def test_router_client_supervisor_defaults_to_five_second_interval(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("CIEL_RUNTIME_ROUTER_SUPERVISOR_SECONDS", None)
+            self.assertEqual(5.0, ciel_runtime.router_client_supervisor_interval_seconds())
+
+    def test_router_client_supervisor_invalid_interval_falls_back_to_five_seconds(self):
+        with mock.patch.dict(
+            os.environ,
+            {"CIEL_RUNTIME_ROUTER_SUPERVISOR_SECONDS": "invalid"},
+        ):
+            self.assertEqual(5.0, ciel_runtime.router_client_supervisor_interval_seconds())
+
     def test_managed_router_watchdog_stops_when_owner_dead_and_no_clients(self):
         with (
             mock.patch.dict(os.environ, {"CIEL_RUNTIME_MANAGED_ROUTER": "1"}, clear=False),
@@ -1407,6 +1421,7 @@ class RouterLifetimeTests(unittest.TestCase):
         }
         with (
             mock.patch.object(ciel_runtime, "router_health", side_effect=[None, health]),
+            mock.patch.object(ciel_runtime, "router_listener_reachable", return_value=False),
             mock.patch.object(ciel_runtime.time, "sleep"),
             mock.patch.object(ciel_runtime, "start_router_if_needed") as start,
             mock.patch.object(ciel_runtime, "router_log") as log,
@@ -1419,6 +1434,7 @@ class RouterLifetimeTests(unittest.TestCase):
     def test_router_client_supervisor_restarts_when_router_disappears(self):
         with (
             mock.patch.object(ciel_runtime, "router_health", return_value=None),
+            mock.patch.object(ciel_runtime, "router_listener_reachable", return_value=False),
             mock.patch.object(ciel_runtime.time, "sleep"),
             mock.patch.object(ciel_runtime, "start_router_if_needed", return_value=True) as start,
             mock.patch.object(ciel_runtime, "router_log") as log,
@@ -1427,6 +1443,23 @@ class RouterLifetimeTests(unittest.TestCase):
 
         start.assert_called_once()
         self.assertTrue(any("router_down_active_client" in call.args[1] for call in log.call_args_list))
+
+    def test_router_client_supervisor_keeps_busy_listener_when_health_times_out(self):
+        with (
+            mock.patch.object(ciel_runtime, "router_health", return_value=None),
+            mock.patch.object(ciel_runtime, "router_listener_reachable", return_value=True),
+            mock.patch.object(ciel_runtime, "start_router_if_needed") as start,
+            mock.patch.object(ciel_runtime, "router_log") as log,
+        ):
+            self.assertTrue(ciel_runtime.ensure_managed_router_running_for_client())
+
+        start.assert_not_called()
+        self.assertTrue(
+            any(
+                "listener_reachable_health_busy" in call.args[1]
+                for call in log.call_args_list
+            )
+        )
 
     def test_router_client_supervisor_does_not_replace_reachable_mismatched_router(self):
         health = {"version": "newer-nightly", "config_dir": "same-instance"}

@@ -9,6 +9,8 @@ from typing import Any, Callable
 import urllib.error
 import urllib.request
 
+from .upstream_error_policy import terminal_usage_limit_error
+
 
 @dataclass(frozen=True, slots=True)
 class OllamaForwardConstants:
@@ -228,7 +230,7 @@ def forward_ollama_api_chat(
                         f"ollama_stream_context_retry provider={provider} model={model} n_ctx={context_limit} tokens={req_tokens} bytes={req_bytes}",
                     )
                     continue
-                if exc.code == 429 and attempt + 1 < max_attempts:
+                if exc.code == 429 and not terminal_usage_limit_error(raw) and attempt + 1 < max_attempts:
                     retry_no = attempt + 1
                     wait = register_router_rate_limit_backoff(provider, pcfg, model, exc.headers.get("Retry-After"))
                     write_router_activity("retry", provider, model, attempt=retry_no, total=gateway_retries, code=exc.code, wait=wait, tokens=req_tokens, bytes=req_bytes, stream=True)
@@ -382,7 +384,7 @@ def forward_ollama_api_chat(
                     f"ollama_context_retry provider={provider} model={model} n_ctx={context_limit} tokens={req_tokens} bytes={req_bytes}",
                 )
                 continue
-            if exc.code == 429 and attempt + 1 < max_attempts:
+            if exc.code == 429 and not terminal_usage_limit_error(raw) and attempt + 1 < max_attempts:
                 retry_no = attempt + 1
                 wait = register_router_rate_limit_backoff(provider, pcfg, model, exc.headers.get("Retry-After"))
                 write_router_activity("retry", provider, model, attempt=retry_no, total=gateway_retries, code=exc.code, wait=wait, tokens=req_tokens, bytes=req_bytes)
