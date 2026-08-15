@@ -2,11 +2,24 @@
 
 Cielarvis is the desktop-first visual agent client for Ciel Runtime. The first phase targets Windows while keeping the React interaction layer reusable for macOS, Linux, Android, iOS, and a browser deployment.
 
-## Phase 1
+## Agentic desktop SDK v1
+
+Cielarvis now treats every visible tool as an application package rather than a page-specific panel. The first SDK boundary consists of:
+
+- A versioned `ai.oneciel.cielarvis.app/v1` manifest describing identity, icon, capabilities, host type, and one or more window surfaces.
+- A desktop kernel that registers packages and owns window lifecycle, focus, z-order, minimize, maximize, move, resize, and singleton behavior.
+- A taskbar generated from the registered manifests. Installing another package can therefore add an icon without editing the desktop shell.
+- Built-in packages for Ciel Runtime and Ciel Chat. The chat composer at the bottom is a normal managed SDK window, not a privileged hard-coded desktop element.
+- A portable `cielarvis-js-app-v1` host for marketplace JavaScript applications. UI bundles run in a script-only sandbox and receive only manifest-granted capabilities through a versioned message bridge.
+- A declared `cielarvis-native-app-v1` ABI boundary for optional Windows DLL applications that need native performance or device integration.
+
+JavaScript is the primary cross-platform package format for Windows, macOS, Linux, mobile, and web. Native libraries are deliberately not loaded yet. A marketplace build must verify publisher signatures and capabilities, then load native code in a separate broker process rather than inside the WebView or desktop kernel. Built-in renderers use the same manifest and lifecycle contract that future packages will use.
+
+## Windows phase
 
 - Probe the configured Runtime through its public `/ca/channel/*` API.
 - When no Runtime is reachable, open an embedded supervised PowerShell/ConPTY session and launch Ciel Runtime with the requested web port.
-- Render multiple native PTY sessions as xterm.js tabs. Runtime and speech/Colab setup use separate sessions.
+- Serve Ciel Runtime through the first standardized application: a managed, movable and resizable terminal-multiplexer window. Multiple native PTY sessions remain xterm.js tabs inside that app; Runtime and speech/Colab setup use separate sessions.
 - Poll the channel wait endpoint for correlated replies and submit typed web-chat messages without importing Runtime internals.
 - Probe ASR/TTS health after the channel connects. Missing workers automatically open a read-only status session; login and deployment require an explicit button because they can authenticate accounts or consume Colab resources.
 

@@ -18,6 +18,7 @@ type LiveTerminal = { terminal: Terminal; fit: FitAddon };
 export function TerminalDeck({ sessions, activeId, onActivate, onClosed, variant = "default" }: TerminalDeckProps) {
   const hosts = useRef(new Map<string, HTMLDivElement>());
   const live = useRef(new Map<string, LiveTerminal>());
+  const viewport = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -81,14 +82,21 @@ export function TerminalDeck({ sessions, activeId, onActivate, onClosed, variant
   }, [sessions, activeId]);
 
   useEffect(() => {
-    const onResize = () => {
+    const fitActiveTerminal = () => {
       const selected = live.current.get(activeId);
       if (!selected) return;
-      selected.fit.fit();
-      void resizeTerminal(activeId, selected.terminal.cols, selected.terminal.rows);
+      requestAnimationFrame(() => {
+        selected.fit.fit();
+        void resizeTerminal(activeId, selected.terminal.cols, selected.terminal.rows);
+      });
     };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    window.addEventListener("resize", fitActiveTerminal);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fitActiveTerminal);
+    if (viewport.current) observer?.observe(viewport.current);
+    return () => {
+      window.removeEventListener("resize", fitActiveTerminal);
+      observer?.disconnect();
+    };
   }, [activeId]);
 
   async function close(id: string) {
@@ -133,7 +141,7 @@ export function TerminalDeck({ sessions, activeId, onActivate, onClosed, variant
           </button>
         ))}
       </nav>
-      <div className="terminal-viewport">
+      <div className="terminal-viewport" ref={viewport}>
         {sessions.map((session) => (
           <div
             className="terminal-host"

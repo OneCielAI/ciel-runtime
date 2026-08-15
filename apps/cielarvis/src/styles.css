@@ -212,6 +212,117 @@ button { cursor: pointer; }
 .command-dock button { min-width: 112px; border: 1px solid #2c8369; border-radius: 10px; color: #d6fff1; background: linear-gradient(145deg, #176b54, #124d3e); font-size: 10px; letter-spacing: .12em; }
 .command-dock button:disabled { opacity: .38; cursor: default; }
 
+/* CIELARVIS Agentic Desktop SDK v1 */
+.agentic-shell {
+  --line: #1a302b;
+  --muted: #718b84;
+  --green: #57e0b4;
+  --cyan: #53bccc;
+  width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden;
+  color: #d8e7e3; background: #030605;
+}
+.agentic-shell > .app-header { flex: 0 0 58px; min-height: 58px; z-index: 20000; }
+.agentic-shell > .connection-panel { flex: 0 0 auto; z-index: 20000; }
+.desktop-surface {
+  position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; isolation: isolate;
+  background: radial-gradient(circle at 50% 48%, #1546374a, transparent 42%), linear-gradient(180deg, #06100d, #020504 72%);
+}
+.desktop-surface::before {
+  content: ""; position: absolute; inset: 0; z-index: -3; opacity: .16; pointer-events: none;
+  background-image: linear-gradient(#285146 1px, transparent 1px), linear-gradient(90deg, #285146 1px, transparent 1px);
+  background-size: 48px 48px; mask-image: radial-gradient(circle at center, black 4%, transparent 82%);
+}
+.agent-desktop-background { position: absolute; inset: 0; z-index: -2; pointer-events: none; }
+.agent-desktop-background .agent-stage { position: absolute; inset: 0; min-height: 0; }
+.agent-desktop-background .agent-stage::before { width: min(56vw, 700px); height: min(56vw, 700px); }
+.agent-desktop-background .orbit-outer { width: min(34vw, 430px); height: min(34vw, 430px); }
+.agent-desktop-background .orbit-inner { width: min(26vw, 330px); height: min(26vw, 330px); }
+.agent-desktop-background .agent-core { width: 174px; height: 174px; }
+.agent-desktop-background .stage-caption { bottom: 106px; }
+
+.desktop-status-hud {
+  position: absolute; top: 18px; right: 20px; z-index: 3; width: min(290px, 30vw); display: grid; gap: 6px;
+  padding: 13px 14px; border: 1px solid #1b3a32; border-radius: 12px; background: #06100dc9; backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px #85e9ca0c;
+}
+.desktop-status-hud strong { font-size: 13px; font-weight: 500; }
+.desktop-status-hud > small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #607b74; font-size: 10px; }
+.hud-services { display: flex; gap: 5px; margin-top: 4px; }
+.hud-services button { display: flex; align-items: center; gap: 5px; border: 1px solid #453526; border-radius: 999px; padding: 4px 7px; color: #b58d5d; background: #120e09; font-size: 9px; }
+.hud-services button[data-ok="true"] { border-color: #265b4c; color: #71cbb0; background: #081712; }
+.hud-services i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 7px currentColor; }
+
+.desktop-window {
+  position: absolute; display: grid; grid-template-rows: 42px minmax(0, 1fr); overflow: hidden;
+  border: 1px solid #25483e; border-radius: 12px; background: #050a09f2; backdrop-filter: blur(20px);
+  box-shadow: 0 24px 70px #000a, inset 0 1px #a4ffdf0d; transition: box-shadow .16s ease, border-color .16s ease;
+}
+.desktop-window.active { border-color: #3c8c75; box-shadow: 0 28px 85px #000c, 0 0 28px #3bd1a518, inset 0 1px #c6ffec17; }
+.desktop-window.maximized { border-radius: 9px; }
+.window-titlebar {
+  min-width: 0; display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 8px;
+  padding: 0 7px 0 11px; border-bottom: 1px solid #19332c; background: linear-gradient(180deg, #0c1916f7, #07100ef7);
+  user-select: none; touch-action: none;
+}
+.window-app-icon { width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid currentColor; border-radius: 6px; background: #07100e; font: 600 11px "Cascadia Mono", Consolas, monospace; }
+.window-titlebar > div { min-width: 0; display: grid; gap: 1px; }
+.window-titlebar strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 500; }
+.window-titlebar small { color: #526e66; font: 8px "Cascadia Mono", Consolas, monospace; letter-spacing: .08em; }
+.window-titlebar nav { display: flex; gap: 3px; }
+.window-titlebar button { width: 27px; height: 25px; border: 0; border-radius: 5px; color: #6b8880; background: transparent; font: 12px "Cascadia Mono", Consolas, monospace; }
+.window-titlebar button:hover { color: #c4e5dc; background: #173129; }
+.window-titlebar button:last-child:hover { color: #ffe3dd; background: #78392f; }
+.window-content { min-width: 0; min-height: 0; overflow: hidden; }
+.window-resize-handle { position: absolute; right: 0; bottom: 0; z-index: 4; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; }
+.window-resize-handle::after { content: ""; position: absolute; right: 4px; bottom: 4px; width: 7px; height: 7px; border-right: 1px solid #4a8c79; border-bottom: 1px solid #4a8c79; }
+.unsupported-app { display: grid; height: 100%; place-items: center; color: #718b84; }
+.javascript-app-host { position: relative; width: 100%; height: 100%; background: #030605; }
+.javascript-app-host iframe { width: 100%; height: 100%; border: 0; background: transparent; }
+.javascript-app-host > small { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: #718b84; font: 10px "Cascadia Mono", Consolas, monospace; pointer-events: none; }
+.javascript-app-host[data-state="error"] > small { color: #dc8475; }
+
+.runtime-window-app { height: 100%; min-height: 0; display: grid; grid-template-rows: 31px minmax(0, 1fr); background: #030605; }
+.runtime-app-status { min-width: 0; display: flex; align-items: center; gap: 7px; padding: 0 10px; border-bottom: 1px solid #132721; color: #68857d; font-size: 9px; }
+.runtime-app-status i { width: 6px; height: 6px; border-radius: 50%; background: #c09057; box-shadow: 0 0 8px #c09057; }
+.runtime-window-app[data-online="true"] .runtime-app-status i { background: #57e0b4; box-shadow: 0 0 8px #57e0b4; }
+.runtime-app-status code { margin-left: auto; overflow: hidden; text-overflow: ellipsis; color: #45655c; }
+.runtime-window-app .terminal-deck { min-height: 0; display: grid; grid-template-rows: 38px minmax(0, 1fr); border: 0; }
+.runtime-window-app .terminal-deck.terminal-empty { height: 100%; display: grid; place-content: center; text-align: center; }
+.runtime-window-app .terminal-viewport { height: auto; min-height: 0; }
+
+.chat-window-app { height: 100%; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; background: #040908e8; }
+.chat-transcript { min-height: 0; overflow: auto; display: grid; align-content: start; gap: 8px; padding: 12px; scrollbar-color: #24453b #050807; }
+.chat-transcript article { justify-self: start; width: min(88%, 720px); padding: 9px 10px; border: 1px solid #1c3a31; border-radius: 10px 10px 10px 3px; background: #07120f; }
+.chat-transcript article[data-user="true"] { justify-self: end; border-color: #285349; border-radius: 10px 10px 3px 10px; background: #0b211b; }
+.chat-transcript article > small { color: #4cb795; font: 9px "Cascadia Mono", Consolas, monospace; }
+.chat-transcript article > p { margin: 6px 0 0; white-space: pre-wrap; color: #b7d1ca; font-size: 12px; line-height: 1.5; }
+.chat-composer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 9px 10px 10px; border-top: 1px solid #1a332c; background: #050c0aef; }
+.chat-notice { grid-column: 1 / -1; min-width: 0; display: flex; align-items: center; gap: 6px; color: #5d7971; font-size: 9px; }
+.chat-notice i { width: 5px; height: 5px; border-radius: 50%; background: #b48655; }
+.chat-notice i[data-online="true"] { background: #57e0b4; box-shadow: 0 0 8px #57e0b4; }
+.chat-composer textarea { min-width: 0; resize: none; border: 1px solid #284c42; border-radius: 9px; padding: 9px 10px; color: #d6e8e2; background: #020504; outline: none; font-size: 12px; line-height: 1.4; }
+.chat-composer textarea:focus { border-color: #3aa887; box-shadow: 0 0 0 2px #3aa8871e; }
+.chat-composer button { min-width: 94px; border: 1px solid #2c8369; border-radius: 9px; color: #d6fff1; background: linear-gradient(145deg, #176b54, #124d3e); font-size: 9px; letter-spacing: .1em; }
+.chat-composer button:disabled { opacity: .35; cursor: default; }
+.chat-window-app .rich-message { font-size: 11px; }
+
+.desktop-taskbar {
+  position: absolute; left: 50%; bottom: 12px; z-index: 30000; transform: translateX(-50%);
+  min-width: min(720px, calc(100% - 28px)); height: 58px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  padding: 6px 10px; border: 1px solid #2a5549; border-radius: 15px; background: #06100ee8; backdrop-filter: blur(24px);
+  box-shadow: 0 18px 55px #000b, inset 0 1px #c3ffea12;
+}
+.taskbar-home { padding: 0 9px; color: #83cdb5; font: 600 10px "Cascadia Mono", Consolas, monospace; letter-spacing: .16em; }
+.taskbar-apps { min-width: 0; display: flex; justify-content: center; gap: 7px; }
+.taskbar-apps button { position: relative; min-width: 58px; height: 45px; display: grid; grid-template-columns: 28px auto; grid-template-rows: 1fr; align-items: center; gap: 6px; border: 1px solid transparent; border-radius: 9px; padding: 4px 8px; color: #78938b; background: transparent; }
+.taskbar-apps button:hover, .taskbar-apps button.active { border-color: #315d51; color: #c0ded6; background: #10241e; }
+.taskbar-apps button > span { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid currentColor; border-radius: 7px; font: 600 11px "Cascadia Mono", Consolas, monospace; }
+.taskbar-apps button small { max-width: 95px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+.taskbar-apps button i { position: absolute; left: 50%; bottom: 1px; width: 0; height: 2px; border-radius: 2px; background: #57e0b4; transition: width .15s ease; }
+.taskbar-apps button[data-running="true"] i { width: 12px; }
+.taskbar-apps button.active i { width: 25px; }
+.desktop-taskbar time { padding-right: 7px; color: #5b7770; font: 9px "Cascadia Mono", Consolas, monospace; }
+
 @keyframes orbit { to { transform: rotate(360deg); } }
 @keyframes orbit-reverse { to { transform: rotate(-360deg); } }
 @keyframes breathe { 50% { transform: scale(1.035); box-shadow: inset 0 0 42px #55efbd42, 0 0 96px #39d6a758; } }
