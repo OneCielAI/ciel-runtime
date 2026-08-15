@@ -1,4 +1,4 @@
-import { useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { CielAppManifest, CielWindowDefinition } from "../core/desktopSdk";
 import type { DesktopViewport, ManagedWindow, WindowBounds } from "../core/desktopKernel";
 
@@ -10,7 +10,7 @@ type DesktopWindowProps = {
   viewport: DesktopViewport;
   children: ReactNode;
   onFocus: () => void;
-  onBounds: (bounds: WindowBounds) => void;
+  onBounds: (bounds: WindowBounds) => WindowBounds | void;
   onMinimize: () => void;
   onMaximize: () => void;
   onClose: () => void;
@@ -22,6 +22,17 @@ export function DesktopWindow({ app, definition, instance, active, viewport, chi
   const windowRef = useRef<HTMLElement | null>(null);
   const drag = useRef<PointerOrigin | null>(null);
   const resize = useRef<PointerOrigin | null>(null);
+  const pendingPaint = useRef<WindowBounds | null>(null);
+
+  useLayoutEffect(() => {
+    const pending = pendingPaint.current;
+    if (!pending) return;
+    const committed = instance.bounds;
+    if (committed.x === pending.x && committed.y === pending.y && committed.width === pending.width && committed.height === pending.height) {
+      clearPointerPaint();
+      pendingPaint.current = null;
+    }
+  }, [instance.bounds.x, instance.bounds.y, instance.bounds.width, instance.bounds.height]);
 
   function paintDrag(bounds: WindowBounds, origin: PointerOrigin) {
     const node = windowRef.current;
@@ -41,13 +52,11 @@ export function DesktopWindow({ app, definition, instance, active, viewport, chi
   function clearPointerPaint() {
     const node = windowRef.current;
     if (!node) return;
-    requestAnimationFrame(() => {
-      if (drag.current || resize.current) return;
-      node.style.transform = "";
-      node.style.width = "";
-      node.style.height = "";
-      node.style.willChange = "";
-    });
+    if (drag.current || resize.current) return;
+    node.style.transform = "";
+    node.style.width = "";
+    node.style.height = "";
+    node.style.willChange = "";
   }
 
   function beginDrag(event: ReactPointerEvent<HTMLElement>) {
@@ -73,9 +82,15 @@ export function DesktopWindow({ app, definition, instance, active, viewport, chi
   function finishDrag() {
     const current = drag.current;
     if (!current) return;
-    onBounds(current.latest);
+    const committed = onBounds(current.latest) ?? current.latest;
+    pendingPaint.current = committed;
     drag.current = null;
-    clearPointerPaint();
+    requestAnimationFrame(() => {
+      if (pendingPaint.current) {
+        clearPointerPaint();
+        pendingPaint.current = null;
+      }
+    });
   }
 
   function beginResize(event: ReactPointerEvent<HTMLDivElement>) {
@@ -101,9 +116,15 @@ export function DesktopWindow({ app, definition, instance, active, viewport, chi
   function finishResize() {
     const current = resize.current;
     if (!current) return;
-    onBounds(current.latest);
+    const committed = onBounds(current.latest) ?? current.latest;
+    pendingPaint.current = committed;
     resize.current = null;
-    clearPointerPaint();
+    requestAnimationFrame(() => {
+      if (pendingPaint.current) {
+        clearPointerPaint();
+        pendingPaint.current = null;
+      }
+    });
   }
 
   if (instance.mode === "minimized") return null;
@@ -114,7 +135,7 @@ export function DesktopWindow({ app, definition, instance, active, viewport, chi
 
   return (
     <section ref={windowRef} className={`desktop-window${active ? " active" : ""}${maximized ? " maximized" : ""}`} style={style} onPointerDown={onFocus} data-app-id={app.id}>
-      <header className="window-titlebar" onDoubleClick={onMaximize} onPointerDown={beginDrag} onPointerMove={moveDrag} onPointerUp={finishDrag} onPointerCancel={finishDrag}>
+      <header className="window-titlebar" onDoubleClick={onMaximize} onPointerDown={beginDrag} onPointerMove={moveDrag} onPointerUp={finishDrag} onPointerCancel={finishDrag} onLostPointerCapture={finishDrag}>
         <span className="window-app-icon" style={{ color: app.icon.accent }}>{app.icon.glyph}</span>
         <div><strong>{instance.title}</strong><small>{app.name} · SDK v1</small></div>
         <nav>
@@ -125,7 +146,7 @@ export function DesktopWindow({ app, definition, instance, active, viewport, chi
       </header>
       <div className="window-content">{children}</div>
       {definition.resizable !== false && !maximized && (
-        <div className="window-resize-handle" onPointerDown={beginResize} onPointerMove={moveResize} onPointerUp={finishResize} onPointerCancel={finishResize} />
+        <div className="window-resize-handle" onPointerDown={beginResize} onPointerMove={moveResize} onPointerUp={finishResize} onPointerCancel={finishResize} onLostPointerCapture={finishResize} />
       )}
     </section>
   );

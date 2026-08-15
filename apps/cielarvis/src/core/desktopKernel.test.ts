@@ -29,6 +29,15 @@ describe("CielDesktopKernel", () => {
     expect(kernel.getSnapshot().windows[0].mode).toBe("maximized");
   });
 
+  it("returns and retains the constrained bounds after a resize commit", () => {
+    const kernel = new CielDesktopKernel([{ manifest, provenance: "builtin" }]);
+    const viewport = { width: 1200, height: 800 };
+    const id = kernel.openApp(manifest.id, viewport);
+    const committed = kernel.updateBounds(id, { x: 48, y: 56, width: 920, height: 640 }, viewport);
+    expect(committed).toEqual({ x: 48, y: 56, width: 920, height: 640 });
+    expect(kernel.getSnapshot().windows[0].bounds).toEqual(committed);
+  });
+
   it("defines the future native-library boundary without accepting another ABI", () => {
     expect(() => assertValidManifest({ ...manifest, host: { kind: "native-library", abi: CIEL_NATIVE_APP_ABI, library: "app.dll", entrySymbol: "cielarvis_app_v1" } })).not.toThrow();
     expect(() => assertValidManifest({ ...manifest, host: { kind: "native-library", abi: "wrong" as typeof CIEL_NATIVE_APP_ABI, library: "app.dll", entrySymbol: "entry" } })).toThrow(/unsupported native ABI/i);

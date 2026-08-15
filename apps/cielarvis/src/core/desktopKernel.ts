@@ -175,12 +175,13 @@ export class CielDesktopKernel {
     this.focus(id);
   }
 
-  updateBounds(id: string, bounds: WindowBounds, viewport: DesktopViewport): void {
+  updateBounds(id: string, bounds: WindowBounds, viewport: DesktopViewport): WindowBounds | undefined {
     const instance = this.windows.get(id);
-    if (!instance || instance.mode !== "normal") return;
+    if (!instance || instance.mode !== "normal") return undefined;
     const definition = this.definition(instance);
     instance.bounds = constrain(bounds, viewport, definition.minSize);
     this.publish();
+    return { ...instance.bounds };
   }
 
   close(id: string): void {
