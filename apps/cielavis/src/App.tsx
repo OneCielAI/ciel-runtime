@@ -118,7 +118,7 @@ export function App() {
   }, [ensureRuntime, refresh]);
 
   useEffect(() => {
-    if (!snapshot?.connected || !isDesktop()) return;
+    if (!runtimeAgentReady(snapshot) || !isDesktop()) return;
     if (!plan) void loadBootstrapPlan(connection).then(setPlan).catch(() => undefined);
     if (!voiceNeedsSetup(snapshot) || voiceStatusOpened.current) return;
     voiceStatusOpened.current = true;
