@@ -7,7 +7,6 @@ from ciel_runtime_support import runtime_paths
 class RuntimePathsTest(unittest.TestCase):
     def test_configuration_and_router_state_are_workspace_isolated(self):
         self.assertEqual(runtime_paths.ROUTER_INSTANCE_DIR, runtime_paths.ROUTER_ACTIVITY_PATH.parent)
-        self.assertEqual(runtime_paths.ROUTER_INSTANCE_DIR, runtime_paths.CHANNEL_MCP_CONFIG.parent)
         if runtime_paths.os.environ.get("CIEL_RUNTIME_TEST_ISOLATED"):
             self.assertEqual(runtime_paths.CONFIG_DIR, runtime_paths.ROUTER_INSTANCE_DIR)
             self.assertEqual(runtime_paths.CONFIG_DIR, runtime_paths.CONFIG_PATH.parent)

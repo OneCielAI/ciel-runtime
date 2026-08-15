@@ -397,7 +397,7 @@ class RouterRequestBodyPolicyTests(unittest.TestCase):
             WEBHOOK_REQUEST_MAX_BYTES,
             policy.limit_for("/ca/events/webhooks/default"),
         )
-        for path in ("/ca/channel/files", "/ca/chat/files", "/ca/mcp"):
+        for path in ("/ca/channel/files", "/ca/chat/files"):
             with self.subTest(path=path):
                 self.assertEqual(CHAT_FILE_REQUEST_MAX_BYTES, policy.limit_for(path))
         self.assertEqual(
@@ -526,34 +526,13 @@ class RouterRequestBodyPolicyTests(unittest.TestCase):
             )
         self.assertEqual(0, policy.inflight_bytes)
 
-    def test_mcp_inline_send_file_uses_file_ceiling_but_control_calls_stay_four_mib(self):
+    def test_retired_mcp_path_uses_the_general_control_ceiling(self):
         policy = RouterRequestBodyPolicy(environment={})
         oversized_control = GENERAL_REQUEST_MAX_BYTES + 1
-        control = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
-        inline_file = {
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "tools/call",
-            "params": {
-                "name": "send_file",
-                "arguments": {"channel": "web", "content": "x"},
-            },
-        }
-        path_file = {
-            "jsonrpc": "2.0",
-            "id": 3,
-            "method": "tools/call",
-            "params": {
-                "name": "send_file",
-                "arguments": {"channel": "web", "path": "result.zip"},
-            },
-        }
-
+        self.assertEqual(GENERAL_REQUEST_MAX_BYTES, policy.limit_for("/ca/mcp"))
         with self.assertRaises(RequestBodyTooLarge):
-            policy.validate_parsed_body("/ca/mcp", oversized_control, control)
-        policy.validate_parsed_body("/ca/mcp", oversized_control, inline_file)
-        with self.assertRaises(RequestBodyTooLarge):
-            policy.validate_parsed_body("/ca/mcp", oversized_control, path_file)
+            with policy.admit("/ca/mcp", oversized_control):
+                pass
 
     def test_admission_rejects_a_request_above_its_endpoint_limit(self):
         configured = 8 * 1024 * 1024

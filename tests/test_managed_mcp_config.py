@@ -21,7 +21,6 @@ class ManagedMcpConfigServiceTests(unittest.TestCase):
                 root / "web.json",
                 root / "duck.json",
                 root / "zai.json",
-                root / "channel.json",
             ),
             ManagedMcpConfigPolicy("http://127.0.0.1:8787", (("search", "https://z.ai/search"),)),
             ManagedMcpConfigPorts(
@@ -61,15 +60,6 @@ class ManagedMcpConfigServiceTests(unittest.TestCase):
         servers = save.call_args.args[1]["mcpServers"]
         self.assertEqual("secret", servers["zai-mcp-server"]["env"]["Z_AI_API_KEY"])
         self.assertEqual("Bearer secret", servers["search"]["headers"]["Authorization"])
-
-    def test_channel_config_uses_stateless_http_endpoint(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            service, save, _log = self.service(Path(tmp))
-            self.assertEqual(service.paths.channel, service.write_channel())
-        server = save.call_args.args[1]["mcpServers"]["ciel-runtime-router"]
-        self.assertEqual("http", server["type"])
-        self.assertTrue(server["url"].endswith("/ca/mcp"))
-
 
 if __name__ == "__main__":
     unittest.main()

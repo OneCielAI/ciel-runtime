@@ -6080,25 +6080,5 @@ class ChannelBridgeTests(unittest.TestCase):
                 server.shutdown()
                 server.server_close()
 
-    def test_channel_mcp_config_points_to_router_sse(self):
-        with tempfile.TemporaryDirectory() as td:
-            path = Path(td) / "channel-mcp.json"
-            with (
-                mock.patch.object(ciel_runtime, "CONFIG_DIR", Path(td)),
-                mock.patch.object(ciel_runtime, "CHANNEL_MCP_CONFIG", path),
-                mock.patch.object(ciel_runtime, "_channel_mcp_ensure_cursor_initialized", return_value=0),
-            ):
-                written = ciel_runtime.write_channel_mcp_config()
-            data = __import__("json").loads(written.read_text(encoding="utf-8"))
-        self.assertEqual("sse", data["mcpServers"]["ciel-runtime-router"]["type"])
-        self.assertTrue(data["mcpServers"]["ciel-runtime-router"]["url"].endswith("/ca/mcp/sse"))
-
-    def test_channel_mcp_endpoint_uses_legacy_session_id_param(self):
-        session = "session-123"
-        endpoint = f"/ca/mcp/messages?sessionId={session}"
-        params = urllib.parse.parse_qs(urllib.parse.urlparse(endpoint).query)
-        self.assertEqual(session, params["sessionId"][0])
-
-
 if __name__ == "__main__":
     unittest.main()

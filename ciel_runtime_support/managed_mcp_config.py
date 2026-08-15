@@ -1,4 +1,4 @@
-"""Managed MCP configuration generation for web, Z.AI, and channel servers."""
+"""Managed MCP configuration generation for web and Z.AI servers."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,7 +14,6 @@ class ManagedMcpConfigPaths:
     web_tools: Path
     duckduckgo_compat: Path
     zai: Path
-    channel: Path
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,18 +102,6 @@ class ManagedMcpConfigService:
             return
         except OSError as exc:
             self.ports.log("WARN", f"zai_mcp_config_remove_failed error={type(exc).__name__}: {exc}")
-
-    def write_channel(self) -> Path:
-        data = {
-            "mcpServers": {
-                "ciel-runtime-router": {
-                    "type": "http",
-                    "url": f"{self.policy.router_base}/ca/mcp",
-                }
-            }
-        }
-        self.ports.save_json(self.paths.channel, data, "channel_mcp_config")
-        return self.paths.channel
 
     def _fetch_command(self, web: dict[str, Any]) -> tuple[str | None, list[Any]]:
         package = str(web.get("fetch_package") or "mcp-server-fetch")

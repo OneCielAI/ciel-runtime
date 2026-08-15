@@ -556,13 +556,6 @@ class CompactionLaunchContractTests(unittest.TestCase):
                     ciel_runtime, "should_append_compat_prompt", return_value=False
                 )
             )
-            stack.enter_context(
-                mock.patch.object(
-                    ciel_runtime,
-                    "write_channel_mcp_config",
-                    return_value="channel-mcp.json",
-                )
-            )
             proxy = stack.enter_context(
                 mock.patch.object(
                     ciel_runtime,

@@ -147,7 +147,6 @@ class ClaudeLaunchPolicy:
 class ClaudeLaunchChannelDelivery:
     should_use_channel_llm_delivery: Callable[..., Any]
     should_use_channel_stdin_proxy: Callable[..., Any]
-    write_channel_mcp_config: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,7 +240,6 @@ def run_claude(
     start_router_if_needed = services.routing.start_router_if_needed
     subprocess_call_with_channel_wake_proxy = services.process.subprocess_call_with_channel_wake_proxy
     warn_if_multiple_ciel_runtime_installs = services.installation.warn_if_multiple_ciel_runtime_installs
-    write_channel_mcp_config = services.channel_delivery.write_channel_mcp_config
     write_duckduckgo_mcp_config = services.mcp_config.write_duckduckgo_mcp_config
     write_zai_mcp_config = services.mcp_config.write_zai_mcp_config
     if has_noninteractive_claude_args(passthrough):
@@ -448,8 +446,6 @@ def run_claude(
         mcp_config_paths.append(str(zai_mcp_config))
     if should_attach_web_search(provider, cfg, web_search_override):
         mcp_config_paths.append(str(write_duckduckgo_mcp_config(cfg)))
-    if llm_channel_delivery:
-        mcp_config_paths.append(str(write_channel_mcp_config()))
     claude_passthrough = list(launch_passthrough)
     if mcp_config_paths:
         extra_args.extend(["--mcp-config", *mcp_config_paths])

@@ -160,7 +160,7 @@ class RouterRequestBodyPolicy:
             or path == "/v1/audio/voices"
         ):
             return self.model_request_max_bytes
-        if path in _CHAT_FILE_PATHS or path == "/ca/mcp":
+        if path in _CHAT_FILE_PATHS:
             return self.chat_file_request_max_bytes
         if path in _SPEECH_REFERENCE_PATHS:
             return self.speech_reference_request_max_bytes
@@ -178,30 +178,8 @@ class RouterRequestBodyPolicy:
         content_length: int,
         body: Mapping[str, object],
     ) -> None:
-        """Keep MCP control calls small while permitting its inline file tool."""
-        if path != "/ca/mcp":
-            return
-        params = body.get("params") if isinstance(body, Mapping) else None
-        params = params if isinstance(params, Mapping) else {}
-        arguments = params.get("arguments")
-        arguments = arguments if isinstance(arguments, Mapping) else {}
-        is_inline_send_file = (
-            str(body.get("method") or "") == "tools/call"
-            and str(params.get("name") or "") == "send_file"
-            and "content" in arguments
-            and not arguments.get("path")
-        )
-        limit = (
-            self.chat_file_request_max_bytes
-            if is_inline_send_file
-            else GENERAL_REQUEST_MAX_BYTES
-        )
-        if content_length > limit:
-            raise RequestBodyTooLarge(
-                path=path,
-                received=content_length,
-                limit=limit,
-            )
+        """Reserved for parsed-body route-specific limits."""
+        del path, content_length, body
 
     @property
     def inflight_bytes(self) -> int:

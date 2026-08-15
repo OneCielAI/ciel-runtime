@@ -91,7 +91,6 @@ class ClaudeLaunchPolicyPorts:
 class ClaudeLaunchDeliveryPorts:
     should_use_llm_delivery: Callback
     should_use_stdin_proxy: Callback
-    write_channel_config: Callback
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,7 +180,6 @@ class ClaudeLaunchAssembly:
             channel_delivery=runtime_launch.ClaudeLaunchChannelDelivery(
                 should_use_channel_llm_delivery=self.delivery.should_use_llm_delivery,
                 should_use_channel_stdin_proxy=self.delivery.should_use_stdin_proxy,
-                write_channel_mcp_config=self.delivery.write_channel_config,
             ),
             mcp_config=runtime_launch.ClaudeLaunchMcpConfig(
                 write_duckduckgo_mcp_config=self.mcp_config.write_duckduckgo,

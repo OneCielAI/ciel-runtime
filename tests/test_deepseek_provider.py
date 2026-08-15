@@ -84,6 +84,16 @@ class DeepSeekProviderTests(unittest.TestCase):
             stack.enter_context(mock.patch.object(ciel_runtime, "load_config", return_value=cfg))
             stack.enter_context(mock.patch.object(ciel_runtime, "launch_readiness_errors", return_value=[]))
             stack.enter_context(mock.patch.object(ciel_runtime, "start_router_if_needed"))
+            stack.enter_context(
+                mock.patch.object(
+                    ciel_runtime,
+                    "run_with_router_lifetime",
+                    side_effect=lambda runner, _managed: runner(),
+                )
+            )
+            stack.enter_context(
+                mock.patch.object(ciel_runtime, "ensure_managed_router_running_for_client", return_value=True)
+            )
             stack.enter_context(mock.patch.object(ciel_runtime, "cleanup_managed_services_for_provider"))
             stack.enter_context(mock.patch.object(ciel_runtime, "find_executable", return_value="/usr/local/bin/claude"))
             stack.enter_context(mock.patch.object(ciel_runtime, "run_claude_update_check"))
@@ -94,7 +104,6 @@ class DeepSeekProviderTests(unittest.TestCase):
             stack.enter_context(mock.patch.object(ciel_runtime, "should_attach_web_search", return_value=False))
             stack.enter_context(mock.patch.object(ciel_runtime, "should_append_compat_prompt", return_value=False))
             stack.enter_context(mock.patch.object(ciel_runtime, "prepare_channel_llm_delivery_for_launch"))
-            stack.enter_context(mock.patch.object(ciel_runtime, "write_channel_mcp_config", return_value="channel-mcp.json"))
             proxy = stack.enter_context(mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", return_value=0))
             call = stack.enter_context(mock.patch.object(ciel_runtime.subprocess, "call", return_value=0))
             rc = ciel_runtime.launch_claude([], update_check=False, self_update_check=False)
@@ -103,6 +112,8 @@ class DeepSeekProviderTests(unittest.TestCase):
         proxy.assert_called_once()
         launch_cmd = proxy.call_args.args[0]
         self.assertIn("--dangerously-skip-permissions", launch_cmd)
+        self.assertNotIn("--mcp-config", launch_cmd)
+        self.assertTrue(proxy.call_args.kwargs["wake_for_llm_delivery"])
         mode_idx = launch_cmd.index("--permission-mode")
         self.assertEqual("bypassPermissions", launch_cmd[mode_idx + 1])
         disallowed_idx = launch_cmd.index("--disallowedTools")

@@ -4014,7 +4014,7 @@ class ArchitectureContractTests(unittest.TestCase):
             with self.subTest(port=port.__name__):
                 self.assertLessEqual(len(fields(port)), 10)
         source = (Path(__file__).resolve().parents[1] / "ciel_runtime.py").read_text(encoding="utf-8")
-        for function_name in ("write_web_tools_mcp_config", "write_zai_mcp_config", "write_channel_mcp_config"):
+        for function_name in ("write_web_tools_mcp_config", "write_zai_mcp_config"):
             function = next(
                 node
                 for node in ast.parse(source).body

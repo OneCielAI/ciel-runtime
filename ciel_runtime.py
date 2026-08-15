@@ -420,7 +420,7 @@ from ciel_runtime_support.runtime_maintenance_context import RuntimeMaintenanceC
 from ciel_runtime_support.runtime_maintenance_services import MaintenanceAgyPorts, MaintenanceDiagnosticPorts, MaintenanceNpmPorts, MaintenancePackagePorts, MaintenanceRestartPorts, MaintenanceUpdatePorts, RuntimeMaintenanceServices, RuntimeMaintenanceServicesCompatibilityApi
 from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  # noqa: F401
                                                 CHANNEL_LLM_CLEAR_FLOOR_PATH, CHANNEL_LLM_CURSOR_PATH,
-                                                CHANNEL_LLM_LAUNCH_GUARD_PATH, CHANNEL_MCP_CONFIG,
+                                                CHANNEL_LLM_LAUNCH_GUARD_PATH,
                                                 CHANNEL_STDIN_WAKE_CLAIMS_PATH, CHAT_FILES_DIR, CHAT_MESSAGES_PATH, RUNTIME_INPUTS_PATH,
                                                 CIEL_RUNTIME_STATUSLINE_PATH, CLAUDE_COMMANDS_DIR, CLAUDE_GATEWAY_CACHE,
                                                 CLAUDE_SETTINGS_PATH, CODEX_PROCESS_DIR,
@@ -2970,10 +2970,12 @@ def router_request_body_policy() -> RouterRequestBodyPolicy:
 def _router_server_context() -> RouterServerContext:
     http_services = RouterHttpServices(
         core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log, observe_tui_runtime_response, router_request_body_policy()),
-        get=RouterHttpGetEndpoints(handle_tui_observation_get, handle_events_get, handle_llm_config_get, handle_channel_mcp_get, handle_web_get,
+        # Channel MCP delivery was retired in favor of the TTY/PTY bridge.  Do
+        # not expose the legacy endpoint or register it with Claude.
+        get=RouterHttpGetEndpoints(handle_tui_observation_get, handle_events_get, handle_llm_config_get, lambda _handler, _path: False, handle_web_get,
                                    lambda handler, path: speech_http_controller().get(handler, path), handle_chat_get, handle_plan_get, route_runtime_get,
                                    handle_external_event_get),
-        post=RouterHttpPostEndpoints(lambda handler, path, raw, content_type: speech_http_controller().post(handler, path, raw, content_type), handle_llm_config_post, handle_channel_mcp_post, handle_chat_post,
+        post=RouterHttpPostEndpoints(lambda handler, path, raw, content_type: speech_http_controller().post(handler, path, raw, content_type), handle_llm_config_post, lambda _handler, _path, _body: False, handle_chat_post,
                                      handle_plan_post, route_runtime_post, handle_external_event_raw_post, handle_external_event_config_post),
         presentation=RouterHttpPresentation(render_router_home_html, router_health_payload, write_text_response, write_json, list_model_objects_for_request,
                                             resolve_requested_model, model_object),
@@ -4193,15 +4195,12 @@ def write_web_tools_mcp_config(cfg: dict[str, Any]) -> Path: return managed_mcp_
 def write_duckduckgo_mcp_config(cfg: dict[str, Any]) -> Path: return managed_mcp_config_service().write_duckduckgo_compat(cfg)
 def write_zai_mcp_config(provider: str, pcfg: dict[str, Any]) -> Path | None: return managed_mcp_config_service().write_zai(provider, pcfg)
 def reset_zai_mcp_config_if_inactive(provider: str) -> None: managed_mcp_config_service().reset_zai_if_inactive(provider)
-def write_channel_mcp_config() -> Path: return managed_mcp_config_service().write_channel()
-
 def managed_mcp_config_service() -> ManagedMcpConfigService:
     return ManagedMcpConfigService(
         ManagedMcpConfigPaths(
             WEB_TOOLS_MCP_CONFIG,
             DUCKDUCKGO_MCP_CONFIG,
             ZAI_MCP_CONFIG,
-            CHANNEL_MCP_CONFIG,
         ),
         ManagedMcpConfigPolicy(ROUTER_BASE, tuple(ZAI_MANAGED_MCP_SERVERS)),
         ManagedMcpConfigPorts(
@@ -4583,7 +4582,7 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
                                                 has_passthrough_option, should_append_compat_prompt, should_attach_web_search,
                                                 should_disallow_claude_server_side_web_tools, should_fork_native_session_after_mode_switch,
                                                 should_insert_passthrough_option_boundary),
-        delivery=assembly.ClaudeLaunchDeliveryPorts(should_use_channel_llm_delivery, should_use_channel_stdin_proxy, write_channel_mcp_config),
+        delivery=assembly.ClaudeLaunchDeliveryPorts(should_use_channel_llm_delivery, should_use_channel_stdin_proxy),
         mcp_config=assembly.ClaudeLaunchMcpConfigPorts(write_duckduckgo_mcp_config, write_zai_mcp_config),
     ).services()
 
