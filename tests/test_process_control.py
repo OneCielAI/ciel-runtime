@@ -26,6 +26,20 @@ class ProcessControlTests(unittest.TestCase):
         self.assertFalse(pid_is_running(0))
         self.assertTrue(pid_is_running(os.getpid()))
 
+    def test_windows_pid_liveness_does_not_spawn_tasklist(self):
+        with (
+            mock.patch("ciel_runtime_support.process_control.os.name", "nt"),
+            mock.patch(
+                "ciel_runtime_support.process_control._windows_pid_is_running",
+                return_value=True,
+            ) as native_check,
+            mock.patch("ciel_runtime_support.process_control.subprocess.run") as run,
+        ):
+            self.assertTrue(pid_is_running(123))
+
+        native_check.assert_called_once_with(123)
+        run.assert_not_called()
+
     def inspection_services(self, **updates):
         values = {
             "run": mock.Mock(),

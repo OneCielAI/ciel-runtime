@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import getpass
+import ctypes
 import ipaddress
 import json
 import os
@@ -14,6 +15,38 @@ from pathlib import Path
 from typing import Callable
 
 
+def _windows_pid_is_running(pid: int) -> bool:
+    """Check one Windows PID without spawning the multi-second tasklist CLI."""
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    open_process = kernel32.OpenProcess
+    open_process.argtypes = (ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32)
+    open_process.restype = ctypes.c_void_p
+    wait_for_single_object = kernel32.WaitForSingleObject
+    wait_for_single_object.argtypes = (ctypes.c_void_p, ctypes.c_uint32)
+    wait_for_single_object.restype = ctypes.c_uint32
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = (ctypes.c_void_p,)
+    close_handle.restype = ctypes.c_int
+
+    process_query_limited_information = 0x1000
+    synchronize = 0x00100000
+    wait_timeout = 0x00000102
+    handle = open_process(
+        process_query_limited_information | synchronize,
+        False,
+        pid,
+    )
+    if not handle:
+        # Access denied means the process exists but cannot be inspected by
+        # this user. Invalid/nonexistent PIDs normally report another error.
+        return ctypes.get_last_error() == 5
+    try:
+        return wait_for_single_object(handle, 0) == wait_timeout
+    finally:
+        close_handle(handle)
+
+
 def pid_is_running(pid: int) -> bool:
     """Check process liveness using the host platform's stable primitive."""
 
@@ -21,17 +54,9 @@ def pid_is_running(pid: int) -> bool:
         return False
     if os.name == "nt":
         try:
-            process = subprocess.run(
-                ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
-                text=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                timeout=3,
-            )
+            return _windows_pid_is_running(pid)
         except Exception:
             return False
-        output = process.stdout or ""
-        return str(pid) in output and "No tasks" not in output and "INFO:" not in output
     try:
         os.kill(pid, 0)
         return True
