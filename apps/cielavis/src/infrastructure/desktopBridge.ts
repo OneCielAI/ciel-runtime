@@ -29,12 +29,13 @@ export async function discoverRuntime(connection: RuntimeConnection): Promise<Ru
   try {
     const base = connection.endpoint.replace(/\/$/, "");
     const headers = { accept: "application/json", ...authorization(connection.token) };
-    const [channel, speech, speechConfig] = await Promise.all([
+    const [channel, tui, speech, speechConfig] = await Promise.all([
       webJson<Record<string, unknown>>(`${base}/ca/channel/health`, { headers }),
+      webJson<{ active_count?: number; active?: unknown[] }>(`${base}/ca/tui/status`, { headers }),
       webJson<Record<string, unknown>>(`${base}/ca/speech/health`, { headers }),
       webJson<Record<string, unknown>>(`${base}/ca/speech/config`, { headers }),
     ]);
-    return { connected: true, endpoint: base, channel, speech, speech_config: speechConfig } as RuntimeSnapshot;
+    return { connected: true, endpoint: base, channel, tui, speech, speech_config: speechConfig } as RuntimeSnapshot;
   } catch (error) {
     return { connected: false, endpoint: connection.endpoint, error: String(error) };
   }

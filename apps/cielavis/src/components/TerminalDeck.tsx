@@ -10,11 +10,12 @@ type TerminalDeckProps = {
   activeId: string;
   onActivate: (id: string) => void;
   onClosed: (id: string) => void;
+  variant?: "default" | "boot";
 };
 
 type LiveTerminal = { terminal: Terminal; fit: FitAddon };
 
-export function TerminalDeck({ sessions, activeId, onActivate, onClosed }: TerminalDeckProps) {
+export function TerminalDeck({ sessions, activeId, onActivate, onClosed, variant = "default" }: TerminalDeckProps) {
   const hosts = useRef(new Map<string, HTMLDivElement>());
   const live = useRef(new Map<string, LiveTerminal>());
 
@@ -100,17 +101,17 @@ export function TerminalDeck({ sessions, activeId, onActivate, onClosed }: Termi
 
   if (!sessions.length) {
     return (
-      <section className="terminal-deck terminal-empty">
-        <span>SESSION DECK</span>
-        <p>Runtime and voice setup sessions will appear here when supervision is required.</p>
+      <section className={`terminal-deck terminal-empty terminal-deck--${variant}`}>
+        <span>{variant === "boot" ? "BOOT CONSOLE" : "SESSION DECK"}</span>
+        <p>{variant === "boot" ? "Opening the supervised Ciel Runtime process…" : "Runtime and voice setup sessions will appear here when supervision is required."}</p>
       </section>
     );
   }
 
   return (
-    <section className="terminal-deck">
+    <section className={`terminal-deck terminal-deck--${variant}`}>
       <nav className="terminal-tabs" aria-label="Terminal sessions">
-        <span className="deck-label">SESSION DECK</span>
+        <span className="deck-label">{variant === "boot" ? "BOOT CONSOLE" : "SESSION DECK"}</span>
         {sessions.map((session) => (
           <button
             className={session.id === activeId ? "active" : ""}

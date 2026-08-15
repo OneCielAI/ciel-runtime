@@ -16,9 +16,17 @@ export type RuntimeSnapshot = {
   endpoint: string;
   error?: string;
   channel?: Record<string, unknown>;
+  tui?: {
+    active_count?: number;
+    active?: unknown[];
+  };
   speech?: SpeechHealth;
   speech_config?: Record<string, unknown>;
 };
+
+export function runtimeAgentReady(snapshot: RuntimeSnapshot | null): boolean {
+  return Boolean(snapshot?.connected && Number(snapshot.tui?.active_count ?? 0) > 0);
+}
 
 export type ChannelMessage = {
   id: number;

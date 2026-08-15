@@ -87,6 +87,43 @@ button { cursor: pointer; }
 .terminal-host .xterm { height: 100%; padding: 5px 7px; }
 .terminal-host .xterm-viewport { scrollbar-color: #24453b #050807; }
 
+.app-shell--booting { grid-template-rows: 64px auto minmax(0, 1fr); }
+.boot-screen {
+  position: relative; min-height: 0; display: grid; place-items: center; overflow: hidden;
+  padding: clamp(24px, 5vw, 72px);
+}
+.boot-screen::before {
+  content: ""; position: absolute; inset: 0; opacity: .12; pointer-events: none;
+  background-image: linear-gradient(#285146 1px, transparent 1px), linear-gradient(90deg, #285146 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(circle at center, black 0, transparent 72%);
+}
+.boot-halo {
+  position: absolute; width: min(78vw, 1040px); aspect-ratio: 1.8; border-radius: 50%;
+  border: 1px solid #3cc99d21; background: radial-gradient(ellipse, #38c69819, transparent 67%);
+  box-shadow: 0 0 120px #35c99912; filter: blur(2px); pointer-events: none;
+}
+.boot-console-frame {
+  position: relative; width: min(1080px, 92vw); min-height: min(610px, 76vh); display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto; overflow: hidden;
+  border: 1px solid #285548; border-radius: 15px; background: #040807f5;
+  box-shadow: 0 28px 90px #000c, inset 0 1px #7ff0cb19, 0 0 70px #30bd9212;
+}
+.boot-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px 23px 13px; }
+.boot-heading h1 { margin: 6px 0 0; font-size: 21px; font-weight: 500; letter-spacing: .01em; }
+.boot-state { display: flex; align-items: center; gap: 8px; color: #d5a869; font: 10px "Cascadia Mono", Consolas, monospace; letter-spacing: .12em; }
+.boot-state i { width: 7px; height: 7px; border-radius: 50%; background: #d5a869; box-shadow: 0 0 14px #d5a869; animation: boot-pulse 1.4s ease-in-out infinite; }
+.boot-copy { margin: 0; padding: 0 23px 18px; color: #647f78; font-size: 12px; }
+.boot-console-frame .terminal-deck { min-height: 0; border-top: 1px solid #172f29; border-bottom: 1px solid #172f29; }
+.boot-console-frame .terminal-deck--boot:not(.terminal-empty) { display: grid; grid-template-rows: 39px minmax(0, 1fr); }
+.boot-console-frame .terminal-viewport { height: auto; min-height: 330px; }
+.boot-console-frame .terminal-empty { height: auto; min-height: 330px; justify-content: center; flex-direction: column; }
+.boot-console-frame .terminal-empty span { color: #6bbba3; }
+.boot-footer { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 13px 18px; }
+.boot-footer code { color: #589181; font-size: 10px; }
+.boot-footer span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #718b84; font-size: 11px; }
+.boot-footer button { border: 1px solid #2b6e5a; border-radius: 7px; padding: 7px 10px; color: #aee9d6; background: #0d3027; font-size: 10px; letter-spacing: .1em; }
+
 .workspace { min-height: 0; display: grid; grid-template-columns: minmax(220px, 310px) minmax(420px, 1fr) minmax(220px, 310px); }
 .activity-rail, .systems-rail { min-width: 0; overflow: auto; padding: 24px 21px; background: #050a09a8; }
 .activity-rail { border-right: 1px solid var(--line); }
@@ -150,8 +187,18 @@ button { cursor: pointer; }
 @keyframes orbit { to { transform: rotate(360deg); } }
 @keyframes orbit-reverse { to { transform: rotate(-360deg); } }
 @keyframes breathe { 50% { transform: scale(1.035); box-shadow: inset 0 0 42px #55efbd42, 0 0 96px #39d6a758; } }
+@keyframes boot-pulse { 50% { opacity: .35; transform: scale(.75); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
 @media (max-width: 1180px) {
   .workspace { grid-template-columns: 240px minmax(400px, 1fr) 240px; }
   .runtime-pill code { display: none; }
+}
+@media (max-width: 720px) {
+  .app-header { grid-template-columns: 1fr auto; padding: 0 14px; }
+  .runtime-pill { display: none; }
+  .boot-screen { padding: 14px; }
+  .boot-console-frame { width: 100%; min-height: 76vh; }
+  .boot-heading { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .boot-footer { grid-template-columns: 1fr auto; }
+  .boot-footer span { grid-column: 1 / -1; grid-row: 1; }
 }

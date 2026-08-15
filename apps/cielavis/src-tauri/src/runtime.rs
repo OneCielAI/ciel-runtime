@@ -27,6 +27,8 @@ pub struct RuntimeSnapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
     channel: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    tui: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     speech: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     speech_config: Option<Value>,
@@ -168,11 +170,15 @@ pub async fn runtime_discover(connection: RuntimeConnection) -> RuntimeSnapshot 
                 endpoint,
                 error: Some(error),
                 channel: None,
+                tui: None,
                 speech: None,
                 speech_config: None,
             };
         }
     };
+    let tui = request_json(&connection, Method::GET, "/ca/tui/status", None)
+        .await
+        .ok();
     let speech = request_json(&connection, Method::GET, "/ca/speech/health", None)
         .await
         .ok();
@@ -184,6 +190,7 @@ pub async fn runtime_discover(connection: RuntimeConnection) -> RuntimeSnapshot 
         endpoint,
         error: None,
         channel: Some(channel),
+        tui,
         speech,
         speech_config,
     }
@@ -279,7 +286,7 @@ pub fn bootstrap_plan(connection: RuntimeConnection) -> Result<BootstrapPlan, St
     let port = select_local_workspace_port(requested_port, &workspace)?;
     let endpoint = format!("{}://127.0.0.1:{port}", url.scheme());
     let runtime_script = format!(
-        "$ErrorActionPreference='Stop'; if (-not (Get-Command ciel-runtime -ErrorAction SilentlyContinue) -or -not (Get-Command ciel-runtimectl -ErrorAction SilentlyContinue)) {{ npm install -g @oneciel-ai/ciel-runtime@nightly --force }}; $runtimeWorkspace=(Get-Location).Path; $runtimeJob=Start-Job -ArgumentList $runtimeWorkspace,'{port}' -ScriptBlock {{ param($workspace,$routerPort) Set-Location -LiteralPath $workspace; $env:CIEL_RUNTIME_ROUTER_PORT=$routerPort; ciel-runtimectl serve }}; try {{ for($attempt=0; $attempt -lt 80; $attempt++) {{ try {{ Invoke-RestMethod -Uri '{endpoint}/health' -TimeoutSec 1 | Out-Null; break }} catch {{ Start-Sleep -Milliseconds 250 }} }}; ciel-runtime --ca-web-port {port} --ca-menu --ca-no-self-update-check }} finally {{ Stop-Job $runtimeJob -ErrorAction SilentlyContinue; Remove-Job $runtimeJob -Force -ErrorAction SilentlyContinue }}"
+        "$ErrorActionPreference='Stop'; Clear-Host; Write-Host 'CIEL RUNTIME BOOT CONSOLE' -ForegroundColor Cyan; Write-Host 'Workspace: ' (Get-Location).Path; Write-Host 'Endpoint:  {endpoint}'; if (-not (Get-Command ciel-runtime -ErrorAction SilentlyContinue) -or -not (Get-Command ciel-runtimectl -ErrorAction SilentlyContinue)) {{ Write-Host 'Installing Ciel Runtime nightly...' -ForegroundColor Yellow; npm install -g @oneciel-ai/ciel-runtime@nightly --force }}; $runtimeCtl=(Get-Command ciel-runtimectl -ErrorAction Stop).Source; $runtimeCli=(Get-Command ciel-runtime -ErrorAction Stop).Source; $runtimeWorkspace=(Get-Location).Path; $runtimeJob=Start-Job -ArgumentList $runtimeWorkspace,'{port}',$runtimeCtl -ScriptBlock {{ param($workspace,$routerPort,$ctl) Set-Location -LiteralPath $workspace; $env:CIEL_RUNTIME_ROUTER_PORT=$routerPort; & $ctl serve }}; try {{ $routerReady=$false; for($attempt=0; $attempt -lt 80; $attempt++) {{ try {{ Invoke-RestMethod -Uri '{endpoint}/health' -TimeoutSec 1 | Out-Null; $routerReady=$true; break }} catch {{ if($runtimeJob.State -in @('Completed','Failed','Stopped')) {{ break }}; Start-Sleep -Milliseconds 250 }} }}; if(-not $routerReady) {{ Receive-Job $runtimeJob -Keep -ErrorAction SilentlyContinue; throw 'Ciel Runtime router did not become healthy. Review the output above and use RETRY BOOT.' }}; Write-Host 'Router online. Launch an agent to complete boot.' -ForegroundColor Green; & $runtimeCli --ca-web-port {port} --ca-menu --ca-no-self-update-check }} finally {{ Stop-Job $runtimeJob -ErrorAction SilentlyContinue; Receive-Job $runtimeJob -ErrorAction SilentlyContinue; Remove-Job $runtimeJob -Force -ErrorAction SilentlyContinue }}"
     );
     let runtime = powershell_request(
         "Ciel Runtime",
@@ -371,8 +378,12 @@ mod tests {
         );
         let command = plan.runtime.args.last().unwrap();
         assert!(command.contains("$env:CIEL_RUNTIME_ROUTER_PORT="));
-        assert!(command.contains("ciel-runtimectl serve"));
-        assert!(command.contains("ciel-runtime --ca-web-port"));
+        assert!(command.contains("(Get-Command ciel-runtimectl -ErrorAction Stop).Source"));
+        assert!(command.contains("& $ctl serve"));
+        assert!(command.contains("Start-Job"));
+        assert!(command.contains("$routerReady"));
+        assert!(command.contains("& $runtimeCli --ca-web-port"));
+        assert!(command.contains("--ca-menu"));
     }
 
     #[test]

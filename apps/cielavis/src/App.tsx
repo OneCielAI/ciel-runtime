@@ -9,7 +9,7 @@ import type {
   TerminalSessionInfo,
   TerminalSpawnRequest,
 } from "./core/contracts";
-import { voiceNeedsSetup } from "./core/contracts";
+import { runtimeAgentReady, voiceNeedsSetup } from "./core/contracts";
 import {
   discoverRuntime,
   isDesktop,
@@ -69,7 +69,13 @@ export function App() {
   const refresh = useCallback(async () => {
     const next = await discoverRuntime(connection);
     setSnapshot(next);
-    setNotice(next.connected ? "Runtime channel online" : next.error || "Runtime is offline");
+    setNotice(
+      runtimeAgentReady(next)
+        ? "Runtime agent online"
+        : next.connected
+          ? "Router online; waiting for an agent to launch"
+          : next.error || "Runtime is offline",
+    );
     return next;
   }, [connection]);
 
@@ -182,9 +188,27 @@ export function App() {
     () => messages.filter((message) => message.sender_id !== "cielavis-user"),
     [messages],
   );
+  const runtimeOnline = runtimeAgentReady(snapshot);
+  const routerOnline = Boolean(snapshot?.connected);
+
+  const terminalDeck = (variant: "default" | "boot") => (
+    <TerminalDeck
+      sessions={sessions}
+      activeId={activeSession}
+      variant={variant}
+      onActivate={setActiveSession}
+      onClosed={(id) => {
+        const closed = sessions.find((session) => session.id === id);
+        const remaining = sessions.filter((session) => session.id !== id);
+        setSessions(remaining);
+        if (closed?.kind === "runtime") runtimeStarted.current = false;
+        if (activeSession === id) setActiveSession(remaining.at(-1)?.id ?? "");
+      }}
+    />
+  );
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell${runtimeOnline ? "" : " app-shell--booting"}`}>
       <header className="app-header">
         <div className="brand">
           <span className="brand-mark">C</span>
@@ -192,7 +216,7 @@ export function App() {
         </div>
         <div className="runtime-pill" data-online={snapshot?.connected || false}>
           <i />
-          <span>{snapshot?.connected ? "RUNTIME ONLINE" : "RUNTIME OFFLINE"}</span>
+          <span>{runtimeOnline ? "RUNTIME ONLINE" : routerOnline ? "ROUTER ONLINE" : "RUNTIME OFFLINE"}</span>
           <code>{connection.endpoint}</code>
         </div>
         <button className="icon-button" onClick={() => setShowConnection((value) => !value)}>CONNECTION</button>
@@ -207,18 +231,31 @@ export function App() {
         </section>
       )}
 
-      <TerminalDeck
-        sessions={sessions}
-        activeId={activeSession}
-        onActivate={setActiveSession}
-        onClosed={(id) => {
-          const remaining = sessions.filter((session) => session.id !== id);
-          setSessions(remaining);
-          if (activeSession === id) setActiveSession(remaining.at(-1)?.id ?? "");
-        }}
-      />
+      {!runtimeOnline ? (
+        <section className="boot-screen" aria-live="polite">
+          <div className="boot-halo" />
+          <div className="boot-console-frame">
+            <div className="boot-heading">
+              <div>
+                <span className="eyebrow">CIEL SYSTEM BOOT</span>
+                <h1>Starting Ciel Runtime</h1>
+              </div>
+              <div className="boot-state"><i /><span>{routerOnline ? "WAITING FOR AGENT" : "STARTING ROUTER"}</span></div>
+            </div>
+            <p className="boot-copy">The desktop will unlock after a Ciel agent is active. Select Launch in the console; router availability alone does not complete boot.</p>
+            {terminalDeck("boot")}
+            <div className="boot-footer">
+              <code>{connection.endpoint}</code>
+              <span>{notice}</span>
+              <button onClick={() => { runtimeStarted.current = false; void ensureRuntime(); }}>RETRY BOOT</button>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <>
+          {terminalDeck("default")}
 
-      <section className="workspace">
+          <section className="workspace">
         <aside className="activity-rail">
           <span className="eyebrow">LIVE THREAD</span>
           <h2>Channel activity</h2>
@@ -252,15 +289,17 @@ export function App() {
             </div>
           )}
         </aside>
-      </section>
+          </section>
 
-      <footer className="command-dock">
+          <footer className="command-dock">
         <div className="notice"><i /><span>{notice}</span></div>
         <form onSubmit={submit}>
           <textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Direct the active Ciel agent…" rows={2} />
           <button disabled={!snapshot?.connected || sending || !draft.trim()}>{sending ? "SENDING" : "TRANSMIT"}</button>
         </form>
-      </footer>
+          </footer>
+        </>
+      )}
     </main>
   );
 }
