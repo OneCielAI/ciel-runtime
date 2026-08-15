@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AgentStage } from "./components/AgentStage";
+import { RichMessage } from "./components/RichMessage";
 import { TerminalDeck } from "./components/TerminalDeck";
 import type {
   BootstrapPlan,
@@ -34,15 +35,6 @@ const savedConnection = (): RuntimeConnection => {
 
 const sessionId = crypto.randomUUID();
 const channel = `cielarvis-${sessionId}`;
-
-function messageText(message: ChannelMessage): string {
-  const structured = message.meta?.response;
-  if (structured && typeof structured === "object") {
-    const response = structured as Record<string, unknown>;
-    return [response.spoken, response.overview, response.details].filter((value) => typeof value === "string").join("\n\n");
-  }
-  return String(message.message ?? "");
-}
 
 export function App() {
   const [connection, setConnection] = useState<RuntimeConnection>(savedConnection);
@@ -278,7 +270,7 @@ export function App() {
             {agentReplies.length ? agentReplies.slice(-8).map((message) => (
               <article key={message.id}>
                 <small>{message.sender_id || "agent"}</small>
-                <p>{messageText(message)}</p>
+                <RichMessage message={message} endpoint={connection.endpoint} />
               </article>
             )) : <p className="empty-copy">Agent replies will materialize here.</p>}
           </div>

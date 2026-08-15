@@ -142,7 +142,25 @@ button { cursor: pointer; }
 .message-stack { display: grid; gap: 8px; }
 .message-stack article { border: 1px solid #182e28; border-radius: 9px; padding: 10px; background: #07110f; }
 .message-stack small { color: #4cb795; font: 10px "Cascadia Mono", Consolas, monospace; text-transform: uppercase; }
-.message-stack p { max-height: 110px; margin: 6px 0 0; overflow: hidden; white-space: pre-wrap; color: #8ba39d; font-size: 12px; line-height: 1.5; }
+.rich-message { min-width: 0; margin-top: 7px; overflow-wrap: anywhere; color: #8ba39d; font-size: 12px; line-height: 1.55; }
+.rich-message > :first-child { margin-top: 0; }
+.rich-message > :last-child { margin-bottom: 0; }
+.rich-message p, .rich-message ul, .rich-message ol, .rich-message blockquote { margin: 7px 0; }
+.rich-message ul, .rich-message ol { padding-left: 20px; }
+.rich-message h1, .rich-message h2, .rich-message h3, .rich-message h4 { margin: 14px 0 7px; color: #c0e9dd; font-size: 1.05em; }
+.rich-message a { color: #67d9bb; text-decoration-color: #67d9bb66; }
+.rich-message blockquote { margin-left: 0; padding-left: 10px; border-left: 2px solid #347b68; color: #73958c; }
+.rich-message pre { max-width: 100%; overflow: auto; padding: 9px; border: 1px solid #18332c; border-radius: 6px; background: #030706; color: #a8d8ca; }
+.rich-message code { font-family: "Cascadia Mono", Consolas, monospace; }
+.rich-message :not(pre) > code { padding: 1px 4px; border-radius: 3px; background: #10221d; }
+.rich-message table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.rich-message th, .rich-message td { padding: 5px 7px; border: 1px solid #21453b; text-align: left; }
+.rich-message img { display: block; max-width: 100%; max-height: 420px; margin: 8px auto; border: 1px solid #21453b; border-radius: 7px; object-fit: contain; background: #020504; }
+.attachment-gallery { display: grid; gap: 8px; margin-top: 10px; }
+.attachment-gallery figure { min-width: 0; margin: 0; }
+.attachment-gallery figcaption { margin-top: 4px; color: #66877e; font-size: 10px; }
+.html-attachment iframe { width: 100%; min-height: 260px; border: 1px solid #21453b; border-radius: 7px; background: white; }
+.attachment-link { display: block; padding: 7px; border: 1px solid #21453b; border-radius: 6px; background: #081510; }
 .empty-copy { color: #435d56; font-size: 12px; line-height: 1.6; }
 
 .agent-stage { position: relative; min-height: 360px; display: grid; place-items: center; overflow: hidden; isolation: isolate; }
