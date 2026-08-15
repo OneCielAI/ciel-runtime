@@ -1,6 +1,6 @@
-# Cielavis
+# Cielarvis
 
-Cielavis is the desktop-first visual agent client for Ciel Runtime. The first phase targets Windows while keeping the React interaction layer reusable for macOS, Linux, Android, iOS, and a browser deployment.
+Cielarvis is the desktop-first visual agent client for Ciel Runtime. The first phase targets Windows while keeping the React interaction layer reusable for macOS, Linux, Android, iOS, and a browser deployment.
 
 ## Phase 1
 
@@ -10,12 +10,12 @@ Cielavis is the desktop-first visual agent client for Ciel Runtime. The first ph
 - Poll the channel wait endpoint for correlated replies and submit typed web-chat messages without importing Runtime internals.
 - Probe ASR/TTS health after the channel connects. Missing workers automatically open a read-only status session; login and deployment require an explicit button because they can authenticate accounts or consume Colab resources.
 
-Windows Terminal and WezTerm are not embedded as child windows. Cielavis uses the Windows Pseudoconsole API through `portable-pty`, with xterm.js as the renderer. This is the same host/renderer boundary intended by ConPTY and remains portable to Unix PTYs later.
+Windows Terminal and WezTerm are not embedded as child windows. Cielarvis uses the Windows Pseudoconsole API through `portable-pty`, with xterm.js as the renderer. This is the same host/renderer boundary intended by ConPTY and remains portable to Unix PTYs later.
 
 ## Development
 
 ```powershell
-cd apps/cielavis
+cd apps/cielarvis
 npm install
 npm test
 npm run build
@@ -23,6 +23,6 @@ npm run desktop:build
 ./install.ps1
 ```
 
-The unpackaged Windows executable is written to `src-tauri/target/release/cielavis-desktop.exe`.
-The local installer copies it to `%LOCALAPPDATA%\Cielavis\cielavis.exe` and writes the
-`%USERPROFILE%\.local\bin\cielavis.ps1` launcher.
+The unpackaged Windows executable is written to `src-tauri/target/release/cielarvis-desktop.exe`.
+The local installer copies it to `%LOCALAPPDATA%\Cielarvis\cielarvis.exe` and writes the
+`%USERPROFILE%\.local\bin\cielarvis.ps1` launcher.

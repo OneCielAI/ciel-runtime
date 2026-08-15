@@ -1,8 +1,8 @@
 {
-  "name": "@oneciel-ai/cielavis",
+  "name": "@oneciel-ai/cielarvis",
   "version": "0.1.0",
   "private": true,
-  "description": "Desktop-first visual agent client for Ciel Runtime.",
+  "description": "Desktop-first Cielarvis visual agent client for Ciel Runtime.",
   "type": "module",
   "scripts": {
     "dev": "vite",

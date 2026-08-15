@@ -291,8 +291,8 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
             runtime = str(value or "").strip().lower()
             if runtime in ("codex-app", "codex-appserver"):
                 runtime = "codex-app-server"
-            if runtime not in ("claude", "codex", "codex-app-server", "agy"):
-                raise SystemExit("--ca-runtime must be claude, codex, codex-app-server, or agy")
+            if runtime not in ("claude", "codex", "codex-app-server", "agy", "last"):
+                raise SystemExit("--ca-runtime must be claude, codex, codex-app-server, agy, or last")
         elif arg in ("--ca-no-launch", "--ca-configure-only", "--ca-setup-only"):
             configure_only = True
             skip_menu = True
@@ -661,6 +661,9 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
             print(line)
     if configure_only:
         return 0
+    if runtime == "last":
+        remembered_runtime = str(last_launch_runtime() or "").strip().lower()
+        runtime = remembered_runtime if remembered_runtime in {"claude", "codex", "agy"} else "claude"
     if runtime == "agy":
         return launch_agy(
             passthrough,

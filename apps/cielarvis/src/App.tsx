@@ -21,7 +21,7 @@ import {
 
 const savedConnection = (): RuntimeConnection => {
   try {
-    const saved = JSON.parse(localStorage.getItem("cielavis.connection") ?? "{}");
+    const saved = JSON.parse(localStorage.getItem("cielarvis.connection") ?? "{}");
     return {
       endpoint: String(saved.endpoint || "http://127.0.0.1:6969"),
       token: "",
@@ -33,7 +33,7 @@ const savedConnection = (): RuntimeConnection => {
 };
 
 const sessionId = crypto.randomUUID();
-const channel = `cielavis-${sessionId}`;
+const channel = `cielarvis-${sessionId}`;
 
 function messageText(message: ChannelMessage): string {
   const structured = message.meta?.response;
@@ -55,6 +55,7 @@ export function App() {
   const [notice, setNotice] = useState("Initializing native bridge…");
   const [sending, setSending] = useState(false);
   const [showConnection, setShowConnection] = useState(false);
+  const [consoleExpanded, setConsoleExpanded] = useState(false);
   const runtimeStarted = useRef(false);
   const voiceStatusOpened = useRef(false);
   const lastId = useRef(0);
@@ -101,7 +102,7 @@ export function App() {
   }, [connection, refresh, spawn]);
 
   useEffect(() => {
-    localStorage.setItem("cielavis.connection", JSON.stringify({
+    localStorage.setItem("cielarvis.connection", JSON.stringify({
       endpoint: connection.endpoint,
       workspace: connection.workspace,
     }));
@@ -185,11 +186,15 @@ export function App() {
   const voicePending = voiceNeedsSetup(snapshot);
   const speechServices = snapshot?.speech?.services ?? {};
   const agentReplies = useMemo(
-    () => messages.filter((message) => message.sender_id !== "cielavis-user"),
+    () => messages.filter((message) => message.sender_id !== "cielarvis-user"),
     [messages],
   );
   const runtimeOnline = runtimeAgentReady(snapshot);
   const routerOnline = Boolean(snapshot?.connected);
+
+  useEffect(() => {
+    if (runtimeOnline) setConsoleExpanded(false);
+  }, [runtimeOnline]);
 
   const terminalDeck = (variant: "default" | "boot") => (
     <TerminalDeck
@@ -212,7 +217,7 @@ export function App() {
       <header className="app-header">
         <div className="brand">
           <span className="brand-mark">C</span>
-          <div><strong>CIELAVIS</strong><small>VISUAL AGENT CONSOLE</small></div>
+          <div><strong>CIELARVIS</strong><small>VISUAL AGENT CONSOLE</small></div>
         </div>
         <div className="runtime-pill" data-online={snapshot?.connected || false}>
           <i />
@@ -253,7 +258,17 @@ export function App() {
         </section>
       ) : (
         <>
-          {terminalDeck("default")}
+          <section className={`runtime-console-dock${consoleExpanded ? " expanded" : ""}`}>
+            <button
+              className="runtime-console-toggle"
+              aria-label={consoleExpanded ? "Minimize Runtime console" : "Open Runtime console"}
+              title={consoleExpanded ? "Minimize Runtime console" : "Runtime console"}
+              onClick={() => setConsoleExpanded((value) => !value)}
+            >
+              <span>C</span>
+            </button>
+            {consoleExpanded && terminalDeck("default")}
+          </section>
 
           <section className="workspace">
         <aside className="activity-rail">

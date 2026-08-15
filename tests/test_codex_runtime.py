@@ -2079,6 +2079,30 @@ bearer_token_env_var = "AINET_API_KEY"
         )
         launch_claude.assert_not_called()
 
+    def test_headless_last_runtime_uses_actual_workspace_launch_history(self):
+        with (
+            mock.patch.object(
+                ciel_runtime,
+                "apply_headless_env_config",
+                return_value=(False, None, None, False, False),
+            ),
+            mock.patch.object(ciel_runtime, "last_launch_runtime", return_value="claude"),
+            mock.patch.object(ciel_runtime, "launch_claude", return_value=0) as launch_claude,
+            mock.patch.object(ciel_runtime, "launch_codex") as launch_codex,
+        ):
+            rc = ciel_runtime.run_cli(["--ca-runtime", "last", "--ca-no-self-update-check"])
+
+        self.assertEqual(0, rc)
+        launch_claude.assert_called_once_with(
+            [],
+            skip_menu=True,
+            force_menu=False,
+            web_search_override=None,
+            update_check=True,
+            self_update_check=False,
+        )
+        launch_codex.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

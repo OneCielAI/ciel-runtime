@@ -18,7 +18,7 @@ export function AgentStage({ snapshot, listening }: { snapshot: RuntimeSnapshot 
         <p>
           {snapshot?.connected
             ? "The visual layer is bound to the active Ciel channel."
-            : "Cielavis is opening a supervised Runtime session above."}
+            : "Cielarvis is opening a supervised Runtime session above."}
         </p>
       </div>
     </section>

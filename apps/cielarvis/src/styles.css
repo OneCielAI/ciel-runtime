@@ -123,6 +123,16 @@ button { cursor: pointer; }
 .boot-footer code { color: #589181; font-size: 10px; }
 .boot-footer span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #718b84; font-size: 11px; }
 .boot-footer button { border: 1px solid #2b6e5a; border-radius: 7px; padding: 7px 10px; color: #aee9d6; background: #0d3027; font-size: 10px; letter-spacing: .1em; }
+.runtime-console-dock { display: flex; align-items: center; min-height: 48px; padding: 7px 18px; border-bottom: 1px solid var(--line); background: #050807; }
+.runtime-console-dock.expanded { min-height: 0; padding: 0; display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: stretch; }
+.runtime-console-toggle {
+  width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto;
+  border: 1px solid #3d9d81; border-radius: 7px; color: #9ff4d8; background: #0a211b;
+  box-shadow: inset 0 0 13px #4be0b321, 0 0 14px #4be0b315;
+}
+.runtime-console-toggle span { font: 600 13px "Cascadia Mono", Consolas, monospace; }
+.runtime-console-dock.expanded .runtime-console-toggle { align-self: start; margin: 8px 7px; }
+.runtime-console-dock.expanded .terminal-deck { min-width: 0; border-left: 1px solid var(--line); }
 
 .workspace { min-height: 0; display: grid; grid-template-columns: minmax(220px, 310px) minmax(420px, 1fr) minmax(220px, 310px); }
 .activity-rail, .systems-rail { min-width: 0; overflow: auto; padding: 24px 21px; background: #050a09a8; }

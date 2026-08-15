@@ -22,10 +22,10 @@ describe("voiceNeedsSetup", () => {
 
 describe("runtimeAgentReady", () => {
   it("does not treat a router-only channel as a running agent", () => {
-    expect(runtimeAgentReady({ connected: true, endpoint: "http://127.0.0.1:6969", tui: { active_count: 0 } })).toBe(false);
+    expect(runtimeAgentReady({ connected: true, endpoint: "http://127.0.0.1:6969", runtime: { active_client_count: 0 }, tui: { active_count: 0 } })).toBe(false);
   });
 
-  it("becomes ready only when the TUI observation API reports an active agent", () => {
-    expect(runtimeAgentReady({ connected: true, endpoint: "http://127.0.0.1:6969", tui: { active_count: 1 } })).toBe(true);
+  it("becomes ready when the router reports a registered CLI runtime", () => {
+    expect(runtimeAgentReady({ connected: true, endpoint: "http://127.0.0.1:6969", runtime: { active_client_count: 1 }, tui: { active_count: 0 } })).toBe(true);
   });
 });

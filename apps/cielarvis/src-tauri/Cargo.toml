@@ -1,13 +1,13 @@
 [package]
-name = "cielavis-desktop"
+name = "cielarvis-desktop"
 version = "0.1.0"
-description = "Windows desktop shell for the Cielavis visual agent"
+description = "Windows desktop shell for the Cielarvis visual agent"
 authors = ["One Ciel LLC"]
 license = "MIT"
 edition = "2024"
 
 [lib]
-name = "cielavis_desktop_lib"
+name = "cielarvis_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

@@ -40,15 +40,18 @@ class RouterDebugTests(unittest.TestCase):
         self.assertFalse(ciel_runtime.router_health_matches_current(health))
 
     def test_router_health_advertises_stable_instance_identity(self):
-        payload = ciel_runtime.router_health_payload(
-            {"current_provider": "anthropic", "providers": {"anthropic": {}}},
-            "anthropic",
-            {},
-        )
+        with patch.object(ciel_runtime, "active_router_client_pids", return_value=[101, 202]):
+            payload = ciel_runtime.router_health_payload(
+                {"current_provider": "anthropic", "providers": {"anthropic": {}}},
+                "anthropic",
+                {},
+            )
 
         self.assertEqual(ciel_runtime.ROUTER_INSTANCE_ID, payload["instance_id"])
         self.assertEqual(ciel_runtime.ROUTER_WORKSPACE, payload["workspace"])
         self.assertEqual(ciel_runtime.ROUTER_PORT, payload["router_port"])
+        self.assertEqual(2, payload["active_client_count"])
+        self.assertEqual([101, 202], payload["active_client_pids"])
 
     def test_router_recognises_its_own_health_payload(self):
         """A router must not look foreign to its own client.

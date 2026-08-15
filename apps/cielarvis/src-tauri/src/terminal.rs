@@ -40,7 +40,7 @@ struct TerminalSession {
 
 impl Drop for TerminalSession {
     fn drop(&mut self) {
-        // A terminal tab owns the process it started.  Closing Cielavis must
+        // A terminal tab owns the process it started.  Closing Cielarvis must
         // not leave a bootstrap Runtime or a speech setup shell orphaned.
         let _ = self.child.kill();
     }
@@ -97,7 +97,7 @@ pub fn terminal_spawn(
     let id = Uuid::new_v4().to_string();
     let output_id = id.clone();
     thread::Builder::new()
-        .name(format!("cielavis-pty-{output_id}"))
+        .name(format!("cielarvis-pty-{output_id}"))
         .spawn(move || {
             let mut buffer = [0_u8; 8192];
             loop {
@@ -105,7 +105,7 @@ pub fn terminal_spawn(
                     Ok(0) => break,
                     Ok(count) => {
                         let _ = app.emit(
-                            "cielavis://terminal-output",
+                            "cielarvis://terminal-output",
                             TerminalOutput {
                                 id: output_id.clone(),
                                 data: String::from_utf8_lossy(&buffer[..count]).into_owned(),

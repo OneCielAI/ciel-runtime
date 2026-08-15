@@ -370,7 +370,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cielavis-desktop"
+name = "cielarvis-desktop"
 version = "0.1.0"
 dependencies = [
  "futures-util",

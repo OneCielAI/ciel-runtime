@@ -52,13 +52,13 @@ claude-free/evidence/
 .tmp-*/
 
 # Cielavis desktop build outputs
-apps/cielavis/node_modules/
-apps/cielavis/dist/
-apps/cielavis/src-tauri/target/
-apps/cielavis/src-tauri/gen/
-apps/cielavis/*.tsbuildinfo
-apps/cielavis/vite.config.js
-apps/cielavis/vite.config.d.ts
+apps/*/node_modules/
+apps/*/dist/
+apps/*/src-tauri/target/
+apps/*/src-tauri/gen/
+apps/*/*.tsbuildinfo
+apps/*/vite.config.js
+apps/*/vite.config.d.ts
 
 # Internal-only docs (SSH inventory, credentials maps) — never commit or publish
 internal-docs/

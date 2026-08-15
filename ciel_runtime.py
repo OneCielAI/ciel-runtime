@@ -371,7 +371,7 @@ from ciel_runtime_support.router_process_lifecycle import start_router_if_needed
 from ciel_runtime_support.workspace_router_selection import workspace_identity
 from ciel_runtime_support.router_rate_limit_service import RouterRateLimitApi, RouterRateLimitPaths, RouterRateLimitPorts, RouterRateLimitService
 from ciel_runtime_support.router_request_context import RouterRequestCompatibilityApi, RouterRequestContext
-from ciel_runtime_support.router_server_context import RouterHealthPresentationPorts, RouterServerCompatibilityApi, RouterServerContext
+from ciel_runtime_support.router_server_context import RouterHealthPresentationPorts, RouterHealthRuntimePorts, RouterServerCompatibilityApi, RouterServerContext
 from ciel_runtime_support.router_shortcuts import ChannelShortcutPorts, LiveConfigShortcutPorts, RouterDebugShortcutPorts, RouterShortcutController, ShortcutPredicates, ShortcutResponsePorts
 from ciel_runtime_support.runtime_activity_repository import RuntimeActivityClock, RuntimeActivityEffects, RuntimeActivityPaths, RuntimeActivityRepository
 from ciel_runtime_support.runtime_adapters import RUNTIME_ADAPTERS
@@ -2990,7 +2990,7 @@ def _router_server_context() -> RouterServerContext:
                                                   external_event_receiver_service().stop),
     )
     return RouterServerContext(
-        health=RouterHealthPresentationPorts(VERSION, SOURCE_FINGERPRINT, os.getpid, getpass.getuser, HOME, ROUTER_INSTANCE_DIR, ROUTER_WORKSPACE, ROUTER_PORT, ROUTER_INSTANCE_ID, current_alias),
+        health=RouterHealthPresentationPorts(VERSION, SOURCE_FINGERPRINT, RouterHealthRuntimePorts(os.getpid, active_router_client_pids), getpass.getuser, HOME, ROUTER_INSTANCE_DIR, ROUTER_WORKSPACE, ROUTER_PORT, ROUTER_INSTANCE_ID, current_alias),
         http_services=http_services,
         server_runtime=server_runtime,
     )

@@ -15,5 +15,5 @@ pub fn run() {
             runtime::bootstrap_plan,
         ])
         .run(tauri::generate_context!())
-        .expect("failed to run Cielavis desktop shell");
+        .expect("failed to run Cielarvis desktop shell");
 }

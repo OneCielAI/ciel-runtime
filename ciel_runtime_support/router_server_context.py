@@ -11,10 +11,16 @@ from .router_server_runtime import RouterServerRuntime
 
 
 @dataclass(frozen=True, slots=True)
+class RouterHealthRuntimePorts:
+    current_pid: Callable[[], int]
+    active_client_pids: Callable[[], list[int]]
+
+
+@dataclass(frozen=True, slots=True)
 class RouterHealthPresentationPorts:
     version: str
     source_fingerprint: str
-    current_pid: Callable[[], int]
+    runtime: RouterHealthRuntimePorts
     current_user: Callable[[], str]
     home: Path
     config_dir: Path
@@ -37,17 +43,20 @@ class RouterServerContext:
         pcfg: dict[str, Any],
     ) -> dict[str, Any]:
         del pcfg
+        active_clients = self.health.runtime.active_client_pids()
         return {
             "ok": True,
             "version": self.health.version,
             "source_fingerprint": self.health.source_fingerprint,
-            "pid": self.health.current_pid(),
+            "pid": self.health.runtime.current_pid(),
             "user": self.health.current_user(),
             "home": str(self.health.home),
             "config_dir": str(self.health.config_dir),
             "workspace": self.health.workspace,
             "router_port": self.health.router_port,
             "instance_id": self.health.instance_id,
+            "active_client_count": len(active_clients),
+            "active_client_pids": active_clients,
             "provider": provider,
             "model": self.health.current_alias(cfg),
             "web_chat": "/ca/web/chat",
@@ -85,6 +94,7 @@ class RouterServerCompatibilityApi:
 
 __all__ = [
     "RouterHealthPresentationPorts",
+    "RouterHealthRuntimePorts",
     "RouterServerCompatibilityApi",
     "RouterServerContext",
 ]

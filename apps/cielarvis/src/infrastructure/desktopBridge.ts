@@ -29,13 +29,14 @@ export async function discoverRuntime(connection: RuntimeConnection): Promise<Ru
   try {
     const base = connection.endpoint.replace(/\/$/, "");
     const headers = { accept: "application/json", ...authorization(connection.token) };
-    const [channel, tui, speech, speechConfig] = await Promise.all([
+    const [channel, runtime, tui, speech, speechConfig] = await Promise.all([
       webJson<Record<string, unknown>>(`${base}/ca/channel/health`, { headers }),
+      webJson<{ active_client_count?: number; active_client_pids?: number[] }>(`${base}/health`, { headers }),
       webJson<{ active_count?: number; active?: unknown[] }>(`${base}/ca/tui/status`, { headers }),
       webJson<Record<string, unknown>>(`${base}/ca/speech/health`, { headers }),
       webJson<Record<string, unknown>>(`${base}/ca/speech/config`, { headers }),
     ]);
-    return { connected: true, endpoint: base, channel, tui, speech, speech_config: speechConfig } as RuntimeSnapshot;
+    return { connected: true, endpoint: base, channel, runtime, tui, speech, speech_config: speechConfig } as RuntimeSnapshot;
   } catch (error) {
     return { connected: false, endpoint: connection.endpoint, error: String(error) };
   }
@@ -48,7 +49,7 @@ export async function waitForMessages(
 ): Promise<ChannelPage> {
   if (isDesktop()) return invoke("runtime_wait_messages", { connection, after, channel });
   const base = connection.endpoint.replace(/\/$/, "");
-  const query = new URLSearchParams({ after: String(after), channel, recipient: "cielavis", timeout: "20" });
+  const query = new URLSearchParams({ after: String(after), channel, recipient: "cielarvis", timeout: "20" });
   return webJson(`${base}/ca/channel/wait?${query}`, {
     headers: { accept: "application/json", ...authorization(connection.token) },
   });
@@ -62,19 +63,19 @@ export async function sendMessage(
 ): Promise<ChannelPage | Record<string, unknown>> {
   const payload = {
     channel,
-    sender_id: "cielavis-user",
+    sender_id: "cielarvis-user",
     recipients: ["all"],
     delivery: ["llm", "native"],
     thread_id: sessionId,
     kind: "web_chat",
     message,
     meta: {
-      source: "cielavis-desktop",
+      source: "cielarvis-desktop",
       source_kind: "web_chat",
       web_chat_session: sessionId,
       input_mode: "text",
       reply_channel: channel,
-      reply_recipient: "cielavis",
+      reply_recipient: "cielarvis",
       response_contract: { version: 1, fields: ["spoken", "overview", "details"], tts_field: "spoken" },
       reply_instruction: "Acknowledge briefly, then reply through the Ciel channel with spoken, overview, and optional details fields.",
     },
@@ -110,5 +111,5 @@ export async function killTerminal(id: string): Promise<void> {
 }
 
 export async function onTerminalOutput(handler: (output: TerminalOutput) => void): Promise<UnlistenFn> {
-  return listen<TerminalOutput>("cielavis://terminal-output", (event) => handler(event.payload));
+  return listen<TerminalOutput>("cielarvis://terminal-output", (event) => handler(event.payload));
 }
