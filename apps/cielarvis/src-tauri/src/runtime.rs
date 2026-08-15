@@ -209,11 +209,20 @@ pub async fn runtime_wait_messages(
     after: u64,
     channel: String,
 ) -> Result<Value, String> {
-    let path = format!(
-        "/ca/channel/wait?after={after}&channel={}&recipient=cielarvis&timeout=20",
+    request_json(
+        &connection,
+        Method::GET,
+        &channel_wait_path(after, &channel),
+        None,
+    )
+    .await
+}
+
+fn channel_wait_path(after: u64, channel: &str) -> String {
+    format!(
+        "/ca/channel/wait?after={after}&channel={}&recipient=web&timeout=20",
         url::form_urlencoded::byte_serialize(channel.as_bytes()).collect::<String>()
-    );
-    request_json(&connection, Method::GET, &path, None).await
+    )
 }
 
 #[tauri::command]
@@ -371,6 +380,15 @@ mod tests {
     fn endpoint_rejects_embedded_credentials() {
         let error = normalized_base(&connection("http://secret@127.0.0.1:6969")).unwrap_err();
         assert!(error.contains("credentials"));
+    }
+
+    #[test]
+    fn channel_wait_subscribes_to_web_delivery_replies() {
+        let path = channel_wait_path(10, "cielarvis-session/a");
+        assert_eq!(
+            path,
+            "/ca/channel/wait?after=10&channel=cielarvis-session%2Fa&recipient=web&timeout=20"
+        );
     }
 
     #[test]

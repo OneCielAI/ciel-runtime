@@ -49,7 +49,7 @@ export async function waitForMessages(
 ): Promise<ChannelPage> {
   if (isDesktop()) return invoke("runtime_wait_messages", { connection, after, channel });
   const base = connection.endpoint.replace(/\/$/, "");
-  const query = new URLSearchParams({ after: String(after), channel, recipient: "cielarvis", timeout: "20" });
+  const query = new URLSearchParams({ after: String(after), channel, recipient: "web", timeout: "20" });
   return webJson(`${base}/ca/channel/wait?${query}`, {
     headers: { accept: "application/json", ...authorization(connection.token) },
   });
@@ -75,7 +75,7 @@ export async function sendMessage(
       web_chat_session: sessionId,
       input_mode: "text",
       reply_channel: channel,
-      reply_recipient: "cielarvis",
+      reply_recipient: "web",
       response_contract: { version: 1, fields: ["spoken", "overview", "details"], tts_field: "spoken" },
       reply_instruction: "Acknowledge briefly, then reply through the Ciel channel with spoken, overview, and optional details fields.",
     },
