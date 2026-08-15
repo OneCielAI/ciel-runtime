@@ -1321,6 +1321,32 @@ class StopRouterGuaranteeTests(unittest.TestCase):
 
 
 class RouterLifetimeTests(unittest.TestCase):
+    def test_router_health_defaults_to_five_second_timeout(self):
+        with (
+            mock.patch.dict(os.environ, {}, clear=False),
+            mock.patch.object(ciel_runtime, "http_json", return_value={"ok": True}) as get,
+        ):
+            os.environ.pop("CIEL_RUNTIME_ROUTER_HEALTH_TIMEOUT_SECONDS", None)
+            self.assertEqual({"ok": True}, ciel_runtime.router_health())
+
+        get.assert_called_once_with(
+            f"{ciel_runtime.ROUTER_BASE}/health",
+            timeout=5.0,
+        )
+
+    def test_router_health_timeout_is_configurable_and_bounded(self):
+        with mock.patch.dict(
+            os.environ,
+            {"CIEL_RUNTIME_ROUTER_HEALTH_TIMEOUT_SECONDS": "60"},
+        ):
+            self.assertEqual(30.0, ciel_runtime.router_health_timeout_seconds())
+
+        with mock.patch.dict(
+            os.environ,
+            {"CIEL_RUNTIME_ROUTER_HEALTH_TIMEOUT_SECONDS": "invalid"},
+        ):
+            self.assertEqual(5.0, ciel_runtime.router_health_timeout_seconds())
+
     def test_router_client_supervisor_defaults_to_five_second_interval(self):
         with mock.patch.dict(os.environ, {}, clear=False):
             os.environ.pop("CIEL_RUNTIME_ROUTER_SUPERVISOR_SECONDS", None)

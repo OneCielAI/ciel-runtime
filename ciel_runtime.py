@@ -3006,9 +3006,19 @@ class RouterHandler(RouterHttpHandler):
 
 serve = _ROUTER_SERVER_API.serve
 
+def router_health_timeout_seconds() -> float:
+    try:
+        value = float(os.environ.get("CIEL_RUNTIME_ROUTER_HEALTH_TIMEOUT_SECONDS", "5"))
+    except (TypeError, ValueError):
+        value = 5.0
+    return max(1.0, min(30.0, value))
+
 def router_health() -> dict[str, Any] | None:
     try:
-        data = http_json(f"{ROUTER_BASE}/health", timeout=1.0)
+        data = http_json(
+            f"{ROUTER_BASE}/health",
+            timeout=router_health_timeout_seconds(),
+        )
         return data if isinstance(data, dict) else None
     except Exception:
         return None
