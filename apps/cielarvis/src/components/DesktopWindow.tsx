@@ -16,42 +16,94 @@ type DesktopWindowProps = {
   onClose: () => void;
 };
 
-type PointerOrigin = { pointerX: number; pointerY: number; bounds: WindowBounds };
+type PointerOrigin = { pointerX: number; pointerY: number; bounds: WindowBounds; latest: WindowBounds };
 
 export function DesktopWindow({ app, definition, instance, active, viewport, children, onFocus, onBounds, onMinimize, onMaximize, onClose }: DesktopWindowProps) {
+  const windowRef = useRef<HTMLElement | null>(null);
   const drag = useRef<PointerOrigin | null>(null);
   const resize = useRef<PointerOrigin | null>(null);
+
+  function paintDrag(bounds: WindowBounds, origin: PointerOrigin) {
+    const node = windowRef.current;
+    if (!node) return;
+    node.style.transform = `translate3d(${bounds.x - origin.bounds.x}px, ${bounds.y - origin.bounds.y}px, 0)`;
+    node.style.willChange = "transform";
+  }
+
+  function paintResize(bounds: WindowBounds) {
+    const node = windowRef.current;
+    if (!node) return;
+    node.style.width = `${bounds.width}px`;
+    node.style.height = `${bounds.height}px`;
+    node.style.willChange = "width, height";
+  }
+
+  function clearPointerPaint() {
+    const node = windowRef.current;
+    if (!node) return;
+    requestAnimationFrame(() => {
+      if (drag.current || resize.current) return;
+      node.style.transform = "";
+      node.style.width = "";
+      node.style.height = "";
+      node.style.willChange = "";
+    });
+  }
 
   function beginDrag(event: ReactPointerEvent<HTMLElement>) {
     if (instance.mode !== "normal" || (event.target as HTMLElement).closest("button")) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { pointerX: event.clientX, pointerY: event.clientY, bounds: { ...instance.bounds } };
+    const bounds = { ...instance.bounds };
+    drag.current = { pointerX: event.clientX, pointerY: event.clientY, bounds, latest: bounds };
     onFocus();
   }
 
   function moveDrag(event: ReactPointerEvent<HTMLElement>) {
-    if (!drag.current) return;
-    onBounds({
-      ...drag.current.bounds,
-      x: drag.current.bounds.x + event.clientX - drag.current.pointerX,
-      y: drag.current.bounds.y + event.clientY - drag.current.pointerY,
-    });
+    const current = drag.current;
+    if (!current) return;
+    const next = {
+      ...current.bounds,
+      x: current.bounds.x + event.clientX - current.pointerX,
+      y: current.bounds.y + event.clientY - current.pointerY,
+    };
+    current.latest = next;
+    paintDrag(next, current);
+  }
+
+  function finishDrag() {
+    const current = drag.current;
+    if (!current) return;
+    onBounds(current.latest);
+    drag.current = null;
+    clearPointerPaint();
   }
 
   function beginResize(event: ReactPointerEvent<HTMLDivElement>) {
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
-    resize.current = { pointerX: event.clientX, pointerY: event.clientY, bounds: { ...instance.bounds } };
+    const bounds = { ...instance.bounds };
+    resize.current = { pointerX: event.clientX, pointerY: event.clientY, bounds, latest: bounds };
     onFocus();
   }
 
   function moveResize(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!resize.current) return;
-    onBounds({
-      ...resize.current.bounds,
-      width: resize.current.bounds.width + event.clientX - resize.current.pointerX,
-      height: resize.current.bounds.height + event.clientY - resize.current.pointerY,
-    });
+    const current = resize.current;
+    if (!current) return;
+    const next = {
+      ...current.bounds,
+      width: current.bounds.width + event.clientX - current.pointerX,
+      height: current.bounds.height + event.clientY - current.pointerY,
+    };
+    current.latest = next;
+    paintResize(next);
+  }
+
+  function finishResize() {
+    const current = resize.current;
+    if (!current) return;
+    onBounds(current.latest);
+    resize.current = null;
+    clearPointerPaint();
   }
 
   if (instance.mode === "minimized") return null;
@@ -61,8 +113,8 @@ export function DesktopWindow({ app, definition, instance, active, viewport, chi
     : { left: instance.bounds.x, top: instance.bounds.y, width: instance.bounds.width, height: instance.bounds.height, zIndex: instance.zIndex };
 
   return (
-    <section className={`desktop-window${active ? " active" : ""}${maximized ? " maximized" : ""}`} style={style} onPointerDown={onFocus} data-app-id={app.id}>
-      <header className="window-titlebar" onDoubleClick={onMaximize} onPointerDown={beginDrag} onPointerMove={moveDrag} onPointerUp={() => { drag.current = null; }}>
+    <section ref={windowRef} className={`desktop-window${active ? " active" : ""}${maximized ? " maximized" : ""}`} style={style} onPointerDown={onFocus} data-app-id={app.id}>
+      <header className="window-titlebar" onDoubleClick={onMaximize} onPointerDown={beginDrag} onPointerMove={moveDrag} onPointerUp={finishDrag} onPointerCancel={finishDrag}>
         <span className="window-app-icon" style={{ color: app.icon.accent }}>{app.icon.glyph}</span>
         <div><strong>{instance.title}</strong><small>{app.name} · SDK v1</small></div>
         <nav>
@@ -73,7 +125,7 @@ export function DesktopWindow({ app, definition, instance, active, viewport, chi
       </header>
       <div className="window-content">{children}</div>
       {definition.resizable !== false && !maximized && (
-        <div className="window-resize-handle" onPointerDown={beginResize} onPointerMove={moveResize} onPointerUp={() => { resize.current = null; }} />
+        <div className="window-resize-handle" onPointerDown={beginResize} onPointerMove={moveResize} onPointerUp={finishResize} onPointerCancel={finishResize} />
       )}
     </section>
   );
