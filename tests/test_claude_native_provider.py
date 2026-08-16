@@ -308,6 +308,46 @@ class NativeEnvContractTests(unittest.TestCase):
         self.assertEqual(attribution, wire_body["system"][0])
         self.assertEqual({"enabled": True}, wire_body["future_request_field"])
 
+    def test_routed_anthropic_soft_compacts_only_after_input_budget_is_exceeded(self):
+        pcfg = {
+            "current_model": "custom-small-context",
+            "context_window": 32_768,
+            "max_output_tokens": 4_096,
+            "route_through_router": True,
+        }
+        small = {
+            "model": "custom-small-context",
+            "system": [{"type": "text", "text": "stable system"}],
+            "messages": [{"role": "user", "content": "ordinary request"}],
+            "max_tokens": 4_096,
+            "future_request_field": {"enabled": True},
+        }
+
+        unchanged = ciel_runtime.cap_anthropic_body_for_provider(
+            "anthropic", pcfg, small
+        )
+
+        self.assertEqual(small, unchanged)
+
+        oversized = dict(small)
+        oversized["messages"] = [
+            {"role": "user", "content": "old context " * 18_000},
+            {"role": "assistant", "content": "old response " * 18_000},
+            {"role": "user", "content": "latest request"},
+        ]
+
+        compacted = ciel_runtime.cap_anthropic_body_for_provider(
+            "anthropic", pcfg, oversized
+        )
+
+        self.assertNotEqual(oversized, compacted)
+        self.assertLess(
+            ciel_runtime.estimate_tokens(compacted),
+            ciel_runtime.estimate_tokens(oversized),
+        )
+        self.assertEqual("latest request", compacted["messages"][-1]["content"])
+        self.assertEqual({"enabled": True}, compacted["future_request_field"])
+
     def test_routed_anthropic_keeps_mid_conversation_system_context_inline_for_every_model(self):
         for model in ("claude-opus-5", "claude-fable-5", "claude-sonnet-4-6"):
             with self.subTest(model=model):

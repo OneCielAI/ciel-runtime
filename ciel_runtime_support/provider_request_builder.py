@@ -70,8 +70,6 @@ class ProviderRequestBuilder:
     ) -> dict[str, Any]:
         capped = dict(body)
         compact_kind = self.budget.compact_kind(capped)
-        if provider == "anthropic" and compact_kind != "codex":
-            return capped
         context_limit = (
             self.budget.context_limit(provider, config)
             or self.budget.positive_int(config.get("max_model_len"))
@@ -87,6 +85,23 @@ class ProviderRequestBuilder:
         reserve = self.budget.reserve(config, context_limit)
         output_reserve = self.budget.positive_int(capped.get("max_tokens")) or configured or 4096
         input_budget = max(8192, context_limit - output_reserve - reserve)
+
+        # Claude Code normally owns persistent compaction for Anthropic models.
+        # A routed/custom-base-url session can nevertheless outgrow that window
+        # without emitting a compact turn.  Keep ordinary Anthropic requests
+        # byte-for-byte stable, but apply the request-local safety compactor once
+        # the actual provider input budget has been exceeded.
+        if provider == "anthropic" and compact_kind != "codex":
+            return self.budget.compact_anthropic(
+                capped,
+                input_budget,
+                provider=provider,
+                pcfg=config,
+                model=str(capped.get("model") or config.get("current_model") or ""),
+                full_compact_request=False,
+                compact_runtime=None,
+            )
+
         capped = self.budget.compact_anthropic(
             capped,
             input_budget,
