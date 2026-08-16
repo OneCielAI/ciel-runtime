@@ -134,6 +134,40 @@ class ChannelMessagePromptTests(unittest.TestCase):
         self.assertNotIn("VOICE conversation turn", prompt)
         self.assertNotIn("asr_transcript=", prompt)
 
+    def test_web_chat_image_attachment_requires_native_visual_inspection(self):
+        prompt = format_web_chat_wake_batch_prompt(
+            [
+                {
+                    "id": 132,
+                    "channel": "web-chat-session",
+                    "thread_id": "thread-9",
+                    "kind": "web_chat",
+                    "message": "이 이미지를 확인해줘",
+                    "meta": {
+                        "source": "ciel-runtime-web-chat",
+                        "reply_channel": "web-chat-session",
+                        "input_mode": "text",
+                        "runtime_attachments": [
+                            {
+                                "name": "screen.png",
+                                "content_type": "image/png",
+                                "bytes": 123,
+                                "local_path": "C:\\private\\screen.png",
+                                "url": "http://router/ca/chat/files/screen.png",
+                            }
+                        ],
+                    },
+                }
+            ]
+        )
+
+        self.assertIn('"content_type":"image/png"', prompt)
+        self.assertIn('"local_path":"C:\\\\private\\\\screen.png"', prompt)
+        self.assertNotIn("http://router", prompt)
+        self.assertIn("inspect every image/* attachment", prompt)
+        self.assertIn("native image-reading tool", prompt)
+        self.assertNotIn("\n", prompt)
+
     def test_skip_policy_rejects_control_and_self_echo_messages(self):
         control = {"message": "ready", "meta": {"sse_source": "remote", "kind": "status"}}
         self_echo = {"message": "update", "meta": {"sse_source": "ciel-runtime-router"}}

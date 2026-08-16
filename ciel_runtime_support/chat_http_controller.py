@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 import os
 import time
 import urllib.parse
@@ -155,9 +156,52 @@ class ChatHttpController:
             return True
         with target.open("rb") as stream:
             size = os.fstat(stream.fileno()).st_size
+            request_target = str(getattr(handler, "path", path) or path)
+            inline_params = urllib.parse.parse_qs(
+                urllib.parse.urlparse(request_target).query,
+                keep_blank_values=True,
+            )
+            inline = self._first(inline_params, "inline").lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+            guessed_type = mimetypes.guess_type(name)[0] or "application/octet-stream"
+            safe_image_types = {
+                "image/avif",
+                "image/bmp",
+                "image/gif",
+                "image/jpeg",
+                "image/png",
+                "image/webp",
+            }
+            safe_text_types = {
+                "application/json",
+                "text/csv",
+                "text/markdown",
+                "text/plain",
+            }
+            inline_type = (
+                guessed_type
+                if guessed_type in safe_image_types
+                or guessed_type in safe_text_types
+                or guessed_type == "application/pdf"
+                else "text/plain"
+                if guessed_type in {"application/xhtml+xml", "image/svg+xml", "text/html"}
+                else "application/octet-stream"
+            )
             handler.send_response(200)
-            handler.send_header("content-type", "application/octet-stream")
-            handler.send_header("content-disposition", f"attachment; filename={json.dumps(name)}")
+            handler.send_header(
+                "content-type", inline_type if inline else "application/octet-stream"
+            )
+            handler.send_header("x-content-type-options", "nosniff")
+            handler.send_header(
+                "content-security-policy",
+                "sandbox; default-src 'none'; style-src 'unsafe-inline'",
+            )
+            disposition = "inline" if inline and inline_type != "application/octet-stream" else "attachment"
+            handler.send_header("content-disposition", f"{disposition}; filename={json.dumps(name)}")
             handler.send_header("content-length", str(size))
             handler.end_headers()
             while chunk := stream.read(CHAT_FILE_STREAM_CHUNK_BYTES):

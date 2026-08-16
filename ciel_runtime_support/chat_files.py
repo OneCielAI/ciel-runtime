@@ -167,6 +167,29 @@ class ChatFileRepository:
             or "application/octet-stream",
         }
 
+    def runtime_attachment(self, upload: dict[str, Any]) -> dict[str, Any]:
+        """Project a stored public attachment into the private Runtime input."""
+
+        name = str(upload.get("name") or "").strip()
+        if not name or self.safe_segment(name, "") != name:
+            raise ValueError("invalid stored chat attachment name")
+        root = self._root.resolve()
+        target = (self._root / name).resolve()
+        if target.parent != root or not target.is_file():
+            raise FileNotFoundError("stored chat attachment is unavailable")
+        content_type = str(
+            upload.get("content_type")
+            or mimetypes.guess_type(str(upload.get("original_name") or name))[0]
+            or "application/octet-stream"
+        ).strip()[:200]
+        return {
+            "name": str(upload.get("original_name") or name),
+            "content_type": content_type or "application/octet-stream",
+            "bytes": target.stat().st_size,
+            "local_path": str(target),
+            "url": str(upload.get("url") or upload.get("path") or ""),
+        }
+
     @staticmethod
     def markdown_lines(uploads: list[dict[str, Any]]) -> list[str]:
         lines: list[str] = []

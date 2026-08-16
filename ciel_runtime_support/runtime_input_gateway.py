@@ -15,6 +15,7 @@ from typing import Any, Callable
 @dataclass(frozen=True, slots=True)
 class RuntimeInputGateway:
     append: Callable[[dict[str, Any]], dict[str, Any]]
+    project_attachment: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
     def submit_web_chat(
         self,
@@ -29,6 +30,18 @@ class RuntimeInputGateway:
         meta.setdefault("source_kind", "web_chat")
         meta["reply_parent_id"] = public_message.get("id")
         meta.setdefault("web_reply_token", secrets.token_urlsafe(24))
+        attachments = meta.get("attachments")
+        if self.project_attachment is not None and isinstance(attachments, list):
+            runtime_attachments: list[dict[str, Any]] = []
+            for attachment in attachments:
+                if not isinstance(attachment, dict):
+                    continue
+                try:
+                    runtime_attachments.append(self.project_attachment(attachment))
+                except (FileNotFoundError, OSError, ValueError):
+                    continue
+            if runtime_attachments:
+                meta["runtime_attachments"] = runtime_attachments
         payload = {
             "channel": public_message.get("channel") or inbound.get("channel") or "default",
             "sender_id": public_message.get("sender_id") or inbound.get("sender_id") or "web-user",

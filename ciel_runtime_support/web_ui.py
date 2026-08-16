@@ -157,6 +157,24 @@ def render_web_chat_page(
       width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;
       border: 0; border-radius: 999px; background: #243447; color: var(--text); cursor: pointer;
     }}
+    .message-attachments {{ display: grid; gap: 9px; margin-top: 10px; }}
+    .message-attachment {{
+      overflow: hidden; border: 1px solid var(--line); border-radius: 7px;
+      background: rgba(0,0,0,.18);
+    }}
+    .attachment-preview-header {{
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 7px 9px; color: var(--muted); font-size: 12px;
+    }}
+    .attachment-preview-header a {{ color: #7dd3fc; text-decoration: none; }}
+    .attachment-preview-header a:hover {{ text-decoration: underline; }}
+    .attachment-image {{
+      display: block; width: 100%; max-height: 520px; object-fit: contain;
+      background: #070a0f; cursor: zoom-in;
+    }}
+    .attachment-pdf {{ width: 100%; height: min(62vh, 620px); border: 0; background: white; }}
+    .attachment-text-preview {{ margin: 0; max-height: 360px; overflow: auto; border: 0; border-top: 1px solid var(--line); border-radius: 0; }}
+    .attachment-preview-note {{ padding: 9px; color: var(--muted); font-size: 12px; }}
     .drop-active textarea {{ border-color: var(--accent); box-shadow: 0 0 0 2px rgba(47, 158, 143, .18); }}
     .hint {{ margin-top: 7px; color: var(--muted); font-size: 12px; }}
     .error {{ color: var(--danger); }}
@@ -426,6 +444,114 @@ def render_web_chat_page(
       const href = String(value || '').trim();
       if (/^(https?:|mailto:)/i.test(href)) return escapeHtml(href);
       return '#';
+    }}
+    function sameRuntimeAttachmentUrl(value, inline = false) {{
+      try {{
+        const url = new URL(String(value || ''), location.href);
+        if (url.origin !== location.origin || !url.pathname.startsWith('/ca/chat/files/')) return '';
+        if (inline) url.searchParams.set('inline', '1');
+        return url.href;
+      }} catch {{
+        return '';
+      }}
+    }}
+    function messageAttachments(message) {{
+      const attachments = message && message.meta && message.meta.attachments;
+      return Array.isArray(attachments) ? attachments.filter(item => item && typeof item === 'object') : [];
+    }}
+    function attachmentLabel(attachment) {{
+      return String(attachment.original_name || attachment.name || 'attachment');
+    }}
+    function attachmentMime(attachment) {{
+      return String(attachment.content_type || 'application/octet-stream').toLowerCase().split(';', 1)[0].trim();
+    }}
+    function attachmentUrl(attachment, inline = false) {{
+      return sameRuntimeAttachmentUrl(attachment.path || attachment.url || '', inline)
+        || sameRuntimeAttachmentUrl(attachment.url || '', inline);
+    }}
+    function safePreviewImageMime(mime) {{
+      return ['image/avif', 'image/bmp', 'image/gif', 'image/jpeg', 'image/png', 'image/webp'].includes(mime);
+    }}
+    function previewableTextMime(mime) {{
+      return ['application/json', 'text/csv', 'text/markdown', 'text/plain', 'text/html', 'application/xhtml+xml', 'image/svg+xml'].includes(mime);
+    }}
+    async function loadAttachmentTextPreview(pre, url) {{
+      if (pre.dataset.loaded === '1') return;
+      pre.dataset.loaded = '1';
+      pre.textContent = 'Loading preview…';
+      try {{
+        const response = await fetch(url, {{headers: {{accept: 'text/plain'}}, cache: 'no-store'}});
+        if (!response.ok) throw new Error(`HTTP ${{response.status}}`);
+        const text = await response.text();
+        pre.textContent = text.length > 250000 ? text.slice(0, 250000) + '\\n\\n[Preview truncated]' : text;
+      }} catch (error) {{
+        pre.textContent = 'Preview unavailable: ' + String(error && error.message ? error.message : error);
+      }}
+    }}
+    function renderMessageAttachments(attachments, bubble) {{
+      if (!bubble || !attachments.length) return;
+      const tray = document.createElement('div');
+      tray.className = 'message-attachments';
+      attachments.forEach(attachment => {{
+        const name = attachmentLabel(attachment);
+        const mime = attachmentMime(attachment);
+        const bytes = Number(attachment.bytes || 0);
+        const downloadUrl = attachmentUrl(attachment, false);
+        const inlineUrl = attachmentUrl(attachment, true);
+        if (!downloadUrl) return;
+        const card = document.createElement('section');
+        card.className = 'message-attachment';
+        const header = document.createElement('div');
+        header.className = 'attachment-preview-header';
+        const summary = document.createElement('span');
+        summary.textContent = name + (bytes ? ' · ' + formatBytes(bytes) : '') + (mime ? ' · ' + mime : '');
+        const download = document.createElement('a');
+        download.href = downloadUrl;
+        download.target = '_blank';
+        download.rel = 'noopener noreferrer';
+        download.textContent = 'Download';
+        header.appendChild(summary);
+        header.appendChild(download);
+        card.appendChild(header);
+        if (inlineUrl && safePreviewImageMime(mime)) {{
+          const link = document.createElement('a');
+          link.href = inlineUrl;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          const image = document.createElement('img');
+          image.className = 'attachment-image';
+          image.src = inlineUrl;
+          image.alt = name;
+          image.loading = 'lazy';
+          link.appendChild(image);
+          card.appendChild(link);
+        }} else if (inlineUrl && mime === 'application/pdf' && bytes <= 50 * 1024 * 1024) {{
+          const frame = document.createElement('iframe');
+          frame.className = 'attachment-pdf';
+          frame.src = inlineUrl;
+          frame.title = 'PDF preview: ' + name;
+          frame.setAttribute('sandbox', '');
+          frame.loading = 'lazy';
+          card.appendChild(frame);
+        }} else if (inlineUrl && previewableTextMime(mime) && bytes <= 1024 * 1024) {{
+          const details = document.createElement('details');
+          const toggle = document.createElement('summary');
+          toggle.textContent = mime.includes('html') || mime.includes('svg') ? 'Preview safe source text' : 'Preview contents';
+          const pre = document.createElement('pre');
+          pre.className = 'attachment-text-preview';
+          details.appendChild(toggle);
+          details.appendChild(pre);
+          details.addEventListener('toggle', () => {{ if (details.open) loadAttachmentTextPreview(pre, inlineUrl); }});
+          card.appendChild(details);
+        }} else {{
+          const note = document.createElement('div');
+          note.className = 'attachment-preview-note';
+          note.textContent = 'Inline preview is unavailable for this file type or size.';
+          card.appendChild(note);
+        }}
+        tray.appendChild(card);
+      }});
+      if (tray.childElementCount) bubble.appendChild(tray);
     }}
     function renderInlineMarkdown(value) {{
       const codeBlocks = [];
@@ -718,14 +844,17 @@ def render_web_chat_page(
       if (mode !== 'prepend') rememberLastId(message.id);
       const text = message.message || '';
       const structured = structuredWebResponse(message);
-      if (!text.trim() && !structured) return;
+      const attachments = messageAttachments(message);
+      if (!text.trim() && !structured && !attachments.length) return;
       const role = roleForMessage(message);
       const kind = String(message.kind || '').toLowerCase();
       if (role === 'user') autoSpeechReplySeen = false;
       const duplicateTurnSpeech = role === 'assistant' && ((kind === 'ack' && autoSpeechReplySeen) || (kind === 'reply' && autoSpeechReplySeen));
       if (kind === 'reply' && role === 'assistant') autoSpeechReplySeen = true;
-      if (structured && role === 'assistant') addStructuredBubble(structured, mode, message.id);
-      else addBubble(role, text, mode, message.id);
+      const bubble = structured && role === 'assistant'
+        ? addStructuredBubble(structured, mode, message.id)
+        : addBubble(role, text, mode, message.id);
+      renderMessageAttachments(attachments, bubble);
       if (mode === 'append' && role === 'assistant') {{
         setState('reply received', 'ok');
         const speechText = structured ? (structured.spoken || structured.overview) : text;

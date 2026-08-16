@@ -26,6 +26,16 @@ Ciel retains only its own message paths:
 
 These are Ciel bridge APIs. `/ca/chat/stream` is a Web Chat event stream, not an external MCP transport.
 
+Web Chat attachments are uploaded through `POST /ca/channel/files`. The public
+chat transcript contains only download metadata; the private Runtime Input
+projection adds a validated workspace-local path so the active Claude or Codex
+session can inspect image attachments with its native image-reading tool before
+replying. Agent replies can return a local or inline file with the
+`ciel-runtime-router` `send_file` tool. The browser renders same-runtime PNG,
+JPEG, GIF, WebP, AVIF, and BMP images inline, embeds bounded PDF previews, and
+offers bounded text previews. HTML and SVG are shown only as inert source text,
+never executed in the chat origin.
+
 ## Standard application event inputs
 
 External application events and Web Chat requests enter the same private Runtime Input Gateway. The browser transcript remains a separate repository, so an external event is never published by `/ca/chat/messages`, `/ca/chat/wait`, or `/ca/chat/stream`.

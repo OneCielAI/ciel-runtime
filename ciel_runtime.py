@@ -1842,7 +1842,10 @@ read_runtime_inputs_before = _RUNTIME_INPUT_API.read_before
 append_runtime_input = _RUNTIME_INPUT_API.append
 
 def runtime_input_gateway() -> RuntimeInputGateway:
-    return RuntimeInputGateway(append_runtime_input)
+    return RuntimeInputGateway(
+        append_runtime_input,
+        chat_file_repository().runtime_attachment,
+    )
 
 def external_event_receiver_service() -> ExternalEventReceiverService:
     global _EXTERNAL_EVENT_RECEIVER_SERVICE

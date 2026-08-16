@@ -42,6 +42,34 @@ class ChatFileRepositoryTests(unittest.TestCase):
             self.assertEqual("report.txt", upload["original_name"])
             self.assertEqual("text/plain", upload["content_type"])
 
+    def test_runtime_attachment_projects_only_a_stored_local_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repository = ChatFileRepository(
+                Path(directory),
+                "http://router",
+                ChatFilePorts(timestamp_ns=lambda: 789),
+            )
+            upload = repository.store_upload(
+                {
+                    "name": "screen.png",
+                    "encoding": "base64",
+                    "content": "aW1hZ2U=",
+                    "content_type": "image/png",
+                }
+            )
+
+            projected = repository.runtime_attachment(upload)
+
+            self.assertEqual("screen.png", projected["name"])
+            self.assertEqual("image/png", projected["content_type"])
+            self.assertEqual(5, projected["bytes"])
+            self.assertEqual(
+                (Path(directory) / upload["name"]).resolve(),
+                Path(projected["local_path"]),
+            )
+            with self.assertRaisesRegex(ValueError, "invalid stored"):
+                repository.runtime_attachment({"name": "../outside.png"})
+
     def test_path_upload_streams_in_chunks_without_read_bytes(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -278,6 +306,94 @@ class ChatHttpFileStreamingTests(unittest.TestCase):
                 all(len(chunk) <= CHAT_FILE_STREAM_CHUNK_BYTES for chunk in handler.wfile.chunks)
             )
             self.assertEqual(payload, b"".join(handler.wfile.chunks))
+
+    def test_inline_image_download_uses_safe_mime_and_nosniff(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "screen.png").write_bytes(b"png")
+
+            class Handler:
+                path = "/ca/chat/files/screen.png?inline=1"
+
+                def __init__(self):
+                    self.status = None
+                    self.headers = {}
+                    self.wfile = type("Writer", (), {"write": lambda _self, data: len(data)})()
+
+                def send_response(self, status):
+                    self.status = status
+
+                def send_header(self, name, value):
+                    self.headers[str(name).casefold()] = str(value)
+
+                def end_headers(self):
+                    return None
+
+            controller = ChatHttpController(
+                router_base="http://router",
+                reads=ChatHttpReadServices(
+                    read_after=lambda *_args: [],
+                    read_before=lambda *_args: [],
+                    condition=Condition(),
+                    safe_segment=ChatFileRepository.safe_segment,
+                    files_dir=root,
+                ),
+                writes=ChatHttpWriteServices(
+                    write_json=lambda *_args, **_kwargs: None,
+                    append_message=lambda body: body,
+                    store_upload=lambda body: body,
+                ),
+            )
+            handler = Handler()
+
+            self.assertTrue(controller.get(handler, "/ca/chat/files/screen.png"))
+
+            self.assertEqual(200, handler.status)
+            self.assertEqual("image/png", handler.headers["content-type"])
+            self.assertTrue(handler.headers["content-disposition"].startswith("inline;"))
+            self.assertEqual("nosniff", handler.headers["x-content-type-options"])
+
+    def test_inline_html_is_served_as_inert_source_text(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "page.html").write_text("<script>alert(1)</script>", encoding="utf-8")
+
+            class Handler:
+                path = "/ca/chat/files/page.html?inline=1"
+
+                def __init__(self):
+                    self.headers = {}
+                    self.wfile = type("Writer", (), {"write": lambda _self, data: len(data)})()
+
+                def send_response(self, _status):
+                    return None
+
+                def send_header(self, name, value):
+                    self.headers[str(name).casefold()] = str(value)
+
+                def end_headers(self):
+                    return None
+
+            controller = ChatHttpController(
+                "http://router",
+                ChatHttpReadServices(
+                    lambda *_args: [],
+                    lambda *_args: [],
+                    Condition(),
+                    ChatFileRepository.safe_segment,
+                    root,
+                ),
+                ChatHttpWriteServices(
+                    lambda *_args, **_kwargs: None,
+                    lambda body: body,
+                    lambda body: body,
+                ),
+            )
+            handler = Handler()
+
+            self.assertTrue(controller.get(handler, "/ca/chat/files/page.html"))
+            self.assertEqual("text/plain", handler.headers["content-type"])
+            self.assertIn("sandbox", handler.headers["content-security-policy"])
 
 
 if __name__ == "__main__":
