@@ -151,6 +151,11 @@ export async function spawnTerminal(request: TerminalSpawnRequest): Promise<Term
   return invoke("terminal_spawn", { request });
 }
 
+export async function listTerminalSessions(): Promise<TerminalSessionInfo[]> {
+  if (!isDesktop()) return [];
+  return invoke("terminal_list");
+}
+
 export async function writeTerminal(id: string, data: string): Promise<void> {
   return invoke("terminal_write", { id, data });
 }

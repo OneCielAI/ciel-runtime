@@ -12,6 +12,7 @@ describe("Ciel Browser WebView isolation", () => {
     expect(capability.permissions).toContain("allow-browser-pointer");
     expect(capability.permissions).toContain("allow-browser-keyboard");
     expect(capability.permissions).toContain("allow-browser-mcp-status");
+    expect(capability.permissions).toContain("allow-terminal-list");
   });
 
   it("moves application commands behind Tauri's generated ACL", () => {
@@ -20,6 +21,7 @@ describe("Ciel Browser WebView isolation", () => {
     expect(buildScript).toContain("AppManifest::new().commands(COMMANDS)");
     expect(buildScript).toContain('"browser_evaluate"');
     expect(buildScript).toContain('"terminal_spawn"');
+    expect(buildScript).toContain('"terminal_list"');
     expect(buildScript).toContain('"runtime_send_message"');
   });
 });

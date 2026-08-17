@@ -18,6 +18,7 @@ fn main() {
         "browser_mcp_status",
         "browser_mcp_configure_runtime",
         "terminal_spawn",
+        "terminal_list",
         "terminal_write",
         "terminal_resize",
         "terminal_kill",

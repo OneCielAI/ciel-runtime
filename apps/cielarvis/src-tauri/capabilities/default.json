@@ -23,6 +23,7 @@
     "allow-browser-mcp-status",
     "allow-browser-mcp-configure-runtime",
     "allow-terminal-spawn",
+    "allow-terminal-list",
     "allow-terminal-write",
     "allow-terminal-resize",
     "allow-terminal-kill",

@@ -33,6 +33,7 @@ struct TerminalOutput {
 }
 
 struct TerminalSession {
+    info: TerminalSessionInfo,
     master: Box<dyn MasterPty + Send>,
     writer: Box<dyn Write + Send>,
     child: Box<dyn Child + Send + Sync>,
@@ -117,6 +118,11 @@ pub fn terminal_spawn(
             }
         })
         .map_err(|error| error.to_string())?;
+    let info = TerminalSessionInfo {
+        id: id.clone(),
+        title: request.title,
+        kind: request.kind,
+    };
     state
         .0
         .lock()
@@ -124,16 +130,30 @@ pub fn terminal_spawn(
         .insert(
             id.clone(),
             TerminalSession {
+                info: info.clone(),
                 master: pair.master,
                 writer,
                 child,
             },
         );
-    Ok(TerminalSessionInfo {
-        id,
-        title: request.title,
-        kind: request.kind,
-    })
+    Ok(info)
+}
+
+/// Return PTYs that are still owned by this native shell.  The Rust process
+/// outlives a WebView reload, so the renderer must be able to reattach to the
+/// supervised Runtime instead of losing the only safe direct-input handle.
+#[tauri::command]
+pub fn terminal_list(state: State<'_, TerminalState>) -> Result<Vec<TerminalSessionInfo>, String> {
+    let sessions = state
+        .0
+        .lock()
+        .map_err(|_| "Terminal state lock was poisoned")?;
+    let mut items = sessions
+        .values()
+        .map(|session| session.info.clone())
+        .collect::<Vec<_>>();
+    items.sort_by(|left, right| left.id.cmp(&right.id));
+    Ok(items)
 }
 
 #[tauri::command]

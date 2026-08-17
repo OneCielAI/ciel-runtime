@@ -21,6 +21,7 @@ import { CielDesktopKernel, type DesktopViewport } from "./core/desktopKernel";
 import {
   discoverRuntime,
   isDesktop,
+  listTerminalSessions,
   loadBootstrapPlan,
   sendMessage,
   spawnTerminal,
@@ -64,6 +65,7 @@ export function App() {
   const [runtimeFullyLoaded, setRuntimeFullyLoaded] = useState(false);
   const [voiceActive, setVoiceActive] = useState(false);
   const [voiceBusy, setVoiceBusy] = useState(false);
+  const [voiceAssistancePending, setVoiceAssistancePending] = useState(false);
   const runtimeStarted = useRef(false);
   const runtimeSessionId = useRef("");
   const defaultsOpened = useRef(false);
@@ -72,6 +74,23 @@ export function App() {
   const voiceRecorder = useRef<MediaRecorder | null>(null);
   const voiceStream = useRef<MediaStream | null>(null);
   const voiceChunks = useRef<Blob[]>([]);
+  const voiceAssistanceParentId = useRef("");
+
+  useEffect(() => {
+    if (!isDesktop()) return;
+    let cancelled = false;
+    void listTerminalSessions().then((existing) => {
+      if (cancelled || !existing.length) return;
+      setSessions(existing);
+      setActiveSession(existing.at(-1)?.id ?? "");
+      const runtime = existing.find((item) => item.kind === "runtime");
+      if (runtime) {
+        runtimeSessionId.current = runtime.id;
+        runtimeStarted.current = true;
+      }
+    }).catch((error) => setNotice(`Terminal reattach failed: ${String(error)}`));
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const node = surfaceRef.current;
@@ -182,6 +201,14 @@ export function App() {
           if (cancelled) break;
           if (page.messages.length) {
             lastId.current = page.last_id;
+            if (voiceAssistanceParentId.current && page.messages.some((message) => (
+              String(message.parent_id ?? "") === voiceAssistanceParentId.current
+              && message.kind !== "ack"
+              && message.sender_id !== "cielarvis-user"
+            ))) {
+              voiceAssistanceParentId.current = "";
+              setVoiceAssistancePending(false);
+            }
             setMessages((current) => {
               const known = new Set(current.map((message) => message.id));
               return [...current, ...page.messages.filter((message) => !known.has(message.id))];
@@ -202,6 +229,10 @@ export function App() {
     if (!text || !snapshot?.connected || sending) return false;
     setSending(true);
     try {
+      if (options.internal && !runtimeSessionId.current) {
+        kernel.restoreApp(RUNTIME_APP_ID, viewport);
+        throw new Error("The supervised Runtime terminal is not attached yet; retry when the agent prompt is visible");
+      }
       const browserRequested = !options.internal && requestsVisibleBrowser(text);
       if (browserRequested) kernel.restoreApp(BROWSER_APP_ID, viewport, { avoidAppIds: [CHAT_APP_ID], gap: 18 });
       const message = browserRequested
@@ -220,6 +251,8 @@ export function App() {
         const record = posted as { id?: unknown; message?: { id?: unknown } };
         const parentId = String(record.message?.id ?? record.id ?? "").trim();
         if (!parentId || !replyToken) throw new Error("Runtime did not return a correlated channel message id");
+        voiceAssistanceParentId.current = parentId;
+        setVoiceAssistancePending(true);
         const route = JSON.stringify({ channel, thread_id: sessionId, parent_id: parentId, reply_token: replyToken });
         const prompt = `[CIELARVIS internal] Task=${JSON.stringify(message)} Route=${route}. Call ciel-runtime-router.send_message with kind=ack immediately. Inspect only; do not deploy or authorize without approval. Then call it once with kind=reply containing current status and the next required step.`;
         await writeTerminal(runtimeSessionId.current, `${prompt}\r`);
@@ -227,6 +260,10 @@ export function App() {
       setNotice("Message delivered to the active Ciel agent.");
       return true;
     } catch (error) {
+      if (options.internal) {
+        voiceAssistanceParentId.current = "";
+        setVoiceAssistancePending(false);
+      }
       setNotice(`Message failed: ${String(error)}`);
       return false;
     } finally {
@@ -273,6 +310,11 @@ export function App() {
   const voiceReady = Boolean(runtimeReadyForServices && asrProbe?.enabled && asrProbe?.reachable);
 
   const requestVoiceAssistance = useCallback(async (reason?: string) => {
+    if (voiceAssistancePending) {
+      kernel.restoreApp(RUNTIME_APP_ID, viewport);
+      setNotice("Voice recovery is still waiting for the agent. The Runtime console is open so you can inspect its progress.");
+      return;
+    }
     const message = capabilityRequestPrompt("voice.input", {
       runtime_endpoint: connection.endpoint,
       asr: snapshot?.speech?.services?.asr ?? null,
@@ -288,7 +330,18 @@ export function App() {
     setNotice(delivered
       ? "The active agent is inspecting voice tools and installation options."
       : "Voice needs assistance, but no active Runtime agent is available.");
-  }, [connection.endpoint, deliver, snapshot?.speech?.services]);
+  }, [connection.endpoint, deliver, kernel, snapshot?.speech?.services, viewport, voiceAssistancePending]);
+
+  useEffect(() => {
+    if (!voiceAssistancePending) return;
+    const timer = window.setTimeout(() => {
+      voiceAssistanceParentId.current = "";
+      setVoiceAssistancePending(false);
+      setNotice("The agent did not return a voice-recovery status within 60 seconds. Inspect the Runtime console, then retry.");
+      kernel.restoreApp(RUNTIME_APP_ID, viewport);
+    }, 60_000);
+    return () => window.clearTimeout(timer);
+  }, [kernel, viewport, voiceAssistancePending]);
 
   const toggleVoice = useCallback(async () => {
     if (voiceBusy) return;

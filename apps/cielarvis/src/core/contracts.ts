@@ -45,6 +45,7 @@ export function isClaudeWorkspaceTrustPrompt(output: string): boolean {
 
 export type ChannelMessage = {
   id: number;
+  parent_id?: number | string | null;
   channel?: string;
   sender_id?: string;
   recipients?: string[] | string;

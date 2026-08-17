@@ -37,6 +37,7 @@ pub fn run() {
             browser_mcp::browser_mcp_status,
             browser_mcp::browser_mcp_configure_runtime,
             terminal::terminal_spawn,
+            terminal::terminal_list,
             terminal::terminal_write,
             terminal::terminal_resize,
             terminal::terminal_kill,
