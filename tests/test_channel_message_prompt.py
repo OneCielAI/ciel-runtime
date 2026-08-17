@@ -134,6 +134,45 @@ class ChannelMessagePromptTests(unittest.TestCase):
         self.assertNotIn("VOICE conversation turn", prompt)
         self.assertNotIn("asr_transcript=", prompt)
 
+    def test_structured_request_with_tty_response_has_no_web_reply_contract(self):
+        prompt = format_web_chat_wake_batch_prompt([{
+            "id": 141,
+            "channel": "web-chat-session",
+            "kind": "web_chat",
+            "message": "show this only in the terminal",
+            "meta": {
+                "source": "ciel-runtime-web-chat",
+                "input_mode": "text",
+                "injection_mode": "structured",
+                "response_mode": "tty",
+            },
+        }])
+
+        self.assertIn("show this only in the terminal", prompt)
+        self.assertNotIn("web reply required", prompt)
+        self.assertNotIn("send_message", prompt)
+
+    def test_tty_request_keeps_user_text_raw_and_adds_one_shot_mcp_hint(self):
+        prompt = format_web_chat_wake_batch_prompt([{
+            "id": 142,
+            "message": "raw terminal text",
+            "meta": {
+                "injection_mode": "tty",
+                "response_mode": "mcp",
+                "response_mcp": {
+                    "server": "ai-net",
+                    "tool": "send_message",
+                    "hint": "reply to the originating room",
+                },
+            },
+        }])
+
+        self.assertTrue(prompt.startswith("raw terminal text\n\n"))
+        self.assertNotIn("[ciel-runtime web text]", prompt)
+        self.assertIn('"server":"ai-net"', prompt)
+        self.assertIn('"tool":"send_message"', prompt)
+        self.assertIn("one-shot", prompt)
+
     def test_cielarvis_internal_capability_prompt_is_tty_safe_and_correlated(self):
         prompt = format_web_chat_wake_batch_prompt(
             [{

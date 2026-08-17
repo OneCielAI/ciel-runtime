@@ -54,7 +54,8 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
 
         self.assertTrue(controller.post(Handler(), "/ca/chat/messages", body))
 
-        self.assertEqual([("tty", (body,))], calls)
+        self.assertEqual(["tty"], [name for name, _args in calls])
+        self.assertEqual("tty", calls[0][1][0]["meta"]["response_mode"])
         self.assertEqual(200, responses[0][0])
         self.assertEqual("tty", responses[0][1]["injection_mode"])
 
@@ -67,7 +68,8 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
 
         self.assertTrue(controller.post(handler, "/ca/channel/messages", body))
 
-        self.assertEqual([("tty", (body,))], calls)
+        self.assertEqual(["tty"], [name for name, _args in calls])
+        self.assertEqual("tty", calls[0][1][0]["meta"]["injection_mode"])
 
     def test_default_keeps_existing_web_chat_path(self):
         calls = []
@@ -97,6 +99,74 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
         self.assertEqual([], calls)
         self.assertEqual(400, responses[0][0])
         self.assertEqual("invalid_injection_mode", responses[0][1]["error"])
+
+    def test_structured_input_can_request_plain_tty_response(self):
+        calls = []
+        responses = []
+        controller = self.controller(calls, responses)
+
+        self.assertTrue(controller.post(
+            Handler(),
+            "/ca/chat/messages",
+            {"input_mode": "structured", "response_mode": "tty", "message": "inspect"},
+        ))
+
+        self.assertEqual(["append", "web"], [name for name, _args in calls])
+        admitted = calls[0][1][0]
+        self.assertEqual("structured", admitted["meta"]["injection_mode"])
+        self.assertEqual("tty", admitted["meta"]["response_mode"])
+        self.assertEqual("structured", responses[0][1]["input_mode"])
+        self.assertEqual("tty", responses[0][1]["response_mode"])
+
+    def test_tty_input_can_keep_web_chat_response_correlation(self):
+        calls = []
+        responses = []
+        controller = self.controller(calls, responses)
+
+        self.assertTrue(controller.post(
+            Handler(),
+            "/ca/chat/messages",
+            {"input_mode": "tty", "response_mode": "ai-net", "message": "raw request"},
+        ))
+
+        self.assertEqual(["append", "tty"], [name for name, _args in calls])
+        public = calls[1][1][1]
+        self.assertEqual(9, public["id"])
+        self.assertEqual("raw request", public["message"])
+        self.assertEqual("web_chat", responses[0][1]["response_mode"])
+        self.assertNotIn("runtime_message", responses[0][1])
+
+    def test_mcp_response_hint_is_normalized_and_forwarded(self):
+        calls = []
+        responses = []
+        controller = self.controller(calls, responses)
+        body = {
+            "input_mode": "structured",
+            "response_mode": "mcp",
+            "response_mcp": {"server": "ai-net", "tool": "send_message", "hint": "reply to room-7"},
+            "message": "status",
+        }
+
+        self.assertTrue(controller.post(Handler(), "/ca/chat/messages", body))
+
+        admitted = calls[0][1][0]
+        self.assertEqual(body["response_mcp"], admitted["meta"]["response_mcp"])
+        self.assertEqual("mcp", responses[0][1]["response_mode"])
+
+    def test_mcp_response_requires_server(self):
+        calls = []
+        responses = []
+        controller = self.controller(calls, responses)
+
+        self.assertTrue(controller.post(
+            Handler(),
+            "/ca/chat/messages",
+            {"response_mode": "mcp", "response_mcp": {"tool": "send"}, "message": "no"},
+        ))
+
+        self.assertEqual([], calls)
+        self.assertEqual(400, responses[0][0])
+        self.assertEqual("mcp_response_requires_server", responses[0][1]["error"])
 
 
 if __name__ == "__main__":

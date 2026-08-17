@@ -5,7 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from ciel_runtime_support.channel_message_policy import message_is_external_event, web_chat_input_mode
+from ciel_runtime_support.channel_message_policy import (
+    message_is_external_event,
+    message_response_mcp,
+    message_response_mode,
+    web_chat_input_mode,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,8 +168,16 @@ def inject_pending_channel_messages(
                 if pending:
                     break
                 return previous_last_id
+            response_mode = message_response_mode(message)
+            response_mcp = message_response_mcp(message)
+            response_key = (
+                response_mode
+                if response_mode != "mcp"
+                else "mcp:"
+                + ":".join(response_mcp.get(key, "") for key in ("server", "tool", "hint"))
+            )
             batch_key = (
-                ("web_chat", web_chat_input_mode(message))
+                ("web_chat", web_chat_input_mode(message) + ":" + response_key)
                 if state.message_is_web_chat(message)
                 else ("external_event", str((message.get("meta") or {}).get("receiver_id") or ""))
                 if message_is_external_event(message)

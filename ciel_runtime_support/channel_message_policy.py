@@ -125,6 +125,31 @@ def web_chat_input_mode(message: dict[str, Any]) -> str:
     return "voice" if value == "voice" else "text"
 
 
+def message_response_mode(message: dict[str, Any]) -> str:
+    """Return the per-request output route without conflating it with input formatting."""
+
+    meta = _metadata(message)
+    value = str(meta.get("response_mode") or "").strip().lower().replace("-", "_")
+    if value in {"ai_net", "ainet"}:
+        return "web_chat"
+    if value in {"raw", "terminal"}:
+        return "tty"
+    if value in {"web_chat", "tty", "mcp"}:
+        return value
+    return "web_chat" if message_is_web_chat_request(message) else "tty"
+
+
+def message_response_mcp(message: dict[str, Any]) -> dict[str, str]:
+    value = _metadata(message).get("response_mcp")
+    if not isinstance(value, dict):
+        return {}
+    return {
+        key: str(value.get(key) or "").strip()
+        for key in ("server", "tool", "hint")
+        if str(value.get(key) or "").strip()
+    }
+
+
 def message_has_external_provenance(message: dict[str, Any]) -> bool:
     meta = _metadata(message)
     if message_is_web_chat_request(message):

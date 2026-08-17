@@ -26,17 +26,40 @@ Ciel retains only its own message paths:
 
 These are Ciel bridge APIs. `/ca/chat/stream` is a Web Chat event stream, not an external MCP transport.
 
-`POST /ca/chat/messages` and its `/ca/channel/messages` alias accept an optional
-JSON field or query parameter named `injection_mode`:
+`POST /ca/chat/messages` and its `/ca/channel/messages` alias independently select
+how a request enters the active TUI and how the answer should leave it:
 
-- `web_chat` (the default) publishes the request to the Web Chat transcript and
-  supplies the Web Chat reply contract to the active model.
-- `tty` sends the request directly to the private runtime input queue through
-  the same terminal wake/injection path used by generic events. It is not
-  published to Web Chat and does not ask the model to reply through Web Chat.
-  Objects and arrays supplied in `message` retain their JSON structure.
+- `input_mode=structured` (default) keeps the current Web Chat envelope, attachment
+  projection, voice/text hint, and request metadata. `input_mode=tty` puts the
+  caller's message text directly on the private terminal-input path without the
+  Web Chat input envelope.
+- `response_mode=web_chat` (alias `ai_net`, default) uses the normal correlated Web
+  Chat reply contract. `response_mode=tty` leaves the model's ordinary terminal
+  output as-is and does not require a Web Chat tool reply. `response_mode=mcp`
+  supplies a one-request MCP routing hint from `response_mcp`.
 
-Unknown values return HTTP 400; they never silently fall back to Web Chat.
+The MCP hint is declarative; Ciel does not call the named server itself:
+
+```json
+{
+  "input_mode": "structured",
+  "response_mode": "mcp",
+  "response_mcp": {
+    "server": "ai-net",
+    "tool": "send_message",
+    "hint": "Reply to the room that originated this request"
+  },
+  "message": "Summarize the result"
+}
+```
+
+Input and response modes can be combined. For example, `input_mode=tty` with
+`response_mode=web_chat` publishes a correlation record in the browser transcript,
+injects the user text without the structured input envelope, and adds only the
+one-shot reply routing contract. The legacy `injection_mode=web_chat|tty` parameter
+remains supported and maps to the old paired behavior. Unknown modes and an MCP
+response without `response_mcp.server` return HTTP 400; they never silently fall
+back to another route.
 
 Web Chat attachments are uploaded through `POST /ca/channel/files`. The public
 chat transcript contains only download metadata; the private Runtime Input

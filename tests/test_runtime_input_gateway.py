@@ -88,6 +88,32 @@ class RuntimeInputGatewayTests(unittest.TestCase):
         self.assertFalse(message_is_web_chat_request(saved))
         self.assertEqual(saved["message"], format_llm_batch_prompt([saved]))
 
+    def test_tty_input_with_web_response_uses_public_message_correlation(self):
+        gateway = RuntimeInputGateway(lambda value: {"id": 12, **value})
+        public = {
+            "id": 41,
+            "channel": "web-chat-session",
+            "thread_id": "thread-1",
+            "message": "raw request",
+        }
+
+        saved = gateway.submit_tty(
+            {
+                "channel": "web-chat-session",
+                "thread_id": "thread-1",
+                "message": "raw request",
+                "meta": {"response_mode": "web_chat", "injection_mode": "tty"},
+            },
+            public,
+        )
+
+        self.assertEqual(41, saved["meta"]["reply_parent_id"])
+        self.assertEqual("web-chat-session", saved["meta"]["reply_channel"])
+        self.assertTrue(saved["meta"]["web_reply_token"])
+        prompt = format_llm_batch_prompt([saved])
+        self.assertTrue(prompt.startswith("raw request\n\n"))
+        self.assertIn("web reply required", prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

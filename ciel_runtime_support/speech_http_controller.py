@@ -148,11 +148,17 @@ class SpeechHttpController:
             "endpoints": {
                 "chat_health": "GET /ca/channel/health",
                 "chat_messages": "GET|POST /ca/channel/messages",
+                "chat_message_processing": {
+                    "input_mode": {"default": "structured", "allowed": ["structured", "tty"]},
+                    "response_mode": {"default": "web_chat", "allowed": ["web_chat", "tty", "mcp"]},
+                    "response_mcp": {"fields": ["server", "tool", "hint"], "required_when": "response_mode=mcp"},
+                    "legacy_parameter": "injection_mode",
+                },
                 "chat_message_injection_modes": {
                     "parameter": "injection_mode",
                     "default": "web_chat",
                     "allowed": ["web_chat", "tty"],
-                    "tty_note": "Private plain TTY injection; not published to the Web Chat transcript.",
+                    "deprecated": True,
                 },
                 "chat_wait": "GET /ca/channel/wait",
                 "chat_stream": "GET /ca/channel/stream",

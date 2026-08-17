@@ -14,6 +14,8 @@ from ciel_runtime_support.channel_message_policy import (
     message_is_web_chat_request,
     message_is_external_event,
     message_meta_sources,
+    message_response_mcp,
+    message_response_mode,
     string_list,
     web_chat_input_mode,
 )
@@ -172,6 +174,8 @@ def _web_chat_reply_routes(
     for message in messages:
         if not message_is_web_chat_request(message):
             continue
+        if message_response_mode(message) != "web_chat":
+            continue
         if web_chat_input_mode(message) != input_mode:
             continue
         meta = _metadata(message)
@@ -250,6 +254,40 @@ def _web_chat_reply_instruction(messages: list[dict[str, Any]]) -> str:
     return " ".join(instructions)
 
 
+def _mcp_reply_instruction(messages: list[dict[str, Any]]) -> str:
+    instructions: list[str] = []
+    seen: set[tuple[str, str, str]] = set()
+    for message in messages:
+        if message_response_mode(message) != "mcp":
+            continue
+        hint = message_response_mcp(message)
+        server = hint.get("server", "")
+        if not server:
+            continue
+        key = (server, hint.get("tool", ""), hint.get("hint", ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        contract = {"server": server}
+        if hint.get("tool"):
+            contract["tool"] = hint["tool"]
+        if hint.get("hint"):
+            contract["hint"] = hint["hint"]
+        instructions.append(
+            "[ciel-runtime MCP response hint one-shot] For only this injected request, route the "
+            "answer through the available MCP described by "
+            + json.dumps(contract, ensure_ascii=False, separators=(",", ":"))
+            + ". Do not reuse this response route for later terminal input."
+        )
+    return " ".join(instructions)
+
+
+def _response_instruction(messages: list[dict[str, Any]]) -> str:
+    return " ".join(
+        item for item in (_web_chat_reply_instruction(messages), _mcp_reply_instruction(messages)) if item
+    )
+
+
 def _format_cielarvis_internal_prompt(messages: list[dict[str, Any]]) -> str | None:
     """Keep CIELARVIS capability recovery turns below Windows TTY editor limits."""
     if len(messages) != 1:
@@ -286,11 +324,18 @@ def _format_cielarvis_internal_prompt(messages: list[dict[str, Any]]) -> str | N
 def format_web_chat_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
     if compact := _format_cielarvis_internal_prompt(messages):
         return compact
+    if messages and all(
+        str(_metadata(message).get("injection_mode") or "structured").strip().lower() == "tty"
+        for message in messages
+    ):
+        raw = "\n\n".join(message_llm_display_text(message) for message in messages)
+        instruction = _response_instruction(messages)
+        return f"{raw}\n\n{instruction}" if instruction else raw
     items = " ; ".join(_format_web_chat_wake_item(message) for message in messages)
     modes = {web_chat_input_mode(message) for message in messages}
     input_mode = modes.pop() if len(modes) == 1 else "mixed"
     request = f"[ciel-runtime web {input_mode}] {len(messages)} browser message(s): {items}"
-    instruction = _web_chat_reply_instruction(messages)
+    instruction = _response_instruction(messages)
     # Windows Console turns embedded newlines into Enter key events. Keep the
     # routing contract and browser request in one physical line so Codex sees
     # one atomic turn instead of answering locally before the reply contract.
@@ -429,5 +474,5 @@ def message_llm_display_text(message: dict[str, Any]) -> str:
 
 def format_llm_batch_prompt(messages: list[dict[str, Any]]) -> str:
     prompt = "\n\n".join(message_llm_display_text(message) for message in messages)
-    instruction = _web_chat_reply_instruction(messages)
+    instruction = _response_instruction(messages)
     return f"{prompt}\n\n{instruction}" if instruction else prompt

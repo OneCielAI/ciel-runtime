@@ -29,8 +29,11 @@ class RuntimeInputGateway:
         meta = dict(public_message.get("meta") or {})
         meta.setdefault("source", "ciel-runtime-web-chat")
         meta.setdefault("source_kind", "web_chat")
-        meta["reply_parent_id"] = public_message.get("id")
-        meta.setdefault("web_reply_token", secrets.token_urlsafe(24))
+        meta.setdefault("injection_mode", "structured")
+        meta.setdefault("response_mode", "web_chat")
+        if meta["response_mode"] == "web_chat":
+            meta["reply_parent_id"] = public_message.get("id")
+            meta.setdefault("web_reply_token", secrets.token_urlsafe(24))
         attachments = meta.get("attachments")
         if self.project_attachment is not None and isinstance(attachments, list):
             runtime_attachments: list[dict[str, Any]] = []
@@ -57,7 +60,11 @@ class RuntimeInputGateway:
         }
         return self.append(payload)
 
-    def submit_tty(self, body: dict[str, Any]) -> dict[str, Any]:
+    def submit_tty(
+        self,
+        body: dict[str, Any],
+        public_message: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Admit an API message as plain TTY input, outside Web Chat semantics."""
 
         params = body.get("params") if isinstance(body.get("params"), dict) else {}
@@ -65,6 +72,7 @@ class RuntimeInputGateway:
         meta = dict(meta_value) if isinstance(meta_value, dict) else {}
         declared_source = str(meta.get("source") or "").strip()
         declared_kind = str(body.get("kind") or meta.get("source_kind") or "").strip()
+        response_mode = str(meta.get("response_mode") or "tty").strip().lower()
         for key in (
             "reply_channel",
             "reply_recipient",
@@ -72,7 +80,13 @@ class RuntimeInputGateway:
             "web_reply_token",
             "response_contract",
         ):
-            meta.pop(key, None)
+            if response_mode != "web_chat":
+                meta.pop(key, None)
+        if response_mode == "web_chat" and isinstance(public_message, dict):
+            meta.setdefault("reply_channel", public_message.get("channel") or body.get("channel") or "default")
+            meta.setdefault("reply_recipient", "web")
+            meta["reply_parent_id"] = public_message.get("id")
+            meta.setdefault("web_reply_token", secrets.token_urlsafe(24))
         if declared_source and declared_source != "ciel-runtime-api-tty":
             meta["declared_source"] = declared_source
         if declared_kind and declared_kind != "tty_input":
@@ -80,6 +94,7 @@ class RuntimeInputGateway:
         meta["source"] = "ciel-runtime-api-tty"
         meta["source_kind"] = "tty_input"
         meta["injection_mode"] = "tty"
+        meta["response_mode"] = response_mode
 
         content: Any = params.get("content")
         if content is None:
