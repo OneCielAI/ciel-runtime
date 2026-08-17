@@ -4048,10 +4048,11 @@ def launch_panel_rows(cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
             f"Codex{codex_suffix}",
             f"AGY{agy_suffix}",
             f"Kimi{kimi_suffix}",
+            "Grok Build",
             f"Codex app server{codex_suffix}",
             "Back",
         ],
-        ["launch", "launch-codex", "launch-agy", "launch-kimi", "launch-codex-app-server", "back"],
+        ["launch", "launch-codex", "launch-agy", "launch-kimi", "launch-grok", "launch-codex-app-server", "back"],
     )
 
 def request_limits_menu_service() -> RequestLimitsMenuService:
@@ -4106,7 +4107,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
             config=prelaunch.PrelaunchConfig(clear_model_cache, current_provider_panel_choice, default_base_url, get_current_provider, load_config, preflight_lines,
                                               provider_menu_label, save_config, settings_ready_except_api_key, read_model_list_cache),
             launch_policy=prelaunch.PrelaunchLaunchPolicy(agy_launch_enabled_for_provider, claude_launch_enabled_for_provider, codex_launch_enabled_for_provider,
-                                                          launch_blockers_require_api_key, launch_readiness_errors, launch_kimi),
+                                                          launch_blockers_require_api_key, launch_readiness_errors, launch_kimi, launch_grok),
             panel_rows=prelaunch.PrelaunchPanelRows(advisor_model_panel_rows, api_key_panel_rows, base_url_panel_rows, context_setup_panel_rows, language_panel_rows,
                                                     llm_option_panel_rows, llm_preset_panel_rows, log_level_panel_rows, model_panel_rows, provider_panel_rows),
             mutations=prelaunch.PrelaunchMutations(apply_context_setup_config, apply_llm_preset_config, apply_timeout_profile_to_provider,
@@ -4198,6 +4199,64 @@ def write_launch_state(state: dict[str, Any]) -> None: launch_state_repository()
 def previous_launch_state_for_cwd(cwd_key: str) -> dict[str, Any]: return launch_state_repository().previous_for_cwd(cwd_key)
 def last_launch_runtime() -> str: return project_last_launch_runtime(launch_state_repository(), current_launch_cwd_key())
 def record_launch_state_for_cwd(cwd_key: str, provider: str, mode: str, model: str) -> None: launch_state_repository().record(cwd_key, provider, mode, model)
+
+def launch_grok(
+    passthrough: list[str] | None = None,
+    *,
+    skip_menu: bool = True,
+    force_menu: bool = False,
+    update_check: bool = True,
+    self_update_check: bool = True,
+) -> int:
+    """Launch the official Grok Build client without mutating its user config."""
+
+    del skip_menu, force_menu, update_check, self_update_check
+    argv = list(passthrough or [])
+    executable = find_executable("grok")
+    if not executable:
+        print(
+            "Grok Build CLI is not installed. Install it with: "
+            "irm https://x.ai/cli/install.ps1 | iex",
+            flush=True,
+        )
+        return 127
+    cfg = load_config()
+    provider, pcfg = get_current_provider(cfg)
+    env = os.environ.copy()
+    options: dict[str, Any] = {}
+    model = ""
+    if provider == "xai":
+        model = str(pcfg.get("current_model") or "").strip()
+        key = str(provider_primary_api_key(provider, pcfg) or "").strip()
+        if key:
+            env["XAI_API_KEY"] = key
+        if model and not has_passthrough_option(argv, "-m", "--model"):
+            options["model"] = model
+        effort = str(pcfg.get("effort_level") or "").strip()
+        if effort and not has_passthrough_option(argv, "--reasoning-effort", "--effort"):
+            options["reasoning_effort"] = effort
+    command, child_env = materialize_runtime_command(
+        "grok",
+        str(executable),
+        env,
+        provider,
+        pcfg,
+        mode="native",
+        protocol="openai_responses",
+        cwd=Path.cwd(),
+        passthrough=argv,
+        options=options,
+    )
+    non_session_commands = {
+        "--version", "-v", "version", "models", "inspect", "completions",
+        "login", "logout", "setup", "update", "export", "import", "sessions",
+        "mcp", "memory", "plugin", "trace", "worktree", "wrap",
+    }
+    if not argv or argv[0] not in non_session_commands:
+        record_launch_state_for_cwd(
+            current_launch_cwd_key(), provider, "grok-native", model
+        )
+    return subprocess.call(command, env=child_env)
 
 def should_fork_native_session_after_mode_switch( provider: str, pcfg: dict[str, Any], use_native_anthropic: bool, passthrough: list[str], cwd_key: str, ) -> tuple[bool, str]:
     return project_should_fork_native_session(
@@ -4796,7 +4855,7 @@ def cli_services() -> cli_dispatch.CliServices:
         core=cli_dispatch.CliCore(VERSION, cli_usage, find_executable, get_current_provider, load_config, pop_headless_env_file_args,
                                   portable_provider_menu, run_external_menu, run_quiet_upgrade_and_exit),
         runtime=cli_dispatch.CliRuntime(agy_passthrough_has_command, codex_passthrough_has_command, last_launch_runtime, launch_agy, launch_claude,
-                                        launch_codex, launch_codex_app_server, native_agy_enabled, native_codex_enabled),
+                                        launch_codex, launch_codex_app_server, native_agy_enabled, native_codex_enabled, launch_grok),
         provider_commands=cli_dispatch.CliProviderCommands(cmd_advisor_model, cmd_api_key, cmd_base_url, cmd_language, cmd_log_level, cmd_model,
                                                            cmd_models, cmd_provider, cmd_provider_options, cmd_set_api_key),
         special_commands=cli_dispatch.CliSpecialCommands(cmd_ollama_catalog, cmd_ollama_native, cmd_ollama_options, cmd_web_fetch, cmd_web_search),
@@ -4807,7 +4866,7 @@ def cli_services() -> cli_dispatch.CliServices:
 
 def cli_parser_services() -> cli_parser.CliParserServices:
     return cli_assembly.CliParserAssembly(
-            launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve),
+            launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_launch_grok),
             runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test),
             settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level),
             provider=cli_parser.CliParserProvider(cmd_ollama_native, cmd_ollama_options, cmd_provider_options, cmd_ollama_catalog, cmd_provider,
@@ -4818,7 +4877,7 @@ def cli_parser_services() -> cli_parser.CliParserServices:
 def cli_application_context() -> CliApplicationContext:
     return CliApplicationContext(
         dispatch=CliApplicationDispatchPorts(dispatch_cli, cli_services, launch_claude, launch_codex, launch_codex_app_server,
-                                             launch_agy, launch_kimi, run_kimi_oauth_login),
+                                             launch_agy, launch_kimi, run_kimi_oauth_login, launch_grok),
         presentation=CliApplicationPresentationPorts(build_cli_parser, cli_parser_services, VERSION, print, lambda: sys.argv),
     )
 
@@ -4830,6 +4889,7 @@ cmd_launch = _CLI_APPLICATION_API.cmd_launch
 cmd_launch_codex = _CLI_APPLICATION_API.cmd_launch_codex
 cmd_launch_codex_app_server = _CLI_APPLICATION_API.cmd_launch_codex_app_server
 cmd_launch_agy = _CLI_APPLICATION_API.cmd_launch_agy
+cmd_launch_grok = _CLI_APPLICATION_API.cmd_launch_grok
 cmd_version = _CLI_APPLICATION_API.cmd_version
 main = _CLI_APPLICATION_API.main
 

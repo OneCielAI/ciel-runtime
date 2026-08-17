@@ -83,7 +83,7 @@ class MainMenuProjection:
             f"7. {self.ports.ui_text('log_level', language)}  "
             f"[{self.ports.log_level_status()}]",
             f"8. {self.ports.ui_text('test', language)}",
-            "9. Launch  [Claude · Codex · AGY · Kimi · Codex app-server]",
+            "9. Launch  [Claude · Codex · AGY · Kimi · Grok · Codex app-server]",
             "10. External event inputs  [CloudEvents + Webhook/SSE]",
             f"11. Remote instructions  [HTTP GET · {'on' if remote_enabled else 'off'}]",
             "12. Request/file limits  [workspace scoped]",

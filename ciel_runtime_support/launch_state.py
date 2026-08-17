@@ -96,6 +96,8 @@ def last_launch_runtime(repository: LaunchStateRepository, cwd_key: str) -> str:
         return "codex"
     if mode.startswith("agy"):
         return "agy"
+    if mode.startswith("grok"):
+        return "grok"
     if mode.startswith("anthropic") or mode.startswith("router:"):
         return "claude"
     return ""

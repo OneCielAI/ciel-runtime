@@ -39,6 +39,7 @@ class RuntimeRouterTests(unittest.TestCase):
             handle_responses_post=lambda handler, cfg, provider, pcfg, body: calls.append(("responses", body)),
             handle_backend_passthrough_post=lambda handler, provider, pcfg, body: calls.append(("post", body)),
             handle_backend_passthrough_get=lambda handler, provider, pcfg: calls.append(("get", provider)),
+            handle_responses_compact_post=lambda handler, provider, pcfg, body: calls.append(("compact", body)),
         )
         codex_pcfg = {"route_through_router": True}
 
@@ -46,13 +47,15 @@ class RuntimeRouterTests(unittest.TestCase):
         self.assertTrue(router.can_handle_post("/backend-api/codex/responses", "codex", codex_pcfg))
         self.assertTrue(router.can_handle_post("/backend-api/codex/models", "codex", codex_pcfg))
         self.assertTrue(router.can_handle_post("/v1/responses", "anthropic", {}))
+        self.assertTrue(router.can_handle_post("/v1/responses/compact", "xai", {}))
         self.assertFalse(router.can_handle_get("/backend-api/codex/models", "anthropic", codex_pcfg))
         self.assertFalse(router.can_handle_post("/v1/messages", "codex", codex_pcfg))
 
         self.assertTrue(router.handle_get(object(), "/backend-api/codex/models", "codex", codex_pcfg))
         self.assertTrue(router.handle_post(object(), {}, "codex", codex_pcfg, "/backend-api/codex/responses", {"a": 1}))
         self.assertTrue(router.handle_post(object(), {}, "codex", codex_pcfg, "/backend-api/codex/models", {"b": 2}))
-        self.assertEqual([("get", "codex"), ("responses", {"a": 1}), ("post", {"b": 2})], calls)
+        self.assertTrue(router.handle_post(object(), {}, "xai", {}, "/v1/responses/compact", {"c": 3}))
+        self.assertEqual([("get", "codex"), ("responses", {"a": 1}), ("post", {"b": 2}), ("compact", {"c": 3})], calls)
 
     def test_runtime_post_delegation_returns_false_for_unowned_path(self):
         self.assertFalse(ciel_runtime.route_runtime_post(object(), {}, "anthropic", {}, "/not-found", {}))

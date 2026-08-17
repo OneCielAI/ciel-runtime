@@ -756,7 +756,11 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             f"router_request_rejected path={path} status={status} "
             f"error_type={error_type} message={message}",
         )
-        if path == "/v1/responses" or path == "/backend-api/codex/responses":
+        if path in {
+            "/v1/responses",
+            "/v1/responses/compact",
+            "/backend-api/codex/responses",
+        }:
             services.errors.write_responses_error(
                 self,
                 message,
@@ -979,7 +983,7 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         message = f"Ciel Runtime router error: {type(exc).__name__}: {exc}"
         stream = bool(body.get("stream", True))
         try:
-            if path == "/v1/responses":
+            if path in {"/v1/responses", "/v1/responses/compact"}:
                 services.errors.write_responses_error(self, message, stream=stream, status=500)
             elif "text/event-stream" in str(self.headers.get("accept") or "").lower() or stream:
                 self.send_response(500)

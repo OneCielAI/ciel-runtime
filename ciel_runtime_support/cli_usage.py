@@ -6,6 +6,7 @@ def cli_usage_text() -> str:
   ciel-runtime codex [args...]         Launch Codex through ciel-runtime router
   ciel-runtime codex-app-server [args...]  Launch Codex app-server through ciel-runtime
   ciel-runtime agy [args...]           Launch Google Antigravity CLI through ciel-runtime
+  ciel-runtime grok [args...]          Launch the official Grok Build CLI
   ciel-runtime resume                  Resume Codex/AGY when that runtime provider is selected
 
 Control plane, runs before Claude Code and does not require LLM connectivity:
@@ -41,8 +42,8 @@ Headless setup flags, namespaced to avoid Claude CLI collisions:
                                       Publish localhost through Tailscale Serve HTTPS
   ciel-runtime --ca-provider PROVIDER  Set provider, then launch
   ciel-runtime --ca-env-file PATH      Load CIEL_RUNTIME_* values from a .env file
-  ciel-runtime --ca-runtime claude|codex|codex-app-server|agy
-                                      Select Claude Code, Codex, Codex app-server, or AGY for this launch
+  ciel-runtime --ca-runtime claude|codex|codex-app-server|agy|grok
+                                      Select Claude Code, Codex, Codex app-server, AGY, or Grok Build
   ciel-runtime --ca-menu               Apply setup values, then open the menu
   ciel-runtime --ca-language en|ko|ja|zh
   ciel-runtime --ca-base-url URL       Set current provider base URL, then launch

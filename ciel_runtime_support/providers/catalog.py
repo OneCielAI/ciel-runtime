@@ -303,11 +303,6 @@ COMPATIBLE_PROVIDER_SPECS: tuple[CompatibleProviderSpec, ...] = (
         ("ark", "volcengine"), chat_path="/chat/completions", models_path="/models",
     ),
     CompatibleProviderSpec(
-        "xai", "xAI", "https://api.x.ai/v1",
-        ("grok-4", "grok-4-fast-reasoning", "grok-code-fast-1", "grok-3"),
-        ("grok",),
-    ),
-    CompatibleProviderSpec(
         "xiaomi-mimo", "Xiaomi MiMo", "https://api.xiaomimimo.com/v1",
         ("mimo-v2.5-pro", "mimo-v2.5", "mimo-v2-omni", "mimo-v2-flash"),
         ("mimo",),

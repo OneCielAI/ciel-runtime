@@ -52,6 +52,44 @@ class ProviderResponsesPassthrough:
     def __init__(self, ports: ProviderResponsesPassthroughPorts) -> None:
         self._ports = ports
 
+    def forward_compact(
+        self,
+        handler: Any,
+        provider: str,
+        config: dict[str, Any],
+        body: dict[str, Any],
+    ) -> None:
+        """Forward the opaque Responses compaction contract without rewriting it."""
+
+        upstream_body = dict(body)
+        upstream_body["model"] = self._ports.normalize_model(
+            provider, config, str(body.get("model") or "")
+        )
+        data = self._encode(upstream_body)
+        url = self._ports.join_url(
+            self._ports.upstream_base(provider, config),
+            "/v1/responses/compact",
+        )
+        dump_upstream_request(url, data, self._ports.log)
+        request = urllib.request.Request(
+            url,
+            data=data,
+            headers=self._ports.headers(provider, config, handler.headers),
+            method="POST",
+        )
+        with self._ports.urlopen(
+            request,
+            timeout=self._ports.timeout_seconds(config),
+            provider=provider,
+            pcfg=config,
+        ) as response:
+            handler.send_response(getattr(response, "status", 200))
+            self._ports.copy_response_headers(handler, response.headers)
+            handler.end_headers()
+            while chunk := response.read(65_536):
+                handler.wfile.write(chunk)
+                handler.wfile.flush()
+
     @staticmethod
     def _encode(body: dict[str, Any]) -> bytes:
         return json.dumps(

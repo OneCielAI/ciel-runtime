@@ -384,6 +384,7 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "zai",
             "azure",
             "codebuddy-cn",
+            "xai",
             *(spec.name for spec in COMPATIBLE_PROVIDER_SPECS if spec.requires_api_key),
             *(spec.name for spec in ANTHROPIC_COMPATIBLE_PROVIDER_SPECS),
         }

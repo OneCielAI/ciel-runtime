@@ -38,6 +38,7 @@ from .providers.github_copilot_oauth import (
 )
 from .providers.opencode import OpenCodeProviderAdapter
 from .providers.opencode_go import OpenCodeGoProviderAdapter
+from .providers.xai import XaiProviderAdapter
 from .providers.catalog import COMPATIBLE_PROVIDER_SPECS, catalog_provider_factory
 from .providers.anthropic_catalog import (
     ANTHROPIC_COMPATIBLE_PROVIDER_SPECS,
@@ -63,6 +64,7 @@ PROVIDER_DESCRIPTORS = ProviderDescriptorRegistry(
         ProviderDescriptor("nvidia-hosted", "Nvidia Hosted", NvidiaHostedProviderAdapter),
         ProviderDescriptor("self-hosted-nim", "Self Hosted NIM", SelfHostedNimProviderAdapter),
         ProviderDescriptor("openrouter", "OpenRouter", OpenRouterProviderAdapter),
+        ProviderDescriptor("xai", "xAI", XaiProviderAdapter, aliases=("grok",)),
         ProviderDescriptor("fireworks", "Fireworks.ai", FireworksProviderAdapter),
         ProviderDescriptor(
             "meta",
@@ -181,6 +183,7 @@ __all__ = [
     "OpenRouterProviderAdapter",
     "SelfHostedNimProviderAdapter",
     "VllmProviderAdapter",
+    "XaiProviderAdapter",
     "ZaiProviderAdapter",
     "ZAI_MODEL_FALLBACK_IDS",
 ]

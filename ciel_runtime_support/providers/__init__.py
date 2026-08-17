@@ -20,6 +20,7 @@ from .zai import ZaiProviderAdapter
 from .kimi import KimiProviderAdapter
 from .opencode import OpenCodeProviderAdapter
 from .opencode_go import OpenCodeGoProviderAdapter
+from .xai import XAI_MEDIA_MODEL_FALLBACK_IDS, XAI_MODEL_FALLBACK_IDS, XaiProviderAdapter
 from .catalog import (
     COMPATIBLE_PROVIDER_SPECS,
     CatalogOpenAIProviderAdapter,
@@ -65,6 +66,9 @@ __all__ = [
     "KimiProviderAdapter",
     "OpenCodeProviderAdapter",
     "OpenCodeGoProviderAdapter",
+    "XAI_MEDIA_MODEL_FALLBACK_IDS",
+    "XAI_MODEL_FALLBACK_IDS",
+    "XaiProviderAdapter",
     "COMPATIBLE_PROVIDER_SPECS",
     "CatalogOpenAIProviderAdapter",
     "CompatibleProviderSpec",

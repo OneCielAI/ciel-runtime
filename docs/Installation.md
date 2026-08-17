@@ -94,6 +94,21 @@ ciel-runtime
 
 Router가 자동으로 시작되고 Claude Code가 Router를 통해 설정된 제공자에 연결된다.
 
+### Grok Build 실행
+
+공식 Grok Build CLI가 설치되어 있으면 독립 runtime으로 실행할 수 있다.
+
+```bash
+ciel-runtime grok
+ciel-runtime grok --continue
+ciel-runtime grok agent stdio
+```
+
+Windows 설치 명령은 `irm https://x.ai/cli/install.ps1 | iex`이고 Linux/macOS는
+`curl -fsSL https://x.ai/cli/install.sh | bash`다. 현재 provider가 `xai`이면 저장된
+xAI API key, 선택 모델, reasoning effort를 launch process에만 투영한다. Grok의
+`~/.grok` 인증·세션·사용자 설정은 Ciel이 덮어쓰지 않는다.
+
 ---
 
 ## Router 시작/중지

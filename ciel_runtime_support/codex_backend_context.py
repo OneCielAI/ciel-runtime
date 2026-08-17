@@ -282,8 +282,13 @@ class CodexBackendContext:
             )
         )
 
-    def forward_provider_responses(self, *args: Any, **kwargs: Any) -> Any:
-        return self.responses_passthrough().forward(*args, **kwargs)
+    def forward_provider_responses(
+        self, *args: Any, compact: bool = False, **kwargs: Any
+    ) -> Any:
+        passthrough = self.responses_passthrough()
+        if compact:
+            return passthrough.forward_compact(*args, **kwargs)
+        return passthrough.forward(*args, **kwargs)
 
     def upstream_url(self, request_path: str, query: str = "") -> str:
         return self.backend_adapter().upstream_url(request_path, query)
@@ -353,6 +358,7 @@ class CodexBackendCompatibilityApi:
 
     def forward_provider_responses(self, *args: Any, **kwargs: Any) -> Any:
         return self.context().forward_provider_responses(*args, **kwargs)
+
 
     def upstream_url(self, *args: Any, **kwargs: Any) -> str:
         return self.context().upstream_url(*args, **kwargs)

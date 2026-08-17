@@ -179,7 +179,12 @@ class CodexRouter:
     name = "codex"
     runtime = "codex"
     protocol = "openai_responses"
-    request_paths = ("/backend-api/codex/*", "/backend-api/codex/responses", "/v1/responses")
+    request_paths = (
+        "/backend-api/codex/*",
+        "/backend-api/codex/responses",
+        "/v1/responses",
+        "/v1/responses/compact",
+    )
     capabilities = tuple(
         RouterCapability(name, description)
         for name, description in (
@@ -202,9 +207,13 @@ class CodexRouter:
         handle_responses_post: Callable[[Any, dict[str, Any], str, dict[str, Any], dict[str, Any]], None],
         handle_backend_passthrough_post: Callable[[Any, str, dict[str, Any], dict[str, Any]], None],
         handle_backend_passthrough_get: Callable[[Any, str, dict[str, Any]], None],
+        handle_responses_compact_post: Callable[
+            [Any, str, dict[str, Any], dict[str, Any]], None
+        ] = lambda *_args, **_kwargs: None,
     ) -> None:
         self._routed_enabled = routed_enabled
         self._handle_responses_post = handle_responses_post
+        self._handle_responses_compact_post = handle_responses_compact_post
         self._handle_backend_passthrough_post = handle_backend_passthrough_post
         self._handle_backend_passthrough_get = handle_backend_passthrough_get
 
@@ -218,7 +227,7 @@ class CodexRouter:
         return True
 
     def can_handle_post(self, path: str, provider: str, pcfg: dict[str, Any]) -> bool:
-        if path == "/v1/responses":
+        if path in {"/v1/responses", "/v1/responses/compact"}:
             return True
         return self._routed_enabled(provider, pcfg) and path.startswith("/backend-api/codex/")
 
@@ -233,6 +242,9 @@ class CodexRouter:
     ) -> bool:
         if path == "/v1/responses":
             self._handle_responses_post(handler, cfg, provider, pcfg, body)
+            return True
+        if path == "/v1/responses/compact":
+            self._handle_responses_compact_post(handler, provider, pcfg, body)
             return True
         if path == "/backend-api/codex/responses" and self._routed_enabled(provider, pcfg):
             self._handle_responses_post(handler, cfg, provider, pcfg, body)

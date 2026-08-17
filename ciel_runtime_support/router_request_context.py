@@ -61,6 +61,58 @@ class RouterRequestContext:
             self.request.openai_responses,
         )
 
+    def handle_openai_responses_compact_post(
+        self,
+        handler: BaseHTTPRequestHandler,
+        provider: str,
+        pcfg: dict[str, Any],
+        body: dict[str, Any],
+    ) -> None:
+        services = self.request.openai_responses
+        model = str(body.get("model") or pcfg.get("current_model") or "")
+        if services.routing.select_protocol(
+            provider, pcfg, "openai_responses", model
+        ) != "openai_responses":
+            services.output.write_error(
+                handler,
+                f"Provider '{provider}' does not support Responses compaction",
+                stream=False,
+                status=501,
+                error_type="unsupported_feature",
+            )
+            return
+        try:
+            services.routing.forward_provider_responses(
+                handler, provider, pcfg, body, compact=True
+            )
+        except urllib.error.HTTPError as exc:
+            raw = exc.read().decode("utf-8", errors="ignore")
+            services.output.write_error(
+                handler,
+                services.output.upstream_error_message(exc, raw),
+                stream=False,
+                status=exc.code,
+                error_type=(
+                    "authentication_error"
+                    if exc.code == 401
+                    else "permission_error"
+                    if exc.code == 403
+                    else "request_too_large"
+                    if exc.code == 413
+                    else "api_error"
+                ),
+            )
+        except Exception as exc:
+            if self.request.is_client_disconnect(exc):
+                return
+            services.output.write_error(
+                handler,
+                f"{type(exc).__name__}: {exc}",
+                stream=False,
+                status=502,
+                error_type="api_error",
+            )
+
     def handle_codex_backend_passthrough_post(
         self,
         handler: BaseHTTPRequestHandler,
@@ -134,6 +186,7 @@ class RouterRequestContext:
             CodexRouter(
                 routed_enabled=self.runtime.codex_routed_enabled,
                 handle_responses_post=self.handle_openai_responses_post,
+                handle_responses_compact_post=self.handle_openai_responses_compact_post,
                 handle_backend_passthrough_post=(
                     self.handle_codex_backend_passthrough_post
                 ),
@@ -186,6 +239,11 @@ class RouterRequestCompatibilityApi:
 
     def handle_openai_responses_post(self, *args: Any, **kwargs: Any) -> None:
         self.context().handle_openai_responses_post(*args, **kwargs)
+
+    def handle_openai_responses_compact_post(
+        self, *args: Any, **kwargs: Any
+    ) -> None:
+        self.context().handle_openai_responses_compact_post(*args, **kwargs)
 
     def handle_codex_backend_passthrough_post(
         self, *args: Any, **kwargs: Any

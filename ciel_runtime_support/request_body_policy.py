@@ -53,6 +53,7 @@ INFLIGHT_REQUEST_MAX_ENV = "CIEL_RUNTIME_ROUTER_INFLIGHT_REQUEST_BYTES"
 _MODEL_REQUEST_PATHS = frozenset(
     {
         "/v1/responses",
+        "/v1/responses/compact",
         "/v1/messages",
         "/v1/messages/count_tokens",
         "/v1/chat/completions",

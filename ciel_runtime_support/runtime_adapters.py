@@ -91,10 +91,27 @@ class AgyRuntimeAdapter(CliRuntimeAdapter):
         return RuntimeCommand(argv=tuple(argv), env=dict(self.environment), cwd=spec.cwd)
 
 
+class GrokRuntimeAdapter(CliRuntimeAdapter):
+    """Official Grok Build TUI/headless/ACP command materialization."""
+
+    def build_command(self, spec: LaunchSpec) -> RuntimeCommand:
+        options = spec.runtime.options
+        argv = [str(spec.runtime.executable or self.executable)]
+        model = str(options.get("model") or "").strip()
+        if model:
+            argv.extend(("--model", model))
+        effort = str(options.get("reasoning_effort") or "").strip()
+        if effort:
+            argv.extend(("--reasoning-effort", effort))
+        argv.extend(spec.passthrough)
+        return RuntimeCommand(argv=tuple(argv), env=dict(self.environment), cwd=spec.cwd)
+
+
 RUNTIME_ADAPTERS: AdapterRegistry[RuntimeAdapter] = AdapterRegistry()
 RUNTIME_ADAPTERS.register("claude", lambda **kwargs: ClaudeRuntimeAdapter(name="claude", **kwargs))
 RUNTIME_ADAPTERS.register("codex", lambda **kwargs: CodexRuntimeAdapter(name="codex", **kwargs))
 RUNTIME_ADAPTERS.register("agy", lambda **kwargs: AgyRuntimeAdapter(name="agy", **kwargs))
+RUNTIME_ADAPTERS.register("grok", lambda **kwargs: GrokRuntimeAdapter(name="grok", **kwargs))
 
 
 __all__ = [
@@ -103,4 +120,5 @@ __all__ = [
     "ClaudeRuntimeAdapter",
     "CliRuntimeAdapter",
     "CodexRuntimeAdapter",
+    "GrokRuntimeAdapter",
 ]

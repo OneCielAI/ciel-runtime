@@ -78,6 +78,7 @@ class PrelaunchLaunchPolicy:
     launch_blockers_require_api_key: Callable[..., Any]
     launch_readiness_errors: Callable[..., Any]
     launch_kimi: Callable[..., Any]
+    launch_grok: Callable[..., Any] = lambda *_args, **_kwargs: 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,6 +209,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     launch_blockers_require_api_key = services.launch_policy.launch_blockers_require_api_key
     launch_readiness_errors = services.launch_policy.launch_readiness_errors
     launch_kimi = services.launch_policy.launch_kimi
+    launch_grok = services.launch_policy.launch_grok
     llm_option_current_bool = services.options.llm_option_current_bool
     llm_option_panel_rows = services.panel_rows.llm_option_panel_rows
     llm_option_prompt_default = services.options.llm_option_prompt_default
@@ -472,6 +474,10 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                             continue
                         persist_launch_action(action)
                         launch_kimi([])
+                        return PRELAUNCH_CANCEL
+                    if action == "launch-grok":
+                        persist_launch_action(action)
+                        launch_grok([])
                         return PRELAUNCH_CANCEL
                     continue
                 if panel == "language" and value:

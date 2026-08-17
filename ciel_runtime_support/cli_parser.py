@@ -15,6 +15,7 @@ class CliParserLaunch:
     launch_codex_app_server: CliHandler
     launch_agy: CliHandler
     serve: CliHandler
+    launch_grok: CliHandler = lambda _args: None
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,7 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
         services.launch.launch_codex_app_server,
     )
     _add_remainder_command(commands, "launch-agy", services.launch.launch_agy)
+    _add_remainder_command(commands, "launch-grok", services.launch.launch_grok)
     commands.add_parser("serve").set_defaults(func=services.launch.serve)
     commands.add_parser("version").set_defaults(func=services.runtime.version)
     commands.add_parser("status").set_defaults(func=services.runtime.status)

@@ -58,8 +58,10 @@ class PrelaunchLaunchPreferenceTests(unittest.TestCase):
         self.assertEqual("launch-agy", config["last_launch_action"])
         self.assertTrue(remember_launch_action(config, "launch-kimi"))
         self.assertEqual("launch-kimi", config["last_launch_action"])
+        self.assertTrue(remember_launch_action(config, "launch-grok"))
+        self.assertEqual("launch-grok", config["last_launch_action"])
         self.assertFalse(remember_launch_action(config, "back"))
-        self.assertEqual("launch-kimi", config["last_launch_action"])
+        self.assertEqual("launch-grok", config["last_launch_action"])
 
     def test_restores_preferred_action_as_combined_launch_menu_cursor(self):
         actions = [
@@ -67,12 +69,13 @@ class PrelaunchLaunchPreferenceTests(unittest.TestCase):
             "launch-codex",
             "launch-agy",
             "launch-kimi",
+            "launch-grok",
             "launch-codex-app-server",
             "back",
         ]
 
         self.assertEqual(
-            4,
+            5,
             preferred_launch_panel_index(actions, "launch-codex-app-server"),
         )
         self.assertEqual(3, preferred_launch_panel_index(actions, "launch-kimi"))

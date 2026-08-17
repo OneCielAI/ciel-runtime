@@ -22,6 +22,7 @@
 | `self-hosted-nim` | Self Hosted NIM | OpenAI Chat | 로컬 NIM |
 | `openrouter` | OpenRouter | OpenAI Chat | `https://openrouter.ai/api` |
 | `fireworks` | Fireworks.ai | OpenAI Chat | `https://api.fireworks.ai/inference` |
+| `xai` | xAI | OpenAI Responses / Chat | `https://api.x.ai/v1` |
 
 ### 선언형 OpenAI Chat 호환 제공자
 
@@ -32,7 +33,7 @@ token은 Bearer header로 전송하며, 사용자 지정 `base_url`로 사설 ga
 
 | 범주 | 내부 ID |
 |------|---------|
-| 글로벌 API | `openai`, `gemini`, `xai`, `groq`, `cerebras`, `cohere`, `huggingface`, `mistral`, `together`, `perplexity`, `openrouter` |
+| 글로벌 API | `openai`, `gemini`, `groq`, `cerebras`, `cohere`, `huggingface`, `mistral`, `together`, `perplexity`, `openrouter` |
 | 모델 gateway | `blackbox`, `chutes`, `featherless`, `hyperbolic`, `nebius`, `siliconflow`, `venice`, `vercel-ai-gateway` |
 | 중국·아시아 | `alicode`, `alicode-intl`, `alims-intl`, `byteplus`, `glm-cn`, `volcengine-ark`, `xiaomi-mimo`, `xiaomi-tokenplan`, `mimo-free`, `mmf` |
 | 수동 OAuth token | `cline`, `clinepass`, `codebuddy-cn`, `github`, `gitlab`, `iflow`, `kilocode`, `kimchi`, `qwen` |
@@ -60,6 +61,30 @@ thinking 보존, `/v1/messages` endpoint를 사용한다.
 Adapter로 위장해 등록하지 않는다. 이들은 Ciel의 향후 capability별 port/adapter에
 속한다. 또한 Cursor/Kiro의 비공개 wire protocol, 웹 cookie 재사용, client 위장
 방식은 공식적이고 안정적인 API 계약이 아니므로 일반 Provider로 취급하지 않는다.
+
+### xAI / Grok
+
+`xai`는 일반 OpenAI 호환 목록이 아니라 전용 adapter다. `/v1/models`를 권위 있는
+카탈로그로 사용하고, 연결할 수 없을 때 현재 문서화된 text 모델을 fallback으로
+제공한다.
+
+| 모델 | context | upstream |
+|------|--------:|----------|
+| `grok-4.6` | 500K | Responses / Chat, `xhigh` reasoning |
+| `grok-build-0.1` | 256K | Responses / Chat |
+| `grok-4.5` | 500K | Responses / Chat |
+| `grok-4.3` | 1M | Responses / Chat |
+| `grok-4.20-*` | 1M | Responses / Chat |
+
+Codex의 `/v1/responses` 요청은 변환하지 않고 xAI Responses로 전달한다.
+`POST /v1/responses/compact`도 xAI의 opaque `compaction` item과
+`encrypted_content`를 수정하지 않고 전달한다. Responses 요청의
+`prompt_cache_key`는 그대로 보존한다. Chat conversation affinity가 필요한 경우
+workspace provider option `conversation_id`를 설정하면 `x-grok-conv-id` header로
+전달한다.
+
+Imagine image/video, Voice, STT/TTS 모델 ID는 text LLM 선택 메뉴에 섞지 않는다.
+이 모델들은 media/speech capability adapter의 대상이다.
 
 ---
 
