@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-browser-set-visible"
+description = "Enables the browser_set_visible command without any pre-configured scope."
+commands.allow = ["browser_set_visible"]
+
+[[permission]]
+identifier = "deny-browser-set-visible"
+description = "Denies the browser_set_visible command without any pre-configured scope."
+commands.deny = ["browser_set_visible"]

@@ -134,6 +134,31 @@ class ChannelMessagePromptTests(unittest.TestCase):
         self.assertNotIn("VOICE conversation turn", prompt)
         self.assertNotIn("asr_transcript=", prompt)
 
+    def test_cielarvis_internal_capability_prompt_is_tty_safe_and_correlated(self):
+        prompt = format_web_chat_wake_batch_prompt(
+            [{
+                "id": 23,
+                "channel": "cielarvis-session-1",
+                "thread_id": "session-1",
+                "kind": "web_chat",
+                "message": "[CIELARVIS voice recovery] Check speech health and guide Colab setup.",
+                "meta": {
+                    "source": "cielarvis-desktop",
+                    "reply_channel": "cielarvis-session-1",
+                    "input_mode": "voice",
+                    "cielarvis_ui_visibility": "internal",
+                    "web_reply_token": "opaque-token",
+                },
+            }]
+        )
+
+        self.assertLess(len(prompt), 600)
+        self.assertNotIn("\n", prompt)
+        self.assertIn("Check speech health", prompt)
+        self.assertIn('"parent_id":"23"', prompt)
+        self.assertIn('"reply_token":"opaque-token"', prompt)
+        self.assertIn("kind=ack, then kind=reply", prompt)
+
     def test_web_chat_image_attachment_requires_native_visual_inspection(self):
         prompt = format_web_chat_wake_batch_prompt(
             [

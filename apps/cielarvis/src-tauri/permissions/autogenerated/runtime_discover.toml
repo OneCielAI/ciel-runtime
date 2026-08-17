@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-runtime-discover"
+description = "Enables the runtime_discover command without any pre-configured scope."
+commands.allow = ["runtime_discover"]
+
+[[permission]]
+identifier = "deny-runtime-discover"
+description = "Denies the runtime_discover command without any pre-configured scope."
+commands.deny = ["runtime_discover"]

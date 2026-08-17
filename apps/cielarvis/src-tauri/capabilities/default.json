@@ -1,7 +1,35 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-capability",
-  "description": "Cielarvis main window native bridge",
-  "windows": ["main"],
-  "permissions": ["core:default"]
+  "description": "CIELARVIS bundled main WebView native bridge. Remote browser WebViews receive no capability.",
+  "webviews": ["main"],
+  "permissions": [
+    "core:default",
+    "allow-browser-create-tab",
+    "allow-browser-list-tabs",
+    "allow-browser-close-tab",
+    "allow-browser-activate-tab",
+    "allow-browser-set-bounds",
+    "allow-browser-set-visible",
+    "allow-browser-navigate",
+    "allow-browser-back",
+    "allow-browser-forward",
+    "allow-browser-reload",
+    "allow-browser-snapshot",
+    "allow-browser-evaluate",
+    "allow-browser-screenshot",
+    "allow-browser-pointer",
+    "allow-browser-keyboard",
+    "allow-browser-mcp-status",
+    "allow-browser-mcp-configure-runtime",
+    "allow-terminal-spawn",
+    "allow-terminal-write",
+    "allow-terminal-resize",
+    "allow-terminal-kill",
+    "allow-runtime-discover",
+    "allow-runtime-wait-messages",
+    "allow-runtime-send-message",
+    "allow-runtime-transcribe-audio",
+    "allow-bootstrap-plan"
+  ]
 }

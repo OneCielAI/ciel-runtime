@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-bootstrap-plan"
+description = "Enables the bootstrap_plan command without any pre-configured scope."
+commands.allow = ["bootstrap_plan"]
+
+[[permission]]
+identifier = "deny-bootstrap-plan"
+description = "Denies the bootstrap_plan command without any pre-configured scope."
+commands.deny = ["bootstrap_plan"]

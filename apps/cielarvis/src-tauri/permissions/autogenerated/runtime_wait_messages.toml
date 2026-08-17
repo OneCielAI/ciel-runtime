@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-runtime-wait-messages"
+description = "Enables the runtime_wait_messages command without any pre-configured scope."
+commands.allow = ["runtime_wait_messages"]
+
+[[permission]]
+identifier = "deny-runtime-wait-messages"
+description = "Denies the runtime_wait_messages command without any pre-configured scope."
+commands.deny = ["runtime_wait_messages"]

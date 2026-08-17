@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use url::Url;
 
+use crate::browser_mcp::BrowserMcpStatus;
 use crate::terminal::TerminalSpawnRequest;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -54,6 +55,51 @@ fn normalized_workspace(value: &str) -> String {
         .unwrap_or(path)
         .to_string_lossy()
         .to_lowercase()
+}
+
+fn workspace_has_launch_history(workspace: &str) -> bool {
+    let Some(path) = std::env::var("APPDATA").ok().map(PathBuf::from) else {
+        return false;
+    };
+    let path = path.join("ciel-runtime").join("launch-state.json");
+    let Ok(payload) = std::fs::read(path) else {
+        return false;
+    };
+    let Ok(state) = serde_json::from_slice::<Value>(&payload) else {
+        return false;
+    };
+    let target = normalized_workspace(workspace);
+    state
+        .get("by_cwd")
+        .and_then(Value::as_object)
+        .map(|records| {
+            records.iter().any(|(key, value)| {
+                normalized_workspace(key) == target
+                    || value
+                        .get("cwd")
+                        .and_then(Value::as_str)
+                        .map(normalized_workspace)
+                        .as_deref()
+                        == Some(target.as_str())
+            })
+        })
+        .unwrap_or(false)
+}
+
+fn runtime_passthrough(has_launch_history: bool, browser_mcp_config: Option<&Path>) -> String {
+    let mut values = Vec::new();
+    if has_launch_history {
+        values.push("--continue".to_string());
+    }
+    if let Some(path) = browser_mcp_config {
+        values.push("--mcp-config".to_string());
+        values.push(format!("'{}'", path.to_string_lossy().replace('\'', "''")));
+    }
+    if values.is_empty() {
+        String::new()
+    } else {
+        format!(" -- {}", values.join(" "))
+    }
 }
 
 fn workspace_router_registry() -> Option<Value> {
@@ -239,6 +285,32 @@ pub async fn runtime_send_message(
     .await
 }
 
+#[tauri::command]
+pub async fn runtime_transcribe_audio(
+    connection: RuntimeConnection,
+    audio_base64: String,
+    content_type: String,
+    model: Option<String>,
+    language: Option<String>,
+) -> Result<Value, String> {
+    if audio_base64.len() > 700_000_000 {
+        return Err("Voice recording exceeds the CIELARVIS transport limit".into());
+    }
+    request_json(
+        &connection,
+        Method::POST,
+        "/v1/audio/transcriptions",
+        Some(json!({
+            "audio_base64": audio_base64,
+            "filename": "cielarvis-recording.webm",
+            "content_type": if content_type.trim().is_empty() { "audio/webm" } else { &content_type },
+            "model": model,
+            "language": language,
+        })),
+    )
+    .await
+}
+
 fn powershell_request(
     title: &str,
     kind: &str,
@@ -279,8 +351,52 @@ fn speech_script() -> Option<PathBuf> {
         })
 }
 
+pub fn browser_mcp_config_path() -> PathBuf {
+    std::env::temp_dir().join(format!("cielarvis-browser-mcp-{}.json", std::process::id()))
+}
+
+fn write_browser_mcp_config(status: Option<&BrowserMcpStatus>) -> Result<Option<PathBuf>, String> {
+    let Some(status) = status.filter(|status| status.ready) else {
+        return Ok(None);
+    };
+    let (Some(endpoint), Some(authorization)) = (&status.endpoint, &status.authorization) else {
+        return Ok(None);
+    };
+    let path = browser_mcp_config_path();
+    let payload = json!({
+        "mcpServers": {
+            "cielarvis-browser": {
+                "type": "http",
+                "url": endpoint,
+                "headers": { "Authorization": authorization }
+            },
+            "ciel-runtime-router": {
+                "type": "http",
+                "url": endpoint,
+                "headers": { "Authorization": authorization }
+            }
+        }
+    });
+    let temporary = path.with_extension("json.tmp");
+    std::fs::write(
+        &temporary,
+        serde_json::to_vec_pretty(&payload).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| format!("Could not write CIELARVIS Browser MCP config: {error}"))?;
+    if path.exists() {
+        std::fs::remove_file(&path)
+            .map_err(|error| format!("Could not replace CIELARVIS Browser MCP config: {error}"))?;
+    }
+    std::fs::rename(&temporary, &path)
+        .map_err(|error| format!("Could not activate CIELARVIS Browser MCP config: {error}"))?;
+    Ok(Some(path))
+}
+
 #[tauri::command]
-pub fn bootstrap_plan(connection: RuntimeConnection) -> Result<BootstrapPlan, String> {
+pub fn bootstrap_plan(
+    connection: RuntimeConnection,
+    browser_mcp: Option<BrowserMcpStatus>,
+) -> Result<BootstrapPlan, String> {
     let url = normalized_base(&connection)?;
     let requested_port = url
         .port_or_known_default()
@@ -301,8 +417,16 @@ pub fn bootstrap_plan(connection: RuntimeConnection) -> Result<BootstrapPlan, St
     }
     let port = select_local_workspace_port(requested_port, &workspace)?;
     let endpoint = format!("{}://127.0.0.1:{port}", url.scheme());
+    let browser_mcp_config = write_browser_mcp_config(browser_mcp.as_ref())?;
+    let resume_existing = workspace_has_launch_history(&workspace);
+    let runtime_passthrough = runtime_passthrough(resume_existing, browser_mcp_config.as_deref());
+    let resume_status = if resume_existing {
+        "Resume mode: --continue (workspace launch history found)"
+    } else {
+        "Resume mode: new session (first workspace launch)"
+    };
     let runtime_script = format!(
-        "$ErrorActionPreference='Stop'; Clear-Host; Write-Host 'CIELARVIS BOOT CONSOLE' -ForegroundColor Cyan; Write-Host 'Workspace: ' (Get-Location).Path; Write-Host 'Endpoint:  {endpoint}'; if (-not (Get-Command ciel-runtime -ErrorAction SilentlyContinue)) {{ Write-Host 'Installing Ciel Runtime nightly...' -ForegroundColor Yellow; npm install -g @oneciel-ai/ciel-runtime@nightly --force }}; $runtimeCli=(Get-Command ciel-runtime -ErrorAction Stop).Source; $env:CIEL_RUNTIME_ROUTER_PORT='{port}'; Write-Host 'Starting the last actually used Runtime for this workspace...' -ForegroundColor Green; & $runtimeCli --ca-web-port {port} --ca-runtime=last --ca-no-self-update-check; $runtimeExit=$LASTEXITCODE; Write-Host ''; Write-Host \"Ciel Runtime stopped (exit $runtimeExit). Review the output above, then use RETRY BOOT.\" -ForegroundColor Yellow"
+        "$ErrorActionPreference='Stop'; Clear-Host; Write-Host 'CIELARVIS BOOT CONSOLE' -ForegroundColor Cyan; Write-Host 'Workspace: ' (Get-Location).Path; Write-Host 'Endpoint:  {endpoint}'; Write-Host '{resume_status}' -ForegroundColor DarkCyan; if (-not (Get-Command ciel-runtime -ErrorAction SilentlyContinue)) {{ Write-Host 'Installing Ciel Runtime nightly...' -ForegroundColor Yellow; npm install -g @oneciel-ai/ciel-runtime@nightly --force }}; $runtimeCli=(Get-Command ciel-runtime -ErrorAction Stop).Source; $env:CIEL_RUNTIME_ROUTER_PORT='{port}'; Write-Host 'Starting the last actually used Runtime for this workspace...' -ForegroundColor Green; & $runtimeCli --ca-web-port {port} --ca-runtime=last --ca-no-self-update-check{runtime_passthrough}; $runtimeExit=$LASTEXITCODE; Write-Host ''; Write-Host \"Ciel Runtime stopped (exit $runtimeExit). Review the output above, then use RETRY BOOT.\" -ForegroundColor Yellow"
     );
     let runtime = powershell_request(
         "Ciel Runtime",
@@ -393,7 +517,7 @@ mod tests {
 
     #[test]
     fn runtime_bootstrap_bypasses_policy_only_for_the_child_shell() {
-        let plan = bootstrap_plan(connection("http://127.0.0.1:6969")).unwrap();
+        let plan = bootstrap_plan(connection("http://127.0.0.1:6969"), None).unwrap();
         assert_eq!(plan.runtime.program, "powershell.exe");
         assert!(
             plan.runtime
@@ -410,12 +534,43 @@ mod tests {
     }
 
     #[test]
+    fn resume_and_browser_config_share_one_runtime_passthrough_boundary() {
+        let rendered = runtime_passthrough(true, Some(Path::new("C:\\Temp\\browser.json")));
+        assert_eq!(
+            rendered,
+            " -- --continue --mcp-config 'C:\\Temp\\browser.json'"
+        );
+        assert_eq!(runtime_passthrough(false, None), "");
+    }
+
+    #[test]
+    fn browser_mcp_config_keeps_session_authorization_in_the_config_file() {
+        let path = write_browser_mcp_config(Some(&BrowserMcpStatus {
+            ready: true,
+            endpoint: Some("http://127.0.0.1:45678/mcp".into()),
+            authorization: Some("Bearer secret-session-token".into()),
+            error: None,
+        }))
+        .unwrap()
+        .unwrap();
+        let payload: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(payload["mcpServers"]["cielarvis-browser"]["type"], "http");
+        assert_eq!(payload["mcpServers"]["ciel-runtime-router"]["type"], "http");
+        assert_eq!(
+            payload["mcpServers"]["cielarvis-browser"]["headers"]["Authorization"],
+            "Bearer secret-session-token"
+        );
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
     fn local_port_selection_skips_a_bound_port() {
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let base = listener.local_addr().unwrap().port();
         if base < u16::MAX {
             let selected =
-                select_local_workspace_port(base, "C:\\definitely-new-cielarvis-workspace").unwrap();
+                select_local_workspace_port(base, "C:\\definitely-new-cielarvis-workspace")
+                    .unwrap();
             assert_ne!(selected, base);
         }
     }

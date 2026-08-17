@@ -38,6 +38,11 @@ export function runtimeAgentReady(snapshot: RuntimeSnapshot | null): boolean {
   );
 }
 
+export function isClaudeWorkspaceTrustPrompt(output: string): boolean {
+  return output.includes("Quick safety check: Is this a project you created or one you trust?")
+    && output.includes("Yes, I trust this folder");
+}
+
 export type ChannelMessage = {
   id: number;
   channel?: string;

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-browser-mcp-status"
+description = "Enables the browser_mcp_status command without any pre-configured scope."
+commands.allow = ["browser_mcp_status"]
+
+[[permission]]
+identifier = "deny-browser-mcp-status"
+description = "Denies the browser_mcp_status command without any pre-configured scope."
+commands.deny = ["browser_mcp_status"]

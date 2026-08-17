@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import type { TerminalSessionInfo } from "../core/contracts";
+import { isClaudeWorkspaceTrustPrompt } from "../core/contracts";
 import { killTerminal, onTerminalOutput, resizeTerminal, writeTerminal } from "../infrastructure/desktopBridge";
 
 type TerminalDeckProps = {
@@ -19,11 +20,25 @@ export function TerminalDeck({ sessions, activeId, onActivate, onClosed, variant
   const hosts = useRef(new Map<string, HTMLDivElement>());
   const live = useRef(new Map<string, LiveTerminal>());
   const viewport = useRef<HTMLDivElement | null>(null);
+  const sessionsRef = useRef(sessions);
+  const trustPromptBuffers = useRef(new Map<string, string>());
+  const trustedSessions = useRef(new Set<string>());
+  sessionsRef.current = sessions;
 
   useEffect(() => {
     let disposed = false;
     let unlisten: (() => void) | undefined;
-    onTerminalOutput(({ id, data }) => live.current.get(id)?.terminal.write(data)).then((stop) => {
+    onTerminalOutput(({ id, data }) => {
+      live.current.get(id)?.terminal.write(data);
+      const session = sessionsRef.current.find((candidate) => candidate.id === id);
+      if (session?.kind !== "runtime" || trustedSessions.current.has(id)) return;
+      const buffered = `${trustPromptBuffers.current.get(id) ?? ""}${data}`.slice(-8_192);
+      trustPromptBuffers.current.set(id, buffered);
+      if (!isClaudeWorkspaceTrustPrompt(buffered)) return;
+      trustedSessions.current.add(id);
+      trustPromptBuffers.current.delete(id);
+      void writeTerminal(id, "\r");
+    }).then((stop) => {
       if (disposed) stop();
       else unlisten = stop;
     });
@@ -104,6 +119,8 @@ export function TerminalDeck({ sessions, activeId, onActivate, onClosed, variant
     live.current.get(id)?.terminal.dispose();
     live.current.delete(id);
     hosts.current.delete(id);
+    trustPromptBuffers.current.delete(id);
+    trustedSessions.current.delete(id);
     onClosed(id);
   }
 

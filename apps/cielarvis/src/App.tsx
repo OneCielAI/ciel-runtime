@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { CHAT_APP_ID, BUILTIN_APPS, RUNTIME_APP_ID } from "./apps/builtinApps";
+import { BROWSER_APP_ID, CHAT_APP_ID, BUILTIN_APPS, RUNTIME_APP_ID } from "./apps/builtinApps";
+import { CielBrowserApp } from "./apps/CielBrowserApp";
 import { CielChatApp } from "./apps/CielChatApp";
 import { AgentStage } from "./components/AgentStage";
 import { DesktopTaskbar } from "./components/DesktopTaskbar";
@@ -15,6 +16,7 @@ import type {
   TerminalSpawnRequest,
 } from "./core/contracts";
 import { runtimeAgentReady, voiceNeedsSetup } from "./core/contracts";
+import { capabilityRequestPrompt, requestsVisibleBrowser } from "./core/agentCapabilities";
 import { CielDesktopKernel, type DesktopViewport } from "./core/desktopKernel";
 import {
   discoverRuntime,
@@ -22,7 +24,9 @@ import {
   loadBootstrapPlan,
   sendMessage,
   spawnTerminal,
+  transcribeAudio,
   waitForMessages,
+  writeTerminal,
 } from "./infrastructure/desktopBridge";
 
 const savedConnection = (): RuntimeConnection => {
@@ -40,6 +44,7 @@ const savedConnection = (): RuntimeConnection => {
 
 const sessionId = crypto.randomUUID();
 const channel = `cielarvis-${sessionId}`;
+const RUNTIME_READY_SETTLE_MS = 10_000;
 
 export function App() {
   const kernel = useMemo(() => new CielDesktopKernel(BUILTIN_APPS), []);
@@ -56,11 +61,17 @@ export function App() {
   const [notice, setNotice] = useState("Initializing native bridge…");
   const [sending, setSending] = useState(false);
   const [showConnection, setShowConnection] = useState(false);
+  const [runtimeFullyLoaded, setRuntimeFullyLoaded] = useState(false);
+  const [voiceActive, setVoiceActive] = useState(false);
+  const [voiceBusy, setVoiceBusy] = useState(false);
   const runtimeStarted = useRef(false);
-  const voiceStatusOpened = useRef(false);
+  const runtimeSessionId = useRef("");
   const defaultsOpened = useRef(false);
-  const previousRuntimeOnline = useRef(false);
+  const previousRuntimeFullyLoaded = useRef(false);
   const lastId = useRef(0);
+  const voiceRecorder = useRef<MediaRecorder | null>(null);
+  const voiceStream = useRef<MediaStream | null>(null);
+  const voiceChunks = useRef<Blob[]>([]);
 
   useEffect(() => {
     const node = surfaceRef.current;
@@ -83,6 +94,7 @@ export function App() {
 
   const spawn = useCallback(async (request: TerminalSpawnRequest) => {
     const session = await spawnTerminal(request);
+    if (request.kind === "runtime") runtimeSessionId.current = session.id;
     setSessions((current) => [...current.filter((item) => item.id !== session.id), session]);
     setActiveSession(session.id);
     return session;
@@ -136,33 +148,29 @@ export function App() {
 
   useEffect(() => {
     void ensureRuntime();
-    const timer = window.setInterval(() => void refresh(), 3500);
+    // A first bootstrap can race native MCP/WebView initialization. Retry the
+    // idempotent supervisor path, not only discovery, so an offline Runtime
+    // cannot leave the desktop permanently stuck at the boot surface.
+    const timer = window.setInterval(() => void ensureRuntime(), 3500);
     return () => window.clearInterval(timer);
-  }, [ensureRuntime, refresh]);
+  }, [ensureRuntime]);
 
   const runtimeOnline = runtimeAgentReady(snapshot);
+  const runtimeReadyForServices = runtimeOnline && runtimeFullyLoaded;
   const routerOnline = Boolean(snapshot?.connected);
 
   useEffect(() => {
-    if (runtimeOnline && !previousRuntimeOnline.current) kernel.minimizeApp(RUNTIME_APP_ID);
-    if (!runtimeOnline && previousRuntimeOnline.current) kernel.restoreApp(RUNTIME_APP_ID, viewport);
-    previousRuntimeOnline.current = runtimeOnline;
-  }, [kernel, runtimeOnline, viewport]);
+    setRuntimeFullyLoaded(false);
+    if (!runtimeOnline) return;
+    const timer = window.setTimeout(() => setRuntimeFullyLoaded(true), RUNTIME_READY_SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [connection.endpoint, runtimeOnline]);
 
   useEffect(() => {
-    if (!runtimeOnline || !isDesktop()) return;
-    if (!plan) void loadBootstrapPlan(connection).then(setPlan).catch(() => undefined);
-    if (!voiceNeedsSetup(snapshot) || voiceStatusOpened.current) return;
-    voiceStatusOpened.current = true;
-    const openStatus = async () => {
-      const bootstrap = plan ?? (await loadBootstrapPlan(connection));
-      setPlan(bootstrap);
-      if (bootstrap.speech_status) await spawn(bootstrap.speech_status);
-      kernel.restoreApp(RUNTIME_APP_ID, viewport);
-      setNotice("Speech services need attention. Voice status opened in the Runtime app.");
-    };
-    void openStatus().catch((error) => setNotice(`Voice status failed: ${String(error)}`));
-  }, [snapshot, plan, connection, kernel, runtimeOnline, spawn, viewport]);
+    if (runtimeReadyForServices && !previousRuntimeFullyLoaded.current) kernel.minimizeApp(RUNTIME_APP_ID);
+    if (!runtimeReadyForServices && previousRuntimeFullyLoaded.current) kernel.restoreApp(RUNTIME_APP_ID, viewport);
+    previousRuntimeFullyLoaded.current = runtimeReadyForServices;
+  }, [kernel, runtimeReadyForServices, viewport]);
 
   useEffect(() => {
     if (!snapshot?.connected) return;
@@ -189,20 +197,49 @@ export function App() {
     return () => { cancelled = true; };
   }, [snapshot?.connected, connection]);
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const text = draft.trim();
-    if (!text || !snapshot?.connected || sending) return;
-    setDraft("");
+  const deliver = useCallback(async (rawText: string, options: { internal?: boolean; displayText?: string; inputMode?: "text" | "voice" } = {}) => {
+    const text = rawText.trim();
+    if (!text || !snapshot?.connected || sending) return false;
     setSending(true);
     try {
-      await sendMessage(connection, text, channel, sessionId);
+      const browserRequested = !options.internal && requestsVisibleBrowser(text);
+      if (browserRequested) kernel.restoreApp(BROWSER_APP_ID, viewport, { avoidAppIds: [CHAT_APP_ID], gap: 18 });
+      const message = browserRequested
+        ? `${text}\n\n${capabilityRequestPrompt("browser.research", { browser_window: "visible", preferred_mcp_server: "cielarvis-browser" })}`
+        : text;
+      const directInternal = Boolean(options.internal && runtimeSessionId.current);
+      const replyToken = directInternal ? crypto.randomUUID() : undefined;
+      const posted = await sendMessage(connection, message, channel, sessionId, {
+        inputMode: options.inputMode,
+        internal: options.internal,
+        displayText: options.displayText ?? (browserRequested ? text : undefined),
+        delivery: directInternal ? ["web"] : undefined,
+        replyToken,
+      });
+      if (directInternal) {
+        const record = posted as { id?: unknown; message?: { id?: unknown } };
+        const parentId = String(record.message?.id ?? record.id ?? "").trim();
+        if (!parentId || !replyToken) throw new Error("Runtime did not return a correlated channel message id");
+        const route = JSON.stringify({ channel, thread_id: sessionId, parent_id: parentId, reply_token: replyToken });
+        const prompt = `[CIELARVIS internal] Task=${JSON.stringify(message)} Route=${route}. Call ciel-runtime-router.send_message with kind=ack immediately. Inspect only; do not deploy or authorize without approval. Then call it once with kind=reply containing current status and the next required step.`;
+        await writeTerminal(runtimeSessionId.current, `${prompt}\r`);
+      }
       setNotice("Message delivered to the active Ciel agent.");
+      return true;
     } catch (error) {
       setNotice(`Message failed: ${String(error)}`);
+      return false;
     } finally {
       setSending(false);
     }
+  }, [connection, kernel, sending, snapshot?.connected, viewport]);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const text = draft.trim();
+    if (!text) return;
+    setDraft("");
+    await deliver(text);
   }
 
   async function openSpeech(kind: "status" | "login" | "deploy") {
@@ -225,12 +262,82 @@ export function App() {
         const remaining = sessions.filter((session) => session.id !== id);
         setSessions(remaining);
         if (closed?.kind === "runtime") runtimeStarted.current = false;
+        if (closed?.kind === "runtime") runtimeSessionId.current = "";
         if (activeSession === id) setActiveSession(remaining.at(-1)?.id ?? "");
       }}
     />
   );
   const speechServices = snapshot?.speech?.services ?? {};
   const voicePending = voiceNeedsSetup(snapshot);
+  const asrProbe = speechServices.asr;
+  const voiceReady = Boolean(runtimeReadyForServices && asrProbe?.enabled && asrProbe?.reachable);
+
+  const requestVoiceAssistance = useCallback(async (reason?: string) => {
+    const message = capabilityRequestPrompt("voice.input", {
+      runtime_endpoint: connection.endpoint,
+      asr: snapshot?.speech?.services?.asr ?? null,
+      tts: snapshot?.speech?.services?.tts ?? null,
+      error: reason ?? null,
+      provisioning: "ciel-runtime-colab-speech",
+      requested_action: "inspect Ciel Runtime speech health, then guide or perform the Colab ASR/TTS worker installation and connection flow",
+    });
+    const delivered = await deliver(message, {
+      internal: true,
+      displayText: "Voice setup requested — the active agent is checking ASR and microphone availability.",
+    });
+    setNotice(delivered
+      ? "The active agent is inspecting voice tools and installation options."
+      : "Voice needs assistance, but no active Runtime agent is available.");
+  }, [connection.endpoint, deliver, snapshot?.speech?.services]);
+
+  const toggleVoice = useCallback(async () => {
+    if (voiceBusy) return;
+    if (!voiceReady) {
+      await requestVoiceAssistance().catch((error) => setNotice(`Voice assistance failed: ${String(error)}`));
+      return;
+    }
+    if (voiceRecorder.current && voiceActive) {
+      setVoiceBusy(true);
+      voiceRecorder.current.stop();
+      return;
+    }
+    try {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        throw new Error("The desktop WebView does not expose microphone recording");
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      const recorder = new MediaRecorder(stream);
+      voiceStream.current = stream;
+      voiceRecorder.current = recorder;
+      voiceChunks.current = [];
+      recorder.ondataavailable = (event) => { if (event.data.size) voiceChunks.current.push(event.data); };
+      recorder.onstop = () => {
+        const recording = new Blob(voiceChunks.current, { type: recorder.mimeType || "audio/webm" });
+        voiceStream.current?.getTracks().forEach((track) => track.stop());
+        voiceStream.current = null;
+        voiceRecorder.current = null;
+        setVoiceActive(false);
+        void transcribeAudio(connection, recording, {
+          model: String(snapshot?.speech_config?.asr && (snapshot.speech_config.asr as Record<string, unknown>).model || ""),
+          language: String(snapshot?.speech_config?.asr && (snapshot.speech_config.asr as Record<string, unknown>).language || ""),
+        }).then(async (text) => {
+          setNotice(`Voice recognized: ${text}`);
+          await deliver(text, { inputMode: "voice" });
+        }).catch(async (error) => {
+          setNotice(`Voice input failed: ${String(error)}`);
+          await requestVoiceAssistance(String(error));
+        }).finally(() => setVoiceBusy(false));
+      };
+      recorder.start(250);
+      setVoiceActive(true);
+      setNotice("Microphone open — click the red stop button to transcribe and send.");
+    } catch (error) {
+      voiceStream.current?.getTracks().forEach((track) => track.stop());
+      setVoiceActive(false);
+      setVoiceBusy(false);
+      await requestVoiceAssistance(String(error));
+    }
+  }, [connection, deliver, requestVoiceAssistance, snapshot?.speech_config, voiceActive, voiceBusy, voiceReady]);
 
   return (
     <main className="agentic-shell">
@@ -285,7 +392,9 @@ export function App() {
               </section>
             );
           } else if (app.id === CHAT_APP_ID) {
-            content = <CielChatApp messages={messages} endpoint={connection.endpoint} draft={draft} online={runtimeOnline} sending={sending} notice={notice} onDraft={setDraft} onSubmit={submit} />;
+            content = <CielChatApp messages={messages} endpoint={connection.endpoint} draft={draft} online={runtimeOnline} sending={sending} notice={notice} onDraft={setDraft} onSubmit={submit} voiceReady={voiceReady} voiceActive={voiceActive} voiceBusy={voiceBusy} onVoice={() => void toggleVoice()} />;
+          } else if (app.id === BROWSER_APP_ID) {
+            content = <CielBrowserApp active={desktop.activeWindowId === instance.id} />;
           } else if (app.host.kind === "javascript") {
             content = <JavascriptAppHost app={app} />;
           }

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-browser-screenshot"
+description = "Enables the browser_screenshot command without any pre-configured scope."
+commands.allow = ["browser_screenshot"]
+
+[[permission]]
+identifier = "deny-browser-screenshot"
+description = "Denies the browser_screenshot command without any pre-configured scope."
+commands.deny = ["browser_screenshot"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-terminal-spawn"
+description = "Enables the terminal_spawn command without any pre-configured scope."
+commands.allow = ["terminal_spawn"]
+
+[[permission]]
+identifier = "deny-terminal-spawn"
+description = "Denies the terminal_spawn command without any pre-configured scope."
+commands.deny = ["terminal_spawn"]

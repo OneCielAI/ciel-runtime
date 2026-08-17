@@ -15,6 +15,14 @@ Cielarvis now treats every visible tool as an application package rather than a 
 
 JavaScript is the primary cross-platform package format for Windows, macOS, Linux, mobile, and web. Native libraries are deliberately not loaded yet. A marketplace build must verify publisher signatures and capabilities, then load native code in a separate broker process rather than inside the WebView or desktop kernel. Built-in renderers use the same manifest and lifecycle contract that future packages will use.
 
+## Ciel Browser control boundary
+
+The Browser is an independent add-in and does not use the Runtime web-chat channel. Its visible toolbar and embedded MCP transport share the platform-neutral `ai.oneciel.cielarvis.browser-control/v1` controller. Remote sites render in a dedicated child WebView whose label is excluded from the main-window Tauri capability, so page script cannot invoke CIELARVIS commands.
+
+The v1 controller covers tab lifecycle, navigation, bounded DOM snapshots, JavaScript evaluation, viewport screenshots, pointer movement/click/drag/wheel primitives, and Unicode text or raw key events. Screenshot results carry a document `frame_id`, viewport metrics, and device-pixel ratio; pointer commands reject stale frames and translate screenshot pixels to WebView CSS coordinates. Windows uses WebView2 DevTools Protocol behind the adapter. Other platforms implement the same controller contract with their native engine and do not change the MCP schemas.
+
+CIELARVIS starts an MCP Streamable HTTP server on a random loopback-only port. The Browser app's **MCP ONLINE** panel shows its endpoint and per-process `Authorization: Bearer ...` value. The token is regenerated at startup, is not persisted, and is never exposed to a remote child WebView. Screenshots are returned as MCP image content; pointer and keyboard tools require a current `frame_id`.
+
 ## Windows phase
 
 - Probe the configured Runtime through its public `/ca/channel/*` API.

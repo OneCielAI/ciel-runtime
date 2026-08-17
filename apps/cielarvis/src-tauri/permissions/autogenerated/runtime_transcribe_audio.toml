@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-runtime-transcribe-audio"
+description = "Enables the runtime_transcribe_audio command without any pre-configured scope."
+commands.allow = ["runtime_transcribe_audio"]
+
+[[permission]]
+identifier = "deny-runtime-transcribe-audio"
+description = "Denies the runtime_transcribe_audio command without any pre-configured scope."
+commands.deny = ["runtime_transcribe_audio"]

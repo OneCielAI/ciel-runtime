@@ -2,6 +2,7 @@ import { CIEL_APP_MANIFEST_SCHEMA, type CielAppPackage } from "../core/desktopSd
 
 export const RUNTIME_APP_ID = "ai.oneciel.cielarvis.runtime";
 export const CHAT_APP_ID = "ai.oneciel.cielarvis.chat";
+export const BROWSER_APP_ID = "ai.oneciel.cielarvis.browser";
 
 export const BUILTIN_APPS: readonly CielAppPackage[] = [
   {
@@ -49,6 +50,33 @@ export const BUILTIN_APPS: readonly CielAppPackage[] = [
         placement: "bottom",
         defaultSize: { width: 940, height: 300 },
         minSize: { width: 460, height: 190 },
+      }],
+    },
+  },
+  {
+    provenance: "builtin",
+    manifest: {
+      schema: CIEL_APP_MANIFEST_SCHEMA,
+      id: BROWSER_APP_ID,
+      name: "Ciel Browser",
+      version: "1.0.0",
+      description: "Isolated browser controlled through the Ciel Browser API and MCP",
+      icon: { glyph: "◎", accent: "#6fd9ff" },
+      host: { kind: "builtin", entrypoint: "builtin://ciel-browser" },
+      capabilities: [
+        "browser.tabs", "browser.navigate", "browser.dom.read", "browser.script.execute",
+        "browser.pointer", "browser.keyboard", "browser.screenshot",
+      ],
+      windows: [{
+        id: "browser",
+        title: "Ciel Browser",
+        singleton: true,
+        closable: true,
+        resizable: true,
+        defaultOpen: false,
+        placement: "cascade",
+        defaultSize: { width: 1050, height: 700 },
+        minSize: { width: 620, height: 420 },
       }],
     },
   },

@@ -250,7 +250,42 @@ def _web_chat_reply_instruction(messages: list[dict[str, Any]]) -> str:
     return " ".join(instructions)
 
 
+def _format_cielarvis_internal_prompt(messages: list[dict[str, Any]]) -> str | None:
+    """Keep CIELARVIS capability recovery turns below Windows TTY editor limits."""
+    if len(messages) != 1:
+        return None
+    message = messages[0]
+    meta = _metadata(message)
+    channel = str(meta.get("reply_channel") or message.get("channel") or "").strip()
+    if (
+        str(meta.get("source") or "").strip() != "cielarvis-desktop"
+        or str(meta.get("cielarvis_ui_visibility") or "").strip() != "internal"
+        or not channel.startswith("cielarvis-")
+    ):
+        return None
+    routes = _web_chat_reply_routes(messages, web_chat_input_mode(message))
+    if len(routes) != 1:
+        return None
+    route = routes[0]
+    compact_route = {
+        "channel": route["channel"],
+        "thread_id": route["thread_id"],
+        "parent_id": route["parent_id"],
+        "reply_token": route["reply_token"],
+    }
+    body = " ".join(str(message.get("message") or "").split())
+    return (
+        "[CIELARVIS internal] Task="
+        + json.dumps(body, ensure_ascii=False)
+        + " Route="
+        + json.dumps(compact_route, ensure_ascii=False, separators=(",", ":"))
+        + ". Call ciel-runtime-router.send_message twice for this route: kind=ack, then kind=reply."
+    )
+
+
 def format_web_chat_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
+    if compact := _format_cielarvis_internal_prompt(messages):
+        return compact
     items = " ; ".join(_format_web_chat_wake_item(message) for message in messages)
     modes = {web_chat_input_mode(message) for message in messages}
     input_mode = modes.pop() if len(modes) == 1 else "mixed"

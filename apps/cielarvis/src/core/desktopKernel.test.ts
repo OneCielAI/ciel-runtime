@@ -38,6 +38,24 @@ describe("CielDesktopKernel", () => {
     expect(kernel.getSnapshot().windows[0].bounds).toEqual(committed);
   });
 
+  it("places a newly opened window away from selected application windows", () => {
+    const chat = { ...manifest, id: "ai.oneciel.chat" };
+    const browser = { ...manifest, id: "ai.oneciel.browser" };
+    const kernel = new CielDesktopKernel([
+      { manifest: chat, provenance: "builtin" },
+      { manifest: browser, provenance: "builtin" },
+    ]);
+    const viewport = { width: 1400, height: 900 };
+    const chatId = kernel.openApp(chat.id, viewport);
+    const browserId = kernel.openApp(browser.id, viewport, undefined, { avoidAppIds: [chat.id], gap: 20 });
+    const windows = kernel.getSnapshot().windows;
+    const chatBounds = windows.find((item) => item.id === chatId)!.bounds;
+    const browserBounds = windows.find((item) => item.id === browserId)!.bounds;
+    const overlap = Math.max(0, Math.min(browserBounds.x + browserBounds.width, chatBounds.x + chatBounds.width) - Math.max(browserBounds.x, chatBounds.x))
+      * Math.max(0, Math.min(browserBounds.y + browserBounds.height, chatBounds.y + chatBounds.height) - Math.max(browserBounds.y, chatBounds.y));
+    expect(overlap).toBeLessThan(browserBounds.width * browserBounds.height);
+  });
+
   it("defines the future native-library boundary without accepting another ABI", () => {
     expect(() => assertValidManifest({ ...manifest, host: { kind: "native-library", abi: CIEL_NATIVE_APP_ABI, library: "app.dll", entrySymbol: "cielarvis_app_v1" } })).not.toThrow();
     expect(() => assertValidManifest({ ...manifest, host: { kind: "native-library", abi: "wrong" as typeof CIEL_NATIVE_APP_ABI, library: "app.dll", entrySymbol: "entry" } })).toThrow(/unsupported native ABI/i);

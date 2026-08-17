@@ -7,7 +7,14 @@ export type CielAppCapability =
   | "channel.write"
   | "runtime.observe"
   | "terminal.spawn"
-  | "terminal.write";
+  | "terminal.write"
+  | "browser.tabs"
+  | "browser.navigate"
+  | "browser.dom.read"
+  | "browser.script.execute"
+  | "browser.pointer"
+  | "browser.keyboard"
+  | "browser.screenshot";
 
 export type CielAppHost =
   | { kind: "builtin"; entrypoint: string }
