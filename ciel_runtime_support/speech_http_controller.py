@@ -148,6 +148,12 @@ class SpeechHttpController:
             "endpoints": {
                 "chat_health": "GET /ca/channel/health",
                 "chat_messages": "GET|POST /ca/channel/messages",
+                "chat_message_injection_modes": {
+                    "parameter": "injection_mode",
+                    "default": "web_chat",
+                    "allowed": ["web_chat", "tty"],
+                    "tty_note": "Private plain TTY injection; not published to the Web Chat transcript.",
+                },
                 "chat_wait": "GET /ca/channel/wait",
                 "chat_stream": "GET /ca/channel/stream",
                 "chat_files": "POST /ca/channel/files",

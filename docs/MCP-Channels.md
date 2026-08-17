@@ -26,6 +26,18 @@ Ciel retains only its own message paths:
 
 These are Ciel bridge APIs. `/ca/chat/stream` is a Web Chat event stream, not an external MCP transport.
 
+`POST /ca/chat/messages` and its `/ca/channel/messages` alias accept an optional
+JSON field or query parameter named `injection_mode`:
+
+- `web_chat` (the default) publishes the request to the Web Chat transcript and
+  supplies the Web Chat reply contract to the active model.
+- `tty` sends the request directly to the private runtime input queue through
+  the same terminal wake/injection path used by generic events. It is not
+  published to Web Chat and does not ask the model to reply through Web Chat.
+  Objects and arrays supplied in `message` retain their JSON structure.
+
+Unknown values return HTTP 400; they never silently fall back to Web Chat.
+
 Web Chat attachments are uploaded through `POST /ca/channel/files`. The public
 chat transcript contains only download metadata; the private Runtime Input
 projection adds a validated workspace-local path so the active Claude or Codex

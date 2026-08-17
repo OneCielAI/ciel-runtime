@@ -2124,6 +2124,7 @@ def chat_http_controller() -> ChatHttpController:
             store_chat_file_upload,
             runtime_input_gateway().submit_web_chat,
             runtime_input_gateway().submit_notification,
+            runtime_input_gateway().submit_tty,
         ),
     )
 

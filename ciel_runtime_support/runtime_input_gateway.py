@@ -8,6 +8,7 @@ admitted inputs still share one TUI delivery path.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import secrets
 from typing import Any, Callable
 
@@ -55,6 +56,52 @@ class RuntimeInputGateway:
             "visibility": "private_runtime",
         }
         return self.append(payload)
+
+    def submit_tty(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Admit an API message as plain TTY input, outside Web Chat semantics."""
+
+        params = body.get("params") if isinstance(body.get("params"), dict) else {}
+        meta_value = params.get("meta") if isinstance(params.get("meta"), dict) else body.get("meta")
+        meta = dict(meta_value) if isinstance(meta_value, dict) else {}
+        declared_source = str(meta.get("source") or "").strip()
+        declared_kind = str(body.get("kind") or meta.get("source_kind") or "").strip()
+        for key in (
+            "reply_channel",
+            "reply_recipient",
+            "reply_parent_id",
+            "web_reply_token",
+            "response_contract",
+        ):
+            meta.pop(key, None)
+        if declared_source and declared_source != "ciel-runtime-api-tty":
+            meta["declared_source"] = declared_source
+        if declared_kind and declared_kind != "tty_input":
+            meta["declared_kind"] = declared_kind
+        meta["source"] = "ciel-runtime-api-tty"
+        meta["source_kind"] = "tty_input"
+        meta["injection_mode"] = "tty"
+
+        content: Any = params.get("content")
+        if content is None:
+            content = body.get("message", body.get("content", body.get("text", "")))
+        if isinstance(content, (dict, list)):
+            content = json.dumps(content, ensure_ascii=False, separators=(",", ":"))
+            meta["content_type"] = "application/json"
+
+        return self.append(
+            {
+                "channel": body.get("channel") or meta.get("channel") or "default",
+                "sender_id": body.get("sender_id") or body.get("sender") or "api-user",
+                "recipients": body.get("recipients", body.get("recipient_id", "all")),
+                "thread_id": body.get("thread_id") or meta.get("thread_id"),
+                "parent_id": body.get("parent_id") or meta.get("parent_id"),
+                "kind": "tty_input",
+                "message": content if content is not None else "",
+                "meta": meta,
+                "delivery": ["llm"],
+                "visibility": "private_runtime",
+            }
+        )
 
     def submit_notification(self, body: dict[str, Any]) -> dict[str, Any]:
         """Admit an explicit Ciel notification without publishing it to chat."""

@@ -33,6 +33,7 @@ class ChatHttpWriteServices:
     store_upload: Callable[[dict[str, Any]], dict[str, Any]]
     submit_message: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None
     submit_notify: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    submit_tty: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,10 +214,43 @@ class ChatHttpController:
         if path == "/ca/chat/notify":
             return self._notify(handler, body)
         if path == "/ca/chat/messages":
+            params = self._params(handler)
+            requested_mode = body.get("injection_mode")
+            if requested_mode is None:
+                requested_mode = self._first(params, "injection_mode", "web_chat")
+            injection_mode = str(requested_mode or "web_chat").strip().lower().replace("-", "_")
+            if injection_mode not in {"web_chat", "tty"}:
+                self.writes.write_json(
+                    handler,
+                    {
+                        "ok": False,
+                        "error": "invalid_injection_mode",
+                        "allowed": ["web_chat", "tty"],
+                    },
+                    400,
+                )
+                return True
+            if injection_mode == "tty":
+                if self.writes.submit_tty is None:
+                    self.writes.write_json(
+                        handler,
+                        {"ok": False, "error": "tty_injection_unavailable"},
+                        503,
+                    )
+                    return True
+                message = self.writes.submit_tty(body)
+                self.writes.write_json(
+                    handler,
+                    {"ok": True, "injection_mode": "tty", "message": message},
+                )
+                return True
             message = self.writes.append_message(body)
             if self.writes.submit_message is not None:
                 self.writes.submit_message(message, body)
-            self.writes.write_json(handler, {"ok": True, "message": message})
+            self.writes.write_json(
+                handler,
+                {"ok": True, "injection_mode": "web_chat", "message": message},
+            )
             return True
         if path == "/ca/chat/files":
             return self._upload(handler, body)

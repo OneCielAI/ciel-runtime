@@ -1,5 +1,7 @@
 import unittest
 
+from ciel_runtime_support.channel_message_policy import message_is_web_chat_request
+from ciel_runtime_support.channel_message_prompt import format_llm_batch_prompt
 from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
 
 
@@ -52,6 +54,39 @@ class RuntimeInputGatewayTests(unittest.TestCase):
 
         self.assertEqual("still deliver", saved["message"])
         self.assertNotIn("runtime_attachments", saved["meta"])
+
+    def test_tty_input_is_private_structured_and_has_no_web_reply_contract(self):
+        gateway = RuntimeInputGateway(lambda value: {"id": 11, **value})
+
+        saved = gateway.submit_tty(
+            {
+                "channel": "automation",
+                "sender_id": "scheduler",
+                "kind": "web_chat",
+                "message": {"event": "deploy", "attempt": 2},
+                "meta": {
+                    "source": "ciel-runtime-web-chat",
+                    "reply_channel": "browser",
+                    "reply_recipient": "web",
+                    "web_reply_token": "secret",
+                    "response_contract": {"version": 1},
+                },
+            }
+        )
+
+        self.assertEqual("tty_input", saved["kind"])
+        self.assertEqual('{"event":"deploy","attempt":2}', saved["message"])
+        self.assertEqual(["llm"], saved["delivery"])
+        self.assertEqual("private_runtime", saved["visibility"])
+        self.assertEqual("ciel-runtime-api-tty", saved["meta"]["source"])
+        self.assertEqual("application/json", saved["meta"]["content_type"])
+        self.assertEqual("ciel-runtime-web-chat", saved["meta"]["declared_source"])
+        self.assertNotIn("reply_channel", saved["meta"])
+        self.assertNotIn("reply_recipient", saved["meta"])
+        self.assertNotIn("web_reply_token", saved["meta"])
+        self.assertNotIn("response_contract", saved["meta"])
+        self.assertFalse(message_is_web_chat_request(saved))
+        self.assertEqual(saved["message"], format_llm_batch_prompt([saved]))
 
 
 if __name__ == "__main__":
