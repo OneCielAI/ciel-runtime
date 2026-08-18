@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import codecs
 import subprocess
 import sys
 import threading
@@ -50,6 +51,8 @@ class WindowsConPtySession:
         self._log = log
         self._stdin_fd = sys.stdin.fileno() if stdin_fd is None else int(stdin_fd)
         self._stdout_fd = sys.stdout.fileno() if stdout_fd is None else int(stdout_fd)
+        self._stdout_console_handle: Any = None
+        self._output_decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self._mirror_output = bool(mirror_output)
         self._forward_stdin = bool(forward_stdin)
         self._write_lock = threading.Lock()
@@ -449,6 +452,14 @@ class WindowsConPtySession:
         kernel32.GetConsoleMode.restype = wintypes.BOOL
         kernel32.SetConsoleMode.argtypes = [wintypes.HANDLE, wintypes.DWORD]
         kernel32.SetConsoleMode.restype = wintypes.BOOL
+        kernel32.WriteConsoleW.argtypes = [
+            wintypes.HANDLE,
+            wintypes.LPCWSTR,
+            wintypes.DWORD,
+            ctypes.POINTER(wintypes.DWORD),
+            wintypes.LPVOID,
+        ]
+        kernel32.WriteConsoleW.restype = wintypes.BOOL
         input_handle = kernel32.GetStdHandle(-10 & 0xFFFFFFFF)
         mode = wintypes.DWORD(0)
         if not kernel32.GetConsoleMode(input_handle, ctypes.byref(mode)):
@@ -468,6 +479,7 @@ class WindowsConPtySession:
         output_handle = kernel32.GetStdHandle(-11 & 0xFFFFFFFF)
         output_mode = wintypes.DWORD(0)
         if kernel32.GetConsoleMode(output_handle, ctypes.byref(output_mode)):
+            self._stdout_console_handle = output_handle
             self._old_output_mode = int(output_mode.value)
             kernel32.SetConsoleMode(output_handle, self._old_output_mode | 0x0004)
 
@@ -486,6 +498,7 @@ class WindowsConPtySession:
             output_handle = self._kernel32.GetStdHandle(-11 & 0xFFFFFFFF)
             self._kernel32.SetConsoleMode(output_handle, self._old_output_mode)
             self._old_output_mode = None
+        self._stdout_console_handle = None
 
     def _start_pumps(self) -> None:
         self._output_thread = threading.Thread(
@@ -506,8 +519,8 @@ class WindowsConPtySession:
         from ctypes import wintypes
 
         buffer = ctypes.create_string_buffer(64 * 1024)
-        while not self._stop.is_set() and self._output_handle:
-            try:
+        try:
+            while not self._stop.is_set() and self._output_handle:
                 read = wintypes.DWORD(0)
                 if not self._kernel32.ReadFile(
                     self._output_handle,
@@ -516,19 +529,53 @@ class WindowsConPtySession:
                     ctypes.byref(read),
                     None,
                 ):
-                    return
+                    break
                 data = buffer.raw[: int(read.value)]
                 if not data:
-                    return
+                    break
                 with self._output_lock:
                     self._output_tail.extend(data)
                     del self._output_tail[: max(0, len(self._output_tail) - 64 * 1024)]
                 if self._mirror_output:
-                    view = memoryview(data)
-                    while view:
-                        view = view[os.write(self._stdout_fd, view) :]
-            except OSError:
-                return
+                    self._mirror_bytes(data)
+        except OSError:
+            pass
+        finally:
+            if self._mirror_output:
+                self._mirror_bytes(b"", final=True)
+
+    def _mirror_bytes(self, data: bytes, *, final: bool = False) -> None:
+        if self._stdout_console_handle is not None and self._output_decoder is not None:
+            text = self._output_decoder.decode(data, final=final)
+            if text:
+                self._write_console_text(text)
+            if final:
+                self._output_decoder = None
+            return
+        view = memoryview(data)
+        while view:
+            view = view[os.write(self._stdout_fd, view) :]
+
+    def _write_console_text(self, text: str) -> None:
+        import ctypes
+        from ctypes import wintypes
+
+        buffer = ctypes.create_unicode_buffer(text)
+        units = len(text.encode("utf-16-le")) // 2
+        written = wintypes.DWORD(0)
+        if not self._kernel32.WriteConsoleW(
+            self._stdout_console_handle,
+            buffer,
+            units,
+            ctypes.byref(written),
+            None,
+        ):
+            raise ctypes.WinError(ctypes.get_last_error())
+        if int(written.value) != units:
+            raise OSError(
+                f"short WriteConsoleW write: expected {units} UTF-16 units, "
+                f"wrote {int(written.value)}"
+            )
 
     def _pump_input(self) -> None:
         while not self._stop.is_set():

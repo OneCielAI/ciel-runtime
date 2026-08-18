@@ -1,4 +1,5 @@
 import hashlib
+import codecs
 import os
 import sys
 import time
@@ -75,6 +76,34 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
             [mock.call(65001), mock.call(949)],
             kernel32.SetConsoleOutputCP.call_args_list,
         )
+
+    def test_console_mirror_decodes_utf8_across_arbitrary_pipe_chunks(self):
+        captured = []
+        session = object.__new__(WindowsConPtySession)
+        session._stdout_console_handle = 44
+        session._stdout_fd = -1
+        session._output_decoder = codecs.getincrementaldecoder("utf-8")("replace")
+        session._write_console_text = captured.append
+        payload = "한글 ─ 상태 🚀"
+        encoded = payload.encode("utf-8")
+
+        for byte in encoded:
+            session._mirror_bytes(bytes([byte]))
+        session._mirror_bytes(b"", final=True)
+
+        self.assertEqual(payload, "".join(captured))
+        self.assertIsNone(session._output_decoder)
+
+    def test_explicit_redirect_keeps_raw_bytes(self):
+        session = object.__new__(WindowsConPtySession)
+        session._stdout_console_handle = None
+        session._stdout_fd = 91
+        session._output_decoder = codecs.getincrementaldecoder("utf-8")("replace")
+
+        with mock.patch("ciel_runtime_support.windows_conpty.os.write", return_value=3) as write:
+            session._mirror_bytes(b"abc")
+
+        write.assert_called_once_with(91, memoryview(b"abc"))
 
     @unittest.skipUnless(os.name == "nt", "requires Windows ConPTY")
     def test_native_conpty_transports_bytes_and_reaps_child(self):
