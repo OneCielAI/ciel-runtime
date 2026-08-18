@@ -45,6 +45,37 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
             WindowsConPtySession.normalize_prompt("first\r\nsecond\tthird"),
         )
 
+    def test_parent_console_uses_utf8_input_and_output_then_restores_both(self):
+        kernel32 = mock.MagicMock()
+        kernel32.GetStdHandle.side_effect = lambda value: value
+
+        def get_console_mode(_handle, pointer):
+            pointer._obj.value = 0x001F
+            return 1
+
+        kernel32.GetConsoleMode.side_effect = get_console_mode
+        kernel32.GetConsoleCP.return_value = 437
+        kernel32.GetConsoleOutputCP.return_value = 949
+        session = object.__new__(WindowsConPtySession)
+        session._kernel32 = kernel32
+        session._old_input_mode = None
+        session._old_output_mode = None
+        session._old_input_cp = None
+        session._old_output_cp = None
+
+        session._configure_parent_console()
+
+        kernel32.SetConsoleCP.assert_called_once_with(65001)
+        kernel32.SetConsoleOutputCP.assert_called_once_with(65001)
+
+        session._restore_parent_console()
+
+        self.assertEqual([mock.call(65001), mock.call(437)], kernel32.SetConsoleCP.call_args_list)
+        self.assertEqual(
+            [mock.call(65001), mock.call(949)],
+            kernel32.SetConsoleOutputCP.call_args_list,
+        )
+
     @unittest.skipUnless(os.name == "nt", "requires Windows ConPTY")
     def test_native_conpty_transports_bytes_and_reaps_child(self):
         payload = ("head-" + "한글🚀" * 4096 + "-tail").encode("utf-8")

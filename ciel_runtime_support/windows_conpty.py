@@ -60,6 +60,7 @@ class WindowsConPtySession:
         self._old_input_mode: int | None = None
         self._old_output_mode: int | None = None
         self._old_input_cp: int | None = None
+        self._old_output_cp: int | None = None
         self._last_size = (0, 0)
         self._coord_type: Any = None
         self._kernel32: Any = None
@@ -454,6 +455,7 @@ class WindowsConPtySession:
             return
         self._old_input_mode = int(mode.value)
         self._old_input_cp = int(kernel32.GetConsoleCP())
+        self._old_output_cp = int(kernel32.GetConsoleOutputCP())
         raw_mode = (
             self._old_input_mode
             & ~(0x0001 | 0x0002 | 0x0004 | 0x0010 | 0x0008)
@@ -462,6 +464,7 @@ class WindowsConPtySession:
             self._old_input_mode = None
             return
         kernel32.SetConsoleCP(65001)
+        kernel32.SetConsoleOutputCP(65001)
         output_handle = kernel32.GetStdHandle(-11 & 0xFFFFFFFF)
         output_mode = wintypes.DWORD(0)
         if kernel32.GetConsoleMode(output_handle, ctypes.byref(output_mode)):
@@ -475,6 +478,9 @@ class WindowsConPtySession:
         self._kernel32.SetConsoleMode(input_handle, self._old_input_mode)
         if self._old_input_cp:
             self._kernel32.SetConsoleCP(self._old_input_cp)
+        if self._old_output_cp:
+            self._kernel32.SetConsoleOutputCP(self._old_output_cp)
+            self._old_output_cp = None
         self._old_input_mode = None
         if self._old_output_mode is not None:
             output_handle = self._kernel32.GetStdHandle(-11 & 0xFFFFFFFF)
