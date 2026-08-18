@@ -1,10 +1,16 @@
 $ErrorActionPreference = "Stop"
 
-if ($env:CIEL_RUNTIME_HOME) {
-    $script = Join-Path $env:CIEL_RUNTIME_HOME "ciel_runtime.py"
+$registeredHome = [Environment]::GetEnvironmentVariable("CIEL_RUNTIME_HOME", "User")
+$runtimeHome = if ($env:CIEL_RUNTIME_HOME_OVERRIDE) {
+    $env:CIEL_RUNTIME_HOME_OVERRIDE
+} elseif ($registeredHome -and (Test-Path (Join-Path $registeredHome "ciel_runtime.py"))) {
+    $registeredHome
+} elseif ($env:CIEL_RUNTIME_HOME) {
+    $env:CIEL_RUNTIME_HOME
 } else {
-    $script = Join-Path $HOME ".local\share\ciel-runtime\ciel_runtime.py"
+    Join-Path $HOME ".local\share\ciel-runtime"
 }
+$script = Join-Path $runtimeHome "ciel_runtime.py"
 
 if ($env:CIEL_RUNTIME_PYTHON) {
     & $env:CIEL_RUNTIME_PYTHON $script @args

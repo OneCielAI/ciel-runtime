@@ -74,6 +74,8 @@ Copy-Item -Force (Join-Path $sourceDir "ciel-runtime-stop") (Join-Path $binDir "
 Copy-Item -Force (Join-Path $sourceDir "ciel-runtime-stop.cmd") (Join-Path $binDir "ciel-runtime-stop.cmd")
 Copy-Item -Force (Join-Path $sourceDir "ciel-runtime-stop.ps1") (Join-Path $binDir "ciel-runtime-stop.ps1")
 
+[Environment]::SetEnvironmentVariable("CIEL_RUNTIME_HOME", $shareDir, "User")
+
 $skipPathRegistration = [string]$env:CIEL_RUNTIME_SKIP_PATH_REGISTRATION -match '^(?i:1|true|yes|on)$'
 if (-not $skipPathRegistration) {
     $expandedBinDir = [Environment]::ExpandEnvironmentVariables($binDir).TrimEnd('\')
@@ -106,6 +108,7 @@ if (-not $skipPathRegistration) {
 }
 
 Write-Host "Installed Ciel Runtime to $shareDir"
+Write-Host "Pinned future Windows launches to $shareDir"
 if ($skipPathRegistration) {
     Write-Host "Skipped user PATH registration by request."
 } else {

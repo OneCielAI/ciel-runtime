@@ -1,11 +1,18 @@
 @echo off
 setlocal
 
-if defined CIEL_RUNTIME_HOME (
-  set "CIEL_RUNTIME_SCRIPT=%CIEL_RUNTIME_HOME%\ciel_runtime.py"
+set "CIEL_RUNTIME_REGISTERED_HOME="
+for /f "tokens=2,*" %%A in ('reg query HKCU\Environment /v CIEL_RUNTIME_HOME 2^>nul') do if /i "%%A"=="REG_SZ" set "CIEL_RUNTIME_REGISTERED_HOME=%%B"
+if defined CIEL_RUNTIME_HOME_OVERRIDE (
+  set "CIEL_RUNTIME_SELECTED_HOME=%CIEL_RUNTIME_HOME_OVERRIDE%"
+) else if defined CIEL_RUNTIME_REGISTERED_HOME (
+  set "CIEL_RUNTIME_SELECTED_HOME=%CIEL_RUNTIME_REGISTERED_HOME%"
+) else if defined CIEL_RUNTIME_HOME (
+  set "CIEL_RUNTIME_SELECTED_HOME=%CIEL_RUNTIME_HOME%"
 ) else (
-  set "CIEL_RUNTIME_SCRIPT=%USERPROFILE%\.local\share\ciel-runtime\ciel_runtime.py"
+  set "CIEL_RUNTIME_SELECTED_HOME=%USERPROFILE%\.local\share\ciel-runtime"
 )
+set "CIEL_RUNTIME_SCRIPT=%CIEL_RUNTIME_SELECTED_HOME%\ciel_runtime.py"
 
 if defined CIEL_RUNTIME_PYTHON (
   "%CIEL_RUNTIME_PYTHON%" "%CIEL_RUNTIME_SCRIPT%" %*
