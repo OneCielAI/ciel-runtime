@@ -22,13 +22,27 @@ def _preserved_http_error(
 ) -> urllib.error.HTTPError:
     """Rebuild a consumed terminal error for the protocol-facing caller."""
 
-    return urllib.error.HTTPError(
+    preserved = urllib.error.HTTPError(
         error.url,
         error.code,
         error.reason,
         error.headers,
         io.BytesIO(raw_bytes),
     )
+    # Protocol-facing routers may need the body after another boundary has
+    # inspected the error.  Keep an immutable copy instead of relying on the
+    # one-shot HTTPError.fp stream.
+    preserved.ciel_runtime_body = raw_bytes
+    return preserved
+
+
+def _http_error_log_message(message: object, *, limit: int = 512) -> str:
+    """Return a bounded single-line provider error for local diagnostics."""
+
+    compact = " ".join(str(message or "HTTP error").split())
+    if len(compact) <= limit:
+        return compact
+    return compact[: max(0, limit - 1)] + "…"
 
 
 @dataclass(frozen=True, slots=True)
@@ -247,6 +261,7 @@ def open_provider_request_with_key_retry(
     write_router_activity = rate_limit.write_activity
     estimate_tokens = http.estimate_tokens
     provider_urlopen = http.provider_urlopen
+    upstream_http_error_message = http.upstream_http_error_message
     gateway_retries = configured_gateway_retries(pcfg)
     max_attempts = max(1, gateway_retries + 1)
     rate_limit_max_attempts = max(max_attempts, provider_api_key_count(provider, pcfg))
@@ -271,10 +286,13 @@ def open_provider_request_with_key_retry(
             resp = provider_urlopen(req, timeout=timeout, provider=provider, pcfg=pcfg)
             learn_router_rate_limit_headers(provider, pcfg, model, resp.headers)
             return resp
-        except urllib.error.HTTPError as exc:
-            raw_bytes = exc.read() if exc.code == 429 else b""
-            if raw_bytes:
-                exc = _preserved_http_error(exc, raw_bytes)
+        except urllib.error.HTTPError as original_exc:
+            raw_bytes = original_exc.read()
+            raw = raw_bytes.decode("utf-8", errors="replace")
+            error_message = _http_error_log_message(
+                upstream_http_error_message(original_exc, raw)
+            )
+            exc = _preserved_http_error(original_exc, raw_bytes)
             terminal_usage_limit = exc.code == 429 and terminal_usage_limit_error(raw_bytes)
             learn_router_rate_limit_headers(provider, pcfg, model, exc.headers)
             if exc.code == 429:
@@ -303,7 +321,7 @@ def open_provider_request_with_key_retry(
                         "WARN",
                         f"upstream_direct_rate_limit_no_retry provider={provider} model={model} retry_after={retry_after_seconds:.2f}s timeout={timeout:.2f}s tokens={token_estimate} bytes={byte_estimate}",
                     )
-                    raise
+                    raise exc from original_exc
                 retry_no = attempt + 1
                 wait = register_router_rate_limit_backoff(provider, pcfg, model, exc.headers.get("Retry-After"))
                 write_router_activity("retry", provider, model, attempt=retry_no, total=gateway_retries, code=exc.code, wait=wait, tokens=token_estimate, bytes=byte_estimate, stream=stream)
@@ -313,10 +331,26 @@ def open_provider_request_with_key_retry(
             if exc.code in UPSTREAM_RETRY_HTTP_CODES and attempt + 1 < max_attempts:
                 retry_no = attempt + 1
                 write_router_activity("retry", provider, model, attempt=retry_no, total=gateway_retries, code=exc.code, tokens=token_estimate, bytes=byte_estimate, stream=stream)
-                router_log("WARN", f"upstream_direct_retry provider={provider} model={model} attempt={retry_no}/{gateway_retries} code={exc.code} tokens={token_estimate} bytes={byte_estimate}")
+                router_log("WARN", f"upstream_direct_retry provider={provider} model={model} attempt={retry_no}/{gateway_retries} code={exc.code} message={error_message!r} tokens={token_estimate} bytes={byte_estimate}")
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
-            raise
+            write_router_activity(
+                "error",
+                provider,
+                model,
+                code=exc.code,
+                message=error_message,
+                tokens=token_estimate,
+                bytes=byte_estimate,
+                stream=stream,
+            )
+            router_log(
+                "WARN",
+                f"upstream_direct_http_error provider={provider} model={model} "
+                f"code={exc.code} message={error_message!r} "
+                f"tokens={token_estimate} bytes={byte_estimate}",
+            )
+            raise exc from original_exc
         except (urllib.error.URLError, OSError) as exc:
             if retryable_upstream_exception(exc) and attempt + 1 < max_attempts:
                 retry_no = attempt + 1

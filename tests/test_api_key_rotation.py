@@ -835,6 +835,65 @@ class ApiKeyRotationTests(unittest.TestCase):
         self.assertEqual("Bearer sk-two", calls[1].get("Authorization"))
         sleep.assert_not_called()
 
+    def test_direct_anthropic_500_preserves_body_and_records_provider_message(self):
+        pcfg = self.provider_pcfg(
+            "anthropic",
+            api_key="",
+            api_keys=[],
+            base_url="https://api.anthropic.com",
+            gateway_retries=0,
+        )
+        raw = (
+            b'{"type":"error","error":{"type":"api_error",'
+            b'"message":"Temporary upstream failure ref=req_123"}}'
+        )
+        error = urllib.error.HTTPError(
+            "https://api.anthropic.com/v1/messages",
+            500,
+            "Internal Server Error",
+            {"content-type": "application/json"},
+            io.BytesIO(raw),
+        )
+
+        with (
+            mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=error),
+            mock.patch.object(ciel_runtime, "write_router_activity") as activity,
+            mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
+        ):
+            with self.assertRaises(urllib.error.HTTPError) as caught:
+                ciel_runtime.open_provider_request_with_key_retry(
+                    "https://api.anthropic.com/v1/messages",
+                    {"model": "claude-fable-5", "messages": [], "stream": True},
+                    {"content-type": "application/json"},
+                    300.0,
+                    "anthropic",
+                    pcfg,
+                    "claude-fable-5",
+                    stream=True,
+                )
+
+        self.assertEqual(500, caught.exception.code)
+        self.assertEqual(raw, caught.exception.read())
+        self.assertEqual(raw, caught.exception.ciel_runtime_body)
+        error_events = [
+            call for call in activity.call_args_list
+            if call.args and call.args[0] == "error"
+        ]
+        self.assertEqual(1, len(error_events))
+        self.assertEqual(500, error_events[0].kwargs["code"])
+        self.assertEqual(
+            "api_error: Temporary upstream failure ref=req_123",
+            error_events[0].kwargs["message"],
+        )
+        self.assertTrue(
+            any(
+                "upstream_direct_http_error" in str(call)
+                and "Temporary upstream failure ref=req_123" in str(call)
+                for call in router_log.call_args_list
+            )
+        )
+
     def test_direct_anthropic_compatible_single_oauth_429_retries_same_headers(self):
         pcfg = self.provider_pcfg(
             "anthropic",
