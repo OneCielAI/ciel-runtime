@@ -1189,6 +1189,7 @@ class CodexRuntimeTests(unittest.TestCase):
             mock.patch.object(ciel_runtime, "find_executable", return_value="codex"),
             mock.patch.object(ciel_runtime, "codex_alternate_screen_compat_args", return_value=[]),
             mock.patch.object(ciel_runtime, "select_codex_resume_session", return_value="native-session-1") as picker,
+            mock.patch.object(ciel_runtime, "_set_channel_transcript_scope") as set_transcript_scope,
             mock.patch.object(ciel_runtime, "record_launch_state_for_cwd"),
             mock.patch.object(ciel_runtime, "run_with_router_lifetime", side_effect=run_with_router_lifetime),
             mock.patch.object(ciel_runtime, "subprocess_call_with_channel_wake_proxy", side_effect=subprocess_call),
@@ -1211,6 +1212,11 @@ class CodexRuntimeTests(unittest.TestCase):
             captured["cmd"].index("native-session-1"),
         )
         self.assertTrue(captured["wake_for_llm_delivery"])
+        set_transcript_scope.assert_called_once()
+        self.assertEqual(
+            "native-session-1",
+            set_transcript_scope.call_args.kwargs["session_id"],
+        )
 
     def test_codex_resume_picker_preserves_native_codex_behavior(self):
         args, notes = ciel_runtime.codex_passthrough_args_for_launch(["resume"])

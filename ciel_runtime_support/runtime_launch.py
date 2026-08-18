@@ -695,6 +695,17 @@ class CodexLaunchServices:
     channel: CodexLaunchChannel
 
 
+def _codex_explicit_resume_session_id(passthrough: list[str]) -> str:
+    for index, raw in enumerate(passthrough):
+        if str(raw) not in {"resume", "fork"}:
+            continue
+        if index + 1 >= len(passthrough):
+            return ""
+        value = str(passthrough[index + 1]).strip()
+        return value if value and not value.startswith("-") else ""
+    return ""
+
+
 def run_codex(
     passthrough: list[str],
     skip_menu: bool = False,
@@ -943,6 +954,7 @@ def run_codex(
             "codex",
             codex_home=Path(env.get("CODEX_HOME") or (Path.home() / ".codex")),
             cwd=launch_cwd,
+            session_id=_codex_explicit_resume_session_id(codex_passthrough),
         )
         codex_synthetic_enter = None if _channel_wake_enter_env_is_fixed() else b"\r"
         return subprocess_call_with_channel_wake_proxy(

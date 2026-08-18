@@ -93,12 +93,23 @@ class ChannelTranscriptRepository:
                     mtime = path.stat().st_mtime
                 except OSError:
                     continue
-                if scope_started_at > 0 and mtime < scope_started_at - 1.0:
+                if (
+                    scope_started_at > 0
+                    and not scope_session_id
+                    and mtime < scope_started_at - 1.0
+                ):
                     continue
-                if runtime == "codex" and (scope_started_at > 0 or scope_cwd):
-                    session_started_at, session_cwd = self._codex_session_identity(path)
+                if runtime == "codex" and (
+                    scope_started_at > 0 or scope_cwd or scope_session_id
+                ):
+                    session_started_at, session_cwd, session_id = (
+                        self._codex_session_identity(path)
+                    )
+                    if scope_session_id and session_id != scope_session_id:
+                        continue
                     if (
-                        session_started_at is not None
+                        not scope_session_id
+                        and session_started_at is not None
                         and scope_started_at > 0
                         and session_started_at < scope_started_at - 1.0
                     ):
@@ -140,14 +151,14 @@ class ChannelTranscriptRepository:
         return str(value).strip().replace("\\", "/").rstrip("/").casefold()
 
     @staticmethod
-    def _codex_session_identity(path: Path) -> tuple[float | None, str]:
+    def _codex_session_identity(path: Path) -> tuple[float | None, str, str]:
         try:
             with path.open("r", encoding="utf-8", errors="replace") as stream:
                 record = json.loads(stream.readline(64 * 1024))
         except (OSError, UnicodeError, ValueError, TypeError):
-            return None, ""
+            return None, "", ""
         if not isinstance(record, dict):
-            return None, ""
+            return None, "", ""
         payload = record.get("payload")
         metadata = payload if isinstance(payload, dict) else {}
         raw_timestamp = metadata.get("timestamp") or record.get("timestamp")
@@ -161,7 +172,8 @@ class ChannelTranscriptRepository:
                 ).timestamp()
             except ValueError:
                 started_at = None
-        return started_at, str(metadata.get("cwd") or "")
+        session_id = str(metadata.get("session_id") or metadata.get("id") or "")
+        return started_at, str(metadata.get("cwd") or ""), session_id
 
     @staticmethod
     def _claude_session_identity(path: Path) -> tuple[float | None, str, str]:

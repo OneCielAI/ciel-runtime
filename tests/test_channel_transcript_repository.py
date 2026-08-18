@@ -93,6 +93,43 @@ class ChannelTranscriptRepositoryTests(unittest.TestCase):
 
             self.assertEqual(current, repository.latest(ttl_seconds=0))
 
+    def test_latest_binds_resumed_codex_session_despite_old_session_start(self):
+        with tempfile.TemporaryDirectory() as raw_dir:
+            home = Path(raw_dir)
+            sessions = home / ".codex" / "sessions" / "2026"
+            sessions.mkdir(parents=True)
+            resumed = sessions / "resumed.jsonl"
+            competitor = sessions / "competitor.jsonl"
+            for path, session_id, timestamp in (
+                (resumed, "resumed-session", "1970-01-01T00:01:40Z"),
+                (competitor, "other-session", "1970-01-01T00:03:21Z"),
+            ):
+                path.write_text(
+                    json.dumps(
+                        {
+                            "type": "session_meta",
+                            "payload": {
+                                "session_id": session_id,
+                                "timestamp": timestamp,
+                                "cwd": "/repo/target",
+                            },
+                        }
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+            os.utime(resumed, (150, 150))
+            os.utime(competitor, (260, 260))
+            repository = self.repository(home, scope={})
+            repository.set_scope(
+                "codex",
+                started_at=200,
+                cwd=Path("/repo/target"),
+                session_id="resumed-session",
+            )
+
+            self.assertEqual(resumed, repository.latest(ttl_seconds=0))
+
     def test_latest_reuses_cached_path_within_ttl(self):
         cached = Path("cached.jsonl")
         repository = self.repository(
