@@ -1,0 +1,80 @@
+import hashlib
+import os
+import sys
+import time
+import unittest
+from unittest import mock
+
+from ciel_runtime_support.windows_conpty import WindowsConPtySession, conpty_enabled
+
+
+class WindowsConPtyPolicyTests(unittest.TestCase):
+    def test_enabled_by_default_only_on_windows(self):
+        self.assertTrue(conpty_enabled({}, platform_name="nt"))
+        self.assertFalse(conpty_enabled({}, platform_name="posix"))
+
+    def test_operator_can_disable_compatibility_rollout(self):
+        for value in ("0", "false", "NO", "off"):
+            with self.subTest(value=value):
+                self.assertFalse(
+                    conpty_enabled(
+                        {"CIEL_RUNTIME_WINDOWS_CONPTY": value},
+                        platform_name="nt",
+                    )
+                )
+
+    def test_environment_block_is_sorted_and_double_terminated(self):
+        block = WindowsConPtySession._environment_block({"z": "2", "A": "1"})
+
+        self.assertEqual("A=1\0z=2\0\0", block)
+
+    def test_batch_command_is_wrapped_by_comspec(self):
+        with mock.patch.dict(os.environ, {"COMSPEC": "C:\\Windows\\cmd.exe"}):
+            command = WindowsConPtySession._command_line(
+                ["C:\\Tools\\agent.cmd", "--model", "hello world"]
+            )
+
+        self.assertIn("C:\\Windows\\cmd.exe", command)
+        self.assertIn("/c", command)
+        self.assertIn("agent.cmd", command)
+        self.assertIn('\\"hello world\\"', command)
+
+    def test_prompt_normalization_prevents_embedded_submit(self):
+        self.assertEqual(
+            "first second third",
+            WindowsConPtySession.normalize_prompt("first\r\nsecond\tthird"),
+        )
+
+    @unittest.skipUnless(os.name == "nt", "requires Windows ConPTY")
+    def test_native_conpty_transports_bytes_and_reaps_child(self):
+        payload = ("head-" + "한글🚀" * 4096 + "-tail").encode("utf-8")
+        expected = hashlib.sha256(payload).hexdigest()
+        child = (
+            "import hashlib,sys; print('READY', flush=True); "
+            "value=sys.stdin.buffer.readline().rstrip(b'\\r\\n'); "
+            f"raise SystemExit(0 if hashlib.sha256(value).hexdigest() == '{expected}' else 9)"
+        )
+        session = WindowsConPtySession(
+            [sys.executable, "-c", child],
+            dict(os.environ),
+            log=lambda _level, _message: None,
+            mirror_output=False,
+            forward_stdin=False,
+        )
+        try:
+            deadline = time.monotonic() + 5
+            while b"READY" not in session.output_tail() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertIn(b"READY", session.output_tail())
+            session.write(payload + b"\r")
+            try:
+                result = session.wait(timeout=5)
+            except Exception as exc:
+                self.fail(f"ConPTY child did not consume input: {exc}; output={session.output_tail()!r}")
+            self.assertEqual(0, result, session.output_tail())
+        finally:
+            session.close()
+
+
+if __name__ == "__main__":
+    unittest.main()

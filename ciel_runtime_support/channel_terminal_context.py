@@ -67,7 +67,6 @@ class ChannelTerminalIoPorts:
 
 @dataclass(frozen=True, slots=True)
 class ChannelTerminalWindowsPorts:
-    input_supported: Callable[[], bool]
     run_proxy: Callable[..., int]
     reset_input_mode: Callable[[], None]
     mouse_guard: Callable[[], Any]
@@ -77,6 +76,7 @@ class ChannelTerminalWindowsPorts:
     active_turn: Callable[[], bool]
     write_body_fallback: Callable[[Any, int, bytes], None]
     sleep: Callable[[float], None]
+    open_conpty: Callable[[list[str], dict[str, str], Callable[[str, str], None]], Any | None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +88,7 @@ class ChannelTerminalDispatchPorts:
     run_windows: Callable[..., int]
     run_posix: Callable[..., int]
     prepare_delivery: Callable[[], Any]
+    windows_supported: Callable[[], bool]
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +161,7 @@ class ChannelTerminalContext:
                 active_turn=self.windows.active_turn,
                 write_body_fallback=self.windows.write_body_fallback,
                 sleep=self.windows.sleep,
+                open_conpty=self.windows.open_conpty,
             ),
         )
 
@@ -170,7 +172,6 @@ class ChannelTerminalContext:
         **options: Any,
     ) -> int:
         options.pop("normalize_bare_cr_for_synthetic_enter", None)
-        options.pop("channel_wake_bracketed_paste", None)
         return self.windows.run_proxy(
             cmd,
             env,
@@ -186,7 +187,7 @@ class ChannelTerminalContext:
                 stdout_isatty=self.dispatch_ports.stdout_isatty,
             ),
             proxy=ChannelTerminalProxyPorts(
-                windows_supported=self.windows.input_supported,
+                windows_supported=self.dispatch_ports.windows_supported,
                 run_windows=self.dispatch_ports.run_windows,
                 run_posix=self.dispatch_ports.run_posix,
                 posix_services=self.posix_services,

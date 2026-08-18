@@ -519,6 +519,7 @@ from ciel_runtime_support.web_endpoints import build_web_endpoint_report, config
 from ciel_runtime_support.web_ui import render_router_home_page, render_web_chat_page
 from ciel_runtime_support.web_ui_controller import WebUiConstants, WebUiController, WebUiDisplayPorts, WebUiHttpPorts, WebUiProjectionPorts
 from ciel_runtime_support.windows_console_input import WindowsConsoleInputWriter
+from ciel_runtime_support.windows_conpty import WindowsConPtySession, conpty_enabled
 from ciel_runtime_support.windows_console_input import _windows_console_utf16_units as project_windows_console_utf16_units
 
 execute_prelaunch_menu = prelaunch.run_prelaunch_menu
@@ -4560,6 +4561,16 @@ class _WindowsConsoleInputWriter(WindowsConsoleInputWriter):
     def __init__(self) -> None:
         super().__init__(_windows_console_input_handle, _TerminalMouseInputFilter)
 
+def _windows_conpty_supported() -> bool:
+    return conpty_enabled(os.environ, platform_name=os.name)
+
+def _open_windows_conpty(
+    cmd: list[str], env: dict[str, str], log: Callable[[str, str], None]
+) -> WindowsConPtySession | None:
+    if not _windows_conpty_supported():
+        return None
+    return WindowsConPtySession(cmd, env, log=log)
+
 def _write_windows_channel_body_fallback(writer: Any, message_id: int, enter_bytes: bytes) -> None:
     prompt = f"[ciel-runtime pending request-body input] id={int(message_id)}"
     channel_wake_context().write_prompt(
@@ -4585,12 +4596,14 @@ def channel_terminal_context() -> ChannelTerminalContext:
                                             _channel_stdin_mark_body_fallback),
         io=ChannelTerminalIoPorts(_terminal_winsize_from_fd, _apply_pty_winsize, _write_fd_all, _TerminalMouseInputFilter,
                                   _channel_synthetic_enter_bytes_from_user_input, _write_terminal_input_mode_reset),
-        windows=ChannelTerminalWindowsPorts(_windows_console_input_supported, run_windows_channel_terminal_proxy, _write_terminal_input_mode_reset,
+        windows=ChannelTerminalWindowsPorts(run_windows_channel_terminal_proxy, _write_terminal_input_mode_reset,
                                             _WindowsConsoleMouseInputGuard, _WindowsConsoleInputWriter, _windows_channel_startup_grace_seconds,
-                                            _terminal_input_mode_reset_interval_seconds, _channel_stdin_active_turn, _write_windows_channel_body_fallback, time.sleep),
+                                            _terminal_input_mode_reset_interval_seconds, _channel_stdin_active_turn, _write_windows_channel_body_fallback, time.sleep,
+                                            _open_windows_conpty),
         dispatch_ports=ChannelTerminalDispatchPorts(os.name, sys.stdin.isatty, sys.stdout.isatty, subprocess.call,
                                                     lambda *args, **kwargs: subprocess_call_with_windows_console_wake_proxy(*args, **kwargs),
-                                                    run_posix_channel_terminal_proxy, prepare_channel_llm_delivery_for_launch),
+                                                    run_posix_channel_terminal_proxy, prepare_channel_llm_delivery_for_launch,
+                                                    lambda: _windows_conpty_supported() or _windows_console_input_supported()),
     )
 
 _CHANNEL_TERMINAL_API = ChannelTerminalCompatibilityApi(channel_terminal_context)

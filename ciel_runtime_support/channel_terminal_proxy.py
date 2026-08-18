@@ -88,6 +88,7 @@ class ChannelWindowsConsole:
     active_turn: Callable[[], bool]
     write_body_fallback: Callable[[Any, int, bytes], None]
     sleep: Callable[[float], None]
+    open_conpty: Callable[[list[str], dict[str, str], Callable[[str, str], None]], Any | None]
 
 
 @dataclass(frozen=True)
@@ -119,25 +120,40 @@ def run_windows_channel_terminal_proxy(
     channel_wake_submit_retries: int = 1,
     channel_wake_confirm_submit: bool = False,
     channel_wake_submit_delay_seconds: float | None = None,
+    channel_wake_bracketed_paste: bool = False,
     tracked_child_pid_path: Path | None = None,
 ) -> int:
     process = services.process
     policy = services.policy
     polling = services.polling
     console = services.console
-    console.reset_input_mode()
-    input_mode_guard = console.mouse_guard()
-    input_mode_guard.apply()
-    proc = process.popen(cmd, env=env)
+    conpty = None
+    try:
+        conpty = console.open_conpty(cmd, env, policy.log)
+    except Exception as exc:
+        policy.log(
+            "WARN",
+            "channel_windows_conpty_start_failed "
+            f"error={type(exc).__name__}: {exc}; using console-input compatibility transport",
+        )
+    if conpty is None:
+        console.reset_input_mode()
+        input_mode_guard = console.mouse_guard()
+        input_mode_guard.apply()
+        proc = process.popen(cmd, env=env)
+        writer = console.input_writer()
+    else:
+        input_mode_guard = None
+        proc = conpty
+        writer = conpty
     process.write_child_record(tracked_child_pid_path, proc.pid, cmd)
-    writer = console.input_writer()
     pending_poll_state = ChannelPendingPollState(last_id=policy.initial_cursor())
     compact_poll_state = ChannelCompactPollState()
     channel_enter_bytes = policy.enter_bytes(synthetic_enter_bytes)
     channel_input_ready_at = time.time() + console.startup_grace_seconds()
-    # Windows Console consumes INPUT_RECORD events, so ANSI bracketed-paste
-    # delimiters would be interpreted as literal keys instead of a paste event.
-    windows_bracketed_paste = False
+    # ConPTY is a byte stream and supports VT bracketed paste. The compatibility
+    # transport consumes INPUT_RECORD events and must not receive its delimiters.
+    windows_bracketed_paste = bool(channel_wake_bracketed_paste and conpty is not None)
     submit_retry_count = max(1, min(8, int(channel_wake_submit_retries or 1)))
     compact_injection_options = ChannelCompactInjectionOptions(
         submit_retry_count=submit_retry_count,
@@ -169,14 +185,17 @@ def run_windows_channel_terminal_proxy(
     policy.log(
         "INFO",
         "channel_windows_console_proxy_started "
-        f"pid={proc.pid} enter={policy.enter_label(channel_enter_bytes)} "
+        f"pid={proc.pid} transport={'conpty' if conpty is not None else 'console-input'} "
+        f"enter={policy.enter_label(channel_enter_bytes)} "
         f"submit_retries={submit_retry_count} confirm_submit={bool(channel_wake_confirm_submit)} "
         f"bracketed_paste={windows_bracketed_paste}",
     )
     try:
         while proc.poll() is None:
             now = time.time()
-            if now - last_terminal_input_mode_reset >= terminal_input_mode_reset_interval:
+            if conpty is not None:
+                conpty.resize_if_needed()
+            elif now - last_terminal_input_mode_reset >= terminal_input_mode_reset_interval:
                 last_terminal_input_mode_reset = now
                 console.reset_input_mode()
                 input_mode_guard.apply()
@@ -265,10 +284,14 @@ def run_windows_channel_terminal_proxy(
             console.sleep(0.05)
         return proc.wait()
     finally:
-        console.reset_input_mode()
-        input_mode_guard.restore()
+        if conpty is None:
+            console.reset_input_mode()
+            if input_mode_guard is not None:
+                input_mode_guard.restore()
         process.terminate_child(proc, "current Codex")
         process.release_child_record(tracked_child_pid_path, proc.pid)
+        if conpty is not None:
+            conpty.close()
 
 
 def run_posix_channel_terminal_proxy(
