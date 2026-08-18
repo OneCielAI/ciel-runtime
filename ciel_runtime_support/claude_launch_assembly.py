@@ -21,6 +21,7 @@ class ClaudeLaunchProcessPorts:
     runtime_path: Callback
     print_exit_diagnostics: Callback
     call_with_channel_wake: Callback
+    call_with_child_record: Callback
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +98,7 @@ class ClaudeLaunchDeliveryPorts:
 class ClaudeLaunchMcpConfigPorts:
     write_duckduckgo: Callback
     write_zai: Callback
+    workspace: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +124,7 @@ class ClaudeLaunchAssembly:
                 path_with_ciel_runtime_user_dirs=self.process.runtime_path,
                 print_routed_claude_exit_diagnostics=self.process.print_exit_diagnostics,
                 subprocess_call_with_channel_wake_proxy=self.process.call_with_channel_wake,
+                subprocess_call_with_child_pid_record=self.process.call_with_child_record,
             ),
             installation=runtime_launch.ClaudeLaunchInstallation(
                 find_executable=self.installation.find_executable,
@@ -184,6 +187,7 @@ class ClaudeLaunchAssembly:
             mcp_config=runtime_launch.ClaudeLaunchMcpConfig(
                 write_duckduckgo_mcp_config=self.mcp_config.write_duckduckgo,
                 write_zai_mcp_config=self.mcp_config.write_zai,
+                workspace_mcp=self.mcp_config.workspace,
             ),
         )
 

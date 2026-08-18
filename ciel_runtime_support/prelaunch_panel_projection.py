@@ -86,8 +86,9 @@ class MainMenuProjection:
             "9. Launch  [Claude · Codex · AGY · Kimi · Grok · Codex app-server]",
             "10. External event inputs  [CloudEvents + Webhook/SSE]",
             f"11. Remote instructions  [HTTP GET · {'on' if remote_enabled else 'off'}]",
-            "12. Request/file limits  [workspace scoped]",
-            f"13. {self.ports.ui_text('web_backend', language)}  "
+            "12. Workspace MCP modules  [launch scoped]",
+            "13. Request/file limits  [workspace scoped]",
+            f"14. {self.ports.ui_text('web_backend', language)}  "
             f"[{web_backend_summary(config, 0)}]",
             self.ports.ui_text("quit", language),
         ]

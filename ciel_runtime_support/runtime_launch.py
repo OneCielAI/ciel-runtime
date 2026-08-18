@@ -77,6 +77,7 @@ class ClaudeLaunchProcess:
     path_with_ciel_runtime_user_dirs: Callable[..., Any]
     print_routed_claude_exit_diagnostics: Callable[..., Any]
     subprocess_call_with_channel_wake_proxy: Callable[..., Any]
+    subprocess_call_with_child_pid_record: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +154,7 @@ class ClaudeLaunchChannelDelivery:
 class ClaudeLaunchMcpConfig:
     write_duckduckgo_mcp_config: Callable[..., Any]
     write_zai_mcp_config: Callable[..., Any]
+    workspace_mcp: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,9 +241,11 @@ def run_claude(
     should_use_channel_stdin_proxy = services.channel_delivery.should_use_channel_stdin_proxy
     start_router_if_needed = services.routing.start_router_if_needed
     subprocess_call_with_channel_wake_proxy = services.process.subprocess_call_with_channel_wake_proxy
+    subprocess_call_with_child_pid_record = services.process.subprocess_call_with_child_pid_record
     warn_if_multiple_ciel_runtime_installs = services.installation.warn_if_multiple_ciel_runtime_installs
     write_duckduckgo_mcp_config = services.mcp_config.write_duckduckgo_mcp_config
     write_zai_mcp_config = services.mcp_config.write_zai_mcp_config
+    workspace_mcp = services.mcp_config.workspace_mcp
     if has_noninteractive_claude_args(passthrough):
         self_update_check = False
     warn_if_multiple_ciel_runtime_installs()
@@ -446,6 +450,11 @@ def run_claude(
         mcp_config_paths.append(str(zai_mcp_config))
     if should_attach_web_search(provider, cfg, web_search_override):
         mcp_config_paths.append(str(write_duckduckgo_mcp_config(cfg)))
+    workspace_mcp_launch = (
+        workspace_mcp.prepare("claude", cfg) if workspace_mcp is not None else None
+    )
+    if workspace_mcp_launch is not None:
+        mcp_config_paths.extend(str(path) for path in workspace_mcp_launch.claude_config_paths)
     claude_passthrough = list(launch_passthrough)
     if mcp_config_paths:
         extra_args.extend(["--mcp-config", *mcp_config_paths])
@@ -471,25 +480,30 @@ def run_claude(
     ):
         disallowed_tools = ",".join(CLAUDE_SERVER_SIDE_WEB_TOOLS)
     model = env.get("CIEL_RUNTIME_MODEL_ALIAS")
-    cmd, env = materialize_runtime_command(
-        "claude",
-        claude,
-        env,
-        provider,
-        pcfg,
-        mode="native" if use_native_anthropic else "routed",
-        protocol="anthropic_messages",
-        cwd=Path.cwd(),
-        enable_channels=bool(stdin_channel_proxy or native_channel_bridge or llm_channel_delivery),
-        passthrough=claude_passthrough,
-        options={
-            "bypass_permission_mode": bypass_permission_mode,
-            "disallowed_tools": disallowed_tools,
-            "model": model or "",
-            "extra_args": tuple(extra_args),
-            "passthrough_boundary": should_insert_passthrough_option_boundary(extra_args, claude_passthrough),
-        },
-    )
+    try:
+        cmd, env = materialize_runtime_command(
+            "claude",
+            claude,
+            env,
+            provider,
+            pcfg,
+            mode="native" if use_native_anthropic else "routed",
+            protocol="anthropic_messages",
+            cwd=Path.cwd(),
+            enable_channels=bool(stdin_channel_proxy or native_channel_bridge or llm_channel_delivery),
+            passthrough=claude_passthrough,
+            options={
+                "bypass_permission_mode": bypass_permission_mode,
+                "disallowed_tools": disallowed_tools,
+                "model": model or "",
+                "extra_args": tuple(extra_args),
+                "passthrough_boundary": should_insert_passthrough_option_boundary(extra_args, claude_passthrough),
+            },
+        )
+    except Exception:
+        if workspace_mcp is not None and workspace_mcp_launch is not None:
+            workspace_mcp.finish(workspace_mcp_launch)
+        raise
     _log_claude_command_for_diagnostics(cmd, env)
     record_launch_state_for_cwd(
         launch_cwd_key,
@@ -509,7 +523,19 @@ def run_claude(
                 )
                 print(f"  {router_health_summary()}", flush=True)
             if stdin_channel_proxy:
-                rc = subprocess_call_with_channel_wake_proxy(cmd, env, wake_for_llm_delivery=llm_channel_delivery)
+                rc = subprocess_call_with_channel_wake_proxy(
+                    cmd,
+                    env,
+                    wake_for_llm_delivery=llm_channel_delivery,
+                    tracked_child_pid_path=(
+                        workspace_mcp_launch.child_record_path
+                        if workspace_mcp_launch is not None else None
+                    ),
+                )
+            elif workspace_mcp_launch is not None and workspace_mcp_launch.active:
+                rc = subprocess_call_with_child_pid_record(
+                    cmd, env, workspace_mcp_launch.child_record_path
+                )
             elif capture_stderr:
                 rc = _subprocess_call_capturing_stderr(cmd, env)
             else:
@@ -519,7 +545,11 @@ def run_claude(
             if use_router_mode:
                 print_routed_claude_exit_diagnostics(rc, provider, pcfg, log_offset=launch_log_offset)
 
-    return run_with_router_lifetime(run_claude_process, manage_router_lifetime)
+    try:
+        return run_with_router_lifetime(run_claude_process, manage_router_lifetime)
+    finally:
+        if workspace_mcp is not None and workspace_mcp_launch is not None:
+            workspace_mcp.finish(workspace_mcp_launch)
 
 
 
@@ -586,6 +616,7 @@ class CodexLaunchConfig:
     provider_mode_label: Callable[..., Any]
     record_launch_state_for_cwd: Callable[..., Any]
     codex_runtime_model_catalog_args: Callable[..., Any]
+    workspace_mcp: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -676,6 +707,7 @@ def run_codex(
     codex_routed_enabled = services.routing.codex_routed_enabled
     codex_runtime_config_args = services.cli_policy.codex_runtime_config_args
     codex_runtime_model_catalog_args = services.config.codex_runtime_model_catalog_args
+    workspace_mcp = services.config.workspace_mcp
     codex_yolo_launch_args = services.cli_policy.codex_yolo_launch_args
     current_alias = services.config.current_alias
     current_launch_cwd_key = services.config.current_launch_cwd_key
@@ -827,6 +859,11 @@ def run_codex(
             channel_delivery_mode(cfg) == "llm" and web_backend_start_requested(cfg)
         ),
     )
+    workspace_mcp_launch = (
+        workspace_mcp.prepare("codex", cfg) if workspace_mcp is not None else None
+    )
+    if workspace_mcp_launch is not None:
+        codex_mcp_compat_args.extend(workspace_mcp_launch.codex_args)
     codex_yolo_args = codex_yolo_launch_args(codex_passthrough)
     if not use_native_codex and not use_codex_routed:
         env[CODEX_RUNTIME_API_KEY_ENV] = env.get(CODEX_RUNTIME_API_KEY_ENV) or "ciel-runtime-router-local-key"
@@ -839,30 +876,35 @@ def run_codex(
             alias_config, codex_passthrough
         )
     codex_mode = "native" if use_native_codex else ("routed" if use_codex_routed else "router")
-    cmd, env = materialize_runtime_command(
-        "codex",
-        codex,
-        env,
-        provider,
-        pcfg,
-        mode=codex_mode,
-        protocol="openai_responses",
-        cwd=launch_cwd,
-        enable_channels=bool(codex_mcp_compat_args),
-        passthrough=codex_passthrough,
-        options={
-            "yolo_args": tuple(codex_yolo_args),
-            "model_args": tuple(codex_current_model_cli_args(pcfg, codex_passthrough)),
-            "routed_config_args": tuple(codex_native_routed_config_args()),
-            "router_config_args": tuple(codex_runtime_config_args()),
-            "model_catalog_args": tuple(
-                codex_runtime_model_catalog_args(codex, cfg, codex_passthrough)
-            ),
-            "alternate_screen_args": tuple(codex_alternate_screen_compat_args(codex_passthrough, env=env)),
-            "mcp_args": tuple(codex_mcp_compat_args),
-            "model_alias_args": tuple(model_alias_args),
-        },
-    )
+    try:
+        cmd, env = materialize_runtime_command(
+            "codex",
+            codex,
+            env,
+            provider,
+            pcfg,
+            mode=codex_mode,
+            protocol="openai_responses",
+            cwd=launch_cwd,
+            enable_channels=bool(codex_mcp_compat_args),
+            passthrough=codex_passthrough,
+            options={
+                "yolo_args": tuple(codex_yolo_args),
+                "model_args": tuple(codex_current_model_cli_args(pcfg, codex_passthrough)),
+                "routed_config_args": tuple(codex_native_routed_config_args()),
+                "router_config_args": tuple(codex_runtime_config_args()),
+                "model_catalog_args": tuple(
+                    codex_runtime_model_catalog_args(codex, cfg, codex_passthrough)
+                ),
+                "alternate_screen_args": tuple(codex_alternate_screen_compat_args(codex_passthrough, env=env)),
+                "mcp_args": tuple(codex_mcp_compat_args),
+                "model_alias_args": tuple(model_alias_args),
+            },
+        )
+    except Exception:
+        if workspace_mcp is not None and workspace_mcp_launch is not None:
+            workspace_mcp.finish(workspace_mcp_launch)
+        raise
     _log_codex_command_for_diagnostics(cmd, env)
     record_launch_state_for_cwd(
         current_launch_cwd_key(),
@@ -888,10 +930,18 @@ def run_codex(
             channel_wake_confirm_submit=True,
             channel_wake_bracketed_paste=True,
             channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds(),
-            tracked_child_pid_path=codex_process_record_path("client"),
+            tracked_child_pid_path=(
+                workspace_mcp_launch.child_record_path
+                if workspace_mcp_launch is not None and workspace_mcp_launch.active
+                else codex_process_record_path("client")
+            ),
         )
 
-    return run_with_router_lifetime(run_codex_process, manage_router_lifetime)
+    try:
+        return run_with_router_lifetime(run_codex_process, manage_router_lifetime)
+    finally:
+        if workspace_mcp is not None and workspace_mcp_launch is not None:
+            workspace_mcp.finish(workspace_mcp_launch)
 
 
 
@@ -916,6 +966,7 @@ class CodexAppServerConfig:
     provider_mode_label: Callable[..., Any]
     record_launch_state_for_cwd: Callable[..., Any]
     codex_runtime_model_catalog_args: Callable[..., Any]
+    workspace_mcp: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1009,6 +1060,7 @@ def run_codex_app_server(
     codex_runtime_model_catalog_args = (
         services.config.codex_runtime_model_catalog_args
     )
+    workspace_mcp = services.config.workspace_mcp
     current_alias = services.config.current_alias
     current_launch_cwd_key = services.config.current_launch_cwd_key
     direct_native_codex_enabled = services.routing.direct_native_codex_enabled
@@ -1135,14 +1187,25 @@ def run_codex_app_server(
             channel_delivery_mode(cfg) == "llm" and web_backend_start_requested(cfg)
         ),
     )
-    config_args = [*config_args, *codex_mcp_compat_args]
-    listen_url = codex_app_server_default_listen_url()
-    app_server_args = codex_app_server_launch_args(
-        passthrough,
-        config_args=config_args,
-        default_listen_url=listen_url,
+    workspace_mcp_launch = (
+        workspace_mcp.prepare("codex-app-server", cfg)
+        if workspace_mcp is not None else None
     )
-    cmd = [codex, *app_server_args]
+    try:
+        if workspace_mcp_launch is not None:
+            codex_mcp_compat_args.extend(workspace_mcp_launch.codex_args)
+        config_args = [*config_args, *codex_mcp_compat_args]
+        listen_url = codex_app_server_default_listen_url()
+        app_server_args = codex_app_server_launch_args(
+            passthrough,
+            config_args=config_args,
+            default_listen_url=listen_url,
+        )
+        cmd = [codex, *app_server_args]
+    except Exception:
+        if workspace_mcp is not None and workspace_mcp_launch is not None:
+            workspace_mcp.finish(workspace_mcp_launch)
+        raise
     print("Launching Codex App Server through Ciel Runtime.", flush=True)
     if "--listen" in cmd:
         try:
@@ -1158,9 +1221,19 @@ def run_codex_app_server(
     )
 
     def run_codex_app_server_process() -> int:
-        return subprocess_call_with_child_pid_record(cmd, env, codex_process_record_path("app-server"))
+        return subprocess_call_with_child_pid_record(
+            cmd,
+            env,
+            workspace_mcp_launch.child_record_path
+            if workspace_mcp_launch is not None and workspace_mcp_launch.active
+            else codex_process_record_path("app-server"),
+        )
 
-    return run_with_router_lifetime(run_codex_app_server_process, manage_router_lifetime)
+    try:
+        return run_with_router_lifetime(run_codex_app_server_process, manage_router_lifetime)
+    finally:
+        if workspace_mcp is not None and workspace_mcp_launch is not None:
+            workspace_mcp.finish(workspace_mcp_launch)
 
 
 

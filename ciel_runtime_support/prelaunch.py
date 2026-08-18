@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import sys
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -36,6 +37,7 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "launch-menu",
     "external-events",
     "remote-instructions",
+    "workspace-mcp",
     "request-limits",
     "web-backend",
     "quit",
@@ -161,6 +163,7 @@ class PrelaunchOptions:
     launch_panel_rows: Callable[..., Any] = lambda _cfg: (["Back"], ["back"])
     remote_instruction_panel_rows: Callable[..., Any] = lambda _cfg: (["Back"], ["back"])
     set_remote_instruction_config: Callable[..., Any] = lambda _key, _value: []
+    workspace_mcp: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -252,6 +255,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     launch_panel_rows = services.options.launch_panel_rows
     remote_instruction_panel_rows = services.options.remote_instruction_panel_rows
     set_remote_instruction_config = services.options.set_remote_instruction_config
+    workspace_mcp = services.options.workspace_mcp
     request_limit_panel_rows = services.mutations.request_limits.panel_rows
     request_limit_prompt_default = services.mutations.request_limits.prompt_default
     set_request_limit_config = services.mutations.request_limits.update
@@ -329,6 +333,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                 )
         elif name == "remote-instructions":
             panel_rows, panel_values = remote_instruction_panel_rows(cfg)
+        elif name == "workspace-mcp":
+            panel_rows, panel_values = workspace_mcp.panel_rows(cfg) if workspace_mcp else (["Back"], ["back"])
         elif name == "request-limits":
             panel_rows, panel_values = request_limit_panel_rows(cfg)
         if panel_rows:
@@ -799,6 +805,81 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         continue
                     cfg = load_config()
                     panel_rows, panel_values = remote_instruction_panel_rows(cfg)
+                    panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
+                elif panel == "workspace-mcp":
+                    if value == "back":
+                        close_panel()
+                        continue
+                    if value == "__info__":
+                        continue
+                    try:
+                        if value.startswith("toggle:"):
+                            messages = workspace_mcp.update(value)
+                        elif value == "remove":
+                            name = prompt_menu_value(
+                                "MCP module id to remove",
+                                restore_tty=restore_line_mode,
+                                raw_tty=restore_raw_mode,
+                            )
+                            if not name:
+                                continue
+                            messages = workspace_mcp.update("remove", name)
+                        elif value in {"add-stdio", "add-http"}:
+                            name = prompt_menu_value(
+                                "MCP module id",
+                                restore_tty=restore_line_mode,
+                                raw_tty=restore_raw_mode,
+                            )
+                            if not name:
+                                continue
+                            runtimes = prompt_menu_value(
+                                "Runtimes (comma separated: claude,codex)",
+                                "claude,codex",
+                                restore_tty=restore_line_mode,
+                                raw_tty=restore_raw_mode,
+                            )
+                            item: dict[str, Any] = {
+                                "name": name,
+                                "runtimes": [part.strip() for part in runtimes.split(",") if part.strip()],
+                                "protocol": "auto",
+                            }
+                            if value == "add-stdio":
+                                command = prompt_menu_value(
+                                    "stdio command",
+                                    restore_tty=restore_line_mode,
+                                    raw_tty=restore_raw_mode,
+                                )
+                                if not command:
+                                    continue
+                                arguments = prompt_menu_value(
+                                    "Arguments (JSON array, or blank)",
+                                    "[]",
+                                    restore_tty=restore_line_mode,
+                                    raw_tty=restore_raw_mode,
+                                )
+                                try:
+                                    parsed_args = json.loads(arguments or "[]")
+                                except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                                    raise ValueError("Arguments must be a JSON array") from exc
+                                if not isinstance(parsed_args, list):
+                                    raise ValueError("Arguments must be a JSON array")
+                                item.update(command=command, args=[str(arg) for arg in parsed_args])
+                            else:
+                                url = prompt_menu_value(
+                                    "Streamable HTTP MCP URL",
+                                    restore_tty=restore_line_mode,
+                                    raw_tty=restore_raw_mode,
+                                )
+                                if not url:
+                                    continue
+                                item["url"] = url
+                            messages = workspace_mcp.update(value, item)
+                        else:
+                            continue
+                    except Exception as exc:
+                        messages = [f"Workspace MCP update failed: {type(exc).__name__}: {exc}"]
+                    cfg = load_config()
+                    panel_rows, panel_values = workspace_mcp.panel_rows(cfg)
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "request-limits":
                     if value == "back":

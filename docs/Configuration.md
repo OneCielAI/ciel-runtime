@@ -127,6 +127,18 @@
 작업 폴더 경로를 함께 저장한다. 따라서 한 컴퓨터에서 여러 Ciel Runtime을 실행해도
 폴더 간 설정이 섞이지 않는다. 우선순위는 **환경변수 > workspace 설정 > 기본값**이다.
 
+### 워크스페이스 MCP
+
+시작 환경설정 메뉴의 **Workspace MCP modules**에서 등록한 stdio 및
+Streamable HTTP MCP는 현재 작업 폴더의 `config.json`에만 저장된다. Claude
+실행 시에는 launch 전용 JSON으로, Codex와 Codex App Server 실행 시에는
+동등한 `mcp_servers.*` 시작 설정으로 투영된다. 사용자 전역 설정과 저장소의
+`.mcp.json` 또는 `.codex/config.toml`은 수정하지 않는다.
+
+각 실행은 workspace state의 `mcp-launches/<launch-id>`에 원자적인 lease를
+남긴다. 정상 종료 시 즉시 삭제하며, 강제 종료로 남은 lease와 생성 파일은
+다음 시작에서 owner 및 기록된 child 명령의 신원을 검증한 뒤 회수한다.
+
 모든 설정 가능 항목의 기본값은 각각의 설정 가능한 최대값과 같고, 메뉴에서 필요한 경우
 1 byte까지 명시적으로 낮출 수 있다. Ciel이 provider별
 의미적 한도나 권장 파일 크기를 추정해 더 낮은 제한을 선택하지 않도록 하기 위한 것이다.

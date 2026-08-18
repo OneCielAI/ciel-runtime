@@ -369,6 +369,11 @@ from ciel_runtime_support.router_process_context import RouterListenerPorts, Rou
 from ciel_runtime_support.router_process_lifecycle import RouterProcessConfig, RouterSpawnPorts, RouterStartupIdentity, RouterStartupStatePorts, RouterStatePorts, schedule_router_restart
 from ciel_runtime_support.router_process_lifecycle import start_router_if_needed as start_project_router_if_needed
 from ciel_runtime_support.workspace_router_selection import workspace_identity
+from ciel_runtime_support.workspace_mcp import (
+    WorkspaceMcpLaunchPorts,
+    WorkspaceMcpLaunchService,
+    WorkspaceMcpMenuService,
+)
 from ciel_runtime_support.router_rate_limit_service import RouterRateLimitApi, RouterRateLimitPaths, RouterRateLimitPorts, RouterRateLimitService
 from ciel_runtime_support.router_request_context import RouterRequestCompatibilityApi, RouterRequestContext
 from ciel_runtime_support.router_server_context import RouterHealthPresentationPorts, RouterHealthRuntimePorts, RouterServerCompatibilityApi, RouterServerContext
@@ -4117,7 +4122,8 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
                                                 store_api_keys_config, run_copilot_oauth_action, run_kimi_oauth_action),
             options=prelaunch.PrelaunchOptions(llm_option_current_bool, llm_option_prompt_default, timeout_profile_panel_rows, web_backend_panel_rows,
                                                set_web_backend_config, external_event_panel_rows, set_external_event_config,
-                                               launch_panel_rows, remote_instruction_panel_rows, set_remote_instruction_config),
+                                               launch_panel_rows, remote_instruction_panel_rows, set_remote_instruction_config,
+                                               workspace_mcp_menu_service()),
         ).services(),
     )
 
@@ -4288,6 +4294,23 @@ def managed_mcp_config_service() -> ManagedMcpConfigService:
             provider_primary_api_key,
             meaningful_key,
             router_log,
+        ),
+    )
+
+def workspace_mcp_menu_service() -> WorkspaceMcpMenuService:
+    return WorkspaceMcpMenuService(load_config, save_config, ROUTER_WORKSPACE)
+
+def workspace_mcp_launch_service() -> WorkspaceMcpLaunchService:
+    return WorkspaceMcpLaunchService(
+        WORKSPACE_STATE_DIR / "mcp-launches",
+        ROUTER_WORKSPACE,
+        WorkspaceMcpLaunchPorts(
+            pid_running=pid_is_running,
+            command_line=_process_command_line,
+            terminate_tree=lambda pid, label, quiet=True: terminate_pid_tree(
+                pid, label, quiet=quiet
+            ),
+            log=router_log,
         ),
     )
 
@@ -4647,7 +4670,8 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
     assembly = claude_launch_assembly
     return assembly.ClaudeLaunchAssembly(
         process=assembly.ClaudeLaunchProcessPorts(_log_claude_command_for_diagnostics, _subprocess_call_capturing_stderr, env_bool, env_vars, file_size_or_zero,
-                                                  path_with_ciel_runtime_user_dirs, print_routed_claude_exit_diagnostics, subprocess_call_with_channel_wake_proxy),
+                                                  path_with_ciel_runtime_user_dirs, print_routed_claude_exit_diagnostics, subprocess_call_with_channel_wake_proxy,
+                                                  subprocess_call_with_child_pid_record),
         installation=assembly.ClaudeLaunchInstallationPorts(find_executable, install_ciel_runtime_slash_commands, install_ciel_runtime_statusline, install_claude_code_if_missing,
                                                             install_tool_guard_hooks, disable_ciel_runtime_slash_commands_for_native, launch_readiness_errors, warn_if_multiple_ciel_runtime_installs),
         dispatch=assembly.ClaudeLaunchDispatchPorts(launch_agy, launch_codex, launch_codex_app_server, materialize_runtime_command, run_ciel_runtime_update_check,
@@ -4662,7 +4686,11 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
                                                 should_disallow_claude_server_side_web_tools, should_fork_native_session_after_mode_switch,
                                                 should_insert_passthrough_option_boundary),
         delivery=assembly.ClaudeLaunchDeliveryPorts(should_use_channel_llm_delivery, should_use_channel_stdin_proxy),
-        mcp_config=assembly.ClaudeLaunchMcpConfigPorts(write_duckduckgo_mcp_config, write_zai_mcp_config),
+        mcp_config=assembly.ClaudeLaunchMcpConfigPorts(
+            write_duckduckgo_mcp_config,
+            write_zai_mcp_config,
+            workspace_mcp_launch_service(),
+        ),
     ).services()
 
 CODEX_ROUTED_UPSTREAM_BASE = "https://chatgpt.com/backend-api/codex"
@@ -4727,7 +4755,8 @@ select_codex_resume_session = _CODEX_SESSION_SELECTION.select_resume_session
 def codex_launch_assembly() -> CodexLaunchAssembly:
     return CodexLaunchAssembly(
         config=CodexLaunchSharedConfigPorts(apply_launch_endpoint_policy, current_alias, current_launch_cwd_key, ensure_model_cache_for_launch, get_current_provider,
-                                            load_config, provider_mode_label, record_launch_state_for_cwd, codex_runtime_model_catalog_args),
+                                            load_config, provider_mode_label, record_launch_state_for_cwd, codex_runtime_model_catalog_args,
+                                            workspace_mcp_launch_service()),
         installation=CodexLaunchSharedInstallationPorts(find_executable, install_codex_if_missing, warn_if_multiple_ciel_runtime_installs,
                                                         disable_ciel_runtime_codex_prompts_for_native, install_ciel_runtime_codex_prompts),
         dispatch=CodexLaunchSharedDispatchPorts(launch_agy, launch_claude, launch_codex, launch_codex_app_server, materialize_runtime_command,

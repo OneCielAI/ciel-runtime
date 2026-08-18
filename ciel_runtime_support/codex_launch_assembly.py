@@ -22,6 +22,7 @@ class CodexLaunchSharedConfigPorts:
     provider_mode_label: Callback
     record_launch_state: Callback
     model_catalog_args: Callback
+    workspace_mcp: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +103,7 @@ class CodexLaunchAssembly:
                 provider_mode_label=self.config.provider_mode_label,
                 record_launch_state_for_cwd=self.config.record_launch_state,
                 codex_runtime_model_catalog_args=self.config.model_catalog_args,
+                workspace_mcp=self.config.workspace_mcp,
             ),
             installation=runtime_launch.CodexLaunchInstallation(
                 disable_ciel_runtime_codex_prompts_for_native=self.installation.disable_prompts,
@@ -150,6 +152,7 @@ class CodexLaunchAssembly:
                 provider_mode_label=self.config.provider_mode_label,
                 record_launch_state_for_cwd=self.config.record_launch_state,
                 codex_runtime_model_catalog_args=self.config.model_catalog_args,
+                workspace_mcp=self.config.workspace_mcp,
             ),
             cli_policy=self.app_server.policy,
             installation=runtime_launch.CodexAppServerInstallation(

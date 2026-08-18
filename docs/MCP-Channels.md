@@ -7,13 +7,37 @@ Claude Code, Codex, AGY, and other active CLI runtimes own external MCP configur
 Ciel Runtime does **not**:
 
 - scan user or project MCP configuration to discover SSE/Streamable HTTP servers;
-- copy or rewrite external MCP server definitions;
+- scan or rewrite a runtime's native user/project MCP files;
 - proxy stdio, SSE, or Streamable HTTP transports;
 - create or resume external MCP sessions;
 - turn external MCP notifications into chat messages;
 - inject external MCP messages to wake a sleeping TUI.
 
 Configure external MCP servers with the native CLI. Their protocol compliance and notification behavior are between that CLI and the MCP provider.
+
+## Workspace-scoped prelaunch MCP modules
+
+The prelaunch **Workspace MCP modules** menu stores an explicit desired-state list
+in the current workspace configuration. It does not modify `.mcp.json`,
+`.codex/config.toml`, or either runtime's global configuration. At launch, Ciel
+projects only the enabled definitions for the selected runtime:
+
+- Claude receives one private generated `--mcp-config` JSON file;
+- Codex and Codex App Server receive equivalent `mcp_servers.*` startup overrides;
+- unsupported runtimes receive no silently converted configuration.
+
+Definitions support stdio and Streamable HTTP, a Claude/Codex runtime allow-list,
+and an `auto` protocol preference. Transport negotiation, tool calls, reconnects,
+and MCP process shutdown remain owned by the CLI.
+
+Every projection is recorded under the stable workspace state directory as an
+atomic launch lease. A normal exit removes the generated config and lease. On the
+next launch, an abandoned lease whose owner is dead is recovered; a recorded
+runtime child is terminated only when its live command identity still matches,
+so a reused PID cannot cause an unrelated process to be killed. Invalid and stale
+generated artifacts are removed only from that workspace's `mcp-launches`
+directory. Secrets should be supplied through environment-variable references,
+not literal workspace configuration values.
 
 ## What Ciel still delivers
 

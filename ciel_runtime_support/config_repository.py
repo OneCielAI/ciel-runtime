@@ -110,6 +110,7 @@ def build_default_config(provider_defaults: dict[str, Any]) -> dict[str, Any]:
             "workspace": "",
         },
         "web_backends": {},
+        "workspace_mcp": {"servers": {}},
         "external_event_receivers": {},
         "remote_instructions": {
             "enabled": False,
