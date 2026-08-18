@@ -550,6 +550,7 @@ def run_claude(
                     wake_for_llm_delivery=llm_channel_delivery,
                     channel_wake_submit_retries=channel_wake_submit_retries(),
                     channel_wake_confirm_submit=True,
+                    channel_wake_bracketed_paste=True,
                     channel_wake_submit_delay_seconds=channel_wake_submit_delay_seconds(),
                     tracked_child_pid_path=(
                         workspace_mcp_launch.child_record_path

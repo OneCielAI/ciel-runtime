@@ -248,8 +248,7 @@ def _web_chat_reply_instruction(messages: list[dict[str, Any]]) -> str:
         instructions.append(
             common
             + response_policy
-            + "Do not claim completion in the acknowledgement. "
-            "Use `send_file` on the same route for files."
+            + "Do not claim completion in the acknowledgement."
         )
     return " ".join(instructions)
 
@@ -336,10 +335,18 @@ def format_web_chat_wake_batch_prompt(messages: list[dict[str, Any]]) -> str:
     input_mode = modes.pop() if len(modes) == 1 else "mixed"
     request = f"[ciel-runtime web {input_mode}] {len(messages)} browser message(s): {items}"
     instruction = _response_instruction(messages)
+    message_ids = ",".join(
+        str(message_id)
+        for message in messages
+        if (message_id := str(message.get("id") or "").strip())
+    )
+    correlation = f" [ciel-runtime message_ids={message_ids}]" if message_ids else ""
     # Windows Console turns embedded newlines into Enter key events. Keep the
     # routing contract and browser request in one physical line so Codex sees
     # one atomic turn instead of answering locally before the reply contract.
-    return f"{instruction} Browser request: {request}" if instruction else request
+    # Keep the correlation marker last so even a terminal editor that retains
+    # only the prompt tail can still bind the queued command to this request.
+    return (f"{instruction} Browser request: {request}" if instruction else request) + correlation
 
 
 def wake_message_noise_reason(message: dict[str, Any]) -> str | None:

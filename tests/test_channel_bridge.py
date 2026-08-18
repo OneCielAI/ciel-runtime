@@ -1375,7 +1375,8 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertIn("thread=thread-1", prompt)
         self.assertNotIn("Answer in the active Claude Code session", prompt)
         self.assertIn("`send_message`", prompt)
-        self.assertIn("`send_file`", prompt)
+        self.assertNotIn("send_file", prompt)
+        self.assertTrue(prompt.endswith("[ciel-runtime message_ids=6]"))
         self.assertIn('"channel":"web-chat-session"', prompt)
         self.assertIn('"thread_id":"thread-1"', prompt)
         self.assertIn('recipients=["web"]', prompt)
@@ -1583,6 +1584,7 @@ class ChannelBridgeTests(unittest.TestCase):
         source = inspect.getsource(runtime_launch.run_claude)
 
         self.assertIn("channel_wake_confirm_submit=True", source)
+        self.assertIn("channel_wake_bracketed_paste=True", source)
         self.assertIn(
             'set_channel_transcript_scope(',
             source,

@@ -97,6 +97,43 @@ class ChannelTranscriptTests(unittest.TestCase):
         self.assertFalse(active_turn_from_text("\n".join((started, completed))))
         self.assertEqual(0.0, record_timestamp_seconds({"timestamp": "1970-01-01T00:00:00Z"}))
 
+    def test_claude_turn_stays_active_across_tool_results_until_end_turn(self):
+        records = (
+            json.dumps({"type": "user", "message": {"role": "user", "content": "work"}}),
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {
+                        "role": "assistant",
+                        "stop_reason": "tool_use",
+                        "content": [{"type": "tool_use", "id": "tool-1"}],
+                    },
+                }
+            ),
+            json.dumps(
+                {
+                    "type": "user",
+                    "message": {
+                        "role": "user",
+                        "content": [{"type": "tool_result", "tool_use_id": "tool-1"}],
+                    },
+                }
+            ),
+        )
+        self.assertTrue(active_turn_from_text("\n".join(records)))
+        end_turn = json.dumps(
+            {
+                "type": "assistant",
+                "message": {"role": "assistant", "stop_reason": "end_turn", "content": []},
+            }
+        )
+        self.assertFalse(active_turn_from_text("\n".join((*records, end_turn))))
+
+    def test_claude_turn_duration_closes_turn_without_end_turn_record(self):
+        user = json.dumps({"type": "user", "message": {"role": "user", "content": "work"}})
+        duration = json.dumps({"type": "system", "subtype": "turn_duration"})
+        self.assertFalse(active_turn_from_text("\n".join((user, duration))))
+
     def test_wake_state_and_queue_age_share_transcript_port(self):
         queued = json.dumps(
             {

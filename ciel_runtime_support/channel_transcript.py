@@ -318,6 +318,26 @@ def active_turn_from_text(text: str) -> bool:
             active = True
         elif event_type in {"task_complete", "turn_complete", "turn_aborted"}:
             active = False
+        # Claude Code JSONL does not emit the Codex task/turn lifecycle events.
+        # A real user turn (including tool results) remains active until an
+        # end_turn response or the explicit turn_duration record.  Without
+        # this projection, Ciel can type a new wake prompt while Claude is
+        # still working; Claude then queues or truncates that prompt and the
+        # wake verifier incorrectly retries it as unseen.
+        record_type = str(record.get("type") or "")
+        message = record.get("message")
+        message_obj = message if isinstance(message, dict) else {}
+        message_role = str(message_obj.get("role") or "")
+        if record_type == "user" or message_role == "user":
+            active = True
+        elif record_type == "assistant" or message_role == "assistant":
+            stop_reason = str(message_obj.get("stop_reason") or "").strip().lower()
+            # Claude's persisted assistant records are complete messages, not
+            # streaming deltas.  Only tool/pause stops promise another model
+            # step; end_turn and legacy records without a stop reason close it.
+            active = stop_reason in {"tool_use", "pause_turn"}
+        elif record_type == "system" and str(record.get("subtype") or "") == "turn_duration":
+            active = False
     return active
 
 
