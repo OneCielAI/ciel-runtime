@@ -138,6 +138,8 @@ Streamable HTTP MCP는 현재 작업 폴더의 `config.json`에만 저장된다.
 각 실행은 workspace state의 `mcp-launches/<launch-id>`에 원자적인 lease를
 남긴다. 정상 종료 시 즉시 삭제하며, 강제 종료로 남은 lease와 생성 파일은
 다음 시작에서 owner 및 기록된 child 명령의 신원을 검증한 뒤 회수한다.
+인증값은 workspace에 직접 저장하지 않고 `env_vars`, `env_http_headers`,
+`bearer_token_env_var`로 전역 OS 환경변수 이름만 기록한다.
 
 모든 설정 가능 항목의 기본값은 각각의 설정 가능한 최대값과 같고, 메뉴에서 필요한 경우
 1 byte까지 명시적으로 낮출 수 있다. Ciel이 provider별

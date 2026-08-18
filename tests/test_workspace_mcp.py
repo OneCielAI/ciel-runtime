@@ -26,6 +26,7 @@ def sample_config() -> dict:
                     "args": ["-y", "@example/tools"],
                     "cwd": "G:/ncc",
                     "env": {"TOKEN": "%TOOLS_TOKEN%"},
+                    "env_vars": ["TOOLS_SECRET"],
                     "runtimes": ["claude", "codex"],
                     "protocol": "auto",
                 },
@@ -51,11 +52,14 @@ class WorkspaceMcpProjectionTests(unittest.TestCase):
     def test_runtime_filter_and_claude_projection(self) -> None:
         servers = workspace_mcp_servers(sample_config(), "claude")
         self.assertEqual(["local-tools"], sorted(servers))
-        projected = project_claude_mcp(servers)["mcpServers"]["local-tools"]
+        projected = project_claude_mcp(
+            servers, {"TOOLS_SECRET": "resolved-secret"}
+        )["mcpServers"]["local-tools"]
         self.assertEqual("stdio", projected["type"])
         self.assertEqual("npx", projected["command"])
         self.assertEqual(["-y", "@example/tools"], projected["args"])
         self.assertEqual("G:/ncc", projected["cwd"])
+        self.assertEqual("resolved-secret", projected["env"]["TOOLS_SECRET"])
 
     def test_codex_projection_preserves_stdio_and_http_semantics(self) -> None:
         servers = workspace_mcp_servers(sample_config(), "codex")
@@ -63,12 +67,23 @@ class WorkspaceMcpProjectionTests(unittest.TestCase):
         joined = "\n".join(args)
         self.assertIn('mcp_servers.local-tools.command="npx"', joined)
         self.assertIn('mcp_servers.local-tools.args=["-y","@example/tools"]', joined)
+        self.assertIn('mcp_servers.local-tools.env_vars=["TOOLS_SECRET"]', joined)
         self.assertIn('mcp_servers.remote-tools.url="https://example.test/mcp"', joined)
         self.assertIn(
             'mcp_servers.remote-tools.env_http_headers.Authorization="TOOLS_AUTH"',
             joined,
         )
         self.assertIn("mcp_servers.remote-tools.required=true", joined)
+        self.assertNotIn("resolved-secret", joined)
+
+    def test_claude_http_auth_is_resolved_only_in_ephemeral_projection(self) -> None:
+        servers = workspace_mcp_servers(sample_config(), "codex")
+        projected = project_claude_mcp(
+            {"remote-tools": servers["remote-tools"]},
+            {"TOOLS_AUTH": "Bearer global-secret"},
+        )["mcpServers"]["remote-tools"]
+        self.assertEqual("Bearer global-secret", projected["headers"]["Authorization"])
+        self.assertNotIn("global-secret", json.dumps(sample_config()))
 
     def test_invalid_and_incomplete_servers_are_not_projected(self) -> None:
         config = {

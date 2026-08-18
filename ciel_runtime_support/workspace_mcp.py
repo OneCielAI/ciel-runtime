@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 import hashlib
 import json
@@ -83,6 +84,7 @@ def workspace_mcp_servers(config: dict[str, Any], runtime: str | None = None) ->
                 args=_string_list(raw.get("args")),
                 cwd=str(raw.get("cwd") or "").strip(),
                 env=_string_map(raw.get("env")),
+                env_vars=_string_list(raw.get("env_vars")),
             )
         else:
             url = str(raw.get("url") or "").strip()
@@ -113,7 +115,11 @@ def _toml_array(values: list[str]) -> str:
     return "[" + ",".join(_toml_string(value) for value in values) + "]"
 
 
-def project_claude_mcp(servers: dict[str, dict[str, Any]]) -> dict[str, Any]:
+def project_claude_mcp(
+    servers: dict[str, dict[str, Any]],
+    environment: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    source_environment = os.environ if environment is None else environment
     projected: dict[str, Any] = {}
     for name, item in servers.items():
         if item["transport"] == "stdio":
@@ -124,12 +130,26 @@ def project_claude_mcp(servers: dict[str, dict[str, Any]]) -> dict[str, Any]:
             }
             if item.get("cwd"):
                 server["cwd"] = item["cwd"]
-            if item.get("env"):
-                server["env"] = dict(item["env"])
+            resolved_env = dict(item.get("env") or {})
+            for variable in item.get("env_vars") or []:
+                if variable in source_environment:
+                    resolved_env[variable] = str(source_environment[variable])
+            if resolved_env:
+                server["env"] = resolved_env
         else:
             server = {"type": "http", "url": item["url"]}
-            if item.get("headers"):
-                server["headers"] = dict(item["headers"])
+            resolved_headers = dict(item.get("headers") or {})
+            for header, variable in dict(item.get("env_http_headers") or {}).items():
+                if variable in source_environment:
+                    resolved_headers[header] = str(source_environment[variable])
+            bearer_variable = str(item.get("bearer_token_env_var") or "")
+            if bearer_variable and bearer_variable in source_environment:
+                token = str(source_environment[bearer_variable]).strip()
+                resolved_headers["Authorization"] = (
+                    token if token.lower().startswith("bearer ") else f"Bearer {token}"
+                )
+            if resolved_headers:
+                server["headers"] = resolved_headers
         projected[name] = server
     return {"mcpServers": projected}
 
@@ -150,6 +170,8 @@ def project_codex_mcp_args(servers: dict[str, dict[str, Any]]) -> list[str]:
                 add(f"{prefix}.cwd", _toml_string(item["cwd"]))
             for key, value in dict(item.get("env") or {}).items():
                 add(f"{prefix}.env.{key}", _toml_string(value))
+            if item.get("env_vars"):
+                add(f"{prefix}.env_vars", _toml_array(list(item["env_vars"])))
         else:
             add(f"{prefix}.url", _toml_string(item["url"]))
             for key, value in dict(item.get("headers") or {}).items():

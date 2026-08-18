@@ -863,7 +863,20 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                                     raise ValueError("Arguments must be a JSON array") from exc
                                 if not isinstance(parsed_args, list):
                                     raise ValueError("Arguments must be a JSON array")
-                                item.update(command=command, args=[str(arg) for arg in parsed_args])
+                                env_vars = prompt_menu_value(
+                                    "Environment variable names to forward (comma separated, blank for none)",
+                                    restore_tty=restore_line_mode,
+                                    raw_tty=restore_raw_mode,
+                                )
+                                item.update(
+                                    command=command,
+                                    args=[str(arg) for arg in parsed_args],
+                                    env_vars=[
+                                        part.strip()
+                                        for part in env_vars.split(",")
+                                        if part.strip()
+                                    ],
+                                )
                             else:
                                 url = prompt_menu_value(
                                     "Streamable HTTP MCP URL",
@@ -872,7 +885,12 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                                 )
                                 if not url:
                                     continue
-                                item["url"] = url
+                                bearer_env = prompt_menu_value(
+                                    "Bearer token environment variable (blank for none)",
+                                    restore_tty=restore_line_mode,
+                                    raw_tty=restore_raw_mode,
+                                )
+                                item.update(url=url, bearer_token_env_var=bearer_env.strip())
                             messages = workspace_mcp.update(value, item)
                         else:
                             continue
