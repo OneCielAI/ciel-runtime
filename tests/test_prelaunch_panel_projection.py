@@ -39,8 +39,9 @@ class PrelaunchPanelProjectionTests(unittest.TestCase):
         self.assertIn("9. Launch", rows[9])
         self.assertIn("10. External event inputs", rows[10])
         self.assertIn("11. Remote instructions", rows[11])
-        self.assertIn("12. Request/file limits", rows[12])
-        self.assertIn("13. Web Backend", rows[13])
+        self.assertIn("12. Workspace MCP modules", rows[12])
+        self.assertIn("13. Request/file limits", rows[13])
+        self.assertIn("14. Web Backend", rows[14])
 
     def test_provider_panel_projects_native_and_routed_choices(self):
         projection = ProviderPanelProjection(
