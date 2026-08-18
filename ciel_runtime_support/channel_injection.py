@@ -21,6 +21,8 @@ class InputTransport(Protocol):
 
     def pending_input_events(self) -> int | None: ...
 
+    def input_snapshot(self) -> str | None: ...
+
 
 @dataclass(frozen=True)
 class RuntimeInjectionPolicy:
@@ -82,6 +84,16 @@ class ChannelPromptInjector:
         if bool(getattr(transport, "separate_input_stages", False)):
             self._write_stage(transport, "clear", policy.clear_input, policy)
             self._write_stage(transport, "body", payload, policy)
+            if policy.confirm_submission and not self._body_prefix_present(
+                transport, prompt_text
+            ):
+                self._log(
+                    "WARN",
+                    "channel_input_body_verify result=missing action=rewrite-full-prompt",
+                )
+                self._write_stage(transport, "rewrite-clear", policy.clear_input, policy)
+                self._write_stage(transport, "rewrite-body", payload, policy)
+                self._body_prefix_present(transport, prompt_text)
         else:
             transport.write(policy.clear_input + payload)
             if not transport.wait_until_input_consumed(
@@ -133,6 +145,25 @@ class ChannelPromptInjector:
             f"queue_after={after if after is not None else '-'} drained={str(drained).lower()}",
         )
 
+    def _body_prefix_present(self, transport: InputTransport, prompt: str) -> bool:
+        snapshot = getattr(transport, "input_snapshot", None)
+        supported = bool(
+            getattr(transport, "supports_input_snapshot", callable(snapshot))
+        )
+        captured = snapshot() if supported and callable(snapshot) else None
+        if captured is None:
+            self._log("INFO", "channel_input_body_verify result=unavailable")
+            return True
+        prefix = " ".join(str(prompt or "").split())[:48]
+        visible = " ".join(str(captured).split())
+        present = not prefix or prefix in visible
+        self._log(
+            "INFO" if present else "WARN",
+            f"channel_input_body_verify result={'present' if present else 'missing'} "
+            f"prefix_chars={len(prefix)}",
+        )
+        return present
+
     @staticmethod
     def _pending_events(transport: InputTransport) -> int | None:
         pending = getattr(transport, "pending_input_events", None)
@@ -154,6 +185,9 @@ class CallableInputTransport:
         self.separate_input_stages = bool(
             getattr(target, "separate_input_stages", False)
         )
+        self.supports_input_snapshot = callable(
+            getattr(target, "input_snapshot", None)
+        )
 
     def write(self, data: bytes) -> None:
         self._write(self._target, data)
@@ -174,6 +208,10 @@ class CallableInputTransport:
             return int(pending())
         except (TypeError, ValueError):
             return None
+
+    def input_snapshot(self) -> str | None:
+        snapshot = getattr(self._target, "input_snapshot", None)
+        return snapshot() if callable(snapshot) else None
 
 
 __all__ = [

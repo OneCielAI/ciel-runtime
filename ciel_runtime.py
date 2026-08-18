@@ -101,7 +101,7 @@ from ciel_runtime_support.channel_transcript import active_tool_call_from_text a
 from ciel_runtime_support.channel_transcript import active_turn_from_text as _channel_stdin_active_turn_from_text
 from ciel_runtime_support.channel_transcript import queued_age_seconds_from_text as analyze_channel_queued_age
 from ciel_runtime_support.channel_transcript import queued_command_ids_from_text as analyze_channel_queued_ids
-from ciel_runtime_support.channel_transcript import wake_state_from_text as analyze_channel_wake_state
+from ciel_runtime_support.channel_transcript import wake_state_evidence_from_text as analyze_channel_wake_evidence
 from ciel_runtime_support.channel_transcript_repository import ChannelTranscriptRepository
 from ciel_runtime_support.channel_wake_claim_repository import ChannelWakeClaimRepository
 from ciel_runtime_support.channel_wake_claim_repository import prompt_message_ids as _channel_prompt_message_ids
@@ -4386,7 +4386,7 @@ def channel_wake_context() -> ChannelWakeContext:
         input=ChannelWakeInputPorts(os.environ, _channel_platform_default_enter_bytes, resolve_channel_enter_bytes, build_channel_wake_input_bytes, find_executable, subprocess.run,
                                     time.sleep, _channel_wake_submit_retry_delay_seconds, _channel_wake_submit_delay_seconds, router_log),
         transcript=ChannelTranscriptPorts(HOME, _CHANNEL_TRANSCRIPT_CACHE, _CHANNEL_TRANSCRIPT_SCOPE, _CHANNEL_STDIN_RECOVERY_CACHE, time.time, ChannelTranscriptRepository.read_tail_text,
-                                          _channel_stdin_active_tool_call_from_text, _channel_stdin_active_turn_from_text, analyze_channel_queued_age, analyze_channel_wake_state),
+                                          _channel_stdin_active_tool_call_from_text, _channel_stdin_active_turn_from_text, analyze_channel_queued_age, analyze_channel_wake_evidence),
         transcript_policy=ChannelTranscriptPolicyPorts(analyze_channel_queued_ids, _channel_stdin_inflight_stale_seconds, lambda ttl_seconds=2.0: _latest_claude_transcript_path(ttl_seconds),
                                                        lambda message_id: _channel_stdin_wake_claim_prompt(message_id), lambda text, message_id, prompt_texts=None: _channel_prompt_references_message_id(text, message_id, prompt_texts),
                                                        _channel_prompt_message_ids, router_log),
@@ -4434,12 +4434,15 @@ def _write_channel_wake_prompt( master_fd: int, prompt: str, enter_bytes: bytes 
     )
 
 _CHANNEL_TRANSCRIPT_CACHE: dict[str, Any] = {"checked_at": 0.0, "path": None}
-_CHANNEL_TRANSCRIPT_SCOPE: dict[str, Any] = {'runtime': '', 'started_at': 0.0, 'codex_home': None}
+_CHANNEL_TRANSCRIPT_SCOPE: dict[str, Any] = {
+    'runtime': '', 'started_at': 0.0, 'codex_home': None, 'cwd': None,
+    'session_id': '', 'bound_path': None,
+}
 _CHANNEL_STDIN_RECOVERY_CACHE: dict[str, Any] = {'checked_at': 0.0, 'last_id': None, 'marker': None, 'recovered_last_id': None}
 def channel_transcript_repository() -> ChannelTranscriptRepository: return channel_wake_context().transcript_repository()
 
-def _set_channel_transcript_scope(runtime: str, *, started_at: float | None = None, codex_home: Path | None = None, cwd: Path | None = None) -> None:
-    channel_wake_context().set_transcript_scope(runtime, started_at=started_at, codex_home=codex_home, cwd=cwd)
+def _set_channel_transcript_scope(runtime: str, *, started_at: float | None = None, codex_home: Path | None = None, cwd: Path | None = None, session_id: str | None = None) -> None:
+    channel_wake_context().set_transcript_scope(runtime, started_at=started_at, codex_home=codex_home, cwd=cwd, session_id=session_id)
 
 def _channel_transcript_roots() -> tuple[tuple[Path, str], ...]: return channel_wake_context().transcript_roots()
 def _latest_claude_transcript_path(ttl_seconds: float = 2.0) -> Path | None: return channel_wake_context().latest_transcript_path(ttl_seconds)
@@ -4700,6 +4703,7 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
             should_use_channel_stdin_proxy,
             _codex_channel_wake_submit_delay_seconds,
             _codex_channel_wake_submit_retries,
+            _set_channel_transcript_scope,
         ),
         mcp_config=assembly.ClaudeLaunchMcpConfigPorts(
             write_duckduckgo_mcp_config,

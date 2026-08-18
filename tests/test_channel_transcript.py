@@ -5,6 +5,7 @@ from ciel_runtime_support.channel_transcript import (
     ChannelWakeStateReader,
     ChannelWakeStateReaderPorts,
     ChannelWakeTranscriptServices,
+    WakeStateEvidence,
     active_tool_call_from_text,
     active_turn_from_text,
     content_text,
@@ -13,6 +14,7 @@ from ciel_runtime_support.channel_transcript import (
     queued_command_ids_from_text,
     user_text,
     wake_state_from_text,
+    wake_state_evidence_from_text,
 )
 
 
@@ -23,13 +25,15 @@ class ChannelTranscriptTests(unittest.TestCase):
             ChannelWakeStateReaderPorts(
                 latest_transcript=lambda: "transcript.jsonl",
                 read_tail_text=lambda _path: "tail",
-                wake_state_from_text=lambda message_id, text, prompts=(): (
-                    calls.append((message_id, text, prompts)) or "queued"
+                wake_state_evidence_from_text=lambda message_id, text, prompts=(): (
+                    calls.append((message_id, text, prompts))
+                    or WakeStateEvidence("queued")
                 ),
                 queued_age_from_text=lambda message_id, text, prompts: (
                     calls.append((message_id, text, prompts)) or 31.0
                 ),
                 stale_seconds=lambda: 30.0,
+                log=lambda *_args: None,
             )
         )
         message = {"id": "7", "message": "body"}
@@ -43,9 +47,10 @@ class ChannelTranscriptTests(unittest.TestCase):
             ChannelWakeStateReaderPorts(
                 latest_transcript=lambda: None,
                 read_tail_text=lambda _path: self.fail("missing transcript must not be read"),
-                wake_state_from_text=lambda *_args: self.fail("missing transcript must not be parsed"),
+                wake_state_evidence_from_text=lambda *_args: self.fail("missing transcript must not be parsed"),
                 queued_age_from_text=lambda *_args: self.fail("missing transcript must not be parsed"),
                 stale_seconds=lambda: 30.0,
+                log=lambda *_args: None,
             )
         )
 
@@ -111,6 +116,70 @@ class ChannelTranscriptTests(unittest.TestCase):
             "completed", wake_state_from_text(7, "\n".join((queued, user, assistant)), None, services)
         )
         self.assertEqual({7}, queued_command_ids_from_text(queued, services))
+
+    def test_completed_state_logs_matching_transcript_records(self):
+        logs = []
+        transcript = "\n".join(
+            (
+                json.dumps(
+                    {
+                        "type": "user",
+                        "sessionId": "supervisor-session",
+                        "timestamp": "2026-08-18T04:58:35Z",
+                        "message": {"role": "user", "content": "wake #70"},
+                    }
+                ),
+                json.dumps(
+                    {"type": "assistant", "message": {"role": "assistant"}}
+                ),
+            )
+        )
+        reader = ChannelWakeStateReader(
+            ChannelWakeStateReaderPorts(
+                latest_transcript=lambda: "supervisor.jsonl",
+                read_tail_text=lambda _path: transcript,
+                wake_state_evidence_from_text=lambda message_id, text, prompts=(): wake_state_evidence_from_text(
+                    message_id, text, prompts, self.wake_services()
+                ),
+                queued_age_from_text=lambda *_args: None,
+                stale_seconds=lambda: 30.0,
+                log=lambda level, message: logs.append((level, message)),
+            )
+        )
+
+        self.assertEqual("completed", reader.state(70))
+        self.assertEqual(1, len(logs))
+        self.assertIn("transcript=supervisor.jsonl", logs[0][1])
+        self.assertIn("prompt_record=1", logs[0][1])
+        self.assertIn("completion_record=2", logs[0][1])
+        self.assertIn("session_id=supervisor-session", logs[0][1])
+
+    def test_prompt_candidates_prevent_incidental_id_from_completing_wake(self):
+        transcript = "\n".join(
+            (
+                json.dumps(
+                    {
+                        "type": "user",
+                        "message": {
+                            "role": "user",
+                            "content": "source code mentions id=70 but is unrelated",
+                        },
+                    }
+                ),
+                json.dumps(
+                    {"type": "assistant", "message": {"role": "assistant"}}
+                ),
+            )
+        )
+
+        evidence = wake_state_evidence_from_text(
+            70,
+            transcript,
+            ["[ciel-runtime external channel message] id=70 text=actual"],
+            self.wake_services(),
+        )
+
+        self.assertEqual("missing", evidence.state)
 
 
 if __name__ == "__main__":

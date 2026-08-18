@@ -150,6 +150,7 @@ class ClaudeLaunchChannelDelivery:
     should_use_channel_stdin_proxy: Callable[..., Any]
     channel_wake_submit_delay_seconds: Callable[..., Any]
     channel_wake_submit_retries: Callable[..., Any]
+    set_channel_transcript_scope: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -243,6 +244,7 @@ def run_claude(
     should_use_channel_stdin_proxy = services.channel_delivery.should_use_channel_stdin_proxy
     channel_wake_submit_delay_seconds = services.channel_delivery.channel_wake_submit_delay_seconds
     channel_wake_submit_retries = services.channel_delivery.channel_wake_submit_retries
+    set_channel_transcript_scope = services.channel_delivery.set_channel_transcript_scope
     start_router_if_needed = services.routing.start_router_if_needed
     subprocess_call_with_channel_wake_proxy = services.process.subprocess_call_with_channel_wake_proxy
     subprocess_call_with_child_pid_record = services.process.subprocess_call_with_child_pid_record
@@ -517,9 +519,24 @@ def run_claude(
     )
     launch_log_offset = file_size_or_zero(LOG_PATH)
     capture_stderr = env_bool(os.environ.get("CIEL_RUNTIME_CAPTURE_CC_STDERR"), False)
+    transcript_session_id = ""
+    for index, argument in enumerate(cmd):
+        text = str(argument or "")
+        if text == "--session-id" and index + 1 < len(cmd):
+            transcript_session_id = str(cmd[index + 1] or "").strip()
+            break
+        if text.startswith("--session-id="):
+            transcript_session_id = text.partition("=")[2].strip()
+            break
+
     def run_claude_process() -> int:
         rc = 1
         try:
+            set_channel_transcript_scope(
+                "claude",
+                cwd=Path.cwd(),
+                session_id=transcript_session_id or None,
+            )
             if use_router_mode and not ensure_managed_router_running_for_client():
                 print(
                     "Ciel Runtime warning: local router health check failed immediately before launching Claude Code.",

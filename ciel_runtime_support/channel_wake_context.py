@@ -31,6 +31,7 @@ from .channel_transcript import (
     ChannelWakeStateReader,
     ChannelWakeStateReaderPorts,
     ChannelWakeTranscriptServices,
+    WakeStateEvidence,
 )
 from .channel_transcript_repository import ChannelTranscriptRepository
 from .channel_wake_claim_repository import ChannelWakeClaimRepository
@@ -97,7 +98,7 @@ class ChannelTranscriptPorts:
     active_tool_call_from_text: Callable[[str], bool]
     active_turn_from_text: Callable[[str], bool]
     queued_age_from_text: Callable[..., float | None]
-    wake_state_from_text: Callable[..., str]
+    wake_state_evidence_from_text: Callable[..., WakeStateEvidence]
 
 
 @dataclass(frozen=True, slots=True)
@@ -365,9 +366,14 @@ class ChannelWakeContext:
         started_at: float | None = None,
         codex_home: Path | None = None,
         cwd: Path | None = None,
+        session_id: str | None = None,
     ) -> None:
         self.transcript_repository().set_scope(
-            runtime, started_at=started_at, codex_home=codex_home, cwd=cwd
+            runtime,
+            started_at=started_at,
+            codex_home=codex_home,
+            cwd=cwd,
+            session_id=session_id,
         )
 
     def transcript_roots(self) -> tuple[tuple[Path, str], ...]:
@@ -402,7 +408,17 @@ class ChannelWakeContext:
         text: str,
         prompt_texts: list[str] | tuple[str, ...] | None = None,
     ) -> str:
-        return self.transcript.wake_state_from_text(
+        return self.wake_state_evidence_from_text(
+            message_id, text, prompt_texts
+        ).state
+
+    def wake_state_evidence_from_text(
+        self,
+        message_id: int,
+        text: str,
+        prompt_texts: list[str] | tuple[str, ...] | None = None,
+    ) -> WakeStateEvidence:
+        return self.transcript.wake_state_evidence_from_text(
             message_id, text, prompt_texts, self.transcript_services()
         )
 
@@ -411,9 +427,10 @@ class ChannelWakeContext:
             ChannelWakeStateReaderPorts(
                 self.transcript_policy.latest_transcript,
                 self.transcript.read_tail,
-                self.wake_state_from_text,
+                self.wake_state_evidence_from_text,
                 self.queued_age_seconds_from_text,
                 self.transcript_policy.inflight_stale_seconds,
+                self.transcript_policy.log,
             )
         )
 

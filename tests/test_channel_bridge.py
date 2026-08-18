@@ -1584,6 +1584,11 @@ class ChannelBridgeTests(unittest.TestCase):
 
         self.assertIn("channel_wake_confirm_submit=True", source)
         self.assertIn(
+            'set_channel_transcript_scope(',
+            source,
+        )
+        self.assertIn('session_id=transcript_session_id or None', source)
+        self.assertIn(
             "channel_wake_submit_retries=channel_wake_submit_retries()",
             source,
         )

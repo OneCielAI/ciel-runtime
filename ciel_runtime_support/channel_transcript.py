@@ -15,12 +15,23 @@ class ChannelWakeTranscriptServices:
 
 
 @dataclass(frozen=True, slots=True)
+class WakeStateEvidence:
+    state: str
+    prompt_record: int | None = None
+    completion_record: int | None = None
+    record_type: str = ""
+    session_id: str = ""
+    timestamp: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class ChannelWakeStateReaderPorts:
     latest_transcript: Callable[[], Any]
     read_tail_text: Callable[[Any], str]
-    wake_state_from_text: Callable[..., str]
+    wake_state_evidence_from_text: Callable[..., WakeStateEvidence]
     queued_age_from_text: Callable[..., float | None]
     stale_seconds: Callable[[], float]
+    log: Callable[[str, str], None]
 
 
 class ChannelWakeStateReader:
@@ -49,8 +60,12 @@ class ChannelWakeStateReader:
     def state(self, message_id: int) -> str:
         if message_id <= 0:
             return "completed"
-        text = self._latest_text()
-        return self._ports.wake_state_from_text(message_id, text) if text else "unknown"
+        path, text = self._latest_text()
+        if not text:
+            return "unknown"
+        evidence = self._ports.wake_state_evidence_from_text(message_id, text)
+        self._log_evidence(path, message_id, evidence)
+        return evidence.state
 
     def state_for_message(
         self, message: dict[str, Any], prompt: str | None = None
@@ -58,12 +73,14 @@ class ChannelWakeStateReader:
         message_id = self.message_id(message)
         if message_id <= 0:
             return "completed"
-        text = self._latest_text()
+        path, text = self._latest_text()
         if not text:
             return "unknown"
-        return self._ports.wake_state_from_text(
+        evidence = self._ports.wake_state_evidence_from_text(
             message_id, text, self.prompt_candidates(message, prompt)
         )
+        self._log_evidence(path, message_id, evidence)
+        return evidence.state
 
     def queued_is_stale(
         self, message: dict[str, Any], prompt: str | None = None
@@ -71,7 +88,7 @@ class ChannelWakeStateReader:
         message_id = self.message_id(message)
         if message_id <= 0:
             return False
-        text = self._latest_text()
+        _path, text = self._latest_text()
         if not text:
             return False
         age = self._ports.queued_age_from_text(
@@ -79,9 +96,25 @@ class ChannelWakeStateReader:
         )
         return age is not None and age >= self._ports.stale_seconds()
 
-    def _latest_text(self) -> str:
+    def _latest_text(self) -> tuple[Any, str]:
         path = self._ports.latest_transcript()
-        return self._ports.read_tail_text(path) if path is not None else ""
+        return path, self._ports.read_tail_text(path) if path is not None else ""
+
+    def _log_evidence(
+        self, path: Any, message_id: int, evidence: WakeStateEvidence
+    ) -> None:
+        if evidence.state != "completed":
+            return
+        self._ports.log(
+            "INFO",
+            "channel_wake_completed_evidence "
+            f"message_id={message_id} transcript={path} "
+            f"prompt_record={evidence.prompt_record} "
+            f"completion_record={evidence.completion_record} "
+            f"record_type={evidence.record_type or '-'} "
+            f"session_id={evidence.session_id or '-'} "
+            f"timestamp={evidence.timestamp or '-'}",
+        )
 
 
 def record_timestamp_seconds(record: dict[str, Any]) -> float | None:
@@ -336,22 +369,44 @@ def wake_state_from_text(
     prompt_texts: list[str] | tuple[str, ...] | None,
     services: ChannelWakeTranscriptServices,
 ) -> str:
+    return wake_state_evidence_from_text(
+        message_id, text, prompt_texts, services
+    ).state
+
+
+def wake_state_evidence_from_text(
+    message_id: int,
+    text: str,
+    prompt_texts: list[str] | tuple[str, ...] | None,
+    services: ChannelWakeTranscriptServices,
+) -> WakeStateEvidence:
     if message_id <= 0:
-        return "completed"
+        return WakeStateEvidence("completed")
     prompts = [str(item) for item in (prompt_texts or ()) if str(item or "").strip()]
     claimed = services.claim_prompt(message_id)
     if claimed:
         prompts.append(claimed)
     seen_queued_prompt = False
     seen_real_prompt = False
-    for record in _jsonl_records(text):
+    prompt_record: int | None = None
+    queued_record: int | None = None
+    prompt_metadata: dict[str, str] = {}
+    for record_index, record in enumerate(_jsonl_records(text), start=1):
         record_type = str(record.get("type") or "")
         if seen_real_prompt and is_assistant_message(record):
-            return "completed"
+            return WakeStateEvidence(
+                "completed",
+                prompt_record=prompt_record,
+                completion_record=record_index,
+                record_type=prompt_metadata.get("record_type", ""),
+                session_id=prompt_metadata.get("session_id", ""),
+                timestamp=prompt_metadata.get("timestamp", ""),
+            )
         if record_type == "queue-operation" and record.get("operation") == "enqueue":
             raw = record.get("content")
             if isinstance(raw, str) and services.prompt_references_message_id(raw, message_id, prompts):
                 seen_queued_prompt = True
+                queued_record = record_index
             continue
         if record_type == "attachment":
             attachment = record.get("attachment")
@@ -359,12 +414,43 @@ def wake_state_from_text(
                 raw = attachment.get("prompt")
                 if isinstance(raw, str) and services.prompt_references_message_id(raw, message_id, prompts):
                     seen_queued_prompt = True
+                    queued_record = record_index
             continue
-        if services.prompt_references_message_id(user_text(record), message_id, prompts):
+        record_user_text = user_text(record)
+        prompt_confirmed = (
+            any(
+                _normalized_prompt(prompt) in _normalized_prompt(record_user_text)
+                for prompt in prompts
+                if _normalized_prompt(prompt)
+            )
+            if prompts
+            else services.prompt_references_message_id(
+                record_user_text, message_id, prompts
+            )
+        )
+        if prompt_confirmed:
             seen_real_prompt = True
+            prompt_record = record_index
+            prompt_metadata = {
+                "record_type": record_type,
+                "session_id": str(record.get("sessionId") or ""),
+                "timestamp": str(record.get("timestamp") or ""),
+            }
     if seen_real_prompt:
-        return "pending"
-    return "queued" if seen_queued_prompt else "missing"
+        return WakeStateEvidence(
+            "pending",
+            prompt_record=prompt_record,
+            record_type=prompt_metadata.get("record_type", ""),
+            session_id=prompt_metadata.get("session_id", ""),
+            timestamp=prompt_metadata.get("timestamp", ""),
+        )
+    if seen_queued_prompt:
+        return WakeStateEvidence("queued", prompt_record=queued_record)
+    return WakeStateEvidence("missing")
+
+
+def _normalized_prompt(value: str) -> str:
+    return " ".join(str(value or "").split())
 
 
 def queued_command_ids_from_text(
@@ -411,4 +497,6 @@ __all__ = [
     "tool_use_ids",
     "user_text",
     "wake_state_from_text",
+    "wake_state_evidence_from_text",
+    "WakeStateEvidence",
 ]

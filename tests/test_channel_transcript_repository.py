@@ -102,6 +102,101 @@ class ChannelTranscriptRepositoryTests(unittest.TestCase):
 
         self.assertEqual(cached, repository.latest(ttl_seconds=2))
 
+    def test_claude_scope_ignores_newer_transcript_from_other_workspace(self):
+        with tempfile.TemporaryDirectory() as raw_dir:
+            home = Path(raw_dir)
+            projects = home / ".claude" / "projects"
+            target_dir = projects / "C--repo-target"
+            other_dir = projects / "C--repo-other"
+            target_dir.mkdir(parents=True)
+            other_dir.mkdir(parents=True)
+            target = target_dir / "supervisor.jsonl"
+            unrelated = other_dir / "unrelated.jsonl"
+            target.write_text(
+                json.dumps(
+                    {
+                        "type": "user",
+                        "cwd": r"C:\repo\target",
+                        "sessionId": "supervisor",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            unrelated.write_text(
+                json.dumps(
+                    {
+                        "type": "user",
+                        "cwd": r"C:\repo\other",
+                        "sessionId": "unrelated",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            os.utime(target, (201, 201))
+            os.utime(unrelated, (250, 250))
+            repository = self.repository(home, scope={})
+            repository.set_scope(
+                "claude", started_at=200, cwd=Path(r"C:\repo\target")
+            )
+
+            self.assertEqual(target, repository.latest(ttl_seconds=0))
+
+    def test_claude_scope_binds_first_valid_supervisor_transcript(self):
+        with tempfile.TemporaryDirectory() as raw_dir:
+            home = Path(raw_dir)
+            project_dir = home / ".claude" / "projects" / "C--repo-target"
+            project_dir.mkdir(parents=True)
+            supervisor = project_dir / "supervisor.jsonl"
+            competitor = project_dir / "competitor.jsonl"
+            record = {"type": "user", "cwd": r"C:\repo\target"}
+            supervisor.write_text(json.dumps(record) + "\n", encoding="utf-8")
+            os.utime(supervisor, (201, 201))
+            repository = self.repository(home, scope={})
+            repository.set_scope(
+                "claude", started_at=200, cwd=Path(r"C:\repo\target")
+            )
+            self.assertEqual(supervisor, repository.latest(ttl_seconds=0))
+
+            competitor.write_text(json.dumps(record) + "\n", encoding="utf-8")
+            os.utime(competitor, (250, 250))
+            self.assertEqual(supervisor, repository.latest(ttl_seconds=0))
+
+    def test_claude_explicit_session_id_wins_within_same_workspace(self):
+        with tempfile.TemporaryDirectory() as raw_dir:
+            home = Path(raw_dir)
+            project_dir = home / ".claude" / "projects" / "C--repo-target"
+            project_dir.mkdir(parents=True)
+            supervisor = project_dir / "supervisor.jsonl"
+            competitor = project_dir / "competitor.jsonl"
+            for path, session_id in (
+                (supervisor, "supervisor-session"),
+                (competitor, "other-session"),
+            ):
+                path.write_text(
+                    json.dumps(
+                        {
+                            "type": "user",
+                            "cwd": r"C:\repo\target",
+                            "sessionId": session_id,
+                        }
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+            os.utime(supervisor, (201, 201))
+            os.utime(competitor, (250, 250))
+            repository = self.repository(home, scope={})
+            repository.set_scope(
+                "claude",
+                started_at=200,
+                cwd=Path(r"C:\repo\target"),
+                session_id="supervisor-session",
+            )
+
+            self.assertEqual(supervisor, repository.latest(ttl_seconds=0))
+
     def test_read_tail_text_bounds_bytes(self):
         with tempfile.TemporaryDirectory() as raw_dir:
             path = Path(raw_dir) / "transcript.jsonl"

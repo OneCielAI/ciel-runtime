@@ -31,6 +31,9 @@ class FakeWindowsTransport:
     def pending_input_events(self) -> int:
         return 0
 
+    def input_snapshot(self) -> str | None:
+        return None
+
 
 class ChannelPromptInjectorTests(unittest.TestCase):
     def test_windows_stages_clear_body_and_submit_and_flattens_newlines(self) -> None:
@@ -71,6 +74,39 @@ class ChannelPromptInjectorTests(unittest.TestCase):
         self.assertTrue(windows_wake_requires_body_fallback("unseen_retry", 2, 2))
         self.assertTrue(windows_wake_requires_body_fallback("stale", 2, 2))
         self.assertFalse(windows_wake_requires_body_fallback("completed", 99, 2))
+
+    def test_missing_prompt_head_is_cleared_and_fully_rewritten_before_submit(self) -> None:
+        transport = FakeWindowsTransport()
+        snapshots = iter(("tail without prompt head", "first line second line"))
+        transport.input_snapshot = lambda: next(snapshots)
+        logs: list[str] = []
+        injector = ChannelPromptInjector(
+            sleep=lambda _seconds: None,
+            retry_delay_seconds=lambda: 0.0,
+            snapshot=lambda: None,
+            log=lambda _level, message: logs.append(message),
+        )
+
+        injector.inject(
+            transport,
+            PromptInjection(
+                prompt="first line\nsecond line",
+                policy=RuntimeInjectionPolicy(
+                    runtime="claude",
+                    clear_input=b"\x15",
+                    submit_input=b"\r",
+                    submit_delay_seconds=0.0,
+                    submit_attempts=1,
+                    confirm_submission=True,
+                ),
+            ),
+        )
+
+        self.assertEqual(
+            [b"\x15", b"first line second line", b"\x15", b"first line second line", b"\r"],
+            transport.writes,
+        )
+        self.assertTrue(any("action=rewrite-full-prompt" in line for line in logs))
 
 
 if __name__ == "__main__":

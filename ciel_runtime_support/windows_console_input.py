@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import time
 from typing import Any, Callable, Iterable
@@ -67,6 +68,98 @@ class WindowsConsoleInputWriter:
         if not kernel32.GetNumberOfConsoleInputEvents(self.handle, ctypes.byref(pending)):
             return None
         return int(pending.value)
+
+    @staticmethod
+    def input_snapshot() -> str | None:
+        """Read the visible console tail without logging prompt contents."""
+        if os.name != "nt":
+            return None
+        import ctypes
+        from ctypes import wintypes
+
+        class COORD(ctypes.Structure):
+            _fields_ = [("X", wintypes.SHORT), ("Y", wintypes.SHORT)]
+
+        class SMALL_RECT(ctypes.Structure):
+            _fields_ = [
+                ("Left", wintypes.SHORT),
+                ("Top", wintypes.SHORT),
+                ("Right", wintypes.SHORT),
+                ("Bottom", wintypes.SHORT),
+            ]
+
+        class CONSOLE_SCREEN_BUFFER_INFO(ctypes.Structure):
+            _fields_ = [
+                ("dwSize", COORD),
+                ("dwCursorPosition", COORD),
+                ("wAttributes", wintypes.WORD),
+                ("srWindow", SMALL_RECT),
+                ("dwMaximumWindowSize", COORD),
+            ]
+
+        try:
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            kernel32.CreateFileW.argtypes = [
+                wintypes.LPCWSTR,
+                wintypes.DWORD,
+                wintypes.DWORD,
+                wintypes.LPVOID,
+                wintypes.DWORD,
+                wintypes.DWORD,
+                wintypes.HANDLE,
+            ]
+            kernel32.CreateFileW.restype = wintypes.HANDLE
+            kernel32.GetConsoleScreenBufferInfo.argtypes = [
+                wintypes.HANDLE,
+                ctypes.POINTER(CONSOLE_SCREEN_BUFFER_INFO),
+            ]
+            kernel32.GetConsoleScreenBufferInfo.restype = wintypes.BOOL
+            kernel32.ReadConsoleOutputCharacterW.argtypes = [
+                wintypes.HANDLE,
+                wintypes.LPWSTR,
+                wintypes.DWORD,
+                COORD,
+                ctypes.POINTER(wintypes.DWORD),
+            ]
+            kernel32.ReadConsoleOutputCharacterW.restype = wintypes.BOOL
+            kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+            kernel32.CloseHandle.restype = wintypes.BOOL
+            handle = kernel32.CreateFileW(
+                "CONOUT$",
+                0x80000000,
+                0x00000001 | 0x00000002,
+                None,
+                3,
+                0,
+                None,
+            )
+            invalid = int(ctypes.c_void_p(-1).value or -1)
+            value = int(getattr(handle, "value", handle) or 0)
+            if not value or value == invalid:
+                return None
+            try:
+                info = CONSOLE_SCREEN_BUFFER_INFO()
+                if not kernel32.GetConsoleScreenBufferInfo(handle, ctypes.byref(info)):
+                    return None
+                width = max(1, int(info.dwSize.X))
+                end_y = max(0, int(info.dwCursorPosition.Y))
+                max_rows = max(1, (64 * 1024) // width)
+                start_y = max(0, end_y - max_rows + 1)
+                count = min(64 * 1024, width * (end_y - start_y + 1))
+                if count <= 0:
+                    return ""
+                buffer = ctypes.create_unicode_buffer(count + 1)
+                read = wintypes.DWORD(0)
+                origin = COORD(0, start_y)
+                if not kernel32.ReadConsoleOutputCharacterW(
+                    handle, buffer, count, origin, ctypes.byref(read)
+                ):
+                    return None
+                return buffer[: int(read.value)].replace("\x00", "")
+            finally:
+                kernel32.CloseHandle(handle)
+        except (AttributeError, OSError, TypeError, ValueError):
+            return None
 
     def write(self, data: bytes) -> None:
         if not data:
