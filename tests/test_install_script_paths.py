@@ -19,7 +19,20 @@ class InstallScriptPathTests(unittest.TestCase):
         if not pwsh:
             self.skipTest("PowerShell is unavailable")
         with tempfile.TemporaryDirectory() as prefix, tempfile.TemporaryDirectory() as unrelated_cwd:
-            env = {**os.environ, "PREFIX": prefix}
+            read_user_path = [
+                pwsh,
+                "-NoProfile",
+                "-Command",
+                "[Environment]::GetEnvironmentVariable('Path', 'User')",
+            ]
+            path_before = subprocess.run(
+                read_user_path, capture_output=True, text=True, check=True
+            ).stdout
+            env = {
+                **os.environ,
+                "PREFIX": prefix,
+                "CIEL_RUNTIME_SKIP_PATH_REGISTRATION": "1",
+            }
             subprocess.run(
                 [pwsh, "-NoProfile", "-File", str(ROOT / "install.ps1")],
                 cwd=unrelated_cwd,
@@ -28,8 +41,12 @@ class InstallScriptPathTests(unittest.TestCase):
                 text=True,
                 check=True,
             )
+            path_after = subprocess.run(
+                read_user_path, capture_output=True, text=True, check=True
+            ).stdout
             installed = Path(prefix) / "share" / "ciel-runtime" / "ciel_runtime.py"
             self.assertEqual((ROOT / "ciel_runtime.py").read_bytes(), installed.read_bytes())
+            self.assertEqual(path_before, path_after)
 
     def test_posix_installer_reads_assets_from_its_own_directory(self):
         script = (ROOT / "install.sh").read_text(encoding="utf-8")
@@ -60,6 +77,14 @@ class InstallScriptPathTests(unittest.TestCase):
         self.assertIn("^ciel-runtime-[0-9a-f]{7,40}$", powershell)
         self.assertIn("CIEL_RUNTIME_INSTALL_HOME", posix)
         self.assertIn("ciel-runtime-[0-9a-f]", posix)
+
+    def test_powershell_installer_does_not_pollute_path_during_isolated_install(self):
+        script = (ROOT / "install.ps1").read_text(encoding="utf-8")
+
+        self.assertIn("CIEL_RUNTIME_SKIP_PATH_REGISTRATION", script)
+        self.assertIn("Send-CielRuntimeEnvironmentChanged", script)
+        self.assertIn("SendMessageTimeout", script)
+        self.assertIn("$isDeadTemporaryBin", script)
 
 
 if __name__ == "__main__":

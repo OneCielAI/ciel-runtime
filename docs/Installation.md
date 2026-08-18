@@ -67,6 +67,12 @@ PREFIX=$HOME/.local ./install.sh
 .\install.ps1
 ```
 
+Windows 설치기는 사용자 PATH를 갱신한 뒤 `WM_SETTINGCHANGE`를 전송하여 이미 실행
+중인 Explorer가 이후 생성하는 터미널에도 새 PATH가 전달되게 한다. 과거의 격리
+설치나 테스트에서 남은 존재하지 않는 `%TEMP%\tmp*\bin` 항목도 함께 제거한다.
+패키징·테스트처럼 사용자 PATH를 변경하면 안 되는 격리 설치에서는
+`CIEL_RUNTIME_SKIP_PATH_REGISTRATION=1`을 설정한다.
+
 설치 위치:
 - 실행 파일: `%LOCALAPPDATA%\ciel-runtime\bin\`
 - 소스: `%LOCALAPPDATA%\ciel-runtime\`

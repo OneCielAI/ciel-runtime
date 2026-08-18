@@ -1,5 +1,37 @@
 $ErrorActionPreference = "Stop"
 
+function Send-CielRuntimeEnvironmentChanged {
+    try {
+        if (-not ("CielRuntimeEnvironmentBroadcast" -as [type])) {
+            Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class CielRuntimeEnvironmentBroadcast {
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern IntPtr SendMessageTimeout(
+        IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam,
+        uint flags, uint timeout, out UIntPtr result);
+}
+'@
+        }
+        $result = [UIntPtr]::Zero
+        $sent = [CielRuntimeEnvironmentBroadcast]::SendMessageTimeout(
+            [IntPtr]0xffff,
+            0x001A,
+            [UIntPtr]::Zero,
+            "Environment",
+            0x0002,
+            5000,
+            [ref]$result
+        )
+        if ($sent -eq [IntPtr]::Zero) {
+            Write-Warning "Windows did not acknowledge the environment-change notification."
+        }
+    } catch {
+        Write-Warning "Could not notify the Windows shell about the PATH update: $($_.Exception.Message)"
+    }
+}
+
 $sourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $prefix = if ($env:PREFIX) { $env:PREFIX } else { Join-Path $HOME ".local" }
 $defaultShareDir = Join-Path $prefix "share\ciel-runtime"
@@ -42,26 +74,42 @@ Copy-Item -Force (Join-Path $sourceDir "ciel-runtime-stop") (Join-Path $binDir "
 Copy-Item -Force (Join-Path $sourceDir "ciel-runtime-stop.cmd") (Join-Path $binDir "ciel-runtime-stop.cmd")
 Copy-Item -Force (Join-Path $sourceDir "ciel-runtime-stop.ps1") (Join-Path $binDir "ciel-runtime-stop.ps1")
 
-$expandedBinDir = [Environment]::ExpandEnvironmentVariables($binDir).TrimEnd('\')
-$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-$seenPathEntries = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-$cleanPathEntries = [System.Collections.Generic.List[string]]::new()
-[void]$seenPathEntries.Add($expandedBinDir)
-$cleanPathEntries.Add($binDir.TrimEnd('\'))
-foreach ($entry in ([string]$userPath -split ';')) {
-    $value = $entry.Trim()
-    if (-not $value) { continue }
-    $identity = [Environment]::ExpandEnvironmentVariables($value).TrimEnd('\')
-    if ($seenPathEntries.Add($identity)) {
-        $cleanPathEntries.Add($value)
+$skipPathRegistration = [string]$env:CIEL_RUNTIME_SKIP_PATH_REGISTRATION -match '^(?i:1|true|yes|on)$'
+if (-not $skipPathRegistration) {
+    $expandedBinDir = [Environment]::ExpandEnvironmentVariables($binDir).TrimEnd('\')
+    $expandedTempDir = [System.IO.Path]::GetFullPath($env:TEMP).TrimEnd('\') + '\'
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $seenPathEntries = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $cleanPathEntries = [System.Collections.Generic.List[string]]::new()
+    [void]$seenPathEntries.Add($expandedBinDir)
+    $cleanPathEntries.Add($binDir.TrimEnd('\'))
+    foreach ($entry in ([string]$userPath -split ';')) {
+        $value = $entry.Trim()
+        if (-not $value) { continue }
+        $identity = [Environment]::ExpandEnvironmentVariables($value).TrimEnd('\')
+        $isDeadTemporaryBin = (
+            $identity.StartsWith($expandedTempDir, [System.StringComparison]::OrdinalIgnoreCase) -and
+            (Split-Path -Leaf $identity) -eq "bin" -and
+            (Split-Path -Leaf (Split-Path -Parent $identity)) -like "tmp*" -and
+            -not (Test-Path -LiteralPath $identity)
+        )
+        if ($isDeadTemporaryBin) { continue }
+        if ($seenPathEntries.Add($identity)) {
+            $cleanPathEntries.Add($value)
+        }
     }
-}
-$nextUserPath = $cleanPathEntries -join ';'
-if ($nextUserPath -ne $userPath) {
-    [Environment]::SetEnvironmentVariable("Path", $nextUserPath, "User")
+    $nextUserPath = $cleanPathEntries -join ';'
+    if ($nextUserPath -ne $userPath) {
+        [Environment]::SetEnvironmentVariable("Path", $nextUserPath, "User")
+    }
+    Send-CielRuntimeEnvironmentChanged
 }
 
 Write-Host "Installed Ciel Runtime to $shareDir"
-Write-Host "Registered $binDir at the front of the user PATH."
+if ($skipPathRegistration) {
+    Write-Host "Skipped user PATH registration by request."
+} else {
+    Write-Host "Registered $binDir at the front of the user PATH and notified the Windows shell."
+}
 Write-Host "Open a new terminal window if the current terminal has an older PATH snapshot."
 
