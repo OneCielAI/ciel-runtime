@@ -116,7 +116,51 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
         self.assertEqual("structured", admitted["meta"]["injection_mode"])
         self.assertEqual("tty", admitted["meta"]["response_mode"])
         self.assertEqual("structured", responses[0][1]["input_mode"])
+        self.assertEqual("tty", responses[0][1]["input_transport"])
         self.assertEqual("tty", responses[0][1]["response_mode"])
+
+    def test_router_input_transport_is_stored_independently_from_format(self):
+        calls = []
+        responses = []
+        controller = self.controller(calls, responses)
+
+        self.assertTrue(controller.post(
+            Handler(),
+            "/ca/chat/messages",
+            {
+                "input_mode": "structured",
+                "input_transport": "router",
+                "response_mode": "web_chat",
+                "message": "inject this through the request body",
+            },
+        ))
+
+        admitted = calls[0][1][0]
+        self.assertEqual("router", admitted["meta"]["input_transport"])
+        self.assertEqual("router", responses[0][1]["input_transport"])
+
+    def test_router_transport_alias_and_invalid_value(self):
+        calls = []
+        responses = []
+        controller = self.controller(calls, responses)
+
+        self.assertTrue(controller.post(
+            Handler("/ca/channel/messages?input_transport=context"),
+            "/ca/channel/messages",
+            {"message": "alias"},
+        ))
+        self.assertEqual("router", calls[0][1][0]["meta"]["input_transport"])
+
+        calls.clear()
+        responses.clear()
+        self.assertTrue(controller.post(
+            Handler(),
+            "/ca/chat/messages",
+            {"input_transport": "unknown", "message": "reject"},
+        ))
+        self.assertEqual([], calls)
+        self.assertEqual(400, responses[0][0])
+        self.assertEqual("invalid_input_transport", responses[0][1]["error"])
 
     def test_tty_input_can_keep_web_chat_response_correlation(self):
         calls = []

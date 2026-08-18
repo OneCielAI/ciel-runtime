@@ -483,3 +483,24 @@ def format_llm_batch_prompt(messages: list[dict[str, Any]]) -> str:
     prompt = "\n\n".join(message_llm_display_text(message) for message in messages)
     instruction = _response_instruction(messages)
     return f"{prompt}\n\n{instruction}" if instruction else prompt
+
+
+def format_llm_delivery_wake_prompt(messages: list[dict[str, Any]]) -> str:
+    """Build the short terminal wake used before router request-body injection."""
+
+    ids = [str(message.get("id") or "").strip() for message in messages]
+    ids = [message_id for message_id in ids if message_id]
+    channels = sorted(
+        {
+            str(message.get("channel") or "default").strip() or "default"
+            for message in messages
+        }
+    )
+    first_id = ids[0] if ids else "0"
+    return (
+        "[ciel-runtime channel wake] "
+        f"id={first_id} pending_ids={','.join(ids) or '-'} "
+        f"channels={','.join(channels) or 'default'}. "
+        "Wake only: start a normal turn; Ciel Router will replace this marker "
+        "with the pending request body. Do not answer the marker itself."
+    )

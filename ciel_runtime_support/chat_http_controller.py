@@ -16,6 +16,7 @@ from typing import Any, Callable
 
 CHAT_FILE_STREAM_CHUNK_BYTES = 1024 * 1024
 CHAT_INPUT_MODES = frozenset({"structured", "tty"})
+CHAT_INPUT_TRANSPORTS = frozenset({"tty", "router"})
 CHAT_RESPONSE_MODES = frozenset({"web_chat", "tty", "mcp"})
 MCP_HINT_FIELD_LIMITS = {"server": 160, "tool": 240, "hint": 1200}
 
@@ -70,7 +71,7 @@ class ChatHttpController:
         self,
         handler: BaseHTTPRequestHandler,
         body: dict[str, Any],
-    ) -> tuple[str, str, dict[str, str] | None, dict[str, Any] | None]:
+    ) -> tuple[str, str, str, dict[str, str] | None, dict[str, Any] | None]:
         params = self._params(handler)
         legacy_mode = body.get("injection_mode")
         if legacy_mode is None:
@@ -81,10 +82,32 @@ class ChatHttpController:
         input_mode = self._normalized_mode(requested_input, {"web_chat": "structured", "standard": "structured"})
         if input_mode not in CHAT_INPUT_MODES:
             legacy_only = body.get("input_mode") is None and bool(legacy_mode)
-            return input_mode, "", None, {
+            return input_mode, "", "", None, {
                 "ok": False,
                 "error": "invalid_injection_mode" if legacy_only else "invalid_input_mode",
                 "allowed": ["web_chat", "tty"] if legacy_only else sorted(CHAT_INPUT_MODES),
+            }
+
+        requested_transport = body.get("input_transport")
+        if requested_transport is None:
+            requested_transport = self._first(params, "input_transport", "") or "tty"
+        input_transport = self._normalized_mode(
+            requested_transport,
+            {
+                "llm": "router",
+                "context": "router",
+                "inband": "router",
+                "in_band": "router",
+                "terminal": "tty",
+                "pty": "tty",
+                "stdin": "tty",
+            },
+        )
+        if input_transport not in CHAT_INPUT_TRANSPORTS:
+            return input_mode, input_transport, "", None, {
+                "ok": False,
+                "error": "invalid_input_transport",
+                "allowed": sorted(CHAT_INPUT_TRANSPORTS),
             }
 
         requested_response = body.get("response_mode")
@@ -97,7 +120,7 @@ class ChatHttpController:
             {"ai_net": "web_chat", "ainet": "web_chat", "raw": "tty", "terminal": "tty"},
         )
         if response_mode not in CHAT_RESPONSE_MODES:
-            return input_mode, response_mode, None, {
+            return input_mode, input_transport, response_mode, None, {
                 "ok": False,
                 "error": "invalid_response_mode",
                 "allowed": sorted(CHAT_RESPONSE_MODES),
@@ -120,7 +143,7 @@ class ChatHttpController:
         }
         for key, limit in MCP_HINT_FIELD_LIMITS.items():
             if len(mcp_hint[key]) > limit:
-                return input_mode, response_mode, None, {
+                return input_mode, input_transport, response_mode, None, {
                     "ok": False,
                     "error": "mcp_hint_too_large",
                     "field": key,
@@ -128,12 +151,12 @@ class ChatHttpController:
                 }
         mcp_hint = {key: value for key, value in mcp_hint.items() if value}
         if response_mode == "mcp" and not mcp_hint.get("server"):
-            return input_mode, response_mode, None, {
+            return input_mode, input_transport, response_mode, None, {
                 "ok": False,
                 "error": "mcp_response_requires_server",
                 "required": "response_mcp.server",
             }
-        return input_mode, response_mode, mcp_hint or None, None
+        return input_mode, input_transport, response_mode, mcp_hint or None, None
 
     def get(self, handler: BaseHTTPRequestHandler, path: str) -> bool:
         path, channel_alias = self._chat_path(path)
@@ -291,7 +314,9 @@ class ChatHttpController:
         if path == "/ca/chat/notify":
             return self._notify(handler, body)
         if path == "/ca/chat/messages":
-            input_mode, response_mode, response_mcp, error = self._message_modes(handler, body)
+            input_mode, input_transport, response_mode, response_mcp, error = self._message_modes(
+                handler, body
+            )
             if error is not None:
                 self.writes.write_json(
                     handler,
@@ -302,6 +327,7 @@ class ChatHttpController:
             admitted_body = dict(body)
             meta = dict(body.get("meta") or {}) if isinstance(body.get("meta"), dict) else {}
             meta["injection_mode"] = input_mode
+            meta["input_transport"] = input_transport
             meta["response_mode"] = response_mode
             if response_mode == "web_chat":
                 admitted_body.setdefault("channel", "default")
@@ -338,6 +364,7 @@ class ChatHttpController:
                     {
                         "ok": True,
                         "input_mode": "tty",
+                        "input_transport": input_transport,
                         "response_mode": response_mode,
                         "injection_mode": "tty",
                         "message": public_message or message,
@@ -352,6 +379,7 @@ class ChatHttpController:
                 {
                     "ok": True,
                     "input_mode": "structured",
+                    "input_transport": input_transport,
                     "response_mode": response_mode,
                     "injection_mode": "web_chat",
                     "message": message,

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from ciel_runtime_support.channel_message_policy import (
+    message_input_transport,
     message_is_external_event,
     message_response_mcp,
     message_response_mode,
@@ -113,7 +114,8 @@ def inject_pending_channel_messages(
         candidates = io.read_messages(last_id, None, None, state.pending_scan_limit())
         superseded_ids = state.superseded_ids(candidates)
         batch_limit = services.policy.wake_batch_limit() if wake_for_llm_delivery else 1
-        pending_batch_key: tuple[str, str] | None = None
+        pending_batch_key: tuple[str, str, str] | None = None
+        pending_uses_router = False
         seen_event_keys: set[tuple[str, ...]] = set()
         for message in candidates:
             previous_last_id = last_id
@@ -133,7 +135,23 @@ def inject_pending_channel_messages(
                     f"channel={channel} reason={replay_skip_reason}",
                 )
                 continue
-            if wake_for_llm_delivery and wake_store.body_fallback(message_id):
+            metadata = message.get("meta") if isinstance(message.get("meta"), dict) else {}
+            requested_router = (
+                message_input_transport(message) == "router"
+                if "input_transport" in metadata
+                else wake_for_llm_delivery
+            )
+            if requested_router and not wake_for_llm_delivery:
+                io.log(
+                    "WARN",
+                    f"channel_stdin_proxy_deferred cursor={previous_last_id} message_id={message_id} "
+                    f"channel={channel} reason=router_transport_unavailable",
+                )
+                if pending:
+                    break
+                return previous_last_id
+            candidate_uses_router = requested_router
+            if candidate_uses_router and wake_store.body_fallback(message_id):
                 io.log(
                     "INFO",
                     f"channel_stdin_proxy_skipped_noise message_id={message_id} "
@@ -151,7 +169,7 @@ def inject_pending_channel_messages(
             if event_key and event_key in seen_event_keys:
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=duplicate_channel_event")
                 continue
-            if wake_for_llm_delivery:
+            if candidate_uses_router:
                 message_prompt = prompts.llm_delivery([message])
             elif web_chat_only and state.message_is_web_chat(message):
                 message_prompt = prompts.web_chat([message])
@@ -184,37 +202,39 @@ def inject_pending_channel_messages(
                 else "mcp:"
                 + ":".join(response_mcp.get(key, "") for key in ("server", "tool", "hint"))
             )
-            batch_key = (
+            batch_key_base = (
                 ("web_chat", web_chat_input_mode(message) + ":" + response_key)
                 if state.message_is_web_chat(message)
                 else ("external_event", str((message.get("meta") or {}).get("receiver_id") or ""))
                 if message_is_external_event(message)
                 else ("channel", "")
             )
+            batch_key = (batch_key_base[0], batch_key_base[1], "router" if candidate_uses_router else "tty")
             if pending and pending_batch_key != batch_key:
                 break
-            if not wake_for_llm_delivery and not wake_store.mark_delivered(message_id):
+            if not candidate_uses_router and not wake_store.mark_delivered(message_id):
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stdin_wake_delivered")
                 continue
             pending.append(message)
             pending_batch_key = batch_key
+            pending_uses_router = candidate_uses_router
             if event_key:
                 seen_event_keys.add(event_key)
-            if wake_for_llm_delivery and len(pending) == 1:
+            if candidate_uses_router and len(pending) == 1:
                 return_last_id = previous_last_id
             last_id = message_id
             if len(pending) >= batch_limit:
                 break
         if not pending:
             return last_id
-        if wake_for_llm_delivery:
+        if pending_uses_router:
             prompt = prompts.llm_delivery(pending)
         elif web_chat_only and all(state.message_is_web_chat(message) for message in pending):
             prompt = prompts.web_chat(pending)
         else:
             prompt = prompts.standard(pending)
         claimed_ids: list[int] = []
-        if wake_for_llm_delivery:
+        if pending_uses_router:
             for message in pending:
                 claim_id = _message_id(message)
                 if claim_id <= 0:
@@ -249,4 +269,4 @@ def inject_pending_channel_messages(
             "INFO",
             f"channel_stdin_proxy_injected count={len(pending)} message_ids={ids} channels={channels} enter={prompts.enter_label(submit_bytes)} commit_cursor={commit_cursor}",
         )
-        return return_last_id if wake_for_llm_delivery else last_id
+        return return_last_id if pending_uses_router else last_id

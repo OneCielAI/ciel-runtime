@@ -30,12 +30,13 @@ class ChannelLlmContextTests(unittest.TestCase):
 
         self.assertIs(body, strip_internal_metadata(body))
 
-    def services(self, messages, *, wake=False, plan=False, stdin_reason=""):
+    def services(self, messages, *, wake=False, wake_ids=None, plan=False, stdin_reason=""):
         self.committed = []
         self.logs = []
         return ChannelLlmContextServices(
             policy=ChannelLlmContextPolicy(
                 wake_request=lambda body: wake,
+                wake_message_ids=lambda body: set(wake_ids or ({12} if wake else set())),
                 plan_mode_active=lambda body: plan,
                 delivery_mode=lambda: "llm",
                 ids_in_request=lambda body: set(),
@@ -74,6 +75,68 @@ class ChannelLlmContextTests(unittest.TestCase):
 
         inject_pending_channel_context(body, self.services([{"id": 12}], stdin_reason="stdin_wake_claimed"))
         self.assertEqual([], self.committed)
+
+    def test_claimed_router_message_is_consumed_only_by_its_wake_request(self):
+        message = {
+            "id": 12,
+            "channel": "web",
+            "message": "router body",
+            "meta": {"input_transport": "router"},
+        }
+        ordinary = {"messages": [{"role": "user", "content": "ordinary"}]}
+        self.assertIs(
+            ordinary,
+            inject_pending_channel_context(
+                ordinary,
+                self.services([message], stdin_reason="stdin_wake_claimed"),
+            ),
+        )
+
+        out = inject_pending_channel_context(
+            {"messages": [{"role": "user", "content": "wake"}]},
+            self.services([message], wake=True, stdin_reason="stdin_wake_claimed"),
+        )
+        self.assertEqual("channel:router body", out["messages"][-1]["content"][0]["text"])
+        self.assertTrue(out["wake_removed"])
+
+    def test_tty_message_is_not_consumed_or_overtaken_by_router(self):
+        body = {"messages": []}
+        messages = [
+            {"id": 11, "message": "tty first", "meta": {"input_transport": "tty"}},
+            {"id": 12, "message": "router later", "meta": {"input_transport": "router"}},
+        ]
+
+        out = inject_pending_channel_context(body, self.services(messages, wake=True))
+
+        self.assertEqual({"messages": [], "wake_removed": True}, out)
+        self.assertEqual([], self.committed)
+        self.assertTrue(any("reason=input_transport_tty" in message for _level, message in self.logs))
+
+    def test_one_router_wake_injects_its_claimed_batch(self):
+        messages = [
+            {"id": 21, "channel": "web", "message": "first", "meta": {"input_transport": "router"}},
+            {"id": 22, "channel": "web", "message": "second", "meta": {"input_transport": "router"}},
+        ]
+        services = self.services(
+            messages,
+            wake=True,
+            wake_ids={21, 22},
+            stdin_reason="stdin_wake_claimed",
+        )
+        services = ChannelLlmContextServices(
+            policy=services.policy,
+            repository=services.repository,
+            projection=ChannelLlmContextProjection(
+                remove_wake_prompt=services.projection.remove_wake_prompt,
+                format_prompt=lambda pending: ",".join(item["message"] for item in pending),
+            ),
+            log=services.log,
+        )
+
+        out = inject_pending_channel_context({"messages": []}, services)
+
+        self.assertEqual("first,second", out["messages"][-1]["content"][0]["text"])
+        self.assertEqual("21,22", out["metadata"]["ciel_runtime_channel_message_ids"])
 
     def test_plan_mode_requires_explicit_wake(self):
         body = {"messages": []}

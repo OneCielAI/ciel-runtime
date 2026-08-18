@@ -1,6 +1,7 @@
 import unittest
 
 from ciel_runtime_support.channel_message_prompt import (
+    format_llm_delivery_wake_prompt,
     format_llm_batch_prompt,
     format_web_chat_wake_batch_prompt,
     format_wake_prompt,
@@ -10,6 +11,16 @@ from ciel_runtime_support.channel_message_prompt import (
 
 
 class ChannelMessagePromptTests(unittest.TestCase):
+    def test_router_delivery_wake_contains_identity_but_not_message_body(self):
+        prompt = format_llm_delivery_wake_prompt([
+            {"id": 77, "channel": "web-chat", "message": "private full request body"}
+        ])
+
+        self.assertTrue(prompt.startswith("[ciel-runtime channel wake]"))
+        self.assertIn("id=77", prompt)
+        self.assertIn("pending_ids=77", prompt)
+        self.assertNotIn("private full request body", prompt)
+
     def test_external_event_keeps_exact_raw_body_inside_transport_boundaries(self):
         raw = '{\n  "specversion": "1.0",\n  "id": "evt-1",\n  "source": "/test",\n  "type": "demo",\n  "data": {"text": "그대로"}\n}'
         prompt = format_llm_batch_prompt(

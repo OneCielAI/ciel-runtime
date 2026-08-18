@@ -150,6 +150,11 @@ class SpeechHttpController:
                 "chat_messages": "GET|POST /ca/channel/messages",
                 "chat_message_processing": {
                     "input_mode": {"default": "structured", "allowed": ["structured", "tty"]},
+                    "input_transport": {
+                        "default": "tty",
+                        "allowed": ["tty", "router"],
+                        "router_requires": "an active model session routed through Ciel Router",
+                    },
                     "response_mode": {"default": "web_chat", "allowed": ["web_chat", "tty", "mcp"]},
                     "response_mcp": {"fields": ["server", "tool", "hint"], "required_when": "response_mode=mcp"},
                     "legacy_parameter": "injection_mode",

@@ -227,6 +227,15 @@ class ChannelWakeContext:
             ids.update(self.claims.prompt_message_ids(text))
         return ids
 
+    def wake_message_ids(self, body: dict[str, Any]) -> set[int]:
+        if not self.messages.wake_request(body):
+            return set()
+        messages = [message for message in body.get("messages") or [] if isinstance(message, dict)]
+        if not messages:
+            return set()
+        text = self.messages.content_to_text(messages[-1].get("content"))
+        return self.claims.prompt_message_ids(text)
+
     def commit_cursor(self, last_id: int) -> None:
         self.cursor.cache(last_id)
         try:
@@ -252,6 +261,7 @@ class ChannelWakeContext:
             channel_llm_context.ChannelLlmContextServices(
                 policy=channel_llm_context.ChannelLlmContextPolicy(
                     wake_request=self.messages.wake_request,
+                    wake_message_ids=self.wake_message_ids,
                     plan_mode_active=self.messages.plan_mode_active,
                     delivery_mode=self.messages.delivery_mode,
                     ids_in_request=self.message_ids_already_in_request,

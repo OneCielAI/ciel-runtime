@@ -1265,7 +1265,9 @@ class ChannelBridgeTests(unittest.TestCase):
         }
 
         self.assertEqual("  raw body from external channel\n", ciel_runtime.format_channel_llm_batch_prompt([message]))
-        self.assertEqual("  raw body from external channel\n", ciel_runtime.format_channel_llm_delivery_wake_prompt([message]))
+        wake = ciel_runtime.format_channel_llm_delivery_wake_prompt([message])
+        self.assertNotIn("raw body from external channel", wake)
+        self.assertIn("pending_ids=2", wake)
 
     def test_channel_wake_prompt_contains_routing_context(self):
         prompt = ciel_runtime.format_channel_wake_prompt(
@@ -2241,7 +2243,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual([8], injected)
         commit_cursor.assert_not_called()
 
-    def test_llm_delivery_wake_prompt_includes_external_content(self):
+    def test_llm_delivery_wake_prompt_hides_external_content(self):
         prompt = ciel_runtime.format_channel_llm_delivery_wake_prompt(
             [
                 {
@@ -2254,18 +2256,18 @@ class ChannelBridgeTests(unittest.TestCase):
             ]
         )
 
-        self.assertEqual("secret raw message body", prompt)
+        self.assertNotIn("secret raw message body", prompt)
         self.assertNotIn("[external input pending]", prompt)
         self.assertNotIn("type=mcp_notification", prompt)
         self.assertNotIn("source=agent", prompt)
-        self.assertNotIn("ciel-runtime", prompt)
-        self.assertNotIn("id=8", prompt)
-        self.assertNotIn("ids=8", prompt)
+        self.assertIn("ciel-runtime channel wake", prompt)
+        self.assertIn("id=8", prompt)
+        self.assertIn("pending_ids=8", prompt)
         self.assertNotIn("external channel message", prompt)
-        self.assertNotIn("do not answer", prompt)
+        self.assertIn("Do not answer", prompt)
 
     def test_llm_delivery_wake_prompt_prefers_original_mcp_json(self):
-        prompt = ciel_runtime.format_channel_llm_delivery_wake_prompt(
+        prompt = ciel_runtime.format_channel_llm_batch_prompt(
             [
                 {
                     "id": 8,
@@ -2315,7 +2317,7 @@ class ChannelBridgeTests(unittest.TestCase):
             },
             "jsonrpc": "2.0",
         }
-        prompt = ciel_runtime.format_channel_llm_delivery_wake_prompt(
+        prompt = ciel_runtime.format_channel_llm_batch_prompt(
             [
                 {
                     "id": 9,
@@ -2376,12 +2378,40 @@ class ChannelBridgeTests(unittest.TestCase):
         wake_bytes = write_all.call_args_list[0].args[1]
         self.assertNotIn(b"[external input pending]", wake_bytes)
         self.assertNotIn(b"type=mcp_notification", wake_bytes)
-        self.assertNotIn(b"ciel-runtime", wake_bytes)
-        self.assertNotIn(b"id=8", wake_bytes)
-        self.assertNotIn(b"ids=8", wake_bytes)
-        self.assertIn(b"wake up later", wake_bytes)
-        self.assertEqual("wake up later", ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS[8])
+        self.assertIn(b"ciel-runtime channel wake", wake_bytes)
+        self.assertIn(b"pending_ids=8", wake_bytes)
+        self.assertNotIn(b"wake up later", wake_bytes)
+        self.assertIn("pending_ids=8", ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS[8])
         commit_cursor.assert_not_called()
+
+    def test_explicit_router_transport_never_falls_back_to_direct_tty(self):
+        messages = [{
+            "id": 8,
+            "channel": "web-chat-session",
+            "kind": "web_chat",
+            "message": "keep this in the router",
+            "meta": {"input_transport": "router", "source": "ciel-runtime-web-chat"},
+            "delivery": ["llm"],
+        }]
+        with (
+            mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+            mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+            mock.patch.object(ciel_runtime, "router_log") as router_log,
+        ):
+            last_id = ciel_runtime._inject_pending_channel_messages(
+                99,
+                7,
+                wake_for_llm_delivery=False,
+                commit_cursor=False,
+            )
+
+        self.assertEqual(7, last_id)
+        write_all.assert_not_called()
+        self.assertTrue(any(
+            "reason=router_transport_unavailable" in str(call.args[1])
+            for call in router_log.call_args_list
+            if len(call.args) > 1
+        ))
 
     def test_inject_pending_channel_messages_batches_llm_delivery_wakes(self):
         messages = [
@@ -2434,10 +2464,11 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual([8, 9, 10], injected)
         self.assertEqual(2, write_all.call_count)
         wake_bytes = write_all.call_args_list[0].args[1]
-        self.assertIn(b"first wake", wake_bytes)
-        self.assertIn(b"second wake", wake_bytes)
-        self.assertIn(b"third wake", wake_bytes)
-        self.assertEqual("first wake\n\nsecond wake\n\nthird wake", ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS[8])
+        self.assertIn(b"pending_ids=8,9,10", wake_bytes)
+        self.assertNotIn(b"first wake", wake_bytes)
+        self.assertNotIn(b"second wake", wake_bytes)
+        self.assertNotIn(b"third wake", wake_bytes)
+        self.assertIn("pending_ids=8,9,10", ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS[8])
         self.assertEqual(ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS[8], ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS[10])
         commit_cursor.assert_not_called()
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
@@ -2473,8 +2504,8 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(7, last_id)
         self.assertEqual([8, 9], injected)
         wake_bytes = write_all.call_args_list[0].args[1]
-        self.assertIn(b"first wake", wake_bytes)
-        self.assertIn(b"second wake", wake_bytes)
+        self.assertIn(b"pending_ids=8,9", wake_bytes)
+        self.assertNotIn(b"first wake", wake_bytes)
         self.assertNotIn(b"third wake", wake_bytes)
 
     def test_inject_pending_channel_messages_separates_voice_and_text_web_turns(self):
@@ -2523,9 +2554,9 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(7, last_id)
         self.assertEqual([8], injected)
         wake_bytes = write_all.call_args_list[0].args[1]
-        self.assertIn(b"voice request", wake_bytes)
+        self.assertIn(b"pending_ids=8", wake_bytes)
+        self.assertNotIn(b"voice request", wake_bytes)
         self.assertNotIn(b"typed request", wake_bytes)
-        self.assertIn(b"VOICE conversation turn", wake_bytes)
 
     def test_inject_pending_channel_messages_dedupes_llm_delivery_batch_by_event_identity(self):
         same_event = {
@@ -2604,8 +2635,9 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(7, last_id)
         self.assertEqual([8, 10], injected)
         wake_text = write_all.call_args_list[0].args[1].decode("utf-8", errors="replace")
-        self.assertEqual(1, wake_text.count("msg_same"))
-        self.assertIn("msg_next", wake_text)
+        self.assertIn("pending_ids=8,10", wake_text)
+        self.assertNotIn("msg_same", wake_text)
+        self.assertNotIn("msg_next", wake_text)
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("reason=duplicate_channel_event" in item and "message_id=9" in item for item in log_messages))
 
@@ -2879,7 +2911,7 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(2, write_all.call_count)
         wake_text = write_all.call_args_list[0].args[1].decode("utf-8", errors="replace")
         self.assertNotIn("after_seq=42050", wake_text)
-        self.assertIn("after_seq=42053", wake_text)
+        self.assertIn("pending_ids=617", wake_text)
         commit_cursor.assert_not_called()
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("reason=stdin_wake_queued_continue" in item and "message_id=616" in item for item in log_messages))
@@ -2957,7 +2989,8 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertEqual(368, last_id)
         self.assertEqual([375], injected)
         self.assertEqual(2, write_all.call_count)
-        self.assertIn(next_prompt.encode("utf-8"), write_all.call_args_list[0].args[1])
+        self.assertIn(b"pending_ids=375", write_all.call_args_list[0].args[1])
+        self.assertNotIn(next_prompt.encode("utf-8"), write_all.call_args_list[0].args[1])
         commit_cursor.assert_called_with(368)
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("reason=stale_queued_wake" in item and "message_id=368" in item for item in log_messages))

@@ -6,6 +6,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from ciel_runtime_support.channel_message_policy import message_input_transport
+
 
 INTERNAL_METADATA_PREFIX = "ciel_runtime_"
 
@@ -34,6 +36,7 @@ def strip_internal_metadata(body: dict[str, Any]) -> dict[str, Any]:
 @dataclass(frozen=True, slots=True)
 class ChannelLlmContextPolicy:
     wake_request: Callable[[dict[str, Any]], bool]
+    wake_message_ids: Callable[[dict[str, Any]], set[int]]
     plan_mode_active: Callable[[dict[str, Any]], bool]
     delivery_mode: Callable[[], str]
     ids_in_request: Callable[[dict[str, Any]], set[int]]
@@ -72,6 +75,7 @@ def inject_pending_channel_context(
     policy = services.policy
     repository = services.repository
     wake_request = policy.wake_request(body)
+    wake_message_ids = policy.wake_message_ids(body) if wake_request else set()
     if policy.plan_mode_active(body):
         if not wake_request:
             services.log("INFO", "channel_llm_inject_skipped reason=plan_mode_active")
@@ -92,6 +96,16 @@ def inject_pending_channel_context(
                 message_id = int(message.get("id") or 0)
             except (TypeError, ValueError):
                 continue
+            if message_input_transport(message) != "router":
+                # Preserve FIFO ownership: the terminal path must consume an
+                # earlier TTY item before a later router item can enter the
+                # model request.
+                services.log(
+                    "INFO",
+                    f"channel_llm_inject_deferred message_id={message.get('id')} "
+                    f"channel={message.get('channel')} reason=input_transport_tty",
+                )
+                break
             reason = _candidate_skip_reason(
                 message,
                 message_id,
@@ -99,6 +113,8 @@ def inject_pending_channel_context(
                 superseded_ids,
                 policy,
             )
+            if wake_request and reason == "stdin_wake_claimed":
+                reason = "" if not wake_message_ids or message_id in wake_message_ids else reason
             if reason:
                 if reason not in {"stdin_wake_delivered", "stdin_wake_claimed"}:
                     max_seen = max(max_seen, message_id)
@@ -110,7 +126,10 @@ def inject_pending_channel_context(
                 continue
             pending.append(message)
             max_seen = message_id
-            break
+            if not wake_request or not wake_message_ids:
+                break
+            if wake_message_ids.issubset({_message_id(item) for item in pending}):
+                break
         if not pending:
             if max_seen != last_id:
                 repository.commit_cursor(max_seen)
@@ -154,3 +173,10 @@ def _candidate_skip_reason(
         return "superseded_channel_notice"
     reason = policy.skip_reason(message)
     return reason or policy.stdin_skip_reason(message_id)
+
+
+def _message_id(message: dict[str, Any]) -> int:
+    try:
+        return int(message.get("id") or 0)
+    except (TypeError, ValueError):
+        return 0

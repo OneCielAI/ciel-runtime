@@ -57,6 +57,13 @@ how a request enters the active TUI and how the answer should leave it:
   projection, voice/text hint, and request metadata. `input_mode=tty` puts the
   caller's message text directly on the private terminal-input path without the
   Web Chat input envelope.
+- `input_transport=tty` (default) submits the selected input format through the
+  active CLI terminal. `input_transport=router` keeps the full message in the
+  Runtime Input Gateway: while a model turn is already active, its next request
+  consumes the message without a console wake; while the CLI is idle, Ciel types
+  only a short wake marker and replaces that marker with the full pending message
+  in the next request body. Router transport therefore requires the active model
+  session to use Ciel Router. Aliases `llm`, `context`, and `inband` are accepted.
 - `response_mode=web_chat` (alias `ai_net`, default) uses the normal correlated Web
   Chat reply contract. `response_mode=tty` leaves the model's ordinary terminal
   output as-is and does not require a Web Chat tool reply. `response_mode=mcp`
@@ -67,6 +74,7 @@ The MCP hint is declarative; Ciel does not call the named server itself:
 ```json
 {
   "input_mode": "structured",
+  "input_transport": "router",
   "response_mode": "mcp",
   "response_mcp": {
     "server": "ai-net",
@@ -77,7 +85,8 @@ The MCP hint is declarative; Ciel does not call the named server itself:
 }
 ```
 
-Input and response modes can be combined. For example, `input_mode=tty` with
+Input format, input transport, and response mode can be combined independently.
+For example, `input_mode=tty` with
 `response_mode=web_chat` publishes a correlation record in the browser transcript,
 injects the user text without the structured input envelope, and adds only the
 one-shot reply routing contract. The legacy `injection_mode=web_chat|tty` parameter
