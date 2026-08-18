@@ -111,7 +111,11 @@ class ChannelTranscriptRepository:
                         self._claude_session_identity(path)
                     )
                     normalized_session_cwd = self._normalized_cwd(session_cwd)
-                    if scope_cwd and normalized_session_cwd != scope_cwd:
+                    if (
+                        scope_cwd
+                        and normalized_session_cwd
+                        and normalized_session_cwd != scope_cwd
+                    ):
                         continue
                     if scope_session_id and session_id != scope_session_id:
                         continue
@@ -161,6 +165,9 @@ class ChannelTranscriptRepository:
 
     @staticmethod
     def _claude_session_identity(path: Path) -> tuple[float | None, str, str]:
+        started_at: float | None = None
+        cwd = ""
+        session_id = ""
         try:
             with path.open("r", encoding="utf-8", errors="replace") as stream:
                 for _index in range(128):
@@ -173,25 +180,26 @@ class ChannelTranscriptRepository:
                         continue
                     if not isinstance(record, dict):
                         continue
-                    cwd = str(record.get("cwd") or "")
-                    session_id = str(record.get("sessionId") or "")
-                    if not cwd and not session_id:
-                        continue
-                    timestamp = record.get("timestamp")
-                    started_at: float | None = None
-                    if isinstance(timestamp, (int, float)):
-                        started_at = float(timestamp)
-                    elif isinstance(timestamp, str) and timestamp.strip():
-                        try:
-                            started_at = datetime.fromisoformat(
-                                timestamp.strip().replace("Z", "+00:00")
-                            ).timestamp()
-                        except ValueError:
-                            started_at = None
-                    return started_at, cwd, session_id
+                    if not cwd:
+                        cwd = str(record.get("cwd") or "")
+                    if not session_id:
+                        session_id = str(record.get("sessionId") or "")
+                    if started_at is None:
+                        timestamp = record.get("timestamp")
+                        if isinstance(timestamp, (int, float)):
+                            started_at = float(timestamp)
+                        elif isinstance(timestamp, str) and timestamp.strip():
+                            try:
+                                started_at = datetime.fromisoformat(
+                                    timestamp.strip().replace("Z", "+00:00")
+                                ).timestamp()
+                            except ValueError:
+                                pass
+                    if cwd and session_id:
+                        break
         except (OSError, UnicodeError):
-            pass
-        return None, "", ""
+            return None, "", ""
+        return started_at, cwd, session_id
 
     @staticmethod
     def read_tail_text(

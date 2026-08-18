@@ -197,6 +197,50 @@ class ChannelTranscriptRepositoryTests(unittest.TestCase):
 
             self.assertEqual(supervisor, repository.latest(ttl_seconds=0))
 
+    def test_claude_identity_accumulates_session_then_cwd_across_records(self):
+        with tempfile.TemporaryDirectory() as raw_dir:
+            home = Path(raw_dir)
+            project_dir = home / ".claude" / "projects" / "C--repo-target"
+            project_dir.mkdir(parents=True)
+            supervisor = project_dir / "supervisor.jsonl"
+            supervisor.write_text(
+                "\n".join(
+                    (
+                        json.dumps(
+                            {
+                                "type": "permission-mode",
+                                "sessionId": "supervisor-session",
+                                "timestamp": "2026-08-18T04:58:00Z",
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "type": "user",
+                                "cwd": r"C:\repo\target",
+                                "sessionId": "supervisor-session",
+                                "timestamp": "2026-08-18T04:58:35Z",
+                            }
+                        ),
+                    )
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            repository = self.repository(home, scope={})
+            repository.set_scope(
+                "claude",
+                started_at=200,
+                cwd=Path(r"C:\repo\target"),
+                session_id="supervisor-session",
+            )
+
+            _started_at, cwd, session_id = repository._claude_session_identity(
+                supervisor
+            )
+            self.assertEqual(r"C:\repo\target", cwd)
+            self.assertEqual("supervisor-session", session_id)
+            self.assertEqual(supervisor, repository.latest(ttl_seconds=0))
+
     def test_read_tail_text_bounds_bytes(self):
         with tempfile.TemporaryDirectory() as raw_dir:
             path = Path(raw_dir) / "transcript.jsonl"
