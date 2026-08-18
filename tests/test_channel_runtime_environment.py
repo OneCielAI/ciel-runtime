@@ -25,6 +25,7 @@ class ChannelRuntimeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual(4, policy.codex_submit_retries())
         self.assertEqual(0.25, policy.codex_submit_delay_seconds())
         self.assertEqual(8.0, policy.windows_startup_grace_seconds())
+        self.assertEqual(2, policy.windows_wake_max_attempts())
 
     def test_numeric_settings_are_bounded(self):
         policy = self.policy(
@@ -36,6 +37,7 @@ class ChannelRuntimeEnvironmentPolicyTests(unittest.TestCase):
                 "CIEL_RUNTIME_CHANNEL_WAKE_UNSEEN_RETRY_SECONDS": "999",
                 "CIEL_RUNTIME_CHANNEL_WAKE_INFLIGHT_STALE_SECONDS": "10",
                 "CIEL_RUNTIME_CODEX_CHANNEL_WAKE_SUBMIT_RETRIES": "99",
+                "CIEL_RUNTIME_WINDOWS_CHANNEL_WAKE_MAX_ATTEMPTS": "99",
             }
         )
 
@@ -46,6 +48,7 @@ class ChannelRuntimeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual(300.0, policy.unseen_retry_seconds())
         self.assertEqual(30.0, policy.inflight_stale_seconds())
         self.assertEqual(8, policy.codex_submit_retries())
+        self.assertEqual(4, policy.windows_wake_max_attempts())
 
     def test_millisecond_settings_are_converted_and_bounded(self):
         policy = self.policy(

@@ -3,8 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
+
+
+@dataclass(slots=True)
+class ChannelPendingInflightState:
+    message_id: int | None = None
+    cursor: int | None = None
+    logged_at: float = 0.0
+    started_at: float = 0.0
+    attempts: int = 0
 
 
 @dataclass(slots=True)
@@ -15,10 +24,41 @@ class ChannelPendingPollState:
     last_scan_at: float = 0.0
     pending_recheck: bool = False
     defer_logged_at: float = 0.0
-    inflight_message_id: int | None = None
-    inflight_cursor: int | None = None
-    inflight_logged_at: float = 0.0
-    inflight_started_at: float = 0.0
+    inflight: ChannelPendingInflightState = field(
+        default_factory=ChannelPendingInflightState
+    )
+
+    @property
+    def inflight_message_id(self) -> int | None:
+        return self.inflight.message_id
+
+    @inflight_message_id.setter
+    def inflight_message_id(self, value: int | None) -> None:
+        self.inflight.message_id = value
+
+    @property
+    def inflight_cursor(self) -> int | None:
+        return self.inflight.cursor
+
+    @inflight_cursor.setter
+    def inflight_cursor(self, value: int | None) -> None:
+        self.inflight.cursor = value
+
+    @property
+    def inflight_logged_at(self) -> float:
+        return self.inflight.logged_at
+
+    @inflight_logged_at.setter
+    def inflight_logged_at(self, value: float) -> None:
+        self.inflight.logged_at = value
+
+    @property
+    def inflight_started_at(self) -> float:
+        return self.inflight.started_at
+
+    @inflight_started_at.setter
+    def inflight_started_at(self, value: float) -> None:
+        self.inflight.started_at = value
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +148,7 @@ def poll_pending_channel_messages(
     )
     if injected_ids:
         state.inflight_message_id = injected_ids[-1]
+        state.inflight.attempts += 1
         # The injector deliberately returns the cursor preceding an LLM-delivery
         # batch until the resulting turn is confirmed.  The durable commit point
         # is nevertheless the highest message in that atomic batch.

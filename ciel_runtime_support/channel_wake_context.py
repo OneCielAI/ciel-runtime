@@ -193,6 +193,12 @@ class ChannelWakeContext:
     def clear_wake_claim(self, message_id: int) -> None:
         self.claim_repository().clear(message_id)
 
+    def wake_uses_body_fallback(self, message_id: int) -> bool:
+        return self.claim_repository().body_fallback(message_id)
+
+    def mark_wake_body_fallback(self, message_id: int, reason: str) -> None:
+        self.claim_repository().mark_body_fallback(message_id, reason)
+
     def prompt_references_message_id(
         self,
         text: str,
@@ -471,6 +477,7 @@ class ChannelWakeContext:
                 record_prompts=self.pending_delivery.record_prompts,
                 rollback=self.pending_delivery.rollback,
                 commit_cursor=self.pending_delivery.commit_cursor,
+                body_fallback=self.wake_uses_body_fallback,
             ),
             io=ChannelInjectionIO(
                 inject_lock=self.pending_io.inject_lock,

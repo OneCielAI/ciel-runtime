@@ -55,6 +55,7 @@ class ChannelTerminalPolicy:
     unseen_retry_seconds: Callable[[], float]
     inflight_is_stale: Callable[..., bool]
     log: Callable[[str, str], None]
+    windows_wake_max_attempts: Callable[[], int]
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,7 @@ class ChannelTerminalPolling:
     inject_pending: Callable[..., Any]
     wake_state: Callable[[int], Any]
     inflight_effects: Callable[[], Any]
+    mark_body_fallback: Callable[[int, str], None]
 
 
 @dataclass(frozen=True)
@@ -84,7 +86,7 @@ class ChannelWindowsConsole:
     startup_grace_seconds: Callable[[], float]
     reset_interval_seconds: Callable[[float], float]
     active_turn: Callable[[], bool]
-    retry_submit: Callable[..., tuple[int, float]]
+    write_body_fallback: Callable[[Any, int, bytes], None]
     sleep: Callable[[float], None]
 
 
@@ -94,6 +96,15 @@ class ChannelWindowsServices:
     policy: ChannelTerminalPolicy
     polling: ChannelTerminalPolling
     console: ChannelWindowsConsole
+
+
+def windows_wake_requires_body_fallback(
+    action: str, attempts: int, maximum_attempts: int
+) -> bool:
+    return bool(
+        action in {"unseen_retry", "stale"}
+        and attempts >= max(1, int(maximum_attempts))
+    )
 
 
 def run_windows_channel_terminal_proxy(
@@ -122,8 +133,6 @@ def run_windows_channel_terminal_proxy(
     writer = console.input_writer()
     pending_poll_state = ChannelPendingPollState(last_id=policy.initial_cursor())
     compact_poll_state = ChannelCompactPollState()
-    channel_submit_attempts = 0
-    channel_last_submit_at = 0.0
     channel_enter_bytes = policy.enter_bytes(synthetic_enter_bytes)
     channel_input_ready_at = time.time() + console.startup_grace_seconds()
     # Windows Console consumes INPUT_RECORD events, so ANSI bracketed-paste
@@ -172,21 +181,11 @@ def run_windows_channel_terminal_proxy(
                 console.reset_input_mode()
                 input_mode_guard.apply()
             if pending_poll_state.inflight_message_id is not None:
-                channel_inflight_state = polling.wake_state(pending_poll_state.inflight_message_id)
-                channel_submit_attempts, channel_last_submit_at = console.retry_submit(
-                    writer,
-                    channel_enter_bytes,
-                    channel_inflight_state,
-                    channel_submit_attempts,
-                    submit_retry_count,
-                    channel_last_submit_at,
-                    now,
-                    confirm_submit=channel_wake_confirm_submit,
-                    turn_active=console.active_turn(),
-                )
+                inflight_message_id = pending_poll_state.inflight_message_id
+                channel_inflight_state = polling.wake_state(inflight_message_id)
                 inflight_update = advance_channel_inflight(
                     ChannelInflightSnapshot(
-                        message_id=pending_poll_state.inflight_message_id,
+                        message_id=inflight_message_id,
                         cursor=pending_poll_state.inflight_cursor,
                         wake_state=channel_inflight_state,
                         started_at=pending_poll_state.inflight_started_at,
@@ -212,9 +211,37 @@ def run_windows_channel_terminal_proxy(
                     pending_poll_state.pending_recheck or inflight_update.pending_recheck
                 )
                 pending_poll_state.last_id = inflight_update.last_id
-                if inflight_update.action in {"completed", "unseen_retry", "stale"}:
-                    channel_submit_attempts = 0
-                    channel_last_submit_at = 0.0
+                if inflight_update.action == "completed":
+                    pending_poll_state.inflight.attempts = 0
+                elif inflight_update.action in {"unseen_retry", "stale"}:
+                    attempts = max(1, pending_poll_state.inflight.attempts)
+                    if windows_wake_requires_body_fallback(
+                        inflight_update.action,
+                        attempts,
+                        policy.windows_wake_max_attempts(),
+                    ):
+                        polling.mark_body_fallback(
+                            inflight_message_id,
+                            f"windows_console_{inflight_update.action}",
+                        )
+                        pending_poll_state.inflight.attempts = 0
+                        policy.log(
+                            "ERROR",
+                            "channel_windows_console_body_fallback "
+                            f"message_id={inflight_message_id} attempts={attempts} "
+                            f"reason={inflight_update.action}",
+                        )
+                        try:
+                            console.write_body_fallback(
+                                writer, inflight_message_id, channel_enter_bytes
+                            )
+                        except Exception as exc:
+                            policy.log(
+                                "ERROR",
+                                "channel_windows_console_body_fallback_wake_failed "
+                                f"message_id={inflight_message_id} "
+                                f"error={type(exc).__name__}: {exc}",
+                            )
             compact_poll_state = poll_pending_compaction(
                 now,
                 writer,
@@ -225,7 +252,6 @@ def run_windows_channel_terminal_proxy(
                 compact_poll_services,
                 input_ready=now >= channel_input_ready_at,
             )
-            previous_inflight_id = pending_poll_state.inflight_message_id
             pending_poll_state = poll_pending_channel_messages(
                 now,
                 writer,
@@ -236,9 +262,6 @@ def run_windows_channel_terminal_proxy(
                 pending_poll_services,
                 input_ready=now >= channel_input_ready_at,
             )
-            if previous_inflight_id is None and pending_poll_state.inflight_message_id is not None:
-                channel_submit_attempts = 1
-                channel_last_submit_at = now
             console.sleep(0.05)
         return proc.wait()
     finally:

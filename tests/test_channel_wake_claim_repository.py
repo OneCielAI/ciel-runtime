@@ -43,6 +43,17 @@ class ChannelWakeClaimRepositoryTests(unittest.TestCase):
             self.assertEqual("", repository.prompt(8))
             self.assertTrue(repository.claim(8, "new"))
 
+    def test_body_fallback_blocks_tty_claim_without_hiding_prompt_body(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repository = self.repository(Path(tmp) / "claims.json", [100.0])
+            repository.mark_body_fallback(9, "windows_console_unseen_retry")
+
+            self.assertTrue(repository.body_fallback(9))
+            self.assertEqual("", repository.prompt(9))
+            self.assertFalse(repository.claim(9, "wake id=9"))
+            repository.clear(9)
+            self.assertFalse(repository.body_fallback(9))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,7 +3,15 @@ set -eu
 
 SOURCE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PREFIX="${PREFIX:-"$HOME/.local"}"
-SHARE_DIR="${CIEL_RUNTIME_HOME:-"$PREFIX/share/ciel-runtime"}"
+DEFAULT_SHARE_DIR="$PREFIX/share/ciel-runtime"
+RUNTIME_HOME="${CIEL_RUNTIME_HOME:-}"
+case "${RUNTIME_HOME##*/}" in
+  ciel-runtime-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*)
+    printf '%s\n' "Warning: ignoring snapshot CIEL_RUNTIME_HOME during install: $RUNTIME_HOME" >&2
+    RUNTIME_HOME=""
+    ;;
+esac
+SHARE_DIR="${CIEL_RUNTIME_INSTALL_HOME:-${RUNTIME_HOME:-$DEFAULT_SHARE_DIR}}"
 BIN_DIR="$PREFIX/bin"
 
 mkdir -p "$SHARE_DIR" "$BIN_DIR"

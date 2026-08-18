@@ -350,6 +350,19 @@ Authorization: Bearer <token>
 
 ---
 
+## Windows 콘솔 채널 wake
+
+Windows TUI 입력은 `clear → body → submit`을 각각 콘솔 입력 큐가 소비한 뒤 다음
+단계로 진행한다. 여러 줄의 외부 메시지는 줄바꿈이 Enter 키로 해석되지 않도록 한
+줄로 정규화된다. 완전한 wake prompt 전달 확인이 반복해서 실패하면 같은 본문을
+무한 재주입하지 않고 짧은 sentinel을 한 번 제출한 뒤 실제 메시지를 request-body
+경로로 전달한다.
+
+`CIEL_RUNTIME_WINDOWS_CHANNEL_WAKE_MAX_ATTEMPTS`로 완전한 wake prompt 시도 상한을
+설정할 수 있다. 기본값은 `2`, 허용 범위는 `1`~`4`이다.
+
+---
+
 ## 언어 설정
 
 지원 언어:

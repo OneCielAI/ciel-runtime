@@ -115,6 +115,25 @@ class ChannelWakeClaimRepository:
             self._write_locked(claims)
         return True
 
+    def body_fallback(self, message_id: int) -> bool:
+        if message_id <= 0:
+            return False
+        with self.file_lock():
+            claim = self._read_locked().get(str(message_id))
+        return bool(isinstance(claim, dict) and claim.get("body_fallback"))
+
+    def mark_body_fallback(self, message_id: int, reason: str) -> None:
+        if message_id <= 0:
+            return
+        with self.file_lock():
+            claims = self._read_locked()
+            claims[str(message_id)] = {
+                "claimed_at": self.now(),
+                "body_fallback": True,
+                "reason": str(reason or "windows_console_wake_failed"),
+            }
+            self._write_locked(claims)
+
     def clear(self, message_id: int) -> None:
         if message_id <= 0:
             return

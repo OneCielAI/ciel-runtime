@@ -52,6 +52,15 @@ class InstallScriptPathTests(unittest.TestCase):
             installed = Path(prefix) / "share" / "ciel-runtime" / "ciel_runtime.py"
             self.assertEqual((ROOT / "ciel_runtime.py").read_bytes(), installed.read_bytes())
 
+    def test_installers_ignore_stale_version_snapshot_runtime_home(self):
+        powershell = (ROOT / "install.ps1").read_text(encoding="utf-8")
+        posix = (ROOT / "install.sh").read_text(encoding="utf-8")
+
+        self.assertIn("CIEL_RUNTIME_INSTALL_HOME", powershell)
+        self.assertIn("^ciel-runtime-[0-9a-f]{7,40}$", powershell)
+        self.assertIn("CIEL_RUNTIME_INSTALL_HOME", posix)
+        self.assertIn("ciel-runtime-[0-9a-f]", posix)
+
 
 if __name__ == "__main__":
     unittest.main()

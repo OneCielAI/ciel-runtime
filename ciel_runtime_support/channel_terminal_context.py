@@ -40,6 +40,7 @@ class ChannelTerminalPolicyPorts:
     unseen_retry_seconds: Callable[[], float]
     inflight_is_stale: Callable[..., bool]
     log: Callable[[str, str], None]
+    windows_wake_max_attempts: Callable[[], int]
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +52,7 @@ class ChannelTerminalPollingPorts:
     inject_pending: Callable[..., Any]
     wake_state: Callable[[int], Any]
     inflight_effects: Callable[[], Any]
+    mark_body_fallback: Callable[[int, str], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,7 +75,7 @@ class ChannelTerminalWindowsPorts:
     startup_grace_seconds: Callable[[], float]
     reset_interval_seconds: Callable[[float], float]
     active_turn: Callable[[], bool]
-    retry_submit: Callable[..., tuple[int, float]]
+    write_body_fallback: Callable[[Any, int, bytes], None]
     sleep: Callable[[float], None]
 
 
@@ -114,6 +116,7 @@ class ChannelTerminalContext:
             unseen_retry_seconds=self.policy.unseen_retry_seconds,
             inflight_is_stale=self.policy.inflight_is_stale,
             log=self.policy.log,
+            windows_wake_max_attempts=self.policy.windows_wake_max_attempts,
         )
 
     def polling_services(self) -> ChannelTerminalPolling:
@@ -125,6 +128,7 @@ class ChannelTerminalContext:
             inject_pending=self.polling.inject_pending,
             wake_state=self.polling.wake_state,
             inflight_effects=self.polling.inflight_effects,
+            mark_body_fallback=self.polling.mark_body_fallback,
         )
 
     def posix_services(self) -> ChannelTerminalServices:
@@ -154,7 +158,7 @@ class ChannelTerminalContext:
                 startup_grace_seconds=self.windows.startup_grace_seconds,
                 reset_interval_seconds=self.windows.reset_interval_seconds,
                 active_turn=self.windows.active_turn,
-                retry_submit=self.windows.retry_submit,
+                write_body_fallback=self.windows.write_body_fallback,
                 sleep=self.windows.sleep,
             ),
         )

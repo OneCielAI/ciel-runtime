@@ -17,6 +17,10 @@ class InputTransport(Protocol):
 
     def wait_until_input_consumed(self, timeout_seconds: float = 2.0) -> bool: ...
 
+    def normalize_prompt(self, prompt: str) -> str: ...
+
+    def pending_input_events(self) -> int | None: ...
+
 
 @dataclass(frozen=True)
 class RuntimeInjectionPolicy:
@@ -66,20 +70,39 @@ class ChannelPromptInjector:
 
     def inject(self, transport: InputTransport, request: PromptInjection) -> None:
         policy = request.policy
-        prompt = request.prompt.encode("utf-8", errors="replace")
-        payload = policy.clear_input + prompt
+        normalize = getattr(transport, "normalize_prompt", None)
+        prompt_text = (
+            str(normalize(request.prompt)) if callable(normalize) else request.prompt
+        )
+        prompt = prompt_text.encode("utf-8", errors="replace")
+        payload = prompt
         if policy.bracketed_paste:
-            payload = policy.clear_input + b"\x1b[200~" + prompt + b"\x1b[201~"
-        transport.write(payload)
+            payload = b"\x1b[200~" + prompt + b"\x1b[201~"
 
-        if not transport.wait_until_input_consumed(policy.input_drain_timeout_seconds):
-            self._log("WARN", "channel_input_drain_timeout")
+        if bool(getattr(transport, "separate_input_stages", False)):
+            self._write_stage(transport, "clear", policy.clear_input, policy)
+            self._write_stage(transport, "body", payload, policy)
+        else:
+            transport.write(policy.clear_input + payload)
+            if not transport.wait_until_input_consumed(
+                policy.input_drain_timeout_seconds
+            ):
+                self._log("WARN", "channel_input_drain_timeout")
+
         if policy.submit_delay_seconds:
             self._sleep(policy.submit_delay_seconds)
 
         before = self._snapshot() if policy.confirm_submission and policy.submit_attempts > 1 else None
         for attempt in range(policy.submit_attempts):
-            transport.write(policy.submit_input)
+            if bool(getattr(transport, "separate_input_stages", False)):
+                self._write_stage(
+                    transport,
+                    f"submit-{attempt + 1}",
+                    policy.submit_input,
+                    policy,
+                )
+            else:
+                transport.write(policy.submit_input)
             if attempt >= policy.submit_attempts - 1 or not before:
                 break
             retry_delay = self._retry_delay_seconds()
@@ -90,6 +113,37 @@ class ChannelPromptInjector:
                 self._log("INFO", f"channel_stdin_proxy_submit_confirmed attempt={attempt + 1}")
                 break
 
+    def _write_stage(
+        self,
+        transport: InputTransport,
+        stage: str,
+        payload: bytes,
+        policy: RuntimeInjectionPolicy,
+    ) -> None:
+        before = self._pending_events(transport)
+        transport.write(payload)
+        drained = transport.wait_until_input_consumed(
+            policy.input_drain_timeout_seconds
+        )
+        after = self._pending_events(transport)
+        self._log(
+            "INFO" if drained else "WARN",
+            f"channel_input_stage stage={stage} bytes={len(payload)} "
+            f"queue_before={before if before is not None else '-'} "
+            f"queue_after={after if after is not None else '-'} drained={str(drained).lower()}",
+        )
+
+    @staticmethod
+    def _pending_events(transport: InputTransport) -> int | None:
+        pending = getattr(transport, "pending_input_events", None)
+        if not callable(pending):
+            return None
+        try:
+            value = pending()
+            return None if value is None else int(value)
+        except (TypeError, ValueError):
+            return None
+
 
 class CallableInputTransport:
     """Compatibility adapter for existing descriptors and writer objects."""
@@ -97,6 +151,9 @@ class CallableInputTransport:
     def __init__(self, target: object, write: Callable[[object, bytes], None]) -> None:
         self._target = target
         self._write = write
+        self.separate_input_stages = bool(
+            getattr(target, "separate_input_stages", False)
+        )
 
     def write(self, data: bytes) -> None:
         self._write(self._target, data)
@@ -104,6 +161,19 @@ class CallableInputTransport:
     def wait_until_input_consumed(self, timeout_seconds: float = 2.0) -> bool:
         wait = getattr(self._target, "wait_until_input_consumed", None)
         return bool(wait(timeout_seconds)) if callable(wait) else True
+
+    def normalize_prompt(self, prompt: str) -> str:
+        normalize = getattr(self._target, "normalize_prompt", None)
+        return str(normalize(prompt)) if callable(normalize) else prompt
+
+    def pending_input_events(self) -> int | None:
+        pending = getattr(self._target, "pending_input_events", None)
+        if not callable(pending):
+            return None
+        try:
+            return int(pending())
+        except (TypeError, ValueError):
+            return None
 
 
 __all__ = [

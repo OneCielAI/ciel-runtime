@@ -2,7 +2,19 @@ $ErrorActionPreference = "Stop"
 
 $sourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $prefix = if ($env:PREFIX) { $env:PREFIX } else { Join-Path $HOME ".local" }
-$shareDir = if ($env:CIEL_RUNTIME_HOME) { $env:CIEL_RUNTIME_HOME } else { Join-Path $prefix "share\ciel-runtime" }
+$defaultShareDir = Join-Path $prefix "share\ciel-runtime"
+$runtimeHome = [string]$env:CIEL_RUNTIME_HOME
+$snapshotHome = $runtimeHome -and ((Split-Path -Leaf $runtimeHome) -match '^ciel-runtime-[0-9a-f]{7,40}$')
+$shareDir = if ($env:CIEL_RUNTIME_INSTALL_HOME) {
+    $env:CIEL_RUNTIME_INSTALL_HOME
+} elseif ($runtimeHome -and -not $snapshotHome) {
+    $runtimeHome
+} else {
+    if ($snapshotHome) {
+        Write-Warning "Ignoring snapshot CIEL_RUNTIME_HOME during install: $runtimeHome"
+    }
+    $defaultShareDir
+}
 $binDir = Join-Path $prefix "bin"
 
 New-Item -ItemType Directory -Force -Path $shareDir, $binDir | Out-Null

@@ -43,7 +43,10 @@ PREFIX=$HOME/.local ./install.sh
 
 설치 위치:
 - 실행 파일: `$PREFIX/bin/` (기본: `~/.local/bin/`)
-- 소스: `$CIEL_RUNTIME_HOME` (기본: `$PREFIX/share/ciel-runtime/`)
+- 소스: `$CIEL_RUNTIME_INSTALL_HOME` 또는 `$CIEL_RUNTIME_HOME`
+  (기본: `$PREFIX/share/ciel-runtime/`). 자동 업데이트가 만든
+  `ciel-runtime-<commit>` 스냅샷 경로가 `CIEL_RUNTIME_HOME`에 남아 있으면
+  설치기는 이를 무시하여 구버전 스냅샷에 새 설치가 고정되지 않게 한다.
 
 설치 파일:
 ```

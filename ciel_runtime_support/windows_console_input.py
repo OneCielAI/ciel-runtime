@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from typing import Any, Callable, Iterable
 
@@ -21,6 +22,8 @@ def _windows_console_utf16_units(chars: Iterable[str]) -> list[str]:
 
 class WindowsConsoleInputWriter:
     """Inject keystrokes into the active Windows console input queue."""
+
+    separate_input_stages = True
 
     def __init__(self, input_handle: Callable[[], Any], mouse_filter_factory: Callable[[], Any]) -> None:
         self.handle = input_handle()
@@ -49,6 +52,21 @@ class WindowsConsoleInputWriter:
             if time.monotonic() >= deadline:
                 return False
             time.sleep(0.01)
+
+    @staticmethod
+    def normalize_prompt(prompt: str) -> str:
+        """Keep a Console input batch textual; embedded newlines are Enter keys."""
+        return re.sub(r"[\r\n\t]+", " ", str(prompt or "")).strip()
+
+    def pending_input_events(self) -> int | None:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        pending = wintypes.DWORD(0)
+        if not kernel32.GetNumberOfConsoleInputEvents(self.handle, ctypes.byref(pending)):
+            return None
+        return int(pending.value)
 
     def write(self, data: bytes) -> None:
         if not data:

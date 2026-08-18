@@ -46,6 +46,7 @@ class ChannelInjectionWakeStore:
     record_prompts: Callable[[list[dict[str, Any]], str], Any]
     rollback: Callable[[list[dict[str, Any]], list[int]], Any]
     commit_cursor: Callable[[int], Any]
+    body_fallback: Callable[[int], bool] = lambda _message_id: False
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +131,13 @@ def inject_pending_channel_messages(
                     "WARN",
                     f"channel_stdin_proxy_skipped_noise message_id={message_id} "
                     f"channel={channel} reason={replay_skip_reason}",
+                )
+                continue
+            if wake_for_llm_delivery and wake_store.body_fallback(message_id):
+                io.log(
+                    "INFO",
+                    f"channel_stdin_proxy_skipped_noise message_id={message_id} "
+                    f"channel={channel} reason=stdin_wake_body_fallback",
                 )
                 continue
             skip_reason = state.message_skip_reason(message)

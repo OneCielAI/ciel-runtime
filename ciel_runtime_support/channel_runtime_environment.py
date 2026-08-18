@@ -113,6 +113,17 @@ class ChannelRuntimeEnvironmentPolicy:
             maximum=60.0,
         )
 
+    def windows_wake_max_attempts(self) -> int:
+        """Bound full-prompt attempts before switching to request-body delivery."""
+        return self._bounded_int(
+            self.environment.get(
+                "CIEL_RUNTIME_WINDOWS_CHANNEL_WAKE_MAX_ATTEMPTS"
+            ),
+            default=2,
+            minimum=1,
+            maximum=4,
+        )
+
     @staticmethod
     def inflight_is_stale(
         state: str,

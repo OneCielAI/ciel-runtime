@@ -4405,6 +4405,7 @@ def channel_wake_claim_repository() -> ChannelWakeClaimRepository: return channe
 def _channel_stdin_wake_claim_prompt(message_id: int) -> str: return channel_wake_context().claim_prompt(message_id)
 def _channel_stdin_claim_wake_prompt(message_id: int, prompt: str) -> bool: return channel_wake_context().claim_wake_prompt(message_id, prompt)
 def _channel_stdin_clear_wake_claim(message_id: int) -> None: channel_wake_context().clear_wake_claim(message_id)
+def _channel_stdin_mark_body_fallback(message_id: int, reason: str) -> None: channel_wake_context().mark_wake_body_fallback(message_id, reason)
 def _channel_prompt_references_message_id(text: str, message_id: int, prompt_texts: list[str] | tuple[str, ...] | None = None) -> bool: return channel_wake_context().prompt_references_message_id(text, message_id, prompt_texts)
 def _channel_message_ids_already_in_request(body: dict[str, Any]) -> set[int]: return channel_wake_context().message_ids_already_in_request(body)
 def _channel_llm_commit_cursor_locked(last_id: int) -> None: channel_wake_context().commit_cursor(last_id)
@@ -4420,6 +4421,9 @@ def _codex_channel_wake_submit_delay_seconds() -> float: return channel_runtime_
 def _windows_channel_startup_grace_seconds() -> float:
     """Allow an interactive Windows TUI to begin reading console input."""
     return channel_runtime_environment_policy().windows_startup_grace_seconds()
+
+def _windows_channel_wake_max_attempts() -> int:
+    return channel_runtime_environment_policy().windows_wake_max_attempts()
 
 def _write_channel_wake_prompt( master_fd: int, prompt: str, enter_bytes: bytes | None = None, *, submit_retry_count: int = 1, confirm_submit: bool = False, bracketed_paste: bool = False, submit_delay_seconds: float | None = None, ) -> None:
     channel_wake_context().write_prompt(
@@ -4553,28 +4557,34 @@ class _WindowsConsoleInputWriter(WindowsConsoleInputWriter):
     def __init__(self) -> None:
         super().__init__(_windows_console_input_handle, _TerminalMouseInputFilter)
 
-def _retry_windows_console_channel_submit( writer: Any, enter_bytes: bytes, state: str, attempts: int, retry_count: int, last_attempt_at: float, now: float, *, confirm_submit: bool, turn_active: bool = False, ) -> tuple[int, float]:
-    if not confirm_submit or turn_active or state != "missing" or attempts >= retry_count:
-        return attempts, last_attempt_at
-    if now - last_attempt_at < _channel_wake_submit_retry_delay_seconds():
-        return attempts, last_attempt_at
-    _write_fd_all(writer, enter_bytes)
-    next_attempt = attempts + 1
-    router_log("INFO", f"channel_windows_console_submit_retry attempt={next_attempt}/{retry_count}")
-    return next_attempt, now
+def _write_windows_channel_body_fallback(writer: Any, message_id: int, enter_bytes: bytes) -> None:
+    prompt = f"[ciel-runtime pending request-body input] id={int(message_id)}"
+    channel_wake_context().write_prompt(
+        writer,
+        prompt,
+        enter_bytes,
+        submit_retry_count=1,
+        confirm_submit=False,
+        bracketed_paste=False,
+        submit_delay_seconds=_channel_wake_submit_delay_seconds(),
+        write_all=_write_fd_all,
+        snapshot=_channel_current_tmux_pane_text,
+    )
 
 def channel_terminal_context() -> ChannelTerminalContext:
     return ChannelTerminalContext(
         process=ChannelTerminalProcessPorts(subprocess.Popen, _write_codex_child_process_record, _terminate_recorded_child_process, _release_codex_child_process_record),
         policy=ChannelTerminalPolicyPorts(ensure_channel_llm_delivery_cursor_initialized, _channel_wake_enter_bytes, _channel_enter_label,
-                                          _channel_wake_enter_env_is_fixed, _channel_stdin_unseen_retry_seconds, _channel_stdin_inflight_is_stale, router_log),
+                                          _channel_wake_enter_env_is_fixed, _channel_stdin_unseen_retry_seconds, _channel_stdin_inflight_is_stale, router_log,
+                                          _windows_channel_wake_max_attempts),
         polling=ChannelTerminalPollingPorts(_inject_pending_compact_request, _chat_messages_file_marker, _channel_stdin_should_check_pending,
-                                            _channel_stdin_active_tool_call, _inject_pending_channel_messages, _channel_stdin_wake_state, channel_inflight_effects),
+                                            _channel_stdin_active_tool_call, _inject_pending_channel_messages, _channel_stdin_wake_state, channel_inflight_effects,
+                                            _channel_stdin_mark_body_fallback),
         io=ChannelTerminalIoPorts(_terminal_winsize_from_fd, _apply_pty_winsize, _write_fd_all, _TerminalMouseInputFilter,
                                   _channel_synthetic_enter_bytes_from_user_input, _write_terminal_input_mode_reset),
         windows=ChannelTerminalWindowsPorts(_windows_console_input_supported, run_windows_channel_terminal_proxy, _write_terminal_input_mode_reset,
                                             _WindowsConsoleMouseInputGuard, _WindowsConsoleInputWriter, _windows_channel_startup_grace_seconds,
-                                            _terminal_input_mode_reset_interval_seconds, _channel_stdin_active_turn, _retry_windows_console_channel_submit, time.sleep),
+                                            _terminal_input_mode_reset_interval_seconds, _channel_stdin_active_turn, _write_windows_channel_body_fallback, time.sleep),
         dispatch_ports=ChannelTerminalDispatchPorts(os.name, sys.stdin.isatty, sys.stdout.isatty, subprocess.call,
                                                     lambda *args, **kwargs: subprocess_call_with_windows_console_wake_proxy(*args, **kwargs),
                                                     run_posix_channel_terminal_proxy, prepare_channel_llm_delivery_for_launch),
@@ -4685,7 +4695,12 @@ def claude_launch_services() -> runtime_launch.ClaudeLaunchServices:
                                                 has_passthrough_option, should_append_compat_prompt, should_attach_web_search,
                                                 should_disallow_claude_server_side_web_tools, should_fork_native_session_after_mode_switch,
                                                 should_insert_passthrough_option_boundary),
-        delivery=assembly.ClaudeLaunchDeliveryPorts(should_use_channel_llm_delivery, should_use_channel_stdin_proxy),
+        delivery=assembly.ClaudeLaunchDeliveryPorts(
+            should_use_channel_llm_delivery,
+            should_use_channel_stdin_proxy,
+            _codex_channel_wake_submit_delay_seconds,
+            _codex_channel_wake_submit_retries,
+        ),
         mcp_config=assembly.ClaudeLaunchMcpConfigPorts(
             write_duckduckgo_mcp_config,
             write_zai_mcp_config,

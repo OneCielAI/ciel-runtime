@@ -16,6 +16,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 import ciel_runtime
+from ciel_runtime_support import runtime_launch
 
 
 class ChannelBridgeTests(unittest.TestCase):
@@ -1578,6 +1579,15 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertTrue(kwargs["channel_wake_bracketed_paste"])
         self.assertEqual(0.25, kwargs["channel_wake_submit_delay_seconds"])
 
+    def test_claude_channel_wake_enables_bounded_submit_confirmation(self):
+        source = inspect.getsource(runtime_launch.run_claude)
+
+        self.assertIn("channel_wake_confirm_submit=True", source)
+        self.assertIn(
+            "channel_wake_submit_retries=channel_wake_submit_retries()",
+            source,
+        )
+
     def test_write_fd_all_accepts_writer_object(self):
         class Writer:
             def __init__(self):
@@ -1590,65 +1600,42 @@ class ChannelBridgeTests(unittest.TestCase):
         ciel_runtime._write_fd_all(writer, b"wake")
         self.assertEqual(b"wake", bytes(writer.data))
 
-    def test_windows_console_retries_enter_when_injected_prompt_is_missing(self):
+    def test_windows_console_never_uses_enter_only_unseen_retry(self):
+        self.assertFalse(
+            hasattr(ciel_runtime, "_retry_windows_console_channel_submit")
+        )
+        proxy_source = inspect.getsource(
+            ciel_runtime.run_windows_channel_terminal_proxy
+        )
+        self.assertNotIn("retry_submit", proxy_source)
+        self.assertIn("write_body_fallback", proxy_source)
+
+    def test_windows_console_body_fallback_uses_one_short_single_line_wake(self):
         class Writer:
             def __init__(self):
                 self.data = bytearray()
 
+            separate_input_stages = True
+
             def write(self, data):
                 self.data.extend(data)
 
+            def wait_until_input_consumed(self, _timeout=2.0):
+                return True
+
+            def normalize_prompt(self, prompt):
+                return ciel_runtime._WindowsConsoleInputWriter.normalize_prompt(prompt)
+
+            def pending_input_events(self):
+                return 0
+
         writer = Writer()
-        with mock.patch.object(ciel_runtime, "_channel_wake_submit_retry_delay_seconds", return_value=0.9):
-            attempts, attempted_at = ciel_runtime._retry_windows_console_channel_submit(
-                writer,
-                b"\r",
-                "missing",
-                1,
-                4,
-                10.0,
-                11.0,
-                confirm_submit=True,
-            )
+        with mock.patch.object(ciel_runtime, "_channel_wake_submit_delay_seconds", return_value=0):
+            ciel_runtime._write_windows_channel_body_fallback(writer, 64, b"\r")
 
-        self.assertEqual(2, attempts)
-        self.assertEqual(11.0, attempted_at)
-        self.assertEqual(b"\r", bytes(writer.data))
-
-    def test_windows_console_does_not_retry_enter_after_prompt_is_observed(self):
-        writer = mock.Mock()
-        attempts, attempted_at = ciel_runtime._retry_windows_console_channel_submit(
-            writer,
-            b"\r",
-            "pending",
-            1,
-            4,
-            10.0,
-            12.0,
-            confirm_submit=True,
-        )
-
-        self.assertEqual(1, attempts)
-        self.assertEqual(10.0, attempted_at)
-        writer.write.assert_not_called()
-
-    def test_windows_console_does_not_retry_enter_after_turn_starts(self):
-        writer = mock.Mock()
-        attempts, attempted_at = ciel_runtime._retry_windows_console_channel_submit(
-            writer,
-            b"\r",
-            "missing",
-            1,
-            4,
-            10.0,
-            12.0,
-            confirm_submit=True,
-            turn_active=True,
-        )
-
-        self.assertEqual(1, attempts)
-        self.assertEqual(10.0, attempted_at)
-        writer.write.assert_not_called()
+        self.assertEqual(1, bytes(writer.data).count(b"\r"))
+        self.assertIn(b"pending request-body input", bytes(writer.data))
+        self.assertNotIn(b"\n", bytes(writer.data))
 
     def test_channel_active_turn_tracks_codex_start_complete_and_abort(self):
         started = '\n'.join([
@@ -2774,6 +2761,43 @@ class ChannelBridgeTests(unittest.TestCase):
         commit_cursor.assert_not_called()
         log_messages = [str(call.args[1]) for call in router_log.call_args_list if len(call.args) > 1]
         self.assertTrue(any("reason=stdin_wake_claimed" in item and "message_id=368" in item for item in log_messages))
+
+    def test_windows_body_fallback_stops_tty_reclaim_and_reopens_body_delivery(self):
+        messages = [
+            {
+                "id": 369,
+                "channel": "cielarvis",
+                "sender_id": "web",
+                "message": "deliver through request body",
+                "meta": {},
+            }
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            claims_path = Path(td) / "claims.json"
+            with (
+                mock.patch.object(ciel_runtime, "CHANNEL_STDIN_WAKE_CLAIMS_PATH", claims_path),
+                mock.patch.object(ciel_runtime, "read_chat_messages", return_value=messages),
+                mock.patch.object(ciel_runtime, "_latest_claude_transcript_path", return_value=None),
+                mock.patch.object(ciel_runtime, "_write_fd_all") as write_all,
+                mock.patch.object(ciel_runtime, "router_log") as router_log,
+            ):
+                ciel_runtime._channel_stdin_mark_body_fallback(
+                    369, "windows_console_unseen_retry"
+                )
+                last_id = ciel_runtime._inject_pending_channel_messages(
+                    99, 368, wake_for_llm_delivery=True
+                )
+                body_skip_reason = ciel_runtime._channel_llm_stdin_skip_reason(369)
+
+        self.assertEqual(369, last_id)
+        self.assertEqual("", body_skip_reason)
+        write_all.assert_not_called()
+        log_messages = [
+            str(call.args[1])
+            for call in router_log.call_args_list
+            if len(call.args) > 1
+        ]
+        self.assertTrue(any("reason=stdin_wake_body_fallback" in item for item in log_messages))
 
     def test_inject_pending_channel_messages_continues_past_queued_wake_when_nonblocking(self):
         queued_prompt = (

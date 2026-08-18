@@ -148,6 +148,8 @@ class ClaudeLaunchPolicy:
 class ClaudeLaunchChannelDelivery:
     should_use_channel_llm_delivery: Callable[..., Any]
     should_use_channel_stdin_proxy: Callable[..., Any]
+    channel_wake_submit_delay_seconds: Callable[..., Any]
+    channel_wake_submit_retries: Callable[..., Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,6 +241,8 @@ def run_claude(
     should_insert_passthrough_option_boundary = services.policy.should_insert_passthrough_option_boundary
     should_use_channel_llm_delivery = services.channel_delivery.should_use_channel_llm_delivery
     should_use_channel_stdin_proxy = services.channel_delivery.should_use_channel_stdin_proxy
+    channel_wake_submit_delay_seconds = services.channel_delivery.channel_wake_submit_delay_seconds
+    channel_wake_submit_retries = services.channel_delivery.channel_wake_submit_retries
     start_router_if_needed = services.routing.start_router_if_needed
     subprocess_call_with_channel_wake_proxy = services.process.subprocess_call_with_channel_wake_proxy
     subprocess_call_with_child_pid_record = services.process.subprocess_call_with_child_pid_record
@@ -527,6 +531,9 @@ def run_claude(
                     cmd,
                     env,
                     wake_for_llm_delivery=llm_channel_delivery,
+                    channel_wake_submit_retries=channel_wake_submit_retries(),
+                    channel_wake_confirm_submit=True,
+                    channel_wake_submit_delay_seconds=channel_wake_submit_delay_seconds(),
                     tracked_child_pid_path=(
                         workspace_mcp_launch.child_record_path
                         if workspace_mcp_launch is not None else None
