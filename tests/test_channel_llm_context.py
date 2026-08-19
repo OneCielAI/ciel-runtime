@@ -109,6 +109,7 @@ class ChannelLlmContextTests(unittest.TestCase):
         )
         self.assertEqual("channel:router body", out["messages"][-1]["content"][0]["text"])
         self.assertTrue(out["wake_removed"])
+        self.assertTrue(out["metadata"]["ciel_runtime_channel_wake_replaced"])
 
     def test_tty_message_is_not_consumed_or_overtaken_by_router(self):
         body = {"messages": []}

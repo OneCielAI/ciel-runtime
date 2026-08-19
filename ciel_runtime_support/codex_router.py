@@ -62,15 +62,44 @@ class CodexChannelContextProjector:
         delivery = self._ports.to_anthropic(body, str(body.get("model") or ""))
         original_count = len(delivery.get("messages") or [])
         delivery = self._ports.inject_pending(delivery)
+        pending_messages = [
+            message
+            for message in delivery.get("messages") or []
+            if isinstance(message, dict)
+        ]
+        pending_metadata = (
+            delivery.get("metadata")
+            if isinstance(delivery.get("metadata"), dict)
+            else {}
+        )
+        channel_injected = bool(
+            pending_metadata.get("ciel_runtime_channel_injected")
+        )
+        wake_replaced = bool(
+            pending_metadata.get("ciel_runtime_channel_wake_replaced")
+        )
+        # inject_pending appends exactly one formatted channel batch.  When it
+        # first removes a wake marker, slicing at original_count yields an
+        # empty list (N - 1 + 1 == N), which was the native Codex data-loss
+        # defect.  Capture the batch before later projections instead.
+        channel_additions = (
+            pending_messages[-1:]
+            if channel_injected
+            else pending_messages[original_count:]
+        )
+        pending_count = len(pending_messages)
         delivery = self._ports.inject_tool_results(delivery)
         messages = [message for message in delivery.get("messages") or [] if isinstance(message, dict)]
-        additions = messages[original_count:]
+        tool_additions = messages[pending_count:]
+        additions = [*channel_additions, *tool_additions]
         metadata = delivery.get("metadata") if isinstance(delivery.get("metadata"), dict) else {}
         projected = dict(body)
         projected.pop("metadata", None)
         if not additions and not metadata:
             return projected, delivery
         input_items = self.input_items(body.get("input", []))
+        if wake_replaced and input_items:
+            input_items.pop()
         for message in additions:
             text = self._ports.content_to_text(message.get("content"))
             if text.strip():

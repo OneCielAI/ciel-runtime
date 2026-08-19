@@ -168,6 +168,12 @@ def inject_pending_channel_context(
             "ciel_runtime_channel_injected": True,
             "ciel_runtime_channel_message_ids": ids,
             "ciel_runtime_channel_cursor_last_id": str(max_seen),
+            # Native Responses forwarding must distinguish an ordinary
+            # context append from a wake turn whose marker was removed.  The
+            # two cases can have the same final message count, so inferring it
+            # from list lengths drops the injected body and forwards the wake
+            # marker unchanged.
+            "ciel_runtime_channel_wake_replaced": wake_request,
         }
     )
     out["metadata"] = metadata
