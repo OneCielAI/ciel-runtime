@@ -10,6 +10,8 @@ import threading
 from collections.abc import Mapping
 from typing import Any, Callable
 
+from .windows_command_line import command_line_for_create_process
+
 
 _STILL_ACTIVE = 259
 _WAIT_TIMEOUT = 258
@@ -419,14 +421,10 @@ class WindowsConPtySession:
 
     @staticmethod
     def _command_line(cmd: list[str]) -> str:
-        if not cmd:
-            raise ValueError("ConPTY command is empty")
-        executable = str(cmd[0]).lower()
-        if executable.endswith((".cmd", ".bat")):
-            comspec = os.environ.get("COMSPEC") or "cmd.exe"
-            inner = subprocess.list2cmdline(cmd)
-            return subprocess.list2cmdline([comspec, "/d", "/s", "/c", inner])
-        return subprocess.list2cmdline(cmd)
+        try:
+            return command_line_for_create_process(cmd)
+        except ValueError as exc:
+            raise ValueError("ConPTY command is empty") from exc
 
     @staticmethod
     def _environment_block(environment: Mapping[str, str]) -> str:

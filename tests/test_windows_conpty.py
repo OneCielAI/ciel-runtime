@@ -32,13 +32,21 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
     def test_batch_command_is_wrapped_by_comspec(self):
         with mock.patch.dict(os.environ, {"COMSPEC": "C:\\Windows\\cmd.exe"}):
             command = WindowsConPtySession._command_line(
-                ["C:\\Tools\\agent.cmd", "--model", "hello world"]
+                [
+                    "C:\\Tools\\agent.cmd",
+                    "-c",
+                    'model_providers.ciel-runtime.name="Ciel Runtime Codex"',
+                    "--version",
+                ]
             )
 
-        self.assertIn("C:\\Windows\\cmd.exe", command)
-        self.assertIn("/c", command)
-        self.assertIn("agent.cmd", command)
-        self.assertIn('\\"hello world\\"', command)
+        self.assertEqual(
+            'C:\\Windows\\cmd.exe /d /s /c "C:\\Tools\\agent.cmd -c '
+            '\"model_providers.ciel-runtime.name=\\\"Ciel Runtime Codex\\\"\" '
+            '--version"',
+            command,
+        )
+        self.assertNotIn('\\\\\\"Ciel Runtime Codex', command)
 
     def test_prompt_normalization_prevents_embedded_submit(self):
         self.assertEqual(

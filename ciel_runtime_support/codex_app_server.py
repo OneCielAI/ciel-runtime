@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
+from .windows_command_line import command_line_for_create_process
+
 
 class CodexAppServerError(RuntimeError):
     """Raised when the Codex app-server JSON-RPC transport fails."""
@@ -64,11 +66,10 @@ def codex_app_server_launch_args(
     return out
 
 
-def command_for_popen(executable: str, args: Iterable[str]) -> list[str]:
+def command_for_popen(executable: str, args: Iterable[str]) -> list[str] | str:
     argv = [str(executable), *[str(arg) for arg in args]]
     if os.name == "nt" and str(executable).lower().endswith((".cmd", ".bat")):
-        comspec = os.environ.get("COMSPEC") or "cmd.exe"
-        return [comspec, "/d", "/s", "/c", subprocess.list2cmdline(argv)]
+        return command_line_for_create_process(argv)
     return argv
 
 

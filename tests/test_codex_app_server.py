@@ -3,6 +3,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -10,6 +11,7 @@ from ciel_runtime_support.codex_app_server import (  # noqa: E402
     CodexAppServerClient,
     CodexAppServerError,
     codex_app_server_launch_args,
+    command_for_popen,
     responses_user_message_item,
     text_user_input,
 )
@@ -58,6 +60,23 @@ class FakeProcess:
 
 
 class CodexAppServerSupportTests(unittest.TestCase):
+    def test_windows_batch_launcher_preserves_embedded_config_quotes(self):
+        with (
+            mock.patch("ciel_runtime_support.codex_app_server.os.name", "nt"),
+            mock.patch.dict("os.environ", {"COMSPEC": "C:\\Windows\\cmd.exe"}),
+        ):
+            command = command_for_popen(
+                "C:\\Tools\\codex.cmd",
+                ["-c", 'model_providers.ciel-runtime.name="Ciel Runtime Codex"'],
+            )
+
+        self.assertEqual(
+            'C:\\Windows\\cmd.exe /d /s /c "C:\\Tools\\codex.cmd -c '
+            '\"model_providers.ciel-runtime.name=\\\"Ciel Runtime Codex\\\"\""',
+            command,
+        )
+        self.assertNotIn('\\\\\\"Ciel Runtime Codex', command)
+
     def test_close_reaps_process(self):
         process = FakeProcess("")
         client = CodexAppServerClient(process)  # type: ignore[arg-type]
