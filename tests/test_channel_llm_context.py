@@ -1,7 +1,9 @@
 import contextlib
 import unittest
 
+from ciel_runtime_support.channel_message_prompt import llm_message_skip_reason
 from ciel_runtime_support.channel_llm_context import (
+    ChannelLlmInjectionDeferred,
     ChannelLlmContextPolicy,
     ChannelLlmContextProjection,
     ChannelLlmContextRepository,
@@ -30,7 +32,16 @@ class ChannelLlmContextTests(unittest.TestCase):
 
         self.assertIs(body, strip_internal_metadata(body))
 
-    def services(self, messages, *, wake=False, wake_ids=None, plan=False, stdin_reason=""):
+    def services(
+        self,
+        messages,
+        *,
+        wake=False,
+        wake_ids=None,
+        plan=False,
+        stdin_reason="",
+        skip_reason=None,
+    ):
         self.committed = []
         self.logs = []
         return ChannelLlmContextServices(
@@ -41,7 +52,7 @@ class ChannelLlmContextTests(unittest.TestCase):
                 delivery_mode=lambda: "llm",
                 ids_in_request=lambda body: set(),
                 scan_limit=lambda: 100,
-                skip_reason=lambda message: str(message.get("skip") or ""),
+                skip_reason=skip_reason or (lambda message: str(message.get("skip") or "")),
                 stdin_skip_reason=lambda message_id: stdin_reason,
             ),
             repository=ChannelLlmContextRepository(
@@ -106,11 +117,54 @@ class ChannelLlmContextTests(unittest.TestCase):
             {"id": 12, "message": "router later", "meta": {"input_transport": "router"}},
         ]
 
-        out = inject_pending_channel_context(body, self.services(messages, wake=True))
+        with self.assertRaises(ChannelLlmInjectionDeferred):
+            inject_pending_channel_context(body, self.services(messages, wake=True))
 
-        self.assertEqual({"messages": [], "wake_removed": True}, out)
         self.assertEqual([], self.committed)
         self.assertTrue(any("reason=input_transport_tty" in message for _level, message in self.logs))
+
+    def test_web_only_tty_self_response_does_not_block_router_wake(self):
+        body = {"messages": [{"role": "user", "content": "wake marker"}]}
+        messages = [
+            {
+                "id": 98,
+                "channel": "cielarvis",
+                "sender_id": "claude-code",
+                "message": "previous agent response",
+                "delivery": ["web"],
+                "meta": {"input_transport": "tty"},
+            },
+            {
+                "id": 101,
+                "channel": "cielarvis",
+                "message": "router request body",
+                "delivery": ["llm"],
+                "meta": {"input_transport": "router"},
+            },
+        ]
+
+        out = inject_pending_channel_context(
+            body,
+            self.services(
+                messages,
+                wake=True,
+                wake_ids={101},
+                skip_reason=lambda message: llm_message_skip_reason(message) or "",
+            ),
+        )
+
+        self.assertTrue(out["wake_removed"])
+        self.assertEqual(
+            "channel:router request body",
+            out["messages"][-1]["content"][0]["text"],
+        )
+        self.assertEqual("101", out["metadata"]["ciel_runtime_channel_message_ids"])
+        self.assertFalse(
+            any("message_id=98" in message and "inject_deferred" in message for _level, message in self.logs)
+        )
+        self.assertTrue(
+            any("message_id=98" in message and "delivery_not_llm" in message for _level, message in self.logs)
+        )
 
     def test_one_router_wake_injects_its_claimed_batch(self):
         messages = [

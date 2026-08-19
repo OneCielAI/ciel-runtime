@@ -2260,11 +2260,10 @@ class ChannelBridgeTests(unittest.TestCase):
         self.assertNotIn("[external input pending]", prompt)
         self.assertNotIn("type=mcp_notification", prompt)
         self.assertNotIn("source=agent", prompt)
-        self.assertIn("ciel-runtime channel wake", prompt)
-        self.assertIn("id=8", prompt)
+        self.assertIn("[ciel-wake]", prompt)
         self.assertIn("pending_ids=8", prompt)
         self.assertNotIn("external channel message", prompt)
-        self.assertIn("Do not answer", prompt)
+        self.assertEqual("[ciel-wake] pending_ids=8", prompt)
 
     def test_llm_delivery_wake_prompt_prefers_original_mcp_json(self):
         prompt = ciel_runtime.format_channel_llm_batch_prompt(
@@ -2378,7 +2377,7 @@ class ChannelBridgeTests(unittest.TestCase):
         wake_bytes = write_all.call_args_list[0].args[1]
         self.assertNotIn(b"[external input pending]", wake_bytes)
         self.assertNotIn(b"type=mcp_notification", wake_bytes)
-        self.assertIn(b"ciel-runtime channel wake", wake_bytes)
+        self.assertIn(b"[ciel-wake]", wake_bytes)
         self.assertIn(b"pending_ids=8", wake_bytes)
         self.assertNotIn(b"wake up later", wake_bytes)
         self.assertIn("pending_ids=8", ciel_runtime._CHANNEL_STDIN_WAKE_PROMPTS[8])

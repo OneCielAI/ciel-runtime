@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 CHANNEL_LLM_WAKE_PREFIX = "[external input pending]"
-CHANNEL_LLM_WAKE_LEGACY_PREFIXES = ("[ciel-runtime channel wake]", "[channel pending]")
+CHANNEL_LLM_WAKE_LEGACY_PREFIXES = (
+    "[ciel-wake]",
+    "[ciel-runtime channel wake]",
+    "[channel pending]",
+)
 PLAN_GUARD_MARKER = "[ciel-runtime-plan-guard]"
 SYSTEM_REMINDER_BLOCK_RE = re.compile(
     r"<system-reminder>.*?</system-reminder>", re.DOTALL

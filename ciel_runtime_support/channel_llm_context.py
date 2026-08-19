@@ -12,6 +12,10 @@ from ciel_runtime_support.channel_message_policy import message_input_transport
 INTERNAL_METADATA_PREFIX = "ciel_runtime_"
 
 
+class ChannelLlmInjectionDeferred(RuntimeError):
+    """A wake request cannot yet cross an earlier terminal-owned message."""
+
+
 def strip_internal_metadata(body: dict[str, Any]) -> dict[str, Any]:
     """Return the original body unless private metadata requires projection."""
 
@@ -91,21 +95,12 @@ def inject_pending_channel_context(
         max_seen = last_id
         candidates = repository.read_messages(last_id, policy.scan_limit())
         superseded_ids = repository.superseded_ids(candidates)
+        deferred_tty_id = 0
         for message in candidates:
             try:
                 message_id = int(message.get("id") or 0)
             except (TypeError, ValueError):
                 continue
-            if message_input_transport(message) != "router":
-                # Preserve FIFO ownership: the terminal path must consume an
-                # earlier TTY item before a later router item can enter the
-                # model request.
-                services.log(
-                    "INFO",
-                    f"channel_llm_inject_deferred message_id={message.get('id')} "
-                    f"channel={message.get('channel')} reason=input_transport_tty",
-                )
-                break
             reason = _candidate_skip_reason(
                 message,
                 message_id,
@@ -124,6 +119,17 @@ def inject_pending_channel_context(
                     f"channel={message.get('channel')} reason={reason}",
                 )
                 continue
+            if message_input_transport(message) != "router":
+                # Transport ownership matters only after visibility/delivery
+                # filtering.  A web-only self response stamped as TTY must not
+                # block a later router-owned request from entering the model.
+                deferred_tty_id = message_id
+                services.log(
+                    "INFO",
+                    f"channel_llm_inject_deferred message_id={message.get('id')} "
+                    f"channel={message.get('channel')} reason=input_transport_tty",
+                )
+                break
             pending.append(message)
             max_seen = message_id
             if not wake_request or not wake_message_ids:
@@ -133,6 +139,15 @@ def inject_pending_channel_context(
         if not pending:
             if max_seen != last_id:
                 repository.commit_cursor(max_seen)
+            if wake_request and deferred_tty_id:
+                # Never strip a wake marker and send an empty user turn when
+                # FIFO ownership genuinely prevents body injection.  Failing
+                # the HTTP request leaves no assistant completion evidence, so
+                # the bounded client retry/fallback path can recover it.
+                raise ChannelLlmInjectionDeferred(
+                    "Ciel Router deferred wake body injection behind "
+                    f"TTY message id={deferred_tty_id}"
+                )
             return services.projection.remove_wake_prompt(body) if wake_request else body
 
     base_body = services.projection.remove_wake_prompt(body) if wake_request else body

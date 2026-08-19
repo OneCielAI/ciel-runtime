@@ -16,9 +16,10 @@ class ChannelMessagePromptTests(unittest.TestCase):
             {"id": 77, "channel": "web-chat", "message": "private full request body"}
         ])
 
-        self.assertTrue(prompt.startswith("[ciel-runtime channel wake]"))
-        self.assertIn("id=77", prompt)
+        self.assertTrue(prompt.startswith("[ciel-wake]"))
         self.assertIn("pending_ids=77", prompt)
+        self.assertNotIn("channels=", prompt)
+        self.assertLessEqual(len(prompt), 40)
         self.assertNotIn("private full request body", prompt)
 
     def test_external_event_keeps_exact_raw_body_inside_transport_boundaries(self):

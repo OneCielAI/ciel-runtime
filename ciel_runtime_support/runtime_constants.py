@@ -113,7 +113,11 @@ CODEX_NATIVE_PROVIDER_ID_ENV = "CIEL_RUNTIME_CODEX_NATIVE_PROVIDER_ID"
 CODEX_ROUTED_PROVIDER_ID = "ciel-runtime-codex"
 CODEX_TUI_ALTERNATE_SCREEN_KEY = "tui.alternate_screen"
 CHANNEL_LLM_WAKE_PREFIX = "[external input pending]"
-CHANNEL_LLM_WAKE_LEGACY_PREFIXES = ("[ciel-runtime channel wake]", "[channel pending]")
+CHANNEL_LLM_WAKE_LEGACY_PREFIXES = (
+    "[ciel-wake]",
+    "[ciel-runtime channel wake]",
+    "[channel pending]",
+)
 ADVISOR_FEEDBACK_MARKER = "CIEL_RUNTIME_ADVISOR_FEEDBACK"
 PLAN_GUARD_MARKER = "[ciel-runtime-plan-guard]"
 PLAN_MODE_SELF_TOOLS = ("EnterPlanMode", "ExitPlanMode")
