@@ -54,6 +54,47 @@ class FakeRequestHeaders(list):
 
 
 class CodexRuntimeTests(unittest.TestCase):
+    def test_unisolated_test_process_cannot_terminate_live_router_clients(self):
+        with (
+            mock.patch.dict(
+                os.environ,
+                {
+                    "CIEL_RUNTIME_TEST_ISOLATED": "",
+                    "PYTEST_CURRENT_TEST": "",
+                },
+            ),
+            mock.patch.object(ciel_runtime, "active_router_client_pids") as active,
+            mock.patch.object(ciel_runtime, "terminate_active_router_clients") as terminate,
+        ):
+            stopped = ciel_runtime.terminate_existing_router_clients_for_launch(
+                "unit-test"
+            )
+
+        self.assertFalse(stopped)
+        active.assert_not_called()
+        terminate.assert_not_called()
+
+    def test_isolated_test_process_can_exercise_router_client_cleanup(self):
+        with (
+            mock.patch.dict(
+                os.environ,
+                {"CIEL_RUNTIME_TEST_ISOLATED": "1"},
+            ),
+            mock.patch.object(
+                ciel_runtime, "active_router_client_pids", return_value=[222]
+            ),
+            mock.patch.object(ciel_runtime, "router_log"),
+            mock.patch.object(
+                ciel_runtime, "terminate_active_router_clients", return_value=True
+            ) as terminate,
+        ):
+            stopped = ciel_runtime.terminate_existing_router_clients_for_launch(
+                "isolated-unit-test"
+            )
+
+        self.assertTrue(stopped)
+        terminate.assert_called_once_with("isolated-unit-test", [222], quiet=True)
+
     def test_codex_ollama_collection_preserves_cloud_provider(self):
         body = {"messages": [{"role": "user", "content": "hello"}]}
         pcfg = {"current_model": "deepseek-v4-flash:0731"}

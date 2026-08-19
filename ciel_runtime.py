@@ -3805,7 +3805,26 @@ def ciel_runtime_client_wrapper_parent_pids(pid: int) -> list[int]: return proce
 def terminate_pid_tree(pid: int, label: str, quiet: bool = False) -> bool: return process_tree_controller().terminate_tree(pid, label, quiet=quiet)
 def terminate_active_router_clients(reason: str, active_clients: list[int] | None = None, quiet: bool = True) -> bool: return router_client_registry().terminate_active(reason, active_clients, quiet=quiet)
 
+def _unisolated_test_process() -> bool:
+    """Return True when a test runner could touch the user's live state.
+
+    The supported test entrypoint sets ``CIEL_RUNTIME_TEST_ISOLATED`` before
+    importing this module.  Direct unittest/pytest discovery previously bound
+    CONFIG_DIR to the user's real profile and a launch test terminated an
+    active CIELARVIS Runtime client.  Destructive process cleanup must fail
+    closed even when a developer invokes the lower-level test command.
+    """
+    if parse_bool(os.environ.get("CIEL_RUNTIME_TEST_ISOLATED"), False):
+        return False
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return True
+    if "unittest" in sys.modules or "pytest" in sys.modules:
+        return True
+    return any(Path(str(argument)).name.startswith("test_") for argument in sys.argv[1:])
+
 def terminate_existing_router_clients_for_launch(reason: str, quiet: bool = True) -> bool:
+    if _unisolated_test_process():
+        return False
     active_clients = active_router_client_pids()
     if not active_clients:
         return False
