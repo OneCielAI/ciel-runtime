@@ -28,7 +28,11 @@ from .response_collection import (
     collect_anthropic_message_for_responses,
     collect_chat_message_for_responses,
 )
-from .upstream_error_policy import UpstreamStreamReadError, retryable_exception
+from .upstream_error_policy import (
+    UpstreamStreamReadError,
+    classify_upstream_failure,
+    retryable_exception,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,20 +202,19 @@ class ResponseCollectionContext:
     def retryable_kimi_capacity_error(
         provider: str, error: UpstreamSseError
     ) -> bool:
+        """Retry Kimi only for pressure, never for a rejected request.
+
+        Matching the code and the message as one lowercase string retried
+        anything whose code was ``internal_server_error``, so an invalid tool
+        schema was replayed up to ten times and then reported as capacity.
+        The shared classifier reads the declared type first and only falls
+        back to the message when the type is not decisive.
+        """
+
         if provider != "kimi" or error.output_started:
             return False
-        text = f"{error.code} {error.message}".lower()
-        return any(
-            marker in text
-            for marker in (
-                "internal_server_error",
-                "server_is_overloaded",
-                "slow_down",
-                "high demand",
-                "temporary errors",
-                "overload",
-                "capacity",
-            )
+        return (
+            classify_upstream_failure(None, error.code, error.message) == "overloaded"
         )
 
     @classmethod

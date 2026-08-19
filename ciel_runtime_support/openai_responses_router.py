@@ -8,7 +8,11 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .context_compaction import AutomaticContextCompactionCompleted
-from .upstream_error_policy import UpstreamStreamReadError
+from .upstream_error_policy import (
+    UpstreamFailure,
+    UpstreamStreamReadError,
+    anthropic_error_type_for_status,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,13 +81,14 @@ class OpenAIResponsesServices:
 
 
 def _responses_error_type(status: int) -> str:
-    if status == 401:
-        return "authentication_error"
-    if status == 403:
-        return "permission_error"
-    if status == 413:
-        return "request_too_large"
-    return "api_error"
+    """Name the failure the way the shared classifier does.
+
+    Reporting 400, 404, 409, 422 and 429 all as ``api_error`` left Codex with
+    no machine-readable difference between a rejected request and a provider
+    outage, even when the message said which one it was.
+    """
+
+    return anthropic_error_type_for_status(status)
 
 
 def handle_openai_responses_request(
@@ -193,6 +198,18 @@ def handle_openai_responses_request(
             stream=stream,
             status=exc.code,
             error_type=_responses_error_type(exc.code),
+        )
+    except UpstreamFailure as exc:
+        # The upstream status, type and message were all read before this was
+        # raised.  Answering with a generic local 500 is what made a rejected
+        # request look like a provider fault to Codex.
+        delivery.mark_failed(handler, f"responses_upstream_failure:{exc.category}")
+        output.write_error(
+            handler,
+            exc.message,
+            stream=stream,
+            status=exc.status_code,
+            error_type=exc.anthropic_error_type,
         )
     except UpstreamStreamReadError as exc:
         core.event_bus.publish(
@@ -311,6 +328,15 @@ def _handle_codex_route(
             status=exc.code,
             error_type=_responses_error_type(exc.code),
         )
+    except UpstreamFailure as exc:
+        delivery.mark_failed(handler, f"codex_responses_upstream_failure:{exc.category}")
+        output.write_error(
+            handler,
+            exc.message,
+            stream=bool(body.get("stream", True)),
+            status=exc.status_code,
+            error_type=exc.anthropic_error_type,
+        )
     except Exception as exc:
         if core.is_client_disconnect(exc):
             delivery.mark_failed(handler, f"codex_responses_client_disconnected:{type(exc).__name__}")
@@ -370,6 +396,19 @@ def _handle_provider_responses_route(
             stream=bool(body.get("stream", True)),
             status=exc.code,
             error_type=_responses_error_type(exc.code),
+        )
+    except UpstreamFailure as exc:
+        delivery.mark_failed(
+            handler, f"provider_responses_upstream_failure:{exc.category}"
+        )
+        output.write_error(
+            handler,
+            exc.message,
+            stream=bool(body.get("stream", True)),
+            status=exc.status_code,
+            error_type=exc.anthropic_error_type,
+            response_started=exc.output_started,
+            response_id=exc.response_id,
         )
     except UpstreamStreamReadError as exc:
         core.event_bus.publish(

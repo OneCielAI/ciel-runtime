@@ -10,6 +10,8 @@ from typing import Any, Callable
 
 from .initial_stream_retry import InitialStreamRetry
 from .upstream_error_policy import (
+    UpstreamFailure,
+    upstream_failure_in_payload,
     initial_stream_retries,
     retry_wait_seconds,
     retryable_exception,
@@ -86,36 +88,18 @@ class OpenAIForwardServices:
     log: Callable[[str, str], Any]
 
 
-def _http_error_payload(error: urllib.error.HTTPError) -> dict[str, Any]:
-    """Project one upstream HTTP error into an Anthropic-compatible envelope."""
-    raw = error.read().decode("utf-8", errors="replace")
-    error_type = {
-        400: "invalid_request_error",
-        401: "authentication_error",
-        403: "permission_error",
-        413: "request_too_large",
-    }.get(error.code, "upstream_error")
-    message = raw.strip() or str(error)
-    try:
-        payload = json.loads(raw)
-    except (TypeError, ValueError):
-        payload = None
-    if isinstance(payload, dict):
-        detail = payload.get("error")
-        if isinstance(detail, dict):
-            if error.code not in (401, 403, 413):
-                error_type = str(detail.get("type") or error_type).strip() or error_type
-            message = str(detail.get("message") or detail)
-        elif detail:
-            message = str(detail)
-        elif payload.get("message"):
-            if error.code not in (401, 403, 413):
-                error_type = str(payload.get("type") or error_type).strip() or error_type
-            message = str(payload["message"])
-    return {
-        "type": "error",
-        "error": {"type": error_type, "message": message},
-    }
+def _http_error_failure(
+    provider: str,
+    model: str,
+    error: urllib.error.HTTPError,
+    *,
+    output_started: bool,
+) -> UpstreamFailure:
+    """Read one upstream HTTP error into the shared failure model."""
+
+    return UpstreamFailure.from_http_error(
+        provider, model, error, output_started=output_started
+    )
 
 
 def _write_stream_error(handler: Any, payload: dict[str, Any]) -> None:
@@ -278,23 +262,13 @@ def forward_openai_compatible_chat(
             else:
                 response.mark_delivery_failed(handler, "openai_stream_error")
         except urllib.error.HTTPError as exc:
-            if exc.code not in (400, 401, 403, 413):
-                message = f"{type(exc).__name__}: {exc}"
-                response.mark_delivery_failed(
-                    handler, f"openai_stream_error:{type(exc).__name__}"
-                )
-                response.write_activity(
-                    "error", provider, model, error=type(exc).__name__, stream=True
-                )
-                start_stream()
-                streaming.write_blocks(
-                    handler,
-                    [{"type": "text", "text": f"Upstream error: {message}"}],
-                    index,
-                )
-                streaming.write_open_stop(handler)
-                return
-            payload = _http_error_payload(exc)
+            # Every upstream status is an error, including 429.  Writing one
+            # as ordinary assistant text used to hand Claude a 200 whose only
+            # content was "HTTPError: HTTP Error 429", so the session limit
+            # that actually stopped the turn never reached the CLI.
+            failure = _http_error_failure(
+                provider, model, exc, output_started=stream_started
+            )
             response.mark_delivery_failed(
                 handler, f"openai_stream_http_error:{exc.code}"
             )
@@ -302,9 +276,27 @@ def forward_openai_compatible_chat(
                 "error", provider, model, code=exc.code, stream=True
             )
             if stream_started:
-                _write_stream_error(handler, payload)
+                _write_stream_error(handler, failure.anthropic_payload())
             else:
-                response.write_json(handler, payload, exc.code)
+                response.write_json(
+                    handler, failure.anthropic_payload(), failure.status_code
+                )
+            return
+        except UpstreamFailure as exc:
+            # The provider status and message are known here, so this answers
+            # as an error even though the failure arrived as an exception.
+            response.mark_delivery_failed(
+                handler, f"openai_stream_upstream_failure:{exc.category}"
+            )
+            response.write_activity(
+                "error", provider, model, code=exc.status_code, stream=True
+            )
+            if stream_started:
+                _write_stream_error(handler, exc.anthropic_payload())
+            else:
+                response.write_json(
+                    handler, exc.anthropic_payload(), exc.status_code
+                )
             return
         except RuntimeError as exc:
             response.mark_delivery_failed(handler, f"openai_stream_runtime_error:{type(exc).__name__}")
@@ -353,16 +345,38 @@ def forward_openai_compatible_chat(
             timeout,
         )
     except urllib.error.HTTPError as exc:
-        if exc.code not in (400, 401, 403, 413):
-            raise
+        failure = _http_error_failure(provider, model, exc, output_started=False)
         response.mark_delivery_failed(handler, f"openai_http_error:{exc.code}")
         response.write_activity(
             "error", provider, model, code=exc.code, stream=False
         )
-        response.write_json(handler, _http_error_payload(exc), exc.code)
+        response.write_json(
+            handler, failure.anthropic_payload(), failure.status_code
+        )
+        return
+    except UpstreamFailure as exc:
+        # The transport already read the provider status, type and message.
+        # Reporting all of it as a local 500 is what made a rejected request
+        # look like a provider outage.
+        response.mark_delivery_failed(handler, f"openai_upstream_failure:{exc.category}")
+        response.write_json(handler, exc.anthropic_payload(), exc.status_code)
         return
     except RuntimeError as exc:
         response.write_json(handler, {"type": "error", "error": {"type": "upstream_error", "message": str(exc)}}, 500)
+        return
+    failure = upstream_failure_in_payload(provider, model, data)
+    if failure is not None:
+        # An OpenAI-compatible server can answer HTTP 200 with only an error
+        # object.  Decoding it for choices produced an empty `end_turn`, so
+        # the CLI reported a turn that did nothing instead of the quota or
+        # request error that actually stopped it.
+        response.mark_delivery_failed(handler, f"openai_payload_failure:{failure.category}")
+        response.write_activity(
+            "error", provider, model, code=failure.status_code, stream=False
+        )
+        response.write_json(
+            handler, failure.anthropic_payload(), failure.status_code
+        )
         return
     message = response.chat_to_anthropic(data, model, source_body=original_body)
     message = advisor.refine_message(provider, pcfg, original_body, message, model)

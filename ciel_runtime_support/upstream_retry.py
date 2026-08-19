@@ -12,12 +12,25 @@ import urllib.error
 import urllib.request
 
 from .upstream_error_policy import (
+    UpstreamFailure,
     ollama_request_validation_error,
     terminal_usage_limit_error,
 )
 
 
-_PRESERVED_HTTP_ERROR_STATUSES = frozenset({401, 403, 413, 429})
+def _preserves_upstream_status(error: urllib.error.HTTPError) -> bool:
+    """Whether the protocol layer must see this status instead of a local 500.
+
+    Every 4xx describes the request, not provider capacity.  Turning a 400,
+    404, 409 or 422 into a bare ``RuntimeError`` dropped the status entirely
+    and Ciel answered 500, so Codex showed provider overload while the real
+    fault was a tool schema, a model name, or a conversation state conflict.
+    """
+
+    code = getattr(error, "code", None)
+    return (
+        isinstance(code, int) and 400 <= code < 500
+    ) or hasattr(error, "ciel_runtime_upstream_status")
 
 
 def _preserved_http_error(
@@ -174,7 +187,6 @@ def post_json_with_rate_retry(
     write_router_activity = rate_limit.write_activity
     estimate_tokens = http.estimate_tokens
     provider_urlopen = http.provider_urlopen
-    upstream_http_error_message = http.upstream_http_error_message
     gateway_retries = configured_gateway_retries(pcfg)
     max_attempts = max(1, gateway_retries + 1)
     rate_limit_max_attempts = max(max_attempts, provider_api_key_count(provider, pcfg))
@@ -254,15 +266,15 @@ def post_json_with_rate_retry(
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
             write_router_activity("error", provider, model, code=exc.code, tokens=token_estimate, bytes=byte_estimate)
-            if exc.code in _PRESERVED_HTTP_ERROR_STATUSES or hasattr(
-                exc, "ciel_runtime_upstream_status"
-            ):
-                # Authentication/permission failures are terminal, not
-                # capacity errors. Preserve their status and body so callers
-                # never turn them into a retryable generic 500. The original
-                # stream was consumed above, so recreate it faithfully.
+            if _preserves_upstream_status(exc):
+                # Request-level failures are terminal, not capacity errors.
+                # Preserve their status and body so callers never turn them
+                # into a retryable generic 500. The original stream was
+                # consumed above, so recreate it faithfully.
                 raise _preserved_http_error(exc, raw_bytes) from exc
-            raise RuntimeError(upstream_http_error_message(exc, raw)) from exc
+            raise UpstreamFailure.from_http_error(
+                provider, model, exc, raw_bytes
+            ) from exc
         except (urllib.error.URLError, OSError) as exc:
             if retryable_upstream_exception(exc) and attempt + 1 < max_attempts:
                 retry_no = attempt + 1
@@ -457,7 +469,6 @@ def open_openai_stream_with_rate_retry(
     provider_stream_idle_timeout_seconds = http.stream_idle_timeout_seconds
     provider_urlopen = http.provider_urlopen
     set_upstream_stream_read_timeout = http.set_stream_read_timeout
-    upstream_http_error_message = http.upstream_http_error_message
     gateway_retries = configured_gateway_retries(pcfg)
     max_attempts = max(1, gateway_retries + 1)
     rate_limit_max_attempts = max(max_attempts, provider_api_key_count(provider, pcfg))
@@ -537,11 +548,11 @@ def open_openai_stream_with_rate_retry(
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
             write_router_activity("error", provider, model, code=exc.code, tokens=token_estimate, bytes=byte_estimate, stream=True)
-            if exc.code in _PRESERVED_HTTP_ERROR_STATUSES or hasattr(
-                exc, "ciel_runtime_upstream_status"
-            ):
+            if _preserves_upstream_status(exc):
                 raise _preserved_http_error(exc, raw_bytes) from exc
-            raise RuntimeError(upstream_http_error_message(exc, raw)) from exc
+            raise UpstreamFailure.from_http_error(
+                provider, model, exc, raw_bytes
+            ) from exc
         except (urllib.error.URLError, OSError) as exc:
             if retryable_upstream_exception(exc) and attempt + 1 < max_attempts:
                 retry_no = attempt + 1

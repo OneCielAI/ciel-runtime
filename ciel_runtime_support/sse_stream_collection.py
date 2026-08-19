@@ -90,6 +90,12 @@ def collect_openai_chat_stream(
     for payload in iter_sse_payloads(lines):
         chunks += 1
         error = payload.get("error")
+        if error is None and str(payload.get("type") or "") == "response.failed":
+            # The Responses wire reports a refusal as a terminal event whose
+            # error sits one level down.  Reading only the top level turned it
+            # into an empty successful turn.
+            failed = payload.get("response")
+            error = failed.get("error") if isinstance(failed, dict) else None
         if error is not None or str(payload.get("type") or "").lower() == "error":
             error = error if error is not None else payload
             if isinstance(error, dict):
@@ -204,6 +210,18 @@ def collect_anthropic_message_stream(
     for payload in iter_sse_payloads(lines):
         chunks += 1
         event_type = str(payload.get("type") or "")
+        if event_type == "error":
+            # Anthropic delivers an overload or a request rejection as an SSE
+            # error event inside an HTTP 200 stream.  Ignoring it left the
+            # collected message empty, so the CLI saw a turn that stopped for
+            # no stated reason.
+            error = payload.get("error")
+            error = error if isinstance(error, dict) else {}
+            raise UpstreamSseError(
+                str(error.get("type") or error.get("code") or "upstream_error"),
+                str(error.get("message") or error.get("detail") or "upstream stream error"),
+                output_started=bool(blocks),
+            )
         if event_type == "message_start":
             started = payload.get("message")
             if isinstance(started, dict):

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from typing import Any, Callable
+from .upstream_error_policy import upstream_failure_in_payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +173,9 @@ def collect_chat_message_for_responses(
         ),
         timeout,
     )
+    failure = upstream_failure_in_payload(provider, model, data)
+    if failure is not None:
+        raise failure
     message = strategy.decode_response(data, model, source_body=original_body)
     message = projection.refine_with_advisor(provider, pcfg, original_body, message, model)
     projection.remember_tool_uses(original_body, message)
@@ -243,6 +247,9 @@ def collect_anthropic_message_for_responses(
             payload = json.loads(raw_response.decode("utf-8", errors="replace"))
         if not isinstance(payload, dict):
             raise RuntimeError("upstream returned non-object JSON")
+        failure = upstream_failure_in_payload(provider, upstream_model, payload)
+        if failure is not None:
+            raise failure
         payload = projection.normalize_response_thinking(provider, pcfg, payload, upstream_model)
         payload = projection.append_synthetic_tasklist(payload, upstream_model, body, "native_json", provider=provider)
         notice = projection.rate_limit_notice(

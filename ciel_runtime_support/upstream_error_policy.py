@@ -55,6 +55,370 @@ def terminal_usage_limit_error(raw: str | bytes | None) -> bool:
     return any(marker in folded for marker in _TERMINAL_USAGE_LIMIT_MARKERS)
 
 
+_TERMINAL_ERROR_TYPES = {
+    "invalid_request_error": "invalid_request",
+    "invalid_request": "invalid_request",
+    "invalid_parameter_error": "invalid_request",
+    "authentication_error": "authentication",
+    "invalid_api_key": "authentication",
+    "permission_error": "permission",
+    "permission_denied": "permission",
+    "not_found_error": "not_found",
+    "model_not_found": "not_found",
+    "request_too_large": "request_too_large",
+    "context_length_exceeded": "request_too_large",
+}
+
+_CAPACITY_ERROR_TYPES = {
+    "rate_limit_error": "rate_limit",
+    "rate_limit_exceeded": "rate_limit",
+    "insufficient_quota": "rate_limit",
+    "quota_exceeded": "rate_limit",
+    "overloaded_error": "overloaded",
+    "server_is_overloaded": "overloaded",
+    "slow_down": "overloaded",
+}
+
+# Statuses whose meaning a provider label may not override.
+_TERMINAL_STATUS_CATEGORIES = {
+    400: "invalid_request",
+    401: "authentication",
+    403: "permission",
+    404: "not_found",
+    409: "conflict",
+    413: "request_too_large",
+    422: "invalid_request",
+}
+
+_OVERLOAD_MESSAGE_MARKERS = (
+    "overload",
+    "capacity",
+    "high demand",
+    "slow down",
+    "server is busy",
+    "temporarily unavailable",
+    "temporary errors",
+    "try again later",
+)
+
+_CATEGORY_DOWNSTREAM_STATUS = {
+    "invalid_request": 400,
+    "authentication": 401,
+    "permission": 403,
+    "not_found": 404,
+    "conflict": 409,
+    "request_too_large": 413,
+    "rate_limit": 429,
+    "overloaded": 503,
+    "timeout": 504,
+    "upstream_error": 502,
+}
+
+_CATEGORY_ANTHROPIC_TYPES = {
+    "invalid_request": "invalid_request_error",
+    "authentication": "authentication_error",
+    "permission": "permission_error",
+    "not_found": "not_found_error",
+    "conflict": "invalid_request_error",
+    "request_too_large": "request_too_large",
+    "rate_limit": "rate_limit_error",
+    "overloaded": "overloaded_error",
+    "timeout": "api_error",
+    "upstream_error": "api_error",
+}
+
+# A provider must never relabel these away from what Ciel observed.
+_PROTECTED_STATUS_TYPES = frozenset({401, 403, 413})
+
+_RETRYABLE_CATEGORIES = frozenset({"overloaded", "timeout"})
+
+
+def classify_upstream_failure(
+    status: int | None,
+    error_type: str | None,
+    message: str | None,
+) -> str:
+    """Name what actually went wrong upstream.
+
+    A terminal 4xx status is what Ciel itself observed on the wire, so it
+    outranks the label in the body: providers routinely answer 413 while
+    calling the failure an invalid request, and the size limit is the part the
+    CLI has to act on.  Where the status is not decisive, a declared terminal
+    type wins instead -- a provider answering HTTP 500 while naming an invalid
+    request is reporting a defect that no retry can fix.  Only then does the
+    message text get a vote, and only to recognize capacity pressure.
+    """
+
+    declared = str(error_type or "").strip().casefold()
+    text = str(message or "").casefold()
+    if status is not None and status in _TERMINAL_STATUS_CATEGORIES:
+        return _TERMINAL_STATUS_CATEGORIES[status]
+    terminal = _TERMINAL_ERROR_TYPES.get(declared)
+    if terminal:
+        return terminal
+    capacity = _CAPACITY_ERROR_TYPES.get(declared)
+    if capacity:
+        return capacity
+    if status == 429:
+        return "rate_limit"
+    if ollama_request_validation_error(text):
+        return "invalid_request"
+    if any(marker in text for marker in _OVERLOAD_MESSAGE_MARKERS):
+        return "overloaded"
+    if status in (502, 503, 504):
+        return "overloaded"
+    if status == 408:
+        return "timeout"
+    if status is not None and 400 <= status < 500:
+        return "invalid_request"
+    return "upstream_error"
+
+
+def anthropic_error_type_for_status(status: int) -> str:
+    """The Anthropic error type that matches one upstream HTTP status."""
+
+    category = classify_upstream_failure(status, "", "")
+    return _CATEGORY_ANTHROPIC_TYPES.get(category, "api_error")
+
+
+def _error_fields(payload: Any) -> tuple[str, str]:
+    """Pull (type, message) out of any provider error shape Ciel receives."""
+
+    if isinstance(payload, str):
+        return "", payload
+    if not isinstance(payload, Mapping):
+        return "", "" if payload is None else str(payload)
+    detail = payload.get("error")
+    if detail and isinstance(detail, (Mapping, str)):
+        error_type, message = _error_fields(detail)
+        if error_type or message:
+            return error_type, message
+    error_type = ""
+    for key in ("type", "code", "error_type"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            error_type = value.strip()
+            break
+    message = ""
+    for key in ("message", "detail", "error_message", "reason"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            message = value.strip()
+            break
+    if not message and error_type:
+        message = error_type
+    return error_type, message
+
+
+def _decoded(raw: Any) -> str:
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw).decode("utf-8", errors="replace")
+    return str(raw or "")
+
+
+def upstream_failure_in_payload(
+    provider: str,
+    model: str,
+    payload: Any,
+    *,
+    status: int | None = None,
+    source: str = "json_body",
+) -> "UpstreamFailure | None":
+    """Recognize an error object a provider returned with a success status.
+
+    OpenAI-compatible servers answer HTTP 200 with ``{"error": {...}}`` when a
+    quota or a request check fails.  A decoder that only looks for choices
+    reads that as a finished turn with no content, so the CLI shows an empty
+    ``end_turn`` instead of the reason it stopped.
+    """
+
+    if not isinstance(payload, Mapping):
+        return None
+    error = payload.get("error")
+    if not error:
+        return None
+    return UpstreamFailure.from_payload(
+        provider, model, payload, status=status, source=source
+    )
+
+
+class UpstreamFailure(RuntimeError):
+    """One faithful description of an upstream provider failure.
+
+    Ciel speaks three wires and reads errors out of four places: an HTTP
+    status, a JSON body returned with HTTP 200, an SSE error event, and a
+    transport fault.  Every conversion between those used to drop something --
+    the real status, the provider error type, or the original message -- and a
+    request defect then reached the CLI as provider overload or as an empty
+    successful turn.  Each error path builds this instead, so the same facts
+    survive to whichever protocol answers the client.
+
+    It stays a ``RuntimeError`` because the protocol boundaries already catch
+    that: handlers that know this type read the preserved fields, and handlers
+    that do not keep working unchanged.
+    """
+
+    def __init__(
+        self,
+        provider: str,
+        model: str,
+        *,
+        status: int | None = None,
+        error_type: str = "",
+        message: str = "",
+        source: str = "http_status",
+        body: Any = "",
+        output_started: bool = False,
+        response_id: str | None = None,
+    ) -> None:
+        self.provider = str(provider or "upstream")
+        self.model = str(model or "unknown")
+        self.upstream_status = int(status) if status is not None else None
+        self.error_type = str(error_type or "").strip()
+        self.message = (
+            str(message or "").strip() or self.error_type or "upstream request failed"
+        )
+        self.source = str(source or "http_status")
+        self.body = _decoded(body)
+        self.output_started = bool(output_started)
+        self.response_id = str(response_id or "").strip() or None
+        self.category = classify_upstream_failure(
+            self.upstream_status, self.error_type, self.message
+        )
+        super().__init__(self.detail())
+
+    @classmethod
+    def from_http_error(
+        cls,
+        provider: str,
+        model: str,
+        error: Any,
+        raw: Any = None,
+        *,
+        output_started: bool = False,
+    ) -> "UpstreamFailure":
+        if raw is None:
+            raw = getattr(error, "ciel_runtime_body", None)
+        if raw is None:
+            try:
+                raw = error.read()
+            except (AttributeError, OSError, ValueError):
+                raw = b""
+        body = _decoded(raw)
+        try:
+            payload = json.loads(body)
+        except (TypeError, ValueError):
+            payload = None
+        error_type, message = _error_fields(payload)
+        if not message:
+            message = body.strip() or str(getattr(error, "reason", "") or error)
+        status = getattr(error, "code", None)
+        return cls(
+            provider,
+            model,
+            status=status if isinstance(status, int) else None,
+            error_type=error_type,
+            message=message,
+            source="http_status",
+            body=body,
+            output_started=output_started,
+        )
+
+    @classmethod
+    def from_payload(
+        cls,
+        provider: str,
+        model: str,
+        payload: Any,
+        *,
+        status: int | None = None,
+        source: str = "json_body",
+        output_started: bool = False,
+        response_id: str | None = None,
+    ) -> "UpstreamFailure":
+        error_type, message = _error_fields(payload)
+        try:
+            body = json.dumps(payload, ensure_ascii=False)
+        except (TypeError, ValueError):
+            body = str(payload)
+        return cls(
+            provider,
+            model,
+            status=status,
+            error_type=error_type,
+            message=message,
+            source=source,
+            body=body,
+            output_started=output_started,
+            response_id=response_id,
+        )
+
+    @property
+    def retryable(self) -> bool:
+        """Whether replaying the same request can plausibly succeed."""
+
+        return self.category in _RETRYABLE_CATEGORIES and not self.output_started
+
+    @property
+    def rate_limited(self) -> bool:
+        return self.category == "rate_limit"
+
+    @property
+    def status_code(self) -> int:
+        """The status Ciel answers with when nothing was sent downstream yet.
+
+        The observed status is kept verbatim whenever it agrees with what the
+        failure means, so a 404 or a 422 reaches the CLI as itself.  It is
+        replaced only when the provider contradicted itself -- Ollama reports
+        a rejected prompt template as HTTP 500 -- because then the status
+        class is the part that is wrong.
+        """
+
+        mapped = _CATEGORY_DOWNSTREAM_STATUS.get(self.category, 502)
+        status = self.upstream_status
+        if status is None:
+            return mapped
+        if 400 <= status < 500 and 400 <= mapped < 500:
+            return status
+        if 500 <= status < 600 and mapped >= 500:
+            return status
+        return mapped
+
+    @property
+    def anthropic_error_type(self) -> str:
+        mapped = _CATEGORY_ANTHROPIC_TYPES.get(self.category, "api_error")
+        if self.upstream_status in _PROTECTED_STATUS_TYPES:
+            return mapped
+        return self.error_type or mapped
+
+    def detail(self) -> str:
+        status = (
+            f"HTTP {self.upstream_status}"
+            if self.upstream_status is not None
+            else f"{self.source} error"
+        )
+        label = f"{self.error_type}: " if self.error_type else ""
+        return (
+            f"Upstream provider '{self.provider}' returned {status} "
+            f"({label}{self.message}; model={self.model})"
+        )
+
+    def anthropic_payload(self) -> dict[str, Any]:
+        return {
+            "type": "error",
+            "error": {"type": self.anthropic_error_type, "message": self.message},
+        }
+
+    def openai_payload(self) -> dict[str, Any]:
+        return {
+            "error": {
+                "type": self.error_type or self.anthropic_error_type,
+                "message": self.message,
+                "code": self.error_type or self.category,
+            }
+        }
+
+
 class UpstreamStreamReadError(RuntimeError):
     """A provider response stream ended before Ciel could collect it.
 
