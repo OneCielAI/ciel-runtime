@@ -25,11 +25,11 @@ class ChannelTranscriptTests(unittest.TestCase):
             ChannelWakeStateReaderPorts(
                 latest_transcript=lambda: "transcript.jsonl",
                 read_tail_text=lambda _path: "tail",
-                wake_state_evidence_from_text=lambda message_id, text, prompts=(): (
+                wake_state_evidence_from_text=lambda message_id, text, prompts=(), **_kwargs: (
                     calls.append((message_id, text, prompts))
                     or WakeStateEvidence("queued")
                 ),
-                queued_age_from_text=lambda message_id, text, prompts: (
+                queued_age_from_text=lambda message_id, text, prompts, **_kwargs: (
                     calls.append((message_id, text, prompts)) or 31.0
                 ),
                 stale_seconds=lambda: 30.0,
@@ -65,6 +65,21 @@ class ChannelTranscriptTests(unittest.TestCase):
             prompt_message_ids=lambda text: {
                 int(token[1:]) for token in text.split() if token.startswith("#") and token[1:].isdigit()
             },
+            now=lambda: 100.0,
+        )
+
+    def real_wake_services(self):
+        # The production matcher: message-id references are authoritative,
+        # prompt-text containment is the fallback for raw tty prompts.
+        from ciel_runtime_support.channel_wake_claim_repository import (
+            prompt_message_ids,
+            prompt_references_message_id,
+        )
+
+        return ChannelWakeTranscriptServices(
+            claim_prompt=lambda _message_id: "",
+            prompt_references_message_id=prompt_references_message_id,
+            prompt_message_ids=prompt_message_ids,
             now=lambda: 100.0,
         )
 
@@ -175,7 +190,7 @@ class ChannelTranscriptTests(unittest.TestCase):
             ChannelWakeStateReaderPorts(
                 latest_transcript=lambda: "supervisor.jsonl",
                 read_tail_text=lambda _path: transcript,
-                wake_state_evidence_from_text=lambda message_id, text, prompts=(): wake_state_evidence_from_text(
+                wake_state_evidence_from_text=lambda message_id, text, prompts=(), **_kwargs: wake_state_evidence_from_text(
                     message_id, text, prompts, self.wake_services()
                 ),
                 queued_age_from_text=lambda *_args: None,
@@ -190,6 +205,111 @@ class ChannelTranscriptTests(unittest.TestCase):
         self.assertIn("prompt_record=1", logs[0][1])
         self.assertIn("completion_record=2", logs[0][1])
         self.assertIn("session_id=supervisor-session", logs[0][1])
+
+    def test_compact_continuation_and_local_commands_do_not_hold_a_turn_open(self):
+        # After /compact, Claude Code's transcript ends on user-role records
+        # (continuation summary, caveat, local-command echoes) with no
+        # assistant response — the CLI is idle at the prompt. Counting them
+        # as turn-opening input defers channel wakes forever.
+        records = [
+            json.dumps({"type": "user", "message": {"role": "user", "content": "real work"}}),
+            json.dumps({"type": "assistant", "message": {"role": "assistant", "stop_reason": "end_turn", "content": []}}),
+            # The raw slash command carries no distinguishing flag; the
+            # following <command-name> echo is what proves it was local.
+            json.dumps({"type": "user", "message": {"role": "user", "content": "/compact"}}),
+            json.dumps({"type": "user", "isMeta": True, "message": {"role": "user", "content": "<local-command-caveat>Caveat</local-command-caveat>"}}),
+            json.dumps({"type": "user", "message": {"role": "user", "content": "<command-name>/compact</command-name>"}}),
+            json.dumps({"type": "user", "message": {"role": "user", "content": "<local-command-stdout>Compacted</local-command-stdout>"}}),
+            json.dumps({"type": "user", "isCompactSummary": True, "message": {"role": "user", "content": "This session is being continued…"}}),
+        ]
+        self.assertFalse(active_turn_from_text("\n".join(records)))
+        typed = json.dumps({"type": "user", "message": {"role": "user", "content": "new question"}})
+        self.assertTrue(active_turn_from_text("\n".join((*records, typed))))
+
+    def test_compact_summary_echo_of_the_body_never_completes_a_wake(self):
+        body = "[CIELARVIS voice recovery] Voice is unavailable"
+        summary = json.dumps(
+            {
+                "type": "user",
+                "isCompactSummary": True,
+                "timestamp": "2026-08-19T05:10:00Z",
+                "message": {"role": "user", "content": f"Summary quotes: {body}"},
+            }
+        )
+        assistant = json.dumps({"type": "assistant", "message": {"role": "assistant"}})
+
+        evidence = wake_state_evidence_from_text(
+            109, "\n".join((summary, assistant)), [body], self.real_wake_services()
+        )
+
+        self.assertEqual("missing", evidence.state)
+
+    def test_tool_result_echo_of_the_body_never_completes_a_wake(self):
+        # An agent grepping logs prints past message bodies into tool results
+        # (persisted as user-role records). Template messages repeat verbatim,
+        # so counting those as delivery evidence silently drops re-sends.
+        body = "[CIELARVIS voice recovery] Voice is unavailable"
+        tool_echo = json.dumps(
+            {
+                "type": "user",
+                "timestamp": "2026-08-18T04:25:55Z",
+                "message": {
+                    "role": "user",
+                    "content": [
+                        {"type": "tool_result", "tool_use_id": "t1", "content": "=== id 104 " + body}
+                    ],
+                },
+            }
+        )
+        assistant = json.dumps({"type": "assistant", "message": {"role": "assistant"}})
+
+        evidence = wake_state_evidence_from_text(
+            108, "\n".join((tool_echo, assistant)), [body], self.real_wake_services()
+        )
+
+        self.assertEqual("missing", evidence.state)
+
+    def test_records_older_than_the_message_never_complete_its_wake(self):
+        body = "[CIELARVIS voice recovery] Voice is unavailable"
+        old_prompt = json.dumps(
+            {
+                "type": "user",
+                "timestamp": "2026-08-18T02:33:00Z",
+                "message": {"role": "user", "content": body},
+            }
+        )
+        assistant = json.dumps({"type": "assistant", "message": {"role": "assistant"}})
+        text = "\n".join((old_prompt, assistant))
+        services = self.real_wake_services()
+        from datetime import datetime, timezone
+
+        created = datetime(2026, 8, 18, 4, 52, 44, tzinfo=timezone.utc).timestamp()
+        stale = wake_state_evidence_from_text(
+            108, text, [body], services, not_before=created - 5.0
+        )
+        self.assertEqual("missing", stale.state)
+        # The identical prompt typed AFTER the message was created still counts.
+        fresh_prompt = json.dumps(
+            {
+                "type": "user",
+                "timestamp": "2026-08-18T04:53:10Z",
+                "message": {"role": "user", "content": body},
+            }
+        )
+        fresh = wake_state_evidence_from_text(
+            108,
+            "\n".join((fresh_prompt, assistant)),
+            [body],
+            services,
+            not_before=created - 5.0,
+        )
+        self.assertEqual("completed", fresh.state)
+
+    def test_reader_anchors_evidence_at_the_message_creation_time(self):
+        self.assertEqual(
+            995.0, ChannelWakeStateReader.message_not_before({"created_at_epoch": 1000.0})
+        )
+        self.assertIsNone(ChannelWakeStateReader.message_not_before({"id": 5}))
 
     def test_prompt_candidates_prevent_incidental_id_from_completing_wake(self):
         transcript = "\n".join(

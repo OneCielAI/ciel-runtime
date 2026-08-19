@@ -407,9 +407,15 @@ class ChannelWakeContext:
         prompt_texts: list[str] | tuple[str, ...] | None = None,
         *,
         now: float | None = None,
+        not_before: float | None = None,
     ) -> float | None:
         return self.transcript.queued_age_from_text(
-            message_id, text, prompt_texts, self.transcript_services(), now=now
+            message_id,
+            text,
+            prompt_texts,
+            self.transcript_services(),
+            now=now,
+            not_before=not_before,
         )
 
     def wake_state_from_text(
@@ -417,9 +423,11 @@ class ChannelWakeContext:
         message_id: int,
         text: str,
         prompt_texts: list[str] | tuple[str, ...] | None = None,
+        *,
+        not_before: float | None = None,
     ) -> str:
         return self.wake_state_evidence_from_text(
-            message_id, text, prompt_texts
+            message_id, text, prompt_texts, not_before=not_before
         ).state
 
     def wake_state_evidence_from_text(
@@ -427,9 +435,15 @@ class ChannelWakeContext:
         message_id: int,
         text: str,
         prompt_texts: list[str] | tuple[str, ...] | None = None,
+        *,
+        not_before: float | None = None,
     ) -> WakeStateEvidence:
         return self.transcript.wake_state_evidence_from_text(
-            message_id, text, prompt_texts, self.transcript_services()
+            message_id,
+            text,
+            prompt_texts,
+            self.transcript_services(),
+            not_before=not_before,
         )
 
     def wake_state_reader(self) -> ChannelWakeStateReader:

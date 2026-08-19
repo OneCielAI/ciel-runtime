@@ -67,6 +67,24 @@ class ChannelWakeStateReader:
         self._log_evidence(path, message_id, evidence)
         return evidence.state
 
+    @staticmethod
+    def message_not_before(message: dict[str, Any]) -> float | None:
+        """Evidence horizon: transcript records older than the message itself
+        can never prove ITS delivery.  Bodies repeat verbatim (fixed templates,
+        re-sent text), so an unanchored text match against an older turn
+        silently completes a wake that never happened."""
+
+        raw = message.get("created_at_epoch")
+        if isinstance(raw, (int, float)) and raw > 0:
+            return float(raw) - 5.0
+        text = str(message.get("time") or "").strip()
+        if not text:
+            return None
+        try:
+            return datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp() - 5.0
+        except (TypeError, ValueError):
+            return None
+
     def state_for_message(
         self, message: dict[str, Any], prompt: str | None = None
     ) -> str:
@@ -77,7 +95,10 @@ class ChannelWakeStateReader:
         if not text:
             return "unknown"
         evidence = self._ports.wake_state_evidence_from_text(
-            message_id, text, self.prompt_candidates(message, prompt)
+            message_id,
+            text,
+            self.prompt_candidates(message, prompt),
+            not_before=self.message_not_before(message),
         )
         self._log_evidence(path, message_id, evidence)
         return evidence.state
@@ -92,7 +113,10 @@ class ChannelWakeStateReader:
         if not text:
             return False
         age = self._ports.queued_age_from_text(
-            message_id, text, self.prompt_candidates(message, prompt)
+            message_id,
+            text,
+            self.prompt_candidates(message, prompt),
+            not_before=self.message_not_before(message),
         )
         return age is not None and age >= self._ports.stale_seconds()
 
@@ -173,6 +197,72 @@ def user_text(record: dict[str, Any]) -> str:
     if record_type == "event_msg" and payload_type == "user_message":
         return content_text(payload_obj.get("message"))
     return ""
+
+
+_LOCAL_COMMAND_MARKERS = (
+    "<command-name>",
+    "<local-command-stdout>",
+    "<local-command-caveat>",
+)
+
+
+def _is_local_command_echo(record: dict[str, Any]) -> bool:
+    message = record.get("message")
+    message_obj = message if isinstance(message, dict) else {}
+    text = content_text(message_obj.get("content")).lstrip()
+    return text.startswith(("<command-name>", "<local-command-stdout>"))
+
+
+def is_non_turn_user_record(record: dict[str, Any]) -> bool:
+    """User-role bookkeeping that opens no model turn and types no prompt.
+
+    Transcript-record twin of the request-side classifier
+    conversation_turn_policy.user_intent_text_from_message (isMeta and
+    state-metadata records are not user intent) — that discrimination was
+    lost for the transcript layer when the console-wake projection was added.
+    Claude Code persists compact-continuation summaries, meta caveats,
+    display-only records, and local slash-command records as user records
+    WITHOUT a following assistant response.  Treating them as turn-opening
+    input stalls channel wakes forever after a /compact; treating their text
+    as typed-prompt evidence falsely completes wakes (summaries echo past
+    message bodies verbatim).
+    """
+
+    if (
+        record.get("isCompactSummary") is True
+        or record.get("isMeta") is True
+        or record.get("isVisibleInTranscriptOnly") is True
+    ):
+        return True
+    message = record.get("message")
+    message_obj = message if isinstance(message, dict) else {}
+    text = content_text(message_obj.get("content")).lstrip()
+    return text.startswith(_LOCAL_COMMAND_MARKERS)
+
+
+def is_typed_user_prompt(record: dict[str, Any]) -> bool:
+    """True only for user text that was actually TYPED into the CLI.
+
+    Tool results are persisted as user-role records too; their content is tool
+    OUTPUT (log greps, file dumps) that can echo any past message body or wake
+    marker verbatim.  Counting them as delivery evidence silently completes
+    wakes that never happened, so prompt confirmation must ignore them.
+    """
+
+    if is_non_turn_user_record(record):
+        return False
+    record_type = str(record.get("type") or "")
+    message = record.get("message")
+    message_obj = message if isinstance(message, dict) else {}
+    if record_type == "user" or str(message_obj.get("role") or "") == "user":
+        content = message_obj.get("content")
+        if isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and str(block.get("type") or "") == "tool_result":
+                    return False
+        return True
+    # Codex projections (response_item / event_msg) never carry tool results.
+    return True
 
 
 def is_assistant_message(record: dict[str, Any]) -> bool:
@@ -329,7 +419,14 @@ def active_turn_from_text(text: str) -> bool:
         message_obj = message if isinstance(message, dict) else {}
         message_role = str(message_obj.get("role") or "")
         if record_type == "user" or message_role == "user":
-            active = True
+            if _is_local_command_echo(record):
+                # The CLI echoes `<command-name>`/`<local-command-stdout>`
+                # right after a typed slash command: the preceding user line
+                # (e.g. a bare "/compact", which carries no distinguishing
+                # flag) was handled locally and no model turn will follow.
+                active = False
+            elif not is_non_turn_user_record(record):
+                active = True
         elif record_type == "assistant" or message_role == "assistant":
             stop_reason = str(message_obj.get("stop_reason") or "").strip().lower()
             # Claude's persisted assistant records are complete messages, not
@@ -348,6 +445,7 @@ def queued_age_seconds_from_text(
     services: ChannelWakeTranscriptServices,
     *,
     now: float | None = None,
+    not_before: float | None = None,
 ) -> float | None:
     if message_id <= 0:
         return None
@@ -367,7 +465,7 @@ def queued_age_seconds_from_text(
             if isinstance(attachment, dict) and attachment.get("type") == "queued_command":
                 raw = attachment.get("prompt")
                 candidate = raw if isinstance(raw, str) else ""
-        actual_user_text = user_text(record)
+        actual_user_text = _evidence_user_text(record, not_before)
         if actual_user_text and services.prompt_references_message_id(
             actual_user_text, message_id, prompts
         ):
@@ -388,9 +486,11 @@ def wake_state_from_text(
     text: str,
     prompt_texts: list[str] | tuple[str, ...] | None,
     services: ChannelWakeTranscriptServices,
+    *,
+    not_before: float | None = None,
 ) -> str:
     return wake_state_evidence_from_text(
-        message_id, text, prompt_texts, services
+        message_id, text, prompt_texts, services, not_before=not_before
     ).state
 
 
@@ -399,6 +499,8 @@ def wake_state_evidence_from_text(
     text: str,
     prompt_texts: list[str] | tuple[str, ...] | None,
     services: ChannelWakeTranscriptServices,
+    *,
+    not_before: float | None = None,
 ) -> WakeStateEvidence:
     if message_id <= 0:
         return WakeStateEvidence("completed")
@@ -436,17 +538,15 @@ def wake_state_evidence_from_text(
                     seen_queued_prompt = True
                     queued_record = record_index
             continue
-        record_user_text = user_text(record)
-        prompt_confirmed = (
-            any(
-                _normalized_prompt(prompt) in _normalized_prompt(record_user_text)
-                for prompt in prompts
-                if _normalized_prompt(prompt)
-            )
-            if prompts
-            else services.prompt_references_message_id(
-                record_user_text, message_id, prompts
-            )
+        record_user_text = _evidence_user_text(record, not_before)
+        # Delivery confirmation follows the original (pre-45f4c60) semantics:
+        # a message-id reference is authoritative, the prompt-text containment
+        # check is only the fallback for raw tty prompts that carry no id.
+        # 45f4c60 had replaced this with body-substring matching whenever
+        # prompt candidates existed, which let any old record with the same
+        # template body complete a wake that never happened.
+        prompt_confirmed = bool(record_user_text) and services.prompt_references_message_id(
+            record_user_text, message_id, prompts
         )
         if prompt_confirmed:
             seen_real_prompt = True
@@ -469,8 +569,18 @@ def wake_state_evidence_from_text(
     return WakeStateEvidence("missing")
 
 
-def _normalized_prompt(value: str) -> str:
-    return " ".join(str(value or "").split())
+def _evidence_user_text(record: dict[str, Any], not_before: float | None) -> str:
+    """User text admissible as delivery evidence: typed prompts only, and —
+    when an evidence horizon is given — records no older than the message
+    whose delivery they would prove."""
+
+    if not is_typed_user_prompt(record):
+        return ""
+    if not_before is not None:
+        timestamp = record_timestamp_seconds(record)
+        if timestamp is None or timestamp < not_before:
+            return ""
+    return user_text(record)
 
 
 def queued_command_ids_from_text(
