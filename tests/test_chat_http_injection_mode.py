@@ -212,6 +212,42 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
         self.assertEqual(400, responses[0][0])
         self.assertEqual("mcp_response_requires_server", responses[0][1]["error"])
 
+    def test_web_only_delivery_is_published_but_never_mirrored_to_the_input_queue(self):
+        # The reply tool posts the agent's acks/replies with delivery=["web"].
+        # They are model output: publishing to chat is correct, mirroring into
+        # the runtime-input queue replays them as pending model input and
+        # blocks later router-transport deliveries.
+        calls = []
+        responses = []
+        controller = self.controller(calls, responses)
+        body = {
+            "kind": "ack",
+            "sender_id": "claude-code",
+            "recipients": ["web"],
+            "delivery": ["web"],
+            "message": "received",
+            "meta": {"source": "ciel-runtime-router-tool"},
+        }
+
+        self.assertTrue(controller.post(Handler(), "/ca/chat/messages", body))
+
+        self.assertEqual(["append"], [name for name, _args in calls])
+        self.assertEqual(200, responses[0][0])
+
+    def test_llm_routed_and_route_less_deliveries_still_reach_the_input_queue(self):
+        for delivery in (None, ["llm", "native"], ["all"]):
+            calls = []
+            responses = []
+            controller = self.controller(calls, responses)
+            body = {"message": "question"}
+            if delivery is not None:
+                body["delivery"] = delivery
+
+            self.assertTrue(controller.post(Handler(), "/ca/chat/messages", body))
+
+            self.assertEqual(["append", "web"], [name for name, _args in calls], delivery)
+            self.assertEqual(200, responses[0][0])
+
 
 if __name__ == "__main__":
     unittest.main()

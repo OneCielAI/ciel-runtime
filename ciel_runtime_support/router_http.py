@@ -27,6 +27,7 @@ from ciel_runtime_support.codex_reasoning_rejects import (
 from ciel_runtime_support.responses_input_compatibility import (
     repair_replayed_response_items,
 )
+from ciel_runtime_support.channel_llm_context import ChannelLlmInjectionDeferred
 from ciel_runtime_support.request_body_policy import (
     RequestBodyCapacityExceeded,
     RequestBodyTooLarge,
@@ -962,6 +963,20 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
                     services,
                     status=503,
                     error_type="router_busy",
+                    message=str(exc),
+                )
+                return
+            except ChannelLlmInjectionDeferred as exc:
+                # A wake request whose pending body must wait for an earlier
+                # terminal-owned message.  This is an expected, retryable
+                # ordering condition — answer with a structured 503 (the
+                # client backs off; runtime-side wake retry/fallback recovers
+                # delivery), never an uncaught 500 with a traceback.
+                self._write_request_error(
+                    path,
+                    services,
+                    status=503,
+                    error_type="channel_injection_deferred",
                     message=str(exc),
                 )
                 return

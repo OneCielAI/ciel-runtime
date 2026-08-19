@@ -21,6 +21,24 @@ CHAT_RESPONSE_MODES = frozenset({"web_chat", "tty", "mcp"})
 MCP_HINT_FIELD_LIMITS = {"server": 160, "tool": 240, "hint": 1200}
 
 
+def _delivery_requests_llm(body: dict[str, Any]) -> bool:
+    """Whether a structured admission is routed toward the model at all.
+
+    The private runtime-input queue holds pending MODEL INPUT.  A structured
+    POST that declares an explicit delivery route without an LLM component —
+    e.g. the reply tool's acks and replies with delivery=["web"] — is outbound
+    traffic: it belongs in the public transcript, never in the input queue.
+    Mirroring it there replays the model's own words back as pending input and
+    (with input_transport stamps) blocks later router-transport deliveries.
+    """
+
+    delivery = body.get("delivery")
+    if not isinstance(delivery, list) or not delivery:
+        return True
+    routes = {str(item).strip().lower() for item in delivery}
+    return bool({"llm", "all", "*"} & routes)
+
+
 @dataclass(frozen=True, slots=True)
 class ChatHttpReadServices:
     read_after: Callable[[int, str | None, str | None, int], list[dict[str, Any]]]
@@ -372,7 +390,7 @@ class ChatHttpController:
                 )
                 return True
             message = self.writes.append_message(admitted_body)
-            if self.writes.submit_message is not None:
+            if self.writes.submit_message is not None and _delivery_requests_llm(admitted_body):
                 self.writes.submit_message(message, admitted_body)
             self.writes.write_json(
                 handler,

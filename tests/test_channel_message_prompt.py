@@ -250,6 +250,22 @@ class ChannelMessagePromptTests(unittest.TestCase):
         self.assertEqual("status", llm_message_skip_reason(control))
         self.assertEqual("native_router_self_echo", llm_message_skip_reason(self_echo))
 
+    def test_skip_policy_rejects_reply_tool_output_even_when_queued_as_llm_input(self):
+        # A mirrored ack/reply record: delivery=["llm"], private visibility,
+        # authored by the runtime's reply tool.  It is model output and must
+        # never survive the scan as pending model input (it would block later
+        # router-transport deliveries and replay the model's own words).
+        mirrored_ack = {
+            "sender_id": "claude-code",
+            "kind": "ack",
+            "message": "received, replying shortly",
+            "recipients": ["web"],
+            "delivery": ["llm"],
+            "visibility": "private_runtime",
+            "meta": {"source": "ciel-runtime-router-tool", "input_transport": "tty"},
+        }
+        self.assertEqual("router_tool_self_echo", llm_message_skip_reason(mirrored_ack))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -379,6 +379,12 @@ def llm_message_skip_reason(message: dict[str, Any]) -> str | None:
     sender = str(message.get("sender_id") or meta.get("sender_id") or "").strip().lower()
     if source in NATIVE_ROUTER_CHANNEL_NAMES or sender in NATIVE_ROUTER_CHANNEL_NAMES:
         return "native_router_self_echo"
+    if source == "ciel-runtime-router-tool":
+        # Authored through the runtime's own reply tool: this is model OUTPUT
+        # (an ack/reply routed to the browser), never pending model input.
+        # Skipping it also advances the scan cursor past queue records that
+        # were mirrored before the admission-side delivery gate existed.
+        return "router_tool_self_echo"
     meta_kind = str(
         meta.get("kind")
         or meta.get("type")
