@@ -10,6 +10,7 @@ import threading
 from collections.abc import Mapping
 from typing import Any, Callable
 
+from .terminal_platform_io import TERMINAL_INPUT_MODE_RESET
 from .windows_command_line import command_line_for_create_process
 
 
@@ -185,7 +186,6 @@ class WindowsConPtySession:
                     self._kernel32.WaitForSingleObject(self._process_handle, 2000)
             except OSError:
                 pass
-        self._restore_parent_console()
         if self._input_handle and self._kernel32:
             try:
                 self._kernel32.CloseHandle(self._input_handle)
@@ -200,6 +200,14 @@ class WindowsConPtySession:
         if self._output_thread is not None:
             self._output_thread.join(timeout=1.0)
         self._stop.set()
+        # Interactive TUIs enable DEC mouse/focus reporting in the terminal
+        # emulator.  A normal CLI shutdown disables those modes itself, but a
+        # crash leaves Windows Terminal sending sequences such as
+        # ``ESC[<35;29;23M`` into the parent shell on every mouse move.  The
+        # Win32 console-mode restore below cannot clear emulator-owned DEC
+        # state, so reset it explicitly while VT output is still enabled.
+        self._reset_parent_terminal_modes()
+        self._restore_parent_console()
         if self._output_handle and self._kernel32:
             try:
                 self._kernel32.CloseHandle(self._output_handle)
@@ -209,6 +217,21 @@ class WindowsConPtySession:
         if self._process_handle and self._kernel32:
             self._kernel32.CloseHandle(self._process_handle)
             self._process_handle = None
+
+    def _reset_parent_terminal_modes(self) -> None:
+        if not self._mirror_output:
+            return
+        try:
+            if self._stdout_console_handle is not None:
+                self._write_console_text(TERMINAL_INPUT_MODE_RESET)
+                return
+            data = TERMINAL_INPUT_MODE_RESET.encode("ascii")
+            view = memoryview(data)
+            while view:
+                view = view[os.write(self._stdout_fd, view) :]
+        except (OSError, ValueError):
+            # Cleanup must never mask the child process's real exit status.
+            return
 
     def _create(self, cmd: list[str], env: Mapping[str, str]) -> None:
         import ctypes

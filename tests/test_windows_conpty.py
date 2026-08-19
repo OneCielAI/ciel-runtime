@@ -102,6 +102,28 @@ class WindowsConPtyPolicyTests(unittest.TestCase):
         self.assertEqual(payload, "".join(captured))
         self.assertIsNone(session._output_decoder)
 
+    def test_close_reset_disables_terminal_mouse_reporting_after_tui_crash(self):
+        session = object.__new__(WindowsConPtySession)
+        session._mirror_output = True
+        session._stdout_console_handle = 44
+        session._write_console_text = mock.Mock()
+
+        session._reset_parent_terminal_modes()
+
+        reset = session._write_console_text.call_args.args[0]
+        self.assertIn("\x1b[?1003l", reset)
+        self.assertIn("\x1b[?1006l", reset)
+
+    def test_headless_conpty_does_not_write_terminal_reset(self):
+        session = object.__new__(WindowsConPtySession)
+        session._mirror_output = False
+        session._stdout_console_handle = 44
+        session._write_console_text = mock.Mock()
+
+        session._reset_parent_terminal_modes()
+
+        session._write_console_text.assert_not_called()
+
     def test_explicit_redirect_keeps_raw_bytes(self):
         session = object.__new__(WindowsConPtySession)
         session._stdout_console_handle = None
