@@ -17,6 +17,27 @@ _TERMINAL_USAGE_LIMIT_MARKERS = (
     "purchase extra usage",
 )
 
+_OLLAMA_REQUEST_VALIDATION_MARKERS = (
+    "system message must be at the beginning",
+)
+
+
+def ollama_request_validation_error(raw: str | bytes | None) -> bool:
+    """Recognize deterministic model-template request rejection from Ollama.
+
+    Ollama currently reports some template validation failures as HTTP 500.
+    Retrying such a request cannot succeed and presenting it as provider
+    overload hides the actionable error.  Keep this deliberately narrow:
+    genuine Ollama runner failures must remain server errors.
+    """
+
+    if isinstance(raw, bytes):
+        value = raw.decode("utf-8", errors="ignore")
+    else:
+        value = str(raw or "")
+    folded = value.casefold()
+    return any(marker in folded for marker in _OLLAMA_REQUEST_VALIDATION_MARKERS)
+
 
 def terminal_usage_limit_error(raw: str | bytes | None) -> bool:
     """Return whether a rate-limit response requires account action.

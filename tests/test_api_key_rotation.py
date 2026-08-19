@@ -999,6 +999,47 @@ class ApiKeyRotationTests(unittest.TestCase):
         self.assertIn("FreeUsageLimitError", caught.exception.read().decode("utf-8"))
         sleep.assert_not_called()
 
+    def test_ollama_template_validation_500_is_terminal_actionable_400(self):
+        pcfg = self.provider_pcfg(
+            "ollama", current_model="qwen3.8:27b", gateway_retries=10
+        )
+        calls = []
+
+        def rejected(*args, **kwargs):
+            calls.append((args, kwargs))
+            raise urllib.error.HTTPError(
+                "http://10.0.0.146:11434/api/chat",
+                500,
+                "Internal Server Error",
+                {},
+                io.BytesIO(b'{"error":"system message must be at the beginning"}'),
+            )
+
+        with (
+            mock.patch.object(ciel_runtime.urllib.request, "urlopen", side_effect=rejected),
+            mock.patch.object(ciel_runtime, "write_router_activity"),
+            mock.patch.object(ciel_runtime, "learn_router_rate_limit_headers"),
+            mock.patch.object(ciel_runtime.time, "sleep") as sleep,
+        ):
+            with self.assertRaises(urllib.error.HTTPError) as caught:
+                ciel_runtime.open_openai_stream_with_rate_retry(
+                    "http://10.0.0.146:11434/api/chat",
+                    {"model": "qwen3.8:27b", "messages": [], "stream": True},
+                    {},
+                    120.0,
+                    "ollama",
+                    pcfg,
+                    "qwen3.8:27b",
+                )
+
+        self.assertEqual(1, len(calls))
+        self.assertEqual(400, caught.exception.code)
+        self.assertEqual(500, caught.exception.ciel_runtime_upstream_status)
+        body = caught.exception.read().decode("utf-8")
+        self.assertIn("Upstream Ollama rejected the request (HTTP 500)", body)
+        self.assertIn("system message must be at the beginning", body)
+        sleep.assert_not_called()
+
     def test_compatibility_api_key_probe_uses_provider_specific_routes(self):
         cases = [
             ("ollama-cloud", "glm-5.1", "/api/chat"),

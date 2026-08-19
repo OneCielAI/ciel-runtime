@@ -11,7 +11,10 @@ from typing import Any, Callable
 import urllib.error
 import urllib.request
 
-from .upstream_error_policy import terminal_usage_limit_error
+from .upstream_error_policy import (
+    ollama_request_validation_error,
+    terminal_usage_limit_error,
+)
 
 
 _PRESERVED_HTTP_ERROR_STATUSES = frozenset({401, 403, 413, 429})
@@ -33,7 +36,53 @@ def _preserved_http_error(
     # inspected the error.  Keep an immutable copy instead of relying on the
     # one-shot HTTPError.fp stream.
     preserved.ciel_runtime_body = raw_bytes
+    upstream_status = getattr(error, "ciel_runtime_upstream_status", None)
+    if upstream_status is not None:
+        preserved.ciel_runtime_upstream_status = upstream_status
     return preserved
+
+
+def _normalized_provider_http_error(
+    provider: str,
+    error: urllib.error.HTTPError,
+    raw_bytes: bytes,
+) -> tuple[urllib.error.HTTPError, bytes]:
+    """Normalize provider bugs that encode request validation as server load."""
+
+    if (
+        str(provider or "").casefold() == "ollama"
+        and error.code == 500
+        and ollama_request_validation_error(raw_bytes)
+    ):
+        detail = raw_bytes.decode("utf-8", errors="replace")
+        try:
+            payload = json.loads(detail)
+            if isinstance(payload, dict) and payload.get("error"):
+                detail = str(payload["error"])
+        except (TypeError, ValueError):
+            pass
+        normalized_bytes = json.dumps(
+            {
+                "error": {
+                    "type": "invalid_request_error",
+                    "message": (
+                        "Upstream Ollama rejected the request (HTTP 500): "
+                        f"{detail.strip() or 'request validation failed'}"
+                    ),
+                }
+            }
+        ).encode("utf-8")
+        normalized = urllib.error.HTTPError(
+            error.url,
+            400,
+            "Ollama request validation failed",
+            error.headers,
+            io.BytesIO(normalized_bytes),
+        )
+        normalized.ciel_runtime_upstream_status = error.code
+        normalized.ciel_runtime_body = normalized_bytes
+        return normalized, normalized_bytes
+    return error, raw_bytes
 
 
 def _http_error_log_message(message: object, *, limit: int = 512) -> str:
@@ -153,6 +202,7 @@ def post_json_with_rate_retry(
                 return data
         except urllib.error.HTTPError as exc:
             raw_bytes = exc.read()
+            exc, raw_bytes = _normalized_provider_http_error(provider, exc, raw_bytes)
             raw = raw_bytes.decode("utf-8", errors="ignore")
             learn_router_rate_limit_headers(provider, pcfg, model, exc.headers)
             terminal_usage_limit = exc.code == 429 and terminal_usage_limit_error(raw)
@@ -204,7 +254,9 @@ def post_json_with_rate_retry(
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
             write_router_activity("error", provider, model, code=exc.code, tokens=token_estimate, bytes=byte_estimate)
-            if exc.code in _PRESERVED_HTTP_ERROR_STATUSES:
+            if exc.code in _PRESERVED_HTTP_ERROR_STATUSES or hasattr(
+                exc, "ciel_runtime_upstream_status"
+            ):
                 # Authentication/permission failures are terminal, not
                 # capacity errors. Preserve their status and body so callers
                 # never turn them into a retryable generic 500. The original
@@ -288,6 +340,9 @@ def open_provider_request_with_key_retry(
             return resp
         except urllib.error.HTTPError as original_exc:
             raw_bytes = original_exc.read()
+            original_exc, raw_bytes = _normalized_provider_http_error(
+                provider, original_exc, raw_bytes
+            )
             raw = raw_bytes.decode("utf-8", errors="replace")
             error_message = _http_error_log_message(
                 upstream_http_error_message(original_exc, raw)
@@ -430,6 +485,7 @@ def open_openai_stream_with_rate_retry(
             return resp
         except urllib.error.HTTPError as exc:
             raw_bytes = exc.read()
+            exc, raw_bytes = _normalized_provider_http_error(provider, exc, raw_bytes)
             raw = raw_bytes.decode("utf-8", errors="ignore")
             learn_router_rate_limit_headers(provider, pcfg, model, exc.headers)
             terminal_usage_limit = exc.code == 429 and terminal_usage_limit_error(raw)
@@ -481,7 +537,9 @@ def open_openai_stream_with_rate_retry(
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
             write_router_activity("error", provider, model, code=exc.code, tokens=token_estimate, bytes=byte_estimate, stream=True)
-            if exc.code in _PRESERVED_HTTP_ERROR_STATUSES:
+            if exc.code in _PRESERVED_HTTP_ERROR_STATUSES or hasattr(
+                exc, "ciel_runtime_upstream_status"
+            ):
                 raise _preserved_http_error(exc, raw_bytes) from exc
             raise RuntimeError(upstream_http_error_message(exc, raw)) from exc
         except (urllib.error.URLError, OSError) as exc:

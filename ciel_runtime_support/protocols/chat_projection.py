@@ -114,6 +114,34 @@ def closing_system_message_indexes(
     return closing
 
 
+def coalesce_ollama_system_messages(
+    messages: list[dict[str, Any]], text: ChatProjectionText
+) -> list[dict[str, Any]]:
+    """Return an Ollama history with one leading system message.
+
+    Ollama's wire format permits a system role, but model templates are not
+    uniform.  In particular, Qwen 3.8 rejects a second or non-leading system
+    message with ``system message must be at the beginning``.  Anthropic input
+    can contain the original system prompt, Ciel's execution reminder, runtime
+    state, and mid-history system context separately.  Preserve their order and
+    content while presenting them as the single leading system instruction
+    accepted by those templates.
+    """
+
+    system_parts: list[str] = []
+    conversation: list[dict[str, Any]] = []
+    for message in messages:
+        if message.get("role") != "system":
+            conversation.append(message)
+            continue
+        content = text.compact_text(text.content_to_text(message.get("content", "")))
+        if content:
+            system_parts.append(content)
+    if not system_parts:
+        return conversation
+    return [{"role": "system", "content": "\n\n".join(system_parts)}, *conversation]
+
+
 def anthropic_messages_to_ollama(body: dict[str, Any], *, services: ChatProjectionServices) -> list[dict[str, Any]]:
     text = services.text
     tools = services.tools
@@ -200,7 +228,7 @@ def anthropic_messages_to_ollama(body: dict[str, Any], *, services: ChatProjecti
             if thinking_parts:
                 out["thinking"] = "\n".join(thinking_parts)
         messages.append(out)
-    return messages
+    return coalesce_ollama_system_messages(messages, text)
 
 
 def anthropic_messages_to_openai(

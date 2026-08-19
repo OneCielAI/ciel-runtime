@@ -90,6 +90,7 @@ def _http_error_payload(error: urllib.error.HTTPError) -> dict[str, Any]:
     """Project one upstream HTTP error into an Anthropic-compatible envelope."""
     raw = error.read().decode("utf-8", errors="replace")
     error_type = {
+        400: "invalid_request_error",
         401: "authentication_error",
         403: "permission_error",
         413: "request_too_large",
@@ -277,7 +278,7 @@ def forward_openai_compatible_chat(
             else:
                 response.mark_delivery_failed(handler, "openai_stream_error")
         except urllib.error.HTTPError as exc:
-            if exc.code not in (401, 403, 413):
+            if exc.code not in (400, 401, 403, 413):
                 message = f"{type(exc).__name__}: {exc}"
                 response.mark_delivery_failed(
                     handler, f"openai_stream_error:{type(exc).__name__}"
@@ -352,7 +353,7 @@ def forward_openai_compatible_chat(
             timeout,
         )
     except urllib.error.HTTPError as exc:
-        if exc.code not in (401, 403, 413):
+        if exc.code not in (400, 401, 403, 413):
             raise
         response.mark_delivery_failed(handler, f"openai_http_error:{exc.code}")
         response.write_activity(

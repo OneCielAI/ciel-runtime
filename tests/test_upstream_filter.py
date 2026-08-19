@@ -92,6 +92,26 @@ class UpstreamFilterTests(unittest.TestCase):
         self.assertEqual(1, len(tool_call_messages))
         self.assertEqual("Read", tool_call_messages[0]["tool_calls"][0]["function"]["name"])
 
+    def test_ollama_projection_coalesces_every_system_instruction_at_the_front(self):
+        body = {
+            "system": [{"type": "text", "text": "original system"}],
+            "messages": [
+                {"role": "user", "content": "first user"},
+                {"role": "system", "content": "runtime state"},
+                {"role": "assistant", "content": "working"},
+                {"role": "user", "content": "continue"},
+            ],
+        }
+
+        out = ciel_runtime.anthropic_messages_to_ollama(body)
+
+        system_messages = [message for message in out if message.get("role") == "system"]
+        self.assertEqual(1, len(system_messages))
+        self.assertIs(out[0], system_messages[0])
+        content = str(system_messages[0].get("content"))
+        self.assertLess(content.index("original system"), content.index("runtime state"))
+        self.assertTrue(any(message.get("role") == "user" for message in out[1:]))
+
     def test_ollama_history_preserves_native_thinking_for_tool_continuation(self):
         messages = [
             {
