@@ -96,7 +96,7 @@ class ChannelTranscriptPorts:
     now: Callable[[], float]
     read_tail: Callable[[Path], str]
     active_tool_call_from_text: Callable[[str], bool]
-    active_turn_from_text: Callable[[str], bool]
+    active_turn_from_text: Callable[..., bool]
     queued_age_from_text: Callable[..., float | None]
     wake_state_evidence_from_text: Callable[..., WakeStateEvidence]
 
@@ -463,10 +463,25 @@ class ChannelWakeContext:
         text = self.transcript.read_tail(path) if path is not None else ""
         return bool(text and self.transcript.active_tool_call_from_text(text))
 
+    def console_started_at(self) -> float | None:
+        """Launch time of the console this wake path drives, if known."""
+
+        try:
+            started_at = float(self.transcript.scope.get("started_at") or 0.0)
+        except (TypeError, ValueError):
+            return None
+        return started_at if started_at > 0 else None
+
     def active_turn(self) -> bool:
         path = self.transcript_policy.latest_transcript()
         text = self.transcript.read_tail(path) if path is not None else ""
-        return bool(text and self.transcript.active_turn_from_text(text))
+        if not text:
+            return False
+        return bool(
+            self.transcript.active_turn_from_text(
+                text, not_before=self.console_started_at()
+            )
+        )
 
     def queued_command_ids_from_text(self, text: str) -> set[int]:
         return self.transcript_policy.queued_ids_from_text(

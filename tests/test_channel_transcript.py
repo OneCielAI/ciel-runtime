@@ -144,6 +144,36 @@ class ChannelTranscriptTests(unittest.TestCase):
         )
         self.assertFalse(active_turn_from_text("\n".join((*records, end_turn))))
 
+    def test_turn_from_a_dead_session_does_not_stay_active_after_relaunch(self):
+        # The console was killed inside a tool call: the transcript keeps an
+        # assistant tool_use with no result, and the resumed session appends to
+        # the same file. That stale record must not defer wakes forever.
+        killed = json.dumps(
+            {
+                "type": "assistant",
+                "timestamp": "2026-08-19T08:16:16Z",
+                "message": {
+                    "role": "assistant",
+                    "stop_reason": "tool_use",
+                    "content": [{"type": "tool_use", "id": "tool-9", "name": "Bash"}],
+                },
+            }
+        )
+        resumed_bookkeeping = json.dumps({"type": "last-prompt", "leafUuid": "abc"})
+        text = "\n".join((killed, resumed_bookkeeping))
+        launched_at = 1787128000.0  # after the killed record, before the relaunch turn
+        self.assertTrue(active_turn_from_text(text))
+        self.assertFalse(active_turn_from_text(text, not_before=launched_at))
+        # A turn opened after the relaunch is still reported as running.
+        fresh = json.dumps(
+            {
+                "type": "user",
+                "timestamp": "2026-08-19T09:00:00Z",
+                "message": {"role": "user", "content": "work"},
+            }
+        )
+        self.assertTrue(active_turn_from_text("\n".join((text, fresh)), not_before=launched_at))
+
     def test_claude_turn_duration_closes_turn_without_end_turn_record(self):
         user = json.dumps({"type": "user", "message": {"role": "user", "content": "work"}})
         duration = json.dumps({"type": "system", "subtype": "turn_duration"})

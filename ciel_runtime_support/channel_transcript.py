@@ -392,7 +392,16 @@ def active_tool_call_from_text(text: str) -> bool:
     return bool(pending_tool_ids or unknown_tool_active)
 
 
-def active_turn_from_text(text: str) -> bool:
+def active_turn_from_text(text: str, *, not_before: float | None = None) -> bool:
+    """Whether a model turn is running.
+
+    `not_before` is the current console launch time: a record older than it
+    belongs to a session that has already exited, so it can neither open nor
+    close the running turn. Without it, a session killed mid tool call leaves a
+    dangling tool_use record that reports "active" forever and starves every
+    channel wake.
+    """
+
     active = False
     for raw_line in text.splitlines():
         try:
@@ -401,6 +410,12 @@ def active_turn_from_text(text: str) -> bool:
             continue
         if not isinstance(record, dict):
             continue
+        if not_before is not None:
+            timestamp = record_timestamp_seconds(record)
+            # Undated bookkeeping records (mode, last-prompt, latches) carry no
+            # turn state, so skipping them when they cannot be dated is safe.
+            if timestamp is None or timestamp < not_before:
+                continue
         payload = record.get("payload")
         payload_obj = payload if isinstance(payload, dict) else {}
         event_type = str(payload_obj.get("type") or record.get("type") or "")
