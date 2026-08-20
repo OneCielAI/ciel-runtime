@@ -60,7 +60,12 @@ def _args(*values):
 
 
 class EventSettingsCliTests(unittest.TestCase):
+    def _sync(self):
+        self.syncs += 1
+        return ["claude: updated"]
+
     def setUp(self):
+        self.syncs = 0
         self.config = {}
         self.service = _ReceiverService(
             {
@@ -78,6 +83,7 @@ class EventSettingsCliTests(unittest.TestCase):
                 load_config=lambda: self.config,
                 save_config=lambda value: self.config.update(value),
                 receiver_service=lambda: self.service,
+                sync_instructions=self._sync,
                 output=self.output.append,
             )
         )
@@ -193,6 +199,39 @@ class EventSettingsCliTests(unittest.TestCase):
         self.assertIn("authorization=stored", report)
         self.assertNotIn("TOKEN", report)
 
+    def test_sync_runs_on_its_own(self):
+        self.controller.remote_instructions(_args("sync"))
+
+        self.assertEqual(1, self.syncs)
+        self.assertNotIn("remote_instructions", self.config)
+        self.assertIn("claude: updated", "\n".join(self.output))
+
+    def test_sync_runs_after_the_batch_is_stored(self):
+        self.controller.remote_instructions(
+            _args("enabled=true", "grok_url=https://g.example/AGENTS.md", "sync")
+        )
+
+        self.assertEqual(1, self.syncs)
+        self.assertTrue(self.config["remote_instructions"]["enabled"])
+        self.assertEqual(
+            "https://g.example/AGENTS.md",
+            self.config["remote_instructions"]["grok_url"],
+        )
+
+    def test_a_rejected_parameter_in_the_batch_skips_the_sync(self):
+        with self.assertRaises(EventSettingsCliError):
+            self.controller.remote_instructions(_args("grok_url=ftp://nope", "sync"))
+
+        self.assertEqual(0, self.syncs)
+
+    def test_environment_reference_is_stored_verbatim_not_expanded(self):
+        self.controller.remote_instructions(_args("authorization=Bearer {AINET_API_KEY}"))
+
+        self.assertEqual(
+            "Bearer {AINET_API_KEY}",
+            self.config["remote_instructions"]["authorization"],
+        )
+
     # -- CLI boundary ------------------------------------------------------
 
     def test_handlers_report_a_rejected_parameter_without_a_traceback(self):
@@ -201,6 +240,7 @@ class EventSettingsCliTests(unittest.TestCase):
                 load_config=lambda: self.config,
                 save_config=lambda value: self.config.update(value),
                 receiver_service=lambda: self.service,
+                sync_instructions=self._sync,
                 output=self.output.append,
             )
         )
@@ -219,6 +259,7 @@ class EventSettingsCliTests(unittest.TestCase):
                 load_config=lambda: self.config,
                 save_config=lambda value: self.config.update(value),
                 receiver_service=lambda: _ReceiverService(),
+                sync_instructions=self._sync,
                 output=self.output.append,
             )
         )

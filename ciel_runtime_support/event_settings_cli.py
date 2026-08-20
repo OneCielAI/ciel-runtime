@@ -51,11 +51,16 @@ class EventSettingsCliError(ValueError):
     """One rejected command-line parameter, reported without a traceback."""
 
 
-def split_assignment(token: str) -> tuple[str, str]:
+def split_assignment(token: str, *, bare_keys: tuple[str, ...] = ()) -> tuple[str, str]:
+    """Split KEY=VALUE, allowing a few action words to stand on their own."""
+
     key, separator, value = str(token).partition("=")
+    key = key.strip().lower()
     if not separator:
+        if key in bare_keys:
+            return key, ""
         raise EventSettingsCliError(f"expected KEY=VALUE, received {token!r}")
-    return key.strip().lower(), value.strip()
+    return key, value.strip()
 
 
 def parse_flag(key: str, value: str) -> bool:
@@ -89,6 +94,7 @@ class EventSettingsCliPorts:
     load_config: Callable[[], dict[str, Any]]
     save_config: Callable[[dict[str, Any]], None]
     receiver_service: Callable[[], Any]
+    sync_instructions: Callable[[], list[str]]
     output: Callable[[str], None]
 
 
@@ -184,12 +190,18 @@ class EventSettingsCli:
         # rejected parameter cannot leave the others half applied.
         remote: dict[str, Any] = {}
         changed: list[str] = []
+        sync_requested = False
         for token in tokens:
-            key, value = split_assignment(token)
+            key, value = split_assignment(token, bare_keys=("sync",))
+            if key == "sync":
+                # An install script wants one call that stores the URLs and
+                # pulls them, so `sync` runs after the batch is persisted.
+                sync_requested = True
+                continue
             if key not in REMOTE_INSTRUCTION_KEYS:
                 raise EventSettingsCliError(
                     f"unsupported remote instruction option: {key}; expected one of "
-                    f"{', '.join(REMOTE_INSTRUCTION_KEYS)}"
+                    f"{', '.join(REMOTE_INSTRUCTION_KEYS)}, sync"
                 )
             if key == "enabled":
                 remote["enabled"] = parse_flag(key, value)
@@ -210,6 +222,9 @@ class EventSettingsCli:
             else:
                 remote[key] = value
             changed.append(key)
+        if not changed:
+            self._sync()
+            return
         config = self.ports.load_config()
         stored = config.get("remote_instructions")
         if not isinstance(stored, dict):
@@ -218,6 +233,8 @@ class EventSettingsCli:
         stored.update(remote)
         self.ports.save_config(config)
         self._confirm("remote-instructions", changed)
+        if sync_requested:
+            self._sync()
 
     # -- reporting ---------------------------------------------------------
 
@@ -226,6 +243,10 @@ class EventSettingsCli:
         for key, value in values.items():
             shown = value if str(value) else "unset"
             self.ports.output(f"  {key}={shown}")
+
+    def _sync(self) -> None:
+        for line in self.ports.sync_instructions() or ():
+            self.ports.output(f"  {line}")
 
     def _confirm(self, command: str, changed: list[str]) -> None:
         applied = ", ".join(

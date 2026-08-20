@@ -4950,7 +4950,7 @@ def cli_parser_services() -> cli_parser.CliParserServices:
     return cli_assembly.CliParserAssembly(
             launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_launch_grok),
             runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test),
-            settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, print))),
+            settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, lambda: set_remote_instruction_config('sync', ''), print))),
             provider=cli_parser.CliParserProvider(cmd_ollama_native, cmd_ollama_options, cmd_provider_options, cmd_ollama_catalog, cmd_provider,
                                                   cmd_api_key, cmd_set_api_key, cmd_set_api_keys, cmd_base_url, cmd_copilot_oauth),
             models=cli_parser.CliParserModels(cmd_model, cmd_advisor_model, cmd_models),
