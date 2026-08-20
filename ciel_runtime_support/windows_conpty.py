@@ -482,7 +482,7 @@ class WindowsConPtySession:
         kernel32.WriteConsoleW.restype = wintypes.BOOL
         kernel32.ReadConsoleW.argtypes = [
             wintypes.HANDLE,
-            wintypes.LPWSTR,
+            wintypes.LPVOID,
             wintypes.DWORD,
             ctypes.POINTER(wintypes.DWORD),
             wintypes.LPVOID,
@@ -608,7 +608,11 @@ class WindowsConPtySession:
         import ctypes
         from ctypes import wintypes
 
-        buffer = ctypes.create_unicode_buffer(4096)
+        # WCHAR is always a 16-bit UTF-16 code unit on Windows, while
+        # ctypes.c_wchar is 32-bit on some test hosts.  Use an explicitly
+        # fixed-width buffer so both the Win32 call and byte conversion have
+        # the same representation on every host.
+        buffer = (ctypes.c_uint16 * 4096)()
         read = wintypes.DWORD(0)
         if not self._kernel32.ReadConsoleW(
             self._stdin_console_handle,
@@ -621,7 +625,7 @@ class WindowsConPtySession:
         units = int(read.value)
         if units <= 0:
             return b""
-        raw = ctypes.string_at(ctypes.addressof(buffer), units * ctypes.sizeof(ctypes.c_wchar))
+        raw = ctypes.string_at(ctypes.addressof(buffer), units * ctypes.sizeof(ctypes.c_uint16))
         return raw.decode("utf-16-le").encode("utf-8")
 
     def _pump_input(self) -> None:

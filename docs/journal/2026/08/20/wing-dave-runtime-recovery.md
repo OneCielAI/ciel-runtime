@@ -32,6 +32,12 @@
   - Channel group: 369 tests (80 skipped).
   - Runtime group: 241 tests (12 skipped).
 - `npm run lint`, `npm run check:docs`, and Python `compileall` passed.
+- The first Linux publish run exposed that `ctypes.c_wchar` is 32-bit on that
+  host. The ConPTY input buffer now uses fixed-width 16-bit UTF-16 code units;
+  the regression test therefore exercises the same representation on Windows
+  and Linux runners.
+- The fixed-width input regression suite passed on Windows (12 tests) and WSL
+  Ubuntu 26.04 (12 tests, one Windows-only ConPTY test skipped).
 - Local regression tests passed:
   - `test_tool_side_effect_dedupe.py`: 9 tests.
   - `test_ollama_provider_options.py`: 49 tests.
